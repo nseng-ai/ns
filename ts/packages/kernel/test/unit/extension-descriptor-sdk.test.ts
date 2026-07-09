@@ -7,7 +7,6 @@ import {
 	failure,
 	machineEnvelopeSchema,
 	ok,
-	okExit,
 	validateExtensionDescriptor,
 	validateLoadedCommandName,
 	z,
@@ -35,8 +34,7 @@ describe("extension descriptor SDK", () => {
 			name: "list",
 			summary: "List objectives.",
 			description: "List objectives with machine output.",
-			resultSchema: z.object({ ok: z.boolean() }),
-			run: (_ctx, invocation) => ({ type: "ok", data: { ok: invocation.argv.length === 0 } }),
+			run: (_ctx, invocation) => ok({ ok: invocation.argv.length === 0 }),
 		});
 		const descriptor = defineExtension({
 			group: "objective",
@@ -86,8 +84,7 @@ describe("extension descriptor SDK", () => {
 			name: "actual",
 			summary: "Actual.",
 			description: "Actual command.",
-			resultSchema: z.object({}),
-			run: () => ({ type: "ok", data: {} }),
+			run: () => ok({}),
 		});
 
 		expect(
@@ -103,8 +100,7 @@ describe("extension descriptor SDK", () => {
 			name: "legacy",
 			summary: "Wrap legacy CLI.",
 			description: "Passes arguments to a legacy parser.",
-			resultSchema: z.object({ argv: z.array(z.string()) }),
-			run: (_ctx, invocation) => ({ type: "ok", data: { argv: [...invocation.argv] } }),
+			run: (_ctx, invocation) => ok({ argv: [...invocation.argv] }),
 		});
 
 		expect(await Promise.resolve(command.run(noopApi, { argv: ["--", "raw", "tail"] }))).toEqual({
@@ -121,10 +117,10 @@ describe("extension descriptor SDK", () => {
 			schema: z.object({ name: z.string() }),
 			positionals: { name: { position: 0 } },
 			resultSchema: z.object({ greeting: z.string() }),
-			handler: async (_ctx, request) => okExit({ greeting: `hello ${request.name}` }),
+			handler: async (_ctx, request) => ok({ greeting: `hello ${request.name}` }),
 		});
 
-		await expect(command.run(noopApi, { argv: ["ns"] })).resolves.toEqual({
+		await expect(command.run(noopApi, { name: "ns" })).resolves.toEqual({
 			type: "ok",
 			data: { greeting: "hello ns" },
 		});
@@ -145,10 +141,15 @@ describe("extension descriptor SDK", () => {
 			message: "no",
 			data: { exitCode: 3 },
 		});
-		expect(ok("legacy helper remains available during migration")).toEqual({
-			ok: true,
-			message: "legacy helper remains available during migration",
+		expect(ok("string data gets human rendering for source compatibility")).toEqual({
+			type: "ok",
+			data: "string data gets human rendering for source compatibility",
+			human: "string data gets human rendering for source compatibility",
 		});
-		expect(okExit("string payload")).toEqual({ type: "ok", data: "string payload" });
+		expect(ok("string payload")).toEqual({
+			type: "ok",
+			data: "string payload",
+			human: "string payload",
+		});
 	});
 });

@@ -5,7 +5,6 @@ export type {
 	ClinkrCompletionCandidate,
 	ClinkrCompletionResult,
 	ClinkrDynamicCompletionRequest,
-	ClinkrExit,
 	ClinkrFormat,
 	PositionalSpec,
 	RenderCapabilities,
@@ -37,13 +36,26 @@ export type {
 	HeadTextTruncationOptions,
 } from "@nseng-ai/foundation/text-truncation";
 export {
+	buildFailureMachineEnvelopeSchema,
 	buildMachineEnvelopeSchema,
+	buildSuccessMachineEnvelopeSchema,
 	failure,
 	machineEnvelopeSchema,
 	negative,
+	ok,
+	toMachineEnvelope,
 	usageError,
-} from "@nseng-ai/clinkr";
-export type { MachineEnvelope } from "@nseng-ai/clinkr";
+} from "./result.ts";
+export type {
+	BuildFailureMachineEnvelopeSchemaOptions,
+	CommandExit,
+	FailureCommandExit,
+	MachineEnvelope,
+	NegativeCommandExit,
+	NegativeCommandExitOptions,
+	OkCommandExit,
+	UsageErrorCommandExit,
+} from "./result.ts";
 export {
 	bundledArtifactDefinitionSchema,
 	extensionDescriptorSchema,
@@ -55,6 +67,7 @@ export {
 } from "./descriptor.ts";
 export type {
 	BundledArtifactDefinition,
+	DescriptorCommand,
 	ExtensionCommandEntry,
 	ExtensionDescriptor,
 	ExtensionDescriptorValidationResult,
@@ -64,8 +77,6 @@ export type {
 	KernelCommandLoad,
 	KernelCommandModule,
 } from "./descriptor.ts";
-export { failed, ok, okExit } from "./result.ts";
-export type { NsResult } from "./result.ts";
 export {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,

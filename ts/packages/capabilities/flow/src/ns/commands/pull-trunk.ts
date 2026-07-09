@@ -1,6 +1,6 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
 import { formatCommand } from "@nseng-ai/foundation/command";
-import { defineExtension, failed, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { defineExtension, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 
 import { runFlowCliOperation } from "../flow-cli-runner.ts";
@@ -21,7 +21,7 @@ export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = {
 			run: async (io) => await runTrunkPullDetailed({ exec: io.exec }, ctx.cwd),
 		});
 		const block = renderTrunkPullBlock(caps, result);
-		return result.outcome.kind === "success" ? ok(block) : failed(block);
+		return result.outcome.kind === "success" ? ok(block) : negative(block);
 	},
 };
 

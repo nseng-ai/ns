@@ -1,7 +1,9 @@
 import { createJiti } from "jiti/static";
 
 import {
+	buildFailureMachineEnvelopeSchema,
 	buildMachineEnvelopeSchema,
+	buildSuccessMachineEnvelopeSchema,
 	bundledArtifactDefinitionSchema,
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
@@ -12,7 +14,6 @@ import {
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
-	failed,
 	failure,
 	isMatrixProgressEvent,
 	machineEnvelopeSchema,
@@ -24,9 +25,9 @@ import {
 	noopNsProgress,
 	normalizeTextOutput,
 	ok,
-	okExit,
 	padMatrixProgressTextEnd,
 	stripOuterCodeFence,
+	toMachineEnvelope,
 	trimOuterBlankLines,
 	truncateTextHead,
 	truncateTextHeadTail,
@@ -42,7 +43,9 @@ const SDK_SPECIFIER = "@nseng-ai/kernel/sdk";
 // Keep this object in sync with all runtime value exports from @nseng-ai/kernel/sdk; type-only exports are erased.
 // Descriptor helpers are test-authoring-only today, but stay here while they are runtime exports.
 const nsSdkVirtualModule = {
+	buildFailureMachineEnvelopeSchema,
 	buildMachineEnvelopeSchema,
+	buildSuccessMachineEnvelopeSchema,
 	bundledArtifactDefinitionSchema,
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
@@ -53,7 +56,6 @@ const nsSdkVirtualModule = {
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
-	failed,
 	failure,
 	isMatrixProgressEvent,
 	machineEnvelopeSchema,
@@ -65,9 +67,9 @@ const nsSdkVirtualModule = {
 	noopNsProgress,
 	normalizeTextOutput,
 	ok,
-	okExit,
 	padMatrixProgressTextEnd,
 	stripOuterCodeFence,
+	toMachineEnvelope,
 	trimOuterBlankLines,
 	truncateTextHead,
 	truncateTextHeadTail,

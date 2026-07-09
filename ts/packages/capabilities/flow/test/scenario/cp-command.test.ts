@@ -211,7 +211,7 @@ describe("project-local cp extension behavior", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("auth failed\n");
+		expect(run.stderr.join("")).toBe("error: auth failed\n");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
@@ -333,7 +333,7 @@ describe("project-local cp extension behavior", () => {
 
 		expect(await notGit.exit).toBe(2);
 		expect(notGit.stderr.join("")).toBe(
-			"Not inside a git repository.\nexit 128: fatal: not a git repository\n",
+			"error: Not inside a git repository.\nexit 128: fatal: not a git repository\n",
 		);
 		expect(notGit.context.textGeneratorCalls).toEqual([]);
 
@@ -350,7 +350,7 @@ describe("project-local cp extension behavior", () => {
 		});
 		expect(await detached.exit).toBe(2);
 		expect(detached.stderr.join("")).toBe(
-			"Could not determine current branch.\nexit 1: fatal: ref HEAD is not a symbolic ref\n",
+			"error: Could not determine current branch.\nexit 1: fatal: ref HEAD is not a symbolic ref\n",
 		);
 
 		const statusFailed = runCpWithFakes({
@@ -364,7 +364,7 @@ describe("project-local cp extension behavior", () => {
 		});
 		expect(await statusFailed.exit).toBe(2);
 		expect(statusFailed.stderr.join("")).toBe(
-			"Could not inspect git status.\nexit 1: index locked\n",
+			"error: Could not inspect git status.\nexit 1: index locked\n",
 		);
 
 		const diffFailed = runCpWithFakes({
@@ -378,7 +378,9 @@ describe("project-local cp extension behavior", () => {
 			},
 		});
 		expect(await diffFailed.exit).toBe(2);
-		expect(diffFailed.stderr.join("")).toBe("Could not capture git diff.\nexit 1: diff failed\n");
+		expect(diffFailed.stderr.join("")).toBe(
+			"error: Could not capture git diff.\nexit 1: diff failed\n",
+		);
 	});
 
 	test("commit operation failures exit with useful stderr", async () => {
@@ -400,7 +402,7 @@ describe("project-local cp extension behavior", () => {
 		expect(await addFailed.exit).toBe(2);
 		expect(addFailed.stdout.join("")).toBe("");
 		expect(addFailed.stderr.join("")).toBe(
-			"Failed to stage checkpoint changes.\nexit 1: index locked\n",
+			"error: Failed to stage checkpoint changes.\nexit 1: index locked\n",
 		);
 
 		const commitFailed = runCpWithFakes({
@@ -413,7 +415,7 @@ describe("project-local cp extension behavior", () => {
 		});
 		expect(await commitFailed.exit).toBe(2);
 		expect(commitFailed.stderr.join("")).toBe(
-			"Checkpoint commit failed.\nexit 1: nothing to commit\n",
+			"error: Checkpoint commit failed.\nexit 1: nothing to commit\n",
 		);
 
 		const logFailed = runCpWithFakes({
@@ -426,7 +428,7 @@ describe("project-local cp extension behavior", () => {
 		});
 		expect(await logFailed.exit).toBe(2);
 		expect(logFailed.stderr.join("")).toBe(
-			"Created checkpoint commit, but failed to read it back.\nexit 1: log failed\n",
+			"error: Created checkpoint commit, but failed to read it back.\nexit 1: log failed\n",
 		);
 	});
 });

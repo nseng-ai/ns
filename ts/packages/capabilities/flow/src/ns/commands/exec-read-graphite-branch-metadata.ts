@@ -5,12 +5,12 @@ import {
 } from "@nseng-ai/capability-kit/graphite/metadata";
 import {
 	defineExtension,
-	failed,
+	failure,
 	ok,
 	z,
+	type CommandExit,
 	type NsCommand,
 	type NsExtensionApi,
-	type NsResult,
 } from "@nseng-ai/kernel/sdk";
 
 const execReadGraphiteBranchMetadataSchema = z.object({
@@ -33,7 +33,7 @@ export const flowExecReadGraphiteBranchMetadataCommand: NsCommand<
 async function runExecReadGraphiteBranchMetadata(
 	ctx: NsExtensionApi,
 	request: ExecReadGraphiteBranchMetadataRequest,
-): Promise<NsResult> {
+): Promise<CommandExit<string>> {
 	const args = graphiteBranchMetadataReadonlyJsonArgs(request.dbPath);
 	const result = await ctx.exec("sqlite3", args, {
 		timeoutMs: GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS,
@@ -48,7 +48,7 @@ async function runExecReadGraphiteBranchMetadata(
 		]
 			.filter((line): line is string => line !== undefined)
 			.join("\n");
-		return failed(details, 2);
+		return failure("flow-command-failed", details);
 	}
 	return ok(result.stdout.trim() === "" ? "[]" : result.stdout.trim());
 }

@@ -6,7 +6,7 @@ export default defineExtension({
 	group: "address",
 	description: "Inspect and address GitHub pull request feedback.",
 	entries: EXEC_OPERATIONS.map((operation) => ({
-		name: operation.name,
+		name: `exec-${operation.name}`,
 		load: async () => ({
 			default: (await import("./ns-command.ts")).prAddressNsCommand(operation.name),
 		}),

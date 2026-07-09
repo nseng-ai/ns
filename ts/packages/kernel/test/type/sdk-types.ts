@@ -4,7 +4,6 @@ import {
 	defineRawCommand,
 	failure,
 	ok,
-	okExit,
 	z,
 } from "@nseng-ai/kernel/sdk";
 import type {
@@ -95,7 +94,6 @@ const rawCommand = defineRawCommand({
 	name: "legacy",
 	summary: "Legacy wrapper.",
 	description: "Legacy wrapper command.",
-	resultSchema: z.object({ argv: z.array(z.string()) }),
 	run(_ctx, invocation) {
 		type InvocationArgv = typeof invocation.argv;
 		const checks: [
@@ -115,7 +113,7 @@ const adaptedCommand = defineCommand({
 	positionals: { name: { position: 0 } },
 	resultSchema: z.object({ greeting: z.string() }),
 	async handler(_ctx, request) {
-		return okExit({ greeting: request.name });
+		return ok({ greeting: request.name });
 	},
 });
 

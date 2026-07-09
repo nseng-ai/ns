@@ -10,14 +10,13 @@ import {
 
 function descriptorCommandModule(name: string, message: string): string {
 	return `
-import { defineRawCommand, okExit, z } from "@nseng-ai/kernel/sdk";
+import { defineRawCommand, ok } from "@nseng-ai/kernel/sdk";
 
 export default defineRawCommand({
 	name: ${JSON.stringify(name)},
 	summary: ${JSON.stringify(`${name} summary`)},
 	description: ${JSON.stringify(`${name} command`)},
-	resultSchema: z.object({ message: z.string() }),
-	run() { return okExit({ message: ${JSON.stringify(message)} }); },
+	run() { return ok({ message: ${JSON.stringify(message)} }); },
 });
 `;
 }

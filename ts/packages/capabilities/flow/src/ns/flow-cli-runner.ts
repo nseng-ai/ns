@@ -6,11 +6,12 @@ import {
 } from "@nseng-ai/foundation/command";
 import { NsCommandExecApi } from "@nseng-ai/capability-kit/command-runner";
 import {
-	failed,
+	failure,
+	negative,
 	ok,
+	type CommandExit,
 	type ExecResult,
 	type NsExtensionApi,
-	type NsResult,
 } from "@nseng-ai/kernel/sdk";
 
 export interface FlowCliExecOptions {
@@ -53,7 +54,7 @@ export interface FlowCliOutputCapture {
 	toResult(
 		exitCode: number,
 		messages: { successMessage: string; failureMessage: string },
-	): NsResult;
+	): CommandExit;
 }
 
 export interface CreateFlowCliOutputCaptureOptions {
@@ -105,12 +106,14 @@ export function createFlowCliOutputCapture(
 		},
 		toResult: (exitCode, messages) => {
 			if (exitCode === 0) return ok(stdout === "" ? messages.successMessage : "");
-			return failed(stderr === "" ? messages.failureMessage : "", exitCode);
+			const message = stderr === "" ? messages.failureMessage : "";
+			if (exitCode === 1) return negative(message, { data: { exitCode } });
+			return failure("flow-command-failed", message, { exitCode });
 		},
 	};
 }
 
-export async function runFlowCli(options: RunFlowCliOptions): Promise<NsResult> {
+export async function runFlowCli(options: RunFlowCliOptions): Promise<CommandExit> {
 	const output = createFlowCliOutputCapture({
 		ctx: options.ctx,
 		...(options.outputMode === undefined ? {} : { mode: options.outputMode }),

@@ -305,7 +305,7 @@ describe("project-local submit extension", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(7);
+		expect(await run.exit).toBe(2);
 		const error = run.stderr.join("");
 		expect(error).toContain("Pre-submit hook failed (exit code 7).");
 		expect(error).toContain("Command: just");
@@ -1402,8 +1402,8 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 		expect(await run.exit).toBe(1);
 		const result = await run.result;
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
+		expect(result.type).toBe("negative");
+		if (result.type === "negative") {
 			expect(
 				result.message.startsWith(
 					"WARNING: This branch does not introduce any changes:\n▸ empty-branch-test",

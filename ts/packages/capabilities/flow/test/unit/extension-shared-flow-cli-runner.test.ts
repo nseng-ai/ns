@@ -26,7 +26,7 @@ describe("project extension shared Flow CLI runner", () => {
 			},
 		});
 
-		expect(result).toEqual({ ok: true, message: "" });
+		expect(result).toEqual({ type: "ok", data: "", human: "" });
 		expect(stdout).toEqual(["done\n"]);
 		expect(calls).toEqual([{ command: "git", args: ["status"], options: { timeoutMs: 42 } }]);
 	});
@@ -42,7 +42,7 @@ describe("project extension shared Flow CLI runner", () => {
 			run: async () => 0,
 		});
 
-		expect(result).toEqual({ ok: true, message: "completed" });
+		expect(result).toEqual({ type: "ok", data: "completed", human: "completed" });
 	});
 
 	test("returns empty failure result after forwarding emitted stderr", async () => {
@@ -59,7 +59,12 @@ describe("project extension shared Flow CLI runner", () => {
 			},
 		});
 
-		expect(result).toEqual({ ok: false, exitCode: 7, message: "" });
+		expect(result).toEqual({
+			type: "failure",
+			errorType: "flow-command-failed",
+			message: "",
+			data: { exitCode: 7 },
+		});
 		expect(stderr).toEqual(["bad\n"]);
 	});
 
@@ -74,7 +79,12 @@ describe("project extension shared Flow CLI runner", () => {
 			run: async () => 5,
 		});
 
-		expect(result).toEqual({ ok: false, exitCode: 5, message: "failed" });
+		expect(result).toEqual({
+			type: "failure",
+			errorType: "flow-command-failed",
+			message: "failed",
+			data: { exitCode: 5 },
+		});
 	});
 
 	test("optionally forwards exec live output through ctx.onOutput", async () => {
@@ -95,7 +105,7 @@ describe("project extension shared Flow CLI runner", () => {
 			},
 		});
 
-		expect(result).toEqual({ ok: true, message: "completed" });
+		expect(result).toEqual({ type: "ok", data: "completed", human: "completed" });
 		expect(calls).toHaveLength(1);
 		expect(calls[0]?.command).toBe("gt");
 		expect(calls[0]?.args).toEqual(["status"]);
@@ -128,7 +138,7 @@ describe("project extension shared Flow CLI runner", () => {
 			},
 		});
 
-		expect(result).toEqual({ ok: true, message: "" });
+		expect(result).toEqual({ type: "ok", data: "", human: "" });
 		expect(events).toEqual(["after:0:stdout=0:stderr=0"]);
 		expect(stdout).toEqual(["done\n"]);
 		expect(stderr).toEqual(["warn\n"]);
@@ -154,13 +164,15 @@ describe("project extension shared Flow CLI runner", () => {
 		expect(stdout).toEqual(["done\n"]);
 		expect(stderr).toEqual(["warn\n"]);
 		expect(output.toResult(0, { successMessage: "completed", failureMessage: "failed" })).toEqual({
-			ok: true,
-			message: "",
+			type: "ok",
+			data: "",
+			human: "",
 		});
 		expect(output.toResult(9, { successMessage: "completed", failureMessage: "failed" })).toEqual({
-			ok: false,
-			exitCode: 9,
+			type: "failure",
+			errorType: "flow-command-failed",
 			message: "",
+			data: { exitCode: 9 },
 		});
 	});
 
@@ -182,7 +194,7 @@ describe("project extension shared Flow CLI runner", () => {
 			},
 		});
 
-		expect(result).toEqual({ ok: true, message: "completed" });
+		expect(result).toEqual({ type: "ok", data: "completed", human: "completed" });
 		expect(calls).toEqual([
 			{
 				command: "git",

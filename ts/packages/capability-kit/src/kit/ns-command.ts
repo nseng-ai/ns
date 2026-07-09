@@ -1,5 +1,5 @@
 import type {
-	ClinkrExit,
+	CommandExit,
 	RenderCapabilities,
 	NsCommand,
 	NsCommandSchema,
@@ -19,7 +19,7 @@ export interface NsDomainCommandOptions<S extends NsCommandSchema, T, TContext> 
 	renderHuman?: (data: T, caps: RenderCapabilities) => string;
 	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
 	createContext(ctx: NsExtensionApi): Promise<TContext> | TContext;
-	handler(ctx: TContext, request: z.output<S>): Promise<ClinkrExit<T>> | ClinkrExit<T>;
+	handler(ctx: TContext, request: z.output<S>): Promise<CommandExit<T>> | CommandExit<T>;
 }
 
 export function createNsDomainCommand<S extends NsCommandSchema, T, TContext>(

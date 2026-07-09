@@ -1,6 +1,6 @@
 import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
-import { defineExtension, failed, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { defineExtension, failure, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 import {
 	CP_PHASES,
 	flowStreamDeps,
@@ -75,7 +75,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = {
 					onPhase: stream.emit,
 				});
 				const command = toCommandResult(result);
-				return { result: command, isFailed: !command.ok };
+				return { result: command, isFailed: command.type !== "ok" };
 			},
 		});
 	},
@@ -110,17 +110,17 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 function toCommandResult(result: RunCpCoreResult) {
 	switch (result.type) {
 		case "snapshot-failed":
-			return failed(formatPendingWorktreeError(result.error), 2);
+			return failure("flow-command-failed", formatPendingWorktreeError(result.error));
 		case "trunk":
-			return failed(`Refusing to create checkpoint commit on trunk branch: ${result.branch}`, 1);
+			return negative(`Refusing to create checkpoint commit on trunk branch: ${result.branch}`);
 		case "clean":
-			return failed("Working tree is clean; nothing to checkpoint.", 1);
+			return negative("Working tree is clean; nothing to checkpoint.");
 		case "message-failed":
-			return failed(result.error, 2);
+			return failure("flow-command-failed", result.error);
 		case "dry-run":
 			return ok(formatDryRunMessage(result.branch, result.message));
 		case "commit-failed":
-			return failed(result.error, 2);
+			return failure("flow-command-failed", result.error);
 		case "committed":
 			return ok(`${result.summary}\n${result.message}`);
 	}

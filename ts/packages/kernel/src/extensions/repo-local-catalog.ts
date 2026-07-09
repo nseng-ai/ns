@@ -1,8 +1,6 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
-import { defineExtension } from "../sdk/command.ts";
-import type { NsCommand } from "../sdk/command.ts";
-import type { DescriptorCommand, ExtensionDescriptor, ExtensionEntry } from "../sdk/descriptor.ts";
+import type { ExtensionDescriptor, ExtensionEntry } from "../sdk/descriptor.ts";
 import { commandKey } from "./command-registry.ts";
 import type { PreinstalledNsCommandCatalogEntry } from "./registry.ts";
 
@@ -60,10 +58,7 @@ function descriptorEntryToPreinstalledCatalog(options: {
 				),
 				hasStaticCommandInfo: false,
 				displayPath: `${options.displayPath}#${segments.join("/")}`,
-				load: async () =>
-					defineExtension({
-						commands: [descriptorCommandAsNsCommand((await commandEntry.load()).default)],
-					}),
+				load: async () => ({ commands: [(await commandEntry.load()).default] }),
 			},
 		];
 	}
@@ -78,27 +73,5 @@ function descriptorEntryToPreinstalledCatalog(options: {
 			segments: nextSegments,
 			hiddenSegments,
 		}),
-	);
-}
-
-export function descriptorCommandAsNsCommand(command: DescriptorCommand): NsCommand {
-	if (isLegacyNsCommand(command)) return command;
-	return {
-		name: command.name,
-		summary: command.summary,
-		description: command.description,
-		resultSchema: command.resultSchema,
-		run: async (ctx) => await command.run(ctx, { argv: [] }),
-	};
-}
-
-export function isLegacyNsCommand(command: DescriptorCommand): command is NsCommand {
-	return (
-		"schema" in command ||
-		"positionals" in command ||
-		"options" in command ||
-		"renderHuman" in command ||
-		"renderMarkdown" in command ||
-		"completionProvider" in command
 	);
 }

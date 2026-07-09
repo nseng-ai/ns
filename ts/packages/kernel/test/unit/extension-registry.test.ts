@@ -10,6 +10,7 @@ import {
 	loadListingCommandInfos,
 	loadNsCommandCatalog,
 	loadSelectedNsCommand,
+	isRawKernelCommand,
 } from "../../src/extensions/registry.ts";
 
 import {
@@ -37,13 +38,12 @@ const builtInCommandInfos = [
 
 function descriptorCommandModule(name: string, message: string): string {
 	return `
-import { defineRawCommand, ok, z } from "@nseng-ai/kernel/sdk";
+import { defineRawCommand, ok } from "@nseng-ai/kernel/sdk";
 
 export default defineRawCommand({
 	name: ${JSON.stringify(name)},
 	summary: ${JSON.stringify(`${name} summary`)},
 	description: ${JSON.stringify(`${name} command`)},
-	resultSchema: z.object({ message: z.string() }),
 	run() { return ok({ message: ${JSON.stringify(message)} }); },
 });
 `;
@@ -304,6 +304,7 @@ export default defineExtension({
 		const command = await loadSelectedNsCommand(selected);
 		expect(command.ok).toBe(true);
 		if (!command.ok) return;
+		if (isRawKernelCommand(command.command)) throw new Error("expected structured command");
 		const result = await command.command.run(
 			{
 				cwd: workspace.cwd,
@@ -322,7 +323,7 @@ export default defineExtension({
 			},
 			{},
 		);
-		expect(result).toEqual({ ok: true, message: "thunk scan" });
+		expect(result).toEqual({ type: "ok", data: "thunk scan", human: "thunk scan" });
 	});
 
 	test("loaded command info uses explicit summary and full description", () => {
@@ -331,7 +332,7 @@ export default defineExtension({
 				name: "hello",
 				summary: "Say hello.",
 				description: "Say hello.\n\nWith details.",
-				run: () => ({ ok: true, message: "hello" }),
+				run: () => ok("hello"),
 			},
 			"project",
 			{ name: "hello" },
@@ -354,7 +355,7 @@ export default defineExtension({
 				name: "cp",
 				summary: "cp",
 				description: "cp",
-				run: () => ({ ok: true as const, message: "" }),
+				run: () => ok(""),
 			},
 		};
 
@@ -455,7 +456,7 @@ export default defineExtension({
 					name: "cp",
 					summary: "cp",
 					description: "cp",
-					run: () => ({ ok: true as const, message: "" }),
+					run: () => ok(""),
 				},
 			},
 		});
