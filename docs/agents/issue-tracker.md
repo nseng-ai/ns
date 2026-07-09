@@ -25,8 +25,9 @@ invocation time. This tracker never creates Objectives.
 
 ### The map
 
-- One file per effort: `docs/wayfinding/<slug>.md`, committed to the repo.
-- The file carries the skill's map sections (`## Destination`, `## Notes`,
+- One folder per effort: `docs/wayfinding/<slug>/`, committed to the repo,
+  with the map at `docs/wayfinding/<slug>/map.md`.
+- The map carries the skill's map sections (`## Destination`, `## Notes`,
   `## Decisions so far`, `## Not yet specified`, `## Out of scope`) plus a
   `## Tickets` section holding every ticket.
 - The `wayfinder:map` label is implied by the file's location; no label
@@ -76,5 +77,13 @@ then, an open ticket on the frontier is takeable.
 ### Assets
 
 Assets produced while resolving a ticket (research summaries, prototypes)
-live in `docs/wayfinding/<slug>/` next to the map, linked from the ticket's
+live as sibling docs in the effort folder, linked from the ticket's
 Resolution — never pasted into the map.
+
+### Jot pad
+
+Each effort folder may carry an `ideas.md` — a free-form jot pad for loose
+ideas, hunches, and raw notes, kept out of the map so the map stays an index.
+It is never authoritative and has no format. Wayfinding sessions read it when
+working the map: a jot sharp enough to state becomes a ticket, a dim one
+graduates into `## Not yet specified`, and graduated jots may be pruned.
