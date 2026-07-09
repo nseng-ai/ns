@@ -53,17 +53,4 @@ function commandNegative<T = never>(
 	return negative(message, options);
 }
 
-function commandFailure(errorType: string, message: string, data?: unknown): CommandExit<never> {
-	return failure(errorType, message, data);
-}
-
-function commandUsageError(message: string, data?: unknown): CommandExit<never> {
-	return usageError(message, data);
-}
-
-export {
-	commandFailure as failure,
-	commandNegative as negative,
-	commandOk as ok,
-	commandUsageError as usageError,
-};
+export { failure, commandNegative as negative, commandOk as ok, usageError };

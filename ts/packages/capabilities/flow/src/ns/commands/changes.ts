@@ -16,6 +16,7 @@ import {
 } from "../../changes/git-porcelain.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
+import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 import { loadFlowPendingWorktreeSnapshot, type PendingWorktreeSnapshot } from "../worktree.ts";
 
 // This project-local extension uses the public ns SDK plus internal migration
@@ -52,7 +53,7 @@ export const flowChangesCommand: NsCommand = {
 			io.phase("Inspecting worktree…");
 			const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
 			if (!loaded.ok) {
-				return failure("flow-command-failed", formatPendingWorktreeError(loaded.error));
+				return failure(FLOW_COMMAND_FAILED, formatPendingWorktreeError(loaded.error));
 			}
 
 			const snapshot = loaded.snapshot;
@@ -63,7 +64,7 @@ export const flowChangesCommand: NsCommand = {
 			io.phase("Generating changes summary…");
 			const summary = await prepareFlowChangesSummary(ctx, snapshot);
 			if (!summary.ok) {
-				return failure("flow-command-failed", summary.error);
+				return failure(FLOW_COMMAND_FAILED, summary.error);
 			}
 
 			const caps = resolveFlowStreamCaps(ctx);

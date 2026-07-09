@@ -19,6 +19,7 @@ import {
 	type CheckpointGateway,
 	type CheckpointWorkflowResult,
 } from "../../checkpoint/checkpoint.ts";
+import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 
@@ -110,17 +111,17 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 function toCommandResult(result: RunCpCoreResult) {
 	switch (result.type) {
 		case "snapshot-failed":
-			return failure("flow-command-failed", formatPendingWorktreeError(result.error));
+			return failure(FLOW_COMMAND_FAILED, formatPendingWorktreeError(result.error));
 		case "trunk":
 			return negative(`Refusing to create checkpoint commit on trunk branch: ${result.branch}`);
 		case "clean":
 			return negative("Working tree is clean; nothing to checkpoint.");
 		case "message-failed":
-			return failure("flow-command-failed", result.error);
+			return failure(FLOW_COMMAND_FAILED, result.error);
 		case "dry-run":
 			return ok(formatDryRunMessage(result.branch, result.message));
 		case "commit-failed":
-			return failure("flow-command-failed", result.error);
+			return failure(FLOW_COMMAND_FAILED, result.error);
 		case "committed":
 			return ok(`${result.summary}\n${result.message}`);
 	}

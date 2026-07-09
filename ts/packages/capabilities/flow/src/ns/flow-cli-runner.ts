@@ -14,6 +14,8 @@ import {
 	type NsExtensionApi,
 } from "@nseng-ai/kernel/sdk";
 
+export const FLOW_COMMAND_FAILED = "flow-command-failed";
+
 export interface FlowCliExecOptions {
 	cwd?: string;
 	timeout?: number;
@@ -107,10 +109,14 @@ export function createFlowCliOutputCapture(
 		toResult: (exitCode, messages) => {
 			if (exitCode === 0) return ok(stdout === "" ? messages.successMessage : "");
 			const message = stderr === "" ? messages.failureMessage : "";
-			if (exitCode === 1) return negative(message, { data: { exitCode } });
-			return failure("flow-command-failed", message, { exitCode });
+			return exitCodeToFlowCommandExit(exitCode, message);
 		},
 	};
+}
+
+export function exitCodeToFlowCommandExit(exitCode: number, message: string): CommandExit {
+	if (exitCode === 1) return negative(message, { data: { exitCode } });
+	return failure(FLOW_COMMAND_FAILED, message, { exitCode });
 }
 
 export async function runFlowCli(options: RunFlowCliOptions): Promise<CommandExit> {

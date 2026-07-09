@@ -224,12 +224,19 @@ export async function executeNsCommand(
 		const result = await command.run(ctx, parsedRequest.data);
 		return validateCommandExit(result, command.name);
 	} catch (error) {
-		return failure(
-			"extension-command-failed",
-			`Command ${command.name} failed.\n${formatUnknownError(error)}`,
-			{ command: command.name },
-		);
+		return extensionCommandFailedExit(command.name, error);
 	}
+}
+
+export function extensionCommandFailedExit(
+	commandName: string,
+	error: unknown,
+): CommandExit<never> {
+	return failure(
+		"extension-command-failed",
+		`Command ${commandName} failed.\n${formatUnknownError(error)}`,
+		{ command: commandName },
+	);
 }
 
 export function validateCommandExit(result: unknown, commandName: string): CommandExit {
