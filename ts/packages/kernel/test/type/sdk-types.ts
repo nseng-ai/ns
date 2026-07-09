@@ -7,6 +7,7 @@ import {
 	z,
 } from "@nseng-ai/kernel/sdk";
 import type {
+	ExtensionActivation,
 	ExtensionDescriptor,
 	RawArgvCommand,
 	MachineEnvelope,
@@ -54,6 +55,11 @@ const adaptedCommand = defineCommand({
 	},
 });
 
+const activation: ExtensionActivation = {
+	instructions: "## Hello\n\nUse the hello extension.",
+	consumerDirs: [".ns/hello"],
+};
+
 const descriptor = defineExtension({
 	group: "hello",
 	description: "Hello extension.",
@@ -67,6 +73,7 @@ const descriptor = defineExtension({
 		},
 	],
 	points: [{ id: "submit.pre", accepts: "hook", cardinality: "many" }],
+	activation,
 	bundledArtifacts: [{ kind: "skill", name: "hello", path: "./skills/hello" }],
 });
 

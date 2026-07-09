@@ -74,6 +74,7 @@ export {
 export type {
 	BundledArtifactDefinition,
 	DescriptorCommand,
+	ExtensionActivation,
 	ExtensionCommandEntry,
 	ExtensionDescriptor,
 	ExtensionDescriptorValidationResult,

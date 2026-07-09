@@ -29,7 +29,7 @@ const noopApi = {
 } satisfies NsExtensionApi;
 
 describe("extension descriptor SDK", () => {
-	test("accepts valid descriptors with nested groups, points, and bundled artifacts", () => {
+	test("accepts valid descriptors with nested groups, points, activation, and bundled artifacts", () => {
 		const listCommand = defineRawCommand({
 			name: "list",
 			summary: "List objectives.",
@@ -56,6 +56,10 @@ describe("extension descriptor SDK", () => {
 					description: "Runs before submit.",
 				},
 			],
+			activation: {
+				instructions: "## Objectives\n\nUse Objectives.\n\n### Details\n\nKeep records current.",
+				consumerDirs: [".ns/objectives", ".ns/objectives/cache"],
+			},
 			bundledArtifacts: [
 				{ kind: "skill", name: "objective", path: "./skills/objective", description: "Skill." },
 			],
@@ -63,7 +67,98 @@ describe("extension descriptor SDK", () => {
 
 		const parsed = validateExtensionDescriptor(descriptor);
 
-		expect(parsed).toMatchObject({ ok: true });
+		expect(parsed).toEqual({
+			ok: true,
+			descriptor: {
+				...descriptor,
+				activation: {
+					instructions: "## Objectives\n\nUse Objectives.\n\n### Details\n\nKeep records current.",
+					consumerDirs: [".ns/objectives", ".ns/objectives/cache"],
+				},
+			},
+		});
+	});
+
+	test.each([
+		{ activation: {}, expected: {} },
+		{
+			activation: { instructions: "## Instructions\n\nFollow them." },
+			expected: { instructions: "## Instructions\n\nFollow them." },
+		},
+		{
+			activation: { consumerDirs: [".ns/example"] },
+			expected: { consumerDirs: [".ns/example"] },
+		},
+	])("accepts independently optional activation fields %#", ({ activation, expected }) => {
+		const parsed = validateExtensionDescriptor({ description: "Activation.", activation });
+
+		expect(parsed).toEqual({
+			ok: true,
+			descriptor: { description: "Activation.", activation: expected },
+		});
+	});
+
+	test.each([
+		["", "empty instructions"],
+		["Objectives", "missing heading marker"],
+		["##   \n\nBody.", "empty heading title"],
+		["## First\n\nBody.\n## Second\n\nMore.", "second level-2 section"],
+	])("rejects malformed activation instructions: %s", (instructions) => {
+		const parsed = validateExtensionDescriptor({
+			description: "Bad activation.",
+			activation: { instructions },
+		});
+
+		expect(parsed).toEqual({
+			ok: false,
+			message: expect.stringContaining("activation.instructions"),
+		});
+	});
+
+	test.each([
+		["", "empty"],
+		[".ns", "ns root"],
+		["/repo/.ns/data", "absolute"],
+		["data", "outside ns"],
+		[".ns/data/", "trailing slash"],
+		[".ns//data", "empty segment"],
+		[".ns/./data", "dot segment"],
+		[".ns/../data", "parent segment"],
+		[".ns\\data", "backslash"],
+	])("rejects noncanonical activation consumer directory %s (%s)", (consumerDir) => {
+		const parsed = validateExtensionDescriptor({
+			description: "Bad activation.",
+			activation: { consumerDirs: [consumerDir] },
+		});
+
+		expect(parsed).toEqual({
+			ok: false,
+			message: expect.stringContaining("activation.consumerDirs.0"),
+		});
+	});
+
+	test("rejects duplicate activation consumer directories at the duplicate index", () => {
+		const parsed = validateExtensionDescriptor({
+			description: "Bad activation.",
+			activation: { consumerDirs: [".ns/data", ".ns/data"] },
+		});
+
+		expect(parsed).toEqual({
+			ok: false,
+			message: expect.stringContaining("activation.consumerDirs.1"),
+		});
+	});
+
+	test("rejects unknown activation fields", () => {
+		const parsed = validateExtensionDescriptor({
+			description: "Bad activation.",
+			activation: { hook: () => {} },
+		});
+
+		expect(parsed).toEqual({
+			ok: false,
+			message: expect.stringContaining("activation"),
+		});
 	});
 
 	test("reports malformed descriptor fields with field paths", () => {
