@@ -1,4 +1,5 @@
 import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
+import { isRecord } from "@nseng-ai/foundation/primitives";
 
 import type { RunnerSubagentUsageMetadata } from "../runner-subagents/extension-api.ts";
 import { formatRunnerSubagentElapsed } from "../runner-subagents/presentation.ts";
@@ -295,36 +296,39 @@ function looksLikeJson(value: string): boolean {
 	);
 }
 
-function formatPreviewValue(value: unknown): string | undefined {
-	if (Array.isArray(value)) return formatArrayPreview(value);
-	if (isRecord(value)) return formatRecordPreview(value);
-	return compactPlain(formatScalarPreview(value));
+const MAX_PREVIEW_RECORD_FIELDS = 6;
+const MAX_PREVIEW_DEPTH = 2;
+
+function formatPreviewValue(value: unknown): string {
+	return formatValuePreview(value, 0);
 }
 
-function formatRecordPreview(value: Record<string, unknown>): string | undefined {
+function formatValuePreview(value: unknown, depth: number): string {
+	if (Array.isArray(value)) return formatArrayPreview(value, depth);
+	if (isRecord(value)) return formatRecordPreview(value, depth);
+	return formatScalarPreview(value);
+}
+
+function formatRecordPreview(value: Record<string, unknown>, depth: number): string {
 	const entries = Object.entries(value);
 	if (entries.length === 0) return "{}";
-	const visibleEntries = entries.slice(0, 6).map(([key, fieldValue]) => {
-		return `${key}: ${formatFieldValue(fieldValue)}`;
+	if (depth >= MAX_PREVIEW_DEPTH) return "{…}";
+	const visibleEntries = entries.slice(0, MAX_PREVIEW_RECORD_FIELDS).map(([key, fieldValue]) => {
+		return `${key}: ${formatValuePreview(fieldValue, depth + 1)}`;
 	});
 	const remaining = entries.length - visibleEntries.length;
 	if (remaining > 0) visibleEntries.push(`+${remaining} more`);
-	return compactPlain(visibleEntries.join(" · "));
+	const body = compactPlain(visibleEntries.join(" · "));
+	return depth === 0 ? body : `{ ${body} }`;
 }
 
-function formatArrayPreview(value: readonly unknown[]): string {
+function formatArrayPreview(value: readonly unknown[], depth: number): string {
 	if (value.length === 0) return "[]";
 	const scalarItems = value.filter((item) => !Array.isArray(item) && !isRecord(item));
 	if (scalarItems.length === value.length && value.length <= 4) {
-		return compactPlain(value.map((item) => formatScalarPreview(item)).join(", "));
+		return compactPlain(value.map((item) => formatValuePreview(item, depth + 1)).join(", "));
 	}
 	return `${value.length} items`;
-}
-
-function formatFieldValue(value: unknown): string {
-	if (Array.isArray(value)) return formatArrayPreview(value);
-	if (isRecord(value)) return compactPlain(JSON.stringify(value));
-	return formatScalarPreview(value);
 }
 
 function formatScalarPreview(value: unknown): string {
@@ -335,8 +339,4 @@ function formatScalarPreview(value: unknown): string {
 
 function compactPlain(value: string): string {
 	return value.replace(/\s+/g, " ").trim();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

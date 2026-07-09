@@ -118,6 +118,20 @@ describe("subagent fleet navigator", () => {
 		]);
 	});
 
+	test("renders nested tool preview records through the same compact formatter", () => {
+		expect(
+			renderTimelineEntryLines({
+				kind: "tool",
+				toolName: "dispatch_runner_subagent",
+				state: "ok",
+				inputPreview:
+					'{"title":"Scout","options":{"model":"fast","metadata":{"branch":"main"}},"files":["a.ts","b.ts"]}',
+			}),
+		).toEqual([
+			"✓ dispatch_runner_subagent · title: Scout · options: { model: fast · metadata: {…} } · files: a.ts, b.ts",
+		]);
+	});
+
 	test("loads detail with usage totals from JSONL through the readTextFile seam", async () => {
 		const detail = await loadFleetTaskDetail({
 			task: {
