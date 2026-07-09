@@ -1,40 +1,23 @@
 # @nseng-ai/ns-pi-subagents Agent Notes
 
-Rules for working inside this package, which adds a subagent system to Pi (child Pi
-processes launched for one focused task, plus the shared fleet widget/navigator). Repo-wide
-rules live in the root `AGENTS.md`; the `ts/` workspace rules in `ts/AGENTS.md` still apply
-here (read them before editing any `.ts` file).
+Repo-wide and `ts/AGENTS.md` rules apply. Read [AUTHORING.md](./AUTHORING.md) before changing the author interface.
 
-## Adding a new subagent
+## Architecture
 
-Before authoring a new first-party subagent tool, read [`AUTHORING.md`](./AUTHORING.md) —
-the step-by-step procedure. `README.md` is the reference (option/result tables and behavior
-guarantees); `AUTHORING.md` is the ordered how-to with a complete worked example and a
-checklist.
+- `src/tool/subagent.ts` owns the sole model-visible `subagent` tool.
+- `src/agents/` owns typed behavioral descriptors and the immutable Agent Registry.
+- `src/runtime/` owns execution architectures and the Runtime Registry.
+- `src/runner-subagents/` remains the lower-level subprocess/protocol/terminal-capture substrate.
+- `src/fleet/` owns session-local run visibility and `ns:agents:*` UI.
 
-Non-negotiables it enforces, called out here so they are not missed:
+Agent type and execution architecture are orthogonal. Descriptors own permissions, task/concurrency limits, prompt/model policy, output bounds, compatibility, and automatic preference. Runtime adapters own mechanics and may not weaken descriptor policy. Markdown definitions own prompt and steering prose and must declare `toolName: subagent`.
 
-- You add an agent by **registering a Pi tool** whose `execute` dispatches a child via
-  `dispatchRunnerSubagent`. You do **not** add one by dropping a new `.ns/pi/agents/*.md`
-  file — only `runner.md` and `explorer.md` are wired by name, and new definition-file
-  variants are future work.
-- Every subagent tool must report into the shared fleet registry
-  (`getOrCreateSubagentFleetRegistry` + `trackSingleSubagentFleetRun` /
-  `trackSubagentFleetRun`). The single per-process registry is what keeps the fleet widget
-  and `/ns:agents:fleet` complete.
-- Every subagent tool must ship `promptSnippet` **and** `promptGuidelines`; a tool with no
-  parent-facing steering ships silent and gets under-used or misused.
-- Handle the full `RunnerSubagentResult` union; surface the diagnostic and `sessionFile` on
-  failure instead of reporting a non-success status as an empty success.
+Do not reintroduce `explore` or `forked_pi_agent` compatibility tools, per-agent model-visible tools, explorer `breadth`, mutable post-registration catalogs, or agent-specific public option bags. Do not mechanically rename valid lower-level `RunnerSubagent*` vocabulary.
 
 ## Public surface
 
-New consumers build against `@nseng-ai/ns-pi-subagents/api` — the curated export surface.
-`/extension` is the Pi entrypoint; `/runner-subagents` and `/runner-subagents/testing` are
-lower-level and exported for existing direct consumers. Prefer `/api` for anything new.
+New consumers use `@nseng-ai/ns-pi-subagents/api`. Preserve `SubagentRuntime.dispatch`, `createSubprocessSubagentRuntime()`, and lower-level terminal/final-text behavior for direct consumers. The production in-process adapter supports final text only, disables extension recursion, retains skills/context discovery, and preserves persistent session evidence.
 
 ## Validation
 
-Validate TypeScript changes with `just ts-check` and `just ts-test`. Tests live under
-`test/`; use the `SubagentRuntime` seam (`createFunctionSubagentRuntime`) so tests never
-spawn real child processes.
+Use fakes for default tests; do not spawn real child processes or call models. At minimum run the package test and check scripts. Broader TypeScript validation follows `ts/AGENTS.md`.

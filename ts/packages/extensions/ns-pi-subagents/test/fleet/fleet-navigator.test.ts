@@ -924,7 +924,7 @@ describe("subagent fleet navigator", () => {
 		});
 
 		const list = view.render(100).join("\n");
-		expect(list).not.toContain("No explore subagents have run");
+		expect(list).not.toContain("No subagents have run");
 		expect(list).toContain("▸ ◉ Parent Pi session");
 
 		view.handleInput("\r");

@@ -20,7 +20,7 @@ import {
 } from "../helpers/explore-testing.ts";
 import type { GitHeadSnapshot } from "../../src/fleet/git-head.ts";
 
-describe("runner subagent fleet display for explore", () => {
+describe("subagent fleet display for explorer", () => {
 	test("reuses one registry for the same Pi host", () => {
 		const pi = {};
 		const first = getOrCreateSubagentFleetRegistry(pi, { recentTaskCap: 1 });

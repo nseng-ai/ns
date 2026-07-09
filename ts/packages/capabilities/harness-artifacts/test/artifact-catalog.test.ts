@@ -30,14 +30,14 @@ describe("harness artifact catalog model", () => {
 				},
 				{
 					kind: "agent",
-					id: "runner-agent",
-					name: "Runner agent",
-					description: "Runner subagent profile.",
-					agentName: "runner",
+					id: "task-agent",
+					name: "Task agent",
+					description: "Focused task subagent profile.",
+					agentName: "task",
 					source: {
 						type: "first-party",
 						packageName: "@nseng-ai/ns",
-						relativePath: ".ns/pi/agents/runner.md",
+						relativePath: ".ns/pi/agents/task.md",
 					},
 				},
 				{
@@ -57,7 +57,7 @@ describe("harness artifact catalog model", () => {
 
 		expect(catalog.artifacts.map(artifactProvisionName)).toEqual([
 			"objective-next",
-			"runner",
+			"task",
 			"objective",
 		]);
 	});

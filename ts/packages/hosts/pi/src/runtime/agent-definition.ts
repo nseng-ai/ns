@@ -18,6 +18,7 @@ export interface PiAgentDefinition {
 	description: string;
 	promptSnippet?: string;
 	promptGuidelines: string[];
+	delegationDoctrine: string[];
 	body: string;
 	filePath: string;
 }
@@ -29,7 +30,8 @@ type SupportedFrontmatterField =
 	| "label"
 	| "description"
 	| "promptSnippet"
-	| "promptGuidelines";
+	| "promptGuidelines"
+	| "delegationDoctrine";
 
 type FrontmatterValue = string | string[];
 type FrontmatterFields = Partial<Record<SupportedFrontmatterField, FrontmatterValue>>;
@@ -42,6 +44,7 @@ const SUPPORTED_FRONTMATTER_FIELDS = new Set<string>([
 	"description",
 	"promptSnippet",
 	"promptGuidelines",
+	"delegationDoctrine",
 ]);
 
 export function findNsPiAgentsDir(cwd: string): string | undefined {
@@ -162,14 +165,12 @@ function parseFrontmatterLines(lines: string[], filePath: string): FrontmatterFi
 			throw new Error(`Duplicate frontmatter field "${key}" in ${filePath} on line ${lineNumber}.`);
 		}
 
-		if (key === "promptGuidelines") {
+		if (isStringListFrontmatterField(key)) {
 			if (rawValue.trim().length > 0) {
-				throw new Error(
-					`Field "promptGuidelines" in ${filePath} must be a list of "  - guideline" items.`,
-				);
+				throw new Error(`Field "${key}" in ${filePath} must be a list of "  - item" entries.`);
 			}
-			const { items, nextIndex } = parsePromptGuidelineList(lines, index + 1, filePath);
-			fields.promptGuidelines = items;
+			const { items, nextIndex } = parseStringListField(lines, index + 1, filePath, key);
+			fields[key] = items;
 			index = nextIndex;
 			continue;
 		}
@@ -185,10 +186,11 @@ function parseFrontmatterLines(lines: string[], filePath: string): FrontmatterFi
 	return fields;
 }
 
-function parsePromptGuidelineList(
+function parseStringListField(
 	lines: string[],
 	startIndex: number,
 	filePath: string,
+	fieldName: SupportedFrontmatterField,
 ): { items: string[]; nextIndex: number } {
 	const items: string[] = [];
 	let index = startIndex;
@@ -204,14 +206,14 @@ function parsePromptGuidelineList(
 		const match = /^  -\s+(.+)$/.exec(line);
 		if (!match) {
 			throw new Error(
-				`Malformed promptGuidelines list in ${filePath} on line ${index + 2}: expected "  - guideline".`,
+				`Malformed ${fieldName} list in ${filePath} on line ${index + 2}: expected "  - item".`,
 			);
 		}
 
 		const item = (match[1] ?? "").trim();
 		if (item.length === 0) {
 			throw new Error(
-				`Malformed promptGuidelines list in ${filePath} on line ${index + 2}: empty guideline.`,
+				`Malformed ${fieldName} list in ${filePath} on line ${index + 2}: empty item.`,
 			);
 		}
 		items.push(item);
@@ -220,7 +222,7 @@ function parsePromptGuidelineList(
 
 	if (items.length === 0) {
 		throw new Error(
-			`Field "promptGuidelines" in ${filePath} must include at least one list item when present.`,
+			`Field "${fieldName}" in ${filePath} must include at least one list item when present.`,
 		);
 	}
 
@@ -245,6 +247,7 @@ function validatePiAgentDefinition(
 	const description = requiredScalarField(fields, "description", filePath);
 	const promptSnippet = optionalScalarField(fields, "promptSnippet", filePath);
 	const promptGuidelines = optionalStringListField(fields, "promptGuidelines", filePath) ?? [];
+	const delegationDoctrine = optionalStringListField(fields, "delegationDoctrine", filePath) ?? [];
 
 	return {
 		schema: PI_AGENT_DEFINITION_SCHEMA,
@@ -254,6 +257,7 @@ function validatePiAgentDefinition(
 		description,
 		...(promptSnippet === undefined ? {} : { promptSnippet }),
 		promptGuidelines,
+		delegationDoctrine,
 		body,
 		filePath,
 	};
@@ -304,6 +308,12 @@ function optionalStringListField(
 
 function isSupportedFrontmatterField(field: string): field is SupportedFrontmatterField {
 	return SUPPORTED_FRONTMATTER_FIELDS.has(field);
+}
+
+function isStringListFrontmatterField(
+	field: SupportedFrontmatterField,
+): field is "promptGuidelines" | "delegationDoctrine" {
+	return field === "promptGuidelines" || field === "delegationDoctrine";
 }
 
 function isSafeAgentName(agentName: string): boolean {

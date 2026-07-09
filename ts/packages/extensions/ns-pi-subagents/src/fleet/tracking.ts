@@ -1,5 +1,4 @@
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
-import { errorResult } from "../explore/result.ts";
 import { SubagentFleetRegistry, type SubagentFleetTaskInput } from "./registry.ts";
 import type { GitHeadSnapshot, ReadGitHead } from "./git-head.ts";
 import type {
@@ -124,8 +123,19 @@ export function trackSubagentFleetRun(input: {
 }
 
 function unfinishedFleetTaskResult(task: SubagentFleetTaskInput): RunnerSubagentResult {
-	return errorResult(
-		task.title,
-		"Subagent fleet tracking ended before this task produced a terminal result.",
-	);
+	const diagnostic = "Subagent fleet tracking ended before this task produced a terminal result.";
+	return {
+		status: "error",
+		title: task.title,
+		diagnostic,
+		error: { message: diagnostic },
+		elapsedMs: 0,
+		progress: {
+			title: task.title,
+			state: "stopped",
+			toolCount: 0,
+			turnCount: 0,
+			elapsedMs: 0,
+		},
+	};
 }

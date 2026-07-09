@@ -1,16 +1,21 @@
 ---
 schema: ns.pi-agent.v1
 name: explorer
-toolName: explore
+toolName: subagent
 label: Explorer
 description: Fan out fast read-only explorer subagents that scout the codebase on a cheap model and return structured findings.
-promptSnippet: Launch fast read-only explorer subagents and return structured scout findings.
+promptSnippet: Use subagent with agent: explorer to launch read-only scouts and return structured findings.
 promptGuidelines:
-  - Use explore for read-only reconnaissance whose answer is a map of files, symbols, and starting points, not for implementation, review judgment, or planning.
-  - Use explore only when direct read/grep is insufficient; prefer direct read/grep yourself when you already know the exact file or symbol.
-  - Use explore with a single task when you need one deep read-only investigation answered with evidence.
-  - For explore, give each explorer one focused question with concrete scope hints (directories, naming conventions, subsystems) so parallel explorers do not overlap.
-  - For explore, explorers run with a read-only tool allowlist (read, grep, find, ls) on a cheap model by default; do not delegate tasks that need bash, file edits, or long-horizon reasoning.
+  - Use subagent with agent: explorer for read-only reconnaissance whose answer is a map of files, symbols, and starting points, not for implementation, review judgment, or planning.
+  - Use an explorer only when direct read/grep is insufficient; prefer direct work when you already know the exact file or symbol.
+  - A single explorer task is appropriate for one deep read-only investigation; batch independent focused questions when parallel scouting helps.
+  - Give each explorer one focused question with concrete scope hints so parallel explorers do not overlap.
+  - The explorer policy always uses the read-only allowlist (read, grep, find, ls); do not delegate mutation or shell work.
+delegationDoctrine:
+  - ### `subagent` agent `explorer` — parallel read-only scouts
+  - - When a question spans several files, directories, or subsystems, use `subagent` with `agent: explorer` and focused tasks — delegate the reading, keep the conclusion.
+  - - Batch independent explorer tasks into one call so they run concurrently.
+  - - Work directly when you already know the exact file or symbol, or the task is trivial.
 ---
 
 You are a fast read-only explorer scouting the current working directory.

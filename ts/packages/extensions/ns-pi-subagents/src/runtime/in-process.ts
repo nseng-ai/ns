@@ -1,65 +1,82 @@
+import type { Api, Model, ModelThinkingLevel } from "@earendil-works/pi-ai";
+import { resolveCliModel, type ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
+import { resolveRunnerSubagentLaunch } from "../runner-subagents/subagent-process.ts";
 import type {
 	RunnerSubagentActivity,
 	RunnerSubagentProgress,
 	RunnerSubagentResult,
 } from "../runner-subagents/index.ts";
-import type { SubagentRuntime, SubagentRuntimeDispatchInput } from "../runtime/seam.ts";
+import type { SubagentRuntime, SubagentRuntimeDispatchInput } from "./seam.ts";
 
-export type InProcessExplorerSessionEvent =
+export type InProcessSubagentSessionEvent =
 	| { type: "assistant"; text: string }
 	| { type: "tool_start"; toolName: string }
 	| { type: "tool_end"; toolName: string; preview?: string }
 	| { type: "done"; finalText?: string; stopReason?: string };
 
-export interface InProcessExplorerSession {
-	sessionFile?: string;
-	subscribe(listener: (event: InProcessExplorerSessionEvent) => void): () => void;
+export interface InProcessSubagentSession {
+	sessionFile: string | undefined;
+	subscribe(listener: (event: InProcessSubagentSessionEvent) => void): () => void;
 	prompt(text: string, signal?: AbortSignal): Promise<void>;
 	abort(): Promise<void> | void;
 	dispose(): void;
 }
 
-export interface InProcessExplorerSessionFactory {
-	create(input: InProcessExplorerSessionCreateInput): Promise<InProcessExplorerSession>;
+export interface InProcessSubagentSessionFactory {
+	create(input: InProcessSubagentSessionCreateInput): Promise<InProcessSubagentSession>;
 }
 
-export interface InProcessExplorerSessionCreateInput {
+export interface InProcessSubagentSessionCreateInput {
 	cwd: string;
 	tools: readonly string[];
-	model?: string;
+	model?: Model<Api>;
+	modelRegistry?: ModelRegistry;
+	thinkingLevel: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 }
 
-export interface InProcessExplorerRuntimeOptions {
-	sessionFactory: InProcessExplorerSessionFactory;
+export interface InProcessSubagentRuntimeOptions {
+	sessionFactory: InProcessSubagentSessionFactory;
+	modelRegistry?: ModelRegistry;
 }
 
-export function createInProcessExplorerRuntime(
-	options: InProcessExplorerRuntimeOptions,
+export function createInProcessSubagentRuntime(
+	options: InProcessSubagentRuntimeOptions,
 ): SubagentRuntime {
 	return {
 		dispatch(input) {
-			return dispatchInProcessExplorer(input, options.sessionFactory);
+			return dispatchInProcessSubagent(input, options);
 		},
 	};
 }
 
-async function dispatchInProcessExplorer(
+async function dispatchInProcessSubagent(
 	input: SubagentRuntimeDispatchInput,
-	sessionFactory: InProcessExplorerSessionFactory,
+	options: InProcessSubagentRuntimeOptions,
 ): Promise<RunnerSubagentResult> {
+	const sessionFactory = options.sessionFactory;
 	const startedAt = Date.now();
-	let session: InProcessExplorerSession | undefined;
+	if (input.options.returnMode !== "final-text") {
+		return unsupportedReturnModeResult(input, startedAt);
+	}
+	let session: InProcessSubagentSession | undefined;
 	let finalText: string | undefined;
 	let stopReason: string | undefined;
 	let progress = initialProgress(input, startedAt, undefined);
 	let activity: RunnerSubagentActivity = {};
 	try {
+		const launch =
+			input.options.preResolvedLaunch ??
+			resolveRunnerSubagentLaunch(input.pi, input.ctx, input.options);
+		const model = resolveConcreteModel(launch, options.modelRegistry);
+		if ("diagnostic" in model) throw new Error(model.diagnostic);
 		session = await sessionFactory.create({
 			cwd: input.options.cwd ?? input.ctx.cwd,
 			tools: input.options.tools ?? [],
-			...(input.options.model === undefined ? {} : { model: input.options.model }),
+			thinkingLevel: model.thinkingLevel ?? launch?.thinkingLevel ?? "off",
+			...(model.model === undefined ? {} : { model: model.model }),
+			...(options.modelRegistry === undefined ? {} : { modelRegistry: options.modelRegistry }),
 		});
 		progress = initialProgress(input, startedAt, session.sessionFile);
 		const unsubscribe = session.subscribe((event) => {
@@ -77,11 +94,15 @@ async function dispatchInProcessExplorer(
 				await session.abort();
 				return cancelledResult(input, startedAt, progress);
 			}
-			const abort = async (): Promise<void> => {
-				await session?.abort();
+			const abort = (): void => {
+				void session?.abort();
 			};
-			input.options.signal?.addEventListener("abort", () => void abort(), { once: true });
-			await session.prompt(input.options.prompt, input.options.signal);
+			input.options.signal?.addEventListener("abort", abort, { once: true });
+			try {
+				await session.prompt(input.options.prompt, input.options.signal);
+			} finally {
+				input.options.signal?.removeEventListener("abort", abort);
+			}
 		} finally {
 			unsubscribe();
 		}
@@ -90,7 +111,7 @@ async function dispatchInProcessExplorer(
 		if (finalText === undefined || finalText.trim().length === 0) {
 			return {
 				status: "stopped-without-useful-text",
-				diagnostic: "In-process explorer session stopped without final assistant text.",
+				diagnostic: "In-process subagent session stopped without final assistant text.",
 				elapsedMs: elapsedMs(startedAt),
 				progress,
 				...(session.sessionFile === undefined ? {} : { sessionFile: session.sessionFile }),
@@ -110,7 +131,7 @@ async function dispatchInProcessExplorer(
 		const message = formatErrorMessage(error);
 		return {
 			status: "error",
-			diagnostic: `In-process explorer dispatch failed: ${message}`,
+			diagnostic: `In-process subagent dispatch failed: ${message}`,
 			error: { message },
 			elapsedMs: elapsedMs(startedAt),
 			progress: progressWithoutCurrentTool(progress, "stopped", startedAt),
@@ -126,6 +147,9 @@ function initialProgress(
 	startedAt: number,
 	sessionFile: string | undefined,
 ): RunnerSubagentProgress {
+	const launch =
+		input.options.preResolvedLaunch ??
+		resolveRunnerSubagentLaunch(input.pi, input.ctx, input.options);
 	return {
 		...(input.options.title === undefined ? {} : { title: input.options.title }),
 		state: "starting",
@@ -133,11 +157,12 @@ function initialProgress(
 		turnCount: 0,
 		elapsedMs: elapsedMs(startedAt),
 		...(sessionFile === undefined ? {} : { sessionFile }),
+		...(launch === undefined ? {} : { launch }),
 	};
 }
 
 function mapInProcessEvent(
-	event: InProcessExplorerSessionEvent,
+	event: InProcessSubagentSessionEvent,
 	progress: RunnerSubagentProgress,
 	activity: RunnerSubagentActivity,
 	startedAt: number,
@@ -200,10 +225,59 @@ function cancelledResult(
 		typeof input.options.signal?.reason === "string" ? input.options.signal.reason : undefined;
 	return {
 		status: "cancelled",
-		diagnostic: reason ?? "In-process explorer dispatch was cancelled.",
+		diagnostic: reason ?? "In-process subagent dispatch was cancelled.",
 		elapsedMs: elapsedMs(startedAt),
 		progress: progressWithoutCurrentTool(progress, "stopped", startedAt),
 		...(reason === undefined ? {} : { reason }),
+	};
+}
+
+function resolveConcreteModel(
+	launch: SubagentRuntimeDispatchInput["options"]["preResolvedLaunch"],
+	modelRegistry: ModelRegistry | undefined,
+): { model?: Model<Api>; thinkingLevel?: ModelThinkingLevel } | { diagnostic: string } {
+	if (launch === undefined) return {};
+	if (modelRegistry === undefined) {
+		return { diagnostic: "In-process execution requires ToolContext.modelRegistry." };
+	}
+	if (launch.requestedModel !== undefined) {
+		const resolved = resolveCliModel({
+			cliModel: launch.requestedModel,
+			...(launch.model?.provider === undefined ? {} : { cliProvider: launch.model.provider }),
+			modelRegistry,
+		});
+		if (resolved.model === undefined) {
+			return {
+				diagnostic:
+					resolved.error ??
+					`Model ${launch.requestedModel} is not registered for in-process execution.`,
+			};
+		}
+		return {
+			model: resolved.model,
+			...(resolved.thinkingLevel === undefined ? {} : { thinkingLevel: resolved.thinkingLevel }),
+		};
+	}
+	const provider = launch.model?.provider;
+	const id = launch.model?.id;
+	if (provider === undefined || id === undefined) return {};
+	const model = modelRegistry.find(provider, id);
+	if (model === undefined)
+		return { diagnostic: `Model ${provider}/${id} is not registered for in-process execution.` };
+	return { model };
+}
+
+function unsupportedReturnModeResult(
+	input: SubagentRuntimeDispatchInput,
+	startedAt: number,
+): RunnerSubagentResult {
+	const progress = initialProgress(input, startedAt, undefined);
+	return {
+		status: "error",
+		diagnostic: "In-process subagent runtime supports final-text mode only.",
+		error: { message: "Unsupported in-process return mode." },
+		elapsedMs: elapsedMs(startedAt),
+		progress: progressWithoutCurrentTool(progress, "stopped", startedAt),
 	};
 }
 

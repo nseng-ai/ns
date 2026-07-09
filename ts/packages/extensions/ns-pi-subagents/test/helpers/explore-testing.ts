@@ -15,16 +15,10 @@ import type {
 	RunnerSubagentStoppedWithoutUsefulTextResult,
 } from "../../src/runner-subagents/index.ts";
 import {
-	EXPLORE_TOOL_NAME,
 	EXPLORER_AGENT_NAME,
 	EXPLORER_AGENT_REPO_RELATIVE_PATH,
 	EXPLORER_SCOUT_SECTION_HEADERS,
 } from "../../src/explore/contract.ts";
-import {
-	FORKED_PI_AGENT_TOOL_NAME,
-	RUNNER_AGENT_NAME,
-	RUNNER_AGENT_REPO_RELATIVE_PATH,
-} from "../../src/runner-subagents/extension.ts";
 export {
 	createFakeRunnerSubagentDispatcher,
 	FakeSpawnedChildProcess,
@@ -39,7 +33,14 @@ export async function settleMicrotasks(count = 20): Promise<void> {
 
 type FakeAgentDefinitionBase = Pick<
 	PiAgentDefinition,
-	"name" | "toolName" | "label" | "description" | "promptGuidelines" | "body" | "filePath"
+	| "name"
+	| "toolName"
+	| "label"
+	| "description"
+	| "promptGuidelines"
+	| "delegationDoctrine"
+	| "body"
+	| "filePath"
 >;
 
 function makeFakeAgentDefinition(
@@ -59,10 +60,11 @@ export function makeExplorerAgentDefinition(
 	return makeFakeAgentDefinition(
 		{
 			name: EXPLORER_AGENT_NAME,
-			toolName: EXPLORE_TOOL_NAME,
+			toolName: "subagent",
 			label: "Explorer",
 			description: "Fake explorer agent definition for tests.",
-			promptGuidelines: ["Use explore for read-only reconnaissance."],
+			promptGuidelines: ["Use subagent agent explorer for read-only reconnaissance."],
+			delegationDoctrine: ["### `subagent` agent `explorer` — parallel read-only scouts"],
 			body: [
 				"You are a fake explorer.",
 				"",
@@ -73,23 +75,6 @@ export function makeExplorerAgentDefinition(
 				"{{prompt}}",
 			].join("\n"),
 			filePath: `/fake/${EXPLORER_AGENT_REPO_RELATIVE_PATH}`,
-		},
-		overrides,
-	);
-}
-
-export function makeRunnerAgentDefinition(
-	overrides: Partial<PiAgentDefinition> = {},
-): PiAgentDefinition {
-	return makeFakeAgentDefinition(
-		{
-			name: RUNNER_AGENT_NAME,
-			toolName: FORKED_PI_AGENT_TOOL_NAME,
-			label: "Forked Pi subagent",
-			description: "Fake runner agent definition for tests.",
-			promptGuidelines: ["Use forked_pi_agent for focused delegated work."],
-			body: ["You are a fake runner.", "", "## Delegated task", "", "{{prompt}}"].join("\n"),
-			filePath: `/fake/${RUNNER_AGENT_REPO_RELATIVE_PATH}`,
 		},
 		overrides,
 	);

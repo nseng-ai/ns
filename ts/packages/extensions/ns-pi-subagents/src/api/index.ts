@@ -36,12 +36,51 @@ export type {
 	SingleSubagentFleetRunTracking,
 	SubagentFleetRunTracking,
 } from "../fleet/tracking.ts";
-export { createFunctionSubagentRuntime, createSubprocessSubagentRuntime } from "../runtime/seam.ts";
+export {
+	BUILT_IN_SUBAGENT_AGENT_NAMES,
+	buildSubagentCatalog,
+	createSubagentAgentRegistry,
+	type BuiltInSubagentAgentName,
+	type SubagentAgentCatalogEntry,
+	type SubagentAgentDescriptor,
+	type SubagentAgentRegistry,
+} from "../agents/registry.ts";
+export { EXPLORER_AGENT_DESCRIPTOR } from "../agents/explorer.ts";
+export { TASK_AGENT_DESCRIPTOR } from "../agents/task.ts";
+export { SUBAGENT_TOOL_NAME, registerSubagentTool } from "../tool/subagent.ts";
+export type { RegisterSubagentToolOptions, SubagentToolInput } from "../tool/subagent.ts";
+export {
+	SUBAGENT_RUNTIME_KINDS,
+	createFunctionSubagentRuntime,
+	createSubagentRuntimeRegistry,
+	createSubprocessSubagentRuntime,
+} from "../runtime/seam.ts";
 export type {
+	SubagentExecution,
 	SubagentRuntime,
+	SubagentRuntimeAdapter,
 	SubagentRuntimeDispatchFunction,
 	SubagentRuntimeDispatchInput,
+	SubagentRuntimeKind,
+	SubagentRuntimeRegistry,
 } from "../runtime/seam.ts";
+export { createInProcessSubagentRuntime } from "../runtime/in-process.ts";
+export type {
+	InProcessSubagentRuntimeOptions,
+	InProcessSubagentSession,
+	InProcessSubagentSessionCreateInput,
+	InProcessSubagentSessionEvent,
+	InProcessSubagentSessionFactory,
+} from "../runtime/in-process.ts";
+export {
+	PI_IN_PROCESS_RESOURCE_POLICY,
+	createPiAgentSessionFactory,
+} from "../runtime/pi-agent-session.ts";
+export type {
+	PiAgentSessionGateway,
+	PiAgentSessionGatewayCreateInput,
+	PiAgentSessionPort,
+} from "../runtime/pi-agent-session.ts";
 export {
 	dispatchRunnerSubagent,
 	mapWithConcurrency,

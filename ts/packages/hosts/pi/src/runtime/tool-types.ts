@@ -1,3 +1,5 @@
+import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
+
 import type { ModelInfo } from "./types.ts";
 
 export interface TextContent {
@@ -45,6 +47,8 @@ export interface ToolContext extends WidgetRuntimeContext {
 	cwd: string;
 	mode: ExtensionMode;
 	model?: ModelInfo;
+	/** Concrete host registry used by in-process child-session adapters. */
+	modelRegistry?: ModelRegistry;
 	sessionManager?: { getSessionFile?(): string | undefined };
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
