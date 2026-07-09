@@ -504,6 +504,8 @@ async function buildNsCliContext(options: {
 		interaction: createNsCliInteraction({ stderr: options.stderr }),
 		stdout: options.stdout,
 		stderr: options.stderr,
+		canEmitAnsi: renderCapabilities.canEmitAnsi,
+		...(renderCapabilities.caps === undefined ? {} : { caps: renderCapabilities.caps }),
 	};
 }
 

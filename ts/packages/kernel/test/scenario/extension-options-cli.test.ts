@@ -1,14 +1,20 @@
 import { z } from "zod";
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
-import type { NsCliDeps } from "../../src/cli/index.ts";
+import { runCli, type NsCliDeps } from "../../src/cli/index.ts";
 import type {
 	ExtensionCommandCandidate,
 	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { parseJsonOutput, runCliWithFakes } from "./ns-cli-fakes.ts";
-import { defineCommand, type NsCommand, type NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import {
+	defineCommand,
+	defineRawCommand,
+	ok,
+	type NsCommand,
+	type NsProgressPhaseEvent,
+} from "@nseng-ai/kernel/sdk";
 
 const optionProbeSchema = z.object({
 	force: z.boolean().default(false).describe("Force the operation."),
@@ -27,6 +33,13 @@ const progressProbeSchema = z.object({});
 const progressProbeResultSchema = z.object({ isLive: z.boolean() });
 const homeDirProbeSchema = z.object({});
 const homeDirProbeResultSchema = z.object({ homeDir: z.string().optional() });
+
+const colorProbeCommand = defineRawCommand({
+	name: "color-probe",
+	summary: "Probe raw extension color output.",
+	description: "Probe raw extension color output.",
+	run: () => ok({}, { human: "\u001b[31mcolored\u001b[0m" }),
+});
 
 const optionProbeCommand = defineCommand({
 	name: "option-probe",
@@ -101,6 +114,24 @@ describe("extension command option specs", () => {
 			status: "ok",
 			data: { homeDir: "/kernel/home" },
 		});
+	});
+
+	test("the process host preserves ANSI from raw extension commands", async () => {
+		const stdout: string[] = [];
+		vi.stubEnv("FORCE_COLOR", "3");
+		const write = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+			stdout.push(String(chunk));
+			return true;
+		});
+		try {
+			expect(
+				await runCli(["color-probe"], { extensionRegistry: commandRegistry(colorProbeCommand) }),
+			).toBe(0);
+			expect(stdout.join("")).toContain("\u001b[31mcolored\u001b[0m");
+		} finally {
+			write.mockRestore();
+			vi.unstubAllEnvs();
+		}
 	});
 
 	test("extension option specs render in help", async () => {
