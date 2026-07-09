@@ -33,6 +33,7 @@ export interface RemoteSyncDiagnostics {
 export type SubmitPreflightFailureCause =
 	| { kind: "trunk_out_of_date" }
 	| { kind: "merged_pr_not_in_trunk" }
+	| { kind: "graphite_pr_info_lookup_failed" }
 	| {
 			kind: "remote_updated_outside_graphite";
 			branchName?: string;
@@ -59,6 +60,16 @@ const submitPreflightFailureCatalog = defineFailureCatalog<
 	},
 	merged_pr_not_in_trunk: {
 		message: (_failure, context) => formatMergedPrNotInTrunk(context.output),
+	},
+	graphite_pr_info_lookup_failed: {
+		message: () =>
+			[
+				"Graphite failed while looking up pull request info during submit.",
+				"",
+				"This matches a suspected Graphite CLI edge case: the non-interactive submit command used by ns can fail before creating a PR for a new current branch, even though plain `gt submit` may proceed.",
+				"",
+				"Fix: inspect the stack/PR state. If it looks correct, run `gt submit` manually, then verify the current branch has a PR with `gt pr` or `gh pr view <branch>`.",
+			].join("\n"),
 	},
 	remote_updated_outside_graphite: {
 		message: (failure) =>

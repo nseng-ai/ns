@@ -430,6 +430,39 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		runner.assertDone();
 	});
 
+	test("submitCurrentStack classifies Graphite PR-info lookup submit failure", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+				],
+				{
+					exitCode: 1,
+					stdout:
+						"Running in non-interactive mode. Inline prompts to fill PR fields will be skipped.\n\n🥞 Validating that this Graphite stack is ready to submit...\n",
+					stderr: "ERROR: Failed to get pull request info. Please try again.\n",
+				},
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.submitCurrentStack({ cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: { kind: "graphite_pr_info_lookup_failed" },
+		});
+		runner.assertDone();
+	});
+
 	test("submitCurrentStack classifies merged PR not contained in trunk submit output", async () => {
 		const runner = new ScriptedCommandRunner([
 			step(

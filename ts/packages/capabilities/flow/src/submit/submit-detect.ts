@@ -45,6 +45,11 @@ export function detectMergedPrNotInTrunk(output: string): boolean {
 	);
 }
 
+export function detectGraphitePrInfoLookupFailed(output: string): boolean {
+	const strippedOutput = stripTerminalEscapes(output).replace(/\r/g, "\n");
+	return /Failed to get pull request info\. Please try again\./i.test(strippedOutput);
+}
+
 export function detectRemoteUpdatedOutsideGraphite(
 	output: string,
 ): { kind: "remote_updated_outside_graphite"; branchName?: string } | undefined {
@@ -123,6 +128,9 @@ export function detectKnownPreflightFailureCause(
 	if (remoteUpdatedCause !== undefined) return remoteUpdatedCause;
 	if (detectTrunkOutOfDate(joinedOutput)) return { kind: "trunk_out_of_date" };
 	if (detectMergedPrNotInTrunk(joinedOutput)) return { kind: "merged_pr_not_in_trunk" };
+	if (detectGraphitePrInfoLookupFailed(joinedOutput)) {
+		return { kind: "graphite_pr_info_lookup_failed" };
+	}
 	return undefined;
 }
 
