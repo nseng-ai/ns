@@ -198,7 +198,7 @@ export interface RunSubmitCommandOptions {
 	submitMatrix?: SubmitMatrixProgressSink;
 	confirmRestack?: SubmitRestackConfirmation;
 	prDescription: SubmitPrDescriptionOptions;
-	regenerateExistingPrDescriptions?: boolean;
+	shouldRegenerateExistingPrDescriptions?: boolean;
 }
 
 export async function runSubmitCommand(
@@ -445,7 +445,8 @@ export async function runSubmitCommand(
 			text: "current PR not detected",
 		});
 	}
-	const shouldRegenerateExistingPrDescriptions = options.regenerateExistingPrDescriptions === true;
+	const shouldRegenerateExistingPrDescriptions =
+		options.shouldRegenerateExistingPrDescriptions === true;
 	const partitionedPrLinks = shouldRegenerateExistingPrDescriptions
 		? { newPrLinks: prLinks, existingPrLinks: [] }
 		: partitionPrLinksByExisting(prLinks, prewrite.existingPrLinks);

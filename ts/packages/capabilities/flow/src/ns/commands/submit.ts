@@ -194,7 +194,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = {
 					force: request.force,
 					shouldForwardCommandOutput: request.verbose,
 					prDescription: runtime.prDescription,
-					regenerateExistingPrDescriptions: request.regenerateDescriptions,
+					shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
 					onPhase: stream.emit,
 					...(onOutput === undefined ? {} : { onOutput }),
 				});
@@ -335,7 +335,7 @@ async function runSubmitWithMatrix(input: {
 			force: request.force,
 			shouldForwardCommandOutput: request.verbose,
 			prDescription: runtime.prDescription,
-			regenerateExistingPrDescriptions: request.regenerateDescriptions,
+			shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
 			onPhase,
 			onOutput,
 			submitMatrix: matrix,
