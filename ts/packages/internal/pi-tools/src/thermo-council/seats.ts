@@ -31,7 +31,7 @@ const DEFAULT_SEATS = [
 	{
 		id: "openai-high",
 		label: "OpenAI High",
-		model: "openai/gpt-5",
+		model: "openai-codex/gpt-5.6-sol",
 		envVar: "THERMO_COUNCIL_OPENAI_MODEL",
 	},
 	{
