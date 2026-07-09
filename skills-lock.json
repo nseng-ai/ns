@@ -61,6 +61,11 @@
       "sourceType": "local",
       "computedHash": "5663c61698620601db180599ed4f588b38a193be5244d71ef6f4797411663f8e"
     },
+    "code-fix-gh-stack": {
+      "source": "skills/code-fix-gh-stack",
+      "sourceType": "local",
+      "computedHash": "9425fe89a01d08dd1d2542d81f81cab689c167fb7b235885905553ae551207c8"
+    },
     "code-gh": {
       "source": "skills/code-gh",
       "sourceType": "local",
