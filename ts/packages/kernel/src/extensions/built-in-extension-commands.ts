@@ -3,18 +3,16 @@ import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
+	extensionPointAcceptsValues,
 	loadPointCatalogWithDescriptors,
 	nodeProjectConfigGateway,
+	pointSemanticsValues,
 	resolvePromptPointSource,
 	type PointCatalog,
 	type PointCatalogEntry,
 	type PointCatalogInstallation,
 	type ProjectConfigDiagnostic,
 } from "../project-config/points.ts";
-import {
-	nsExtensionPointAcceptsValues,
-	nsExtensionPointSemanticsValues,
-} from "../sdk/extension-manifest.ts";
 import type { NsCommand } from "../sdk/index.ts";
 
 const knownPromptEnvOverride = {
@@ -41,8 +39,8 @@ type PointSourceView = z.infer<typeof pointSourceSchema>;
 
 const pointSummarySchema = z.object({
 	id: z.string(),
-	accepts: z.enum(nsExtensionPointAcceptsValues),
-	semantics: z.enum(nsExtensionPointSemanticsValues),
+	accepts: z.enum(extensionPointAcceptsValues),
+	semantics: z.enum(pointSemanticsValues),
 	description: z.string().optional(),
 	manifestPath: z.string().optional(),
 	defaultPath: z.string().optional(),

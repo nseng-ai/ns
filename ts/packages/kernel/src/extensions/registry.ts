@@ -1,6 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -20,16 +19,9 @@ import {
 	type NsCommandSourceLevel,
 } from "./command-registry.ts";
 import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
-import {
-	discoverExtensionsInRoot,
-	discoverNsPackageCommands,
-	type DiscoveredExtensionCommand,
-	type ExtensionDiscoveryDiagnostic,
-} from "./discovery.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import { descriptorCommandAsNsCommand } from "./repo-local-catalog.ts";
 import {
-	fileModuleReference,
 	loadedModuleReference,
 	moduleReferenceDisplay,
 	packageModuleReference,
@@ -42,7 +34,6 @@ import {
 	optionalEntry,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
-import { mergeXdgHomeEnv, requireXdgPath, resolveNsXdgPath } from "@nseng-ai/foundation/xdg-path";
 import { parse } from "smol-toml";
 import { loadNsUserModuleDefault } from "../runtime/module-loader.ts";
 import {
@@ -132,8 +123,7 @@ export type PreinstalledNsCommandCatalogLoader = () =>
 
 export interface LoadNsCommandCatalogOptions {
 	cwd: string;
-	/** User home used only as HOME while resolving XDG-shaped global extension roots. */
-	xdgHomeDir?: string;
+	homeDir?: string;
 	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	preinstalledCommandCatalog?: PreinstalledNsCommandCatalogLoader;
 }
@@ -141,7 +131,6 @@ export interface LoadNsCommandCatalogOptions {
 const ORDERED_SOURCE_LEVELS = [
 	"built-in",
 	"preinstalled",
-	"global",
 	"project",
 ] as const satisfies readonly ExtensionSourceLevel[];
 
@@ -150,10 +139,6 @@ export async function loadNsCommandCatalog(
 ): Promise<NsCommandCatalog> {
 	const diagnostics: ExtensionDiagnostic[] = [];
 	const builtInCandidates = listBuiltInNsCommandCandidates();
-	const env = catalogEnv(options);
-	const globalRoots = [
-		requireXdgPath(resolveNsXdgPath({ kind: "data", env, segments: ["extensions"] })),
-	];
 	const orderedSources: Array<{
 		level: ExtensionSourceLevel;
 		label: string;
@@ -168,21 +153,6 @@ export async function loadNsCommandCatalog(
 		level: "preinstalled",
 		label: "preinstalled extension metadata",
 		candidates: preinstalledCandidates.candidates,
-	});
-	for (const rootDir of uniquePaths(globalRoots)) {
-		const loaded = loadRootCandidates({ level: "global", rootDir });
-		diagnostics.push(...loaded.diagnostics);
-		orderedSources.push({ level: "global", label: rootDir, candidates: loaded.candidates });
-	}
-	const projectCandidates = loadRootCandidates({
-		level: "project",
-		rootDir: join(options.cwd, ".ns", "extensions"),
-	});
-	diagnostics.push(...projectCandidates.diagnostics);
-	orderedSources.push({
-		level: "project",
-		label: join(options.cwd, ".ns", "extensions"),
-		candidates: projectCandidates.candidates,
 	});
 	const descriptorProjectCandidates = await loadProjectDescriptorCandidates(options.cwd);
 	diagnostics.push(...descriptorProjectCandidates.diagnostics);
@@ -374,21 +344,6 @@ function isFatalForSelectedCandidate(
 	if (selectedCandidate === undefined) return true;
 	if (diagnostic.sourceLevel === undefined) return true;
 	return sourceLevelRank(diagnostic.sourceLevel) >= sourceLevelRank(selectedCandidate.source.level);
-}
-
-function loadRootCandidates(options: { level: "global" | "project"; rootDir: string }): {
-	diagnostics: readonly ExtensionDiagnostic[];
-	candidates: readonly ExtensionCommandCandidate[];
-} {
-	const discovered = discoverExtensionsInRoot(options.rootDir);
-	return {
-		diagnostics: discovered.diagnostics.map((diagnostic) =>
-			fromDiscoveryDiagnostic(diagnostic, options.level),
-		),
-		candidates: discovered.commands.map((command) =>
-			discoveredCommandCandidateForLevel(command, options.level),
-		),
-	};
 }
 
 async function loadProjectDescriptorCandidates(cwd: string): Promise<{
@@ -615,17 +570,18 @@ function descriptorEntryCommandCandidates(options: {
 	if ("load" in options.entry) {
 		const commandEntry = options.entry;
 		const segments = [...options.segments, commandEntry.name];
+		const commandInfoPath = descriptorCommandInfoPath({
+			commandName: commandEntry.name,
+			segments: options.segments,
+			hiddenSegments: options.hiddenSegments,
+			rootGroupDescription: options.rootGroupDescription,
+		});
 		const displayPath = `${relativeDisplayPath(options.cwd, options.descriptorPath)}#${segments.join("/")}`;
 		return [
 			{
-				name: commandEntry.name,
-				segments,
+				...commandInfoPath,
 				description: `Load ns descriptor command ${segments.join(" ")}.`,
 				fullDescription: `Load ns descriptor command ${segments.join(" ")}.`,
-				...(options.segments.length === 1
-					? { group: options.segments[0], groupDescription: options.rootGroupDescription }
-					: {}),
-				...optionalEntry("hiddenSegments", options.hiddenSegments),
 				moduleReference: loadedModuleReference(displayPath, async () => {
 					const module = await commandEntry.load();
 					return module.default;
@@ -653,6 +609,28 @@ function descriptorEntryCommandCandidates(options: {
 			hiddenSegments,
 		}),
 	);
+}
+
+function descriptorCommandInfoPath(options: {
+	commandName: string;
+	segments: readonly string[];
+	hiddenSegments: readonly string[];
+	rootGroupDescription: string;
+}): Pick<NsCommandCliInfo, "name" | "group" | "segments" | "groupDescription" | "hiddenSegments"> {
+	const rootGroup = options.segments[0];
+	if (options.segments.length === 1 && rootGroup !== undefined) {
+		return {
+			name: options.commandName,
+			group: rootGroup,
+			groupDescription: options.rootGroupDescription,
+			...optionalEntry("hiddenSegments", options.hiddenSegments),
+		};
+	}
+	return {
+		name: options.commandName,
+		segments: [...options.segments, options.commandName],
+		...optionalEntry("hiddenSegments", options.hiddenSegments),
+	};
 }
 
 function relativeDisplayPath(rootDir: string, entryPath: string): string {
@@ -695,18 +673,6 @@ async function loadSourceDevPreinstalledCandidates(
 		diagnostics.push(...descriptor.diagnostics);
 		candidates.push(
 			...descriptor.candidates.filter((candidate) => !catalogKeys.has(commandKey(candidate))),
-		);
-		if (descriptor.candidates.length > 0) continue;
-		const discovered = discoverNsPackageCommands(packagesRoot, packageDir);
-		diagnostics.push(
-			...discovered.diagnostics.map((diagnostic) =>
-				fromDiscoveryDiagnostic(diagnostic, "preinstalled"),
-			),
-		);
-		candidates.push(
-			...discovered.commands
-				.filter((command) => !catalogKeys.has(commandKey(command)))
-				.map(sourceDevDiscoveredCommandCandidate),
 		);
 	}
 	return { diagnostics, candidates };
@@ -865,46 +831,6 @@ function preinstalledCatalogEntryCommandInfo(
 	});
 }
 
-function sourceDevDiscoveredCommandCandidate(
-	command: DiscoveredExtensionCommand,
-): ExternalNsCommandCandidate {
-	return discoveredCommandCandidate({
-		command,
-		level: "preinstalled",
-		label: `source-dev package ${command.displayPath}`,
-	});
-}
-
-function discoveredCommandCandidateForLevel(
-	command: DiscoveredExtensionCommand,
-	level: "global" | "project",
-): ExternalNsCommandCandidate {
-	return discoveredCommandCandidate({
-		command,
-		level,
-		label: command.displayPath,
-	});
-}
-
-function discoveredCommandCandidate(options: {
-	command: DiscoveredExtensionCommand;
-	level: ExtensionSourceLevel;
-	label: string;
-}): ExternalNsCommandCandidate {
-	return {
-		...toCommandCliInfo(options.command),
-		moduleReference:
-			options.command.moduleReference ?? fileModuleReference(options.command.entryPath),
-		entryPath: options.command.entryPath,
-		hasStaticCommandInfo: options.command.hasStaticCommandInfo,
-		source: {
-			level: options.level,
-			label: options.label,
-			path: options.command.entryPath,
-		},
-	};
-}
-
 function validateSourceCandidates(
 	level: ExtensionSourceLevel,
 	sourceLabel: string,
@@ -1029,18 +955,6 @@ function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandi
 	};
 }
 
-function catalogEnv(options: LoadNsCommandCatalogOptions): Record<string, string | undefined> {
-	return mergeXdgHomeEnv({
-		baseEnv: process.env,
-		...optionalEntry("env", options.env),
-		...optionalEntry("xdgHomeDir", options.xdgHomeDir),
-	});
-}
-
-function uniquePaths(paths: readonly string[]): readonly string[] {
-	return [...new Set(paths)];
-}
-
 function sourceLevelRank(level: ExtensionSourceLevel): number {
 	const rank = ORDERED_SOURCE_LEVELS.indexOf(level);
 	if (rank === -1) {
@@ -1053,13 +967,6 @@ function isBuiltInCandidate(
 	candidate: ExtensionCommandCandidate,
 ): candidate is BuiltInNsCommandCandidate {
 	return candidate.source.level === "built-in";
-}
-
-function fromDiscoveryDiagnostic(
-	diagnostic: ExtensionDiscoveryDiagnostic,
-	sourceLevel: ExtensionSourceLevel,
-): ExtensionErrorDiagnostic {
-	return { ...diagnostic, sourceLevel };
 }
 
 function fromLoadDiagnostic(
@@ -1075,29 +982,24 @@ function validateDescriptorCommandContribution(
 	entry: ExtensionCommandEntry,
 	sourceLabel: string,
 ): { ok: true; command: NsCommand } | { ok: false; message: string } {
-	if (!isNsCommand(contribution)) {
-		return {
-			ok: false,
-			message: `Invalid ns descriptor command ${sourceLabel}: loaded module default export must be a command object.`,
-		};
-	}
-	if (entry.name !== contribution.name) {
+	if (
+		isRecord(contribution) &&
+		typeof contribution.name === "string" &&
+		entry.name !== contribution.name
+	) {
 		return {
 			ok: false,
 			message: `Invalid ns descriptor command ${sourceLabel}: Loaded command name mismatch: descriptor entry "${entry.name}" loaded command "${contribution.name}".`,
 		};
 	}
-	return { ok: true, command: descriptorCommandAsNsCommand(contribution) };
-}
-
-function isNsCommand(value: unknown): value is NsCommand {
-	if (!isRecord(value)) return false;
-	return (
-		typeof value.name === "string" &&
-		typeof value.summary === "string" &&
-		typeof value.description === "string" &&
-		typeof value.run === "function"
+	const validation = validateNsExtensionContribution(
+		{ commands: [contribution] },
+		entry,
+		sourceLabel,
+		"ns descriptor command",
 	);
+	if (!validation.ok) return validation;
+	return { ok: true, command: descriptorCommandAsNsCommand(validation.command) };
 }
 
 function candidateDiagnosticPath(candidate: ExtensionCommandCandidate): string {

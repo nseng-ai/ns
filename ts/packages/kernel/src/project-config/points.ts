@@ -6,19 +6,17 @@ import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 
 import { makeKernelDiagnostic } from "../runtime/diagnostics.ts";
-import { scanExtensionRoot } from "../runtime/extension-root-discovery.ts";
 import { loadNsUserModuleDefault } from "../runtime/module-loader.ts";
-import { NS_COMMAND_NAME_PATTERN } from "../sdk/command-name.ts";
 import {
-	nsExtensionManifestPointSchema,
-	nsExtensionPackageManifestSchema,
-	nsExtensionPointAcceptsValues,
-	nsExtensionPointSemanticsValues,
-} from "../sdk/extension-manifest.ts";
-import { validateExtensionDescriptor, type ExtensionDescriptor } from "../sdk/descriptor.ts";
+	extensionPointAcceptsValues,
+	validateExtensionDescriptor,
+	type ExtensionDescriptor,
+} from "../sdk/descriptor.ts";
 
-export type PointAccepts = (typeof nsExtensionPointAcceptsValues)[number];
-export type PointSemantics = (typeof nsExtensionPointSemanticsValues)[number];
+export { extensionPointAcceptsValues };
+export const pointSemanticsValues = ["additive", "override"] as const;
+export type PointAccepts = (typeof extensionPointAcceptsValues)[number];
+export type PointSemantics = (typeof pointSemanticsValues)[number];
 
 export interface PointDefinition {
 	id: string;
@@ -28,6 +26,28 @@ export interface PointDefinition {
 	defaultPath?: string;
 	manifestPath?: string;
 }
+
+const builtInPointDefinitions = [
+	{
+		id: "branch-context.plans-write",
+		accepts: "prompt",
+		semantics: "override",
+		description: "Custom prompt body for saved-plan authoring.",
+		defaultPath: "prompts/plans-write-default.md",
+	},
+	{
+		id: "flow.submit.pr-description",
+		accepts: "prompt",
+		semantics: "override",
+		description: "Prompt for generating pull request descriptions during flow submit.",
+	},
+	{
+		id: "flow.submit.pre",
+		accepts: "hook",
+		semantics: "additive",
+		description: "Commands to run before flow submit checkpointing.",
+	},
+] as const satisfies readonly PointDefinition[];
 
 export interface SettingsSchema<T = unknown> {
 	path: readonly [string, ...string[]];
@@ -295,24 +315,6 @@ export function parseProjectConfigToml(
 	return { ok: true, config, diagnostics: [] };
 }
 
-export function discoverPointDefinitionsInRoot(rootDir: string): PointDefinitionDiscoveryResult {
-	const rootScan = scanExtensionRoot(rootDir);
-	if (rootScan.diagnostics.length > 0) {
-		return { pointDefinitions: [], diagnostics: rootScan.diagnostics };
-	}
-
-	const pointDefinitions: PointDefinition[] = [];
-	const diagnostics: ProjectConfigDiagnostic[] = [];
-	for (const entry of rootScan.entries) {
-		if (entry.type !== "directory" || entry.packageJsonPath === undefined) continue;
-		const packageResult = discoverPackagePointDefinitions(entry.packageJsonPath);
-		pointDefinitions.push(...packageResult.pointDefinitions);
-		diagnostics.push(...packageResult.diagnostics);
-	}
-
-	return { pointDefinitions, diagnostics };
-}
-
 async function discoverDescriptorPointDefinitions(
 	repoRoot: string,
 	gateway: ProjectConfigGateway,
@@ -510,16 +512,13 @@ export function loadPointCatalog(request: {
 	repoRoot: string;
 	gateway: ProjectConfigGateway;
 	pointDefinitions?: readonly PointDefinition[];
-	extensionRoot?: string;
 	settingsSchemas?: readonly SettingsSchema[];
 	promptEnvOverride?: PromptPointEnvOverride;
 	env?: Record<string, string | undefined>;
 }): PointCatalog {
 	const definitionResult =
 		request.pointDefinitions === undefined
-			? discoverPointDefinitionsInRoot(
-					join(request.repoRoot, request.extensionRoot ?? ".ns/extensions"),
-				)
+			? { pointDefinitions: builtInPointDefinitions, diagnostics: [] }
 			: { pointDefinitions: request.pointDefinitions, diagnostics: [] };
 	const configResult = loadProjectConfig({
 		repoRoot: request.repoRoot,
@@ -542,25 +541,18 @@ export async function loadPointCatalogWithDescriptors(request: {
 	repoRoot: string;
 	gateway: ProjectConfigGateway;
 	pointDefinitions?: readonly PointDefinition[];
-	extensionRoot?: string;
 	settingsSchemas?: readonly SettingsSchema[];
 	promptEnvOverride?: PromptPointEnvOverride;
 	env?: Record<string, string | undefined>;
 }): Promise<PointCatalog> {
-	const legacyDefinitionResult =
-		request.pointDefinitions === undefined
-			? discoverPointDefinitionsInRoot(
-					join(request.repoRoot, request.extensionRoot ?? ".ns/extensions"),
-				)
-			: { pointDefinitions: request.pointDefinitions, diagnostics: [] };
 	const descriptorDefinitionResult =
 		request.pointDefinitions === undefined
 			? await discoverDescriptorPointDefinitions(request.repoRoot, request.gateway)
-			: { pointDefinitions: [], diagnostics: [] };
-	const pointDefinitions = [
-		...legacyDefinitionResult.pointDefinitions,
-		...descriptorDefinitionResult.pointDefinitions,
-	];
+			: { pointDefinitions: request.pointDefinitions, diagnostics: [] };
+	const pointDefinitions =
+		request.pointDefinitions === undefined
+			? [...builtInPointDefinitions, ...descriptorDefinitionResult.pointDefinitions]
+			: descriptorDefinitionResult.pointDefinitions;
 	const configResult = loadProjectConfig({
 		repoRoot: request.repoRoot,
 		gateway: request.gateway,
@@ -572,11 +564,7 @@ export async function loadPointCatalogWithDescriptors(request: {
 		gateway: request.gateway,
 		pointDefinitions,
 		config: configResult.config ?? emptyLoadedProjectConfig,
-		diagnostics: [
-			...legacyDefinitionResult.diagnostics,
-			...descriptorDefinitionResult.diagnostics,
-			...configResult.diagnostics,
-		],
+		diagnostics: [...descriptorDefinitionResult.diagnostics, ...configResult.diagnostics],
 		...optionalEntry("promptEnvOverride", request.promptEnvOverride),
 		env: request.env ?? {},
 	});
@@ -911,221 +899,6 @@ function valueAtPath(
 		if (current === undefined) return undefined;
 	}
 	return current;
-}
-
-function discoverPackagePointDefinitions(packageJsonPath: string): PointDefinitionDiscoveryResult {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-	} catch (error) {
-		return {
-			pointDefinitions: [],
-			diagnostics: [
-				diagnostic(
-					"extension_manifest_parse_failed",
-					`Could not parse extension manifest ${packageJsonPath}.\n${formatErrorMessage(error)}`,
-					{ path: packageJsonPath },
-				),
-			],
-		};
-	}
-
-	const manifestResult = nsExtensionPackageManifestSchema.safeParse(parsed);
-	if (!manifestResult.success) {
-		return {
-			pointDefinitions: [],
-			diagnostics: [
-				diagnostic(
-					"extension_manifest_invalid",
-					`Extension manifest contains invalid ns metadata: ${packageJsonPath}.`,
-					{ path: packageJsonPath },
-				),
-			],
-		};
-	}
-
-	const manifest = manifestResult.data;
-	if (manifest.ns?.points === undefined) return { pointDefinitions: [], diagnostics: [] };
-	const group = readManifestNameSegment(manifest.ns.group);
-	if (group === undefined) {
-		return {
-			pointDefinitions: [],
-			diagnostics: [
-				diagnostic(
-					"extension_manifest_point_group_invalid",
-					`Extension manifest point group must be a non-empty segment: ${packageJsonPath}.`,
-					{ path: packageJsonPath },
-				),
-			],
-		};
-	}
-
-	const pointDefinitions: PointDefinition[] = [];
-	const diagnostics: ProjectConfigDiagnostic[] = [];
-	const location = { packageJsonPath, packageDir: dirname(packageJsonPath) };
-	for (const point of manifest.ns.points) {
-		const pointResult = pointDefinitionFromManifestPoint({
-			group,
-			location,
-			point,
-		});
-		if (pointResult.ok) pointDefinitions.push(pointResult.definition);
-		else diagnostics.push(...pointResult.diagnostics);
-	}
-	return { pointDefinitions, diagnostics };
-}
-
-interface PackageManifestLocation {
-	packageJsonPath: string;
-	packageDir: string;
-}
-
-function pointDefinitionFromManifestPoint(request: {
-	group: string;
-	location: PackageManifestLocation;
-	point: unknown;
-}):
-	| { ok: true; definition: PointDefinition }
-	| { ok: false; diagnostics: readonly ProjectConfigDiagnostic[] } {
-	const pointResult = nsExtensionManifestPointSchema.safeParse(request.point);
-	if (!pointResult.success) {
-		return {
-			ok: false,
-			diagnostics: [
-				diagnostic(
-					"extension_manifest_point_invalid",
-					`Extension manifest points must be objects with supported known fields: ${request.location.packageJsonPath}.`,
-					{ path: request.location.packageJsonPath },
-				),
-			],
-		};
-	}
-
-	const point = pointResult.data;
-	const path = parsePointManifestPath(point.path);
-	const diagnostics: ProjectConfigDiagnostic[] = [...path.diagnostics];
-	if (point.accepts === undefined) {
-		diagnostics.push(manifestPointFieldDiagnostic("accepts", request.location.packageJsonPath));
-	}
-	if (point.semantics === undefined) {
-		diagnostics.push(manifestPointFieldDiagnostic("semantics", request.location.packageJsonPath));
-	}
-
-	let defaultPath: string | undefined;
-	if (point.default !== undefined) {
-		const defaultValidation = validateManifestRelativePath({
-			location: request.location,
-			rawPath: point.default,
-		});
-		if (defaultValidation.ok) defaultPath = point.default;
-		else diagnostics.push(defaultValidation.diagnostic);
-	}
-
-	if (
-		diagnostics.length > 0 ||
-		path.value === undefined ||
-		point.accepts === undefined ||
-		point.semantics === undefined
-	) {
-		return { ok: false, diagnostics };
-	}
-
-	const description = readNonEmptyString(point.description);
-	return {
-		ok: true,
-		definition: {
-			id: [request.group, ...path.value].join("."),
-			accepts: point.accepts,
-			semantics: point.semantics,
-			...(description === undefined ? {} : { description }),
-			...(defaultPath === undefined ? {} : { defaultPath }),
-			manifestPath: request.location.packageJsonPath,
-		},
-	};
-}
-
-function parsePointManifestPath(value: unknown): {
-	value: readonly string[] | undefined;
-	diagnostics: readonly ProjectConfigDiagnostic[];
-} {
-	if (!Array.isArray(value) || value.length === 0) {
-		return {
-			value: undefined,
-			diagnostics: [manifestPointFieldDiagnostic("path", undefined)],
-		};
-	}
-	const segments = value.filter((segment): segment is string => typeof segment === "string");
-	if (
-		segments.length !== value.length ||
-		segments.some((segment) => readManifestNameSegment(segment) === undefined)
-	) {
-		return {
-			value: undefined,
-			diagnostics: [manifestPointFieldDiagnostic("path", undefined)],
-		};
-	}
-	return { value: segments, diagnostics: [] };
-}
-
-function validateManifestRelativePath(request: {
-	location: PackageManifestLocation;
-	rawPath: string;
-}): { ok: true } | { ok: false; diagnostic: ProjectConfigDiagnostic } {
-	if (
-		request.rawPath.trim() === "" ||
-		request.rawPath.startsWith("/") ||
-		request.rawPath.includes("\\")
-	) {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"extension_manifest_point_default_not_relative",
-				`Extension manifest point default must be a relative POSIX-style path inside the package: ${request.rawPath}.`,
-				{ path: request.location.packageJsonPath },
-			),
-		};
-	}
-	if (!request.rawPath.endsWith(".md")) {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"extension_manifest_point_default_not_markdown",
-				`Extension manifest point default must be a markdown file path: ${request.rawPath}.`,
-				{ path: request.location.packageJsonPath },
-			),
-		};
-	}
-	const resolvedPath = resolve(request.location.packageDir, request.rawPath);
-	if (!isPathInside(request.location.packageDir, resolvedPath)) {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"extension_manifest_point_default_escapes",
-				`Extension manifest point default must not escape its package directory: ${request.rawPath}.`,
-				{ path: request.location.packageJsonPath },
-			),
-		};
-	}
-	return { ok: true };
-}
-
-function manifestPointFieldDiagnostic(
-	field: string,
-	packageJsonPath: string | undefined,
-): ProjectConfigDiagnostic {
-	return diagnostic(
-		"extension_manifest_point_field_invalid",
-		`Extension manifest point ${field} is required and must match the point manifest schema.`,
-		optionalEntry("path", packageJsonPath),
-	);
-}
-
-function readManifestNameSegment(value: unknown): string | undefined {
-	return typeof value === "string" && NS_COMMAND_NAME_PATTERN.test(value) ? value : undefined;
-}
-
-function readNonEmptyString(value: unknown): string | undefined {
-	return typeof value === "string" && value.trim() !== "" ? value : undefined;
 }
 
 function diagnostic(

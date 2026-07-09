@@ -70,10 +70,10 @@ export const nsExtensionParity = definePiSurfaceParity(
 
 export interface NsExtensionOptions {
 	/**
-	 * Seam for the ns CLI runner. Defaults to the real {@link runCli}, which
-	 * discovers and dynamically imports project-local `.ns/extensions` commands.
-	 * Tests inject a fake to exercise the Pi command bridge (argv routing and
-	 * output rendering) without standing up a temporary ns extension project.
+	 * Seam for the ns CLI runner. Defaults to the real {@link runCli}, which discovers descriptor
+	 * commands from preinstalled and ns.toml-declared extensions. Tests inject a fake to exercise the
+	 * Pi command bridge (argv routing and output rendering) without standing up a temporary ns
+	 * extension project.
 	 */
 	runCli?: typeof runCli;
 }

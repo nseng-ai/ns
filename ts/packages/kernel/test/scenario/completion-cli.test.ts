@@ -80,9 +80,9 @@ describe("ns completion CLI", () => {
 			expectedLoadLog: ["hello"],
 		},
 		{
-			name: "one-level grouped global command",
+			name: "one-level grouped project command",
 			path: ["tools", "scan"],
-			candidate: { group: "tools", name: "scan", sourceLevel: "global" as const },
+			candidate: { group: "tools", name: "scan", sourceLevel: "project" as const },
 			command: helloCommand({
 				name: "scan",
 				schema: z.object({ isGrouped: z.boolean().default(false) }),
@@ -243,7 +243,7 @@ describe("ns completion CLI", () => {
 interface FakeCompletionPath {
 	group?: string;
 	segments?: readonly string[];
-	sourceLevel?: "preinstalled" | "global" | "project";
+	sourceLevel?: "preinstalled" | "project";
 }
 
 interface FakeCompletionRegistryOptions {

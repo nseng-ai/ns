@@ -1,13 +1,11 @@
-import { cpSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { installDescriptorExtension } from "./extension-descriptor-install.ts";
+
 export const OBJECTIVE_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.ns/extensions/objective", import.meta.url),
+	new URL("../../../capabilities/objectives", import.meta.url),
 );
 
 export function installCheckedInObjectiveExtension(projectRoot: string): void {
-	const destination = join(projectRoot, ".ns", "extensions", "objective");
-	mkdirSync(dirname(destination), { recursive: true });
-	cpSync(OBJECTIVE_EXTENSION_SOURCE, destination, { recursive: true });
+	installDescriptorExtension(projectRoot, OBJECTIVE_EXTENSION_SOURCE);
 }

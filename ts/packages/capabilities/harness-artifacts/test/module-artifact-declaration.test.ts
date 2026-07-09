@@ -1,27 +1,34 @@
 import { describe, expect, test } from "vitest";
 
-import { parseModuleArtifactDeclaration } from "../src/module-artifact-declaration.ts";
+import {
+	parseModuleArtifactDeclaration,
+	parseModuleArtifactDeclarations,
+} from "../src/module-artifact-declaration.ts";
 
 function parsePackageJson(value: unknown) {
 	return parseModuleArtifactDeclaration(JSON.stringify(value));
 }
 
+function parseDescriptorArtifacts(packageJson: unknown, declarations: readonly unknown[]) {
+	return parseModuleArtifactDeclarations(JSON.stringify(packageJson), declarations);
+}
+
 describe("module artifact declaration parser", () => {
 	test("parses valid skill declarations into derived npm-module artifact entries", () => {
-		const result = parsePackageJson({
-			name: "@acme/ext",
-			version: "1.2.3",
-			ns: {
-				harnessArtifacts: [
-					{
-						kind: "skill",
-						name: "demo-skill",
-						path: "skills/demo-skill",
-						description: "Demo skill.",
-					},
-				],
+		const result = parseDescriptorArtifacts(
+			{
+				name: "@acme/ext",
+				version: "1.2.3",
 			},
-		});
+			[
+				{
+					kind: "skill",
+					name: "demo-skill",
+					path: "skills/demo-skill",
+					description: "Demo skill.",
+				},
+			],
+		);
 
 		expect(result).toMatchObject({ ok: true, packageName: "@acme/ext", version: "1.2.3" });
 		if (!result.ok) return;
@@ -49,10 +56,9 @@ describe("module artifact declaration parser", () => {
 	});
 
 	test("falls back to an unversioned package version and deterministic description", () => {
-		const result = parsePackageJson({
-			name: "acme-ext",
-			ns: { harnessArtifacts: [{ kind: "skill", name: "demo", path: "skills/demo" }] },
-		});
+		const result = parseDescriptorArtifacts({ name: "acme-ext" }, [
+			{ kind: "skill", name: "demo", path: "skills/demo" },
+		]);
 
 		expect(result).toMatchObject({ ok: true, version: "unversioned" });
 		if (!result.ok) return;
@@ -77,24 +83,10 @@ describe("module artifact declaration parser", () => {
 		});
 	});
 
-	test("diagnoses a non-array declaration field", () => {
-		const result = parsePackageJson({
-			name: "acme-ext",
-			ns: { harnessArtifacts: { kind: "skill" } },
-		});
-
-		expect(result).toMatchObject({
-			ok: true,
-			artifacts: [],
-			diagnostics: [{ code: "module_artifact_declarations_not_array" }],
-		});
-	});
-
 	test("diagnoses unsupported model-only artifact kinds", () => {
-		const result = parsePackageJson({
-			name: "acme-ext",
-			ns: { harnessArtifacts: [{ kind: "agent", name: "bot", path: "agents/bot" }] },
-		});
+		const result = parseDescriptorArtifacts({ name: "acme-ext" }, [
+			{ kind: "agent", name: "bot", path: "agents/bot" },
+		]);
 
 		expect(result).toMatchObject({
 			ok: true,
@@ -104,16 +96,11 @@ describe("module artifact declaration parser", () => {
 	});
 
 	test("continues past invalid items and reports duplicate declaration names", () => {
-		const result = parsePackageJson({
-			name: "acme-ext",
-			ns: {
-				harnessArtifacts: [
-					{ kind: "skill", name: "valid", path: "skills/valid" },
-					{ kind: "skill", name: "", path: "skills/missing-name" },
-					{ kind: "skill", name: "valid", path: "skills/other" },
-				],
-			},
-		});
+		const result = parseDescriptorArtifacts({ name: "acme-ext" }, [
+			{ kind: "skill", name: "valid", path: "skills/valid" },
+			{ kind: "skill", name: "", path: "skills/missing-name" },
+			{ kind: "skill", name: "valid", path: "skills/other" },
+		]);
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
@@ -128,10 +115,9 @@ describe("module artifact declaration parser", () => {
 	test.each(["/skills/demo", "skills\\demo", "../demo", "skills/../demo", "skills//demo"])(
 		"diagnoses invalid relative path %s",
 		(path) => {
-			const result = parsePackageJson({
-				name: "acme-ext",
-				ns: { harnessArtifacts: [{ kind: "skill", name: "demo", path }] },
-			});
+			const result = parseDescriptorArtifacts({ name: "acme-ext" }, [
+				{ kind: "skill", name: "demo", path },
+			]);
 
 			expect(result).toMatchObject({
 				ok: true,

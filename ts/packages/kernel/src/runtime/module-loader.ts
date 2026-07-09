@@ -8,8 +8,9 @@ import {
 	defineCommand,
 	defineExtension,
 	defineRawCommand,
-	defineRepoLocalNsExtensionDescriptor,
 	extensionDescriptorSchema,
+	extensionPointAcceptsValues,
+	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
 	failed,
 	failure,
@@ -20,14 +21,10 @@ import {
 	MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS,
 	negative,
 	noopNsCommandIo,
-	repoLocalNsCommandDescriptor,
 	noopNsProgress,
 	normalizeTextOutput,
 	ok,
 	okExit,
-	nsExtensionManifestCommandSchema,
-	nsExtensionManifestSchema,
-	nsExtensionPackageManifestSchema,
 	padMatrixProgressTextEnd,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
@@ -52,8 +49,9 @@ const nsSdkVirtualModule = {
 	defineCommand,
 	defineExtension,
 	defineRawCommand,
-	defineRepoLocalNsExtensionDescriptor,
 	extensionDescriptorSchema,
+	extensionPointAcceptsValues,
+	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
 	failed,
 	failure,
@@ -64,14 +62,10 @@ const nsSdkVirtualModule = {
 	MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS,
 	negative,
 	noopNsCommandIo,
-	repoLocalNsCommandDescriptor,
 	noopNsProgress,
 	normalizeTextOutput,
 	ok,
 	okExit,
-	nsExtensionManifestCommandSchema,
-	nsExtensionManifestSchema,
-	nsExtensionPackageManifestSchema,
 	padMatrixProgressTextEnd,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
@@ -87,9 +81,8 @@ const nsSdkVirtualModule = {
  * Create the ns-aware jiti instance used for user-authored modules.
  *
  * The load-bearing option is `virtualModules`: it binds `@nseng-ai/kernel/sdk` to the
- * exact SDK object imported by this process, so command-entry commands and
- * schemas share host SDK identity instead of resolving dependency copies from
- * `.ns/extensions`.
+ * exact SDK object imported by this process, so descriptor and command modules share host SDK
+ * identity instead of resolving dependency copies from their package roots.
  *
  * First-party bundled commands are loaded by package module specifier through
  * the selected-command loader instead of through source-checkout aliases here.

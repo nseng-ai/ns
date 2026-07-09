@@ -85,51 +85,12 @@ export default defineExtension({});
 
 ---
 
-## Repo-local extension descriptors
+## Extension descriptors
 
-### `repoLocalNsCommandDescriptor()`
+An extension package exposes its descriptor module through `package.json` `exports["./ns-extension"]`.
+The descriptor module default-exports `defineExtension({ ... })`. Production discovery loads extension packages named in repo-root `ns.toml` `extensions`; it does not scan `.ns/extensions` roots or parse `package.json` `ns.commands`, `ns.points`, or `ns.harnessArtifacts` shims.
 
-Builds a descriptor for a checked-in `.ns/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module. The static `.ns/extensions/*/package.json` manifests remain hand-authored because repo-local discovery must read JSON without executing TypeScript; these descriptors are the package-owned parity oracle that integration tests compare against those static manifests and shims until generation is introduced.
-
-```ts
-function repoLocalNsCommandDescriptor(options: RepoLocalNsCommandDescriptorOptions): RepoLocalNsExtensionCommandDescriptor;
-```
-
-Repo-local first-party extensions in this repository use this command-leaf pattern:
-
-1. The implementation package owns a `src/repo-local-ns-extension.ts` descriptor.
-2. Each public command module exports its named `NsCommand` and a default `defineExtension({ commands: [thatCommand] })` wrapper.
-3. `.ns/extensions/<group>/package.json` lists one manifest command entry per command leaf.
-4. `.ns/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export of the package command module.
-
-Do not point multiple manifest command entries at a shared `.ns/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
-
-`packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@ns/branch-context/ns/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Reviews' top-level `review-list` manifest leaf.
-
-```ts
-import { repoLocalNsCommandDescriptor } from "@ns/kernel/sdk";
-
-const descriptor = repoLocalNsCommandDescriptor({
-  command: attachCommand,
-  manifestPath: ["exec", "attach"],
-  packageExportPrefix: "@ns/branch-context/ns/commands",
-});
-// manifestEntry: "./src/commands/attach.ts"
-// packageExport: "@ns/branch-context/ns/commands/attach"
-
-const listDescriptor = repoLocalNsCommandDescriptor({
-  command: reviewsListCommand,
-  packageExportPrefix: "@nseng-ai/reviews/commands",
-});
-// manifestEntry: "./src/commands/list.ts"
-// packageExport: "@nseng-ai/reviews/commands/list"
-```
-
-### `defineRepoLocalNsExtensionDescriptor()`
-
-Declares the package-owned descriptor that parity tests compare against a checked-in repo-local extension manifest. It returns its argument unchanged.
-
-The companion `repoLocalNsExtensionToPreinstalledCatalog()` helper — which converts a repo-local descriptor into preinstalled-command catalog entries — lives in the `@nseng-ai/kernel/cli` internal workspace surface, not this public author API, because it depends on the extension registry's catalog types.
+Descriptor-level contributions include `entries` for commands, `points` for point definitions, and `bundledArtifacts` for harness artifacts.
 
 ---
 
@@ -299,43 +260,6 @@ interface PositionalSpec {
   run: (ctx, request) => ok(request.slug ?? "(auto)"),
 }
 ```
-
-## Extension manifest schemas
-
-ns package manifests can describe command entries without loading extension code. The SDK exports permissive Zod schemas for the known author-facing `package.json` manifest shape; unknown package, `ns`, and command-entry fields are accepted and preserved.
-
-### `nsExtensionManifestCommandSchema`
-
-Validates one known `ns.commands[]` entry shape.
-
-```ts
-const command = nsExtensionManifestCommandSchema.parse({
-  name: "changes",
-  path: ["flow", "changes"],
-  description: "Show changes.",
-  fullDescription: "Show changes with details.",
-  entry: "./src/changes.ts",
-});
-```
-
-Known fields are `name?`, `path?`, `group?`, `description?`, `fullDescription?`, and `entry?`. Filesystem checks, command-name rules, grouping behavior, and final discovery diagnostics remain ns kernel responsibilities.
-
-### `nsExtensionManifestSchema` / `nsExtensionPackageManifestSchema`
-
-Validate the known `ns` object and package-level manifest wrapper.
-
-```ts
-const manifest = nsExtensionPackageManifestSchema.parse({
-  description: "Flow command package.",
-  ns: {
-    group: "flow",
-    description: "Flow commands.",
-    commands: [{ name: "changes", description: "Show changes.", entry: "./src/changes.ts" }],
-  },
-});
-```
-
-The inferred types are exported as `NsExtensionManifestCommand`, `NsExtensionManifest`, and `NsExtensionPackageManifest`.
 
 ## Text helpers
 

@@ -27,7 +27,7 @@ describe("checked-in flow ns extension registry loading", () => {
 
 		const catalog = await loadNsCommandCatalog({
 			cwd,
-			xdgHomeDir: homeDir,
+			homeDir: homeDir,
 		});
 
 		expect(catalog.diagnostics).toEqual([]);

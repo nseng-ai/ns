@@ -1,20 +1,6 @@
 // Public author API for ns extensions.
 // Keep ts/packages/kernel/docs/sdk-reference.md in sync when changing these exports.
 export { defineCommand, defineExtension, defineRawCommand } from "./command.ts";
-export {
-	defineRepoLocalNsExtensionDescriptor,
-	repoLocalNsCommandDescriptor,
-} from "./repo-local-ns-extension.ts";
-export {
-	nsExtensionManifestCommandSchema,
-	nsExtensionManifestSchema,
-	nsExtensionPackageManifestSchema,
-} from "./extension-manifest.ts";
-export type {
-	NsExtensionManifest,
-	NsExtensionManifestCommand,
-	NsExtensionPackageManifest,
-} from "./extension-manifest.ts";
 export type {
 	ClinkrCompletionCandidate,
 	ClinkrCompletionResult,
@@ -32,11 +18,6 @@ export type {
 	NsCommandSchema,
 	NsExtension,
 } from "./command.ts";
-export type {
-	RepoLocalNsCommandDescriptorOptions,
-	RepoLocalNsExtensionCommandDescriptor,
-	RepoLocalNsExtensionDescriptor,
-} from "./repo-local-ns-extension.ts";
 export type {
 	ExecResult,
 	NsConfirmOptions,
@@ -66,6 +47,8 @@ export type { MachineEnvelope } from "@nseng-ai/clinkr";
 export {
 	bundledArtifactDefinitionSchema,
 	extensionDescriptorSchema,
+	extensionPointAcceptsValues,
+	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
 	validateExtensionDescriptor,
 	validateLoadedCommandName,

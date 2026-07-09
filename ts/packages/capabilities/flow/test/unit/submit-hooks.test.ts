@@ -48,7 +48,11 @@ async function createSubmitHooksRepo(nsToml: string): Promise<string> {
 			},
 		],
 	});
-	await writeFile(join(repoRoot, "ns.toml"), nsToml, "utf8");
+	await writeFile(
+		join(repoRoot, "ns.toml"),
+		`extensions = ["./extensions/flow"]\n${nsToml}`,
+		"utf8",
+	);
 	return repoRoot;
 }
 

@@ -29,10 +29,6 @@ describe("ns extension point introspection", () => {
 			expect(run.stdout.join("")).toContain(
 				"branch-context.plans-write (prompt, override) — conventional .ns/prompts/branch-context.plans-write.md",
 			);
-			expect(run.stdout.join("")).toContain(
-				"tools.optional (prompt, override) — default ./prompts/optional.md",
-			);
-			expect(run.stdout.join("")).toContain("tools.unused (hook, additive) — missing");
 			expect(run.stdout.join("")).toContain("point_installation_undefined");
 			expect(run.stderr.join("")).toBe("");
 		} finally {
@@ -57,8 +53,6 @@ describe("ns extension point introspection", () => {
 				"branch-context.plans-write",
 				"flow.submit.pr-description",
 				"flow.submit.pre",
-				"tools.optional",
-				"tools.unused",
 			]);
 			expect(
 				data.points.find((point) => point.id === "flow.submit.pr-description")?.activeSource,

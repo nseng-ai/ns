@@ -237,7 +237,7 @@ export async function runHarnessArtifactReconcile(
 	const discoveryGateway = request.discoveryGateway ?? nodeHarnessArtifactFileSystemGateway;
 	const moduleDiscovery = await discoverExtensionModuleHarnessArtifacts({
 		projectRoot: request.projectRoot,
-		homeDir: request.homeDir,
+		...optionalEntry("homeDir", request.homeDir),
 		env: request.env,
 		gateway: discoveryGateway,
 	});

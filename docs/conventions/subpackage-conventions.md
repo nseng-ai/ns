@@ -14,17 +14,17 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 | ------------ | ------------------------------------------------------------------------ | --------------------------------------- |
 | API          | `api`                                                                    | any package (runtime)                   |
 | Testing      | `testing`                                                                | any package (tests only)                |
-| Host surface | `ns`, `pi`, `repo-local-ns-extension`                                    | the named host only                     |
+| Host surface | `ns`, `pi`                                                               | the named host only                     |
 | Feature      | open, domain-meaningful (`land-stack`, `submit`, `cmux`, `lifecycle`, …) | sibling subpackages in the same package |
 
 - **API** hosts the package's Capability API (`@nseng-ai/<cap>/api`) as a thin contract/facade. It is the only cross-package programmatic door; logic lives in features, not here.
 - **Testing** exports fakes and test kits for other packages' tests. Never imported by runtime code.
-- **Host surfaces** are thin adapters consumed by exactly one host: `ns` by the ns CLI kernel wiring, `pi` by the Pi host stack, `repo-local-ns-extension` by kernel extension loading. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
+- **Host surfaces** are thin adapters consumed by exactly one host: `ns` by the ns CLI kernel wiring and `pi` by the Pi host stack. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
 - **Features** are the package's real domain verticals — the entries that make the topology report say something package-specific. They never import host surfaces, and their edges stay intra-package.
 
 ## Naming rules
 
-- The contract and host-surface vocabulary is **closed**: `api`, `testing`, `ns`, `pi`, `repo-local-ns-extension`. Do not invent synonyms.
+- The contract and host-surface vocabulary is **closed**: `api`, `testing`, `ns`, `pi`. Do not invent synonyms.
 - Never declare internal layers as subpackages: `operations`, `gateways`, `commands`, `shared`, `shell`, `kit`. They are folders inside the kind that owns them.
 - `core` is acceptable only as the feature subpackage naming the package's central domain (when the package's namesake concept *is* the feature). It is not a home for consolidated layers.
 - Feature names must mean something in the package's domain. Prefer the term the package's `CONTEXT.md` already uses.

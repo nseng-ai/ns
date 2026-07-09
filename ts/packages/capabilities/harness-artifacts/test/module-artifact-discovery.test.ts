@@ -5,205 +5,55 @@ import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import {
-	discoverExtensionModuleHarnessArtifacts,
-	type HarnessArtifactModuleDiscoveryGateway,
-	type ModuleDiscoveryDirectoryEntry,
-	type ModuleDiscoveryPathState,
-} from "../src/module-artifact-discovery.ts";
+import { discoverExtensionModuleHarnessArtifacts } from "../src/module-artifact-discovery.ts";
 
-type FakeNode =
-	| { type: "file"; text: string }
-	| { type: "directory"; entries?: readonly string[] }
-	| { type: "other" }
-	| { type: "error"; message: string };
+describe("descriptor module artifact discovery", () => {
+	test("ignores projects without ns.toml extension declarations", async () => {
+		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-empty-"));
+		try {
+			writeText(join(root, ".ns", "extensions", "direct", "index.ts"), "export default {};\n");
 
-function createFakeGateway(nodes: Record<string, FakeNode>): HarnessArtifactModuleDiscoveryGateway {
-	return {
-		async readDirectory(path) {
-			const node = nodes[path];
-			if (node === undefined) return { ok: true, value: { type: "missing" } };
-			if (node.type === "error") {
-				return {
-					ok: false,
-					error: {
-						code: "filesystem_error",
-						message: node.message,
-						details: { path, operation: "list" },
-					},
-				};
-			}
-			if (node.type !== "directory") return { ok: true, value: { type: "file" } };
-			return {
-				ok: true,
-				value: { type: "directory", entries: directoryEntries(path, nodes, node) },
-			};
-		},
-		async readOptionalTextFile(path) {
-			const node = nodes[path];
-			if (node === undefined) return { ok: true, value: { type: "missing" } };
-			if (node.type === "error") {
-				return {
-					ok: false,
-					error: {
-						code: "filesystem_error",
-						message: node.message,
-						details: { path, operation: "read" },
-					},
-				};
-			}
-			if (node.type !== "file") return { ok: true, value: { type: "missing" } };
-			return { ok: true, value: { type: "file", text: node.text } };
-		},
-		async pathState(path) {
-			const node = nodes[path];
-			if (node === undefined) return { ok: true, value: { type: "missing" } };
-			if (node.type === "error") {
-				return {
-					ok: false,
-					error: {
-						code: "filesystem_error",
-						message: node.message,
-						details: { path, operation: "stat" },
-					},
-				};
-			}
-			return { ok: true, value: { type: node.type } satisfies ModuleDiscoveryPathState };
-		},
-	};
-}
+			const result = await discoverExtensionModuleHarnessArtifacts({
+				projectRoot: root,
+				homeDir: join(root, "home"),
+			});
 
-describe("extension-root module artifact discovery", () => {
-	test("enumerates global and project extension package declarations deterministically", async () => {
-		const fixture = discoveryFixture({
-			"/home/alice/.local/share/ns/extensions/global-ext/package.json": packageJson({
-				name: "@acme/global-ext",
-				version: "1.0.0",
-				artifacts: [{ kind: "skill", name: "global-skill", path: "skills/global" }],
-			}),
-			"/home/alice/.local/share/ns/extensions/global-ext/skills/global/SKILL.md": "global\n",
-			"/repo/.ns/extensions/project-ext/package.json": packageJson({
-				name: "@acme/project-ext",
-				version: "2.0.0",
-				artifacts: [{ kind: "skill", name: "project-skill", path: "skills/project" }],
-			}),
-			"/repo/.ns/extensions/project-ext/skills/project/SKILL.md": "project\n",
-		});
-
-		const result = await discoverExtensionModuleHarnessArtifacts(fixture.request);
-
-		expect(result.diagnostics).toEqual([]);
-		expect(result.catalogs.map((catalog) => catalog.packageName)).toEqual([
-			"@acme/global-ext",
-			"@acme/project-ext",
-		]);
-		expect(
-			result.catalogs.flatMap((catalog) => catalog.artifacts.map((artifact) => artifact.id)),
-		).toEqual(["@acme/global-ext:global-skill", "@acme/project-ext:project-skill"]);
-	});
-
-	test("missing roots are empty and unreadable roots are diagnostics", async () => {
-		const fixture = discoveryFixture({
-			"/home/alice/.local/share/ns/extensions": { type: "error", message: "cannot list root" },
-		});
-
-		const result = await discoverExtensionModuleHarnessArtifacts(fixture.request);
-
-		expect(result.catalogs).toEqual([]);
-		expect(result.diagnostics).toMatchObject([
-			{
-				code: "module_artifact_extension_root_unreadable",
-				path: "/home/alice/.local/share/ns/extensions",
-			},
-		]);
-	});
-
-	test("reports an invalid global extension root environment as a diagnostic", async () => {
-		const result = await discoverExtensionModuleHarnessArtifacts({
-			projectRoot: "/repo",
-			homeDir: undefined,
-			env: { HOME: undefined, XDG_DATA_HOME: undefined },
-			gateway: createFakeGateway({}),
-		});
-
-		expect(result.catalogs).toEqual([]);
-		expect(result.diagnostics).toMatchObject([
-			{ code: "module_artifact_extension_root_unavailable" },
-		]);
-	});
-
-	test("ignores direct extension entry files and directories without package manifests", async () => {
-		const fixture = discoveryFixture({
-			"/repo/.ns/extensions/index.ts": "export default {};",
-			"/repo/.ns/extensions/direct/index.ts": "export default {};",
-		});
-
-		const result = await discoverExtensionModuleHarnessArtifacts(fixture.request);
-
-		expect(result).toEqual({ catalogs: [], diagnostics: [] });
-	});
-
-	test("surfaces package parser diagnostics", async () => {
-		const fixture = discoveryFixture({
-			"/repo/.ns/extensions/bad/package.json": "{",
-		});
-
-		const result = await discoverExtensionModuleHarnessArtifacts(fixture.request);
-
-		expect(result.diagnostics).toMatchObject([
-			{
-				code: "module_artifact_package_json_invalid",
-				path: "/repo/.ns/extensions/bad/package.json",
-			},
-		]);
+			expect(result).toEqual({ catalogs: [], diagnostics: [] });
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
 	});
 
 	test("discovers skill artifacts declared by descriptor bundledArtifacts", async () => {
 		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-"));
 		try {
+			writeDescriptorExtension(root, "descriptor-ext", {
+				packageName: "descriptor-ext",
+				version: "1.0.0",
+				bundledArtifacts: [
+					{
+						kind: "skill",
+						name: "descriptor-skill",
+						path: "skills/descriptor",
+						description: "Descriptor skill.",
+					},
+				],
+			});
 			writeText(
-				join(root, "project", ".ns", "extensions", "descriptor-ext", "package.json"),
-				JSON.stringify({
-					name: "descriptor-ext",
-					version: "1.0.0",
-					exports: { "./ns-extension": "./src/ns/extension.ts" },
-				}),
-			);
-			writeText(
-				join(root, "project", ".ns", "extensions", "descriptor-ext", "src", "ns", "extension.ts"),
-				`
-import { defineExtension } from "@nseng-ai/kernel/sdk";
-
-export default defineExtension({
-	description: "Descriptor artifacts.",
-	bundledArtifacts: [
-		{ kind: "skill", name: "descriptor-skill", path: "skills/descriptor", description: "Descriptor skill." },
-	],
-});
-`,
-			);
-			writeText(
-				join(
-					root,
-					"project",
-					".ns",
-					"extensions",
-					"descriptor-ext",
-					"skills",
-					"descriptor",
-					"SKILL.md",
-				),
+				join(root, "extensions", "descriptor-ext", "skills", "descriptor", "SKILL.md"),
 				"descriptor\n",
 			);
+			writeText(join(root, "ns.toml"), 'extensions = ["./extensions/descriptor-ext"]\n');
 
 			const result = await discoverExtensionModuleHarnessArtifacts({
-				projectRoot: join(root, "project"),
+				projectRoot: root,
 				homeDir: join(root, "home"),
 				env: {},
 			});
 
 			expect(result.diagnostics).toEqual([]);
 			expect(result.catalogs).toHaveLength(1);
+			expect(result.catalogs[0]?.packageName).toBe("descriptor-ext");
 			expect(result.catalogs[0]?.artifacts).toEqual([
 				expect.objectContaining({
 					id: "descriptor-ext:descriptor-skill",
@@ -216,134 +66,164 @@ export default defineExtension({
 		}
 	});
 
-	test("diagnoses unsupported declarations and missing SKILL.md without hiding valid catalog data", async () => {
-		const fixture = discoveryFixture({
-			"/repo/.ns/extensions/ext/package.json": packageJson({
-				name: "acme-ext",
+	test("discovers multiple ns.toml extension descriptors deterministically", async () => {
+		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-many-"));
+		try {
+			writeDescriptorExtension(root, "project-ext", {
+				packageName: "@acme/project-ext",
+				version: "2.0.0",
+				bundledArtifacts: [{ kind: "skill", name: "project-skill", path: "skills/project" }],
+			});
+			writeDescriptorExtension(root, "global-ext", {
+				packageName: "@acme/global-ext",
 				version: "1.0.0",
-				artifacts: [
-					{ kind: "agent", name: "bot", path: "agents/bot" },
+				bundledArtifacts: [{ kind: "skill", name: "global-skill", path: "skills/global" }],
+			});
+			writeText(
+				join(root, "extensions", "project-ext", "skills", "project", "SKILL.md"),
+				"project\n",
+			);
+			writeText(join(root, "extensions", "global-ext", "skills", "global", "SKILL.md"), "global\n");
+			writeText(
+				join(root, "ns.toml"),
+				'extensions = ["./extensions/project-ext", "./extensions/global-ext"]\n',
+			);
+
+			const result = await discoverExtensionModuleHarnessArtifacts({ projectRoot: root });
+
+			expect(result.diagnostics).toEqual([]);
+			expect(result.catalogs.map((catalog) => catalog.packageName)).toEqual([
+				"@acme/global-ext",
+				"@acme/project-ext",
+			]);
+			expect(
+				result.catalogs.flatMap((catalog) => catalog.artifacts.map((artifact) => artifact.id)),
+			).toEqual(["@acme/global-ext:global-skill", "@acme/project-ext:project-skill"]);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test("surfaces package parser diagnostics for declared extensions", async () => {
+		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-bad-"));
+		try {
+			writeText(join(root, "extensions", "bad", "package.json"), "{");
+			writeText(join(root, "ns.toml"), 'extensions = ["./extensions/bad"]\n');
+
+			const result = await discoverExtensionModuleHarnessArtifacts({ projectRoot: root });
+
+			expect(result.diagnostics).toMatchObject([
+				{
+					code: "module_artifact_package_json_invalid",
+					path: join(root, "extensions", "bad", "package.json"),
+				},
+			]);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	test("diagnoses missing SKILL.md without hiding valid catalog data", async () => {
+		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-diagnostics-"));
+		try {
+			writeDescriptorExtension(root, "ext", {
+				packageName: "acme-ext",
+				version: "1.0.0",
+				bundledArtifacts: [
 					{ kind: "skill", name: "missing", path: "skills/missing" },
 					{ kind: "skill", name: "valid", path: "skills/valid" },
 				],
-			}),
-			"/repo/.ns/extensions/ext/skills/valid/SKILL.md": "valid\n",
-		});
+			});
+			writeText(join(root, "extensions", "ext", "skills", "valid", "SKILL.md"), "valid\n");
+			writeText(join(root, "ns.toml"), 'extensions = ["./extensions/ext"]\n');
 
-		const result = await discoverExtensionModuleHarnessArtifacts(fixture.request);
+			const result = await discoverExtensionModuleHarnessArtifacts({ projectRoot: root });
 
-		expect(result.catalogs).toHaveLength(1);
-		expect(result.catalogs[0]?.artifacts.map((artifact) => artifact.id)).toEqual([
-			"acme-ext:valid",
-		]);
-		expect(result.catalogs[0]?.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
-			"module_artifact_kind_unsupported",
-			"module_artifact_skill_entry_missing",
-		]);
+			expect(result.catalogs).toHaveLength(1);
+			expect(result.catalogs[0]?.artifacts.map((artifact) => artifact.id)).toEqual([
+				"acme-ext:valid",
+			]);
+			expect(result.catalogs[0]?.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+				"module_artifact_skill_entry_missing",
+			]);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
 	});
 
 	test("diagnoses duplicate ids and target skill names across modules while preserving entries", async () => {
-		const fixture = discoveryFixture({
-			"/repo/.ns/extensions/left/package.json": packageJson({
-				name: "acme-left",
-				artifacts: [{ kind: "skill", name: "shared", path: "skills/shared" }],
-			}),
-			"/repo/.ns/extensions/left/skills/shared/SKILL.md": "left\n",
-			"/repo/.ns/extensions/right/package.json": packageJson({
-				name: "acme-right",
-				artifacts: [{ kind: "skill", name: "shared", path: "skills/shared" }],
-			}),
-			"/repo/.ns/extensions/right/skills/shared/SKILL.md": "right\n",
-			"/repo/.ns/extensions/right-copy/package.json": packageJson({
-				name: "acme-right",
-				artifacts: [{ kind: "skill", name: "shared", path: "skills/shared" }],
-			}),
-			"/repo/.ns/extensions/right-copy/skills/shared/SKILL.md": "right copy\n",
-		});
+		const root = await mkdtemp(join(tmpdir(), "ns-descriptor-artifacts-duplicates-"));
+		try {
+			writeDescriptorExtension(root, "left", {
+				packageName: "acme-left",
+				bundledArtifacts: [{ kind: "skill", name: "shared", path: "skills/shared" }],
+			});
+			writeDescriptorExtension(root, "right", {
+				packageName: "acme-right",
+				bundledArtifacts: [{ kind: "skill", name: "shared", path: "skills/shared" }],
+			});
+			writeDescriptorExtension(root, "right-copy", {
+				packageName: "acme-right",
+				bundledArtifacts: [{ kind: "skill", name: "shared", path: "skills/shared" }],
+			});
+			for (const extensionName of ["left", "right", "right-copy"] as const) {
+				writeText(
+					join(root, "extensions", extensionName, "skills", "shared", "SKILL.md"),
+					`${extensionName}\n`,
+				);
+			}
+			writeText(
+				join(root, "ns.toml"),
+				'extensions = ["./extensions/left", "./extensions/right", "./extensions/right-copy"]\n',
+			);
 
-		const result = await discoverExtensionModuleHarnessArtifacts(fixture.request);
+			const result = await discoverExtensionModuleHarnessArtifacts({ projectRoot: root });
 
-		expect(result.catalogs.flatMap((catalog) => catalog.artifacts)).toHaveLength(3);
-		expect(result.diagnostics.map((diagnostic) => diagnostic.code).sort()).toEqual([
-			"module_artifact_duplicate_id",
-			"module_artifact_duplicate_id",
-			"module_artifact_duplicate_target_name",
-			"module_artifact_duplicate_target_name",
-			"module_artifact_duplicate_target_name",
-		]);
+			expect(result.catalogs.flatMap((catalog) => catalog.artifacts)).toHaveLength(3);
+			expect(result.diagnostics.map((diagnostic) => diagnostic.code).sort()).toEqual([
+				"module_artifact_duplicate_id",
+				"module_artifact_duplicate_id",
+				"module_artifact_duplicate_target_name",
+				"module_artifact_duplicate_target_name",
+				"module_artifact_duplicate_target_name",
+			]);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
 	});
 });
+
+function writeDescriptorExtension(
+	root: string,
+	extensionName: string,
+	options: {
+		packageName: string;
+		version?: string;
+		bundledArtifacts: readonly unknown[];
+	},
+): void {
+	writeJson(join(root, "extensions", extensionName, "package.json"), {
+		name: options.packageName,
+		...(options.version === undefined ? {} : { version: options.version }),
+		exports: { "./ns-extension": "./src/ns/extension.ts" },
+	});
+	writeText(
+		join(root, "extensions", extensionName, "src", "ns", "extension.ts"),
+		`import { defineExtension } from "@nseng-ai/kernel/sdk";
+
+export default defineExtension({
+	description: "${extensionName}.",
+	bundledArtifacts: ${JSON.stringify(options.bundledArtifacts)},
+});
+`,
+	);
+}
+
+function writeJson(path: string, value: unknown): void {
+	writeText(path, `${JSON.stringify(value, null, 2)}\n`);
+}
 
 function writeText(path: string, text: string): void {
 	mkdirSync(dirname(path), { recursive: true });
 	writeFileSync(path, text, "utf8");
-}
-
-function discoveryFixture(files: Record<string, string | FakeNode>) {
-	const nodes: Record<string, FakeNode> = {};
-	for (const [path, value] of Object.entries(files)) {
-		nodes[path] = typeof value === "string" ? { type: "file", text: value } : value;
-		ensureParentDirectories(nodes, path);
-	}
-	return {
-		request: {
-			projectRoot: "/repo",
-			homeDir: "/home/alice",
-			env: { XDG_DATA_HOME: "/home/alice/.local/share" },
-			gateway: createFakeGateway(nodes),
-		},
-	};
-}
-
-function ensureParentDirectories(nodes: Record<string, FakeNode>, path: string): void {
-	let current = path;
-	while (current !== "/") {
-		current = current.slice(0, current.lastIndexOf("/")) || "/";
-		if (nodes[current] === undefined) nodes[current] = { type: "directory" };
-	}
-}
-
-function directoryEntries(
-	path: string,
-	nodes: Record<string, FakeNode>,
-	node: Extract<FakeNode, { type: "directory" }>,
-): readonly ModuleDiscoveryDirectoryEntry[] {
-	const names = node.entries ?? immediateChildNames(path, nodes);
-	return [...names]
-		.sort((left, right) => left.localeCompare(right))
-		.map((name) => {
-			const child = nodes[join(path, name)];
-			return { name, type: childType(child) };
-		});
-}
-
-function immediateChildNames(path: string, nodes: Record<string, FakeNode>): string[] {
-	const prefix = path === "/" ? "/" : `${path}/`;
-	const names = new Set<string>();
-	for (const nodePath of Object.keys(nodes)) {
-		if (!nodePath.startsWith(prefix) || nodePath === path) continue;
-		const relative = nodePath.slice(prefix.length);
-		const name = relative.split("/")[0];
-		if (name !== undefined && name !== "") names.add(name);
-	}
-	return [...names];
-}
-
-function childType(node: FakeNode | undefined): ModuleDiscoveryDirectoryEntry["type"] {
-	if (node === undefined || node.type === "error") return "other";
-	if (node.type === "directory") return "directory";
-	if (node.type === "file") return "file";
-	return "other";
-}
-
-function packageJson(options: {
-	name: string;
-	version?: string;
-	artifacts: readonly unknown[];
-}): string {
-	return JSON.stringify({
-		name: options.name,
-		...(options.version === undefined ? {} : { version: options.version }),
-		ns: { harnessArtifacts: options.artifacts },
-	});
 }

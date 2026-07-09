@@ -87,16 +87,12 @@ const sourceRuleShards: readonly SourceRuleShard[] = [
 			]),
 	},
 	{
-		name: ".ns/extensions",
-		includes: (path) => isInDirectory(path, ".ns/extensions"),
-	},
-	{
 		name: "docs-site",
 		includes: (path) => isInDirectory(path, "docs-site"),
 	},
 	{
 		name: "top-level TS configs and other source files",
-		includes: (path) => !isInAnyDirectory(path, ["ts/packages", ".ns/extensions", "docs-site"]),
+		includes: (path) => !isInAnyDirectory(path, ["ts/packages", "docs-site"]),
 	},
 ];
 

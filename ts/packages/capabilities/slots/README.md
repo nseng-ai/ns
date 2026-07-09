@@ -8,7 +8,7 @@ ns slot checkout feature-x
 ns slot gt exec stack-branches --format json
 ```
 
-The package does not expose or install a top-level `slot` executable. The ns kernel discovers Slot through the generic extension manifest rather than importing Slot directly. First-party users that need in-process access should use curated exports such as `@nseng-ai/slots/api` rather than parsing command output.
+The package does not expose or install a top-level `slot` executable. The ns kernel discovers Slot through the generic extension descriptor rather than importing Slot directly. First-party users that need in-process access should use curated exports such as `@nseng-ai/slots/api` rather than parsing command output.
 
 ## Installation
 

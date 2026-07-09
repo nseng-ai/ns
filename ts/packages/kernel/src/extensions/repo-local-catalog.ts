@@ -1,24 +1,10 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { defineExtension } from "../sdk/command.ts";
-import type { DescriptorCommand, ExtensionDescriptor, ExtensionEntry } from "../sdk/descriptor.ts";
 import type { NsCommand } from "../sdk/command.ts";
-import type {
-	RepoLocalNsExtensionCommandDescriptor,
-	RepoLocalNsExtensionDescriptor,
-} from "../sdk/repo-local-ns-extension.ts";
+import type { DescriptorCommand, ExtensionDescriptor, ExtensionEntry } from "../sdk/descriptor.ts";
 import { commandKey } from "./command-registry.ts";
 import type { PreinstalledNsCommandCatalogEntry } from "./registry.ts";
-
-export function repoLocalNsExtensionToPreinstalledCatalog(
-	descriptor: RepoLocalNsExtensionDescriptor,
-): readonly PreinstalledNsCommandCatalogEntry[] {
-	return descriptor.commands.map((commandDescriptor) => ({
-		group: descriptor.group,
-		groupDescription: descriptor.description,
-		...repoLocalNsCommandDescriptorToPreinstalledCatalogEntry(commandDescriptor),
-	}));
-}
 
 export interface ExtensionDescriptorToPreinstalledCatalogOptions {
 	readonly displayPath: string;
@@ -115,17 +101,4 @@ export function isLegacyNsCommand(command: DescriptorCommand): command is NsComm
 		"renderMarkdown" in command ||
 		"completionProvider" in command
 	);
-}
-
-export function repoLocalNsCommandDescriptorToPreinstalledCatalogEntry(
-	commandDescriptor: RepoLocalNsExtensionCommandDescriptor,
-): PreinstalledNsCommandCatalogEntry {
-	return {
-		name: commandDescriptor.manifestName ?? commandDescriptor.command.name,
-		description: commandDescriptor.command.summary,
-		fullDescription: commandDescriptor.command.description,
-		...optionalEntry("path", commandDescriptor.manifestPath),
-		displayPath: commandDescriptor.packageExport,
-		load: () => defineExtension({ commands: [commandDescriptor.command] }),
-	};
 }

@@ -24,21 +24,31 @@ async function initializeGitRepo(projectRoot: string): Promise<void> {
 }
 
 async function writeModuleExtension(projectRoot: string): Promise<void> {
-	const moduleRoot = join(projectRoot, ".ns", "extensions", "acme-module");
+	const moduleRoot = join(projectRoot, "extensions", "acme-module");
 	await mkdir(join(moduleRoot, "skills", "module-skill"), { recursive: true });
+	await mkdir(join(moduleRoot, "src", "ns"), { recursive: true });
 	await writeFile(
 		join(moduleRoot, "package.json"),
 		`${JSON.stringify(
 			{
 				name: "@acme/module",
 				version: "1.0.0",
-				ns: {
-					harnessArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module-skill" }],
-				},
+				type: "module",
+				exports: { "./ns-extension": "./src/ns/extension.ts" },
 			},
 			null,
 			2,
 		)}\n`,
+		"utf8",
+	);
+	await writeFile(
+		join(moduleRoot, "src", "ns", "extension.ts"),
+		`import { defineExtension } from "@nseng-ai/kernel/sdk";
+export default defineExtension({
+	description: "ACME module.",
+	bundledArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module-skill" }],
+});
+`,
 		"utf8",
 	);
 	await writeFile(
@@ -87,7 +97,11 @@ describe("ns CLI host integration", () => {
 		const projectRoot = await createEmptyProject();
 		await initializeGitRepo(projectRoot);
 		await mkdir(join(projectRoot, "nested"), { recursive: true });
-		await writeFile(join(projectRoot, "ns.toml"), 'harnesses = ["pi"]\n', "utf8");
+		await writeFile(
+			join(projectRoot, "ns.toml"),
+			'harnesses = ["pi"]\nextensions = ["./extensions/acme-module"]\n',
+			"utf8",
+		);
 		await writeModuleExtension(projectRoot);
 		const cwd = join(projectRoot, "nested");
 
@@ -134,7 +148,7 @@ describe("ns CLI host integration", () => {
 
 		await writeFile(objectiveTarget, "local edit\n", "utf8");
 		await writeFile(
-			join(projectRoot, ".ns", "extensions", "acme-module", "skills", "module-skill", "SKILL.md"),
+			join(projectRoot, "extensions", "acme-module", "skills", "module-skill", "SKILL.md"),
 			"# module skill v2\n",
 			"utf8",
 		);
