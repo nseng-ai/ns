@@ -1,4 +1,4 @@
-import type { RunnerSubagentPi } from "../runner-subagents/index.ts";
+import type { RunnerSubagentPi } from "../runner-subagents/extension-api.ts";
 import { SubagentFleetRegistry } from "./registry.ts";
 
 const SUBAGENT_FLEET_REGISTRIES_GLOBAL_KEY = "__nsSubagentFleetRegistries";

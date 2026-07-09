@@ -32,9 +32,8 @@ import {
 	type RunnerSubagentUpdate,
 } from "../../ts/packages/extensions/ns-pi-subagents/src/runner-subagents/index.ts";
 import {
-	getOrCreateSubagentFleetRegistry,
-	trackSubagentFleetRun,
-	type SubagentFleetRunTracking,
+	trackSingleSubagentFleetRun,
+	type SingleSubagentFleetRunTracking,
 } from "../../ts/packages/extensions/ns-pi-subagents/src/api/index.ts";
 import {
 	formatRunnerSubagentActivityWidgetLines,
@@ -194,7 +193,7 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 		reportPath: join(stepDir, "report.json"),
 		factsPath: join(stepDir, "facts.json"),
 	} satisfies RunnerScratchPaths;
-	let fleetTracking: SubagentFleetRunTracking | undefined;
+	let fleetTracking: SingleSubagentFleetRunTracking | undefined;
 
 	const pushWidget = (phase: RunnerStepPhase, update?: RunnerSubagentUpdate): void => {
 		const lines = [`objective ${slug} · step ${stepNumber} · ${phase}`];
@@ -256,16 +255,10 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 		}
 
 		const subagentTitle = input.title ?? `objective ${slug} step ${stepNumber}`;
-		const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
-		fleetTracking = trackSubagentFleetRun({
-			registry: fleetRegistry,
-			ctx,
-			tasks: [{ title: subagentTitle, prompt }],
-			parentSessionFile: ctx.sessionManager?.getSessionFile?.(),
-		});
+		fleetTracking = trackSingleSubagentFleetRun({ pi, ctx, title: subagentTitle, prompt });
 
 		pushWidget("subagent");
-		fleetTracking.markRunning(0);
+		fleetTracking.markRunning();
 		const subagent = await dispatchRunnerSubagent(
 			pi,
 			{ cwd: ctx.cwd, ...optionalEntry("signal", signal) },
@@ -276,11 +269,11 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 				...optionalEntry("model", input.model),
 				onProgress: (update) => {
 					pushWidget("subagent", update);
-					fleetTracking?.markProgress(0, update);
+					fleetTracking?.markProgress(update);
 				},
 			},
 		);
-		fleetTracking.markDone(0, subagent);
+		fleetTracking.markDone(subagent);
 		if (subagent.status === "cancelled" || signal?.aborted === true) {
 			return stepToolResult({
 				text: `Runner step cancelled between runner-begin and runner-finish for objective ${slug}. runner-finish was NOT run, so no checkpoint was judged and the worktree may hold uncommitted subagent changes. Inspect the worktree, then recover by calling ${TOOL_NAME} again with recover: true and sharpened guidance.`,

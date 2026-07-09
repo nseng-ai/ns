@@ -1,8 +1,10 @@
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { errorResult } from "../explore/result.ts";
 import { SubagentFleetRegistry, type SubagentFleetTaskInput } from "./registry.ts";
+import { getOrCreateSubagentFleetRegistry } from "./provider.ts";
 import type { GitHeadSnapshot, ReadGitHead } from "./git-head.ts";
 import type {
+	RunnerSubagentPi,
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
 } from "../runner-subagents/extension-api.ts";
@@ -13,6 +15,59 @@ export interface SubagentFleetRunTracking {
 	markProgress(index: number, update: RunnerSubagentUpdate): void;
 	markDone(index: number, result: RunnerSubagentResult): void;
 	dispose(): void;
+}
+
+export interface SingleSubagentFleetRunTracking {
+	markRunning(): void;
+	markProgress(update: RunnerSubagentUpdate): void;
+	markDone(result: RunnerSubagentResult): void;
+	dispose(): void;
+}
+
+export interface SingleSubagentFleetRunContext extends SubagentFleetDisplayContext {
+	readonly sessionManager?: { getSessionFile?(): string | undefined };
+}
+
+type SingleSubagentFleetRunSource =
+	| { readonly pi: RunnerSubagentPi; readonly registry?: never }
+	| { readonly registry: SubagentFleetRegistry; readonly pi?: never };
+
+export type TrackSingleSubagentFleetRunInput = SingleSubagentFleetRunSource & {
+	readonly ctx: SingleSubagentFleetRunContext;
+	readonly title: string;
+	readonly prompt: string;
+	readonly parentSessionFile?: string;
+	readonly cwd?: string;
+	readonly readGitHead?: ReadGitHead;
+};
+
+export function trackSingleSubagentFleetRun(
+	input: TrackSingleSubagentFleetRunInput,
+): SingleSubagentFleetRunTracking {
+	const registry = input.registry ?? getOrCreateSubagentFleetRegistry(input.pi);
+	const tracking = trackSubagentFleetRun({
+		registry,
+		ctx: input.ctx,
+		tasks: [{ title: input.title, prompt: input.prompt }],
+		parentSessionFile: input.parentSessionFile ?? input.ctx.sessionManager?.getSessionFile?.(),
+		...optionalEntry("cwd", input.cwd),
+		...optionalEntry("readGitHead", input.readGitHead),
+	});
+
+	return {
+		markRunning() {
+			tracking.markRunning(0);
+		},
+		markProgress(update) {
+			tracking.markProgress(0, update);
+		},
+		markDone(result) {
+			tracking.markDone(0, result);
+		},
+		dispose() {
+			tracking.dispose();
+		},
+	};
 }
 
 export function trackSubagentFleetRun(input: {

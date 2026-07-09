@@ -12,7 +12,7 @@ import {
 	formatSubagentFleetWidgetLines,
 	syncSubagentFleetDisplay,
 } from "../../src/fleet/display.ts";
-import { trackSubagentFleetRun } from "../../src/fleet/tracking.ts";
+import { trackSingleSubagentFleetRun, trackSubagentFleetRun } from "../../src/fleet/tracking.ts";
 import {
 	makeErrorResult,
 	makeFinalTextResult,
@@ -142,6 +142,45 @@ describe("runner subagent fleet display for explore", () => {
 		const task = registry.snapshot()[0]?.tasks[0];
 		expect(task?.headBaseline).toEqual({ status: "available", oid: "task-start" });
 		expect(task?.finalHead).toEqual({ status: "available", oid: "task-done" });
+	});
+
+	test("single-task tracking hides fleet registry and index bookkeeping", () => {
+		const pi = {};
+		const widgetCalls: { key: string; content: string[] | undefined }[] = [];
+		const ctx: ToolContext = {
+			cwd: "/repo",
+			hasUI: true,
+			mode: "tui",
+			sessionManager: { getSessionFile: () => "/tmp/parent.jsonl" },
+			ui: {
+				notify: () => {},
+				setWidget: (key, content) => widgetCalls.push({ key, content }),
+				setStatus: () => {},
+			},
+		};
+
+		const tracking = trackSingleSubagentFleetRun({
+			pi,
+			ctx,
+			title: "One child",
+			prompt: "Do one thing",
+		});
+		tracking.markRunning();
+		tracking.markDone({ ...makeFinalTextResult("done"), sessionFile: "/tmp/child.jsonl" });
+		tracking.dispose();
+
+		const registry = getOrCreateSubagentFleetRegistry(pi);
+		const run = registry.snapshot()[0];
+		expect(run?.parentSessionFile).toBe("/tmp/parent.jsonl");
+		expect(run?.tasks).toHaveLength(1);
+		expect(run?.tasks[0]).toMatchObject({
+			title: "One child",
+			prompt: "Do one thing",
+			state: "done",
+			finalStatus: "final-text",
+			sessionFile: "/tmp/child.jsonl",
+		});
+		expect(widgetCalls.at(-1)).toEqual({ key: SUBAGENT_FLEET_WIDGET_KEY, content: undefined });
 	});
 
 	test("tracking dispose marks unfinished tasks terminal", () => {
