@@ -29,7 +29,7 @@ This is a **bounded execution Subobjective** under the `skill-management-subsyst
 - **Decide, then implement, the source-spec grammar** for the `ns.toml` declaration list (working name `artifact-packages`), starting from pi's `npm:pkg@ver` / `git:host/user/repo@ref` / local-path grammar. Which source kinds ship in the first slice is an open question — npm-only first is acceptable.
 - **Decide fetched-module storage**: where acquired modules land on disk (a managed root the discovery layer reads), how that location is recorded/inspected, and how it stays git-native and inspectable per the umbrella's no-hidden-database rule.
 - **Fetch + resolve**: materialize each declared spec into a resolved module directory; surface failures as diagnostics, not hidden behavior. LBYL over EAFP.
-- **Version resolution / update semantics per source kind** (owned here): pinned specs are stable and skipped; unpinned/ref specs reconcile to the declared spec on `ns update`. Self-update of ns itself stays out of scope.
+- **Version resolution / update semantics per source kind** (owned here): pinned specs are stable and skipped; unpinned/ref specs reconcile to the declared spec on `ns update --extensions`. The command contract is pi-verbatim (decided 2026-07-07, `updates/20260707T200657Z-...`): bare `ns update`/`--self` = self-update only, `--extensions` = acquisition + provisioning, `--all` = both, with per-spec targeting of declared specs. The ns **self-update mechanism** is now a late in-scope roadmap row (added 2026-07-07 by user instruction); until it lands, bare `ns update` errors with a clear use-`--extensions` diagnostic.
 - **Hand off to existing provisioning unchanged**: acquired modules flow through the same static-declaration discovery, reconcile planner, manifest, and clobber rules as directory-present modules. If the shared core needs widening, keep changes additive (the proving-consumer lesson from `npm-bundled-artifact-provisioning`).
 - **Record design decisions as Semantic Updates** before their implementation slices.
 
@@ -37,18 +37,19 @@ This is a **bounded execution Subobjective** under the `skill-management-subsyst
 
 - **No marketplace or remote catalog discovery** (retired umbrella disposition): sources are explicitly declared specs, never searched or browsed.
 - **No `npx skills` wrapping/replacement and no first-party acquisition of individual third-party skills** (retired permanently): modules only.
-- **No semantic-version solver or dependency graph** (umbrella hard non-goal): specs resolve one module each; module dependencies are not traversed.
-- **No trust/consent gate in this record** — deliberately, per the umbrella's retirement of trust gating (see Risks); do not add one silently, and do not remove the risk note.
+- **No ns-owned semantic-version solver or dependency graph** (umbrella hard non-goal): each declared extension spec resolves one top-level module. The selected npm acquisition mechanics may let the package manager install that module's runtime dependencies, but ns does not model, traverse, solve, or provision extension dependencies as first-class specs.
+- **No trust/consent gate in this record** — deliberately, per the umbrella's retirement of trust gating, re-affirmed 2026-07-07 with fetch semantics on the table (see Risks); do not add one silently, and do not remove the risk note.
 - No executed module code during discovery or acquisition-time hooks; declarations stay static data.
 - No hidden database or cache as durable state; whatever records exist must be explicit, inspectable files.
 - No `agent` / `extension-bundle` provisioning semantics (parked at the umbrella; types already accommodate).
 
 ## Completion Criteria
 
-- A project can declare at least one remote source spec in `ns.toml`, run `ns update`, and get the module fetched and its declared artifacts provisioned into the selected harness roots through the existing manifest-aware core — with failures surfaced as diagnostics.
+- A project can declare at least one remote source spec in `ns.toml`, run `ns update --extensions`, and get the module fetched and its declared artifacts provisioned into the selected harness roots through the existing manifest-aware core — with failures surfaced as diagnostics.
 - The spec grammar, storage-location, and update-semantics decisions are recorded as Semantic Updates and implemented consistently (pinned skipped; unpinned reconciled to spec).
 - The existing arrival paths (committed `.ns/extensions/`, XDG root, first-party catalog) keep working unchanged; shared-core changes, if any, are additive.
-- Repeat `ns update` with unchanged specs is idempotent; changing a spec reconciles to it.
+- Repeat `ns update --extensions` with unchanged specs is idempotent; changing a spec reconciles to it.
+- The pi-verbatim command surface is implemented per the recorded contract, and the ns self-update mechanism (late roadmap row) lands behind bare `ns update`/`--self`.
 - Full `just` green (main suite, style guard, tsgo, edge sweep `sweep-ok`).
 
 ## Definition of Progress
@@ -74,16 +75,15 @@ Assumptions:
 
 Risks:
 
-- **Trust posture (carried umbrella risk acceptance, restated per the disposition record):** the umbrella retired project trust gating 2026-07-07 while graduating this record — so remotely fetched modules will provision skill files (prompt-injection payloads by design) into harness directories with **no consent gate**. This is a deliberate risk acceptance under ns's private/unreleased trusted-repo contract, and this record makes it strictly more exposed: acquisition means content no longer arrives only by someone committing it to a trusted repo. Re-judge this acceptance here with real fetch semantics on the table; if ns's audience widens, pi's project-trust model (trust store + `--approve`) is the recorded blueprint, reopened as a fresh Objective.
-- **Scope gravity toward a package manager:** resolution, caching, and dependency traversal all beckon. Defend with the hard non-goals: one spec → one module, no graph, no solver.
+- **Trust posture (carried umbrella risk acceptance — re-judged and accepted 2026-07-07):** the umbrella retired project trust gating 2026-07-07 while graduating this record — so remotely fetched modules will provision skill files (prompt-injection payloads by design) into harness directories with **no consent gate**. Re-judged with real fetch semantics on the table (`updates/20260707T193019Z-...`): acceptance continues under ns's private/unreleased trusted-repo contract, now explicitly extended to **executable** fetched content — the kernel may later load CLI-group command extensions from fetched managed-root modules. If ns's audience widens, pi's project-trust model (trust store + `--approve`) is the recorded blueprint, reopened as a fresh Objective.
+- **Scope gravity toward becoming a package manager:** npm acquisition now deliberately uses a managed package-manager install to match pi and support runtime dependencies, but ns must still defend the hard non-goals: one declared spec → one top-level extension, no ns-modeled dependency graph, no ns-owned solver, and no marketplace/catalog semantics.
 - **Network flakiness contaminating `ns update`:** fetch failures must degrade to per-module diagnostics, not break provisioning of already-present modules (the collision-skip precedent from the thermo remediation applies).
 - **Storage-location mistakes are sticky:** a wrong fetched-module root ships inertia. Decide it deliberately, git-native and inspectable, before the first fetch slice.
 - **Fire-and-forget umbrella** on the parent side — mirrored here; the umbrella must keep this row's `[~]` current and synthesize closure.
 
 ## Open Questions
 
-- **Spec grammar adoption:** take pi's grammar verbatim (`npm:pkg@ver` / `git:host/user/repo@ref` / local path) or a subset first? Which source kinds ship in slice one (npm-only is the lean candidate)?
-- **Fetched-module storage:** where do acquired modules live (a managed sibling of `.ns/extensions/`? an XDG cache-like root with an explicit record file?), and what makes it inspectable and git-native?
-- **Fetch mechanics:** npm registry access mechanism (pack/extract vs install), git transport, and how these go behind a gateway for fake-driven tests.
-- **Interaction with `ns update`:** does acquisition run inside `ns update` unconditionally, behind a flag, or as a separate `ns`-surface verb that `ns update` composes?
-- **Local-path specs:** are they acquisition (copied/linked into the managed root) or just discovery pointers?
+- ~~**Interaction with `ns update`**~~ — resolved 2026-07-07 (`updates/20260707T200657Z-...`): pi-verbatim modes; bare `ns update` is self-update only and errors until the self-update mechanism ships; `--extensions` owns acquisition + provisioning.
+- ~~**Update semantics detail**~~ — resolved 2026-07-07 (`updates/20260707T200657Z-...`): pinned installed-if-missing/skipped, unpinned reconciled to registry resolution, git reconciled-to-ref, local paths validated pointers; per-extension failure isolation; idempotent unchanged specs; removed specs report-only (removal verb deferred).
+- ~~**Trust posture with executable extensions**~~ — resolved 2026-07-07 (`updates/20260707T193019Z-...`): trust gate deferred; kernel loading of executable CLI-group extensions from fetched managed-root modules is allowed as a later slice.
+- ~~**Local-path specs**~~ — resolved 2026-07-07 (`updates/20260707T193019Z-...`): pointers to on-disk paths without copying, mimicking pi; supersedes the storage decision's mounting leaning.
