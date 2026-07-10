@@ -4,7 +4,6 @@ import type { RunnerSubagentUpdate } from "@nseng-ai/ns-pi-subagents/runner-suba
 import {
 	formatRunnerSubagentActivityWidgetLines,
 	setRunnerSubagentWidget,
-	withRunnerSubagentWidget,
 } from "../../src/runner-subagents/widget.ts";
 
 const METADATA_ONLY_LAUNCH = {
@@ -176,54 +175,6 @@ describe("runner subagent activity widget", () => {
 			"Thinking: off",
 			"Turns/tools: 0/0",
 		]);
-	});
-
-	test("sets progress widgets and clears them after success", async () => {
-		const records: Array<{ value: string[] | undefined }> = [];
-		const result = await withRunnerSubagentWidget({
-			ctx: {
-				hasUI: true,
-				ui: {
-					setWidget(_key, value): void {
-						records.push({ value });
-					},
-				},
-			},
-			key: "runner",
-			initial: { title: "Lifecycle", launch: METADATA_ONLY_LAUNCH },
-			run: async (onProgress) => {
-				onProgress(METADATA_ONLY_UPDATE);
-				return "done";
-			},
-		});
-
-		expect(result).toBe("done");
-		expect(records[0]?.value).toContain("Forked Pi: Lifecycle");
-		expect(records.some((record) => record.value?.includes("Tool: read"))).toBe(true);
-		expect(records.at(-1)).toEqual({ value: undefined });
-	});
-
-	test("clears progress widgets after failure", async () => {
-		const records: Array<{ value: string[] | undefined }> = [];
-
-		await expect(
-			withRunnerSubagentWidget({
-				ctx: {
-					hasUI: true,
-					ui: {
-						setWidget(_key, value): void {
-							records.push({ value });
-						},
-					},
-				},
-				key: "runner",
-				initial: { title: "Lifecycle", launch: METADATA_ONLY_LAUNCH },
-				run: async () => {
-					throw new Error("boom");
-				},
-			}),
-		).rejects.toThrow("boom");
-		expect(records.at(-1)).toEqual({ value: undefined });
 	});
 
 	test("ignores absent widget UI", () => {

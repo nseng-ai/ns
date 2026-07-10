@@ -24,7 +24,7 @@ import {
 import { renderTimelineEntryLines } from "../../src/fleet/detail-render.ts";
 import type { ReadTextFile } from "../../src/fleet/read-text-dependencies.ts";
 import type { ReadWorktreeState, WorktreeStateSnapshot } from "../../src/fleet/worktree-state.ts";
-import { settleMicrotasks } from "../helpers/explore-testing.ts";
+import { settleMicrotasks } from "../helpers/fleet-testing.ts";
 
 function jsonl(events: readonly unknown[]): string {
 	return events.map((event) => JSON.stringify(event)).join("\n");

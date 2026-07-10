@@ -37,10 +37,8 @@ export type {
 	SubagentFleetRunTracking,
 } from "../fleet/tracking.ts";
 export {
-	BUILT_IN_SUBAGENT_AGENT_NAMES,
 	buildSubagentCatalog,
 	createSubagentAgentRegistry,
-	type BuiltInSubagentAgentName,
 	type SubagentAgentCatalogEntry,
 	type SubagentAgentDescriptor,
 	type SubagentAgentRegistry,
@@ -48,7 +46,12 @@ export {
 export { EXPLORER_AGENT_DESCRIPTOR } from "../agents/explorer.ts";
 export { TASK_AGENT_DESCRIPTOR } from "../agents/task.ts";
 export { SUBAGENT_TOOL_NAME, registerSubagentTool } from "../tool/subagent.ts";
-export type { RegisterSubagentToolOptions, SubagentToolInput } from "../tool/subagent.ts";
+export type {
+	RegisterSubagentToolOptions,
+	SubagentToolHost,
+	SubagentToolInput,
+	SubagentToolRegistration,
+} from "../tool/subagent.ts";
 export {
 	SUBAGENT_RUNTIME_KINDS,
 	createFunctionSubagentRuntime,

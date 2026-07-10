@@ -5,7 +5,6 @@ export { READ_ONLY_SUBAGENT_TOOLS } from "./read-only-tools.ts";
 export { setRunnerSubagentWidget } from "./widget.ts";
 export {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
-	defaultRunnerSubagentLaunchMetadata,
 	dispatchRunnerSubagent,
 	resultDiagnostic,
 	runnerSubagentPrimaryActivityPreview,

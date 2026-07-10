@@ -1,11 +1,6 @@
 import type { WidgetRuntimeContext } from "@nseng-ai/pi/runtime/tool-types";
 
-import {
-	emptyRunnerSubagentActivity,
-	type RunnerSubagentLaunchMetadata,
-	type RunnerSubagentProgressCallback,
-	type RunnerSubagentUpdate,
-} from "./extension-api.ts";
+import type { RunnerSubagentUpdate } from "./extension-api.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
@@ -31,53 +26,6 @@ export function setRunnerSubagentWidget(
 		ctx.ui?.setWidget?.(key, lines, { placement: "aboveEditor" });
 	} catch {
 		// Widget updates are display-only and must not affect subagent execution.
-	}
-}
-
-export function buildInitialRunnerSubagentUpdate(input: {
-	title: string;
-	launch: RunnerSubagentLaunchMetadata;
-}): RunnerSubagentUpdate {
-	return {
-		progress: {
-			title: input.title,
-			state: "starting",
-			toolCount: 0,
-			turnCount: 0,
-			elapsedMs: 0,
-			launch: input.launch,
-		},
-		activity: emptyRunnerSubagentActivity(),
-	};
-}
-
-export interface WithRunnerSubagentWidgetOptions<T> {
-	ctx: WidgetRuntimeContext;
-	key: string;
-	initial: { title: string; launch: RunnerSubagentLaunchMetadata };
-	run: (onProgress: RunnerSubagentProgressCallback) => Promise<T>;
-}
-
-export async function withRunnerSubagentWidget<T>(
-	options: WithRunnerSubagentWidgetOptions<T>,
-): Promise<T> {
-	const initialUpdate = buildInitialRunnerSubagentUpdate(options.initial);
-	setRunnerSubagentWidget(
-		options.ctx,
-		options.key,
-		formatRunnerSubagentActivityWidgetLines(initialUpdate),
-	);
-
-	try {
-		return await options.run((update) => {
-			setRunnerSubagentWidget(
-				options.ctx,
-				options.key,
-				formatRunnerSubagentActivityWidgetLines(update),
-			);
-		});
-	} finally {
-		setRunnerSubagentWidget(options.ctx, options.key, undefined);
 	}
 }
 

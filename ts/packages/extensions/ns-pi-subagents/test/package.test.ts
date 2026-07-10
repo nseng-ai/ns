@@ -263,7 +263,6 @@ describe("ns-pi-subagents package", () => {
 			() => consumerDefinition,
 		);
 		registerSubagentTool(pi, {
-			cwd: "/repo",
 			agents,
 			fleetRegistry: new SubagentFleetRegistry(),
 			loadAgentDefinition: () => consumerDefinition,

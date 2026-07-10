@@ -5,7 +5,6 @@ import { formatErrorMessage, formatZodError, optionalEntry } from "@nseng-ai/fou
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import {
 	composePiAgentPrompt,
-	loadPiAgentDefinition,
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
 import { isProviderAuthConfigured } from "@nseng-ai/pi/runtime/auth";
@@ -18,10 +17,7 @@ import {
 	type SubagentAgentDescriptor,
 	type SubagentAgentRegistry,
 } from "../agents/registry.ts";
-import {
-	resolveExplorerLaunchPlan,
-	type IsProviderAuthConfigured,
-} from "../explore/model-policy.ts";
+import { resolveDescriptorModel, type IsProviderAuthConfigured } from "../agents/model-policy.ts";
 import {
 	resultDiagnostic,
 	type RunnerSubagentContext,
@@ -31,15 +27,18 @@ import {
 } from "../runner-subagents/index.ts";
 import { buildCuratedRunnerSubagentContext } from "../runner-subagents/curated-context.ts";
 import { runnerSubagentSessionFile } from "../runner-subagents/presentation.ts";
-import { resolveRunnerSubagentLaunch } from "../runner-subagents/subagent-process.ts";
 import type { SubagentFleetRegistry } from "../fleet/registry.ts";
 import type { ReadGitHead } from "../fleet/git-head.ts";
 import {
 	dispatchSubagentBatch,
 	SUBAGENT_TASK_NOT_STARTED,
 	type ToolkitDispatchBatchResult,
-} from "../toolkit/dispatch.ts";
-import type { SubagentRuntimeKind, SubagentRuntimeRegistry } from "../runtime/seam.ts";
+} from "./dispatch.ts";
+import type {
+	SubagentRuntime,
+	SubagentRuntimeKind,
+	SubagentRuntimeRegistry,
+} from "../runtime/seam.ts";
 
 export const SUBAGENT_TOOL_NAME = "subagent";
 
@@ -61,12 +60,11 @@ export interface SubagentToolHost extends RunnerSubagentPi {
 }
 
 export interface RegisterSubagentToolOptions {
-	cwd: string;
 	agents: SubagentAgentRegistry;
 	runtimes(ctx: ToolContext): SubagentRuntimeRegistry;
 	fleetRegistry: SubagentFleetRegistry;
 	readGitHead?: ReadGitHead;
-	loadAgentDefinition?: (name: string, cwd: string) => PiAgentDefinition;
+	loadAgentDefinition(name: string, cwd: string): PiAgentDefinition;
 	timers?: TimerScheduler;
 	isProviderAuthConfigured?: IsProviderAuthConfigured;
 }
@@ -159,10 +157,9 @@ async function executeSubagent(args: ExecuteSubagentOptions): Promise<ToolResult
 			`${input.agent} accepts ${descriptor.minTasks === descriptor.maxTasks ? `exactly ${descriptor.minTasks}` : `${descriptor.minTasks}-${descriptor.maxTasks}`} task(s); received ${input.tasks.length}.`,
 		);
 	}
-	const loadDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
 	let definition: PiAgentDefinition;
 	try {
-		definition = loadDefinition(descriptor.name, ctx.cwd);
+		definition = options.loadAgentDefinition(descriptor.name, ctx.cwd);
 	} catch (error) {
 		return configurationError(
 			`${descriptor.definitionPath} could not be loaded: ${formatErrorMessage(error)}`,
@@ -191,7 +188,7 @@ async function executeSubagent(args: ExecuteSubagentOptions): Promise<ToolResult
 				...optionalEntry("readGitHead", options.readGitHead),
 			},
 			{
-				ctx: { ...ctx, signal: scope.signal, ...optionalEntry("onUpdate", onUpdate) },
+				ctx,
 				tasks: input.tasks,
 				taskTitle: (task) => task.title,
 				taskPrompt: (task) => task.prompt,
@@ -231,7 +228,7 @@ async function runTask(args: {
 	task: SubagentToolInput["tasks"][number];
 	definition: PiAgentDefinition;
 	descriptor: SubagentAgentDescriptor;
-	runtime: import("../runtime/seam.ts").SubagentRuntime;
+	runtime: SubagentRuntime;
 	signal: AbortSignal;
 	onProgress: (update: RunnerSubagentUpdate) => void;
 }): Promise<RunnerSubagentResult> {
@@ -272,14 +269,10 @@ async function runTask(args: {
 		onProgress: args.onProgress,
 		...optionalEntry("model", selectedModel),
 	};
-	const launch = resolveRunnerSubagentLaunch(args.pi, runnerCtx, dispatchOptions);
 	return await args.runtime.dispatch({
 		pi: args.pi,
 		ctx: runnerCtx,
-		options: {
-			...dispatchOptions,
-			...optionalEntry("preResolvedLaunch", launch),
-		},
+		options: dispatchOptions,
 	});
 }
 
@@ -290,12 +283,11 @@ function selectTaskModel(input: {
 	isProviderAuthConfigured: IsProviderAuthConfigured;
 }): string | undefined {
 	if (input.explicitModel !== undefined) return input.explicitModel;
-	if (input.policy === "inherit") return undefined;
-	const launchPlan = resolveExplorerLaunchPlan({
+	return resolveDescriptorModel({
+		policy: input.policy,
 		...optionalEntry("parentModel", input.parentModel),
 		isProviderAuthConfigured: input.isProviderAuthConfigured,
 	});
-	return launchPlan.kind === "inherit" ? undefined : launchPlan.model;
 }
 
 interface FormatResultOptions {
