@@ -18,8 +18,8 @@ import type { z as ZodNamespace } from "zod";
 //
 // Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
 // package exports are not resolvable without the ts workspace's node_modules ancestry. Static imports
-// mostly reach into the ts workspace by relative path; public package exports that need package
-// resolution are loaded through requireFromPiTools below so the direct Node import smoke still works.
+// mostly reach into the ts workspace by relative path; ns-pi-subagents is consumed exclusively through
+// its `/api` surface, resolved through .pi/lib/workspace-packages.ts so the direct Node import smoke works.
 import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/capabilities/objectives/src/core/objective-runner-rules.ts";
 import { parseMachineEnvelopeData } from "../../ts/packages/hosts/pi/src/runtime/machine-envelope.ts";
 import type {
@@ -27,19 +27,14 @@ import type {
 	ToolDefinition,
 	ToolResult,
 } from "../../ts/packages/hosts/pi/src/runtime/tool-types.ts";
-import type { SingleSubagentFleetRunTracking } from "@nseng-ai/ns-pi-subagents/api";
-import {
-	dispatchRunnerSubagent,
-	isRecord,
-	type RunnerSubagentResult,
-	type RunnerSubagentUpdate,
-} from "../../ts/packages/extensions/ns-pi-subagents/src/runner-subagents/index.ts";
-import {
-	formatRunnerSubagentActivityWidgetLines,
-	setRunnerSubagentWidget,
-} from "../../ts/packages/extensions/ns-pi-subagents/src/runner-subagents/widget.ts";
+import type {
+	RunnerSubagentResult,
+	RunnerSubagentUpdate,
+	SingleSubagentFleetRunTracking,
+} from "@nseng-ai/ns-pi-subagents/api";
 import {
 	formatZodError,
+	isRecord,
 	optionalEntries,
 	optionalEntry,
 } from "../../ts/packages/infra/foundation/src/primitives/primitives.ts";
@@ -56,10 +51,15 @@ const requireFromPiTools = createRequire(
 	new URL("../../ts/packages/extensions/ns-pi-subagents/package.json", import.meta.url),
 );
 const { z } = requireFromPiTools("zod") as typeof import("zod");
-const { getOrCreateSubagentFleetRegistry, trackSingleSubagentFleetRun } =
-	await importTypeScriptWorkspaceModule<typeof import("@nseng-ai/ns-pi-subagents/api")>(
-		"@nseng-ai/ns-pi-subagents/api",
-	);
+const {
+	dispatchRunnerSubagent,
+	formatRunnerSubagentActivityWidgetLines,
+	getOrCreateSubagentFleetRegistry,
+	setRunnerSubagentWidget,
+	trackSingleSubagentFleetRun,
+} = await importTypeScriptWorkspaceModule<typeof import("@nseng-ai/ns-pi-subagents/api")>(
+	"@nseng-ai/ns-pi-subagents/api",
+);
 
 const TOOL_NAME = "objective_runner_step";
 const WIDGET_KEY = "objective-runner-step";

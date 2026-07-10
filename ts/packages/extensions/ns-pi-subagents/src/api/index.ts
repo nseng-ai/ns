@@ -43,6 +43,7 @@ export type {
 	SubagentRuntimeDispatchInput,
 } from "../runtime/seam.ts";
 export {
+	dispatchRunnerSubagent,
 	mapWithConcurrency,
 	resultDiagnostic,
 	runnerSubagentPrimaryActivityPreview,
@@ -58,3 +59,8 @@ export type {
 	RunnerSubagentUpdate,
 } from "../runner-subagents/index.ts";
 export { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "../runner-subagents/index.ts";
+export {
+	formatRunnerSubagentActivityWidgetLines,
+	setRunnerSubagentWidget,
+} from "../runner-subagents/widget.ts";
+export type { RunnerSubagentWidgetOptions } from "../runner-subagents/widget.ts";

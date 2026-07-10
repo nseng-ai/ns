@@ -201,14 +201,10 @@ interface SubagentRuntime {
 
 ## Public exports
 
-- `@nseng-ai/ns-pi-subagents/api` — the curated surface for building subagent tools and consuming fleet monitoring, runtime injection, result/update types, and transcript/session helpers. New consumers should use this.
+- `@nseng-ai/ns-pi-subagents/api` — the curated surface for building subagent tools and consuming fleet monitoring, runtime injection, widget helpers, result/update types, and transcript/session helpers. New consumers should use this.
 - `@nseng-ai/ns-pi-subagents/extension` — default Pi extension entrypoint (`src/extension.ts`).
 - `@nseng-ai/ns-pi-subagents/runner-subagents` — lower-level dispatch/runtime helpers and the `forked_pi_agent` tool implementation; exported for existing direct consumers.
 - `@nseng-ai/ns-pi-subagents/runner-subagents/testing` — runner-subagent test helpers.
-
-## Open questions
-
-- Per-tool progress widgets: `setRunnerSubagentWidget` is exported from `/runner-subagents`, but the line formatter it pairs with is not yet on a public surface. Until that is settled, treat fleet tracking as the supported progress display for custom tools.
 
 ## Further reading
 
