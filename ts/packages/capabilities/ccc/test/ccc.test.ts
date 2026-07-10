@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -198,7 +198,7 @@ describe("CCC cmux command suite", () => {
 	});
 
 	test("ns:ccc:sidebar:session-summary queues session-aware skill prompt and restores the previous model", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		await withTempRepoSkill(
 			{
 				skillName: "ccc-sidebar",
@@ -244,7 +244,7 @@ describe("CCC cmux command suite", () => {
 	});
 
 	test("sidebar fallback uses one-line Goal description and missing workspace skips send", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const pi = new FakePi();
 		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
@@ -259,8 +259,8 @@ describe("CCC cmux command suite", () => {
 		expect(pi.sentUserMessages[0]).not.toContain("--goal");
 		expect(pi.sentUserMessages[0]).not.toContain("--status");
 
-		delete process.env.CMUX_WORKSPACE_ID;
-		delete process.env.CMUX_TAB_ID;
+		vi.stubEnv("CMUX_WORKSPACE_ID", undefined);
+		vi.stubEnv("CMUX_TAB_ID", undefined);
 		const noWorkspace = new FakeCommandContext();
 		await pi.commands.get("ns:ccc:sidebar:session-summary")?.handler("", noWorkspace);
 
@@ -271,7 +271,7 @@ describe("CCC cmux command suite", () => {
 	});
 
 	test("ns:ccc:sidebar:branch-state-summary queues branch-parent state prompt", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		await withTempRepoSkill(
 			{
 				skillName: "ccc-sidebar",

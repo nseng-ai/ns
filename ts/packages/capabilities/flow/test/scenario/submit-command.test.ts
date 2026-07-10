@@ -3,7 +3,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import {
@@ -12,7 +12,6 @@ import {
 	formatManagedGeneratedRegion,
 	hashPrDescriptionPrompt,
 } from "../../src/submit/index.ts";
-import type { TextGenerationResult } from "@nseng-ai/kernel/sdk";
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
 import { writeTestPointManifest } from "../support/point-manifest.ts";
@@ -44,7 +43,6 @@ const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-
 const tempDirs: string[] = [];
 
 afterEach(() => {
-	vi.useRealTimers();
 	for (const directory of tempDirs.splice(0)) {
 		rmSync(directory, { recursive: true, force: true });
 	}
@@ -421,35 +419,6 @@ describe("project-local submit extension", () => {
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gh pr edit 123"))).toBe(
 			false,
 		);
-	});
-
-	test("post-submit PR description model progress includes an elapsed counter while waiting", async () => {
-		vi.useFakeTimers();
-		let resolveModel: ((result: TextGenerationResult) => void) | undefined;
-		const pendingModel = new Promise<TextGenerationResult>((resolve) => {
-			resolveModel = resolve;
-		});
-		const run = runWithFakes({
-			request: { regenerateDescriptions: true },
-			state: { textGeneration: [pendingModel] },
-		});
-
-		await vi.waitFor(
-			() => {
-				expect(run.context.textGeneratorCalls).toHaveLength(1);
-			},
-			{ timeout: 10_000 },
-		);
-		expect(run.liveOutput).toContainEqual(transient("generating PR metadata (attempt 1/2)"));
-
-		await vi.advanceTimersByTimeAsync(5_000);
-		expect(run.liveOutput).toContainEqual(transient("still generating PR metadata (5s elapsed)"));
-
-		await vi.advanceTimersByTimeAsync(5_000);
-		expect(run.liveOutput).toContainEqual(transient("still generating PR metadata (10s elapsed)"));
-
-		resolveModel?.({ ok: true, text: defaultPrDescriptionText() });
-		expect(await run.exit).toBe(0);
 	});
 
 	test("pre-submit metadata preparation reports progress across large stacks", async () => {
@@ -1645,59 +1614,6 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		expect(await readFile(rawPath ?? "", "utf8")).toContain(
 			"because branch ns-extension-api-followup-stack is empty",
 		);
-	});
-
-	test("description metadata read failure preserves structured diagnostics", async () => {
-		vi.useFakeTimers();
-		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
-		tempDirs.push(logRoot);
-		const ghStderr = "GraphQL: Could not resolve to a PullRequest with the number of 123\n";
-		const viewCommand = "gh pr view 123 --json number,url,title,body,headRefName,baseRefName";
-		const run = runWithFakes({
-			request: { regenerateDescriptions: true },
-			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
-			state: {
-				exec: successfulSubmitResponses().flatMap((response) =>
-					response.match === viewCommand
-						? [
-								{ match: viewCommand, result: { code: 1, stderr: ghStderr } },
-								{ match: viewCommand, result: { code: 1, stderr: ghStderr } },
-								{ match: viewCommand, result: { code: 1, stderr: ghStderr } },
-								{ match: viewCommand, result: { code: 1, stderr: ghStderr } },
-							]
-						: [response],
-				),
-			},
-		});
-
-		await vi.waitFor(() => {
-			expect(formattedExecCalls(run.context)).toContain(viewCommand);
-		});
-		await vi.runAllTimersAsync();
-		expect(await run.exit).toBe(1);
-		const error = run.stderr.join("");
-		expect(error).toContain("PRs were submitted; description generation failed.");
-		expect(error).toContain(`#123 ${PR_URL}`);
-		expect(error).toContain("Could not read GitHub PR details.");
-		expect(error).toContain(
-			"Cause: gh exited 1: GraphQL: Could not resolve to a PullRequest with the number of 123",
-		);
-		expect(error).toContain("Raw log:");
-		expect(error).not.toContain("----- stdout -----");
-		expect(error).not.toContain("----- stderr -----");
-
-		expect(run.context.textGeneratorCalls).toHaveLength(0);
-		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
-		expect(rawPath?.startsWith(logRoot)).toBe(true);
-		const rawLog = await readFile(rawPath ?? "", "utf8");
-		expect(rawLog).toContain("phase: PR description");
-		expect(rawLog).toContain("details:");
-		expect(rawLog).toContain("command: gh");
-		expect(rawLog).toContain(
-			"args: pr view 123 --json number,url,title,body,headRefName,baseRefName",
-		);
-		expect(rawLog).toContain("exit_code: 1");
-		expect(rawLog).toContain(ghStderr.trim());
 	});
 
 	test("description edit failure keeps submitted PR links visible", async () => {

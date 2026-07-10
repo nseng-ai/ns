@@ -1,9 +1,7 @@
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import process from "node:process";
-
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { defaultCommandResolver, NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import {
@@ -14,7 +12,6 @@ import {
 } from "@nseng-ai/foundation/exec/testing";
 
 const tempDirs: string[] = [];
-const originalPath = process.env.PATH;
 
 function createTempDir(): string {
 	const directory = mkdtempSync(join(tmpdir(), "ns-exec-unit-"));
@@ -23,7 +20,6 @@ function createTempDir(): string {
 }
 
 afterEach(() => {
-	process.env.PATH = originalPath;
 	for (const directory of tempDirs.splice(0)) {
 		rmSync(directory, { recursive: true, force: true });
 	}
@@ -67,7 +63,7 @@ describe("defaultCommandResolver", () => {
 		const executable = join(directory, "ns-exec-test-tool");
 		writeFileSync(executable, "#!/bin/sh\nexit 0\n");
 		chmodSync(executable, 0o755);
-		process.env.PATH = directory;
+		vi.stubEnv("PATH", directory);
 
 		expect(defaultCommandResolver("ns-exec-test-tool")).toBe(executable);
 	});
@@ -75,7 +71,7 @@ describe("defaultCommandResolver", () => {
 	test("returns undefined for non-executable commands", () => {
 		const directory = createTempDir();
 		writeFileSync(join(directory, "ns-exec-test-tool"), "#!/bin/sh\nexit 0\n");
-		process.env.PATH = directory;
+		vi.stubEnv("PATH", directory);
 
 		expect(defaultCommandResolver("ns-exec-test-tool")).toBeUndefined();
 		expect(defaultCommandResolver("missing-tool")).toBeUndefined();

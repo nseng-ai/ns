@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { DEFAULT_COLUMNS } from "@nseng-ai/clinkr";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
@@ -20,11 +20,6 @@ import { streamCapture, type RecordingClock } from "./stream-test-helpers.ts";
 
 const CURSOR_HIDE = "\x1b[?25l";
 const CURSOR_SHOW = "\x1b[?25h";
-
-afterEach(() => {
-	vi.restoreAllMocks();
-	vi.unstubAllEnvs();
-});
 
 const SPECS: readonly PhaseSpec[] = [
 	{ key: "a", item: { name: "Alpha", detail: "alpha done", label: "alpha working…" } },

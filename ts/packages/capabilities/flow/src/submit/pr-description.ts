@@ -22,6 +22,9 @@ import { formatErrorMessage, sha256Digest } from "@nseng-ai/foundation/primitive
 import { normalizeTextOutput, trimOuterBlankLines } from "@nseng-ai/foundation/text-normalization";
 import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 import { prepareRepairedText } from "@nseng-ai/capability-kit/text-repair";
+import type { TimeServices } from "@nseng-ai/foundation/time";
+
+export type { TimeServices } from "@nseng-ai/foundation/time";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import {
 	buildPointCatalog,
@@ -409,6 +412,7 @@ export async function preparePrDescription(input: {
 	promptText: string;
 	context: PrDescriptionPromptContext;
 	onProgress?: (message: string) => void;
+	time?: TimeServices;
 }): Promise<PreparedPrDescription> {
 	const firstPrompt = buildPrDescriptionUserPrompt(input.context);
 	const prepared = await prepareRepairedText({
@@ -450,6 +454,7 @@ export async function preparePrDescription(input: {
 					break;
 			}
 		},
+		...(input.time ?? {}),
 	});
 	if (!prepared.ok) return prepared;
 	return {

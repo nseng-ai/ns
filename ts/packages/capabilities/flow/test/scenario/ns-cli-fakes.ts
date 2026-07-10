@@ -25,7 +25,7 @@ type ScriptedExecResult = ExecResult | ExitedResultFields;
 
 export interface ScriptedExecResponse {
 	match: string | RegExp | ((call: ExecCall) => boolean);
-	result: ScriptedExecResult;
+	result: ScriptedExecResult | ((call: ExecCall) => ScriptedExecResult);
 }
 
 export interface ExecCall {
@@ -99,7 +99,9 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 		if (response === undefined) {
 			return execResult({ code: 99, stderr: `missing command response: ${formatExecCall(call)}` });
 		}
-		const result = execResult(response.result);
+		const result = execResult(
+			typeof response.result === "function" ? response.result(call) : response.result,
+		);
 		options?.onStdout?.(result.stdout);
 		options?.onStderr?.(result.stderr);
 		return result;

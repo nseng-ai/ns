@@ -278,9 +278,9 @@ export function runFlowAutobranchCommandWithFakes(options: RunFlowCommandWithFak
 
 // Subprocess script for `ns flow autobranch --slug move-work` on a DIRTY source branch `feature/source`,
 // up to and including the stash list — the prefix shared by the success and Graphite-create-failure
-// paths. The transaction stamps the stash message with `Date.now()`, so the test must pin the clock
-// (e.g. `vi.setSystemTime(new Date(123456789))`) for the regex/stash-list subject to line up.
+// paths. Capture the generated transaction marker so the fake stash list mirrors Git's response.
 function autobranchDirtyExecThroughStashList(): ScriptedExecResponse[] {
+	let stashMessage: string | undefined;
 	return [
 		// Load the pending-worktree snapshot (dirty).
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
@@ -296,12 +296,25 @@ function autobranchDirtyExecThroughStashList(): ScriptedExecResponse[] {
 		{ match: "git for-each-ref --format=%(refname) refs/heads/move-work/", result: { stdout: "" } },
 		// Transaction: stash pending changes, then locate the new stash entry by its message.
 		{
-			match: /^git stash push --include-untracked -m pi-autobranch:\d+:move-work$/,
+			match: (call) => {
+				if (
+					call.command !== "git" ||
+					call.args.slice(0, 4).join(" ") !== "stash push --include-untracked -m"
+				) {
+					return false;
+				}
+				const message = call.args[4];
+				if (message === undefined || !/^pi-autobranch:\d+:move-work$/u.test(message)) return false;
+				stashMessage = message;
+				return true;
+			},
 			result: {},
 		},
 		{
 			match: "git stash list --format=%gd%x00%s",
-			result: { stdout: "stash@{0}\0On feature/source: pi-autobranch:123456789:move-work\n" },
+			result: () => ({
+				stdout: `stash@{0}\0On feature/source: ${stashMessage ?? "missing-stash-message"}\n`,
+			}),
 		},
 	];
 }

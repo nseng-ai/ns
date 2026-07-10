@@ -7,7 +7,12 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
 
-import type { GithubPrGateway, PrewrittenPrMetadata, TextGenerator } from "./index.ts";
+import type {
+	GithubPrGateway,
+	PrewrittenPrMetadata,
+	TextGenerator,
+	TimeServices,
+} from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import {
 	compactSubmitMetadataCellText,
@@ -183,6 +188,7 @@ export interface SubmitPrDescriptionOptions {
 	textGenerator: TextGenerator;
 	git: GitGateway;
 	env: Record<string, string | undefined>;
+	time?: TimeServices;
 }
 
 export interface RunSubmitCommandOptions {
@@ -330,6 +336,7 @@ export async function runSubmitCommand(
 		gateway: options.metadataGateway,
 		git: options.prDescription.git,
 		textGenerator: options.prDescription.textGenerator,
+		...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
 		onProgress: (message) =>
 			emitPhase(options, { type: "phase-progress", phaseKey: "metadata", label: message }),
 		onBranchProgress: (event) => {

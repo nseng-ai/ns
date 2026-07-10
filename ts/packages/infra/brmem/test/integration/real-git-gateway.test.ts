@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/exec";
@@ -744,12 +744,6 @@ function snapshotRefExists(repo: TempGitRepo, snapshotRef: string): boolean {
 }
 
 async function withCommitterDate<T>(date: string, action: () => Promise<T>): Promise<T> {
-	const previous = process.env.GIT_COMMITTER_DATE;
-	process.env.GIT_COMMITTER_DATE = date;
-	try {
-		return await action();
-	} finally {
-		if (previous === undefined) delete process.env.GIT_COMMITTER_DATE;
-		else process.env.GIT_COMMITTER_DATE = previous;
-	}
+	vi.stubEnv("GIT_COMMITTER_DATE", date);
+	return action();
 }

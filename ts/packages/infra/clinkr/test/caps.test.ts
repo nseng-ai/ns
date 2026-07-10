@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
 	DEFAULT_COLUMNS,
 	readProcessCapsEnv,
@@ -144,11 +144,6 @@ describe("resolveSettledNonInteractiveCaps", () => {
 });
 
 describe("readProcessCapsEnv", () => {
-	afterEach(() => {
-		vi.restoreAllMocks();
-		vi.unstubAllEnvs();
-	});
-
 	test("snapshots tty, columns, and env from the process", () => {
 		vi.stubEnv("TERM", "xterm-256color");
 		// Neutralize an ambient COLORTERM=truecolor from the test shell so TERM drives the depth.

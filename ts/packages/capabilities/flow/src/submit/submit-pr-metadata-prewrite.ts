@@ -11,7 +11,11 @@ import type { MaybePromise } from "@nseng-ai/foundation/primitives";
 import { commandFailure } from "./index.ts";
 import type { PrewrittenPrMetadata, PrCommitMessage } from "./index.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
-import { preparePrDescription, resolvePrDescriptionGeneration } from "./index.ts";
+import {
+	preparePrDescription,
+	resolvePrDescriptionGeneration,
+	type TimeServices,
+} from "./index.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "./index.ts";
 import type { TextGenerator } from "./index.ts";
 import { formatItemCount } from "./submit-format.ts";
@@ -401,6 +405,7 @@ export async function prepareSubmitPrMetadata(input: {
 	gateway: SubmitMetadataGateway;
 	git: GitGateway;
 	textGenerator: TextGenerator;
+	time?: TimeServices;
 	onProgress?: SubmitMetadataProgressListener;
 	onBranchProgress?: SubmitBranchMetadataProgressListener;
 }): Promise<SubmitPrMetadataPrewriteResult> {
@@ -460,6 +465,7 @@ export async function prepareSubmitPrMetadata(input: {
 		git: input.git,
 		textGenerator: input.textGenerator,
 		branches: newBranches,
+		...(input.time === undefined ? {} : { time: input.time }),
 		...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		...(input.onBranchProgress === undefined ? {} : { onBranchProgress: input.onBranchProgress }),
 	});
@@ -524,6 +530,7 @@ async function generateMetadataForBranches(input: {
 	git: GitGateway;
 	textGenerator: TextGenerator;
 	branches: readonly SubmitStackNewBranch[];
+	time?: TimeServices;
 	onProgress?: SubmitMetadataProgressListener;
 	onBranchProgress?: SubmitBranchMetadataProgressListener;
 }): Promise<
@@ -568,6 +575,7 @@ async function generateMetadataForBranches(input: {
 				diff: branch.diff,
 			},
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
+			...(input.time === undefined ? {} : { time: input.time }),
 		});
 		if (!generated.ok) {
 			input.onBranchProgress?.({

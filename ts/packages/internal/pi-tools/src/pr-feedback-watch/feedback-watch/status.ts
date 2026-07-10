@@ -26,7 +26,7 @@ export function steadyState(isEnabled: boolean): WatchSteadyState {
 	return isEnabled ? "active" : "stopped";
 }
 
-export function defaultStatusLine(status: WatchStatus): string | undefined {
+export function defaultStatusLine(status: WatchStatus, nowMs = Date.now()): string | undefined {
 	if (!status.isEnabled && status.state === "stopped") return undefined;
 	if (status.state === "paused") return "PR watch: paused";
 	if (status.state === "dispatching") return `PR watch: dispatching ${status.queuedCount} item(s)`;
@@ -39,7 +39,7 @@ export function defaultStatusLine(status: WatchStatus): string | undefined {
 		const feedbackAge =
 			status.lastRestPollAt === undefined
 				? `feedback ${intervalSeconds}s`
-				: `feedback ${formatElapsedSinceMs(status.lastRestPollAt)}/${intervalSeconds}s`;
+				: `feedback ${formatElapsedSinceMs(status.lastRestPollAt, nowMs)}/${intervalSeconds}s`;
 		const checks =
 			status.checkSummary === undefined ? "" : ` · ${formatCheckSummary(status.checkSummary)}`;
 		return `PR #${status.prNumber} · ${feedbackAge}${checks} · /${PR_FEEDBACK_WATCH_COMMAND_NAME} stops`;
@@ -61,10 +61,10 @@ export function shouldRefreshStatusAge(status: WatchStatus): boolean {
 	);
 }
 
-function formatElapsedSinceMs(iso: string): string {
+function formatElapsedSinceMs(iso: string, nowMs: number): string {
 	const timestamp = Date.parse(iso);
 	if (!Number.isFinite(timestamp)) return "recently";
-	return formatElapsedMs(Date.now() - timestamp);
+	return formatElapsedMs(nowMs - timestamp);
 }
 
 export function formatWatchStatus(status: WatchStatus): string {

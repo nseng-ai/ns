@@ -1,6 +1,6 @@
 # TypeScript Testing
 
-## Default and integration commands
+## Test lanes and commands
 
 The default TypeScript test command is the fast local suite:
 
@@ -10,8 +10,9 @@ pnpm --dir ts run test
 just ts-test
 ```
 
-Default tests include package-local `test/**/*.test.ts` files, except integration tests under
-`test/integration/`. Keep this path fake-driven and deterministic enough for frequent local use.
+Default tests include package-local `test/**/*.test.ts` files except the specialized lanes under
+`test/integration/`, `test/isolated/`, and `test/typescript-style-guard/`. Keep this path fake-driven
+and deterministic enough for frequent local use.
 
 Integration tests run intentionally with a separate command:
 
@@ -19,6 +20,14 @@ Integration tests run intentionally with a separate command:
 pnpm --dir ts run test:integration
 # or
 just ts-test-integration
+```
+
+Tests that genuinely require module-cache or process-global isolation run in another explicit lane:
+
+```bash
+pnpm --dir ts run test:isolated
+# or
+just ts-test-isolated
 ```
 
 The repository-wide TypeScript style guard is a separate long-running architectural guard suite:
@@ -29,10 +38,38 @@ pnpm --dir ts run test:typescript-style-guard
 just ts-test-typescript-style-guard
 ```
 
-CI reports the default TypeScript suite, TypeScript integration suite, and TypeScript style guard suite as separate non-draft PR jobs.
-Do not hide integration or guard tests behind environment variables or make the default command silently run them.
+CI reports the default, integration, isolated, and TypeScript style guard suites as separate
+non-draft PR jobs. The isolated suite belongs only in its separate CI job; do not fold it into the
+shared-cache default or integration jobs. Do not hide a specialized lane behind environment variables
+or make the default test command silently run it.
 
-## Integration test locator
+**Warning:** the default `just` validation entrypoint deliberately omits both integration and isolated
+tests. `just` does not prove the isolated lane passed; run `just ts-test-isolated` explicitly when a
+change touches isolated tests, their subjects, lane configuration, or the shared-test-state guards.
+
+## Integration versus isolation
+
+Integration and isolation describe different reasons for leaving the default lane:
+
+- **Integration** tests intentionally exercise a real adapter or runtime boundary: real Git, sqlite,
+  subprocesses, dynamic runtime loading, network/backend behavior, or similar external resources.
+- **Isolated** tests exercise behavior whose subject genuinely requires mutation of Vitest module state
+  or process-global state. They run with Vitest `isolate: true` so a file cannot contaminate another
+  file through the shared module cache.
+
+Isolation is not a synonym for integration or a general-purpose slow-test lane. A local fake-backed
+module-loader or lifecycle test can require isolation without touching a real backend. Conversely, a
+real-Git test is integration even when it does not mutate global state. Prefer removing ambient state
+through seams; use isolation only when the ambient module/process behavior is itself the contract.
+Placement in `test/isolated/` is not permission to add unrelated real-backend cost.
+
+## Lane locators
+
+Put TypeScript isolated tests at:
+
+```text
+ts/packages/<package>/test/isolated/**/*.test.ts
+```
 
 Put TypeScript integration tests at:
 
@@ -45,6 +82,56 @@ Put repository-wide TypeScript style guard tests at:
 ```text
 ts/packages/<package>/test/typescript-style-guard/**/*.test.ts
 ```
+
+The shared globs also support packages nested one additional directory below `ts/packages/`. Keep the
+lane directory directly under the package's `test/` root so discovery includes it in exactly one
+specialized command.
+
+## Shared-cache state policy
+
+The default, integration, and TypeScript style guard lanes use the shared module cache (`isolate:
+false`). Tests outside `test/isolated/` must not perform these operations:
+
+- Vitest module-state mutation: `vi.mock`, `vi.doMock`, `vi.unmock`, `vi.doUnmock`, or
+  `vi.resetModules`. Prefer dependency injection and a fake; isolate only tests whose subject is import
+  binding or module loading.
+- Vitest fake-timer installation or cleanup: `vi.useFakeTimers` or `vi.useRealTimers`. Inject
+  `TimerScheduler` and use `createManualTimerScheduler()`; isolate only host-owned timer behavior that
+  cannot use the project seam.
+- Direct process mutation: assignment to or deletion from `process.env`, or `process.chdir`. Pass
+  `env`/`cwd` explicitly, use an existing gateway, and use `vi.stubEnv()` for a genuinely ambient env
+  read.
+- Process-global listener mutation through `process.on`, `once`, `addListener`, `prependListener`,
+  `removeListener`, `off`, or `removeAllListeners`. Inject an event source; isolate only when process
+  listener behavior is the subject.
+- The module-global Graphite metadata worker lifecycle (`loadGraphiteMetadataStatusInWorker` and
+  `shutdownGraphiteMetadataWorker`). Inject an owned worker seam for ordinary behavior and keep only
+  focused singleton-lifecycle coverage isolated.
+
+The TypeScript style guard enforces these as `NS_TS_BAN_SHARED_TEST_MODULE_STATE`,
+`NS_TS_BAN_SHARED_TEST_FAKE_TIMERS`, `NS_TS_BAN_SHARED_TEST_PROCESS_MUTATION`,
+`NS_TS_BAN_SHARED_TEST_GLOBAL_LISTENERS`, and `NS_TS_BAN_SHARED_TEST_SINGLETON_STATE`.
+
+Shared Vitest configuration automatically restores spies/mocks and unstubs values created through
+`vi.stubEnv()` and `vi.stubGlobal()` after each test (`restoreMocks`, `unstubEnvs`, and `unstubGlobals`).
+Use those supported APIs instead of handwritten restoration where they fit. Automatic restoration does
+not make direct `process.env` writes, cwd changes, module-cache mutation, fake-timer installation, or
+process-listener mutation safe in a shared-cache lane.
+
+Use this remediation hierarchy when a guard fires:
+
+1. Remove ambient state by injecting the existing typed dependency, gateway, `Clock`, or
+   `TimerScheduler`, then test with a package-owned fake or manual time helper.
+2. For environment-only behavior, pass an env object or use `vi.stubEnv()` and rely on automatic
+   unstubbing; pass cwd as data rather than calling `process.chdir`.
+3. If first-party code owns the singleton/listener/module lifecycle, add a narrow owned seam and keep
+   most behavior coverage in the shared-cache lane.
+4. Move only the focused test whose contract truly is ambient module/process behavior to
+   `test/isolated/`, and run `just ts-test-isolated`.
+5. If the actual reason is a real adapter or runtime boundary rather than ambient state, use
+   `test/integration/` instead.
+
+## Integration boundary guidance
 
 Use integration tests for coverage that intentionally exercises real adapters or runtime boundaries, such
 as cold Node CLI/import smoke tests, real Git repositories, sqlite-backed fixtures, real ji CLI extension

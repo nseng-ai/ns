@@ -1,4 +1,6 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
+
+import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 
 import {
 	IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
@@ -146,35 +148,32 @@ describe("registerCommandWithImmediateAck", () => {
 		expect(calls).toEqual(["--flag"]);
 	});
 
-	test("replaces the starting acknowledgement with started after the status delay", async () => {
-		vi.useFakeTimers();
-		try {
-			const host = new FakeCommandAckHost();
-			const { ctx, statuses } = createStatusContext();
+	test("replaces the starting acknowledgement with started after the status delay", () => {
+		const timers = createManualTimerScheduler();
+		const host = new FakeCommandAckHost();
+		const { ctx, statuses } = createStatusContext();
 
-			registerCommandWithImmediateAck({
-				host: host,
-				commandName: "demo:run",
-				commandDefinition: {
-					handler() {},
-				},
-				options: { delivery: "status" },
-			});
-			commandFor(host, "demo:run").handler("", ctx);
+		registerCommandWithImmediateAck({
+			host: host,
+			commandName: "demo:run",
+			commandDefinition: {
+				handler() {},
+			},
+			options: { delivery: "status", timers: timers.timers },
+		});
+		commandFor(host, "demo:run").handler("", ctx);
 
-			expect(statuses).toEqual([
-				[IMMEDIATE_COMMAND_ACK_STATUS_KEY, "→ /demo:run received; starting…"],
-			]);
+		expect(statuses).toEqual([
+			[IMMEDIATE_COMMAND_ACK_STATUS_KEY, "→ /demo:run received; starting…"],
+		]);
 
-			await vi.advanceTimersByTimeAsync(3_000);
+		timers.advanceMs(3_000);
 
-			expect(statuses).toEqual([
-				[IMMEDIATE_COMMAND_ACK_STATUS_KEY, "→ /demo:run received; starting…"],
-				[IMMEDIATE_COMMAND_ACK_STATUS_KEY, "→ /demo:run received; started"],
-			]);
-		} finally {
-			vi.useRealTimers();
-		}
+		expect(statuses).toEqual([
+			[IMMEDIATE_COMMAND_ACK_STATUS_KEY, "→ /demo:run received; starting…"],
+			[IMMEDIATE_COMMAND_ACK_STATUS_KEY, "→ /demo:run received; started"],
+		]);
+		expect(timers.pendingTimerCount()).toBe(0);
 	});
 
 	test("preserves non-handler command definition fields", () => {

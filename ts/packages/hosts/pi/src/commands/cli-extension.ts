@@ -13,6 +13,7 @@ import {
 	truncateDisplayLine,
 	type CustomMessageContent,
 } from "../kit/terminal/presentation.ts";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import type { NsConfirmOptions, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 
 export { cliCommandTracePath } from "./cli-command-trace.ts";
@@ -104,6 +105,7 @@ export interface CliCommandExtensionSpec {
 	 */
 	afterCommandComplete?: (details: CliCommandOutputDetails) => Promise<void> | void;
 	env?: Record<string, string | undefined>;
+	timers?: TimerScheduler;
 	piCommandAliases?: Readonly<Record<string, string>>;
 }
 
@@ -406,6 +408,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		cliName: spec.cliName,
 		commandName: commandDisplayName(command),
 		piCommandName,
+		...(spec.timers === undefined ? {} : { timers: spec.timers }),
 	});
 	try {
 		progress.setPhase("waiting for Pi to finish responding");

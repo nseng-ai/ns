@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { SubagentFleetRegistry } from "@nseng-ai/ns-pi-subagents/api";
 import {
@@ -1130,17 +1130,8 @@ async function waitForSpawnCount(calls: readonly SpawnCall[], count: number): Pr
 }
 
 async function withProcessEnv<T>(name: string, value: string, run: () => Promise<T>): Promise<T> {
-	const previous = process.env[name];
-	process.env[name] = value;
-	try {
-		return await run();
-	} finally {
-		if (previous === undefined) {
-			delete process.env[name];
-		} else {
-			process.env[name] = previous;
-		}
-	}
+	vi.stubEnv(name, value);
+	return run();
 }
 
 function expectInOrder(text: string, fragments: readonly string[]): void {

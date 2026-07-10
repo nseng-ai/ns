@@ -17,7 +17,8 @@ Load this after `typescript-style` whenever the task touches TypeScript in this 
 - Package manager: pnpm 11 in `ts/`.
 - Runtime: Node 24.12 or newer.
 - Dependency governance: pnpm catalog plus Syncpack via `just ts-deps-check`.
-- Tests: Vitest 4 via `pnpm --dir ts run test` or `just ts-test`.
+- Default tests: Vitest 4 via `pnpm --dir ts run test` or `just ts-test`; specialized integration,
+  isolated, and TypeScript style guard lanes are explicit commands.
 - Development typecheck: native TypeScript preview / `tsgo` only, via `pnpm --dir ts run check` or `just ts-check`.
 - Formatting: oxfmt via `pnpm --dir ts run fmt:check` / `just ts-format-check`; autofix with `pnpm --dir ts run fmt` / `just ts-format-fix`.
 - Linting: oxlint via `pnpm --dir ts run lint` / `just ts-lint`; autofix with `pnpm --dir ts run lint:fix` / `just ts-lint-fix`.
@@ -130,6 +131,33 @@ example, prefer `ctx.renderCapabilities: RenderCapabilities` over
 
 Production ns TypeScript should not hand-roll raw timers. Use `Clock` from `@nseng-ai/foundation/clock` for wall-clock reads, `TimerScheduler` / `ScheduledTimer` from `@nseng-ai/foundation/timers` for scheduling contracts, concrete `systemClock` / `systemTimerScheduler` from `@nseng-ai/foundation/time`, `unrefTimerScheduler` from `@nseng-ai/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` plus related harnesses from `@nseng-ai/foundation/time/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
 
+## Test lanes and shared-cache safety
+
+Default tests are fake-driven. Real adapter/runtime boundaries belong under `test/integration/` and run
+with `just ts-test-integration`. Tests whose subject genuinely requires ambient Vitest module state or
+process-global state belong under `test/isolated/` and run with `just ts-test-isolated`. Isolation is not
+a synonym for integration or a general slow-test lane; first prefer injected dependencies, gateways,
+manual time helpers, explicit env/cwd, `vi.stubEnv()`, or a narrow owned lifecycle seam.
+
+The default, integration, and TypeScript style guard lanes share the module cache. Outside
+`test/isolated/`, these guard identifiers are hard bans:
+
+- `NS_TS_BAN_SHARED_TEST_MODULE_STATE`: no `vi.mock`, `vi.doMock`, `vi.unmock`, `vi.doUnmock`, or
+  `vi.resetModules`.
+- `NS_TS_BAN_SHARED_TEST_FAKE_TIMERS`: no `vi.useFakeTimers` or `vi.useRealTimers`; inject
+  `TimerScheduler` and use `createManualTimerScheduler()`.
+- `NS_TS_BAN_SHARED_TEST_PROCESS_MUTATION`: no direct `process.env` assignment/deletion or
+  `process.chdir`; pass env/cwd or use `vi.stubEnv()`.
+- `NS_TS_BAN_SHARED_TEST_GLOBAL_LISTENERS`: no process-global listener mutation; inject an event source.
+- `NS_TS_BAN_SHARED_TEST_SINGLETON_STATE`: no module-global Graphite metadata worker lifecycle; inject an
+  owned worker seam.
+
+Shared Vitest configuration automatically restores mock functions/spies and values stubbed with
+`vi.stubEnv()` / `vi.stubGlobal()`. That does not make direct process, module-cache, fake-timer, listener,
+or singleton mutation safe. The default `just` entrypoint deliberately omits isolated tests; they run in
+a separate CI job and must be invoked explicitly when affected. See `ts/TESTING.md` for lane placement
+and the remediation hierarchy.
+
 ## Hard bans enforced by TypeScript style guard tests
 
 The repository TypeScript style guard tests run adversarial self-review cases and enforce these uniquely
@@ -166,5 +194,6 @@ just ts-lint
 just ts-check
 just ts-test
 just ts-test-integration
+just ts-test-isolated
 just ts-test-typescript-style-guard
 ```

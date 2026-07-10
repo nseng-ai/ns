@@ -9,6 +9,26 @@ Rules for working under `ts/`, the pnpm workspace holding ji's first-party TypeS
 - `ts/` package tests are Vitest-backed; default to the full TS validation suite rather than asking to narrow scope.
 - Do not add Bun-runner package tests. Only standalone Bun templates/projects may use Bun tests, and then run `bun test --sequential`.
 
+## Test isolation hard gates
+
+The default, integration, and TypeScript style guard lanes share the Vitest module cache. Outside
+`test/isolated/`, the TypeScript style guard enforces these hard bans:
+
+- `NS_TS_BAN_SHARED_TEST_MODULE_STATE`: no `vi.mock` / `doMock` / `unmock` / `doUnmock` /
+  `resetModules`.
+- `NS_TS_BAN_SHARED_TEST_FAKE_TIMERS`: no `vi.useFakeTimers` or `vi.useRealTimers`.
+- `NS_TS_BAN_SHARED_TEST_PROCESS_MUTATION`: no direct `process.env` assignment/deletion or
+  `process.chdir`.
+- `NS_TS_BAN_SHARED_TEST_GLOBAL_LISTENERS`: no process-global listener mutation.
+- `NS_TS_BAN_SHARED_TEST_SINGLETON_STATE`: no module-global Graphite metadata worker lifecycle.
+
+Prefer injected fakes/gateways, manual time helpers, explicit env/cwd, `vi.stubEnv()`, or an owned
+lifecycle seam. Put only tests whose subject genuinely requires ambient module/process behavior under
+`test/isolated/`; this is distinct from `test/integration/`, which is for real adapter/runtime
+boundaries. Run isolated tests with `just ts-test-isolated`. The default `just` entrypoint deliberately
+omits isolated tests; CI runs them in a separate job. See `ts/TESTING.md` for placement, automatic
+restore behavior, and the remediation hierarchy.
+
 ## Package and subpackage structure
 
 Before creating a workspace package, declaring or renaming `ns.subpackages` entries, adding `exports` subpaths to a container package, or restructuring a package's `src/` layout, read `docs/conventions/subpackage-conventions.md` (rank test, subpackage kinds, importer rules; decisions in ADR 0022/0023).

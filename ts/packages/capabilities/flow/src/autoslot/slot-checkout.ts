@@ -3,6 +3,7 @@ import {
 	type SlotCheckoutFailure,
 	type SlotCheckoutResult,
 	type SlotClient,
+	type SlotClientOptions,
 } from "@nseng-ai/slots/api";
 
 export type {
@@ -24,13 +25,21 @@ export function createFlowSlotClient(options: {
 	cwd: string;
 	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
 }): SlotClient {
-	return createSlotClient({
+	return createSlotClient(buildFlowSlotClientOptions(options));
+}
+
+/** Internal pure planner for Flow's slot-client composition policy. */
+export function buildFlowSlotClientOptions(options: {
+	cwd: string;
+	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
+}): SlotClientOptions {
+	return {
 		cwd: options.cwd,
 		...(options.env === undefined ? {} : { env: options.env }),
 		// Autoslot is a CLI navigation command: honor the active ns shell wrapper's cd directive
 		// while avoiding an extra clipboard write beyond the explicit success guidance.
 		sideEffects: { shouldCopyClipboard: false, shouldWriteCdDirective: true },
-	});
+	};
 }
 
 export async function checkoutSlot(
