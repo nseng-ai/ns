@@ -22,6 +22,20 @@ ns address exec download-feedback --pr-number <pr-number> --format json
 
 The JSON result includes a `markdown` field intended for editor/session viewing. It is a report, not an automatic triage or implementation prompt by itself; inspect it before acting. If the human asks you to address feedback, that instruction includes the normal authorization to edit and to resolve or reply to review threads directly addressed by the implemented and validated change, unless the human says otherwise.
 
+## Addressing cycle and stopping rule
+
+PR feedback addressing is one bounded pass over one downloaded snapshot:
+
+1. Apply the requested fixes.
+2. Run appropriate local validation.
+3. Submit the branch through the repo's normal workflow.
+4. Resolve the addressed review threads.
+5. Stop and report the changes, validation, submission, and thread resolution.
+
+After that pass, do not wait for or poll CI, Graphite mergeability, automated review jobs, or newly generated feedback. Re-download feedback only when the user explicitly requests another pass or invokes a stack-repair/checks workflow.
+
+Keep this boundary distinct from `code-fix-gh-stack`: PR feedback addressing owns one snapshot through fix, validation, submit, and resolution, then stops. `code-fix-gh-stack` explicitly owns waiting, re-querying checks, and iterative repair until the stack is green.
+
 ## Current primitive surface
 
 Download / stack plumbing:

@@ -204,7 +204,15 @@ describe("/pr:download-feedback", () => {
 		expect(pi.calls).toEqual([
 			{ command: "ns", args: ["address", "exec", "download-feedback", "--format", "json"] },
 		]);
-		expect(ctx.editorTexts).toEqual([markdown]);
+		expect(ctx.editorTexts).toHaveLength(1);
+		expect(ctx.editorTexts[0]).toContain(markdown);
+		expect(ctx.editorTexts[0]).toContain("## Addressing workflow boundary");
+		expect(ctx.editorTexts[0]).toContain(
+			"apply fixes, run appropriate local validation, submit the branch, resolve addressed threads, then stop and report",
+		);
+		expect(ctx.editorTexts[0]).toContain(
+			"Do not wait for or poll CI, Graphite mergeability, automated review jobs, or newly generated feedback",
+		);
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Downloaded PR feedback into the editor. Review/edit, then press Enter.",
 			level: "info",
@@ -254,7 +262,9 @@ describe("/pr:download-feedback", () => {
 
 		const ctx = await runCommand(pi);
 
-		expect(ctx.editorTexts).toEqual([markdown]);
+		expect(ctx.editorTexts).toHaveLength(1);
+		expect(ctx.editorTexts[0]).toContain(markdown);
+		expect(ctx.editorTexts[0]).toContain("## Addressing workflow boundary");
 		expect(ctx.notifications.at(-1)?.level).toBe("info");
 		expect(pi.userMessages).toEqual([]);
 	});
@@ -417,6 +427,13 @@ describe("/pr:download-stack-feedback", () => {
 		expect(report).not.toContain("ns address exec close-review-threads --thread-ids-json");
 		expect(report).not.toContain("ns flow submit");
 		expect(report).not.toContain("Single-PR report footer should not leak");
+		expect(report).toContain("## Addressing workflow boundary");
+		expect(report).toContain(
+			"Re-download feedback only when the user explicitly requests another pass or invokes a stack-repair/checks workflow",
+		);
+		expect(report).toContain(
+			"The `code-fix-gh-stack` workflow owns waiting, re-querying checks, and iterative repair",
+		);
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Downloaded PR stack feedback into the editor. Review/edit, then press Enter.",
 			level: "info",

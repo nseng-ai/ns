@@ -21,6 +21,13 @@ const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
+const ADDRESSING_FOLLOW_UP = [
+	"## Addressing workflow boundary",
+	"",
+	"If asked to address this feedback, treat this download as one snapshot: apply fixes, run appropriate local validation, submit the branch, resolve addressed threads, then stop and report.",
+	"",
+	"Do not wait for or poll CI, Graphite mergeability, automated review jobs, or newly generated feedback. Re-download feedback only when the user explicitly requests another pass or invokes a stack-repair/checks workflow. The `code-fix-gh-stack` workflow owns waiting, re-querying checks, and iterative repair.",
+].join("\n");
 const stackBranchesDataSchema = z.looseObject({
 	branches: z.array(z.string()),
 });
@@ -189,7 +196,7 @@ async function runPrDownloadFeedbackCommand(
 			downloaded.exitCode === 0
 				? "Downloaded PR feedback into the editor. Review/edit, then press Enter."
 				: "Downloaded PR feedback report into the editor. Review/edit, then press Enter.";
-		prefillEditor(ctx, downloaded.data.markdown, message);
+		prefillEditor(ctx, appendAddressingFollowUp(downloaded.data.markdown), message);
 	} finally {
 		ctx.ui?.setStatus?.(DOWNLOAD_FEEDBACK_STATUS_KEY, undefined);
 	}
@@ -251,7 +258,7 @@ async function runPrDownloadStackFeedbackCommand(
 		});
 		prefillEditor(
 			ctx,
-			markdown,
+			appendAddressingFollowUp(markdown),
 			stackDownloadCompleteMessage(downloads.length, mapped.missingBranches),
 		);
 	} finally {
@@ -394,6 +401,10 @@ function parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): Comm
 	if (!schemaResult.success)
 		return { type: "error", message: schemaError(options.label, schemaResult.error) };
 	return { type: "ok", value: schemaResult.data };
+}
+
+function appendAddressingFollowUp(markdown: string): string {
+	return `${markdown.trimEnd()}\n\n${ADDRESSING_FOLLOW_UP}`;
 }
 
 function buildStackDownloadFeedbackMarkdown(
