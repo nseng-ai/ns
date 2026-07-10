@@ -19,9 +19,6 @@ rows are agent-alone.
       commit run into a stack, absorbing edits, and squashing spans; what Flow
       autobranch/submit already provide; where the gaps are. Produces a linked
       markdown summary.
-  - Policy: agent-alone; autonomous runner step allowed per `## Runner Policy`.
-  - Evidence: source-backed summary committed and linked from this row; findings on
-    the "Graphite can express packaging" assumption recorded in a Semantic Update.
 - [ ] **Subagent run-building mechanics** (grilling) — How commit-granularity
       subagents append to one linear run: serialized in one worktree/slot, or
       parallel work linearized afterwards; what CCC dispatch needs to change.

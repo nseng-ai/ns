@@ -58,58 +58,6 @@ proving out (see Parked).
    effort, on whether to promote Stack Smush to the default agent workflow (the
    rollout itself is follow-on work).
 
-## Definition of Progress
-
-Progress is keepable when:
-
-- An open Question Row is resolved with its decision recorded in a Semantic Update
-  and the roadmap row checked off, including any Fog the answer made specifiable
-  graduated into new rows.
-- The research row's linked markdown summary exists, is source-backed (observed
-  `gt` / `@nseng-ai/capability-kit/graphite` / Flow behavior, not recall), and is
-  referenced from its roadmap row.
-- After Crystallization: a committed, validated slice of run/packaging tooling that
-  a human can review as one coherent step.
-
-Do not keep changes that:
-
-- Resolve a grilling or prototype row without live exchange with the user — those
-  rows are decisions; an agent answering its own grill questions has broken the row.
-- Build on the closed `flow-land-incremental-perf-rollout` reference stack, or touch
-  Flow land merge/push primitives or safety gates.
-- Introduce non-git-native state (hidden databases, ad hoc state files).
-
-Useful evidence includes linked research summaries, Semantic Updates recording
-decisions, graduated Question Rows, and — post-Crystallization — passing `just`
-validation on committed slices.
-
-## Runner Policy
-
-This Objective is execution-friendly for `objective-next` and designed for autonomous
-Objective Runner steps under the boundaries below. Until Crystallization, autonomy is
-deliberately scoped: Question Rows are decisions, not autonomous slices, so only
-agent-alone rows are autonomous targets. At Crystallization, execution rows must be
-shaped runner-sized (one committable slice per step) before autonomous pursuit
-continues.
-
-- Direct execution is allowed when: the target is an open, unblocked, agent-alone
-  roadmap row — research rows (currently the Graphite slicing-mechanics survey) and
-  task rows — and the step stays within local repository reads, local edits, local
-  validation, and Objective tracking under this record.
-- Steer or ask first when: the row is typed grilling or prototype (always escalate;
-  they resolve only through live exchange), the row's scope is ambiguous, a finding
-  would change the Destination, Scope, or Non-Goals, or work would touch Flow land
-  primitives or another Objective's territory.
-- How work may change files and be left: work happens on a feature branch (never
-  `master`), committed as one coherent slice per runner step; Objective tracking
-  edits stay under `.ns/objectives/stack-smush/`. Exploratory changes not worth
-  keeping are discarded, not left dangling in the worktree.
-- Validation before keeping work: `just` when code changed; research/doc-only slices
-  instead verify links resolve and the roadmap row references the produced summary.
-- What will not happen unless explicitly requested: PR submission or update, pushing
-  to any remote, GitHub issue/PR mutation, publishing, deploying, or any external
-  write API.
-
 ## Assumptions and Risks
 
 - **Assumption — linear runs are buildable.** Commit-granularity subagents can be
