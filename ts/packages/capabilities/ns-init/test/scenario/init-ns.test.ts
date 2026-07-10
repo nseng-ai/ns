@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 
-import { initNs, renderInitNsHuman } from "../../src/init-ns.ts";
+import { initNs, initNsResultSchema, renderInitNsHuman } from "../../src/init-ns.ts";
 import type { NsActivationContext } from "../../src/activation-context.ts";
 import {
 	InMemoryActivationFilesGateway,
@@ -10,7 +10,10 @@ import {
 	InMemoryDeclaredExtensionsGateway,
 } from "../../src/testing/index.ts";
 
-function fixture(nsToml?: string): {
+function fixture(
+	nsToml?: string,
+	artifacts: InMemoryArtifactActivationGateway = new InMemoryArtifactActivationGateway(),
+): {
 	context: NsActivationContext;
 	files: InMemoryActivationFilesGateway;
 } {
@@ -22,7 +25,7 @@ function fixture(nsToml?: string): {
 			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", trunkBranch: "main" }),
 			files,
 			declaredExtensions: new InMemoryDeclaredExtensionsGateway(),
-			artifacts: new InMemoryArtifactActivationGateway(),
+			artifacts,
 		},
 		files,
 	};
@@ -47,6 +50,7 @@ describe("initNs", () => {
 			harnessSource: "explicit",
 			completed: {
 				nsToml: { change: "created" },
+				managedExtensionsIgnore: { change: "created" },
 				agentsInstructionFile: { change: "created" },
 				generatedInstructionsFile: { change: "created" },
 				consumerDirectories: [],
@@ -69,6 +73,7 @@ describe("initNs", () => {
 				harnessSource: "ns-toml",
 				completed: {
 					nsToml: { change: "unchanged" },
+					managedExtensionsIgnore: { change: "unchanged" },
 					agentsInstructionFile: { change: "unchanged" },
 					generatedInstructionsFile: { change: "unchanged" },
 				},
@@ -87,11 +92,64 @@ describe("initNs", () => {
 				"Harnesses (explicit): codex, claude-code.",
 				"Files:",
 				"  ns.toml              created",
+				"  .gitignore           created",
 				"  AGENTS.md            created",
 				"  CLAUDE.md            created",
 				"  .ns/instructions.md  created",
 			].join("\n"),
 		);
+	});
+
+	it("preserves removed artifact cleanup details in structured and human reports", async () => {
+		const artifacts = new InMemoryArtifactActivationGateway({
+			applyResult: {
+				ok: true,
+				completed: [
+					{
+						key: "pi:removed",
+						action: "removed",
+						artifactId: "@test/removed:demo",
+						skillName: "demo",
+						harness: "pi",
+						targetArtifactPath: "/repo/.pi/skills/demo",
+						manifestPath: "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
+						writtenFiles: [],
+						conflictingFiles: [],
+						removedFiles: ["/repo/.pi/skills/demo/SKILL.md"],
+						removalReason: "removed-source",
+					},
+					{
+						key: "codex:deselected",
+						action: "removed",
+						artifactId: "@test/active:other",
+						skillName: "other",
+						harness: "codex",
+						targetArtifactPath: "/repo/.agents/skills/other",
+						manifestPath: "/repo/.agents/skills/.ns-harness-artifacts-manifest.json",
+						writtenFiles: [],
+						conflictingFiles: [],
+						removedFiles: ["/repo/.agents/skills/other/SKILL.md"],
+						removalReason: "deselected-harness",
+					},
+				],
+			},
+		});
+		const { context } = fixture(undefined, artifacts);
+		const result = await initNs(context, { cwd: "/repo", harness: ["pi"] });
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") return;
+		const structured = initNsResultSchema.parse(result.data);
+		expect(structured.completed.artifacts).toMatchObject([
+			{ action: "removed", removalReason: "removed-source", removedFiles: [expect.any(String)] },
+			{
+				action: "removed",
+				removalReason: "deselected-harness",
+				removedFiles: [expect.any(String)],
+			},
+		]);
+		expect(renderInitNsHuman(structured)).toContain("Artifacts:");
+		expect(renderInitNsHuman(structured)).toContain("demo (pi)");
+		expect(renderInitNsHuman(structured)).toContain("removed");
 	});
 
 	it("returns aggregated preflight failure data with an empty completion map", async () => {

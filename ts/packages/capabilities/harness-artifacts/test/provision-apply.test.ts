@@ -214,6 +214,64 @@ describe("harness artifact provision apply", () => {
 		).toContain("pi:project:skill:objective-next-skill");
 	});
 
+	test("rejects prepared source and target drift with stable structured errors", async () => {
+		const sourceFixture = fakeProvisionFixture();
+		const sourcePrepared = await prepareProvision(sourceFixture.request);
+		if (!sourcePrepared.ok) return;
+		sourceFixture.fs.setFile(sourceFixture.sourcePath, "changed source\n");
+
+		const sourceResult = await applyPreparedProvision(sourcePrepared.value, { shouldForce: false });
+		expect(sourceResult).toMatchObject({
+			ok: false,
+			error: { code: "stale_prepared_reconciliation", details: { kind: "source" } },
+		});
+		expect(sourceFixture.fs.writtenFiles).toEqual([]);
+
+		const targetFixture = fakeProvisionFixture();
+		const targetPrepared = await prepareProvision(targetFixture.request);
+		if (!targetPrepared.ok) return;
+		targetFixture.fs.setFile(targetFixture.targetPath, "external target\n");
+
+		const targetResult = await applyPreparedProvision(targetPrepared.value, { shouldForce: true });
+		expect(targetResult).toMatchObject({
+			ok: false,
+			error: { code: "stale_prepared_reconciliation", details: { kind: "target" } },
+		});
+	});
+
+	test("preserves unrelated manifest entries but rejects same-key manifest drift", async () => {
+		const unrelatedFixture = fakeProvisionFixture();
+		const unrelatedPrepared = await prepareProvision(unrelatedFixture.request);
+		if (!unrelatedPrepared.ok) return;
+		unrelatedFixture.fs.setFile(
+			unrelatedFixture.manifestPath,
+			`${JSON.stringify({ version: 1, artifacts: { unrelated: unrelatedManifestEntry() } })}\n`,
+		);
+
+		const unrelated = await applyPreparedProvision(unrelatedPrepared.value, { shouldForce: false });
+		expect(unrelated).toMatchObject({ ok: true, value: { outcome: "applied" } });
+		expect(unrelatedFixture.fs.readText(unrelatedFixture.manifestPath)).toContain("unrelated");
+
+		const sameKeyFixture = fakeProvisionFixture();
+		const sameKeyPrepared = await prepareProvision(sameKeyFixture.request);
+		if (!sameKeyPrepared.ok) return;
+		sameKeyFixture.fs.setFile(
+			sameKeyFixture.manifestPath,
+			`${JSON.stringify({
+				version: 1,
+				artifacts: {
+					"pi:project:skill:objective-next-skill": unrelatedManifestEntry(),
+				},
+			})}\n`,
+		);
+
+		const sameKey = await applyPreparedProvision(sameKeyPrepared.value, { shouldForce: false });
+		expect(sameKey).toMatchObject({
+			ok: false,
+			error: { code: "stale_prepared_reconciliation", details: { kind: "manifest" } },
+		});
+	});
+
 	test("preview returns the plan and classifications without writing", async () => {
 		const fixture = await createFixture();
 
@@ -236,6 +294,47 @@ describe("harness artifact provision apply", () => {
 		).rejects.toMatchObject({ code: "ENOENT" });
 	});
 });
+
+function fakeProvisionFixture() {
+	const sourcePath = "/source/skills/objective-next/SKILL.md";
+	const targetPath = "/repo/.pi/skills/objective-next/SKILL.md";
+	const manifestPath = `/repo/.pi/skills/${INSTALL_MANIFEST_FILE_NAME}`;
+	const fs = new InMemoryHarnessFs({ [sourcePath]: "prepared source\n" });
+	return {
+		fs,
+		sourcePath,
+		targetPath,
+		manifestPath,
+		request: {
+			artifact: skillArtifact,
+			harness: "pi",
+			scope: "project" as const,
+			context: { projectRoot: "/repo" },
+			sourceRoot: "/source",
+			sourceVersion: "1.0.0",
+			fs,
+		},
+	};
+}
+
+function unrelatedManifestEntry(): InstallManifestData["artifacts"][string] {
+	return {
+		artifactId: "unrelated",
+		kind: "skill",
+		provisionName: "unrelated",
+		harness: "pi",
+		scope: "project",
+		targetRoot: "/repo/.pi/skills",
+		targetArtifactPath: "/repo/.pi/skills/unrelated",
+		source: {
+			type: "first-party",
+			packageName: "@nseng-ai/ns",
+			relativePath: "skills/unrelated",
+			version: "1.0.0",
+		},
+		files: {},
+	};
+}
 
 async function prepareAndApplyProvision(request: HarnessArtifactProvisionRequest) {
 	const prepared = await prepareProvision(request);

@@ -184,6 +184,66 @@ describe("declared extension descriptors", () => {
 		]);
 	});
 
+	test("reports each canonical duplicate identity once and excludes every duplicate declaration", async () => {
+		const repoRoot = "/repo";
+		const gateway = new FakeDeclaredExtensionDescriptorGateway([
+			localPackage(repoRoot, "extensions/first", {
+				descriptorExport: { description: "First" },
+			}),
+			localPackage(repoRoot, "extensions/duplicate", {
+				descriptorExport: { description: "Must not load" },
+			}),
+			localPackage(repoRoot, "extensions/last", {
+				descriptorExport: { description: "Last" },
+			}),
+			managedNpmPackage(repoRoot, "@acme/tools", {
+				manifest: {
+					name: "@acme/tools",
+					version: "1.2.3",
+					exports: { "./ns-extension": "./ns-extension.ts" },
+				},
+				descriptorExport: { description: "Must not load" },
+			}),
+		]);
+
+		const result = await loadDeclaredExtensionDescriptors({
+			repoRoot,
+			specs: [
+				"./extensions/first",
+				"npm:@acme/tools",
+				"./extensions/missing",
+				"./extensions/duplicate",
+				"npm:@acme/tools@1.2.3",
+				"npm:@acme/tools@2.0.0",
+				"extensions/./duplicate",
+				"/repo/extensions/duplicate",
+				"./extensions/last",
+			],
+			gateway,
+		});
+
+		expect(result.descriptors.map(({ spec }) => spec)).toEqual([
+			"./extensions/first",
+			"./extensions/last",
+		]);
+		expect(result.diagnostics).toMatchObject([
+			{
+				code: "extension_descriptor_duplicate_identity",
+				spec: "npm:@acme/tools",
+				relatedSpecs: ["npm:@acme/tools@1.2.3", "npm:@acme/tools@2.0.0"],
+			},
+			{
+				code: "extension_descriptor_package_missing",
+				spec: "./extensions/missing",
+			},
+			{
+				code: "extension_descriptor_duplicate_identity",
+				spec: "./extensions/duplicate",
+				relatedSpecs: ["extensions/./duplicate", "/repo/extensions/duplicate"],
+			},
+		]);
+	});
+
 	test("rejects managed npm identity and pinned-version mismatches before import", async () => {
 		const repoRoot = "/repo";
 		const gateway = new FakeDeclaredExtensionDescriptorGateway([

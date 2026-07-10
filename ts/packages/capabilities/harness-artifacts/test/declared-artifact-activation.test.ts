@@ -128,7 +128,175 @@ describe("declared artifact activation", () => {
 		]);
 	});
 
-	test("preserves stale manifest entries while adding declared artifacts", async () => {
+	test("reports completed transitions when a later aggregate transition fails", async () => {
+		const fixture = createFixture([
+			{
+				moduleRoot: "/modules/acme",
+				packageName: "@acme/ext",
+				version: "1.0.0",
+				descriptor: {
+					description: "@acme/ext",
+					bundledArtifacts: [
+						{ kind: "skill", name: "alpha", path: "skills/alpha" },
+						{ kind: "skill", name: "beta", path: "skills/beta" },
+					],
+				},
+			},
+		]);
+		const prepared = await fixture.prepare(["pi"]);
+		if (!prepared.ok) return;
+		fixture.fs.setFile("/modules/acme/skills/beta/SKILL.md", "changed after prepare\n");
+
+		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value);
+
+		expect(applied).toMatchObject({
+			ok: false,
+			error: {
+				code: "stale_prepared_reconciliation",
+				completedTransitions: [{ type: "provision" }],
+			},
+			completed: [{ artifactId: "@acme/ext:alpha", action: "installed" }],
+		});
+		expect(fixture.fs.readText("/repo/.pi/skills/alpha/SKILL.md")).toBe("alpha v1\n");
+		expect(fixture.fs.readText("/repo/.pi/skills/beta/SKILL.md")).toBeUndefined();
+	});
+
+	test("refuses incoherent out-of-root manifest deletion authority", async () => {
+		const fixture = createFixture([]);
+		const manifest = staleManifest();
+		const entry = manifest.artifacts["pi:project:skill:@gone/ext:old"];
+		if (entry === undefined) return;
+		entry.files["SKILL.md"] = {
+			sourcePath: "skills/old/SKILL.md",
+			targetPath: "/repo/customer-data/SKILL.md",
+			contentHash: contentHashForText("old\n"),
+		};
+		fixture.writeManifest(manifest);
+
+		const prepared = await fixture.prepare(["pi"]);
+
+		expect(prepared).toMatchObject({ ok: false, error: { code: "unsafe_manifest_entry" } });
+		expect(fixture.fs.readText("/repo/.pi/skills/old/SKILL.md")).toBe("old\n");
+	});
+
+	test("rechecks destructive path safety immediately before apply", async () => {
+		const fixture = createFixture([]);
+		fixture.writeManifest(staleManifest());
+		const prepared = await fixture.prepare(["pi"]);
+		if (!prepared.ok) return;
+		fixture.fs.markUnsafeRemovalPath("/repo/.pi/skills/old/SKILL.md");
+
+		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value);
+
+		expect(applied).toMatchObject({
+			ok: false,
+			error: {
+				code: "unsafe_manifest_entry",
+				details: { path: "/repo/.pi/skills/old/SKILL.md" },
+			},
+			completed: [],
+		});
+		expect(fixture.fs.readText("/repo/.pi/skills/old/SKILL.md")).toBe("old\n");
+	});
+
+	test("refuses an out-of-root obsolete file on a retained manifest entry", async () => {
+		const fixture = createFixture([moduleFacts("/modules/acme", "@acme/ext", "module")]);
+		const installed = await fixture.prepare(["pi"]);
+		if (!installed.ok) return;
+		await applyPreparedDeclaredArtifactActivation(installed.value);
+		const manifest = fixture.readManifest();
+		const entry = manifest.artifacts["pi:project:skill:@acme/ext:module"];
+		if (entry === undefined) return;
+		entry.files["obsolete.md"] = {
+			sourcePath: "skills/module/obsolete.md",
+			targetPath: "/repo/customer-data/obsolete.md",
+			contentHash: contentHashForText("customer data\n"),
+		};
+		fixture.fs.setFile("/repo/customer-data/obsolete.md", "customer data\n");
+		fixture.writeManifest(manifest);
+
+		const prepared = await fixture.prepare(["pi"]);
+
+		expect(prepared).toMatchObject({
+			ok: false,
+			error: {
+				code: "unsafe_manifest_entry",
+				details: { path: "/repo/customer-data/obsolete.md" },
+			},
+		});
+		expect(fixture.fs.readText("/repo/customer-data/obsolete.md")).toBe("customer data\n");
+	});
+
+	test("edited stale files conflict and prevent every prepared activation write", async () => {
+		const fixture = createFixture([moduleFacts("/modules/acme", "@acme/ext", "module")]);
+		fixture.writeManifest(staleManifest());
+		fixture.fs.setFile("/repo/.pi/skills/old/SKILL.md", "customer edit\n");
+		fixture.fs.clearWrittenFiles();
+
+		const prepared = await fixture.prepare(["pi"]);
+		if (!prepared.ok) return;
+		expect(prepared.value.artifacts).toMatchObject([
+			{ action: "conflicted", removal: { reason: "removed-source" } },
+			{ action: "installed" },
+		]);
+		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value);
+
+		expect(applied).toMatchObject({ ok: true, completed: [{ action: "conflicted" }] });
+		expect(fixture.fs.writtenFiles).toEqual([]);
+		expect(fixture.fs.readText("/repo/.pi/skills/old/SKILL.md")).toBe("customer edit\n");
+		expect(fixture.fs.readText("/repo/.pi/skills/module/SKILL.md")).toBeUndefined();
+	});
+
+	test("applies same-target identity replacement as one aggregate transition", async () => {
+		const fixture = createFixture([moduleFacts("/modules/acme", "@acme/ext", "module")]);
+		const manifest = staleManifest();
+		const old = manifest.artifacts["pi:project:skill:@gone/ext:old"];
+		if (old === undefined) return;
+		old.provisionName = "module";
+		old.targetArtifactPath = "/repo/.pi/skills/module";
+		old.files["SKILL.md"] = {
+			sourcePath: "skills/old/SKILL.md",
+			targetPath: "/repo/.pi/skills/module/SKILL.md",
+			contentHash: contentHashForText("old\n"),
+		};
+		fixture.fs.setFile("/repo/.pi/skills/module/SKILL.md", "old\n");
+		fixture.writeManifest(manifest);
+
+		const prepared = await fixture.prepare(["pi"]);
+		if (!prepared.ok) return;
+		expect(prepared.value.artifacts).toMatchObject([
+			{ action: "removed", removal: { reason: "same-target-replacement" } },
+			{ action: "installed" },
+		]);
+		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value);
+
+		expect(applied.ok).toBe(true);
+		expect(fixture.fs.readText("/repo/.pi/skills/module/SKILL.md")).toBe("module v1\n");
+		expect(Object.keys(fixture.readManifest().artifacts)).toEqual([
+			"pi:project:skill:@acme/ext:module",
+		]);
+	});
+
+	test("deselection removes tracked files but retains untracked files and non-empty artifact dirs", async () => {
+		const fixture = createFixture([moduleFacts("/modules/acme", "@acme/ext", "module")]);
+		const installed = await fixture.prepare(["pi"]);
+		if (!installed.ok) return;
+		await applyPreparedDeclaredArtifactActivation(installed.value);
+		fixture.fs.setFile("/repo/.pi/skills/module/customer.txt", "keep\n");
+
+		const prepared = await fixture.prepare([]);
+		if (!prepared.ok) return;
+		expect(prepared.value.artifacts).toMatchObject([
+			{ action: "removed", removal: { reason: "deselected-harness" } },
+		]);
+		await applyPreparedDeclaredArtifactActivation(prepared.value);
+
+		expect(fixture.fs.readText("/repo/.pi/skills/module/SKILL.md")).toBeUndefined();
+		expect(fixture.fs.readText("/repo/.pi/skills/module/customer.txt")).toBe("keep\n");
+		expect(fixture.fs.nodes.get("/repo/.pi/skills/module")).toEqual({ type: "directory" });
+	});
+
+	test("removes unchanged stale manifest entries while adding declared artifacts", async () => {
 		const fixture = createFixture([moduleFacts("/modules/acme", "@acme/ext", "module")]);
 		fixture.writeManifest(staleManifest());
 
@@ -136,12 +304,14 @@ describe("declared artifact activation", () => {
 		if (!prepared.ok) return;
 		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value);
 
-		expect(applied.ok).toBe(true);
+		expect(applied).toMatchObject({
+			ok: true,
+			completed: [{ action: "removed", removalReason: "removed-source" }, { action: "installed" }],
+		});
 		expect(Object.keys(fixture.readManifest().artifacts)).toEqual([
 			"pi:project:skill:@acme/ext:module",
-			"pi:project:skill:@gone/ext:old",
 		]);
-		expect(fixture.fs.readText("/repo/.pi/skills/old/SKILL.md")).toBe("old\n");
+		expect(fixture.fs.readText("/repo/.pi/skills/old/SKILL.md")).toBeUndefined();
 	});
 });
 
