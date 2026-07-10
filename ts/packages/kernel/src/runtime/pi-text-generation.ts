@@ -1,4 +1,6 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
+import { closeOpenAICodexWebSocketSessions } from "@earendil-works/pi-ai/api/openai-codex-responses";
+import { uuidv7 } from "@earendil-works/pi-agent-core";
 // Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
 // Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
@@ -31,17 +33,23 @@ export interface PiTextGeneratorOptions {
 	modelRegistry?: PiModelRegistry;
 	completeSimple?: CompleteSimpleFunction;
 	loadDefaultModelRegistry?: () => Promise<PiModelRegistry>;
+	createRequestSessionId?: () => string;
+	cleanupRequestSession?: (sessionId: string) => void;
 }
 
 export class PiTextGenerator implements TextGenerator {
 	private readonly modelRegistry: PiModelRegistry | undefined;
 	private readonly completeSimple: CompleteSimpleFunction | undefined;
 	private readonly loadDefaultModelRegistry: () => Promise<PiModelRegistry>;
+	private readonly createRequestSessionId: () => string;
+	private readonly cleanupRequestSession: (sessionId: string) => void;
 
 	constructor(options: PiTextGeneratorOptions = {}) {
 		this.modelRegistry = options.modelRegistry;
 		this.completeSimple = options.completeSimple;
 		this.loadDefaultModelRegistry = options.loadDefaultModelRegistry ?? loadDefaultModelRegistry;
+		this.createRequestSessionId = options.createRequestSessionId ?? uuidv7;
+		this.cleanupRequestSession = options.cleanupRequestSession ?? closeOpenAICodexWebSocketSessions;
 	}
 
 	async generateText(request: TextGenerationRequest): Promise<TextGenerationResult> {
@@ -67,6 +75,7 @@ export class PiTextGenerator implements TextGenerator {
 			};
 		}
 
+		const requestSessionId = this.createRequestSessionId();
 		try {
 			const completeSimple = this.completeSimple ?? (await loadCompleteSimple());
 			const response = await completeSimple(
@@ -84,6 +93,7 @@ export class PiTextGenerator implements TextGenerator {
 				{
 					...(auth.headers === undefined ? {} : { headers: auth.headers }),
 					apiKey: auth.apiKey,
+					sessionId: requestSessionId,
 					maxTokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
 					reasoning: request.reasoning ?? DEFAULT_REASONING,
 					timeoutMs: DEFAULT_TIMEOUT_MS,
@@ -119,6 +129,8 @@ export class PiTextGenerator implements TextGenerator {
 				ok: false,
 				error: `Pi model ${request.modelRef} failed to generate text: ${formatErrorMessage(error)}`,
 			};
+		} finally {
+			this.cleanupRequestSession(requestSessionId);
 		}
 	}
 }
