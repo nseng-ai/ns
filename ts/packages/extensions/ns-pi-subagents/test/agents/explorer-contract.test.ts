@@ -11,19 +11,20 @@ import {
 import { describe, expect, test } from "vitest";
 
 import {
-	EXPLORER_AGENT_NAME,
-	EXPLORER_AGENT_REPO_RELATIVE_PATH,
+	EXPLORER_AGENT_DESCRIPTOR,
 	EXPLORER_SCOUT_SECTION_HEADERS,
-} from "../../src/explore/contract.ts";
+} from "../../src/agents/explorer.ts";
 
 function workspaceRoot(): string {
 	const root = findWorkspaceRootByMarkers({
 		cwd: fileURLToPath(new URL(".", import.meta.url)),
-		markers: [EXPLORER_AGENT_REPO_RELATIVE_PATH],
+		markers: [EXPLORER_AGENT_DESCRIPTOR.definitionPath],
 		exists: existsSync,
 	});
 	if (root === null) {
-		throw new Error(`Could not find ${EXPLORER_AGENT_REPO_RELATIVE_PATH} from contract test.`);
+		throw new Error(
+			`Could not find ${EXPLORER_AGENT_DESCRIPTOR.definitionPath} from contract test.`,
+		);
 	}
 	return root;
 }
@@ -31,7 +32,7 @@ function workspaceRoot(): string {
 describe("explorer contract", () => {
 	test("the real explorer prompt scout section headings match the contract", () => {
 		const root = workspaceRoot();
-		const explorerAgentPath = join(root, EXPLORER_AGENT_REPO_RELATIVE_PATH);
+		const explorerAgentPath = join(root, EXPLORER_AGENT_DESCRIPTOR.definitionPath);
 		const explorerAgentMarkdown = readFileSync(explorerAgentPath, "utf8");
 		const definition = parsePiAgentDefinitionMarkdown(explorerAgentMarkdown, explorerAgentPath);
 		const bodyHeadings = definition.body
@@ -49,9 +50,9 @@ describe("explorer contract", () => {
 	});
 
 	test("the real explorer agent definition loads from the workspace root", () => {
-		const definition = loadPiAgentDefinition(EXPLORER_AGENT_NAME, workspaceRoot());
+		const definition = loadPiAgentDefinition(EXPLORER_AGENT_DESCRIPTOR.name, workspaceRoot());
 
-		expect(definition.name).toBe(EXPLORER_AGENT_NAME);
-		expect(definition.filePath).toContain(EXPLORER_AGENT_REPO_RELATIVE_PATH);
+		expect(definition.name).toBe(EXPLORER_AGENT_DESCRIPTOR.name);
+		expect(definition.filePath).toContain(EXPLORER_AGENT_DESCRIPTOR.definitionPath);
 	});
 });

@@ -1,6 +1,13 @@
 import { READ_ONLY_SUBAGENT_TOOLS } from "../runner-subagents/read-only-tools.ts";
 import type { SubagentAgentDescriptor } from "./registry.ts";
 
+export const EXPLORER_SCOUT_SECTION_HEADERS = [
+	"## Files Retrieved",
+	"## Key Code",
+	"## Architecture",
+	"## Start Here",
+] as const;
+
 export const EXPLORER_AGENT_DESCRIPTOR = {
 	name: "explorer",
 	definitionPath: ".ns/pi/agents/explorer.md",

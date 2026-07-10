@@ -1,40 +1,22 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { ToolContext, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
+import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
 import type { ReadGitHead } from "../fleet/git-head.ts";
 import type { SubagentFleetRegistry } from "../fleet/registry.ts";
-import { trackSingleSubagentFleetRun, trackSubagentFleetRun } from "../fleet/tracking.ts";
+import { trackSubagentFleetRun } from "../fleet/tracking.ts";
 import type { SubagentRuntime } from "../runtime/seam.ts";
 import {
-	defaultRunnerSubagentLaunchMetadata,
 	mapWithConcurrency,
-	type RunnerSubagentContext,
-	type RunnerSubagentOptions,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
 } from "../runner-subagents/index.ts";
-import { withRunnerSubagentWidget } from "../runner-subagents/widget.ts";
-
-export type SubagentToolContext = ToolContext & {
-	signal?: AbortSignal;
-	onUpdate?: (update: Partial<ToolResult>) => void;
-};
 
 export interface ToolkitDispatchDependencies {
 	pi: RunnerSubagentPi;
 	runtime: SubagentRuntime;
 	fleetRegistry: SubagentFleetRegistry;
 	readGitHead?: ReadGitHead;
-}
-
-export interface ToolkitDispatchInput {
-	ctx: SubagentToolContext;
-	title: string;
-	options: RunnerSubagentOptions;
-	widgetKey?: string;
-	trackingPrompt?: string;
-	onProgress?: (update: RunnerSubagentUpdate) => void;
 }
 
 export const SUBAGENT_TASK_NOT_STARTED = Symbol("subagent-task-not-started");
@@ -45,7 +27,7 @@ export interface ToolkitDispatchTrackingResult {
 }
 
 export interface ToolkitDispatchBatchInput<TItem, TResult> {
-	ctx: SubagentToolContext;
+	ctx: ToolContext;
 	tasks: readonly TItem[];
 	taskTitle(item: TItem, index: number): string;
 	taskPrompt?: (item: TItem, index: number) => string | undefined;
@@ -57,65 +39,6 @@ export interface ToolkitDispatchBatchInput<TItem, TResult> {
 		onProgress: (update: RunnerSubagentUpdate) => void,
 	): Promise<TResult>;
 	resultForTracking(result: TResult): ToolkitDispatchTrackingResult;
-}
-
-export async function dispatchSubagent<T = unknown>(
-	deps: ToolkitDispatchDependencies,
-	args: ToolkitDispatchInput,
-): Promise<RunnerSubagentResult<T>> {
-	const cwd = args.ctx.cwd;
-	const signal = args.ctx.signal;
-	const tracking = trackSingleSubagentFleetRun({
-		registry: deps.fleetRegistry,
-		ctx: args.ctx,
-		title: args.title,
-		...optionalEntry("prompt", args.trackingPrompt),
-		parentSessionFile: args.ctx.sessionManager?.getSessionFile?.(),
-		cwd,
-		...optionalEntry("readGitHead", deps.readGitHead),
-	});
-	const runnerCtx = toRunnerSubagentContext(args.ctx, signal);
-	const options = {
-		...args.options,
-		cwd,
-		...optionalEntry("signal", signal),
-		onProgress: (update: RunnerSubagentUpdate) => {
-			tracking.onProgress(update);
-			args.onProgress?.(update);
-		},
-	} satisfies RunnerSubagentOptions;
-
-	try {
-		tracking.onStart();
-		const run = async (onWidgetProgress?: (update: RunnerSubagentUpdate) => void) =>
-			(await deps.runtime.dispatch({
-				pi: deps.pi,
-				ctx: runnerCtx,
-				options: {
-					...options,
-					onProgress: (update) => {
-						options.onProgress?.(update);
-						onWidgetProgress?.(update);
-					},
-				},
-			})) as RunnerSubagentResult<T>;
-		const result =
-			args.widgetKey === undefined
-				? await run()
-				: await withRunnerSubagentWidget({
-						ctx: args.ctx,
-						key: args.widgetKey,
-						initial: {
-							title: args.title,
-							launch: defaultRunnerSubagentLaunchMetadata(),
-						},
-						run,
-					});
-		tracking.onDone(result);
-		return result;
-	} finally {
-		tracking.dispose();
-	}
 }
 
 export async function dispatchSubagentBatch<TItem, TResult>(
@@ -172,16 +95,5 @@ function notStartedFleetTaskResult(title: string): RunnerSubagentResult {
 		diagnostic,
 		elapsedMs: 0,
 		progress: { title, state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 0 },
-	};
-}
-
-export function toRunnerSubagentContext(
-	ctx: Pick<ToolContext, "cwd" | "model">,
-	signal?: AbortSignal,
-): RunnerSubagentContext {
-	return {
-		cwd: ctx.cwd,
-		...optionalEntry("signal", signal),
-		...optionalEntry("model", ctx.model),
 	};
 }

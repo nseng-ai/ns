@@ -5,8 +5,9 @@ import {
 	EXPLORER_CHEAP_MODEL_ID,
 	EXPLORER_CHEAP_MODEL_SHORTHAND,
 	EXPLORER_CHEAP_QUALIFIED_MODEL,
-} from "../../src/explore/contract.ts";
-import { resolveExplorerLaunchPlan } from "../../src/explore/model-policy.ts";
+	resolveDescriptorModel,
+	resolveExplorerLaunchPlan,
+} from "../../src/agents/model-policy.ts";
 
 function recordingAuthProbe(configured: boolean): {
 	isProviderAuthConfigured: (providerId: string) => boolean;
@@ -78,5 +79,41 @@ describe("resolveExplorerLaunchPlan", () => {
 		});
 
 		expect(plan).toEqual({ kind: "inherit" });
+	});
+});
+
+describe("resolveDescriptorModel", () => {
+	test("inherit policy never selects a model or probes auth", () => {
+		const auth = recordingAuthProbe(true);
+		const model = resolveDescriptorModel({
+			policy: "inherit",
+			parentModel: { provider: "openai-codex", id: "gpt-5" },
+			isProviderAuthConfigured: auth.isProviderAuthConfigured,
+		});
+
+		expect(model).toBeUndefined();
+		expect(auth.probedProviders).toEqual([]);
+	});
+
+	test("cheap-or-inherit resolves through the explorer launch plan", () => {
+		const auth = recordingAuthProbe(false);
+		const model = resolveDescriptorModel({
+			policy: "cheap-or-inherit",
+			parentModel: { provider: "anthropic", id: "claude-opus-4-1" },
+			isProviderAuthConfigured: auth.isProviderAuthConfigured,
+		});
+
+		expect(model).toBe(EXPLORER_CHEAP_MODEL_SHORTHAND);
+	});
+
+	test("cheap-or-inherit inherits when no cheap option is safe", () => {
+		const auth = recordingAuthProbe(false);
+		const model = resolveDescriptorModel({
+			policy: "cheap-or-inherit",
+			parentModel: { provider: "google", id: "gemini-2.5-pro" },
+			isProviderAuthConfigured: auth.isProviderAuthConfigured,
+		});
+
+		expect(model).toBeUndefined();
 	});
 });

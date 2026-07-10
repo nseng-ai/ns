@@ -17,7 +17,7 @@ import {
 	makeErrorResult,
 	makeFinalTextResult,
 	settleMicrotasks,
-} from "../helpers/explore-testing.ts";
+} from "../helpers/fleet-testing.ts";
 import type { GitHeadSnapshot } from "../../src/fleet/git-head.ts";
 
 describe("subagent fleet display for explorer", () => {

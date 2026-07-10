@@ -1,7 +1,7 @@
 export const SUBAGENT_DELEGATION_INTRO = [
 	"## Subagent delegation",
 	"",
-	"Pi sessions in this repo provide a subagent system from `@nseng-ai/ns-pi-subagents` (see that package's README). Use the built-in subagent tools according to the doctrine below.",
+	"Pi sessions in this repo provide a subagent system from `@nseng-ai/ns-pi-subagents` (see that package's README). Use the built-in `subagent` tool according to the doctrine below.",
 ].join("\n");
 
 export function buildSubagentDelegationDoctrine(sections: readonly string[]): string | undefined {

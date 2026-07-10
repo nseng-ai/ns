@@ -2,12 +2,8 @@ import type { PiAgentDefinition } from "@nseng-ai/pi/runtime/agent-definition";
 
 import type { SubagentRuntimeKind } from "../runtime/seam.ts";
 
-export const BUILT_IN_SUBAGENT_AGENT_NAMES = ["explorer", "task"] as const;
-export type BuiltInSubagentAgentName = (typeof BUILT_IN_SUBAGENT_AGENT_NAMES)[number];
-export type SubagentAgentName = BuiltInSubagentAgentName | (string & {});
-
 export interface SubagentAgentDescriptor {
-	readonly name: SubagentAgentName;
+	readonly name: string;
 	readonly definitionPath: string;
 	readonly minTasks: number;
 	readonly maxTasks: number;

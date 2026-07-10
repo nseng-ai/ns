@@ -66,7 +66,6 @@ export default function nsPiSubagentsExtension(
 		(name) => loadDefinition(name, cwd),
 	);
 	const registration = registerSubagentTool(pi, {
-		cwd,
 		agents,
 		fleetRegistry,
 		readGitHead,
