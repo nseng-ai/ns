@@ -22,8 +22,8 @@ of Question Rows in `roadmap.md`.
   linear run.
 - The packaging step: precise decision-PR / span-PR semantics, slicing authority,
   the git/Graphite mechanics that turn a linear run into a stack, span-squash timing,
-  and how packaging composes with existing Flow submit/land and
-  `@nseng-ai/capability-kit/graphite`.
+  and how local-only packaging hands a self-describing stack to the user's existing
+  submit/land workflow.
 - Repackaging under change: how a packaged stack absorbs review feedback without
   chaos.
 - Review-policy encoding: durably marking which PRs need careful human review and
@@ -43,8 +43,9 @@ proving out (see Parked).
   reference stack, which this Objective must not build on).
 - Replacing the current default workflow inside this Objective. The promotion
   decision is in scope; the default-rollout execution is follow-on work.
-- Any hidden database or ad-hoc state files: run/packaging state stays git-native
-  (commits, trailers, branches, refs, PR metadata).
+- Any hidden database, ad-hoc state file, or durable Slice Map: packaging state is
+  derived from branch structure, classification-bearing names, commit messages, and
+  post-submit PR metadata; transient step-to-step JSON is process input only.
 
 ## Completion Criteria
 
@@ -58,22 +59,92 @@ proving out (see Parked).
    effort, on whether to promote Stack Smush to the default agent workflow (the
    rollout itself is follow-on work).
 
+## Definition of Progress
+
+Progress is keepable when:
+
+- An open Question Row is resolved with its decision recorded in a Semantic Update
+  and the roadmap row checked off, including any Fog the answer made specifiable
+  graduated into new rows.
+- A research or task row's artifact (survey summary, convention draft, design
+  proposal) exists, is source-backed — observed `gt` /
+  `@nseng-ai/capability-kit/graphite` / Flow behavior, not recall — and is linked
+  from its roadmap row.
+- After Crystallization: a committed, validated slice of the LM-driven smush skill
+  that a human can review as one coherent step. CLI push-downs remain parked until
+  real-run evidence justifies graduating them.
+
+Do not keep changes that:
+
+- Resolve a grilling or prototype row without live exchange with the user — those
+  rows are decisions; an agent answering its own grill questions has broken the row.
+- Build on the closed `flow-land-incremental-perf-rollout` reference stack, or touch
+  Flow land merge/push primitives or safety gates.
+- Introduce non-git-native state (hidden databases, ad hoc state files).
+
+Useful evidence includes linked survey and proposal documents, Semantic Updates
+recording decisions, graduated Question Rows, and passing `just` validation on
+committed slices.
+
+## Runner Policy
+
+This Objective is execution-friendly for `objective-next` and designed for
+autonomous Objective Runner steps under the boundaries below. Until Crystallization,
+autonomy is deliberately scoped: Question Rows are decisions, not autonomous slices,
+so only agent-alone rows are autonomous targets.
+
+- Direct execution is allowed when: the target is an open, unblocked, agent-alone
+  roadmap row — research and task rows — and the step stays within local repository
+  reads, local edits, local validation, and Objective tracking under this record.
+  Empirical `gt` observation is in bounds via scratch git repositories outside the
+  worktree and local-only `gt` operations; nothing that contacts a remote.
+- Steer or ask first when: the row is typed grilling or prototype (always escalate;
+  they resolve only through live exchange), the row's scope is ambiguous, a finding
+  would change the Destination, Scope, or Non-Goals, or work would touch Flow land
+  primitives or another Objective's territory.
+- How work may change files and be left: work happens on a feature branch (never
+  `master`), committed as one coherent slice per runner step; Objective tracking
+  edits stay under `.ns/objectives/stack-smush/`. Exploratory changes not worth
+  keeping are discarded, not left dangling in the worktree.
+- Validation before keeping work: `just` when code changed; research/doc-only slices
+  instead verify links resolve and the roadmap row references the produced artifact.
+- What will not happen unless explicitly requested: PR submission or update, pushing
+  to any remote, GitHub issue/PR mutation, publishing, deploying, or any external
+  write API.
+
 ## Assumptions and Risks
 
 - **Assumption — linear runs are buildable.** Commit-granularity subagents can be
   serialized (or linearized after the fact) into one coherent commit run without
   losing the parallelism that makes multi-agent work worthwhile. If this fails, the
-  production half needs a different shape and packaging inputs get messier.
+  production half needs a different shape and packaging inputs get messier. Decided
+  shape (frontier grilling, 2026-07-10): serialize entangled work, parallelize
+  declared-disjoint scopes, join by concatenation-rebase — still to be proven on
+  real work.
 - **Assumption — Graphite can express packaging.** `gt` plus
   `@nseng-ai/capability-kit/graphite` mechanics can slice a linear run into a stack
-  and later squash spans without fighting the tool. The research row tests this
-  cheaply before any mechanics design.
+  and later squash spans without fighting the tool. Survey verdict (2026-07-10,
+  `roadmap.md` survey row; observed on gt 1.8.6): **supported for all local
+  mechanics** — slicing is pure branch-pointer metadata, fold is its inverse, span
+  squash and feedback absorption are non-interactive one-liners. `gt split` remains
+  unusable by agents, but v1 deliberately uses LM-orchestrated raw `git branch` / `gt
+  track` recipes; a deterministic `ns slot gt exec` slicing push-down is parked until
+  real-run evidence warrants it. The remote/PR half (PR fate, review threads, CI
+  across fold/re-slice) remains unobserved and shifts onto the repackaging-chaos risk
+  below.
 - **Risk — repackaging chaos.** Review feedback on a decision PR mid-review forces
   edits beneath a live stack; re-slicing could thrash PRs, reviews, and CI. Needs
-  de-risking via prototype before the path is trusted on real work.
+  de-risking via prototype before the path is trusted on real work. The prototype
+  must now test the harder mechanics exposed by the packaging design: re-slicing a
+  previously squashed span, post-submit reclassification where branch renames can
+  break PR association, and orphaned close-candidate PRs after `gt fold` without
+  `--close`. The skill never mutates or closes PRs; it must report those candidates
+  loudly for the user to handle.
 - **Risk — reduced oversight on span PRs.** Skipping human review on spans is the
   point, but it must be a deliberate, durably-encoded policy per PR, not silence;
-  agent review may need to stand in.
+  agent review may need to stand in. Resolved direction (2026-07-10):
+  `decision`/`span` PR labels plus body rationale make skipping deliberate and
+  queryable, with agent review standing in on spans.
 - **Risk — workflow bifurcation.** An additional path that never proves out leaves
   two half-workflows. The promotion decision (criterion 3) is the forcing function:
   promote or retire deliberately.
@@ -85,9 +156,8 @@ graduates into roadmap rows as the Frontier advances:
 
 - Promotion-to-default: what evidence gates it, and what changes (skills, Flow
   defaults, CCC orchestration) when the path becomes the default.
-- CI cost and policy for span PRs — many small PRs mean many CI runs; squash timing
-  interacts with this.
-- GitHub reviewer routing and notification for decision PRs vs span PRs.
+- CI cost and policy for span PRs — many small PRs mean many CI runs. Span squash
+  timing no longer interacts (explicit post-creation command leaves PR count
+  unchanged); the open question is PR count itself.
 - Interaction with Objectives, branch-context, and handoffs: how a commit run relates
   to objective runner steps, attached plans, and multi-session continuation.
-- Observability: how a human sees a run's packaging state (ccc stack map or similar).

@@ -134,6 +134,30 @@ The user-facing CLI noun for `ns skills ...`, the current steelthread surface ov
 Per-invocation-kind harness integration files reconciled by areg, such as frontmatter flags, Codex sidecars, Pi settings exclusions, and mirror symlinks. Harness overlays are the seam where repo-owned invocation policy layers onto first-party or externally sourced skill content.
 *Avoid*: managed artifacts, kind overlays
 
+**Commit Run**:
+A linear, merge-free commit sequence on one feature branch off trunk — the branch is the run, `trunk..tip`, with no run identity beyond it. Packageable when its tip validates and its commit messages narrate intent well enough for **Packaging** to judge slice boundaries; there are no structured decision markers — narrative prose is the signal.
+*Avoid*: run registry, run manifest, decision trailer, marked commit
+
+**Packaging**:
+The opt-in, LM-driven local operation (colloquially *smush*, the skill's name) that classifies and slices any existing stack into **Decision PR** and **Span PR** form, then explicitly performs **Span Squash**. It produces a self-describing local stack for the user to submit; repackaging is the same operation re-run, never an automatic pipeline or land step.
+*Avoid*: accretion, automatic pipeline stage, deterministic slicer, submit step, land-time step
+
+**Decision PR**:
+A packaged stack slice encoding one high-impact choice plus the commits needed to judge it in isolation. Its local branch name and commit message carry classification and rationale; after submission its `decision` label and body request careful human review.
+*Avoid*: big PR, important-looking PR, unlabeled review request
+
+**Span PR**:
+A packaged stack slice holding a maximal stretch of consequence-executing commits between decisions. Its local name and squashed commit carry classification, rationale, and narration; after submission its `span` label makes agent review visibly stand in by default.
+*Avoid*: filler PR, silently-unreviewed PR, auto-squashed PR
+
+**Slice Map**:
+The derived view of a packaged stack's cut points, decision/span classification, and rationale, reconstructed from branch structure, names, and commit messages. It is never stored as durable state; after submission the user ratifies it by reshaping the stack on disagreement.
+*Avoid*: PR plan file, hidden packaging state, approval gate
+
+**Span Squash**:
+The standard explicit Packaging step that collapses a **Span PR**'s interior commits into one after slicing and boundary validation, preserving rationale and a narration digest. It manages the live stack's conflict surface and is never a land-time operation.
+*Avoid*: auto-squash, implicit squash, land-time squash
+
 ## Architecture Boundaries
 
 These terms are general across the codebase. The canonical definitions are replicated here for discoverability; the `typescript-fake-driven-testing` skill carries the fuller mechanics.
