@@ -38,11 +38,12 @@ Provisioning follows one deterministic path:
 1. Catalog lookup selects a first-party harness artifact entry.
 2. The harness path table resolves the target root and artifact path for the selected harness and scope.
 3. `buildProvisionPlan` creates a sorted, file-level copy plan from source file hashes. Plan output records the artifact id, kind, provision name, harness, scope, target root, target artifact path, source provenance, and per-file source/target paths with content hashes.
-4. `prepareProvision` builds the plan, file decisions, and manifest snapshot once; `previewFromPrepared` projects that prepared provision into the preview shape without writing anything.
-5. `applyPreparedProvision` applies the prepared plan by copying source text files, then writes the install manifest at `<targetRoot>/.ns-harness-artifacts-manifest.json`.
-6. Manifest entries are keyed as `<harness>:<scope>:<kind>:<artifactId>` and record per-file content hashes for later LBYL decisions.
+4. `prepareProvision` retains the exact source bytes, target hash facts, and same-key manifest expectation used by the plan; `previewFromPrepared` projects that prepared provision without writing.
+5. Desired-state reconciliation combines provisions and authorized removals into one ordered aggregate. Immediately before each transition it rereads source, target, and same-key manifest state; unrelated manifest entries are preserved. Drift returns the stable `stale_prepared_reconciliation` error before that transition writes.
+6. Apply writes only prepared bytes, removes only manifest-tracked unchanged files, and updates the latest manifest at `<targetRoot>/.ns-harness-artifacts-manifest.json`. Empty artifact directories may be removed; consumer directories and directories containing untracked files are retained.
+7. Manifest entries are keyed as `<harness>:<scope>:<kind>:<artifactId>` and record per-file content hashes for later LBYL decisions.
 
-The apply layer refuses to clobber target files classified as `locally-edited-conflict` unless the caller passes `force: true` (`ns skills install --force`). Previously managed files whose current hash still matches the manifest can be overwritten by a newer plan; files already matching the source are `unchanged`.
+The apply layer refuses to clobber target files classified as `locally-edited-conflict` unless the caller passes `force: true` (`ns skills install --force`). Stale-removal conflicts are never forced by descriptor activation. Before deletion, manifest key, harness, project scope, target root, artifact path, and every tracked file path must be coherent and strictly contained; malformed records return `unsafe_manifest_entry` and grant no deletion authority. Missing tracked files are safe.
 
 ## `ns skills` surface
 
@@ -60,4 +61,4 @@ ns skills install <skill> --harness <claude-code|codex|pi> [--scope project|user
 
 `@nseng-ai/ns-init` consumes this package through `RealSkillMaterializer`, an implementation of ns-init's existing `SkillMaterializer` gateway that is a thin adapter over `provisionFirstPartySkill()`. The deep operation resolves the first-party catalog source root, prepares the provision once, and applies it into project-scope `claude-code`, `codex`, and `pi` harness roots using the shared apply path.
 
-Deferred breadth such as reconcile, extension-carried catalogs, AREG re-platforming, uninstall, and stale-after-upgrade behavior is tracked in the `skill-management-subsystem` umbrella objective, not in this steelthread package README.
+Declared extension activation and `ns update` share the kernel's canonical declared-descriptor loader and feed validated records to artifact discovery. Full activation reads project manifests for every supported harness, including deselected harnesses, and can report `removed` with `removed-source`, `deselected-harness`, `same-target-replacement`, or obsolete-file detail. Targeted reconcile preserves non-target and first-party entries; incomplete acquisition or descriptor discovery does not authorize cleanup of the failed source.

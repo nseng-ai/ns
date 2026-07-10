@@ -49,6 +49,7 @@ export interface ConsumerDirectoryOutcome {
 
 export interface ActivationCompleted {
 	readonly nsToml?: FileActivationOutcome | undefined;
+	readonly managedExtensionsIgnore?: FileActivationOutcome | undefined;
 	readonly agentsInstructionFile?: FileActivationOutcome | undefined;
 	readonly claudeInstructionFile?: FileActivationOutcome | undefined;
 	readonly generatedInstructionsFile?: FileActivationOutcome | undefined;
@@ -72,6 +73,7 @@ export interface PreparedNsActivation {
 	readonly harnesses: readonly HarnessId[];
 	readonly harnessSource: "explicit" | "ns-toml";
 	readonly nsToml: PreparedFileWrite;
+	readonly managedExtensionsIgnore: PreparedFileWrite;
 	readonly agents: PreparedFileWrite;
 	readonly claude: PreparedFileWrite;
 	readonly instructions: PreparedFileWrite;
@@ -121,20 +123,35 @@ export async function prepareNsActivation(
 		diagnostics.push(toActivationDiagnostic(diagnostic));
 	}
 
-	const [agentsRead, claudeRead, instructionsRead] = await Promise.all([
-		context.files.readActivationFile({
-			repoRoot: options.repository.repoRoot,
-			file: "agents-instructions",
-		}),
-		context.files.readActivationFile({
-			repoRoot: options.repository.repoRoot,
-			file: "claude-instructions",
-		}),
-		context.files.readActivationFile({
-			repoRoot: options.repository.repoRoot,
-			file: "generated-instructions",
-		}),
-	]);
+	const [managedExtensionsIgnoreRead, agentsRead, claudeRead, instructionsRead] = await Promise.all(
+		[
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "managed-extensions-ignore",
+			}),
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "agents-instructions",
+			}),
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "claude-instructions",
+			}),
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "generated-instructions",
+			}),
+		],
+	);
+	const managedExtensionsIgnoreText = textForPreflight(
+		managedExtensionsIgnoreRead,
+		ACTIVATION_FILE_PATHS["managed-extensions-ignore"],
+		diagnostics,
+	);
+	const managedExtensionsIgnore = planManagedExtensionsIgnore(
+		managedExtensionsIgnoreRead,
+		managedExtensionsIgnoreText,
+	);
 	const agentsText = textForPreflight(
 		agentsRead,
 		ACTIVATION_FILE_PATHS["agents-instructions"],
@@ -207,6 +224,7 @@ export async function prepareNsActivation(
 			harnesses: [...options.harnesses],
 			harnessSource: options.harnessSource,
 			nsToml: { file: "ns-toml", content: options.nsTomlContent, change: options.nsTomlChange },
+			managedExtensionsIgnore,
 			agents: {
 				file: "agents-instructions",
 				content: agentsApplied.content,
@@ -235,6 +253,7 @@ export async function applyNsActivation(
 	const completed: MutableActivationCompleted = {};
 	const fileDuties = [
 		["nsToml", prepared.nsToml],
+		["managedExtensionsIgnore", prepared.managedExtensionsIgnore],
 		["agentsInstructionFile", prepared.agents],
 		["claudeInstructionFile", prepared.claude],
 		["generatedInstructionsFile", prepared.instructions],
@@ -359,6 +378,24 @@ function stableConsumerDirectories(
 		}
 	}
 	return paths;
+}
+
+const MANAGED_EXTENSIONS_IGNORE_RULE = ".ns/managed-extensions/";
+
+function planManagedExtensionsIgnore(
+	read: ActivationTextFileReadResult,
+	text: string,
+): PreparedFileWrite {
+	const hasExactRule = text.split(/\r?\n/u).includes(MANAGED_EXTENSIONS_IGNORE_RULE);
+	if (hasExactRule) {
+		return { file: "managed-extensions-ignore", content: text, change: "unchanged" };
+	}
+	const separator = text.length === 0 || text.endsWith("\n") ? "" : "\n";
+	return {
+		file: "managed-extensions-ignore",
+		content: `${text}${separator}${MANAGED_EXTENSIONS_IGNORE_RULE}\n`,
+		change: read.type === "missing" ? "created" : "appended",
+	};
 }
 
 function fileChange(

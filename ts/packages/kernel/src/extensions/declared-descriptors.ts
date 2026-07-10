@@ -33,8 +33,18 @@ export interface DeclaredExtensionDescriptorDiagnostic {
 	readonly code: string;
 	readonly message: string;
 	readonly spec: string;
+	readonly relatedSpecs?: readonly string[];
 	readonly path?: string;
 }
+
+export const declaredExtensionDescriptorDiagnosticSchema = z.object({
+	severity: z.literal("error"),
+	code: z.string(),
+	message: z.string(),
+	spec: z.string(),
+	relatedSpecs: z.array(z.string()).readonly().optional(),
+	path: z.string().optional(),
+});
 
 export interface LoadDeclaredExtensionDescriptorsResult {
 	readonly descriptors: readonly DeclaredExtensionDescriptor[];
@@ -99,13 +109,27 @@ export async function loadDeclaredExtensionDescriptors(
 	options: LoadDeclaredExtensionDescriptorsOptions,
 ): Promise<LoadDeclaredExtensionDescriptorsResult> {
 	const gateway = options.gateway ?? nodeDeclaredExtensionDescriptorGateway;
+	const declarations = normalizeDeclaredExtensionSpecs(options.repoRoot, options.specs);
+	const duplicateSpecsByIdentity = duplicateSpecsByIdentityFrom(declarations);
 	const descriptors: DeclaredExtensionDescriptor[] = [];
 	const diagnostics: DeclaredExtensionDescriptorDiagnostic[] = [];
+	const reportedDuplicateIdentities = new Set<string>();
 
-	for (const spec of options.specs) {
+	for (const declaration of declarations) {
+		if (declaration.identity !== undefined) {
+			const duplicateSpecs = duplicateSpecsByIdentity.get(declaration.identity);
+			if (duplicateSpecs !== undefined) {
+				if (!reportedDuplicateIdentities.has(declaration.identity)) {
+					diagnostics.push(duplicateIdentityDiagnostic(duplicateSpecs));
+					reportedDuplicateIdentities.add(declaration.identity);
+				}
+				continue;
+			}
+		}
 		const loaded = await loadDeclaredExtensionDescriptor({
 			repoRoot: options.repoRoot,
-			spec,
+			spec: declaration.spec,
+			parsed: declaration.parsed,
 			gateway,
 		});
 		if (loaded.ok) descriptors.push(loaded.record);
@@ -115,6 +139,56 @@ export async function loadDeclaredExtensionDescriptors(
 	return { descriptors, diagnostics };
 }
 
+type NormalizedDeclaredExtensionSpec = {
+	readonly spec: string;
+	readonly parsed: ReturnType<typeof parseExtensionSourceSpec>;
+	readonly identity?: string;
+};
+
+function normalizeDeclaredExtensionSpecs(
+	repoRoot: string,
+	specs: readonly string[],
+): readonly NormalizedDeclaredExtensionSpec[] {
+	return specs.map((spec) => {
+		const parsed = parseExtensionSourceSpec(repoRoot, spec);
+		if (!parsed.ok) return { spec, parsed };
+		const identity =
+			parsed.value.kind === "npm"
+				? `npm:${parsed.value.packageName}`
+				: parsed.value.kind === "local"
+					? `local:${parsed.value.path}`
+					: `git:${parsed.value.raw}`;
+		return { spec, parsed, identity };
+	});
+}
+
+function duplicateSpecsByIdentityFrom(
+	declarations: readonly NormalizedDeclaredExtensionSpec[],
+): ReadonlyMap<string, readonly string[]> {
+	const specsByIdentity = new Map<string, string[]>();
+	for (const declaration of declarations) {
+		if (declaration.identity === undefined) continue;
+		const specs = specsByIdentity.get(declaration.identity);
+		if (specs === undefined) specsByIdentity.set(declaration.identity, [declaration.spec]);
+		else specs.push(declaration.spec);
+	}
+	return new Map([...specsByIdentity].filter(([, specs]) => specs.length > 1));
+}
+
+function duplicateIdentityDiagnostic(
+	specs: readonly string[],
+): DeclaredExtensionDescriptorDiagnostic {
+	const [spec, ...relatedSpecs] = specs;
+	if (spec === undefined) throw new Error("Duplicate extension identity group must not be empty.");
+	return {
+		severity: "error",
+		code: "extension_descriptor_duplicate_identity",
+		message: `Declared extension ${spec} has duplicate declarations: ${relatedSpecs.join(", ")}.`,
+		spec,
+		relatedSpecs,
+	};
+}
+
 type LoadDeclaredExtensionDescriptorResult =
 	| { readonly ok: true; readonly record: DeclaredExtensionDescriptor }
 	| { readonly ok: false; readonly diagnostic: DeclaredExtensionDescriptorDiagnostic };
@@ -122,9 +196,10 @@ type LoadDeclaredExtensionDescriptorResult =
 async function loadDeclaredExtensionDescriptor(options: {
 	repoRoot: string;
 	spec: string;
+	parsed: ReturnType<typeof parseExtensionSourceSpec>;
 	gateway: DeclaredExtensionDescriptorGateway;
 }): Promise<LoadDeclaredExtensionDescriptorResult> {
-	const parsed = parseExtensionSourceSpec(options.repoRoot, options.spec);
+	const parsed = options.parsed;
 	if (!parsed.ok) {
 		return failure(options.spec, parsed.error.code, parsed.error.message);
 	}

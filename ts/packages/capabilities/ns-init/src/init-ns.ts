@@ -1,5 +1,6 @@
 import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok, usageError } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	ALL_HARNESS_IDS,
 	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
@@ -34,17 +35,35 @@ export const initNsRequestSchema = z.object({
 const fileChangeSchema: z.ZodType<FileActivationOutcome> = z.object({
 	change: z.enum(["created", "appended", "replaced", "unchanged"]),
 });
-const artifactOutcomeSchema: z.ZodType<DeclaredArtifactActivationOutcome> = z.object({
-	key: z.string(),
-	action: z.enum(DECLARED_ARTIFACT_ACTIVATION_ACTIONS),
-	artifactId: z.string(),
-	skillName: z.string(),
-	harness: z.enum(ALL_HARNESS_IDS),
-	targetArtifactPath: z.string(),
-	manifestPath: z.string(),
-	writtenFiles: z.array(z.string()).readonly(),
-	conflictingFiles: z.array(z.string()).readonly(),
-});
+const artifactOutcomeSchema: z.ZodType<DeclaredArtifactActivationOutcome> = z
+	.object({
+		key: z.string(),
+		action: z.enum(DECLARED_ARTIFACT_ACTIVATION_ACTIONS),
+		artifactId: z.string(),
+		skillName: z.string(),
+		harness: z.enum(ALL_HARNESS_IDS),
+		targetArtifactPath: z.string(),
+		manifestPath: z.string(),
+		writtenFiles: z.array(z.string()).readonly(),
+		conflictingFiles: z.array(z.string()).readonly(),
+		removedFiles: z.array(z.string()).readonly().optional(),
+		removalReason: z
+			.enum(["removed-source", "deselected-harness", "same-target-replacement", "obsolete-file"])
+			.optional(),
+	})
+	.transform((outcome) => ({
+		key: outcome.key,
+		action: outcome.action,
+		artifactId: outcome.artifactId,
+		skillName: outcome.skillName,
+		harness: outcome.harness,
+		targetArtifactPath: outcome.targetArtifactPath,
+		manifestPath: outcome.manifestPath,
+		writtenFiles: outcome.writtenFiles,
+		conflictingFiles: outcome.conflictingFiles,
+		...optionalEntry("removedFiles", outcome.removedFiles),
+		...optionalEntry("removalReason", outcome.removalReason),
+	}));
 const consumerDirectoryOutcomeSchema: z.ZodType<ConsumerDirectoryOutcome> = z.object({
 	path: z.string(),
 	change: z.enum(["created", "updated", "unchanged"]),
@@ -52,6 +71,7 @@ const consumerDirectoryOutcomeSchema: z.ZodType<ConsumerDirectoryOutcome> = z.ob
 
 const activationCompletedSchema: z.ZodType<ActivationCompleted> = z.object({
 	nsToml: fileChangeSchema.optional(),
+	managedExtensionsIgnore: fileChangeSchema.optional(),
 	agentsInstructionFile: fileChangeSchema.optional(),
 	claudeInstructionFile: fileChangeSchema.optional(),
 	generatedInstructionsFile: fileChangeSchema.optional(),
@@ -240,6 +260,7 @@ export function renderInitNsHuman(data: InitNsResult): string {
 	const completed = data.completed;
 	const fileOutcomes: readonly (readonly [ActivationFile, FileActivationOutcome | undefined])[] = [
 		["ns-toml", completed.nsToml],
+		["managed-extensions-ignore", completed.managedExtensionsIgnore],
 		["agents-instructions", completed.agentsInstructionFile],
 		["claude-instructions", completed.claudeInstructionFile],
 		["generated-instructions", completed.generatedInstructionsFile],
@@ -251,7 +272,13 @@ export function renderInitNsHuman(data: InitNsResult): string {
 		(outcome) => [outcome.path, outcome.change] as const,
 	);
 	const artifactRows = (completed.artifacts ?? []).map(
-		(outcome) => [`${outcome.skillName} (${outcome.harness})`, outcome.action] as const,
+		(outcome) =>
+			[
+				`${outcome.skillName} (${outcome.harness})`,
+				outcome.removalReason === undefined
+					? outcome.action
+					: `${outcome.action} [${outcome.removalReason}]`,
+			] as const,
 	);
 	const labelWidth =
 		Math.max(

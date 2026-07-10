@@ -8,6 +8,11 @@ import {
 } from "@nseng-ai/kernel/extensions/acquisition";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+import {
+	declaredExtensionDescriptorDiagnosticSchema,
+	loadDeclaredExtensionDescriptors,
+	type DeclaredExtensionDescriptorGateway,
+} from "@nseng-ai/kernel/extensions/declared-descriptors";
 import { z } from "zod";
 
 import { type SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
@@ -34,24 +39,25 @@ import {
 	type HarnessScope,
 } from "./harness-paths.ts";
 import {
-	discoverExtensionModuleHarnessArtifacts,
+	discoverDeclaredExtensionModuleHarnessArtifacts,
 	moduleArtifactDiscoveryDiagnosticSchema,
-	type ExtensionDescriptorModuleLoader,
 	type HarnessArtifactModuleDiscoveryGateway,
 } from "./module-artifact-discovery.ts";
 import { parseNsTomlExtensions, parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
-	applyPreparedProvision,
+	applyPreparedProvisionReconciliation,
 	classifyProvisionAction,
 	conflictingFilesFromDecisions,
 	INSTALL_MANIFEST_FILE_NAME,
 	nodeHarnessArtifactFileSystemGateway,
+	prepareHarnessArtifactRemoval,
 	prepareProvision,
 	readInstallManifestAtRoot,
 	type HarnessArtifactFileSystemErrorInfo,
 	type HarnessArtifactFileSystemGateway,
 	type HarnessArtifactProvisionErrorInfo,
 	type HarnessArtifactProvisionPreview,
+	type PreparedHarnessArtifactTransition,
 } from "./provision-apply.ts";
 import {
 	provisionIdentityKey,
@@ -82,6 +88,17 @@ export interface ReconcilePair {
 	hasManifestEntry: boolean;
 }
 
+export type ReconcileDeletionAuthority =
+	| { readonly type: "full"; readonly preserveRemovedSources: boolean }
+	| { readonly type: "targeted"; readonly packageNames: readonly string[] };
+
+export interface PlannedHarnessArtifactRemoval {
+	readonly key: string;
+	readonly snapshot: HarnessManifestSnapshot;
+	readonly entry: InstallManifestEntryData;
+	readonly reason: "removed-source" | "deselected-harness" | "same-target-replacement";
+}
+
 export const orphanedManifestEntrySchema = z.object({
 	artifactId: z.string(),
 	harness: harnessIdSchema,
@@ -103,8 +120,10 @@ export function planHarnessArtifactReconcile(input: {
 	desired: readonly DesiredHarnessArtifact[];
 	harnessSelection: readonly HarnessId[] | undefined;
 	manifests: readonly HarnessManifestSnapshot[];
+	deletionAuthority?: ReconcileDeletionAuthority;
 }): {
 	pairs: readonly ReconcilePair[];
+	removals: readonly PlannedHarnessArtifactRemoval[];
 	orphans: readonly OrphanedManifestEntry[];
 	skippedDesired: readonly DesiredHarnessArtifact[];
 	skippedCollisions: readonly SkippedArtifactCollision[];
@@ -141,9 +160,28 @@ export function planHarnessArtifactReconcile(input: {
 	}
 
 	const orphans: OrphanedManifestEntry[] = [];
+	const removals: PlannedHarnessArtifactRemoval[] = [];
 	for (const snapshot of input.manifests) {
-		for (const entry of Object.values(snapshot.manifest.artifacts)) {
+		for (const [manifestKey, entry] of Object.entries(snapshot.manifest.artifacts)) {
 			const desired = desiredByManifestIdentity.get(manifestEntryDesiredIdentityKey(entry));
+			const selectedHarness = input.harnessSelection?.includes(entry.harness) ?? false;
+			const replacement = collisionPlan.provisionableDesired.find(
+				(item) =>
+					item.artifact.skillName === entry.provisionName &&
+					manifestEntryDesiredIdentityKey(entry) !== desiredManifestIdentityKey(item),
+			);
+			const removalReason =
+				replacement !== undefined && selectedHarness
+					? "same-target-replacement"
+					: desired !== undefined && !selectedHarness && input.harnessSelection !== undefined
+						? "deselected-harness"
+						: desired === undefined && hasRemovalAuthority(input.deletionAuthority, entry)
+							? "removed-source"
+							: undefined;
+			if (removalReason !== undefined) {
+				removals.push({ key: manifestKey, snapshot, entry, reason: removalReason });
+				continue;
+			}
 			if (desired === undefined) {
 				orphans.push({
 					artifactId: entry.artifactId,
@@ -175,6 +213,7 @@ export function planHarnessArtifactReconcile(input: {
 
 	return {
 		pairs: [...pairsByKey.values()].sort((left, right) => left.key.localeCompare(right.key)),
+		removals: removals.sort((left, right) => left.key.localeCompare(right.key)),
 		orphans: orphans.sort((left, right) =>
 			`${left.harness}\0${left.artifactId}`.localeCompare(`${right.harness}\0${right.artifactId}`),
 		),
@@ -192,7 +231,7 @@ export interface RunHarnessArtifactReconcileRequest {
 	extensionTarget?: string;
 	fs?: HarnessArtifactFileSystemGateway;
 	discoveryGateway?: HarnessArtifactModuleDiscoveryGateway;
-	descriptorLoader?: ExtensionDescriptorModuleLoader;
+	descriptorGateway?: DeclaredExtensionDescriptorGateway;
 	acquisitionGateway?: ExtensionAcquisitionGateway;
 	firstPartySourceRoot?: string;
 }
@@ -204,7 +243,7 @@ export const harnessSelectionStateSchema = z.discriminatedUnion("type", [
 export type HarnessSelectionState = z.output<typeof harnessSelectionStateSchema>;
 
 export const reconcileArtifactOutcomeSchema = z.object({
-	action: z.enum(["installed", "refreshed", "unchanged", "conflicted", "skipped"]),
+	action: z.enum(["installed", "refreshed", "unchanged", "conflicted", "skipped", "removed"]),
 	artifactId: z.string(),
 	skillName: z.string(),
 	harness: harnessIdSchema,
@@ -215,13 +254,18 @@ export const reconcileArtifactOutcomeSchema = z.object({
 	targetArtifactPath: z.string(),
 	manifestPath: z.string(),
 	writtenFiles: z.array(z.string()).readonly(),
+	removedFiles: z.array(z.string()).readonly(),
 	conflictingFiles: z.array(z.string()).readonly(),
+	removalReason: z
+		.enum(["removed-source", "deselected-harness", "same-target-replacement", "obsolete-file"])
+		.optional(),
 });
 export type ReconcileArtifactOutcome = z.output<typeof reconcileArtifactOutcomeSchema>;
 
 export const reconcileDiagnosticSchema = z.union([
 	moduleArtifactDiscoveryDiagnosticSchema,
 	extensionAcquisitionDiagnosticSchema,
+	declaredExtensionDescriptorDiagnosticSchema,
 ]);
 export type ReconcileDiagnostic = z.output<typeof reconcileDiagnosticSchema>;
 
@@ -281,10 +325,14 @@ export async function runHarnessArtifactReconcile(
 		mode: shouldAcquire ? "apply" : "preview",
 		...optionalEntry("gateway", request.acquisitionGateway),
 	});
-	const moduleDiscovery = await discoverExtensionModuleHarnessArtifacts({
-		moduleRoots: acquisition.roots.map((root) => root.moduleRoot),
+	const loadedDescriptors = await loadDeclaredExtensionDescriptors({
+		repoRoot: request.projectRoot,
+		specs: acquisition.roots.map((root) => root.spec),
+		...optionalEntry("gateway", request.descriptorGateway),
+	});
+	const moduleDiscovery = await discoverDeclaredExtensionModuleHarnessArtifacts({
+		modules: loadedDescriptors.descriptors,
 		gateway: discoveryGateway,
-		...optionalEntry("descriptorLoader", request.descriptorLoader),
 	});
 
 	const desired = desiredHarnessArtifacts({
@@ -308,9 +356,47 @@ export async function runHarnessArtifactReconcile(
 		desired: desired.value,
 		harnessSelection: selection.value.harnessSelection,
 		manifests: manifests.value,
+		...(selection.value.harnessSelection === undefined
+			? {}
+			: {
+					deletionAuthority: extensionSelection.value.isTargeted
+						? {
+								type: "targeted" as const,
+								packageNames: loadedDescriptors.descriptors.map(
+									(descriptor) => descriptor.packageName,
+								),
+							}
+						: {
+								type: "full" as const,
+								preserveRemovedSources:
+									acquisition.diagnostics.length > 0 || loadedDescriptors.diagnostics.length > 0,
+							},
+				}),
 	});
 
 	const artifacts: ReconcileArtifactOutcome[] = [];
+	const transitions: PreparedHarnessArtifactTransition[] = [];
+	const removalOutcomes: ReconcileArtifactOutcome[] = [];
+	for (const removal of plan.removals) {
+		const prepared = await prepareHarnessArtifactRemoval({
+			key: removal.key,
+			reason: removal.reason,
+			entry: removal.entry,
+			expectedHarness: removal.snapshot.harness,
+			expectedTargetRoot: removal.snapshot.targetRoot,
+			trustedBoundaryRoot: request.projectRoot,
+			manifestPath: removal.snapshot.manifestPath,
+			fs,
+		});
+		if (!prepared.ok) return prepared;
+		if (prepared.value.conflictingFiles.length > 0) {
+			artifacts.push(removalOutcome(removal, [], prepared.value.conflictingFiles, "conflicted"));
+			continue;
+		}
+		transitions.push({ type: "remove", removal: prepared.value });
+		removalOutcomes.push(removalOutcome(removal, [], [], "removed"));
+	}
+	if (!shouldApply) artifacts.push(...removalOutcomes);
 	for (const desired of plan.skippedDesired) {
 		artifacts.push(
 			...skippedCollisionOutcomes({
@@ -343,39 +429,64 @@ export async function runHarnessArtifactReconcile(
 			continue;
 		}
 
-		const applied = await applyPreparedProvision(prepared.value, {
-			shouldForce: request.shouldForce,
-		});
-		if (!applied.ok) return applied;
-		if (applied.value.outcome === "conflicted") {
-			artifacts.push(
-				reconcileOutcomeFromProvision({
-					pair,
-					provision: applied.value,
-					writtenFiles: [],
-					conflictingFiles: applied.value.conflictingFiles,
-				}),
-			);
-			continue;
-		}
+		transitions.push({ type: "provision", provision: prepared.value });
 		artifacts.push(
 			reconcileOutcomeFromProvision({
 				pair,
-				provision: applied.value,
-				writtenFiles: applied.value.writtenFiles,
-				conflictingFiles: [],
+				provision: prepared.value,
+				writtenFiles: [],
+				conflictingFiles: conflictingFilesFromDecisions(prepared.value.decisions),
 			}),
 		);
 	}
 
+	const isForceRequired = artifacts.some((artifact) => artifact.action === "conflicted");
+	if (
+		shouldApply &&
+		!artifacts.some(
+			(artifact) => artifact.action === "conflicted" && artifact.removalReason !== undefined,
+		)
+	) {
+		const applied = await applyPreparedProvisionReconciliation({
+			transitions,
+			shouldForce: request.shouldForce,
+		});
+		if (!applied.ok) return applied;
+		let removalIndex = 0;
+		for (const transition of applied.value.outcomes) {
+			if (transition.type === "remove") {
+				const item = removalOutcomes[removalIndex];
+				removalIndex += 1;
+				if (item !== undefined) item.removedFiles = [...transition.removedFiles];
+				continue;
+			}
+			if (transition.outcome.outcome === "conflicted") continue;
+			const item = artifacts.find(
+				(artifact) =>
+					artifact.targetArtifactPath === transition.outcome.plan.targetArtifactPath &&
+					artifact.action !== "removed",
+			);
+			if (item === undefined) continue;
+			item.writtenFiles = [...transition.outcome.writtenFiles];
+			item.removedFiles = [...transition.outcome.removedFiles];
+			item.conflictingFiles = [];
+			if (transition.outcome.removedFiles.length > 0) item.removalReason = "obsolete-file";
+			if (item.action === "conflicted") item.action = "refreshed";
+		}
+		artifacts.unshift(...removalOutcomes);
+	}
 	return resultOk({
 		mode: shouldApply ? "applied" : "dry-run",
 		harnessSelection: selection.value.state,
 		artifacts,
 		orphans: plan.orphans,
-		diagnostics: [...acquisition.diagnostics, ...moduleDiscovery.diagnostics],
+		diagnostics: [
+			...acquisition.diagnostics,
+			...loadedDescriptors.diagnostics,
+			...moduleDiscovery.diagnostics,
+		],
 		skippedCollisions: plan.skippedCollisions,
-		isForceRequired: artifacts.some((artifact) => artifact.action === "conflicted"),
+		isForceRequired: isForceRequired && !request.shouldForce,
 	});
 }
 
@@ -448,6 +559,15 @@ function reconcilePairKey(input: {
 	artifactId: string;
 }): string {
 	return provisionIdentityKey({ ...input, kind: "skill" });
+}
+
+function hasRemovalAuthority(
+	authority: ReconcileDeletionAuthority | undefined,
+	entry: InstallManifestEntryData,
+): boolean {
+	if (authority === undefined) return false;
+	if (authority.type === "full") return !authority.preserveRemovedSources;
+	return authority.packageNames.includes(entry.source.packageName);
 }
 
 function manifestHasEntry(manifests: readonly HarnessManifestSnapshot[], key: string): boolean {
@@ -678,6 +798,7 @@ function skippedCollisionOutcomes(input: {
 				targetArtifactPath,
 				manifestPath: root.manifestPath,
 				writtenFiles: [],
+				removedFiles: [],
 				conflictingFiles: [],
 			},
 		];
@@ -708,6 +829,31 @@ function reconcileOutcomeFromProvision(input: {
 		targetArtifactPath: input.provision.plan.targetArtifactPath,
 		manifestPath: input.provision.manifestPath,
 		writtenFiles: [...input.writtenFiles],
+		removedFiles: [],
 		conflictingFiles: [...input.conflictingFiles],
+	};
+}
+
+function removalOutcome(
+	removal: PlannedHarnessArtifactRemoval,
+	removedFiles: readonly string[],
+	conflictingFiles: readonly string[],
+	action: "removed" | "conflicted",
+): ReconcileArtifactOutcome {
+	return {
+		action,
+		artifactId: removal.entry.artifactId,
+		skillName: removal.entry.provisionName,
+		harness: removal.entry.harness,
+		scope: removal.entry.scope,
+		origin: "manifest",
+		sourceType: removal.entry.source.type,
+		packageName: removal.entry.source.packageName,
+		targetArtifactPath: removal.entry.targetArtifactPath,
+		manifestPath: removal.snapshot.manifestPath,
+		writtenFiles: [],
+		removedFiles: [...removedFiles],
+		conflictingFiles: [...conflictingFiles],
+		removalReason: removal.reason,
 	};
 }

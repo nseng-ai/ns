@@ -65,7 +65,13 @@ describe("harness artifact reconcile planner", () => {
 			manifests: [],
 		});
 
-		expect(result).toEqual({ pairs: [], orphans: [], skippedDesired: [], skippedCollisions: [] });
+		expect(result).toEqual({
+			pairs: [],
+			removals: [],
+			orphans: [],
+			skippedDesired: [],
+			skippedCollisions: [],
+		});
 	});
 
 	test("manifest-tracked pairs survive without a harness selection", () => {
@@ -116,6 +122,7 @@ describe("harness artifact reconcile planner", () => {
 
 		expect(result).toEqual({
 			pairs: [],
+			removals: [],
 			orphans: [
 				{
 					artifactId: "@gone/ext:old-skill",
@@ -129,6 +136,45 @@ describe("harness artifact reconcile planner", () => {
 			skippedDesired: [],
 			skippedCollisions: [],
 		});
+	});
+
+	test("makes full versus targeted deletion authority explicit and preserves failed full discovery", () => {
+		const vanished = artifact({
+			id: "@gone/ext:old-skill",
+			skillName: "old",
+			packageName: "@gone/ext",
+			sourceType: "npm-module",
+			relativePath: "skills/old",
+		});
+		const manifests = [manifestSnapshot(manifestEntry(vanished, "pi"))];
+
+		const full = planHarnessArtifactReconcile({
+			desired: [desired(modulePlan)],
+			harnessSelection: ["pi"],
+			manifests,
+			deletionAuthority: { type: "full", preserveRemovedSources: false },
+		});
+		expect(full.removals).toMatchObject([
+			{ reason: "removed-source", entry: { artifactId: "@gone/ext:old-skill" } },
+		]);
+
+		const targeted = planHarnessArtifactReconcile({
+			desired: [desired(modulePlan)],
+			harnessSelection: ["pi"],
+			manifests,
+			deletionAuthority: { type: "targeted", packageNames: ["@acme/plans"] },
+		});
+		expect(targeted.removals).toEqual([]);
+		expect(targeted.orphans).toHaveLength(1);
+
+		const failed = planHarnessArtifactReconcile({
+			desired: [],
+			harnessSelection: ["pi"],
+			manifests,
+			deletionAuthority: { type: "full", preserveRemovedSources: true },
+		});
+		expect(failed.removals).toEqual([]);
+		expect(failed.orphans).toHaveLength(1);
 	});
 
 	test("reports module-vs-first-party target skillName and cross-module id collisions", () => {
@@ -167,6 +213,7 @@ describe("harness artifact reconcile planner", () => {
 
 		expect(result).toEqual({
 			pairs: [],
+			removals: [],
 			orphans: [],
 			skippedDesired: [
 				desired(firstPartyObjective),

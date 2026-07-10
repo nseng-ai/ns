@@ -20,9 +20,16 @@ export class InMemoryHarnessFs
 {
 	readonly nodes: Map<string, InMemoryHarnessFsNode>;
 	readonly writtenFiles: string[] = [];
+	readonly removedFiles: string[] = [];
+	readonly removedDirectories: string[] = [];
+	readonly unsafeRemovalPaths: Set<string>;
 
-	constructor(files: Record<string, string | InMemoryHarnessFsNode>) {
+	constructor(
+		files: Record<string, string | InMemoryHarnessFsNode>,
+		unsafeRemovalPaths: ReadonlySet<string> = new Set(),
+	) {
 		this.nodes = new Map();
+		this.unsafeRemovalPaths = new Set(unsafeRemovalPaths);
 		for (const [path, value] of Object.entries(files)) {
 			this.nodes.set(
 				path,
@@ -30,6 +37,30 @@ export class InMemoryHarnessFs
 			);
 			this.ensureParentDirectories(path);
 		}
+	}
+
+	markUnsafeRemovalPath(path: string): void {
+		this.unsafeRemovalPaths.add(path);
+	}
+
+	async inspectHarnessArtifactProvisionSafety(input: {
+		trustedBoundaryRoot: string;
+		expectedTargetRoot: string;
+		targetPaths: readonly string[];
+	}) {
+		return this.inspectHarnessArtifactRemovalSafety(input);
+	}
+
+	async inspectHarnessArtifactRemovalSafety(input: {
+		trustedBoundaryRoot: string;
+		expectedTargetRoot: string;
+		targetPaths: readonly string[];
+	}) {
+		const unsafePath = input.targetPaths.find((path) => this.unsafeRemovalPaths.has(path));
+		return {
+			ok: true as const,
+			value: unsafePath === undefined ? {} : { unsafePath },
+		};
 	}
 
 	async listFiles(rootPath: string) {
@@ -67,6 +98,27 @@ export class InMemoryHarnessFs
 
 	async writeTextFile(path: string, text: string) {
 		this.writeBytes(path, textEncoder.encode(text));
+		return { ok: true as const, value: undefined };
+	}
+
+	async removeFile(path: string) {
+		const node = this.nodes.get(path);
+		if (node?.type === "file") {
+			this.nodes.delete(path);
+			this.removedFiles.push(path);
+		}
+		return { ok: true as const, value: undefined };
+	}
+
+	async removeEmptyDirectory(path: string) {
+		const prefix = `${path}/`;
+		if (
+			this.nodes.get(path)?.type === "directory" &&
+			![...this.nodes.keys()].some((nodePath) => nodePath.startsWith(prefix))
+		) {
+			this.nodes.delete(path);
+			this.removedDirectories.push(path);
+		}
 		return { ok: true as const, value: undefined };
 	}
 
