@@ -20,12 +20,15 @@ import type { ToolContext, ToolDefinition } from "@nseng-ai/pi/runtime/tool-type
 import { READ_ONLY_SUBAGENT_TOOLS } from "../src/runner-subagents/read-only-tools.ts";
 import {
 	createFunctionSubagentRuntime,
+	createSubagentRuntimeRegistry,
 	type SubagentRuntimeDispatchInput,
 } from "../src/runtime/seam.ts";
+import { createSubagentAgentRegistry } from "../src/agents/registry.ts";
 import { SUBAGENT_FLEET_COMMAND_NAME } from "../src/fleet/contract.ts";
 import { getOrCreateSubagentFleetRegistry } from "../src/fleet/provider.ts";
+import { SubagentFleetRegistry } from "../src/fleet/registry.ts";
 import packageExtension, { type NsPiSubagentsExtensionAPI } from "../src/extension.ts";
-import { SUBAGENT_TOOL_NAME } from "../src/tool/subagent.ts";
+import { registerSubagentTool, SUBAGENT_TOOL_NAME } from "../src/tool/subagent.ts";
 
 const packageRoot = dirname(fileURLToPath(import.meta.url));
 const manifestPath = join(packageRoot, "..", "package.json");
@@ -218,6 +221,77 @@ describe("ns-pi-subagents package", () => {
 		expect(dispatchCount).toBe(0);
 	});
 
+	test("applies consumer descriptor policy through cheap model selection", async () => {
+		const pi = new FakePi();
+		const calls: SubagentRuntimeDispatchInput[] = [];
+		const runtime = createFunctionSubagentRuntime(async (input) => {
+			calls.push(input);
+			return {
+				status: "final-text",
+				finalText: "consumer done",
+				elapsedMs: 1,
+				progress: { state: "stopped", toolCount: 0, turnCount: 1, elapsedMs: 1 },
+			};
+		});
+		const consumerDefinition: PiAgentDefinition = {
+			schema: PI_AGENT_DEFINITION_SCHEMA,
+			name: "consumer-scout",
+			toolName: SUBAGENT_TOOL_NAME,
+			label: "Consumer scout",
+			description: "Consumer descriptor regression fixture.",
+			promptGuidelines: [],
+			delegationDoctrine: [],
+			body: "Consumer assignment: {{prompt}}",
+			filePath: "/repo/.ns/pi/agents/consumer-scout.md",
+		};
+		const agents = createSubagentAgentRegistry(
+			[
+				{
+					name: "consumer-scout",
+					definitionPath: ".ns/pi/agents/consumer-scout.md",
+					minTasks: 1,
+					maxTasks: 1,
+					maxConcurrency: 1,
+					tools: ["read", "consumer_lookup"],
+					promptContext: "curated-worktree",
+					modelPolicy: "cheap-or-inherit",
+					maxTaskFinalTextChars: 1_000,
+					supportedRuntimes: ["subprocess"],
+					runtimePreference: ["subprocess"],
+				},
+			],
+			() => consumerDefinition,
+		);
+		registerSubagentTool(pi, {
+			cwd: "/repo",
+			agents,
+			fleetRegistry: new SubagentFleetRegistry(),
+			loadAgentDefinition: () => consumerDefinition,
+			runtimes: () =>
+				createSubagentRuntimeRegistry([{ kind: "subprocess", create: () => runtime }]),
+		});
+
+		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
+			"call",
+			{
+				agent: "consumer-scout",
+				tasks: [{ title: "Inspect consumer", prompt: "Map the consumer seam." }],
+				model: "anthropic/claude-haiku-4-5",
+			},
+			undefined,
+			undefined,
+			toolContext(),
+		);
+
+		expect(result?.details).toMatchObject({ status: "completed" });
+		expect(calls).toHaveLength(1);
+		expect(calls[0]?.options.tools).toEqual(["read", "consumer_lookup"]);
+		expect(calls[0]?.options.model).toBe("anthropic/claude-haiku-4-5");
+		expect(calls[0]?.options.prompt).toContain("Consumer assignment: Map the consumer seam.");
+		expect(calls[0]?.options.prompt).toContain("## Auto-curated context");
+		expect(calls[0]?.options.prompt).toContain("Git evidence collected");
+	});
+
 	test("applies explorer permissions and attempts an explicit model once per task", async () => {
 		const pi = new FakePi();
 		const calls: SubagentRuntimeDispatchInput[] = [];
@@ -263,25 +337,17 @@ describe("ns-pi-subagents package", () => {
 		}
 	});
 
-	test("keeps one Fleet task across a same-model explorer retry", async () => {
+	test("ends an explorer task after one error attempt", async () => {
 		const pi = new FakePi();
 		const calls: SubagentRuntimeDispatchInput[] = [];
 		const runtime = createFunctionSubagentRuntime(async (input) => {
 			calls.push(input);
-			if (calls.length === 1) {
-				return {
-					status: "error",
-					diagnostic: "transient launch failure",
-					error: { message: "transient launch failure" },
-					elapsedMs: 1,
-					progress: { state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 1 },
-				};
-			}
 			return {
-				status: "final-text",
-				finalText: "scouted after retry",
-				elapsedMs: 2,
-				progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 2 },
+				status: "error",
+				diagnostic: "launch failure",
+				error: { message: "launch failure" },
+				elapsedMs: 1,
+				progress: { state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 1 },
 			};
 		});
 		packageExtension(pi, {
@@ -294,7 +360,7 @@ describe("ns-pi-subagents package", () => {
 			"call",
 			{
 				agent: "explorer",
-				tasks: [{ title: "retry one", prompt: "inspect" }],
+				tasks: [{ title: "inspect once", prompt: "inspect" }],
 				model: "anthropic/claude-haiku-4-5",
 			},
 			undefined,
@@ -302,31 +368,18 @@ describe("ns-pi-subagents package", () => {
 			toolContext(),
 		);
 
-		expect(calls).toHaveLength(2);
-		expect(calls[1]?.options).toBe(calls[0]?.options);
+		expect(calls).toHaveLength(1);
 		expect(result?.details).toMatchObject({
-			status: "completed",
-			tasks: [
-				{
-					status: "final-text",
-					retry: {
-						firstAttemptStatus: "error",
-						firstAttemptDiagnostic: "transient launch failure",
-					},
-				},
-			],
+			status: "partial",
+			tasks: [{ status: "error", diagnostic: "launch failure" }],
 		});
 		const fleet = getOrCreateSubagentFleetRegistry(pi).snapshot();
 		expect(fleet).toHaveLength(1);
 		expect(fleet[0]?.tasks).toMatchObject([
 			{
-				title: "retry one",
+				title: "inspect once",
 				state: "done",
-				finalStatus: "final-text",
-				retry: {
-					firstAttemptStatus: "error",
-					firstAttemptDiagnostic: "transient launch failure",
-				},
+				finalStatus: "error",
 			},
 		]);
 	});

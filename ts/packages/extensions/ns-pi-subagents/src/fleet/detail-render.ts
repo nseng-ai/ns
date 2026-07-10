@@ -66,14 +66,6 @@ export function renderPostRunSummaryLines(
 ): string[] {
 	if (summary === undefined) return [];
 	const lines = ["post-run summary:", `  status: ${summary.status}`];
-	if (summary.retry !== undefined) {
-		lines.push(
-			truncatePlain(
-				`  retry: ${summary.status === "final-text" ? "succeeded after" : "attempted after"} transient ${summary.retry.firstAttemptStatus} — ${summary.retry.firstAttemptDiagnostic}`,
-				200,
-			),
-		);
-	}
 	if (summary.lastDiagnostic !== undefined) {
 		lines.push(truncatePlain(`  last diagnostic: ${summary.lastDiagnostic}`, 200));
 	}

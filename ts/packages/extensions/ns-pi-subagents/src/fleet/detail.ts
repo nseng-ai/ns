@@ -16,7 +16,7 @@ import type {
 } from "../runner-subagents/timeline.ts";
 import type { GitHeadSnapshot } from "./git-head.ts";
 import type { ReadTextFile } from "./read-text-dependencies.ts";
-import type { SubagentFleetRetryEvidence, SubagentFleetTaskSnapshot } from "./registry.ts";
+import type { SubagentFleetTaskSnapshot } from "./registry.ts";
 import type { ReadWorktreeState, WorktreeStateSnapshot } from "./worktree-state.ts";
 
 export const SUBAGENT_FLEET_PARENT_ENTRY_ID = "parent-session";
@@ -43,7 +43,6 @@ export interface SubagentFleetTaskLiveActivity {
 export interface SubagentFleetPostRunSummary {
 	status: string;
 	lastDiagnostic?: string;
-	retry?: SubagentFleetRetryEvidence;
 	commit: SubagentFleetPostRunCommitSummary;
 	worktreeState?: WorktreeStateSnapshot;
 }
@@ -288,7 +287,6 @@ export function buildPostRunSummary(input: {
 	return {
 		status: input.status,
 		...optionalEntry("lastDiagnostic", lastDiagnostic),
-		...optionalEntry("retry", input.task.retry),
 		commit: summarizeHeadChange(input.task.headBaseline, input.task.finalHead),
 		...optionalEntry("worktreeState", input.worktreeState),
 	};

@@ -10,7 +10,7 @@ export const EXPLORER_AGENT_DESCRIPTOR = {
 	wallClockMs: 300_000,
 	tools: READ_ONLY_SUBAGENT_TOOLS,
 	promptContext: "definition-only",
-	modelPolicy: "explorer-same-model-retry",
+	modelPolicy: "cheap-or-inherit",
 	maxTaskFinalTextChars: 8_000,
 	maxFleetFinalTextChars: 32_000,
 	supportedRuntimes: ["subprocess", "in-process"],

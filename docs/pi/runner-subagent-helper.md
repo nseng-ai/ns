@@ -63,7 +63,7 @@ The `subagent` input is agent-neutral:
 }
 ```
 
-`explorer` permits 1–8 read-only tasks, maximum concurrency four, and a 300-second whole-call budget. `task` permits exactly one task and is sequential in the shared worktree. Explicit model overrides run once; the descriptor-selected cheap explorer model alone may fail over on transient infrastructure failures.
+`explorer` permits 1–8 read-only tasks, maximum concurrency four, and a 300-second whole-call budget. `task` permits exactly one task and is sequential in the shared worktree. Explorer model selection chooses an explicit override, a configured cheap model, or inherited parent selection; every task dispatches exactly once.
 
 Every task result reports agent, resolved execution kind, status, title, session file when available, diagnostics, and bounded final text. Fleet UI remains under `ns:agents:*` for both architectures.
 

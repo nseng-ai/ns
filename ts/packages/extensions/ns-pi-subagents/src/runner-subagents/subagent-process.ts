@@ -59,7 +59,7 @@ import {
 	readRunnerSubagentUsageFromSessionFile,
 	type ReadRunnerSubagentSessionFile,
 } from "./extension-usage.ts";
-import { hasAbortedSignal, uniqueAbortSignals } from "./abort-signals.ts";
+import { abortReason, hasAbortedSignal, uniqueAbortSignals } from "./abort-signals.ts";
 
 const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_KILL_TIMEOUT_MS = 5_000;
@@ -1130,16 +1130,6 @@ function nonzeroExitDiagnostic(
 	const signalText = signal ? ` after signal ${signal}` : "";
 	const stderrText = stderr.trim().length > 0 ? `\n\nstderr:\n${stderr}` : "";
 	return `Forked Pi process exited ${exitText}${signalText}.${stderrText}`;
-}
-
-function abortReason(signals: readonly AbortSignal[]): string | undefined {
-	for (const signal of signals) {
-		if (!signal.aborted) continue;
-		const reason = signal.reason as unknown;
-		if (reason instanceof Error) return reason.message;
-		if (typeof reason === "string" && reason.length > 0) return reason;
-	}
-	return undefined;
 }
 
 function isSafelyDiscoverablePiScript(scriptPath: string): boolean {
