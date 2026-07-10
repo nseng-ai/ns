@@ -9,10 +9,10 @@ import {
 } from "@nseng-ai/clinkr";
 import {
 	cell,
-	dim,
 	paint,
 	renderTable,
 	stripAnsiWhenDisabled,
+	type Intent,
 } from "@nseng-ai/foundation/cli-theme";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
@@ -186,7 +186,7 @@ function renderGcDetails(result: GcResult, caps: Caps): string | undefined {
 		if (entry.message !== null) lines.push(`  ${paint(caps, "muted", "note:")} ${entry.message}`);
 		lines.push(...renderGcCleanupDetails(caps, entry, { isDryRun: result.dryRun }));
 	});
-	lines.push(gcSummaryLine(result));
+	lines.push("", gcSummaryLine(result, caps));
 	return lines.join("\n");
 }
 
@@ -211,12 +211,22 @@ function renderGcCleanupDetails(
 	);
 }
 
-function gcSummaryLine(result: GcResult): string {
+function intentFor(count: number, activeIntent: Intent): Intent {
+	return count === 0 ? "muted" : activeIntent;
+}
+
+function gcSummaryLine(result: GcResult, caps: Caps): string {
 	const freedLabel = result.dryRun ? "would free" : "freed";
-	let summary = `${freedLabel} ${result.freedCount}; kept ${result.keptCount}; skipped ${result.skippedCount}; errors ${result.errorCount}`;
+	const freedIntent = intentFor(result.freedCount, result.dryRun ? "accent" : "success");
+	const facts = [
+		paint(caps, freedIntent, `${freedLabel} ${result.freedCount}`),
+		paint(caps, intentFor(result.keptCount, "warn"), `kept ${result.keptCount}`),
+		paint(caps, intentFor(result.skippedCount, "warn"), `skipped ${result.skippedCount}`),
+		paint(caps, intentFor(result.errorCount, "error"), `errors ${result.errorCount}`),
+	];
 	if (result.cleanupErrorCount > 0)
-		summary = `${summary}; cleanup errors ${result.cleanupErrorCount}`;
-	return dim(`Summary: ${summary}`);
+		facts.push(paint(caps, "error", `cleanup errors ${result.cleanupErrorCount}`));
+	return `${paint(caps, "muted", "Summary:")} ${facts.join(paint(caps, "muted", "; "))}`;
 }
 
 function gcActionText(action: GcResult["entries"][number]["action"]): string {

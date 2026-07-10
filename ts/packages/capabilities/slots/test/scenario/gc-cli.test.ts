@@ -100,6 +100,32 @@ describe("slot gc CLI", () => {
 		expect(stripped).toContain("Summary: would free 1; kept 2; skipped 0; errors 0");
 	});
 
+	it("colorizes kept rows and summary facts in the completed report", async () => {
+		const run = runScenario(["gc"], {
+			caps: colorCaps,
+			canEmitAnsi: true,
+			git: {
+				worktrees: [
+					slotWorktree("slot-01", "feature/open"),
+					slotWorktree("slot-02", "feature/no-pr"),
+				],
+				localBranches: ["master", "feature/open", "feature/no-pr"],
+			},
+			pr: { prsByBranch: { "feature/open": { number: 2, state: "OPEN" } } },
+		});
+		expect(await run.exit).toBe(0);
+		const rendered = run.stdout.join("");
+		expect(rendered).toContain(paint(colorCaps, "warn", "Kept: open PR"));
+		expect(rendered).toContain(paint(colorCaps, "muted", "Kept: no PR"));
+		expect(rendered).toContain(paint(colorCaps, "warn", "#2 OPEN"));
+		expect(rendered).toContain(
+			`${paint(colorCaps, "muted", "Summary:")} ${paint(colorCaps, "muted", "freed 0")}${paint(colorCaps, "muted", "; ")}${paint(colorCaps, "warn", "kept 2")}`,
+		);
+		expect(stripTerminalEscapes(rendered)).toContain(
+			"feature/no-pr  —\n\nSummary: freed 0; kept 2; skipped 0; errors 0",
+		);
+	});
+
 	it("fails the command when batch PR lookup fails", async () => {
 		const run = runScenario(["gc", "--dry-run", "--format", "json"], {
 			git: {

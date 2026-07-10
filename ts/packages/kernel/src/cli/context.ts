@@ -5,6 +5,7 @@ import {
 	renderCapabilitiesForTerminal,
 	resolveProcessCaps,
 	type ClinkrInteraction,
+	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 import { runCommand } from "@nseng-ai/foundation/exec";
@@ -22,6 +23,7 @@ export interface NsCliContext {
 	interaction: ClinkrInteraction;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
+	renderCapabilities: RenderCapabilities;
 }
 
 export interface RealNsCommandContextOptions {
