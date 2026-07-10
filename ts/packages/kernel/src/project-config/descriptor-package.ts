@@ -1,5 +1,5 @@
 import { existsSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 
 import { isPathInside } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
@@ -8,6 +8,7 @@ import { z } from "zod";
 import { nsExtensionExportTarget } from "../sdk/descriptor.ts";
 
 import { parseExtensionSourceSpec } from "./extension-source-spec.ts";
+import { npmPackageRoot } from "./managed-extension-paths.ts";
 
 export type DeclaredExtensionSpecsParseResult =
 	| { readonly ok: true; readonly specs: readonly string[] }
@@ -132,17 +133,7 @@ export function resolveAcquiredDescriptorPackageRoot(options: {
 		return { packageRoot: resolve(options.repoRoot, options.spec) };
 	}
 	if (parsed.value.kind === "local") return { packageRoot: parsed.value.path };
-	return {
-		packageRoot: managedDescriptorPackageRoot(options.repoRoot, parsed.value.packageName),
-	};
-}
-
-export function managedExtensionsNpmProjectRoot(repoRoot: string): string {
-	return join(repoRoot, ".ns", "managed-extensions", "npm");
-}
-
-export function managedDescriptorPackageRoot(repoRoot: string, packageName: string): string {
-	return join(managedExtensionsNpmProjectRoot(repoRoot), "node_modules", ...packageName.split("/"));
+	return { packageRoot: npmPackageRoot(options.repoRoot, parsed.value.packageName) };
 }
 
 export function directoryExists(path: string): boolean {

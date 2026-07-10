@@ -19,7 +19,17 @@ describe("extension point descriptor resolution", () => {
 	test("loads npm descriptor points from managed npm storage", async () => {
 		const root = await projectRoot();
 		await writeDescriptorPackage(
-			join(root, ".ns", "managed-extensions", "npm", "node_modules", "@acme", "tools"),
+			join(
+				root,
+				".ns",
+				"managed-extensions",
+				"npm",
+				"@acme",
+				"tools",
+				"node_modules",
+				"@acme",
+				"tools",
+			),
 			"@acme/tools",
 			"managed.point",
 		);
@@ -35,7 +45,28 @@ describe("extension point descriptor resolution", () => {
 		expect(catalog.entries.map((entry) => entry.definition.id)).toContain("managed.point");
 	});
 
-	test("loads local descriptor points in place even when managed storage has the same package", async () => {
+	test("ignores a package present only in the legacy shared npm project", async () => {
+		const root = await projectRoot();
+		await writeDescriptorPackage(
+			join(root, ".ns", "managed-extensions", "npm", "node_modules", "@acme", "tools"),
+			"@acme/tools",
+			"legacy.point",
+		);
+		await writeFile(join(root, "ns.toml"), 'extensions = ["npm:@acme/tools"]\n');
+
+		const catalog = await loadPointCatalogWithDescriptors({
+			repoRoot: root,
+			gateway: nodeProjectConfigGateway,
+			env: {},
+		});
+
+		expect(catalog.entries.map((entry) => entry.definition.id)).not.toContain("legacy.point");
+		expect(catalog.diagnostics.map(({ code }) => code)).toContain(
+			"extension_descriptor_package_json_read_failed",
+		);
+	});
+
+	test("loads local descriptor points in place even when legacy storage has the same package", async () => {
 		const root = await projectRoot();
 		await writeDescriptorPackage(join(root, "extensions", "tools"), "@acme/tools", "local.point");
 		await writeDescriptorPackage(
