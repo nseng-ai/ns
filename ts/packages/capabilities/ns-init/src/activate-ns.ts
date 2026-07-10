@@ -48,12 +48,12 @@ export interface ConsumerDirectoryOutcome {
 }
 
 export interface ActivationCompleted {
-	readonly nsToml?: FileActivationOutcome;
-	readonly agentsInstructionFile?: FileActivationOutcome;
-	readonly claudeInstructionFile?: FileActivationOutcome;
-	readonly generatedInstructionsFile?: FileActivationOutcome;
-	readonly consumerDirectories?: readonly ConsumerDirectoryOutcome[];
-	readonly artifacts?: readonly DeclaredArtifactActivationOutcome[];
+	readonly nsToml?: FileActivationOutcome | undefined;
+	readonly agentsInstructionFile?: FileActivationOutcome | undefined;
+	readonly claudeInstructionFile?: FileActivationOutcome | undefined;
+	readonly generatedInstructionsFile?: FileActivationOutcome | undefined;
+	readonly consumerDirectories?: readonly ConsumerDirectoryOutcome[] | undefined;
+	readonly artifacts?: readonly DeclaredArtifactActivationOutcome[] | undefined;
 }
 
 interface PreparedFileWrite {

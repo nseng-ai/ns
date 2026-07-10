@@ -6,6 +6,7 @@ import {
 	normalizeHarnessSelection,
 	parseNsTomlHarnesses,
 	planNsTomlHarnessesWrite,
+	type DeclaredArtifactActivationOutcome,
 	type HarnessId,
 	type NsTomlChange,
 } from "@nseng-ai/harness-artifacts/api";
@@ -16,9 +17,12 @@ import {
 	prepareNsActivation,
 	resolveActivationRepository,
 	type ActivationCompleted,
+	type ConsumerDirectoryOutcome,
+	type FileActivationOutcome,
 	type ResolveActivationRepositoryResult,
 } from "./activate-ns.ts";
 import type { NsActivationContext } from "./activation-context.ts";
+import { ACTIVATION_FILE_PATHS, type ActivationFile } from "./activation-files.ts";
 
 export const initNsRequestSchema = z.object({
 	harness: z
@@ -27,10 +31,10 @@ export const initNsRequestSchema = z.object({
 		.describe("Harness to activate; repeatable. One of claude-code, codex, pi."),
 });
 
-const fileChangeSchema = z.object({
+const fileChangeSchema: z.ZodType<FileActivationOutcome> = z.object({
 	change: z.enum(["created", "appended", "replaced", "unchanged"]),
 });
-const artifactOutcomeSchema = z.object({
+const artifactOutcomeSchema: z.ZodType<DeclaredArtifactActivationOutcome> = z.object({
 	key: z.string(),
 	action: z.enum(DECLARED_ARTIFACT_ACTIVATION_ACTIONS),
 	artifactId: z.string(),
@@ -41,16 +45,17 @@ const artifactOutcomeSchema = z.object({
 	writtenFiles: z.array(z.string()).readonly(),
 	conflictingFiles: z.array(z.string()).readonly(),
 });
+const consumerDirectoryOutcomeSchema: z.ZodType<ConsumerDirectoryOutcome> = z.object({
+	path: z.string(),
+	change: z.enum(["created", "updated", "unchanged"]),
+});
 
-const activationCompletedSchema = z.object({
+const activationCompletedSchema: z.ZodType<ActivationCompleted> = z.object({
 	nsToml: fileChangeSchema.optional(),
 	agentsInstructionFile: fileChangeSchema.optional(),
 	claudeInstructionFile: fileChangeSchema.optional(),
 	generatedInstructionsFile: fileChangeSchema.optional(),
-	consumerDirectories: z
-		.array(z.object({ path: z.string(), change: z.enum(["created", "updated", "unchanged"]) }))
-		.readonly()
-		.optional(),
+	consumerDirectories: z.array(consumerDirectoryOutcomeSchema).readonly().optional(),
 	artifacts: z.array(artifactOutcomeSchema).readonly().optional(),
 });
 
@@ -232,10 +237,46 @@ function repositoryFailure(
 }
 
 export function renderInitNsHuman(data: InitNsResult): string {
-	const completed = data.completed as ActivationCompleted;
-	return [
+	const completed = data.completed;
+	const fileOutcomes: readonly (readonly [ActivationFile, FileActivationOutcome | undefined])[] = [
+		["ns-toml", completed.nsToml],
+		["agents-instructions", completed.agentsInstructionFile],
+		["claude-instructions", completed.claudeInstructionFile],
+		["generated-instructions", completed.generatedInstructionsFile],
+	];
+	const fileRows = fileOutcomes.flatMap(([file, outcome]) =>
+		outcome === undefined ? [] : [[ACTIVATION_FILE_PATHS[file], outcome.change] as const],
+	);
+	const directoryRows = (completed.consumerDirectories ?? []).map(
+		(outcome) => [outcome.path, outcome.change] as const,
+	);
+	const artifactRows = (completed.artifacts ?? []).map(
+		(outcome) => [`${outcome.skillName} (${outcome.harness})`, outcome.action] as const,
+	);
+	const labelWidth =
+		Math.max(
+			0,
+			...[...fileRows, ...directoryRows, ...artifactRows].map(([label]) => label.length),
+		) + 2;
+	const lines = [
 		`Activated ns in ${data.repoRoot}.`,
 		`Harnesses (${data.harnessSource}): ${data.harnesses.join(", ")}.`,
-		`Completed ${Object.keys(completed).length} activation duties.`,
-	].join("\n");
+	];
+	appendReportSection(lines, "Files:", fileRows, labelWidth);
+	appendReportSection(lines, "Consumer directories:", directoryRows, labelWidth);
+	appendReportSection(lines, "Artifacts:", artifactRows, labelWidth);
+	return lines.join("\n");
+}
+
+function appendReportSection(
+	lines: string[],
+	title: string,
+	rows: readonly (readonly [string, string])[],
+	labelWidth: number,
+): void {
+	if (rows.length === 0) return;
+	lines.push(title);
+	for (const [label, value] of rows) {
+		lines.push(`  ${label.padEnd(labelWidth)}${value}`);
+	}
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 
-import { initNs } from "../../src/init-ns.ts";
+import { initNs, renderInitNsHuman } from "../../src/init-ns.ts";
 import type { NsActivationContext } from "../../src/activation-context.ts";
 import {
 	InMemoryActivationFilesGateway,
@@ -74,6 +74,24 @@ describe("initNs", () => {
 				},
 			},
 		});
+	});
+
+	it("renders a per-duty human report and omits empty sections", async () => {
+		const { context } = fixture();
+		const result = await initNs(context, { cwd: "/repo", harness: ["codex", "claude-code"] });
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") return;
+		expect(renderInitNsHuman(result.data)).toBe(
+			[
+				"Activated ns in /repo.",
+				"Harnesses (explicit): codex, claude-code.",
+				"Files:",
+				"  ns.toml              created",
+				"  AGENTS.md            created",
+				"  CLAUDE.md            created",
+				"  .ns/instructions.md  created",
+			].join("\n"),
+		);
 	});
 
 	it("returns aggregated preflight failure data with an empty completion map", async () => {
