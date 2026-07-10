@@ -61,6 +61,42 @@ Suspects beyond the four chosen clusters, from `vocab-sweep-capabilities.md`:
   the discriminated-union verbs/outcomes (checkout plans, gate checks, GC actions,
   provision decisions); a documentation-phase authoring guideline candidate.
 
+## Hosts/kernel/extensions/internal sweep finds (2026-07-10)
+
+Suspects from `vocab-sweep-hosts-kernel-extensions-internal.md`, weighted toward
+simplification:
+
+- **Dual package-classification systems** — role directories vs the machine-enforced
+  nine-value `ns.tier` taxonomy (typescript-style-guard config), disagreeing twice
+  (hosts/pi-command-surfaces = capability; extensions/ns-pi-subagents =
+  internal-pi-tool). Decide one canonical system; the style-guard config is the
+  ground-truth inventory for the layering grilling row.
+- **`ns` identity spread** — `@nseng-ai/kernel` (bins `ns` from source, manifest
+  still says "Source Development Lifecycle CLI"), `@nseng-ai/ns` in directory
+  `hosts/ns-cli` (checkout-free bin, absorbs kernel at package-prep), unscoped
+  `nscc` (expansion recorded nowhere, one letter from CCC).
+- **Deletion quick wins** — `@nseng-ai/pi-command-surfaces` (12-line duplicate of
+  branch-context/pi constants; sole consumer is a dead `hosts/pi` dep declaration);
+  `@internal/pi-tools` `side-session` (declared subpackage, no exports); untracked
+  residue dirs `hosts/jicc`, `hosts/sdlcc`, `extensions/flow`.
+- **Residue in standing prose** — `ts/AGENTS.md:3` "ji's first-party TypeScript
+  packages"; kernel/package.json:4 SDL description. Decision-free fixes, not yet
+  landed.
+- **One concept, two homes** — grill (pi host `grill/surfaces` vs
+  `@internal/pi-tools/grill`); PR feedback (pi host residue + `pr-feedback-watch` +
+  `pr-previews` + Address capability — pi CONTEXT.md's residue entry likely
+  undersells the watch subpackage); progress five-state union is shared correctly
+  (kernel SDK store, flow consumer) but documented as if flow-local.
+- **"Kernel" name/analogy under user skepticism (2026-07-10)** — reconsider in the
+  layering grilling row. Supporting evidence: the package's own enforced tier is
+  `sdk`, not a kernel-like tier (kernel/package.json `ns.tier`); the OS-kernel
+  analogy oversells a command-catalog/descriptor-loader/author-SDK host, and its
+  CONTEXT.md must immediately narrow the claim ("the kernel stays small ...");
+  the name ships in public API subpaths (`@nseng-ai/ns/kernel/sdk`), so external
+  extension authors inherit the analogy. Candidate directions to grill: rename to
+  the host/loader/SDK language the code already uses, or decide kernel is the
+  deliberate brand and align tier/prose to it.
+
 ## Charting-session finds
 
 - `ts/packages/` on disk is littered with leftover directories from retired

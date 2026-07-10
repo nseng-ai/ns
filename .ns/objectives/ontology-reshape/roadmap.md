@@ -50,7 +50,7 @@ live exchange with the user. Assets link from row notes and live in
     row creation deferred to the triage row. Feeds confirmed for existing rows: CCC
     (subpackage/worktree-status drift, dispatch vocabulary), review/feedback residue
     (Address vs pr-feedback, doc-side Roaster).
-- [ ] Vocabulary sweep: hosts, kernel, extensions, internal (research)
+- [x] Vocabulary sweep: hosts, kernel, extensions, internal (research)
   - Question: What domain language lives in `ts/packages/hosts/*`
     (command-backed-skill-registry, ns-cli, nscc, pi, pi-command-surfaces),
     `ts/packages/kernel/`, `ts/packages/extensions/*` (ns-pi-subagents), and
@@ -58,6 +58,20 @@ live exchange with the user. Assets link from row notes and live in
     context file records? Only pi and kernel have contexts today; several of these
     packages are absent from `CONTEXT-MAP.md` entirely. Produce a per-package
     candidate-term inventory with source citations as a linked asset.
+  - Resolved 2026-07-10: per-package inventory with source citations at
+    `docs/wayfinding/ontology-reshape/vocab-sweep-hosts-kernel-extensions-internal.md`,
+    suspects weighted toward simplification per session steer. Headliners: the
+    machine-enforced nine-tier `ns.tier` layering taxonomy in
+    `@internal/typescript-style-guard` is recorded in no glossary (ground-truth
+    anchor for the layering grilling row, confirming the meta-vocabulary risk
+    hunch); role directories and tiers disagree twice (pi-command-surfaces,
+    ns-pi-subagents); the `ns` name spans three package identities
+    (kernel / @nseng-ai/ns / nscc); deletion quick wins found
+    (pi-command-surfaces duplicate-constants package with a dead dependency edge,
+    pi-tools' unexported `side-session`, untracked `jicc`/`sdlcc`/`extensions/flow`
+    dirs). New suspects jotted in `ideas.md`. Semantic update:
+    `updates/2026-07-10-hosts-kernel-sweep-and-method-notes.md` (also starts the
+    method log toward a future skill).
 - [ ] Vocabulary sweep: infra, capability-kit, tools (research)
   - Question: What domain language lives in `ts/packages/infra/*` (brmem, clinkr,
     foundation), `ts/packages/capability-kit/` (kit level — only its graphite

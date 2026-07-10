@@ -114,3 +114,8 @@ Rows as the Frontier advances, and none is pre-sliced before then:
 - **Further suspects** — product-level term suspects beyond the four chosen clusters
   that the audits may surface (candidates already jotted in
   `docs/wayfinding/ontology-reshape/ideas.md`).
+- **Method extraction** — a running method log (goals, what is working, what is not)
+  accumulates in this record's Semantic Updates (started 2026-07-10) with the stated
+  intention of distilling a portable skill for the audit → reshape → document method.
+  What the skill's shape and boundaries are becomes specifiable once the grilling
+  rows have exercised the method end to end; decide near Crystallization.
