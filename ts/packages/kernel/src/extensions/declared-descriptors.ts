@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, isNodeErrorCode } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import { npmPackageRoot, parseExtensionSourceSpec } from "./acquisition.ts";
@@ -250,13 +250,4 @@ function failure(
 			...(path === undefined ? {} : { path }),
 		},
 	};
-}
-
-function isNodeErrorCode(error: unknown, code: string): boolean {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		(error as { code?: unknown }).code === code
-	);
 }

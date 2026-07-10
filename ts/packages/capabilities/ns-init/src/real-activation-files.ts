@@ -1,7 +1,7 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, isNodeErrorCode } from "@nseng-ai/foundation/primitives";
 
 import type {
 	ActivationFilesGateway,
@@ -97,13 +97,4 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 			};
 		}
 	}
-}
-
-function isNodeErrorCode(error: unknown, code: string): boolean {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		(error as { code?: unknown }).code === code
-	);
 }

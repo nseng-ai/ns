@@ -80,6 +80,10 @@ export function errorCodeFromUnknown(value: unknown): string | number | undefine
 	return typeof code === "string" || typeof code === "number" ? code : undefined;
 }
 
+export function isNodeErrorCode(error: unknown, code: string): boolean {
+	return errorCodeFromUnknown(error) === code;
+}
+
 export function resolveHomeDir(
 	explicit: string | undefined,
 	env: Record<string, string | undefined>,
