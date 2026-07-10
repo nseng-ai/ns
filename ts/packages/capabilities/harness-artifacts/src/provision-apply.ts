@@ -183,6 +183,19 @@ export function conflictingFilesFromDecisions(decisions: ProvisionDecisionSet): 
 		.map((decision) => decision.file.targetPath);
 }
 
+export type ProvisionApplyAction = "installed" | "refreshed" | "unchanged" | "conflicted";
+
+export function classifyProvisionAction(input: {
+	conflictingFiles: readonly string[];
+	decisionsAreUnchanged: boolean;
+	hasManifestEntry: boolean;
+}): ProvisionApplyAction {
+	if (input.conflictingFiles.length > 0) return "conflicted";
+	if (input.decisionsAreUnchanged && input.hasManifestEntry) return "unchanged";
+	if (input.hasManifestEntry) return "refreshed";
+	return "installed";
+}
+
 export async function applyPreparedProvision(
 	prepared: PreparedHarnessArtifactProvision,
 	options: ApplyPreparedProvisionOptions,
@@ -222,6 +235,37 @@ export async function applyPreparedProvision(
 		manifest,
 		writtenFiles,
 	});
+}
+
+export interface PreparedProvisionBatchApplier {
+	apply(
+		prepared: PreparedHarnessArtifactProvision,
+	): Promise<Result<HarnessArtifactProvisionApplyOutcome, HarnessArtifactProvisionErrorInfo>>;
+}
+
+/**
+ * Prepared provisions carry prepare-time manifest snapshots. Applying several
+ * prepared provisions that share a manifestPath sequentially would clobber the
+ * entries written by earlier applies unless each apply sees the latest written
+ * manifest; this applier owns that threading.
+ */
+export function createPreparedProvisionBatchApplier(
+	options: ApplyPreparedProvisionOptions,
+): PreparedProvisionBatchApplier {
+	const manifests = new Map<string, InstallManifestData>();
+	return {
+		async apply(prepared) {
+			const manifest = manifests.get(prepared.manifestPath);
+			const applied = await applyPreparedProvision(
+				manifest === undefined ? prepared : { ...prepared, manifest },
+				options,
+			);
+			if (applied.ok && applied.value.outcome === "applied") {
+				manifests.set(prepared.manifestPath, applied.value.manifest);
+			}
+			return applied;
+		},
+	};
 }
 
 export function installManifestPathForPlan(plan: ProvisionPlan): string {

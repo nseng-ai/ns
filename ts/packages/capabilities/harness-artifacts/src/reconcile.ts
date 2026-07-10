@@ -42,6 +42,7 @@ import {
 import { parseNsTomlExtensions, parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
 	applyPreparedProvision,
+	classifyProvisionAction,
 	conflictingFilesFromDecisions,
 	INSTALL_MANIFEST_FILE_NAME,
 	nodeHarnessArtifactFileSystemGateway,
@@ -654,17 +655,6 @@ async function readProjectManifestSnapshots(input: {
 	return resultOk(snapshots);
 }
 
-function classifyReconcileAction(input: {
-	conflictingFiles: readonly string[];
-	decisionsAreUnchanged: boolean;
-	hasManifestEntry: boolean;
-}): ReconcileArtifactOutcome["action"] {
-	if (input.conflictingFiles.length > 0) return "conflicted";
-	if (input.decisionsAreUnchanged && input.hasManifestEntry) return "unchanged";
-	if (input.hasManifestEntry) return "refreshed";
-	return "installed";
-}
-
 function skippedCollisionOutcomes(input: {
 	desired: DesiredHarnessArtifact;
 	skillRoots: ReadonlyMap<HarnessId, ResolvedProjectSkillRoot>;
@@ -701,7 +691,7 @@ function reconcileOutcomeFromProvision(input: {
 	conflictingFiles: readonly string[];
 }): ReconcileArtifactOutcome {
 	return {
-		action: classifyReconcileAction({
+		action: classifyProvisionAction({
 			conflictingFiles: input.conflictingFiles,
 			decisionsAreUnchanged: input.provision.decisions.files.every(
 				(decision) => decision.type === "unchanged",

@@ -12,18 +12,15 @@ import {
 	type ModuleArtifactDiscoveryDiagnostic,
 } from "./module-artifact-discovery.ts";
 import {
-	applyPreparedProvision,
+	classifyProvisionAction,
 	conflictingFilesFromDecisions,
+	createPreparedProvisionBatchApplier,
 	nodeHarnessArtifactFileSystemGateway,
 	prepareProvision,
 	type HarnessArtifactProvisionErrorInfo,
 	type PreparedHarnessArtifactProvision,
 } from "./provision-apply.ts";
-import {
-	installManifestKey,
-	provisionIdentityKey,
-	type InstallManifestData,
-} from "./provision-plan.ts";
+import { installManifestKey, provisionIdentityKey } from "./provision-plan.ts";
 import {
 	planHarnessArtifactReconcile,
 	type DesiredHarnessArtifact,
@@ -129,15 +126,13 @@ export async function prepareDeclaredArtifactActivation(
 			key: provisionIdentityKey(provision.value.plan),
 			artifact: pair.desired.artifact,
 			harness: pair.harness,
-			action:
-				conflictingFiles.length > 0
-					? "conflicted"
-					: provision.value.decisions.files.every((decision) => decision.type === "unchanged") &&
-						  isAlreadyInstalled
-						? "unchanged"
-						: isAlreadyInstalled
-							? "refreshed"
-							: "installed",
+			action: classifyProvisionAction({
+				conflictingFiles,
+				decisionsAreUnchanged: provision.value.decisions.files.every(
+					(decision) => decision.type === "unchanged",
+				),
+				hasManifestEntry: isAlreadyInstalled,
+			}),
 			provision: provision.value,
 		});
 	}
@@ -155,38 +150,21 @@ export async function prepareDeclaredArtifactActivation(
 /** Apply a prepared activation in identity-key order without reconciling absent manifest entries. */
 export async function applyPreparedDeclaredArtifactActivation(
 	prepared: PreparedDeclaredArtifactActivation,
-	options: { readonly shouldForce: boolean },
 ): Promise<ApplyPreparedDeclaredArtifactActivationResult> {
 	const completed: DeclaredArtifactActivationOutcome[] = [];
-	const manifests = new Map<string, InstallManifestData>();
+	const applier = createPreparedProvisionBatchApplier({ shouldForce: false });
 	for (const item of prepared.artifacts) {
 		if (item.action === "unchanged") {
 			completed.push(outcome(item, "unchanged", [], []));
 			continue;
 		}
-		const provision = {
-			...item.provision,
-			manifest: manifests.get(item.provision.manifestPath) ?? item.provision.manifest,
-		};
-		const applied = await applyPreparedProvision(provision, options);
+		const applied = await applier.apply(item.provision);
 		if (!applied.ok) return { ok: false, error: applied.error, completed };
 		if (applied.value.outcome === "conflicted") {
 			completed.push(outcome(item, "conflicted", [], applied.value.conflictingFiles));
 			continue;
 		}
-		manifests.set(item.provision.manifestPath, applied.value.manifest);
-		completed.push(
-			outcome(
-				item,
-				item.action === "conflicted"
-					? hasManifestEntry(item.provision)
-						? "refreshed"
-						: "installed"
-					: item.action,
-				applied.value.writtenFiles,
-				[],
-			),
-		);
+		completed.push(outcome(item, item.action, applied.value.writtenFiles, []));
 	}
 	return { ok: true, completed };
 }

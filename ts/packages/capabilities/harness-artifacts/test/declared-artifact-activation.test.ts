@@ -24,9 +24,7 @@ describe("declared artifact activation", () => {
 			"codex:project:skill:@acme/zeta:zeta",
 			"pi:project:skill:@acme/zeta:zeta",
 		]);
-		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value, {
-			shouldForce: false,
-		});
+		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value);
 		expect(applied).toMatchObject({
 			ok: true,
 			completed: [{ action: "installed" }, { action: "installed" }],
@@ -41,15 +39,13 @@ describe("declared artifact activation", () => {
 		const fixture = createFixture([moduleFacts("/modules/acme", "@acme/ext", "module")]);
 		const first = await fixture.prepare(["pi"]);
 		if (!first.ok) return;
-		await applyPreparedDeclaredArtifactActivation(first.value, { shouldForce: false });
+		await applyPreparedDeclaredArtifactActivation(first.value);
 
 		const unchanged = await fixture.prepare(["pi"]);
 		expect(unchanged).toMatchObject({ ok: true, value: { artifacts: [{ action: "unchanged" }] } });
 		if (!unchanged.ok) return;
 		fixture.fs.clearWrittenFiles();
-		const unchangedApply = await applyPreparedDeclaredArtifactActivation(unchanged.value, {
-			shouldForce: false,
-		});
+		const unchangedApply = await applyPreparedDeclaredArtifactActivation(unchanged.value);
 		expect(unchangedApply).toMatchObject({ ok: true, completed: [{ action: "unchanged" }] });
 		expect(fixture.fs.writtenFiles).toEqual([]);
 
@@ -57,9 +53,7 @@ describe("declared artifact activation", () => {
 		const refreshed = await fixture.prepare(["pi"]);
 		expect(refreshed).toMatchObject({ ok: true, value: { artifacts: [{ action: "refreshed" }] } });
 		if (!refreshed.ok) return;
-		const refreshApply = await applyPreparedDeclaredArtifactActivation(refreshed.value, {
-			shouldForce: false,
-		});
+		const refreshApply = await applyPreparedDeclaredArtifactActivation(refreshed.value);
 		expect(refreshApply).toMatchObject({ ok: true, completed: [{ action: "refreshed" }] });
 		expect(fixture.fs.readText("/repo/.pi/skills/module/SKILL.md")).toBe("module v2\n");
 	});
@@ -96,11 +90,42 @@ describe("declared artifact activation", () => {
 		]);
 		expect(prepared.value.artifacts).toMatchObject([{ action: "conflicted" }]);
 		expect(fixture.fs.writtenFiles).toEqual([]);
-		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value, {
-			shouldForce: false,
-		});
+		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value);
 		expect(applied).toMatchObject({ ok: true, completed: [{ action: "conflicted" }] });
 		expect(fixture.fs.readText("/repo/.pi/skills/safe/SKILL.md")).toBe("local edit\n");
+	});
+
+	test("applies two artifacts sharing one harness manifest without clobbering entries", async () => {
+		const fixture = createFixture([
+			{
+				moduleRoot: "/modules/acme",
+				packageName: "@acme/ext",
+				version: "1.0.0",
+				descriptor: {
+					description: "@acme/ext",
+					bundledArtifacts: [
+						{ kind: "skill", name: "alpha", path: "skills/alpha" },
+						{ kind: "skill", name: "beta", path: "skills/beta" },
+					],
+				},
+			},
+		]);
+
+		const prepared = await fixture.prepare(["pi"]);
+		expect(prepared).toMatchObject({ ok: true });
+		if (!prepared.ok) return;
+		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value);
+
+		expect(applied).toMatchObject({
+			ok: true,
+			completed: [{ action: "installed" }, { action: "installed" }],
+		});
+		expect(fixture.fs.readText("/repo/.pi/skills/alpha/SKILL.md")).toBe("alpha v1\n");
+		expect(fixture.fs.readText("/repo/.pi/skills/beta/SKILL.md")).toBe("beta v1\n");
+		expect(Object.keys(fixture.readManifest().artifacts)).toEqual([
+			"pi:project:skill:@acme/ext:alpha",
+			"pi:project:skill:@acme/ext:beta",
+		]);
 	});
 
 	test("preserves stale manifest entries while adding declared artifacts", async () => {
@@ -109,9 +134,7 @@ describe("declared artifact activation", () => {
 
 		const prepared = await fixture.prepare(["pi"]);
 		if (!prepared.ok) return;
-		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value, {
-			shouldForce: false,
-		});
+		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value);
 
 		expect(applied.ok).toBe(true);
 		expect(Object.keys(fixture.readManifest().artifacts)).toEqual([
@@ -142,9 +165,10 @@ function createFixture(initialModules: readonly DeclaredExtensionModuleArtifactF
 	const modules = [...initialModules];
 	const files: Record<string, string> = {};
 	for (const module of modules) {
-		const declaration = module.descriptor.bundledArtifacts?.[0];
-		if (declaration?.kind === "skill") {
-			files[join(module.moduleRoot, declaration.path, "SKILL.md")] = `${declaration.name} v1\n`;
+		for (const declaration of module.descriptor.bundledArtifacts ?? []) {
+			if (declaration.kind === "skill") {
+				files[join(module.moduleRoot, declaration.path, "SKILL.md")] = `${declaration.name} v1\n`;
+			}
 		}
 	}
 	files["/repo/.pi/skills/old/SKILL.md"] = "old\n";

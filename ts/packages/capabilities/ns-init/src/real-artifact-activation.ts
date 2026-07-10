@@ -27,6 +27,6 @@ export class RealArtifactActivationGateway implements ArtifactActivationGateway 
 	}
 
 	async apply(prepared: Parameters<ArtifactActivationGateway["apply"]>[0]) {
-		return applyPreparedDeclaredArtifactActivation(prepared, { shouldForce: false });
+		return applyPreparedDeclaredArtifactActivation(prepared);
 	}
 }
