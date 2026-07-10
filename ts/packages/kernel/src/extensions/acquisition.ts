@@ -7,8 +7,17 @@ import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
 import { parseExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
+import {
+	managedNpmProjectRoot,
+	npmPackageRoot,
+} from "../project-config/managed-extension-paths.ts";
 
 export { parseExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
+export {
+	MANAGED_EXTENSIONS_ROOT,
+	managedNpmProjectRoot,
+	npmPackageRoot,
+} from "../project-config/managed-extension-paths.ts";
 export type { ExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
 
 export interface ResolvedExtensionModuleRoot {
@@ -85,9 +94,6 @@ export interface ResolveDeclaredExtensionModulesResult {
 	readonly roots: readonly ResolvedExtensionModuleRoot[];
 	readonly diagnostics: readonly ExtensionAcquisitionDiagnostic[];
 }
-
-export const MANAGED_EXTENSIONS_ROOT = ".ns/managed-extensions";
-export const MANAGED_NPM_PROJECT_RELATIVE_PATH = `${MANAGED_EXTENSIONS_ROOT}/npm`;
 
 export class RealExtensionAcquisitionGateway implements ExtensionAcquisitionGateway {
 	private readonly exec: ExtensionAcquisitionExec;
@@ -189,10 +195,6 @@ export const nodeExtensionAcquisitionGateway: ExtensionAcquisitionGateway =
 		};
 	});
 
-export function npmPackageRoot(projectRoot: string, packageName: string): string {
-	return join(projectRoot, MANAGED_NPM_PROJECT_RELATIVE_PATH, "node_modules", packageName);
-}
-
 export async function resolveDeclaredExtensionModules(
 	request: ResolveDeclaredExtensionModulesRequest,
 ): Promise<ResolveDeclaredExtensionModulesResult> {
@@ -201,8 +203,6 @@ export async function resolveDeclaredExtensionModules(
 	const specs = request.declaredSpecs.filter((spec) => selected.has(spec));
 	const diagnostics: ExtensionAcquisitionDiagnostic[] = [];
 	const roots: ResolvedExtensionModuleRoot[] = [];
-	const npmProjectDir = join(request.projectRoot, MANAGED_NPM_PROJECT_RELATIVE_PATH);
-	let hasEnsuredNpmProject = false;
 
 	for (const raw of specs) {
 		const parsed = parseExtensionSourceSpec(request.projectRoot, raw);
@@ -223,6 +223,7 @@ export async function resolveDeclaredExtensionModules(
 			continue;
 		}
 
+		const npmProjectDir = managedNpmProjectRoot(request.projectRoot, parsed.value.packageName);
 		const packageRoot = npmPackageRoot(request.projectRoot, parsed.value.packageName);
 		const installed = await gateway.isNpmPackageInstalled(packageRoot);
 		if (!installed.ok) {
@@ -245,13 +246,10 @@ export async function resolveDeclaredExtensionModules(
 		const shouldInstall =
 			!installed.value || (!parsed.value.isPinned && request.npmAcquisition === "refresh-floating");
 		if (shouldInstall) {
-			if (!hasEnsuredNpmProject) {
-				const project = await gateway.ensureManagedNpmProject(npmProjectDir);
-				if (!project.ok) {
-					diagnostics.push(withSpec(project.error, raw));
-					continue;
-				}
-				hasEnsuredNpmProject = true;
+			const project = await gateway.ensureManagedNpmProject(npmProjectDir);
+			if (!project.ok) {
+				diagnostics.push(withSpec(project.error, raw));
+				continue;
 			}
 			const install = await gateway.installNpmPackage({
 				projectDir: npmProjectDir,

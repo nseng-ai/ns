@@ -85,7 +85,15 @@ function managedNpmPackage(
 	options: Omit<FakeDescriptorPackage, "root"> = {},
 ): FakeDescriptorPackage {
 	return {
-		root: join(repoRoot, ".ns", "managed-extensions", "npm", "node_modules", packageName),
+		root: join(
+			repoRoot,
+			".ns",
+			"managed-extensions",
+			"npm",
+			packageName,
+			"node_modules",
+			packageName,
+		),
 		...options,
 	};
 }
@@ -173,7 +181,7 @@ describe("declared extension descriptors", () => {
 			{
 				spec: "npm:@acme/tools@1.2.3",
 				sourceKind: "npm",
-				moduleRoot: "/repo/.ns/managed-extensions/npm/node_modules/@acme/tools",
+				moduleRoot: "/repo/.ns/managed-extensions/npm/@acme/tools/node_modules/@acme/tools",
 				packageName: "@acme/tools",
 				version: "1.2.3",
 				descriptor: { description: "Managed tools" },

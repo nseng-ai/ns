@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	managedNpmProjectRoot,
 	npmPackageRoot,
 	parseExtensionSourceSpec,
 	resolveDeclaredExtensionModules,
@@ -47,12 +48,21 @@ describe("extension acquisition", () => {
 		]);
 	});
 
-	test("computes managed node_modules package roots including scoped packages", () => {
+	test("computes independent private project and installed package roots", () => {
+		expect(managedNpmProjectRoot("/repo", "left-pad")).toBe(
+			"/repo/.ns/managed-extensions/npm/left-pad",
+		);
 		expect(npmPackageRoot("/repo", "left-pad")).toBe(
-			"/repo/.ns/managed-extensions/npm/node_modules/left-pad",
+			"/repo/.ns/managed-extensions/npm/left-pad/node_modules/left-pad",
+		);
+		expect(managedNpmProjectRoot("/repo", "@scope/pkg")).toBe(
+			"/repo/.ns/managed-extensions/npm/@scope/pkg",
 		);
 		expect(npmPackageRoot("/repo", "@scope/pkg")).toBe(
-			"/repo/.ns/managed-extensions/npm/node_modules/@scope/pkg",
+			"/repo/.ns/managed-extensions/npm/@scope/pkg/node_modules/@scope/pkg",
+		);
+		expect(managedNpmProjectRoot("/repo", "first")).not.toBe(
+			managedNpmProjectRoot("/repo", "second"),
 		);
 	});
 
@@ -68,11 +78,12 @@ describe("extension acquisition", () => {
 			{
 				spec: "npm:@scope/pkg@1.2.3",
 				sourceKind: "npm",
-				moduleRoot: "/repo/.ns/managed-extensions/npm/node_modules/@scope/pkg",
+				moduleRoot: "/repo/.ns/managed-extensions/npm/@scope/pkg/node_modules/@scope/pkg",
 			},
 		]);
 		expect(gateway.installs).toEqual([
 			{
+				projectDir: "/repo/.ns/managed-extensions/npm/@scope/pkg",
 				rawSpec: "npm:@scope/pkg@1.2.3",
 				packageName: "@scope/pkg",
 				version: "1.2.3",
@@ -133,32 +144,48 @@ describe("extension acquisition", () => {
 		expect(gateway.installs.map((install) => install.rawSpec)).toEqual(["npm:left-pad"]);
 	});
 
-	test("one npm acquisition failure does not prevent another spec from resolving", async () => {
+	test("two installs use distinct roots and failed B leaves A resolvable", async () => {
 		const gateway = new FakeExtensionAcquisitionGateway();
-		gateway.failSpec = "npm:bad";
-		const result = await resolveDeclaredExtensionModules({
+		const first = await resolveDeclaredExtensionModules({
 			projectRoot: "/repo",
-			declaredSpecs: ["npm:bad", "npm:good"],
+			declaredSpecs: ["npm:good"],
 			mode: "apply",
 			gateway,
 		});
-		expect(result.roots).toEqual([
+		gateway.failSpec = "npm:bad";
+		const second = await resolveDeclaredExtensionModules({
+			projectRoot: "/repo",
+			declaredSpecs: ["npm:good", "npm:bad"],
+			mode: "apply",
+			gateway,
+		});
+		expect(first.roots).toEqual([
 			{
 				spec: "npm:good",
 				sourceKind: "npm",
-				moduleRoot: "/repo/.ns/managed-extensions/npm/node_modules/good",
+				moduleRoot: "/repo/.ns/managed-extensions/npm/good/node_modules/good",
 			},
 		]);
-		expect(result.diagnostics).toMatchObject([
+		expect(second.roots).toEqual(first.roots);
+		expect(second.diagnostics).toMatchObject([
 			{ code: "extension_acquisition_npm_install_failed", spec: "npm:bad" },
 		]);
+		expect(gateway.ensuredProjects).toEqual([
+			"/repo/.ns/managed-extensions/npm/good",
+			"/repo/.ns/managed-extensions/npm/bad",
+		]);
+		expect(gateway.installs.map(({ projectDir }) => projectDir)).toEqual([
+			"/repo/.ns/managed-extensions/npm/good",
+			"/repo/.ns/managed-extensions/npm/bad",
+		]);
+		expect(gateway.installed).toContain(npmPackageRoot("/repo", "good"));
 	});
 
 	test("fake state and logs are ownership-safe copies", async () => {
 		const packageRoot = npmPackageRoot("/repo", "left-pad");
 		const gateway = new FakeExtensionAcquisitionGateway({ installedPackageRoots: [packageRoot] });
 		await gateway.installNpmPackage({
-			projectDir: "/repo/.ns/managed-extensions/npm",
+			projectDir: "/repo/.ns/managed-extensions/npm/other",
 			rawSpec: "npm:other",
 			packageName: "other",
 			version: undefined,

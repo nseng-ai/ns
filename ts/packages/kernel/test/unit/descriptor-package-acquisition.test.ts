@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
+import { npmPackageRoot } from "@nseng-ai/kernel/extensions/acquisition";
 import {
 	appendDeclaredExtensionSpecToml,
 	descriptorExportTarget,
-	managedDescriptorPackageRoot,
 	nsExtensionExportTarget,
 	planDeclaredExtensionInstallToml,
 	resolveAcquiredDescriptorPackageRoot,
@@ -153,7 +153,7 @@ describe("descriptor package acquisition", () => {
 	test("resolves npm specs from managed npm storage", () => {
 		expect(
 			resolveAcquiredDescriptorPackageRoot({ repoRoot: "/repo", spec: "npm:@acme/tools@1.2.3" }),
-		).toEqual({ packageRoot: managedDescriptorPackageRoot("/repo", "@acme/tools") });
+		).toEqual({ packageRoot: npmPackageRoot("/repo", "@acme/tools") });
 	});
 
 	test("always resolves local specs in place", () => {

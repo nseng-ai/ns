@@ -8,6 +8,7 @@ import type {
 } from "../extensions/acquisition.ts";
 
 export interface FakeNpmInstallCall {
+	readonly projectDir: string;
 	readonly rawSpec: string;
 	readonly packageName: string;
 	readonly version: string | undefined;
@@ -20,9 +21,9 @@ export interface FakeExtensionAcquisitionGatewayOptions {
 }
 
 export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGateway {
-	ensureCalls = 0;
 	failSpec: string | undefined;
 	private readonly installedPackageRoots: Set<string>;
+	private readonly ensuredProjectLog: string[] = [];
 	private readonly installLog: FakeNpmInstallCall[] = [];
 	private readonly failSpecs: ReadonlySet<string>;
 
@@ -35,12 +36,22 @@ export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 		return new Set(this.installedPackageRoots);
 	}
 
+	get ensureCalls(): number {
+		return this.ensuredProjectLog.length;
+	}
+
+	get ensuredProjects(): readonly string[] {
+		return [...this.ensuredProjectLog];
+	}
+
 	get installs(): readonly FakeNpmInstallCall[] {
 		return this.installLog.map((install) => ({ ...install }));
 	}
 
-	async ensureManagedNpmProject(): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
-		this.ensureCalls += 1;
+	async ensureManagedNpmProject(
+		projectDir: string,
+	): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
+		this.ensuredProjectLog.push(projectDir);
 		return resultOk(undefined);
 	}
 
@@ -58,6 +69,7 @@ export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 		isPinned: boolean;
 	}): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
 		this.installLog.push({
+			projectDir: request.projectDir,
 			rawSpec: request.rawSpec,
 			packageName: request.packageName,
 			version: request.version,

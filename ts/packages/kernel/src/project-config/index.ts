@@ -6,8 +6,6 @@ export {
 	descriptorExportTarget,
 	directoryExists,
 	fileExists,
-	managedDescriptorPackageRoot,
-	managedExtensionsNpmProjectRoot,
 	parseDeclaredExtensionSpecsToml,
 	resolveAcquiredDescriptorPackageRoot,
 	resolveDescriptorExportPath,
