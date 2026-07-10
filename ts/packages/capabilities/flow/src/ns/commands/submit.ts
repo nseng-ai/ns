@@ -26,6 +26,11 @@ import {
 	type SubmitMatrixProgressController,
 } from "../../submit/submit-matrix-progress.ts";
 import {
+	createMatrixAwarePhaseListener,
+	createMatrixSubmitProgress,
+	createStreamSubmitProgress,
+} from "../../submit/submit-progress.ts";
+import {
 	flowSubmitHookFailureExitCode,
 	formatFlowSubmitHookFailure,
 	loadFlowSubmitHooks,
@@ -199,7 +204,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 					shouldForwardCommandOutput: request.verbose,
 					prDescription: runtime.prDescription,
 					shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
-					onPhase: stream.emit,
+					progress: createStreamSubmitProgress(stream.emit),
 					...(onOutput === undefined ? {} : { onOutput }),
 				});
 				// Result payloads print as scrollback below the settled region: the checkpoint commit summary
@@ -325,7 +330,7 @@ async function runSubmitWithMatrix(input: {
 		}
 		matrix.setGlobal("checkpoint", { state: "done", text: "checkpoint complete" });
 
-		const onPhase = createSubmitPhaseListener(ctx, matrix);
+		const progress = createMatrixSubmitProgress({ ctx, matrix });
 		const result = await runSubmitCommand({
 			cwd: ctx.cwd,
 			gateway: runtime.submitGateway,
@@ -335,9 +340,8 @@ async function runSubmitWithMatrix(input: {
 			shouldForwardCommandOutput: request.verbose,
 			prDescription: runtime.prDescription,
 			shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
-			onPhase,
+			progress,
 			onOutput,
-			submitMatrix: matrix,
 		});
 		const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
 		const isFailed = interpretedResult.exitCode !== 0;
@@ -363,39 +367,6 @@ function createMatrixPhaseForwarder(
 	return createMatrixAwarePhaseListener(ctx, (event) => {
 		applyGlobalPhaseEvent("checkpoint", event);
 	});
-}
-
-function createForwardOnlyPhaseListener(
-	ctx: NsExtensionApi,
-): (event: NsProgressPhaseEvent) => void {
-	return (event) => {
-		if (ctx.progress.isLive) ctx.progress.phase(event);
-	};
-}
-
-function createSubmitPhaseListener(
-	ctx: NsExtensionApi,
-	matrix: SubmitMatrixProgressController,
-): (event: NsProgressPhaseEvent) => void {
-	const note = matrix.note;
-	return createMatrixAwarePhaseListener(ctx, (event) => {
-		// Surface the full metadata progress message as the matrix tail line so
-		// compact branch-cell labels are never the only source of detail.
-		if (event.type === "phase-progress" && event.phaseKey === "metadata") {
-			note(event.label);
-		}
-	});
-}
-
-function createMatrixAwarePhaseListener(
-	ctx: NsExtensionApi,
-	onEvent: (event: NsProgressPhaseEvent) => void,
-): (event: NsProgressPhaseEvent) => void {
-	const forward = createForwardOnlyPhaseListener(ctx);
-	return (event) => {
-		forward(event);
-		onEvent(event);
-	};
 }
 
 async function matrixPhaseFailureResult(

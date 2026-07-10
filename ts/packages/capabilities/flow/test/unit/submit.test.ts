@@ -11,6 +11,7 @@ import {
 	type SubmitGateway,
 	type SubmitMatrixProgressSink,
 	type SubmitMetadataGateway,
+	type SubmitProgress,
 	type TextGenerator,
 } from "../../src/submit/index.ts";
 import { RealSubmitGateway } from "../../src/submit/index.ts";
@@ -741,7 +742,7 @@ describe("runSubmitCommand", () => {
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				env: {},
 			},
-			submitMatrix,
+			progress: testSubmitProgress(submitMatrix),
 		});
 
 		expect(result.exitCode).toBe(0);
@@ -791,6 +792,7 @@ describe("runSubmitCommand", () => {
 				git: unusedGitGateway,
 				env: {},
 			},
+			progress: testSubmitProgress(),
 		});
 
 		expect(result).toMatchObject({
@@ -809,6 +811,10 @@ describe("runSubmitCommand", () => {
 		);
 	});
 });
+
+function testSubmitProgress(matrix?: SubmitMatrixProgressSink): SubmitProgress {
+	return { phase: () => undefined, matrix };
+}
 
 interface SubmitMatrixGlobalEvent {
 	key: Parameters<SubmitMatrixProgressSink["setGlobal"]>[0];
