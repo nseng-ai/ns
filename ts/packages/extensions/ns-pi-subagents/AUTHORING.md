@@ -24,7 +24,7 @@ registerSubagentTool(pi, {
 
 The registry rejects duplicate or invalid descriptors. It validates each Markdown definition independently, so one unhealthy entry does not hide healthy catalog entries. The registered JSON schema enum is fixed from this startup registry. Selected definitions are reloaded for execution and identity drift fails that call until restart.
 
-Do not add agent-specific fields to the public input. If a policy belongs to an agent, encode it in the descriptor. Runtime selection must never alter descriptor tools.
+Do not add agent-specific fields to the public input. If a policy belongs to an agent, encode it in the descriptor. Prompt composition, prompt-context enrichment, descriptor tools, and model selection are applied once before runtime dispatch; runtime selection must never alter descriptor tools. Each task dispatches exactly once.
 
 ## Add a runtime adapter
 

@@ -8,6 +8,7 @@ import {
 	loadPiAgentDefinition,
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
+import { isProviderAuthConfigured } from "@nseng-ai/pi/runtime/auth";
 import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
 
@@ -17,7 +18,10 @@ import {
 	type SubagentAgentDescriptor,
 	type SubagentAgentRegistry,
 } from "../agents/registry.ts";
-import { dispatchExplorerSubagent, type ExplorerRetryEvidence } from "../explore/dispatch.ts";
+import {
+	resolveExplorerLaunchPlan,
+	type IsProviderAuthConfigured,
+} from "../explore/model-policy.ts";
 import {
 	resultDiagnostic,
 	type RunnerSubagentContext,
@@ -64,15 +68,11 @@ export interface RegisterSubagentToolOptions {
 	readGitHead?: ReadGitHead;
 	loadAgentDefinition?: (name: string, cwd: string) => PiAgentDefinition;
 	timers?: TimerScheduler;
+	isProviderAuthConfigured?: IsProviderAuthConfigured;
 }
 
 export interface SubagentToolRegistration {
 	readonly doctrineSections: readonly string[];
-}
-
-interface SubagentTaskOutcome {
-	result: RunnerSubagentResult;
-	retry?: ExplorerRetryEvidence;
 }
 
 export function registerSubagentTool(
@@ -214,10 +214,7 @@ async function executeSubagent(args: ExecuteSubagentOptions): Promise<ToolResult
 						onProgress,
 					});
 				},
-				resultForTracking: (outcome) => ({
-					result: outcome.result,
-					...optionalEntry("retry", outcome.retry),
-				}),
+				resultForTracking: (result) => ({ result }),
 			},
 		);
 		return formatResult({ descriptor, execution: runtime.kind, tasks: input.tasks, results });
@@ -237,32 +234,13 @@ async function runTask(args: {
 	runtime: import("../runtime/seam.ts").SubagentRuntime;
 	signal: AbortSignal;
 	onProgress: (update: RunnerSubagentUpdate) => void;
-}): Promise<SubagentTaskOutcome> {
+}): Promise<RunnerSubagentResult> {
 	const runnerCtx: RunnerSubagentContext = {
 		cwd: args.ctx.cwd,
 		signal: args.signal,
 		...optionalEntry("model", args.ctx.model),
 	};
 	const descriptor = args.descriptor;
-	if (descriptor.modelPolicy === "explorer-same-model-retry") {
-		const outcome = await dispatchExplorerSubagent({
-			pi: args.pi,
-			ctx: runnerCtx,
-			intent: {
-				title: args.task.title,
-				prompt: args.task.prompt,
-				...optionalEntry("model", args.input.model),
-				signal: args.signal,
-				onProgress: args.onProgress,
-			},
-			definition: args.definition,
-			dependencies: { runtime: args.runtime },
-		});
-		return {
-			result: outcome.result,
-			...optionalEntry("retry", outcome.retry),
-		};
-	}
 	let prompt = composePiAgentPrompt(args.definition, args.task);
 	if (descriptor.promptContext === "curated-worktree") {
 		const curated = await buildCuratedRunnerSubagentContext({
@@ -278,6 +256,12 @@ async function runTask(args: {
 		});
 		prompt = `${prompt}\n\n${curated.markdown}`;
 	}
+	const selectedModel = selectTaskModel({
+		policy: descriptor.modelPolicy,
+		...optionalEntry("explicitModel", args.input.model),
+		...optionalEntry("parentModel", args.ctx.model),
+		isProviderAuthConfigured: args.options.isProviderAuthConfigured ?? isProviderAuthConfigured,
+	});
 	const dispatchOptions = {
 		title: args.task.title,
 		prompt,
@@ -286,10 +270,10 @@ async function runTask(args: {
 		cwd: args.ctx.cwd,
 		signal: args.signal,
 		onProgress: args.onProgress,
-		...optionalEntry("model", args.input.model),
+		...optionalEntry("model", selectedModel),
 	};
 	const launch = resolveRunnerSubagentLaunch(args.pi, runnerCtx, dispatchOptions);
-	const result = await args.runtime.dispatch({
+	return await args.runtime.dispatch({
 		pi: args.pi,
 		ctx: runnerCtx,
 		options: {
@@ -297,14 +281,28 @@ async function runTask(args: {
 			...optionalEntry("preResolvedLaunch", launch),
 		},
 	});
-	return { result };
+}
+
+function selectTaskModel(input: {
+	policy: SubagentAgentDescriptor["modelPolicy"];
+	explicitModel?: string;
+	parentModel?: RunnerSubagentContext["model"];
+	isProviderAuthConfigured: IsProviderAuthConfigured;
+}): string | undefined {
+	if (input.explicitModel !== undefined) return input.explicitModel;
+	if (input.policy === "inherit") return undefined;
+	const launchPlan = resolveExplorerLaunchPlan({
+		...optionalEntry("parentModel", input.parentModel),
+		isProviderAuthConfigured: input.isProviderAuthConfigured,
+	});
+	return launchPlan.kind === "inherit" ? undefined : launchPlan.model;
 }
 
 interface FormatResultOptions {
 	descriptor: SubagentAgentDescriptor;
 	execution: SubagentRuntimeKind;
 	tasks: SubagentToolInput["tasks"];
-	results: readonly ToolkitDispatchBatchResult<SubagentTaskOutcome>[];
+	results: readonly ToolkitDispatchBatchResult<RunnerSubagentResult>[];
 }
 
 function formatResult(options: FormatResultOptions): ToolResult {
@@ -327,7 +325,7 @@ function formatResult(options: FormatResultOptions): ToolResult {
 				status: "cancelled",
 				diagnostic: "Task was not started.",
 			};
-		const result = outcome.result;
+		const result = outcome;
 		const originalFinalText = result.status === "final-text" ? result.finalText : undefined;
 		const finalText = originalFinalText?.slice(0, finalTextCap);
 		const sessionFile = runnerSubagentSessionFile(result);
@@ -338,7 +336,6 @@ function formatResult(options: FormatResultOptions): ToolResult {
 			status: result.status,
 			...optionalEntry("sessionFile", sessionFile),
 			...optionalEntry("diagnostic", resultDiagnostic(result)),
-			...optionalEntry("retry", outcome.retry),
 			...(finalText === undefined || originalFinalText === undefined
 				? {}
 				: { finalText, finalTextTruncated: finalText.length < originalFinalText.length }),
@@ -355,11 +352,6 @@ function formatResult(options: FormatResultOptions): ToolResult {
 		);
 		if ("sessionFile" in detail) lines.push(`Session: ${detail.sessionFile ?? "unavailable"}`);
 		if ("finalText" in detail && detail.finalText !== undefined) lines.push("", detail.finalText);
-		if ("retry" in detail && detail.retry !== undefined) {
-			lines.push(
-				`Retry: ${detail.status === "final-text" ? "succeeded after" : "attempted after"} transient ${detail.retry.firstAttemptStatus} — ${detail.retry.firstAttemptDiagnostic}`,
-			);
-		}
 		if ("diagnostic" in detail && detail.diagnostic !== undefined)
 			lines.push(`Diagnostic: ${detail.diagnostic}`);
 	}

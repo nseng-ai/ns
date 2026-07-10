@@ -8,14 +8,11 @@ import {
 } from "./contract.ts";
 
 /**
- * How an explorer child should be launched. "cheap" and "explicit" carry a Pi
- * --model pattern; "inherit" omits the model so the child inherits the parent
- * session's provider and model (no cheap option was safely available).
+ * How an explorer child should be launched. "cheap" carries a Pi --model
+ * pattern; "inherit" omits the model so the child inherits the parent session's
+ * provider and model (no cheap option was safely available).
  */
-export type ExplorerLaunchPlan =
-	| { kind: "cheap"; model: string }
-	| { kind: "explicit"; model: string }
-	| { kind: "inherit" };
+export type ExplorerLaunchPlan = { kind: "cheap"; model: string } | { kind: "inherit" };
 export type IsProviderAuthConfigured = (providerId: string) => boolean;
 
 export interface ResolveExplorerLaunchPlanInput {

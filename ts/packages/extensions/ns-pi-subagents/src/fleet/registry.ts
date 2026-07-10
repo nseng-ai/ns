@@ -1,6 +1,5 @@
 import type {
 	RunnerSubagentResult,
-	RunnerSubagentRetryEvidence,
 	RunnerSubagentUpdate,
 } from "../runner-subagents/extension-api.ts";
 import { runnerSubagentPrimaryActivityPreview } from "../runner-subagents/activity.ts";
@@ -9,8 +8,6 @@ import type { GitHeadSnapshot } from "./git-head.ts";
 export const SUBAGENT_FLEET_RECENT_TASK_CAP = 20;
 
 export type SubagentFleetTaskState = "queued" | "running" | "done";
-
-export type SubagentFleetRetryEvidence = RunnerSubagentRetryEvidence;
 
 export interface SubagentFleetTaskInput {
 	title: string;
@@ -26,7 +23,6 @@ export interface SubagentFleetTaskSnapshot {
 	state: SubagentFleetTaskState;
 	latestActivity?: string;
 	finalStatus?: RunnerSubagentResult["status"];
-	retry?: SubagentFleetRetryEvidence;
 	sessionFile?: string;
 	headBaseline?: GitHeadSnapshot;
 	finalHead?: GitHeadSnapshot;
@@ -52,7 +48,6 @@ interface MutableSubagentFleetTask {
 	state: SubagentFleetTaskState;
 	latestActivity?: string;
 	finalStatus?: RunnerSubagentResult["status"];
-	retry?: SubagentFleetRetryEvidence;
 	sessionFile?: string;
 	headBaseline?: GitHeadSnapshot;
 	finalHead?: GitHeadSnapshot;
@@ -141,13 +136,6 @@ export class SubagentFleetRegistry {
 	markTaskFinalHead(taskId: string, head: GitHeadSnapshot): void {
 		this.updateTask(taskId, (task) => {
 			task.finalHead = head;
-			task.sequence = this.sequence++;
-		});
-	}
-
-	markRetry(taskId: string, retry: SubagentFleetRetryEvidence): void {
-		this.updateTask(taskId, (task) => {
-			task.retry = retry;
 			task.sequence = this.sequence++;
 		});
 	}
@@ -253,7 +241,6 @@ function snapshotTask(
 		state: task.state,
 		...(task.latestActivity === undefined ? {} : { latestActivity: task.latestActivity }),
 		...(task.finalStatus === undefined ? {} : { finalStatus: task.finalStatus }),
-		...(task.retry === undefined ? {} : { retry: task.retry }),
 		...(task.sessionFile === undefined ? {} : { sessionFile: task.sessionFile }),
 		...(headBaseline === undefined ? {} : { headBaseline }),
 		...(task.finalHead === undefined ? {} : { finalHead: task.finalHead }),

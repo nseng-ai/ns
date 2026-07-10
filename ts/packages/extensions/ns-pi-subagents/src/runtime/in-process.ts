@@ -4,6 +4,12 @@ import type { Clock } from "@nseng-ai/foundation/clock";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 
+import {
+	abortReason,
+	effectiveAbortSignal,
+	hasAbortedSignal,
+	uniqueAbortSignals,
+} from "../runner-subagents/abort-signals.ts";
 import { resolveRunnerSubagentLaunch } from "../runner-subagents/subagent-process.ts";
 import type {
 	RunnerSubagentActivity,
@@ -62,6 +68,8 @@ async function dispatchInProcessSubagent(
 	const clock = options.clock ?? systemClock;
 	const startedAt = clock.nowMs();
 	const elapsedMs = createElapsedMs(clock, startedAt);
+	const abortSignals = uniqueAbortSignals(input.ctx.signal, input.options.signal);
+	const signal = effectiveAbortSignal(abortSignals);
 	const launch =
 		input.options.preResolvedLaunch ??
 		resolveRunnerSubagentLaunch(input.pi, input.ctx, input.options);
@@ -73,6 +81,8 @@ async function dispatchInProcessSubagent(
 	let stopReason: string | undefined;
 	let progress = initialProgress({ input, launch, elapsedMs, sessionFile: undefined });
 	let activity: RunnerSubagentActivity = {};
+	const initialCancellation = cancelledIfAborted({ abortSignals, progress, elapsedMs });
+	if (initialCancellation !== undefined) return initialCancellation;
 	try {
 		const model = resolveConcreteModel(launch, options.modelRegistry);
 		if ("diagnostic" in model) throw new Error(model.diagnostic);
@@ -95,24 +105,40 @@ async function dispatchInProcessSubagent(
 			input.options.onProgress?.({ progress, activity });
 		});
 		try {
-			if (input.options.signal?.aborted) {
+			const prePromptCancellation = cancelledIfAborted({
+				abortSignals,
+				progress,
+				elapsedMs,
+				...(session.sessionFile === undefined ? {} : { sessionFile: session.sessionFile }),
+			});
+			if (prePromptCancellation !== undefined) {
 				await session.abort();
-				return cancelledResult(input, progress, elapsedMs);
+				return prePromptCancellation;
 			}
+			let hasAbortedSession = false;
 			const abort = (): void => {
+				if (hasAbortedSession) return;
+				hasAbortedSession = true;
 				void session?.abort();
 			};
-			input.options.signal?.addEventListener("abort", abort, { once: true });
+			signal?.addEventListener("abort", abort, { once: true });
+			if (signal?.aborted) abort();
 			try {
-				await session.prompt(input.options.prompt, input.options.signal);
+				await session.prompt(input.options.prompt, signal);
 			} finally {
-				input.options.signal?.removeEventListener("abort", abort);
+				signal?.removeEventListener("abort", abort);
 			}
 		} finally {
 			unsubscribe();
 		}
 		progress = progressWithoutCurrentTool(progress, "stopped", elapsedMs);
-		if (input.options.signal?.aborted) return cancelledResult(input, progress, elapsedMs);
+		const postPromptCancellation = cancelledIfAborted({
+			abortSignals,
+			progress,
+			elapsedMs,
+			...(session.sessionFile === undefined ? {} : { sessionFile: session.sessionFile }),
+		});
+		if (postPromptCancellation !== undefined) return postPromptCancellation;
 		if (finalText === undefined || finalText.trim().length === 0) {
 			return {
 				status: "stopped-without-useful-text",
@@ -132,9 +158,13 @@ async function dispatchInProcessSubagent(
 			...(stopReason === undefined ? {} : { stopReason }),
 		};
 	} catch (error) {
-		if (input.options.signal?.aborted) {
-			return cancelledResult(input, progress, elapsedMs);
-		}
+		const caughtCancellation = cancelledIfAborted({
+			abortSignals,
+			progress,
+			elapsedMs,
+			...(session?.sessionFile === undefined ? {} : { sessionFile: session.sessionFile }),
+		});
+		if (caughtCancellation !== undefined) return caughtCancellation;
 		const message = formatErrorMessage(error);
 		return {
 			status: "error",
@@ -229,19 +259,23 @@ function mapInProcessEvent(options: MapInProcessEventOptions): {
 	}
 }
 
-function cancelledResult(
-	input: SubagentRuntimeDispatchInput,
-	progress: RunnerSubagentProgress,
-	elapsedMs: () => number,
-): RunnerSubagentResult {
-	const reason =
-		typeof input.options.signal?.reason === "string" ? input.options.signal.reason : undefined;
+interface CancelledIfAbortedOptions {
+	abortSignals: readonly AbortSignal[];
+	progress: RunnerSubagentProgress;
+	elapsedMs: () => number;
+	sessionFile?: string;
+}
+
+function cancelledIfAborted(options: CancelledIfAbortedOptions): RunnerSubagentResult | undefined {
+	if (!hasAbortedSignal(...options.abortSignals)) return undefined;
+	const reason = abortReason(options.abortSignals);
 	return {
 		status: "cancelled",
 		diagnostic: reason ?? "In-process subagent dispatch was cancelled.",
-		elapsedMs: elapsedMs(),
-		progress: progressWithoutCurrentTool(progress, "stopped", elapsedMs),
+		elapsedMs: options.elapsedMs(),
+		progress: progressWithoutCurrentTool(options.progress, "stopped", options.elapsedMs),
 		...(reason === undefined ? {} : { reason }),
+		...(options.sessionFile === undefined ? {} : { sessionFile: options.sessionFile }),
 	};
 }
 

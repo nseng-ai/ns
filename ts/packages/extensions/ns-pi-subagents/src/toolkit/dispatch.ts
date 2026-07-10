@@ -2,7 +2,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ToolContext, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import type { ReadGitHead } from "../fleet/git-head.ts";
-import type { SubagentFleetRegistry, SubagentFleetRetryEvidence } from "../fleet/registry.ts";
+import type { SubagentFleetRegistry } from "../fleet/registry.ts";
 import { trackSingleSubagentFleetRun, trackSubagentFleetRun } from "../fleet/tracking.ts";
 import type { SubagentRuntime } from "../runtime/seam.ts";
 import {
@@ -42,7 +42,6 @@ export type ToolkitDispatchBatchResult<TResult> = TResult | typeof SUBAGENT_TASK
 
 export interface ToolkitDispatchTrackingResult {
 	result: RunnerSubagentResult;
-	retry?: SubagentFleetRetryEvidence;
 }
 
 export interface ToolkitDispatchBatchInput<TItem, TResult> {
@@ -148,9 +147,6 @@ export async function dispatchSubagentBatch<TItem, TResult>(
 					tracking.markProgress(index, update),
 				);
 				const trackingResult = args.resultForTracking(result);
-				if (trackingResult.retry !== undefined) {
-					tracking.markRetry(index, trackingResult.retry);
-				}
 				tracking.markDone(index, trackingResult.result);
 				return result;
 			},
