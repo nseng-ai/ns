@@ -1,3 +1,6 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+import { buildSubagentDelegationDoctrine } from "./delegation-doctrine.ts";
 import { getOrCreateSubagentFleetRegistry } from "./fleet/provider.ts";
 import {
 	registerForkedPiAgentTool,
@@ -20,7 +23,8 @@ import { createGitReadWorktreeState } from "./fleet/worktree-state.ts";
 import { createGitReadHead } from "./fleet/git-head.ts";
 
 export type NsPiSubagentsExtensionAPI = ExploreExtensionAPI &
-	ForkedPiAgentExtensionAPI & {
+	ForkedPiAgentExtensionAPI &
+	Pick<ExtensionAPI, "on"> & {
 		registerCommand?: CommandRegistrar;
 		registerShortcut?: RegisterShortcutFunction;
 	};
@@ -44,8 +48,21 @@ export default function nsPiSubagentsExtension(
 	};
 	registerSubagentFleetCommand(fleetCommandInput);
 	registerSubagentFleetShortcut(fleetCommandInput);
-	registerExploreTool(pi, { ...options, fleetRegistry, readGitHead });
-	registerForkedPiAgentTool(pi, { ...options, fleetRegistry, readGitHead });
+	const exploreRegistration = registerExploreTool(pi, { ...options, fleetRegistry, readGitHead });
+	const forkedPiAgentRegistration = registerForkedPiAgentTool(pi, {
+		...options,
+		fleetRegistry,
+		readGitHead,
+	});
+	const doctrine = buildSubagentDelegationDoctrine({
+		isExploreHealthy: exploreRegistration.isHealthy,
+		isForkedPiAgentHealthy: forkedPiAgentRegistration.isHealthy,
+	});
+	if (doctrine !== undefined) {
+		pi.on("before_agent_start", (event) => ({
+			systemPrompt: `${event.systemPrompt}\n\n${doctrine}`,
+		}));
+	}
 }
 
 function resolveFleetNavigatorDependencies(

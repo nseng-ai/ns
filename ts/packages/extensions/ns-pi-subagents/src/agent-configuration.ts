@@ -6,6 +6,16 @@ export type AgentDefinitionConfigurationCheck =
 	| { ok: true; definition: PiAgentDefinition }
 	| { ok: false; diagnostic: string };
 
+export interface SubagentToolRegistration {
+	isHealthy: boolean;
+}
+
+export function toSubagentToolRegistration(
+	check: AgentDefinitionConfigurationCheck,
+): SubagentToolRegistration {
+	return { isHealthy: check.ok };
+}
+
 export interface AgentDefinitionConfigurationOptions {
 	agentName: string;
 	cwd: string;

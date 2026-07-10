@@ -27,7 +27,9 @@ import { runFinalTextSubagent } from "./dispatch-preparation.ts";
 import {
 	agentConfigurationErrorText,
 	checkAgentDefinitionConfiguration,
+	toSubagentToolRegistration,
 	type AgentDefinitionConfigurationCheck,
+	type SubagentToolRegistration,
 } from "../agent-configuration.ts";
 import type { SubagentToolOptions, WithFleetRegistry } from "../fleet/tool-options.ts";
 import { trackSingleSubagentFleetRun } from "../fleet/tracking.ts";
@@ -118,7 +120,7 @@ const FALLBACK_RUNNER_TOOL_METADATA = {
 export function registerForkedPiAgentTool(
 	pi: ForkedPiAgentExtensionAPI,
 	options: WithFleetRegistry<ForkedPiAgentExtensionOptions>,
-): void {
+): SubagentToolRegistration {
 	const loadAgentDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
 	const registrationCheck = checkRunnerConfiguration(
 		loadAgentDefinition,
@@ -201,6 +203,8 @@ export function registerForkedPiAgentTool(
 			}
 		},
 	});
+
+	return toSubagentToolRegistration(registrationCheck);
 }
 
 function configurationErrorResult(

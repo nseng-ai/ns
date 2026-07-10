@@ -169,11 +169,11 @@ Widget and status rendering, task icons, recent-task eviction, and cleanup of ta
 
 ### Steering the parent agent
 
-A subagent tool is only useful if the parent agent knows when to reach for it. Pi renders every registered tool's `promptSnippet` (a one-line system-prompt snippet) and `promptGuidelines` (guideline bullets) into the parent session's system prompt — this is the designed steering channel, and custom subagent tools must provide both. State when to reach for the tool, when to do the work directly instead, and how to treat its results. A tool without parent-facing guidelines ships silent and gets under-used or misused.
+A subagent tool is only useful if the parent agent knows when to reach for it. Pi renders every registered tool's `promptSnippet` (a one-line system-prompt snippet) and `promptGuidelines` (guideline bullets) into the parent session's system prompt — this is the designed per-tool steering channel, and custom subagent tools must provide both. State when to reach for the tool, when to do the work directly instead, and how to treat its results. A tool without parent-facing guidelines ships silent and gets under-used or misused.
 
-For the built-in tools, this steering text lives in the agent definition files (`.ns/pi/agents/explorer.md`, `.ns/pi/agents/runner.md`) — editable and validated at registration (every explore guideline must mention "explore"), with a fallback that swaps in an "unavailable" guideline when a definition is broken.
+For the built-in tools, this per-tool steering text lives in the agent definition files (`.ns/pi/agents/explorer.md`, `.ns/pi/agents/runner.md`) — editable and validated at registration (every explore guideline must mention "explore"), with a fallback that swaps in an "unavailable" guideline when a definition is broken.
 
-Cross-tool delegation doctrine — when to delegate at all and how to choose between subagent tools — currently lives in the consumer repo's `AGENTS.md` ("Subagent delegation" section, one subsection per subagent type). The designed promotion path is for this extension to inject that doctrine itself via Pi's `before_agent_start` hook: a static, hardcoded, package-tested section appended once to the system prompt, conditional on which built-in tools registered healthy, so consumer repos no longer copy doctrine by hand. This injection is proposed, not yet implemented.
+The extension also injects cross-tool delegation doctrine — when to delegate at all and how to choose between built-in subagent tools — through Pi's `before_agent_start` hook. The doctrine is static package code, computed once at extension registration, appended once to the system prompt, and byte-stable for the session. It includes one subsection per healthy built-in tool; misconfigured tools are omitted, and if both built-in tools are degraded no doctrine is injected. Consumer repos do not need to copy this doctrine into `AGENTS.md`.
 
 ### Fan-out
 
@@ -209,7 +209,6 @@ interface SubagentRuntime {
 ## Open questions
 
 - Per-tool progress widgets: `setRunnerSubagentWidget` is exported from `/runner-subagents`, but the line formatter it pairs with is not yet on a public surface. Until that is settled, treat fleet tracking as the supported progress display for custom tools.
-- Delegation-doctrine injection: the `before_agent_start` promotion path described under "Steering the parent agent" is a settled direction but unbuilt; until it lands, doctrine reaches agents only in repos whose `AGENTS.md` carries the section.
 
 ## Further reading
 
