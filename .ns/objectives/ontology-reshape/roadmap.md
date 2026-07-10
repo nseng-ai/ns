@@ -29,7 +29,7 @@ live exchange with the user. Assets link from row notes and live in
     `skills/lookup`). The worktree-status ownership contradiction feeds the CCC
     reexamination; the reviews tier-vs-"Capability" wording note feeds the
     review/feedback residue reexamination.
-- [ ] Vocabulary sweep: capabilities (research)
+- [x] Vocabulary sweep: capabilities (research)
   - Question: What domain language lives in `ts/packages/capabilities/*` (12 packages:
     branch-context, ccc, flow, handoffs, harness-artifacts, ns-init, objectives,
     plans, pr-feedback, retros, reviews, slots) that no context file records? Sweep
@@ -37,6 +37,19 @@ live exchange with the user. Assets link from row notes and live in
     especially the packages with no context at all (pr-feedback, retros,
     harness-artifacts, ns-init). Produce a per-package candidate-term inventory with
     source citations as a linked asset.
+  - Resolved 2026-07-10: per-package inventory with source citations at
+    `docs/wayfinding/ontology-reshape/vocab-sweep-capabilities.md`. The four
+    context-less packages each carry 10+ unrecorded domain-bearing terms; all eight
+    glossaried packages have unrecorded clusters (largest: objectives' runner
+    vocabulary, reviews' convergence layer, flow's checkpoint/phase-stream/land
+    vocabulary, ccc's dispatch family). New suspects beyond the four clusters jotted
+    in `ideas.md` — notably a candidate fifth cluster (plan-authoring ownership /
+    enriched-plan residue across plans and branch-context) and a shipped
+    `create:wayfinding` surface contradicting the root glossary's Avoid alias —
+    partially disproving the "four clusters cover the worst accretion" assumption;
+    row creation deferred to the triage row. Feeds confirmed for existing rows: CCC
+    (subpackage/worktree-status drift, dispatch vocabulary), review/feedback residue
+    (Address vs pr-feedback, doc-side Roaster).
 - [ ] Vocabulary sweep: hosts, kernel, extensions, internal (research)
   - Question: What domain language lives in `ts/packages/hosts/*`
     (command-backed-skill-registry, ns-cli, nscc, pi, pi-command-surfaces),

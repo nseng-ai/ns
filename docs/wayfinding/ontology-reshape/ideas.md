@@ -35,6 +35,32 @@ finds. Verify against source before relying on any of it.
 - Maintenance cadence after the sweep: opportunistic-on-PR vs. periodic re-grill —
   now this map's "post-map maintenance ownership" fog.
 
+## Capabilities vocabulary-sweep finds (2026-07-10)
+
+Suspects beyond the four chosen clusters, from `vocab-sweep-capabilities.md`:
+
+- **Plan-authoring ownership / enriched-plan residue** — candidate fifth suspect
+  cluster: package `plans` vs durable CLI/store name `enriched-plan` (bin, store path
+  segment, CLI self-definition); `ns:plan:*` Pi surfaces and the
+  `write_saved_plan_file` tool registered by branch-context while plans owns the tool
+  name; user-facing errors still teach `enriched-plan exec save`. Neither glossary
+  records the seam.
+- **`ns init` scope tension** — extension says "Activate ns in a repository" but every
+  domain function and output is Objectives-specific; is init ns-activation or
+  Objectives-activation?
+- **"Skills" noun vs "harness artifact" model** — harness-artifacts models three kinds
+  but all CLI/lockfile/mirror vocabulary is skill-only (README frames as steelthread
+  scoping; overlaps `skill-management-subsystem`).
+- **Two-name capabilities as a pattern** — pr-feedback/Address, plans/enriched-plan,
+  retros/retro, reviews/Roaster (doc-side): recurring package-name vs
+  capability-brand splits; the review/feedback grilling row covers two of four.
+- **Wayfinding contradiction** — root `CONTEXT.md` lists "Wayfinding Objective" as an
+  Avoid alias for Ideation Objective while the shipped surface is
+  `ns:objective:create:wayfinding` / `objective-create-wayfinding`.
+- **Result/status unions carry the real ontology** — glossaries record nouns and miss
+  the discriminated-union verbs/outcomes (checkout plans, gate checks, GC actions,
+  provision decisions); a documentation-phase authoring guideline candidate.
+
 ## Charting-session finds
 
 - `ts/packages/` on disk is littered with leftover directories from retired
