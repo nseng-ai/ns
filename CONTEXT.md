@@ -139,24 +139,24 @@ A linear, merge-free commit sequence on one feature branch off trunk — the bra
 *Avoid*: run registry, run manifest, decision trailer, marked commit
 
 **Packaging**:
-The LM-driven operation (colloquially *smush*, the skill's name) that partitions an existing stack's commits into **Decision PRs** and **Span PRs**. It operates on any stack after creation — a contract-conforming **Commit Run** is best-case input, accreted or feedback-laden stacks are valid degraded input, pre-existing PRs are folded via `gt fold` — and repackaging is the same operation re-run. Packaging slices and submits with full authority; the human ratifies the **Slice Map** asynchronously. Deterministic sub-operations push down to CLI; the slicing judgment stays prose.
-*Avoid*: accretion, automatic pipeline stage, deterministic slicer, land-time step
+The opt-in, LM-driven local operation (colloquially *smush*, the skill's name) that classifies and slices any existing stack into **Decision PR** and **Span PR** form, then explicitly performs **Span Squash**. It produces a self-describing local stack for the user to submit; repackaging is the same operation re-run, never an automatic pipeline or land step.
+*Avoid*: accretion, automatic pipeline stage, deterministic slicer, submit step, land-time step
 
 **Decision PR**:
-A packaged PR encoding one high-impact choice plus the commits needed to judge it in isolation; always requests careful human review; labeled `decision` with packaging's rationale in the body.
+A packaged stack slice encoding one high-impact choice plus the commits needed to judge it in isolation. Its local branch name and commit message carry classification and rationale; after submission its `decision` label and body request careful human review.
 *Avoid*: big PR, important-looking PR, unlabeled review request
 
 **Span PR**:
-A packaged PR holding a maximal stretch of consequence-executing commits between decisions; agent review stands in by default — deliberately and visibly, labeled `span` with rationale; interior commits persist until an explicit **Span Squash**.
+A packaged stack slice holding a maximal stretch of consequence-executing commits between decisions. Its local name and squashed commit carry classification, rationale, and narration; after submission its `span` label makes agent review visibly stand in by default.
 *Avoid*: filler PR, silently-unreviewed PR, auto-squashed PR
 
 **Slice Map**:
-Packaging's proposed partition of a stack — cut points, decision/span classification, and per-cut rationale — the artifact the human ratifies asynchronously after the stack exists, by reshaping on disagreement.
+The derived view of a packaged stack's cut points, decision/span classification, and rationale, reconstructed from branch structure, names, and commit messages. It is never stored as durable state; after submission the user ratifies it by reshaping the stack on disagreement.
 *Avoid*: PR plan file, hidden packaging state, approval gate
 
 **Span Squash**:
-The explicit command that collapses a **Span PR**'s interior commits into one, invoked after the stack exists — never implicit in packaging or land.
-*Avoid*: auto-squash, packaging-time squash, land-time squash
+The standard explicit Packaging step that collapses a **Span PR**'s interior commits into one after slicing and boundary validation, preserving rationale and a narration digest. It manages the live stack's conflict surface and is never a land-time operation.
+*Avoid*: auto-squash, implicit squash, land-time squash
 
 ## Architecture Boundaries
 

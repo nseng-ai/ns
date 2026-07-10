@@ -22,8 +22,8 @@ of Question Rows in `roadmap.md`.
   linear run.
 - The packaging step: precise decision-PR / span-PR semantics, slicing authority,
   the git/Graphite mechanics that turn a linear run into a stack, span-squash timing,
-  and how packaging composes with existing Flow submit/land and
-  `@nseng-ai/capability-kit/graphite`.
+  and how local-only packaging hands a self-describing stack to the user's existing
+  submit/land workflow.
 - Repackaging under change: how a packaged stack absorbs review feedback without
   chaos.
 - Review-policy encoding: durably marking which PRs need careful human review and
@@ -43,8 +43,9 @@ proving out (see Parked).
   reference stack, which this Objective must not build on).
 - Replacing the current default workflow inside this Objective. The promotion
   decision is in scope; the default-rollout execution is follow-on work.
-- Any hidden database or ad-hoc state files: run/packaging state stays git-native
-  (commits, trailers, branches, refs, PR metadata).
+- Any hidden database, ad-hoc state file, or durable Slice Map: packaging state is
+  derived from branch structure, classification-bearing names, commit messages, and
+  post-submit PR metadata; transient step-to-step JSON is process input only.
 
 ## Completion Criteria
 
@@ -69,8 +70,9 @@ Progress is keepable when:
   proposal) exists, is source-backed — observed `gt` /
   `@nseng-ai/capability-kit/graphite` / Flow behavior, not recall — and is linked
   from its roadmap row.
-- After Crystallization: a committed, validated slice of the smush skill or its
-  supporting CLI push-downs that a human can review as one coherent step.
+- After Crystallization: a committed, validated slice of the LM-driven smush skill
+  that a human can review as one coherent step. CLI push-downs remain parked until
+  real-run evidence justifies graduating them.
 
 Do not keep changes that:
 
@@ -124,16 +126,20 @@ so only agent-alone rows are autonomous targets.
   and later squash spans without fighting the tool. Survey verdict (2026-07-10,
   `roadmap.md` survey row; observed on gt 1.8.6): **supported for all local
   mechanics** — slicing is pure branch-pointer metadata, fold is its inverse, span
-  squash and feedback absorption are non-interactive one-liners — but `gt split` is
-  unusable by agents (a slicing CLI push-down is mandatory), and the remote/PR half
-  (PR fate, review threads, CI across fold/re-slice) remains unobserved and shifts
-  onto the repackaging-chaos risk below.
+  squash and feedback absorption are non-interactive one-liners. `gt split` remains
+  unusable by agents, but v1 deliberately uses LM-orchestrated raw `git branch` / `gt
+  track` recipes; a deterministic `ns slot gt exec` slicing push-down is parked until
+  real-run evidence warrants it. The remote/PR half (PR fate, review threads, CI
+  across fold/re-slice) remains unobserved and shifts onto the repackaging-chaos risk
+  below.
 - **Risk — repackaging chaos.** Review feedback on a decision PR mid-review forces
   edits beneath a live stack; re-slicing could thrash PRs, reviews, and CI. Needs
-  de-risking via prototype before the path is trusted on real work. Elevated by the
-  fully-agent packaging decision (2026-07-10): re-slicing a live stack is now the
-  normal correction path for slice-map disagreements, not just review feedback; the
-  prototype row is load-bearing for trusting the path.
+  de-risking via prototype before the path is trusted on real work. The prototype
+  must now test the harder mechanics exposed by the packaging design: re-slicing a
+  previously squashed span, post-submit reclassification where branch renames can
+  break PR association, and orphaned close-candidate PRs after `gt fold` without
+  `--close`. The skill never mutates or closes PRs; it must report those candidates
+  loudly for the user to handle.
 - **Risk — reduced oversight on span PRs.** Skipping human review on spans is the
   point, but it must be a deliberate, durably-encoded policy per PR, not silence;
   agent review may need to stand in. Resolved direction (2026-07-10):
