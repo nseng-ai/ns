@@ -172,6 +172,20 @@ the ns product bootstrapping itself, not a generic peer capability; the package 
 posture is verify-and-write, never commit; the skill step is a faked `SkillMaterializer`
 gateway until the bundle lands.
 
+Resolved 2026-07-10 for the first customer-complete install slice:
+
+- **Initialization precedes installation.** `ns init`, not extension administration, owns
+  project harness selection. `ns extension install` consumes persisted harnesses and
+  fails before acquisition or durable writes when they are missing or invalid. This
+  supersedes the prior install-before-init happy-path order.
+- **Install is exact-spec idempotent and identity-safe.** Exact reruns ensure missing npm
+  bytes and reconcile activation without refreshing an already-present floating package;
+  a different spec for the same canonical npm package or local path is rejected rather
+  than silently replacing the declaration.
+- **Apply uses forward recovery.** Descriptor and activation preflight failures write no
+  durable project state; a mid-apply failure preserves and reports completed duties so an
+  exact rerun can converge.
+
 ## Open Questions
 
 Reopened 2026-07-05 by the Pi-style extension-install decision; resolved 2026-07-09 in
@@ -181,10 +195,10 @@ the README-driven design session (see Resolved Decisions above):
   `ns extension` group with the explicit `npm:`/local-path source-spec grammar; settings
   home is repo-level `ns.toml` only; `ns extension update` is single-target;
   self-update stays reserved at top-level `ns update`. Canonical design:
-  `references/README-draft.md`. Implementation (with `ns-cli-design` discipline at
-  build time) is roadmap work; the already-landed top-level local-package
-  `ns install <source>` slice (`ts/packages/kernel/src/extensions/install-command.ts`)
-  is substrate/migration input, not the final customer surface.
+  `references/README-draft.md`. The first customer-complete install slice now lives at
+  `ns extension install`, supports explicit npm/local sources, performs full activation
+  reconciliation, and retires the former top-level local-only implementation. The
+  remaining lifecycle verbs stay roadmap work.
 - **Where objective skills ship** — RESOLVED: the objective skill is provisioned through
   the first-party `ns skills` list/path/install surface (`@nseng-ai/harness-artifacts`),
   and `ns init`'s `RealSkillMaterializer` binds to `provisionFirstPartySkill`. End-to-end

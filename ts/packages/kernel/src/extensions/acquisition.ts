@@ -1,21 +1,15 @@
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 import { runCommand } from "@nseng-ai/foundation/exec";
 import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
-export type ExtensionSourceSpec =
-	| { kind: "local"; raw: string; path: string }
-	| {
-			kind: "npm";
-			raw: string;
-			packageName: string;
-			version: string | undefined;
-			isPinned: boolean;
-	  }
-	| { kind: "git"; raw: string };
+import { parseExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
+
+export { parseExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
+export type { ExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
 
 export interface ResolvedExtensionModuleRoot {
 	readonly spec: string;
@@ -49,6 +43,18 @@ export const extensionAcquisitionDiagnosticSchema = z.object({
 	path: z.string().optional(),
 });
 
+export type ExtensionAcquisitionExec = (
+	command: string,
+	args: string[],
+	options: { cwd: string },
+) => Promise<{
+	readonly stdout: string;
+	readonly stderr: string;
+	readonly code: number;
+	readonly killed?: boolean;
+	readonly startupError?: string;
+}>;
+
 export interface ExtensionAcquisitionGateway {
 	ensureManagedNpmProject(
 		projectDir: string,
@@ -70,6 +76,8 @@ export interface ResolveDeclaredExtensionModulesRequest {
 	readonly declaredSpecs: readonly string[];
 	readonly selectedSpecs?: readonly string[];
 	readonly mode: "preview" | "apply";
+	/** Ensure is install-idempotent; refresh-floating is reserved for explicit update behavior. */
+	readonly npmAcquisition?: "ensure" | "refresh-floating";
 	readonly gateway?: ExtensionAcquisitionGateway;
 }
 
@@ -81,8 +89,16 @@ export interface ResolveDeclaredExtensionModulesResult {
 export const MANAGED_EXTENSIONS_ROOT = ".ns/managed-extensions";
 export const MANAGED_NPM_PROJECT_RELATIVE_PATH = `${MANAGED_EXTENSIONS_ROOT}/npm`;
 
-export const nodeExtensionAcquisitionGateway: ExtensionAcquisitionGateway = {
-	async ensureManagedNpmProject(projectDir) {
+export class RealExtensionAcquisitionGateway implements ExtensionAcquisitionGateway {
+	private readonly exec: ExtensionAcquisitionExec;
+
+	constructor(exec: ExtensionAcquisitionExec) {
+		this.exec = exec;
+	}
+
+	async ensureManagedNpmProject(
+		projectDir: string,
+	): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
 		try {
 			await mkdir(projectDir, { recursive: true });
 			await writeFile(
@@ -102,8 +118,11 @@ export const nodeExtensionAcquisitionGateway: ExtensionAcquisitionGateway = {
 				path: projectDir,
 			});
 		}
-	},
-	async isNpmPackageInstalled(packageRoot) {
+	}
+
+	async isNpmPackageInstalled(
+		packageRoot: string,
+	): Promise<Result<boolean, ExtensionAcquisitionDiagnostic>> {
 		try {
 			const packageJson = await stat(join(packageRoot, "package.json"));
 			return resultOk(packageJson.isFile());
@@ -115,45 +134,60 @@ export const nodeExtensionAcquisitionGateway: ExtensionAcquisitionGateway = {
 				path: packageRoot,
 			});
 		}
-	},
-	async installNpmPackage(request) {
+	}
+
+	async installNpmPackage(request: {
+		projectDir: string;
+		rawSpec: string;
+		packageName: string;
+		version: string | undefined;
+		isPinned: boolean;
+	}): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
 		const packageRequest =
 			request.version === undefined
 				? request.packageName
 				: `${request.packageName}@${request.version}`;
-		const result = await runCommand(
-			"npm",
-			[
-				"install",
-				"--no-save",
-				"--package-lock=false",
-				"--ignore-scripts",
-				"--legacy-peer-deps",
-				packageRequest,
-			],
-			{ cwd: request.projectDir },
-		);
-		await rm(join(request.projectDir, "package-lock.json"), { force: true });
-		if (result.code === 0) return resultOk(undefined);
-		return resultErr({
-			code: "extension_acquisition_npm_install_failed",
-			message: `npm install failed for declared extension ${request.rawSpec}: ${result.stderr || result.stdout}`,
-			spec: request.rawSpec,
-			path: request.projectDir,
-		});
-	},
-};
-
-export function parseExtensionSourceSpec(
-	projectRoot: string,
-	raw: string,
-): Result<ExtensionSourceSpec, ExtensionAcquisitionDiagnostic> {
-	if (raw.startsWith("npm:")) return parseNpmExtensionSourceSpec(raw);
-	if (raw.startsWith("git:")) {
-		return resultOk({ kind: "git", raw });
+		try {
+			const result = await this.exec(
+				"npm",
+				[
+					"install",
+					"--no-save",
+					"--package-lock=false",
+					"--ignore-scripts",
+					"--legacy-peer-deps",
+					packageRequest,
+				],
+				{ cwd: request.projectDir },
+			);
+			await rm(join(request.projectDir, "package-lock.json"), { force: true });
+			if (result.code === 0 && result.killed !== true && result.startupError === undefined) {
+				return resultOk(undefined);
+			}
+			const detail = result.startupError ?? (result.stderr || result.stdout);
+			return npmInstallFailure(request, detail);
+		} catch (error) {
+			return npmInstallFailure(request, formatErrorMessage(error));
+		}
 	}
-	return resultOk({ kind: "local", raw, path: resolve(projectRoot, raw) });
 }
+
+export function createRealExtensionAcquisitionGateway(
+	exec: ExtensionAcquisitionExec,
+): ExtensionAcquisitionGateway {
+	return new RealExtensionAcquisitionGateway(exec);
+}
+
+export const nodeExtensionAcquisitionGateway: ExtensionAcquisitionGateway =
+	createRealExtensionAcquisitionGateway(async (command, args, options) => {
+		const result = await runCommand(command, args, options);
+		return {
+			stdout: result.stdout,
+			stderr: result.stderr,
+			code: result.code,
+			killed: result.killed,
+		};
+	});
 
 export function npmPackageRoot(projectRoot: string, packageName: string): string {
 	return join(projectRoot, MANAGED_NPM_PROJECT_RELATIVE_PATH, "node_modules", packageName);
@@ -208,7 +242,9 @@ export async function resolveDeclaredExtensionModules(
 			}
 			continue;
 		}
-		if (!parsed.value.isPinned || !installed.value) {
+		const shouldInstall =
+			!installed.value || (!parsed.value.isPinned && request.npmAcquisition === "refresh-floating");
+		if (shouldInstall) {
 			if (!hasEnsuredNpmProject) {
 				const project = await gateway.ensureManagedNpmProject(npmProjectDir);
 				if (!project.ok) {
@@ -229,10 +265,9 @@ export async function resolveDeclaredExtensionModules(
 				continue;
 			}
 		}
-		const installedAfter =
-			parsed.value.isPinned && installed.value
-				? installed
-				: await gateway.isNpmPackageInstalled(packageRoot);
+		const installedAfter = shouldInstall
+			? await gateway.isNpmPackageInstalled(packageRoot)
+			: installed;
 		if (!installedAfter.ok) {
 			diagnostics.push(withSpec(installedAfter.error, raw));
 			continue;
@@ -251,45 +286,15 @@ export async function resolveDeclaredExtensionModules(
 	return { roots: sortRoots(roots), diagnostics: sortDiagnostics(diagnostics) };
 }
 
-function parseNpmExtensionSourceSpec(
-	raw: string,
-): Result<ExtensionSourceSpec, ExtensionAcquisitionDiagnostic> {
-	const body = raw.slice("npm:".length);
-	if (body.trim() === "") return invalidNpmSpec(raw);
-	const separator = npmVersionSeparatorIndex(body);
-	const packageName = separator === -1 ? body : body.slice(0, separator);
-	const version = separator === -1 ? undefined : body.slice(separator + 1);
-	if (!isValidNpmPackageName(packageName) || version === "") return invalidNpmSpec(raw);
-	return resultOk({
-		kind: "npm",
-		raw,
-		packageName,
-		version,
-		isPinned: version !== undefined,
-	});
-}
-
-function npmVersionSeparatorIndex(value: string): number {
-	if (!value.startsWith("@")) return value.lastIndexOf("@");
-	const slashIndex = value.indexOf("/");
-	if (slashIndex === -1) return -1;
-	return value.indexOf("@", slashIndex + 1);
-}
-
-function isValidNpmPackageName(value: string): boolean {
-	if (value.includes(" ") || value.includes("\\") || value.includes("//")) return false;
-	if (!value.startsWith("@")) return value.length > 0 && !value.includes("/");
-	const slashIndex = value.indexOf("/");
-	return (
-		slashIndex > 1 && slashIndex < value.length - 1 && !value.slice(slashIndex + 1).includes("/")
-	);
-}
-
-function invalidNpmSpec(raw: string): Result<never, ExtensionAcquisitionDiagnostic> {
+function npmInstallFailure(
+	request: { readonly projectDir: string; readonly rawSpec: string },
+	detail: string,
+): Result<void, ExtensionAcquisitionDiagnostic> {
 	return resultErr({
-		code: "extension_acquisition_invalid_npm_spec",
-		message: `Invalid npm extension source spec: ${raw}. Expected npm:pkg, npm:pkg@version, npm:@scope/name, or npm:@scope/name@version.`,
-		spec: raw,
+		code: "extension_acquisition_npm_install_failed",
+		message: `npm install failed for declared extension ${request.rawSpec}: ${detail}`,
+		spec: request.rawSpec,
+		path: request.projectDir,
 	});
 }
 

@@ -68,10 +68,6 @@ describe("empty ns kernel CLI help and parsing", () => {
 				name: "points",
 				description: "List defined ns points and their active sources.",
 			},
-			{
-				name: "install",
-				description: "Install a local ns extension package.",
-			},
 		]);
 	});
 

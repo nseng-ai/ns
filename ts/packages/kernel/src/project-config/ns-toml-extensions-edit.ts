@@ -1,4 +1,12 @@
+import { resolve } from "node:path";
+
 import { parseDeclaredExtensionSpecsToml } from "./descriptor-package.ts";
+import { parseExtensionSourceSpec, type ExtensionSourceSpec } from "./extension-source-spec.ts";
+
+export interface ExtensionSourceIdentity {
+	readonly kind: "npm" | "local";
+	readonly value: string;
+}
 
 export type NsTomlExtensionsAppendResult =
 	| {
@@ -11,6 +19,68 @@ export type NsTomlExtensionsAppendResult =
 			readonly reason: "invalid-toml" | "invalid-extensions" | "unsupported-format";
 			readonly message: string;
 	  };
+
+export type NsTomlExtensionInstallPlan =
+	| NsTomlExtensionsAppendResult
+	| {
+			readonly ok: false;
+			readonly reason: "identity-conflict";
+			readonly identity: ExtensionSourceIdentity;
+			readonly requestedSpec: string;
+			readonly existingSpecs: readonly string[];
+			readonly message: string;
+	  }
+	| {
+			readonly ok: false;
+			readonly reason: "invalid-source";
+			readonly requestedSpec: string;
+			readonly message: string;
+	  };
+
+export function planDeclaredExtensionInstallToml(options: {
+	readonly projectRoot: string;
+	readonly source: string;
+	readonly requestedSpec: string;
+}): NsTomlExtensionInstallPlan {
+	const parsed = parseDeclaredExtensionSpecsToml(options.source);
+	if (!parsed.ok) return { ok: false, reason: parsed.reason, message: parsed.message };
+	const identity = extensionSourceIdentity(options.projectRoot, options.requestedSpec);
+	if (identity === undefined) {
+		return {
+			ok: false,
+			reason: "invalid-source",
+			requestedSpec: options.requestedSpec,
+			message: `Extension source must be an npm: spec or an unprefixed local path: ${options.requestedSpec}.`,
+		};
+	}
+	if (parsed.specs.includes(options.requestedSpec)) {
+		return { ok: true, text: options.source, isAdded: false };
+	}
+	const existingSpecs = parsed.specs.filter((spec) =>
+		identitiesEqual(identity, extensionSourceIdentity(options.projectRoot, spec)),
+	);
+	if (existingSpecs.length > 0) {
+		return {
+			ok: false,
+			reason: "identity-conflict",
+			identity,
+			requestedSpec: options.requestedSpec,
+			existingSpecs,
+			message: extensionIdentityConflictMessage(identity, existingSpecs),
+		};
+	}
+	return appendDeclaredExtensionSpecToml(options.source, options.requestedSpec);
+}
+
+export function extensionSourceIdentity(
+	projectRoot: string,
+	spec: string,
+): ExtensionSourceIdentity | undefined {
+	if (!spec.startsWith("npm:") && /^[a-z][a-z0-9+.-]*:/iu.test(spec)) return undefined;
+	const parsed = parseExtensionSourceSpec(projectRoot, spec);
+	if (!parsed.ok || parsed.value.kind === "git") return undefined;
+	return identityFromParsedSource(projectRoot, parsed.value);
+}
 
 export function appendDeclaredExtensionSpecToml(
 	source: string,
@@ -35,7 +105,7 @@ export function appendDeclaredExtensionSpecToml(
 			ok: false,
 			reason: "unsupported-format",
 			message:
-				"Top-level ns.toml extensions assignment must be a textual array before ns install can append to it.",
+				"Top-level ns.toml extensions assignment must be a textual array before an extension can be installed.",
 		};
 	}
 	return { ok: true, text: replacement, isAdded: true };
@@ -47,6 +117,7 @@ function hasTopLevelExtensionsAssignment(source: string): boolean {
 
 function appendToExistingExtensionsArray(source: string, spec: string): string | undefined {
 	const lines = source.split(/(?<=\n)/u);
+	const offsets = lineStartOffsets(lines);
 	const startIndex = findTopLevelExtensionsLine(lines);
 	if (startIndex === undefined) return undefined;
 	const startLine = lines[startIndex];
@@ -54,28 +125,55 @@ function appendToExistingExtensionsArray(source: string, spec: string): string |
 	const equalsIndex = startLine.indexOf("=");
 	const openIndex = startLine.indexOf("[", equalsIndex);
 	if (equalsIndex === -1 || openIndex === -1) return undefined;
+	const openOffset = (offsets[startIndex] ?? 0) + openIndex;
+	const closeOffset = findArrayCloseOffset(source, openOffset);
+	if (closeOffset === undefined) return undefined;
+	const closeLineIndex = offsets.findIndex(
+		(offset, index) => closeOffset >= offset && closeOffset < offset + (lines[index]?.length ?? 0),
+	);
+	if (closeLineIndex === -1) return undefined;
+	return appendBeforeArrayClose({
+		source,
+		lines,
+		startIndex,
+		closeLineIndex,
+		closeCharIndex: closeOffset - (offsets[closeLineIndex] ?? 0),
+		spec,
+	});
+}
+
+function findArrayCloseOffset(source: string, openOffset: number): number | undefined {
 	let depth = 0;
-	for (let index = startIndex; index < lines.length; index += 1) {
-		const line = lines[index];
-		if (line === undefined) return undefined;
-		const scanStart = index === startIndex ? openIndex : 0;
-		for (let charIndex = scanStart; charIndex < line.length; charIndex += 1) {
-			const char = line[charIndex];
-			if (char === "[") depth += 1;
-			if (char === "]") {
-				depth -= 1;
-				if (depth === 0) {
-					return appendBeforeArrayClose({
-						source,
-						lines,
-						startIndex,
-						closeLineIndex: index,
-						closeCharIndex: charIndex,
-						spec,
-					});
-				}
-			}
+	let quote: '"' | "'" | undefined;
+	let isEscaped = false;
+	let isComment = false;
+	for (let index = openOffset; index < source.length; index += 1) {
+		const char = source[index];
+		if (isComment) {
+			if (char === "\n") isComment = false;
+			continue;
 		}
+		if (quote !== undefined) {
+			if (quote === '"' && char === "\\" && !isEscaped) {
+				isEscaped = true;
+				continue;
+			}
+			if (char === quote && !isEscaped) quote = undefined;
+			isEscaped = false;
+			continue;
+		}
+		if (char === "#") {
+			isComment = true;
+			continue;
+		}
+		if (char === '"' || char === "'") {
+			quote = char;
+			continue;
+		}
+		if (char === "[") depth += 1;
+		if (char !== "]") continue;
+		depth -= 1;
+		if (depth === 0) return index;
 	}
 	return undefined;
 }
@@ -89,16 +187,88 @@ function appendBeforeArrayClose(options: {
 	readonly spec: string;
 }): string {
 	const offsets = lineStartOffsets(options.lines);
-	const closeOffset = (offsets[options.closeLineIndex] ?? 0) + options.closeCharIndex;
-	const before = options.source.slice(0, closeOffset).trimEnd();
-	const after = options.source.slice(closeOffset);
-	const separator = before.endsWith("[") ? "" : ",";
-	if (options.closeLineIndex !== options.startIndex) {
-		const closeLine = options.lines[options.closeLineIndex] ?? "";
-		const indent = closeLine.match(/^\s*/u)?.[0] ?? "";
-		return `${before}${separator}\n${indent}\t${JSON.stringify(options.spec)}\n${after}`;
+	const startLineOffset = offsets[options.startIndex] ?? 0;
+	const closeLineOffset = offsets[options.closeLineIndex] ?? 0;
+	const closeOffset = closeLineOffset + options.closeCharIndex;
+	const startLine = options.lines[options.startIndex] ?? "";
+	const openOffset = startLineOffset + startLine.indexOf("[");
+	const layout = scanExtensionsArray(options.source, openOffset, closeOffset);
+	if (layout === undefined) return options.source;
+	const encodedSpec = JSON.stringify(options.spec);
+	if (options.closeLineIndex === options.startIndex) {
+		const separator = layout.lastValueEnd === undefined || layout.hasTrailingComma ? "" : ",";
+		return `${options.source.slice(0, closeOffset)}${separator} ${encodedSpec}${options.source.slice(closeOffset)}`;
 	}
-	return `${before}${separator} ${JSON.stringify(options.spec)}${after}`;
+	const closeLine = options.lines[options.closeLineIndex] ?? "";
+	const closeIndent = closeLine.match(/^\s*/u)?.[0] ?? "";
+	const itemIndent =
+		layout.lastValueStart === undefined
+			? `${closeIndent}\t`
+			: indentationAt(options.source, layout.lastValueStart);
+	let next = `${options.source.slice(0, closeLineOffset)}${itemIndent}${encodedSpec}\n${options.source.slice(closeLineOffset)}`;
+	if (layout.lastValueEnd !== undefined && !layout.hasTrailingComma) {
+		next = `${next.slice(0, layout.lastValueEnd)},${next.slice(layout.lastValueEnd)}`;
+	}
+	return next;
+}
+
+interface ExtensionsArrayLayout {
+	readonly lastValueStart: number | undefined;
+	readonly lastValueEnd: number | undefined;
+	readonly hasTrailingComma: boolean;
+}
+
+function scanExtensionsArray(
+	source: string,
+	openOffset: number,
+	closeOffset: number,
+): ExtensionsArrayLayout | undefined {
+	if (openOffset < 0) return undefined;
+	let quote: '"' | "'" | undefined;
+	let isEscaped = false;
+	let isComment = false;
+	let valueStart: number | undefined;
+	let lastValueStart: number | undefined;
+	let lastValueEnd: number | undefined;
+	let hasTrailingComma = false;
+	for (let index = openOffset + 1; index < closeOffset; index += 1) {
+		const char = source[index];
+		if (isComment) {
+			if (char === "\n") isComment = false;
+			continue;
+		}
+		if (quote !== undefined) {
+			if (quote === '"' && char === "\\" && !isEscaped) {
+				isEscaped = true;
+				continue;
+			}
+			if (char === quote && !isEscaped) {
+				lastValueStart = valueStart;
+				lastValueEnd = index + 1;
+				hasTrailingComma = false;
+				quote = undefined;
+				valueStart = undefined;
+			}
+			isEscaped = false;
+			continue;
+		}
+		if (char === "#") {
+			isComment = true;
+			continue;
+		}
+		if (char === '"' || char === "'") {
+			quote = char;
+			valueStart = index;
+			continue;
+		}
+		if (char === "," && lastValueEnd !== undefined) hasTrailingComma = true;
+	}
+	return { lastValueStart, lastValueEnd, hasTrailingComma };
+}
+
+function indentationAt(source: string, offset: number): string {
+	const lineStart = source.lastIndexOf("\n", offset - 1) + 1;
+	return source.slice(lineStart, offset).match(/^\s*/u)?.[0] ?? "";
 }
 
 function lineStartOffsets(lines: readonly string[]): readonly number[] {
@@ -109,6 +279,30 @@ function lineStartOffsets(lines: readonly string[]): readonly number[] {
 		offset += line.length;
 	}
 	return offsets;
+}
+
+function identityFromParsedSource(
+	projectRoot: string,
+	source: Exclude<ExtensionSourceSpec, { kind: "git" }>,
+): ExtensionSourceIdentity {
+	if (source.kind === "npm") return { kind: "npm", value: source.packageName };
+	return { kind: "local", value: resolve(projectRoot, source.path) };
+}
+
+function identitiesEqual(
+	left: ExtensionSourceIdentity,
+	right: ExtensionSourceIdentity | undefined,
+): boolean {
+	return right !== undefined && left.kind === right.kind && left.value === right.value;
+}
+
+function extensionIdentityConflictMessage(
+	identity: ExtensionSourceIdentity,
+	existingSpecs: readonly string[],
+): string {
+	const label =
+		identity.kind === "npm" ? `npm package ${identity.value}` : `local path ${identity.value}`;
+	return `Extension ${label} is already declared under a different source spec: ${existingSpecs.join(", ")}.`;
 }
 
 function findTopLevelExtensionsLine(lines: readonly string[]): number | undefined {

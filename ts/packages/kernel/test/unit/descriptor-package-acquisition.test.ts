@@ -1,19 +1,29 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { describe, expect, test } from "vitest";
 
 import {
+	appendDeclaredExtensionSpecToml,
 	descriptorExportTarget,
 	managedDescriptorPackageRoot,
 	nsExtensionExportTarget,
+	planDeclaredExtensionInstallToml,
 	resolveAcquiredDescriptorPackageRoot,
 } from "@nseng-ai/kernel/project-config";
-import { appendDeclaredExtensionSpecToml } from "../../src/project-config/ns-toml-extensions-edit.ts";
 
 describe("ns.toml extension spec edits", () => {
+	test("plans an install into an empty document", () => {
+		expect(
+			planDeclaredExtensionInstallToml({
+				projectRoot: "/repo",
+				source: "",
+				requestedSpec: "./extensions/tools",
+			}),
+		).toEqual({
+			ok: true,
+			text: 'extensions = ["./extensions/tools"]\n',
+			isAdded: true,
+		});
+	});
+
 	test("creates extensions array without reserializing the document", () => {
 		expect(appendDeclaredExtensionSpecToml('harnesses = ["pi"]\n', "./extensions/tools")).toEqual({
 			ok: true,
@@ -43,6 +53,68 @@ describe("ns.toml extension spec edits", () => {
 		expect(appendDeclaredExtensionSpecToml("extensions = [\n", "./extensions/a")).toMatchObject({
 			ok: false,
 			reason: "invalid-toml",
+		});
+	});
+
+	test("plans exact-spec reruns without changing TOML formatting", () => {
+		const source =
+			'# project extensions\nextensions = [\n  "npm:@acme/tools", # retained\n]\n[points]\n';
+		expect(
+			planDeclaredExtensionInstallToml({
+				projectRoot: "/repo",
+				source,
+				requestedSpec: "npm:@acme/tools",
+			}),
+		).toEqual({ ok: true, text: source, isAdded: false });
+	});
+
+	test("appends to multiline arrays while preserving comments and table order", () => {
+		const source =
+			'harnesses = ["pi"]\nextensions = [\n  "./extensions/a" # keep this comment\n]\n\n[points]\nfoo = "bar"\n';
+		expect(
+			planDeclaredExtensionInstallToml({
+				projectRoot: "/repo",
+				source,
+				requestedSpec: "npm:@acme/tools@1.2.3",
+			}),
+		).toEqual({
+			ok: true,
+			text: 'harnesses = ["pi"]\nextensions = [\n  "./extensions/a", # keep this comment\n  "npm:@acme/tools@1.2.3"\n]\n\n[points]\nfoo = "bar"\n',
+			isAdded: true,
+		});
+	});
+
+	test("rejects the same npm identity under a different exact spec", () => {
+		expect(
+			planDeclaredExtensionInstallToml({
+				projectRoot: "/repo",
+				source: 'extensions = ["npm:@acme/tools"]\n',
+				requestedSpec: "npm:@acme/tools@1.2.3",
+			}),
+		).toEqual({
+			ok: false,
+			reason: "identity-conflict",
+			identity: { kind: "npm", value: "@acme/tools" },
+			requestedSpec: "npm:@acme/tools@1.2.3",
+			existingSpecs: ["npm:@acme/tools"],
+			message:
+				"Extension npm package @acme/tools is already declared under a different source spec: npm:@acme/tools.",
+		});
+	});
+
+	test("rejects equivalent normalized local paths under different exact specs", () => {
+		expect(
+			planDeclaredExtensionInstallToml({
+				projectRoot: "/repo/project",
+				source: 'extensions = ["./extensions/tools"]\n',
+				requestedSpec: "extensions/../extensions/tools",
+			}),
+		).toMatchObject({
+			ok: false,
+			reason: "identity-conflict",
+			identity: { kind: "local", value: "/repo/project/extensions/tools" },
+			requestedSpec: "extensions/../extensions/tools",
+			existingSpecs: ["./extensions/tools"],
 		});
 	});
 });
@@ -78,30 +150,18 @@ describe("descriptor package exports", () => {
 });
 
 describe("descriptor package acquisition", () => {
-	test("uses the managed package root when a declared local spec has been installed", async () => {
-		const repoRoot = await mkdtemp(join(tmpdir(), "ns-acquisition-"));
-		const sourceRoot = join(repoRoot, "extensions", "tools");
-		writePackageJson(sourceRoot, "@acme/tools");
-		const managedRoot = managedDescriptorPackageRoot(repoRoot, "@acme/tools");
-		writePackageJson(managedRoot, "@acme/tools");
-
-		expect(resolveAcquiredDescriptorPackageRoot({ repoRoot, spec: "./extensions/tools" })).toEqual({
-			packageRoot: managedRoot,
-		});
+	test("resolves npm specs from managed npm storage", () => {
+		expect(
+			resolveAcquiredDescriptorPackageRoot({ repoRoot: "/repo", spec: "npm:@acme/tools@1.2.3" }),
+		).toEqual({ packageRoot: managedDescriptorPackageRoot("/repo", "@acme/tools") });
 	});
 
-	test("keeps direct path resolution when the managed package is absent", async () => {
-		const repoRoot = await mkdtemp(join(tmpdir(), "ns-acquisition-"));
-		const sourceRoot = join(repoRoot, "extensions", "tools");
-		writePackageJson(sourceRoot, "tools");
-
-		expect(resolveAcquiredDescriptorPackageRoot({ repoRoot, spec: "./extensions/tools" })).toEqual({
-			packageRoot: sourceRoot,
-		});
+	test("always resolves local specs in place", () => {
+		expect(
+			resolveAcquiredDescriptorPackageRoot({
+				repoRoot: "/repo",
+				spec: "./extensions/tools",
+			}),
+		).toEqual({ packageRoot: "/repo/extensions/tools" });
 	});
 });
-
-function writePackageJson(root: string, name: string): void {
-	mkdirSync(root, { recursive: true });
-	writeFileSync(join(root, "package.json"), JSON.stringify({ name, version: "1.0.0" }));
-}

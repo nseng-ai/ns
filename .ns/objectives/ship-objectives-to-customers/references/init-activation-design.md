@@ -34,9 +34,9 @@ directories) comes from the installed extensions' descriptors; `init` only orche
    `unchanged` / …) in both human and `--format json` output.
 
 Re-running `ns init` is always safe and idempotent: an already-activated repository
-reports `unchanged` everywhere. Run it again after installing or removing extensions to
-reconcile — though the `ns extension` commands also reconcile on their own (below), so
-either order works.
+reports `unchanged` everywhere. Initialization must come before extension installation:
+`ns init` owns harness selection, while `ns extension install` consumes the persisted
+harnesses and runs activation reconciliation itself.
 
 ## The two instruction files
 
@@ -133,15 +133,18 @@ in the design notes below.)
 
 ## Lifecycle semantics
 
-| Event                    | Effect on activation state                                                                                                                                                                                |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ns init`                | Full pass: posture, harnesses, `AGENTS.md` stanza + `CLAUDE.md` import, `.ns/` scaffolding + ignore rules, regenerate `.ns/instructions.md`, create all `consumerDirs`, provision all `bundledArtifacts`. |
-| `ns extension install`   | After acquisition + `ns.toml` recording: regenerate `.ns/instructions.md`, create the extension's `consumerDirs`, provision its artifacts (or hint `ns init` if no harness is configured yet).            |
-| `ns extension uninstall` | Regenerate `.ns/instructions.md` without the extension's section; deprovision its manifest-tracked artifacts; leave `consumerDirs` and their contents untouched. `AGENTS.md` untouched.                   |
-| `ns extension update`    | Re-acquire, then regenerate `.ns/instructions.md` and re-reconcile artifacts (the new version may ship different instructions).                                                                           |
+| Event                    | Effect on activation state                                                                                                                                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ns init`                | Full pass: posture, harnesses, `AGENTS.md` stanza + `CLAUDE.md` import, `.ns/` scaffolding + ignore rules, regenerate `.ns/instructions.md`, create all `consumerDirs`, provision all `bundledArtifacts`.                                                                                        |
+| `ns extension install`   | Requires harnesses already persisted by `ns init`; missing/invalid harness config fails before acquisition or writes. After full descriptor preflight, record `ns.toml`, regenerate `.ns/instructions.md`, create declared `consumerDirs`, and reconcile artifacts for all configured harnesses. |
+| `ns extension uninstall` | Regenerate `.ns/instructions.md` without the extension's section; deprovision its manifest-tracked artifacts; leave `consumerDirs` and their contents untouched. `AGENTS.md` untouched.                                                                                                          |
+| `ns extension update`    | Re-acquire, then regenerate `.ns/instructions.md` and re-reconcile artifacts (the new version may ship different instructions).                                                                                                                                                                  |
 
 Regeneration is wholesale and derived only from `ns.toml` plus installed descriptors —
 there is no incremental section patching and no state beyond the declared extension list.
+Install preflight imports and fully validates the prospective descriptor set before any
+durable write. Apply is forward-recoverable: a mid-write failure preserves and reports
+completed duties, and rerunning the exact install converges safely.
 
 ---
 

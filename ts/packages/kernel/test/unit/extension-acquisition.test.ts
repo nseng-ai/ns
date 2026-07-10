@@ -89,24 +89,48 @@ describe("extension acquisition", () => {
 		expect(gateway.installs).toHaveLength(1);
 	});
 
-	test("floating npm specs install on every apply run", async () => {
+	test("ensure does not refresh an already-present floating npm package", async () => {
+		const packageRoot = npmPackageRoot("/repo", "left-pad");
+		const gateway = new FakeExtensionAcquisitionGateway({
+			installedPackageRoots: [packageRoot],
+		});
+		const result = await resolveDeclaredExtensionModules({
+			projectRoot: "/repo",
+			declaredSpecs: ["npm:left-pad"],
+			mode: "apply",
+			npmAcquisition: "ensure",
+			gateway,
+		});
+		expect(result.roots).toEqual([
+			{ spec: "npm:left-pad", sourceKind: "npm", moduleRoot: packageRoot },
+		]);
+		expect(gateway.installs).toEqual([]);
+	});
+
+	test("ensure restores a missing floating npm package", async () => {
 		const gateway = new FakeExtensionAcquisitionGateway();
 		await resolveDeclaredExtensionModules({
 			projectRoot: "/repo",
 			declaredSpecs: ["npm:left-pad"],
 			mode: "apply",
+			npmAcquisition: "ensure",
 			gateway,
+		});
+		expect(gateway.installs.map((install) => install.rawSpec)).toEqual(["npm:left-pad"]);
+	});
+
+	test("explicit floating refresh reinstalls an already-present package", async () => {
+		const gateway = new FakeExtensionAcquisitionGateway({
+			installedPackageRoots: [npmPackageRoot("/repo", "left-pad")],
 		});
 		await resolveDeclaredExtensionModules({
 			projectRoot: "/repo",
 			declaredSpecs: ["npm:left-pad"],
 			mode: "apply",
+			npmAcquisition: "refresh-floating",
 			gateway,
 		});
-		expect(gateway.installs.map((install) => install.rawSpec)).toEqual([
-			"npm:left-pad",
-			"npm:left-pad",
-		]);
+		expect(gateway.installs.map((install) => install.rawSpec)).toEqual(["npm:left-pad"]);
 	});
 
 	test("one npm acquisition failure does not prevent another spec from resolving", async () => {
@@ -128,6 +152,28 @@ describe("extension acquisition", () => {
 		expect(result.diagnostics).toMatchObject([
 			{ code: "extension_acquisition_npm_install_failed", spec: "npm:bad" },
 		]);
+	});
+
+	test("fake state and logs are ownership-safe copies", async () => {
+		const packageRoot = npmPackageRoot("/repo", "left-pad");
+		const gateway = new FakeExtensionAcquisitionGateway({ installedPackageRoots: [packageRoot] });
+		await gateway.installNpmPackage({
+			projectDir: "/repo/.ns/managed-extensions/npm",
+			rawSpec: "npm:other",
+			packageName: "other",
+			version: undefined,
+			isPinned: false,
+		});
+
+		const installed = gateway.installed;
+		if (installed instanceof Set) installed.clear();
+		const installs = gateway.installs;
+		if (installs[0] !== undefined) {
+			(installs[0] as { rawSpec: string }).rawSpec = "mutated";
+		}
+
+		expect(gateway.installed).toContain(packageRoot);
+		expect(gateway.installs[0]?.rawSpec).toBe("npm:other");
 	});
 
 	test("preview mode does not call mutating gateway methods", async () => {

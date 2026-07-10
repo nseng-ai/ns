@@ -21,6 +21,23 @@ export type {
 } from "./declared-extensions.ts";
 export { RealDeclaredExtensionsGateway } from "./declared-extensions.ts";
 export type { NsInitErrorInfo } from "./error-info.ts";
+export type {
+	EnsureExtensionSourceParams,
+	EnsureExtensionSourceResult,
+	ExtensionInstallAcquisitionGateway,
+} from "./extension-acquisition.ts";
+export { RealExtensionInstallAcquisitionGateway } from "./extension-acquisition.ts";
+export type {
+	ExtensionInstallContext,
+	InstallExtensionRequest,
+	InstallExtensionResult,
+} from "./install-extension.ts";
+export {
+	installExtension,
+	installExtensionRequestSchema,
+	installExtensionResultSchema,
+	renderInstallExtensionHuman,
+} from "./install-extension.ts";
 export { RealActivationFilesGateway } from "./real-activation-files.ts";
 export { RealArtifactActivationGateway } from "./real-artifact-activation.ts";
 export type {

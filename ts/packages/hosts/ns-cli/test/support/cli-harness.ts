@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -17,7 +17,7 @@ export interface NsCliJsonRun {
 export async function createEmptyProject(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-cli-host-"));
 	tempDirs.push(directory);
-	return directory;
+	return await realpath(directory);
 }
 
 export async function writeModuleExtension(projectRoot: string): Promise<void> {

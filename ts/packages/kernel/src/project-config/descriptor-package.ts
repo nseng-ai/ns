@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { isPathInside } from "@nseng-ai/foundation/primitives";
@@ -6,6 +6,8 @@ import { parse } from "smol-toml";
 import { z } from "zod";
 
 import { nsExtensionExportTarget } from "../sdk/descriptor.ts";
+
+import { parseExtensionSourceSpec } from "./extension-source-spec.ts";
 
 export type DeclaredExtensionSpecsParseResult =
 	| { readonly ok: true; readonly specs: readonly string[] }
@@ -125,12 +127,14 @@ export function resolveAcquiredDescriptorPackageRoot(options: {
 	repoRoot: string;
 	spec: string;
 }): AcquiredDescriptorPackageRoot {
-	const declaredRoot = resolve(options.repoRoot, options.spec);
-	const packageName = readPackageName(declaredRoot);
-	if (packageName === undefined) return { packageRoot: declaredRoot };
-	const managedRoot = managedDescriptorPackageRoot(options.repoRoot, packageName);
-	if (!directoryExists(managedRoot)) return { packageRoot: declaredRoot };
-	return { packageRoot: managedRoot };
+	const parsed = parseExtensionSourceSpec(options.repoRoot, options.spec);
+	if (!parsed.ok || parsed.value.kind === "git") {
+		return { packageRoot: resolve(options.repoRoot, options.spec) };
+	}
+	if (parsed.value.kind === "local") return { packageRoot: parsed.value.path };
+	return {
+		packageRoot: managedDescriptorPackageRoot(options.repoRoot, parsed.value.packageName),
+	};
 }
 
 export function managedExtensionsNpmProjectRoot(repoRoot: string): string {
@@ -139,16 +143,6 @@ export function managedExtensionsNpmProjectRoot(repoRoot: string): string {
 
 export function managedDescriptorPackageRoot(repoRoot: string, packageName: string): string {
 	return join(managedExtensionsNpmProjectRoot(repoRoot), "node_modules", ...packageName.split("/"));
-}
-
-function readPackageName(packageRoot: string): string | undefined {
-	try {
-		const parsed: unknown = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
-		const result = z.object({ name: z.string().min(1) }).safeParse(parsed);
-		return result.success ? result.data.name : undefined;
-	} catch {
-		return undefined;
-	}
 }
 
 export function directoryExists(path: string): boolean {

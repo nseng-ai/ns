@@ -79,6 +79,7 @@ export interface PreparedNsActivation {
 	readonly instructions: PreparedFileWrite;
 	readonly consumerDirectories: readonly PreparedConsumerDirectory[];
 	readonly artifacts: PreparedDeclaredArtifactActivation;
+	readonly descriptors: readonly DeclaredExtensionDescriptor[];
 }
 
 export type PrepareNsActivationResult =
@@ -242,6 +243,7 @@ export async function prepareNsActivation(
 			},
 			consumerDirectories: preparedConsumerDirectories,
 			artifacts: artifactPreparation.prepared,
+			descriptors: loaded.descriptors,
 		},
 	};
 }

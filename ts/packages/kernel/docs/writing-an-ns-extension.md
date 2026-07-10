@@ -82,15 +82,20 @@ The Zod `schema` is the single source of CLI inputs: each field becomes a `--fla
 and `positionals` promotes chosen fields to positional arguments. Parsing, validation, defaults,
 and help text all derive from the schema.
 
-Install it into a project and run it:
+Initialize a project, install the extension from its local directory, and run it:
 
 ```bash
 cd /path/to/your/project
-npx ns install /path/to/my-extension
+npx ns init --harness pi
+npx ns extension install /path/to/my-extension
 npx ns hello world ns              # → hello ns
 npx ns hello world ns --shout      # → HELLO NS
 npx ns hello world ns --format json
 ```
+
+`ns init` must run first because extension installation reconciles activation against the
+project's persisted harness selection. Use repeatable `--harness` flags to select the harnesses
+for your project.
 
 ## The descriptor module
 
@@ -295,49 +300,56 @@ activation: {
   slashes, empty, `.` or `..` segments, backslashes, and duplicate entries are rejected rather than
   normalized.
 
-There is deliberately no activation callback. Extensions declare what they need while core owns all
-file writes, keeping activation bounded, auditable, and idempotent. The target lifecycle contract is
-for `ns init` and extension lifecycle commands to render contributed instructions and create declared
-consumer directories; lifecycle consumption is being implemented separately from this descriptor
-contract. Consumer directories hold extension-owned durable data and are never deleted automatically
-when an extension is uninstalled.
+There is deliberately no activation callback. Extensions declare what they need while ns lifecycle
+orchestration owns all file writes, keeping activation bounded, auditable, and idempotent. `ns init`
+and `ns extension install` render contributed instructions, create declared consumer directories, and
+reconcile bundled artifacts. Consumer directories hold extension-owned durable data and are never
+deleted automatically when an extension is uninstalled.
 
 ## Installing an extension into a project
 
-```bash
-npx ns install <source>
-```
-
-`ns install` takes a **source spec**. Local package directories are supported today; the same
-command will grow the familiar spec variants over time (as `pi install` already has):
+First initialize the repository with at least one harness, then install a **source spec**:
 
 ```bash
-npx ns install ./local/path
-npx ns install npm:@acme/my-extension        # future
-npx ns install git:github.com/user/repo     # future
-npx ns install https://github.com/user/repo # future
+npx ns init --harness pi
+npx ns extension install ./local/path
+npx ns extension install npm:@acme/my-extension
+npx ns extension install npm:@acme/my-extension@1.2.3
 ```
 
-For a local directory, `ns install`:
+The source grammar is explicit:
 
-1. validates the directory (a `package.json` with `name`/`version` and an `./ns-extension`
-   export);
-2. installs it into the project's managed store,
-   `.ns/managed-extensions/npm/node_modules/<package-name>` (local directories are linked, so
-   source edits are picked up immediately — rerun `ns install` only when the declaration surface
-   itself needs re-resolution);
-3. records the directory you gave (the **source spec**) in the project's `ns.toml`:
+- `npm:<name>` and `npm:<name>@<version>` acquire registry packages. The unversioned form is a
+  floating declaration; the versioned form is pinned.
+- Every unprefixed value is a local package directory, resolved from the repository root. A bare
+  package-looking value is still a local path, never an npm lookup.
+- `git:` and URL sources are reserved but not supported yet.
 
-```toml
-extensions = ["/path/to/my-extension"]
-```
+Local packages resolve **in place** and are never copied or linked into managed storage, so source
+edits are visible immediately. npm packages are acquired under
+`.ns/managed-extensions/npm/node_modules/`; `.ns/managed-extensions/` is ignored while `ns.toml`
+is the committed durable declaration.
 
-The command is idempotent; re-running it refreshes the managed install and leaves `ns.toml`
-unchanged. `.ns/managed-extensions/` belongs in your project's `.gitignore`; `ns.toml` is the
-durable record.
+Before recording the exact requested spec, installation imports and fully validates the package's
+`exports["./ns-extension"]` module, including the complete descriptor schema. It also rejects a
+source whose canonical identity is already declared under a different spec: npm identity is the
+package name, and local identity is the normalized absolute package path. Change the existing
+`ns.toml` declaration deliberately rather than expecting install to replace a floating spec, pin,
+or equivalent local spelling.
 
-Registry (`npm:pkg@version`) specs remain available directly in `ns.toml`; `.tgz` and bare
-package-name installs are not yet supported.
+Re-running the **same exact spec** is idempotent. It restores a missing managed npm package, but it
+does not refresh an already-present floating npm package; floating refresh belongs to the future
+`ns extension update` command. After successful preflight, install records the spec and runs full
+descriptor-driven activation for the harnesses persisted by `ns init`.
+
+Activation writes use forward recovery rather than rollback. If a write fails after earlier duties
+completed, the failure reports the phase and completed duties, preserves those writes, and a rerun
+converges safely. Descriptor or activation-preflight failures write no durable declaration or
+activation files, although acquired npm bytes may remain in ignored managed storage.
+
+> **Trust warning:** npm acquisition uses `--ignore-scripts`, which disables npm lifecycle scripts;
+> it does not sandbox extension code. Descriptor validation imports and executes the descriptor
+> module, and selected commands execute extension code. Install only extensions you trust.
 
 ## How loading works
 
@@ -363,8 +375,9 @@ package-name installs are not yet supported.
 - **Command missing from `ns --help`** — check the package has an `./ns-extension` export and the
   project's `ns.toml` lists the package; run `ns --help` and read stderr for per-extension
   diagnostics.
-- **`ns install` fails** — the error envelope names the failing precondition (missing
-  package.json, missing `./ns-extension` export, npm install failure with command output).
+- **`ns extension install` fails** — the error envelope names the failing phase and structured
+  diagnostics. If harnesses are missing or invalid, run
+  `ns init --harness <claude-code|codex|pi>` first.
 - **Descriptor rejected** — the diagnostic names the field; descriptors are Zod-validated with
   the same rules as this document.
 - **Name mismatch** — a loaded command whose `name` differs from its descriptor entry is a

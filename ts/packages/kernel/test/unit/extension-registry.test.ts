@@ -17,7 +17,7 @@ import {
 	writeWorkspaceFile,
 } from "../helpers/extension-workspace.ts";
 
-const builtInCandidateKeys = ["extension/point", "extension/points", "install"];
+const builtInCandidateKeys = ["extension/point", "extension/points"];
 const builtInCommandInfos = [
 	{
 		segments: ["extension", "point"],
@@ -32,13 +32,6 @@ const builtInCommandInfos = [
 		name: "points",
 		description: "List defined ns points and their active sources.",
 		fullDescription: "List defined ns points and their active sources.",
-	},
-	{
-		name: "install",
-		description: "Install a local ns extension package.",
-		fullDescription:
-			"Install a local ns extension package into managed storage and record the source spec in ns.toml.",
-		helpGroup: "Built-ins:",
 	},
 ] as const;
 
@@ -290,6 +283,34 @@ export default defineExtension({
 		expect(loaded.diagnostics).toEqual(
 			expect.arrayContaining([expect.objectContaining({ code: "extension_descriptor_invalid" })]),
 		);
+	});
+
+	test("preinstalled extension commands merge with the built-in extension group", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () => [
+				preinstalledEntry(
+					"extension",
+					"install",
+					"@nseng-ai/ns-init/ns/commands/extension-install",
+				),
+			],
+		});
+
+		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
+		expect([...loaded.candidates.keys()]).toEqual([
+			"extension/install",
+			"extension/point",
+			"extension/points",
+		]);
+		expect(loaded.candidates.get("extension/install")).toMatchObject({
+			group: "extension",
+			name: "install",
+			source: { level: "preinstalled" },
+		});
+		expect(loaded.candidates.has("install")).toBe(false);
 	});
 
 	test("injected preinstalled catalog contributes package commands", async () => {
