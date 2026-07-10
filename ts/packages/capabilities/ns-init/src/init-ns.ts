@@ -120,6 +120,10 @@ export async function initNs(
 		harnessSource: harnessResolution.harnessSource,
 		nsTomlContent: harnessResolution.nsTomlContent,
 		nsTomlChange: harnessResolution.nsTomlChange,
+		nsTomlExpected:
+			configRead.type === "found"
+				? { type: "file", content: configRead.content }
+				: { type: "missing" },
 	});
 	if (prepared.type === "preflight-failed") return preflightFailure(prepared.diagnostics);
 	const applied = await applyNsActivation(context, prepared.activation);

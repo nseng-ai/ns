@@ -188,6 +188,7 @@ export async function installExtension(
 		harnessSource: "ns-toml",
 		nsTomlContent: declaration.text,
 		nsTomlChange: declaration.isAdded ? "appended" : "unchanged",
+		nsTomlExpected: { type: "file", content: configRead.content },
 	});
 	if (prepared.type === "preflight-failed") {
 		return failure(

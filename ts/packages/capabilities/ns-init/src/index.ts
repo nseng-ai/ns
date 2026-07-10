@@ -1,12 +1,17 @@
 export type {
 	ActivationFile,
 	ActivationFileParams,
+	ActivationFilesCompareResult,
 	ActivationFilesGateway,
-	ActivationFilesOperationResult,
 	ActivationTextFileReadResult,
+	CompareAndEnsureConsumerDirectoryParams,
+	CompareAndWriteActivationFileParams,
 	ConsumerDirectoryInspectionResult,
 	ConsumerDirectoryParams,
-	WriteActivationFileParams,
+	ExpectedActivationTextFileState,
+	ExpectedConsumerDirectoryState,
+	PreparedActivationExpectedState,
+	PreparedStateMismatchDetails,
 } from "./activation-files.ts";
 export { ACTIVATION_FILE_PATHS, ACTIVATION_FILES } from "./activation-files.ts";
 export type {
