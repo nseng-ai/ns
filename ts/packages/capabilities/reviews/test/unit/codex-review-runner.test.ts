@@ -1,7 +1,7 @@
 import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 import { describe, expect, test } from "vitest";
 
-import { createLocalDiff, type ReviewRunnerRequest } from "../../src/core/models.ts";
+import type { PreparedReviewHarnessRequest } from "../../src/gateways/review-runner.ts";
 import {
 	CodexProcessReviewRunner,
 	buildCodexPrompt,
@@ -9,24 +9,18 @@ import {
 } from "../../src/gateways/codex-review-runner.ts";
 import { InMemoryCodexReviewOutputFiles } from "../../src/gateways/codex-review-output-files.ts";
 
-function request(): ReviewRunnerRequest {
+function request(): PreparedReviewHarnessRequest {
 	return {
-		model: "openai/gpt-5.6-luna",
-		reviewDefinition: {
-			name: "typescript-style",
-			description: "Review TypeScript diffs.",
-			instructions: "Flag concrete issues.",
-			modelProfile: "quick",
-			applicability: { include: ["**/*.ts"], exclude: [] },
-			localOnly: false,
-		},
-		reviewDir: "/repo/.ns/reviews/typescript-style",
-		target: {
-			localDiff: createLocalDiff({
-				baseRef: "main",
-				diffText: "diff --git a/src/app.ts b/src/app.ts\n+change\n",
-				files: [],
-			}),
+		modelId: "gpt-5.6-luna",
+		promptText: "Flag concrete issues.\n\ndiff --git a/src/app.ts b/src/app.ts\n+change\n",
+		inputCoverage: {
+			fullDiffEstimatedTokens: 10,
+			promptDiffTokenCap: 120_000,
+			promptDiffFileTokenCap: 40_000,
+			changedPathCount: 1,
+			includedFileCount: 1,
+			omittedFileCount: 0,
+			omittedFiles: [],
 		},
 	};
 }
@@ -43,7 +37,7 @@ describe("CodexProcessReviewRunner", () => {
 			binaryResolver: () => "/usr/bin/codex",
 		});
 
-		const result = await runner.runReview(request(), "gpt-5.6-luna", {
+		const result = await runner.runReview(request(), {
 			cwd: "/repo",
 			env: { OPENAI_API_KEY: "test" },
 		});
@@ -85,7 +79,7 @@ describe("CodexProcessReviewRunner", () => {
 			binaryResolver: () => "/usr/bin/codex",
 		});
 
-		const result = await runner.runReview(request(), "gpt-5.6-luna", { cwd: "/repo" });
+		const result = await runner.runReview(request(), { cwd: "/repo" });
 
 		expect(result).toEqual({
 			ok: false,
@@ -105,7 +99,7 @@ describe("CodexProcessReviewRunner", () => {
 		const signal = new AbortController().signal;
 		const env = { OPENAI_API_KEY: "test" };
 
-		const result = await runner.runReview(request(), "gpt-5.6-luna", {
+		const result = await runner.runReview(request(), {
 			cwd: "/repo",
 			env,
 			signal,
@@ -128,7 +122,7 @@ describe("CodexProcessReviewRunner", () => {
 			binaryResolver: () => "/usr/bin/codex",
 		});
 
-		const result = await runner.runReview(request(), "gpt-5.6-luna", { cwd: "/repo" });
+		const result = await runner.runReview(request(), { cwd: "/repo" });
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.message).toContain("missing output");
@@ -147,7 +141,7 @@ describe("CodexProcessReviewRunner", () => {
 			binaryResolver: () => "/usr/bin/codex",
 		});
 
-		const result = await runner.runReview(request(), "gpt-5.6-luna", { cwd: "/repo" });
+		const result = await runner.runReview(request(), { cwd: "/repo" });
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -168,7 +162,7 @@ describe("CodexProcessReviewRunner", () => {
 			binaryResolver: () => "/usr/bin/codex",
 		});
 
-		const result = await runner.runReview(request(), "gpt-5.6-luna", { cwd: "/repo" });
+		const result = await runner.runReview(request(), { cwd: "/repo" });
 
 		expect(result).toEqual({
 			ok: false,
@@ -186,7 +180,7 @@ describe("CodexProcessReviewRunner", () => {
 			binaryResolver: () => undefined,
 		});
 
-		const result = await runner.runReview(request(), "gpt-5.6-luna", { cwd: "/repo" });
+		const result = await runner.runReview(request(), { cwd: "/repo" });
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.code).toBe("harness-binary-missing");
