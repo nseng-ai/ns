@@ -66,6 +66,12 @@ export default defineExtension({
 				default: (await import("./commands/pull-trunk.ts")).flowPullTrunkCommand,
 			}),
 		},
+		{
+			name: "squash-stack",
+			load: async () => ({
+				default: (await import("./commands/squash-stack.ts")).flowSquashStackCommand,
+			}),
+		},
 		hiddenExecGroup("Agent-only flow operations.", [
 			{
 				name: "read-graphite-branch-metadata",
