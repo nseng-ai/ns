@@ -1,6 +1,6 @@
 # @nseng-ai/foundation
 
-`@nseng-ai/foundation` is the Neutral Infra container package for generic infrastructure with ns-independent contracts — Pure Utilities plus I/O-performing surfaces such as process execution — exposed as precise public subpath doors rather than one façade. Admission and boundary decisions live in ADR 0032; this glossary carries the package's terms only.
+`@nseng-ai/foundation` is the Neutral Infra container package for generic infrastructure with ns-independent contracts — Pure Utilities plus I/O-performing surfaces such as process execution — exposed as precise public subpath doors rather than one façade. Foundation is one resident of the Neutral Infra tier, not the tier itself: `@nseng-ai/clinkr` sits at the same tier as a standalone package, and a foundation subpackage whose contract and consumer base outgrow subpackage rank graduates the same way, to its own Neutral Infra package. Admission and boundary decisions live in ADR 0032; this glossary carries the package's terms only.
 
 ## Language
 

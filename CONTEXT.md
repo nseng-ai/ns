@@ -199,7 +199,7 @@ The kernel-computed view that joins point definitions with consumer installation
 *Avoid*: registry, hook registry, prompt registry
 **Neutral Infra**:
 The floor below the SDK — packages/subpackages that depend only on other Neutral Infra (`@nseng-ai/foundation`, `@nseng-ai/foundation/exec`, `@nseng-ai/foundation/cli-theme`, `@nseng-ai/clinkr`). Neutral means independent of ns, not effect-free: a surface qualifies when its public contract is ns-independent and its design states a credible external-consumer scenario (ADR 0032); it may perform real-world I/O. **Pure Utility** is the narrower term for its deterministic, I/O-free members. ns-shaped gateways remain **Kit Gateway** material; a gateway passing the external-applicability test may be Neutral Infra owned by foundation.
-*Avoid*: pure floor, purity-defined neutral infra, "no real-world I/O" as the admission test, hypothetical genericity without a stated consumer scenario
+*Avoid*: pure floor, purity-defined neutral infra, "no real-world I/O" as the admission test, hypothetical genericity without a stated consumer scenario, foundation (the package) as a synonym for the tier
 
 **Pure Utility**:
 A deterministic transform with no I/O and no ns runtime knowledge — the effect-free subset of **Neutral Infra**, no longer synonymous with all of it. Pure utilities stay in `@nseng-ai/foundation` and may be imported directly by any layer.
