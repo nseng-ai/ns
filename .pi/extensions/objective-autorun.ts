@@ -33,17 +33,16 @@ import type {
 	SingleSubagentFleetRunTracking,
 } from "@nseng-ai/ns-pi-subagents/api";
 import {
+	createPiCommandExecApi,
+	type RawPiExecApi,
+} from "../../ts/packages/hosts/pi/src/kit/shared/exec-gateway.ts";
+import {
 	formatZodError,
 	isRecord,
 	optionalEntries,
 	optionalEntry,
 } from "../../ts/packages/infra/foundation/src/primitives/primitives.ts";
-import {
-	piExecApiToCommandExecApi,
-	tailText,
-	type ExecResult,
-	type PiExecResultLike,
-} from "../../ts/packages/infra/foundation/src/exec/index.ts";
+import { tailText, type ExecResult } from "../../ts/packages/infra/foundation/src/exec/index.ts";
 
 // Bare "zod" is not resolvable from .pi/extensions (no node_modules ancestry at the repo root);
 // resolve it through the ts workspace package that declares it, matching .pi/lib/workspace-packages.ts.
@@ -99,7 +98,7 @@ interface DiagnosticTailSection {
 	readonly omitIfEmpty?: boolean;
 }
 
-interface ExtensionAPI {
+interface ExtensionAPI extends RawPiExecApi {
 	registerCommand(
 		name: string,
 		options: {
@@ -109,11 +108,6 @@ interface ExtensionAPI {
 		},
 	): void;
 	registerTool(definition: ToolDefinition): void;
-	exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number },
-	): Promise<PiExecResultLike>;
 }
 
 const objectiveRunnerStepInputSchema = z
@@ -180,7 +174,7 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 	const input: ObjectiveRunnerStepInput = parsedInput.data;
 	const slug = input.objective;
 	const shouldRecover = input.recover === true;
-	const commands = piExecApiToCommandExecApi(pi);
+	const commands = createPiCommandExecApi(pi);
 
 	const stepNumber = (stepCountsBySlug.get(slug) ?? 0) + 1;
 	stepCountsBySlug.set(slug, stepNumber);

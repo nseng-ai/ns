@@ -1,9 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadPiAgentDefinition } from "@nseng-ai/pi/runtime/agent-definition";
-import {
-	createPiCommandExecApi,
-	type RawPiExecApi,
-} from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 
 import { buildSubagentDelegationDoctrine } from "./delegation-doctrine.ts";
 import { EXPLORER_AGENT_DESCRIPTOR } from "./agents/explorer.ts";
