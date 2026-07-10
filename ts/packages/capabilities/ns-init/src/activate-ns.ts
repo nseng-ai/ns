@@ -1,11 +1,14 @@
-import type {
-	DeclaredArtifactActivationOutcome,
-	HarnessId,
-	NsTomlChange,
-	PreparedDeclaredArtifactActivation,
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import {
+	ALL_HARNESS_IDS,
+	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
+	parseNsTomlExtensions,
+	type HarnessId,
+	type NsTomlChange,
+	type PreparedDeclaredArtifactActivation,
 } from "@nseng-ai/harness-artifacts/api";
-import { parseNsTomlExtensions } from "@nseng-ai/harness-artifacts/api";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
+import { z } from "zod";
 
 import type { NsActivationContext } from "./activation-context.ts";
 import {
@@ -42,24 +45,68 @@ export interface ActivationDiagnostic {
 	readonly path?: string;
 }
 
-export interface FileActivationOutcome {
-	readonly change: "created" | "appended" | "replaced" | "unchanged";
-}
+export const fileActivationOutcomeSchema = z.object({
+	change: z.enum(["created", "appended", "replaced", "unchanged"]),
+});
 
-export interface ConsumerDirectoryOutcome {
-	readonly path: string;
-	readonly change: "created" | "updated" | "unchanged";
-}
+export const consumerDirectoryOutcomeSchema = z.object({
+	path: z.string(),
+	change: z.enum(["created", "updated", "unchanged"]),
+});
 
-export interface ActivationCompleted {
-	readonly nsToml?: FileActivationOutcome | undefined;
-	readonly managedExtensionsIgnore?: FileActivationOutcome | undefined;
-	readonly agentsInstructionFile?: FileActivationOutcome | undefined;
-	readonly claudeInstructionFile?: FileActivationOutcome | undefined;
-	readonly generatedInstructionsFile?: FileActivationOutcome | undefined;
-	readonly consumerDirectories?: readonly ConsumerDirectoryOutcome[] | undefined;
-	readonly artifacts?: readonly DeclaredArtifactActivationOutcome[] | undefined;
-}
+export const declaredArtifactActivationOutcomeSchema = z
+	.object({
+		key: z.string(),
+		action: z.enum(DECLARED_ARTIFACT_ACTIVATION_ACTIONS),
+		artifactId: z.string(),
+		skillName: z.string(),
+		harness: z.enum(ALL_HARNESS_IDS),
+		targetArtifactPath: z.string(),
+		manifestPath: z.string(),
+		writtenFiles: z.array(z.string()).readonly(),
+		conflictingFiles: z.array(z.string()).readonly(),
+		removedFiles: z.array(z.string()).readonly().optional(),
+		removalReason: z
+			.enum(["removed-source", "deselected-harness", "same-target-replacement", "obsolete-file"])
+			.optional(),
+	})
+	.overwrite((outcome) => ({
+		key: outcome.key,
+		action: outcome.action,
+		artifactId: outcome.artifactId,
+		skillName: outcome.skillName,
+		harness: outcome.harness,
+		targetArtifactPath: outcome.targetArtifactPath,
+		manifestPath: outcome.manifestPath,
+		writtenFiles: outcome.writtenFiles,
+		conflictingFiles: outcome.conflictingFiles,
+		...optionalEntry("removedFiles", outcome.removedFiles),
+		...optionalEntry("removalReason", outcome.removalReason),
+	}));
+
+export const activationCompletedSchema = z
+	.object({
+		nsToml: fileActivationOutcomeSchema.optional(),
+		managedExtensionsIgnore: fileActivationOutcomeSchema.optional(),
+		agentsInstructionFile: fileActivationOutcomeSchema.optional(),
+		claudeInstructionFile: fileActivationOutcomeSchema.optional(),
+		generatedInstructionsFile: fileActivationOutcomeSchema.optional(),
+		consumerDirectories: z.array(consumerDirectoryOutcomeSchema).readonly().optional(),
+		artifacts: z.array(declaredArtifactActivationOutcomeSchema).readonly().optional(),
+	})
+	.overwrite((completed) => ({
+		...optionalEntry("nsToml", completed.nsToml),
+		...optionalEntry("managedExtensionsIgnore", completed.managedExtensionsIgnore),
+		...optionalEntry("agentsInstructionFile", completed.agentsInstructionFile),
+		...optionalEntry("claudeInstructionFile", completed.claudeInstructionFile),
+		...optionalEntry("generatedInstructionsFile", completed.generatedInstructionsFile),
+		...optionalEntry("consumerDirectories", completed.consumerDirectories),
+		...optionalEntry("artifacts", completed.artifacts),
+	}));
+
+export type FileActivationOutcome = z.infer<typeof fileActivationOutcomeSchema>;
+export type ConsumerDirectoryOutcome = z.infer<typeof consumerDirectoryOutcomeSchema>;
+export type ActivationCompleted = z.infer<typeof activationCompletedSchema>;
 
 interface PreparedFileWrite {
 	readonly file: ActivationFile;
