@@ -207,10 +207,10 @@ for these restack conflict subagents. Concrete examples:
 - Claude Code: launch the `Agent` conflict-resolution subagent on Sonnet 5
   (use the Claude Code `sonnet`/Sonnet 5 selector available in the current
   installation). Do not select Opus for this workflow.
-- OpenAI Codex-backed Pi: set `dispatch_runner_subagent.model` to
+- OpenAI Codex-backed Pi: set `forked_pi_agent.model` to
   `openai-codex/gpt-5.5:high` (or the local equivalent smart GPT-5.5 model
   pattern).
-- Anthropic-backed Pi: set `dispatch_runner_subagent.model` to
+- Anthropic-backed Pi: set `forked_pi_agent.model` to
   `claude-sonnet-5` (or the local equivalent Sonnet 5 model pattern).
 
 If per-dispatch model selection is unavailable, continue with the session's

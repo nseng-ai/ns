@@ -80,7 +80,7 @@ Pi sessions in this repo provide a subagent system from `@nseng-ai/ns-pi-subagen
 - Batch independent explore tasks into one call so they run concurrently.
 - Work directly when you already know the exact file or symbol, or the task is trivial.
 
-### `dispatch_runner_subagent` — focused forked Pi process
+### `forked_pi_agent` — focused forked Pi process
 
 - Use it for a self-contained delegated task; the prompt must carry complete context — the child starts cold.
 - Act on the returned status and findings; open the child session file only when you need depth.

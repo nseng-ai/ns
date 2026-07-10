@@ -16,11 +16,11 @@ import {
 import { SubagentFleetRegistry } from "../../src/fleet/registry.ts";
 import {
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
-	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
-	formatDispatchRunnerSubagentResult,
-	registerDispatchRunnerSubagentTool,
-	type DispatchRunnerSubagentExtensionAPI,
-	type DispatchRunnerSubagentToolDefinition,
+	FORKED_PI_AGENT_TOOL_NAME,
+	formatForkedPiAgentResult,
+	registerForkedPiAgentTool,
+	type ForkedPiAgentExtensionAPI,
+	type ForkedPiAgentToolDefinition,
 	type ToolResult,
 } from "../../src/runner-subagents/extension.ts";
 import { SUBAGENT_FLEET_STATUS_KEY } from "../../src/fleet/display.ts";
@@ -49,8 +49,8 @@ type FakeExecHandler = (
 	options?: ExecOptions,
 ) => Promise<ExecResult> | ExecResult;
 
-class FakePi implements DispatchRunnerSubagentExtensionAPI, RunnerSubagentPi {
-	readonly tools = new Map<string, DispatchRunnerSubagentToolDefinition>();
+class FakePi implements ForkedPiAgentExtensionAPI, RunnerSubagentPi {
+	readonly tools = new Map<string, ForkedPiAgentToolDefinition>();
 	readonly execCalls: FakeExecCall[] = [];
 	execHandler: FakeExecHandler = () => ({ stdout: "", stderr: "", code: 0, killed: false });
 	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
@@ -78,7 +78,7 @@ class FakePi implements DispatchRunnerSubagentExtensionAPI, RunnerSubagentPi {
 		return this.execHandler(command, args, options);
 	}
 
-	registerTool(tool: DispatchRunnerSubagentToolDefinition): void {
+	registerTool(tool: ForkedPiAgentToolDefinition): void {
 		this.tools.set(tool.name, tool);
 	}
 }
@@ -108,19 +108,19 @@ interface RegisterToolOptions {
 	definitionRoot?: string;
 }
 
-function registerTool(options: RegisterToolOptions = {}): DispatchRunnerSubagentToolDefinition {
+function registerTool(options: RegisterToolOptions = {}): ForkedPiAgentToolDefinition {
 	const pi = options.pi ?? new FakePi();
 	const definitionRoot = options.definitionRoot ?? createRunnerDefinitionRoot();
-	registerDispatchRunnerSubagentTool(pi, {
+	registerForkedPiAgentTool(pi, {
 		cwd: definitionRoot,
 		fleetRegistry: new SubagentFleetRegistry(),
 	});
-	return getRegisteredDispatchRunnerSubagentTool(pi);
+	return getRegisteredForkedPiAgentTool(pi);
 }
 
-function getRegisteredDispatchRunnerSubagentTool(pi: FakePi): DispatchRunnerSubagentToolDefinition {
-	const tool = pi.tools.get(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME);
-	if (tool === undefined) throw new Error("dispatch_runner_subagent tool was not registered.");
+function getRegisteredForkedPiAgentTool(pi: FakePi): ForkedPiAgentToolDefinition {
+	const tool = pi.tools.get(FORKED_PI_AGENT_TOOL_NAME);
+	if (tool === undefined) throw new Error("forked_pi_agent tool was not registered.");
 	return tool;
 }
 
@@ -179,7 +179,7 @@ function dispatchUiRecordsOnly(
 ): { nonFleetStatuses: UiRecord[]; dispatchWidgets: WidgetRecord[] } {
 	return {
 		nonFleetStatuses: statuses.filter((status) => status.key !== SUBAGENT_FLEET_STATUS_KEY),
-		dispatchWidgets: widgets.filter((widget) => widget.key === DISPATCH_RUNNER_SUBAGENT_TOOL_NAME),
+		dispatchWidgets: widgets.filter((widget) => widget.key === FORKED_PI_AGENT_TOOL_NAME),
 	};
 }
 
@@ -239,15 +239,15 @@ function writeRunnerDefinition(root: string, overrides: RunnerDefinitionOverride
 
 function runnerDefinitionMarkdown(overrides: RunnerDefinitionOverrides = {}): string {
 	const promptGuidelines = overrides.promptGuidelines ?? [
-		"Use dispatch_runner_subagent only for a focused delegated task where the subagent prompt includes all necessary context.",
-		"Use dispatch_runner_subagent sequentially in a shared worktree; inspect the returned status and sessionFile before deciding that work is complete.",
-		"Do not treat non-final-text statuses from dispatch_runner_subagent as completion; inspect diagnostics and the forked Pi session file first.",
+		"Use forked_pi_agent only for a focused delegated task where the subagent prompt includes all necessary context.",
+		"Use forked_pi_agent sequentially in a shared worktree; inspect the returned status and sessionFile before deciding that work is complete.",
+		"Do not treat non-final-text statuses from forked_pi_agent as completion; inspect diagnostics and the forked Pi session file first.",
 	];
 	return [
 		"---",
 		"schema: ns.pi-agent.v1",
 		"name: runner",
-		`toolName: ${overrides.toolName ?? DISPATCH_RUNNER_SUBAGENT_TOOL_NAME}`,
+		`toolName: ${overrides.toolName ?? FORKED_PI_AGENT_TOOL_NAME}`,
 		`label: ${overrides.label ?? "Dispatch Forked Pi Session"}`,
 		`description: ${overrides.description ?? "Launch a focused forked Pi process in the current cwd and return its final assistant text/status evidence."}`,
 		`promptSnippet: ${overrides.promptSnippet ?? "Launch a focused forked Pi process in the current cwd and return final assistant text"}`,
@@ -264,19 +264,19 @@ function composedFixturePrompt(prompt: string): string {
 	return DEFAULT_RUNNER_BODY.replace("{{prompt}}", prompt);
 }
 
-describe("dispatch_runner_subagent extension", () => {
+describe("forked_pi_agent extension", () => {
 	test("registers metadata from the Markdown definition with a strict title/prompt schema", () => {
 		const pi = new FakePi();
 		const definitionRoot = createRunnerDefinitionRoot({
 			label: "Markdown Runner",
 			description: "Markdown definition description with final assistant text.",
 			promptSnippet: "Markdown definition snippet",
-			promptGuidelines: ["Use dispatch_runner_subagent according to the Markdown definition."],
+			promptGuidelines: ["Use forked_pi_agent according to the Markdown definition."],
 		});
 		const tool = registerTool({ pi, definitionRoot });
 		const schema = tool.parameters;
 
-		expect(pi.tools.has(DISPATCH_RUNNER_SUBAGENT_TOOL_NAME)).toBe(true);
+		expect(pi.tools.has(FORKED_PI_AGENT_TOOL_NAME)).toBe(true);
 		expect(tool.label).toBe("Markdown Runner");
 		expect(tool.description).toBe("Markdown definition description with final assistant text.");
 		expect(tool.promptSnippet).toBe("Markdown definition snippet");
@@ -285,7 +285,7 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(schema.required).toEqual(["title", "prompt"]);
 		expect(schema.additionalProperties).toBe(false);
 		expect(tool.promptGuidelines).toEqual([
-			"Use dispatch_runner_subagent according to the Markdown definition.",
+			"Use forked_pi_agent according to the Markdown definition.",
 		]);
 	});
 
@@ -293,12 +293,12 @@ describe("dispatch_runner_subagent extension", () => {
 		const pi = new FakePi();
 		const definitionRoot = createRunnerDefinitionRoot({ toolName: "other_runner_tool" });
 
-		registerDispatchRunnerSubagentTool(pi, {
+		registerForkedPiAgentTool(pi, {
 			cwd: definitionRoot,
 			fleetRegistry: new SubagentFleetRegistry(),
 		});
 
-		const tool = getRegisteredDispatchRunnerSubagentTool(pi);
+		const tool = getRegisteredForkedPiAgentTool(pi);
 		const result = await tool.execute(
 			"tool-1",
 			{ title: "Bad runner", prompt: "Do work." },
@@ -318,11 +318,11 @@ describe("dispatch_runner_subagent extension", () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
 		const pi = new FakePi(runner.dependencies);
 		const definitionRoot = createRunnerDefinitionRoot({ toolName: "other_runner_tool" });
-		registerDispatchRunnerSubagentTool(pi, {
+		registerForkedPiAgentTool(pi, {
 			cwd: definitionRoot,
 			fleetRegistry: new SubagentFleetRegistry(),
 		});
-		const tool = getRegisteredDispatchRunnerSubagentTool(pi);
+		const tool = getRegisteredForkedPiAgentTool(pi);
 
 		const bad = await tool.execute(
 			"tool-1",
@@ -360,8 +360,8 @@ describe("dispatch_runner_subagent extension", () => {
 		const pi = new FakePi(runner.dependencies);
 		const fleetRegistry = new SubagentFleetRegistry();
 		const definitionRoot = createRunnerDefinitionRoot();
-		registerDispatchRunnerSubagentTool(pi, { cwd: definitionRoot, fleetRegistry });
-		const tool = getRegisteredDispatchRunnerSubagentTool(pi);
+		registerForkedPiAgentTool(pi, { cwd: definitionRoot, fleetRegistry });
+		const tool = getRegisteredForkedPiAgentTool(pi);
 
 		const running = tool.execute(
 			"tool-1",
@@ -385,7 +385,7 @@ describe("dispatch_runner_subagent extension", () => {
 		});
 	});
 
-	test("passes explicit title, composed prompt, cwd, model, and thinking to dispatchRunnerSubagent without a runtime extension", async () => {
+	test("passes explicit title, composed prompt, cwd, model, and thinking to forkedPiAgent without a runtime extension", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: SESSION_FILE,
 			sessionFileText: sessionUsageJsonl(),
@@ -720,7 +720,7 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(text).not.toContain("openai-codex/sonnet");
 		expect(details.status).toBe("error");
 		expect(details.diagnostic).toBe(
-			'Invalid runner subagent model override: unqualified model "sonnet" looks like an Anthropic model shorthand, but the current session provider is "openai-codex". Use a fully qualified model such as "anthropic/sonnet" to switch providers, or omit dispatch_runner_subagent.model to inherit the current session model.',
+			'Invalid runner subagent model override: unqualified model "sonnet" looks like an Anthropic model shorthand, but the current session provider is "openai-codex". Use a fully qualified model such as "anthropic/sonnet" to switch providers, or omit forked_pi_agent.model to inherit the current session model.',
 		);
 	});
 
@@ -830,11 +830,11 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(widgets.some((widget) => widget.value?.includes("Tool: read"))).toBe(true);
 		expect(widgets.some((widget) => widget.options?.placement === "aboveEditor")).toBe(true);
 		expect(dispatchWidgets.at(-1)).toEqual({
-			key: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+			key: FORKED_PI_AGENT_TOOL_NAME,
 			value: undefined,
 			options: { placement: "aboveEditor" },
 		});
-		expect(finalText).toContain("dispatch_runner_subagent result");
+		expect(finalText).toContain("forked_pi_agent result");
 		expect(finalText).toContain("Status: final-text");
 		expect(finalText).toContain("Subagent final answer.");
 		expect(finalText).not.toContain("Running forked Pi process:");
@@ -889,7 +889,7 @@ describe("dispatch_runner_subagent extension", () => {
 		const text = result.content[0]?.text ?? "";
 		const details = result.details as Record<string, unknown>;
 
-		expect(text).toContain("dispatch_runner_subagent result");
+		expect(text).toContain("forked_pi_agent result");
 		expect(text).toContain("Status: final-text");
 		expect(text).toContain("Subagent final answer.");
 		expect(text).toContain(`Session file: ${SESSION_FILE}`);
@@ -980,17 +980,17 @@ describe("dispatch_runner_subagent extension", () => {
 		};
 
 		for (const result of [completed, blocked, error, protocolError]) {
-			const text = formatDispatchRunnerSubagentResult(result);
+			const text = formatForkedPiAgentResult(result);
 			expect(text).toContain(`Status: ${result.status}`);
 			expect(text).not.toContain("Final text:");
 			expect(text).toContain(
 				"Inspect the session file before treating this delegated task as complete.",
 			);
 		}
-		expect(formatDispatchRunnerSubagentResult(completed)).toContain(
+		expect(formatForkedPiAgentResult(completed)).toContain(
 			"completed with a terminal capture instead of final assistant text",
 		);
-		expect(formatDispatchRunnerSubagentResult(blocked)).toContain(
+		expect(formatForkedPiAgentResult(blocked)).toContain(
 			"blocked with a terminal capture instead of final assistant text",
 		);
 	});
@@ -1085,7 +1085,7 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(details.status).toBe("error");
 		expect(nonFleetStatuses).toEqual([]);
 		expect(dispatchWidgets.at(-1)).toEqual({
-			key: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+			key: FORKED_PI_AGENT_TOOL_NAME,
 			value: undefined,
 			options: { placement: "aboveEditor" },
 		});

@@ -91,7 +91,7 @@ Traced the built path end to end: definition load (`.ns/pi/agents` discovery,
 `explorer.md:58`) → launch plan → dispatch with allowlist → single-retry failover on
 `error`/`protocol-error` only, with abort short-circuits — the failover matrix is
 well-tested (9 dispatch tests cover every branch). The cheapest alternative — exposing
-`tools` on the existing `dispatch_runner_subagent` tool and letting the model call it N
+`tools` on the existing `forked_pi_agent` tool and letting the model call it N
 times — fails for a real reason: the neutral `ToolDefinition` has no `executionMode`, so
 parallel tool calls run sequentially; batch fan-out inside one `execute` is required,
 exactly as the decision update records. The complexity budget is honest: the two

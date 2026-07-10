@@ -34,32 +34,30 @@ import { trackSingleSubagentFleetRun } from "../fleet/tracking.ts";
 export { resultDiagnostic } from "./extension-api.ts";
 export type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
-export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
+export const FORKED_PI_AGENT_TOOL_NAME = "forked_pi_agent";
 export const RUNNER_AGENT_NAME = "runner";
 export const RUNNER_AGENT_REPO_RELATIVE_PATH = ".ns/pi/agents/runner.md";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
 
-const WIDGET_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
+const WIDGET_KEY = FORKED_PI_AGENT_TOOL_NAME;
 
-const dispatchRunnerSubagentInputSchema = z.object({
+const forkedPiAgentInputSchema = z.object({
 	title: z.string().trim().min(1),
 	prompt: z.string().trim().min(1),
 	model: z.string().trim().min(1).optional(),
 });
 
-export type DispatchRunnerSubagentInput = z.infer<typeof dispatchRunnerSubagentInputSchema>;
+export type ForkedPiAgentInput = z.infer<typeof forkedPiAgentInputSchema>;
 
-export type DispatchRunnerSubagentDetails =
-	| DispatchRunnerSubagentRunDetails
-	| DispatchRunnerSubagentConfigurationErrorDetails;
+export type ForkedPiAgentDetails = ForkedPiAgentRunDetails | ForkedPiAgentConfigurationErrorDetails;
 
-export interface DispatchRunnerSubagentConfigurationErrorDetails {
+export interface ForkedPiAgentConfigurationErrorDetails {
 	status: "configuration-error";
 	title: string;
 	diagnostic: string;
 }
 
-export interface DispatchRunnerSubagentRunDetails {
+export interface ForkedPiAgentRunDetails {
 	status: RunnerSubagentResult["status"];
 	title?: string;
 	requestedModel?: string;
@@ -76,17 +74,17 @@ export interface DispatchRunnerSubagentRunDetails {
 	protocolError?: unknown;
 }
 
-export type DispatchRunnerSubagentToolDefinition = ToolDefinition;
+export type ForkedPiAgentToolDefinition = ToolDefinition;
 
-export type DispatchRunnerSubagentExtensionAPI = RunnerSubagentPi & {
+export type ForkedPiAgentExtensionAPI = RunnerSubagentPi & {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	getThinkingLevel?: () => RunnerSubagentLaunchMetadata["thinkingLevel"];
 	registerTool(definition: ToolDefinition): void;
 };
 
-export type DispatchRunnerSubagentExtensionOptions = SubagentToolOptions;
+export type ForkedPiAgentExtensionOptions = SubagentToolOptions;
 
-export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
+export const FORKED_PI_AGENT_PARAMETERS = {
 	type: "object",
 	properties: {
 		title: {
@@ -110,16 +108,16 @@ export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 
 const FALLBACK_RUNNER_TOOL_METADATA = {
 	label: "Forked Pi subagent",
-	description: "dispatch_runner_subagent is unavailable: runner agent definition is misconfigured.",
-	promptSnippet: `dispatch_runner_subagent is unavailable until ${RUNNER_AGENT_REPO_RELATIVE_PATH} is fixed.`,
+	description: "forked_pi_agent is unavailable: runner agent definition is misconfigured.",
+	promptSnippet: `forked_pi_agent is unavailable until ${RUNNER_AGENT_REPO_RELATIVE_PATH} is fixed.`,
 	promptGuidelines: [
-		`dispatch_runner_subagent is unavailable until ${RUNNER_AGENT_REPO_RELATIVE_PATH} is fixed.`,
+		`forked_pi_agent is unavailable until ${RUNNER_AGENT_REPO_RELATIVE_PATH} is fixed.`,
 	],
 };
 
-export function registerDispatchRunnerSubagentTool(
-	pi: DispatchRunnerSubagentExtensionAPI,
-	options: WithFleetRegistry<DispatchRunnerSubagentExtensionOptions>,
+export function registerForkedPiAgentTool(
+	pi: ForkedPiAgentExtensionAPI,
+	options: WithFleetRegistry<ForkedPiAgentExtensionOptions>,
 ): void {
 	const loadAgentDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
 	const registrationCheck = checkRunnerConfiguration(
@@ -131,14 +129,14 @@ export function registerDispatchRunnerSubagentTool(
 		: FALLBACK_RUNNER_TOOL_METADATA;
 
 	pi.registerTool({
-		name: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+		name: FORKED_PI_AGENT_TOOL_NAME,
 		label: metadata.label,
 		description: metadata.description,
 		...(metadata.promptSnippet === undefined ? {} : { promptSnippet: metadata.promptSnippet }),
 		promptGuidelines: metadata.promptGuidelines,
-		parameters: DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
+		parameters: FORKED_PI_AGENT_PARAMETERS,
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
-			const input = validateDispatchRunnerSubagentInput(params);
+			const input = validateForkedPiAgentInput(params);
 			const configuration = checkRunnerConfiguration(loadAgentDefinition, options.cwd ?? ctx.cwd);
 			if (!configuration.ok) {
 				return configurationErrorResult(input.title, configuration.diagnostic);
@@ -178,7 +176,7 @@ export function registerDispatchRunnerSubagentTool(
 					},
 					onProgress: (update) => {
 						fleetTracking.onProgress(update);
-						const progressText = formatDispatchRunnerSubagentProgress(update.progress);
+						const progressText = formatForkedPiAgentProgress(update.progress);
 						onUpdate?.({
 							content: [{ type: "text", text: progressText }],
 							details: {
@@ -192,8 +190,8 @@ export function registerDispatchRunnerSubagentTool(
 				fleetTracking.onDone(result);
 
 				return {
-					content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
-					details: dispatchRunnerSubagentDetails(result, {
+					content: [{ type: "text", text: formatForkedPiAgentResult(result) }],
+					details: forkedPiAgentDetails(result, {
 						...optionalEntry("requestedModel", input.model),
 						curatedContext: curatedContext.audit,
 					}),
@@ -210,7 +208,7 @@ function configurationErrorResult(
 	diagnostic: string,
 ): {
 	content: [{ type: "text"; text: string }];
-	details: DispatchRunnerSubagentDetails;
+	details: ForkedPiAgentDetails;
 	isError: true;
 } {
 	return {
@@ -218,7 +216,7 @@ function configurationErrorResult(
 			{
 				type: "text",
 				text: agentConfigurationErrorText({
-					toolName: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+					toolName: FORKED_PI_AGENT_TOOL_NAME,
 					agentKind: RUNNER_AGENT_NAME,
 					requiredFilePath: RUNNER_AGENT_REPO_RELATIVE_PATH,
 					diagnostic,
@@ -235,22 +233,22 @@ function configurationErrorResult(
 }
 
 function checkRunnerConfiguration(
-	loadAgentDefinition: NonNullable<DispatchRunnerSubagentExtensionOptions["loadAgentDefinition"]>,
+	loadAgentDefinition: NonNullable<ForkedPiAgentExtensionOptions["loadAgentDefinition"]>,
 	cwd: string,
 ): AgentDefinitionConfigurationCheck {
 	return checkAgentDefinitionConfiguration({
 		agentName: RUNNER_AGENT_NAME,
 		cwd,
-		toolName: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+		toolName: FORKED_PI_AGENT_TOOL_NAME,
 		loadAgentDefinition,
 		requiredFilePath: RUNNER_AGENT_REPO_RELATIVE_PATH,
 	});
 }
 
-export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult): string {
+export function formatForkedPiAgentResult(result: RunnerSubagentResult): string {
 	const sessionFile = runnerSubagentSessionFile(result);
 	const lines = [
-		"dispatch_runner_subagent result (forked Pi process)",
+		"forked_pi_agent result (forked Pi process)",
 		`Status: ${result.status}`,
 		`Title: ${runnerSubagentDisplayTitle(result)}`,
 		...(result.progress.launch === undefined ? [] : [formatLaunchLine(result.progress.launch)]),
@@ -282,17 +280,17 @@ export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult)
 	return lines.join("\n");
 }
 
-export function dispatchRunnerSubagentDetails(
+export function forkedPiAgentDetails(
 	result: RunnerSubagentResult,
 	options: {
 		requestedModel?: string;
 		curatedContext?: CuratedRunnerSubagentContextAudit;
 	} = {},
-): DispatchRunnerSubagentDetails {
+): ForkedPiAgentDetails {
 	const title = result.title ?? result.progress.title;
 	const sessionFile = runnerSubagentSessionFile(result);
 	const stopReason = runnerSubagentStopReason(result);
-	const details: DispatchRunnerSubagentDetails = {
+	const details: ForkedPiAgentDetails = {
 		status: result.status,
 		...(title === undefined ? {} : { title }),
 		...optionalEntries({
@@ -360,7 +358,7 @@ export function truncateFinalTextForToolContent(text: string): {
 	};
 }
 
-export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentProgress): string {
+export function formatForkedPiAgentProgress(progress: RunnerSubagentProgress): string {
 	const currentTool =
 		progress.currentTool === undefined ? "" : `; current tool: ${progress.currentTool}`;
 	return [
@@ -371,8 +369,8 @@ export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentPro
 	].join("\n");
 }
 
-function validateDispatchRunnerSubagentInput(params: unknown): DispatchRunnerSubagentInput {
-	const parsed = dispatchRunnerSubagentInputSchema.safeParse(params);
+function validateForkedPiAgentInput(params: unknown): ForkedPiAgentInput {
+	const parsed = forkedPiAgentInputSchema.safeParse(params);
 	if (!parsed.success) throw new Error(formatZodError(parsed.error));
 	return parsed.data;
 }

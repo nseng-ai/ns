@@ -60,7 +60,7 @@ describe("ns-pi-subagents package", () => {
 		});
 
 		expect(pi.tools.has(EXPLORE_TOOL_NAME)).toBe(true);
-		expect(pi.tools.has("dispatch_runner_subagent")).toBe(true);
+		expect(pi.tools.has("forked_pi_agent")).toBe(true);
 		expect(pi.commands.has(SUBAGENT_FLEET_COMMAND_NAME)).toBe(true);
 		expect([...pi.commands.keys()]).toEqual([SUBAGENT_FLEET_COMMAND_NAME]);
 		expect(pi.commands.has("ns:subagents:fleet")).toBe(false);

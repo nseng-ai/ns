@@ -10,7 +10,7 @@ In terminal-capture mode, completion is a terminal capture, not a queued slash c
 
 ## Architecture
 
-The helper API lives in `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/extension-api.ts` as `dispatchRunnerSubagent(...)`. Runtime/process internals live under `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/`. The unified `@nseng-ai/ns-pi-subagents/extension` entrypoint registers the `explore` and `dispatch_runner_subagent` model-visible tools plus the `/ns:agents:fleet` and `/ns:agents:transcript` commands for session-local fleet/transcript UI; the dispatch tool implementation is `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/extension.ts`.
+The helper API lives in `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/extension-api.ts` as `dispatchRunnerSubagent(...)`. Runtime/process internals live under `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/`. The unified `@nseng-ai/ns-pi-subagents/extension` entrypoint registers the `explore` and `forked_pi_agent` model-visible tools plus the `/ns:agents:fleet` and `/ns:agents:transcript` commands for session-local fleet/transcript UI; the dispatch tool implementation is `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/extension.ts`.
 
 The process runner launches a subagent shaped like:
 
@@ -33,13 +33,13 @@ The helper keeps the full subagent transcript out of the parent LLM context. Par
 
 ## Runner agent definition
 
-The `dispatch_runner_subagent` tool is backed by `.ns/pi/agents/runner.md`. The TypeScript extension owns execution, progress, cancellation, diagnostics, truncation, and result formatting; the Markdown definition owns runner-facing metadata and the child prompt wrapper.
+The `forked_pi_agent` tool is backed by `.ns/pi/agents/runner.md`. The TypeScript extension owns execution, progress, cancellation, diagnostics, truncation, and result formatting; the Markdown definition owns runner-facing metadata and the child prompt wrapper.
 
 Supported frontmatter fields for this slice:
 
 - `schema`: must be `ns.pi-agent.v1`.
 - `name`: must be `runner`.
-- `toolName`: must be `dispatch_runner_subagent`.
+- `toolName`: must be `forked_pi_agent`.
 - `label` and `description`: shown through `pi.registerTool`.
 - `promptSnippet`: optional one-line system-prompt snippet.
 - `promptGuidelines`: optional list of tool-specific guideline bullets.
@@ -86,7 +86,7 @@ Usage metadata is post-run only. It is collected after the child closes by readi
 
 `RunnerSubagentProgress` remains metadata-only. Activity previews are for local display surfaces such as an above-editor `ctx.ui.setWidget(...)`, not parent tool content/details. Parent tools should keep partial `onUpdate(...)` text and final tool results minimal so child assistant/tool details do not enter the parent model context.
 
-The maintained generic integration surface is `dispatch_runner_subagent`. Its MVP widget can show:
+The maintained generic integration surface is `forked_pi_agent`. Its MVP widget can show:
 
 - actual child model and thinking launch metadata
 - streaming visible assistant text preview
@@ -99,7 +99,7 @@ Do not use `pi.sendMessage(...)` for transient subagent progress: custom message
 
 ## Agent-facing dispatch tool
 
-The project-local shim `.pi/extensions/agents.ts` loads `@nseng-ai/ns-pi-subagents/extension`, registering both the `explore` tool and the `dispatch_runner_subagent` final-text tool plus `/ns:agents:fleet` and `/ns:agents:transcript`.
+The project-local shim `.pi/extensions/agents.ts` loads `@nseng-ai/ns-pi-subagents/extension`, registering both the `explore` tool and the `forked_pi_agent` final-text tool plus `/ns:agents:fleet` and `/ns:agents:transcript`.
 
 That tool always uses final-text mode. It requires:
 

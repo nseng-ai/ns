@@ -6,7 +6,7 @@ A **subagent** here is a real child Pi process (`pi --mode json -p --no-extensio
 
 The package works at two levels:
 
-1. **Register the extension** and your Pi session gains ready-made subagent tools — `explore` and `dispatch_runner_subagent` — plus a shared fleet widget and navigator for watching subagent runs.
+1. **Register the extension** and your Pi session gains ready-made subagent tools — `explore` and `forked_pi_agent` — plus a shared fleet widget and navigator for watching subagent runs.
 2. **Import the `/api` library** and build your own subagent tools: define what the child does, how it reports back (structured terminal tool or final text), which tools and model it gets, and how its progress shows up in the UI.
 
 The workspace/npm package name is `@nseng-ai/ns-pi-subagents`.
@@ -34,7 +34,7 @@ The parent agent provides one or more focused read-only scouting tasks; the exte
 - Cheap-model policy: Anthropic-first/Haiku where available, falling back to the parent model otherwise (including transient-failure failover).
 - Each breadth profile carries its own wall-clock budget.
 
-### `dispatch_runner_subagent` — one focused runner
+### `forked_pi_agent` — one focused runner
 
 Launches a single forked Pi process running the `runner` agent (defined in `.ns/pi/agents/runner.md`) with a composed prompt plus a curated context packet (git status/diff and referenced-file excerpts). Returns final-text evidence and status. If the runner agent definition is missing or invalid, the tool registers in a misconfigured state that explains what to fix.
 
@@ -203,7 +203,7 @@ interface SubagentRuntime {
 
 - `@nseng-ai/ns-pi-subagents/api` — the curated surface for building subagent tools and consuming fleet monitoring, runtime injection, result/update types, and transcript/session helpers. New consumers should use this.
 - `@nseng-ai/ns-pi-subagents/extension` — default Pi extension entrypoint (`src/extension.ts`).
-- `@nseng-ai/ns-pi-subagents/runner-subagents` — lower-level dispatch/runtime helpers and the `dispatch_runner_subagent` tool implementation; exported for existing direct consumers.
+- `@nseng-ai/ns-pi-subagents/runner-subagents` — lower-level dispatch/runtime helpers and the `forked_pi_agent` tool implementation; exported for existing direct consumers.
 - `@nseng-ai/ns-pi-subagents/runner-subagents/testing` — runner-subagent test helpers.
 
 ## Open questions

@@ -21,7 +21,7 @@
 - Moving this capability into Pi core.
 - Treating Pi-only entrypoints as canonical for workflows that require cross-harness parity.
 - Broad test-performance work outside the subagent extension/helper seams touched by this consolidation.
-- Renaming the `@nseng-ai/ns-pi-subagents` package or the `explore` / `dispatch_runner_subagent` tool identifiers; the `ns:agents:*` rename is command-surface, widget/status keys, and shim filename only.
+- Renaming the `@nseng-ai/ns-pi-subagents` package or the `explore` / `forked_pi_agent` tool identifiers; the `ns:agents:*` rename is command-surface, widget/status keys, and shim filename only.
 - Compatibility aliases for retired command names; ns is private and breaking renames are allowed with doc updates (matches the standing no-aliases policy in `docs/pi/README.md`).
 - Executing external packaging, bundling, or publishing of `@nseng-ai/ns-pi-subagents`; this Objective only assesses and records distribution readiness.
 
@@ -62,7 +62,7 @@ Useful evidence includes:
 This Objective is an autoobjective (ADR 0022): its roadmap is shaped for repeated `ns objective exec runner-step` slices with parent checkpoints between commits, and it is execution-friendly for `objective-next` under the boundaries below.
 
 - Direct execution is allowed when: a slice implements a `[ ]` roadmap row within its stated scope — the `ns:agents:*` rename, the documentation rebaseline, the exports/test-helper ownership audit, or the distribution-readiness assessment. Decision-bearing calls inside those rows (which helper APIs are package API vs. test-local, how to word doc rebaselines) may be made directly, guided by existing conventions, with rationale recorded in a Semantic Update.
-- Steer or ask first when: a slice would rename the package or the `explore` / `dispatch_runner_subagent` tool identifiers, change the delivered `explore` contract, reach into thermo-council or other neighboring orchestration, or otherwise exceed the row's stated scope.
+- Steer or ask first when: a slice would rename the package or the `explore` / `forked_pi_agent` tool identifiers, change the delivered `explore` contract, reach into thermo-council or other neighboring orchestration, or otherwise exceed the row's stated scope.
 - How work may change files and be left: each runner step lands as one commit on a fresh Graphite-tracked branch stacked on the previous step, per the Objective Runner contract; landing/merging the stack is human work. Objective tracking updates are parent-session judgment, not child work.
 - Validation before keeping work: affected-package Vitest suites, tsgo typecheck, and format/lint autofixers per slice; full `just` validation is stack-final verification, not a per-step gate.
 - What will not happen unless explicitly requested: submitting, pushing, or merging PRs; publishing or executing packaging for external distribution; mutating GitHub issues/PRs or any external system; renaming the package; adding compatibility aliases.

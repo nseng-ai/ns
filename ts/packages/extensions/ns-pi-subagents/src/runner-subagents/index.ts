@@ -70,22 +70,22 @@ export type {
 	RunnerSubagentTimelineToolEntry,
 } from "./timeline.ts";
 export {
-	DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
-	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+	FORKED_PI_AGENT_PARAMETERS,
+	FORKED_PI_AGENT_TOOL_NAME,
 	RUNNER_AGENT_NAME,
 	RUNNER_AGENT_REPO_RELATIVE_PATH,
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
-	dispatchRunnerSubagentDetails,
-	formatDispatchRunnerSubagentProgress,
-	formatDispatchRunnerSubagentResult,
+	forkedPiAgentDetails,
+	formatForkedPiAgentProgress,
+	formatForkedPiAgentResult,
 	truncateFinalTextForToolContent,
 } from "./extension.ts";
 export type {
-	DispatchRunnerSubagentDetails,
-	DispatchRunnerSubagentExtensionAPI,
-	DispatchRunnerSubagentExtensionOptions,
-	DispatchRunnerSubagentInput,
-	DispatchRunnerSubagentToolDefinition,
+	ForkedPiAgentDetails,
+	ForkedPiAgentExtensionAPI,
+	ForkedPiAgentExtensionOptions,
+	ForkedPiAgentInput,
+	ForkedPiAgentToolDefinition,
 	ToolContext,
 	ToolResult,
 } from "./extension.ts";
