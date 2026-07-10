@@ -1,14 +1,16 @@
 import {
 	runDirtyAutobranchFlow,
+	type AutobranchFlowInput,
 	type FileStat,
 	type ParsedAutobranchArgs,
 } from "./dirty-worktree.ts";
 import type { AutobranchFlowResult } from "./flow-result.ts";
-import { createAutobranchGitGateway } from "./git-gateway.ts";
+import { createAutobranchGitGateway, type AutobranchGitGateway } from "./git-gateway.ts";
 import { createLatestCommitAutobranchFlow } from "./latest-commit.ts";
 import type { CommandResult } from "@nseng-ai/capability-kit/checkpoint-flow";
 import {
 	loadPendingWorktreeSnapshot,
+	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 } from "@nseng-ai/capability-kit/pending-worktree";
 
@@ -34,48 +36,131 @@ export interface FlowAutobranchCheckpointInput {
 	now?: () => number;
 }
 
-export async function createFlowAutobranchCheckpointFlow(
-	input: FlowAutobranchCheckpointInput,
-): Promise<FlowAutobranchCheckpointResult> {
-	input.onPhase?.("Inspecting worktree…");
-	const git = createAutobranchGitGateway({ cwd: input.cwd, exec: input.exec });
-	const loaded = await loadPendingWorktreeSnapshot({
-		cwd: input.cwd,
-		git,
-		execGit: (args, timeout) => input.exec("git", args, timeout),
-	});
+export type AutobranchDirtyDependencies = Pick<
+	AutobranchFlowInput,
+	"prepareCheckpointMessage" | "commitPreparedCheckpointMessage" | "readFile" | "stat"
+>;
+
+export type AutobranchDispatchMode =
+	| { mode: "checkpoint"; dirty: AutobranchDirtyDependencies }
+	| { mode: "require-dirty"; dirty: AutobranchDirtyDependencies }
+	| { mode: "require-clean" };
+
+export interface AutobranchFlowContext {
+	cwd: string;
+	args: ParsedAutobranchArgs;
+	exec: AutobranchFlowInput["exec"];
+	git: AutobranchGitGateway;
+}
+
+export interface AutobranchDispatchEnv {
+	loadSnapshot: () => Promise<
+		{ ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
+	>;
+	createFlowContext: (snapshot: PendingWorktreeSnapshot) => AutobranchFlowContext;
+	onPhase?: (message: string) => void;
+	now?: () => number;
+}
+
+export type AutobranchDispatchOutcome =
+	| { outcome: "pending-worktree"; error: PendingWorktreeError }
+	| { outcome: "refused-clean"; snapshot: PendingWorktreeSnapshot }
+	| { outcome: "refused-dirty"; snapshot: PendingWorktreeSnapshot }
+	| {
+			outcome: "flow";
+			snapshot: PendingWorktreeSnapshot;
+			flow: AutobranchFlowResult;
+	  };
+
+export async function dispatchAutobranchCheckpoint(
+	mode: AutobranchDispatchMode,
+	env: AutobranchDispatchEnv,
+): Promise<AutobranchDispatchOutcome> {
+	env.onPhase?.("Inspecting worktree…");
+	const loaded = await env.loadSnapshot();
 	if (!loaded.ok) {
-		return {
-			ok: false,
-			outcome: "failure",
-			error: formatPendingWorktreeError(loaded.error),
-		};
+		return { outcome: "pending-worktree", error: loaded.error };
 	}
 
 	const snapshot = loaded.snapshot;
-	if (snapshot.clean) {
-		return createLatestCommitAutobranchFlow({
-			cwd: input.cwd,
-			args: input.args,
-			snapshot,
-			exec: input.exec,
-			git,
-			...(input.onPhase ? { onPhase: input.onPhase } : {}),
-			...(input.now ? { now: input.now } : {}),
-		});
+	if (mode.mode === "require-dirty" && snapshot.clean) {
+		return { outcome: "refused-clean", snapshot };
+	}
+	if (mode.mode === "require-clean" && !snapshot.clean) {
+		return { outcome: "refused-dirty", snapshot };
 	}
 
-	return runDirtyAutobranchFlow({
-		cwd: input.cwd,
-		args: input.args,
+	const context = env.createFlowContext(snapshot);
+	if (snapshot.clean) {
+		const flow = await createLatestCommitAutobranchFlow({
+			...context,
+			snapshot,
+			...(env.onPhase === undefined ? {} : { onPhase: env.onPhase }),
+			...(env.now === undefined ? {} : { now: env.now }),
+		});
+		return { outcome: "flow", snapshot, flow };
+	}
+
+	if (mode.mode === "require-clean") {
+		return unexpectedAutobranchDispatchOutcome({ outcome: "refused-dirty", snapshot });
+	}
+	const flow = await runDirtyAutobranchFlow({
+		...context,
 		snapshot,
-		exec: input.exec,
-		git,
-		prepareCheckpointMessage: input.prepareCheckpointMessage,
-		commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
-		...(input.onPhase ? { onPhase: input.onPhase } : {}),
-		...(input.readFile ? { readFile: input.readFile } : {}),
-		...(input.stat ? { stat: input.stat } : {}),
-		...(input.now ? { now: input.now } : {}),
+		...mode.dirty,
+		...(env.onPhase === undefined ? {} : { onPhase: env.onPhase }),
+		...(env.now === undefined ? {} : { now: env.now }),
 	});
+	return { outcome: "flow", snapshot, flow };
+}
+
+export async function createFlowAutobranchCheckpointFlow(
+	input: FlowAutobranchCheckpointInput,
+): Promise<FlowAutobranchCheckpointResult> {
+	const git = createAutobranchGitGateway({ cwd: input.cwd, exec: input.exec });
+	const result = await dispatchAutobranchCheckpoint(
+		{
+			mode: "checkpoint",
+			dirty: {
+				prepareCheckpointMessage: input.prepareCheckpointMessage,
+				commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
+				...(input.readFile === undefined ? {} : { readFile: input.readFile }),
+				...(input.stat === undefined ? {} : { stat: input.stat }),
+			},
+		},
+		{
+			loadSnapshot: () =>
+				loadPendingWorktreeSnapshot({
+					cwd: input.cwd,
+					git,
+					execGit: (args, timeout) => input.exec("git", args, timeout),
+				}),
+			createFlowContext: () => ({
+				cwd: input.cwd,
+				args: input.args,
+				exec: input.exec,
+				git,
+			}),
+			...(input.onPhase === undefined ? {} : { onPhase: input.onPhase }),
+			...(input.now === undefined ? {} : { now: input.now }),
+		},
+	);
+
+	switch (result.outcome) {
+		case "pending-worktree":
+			return {
+				ok: false,
+				outcome: "failure",
+				error: formatPendingWorktreeError(result.error),
+			};
+		case "flow":
+			return result.flow;
+		case "refused-clean":
+		case "refused-dirty":
+			return unexpectedAutobranchDispatchOutcome(result);
+	}
+}
+
+export function unexpectedAutobranchDispatchOutcome(value: AutobranchDispatchOutcome): never {
+	throw new Error(`Unexpected autobranch dispatch outcome: ${JSON.stringify(value)}`);
 }
