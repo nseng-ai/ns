@@ -72,12 +72,27 @@ live exchange with the user. Assets link from row notes and live in
     dirs). New suspects jotted in `ideas.md`. Semantic update:
     `updates/2026-07-10-hosts-kernel-sweep-and-method-notes.md` (also starts the
     method log toward a future skill).
-- [ ] Vocabulary sweep: infra, capability-kit, tools (research)
+- [x] Vocabulary sweep: infra, capability-kit, tools (research)
   - Question: What domain language lives in `ts/packages/infra/*` (brmem, clinkr,
     foundation), `ts/packages/capability-kit/` (kit level — only its graphite
     subpackage has a context), and `ts/packages/tools/*` (areg, packagechk, vibechk)
     that no context file records? Produce a per-package candidate-term inventory with
     source citations as a linked asset.
+  - Resolved 2026-07-10: per-package inventory with source citations at
+    `docs/wayfinding/ontology-reshape/vocab-sweep-infra-capability-kit-tools.md`,
+    suspects weighted toward simplification. Headliners: the exec seam contradicts
+    the root glossary three ways (contract and real spawning adapter live in
+    foundation, not capability-kit; live name `CommandExecApi`, not the glossary's
+    `ExecGateway`), and the style guard's brmem→capability-kit debt edge reason
+    records gateway placement as "not finalized" — prime layering-row input; the
+    workspace's two most-imported packages (foundation, clinkr) have no context and
+    no README while the leaf tools are well documented; name-collision suspects
+    (`model-slug` twice, "registry" ×4, "runner" ×4) and a pattern of unglossaried
+    brand names (clinkr, areg, nscc). Nine untracked husk dirs under
+    `ts/packages/infra/` document the absorbed standalone-infra split. New suspects
+    jotted in `ideas.md`. This was the last research row: all four grilling rows are
+    now unblocked. Semantic update:
+    `updates/2026-07-10-infra-kit-tools-sweep-completes-research-phase.md`.
 - [ ] Reexamine CCC and the orchestration layer (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,

@@ -97,6 +97,58 @@ simplification:
   the host/loader/SDK language the code already uses, or decide kernel is the
   deliberate brand and align tier/prose to it.
 
+## Infra/capability-kit/tools sweep finds (2026-07-10)
+
+Suspects from `vocab-sweep-infra-capability-kit-tools.md`, weighted toward
+simplification:
+
+- **Exec-seam contradiction cluster** — root `CONTEXT.md` says gateways are never
+  Neutral Infra and lists `exec` as Capability Kit material, citing `ExecGateway`;
+  in code the contract and real spawning adapter live in foundation
+  (`./command`, `foundation/exec` `NodeCommandExecApi`), the live name is
+  `CommandExecApi`, and the only live `ExecGateway` is a Pi-host type. The
+  brmem→capability-kit tier debt edge reason even says "until neutral-infra gateway
+  placement is finalized" — the indecision is machine-recorded. Prime layering-row
+  input.
+- **brmem ↔ capability-kit mutual coupling** — brmem imports capability-kit
+  git/xdg (via debt edge); capability-kit's `brmem-cli` module shells out to the
+  brmem CLI. Neither glossary can state the boundary in one sentence.
+- **Unglossaried brand names as a pattern** — `clinkr`, `areg`, `nscc`: bins/
+  packages whose names have no recorded expansion anywhere; root glossary even
+  *defers* to "areg vocabulary" that does not exist. Batch naming decision
+  candidate.
+- **`model-slug` subpath collision** — foundation (model refs) vs capability-kit
+  (LM slug derivation): same export name, different concepts; text generation has
+  three homes overall (foundation refs, kit request/repair, kernel TextGenerator).
+- **"Registry" now has four meanings** — areg, command-backed-skill-registry,
+  point-catalog's banned alias, packagechk's npm/PyPI/brew registries.
+- **"Runner" now has four meanings** — Objective Runner, Pi Runner subagents,
+  vibechk runner adapter, foundation `runner-usage` totals.
+- **Domain vocabulary below the SDK** — foundation/terminal `runner-usage` and
+  `terminal-presentation` (PrLink), foundation/primitives `skill-lookup`: move-up
+  candidates that would shrink any future foundation glossary; `config` is a
+  one-module subpackage (collapse candidate).
+- **capability-kit `kit` subpackage is a junk drawer** — ~19 subpaths of
+  checkpoint/slug/text-gen/shell/xdg/brmem concerns beside the per-domain gateway
+  subpackages; the kit-level context decision reduces to deciding what `kit` is.
+  Also: git contract lives in `kit/git-contract.ts` while adapters live in `git/`.
+- **Machine Envelope split brain** — clinkr constructs envelopes, foundation parses
+  them; term defined in no glossary despite being the machine-output contract.
+- **Checkpoint vocabulary spans kit and flow** — `CheckpointMessage` limits in
+  capability-kit, checkpoint workflow vocabulary in flow; no recorded seam.
+- **cmux move-out promise in a comment** — "Neutral cmux substrate ... can move to
+  a dedicated cmux package" recorded only in source; graduate or delete.
+- **Nine untracked husks under `ts/packages/infra/`** — node_modules leftovers of
+  the absorbed standalone-infra split (cli-theme, cli-runtime, exec, time,
+  typescript-analysis, domain-primitives-transitional, git, github, graphite);
+  extends the physical-cleanup list.
+- **Deliberately-thin candidates** — packagechk and vibechk are small, coherent,
+  README-documented; likely "deliberately thin" context decisions. Inverse finding:
+  foundation and clinkr — the most-imported packages — have no README and no
+  context.
+- **"Prompt plugin" vs "prompt"** — brmem skill prose vs source vocabulary for
+  `exec resolve-prompt` (tier `project | global`); glossary records neither.
+
 ## Charting-session finds
 
 - `ts/packages/` on disk is littered with leftover directories from retired
