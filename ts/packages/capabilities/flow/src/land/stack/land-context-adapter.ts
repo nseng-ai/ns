@@ -25,7 +25,13 @@ import {
 	GT_MUTATION_TIMEOUT_MS,
 	SLOT_TIMEOUT_MS,
 } from "./constants.ts";
-import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
+import {
+	failure,
+	landStackFailure,
+	success,
+	type LandingExecutionFailure,
+	type LandStackResult,
+} from "./errors.ts";
 import { loadGraphiteTopology, resolveMetadataDbPath } from "./graphite-topology.ts";
 import {
 	deleteLocalBranchOperation,
@@ -55,7 +61,6 @@ import {
 	slotFreeArgs,
 	slotNameFromPath,
 } from "./worktrees.ts";
-import type { LandStackFailure } from "./errors.ts";
 
 type LandingFailureSource = Extract<LandingFailure, { readonly type: "boundary" }>["source"];
 
@@ -391,7 +396,7 @@ async function loadLocalBranchExists(
 ): Promise<LandOutcome> {
 	const result = await assertLocalBranchExists(pi, repoRoot, branch);
 	if (result.type === "success") return landCompleted();
-	return landOutcomeFailure(toLandFailure(result.failure, "git", "preflight"));
+	return landOutcomeFailure(toLandingFailure(result.failure, "git", "preflight"));
 }
 
 async function loadLocalBranches(
@@ -483,7 +488,7 @@ function toLandResult<T>(
 	phase: LandingPhase,
 ): LandResult<T> {
 	if (result.type === "success") return result;
-	return landFailure(toLandFailure(result.failure, source, phase));
+	return landFailure(toLandingFailure(result.failure, source, phase));
 }
 
 function landBoundaryFailureResult(
@@ -500,20 +505,19 @@ function landBoundaryFailureResult(
 	});
 }
 
-function toLandFailure(
-	flowFailure: LandStackFailure,
+function toLandingFailure(
+	failure: LandingFailure | LandingExecutionFailure,
 	source: LandingFailureSource,
 	phase: LandingPhase,
 ): LandingFailure {
+	if (failure.type !== "execution") return failure;
 	return {
 		type: "boundary",
 		phase,
 		source,
 		code: `${source}-gateway-failure`,
-		message: flowFailure.message,
-		...(flowFailure.suggestedAction === undefined
-			? {}
-			: { suggestedAction: flowFailure.suggestedAction }),
+		message: failure.message,
+		...optionalEntry("suggestedAction", failure.suggestedAction),
 	};
 }
 

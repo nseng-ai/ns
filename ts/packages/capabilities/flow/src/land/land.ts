@@ -18,6 +18,7 @@ import type {
 import { createStackLandingRuntime } from "./stack/stack-landing-runtime.ts";
 import { completed, type LandStackOutcome } from "./stack/errors.ts";
 import {
+	failureLevel,
 	notifyPrintAware,
 	presentFailureAndReturn,
 	renderLandConfirmationDetails,
@@ -198,7 +199,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 				observabilityChannels,
 			),
 	);
-	return outcome.type === "failure" && outcome.failure.level === "error" ? 1 : 0;
+	return outcome.type === "failure" && failureLevel(outcome.failure) === "error" ? 1 : 0;
 }
 
 /**

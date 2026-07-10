@@ -32,7 +32,9 @@ import { COMMAND_NAME, STATUS_KEY } from "./stack/constants.ts";
 import {
 	emptyResult,
 	failure,
-	type LandStackFailure,
+	landFlowFailureFacts,
+	type LandFlowFailure,
+	type LandFlowFailureFacts,
 	type LandStackResult,
 } from "./stack/errors.ts";
 import { landUsageOptionRows, landUsageTokens } from "./stack/flags.ts";
@@ -415,16 +417,12 @@ export function formatSubmitFailureMessage(
 	return `Submit/update failed after merging #${previousPrNumber}; descendant branch ${branch} was left for manual PR update.`;
 }
 
-export function formatFailure(failure: LandStackFailure, landed: readonly LandedPr[]): string {
+export function formatFailure(failure: LandFlowFailure, landed: readonly LandedPr[]): string {
+	const fields = failurePresentationFields(failure);
+	const { displayCommand, execResult, failedBranch, failedPrNumber, suggestedAction } = fields;
 	const simple =
-		landed.length === 0 &&
-		!failure.commandDisplay &&
-		!failure.failedBranch &&
-		!failure.failedPr &&
-		!failure.suggestedAction;
-	if (simple) {
-		return failure.message;
-	}
+		landed.length === 0 && !displayCommand && !failedBranch && !failedPrNumber && !suggestedAction;
+	if (simple) return fields.message;
 
 	const lines = ["land stopped."];
 	if (landed.length > 0) {
@@ -433,23 +431,27 @@ export function formatFailure(failure: LandStackFailure, landed: readonly Landed
 			lines.push(`  - #${entry.number} ${entry.branch}`);
 		}
 	}
-	if (failure.failedBranch || failure.failedPr) {
-		lines.push("", `Failed at: ${formatFailedTarget(failure)}`);
+	if (failedBranch || failedPrNumber) {
+		lines.push("", `Failed at: ${formatFailedTargetFields(fields)}`);
 	}
-	lines.push("", failure.message);
-	if (failure.commandDisplay || failure.result) {
-		lines.push("", formatCommandDetails(failure.result ?? emptyResult(), failure.commandDisplay));
+	lines.push("", fields.message);
+	if (displayCommand || execResult) {
+		lines.push("", formatCommandDetails(execResult ?? emptyResult(), displayCommand));
 	}
-	if (failure.suggestedAction) {
-		lines.push("", `Suggested next action: ${failure.suggestedAction}`);
+	if (suggestedAction) {
+		lines.push("", `Suggested next action: ${suggestedAction}`);
 	}
 	return lines.join("\n");
 }
 
-export function formatFailedTarget(failure: LandStackFailure): string {
+export function formatFailedTarget(failure: LandFlowFailure): string {
+	return formatFailedTargetFields(failurePresentationFields(failure));
+}
+
+function formatFailedTargetFields(fields: LandFlowFailureFacts): string {
 	const parts: string[] = [];
-	if (failure.failedPr) parts.push(`#${failure.failedPr}`);
-	if (failure.failedBranch) parts.push(failure.failedBranch);
+	if (fields.failedPrNumber) parts.push(`#${fields.failedPrNumber}`);
+	if (fields.failedBranch) parts.push(fields.failedBranch);
 	return parts.join(" ") || "unknown";
 }
 
@@ -499,38 +501,43 @@ function nonBlank(value: string | undefined): string | undefined {
 	return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function formatFailureNotification(failure: LandStackFailure): string {
-	const detail = firstNonEmptyLine(failure.message) ?? "unknown error";
-	if (failure.failedBranch || failure.failedPr) {
-		return `land stopped at ${formatFailedTarget(failure)}: ${detail}`;
+export function formatFailureNotification(failure: LandFlowFailure): string {
+	const fields = failurePresentationFields(failure);
+	const detail = firstNonEmptyLine(fields.message) ?? "unknown error";
+	if (fields.failedBranch || fields.failedPrNumber) {
+		return `land stopped at ${formatFailedTargetFields(fields)}: ${detail}`;
 	}
-	if (failure.level === "info") {
-		return detail;
-	}
+	if (fields.level === "info") return detail;
 	return `land stopped: ${detail}`;
 }
 
 export function presentFailureAndReturn(
 	ctx: PrintAwareLandStackCommandContext,
-	landFailure: LandStackFailure,
+	landFailure: LandFlowFailure,
 ): LandStackResult<never> {
 	presentBrief({
 		ctx,
 		fullMessage: formatFailure(landFailure, []),
-		level: landFailure.level,
+		level: failureLevel(landFailure),
 		uiMessage: formatFailureNotification(landFailure),
 		kind: landFailureKind(landFailure),
 	});
 	return failure(landFailure);
 }
 
-/**
- * Map a typed failure onto its house-style visual intent (§7.3). A declined guardrail renders warn
- * (`refusal`); a real subprocess/preflight error renders red (`failure`). The notify level is left
- * untouched so stdout/stderr routing and exit codes are preserved.
- */
-export function landFailureKind(failure: LandStackFailure): LandResultKind {
-	return failure.outcome === "refusal" ? "refusal" : "failure";
+export function failureLevel(failure: LandFlowFailure): NotifyLevel {
+	return landFlowFailureFacts(failure).level;
+}
+
+function failurePresentationFields(failure: LandFlowFailure): LandFlowFailureFacts {
+	const facts = landFlowFailureFacts(failure);
+	if (failure.type !== "domain" || failure.reason !== "dirty-worktree") return facts;
+	return { ...facts, message: "Working tree is dirty; refusing to start stack landing." };
+}
+
+/** Map a typed failure onto its house-style visual intent without changing exit-code routing. */
+export function landFailureKind(failure: LandFlowFailure): LandResultKind {
+	return landFlowFailureFacts(failure).outcome === "refusal" ? "refusal" : "failure";
 }
 
 interface PresentOptions {

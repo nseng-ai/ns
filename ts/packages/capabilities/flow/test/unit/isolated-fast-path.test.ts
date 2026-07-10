@@ -134,9 +134,10 @@ describe("isolated fast-path landing", () => {
 		expect(result.outcome).toEqual({
 			type: "failure",
 			failure: expect.objectContaining({
+				type: "boundary",
 				message: "Merge rejected.",
-				commandDisplay: "gh pr merge 101 --body '<PR body>'",
-				result: {
+				displayCommand: "gh pr merge 101 --body '<PR body>'",
+				execResult: {
 					stdout: "",
 					stderr: "merge rejected\n",
 					code: 1,

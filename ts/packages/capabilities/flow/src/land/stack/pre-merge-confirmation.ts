@@ -2,7 +2,7 @@ import {
 	completed,
 	failure,
 	landStackFailure,
-	type LandStackFailure,
+	type LandFlowFailure,
 	type LandStackFailureOptions,
 	type LandStackOutcome,
 } from "./errors.ts";
@@ -36,7 +36,7 @@ interface ConfirmLandStackActionOptions {
 	cancellationFailureOptions?: LandStackFailureOptions;
 	renderDetails?: (details: string) => string;
 	defaultAnswer?: "yes" | "no";
-	onFailure?: (landFailure: LandStackFailure) => void;
+	onFailure?: (landFailure: LandFlowFailure) => void;
 }
 
 export async function confirmLandStackAction(
