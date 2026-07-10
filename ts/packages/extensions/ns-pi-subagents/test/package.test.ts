@@ -139,6 +139,38 @@ describe("ns-pi-subagents package", () => {
 		expect(pi.commands.has(SUBAGENT_FLEET_COMMAND_NAME)).toBe(true);
 	});
 
+	test("derives the model-visible parameters from the zod input schema", () => {
+		const pi = new FakePi();
+		packageExtension(pi, { cwd: "/repo", loadAgentDefinition: loader });
+		expect(pi.tools.get(SUBAGENT_TOOL_NAME)?.parameters).toMatchObject({
+			type: "object",
+			required: ["agent", "tasks"],
+			additionalProperties: false,
+			properties: {
+				agent: {
+					type: "string",
+					enum: ["explorer", "task"],
+					description: "Registered behavioral agent policy.",
+				},
+				tasks: {
+					type: "array",
+					minItems: 1,
+					items: {
+						type: "object",
+						required: ["title", "prompt"],
+						additionalProperties: false,
+						properties: {
+							title: { type: "string", minLength: 1, maxLength: 200 },
+							prompt: { type: "string", minLength: 1, maxLength: 50_000 },
+						},
+					},
+				},
+				execution: { type: "string", enum: ["auto", "subprocess", "in-process"] },
+				model: { type: "string" },
+			},
+		});
+	});
+
 	test("dispatches task auto through subprocess and rejects unavailable in-process", async () => {
 		const pi = new FakePi();
 		const runtime = createFunctionSubagentRuntime(async (input) => ({
@@ -156,7 +188,7 @@ describe("ns-pi-subagents package", () => {
 		packageExtension(pi, {
 			cwd: "/repo",
 			loadAgentDefinition: loader,
-			runtimeAdapters: () => [{ kind: "subprocess", create: () => runtime }],
+			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
 		});
 		const tool = pi.tools.get(SUBAGENT_TOOL_NAME);
 		if (tool === undefined) throw new Error("Missing subagent tool.");
@@ -193,14 +225,16 @@ describe("ns-pi-subagents package", () => {
 		packageExtension(pi, {
 			cwd: "/repo",
 			loadAgentDefinition: loader,
-			runtimeAdapters: () => [
+			runtimeAdapters: [
 				{
 					kind: "subprocess",
-					create: () =>
-						createFunctionSubagentRuntime(async () => {
+					create: () => ({
+						ok: true,
+						runtime: createFunctionSubagentRuntime(async () => {
 							dispatchCount += 1;
 							throw new Error("must not launch");
 						}),
+					}),
 				},
 			],
 		});
@@ -266,8 +300,9 @@ describe("ns-pi-subagents package", () => {
 			agents,
 			fleetRegistry: new SubagentFleetRegistry(),
 			loadAgentDefinition: () => consumerDefinition,
-			runtimes: () =>
-				createSubagentRuntimeRegistry([{ kind: "subprocess", create: () => runtime }]),
+			runtimes: createSubagentRuntimeRegistry([
+				{ kind: "subprocess", create: () => ({ ok: true, runtime }) },
+			]),
 		});
 
 		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
@@ -306,7 +341,7 @@ describe("ns-pi-subagents package", () => {
 		packageExtension(pi, {
 			cwd: "/repo",
 			loadAgentDefinition: loader,
-			runtimeAdapters: () => [{ kind: "subprocess", create: () => runtime }],
+			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
 		});
 		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
 			"call",
@@ -352,7 +387,7 @@ describe("ns-pi-subagents package", () => {
 		packageExtension(pi, {
 			cwd: "/repo",
 			loadAgentDefinition: loader,
-			runtimeAdapters: () => [{ kind: "subprocess", create: () => runtime }],
+			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
 		});
 
 		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
@@ -407,7 +442,7 @@ describe("ns-pi-subagents package", () => {
 		packageExtension(pi, {
 			cwd: "/repo",
 			loadAgentDefinition: loader,
-			runtimeAdapters: () => [{ kind: "subprocess", create: () => runtime }],
+			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
 		});
 		const tasks = Array.from({ length: 5 }, (_, index) => ({
 			title: `task ${index}`,

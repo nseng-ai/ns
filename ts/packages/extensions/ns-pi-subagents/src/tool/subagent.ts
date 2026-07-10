@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import { formatErrorMessage, formatZodError, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatZodError, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import {
 	composePiAgentPrompt,
@@ -14,6 +14,8 @@ import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
 import {
 	buildSubagentCatalog,
 	definitionDiagnostic,
+	definitionLoadDiagnostic,
+	isHealthySubagentEntry,
 	type SubagentAgentDescriptor,
 	type SubagentAgentRegistry,
 } from "../agents/registry.ts";
@@ -29,30 +31,62 @@ import { buildCuratedRunnerSubagentContext } from "../runner-subagents/curated-c
 import { runnerSubagentSessionFile } from "../runner-subagents/presentation.ts";
 import type { SubagentFleetRegistry } from "../fleet/registry.ts";
 import type { ReadGitHead } from "../fleet/git-head.ts";
+import { dispatchSubagentBatch } from "./dispatch.ts";
 import {
-	dispatchSubagentBatch,
-	SUBAGENT_TASK_NOT_STARTED,
-	type ToolkitDispatchBatchResult,
-} from "./dispatch.ts";
-import type {
-	SubagentRuntime,
-	SubagentRuntimeKind,
-	SubagentRuntimeRegistry,
+	SUBAGENT_RUNTIME_KINDS,
+	type SubagentRuntime,
+	type SubagentRuntimeKind,
+	type SubagentRuntimeRegistry,
 } from "../runtime/seam.ts";
 
 export const SUBAGENT_TOOL_NAME = "subagent";
 
-const taskSchema = z.object({
-	title: z.string().trim().min(1).max(200),
-	prompt: z.string().trim().min(1).max(50_000),
-});
-const inputSchema = z.object({
-	agent: z.string().trim().min(1),
-	tasks: z.array(taskSchema).min(1),
-	execution: z.enum(["auto", "subprocess", "in-process"]).optional(),
-	model: z.string().trim().min(1).optional(),
-});
-export type SubagentToolInput = z.infer<typeof inputSchema>;
+function buildInputSchema(agentNames: readonly string[]) {
+	const taskSchema = z.object({
+		title: z.string().trim().min(1).max(200),
+		prompt: z.string().trim().min(1).max(50_000),
+	});
+	return z.object({
+		agent: agentSchema(agentNames).describe("Registered behavioral agent policy."),
+		tasks: z
+			.array(taskSchema)
+			.min(1)
+			.describe("One or more focused tasks; the selected agent enforces its task limit."),
+		execution: z.enum(["auto", ...SUBAGENT_RUNTIME_KINDS]).optional(),
+		model: z.string().trim().min(1).optional().describe("Optional explicit Pi model override."),
+	});
+}
+
+function agentSchema(agentNames: readonly string[]): z.ZodType<string, string> {
+	const [first, ...rest] = agentNames;
+	if (first === undefined) return z.string().trim().min(1);
+	return z.enum([first, ...rest]);
+}
+
+/**
+ * Model-visible JSON schema derived from the zod input schema. zod strip-mode
+ * objects accept-and-drop unknown keys at parse time, so the derivation omits
+ * additionalProperties; re-add the closed-object contract for the model.
+ */
+function buildParameters(schema: ReturnType<typeof buildInputSchema>): Record<string, unknown> {
+	const parameters = z.toJSONSchema(schema, { io: "input" });
+	closeObjectSchemas(parameters);
+	return parameters;
+}
+
+function closeObjectSchemas(node: z.core.JSONSchema.JSONSchema): void {
+	if (node.type === "object" && node.additionalProperties === undefined) {
+		node.additionalProperties = false;
+	}
+	for (const property of Object.values(node.properties ?? {})) {
+		if (typeof property === "object") closeObjectSchemas(property);
+	}
+	if (typeof node.items === "object" && !Array.isArray(node.items)) {
+		closeObjectSchemas(node.items);
+	}
+}
+
+export type SubagentToolInput = z.infer<ReturnType<typeof buildInputSchema>>;
 
 export interface SubagentToolHost extends RunnerSubagentPi {
 	registerTool(definition: ToolDefinition): void;
@@ -61,7 +95,7 @@ export interface SubagentToolHost extends RunnerSubagentPi {
 
 export interface RegisterSubagentToolOptions {
 	agents: SubagentAgentRegistry;
-	runtimes(ctx: ToolContext): SubagentRuntimeRegistry;
+	runtimes: SubagentRuntimeRegistry;
 	fleetRegistry: SubagentFleetRegistry;
 	readGitHead?: ReadGitHead;
 	loadAgentDefinition(name: string, cwd: string): PiAgentDefinition;
@@ -77,20 +111,19 @@ export function registerSubagentTool(
 	pi: SubagentToolHost,
 	options: RegisterSubagentToolOptions,
 ): SubagentToolRegistration {
-	const healthy = options.agents.entries.filter(
-		(entry) => entry.diagnostic === undefined && entry.definition !== undefined,
-	);
+	const healthy = options.agents.entries.filter(isHealthySubagentEntry);
 	const catalog = buildSubagentCatalog(options.agents.entries);
+	const inputSchema = buildInputSchema(options.agents.names);
 	pi.registerTool({
 		name: SUBAGENT_TOOL_NAME,
 		label: "Subagent",
 		description: `Delegate focused work to a registered agent policy.\n${catalog}`,
 		promptSnippet: "Use subagent for focused explorer reconnaissance or a single delegated task.",
-		promptGuidelines: healthy.flatMap((entry) => entry.definition?.promptGuidelines ?? []),
-		parameters: parameters(options.agents.names),
+		promptGuidelines: healthy.flatMap((entry) => entry.definition.promptGuidelines),
+		parameters: buildParameters(inputSchema),
 		execute: async (_id, raw, signal, onUpdate, ctx) => {
 			const parsed = inputSchema.safeParse(raw);
-			if (!parsed.success) throw new Error(formatZodError(parsed.error));
+			if (!parsed.success) return configurationError(formatZodError(parsed.error));
 			return await executeSubagent({
 				pi,
 				options,
@@ -103,38 +136,8 @@ export function registerSubagentTool(
 	});
 	return {
 		doctrineSections: healthy
-			.flatMap((entry) =>
-				entry.definition === undefined ? [] : [entry.definition.delegationDoctrine.join("\n")],
-			)
+			.map((entry) => entry.definition.delegationDoctrine.join("\n"))
 			.filter((section) => section.length > 0),
-	};
-}
-
-function parameters(agentNames: readonly string[]): Record<string, unknown> {
-	return {
-		type: "object",
-		properties: {
-			agent: {
-				type: "string",
-				enum: agentNames,
-				description: "Registered behavioral agent policy.",
-			},
-			tasks: {
-				type: "array",
-				minItems: 1,
-				description: "One or more focused tasks; the selected agent enforces its task limit.",
-				items: {
-					type: "object",
-					properties: { title: { type: "string" }, prompt: { type: "string" } },
-					required: ["title", "prompt"],
-					additionalProperties: false,
-				},
-			},
-			execution: { type: "string", enum: ["auto", "subprocess", "in-process"] },
-			model: { type: "string", description: "Optional explicit Pi model override." },
-		},
-		required: ["agent", "tasks"],
-		additionalProperties: false,
 	};
 }
 
@@ -147,7 +150,9 @@ interface ExecuteSubagentOptions {
 	ctx: ToolContext;
 }
 
-async function executeSubagent(args: ExecuteSubagentOptions): Promise<ToolResult> {
+async function executeSubagent(
+	args: ExecuteSubagentOptions,
+): Promise<ToolResult<SubagentToolDetails>> {
 	const { pi, options, input, parentSignal, onUpdate, ctx } = args;
 	const entry = options.agents.get(input.agent);
 	if (entry === undefined) return configurationError(`Unknown subagent agent "${input.agent}".`);
@@ -161,14 +166,13 @@ async function executeSubagent(args: ExecuteSubagentOptions): Promise<ToolResult
 	try {
 		definition = options.loadAgentDefinition(descriptor.name, ctx.cwd);
 	} catch (error) {
-		return configurationError(
-			`${descriptor.definitionPath} could not be loaded: ${formatErrorMessage(error)}`,
-		);
+		return configurationError(definitionLoadDiagnostic(descriptor.definitionPath, error));
 	}
 	const definitionProblem = definitionDiagnostic(descriptor, definition);
 	if (definitionProblem !== undefined) return configurationError(definitionProblem);
 	const execution = input.execution ?? "auto";
-	const runtime = options.runtimes(ctx).resolve({
+	const runtime = options.runtimes.resolve({
+		ctx,
 		execution,
 		supported: descriptor.supportedRuntimes,
 		preference: descriptor.runtimePreference,
@@ -190,8 +194,6 @@ async function executeSubagent(args: ExecuteSubagentOptions): Promise<ToolResult
 			{
 				ctx,
 				tasks: input.tasks,
-				taskTitle: (task) => task.title,
-				taskPrompt: (task) => task.prompt,
 				maxConcurrency: descriptor.maxConcurrency,
 				signal: scope.signal,
 				run: async (task, _index, onProgress) => {
@@ -211,7 +213,6 @@ async function executeSubagent(args: ExecuteSubagentOptions): Promise<ToolResult
 						onProgress,
 					});
 				},
-				resultForTracking: (result) => ({ result }),
 			},
 		);
 		return formatResult({ descriptor, execution: runtime.kind, tasks: input.tasks, results });
@@ -290,43 +291,48 @@ function selectTaskModel(input: {
 	});
 }
 
+export interface SubagentTaskDetail {
+	status: RunnerSubagentResult["status"];
+	agent: string;
+	execution: SubagentRuntimeKind;
+	title: string;
+	sessionFile?: string;
+	finalText?: string;
+	finalTextTruncated?: boolean;
+	diagnostic?: string;
+}
+
+export type SubagentToolDetails =
+	| { status: "completed" | "partial"; tasks: readonly SubagentTaskDetail[] }
+	| { status: "configuration-error"; diagnostic: string };
+
 interface FormatResultOptions {
 	descriptor: SubagentAgentDescriptor;
 	execution: SubagentRuntimeKind;
 	tasks: SubagentToolInput["tasks"];
-	results: readonly ToolkitDispatchBatchResult<RunnerSubagentResult>[];
+	results: readonly RunnerSubagentResult[];
 }
 
-function formatResult(options: FormatResultOptions): ToolResult {
+function formatResult(options: FormatResultOptions): ToolResult<SubagentToolDetails> {
 	const { descriptor, execution, tasks, results } = options;
 	const agent = descriptor.name;
 	const finalTextCap = Math.min(
 		descriptor.maxTaskFinalTextChars,
 		Math.floor((descriptor.maxFleetFinalTextChars ?? Number.MAX_SAFE_INTEGER) / tasks.length),
 	);
-	const details = tasks.map((task, index) => {
-		const outcome = results[index];
-		if (outcome === undefined) {
+	const details: SubagentTaskDetail[] = tasks.map((task, index) => {
+		const result = results[index];
+		if (result === undefined) {
 			throw new Error(`Subagent batch omitted positional result ${index}.`);
 		}
-		if (outcome === SUBAGENT_TASK_NOT_STARTED)
-			return {
-				agent,
-				execution,
-				title: task.title,
-				status: "cancelled",
-				diagnostic: "Task was not started.",
-			};
-		const result = outcome;
 		const originalFinalText = result.status === "final-text" ? result.finalText : undefined;
 		const finalText = originalFinalText?.slice(0, finalTextCap);
-		const sessionFile = runnerSubagentSessionFile(result);
 		return {
 			agent,
 			execution,
 			title: task.title,
 			status: result.status,
-			...optionalEntry("sessionFile", sessionFile),
+			...optionalEntry("sessionFile", runnerSubagentSessionFile(result)),
 			...optionalEntry("diagnostic", resultDiagnostic(result)),
 			...(finalText === undefined || originalFinalText === undefined
 				? {}
@@ -342,10 +348,9 @@ function formatResult(options: FormatResultOptions): ToolResult {
 			`### ${detail.title} — ${detail.status}`,
 			`Agent: ${agent}; execution: ${execution}`,
 		);
-		if ("sessionFile" in detail) lines.push(`Session: ${detail.sessionFile ?? "unavailable"}`);
-		if ("finalText" in detail && detail.finalText !== undefined) lines.push("", detail.finalText);
-		if ("diagnostic" in detail && detail.diagnostic !== undefined)
-			lines.push(`Diagnostic: ${detail.diagnostic}`);
+		if (detail.sessionFile !== undefined) lines.push(`Session: ${detail.sessionFile}`);
+		if (detail.finalText !== undefined) lines.push("", detail.finalText);
+		if (detail.diagnostic !== undefined) lines.push(`Diagnostic: ${detail.diagnostic}`);
 	}
 	return {
 		content: [{ type: "text", text: lines.join("\n") }],
@@ -356,7 +361,7 @@ function formatResult(options: FormatResultOptions): ToolResult {
 	};
 }
 
-function configurationError(diagnostic: string): ToolResult {
+function configurationError(diagnostic: string): ToolResult<SubagentToolDetails> {
 	return {
 		content: [{ type: "text", text: `subagent configuration error: ${diagnostic}` }],
 		details: { status: "configuration-error", diagnostic },
@@ -376,7 +381,7 @@ function createAbortScope(
 	};
 	if (parent?.aborted) abort();
 	else parent?.addEventListener("abort", abort, { once: true });
-	if (wallClockMs !== undefined)
+	if (wallClockMs !== undefined && !controller.signal.aborted)
 		timer = timers.setTimeout(
 			() => controller.abort(`subagent wall-clock limit exceeded after ${wallClockMs}ms`),
 			wallClockMs,

@@ -4,6 +4,7 @@ import {
 	PI_AGENT_DEFINITION_SCHEMA,
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
+import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 import { EXPLORER_AGENT_DESCRIPTOR } from "../src/agents/explorer.ts";
 import { createSubagentAgentRegistry } from "../src/agents/registry.ts";
 import {
@@ -33,6 +34,10 @@ const runtime = createFunctionSubagentRuntime(async () => ({
 	progress: { state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 0 },
 }));
 
+function toolContext(): ToolContext {
+	return { cwd: "/repo", mode: "tui", hasUI: false, ui: { notify: () => {} } };
+}
+
 describe("subagent registries", () => {
 	test("rejects duplicate agent and runtime names", () => {
 		expect(() =>
@@ -42,8 +47,8 @@ describe("subagent registries", () => {
 		).toThrow(/Duplicate/);
 		expect(() =>
 			createSubagentRuntimeRegistry([
-				{ kind: "subprocess", create: () => runtime },
-				{ kind: "subprocess", create: () => runtime },
+				{ kind: "subprocess", create: () => ({ ok: true, runtime }) },
+				{ kind: "subprocess", create: () => ({ ok: true, runtime }) },
 			]),
 		).toThrow(/Duplicate/);
 	});
@@ -56,9 +61,12 @@ describe("subagent registries", () => {
 	});
 
 	test("resolves auto deterministically, falls through unavailable preferences, and rejects unavailable overrides", () => {
-		const registry = createSubagentRuntimeRegistry([{ kind: "subprocess", create: () => runtime }]);
+		const registry = createSubagentRuntimeRegistry([
+			{ kind: "subprocess", create: () => ({ ok: true, runtime }) },
+		]);
 		expect(
 			registry.resolve({
+				ctx: toolContext(),
 				execution: "auto",
 				supported: ["subprocess", "in-process"],
 				preference: ["subprocess", "in-process"],
@@ -66,6 +74,7 @@ describe("subagent registries", () => {
 		).toMatchObject({ ok: true, kind: "subprocess" });
 		expect(
 			registry.resolve({
+				ctx: toolContext(),
 				execution: "in-process",
 				supported: ["subprocess", "in-process"],
 				preference: ["subprocess"],
@@ -73,11 +82,15 @@ describe("subagent registries", () => {
 		).toMatchObject({ ok: false });
 
 		const fallback = createSubagentRuntimeRegistry([
-			{ kind: "in-process", create: () => ({ diagnostic: "host registry unavailable" }) },
-			{ kind: "subprocess", create: () => runtime },
+			{
+				kind: "in-process",
+				create: () => ({ ok: false, diagnostic: "host registry unavailable" }),
+			},
+			{ kind: "subprocess", create: () => ({ ok: true, runtime }) },
 		]);
 		expect(
 			fallback.resolve({
+				ctx: toolContext(),
 				execution: "auto",
 				supported: ["subprocess", "in-process"],
 				preference: ["in-process", "subprocess"],

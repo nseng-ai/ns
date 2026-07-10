@@ -1,3 +1,4 @@
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { PiAgentDefinition } from "@nseng-ai/pi/runtime/agent-definition";
 
 import type { SubagentRuntimeKind } from "../runtime/seam.ts";
@@ -43,20 +44,30 @@ export function createSubagentAgentRegistry(
 		try {
 			const definition = loadDefinition(descriptor.name);
 			const diagnostic = definitionDiagnostic(descriptor, definition);
-			entries.push(
-				diagnostic === undefined
-					? { descriptor, definition }
-					: { descriptor, definition, diagnostic },
-			);
+			entries.push({
+				descriptor,
+				definition,
+				...optionalEntry("diagnostic", diagnostic),
+			});
 		} catch (error) {
 			entries.push({
 				descriptor,
-				diagnostic: `${descriptor.definitionPath} could not be loaded: ${error instanceof Error ? error.message : String(error)}`,
+				diagnostic: definitionLoadDiagnostic(descriptor.definitionPath, error),
 			});
 		}
 	}
 	const byName = new Map(entries.map((entry) => [entry.descriptor.name, entry]));
 	return { names: [...names], entries, get: (name) => byName.get(name) };
+}
+
+export function definitionLoadDiagnostic(definitionPath: string, error: unknown): string {
+	return `${definitionPath} could not be loaded: ${formatErrorMessage(error)}`;
+}
+
+export function isHealthySubagentEntry(
+	entry: SubagentAgentCatalogEntry,
+): entry is SubagentAgentCatalogEntry & { readonly definition: PiAgentDefinition } {
+	return entry.diagnostic === undefined && entry.definition !== undefined;
 }
 
 export function definitionDiagnostic(
@@ -94,7 +105,7 @@ function validateDescriptor(descriptor: SubagentAgentDescriptor): void {
 
 export function buildSubagentCatalog(entries: readonly SubagentAgentCatalogEntry[]): string {
 	return entries
-		.filter((entry) => entry.diagnostic === undefined && entry.definition !== undefined)
-		.map((entry) => `${entry.descriptor.name}: ${entry.definition?.description ?? ""}`)
+		.filter(isHealthySubagentEntry)
+		.map((entry) => `${entry.descriptor.name}: ${entry.definition.description}`)
 		.join("\n");
 }

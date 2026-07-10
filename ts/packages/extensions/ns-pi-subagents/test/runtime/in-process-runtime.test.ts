@@ -17,7 +17,7 @@ class FakeInProcessSession implements InProcessSubagentSession {
 	private readonly beforeEvent: () => void;
 	private readonly shouldWaitForAbort: boolean;
 	private resolvePrompt: (() => void) | undefined;
-	promptSignal: AbortSignal | undefined;
+	promptCount = 0;
 	abortCount = 0;
 	disposeCount = 0;
 	unsubscribeCount = 0;
@@ -35,8 +35,8 @@ class FakeInProcessSession implements InProcessSubagentSession {
 		};
 	}
 
-	async prompt(_text: string, signal?: AbortSignal): Promise<void> {
-		this.promptSignal = signal;
+	async prompt(_text: string): Promise<void> {
+		this.promptCount += 1;
 		if (this.shouldWaitForAbort) {
 			await new Promise<void>((resolve) => {
 				this.resolvePrompt = resolve;
@@ -151,6 +151,7 @@ describe("in-process subagent runtime", () => {
 		const elapsedUpdates: number[] = [];
 		const runtime = createInProcessSubagentRuntime({
 			sessionFactory: factory,
+			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
 			clock: manualClock.clock,
 		});
 
@@ -174,7 +175,10 @@ describe("in-process subagent runtime", () => {
 		const controller = new AbortController();
 		controller.abort(new Error("context cancelled"));
 		const factory = new FakeInProcessFactory();
-		const runtime = createInProcessSubagentRuntime({ sessionFactory: factory });
+		const runtime = createInProcessSubagentRuntime({
+			sessionFactory: factory,
+			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
+		});
 
 		const result = await runtime.dispatch({
 			pi: {},
@@ -193,18 +197,20 @@ describe("in-process subagent runtime", () => {
 	test("aborts a pending prompt from the context signal and cleans up once", async () => {
 		const controller = new AbortController();
 		const factory = new FakeInProcessFactory({ shouldWaitForAbort: true });
-		const runtime = createInProcessSubagentRuntime({ sessionFactory: factory });
+		const runtime = createInProcessSubagentRuntime({
+			sessionFactory: factory,
+			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
+		});
 
 		const dispatch = runtime.dispatch({
 			pi: {},
 			ctx: { cwd: "/repo", signal: controller.signal },
 			options: { prompt: "Inspect files.", returnMode: "final-text" },
 		});
-		await vi.waitFor(() => expect(factory.session.promptSignal).toBe(controller.signal));
+		await vi.waitFor(() => expect(factory.session.promptCount).toBe(1));
 		controller.abort("context stopped");
 		const result = await dispatch;
 
-		expect(factory.session.promptSignal?.aborted).toBe(true);
 		expect(factory.session.abortCount).toBe(1);
 		expect(factory.session.unsubscribeCount).toBe(1);
 		expect(factory.session.disposeCount).toBe(1);
@@ -220,7 +226,10 @@ describe("in-process subagent runtime", () => {
 		const contextController = new AbortController();
 		const optionsController = new AbortController();
 		const factory = new FakeInProcessFactory({ shouldWaitForAbort: true });
-		const runtime = createInProcessSubagentRuntime({ sessionFactory: factory });
+		const runtime = createInProcessSubagentRuntime({
+			sessionFactory: factory,
+			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
+		});
 
 		const dispatch = runtime.dispatch({
 			pi: {},
@@ -231,13 +240,10 @@ describe("in-process subagent runtime", () => {
 				signal: optionsController.signal,
 			},
 		});
-		await vi.waitFor(() => expect(factory.session.promptSignal).toBeDefined());
-		expect(factory.session.promptSignal).not.toBe(contextController.signal);
-		expect(factory.session.promptSignal).not.toBe(optionsController.signal);
+		await vi.waitFor(() => expect(factory.session.promptCount).toBe(1));
 		optionsController.abort("options stopped");
 		const result = await dispatch;
 
-		expect(factory.session.promptSignal?.aborted).toBe(true);
 		expect(factory.session.abortCount).toBe(1);
 		expect(factory.session.unsubscribeCount).toBe(1);
 		expect(factory.session.disposeCount).toBe(1);
@@ -248,7 +254,10 @@ describe("in-process subagent runtime", () => {
 		const controller = new AbortController();
 		controller.abort("options cancelled");
 		const factory = new FakeInProcessFactory();
-		const runtime = createInProcessSubagentRuntime({ sessionFactory: factory });
+		const runtime = createInProcessSubagentRuntime({
+			sessionFactory: factory,
+			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
+		});
 
 		const result = await runtime.dispatch({
 			pi: {},

@@ -27,7 +27,7 @@ export type InProcessSubagentSessionEvent =
 export interface InProcessSubagentSession {
 	sessionFile: string | undefined;
 	subscribe(listener: (event: InProcessSubagentSessionEvent) => void): () => void;
-	prompt(text: string, signal?: AbortSignal): Promise<void>;
+	prompt(text: string): Promise<void>;
 	abort(): Promise<void> | void;
 	dispose(): void;
 }
@@ -41,12 +41,12 @@ export interface InProcessSubagentSessionCreateInput {
 	tools: readonly string[];
 	model?: Model<Api>;
 	modelRegistry?: ModelRegistry;
-	thinkingLevel: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+	thinkingLevel: ModelThinkingLevel;
 }
 
 export interface InProcessSubagentRuntimeOptions {
 	sessionFactory: InProcessSubagentSessionFactory;
-	modelRegistry?: ModelRegistry;
+	modelRegistry: ModelRegistry;
 	clock?: Clock;
 }
 
@@ -85,13 +85,21 @@ async function dispatchInProcessSubagent(
 	if (initialCancellation !== undefined) return initialCancellation;
 	try {
 		const model = resolveConcreteModel(launch, options.modelRegistry);
-		if ("diagnostic" in model) throw new Error(model.diagnostic);
+		if (!model.ok) {
+			return {
+				status: "error",
+				diagnostic: `In-process subagent dispatch failed: ${model.diagnostic}`,
+				error: { message: model.diagnostic },
+				elapsedMs: elapsedMs(),
+				progress: progressWithoutCurrentTool(progress, "stopped", elapsedMs),
+			};
+		}
 		session = await sessionFactory.create({
 			cwd: input.options.cwd ?? input.ctx.cwd,
 			tools: input.options.tools ?? [],
 			thinkingLevel: model.thinkingLevel ?? launch?.thinkingLevel ?? "off",
 			...(model.model === undefined ? {} : { model: model.model }),
-			...(options.modelRegistry === undefined ? {} : { modelRegistry: options.modelRegistry }),
+			modelRegistry: options.modelRegistry,
 		});
 		progress = initialProgress({ input, launch, elapsedMs, sessionFile: session.sessionFile });
 		const unsubscribe = session.subscribe((event) => {
@@ -122,9 +130,8 @@ async function dispatchInProcessSubagent(
 				void session?.abort();
 			};
 			signal?.addEventListener("abort", abort, { once: true });
-			if (signal?.aborted) abort();
 			try {
-				await session.prompt(input.options.prompt, signal);
+				await session.prompt(input.options.prompt);
 			} finally {
 				signal?.removeEventListener("abort", abort);
 			}
@@ -281,12 +288,11 @@ function cancelledIfAborted(options: CancelledIfAbortedOptions): RunnerSubagentR
 
 function resolveConcreteModel(
 	launch: SubagentRuntimeDispatchInput["options"]["preResolvedLaunch"],
-	modelRegistry: ModelRegistry | undefined,
-): { model?: Model<Api>; thinkingLevel?: ModelThinkingLevel } | { diagnostic: string } {
-	if (launch === undefined) return {};
-	if (modelRegistry === undefined) {
-		return { diagnostic: "In-process execution requires ToolContext.modelRegistry." };
-	}
+	modelRegistry: ModelRegistry,
+):
+	| { ok: true; model?: Model<Api>; thinkingLevel?: ModelThinkingLevel }
+	| { ok: false; diagnostic: string } {
+	if (launch === undefined) return { ok: true };
 	if (launch.requestedModel !== undefined) {
 		const resolved = resolveCliModel({
 			cliModel: launch.requestedModel,
@@ -295,23 +301,29 @@ function resolveConcreteModel(
 		});
 		if (resolved.model === undefined) {
 			return {
+				ok: false,
 				diagnostic:
 					resolved.error ??
 					`Model ${launch.requestedModel} is not registered for in-process execution.`,
 			};
 		}
 		return {
+			ok: true,
 			model: resolved.model,
 			...(resolved.thinkingLevel === undefined ? {} : { thinkingLevel: resolved.thinkingLevel }),
 		};
 	}
 	const provider = launch.model?.provider;
 	const id = launch.model?.id;
-	if (provider === undefined || id === undefined) return {};
+	if (provider === undefined || id === undefined) return { ok: true };
 	const model = modelRegistry.find(provider, id);
-	if (model === undefined)
-		return { diagnostic: `Model ${provider}/${id} is not registered for in-process execution.` };
-	return { model };
+	if (model === undefined) {
+		return {
+			ok: false,
+			diagnostic: `Model ${provider}/${id} is not registered for in-process execution.`,
+		};
+	}
+	return { ok: true, model };
 }
 
 interface UnsupportedReturnModeResultOptions {

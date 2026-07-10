@@ -47,7 +47,12 @@ const agents = createSubagentAgentRegistry(
   [EXPLORER_AGENT_DESCRIPTOR, TASK_AGENT_DESCRIPTOR, myDescriptor],
   (name) => loadPiAgentDefinition(name, cwd),
 );
-registerSubagentTool(pi, { cwd, agents, runtimes, fleetRegistry });
+registerSubagentTool(pi, {
+  agents,
+  runtimes,
+  fleetRegistry,
+  loadAgentDefinition: loadPiAgentDefinition,
+});
 ```
 
 See [AUTHORING.md](./AUTHORING.md) for the complete procedure.

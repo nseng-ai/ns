@@ -1,3 +1,5 @@
+import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
+
 import {
 	dispatchRunnerSubagent,
 	type RunnerSubagentContext,
@@ -22,12 +24,15 @@ export type SubagentExecution = "auto" | SubagentRuntimeKind;
 
 export interface SubagentRuntimeAdapter {
 	readonly kind: SubagentRuntimeKind;
-	create(): SubagentRuntime | { diagnostic: string };
+	create(
+		ctx: ToolContext,
+	): { ok: true; runtime: SubagentRuntime } | { ok: false; diagnostic: string };
 }
 
 export interface SubagentRuntimeRegistry {
 	readonly kinds: readonly SubagentRuntimeKind[];
 	resolve(input: {
+		ctx: ToolContext;
 		execution: SubagentExecution;
 		supported: readonly SubagentRuntimeKind[];
 		preference: readonly SubagentRuntimeKind[];
@@ -54,11 +59,11 @@ export function createSubagentRuntimeRegistry(
 			);
 			const unavailable: string[] = [];
 			for (const kind of compatible) {
-				const created = byKind.get(kind)?.create();
-				if (created !== undefined && !("diagnostic" in created)) {
-					return { ok: true, kind, runtime: created };
-				}
-				unavailable.push(created?.diagnostic ?? `Subagent runtime ${kind} is unavailable.`);
+				const adapter = byKind.get(kind);
+				if (adapter === undefined) continue;
+				const created = adapter.create(input.ctx);
+				if (created.ok) return { ok: true, kind, runtime: created.runtime };
+				unavailable.push(created.diagnostic);
 				if (input.execution !== "auto") break;
 			}
 			return {

@@ -46,7 +46,7 @@ class FakePiAgentSessionGateway implements PiAgentSessionGateway {
 }
 
 describe("Pi in-process agent session factory", () => {
-	test("pins ambient resources, persistence, prompt expansion, and lifecycle", async () => {
+	test("pins ambient resources, prompt expansion, and lifecycle", async () => {
 		const gateway = new FakePiAgentSessionGateway();
 		const factory = createPiAgentSessionFactory(gateway);
 		const session = await factory.create({
@@ -73,7 +73,6 @@ describe("Pi in-process agent session factory", () => {
 					contextFiles: true,
 					delegatedPromptTemplates: false,
 				},
-				persistentSession: true,
 			},
 		]);
 		expect(PI_IN_PROCESS_RESOURCE_POLICY).toEqual({

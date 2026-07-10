@@ -115,27 +115,35 @@ export function trackSubagentFleetRun(input: {
 			isDisposed = true;
 			for (const task of run.tasks) {
 				if (doneIndexes.has(task.index)) continue;
-				registry.markDone(task.id, unfinishedFleetTaskResult(task));
+				registry.markDone(
+					task.id,
+					placeholderFleetTaskResult(
+						"error",
+						"Subagent fleet tracking ended before this task produced a terminal result.",
+						task.title,
+					),
+				);
 			}
 			unsubscribe();
 		},
 	};
 }
 
-function unfinishedFleetTaskResult(task: SubagentFleetTaskInput): RunnerSubagentResult {
-	const diagnostic = "Subagent fleet tracking ended before this task produced a terminal result.";
-	return {
-		status: "error",
-		title: task.title,
-		diagnostic,
-		error: { message: diagnostic },
+/** Terminal result for a task that never produced one itself. */
+export function placeholderFleetTaskResult(
+	status: "cancelled" | "error",
+	diagnostic: string,
+	title: string,
+): RunnerSubagentResult {
+	const progress = {
+		title,
+		state: "stopped",
+		toolCount: 0,
+		turnCount: 0,
 		elapsedMs: 0,
-		progress: {
-			title: task.title,
-			state: "stopped",
-			toolCount: 0,
-			turnCount: 0,
-			elapsedMs: 0,
-		},
-	};
+	} as const;
+	if (status === "error") {
+		return { status, title, diagnostic, error: { message: diagnostic }, elapsedMs: 0, progress };
+	}
+	return { status, diagnostic, elapsedMs: 0, progress };
 }
