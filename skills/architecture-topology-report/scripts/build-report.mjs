@@ -180,8 +180,9 @@ function assembleCircleGraph(analysis, tierOverrides = {}) {
 }
 
 // One tier resolution for band and color alike: per-circle-id spec override,
-// then per-package spec override, then the extracted effective tier (which
-// already honors ns.subpackageTiers). Band and color family can never disagree.
+// then per-package spec override, then the extracted tier (always the owning
+// package's tier — packages are single-tier per ADR 0032). Band and color
+// family can never disagree.
 function declaredCircleTier(id, fact, tierOverrides) {
   return tierOverrides[id] ?? tierOverrides[fact.packageName] ?? fact.tier;
 }

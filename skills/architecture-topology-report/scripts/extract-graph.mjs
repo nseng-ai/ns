@@ -137,14 +137,8 @@ for (const f of files) {
   } else if (!TIER_SET.has(tier)) {
     manifestErrors.push(`${d.name} (${f}) has unknown ns.tier ${JSON.stringify(tier)}; known tiers: ${PACKAGE_TIER_IDS.join(", ")}`);
   }
-  const declaredComponents = new Set(declaredSubpackages(d));
-  for (const [sub, subTier] of Object.entries(subpackageTierOverrides(d))) {
-    if (!declaredComponents.has(sub)) {
-      manifestErrors.push(`${d.name} (${f}) ns.subpackageTiers.${sub} does not match a declared ns.subpackages entry`);
-    }
-    if (typeof subTier !== "string" || !TIER_SET.has(subTier)) {
-      manifestErrors.push(`${d.name} (${f}) ns.subpackageTiers.${sub} has unknown tier ${JSON.stringify(subTier)}; known tiers: ${PACKAGE_TIER_IDS.join(", ")}`);
-    }
+  if (d.ns?.subpackageTiers !== undefined) {
+    manifestErrors.push(`${d.name} (${f}) declares ns.subpackageTiers, but packages are single-tier: every declared subpackage shares ns.tier (ADR 0032)`);
   }
   const deps = {};
   for (const k of ["dependencies", "peerDependencies", "devDependencies"]) {
@@ -268,7 +262,6 @@ function discoverTopologyCircles() {
   for (const [packageName, p] of Object.entries(pkgs).sort()) {
     const srcDir = join(p.path, SRC_DIR);
     if (!existsSync(srcDir) || !statSync(srcDir).isDirectory()) continue;
-    const tierOverrides = subpackageTierOverrides(manifests[packageName]);
     // A fully decomposed package (every src file inside a declared subpackage)
     // gets no root/remainder circle — an empty shell node carries no signal.
     const rootFiles = filesForPackageRootCircle(packageName, srcDir);
@@ -291,7 +284,7 @@ function discoverTopologyCircles() {
         id: `${packageName}/${component}`,
         packageName,
         component,
-        tier: tierOverrides[component] ?? p.tier,
+        tier: p.tier,
         path: toPosix(componentDir),
         loc: countLocForFiles(componentFiles),
       });
@@ -304,15 +297,6 @@ function declaredSubpackages(manifest) {
   const value = manifest?.ns?.subpackages;
   if (!Array.isArray(value)) return [];
   return value.filter((entry) => typeof entry === "string" && entry !== "");
-}
-
-// Effective subpackage tiers per ADR 0032: a declared subpackage's tier is
-// ns.subpackageTiers[component] ?? ns.tier (mirrors the style guard's gate in
-// package-metadata.ts readNsSubpackageTiers).
-function subpackageTierOverrides(manifest) {
-  const value = manifest?.ns?.subpackageTiers;
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
-  return value;
 }
 
 function filesForPackageRootCircle(packageName, srcDir) {

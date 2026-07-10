@@ -39,59 +39,25 @@ describe("architecture topology report scripts", () => {
 		expect(Object.keys(graph.packages)).toEqual(["@fixture/a"]);
 	});
 
-	it("applies ns.subpackageTiers overrides to subpackage circle tiers", () => {
-		const root = mkdtempSync(join(tmpdir(), "topology-extract-"));
-		const packageDir = join(root, "a");
-		mkdirSync(join(packageDir, "src", "admission"), { recursive: true });
-		writeFileSync(
-			join(packageDir, "package.json"),
-			JSON.stringify({
-				name: "@fixture/a",
-				ns: {
-					tier: "neutral-infra",
-					subpackages: ["admission"],
-					subpackageTiers: { admission: "capability" },
-				},
-			}),
-		);
-		writeFileSync(join(packageDir, "src", "root.ts"), "export const root = true;\n");
-		writeFileSync(
-			join(packageDir, "src", "admission", "index.ts"),
-			"export const admission = true;\n",
-		);
+	it("keeps every subpackage circle at the owning package tier", () => {
+		const root = writeSubpackageFixture();
 
 		const stdout = execFileSync("node", [extractGraphScript, "--root", root], {
 			encoding: "utf8",
 		});
 		const graph = JSON.parse(stdout) as { topologyCircles: Record<string, { tier: string }> };
 		expect(graph.topologyCircles["@fixture/a"]?.tier).toBe("neutral-infra");
-		expect(graph.topologyCircles["@fixture/a/admission"]?.tier).toBe("capability");
+		expect(graph.topologyCircles["@fixture/a/admission"]?.tier).toBe("neutral-infra");
 	});
 
-	it("hard-fails on undeclared or unknown ns.subpackageTiers entries", () => {
-		const root = mkdtempSync(join(tmpdir(), "topology-extract-"));
-		const packageDir = join(root, "a");
-		mkdirSync(join(packageDir, "src", "admission"), { recursive: true });
-		writeFileSync(
-			join(packageDir, "package.json"),
-			JSON.stringify({
-				name: "@fixture/a",
-				ns: {
-					tier: "neutral-infra",
-					subpackages: ["admission"],
-					subpackageTiers: { nope: "neutral-infra", admission: "bogus" },
-				},
-			}),
-		);
+	it("hard-fails on any ns.subpackageTiers declaration, even a well-formed one", () => {
+		const root = writeSubpackageFixture({ admission: "capability" });
 
 		const result = spawnSync("node", [extractGraphScript, "--root", root], {
 			encoding: "utf8",
 		});
 		expect(result.status).toBe(1);
-		expect(result.stderr).toContain(
-			"ns.subpackageTiers.nope does not match a declared ns.subpackages entry",
-		);
-		expect(result.stderr).toContain('ns.subpackageTiers.admission has unknown tier "bogus"');
+		expect(result.stderr).toContain("declares ns.subpackageTiers, but packages are single-tier");
 	});
 
 	it(
@@ -110,3 +76,26 @@ describe("architecture topology report scripts", () => {
 		},
 	);
 });
+
+function writeSubpackageFixture(subpackageTiers?: Readonly<Record<string, string>>): string {
+	const root = mkdtempSync(join(tmpdir(), "topology-extract-"));
+	const packageDir = join(root, "a");
+	mkdirSync(join(packageDir, "src", "admission"), { recursive: true });
+	writeFileSync(
+		join(packageDir, "package.json"),
+		JSON.stringify({
+			name: "@fixture/a",
+			ns: {
+				tier: "neutral-infra",
+				subpackages: ["admission"],
+				...(subpackageTiers === undefined ? {} : { subpackageTiers }),
+			},
+		}),
+	);
+	writeFileSync(join(packageDir, "src", "root.ts"), "export const root = true;\n");
+	writeFileSync(
+		join(packageDir, "src", "admission", "index.ts"),
+		"export const admission = true;\n",
+	);
+	return root;
+}
