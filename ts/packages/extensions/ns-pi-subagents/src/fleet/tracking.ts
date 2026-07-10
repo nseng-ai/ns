@@ -15,6 +15,51 @@ export interface SubagentFleetRunTracking {
 	dispose(): void;
 }
 
+export interface SingleSubagentFleetRunTracking {
+	onStart(): void;
+	onProgress(update: RunnerSubagentUpdate): void;
+	onDone(result: RunnerSubagentResult): void;
+	dispose(): void;
+}
+
+export function trackSingleSubagentFleetRun(input: {
+	registry: SubagentFleetRegistry;
+	ctx: SubagentFleetDisplayContext;
+	title: string;
+	prompt?: string;
+	parentSessionFile: string | undefined;
+	cwd?: string;
+	readGitHead?: ReadGitHead;
+}): SingleSubagentFleetRunTracking {
+	const tracking = trackSubagentFleetRun({
+		registry: input.registry,
+		ctx: input.ctx,
+		tasks: [
+			{
+				title: input.title,
+				...optionalEntry("prompt", input.prompt),
+			},
+		],
+		parentSessionFile: input.parentSessionFile,
+		...optionalEntry("cwd", input.cwd),
+		...optionalEntry("readGitHead", input.readGitHead),
+	});
+	return {
+		onStart() {
+			tracking.markRunning(0);
+		},
+		onProgress(update) {
+			tracking.markProgress(0, update);
+		},
+		onDone(result) {
+			tracking.markDone(0, result);
+		},
+		dispose() {
+			tracking.dispose();
+		},
+	};
+}
+
 export function trackSubagentFleetRun(input: {
 	registry: SubagentFleetRegistry;
 	ctx: SubagentFleetDisplayContext;

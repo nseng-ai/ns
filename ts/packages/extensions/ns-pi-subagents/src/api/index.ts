@@ -31,8 +31,11 @@ export type {
 	SubagentFleetTaskSnapshot,
 	SubagentFleetTaskState,
 } from "../fleet/registry.ts";
-export { trackSubagentFleetRun } from "../fleet/tracking.ts";
-export type { SubagentFleetRunTracking } from "../fleet/tracking.ts";
+export { trackSingleSubagentFleetRun, trackSubagentFleetRun } from "../fleet/tracking.ts";
+export type {
+	SingleSubagentFleetRunTracking,
+	SubagentFleetRunTracking,
+} from "../fleet/tracking.ts";
 export { createFunctionSubagentRuntime, createSubprocessSubagentRuntime } from "../runtime/seam.ts";
 export type {
 	SubagentRuntime,

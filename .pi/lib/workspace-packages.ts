@@ -8,6 +8,7 @@ const workspacePackageFallbacks: Record<string, string> = {
 	"@internal/pi-tools/grill/extension": "../../ts/packages/internal/pi-tools/src/grill/extension.ts",
 	"@internal/pi-tools/slash-command-rerank/extension": "../../ts/packages/internal/pi-tools/src/slash-command-rerank/extension.ts",
 	"@internal/pi-tools/thermo-council/extension": "../../ts/packages/internal/pi-tools/src/thermo-council/extension.ts",
+	"@nseng-ai/ns-pi-subagents/api": "../../ts/packages/extensions/ns-pi-subagents/src/api/index.ts",
 	"@nseng-ai/ns-pi-subagents/extension": "../../ts/packages/extensions/ns-pi-subagents/src/extension.ts",
 	"@nseng-ai/pi/worktree-status/extension": "../../ts/packages/hosts/pi/src/worktree-status/extension.ts",
 };
@@ -24,7 +25,11 @@ function resolveTypeScriptWorkspacePackage(specifier: string): string {
 	}
 }
 
+export async function importTypeScriptWorkspaceModule<T>(specifier: string): Promise<T> {
+	return (await import(resolveTypeScriptWorkspacePackage(specifier))) as T;
+}
+
 export async function importTypeScriptWorkspaceDefault(specifier: string): Promise<WorkspaceDefaultExport> {
-	const importedModule = (await import(resolveTypeScriptWorkspacePackage(specifier))) as { default: WorkspaceDefaultExport };
+	const importedModule = await importTypeScriptWorkspaceModule<{ default: WorkspaceDefaultExport }>(specifier);
 	return importedModule.default;
 }
