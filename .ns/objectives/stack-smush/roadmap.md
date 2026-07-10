@@ -143,7 +143,10 @@ session on 2026-07-10 (see
   merge-free `trunk..tip`, ordered boundaries, no empty slices, and no name
   collisions; the run branch survives as the reparented stack tip. Classification
   never enters the CLI. Selective span squash and other repeated deterministic
-  mechanics may graduate under the same evidence gate.
+  mechanics may graduate under the same evidence gate. A read-only
+  `ns slot gt exec slice-map` derive command (parse the `<run>--<NN><c>-<slug>`
+  grammar plus boundary messages into a Slice Map view) is a smaller, distinct
+  candidate in the same family, under the same real-run evidence gate.
 - Promotion to the default agent workflow — already decided as the direction if the
   additional path proves out on real work; the rollout is follow-on work gated on the
   recorded promotion decision (Completion Criteria 3), likely its own Objective.
