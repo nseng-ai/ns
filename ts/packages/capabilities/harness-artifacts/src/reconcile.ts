@@ -65,6 +65,10 @@ import {
 	type AppliedHarnessArtifactTransition,
 } from "./project-harness-artifact-transitions.ts";
 import { provisionIdentityKey } from "./provision-plan.ts";
+import {
+	HARNESS_ARTIFACT_REMOVAL_REASONS,
+	type HarnessArtifactRemovalReason,
+} from "./provision-removal.ts";
 import { sortStrings } from "./sort.ts";
 
 export interface DesiredHarnessArtifact {
@@ -97,7 +101,7 @@ export interface PlannedHarnessArtifactRemoval {
 	readonly key: string;
 	readonly snapshot: HarnessManifestSnapshot;
 	readonly entry: InstallManifestEntryData;
-	readonly reason: "removed-source" | "deselected-harness" | "same-target-replacement";
+	readonly reason: Exclude<HarnessArtifactRemovalReason, "obsolete-file">;
 }
 
 export const orphanedManifestEntrySchema = z.object({
@@ -257,9 +261,7 @@ export const reconcileArtifactOutcomeSchema = z.object({
 	writtenFiles: z.array(z.string()).readonly(),
 	removedFiles: z.array(z.string()).readonly(),
 	conflictingFiles: z.array(z.string()).readonly(),
-	removalReason: z
-		.enum(["removed-source", "deselected-harness", "same-target-replacement", "obsolete-file"])
-		.optional(),
+	removalReason: z.enum(HARNESS_ARTIFACT_REMOVAL_REASONS).optional(),
 });
 export type ReconcileArtifactOutcome = z.output<typeof reconcileArtifactOutcomeSchema>;
 

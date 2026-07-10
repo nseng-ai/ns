@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { createEmptyPreparedProjectHarnessArtifactTransitions } from "@nseng-ai/harness-artifacts/api";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
 
 import { applyNsActivation, prepareNsActivation } from "../../src/activate-ns.ts";
@@ -223,14 +224,10 @@ describe("ns activation planning and apply", () => {
 					selectedHarnesses: ["pi"],
 					skippedCollisions: [],
 					artifacts: [],
-					reconciliation: {
-						items: [],
-						transitions: [],
-						skippedDesired: [],
-						skippedCollisions: [],
-						orphans: [],
-						conflictPolicy: { type: "strict", shouldForce: false },
-					},
+					reconciliation: createEmptyPreparedProjectHarnessArtifactTransitions({
+						type: "strict",
+						shouldForce: false,
+					}),
 					diagnostics: [
 						{ code: "module_artifact_skill_entry_missing", message: "missing artifact" },
 					],

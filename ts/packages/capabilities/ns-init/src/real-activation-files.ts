@@ -6,6 +6,9 @@ import { formatErrorMessage, isNodeErrorCode } from "@nseng-ai/foundation/primit
 
 import {
 	ACTIVATION_FILE_PATHS,
+	activationKindMismatch,
+	activationPresenceMismatch,
+	compareConsumerDirectoryState,
 	type ActivationFileParams,
 	type ActivationFilesCompareResult,
 	type ActivationFilesGateway,
@@ -14,8 +17,6 @@ import {
 	type CompareAndWriteActivationFileParams,
 	type ConsumerDirectoryInspectionResult,
 	type ConsumerDirectoryParams,
-	type ExpectedConsumerDirectoryState,
-	type PreparedStateMismatchDetails,
 } from "./activation-files.ts";
 
 export class RealActivationFilesGateway implements ActivationFilesGateway {
@@ -87,10 +88,10 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 			handle = await open(target, "r+");
 		} catch (error) {
 			if (isNodeErrorCode(error, "ENOENT")) {
-				return presenceMismatch(relativePath, "present", "missing");
+				return activationPresenceMismatch(relativePath, "present", "missing");
 			}
 			if (isNodeErrorCode(error, "EISDIR")) {
-				return kindMismatch(relativePath, "file", "directory");
+				return activationKindMismatch(relativePath, "file", "directory");
 			}
 			return writeError(error);
 		}
@@ -99,7 +100,7 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 			if (!state.isFile()) {
 				return closeWithResult(
 					handle,
-					kindMismatch(relativePath, "file", state.isDirectory() ? "directory" : "other"),
+					activationKindMismatch(relativePath, "file", state.isDirectory() ? "directory" : "other"),
 				);
 			}
 			const actualContent = await handle.readFile("utf8");
@@ -126,7 +127,7 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 	): Promise<ActivationFilesCompareResult> {
 		const inspected = await this.inspectConsumerDirectory(params);
 		if (inspected.type === "error") return { type: "error", error: inspected.error };
-		const mismatch = compareConsumerState(params.relativePath, params.expected, inspected);
+		const mismatch = compareConsumerDirectoryState(params.relativePath, params.expected, inspected);
 		if (mismatch !== undefined) return { type: "mismatch", details: mismatch };
 
 		const target = join(params.repoRoot, params.relativePath);
@@ -134,7 +135,7 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 			if (params.expected.type === "missing") {
 				const created = await mkdir(target, { recursive: true });
 				if (created === undefined) {
-					return presenceMismatch(params.relativePath, "missing", "present");
+					return activationPresenceMismatch(params.relativePath, "missing", "present");
 				}
 			}
 			const gitkeepPath = join(target, ".gitkeep");
@@ -178,8 +179,9 @@ async function compareMissingPath(
 	try {
 		const state = await stat(target);
 		const actual = state.isFile() ? "file" : state.isDirectory() ? "directory" : "other";
-		if (actual === createdKind) return presenceMismatch(relativePath, "missing", "present");
-		return kindMismatch(relativePath, "missing", actual);
+		if (actual === createdKind)
+			return activationPresenceMismatch(relativePath, "missing", "present");
+		return activationKindMismatch(relativePath, "missing", actual);
 	} catch (error) {
 		if (isNodeErrorCode(error, "ENOENT")) return undefined;
 		return {
@@ -204,58 +206,6 @@ async function compareCreatedPath(
 			},
 		}
 	);
-}
-
-function compareConsumerState(
-	path: string,
-	expected: ExpectedConsumerDirectoryState,
-	actual: Exclude<ConsumerDirectoryInspectionResult, { type: "error" }>,
-): PreparedStateMismatchDetails | undefined {
-	if (expected.type === "missing") {
-		if (actual.type === "missing") return undefined;
-		if (actual.type === "directory") {
-			return { type: "presence", path, expected: "missing", actual: "present" };
-		}
-		return { type: "kind", path, expected: "missing", actual: "file" };
-	}
-	if (actual.type === "missing") {
-		return { type: "presence", path, expected: "present", actual: "missing" };
-	}
-	if (actual.type === "not-directory") {
-		return { type: "kind", path, expected: "directory", actual: "file" };
-	}
-	if (expected.gitkeep === actual.gitkeep) return undefined;
-	const gitkeepPath = `${path}/.gitkeep`;
-	if (actual.gitkeep === "not-file") {
-		return {
-			type: "kind",
-			path: gitkeepPath,
-			expected: expected.gitkeep === "missing" ? "missing" : "file",
-			actual: "directory",
-		};
-	}
-	return {
-		type: "presence",
-		path: gitkeepPath,
-		expected: expected.gitkeep === "missing" ? "missing" : "present",
-		actual: actual.gitkeep === "missing" ? "missing" : "present",
-	};
-}
-
-function presenceMismatch(
-	path: string,
-	expected: "missing" | "present",
-	actual: "missing" | "present",
-): ActivationFilesCompareResult {
-	return { type: "mismatch", details: { type: "presence", path, expected, actual } };
-}
-
-function kindMismatch(
-	path: string,
-	expected: "missing" | "file" | "directory",
-	actual: "file" | "directory" | "other",
-): ActivationFilesCompareResult {
-	return { type: "mismatch", details: { type: "kind", path, expected, actual } };
 }
 
 async function closeWithResult(

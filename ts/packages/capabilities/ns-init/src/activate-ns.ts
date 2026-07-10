@@ -2,6 +2,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	ALL_HARNESS_IDS,
 	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
+	HARNESS_ARTIFACT_REMOVAL_REASONS,
 	parseNsTomlExtensions,
 	type HarnessId,
 	type NsTomlChange,
@@ -13,13 +14,13 @@ import { z } from "zod";
 import type { NsActivationContext } from "./activation-context.ts";
 import {
 	ACTIVATION_FILE_PATHS,
+	activationFilesCompareError,
 	type ActivationFile,
 	type ActivationTextFileReadResult,
 	type ConsumerDirectoryInspectionResult,
 	type ExpectedActivationTextFileState,
 	type ExpectedConsumerDirectoryState,
 	type PreparedActivationExpectedState,
-	type PreparedStateMismatchDetails,
 } from "./activation-files.ts";
 import type { NsInitErrorInfo } from "./error-info.ts";
 import {
@@ -66,22 +67,12 @@ export const declaredArtifactActivationOutcomeSchema = z
 		writtenFiles: z.array(z.string()).readonly(),
 		conflictingFiles: z.array(z.string()).readonly(),
 		removedFiles: z.array(z.string()).readonly().optional(),
-		removalReason: z
-			.enum(["removed-source", "deselected-harness", "same-target-replacement", "obsolete-file"])
-			.optional(),
+		removalReason: z.enum(HARNESS_ARTIFACT_REMOVAL_REASONS).optional(),
 	})
-	.overwrite((outcome) => ({
-		key: outcome.key,
-		action: outcome.action,
-		artifactId: outcome.artifactId,
-		skillName: outcome.skillName,
-		harness: outcome.harness,
-		targetArtifactPath: outcome.targetArtifactPath,
-		manifestPath: outcome.manifestPath,
-		writtenFiles: outcome.writtenFiles,
-		conflictingFiles: outcome.conflictingFiles,
-		...optionalEntry("removedFiles", outcome.removedFiles),
-		...optionalEntry("removalReason", outcome.removalReason),
+	.overwrite(({ removedFiles, removalReason, ...required }) => ({
+		...required,
+		...optionalEntry("removedFiles", removedFiles),
+		...optionalEntry("removalReason", removalReason),
 	}));
 
 export const activationCompletedSchema = z
@@ -340,8 +331,7 @@ export async function applyNsActivation(
 				return {
 					type: "apply-failed",
 					phase: write.file,
-					error:
-						written.type === "error" ? written.error : preparedStateMismatchError(written.details),
+					error: activationFilesCompareError(written),
 					completed,
 				};
 			}
@@ -364,8 +354,7 @@ export async function applyNsActivation(
 				return {
 					type: "apply-failed",
 					phase: "consumer-directories",
-					error:
-						ensured.type === "error" ? ensured.error : preparedStateMismatchError(ensured.details),
+					error: activationFilesCompareError(ensured),
 					completed,
 				};
 			}
@@ -414,14 +403,6 @@ function expectedConsumerDirectoryState(
 		return { type: "directory", gitkeep: inspection.gitkeep };
 	}
 	throw new Error("Cannot prepare expected state from a failed consumer directory inspection.");
-}
-
-function preparedStateMismatchError(details: PreparedStateMismatchDetails): NsInitErrorInfo {
-	return {
-		code: "activation-prepared-state-mismatch",
-		message: `${details.path} changed after activation was prepared; no mutation was applied to that path.`,
-		details: { ...details },
-	};
 }
 
 function textForPreflight(

@@ -127,6 +127,19 @@ export interface PreparedProjectHarnessArtifactTransitions {
 	readonly conflictPolicy: ProjectHarnessArtifactConflictPolicy;
 }
 
+export function createEmptyPreparedProjectHarnessArtifactTransitions(
+	conflictPolicy: ProjectHarnessArtifactConflictPolicy,
+): PreparedProjectHarnessArtifactTransitions {
+	return {
+		items: [],
+		transitions: [],
+		skippedDesired: [],
+		skippedCollisions: [],
+		orphans: [],
+		conflictPolicy,
+	};
+}
+
 export interface PrepareProjectHarnessArtifactTransitionsRequest {
 	readonly desired: readonly DesiredHarnessArtifact[];
 	readonly selectedHarnesses: readonly HarnessId[] | undefined;

@@ -212,9 +212,7 @@ export function manifestWithProvision(
 ): InstallManifestData {
 	const nextEntry = buildInstallManifestEntry(plan);
 	const nextKey = installManifestKey(plan);
-	const entries = Object.entries(manifest.artifacts)
-		.filter(([key]) => key !== nextKey)
-		.map(([, entry]) => entry);
+	const entries = manifestEntriesExcluding(manifest, nextKey);
 	return buildInstallManifestData([...entries, nextEntry]);
 }
 
@@ -222,9 +220,14 @@ export function manifestWithoutEntry(
 	manifest: InstallManifestData,
 	keyToRemove: string,
 ): InstallManifestData {
-	return buildInstallManifestData(
-		Object.entries(manifest.artifacts)
-			.filter(([key]) => key !== keyToRemove)
-			.map(([, entry]) => entry),
-	);
+	return buildInstallManifestData(manifestEntriesExcluding(manifest, keyToRemove));
+}
+
+function manifestEntriesExcluding(
+	manifest: InstallManifestData,
+	keyToExclude: string,
+): readonly InstallManifestEntryData[] {
+	return Object.entries(manifest.artifacts)
+		.filter(([key]) => key !== keyToExclude)
+		.map(([, entry]) => entry);
 }

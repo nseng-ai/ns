@@ -167,12 +167,14 @@ export {
 } from "./provision-manifest.ts";
 export {
 	applyPreparedHarnessArtifactRemoval,
+	HARNESS_ARTIFACT_REMOVAL_REASONS,
 	prepareHarnessArtifactRemoval,
 	type HarnessArtifactRemovalReason,
 	type PreparedHarnessArtifactRemoval,
 } from "./provision-removal.ts";
 export {
 	applyPreparedProvisionReconciliation,
+	createEmptyPreparedProjectHarnessArtifactTransitions,
 	createPreparedHarnessArtifactProvisionTransition,
 	createPreparedHarnessArtifactRemovalTransition,
 	type AppliedHarnessArtifactTransition,

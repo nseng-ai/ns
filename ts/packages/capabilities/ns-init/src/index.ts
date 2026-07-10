@@ -22,7 +22,6 @@ export type {
 export type {
 	DeclaredExtensionsGateway,
 	LoadDeclaredExtensionsParams,
-	LoadDeclaredExtensionsResult,
 } from "./declared-extensions.ts";
 export { RealDeclaredExtensionsGateway } from "./declared-extensions.ts";
 export type { NsInitErrorInfo } from "./error-info.ts";

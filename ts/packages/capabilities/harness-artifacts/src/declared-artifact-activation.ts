@@ -24,7 +24,10 @@ import {
 	type PreparedHarnessArtifactProvision,
 } from "./provision-apply.ts";
 import { INSTALL_MANIFEST_FILE_NAME, readInstallManifestAtRoot } from "./provision-manifest.ts";
-import type { PreparedHarnessArtifactRemoval } from "./provision-removal.ts";
+import type {
+	HarnessArtifactRemovalReason,
+	PreparedHarnessArtifactRemoval,
+} from "./provision-removal.ts";
 import {
 	appliedHarnessArtifactTransitionFileEffects,
 	applyProjectHarnessArtifactTransitions,
@@ -95,11 +98,7 @@ export interface DeclaredArtifactActivationOutcome {
 	readonly writtenFiles: readonly string[];
 	readonly conflictingFiles: readonly string[];
 	readonly removedFiles?: readonly string[];
-	readonly removalReason?:
-		| "removed-source"
-		| "deselected-harness"
-		| "same-target-replacement"
-		| "obsolete-file";
+	readonly removalReason?: HarnessArtifactRemovalReason;
 }
 
 export type ApplyPreparedDeclaredArtifactActivationResult =

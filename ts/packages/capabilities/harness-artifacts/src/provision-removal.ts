@@ -21,11 +21,14 @@ import {
 import type { TargetFileHashFact } from "./provision-plan.ts";
 import { collectTargetHashFactsForPaths, targetFactsEqual } from "./provision-state.ts";
 
-export type HarnessArtifactRemovalReason =
-	| "removed-source"
-	| "deselected-harness"
-	| "obsolete-file"
-	| "same-target-replacement";
+export const HARNESS_ARTIFACT_REMOVAL_REASONS = [
+	"removed-source",
+	"deselected-harness",
+	"obsolete-file",
+	"same-target-replacement",
+] as const;
+
+export type HarnessArtifactRemovalReason = (typeof HARNESS_ARTIFACT_REMOVAL_REASONS)[number];
 
 export interface PreparedHarnessArtifactRemoval {
 	readonly key: string;
