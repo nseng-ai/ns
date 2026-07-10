@@ -32,7 +32,6 @@ export interface PiAgentSessionPort {
 
 export interface PiAgentSessionGatewayCreateInput extends InProcessSubagentSessionCreateInput {
 	readonly resourcePolicy: typeof PI_IN_PROCESS_RESOURCE_POLICY;
-	readonly persistentSession: true;
 }
 
 export interface PiAgentSessionGateway {
@@ -47,7 +46,6 @@ export function createPiAgentSessionFactory(
 			const session = await gateway.create({
 				...input,
 				resourcePolicy: PI_IN_PROCESS_RESOURCE_POLICY,
-				persistentSession: true,
 			});
 			return new PiInProcessSession(session);
 		},

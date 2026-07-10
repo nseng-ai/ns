@@ -15,10 +15,10 @@ const agents = createSubagentAgentRegistry(
 );
 
 registerSubagentTool(pi, {
-  cwd,
   agents,
-  runtimes: (ctx) => runtimeRegistryFor(ctx),
+  runtimes,
   fleetRegistry,
+  loadAgentDefinition: loadPiAgentDefinition,
 });
 ```
 
@@ -28,12 +28,15 @@ Do not add agent-specific fields to the public input. If a policy belongs to an 
 
 ## Add a runtime adapter
 
-A `SubagentRuntimeAdapter` declares one execution kind and creates a `SubagentRuntime` or returns an availability diagnostic. Register adapters separately from agent descriptors:
+A `SubagentRuntimeAdapter` declares one execution kind and, given the tool context, creates a `SubagentRuntime` (`{ ok: true, runtime }`) or returns an availability diagnostic (`{ ok: false, diagnostic }`). The registry is built once at registration; adapters read per-call host state from the context passed to `create`. Register adapters separately from agent descriptors:
 
 ```ts
 const runtimes = createSubagentRuntimeRegistry([
-  { kind: "subprocess", create: () => createSubprocessSubagentRuntime() },
-  { kind: "in-process", create: () => inProcessRuntimeOrDiagnostic(ctx) },
+  {
+    kind: "subprocess",
+    create: () => ({ ok: true, runtime: createSubprocessSubagentRuntime() }),
+  },
+  { kind: "in-process", create: (ctx) => inProcessRuntimeOrDiagnostic(ctx) },
 ]);
 ```
 

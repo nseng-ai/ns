@@ -1,6 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadPiAgentDefinition } from "@nseng-ai/pi/runtime/agent-definition";
-import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
 import { buildSubagentDelegationDoctrine } from "./delegation-doctrine.ts";
 import { EXPLORER_AGENT_DESCRIPTOR } from "./agents/explorer.ts";
@@ -40,7 +39,7 @@ export interface NsPiSubagentsExtensionOptions {
 	loadAgentDefinition?: typeof loadPiAgentDefinition;
 	readGitHead?: ReadGitHead;
 	fleetNavigatorDependencies?: ReadTextFileDependencies;
-	runtimeAdapters?: (ctx: ToolContext) => readonly SubagentRuntimeAdapter[];
+	runtimeAdapters?: readonly SubagentRuntimeAdapter[];
 	subprocessRuntime?: SubagentRuntime;
 	inProcessSessionFactory?: InProcessSubagentSessionFactory;
 }
@@ -70,10 +69,9 @@ export default function nsPiSubagentsExtension(
 		fleetRegistry,
 		readGitHead,
 		loadAgentDefinition: loadDefinition,
-		runtimes: (ctx) =>
-			createSubagentRuntimeRegistry(
-				options.runtimeAdapters?.(ctx) ?? defaultRuntimeAdapters(ctx, options),
-			),
+		runtimes: createSubagentRuntimeRegistry(
+			options.runtimeAdapters ?? defaultRuntimeAdapters(options),
+		),
 	});
 	const doctrine = buildSubagentDelegationDoctrine(registration.doctrineSections);
 	if (doctrine !== undefined) {
@@ -84,24 +82,32 @@ export default function nsPiSubagentsExtension(
 }
 
 function defaultRuntimeAdapters(
-	ctx: ToolContext,
 	options: NsPiSubagentsExtensionOptions,
 ): readonly SubagentRuntimeAdapter[] {
 	return [
 		{
 			kind: "subprocess",
-			create: () => options.subprocessRuntime ?? createSubprocessSubagentRuntime(),
+			create: () => ({
+				ok: true,
+				runtime: options.subprocessRuntime ?? createSubprocessSubagentRuntime(),
+			}),
 		},
 		{
 			kind: "in-process",
-			create: () => {
+			create: (ctx) => {
 				if (ctx.modelRegistry === undefined) {
-					return { diagnostic: "In-process execution requires ToolContext.modelRegistry." };
+					return {
+						ok: false,
+						diagnostic: "In-process execution requires ToolContext.modelRegistry.",
+					};
 				}
-				return createInProcessSubagentRuntime({
-					sessionFactory: options.inProcessSessionFactory ?? createPiAgentSessionFactory(),
-					modelRegistry: ctx.modelRegistry,
-				});
+				return {
+					ok: true,
+					runtime: createInProcessSubagentRuntime({
+						sessionFactory: options.inProcessSessionFactory ?? createPiAgentSessionFactory(),
+						modelRegistry: ctx.modelRegistry,
+					}),
+				};
 			},
 		},
 	];
