@@ -68,7 +68,12 @@ session on 2026-07-10 (see
       squashed span, and post-submit reclassification where branch renames threaten
       PR association. Observe PR/review-thread/CI fate and the orphaned PR candidates
       produced by `gt fold` without `--close`; the skill must report rather than
-      mutate or close them.
+      mutate or close them. Partial evidence (2026-07-10, first real run — see
+      `updates/20260710T223421Z-first-real-run-parallel-packaging-and-decision-first-revision.md`):
+      a live submitted 18-branch stack was repackaged **in parallel mode**, which
+      sidesteps fold/rename hazards entirely (zero orphaned PRs; user submitted the
+      new shape as PRs #3364–#3371); in-place fold/re-slice PR fate remains
+      unobserved and still owns this row.
 - [x] **Vocabulary and placement** (grilling) — Resolved early (formally blocked by
       mechanics design; the placement and vocabulary decisions did not depend on
       it). Placement: packaging lives as a **skill** — an LM-driven mutation of an
