@@ -157,13 +157,14 @@ function assembleCircleGraph(analysis, tierOverrides = {}) {
   const warnings = [];
   const nodes = ids.map((id) => {
     const fact = circleFacts[id];
-    const declaredTier = tierOverrides[id] ?? tierOverrides[fact.packageName] ?? fact.tier;
+    const declaredTier = declaredCircleTier(id, fact, tierOverrides);
     if (!Object.hasOwn(TIERS, declaredTier)) warnings.push(id);
+    const tier = Object.hasOwn(TIERS, declaredTier) ? declaredTier : FALLBACK_TIER;
     return {
       id,
       label: label(id),
       loc: fact.loc ?? 0,
-      tier: Object.hasOwn(TIERS, declaredTier) ? declaredTier : FALLBACK_TIER,
+      tier,
       packageName: fact.packageName,
       component: fact.component,
       isRoot: fact.component === ".",
@@ -171,35 +172,45 @@ function assembleCircleGraph(analysis, tierOverrides = {}) {
       filesystemPath: relativePathForDisplay(fact.path),
       fanIn: fanIn.get(id) || 0,
       fanOut: fanOut.get(id) || 0,
-      fill: colors[fact.packageName].fill,
-      stroke: colors[fact.packageName].stroke,
+      fill: colors[`${fact.packageName}\0${tier}`].fill,
+      stroke: colors[`${fact.packageName}\0${tier}`].stroke,
     };
   });
   return { graph: { nodes, links: assembleLinks(analysis.circleGraph, analysis.circleCycles ?? []) }, warnings };
 }
 
-// Circle-view coloring: every circle stays inside its tier's color family (so the
-// tier read matches the package view and the legend), and packages within a tier
+// One tier resolution for band and color alike: per-circle-id spec override,
+// then per-package spec override, then the extracted tier (always the owning
+// package's tier — packages are single-tier per ADR 0032). Band and color
+// family can never disagree.
+function declaredCircleTier(id, fact, tierOverrides) {
+  return tierOverrides[id] ?? tierOverrides[fact.packageName] ?? fact.tier;
+}
+
+// Circle-view coloring: every circle stays inside its own tier's color family
+// (so the tier read matches the band and the legend), and packages within a tier
 // get distinct shades of that family — hue swept ±22° and lightness stepped around
-// the tier base. Same-package circles share an exact shade, so they read as one
-// group instead of the recycled-palette confetti a 21-package workspace produces.
+// the tier base. Same-package circles within a tier share an exact shade, so they
+// read as one group instead of the recycled-palette confetti a 21-package
+// workspace produces; a package spanning tiers gets one shade per tier.
 function circlePackageColors(circleFacts, tierOverrides) {
-  const pkgTier = new Map();
-  for (const fact of Object.values(circleFacts)) {
-    if (pkgTier.has(fact.packageName)) continue;
-    const declared = tierOverrides[fact.packageName] ?? fact.tier;
-    pkgTier.set(fact.packageName, Object.hasOwn(TIERS, declared) ? declared : FALLBACK_TIER);
+  const groups = new Map();
+  for (const [id, fact] of Object.entries(circleFacts)) {
+    const declared = declaredCircleTier(id, fact, tierOverrides);
+    const tier = Object.hasOwn(TIERS, declared) ? declared : FALLBACK_TIER;
+    groups.set(`${fact.packageName}\0${tier}`, { packageName: fact.packageName, tier });
   }
   const byTier = new Map();
-  for (const [pkg, tier] of [...pkgTier.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const { packageName, tier } of groups.values()) {
     if (!byTier.has(tier)) byTier.set(tier, []);
-    byTier.get(tier).push(pkg);
+    byTier.get(tier).push(packageName);
   }
   const colors = {};
   for (const [tier, pkgs] of byTier) {
+    pkgs.sort((a, b) => a.localeCompare(b));
     pkgs.forEach((pkg, i) => {
       const t = pkgs.length === 1 ? 0 : i / (pkgs.length - 1) - 0.5;
-      colors[pkg] = { fill: shiftColor(TIERS[tier].fill, t), stroke: shiftColor(TIERS[tier].stroke, t) };
+      colors[`${pkg}\0${tier}`] = { fill: shiftColor(TIERS[tier].fill, t), stroke: shiftColor(TIERS[tier].stroke, t) };
     });
   }
   return colors;

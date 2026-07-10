@@ -137,6 +137,9 @@ for (const f of files) {
   } else if (!TIER_SET.has(tier)) {
     manifestErrors.push(`${d.name} (${f}) has unknown ns.tier ${JSON.stringify(tier)}; known tiers: ${PACKAGE_TIER_IDS.join(", ")}`);
   }
+  if (d.ns?.subpackageTiers !== undefined) {
+    manifestErrors.push(`${d.name} (${f}) declares ns.subpackageTiers, but packages are single-tier: every declared subpackage shares ns.tier (ADR 0032)`);
+  }
   const deps = {};
   for (const k of ["dependencies", "peerDependencies", "devDependencies"]) {
     for (const dep of Object.keys(d[k] || {})) {

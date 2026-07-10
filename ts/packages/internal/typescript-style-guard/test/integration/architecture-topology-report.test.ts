@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -39,6 +39,27 @@ describe("architecture topology report scripts", () => {
 		expect(Object.keys(graph.packages)).toEqual(["@fixture/a"]);
 	});
 
+	it("keeps every subpackage circle at the owning package tier", () => {
+		const root = writeSubpackageFixture();
+
+		const stdout = execFileSync("node", [extractGraphScript, "--root", root], {
+			encoding: "utf8",
+		});
+		const graph = JSON.parse(stdout) as { topologyCircles: Record<string, { tier: string }> };
+		expect(graph.topologyCircles["@fixture/a"]?.tier).toBe("neutral-infra");
+		expect(graph.topologyCircles["@fixture/a/admission"]?.tier).toBe("neutral-infra");
+	});
+
+	it("hard-fails on any ns.subpackageTiers declaration, even a well-formed one", () => {
+		const root = writeSubpackageFixture({ admission: "capability" });
+
+		const result = spawnSync("node", [extractGraphScript, "--root", root], {
+			encoding: "utf8",
+		});
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain("declares ns.subpackageTiers, but packages are single-tier");
+	});
+
 	it(
 		"runs the `just topology` pipeline end to end against the repository",
 		{ timeout: 120_000 },
@@ -55,3 +76,26 @@ describe("architecture topology report scripts", () => {
 		},
 	);
 });
+
+function writeSubpackageFixture(subpackageTiers?: Readonly<Record<string, string>>): string {
+	const root = mkdtempSync(join(tmpdir(), "topology-extract-"));
+	const packageDir = join(root, "a");
+	mkdirSync(join(packageDir, "src", "admission"), { recursive: true });
+	writeFileSync(
+		join(packageDir, "package.json"),
+		JSON.stringify({
+			name: "@fixture/a",
+			ns: {
+				tier: "neutral-infra",
+				subpackages: ["admission"],
+				...(subpackageTiers === undefined ? {} : { subpackageTiers }),
+			},
+		}),
+	);
+	writeFileSync(join(packageDir, "src", "root.ts"), "export const root = true;\n");
+	writeFileSync(
+		join(packageDir, "src", "admission", "index.ts"),
+		"export const admission = true;\n",
+	);
+	return root;
+}
