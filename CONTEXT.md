@@ -134,6 +134,30 @@ The user-facing CLI noun for `ns skills ...`, the current steelthread surface ov
 Per-invocation-kind harness integration files reconciled by areg, such as frontmatter flags, Codex sidecars, Pi settings exclusions, and mirror symlinks. Harness overlays are the seam where repo-owned invocation policy layers onto first-party or externally sourced skill content.
 *Avoid*: managed artifacts, kind overlays
 
+**Commit Run**:
+A linear, merge-free commit sequence on one feature branch off trunk — the branch is the run, `trunk..tip`, with no run identity beyond it. Packageable when its tip validates and its commit messages narrate intent well enough for **Packaging** to judge slice boundaries; there are no structured decision markers — narrative prose is the signal.
+*Avoid*: run registry, run manifest, decision trailer, marked commit
+
+**Packaging**:
+The LM-driven operation (colloquially *smush*, the skill's name) that partitions an existing stack's commits into **Decision PRs** and **Span PRs**. It operates on any stack after creation — a contract-conforming **Commit Run** is best-case input, accreted or feedback-laden stacks are valid degraded input, pre-existing PRs are folded via `gt fold` — and repackaging is the same operation re-run. Packaging slices and submits with full authority; the human ratifies the **Slice Map** asynchronously. Deterministic sub-operations push down to CLI; the slicing judgment stays prose.
+*Avoid*: accretion, automatic pipeline stage, deterministic slicer, land-time step
+
+**Decision PR**:
+A packaged PR encoding one high-impact choice plus the commits needed to judge it in isolation; always requests careful human review; labeled `decision` with packaging's rationale in the body.
+*Avoid*: big PR, important-looking PR, unlabeled review request
+
+**Span PR**:
+A packaged PR holding a maximal stretch of consequence-executing commits between decisions; agent review stands in by default — deliberately and visibly, labeled `span` with rationale; interior commits persist until an explicit **Span Squash**.
+*Avoid*: filler PR, silently-unreviewed PR, auto-squashed PR
+
+**Slice Map**:
+Packaging's proposed partition of a stack — cut points, decision/span classification, and per-cut rationale — the artifact the human ratifies asynchronously after the stack exists, by reshaping on disagreement.
+*Avoid*: PR plan file, hidden packaging state, approval gate
+
+**Span Squash**:
+The explicit command that collapses a **Span PR**'s interior commits into one, invoked after the stack exists — never implicit in packaging or land.
+*Avoid*: auto-squash, packaging-time squash, land-time squash
+
 ## Architecture Boundaries
 
 These terms are general across the codebase. The canonical definitions are replicated here for discoverability; the `typescript-fake-driven-testing` skill carries the fuller mechanics.
