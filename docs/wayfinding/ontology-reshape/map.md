@@ -44,6 +44,13 @@ specs, not landed changes.
 
 ## Decisions so far
 
+- [Drift audit of existing context files](#drift-audit-of-existing-context-files):
+  7 of 13 context files are drift-free; drift concentrates in `CONTEXT-MAP.md`
+  (inventory undercount, phantom `flow-pi`), ccc (retired stack-impl surface,
+  worktree-status ownership now in hosts/pi), kernel + capability-kit/graphite
+  (retired `@ns/` scope throughout), objectives, branch-context, and pi. Full report:
+  [drift-audit.md](./drift-audit.md).
+
 ## Not yet specified
 
 - **Documentation phase** — the post-reshape doc work: per-package context decisions
@@ -79,13 +86,29 @@ specs, not landed changes.
 ### Drift audit of existing context files
 
 - type: research
-- status: open
+- status: closed
 
 **Question:** For each of the 13 present context files (root `CONTEXT.md` + 12 package
 `CONTEXT.md`) and `CONTEXT-MAP.md` itself, which claims no longer match checked-in
 source? Verify inventory counts, package names/paths, term definitions, relationship
 edges, and `Avoid` lists against the workspace. Produce a per-file drift report
 (verified / stale / wrong, each with source evidence) as a linked asset in this folder.
+
+**Resolution:** Per-file report with source evidence at
+[drift-audit.md](./drift-audit.md), audited against a verified baseline of 29 tracked
+packages and 13 context files. Clean: root `CONTEXT.md`, flow, handoffs, plans,
+reviews, slots, brmem. Drifted: `CONTEXT-MAP.md` (4 wrong — 26→29 package count,
+"thirteen package context files"→twelve, missing `@internal/ns-dev` exception, phantom
+`@nseng-ai/flow-pi`); ccc (retired `/ns:objective:stack-impl` term and citation, wrong
+subpackage list, worktree-status/Graphite-status ownership actually in hosts/pi);
+kernel and capability-kit/graphite (retired `@ns/` scope throughout — decision-free
+fix); objectives (nonexistent `command-face` export, undercounted exec roster, EDGES
+column position); branch-context (Presentation Boundary — the capability's own `pi`
+subpackage now owns command names and registration); hosts/pi (export-map family
+enumeration omits `worktree-status`, `worktree-status/extension`, `skills/lookup`).
+The worktree-status ownership contradiction feeds the CCC reexamination; the
+reviews tier-vs-"Capability" wording note feeds the review/feedback residue
+reexamination.
 
 ### Vocabulary sweep: capabilities
 
