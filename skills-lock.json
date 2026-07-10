@@ -96,6 +96,11 @@
       "sourceType": "local",
       "computedHash": "85feaff839e3eb38bda634d58e1cbbb1ae5f5d451f3f72eb8bfeeda13e3cecb9"
     },
+    "code-smush": {
+      "source": "skills/code-smush",
+      "sourceType": "local",
+      "computedHash": "d4151a8305982895c4dca58f7cdbc1b04b2681f3683990116626a23796568de2"
+    },
     "code-thermostack": {
       "source": "skills/code-thermostack",
       "sourceType": "local",

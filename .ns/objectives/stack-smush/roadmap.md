@@ -118,10 +118,21 @@ session on 2026-07-10 (see
       evidence-gated graduations; reshaping flows back only as a prose re-invocation
       of smush (repackaging re-run), never hand-edited state. The final surface
       choice stays with the user.
-- [ ] **Smush skill authoring** (task) — Now unblocked. Author the opt-in,
-      experimental, local-only LM-driven packaging skill per the resolved mechanics,
-      using surveyed raw git/Graphite commands and existing `ns slot gt exec`
-      read-side verification. Zero new CLI push-downs in this row.
+- [x] **Smush skill authoring** (task) — Author the opt-in, experimental,
+      local-only LM-driven packaging skill per the resolved mechanics, using
+      surveyed raw git/Graphite commands and existing `ns slot gt exec` read-side
+      verification. Zero new CLI push-downs in this row. Resolved (2026-07-10,
+      autonomous runner step): first-party skill at
+      [`skills/code-smush/SKILL.md`](../../../skills/code-smush/SKILL.md)
+      (invocation kind `invoke-only`) — propose-first Slice Map readback, backup
+      refs, metadata-only slicing (`git branch` + `gt track --parent`), per-boundary
+      `just` validation in temporary worktrees with move-cut/fix-forward remedies,
+      explicit Span Squash preserving decision why-paragraphs, repackaging via
+      `gt fold --stack --keep` (never `--close`) with loud orphaned-PR reporting,
+      and feedback absorption via `gt absorb` / `gt modify --into`. Picks the
+      mechanically parseable branch-name grammar `<run>--<NN><c>-<slug>`
+      (`c` ∈ {`d`,`s`}, index from trunk) that the slice-map ratification proposal
+      required of this row.
 
 ## Parked
 
