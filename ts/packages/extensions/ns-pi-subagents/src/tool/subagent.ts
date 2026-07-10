@@ -215,9 +215,36 @@ async function executeSubagent(
 				},
 			},
 		);
-		return formatResult({ descriptor, execution: runtime.kind, tasks: input.tasks, results });
+		const result = formatResult({
+			descriptor,
+			execution: runtime.kind,
+			tasks: input.tasks,
+			results,
+		});
+		if (result.details !== undefined)
+			notifyAbnormalCompletion(ctx, descriptor.name, result.details);
+		return result;
 	} finally {
 		scope.dispose();
+	}
+}
+
+function notifyAbnormalCompletion(
+	ctx: ToolContext,
+	agent: string,
+	details: SubagentToolDetails,
+): void {
+	if (details.status === "configuration-error") return;
+	if (!ctx.hasUI) return;
+	const unfinished = details.tasks.filter((task) => task.status !== "final-text").length;
+	if (unfinished === 0) return;
+	try {
+		ctx.ui.notify(
+			`subagent: ${unfinished}/${details.tasks.length} ${agent} task(s) did not complete`,
+			"warning",
+		);
+	} catch {
+		// Notifications are display-only and must not affect subagent results.
 	}
 }
 
@@ -320,36 +347,48 @@ function formatResult(options: FormatResultOptions): ToolResult<SubagentToolDeta
 		descriptor.maxTaskFinalTextChars,
 		Math.floor((descriptor.maxFleetFinalTextChars ?? Number.MAX_SAFE_INTEGER) / tasks.length),
 	);
-	const details: SubagentTaskDetail[] = tasks.map((task, index) => {
+	const entries = tasks.map((task, index) => {
 		const result = results[index];
 		if (result === undefined) {
 			throw new Error(`Subagent batch omitted positional result ${index}.`);
 		}
 		const originalFinalText = result.status === "final-text" ? result.finalText : undefined;
 		const finalText = originalFinalText?.slice(0, finalTextCap);
-		return {
+		const finalTextTruncated =
+			finalText !== undefined &&
+			originalFinalText !== undefined &&
+			finalText.length < originalFinalText.length;
+		const detail: SubagentTaskDetail = {
 			agent,
 			execution,
 			title: task.title,
 			status: result.status,
 			...optionalEntry("sessionFile", runnerSubagentSessionFile(result)),
 			...optionalEntry("diagnostic", resultDiagnostic(result)),
-			...(finalText === undefined || originalFinalText === undefined
-				? {}
-				: { finalText, finalTextTruncated: finalText.length < originalFinalText.length }),
+			...(finalText === undefined ? {} : { finalText }),
+			...(finalTextTruncated ? { finalTextTruncated } : {}),
 		};
+		return { detail, originalFinalTextChars: originalFinalText?.length };
 	});
+	const details = entries.map((entry) => entry.detail);
 	const lines = [
 		`subagent result: ${details.filter((detail) => detail.status === "final-text").length}/${tasks.length} completed`,
 	];
-	for (const detail of details) {
+	for (const { detail, originalFinalTextChars } of entries) {
 		lines.push(
 			"",
 			`### ${detail.title} — ${detail.status}`,
 			`Agent: ${agent}; execution: ${execution}`,
 		);
 		if (detail.sessionFile !== undefined) lines.push(`Session: ${detail.sessionFile}`);
-		if (detail.finalText !== undefined) lines.push("", detail.finalText);
+		if (detail.finalText !== undefined) {
+			lines.push("", detail.finalText);
+			if (detail.finalTextTruncated === true && originalFinalTextChars !== undefined) {
+				lines.push(
+					`[Final text truncated to ${detail.finalText.length} of ${originalFinalTextChars} chars]`,
+				);
+			}
+		}
 		if (detail.diagnostic !== undefined) lines.push(`Diagnostic: ${detail.diagnostic}`);
 	}
 	return {
@@ -391,6 +430,9 @@ function createAbortScope(
 		dispose() {
 			timer?.cancel();
 			parent?.removeEventListener("abort", abort);
+			// The scope signal is handed to child runtimes; abort it so no child
+			// dispatch can outlive the tool call that spawned it.
+			if (!controller.signal.aborted) controller.abort("subagent call ended");
 		},
 	};
 }

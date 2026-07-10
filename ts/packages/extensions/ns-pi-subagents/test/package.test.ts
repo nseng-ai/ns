@@ -16,7 +16,8 @@ import {
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
-import type { ToolContext, ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
+import type { NotifyLevel, ToolContext, ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
+import { makeErrorResult, makeFinalTextResult } from "./helpers/fleet-testing.ts";
 import { READ_ONLY_SUBAGENT_TOOLS } from "../src/runner-subagents/read-only-tools.ts";
 import {
 	createFunctionSubagentRuntime,
@@ -87,12 +88,14 @@ function loader(name: string): PiAgentDefinition {
 	throw new Error(`unknown ${name}`);
 }
 
-function toolContext(): ToolContext {
+function toolContext(
+	options: { notify?: (message: string, level?: NotifyLevel) => void } = {},
+): ToolContext {
 	return {
 		cwd: "/repo",
 		mode: "tui",
-		hasUI: false,
-		ui: { notify: () => {} },
+		hasUI: options.notify !== undefined,
+		ui: { notify: options.notify ?? (() => {}) },
 		model: { provider: "anthropic", id: "claude-sonnet-4-5" },
 	};
 }
@@ -470,6 +473,148 @@ describe("ns-pi-subagents package", () => {
 		expect(fleetTasks.map((task) => [task.index, task.finalStatus])).toEqual(
 			tasks.map((_, index) => [index, "cancelled"]),
 		);
+	});
+
+	test("converts a thrown runtime dispatch into an error result without orphaning siblings", async () => {
+		const pi = new FakePi();
+		const runtime = createFunctionSubagentRuntime(async (input) => {
+			if (input.options.title === "boom") throw new Error("dispatch exploded");
+			return makeFinalTextResult("sibling done");
+		});
+		packageExtension(pi, {
+			cwd: "/repo",
+			loadAgentDefinition: loader,
+			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
+		});
+
+		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
+			"call",
+			{
+				agent: "explorer",
+				tasks: [
+					{ title: "boom", prompt: "throw" },
+					{ title: "steady", prompt: "succeed" },
+				],
+				model: "anthropic/claude-haiku-4-5",
+			},
+			undefined,
+			undefined,
+			toolContext(),
+		);
+
+		expect(result?.details).toMatchObject({
+			status: "partial",
+			tasks: [
+				{ title: "boom", status: "error", diagnostic: "dispatch exploded" },
+				{ title: "steady", status: "final-text", finalText: "sibling done" },
+			],
+		});
+		const fleetTasks = getOrCreateSubagentFleetRegistry(pi)
+			.snapshot()
+			.flatMap((run) => run.tasks);
+		expect(fleetTasks.map((task) => [task.index, task.state, task.finalStatus])).toEqual([
+			[0, "done", "error"],
+			[1, "done", "final-text"],
+		]);
+	});
+
+	test("aborts the shared dispatch signal once the tool call resolves", async () => {
+		const pi = new FakePi();
+		const signals: AbortSignal[] = [];
+		const runtime = createFunctionSubagentRuntime(async (input) => {
+			if (input.options.signal !== undefined) signals.push(input.options.signal);
+			return makeFinalTextResult("done");
+		});
+		packageExtension(pi, {
+			cwd: "/repo",
+			loadAgentDefinition: loader,
+			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
+		});
+
+		const result = await pi.tools
+			.get(SUBAGENT_TOOL_NAME)
+			?.execute(
+				"call",
+				{ agent: "task", tasks: [{ title: "Focused", prompt: "Inspect." }] },
+				undefined,
+				undefined,
+				toolContext(),
+			);
+
+		expect(result?.details).toMatchObject({ status: "completed" });
+		expect(signals).toHaveLength(1);
+		expect(signals[0]?.aborted).toBe(true);
+		expect(signals[0]?.reason).toBe("subagent call ended");
+	});
+
+	test("notifies the host UI once when a batch ends abnormally", async () => {
+		const pi = new FakePi();
+		const runtime = createFunctionSubagentRuntime(async (input) => {
+			if (input.options.title === "two") return makeErrorResult("launch failure");
+			return makeFinalTextResult("done");
+		});
+		packageExtension(pi, {
+			cwd: "/repo",
+			loadAgentDefinition: loader,
+			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
+		});
+		const notifications: Array<[string, NotifyLevel | undefined]> = [];
+
+		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
+			"call",
+			{
+				agent: "explorer",
+				tasks: [
+					{ title: "one", prompt: "one" },
+					{ title: "two", prompt: "two" },
+				],
+				model: "anthropic/claude-haiku-4-5",
+			},
+			undefined,
+			undefined,
+			toolContext({ notify: (message, level) => notifications.push([message, level]) }),
+		);
+
+		expect(result?.details).toMatchObject({ status: "partial" });
+		expect(notifications).toEqual([["subagent: 1/2 explorer task(s) did not complete", "warning"]]);
+	});
+
+	test("does not notify on full success or configuration errors", async () => {
+		const pi = new FakePi();
+		const runtime = createFunctionSubagentRuntime(async () => makeFinalTextResult("done"));
+		packageExtension(pi, {
+			cwd: "/repo",
+			loadAgentDefinition: loader,
+			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
+		});
+		const notifications: string[] = [];
+		const ctx = toolContext({ notify: (message) => notifications.push(message) });
+		const tool = pi.tools.get(SUBAGENT_TOOL_NAME);
+
+		const success = await tool?.execute(
+			"call",
+			{ agent: "task", tasks: [{ title: "Focused", prompt: "Inspect." }] },
+			undefined,
+			undefined,
+			ctx,
+		);
+		expect(success?.details).toMatchObject({ status: "completed" });
+
+		const configurationError = await tool?.execute(
+			"call",
+			{
+				agent: "task",
+				tasks: [
+					{ title: "one", prompt: "one" },
+					{ title: "two", prompt: "two" },
+				],
+			},
+			undefined,
+			undefined,
+			ctx,
+		);
+		expect(configurationError?.details).toMatchObject({ status: "configuration-error" });
+		expect(notifications).toEqual([]);
 	});
 
 	test("assembles healthy agent doctrine deterministically", () => {
