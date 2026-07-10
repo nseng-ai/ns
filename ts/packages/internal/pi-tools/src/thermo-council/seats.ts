@@ -24,19 +24,19 @@ const THERMO_COUNCIL_MAX_CONCURRENCY_ENV = "THERMO_COUNCIL_MAX_CONCURRENCY";
 const DEFAULT_SEATS = [
 	{
 		id: "anthropic-fable",
-		label: "Anthropic Fable",
+		label: "Fable",
 		model: "anthropic/claude-fable-5",
 		envVar: "THERMO_COUNCIL_ANTHROPIC_MODEL",
 	},
 	{
 		id: "openai-high",
-		label: "OpenAI High",
+		label: "Sol",
 		model: "openai-codex/gpt-5.6-sol",
 		envVar: "THERMO_COUNCIL_OPENAI_MODEL",
 	},
 	{
 		id: "gemini-high",
-		label: "Gemini High",
+		label: "Gemini",
 		model: "google/gemini-2.5-pro",
 		envVar: "THERMO_COUNCIL_GEMINI_MODEL",
 	},

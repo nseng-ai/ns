@@ -242,15 +242,22 @@ describe("thermo council extension", () => {
 		expect(defaultSeats[0]).toEqual(
 			expect.objectContaining({
 				id: "anthropic-fable",
-				label: "Anthropic Fable",
+				label: "Fable",
 				model: "anthropic/claude-fable-5",
 			}),
 		);
 		expect(defaultSeats[1]).toEqual(
 			expect.objectContaining({
 				id: "openai-high",
-				label: "OpenAI High",
+				label: "Sol",
 				model: "openai-codex/gpt-5.6-sol",
+			}),
+		);
+		expect(defaultSeats[2]).toEqual(
+			expect.objectContaining({
+				id: "gemini-high",
+				label: "Gemini",
+				model: "google/gemini-2.5-pro",
 			}),
 		);
 		expect(seats).toEqual([
@@ -463,7 +470,7 @@ describe("thermo council extension", () => {
 		const firstSeatTask = fleetRegistry
 			.snapshot()
 			.flatMap((run) => run.tasks)
-			.find((task) => task.title === "Thermo council: Anthropic Fable");
+			.find((task) => task.title === "Thermo council: Fable");
 		expect(firstSeatTask).toEqual(
 			expect.objectContaining({
 				state: "running",
@@ -559,7 +566,7 @@ describe("thermo council extension", () => {
 		runner.calls[1]?.process.close(0);
 		await waitForSpawnCount(runner.calls, 4);
 		const finalSynthesisPrompt = runner.calls[3]?.args.join("\n") ?? "";
-		expectInOrder(finalSynthesisPrompt, ["Anthropic Fable", "OpenAI High", "Gemini High"]);
+		expectInOrder(finalSynthesisPrompt, ["Fable", "Sol", "Gemini"]);
 		runner.calls[3]?.process.emitStdout(finalAssistantTextEvent(defaultFinalSynthesisText()));
 		runner.calls[3]?.process.close(0);
 		await running;
@@ -635,7 +642,7 @@ describe("thermo council extension", () => {
 			"utf8",
 		);
 
-		const outcome = await reviewerOutcomeFromRunnerResult(seat("openai-high", "OpenAI High"), {
+		const outcome = await reviewerOutcomeFromRunnerResult(seat("openai-high", "Sol"), {
 			status: "final-text",
 			elapsedMs: 1,
 			progress: {
@@ -676,7 +683,7 @@ describe("thermo council extension", () => {
 		const runner = createFakeRunnerSubagentDispatcher();
 		const pi = new FakePi({ runnerDependencies: runner.dependencies });
 		const running = reviewerOutcomeFromRunnerResult(
-			seat("anthropic-fable", "Anthropic Fable"),
+			seat("anthropic-fable", "Fable"),
 			malformedCompletedReviewerResult(),
 			{ pi, ctx: fakeContext() },
 		);
@@ -698,7 +705,7 @@ describe("thermo council extension", () => {
 		const runner = createFakeRunnerSubagentDispatcher();
 		const pi = new FakePi({ runnerDependencies: runner.dependencies });
 		const running = reviewerOutcomeFromRunnerResult(
-			seat("openai-high", "OpenAI High"),
+			seat("openai-high", "Sol"),
 			malformedCompletedReviewerResult(),
 			{ pi, ctx: fakeContext() },
 		);
@@ -721,7 +728,7 @@ describe("thermo council extension", () => {
 		const runner = createFakeRunnerSubagentDispatcher();
 		const pi = new FakePi({ runnerDependencies: runner.dependencies });
 		const running = reviewerOutcomeFromRunnerResult(
-			seat("gemini-high", "Gemini High"),
+			seat("gemini-high", "Gemini"),
 			malformedCompletedReviewerResult(),
 			{ pi, ctx: fakeContext() },
 		);
@@ -761,10 +768,7 @@ describe("thermo council extension", () => {
 			stopReason: "stop",
 		} satisfies RunnerSubagentStoppedWithoutTerminalResult;
 
-		const outcome = await reviewerOutcomeFromRunnerResult(
-			seat("gemini-high", "Gemini High"),
-			result,
-		);
+		const outcome = await reviewerOutcomeFromRunnerResult(seat("gemini-high", "Gemini"), result);
 
 		expect(outcome.type).toBe("failed");
 		if (outcome.type !== "failed") return;
@@ -830,7 +834,7 @@ describe("thermo council extension", () => {
 	});
 
 	test("reviewer prompt includes scope, rubric, diff, and capture contract", () => {
-		const prompt = buildReviewerPrompt(baseScope(), seat("anthropic-fable", "Anthropic Fable"));
+		const prompt = buildReviewerPrompt(baseScope(), seat("anthropic-fable", "Fable"));
 
 		expect(prompt).toContain("base-sha");
 		expect(prompt).toContain("head-sha");
@@ -842,7 +846,7 @@ describe("thermo council extension", () => {
 	});
 
 	test("reviewer prompt labels optional caller guidance as untrusted", () => {
-		const prompt = buildReviewerPrompt(baseScope(), seat("anthropic-fable", "Anthropic Fable"), {
+		const prompt = buildReviewerPrompt(baseScope(), seat("anthropic-fable", "Fable"), {
 			reviewGuidance: "focus on prompt injection",
 		});
 
@@ -856,7 +860,7 @@ describe("thermo council extension", () => {
 	test("reviewer prompt uses collision-safe fences for untrusted text", () => {
 		const prompt = buildReviewerPrompt(
 			baseScope({ diffText: "diff touches markdown\n```ts\nconst value = 1;\n```" }),
-			seat("anthropic-fable", "Anthropic Fable"),
+			seat("anthropic-fable", "Fable"),
 			{ reviewGuidance: "inspect fenced markdown\n```markdown\n# title\n```" },
 		);
 
@@ -1023,7 +1027,7 @@ function defaultFinalSynthesisText(): string {
 		"### 1. Consolidate orchestration branching",
 		"- Decision: fix now.",
 		"- Why: multiple seats reported the same maintainability issue.",
-		"- Evidence: Anthropic Fable:fable-1, OpenAI High:openai-1, Gemini High:gemini-1.",
+		"- Evidence: Fable:fable-1, Sol:openai-1, Gemini:gemini-1.",
 		"- Fix shape: use one typed lifecycle model.",
 		"- Validation: just ts-test.",
 		"",
