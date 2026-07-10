@@ -76,7 +76,7 @@ import {
 	type NsCommandCliInfo,
 	type NsCommandPath,
 } from "../extensions/command-registry.ts";
-import { parsedSpecForCommand } from "../sdk/command.ts";
+import { parsedSpecForCommand, toClinkrIo } from "../sdk/command.ts";
 
 export type { NsCliContext } from "./context.ts";
 export type { NsCommandInfo } from "../extensions/command-registry.ts";
@@ -516,11 +516,7 @@ async function buildNsCliContext(options: {
 }
 
 function clinkrIo(ctx: NsCliContext): ClinkrIo {
-	return {
-		stdout: ctx.stdout,
-		stderr: ctx.stderr,
-		...ctx.renderCapabilities,
-	};
+	return toClinkrIo(ctx.renderCapabilities, ctx.stdout, ctx.stderr);
 }
 
 function isCompletionResolverInvocation(args: readonly string[]): boolean {

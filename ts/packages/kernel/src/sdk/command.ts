@@ -5,10 +5,10 @@ import {
 	type ClinkrCompletionCandidate,
 	type ClinkrCompletionResult,
 	type ClinkrDynamicCompletionRequest,
+	type ClinkrIo,
 	type OptionSpec,
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
-import type { ClinkrIo } from "@nseng-ai/clinkr";
 import type { PositionalSpec } from "@nseng-ai/clinkr/raw";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
@@ -308,12 +308,20 @@ function withRenderOverrides<T>(
 	};
 }
 
+export function toClinkrIo(
+	renderCapabilities: RenderCapabilities,
+	stdout: ClinkrIo["stdout"],
+	stderr: ClinkrIo["stderr"],
+): ClinkrIo {
+	return { stdout, stderr, ...renderCapabilities };
+}
+
 function captureIo(ctx: NsExtensionApi, stdout: string[], stderr: string[]): ClinkrIo {
-	return {
-		stdout: (text) => stdout.push(text),
-		stderr: (text) => stderr.push(text),
-		...ctx.renderCapabilities,
-	};
+	return toClinkrIo(
+		ctx.renderCapabilities,
+		(text) => stdout.push(text),
+		(text) => stderr.push(text),
+	);
 }
 
 function isJsonSchemaInvocation(argv: readonly string[]): boolean {
