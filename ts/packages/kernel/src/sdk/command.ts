@@ -10,7 +10,7 @@ import {
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
 import type { PositionalSpec } from "@nseng-ai/clinkr/raw";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import type { ExtensionDescriptor } from "./descriptor.ts";
@@ -313,7 +313,12 @@ export function toClinkrIo(
 	stdout: ClinkrIo["stdout"],
 	stderr: ClinkrIo["stderr"],
 ): ClinkrIo {
-	return { stdout, stderr, ...renderCapabilities };
+	return {
+		stdout,
+		stderr,
+		canEmitAnsi: renderCapabilities.canEmitAnsi,
+		...optionalEntry("caps", renderCapabilities.caps),
+	};
 }
 
 function captureIo(ctx: NsExtensionApi, stdout: string[], stderr: string[]): ClinkrIo {
