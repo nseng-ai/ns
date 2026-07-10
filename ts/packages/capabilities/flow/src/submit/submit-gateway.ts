@@ -9,11 +9,14 @@ import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 
-import { detectGitConflictOutput } from "./git-operation-output.ts";
+import {
+	detectGitConflictOutput,
+	isNoCurrentPrProse,
+	isRestackNeededProse,
+} from "./cli-prose-heuristics.ts";
 import { buildStackUpdateArgs, buildSubmitArgs } from "./submit-command-spec.ts";
 import {
 	detectKnownPreflightFailureCause,
-	detectRestackNeeded,
 	detectSubmitSemanticFailureCause,
 	isUsableOutput,
 	joinOutput,
@@ -86,7 +89,7 @@ export class RealSubmitGateway implements SubmitGateway {
 		if (isSuccessfulOutput(output)) {
 			return { kind: "ready", output };
 		}
-		if (isUsableOutput(output) && detectRestackNeeded(joinedOutput)) {
+		if (isUsableOutput(output) && isRestackNeededProse(joinedOutput)) {
 			return { kind: "restack_required", output };
 		}
 		return { kind: "failed", output };
@@ -139,7 +142,7 @@ export class RealSubmitGateway implements SubmitGateway {
 			return { kind: "failed", output, cause: "timeout" };
 		}
 		if (output.exitCode !== 0) {
-			if (/No PR found/i.test(stripTerminalEscapes(joinOutput(output)))) {
+			if (isNoCurrentPrProse(joinOutput(output))) {
 				return { kind: "no_current_pr", output, cause: "no_current_pr" };
 			}
 			return { kind: "failed", output, cause: "command_failed" };

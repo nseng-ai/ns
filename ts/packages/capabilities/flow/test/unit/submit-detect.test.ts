@@ -1,11 +1,13 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	detectRestackNeeded,
-	detectSubmitSemanticFailureCause,
-	parseAheadBehindCounts,
+	isRestackNeededProse,
 	parseSubmitEmptyBranchWarningBranchName,
 	parseSubmitValidationBranchName,
+} from "../../src/submit/cli-prose-heuristics.ts";
+import {
+	detectSubmitSemanticFailureCause,
+	parseAheadBehindCounts,
 } from "../../src/submit/submit-detect.ts";
 
 describe("submit detection", () => {
@@ -53,8 +55,8 @@ describe("submit detection", () => {
 	});
 
 	test("requires restack language plus submit-required language", () => {
-		expect(detectRestackNeeded("The branch was restacked successfully.")).toBe(false);
-		expect(detectRestackNeeded("Graphite says this stack must be restacked before submit.")).toBe(
+		expect(isRestackNeededProse("The branch was restacked successfully.")).toBe(false);
+		expect(isRestackNeededProse("Graphite says this stack must be restacked before submit.")).toBe(
 			true,
 		);
 	});
