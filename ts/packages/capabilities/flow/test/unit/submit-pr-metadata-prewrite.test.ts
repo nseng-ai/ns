@@ -5,13 +5,15 @@ import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/
 import { ScriptedCommandRunner, exitedResult, step } from "@nseng-ai/foundation/exec/testing";
 import { formatActiveOperation, type ActiveOperation } from "@nseng-ai/kernel/sdk";
 import {
+	buildSubmitPlan,
 	ok,
 	parseCommitMessages,
 	parseGtLogStack,
 	parseParentBranch,
-	prepareSubmitPrMetadata,
+	prewriteSubmitMetadata,
 	RealSubmitMetadataGateway,
 	type SubmitMetadataGateway,
+	type SubmitPlan,
 	type TextGenerator,
 } from "../../src/submit/index.ts";
 
@@ -55,6 +57,14 @@ function tracingTextGenerator(
 	};
 }
 
+async function planFromGateway(gateway: SubmitMetadataGateway): Promise<SubmitPlan> {
+	const planned = await buildSubmitPlan({ cwd: "/repo", gateway });
+	if (planned.kind !== "planned") {
+		throw new Error(`expected a planned submit plan, got: ${planned.error}`);
+	}
+	return planned.plan;
+}
+
 function twoNewBranchesGateway(
 	trace: TraceRecorder,
 	options: { shouldAmendReject?: boolean } = {},
@@ -95,20 +105,21 @@ function twoNewBranchesGateway(
 	};
 }
 
-describe("prepareSubmitPrMetadata", () => {
+describe("prewriteSubmitMetadata", () => {
 	test("publishes each model and amendment operation only while its work is pending", async () => {
 		const trace = createTraceRecorder();
 		const scripted = new ScriptedTextGenerator([
 			{ ok: true, text: "Generated A\n\nGenerated body A" },
 			{ ok: true, text: "Generated B\n\nGenerated body B" },
 		]);
+		const gateway = twoNewBranchesGateway(trace);
 
-		const result = await prepareSubmitPrMetadata({
+		const result = await prewriteSubmitMetadata(await planFromGateway(gateway), {
 			cwd: "/repo",
 			env: MODEL_ENV,
 			git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 			textGenerator: tracingTextGenerator(trace, scripted),
-			gateway: twoNewBranchesGateway(trace),
+			gateway,
 			progress: traceListeners(trace),
 		});
 
@@ -151,14 +162,15 @@ describe("prepareSubmitPrMetadata", () => {
 				throw new Error("model transport failed");
 			},
 		};
+		const gateway = twoNewBranchesGateway(trace);
 
 		await expect(
-			prepareSubmitPrMetadata({
+			prewriteSubmitMetadata(await planFromGateway(gateway), {
 				cwd: "/repo",
 				env: MODEL_ENV,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				textGenerator: throwingGenerator,
-				gateway: twoNewBranchesGateway(trace),
+				gateway,
 				progress: traceListeners(trace),
 			}),
 		).rejects.toThrow("model transport failed");
@@ -174,14 +186,15 @@ describe("prepareSubmitPrMetadata", () => {
 			{ ok: true, text: "Generated A\n\nGenerated body A" },
 			{ ok: true, text: "Generated B\n\nGenerated body B" },
 		]);
+		const gateway = twoNewBranchesGateway(trace, { shouldAmendReject: true });
 
 		await expect(
-			prepareSubmitPrMetadata({
+			prewriteSubmitMetadata(await planFromGateway(gateway), {
 				cwd: "/repo",
 				env: MODEL_ENV,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				textGenerator: tracingTextGenerator(trace, scripted),
-				gateway: twoNewBranchesGateway(trace, { shouldAmendReject: true }),
+				gateway,
 				progress: traceListeners(trace),
 			}),
 		).rejects.toThrow("gt modify crashed");
@@ -226,7 +239,7 @@ describe("prepareSubmitPrMetadata", () => {
 			},
 		};
 
-		const result = await prepareSubmitPrMetadata({
+		const result = await prewriteSubmitMetadata(await planFromGateway(gateway), {
 			cwd: "/repo",
 			env: MODEL_ENV,
 			git: new InMemoryGitGateway({ repoRoot: "/repo" }),

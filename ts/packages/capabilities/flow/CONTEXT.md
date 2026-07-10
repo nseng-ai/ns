@@ -64,6 +64,10 @@ The internal Flow adapter that maps Flow's land-stack gateways and current stack
 The Flow ownership boundary for submit, PR description regeneration, Graphite submit orchestration, and related lifecycle policy; reusable Graphite facts and command mechanics remain below Flow in Graphite/gateway packages.
 *Avoid*: neutral Graphite domain, CCC submit owner, land-domain behavior
 
+**Submit Plan**:
+The typed, renderer-independent result of inspecting the Graphite submit scope after readiness and any required restack, containing stack branches, existing PR links, upstack status, and the partition of branches eligible or ineligible for metadata prewrite.
+*Avoid*: stale pre-checkpoint topology, command transcript, metadata generation result, submit execution result
+
 **Flow Autobranch Boundary**:
 The Flow ownership boundary for public `ns flow autobranch` behavior and the compatibility path consumed by CCC through **Flow Capability API**.
 *Avoid*: CCC public command owner, plain branch helper, Graphite primitive

@@ -103,18 +103,26 @@ export {
 	parseCommitMessages,
 	parseGtLogStack,
 	parseParentBranch,
-	prepareSubmitPrMetadata,
+	prewriteSubmitMetadata,
 	type ParsedGtLogStack,
 	type SubmitBranchMetadataProgressEvent,
 	type SubmitBranchMetadataProgressListener,
 	type SubmitMetadataCommandParams,
 	type SubmitMetadataGateway,
-	type SubmitPrMetadataPrewriteResult,
+	type SubmitMetadataPrewriteDependencies,
+	type SubmitMetadataPrewriteResult,
 	type SubmitStackBranch,
 	type SubmitStackExistingBranch,
 	type SubmitStackInspection,
 	type SubmitStackNewBranch,
 } from "./submit-pr-metadata-prewrite.ts";
+export {
+	buildSubmitPlan,
+	planMetadataPrewrite,
+	type BuildSubmitPlanResult,
+	type SubmitPlan,
+} from "./submit-plan.ts";
+export { mergePrLinks, partitionPrLinksByExisting } from "./submit-pr-link.ts";
 export { extractPrLinks, prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 export {
 	createSubmitMatrixProgressController,
