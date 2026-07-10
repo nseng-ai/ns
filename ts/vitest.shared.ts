@@ -10,6 +10,7 @@ export function testGlobsFor(subdir?: string): readonly [string, string, string]
 
 export const SPECIALIZED_TEST_GLOBS_BY_CATEGORY = {
 	integration: testGlobsFor("integration"),
+	isolated: testGlobsFor("isolated"),
 	"typescript-style-guard": testGlobsFor("typescript-style-guard"),
 } as const;
 
@@ -26,7 +27,12 @@ export function allSpecializedTestGlobs(): ReadonlyArray<string> {
 export const sharedTestConfig = {
 	environment: "node" as const,
 	fileParallelism: true,
+	// Shared-cache lanes must avoid guarded module and process-global operations.
+	// Tests whose subject requires those operations belong under test/isolated/.
 	isolate: false,
 	maxWorkers: 2,
 	globals: false,
+	restoreMocks: true,
+	unstubEnvs: true,
+	unstubGlobals: true,
 } as const;

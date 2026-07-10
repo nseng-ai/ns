@@ -9,6 +9,7 @@ import {
 	type RunSubmitCommandOptions,
 	type SubmitCommandResult,
 	type SubmitFailureTranscript,
+	type TimeServices,
 } from "./index.ts";
 import { RealCheckpointGateway, type CheckpointGateway } from "../checkpoint/checkpoint.ts";
 
@@ -26,8 +27,15 @@ export interface NsSubmitRuntime {
 	git: Pick<GitGateway, "optionalRepoRoot">;
 }
 
+export interface NsSubmitRuntimeOptions {
+	time?: TimeServices;
+}
+
 /** Temporary internal migration seam; not exported from `@nseng-ai/kernel/sdk`. */
-export function createNsSubmitRuntime(ctx: NsExtensionApi): NsSubmitRuntime {
+export function createNsSubmitRuntime(
+	ctx: NsExtensionApi,
+	options: NsSubmitRuntimeOptions = {},
+): NsSubmitRuntime {
 	const commandRunner = createNsCommandRunner(ctx);
 	const git = createNsGitGateway(ctx);
 	return {
@@ -37,10 +45,14 @@ export function createNsSubmitRuntime(ctx: NsExtensionApi): NsSubmitRuntime {
 		metadataGateway: new RealSubmitMetadataGateway(commandRunner),
 		git,
 		prDescription: {
-			githubPr: new RealGithubPrGateway(commandRunner),
+			githubPr: new RealGithubPrGateway(
+				commandRunner,
+				options.time?.timers === undefined ? {} : { timers: options.time.timers },
+			),
 			textGenerator: ctx.textGenerator,
 			git,
 			env: ctx.env,
+			...(options.time === undefined ? {} : { time: options.time }),
 		},
 	};
 }

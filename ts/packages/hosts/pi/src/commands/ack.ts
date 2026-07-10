@@ -1,3 +1,5 @@
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+
 import type { NotifyLevel } from "../runtime/tool-types.ts";
 import { withSafePiUi, withSafePiUiValue } from "../kit/shared/safe-ui.ts";
 import { unrefTimerScheduler } from "../kit/shared/timers.ts";
@@ -92,6 +94,7 @@ export interface ImmediateCommandAckOptions {
 	messageForCommand?: (commandName: string) => string;
 	statusKey?: string;
 	statusClearDelayMs?: number;
+	timers?: TimerScheduler;
 }
 
 export interface ImmediateCommandAckCommandDefinition<TContext = unknown> {
@@ -130,6 +133,7 @@ interface EmitStatusAckOptions {
 	message: string;
 	startedMessage: string;
 	clearDelayMs: number;
+	timers: TimerScheduler;
 }
 
 export function registerCommandWithImmediateAck<THost extends ImmediateCommandAckCommandRegistrar>(
@@ -280,6 +284,7 @@ function emitImmediateCommandAck<THost>(params: EmitImmediateCommandAckOptions<T
 		message,
 		startedMessage: defaultCommandAckStartedMessage(commandName),
 		clearDelayMs: options.statusClearDelayMs ?? 3_000,
+		timers: options.timers ?? unrefTimerScheduler,
 	});
 }
 
@@ -342,7 +347,7 @@ function shouldAcknowledgeContext(ctx: unknown): boolean {
 }
 
 function emitStatusAck(params: EmitStatusAckOptions): void {
-	const { ctx, key, message, startedMessage, clearDelayMs } = params;
+	const { ctx, key, message, startedMessage, clearDelayMs, timers } = params;
 	if (!isImmediateCommandStatusContext(ctx)) return;
 	const setStatusResult = withSafePiUiValue(() => ctx.ui?.setStatus);
 	if (setStatusResult.type === "stale-context") return;
@@ -352,7 +357,7 @@ function emitStatusAck(params: EmitStatusAckOptions): void {
 		setStatus(key, message);
 	});
 	if (initialResult.type === "stale-context") return;
-	unrefTimerScheduler.setTimeout(() => {
+	timers.setTimeout(() => {
 		withSafePiUi(() => {
 			setStatus(key, startedMessage);
 		});

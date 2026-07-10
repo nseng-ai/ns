@@ -299,24 +299,10 @@ export class FakeCommandContext implements CommandContext {
 }
 
 const tempDirs: string[] = [];
-const originalCmuxWorkspaceId = process.env.CMUX_WORKSPACE_ID;
-const originalCmuxTabId = process.env.CMUX_TAB_ID;
-const originalSidebarModel = process.env.NS_CCC_SIDEBAR_MODEL;
 
 export async function resetCmuxTestEnvironment(): Promise<void> {
-	restoreEnvValue("CMUX_WORKSPACE_ID", originalCmuxWorkspaceId);
-	restoreEnvValue("CMUX_TAB_ID", originalCmuxTabId);
-	restoreEnvValue("NS_CCC_SIDEBAR_MODEL", originalSidebarModel);
 	const dirs = tempDirs.splice(0);
 	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-}
-
-function restoreEnvValue(name: string, value: string | undefined): void {
-	if (value === undefined) {
-		delete process.env[name];
-		return;
-	}
-	process.env[name] = value;
 }
 
 export function notificationMessages(ctx: FakeCommandContext): string[] {

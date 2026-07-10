@@ -5,6 +5,9 @@ import process from "node:process";
 
 import { describe, expect, test, vi } from "vitest";
 
+import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+
 import {
 	CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
 	cliCommandTracePath,
@@ -201,6 +204,7 @@ function registerFakeCli(
 		afterCommandComplete?: (details: CliCommandOutputDetails) => Promise<void> | void;
 		env?: Record<string, string | undefined>;
 		commands?: CliCommandInfo[];
+		timers?: TimerScheduler;
 	} = {},
 ): void {
 	registerCliCommandExtension(pi, {
@@ -214,15 +218,8 @@ function registerFakeCli(
 			? {}
 			: { afterCommandComplete: options.afterCommandComplete }),
 		...(options.env === undefined ? {} : { env: options.env }),
+		...(options.timers === undefined ? {} : { timers: options.timers }),
 	});
-}
-
-function restoreEnv(name: string, value: string | undefined): void {
-	if (value === undefined) {
-		delete process.env[name];
-		return;
-	}
-	process.env[name] = value;
 }
 
 function readTraceEvents(path: string): Array<Record<string, unknown>> {
@@ -651,10 +648,8 @@ describe("cli command extension helper", () => {
 	test("writes metadata trace events and sends final output as a custom message", async () => {
 		const directory = mkdtempSync(join(tmpdir(), "pi-cli-trace-test-"));
 		const tracePath = join(directory, "trace.jsonl");
-		const oldTrace = process.env.NS_PI_CLI_TRACE;
-		const oldTracePath = process.env.NS_PI_CLI_TRACE_PATH;
-		process.env.NS_PI_CLI_TRACE = "1";
-		process.env.NS_PI_CLI_TRACE_PATH = tracePath;
+		vi.stubEnv("NS_PI_CLI_TRACE", "1");
+		vi.stubEnv("NS_PI_CLI_TRACE_PATH", tracePath);
 		try {
 			const pi = new FakePi();
 			registerFakeCli(pi, {
@@ -702,8 +697,6 @@ describe("cli command extension helper", () => {
 			});
 			expectSingleCliOutputMessage(pi, "ok\n");
 		} finally {
-			restoreEnv("NS_PI_CLI_TRACE", oldTrace);
-			restoreEnv("NS_PI_CLI_TRACE_PATH", oldTracePath);
 			rmSync(directory, { recursive: true, force: true });
 		}
 	});
@@ -1145,48 +1138,46 @@ describe("cli command extension helper", () => {
 	});
 
 	test("keeps footer status stable while the live widget ticks", async () => {
-		vi.useFakeTimers();
-		try {
-			let markRunStarted: (() => void) | undefined;
-			const runStarted = new Promise<void>((resolve) => {
-				markRunStarted = resolve;
-			});
-			let finishRun: (() => void) | undefined;
-			const runFinished = new Promise<void>((resolve) => {
-				finishRun = resolve;
-			});
-			const pi = new FakePi();
-			registerFakeCli(pi, {
-				runCli: async (_args, deps) => {
-					deps.stderr("running elsewhere\n");
-					markRunStarted?.();
-					await runFinished;
-					return 0;
-				},
-			});
-			const { ctx, statuses, widgets } = createContext();
+		const timers = createManualTimerScheduler();
+		let markRunStarted: (() => void) | undefined;
+		const runStarted = new Promise<void>((resolve) => {
+			markRunStarted = resolve;
+		});
+		let finishRun: (() => void) | undefined;
+		const runFinished = new Promise<void>((resolve) => {
+			finishRun = resolve;
+		});
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				deps.stderr("running elsewhere\n");
+				markRunStarted?.();
+				await runFinished;
+				return 0;
+			},
+			timers: timers.timers,
+		});
+		const { ctx, statuses, widgets } = createContext();
 
-			const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
-			await runStarted;
+		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
+		await runStarted;
 
-			// Ignore the transient auto-clearing ack status; this test isolates whether the
-			// live-widget ticks churn the footer status, not the one-shot ack lifecycle.
-			const withoutAck = (entries: StatusUpdate[]): (string | undefined)[] =>
-				entries.filter((status) => status.key !== "ns-command-ack").map((status) => status.value);
-			const statusValuesBeforeTicks = withoutAck(statuses);
-			const widgetCountBeforeTicks = widgets.length;
-			await vi.advanceTimersByTimeAsync(3_000);
+		// Ignore the transient auto-clearing ack status; this test isolates whether the
+		// live-widget ticks churn the footer status, not the one-shot ack lifecycle.
+		const withoutAck = (entries: StatusUpdate[]): (string | undefined)[] =>
+			entries.filter((status) => status.key !== "ns-command-ack").map((status) => status.value);
+		const statusValuesBeforeTicks = withoutAck(statuses);
+		const widgetCountBeforeTicks = widgets.length;
+		timers.advanceMs(3_000);
 
-			expect(withoutAck(statuses)).toEqual(statusValuesBeforeTicks);
-			expect(widgets.length).toBeGreaterThan(widgetCountBeforeTicks);
+		expect(withoutAck(statuses)).toEqual(statusValuesBeforeTicks);
+		expect(widgets.length).toBeGreaterThan(widgetCountBeforeTicks);
 
-			if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
-			finishRun();
-			await commandPromise;
-			expect(statuses.at(-1)).toEqual({ key: "ns-cli-command", value: undefined });
-		} finally {
-			vi.useRealTimers();
-		}
+		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
+		finishRun();
+		await commandPromise;
+		expect(statuses.at(-1)).toEqual({ key: "ns-cli-command", value: undefined });
+		expect(timers.pendingTimerCount()).toBe(0);
 	});
 
 	test("suppresses stale command-context errors after session replacement", async () => {

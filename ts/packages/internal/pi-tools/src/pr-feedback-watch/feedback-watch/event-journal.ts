@@ -43,15 +43,16 @@ export function appendWatchEvent(options: {
 	pi: ExtensionAPI;
 	status: WatchStatus;
 	type: WatchEventEntry["type"];
+	createdAt: string;
 	overrides?: WatchEventAppendInput;
 }): void {
-	const { pi, status, type, overrides = {} } = options;
+	const { pi, status, type, createdAt, overrides = {} } = options;
 	pi.appendEntry?.(PR_FEEDBACK_WATCH_STATE_TYPE, {
 		version: 1,
 		type,
 		...optionalEntry("branch", status.branch),
 		...optionalEntry("prNumber", status.prNumber),
-		createdAt: new Date().toISOString(),
+		createdAt,
 		...overrides,
 	} satisfies WatchEventEntry);
 }

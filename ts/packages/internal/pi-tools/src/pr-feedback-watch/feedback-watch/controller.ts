@@ -1,6 +1,8 @@
 import { downloadPrFeedback, type PrAddressRunner } from "../feedback-download.ts";
+import type { Clock } from "@nseng-ai/foundation/clock";
 import { commandSucceeded } from "@nseng-ai/foundation/exec";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { systemClock } from "@nseng-ai/foundation/time";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
 
@@ -70,6 +72,7 @@ export class PrFeedbackWatchController {
 	private readonly commands: ExecGateway;
 	private activeSession: ActiveSession | undefined;
 	private nextSessionId = 0;
+	private readonly clock: Clock;
 	private readonly timers: TimerScheduler;
 	private timer: ScheduledTimer | undefined;
 	private statusRefreshTimer: ScheduledTimer | undefined;
@@ -98,6 +101,7 @@ export class PrFeedbackWatchController {
 		this.pi = pi;
 		this.commands = commands;
 		this.runner = options.runner;
+		this.clock = options.clock ?? systemClock;
 		this.timers = options.timers ?? unrefTimerScheduler;
 	}
 
@@ -341,13 +345,14 @@ export class PrFeedbackWatchController {
 			);
 			return;
 		}
-		const sinceIso = skewIso(new Date().toISOString());
+		const sinceIso = skewIso(new Date(this.clock.nowMs()).toISOString());
 		const result = await loadRestFingerprint({
 			pi: this.commands,
 			cwd: session.cwd,
 			identity,
 			...optionalEntry("sinceIso", sinceIso),
 			signal: session.abortController.signal,
+			fetchedAt: new Date(this.clock.nowMs()).toISOString(),
 		});
 		if (result.type === "failed") {
 			this.recordRestFailure(session, result.message);
@@ -375,6 +380,7 @@ export class PrFeedbackWatchController {
 			identity,
 			...optionalEntry("sinceIso", this.restSinceIso),
 			signal: session.abortController.signal,
+			fetchedAt: new Date(this.clock.nowMs()).toISOString(),
 		});
 		if (result.type === "failed") {
 			this.recordRestFailure(session, result.message);
@@ -382,7 +388,7 @@ export class PrFeedbackWatchController {
 				this.state.restFailures >= REST_FAILURES_BEFORE_HEAVY_FALLBACK &&
 				this.canRunHeavyFallback()
 			) {
-				this.lastHeavyFallbackAt = Date.now();
+				this.lastHeavyFallbackAt = this.clock.nowMs();
 				await this.pollWithHeavySnapshot(session, options, { reason: "fallback" });
 			}
 			return;
@@ -490,7 +496,7 @@ export class PrFeedbackWatchController {
 	}
 
 	private canRunHeavyFallback(): boolean {
-		return Date.now() - this.lastHeavyFallbackAt >= HEAVY_FALLBACK_INTERVAL_MS;
+		return this.clock.nowMs() - this.lastHeavyFallbackAt >= HEAVY_FALLBACK_INTERVAL_MS;
 	}
 
 	private advanceRestFingerprint(fingerprint: FeedbackFingerprint): void {
@@ -694,7 +700,7 @@ export class PrFeedbackWatchController {
 	}
 
 	private updateContextFromSnapshot(snapshot: FeedbackSnapshot): void {
-		const checkedAt = new Date().toISOString();
+		const checkedAt = new Date(this.clock.nowMs()).toISOString();
 		const prNumber = snapshot.data.target.pr_number;
 		const branch = snapshot.data.target.branch ?? snapshot.data.target.head_ref_name ?? undefined;
 		this.state = clearLastError({
@@ -739,7 +745,10 @@ export class PrFeedbackWatchController {
 				this.clearStatusRefreshTimer();
 				return;
 			}
-			ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, defaultStatusLine(this.status()));
+			ctx.ui?.setStatus?.(
+				PR_FEEDBACK_WATCH_COMMAND_NAME,
+				defaultStatusLine(this.status(), this.clock.nowMs()),
+			);
 		}, STATUS_REFRESH_INTERVAL_MS);
 	}
 
@@ -755,7 +764,13 @@ export class PrFeedbackWatchController {
 	}
 
 	private appendEvent(type: WatchEventEntry["type"], overrides: WatchEventAppendInput = {}): void {
-		appendWatchEvent({ pi: this.pi, status: this.state, type, overrides });
+		appendWatchEvent({
+			pi: this.pi,
+			status: this.state,
+			type,
+			createdAt: new Date(this.clock.nowMs()).toISOString(),
+			overrides,
+		});
 	}
 
 	private settleToSteadyState(): void {
@@ -774,7 +789,10 @@ export class PrFeedbackWatchController {
 	private renderStatus(value?: string): void {
 		const ctx = this.activeSession?.ctx;
 		if (ctx === undefined) return;
-		ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, value ?? defaultStatusLine(this.status()));
+		ctx.ui?.setStatus?.(
+			PR_FEEDBACK_WATCH_COMMAND_NAME,
+			value ?? defaultStatusLine(this.status(), this.clock.nowMs()),
+		);
 		this.updateStatusRefreshTimer(value === undefined);
 	}
 }

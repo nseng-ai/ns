@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
+import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 import {
 	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
 	PR_DESCRIPTION_GENERATOR_VERSION,
@@ -44,7 +45,6 @@ const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-
 const tempDirs: string[] = [];
 
 afterEach(() => {
-	vi.useRealTimers();
 	for (const directory of tempDirs.splice(0)) {
 		rmSync(directory, { recursive: true, force: true });
 	}
@@ -424,7 +424,8 @@ describe("project-local submit extension", () => {
 	});
 
 	test("post-submit PR description model progress includes an elapsed counter while waiting", async () => {
-		vi.useFakeTimers();
+		const clock = createManualClock(0);
+		const timers = createManualTimerScheduler();
 		let resolveModel: ((result: TextGenerationResult) => void) | undefined;
 		const pendingModel = new Promise<TextGenerationResult>((resolve) => {
 			resolveModel = resolve;
@@ -432,6 +433,7 @@ describe("project-local submit extension", () => {
 		const run = runWithFakes({
 			request: { regenerateDescriptions: true },
 			state: { textGeneration: [pendingModel] },
+			time: { clock: clock.clock, timers: timers.timers },
 		});
 
 		await vi.waitFor(
@@ -442,14 +444,17 @@ describe("project-local submit extension", () => {
 		);
 		expect(run.liveOutput).toContainEqual(transient("generating PR metadata (attempt 1/2)"));
 
-		await vi.advanceTimersByTimeAsync(5_000);
+		clock.advanceMs(5_000);
+		timers.advanceMs(5_000);
 		expect(run.liveOutput).toContainEqual(transient("still generating PR metadata (5s elapsed)"));
 
-		await vi.advanceTimersByTimeAsync(5_000);
+		clock.advanceMs(5_000);
+		timers.advanceMs(5_000);
 		expect(run.liveOutput).toContainEqual(transient("still generating PR metadata (10s elapsed)"));
 
 		resolveModel?.({ ok: true, text: defaultPrDescriptionText() });
 		expect(await run.exit).toBe(0);
+		expect(timers.pendingTimerCount()).toBe(0);
 	});
 
 	test("pre-submit metadata preparation reports progress across large stacks", async () => {
@@ -1648,7 +1653,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 	});
 
 	test("description metadata read failure preserves structured diagnostics", async () => {
-		vi.useFakeTimers();
+		const timers = createManualTimerScheduler();
 		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
 		tempDirs.push(logRoot);
 		const ghStderr = "GraphQL: Could not resolve to a PullRequest with the number of 123\n";
@@ -1656,6 +1661,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		const run = runWithFakes({
 			request: { regenerateDescriptions: true },
 			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			time: { timers: timers.timers },
 			state: {
 				exec: successfulSubmitResponses().flatMap((response) =>
 					response.match === viewCommand
@@ -1673,8 +1679,16 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		await vi.waitFor(() => {
 			expect(formattedExecCalls(run.context)).toContain(viewCommand);
 		});
-		await vi.runAllTimersAsync();
+		for (let expectedCalls = 2; expectedCalls <= 4; expectedCalls += 1) {
+			expect(timers.runNextTimer()).toBe(true);
+			await vi.waitFor(() => {
+				expect(formattedExecCalls(run.context).filter((call) => call === viewCommand)).toHaveLength(
+					expectedCalls,
+				);
+			});
+		}
 		expect(await run.exit).toBe(1);
+		expect(timers.pendingTimerCount()).toBe(0);
 		const error = run.stderr.join("");
 		expect(error).toContain("PRs were submitted; description generation failed.");
 		expect(error).toContain(`#123 ${PR_URL}`);

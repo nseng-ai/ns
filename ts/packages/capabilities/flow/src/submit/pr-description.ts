@@ -22,6 +22,8 @@ import { formatErrorMessage, sha256Digest } from "@nseng-ai/foundation/primitive
 import { normalizeTextOutput, trimOuterBlankLines } from "@nseng-ai/foundation/text-normalization";
 import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 import { prepareRepairedText } from "@nseng-ai/capability-kit/text-repair";
+import type { Clock } from "@nseng-ai/foundation/clock";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import {
 	buildPointCatalog,
@@ -111,6 +113,11 @@ export interface LocalPrDescriptionPromptContext {
 export interface ParsedPrDescription {
 	title: string;
 	body: string;
+}
+
+export interface TimeServices {
+	clock?: Clock;
+	timers?: TimerScheduler;
 }
 
 export interface PrDescriptionFingerprintMetadata {
@@ -409,6 +416,7 @@ export async function preparePrDescription(input: {
 	promptText: string;
 	context: PrDescriptionPromptContext;
 	onProgress?: (message: string) => void;
+	time?: TimeServices;
 }): Promise<PreparedPrDescription> {
 	const firstPrompt = buildPrDescriptionUserPrompt(input.context);
 	const prepared = await prepareRepairedText({
@@ -450,6 +458,7 @@ export async function preparePrDescription(input: {
 					break;
 			}
 		},
+		...(input.time ?? {}),
 	});
 	if (!prepared.ok) return prepared;
 	return {

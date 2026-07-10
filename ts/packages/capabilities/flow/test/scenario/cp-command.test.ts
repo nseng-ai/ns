@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
+import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 import type { TextGenerationResult } from "@nseng-ai/kernel/sdk";
 
 import { runFlowCpCommandWithFakes } from "./flow-command-fakes.ts";
@@ -130,42 +131,45 @@ describe("project-local cp extension behavior", () => {
 	});
 
 	test("checkpoint message progress includes an elapsed counter while waiting", async () => {
-		vi.useFakeTimers();
-		try {
-			let resolveModel: ((result: TextGenerationResult) => void) | undefined;
-			const pendingModel = new Promise<TextGenerationResult>((resolve) => {
-				resolveModel = resolve;
-			});
-			const run = runCpWithFakes({ state: { textGeneration: [pendingModel] } });
+		const clock = createManualClock(0);
+		const timers = createManualTimerScheduler();
+		let resolveModel: ((result: TextGenerationResult) => void) | undefined;
+		const pendingModel = new Promise<TextGenerationResult>((resolve) => {
+			resolveModel = resolve;
+		});
+		const run = runCpWithFakes({
+			state: { textGeneration: [pendingModel] },
+			time: { clock: clock.clock, timers: timers.timers },
+		});
 
-			await vi.waitFor(
-				() => {
-					expect(run.context.textGeneratorCalls).toHaveLength(1);
-				},
-				{ timeout: 10_000 },
-			);
-			expect(run.liveOutput).toContainEqual({
-				stream: "stderr",
-				text: "• Generating checkpoint message with model…\n",
-			});
+		await vi.waitFor(
+			() => {
+				expect(run.context.textGeneratorCalls).toHaveLength(1);
+			},
+			{ timeout: 10_000 },
+		);
+		expect(run.liveOutput).toContainEqual({
+			stream: "stderr",
+			text: "• Generating checkpoint message with model…\n",
+		});
 
-			await vi.advanceTimersByTimeAsync(5_000);
-			expect(run.liveOutput).toContainEqual({
-				stream: "stderr",
-				text: "  … still generating checkpoint message (5s elapsed)\n",
-			});
+		clock.advanceMs(5_000);
+		timers.advanceMs(5_000);
+		expect(run.liveOutput).toContainEqual({
+			stream: "stderr",
+			text: "  … still generating checkpoint message (5s elapsed)\n",
+		});
 
-			await vi.advanceTimersByTimeAsync(5_000);
-			expect(run.liveOutput).toContainEqual({
-				stream: "stderr",
-				text: "  … still generating checkpoint message (10s elapsed)\n",
-			});
+		clock.advanceMs(5_000);
+		timers.advanceMs(5_000);
+		expect(run.liveOutput).toContainEqual({
+			stream: "stderr",
+			text: "  … still generating checkpoint message (10s elapsed)\n",
+		});
 
-			resolveModel?.({ ok: true, text: defaultCpMessage() });
-			expect(await run.exit).toBe(0);
-		} finally {
-			vi.useRealTimers();
-		}
+		resolveModel?.({ ok: true, text: defaultCpMessage() });
+		expect(await run.exit).toBe(0);
+		expect(timers.pendingTimerCount()).toBe(0);
 	});
 
 	test("dry-run previews the checkpoint without staging, committing, or reading log", async () => {

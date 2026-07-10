@@ -20,6 +20,7 @@ import {
 	type NsSubmitRuntime,
 	type SubmitCommandResult,
 } from "../../submit/ns-runtime.ts";
+import type { TimeServices } from "../../submit/index.ts";
 import {
 	createSubmitMatrixProgressController,
 	submitMatrixRowsFromTopology,
@@ -51,6 +52,7 @@ const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
 interface SubmitCheckpointContext {
 	gateway: CheckpointGateway;
 	repoRoot?: string;
+	time?: TimeServices;
 }
 
 const submitSchema = z.object({
@@ -98,131 +100,146 @@ The command owns its output and exit code. It does not support --format.`;
 
 type SubmitRequest = z.output<typeof submitSchema>;
 
-export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
-	name: "submit",
-	summary: "Checkpoint pending changes, then submit the Graphite stack with gt submit.",
-	description: SUBMIT_COMMAND_DESCRIPTION,
-	schema: submitSchema,
-	resultSchema: z.string(),
-	options: {
-		restack: { short: "-R" },
-		force: { short: "-f" },
-		verbose: { short: "-v" },
-	},
-	handler: async (ctx: NsExtensionApi, request: SubmitRequest) => {
-		const runtime = createNsSubmitRuntime(ctx);
-		const repoRoot = request.hooks
-			? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
-			: undefined;
-		const checkpointContext: SubmitCheckpointContext = {
-			gateway: runtime.checkpointGateway,
-			...optionalEntry("repoRoot", repoRoot),
-		};
-		const hooksLoad =
-			repoRoot === undefined ? { kind: "none" as const } : await loadFlowSubmitHooks({ repoRoot });
-		if (hooksLoad.kind === "invalid") {
-			return failure(FLOW_COMMAND_FAILED, hooksLoad.error.message);
-		}
-		const caps = resolveFlowStreamCaps(ctx);
-		if (caps.isTty) {
-			return await runSubmitWithMatrix({
-				ctx,
-				request,
-				runtime,
-				caps,
-				hooksLoad,
-				checkpointContext,
-			});
-		}
-		return await runSettledPhaseStream({
-			caps,
-			specs: hooksLoad.kind === "hooks" ? [SUBMIT_HOOKS_PHASE, ...SUBMIT_PHASES] : SUBMIT_PHASES,
-			deps: flowStreamDeps(ctx, caps),
-			forward: ctx.progress,
-			title: "ns flow submit",
-			body: async (stream) => {
-				// The raw subprocess transcript (hooks and `gt submit`) streams on its own channel (live +
-				// --verbose), separate from the typed phase events that drive the live region. In a TTY it must
-				// ride INSIDE the live region as a tail line (via `stream.note`) so the sink's writer stays the
-				// sole owner of stdout; writing it straight to the context desynced log-update and
-				// duplicated/scrolled the region. Non-TTY (Pi / pipe) streams the transcript to the context.
-				const rawTranscript = createFlowLiveOutput(ctx);
-				const onOutput: FlowLiveOutput | undefined = caps.isTty
-					? (_stream, text) => stream.note(text)
-					: rawTranscript;
+export interface FlowSubmitCommandOptions {
+	time?: TimeServices;
+}
 
-				if (hooksLoad.kind === "hooks") {
-					stream.emit({ type: "phase-started", phaseKey: "hooks" });
-					const hooksOutcome = await runFlowSubmitHooks({
-						hooks: hooksLoad.hooks,
-						runner: runtime.commandRunner,
-						onHookStarted: ({ hook, index, total }) =>
-							stream.emit({
-								type: "phase-progress",
-								phaseKey: "hooks",
-								label: hookProgressLabel({ hook, index, total }),
-							}),
-						...(onOutput === undefined ? {} : { onOutput }),
+export function createFlowSubmitCommand(
+	options: FlowSubmitCommandOptions = {},
+): NsCommand<typeof submitSchema> {
+	return defineCommand({
+		name: "submit",
+		summary: "Checkpoint pending changes, then submit the Graphite stack with gt submit.",
+		description: SUBMIT_COMMAND_DESCRIPTION,
+		schema: submitSchema,
+		resultSchema: z.string(),
+		options: {
+			restack: { short: "-R" },
+			force: { short: "-f" },
+			verbose: { short: "-v" },
+		},
+		handler: async (ctx: NsExtensionApi, request: SubmitRequest) => {
+			const runtime = createNsSubmitRuntime(ctx, options);
+			const repoRoot = request.hooks
+				? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
+				: undefined;
+			const checkpointContext: SubmitCheckpointContext = {
+				gateway: runtime.checkpointGateway,
+				...optionalEntry("repoRoot", repoRoot),
+				...(options.time === undefined ? {} : { time: options.time }),
+			};
+			const hooksLoad =
+				repoRoot === undefined
+					? { kind: "none" as const }
+					: await loadFlowSubmitHooks({ repoRoot });
+			if (hooksLoad.kind === "invalid") {
+				return failure(FLOW_COMMAND_FAILED, hooksLoad.error.message);
+			}
+			const caps = resolveFlowStreamCaps(ctx);
+			if (caps.isTty) {
+				return await runSubmitWithMatrix({
+					ctx,
+					request,
+					runtime,
+					caps,
+					hooksLoad,
+					checkpointContext,
+				});
+			}
+			return await runSettledPhaseStream({
+				caps,
+				specs: hooksLoad.kind === "hooks" ? [SUBMIT_HOOKS_PHASE, ...SUBMIT_PHASES] : SUBMIT_PHASES,
+				deps: flowStreamDeps(ctx, caps),
+				forward: ctx.progress,
+				title: "ns flow submit",
+				body: async (stream) => {
+					// The raw subprocess transcript (hooks and `gt submit`) streams on its own channel (live +
+					// --verbose), separate from the typed phase events that drive the live region. In a TTY it must
+					// ride INSIDE the live region as a tail line (via `stream.note`) so the sink's writer stays the
+					// sole owner of stdout; writing it straight to the context desynced log-update and
+					// duplicated/scrolled the region. Non-TTY (Pi / pipe) streams the transcript to the context.
+					const rawTranscript = createFlowLiveOutput(ctx);
+					const onOutput: FlowLiveOutput | undefined = caps.isTty
+						? (_stream, text) => stream.note(text)
+						: rawTranscript;
+
+					if (hooksLoad.kind === "hooks") {
+						stream.emit({ type: "phase-started", phaseKey: "hooks" });
+						const hooksOutcome = await runFlowSubmitHooks({
+							hooks: hooksLoad.hooks,
+							runner: runtime.commandRunner,
+							onHookStarted: ({ hook, index, total }) =>
+								stream.emit({
+									type: "phase-progress",
+									phaseKey: "hooks",
+									label: hookProgressLabel({ hook, index, total }),
+								}),
+							...(onOutput === undefined ? {} : { onOutput }),
+						});
+						if (hooksOutcome.kind === "failed") {
+							return await phaseFailureResult(ctx, {
+								stderr: formatFlowSubmitHookFailure(hooksOutcome),
+								exitCode: flowSubmitHookFailureExitCode(hooksOutcome),
+								failurePresentation: "deterministic",
+							});
+						}
+					}
+
+					// Keep the parent checkpoint phase active for the clean-worktree path, while routing the
+					// workflow's keyed inspect/generate/commit events to the declared substeps.
+					stream.emit({ type: "phase-started", phaseKey: "checkpoint" });
+					const checkpoint = await runCheckpointIfPending({
+						cwd: ctx.cwd,
+						env: ctx.env,
+						gateway: checkpointContext.gateway,
+						...optionalEntry("repoRoot", checkpointContext.repoRoot),
+						...(checkpointContext.time ?? {}),
+						textGenerator: ctx.textGenerator,
+						onPhase: stream.emit,
 					});
-					if (hooksOutcome.kind === "failed") {
+					if (checkpoint.kind === "failed") {
 						return await phaseFailureResult(ctx, {
-							stderr: formatFlowSubmitHookFailure(hooksOutcome),
-							exitCode: flowSubmitHookFailureExitCode(hooksOutcome),
-							failurePresentation: "deterministic",
+							stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr),
+							exitCode: checkpoint.output.exitCode,
 						});
 					}
-				}
 
-				// Keep the parent checkpoint phase active for the clean-worktree path, while routing the
-				// workflow's keyed inspect/generate/commit events to the declared substeps.
-				stream.emit({ type: "phase-started", phaseKey: "checkpoint" });
-				const checkpoint = await runCheckpointIfPending({
-					cwd: ctx.cwd,
-					env: ctx.env,
-					...checkpointContext,
-					textGenerator: ctx.textGenerator,
-					onPhase: stream.emit,
-				});
-				if (checkpoint.kind === "failed") {
-					return await phaseFailureResult(ctx, {
-						stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr),
-						exitCode: checkpoint.output.exitCode,
+					const result = await runSubmitCommand({
+						cwd: ctx.cwd,
+						gateway: runtime.submitGateway,
+						metadataGateway: runtime.metadataGateway,
+						restack: request.restack,
+						force: request.force,
+						shouldForwardCommandOutput: request.verbose,
+						prDescription: runtime.prDescription,
+						shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
+						onPhase: stream.emit,
+						...(onOutput === undefined ? {} : { onOutput }),
 					});
-				}
+					// Result payloads print as scrollback below the settled region: the checkpoint commit summary
+					// (if any) first, then the submit success text or interpreted failure.
+					const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
+					const isFailed = interpretedResult.exitCode !== 0;
+					return {
+						result: isFailed ? submitFailureExit(interpretedResult) : ok(""),
+						isFailed,
+						afterFinish: () => {
+							if (checkpoint.kind === "checkpointed") {
+								writeCommandResultOutput(checkpoint.output, ctx);
+							}
+							writeCommandResultOutput(
+								isFailed ? { ...interpretedResult, stderr: "" } : interpretedResult,
+								ctx,
+							);
+						},
+					};
+				},
+			});
+		},
+	});
+}
 
-				const result = await runSubmitCommand({
-					cwd: ctx.cwd,
-					gateway: runtime.submitGateway,
-					metadataGateway: runtime.metadataGateway,
-					restack: request.restack,
-					force: request.force,
-					shouldForwardCommandOutput: request.verbose,
-					prDescription: runtime.prDescription,
-					shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
-					onPhase: stream.emit,
-					...(onOutput === undefined ? {} : { onOutput }),
-				});
-				// Result payloads print as scrollback below the settled region: the checkpoint commit summary
-				// (if any) first, then the submit success text or interpreted failure.
-				const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
-				const isFailed = interpretedResult.exitCode !== 0;
-				return {
-					result: isFailed ? submitFailureExit(interpretedResult) : ok(""),
-					isFailed,
-					afterFinish: () => {
-						if (checkpoint.kind === "checkpointed") {
-							writeCommandResultOutput(checkpoint.output, ctx);
-						}
-						writeCommandResultOutput(
-							isFailed ? { ...interpretedResult, stderr: "" } : interpretedResult,
-							ctx,
-						);
-					},
-				};
-			},
-		});
-	},
-});
+export const flowSubmitCommand = createFlowSubmitCommand();
 
 export default flowSubmitCommand;
 
@@ -310,7 +327,9 @@ async function runSubmitWithMatrix(input: {
 		const checkpoint = await runCheckpointIfPending({
 			cwd: ctx.cwd,
 			env: ctx.env,
-			...checkpointContext,
+			gateway: checkpointContext.gateway,
+			...optionalEntry("repoRoot", checkpointContext.repoRoot),
+			...(checkpointContext.time ?? {}),
 			textGenerator: ctx.textGenerator,
 			onPhase: checkpointPhase,
 		});

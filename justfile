@@ -100,6 +100,11 @@ ts-test-integration: _ts-workspace-ready _ts-test-integration
 _ts-test-integration:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test:integration
 
+ts-test-isolated: _ts-workspace-ready _ts-test-isolated
+
+_ts-test-isolated:
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test:isolated
+
 ts-test-typescript-style-guard: _ts-workspace-ready _ts-test-typescript-style-guard
 
 _ts-test-typescript-style-guard:

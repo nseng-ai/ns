@@ -1,3 +1,5 @@
+import type { Clock } from "@nseng-ai/foundation/clock";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
@@ -39,49 +41,64 @@ const cpRequestSchema = z.object({
 
 type CpRequest = z.output<typeof cpRequestSchema>;
 
-export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
-	name: "cp",
-	summary: "Create a checkpoint commit for the current diff.",
-	description: CP_COMMAND_DESCRIPTION,
-	schema: cpRequestSchema,
-	resultSchema: z.string(),
-	options: { dryRun: { short: "-n" } },
-	handler: async (ctx, request: CpRequest) => {
-		const runtime = createNsCheckpointRuntime(ctx);
-		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
-		if (request.dryRun) {
-			const result = await runCpCore({
-				cwd: ctx.cwd,
-				env: ctx.env,
-				textGenerator: ctx.textGenerator,
-				isDryRun: true,
-				checkpointGateway: runtime.checkpointGateway,
-			});
-			return toCommandResult(result);
-		}
+export interface FlowCpCommandOptions {
+	clock?: Clock;
+	timers?: TimerScheduler;
+}
 
-		const caps = resolveFlowStreamCaps(ctx);
-		return await runSettledPhaseStream({
-			caps,
-			specs: CP_PHASES,
-			deps: flowStreamDeps(ctx, caps),
-			forward: ctx.progress,
-			title: "ns flow cp",
-			body: async (stream) => {
+export function createFlowCpCommand(
+	options: FlowCpCommandOptions = {},
+): NsCommand<typeof cpRequestSchema> {
+	return defineCommand({
+		name: "cp",
+		summary: "Create a checkpoint commit for the current diff.",
+		description: CP_COMMAND_DESCRIPTION,
+		schema: cpRequestSchema,
+		resultSchema: z.string(),
+		options: { dryRun: { short: "-n" } },
+		handler: async (ctx, request: CpRequest) => {
+			const runtime = createNsCheckpointRuntime(ctx);
+			// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
+			if (request.dryRun) {
 				const result = await runCpCore({
 					cwd: ctx.cwd,
 					env: ctx.env,
 					textGenerator: ctx.textGenerator,
-					isDryRun: false,
+					isDryRun: true,
 					checkpointGateway: runtime.checkpointGateway,
-					onPhase: stream.emit,
+					...(options.clock === undefined ? {} : { clock: options.clock }),
+					...(options.timers === undefined ? {} : { timers: options.timers }),
 				});
-				const command = toCommandResult(result);
-				return { result: command, isFailed: command.type !== "ok" };
-			},
-		});
-	},
-});
+				return toCommandResult(result);
+			}
+
+			const caps = resolveFlowStreamCaps(ctx);
+			return await runSettledPhaseStream({
+				caps,
+				specs: CP_PHASES,
+				deps: flowStreamDeps(ctx, caps),
+				forward: ctx.progress,
+				title: "ns flow cp",
+				body: async (stream) => {
+					const result = await runCpCore({
+						cwd: ctx.cwd,
+						env: ctx.env,
+						textGenerator: ctx.textGenerator,
+						isDryRun: false,
+						checkpointGateway: runtime.checkpointGateway,
+						onPhase: stream.emit,
+						...(options.clock === undefined ? {} : { clock: options.clock }),
+						...(options.timers === undefined ? {} : { timers: options.timers }),
+					});
+					const command = toCommandResult(result);
+					return { result: command, isFailed: command.type !== "ok" };
+				},
+			});
+		},
+	});
+}
+
+export const flowCpCommand = createFlowCpCommand();
 
 export default flowCpCommand;
 
@@ -94,6 +111,8 @@ export interface RunCpCoreOptions {
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
 	onPhase?: NsProgressPhaseListener;
+	clock?: Clock;
+	timers?: TimerScheduler;
 }
 
 export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreResult> {
@@ -104,6 +123,8 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 		textGenerator: options.textGenerator,
 		dryRun: options.isDryRun,
 		...(options.onPhase === undefined ? {} : { onPhase: options.onPhase }),
+		...(options.clock === undefined ? {} : { clock: options.clock }),
+		...(options.timers === undefined ? {} : { timers: options.timers }),
 	});
 }
 

@@ -1,7 +1,9 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 
 import { createDeferred } from "@nseng-ai/foundation/test-kit";
+import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
 import { createPiHandoffContext } from "../../src/pi/api-context.ts";
 import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../../src/pi/extension.ts";
@@ -292,107 +294,98 @@ describe("ns:handoff:self extension", () => {
 	});
 
 	test("handoff_self_queue_pickup fails closed for wrong workflow id and does not clear context", async () => {
-		vi.useFakeTimers();
-		try {
-			const pi = new FakePi([branchStep()]);
-			registerSelfOnly(pi, 1);
-			const command = getRegisteredCommand(pi, "ns:handoff:self");
-			const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
-			const context = createContext();
+		const timers = createManualTimerScheduler();
+		const pi = new FakePi([branchStep()]);
+		registerSelfOnly(pi, 1, timers.timers);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext();
 
-			const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
-			await waitForSentUserMessageWithFakeTimers(pi);
-			const result = await tool.execute(
-				"tool-call-1",
-				{ branch: BRANCH, slug: "finish-widget", workflow_id: "wrong" },
-				undefined,
-				undefined,
-				context.ctx,
-			);
+		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
+		await waitForSentUserMessage(pi);
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: "wrong" },
+			undefined,
+			undefined,
+			context.ctx,
+		);
 
-			expect(result.isError).toBe(true);
-			expect(result.content[0]?.text).toContain("wrong workflow_id");
-			expect(context.newSessionCalls).toEqual([]);
-			expect(pi.execCalls.map((call) => call.command)).toEqual(["git"]);
+		expect(result.isError).toBe(true);
+		expect(result.content[0]?.text).toContain("wrong workflow_id");
+		expect(context.newSessionCalls).toEqual([]);
+		expect(pi.execCalls.map((call) => call.command)).toEqual(["git"]);
 
-			await vi.advanceTimersByTimeAsync(1);
-			await commandPromise;
-		} finally {
-			vi.useRealTimers();
-		}
+		timers.advanceMs(1);
+		await commandPromise;
+		expect(timers.pendingTimerCount()).toBe(0);
 	});
 
 	test("missing handoff does not resolve the workflow or clear context", async () => {
-		vi.useFakeTimers();
-		try {
-			const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "missing.md", false)]);
-			registerSelfOnly(pi, 1);
-			const command = getRegisteredCommand(pi, "ns:handoff:self");
-			const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
-			const context = createContext();
+		const timers = createManualTimerScheduler();
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "missing.md", false)]);
+		registerSelfOnly(pi, 1, timers.timers);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext();
 
-			const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
-			await waitForSentUserMessageWithFakeTimers(pi);
-			const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
-			const result = await tool.execute(
-				"tool-call-1",
-				{ branch: BRANCH, slug: "missing", workflow_id: workflowId },
-				undefined,
-				undefined,
-				context.ctx,
-			);
+		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
+		await waitForSentUserMessage(pi);
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "missing", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
 
-			expect(result.isError).toBe(true);
-			expect(result.content[0]?.text).toBe(
-				`No handoff missing found on branch ${BRANCH}; context was not cleared.`,
-			);
-			expect(context.newSessionCalls).toEqual([]);
+		expect(result.isError).toBe(true);
+		expect(result.content[0]?.text).toBe(
+			`No handoff missing found on branch ${BRANCH}; context was not cleared.`,
+		);
+		expect(context.newSessionCalls).toEqual([]);
 
-			await vi.advanceTimersByTimeAsync(1);
-			await commandPromise;
-			expect(context.newSessionCalls).toEqual([]);
-			pi.assertDone();
-		} finally {
-			vi.useRealTimers();
-		}
+		timers.advanceMs(1);
+		await commandPromise;
+		expect(context.newSessionCalls).toEqual([]);
+		expect(timers.pendingTimerCount()).toBe(0);
+		pi.assertDone();
 	});
 
 	test("timeout clears the active workflow and later tool calls cannot clear context", async () => {
-		vi.useFakeTimers();
-		try {
-			const pi = new FakePi([branchStep()]);
-			registerSelfOnly(pi, 1);
-			const command = getRegisteredCommand(pi, "ns:handoff:self");
-			const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
-			const context = createContext();
+		const timers = createManualTimerScheduler();
+		const pi = new FakePi([branchStep()]);
+		registerSelfOnly(pi, 1, timers.timers);
+		const command = getRegisteredCommand(pi, "ns:handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext();
 
-			const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
-			await waitForSentUserMessageWithFakeTimers(pi);
-			const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
-			await vi.advanceTimersByTimeAsync(1);
-			await commandPromise;
+		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
+		await waitForSentUserMessage(pi);
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+		timers.advanceMs(1);
+		await commandPromise;
 
-			expect(context.newSessionCalls).toEqual([]);
-			expect(context.notifications.at(-1)).toEqual({
-				message:
-					"ns:handoff:self timed out waiting for handoff_self_queue_pickup; context was not cleared because the saved handoff was not verified.",
-				level: "error",
-			});
+		expect(context.newSessionCalls).toEqual([]);
+		expect(context.notifications.at(-1)).toEqual({
+			message:
+				"ns:handoff:self timed out waiting for handoff_self_queue_pickup; context was not cleared because the saved handoff was not verified.",
+			level: "error",
+		});
 
-			const lateResult = await tool.execute(
-				"tool-call-1",
-				{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
-				undefined,
-				undefined,
-				context.ctx,
-			);
-			expect(lateResult.isError).toBe(true);
-			expect(lateResult.content[0]?.text).toContain("no active /ns:handoff:self workflow");
-			expect(context.newSessionCalls).toEqual([]);
-			pi.assertDone();
-		} finally {
-			vi.useRealTimers();
-		}
+		const lateResult = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
+		expect(lateResult.isError).toBe(true);
+		expect(lateResult.content[0]?.text).toContain("no active /ns:handoff:self workflow");
+		expect(context.newSessionCalls).toEqual([]);
+		expect(timers.pendingTimerCount()).toBe(0);
+		pi.assertDone();
 	});
 
 	test("concurrent ns:handoff:self invocation is rejected while one workflow is active", async () => {
@@ -451,12 +444,13 @@ describe("ns:handoff:self pure helpers", () => {
 	});
 });
 
-function registerSelfOnly(pi: FakePi, timeoutMs: number): void {
+function registerSelfOnly(pi: FakePi, timeoutMs: number, timers?: TimerScheduler): void {
 	const commands = createPiCommandExecApi(pi);
 	const workflow = createHandoffSelfWorkflow(pi, {
 		git: createPiHandoffContext(commands).git,
 		commands,
 		timeoutMs,
+		...(timers === undefined ? {} : { timers }),
 		skillLoader: fakeHandoffCreateSkillLoader(),
 	});
 	pi.registerTool?.(workflow.buildTool());
@@ -481,16 +475,6 @@ async function waitForCondition(condition: () => boolean): Promise<void> {
 		});
 	}
 	throw new Error("timed out waiting for condition");
-}
-
-async function waitForSentUserMessageWithFakeTimers(pi: FakePi): Promise<void> {
-	for (let attempt = 0; attempt < 100; attempt += 1) {
-		if (pi.sentUserMessages.length > 0) {
-			return;
-		}
-		await vi.advanceTimersByTimeAsync(0);
-	}
-	throw new Error("timed out waiting for sent user message");
 }
 
 function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {

@@ -53,71 +53,81 @@ const autobranchRequestSchema = z.object({
 
 type AutobranchRequest = z.output<typeof autobranchRequestSchema>;
 
-export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = defineCommand({
-	name: "autobranch",
-	summary: "Create a Graphite branch from dirty worktree changes.",
-	description: AUTOBRANCH_DESCRIPTION,
-	schema: autobranchRequestSchema,
-	resultSchema: z.string(),
-	options: { slug: { short: "-s" } },
-	handler: async (ctx, request: AutobranchRequest) => {
-		const caps = resolveFlowStreamCaps(ctx);
-		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
-		const io = commandIoFromNsExtensionApi(ctx);
-		return await runWithNsCommandIo(io, async (io) => {
-			const result = await createAutobranchCheckpointFlow(ctx, args, io);
-			if (result.ok) {
-				for (const warning of result.warnings) {
-					ctx.stderr?.(`${warning.trimEnd()}\n`);
+export interface FlowAutobranchCommandOptions {
+	now?: () => number;
+}
+
+export function createFlowAutobranchCommand(
+	options: FlowAutobranchCommandOptions = {},
+): NsCommand<typeof autobranchRequestSchema> {
+	return defineCommand({
+		name: "autobranch",
+		summary: "Create a Graphite branch from dirty worktree changes.",
+		description: AUTOBRANCH_DESCRIPTION,
+		schema: autobranchRequestSchema,
+		resultSchema: z.string(),
+		options: { slug: { short: "-s" } },
+		handler: async (ctx, request: AutobranchRequest) => {
+			const caps = resolveFlowStreamCaps(ctx);
+			const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
+			const io = commandIoFromNsExtensionApi(ctx);
+			return await runWithNsCommandIo(io, async (io) => {
+				const result = await createAutobranchCheckpointFlow(ctx, args, io, options.now);
+				if (result.ok) {
+					for (const warning of result.warnings) {
+						ctx.stderr?.(`${warning.trimEnd()}\n`);
+					}
+					return ok(
+						renderResultBlock(caps, {
+							kind: "success",
+							headline: "Created a Graphite branch from dirty worktree changes.",
+							cwd: result.root,
+							body: result.summary.trimEnd(),
+						}),
+					);
 				}
-				return ok(
-					renderResultBlock(caps, {
-						kind: "success",
-						headline: "Created a Graphite branch from dirty worktree changes.",
-						cwd: result.root,
-						body: result.summary.trimEnd(),
-					}),
-				);
-			}
 
-			if (result.reason === "pending_worktree") {
+				if (result.reason === "pending_worktree") {
+					return negative(
+						renderPendingWorktreeFailure(caps, {
+							error: result.error,
+							cwd: ctx.cwd,
+							commandLabel: "`ns flow autobranch`",
+						}),
+					);
+				}
+
+				if (result.reason === "clean_worktree") {
+					// A clean worktree is a declined guardrail (warn refusal, house-style §7.3), not a failure;
+					// point the user at the command that handles a clean worktree.
+					return negative(
+						renderResultBlock(caps, {
+							kind: "refusal",
+							headline: "`ns flow autobranch` requires pending worktree changes and did not run.",
+							cwd: result.root,
+							body: "Working tree is clean.",
+							guidance:
+								"Use `ns flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.",
+						}),
+					);
+				}
+
 				return negative(
-					renderPendingWorktreeFailure(caps, {
+					renderAutobranchFailureResultBlock({
+						caps,
+						outcome: result.outcome,
+						cwd: result.root,
 						error: result.error,
-						cwd: ctx.cwd,
-						commandLabel: "`ns flow autobranch`",
+						refusalHeadline: "Did not create a Graphite branch from dirty worktree changes.",
+						failureHeadline: "Could not create a Graphite branch from dirty worktree changes.",
 					}),
 				);
-			}
+			});
+		},
+	});
+}
 
-			if (result.reason === "clean_worktree") {
-				// A clean worktree is a declined guardrail (warn refusal, house-style §7.3), not a failure;
-				// point the user at the command that handles a clean worktree.
-				return negative(
-					renderResultBlock(caps, {
-						kind: "refusal",
-						headline: "`ns flow autobranch` requires pending worktree changes and did not run.",
-						cwd: result.root,
-						body: "Working tree is clean.",
-						guidance:
-							"Use `ns flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.",
-					}),
-				);
-			}
-
-			return negative(
-				renderAutobranchFailureResultBlock({
-					caps,
-					outcome: result.outcome,
-					cwd: result.root,
-					error: result.error,
-					refusalHeadline: "Did not create a Graphite branch from dirty worktree changes.",
-					failureHeadline: "Could not create a Graphite branch from dirty worktree changes.",
-				}),
-			);
-		});
-	},
-});
+export const flowAutobranchCommand = createFlowAutobranchCommand();
 
 export default flowAutobranchCommand;
 
@@ -131,6 +141,7 @@ async function createAutobranchCheckpointFlow(
 	ctx: NsExtensionApi,
 	args: ParsedAutobranchArgs,
 	io: NsCommandIo,
+	now?: () => number,
 ): Promise<AutobranchCheckpointResult> {
 	io.phase("Inspecting worktree…");
 	const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
@@ -154,6 +165,7 @@ async function createAutobranchCheckpointFlow(
 			prepareFlowCheckpointMessage(ctx, pendingSnapshot),
 		commitPreparedCheckpointMessage: (message) => createCommitWithPreparedMessage(ctx, message),
 		onPhase: (message) => io.phase(message),
+		...(now === undefined ? {} : { now }),
 	});
 	if (!flow.ok) {
 		return {

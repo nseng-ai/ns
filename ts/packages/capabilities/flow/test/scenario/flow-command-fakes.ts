@@ -1,17 +1,18 @@
 import { join } from "node:path";
 
-import { flowAutobranchCommand } from "../../src/ns/commands/autobranch.ts";
+import { createFlowAutobranchCommand } from "../../src/ns/commands/autobranch.ts";
 import { flowAutoslotCommand } from "../../src/ns/commands/autoslot.ts";
 import { flowBranchLatestCommitCommand } from "../../src/ns/commands/branch-latest-commit.ts";
 import { flowChangesCommand } from "../../src/ns/commands/changes.ts";
 import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/ns/commands/exec-read-graphite-branch-metadata.ts";
-import { flowCpCommand } from "../../src/ns/commands/cp.ts";
+import { createFlowCpCommand } from "../../src/ns/commands/cp.ts";
 import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
 import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import type { CommandExit, NsCommand, NsExtensionApi } from "@nseng-ai/kernel/sdk";
-import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
+import { createFlowSubmitCommand } from "../../src/ns/commands/submit.ts";
+import type { TimeServices } from "../../src/submit/index.ts";
 
 import {
 	ScriptedNsTestContext,
@@ -27,6 +28,8 @@ interface RunFlowCommandWithFakesOptions {
 	env?: Record<string, string | undefined>;
 	homeDir?: string;
 	defaults?: RunWithFakesDefaults;
+	time?: TimeServices;
+	now?: () => number;
 }
 
 interface FlowCommandFixture {
@@ -38,7 +41,7 @@ interface FlowCommandFixture {
 
 export function runFlowCpCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowCommandWithFakes({
-		command: flowCpCommand,
+		command: createFlowCpCommand(options.time ?? {}),
 		request: options.request ?? {},
 		options,
 		defaults: options.defaults ?? {
@@ -265,7 +268,7 @@ const AUTOBRANCH_CHECKPOINT_MESSAGE = "[cp] Move pending work\n\n- Preserve curr
 
 export function runFlowAutobranchCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowCommandWithFakes({
-		command: flowAutobranchCommand,
+		command: createFlowAutobranchCommand({ now: options.now ?? (() => 123_456_789) }),
 		request: options.request ?? { slug: "move-work" },
 		options,
 		defaults: options.defaults ?? {
@@ -278,8 +281,7 @@ export function runFlowAutobranchCommandWithFakes(options: RunFlowCommandWithFak
 
 // Subprocess script for `ns flow autobranch --slug move-work` on a DIRTY source branch `feature/source`,
 // up to and including the stash list — the prefix shared by the success and Graphite-create-failure
-// paths. The transaction stamps the stash message with `Date.now()`, so the test must pin the clock
-// (e.g. `vi.setSystemTime(new Date(123456789))`) for the regex/stash-list subject to line up.
+// paths. The fixture injects a stable transaction timestamp so the regex and stash-list subject align.
 function autobranchDirtyExecThroughStashList(): ScriptedExecResponse[] {
 	return [
 		// Load the pending-worktree snapshot (dirty).
@@ -408,7 +410,7 @@ export function runFlowRegeneratePrCommandWithFakes(options: RunFlowCommandWithF
 
 export function runFlowSubmitCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowCommandWithFakes({
-		command: flowSubmitCommand,
+		command: createFlowSubmitCommand(options.time === undefined ? {} : { time: options.time }),
 		request: options.request ?? {},
 		options,
 		defaults: options.defaults ?? {

@@ -1,23 +1,14 @@
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 
-import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { runCommand } from "@nseng-ai/foundation/exec";
+import { describe, expect, test, vi } from "vitest";
 
-const spawnMock = vi.fn();
-let runCommand: (typeof import("@nseng-ai/foundation/exec"))["runCommand"];
+const { spawnMock } = vi.hoisted(() => ({ spawnMock: vi.fn() }));
 
-beforeAll(async () => {
-	vi.resetModules();
-	vi.doMock("node:child_process", async (importOriginal) => {
-		const actual = await importOriginal<typeof import("node:child_process")>();
-		return { ...actual, spawn: spawnMock };
-	});
-	({ runCommand } = await import("@nseng-ai/foundation/exec"));
-});
-
-afterAll(() => {
-	vi.doUnmock("node:child_process");
-	vi.resetModules();
+vi.mock("node:child_process", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("node:child_process")>();
+	return { ...actual, spawn: spawnMock };
 });
 
 class FakeChildProcess extends EventEmitter {

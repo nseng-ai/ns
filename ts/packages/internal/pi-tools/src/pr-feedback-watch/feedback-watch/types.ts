@@ -4,6 +4,7 @@ import type {
 	RawPiExecResult,
 } from "@nseng-ai/pi/shared/exec-gateway";
 
+import type { Clock } from "@nseng-ai/foundation/clock";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import type {
 	SendMessageOptions,
@@ -65,6 +66,7 @@ export type { RawPiExecOptions, RawPiExecResult };
 export interface PrFeedbackWatchExtensionOptions {
 	runner?: PrAddressRunner;
 	minimumIntervalMs?: number;
+	clock?: Clock;
 	timers?: TimerScheduler;
 }
 

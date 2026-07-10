@@ -1,12 +1,7 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { DEFAULT_COLUMNS } from "../src/caps.ts";
 import { resolveIo } from "../src/io.ts";
-
-afterEach(() => {
-	vi.restoreAllMocks();
-	vi.unstubAllEnvs();
-});
 
 describe("resolveIo", () => {
 	test("uses both overrides when provided", () => {

@@ -1,5 +1,7 @@
+import type { Clock } from "@nseng-ai/foundation/clock";
 import { commandSucceeded, formatCommandDetails } from "@nseng-ai/foundation/exec";
 import { truncateTextHead, truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
 import type { CommandResult } from "./command-result.ts";
 
@@ -69,6 +71,8 @@ export async function prepareCheckpointMessage(input: {
 	textGenerator: TextGenerator;
 	modelRef: string;
 	onProgress?: (event: TextRepairProgressEvent) => void;
+	clock?: Clock;
+	timers?: TimerScheduler;
 }): Promise<PreparedCheckpointMessage> {
 	const initialPrompt = buildCheckpointUserPrompt({ status: input.status, diff: input.diff });
 	const prepared = await prepareRepairedText({
@@ -88,6 +92,8 @@ export async function prepareCheckpointMessage(input: {
 				validationFeedback: feedback,
 			}),
 		...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
+		...(input.clock === undefined ? {} : { clock: input.clock }),
+		...(input.timers === undefined ? {} : { timers: input.timers }),
 	});
 	if (!prepared.ok) return prepared;
 	return {

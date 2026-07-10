@@ -136,6 +136,7 @@ export async function generateSubmitPrDescriptions(input: {
 			...(generation === undefined ? {} : { generation }),
 			...(prewrittenMetadata === undefined ? {} : { prewrittenMetadata }),
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
+			...(input.prDescription.time === undefined ? {} : { time: input.prDescription.time }),
 		});
 
 		const progress = prProgressForResult(result);
