@@ -25,6 +25,7 @@ export {
 	compareFleetTasksForDisplay,
 } from "../fleet/registry.ts";
 export type {
+	SubagentFleetRetryEvidence,
 	SubagentFleetRunSnapshot,
 	SubagentFleetStartRunOptions,
 	SubagentFleetTaskInput,
@@ -95,6 +96,7 @@ export type {
 	RunnerSubagentProgressCallback,
 	RunnerSubagentTerminalToolDefinition,
 	RunnerSubagentResult,
+	RunnerSubagentRetryEvidence,
 	RunnerSubagentUpdate,
 } from "../runner-subagents/index.ts";
 export { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "../runner-subagents/index.ts";

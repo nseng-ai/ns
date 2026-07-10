@@ -437,6 +437,10 @@ describe("subagent fleet navigator", () => {
 		const task = run.tasks[0];
 		if (task === undefined) throw new Error("missing task fixture");
 		registry.markTaskHeadBaseline(task.id, { status: "available", oid: "abcdef123456" });
+		registry.markRetry(task.id, {
+			firstAttemptStatus: "error",
+			firstAttemptDiagnostic: "temporary provider outage",
+		});
 		registry.markDone(task.id, {
 			status: "final-text",
 			finalText: "done",
@@ -462,6 +466,7 @@ describe("subagent fleet navigator", () => {
 		const detail = view.render(120).join("\n");
 		expect(detail).toContain("post-run summary:");
 		expect(detail).toContain("status: final-text");
+		expect(detail).toContain("retry: succeeded after transient error — temporary provider outage");
 		expect(detail).toContain("commit: HEAD changed abcdef1 → fedcba6");
 		expect(detail).toContain("shared worktree: 1 changed files");
 		expect(detail).toContain("M src/fleet/navigator.ts +12/-3");

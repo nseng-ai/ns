@@ -23,6 +23,7 @@ import {
 	type SubagentRuntimeDispatchInput,
 } from "../src/runtime/seam.ts";
 import { SUBAGENT_FLEET_COMMAND_NAME } from "../src/fleet/contract.ts";
+import { getOrCreateSubagentFleetRegistry } from "../src/fleet/provider.ts";
 import packageExtension, { type NsPiSubagentsExtensionAPI } from "../src/extension.ts";
 import { SUBAGENT_TOOL_NAME } from "../src/tool/subagent.ts";
 
@@ -38,6 +39,10 @@ class FakePi implements NsPiSubagentsExtensionAPI {
 	>();
 	readonly tools = new Map<string, ToolDefinition>();
 	readonly beforeAgentStartHandlers: BeforeAgentStartHandler[] = [];
+
+	getThinkingLevel(): "off" {
+		return "off";
+	}
 
 	async exec(_command: string, _args: string[], _options?: ExecOptions): Promise<ExecResult> {
 		return { stdout: "", stderr: "", code: 0, killed: false };
@@ -245,11 +250,139 @@ describe("ns-pi-subagents package", () => {
 			toolContext(),
 		);
 		expect(result?.details).toMatchObject({ status: "completed" });
+		const fleet = getOrCreateSubagentFleetRegistry(pi).snapshot();
+		expect(fleet).toHaveLength(1);
+		expect(fleet[0]?.tasks.map((task) => [task.index, task.title, task.finalStatus])).toEqual([
+			[0, "one", "final-text"],
+			[1, "two", "final-text"],
+		]);
 		expect(calls).toHaveLength(2);
 		for (const call of calls) {
 			expect(call.options.tools).toEqual(READ_ONLY_SUBAGENT_TOOLS);
 			expect(call.options.model).toBe("anthropic/claude-haiku-4-5");
 		}
+	});
+
+	test("keeps one Fleet task across a same-model explorer retry", async () => {
+		const pi = new FakePi();
+		const calls: SubagentRuntimeDispatchInput[] = [];
+		const runtime = createFunctionSubagentRuntime(async (input) => {
+			calls.push(input);
+			if (calls.length === 1) {
+				return {
+					status: "error",
+					diagnostic: "transient launch failure",
+					error: { message: "transient launch failure" },
+					elapsedMs: 1,
+					progress: { state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 1 },
+				};
+			}
+			return {
+				status: "final-text",
+				finalText: "scouted after retry",
+				elapsedMs: 2,
+				progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 2 },
+			};
+		});
+		packageExtension(pi, {
+			cwd: "/repo",
+			loadAgentDefinition: loader,
+			runtimeAdapters: () => [{ kind: "subprocess", create: () => runtime }],
+		});
+
+		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
+			"call",
+			{
+				agent: "explorer",
+				tasks: [{ title: "retry one", prompt: "inspect" }],
+				model: "anthropic/claude-haiku-4-5",
+			},
+			undefined,
+			undefined,
+			toolContext(),
+		);
+
+		expect(calls).toHaveLength(2);
+		expect(calls[1]?.options).toBe(calls[0]?.options);
+		expect(result?.details).toMatchObject({
+			status: "completed",
+			tasks: [
+				{
+					status: "final-text",
+					retry: {
+						firstAttemptStatus: "error",
+						firstAttemptDiagnostic: "transient launch failure",
+					},
+				},
+			],
+		});
+		const fleet = getOrCreateSubagentFleetRegistry(pi).snapshot();
+		expect(fleet).toHaveLength(1);
+		expect(fleet[0]?.tasks).toMatchObject([
+			{
+				title: "retry one",
+				state: "done",
+				finalStatus: "final-text",
+				retry: {
+					firstAttemptStatus: "error",
+					firstAttemptDiagnostic: "transient launch failure",
+				},
+			},
+		]);
+	});
+
+	test("preserves cancelled positions when queued Fleet tasks never start", async () => {
+		const pi = new FakePi();
+		const controller = new AbortController();
+		let dispatchCount = 0;
+		const runtime = createFunctionSubagentRuntime(async (input) => {
+			dispatchCount += 1;
+			controller.abort("stop fan-out");
+			return {
+				status: "cancelled",
+				diagnostic: "stop fan-out",
+				reason: "stop fan-out",
+				elapsedMs: 1,
+				progress: {
+					...(input.options.title === undefined ? {} : { title: input.options.title }),
+					state: "stopped",
+					toolCount: 0,
+					turnCount: 0,
+					elapsedMs: 1,
+				},
+			};
+		});
+		packageExtension(pi, {
+			cwd: "/repo",
+			loadAgentDefinition: loader,
+			runtimeAdapters: () => [{ kind: "subprocess", create: () => runtime }],
+		});
+		const tasks = Array.from({ length: 5 }, (_, index) => ({
+			title: `task ${index}`,
+			prompt: `inspect ${index}`,
+		}));
+
+		const result = await pi.tools
+			.get(SUBAGENT_TOOL_NAME)
+			?.execute(
+				"call",
+				{ agent: "explorer", tasks, model: "anthropic/claude-haiku-4-5" },
+				controller.signal,
+				undefined,
+				toolContext(),
+			);
+
+		expect(dispatchCount).toBe(1);
+		expect(result?.details).toMatchObject({
+			status: "partial",
+			tasks: tasks.map((task) => ({ title: task.title, status: "cancelled" })),
+		});
+		const fleetTasks = getOrCreateSubagentFleetRegistry(pi)
+			.snapshot()
+			.flatMap((run) => run.tasks);
+		expect(fleetTasks.map((task) => [task.index, task.finalStatus])).toEqual(
+			tasks.map((_, index) => [index, "cancelled"]),
+		);
 	});
 
 	test("assembles healthy agent doctrine deterministically", () => {

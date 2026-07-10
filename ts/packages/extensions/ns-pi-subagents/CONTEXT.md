@@ -33,7 +33,7 @@ One titled, focused assignment supplied to the Subagent Tool. Task count express
 *Avoid*: agent-specific option bag, breadth profile, implicit shared-worktree parallel safety
 
 **Fleet**:
-The session-local collection of child runs and their progress, diagnostics, session evidence, and worktree observations exposed through `ns:agents:*` Pi UI. Fleet names the session-tree view and is independent from Agent Type and Execution Architecture.
+The session-local collection of logical tool runs and tasks, including progress, retry evidence, diagnostics, session evidence, and worktree observations exposed through `ns:agents:*` Pi UI. One Subagent Tool invocation creates one Fleet run with one task per requested position; runtime retry attempts remain beneath that logical task identity. Fleet names the session-tree view and is independent from Agent Type and Execution Architecture.
 *Avoid*: durable job database, agent registry, subprocess-only inventory
 
 **Runner-Subagent Substrate**:

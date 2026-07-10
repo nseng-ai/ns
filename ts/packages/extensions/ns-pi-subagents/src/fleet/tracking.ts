@@ -1,5 +1,9 @@
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
-import { SubagentFleetRegistry, type SubagentFleetTaskInput } from "./registry.ts";
+import {
+	SubagentFleetRegistry,
+	type SubagentFleetRetryEvidence,
+	type SubagentFleetTaskInput,
+} from "./registry.ts";
 import type { GitHeadSnapshot, ReadGitHead } from "./git-head.ts";
 import type {
 	RunnerSubagentResult,
@@ -10,6 +14,7 @@ import { syncSubagentFleetDisplay, type SubagentFleetDisplayContext } from "./di
 export interface SubagentFleetRunTracking {
 	markRunning(index: number): void;
 	markProgress(index: number, update: RunnerSubagentUpdate): void;
+	markRetry(index: number, retry: SubagentFleetRetryEvidence): void;
 	markDone(index: number, result: RunnerSubagentResult): void;
 	dispose(): void;
 }
@@ -103,6 +108,9 @@ export function trackSubagentFleetRun(input: {
 		},
 		markProgress(index, update) {
 			registry.markProgress(requireTaskId(index), update);
+		},
+		markRetry(index, retry) {
+			registry.markRetry(requireTaskId(index), retry);
 		},
 		markDone(index, result) {
 			const taskId = requireTaskId(index);

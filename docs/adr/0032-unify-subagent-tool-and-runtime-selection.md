@@ -37,7 +37,7 @@ The migration is a hard cut: no `explore` or `forked_pi_agent` compatibility ali
 - **Keep separate tools:** rejected because every agent type would enlarge the model-visible surface and duplicate orchestration.
 - **Require callers to choose a runtime:** rejected because most callers want behavioral delegation, not an architecture decision; `auto` preserves a safe deterministic default.
 - **Let the host choose runtime without an override:** rejected because explicit in-process testing and advanced same-process use are legitimate while still subject to descriptor policy.
-- **Scan a Markdown directory to discover agents:** rejected because prose cannot safely encode executable permissions, concurrency, failover, and runtime compatibility. Registration must be typed and immutable.
+- **Scan a Markdown directory to discover agents:** rejected because prose cannot safely encode executable permissions, concurrency, retry policy, and runtime compatibility. Registration must be typed and immutable.
 - **Retain compatibility aliases:** rejected because the package is private and unreleased and aliases would keep obsolete routing concepts alive.
 - **Use agent-specific public option unions:** rejected because the common tool should stay agent-neutral; descriptors enforce policy rather than growing a public options bag.
 

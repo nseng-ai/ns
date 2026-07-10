@@ -4,7 +4,7 @@ import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
 import { buildSubagentDelegationDoctrine } from "./delegation-doctrine.ts";
 import { EXPLORER_AGENT_DESCRIPTOR } from "./agents/explorer.ts";
-import { createSubagentAgentRegistry, type SubagentAgentDescriptor } from "./agents/registry.ts";
+import { createSubagentAgentRegistry } from "./agents/registry.ts";
 import { TASK_AGENT_DESCRIPTOR } from "./agents/task.ts";
 import { getOrCreateSubagentFleetRegistry } from "./fleet/provider.ts";
 import {
@@ -40,7 +40,6 @@ export interface NsPiSubagentsExtensionOptions {
 	loadAgentDefinition?: typeof loadPiAgentDefinition;
 	readGitHead?: ReadGitHead;
 	fleetNavigatorDependencies?: ReadTextFileDependencies;
-	agents?: readonly SubagentAgentDescriptor[];
 	runtimeAdapters?: (ctx: ToolContext) => readonly SubagentRuntimeAdapter[];
 	subprocessRuntime?: SubagentRuntime;
 	inProcessSessionFactory?: InProcessSubagentSessionFactory;
@@ -63,7 +62,7 @@ export default function nsPiSubagentsExtension(
 	registerSubagentFleetCommand(fleetCommandInput);
 	registerSubagentFleetShortcut(fleetCommandInput);
 	const agents = createSubagentAgentRegistry(
-		[EXPLORER_AGENT_DESCRIPTOR, TASK_AGENT_DESCRIPTOR, ...(options.agents ?? [])],
+		[EXPLORER_AGENT_DESCRIPTOR, TASK_AGENT_DESCRIPTOR],
 		(name) => loadDefinition(name, cwd),
 	);
 	const registration = registerSubagentTool(pi, {
@@ -79,7 +78,7 @@ export default function nsPiSubagentsExtension(
 	});
 	const doctrine = buildSubagentDelegationDoctrine(registration.doctrineSections);
 	if (doctrine !== undefined) {
-		pi.on?.("before_agent_start", (event) => ({
+		pi.on("before_agent_start", (event) => ({
 			systemPrompt: `${event.systemPrompt}\n\n${doctrine}`,
 		}));
 	}

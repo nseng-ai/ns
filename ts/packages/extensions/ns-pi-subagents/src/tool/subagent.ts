@@ -12,23 +12,29 @@ import type { ToolContext, ToolDefinition, ToolResult } from "@nseng-ai/pi/runti
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
 
 import {
+	buildSubagentCatalog,
 	definitionDiagnostic,
 	type SubagentAgentDescriptor,
 	type SubagentAgentRegistry,
 } from "../agents/registry.ts";
-import { dispatchExplorerSubagent } from "../explore/dispatch.ts";
+import { dispatchExplorerSubagent, type ExplorerRetryEvidence } from "../explore/dispatch.ts";
 import {
-	mapWithConcurrency,
 	resultDiagnostic,
 	type RunnerSubagentContext,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
+	type RunnerSubagentUpdate,
 } from "../runner-subagents/index.ts";
 import { buildCuratedRunnerSubagentContext } from "../runner-subagents/curated-context.ts";
+import { runnerSubagentSessionFile } from "../runner-subagents/presentation.ts";
 import { resolveRunnerSubagentLaunch } from "../runner-subagents/subagent-process.ts";
 import type { SubagentFleetRegistry } from "../fleet/registry.ts";
 import type { ReadGitHead } from "../fleet/git-head.ts";
-import { dispatchSubagent } from "../toolkit/dispatch.ts";
+import {
+	dispatchSubagentBatch,
+	SUBAGENT_TASK_NOT_STARTED,
+	type ToolkitDispatchBatchResult,
+} from "../toolkit/dispatch.ts";
 import type { SubagentRuntimeKind, SubagentRuntimeRegistry } from "../runtime/seam.ts";
 
 export const SUBAGENT_TOOL_NAME = "subagent";
@@ -64,6 +70,11 @@ export interface SubagentToolRegistration {
 	readonly doctrineSections: readonly string[];
 }
 
+interface SubagentTaskOutcome {
+	result: RunnerSubagentResult;
+	retry?: ExplorerRetryEvidence;
+}
+
 export function registerSubagentTool(
 	pi: SubagentToolHost,
 	options: RegisterSubagentToolOptions,
@@ -71,9 +82,7 @@ export function registerSubagentTool(
 	const healthy = options.agents.entries.filter(
 		(entry) => entry.diagnostic === undefined && entry.definition !== undefined,
 	);
-	const catalog = healthy
-		.map((entry) => `${entry.descriptor.name}: ${entry.definition?.description ?? ""}`)
-		.join("\n");
+	const catalog = buildSubagentCatalog(options.agents.entries);
 	pi.registerTool({
 		name: SUBAGENT_TOOL_NAME,
 		label: "Subagent",
@@ -84,7 +93,14 @@ export function registerSubagentTool(
 		execute: async (_id, raw, signal, onUpdate, ctx) => {
 			const parsed = inputSchema.safeParse(raw);
 			if (!parsed.success) throw new Error(formatZodError(parsed.error));
-			return await executeSubagent(pi, options, parsed.data, signal, onUpdate, ctx);
+			return await executeSubagent({
+				pi,
+				options,
+				input: parsed.data,
+				...optionalEntry("parentSignal", signal),
+				...optionalEntry("onUpdate", onUpdate),
+				ctx,
+			});
 		},
 	});
 	return {
@@ -124,14 +140,17 @@ function parameters(agentNames: readonly string[]): Record<string, unknown> {
 	};
 }
 
-async function executeSubagent(
-	pi: SubagentToolHost,
-	options: RegisterSubagentToolOptions,
-	input: SubagentToolInput,
-	parentSignal: AbortSignal | undefined,
-	onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
-	ctx: ToolContext,
-): Promise<ToolResult> {
+interface ExecuteSubagentOptions {
+	pi: SubagentToolHost;
+	options: RegisterSubagentToolOptions;
+	input: SubagentToolInput;
+	parentSignal?: AbortSignal;
+	onUpdate?: (update: Partial<ToolResult>) => void;
+	ctx: ToolContext;
+}
+
+async function executeSubagent(args: ExecuteSubagentOptions): Promise<ToolResult> {
+	const { pi, options, input, parentSignal, onUpdate, ctx } = args;
 	const entry = options.agents.get(input.agent);
 	if (entry === undefined) return configurationError(`Unknown subagent agent "${input.agent}".`);
 	const descriptor = entry.descriptor;
@@ -164,28 +183,44 @@ async function executeSubagent(
 		options.timers ?? unrefTimerScheduler,
 	);
 	try {
-		const results = await mapWithConcurrency({
-			items: input.tasks,
-			maxConcurrency: descriptor.maxConcurrency,
-			signal: scope.signal,
-			run: async (task) => {
-				onUpdate?.({
-					content: [{ type: "text", text: `Running ${input.agent} subagent: ${task.title}` }],
-				});
-				return await runTask({
-					pi,
-					options,
-					ctx,
-					input,
-					task,
-					definition,
-					runtime: runtime.runtime,
-					runtimeKind: runtime.kind,
-					signal: scope.signal,
-				});
+		const results = await dispatchSubagentBatch(
+			{
+				pi,
+				runtime: runtime.runtime,
+				fleetRegistry: options.fleetRegistry,
+				...optionalEntry("readGitHead", options.readGitHead),
 			},
-		});
-		return formatResult(descriptor, runtime.kind, input.tasks, results);
+			{
+				ctx: { ...ctx, signal: scope.signal, ...optionalEntry("onUpdate", onUpdate) },
+				tasks: input.tasks,
+				taskTitle: (task) => task.title,
+				taskPrompt: (task) => task.prompt,
+				maxConcurrency: descriptor.maxConcurrency,
+				signal: scope.signal,
+				run: async (task, _index, onProgress) => {
+					onUpdate?.({
+						content: [{ type: "text", text: `Running ${input.agent} subagent: ${task.title}` }],
+					});
+					return await runTask({
+						pi,
+						options,
+						ctx,
+						input,
+						task,
+						definition,
+						descriptor,
+						runtime: runtime.runtime,
+						signal: scope.signal,
+						onProgress,
+					});
+				},
+				resultForTracking: (outcome) => ({
+					result: outcome.result,
+					...optionalEntry("retry", outcome.retry),
+				}),
+			},
+		);
+		return formatResult({ descriptor, execution: runtime.kind, tasks: input.tasks, results });
 	} finally {
 		scope.dispose();
 	}
@@ -198,49 +233,35 @@ async function runTask(args: {
 	input: SubagentToolInput;
 	task: SubagentToolInput["tasks"][number];
 	definition: PiAgentDefinition;
+	descriptor: SubagentAgentDescriptor;
 	runtime: import("../runtime/seam.ts").SubagentRuntime;
-	runtimeKind: SubagentRuntimeKind;
 	signal: AbortSignal;
-}): Promise<RunnerSubagentResult> {
+	onProgress: (update: RunnerSubagentUpdate) => void;
+}): Promise<SubagentTaskOutcome> {
 	const runnerCtx: RunnerSubagentContext = {
 		cwd: args.ctx.cwd,
 		signal: args.signal,
-		...(args.ctx.model === undefined ? {} : { model: args.ctx.model }),
+		...optionalEntry("model", args.ctx.model),
 	};
-	const descriptor = args.options.agents.get(args.input.agent)?.descriptor;
-	if (descriptor === undefined) {
-		return configurationFailureResult(
-			args.task.title,
-			`Unknown subagent agent "${args.input.agent}".`,
-		);
-	}
-	if (descriptor.modelPolicy === "cheap-explorer-with-failover" && args.input.model === undefined) {
-		const trackedRuntime = {
-			dispatch: async (input: import("../runtime/seam.ts").SubagentRuntimeDispatchInput) =>
-				await dispatchSubagent(
-					{
-						pi: args.pi,
-						runtime: args.runtime,
-						fleetRegistry: args.options.fleetRegistry,
-						...optionalEntry("readGitHead", args.options.readGitHead),
-					},
-					{
-						ctx: { ...args.ctx, signal: args.signal },
-						title: args.task.title,
-						trackingPrompt: args.task.prompt,
-						options: input.options,
-					},
-				),
+	const descriptor = args.descriptor;
+	if (descriptor.modelPolicy === "explorer-same-model-retry") {
+		const outcome = await dispatchExplorerSubagent({
+			pi: args.pi,
+			ctx: runnerCtx,
+			intent: {
+				title: args.task.title,
+				prompt: args.task.prompt,
+				...optionalEntry("model", args.input.model),
+				signal: args.signal,
+				onProgress: args.onProgress,
+			},
+			definition: args.definition,
+			dependencies: { runtime: args.runtime },
+		});
+		return {
+			result: outcome.result,
+			...optionalEntry("retry", outcome.retry),
 		};
-		return (
-			await dispatchExplorerSubagent({
-				pi: args.pi,
-				ctx: runnerCtx,
-				intent: { title: args.task.title, prompt: args.task.prompt, signal: args.signal },
-				definition: args.definition,
-				dependencies: { runtime: trackedRuntime },
-			})
-		).result;
 	}
 	let prompt = composePiAgentPrompt(args.definition, args.task);
 	if (descriptor.promptContext === "curated-worktree") {
@@ -252,7 +273,7 @@ async function runTask(args: {
 				args.pi.exec("git", [...gitArgs], {
 					cwd: args.ctx.cwd,
 					timeout: timeoutMs,
-					...(args.signal === undefined ? {} : { signal: args.signal }),
+					...optionalEntry("signal", args.signal),
 				}),
 		});
 		prompt = `${prompt}\n\n${curated.markdown}`;
@@ -262,42 +283,43 @@ async function runTask(args: {
 		prompt,
 		returnMode: "final-text" as const,
 		tools: descriptor.tools,
+		cwd: args.ctx.cwd,
+		signal: args.signal,
+		onProgress: args.onProgress,
 		...optionalEntry("model", args.input.model),
 	};
 	const launch = resolveRunnerSubagentLaunch(args.pi, runnerCtx, dispatchOptions);
-	return await dispatchSubagent(
-		{
-			pi: args.pi,
-			runtime: args.runtime,
-			fleetRegistry: args.options.fleetRegistry,
-			...optionalEntry("readGitHead", args.options.readGitHead),
+	const result = await args.runtime.dispatch({
+		pi: args.pi,
+		ctx: runnerCtx,
+		options: {
+			...dispatchOptions,
+			...optionalEntry("preResolvedLaunch", launch),
 		},
-		{
-			ctx: { ...args.ctx, signal: args.signal },
-			title: args.task.title,
-			trackingPrompt: args.task.prompt,
-			options: {
-				...dispatchOptions,
-				...(launch === undefined ? {} : { preResolvedLaunch: launch }),
-			},
-		},
-	);
+	});
+	return { result };
 }
 
-function formatResult(
-	descriptor: SubagentAgentDescriptor,
-	execution: SubagentRuntimeKind,
-	tasks: SubagentToolInput["tasks"],
-	results: readonly (RunnerSubagentResult | undefined)[],
-): ToolResult {
+interface FormatResultOptions {
+	descriptor: SubagentAgentDescriptor;
+	execution: SubagentRuntimeKind;
+	tasks: SubagentToolInput["tasks"];
+	results: readonly ToolkitDispatchBatchResult<SubagentTaskOutcome>[];
+}
+
+function formatResult(options: FormatResultOptions): ToolResult {
+	const { descriptor, execution, tasks, results } = options;
 	const agent = descriptor.name;
 	const finalTextCap = Math.min(
 		descriptor.maxTaskFinalTextChars,
 		Math.floor((descriptor.maxFleetFinalTextChars ?? Number.MAX_SAFE_INTEGER) / tasks.length),
 	);
 	const details = tasks.map((task, index) => {
-		const result = results[index];
-		if (result === undefined)
+		const outcome = results[index];
+		if (outcome === undefined) {
+			throw new Error(`Subagent batch omitted positional result ${index}.`);
+		}
+		if (outcome === SUBAGENT_TASK_NOT_STARTED)
 			return {
 				agent,
 				execution,
@@ -305,17 +327,18 @@ function formatResult(
 				status: "cancelled",
 				diagnostic: "Task was not started.",
 			};
+		const result = outcome.result;
 		const originalFinalText = result.status === "final-text" ? result.finalText : undefined;
 		const finalText = originalFinalText?.slice(0, finalTextCap);
+		const sessionFile = runnerSubagentSessionFile(result);
 		return {
 			agent,
 			execution,
 			title: task.title,
 			status: result.status,
-			...((result.sessionFile ?? result.progress.sessionFile)
-				? { sessionFile: result.sessionFile ?? result.progress.sessionFile }
-				: {}),
+			...optionalEntry("sessionFile", sessionFile),
 			...optionalEntry("diagnostic", resultDiagnostic(result)),
+			...optionalEntry("retry", outcome.retry),
 			...(finalText === undefined || originalFinalText === undefined
 				? {}
 				: { finalText, finalTextTruncated: finalText.length < originalFinalText.length }),
@@ -332,6 +355,11 @@ function formatResult(
 		);
 		if ("sessionFile" in detail) lines.push(`Session: ${detail.sessionFile ?? "unavailable"}`);
 		if ("finalText" in detail && detail.finalText !== undefined) lines.push("", detail.finalText);
+		if ("retry" in detail && detail.retry !== undefined) {
+			lines.push(
+				`Retry: ${detail.status === "final-text" ? "succeeded after" : "attempted after"} transient ${detail.retry.firstAttemptStatus} — ${detail.retry.firstAttemptDiagnostic}`,
+			);
+		}
 		if ("diagnostic" in detail && detail.diagnostic !== undefined)
 			lines.push(`Diagnostic: ${detail.diagnostic}`);
 	}
@@ -341,16 +369,6 @@ function formatResult(
 			status: details.every((detail) => detail.status === "final-text") ? "completed" : "partial",
 			tasks: details,
 		},
-	};
-}
-
-function configurationFailureResult(title: string, diagnostic: string): RunnerSubagentResult {
-	return {
-		status: "error",
-		diagnostic,
-		error: { message: diagnostic },
-		elapsedMs: 0,
-		progress: { title, state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 0 },
 	};
 }
 

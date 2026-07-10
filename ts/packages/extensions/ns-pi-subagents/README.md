@@ -19,10 +19,10 @@ There are no `explore` or `forked_pi_agent` compatibility tools. The task count 
 
 ### Built-in agents
 
-- **`explorer`** — 1–8 read-only reconnaissance tasks, at most four concurrent, with one 300-second whole-call budget. It always receives `read`, `grep`, `find`, and `ls`; runtime choice cannot add permissions. Without an explicit model it uses the cheap explorer policy and retries only transient infrastructure failures against the inherited parent launch.
-- **`task`** — exactly one focused task, sequential in the shared worktree. It receives the normal read/bash/edit/write set, a curated worktree context packet, and inherits parent model/thinking policy unless `model` is explicit.
+- **`explorer`** — 1–8 read-only reconnaissance tasks, at most four concurrent, with one 300-second whole-call budget. It always receives `read`, `grep`, `find`, and `ls`; runtime choice cannot add permissions. Model selection happens once (automatic cheap model, inherited parent model, or explicit override), and transient `error` or `protocol-error` results retry once with that same selection.
+- **`task`** — exactly one focused task, sequential in the shared worktree. It receives the normal read/bash/edit/write set, a curated worktree context packet, and inherits parent model/thinking policy unless `model` is explicit. Task agents remain single-attempt.
 
-Explicit model overrides are attempted once. Every result reports agent, resolved execution architecture, status, title, session file when available, diagnostics, and bounded final text. The child session transcript is the source of truth.
+Every result reports agent, resolved execution architecture, status, title, session file when available, diagnostics, compact explorer retry evidence when applicable, and bounded final text. The child session transcript is the source of truth.
 
 ## Execution architectures
 
@@ -36,7 +36,7 @@ Explicit execution is an advanced architecture override, not a permission overri
 
 ## Fleet UI
 
-The extension retains the `ns:agents:*` fleet/transcript commands and shortcuts. Fleet entries track progress, diagnostics, launch/session evidence, and shared-worktree observations for both execution architectures. Fleet state is session-local, not a durable job database.
+The extension retains the `ns:agents:*` fleet/transcript commands and shortcuts. One tool invocation creates one Fleet run with one logical Fleet task per requested task; explorer retry attempts remain beneath that task identity. Fleet entries track progress, compact retry evidence, diagnostics, launch/session evidence, and shared-worktree observations for both execution architectures. Fleet state is session-local, not a durable job database.
 
 ## Authoring
 

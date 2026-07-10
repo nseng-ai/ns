@@ -15,7 +15,7 @@ export interface SubagentAgentDescriptor {
 	readonly wallClockMs?: number;
 	readonly tools: readonly string[];
 	readonly promptContext: "definition-only" | "curated-worktree";
-	readonly modelPolicy: "inherit" | "cheap-explorer-with-failover";
+	readonly modelPolicy: "inherit" | "explorer-same-model-retry";
 	readonly maxTaskFinalTextChars: number;
 	readonly maxFleetFinalTextChars?: number;
 	readonly supportedRuntimes: readonly SubagentRuntimeKind[];

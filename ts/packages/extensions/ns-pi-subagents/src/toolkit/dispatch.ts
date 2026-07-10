@@ -2,7 +2,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ToolContext, ToolResult } from "@nseng-ai/pi/runtime/tool-types";
 
 import type { ReadGitHead } from "../fleet/git-head.ts";
-import type { SubagentFleetRegistry } from "../fleet/registry.ts";
+import type { SubagentFleetRegistry, SubagentFleetRetryEvidence } from "../fleet/registry.ts";
 import { trackSingleSubagentFleetRun, trackSubagentFleetRun } from "../fleet/tracking.ts";
 import type { SubagentRuntime } from "../runtime/seam.ts";
 import {
@@ -37,6 +37,14 @@ export interface ToolkitDispatchInput {
 	onProgress?: (update: RunnerSubagentUpdate) => void;
 }
 
+export const SUBAGENT_TASK_NOT_STARTED = Symbol("subagent-task-not-started");
+export type ToolkitDispatchBatchResult<TResult> = TResult | typeof SUBAGENT_TASK_NOT_STARTED;
+
+export interface ToolkitDispatchTrackingResult {
+	result: RunnerSubagentResult;
+	retry?: SubagentFleetRetryEvidence;
+}
+
 export interface ToolkitDispatchBatchInput<TItem, TResult> {
 	ctx: SubagentToolContext;
 	tasks: readonly TItem[];
@@ -49,7 +57,7 @@ export interface ToolkitDispatchBatchInput<TItem, TResult> {
 		index: number,
 		onProgress: (update: RunnerSubagentUpdate) => void,
 	): Promise<TResult>;
-	resultForTracking(result: TResult): RunnerSubagentResult;
+	resultForTracking(result: TResult): ToolkitDispatchTrackingResult;
 }
 
 export async function dispatchSubagent<T = unknown>(
@@ -62,7 +70,7 @@ export async function dispatchSubagent<T = unknown>(
 		registry: deps.fleetRegistry,
 		ctx: args.ctx,
 		title: args.title,
-		...(args.trackingPrompt === undefined ? {} : { prompt: args.trackingPrompt }),
+		...optionalEntry("prompt", args.trackingPrompt),
 		parentSessionFile: args.ctx.sessionManager?.getSessionFile?.(),
 		cwd,
 		...optionalEntry("readGitHead", deps.readGitHead),
@@ -71,7 +79,7 @@ export async function dispatchSubagent<T = unknown>(
 	const options = {
 		...args.options,
 		cwd,
-		...(signal === undefined ? {} : { signal }),
+		...optionalEntry("signal", signal),
 		onProgress: (update: RunnerSubagentUpdate) => {
 			tracking.onProgress(update);
 			args.onProgress?.(update);
@@ -114,7 +122,7 @@ export async function dispatchSubagent<T = unknown>(
 export async function dispatchSubagentBatch<TItem, TResult>(
 	deps: ToolkitDispatchDependencies,
 	args: ToolkitDispatchBatchInput<TItem, TResult>,
-): Promise<readonly TResult[]> {
+): Promise<readonly ToolkitDispatchBatchResult<TResult>[]> {
 	const tracking = trackSubagentFleetRun({
 		registry: deps.fleetRegistry,
 		ctx: args.ctx,
@@ -122,7 +130,7 @@ export async function dispatchSubagentBatch<TItem, TResult>(
 			const prompt = args.taskPrompt?.(item, index);
 			return {
 				title: args.taskTitle(item, index),
-				...(prompt === undefined ? {} : { prompt }),
+				...optionalEntry("prompt", prompt),
 			};
 		}),
 		parentSessionFile: args.ctx.sessionManager?.getSessionFile?.(),
@@ -133,20 +141,42 @@ export async function dispatchSubagentBatch<TItem, TResult>(
 		const results = await mapWithConcurrency({
 			items: args.tasks,
 			maxConcurrency: args.maxConcurrency,
-			...(args.signal === undefined ? {} : { signal: args.signal }),
+			...optionalEntry("signal", args.signal),
 			run: async (item, index) => {
 				tracking.markRunning(index);
 				const result = await args.run(item, index, (update) =>
 					tracking.markProgress(index, update),
 				);
-				tracking.markDone(index, args.resultForTracking(result));
+				const trackingResult = args.resultForTracking(result);
+				if (trackingResult.retry !== undefined) {
+					tracking.markRetry(index, trackingResult.retry);
+				}
+				tracking.markDone(index, trackingResult.result);
 				return result;
 			},
 		});
-		return results.filter((result) => result !== undefined);
+		return results.map((result, index) => {
+			if (result !== undefined) return result;
+			const item = args.tasks[index];
+			if (item === undefined) {
+				throw new Error(`Subagent batch has no task at result index ${index}.`);
+			}
+			tracking.markDone(index, notStartedFleetTaskResult(args.taskTitle(item, index)));
+			return SUBAGENT_TASK_NOT_STARTED;
+		});
 	} finally {
 		tracking.dispose();
 	}
+}
+
+function notStartedFleetTaskResult(title: string): RunnerSubagentResult {
+	const diagnostic = "Task was not started.";
+	return {
+		status: "cancelled",
+		diagnostic,
+		elapsedMs: 0,
+		progress: { title, state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 0 },
+	};
 }
 
 export function toRunnerSubagentContext(
@@ -155,7 +185,7 @@ export function toRunnerSubagentContext(
 ): RunnerSubagentContext {
 	return {
 		cwd: ctx.cwd,
-		...(signal === undefined ? {} : { signal }),
-		...(ctx.model === undefined ? {} : { model: ctx.model }),
+		...optionalEntry("signal", signal),
+		...optionalEntry("model", ctx.model),
 	};
 }
