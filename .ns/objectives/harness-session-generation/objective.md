@@ -37,6 +37,37 @@ The design is proven only when both direct model inference and harness-backed in
 - Package placement and curated exports follow the repo's second-consumer and subpackage rules, with no broad-root implementation leak.
 - The final architecture and migration behavior are documented sufficiently for another capability to choose direct inference, isolated harness generation, or a workspace-agent session without learning provider CLI details.
 
+## Definition of Progress
+
+Progress is keepable when:
+
+- It advances an open roadmap row as one coherent slice: a source-backed decision dossier or design document for a grilling row, the throwaway typed prototype exercising the candidate contract, documentation, or — after the crystallization row replaces the Frontier — an implementation slice with passing tests.
+- It preserves the settled direction: concrete harnesses create constrained sessions, `runTurn()` is the primitive, text generation composes execution behavior rather than growing TextGenerator subclasses, and unsupported guarantees fail explicitly rather than degrading silently.
+- It honors the migration-invariants table in `docs/research/harness-consumer-semantics-inventory.md`: PRESERVE behaviors stay pinned by their named tests unless a Semantic Update records an intentional change.
+
+Do not keep changes that:
+
+- Cross a non-goal: optional-bag interfaces mixing generation semantics per call, persistent/resumable sessions, remote sandbox coupling, MCP or tool-registry machinery, or wholesale Vercel Harness API reproduction.
+- Change the behavior, public exports, or test-pinned contracts of live consumers (Reviews runners, the kernel `TextGenerator` flows, `callPiModelText`, `NsCommandExecApi`) before the placement and migration-stack decisions are settled.
+- Present prototype code as production capability — the prototype stays throwaway, outside package public surfaces and the exports maps.
+- Break `just` repo validation or existing package tests.
+
+Useful evidence includes:
+
+- Decision dossiers citing the two research artifacts by `path:line`, with options, consequences, and a recommendation per open question.
+- A typed prototype with fake Claude and Codex harnesses that compiles, runs its own tests, and yields interface-depth comparison notes against the duplicated launchers it would replace.
+- Probe transcripts against pinned CLI versions (Claude Code 2.1.206, Codex 0.136.0) when a guarantee claim needs re-verification.
+
+## Runner Policy
+
+This Objective is execution-friendly for `objective-next` and a valid target for repeated Objective Runner steps under the boundaries below. Its current phase is design-heavy: runner steps prepare decisions and evidence; humans settle them.
+
+- Direct execution is allowed when: the slice advances an open, unblocked roadmap row within scope — research and probe work, decision dossiers for the grilling rows, the throwaway prototype in a clearly non-exported location, documentation — or, after crystallization, an implementation row inside the packages the placement decision names, completing with passing validation.
+- Steer or ask first when: settling any grilling-row or Fog decision (domain model, session ownership, turn contract, text-generation composition, structured-output split, package placement, curated exports, migration staging); changing live consumer behavior or public surfaces; widening `NsExecOptions` or the kernel exec contract; or marking a grilling row done — dossiers inform decisions, they do not make them.
+- How work may change files and be left: local repository edits only, committed per slice on the working branch (never `main`/`master`); each runner step leaves a clean tree; Objective tracking goes through `objective-update` between steps, never inside one.
+- Validation before keeping work: `just` repo validation plus tests for touched packages; formatting failures fixed via `just dprint-fix` and the TS autofixers, not by hand.
+- What will not happen unless explicitly requested: pushing, PR creation or submission, publishing, deleting `draftWithFastText` or editing exports maps before the migration decision, harness invocations beyond read-only local CLI probes, or any external write-capable action.
+
 ## Assumptions and Risks
 
 ### Assumptions
