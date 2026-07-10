@@ -3,7 +3,14 @@ import process from "node:process";
 import { basename, dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ClinkrGroup, failure, resolveIo, type ClinkrExit, type ClinkrIo } from "@nseng-ai/clinkr";
+import {
+	ClinkrGroup,
+	failure,
+	resolveIo,
+	type ClinkrExit,
+	type ClinkrIo,
+	type RenderCapabilities,
+} from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 import {
@@ -29,6 +36,7 @@ export interface CliEntrypointDeps {
 	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	readonly stdout?: (text: string) => void;
 	readonly stderr?: (text: string) => void;
+	readonly renderCapabilities?: RenderCapabilities;
 }
 
 export interface CliRunIfMainInput {
@@ -211,7 +219,12 @@ export function defineCli<
 	};
 	const run = async (args: readonly string[], deps: CliRunDeps<TDeps> = {}): Promise<number> => {
 		const io = resolveIo({
-			...optionalEntries({ stdout: deps.stdout, stderr: deps.stderr }),
+			...optionalEntries({
+				stdout: deps.stdout,
+				stderr: deps.stderr,
+				canEmitAnsi: deps.renderCapabilities?.canEmitAnsi,
+				caps: deps.renderCapabilities?.caps,
+			}),
 		});
 		const stdout = io.stdout;
 		const stderr = io.stderr;

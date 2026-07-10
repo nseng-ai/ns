@@ -63,7 +63,7 @@ describe("slot gc CLI", () => {
 
 	it("renders human dry-run output through the destructive result block", async () => {
 		const run = runScenario(["gc", "--dry-run"], {
-			canEmitAnsi: true,
+			renderCapabilities: { canEmitAnsi: true },
 			git: {
 				worktrees: [
 					slotWorktree("slot-01", "feature/merged"),
@@ -102,8 +102,7 @@ describe("slot gc CLI", () => {
 
 	it("colorizes kept rows and summary facts in the completed report", async () => {
 		const run = runScenario(["gc"], {
-			caps: colorCaps,
-			canEmitAnsi: true,
+			renderCapabilities: { canEmitAnsi: true, caps: colorCaps },
 			git: {
 				worktrees: [
 					slotWorktree("slot-01", "feature/open"),
@@ -200,8 +199,7 @@ describe("slot gc CLI", () => {
 	it("colorizes the preview table when the terminal caps support color", async () => {
 		const run = runScenario(["gc"], {
 			stdin: "no\n",
-			caps: colorCaps,
-			canEmitAnsi: true,
+			renderCapabilities: { canEmitAnsi: true, caps: colorCaps },
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/closed")],
 				localBranches: ["master", "feature/closed"],
@@ -224,8 +222,7 @@ describe("slot gc CLI", () => {
 	it("renders the confirmation preview without ANSI when terminal caps are monochrome", async () => {
 		const run = runScenario(["gc"], {
 			stdin: "no\n",
-			caps: monoCaps,
-			canEmitAnsi: true,
+			renderCapabilities: { canEmitAnsi: false, caps: monoCaps },
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/closed")],
 				localBranches: ["master", "feature/closed"],

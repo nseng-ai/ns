@@ -1,8 +1,9 @@
+import type { Caps } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { runCli, type NsCliDeps } from "../../src/cli/index.ts";
+import type { NsCliDeps } from "../../src/cli/index.ts";
 import type {
 	ExtensionCommandCandidate,
 	SelectedNsCommandLoadResult,
@@ -33,6 +34,13 @@ const progressProbeSchema = z.object({});
 const progressProbeResultSchema = z.object({ isLive: z.boolean() });
 const homeDirProbeSchema = z.object({});
 const homeDirProbeResultSchema = z.object({ homeDir: z.string().optional() });
+
+const colorCaps: Caps = {
+	isTty: true,
+	colorDepth: "truecolor",
+	columns: 80,
+	canRenderUnicode: true,
+};
 
 const colorProbeCommand = defineRawCommand({
 	name: "color-probe",
@@ -116,22 +124,32 @@ describe("extension command option specs", () => {
 		});
 	});
 
-	test("the process host preserves ANSI from raw extension commands", async () => {
-		const stdout: string[] = [];
-		vi.stubEnv("FORCE_COLOR", "3");
-		const write = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
-			stdout.push(String(chunk));
-			return true;
-		});
-		try {
-			expect(
-				await runCli(["color-probe"], { extensionRegistry: commandRegistry(colorProbeCommand) }),
-			).toBe(0);
-			expect(stdout.join("")).toContain("\u001b[31mcolored\u001b[0m");
-		} finally {
-			write.mockRestore();
-			vi.unstubAllEnvs();
-		}
+	test("raw extension emission preserves ANSI for an ANSI-capable sink", async () => {
+		const run = runCliWithFakes(
+			{
+				args: ["color-probe"],
+				renderCapabilities: { canEmitAnsi: true, caps: colorCaps },
+				extensionRegistry: commandRegistry(colorProbeCommand),
+			},
+			{ execResponses: () => [], textGenerationResults: () => [] },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("\u001b[31mcolored\u001b[0m\n");
+	});
+
+	test("raw extension emission strips ANSI when the sink disables it despite color caps", async () => {
+		const run = runCliWithFakes(
+			{
+				args: ["color-probe"],
+				renderCapabilities: { canEmitAnsi: false, caps: colorCaps },
+				extensionRegistry: commandRegistry(colorProbeCommand),
+			},
+			{ execResponses: () => [], textGenerationResults: () => [] },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("colored\n");
 	});
 
 	test("extension option specs render in help", async () => {

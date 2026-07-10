@@ -1,9 +1,8 @@
 import {
 	isClinkrHumanOutputInvocation,
-	renderCapabilitiesForTerminal,
 	resolveClinkrInteraction,
-	type Caps,
 	type ConfirmationResult,
+	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@nseng-ai/clinkr/testing";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
@@ -44,8 +43,7 @@ export interface ScenarioRunOptions {
 	repo?: RepoContext | { type: "no_repo"; errorType: "not-in-repo"; message: string };
 	clipboardResult?: ClipboardCopyResult;
 	command?: FakeSlotCommandGatewayOptions;
-	canEmitAnsi?: boolean;
-	caps?: Caps;
+	renderCapabilities?: RenderCapabilities;
 }
 
 export interface ScenarioRun {
@@ -83,8 +81,8 @@ export function runScenario(
 			io: {
 				stdout: (text) => fixture.stdout.push(text),
 				stderr: (text) => fixture.stderr.push(text),
-				canEmitAnsi: options.canEmitAnsi ?? false,
-				...optionalEntry("caps", options.caps),
+				canEmitAnsi: fixture.context.renderCapabilities.canEmitAnsi,
+				...optionalEntry("caps", fixture.context.renderCapabilities.caps),
 			},
 		})
 		.then((code) => {
@@ -148,10 +146,7 @@ function buildScenarioFixture(
 			...(options.stdin === undefined ? {} : { injectedStdin: stdin }),
 		});
 	const repo = options.repo ?? repoContext();
-	const renderCapabilities =
-		options.caps === undefined
-			? { canEmitAnsi: options.canEmitAnsi ?? false }
-			: renderCapabilitiesForTerminal(options.caps);
+	const renderCapabilities = options.renderCapabilities ?? { canEmitAnsi: false };
 	// Slot package scenarios exercise the mounted command face directly. Entrypoint
 	// metadata (`--version`/`--runtime`) is covered by the owning `ns` CLI tests.
 	const context: SlotCliContext = {

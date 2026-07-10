@@ -8,6 +8,7 @@ import type {
 	ExecResult,
 	NsConfirmPrompt,
 	NsExtensionApi,
+	RenderCapabilities,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@nseng-ai/kernel/sdk";
@@ -40,6 +41,7 @@ export interface RunWithFakesOptions {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	homeDir?: string;
+	renderCapabilities?: RenderCapabilities;
 	onProgress?: NsCliDeps["onProgress"];
 	extensionRegistry?: NsCliDeps["extensionRegistry"];
 }
@@ -153,6 +155,9 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			onOutput: (stream, text) => {
 				liveOutput.push({ stream, text });
 			},
+			...(options.renderCapabilities === undefined
+				? {}
+				: { renderCapabilities: options.renderCapabilities }),
 			...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 			...(options.state?.confirm === undefined ? {} : { confirm: options.state.confirm }),
 			...(options.extensionRegistry === undefined

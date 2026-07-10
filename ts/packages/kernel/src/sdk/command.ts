@@ -308,25 +308,13 @@ function withRenderOverrides<T>(
 	};
 }
 
-export function toClinkrIo(
-	renderCapabilities: RenderCapabilities,
-	stdout: ClinkrIo["stdout"],
-	stderr: ClinkrIo["stderr"],
-): ClinkrIo {
-	return {
-		stdout,
-		stderr,
-		canEmitAnsi: renderCapabilities.canEmitAnsi,
-		...optionalEntry("caps", renderCapabilities.caps),
-	};
-}
-
 function captureIo(ctx: NsExtensionApi, stdout: string[], stderr: string[]): ClinkrIo {
-	return toClinkrIo(
-		ctx.renderCapabilities,
-		(text) => stdout.push(text),
-		(text) => stderr.push(text),
-	);
+	return {
+		stdout: (text) => stdout.push(text),
+		stderr: (text) => stderr.push(text),
+		canEmitAnsi: ctx.renderCapabilities.canEmitAnsi,
+		...optionalEntry("caps", ctx.renderCapabilities.caps),
+	};
 }
 
 function isJsonSchemaInvocation(argv: readonly string[]): boolean {
