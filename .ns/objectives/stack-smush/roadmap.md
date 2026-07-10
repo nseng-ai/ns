@@ -92,11 +92,18 @@ session on 2026-07-10 (see
       from mechanical fallout, finer-over-smeared since packaging can merge but not
       split; tip green required, interior span commits may be red, boundary
       greenness owned by packaging.
-- [ ] **CCC disjoint-scope dispatch proposal** (task) — Design proposal for how CCC
+- [x] **CCC disjoint-scope dispatch proposal** (task) — Design proposal for how CCC
       dispatch declares disjoint scopes for parallel subagents, orders the
       concatenation join onto the run branch, and serializes a piece when a join
-      conflict falsifies its disjointness claim. Agent-alone; produces a linked
-      proposal document for a later live decision.
+      conflict falsifies its disjointness claim. Artifact produced (2026-07-10,
+      autonomous runner step):
+      [`references/ccc-disjoint-scope-dispatch-proposal.md`](references/ccc-disjoint-scope-dispatch-proposal.md)
+      — options-plus-recommendation covering workflow home (prose-first with named
+      push-down candidates), scope claims (advisory overlap check at dispatch,
+      realized-scope report at join; the join conflict stays the ground truth),
+      declared narrative join order with barrier join, fold-to-run after join, and
+      redo-by-default serialization of falsified pieces. The dispatch design
+      decision itself remains a later live decision with the user.
 - [ ] **Slice-map ratification surface proposal** (task) — Graduated from Fog
       (observability): propose how the human sees a packaged stack's slice map —
       cut points, decision/span classification, per-cut rationale — and reshapes it
