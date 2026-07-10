@@ -302,11 +302,48 @@ describe("declared artifact activation", () => {
 
 		const prepared = await fixture.prepare(["pi"]);
 		if (!prepared.ok) return;
+		const removal = prepared.value.artifacts[0];
+		expect(removal).not.toHaveProperty("artifact");
+		expect(removal).toMatchObject({
+			type: "remove",
+			key: "pi:project:skill:@gone/ext:old",
+			harness: "pi",
+			action: "removed",
+			removal: {
+				reason: "removed-source",
+				entry: { artifactId: "@gone/ext:old", provisionName: "old" },
+			},
+		});
 		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value);
 
-		expect(applied).toMatchObject({
+		expect(applied).toEqual({
 			ok: true,
-			completed: [{ action: "removed", removalReason: "removed-source" }, { action: "installed" }],
+			completed: [
+				{
+					key: "pi:project:skill:@gone/ext:old",
+					action: "removed",
+					artifactId: "@gone/ext:old",
+					skillName: "old",
+					harness: "pi",
+					targetArtifactPath: "/repo/.pi/skills/old",
+					manifestPath: `/repo/.pi/skills/${INSTALL_MANIFEST_FILE_NAME}`,
+					writtenFiles: [],
+					conflictingFiles: [],
+					removedFiles: ["/repo/.pi/skills/old/SKILL.md"],
+					removalReason: "removed-source",
+				},
+				{
+					key: "pi:project:skill:@acme/ext:module",
+					action: "installed",
+					artifactId: "@acme/ext:module",
+					skillName: "module",
+					harness: "pi",
+					targetArtifactPath: "/repo/.pi/skills/module",
+					manifestPath: `/repo/.pi/skills/${INSTALL_MANIFEST_FILE_NAME}`,
+					writtenFiles: ["/repo/.pi/skills/module/SKILL.md"],
+					conflictingFiles: [],
+				},
+			],
 		});
 		expect(Object.keys(fixture.readManifest().artifacts)).toEqual([
 			"pi:project:skill:@acme/ext:module",

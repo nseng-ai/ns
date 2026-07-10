@@ -138,9 +138,10 @@ describe("RealArtifactActivationGateway", () => {
 		);
 		expect(result.type).toBe("preflight-failed");
 		if (result.type !== "preflight-failed") return;
-		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
-			"artifact-local-conflict",
-		);
+		expect(result.diagnostics).toContainEqual({
+			code: "artifact-local-conflict",
+			message: "Artifact @test/mixed:edited conflicts with local files for pi.",
+		});
 		expect(files.operations()).toEqual([]);
 		expect(await readFile(editedPath, "utf8")).toBe("# customer edit\n");
 		expect(await readFile(safePath, "utf8")).toBe("# safe\n");

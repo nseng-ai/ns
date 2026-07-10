@@ -54,7 +54,7 @@ export const DECLARED_ARTIFACT_ACTIVATION_ACTIONS = [
 export type DeclaredArtifactActivationAction =
 	(typeof DECLARED_ARTIFACT_ACTIVATION_ACTIONS)[number];
 
-export type PreparedDeclaredArtifactActivationItem =
+type PreparedDeclaredArtifactActivationItem =
 	| {
 			readonly type: "provision";
 			readonly key: string;
@@ -66,7 +66,6 @@ export type PreparedDeclaredArtifactActivationItem =
 	| {
 			readonly type: "remove";
 			readonly key: string;
-			readonly artifact: SkillHarnessArtifactEntry;
 			readonly harness: HarnessId;
 			readonly action: DeclaredArtifactActivationAction;
 			readonly removal: PreparedHarnessArtifactRemoval;
@@ -78,7 +77,7 @@ export interface PreparedDeclaredArtifactActivation {
 	readonly diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
 	readonly skippedCollisions: readonly SkippedArtifactCollision[];
 	readonly artifacts: readonly PreparedDeclaredArtifactActivationItem[];
-	readonly reconciliation?: {
+	readonly reconciliation: {
 		readonly transitions: readonly PreparedHarnessArtifactTransition[];
 		readonly shouldForce: false;
 	};
@@ -158,8 +157,7 @@ export async function prepareDeclaredArtifactActivation(
 		if (!removal.ok) return removal;
 		artifacts.push({
 			type: "remove",
-			key: planned.key,
-			artifact: artifactFromRemoval(removal.value),
+			key: removal.value.key,
 			harness: removal.value.entry.harness,
 			action: removal.value.conflictingFiles.length > 0 ? "conflicted" : "removed",
 			removal: removal.value,
@@ -201,12 +199,7 @@ export async function applyPreparedDeclaredArtifactActivation(
 	if (conflicts.length > 0) {
 		return { ok: true, completed: conflicts.map((item) => outcomeForItem(item, [], [], [])) };
 	}
-	const applied = await applyPreparedProvisionReconciliation(
-		prepared.reconciliation ?? {
-			transitions: prepared.artifacts.flatMap(transitionsForItem),
-			shouldForce: false,
-		},
-	);
+	const applied = await applyPreparedProvisionReconciliation(prepared.reconciliation);
 	if (!applied.ok) {
 		return {
 			ok: false,
@@ -322,30 +315,6 @@ async function prepareProvisionItem(input: {
 		}),
 		provision: preparedProvision,
 	});
-}
-
-function transitionsForItem(
-	item: PreparedDeclaredArtifactActivationItem,
-): readonly PreparedHarnessArtifactTransition[] {
-	if (item.action === "unchanged" || item.action === "conflicted") return [];
-	return item.type === "remove"
-		? [{ type: "remove", removal: item.removal }]
-		: [{ type: "provision", provision: item.provision }];
-}
-
-function artifactFromRemoval(removal: PreparedHarnessArtifactRemoval): SkillHarnessArtifactEntry {
-	return {
-		id: removal.entry.artifactId,
-		kind: "skill",
-		name: removal.entry.provisionName,
-		description: `Manifest-tracked ${removal.entry.provisionName} skill.`,
-		skillName: removal.entry.provisionName,
-		source: {
-			type: removal.entry.source.type,
-			packageName: removal.entry.source.packageName,
-			relativePath: removal.entry.source.relativePath,
-		},
-	};
 }
 
 function completedActivationOutcomes(
