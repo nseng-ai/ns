@@ -24,8 +24,8 @@ const successEvidence: RawProcessEvidence = {
   exitCode: 0,
   stdout: "",
   stderr: "",
-  timedOut: false,
-  cancelled: false,
+  isTimedOut: false,
+  isCancelled: false,
 };
 const claudeUsage: ClaudeUsage = {
   inputTokens: 12,
@@ -54,7 +54,7 @@ function createClaudeHarness(
   options: {
     readonly acquire?: RawProcessEvidence;
     readonly cleanup?: RawProcessEvidence;
-    readonly cleanupThrows?: boolean;
+    readonly shouldCleanupThrow?: boolean;
   } = {},
 ): { readonly harness: FakeClaudeCodeHarness; readonly exec: FakeFullFidelityExec } {
   const evidenceByKey: Record<string, RawProcessEvidence> = {
@@ -66,7 +66,7 @@ function createClaudeHarness(
   }
   const exec = new FakeFullFidelityExec({
     evidenceByKey,
-    ...(options.cleanupThrows ? { throwingKeys: new Set(["claude:cleanup"]) } : {}),
+    ...(options.shouldCleanupThrow ? { throwingKeys: new Set(["claude:cleanup"]) } : {}),
   });
   return { harness: new FakeClaudeCodeHarness(exec.channel), exec };
 }
@@ -196,7 +196,7 @@ describe("candidate harness/session contract", () => {
     assert.equal(codexCreated.ok, true);
     if (!claudeCreated.ok || !codexCreated.ok) return;
 
-    const sessions: ReadonlyArray<ReadOnlyAgentSession<UsageCore | null, typeof structuredMode>> = [
+    const sessions: ReadonlyArray<ReadOnlyAgentSession<UsageCore | null>> = [
       claudeCreated.session,
       codexCreated.session,
     ];
@@ -204,7 +204,11 @@ describe("candidate harness/session contract", () => {
       sessions.map((session) => session.runTurn({ input: "review" })),
     );
     assert.deepEqual(
-      results.map((result) => (result.ok ? result.output.value : result.kind)),
+      results.map((result) => {
+        if (!result.ok) return result.kind;
+        assert.equal(result.output.type, "structured");
+        return result.output.value;
+      }),
       [{ findings: [{ message: "Claude finding" }] }, { findings: [{ message: "Codex finding" }] }],
     );
     assert.deepEqual(claudeExec.requests[1]?.structuredOutputSchema, structuredMode.schema);
@@ -216,12 +220,12 @@ describe("candidate harness/session contract", () => {
     const { harness: claude } = createClaudeHarness({
       invocation: raw({ startupError: "ENOENT", exitCode: null }),
       auth: raw({ exitCode: 1, stderr: "Please login to Claude Code" }),
-      cancel: raw({ exitCode: null, stderr: "SIGTERM", cancelled: true }),
+      cancel: raw({ exitCode: null, stderr: "SIGTERM", isCancelled: true }),
       empty: claudeCompletion("  "),
     });
     const { harness: codex } = createCodexHarness({
       execution: raw({ exitCode: 1, stderr: "sandbox failed" }),
-      timeout: raw({ exitCode: null, stderr: "SIGKILL", timedOut: true }),
+      timeout: raw({ exitCode: null, stderr: "SIGKILL", isTimedOut: true }),
       invalid: raw({ stdout: "not json" }),
     });
     const claudeCreated = await createClaudeReadOnly(claude);
@@ -333,7 +337,7 @@ describe("candidate harness/session contract", () => {
 
     const cleanupFailure = createClaudeHarness(
       { draft: claudeCompletion("ok") },
-      { cleanupThrows: true },
+      { shouldCleanupThrow: true },
     );
     const created = await createClaudeReadOnly(cleanupFailure.harness);
     assert.equal(created.ok, true);

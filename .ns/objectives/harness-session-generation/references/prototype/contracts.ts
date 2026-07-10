@@ -21,9 +21,9 @@ export type OutputMode =
   | { readonly type: "text" }
   | { readonly type: "structured"; readonly schema: JsonValue };
 
-export type TurnOutput<TMode extends OutputMode> = TMode extends { readonly type: "text" }
-  ? { readonly type: "text"; readonly text: string }
-  : { readonly type: "structured"; readonly value: JsonValue };
+export type TurnOutput =
+  | { readonly type: "text"; readonly text: string }
+  | { readonly type: "structured"; readonly value: JsonValue };
 
 export interface TurnDiagnostics {
   readonly exitCode: number | null;
@@ -46,15 +46,13 @@ export interface TurnFailure {
   readonly diagnostics: TurnDiagnostics;
 }
 
-export interface TurnSuccess<out TUsage extends UsageCore | null, TMode extends OutputMode> {
+export interface TurnSuccess<out TUsage extends UsageCore | null> {
   readonly ok: true;
-  readonly output: TurnOutput<TMode>;
+  readonly output: TurnOutput;
   readonly usage: TUsage;
 }
 
-export type TurnResult<TUsage extends UsageCore | null, TMode extends OutputMode> =
-  | TurnSuccess<TUsage, TMode>
-  | TurnFailure;
+export type TurnResult<TUsage extends UsageCore | null> = TurnSuccess<TUsage> | TurnFailure;
 
 export interface TurnRequest {
   readonly input: string;
@@ -62,31 +60,27 @@ export interface TurnRequest {
   readonly timeoutMs?: number;
 }
 
-export interface HarnessSession<out TUsage extends UsageCore | null, TMode extends OutputMode> {
+export interface HarnessSession<out TUsage extends UsageCore | null> {
   readonly profile: "isolated-generation" | "read-only-agent";
-  runTurn(request: TurnRequest): Promise<TurnResult<TUsage, TMode>>;
+  runTurn(request: TurnRequest): Promise<TurnResult<TUsage>>;
   close(): Promise<void>;
 }
 
-export interface IsolatedGenerationSession<
-  out TUsage extends UsageCore | null,
-  TMode extends OutputMode,
-> extends HarnessSession<TUsage, TMode> {
+export interface IsolatedGenerationSession<out TUsage extends UsageCore | null>
+  extends HarnessSession<TUsage> {
   readonly profile: "isolated-generation";
 }
 
-export interface ReadOnlyAgentSession<
-  out TUsage extends UsageCore | null,
-  TMode extends OutputMode,
-> extends HarnessSession<TUsage, TMode> {
+export interface ReadOnlyAgentSession<out TUsage extends UsageCore | null>
+  extends HarnessSession<TUsage> {
   readonly profile: "read-only-agent";
   readonly repositoryCwd: string;
 }
 
-export interface IsolatedGenerationOptions<TMode extends OutputMode> {
+export interface IsolatedGenerationOptions {
   readonly modelId: string;
   readonly systemPrompt: string;
-  readonly outputMode: TMode;
+  readonly outputMode: OutputMode;
   readonly defaultTimeoutMs: number;
   readonly advisoryHints: {
     readonly maxTokens?: number;
@@ -94,10 +88,10 @@ export interface IsolatedGenerationOptions<TMode extends OutputMode> {
   };
 }
 
-export interface ReadOnlyAgentOptions<TMode extends OutputMode> {
+export interface ReadOnlyAgentOptions {
   readonly modelId: string;
   readonly systemPrompt: string;
-  readonly outputMode: TMode;
+  readonly outputMode: OutputMode;
   readonly repositoryCwd: string;
   readonly defaultTimeoutMs: number;
 }
@@ -144,8 +138,8 @@ export interface RawProcessEvidence {
   readonly exitCode: number | null;
   readonly stdout: string;
   readonly stderr: string;
-  readonly timedOut: boolean;
-  readonly cancelled: boolean;
+  readonly isTimedOut: boolean;
+  readonly isCancelled: boolean;
 }
 
 const fullFidelityExecBrand: unique symbol = Symbol("full-fidelity-exec");
