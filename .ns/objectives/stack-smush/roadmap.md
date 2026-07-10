@@ -118,10 +118,21 @@ session on 2026-07-10 (see
       evidence-gated graduations; reshaping flows back only as a prose re-invocation
       of smush (repackaging re-run), never hand-edited state. The final surface
       choice stays with the user.
-- [ ] **Smush skill authoring** (task) — Now unblocked. Author the opt-in,
-      experimental, local-only LM-driven packaging skill per the resolved mechanics,
-      using surveyed raw git/Graphite commands and existing `ns slot gt exec`
-      read-side verification. Zero new CLI push-downs in this row.
+- [x] **Smush skill authoring** (task) — Author the opt-in, experimental,
+      local-only LM-driven packaging skill per the resolved mechanics, using
+      surveyed raw git/Graphite commands and existing `ns slot gt exec` read-side
+      verification. Zero new CLI push-downs in this row. Resolved (2026-07-10,
+      autonomous runner step): first-party skill at
+      [`skills/code-smush/SKILL.md`](../../../skills/code-smush/SKILL.md)
+      (invocation kind `invoke-only`) — propose-first Slice Map readback, backup
+      refs, metadata-only slicing (`git branch` + `gt track --parent`), per-boundary
+      `just` validation in temporary worktrees with move-cut/fix-forward remedies,
+      explicit Span Squash preserving decision why-paragraphs, repackaging via
+      `gt fold --stack --keep` (never `--close`) with loud orphaned-PR reporting,
+      and feedback absorption via `gt absorb` / `gt modify --into`. Picks the
+      mechanically parseable branch-name grammar `<run>--<NN><c>-<slug>`
+      (`c` ∈ {`d`,`s`}, index from trunk) that the slice-map ratification proposal
+      required of this row.
 
 ## Parked
 
@@ -132,7 +143,10 @@ session on 2026-07-10 (see
   merge-free `trunk..tip`, ordered boundaries, no empty slices, and no name
   collisions; the run branch survives as the reparented stack tip. Classification
   never enters the CLI. Selective span squash and other repeated deterministic
-  mechanics may graduate under the same evidence gate.
+  mechanics may graduate under the same evidence gate. A read-only
+  `ns slot gt exec slice-map` derive command (parse the `<run>--<NN><c>-<slug>`
+  grammar plus boundary messages into a Slice Map view) is a smaller, distinct
+  candidate in the same family, under the same real-run evidence gate.
 - Promotion to the default agent workflow — already decided as the direction if the
   additional path proves out on real work; the rollout is follow-on work gated on the
   recorded promotion decision (Completion Criteria 3), likely its own Objective.

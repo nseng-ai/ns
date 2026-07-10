@@ -139,7 +139,10 @@ so only agent-alone rows are autonomous targets.
   previously squashed span, post-submit reclassification where branch renames can
   break PR association, and orphaned close-candidate PRs after `gt fold` without
   `--close`. The skill never mutates or closes PRs; it must report those candidates
-  loudly for the user to handle.
+  loudly for the user to handle. The authored `code-smush` skill (2026-07-10) also
+  uses `gt rename` for the tip slice's grammar name — semantics verified from
+  gt 1.8.6 help text only, not yet exercised; the prototype should observe rename
+  behavior on a tracked, PR-associated tip slice.
 - **Risk — reduced oversight on span PRs.** Skipping human review on spans is the
   point, but it must be a deliberate, durably-encoded policy per PR, not silence;
   agent review may need to stand in. Resolved direction (2026-07-10):
@@ -161,3 +164,7 @@ graduates into roadmap rows as the Frontier advances:
   unchanged); the open question is PR count itself.
 - Interaction with Objectives, branch-context, and handoffs: how a commit run relates
   to objective runner steps, attached plans, and multi-session continuation.
+- Run-piece completion signalling and slot lifecycle at the CCC join: dispatched
+  slots are never reclaimed automatically today and the concatenation join wants
+  piece slots released first; how the orchestrator learns a piece is done (beyond
+  human observation via cmux) is undecided and overlaps the dispatch live decision.
