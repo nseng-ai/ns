@@ -27,36 +27,5 @@ export class InMemoryDeclaredExtensionsGateway implements DeclaredExtensionsGate
 }
 
 function copyLoadResult(result: LoadDeclaredExtensionsResult): LoadDeclaredExtensionsResult {
-	return {
-		descriptors: result.descriptors.map((record) => ({
-			...record,
-			descriptor: {
-				...record.descriptor,
-				...(record.descriptor.entries === undefined
-					? {}
-					: { entries: [...record.descriptor.entries] }),
-				...(record.descriptor.points === undefined
-					? {}
-					: { points: [...record.descriptor.points] }),
-				...(record.descriptor.activation === undefined
-					? {}
-					: {
-							activation: {
-								...record.descriptor.activation,
-								...(record.descriptor.activation.consumerDirs === undefined
-									? {}
-									: { consumerDirs: [...record.descriptor.activation.consumerDirs] }),
-							},
-						}),
-				...(record.descriptor.bundledArtifacts === undefined
-					? {}
-					: {
-							bundledArtifacts: record.descriptor.bundledArtifacts.map((artifact) => ({
-								...artifact,
-							})),
-						}),
-			},
-		})),
-		diagnostics: result.diagnostics.map((diagnostic) => ({ ...diagnostic })),
-	};
+	return structuredClone(result);
 }

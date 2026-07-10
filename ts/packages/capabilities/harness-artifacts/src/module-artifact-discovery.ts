@@ -161,20 +161,7 @@ export async function discoverDeclaredExtensionModuleHarnessArtifacts(
 			]),
 		});
 	}
-	const duplicateDiagnostics = duplicateArtifactDiagnostics(catalogs);
-	const catalogsWithDiagnostics = catalogs.map((catalog) => ({
-		...catalog,
-		diagnostics: sortDiscoveryDiagnostics([
-			...catalog.diagnostics,
-			...duplicateDiagnostics.filter((diagnostic) => diagnostic.path === catalog.moduleRoot),
-		]),
-	}));
-	return {
-		catalogs: catalogsWithDiagnostics,
-		diagnostics: sortDiscoveryDiagnostics(
-			catalogsWithDiagnostics.flatMap((catalog) => catalog.diagnostics),
-		),
-	};
+	return finalizeDiscoveryResult(catalogs);
 }
 
 export async function discoverExtensionModuleHarnessArtifacts(
@@ -193,8 +180,15 @@ export async function discoverExtensionModuleHarnessArtifacts(
 		if (packageResult.type === "catalog") catalogs.push(packageResult.catalog);
 		else diagnostics.push(...packageResult.diagnostics);
 	}
+	return finalizeDiscoveryResult(catalogs, diagnostics);
+}
+
+function finalizeDiscoveryResult(
+	catalogs: readonly ResolvedNpmModuleHarnessArtifactCatalog[],
+	extraDiagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] = [],
+): DiscoverExtensionModuleHarnessArtifactsResult {
 	const duplicateDiagnostics = duplicateArtifactDiagnostics(catalogs);
-	const catalogsWithDuplicateDiagnostics = catalogs.map((catalog) => ({
+	const finalizedCatalogs = catalogs.map((catalog) => ({
 		...catalog,
 		diagnostics: sortDiscoveryDiagnostics([
 			...catalog.diagnostics,
@@ -202,10 +196,10 @@ export async function discoverExtensionModuleHarnessArtifacts(
 		]),
 	}));
 	return {
-		catalogs: catalogsWithDuplicateDiagnostics,
+		catalogs: finalizedCatalogs,
 		diagnostics: sortDiscoveryDiagnostics([
-			...diagnostics,
-			...catalogsWithDuplicateDiagnostics.flatMap((catalog) => catalog.diagnostics),
+			...extraDiagnostics,
+			...finalizedCatalogs.flatMap((catalog) => catalog.diagnostics),
 		]),
 	};
 }

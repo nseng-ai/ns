@@ -69,69 +69,17 @@ export class InMemoryArtifactActivationGateway implements ArtifactActivationGate
 function copyPrepareResult(
 	result: PrepareArtifactActivationResult,
 ): PrepareArtifactActivationResult {
-	return result.ok
-		? { ok: true, prepared: copyPrepared(result.prepared) }
-		: { ok: false, error: { ...result.error } };
+	return structuredClone(result);
 }
 
 function copyApplyResult(
 	result: ApplyPreparedDeclaredArtifactActivationResult,
 ): ApplyPreparedDeclaredArtifactActivationResult {
-	const completed = result.completed.map((outcome) => ({
-		...outcome,
-		writtenFiles: [...outcome.writtenFiles],
-		conflictingFiles: [...outcome.conflictingFiles],
-	}));
-	return result.ok ? { ok: true, completed } : { ok: false, error: { ...result.error }, completed };
+	return structuredClone(result);
 }
 
 function copyPrepared(
 	prepared: PreparedDeclaredArtifactActivation,
 ): PreparedDeclaredArtifactActivation {
-	return {
-		modules: prepared.modules.map((module) => ({
-			...module,
-			descriptor: { ...module.descriptor },
-		})),
-		selectedHarnesses: [...prepared.selectedHarnesses],
-		diagnostics: prepared.diagnostics.map((diagnostic) => ({ ...diagnostic })),
-		skippedCollisions: prepared.skippedCollisions.map((collision) => ({
-			...collision,
-			packages: [...collision.packages],
-		})),
-		artifacts: prepared.artifacts.map((item) => ({
-			...item,
-			artifact: { ...item.artifact },
-			provision: {
-				...item.provision,
-				plan: {
-					...item.provision.plan,
-					source: { ...item.provision.plan.source },
-					files: item.provision.plan.files.map((file) => ({ ...file })),
-				},
-				decisions: {
-					...item.provision.decisions,
-					files: item.provision.decisions.files.map((decision) => ({
-						...decision,
-						file: { ...decision.file },
-					})),
-				},
-				manifest: {
-					...item.provision.manifest,
-					artifacts: Object.fromEntries(
-						Object.entries(item.provision.manifest.artifacts).map(([key, entry]) => [
-							key,
-							{
-								...entry,
-								source: { ...entry.source },
-								files: Object.fromEntries(
-									Object.entries(entry.files).map(([fileKey, file]) => [fileKey, { ...file }]),
-								),
-							},
-						]),
-					),
-				},
-			},
-		})),
-	};
+	return structuredClone(prepared);
 }

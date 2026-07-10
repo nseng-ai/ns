@@ -2,6 +2,7 @@ import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok, usageError } from "@nseng-ai/clinkr";
 import {
 	ALL_HARNESS_IDS,
+	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
 	normalizeHarnessSelection,
 	parseNsTomlHarnesses,
 	planNsTomlHarnessesWrite,
@@ -31,7 +32,7 @@ const fileChangeSchema = z.object({
 });
 const artifactOutcomeSchema = z.object({
 	key: z.string(),
-	action: z.enum(["installed", "refreshed", "unchanged", "conflicted"]),
+	action: z.enum(DECLARED_ARTIFACT_ACTIVATION_ACTIONS),
 	artifactId: z.string(),
 	skillName: z.string(),
 	harness: z.enum(ALL_HARNESS_IDS),

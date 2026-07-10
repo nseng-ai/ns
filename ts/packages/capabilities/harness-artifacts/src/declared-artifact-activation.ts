@@ -30,11 +30,15 @@ import {
 	type SkippedArtifactCollision,
 } from "./reconcile.ts";
 
+export const DECLARED_ARTIFACT_ACTIVATION_ACTIONS = [
+	"installed",
+	"refreshed",
+	"unchanged",
+	"conflicted",
+] as const;
+
 export type DeclaredArtifactActivationAction =
-	| "installed"
-	| "refreshed"
-	| "unchanged"
-	| "conflicted";
+	(typeof DECLARED_ARTIFACT_ACTIVATION_ACTIONS)[number];
 
 export interface PreparedDeclaredArtifactActivationItem {
 	readonly key: string;
@@ -119,8 +123,7 @@ export async function prepareDeclaredArtifactActivation(
 			fs,
 		});
 		if (!provision.ok) return provision;
-		const hasManifestEntry =
-			provision.value.manifest.artifacts[installManifestKey(provision.value.plan)] !== undefined;
+		const isAlreadyInstalled = hasManifestEntry(provision.value);
 		const conflictingFiles = conflictingFilesFromDecisions(provision.value.decisions);
 		artifacts.push({
 			key: provisionIdentityKey(provision.value.plan),
@@ -130,9 +133,9 @@ export async function prepareDeclaredArtifactActivation(
 				conflictingFiles.length > 0
 					? "conflicted"
 					: provision.value.decisions.files.every((decision) => decision.type === "unchanged") &&
-						  hasManifestEntry
+						  isAlreadyInstalled
 						? "unchanged"
-						: hasManifestEntry
+						: isAlreadyInstalled
 							? "refreshed"
 							: "installed",
 			provision: provision.value,
@@ -176,9 +179,9 @@ export async function applyPreparedDeclaredArtifactActivation(
 			outcome(
 				item,
 				item.action === "conflicted"
-					? item.provision.manifest.artifacts[installManifestKey(item.provision.plan)] === undefined
-						? "installed"
-						: "refreshed"
+					? hasManifestEntry(item.provision)
+						? "refreshed"
+						: "installed"
 					: item.action,
 				applied.value.writtenFiles,
 				[],
@@ -186,6 +189,10 @@ export async function applyPreparedDeclaredArtifactActivation(
 		);
 	}
 	return { ok: true, completed };
+}
+
+function hasManifestEntry(provision: PreparedHarnessArtifactProvision): boolean {
+	return provision.manifest.artifacts[installManifestKey(provision.plan)] !== undefined;
 }
 
 function outcome(

@@ -1,4 +1,5 @@
 import type {
+	DeclaredArtifactActivationOutcome,
 	HarnessId,
 	NsTomlChange,
 	PreparedDeclaredArtifactActivation,
@@ -50,19 +51,7 @@ export interface ActivationCompleted {
 	readonly claudeInstructionFile?: FileActivationOutcome;
 	readonly generatedInstructionsFile?: FileActivationOutcome;
 	readonly consumerDirectories?: readonly ConsumerDirectoryOutcome[];
-	readonly artifacts?: readonly ArtifactActivationOutcome[];
-}
-
-export interface ArtifactActivationOutcome {
-	readonly key: string;
-	readonly action: "installed" | "refreshed" | "unchanged" | "conflicted";
-	readonly artifactId: string;
-	readonly skillName: string;
-	readonly harness: HarnessId;
-	readonly targetArtifactPath: string;
-	readonly manifestPath: string;
-	readonly writtenFiles: readonly string[];
-	readonly conflictingFiles: readonly string[];
+	readonly artifacts?: readonly DeclaredArtifactActivationOutcome[];
 }
 
 interface PreparedFileWrite {
@@ -120,11 +109,7 @@ export async function prepareNsActivation(
 	const diagnostics: ActivationDiagnostic[] = [];
 	const parsedExtensions = parseNsTomlExtensions(options.nsTomlContent);
 	if (parsedExtensions.type === "error") {
-		diagnostics.push({
-			code: parsedExtensions.error.code,
-			message: parsedExtensions.error.message,
-			path: "ns.toml",
-		});
+		diagnostics.push(toActivationDiagnostic(parsedExtensions.error, "ns.toml"));
 	}
 	const specs = parsedExtensions.type === "ok" ? parsedExtensions.extensions : [];
 	const loaded = await context.declaredExtensions.load({
@@ -132,11 +117,7 @@ export async function prepareNsActivation(
 		specs,
 	});
 	for (const diagnostic of loaded.diagnostics) {
-		diagnostics.push({
-			code: diagnostic.code,
-			message: diagnostic.message,
-			...(diagnostic.path === undefined ? {} : { path: diagnostic.path }),
-		});
+		diagnostics.push(toActivationDiagnostic(diagnostic));
 	}
 
 	const [agentsRead, claudeRead, instructionsRead] = await Promise.all([
@@ -158,11 +139,12 @@ export async function prepareNsActivation(
 	textForPreflight(instructionsRead, ".ns/instructions.md", diagnostics);
 	const agentsApplied = applyNsPointerStanza({ text: agentsText });
 	if (agentsApplied.type === "malformed") {
-		diagnostics.push({
-			code: "agents-pointer-malformed",
-			message: agentsApplied.reason,
-			path: "AGENTS.md",
-		});
+		diagnostics.push(
+			toActivationDiagnostic(
+				{ code: "agents-pointer-malformed", message: agentsApplied.reason },
+				"AGENTS.md",
+			),
+		);
 	}
 	const claudeApplied = ensureClaudeAgentsImport({ text: claudeText });
 	const generatedInstructions = renderGeneratedInstructions(
@@ -189,17 +171,10 @@ export async function prepareNsActivation(
 		harnesses: options.harnesses,
 	});
 	if (!artifactPreparation.ok) {
-		diagnostics.push({
-			code: artifactPreparation.error.code,
-			message: artifactPreparation.error.message,
-		});
+		diagnostics.push(toActivationDiagnostic(artifactPreparation.error));
 	} else {
 		for (const diagnostic of artifactPreparation.prepared.diagnostics) {
-			diagnostics.push({
-				code: diagnostic.code,
-				message: diagnostic.message,
-				...(diagnostic.path === undefined ? {} : { path: diagnostic.path }),
-			});
+			diagnostics.push(toActivationDiagnostic(diagnostic));
 		}
 		for (const collision of artifactPreparation.prepared.skippedCollisions) {
 			diagnostics.push({
@@ -209,10 +184,7 @@ export async function prepareNsActivation(
 		}
 		for (const item of artifactPreparation.prepared.artifacts) {
 			if (item.action !== "conflicted") continue;
-			diagnostics.push({
-				code: "artifact-local-conflict",
-				message: `Artifact ${item.artifact.id} conflicts with local files for ${item.harness}.`,
-			});
+			diagnostics.push(artifactConflictDiagnostic(item.artifact.id, item.harness));
 		}
 	}
 
@@ -292,7 +264,7 @@ export async function applyNsActivation(
 	completed.consumerDirectories = consumerOutcomes;
 
 	const artifacts = await context.artifacts.apply(prepared.artifacts);
-	completed.artifacts = artifacts.completed.map(copyArtifactOutcome);
+	completed.artifacts = structuredClone(artifacts.completed);
 	if (!artifacts.ok) {
 		return { type: "apply-failed", phase: "artifacts", error: artifacts.error, completed };
 	}
@@ -302,8 +274,7 @@ export async function applyNsActivation(
 			type: "apply-failed",
 			phase: "artifacts",
 			error: {
-				code: "artifact-local-conflict",
-				message: `Artifact ${conflict.artifactId} conflicts with local files for ${conflict.harness}.`,
+				...artifactConflictDiagnostic(conflict.artifactId, conflict.harness),
 				details: { conflictingFiles: [...conflict.conflictingFiles] },
 			},
 			completed,
@@ -394,11 +365,21 @@ function generatedFileChange(
 	return read.type === "found" && read.content === content ? "unchanged" : "replaced";
 }
 
-function copyArtifactOutcome(outcome: ArtifactActivationOutcome): ArtifactActivationOutcome {
+function toActivationDiagnostic(
+	diagnostic: { readonly code: string; readonly message: string; readonly path?: string },
+	path: string | undefined = diagnostic.path,
+): ActivationDiagnostic {
 	return {
-		...outcome,
-		writtenFiles: [...outcome.writtenFiles],
-		conflictingFiles: [...outcome.conflictingFiles],
+		code: diagnostic.code,
+		message: diagnostic.message,
+		...(path === undefined ? {} : { path }),
+	};
+}
+
+function artifactConflictDiagnostic(artifactId: string, harness: HarnessId): ActivationDiagnostic {
+	return {
+		code: "artifact-local-conflict",
+		message: `Artifact ${artifactId} conflicts with local files for ${harness}.`,
 	};
 }
 

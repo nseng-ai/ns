@@ -130,6 +130,7 @@ export {
 } from "./module-artifact-declaration.ts";
 export {
 	applyPreparedDeclaredArtifactActivation,
+	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
 	prepareDeclaredArtifactActivation,
 	type ApplyPreparedDeclaredArtifactActivationResult,
 	type DeclaredArtifactActivationAction,
