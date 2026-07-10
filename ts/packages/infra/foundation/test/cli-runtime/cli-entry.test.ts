@@ -3,13 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { ClinkrGroup, failure, ok } from "@nseng-ai/clinkr";
+import { ClinkrGroup, failure, ok, type Caps } from "@nseng-ai/clinkr";
 import { rawCommand } from "@nseng-ai/clinkr/raw";
 import {
 	defineCli,
 	isDirectCliInvocation,
 	runClinkrCommand,
 	runOperationCommand,
+	type CliEntrypointDeps,
 	type CliPrepareRunInput,
 } from "@nseng-ai/foundation/cli-runtime";
 import { afterEach, describe, expect, test } from "vitest";
@@ -20,11 +21,7 @@ interface TestContext {
 	readonly stdout: (text: string) => void;
 }
 
-interface TestDeps {
-	readonly cwd?: string;
-	readonly env?: NodeJS.ProcessEnv;
-	readonly stdout?: (text: string) => void;
-	readonly stderr?: (text: string) => void;
+interface TestDeps extends CliEntrypointDeps {
 	readonly label?: string;
 }
 
@@ -205,6 +202,55 @@ describe("defineCli", () => {
 		expect(prepareInput?.metadata.packageName).toBe("@nseng-ai/example");
 		expect(prepareInput?.io.canEmitAnsi).toBe(false);
 		expect(buildInputVersion).toBe("1.2.3");
+	});
+
+	test("injects one render capability policy into prepareRun and command emission", async () => {
+		const root = makePackage({
+			name: "@nseng-ai/example",
+			version: "1.2.3",
+			bin: { example: "./src/cli.ts" },
+		});
+		const colorCaps: Caps = {
+			isTty: true,
+			colorDepth: "truecolor",
+			columns: 80,
+			canRenderUnicode: true,
+		};
+		const stdoutText: string[] = [];
+		let prepareIo: CliPrepareRunInput<TestDeps>["io"] | undefined;
+		const cli = defineCli<TestContext, TestDeps, undefined>({
+			metaUrl: packageMetaUrl(root),
+			runtime: "typescript",
+			description: "Example CLI.",
+			prepareRun: ({ io, stdout }) => {
+				prepareIo = io;
+				return {
+					type: "run",
+					context: { value: "prepared", stdout },
+					buildState: undefined,
+				};
+			},
+			buildCli: ({ name, description, version, runtimeInfo }) => {
+				const group = new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo });
+				group.command({
+					name: "go",
+					description: "Run test command.",
+					schema: z.object({}),
+					handler: async () => ok("result"),
+					renderHuman: () => "\u001b[31mcolored\u001b[0m",
+				});
+				return group;
+			},
+		});
+
+		const exitCode = await cli.run(["go"], {
+			stdout: (text) => stdoutText.push(text),
+			renderCapabilities: { canEmitAnsi: false, caps: colorCaps },
+		});
+
+		expect(exitCode).toBe(0);
+		expect(prepareIo).toMatchObject({ canEmitAnsi: false, caps: colorCaps });
+		expect(stdoutText).toEqual(["colored\n"]);
 	});
 
 	test("allows prepareRun to override Clinkr args", async () => {

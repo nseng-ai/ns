@@ -9,8 +9,6 @@ import {
 	emitExit,
 	failure,
 	ok,
-	renderCapabilitiesForTerminal,
-	type Caps,
 	type ClinkrCommandSpec,
 	type ClinkrDynamicCompletionRequest,
 	type ClinkrIo,
@@ -77,7 +75,7 @@ import {
 	type NsCommandCliInfo,
 	type NsCommandPath,
 } from "../extensions/command-registry.ts";
-import { parsedSpecForCommand, toClinkrIo } from "../sdk/command.ts";
+import { parsedSpecForCommand } from "../sdk/command.ts";
 
 export type { NsCliContext } from "./context.ts";
 export type { NsCommandInfo } from "../extensions/command-registry.ts";
@@ -94,7 +92,10 @@ interface NsCliExtensionRegistryDeps {
 	) => Promise<SelectedNsCommandLoadResult>;
 }
 
-export interface NsCliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout" | "stderr"> {
+export interface NsCliDeps extends Pick<
+	CliEntrypointDeps,
+	"cwd" | "env" | "stdout" | "stderr" | "renderCapabilities"
+> {
 	context?: NsExtensionApi;
 	homeDir?: string;
 	onOutput?: (stream: NsOutputStream, text: string) => void;
@@ -145,6 +146,10 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 		const injectedContext = deps.context;
 		const resolvedStdout = deps.stdout ?? injectedContext?.stdout ?? stdout;
 		const resolvedStderr = deps.stderr ?? injectedContext?.stderr ?? stderr;
+		const renderCapabilities: RenderCapabilities = {
+			canEmitAnsi: io.canEmitAnsi === true,
+			...optionalEntry("caps", io.caps),
+		};
 		const commandContext = resolveNsCliCommandContextInput({
 			deps,
 			...(injectedContext === undefined ? {} : { injectedContext }),
@@ -166,13 +171,13 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 				commandContext,
 				stdout: resolvedStdout,
 				stderr: resolvedStderr,
+				renderCapabilities,
 				...optionalEntries({
 					loadSelectedCommand: deps.extensionRegistry?.loadSelectedCommand,
 					injectedContext,
 					onOutput: deps.onOutput,
 					onProgress: deps.onProgress,
 					confirm: deps.confirm,
-					caps: io.caps,
 				}),
 			});
 		}
@@ -232,12 +237,12 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 			commandContext,
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
+			renderCapabilities,
 			...optionalEntries({
 				injectedContext,
 				onOutput: deps.onOutput,
 				onProgress: deps.onProgress,
 				confirm: deps.confirm,
-				caps: io.caps,
 			}),
 		});
 		return {
@@ -388,7 +393,7 @@ async function handleCompletionResolverInvocation(options: {
 	onOutput?: (stream: NsOutputStream, text: string) => void;
 	onProgress?: NsProgressPhaseListener;
 	confirm?: NsConfirmPrompt;
-	caps?: Caps;
+	renderCapabilities: RenderCapabilities;
 }): Promise<{ type: "handled"; exitCode: number }> {
 	const words = completionResolverWords(options.args);
 	const selectedCommandKey = requestedCommandKey(words, options.commandCatalog.commandInfos);
@@ -409,12 +414,12 @@ async function handleCompletionResolverInvocation(options: {
 		commandContext: options.commandContext,
 		stdout: options.stdout,
 		stderr: options.stderr,
+		renderCapabilities: options.renderCapabilities,
 		...optionalEntries({
 			injectedContext: options.injectedContext,
 			onOutput: options.onOutput,
 			onProgress: options.onProgress,
 			confirm: options.confirm,
-			caps: options.caps,
 		}),
 	});
 	const candidates = await buildCli(selectedCommandResolution.resolution).completeAsync(
@@ -474,13 +479,12 @@ async function buildNsCliContext(options: {
 	onOutput?: (stream: NsOutputStream, text: string) => void;
 	onProgress?: NsProgressPhaseListener;
 	confirm?: NsConfirmPrompt;
-	caps?: Caps;
+	renderCapabilities: RenderCapabilities;
 }): Promise<NsCliContext> {
 	const baseContext = options.injectedContext ?? createRealNsCommandContext(options.commandContext);
 	const onOutput = options.onOutput ?? baseContext.onOutput;
 	const confirm = options.confirm ?? baseContext.confirm;
 	const stdin = baseContext.stdin ?? readStdin;
-	const renderCapabilities: RenderCapabilities = renderCapabilitiesForTerminal(options.caps);
 	const contextExtensions = baseContext.extensions;
 	const commandIo = createCliCommandIo({
 		stdout: options.stdout,
@@ -497,7 +501,7 @@ async function buildNsCliContext(options: {
 			options.onProgress === undefined
 				? noopNsProgress
 				: { isLive: true, phase: options.onProgress },
-		renderCapabilities,
+		renderCapabilities: options.renderCapabilities,
 		outputFormat: clinkrFormatFromArgs(options.args),
 		exec: baseContext.exec.bind(baseContext),
 		stdout: options.stdout,
@@ -512,12 +516,16 @@ async function buildNsCliContext(options: {
 		interaction: createNsCliInteraction({ stderr: options.stderr }),
 		stdout: options.stdout,
 		stderr: options.stderr,
-		renderCapabilities,
 	};
 }
 
 function clinkrIo(ctx: NsCliContext): ClinkrIo {
-	return toClinkrIo(ctx.renderCapabilities, ctx.stdout, ctx.stderr);
+	return {
+		stdout: ctx.stdout,
+		stderr: ctx.stderr,
+		canEmitAnsi: ctx.context.renderCapabilities.canEmitAnsi,
+		...optionalEntry("caps", ctx.context.renderCapabilities.caps),
+	};
 }
 
 function isCompletionResolverInvocation(args: readonly string[]): boolean {
