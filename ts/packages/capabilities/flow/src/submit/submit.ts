@@ -7,13 +7,8 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
 
-import { commandOperations } from "../phase-stream/matrix-progress-core.ts";
-import type {
-	GithubPrGateway,
-	PrewrittenPrMetadata,
-	TextGenerator,
-	TimeServices,
-} from "./index.ts";
+import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
+import type { GithubPrGateway, PrewrittenPrMetadata, TextGenerator, TimeServices } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import {
 	compactSubmitMetadataCellText,
@@ -219,9 +214,11 @@ export async function runSubmitCommand(
 	emitSubmitPhase(options, { type: "phase-started", phaseKey: "preflight" }, (matrix) =>
 		matrix.setGlobal("preflight", { state: "active" }),
 	);
-	options.submitMatrix?.setActiveOperations(commandOperations([submitDryRunCommandDisplay]));
-	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
-	options.submitMatrix?.setActiveOperations([]);
+	const readiness = await withCommandOperations(
+		options.submitMatrix,
+		[submitDryRunCommandDisplay],
+		() => options.gateway.checkSubmitReadiness(commandParams),
+	);
 	if (readiness.kind === "failed") {
 		options.submitMatrix?.setGlobal("preflight", {
 			state: "failed",
@@ -283,17 +280,21 @@ export async function runSubmitCommand(
 		}
 
 		options.submitMatrix?.setGlobal("restack", { state: "active" });
-		options.submitMatrix?.setActiveOperations(commandOperations([RESTACK_COMMAND_DISPLAY]));
-		const restackFailure = await runRestackBeforeSubmit(options, commandParams);
-		options.submitMatrix?.setActiveOperations([]);
+		const restackFailure = await withCommandOperations(
+			options.submitMatrix,
+			[RESTACK_COMMAND_DISPLAY],
+			() => runRestackBeforeSubmit(options, commandParams),
+		);
 		if (restackFailure !== undefined) {
 			options.submitMatrix?.setGlobal("restack", { state: "failed", text: "restack failed" });
 			return restackFailure;
 		}
 
-		options.submitMatrix?.setActiveOperations(commandOperations([submitDryRunCommandDisplay]));
-		const rechecked = await options.gateway.checkSubmitReadiness(commandParams);
-		options.submitMatrix?.setActiveOperations([]);
+		const rechecked = await withCommandOperations(
+			options.submitMatrix,
+			[submitDryRunCommandDisplay],
+			() => options.gateway.checkSubmitReadiness(commandParams),
+		);
 		const recheckPreflightFailure = preflightFailureFor({
 			result: rechecked,
 			phase: "readiness recheck",
@@ -321,38 +322,44 @@ export async function runSubmitCommand(
 		options.submitMatrix?.setGlobal("restack", { state: "done", text: "restack complete" });
 	}
 
-	emitSubmitPhase(options, { type: "phase-started", phaseKey: "metadata" }, (matrix) =>
-		matrix.setActiveOperations(
-			commandOperations([
-				"gt log --stack --reverse --no-interactive",
-				"gt trunk --no-interactive",
-				"gt branch info --no-interactive --branch <stack-branch>",
-				"git log --format=%B%x00 <parent>..<branch>",
-				"git diff <parent>..<branch>",
-				"gt modify --no-interactive",
-			]),
-		),
+	emitPhase(options, { type: "phase-started", phaseKey: "metadata" });
+	const prewrite = await withCommandOperations(
+		options.submitMatrix,
+		[
+			"gt log --stack --reverse --no-interactive",
+			"gt trunk --no-interactive",
+			"gt branch info --no-interactive --branch <stack-branch>",
+			"git log --format=%B%x00 <parent>..<branch>",
+			"git diff <parent>..<branch>",
+			"gt modify --no-interactive",
+		],
+		() =>
+			prepareSubmitPrMetadata({
+				cwd: options.cwd,
+				env: options.prDescription.env,
+				gateway: options.metadataGateway,
+				git: options.prDescription.git,
+				textGenerator: options.prDescription.textGenerator,
+				...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
+				progress: {
+					onProgress: (message) =>
+						emitPhase(options, {
+							type: "phase-progress",
+							phaseKey: "metadata",
+							label: message,
+						}),
+					onActiveOperations: (operations) => options.submitMatrix?.setActiveOperations(operations),
+					onItemProgress: (event) => {
+						const text =
+							event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
+						options.submitMatrix?.setCell(event.branch, "metadata", {
+							state: event.state,
+							...optionalEntry("text", text),
+						});
+					},
+				},
+			}),
 	);
-	const prewrite = await prepareSubmitPrMetadata({
-		cwd: options.cwd,
-		env: options.prDescription.env,
-		gateway: options.metadataGateway,
-		git: options.prDescription.git,
-		textGenerator: options.prDescription.textGenerator,
-		...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
-		onProgress: (message) =>
-			emitPhase(options, { type: "phase-progress", phaseKey: "metadata", label: message }),
-		onActiveOperations: (operations) => options.submitMatrix?.setActiveOperations(operations),
-		onBranchProgress: (event) => {
-			const text =
-				event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
-			options.submitMatrix?.setCell(event.branch, "metadata", {
-				state: event.state,
-				...optionalEntry("text", text),
-			});
-		},
-	});
-	options.submitMatrix?.setActiveOperations([]);
 	if (prewrite.kind === "failed") {
 		const stderr = formatPrewriteFailureOutput({
 			error: prewrite.error,
@@ -413,9 +420,11 @@ export async function runSubmitCommand(
 	emitSubmitPhase(options, { type: "phase-started", phaseKey: "verification" }, (matrix) =>
 		matrix.setGlobal("verify", { state: "active", text: "checking current PR" }),
 	);
-	options.submitMatrix?.setActiveOperations(commandOperations([CURRENT_PR_COMMAND_DISPLAY]));
-	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
-	options.submitMatrix?.setActiveOperations([]);
+	const currentPr = await withCommandOperations(
+		options.submitMatrix,
+		[CURRENT_PR_COMMAND_DISPLAY],
+		() => options.gateway.verifyCurrentPr(commandParams),
+	);
 	if (
 		combinedSubmitOutcome.semanticFailureCause !== undefined ||
 		shouldFailPostSubmitVerification(combinedSubmitOutcome, currentPr)
@@ -489,14 +498,20 @@ export async function runSubmitCommand(
 		prDescription: options.prDescription,
 		prLinks: descriptionPrLinks,
 		prewrittenMetadata: prewrite.prepared,
-		onProgress: (message) =>
-			emitPhase(options, { type: "phase-progress", phaseKey: "descriptions", label: message }),
-		onActiveOperations: (operations) => options.submitMatrix?.setActiveOperations(operations),
-		onPrProgress: (event) => {
-			options.submitMatrix?.setCellByPrNumber(event.prNumber, "description", {
-				state: event.state,
-				...optionalEntry("text", event.message),
-			});
+		progress: {
+			onProgress: (message) =>
+				emitPhase(options, {
+					type: "phase-progress",
+					phaseKey: "descriptions",
+					label: message,
+				}),
+			onActiveOperations: (operations) => options.submitMatrix?.setActiveOperations(operations),
+			onItemProgress: (event) => {
+				options.submitMatrix?.setCellByPrNumber(event.prNumber, "description", {
+					state: event.state,
+					...optionalEntry("text", event.message),
+				});
+			},
 		},
 	});
 	options.submitMatrix?.setActiveOperations([]);
@@ -665,12 +680,11 @@ async function runSubmitPhaseStep(input: {
 	knownFailurePhase?: string;
 	run: (gateway: SubmitGateway, params: SubmitCommandParams) => Promise<SubmitRunResult>;
 }): Promise<SubmitPhaseStepResult> {
-	input.options.submitMatrix?.setActiveOperations(commandOperations([input.commandDisplay]));
-	const result = await input.run(
-		input.options.gateway,
-		submitStreamingCommandParams(input.options),
+	const result = await withCommandOperations(
+		input.options.submitMatrix,
+		[input.commandDisplay],
+		() => input.run(input.options.gateway, submitStreamingCommandParams(input.options)),
 	);
-	input.options.submitMatrix?.setActiveOperations([]);
 	if (result.kind === "success") return { kind: "success", result };
 
 	input.options.submitMatrix?.setGlobal("submit", {

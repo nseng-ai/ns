@@ -4,9 +4,11 @@ import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import {
 	compactSubmitMetadataCellText,
+	createSubmitMatrixProgressController,
 	renderSubmitMatrixProgressFrame,
 	submitMatrixRowsFromTopology,
 } from "../../src/submit/submit-matrix-progress.ts";
+import { streamCapture } from "./stream-test-helpers.ts";
 
 function caps(parts: Partial<Caps> = {}): Caps {
 	return {
@@ -19,6 +21,32 @@ function caps(parts: Partial<Caps> = {}): Caps {
 }
 
 describe("submit matrix progress", () => {
+	test("derives checkpoint model operations from the phase event policy", () => {
+		const capture = streamCapture({ sleep: "pending" });
+		const controller = createSubmitMatrixProgressController({
+			caps: caps(),
+			deps: capture.deps,
+			title: "ns flow submit",
+			rows: [],
+			checkpointModelRef: "openai-codex/gpt-test",
+		});
+		controller.begin();
+
+		controller.applyGlobalPhaseEvent("checkpoint", {
+			type: "phase-started",
+			phaseKey: "generate",
+		});
+		expect(stripAnsi(capture.redraws.at(-1) ?? "")).toContain(
+			"LM · generating checkpoint message · openai-codex/gpt-test",
+		);
+
+		controller.applyGlobalPhaseEvent("checkpoint", {
+			type: "phase-done",
+			phaseKey: "generate",
+		});
+		expect(stripAnsi(capture.redraws.at(-1) ?? "")).not.toContain("generating checkpoint message");
+	});
+
 	test("renders fixed global rows, checkpoint substeps, and two branch columns", () => {
 		const rows = submitMatrixRowsFromTopology({
 			currentBranch: "feature/b",
@@ -100,8 +128,12 @@ describe("submit matrix progress", () => {
 
 		const output = stripAnsi(lines.join("\n"));
 		expect(output).toContain("ns flow submit");
-		expect(output).toContain(
-			"Running: LM · generating PR metadata · openai-codex/gpt-5.4-mini · branch 2/3",
+		// The in-flight operation renders on the deepest active row (here the Submit phase, the
+		// last active global) instead of a standalone "Running:" header.
+		expect(output).not.toContain("Running:");
+		const submitLine = output.split("\n").find((line) => line.includes("Submit"));
+		expect(submitLine).toContain(
+			"LM · generating PR metadata · openai-codex/gpt-5.4-mini · branch 2/3",
 		);
 		expect(output).toContain("Inventory");
 		expect(output).toContain("Checkpoint");

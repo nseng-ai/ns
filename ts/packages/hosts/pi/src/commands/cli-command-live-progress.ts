@@ -6,6 +6,7 @@ import {
 import {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
+	formatActiveOperation,
 	type ActiveOperation,
 	isMatrixProgressEvent,
 	matrixProgressDisplayWidthChars,
@@ -205,15 +206,6 @@ export class MatrixWidgetState {
 			...this.rows.map((row) => matrixProgressDisplayWidthChars(row.label)),
 		);
 		return clampMatrixProgressLabelWidthChars(longest);
-	}
-}
-
-function formatActiveOperation(operation: ActiveOperation): string {
-	switch (operation.kind) {
-		case "command":
-			return operation.display;
-		case "model":
-			return `LM · ${operation.operation} · ${operation.modelRef}${operation.detail === undefined ? "" : ` · ${operation.detail}`}`;
 	}
 }
 

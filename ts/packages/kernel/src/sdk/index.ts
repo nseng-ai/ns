@@ -86,6 +86,7 @@ export type {
 export {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
+	formatActiveOperation,
 	isMatrixProgressEvent,
 	matrixProgressDisplayWidthChars,
 	MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS,

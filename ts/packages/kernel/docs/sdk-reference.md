@@ -472,6 +472,7 @@ type NsProgressPhaseEvent =
 const MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS = 18;
 const MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS = 36;
 
+function formatActiveOperation(operation: ActiveOperation): string;
 function isMatrixProgressEvent(event: NsProgressPhaseEvent): event is NsProgressMatrixEvent;
 function matrixProgressDisplayWidthChars(value: string): number;
 function clampMatrixProgressLabelWidthChars(preferredWidthChars: number): number;

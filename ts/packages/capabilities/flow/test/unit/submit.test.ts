@@ -719,12 +719,10 @@ describe("prepareSubmitPrMetadata", () => {
 			{ ok: true, text: "Generated A\n\nGenerated body A" },
 			{ ok: true, text: "Generated B\n\nGenerated body B" },
 		]);
-		const activeOperations: Parameters<
-			NonNullable<Parameters<typeof prepareSubmitPrMetadata>[0]["onActiveOperations"]>
-		>[0][] = [];
-		const branchProgress: Parameters<
-			NonNullable<Parameters<typeof prepareSubmitPrMetadata>[0]["onBranchProgress"]>
-		>[0][] = [];
+		type ProgressListeners = NonNullable<Parameters<typeof prepareSubmitPrMetadata>[0]["progress"]>;
+		const activeOperations: Parameters<NonNullable<ProgressListeners["onActiveOperations"]>>[0][] =
+			[];
+		const branchProgress: Parameters<NonNullable<ProgressListeners["onItemProgress"]>>[0][] = [];
 		const result = await prepareSubmitPrMetadata({
 			cwd: "/repo",
 			env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/gpt-5.4-mini" },
@@ -758,8 +756,10 @@ describe("prepareSubmitPrMetadata", () => {
 				ensureCleanWorktree: async () => ok(undefined),
 				amendBranchMetadataCommit: async () => ok(undefined),
 			},
-			onActiveOperations: (operations) => activeOperations.push([...operations]),
-			onBranchProgress: (event) => branchProgress.push(event),
+			progress: {
+				onActiveOperations: (operations) => activeOperations.push([...operations]),
+				onItemProgress: (event) => branchProgress.push(event),
+			},
 		});
 
 		expect(result.kind).toBe("prepared");
