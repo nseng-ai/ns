@@ -137,7 +137,6 @@ export {
 	type DeclaredArtifactActivationAction,
 	type DeclaredArtifactActivationOutcome,
 	type PreparedDeclaredArtifactActivation,
-	type PreparedDeclaredArtifactActivationItem,
 	type PrepareDeclaredArtifactActivationRequest,
 } from "./declared-artifact-activation.ts";
 export {

@@ -223,6 +223,7 @@ describe("ns activation planning and apply", () => {
 					selectedHarnesses: ["pi"],
 					skippedCollisions: [],
 					artifacts: [],
+					reconciliation: { transitions: [], shouldForce: false },
 					diagnostics: [
 						{ code: "module_artifact_skill_entry_missing", message: "missing artifact" },
 					],

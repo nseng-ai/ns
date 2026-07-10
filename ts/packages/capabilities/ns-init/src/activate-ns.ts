@@ -221,7 +221,8 @@ export async function prepareNsActivation(
 		}
 		for (const item of artifactPreparation.prepared.artifacts) {
 			if (item.action !== "conflicted") continue;
-			diagnostics.push(artifactConflictDiagnostic(item.artifact.id, item.harness));
+			const artifactId = item.type === "remove" ? item.removal.entry.artifactId : item.artifact.id;
+			diagnostics.push(artifactConflictDiagnostic(artifactId, item.harness));
 		}
 	}
 
