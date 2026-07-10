@@ -3,9 +3,7 @@ import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 
 import {
-	createMatrixProgressController,
-	renderMatrixProgressFrame,
-	rowsWithKey,
+	defineMatrixWorkflow,
 	updateForPhase,
 	type MatrixCellState,
 	type MatrixCellUpdate,
@@ -182,6 +180,13 @@ export function submitMatrixRowsFromTopology(
 	}));
 }
 
+const submitMatrixWorkflow = defineMatrixWorkflow({
+	columns: SUBMIT_MATRIX_COLUMNS,
+	globalRows: SUBMIT_MATRIX_GLOBAL_ROWS,
+	phases: SUBMIT_PHASES,
+	rowKey: (row: SubmitMatrixRowSpec) => row.branch,
+});
+
 export function createSubmitMatrixProgressController(options: {
 	caps: Caps;
 	deps: StreamSinkDeps;
@@ -189,14 +194,11 @@ export function createSubmitMatrixProgressController(options: {
 	rows: readonly SubmitMatrixRowSpec[];
 	forward?: NsProgress;
 }): SubmitMatrixProgressController {
-	const controller = createMatrixProgressController({
+	const controller = submitMatrixWorkflow.createController({
 		caps: options.caps,
 		deps: options.deps,
 		title: options.title,
-		rows: rowsWithKey(options.rows, (row) => row.branch),
-		columns: SUBMIT_MATRIX_COLUMNS,
-		globalRows: SUBMIT_MATRIX_GLOBAL_ROWS,
-		phases: SUBMIT_PHASES,
+		rows: options.rows,
 		...(options.forward === undefined ? {} : { forward: options.forward }),
 		begin: "lazy",
 	});
@@ -230,11 +232,10 @@ export function createSubmitMatrixProgressController(options: {
 	}
 
 	function applyPrLinks(prLinks: readonly SubmitPrLink[]): void {
-		controller.updateRows((rows) => {
-			const submitRows = rows.filter(isSubmitMatrixRowView);
-			if (submitRows.length !== rows.length) return;
-			applyPrLinksToRows(submitRows, prLinks);
-		});
+		const deltas = applyPrLinksToRows(controller.getRows(), prLinks);
+		for (const delta of deltas) {
+			controller.patchRow(delta.branch, { pr: delta.pr, label: delta.label });
+		}
 	}
 
 	function setCellByPrNumber(
@@ -242,27 +243,20 @@ export function createSubmitMatrixProgressController(options: {
 		column: SubmitMatrixColumnKey,
 		update: SubmitMatrixCellUpdate,
 	): void {
-		controller.updateRows((rows) => {
-			const row = rows
-				.filter(isSubmitMatrixRowView)
-				.find((item) => prNumberForRow(item) === String(prNumber));
-			if (row === undefined) return;
-			row.cells[column] = update;
-		});
+		const row = controller
+			.getRows()
+			.find((candidate) => prNumberForRow(candidate) === String(prNumber));
+		if (row === undefined) return;
+		controller.setCell(row.branch, column, update);
 	}
 
 	function setPendingCells(column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void {
-		controller.updateRows((rows) => {
-			for (const row of rows) {
-				if (row.cells[column].state !== "pending") continue;
-				row.cells[column] = update;
-			}
-		});
+		controller.setCellsInState(column, "pending", update);
 	}
 
 	return {
 		begin: controller.begin,
-		setRows: (rows) => controller.setRows(rowsWithKey(rows, (row) => row.branch)),
+		setRows: controller.setRows,
 		setRunningCommands: controller.setRunningCommands,
 		setGlobal: controller.setGlobal,
 		setGlobalSubstep: controller.setGlobalSubstep,
@@ -278,10 +272,16 @@ export function createSubmitMatrixProgressController(options: {
 	};
 }
 
+export interface SubmitMatrixRowLabelDelta {
+	branch: string;
+	pr: SubmitPrLink;
+	label: string;
+}
+
 export function applyPrLinksToRows(
-	rows: SubmitMatrixRowView[],
+	rows: readonly SubmitMatrixRowSpec[],
 	prLinks: readonly SubmitPrLink[],
-): void {
+): readonly SubmitMatrixRowLabelDelta[] {
 	const existingNumbers = new Set(
 		rows.flatMap((row) => {
 			const number = prNumberForRow(row);
@@ -293,13 +293,12 @@ export function applyPrLinksToRows(
 		const number = prNumberFromLink(link);
 		return number === undefined || !existingNumbers.has(number);
 	});
-	if (remainingLinks.length !== newRows.length) return;
-	for (const [index, row] of newRows.entries()) {
+	if (remainingLinks.length !== newRows.length) return [];
+	return newRows.flatMap((row, index) => {
 		const link = remainingLinks[index];
-		if (link === undefined) continue;
-		row.pr = link;
-		row.label = formatRowLabel(row.branch, link);
-	}
+		if (link === undefined) return [];
+		return [{ branch: row.branch, pr: link, label: formatRowLabel(row.branch, link) }];
+	});
 }
 
 export function renderSubmitMatrixProgressFrame(input: {
@@ -311,25 +310,18 @@ export function renderSubmitMatrixProgressFrame(input: {
 	tailLine?: string;
 	tick?: number;
 }): readonly string[] {
-	return renderMatrixProgressFrame({
+	return submitMatrixWorkflow.renderFrame({
 		caps: input.caps,
 		title: input.title,
-		columns: SUBMIT_MATRIX_COLUMNS,
 		...(input.runningCommands === undefined ? {} : { runningCommands: input.runningCommands }),
 		globals: input.globals,
-		rows: rowsWithKey(input.rows, (row) => row.branch),
+		rows: input.rows,
 		...(input.tailLine === undefined ? {} : { tailLine: input.tailLine }),
 		...(input.tick === undefined ? {} : { tick: input.tick }),
 	});
 }
 
-function isSubmitMatrixRowView(
-	row: MatrixRowView<SubmitMatrixColumnKey>,
-): row is MatrixRowView<SubmitMatrixColumnKey> & SubmitMatrixRowView {
-	return "branch" in row && typeof row.branch === "string" && "kind" in row;
-}
-
-function prNumberForRow(row: SubmitMatrixRowView): string | undefined {
+function prNumberForRow(row: Pick<SubmitMatrixRowSpec, "pr">): string | undefined {
 	return row.pr === undefined ? undefined : prNumberFromLink(row.pr);
 }
 
