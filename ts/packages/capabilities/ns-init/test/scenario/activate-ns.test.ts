@@ -157,7 +157,7 @@ describe("ns activation planning and apply", () => {
 			nsTomlContent: 'harnesses = ["pi"]\nextensions = ["bad"]\n',
 			nsTomlChange: "created",
 		});
-		expect(result).toMatchObject({ type: "preflight-failed", completed: {} });
+		expect(result).toMatchObject({ type: "preflight-failed" });
 		if (result.type !== "preflight-failed") return;
 		expect(result.diagnostics.map((item) => item.code)).toEqual(
 			expect.arrayContaining([

@@ -18,21 +18,22 @@ describe("RealActivationFilesGateway", () => {
 		await rm(repoRoot, { recursive: true, force: true });
 	});
 
-	it("reads and writes activation text files, creating parent directories", async () => {
-		expect(await gateway.readTextFile({ repoRoot, relativePath: ".ns/instructions.md" })).toEqual({
+	it("reads and writes activation files, creating parent directories", async () => {
+		expect(await gateway.readActivationFile({ repoRoot, file: "generated-instructions" })).toEqual({
 			type: "missing",
 		});
 		expect(
-			await gateway.writeTextFile({
+			await gateway.writeActivationFile({
 				repoRoot,
-				relativePath: ".ns/instructions.md",
+				file: "generated-instructions",
 				content: "generated\n",
 			}),
 		).toEqual({ ok: true });
-		expect(await gateway.readTextFile({ repoRoot, relativePath: ".ns/instructions.md" })).toEqual({
+		expect(await gateway.readActivationFile({ repoRoot, file: "generated-instructions" })).toEqual({
 			type: "found",
 			content: "generated\n",
 		});
+		expect(await readFile(join(repoRoot, ".ns/instructions.md"), "utf8")).toBe("generated\n");
 	});
 
 	it("creates consumer directories with .gitkeep and preserves consumer data", async () => {

@@ -1,10 +1,12 @@
-import type {
-	ActivationFilesGateway,
-	ActivationFilesOperationResult,
-	ActivationPathParams,
-	ActivationTextFileReadResult,
-	ConsumerDirectoryInspectionResult,
-	WriteActivationTextFileParams,
+import {
+	ACTIVATION_FILE_PATHS,
+	type ActivationFileParams,
+	type ActivationFilesGateway,
+	type ActivationFilesOperationResult,
+	type ActivationTextFileReadResult,
+	type ConsumerDirectoryInspectionResult,
+	type ConsumerDirectoryParams,
+	type WriteActivationFileParams,
 } from "./activation-files.ts";
 import type { NsInitErrorInfo } from "./error-info.ts";
 
@@ -42,15 +44,16 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 		this.directoryFailures = { ...state.directoryFailures };
 	}
 
-	async readTextFile(params: ActivationPathParams): Promise<ActivationTextFileReadResult> {
+	async readActivationFile(params: ActivationFileParams): Promise<ActivationTextFileReadResult> {
+		const relativePath = ACTIVATION_FILE_PATHS[params.file];
 		if (this.readFailure !== undefined) return { type: "error", error: this.readFailure };
-		if (this.nonFilePaths.has(params.relativePath)) return { type: "not-file" };
-		const content = this.files.get(params.relativePath);
+		if (this.nonFilePaths.has(relativePath)) return { type: "not-file" };
+		const content = this.files.get(relativePath);
 		return content === undefined ? { type: "missing" } : { type: "found", content };
 	}
 
 	async inspectConsumerDirectory(
-		params: ActivationPathParams,
+		params: ConsumerDirectoryParams,
 	): Promise<ConsumerDirectoryInspectionResult> {
 		if (this.readFailure !== undefined) return { type: "error", error: this.readFailure };
 		if (this.nonDirectoryPaths.has(params.relativePath)) return { type: "not-directory" };
@@ -66,18 +69,19 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 		};
 	}
 
-	async writeTextFile(
-		params: WriteActivationTextFileParams,
+	async writeActivationFile(
+		params: WriteActivationFileParams,
 	): Promise<ActivationFilesOperationResult> {
-		const failure = this.writeFailures[params.relativePath];
+		const relativePath = ACTIVATION_FILE_PATHS[params.file];
+		const failure = this.writeFailures[relativePath];
 		if (failure !== undefined) return { ok: false, error: failure };
-		this.files.set(params.relativePath, params.content);
-		this.operationLog.push({ type: "write", path: params.relativePath });
+		this.files.set(relativePath, params.content);
+		this.operationLog.push({ type: "write", path: relativePath });
 		return { ok: true };
 	}
 
 	async ensureConsumerDirectory(
-		params: ActivationPathParams,
+		params: ConsumerDirectoryParams,
 	): Promise<ActivationFilesOperationResult> {
 		const failure = this.directoryFailures[params.relativePath];
 		if (failure !== undefined) return { ok: false, error: failure };

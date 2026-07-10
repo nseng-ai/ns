@@ -3,18 +3,20 @@ import { dirname, join } from "node:path";
 
 import { formatErrorMessage, isNodeErrorCode } from "@nseng-ai/foundation/primitives";
 
-import type {
-	ActivationFilesGateway,
-	ActivationFilesOperationResult,
-	ActivationPathParams,
-	ActivationTextFileReadResult,
-	ConsumerDirectoryInspectionResult,
-	WriteActivationTextFileParams,
+import {
+	ACTIVATION_FILE_PATHS,
+	type ActivationFileParams,
+	type ActivationFilesGateway,
+	type ActivationFilesOperationResult,
+	type ActivationTextFileReadResult,
+	type ConsumerDirectoryInspectionResult,
+	type ConsumerDirectoryParams,
+	type WriteActivationFileParams,
 } from "./activation-files.ts";
 
 export class RealActivationFilesGateway implements ActivationFilesGateway {
-	async readTextFile(params: ActivationPathParams): Promise<ActivationTextFileReadResult> {
-		const target = join(params.repoRoot, params.relativePath);
+	async readActivationFile(params: ActivationFileParams): Promise<ActivationTextFileReadResult> {
+		const target = join(params.repoRoot, ACTIVATION_FILE_PATHS[params.file]);
 		try {
 			const state = await stat(target);
 			if (!state.isFile()) return { type: "not-file" };
@@ -29,7 +31,7 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 	}
 
 	async inspectConsumerDirectory(
-		params: ActivationPathParams,
+		params: ConsumerDirectoryParams,
 	): Promise<ConsumerDirectoryInspectionResult> {
 		const target = join(params.repoRoot, params.relativePath);
 		try {
@@ -51,10 +53,10 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 		}
 	}
 
-	async writeTextFile(
-		params: WriteActivationTextFileParams,
+	async writeActivationFile(
+		params: WriteActivationFileParams,
 	): Promise<ActivationFilesOperationResult> {
-		const target = join(params.repoRoot, params.relativePath);
+		const target = join(params.repoRoot, ACTIVATION_FILE_PATHS[params.file]);
 		try {
 			await mkdir(dirname(target), { recursive: true });
 			await writeFile(target, params.content, "utf8");
@@ -68,7 +70,7 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 	}
 
 	async ensureConsumerDirectory(
-		params: ActivationPathParams,
+		params: ConsumerDirectoryParams,
 	): Promise<ActivationFilesOperationResult> {
 		const target = join(params.repoRoot, params.relativePath);
 		try {

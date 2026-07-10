@@ -8,9 +8,11 @@ import { parseNsTomlExtensions } from "@nseng-ai/harness-artifacts/api";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
 
 import type { NsActivationContext } from "./activation-context.ts";
-import type {
-	ActivationTextFileReadResult,
-	ConsumerDirectoryInspectionResult,
+import {
+	ACTIVATION_FILE_PATHS,
+	type ActivationFile,
+	type ActivationTextFileReadResult,
+	type ConsumerDirectoryInspectionResult,
 } from "./activation-files.ts";
 import type { NsInitErrorInfo } from "./error-info.ts";
 import {
@@ -55,7 +57,7 @@ export interface ActivationCompleted {
 }
 
 interface PreparedFileWrite {
-	readonly path: string;
+	readonly file: ActivationFile;
 	readonly content: string;
 	readonly change: FileActivationOutcome["change"];
 }
@@ -82,7 +84,6 @@ export type PrepareNsActivationResult =
 	| {
 			readonly type: "preflight-failed";
 			readonly diagnostics: readonly ActivationDiagnostic[];
-			readonly completed: Record<string, never>;
 	  };
 
 export type ApplyNsActivationResult =
@@ -121,22 +122,30 @@ export async function prepareNsActivation(
 	}
 
 	const [agentsRead, claudeRead, instructionsRead] = await Promise.all([
-		context.files.readTextFile({
+		context.files.readActivationFile({
 			repoRoot: options.repository.repoRoot,
-			relativePath: "AGENTS.md",
+			file: "agents-instructions",
 		}),
-		context.files.readTextFile({
+		context.files.readActivationFile({
 			repoRoot: options.repository.repoRoot,
-			relativePath: "CLAUDE.md",
+			file: "claude-instructions",
 		}),
-		context.files.readTextFile({
+		context.files.readActivationFile({
 			repoRoot: options.repository.repoRoot,
-			relativePath: ".ns/instructions.md",
+			file: "generated-instructions",
 		}),
 	]);
-	const agentsText = textForPreflight(agentsRead, "AGENTS.md", diagnostics);
-	const claudeText = textForPreflight(claudeRead, "CLAUDE.md", diagnostics);
-	textForPreflight(instructionsRead, ".ns/instructions.md", diagnostics);
+	const agentsText = textForPreflight(
+		agentsRead,
+		ACTIVATION_FILE_PATHS["agents-instructions"],
+		diagnostics,
+	);
+	const claudeText = textForPreflight(
+		claudeRead,
+		ACTIVATION_FILE_PATHS["claude-instructions"],
+		diagnostics,
+	);
+	textForPreflight(instructionsRead, ACTIVATION_FILE_PATHS["generated-instructions"], diagnostics);
 	const agentsApplied = applyNsPointerStanza({ text: agentsText });
 	if (agentsApplied.type === "malformed") {
 		diagnostics.push(
@@ -189,7 +198,7 @@ export async function prepareNsActivation(
 	}
 
 	if (diagnostics.length > 0 || agentsApplied.type === "malformed" || !artifactPreparation.ok) {
-		return { type: "preflight-failed", diagnostics, completed: {} };
+		return { type: "preflight-failed", diagnostics };
 	}
 	return {
 		type: "prepared",
@@ -197,19 +206,19 @@ export async function prepareNsActivation(
 			repository: options.repository,
 			harnesses: [...options.harnesses],
 			harnessSource: options.harnessSource,
-			nsToml: { path: "ns.toml", content: options.nsTomlContent, change: options.nsTomlChange },
+			nsToml: { file: "ns-toml", content: options.nsTomlContent, change: options.nsTomlChange },
 			agents: {
-				path: "AGENTS.md",
+				file: "agents-instructions",
 				content: agentsApplied.content,
 				change: fileChange(agentsRead, agentsApplied.change),
 			},
 			claude: {
-				path: "CLAUDE.md",
+				file: "claude-instructions",
 				content: claudeApplied.content,
 				change: fileChange(claudeRead, claudeApplied.change),
 			},
 			instructions: {
-				path: ".ns/instructions.md",
+				file: "generated-instructions",
 				content: generatedInstructions,
 				change: generatedFileChange(instructionsRead, generatedInstructions),
 			},
@@ -225,21 +234,23 @@ export async function applyNsActivation(
 ): Promise<ApplyNsActivationResult> {
 	const completed: MutableActivationCompleted = {};
 	const fileDuties = [
-		["ns-toml", "nsToml", prepared.nsToml],
-		["agents-instructions", "agentsInstructionFile", prepared.agents],
-		["claude-instructions", "claudeInstructionFile", prepared.claude],
-		["generated-instructions", "generatedInstructionsFile", prepared.instructions],
+		["nsToml", prepared.nsToml],
+		["agentsInstructionFile", prepared.agents],
+		["claudeInstructionFile", prepared.claude],
+		["generatedInstructionsFile", prepared.instructions],
 	] as const;
-	for (const [phase, field, file] of fileDuties) {
-		if (file.change !== "unchanged") {
-			const written = await context.files.writeTextFile({
+	for (const [field, write] of fileDuties) {
+		if (write.change !== "unchanged") {
+			const written = await context.files.writeActivationFile({
 				repoRoot: prepared.repository.repoRoot,
-				relativePath: file.path,
-				content: file.content,
+				file: write.file,
+				content: write.content,
 			});
-			if (!written.ok) return { type: "apply-failed", phase, error: written.error, completed };
+			if (!written.ok) {
+				return { type: "apply-failed", phase: write.file, error: written.error, completed };
+			}
 		}
-		completed[field] = { change: file.change };
+		completed[field] = { change: write.change };
 	}
 
 	const consumerOutcomes: ConsumerDirectoryOutcome[] = [];

@@ -72,7 +72,7 @@ export async function initNs(
 	const repositoryResult = await resolveActivationRepository(context, request.cwd);
 	if (repositoryResult.type !== "resolved") return repositoryFailure(repositoryResult);
 	const { repoRoot } = repositoryResult.repository;
-	const configRead = await context.files.readTextFile({ repoRoot, relativePath: "ns.toml" });
+	const configRead = await context.files.readActivationFile({ repoRoot, file: "ns-toml" });
 	if (configRead.type === "error") {
 		return preflightFailure([
 			{ code: configRead.error.code, message: configRead.error.message, path: "ns.toml" },

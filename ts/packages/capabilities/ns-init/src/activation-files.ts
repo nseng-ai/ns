@@ -1,5 +1,21 @@
 import type { NsInitErrorInfo } from "./error-info.ts";
 
+export const ACTIVATION_FILES = [
+	"ns-toml",
+	"agents-instructions",
+	"claude-instructions",
+	"generated-instructions",
+] as const;
+
+export type ActivationFile = (typeof ACTIVATION_FILES)[number];
+
+export const ACTIVATION_FILE_PATHS: Readonly<Record<ActivationFile, string>> = {
+	"ns-toml": "ns.toml",
+	"agents-instructions": "AGENTS.md",
+	"claude-instructions": "CLAUDE.md",
+	"generated-instructions": ".ns/instructions.md",
+};
+
 export type ActivationTextFileReadResult =
 	| { readonly type: "found"; readonly content: string }
 	| { readonly type: "missing" }
@@ -16,20 +32,25 @@ export type ActivationFilesOperationResult =
 	| { readonly ok: true }
 	| { readonly ok: false; readonly error: NsInitErrorInfo };
 
-export interface ActivationPathParams {
+export interface ActivationFileParams {
+	readonly repoRoot: string;
+	readonly file: ActivationFile;
+}
+
+export interface WriteActivationFileParams extends ActivationFileParams {
+	readonly content: string;
+}
+
+export interface ConsumerDirectoryParams {
 	readonly repoRoot: string;
 	readonly relativePath: string;
 }
 
-export interface WriteActivationTextFileParams extends ActivationPathParams {
-	readonly content: string;
-}
-
 export interface ActivationFilesGateway {
-	readTextFile(params: ActivationPathParams): Promise<ActivationTextFileReadResult>;
+	readActivationFile(params: ActivationFileParams): Promise<ActivationTextFileReadResult>;
 	inspectConsumerDirectory(
-		params: ActivationPathParams,
+		params: ConsumerDirectoryParams,
 	): Promise<ConsumerDirectoryInspectionResult>;
-	writeTextFile(params: WriteActivationTextFileParams): Promise<ActivationFilesOperationResult>;
-	ensureConsumerDirectory(params: ActivationPathParams): Promise<ActivationFilesOperationResult>;
+	writeActivationFile(params: WriteActivationFileParams): Promise<ActivationFilesOperationResult>;
+	ensureConsumerDirectory(params: ConsumerDirectoryParams): Promise<ActivationFilesOperationResult>;
 }

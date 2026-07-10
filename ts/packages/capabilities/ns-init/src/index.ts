@@ -1,11 +1,14 @@
 export type {
+	ActivationFile,
+	ActivationFileParams,
 	ActivationFilesGateway,
 	ActivationFilesOperationResult,
-	ActivationPathParams,
 	ActivationTextFileReadResult,
 	ConsumerDirectoryInspectionResult,
-	WriteActivationTextFileParams,
+	ConsumerDirectoryParams,
+	WriteActivationFileParams,
 } from "./activation-files.ts";
+export { ACTIVATION_FILE_PATHS, ACTIVATION_FILES } from "./activation-files.ts";
 export type {
 	ArtifactActivationGateway,
 	PrepareArtifactActivationParams,
