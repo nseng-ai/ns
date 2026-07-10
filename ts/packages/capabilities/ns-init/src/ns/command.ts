@@ -4,10 +4,10 @@ import {
 } from "@nseng-ai/capability-kit/ns-command";
 import type { NsCommand, NsCommandSchema } from "@nseng-ai/kernel/sdk";
 
-import type { NsActivationContext } from "../activation-context.ts";
+import type { ExtensionInstallContext } from "../install-extension.ts";
 import { createNsInitContext } from "./context.ts";
 
-type NsInitCommandContext = NsActivationContext & { cwd: string };
+type NsInitCommandContext = ExtensionInstallContext & { cwd: string };
 
 type NsInitCommandOptions<S extends NsCommandSchema, T> = Omit<
 	NsDomainCommandOptions<S, T, NsInitCommandContext>,

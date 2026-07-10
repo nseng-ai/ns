@@ -13,6 +13,10 @@ import {
 	type ActivationFile,
 	type ActivationTextFileReadResult,
 	type ConsumerDirectoryInspectionResult,
+	type ExpectedActivationTextFileState,
+	type ExpectedConsumerDirectoryState,
+	type PreparedActivationExpectedState,
+	type PreparedStateMismatchDetails,
 } from "./activation-files.ts";
 import type { NsInitErrorInfo } from "./error-info.ts";
 import {
@@ -78,7 +82,9 @@ export interface PreparedNsActivation {
 	readonly claude: PreparedFileWrite;
 	readonly instructions: PreparedFileWrite;
 	readonly consumerDirectories: readonly PreparedConsumerDirectory[];
+	readonly expectedState: PreparedActivationExpectedState;
 	readonly artifacts: PreparedDeclaredArtifactActivation;
+	readonly descriptors: readonly DeclaredExtensionDescriptor[];
 }
 
 export type PrepareNsActivationResult =
@@ -103,6 +109,7 @@ export interface PrepareNsActivationOptions {
 	readonly harnessSource: "explicit" | "ns-toml";
 	readonly nsTomlContent: string;
 	readonly nsTomlChange: NsTomlChange;
+	readonly nsTomlExpected: ExpectedActivationTextFileState;
 }
 
 export async function prepareNsActivation(
@@ -182,13 +189,17 @@ export async function prepareNsActivation(
 	);
 	const consumerDirectories = stableConsumerDirectories(loaded.descriptors);
 	const preparedConsumerDirectories: PreparedConsumerDirectory[] = [];
+	const expectedConsumerDirectories: Record<string, ExpectedConsumerDirectoryState> = {};
 	for (const path of consumerDirectories) {
 		const inspection = await context.files.inspectConsumerDirectory({
 			repoRoot: options.repository.repoRoot,
 			relativePath: path,
 		});
 		const prepared = consumerDirectoryPreflight(path, inspection, diagnostics);
-		if (prepared !== undefined) preparedConsumerDirectories.push(prepared);
+		if (prepared !== undefined) {
+			preparedConsumerDirectories.push(prepared);
+			expectedConsumerDirectories[path] = expectedConsumerDirectoryState(inspection);
+		}
 	}
 
 	const artifactPreparation = await context.artifacts.prepare({
@@ -241,7 +252,18 @@ export async function prepareNsActivation(
 				change: generatedFileChange(instructionsRead, generatedInstructions),
 			},
 			consumerDirectories: preparedConsumerDirectories,
+			expectedState: {
+				files: {
+					"ns-toml": options.nsTomlExpected,
+					"managed-extensions-ignore": expectedTextFileState(managedExtensionsIgnoreRead),
+					"agents-instructions": expectedTextFileState(agentsRead),
+					"claude-instructions": expectedTextFileState(claudeRead),
+					"generated-instructions": expectedTextFileState(instructionsRead),
+				},
+				consumerDirectories: expectedConsumerDirectories,
+			},
 			artifacts: artifactPreparation.prepared,
+			descriptors: loaded.descriptors,
 		},
 	};
 }
@@ -260,13 +282,20 @@ export async function applyNsActivation(
 	] as const;
 	for (const [field, write] of fileDuties) {
 		if (write.change !== "unchanged") {
-			const written = await context.files.writeActivationFile({
+			const written = await context.files.compareAndWriteActivationFile({
 				repoRoot: prepared.repository.repoRoot,
 				file: write.file,
+				expected: prepared.expectedState.files[write.file],
 				content: write.content,
 			});
-			if (!written.ok) {
-				return { type: "apply-failed", phase: write.file, error: written.error, completed };
+			if (written.type !== "applied") {
+				return {
+					type: "apply-failed",
+					phase: write.file,
+					error:
+						written.type === "error" ? written.error : preparedStateMismatchError(written.details),
+					completed,
+				};
 			}
 		}
 		completed[field] = { change: write.change };
@@ -275,16 +304,20 @@ export async function applyNsActivation(
 	const consumerOutcomes: ConsumerDirectoryOutcome[] = [];
 	for (const directory of prepared.consumerDirectories) {
 		if (directory.change !== "unchanged") {
-			const ensured = await context.files.ensureConsumerDirectory({
+			const expected = prepared.expectedState.consumerDirectories[directory.path];
+			if (expected === undefined) throw new Error(`Missing expected state for ${directory.path}.`);
+			const ensured = await context.files.compareAndEnsureConsumerDirectory({
 				repoRoot: prepared.repository.repoRoot,
 				relativePath: directory.path,
+				expected,
 			});
-			if (!ensured.ok) {
+			if (ensured.type !== "applied") {
 				if (consumerOutcomes.length > 0) completed.consumerDirectories = consumerOutcomes;
 				return {
 					type: "apply-failed",
 					phase: "consumer-directories",
-					error: ensured.error,
+					error:
+						ensured.type === "error" ? ensured.error : preparedStateMismatchError(ensured.details),
 					completed,
 				};
 			}
@@ -316,6 +349,32 @@ export async function applyNsActivation(
 type MutableActivationCompleted = {
 	-readonly [Key in keyof ActivationCompleted]?: ActivationCompleted[Key];
 };
+
+function expectedTextFileState(
+	read: ActivationTextFileReadResult,
+): ExpectedActivationTextFileState {
+	if (read.type === "found") return { type: "file", content: read.content };
+	if (read.type === "missing") return { type: "missing" };
+	throw new Error("Cannot prepare expected state from a failed activation file inspection.");
+}
+
+function expectedConsumerDirectoryState(
+	inspection: ConsumerDirectoryInspectionResult,
+): ExpectedConsumerDirectoryState {
+	if (inspection.type === "missing") return { type: "missing" };
+	if (inspection.type === "directory" && inspection.gitkeep !== "not-file") {
+		return { type: "directory", gitkeep: inspection.gitkeep };
+	}
+	throw new Error("Cannot prepare expected state from a failed consumer directory inspection.");
+}
+
+function preparedStateMismatchError(details: PreparedStateMismatchDetails): NsInitErrorInfo {
+	return {
+		code: "activation-prepared-state-mismatch",
+		message: `${details.path} changed after activation was prepared; no mutation was applied to that path.`,
+		details: { ...details },
+	};
+}
 
 function textForPreflight(
 	read: ActivationTextFileReadResult,

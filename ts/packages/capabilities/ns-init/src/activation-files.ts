@@ -30,16 +30,51 @@ export type ConsumerDirectoryInspectionResult =
 	| { readonly type: "not-directory" }
 	| { readonly type: "error"; readonly error: NsInitErrorInfo };
 
-export type ActivationFilesOperationResult =
-	| { readonly ok: true }
-	| { readonly ok: false; readonly error: NsInitErrorInfo };
+export type ExpectedActivationTextFileState =
+	| { readonly type: "missing" }
+	| { readonly type: "file"; readonly content: string };
+
+export type ExpectedConsumerDirectoryState =
+	| { readonly type: "missing" }
+	| { readonly type: "directory"; readonly gitkeep: "missing" | "file" };
+
+export interface PreparedActivationExpectedState {
+	readonly files: Readonly<Record<ActivationFile, ExpectedActivationTextFileState>>;
+	readonly consumerDirectories: Readonly<Record<string, ExpectedConsumerDirectoryState>>;
+}
+
+export type PreparedStateMismatchDetails =
+	| {
+			readonly type: "content";
+			readonly path: string;
+			readonly expectedContent: string;
+			readonly actualContent: string;
+	  }
+	| {
+			readonly type: "presence";
+			readonly path: string;
+			readonly expected: "missing" | "present";
+			readonly actual: "missing" | "present";
+	  }
+	| {
+			readonly type: "kind";
+			readonly path: string;
+			readonly expected: "missing" | "file" | "directory";
+			readonly actual: "file" | "directory" | "other";
+	  };
+
+export type ActivationFilesCompareResult =
+	| { readonly type: "applied" }
+	| { readonly type: "mismatch"; readonly details: PreparedStateMismatchDetails }
+	| { readonly type: "error"; readonly error: NsInitErrorInfo };
 
 export interface ActivationFileParams {
 	readonly repoRoot: string;
 	readonly file: ActivationFile;
 }
 
-export interface WriteActivationFileParams extends ActivationFileParams {
+export interface CompareAndWriteActivationFileParams extends ActivationFileParams {
+	readonly expected: ExpectedActivationTextFileState;
 	readonly content: string;
 }
 
@@ -48,11 +83,19 @@ export interface ConsumerDirectoryParams {
 	readonly relativePath: string;
 }
 
+export interface CompareAndEnsureConsumerDirectoryParams extends ConsumerDirectoryParams {
+	readonly expected: ExpectedConsumerDirectoryState;
+}
+
 export interface ActivationFilesGateway {
 	readActivationFile(params: ActivationFileParams): Promise<ActivationTextFileReadResult>;
 	inspectConsumerDirectory(
 		params: ConsumerDirectoryParams,
 	): Promise<ConsumerDirectoryInspectionResult>;
-	writeActivationFile(params: WriteActivationFileParams): Promise<ActivationFilesOperationResult>;
-	ensureConsumerDirectory(params: ConsumerDirectoryParams): Promise<ActivationFilesOperationResult>;
+	compareAndWriteActivationFile(
+		params: CompareAndWriteActivationFileParams,
+	): Promise<ActivationFilesCompareResult>;
+	compareAndEnsureConsumerDirectory(
+		params: CompareAndEnsureConsumerDirectoryParams,
+	): Promise<ActivationFilesCompareResult>;
 }

@@ -27,3 +27,10 @@ The activation roadmap row remains `[~]`. Full `ns init` reconciliation is imple
 ## Validation
 
 Focused kernel, harness-artifact, and ns-init checks and tests pass, including fake-driven deletion/conflict/drift coverage and real-adapter integration coverage. Workspace TypeScript format, lint, and tsgo checks pass. Final repository-wide validation is recorded in the implementation session closeout.
+
+## Follow-Ups
+
+- Wire the same descriptor-driven activation and safe artifact reconciliation into the
+  extension install, uninstall, and update lifecycle commands.
+- Preserve consumer directories and customer-owned data while adding lifecycle
+  deprovisioning behavior.

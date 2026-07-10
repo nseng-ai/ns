@@ -23,12 +23,13 @@ describe("RealActivationFilesGateway", () => {
 			type: "missing",
 		});
 		expect(
-			await gateway.writeActivationFile({
+			await gateway.compareAndWriteActivationFile({
 				repoRoot,
 				file: "generated-instructions",
+				expected: { type: "missing" },
 				content: "generated\n",
 			}),
-		).toEqual({ ok: true });
+		).toEqual({ type: "applied" });
 		expect(await gateway.readActivationFile({ repoRoot, file: "generated-instructions" })).toEqual({
 			type: "found",
 			content: "generated\n",
@@ -40,9 +41,10 @@ describe("RealActivationFilesGateway", () => {
 		expect(
 			await gateway.readActivationFile({ repoRoot, file: "managed-extensions-ignore" }),
 		).toEqual({ type: "missing" });
-		await gateway.writeActivationFile({
+		await gateway.compareAndWriteActivationFile({
 			repoRoot,
 			file: "managed-extensions-ignore",
+			expected: { type: "missing" },
 			content: "node_modules/\n.ns/managed-extensions/\n",
 		});
 		expect(await readFile(join(repoRoot, ".gitignore"), "utf8")).toBe(
@@ -55,7 +57,11 @@ describe("RealActivationFilesGateway", () => {
 		expect(await gateway.inspectConsumerDirectory({ repoRoot, relativePath: path })).toEqual({
 			type: "missing",
 		});
-		await gateway.ensureConsumerDirectory({ repoRoot, relativePath: path });
+		await gateway.compareAndEnsureConsumerDirectory({
+			repoRoot,
+			relativePath: path,
+			expected: { type: "missing" },
+		});
 		await writeFile(join(repoRoot, path, "customer.md"), "keep\n", "utf8");
 		expect(await gateway.inspectConsumerDirectory({ repoRoot, relativePath: path })).toEqual({
 			type: "directory",
@@ -63,6 +69,19 @@ describe("RealActivationFilesGateway", () => {
 		});
 		expect(await readFile(join(repoRoot, path, ".gitkeep"), "utf8")).toBe("");
 		expect(await readFile(join(repoRoot, path, "customer.md"), "utf8")).toBe("keep\n");
+	});
+
+	it("does not truncate bytes when prepared content comparison fails", async () => {
+		const target = join(repoRoot, "AGENTS.md");
+		await writeFile(target, "changed after prepare\n", "utf8");
+		const result = await gateway.compareAndWriteActivationFile({
+			repoRoot,
+			file: "agents-instructions",
+			expected: { type: "file", content: "prepared bytes\n" },
+			content: "replacement\n",
+		});
+		expect(result).toMatchObject({ type: "mismatch", details: { type: "content" } });
+		expect(await readFile(target, "utf8")).toBe("changed after prepare\n");
 	});
 
 	it("reports a non-file .gitignore without mutating it", async () => {

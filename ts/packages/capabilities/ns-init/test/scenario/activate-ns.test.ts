@@ -74,6 +74,7 @@ describe("ns activation planning and apply", () => {
 			harnessSource: "explicit",
 			nsTomlContent: 'harnesses = ["pi"]\nextensions = ["one","two"]\n',
 			nsTomlChange: "created",
+			nsTomlExpected: { type: "missing" },
 		});
 		expect(files.operations()).toEqual([]);
 		expect(declaredExtensions.calls()).toEqual([{ repoRoot: "/repo", specs: ["one", "two"] }]);
@@ -116,6 +117,7 @@ describe("ns activation planning and apply", () => {
 			harnessSource: "explicit",
 			nsTomlContent: 'harnesses = ["pi"]\n',
 			nsTomlChange: "created",
+			nsTomlExpected: { type: "missing" },
 		});
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
 		expect(prepared.activation.managedExtensionsIgnore.change).toBe("appended");
@@ -128,6 +130,7 @@ describe("ns activation planning and apply", () => {
 			harnessSource: "ns-toml",
 			nsTomlContent: 'harnesses = ["pi"]\n',
 			nsTomlChange: "unchanged",
+			nsTomlExpected: { type: "file", content: 'harnesses = ["pi"]\n' },
 		});
 		if (rerun.type !== "prepared") throw new Error("expected prepared rerun");
 		expect(rerun.activation.managedExtensionsIgnore.change).toBe("unchanged");
@@ -143,6 +146,7 @@ describe("ns activation planning and apply", () => {
 			harnessSource: "explicit",
 			nsTomlContent: 'harnesses = ["pi"]\n',
 			nsTomlChange: "created",
+			nsTomlExpected: { type: "missing" },
 		});
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
 		expect(prepared.activation.managedExtensionsIgnore.content).toBe(
@@ -158,6 +162,7 @@ describe("ns activation planning and apply", () => {
 			harnessSource: "explicit",
 			nsTomlContent: 'harnesses = ["pi"]\n',
 			nsTomlChange: "created",
+			nsTomlExpected: { type: "missing" },
 		});
 		expect(result).toMatchObject({
 			type: "preflight-failed",
@@ -176,6 +181,7 @@ describe("ns activation planning and apply", () => {
 			harnessSource: "explicit",
 			nsTomlContent: 'harnesses = ["pi"]\n',
 			nsTomlChange: "created",
+			nsTomlExpected: { type: "missing" },
 		});
 		expect(result.type).toBe("preflight-failed");
 		if (result.type !== "preflight-failed") return;
@@ -196,6 +202,7 @@ describe("ns activation planning and apply", () => {
 			harnessSource: "explicit",
 			nsTomlContent: 'harnesses = ["codex"]\n',
 			nsTomlChange: "created",
+			nsTomlExpected: { type: "missing" },
 		});
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
 		await applyNsActivation(ctx, prepared.activation);
@@ -239,6 +246,7 @@ describe("ns activation planning and apply", () => {
 			harnessSource: "explicit",
 			nsTomlContent: 'harnesses = ["pi"]\nextensions = ["bad"]\n',
 			nsTomlChange: "created",
+			nsTomlExpected: { type: "missing" },
 		});
 		expect(result).toMatchObject({ type: "preflight-failed" });
 		if (result.type !== "preflight-failed") return;
@@ -253,6 +261,146 @@ describe("ns activation planning and apply", () => {
 		expect(files.operations()).toEqual([]);
 	});
 
+	it.each([
+		["ns-toml", "ns.toml"],
+		["managed-extensions-ignore", ".gitignore"],
+		["agents-instructions", "AGENTS.md"],
+		["claude-instructions", "CLAUDE.md"],
+		["generated-instructions", ".ns/instructions.md"],
+	] as const)("preserves an externally mutated %s activation file", async (file, path) => {
+		const originalNsToml = 'harnesses = ["pi"]\n';
+		const files = new InMemoryActivationFilesGateway({
+			files: {
+				"ns.toml": originalNsToml,
+				".gitignore": "customer-ignore\n",
+				"AGENTS.md": "# Customer agents\n",
+				"CLAUDE.md": "# Customer claude\n",
+				".ns/instructions.md": "old generated instructions\n",
+			},
+		});
+		const prepared = await prepareNsActivation(context({ files }), {
+			repository,
+			harnesses: ["pi"],
+			harnessSource: "explicit",
+			nsTomlContent: 'harnesses = ["pi"]\n# activation update\n',
+			nsTomlChange: "appended",
+			nsTomlExpected: { type: "file", content: originalNsToml },
+		});
+		if (prepared.type !== "prepared") throw new Error("expected prepared");
+		files.simulateExternalMutation({ type: "write-file", path, content: `external ${file}\n` });
+
+		const result = await applyNsActivation(context({ files }), prepared.activation);
+		expect(result).toMatchObject({
+			type: "apply-failed",
+			phase: file,
+			error: {
+				code: "activation-prepared-state-mismatch",
+				details: { type: "content", path },
+			},
+		});
+		expect(files.fileContent(path)).toBe(`external ${file}\n`);
+	});
+
+	it("preserves a file created after prepare expected it to be missing", async () => {
+		const files = new InMemoryActivationFilesGateway();
+		const prepared = await prepareNsActivation(context({ files }), {
+			repository,
+			harnesses: ["pi"],
+			harnessSource: "explicit",
+			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlChange: "created",
+			nsTomlExpected: { type: "missing" },
+		});
+		if (prepared.type !== "prepared") throw new Error("expected prepared");
+		files.simulateExternalMutation({
+			type: "write-file",
+			path: "ns.toml",
+			content: "customer created\n",
+		});
+
+		const result = await applyNsActivation(context({ files }), prepared.activation);
+		expect(result).toMatchObject({
+			type: "apply-failed",
+			error: { details: { type: "presence", expected: "missing", actual: "present" } },
+		});
+		expect(files.fileContent("ns.toml")).toBe("customer created\n");
+	});
+
+	it("reports activation file kind changes without mutating the replacement", async () => {
+		const original = "# Customer\n";
+		const files = new InMemoryActivationFilesGateway({ files: { "AGENTS.md": original } });
+		const prepared = await prepareNsActivation(context({ files }), {
+			repository,
+			harnesses: ["pi"],
+			harnessSource: "explicit",
+			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlChange: "created",
+			nsTomlExpected: { type: "missing" },
+		});
+		if (prepared.type !== "prepared") throw new Error("expected prepared");
+		files.simulateExternalMutation({ type: "replace-file-with-non-file", path: "AGENTS.md" });
+
+		const result = await applyNsActivation(context({ files }), prepared.activation);
+		expect(result).toMatchObject({
+			type: "apply-failed",
+			phase: "agents-instructions",
+			error: { details: { type: "kind", path: "AGENTS.md", expected: "file" } },
+		});
+	});
+
+	it.each([
+		{
+			name: "consumer directory presence",
+			state: {},
+			mutation: { type: "create-directory", path: ".ns/data" } as const,
+			details: { type: "presence", path: ".ns/data" },
+		},
+		{
+			name: "consumer directory kind",
+			state: {},
+			mutation: { type: "replace-directory-with-non-directory", path: ".ns/data" } as const,
+			details: { type: "kind", path: ".ns/data" },
+		},
+		{
+			name: ".gitkeep presence",
+			state: { directories: [".ns/data"] },
+			mutation: { type: "write-file", path: ".ns/data/.gitkeep", content: "customer\n" } as const,
+			details: { type: "presence", path: ".ns/data/.gitkeep" },
+		},
+		{
+			name: ".gitkeep kind",
+			state: { directories: [".ns/data"] },
+			mutation: { type: "replace-file-with-non-file", path: ".ns/data/.gitkeep" } as const,
+			details: { type: "kind", path: ".ns/data/.gitkeep" },
+		},
+	] as const)("preserves $name mutations", async ({ state, mutation, details }) => {
+		const files = new InMemoryActivationFilesGateway(state);
+		const prepared = await prepareNsActivation(
+			context({ files, descriptors: [descriptor("one", undefined, [".ns/data"])] }),
+			{
+				repository,
+				harnesses: ["pi"],
+				harnessSource: "explicit",
+				nsTomlContent: 'harnesses = ["pi"]\n',
+				nsTomlChange: "created",
+				nsTomlExpected: { type: "missing" },
+			},
+		);
+		if (prepared.type !== "prepared") throw new Error("expected prepared");
+		files.simulateExternalMutation(mutation);
+
+		const result = await applyNsActivation(context({ files }), prepared.activation);
+		expect(result).toMatchObject({
+			type: "apply-failed",
+			phase: "consumer-directories",
+			error: { code: "activation-prepared-state-mismatch", details },
+			completed: {
+				nsToml: { change: "created" },
+				generatedInstructionsFile: { change: "created" },
+			},
+		});
+	});
+
 	it("stops on apply failure and reports only completed duties", async () => {
 		const files = new InMemoryActivationFilesGateway({
 			writeFailures: { "CLAUDE.md": { code: "disk-full", message: "disk full" } },
@@ -264,6 +412,7 @@ describe("ns activation planning and apply", () => {
 			harnessSource: "explicit",
 			nsTomlContent: 'harnesses = ["pi"]\n',
 			nsTomlChange: "created",
+			nsTomlExpected: { type: "missing" },
 		});
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
 		const result = await applyNsActivation(ctx, prepared.activation);

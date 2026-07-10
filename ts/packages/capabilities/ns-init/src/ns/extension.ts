@@ -7,5 +7,17 @@ export default defineExtension({
 			name: "init",
 			load: async () => ({ default: (await import("./commands/init.ts")).nsInitNsCommand }),
 		},
+		{
+			group: "extension",
+			description: "Inspect and manage ns extensions.",
+			entries: [
+				{
+					name: "install",
+					load: async () => ({
+						default: (await import("./commands/extension-install.ts")).nsExtensionInstallCommand,
+					}),
+				},
+			],
+		},
 	],
 });

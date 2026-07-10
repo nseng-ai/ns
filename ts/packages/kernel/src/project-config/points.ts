@@ -19,6 +19,7 @@ import {
 	resolveAcquiredDescriptorPackageRoot,
 	resolveDescriptorExportPath,
 } from "./descriptor-package.ts";
+import { parseExtensionSourceSpec } from "./extension-source-spec.ts";
 
 export { extensionPointAcceptsValues };
 export const pointSemanticsValues = ["additive", "override"] as const;
@@ -389,6 +390,25 @@ async function loadDescriptorPointDefinitions(request: {
 	repoRoot: string;
 	spec: string;
 }): Promise<PointDefinitionDiscoveryResult> {
+	const parsed = parseExtensionSourceSpec(request.repoRoot, request.spec);
+	if (!parsed.ok) {
+		return {
+			pointDefinitions: [],
+			diagnostics: [diagnostic(parsed.error.code, parsed.error.message, { path: request.spec })],
+		};
+	}
+	if (parsed.value.kind === "git") {
+		return {
+			pointDefinitions: [],
+			diagnostics: [
+				diagnostic(
+					"extension_descriptor_source_unsupported",
+					`Git extension sources are reserved but unsupported: ${request.spec}.`,
+					{ path: request.spec },
+				),
+			],
+		};
+	}
 	const acquisition = resolveAcquiredDescriptorPackageRoot({
 		repoRoot: request.repoRoot,
 		spec: request.spec,

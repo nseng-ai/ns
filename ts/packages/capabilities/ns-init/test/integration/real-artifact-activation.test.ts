@@ -133,6 +133,7 @@ describe("RealArtifactActivationGateway", () => {
 				harnessSource: "explicit",
 				nsTomlContent: 'harnesses = ["pi"]\n',
 				nsTomlChange: "created",
+				nsTomlExpected: { type: "missing" },
 			},
 		);
 		expect(result.type).toBe("preflight-failed");
