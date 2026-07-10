@@ -654,7 +654,7 @@ function invalidRequestedModelDiagnostic(
 	const info = MODEL_PROVIDER_FAMILY_INFO[family];
 	return [
 		`Invalid runner subagent model override: unqualified model ${JSON.stringify(requestedModel)} looks like ${info.article} ${info.label} model shorthand, but the current session provider is ${JSON.stringify(inheritedModel.provider)}.`,
-		`Use a fully qualified model such as ${JSON.stringify(`${info.exampleProvider}/${requestedModel}`)} to switch providers, or omit forked_pi_agent.model to inherit the current session model.`,
+		`Use a fully qualified model such as ${JSON.stringify(`${info.exampleProvider}/${requestedModel}`)} to switch providers, or omit subagent.model to inherit the current session model.`,
 	].join(" ");
 }
 

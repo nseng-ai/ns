@@ -46,14 +46,14 @@ const npmModuleSkillArtifact = {
 
 const agentArtifact = {
 	kind: "agent",
-	id: "runner-agent",
-	name: "Runner agent",
-	description: "Runner profile.",
-	agentName: "runner",
+	id: "task-agent",
+	name: "Task agent",
+	description: "Focused task profile.",
+	agentName: "task",
 	source: {
 		type: "first-party",
 		packageName: "@nseng-ai/ns",
-		relativePath: ".ns/pi/agents/runner.md",
+		relativePath: ".ns/pi/agents/task.md",
 	},
 } as const satisfies AgentHarnessArtifactEntry;
 
@@ -191,7 +191,7 @@ describe("provision plan", () => {
 			ok: false,
 			error: {
 				code: "unsupported_artifact_kind",
-				details: { kind: "agent", artifactId: "runner-agent" },
+				details: { kind: "agent", artifactId: "task-agent" },
 			},
 		});
 	});

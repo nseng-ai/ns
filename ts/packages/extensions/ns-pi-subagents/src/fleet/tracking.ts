@@ -1,6 +1,9 @@
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
-import { errorResult } from "../explore/result.ts";
-import { SubagentFleetRegistry, type SubagentFleetTaskInput } from "./registry.ts";
+import {
+	SubagentFleetRegistry,
+	type SubagentFleetRetryEvidence,
+	type SubagentFleetTaskInput,
+} from "./registry.ts";
 import type { GitHeadSnapshot, ReadGitHead } from "./git-head.ts";
 import type {
 	RunnerSubagentResult,
@@ -11,6 +14,7 @@ import { syncSubagentFleetDisplay, type SubagentFleetDisplayContext } from "./di
 export interface SubagentFleetRunTracking {
 	markRunning(index: number): void;
 	markProgress(index: number, update: RunnerSubagentUpdate): void;
+	markRetry(index: number, retry: SubagentFleetRetryEvidence): void;
 	markDone(index: number, result: RunnerSubagentResult): void;
 	dispose(): void;
 }
@@ -105,6 +109,9 @@ export function trackSubagentFleetRun(input: {
 		markProgress(index, update) {
 			registry.markProgress(requireTaskId(index), update);
 		},
+		markRetry(index, retry) {
+			registry.markRetry(requireTaskId(index), retry);
+		},
 		markDone(index, result) {
 			const taskId = requireTaskId(index);
 			doneIndexes.add(index);
@@ -124,8 +131,19 @@ export function trackSubagentFleetRun(input: {
 }
 
 function unfinishedFleetTaskResult(task: SubagentFleetTaskInput): RunnerSubagentResult {
-	return errorResult(
-		task.title,
-		"Subagent fleet tracking ended before this task produced a terminal result.",
-	);
+	const diagnostic = "Subagent fleet tracking ended before this task produced a terminal result.";
+	return {
+		status: "error",
+		title: task.title,
+		diagnostic,
+		error: { message: diagnostic },
+		elapsedMs: 0,
+		progress: {
+			title: task.title,
+			state: "stopped",
+			toolCount: 0,
+			turnCount: 0,
+			elapsedMs: 0,
+		},
+	};
 }

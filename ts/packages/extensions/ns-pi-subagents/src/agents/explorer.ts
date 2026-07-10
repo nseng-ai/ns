@@ -1,0 +1,18 @@
+import { READ_ONLY_SUBAGENT_TOOLS } from "../runner-subagents/read-only-tools.ts";
+import type { SubagentAgentDescriptor } from "./registry.ts";
+
+export const EXPLORER_AGENT_DESCRIPTOR = {
+	name: "explorer",
+	definitionPath: ".ns/pi/agents/explorer.md",
+	minTasks: 1,
+	maxTasks: 8,
+	maxConcurrency: 4,
+	wallClockMs: 300_000,
+	tools: READ_ONLY_SUBAGENT_TOOLS,
+	promptContext: "definition-only",
+	modelPolicy: "explorer-same-model-retry",
+	maxTaskFinalTextChars: 8_000,
+	maxFleetFinalTextChars: 32_000,
+	supportedRuntimes: ["subprocess", "in-process"],
+	runtimePreference: ["subprocess", "in-process"],
+} as const satisfies SubagentAgentDescriptor;

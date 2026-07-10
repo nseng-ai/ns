@@ -221,7 +221,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("Subagent model routing:");
 		expect(checkedInContent).toContain("For implementation/editing subagents:");
 		expect(checkedInContent).toContain(
-			"Do not set `forked_pi_agent.model` to a cheap/review model.",
+			'use `subagent` with `agent: "task"`; do not set its `model` to a cheap/review model',
 		);
 		expect(checkedInContent).toContain("Never reuse review model guidance for implementation");
 		expect(checkedInContent).toContain("Closeout review plan:");
@@ -240,7 +240,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).not.toContain(
 			"repeat the relevant in-session review subagent after easy fixes",
 		);
-		expect(checkedInContent).toContain("forked_pi_agent.model");
+		expect(checkedInContent).toContain('`subagent` with `agent: "task"`');
 		expect(checkedInContent).toContain("default_model");
 		expect(checkedInContent).toContain("openai-codex/gpt-5.4-mini:medium");
 		expect(checkedInContent).toContain("one-command validation baseline");

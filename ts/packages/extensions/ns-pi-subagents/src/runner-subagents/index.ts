@@ -29,6 +29,7 @@ export type {
 	RunnerSubagentProgressCallback,
 	RunnerSubagentProtocolErrorResult,
 	RunnerSubagentResult,
+	RunnerSubagentRetryEvidence,
 	RunnerSubagentReturnMode,
 	RunnerSubagentStatus,
 	RunnerSubagentStoppedWithoutTerminalResult,
@@ -36,6 +37,7 @@ export type {
 	RunnerSubagentTerminalCapture,
 	RunnerSubagentTerminalStatus,
 	RunnerSubagentTerminalToolDefinition,
+	RunnerSubagentTransientFailureStatus,
 	RunnerSubagentUpdate,
 	RunnerSubagentUsageMetadata,
 	RunnerSubagentUsageTotals,
@@ -69,23 +71,3 @@ export type {
 	RunnerSubagentTimelineEntry,
 	RunnerSubagentTimelineToolEntry,
 } from "./timeline.ts";
-export {
-	FORKED_PI_AGENT_PARAMETERS,
-	FORKED_PI_AGENT_TOOL_NAME,
-	RUNNER_AGENT_NAME,
-	RUNNER_AGENT_REPO_RELATIVE_PATH,
-	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
-	forkedPiAgentDetails,
-	formatForkedPiAgentProgress,
-	formatForkedPiAgentResult,
-	truncateFinalTextForToolContent,
-} from "./extension.ts";
-export type {
-	ForkedPiAgentDetails,
-	ForkedPiAgentExtensionAPI,
-	ForkedPiAgentExtensionOptions,
-	ForkedPiAgentInput,
-	ForkedPiAgentToolDefinition,
-	ToolContext,
-	ToolResult,
-} from "./extension.ts";

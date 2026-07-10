@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted; the separate model-visible `explore` tool consequence is superseded by ADR 0032. The runner-subagent substrate decision remains current.
 
 ## Context
 

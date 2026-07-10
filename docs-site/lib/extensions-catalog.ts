@@ -156,11 +156,11 @@ export const extensionCatalogEntries: readonly ExtensionCatalogEntry[] = [
     sourcePath: ".pi/extensions/grill-ui.ts",
   },
   {
-    slug: "runner-subagents",
-    name: "Runner subagents",
+    slug: "subagents",
+    name: "Subagents",
     summary: "Delegate focused investigation or implementation slices to separate Pi sessions.",
     details:
-      "Registers explore and forked_pi_agent for bounded child-session work plus the ns:agents:* fleet/transcript UI.",
+      "Registers one subagent tool with explorer and task policies, subprocess or in-process execution, and the ns:agents:* fleet/transcript UI.",
     category: "interaction",
     status: "experimental",
     commandHint: "/ns:agents:fleet",

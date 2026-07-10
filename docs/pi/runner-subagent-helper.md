@@ -1,115 +1,72 @@
 # Runner Subagent Helper
 
-This document describes the local runner-subagent helper. It is a repo-local extension/package-layer primitive, not a Pi core API.
+This document describes the lower-level runner-subagent substrate and its relationship to the model-visible `subagent` tool. The helper is a repo-local package primitive, not a Pi core API.
 
-## Mental model
+## Two interfaces
 
-A parent Pi extension calls `dispatchRunnerSubagent(pi, ctx, options)`, awaits a separate subagent Pi process, and receives a structured result. The subagent starts with fresh conversation history in the same cwd/worktree by default. The parent prompt must include all task context the subagent needs. The caller chooses whether it wants structured terminal capture or final assistant text.
+`@nseng-ai/ns-pi-subagents/extension` registers one model-visible tool named `subagent`. It selects an Agent Type (`explorer` or `task`) independently from an Execution Architecture (`subprocess`, `in-process`, or automatic descriptor preference). Both built-ins request final assistant text and expose bounded results plus session evidence.
 
-In terminal-capture mode, completion is a terminal capture, not a queued slash command. The subagent calls exactly one configured terminal tool, the injected runtime captures the validated tool input, and the parent maps that payload to a result such as `completed` or `blocked`. In final-text mode, the parent consumes the subagent's final assistant text and must treat every non-`final-text` status as diagnostic. Do not use `sendUserMessage("/..." )` as a completion handoff.
+Direct extension consumers may instead call `dispatchRunnerSubagent(pi, ctx, options)` or use `createSubprocessSubagentRuntime()`. These lower-level `RunnerSubagent*` APIs remain valid substrate vocabulary and support both final-text and terminal-capture modes. They are not aliases for the retired `runner` agent type.
 
-## Architecture
+## Subprocess architecture
 
-The helper API lives in `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/extension-api.ts` as `dispatchRunnerSubagent(...)`. Runtime/process internals live under `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/`. The unified `@nseng-ai/ns-pi-subagents/extension` entrypoint registers the `explore` and `forked_pi_agent` model-visible tools plus the `/ns:agents:fleet` and `/ns:agents:transcript` commands for session-local fleet/transcript UI; the dispatch tool implementation is `ts/packages/extensions/ns-pi-subagents/src/runner-subagents/extension.ts`.
-
-The process runner launches a subagent shaped like:
+The process adapter launches a child shaped like:
 
 ```text
-pi --mode json -p [--provider <provider> --model <model>] [--thinking <level>] --no-extensions --extension <generated-runtime> --session <file> <prompt>
+pi --mode json -p [--provider <provider> --model <model>] [--thinking <level>] --no-extensions [--extension <generated-runtime>] --session <file> <prompt>
 ```
 
-Important details:
+- `--mode json -p` exposes JSONL progress and final events.
+- Model/provider/thinking arguments come from the normalized launch resolver. Qualified model patterns select a provider; unqualified patterns inherit the parent provider where valid.
+- `--no-extensions` prevents recursive loading of project extensions.
+- A generated private extension is present only for terminal-capture tools.
+- The persistent session file is returned as evidence and remains the full transcript.
+- The child shares the caller's cwd/worktree but starts with fresh conversation history.
 
-- `--mode json -p` gives the parent JSONL session events to parse.
-- `--provider`/`--model` are passed when the parent context has an explicit model or the caller provides a launch override. If the caller provides the runner-subagent `model` string, it is passed as the child Pi `--model` pattern. Fully qualified `provider/model` patterns select their own provider; unqualified patterns inherit the parent context provider when one is available.
-- `--thinking <level>` is passed for inherited or explicit non-off thinking levels. If the caller provides the runner-subagent `model` string, parent thinking is not inherited; encode the desired thinking in the model pattern or provide an explicit launch override.
-- `--no-extensions` prevents ordinary project parent extensions from recursively loading in the subagent.
-- `--extension <generated-runtime>` injects a private runtime extension containing only the requested terminal capture tools when terminal mode is used.
-- `--session <file>` points at a parent-created runner subagent artifact. The returned `sessionFile` is inspectable after blocked/error/cancelled outcomes when Pi writes the session.
-- After the child process closes, the helper reads that child session file and aggregates assistant-message usage metadata for post-run result details. This usage is child-session-only and excludes the parent Pi session's usage.
-- The subagent uses `ctx.cwd` by default, so it sees the same repository/worktree while starting from a fresh conversation.
+The adapter parses lightweight progress, launch metadata, activity previews, final text or terminal capture, diagnostics, and child-session usage. Activity previews are display-only and must not be copied wholesale into parent model context.
 
-The helper keeps the full subagent transcript out of the parent LLM context. Parent code receives the structured result and can decide what summary, diagnostics, usage metadata, or session path to display.
+## In-process architecture
 
-## Runner agent definition
+The production in-process adapter uses the pinned Pi SDK. It resolves the same normalized provider/model decision through the host `ModelRegistry`, applies descriptor-owned tool allowlists and thinking level, and creates a persistent `SessionManager.create(cwd)` session.
 
-The `forked_pi_agent` tool is backed by `.ns/pi/agents/runner.md`. The TypeScript extension owns execution, progress, cancellation, diagnostics, truncation, and result formatting; the Markdown definition owns runner-facing metadata and the child prompt wrapper.
+Its `DefaultResourceLoader` disables extensions so the child cannot recursively load `subagent`, while retaining normal skills and `AGENTS.md` context discovery. Delegated prompts use `{ expandPromptTemplates: false }`. The adapter maps SDK session/tool events to normalized progress and final text, preserves `sessionFile`, responds to abort, unsubscribes, and disposes the session. It supports final-text mode only; terminal capture remains subprocess-only.
 
-Supported frontmatter fields for this slice:
+In-process execution has no process fault-isolation boundary. Both built-in descriptors therefore prefer subprocess for `auto`; explicit in-process is an advanced override that cannot change permissions.
 
-- `schema`: must be `ns.pi-agent.v1`.
-- `name`: must be `runner`.
-- `toolName`: must be `forked_pi_agent`.
-- `label` and `description`: shown through `pi.registerTool`.
-- `promptSnippet`: optional one-line system-prompt snippet.
-- `promptGuidelines`: optional list of tool-specific guideline bullets.
+## Agent definitions
 
-The Markdown body is the child prompt wrapper. `{{prompt}}` is replaced with the delegated prompt exactly as provided after tool-input validation. `{{title}}` is replaced with the validated title. If the body does not include `{{prompt}}`, the extension appends a `## Delegated task` section containing the prompt.
+Built-in definitions are `.ns/pi/agents/explorer.md` and `.ns/pi/agents/task.md`. Both declare `toolName: subagent`. Markdown owns labels, descriptions, parent guidelines/doctrine, and child prompt wrappers. Typed descriptors own executable policy.
 
-The definition is loaded when the extension registers, so edits to `.ns/pi/agents/runner.md` require `/reload` or restarting Pi before the active tool metadata/prompt wrapper changes. Only `runner.md` is supported by this slice; additional agent variants remain future work.
+Definitions are read at startup to build the fixed tool schema and healthy catalog. The selected definition is reloaded for each call; a changed `name` or `toolName` fails that call until Pi restarts rather than mutating the schema mid-session.
 
-## Terminal capture tools
+## Return modes and taxonomy
 
-Terminal-mode callers provide terminal tools with:
+Direct subprocess callers choose:
 
-- `name`
-- `status`: `completed` or `blocked`
-- `description`
-- JSON-serializable TypeBox-like `parameters`
+- `returnMode: "terminal"` (default): one configured capture tool returns `completed` or `blocked` with validated input.
+- `returnMode: "final-text"`: useful completion is `final-text` with `finalText`.
 
-The generated subagent runtime registers these tools in capture-only mode. Tool execution records the validated input, requests subagent termination, and performs no domain side effects. The parent receives terminal metadata: tool name, optional tool call id, mapped status, and input payload.
+Other outcomes are diagnostic: `stopped-without-terminal`, `stopped-without-useful-text`, `cancelled`, `error`, or `protocol-error`. Inspect `diagnostic` and `sessionFile`; do not treat a non-final-text result as completion for final-text callers.
 
-At subagent startup, the runtime checks `pi.getAllTools()` for tool-name collisions. A collision writes a runtime startup failure instead of registering ambiguous terminal tools.
+Terminal capture tools are capture-only. They validate and record input, request termination, and perform no domain side effects. Mixed terminal-plus-sibling behavior is a protocol error, though an earlier sibling side effect may already have occurred before the parent observes it.
 
-## Return modes and result taxonomy
+## Model-visible tool contract
 
-`dispatchRunnerSubagent` supports two caller contracts:
+The `subagent` input is agent-neutral:
 
-- **Terminal-capture mode** (`returnMode: "terminal"`, the default) requires configured terminal tools. Successful terminal capture returns `completed` or `blocked` with the validated payload at `result.terminal.input`.
-- **Final-text mode** (`returnMode: "final-text"`) does not require terminal tools. A successful final-text run returns `final-text` with `result.finalText`. For consumers that asked for final assistant text, `final-text` is the only complete status.
+```ts
+{
+  agent: "explorer" | "task";
+  tasks: Array<{ title: string; prompt: string }>;
+  execution?: "auto" | "subprocess" | "in-process";
+  model?: string;
+}
+```
 
-For final-text consumers, `completed` and `blocked` are also non-complete diagnostic outcomes because they mean the subagent produced terminal capture instead of final assistant text. The remaining diagnostic statuses require inspecting diagnostics and/or `sessionFile` before deciding what to do next:
+`explorer` permits 1–8 read-only tasks, maximum concurrency four, and a 300-second whole-call budget. `task` permits exactly one task and is sequential in the shared worktree. Explicit model overrides run once; the descriptor-selected cheap explorer model alone may fail over on transient infrastructure failures.
 
-- `stopped-without-terminal`: subagent stopped cleanly without a terminal capture.
-- `stopped-without-useful-text`: subagent stopped cleanly in final-text mode without useful final assistant text.
-- `cancelled`: parent abort signal cancelled the run and best-effort subagent termination ran.
-- `error`: spawn, runtime, provider/model, session creation, malformed JSONL, or nonzero-exit failure.
-- `protocol-error`: subagent violated the terminal protocol, such as an unknown terminal capture or a terminal tool mixed with sibling tool calls.
-
-Mixed terminal-plus-sibling behavior is deterministic from the parent's perspective: the result is `protocol-error`. Under public Pi event ordering, however, an earlier sibling side effect may already have occurred before the parent can observe and terminate the invalid batch.
-
-## Progress and UI
-
-The dispatcher parses lightweight progress from JSON events: title, state, current tool, tool count, turn count, elapsed time, session path, and optional launch metadata. Launch metadata records the requested model pattern or observed model/provider, the observed or requested thinking level, and whether model/thinking CLI args were actually passed. Child `model_change` and `thinking_level_change` events update the displayed launch metadata when available, so final progress reflects the child session rather than stale parent context. Callers may pass `onProgress(update)` on a single `dispatchRunnerSubagent(...)` run to receive live, coalesced updates while the subagent Pi process is running. Each update contains minimal `progress` plus UI-only `activity` previews.
-
-Usage metadata is post-run only. It is collected after the child closes by reading the child session JSONL file and summing only records shaped like assistant messages with `message.usage`. Missing, unreadable, malformed, or usage-free session files are nonfatal and produce `result.usage.status === "unavailable"` with a reason and diagnostic. Context window is omitted unless an authoritative numeric value is available; the helper does not guess it from the model id.
-
-`RunnerSubagentProgress` remains metadata-only. Activity previews are for local display surfaces such as an above-editor `ctx.ui.setWidget(...)`, not parent tool content/details. Parent tools should keep partial `onUpdate(...)` text and final tool results minimal so child assistant/tool details do not enter the parent model context.
-
-The maintained generic integration surface is `forked_pi_agent`. Its MVP widget can show:
-
-- actual child model and thinking launch metadata
-- streaming visible assistant text preview
-- current tool input preview
-- last completed tool result preview
-
-Previews are compacted and truncated; inspect the returned `sessionFile` for the complete subagent transcript. The MVP does not redact secrets, so avoid treating the widget as secret-safe simply because the previews are display-only.
-
-Do not use `pi.sendMessage(...)` for transient subagent progress: custom messages participate in the parent session and LLM context. Do not write raw progress to stdout from the extension either; subagent stdout is the JSONL protocol stream and parent Pi/TUI output is managed by Pi.
-
-## Agent-facing dispatch tool
-
-The project-local shim `.pi/extensions/agents.ts` loads `@nseng-ai/ns-pi-subagents/extension`, registering both the `explore` tool and the `forked_pi_agent` final-text tool plus `/ns:agents:fleet` and `/ns:agents:transcript`.
-
-That tool always uses final-text mode. It requires:
-
-- `title`: concise title for the runner subagent artifact/progress.
-- `prompt`: complete prompt for the subagent, including all necessary context.
-
-The tool returns final assistant text when the child produces it. Its model-visible header includes status, title, model/thinking launch metadata, child-only usage/cost accounting (or `Usage: unavailable (...)`), session file, elapsed time, turns/tools, and stop reason when present. Structured `details` mirrors launch metadata and usage diagnostics so callers can inspect them programmatically. For every non-`final-text` status, the tool result includes diagnostics and the session file path; the parent agent must inspect those before treating the delegated task as complete.
+Every task result reports agent, resolved execution kind, status, title, session file when available, diagnostics, and bounded final text. Fleet UI remains under `ns:agents:*` for both architectures.
 
 ## Why not Pi core?
 
-The Objective intentionally used the extension/package layer because current evidence only required an awaited subprocess helper for local extensions. This avoided upstream Pi core changes, kept terminal capture semantics local and testable, and let future consumers prove whether a narrower core hook is necessary.
-
-Revisit Pi core only with evidence that the extension-layer helper cannot satisfy a real workflow, such as needing pre-side-effect enforcement for sibling tool batches, interactive subagent replies, durable in-flight resume, or filtered parent-context inheritance.
+The package layer owns product-specific policy, fleet UI, and terminal protocol semantics while using Pi's public extension and SDK surfaces. Revisit Pi core only with evidence that these public seams cannot support a real workflow, such as durable in-flight resume or pre-side-effect enforcement for sibling tool batches.

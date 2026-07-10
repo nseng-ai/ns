@@ -11,67 +11,87 @@ import type {
 	ExtensionHandler,
 } from "@earendil-works/pi-coding-agent";
 import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import packageExtension from "../src/extension.ts";
-import { EXPLORE_TOOL_NAME, EXPLORER_AGENT_NAME } from "../src/explore/contract.ts";
 import {
-	makeExplorerAgentDefinition,
-	makePerAgentDefinitionLoader,
-	makeRunnerAgentDefinition,
-} from "./helpers/explore-testing.ts";
-import { SUBAGENT_FLEET_COMMAND_NAME } from "../src/fleet/contract.ts";
-import type { NsPiSubagentsExtensionAPI } from "../src/extension.ts";
+	PI_AGENT_DEFINITION_SCHEMA,
+	type PiAgentDefinition,
+} from "@nseng-ai/pi/runtime/agent-definition";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
-import type { ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
-import { FORKED_PI_AGENT_TOOL_NAME, RUNNER_AGENT_NAME } from "../src/runner-subagents/extension.ts";
+import type { ToolContext, ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
+import { READ_ONLY_SUBAGENT_TOOLS } from "../src/runner-subagents/read-only-tools.ts";
+import {
+	createFunctionSubagentRuntime,
+	type SubagentRuntimeDispatchInput,
+} from "../src/runtime/seam.ts";
+import { SUBAGENT_FLEET_COMMAND_NAME } from "../src/fleet/contract.ts";
+import { getOrCreateSubagentFleetRegistry } from "../src/fleet/provider.ts";
+import packageExtension, { type NsPiSubagentsExtensionAPI } from "../src/extension.ts";
+import { SUBAGENT_TOOL_NAME } from "../src/tool/subagent.ts";
 
 const packageRoot = dirname(fileURLToPath(import.meta.url));
 const manifestPath = join(packageRoot, "..", "package.json");
 
 type BeforeAgentStartHandler = ExtensionHandler<BeforeAgentStartEvent, BeforeAgentStartEventResult>;
 
-class FakePiBase {
+class FakePi implements NsPiSubagentsExtensionAPI {
 	readonly commands = new Map<
 		string,
 		{ handler(args: string, ctx: CommandContext): Promise<void> | void }
 	>();
 	readonly tools = new Map<string, ToolDefinition>();
+	readonly beforeAgentStartHandlers: BeforeAgentStartHandler[] = [];
+
+	getThinkingLevel(): "off" {
+		return "off";
+	}
 
 	async exec(_command: string, _args: string[], _options?: ExecOptions): Promise<ExecResult> {
 		return { stdout: "", stderr: "", code: 0, killed: false };
 	}
-
 	registerCommand(
 		name: string,
 		command: { handler(args: string, ctx: CommandContext): Promise<void> | void },
 	): void {
 		this.commands.set(name, command);
 	}
-
 	registerTool(definition: ToolDefinition): void {
 		this.tools.set(definition.name, definition);
 	}
-}
-
-class FakePi extends FakePiBase implements NsPiSubagentsExtensionAPI {
-	readonly beforeAgentStartHandlers: BeforeAgentStartHandler[] = [];
-
 	readonly on = ((event: string, handler: BeforeAgentStartHandler): void => {
 		if (event === "before_agent_start") this.beforeAgentStartHandlers.push(handler);
 	}) as ExtensionAPI["on"];
 }
 
-function agentDefinitionLoader(
-	overrides: {
-		explore?: Parameters<typeof makeExplorerAgentDefinition>[0];
-		runner?: Parameters<typeof makeRunnerAgentDefinition>[0];
-	} = {},
-): (agentName: string) => ReturnType<typeof makeExplorerAgentDefinition> {
-	return makePerAgentDefinitionLoader(
-		new Map([
-			[EXPLORER_AGENT_NAME, makeExplorerAgentDefinition(overrides.explore)],
-			[RUNNER_AGENT_NAME, makeRunnerAgentDefinition(overrides.runner)],
-		]),
-	);
+function definition(
+	name: "explorer" | "task",
+	overrides: Partial<PiAgentDefinition> = {},
+): PiAgentDefinition {
+	return {
+		schema: PI_AGENT_DEFINITION_SCHEMA,
+		name,
+		toolName: SUBAGENT_TOOL_NAME,
+		label: name,
+		description: `${name} description`,
+		promptGuidelines: [`Use subagent agent ${name}.`],
+		delegationDoctrine: [`### subagent ${name}`],
+		body: `Delegated {{prompt}}`,
+		filePath: `/repo/.ns/pi/agents/${name}.md`,
+		...overrides,
+	};
+}
+
+function loader(name: string): PiAgentDefinition {
+	if (name === "explorer" || name === "task") return definition(name);
+	throw new Error(`unknown ${name}`);
+}
+
+function toolContext(): ToolContext {
+	return {
+		cwd: "/repo",
+		mode: "tui",
+		hasUI: false,
+		ui: { notify: () => {} },
+		model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+	};
 }
 
 function invokeBeforeAgentStart(
@@ -96,112 +116,298 @@ function requireSyncSystemPrompt(result: ReturnType<BeforeAgentStartHandler>): s
 }
 
 describe("ns-pi-subagents package", () => {
-	test("Pi manifest points directly at the unified subagents extension entrypoint", () => {
+	test("Pi manifest points at the extension entrypoint", () => {
 		const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
 			pi?: { extensions?: string[] };
 		};
 		const extensionPath = manifest.pi?.extensions?.[0];
-
 		expect(extensionPath).toBe("./src/extension.ts");
 		if (extensionPath === undefined) throw new Error("Missing Pi extension path.");
 		expect(existsSync(join(packageRoot, "..", extensionPath))).toBe(true);
 	});
 
-	test("package extension entrypoint registers tools and agents commands", () => {
+	test("registers exactly one model-visible subagent tool plus fleet command", () => {
 		const pi = new FakePi();
-
-		packageExtension(pi, {
-			cwd: "/repo",
-			loadAgentDefinition: () => makeExplorerAgentDefinition(),
+		packageExtension(pi, { cwd: "/repo", loadAgentDefinition: loader });
+		expect([...pi.tools.keys()]).toEqual([SUBAGENT_TOOL_NAME]);
+		expect(pi.tools.get(SUBAGENT_TOOL_NAME)?.parameters).toMatchObject({
+			properties: { agent: { enum: ["explorer", "task"] } },
 		});
-
-		expect(pi.tools.has(EXPLORE_TOOL_NAME)).toBe(true);
-		expect(pi.tools.has(FORKED_PI_AGENT_TOOL_NAME)).toBe(true);
 		expect(pi.commands.has(SUBAGENT_FLEET_COMMAND_NAME)).toBe(true);
-		expect([...pi.commands.keys()]).toEqual([SUBAGENT_FLEET_COMMAND_NAME]);
-		expect(pi.commands.has("ns:subagents:fleet")).toBe(false);
-		expect(pi.commands.has("ns:explore:transcript")).toBe(false);
 	});
 
-	test("injects both healthy doctrine subsections before agent start", () => {
+	test("dispatches task auto through subprocess and rejects unavailable in-process", async () => {
 		const pi = new FakePi();
-
+		const runtime = createFunctionSubagentRuntime(async (input) => ({
+			status: "final-text",
+			finalText: "done",
+			elapsedMs: 1,
+			progress: {
+				...(input.options.title === undefined ? {} : { title: input.options.title }),
+				state: "stopped",
+				toolCount: 0,
+				turnCount: 1,
+				elapsedMs: 1,
+			},
+		}));
 		packageExtension(pi, {
 			cwd: "/repo",
-			loadAgentDefinition: agentDefinitionLoader(),
+			loadAgentDefinition: loader,
+			runtimeAdapters: () => [{ kind: "subprocess", create: () => runtime }],
+		});
+		const tool = pi.tools.get(SUBAGENT_TOOL_NAME);
+		if (tool === undefined) throw new Error("Missing subagent tool.");
+		const auto = await tool.execute(
+			"call",
+			{ agent: "task", tasks: [{ title: "Focused", prompt: "Inspect and report." }] },
+			undefined,
+			undefined,
+			toolContext(),
+		);
+		expect(auto.content[0]?.text).toContain("done");
+		expect(auto.details).toMatchObject({
+			status: "completed",
+			tasks: [{ agent: "task", execution: "subprocess", status: "final-text" }],
 		});
 
-		expect(pi.beforeAgentStartHandlers).toHaveLength(1);
-		const systemPrompt = requireSyncSystemPrompt(
-			invokeBeforeAgentStart(pi.beforeAgentStartHandlers[0], "BASE"),
+		const unavailable = await tool.execute(
+			"call",
+			{
+				agent: "task",
+				tasks: [{ title: "Focused", prompt: "Inspect and report." }],
+				execution: "in-process",
+			},
+			undefined,
+			undefined,
+			toolContext(),
 		);
-		expect(systemPrompt).toContain("### `explore` — parallel read-only scouts");
-		expect(systemPrompt).toContain("### `forked_pi_agent` — focused forked Pi process");
-		expect(systemPrompt.startsWith("BASE\n\n")).toBe(true);
+		expect(unavailable.details).toMatchObject({ status: "configuration-error" });
 	});
 
-	test("injects forked_pi_agent doctrine only when explorer registration is degraded", () => {
+	test("enforces descriptor task caps before launch", async () => {
 		const pi = new FakePi();
-		const loader = agentDefinitionLoader({ explore: { toolName: "broken_explore" } });
-
-		packageExtension(pi, { cwd: "/repo", loadAgentDefinition: loader });
-
-		expect(pi.beforeAgentStartHandlers).toHaveLength(1);
-		const systemPrompt = requireSyncSystemPrompt(
-			invokeBeforeAgentStart(pi.beforeAgentStartHandlers[0], "BASE"),
-		);
-		expect(systemPrompt).not.toContain("### `explore`");
-		expect(systemPrompt).toContain("### `forked_pi_agent` — focused forked Pi process");
-	});
-
-	test("injects explore doctrine only when runner registration is degraded", () => {
-		const pi = new FakePi();
-
+		let dispatchCount = 0;
 		packageExtension(pi, {
 			cwd: "/repo",
-			loadAgentDefinition: () => makeExplorerAgentDefinition(),
+			loadAgentDefinition: loader,
+			runtimeAdapters: () => [
+				{
+					kind: "subprocess",
+					create: () =>
+						createFunctionSubagentRuntime(async () => {
+							dispatchCount += 1;
+							throw new Error("must not launch");
+						}),
+				},
+			],
+		});
+		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
+			"call",
+			{
+				agent: "task",
+				tasks: [
+					{ title: "one", prompt: "one" },
+					{ title: "two", prompt: "two" },
+				],
+			},
+			undefined,
+			undefined,
+			toolContext(),
+		);
+		expect(result?.details).toMatchObject({ status: "configuration-error" });
+		expect(dispatchCount).toBe(0);
+	});
+
+	test("applies explorer permissions and attempts an explicit model once per task", async () => {
+		const pi = new FakePi();
+		const calls: SubagentRuntimeDispatchInput[] = [];
+		const runtime = createFunctionSubagentRuntime(async (input) => {
+			calls.push(input);
+			return {
+				status: "final-text",
+				finalText: "scouted",
+				elapsedMs: 1,
+				progress: { state: "stopped", toolCount: 0, turnCount: 1, elapsedMs: 1 },
+			};
+		});
+		packageExtension(pi, {
+			cwd: "/repo",
+			loadAgentDefinition: loader,
+			runtimeAdapters: () => [{ kind: "subprocess", create: () => runtime }],
+		});
+		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
+			"call",
+			{
+				agent: "explorer",
+				tasks: [
+					{ title: "one", prompt: "one" },
+					{ title: "two", prompt: "two" },
+				],
+				model: "anthropic/claude-haiku-4-5",
+			},
+			undefined,
+			undefined,
+			toolContext(),
+		);
+		expect(result?.details).toMatchObject({ status: "completed" });
+		const fleet = getOrCreateSubagentFleetRegistry(pi).snapshot();
+		expect(fleet).toHaveLength(1);
+		expect(fleet[0]?.tasks.map((task) => [task.index, task.title, task.finalStatus])).toEqual([
+			[0, "one", "final-text"],
+			[1, "two", "final-text"],
+		]);
+		expect(calls).toHaveLength(2);
+		for (const call of calls) {
+			expect(call.options.tools).toEqual(READ_ONLY_SUBAGENT_TOOLS);
+			expect(call.options.model).toBe("anthropic/claude-haiku-4-5");
+		}
+	});
+
+	test("keeps one Fleet task across a same-model explorer retry", async () => {
+		const pi = new FakePi();
+		const calls: SubagentRuntimeDispatchInput[] = [];
+		const runtime = createFunctionSubagentRuntime(async (input) => {
+			calls.push(input);
+			if (calls.length === 1) {
+				return {
+					status: "error",
+					diagnostic: "transient launch failure",
+					error: { message: "transient launch failure" },
+					elapsedMs: 1,
+					progress: { state: "stopped", toolCount: 0, turnCount: 0, elapsedMs: 1 },
+				};
+			}
+			return {
+				status: "final-text",
+				finalText: "scouted after retry",
+				elapsedMs: 2,
+				progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 2 },
+			};
+		});
+		packageExtension(pi, {
+			cwd: "/repo",
+			loadAgentDefinition: loader,
+			runtimeAdapters: () => [{ kind: "subprocess", create: () => runtime }],
 		});
 
+		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
+			"call",
+			{
+				agent: "explorer",
+				tasks: [{ title: "retry one", prompt: "inspect" }],
+				model: "anthropic/claude-haiku-4-5",
+			},
+			undefined,
+			undefined,
+			toolContext(),
+		);
+
+		expect(calls).toHaveLength(2);
+		expect(calls[1]?.options).toBe(calls[0]?.options);
+		expect(result?.details).toMatchObject({
+			status: "completed",
+			tasks: [
+				{
+					status: "final-text",
+					retry: {
+						firstAttemptStatus: "error",
+						firstAttemptDiagnostic: "transient launch failure",
+					},
+				},
+			],
+		});
+		const fleet = getOrCreateSubagentFleetRegistry(pi).snapshot();
+		expect(fleet).toHaveLength(1);
+		expect(fleet[0]?.tasks).toMatchObject([
+			{
+				title: "retry one",
+				state: "done",
+				finalStatus: "final-text",
+				retry: {
+					firstAttemptStatus: "error",
+					firstAttemptDiagnostic: "transient launch failure",
+				},
+			},
+		]);
+	});
+
+	test("preserves cancelled positions when queued Fleet tasks never start", async () => {
+		const pi = new FakePi();
+		const controller = new AbortController();
+		let dispatchCount = 0;
+		const runtime = createFunctionSubagentRuntime(async (input) => {
+			dispatchCount += 1;
+			controller.abort("stop fan-out");
+			return {
+				status: "cancelled",
+				diagnostic: "stop fan-out",
+				reason: "stop fan-out",
+				elapsedMs: 1,
+				progress: {
+					...(input.options.title === undefined ? {} : { title: input.options.title }),
+					state: "stopped",
+					toolCount: 0,
+					turnCount: 0,
+					elapsedMs: 1,
+				},
+			};
+		});
+		packageExtension(pi, {
+			cwd: "/repo",
+			loadAgentDefinition: loader,
+			runtimeAdapters: () => [{ kind: "subprocess", create: () => runtime }],
+		});
+		const tasks = Array.from({ length: 5 }, (_, index) => ({
+			title: `task ${index}`,
+			prompt: `inspect ${index}`,
+		}));
+
+		const result = await pi.tools
+			.get(SUBAGENT_TOOL_NAME)
+			?.execute(
+				"call",
+				{ agent: "explorer", tasks, model: "anthropic/claude-haiku-4-5" },
+				controller.signal,
+				undefined,
+				toolContext(),
+			);
+
+		expect(dispatchCount).toBe(1);
+		expect(result?.details).toMatchObject({
+			status: "partial",
+			tasks: tasks.map((task) => ({ title: task.title, status: "cancelled" })),
+		});
+		const fleetTasks = getOrCreateSubagentFleetRegistry(pi)
+			.snapshot()
+			.flatMap((run) => run.tasks);
+		expect(fleetTasks.map((task) => [task.index, task.finalStatus])).toEqual(
+			tasks.map((_, index) => [index, "cancelled"]),
+		);
+	});
+
+	test("assembles healthy agent doctrine deterministically", () => {
+		const pi = new FakePi();
+		packageExtension(pi, { cwd: "/repo", loadAgentDefinition: loader });
 		expect(pi.beforeAgentStartHandlers).toHaveLength(1);
-		const systemPrompt = requireSyncSystemPrompt(
+		const prompt = requireSyncSystemPrompt(
 			invokeBeforeAgentStart(pi.beforeAgentStartHandlers[0], "BASE"),
 		);
-		expect(systemPrompt).toContain("### `explore` — parallel read-only scouts");
-		expect(systemPrompt).not.toContain("### `forked_pi_agent`");
+		expect(prompt).toContain("### subagent explorer");
+		expect(prompt).toContain("### subagent task");
 	});
 
-	test("omits doctrine when both built-in tools are degraded but still registers fallback tools", () => {
+	test("degrades one unhealthy catalog entry without suppressing the unified tool", () => {
 		const pi = new FakePi();
-		const loader = agentDefinitionLoader({
-			explore: { toolName: "broken_explore" },
-			runner: { toolName: "broken_runner" },
-		});
-
-		packageExtension(pi, { cwd: "/repo", loadAgentDefinition: loader });
-
-		expect(pi.beforeAgentStartHandlers).toHaveLength(0);
-		expect(pi.tools.has(EXPLORE_TOOL_NAME)).toBe(true);
-		expect(pi.tools.has(FORKED_PI_AGENT_TOOL_NAME)).toBe(true);
-	});
-
-	test("doctrine injection is deterministic across fresh extension registrations", () => {
-		const firstPi = new FakePi();
-		const secondPi = new FakePi();
-		packageExtension(firstPi, {
+		packageExtension(pi, {
 			cwd: "/repo",
-			loadAgentDefinition: agentDefinitionLoader(),
+			loadAgentDefinition: (name) =>
+				name === "explorer" ? definition("explorer", { toolName: "wrong" }) : definition("task"),
 		});
-		packageExtension(secondPi, {
-			cwd: "/repo",
-			loadAgentDefinition: agentDefinitionLoader(),
-		});
-
-		const first = requireSyncSystemPrompt(
-			invokeBeforeAgentStart(firstPi.beforeAgentStartHandlers[0], "BASE"),
+		expect([...pi.tools.keys()]).toEqual([SUBAGENT_TOOL_NAME]);
+		const prompt = requireSyncSystemPrompt(
+			invokeBeforeAgentStart(pi.beforeAgentStartHandlers[0], "BASE"),
 		);
-		const second = requireSyncSystemPrompt(
-			invokeBeforeAgentStart(secondPi.beforeAgentStartHandlers[0], "BASE"),
-		);
-		expect(first).toBe(second);
+		expect(prompt).not.toContain("subagent explorer");
+		expect(prompt).toContain("subagent task");
 	});
 });

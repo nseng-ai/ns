@@ -14,21 +14,25 @@ import {
 describe("Pi agent definitions", () => {
 	test("parses scalar frontmatter, prompt guideline lists, and body", () => {
 		const raw = definitionMarkdown({ body: "Body before\n{{prompt}}\nBody after\n" });
-		const parsed = parsePiAgentDefinitionMarkdown(raw, "/repo/.ns/pi/agents/runner.md");
+		const parsed = parsePiAgentDefinitionMarkdown(raw, "/repo/.ns/pi/agents/task.md");
 
 		expect(parsed).toEqual({
 			schema: "ns.pi-agent.v1",
-			name: "runner",
-			toolName: "forked_pi_agent",
-			label: "Dispatch Forked Pi Session",
-			description: "Launch a focused forked Pi process.",
-			promptSnippet: "Launch a focused forked Pi process",
+			name: "task",
+			toolName: "subagent",
+			label: "Task Agent",
+			description: "Run one focused delegated task.",
+			promptSnippet: "Use subagent with agent task",
 			promptGuidelines: [
-				"Use forked_pi_agent for focused delegated tasks.",
+				"Use subagent with agent task for focused delegated tasks.",
 				"Inspect the returned status.",
 			],
+			delegationDoctrine: [
+				"### `subagent` agent `task` — focused delegated work",
+				"- Inspect non-success statuses before treating delegation as complete.",
+			],
 			body: "Body before\n{{prompt}}\nBody after\n",
-			filePath: "/repo/.ns/pi/agents/runner.md",
+			filePath: "/repo/.ns/pi/agents/task.md",
 		});
 	});
 
@@ -66,9 +70,9 @@ describe("Pi agent definitions", () => {
 		const raw = [
 			"---",
 			"schema: ns.pi-agent.v1",
-			"name: runner",
-			"toolName: forked_pi_agent",
-			"description: Launch a focused forked Pi process.",
+			"name: task",
+			"toolName: subagent",
+			"description: Run one focused delegated task.",
 			"---",
 			"Body",
 		].join("\n");
@@ -89,7 +93,25 @@ describe("Pi agent definitions", () => {
 				definitionMarkdown({ promptGuidelinesBlock: "promptGuidelines:\n    - too indented\n" }),
 				"/agent.md",
 			),
-		).toThrow(/expected "  - guideline"/);
+		).toThrow(/expected "  - item"/);
+	});
+
+	test("rejects non-list and malformed delegationDoctrine", () => {
+		expect(() =>
+			parsePiAgentDefinitionMarkdown(
+				definitionMarkdown({ delegationDoctrineBlock: "delegationDoctrine: use the tool\n" }),
+				"/agent.md",
+			),
+		).toThrow(/delegationDoctrine.*list/);
+
+		expect(() =>
+			parsePiAgentDefinitionMarkdown(
+				definitionMarkdown({
+					delegationDoctrineBlock: "delegationDoctrine:\n    - too indented\n",
+				}),
+				"/agent.md",
+			),
+		).toThrow(/expected "  - item"/);
 	});
 
 	test("finds .ns/pi/agents from a nested cwd", () => {
@@ -101,22 +123,22 @@ describe("Pi agent definitions", () => {
 		expect(findNsPiAgentsDir(nested)).toBe(join(root, ".ns", "pi", "agents"));
 	});
 
-	test("loads runner.md by name", () => {
+	test("loads task.md by name", () => {
 		const root = tempRoot();
-		writeAgentDefinition(root, "runner", definitionMarkdown({ body: "Runner body {{prompt}}" }));
+		writeAgentDefinition(root, "task", definitionMarkdown({ body: "Task body {{prompt}}" }));
 
-		const loaded = loadPiAgentDefinition("runner", join(root, "nested"));
-		expect(loaded.name).toBe("runner");
-		expect(loaded.filePath).toBe(join(root, ".ns", "pi", "agents", "runner.md"));
-		expect(loaded.body).toBe("Runner body {{prompt}}");
+		const loaded = loadPiAgentDefinition("task", join(root, "nested"));
+		expect(loaded.name).toBe("task");
+		expect(loaded.filePath).toBe(join(root, ".ns", "pi", "agents", "task.md"));
+		expect(loaded.body).toBe("Task body {{prompt}}");
 	});
 
 	test("rejects loaded files whose name does not match the requested agent name", () => {
 		const root = tempRoot();
-		writeAgentDefinition(root, "runner", definitionMarkdown({ name: "other" }));
+		writeAgentDefinition(root, "task", definitionMarkdown({ name: "other" }));
 
-		expect(() => loadPiAgentDefinition("runner", root)).toThrow(
-			/name mismatch.*requested "runner".*declares "other"/,
+		expect(() => loadPiAgentDefinition("task", root)).toThrow(
+			/name mismatch.*requested "task".*declares "other"/,
 		);
 	});
 
@@ -152,6 +174,7 @@ interface DefinitionMarkdownOptions {
 	description?: string;
 	promptSnippet?: string;
 	promptGuidelinesBlock?: string;
+	delegationDoctrineBlock?: string;
 	body?: string;
 }
 
@@ -160,24 +183,32 @@ function definitionMarkdown(options: DefinitionMarkdownOptions = {}): string {
 		options.promptGuidelinesBlock ??
 		[
 			"promptGuidelines:",
-			"  - Use forked_pi_agent for focused delegated tasks.",
+			"  - Use subagent with agent task for focused delegated tasks.",
 			"  - Inspect the returned status.",
+		].join("\n") + "\n";
+	const delegationDoctrineBlock =
+		options.delegationDoctrineBlock ??
+		[
+			"delegationDoctrine:",
+			"  - ### `subagent` agent `task` — focused delegated work",
+			"  - - Inspect non-success statuses before treating delegation as complete.",
 		].join("\n") + "\n";
 
 	return (
 		[
 			"---",
 			`schema: ${options.schema ?? "ns.pi-agent.v1"}`,
-			`name: ${options.name ?? "runner"}`,
-			`toolName: ${options.toolName ?? "forked_pi_agent"}`,
-			`label: ${options.label ?? "Dispatch Forked Pi Session"}`,
-			`description: ${options.description ?? "Launch a focused forked Pi process."}`,
-			`promptSnippet: ${options.promptSnippet ?? "Launch a focused forked Pi process"}`,
+			`name: ${options.name ?? "task"}`,
+			`toolName: ${options.toolName ?? "subagent"}`,
+			`label: ${options.label ?? "Task Agent"}`,
+			`description: ${options.description ?? "Run one focused delegated task."}`,
+			`promptSnippet: ${options.promptSnippet ?? "Use subagent with agent task"}`,
 			promptGuidelinesBlock.trimEnd(),
+			delegationDoctrineBlock.trimEnd(),
 			"---",
 		].join("\n") +
 		"\n" +
-		(options.body ?? "Runner body {{prompt}}\n")
+		(options.body ?? "Task body {{prompt}}\n")
 	);
 }
 

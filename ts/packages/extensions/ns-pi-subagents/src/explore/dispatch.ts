@@ -12,6 +12,8 @@ import {
 	type RunnerSubagentPi,
 	type RunnerSubagentProgressCallback,
 	type RunnerSubagentResult,
+	type RunnerSubagentRetryEvidence,
+	type RunnerSubagentTransientFailureStatus,
 } from "../runner-subagents/index.ts";
 import {
 	resolveExplorerLaunchPlan,
@@ -23,6 +25,7 @@ import { createSubprocessSubagentRuntime, type SubagentRuntime } from "../runtim
 export interface DispatchExplorerSubagentOptions {
 	title: string;
 	prompt: string;
+	model?: string;
 	signal?: AbortSignal;
 	onProgress?: RunnerSubagentProgressCallback;
 }
@@ -32,17 +35,16 @@ export interface ExplorerDispatcherDependencies {
 	runtime?: SubagentRuntime;
 }
 
+export type ExplorerRetryEvidence = RunnerSubagentRetryEvidence;
+
 export interface ExplorerDispatchOutcome {
 	result: RunnerSubagentResult;
 	launchPlan: ExplorerLaunchPlan;
-	failover?: {
-		firstAttemptStatus: ExplorerTransientFailureStatus;
-		firstAttemptDiagnostic: string;
-	};
+	retry?: ExplorerRetryEvidence;
 }
 
 const EXPLORER_TRANSIENT_FAILURE_STATUSES = ["error", "protocol-error"] as const;
-type ExplorerTransientFailureStatus = (typeof EXPLORER_TRANSIENT_FAILURE_STATUSES)[number];
+type ExplorerTransientFailureStatus = RunnerSubagentTransientFailureStatus;
 type ExplorerTransientFailureResult = Extract<
 	RunnerSubagentResult,
 	{ status: ExplorerTransientFailureStatus }
@@ -63,10 +65,13 @@ export async function dispatchExplorerSubagent(
 	const dependencies = input.dependencies ?? {};
 	const authProbe = dependencies.isProviderAuthConfigured ?? isProviderAuthConfigured;
 	const runtime = dependencies.runtime ?? createSubprocessSubagentRuntime();
-	const launchPlan = resolveExplorerLaunchPlan({
-		...(ctx.model === undefined ? {} : { parentModel: ctx.model }),
-		isProviderAuthConfigured: authProbe,
-	});
+	const launchPlan: ExplorerLaunchPlan =
+		intent.model === undefined
+			? resolveExplorerLaunchPlan({
+					...(ctx.model === undefined ? {} : { parentModel: ctx.model }),
+					isProviderAuthConfigured: authProbe,
+				})
+			: { kind: "explicit", model: intent.model };
 	const childPrompt = composePiAgentPrompt(definition, {
 		title: intent.title,
 		prompt: intent.prompt,
@@ -80,51 +85,41 @@ export async function dispatchExplorerSubagent(
 		...(intent.onProgress === undefined ? {} : { onProgress: intent.onProgress }),
 	};
 
-	const firstResult = await runtime.dispatch({
-		pi,
-		ctx,
-		options:
-			launchPlan.kind === "cheap" ? { ...baseOptions, model: launchPlan.model } : baseOptions,
-	});
-	const failoverInput: ShouldFailoverExplorerDispatchInput = {
-		launchPlan,
+	const selectedOptions =
+		launchPlan.kind === "inherit" ? baseOptions : { ...baseOptions, model: launchPlan.model };
+	const firstResult = await runtime.dispatch({ pi, ctx, options: selectedOptions });
+	const retryInput: ShouldRetryExplorerDispatchInput = {
 		result: firstResult,
 		abortSignals: [ctx.signal, intent.signal],
 	};
-	if (!shouldFailoverExplorerDispatch(failoverInput)) {
+	if (!shouldRetryExplorerDispatch(retryInput)) {
 		return { result: firstResult, launchPlan };
 	}
 
-	const failoverResult = await runtime.dispatch({ pi, ctx, options: baseOptions });
+	const retryResult = await runtime.dispatch({ pi, ctx, options: selectedOptions });
 	return {
-		result: failoverResult,
+		result: retryResult,
 		launchPlan,
-		failover: {
-			firstAttemptStatus: failoverInput.result.status,
-			firstAttemptDiagnostic: failoverInput.result.diagnostic,
+		retry: {
+			firstAttemptStatus: retryInput.result.status,
+			firstAttemptDiagnostic: retryInput.result.diagnostic,
 		},
 	};
 }
 
-interface ShouldFailoverExplorerDispatchInput {
-	launchPlan: ExplorerLaunchPlan;
+interface ShouldRetryExplorerDispatchInput {
 	result: RunnerSubagentResult;
 	abortSignals: ReadonlyArray<AbortSignal | undefined>;
 }
 
 /**
- * Failover retries only infrastructure-shaped failures of the cheap model. Cancelled
- * runs honor the caller's intent, and stopped-without-* statuses mean the child ran but
- * produced unusable output — a prompt problem a different model will not fix.
+ * Retry only infrastructure-shaped failures. Cancelled runs honor the caller's intent,
+ * and stopped-without-* statuses mean the child ran but produced unusable output.
  */
-function shouldFailoverExplorerDispatch(
-	input: ShouldFailoverExplorerDispatchInput,
-): input is ShouldFailoverExplorerDispatchInput & { result: ExplorerTransientFailureResult } {
-	return (
-		input.launchPlan.kind === "cheap" &&
-		!hasAbortedSignal(...input.abortSignals) &&
-		isExplorerTransientFailureResult(input.result)
-	);
+function shouldRetryExplorerDispatch(
+	input: ShouldRetryExplorerDispatchInput,
+): input is ShouldRetryExplorerDispatchInput & { result: ExplorerTransientFailureResult } {
+	return !hasAbortedSignal(...input.abortSignals) && isExplorerTransientFailureResult(input.result);
 }
 
 function isExplorerTransientFailureResult(

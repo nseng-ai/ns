@@ -142,10 +142,10 @@ describe("dispatchExplorerSubagent", () => {
 		expect(call?.options.prompt).toContain("Find where widget rendering lives.");
 		expect(outcome.result.status).toBe("final-text");
 		expect(outcome.launchPlan).toEqual({ kind: "cheap", model: EXPLORER_CHEAP_MODEL_SHORTHAND });
-		expect(outcome.failover).toBeUndefined();
+		expect(outcome.retry).toBeUndefined();
 	});
 
-	test("fails over once to the inherited model when the cheap attempt errors", async () => {
+	test("retries once with the same cheap model when the first attempt errors", async () => {
 		const recording = createRecordingExplorerDispatch([
 			makeErrorResult("Failed to spawn forked Pi process: haiku unavailable"),
 			makeFinalTextResult("## Start Here"),
@@ -155,16 +155,16 @@ describe("dispatchExplorerSubagent", () => {
 
 		expect(recording.calls).toHaveLength(2);
 		expect(recording.calls[0]?.options.model).toBe(EXPLORER_CHEAP_MODEL_SHORTHAND);
-		expect(recording.calls[1]?.options.model).toBeUndefined();
+		expect(recording.calls[1]?.options).toBe(recording.calls[0]?.options);
 		expect(recording.calls[1]?.options.tools).toEqual([...READ_ONLY_SUBAGENT_TOOLS]);
 		expect(outcome.result.status).toBe("final-text");
-		expect(outcome.failover).toEqual({
+		expect(outcome.retry).toEqual({
 			firstAttemptStatus: "error",
 			firstAttemptDiagnostic: "Failed to spawn forked Pi process: haiku unavailable",
 		});
 	});
 
-	test("fails over on protocol-error results", async () => {
+	test("retries on protocol-error results", async () => {
 		const recording = createRecordingExplorerDispatch([
 			makeProtocolErrorResult("Malformed child JSON event."),
 			makeFinalTextResult("## Start Here"),
@@ -173,10 +173,10 @@ describe("dispatchExplorerSubagent", () => {
 		const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 		expect(recording.calls).toHaveLength(2);
-		expect(outcome.failover?.firstAttemptStatus).toBe("protocol-error");
+		expect(outcome.retry?.firstAttemptStatus).toBe("protocol-error");
 	});
 
-	test("does not fail over on unusable-text statuses", async () => {
+	test("does not retry unusable-text statuses", async () => {
 		const recording = createRecordingExplorerDispatch([
 			makeStoppedWithoutUsefulTextResult("Forked Pi process stopped without useful final text."),
 		]);
@@ -184,12 +184,15 @@ describe("dispatchExplorerSubagent", () => {
 		const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 		expect(recording.calls).toHaveLength(1);
-		expect(outcome.failover).toBeUndefined();
+		expect(outcome.retry).toBeUndefined();
 		expect(outcome.result.status).toBe("stopped-without-useful-text");
 	});
 
-	test("does not fail over when the launch plan already inherits the parent model", async () => {
-		const recording = createRecordingExplorerDispatch([makeErrorResult("spawn failed")]);
+	test("retries once with inherited model options", async () => {
+		const recording = createRecordingExplorerDispatch([
+			makeErrorResult("spawn failed"),
+			makeFinalTextResult("## Start Here"),
+		]);
 		const dispatch = explorerDispatcher({
 			runtime: explorerRuntime(recording.dispatch),
 			isProviderAuthConfigured: () => false,
@@ -200,10 +203,36 @@ describe("dispatchExplorerSubagent", () => {
 			explorerIntent(),
 		);
 
-		expect(recording.calls).toHaveLength(1);
+		expect(recording.calls).toHaveLength(2);
 		expect(recording.calls[0]?.options.model).toBeUndefined();
+		expect(recording.calls[1]?.options).toBe(recording.calls[0]?.options);
 		expect(outcome.launchPlan).toEqual({ kind: "inherit" });
-		expect(outcome.failover).toBeUndefined();
+		expect(outcome.retry?.firstAttemptStatus).toBe("error");
+	});
+
+	test("retries once with explicit model options", async () => {
+		const recording = createRecordingExplorerDispatch([
+			makeProtocolErrorResult("explicit model protocol failure"),
+			makeFinalTextResult("## Start Here"),
+		]);
+		const dispatch = explorerDispatcher({ runtime: explorerRuntime(recording.dispatch) });
+		const outcome = await dispatch(
+			{},
+			anthropicCtx,
+			explorerIntent({ model: "openai-codex/gpt-5.4-mini" }),
+		);
+
+		expect(recording.calls).toHaveLength(2);
+		expect(recording.calls[0]?.options.model).toBe("openai-codex/gpt-5.4-mini");
+		expect(recording.calls[1]?.options).toBe(recording.calls[0]?.options);
+		expect(outcome.launchPlan).toEqual({
+			kind: "explicit",
+			model: "openai-codex/gpt-5.4-mini",
+		});
+		expect(outcome.retry).toEqual({
+			firstAttemptStatus: "protocol-error",
+			firstAttemptDiagnostic: "explicit model protocol failure",
+		});
 	});
 
 	test("lets the runner-subagent dispatcher handle already-aborted callers", async () => {
@@ -225,10 +254,10 @@ describe("dispatchExplorerSubagent", () => {
 			toolCount: 0,
 			turnCount: 0,
 		});
-		expect(outcome.failover).toBeUndefined();
+		expect(outcome.retry).toBeUndefined();
 	});
 
-	test("does not fail over after the context aborts", async () => {
+	test("does not retry after the context aborts", async () => {
 		const controller = new AbortController();
 		const recording = createRecordingExplorerDispatch([makeErrorResult("aborted spawn")]);
 		const dispatch = explorerDispatcher({
@@ -245,7 +274,7 @@ describe("dispatchExplorerSubagent", () => {
 		);
 
 		expect(recording.calls).toHaveLength(1);
-		expect(outcome.failover).toBeUndefined();
+		expect(outcome.retry).toBeUndefined();
 	});
 
 	test("passes the read-only allowlist and cheap model through to the child argv", async () => {
@@ -317,7 +346,7 @@ describe("dispatchExplorerSubagent", () => {
 			const outcome = await dispatch({}, anthropicCtx, explorerIntent());
 
 			expect(recording.calls).toHaveLength(expected[status] ? 2 : 1);
-			expect(outcome.failover !== undefined).toBe(expected[status]);
+			expect(outcome.retry !== undefined).toBe(expected[status]);
 		}
 	});
 });

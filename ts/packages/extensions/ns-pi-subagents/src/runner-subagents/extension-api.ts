@@ -32,6 +32,15 @@ export type RunnerSubagentStatus =
 	| RunnerSubagentTerminalStatus
 	| RunnerSubagentFinalTextStatus
 	| RunnerSubagentFailureStatus;
+export type RunnerSubagentTransientFailureStatus = Extract<
+	RunnerSubagentFailureStatus,
+	"error" | "protocol-error"
+>;
+
+export interface RunnerSubagentRetryEvidence {
+	firstAttemptStatus: RunnerSubagentTransientFailureStatus;
+	firstAttemptDiagnostic: string;
+}
 
 export interface RunnerSubagentTerminalToolDefinition<TInput = unknown> {
 	name: string;
