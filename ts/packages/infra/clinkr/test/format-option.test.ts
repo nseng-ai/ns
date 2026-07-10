@@ -19,6 +19,29 @@ function buildGroup(): ClinkrGroup<null> {
 	return group;
 }
 
+function buildListAliasGroup(): ClinkrGroup<string[]> {
+	const group = new ClinkrGroup<string[]>({ name: "probe" });
+	group.command({
+		name: "list",
+		schema: z.object({}),
+		handler: async (calls) => {
+			calls.push("list");
+			return ok({ answer: 42 });
+		},
+	});
+	const nested = new ClinkrGroup<string[]>({ name: "nested" });
+	nested.command({
+		name: "list",
+		schema: z.object({}),
+		handler: async (calls) => {
+			calls.push("nested:list");
+			return ok({ answer: 7 });
+		},
+	});
+	group.group(nested);
+	return group;
+}
+
 function buildMarkdownGroup(): {
 	group: ClinkrGroup<null>;
 	markdownCalls: () => number;
@@ -58,6 +81,26 @@ describe("raw argv format detection", () => {
 		expect(isClinkrHumanOutputInvocation(["win", "--format", "json"])).toBe(false);
 		expect(isClinkrHumanOutputInvocation(["win", "--format", "markdown"])).toBe(false);
 		expect(isClinkrHumanOutputInvocation(["win", "--json-schema"])).toBe(false);
+	});
+});
+
+describe("automatic list aliases", () => {
+	test("routes ls to list commands at the root and in nested groups", async () => {
+		const calls: string[] = [];
+		const group = buildListAliasGroup();
+
+		const root = await runForTest(group, ["ls", "--format", "json"], { context: calls });
+		const nested = await runForTest(group, ["nested", "ls", "--format", "json"], {
+			context: calls,
+		});
+
+		expect(parseEnvelope(root.stdout)).toEqual({ status: "ok", exitCode: 0, data: { answer: 42 } });
+		expect(parseEnvelope(nested.stdout)).toEqual({
+			status: "ok",
+			exitCode: 0,
+			data: { answer: 7 },
+		});
+		expect(calls).toEqual(["list", "nested:list"]);
 	});
 });
 

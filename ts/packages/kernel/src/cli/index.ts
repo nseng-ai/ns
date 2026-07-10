@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
 	ClinkrGroup,
 	clinkrFormatFromArgs,
+	clinkrNameMatchesAutomaticAlias,
 	emitExit,
 	failure,
 	ok,
@@ -533,7 +534,7 @@ function requestedCommandKey(
 			commandInfo,
 			displaySegments: commandSegments(commandInfo),
 		}))
-		.filter(({ displaySegments }) => pathPrefixMatches(commandArgs, displaySegments))
+		.filter(({ displaySegments }) => pathPrefixMatches(commandArgs, displaySegments, commandInfos))
 		.sort((left, right) => right.displaySegments.length - left.displaySegments.length);
 	const selected = candidates[0];
 	if (selected === undefined) return commandArgs[0];
@@ -552,7 +553,9 @@ function requestedGroupSegments(
 	if (commandArgs.length === 0) return undefined;
 	const hasGroup = commandInfos.some((commandInfo) => {
 		const segments = commandSegments(commandInfo);
-		return commandArgs.length < segments.length && pathPrefixMatches(commandArgs, segments);
+		return (
+			commandArgs.length < segments.length && pathPrefixMatches(commandArgs, segments, commandInfos)
+		);
 	});
 	return hasGroup ? commandArgs : undefined;
 }
@@ -600,9 +603,46 @@ function buildNsCompletionGroup(): ClinkrGroup<NsCliContext> {
 	return completion;
 }
 
-function pathPrefixMatches(args: readonly string[], path: readonly string[]): boolean {
+function pathPrefixMatches(
+	args: readonly string[],
+	path: readonly string[],
+	commandInfos: readonly NsCommandCliInfo[],
+): boolean {
 	const length = Math.min(args.length, path.length);
-	return args.slice(0, length).every((segment, index) => path[index] === segment);
+	return args
+		.slice(0, length)
+		.every((segment, index) =>
+			pathSegmentMatches(path[index], segment, siblingNamesAtPath(commandInfos, path, index)),
+		);
+}
+
+function pathSegmentMatches(
+	pathSegment: string | undefined,
+	argSegment: string,
+	siblingNames: ReadonlySet<string>,
+): boolean {
+	return (
+		pathSegment !== undefined &&
+		clinkrNameMatchesAutomaticAlias(pathSegment, siblingNames, argSegment)
+	);
+}
+
+function siblingNamesAtPath(
+	commandInfos: readonly NsCommandCliInfo[],
+	path: readonly string[],
+	index: number,
+): ReadonlySet<string> {
+	const prefix = path.slice(0, index);
+	return new Set(
+		commandInfos
+			.map((commandInfo) => commandSegments(commandInfo))
+			.filter((segments) => pathPrefixEquals(segments, prefix) && segments[index] !== undefined)
+			.map((segments) => segments[index] ?? ""),
+	);
+}
+
+function pathPrefixEquals(path: readonly string[], prefix: readonly string[]): boolean {
+	return prefix.every((segment, index) => path[index] === segment);
 }
 
 type ShellCommandSchema = z.ZodObject<{ shell: z.ZodOptional<z.ZodString> }>;

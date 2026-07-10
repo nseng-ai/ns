@@ -40,7 +40,7 @@ const EXEC_HELP = [
 	"  load [options] [key]    Load a branch-context entry and render the",
 	"                          implementation prompt.",
 	"  attach [options] [key]  Attach a saved plan or file as branch context.",
-	"  list [options]          List branch-context entries.",
+	"  list|ls [options]       List branch-context entries.",
 	"  check [options] [key]   Check whether a branch-context entry exists.",
 	"  delete [options] [key]  Delete a branch-context entry.",
 	"",

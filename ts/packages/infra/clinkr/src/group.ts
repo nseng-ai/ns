@@ -161,12 +161,16 @@ interface RunState {
 
 interface BuildLeafCommandOptions<TContext> {
 	registered: RegisteredCommand<TContext>;
+	aliases: readonly string[];
 	context: TContext;
 	io: ClinkrIo;
 	state: RunState;
 }
 
-interface ConfigureCommandExecutionOptions<TContext> extends BuildLeafCommandOptions<TContext> {
+interface ConfigureCommandExecutionOptions<TContext> extends Omit<
+	BuildLeafCommandOptions<TContext>,
+	"aliases"
+> {
 	command: Command;
 }
 
@@ -185,6 +189,9 @@ const leafCommandMetadataSetters = [
 	key: string;
 	apply: (command: Command, value: string) => Command;
 }[];
+
+const LIST_COMMAND_NAME = "list";
+const LIST_COMMAND_ALIAS = "ls";
 
 export class ClinkrGroup<TContext> {
 	readonly name: string;
@@ -314,16 +321,23 @@ export class ClinkrGroup<TContext> {
 		}
 	}
 
-	private buildCompletionPlan(isRoot: boolean): ClinkrCompletionGroupPlan<TContext> {
+	private buildCompletionPlan(
+		isRoot: boolean,
+		parentSiblingNames: ReadonlySet<string> = new Set(),
+	): ClinkrCompletionGroupPlan<TContext> {
+		const siblingNames = this.siblingNames();
 		return {
 			name: this.name,
+			...optionalEntries({ aliases: clinkrAutomaticAliasesForName(this.name, parentSiblingNames) }),
 			...(this.description === undefined ? {} : { description: this.description }),
 			isRoot,
 			isHidden: this.isHidden,
 			hasVersionOption: this.version !== undefined,
 			hasRuntimeOption: this.runtimeInfo !== undefined,
-			commands: this.registeredCommands.map((registered) => completionCommandPlan(registered)),
-			groups: this.subgroups.map((child) => child.buildCompletionPlan(false)),
+			commands: this.registeredCommands.map((registered) =>
+				completionNamedCommandPlan(registered, siblingNames),
+			),
+			groups: this.subgroups.map((child) => child.buildCompletionPlan(false, siblingNames)),
 			...(this.defaultRegisteredCommand === undefined
 				? {}
 				: { defaultCommand: completionCommandPlan(this.defaultRegisteredCommand) }),
@@ -350,11 +364,24 @@ export class ClinkrGroup<TContext> {
 				state,
 			});
 		}
+		const siblingNames = this.siblingNames();
 		for (const registered of this.registeredCommands) {
-			command.addCommand(buildLeafCommand({ registered, context, io, state }));
+			command.addCommand(
+				buildLeafCommand({
+					registered,
+					aliases: clinkrAutomaticAliasesForName(registered.name, siblingNames) ?? [],
+					context,
+					io,
+					state,
+				}),
+			);
 		}
 		for (const child of this.subgroups) {
-			command.addCommand(child.buildCommand({ context, io, state, isRoot: false }), {
+			const childCommand = child.buildCommand({ context, io, state, isRoot: false });
+			for (const alias of clinkrAutomaticAliasesForName(child.name, siblingNames) ?? []) {
+				childCommand.alias(alias);
+			}
+			command.addCommand(childCommand, {
 				hidden: child.isHidden,
 			});
 		}
@@ -365,11 +392,21 @@ export class ClinkrGroup<TContext> {
 		if (argv.length === 0) return this.defaultRegisteredCommand === undefined ? [] : undefined;
 		const [head, ...tail] = argv;
 		if (head === undefined) return [];
-		const child = this.subgroups.find((candidate) => candidate.name === head);
+		const siblingNames = this.siblingNames();
+		const child = this.subgroups.find((candidate) =>
+			clinkrNameMatchesAutomaticAlias(candidate.name, siblingNames, head),
+		);
 		if (child === undefined) return undefined;
 		const childPath = child.findBareGroupPath(tail);
 		if (childPath === undefined) return undefined;
-		return [head, ...childPath];
+		return [child.name, ...childPath];
+	}
+
+	private siblingNames(): ReadonlySet<string> {
+		return new Set([
+			...this.registeredCommands.map((registered) => registered.name),
+			...this.subgroups.map((child) => child.name),
+		]);
 	}
 }
 
@@ -404,6 +441,16 @@ function shouldPassThroughOf<TContext, S extends z.ZodObject, T>(
 		| DefaultRawCommandSpec<TContext, S>,
 ): boolean {
 	return spec.isRawExit === true && spec.shouldPassThrough === true;
+}
+
+function completionNamedCommandPlan<TContext>(
+	registered: RegisteredCommand<TContext>,
+	siblingNames: ReadonlySet<string>,
+): ClinkrCompletionCommandPlan<TContext> {
+	return {
+		...completionCommandPlan(registered),
+		...optionalEntries({ aliases: clinkrAutomaticAliasesForName(registered.name, siblingNames) }),
+	};
 }
 
 function completionCommandPlan<TContext>(
@@ -445,6 +492,24 @@ function assertNever(value: never): never {
 	throw new Error(`clinkr: unexpected execution type ${JSON.stringify(value)}`);
 }
 
+export function clinkrAutomaticAliasesForName(
+	name: string,
+	siblingNames: ReadonlySet<string>,
+): readonly string[] | undefined {
+	if (name !== LIST_COMMAND_NAME || siblingNames.has(LIST_COMMAND_ALIAS)) return undefined;
+	return [LIST_COMMAND_ALIAS];
+}
+
+export function clinkrNameMatchesAutomaticAlias(
+	name: string,
+	siblingNames: ReadonlySet<string>,
+	word: string,
+): boolean {
+	return (
+		name === word || clinkrAutomaticAliasesForName(name, siblingNames)?.includes(word) === true
+	);
+}
+
 function commandAtPath(program: Command, path: readonly string[]): Command {
 	let current = program;
 	for (const name of path) {
@@ -484,8 +549,9 @@ function emitUsageErrorJson(io: ClinkrIo, message: string, data: unknown): void 
 }
 
 function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>): Command {
-	const { registered, io } = options;
+	const { registered, aliases, io } = options;
 	const command = createContainedCommand(registered.name, io);
+	for (const alias of aliases) command.alias(alias);
 	for (const { key, apply } of leafCommandMetadataSetters) {
 		const value = registered[key];
 		if (value !== undefined) apply(command, value);

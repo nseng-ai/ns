@@ -57,6 +57,15 @@ function buildCompletionTree(): ClinkrGroup<ProbeContext> {
 	);
 	const sub = new ClinkrGroup<ProbeContext>({ name: "sub", description: "Visible subgroup." });
 	sub.command({
+		name: "list",
+		summary: "List nested items.",
+		schema: z.object({}),
+		handler: async (ctx, request) => {
+			ctx.calls.push("sub:list");
+			return ok(request);
+		},
+	});
+	sub.command({
 		name: "inner",
 		schema: z.object({ kind: z.enum(["one", "two"]) }),
 		positionals: { kind: { position: 0 } },
@@ -97,6 +106,13 @@ describe("clinkr static completion", () => {
 
 		expect(candidateValues(group, [""])).not.toContain("exec");
 		expect(candidateValues(group, ["exec", ""])).toEqual(["resolve"]);
+	});
+
+	test("suggests ls as the automatic alias for list commands", () => {
+		const values = candidateValues(buildCompletionTree(), ["sub", ""]);
+
+		expect(values).toContain("list");
+		expect(values).toContain("ls");
 	});
 
 	test("suggests command options, aliases, and rendered framework options", () => {
