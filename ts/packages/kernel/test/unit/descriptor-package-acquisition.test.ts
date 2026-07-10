@@ -84,6 +84,61 @@ describe("ns.toml extension spec edits", () => {
 		});
 	});
 
+	test.each([
+		{
+			name: "same-line array",
+			source: 'extensions = ["./extensions/a"]\n',
+			expected: 'extensions = ["./extensions/a", "./extensions/new"]\n',
+		},
+		{
+			name: "multiline array with bracket and comma in a comment",
+			source: 'extensions = [\n  "./extensions/a" # keep ], here\n]\n',
+			expected: 'extensions = [\n  "./extensions/a", # keep ], here\n  "./extensions/new"\n]\n',
+		},
+		{
+			name: "quoted bracket and hash characters",
+			source: 'extensions = ["./extensions/[a]#value"]\n',
+			expected: 'extensions = ["./extensions/[a]#value", "./extensions/new"]\n',
+		},
+		{
+			name: "escaped double quote",
+			source: 'extensions = ["./extensions/a\\"[#]"]\n',
+			expected: 'extensions = ["./extensions/a\\"[#]", "./extensions/new"]\n',
+		},
+		{
+			name: "single-quoted value",
+			source: "extensions = ['./extensions/[a]#value']\n",
+			expected: "extensions = ['./extensions/[a]#value', \"./extensions/new\"]\n",
+		},
+		{
+			name: "empty same-line array",
+			source: "extensions = []\n",
+			expected: 'extensions = [ "./extensions/new"]\n',
+		},
+		{
+			name: "empty multiline array",
+			source: "extensions = [\n]\n",
+			expected: 'extensions = [\n\t"./extensions/new"\n]\n',
+		},
+		{
+			name: "same-line trailing comma",
+			source: 'extensions = ["./extensions/a",]\n',
+			expected: 'extensions = ["./extensions/a", "./extensions/new",]\n',
+		},
+		{
+			name: "multiline trailing comma before comment",
+			source: 'extensions = [\n  "./extensions/a", # keep trailing comma\n]\n',
+			expected:
+				'extensions = [\n  "./extensions/a", # keep trailing comma\n  "./extensions/new",\n]\n',
+		},
+	])("preserves formatting for $name", ({ source, expected }) => {
+		expect(appendDeclaredExtensionSpecToml(source, "./extensions/new")).toEqual({
+			ok: true,
+			text: expected,
+			isAdded: true,
+		});
+	});
+
 	test("rejects the same npm identity under a different exact spec", () => {
 		expect(
 			planDeclaredExtensionInstallToml({
