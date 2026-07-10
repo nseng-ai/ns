@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: ontology-reshape
+    annotation: Superseded by this bounded wayfinding record at close; it absorbed the interim wayfinder map and carries the remaining reconciliation scope and standing non-goals.
+---
+
 # Repo Ontology and CONTEXT-MAP
 
 ## Thesis
