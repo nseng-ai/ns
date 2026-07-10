@@ -32,6 +32,10 @@ export interface PrDescriptionContent {
 
 export type PrDescriptionFingerprintPolicy = "skip-current" | "force";
 
+export type PrDescriptionModelGenerationEvent =
+	| { type: "started"; modelRef: string; prNumber: number }
+	| { type: "finished"; modelRef: string; prNumber: number };
+
 export interface PrDescriptionUpdateOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
@@ -43,6 +47,7 @@ export interface PrDescriptionUpdateOptions {
 	fingerprintPolicy?: PrDescriptionFingerprintPolicy;
 	onProgress?: (message: string) => void;
 	time?: TimeServices;
+	onModelGeneration?: (event: PrDescriptionModelGenerationEvent) => void;
 }
 
 export type CurrentBranchPrDescriptionUpdateOptions = Omit<PrDescriptionUpdateOptions, "pr">;
@@ -160,6 +165,11 @@ export async function preparePrDescriptionUpdate(
 		return { type: "failed", pr, reason: commits.error.message, diagnostic: commits.error };
 	}
 
+	options.onModelGeneration?.({
+		type: "started",
+		modelRef: generation.modelRef,
+		prNumber: pr.number,
+	});
 	const prepared = await preparePrDescription({
 		textGenerator: options.textGenerator,
 		modelRef: generation.modelRef,
@@ -176,6 +186,11 @@ export async function preparePrDescriptionUpdate(
 		},
 		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 		...(options.time === undefined ? {} : { time: options.time }),
+	});
+	options.onModelGeneration?.({
+		type: "finished",
+		modelRef: generation.modelRef,
+		prNumber: pr.number,
 	});
 	if (!prepared.ok) return { type: "failed", pr, reason: prepared.error };
 
@@ -228,6 +243,9 @@ export async function orchestratePrDescription(
 		fingerprintPolicy: prDescriptionFingerprintPolicyForForce(options.shouldForce === true),
 		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 		...(options.time === undefined ? {} : { time: options.time }),
+		...(options.onModelGeneration === undefined
+			? {}
+			: { onModelGeneration: options.onModelGeneration }),
 	});
 	if (prepared.type === "failed") return prepared;
 	if (prepared.type === "skipped") {

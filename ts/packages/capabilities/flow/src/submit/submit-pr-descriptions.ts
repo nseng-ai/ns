@@ -21,6 +21,7 @@ import type {
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 import { formatItemCount } from "./submit-format.ts";
+import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
 import type { SubmitMatrixCellState } from "./submit-matrix-progress.ts";
 
 export type SubmitPrDescriptionGenerationResult =
@@ -59,6 +60,7 @@ export async function generateSubmitPrDescriptions(input: {
 	prLinks: readonly SubmitPrLink[];
 	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 	onProgress?: (message: string) => void;
+	onActiveOperations?: (operations: readonly ActiveOperation[]) => void;
 	onPrProgress?: SubmitPrDescriptionProgressListener;
 }): Promise<SubmitPrDescriptionGenerationResult> {
 	let accumulator: PrDescriptionAccumulator = createPrDescriptionAccumulator();
@@ -137,6 +139,20 @@ export async function generateSubmitPrDescriptions(input: {
 			...(prewrittenMetadata === undefined ? {} : { prewrittenMetadata }),
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 			...(input.prDescription.time === undefined ? {} : { time: input.prDescription.time }),
+			onModelGeneration: (event) => {
+				input.onActiveOperations?.(
+					event.type === "finished"
+						? []
+						: [
+								{
+									kind: "model",
+									operation: "generating PR description",
+									modelRef: event.modelRef,
+									detail: `PR ${index + 1}/${input.prLinks.length}`,
+								},
+							],
+				);
+			},
 		});
 
 		const progress = prProgressForResult(result);

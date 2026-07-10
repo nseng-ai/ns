@@ -312,7 +312,7 @@ export function createLandMatrixEventForwarder(progress: NsProgress): LandMatrix
 	return {
 		setRows: (rows) =>
 			forwarder.setRows(rows.map((row) => ({ rowKey: row.branch, label: row.label }))),
-		setRunningCommands: forwarder.setRunningCommands,
+		setActiveOperations: forwarder.setActiveOperations,
 		setCell: forwarder.setCell,
 		setAllCells: forwarder.setAllCells,
 		setAllOtherCells: forwarder.setAllOtherCells,

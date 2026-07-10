@@ -48,6 +48,11 @@ export interface NsProgressPhaseInfo {
 	detail?: string;
 }
 
+/** A long-running operation currently blocking workflow progress. */
+export type ActiveOperation =
+	| { kind: "command"; display: string }
+	| { kind: "model"; operation: string; modelRef: string; detail?: string };
+
 /** Lifecycle state of a single matrix cell. */
 export type NsProgressMatrixCellState = "pending" | "active" | "done" | "skipped" | "failed";
 
@@ -84,7 +89,7 @@ export type NsProgressMatrixEvent =
 			/** Compact cell text; hosts render it only when it fits the column. */
 			text?: string;
 	  }
-	| { type: "matrix-running"; commands: readonly string[] };
+	| { type: "matrix-active-operations"; operations: readonly ActiveOperation[] };
 
 export type NsProgressPhaseEvent =
 	| { type: "phases-declared"; title: string; phases: readonly NsProgressPhaseInfo[] }
@@ -127,7 +132,7 @@ const MATRIX_EVENT_TYPES = {
 	"matrix-declared": true,
 	"matrix-rows": true,
 	"matrix-cell": true,
-	"matrix-running": true,
+	"matrix-active-operations": true,
 } satisfies Record<NsProgressMatrixEvent["type"], true>;
 
 export function isMatrixProgressEvent(event: NsProgressPhaseEvent): event is NsProgressMatrixEvent {

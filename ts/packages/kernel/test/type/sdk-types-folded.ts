@@ -8,6 +8,7 @@ import type {
 	NsExtensionApi,
 	NsNotifyLevel,
 	NsProgress,
+	ActiveOperation,
 	NsProgressMatrixCellState,
 	NsProgressMatrixColumnInfo,
 	NsProgressMatrixEvent,
@@ -89,6 +90,11 @@ const commandIo: NsCommandIo = {
 	clearPhase: () => {},
 };
 const progressEvent: NsProgressPhaseEvent = { type: "phase-started", phaseKey: "test" };
+const activeOperation: ActiveOperation = {
+	kind: "model",
+	operation: "generating PR metadata",
+	modelRef: "openai-codex/gpt-5.4-mini",
+};
 const matrixCellState: NsProgressMatrixCellState = "active";
 const matrixColumn: NsProgressMatrixColumnInfo = { key: "merge", label: "Merge", width: 6 };
 const matrixRow: NsProgressMatrixRowInfo = { rowKey: "feature-a", label: "feature-a (#1)" };
@@ -97,7 +103,7 @@ const matrixEvents: NsProgressMatrixEvent[] = [
 	{ type: "matrix-rows", rows: [matrixRow] },
 	{ type: "matrix-cell", rowKey: "feature-a", columnKey: "merge", state: matrixCellState },
 	{ type: "matrix-cell", rowKey: "feature-a", columnKey: "merge", state: "done", text: "ok" },
-	{ type: "matrix-running", commands: ["gh pr merge 1"] },
+	{ type: "matrix-active-operations", operations: [activeOperation] },
 ];
 const matrixEventsWiden: NsProgressPhaseEvent[] = matrixEvents;
 const progressListener: NsProgressPhaseListener = (_event) => {};

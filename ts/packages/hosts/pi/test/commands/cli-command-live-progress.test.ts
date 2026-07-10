@@ -132,11 +132,17 @@ describe("MatrixWidgetState", () => {
 
 	test("renders a running-commands line when present", () => {
 		const state = declaredWithRows(1);
-		state.apply({ type: "matrix-running", commands: ["gh pr merge 1", "gt restack"] });
+		state.apply({
+			type: "matrix-active-operations",
+			operations: [
+				{ kind: "command", display: "gh pr merge 1" },
+				{ kind: "command", display: "gt restack" },
+			],
+		});
 
 		expect(state.lines().at(-1)).toBe("Running: gh pr merge 1; gt restack");
 
-		state.apply({ type: "matrix-running", commands: [] });
+		state.apply({ type: "matrix-active-operations", operations: [] });
 		expect(state.lines().some((line) => line.startsWith("Running:"))).toBe(false);
 	});
 });
@@ -232,7 +238,10 @@ describe("LiveCommandProgress matrix rendering", () => {
 		const { progress, latestWidget } = createWidgetHarness();
 		try {
 			for (const event of MATRIX_EVENTS) progress.applyPhaseEvent(event);
-			progress.applyPhaseEvent({ type: "matrix-running", commands: ["x".repeat(200)] });
+			progress.applyPhaseEvent({
+				type: "matrix-active-operations",
+				operations: [{ kind: "command", display: "x".repeat(200) }],
+			});
 
 			const lines = latestWidget();
 			expect(lines?.at(-1)).toHaveLength(100);

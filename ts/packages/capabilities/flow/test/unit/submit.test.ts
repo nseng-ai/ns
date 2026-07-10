@@ -5,6 +5,7 @@ import {
 	parseGtLogStack,
 	ok,
 	parseParentBranch,
+	prepareSubmitPrMetadata,
 	RealSubmitMetadataGateway,
 	runSubmitCommand,
 	type GithubPrGateway,
@@ -712,6 +713,90 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 	});
 });
 
+describe("prepareSubmitPrMetadata", () => {
+	test("reports the active model operation and settles each generated branch as drafted", async () => {
+		const textGenerator = new ScriptedTextGenerator([
+			{ ok: true, text: "Generated A\n\nGenerated body A" },
+			{ ok: true, text: "Generated B\n\nGenerated body B" },
+		]);
+		const activeOperations: Parameters<
+			NonNullable<Parameters<typeof prepareSubmitPrMetadata>[0]["onActiveOperations"]>
+		>[0][] = [];
+		const branchProgress: Parameters<
+			NonNullable<Parameters<typeof prepareSubmitPrMetadata>[0]["onBranchProgress"]>
+		>[0][] = [];
+		const result = await prepareSubmitPrMetadata({
+			cwd: "/repo",
+			env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/gpt-5.4-mini" },
+			git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+			textGenerator,
+			gateway: {
+				inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
+				inspectSubmitStack: async () => ({
+					ok: true,
+					value: {
+						currentBranch: "feature/b",
+						hasUpstackBranches: false,
+						branches: [
+							{
+								kind: "new",
+								branch: "feature/a",
+								parentBranch: "main",
+								commitMessages: [{ headline: "Add feature A" }],
+								diff: "diff --git a/a.ts b/a.ts\n",
+							},
+							{
+								kind: "new",
+								branch: "feature/b",
+								parentBranch: "feature/a",
+								commitMessages: [{ headline: "Add feature B" }],
+								diff: "diff --git a/b.ts b/b.ts\n",
+							},
+						],
+					},
+				}),
+				ensureCleanWorktree: async () => ok(undefined),
+				amendBranchMetadataCommit: async () => ok(undefined),
+			},
+			onActiveOperations: (operations) => activeOperations.push([...operations]),
+			onBranchProgress: (event) => branchProgress.push(event),
+		});
+
+		expect(result.kind).toBe("prepared");
+		expect(activeOperations).toEqual([
+			[
+				{
+					kind: "model",
+					operation: "generating PR metadata",
+					modelRef: "openai-codex/gpt-5.4-mini",
+					detail: "branch 1/2",
+				},
+			],
+			[],
+			[
+				{
+					kind: "model",
+					operation: "generating PR metadata",
+					modelRef: "openai-codex/gpt-5.4-mini",
+					detail: "branch 2/2",
+				},
+			],
+			[],
+		]);
+		expect(branchProgress).toEqual([
+			{ branch: "feature/a", state: "active", reason: "generating-metadata" },
+			{ branch: "feature/a", state: "done", reason: "metadata-drafted" },
+			{ branch: "feature/b", state: "active", reason: "generating-metadata" },
+			{ branch: "feature/b", state: "done", reason: "metadata-drafted" },
+			{ branch: "feature/a", state: "active", reason: "amending-metadata-commit" },
+			{ branch: "feature/a", state: "done", reason: "metadata-prepared" },
+			{ branch: "feature/b", state: "active", reason: "amending-metadata-commit" },
+			{ branch: "feature/b", state: "done", reason: "metadata-prepared" },
+		]);
+		textGenerator.assertDone();
+	});
+});
+
 describe("runSubmitCommand", () => {
 	test("records submit and verify as global matrix rows and descriptions by PR", async () => {
 		const linkA = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
@@ -864,7 +949,7 @@ class RecordingSubmitMatrix implements SubmitMatrixProgressSink {
 
 	setRows(): void {}
 
-	setRunningCommands(): void {}
+	setActiveOperations(): void {}
 
 	setGlobal(
 		key: Parameters<SubmitMatrixProgressSink["setGlobal"]>[0],

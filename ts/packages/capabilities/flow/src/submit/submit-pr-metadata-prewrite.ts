@@ -7,6 +7,7 @@ import {
 } from "@nseng-ai/capability-kit/graphite/branch";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import type { MaybePromise } from "@nseng-ai/foundation/primitives";
+import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
 
 import { commandFailure } from "./index.ts";
 import type { PrewrittenPrMetadata, PrCommitMessage } from "./index.ts";
@@ -35,6 +36,7 @@ const COMMAND_TIMEOUT_MS = 60_000;
 const MODIFY_TIMEOUT_MS = 600_000;
 
 export type SubmitMetadataProgressListener = (message: string) => void;
+export type SubmitActiveOperationsListener = (operations: readonly ActiveOperation[]) => void;
 export type SubmitBranchMetadataProgressListener = (event: {
 	branch: string;
 	state: Exclude<SubmitMatrixCellState, "pending">;
@@ -407,6 +409,7 @@ export async function prepareSubmitPrMetadata(input: {
 	textGenerator: TextGenerator;
 	time?: TimeServices;
 	onProgress?: SubmitMetadataProgressListener;
+	onActiveOperations?: SubmitActiveOperationsListener;
 	onBranchProgress?: SubmitBranchMetadataProgressListener;
 }): Promise<SubmitPrMetadataPrewriteResult> {
 	input.onProgress?.("inspecting Graphite submit scope before metadata preparation");
@@ -467,6 +470,9 @@ export async function prepareSubmitPrMetadata(input: {
 		branches: newBranches,
 		...(input.time === undefined ? {} : { time: input.time }),
 		...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
+		...(input.onActiveOperations === undefined
+			? {}
+			: { onActiveOperations: input.onActiveOperations }),
 		...(input.onBranchProgress === undefined ? {} : { onBranchProgress: input.onBranchProgress }),
 	});
 	if (generated.kind === "failed") {
@@ -532,6 +538,7 @@ async function generateMetadataForBranches(input: {
 	branches: readonly SubmitStackNewBranch[];
 	time?: TimeServices;
 	onProgress?: SubmitMetadataProgressListener;
+	onActiveOperations?: SubmitActiveOperationsListener;
 	onBranchProgress?: SubmitBranchMetadataProgressListener;
 }): Promise<
 	| { kind: "prepared"; prepared: PrewrittenPrMetadata[] }
@@ -561,6 +568,14 @@ async function generateMetadataForBranches(input: {
 			state: "active",
 			reason: "generating-metadata",
 		});
+		input.onActiveOperations?.([
+			{
+				kind: "model",
+				operation: "generating PR metadata",
+				modelRef: generation.modelRef,
+				detail: `branch ${index + 1}/${input.branches.length}`,
+			},
+		]);
 		const currentTitle = branch.commitMessages[0]?.headline ?? branch.branch;
 		const generated = await preparePrDescription({
 			textGenerator: input.textGenerator,
@@ -577,6 +592,7 @@ async function generateMetadataForBranches(input: {
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 			...(input.time === undefined ? {} : { time: input.time }),
 		});
+		input.onActiveOperations?.([]);
 		if (!generated.ok) {
 			input.onBranchProgress?.({
 				branch: branch.branch,
@@ -588,6 +604,11 @@ async function generateMetadataForBranches(input: {
 				error: `Could not generate initial PR metadata for ${branch.branch}: ${generated.error}`,
 			};
 		}
+		input.onBranchProgress?.({
+			branch: branch.branch,
+			state: "done",
+			reason: "metadata-drafted",
+		});
 		prepared.push({
 			branch: branch.branch,
 			parentBranch: branch.parentBranch,

@@ -36,7 +36,14 @@ describe("submit matrix progress", () => {
 		const lines = renderSubmitMatrixProgressFrame({
 			caps: caps(),
 			title: "ns flow submit",
-			runningCommands: ["gt submit --no-edit"],
+			activeOperations: [
+				{
+					kind: "model",
+					operation: "generating PR metadata",
+					modelRef: "openai-codex/gpt-5.4-mini",
+					detail: "branch 2/3",
+				},
+			],
 			globals: [
 				{
 					key: "inventory",
@@ -93,7 +100,9 @@ describe("submit matrix progress", () => {
 
 		const output = stripAnsi(lines.join("\n"));
 		expect(output).toContain("ns flow submit");
-		expect(output).toContain("Running: gt submit --no-edit");
+		expect(output).toContain(
+			"Running: LM · generating PR metadata · openai-codex/gpt-5.4-mini · branch 2/3",
+		);
 		expect(output).toContain("Inventory");
 		expect(output).toContain("Checkpoint");
 		expect(output).toContain("Inspect");
@@ -183,6 +192,7 @@ describe("submit matrix progress", () => {
 		expect(compactSubmitMetadataCellText("existing-pr")).toBe("exists");
 		expect(compactSubmitMetadataCellText("amendment-not-applicable")).toBe("n/a");
 		expect(compactSubmitMetadataCellText("generating-metadata")).toBe("gen");
+		expect(compactSubmitMetadataCellText("metadata-drafted")).toBe("drafted");
 		expect(compactSubmitMetadataCellText("amending-metadata-commit")).toBe("amend");
 		expect(compactSubmitMetadataCellText("metadata-prepared")).toBe("ready");
 		expect(compactSubmitMetadataCellText("metadata-amendment-failed")).toBe("failed");
