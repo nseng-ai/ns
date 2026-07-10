@@ -9,6 +9,7 @@ import { flowCpCommand } from "../../src/ns/commands/cp.ts";
 import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
+import { flowSquashStackCommand } from "../../src/ns/commands/squash-stack.ts";
 import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import type { CommandExit, NsCommand, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
@@ -79,6 +80,35 @@ export function runFlowPullTrunkCommandWithFakes(options: RunFlowCommandWithFake
 					match: "git fetch origin refs/heads/main:refs/heads/main",
 					result: { stdout: "updated\n" },
 				},
+			],
+			textGenerationResults: () => [],
+		},
+	});
+}
+
+export function runFlowSquashStackCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
+	return runFlowCommandWithFakes({
+		command: flowSquashStackCommand,
+		request: options.request ?? {},
+		options,
+		defaults: options.defaults ?? {
+			execResponses: () => [
+				{ match: "git status --porcelain=v1", result: {} },
+				{
+					match: "ns slot gt exec stack-branches --downstack --format json",
+					result: {
+						stdout: JSON.stringify({
+							status: "ok",
+							exitCode: 0,
+							data: { branches: ["feature/bottom", "feature/top"] },
+						}),
+					},
+				},
+				{ match: "gt checkout feature/top --no-interactive", result: {} },
+				{ match: "gt squash --no-edit --no-interactive", result: {} },
+				{ match: "gt checkout feature/bottom --no-interactive", result: {} },
+				{ match: "gt squash --no-edit --no-interactive", result: {} },
+				{ match: "gt checkout feature/top --no-interactive", result: {} },
 			],
 			textGenerationResults: () => [],
 		},

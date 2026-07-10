@@ -16,7 +16,8 @@ type FlowCommandName =
 	| "regenerate-pr"
 	| "push"
 	| "land"
-	| "pull-trunk";
+	| "pull-trunk"
+	| "squash-stack";
 
 const FLOW_COMMANDS = [
 	"changes",
@@ -29,6 +30,7 @@ const FLOW_COMMANDS = [
 	"push",
 	"land",
 	"pull-trunk",
+	"squash-stack",
 ] as const satisfies readonly FlowCommandName[];
 
 class FakePi implements NsExtensionAPI {

@@ -47,6 +47,7 @@ const NS_FLOW_COMMANDS = [
 		"pull-trunk",
 		"Pull the configured Graphite trunk branch without running full gt sync.",
 	),
+	flowCommand("squash-stack", "Squash every branch in the current Graphite stack to one commit."),
 ] as const satisfies readonly FlowCommandInfo[];
 
 export function nsFlowCommandSurface(name: string): string {
