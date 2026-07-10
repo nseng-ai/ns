@@ -6,11 +6,11 @@ import {
 } from "@nseng-ai/foundation/test-kit";
 import handoffExtension, {
 	type CommandContext,
-	type ExecResult,
+	type RawPiExecResult,
 	type ExtensionAPI,
 } from "../../src/pi/extension.ts";
 
-type ExecResultFixture = Partial<ExecResult>;
+type RawPiExecResultFixture = Partial<RawPiExecResult>;
 import type {
 	NewSessionOptions,
 	RenderComponent,
@@ -37,7 +37,7 @@ export interface ExecCall {
 export interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: ExecResultFixture | undefined;
+	result: RawPiExecResultFixture | undefined;
 }
 
 export interface Notification {
@@ -126,7 +126,7 @@ export class FakePi implements ExtensionAPI {
 		command: string,
 		args: string[],
 		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
-	): Promise<ExecResult> {
+	): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
@@ -163,7 +163,7 @@ export class FakePi implements ExtensionAPI {
 	}
 }
 
-export function execResult(overrides: ExecResultFixture = {}): ExecResult {
+export function execResult(overrides: RawPiExecResultFixture = {}): RawPiExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
@@ -172,7 +172,11 @@ export function execResult(overrides: ExecResultFixture = {}): ExecResult {
 	};
 }
 
-export function step(command: string, args: string[], result?: ExecResultFixture): ScriptedExec {
+export function step(
+	command: string,
+	args: string[],
+	result?: RawPiExecResultFixture,
+): ScriptedExec {
 	return { command, args, result };
 }
 

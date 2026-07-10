@@ -42,12 +42,12 @@ import { expandRepoSkillBlock, invokeRepoSkillPromptTurn } from "@nseng-ai/pi/sk
 import type {
 	AutocompleteItem,
 	CommandContext,
-	ExecOptions,
+	RawPiExecOptions,
 	ExtensionAPI,
 } from "@nseng-ai/pi/runtime/types";
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "@nseng-ai/pi/runtime/types";
-export type { ExecResult } from "@nseng-ai/pi/runtime/types";
+export type { RawPiExecResult } from "@nseng-ai/pi/runtime/types";
 export {
 	completeObjectiveListArgs,
 	parseObjectiveListArgTokens,
@@ -293,7 +293,7 @@ async function loadObjectiveCompletionItems(
 	return parsed.records.map(objectiveCompletionItem);
 }
 
-function objectiveCompletionExecOptions(cwd: string | undefined): ExecOptions {
+function objectiveCompletionExecOptions(cwd: string | undefined): RawPiExecOptions {
 	if (cwd === undefined) {
 		return { timeout: OBJECTIVE_LIST_TIMEOUT_MS };
 	}

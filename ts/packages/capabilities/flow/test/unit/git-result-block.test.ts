@@ -111,7 +111,7 @@ describe("renderGitResultBlock — failure", () => {
 
 	test("guidance is present and plumbing + full transcript are dimmed", () => {
 		expect(plain).toContain("Use `ns flow submit` when appropriate.");
-		expect(block).toContain(`${DIM}Termination: exit 1${RESET}`);
+		expect(block).toContain(`${DIM}Termination: exit code 1${RESET}`);
 		expect(plain).not.toContain("timed out");
 		expect(block).toContain(`${DIM}stderr:${RESET}`);
 	});
@@ -194,7 +194,7 @@ describe("renderGitResultBlock — failure", () => {
 			result: { type: "exited", stdout: "", stderr: "", code: 143, signal: "SIGTERM" },
 		});
 
-		expect(block).toContain(`${DIM}Termination: signal SIGTERM (exit 143)${RESET}`);
+		expect(block).toContain(`${DIM}Termination: exit code 143; signal SIGTERM${RESET}`);
 	});
 
 	test("normalizes CRLF transcript output and promoted cause lines", () => {

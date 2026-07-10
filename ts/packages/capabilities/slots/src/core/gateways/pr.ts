@@ -305,7 +305,10 @@ function failureFromExec(result: ExecResult, stderrOverride?: string): PrGateway
 	const stderr = stderrOverride ?? result.stderr;
 	const returnCode = result.type === "spawn-failed" ? null : result.code;
 	const evidence = commandFailureEvidence(result);
-	const message = stderr.trim() || result.stdout.trim() || evidence;
+	const trimmedStderr = stderr.trim();
+	const trimmedStdout = result.stdout.trim();
+	const message =
+		trimmedStderr !== "" ? trimmedStderr : trimmedStdout !== "" ? trimmedStdout : evidence;
 	return { stdout: result.stdout, stderr, returnCode, message };
 }
 

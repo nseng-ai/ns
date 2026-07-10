@@ -286,8 +286,10 @@ function failureFromResult(commandResult: CommandResult): GitCommandFailure {
 }
 
 function gitFailureMessage(result: ExecResult): string {
-	const output = result.stderr.trim() || result.stdout.trim();
-	if (output !== "") return output;
+	const stderr = result.stderr.trim();
+	if (stderr !== "") return stderr;
+	const stdout = result.stdout.trim();
+	if (stdout !== "") return stdout;
 	switch (result.type) {
 		case "spawn-failed":
 			return `git failed to start: ${result.error}`;

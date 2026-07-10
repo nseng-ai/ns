@@ -1,4 +1,9 @@
-import { type ExecResult, formatOutputSection, tailText } from "@nseng-ai/foundation/command";
+import {
+	type ExecResult,
+	formatCommandTermination,
+	formatOutputSection,
+	tailText,
+} from "@nseng-ai/foundation/command";
 import {
 	MAX_COMMAND_STREAM_OUTPUT_LINES,
 	MAX_OUTPUT_TAIL_CHARS,
@@ -41,7 +46,7 @@ export function formatCommandDetails(result: ExecResult, commandDisplay?: string
 	if (commandDisplay) {
 		lines.push(`$ ${commandDisplay}`);
 	}
-	lines.push(commandTermination(result));
+	lines.push(formatCommandTermination(result));
 	lines.push(
 		formatOutputSection("stdout", result.stdout, {
 			maxLines: MAX_OUTPUT_TAIL_LINES,
@@ -55,21 +60,6 @@ export function formatCommandDetails(result: ExecResult, commandDisplay?: string
 		}),
 	);
 	return lines.join("\n");
-}
-
-function commandTermination(result: ExecResult): string {
-	switch (result.type) {
-		case "spawn-failed":
-			return `spawn failed: ${result.error}`;
-		case "cancelled":
-			return "cancelled";
-		case "timed-out":
-			return "timed out";
-		case "exited":
-			return result.signal === null
-				? `exit ${result.code}`
-				: `signal ${result.signal} (exit ${result.code})`;
-	}
 }
 
 export function outputTail(output: string): string {

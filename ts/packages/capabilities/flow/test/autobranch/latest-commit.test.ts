@@ -312,7 +312,7 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		expect(upstreamFailed).toEqual({
 			ok: false,
 			kind: "upstream_check_failed",
-			error: "exit 128: bad upstream state",
+			error: "exit code 128: bad upstream state",
 		});
 
 		const root = await prepareLatestCommitAutobranchPlan(
@@ -387,7 +387,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 		expect(failedResult).toEqual({
 			ok: false,
 			kind: "transaction_upstream_check_failed",
-			error: "exit 128: bad upstream state",
+			error: "exit code 128: bad upstream state",
 		});
 		expect(eventIndex(failed.events, "exec:git branch autobranch-backup/")).toBe(-1);
 	});
@@ -443,7 +443,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			commitSummary: "abc123d Add latest commit support",
 			backupDeleted: false,
 			backupBranch: "autobranch-backup/feature/base/123",
-			backupDeleteError: "exit 1: delete failed",
+			backupDeleteError: "exit code 1: delete failed",
 		});
 	});
 
@@ -477,7 +477,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			ok: false,
 			kind: "source_reset_failed",
 			backupBranch: "autobranch-backup/feature/base/123",
-			error: "exit 1: source reset failed",
+			error: "exit code 1: source reset failed",
 			backupCleanup: "deleted",
 		});
 		expect(
@@ -516,7 +516,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			kind: "graphite_create_failed",
 			backupBranch: "autobranch-backup/feature/base/123",
 			branchName: "latest-commit-branch",
-			createError: "exit 1: gt create failed",
+			createError: "exit code 1: gt create failed",
 			restored: true,
 			createdBranchDeleted: true,
 		});
@@ -542,10 +542,10 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			kind: "graphite_create_failed",
 			backupBranch: "autobranch-backup/feature/base/123",
 			branchName: "latest-commit-branch",
-			createError: "exit 1: gt create failed",
+			createError: "exit code 1: gt create failed",
 			restored: true,
 			createdBranchDeleted: false,
-			createdBranchDeleteError: "exit 1: delete created failed",
+			createdBranchDeleteError: "exit code 1: delete created failed",
 		});
 	});
 
@@ -559,7 +559,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			kind: "branch_reset_failed",
 			backupBranch: "autobranch-backup/feature/base/123",
 			branchName: "latest-commit-branch",
-			resetError: "exit 1: branch reset failed",
+			resetError: "exit code 1: branch reset failed",
 			restored: true,
 			createdBranchDeleted: true,
 		});

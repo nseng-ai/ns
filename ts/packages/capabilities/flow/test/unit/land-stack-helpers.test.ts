@@ -981,7 +981,7 @@ describe("land-stack pure helpers", () => {
 		expect(context.notifications[1]?.message).toMatch(
 			/^✓ \$ git status — finished in (?:\d+s|\d+m \d+s)$/,
 		);
-		expect(context.notifications[2]?.message).toContain("✗ $ git fail — exit 2");
+		expect(context.notifications[2]?.message).toContain("✗ $ git fail — exit code 2");
 		expect(context.notifications[2]?.message).toContain("stdout line");
 		expect(context.notifications[2]?.message).toContain("stderr line");
 	});

@@ -451,8 +451,10 @@ export async function runText(
 	if (commandSucceeded(result)) {
 		return { ok: true, text: result.stdout.trim() };
 	}
+	const stderr = result.stderr.trim();
+	const stdout = result.stdout.trim();
 	return {
 		ok: false,
-		message: result.stderr.trim() || result.stdout.trim() || formatCommandDetails(result),
+		message: stderr !== "" ? stderr : stdout !== "" ? stdout : formatCommandDetails(result),
 	};
 }

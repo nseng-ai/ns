@@ -1,6 +1,11 @@
 import { createCommandIo } from "@nseng-ai/kernel/command-io";
 import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
-import { commandSucceeded, type ExecResult, formatCommand } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	type ExecResult,
+	formatCommand,
+	formatCommandTermination,
+} from "@nseng-ai/foundation/command";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
@@ -147,8 +152,8 @@ export class LandStackCommandStream {
 
 	finish(invocation: CommandInvocation, finish: { result: ExecResult; note?: string }): void {
 		const result = finish.result;
-		const succeeded = commandSucceeded(result);
-		const icon = succeeded ? "✓" : "✗";
+		const isSuccessful = commandSucceeded(result);
+		const icon = isSuccessful ? "✓" : "✗";
 		const commandStart = this.takeCommandStart(invocation.display);
 		const elapsedMs =
 			commandStart === undefined
@@ -169,11 +174,11 @@ export class LandStackCommandStream {
 		this.landMatrix?.setRunningCommands(this.runningCommands);
 		const suffix = formatCommandFinishSuffix(result, finish.note, elapsedMs);
 		const lines = [`${icon} $ ${invocation.display}${suffix}`];
-		if (!succeeded) {
+		if (!isSuccessful) {
 			lines.push(...commandStreamOutputLines(result));
 		}
 		this.io.message(lines.join("\n"), {
-			level: succeeded ? "info" : "error",
+			level: isSuccessful ? "info" : "error",
 			isRichOnly: !this.shouldMirrorFinishedCommandsToNonUi,
 		});
 	}
@@ -219,26 +224,11 @@ function formatCommandFinishSuffix(
 ): string {
 	const parts: string[] = [];
 	if (!commandSucceeded(result)) {
-		parts.push(commandTerminationText(result));
+		parts.push(formatCommandTermination(result));
 	}
 	if (note) parts.push(note);
 	if (elapsedMs !== undefined) parts.push(`finished in ${formatElapsedMs(elapsedMs)}`);
 	return parts.length === 0 ? "" : ` — ${parts.join(" — ")}`;
-}
-
-function commandTerminationText(result: ExecResult): string {
-	switch (result.type) {
-		case "spawn-failed":
-			return `spawn failed: ${result.error}`;
-		case "cancelled":
-			return "cancelled";
-		case "timed-out":
-			return "timed out";
-		case "exited":
-			return result.signal === null
-				? `exit ${result.code}`
-				: `terminated by ${result.signal} (exit ${result.code})`;
-	}
 }
 
 export function withCommandStreaming(

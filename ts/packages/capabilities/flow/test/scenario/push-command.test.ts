@@ -60,7 +60,7 @@ describe("flow push command outcomes", () => {
 		const stderr = stripAnsi(run.stderr.join(""));
 		expect(stderr).toContain("Could not inspect the worktree status");
 		expect(stderr).toContain("Command: git status --porcelain");
-		expect(stderr).toContain("Termination: exit 128");
+		expect(stderr).toContain("Termination: exit code 128");
 		expect(stderr).toContain("fatal: not a git repository");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain"]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
@@ -85,7 +85,7 @@ describe("flow push command outcomes", () => {
 		const stderr = stripAnsi(run.stderr.join(""));
 		expect(stderr).toContain("`git push` failed");
 		expect(stderr).toContain("Command: git push");
-		expect(stderr).toContain("Termination: exit 1");
+		expect(stderr).toContain("Termination: exit code 1");
 		expect(stderr).toContain("rejected update");
 		expect(stderr).toContain("non-fast-forward");
 		expect(stderr).toContain("ns flow submit");

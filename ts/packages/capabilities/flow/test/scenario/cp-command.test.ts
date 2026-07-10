@@ -333,7 +333,7 @@ describe("project-local cp extension behavior", () => {
 
 		expect(await notGit.exit).toBe(2);
 		expect(notGit.stderr.join("")).toBe(
-			"error: Not inside a git repository.\nexit 128: fatal: not a git repository\n",
+			"error: Not inside a git repository.\nexit code 128: fatal: not a git repository\n",
 		);
 		expect(notGit.context.textGeneratorCalls).toEqual([]);
 
@@ -350,7 +350,7 @@ describe("project-local cp extension behavior", () => {
 		});
 		expect(await detached.exit).toBe(2);
 		expect(detached.stderr.join("")).toBe(
-			"error: Could not determine current branch.\nexit 1: fatal: ref HEAD is not a symbolic ref\n",
+			"error: Could not determine current branch.\nexit code 1: fatal: ref HEAD is not a symbolic ref\n",
 		);
 
 		const statusFailed = runCpWithFakes({
@@ -364,7 +364,7 @@ describe("project-local cp extension behavior", () => {
 		});
 		expect(await statusFailed.exit).toBe(2);
 		expect(statusFailed.stderr.join("")).toBe(
-			"error: Could not inspect git status.\nexit 1: index locked\n",
+			"error: Could not inspect git status.\nexit code 1: index locked\n",
 		);
 
 		const diffFailed = runCpWithFakes({
@@ -379,7 +379,7 @@ describe("project-local cp extension behavior", () => {
 		});
 		expect(await diffFailed.exit).toBe(2);
 		expect(diffFailed.stderr.join("")).toBe(
-			"error: Could not capture git diff.\nexit 1: diff failed\n",
+			"error: Could not capture git diff.\nexit code 1: diff failed\n",
 		);
 	});
 

@@ -177,7 +177,8 @@ function commandFailure(
 	}
 
 	const result = commandFailureValue.result;
-	const details = result.stderr.trim() || result.stdout.trim();
+	const stderr = result.stderr.trim();
+	const details = stderr === "" ? result.stdout.trim() : stderr;
 	const exitCode = result.type === "exited" ? (result.code ?? -1) : -1;
 	const message =
 		details.length > 0

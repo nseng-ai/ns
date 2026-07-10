@@ -10,6 +10,7 @@ import {
 	formatCommandEvidence,
 	formatCommandResultFailure,
 	formatCommandSpawnFailure,
+	formatCommandTermination,
 	formatOutputSection,
 	formatShellArg,
 	shellQuote,
@@ -85,6 +86,47 @@ describe("command presentation helpers", () => {
 				"fatal: nope",
 			].join("\n"),
 		);
+	});
+
+	test("formats every command termination arm and available close evidence", () => {
+		expect(formatCommandTermination(exited(7))).toBe("exit code 7");
+		expect(
+			formatCommandTermination({
+				type: "exited",
+				stdout: "",
+				stderr: "",
+				code: null,
+				signal: "SIGKILL",
+			}),
+		).toBe("exit code unknown; signal SIGKILL");
+		expect(
+			formatCommandTermination({
+				type: "spawn-failed",
+				stdout: "",
+				stderr: "missing",
+				error: "spawn tool ENOENT",
+			}),
+		).toBe("spawn failed: spawn tool ENOENT");
+		expect(formatCommandTermination(terminated("cancelled"))).toBe("cancelled; signal SIGTERM");
+		expect(
+			formatCommandTermination({
+				type: "cancelled",
+				stdout: "",
+				stderr: "",
+				code: null,
+				signal: null,
+			}),
+		).toBe("cancelled");
+		expect(formatCommandTermination(terminated("timed-out"))).toBe("timed out; signal SIGTERM");
+		expect(
+			formatCommandTermination({
+				type: "timed-out",
+				stdout: "",
+				stderr: "",
+				code: null,
+				signal: null,
+			}),
+		).toBe("timed out");
 	});
 
 	test("formats concise reasons for every result arm", () => {
