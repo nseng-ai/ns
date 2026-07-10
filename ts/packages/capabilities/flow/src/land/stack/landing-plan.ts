@@ -1,12 +1,6 @@
 import { buildStackLandingPlan } from "../api.ts";
-import type { LandContext, LandingFailure, LandingPlan, PrSubmitRequirement } from "../api.ts";
-import {
-	failure,
-	landStackFailure,
-	success,
-	type LandStackFailure,
-	type LandStackResult,
-} from "./errors.ts";
+import type { LandContext, LandingPlan, PrSubmitRequirement } from "../api.ts";
+import { failure, success, type LandStackResult } from "./errors.ts";
 
 export async function buildLandingPlan(
 	landContext: LandContext,
@@ -22,47 +16,9 @@ export async function buildLandingPlan(
 			? {}
 			: { landingBranchLimit: options.landingBranchLimit }),
 	});
-	if (landPlan.type === "failure") return failure(toLandStackFailure(landPlan.failure));
+	if (landPlan.type === "failure") return failure(landPlan.failure);
 
 	return success(landPlan.value);
-}
-
-export function toLandStackFailure(failureValue: LandingFailure): LandStackFailure {
-	if (failureValue.type === "domain") {
-		const options = landStackFailureOptionsForDomainFailure(failureValue);
-		if (failureValue.reason === "dirty-worktree") {
-			return landStackFailure("Working tree is dirty; refusing to start stack landing.", options);
-		}
-		return landStackFailure(failureValue.message, options);
-	}
-	return landStackFailure(failureValue.message, boundaryFailureOptions(failureValue));
-}
-
-function boundaryFailureOptions(
-	failureValue: Exclude<LandingFailure, { readonly type: "domain" }>,
-) {
-	if (failureValue.type !== "boundary") return {};
-	return {
-		...(failureValue.displayCommand === undefined
-			? {}
-			: { commandDisplay: failureValue.displayCommand }),
-		...(failureValue.execResult === undefined ? {} : { result: failureValue.execResult }),
-		...(failureValue.suggestedAction === undefined
-			? {}
-			: { suggestedAction: failureValue.suggestedAction }),
-	};
-}
-
-function landStackFailureOptionsForDomainFailure(
-	failureValue: Extract<LandingFailure, { readonly type: "domain" }>,
-) {
-	return {
-		...(failureValue.failedBranch === undefined ? {} : { failedBranch: failureValue.failedBranch }),
-		...(failureValue.failedPrNumber === undefined ? {} : { failedPr: failureValue.failedPrNumber }),
-		...(failureValue.suggestedAction === undefined
-			? {}
-			: { suggestedAction: failureValue.suggestedAction }),
-	};
 }
 
 export function formatPrSubmitRequirement(

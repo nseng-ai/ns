@@ -4,10 +4,20 @@ import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import {
+	failureLevel,
+	formatFailedTarget,
+	formatFailure,
+	formatFailureNotification,
+	landFailureKind,
 	renderLandConfirmationDetails,
 	renderLandResultBlock,
 	renderPlainLandConfirmationDetails,
 } from "../../src/land/land-presentation.ts";
+import {
+	landFlowFailureFacts,
+	landStackFailure,
+	type LandFlowFailure,
+} from "../../src/land/stack/errors.ts";
 import type { LandConfirmationPreview } from "../../src/land/stack/types.ts";
 
 const DIM = "\x1b[2m";
@@ -81,5 +91,97 @@ describe("renderLandConfirmationDetails", () => {
 		expect(rendered).toContain("\x1b[38;2;34;211;238mImpact");
 		expect(rendered).toContain("\x1b[38;2;139;148;158m  Stack");
 		expect(rendered).toContain("\x1b[38;2;63;185;80mPress Enter");
+	});
+});
+
+const execResult = { stdout: "", stderr: "failed\n", code: 1, killed: false };
+
+const failures = [
+	landStackFailure("Execution failed.", {
+		level: "warning",
+		commandDisplay: "gt restack",
+		result: execResult,
+		failedBranch: "feature-a",
+		failedPr: 42,
+		outcome: "refusal",
+	}),
+	{
+		type: "boundary",
+		phase: "preflight",
+		source: "git",
+		code: "git-failed",
+		message: "Boundary failed.",
+		displayCommand: "git status",
+		execResult,
+		suggestedAction: "Inspect git.",
+	},
+	{
+		type: "domain",
+		phase: "preflight",
+		reason: "pull-request-not-open",
+		message: "Pull request is not open.",
+		failedBranch: "feature-b",
+		failedPrNumber: 43,
+	},
+	{
+		type: "not-implemented",
+		phase: "request-validation",
+		message: "Not implemented.",
+	},
+] satisfies readonly LandFlowFailure[];
+
+describe("land failure presentation", () => {
+	test("formats and classifies every flow failure variant", () => {
+		for (const failure of failures) {
+			const facts = landFlowFailureFacts(failure);
+			expect(formatFailure(failure, [])).toContain(facts.message);
+			expect(formatFailureNotification(failure)).toBeTruthy();
+			expect(landFailureKind(failure)).toBe(facts.outcome === "refusal" ? "refusal" : "failure");
+		}
+	});
+
+	test("preserves execution metadata and failure defaults", () => {
+		const defaultExecution = landStackFailure("Default execution failure.");
+		expect(failureLevel(defaultExecution)).toBe("error");
+		expect(landFlowFailureFacts(defaultExecution).outcome).toBe("failure");
+
+		const [execution, boundary, domain, notImplemented] = failures;
+		if (!execution || !boundary || !domain || !notImplemented) return;
+
+		const executionFacts = landFlowFailureFacts(execution);
+		expect(failureLevel(execution)).toBe("warning");
+		expect(executionFacts.outcome).toBe("refusal");
+		expect(executionFacts.displayCommand).toBe("gt restack");
+		expect(executionFacts.execResult).toEqual(execResult);
+		expect(executionFacts.failedBranch).toBe("feature-a");
+		expect(executionFacts.failedPrNumber).toBe(42);
+		expect(formatFailedTarget(execution)).toBe("#42 feature-a");
+
+		for (const failure of [boundary, domain, notImplemented]) {
+			const facts = landFlowFailureFacts(failure);
+			expect(facts.level).toBe("error");
+			expect(facts.outcome).toBe("failure");
+		}
+		const boundaryFacts = landFlowFailureFacts(boundary);
+		expect(boundaryFacts.displayCommand).toBe("git status");
+		expect(boundaryFacts.execResult).toEqual(execResult);
+		const domainFacts = landFlowFailureFacts(domain);
+		expect(domainFacts.failedBranch).toBe("feature-b");
+		expect(domainFacts.failedPrNumber).toBe(43);
+		expect(formatFailedTarget(notImplemented)).toBe("unknown");
+	});
+
+	test("rewords dirty-worktree only at the presentation boundary", () => {
+		const failure: LandFlowFailure = {
+			type: "domain",
+			phase: "preflight",
+			reason: "dirty-worktree",
+			message: "Working tree must be clean before landing.",
+		};
+
+		expect(failure.message).toBe("Working tree must be clean before landing.");
+		expect(formatFailure(failure, [])).toBe(
+			"Working tree is dirty; refusing to start stack landing.",
+		);
 	});
 });

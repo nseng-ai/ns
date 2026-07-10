@@ -5,6 +5,7 @@ import {
 } from "./stack/graphite-command-channel.ts";
 import {
 	completed,
+	landFlowFailureFacts,
 	landStackFailure,
 	success,
 	type LandStackOutcome,
@@ -121,8 +122,9 @@ export async function resolvePostLandingSlotCleanupDecision({
 		defaultAnswer: "yes",
 	});
 	if (confirmationOutcome.type === "success") return success({ type: "approved" });
-	if (confirmationOutcome.failure.refusalReason === "declined")
+	if (landFlowFailureFacts(confirmationOutcome.failure).refusalReason === "declined") {
 		return success({ type: "declined" });
+	}
 
 	return presentFailureAndReturn(ctx, confirmationOutcome.failure);
 }

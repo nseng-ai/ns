@@ -2,7 +2,7 @@ import { LandStackCommandStream } from "./command-stream.ts";
 import {
 	failure,
 	success,
-	type LandStackFailure,
+	type LandFlowFailure,
 	type LandStackOutcome,
 	type LandStackResult,
 } from "./errors.ts";
@@ -15,6 +15,7 @@ import {
 } from "./pre-merge-confirmation.ts";
 import { confirmAndSubmitRequiredPrUpdates } from "./pre-merge-submit.ts";
 import {
+	failureLevel,
 	formatFailure,
 	formatFailureNotification,
 	landFailureKind,
@@ -157,7 +158,7 @@ export function formatPreparingLandingMilestone(plan: LandingPlan): string {
 
 interface PresentLandStackFailureOptions {
 	session: LandingSession;
-	failure: LandStackFailure;
+	failure: LandFlowFailure;
 }
 
 export function presentLandStackFailure(options: PresentLandStackFailureOptions): void {
@@ -168,7 +169,7 @@ export function presentLandStackFailure(options: PresentLandStackFailureOptions)
 	presentBrief({
 		ctx,
 		fullMessage: formatted,
-		level: failure.level,
+		level: failureLevel(failure),
 		uiMessage: formatFailureNotification(failure),
 		kind: landFailureKind(failure),
 	});

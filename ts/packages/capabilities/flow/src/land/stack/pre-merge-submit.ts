@@ -19,7 +19,7 @@ import {
 	restackTargetForSubmit,
 	submitUpdateOperation,
 } from "./graphite-command-channel.ts";
-import { formatPrSubmitRequirement, toLandStackFailure } from "./landing-plan.ts";
+import { formatPrSubmitRequirement } from "./landing-plan.ts";
 import { setStatus } from "../land-presentation.ts";
 import type { LandStackCommandContext } from "./types.ts";
 
@@ -82,7 +82,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			plan.stack,
 		);
 		if (remainingRestack.type === "failure") {
-			return failure(toLandStackFailure(remainingRestack.failure));
+			return failure(remainingRestack.failure);
 		}
 		if (remainingRestack.value.length > 0) {
 			return failure(

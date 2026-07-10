@@ -6,7 +6,7 @@ import {
 	failure,
 	landStackFailure,
 	success,
-	type LandStackFailure,
+	type LandFlowFailure,
 	type LandStackOutcome,
 	type LandStackResult,
 } from "./errors.ts";
@@ -38,7 +38,6 @@ import {
 	type PreMergeMaintenanceOptions,
 } from "./pre-merge-confirmation.ts";
 import { formatRemainingSubmitRequirements } from "./pre-merge-submit.ts";
-import { toLandStackFailure } from "./landing-plan.ts";
 import type { LandGitGateway, LandingFailure, ManagedSlotWorktree } from "../api.ts";
 
 function formatRemainingManagedSlotConflicts(conflicts: readonly WorktreeConflict[]): string {
@@ -50,7 +49,7 @@ function formatRemainingManagedSlotConflicts(conflicts: readonly WorktreeConflic
 	].join("\n");
 }
 
-export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | undefined {
+export function residualPreMergeFailure(plan: LandingPlan): LandFlowFailure | undefined {
 	if (plan.managedSlotConflicts.length > 0) {
 		return landStackFailure(formatRemainingManagedSlotConflicts(plan.managedSlotConflicts), {
 			suggestedAction: `Run ${formatCommand("ns", ["slot", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /ns:flow:land.`,
@@ -143,7 +142,7 @@ function toManagedSlotWorktree(conflict: WorktreeConflict): ManagedSlotWorktree 
 	};
 }
 
-function preMergeSlotFailure(landFailureValue: LandingFailure): LandStackFailure {
+function preMergeSlotFailure(landFailureValue: LandingFailure): LandFlowFailure {
 	return landStackFailure(landFailureValue.message, {
 		suggestedAction:
 			"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /ns:flow:land.",
@@ -154,7 +153,7 @@ function stackMergeRejectedFailure(
 	landFailureValue: LandingFailure,
 	pr: PullRequestFacts,
 	branch: string,
-): LandStackFailure {
+): LandFlowFailure {
 	const { displayCommand, execResult } = boundaryFailureDiagnostics(landFailureValue);
 	return landStackFailure("Merge rejected; stopping stack landing immediately.", {
 		...(execResult === undefined
@@ -183,7 +182,7 @@ export async function prepareMergeLoopState(
 		repoRoot: options.repoRoot,
 		branches: options.branches,
 	});
-	if (backupRefs.type === "failure") return failure(toLandStackFailure(backupRefs.failure));
+	if (backupRefs.type === "failure") return failure(backupRefs.failure);
 	return success({
 		expectedShas: new Map(backupRefs.value),
 		deletedBranches: new Set(),
@@ -264,19 +263,19 @@ export async function runMergeLoop(
 			column: "gate",
 			op: async () => {
 				const localSha = await landContext.git.localBranchSha({ repoRoot, branch });
-				if (localSha.type === "failure") return failure(toLandStackFailure(localSha.failure));
+				if (localSha.type === "failure") return failure(localSha.failure);
 				const pr = await landContext.github.pullRequestFacts({
 					repoRoot,
 					branchOrNumber: branch,
 				});
-				if (pr.type === "failure") return failure(toLandStackFailure(pr.failure));
+				if (pr.type === "failure") return failure(pr.failure);
 				const mergeGate = validateStrictMergeGate({
 					branch,
 					localSha: localSha.value,
 					pr: pr.value,
 					trunk: stack.trunk,
 				});
-				if (mergeGate.type === "failure") return failure(toLandStackFailure(mergeGate.failure));
+				if (mergeGate.type === "failure") return failure(mergeGate.failure);
 				return success(pr.value);
 			},
 		});

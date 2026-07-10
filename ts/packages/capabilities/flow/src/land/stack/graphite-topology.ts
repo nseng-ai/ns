@@ -17,7 +17,7 @@ import {
 	failure,
 	landStackFailure,
 	success,
-	type LandStackFailure,
+	type LandFlowFailure,
 	type LandStackResult,
 } from "./errors.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
@@ -119,7 +119,7 @@ function classifyTopologyReadFailure(stderr: string, dbPath: string): string {
 
 // Graphite stores children as a JSON array string. A non-null value that fails to
 // parse must fail closed: silently reading it as "no children" would mute the fork gate.
-function unparsableChildrenFailure(branch: string, dbPath: string): LandStackFailure {
+function unparsableChildrenFailure(branch: string, dbPath: string): LandFlowFailure {
 	return landStackFailure(
 		`Graphite metadata children for ${branch} could not be parsed (${dbPath}); refusing to continue without an authoritative child list.`,
 	);
@@ -203,7 +203,7 @@ function hasExpectedChild(violation: GraphiteForkViolation): violation is ForkVi
 	return violation.expectedChild !== undefined;
 }
 
-export function formatForkViolations(violations: ForkViolation[], trunk: string): LandStackFailure {
+export function formatForkViolations(violations: ForkViolation[], trunk: string): LandFlowFailure {
 	const lines = violations.map((violation) => {
 		const siblingText = violation.siblings
 			.map((sibling) => `${sibling.branch} (subtree: ${sibling.subtree.join(" -> ")})`)
