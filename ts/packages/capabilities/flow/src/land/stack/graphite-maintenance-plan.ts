@@ -171,6 +171,47 @@ export function formatCheckedOutElsewhere(checkoutConflict: CheckedOutElsewhere)
 	return `${checkoutConflict.branch} is checked out at ${checkoutConflict.path}`;
 }
 
+export function formatRestackFailureMessage(
+	previousPrNumber: number,
+	branch: string,
+	beforeAnotherMerge: boolean,
+): string {
+	return formatMaintenanceFailureMessage({
+		operation: "Restack",
+		manualAction: "manual restack/update",
+		previousPrNumber,
+		branch,
+		beforeAnotherMerge,
+	});
+}
+
+export function formatSubmitFailureMessage(
+	previousPrNumber: number,
+	branch: string,
+	beforeAnotherMerge: boolean,
+): string {
+	return formatMaintenanceFailureMessage({
+		operation: "Submit/update",
+		manualAction: "manual PR update",
+		previousPrNumber,
+		branch,
+		beforeAnotherMerge,
+	});
+}
+
+function formatMaintenanceFailureMessage(input: {
+	operation: "Restack" | "Submit/update";
+	manualAction: "manual restack/update" | "manual PR update";
+	previousPrNumber: number;
+	branch: string;
+	beforeAnotherMerge: boolean;
+}): string {
+	if (input.beforeAnotherMerge) {
+		return `${input.operation} failed after merging #${input.previousPrNumber}; stopping before merging ${input.branch}.`;
+	}
+	return `${input.operation} failed after merging #${input.previousPrNumber}; descendant branch ${input.branch} was left for ${input.manualAction}.`;
+}
+
 function localCleanupOnlyScopeText(branch: string): string {
 	return `local branch ${branch} cleanup was`;
 }

@@ -16,20 +16,20 @@ import {
 	restackTargetForSubmit,
 	submitUpdateOperation,
 } from "./graphite-command-channel.ts";
-import { setStatus } from "../land-presentation.ts";
-import type { LandStackCommandContext } from "./types.ts";
+import type { LandProgressReporter, LandStackCommandContext } from "./types.ts";
 
 export interface PreMergeSubmitMaintenanceOptions {
 	readonly ctx: LandStackCommandContext;
 	readonly plan: LandingPlan;
 	readonly landContext: LandContext;
+	readonly progress: LandProgressReporter;
 	readonly confirmation?: PreMergeConfirmation;
 }
 
 export async function confirmAndSubmitRequiredPrUpdates(
 	options: PreMergeSubmitMaintenanceOptions,
 ): Promise<LandStackOutcome> {
-	const { ctx, landContext, plan } = options;
+	const { ctx, landContext, progress, plan } = options;
 	const submitOperation = submitUpdateOperation({ branch: plan.stack.landingTargetBranch });
 	const restackTarget = restackTargetForSubmit(plan);
 	const details = formatSubmitUpdateDetails(plan);
@@ -58,7 +58,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			branch: restackTarget,
 			scope: "upstack",
 		});
-		setStatus(ctx, `restacking ${restackTarget}...`);
+		progress.setStatus(`restacking ${restackTarget}...`);
 		const restacked = await landContext.graphite.prepareRestackForSubmit({
 			repoRoot: plan.repoRoot,
 			branch: restackTarget,
@@ -71,7 +71,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			);
 		}
 
-		setStatus(ctx, "verifying restack...");
+		progress.setStatus("verifying restack...");
 		const remainingRestack = await collectSubmitRestackRequirements(
 			landContext,
 			plan.repoRoot,
@@ -90,7 +90,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		}
 	}
 
-	setStatus(ctx, `submitting ${plan.stack.landingTargetBranch}...`);
+	progress.setStatus(`submitting ${plan.stack.landingTargetBranch}...`);
 	const result = await landContext.graphite.prepareSubmitUpdate({
 		repoRoot: plan.repoRoot,
 		branch: plan.stack.landingTargetBranch,

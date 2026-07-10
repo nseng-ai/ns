@@ -33,8 +33,9 @@ import {
 	executeLandingPlan,
 	presentLandStackFailure,
 	type LandingSession,
-} from "./stack/landing-execution.ts";
+} from "./landing-execution.ts";
 import type {
+	LandProgressReporter,
 	LandStackCommandContext,
 	LandStackExtensionAPI,
 	LandedPr,
@@ -85,7 +86,11 @@ export async function executeStackLanding(
 		shouldShowRunningCommandStatus: ctx.hasUI,
 		...landCommandStreamObservabilityOptions(observabilityChannels),
 	});
-	const session: LandingSession = { ctx, commandStream, landed };
+	const progress: LandProgressReporter = {
+		note: (message) => commandStream.note(message),
+		setStatus: (message) => setStatus(ctx, message),
+	};
+	const session: LandingSession = { ctx, commandStream, progress, landed };
 	const runtime: StackLandingRuntime = createStackLandingRuntime(pi, commandStream, {
 		...optionalEntry("gitStateFs", options.gitStateFs),
 		...optionalEntry("graphite", options.graphite),
@@ -96,7 +101,7 @@ export async function executeStackLanding(
 			return completed();
 		}
 
-		setStatus(ctx, "preflighting...");
+		progress.setStatus("preflighting...");
 		const plan = await buildStackLandingPlan(runtime.landContext, ctx.cwd, {
 			shouldAllowSubmitRequiredState: true,
 			...optionalEntry("shape", options.shape),
