@@ -6,7 +6,6 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, test } from "vitest";
 
 import {
-	appendGeneratedMarker,
 	buildPrDescriptionUserPrompt,
 	filterLockfileSections,
 	formatManagedGeneratedRegion,
@@ -15,10 +14,11 @@ import {
 	MAX_DIFF_CHARS,
 	hasGeneratedMarker,
 	isCommitMessagePrefillBody,
+	mergeGeneratedBody,
 	parseManagedGeneratedRegion,
 	parsePrDescriptionOutput,
 	PR_DESCRIPTION_PROMPT_ENV,
-	replaceOrInsertGeneratedRegion,
+	prewrittenFallbackBody,
 	resolvePrDescriptionPrompt,
 	truncateDiff,
 } from "../../src/submit/index.ts";
@@ -63,7 +63,7 @@ describe("PR description helpers", () => {
 	});
 
 	test("marker helpers append and detect the generated body marker", () => {
-		const body = appendGeneratedMarker("Body text");
+		const body = prewrittenFallbackBody("Body text");
 
 		expect(body).toBe(`Body text\n\n${GENERATED_BODY_MARKER}`);
 		expect(hasGeneratedMarker(body)).toBe(true);
@@ -85,9 +85,10 @@ describe("PR description helpers", () => {
 			body: "Generated body",
 		});
 		expect(
-			replaceOrInsertGeneratedRegion(`Intro\n\n${region}\n\nFooter`, "New generated body", {
-				...metadata,
-				patchId: "patch-2",
+			mergeGeneratedBody({
+				existingBody: `Intro\n\n${region}\n\nFooter`,
+				generatedBody: "New generated body",
+				fingerprint: { ...metadata, patchId: "patch-2" },
 			}),
 		).toBe(
 			`Intro\n\n${formatManagedGeneratedRegion("New generated body", { ...metadata, patchId: "patch-2" })}\n\nFooter`,
@@ -102,9 +103,13 @@ describe("PR description helpers", () => {
 			generator: "ns-pr-description-v2",
 		};
 
-		expect(replaceOrInsertGeneratedRegion("Human note", "Generated body", metadata)).toBe(
-			`${formatManagedGeneratedRegion("Generated body", metadata)}\n\nHuman note`,
-		);
+		expect(
+			mergeGeneratedBody({
+				existingBody: "Human note",
+				generatedBody: "Generated body",
+				fingerprint: metadata,
+			}),
+		).toBe(`${formatManagedGeneratedRegion("Generated body", metadata)}\n\nHuman note`);
 	});
 
 	test("treats duplicate managed generated regions as malformed", () => {
@@ -130,11 +135,11 @@ describe("PR description helpers", () => {
 		};
 
 		expect(
-			replaceOrInsertGeneratedRegion(
-				`Old generated\n\n${GENERATED_BODY_MARKER}`,
-				"Generated body",
-				metadata,
-			),
+			mergeGeneratedBody({
+				existingBody: `Old generated\n\n${GENERATED_BODY_MARKER}`,
+				generatedBody: "Generated body",
+				fingerprint: metadata,
+			}),
 		).toBe(formatManagedGeneratedRegion("Generated body", metadata));
 	});
 
