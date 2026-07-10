@@ -288,51 +288,32 @@ function graphiteShapeStepsForRoot(root: string, dbRows: string): ScriptedExec[]
 		step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
 		step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
 		step("git", GIT_COMMON_DIR_ARGS, { stdout: `${root}/.git\n` }),
-		step(TOPOLOGY_COMMAND, topologyArgs(`${root}/.git/.graphite_metadata.db`), {
-			stdout: `${dbRows}\n`,
-		}),
 		step("git", GIT_FOR_EACH_REF_ARGS, {
 			stdout: formatLiveBranchTips(liveBranches),
+		}),
+		step(TOPOLOGY_COMMAND, topologyArgs(`${root}/.git/.graphite_metadata.db`), {
+			stdout: `${dbRows}\n`,
 		}),
 	];
 }
 
-function domainGraphiteShapeStepsForRoot(root: string, dbRows: string): ScriptedExec[] {
-	const liveBranches = metadataBranchNames(dbRows);
+function expectedShapeCalls(): ExecCall[] {
 	return [
-		step("git", GIT_ROOT_ARGS, { stdout: `${root}\n` }),
-		step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
-		step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
-		step("git", GIT_COMMON_DIR_ARGS, { stdout: `${root}/.git\n` }),
-		step("git", GIT_FOR_EACH_REF_ARGS, {
-			stdout: formatLiveBranchTips(liveBranches),
-		}),
-		step(TOPOLOGY_COMMAND, topologyArgs(`${root}/.git/.graphite_metadata.db`), {
-			stdout: `${dbRows}\n`,
-		}),
-	];
-}
-
-function expectedShapeCalls(options: { forEachRef?: boolean } = {}): ExecCall[] {
-	const calls: ExecCall[] = [
 		{ command: "git", args: GIT_ROOT_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
 		{ command: "git", args: GIT_CURRENT_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
 		{ command: "gt", args: GT_TRUNK_ARGS, options: { cwd: ROOT, timeout: GT_TIMEOUT_MS } },
 		{ command: "git", args: GIT_COMMON_DIR_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
+		{
+			command: "git",
+			args: GIT_FOR_EACH_REF_ARGS,
+			options: { cwd: ROOT, timeout: CORE_GIT_TIMEOUT_MS },
+		},
 		{
 			command: TOPOLOGY_COMMAND,
 			args: TOPOLOGY_ARGS,
 			options: { cwd: ROOT, timeout: SQLITE_TIMEOUT_MS },
 		},
 	];
-	if (options.forEachRef !== false) {
-		calls.push({
-			command: "git",
-			args: GIT_FOR_EACH_REF_ARGS,
-			options: { cwd: ROOT, timeout: CORE_GIT_TIMEOUT_MS },
-		});
-	}
-	return calls;
 }
 
 function prView(
@@ -455,7 +436,6 @@ function worktreeOutput(entries: Array<{ path: string; branch?: string }>): stri
 function successfulStackLandingSteps(root = ROOT): ScriptedExec[] {
 	const worktrees = worktreeOutput([{ path: root, branch: CURRENT }]);
 	return [
-		...domainGraphiteShapeStepsForRoot(root, DB_WITH_DESCENDANT),
 		...cleanRepoChecks(),
 		step("gh", ["pr", "view", CURRENT, "--json", STACK_PR_VIEW_FIELDS], {
 			stdout: stackPrView(),
@@ -1009,6 +989,9 @@ describe("code land command", () => {
 				step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
 				step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
 				step("git", GIT_COMMON_DIR_ARGS, { stdout: `${ROOT}/.git\n` }),
+				step("git", GIT_FOR_EACH_REF_ARGS, {
+					stdout: formatLiveBranchTips([CURRENT]),
+				}),
 				step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
 					code: 1,
 					stderr: "Error: unable to open database file\n",
@@ -1017,7 +1000,7 @@ describe("code land command", () => {
 			{ stack: false },
 		);
 
-		expect(pi.execCalls).toEqual(expectedShapeCalls({ forEachRef: false }));
+		expect(pi.execCalls).toEqual(expectedShapeCalls());
 		expect(notifications[0]?.message).toContain(
 			`Graphite metadata DB at ${DB_PATH} is missing or unreadable; refusing to land.`,
 		);

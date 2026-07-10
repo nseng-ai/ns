@@ -34,7 +34,6 @@ import type { LandMatrixColumnKey, LandMatrixProgressSink } from "../land-matrix
 import { runTrackedMatrixStep } from "../../phase-stream/matrix-progress-core.ts";
 import {
 	confirmPreMergeMaintenance,
-	optionalField,
 	type PreMergeMaintenanceOptions,
 } from "./pre-merge-confirmation.ts";
 import { formatRemainingSubmitRequirements } from "./pre-merge-submit.ts";
@@ -81,7 +80,7 @@ export async function confirmAndFreeManagedSlots(
 
 	const confirmationOutcome = await confirmPreMergeMaintenance({
 		ctx,
-		...optionalField("confirmation", options.confirmation),
+		...optionalEntry("confirmation", options.confirmation),
 		title: "Free landing slots?",
 		details,
 		nonInteractiveMessage: [

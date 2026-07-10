@@ -36,6 +36,7 @@ export {
 	collectPrSubmitRequirements,
 	collectSubmitRestackRequirements,
 	landingParentEdges,
+	loadStackLandingShape,
 	scopeStackSnapshot,
 	validateOpenPrBasics,
 	validateStrictMergeGate,
@@ -104,3 +105,5 @@ export type {
 	WorktreeConflict,
 	WorktreeEntry,
 } from "./types.ts";
+
+export type { StackLandingShape } from "./preflight.ts";

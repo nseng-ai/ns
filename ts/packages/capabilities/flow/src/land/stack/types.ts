@@ -1,6 +1,6 @@
 import type { ExecResult, PiExecResultLike } from "@nseng-ai/foundation/command";
 import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
-import type { LandingWarning, StackSnapshot } from "../types.ts";
+import type { LandingWarning } from "../types.ts";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -110,14 +110,6 @@ export interface ParsedArgs {
 	shouldForceCleanup: boolean;
 	shouldShowHelp: boolean;
 	shouldStreamVerboseOutput: boolean;
-}
-
-export interface LandingShape {
-	repoRoot: string;
-	current: string;
-	trunk: string;
-	metadataDbPath: string;
-	stack: StackSnapshot;
 }
 
 export interface WorktreeEntry {

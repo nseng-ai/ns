@@ -12,8 +12,13 @@ import {
 	type LandStackResult,
 } from "./stack/errors.ts";
 import { notifyPrintAware, presentFailureAndReturn, setStatus } from "./land-presentation.ts";
-import { boundaryFailureDiagnostics, type LandContext, type ManagedSlotWorktree } from "./api.ts";
-import type { LandingShape, PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
+import {
+	boundaryFailureDiagnostics,
+	type LandContext,
+	type LandingShape,
+	type ManagedSlotWorktree,
+} from "./api.ts";
+import type { PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
 import {
 	confirmLandStackAction,
 	type PreMergeConfirmation,
