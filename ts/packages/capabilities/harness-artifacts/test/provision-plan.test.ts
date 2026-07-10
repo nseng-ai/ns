@@ -9,11 +9,13 @@ import type {
 import {
 	buildInstallManifestData,
 	buildInstallManifestEntry,
+	type InstallManifestEntryData,
+} from "../src/provision-manifest.ts";
+import {
 	buildProvisionPlan,
 	classifyProvisionDecisions,
 	contentHashForText,
 	installManifestKey,
-	type InstallManifestEntryData,
 	type ProvisionPlan,
 	type TargetFileHashFact,
 } from "../src/provision-plan.ts";

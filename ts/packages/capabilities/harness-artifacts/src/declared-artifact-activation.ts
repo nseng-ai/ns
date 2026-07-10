@@ -19,18 +19,17 @@ import {
 	type ModuleArtifactDiscoveryDiagnostic,
 } from "./module-artifact-discovery.ts";
 import {
-	INSTALL_MANIFEST_FILE_NAME,
 	nodeHarnessArtifactFileSystemGateway,
-	readInstallManifestAtRoot,
-	type AppliedHarnessArtifactTransition,
 	type HarnessArtifactProvisionErrorInfo,
-	type HarnessArtifactProvisionReconciliationErrorInfo,
 	type PreparedHarnessArtifactProvision,
-	type PreparedHarnessArtifactRemoval,
 } from "./provision-apply.ts";
+import { INSTALL_MANIFEST_FILE_NAME, readInstallManifestAtRoot } from "./provision-manifest.ts";
+import type { PreparedHarnessArtifactRemoval } from "./provision-removal.ts";
 import {
 	applyProjectHarnessArtifactTransitions,
 	prepareProjectHarnessArtifactTransitions,
+	type AppliedHarnessArtifactTransition,
+	type HarnessArtifactProvisionReconciliationErrorInfo,
 	type PreparedProjectHarnessArtifactTransitions,
 } from "./project-harness-artifact-transitions.ts";
 import type {

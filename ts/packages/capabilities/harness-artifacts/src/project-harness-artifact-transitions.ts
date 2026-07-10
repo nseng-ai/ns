@@ -1,21 +1,21 @@
-import { resultOk, type Result } from "@nseng-ai/foundation/result";
+import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
 import type { HarnessId, HarnessPathContext } from "./harness-paths.ts";
 import {
-	applyPreparedProvisionReconciliation,
-	assertUniquePreparedTransitionKeys,
+	applyPreparedProvision,
 	classifyProvisionAction,
-	prepareHarnessArtifactRemoval,
 	prepareProvision,
 	provisionConflictingFiles,
-	type AppliedProvisionReconciliation,
 	type HarnessArtifactFileSystemGateway,
+	type HarnessArtifactProvisionApplyOutcome,
 	type HarnessArtifactProvisionErrorInfo,
-	type HarnessArtifactProvisionReconciliationErrorInfo,
 	type PreparedHarnessArtifactProvision,
-	type PreparedHarnessArtifactRemoval,
-	type PreparedHarnessArtifactTransition,
 } from "./provision-apply.ts";
+import {
+	applyPreparedHarnessArtifactRemoval,
+	prepareHarnessArtifactRemoval,
+	type PreparedHarnessArtifactRemoval,
+} from "./provision-removal.ts";
 import { installManifestKey, type TargetFileHashFact } from "./provision-plan.ts";
 import {
 	planHarnessArtifactReconcile,
@@ -27,6 +27,35 @@ import {
 	type ReconcilePair,
 	type SkippedArtifactCollision,
 } from "./reconcile.ts";
+
+export type PreparedHarnessArtifactTransition =
+	| {
+			readonly type: "remove";
+			readonly key: string;
+			readonly removal: PreparedHarnessArtifactRemoval;
+	  }
+	| {
+			readonly type: "provision";
+			readonly key: string;
+			readonly provision: PreparedHarnessArtifactProvision;
+	  };
+
+export interface PreparedProvisionReconciliation {
+	readonly transitions: readonly PreparedHarnessArtifactTransition[];
+	readonly shouldForce: boolean;
+}
+
+export type AppliedHarnessArtifactTransition =
+	| { readonly type: "remove"; readonly removedFiles: readonly string[] }
+	| { readonly type: "provision"; readonly outcome: HarnessArtifactProvisionApplyOutcome };
+
+export interface AppliedProvisionReconciliation {
+	readonly outcomes: ReadonlyMap<string, AppliedHarnessArtifactTransition>;
+}
+
+export type HarnessArtifactProvisionReconciliationErrorInfo = HarnessArtifactProvisionErrorInfo & {
+	readonly completedTransitions: ReadonlyMap<string, AppliedHarnessArtifactTransition>;
+};
 
 export type ProjectHarnessArtifactConflictPolicy =
 	| { readonly type: "strict"; readonly shouldForce: false }
@@ -150,6 +179,55 @@ export async function prepareProjectHarnessArtifactTransitions(
 		orphans: plan.orphans,
 		conflictPolicy: request.conflictPolicy,
 	});
+}
+
+export function assertUniquePreparedTransitionKeys(
+	transitions: readonly PreparedHarnessArtifactTransition[],
+): void {
+	const keys = new Set<string>();
+	for (const transition of transitions) {
+		const identityKey =
+			transition.type === "remove"
+				? transition.removal.key
+				: installManifestKey(transition.provision.plan);
+		if (transition.key !== identityKey) {
+			throw new Error(
+				`Prepared harness artifact transition key ${transition.key} does not match ${identityKey}.`,
+			);
+		}
+		if (keys.has(transition.key)) {
+			throw new Error(`Duplicate prepared harness artifact transition key: ${transition.key}.`);
+		}
+		keys.add(transition.key);
+	}
+}
+
+/** Apply one ordered reconciliation while rereading each transition's immediate state. */
+export async function applyPreparedProvisionReconciliation(
+	prepared: PreparedProvisionReconciliation,
+): Promise<
+	Result<AppliedProvisionReconciliation, HarnessArtifactProvisionReconciliationErrorInfo>
+> {
+	assertUniquePreparedTransitionKeys(prepared.transitions);
+	const outcomes = new Map<string, AppliedHarnessArtifactTransition>();
+	for (const transition of prepared.transitions) {
+		if (transition.type === "remove") {
+			const removed = await applyPreparedHarnessArtifactRemoval(transition.removal);
+			if (!removed.ok) {
+				return resultErr({ ...removed.error, completedTransitions: new Map(outcomes) });
+			}
+			outcomes.set(transition.key, { type: "remove", removedFiles: removed.value });
+			continue;
+		}
+		const applied = await applyPreparedProvision(transition.provision, {
+			shouldForce: prepared.shouldForce,
+		});
+		if (!applied.ok) {
+			return resultErr({ ...applied.error, completedTransitions: new Map(outcomes) });
+		}
+		outcomes.set(transition.key, { type: "provision", outcome: applied.value });
+	}
+	return resultOk({ outcomes });
 }
 
 /** Apply prepared project transitions with the caller's explicit conflict policy. */

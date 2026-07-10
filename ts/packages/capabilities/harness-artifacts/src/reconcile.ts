@@ -46,24 +46,24 @@ import {
 import { parseNsTomlExtensions, parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
 	classifyProvisionAction,
-	INSTALL_MANIFEST_FILE_NAME,
 	nodeHarnessArtifactFileSystemGateway,
-	readInstallManifestAtRoot,
 	type HarnessArtifactFileSystemErrorInfo,
 	type HarnessArtifactFileSystemGateway,
 	type HarnessArtifactProvisionErrorInfo,
-	type AppliedHarnessArtifactTransition,
 	type HarnessArtifactProvisionPreview,
 } from "./provision-apply.ts";
 import {
-	applyProjectHarnessArtifactTransitions,
-	prepareProjectHarnessArtifactTransitions,
-} from "./project-harness-artifact-transitions.ts";
-import {
-	provisionIdentityKey,
+	INSTALL_MANIFEST_FILE_NAME,
+	readInstallManifestAtRoot,
 	type InstallManifestData,
 	type InstallManifestEntryData,
-} from "./provision-plan.ts";
+} from "./provision-manifest.ts";
+import {
+	applyProjectHarnessArtifactTransitions,
+	prepareProjectHarnessArtifactTransitions,
+	type AppliedHarnessArtifactTransition,
+} from "./project-harness-artifact-transitions.ts";
+import { provisionIdentityKey } from "./provision-plan.ts";
 import { sortStrings } from "./sort.ts";
 
 export interface DesiredHarnessArtifact {

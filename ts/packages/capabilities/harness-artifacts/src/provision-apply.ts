@@ -1,21 +1,9 @@
-import { isAbsolute, join, normalize, resolve } from "node:path";
+import { join } from "node:path";
 
-import {
-	formatErrorMessage,
-	formatZodIssue,
-	isPathInside,
-	optionalEntry,
-} from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
-import { z } from "zod";
 
 import type { HarnessArtifactEntry } from "./artifact-catalog.ts";
-import {
-	harnessArtifactSourceTypeSchema,
-	harnessIdSchema,
-	harnessScopeSchema,
-} from "./harness-artifact-schemas.ts";
-import { type HarnessPathContext, type HarnessScope } from "./harness-paths.ts";
 import {
 	fileSystemError,
 	nodeHarnessArtifactFileSystemGateway,
@@ -24,27 +12,34 @@ import {
 	type OptionalFileState,
 	type OptionalTextFileState,
 } from "./filesystem.ts";
+import { type HarnessPathContext, type HarnessScope } from "./harness-paths.ts";
 import {
-	buildInstallManifestData,
-	buildInstallManifestEntry,
+	stalePreparation,
+	unsafeManifestEntry,
+	type HarnessArtifactProvisionErrorInfo,
+} from "./provision-errors.ts";
+import {
+	installManifestPathForPlan,
+	manifestEntriesEqual,
+	manifestWithProvision,
+	readInstallManifest,
+	writeInstallManifest,
+	type InstallManifestData,
+	type InstallManifestEntryData,
+	type InstallManifestFileData,
+} from "./provision-manifest.ts";
+import { validateRemovalEntry } from "./provision-removal.ts";
+import {
 	buildProvisionPlan,
 	classifyProvisionDecisions,
 	contentHashForBytes,
 	installManifestKey,
-	provisionIdentityKey,
-	type InstallManifestData,
-	type InstallManifestEntryData,
-	type InstallManifestFileData,
-	type InstallManifestSourceData,
-	type ProvisionDecisionErrorInfo,
 	type ProvisionDecisionSet,
 	type ProvisionPlan,
-	type ProvisionPlanErrorInfo,
 	type ProvisionSourceFile,
 	type TargetFileHashFact,
 } from "./provision-plan.ts";
-
-export const INSTALL_MANIFEST_FILE_NAME = ".ns-harness-artifacts-manifest.json";
+import { collectTargetHashFactsForPaths, targetFactsEqual } from "./provision-state.ts";
 
 export interface HarnessArtifactProvisionRequest {
 	artifact: HarnessArtifactEntry;
@@ -100,59 +95,10 @@ export type HarnessArtifactProvisionApplyOutcome =
 export type {
 	HarnessArtifactFileSystemErrorInfo,
 	HarnessArtifactFileSystemGateway,
+	HarnessArtifactProvisionErrorInfo,
 	OptionalFileState,
 	OptionalTextFileState,
 };
-
-export type HarnessArtifactProvisionErrorInfo =
-	| ProvisionPlanErrorInfo
-	| ProvisionDecisionErrorInfo
-	| HarnessArtifactFileSystemErrorInfo
-	| {
-			code: "invalid_install_manifest";
-			message: string;
-			details: { manifestPath: string };
-	  }
-	| {
-			code: "stale_prepared_reconciliation";
-			message: string;
-			details: { kind: "source" | "target" | "manifest"; path: string; installKey: string };
-	  }
-	| {
-			code: "unsafe_manifest_entry";
-			message: string;
-			details: { manifestPath: string; installKey: string; path: string };
-	  };
-
-const installManifestSourceSchema: z.ZodType<InstallManifestSourceData> = z.object({
-	type: harnessArtifactSourceTypeSchema,
-	packageName: z.string(),
-	relativePath: z.string(),
-	version: z.string(),
-});
-
-const installManifestFileSchema: z.ZodType<InstallManifestFileData> = z.object({
-	sourcePath: z.string(),
-	targetPath: z.string(),
-	contentHash: z.string(),
-});
-
-const installManifestEntrySchema: z.ZodType<InstallManifestEntryData> = z.object({
-	artifactId: z.string(),
-	kind: z.literal("skill"),
-	provisionName: z.string(),
-	harness: harnessIdSchema,
-	scope: harnessScopeSchema,
-	targetRoot: z.string(),
-	targetArtifactPath: z.string(),
-	source: installManifestSourceSchema,
-	files: z.record(z.string(), installManifestFileSchema),
-});
-
-const installManifestSchema: z.ZodType<InstallManifestData> = z.object({
-	version: z.literal(1),
-	artifacts: z.record(z.string(), installManifestEntrySchema),
-});
 
 export { nodeHarnessArtifactFileSystemGateway };
 
@@ -207,11 +153,12 @@ export async function prepareProvision(
 			expectedScope: plan.value.scope,
 			expectedTargetRoot: plan.value.targetRoot,
 		});
-		if (unsafePath !== undefined) {
-			return unsafeManifestEntry(manifestPath, installKey, unsafePath);
-		}
+		if (unsafePath !== undefined) return unsafeManifestEntry(manifestPath, installKey, unsafePath);
 	}
-	const targetFacts = await collectTargetHashFacts({ fs, plan: plan.value });
+	const targetFacts = await collectTargetHashFactsForPaths({
+		fs,
+		targetPaths: plan.value.files.map((file) => file.targetPath),
+	});
 	if (!targetFacts.ok) return targetFacts;
 	const decisions = classifyProvisionDecisions({
 		plan: plan.value,
@@ -348,11 +295,8 @@ export async function applyPreparedProvision(
 		writtenFiles.push(decision.file.targetPath);
 	}
 
-	const manifest = updateManifest(currentManifest.value, prepared.plan);
-	const writeManifest = await prepared.fs.writeTextFile(
-		prepared.manifestPath,
-		`${JSON.stringify(manifest, null, 2)}\n`,
-	);
+	const manifest = manifestWithProvision(currentManifest.value, prepared.plan);
+	const writeManifest = await writeInstallManifest(prepared.fs, prepared.manifestPath, manifest);
 	if (!writeManifest.ok) return writeManifest;
 	if (prepared.obsoleteFiles.length > 0) {
 		const removeDirectory = await prepared.fs.removeEmptyDirectory(
@@ -370,84 +314,6 @@ export async function applyPreparedProvision(
 		writtenFiles,
 		removedFiles,
 	});
-}
-
-export type PreparedHarnessArtifactTransition =
-	| {
-			readonly type: "remove";
-			readonly key: string;
-			readonly removal: PreparedHarnessArtifactRemoval;
-	  }
-	| {
-			readonly type: "provision";
-			readonly key: string;
-			readonly provision: PreparedHarnessArtifactProvision;
-	  };
-
-export function assertUniquePreparedTransitionKeys(
-	transitions: readonly PreparedHarnessArtifactTransition[],
-): void {
-	const keys = new Set<string>();
-	for (const transition of transitions) {
-		const identityKey =
-			transition.type === "remove"
-				? transition.removal.key
-				: installManifestKey(transition.provision.plan);
-		if (transition.key !== identityKey) {
-			throw new Error(
-				`Prepared harness artifact transition key ${transition.key} does not match ${identityKey}.`,
-			);
-		}
-		if (keys.has(transition.key)) {
-			throw new Error(`Duplicate prepared harness artifact transition key: ${transition.key}.`);
-		}
-		keys.add(transition.key);
-	}
-}
-
-export interface PreparedProvisionReconciliation {
-	readonly transitions: readonly PreparedHarnessArtifactTransition[];
-	readonly shouldForce: boolean;
-}
-
-export type AppliedHarnessArtifactTransition =
-	| { readonly type: "remove"; readonly removedFiles: readonly string[] }
-	| { readonly type: "provision"; readonly outcome: HarnessArtifactProvisionApplyOutcome };
-
-export interface AppliedProvisionReconciliation {
-	readonly outcomes: ReadonlyMap<string, AppliedHarnessArtifactTransition>;
-}
-
-export type HarnessArtifactProvisionReconciliationErrorInfo = HarnessArtifactProvisionErrorInfo & {
-	readonly completedTransitions: ReadonlyMap<string, AppliedHarnessArtifactTransition>;
-};
-
-/** Apply one ordered reconciliation while rereading each transition's immediate state. */
-export async function applyPreparedProvisionReconciliation(
-	prepared: PreparedProvisionReconciliation,
-): Promise<
-	Result<AppliedProvisionReconciliation, HarnessArtifactProvisionReconciliationErrorInfo>
-> {
-	assertUniquePreparedTransitionKeys(prepared.transitions);
-	const outcomes = new Map<string, AppliedHarnessArtifactTransition>();
-	for (const transition of prepared.transitions) {
-		if (transition.type === "remove") {
-			const removed = await applyPreparedHarnessArtifactRemoval(transition.removal);
-			if (!removed.ok) {
-				return resultErr({ ...removed.error, completedTransitions: new Map(outcomes) });
-			}
-			outcomes.set(transition.key, { type: "remove", removedFiles: removed.value });
-			continue;
-		}
-		const applied = await applyPreparedProvision(transition.provision, {
-			shouldForce: prepared.shouldForce,
-		});
-		if (!applied.ok) {
-			return resultErr({ ...applied.error, completedTransitions: new Map(outcomes) });
-		}
-		outcomes.set(transition.key, { type: "provision", outcome: applied.value });
-	}
-	return resultOk({ outcomes });
 }
 
 async function validatePreparedProvision(
@@ -481,32 +347,6 @@ async function validatePreparedProvision(
 	return manifest;
 }
 
-function stalePreparation(
-	kind: "source" | "target" | "manifest",
-	path: string,
-	installKey: string,
-): Result<never, HarnessArtifactProvisionErrorInfo> {
-	return resultErr({
-		code: "stale_prepared_reconciliation",
-		message: `Prepared harness artifact ${installKey} is stale because its ${kind} state changed at ${path}.`,
-		details: { kind, path, installKey },
-	});
-}
-
-function targetFactsEqual(left: TargetFileHashFact, right: TargetFileHashFact): boolean {
-	return (
-		left.type === right.type &&
-		(left.type === "missing" || (right.type === "file" && left.contentHash === right.contentHash))
-	);
-}
-
-function manifestEntriesEqual(
-	left: InstallManifestEntryData | undefined,
-	right: InstallManifestEntryData | undefined,
-): boolean {
-	return JSON.stringify(left) === JSON.stringify(right);
-}
-
 export function provisionConflictingFiles(
 	prepared: PreparedHarnessArtifactProvision,
 ): readonly string[] {
@@ -519,192 +359,6 @@ export function provisionConflictingFiles(
 				: [];
 		}),
 	];
-}
-
-export type HarnessArtifactRemovalReason =
-	| "removed-source"
-	| "deselected-harness"
-	| "obsolete-file"
-	| "same-target-replacement";
-
-export interface PreparedHarnessArtifactRemoval {
-	readonly key: string;
-	readonly reason: HarnessArtifactRemovalReason;
-	readonly entry: InstallManifestEntryData;
-	readonly manifestPath: string;
-	readonly expectedManifestEntry: InstallManifestEntryData;
-	readonly trustedBoundaryRoot: string;
-	readonly targetFacts: readonly TargetFileHashFact[];
-	readonly conflictingFiles: readonly string[];
-	readonly fs: HarnessArtifactFileSystemGateway;
-}
-
-export async function prepareHarnessArtifactRemoval(input: {
-	key: string;
-	reason: HarnessArtifactRemovalReason;
-	entry: InstallManifestEntryData;
-	expectedHarness: string;
-	expectedTargetRoot: string;
-	trustedBoundaryRoot: string;
-	manifestPath: string;
-	fs: HarnessArtifactFileSystemGateway;
-}): Promise<Result<PreparedHarnessArtifactRemoval, HarnessArtifactProvisionErrorInfo>> {
-	const unsafePath =
-		resolve(input.manifestPath) !==
-		resolve(join(input.expectedTargetRoot, INSTALL_MANIFEST_FILE_NAME))
-			? input.manifestPath
-			: validateRemovalEntry({ ...input, expectedScope: "project" });
-	if (unsafePath !== undefined) {
-		return unsafeManifestEntry(input.manifestPath, input.key, unsafePath);
-	}
-	const files = Object.values(input.entry.files);
-	const safety = await input.fs.inspectHarnessArtifactRemovalSafety({
-		trustedBoundaryRoot: input.trustedBoundaryRoot,
-		expectedTargetRoot: input.expectedTargetRoot,
-		targetPaths: [input.entry.targetArtifactPath, ...files.map((file) => file.targetPath)],
-	});
-	if (!safety.ok) return safety;
-	if (safety.value.unsafePath !== undefined) {
-		return unsafeManifestEntry(input.manifestPath, input.key, safety.value.unsafePath);
-	}
-	const targetFacts = await collectTargetHashFactsForPaths({
-		fs: input.fs,
-		targetPaths: files.map((file) => file.targetPath),
-	});
-	if (!targetFacts.ok) return targetFacts;
-	const conflictingFiles = files.flatMap((file) => {
-		const fact = targetFacts.value.find((item) => item.targetPath === file.targetPath);
-		return fact?.type === "file" && fact.contentHash !== file.contentHash ? [file.targetPath] : [];
-	});
-	return resultOk({
-		...input,
-		expectedManifestEntry: input.entry,
-		targetFacts: targetFacts.value,
-		conflictingFiles,
-	});
-}
-
-export async function applyPreparedHarnessArtifactRemoval(
-	prepared: PreparedHarnessArtifactRemoval,
-): Promise<Result<readonly string[], HarnessArtifactProvisionErrorInfo>> {
-	const manifest = await readInstallManifest(prepared.fs, prepared.manifestPath);
-	if (!manifest.ok) return manifest;
-	if (
-		!manifestEntriesEqual(manifest.value.artifacts[prepared.key], prepared.expectedManifestEntry)
-	) {
-		return stalePreparation("manifest", prepared.manifestPath, prepared.key);
-	}
-	const safety = await prepared.fs.inspectHarnessArtifactRemovalSafety({
-		trustedBoundaryRoot: prepared.trustedBoundaryRoot,
-		expectedTargetRoot: prepared.entry.targetRoot,
-		targetPaths: [
-			prepared.entry.targetArtifactPath,
-			...Object.values(prepared.entry.files).map((file) => file.targetPath),
-		],
-	});
-	if (!safety.ok) return safety;
-	if (safety.value.unsafePath !== undefined) {
-		return unsafeManifestEntry(prepared.manifestPath, prepared.key, safety.value.unsafePath);
-	}
-	const currentFacts = await collectTargetHashFactsForPaths({
-		fs: prepared.fs,
-		targetPaths: prepared.targetFacts.map((fact) => fact.targetPath),
-	});
-	if (!currentFacts.ok) return currentFacts;
-	for (const expected of prepared.targetFacts) {
-		const current = currentFacts.value.find((fact) => fact.targetPath === expected.targetPath);
-		if (current === undefined || !targetFactsEqual(expected, current)) {
-			return stalePreparation("target", expected.targetPath, prepared.key);
-		}
-	}
-	if (prepared.conflictingFiles.length > 0) {
-		return stalePreparation(
-			"target",
-			prepared.conflictingFiles[0] ?? prepared.entry.targetArtifactPath,
-			prepared.key,
-		);
-	}
-	const removedFiles: string[] = [];
-	for (const file of Object.values(prepared.entry.files)) {
-		const fact = prepared.targetFacts.find((item) => item.targetPath === file.targetPath);
-		if (fact?.type !== "file") continue;
-		const removed = await prepared.fs.removeFile(file.targetPath);
-		if (!removed.ok) return removed;
-		removedFiles.push(file.targetPath);
-	}
-	const nextManifest = buildInstallManifestData(
-		Object.entries(manifest.value.artifacts)
-			.filter(([key]) => key !== prepared.key)
-			.map(([, entry]) => entry),
-	);
-	const written = await prepared.fs.writeTextFile(
-		prepared.manifestPath,
-		`${JSON.stringify(nextManifest, null, 2)}\n`,
-	);
-	if (!written.ok) return written;
-	const removedDirectory = await prepared.fs.removeEmptyDirectory(
-		prepared.entry.targetArtifactPath,
-	);
-	if (!removedDirectory.ok) return removedDirectory;
-	return resultOk(removedFiles);
-}
-
-function validateRemovalEntry(input: {
-	key: string;
-	entry: InstallManifestEntryData;
-	expectedHarness: string;
-	expectedScope: HarnessScope;
-	expectedTargetRoot: string;
-}): string | undefined {
-	const entry = input.entry;
-	if (input.key !== provisionIdentityKey(entry)) return input.key;
-	if (entry.harness !== input.expectedHarness || entry.scope !== input.expectedScope) {
-		return entry.targetRoot;
-	}
-	if (resolve(entry.targetRoot) !== resolve(input.expectedTargetRoot)) return entry.targetRoot;
-	if (
-		!isAbsolute(entry.targetArtifactPath) ||
-		resolve(entry.targetArtifactPath) !== resolve(join(entry.targetRoot, entry.provisionName)) ||
-		!isPathInside(entry.targetRoot, entry.targetArtifactPath)
-	) {
-		return entry.targetArtifactPath;
-	}
-	for (const [relativePath, file] of Object.entries(entry.files)) {
-		if (
-			isAbsolute(relativePath) ||
-			isAbsolute(file.sourcePath) ||
-			normalize(join(entry.source.relativePath, relativePath)) !== normalize(file.sourcePath) ||
-			resolve(entry.targetArtifactPath, relativePath) !== resolve(file.targetPath) ||
-			!isPathInside(entry.targetArtifactPath, file.targetPath)
-		) {
-			return file.targetPath;
-		}
-	}
-	return undefined;
-}
-
-function unsafeManifestEntry(
-	manifestPath: string,
-	installKey: string,
-	path: string,
-): Result<never, HarnessArtifactProvisionErrorInfo> {
-	return resultErr({
-		code: "unsafe_manifest_entry",
-		message: `Install manifest entry ${installKey} is not coherent with its harness root: ${path}.`,
-		details: { manifestPath, installKey, path },
-	});
-}
-
-export function installManifestPathForPlan(plan: ProvisionPlan): string {
-	return join(plan.targetRoot, INSTALL_MANIFEST_FILE_NAME);
-}
-
-export async function readInstallManifestAtRoot(options: {
-	targetRoot: string;
-	fs?: HarnessArtifactFileSystemGateway;
-}): Promise<Result<InstallManifestData, HarnessArtifactProvisionErrorInfo>> {
-	const fs = options.fs ?? nodeHarnessArtifactFileSystemGateway;
-	return readInstallManifest(fs, join(options.targetRoot, INSTALL_MANIFEST_FILE_NAME));
 }
 
 export function previewFromPrepared(
@@ -753,74 +407,4 @@ async function readRequiredFile(
 		return resultErr(fileSystemError(path, "read", new Error("Source file is missing.")));
 	}
 	return resultOk(source.value.bytes);
-}
-
-async function collectTargetHashFacts(input: {
-	fs: HarnessArtifactFileSystemGateway;
-	plan: ProvisionPlan;
-}): Promise<Result<readonly TargetFileHashFact[], HarnessArtifactProvisionErrorInfo>> {
-	return collectTargetHashFactsForPaths({
-		fs: input.fs,
-		targetPaths: input.plan.files.map((file) => file.targetPath),
-	});
-}
-
-async function collectTargetHashFactsForPaths(input: {
-	fs: HarnessArtifactFileSystemGateway;
-	targetPaths: readonly string[];
-}): Promise<Result<readonly TargetFileHashFact[], HarnessArtifactProvisionErrorInfo>> {
-	const facts: TargetFileHashFact[] = [];
-	for (const targetPath of input.targetPaths) {
-		const target = await input.fs.readOptionalFile(targetPath);
-		if (!target.ok) return target;
-		if (target.value.type === "missing") facts.push({ type: "missing", targetPath });
-		else {
-			facts.push({
-				type: "file",
-				targetPath,
-				contentHash: contentHashForBytes(target.value.bytes),
-			});
-		}
-	}
-	return resultOk(facts);
-}
-
-async function readInstallManifest(
-	fs: HarnessArtifactFileSystemGateway,
-	manifestPath: string,
-): Promise<Result<InstallManifestData, HarnessArtifactProvisionErrorInfo>> {
-	const manifest = await fs.readOptionalTextFile(manifestPath);
-	if (!manifest.ok) return manifest;
-	if (manifest.value.type === "missing") return resultOk({ version: 1, artifacts: {} });
-	let data: unknown;
-	try {
-		data = JSON.parse(manifest.value.text);
-	} catch (error) {
-		return resultErr({
-			code: "invalid_install_manifest",
-			message: `Install manifest at ${manifestPath} is not valid JSON: ${formatErrorMessage(error)}`,
-			details: { manifestPath },
-		});
-	}
-	const parsed = installManifestSchema.safeParse(data);
-	if (!parsed.success) {
-		return resultErr({
-			code: "invalid_install_manifest",
-			message: `Install manifest at ${manifestPath} is invalid: ${formatZodIssue(
-				parsed.error.issues[0],
-				{ rootPath: "$", pathPrefix: "$.", fallback: "invalid install manifest" },
-			)}`,
-			details: { manifestPath },
-		});
-	}
-	return resultOk(parsed.data);
-}
-
-function updateManifest(manifest: InstallManifestData, plan: ProvisionPlan): InstallManifestData {
-	const nextEntry = buildInstallManifestEntry(plan);
-	const nextKey = installManifestKey(plan);
-	const entries = Object.entries(manifest.artifacts)
-		.filter(([key]) => key !== nextKey)
-		.map(([, entry]) => entry);
-	return buildInstallManifestData([...entries, nextEntry]);
 }
