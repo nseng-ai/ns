@@ -8,6 +8,7 @@ import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 
 import {
+	describeStackSquashOutcome,
 	formatStackSquashSummary,
 	runStackSquashFlow,
 	type StackSquashCommandFailure,
@@ -69,41 +70,25 @@ export async function runStackSquash(
 		case "worktree-probe-failed":
 			notifyCommandUi(
 				ctx,
-				`Cannot inspect worktree state; not starting stack squash.\n\n${formatCommandOutput(outcome.execResult)}`,
+				formatFailureMessage(describeStackSquashOutcome(outcome), outcome),
 				"error",
 			);
 			return;
 		case "worktree-dirty":
-			notifyCommandUi(
-				ctx,
-				`Worktree has uncommitted changes; not starting stack squash.\n\n${outcome.status}`,
-				"error",
-			);
+			notifyCommandUi(ctx, `${describeStackSquashOutcome(outcome)}\n\n${outcome.status}`, "error");
 			return;
 		case "stack-discovery-failed":
 			notifyCommandUi(ctx, formatDiscoveryFailure(outcome), "error");
 			return;
 		case "empty-stack":
-			notifyCommandUi(ctx, "No Graphite stack branches to squash.", "info");
+			notifyCommandUi(ctx, describeStackSquashOutcome(outcome), "info");
 			return;
 		case "checkout-failed":
-			notifyCommandUi(
-				ctx,
-				formatFailureMessage(`gt checkout failed for ${outcome.branch}`, outcome),
-				"error",
-			);
-			return;
 		case "squash-failed":
-			notifyCommandUi(
-				ctx,
-				formatFailureMessage(`gt squash failed on ${outcome.branch}`, outcome),
-				"error",
-			);
-			return;
 		case "tip-restore-failed":
 			notifyCommandUi(
 				ctx,
-				formatFailureMessage(`gt checkout failed restoring tip ${outcome.branch}`, outcome),
+				formatFailureMessage(describeStackSquashOutcome(outcome), outcome),
 				"error",
 			);
 	}
@@ -115,12 +100,13 @@ function formatDiscoveryFailure(
 		{ kind: "stack-discovery-failed" }
 	>,
 ): string {
-	if (commandSucceeded(outcome.execResult)) return outcome.message;
-	return `${outcome.message}\n\n${formatCommandOutput(outcome.execResult)}`;
+	const message = describeStackSquashOutcome(outcome);
+	if (commandSucceeded(outcome.execResult)) return message;
+	return `${message}\n\n${formatCommandOutput(outcome.execResult)}`;
 }
 
-function formatFailureMessage(label: string, failure: StackSquashCommandFailure): string {
-	return [`${label}; stack squash stopped.`, formatCommandOutput(failure.execResult)]
+function formatFailureMessage(message: string, failure: StackSquashCommandFailure): string {
+	return [message, formatCommandOutput(failure.execResult)]
 		.filter((part) => part.length > 0)
 		.join("\n\n");
 }

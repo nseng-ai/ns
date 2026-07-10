@@ -89,7 +89,7 @@ describe("stack squash Pi bridge", () => {
 		});
 	});
 
-	test("preserves the dirty-worktree failure notification", async () => {
+	test("uses the shared dirty-worktree failure description", async () => {
 		const pi = new FakePi([{ stdout: " M file.ts\n" }]);
 		const ctx = fakeCtx();
 
@@ -97,7 +97,7 @@ describe("stack squash Pi bridge", () => {
 
 		expect(ctx.ui.notifications.at(-1)).toEqual({
 			level: "error",
-			message: "Worktree has uncommitted changes; not starting stack squash.\n\nM file.ts",
+			message: "Worktree has uncommitted changes; stack squash did not run.\n\nM file.ts",
 		});
 	});
 });

@@ -4,6 +4,7 @@ import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/kerne
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
 
 import {
+	describeStackSquashOutcome,
 	formatStackSquashSummary,
 	runStackSquashFlow,
 	type StackSquashCommandFailure,
@@ -15,9 +16,12 @@ import { renderGitResultBlock } from "../presentation/git-result-block.ts";
 
 const squashStackSchema = z.object({});
 
+export const SQUASH_STACK_COMMAND_SUMMARY =
+	"Squash every branch in the current Graphite stack to one commit.";
+
 export const flowSquashStackCommand: NsCommand<typeof squashStackSchema> = defineCommand({
 	name: "squash-stack",
-	summary: "Squash every branch in the current Graphite stack to one commit.",
+	summary: SQUASH_STACK_COMMAND_SUMMARY,
 	description:
 		"Squash every branch in the current Graphite stack from the tip down, then restore the tip branch.",
 	schema: squashStackSchema,
@@ -50,7 +54,7 @@ function renderStackSquashNegative(
 		case "worktree-dirty":
 			return renderGitResultBlock(caps, {
 				kind: "refusal",
-				headline: "Worktree has uncommitted changes; stack squash did not run.",
+				headline: describeStackSquashOutcome(outcome),
 				command: "git status --porcelain=v1",
 				cwd: outcome.cwd,
 				detail: outcome.status,
@@ -58,35 +62,15 @@ function renderStackSquashNegative(
 		case "empty-stack":
 			return renderResultBlock(caps, {
 				kind: "failure",
-				headline: "No Graphite stack branches to squash.",
+				headline: describeStackSquashOutcome(outcome),
 				cwd: outcome.cwd,
 			});
 		case "worktree-probe-failed":
-			return renderCommandFailure(
-				caps,
-				outcome,
-				"Cannot inspect worktree state; stack squash did not run.",
-			);
 		case "stack-discovery-failed":
-			return renderCommandFailure(caps, outcome, outcome.message);
 		case "checkout-failed":
-			return renderCommandFailure(
-				caps,
-				outcome,
-				`Could not check out Graphite branch \`${outcome.branch}\`; stack squash stopped.`,
-			);
 		case "squash-failed":
-			return renderCommandFailure(
-				caps,
-				outcome,
-				`Could not squash Graphite branch \`${outcome.branch}\`; stack squash stopped.`,
-			);
 		case "tip-restore-failed":
-			return renderCommandFailure(
-				caps,
-				outcome,
-				`Could not restore Graphite tip branch \`${outcome.branch}\`.`,
-			);
+			return renderCommandFailure(caps, outcome, describeStackSquashOutcome(outcome));
 	}
 }
 
