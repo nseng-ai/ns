@@ -23,7 +23,10 @@ _run-parallel left right:
 
 _check-core: dprint-check _ts-deps-check _ts-format-check _ts-lint _ts-check _ts-test _objective-check
 
-ci: check
+# Local equivalent of CI excluding docs-site and Reviews; local metadata checks remain included.
+ci: _ts-workspace-ready (_run-parallel "check" "_ci-additional")
+
+_ci-additional: (_run-parallel "ts-test-integration" "areg-check")
 
 dprint-check:
     dprint check

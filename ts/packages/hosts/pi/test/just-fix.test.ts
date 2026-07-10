@@ -6,6 +6,7 @@ import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
 
 const ROOT = "/repo";
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
+const JUST_CI_TIMEOUT_MS = 30 * 60 * 1000;
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -219,5 +220,43 @@ Repair the failed just run.
 				expect(prompt).toContain("stderr:\nlint failed");
 			},
 		);
+	});
+
+	test("runs the CI recipe excluding docs-site and Reviews through just-ci", async () => {
+		const pi = new FakePi(execResult());
+		const justFixExtension = await loadJustFixExtension();
+		justFixExtension(pi);
+		const command = pi.commands.get("just-ci");
+		expect(command?.description).toBe(
+			"Run CI excluding docs-site and Reviews; if it fails, invoke code-just-fix.",
+		);
+		if (!command) {
+			throw new Error("just-ci command was not registered");
+		}
+
+		const context = createContext();
+		await command.handler("", context.ctx);
+
+		expect(context.waitForIdleCalls()).toBe(1);
+		expect(pi.execCalls).toEqual([
+			{
+				command: "just",
+				args: ["ci"],
+				options: { cwd: ROOT, timeout: JUST_CI_TIMEOUT_MS },
+			},
+		]);
+		expect(context.statuses).toEqual([
+			{ key: "just-ci", value: "running just ci…" },
+			{ key: "just-ci", value: undefined },
+		]);
+		expect(pi.messages).toEqual([
+			{
+				customType: "ns-command-progress",
+				content: "→ Running `just ci`…",
+				display: true,
+			},
+		]);
+		expect(context.notifications).toEqual([{ message: "`just ci` passed.", level: "info" }]);
+		expect(pi.sentUserMessages).toEqual([]);
 	});
 });
