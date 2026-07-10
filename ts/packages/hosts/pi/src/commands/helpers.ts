@@ -28,8 +28,8 @@ export function formatCommandOutput(
 		parts.push(formatOutputSection("stdout", result.stdout, tailOptions));
 	if (result.stderr.trim().length > 0)
 		parts.push(formatOutputSection("stderr", result.stderr, tailOptions));
-	if (result.startupError !== undefined && result.startupError.length > 0) {
-		parts.push(`startup error:\n${tailText(result.startupError.trimEnd(), tailOptions)}`);
+	if (result.type === "spawn-failed" && result.error.length > 0) {
+		parts.push(`startup error:\n${tailText(result.error.trimEnd(), tailOptions)}`);
 	}
 	return parts.join("\n\n");
 }

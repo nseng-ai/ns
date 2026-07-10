@@ -656,10 +656,13 @@ function renderRawFailureTranscript(result: SubmitCommandResult): string {
 		lines.push(
 			"",
 			`command ${index + 1}: ${command.commandDisplay ?? "unknown"}`,
-			`exit code: ${command.exitCode}`,
+			`termination: ${command.termination}`,
+			`exit code: ${command.exitCode === null ? "unavailable" : command.exitCode}`,
 		);
-		if (command.startupError !== undefined) lines.push(`startup error: ${command.startupError}`);
-		if (command.killed === true) lines.push("killed: true");
+		if (command.signal !== undefined) {
+			lines.push(`signal: ${command.signal ?? "none"}`);
+		}
+		if (command.error !== undefined) lines.push(`spawn error: ${command.error}`);
 		lines.push(
 			"",
 			"----- stdout -----",

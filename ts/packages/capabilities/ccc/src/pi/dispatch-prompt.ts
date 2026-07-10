@@ -10,13 +10,15 @@ import {
 	resolveDispatchPromptPayloadOptions,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import { createCccPiCommandApi } from "./pi-command-api.ts";
 
 const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
 
 export function registerCccSlotDispatchPromptCommand(
-	pi: ExtensionAPI,
+	rawPi: ExtensionAPI,
 	options: DispatchPromptPayloadOptions = {},
 ): void {
+	const pi = createCccPiCommandApi(rawPi);
 	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
 	registerCommandWithImmediateAck({
 		host: pi,

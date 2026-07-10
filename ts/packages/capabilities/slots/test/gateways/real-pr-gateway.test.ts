@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/core/diagnostics.ts";
 import { RealSlotPrGateway } from "../../src/core/gateways/pr.ts";
 
 describe("RealSlotPrGateway", () => {
 	it("looks up multiple branch PRs with one GraphQL batch request", async () => {
 		const execApi = new ScriptedCommandExecApi([
-			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/sdl-tools" }) },
-			{
+			exitedResult({ stdout: JSON.stringify({ nameWithOwner: "dagster-io/sdl-tools" }) }),
+			exitedResult({
 				stdout: JSON.stringify({
 					data: {
 						repository: {
@@ -26,7 +26,7 @@ describe("RealSlotPrGateway", () => {
 						},
 					},
 				}),
-			},
+			}),
 		]);
 		const gateway = new RealSlotPrGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
 
@@ -61,8 +61,8 @@ describe("RealSlotPrGateway", () => {
 
 	it("emits labeled gh diagnostics for batch lookup", async () => {
 		const execApi = new ScriptedCommandExecApi([
-			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/sdl-tools" }) },
-			{ stdout: JSON.stringify({ data: { repository: { b0: { nodes: [] } } } }) },
+			exitedResult({ stdout: JSON.stringify({ nameWithOwner: "dagster-io/sdl-tools" }) }),
+			exitedResult({ stdout: JSON.stringify({ data: { repository: { b0: { nodes: [] } } } }) }),
 		]);
 		const diagnosticSink = new InMemoryDiagnosticSink();
 		const gateway = new RealSlotPrGateway({
@@ -82,8 +82,7 @@ describe("RealSlotPrGateway", () => {
 				displayCommand: "gh repo view --json nameWithOwner",
 				cwd: "/repo",
 				timeoutMs: 10_000,
-				exitCode: 0,
-				killed: false,
+				termination: { type: "exited", code: 0, signal: null },
 			}),
 			expect.objectContaining({
 				type: "slot.command",
@@ -92,16 +91,15 @@ describe("RealSlotPrGateway", () => {
 				args: expect.arrayContaining(["api", "graphql", "-F"]),
 				cwd: "/repo",
 				timeoutMs: 10_000,
-				exitCode: 0,
-				killed: false,
+				termination: { type: "exited", code: 0, signal: null },
 			}),
 		]);
 	});
 
 	it("returns a batch failure for GraphQL errors", async () => {
 		const execApi = new ScriptedCommandExecApi([
-			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/sdl-tools" }) },
-			{ stdout: JSON.stringify({ errors: [{ message: "bad query" }] }) },
+			exitedResult({ stdout: JSON.stringify({ nameWithOwner: "dagster-io/sdl-tools" }) }),
+			exitedResult({ stdout: JSON.stringify({ errors: [{ message: "bad query" }] }) }),
 		]);
 		const gateway = new RealSlotPrGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
 

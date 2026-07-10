@@ -1,3 +1,4 @@
+import type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
 import { z } from "zod";
 
 import { PrPreviewFeedbackView, type PrPreviewFeedbackViewModel } from "./preview-feedback-view.ts";
@@ -9,12 +10,7 @@ import type {
 	PrPreviewFeedbackTarget,
 	PrPreviewFeedbackThread,
 } from "./preview-feedback-model.ts";
-import type {
-	CommandResult,
-	EnvelopeWithSchemaOptions,
-	ExtensionAPI,
-	ExtensionContext,
-} from "./extension.ts";
+import type { CommandResult, EnvelopeWithSchemaOptions, ExtensionContext } from "./extension.ts";
 import { execNsJson } from "./exec-ns-json.ts";
 
 const nullablePreviewStringSchema = z.string().nullable();
@@ -82,7 +78,7 @@ interface PrPreviewFeedbackCommandOptions {
 }
 
 interface PrPreviewFeedbackCommandRuntime extends PrPreviewFeedbackCommandOptions {
-	pi: ExtensionAPI;
+	pi: ExecGateway;
 }
 
 interface RunPrPreviewFeedbackCommandOptions {
@@ -104,7 +100,7 @@ interface LoadPreviewReviewThreadsOptions {
 }
 
 export function createPrPreviewFeedbackCommand(
-	pi: ExtensionAPI,
+	pi: ExecGateway,
 	options: PrPreviewFeedbackCommandOptions,
 ): {
 	description: string;

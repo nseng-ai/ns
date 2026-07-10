@@ -16,7 +16,10 @@ import {
 	type LoadedAttachedPlan,
 } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
-import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import type { RawPiExecOptions, RawPiExecResult } from "../../src/pi/host-types.ts";
+
+type ExecResultFixture = Partial<RawPiExecResult>;
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import {
 	buildRepoPlanStoreKey,
@@ -59,14 +62,14 @@ export type ToolUpdate = Parameters<NonNullable<Parameters<ToolDefinition["execu
 export interface ExecCall {
 	command: string;
 	args: string[];
-	options: ExecOptions | undefined;
+	options: RawPiExecOptions | undefined;
 }
 
 export type ScriptedExec =
 	| {
 			command: string;
 			args: string[];
-			result: Partial<ExecResult>;
+			result: ExecResultFixture;
 	  }
 	| {
 			command: string;
@@ -102,7 +105,11 @@ export class FakePi implements ExtensionAPI {
 		this.tools.set(definition.name, definition);
 	}
 
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+	async exec(
+		command: string,
+		args: string[],
+		options?: RawPiExecOptions,
+	): Promise<RawPiExecResult> {
 		const defaultResult = defaultBranchAvailabilityResult(command, args);
 		if (defaultResult !== undefined) {
 			this.defaultBranchAvailabilityProbeCalls.push({ command, args: [...args], options });
@@ -162,12 +169,9 @@ export function branchContextExtensionTestOptions(
 		shouldResolveTargetBranchInPreview: true,
 		createBranchContextContext(pi, cwd) {
 			return {
-				...createBranchContextContext(
-					{ exec: (command, args, options) => pi.exec(command, args, options) },
-					{
-						cwd,
-					},
-				),
+				...createBranchContextContext(createPiCommandExecApi(pi), {
+					cwd,
+				}),
 				brmem: new InMemoryBranchMemoryGateway({
 					currentBranch: SOURCE_BRANCH,
 					entries: entries.map((entry) => ({
@@ -347,7 +351,7 @@ export function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+export function execResult(overrides: ExecResultFixture = {}): RawPiExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
@@ -356,7 +360,10 @@ export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function defaultBranchAvailabilityResult(command: string, args: string[]): ExecResult | undefined {
+function defaultBranchAvailabilityResult(
+	command: string,
+	args: string[],
+): RawPiExecResult | undefined {
 	if (
 		command === "git" &&
 		args.length === 3 &&
@@ -397,7 +404,7 @@ function defaultBranchAvailabilityResult(command: string, args: string[]): ExecR
 export function step(
 	command: string,
 	args: string[],
-	result: Partial<ExecResult> = {},
+	result: ExecResultFixture = {},
 ): ScriptedExec {
 	return { command, args, result };
 }
@@ -409,7 +416,7 @@ export function planSlugArgs(content: string): string[] {
 export function planSlugStep(
 	content: string,
 	slug: string = PLAN_SLUG,
-	result: Partial<ExecResult> = { stdout: `${slug}\n` },
+	result: ExecResultFixture = { stdout: `${slug}\n` },
 ): ScriptedExec {
 	return step("pi", planSlugArgs(content), result);
 }
@@ -424,7 +431,7 @@ export function savedPlanSlugArgs(content: string): string[] {
 
 export interface SavedPlanSlugStepOptions {
 	slug?: string;
-	result?: Partial<ExecResult>;
+	result?: ExecResultFixture;
 }
 
 export function savedPlanSlugStep(
@@ -460,25 +467,25 @@ export function gitRootStep(root: string = ROOT): ScriptedExec {
 
 export function gitCurrentBranchStep(
 	branch: string = SOURCE_BRANCH,
-	result: Partial<ExecResult> = {},
+	result: ExecResultFixture = {},
 ): ScriptedExec {
 	return step("git", ["branch", "--show-current"], { stdout: `${branch}\n`, ...result });
 }
 
 export function gitOriginStep(
-	result: Partial<ExecResult> = { stdout: "git@github.com:owner/repo.git\n" },
+	result: ExecResultFixture = { stdout: "git@github.com:owner/repo.git\n" },
 ): ScriptedExec {
 	return step("git", ["config", "--get", "remote.origin.url"], result);
 }
 
-export function gitCheckoutStep(branch: string, result: Partial<ExecResult> = {}): ScriptedExec {
+export function gitCheckoutStep(branch: string, result: ExecResultFixture = {}): ScriptedExec {
 	return step("git", ["checkout", branch], result);
 }
 
 export function brmemListAttachedPlansStep(
 	branch: string,
 	entries: Array<{ key: string; branch?: string; namespace?: string; refName?: string }>,
-	result: Partial<ExecResult> = {},
+	result: ExecResultFixture = {},
 ): ScriptedExec {
 	return step(
 		"brmem",

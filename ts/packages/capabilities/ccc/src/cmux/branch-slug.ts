@@ -8,8 +8,8 @@ import {
 	formatRawTextModelFailure,
 	generateRawTextWithModel,
 } from "@nseng-ai/capability-kit/model-slug";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
-import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 export { finalizeBranchSlug, MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength };
 
@@ -18,7 +18,7 @@ const MAX_SUMMARY_INPUT_CHARS = 16_000;
 
 export type BranchSlugContentKind = "task" | "plan";
 
-type BranchSlugRuntime = Pick<ExtensionAPI, "exec">;
+type BranchSlugRuntime = CommandExecApi;
 
 export async function generateBranchSlug(
 	pi: BranchSlugRuntime,

@@ -1,4 +1,4 @@
-import { type ExecResult, tailText } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, type ExecResult, tailText } from "@nseng-ai/foundation/exec";
 import { isRecord } from "@nseng-ai/foundation/primitives";
 export { err, ok, resultErr, resultOk } from "@nseng-ai/foundation/result";
 export type { ErrorInfo, Result, Result as GatewayResult } from "@nseng-ai/foundation/result";
@@ -18,18 +18,16 @@ export interface CommandFailureOptions {
 
 export function commandFailure(options: CommandFailureOptions): ErrorInfo | undefined {
 	const { command, args, result, code, message } = options;
-	if (result.code === 0 && !result.killed) {
-		return undefined;
-	}
+	if (commandSucceeded(result)) return undefined;
 
 	const details: Record<string, unknown> = {
 		command,
 		args: [...args],
-		exit_code: result.code,
+		result_type: result.type,
+		...(result.type === "spawn-failed"
+			? { spawn_error: result.error }
+			: { exit_code: result.code, signal: result.signal }),
 	};
-	if (result.startupError !== undefined) {
-		details.startup_error = result.startupError;
-	}
 	const stderr = tailText(result.stderr.trim(), { maxChars: STDERR_DETAIL_LIMIT_CHARS });
 	if (stderr !== "") {
 		details.stderr = stderr;
@@ -49,8 +47,8 @@ export function formatCommandFailureConciseCause(error: ErrorInfo | undefined): 
 		return `${command} exited ${exitCode}: ${stderr}`;
 	}
 
-	const startupError = conciseDiagnosticText(detailString(details, "startup_error"));
-	if (startupError !== undefined) return `${command} startup failed: ${startupError}`;
+	const spawnError = conciseDiagnosticText(detailString(details, "spawn_error"));
+	if (spawnError !== undefined) return `${command} spawn failed: ${spawnError}`;
 
 	return undefined;
 }

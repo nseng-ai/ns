@@ -6,6 +6,9 @@ import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
+
 import {
 	buildCuratedRunnerSubagentContext,
 	type CuratedContextExecGit,
@@ -17,12 +20,27 @@ function tempRepo(): string {
 	return root;
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
-	return { stdout: "", stderr: "", code: 0, killed: false, ...overrides };
+function execResult(overrides: ExecResultFixture = {}): ExecResult {
+	if ("type" in overrides) return overrides;
+	return {
+		type: "exited",
+		stdout: overrides.stdout ?? "",
+		stderr: overrides.stderr ?? "",
+		code: overrides.code ?? 0,
+		signal: overrides.signal ?? null,
+	};
 }
 
 function gitUnavailable(): CuratedContextExecGit {
-	return () => Promise.resolve(execResult({ code: 127, startupError: "git unavailable" }));
+	return () =>
+		Promise.resolve(
+			execResult({
+				type: "spawn-failed",
+				stdout: "",
+				stderr: "git unavailable",
+				error: "git unavailable",
+			}),
+		);
 }
 
 function scriptedGit(

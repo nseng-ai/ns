@@ -6,13 +6,14 @@ import {
 } from "@nseng-ai/capability-kit/cmux/focused-terminal-tab";
 import { isRecord, stringField } from "@nseng-ai/foundation/primitives";
 import { writeTimestampedPromptFile, type ResolvedPromptFileOptions } from "./prompt-file.ts";
-import type { CommandContext, ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import type { CommandContext } from "@nseng-ai/capability-kit/cmux/types";
+import type { CccPiCommandApi } from "./pi-command-api.ts";
 
 const TITLE_PREFIX = "claude-plan: ";
 const MAX_TITLE_SEED_CHARS = 40;
 
 export async function handleCccClaudePlanTab(options: {
-	pi: ExtensionAPI;
+	pi: CccPiCommandApi;
 	ctx: CommandContext;
 	args: string;
 	promptOptions: ResolvedPromptFileOptions;

@@ -1,5 +1,9 @@
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
-import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import {
+	exitedResult,
+	ScriptedCommandExecApi,
+	spawnFailedResult,
+} from "@nseng-ai/foundation/exec/testing";
 import { describe, expect, it } from "vitest";
 
 import { RealVibechkWorkdirGateway } from "../../src/repository.ts";
@@ -12,12 +16,12 @@ describe("RealVibechkWorkdirGateway", () => {
 			headCommit: "abc123",
 		});
 		const execApi = new ScriptedCommandExecApi([
-			{
+			exitedResult({
 				stdout:
 					"origin git@github.com:owner/repo.git (fetch)\n" +
 					"origin https://github.com/owner/repo.git (push)\n" +
 					"upstream git@github.com:upstream/repo.git (fetch)\n",
-			},
+			}),
 		]);
 		const gateway = new RealVibechkWorkdirGateway({ workdir: "/repo", execApi, coreGit });
 
@@ -86,8 +90,8 @@ describe("RealVibechkWorkdirGateway", () => {
 	it("captures diffs with Vibechk-local raw git commands", async () => {
 		const coreGit = new InMemoryGitGateway({ dirtyPaths: ["."] });
 		const execApi = new ScriptedCommandExecApi([
-			{},
-			{ stdout: "diff --git a/result.txt b/result.txt\n+content\n" },
+			exitedResult(),
+			exitedResult({ stdout: "diff --git a/result.txt b/result.txt\n+content\n" }),
 		]);
 		const gateway = new RealVibechkWorkdirGateway({ workdir: "/repo", execApi, coreGit });
 
@@ -102,7 +106,7 @@ describe("RealVibechkWorkdirGateway", () => {
 
 	it("creates result branch through core before committing through Vibechk-local git commands", async () => {
 		const coreGit = new InMemoryGitGateway();
-		const execApi = new ScriptedCommandExecApi([{}, {}, {}]);
+		const execApi = new ScriptedCommandExecApi([exitedResult(), exitedResult(), exitedResult()]);
 		const gateway = new RealVibechkWorkdirGateway({ workdir: "/repo", execApi, coreGit });
 
 		await expect(
@@ -133,7 +137,7 @@ describe("RealVibechkWorkdirGateway", () => {
 	});
 
 	it("restores the starting branch with a semantic wrapper over git switch", async () => {
-		const execApi = new ScriptedCommandExecApi([{}]);
+		const execApi = new ScriptedCommandExecApi([exitedResult()]);
 		const gateway = new RealVibechkWorkdirGateway({
 			workdir: "/repo",
 			execApi,
@@ -147,13 +151,7 @@ describe("RealVibechkWorkdirGateway", () => {
 	});
 
 	it("maps missing git startup failures from raw commands to VibechkError", async () => {
-		const execApi = new ScriptedCommandExecApi([
-			{
-				code: 127,
-				stderr: "spawn git ENOENT",
-				startupError: "spawn git ENOENT",
-			},
-		]);
+		const execApi = new ScriptedCommandExecApi([spawnFailedResult("spawn git ENOENT")]);
 		const gateway = new RealVibechkWorkdirGateway({
 			workdir: "/repo",
 			execApi,

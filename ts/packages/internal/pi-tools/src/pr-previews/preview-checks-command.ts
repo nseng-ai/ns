@@ -1,3 +1,4 @@
+import type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
 import { z } from "zod";
 
 import { PrPreviewChecksView, type PrPreviewCheckLogLoadOptions } from "./preview-checks-view.ts";
@@ -13,12 +14,7 @@ import {
 } from "./preview-checks-model.ts";
 import { missingPreviewTargetMessage } from "./preview-view-utilities.ts";
 import { overlayHostOptions } from "../overlay-kit/frame.ts";
-import type {
-	CommandResult,
-	EnvelopeWithSchemaOptions,
-	ExtensionAPI,
-	ExtensionContext,
-} from "./extension.ts";
+import type { CommandResult, EnvelopeWithSchemaOptions, ExtensionContext } from "./extension.ts";
 import { execNsJson } from "./exec-ns-json.ts";
 
 const nullablePreviewStringSchema = z.string().nullable();
@@ -117,7 +113,7 @@ interface PrPreviewChecksCommandOptions {
 }
 
 interface PrPreviewChecksCommandRuntime extends PrPreviewChecksCommandOptions {
-	pi: ExtensionAPI;
+	pi: ExecGateway;
 }
 
 interface PrPreviewChecksExecContext {
@@ -126,7 +122,7 @@ interface PrPreviewChecksExecContext {
 }
 
 export function createPrPreviewChecksCommand(
-	pi: ExtensionAPI,
+	pi: ExecGateway,
 	options: PrPreviewChecksCommandOptions,
 ): { description: string; handler(args: string, ctx: ExtensionContext): Promise<void> } {
 	const runtime = { ...options, pi } satisfies PrPreviewChecksCommandRuntime;

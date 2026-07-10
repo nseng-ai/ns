@@ -55,7 +55,7 @@ export async function runGitHubCli(options: RunGitHubCliOptions): Promise<RunGit
 export async function runGitHubCliAsExecResult(options: RunGitHubCliOptions): Promise<ExecResult> {
 	const result = await runGitHubCli(options);
 	if (result.type === "completed") return result.result;
-	return { stdout: "", stderr: result.message, code: GITHUB_CLI_STARTUP_ERROR_CODE, killed: false };
+	return { type: "spawn-failed", stdout: "", stderr: result.message, error: result.message };
 }
 
 function githubCliExecOptions(options: RunGitHubCliOptions): ExecOptions {

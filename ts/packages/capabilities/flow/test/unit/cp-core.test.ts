@@ -69,7 +69,13 @@ describe("flow cp core", () => {
 				error: {
 					kind: "not_git_repo",
 					message: "not inside a git repository",
-					result: { code: 128, stdout: "", stderr: "fatal: not a git repository", killed: false },
+					result: {
+						code: 128,
+						stdout: "",
+						stderr: "fatal: not a git repository",
+						type: "exited",
+						signal: null,
+					},
 				},
 			},
 		});
@@ -81,7 +87,13 @@ describe("flow cp core", () => {
 			error: {
 				kind: "not_git_repo",
 				message: "not inside a git repository",
-				result: { code: 128, stdout: "", stderr: "fatal: not a git repository", killed: false },
+				result: {
+					code: 128,
+					stdout: "",
+					stderr: "fatal: not a git repository",
+					type: "exited",
+					signal: null,
+				},
 			},
 		});
 		expect(textGenerator.calls).toEqual([]);

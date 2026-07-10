@@ -1,14 +1,11 @@
+import { commandFailureReason } from "@nseng-ai/foundation/exec";
+import type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
 import { z } from "zod";
 
-import type {
-	CommandResult,
-	EnvelopeWithSchemaOptions,
-	ExtensionAPI,
-	ExtensionContext,
-} from "./extension.ts";
+import type { CommandResult, EnvelopeWithSchemaOptions, ExtensionContext } from "./extension.ts";
 
 interface ExecNsJsonRuntime {
-	readonly pi: ExtensionAPI;
+	readonly pi: ExecGateway;
 	readonly commandTimeoutMs: number;
 	parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): CommandResult<T>;
 }
@@ -27,6 +24,23 @@ export async function execNsJson<T>(options: ExecNsJsonOptions<T>): Promise<Comm
 		cwd: options.ctx.cwd,
 		timeout: options.runtime.commandTimeoutMs,
 	});
+	switch (result.type) {
+		case "spawn-failed":
+		case "cancelled":
+		case "timed-out":
+			return {
+				type: "error",
+				message: `${options.label} failed: ${commandFailureReason(result)}`,
+			};
+		case "exited":
+			if (result.signal !== null || result.code === null) {
+				return {
+					type: "error",
+					message: `${options.label} failed: ${commandFailureReason(result)}`,
+				};
+			}
+			break;
+	}
 	return options.runtime.parseEnvelopeWithSchema({
 		label: options.label,
 		result,

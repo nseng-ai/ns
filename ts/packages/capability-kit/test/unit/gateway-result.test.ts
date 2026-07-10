@@ -27,7 +27,13 @@ describe("gateway result", () => {
 		const failure = commandFailure({
 			command: "git",
 			args,
-			result: makeExecResult({ code: 128, stderr: "fatal: not a git repo\n" }),
+			result: makeExecResult({
+				type: "exited",
+				stdout: "",
+				stderr: "fatal: not a git repo\n",
+				code: 128,
+				signal: null,
+			}),
 			code: "git_status_failed",
 			message: "Could not read git status.",
 		});
@@ -39,6 +45,8 @@ describe("gateway result", () => {
 				command: "git",
 				args: ["status"],
 				exit_code: 128,
+				result_type: "exited",
+				signal: null,
 				stderr: "fatal: not a git repo",
 			},
 		});
@@ -50,7 +58,7 @@ describe("gateway result", () => {
 			commandFailure({
 				command: "missing-command",
 				args: [],
-				result: makeExecResult({ code: 127, startupError: "spawn ENOENT" }),
+				result: spawnFailedResult("spawn ENOENT"),
 				code: "command_failed",
 				message: "Command failed.",
 			}),
@@ -60,8 +68,9 @@ describe("gateway result", () => {
 			details: {
 				command: "missing-command",
 				args: [],
-				exit_code: 127,
-				startup_error: "spawn ENOENT",
+				result_type: "spawn-failed",
+				spawn_error: "spawn ENOENT",
+				stderr: "spawn ENOENT",
 			},
 		});
 	});
@@ -71,14 +80,26 @@ describe("gateway result", () => {
 			commandFailure({
 				command: "git",
 				args: ["status"],
-				result: makeExecResult({ code: 1, stderr: " \n\t" }),
+				result: makeExecResult({
+					type: "exited",
+					stdout: "",
+					stderr: " \n\t",
+					code: 1,
+					signal: null,
+				}),
 				code: "git_status_failed",
 				message: "Could not read git status.",
 			}),
 		).toEqual({
 			code: "git_status_failed",
 			message: "Could not read git status.",
-			details: { command: "git", args: ["status"], exit_code: 1 },
+			details: {
+				command: "git",
+				args: ["status"],
+				exit_code: 1,
+				result_type: "exited",
+				signal: null,
+			},
 		});
 	});
 
@@ -117,19 +138,25 @@ describe("gateway result", () => {
 		const failure = commandFailure({
 			command: "gh",
 			args: ["pr", "view", "123"],
-			result: makeExecResult({ code: 127, startupError: "spawn gh ENOENT" }),
+			result: spawnFailedResult("spawn gh ENOENT"),
 			code: "github_pr_view_failed",
 			message: "Could not read GitHub PR details.",
 		});
 
-		expect(formatCommandFailureConciseCause(failure)).toBe("gh startup failed: spawn gh ENOENT");
+		expect(formatCommandFailureConciseCause(failure)).toBe("gh spawn failed: spawn gh ENOENT");
 	});
 
 	test("formats ErrorInfo diagnostic lines with sorted structured details", () => {
 		const failure = commandFailure({
 			command: "gh",
 			args: ["pr", "view", "123"],
-			result: makeExecResult({ code: 1, stderr: "not found\n" }),
+			result: makeExecResult({
+				type: "exited",
+				stdout: "",
+				stderr: "not found\n",
+				code: 1,
+				signal: null,
+			}),
 			code: "github_pr_view_failed",
 			message: "Could not read GitHub PR details.",
 		});
@@ -142,6 +169,8 @@ describe("gateway result", () => {
 			"args: pr view 123",
 			"command: gh",
 			"exit_code: 1",
+			"result_type: exited",
+			"signal: null",
 			"stderr: not found",
 		]);
 	});
@@ -155,12 +184,19 @@ describe("gateway result", () => {
 	});
 });
 
-function makeExecResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function spawnFailedResult(error: string): ExecResult {
+	return { type: "spawn-failed", stdout: "", stderr: error, error };
+}
+
+function makeExecResult(
+	overrides: Partial<Extract<ExecResult, { type: "exited" }>> = {},
+): ExecResult {
 	return {
 		stdout: "",
 		stderr: "",
 		code: 0,
-		killed: false,
+		type: "exited",
+		signal: null,
 		...overrides,
 	};
 }

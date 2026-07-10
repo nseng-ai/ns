@@ -14,6 +14,9 @@ import {
 } from "@nseng-ai/capability-kit/graphite/testing";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
+
 import { nextFromSequence } from "../../support/sequence.ts";
 import {
 	FakeObjectiveStorageGateway,
@@ -116,9 +119,9 @@ export interface RunnerFakesOptions {
 	git?: SequencedGitGatewayState;
 	graphite?: InMemoryGraphiteGatewayState;
 	/** Overrides for every `ctx.commands.exec` result (defaults to exit 0). */
-	execResult?: Partial<ExecResult>;
+	execResult?: ExecResultFixture;
 	/** Per-call `ctx.commands.exec` overrides; the last value repeats once exhausted. */
-	execResults?: readonly Partial<ExecResult>[];
+	execResults?: readonly ExecResultFixture[];
 	trunkBranch?: string;
 	textFiles?: Readonly<Record<string, string>>;
 	filePresence?: (path: string) => Promise<RunnerFilePresenceResult>;
@@ -157,14 +160,7 @@ export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): Runner
 				execCalls.push({ command, args: [...args] });
 				const sequenced = nextFromSequence(execResults, execResultIndex);
 				execResultIndex = sequenced.nextIndex;
-				return {
-					stdout: "",
-					stderr: "",
-					code: 0,
-					killed: false,
-					...execResult,
-					...sequenced.value,
-				};
+				return execResultFromFixtures(execResult, sequenced.value);
 			},
 		},
 		writeStdout(text) {
@@ -185,5 +181,20 @@ export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): Runner
 		stdoutChunks,
 		phases,
 		execCalls,
+	};
+}
+
+function execResultFromFixtures(
+	defaults: ExecResultFixture,
+	override: ExecResultFixture | undefined,
+): ExecResult {
+	if (override !== undefined && "type" in override) return override;
+	if ("type" in defaults) return defaults;
+	return {
+		type: "exited",
+		stdout: override?.stdout ?? defaults.stdout ?? "",
+		stderr: override?.stderr ?? defaults.stderr ?? "",
+		code: override?.code ?? defaults.code ?? 0,
+		signal: override?.signal ?? defaults.signal ?? null,
 	};
 }

@@ -15,7 +15,8 @@ import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { truncateDisplayLine } from "@nseng-ai/pi/terminal/presentation";
 import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
-import { commandSucceeded } from "@nseng-ai/foundation/exec";
+import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
+import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 import { loadStackView, type LoadStackViewResult } from "./data.ts";
 import { createEnrichmentStore, type EnrichmentStore } from "./enrichment-store.ts";
 import {
@@ -29,12 +30,7 @@ import {
 	type ComposeViewPort,
 } from "./compose-controller.ts";
 import { createPiComposeSessionFactory } from "./compose-session.ts";
-import {
-	stackViewExecApi,
-	type CommandExecApi,
-	type ExecOptions,
-	type ExecResult,
-} from "./exec.ts";
+import type { CommandExecApi, ExecResult } from "./exec.ts";
 import { buildSummaryPrompt, renderPlainSnapshot } from "./render.ts";
 import type { StackViewModel } from "./types.ts";
 import {
@@ -109,7 +105,7 @@ export type StackViewSnapshotRenderer = (
 ) => StackViewSnapshotRenderComponent;
 
 /** Narrow view of the Pi extension host used by the stack-view extension. */
-export interface ExtensionAPI {
+export interface ExtensionAPI extends RawPiExecApi {
 	registerCommand(
 		name: string,
 		options: {
@@ -120,7 +116,6 @@ export interface ExtensionAPI {
 	sendUserMessage(content: string, options?: { deliverAs?: "steer" | "followUp" }): void;
 	sendMessage?(message: StackViewSnapshotMessage): void;
 	registerMessageRenderer?(customType: string, renderer: StackViewSnapshotRenderer): void;
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 }
 
 export const stackViewParity = definePiSurfaceParity([
@@ -153,6 +148,7 @@ type LoadStackViewFn = (options: {
 
 interface StackViewCommandSession {
 	pi: ExtensionAPI;
+	commands: CommandExecApi;
 	ctx: CommandContext;
 }
 
@@ -187,6 +183,7 @@ export function registerStackViewExtension(
 	options: RegisterStackViewExtensionOptions = {},
 ): void {
 	pi.registerMessageRenderer?.(STACK_VIEW_SNAPSHOT_MESSAGE_TYPE, renderStackViewSnapshotMessage);
+	const commands = createPiCommandExecApi(pi);
 
 	// One store per registration so enrichment memoization survives overlay
 	// close/reopen within a session; each command invocation builds a fresh engine
@@ -205,7 +202,7 @@ export function registerStackViewExtension(
 		commandName: STACK_VIEW_COMMAND_NAME,
 		commandDefinition: {
 			description: "Show the current Graphite stack as an interactive merge-readiness panel.",
-			handler: async (_args, ctx) => handleStackViewCommand(pi, ctx, deps),
+			handler: async (_args, ctx) => handleStackViewCommand(pi, commands, ctx, deps),
 		},
 	});
 }
@@ -214,11 +211,12 @@ export default registerStackViewExtension;
 
 async function handleStackViewCommand(
 	pi: ExtensionAPI,
+	commands: CommandExecApi,
 	ctx: CommandContext,
 	deps: StackViewCommandDeps,
 ): Promise<void> {
 	await ctx.waitForIdle();
-	const session: StackViewCommandSession = { pi, ctx };
+	const session: StackViewCommandSession = { pi, commands, ctx };
 
 	const loaded = await loadStackViewWithStatus(session, deps.loadStackView);
 	if (loaded.type === "not-on-stack") {
@@ -244,7 +242,7 @@ async function handleStackViewCommand(
 	// finally so in-flight background work is cancelled once the loop exits.
 	const engine = deps.engineFactory({
 		store: deps.store,
-		execApi: stackViewExecApi(pi),
+		execApi: commands,
 		cwd: ctx.cwd,
 		registry: ctx.modelRegistry,
 	});
@@ -379,10 +377,10 @@ async function copyBranchToClipboard(
 ): Promise<void> {
 	const displayBranch = truncateDisplayLine(branch, 80);
 	await runAndNotify(session, {
-		exec: () => session.pi.exec("/bin/sh", ["-c", 'printf %s "$1" | pbcopy', "sh", branch]),
+		exec: () => session.commands.exec("/bin/sh", ["-c", 'printf %s "$1" | pbcopy', "sh", branch]),
 		success: `Copied branch '${displayBranch}' to the clipboard.`,
 		failure: (result) =>
-			`Could not copy branch '${displayBranch}' to the clipboard (exit ${result.code}).`,
+			`Could not copy branch '${displayBranch}' to the clipboard (${commandFailureReason(result)}).`,
 	});
 }
 
@@ -393,7 +391,7 @@ async function loadStackViewWithStatus(
 ): Promise<LoadStackViewResult> {
 	session.ctx.ui.setStatus(STACK_VIEW_COMMAND_NAME, "loading stack…");
 	try {
-		return await load({ execApi: stackViewExecApi(session.pi), cwd: session.ctx.cwd });
+		return await load({ execApi: session.commands, cwd: session.ctx.cwd });
 	} finally {
 		session.ctx.ui.setStatus(STACK_VIEW_COMMAND_NAME, undefined);
 	}
@@ -420,8 +418,8 @@ async function runAndNotify(
 /** Fire the URL through the host `open` command; notify gently (never throw) on nonzero exit. */
 async function openGraphiteUrl(session: StackViewCommandSession, url: string): Promise<void> {
 	await runAndNotify(session, {
-		exec: () => session.pi.exec("open", [url]),
-		failure: (result) => `Could not open ${url} (exit ${result.code}).`,
+		exec: () => session.commands.exec("open", [url]),
+		failure: (result) => `Could not open ${url} (${commandFailureReason(result)}).`,
 	});
 }
 

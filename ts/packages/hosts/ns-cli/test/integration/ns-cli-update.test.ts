@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { runCommand } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, formatCommandFailure, runCommand } from "@nseng-ai/foundation/exec";
 
 import { runNsCli } from "../../src/cli.ts";
 import { writeModuleExtension } from "../support/cli-harness.ts";
@@ -19,8 +19,8 @@ async function createEmptyProject(): Promise<string> {
 
 async function initializeGitRepo(projectRoot: string): Promise<void> {
 	const result = await runCommand("git", ["init"], { cwd: projectRoot });
-	if (result.code !== 0) {
-		throw new Error(`git init failed: ${result.stderr || result.stdout}`);
+	if (!commandSucceeded(result)) {
+		throw new Error(formatCommandFailure("git init failed", "git init", result));
 	}
 }
 

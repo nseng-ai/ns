@@ -1,5 +1,7 @@
-import type { RunGitHubCliResult } from "../cli.ts";
+import { commandFailureReason } from "@nseng-ai/foundation/exec";
 import { errorDetailText, resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
+
+import type { RunGitHubCliResult } from "../cli.ts";
 
 import type {
 	GithubPrFeedbackCursorContextFields,
@@ -17,7 +19,7 @@ interface FailureFromMessageOptions extends GithubPrFeedbackCursorContextFields 
 	readonly stdout?: string;
 	readonly stderr?: string;
 	readonly exitCode?: number;
-	readonly killed?: boolean;
+	readonly resultType?: "exited" | "spawn-failed" | "cancelled" | "timed-out";
 	readonly graphqlErrors?: unknown;
 	readonly zodError?: string;
 }
@@ -70,13 +72,15 @@ export function failureFromCompleted(
 		message: errorDetailText({
 			stderr: run.result.stderr,
 			stdout: run.result.stdout,
-			fallback: `gh exited with code ${run.result.code}`,
+			fallback: commandFailureReason(run.result),
 		}),
 		run,
 		stdout: run.result.stdout,
 		stderr: run.result.stderr,
-		exitCode: run.result.code,
-		killed: run.result.killed,
+		...(run.result.type === "exited" && run.result.signal === null && run.result.code !== null
+			? { exitCode: run.result.code }
+			: {}),
+		resultType: run.result.type,
 		...failureContextFields(context),
 	});
 }
@@ -101,7 +105,7 @@ function buildFailureDetails(options: FailureFromMessageOptions): GithubPrFeedba
 		...(options.stdout === undefined ? {} : { stdout: options.stdout }),
 		...(options.stderr === undefined ? {} : { stderr: options.stderr }),
 		...(options.exitCode === undefined ? {} : { exitCode: options.exitCode }),
-		...(options.killed === undefined ? {} : { killed: options.killed }),
+		...(options.resultType === undefined ? {} : { resultType: options.resultType }),
 		...(options.graphqlErrors === undefined ? {} : { graphqlErrors: options.graphqlErrors }),
 		...(options.zodError === undefined ? {} : { zodError: options.zodError }),
 	};

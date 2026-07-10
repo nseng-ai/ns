@@ -1,6 +1,11 @@
 import { type CommandResolver } from "@nseng-ai/foundation/command";
 import { defaultCommandResolver } from "@nseng-ai/foundation/exec";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	type CommandExecApi,
+	type ExecOptions,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import {
 	formatErrorMessage,
 	mapFromRecordOrMap,
@@ -186,10 +191,16 @@ export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 			});
 		}
 
-		if (result.startupError !== undefined) {
-			return resultErr({ code: "harness-invocation-failed", message: result.startupError });
+		if (result.type === "spawn-failed") {
+			return resultErr({ code: "harness-invocation-failed", message: result.error });
 		}
-		if (result.code !== 0 || result.killed) {
+		if (result.type === "cancelled") {
+			return resultErr({
+				code: "review-execution-cancelled",
+				message: runnerExecutionMessage(result),
+			});
+		}
+		if (!commandSucceeded(result)) {
 			return resultErr({
 				code: "harness-execution-failed",
 				message: runnerExecutionMessage(result),
@@ -211,9 +222,18 @@ function runnerExecutionMessage(result: ExecResult): string {
 		const lines = stdout.split("\n");
 		return lines[lines.length - 1] ?? stdout;
 	}
-	return result.killed
-		? `Claude Code exited with status ${result.code} after being killed or timed out.`
-		: `Claude Code exited with status ${result.code}.`;
+	switch (result.type) {
+		case "spawn-failed":
+			return result.error;
+		case "cancelled":
+			return "Claude Code execution was cancelled.";
+		case "timed-out":
+			return "Claude Code execution timed out.";
+		case "exited":
+			return result.signal === null
+				? `Claude Code exited with status ${result.code}.`
+				: `Claude Code exited after signal ${result.signal} (status ${result.code ?? "unknown"}).`;
+	}
 }
 
 function copyRequest(request: ReviewRunnerRequest): ReviewRunnerRequest {

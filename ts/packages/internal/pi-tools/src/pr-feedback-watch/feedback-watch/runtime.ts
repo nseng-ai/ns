@@ -1,6 +1,6 @@
 import { accessSync, constants } from "node:fs";
 
-import type { ExecOptions } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, type ExecOptions } from "@nseng-ai/foundation/exec";
 
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import type { ExecGateway, ExtensionContext } from "./types.ts";
@@ -15,7 +15,7 @@ export async function resolveRepoRoot(
 		["rev-parse", "--show-toplevel"],
 		execOptions(cwd, GIT_TIMEOUT_MS, signal),
 	);
-	if (result.killed || result.code !== 0) return undefined;
+	if (!commandSucceeded(result)) return undefined;
 	return result.stdout.trim() || undefined;
 }
 
@@ -29,7 +29,7 @@ export async function isWorkingTreeDirty(
 		["status", "--porcelain=v1"],
 		execOptions(cwd, GIT_TIMEOUT_MS, signal),
 	);
-	if (result.killed || result.code !== 0) return true;
+	if (!commandSucceeded(result)) return true;
 	return result.stdout.trim().length > 0;
 }
 export function execOptions(cwd: string, timeout: number, signal?: AbortSignal): ExecOptions {

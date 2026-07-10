@@ -6,6 +6,12 @@ import process from "node:process";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { defaultCommandResolver, NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+import {
+	cancelledResult,
+	exitedResult,
+	spawnFailedResult,
+	timedOutResult,
+} from "@nseng-ai/foundation/exec/testing";
 
 const tempDirs: string[] = [];
 const originalPath = process.env.PATH;
@@ -26,6 +32,32 @@ afterEach(() => {
 describe("NodeCommandExecApi", () => {
 	test("advertises stdin support for callers that require a real Node adapter", () => {
 		expect(new NodeCommandExecApi().supportsStdin).toBe(true);
+	});
+});
+
+describe("exec testing results", () => {
+	test("constructs every termination arm", () => {
+		expect(exitedResult({ code: 7 })).toEqual({
+			type: "exited",
+			stdout: "",
+			stderr: "",
+			code: 7,
+			signal: null,
+		});
+		expect(cancelledResult({ signal: "backend-specific-stop" })).toMatchObject({
+			type: "cancelled",
+			signal: "backend-specific-stop",
+		});
+		expect(timedOutResult({ signal: "SIGKILL" })).toMatchObject({
+			type: "timed-out",
+			signal: "SIGKILL",
+		});
+		expect(spawnFailedResult(new Error("missing"))).toEqual({
+			type: "spawn-failed",
+			stdout: "",
+			stderr: "missing",
+			error: "missing",
+		});
 	});
 });
 

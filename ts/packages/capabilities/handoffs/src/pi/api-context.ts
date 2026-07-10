@@ -1,5 +1,5 @@
 import { RealGitBrmemReadGateway } from "@nseng-ai/brmem";
-import { piExecApiToCommandExecApi, type CommandExecApi } from "@nseng-ai/foundation/command";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import { RealGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
 import type { HandoffReadStorageDeps } from "../api/index.ts";
 
@@ -17,17 +17,19 @@ export interface HandoffCommandInvocation {
 	handoffContext: PiHandoffContext;
 }
 
-export function createPiHandoffContext(pi: ExtensionAPI): PiHandoffContext {
-	const commands = piExecApiToCommandExecApi(pi);
+export function createPiHandoffContext(commands: CommandExecApi): PiHandoffContext {
 	return { commands, git: new RealGitGateway(commands) };
 }
 
-export function createPiHandoffGitGateway(pi: ExtensionAPI): GitGateway {
-	return createPiHandoffContext(pi).git;
+export function createPiHandoffGitGateway(commands: CommandExecApi): GitGateway {
+	return createPiHandoffContext(commands).git;
 }
 
-export function createPiHandoffStorageDeps(pi: ExtensionAPI, cwd: string): HandoffReadStorageDeps {
-	return createPiHandoffStorageDepsFromContext(createPiHandoffContext(pi), cwd);
+export function createPiHandoffStorageDeps(
+	commands: CommandExecApi,
+	cwd: string,
+): HandoffReadStorageDeps {
+	return createPiHandoffStorageDepsFromContext(createPiHandoffContext(commands), cwd);
 }
 
 export function createPiHandoffStorageDepsFromContext(

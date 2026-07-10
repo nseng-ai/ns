@@ -16,8 +16,33 @@ import {
 import { RealSubmitGateway } from "../../src/submit/index.ts";
 import { formatSubmitSuccessText } from "../../src/submit/submit-format.ts";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
-import { ScriptedCommandRunner, startupErrorStep, step } from "@nseng-ai/foundation/exec/testing";
+import {
+	ScriptedCommandRunner,
+	exitedResult,
+	spawnFailedResult,
+} from "@nseng-ai/foundation/exec/testing";
 import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/testing";
+
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	exitCode?: number | null;
+	code?: number | null;
+	signal?: string | null;
+}
+
+function execStep(command: string, args: readonly string[], fields: ExitedResultFields = {}) {
+	const { exitCode, ...closeFields } = fields;
+	return {
+		command,
+		args: [...args],
+		result: exitedResult({ ...closeFields, code: closeFields.code ?? exitCode ?? 0 }),
+	};
+}
+
+function spawnFailedStep(command: string, args: readonly string[], error: string) {
+	return { command, args: [...args], result: spawnFailedResult(error) };
+}
 
 describe("formatSubmitSuccessText", () => {
 	test("omits the description preview line when no first line is available", () => {
@@ -39,7 +64,7 @@ describe("formatSubmitSuccessText", () => {
 describe("RealSubmitGateway", () => {
 	test("checkSubmitReadiness invokes Graphite dry-run submit", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -80,7 +105,7 @@ describe("RealSubmitGateway", () => {
 
 	test("forced readiness checks pass --force before --dry-run", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -107,7 +132,7 @@ describe("RealSubmitGateway", () => {
 
 	test("Graphite command output is streamed to the optional listener", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -142,7 +167,7 @@ describe("RealSubmitGateway", () => {
 
 	test("checkSubmitReadiness maps restack-required dry-run output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -168,7 +193,7 @@ describe("RealSubmitGateway", () => {
 
 	test("checkSubmitReadiness classifies trunk-out-of-date dry-run output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -198,7 +223,7 @@ describe("RealSubmitGateway", () => {
 
 	test("checkSubmitReadiness classifies remotely updated branch dry-run output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -217,10 +242,10 @@ describe("RealSubmitGateway", () => {
 						"ERROR: Branch add-preflight-detect-and-skip-empty-branches has been updated remotely outside of Graphite. Use gt get or gt sync to sync with remote before submitting (or use the --force flag to override this check).\n",
 				},
 			),
-			step("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], {
+			execStep("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], {
 				stdout: "origin/add-preflight-detect-and-skip-empty-branches\n",
 			}),
-			step(
+			execStep(
 				"git",
 				[
 					"rev-list",
@@ -230,7 +255,7 @@ describe("RealSubmitGateway", () => {
 				],
 				{ stdout: "35\t1\n" },
 			),
-			step(
+			execStep(
 				"git",
 				[
 					"log",
@@ -265,7 +290,7 @@ describe("RealSubmitGateway", () => {
 
 	test("checkSubmitReadiness classifies empty-branch dry-run warnings", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -305,7 +330,7 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 
 	test("checkSubmitReadiness classifies empty branch when dry-run also reports no-op PRs", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -350,7 +375,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 	test("checkSubmitReadiness classifies merged PR not contained in trunk dry-run output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -384,12 +409,12 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 	test("restackCurrentStack reports conflicts from git conflict facts", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["restack", "--downstack", "--no-interactive"], {
+			execStep("gt", ["restack", "--downstack", "--no-interactive"], {
 				exitCode: 1,
 				stderr: "CONFLICT (content): merge conflict\n",
 			}),
-			step("git", ["diff", "--name-only", "--diff-filter=U"], { stdout: "src/app.ts\n" }),
-			step("git", ["status", "--porcelain"], { stdout: "UU src/app.ts\n" }),
+			execStep("git", ["diff", "--name-only", "--diff-filter=U"], { stdout: "src/app.ts\n" }),
+			execStep("git", ["status", "--porcelain"], { stdout: "UU src/app.ts\n" }),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
 
@@ -402,7 +427,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 	test("submitCurrentStack extracts PR links from submit output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -432,7 +457,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 	test("submitCurrentStack classifies Graphite PR-info lookup submit failure", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -465,7 +490,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 	test("submitCurrentStack classifies merged PR not contained in trunk submit output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -498,7 +523,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 	test("forced submit passes --force to Graphite", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -526,7 +551,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 	test("submitCurrentStack preserves semantic empty-branch failure from zero-exit output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -557,7 +582,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 	test("submitCurrentStack extracts the empty branch from Graphite validation output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
+			execStep(
 				"gt",
 				[
 					"submit",
@@ -598,7 +623,7 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 
 	test("verifyCurrentPr maps branch info without a PR link", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["branch", "info", "--no-interactive"], {
+			execStep("gt", ["branch", "info", "--no-interactive"], {
 				stdout: "feature/demo\n\nParent: master\n",
 			}),
 		]);
@@ -612,7 +637,7 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 
 	test("verifyCurrentPr reads PR links from branch info without opening the PR page", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["branch", "info", "--no-interactive"], {
+			execStep("gt", ["branch", "info", "--no-interactive"], {
 				stdout:
 					"feature/demo\n\nPR #456 (Open) Demo PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
 			}),
@@ -630,7 +655,7 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 
 	test("verifyCurrentPr maps startup errors", async () => {
 		const runner = new ScriptedCommandRunner([
-			startupErrorStep("gt", ["branch", "info", "--no-interactive"], "spawn gt ENOENT"),
+			spawnFailedStep("gt", ["branch", "info", "--no-interactive"], "spawn gt ENOENT"),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
 
@@ -639,7 +664,12 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 		expect(result).toMatchObject({
 			kind: "failed",
 			cause: "startup_error",
-			output: { startupError: "spawn gt ENOENT" },
+			output: {
+				type: "spawn-failed",
+				stdout: "",
+				stderr: "spawn gt ENOENT",
+				error: "spawn gt ENOENT",
+			},
 		});
 		runner.assertDone();
 	});
@@ -649,8 +679,13 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 			{
 				command: "gt",
 				args: ["branch", "info", "--no-interactive"],
-				exitCode: 124,
-				isKilled: true,
+				result: {
+					type: "timed-out",
+					stdout: "",
+					stderr: "",
+					code: 124,
+					signal: "SIGTERM",
+				},
 			},
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
@@ -663,7 +698,7 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 
 	test("verifyCurrentPr maps generic command failures", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["branch", "info", "--no-interactive"], {
+			execStep("gt", ["branch", "info", "--no-interactive"], {
 				exitCode: 2,
 				stderr: "Graphite failed\n",
 			}),
@@ -685,18 +720,18 @@ describe("runSubmitCommand", () => {
 		const gateway: SubmitGateway = {
 			checkSubmitReadiness: async () => ({
 				kind: "ready",
-				output: { stdout: "ready", stderr: "", exitCode: 0 },
+				output: exitedResult({ stdout: "ready", stderr: "", code: 0 }),
 			}),
 			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
 			submitCurrentStack: async () => ({
 				kind: "success",
-				output: { stdout: "submitted", stderr: "", exitCode: 0 },
+				output: exitedResult({ stdout: "submitted", stderr: "", code: 0 }),
 				prLinks: [linkA, linkB],
 			}),
 			updateStackPrs: async () => unexpectedCall("updateStackPrs"),
 			verifyCurrentPr: async () => ({
 				kind: "present",
-				output: { stdout: "current", stderr: "", exitCode: 0 },
+				output: exitedResult({ stdout: "current", stderr: "", code: 0 }),
 				prLinks: [linkB],
 			}),
 		};
@@ -771,7 +806,7 @@ describe("runSubmitCommand", () => {
 			checkSubmitReadiness: async () => ({
 				kind: "failed",
 				cause: { kind: "trunk_out_of_date" },
-				output: { stdout: "", stderr: "", exitCode: 1 },
+				output: exitedResult({ stdout: "", stderr: "", code: 1 }),
 			}),
 			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
 			submitCurrentStack: async () => unexpectedCall("submitCurrentStack"),
@@ -947,11 +982,11 @@ describe("RealSubmitMetadataGateway", () => {
 
 	test("inspectSubmitStack skips local diff reads for existing PR branches", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
+			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
 				stdout: "◯ master\n│\n◉ feature/demo (current)\n",
 			}),
-			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
+			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
+			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
 				stdout:
 					"feature/demo\n\nPR #456 (Open) Demo PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
 			}),
@@ -980,11 +1015,11 @@ describe("RealSubmitMetadataGateway", () => {
 
 	test("inspectSubmitStack fails when branch info reports a PR without a link", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
+			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
 				stdout: "◯ master\n│\n◉ feature/demo (current)\n",
 			}),
-			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
+			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
+			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
 				stdout: "feature/demo\n\nPR #456 (Open) Demo PR\n\nParent: master\n",
 			}),
 		]);
@@ -998,14 +1033,14 @@ describe("RealSubmitMetadataGateway", () => {
 
 	test("inspectSubmitStackTopology reads only topology and existing PR facts", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
+			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
 				stdout: "◯ master\n│\n◯ feature/base\n│\n◉ feature/demo (current)\n",
 			}),
-			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
+			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
+			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
 				stdout: "feature/demo\n\nParent: feature/base\n",
 			}),
-			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/base"], {
+			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/base"], {
 				stdout:
 					"feature/base\n\nPR #456 (Open) Base PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
 			}),
@@ -1035,17 +1070,17 @@ describe("RealSubmitMetadataGateway", () => {
 
 	test("inspectSubmitStack reads local diffs and commits for new submit branches", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
+			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
 				stdout: "◯ master\n│\n◯ feature/demo (current)\n",
 			}),
-			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
+			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
+			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
 				stdout: "feature/demo\n\nParent: master\n",
 			}),
-			step("git", ["log", "--format=%B%x00", "master..feature/demo"], {
+			execStep("git", ["log", "--format=%B%x00", "master..feature/demo"], {
 				stdout: "Add widget\n\nImplement widget.\0",
 			}),
-			step("git", ["diff", "master..feature/demo"], {
+			execStep("git", ["diff", "master..feature/demo"], {
 				stdout: "diff --git a/src/widget.ts b/src/widget.ts\n+code\n",
 			}),
 		]);
@@ -1074,16 +1109,16 @@ describe("RealSubmitMetadataGateway", () => {
 
 	test("inspectSubmitStack ignores upstack descendants when reading branch metadata", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
+			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
 				stdout:
 					"◯ master\n│\n◯ downstack/base\n│\n◉ feature/current (current)\n│\n◯ feature/upstack\n",
 			}),
-			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/current"], {
+			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
+			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/current"], {
 				stdout:
 					"feature/current\n\nPR #789 (Open) Current PR\nhttps://github.com/acme/project/pull/789\n\nParent: downstack/base\n",
 			}),
-			step("gt", ["branch", "info", "--no-interactive", "--branch", "downstack/base"], {
+			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "downstack/base"], {
 				stdout:
 					"downstack/base\n\nPR #456 (Open) Base PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
 			}),
@@ -1121,14 +1156,14 @@ describe("RealSubmitMetadataGateway", () => {
 
 	test("inspectSubmitStack fails on branch parent cycles", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
+			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
 				stdout: "◯ master\n│\n◯ feature/base\n│\n◉ feature/current (current)\n",
 			}),
-			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/current"], {
+			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
+			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/current"], {
 				stdout: "feature/current\n\nParent: feature/base\n",
 			}),
-			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/base"], {
+			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/base"], {
 				stdout: "feature/base\n\nParent: feature/current\n",
 			}),
 		]);
@@ -1142,9 +1177,13 @@ describe("RealSubmitMetadataGateway", () => {
 
 	test("amendBranchMetadataCommit uses Graphite modify without generated markers", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["modify", "--no-interactive", "-m", "Generated title", "-m", "Generated body"], {
-				stdout: "Modified\n",
-			}),
+			execStep(
+				"gt",
+				["modify", "--no-interactive", "-m", "Generated title", "-m", "Generated body"],
+				{
+					stdout: "Modified\n",
+				},
+			),
 		]);
 		const gateway = new RealSubmitMetadataGateway(runner.runner);
 

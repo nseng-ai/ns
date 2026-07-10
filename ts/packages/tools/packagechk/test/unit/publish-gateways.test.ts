@@ -24,7 +24,7 @@ describe("publish gateways", () => {
 				mkdirSync(join(projectDir, "dist"));
 				writeFileSync(join(projectDir, "dist", "sample.tar.gz"), "artifact");
 			}
-			return { stdout: "", stderr: "", code: 0, killed: false };
+			return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
 		};
 		try {
 			const gateway = new RealPypiPublishGateway({
@@ -54,10 +54,11 @@ describe("publish gateways", () => {
 
 	test("npm publish failures use shared command failure formatting", async () => {
 		const runner: CommandRunner = async () => ({
+			type: "exited",
 			stdout: "",
 			stderr: "publish denied",
 			code: 1,
-			killed: false,
+			signal: null,
 		});
 		const gateway = new RealNpmPublishGateway({
 			toolFinder: () => "/bin/npm",

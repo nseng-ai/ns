@@ -3,13 +3,12 @@ import { existsSync } from "node:fs";
 import { findWorkspaceRootByMarkers } from "./workspace-root.ts";
 import {
 	MAX_ERROR_CHARS,
+	commandSucceeded,
 	formatCommand,
 	formatCommandFailure,
-	formatCommandStartupFailure,
-	normalizeExecResult,
+	formatCommandSpawnFailure,
 	tailText,
 	type ExecResult,
-	type PiExecResultLike,
 } from "@nseng-ai/foundation/command";
 import {
 	formatErrorMessage,
@@ -26,7 +25,7 @@ export interface BrmemExecGateway {
 		command: string,
 		args: string[],
 		options?: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number; signal?: AbortSignal },
-	): Promise<PiExecResultLike>;
+	): Promise<ExecResult>;
 }
 
 export interface BrmemCallContext {
@@ -169,8 +168,10 @@ async function runBrmemOnCandidate(
 	const displayCommand = formatCommand(candidate.command, args);
 
 	try {
-		const result = normalizeExecResult(
-			await gateway.exec(candidate.command, args, execOptions(cwd, timeoutMs, env, signal)),
+		const result = await gateway.exec(
+			candidate.command,
+			args,
+			execOptions(cwd, timeoutMs, env, signal),
 		);
 		if (isLikelyCommandNotFound(result)) {
 			return {
@@ -277,7 +278,7 @@ export async function checkBrmemEntry(
 		signal: options.signal,
 	});
 	if (!run.ok) return { type: "error", error: run.error };
-	if (run.value.result.killed) {
+	if (run.value.result.type === "cancelled" || run.value.result.type === "timed-out") {
 		return {
 			type: "error",
 			error: brmemCommandFailure(
@@ -287,7 +288,7 @@ export async function checkBrmemEntry(
 			),
 		};
 	}
-	if (run.value.result.code === 0) {
+	if (commandSucceeded(run.value.result)) {
 		try {
 			const data = parseBrmemCheckData(run.value.result.stdout);
 			if (!data.present) return { type: "absent" };
@@ -324,7 +325,7 @@ export async function putBrmemEntryFromFile(
 		"json",
 	]);
 	if (!run.ok) return run;
-	if (run.value.result.code !== 0 || run.value.result.killed) {
+	if (!commandSucceeded(run.value.result)) {
 		return {
 			ok: false,
 			error: brmemCommandFailure("brmem_put_failed", "brmem put failed", run.value),
@@ -381,7 +382,7 @@ export async function listBrmemEntries(
 		"json",
 	]);
 	if (!run.ok) return run;
-	if (run.value.result.code !== 0 || run.value.result.killed) {
+	if (!commandSucceeded(run.value.result)) {
 		return {
 			ok: false,
 			error: brmemCommandFailure("brmem_list_failed", "brmem list failed", run.value),
@@ -667,16 +668,12 @@ function execOptions(
 }
 
 function formatStartupFailure(displayCommand: string, error: unknown): string {
-	return formatCommandStartupFailure("brmem command", displayCommand, error);
+	return formatCommandSpawnFailure("brmem command", displayCommand, error);
 }
 
 function isLikelyCommandNotFound(result: ExecResult): boolean {
-	if (result.startupError !== undefined) {
-		return true;
-	}
-	if (result.code !== 127 || result.killed) {
-		return false;
-	}
+	if (result.type === "spawn-failed") return true;
+	if (result.type !== "exited" || result.signal !== null || result.code !== 127) return false;
 
 	const output = `${result.stderr}\n${result.stdout}`.toLowerCase();
 	return (

@@ -4,24 +4,17 @@ import type {
 	SubagentFleetDisplayContext,
 } from "@nseng-ai/ns-pi-subagents/api";
 import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
+import type {
+	RawPiExecApi,
+	RawPiExecOptions,
+	RawPiExecResult,
+} from "@nseng-ai/pi/shared/exec-gateway";
 
-export interface ExecResult {
-	readonly stdout: string;
-	readonly stderr: string;
-	readonly code: number;
-	readonly killed?: boolean;
-}
+export type { RawPiExecOptions, RawPiExecResult };
 
-export interface ExecOptions {
-	readonly cwd?: string;
-	readonly timeout?: number;
-	readonly signal?: AbortSignal;
-}
-
-export interface ThermoCouncilExtensionAPI extends RunnerSubagentPi {
+export interface ThermoCouncilExtensionAPI extends RunnerSubagentPi, RawPiExecApi {
 	registerCommand(name: string, command: RegisteredCommand): void;
 	sendMessage?(message: CustomMessage): void | Promise<void>;
-	exec(command: string, args: readonly string[], options?: ExecOptions): Promise<ExecResult>;
 }
 
 export interface RegisteredCommand {

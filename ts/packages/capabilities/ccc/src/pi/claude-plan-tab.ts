@@ -8,14 +8,16 @@ import {
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import { createCccPiCommandApi } from "./pi-command-api.ts";
 
 const COMMAND_NAME = CCC_CLAUDE_PLAN_TAB_COMMAND_NAME;
 const PROMPT_DIR = join(homedir(), ".pi", "agent", "ccc-claude-plan-tab-prompts");
 
 export function registerCccClaudePlanTabCommand(
-	pi: ExtensionAPI,
+	rawPi: ExtensionAPI,
 	options: PromptFileOptions = {},
 ): void {
+	const pi = createCccPiCommandApi(rawPi);
 	const promptOptions = resolvePromptFileOptions(options, PROMPT_DIR);
 	registerCommandWithImmediateAck({
 		host: pi,

@@ -51,9 +51,10 @@ function validateNsExecCwd(
 ): ExecResult | undefined {
 	if (options?.cwd === undefined || options.cwd === ctx.cwd) return undefined;
 	return {
+		type: "exited",
 		code: 2,
+		signal: null,
 		stdout: "",
 		stderr: `ns command execution is scoped to ${ctx.cwd}; refusing command cwd ${options.cwd}.`,
-		killed: false,
 	};
 }

@@ -3,19 +3,13 @@ import { describe, expect, test } from "vitest";
 import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 
 import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
+import type { RawPiExecResult } from "../src/kit/shared/exec-gateway.ts";
 
 const ROOT = "/repo";
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 const JUST_CI_TIMEOUT_MS = 30 * 60 * 1000;
 
 type NotifyLevel = "info" | "warning" | "error";
-
-interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed: boolean;
-}
 
 interface RegisteredCommand {
 	description?: string;
@@ -81,9 +75,9 @@ class FakePi {
 	readonly renderers = new Map<string, unknown>();
 	readonly sentUserMessages: string[] = [];
 	private readonly commandInfos: SkillCommandInfo[];
-	private readonly execResult: ExecResult;
+	private readonly execResult: RawPiExecResult;
 
-	constructor(execResult: ExecResult, commandInfos: SkillCommandInfo[] = []) {
+	constructor(execResult: RawPiExecResult, commandInfos: SkillCommandInfo[] = []) {
 		this.execResult = execResult;
 		this.commandInfos = commandInfos;
 	}
@@ -100,10 +94,14 @@ class FakePi {
 		this.messages.push(message);
 	}
 
-	async exec(command: string, args: readonly string[], options?: ExecOptions): Promise<ExecResult> {
+	async exec(
+		command: string,
+		args: readonly string[],
+		options?: ExecOptions,
+	): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
-		options?.onStdout?.(this.execResult.stdout);
-		options?.onStderr?.(this.execResult.stderr);
+		options?.onStdout?.(this.execResult.stdout ?? "");
+		options?.onStderr?.(this.execResult.stderr ?? "");
 		return this.execResult;
 	}
 
@@ -116,12 +114,11 @@ class FakePi {
 	}
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function execResult(overrides: Partial<RawPiExecResult> = {}): RawPiExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
 	};
 }
 

@@ -1,4 +1,8 @@
-import { type ExecOutputListener, type ExecOutputStream } from "@nseng-ai/foundation/command";
+import {
+	type ExecOutputListener,
+	type ExecOutputStream,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
@@ -59,13 +63,7 @@ export type {
 const RESTACK_COMMAND_DISPLAY = "gt restack --downstack --no-interactive";
 const CURRENT_PR_COMMAND_DISPLAY = "gt branch info --no-interactive";
 
-export interface SubmitCommandOutput {
-	stdout: string;
-	stderr: string;
-	exitCode: number;
-	startupError?: string;
-	killed?: boolean;
-}
+export type SubmitCommandOutput = ExecResult;
 
 export type SubmitOutputStream = ExecOutputStream;
 export type SubmitOutputListener = ExecOutputListener;
@@ -91,9 +89,10 @@ export interface SubmitFailureTranscriptCommand {
 	commandDisplay?: string;
 	stdout: string;
 	stderr: string;
-	exitCode: number;
-	startupError?: string;
-	killed?: boolean;
+	termination: ExecResult["type"];
+	exitCode: number | null;
+	signal?: string | null;
+	error?: string;
 }
 
 export interface SubmitFailureTranscript {
@@ -757,9 +756,16 @@ function shouldFailPostSubmitVerification(
 }
 
 function normalizedFailureExitCode(output: SubmitCommandOutput): number {
-	if (output.startupError !== undefined) return 2;
-	if (output.killed === true) return 124;
-	return output.exitCode === 0 ? 1 : output.exitCode;
+	switch (output.type) {
+		case "spawn-failed":
+			return 2;
+		case "timed-out":
+			return 124;
+		case "cancelled":
+			return 130;
+		case "exited":
+			return output.signal === null && output.code !== null && output.code !== 0 ? output.code : 1;
+	}
 }
 
 function success(stdout: string): SubmitCommandResult {
@@ -820,16 +826,7 @@ function commandFailureTranscript(
 	return {
 		phase,
 		...(summary === undefined || summary.trim() === "" ? {} : { summary: summary.trimEnd() }),
-		commands: [
-			{
-				commandDisplay,
-				stdout: output.stdout,
-				stderr: output.stderr,
-				exitCode: normalizedFailureExitCode(output),
-				...(output.startupError === undefined ? {} : { startupError: output.startupError }),
-				...(output.killed === true ? { killed: true } : {}),
-			},
-		],
+		commands: [{ commandDisplay, ...failureTranscriptFields(output) }],
 	};
 }
 
@@ -856,27 +853,21 @@ function postSubmitFailureTranscript(
 		phase: "post-submit verification",
 		summary,
 		commands: [
-			{
-				commandDisplay: submitCommandDisplay,
-				stdout: submitted.output.stdout,
-				stderr: submitted.output.stderr,
-				exitCode: submitted.output.exitCode,
-				...(submitted.output.startupError === undefined
-					? {}
-					: { startupError: submitted.output.startupError }),
-				...(submitted.output.killed === true ? { killed: true } : {}),
-			},
-			{
-				commandDisplay: CURRENT_PR_COMMAND_DISPLAY,
-				stdout: currentPr.output.stdout,
-				stderr: currentPr.output.stderr,
-				exitCode: currentPr.output.exitCode,
-				...(currentPr.output.startupError === undefined
-					? {}
-					: { startupError: currentPr.output.startupError }),
-				...(currentPr.output.killed === true ? { killed: true } : {}),
-			},
+			{ commandDisplay: submitCommandDisplay, ...failureTranscriptFields(submitted.output) },
+			{ commandDisplay: CURRENT_PR_COMMAND_DISPLAY, ...failureTranscriptFields(currentPr.output) },
 		],
+	};
+}
+
+function failureTranscriptFields(
+	output: SubmitCommandOutput,
+): Omit<SubmitFailureTranscriptCommand, "commandDisplay"> {
+	return {
+		stdout: output.stdout,
+		stderr: output.stderr,
+		termination: output.type,
+		exitCode: output.type === "spawn-failed" ? null : output.code,
+		...(output.type === "spawn-failed" ? { error: output.error } : { signal: output.signal }),
 	};
 }
 

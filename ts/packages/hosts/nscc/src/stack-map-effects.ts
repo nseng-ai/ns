@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { shellQuote } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, shellQuote } from "@nseng-ai/foundation/exec";
 import {
 	createSlotClient,
 	type SlotCheckoutFailure,
@@ -104,7 +104,7 @@ export function createStackMapCmuxActivationExecutor(
 				cwd,
 				timeout: COMMAND_TIMEOUT_MS,
 			});
-			if (result.code === 0) return { type: "focused" };
+			if (commandSucceeded(result)) return { type: "focused" };
 			return {
 				type: "failed",
 				message: formatInlineCommandFailure("cmux rpc surface.focus", result),
@@ -128,7 +128,7 @@ export function createStackMapCmuxActivationExecutor(
 				cwd: target.worktreePath,
 				timeout: COMMAND_TIMEOUT_MS,
 			});
-			if (result.code === 0)
+			if (commandSucceeded(result))
 				return {
 					type: "opened",
 					message: `Opened cmux workspace for ${target.branchName} in ${target.slotName}.`,

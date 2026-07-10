@@ -1,9 +1,9 @@
 import {
 	commandSucceeded,
 	execApiToCommandRunner,
+	type CommandExecApi,
 	formatCommand,
 	formatCommandFailure,
-	piExecApiToCommandExecApi,
 } from "@nseng-ai/foundation/command";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import { isAbsolute, resolve } from "node:path";
@@ -35,7 +35,10 @@ import {
 	type BranchCreateResult,
 } from "./dispatch-prompt.ts";
 import type { SlotClient } from "@nseng-ai/slots/api";
-import type { CommandContext, ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import type { CommandContext } from "@nseng-ai/capability-kit/cmux/types";
+import type { CccPiCommandApi } from "./pi-command-api.ts";
+
+type DispatchFromTrunkRuntime = CommandExecApi & Pick<CccPiCommandApi, "getThinkingLevel">;
 
 const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME;
 const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
@@ -43,13 +46,13 @@ const TRUNK_DISPATCH_CONTEXT_NOTE =
 	"This branch was created from refreshed Graphite trunk and is intentionally unrelated to the caller's current stack.";
 
 interface GraphiteTrunkResolutionContext {
-	pi: Pick<ExtensionAPI, "exec">;
+	pi: CommandExecApi;
 	cwd: string;
 	metadataDbAccess: GraphiteMetadataDbAccess;
 }
 
 export async function handleCccSlotDispatchFromTrunk(options: {
-	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
+	pi: DispatchFromTrunkRuntime;
 	payloadOptions: ReturnType<typeof resolveDispatchPromptPayloadOptions>;
 	args: string;
 	ctx: CommandContext;
@@ -90,7 +93,7 @@ export async function handleCccSlotDispatchFromTrunk(options: {
 }
 
 export async function createTrackedBranchFromTrunkForPrompt(options: {
-	pi: Pick<ExtensionAPI, "exec">;
+	pi: CommandExecApi;
 	cwd: string;
 	prompt: string;
 	notify?: (message: string) => void;
@@ -138,7 +141,7 @@ async function resolveGraphiteTrunkBranch(
 	context: GraphiteTrunkResolutionContext,
 ): Promise<{ branch: string } | { error: string }> {
 	const { pi, cwd } = context;
-	const trunk = await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), {
+	const trunk = await runGraphiteCommand(execApiToCommandRunner(pi), {
 		cwd,
 		args: ["trunk", "--no-interactive"],
 	});
@@ -215,7 +218,7 @@ async function resolveGraphiteTrunkBranchFromMetadata(
 }
 
 async function refreshLocalTrunkBranch(options: {
-	pi: Pick<ExtensionAPI, "exec">;
+	pi: CommandExecApi;
 	cwd: string;
 	trunkBranch: string;
 }): Promise<{ ok: true } | { ok: false; message: string }> {

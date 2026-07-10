@@ -3,7 +3,7 @@ import type { z } from "zod";
 import type { GithubPrFeedbackGateway } from "./contract.ts";
 import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../pr-status.ts";
 import { withTemporaryJsonFile } from "../../kit/temp-files.ts";
-import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, type CommandRunner, type ExecResult } from "@nseng-ai/foundation/exec";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../cli.ts";
 import {
 	optionalEntry,
@@ -284,7 +284,7 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 				});
 				if (run.type === "startup_error")
 					return feedbackErr(failureFromStartup(run, "createPrReview"));
-				if (run.result.code !== 0 || run.result.killed)
+				if (!commandSucceeded(run.result))
 					return feedbackErr(
 						failureFromCompleted(run, "createPrReview", { prNumber: params.prNumber }),
 					);
@@ -617,13 +617,13 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 		];
 		const run = await this.runGh({ operation, args, params });
 		if (run.type === "startup_error") return feedbackErr(failureFromStartup(run, operation));
-		if (run.result.code !== 0 || run.result.killed) {
+		if (!commandSucceeded(run.result)) {
 			if (isExactPrLookupMiss(run.result, operation)) {
 				return feedbackOk({
 					found: false,
 					miss: {
 						stderr: run.result.stderr === "" ? "no PR found" : run.result.stderr,
-						exitCode: run.result.code,
+						exitCode: 1,
 					},
 				});
 			}
@@ -763,7 +763,7 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 		const run = await this.runGh(options);
 		if (run.type === "startup_error")
 			return feedbackErr(failureFromStartup(run, options.operation));
-		if (run.result.code !== 0 || run.result.killed)
+		if (!commandSucceeded(run.result))
 			return feedbackErr(
 				failureFromCompleted(run, options.operation, failureContextFields(options)),
 			);
@@ -803,7 +803,7 @@ function branchPrSummaryFromNode(node: GhBranchPrChecksNode): GithubPrSummary {
 }
 
 function isExactPrLookupMiss(result: ExecResult, operation: "getPr" | "getPrForBranch"): boolean {
-	if (result.code !== 1 || result.killed) return false;
+	if (result.type !== "exited" || result.signal !== null || result.code !== 1) return false;
 	const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
 	switch (operation) {
 		case "getPr":

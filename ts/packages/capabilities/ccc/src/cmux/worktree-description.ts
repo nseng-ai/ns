@@ -1,15 +1,9 @@
+import { commandSucceeded, type CommandExecApi } from "@nseng-ai/foundation/command";
+
 const GIT_TIMEOUT_MS = 5_000;
 
-interface ExecRuntime {
-	exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number },
-	): Promise<{ code: number; stdout: string; stderr: string; killed?: boolean }>;
-}
-
 export async function getWorktreeDescription(
-	pi: ExecRuntime,
+	pi: CommandExecApi,
 	worktreePath: string,
 	branchName: string,
 ): Promise<string> {
@@ -18,14 +12,14 @@ export async function getWorktreeDescription(
 }
 
 export async function getGitRepositoryName(
-	pi: ExecRuntime,
+	pi: CommandExecApi,
 	cwd: string,
 ): Promise<string | undefined> {
 	const remote = await pi.exec("git", ["remote", "get-url", "origin"], {
 		cwd,
 		timeout: GIT_TIMEOUT_MS,
 	});
-	if (remote.code === 0) {
+	if (commandSucceeded(remote)) {
 		const repoName = repositoryNameFromPath(remote.stdout.trim());
 		if (repoName) {
 			return repoName;
@@ -40,7 +34,7 @@ export async function getGitRepositoryName(
 			timeout: GIT_TIMEOUT_MS,
 		},
 	);
-	if (commonDir.code !== 0) {
+	if (!commandSucceeded(commonDir)) {
 		return undefined;
 	}
 

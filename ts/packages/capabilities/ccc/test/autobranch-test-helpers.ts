@@ -21,11 +21,11 @@ export interface GitWorldExecOptions {
 }
 
 export function ok(stdout = "", stderr = ""): CommandResult & ExecResult {
-	return { code: 0, stdout, stderr, killed: false };
+	return { type: "exited", code: 0, signal: null, stdout, stderr };
 }
 
 export function fail(stderr: string, code = 1): CommandResult & ExecResult {
-	return { code, stdout: "", stderr, killed: false };
+	return { type: "exited", code, signal: null, stdout: "", stderr };
 }
 
 export function eventIndex(events: readonly string[], prefix: string): number {
@@ -76,10 +76,10 @@ export function createGitWorldExec(options: GitWorldExecOptions = {}): {
 				return ok();
 			}
 			if (command === "git" && args[0] === "show-ref") {
-				return { code: 1, stdout: "", stderr: "", killed: false };
+				return { type: "exited", code: 1, signal: null, stdout: "", stderr: "" };
 			}
 			if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
-				return { code: 1, stdout: "", stderr: "", killed: false };
+				return { type: "exited", code: 1, signal: null, stdout: "", stderr: "" };
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "push") {
 				stashMessage = args.at(-1) ?? "";
@@ -137,7 +137,7 @@ export function createGitWorldExec(options: GitWorldExecOptions = {}): {
 			if (command === "git" && args[0] === "merge-base") {
 				return upstreamMode === "contains"
 					? ok()
-					: { code: 1, stdout: "", stderr: "", killed: false };
+					: { type: "exited", code: 1, signal: null, stdout: "", stderr: "" };
 			}
 			if (command === "git" && args[0] === "rev-list") {
 				return ok("abc123def456 parent987654\n");
@@ -157,9 +157,7 @@ export function createGitWorldExec(options: GitWorldExecOptions = {}): {
 				return ok();
 			}
 			if (command === "pi") {
-				return options.piResult === undefined
-					? ok("generated-branch\n")
-					: { ...options.piResult, killed: options.piResult.killed ?? false };
+				return options.piResult === undefined ? ok("generated-branch\n") : options.piResult;
 			}
 			return ok();
 		},

@@ -10,7 +10,8 @@ const SUCCESS_RESULT = {
 	stdout: "ok\n",
 	stderr: "",
 	code: 0,
-	killed: false,
+	type: "exited",
+	signal: null,
 } satisfies ExecResult;
 
 describe("runGraphiteCommand", () => {

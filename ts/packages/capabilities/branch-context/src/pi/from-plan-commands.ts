@@ -60,10 +60,10 @@ import type {
 	BranchContextExtensionOptions,
 	BranchContextOperations,
 	CommandContext,
-	ExtensionAPI,
 	NotifyLevel,
 	ReplacedSessionContext,
 } from "./host-types.ts";
+import type { BranchContextPiCommandApi } from "./pi-command-api.ts";
 
 export const CREATE_BRANCH_CONTEXT_COMMAND_NAME = BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME;
 export const GT_UPSTACK_IMPL_COMMAND_NAME = BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME;
@@ -225,7 +225,7 @@ interface StoredSavedPlanEvidence {
 type SelectedSavedPlanEvidence = ExplicitSavedPlanEvidence | StoredSavedPlanEvidence;
 
 interface RunCreateBranchContextCommandOptions {
-	pi: ExtensionAPI;
+	pi: BranchContextPiCommandApi;
 	rawArgs: string;
 	ctx: CommandContext;
 	extensionOptions: BranchContextExtensionOptions;
@@ -254,12 +254,12 @@ function shouldResolveTargetBranchInPreview(options: BranchContextExtensionOptio
 }
 
 function resolveBranchContextContext(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	cwd: string,
 	options: BranchContextExtensionOptions,
 ) {
 	if (options.createBranchContextContext !== undefined) {
-		return options.createBranchContextContext(pi, cwd);
+		return options.createBranchContextContext(pi.rawPi, cwd);
 	}
 	if (pi.exec !== undefined) {
 		return createBranchContextContext(
@@ -395,7 +395,7 @@ function setBranchCreation(
 }
 
 export async function resolveCreateBranchContextPlanFile(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	args: CreateBranchContextArgs,
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions = {},
@@ -404,7 +404,7 @@ export async function resolveCreateBranchContextPlanFile(
 }
 
 export async function deriveCreateBranchContextPreview(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	args: CreateBranchContextArgs,
 	ctx: CommandContext,
 	selected: SelectedSavedPlanFile,
@@ -454,7 +454,7 @@ export async function deriveCreateBranchContextPreview(
 }
 
 export async function resolveCreateBranchContextPreview(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	args: CreateBranchContextArgs,
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions = {},
@@ -566,7 +566,7 @@ ${preview.planContent}
 }
 
 export async function handleImplBranchContextCommand(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	args: string,
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions,
@@ -604,7 +604,7 @@ export async function handleImplBranchContextCommand(
 }
 
 export async function handleImplCurrentSavedPlanCommand(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	rawArgs: string,
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions,
@@ -711,7 +711,7 @@ export async function handleImplCurrentSavedPlanCommand(
 }
 
 export async function handleCreateBranchContextCommand(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	rawArgs: string,
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions,
@@ -740,7 +740,7 @@ export async function handleCreateBranchContextCommand(
 }
 
 export async function handleGtUpstackImplCommand(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	rawArgs: string,
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions,
@@ -896,7 +896,7 @@ async function runCreateBranchContextCommand(
 }
 
 interface CreateBranchContextFromPreviewOptions {
-	pi: ExtensionAPI;
+	pi: BranchContextPiCommandApi;
 	preview: CreateBranchContextPreview;
 	ctx: CommandContext;
 	operations: BranchContextOperations;
@@ -904,7 +904,7 @@ interface CreateBranchContextFromPreviewOptions {
 }
 
 interface HandleGtUpstackImplExistingReuseOptions {
-	pi: ExtensionAPI;
+	pi: BranchContextPiCommandApi;
 	args: CreateBranchContextArgs;
 	ctx: CommandContext;
 	originalError: unknown;
@@ -1020,7 +1020,7 @@ interface ImplCurrentSavedPlanLaunchOptions {
 }
 
 interface GtUpstackImplLaunchTailOptions {
-	pi: ExtensionAPI;
+	pi: BranchContextPiCommandApi;
 	ctx: CommandContext;
 	mode: GtUpstackImplMode;
 	target: Pick<BranchContextEvidence, "branch" | "key">;
@@ -1138,7 +1138,7 @@ function formatGtUpstackImplCancelledMessage(
 }
 
 async function resolveSelectedSavedPlanFile(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	args: { filePath?: string },
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions,
@@ -1201,7 +1201,7 @@ function deriveBranchContextTargetBranch(
 }
 
 function presentBranchContextFailure(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	ctx: CommandContext,
 	title: string,
 	error: unknown,
@@ -1217,7 +1217,7 @@ function presentBranchContextFailure(
 }
 
 function presentBranchContextMessage(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	ctx: CommandContext,
 	content: string,
 	details: BranchContextOutputDetails,
@@ -1241,7 +1241,7 @@ function presentBranchContextMessage(
 }
 
 export function registerBranchContextCommands(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	options: BranchContextExtensionOptions = {},
 ): void {
 	registerCommandWithImmediateAck({

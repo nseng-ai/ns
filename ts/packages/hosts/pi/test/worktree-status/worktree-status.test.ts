@@ -30,6 +30,7 @@ import type { GraphiteMetadataStatus } from "@nseng-ai/capability-kit/graphite/s
 
 const ROOT = "/repo";
 const HEAD_OID = "abc123";
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 
 interface ExecCall {
 	command: string;
@@ -39,7 +40,7 @@ interface ExecCall {
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: Partial<ExitedResult> | undefined;
 }
 
 class FakePi {
@@ -50,7 +51,7 @@ class FakePi {
 		this.script = new ScriptedQueue(script, (step) => step);
 	}
 
-	async exec(command: string, args: string[]): Promise<ExecResult> {
+	async exec(command: string, args: string[]): Promise<ExitedResult> {
 		this.calls.push({ command, args: [...args] });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
@@ -81,7 +82,7 @@ class OrderlessFakePi {
 		this.script = [...script];
 	}
 
-	async exec(command: string, args: string[]): Promise<ExecResult> {
+	async exec(command: string, args: string[]): Promise<ExitedResult> {
 		this.calls.push({ command, args: [...args] });
 		const index = this.script.findIndex(
 			(expected) => expected.command === command && sameArgs(expected.args, args),
@@ -106,16 +107,17 @@ function sameArgs(left: string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function execResult(overrides: Partial<ExitedResult> = {}): ExitedResult {
 	return {
+		type: "exited",
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
+		signal: overrides.signal ?? null,
 	};
 }
 
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
+function step(command: string, args: string[], result?: Partial<ExitedResult>): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -131,7 +133,7 @@ function remoteOriginStep(url = "git@github.com:dagster-io/sdl-tools.git"): Scri
 	return step("git", ["config", "--get", "remote.origin.url"], { stdout: `${url}\n` });
 }
 
-function brmemListStep(result: Partial<ExecResult>): ScriptedExec {
+function brmemListStep(result: Partial<ExitedResult>): ScriptedExec {
 	return step("brmem", ["list", "--format", "json"], result);
 }
 
@@ -244,7 +246,7 @@ interface WorktreePrNodeFixture {
 
 function ghWorktreePrStep(options: {
 	nodes: WorktreePrNodeFixture[];
-	result?: Partial<ExecResult>;
+	result?: Partial<ExitedResult>;
 }): ScriptedExec {
 	return step(
 		"gh",

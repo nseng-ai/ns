@@ -6,12 +6,31 @@ import { RealCmuxGateway } from "../../src/cmux/gateway.ts";
 
 const CWD = "/repo";
 
-function cmux(results: readonly Partial<ExecResult>[] = []): {
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<ExitedResult> | Exclude<ExecResult, ExitedResult>;
+
+function cmux(results: readonly ExecResultFixture[] = []): {
 	gateway: RealCmuxGateway;
 	commands: ScriptedCommandExecApi;
 } {
-	const commands = new ScriptedCommandExecApi(results);
+	const commands = new ScriptedCommandExecApi(results.map(makeExecResult));
 	return { gateway: new RealCmuxGateway(commands), commands };
+}
+
+function makeExecResult(result: ExecResultFixture): ExecResult {
+	switch (result.type) {
+		case "spawn-failed":
+		case "cancelled":
+		case "timed-out":
+			return result;
+	}
+	return {
+		type: "exited",
+		stdout: result.stdout ?? "",
+		stderr: result.stderr ?? "",
+		code: result.code ?? 0,
+		signal: result.signal ?? null,
+	};
 }
 
 describe("RealCmuxGateway", () => {
@@ -251,7 +270,9 @@ describe("RealCmuxGateway", () => {
 	});
 
 	test("nonzero and killed command results return command failures", async () => {
-		const { gateway } = cmux([{ code: 124, killed: true, stderr: "timed out" }]);
+		const { gateway } = cmux([
+			{ type: "timed-out", code: 124, signal: null, stdout: "", stderr: "timed out" },
+		]);
 
 		const result = await gateway.sendText({
 			cwd: CWD,
@@ -263,8 +284,11 @@ describe("RealCmuxGateway", () => {
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.failure.operation).toBe("send-text");
-			expect(result.failure.commandFailure?.isKilled).toBe(true);
-			expect(result.failure.commandFailure?.exitCode).toBe(124);
+			expect(result.failure.commandFailure?.result).toMatchObject({
+				type: "timed-out",
+				code: 124,
+				signal: null,
+			});
 		}
 	});
 
@@ -277,7 +301,10 @@ describe("RealCmuxGateway", () => {
 		expect(result.type).toBe("failed");
 		if (result.type === "failed") {
 			expect(result.failure.operation).toBe("identify-caller");
-			expect(result.failure.commandFailure?.startupError).toContain("spawn ENOENT");
+			expect(result.failure.commandFailure?.result).toMatchObject({
+				type: "spawn-failed",
+				error: expect.stringContaining("spawn ENOENT"),
+			});
 			expect(result.failure.commandFailure?.command).toEqual([
 				"cmux",
 				"identify",

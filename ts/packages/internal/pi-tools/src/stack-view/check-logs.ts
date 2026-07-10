@@ -65,11 +65,10 @@ export type FetchCheckLogTailResult = { ok: true; logTail: string } | { ok: fals
 /**
  * Fetch the tail of a check's GitHub Actions job log through the exec seam.
  * Resolves the log source via {@link resolveCheckLogSource} (which returns the
- * proven `gh` argv), then execs `gh`; a nonzero exit or startup error maps to
- * `{ ok: false }` (`commandSucceeded` already fails a startup-error result), and
- * a successful log is truncated to the final `maxChars` characters. The exec
- * seam normalizes host rejections into `{ startupError }` results, so this
- * helper never throws, matching the stack-view errors-as-values contract.
+ * proven `gh` argv), then execs `gh`; any non-success termination maps to
+ * `{ ok: false }`, and a successful log is truncated to the final `maxChars`
+ * characters. The injected command gateway returns failures as union arms, so
+ * this helper preserves the stack-view errors-as-values contract.
  */
 export async function fetchCheckLogTail(
 	options: FetchCheckLogTailOptions,

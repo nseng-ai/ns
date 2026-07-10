@@ -12,7 +12,9 @@ import {
 	writeSavedPlanFile,
 } from "../../src/index.ts";
 
-const unusedPi = { exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }) };
+const unusedPi = {
+	exec: async () => ({ type: "exited" as const, stdout: "", stderr: "", code: 0, signal: null }),
+};
 
 describe("RealPlanStoreGateway", () => {
 	test("writes saved plans exclusively and latest selection reads real mtimes", async () => {

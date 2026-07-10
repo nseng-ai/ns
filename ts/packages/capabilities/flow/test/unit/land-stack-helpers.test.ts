@@ -86,7 +86,7 @@ interface ExecCall {
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: ExitedResultFields | undefined;
 }
 
 interface Notification {
@@ -161,13 +161,20 @@ function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	code?: number | null;
+	signal?: string | null;
+}
+
+function execResult(overrides: ExitedResultFields = {}): ExecResult {
 	return {
+		type: "exited",
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
-		...(overrides.startupError === undefined ? {} : { startupError: overrides.startupError }),
+		signal: overrides.signal ?? null,
 	};
 }
 
@@ -195,7 +202,7 @@ function expectDomainFailure(result: LandOutcome) {
 	return result.failure;
 }
 
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
+function step(command: string, args: string[], result?: ExitedResultFields): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -647,7 +654,7 @@ describe("land-stack pure helpers", () => {
 		const result = await graphite.run({ operation, cwd: ROOT, timeoutMs: 123 });
 
 		pi.assertDone();
-		expect(result.code).toBe(0);
+		expect(result).toMatchObject({ type: "exited", code: 0, signal: null });
 		expect(formatGraphiteOperation(operation)).toBe("gt untrack stale-branch");
 	});
 
@@ -734,29 +741,39 @@ describe("land-stack pure helpers", () => {
 		expect(failure).toContain("Suggested next action: Run gt restack.");
 	});
 
-	test("command streaming returns failed command data when pi.exec throws", async () => {
-		class ThrowingPi extends FakePi {
+	test("command streaming preserves explicit spawn failure data", async () => {
+		class SpawnFailingExec extends FakePi {
 			override async exec(
 				command: string,
 				args: string[],
 				options?: { cwd?: string; timeout?: number },
 			): Promise<ExecResult> {
 				this.execCalls.push({ command, args: [...args], options });
-				throw new Error("spawn failed");
+				return {
+					type: "spawn-failed",
+					stdout: "",
+					stderr: "spawn failed",
+					error: "spawn failed",
+				};
 			}
 		}
 
-		const pi = new ThrowingPi();
+		const pi = new SpawnFailingExec();
 		const context = createContext();
 		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
 		const streamed = withCommandStreaming(pi, commandStream);
 
 		const result = await streamed.exec("git", ["status"], { cwd: ROOT });
 
-		expect(result).toEqual(
-			execResult({ code: 127, stderr: "spawn failed", startupError: "spawn failed" }),
+		expect(result).toEqual({
+			type: "spawn-failed",
+			stdout: "",
+			stderr: "spawn failed",
+			error: "spawn failed",
+		});
+		expect(commandMessagesText(pi.messages)).toContain(
+			"✗ $ git status — spawn failed: spawn failed",
 		);
-		expect(commandMessagesText(pi.messages)).toContain("✗ $ git status — exit 127");
 		expect(commandMessagesText(pi.messages)).toContain("spawn failed");
 	});
 

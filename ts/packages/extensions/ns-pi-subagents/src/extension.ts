@@ -1,5 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadPiAgentDefinition } from "@nseng-ai/pi/runtime/agent-definition";
+import {
+	createPiCommandExecApi,
+	type RawPiExecApi,
+} from "@nseng-ai/pi/shared/exec-gateway";
 
 import { buildSubagentDelegationDoctrine } from "./delegation-doctrine.ts";
 import { EXPLORER_AGENT_DESCRIPTOR } from "./agents/explorer.ts";
@@ -28,7 +32,8 @@ import {
 } from "./runtime/seam.ts";
 import { registerSubagentTool, type SubagentToolHost } from "./tool/subagent.ts";
 
-export type NsPiSubagentsExtensionAPI = SubagentToolHost &
+export type NsPiSubagentsExtensionAPI = Omit<SubagentToolHost, "exec"> &
+	RawPiExecApi &
 	Pick<ExtensionAPI, "on"> & {
 		registerCommand?: CommandRegistrar;
 		registerShortcut?: RegisterShortcutFunction;
@@ -50,9 +55,11 @@ export default function nsPiSubagentsExtension(
 ): void {
 	const cwd = options.cwd ?? process.cwd();
 	const loadDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
+	const commands = createPiCommandExecApi(pi);
+	const subagentToolHost = createSubagentToolHost(pi, commands);
 	const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
-	const readGitHead = options.readGitHead ?? createGitReadHead({ exec: pi });
-	const fleetNavigatorDependencies = resolveFleetNavigatorDependencies(pi, options);
+	const readGitHead = options.readGitHead ?? createGitReadHead({ exec: commands });
+	const fleetNavigatorDependencies = resolveFleetNavigatorDependencies(commands, options);
 	const fleetCommandInput = {
 		pi,
 		registry: fleetRegistry,
@@ -64,7 +71,7 @@ export default function nsPiSubagentsExtension(
 		[EXPLORER_AGENT_DESCRIPTOR, TASK_AGENT_DESCRIPTOR],
 		(name) => loadDefinition(name, cwd),
 	);
-	const registration = registerSubagentTool(pi, {
+	const registration = registerSubagentTool(subagentToolHost, {
 		agents,
 		fleetRegistry,
 		readGitHead,
@@ -79,6 +86,20 @@ export default function nsPiSubagentsExtension(
 			systemPrompt: `${event.systemPrompt}\n\n${doctrine}`,
 		}));
 	}
+}
+
+function createSubagentToolHost(
+	pi: NsPiSubagentsExtensionAPI,
+	commands: ReturnType<typeof createPiCommandExecApi>,
+): SubagentToolHost {
+	return {
+		...pi,
+		registerTool: pi.registerTool.bind(pi),
+		exec: commands.exec,
+		...(pi.getThinkingLevel === undefined
+			? {}
+			: { getThinkingLevel: pi.getThinkingLevel.bind(pi) }),
+	};
 }
 
 function defaultRuntimeAdapters(
@@ -114,10 +135,13 @@ function defaultRuntimeAdapters(
 }
 
 function resolveFleetNavigatorDependencies(
-	pi: NsPiSubagentsExtensionAPI,
+	commands: ReturnType<typeof createPiCommandExecApi>,
 	options: NsPiSubagentsExtensionOptions,
 ): ReadTextFileDependencies {
 	const explicit = options.fleetNavigatorDependencies;
 	if (explicit?.readWorktreeState !== undefined) return explicit;
-	return { ...(explicit ?? {}), readWorktreeState: createGitReadWorktreeState({ exec: pi }) };
+	return {
+		...(explicit ?? {}),
+		readWorktreeState: createGitReadWorktreeState({ exec: commands }),
+	};
 }

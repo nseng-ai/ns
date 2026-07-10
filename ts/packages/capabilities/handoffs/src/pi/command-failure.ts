@@ -1,7 +1,7 @@
 import {
 	type ExecResult,
 	formatCommandFailure,
-	formatCommandStartupFailure,
+	formatCommandSpawnFailure,
 } from "@nseng-ai/foundation/command";
 
 export function formatExecFailure(commandDisplay: string, result: ExecResult): string {
@@ -9,5 +9,5 @@ export function formatExecFailure(commandDisplay: string, result: ExecResult): s
 }
 
 export function formatStartupFailure(commandDisplay: string, error: unknown): string {
-	return formatCommandStartupFailure("command failed", commandDisplay, error);
+	return formatCommandSpawnFailure("command failed", commandDisplay, error);
 }

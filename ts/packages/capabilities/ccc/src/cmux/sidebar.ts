@@ -22,11 +22,11 @@ import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type {
 	AgentEndContext,
 	CommandContext,
-	ExtensionAPI,
 	ModelInfo,
 	NotifyLevel,
 	ThinkingLevel,
 } from "@nseng-ai/capability-kit/cmux/types";
+import type { CccPiCommandApi } from "./pi-command-api.ts";
 
 const SKILL_NAME = "ccc-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";
@@ -54,7 +54,7 @@ export interface ObjectiveSidebarHandlerOptions {
 }
 
 export function createCccSidebarController(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	objectiveSidebarOptions: ObjectiveSidebarHandlerOptions,
 ): CccSidebarController {
 	let pendingRestore: RestoreState | undefined;
@@ -159,7 +159,7 @@ The command clears the old cmux status pill. Do not assign shell variables. Do n
 }
 
 async function handleDeterministicObjectiveSidebar(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	args: string,
 	ctx: CommandContext,
 	_options: ObjectiveSidebarHandlerOptions,
@@ -209,7 +209,7 @@ async function handleDeterministicObjectiveSidebar(
 }
 
 async function resolveObjectiveSidebarSlug(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	args: string,
 	ctx: CommandContext,
 ): Promise<string | undefined> {
@@ -235,7 +235,7 @@ async function resolveObjectiveSidebarSlug(
 }
 
 async function queueSessionSidebar(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	ctx: CommandContext,
 	options: ObjectiveSidebarHandlerOptions,
 	setPendingRestore: (state: RestoreState) => void,
@@ -249,7 +249,7 @@ async function queueSessionSidebar(
 }
 
 async function queueBranchStateSidebar(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	ctx: CommandContext,
 	options: ObjectiveSidebarHandlerOptions,
 	setPendingRestore: (state: RestoreState) => void,
@@ -263,7 +263,7 @@ async function queueBranchStateSidebar(
 }
 
 async function queueModelAssistedSidebar(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	ctx: CommandContext,
 	sidebarOptions: ObjectiveSidebarHandlerOptions,
 	setPendingRestore: (state: RestoreState) => void,
@@ -323,7 +323,7 @@ async function expandSidebarSkillBlock(
 }
 
 async function switchToFastSidebarModel(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	ctx: CommandContext,
 ): Promise<RestoreState | undefined> {
 	const resolution = resolveModelRef(process.env, SIDEBAR_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
@@ -357,7 +357,7 @@ async function switchToFastSidebarModel(
 }
 
 async function restoreModelState(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	ctx: AgentEndContext,
 	restoreState: RestoreState,
 ): Promise<void> {

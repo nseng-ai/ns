@@ -27,15 +27,16 @@ export const commandRefSchema = z.object({
 export type CommandRef = z.output<typeof commandRefSchema>;
 
 export const commandSummarySchema = commandRefSchema.extend({
-	exitCode: z.number().int(),
+	exitCode: z.number().int().nullable(),
 });
 export type CommandSummary = z.output<typeof commandSummarySchema>;
 
 export const commandFailureDataSchema = commandSummarySchema.extend({
-	killed: z.boolean(),
+	termination: z.enum(["exited", "spawn-failed", "cancelled", "timed-out"]),
+	signal: z.string().nullable().optional(),
 	stdout: z.string(),
 	stderr: z.string(),
-	startupError: z.string().optional(),
+	error: z.string().optional(),
 });
 export type CommandFailureData = z.output<typeof commandFailureDataSchema>;
 
@@ -66,17 +67,18 @@ export async function runTrackedCommand(
 	});
 	const summary: CommandSummary = {
 		...commandRefFrom(request),
-		exitCode: result.code,
+		exitCode: result.type === "spawn-failed" ? null : result.code,
 	};
 	if (commandSucceeded(result)) return { type: "ok", summary, result };
 	const data: CommandFailureData = {
 		...summary,
-		killed: result.killed,
+		termination: result.type,
+		...(result.type === "spawn-failed" ? {} : { signal: result.signal }),
 		stdout: snippet(result.stdout),
 		stderr: snippet(result.stderr),
-		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
+		...(result.type === "spawn-failed" ? { error: result.error } : {}),
 	};
-	const details = result.startupError ?? formatCommandDetails(result);
+	const details = formatCommandDetails(result);
 	return {
 		type: "failed",
 		message: `Command failed: ${displayCommand} (${details})`,

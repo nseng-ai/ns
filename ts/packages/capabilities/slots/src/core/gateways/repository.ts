@@ -2,7 +2,11 @@ import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	type CommandExecApi,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import {
 	detectGitOperationInProgressAt,
 	parseGitWorktreePorcelain,
@@ -121,7 +125,7 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 		const result = await this.git(["worktree", "list", "--porcelain"], this.cwd, {
 			operation: "slot.git.list_worktrees",
 		});
-		return parseGitWorktreePorcelain(result.stdout).map((worktree) => ({
+		return parseGitWorktreePorcelain(result.result.stdout).map((worktree) => ({
 			path: worktree.path,
 			branch: worktree.branch,
 		}));
@@ -131,7 +135,7 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 		const result = await this.git(["worktree", "list", "--porcelain"], this.cwd, {
 			operation: "slot.git.list_branch_occupancies",
 		});
-		const occupancies = parseGitWorktreePorcelain(result.stdout).map((worktree) => {
+		const occupancies = parseGitWorktreePorcelain(result.result.stdout).map((worktree) => {
 			const operation = this.worktreeOperation(worktree.path);
 			if (operation === null) {
 				if (worktree.branch === null) return null;
@@ -266,32 +270,36 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 			operation: options.operation ?? "slot.git.command",
 			...optionalEntry("diagnosticSink", this.diagnosticSink),
 		});
-		const commandResult = {
-			isOk: result.code === 0 && !result.killed,
-			stdout: result.stdout,
-			stderr: result.stderr,
-			code: result.code,
-			killed: result.killed,
-		};
+		const commandResult = { isOk: commandSucceeded(result), result };
 		if (commandResult.isOk || options.allowFailure) return commandResult;
-		throw new Error(`git ${args.join(" ")} failed with exit code ${result.code}: ${result.stderr}`);
+		throw new Error(`git ${args.join(" ")} failed: ${gitFailureMessage(result)}`);
 	}
 }
 
 interface CommandResult {
 	isOk: boolean;
-	stdout: string;
-	stderr: string;
-	code: number | null;
-	killed: boolean;
+	result: ExecResult;
 }
 
-function failureFromResult(result: CommandResult): GitCommandFailure {
-	const output =
-		result.stderr.trim() ||
-		result.stdout.trim() ||
-		(result.killed ? "git command was killed" : "git command failed");
-	return { message: output };
+function failureFromResult(commandResult: CommandResult): GitCommandFailure {
+	return { message: gitFailureMessage(commandResult.result) };
+}
+
+function gitFailureMessage(result: ExecResult): string {
+	const output = result.stderr.trim() || result.stdout.trim();
+	if (output !== "") return output;
+	switch (result.type) {
+		case "spawn-failed":
+			return `git failed to start: ${result.error}`;
+		case "cancelled":
+			return "git command was cancelled";
+		case "timed-out":
+			return "git command timed out";
+		case "exited":
+			return result.signal === null
+				? `git exited with status ${result.code ?? "unknown"}`
+				: `git exited after signal ${result.signal} (status ${result.code ?? "unknown"})`;
+	}
 }
 
 export function mainRepoRootFromGitCommonDir(gitCommonDir: string): string {

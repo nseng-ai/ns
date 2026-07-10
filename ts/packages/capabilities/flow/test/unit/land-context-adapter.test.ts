@@ -70,7 +70,7 @@ interface ExecCall {
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: ExitedResultFields | undefined;
 }
 
 class FakePi implements LandStackExtensionAPI {
@@ -103,17 +103,24 @@ class FakePi implements LandStackExtensionAPI {
 	}
 }
 
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
+function step(command: string, args: string[], result?: ExitedResultFields): ScriptedExec {
 	return { command, args, result };
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	code?: number | null;
+	signal?: string | null;
+}
+
+function execResult(overrides: ExitedResultFields = {}): ExecResult {
 	return {
+		type: "exited",
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
-		...(overrides.startupError === undefined ? {} : { startupError: overrides.startupError }),
+		signal: overrides.signal ?? null,
 	};
 }
 

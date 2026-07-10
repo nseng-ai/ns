@@ -11,6 +11,11 @@ import type { Clock } from "@nseng-ai/foundation/clock";
 import { systemClock } from "@nseng-ai/foundation/time";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import { shutdownGraphiteMetadataWorker } from "@nseng-ai/capability-kit/graphite/status";
+import {
+	createPiCommandExecApi,
+	type ExecGateway,
+	type RawPiExecApi,
+} from "../kit/shared/exec-gateway.ts";
 
 import {
 	combineWorktreeStatus,
@@ -44,7 +49,6 @@ import {
 } from "./refresh-timer.ts";
 import { renderStatusFooter } from "./footer-format.ts";
 import type {
-	ExecResult,
 	LoadLocalWorktreeStatusOptions,
 	LoadWorktreeGhStatusOptions,
 	LocalWorktreeStatus,
@@ -76,12 +80,6 @@ type WorktreeStatusActivityEvent =
 	| "tool_execution_end"
 	| "model_select"
 	| "thinking_level_select";
-
-interface ExecOptions {
-	cwd?: string;
-	timeout?: number;
-	signal?: AbortSignal;
-}
 
 export interface ExtensionContext {
 	cwd: string;
@@ -180,7 +178,7 @@ interface CommandRegistrationExtensionAPI extends ExtensionAPI {
 	registerCommand(name: string, options: RegisteredCommand): void;
 }
 
-export interface ExtensionAPI {
+export interface ExtensionAPI extends RawPiExecApi {
 	readonly events?: PiExtensionCommandEventBus;
 	on(
 		event: "session_start",
@@ -191,7 +189,6 @@ export interface ExtensionAPI {
 		event: WorktreeStatusActivityEvent,
 		handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void,
 	): void;
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	registerCommand?(name: string, options: RegisteredCommand): void;
 	registerMessageRenderer?(customType: string, renderer: WorktreeStatusMessageRenderer): void;
 }
@@ -203,19 +200,19 @@ interface GhStatusSnapshot {
 }
 
 export type WorktreeStatusIdentityLoader = (
-	pi: ExtensionAPI,
+	pi: ExecGateway,
 	cwd: string,
 	signal?: AbortSignal,
 ) => Promise<WorktreeStatusIdentity>;
 
 export type LocalWorktreeStatusLoader = (
-	pi: ExtensionAPI,
+	pi: ExecGateway,
 	cwd: string,
 	options?: LoadLocalWorktreeStatusOptions,
 ) => Promise<LocalWorktreeStatus>;
 
 export type WorktreeGhStatusLoader = (
-	pi: ExtensionAPI,
+	pi: ExecGateway,
 	cwd: string,
 	options?: LoadWorktreeGhStatusOptions,
 ) => Promise<WorktreeGhStatus>;
@@ -274,6 +271,7 @@ export default function worktreeStatusExtension(
 	dependencies: WorktreeStatusExtensionDependencies = {},
 ): void {
 	pi.registerMessageRenderer?.(WORKTREE_STATUS_UI_KEY, renderWorktreeStatusMessage);
+	const commands = createPiCommandExecApi(pi);
 
 	const loaders: WorktreeStatusLoaders = {
 		loadIdentity: dependencies.loaders?.loadIdentity ?? loadWorktreeStatusIdentity,
@@ -437,7 +435,7 @@ export default function worktreeStatusExtension(
 		if (!session.hasUI || !isActiveSession(session)) return;
 
 		const previousIdentity = session.localStatus?.identity;
-		let status = await loaders.loadLocalStatus(pi, session.cwd, {
+		let status = await loaders.loadLocalStatus(commands, session.cwd, {
 			...optionalEntry("identity", identity),
 			signal: session.abortController.signal,
 		});
@@ -446,7 +444,7 @@ export default function worktreeStatusExtension(
 		const sharedIdentityStale =
 			identity !== undefined && !loaders.isIdentityCurrent(session.cwd, identity);
 		if (sharedIdentityStale) {
-			status = await loaders.loadLocalStatus(pi, session.cwd, {
+			status = await loaders.loadLocalStatus(commands, session.cwd, {
 				signal: session.abortController.signal,
 			});
 			if (!isActiveSession(session)) return;
@@ -473,7 +471,7 @@ export default function worktreeStatusExtension(
 			renderSessionStatus(session);
 			return;
 		}
-		const status = await loaders.loadGhStatus(pi, session.cwd, {
+		const status = await loaders.loadGhStatus(commands, session.cwd, {
 			identity: fetchIdentity,
 			signal: session.abortController.signal,
 		});
@@ -512,7 +510,11 @@ export default function worktreeStatusExtension(
 		const mode = remoteRefreshMode(options);
 		if (session.isDormant && mode !== "force") return;
 
-		const identity = await loaders.loadIdentity(pi, session.cwd, session.abortController.signal);
+		const identity = await loaders.loadIdentity(
+			commands,
+			session.cwd,
+			session.abortController.signal,
+		);
 		if (!isActiveSession(session)) return;
 		const refreshes = [refreshLocalNowWithIdentity(session, identity)];
 		if (mode !== "skip") {

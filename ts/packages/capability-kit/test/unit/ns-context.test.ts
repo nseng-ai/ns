@@ -96,12 +96,15 @@ function fakeApi(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 	};
 }
 
-function makeExecResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function makeExecResult(
+	overrides: Partial<Extract<ExecResult, { type: "exited" }>> = {},
+): ExecResult {
 	return {
 		stdout: "",
 		stderr: "",
 		code: 0,
-		killed: false,
+		type: "exited",
+		signal: null,
 		...overrides,
 	};
 }

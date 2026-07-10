@@ -132,14 +132,19 @@ export class RealSubmitGateway implements SubmitGateway {
 			timeoutMs: CURRENT_PR_TIMEOUT_MS,
 			...optionalOutputListenerParam(params.onOutput),
 		});
-		if (output.startupError !== undefined) {
+		if (output.type === "spawn-failed") {
 			return { kind: "failed", output, cause: "startup_error" };
 		}
-		if (output.killed === true) {
+		if (output.type === "timed-out") {
 			return { kind: "failed", output, cause: "timeout" };
 		}
-		if (output.exitCode !== 0) {
-			if (/No PR found/i.test(stripTerminalEscapes(joinOutput(output)))) {
+		if (output.type !== "exited" || output.signal !== null || output.code !== 0) {
+			if (
+				output.type === "exited" &&
+				output.signal === null &&
+				output.code !== 0 &&
+				/No PR found/i.test(stripTerminalEscapes(joinOutput(output)))
+			) {
 				return { kind: "no_current_pr", output, cause: "no_current_pr" };
 			}
 			return { kind: "failed", output, cause: "command_failed" };
@@ -283,15 +288,9 @@ function optionalOutputListenerParam(
 }
 
 function toSubmitCommandOutput(result: ExecResult): SubmitCommandOutput {
-	return {
-		stdout: result.stdout,
-		stderr: result.stderr,
-		exitCode: result.code,
-		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
-		...(result.killed ? { killed: true } : {}),
-	};
+	return result;
 }
 
 function isSuccessfulOutput(output: SubmitCommandOutput): boolean {
-	return output.exitCode === 0 && !output.killed && output.startupError === undefined;
+	return output.type === "exited" && output.signal === null && output.code === 0;
 }

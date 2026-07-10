@@ -1,3 +1,4 @@
+import type { ExecResult } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
@@ -11,12 +12,7 @@ import type {
 	SubmitSemanticFailureCause,
 } from "./submit-failure-catalog.ts";
 
-export interface SubmitOutputLike {
-	stdout: string;
-	stderr: string;
-	startupError?: string;
-	killed?: boolean;
-}
+export type SubmitOutputLike = ExecResult;
 
 export function joinOutput(output: Pick<SubmitOutputLike, "stdout" | "stderr">): string {
 	return `${output.stdout}\n${output.stderr}`;
@@ -113,12 +109,12 @@ export function uniqueNonEmpty(values: readonly string[]): string[] {
 	return unique;
 }
 
-export function isUsableOutput(output: Pick<SubmitOutputLike, "startupError" | "killed">): boolean {
-	return !output.startupError && !output.killed;
+export function isUsableOutput(output: SubmitOutputLike): boolean {
+	return output.type === "exited" && output.signal === null;
 }
 
 export function detectKnownPreflightFailureCause(
-	output: Pick<SubmitOutputLike, "startupError" | "killed">,
+	output: SubmitOutputLike,
 	joinedOutput: string,
 ): SubmitPreflightFailureCause | undefined {
 	if (!isUsableOutput(output)) return undefined;

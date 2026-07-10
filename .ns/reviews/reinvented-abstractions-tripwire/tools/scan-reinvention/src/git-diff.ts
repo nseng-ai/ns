@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
-import { commandSucceeded, formatCommandFailure, type CommandExecApi } from "@nseng-ai/foundation/command";
+import {
+  commandSucceeded,
+  formatCommandFailure,
+  type CommandExecApi,
+  type ExecResult,
+} from "@nseng-ai/foundation/command";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 
 export interface ScannerIo {
@@ -36,7 +41,11 @@ export class RealScannerIo implements ScannerIo {
       { cwd: this.cwd },
     );
     if (!commandSucceeded(result))
-      return commandError("git diff --name-only failed", "git diff --name-only --diff-filter=ACMR", result);
+      return commandError(
+        "git diff --name-only failed",
+        "git diff --name-only --diff-filter=ACMR",
+        result,
+      );
     return ok(result.stdout.split(/\r?\n/u).filter((line) => line.trim() !== ""));
   }
 
@@ -105,16 +114,7 @@ function ok<T>(value: T): IoResult<T> {
   return { ok: true, value };
 }
 
-function commandError(
-  title: string,
-  displayCommand: string,
-  result: {
-    readonly stderr: string;
-    readonly stdout: string;
-    readonly code: number;
-    readonly killed: boolean;
-  },
-): IoResult<never> {
+function commandError(title: string, displayCommand: string, result: ExecResult): IoResult<never> {
   return {
     ok: false,
     message: formatCommandFailure(title, displayCommand, result),

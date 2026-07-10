@@ -1,4 +1,3 @@
-import type { ExecResult } from "@nseng-ai/foundation/command";
 import { PR_FIELDS } from "../../src/land/stack/constants.ts";
 import type { PullRequestFacts } from "../../src/land/api.ts";
 import { metadataDbJson, TOPOLOGY_COMMAND } from "./land-test-helpers.ts";
@@ -7,10 +6,17 @@ const TRUNK = "main";
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	code?: number | null;
+	signal?: string | null;
+}
+
 export interface LandStackScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: ExitedResultFields | undefined;
 }
 
 export interface MergeFeatureAOptions {
@@ -112,11 +118,7 @@ function mergeFeatureA(
 	return steps;
 }
 
-function step(
-	command: string,
-	args: string[],
-	result?: Partial<ExecResult>,
-): LandStackScriptedExec {
+function step(command: string, args: string[], result?: ExitedResultFields): LandStackScriptedExec {
 	return { command, args, result };
 }
 

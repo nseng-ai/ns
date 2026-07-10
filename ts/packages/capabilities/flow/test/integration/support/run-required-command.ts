@@ -1,4 +1,8 @@
-import { type ExecResult, formatCommandResultFailure } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	type ExecResult,
+	formatCommandResultFailure,
+} from "@nseng-ai/foundation/command";
 import { runCommand } from "@nseng-ai/foundation/exec";
 
 const DEFAULT_REQUIRED_COMMAND_TIMEOUT_MS = 60_000;
@@ -25,7 +29,7 @@ export function createRequiredCommandRunner(
 			env: commandOptions.env,
 			timeout: DEFAULT_REQUIRED_COMMAND_TIMEOUT_MS,
 		});
-		if (result.code === 0 && !result.killed) return result;
+		if (commandSucceeded(result)) return result;
 		throw new Error(
 			formatCommandResultFailure(
 				options.failureContext,

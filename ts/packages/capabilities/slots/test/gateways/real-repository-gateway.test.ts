@@ -4,9 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import type { ExecResult } from "@nseng-ai/foundation/command";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
-import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/core/diagnostics.ts";
 import { RealSlotRepositoryGateway } from "../../src/core/gateways/repository.ts";
 
@@ -120,8 +119,8 @@ describe("RealSlotRepositoryGateway", () => {
 
 	it("creates branches with normal and force command arguments", async () => {
 		const execApi = scriptedExecApi([
-			{ stdout: "", stderr: "", code: 0, killed: false },
-			{ stdout: "", stderr: "", code: 0, killed: false },
+			{ stdout: "", stderr: "", code: 0 },
+			{ stdout: "", stderr: "", code: 0 },
 		]);
 		const gateway = new RealSlotRepositoryGateway({
 			cwd: "/repo",
@@ -143,9 +142,9 @@ describe("RealSlotRepositoryGateway", () => {
 
 	it("emits checkout, previous-branch, and detach command arguments", async () => {
 		const execApi = scriptedExecApi([
-			{ stdout: "", stderr: "", code: 0, killed: false },
-			{ stdout: "master\n", stderr: "", code: 0, killed: false },
-			{ stdout: "", stderr: "", code: 0, killed: false },
+			{ stdout: "", stderr: "", code: 0 },
+			{ stdout: "master\n", stderr: "", code: 0 },
+			{ stdout: "", stderr: "", code: 0 },
 		]);
 		const gateway = new RealSlotRepositoryGateway({
 			cwd: "/repo",
@@ -168,7 +167,6 @@ describe("RealSlotRepositoryGateway", () => {
 			stdout: "",
 			stderr: "fatal: branch already exists\n",
 			code: 128,
-			killed: false,
 		});
 		const gateway = new RealSlotRepositoryGateway({
 			cwd: "/repo",
@@ -186,7 +184,6 @@ describe("RealSlotRepositoryGateway", () => {
 			stdout: worktreeListOutput("/repo", "master"),
 			stderr: "",
 			code: 0,
-			killed: false,
 		});
 		const diagnosticSink = new InMemoryDiagnosticSink();
 		const gateway = new RealSlotRepositoryGateway({
@@ -206,8 +203,7 @@ describe("RealSlotRepositoryGateway", () => {
 				displayCommand: "git worktree list --porcelain",
 				cwd: "/repo",
 				timeoutMs: 10_000,
-				exitCode: 0,
-				killed: false,
+				termination: { type: "exited", code: 0, signal: null },
 				stderrBytes: 0,
 			}),
 		]);
@@ -228,7 +224,6 @@ describe("RealSlotRepositoryGateway", () => {
 				stdout: worktreeListOutput(fixture.worktreePath, "feature/a"),
 				stderr: "",
 				code: 0,
-				killed: false,
 			});
 			const gateway = new RealSlotRepositoryGateway({
 				cwd: fixture.worktreePath,
@@ -255,7 +250,6 @@ describe("RealSlotRepositoryGateway", () => {
 				stdout: worktreeListOutput(fixture.worktreePath, null),
 				stderr: "",
 				code: 0,
-				killed: false,
 			});
 			const gateway = new RealSlotRepositoryGateway({
 				cwd: fixture.worktreePath,
@@ -279,7 +273,6 @@ describe("RealSlotRepositoryGateway", () => {
 				stdout: worktreeListOutput(fixture.worktreePath, "feature/relative"),
 				stderr: "",
 				code: 0,
-				killed: false,
 			});
 			const gateway = new RealSlotRepositoryGateway({
 				cwd: fixture.worktreePath,
@@ -303,7 +296,6 @@ describe("RealSlotRepositoryGateway", () => {
 				stdout: worktreeListOutput(fixture.worktreePath, "feature/main"),
 				stderr: "",
 				code: 0,
-				killed: false,
 			});
 			const gateway = new RealSlotRepositoryGateway({
 				cwd: fixture.worktreePath,
@@ -326,7 +318,6 @@ describe("RealSlotRepositoryGateway", () => {
 				stdout: worktreeListOutput(fixture.worktreePath, "feature/clean"),
 				stderr: "",
 				code: 0,
-				killed: false,
 			});
 			const gateway = new RealSlotRepositoryGateway({
 				cwd: fixture.worktreePath,
@@ -365,10 +356,13 @@ class InMemoryDiagnosticSink implements SlotDiagnosticSink {
 	}
 }
 
+type ExitedResultFields = Parameters<typeof exitedResult>[0];
+
 function scriptedExecApi(
-	results: Partial<ExecResult> | readonly Partial<ExecResult>[],
+	results: ExitedResultFields | readonly ExitedResultFields[],
 ): ScriptedCommandExecApi {
-	return new ScriptedCommandExecApi(Array.isArray(results) ? results : [results]);
+	const fixtures = Array.isArray(results) ? results : [results];
+	return new ScriptedCommandExecApi(fixtures.map((fixture) => exitedResult(fixture)));
 }
 
 function gitCall(args: readonly string[], cwd: string): ExpectedExecCall {

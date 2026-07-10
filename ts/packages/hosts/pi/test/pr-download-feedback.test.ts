@@ -7,7 +7,7 @@ import prExtension, {
 	type ExtensionContext,
 	type RegisteredCommand,
 } from "../src/core/pr/extension.ts";
-import type { ExecResult } from "../src/core/pr/feedback-download.ts";
+import type { RawPiExecResult } from "../src/kit/shared/exec-gateway.ts";
 
 const ROOT = "/repo";
 
@@ -20,11 +20,11 @@ class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly calls: ExecCall[] = [];
 	readonly userMessages: string[] = [];
-	private readonly fallbackResult: ExecResult;
-	private readonly results: ExecResult[];
+	private readonly fallbackResult: RawPiExecResult;
+	private readonly results: RawPiExecResult[];
 
 	constructor(
-		result: ExecResult | ExecResult[] = execResult({
+		result: RawPiExecResult | RawPiExecResult[] = execResult({
 			stdout: envelope(downloadFeedbackData({ markdown: "# Prompt" })),
 		}),
 	) {
@@ -38,7 +38,7 @@ class FakePi implements ExtensionAPI {
 
 	on(_event: "session_start" | "agent_end" | "session_shutdown", _handler: unknown): void {}
 
-	async exec(command: string, args: string[]): Promise<ExecResult> {
+	async exec(command: string, args: string[]): Promise<RawPiExecResult> {
 		this.calls.push({ command, args });
 		return this.results.shift() ?? this.fallbackResult;
 	}
@@ -81,12 +81,11 @@ class FakeContext implements ExtensionContext {
 	}
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function execResult(overrides: Partial<RawPiExecResult> = {}): RawPiExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
 	};
 }
 

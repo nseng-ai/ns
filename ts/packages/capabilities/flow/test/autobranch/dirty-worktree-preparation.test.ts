@@ -69,7 +69,7 @@ function createHarness(options: HarnessOptions = {}) {
 		if (command === "git" && args[0] === "show-ref") {
 			const ref = args.at(-1) ?? "";
 			const branch = ref.replace(/^refs\/heads\//, "");
-			return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
+			return existingBranches.has(branch) ? ok() : fail("");
 		}
 		return ok();
 	};

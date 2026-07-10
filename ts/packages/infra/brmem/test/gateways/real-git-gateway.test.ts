@@ -453,10 +453,13 @@ function realGitBrmemGateway(
 	return new RealGitBrmemGateway({ cwd, commands, git });
 }
 
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
+
 interface CommandStep {
 	command: string;
 	args: string[] | ((args: string[]) => void);
-	result?: Partial<ExecResult>;
+	result?: ExecResultFixture;
 }
 
 interface CommandCall {
@@ -492,12 +495,13 @@ class RecordingCommands extends PlainRecordingCommands {
 	readonly supportsStdin = true as const;
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function execResult(overrides: ExecResultFixture = {}): ExecResult {
+	if ("type" in overrides) return overrides;
 	return {
-		stdout: "",
-		stderr: "",
-		code: 0,
-		killed: false,
-		...overrides,
+		type: "exited",
+		stdout: overrides.stdout ?? "",
+		stderr: overrides.stderr ?? "",
+		code: overrides.code ?? 0,
+		signal: overrides.signal ?? null,
 	};
 }

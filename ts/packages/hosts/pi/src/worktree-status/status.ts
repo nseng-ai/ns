@@ -3,12 +3,11 @@ import { basename, dirname, join, resolve } from "node:path";
 
 import { runAvailableBrmemCommand } from "@nseng-ai/capability-kit/brmem-cli";
 import {
+	commandSucceeded,
 	execApiToCommandRunner,
 	type ExecOptions,
+	type ExecResult,
 	formatCommand,
-	normalizeExecResult,
-	piExecApiToCommandExecApi,
-	type PiExecResultLike,
 	tailText,
 } from "@nseng-ai/foundation/command";
 import { RealGitGateway, resolveWorktreeGitDirs } from "@nseng-ai/capability-kit/git";
@@ -49,7 +48,7 @@ import type { CustomMessage, RenderComponent, RenderTheme } from "./types.ts";
 export const WORKTREE_STATUS_UI_KEY = "worktree-status";
 const COMMAND_TIMEOUT_MS = 5_000;
 
-export type ExecResult = PiExecResultLike;
+export type { ExecResult } from "@nseng-ai/foundation/command";
 
 export interface ExecGateway {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
@@ -269,7 +268,7 @@ async function loadBrmemStatus(
 		signal,
 	});
 	if (!run.ok) return signal?.aborted ? undefined : "unavailable";
-	if (run.value.result.killed || run.value.result.code !== 0) {
+	if (!commandSucceeded(run.value.result)) {
 		return signal?.aborted ? undefined : "unavailable";
 	}
 
@@ -384,10 +383,12 @@ async function loadHasCommits(
 	if (down === "-" || signal?.aborted) return { type: "unknown" };
 
 	try {
-		const result = normalizeExecResult(
-			await pi.exec("git", ["rev-list", "--count", `${down}..HEAD`], execOptions(cwd, signal)),
+		const result = await pi.exec(
+			"git",
+			["rev-list", "--count", `${down}..HEAD`],
+			execOptions(cwd, signal),
 		);
-		if (result.code !== 0) return { type: "unknown" };
+		if (!commandSucceeded(result)) return { type: "unknown" };
 
 		const count = Number.parseInt(result.stdout.trim(), 10);
 		if (!Number.isFinite(count) || count < 0) return { type: "unknown" };
@@ -405,9 +406,7 @@ async function loadDirty(
 	if (signal?.aborted) return "no";
 
 	try {
-		const result = normalizeExecResult(
-			await pi.exec("git", ["status", "--porcelain=v1"], execOptions(cwd, signal)),
-		);
+		const result = await pi.exec("git", ["status", "--porcelain=v1"], execOptions(cwd, signal));
 		return result.stdout.trim().length > 0 ? "yes" : "no";
 	} catch {
 		return "no";
@@ -459,7 +458,7 @@ async function loadGhStatus(
 
 	const args = githubWorktreePrStatusArgs({ ...repository, headRefName: identity.head.name });
 	const result = await runGitHubCli({
-		runner: execApiToCommandRunner(piExecApiToCommandExecApi(pi)),
+		runner: execApiToCommandRunner(pi),
 		cwd,
 		signal,
 		timeoutMs: COMMAND_TIMEOUT_MS,
@@ -467,7 +466,7 @@ async function loadGhStatus(
 	});
 	if (result.type === "startup_error")
 		return { type: "unavailable", message: compactErrorMessage(result.message) };
-	if (result.result.code !== 0) {
+	if (!commandSucceeded(result.result)) {
 		return {
 			type: "unavailable",
 			message: compactCommandFailureMessage(compactGithubCommandName(args), result.result),
@@ -598,7 +597,7 @@ function execOptions(cwd: string, signal?: AbortSignal) {
 }
 
 function gitGatewayFromExecGateway(pi: ExecGateway): GitGateway {
-	return new RealGitGateway(piExecApiToCommandExecApi(pi));
+	return new RealGitGateway(pi);
 }
 
 function compactGithubCommandName(args: readonly string[]): string {
@@ -606,9 +605,11 @@ function compactGithubCommandName(args: readonly string[]): string {
 }
 
 function compactCommandFailureMessage(command: string, result: ExecResult): string {
-	const detail = compactStatusDetail((result.stderr ?? "").trim() || (result.stdout ?? "").trim());
-	if (detail.length === 0) return `${command} exited ${result.code}`;
-	return `${command} exited ${result.code}: ${detail}`;
+	const detail = compactStatusDetail(result.stderr.trim() || result.stdout.trim());
+	const termination =
+		result.type === "exited" ? `exited ${result.code ?? "unknown"}` : result.type.replace("-", " ");
+	if (detail.length === 0) return `${command} ${termination}`;
+	return `${command} ${termination}: ${detail}`;
 }
 
 function compactErrorMessage(error: unknown): string {

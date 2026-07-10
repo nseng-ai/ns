@@ -1,6 +1,7 @@
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import {
 	type CommandExecApi,
+	commandSucceeded,
 	type ExecResult,
 	formatCommand,
 	formatCommandFailure,
@@ -150,12 +151,18 @@ export class RealVibechkWorkdirGateway implements VibechkWorkdirGateway {
 
 	private async runGit(args: readonly string[], errorMessage: string): Promise<string> {
 		const result = await this.runGitRaw(args);
-		if (result.code !== 0 || result.killed) {
-			throw new VibechkError(
-				formatCommandFailure(errorMessage, formatCommand("git", args), result),
-			);
+		if (commandSucceeded(result)) return result.stdout.trim();
+
+		switch (result.type) {
+			case "spawn-failed":
+				throw new VibechkError(`${errorMessage}\n${result.error}`);
+			case "cancelled":
+			case "timed-out":
+			case "exited":
+				throw new VibechkError(
+					formatCommandFailure(errorMessage, formatCommand("git", args), result),
+				);
 		}
-		return result.stdout.trim();
 	}
 
 	private async runGitRaw(args: readonly string[]): Promise<ExecResult> {

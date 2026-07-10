@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 
 import type { CommandRunner, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import {
-	GITHUB_CLI_STARTUP_ERROR_CODE,
 	GITHUB_CLI_TIMEOUT_MS,
 	runGitHubCli,
 	runGitHubCliAsExecResult,
@@ -21,7 +20,7 @@ describe("runGitHubCli", () => {
 				args: [...args],
 				...(options === undefined ? {} : { options }),
 			});
-			return { stdout: "ok", stderr: "", code: 0, killed: false };
+			return { stdout: "ok", stderr: "", code: 0, type: "exited", signal: null };
 		};
 
 		const result = await runGitHubCli({ runner, args: ["pr", "view", "12"], cwd: "/repo" });
@@ -52,7 +51,7 @@ describe("runGitHubCli", () => {
 				args: [...args],
 				...(options === undefined ? {} : { options }),
 			});
-			return { stdout: "{}", stderr: "", code: 0, killed: false };
+			return { stdout: "{}", stderr: "", code: 0, type: "exited", signal: null };
 		};
 		const env = { GH_TOKEN: "token" } satisfies NodeJS.ProcessEnv;
 		const controller = new AbortController();
@@ -97,7 +96,13 @@ describe("runGitHubCli", () => {
 			readonly args: readonly string[];
 			readonly options?: ExecOptions;
 		}> = [];
-		const completedResult: ExecResult = { stdout: "ok", stderr: "", code: 0, killed: false };
+		const completedResult: ExecResult = {
+			stdout: "ok",
+			stderr: "",
+			code: 0,
+			type: "exited",
+			signal: null,
+		};
 		const runner: CommandRunner = async (command, args, options) => {
 			calls.push({
 				command,
@@ -131,10 +136,10 @@ describe("runGitHubCli", () => {
 		expect(
 			await runGitHubCliAsExecResult({ runner, args: ["pr", "view", "12"], cwd: "/repo" }),
 		).toEqual({
+			type: "spawn-failed",
 			stdout: "",
 			stderr: "gh crashed",
-			code: GITHUB_CLI_STARTUP_ERROR_CODE,
-			killed: false,
+			error: "gh crashed",
 		});
 	});
 });

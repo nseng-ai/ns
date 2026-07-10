@@ -1,3 +1,4 @@
+import { commandSucceeded } from "@nseng-ai/foundation/command";
 import type { AutobranchExec } from "./shared.ts";
 
 export const AUTOBRANCH_GIT_TIMEOUT_MS = 30_000;
@@ -29,7 +30,7 @@ export async function summarizeAutobranchCompletion(input: {
 		["status", "--porcelain=v1"],
 		AUTOBRANCH_GIT_TIMEOUT_MS,
 	);
-	const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
+	const isClean = commandSucceeded(cleanliness) && cleanliness.stdout.trim().length === 0;
 	const suffix = input.plan.hasSuffix ? ` (base slug ${input.plan.baseSlug} was unavailable)` : "";
 	return {
 		isClean,

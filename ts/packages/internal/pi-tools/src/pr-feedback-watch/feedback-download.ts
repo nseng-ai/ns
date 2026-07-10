@@ -1,3 +1,4 @@
+import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 import { formatZodError } from "@nseng-ai/foundation/primitives";
 import type { ExecResult } from "@nseng-ai/pi/shared/exec-gateway";
 import type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
@@ -94,13 +95,22 @@ export async function downloadPrFeedback(
 			...(options.signal === undefined ? {} : { signal: options.signal }),
 		},
 	);
-	if (result.killed) {
+	if (result.type === "timed-out") {
 		return { type: "error", message: "download-feedback timed out." };
 	}
-	if (result.code !== 0 && options.shouldAllowFailureData !== true) {
+	if (result.type === "cancelled") {
+		return { type: "error", message: "download-feedback was cancelled." };
+	}
+	if (result.type === "spawn-failed") {
+		return { type: "error", message: `download-feedback failed: ${result.error}` };
+	}
+	if (result.signal !== null || result.code === null) {
+		return { type: "error", message: `download-feedback failed: ${commandFailureReason(result)}` };
+	}
+	if (!commandSucceeded(result) && options.shouldAllowFailureData !== true) {
 		return {
 			type: "error",
-			message: `download-feedback failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
+			message: `download-feedback failed: ${commandFailureReason(result)}`,
 		};
 	}
 

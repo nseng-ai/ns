@@ -1,4 +1,4 @@
-import { formatCommand, piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
+import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import {
@@ -50,7 +50,7 @@ export async function loadRepoRoot(
 		cwd,
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
-	if (result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return failure(
 			landStackFailure(
 				`Not inside a git repository.\n${formatCommandDetails(result, formatCommand("git", ["rev-parse", "--show-toplevel"]))}`,
@@ -75,7 +75,7 @@ export async function loadCurrentBranch(
 		cwd: repoRoot,
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
-	if (result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return failure(
 			landStackFailure(
 				`Detached HEAD; check out a branch before running /ns:flow:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
@@ -102,7 +102,7 @@ export async function loadTrunk(
 		cwd: repoRoot,
 		timeoutMs: GT_TIMEOUT_MS,
 	});
-	if (result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return failure(
 			landStackFailure(
 				`Could not resolve Graphite trunk.\n${formatCommandDetails(result, formatGraphiteOperation(operation))}`,
@@ -221,7 +221,7 @@ export async function loadLiveLocalBranchTips(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 ): Promise<LandStackResult<readonly GitLocalBranchTip[]>> {
-	const git = new RealGitGateway(piExecApiToCommandExecApi(pi));
+	const git = new RealGitGateway(pi);
 	const tips = await git.listLocalBranchTips({ cwd: repoRoot });
 	if (!tips.ok) {
 		return failure(
@@ -304,7 +304,7 @@ export async function assertCleanRepo(
 		cwd: repoRoot,
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
-	if (status.code !== 0) {
+	if (!commandSucceeded(status)) {
 		return failure(
 			landStackFailure(
 				`Could not inspect working tree status.\n${formatCommandDetails(status, formatCommand("git", ["status", "--porcelain=v1"]))}`,
@@ -353,7 +353,7 @@ export async function assertLocalBranchExists(
 		cwd: repoRoot,
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
-	if (result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return failure(
 			landStackFailure(
 				`Local branch ${branch} does not exist; refusing to start stack landing.\n${formatCommandDetails(result)}`,
@@ -376,7 +376,7 @@ export async function loadLocalSha(
 		cwd: repoRoot,
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
-	if (result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return failure(
 			landStackFailure(
 				`Could not resolve local branch ${branch}.\n${formatCommandDetails(result, formatCommand("git", ["rev-parse", "--verify", ref]))}`,

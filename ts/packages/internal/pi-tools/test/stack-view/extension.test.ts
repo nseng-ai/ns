@@ -91,12 +91,12 @@ function fakeHost(): {
 	command: () => CapturedCommand;
 	sentMessages: unknown[];
 	deliveries: HostDelivery[];
-	execCalls: Array<{ command: string; args: readonly string[]; stdin?: string }>;
+	execCalls: Array<{ command: string; args: readonly string[] }>;
 } {
 	let captured: CapturedCommand | undefined;
 	const sentMessages: unknown[] = [];
 	const deliveries: HostDelivery[] = [];
-	const execCalls: Array<{ command: string; args: readonly string[]; stdin?: string }> = [];
+	const execCalls: Array<{ command: string; args: readonly string[] }> = [];
 	const pi: ExtensionAPI = {
 		registerCommand(_name, options) {
 			captured = { handler: options.handler };
@@ -113,13 +113,9 @@ function fakeHost(): {
 			deliveries.push({ type: "message", message });
 		},
 		registerMessageRenderer() {},
-		async exec(command, args, options) {
-			execCalls.push({
-				command,
-				args,
-				...(options?.stdin === undefined ? {} : { stdin: options.stdin }),
-			});
-			return { stdout: "", stderr: "", code: 0, killed: false };
+		async exec(command, args) {
+			execCalls.push({ command, args });
+			return { stdout: "", stderr: "", code: 0 };
 		},
 	};
 	return {

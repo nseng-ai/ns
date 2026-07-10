@@ -1,7 +1,7 @@
 import { closeSync, openSync, readSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import type { ExecResult } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, formatCommandDetails, type ExecResult } from "@nseng-ai/foundation/exec";
 import { isPathInside } from "@nseng-ai/foundation/primitives";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
 
@@ -217,29 +217,27 @@ async function runGit(
 			diagnostic: `git ${args.join(" ")} failed: ${errorMessage(error)}`,
 		};
 	}
-	if (result.startupError !== undefined) {
+	if (commandSucceeded(result)) return { ok: true, stdout: result.stdout };
+	if (result.type === "spawn-failed") {
 		return {
 			ok: false,
 			stdout: "",
-			diagnostic: `git ${args.join(" ")} unavailable: ${result.startupError}`,
+			diagnostic: `git ${args.join(" ")} unavailable: ${result.error}`,
 		};
 	}
-	if (result.killed) {
+	if (result.type === "timed-out") {
 		return {
 			ok: false,
 			stdout: "",
 			diagnostic: `git ${args.join(" ")} timed out after ${GIT_TIMEOUT_MS}ms.`,
 		};
 	}
-	if (result.code !== 0) {
-		const stderr = result.stderr.trim();
-		return {
-			ok: false,
-			stdout: "",
-			diagnostic: `git ${args.join(" ")} failed${stderr.length === 0 ? "" : `: ${truncateText(stderr, 240)}`}`,
-		};
-	}
-	return { ok: true, stdout: result.stdout };
+	const details = formatCommandDetails(result);
+	return {
+		ok: false,
+		stdout: "",
+		diagnostic: `git ${args.join(" ")} failed: ${truncateText(details, 240)}`,
+	};
 }
 
 function collectFileCandidates(

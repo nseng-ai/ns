@@ -52,7 +52,9 @@ describe("objectiveTabModule.loadModel", () => {
 		): Promise<CommandOutput> => {
 			calls.push({ command, args: [...args], options });
 			return {
+				type: "exited",
 				code: 0,
+				signal: null,
 				stdout: envelope({
 					trunkBranch: "master",
 					rootPath: ".ns/objectives",
@@ -68,7 +70,6 @@ describe("objectiveTabModule.loadModel", () => {
 					],
 				}),
 				stderr: "",
-				killed: false,
 			};
 		};
 
@@ -92,22 +93,53 @@ describe("objectiveTabModule.loadModel", () => {
 
 	test("throws when the objective CLI exits non-zero", async () => {
 		const runCommand = async (): Promise<CommandOutput> => ({
+			type: "exited",
 			code: 3,
+			signal: null,
 			stdout: "",
 			stderr: "not in a repo",
-			killed: false,
 		});
 		await expect(objectiveTabModule.loadModel(depsWith(runCommand))).rejects.toThrow(
 			/ns objective list failed with exit code 3.*not in a repo/,
 		);
 	});
 
+	test.each([
+		[
+			"spawn failure",
+			{ type: "spawn-failed", stdout: "", stderr: "ENOENT", error: "ENOENT" },
+			/failed before completion.*ENOENT/s,
+		],
+		[
+			"cancellation",
+			{ type: "cancelled", stdout: "", stderr: "", code: null, signal: "SIGTERM" },
+			/cancelled; signal SIGTERM/,
+		],
+		[
+			"timeout",
+			{ type: "timed-out", stdout: "", stderr: "", code: null, signal: "SIGKILL" },
+			/timed out; signal SIGKILL/,
+		],
+		[
+			"signalled exit",
+			{ type: "exited", stdout: "", stderr: "", code: null, signal: "SIGTERM" },
+			/exit code unknown; signal SIGTERM/,
+		],
+	] satisfies readonly (readonly [string, CommandOutput, RegExp])[])(
+		"formats %s truthfully",
+		async (_label, result, expected) => {
+			const runCommand = async (): Promise<CommandOutput> => result;
+			await expect(objectiveTabModule.loadModel(depsWith(runCommand))).rejects.toThrow(expected);
+		},
+	);
+
 	test("throws when the envelope payload is invalid", async () => {
 		const runCommand = async (): Promise<CommandOutput> => ({
+			type: "exited",
 			code: 0,
+			signal: null,
 			stdout: envelope({ trunk_branch: "master" }),
 			stderr: "",
-			killed: false,
 		});
 		await expect(objectiveTabModule.loadModel(depsWith(runCommand))).rejects.toThrow(
 			/Invalid objective list JSON/,

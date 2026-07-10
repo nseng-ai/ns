@@ -13,6 +13,9 @@ import type {
 	TextGenerationResult,
 } from "@nseng-ai/kernel/sdk";
 
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
+
 import type { ObjectiveRunnerOverrides } from "../../src/ns/runner-context.ts";
 import { nextFromSequence } from "./sequence.ts";
 
@@ -26,9 +29,9 @@ export interface FakeObjectiveNsApiOptions extends ObjectiveRunnerOverrides {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	/** Overrides merged into every recorded `exec` result (defaults to exit 0). */
-	execResult?: Partial<ExecResult>;
+	execResult?: ExecResultFixture;
 	/** Per-call `exec` result overrides; the last value repeats once exhausted. */
-	execResults?: readonly Partial<ExecResult>[];
+	execResults?: readonly ExecResultFixture[];
 	outputFormat?: ClinkrFormat;
 }
 
@@ -53,8 +56,8 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 	readonly commandIo: NsCommandIo;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
-	private readonly execResult: Partial<ExecResult>;
-	private readonly execResults: readonly Partial<ExecResult>[];
+	private readonly execResult: ExecResultFixture;
+	private readonly execResults: readonly ExecResultFixture[];
 	private execResultIndex = 0;
 
 	constructor(options: FakeObjectiveNsApiOptions = {}) {
@@ -93,14 +96,7 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 		this.execCalls.push({ command, args: [...args], options });
 		const sequenced = nextFromSequence(this.execResults, this.execResultIndex);
 		this.execResultIndex = sequenced.nextIndex;
-		return {
-			stdout: "",
-			stderr: "",
-			code: 0,
-			killed: false,
-			...this.execResult,
-			...sequenced.value,
-		};
+		return execResultFromFixtures(this.execResult, sequenced.value);
 	}
 
 	readonly textGenerator = {
@@ -108,6 +104,21 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 			this.textGeneratorCalls.push({ ...request });
 			throw new Error("Unexpected text-generation call in objective ns command test.");
 		},
+	};
+}
+
+function execResultFromFixtures(
+	defaults: ExecResultFixture,
+	override: ExecResultFixture | undefined,
+): ExecResult {
+	if (override !== undefined && "type" in override) return override;
+	if ("type" in defaults) return defaults;
+	return {
+		type: "exited",
+		stdout: override?.stdout ?? defaults.stdout ?? "",
+		stderr: override?.stderr ?? defaults.stderr ?? "",
+		code: override?.code ?? defaults.code ?? 0,
+		signal: override?.signal ?? defaults.signal ?? null,
 	};
 }
 

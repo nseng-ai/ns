@@ -60,7 +60,7 @@ describe("flow push command outcomes", () => {
 		const stderr = stripAnsi(run.stderr.join(""));
 		expect(stderr).toContain("Could not inspect the worktree status");
 		expect(stderr).toContain("Command: git status --porcelain");
-		expect(stderr).toContain("Exit: 128");
+		expect(stderr).toContain("Termination: exit 128");
 		expect(stderr).toContain("fatal: not a git repository");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain"]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
@@ -85,7 +85,7 @@ describe("flow push command outcomes", () => {
 		const stderr = stripAnsi(run.stderr.join(""));
 		expect(stderr).toContain("`git push` failed");
 		expect(stderr).toContain("Command: git push");
-		expect(stderr).toContain("Exit: 1");
+		expect(stderr).toContain("Termination: exit 1");
 		expect(stderr).toContain("rejected update");
 		expect(stderr).toContain("non-fast-forward");
 		expect(stderr).toContain("ns flow submit");
@@ -96,10 +96,19 @@ describe("flow push command outcomes", () => {
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("killed git push is a failure even with exit code zero", async () => {
+	test("timed-out git push is a failure even with exit code zero", async () => {
 		const exec: ScriptedExecResponse[] = [
 			{ match: "git status --porcelain", result: { stdout: "" } },
-			{ match: "git push", result: { code: 0, killed: true, stderr: "timed out\n" } },
+			{
+				match: "git push",
+				result: {
+					type: "timed-out",
+					code: 0,
+					signal: null,
+					stdout: "",
+					stderr: "timed out\n",
+				},
+			},
 		];
 		const run = runFlowPushCommandWithFakes({ state: { exec } });
 
@@ -107,8 +116,7 @@ describe("flow push command outcomes", () => {
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
 		expect(stderr).toContain("`git push` failed");
-		expect(stderr).toContain("Exit: 0");
-		expect(stderr).toContain("Killed: true");
+		expect(stderr).toContain("Termination: timed out");
 		expect(stderr).toContain("timed out");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
 		expect(run.context.execCalls[1]?.options).toEqual({ timeoutMs: PUSH_TIMEOUT_MS });

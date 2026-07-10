@@ -38,10 +38,11 @@ class RecordingCommands implements CommandExecApi {
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		return {
+			type: "exited",
 			stdout: "",
 			stderr: `unexpected exec: ${command} ${args.join(" ")}`,
 			code: 99,
-			killed: false,
+			signal: null,
 		};
 	}
 

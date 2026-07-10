@@ -4,12 +4,7 @@ export type {
 	CmuxCommandResult,
 	RunCmuxCommandOptions,
 } from "./command.ts";
-export {
-	CMUX_STARTUP_FAILURE_EXIT_CODE,
-	cmuxCommandExecApi,
-	formatCmuxCommandFailure,
-	runCmuxCommand,
-} from "./command.ts";
+export { cmuxCommandExecApi, formatCmuxCommandFailure, runCmuxCommand } from "./command.ts";
 export type {
 	ClearCmuxStatusParams,
 	CmuxCallerContext,

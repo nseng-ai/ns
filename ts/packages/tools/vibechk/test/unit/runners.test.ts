@@ -1,5 +1,9 @@
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import {
+	exitedResult,
+	ScriptedCommandExecApi,
+	spawnFailedResult,
+} from "@nseng-ai/foundation/exec/testing";
 import { describe, expect, it } from "vitest";
 
 import { ClaudeRunner, type RunnerRequest } from "../../src/runners.ts";
@@ -36,12 +40,7 @@ class StreamingExecApi implements CommandExecApi {
 
 describe("ClaudeRunner", () => {
 	it("runs through CommandExecApi while streaming transcript output", async () => {
-		const execApi = new StreamingExecApi({
-			stdout: "",
-			stderr: "",
-			code: 7,
-			killed: false,
-		});
+		const execApi = new StreamingExecApi(exitedResult({ code: 7 }));
 		const runner = new ClaudeRunner(execApi);
 		const transcript: string[] = [];
 		const stdout: string[] = [];
@@ -72,13 +71,7 @@ describe("ClaudeRunner", () => {
 	});
 
 	it("maps missing runner startup failures to VibechkError", async () => {
-		const execApi = new ScriptedCommandExecApi([
-			{
-				code: 127,
-				stderr: "spawn claude ENOENT",
-				startupError: "spawn claude ENOENT",
-			},
-		]);
+		const execApi = new ScriptedCommandExecApi([spawnFailedResult("spawn claude ENOENT")]);
 		const runner = new ClaudeRunner(execApi);
 
 		await expect(

@@ -2,6 +2,7 @@ import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 import { isRecord, stringField } from "@nseng-ai/pi/runtime/primitives";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 import {
 	buildHandoffLaunchPrompt,
 	buildHandoffLaunchTool,
@@ -20,6 +21,7 @@ import {
 	HANDOFF_SELF_WORKFLOW_TIMEOUT_MS,
 } from "./command-constants.ts";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { HandoffCreateSkillLoader } from "./create-skill.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type {
@@ -44,6 +46,7 @@ interface HandoffSelfPromptOptions {
 
 interface HandoffSelfWorkflowOptions {
 	git: GitGateway;
+	commands?: CommandExecApi;
 	timeoutMs?: number;
 	skillLoader?: HandoffCreateSkillLoader;
 	timers?: TimerScheduler;
@@ -102,6 +105,7 @@ export function createHandoffSelfWorkflow(
 	buildTool(): ToolDefinition;
 	handleCommand(args: string, ctx: CommandContext): Promise<void>;
 } {
+	const commands = options.commands ?? createPiCommandExecApi(pi);
 	const timeoutMs = options.timeoutMs ?? HANDOFF_SELF_WORKFLOW_TIMEOUT_MS;
 	const timers = options.timers ?? systemTimerScheduler;
 	const prepareOptions = {
@@ -242,7 +246,7 @@ export function createHandoffSelfWorkflow(
 	}
 
 	function buildTool(): ToolDefinition {
-		return buildHandoffLaunchTool<HandoffSelfLaunchParams>(pi, {
+		return buildHandoffLaunchTool<HandoffSelfLaunchParams>(commands, {
 			name: HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME,
 			label: "Verify Handoff Self Completion",
 			description: `Verify a saved handoff exists, then rendezvous with /${HANDOFF_SELF_COMMAND_NAME} so the command can replace the session and send the pickup prompt.`,

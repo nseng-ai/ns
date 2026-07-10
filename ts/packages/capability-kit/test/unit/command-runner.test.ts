@@ -59,7 +59,8 @@ describe("ns command runner adapter", () => {
 			code: 2,
 			stdout: "",
 			stderr: "ns command execution is scoped to /repo; refusing command cwd /elsewhere.",
-			killed: false,
+			type: "exited",
+			signal: null,
 		});
 		expect(calls).toEqual([]);
 	});
@@ -85,19 +86,31 @@ function createFakeApi(results: readonly ExecResult[]): {
 			},
 			async exec(command, args, options) {
 				calls.push({ command, args, ...(options === undefined ? {} : { options }) });
-				return pending.shift() ?? makeExecResult({ code: 127, stderr: "missing exec response\n" });
+				return (
+					pending.shift() ??
+					makeExecResult({
+						type: "exited",
+						stdout: "",
+						stderr: "missing exec response\n",
+						code: 127,
+						signal: null,
+					})
+				);
 			},
 		},
 		calls,
 	};
 }
 
-function makeExecResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function makeExecResult(
+	overrides: Partial<Extract<ExecResult, { type: "exited" }>> = {},
+): ExecResult {
 	return {
 		stdout: "",
 		stderr: "",
 		code: 0,
-		killed: false,
+		type: "exited",
+		signal: null,
 		...overrides,
 	};
 }

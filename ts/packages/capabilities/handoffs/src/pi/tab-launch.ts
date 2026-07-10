@@ -5,7 +5,8 @@ import {
 } from "@nseng-ai/capability-kit/cmux/focused-terminal-tab";
 import { setRuntimeStatus } from "@nseng-ai/pi/runtime/status";
 import type { HandoffLaunchParams } from "./launch-flow.ts";
-import type { ExecResult, ModelInfo, ThinkingLevel } from "./runtime-types.ts";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import type { ModelInfo, ThinkingLevel } from "./runtime-types.ts";
 
 export type HandoffTabLaunchResult =
 	| {
@@ -26,12 +27,7 @@ export type HandoffTabLaunchResult =
 			workspaceId?: string;
 	  };
 
-export interface HandoffTabLaunchHost {
-	exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
-	): Promise<ExecResult>;
+export interface HandoffTabLaunchHost extends CommandExecApi {
 	getThinkingLevel?(): ThinkingLevel;
 }
 

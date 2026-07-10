@@ -22,14 +22,11 @@ export {
 	formatCommandEvidence,
 	formatCommandFailure,
 	formatCommandResultFailure,
-	formatCommandStartupFailure,
+	formatCommandSpawnFailure,
 	formatOutputSection,
 	formatShellArg,
 	MAX_ERROR_CHARS,
-	normalizeExecResult,
 	outputListenerToExecCallbacks,
-	piExecApiToCommandExecApi,
-	runNormalizedExecResult,
 	shellQuote,
 	tailText,
 	type CommandExecApi,
@@ -41,16 +38,12 @@ export {
 	type ExecOutputStream,
 	type ExecResult,
 	type FormatCommandEvidenceOptions,
-	type PiExecApiLike,
-	type PiExecResultLike,
 	type StdinCapableCommandExecApi,
 	type TailTextOptions,
 } from "@nseng-ai/foundation/command";
 export { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 
-const DEFAULT_TIMEOUT_KILL_GRACE_MS = 5_000;
-const TIMEOUT_EXIT_CODE = 124;
-const STARTUP_FAILURE_EXIT_CODE = 127;
+const DEFAULT_TERMINATION_KILL_GRACE_MS = 5_000;
 
 export interface RunCommandOptions extends ExecOptions {
 	readonly timers?: TimerScheduler;
@@ -68,13 +61,17 @@ export async function runCommand(
 	args: readonly string[],
 	options: RunCommandOptions = {},
 ): Promise<ExecResult> {
+	if (options.signal?.aborted === true) {
+		return { type: "cancelled", stdout: "", stderr: "", code: null, signal: null };
+	}
+
 	return new Promise((resolve) => {
 		const timers = options.timers ?? systemTimerScheduler;
 		let stdout = "";
 		let stderr = "";
 		let hasSettled = false;
-		let hasTimedOut = false;
-		let startupError: string | undefined;
+		let hasSpawned = false;
+		let terminationCause: "cancelled" | "timed-out" | undefined;
 		let timeoutTimer: ScheduledTimer | undefined;
 		let killTimer: ScheduledTimer | undefined;
 
@@ -82,50 +79,54 @@ export async function runCommand(
 			shell: false,
 			stdio: [options.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
 		};
-		if (options.cwd !== undefined) {
-			spawnOptions.cwd = options.cwd;
-		}
-		if (options.env !== undefined) {
-			spawnOptions.env = options.env;
-		}
-		if (options.signal !== undefined) {
-			spawnOptions.signal = options.signal;
-		}
+		if (options.cwd !== undefined) spawnOptions.cwd = options.cwd;
+		if (options.env !== undefined) spawnOptions.env = options.env;
 
-		const clearTimers = (): void => {
+		const clearLifecycle = (): void => {
 			timeoutTimer?.cancel();
 			killTimer?.cancel();
+			options.signal?.removeEventListener("abort", cancel);
 		};
 
-		const finish = (exitCode: number, killed: boolean): void => {
+		const settle = (result: ExecResult): void => {
 			if (hasSettled) return;
 			hasSettled = true;
-			clearTimers();
-			resolve({
-				stdout,
-				stderr,
-				code: hasTimedOut ? TIMEOUT_EXIT_CODE : exitCode,
-				killed: hasTimedOut || killed,
-				...(startupError === undefined ? {} : { startupError }),
-			});
+			clearLifecycle();
+			resolve(result);
 		};
 
-		const child = spawn(command, [...args], spawnOptions);
-		if (options.timeout !== undefined && options.timeout > 0) {
-			timeoutTimer = timers.setTimeout(() => {
-				hasTimedOut = true;
-				child.kill("SIGTERM");
+		let child: ReturnType<typeof spawn>;
+		try {
+			child = spawn(command, [...args], spawnOptions);
+		} catch (error) {
+			const spawnError = formatErrorMessage(error);
+			settle({
+				type: "spawn-failed",
+				stdout,
+				stderr: spawnError,
+				error: spawnError,
+			});
+			return;
+		}
 
-				const graceMs = options.timeoutKillGraceMs ?? DEFAULT_TIMEOUT_KILL_GRACE_MS;
-				if (graceMs <= 0) {
-					child.kill("SIGKILL");
-					return;
-				}
+		function terminate(cause: "cancelled" | "timed-out"): void {
+			if (hasSettled || terminationCause !== undefined) return;
+			terminationCause = cause;
+			timeoutTimer?.cancel();
+			child.kill("SIGTERM");
 
-				killTimer = timers.setTimeout(() => {
-					if (!hasSettled) child.kill("SIGKILL");
-				}, graceMs);
-			}, options.timeout);
+			const graceMs = options.terminationKillGraceMs ?? DEFAULT_TERMINATION_KILL_GRACE_MS;
+			if (graceMs <= 0) {
+				child.kill("SIGKILL");
+				return;
+			}
+			killTimer = timers.setTimeout(() => {
+				if (!hasSettled) child.kill("SIGKILL");
+			}, graceMs);
+		}
+
+		function cancel(): void {
+			terminate("cancelled");
 		}
 
 		child.stdout?.setEncoding("utf8");
@@ -152,15 +153,38 @@ export async function runCommand(
 				}
 			}
 		}
+		child.on("spawn", () => {
+			hasSpawned = true;
+		});
 		child.on("error", (error) => {
-			startupError = formatErrorMessage(error);
-			if (stderr.length === 0) stderr = startupError;
-			finish(STARTUP_FAILURE_EXIT_CODE, false);
+			const diagnostic = formatErrorMessage(error);
+			if (!hasSpawned) {
+				if (stderr.length === 0) stderr = diagnostic;
+				settle({ type: "spawn-failed", stdout, stderr, error: diagnostic });
+				return;
+			}
+			stderr = appendDiagnostic(stderr, diagnostic);
 		});
 		child.on("close", (code, signal) => {
-			finish(code ?? 1, signal !== null);
+			if (terminationCause === undefined) {
+				settle({ type: "exited", stdout, stderr, code, signal });
+				return;
+			}
+			settle({ type: terminationCause, stdout, stderr, code, signal });
 		});
+
+		if (options.timeout !== undefined && options.timeout > 0) {
+			timeoutTimer = timers.setTimeout(() => terminate("timed-out"), options.timeout);
+		}
+		options.signal?.addEventListener("abort", cancel, { once: true });
+		if (options.signal?.aborted === true) cancel();
 	});
+}
+
+function appendDiagnostic(stderr: string, diagnostic: string): string {
+	if (diagnostic === "" || stderr.endsWith(diagnostic)) return stderr;
+	if (stderr === "") return diagnostic;
+	return `${stderr}${stderr.endsWith("\n") ? "" : "\n"}${diagnostic}`;
 }
 
 export function defaultCommandResolver(name: string): string | undefined {

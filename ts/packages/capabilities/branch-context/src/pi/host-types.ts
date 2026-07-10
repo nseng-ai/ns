@@ -5,7 +5,6 @@ import type {
 	createBranchContextFromFile,
 	loadBranchContextPlan,
 } from "@nseng-ai/branch-context/api";
-import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,
@@ -13,6 +12,19 @@ import type {
 } from "@nseng-ai/pi/sessions/replacement";
 import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@nseng-ai/plans/api";
 import type { SendMessageOptions } from "@nseng-ai/pi/shared/message-delivery";
+
+export interface RawPiExecResult {
+	stdout: string;
+	stderr: string;
+	code: number;
+	killed: boolean;
+}
+
+export interface RawPiExecOptions {
+	cwd?: string;
+	signal?: AbortSignal;
+	timeout?: number;
+}
 
 export type NotifyLevel = "info" | "warning" | "error";
 
@@ -130,7 +142,7 @@ export interface ExtensionAPI {
 		},
 	): void;
 	registerTool(definition: ToolDefinition): void;
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
+	exec(command: string, args: string[], options?: RawPiExecOptions): Promise<RawPiExecResult>;
 	sendMessage?(message: CustomMessage, options?: SendMessageOptions): void;
 	sendUserMessage(content: string): void;
 }

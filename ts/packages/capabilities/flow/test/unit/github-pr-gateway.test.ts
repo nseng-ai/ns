@@ -4,14 +4,25 @@ import { describe, expect, test } from "vitest";
 
 import type { CommandRunner } from "@nseng-ai/foundation/command";
 import { RealGithubPrGateway } from "../../src/submit/index.ts";
-import { ScriptedCommandRunner, step } from "@nseng-ai/foundation/exec/testing";
+import { ScriptedCommandRunner, exitedResult } from "@nseng-ai/foundation/exec/testing";
 import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	code?: number | null;
+	signal?: string | null;
+}
+
+function execStep(command: string, args: readonly string[], fields: ExitedResultFields = {}) {
+	return { command, args: [...args], result: exitedResult(fields) };
+}
 
 describe("RealGithubPrGateway", () => {
 	test("returns structured command failures when gh view current branch fails", async () => {
 		const args = ["pr", "view", "--json", "number,url,title,body,headRefName,baseRefName"];
 		const runner = new ScriptedCommandRunner([
-			step("gh", args, { exitCode: 1, stderr: "no pull requests found" }),
+			execStep("gh", args, { code: 1, stderr: "no pull requests found" }),
 		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
@@ -20,7 +31,14 @@ describe("RealGithubPrGateway", () => {
 			error: {
 				code: "github_pr_view_failed",
 				message: "Could not read GitHub PR details.",
-				details: { command: "gh", args, exit_code: 1, stderr: "no pull requests found" },
+				details: {
+					command: "gh",
+					args,
+					exit_code: 1,
+					result_type: "exited",
+					signal: null,
+					stderr: "no pull requests found",
+				},
 			},
 		});
 		runner.assertDone();
@@ -29,7 +47,7 @@ describe("RealGithubPrGateway", () => {
 	test("returns structured command failures when gh commit lookup fails", async () => {
 		const args = ["pr", "view", "12", "--json", "commits"];
 		const runner = new ScriptedCommandRunner([
-			step("gh", args, { exitCode: 1, stderr: "not found" }),
+			execStep("gh", args, { code: 1, stderr: "not found" }),
 		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
@@ -38,7 +56,14 @@ describe("RealGithubPrGateway", () => {
 			error: {
 				code: "github_pr_commits_failed",
 				message: "Could not read commit messages for PR #12.",
-				details: { command: "gh", args, exit_code: 1, stderr: "not found" },
+				details: {
+					command: "gh",
+					args,
+					exit_code: 1,
+					result_type: "exited",
+					signal: null,
+					stderr: "not found",
+				},
 			},
 		});
 		runner.assertDone();
@@ -47,7 +72,7 @@ describe("RealGithubPrGateway", () => {
 	test("returns structured command failures when gh diff fails", async () => {
 		const args = ["pr", "diff", "12"];
 		const runner = new ScriptedCommandRunner([
-			step("gh", args, { exitCode: 1, stderr: "diff unavailable" }),
+			execStep("gh", args, { code: 1, stderr: "diff unavailable" }),
 		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
@@ -56,7 +81,14 @@ describe("RealGithubPrGateway", () => {
 			error: {
 				code: "github_pr_diff_failed",
 				message: "Could not read diff for PR #12.",
-				details: { command: "gh", args, exit_code: 1, stderr: "diff unavailable" },
+				details: {
+					command: "gh",
+					args,
+					exit_code: 1,
+					result_type: "exited",
+					signal: null,
+					stderr: "diff unavailable",
+				},
 			},
 		});
 		runner.assertDone();
@@ -65,8 +97,8 @@ describe("RealGithubPrGateway", () => {
 	test("retries numeric PR detail reads after transient gh failures", async () => {
 		const args = ["pr", "view", "12", "--json", "number,url,title,body,headRefName,baseRefName"];
 		const runner = new ScriptedCommandRunner([
-			step("gh", args, { exitCode: 1, stderr: "GraphQL: Could not resolve to a PullRequest" }),
-			step("gh", args, {
+			execStep("gh", args, { code: 1, stderr: "GraphQL: Could not resolve to a PullRequest" }),
+			execStep("gh", args, {
 				stdout: JSON.stringify({
 					number: 12,
 					url: "https://github.com/acme/project/pull/12",
@@ -100,7 +132,7 @@ describe("RealGithubPrGateway", () => {
 
 	test("views current branch PR details as JSON", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gh", ["pr", "view", "--json", "number,url,title,body,headRefName,baseRefName"], {
+			execStep("gh", ["pr", "view", "--json", "number,url,title,body,headRefName,baseRefName"], {
 				stdout: JSON.stringify({
 					number: 12,
 					url: "https://github.com/acme/project/pull/12",
@@ -129,12 +161,14 @@ describe("RealGithubPrGateway", () => {
 				args: [...args],
 				...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 			});
-			if (command === "gh") return { stdout: diff, stderr: "", code: 0, killed: false };
+			if (command === "gh")
+				return { stdout: diff, stderr: "", code: 0, type: "exited", signal: null };
 			return {
 				stdout: "abc123 0000000000000000000000000000000000000000\n",
 				stderr: "",
 				code: 0,
-				killed: false,
+				type: "exited",
+				signal: null,
 			};
 		};
 		const gateway = new RealGithubPrGateway(runner);
@@ -152,13 +186,13 @@ describe("RealGithubPrGateway", () => {
 	test("computes stable patch ids from local diff fallback when GitHub diff is oversized", async () => {
 		const diff = "diff --git a/src/app.ts b/src/app.ts\n+local\n";
 		const runner = new ScriptedCommandRunner([
-			step("gh", ["pr", "diff", "12"], {
-				exitCode: 1,
+			execStep("gh", ["pr", "diff", "12"], {
+				code: 1,
 				stderr:
 					"HTTP 406: Sorry, the diff exceeded the maximum number of files (300)\nPullRequest.diff too_large",
 			}),
-			step("git", ["diff", "main...feature/demo"], { stdout: diff }),
-			step("git", ["patch-id", "--stable"], {
+			execStep("git", ["diff", "main...feature/demo"], { stdout: diff }),
+			execStep("git", ["patch-id", "--stable"], {
 				stdout: "abc123 0000000000000000000000000000000000000000\n",
 			}),
 		]);
@@ -180,8 +214,10 @@ describe("RealGithubPrGateway", () => {
 
 	test("rejects empty stable patch-id output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gh", ["pr", "diff", "12"], { stdout: "diff --git a/src/app.ts b/src/app.ts\n+code\n" }),
-			step("git", ["patch-id", "--stable"], { stdout: "\n" }),
+			execStep("gh", ["pr", "diff", "12"], {
+				stdout: "diff --git a/src/app.ts b/src/app.ts\n+code\n",
+			}),
+			execStep("git", ["patch-id", "--stable"], { stdout: "\n" }),
 		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
@@ -197,12 +233,14 @@ describe("RealGithubPrGateway", () => {
 
 	test("reads commit messages and diff for a PR", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gh", ["pr", "view", "12", "--json", "commits"], {
+			execStep("gh", ["pr", "view", "12", "--json", "commits"], {
 				stdout: JSON.stringify({
 					commits: [{ messageHeadline: "Add feature", messageBody: "Body" }],
 				}),
 			}),
-			step("gh", ["pr", "diff", "12"], { stdout: "diff --git a/src/app.ts b/src/app.ts\n+code\n" }),
+			execStep("gh", ["pr", "diff", "12"], {
+				stdout: "diff --git a/src/app.ts b/src/app.ts\n+code\n",
+			}),
 		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
@@ -219,12 +257,12 @@ describe("RealGithubPrGateway", () => {
 
 	test("falls back to local git diff when GitHub reports an oversized PR diff", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gh", ["pr", "diff", "12"], {
-				exitCode: 1,
+			execStep("gh", ["pr", "diff", "12"], {
+				code: 1,
 				stderr:
 					"HTTP 406: Sorry, the diff exceeded the maximum number of lines (20000)\nPullRequest.diff too_large",
 			}),
-			step("git", ["diff", "main...feature/demo"], {
+			execStep("git", ["diff", "main...feature/demo"], {
 				stdout: "diff --git a/src/app.ts b/src/app.ts\n+local\n",
 			}),
 		]);
@@ -256,7 +294,7 @@ describe("RealGithubPrGateway", () => {
 				...(options.cwd === undefined ? {} : { cwd: options.cwd }),
 				...(bodyFile === undefined ? {} : { bodyFileText: await readFile(bodyFile, "utf8") }),
 			});
-			return { stdout: "", stderr: "", code: 0, killed: false };
+			return { stdout: "", stderr: "", code: 0, type: "exited", signal: null };
 		};
 		const gateway = new RealGithubPrGateway(runner);
 
@@ -289,7 +327,7 @@ describe("RealGithubPrGateway", () => {
 				...(options.cwd === undefined ? {} : { cwd: options.cwd }),
 				...(bodyFile === undefined ? {} : { bodyFileText: await readFile(bodyFile, "utf8") }),
 			});
-			return { stdout: "", stderr: "edit failed", code: 1, killed: false };
+			return { stdout: "", stderr: "edit failed", code: 1, type: "exited", signal: null };
 		};
 		const gateway = new RealGithubPrGateway(runner);
 
@@ -300,7 +338,14 @@ describe("RealGithubPrGateway", () => {
 			error: {
 				code: "github_pr_edit_failed",
 				message: "Could not update PR #12.",
-				details: { command: "gh", args: calls[0]?.args, exit_code: 1, stderr: "edit failed" },
+				details: {
+					command: "gh",
+					args: calls[0]?.args,
+					exit_code: 1,
+					result_type: "exited",
+					signal: null,
+					stderr: "edit failed",
+				},
 			},
 		});
 		expect(calls).toHaveLength(1);

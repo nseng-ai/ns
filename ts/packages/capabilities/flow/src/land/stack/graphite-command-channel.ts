@@ -1,8 +1,7 @@
 import {
+	commandSucceeded,
 	execApiToCommandRunner,
 	formatCommand,
-	piExecApiToCommandExecApi,
-	runNormalizedExecResult,
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
@@ -237,7 +236,7 @@ export function normalizeLandCommandFinish(
 	}
 	// /ns:flow:land reads Graphite topology through a controlled ns flow exec command;
 	// avoid labeling unrelated ns invocations just because the binary matches.
-	if (command === "ns" && result.code === 0 && isReadGraphiteBranchMetadataArgs(args)) {
+	if (command === "ns" && commandSucceeded(result) && isReadGraphiteBranchMetadataArgs(args)) {
 		return { result, note: "read Graphite stack topology" };
 	}
 	return { result };
@@ -250,8 +249,9 @@ export function normalizeGraphiteCommandFinish(
 	const deleteBranch = args[0] === "delete" ? args[1] : undefined;
 	if (
 		deleteBranch &&
+		result.type === "exited" &&
+		result.signal === null &&
 		result.code !== 0 &&
-		!result.killed &&
 		isGtDeleteMissingBranch(result, deleteBranch)
 	) {
 		return { result: { ...result, code: 0 }, note: `branch ${deleteBranch} already absent` };
@@ -416,10 +416,7 @@ async function executeGraphiteCommand(
 	pi: LandStackExtensionAPI,
 	options: ResolvedGraphiteCommandOptions,
 ): Promise<ExecResult> {
-	return runNormalizedExecResult(
-		async () =>
-			await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), options),
-	);
+	return await runGraphiteCommand(execApiToCommandRunner(pi), options);
 }
 
 async function runStandardGraphiteOperation(input: {
@@ -512,7 +509,7 @@ async function deleteFinalLocalGraphiteBranchStreamed(
 					value: { kind: "retained", branch: input.branch, path: checkoutConflict.path },
 				};
 			}
-			if (finish.result.code === 0) return { finish, value: { kind: "deleted" } };
+			if (commandSucceeded(finish.result)) return { finish, value: { kind: "deleted" } };
 			return { finish, value: { kind: "failed", result: finish.result } };
 		},
 	});
@@ -523,7 +520,9 @@ export function isReadGraphiteBranchMetadataArgs(args: readonly string[]): boole
 }
 
 function parseOptionalCheckoutConflict(result: ExecResult): CheckedOutElsewhere | undefined {
-	return result.code !== 0 && !result.killed ? parseGitCheckedOutElsewhere(result) : undefined;
+	return result.type === "exited" && result.signal === null && result.code !== 0
+		? parseGitCheckedOutElsewhere(result)
+		: undefined;
 }
 
 function optionalGraphiteCommandResult(
@@ -534,8 +533,15 @@ function optionalGraphiteCommandResult(
 }
 
 function finalDeleteSkippedFinish(result: ExecResult, branch: string): CommandStreamFinish {
+	const successfulResult: ExecResult = {
+		type: "exited",
+		stdout: result.stdout,
+		stderr: result.stderr,
+		code: 0,
+		signal: null,
+	};
 	return {
-		result: { ...result, code: 0 },
+		result: successfulResult,
 		note: `branch ${branch} still checked out; clean up manually with gt sync or direct branch deletion`,
 	};
 }

@@ -172,16 +172,16 @@ describe("@nseng-ai/flow/land API boundary", () => {
 					prepareRestackForSubmit: async () => landCompleted(),
 					refreshBranchFromRemote: async () => ({
 						type: "success",
-						result: { stdout: "", stderr: "", code: 0, killed: false },
+						result: { stdout: "", stderr: "", code: 0, type: "exited", signal: null },
 					}),
 					deleteLocalBranch: async () => ({ type: "deleted" }),
 					restack: async () => ({
 						type: "success",
-						result: { stdout: "", stderr: "", code: 0, killed: false },
+						result: { stdout: "", stderr: "", code: 0, type: "exited", signal: null },
 					}),
 					submitUpdate: async () => ({
 						type: "success",
-						result: { stdout: "", stderr: "", code: 0, killed: false },
+						result: { stdout: "", stderr: "", code: 0, type: "exited", signal: null },
 					}),
 					branchChildren: async () => landSuccess([]),
 				},

@@ -134,7 +134,9 @@ export const nodeExtensionAcquisitionGateway: ExtensionAcquisitionGateway = {
 			{ cwd: request.projectDir },
 		);
 		await rm(join(request.projectDir, "package-lock.json"), { force: true });
-		if (result.code === 0) return resultOk(undefined);
+		if (result.type === "exited" && result.code === 0 && result.signal === null) {
+			return resultOk(undefined);
+		}
 		return resultErr({
 			code: "extension_acquisition_npm_install_failed",
 			message: `npm install failed for declared extension ${request.rawSpec}: ${result.stderr || result.stdout}`,

@@ -11,11 +11,14 @@ import {
 	parsePullRequestView,
 	registerLandCommand,
 	runLandCli,
-	type ExecResult,
 	type LandCommandContext,
 	type LandExtensionAPI,
 	type NotifyLevel,
 } from "@nseng-ai/ccc/land";
+
+import { createPiCommandExecApi, type RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+
+type ExecResultFixture = Partial<RawPiExecResult>;
 import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
 
 const ROOT = "/repo";
@@ -23,13 +26,7 @@ const CURRENT = "feature-branch";
 const TRUNK = "main";
 const PR_VIEW_ARGS = ["pr", "view", CURRENT, "--json", FLOW_LAND_PR_FIELDS];
 const PR_VERIFY_ARGS = ["pr", "view", "42", "--json", FLOW_LAND_PR_FIELDS];
-const PR_VIEW_TIMEOUT_MS = 30_000;
-const PR_MERGE_TIMEOUT_MS = 120_000;
 const STACK_PR_VIEW_FIELDS = FLOW_LAND_PR_FIELDS;
-const GIT_TIMEOUT_MS = 30_000;
-const CORE_GIT_TIMEOUT_MS = 10_000;
-const GT_TIMEOUT_MS = 120_000;
-const SQLITE_TIMEOUT_MS = 30_000;
 const GIT_ROOT_ARGS = ["rev-parse", "--show-toplevel"];
 const GIT_CURRENT_ARGS = ["symbolic-ref", "--short", "HEAD"];
 const GT_TRUNK_ARGS = ["trunk", "--no-interactive"];
@@ -73,7 +70,7 @@ interface ExecCall {
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: ExecResultFixture | undefined;
 }
 
 interface Notification {
@@ -104,8 +101,12 @@ class FakePi implements LandExtensionAPI {
 		command: string,
 		args: string[],
 		options?: { cwd?: string; timeout?: number },
-	): Promise<ExecResult> {
-		this.execCalls.push({ command, args: [...args], options });
+	): Promise<RawPiExecResult> {
+		this.execCalls.push({
+			command,
+			args: [...args],
+			options: options?.cwd === undefined ? undefined : { cwd: options.cwd },
+		});
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
@@ -146,7 +147,7 @@ function createRecordingPi(script: ScriptedExec[]): { pi: FakePi; events: string
 			command: string,
 			args: string[],
 			options?: { cwd?: string; timeout?: number },
-		): Promise<ExecResult> {
+		): Promise<RawPiExecResult> {
 			events.push(`exec:${command} ${args.join(" ")}`);
 			return await super.exec(command, args, options);
 		}
@@ -158,7 +159,12 @@ function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function landCliExec(pi: FakePi) {
+	const commands = createPiCommandExecApi(pi);
+	return async (...args: Parameters<typeof commands.exec>) => await commands.exec(...args);
+}
+
+function execResult(overrides: ExecResultFixture = {}): RawPiExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
@@ -167,7 +173,7 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
+function step(command: string, args: string[], result?: ExecResultFixture): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -246,7 +252,7 @@ async function runLand(
 			? script
 			: [...graphiteShapeSteps(options.stack ?? DB_SINGLE_BRANCH), ...script];
 	const pi = new FakePi(fullScript);
-	registerLandCommand(pi);
+	registerLandCommand(pi, createPiCommandExecApi(pi));
 	const command = pi.commands.get("ns:flow:land");
 	expect(command).toBeDefined();
 	const context = createContext({ mode: options.mode });
@@ -315,21 +321,21 @@ function domainGraphiteShapeStepsForRoot(root: string, dbRows: string): Scripted
 
 function expectedShapeCalls(options: { forEachRef?: boolean } = {}): ExecCall[] {
 	const calls: ExecCall[] = [
-		{ command: "git", args: GIT_ROOT_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
-		{ command: "git", args: GIT_CURRENT_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
-		{ command: "gt", args: GT_TRUNK_ARGS, options: { cwd: ROOT, timeout: GT_TIMEOUT_MS } },
-		{ command: "git", args: GIT_COMMON_DIR_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
+		{ command: "git", args: GIT_ROOT_ARGS, options: { cwd: ROOT } },
+		{ command: "git", args: GIT_CURRENT_ARGS, options: { cwd: ROOT } },
+		{ command: "gt", args: GT_TRUNK_ARGS, options: { cwd: ROOT } },
+		{ command: "git", args: GIT_COMMON_DIR_ARGS, options: { cwd: ROOT } },
 		{
 			command: TOPOLOGY_COMMAND,
 			args: TOPOLOGY_ARGS,
-			options: { cwd: ROOT, timeout: SQLITE_TIMEOUT_MS },
+			options: { cwd: ROOT },
 		},
 	];
 	if (options.forEachRef !== false) {
 		calls.push({
 			command: "git",
 			args: GIT_FOR_EACH_REF_ARGS,
-			options: { cwd: ROOT, timeout: CORE_GIT_TIMEOUT_MS },
+			options: { cwd: ROOT },
 		});
 	}
 	return calls;
@@ -527,7 +533,7 @@ function successfulStackLandingSteps(root = ROOT): ScriptedExec[] {
 describe("code land command registration", () => {
 	test("registers only the namespaced ns:flow:land command", () => {
 		const pi = new FakePi();
-		registerLandCommand(pi);
+		registerLandCommand(pi, createPiCommandExecApi(pi));
 
 		expect([...pi.commands.keys()]).toEqual(["ns:flow:land"]);
 		expect(pi.commands.has("gh:land")).toBe(false);
@@ -557,11 +563,7 @@ describe("code land CLI bridge", () => {
 			exitCode = await runLandCli({
 				cwd: ROOT,
 				rawArgs: "--dry-run",
-				exec: async (command, args, options) =>
-					await pi.exec(command, args, {
-						...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
-						...(options?.timeout === undefined ? {} : { timeout: options.timeout }),
-					}),
+				exec: landCliExec(pi),
 				stdout: (text) => stdout.push(text),
 				stderr: (text) => stderr.push(text),
 			});
@@ -588,7 +590,7 @@ describe("code land CLI bridge", () => {
 		const exitCode = await runLandCli({
 			cwd: ROOT,
 			rawArgs: "--yes",
-			exec: async (command, args, options) => await pi.exec(command, args, options),
+			exec: landCliExec(pi),
 			stdout: (text) => {
 				stdout += text;
 			},
@@ -622,7 +624,7 @@ describe("code land CLI bridge", () => {
 		const exitCode = await runLandCli({
 			cwd: ROOT,
 			rawArgs: "",
-			exec: async (command, args, options) => await pi.exec(command, args, options),
+			exec: landCliExec(pi),
 			stdout: (text) => {
 				stdout += text;
 			},
@@ -659,7 +661,7 @@ describe("code land CLI bridge", () => {
 		const exitCode = await runLandCli({
 			cwd: ROOT,
 			rawArgs: "",
-			exec: async (command, args, options) => await pi.exec(command, args, options),
+			exec: landCliExec(pi),
 			stdout: (text) => {
 				stdout += text;
 			},
@@ -693,7 +695,7 @@ describe("code land CLI bridge", () => {
 		const exitCode = await runLandCli({
 			cwd: ROOT,
 			rawArgs: "--dry-run",
-			exec: async (command, args, options) => await pi.exec(command, args, options),
+			exec: landCliExec(pi),
 			stdout: (text) => {
 				stdout += text;
 			},
@@ -723,7 +725,7 @@ describe("code land command", () => {
 			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
 			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
 		]);
-		registerLandCommand(pi);
+		registerLandCommand(pi, createPiCommandExecApi(pi));
 		const command = pi.commands.get("ns:flow:land");
 		expect(command).toBeDefined();
 
@@ -761,13 +763,13 @@ describe("code land command", () => {
 		expect(waitForIdleCalls()).toBe(1);
 		expect(pi.execCalls).toEqual([
 			...expectedShapeCalls(),
-			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT } },
 			{
 				command: "gh",
 				args: expectedMergeArgs(),
-				options: { cwd: ROOT, timeout: PR_MERGE_TIMEOUT_MS },
+				options: { cwd: ROOT },
 			},
-			{ command: "gh", args: PR_VERIFY_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+			{ command: "gh", args: PR_VERIFY_ARGS, options: { cwd: ROOT } },
 		]);
 		expect(notifications).toEqual([
 			{
@@ -792,7 +794,7 @@ describe("code land command", () => {
 			step("ns", ["slot", "free", "--wt", "slot-01"]),
 			step("gt", ["delete", CURRENT, "-f", "-q"]),
 		]);
-		registerLandCommand(pi);
+		registerLandCommand(pi, createPiCommandExecApi(pi));
 		const command = pi.commands.get("ns:flow:land");
 		const context = createContext({ cwd: slotRoot });
 
@@ -803,12 +805,12 @@ describe("code land command", () => {
 			{
 				command: "ns",
 				args: ["slot", "free", "--wt", "slot-01"],
-				options: { cwd: slotRoot, timeout: 120_000 },
+				options: { cwd: slotRoot },
 			},
 			{
 				command: "gt",
 				args: ["delete", CURRENT, "-f", "-q"],
-				options: { cwd: slotRoot, timeout: 600_000 },
+				options: { cwd: slotRoot },
 			},
 		]);
 		expect(context.notifications.at(-1)).toEqual({
@@ -826,7 +828,7 @@ describe("code land command", () => {
 			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
 			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
 		]);
-		registerLandCommand(pi);
+		registerLandCommand(pi, createPiCommandExecApi(pi));
 		const command = pi.commands.get("ns:flow:land");
 		const context = createContext({
 			cwd: slotRoot,
@@ -848,12 +850,12 @@ describe("code land command", () => {
 		expect(pi.execCalls).not.toContainEqual({
 			command: "ns",
 			args: ["slot", "free", "--wt", "slot-01"],
-			options: { cwd: slotRoot, timeout: 120_000 },
+			options: { cwd: slotRoot },
 		});
 		expect(pi.execCalls).not.toContainEqual({
 			command: "gt",
 			args: ["delete", CURRENT, "-f", "-q"],
-			options: { cwd: slotRoot, timeout: 600_000 },
+			options: { cwd: slotRoot },
 		});
 		expect(context.notifications.at(-1)).toEqual({
 			message: `land stopped: Skipped post-landing cleanup by upfront choice; PRs were landed but slot-01 and local branch ${CURRENT} were kept.`,
@@ -919,7 +921,7 @@ describe("code land command", () => {
 
 		expect(pi.execCalls).toEqual([
 			...expectedShapeCalls(),
-			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT } },
 		]);
 		expect(notifications).toEqual([
 			{
@@ -938,7 +940,7 @@ describe("code land command", () => {
 
 		expect(pi.execCalls).toEqual([
 			...expectedShapeCalls(),
-			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT } },
 		]);
 		expect(notifications).toEqual([
 			{
@@ -954,7 +956,7 @@ describe("code land command", () => {
 
 		expect(pi.execCalls).toEqual([
 			...expectedShapeCalls(),
-			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT } },
 		]);
 		expect(notifications[0]?.message).toContain("Failed to parse gh pr view output");
 		expect(notifications[0]?.message).toContain(
@@ -971,7 +973,7 @@ describe("code land command", () => {
 
 		expect(pi.execCalls).toEqual([
 			...expectedShapeCalls(),
-			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT } },
 		]);
 		expect(notifications).toEqual([
 			{
@@ -1050,11 +1052,7 @@ describe("code land command", () => {
 		const exitCode = await runLandCli({
 			cwd: ROOT,
 			rawArgs: "",
-			exec: async (command, args, options) =>
-				await pi.exec(command, args, {
-					...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
-					...(options?.timeout === undefined ? {} : { timeout: options.timeout }),
-				}),
+			exec: landCliExec(pi),
 			stdout: (text) => {
 				stdout += text;
 			},
@@ -1080,11 +1078,7 @@ describe("code land command", () => {
 		const exitCode = await runLandCli({
 			cwd: ROOT,
 			rawArgs: "",
-			exec: async (command, args, options) =>
-				await pi.exec(command, args, {
-					...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
-					...(options?.timeout === undefined ? {} : { timeout: options.timeout }),
-				}),
+			exec: landCliExec(pi),
 			stdout: (text) => {
 				stdout += text;
 			},
@@ -1115,7 +1109,7 @@ describe("code land command", () => {
 	test("canceling the main stack confirmation does not ask cleanup", async () => {
 		const slotRoot = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
 		const pi = new FakePi(graphiteShapeStepsForRoot(slotRoot, DB_WITH_DESCENDANT));
-		registerLandCommand(pi);
+		registerLandCommand(pi, createPiCommandExecApi(pi));
 		const command = pi.commands.get("ns:flow:land");
 		const context = createContext({ cwd: slotRoot });
 
@@ -1135,7 +1129,7 @@ describe("code land command", () => {
 			step("ns", ["slot", "free", "--wt", "slot-01"]),
 			step("gt", ["delete", CURRENT, "-f", "-q"]),
 		]);
-		registerLandCommand(pi);
+		registerLandCommand(pi, createPiCommandExecApi(pi));
 		const command = pi.commands.get("ns:flow:land");
 		const context = createContext({
 			cwd: slotRoot,
@@ -1162,12 +1156,12 @@ describe("code land command", () => {
 			{
 				command: "ns",
 				args: ["slot", "free", "--wt", "slot-01"],
-				options: { cwd: slotRoot, timeout: 120_000 },
+				options: { cwd: slotRoot },
 			},
 			{
 				command: "gt",
 				args: ["delete", CURRENT, "-f", "-q"],
-				options: { cwd: slotRoot, timeout: 600_000 },
+				options: { cwd: slotRoot },
 			},
 		]);
 		expect(context.notifications.at(-1)).toEqual({
@@ -1184,7 +1178,7 @@ describe("code land command", () => {
 
 		expect(pi.execCalls).toEqual([
 			...expectedShapeCalls(),
-			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT } },
 		]);
 		expect(notifications).toEqual([
 			{ message: "Dry run only; would merge PR #42 into main.", level: "info" },
@@ -1204,7 +1198,7 @@ describe("code land command", () => {
 		const exitCode = await runLandCli({
 			cwd: slotRoot,
 			rawArgs: "",
-			exec: async (command, args, options) => await pi.exec(command, args, options),
+			exec: landCliExec(pi),
 			stdout: (text) => {
 				stdout += text;
 			},
@@ -1219,7 +1213,7 @@ describe("code land command", () => {
 		expect(pi.execCalls).not.toContainEqual({
 			command: "gh",
 			args: expectedMergeArgs(),
-			options: { cwd: slotRoot, timeout: PR_MERGE_TIMEOUT_MS },
+			options: { cwd: slotRoot },
 		});
 		pi.assertDone();
 	});
@@ -1253,7 +1247,7 @@ describe("code land CLI house-style result blocks (PR 5b)", () => {
 			cwd: ROOT,
 			rawArgs: "--yes",
 			caps: TRUECOLOR_CAPS,
-			exec: async (command, args, options) => await pi.exec(command, args, options),
+			exec: landCliExec(pi),
 			stdout: (text) => {
 				stdout += text;
 			},
@@ -1282,7 +1276,7 @@ describe("code land CLI house-style result blocks (PR 5b)", () => {
 			cwd: ROOT,
 			rawArgs: "",
 			caps: TRUECOLOR_CAPS,
-			exec: async (command, args, options) => await pi.exec(command, args, options),
+			exec: landCliExec(pi),
 			stdout: (text) => {
 				stdout += text;
 			},
@@ -1314,7 +1308,7 @@ describe("code land CLI house-style result blocks (PR 5b)", () => {
 			cwd: ROOT,
 			rawArgs: "--dry-run",
 			caps: TRUECOLOR_CAPS,
-			exec: async (command, args, options) => await pi.exec(command, args, options),
+			exec: landCliExec(pi),
 			stdout: (text) => {
 				stdout += text;
 			},
@@ -1341,7 +1335,7 @@ describe("code land CLI house-style result blocks (PR 5b)", () => {
 		const exitCode = await runLandCli({
 			cwd: ROOT,
 			rawArgs: "--dry-run",
-			exec: async (command, args, options) => await pi.exec(command, args, options),
+			exec: landCliExec(pi),
 			stdout: (text) => {
 				stdout += text;
 			},

@@ -1,5 +1,4 @@
 import type { CommandResult } from "@nseng-ai/capability-kit/checkpoint-flow";
-import { formatCommandDetails } from "@nseng-ai/foundation/command";
 
 export type { CommandResult };
 import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
@@ -21,7 +20,24 @@ export interface PendingWorktreeSnapshot {
 }
 
 export function formatAutobranchCommandDetails(result: CommandResult): string {
-	return formatCommandDetails({ ...result, killed: result.killed ?? false });
+	const detail = result.stderr.trim() || result.stdout.trim();
+	const status = autobranchTerminationStatus(result);
+	return detail === "" ? status : `${status}: ${detail}`;
+}
+
+function autobranchTerminationStatus(result: CommandResult): string {
+	switch (result.type) {
+		case "spawn-failed":
+			return `spawn failed: ${result.error}`;
+		case "cancelled":
+			return `cancelled (exit ${result.code})`;
+		case "timed-out":
+			return `timed out (exit ${result.code})`;
+		case "exited":
+			return result.signal === null
+				? `exit ${result.code}`
+				: `signal ${result.signal} (exit ${result.code})`;
+	}
 }
 
 export function truncateText(text: string, maxChars: number): string {

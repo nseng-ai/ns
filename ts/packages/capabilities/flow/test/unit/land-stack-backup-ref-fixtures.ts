@@ -1,4 +1,3 @@
-import type { ExecResult } from "@nseng-ai/foundation/command";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
 import { formatLiveBranchTips } from "./land-test-helpers.ts";
@@ -11,10 +10,17 @@ const DEFAULT_BACKUP_REF_SHAS: Record<string, string> = {
 	"feature-c": "cccccccccccccccccccccccccccccccccccccccc",
 };
 
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	code?: number | null;
+	signal?: string | null;
+}
+
 export interface BackupRefScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: ExitedResultFields | undefined;
 }
 
 export const BACKUP_ROTATION_ARGS = [
@@ -64,10 +70,6 @@ export function backupSnapshotFetchArgs(
 	];
 }
 
-function step(
-	command: string,
-	args: string[],
-	result?: Partial<ExecResult>,
-): BackupRefScriptedExec {
+function step(command: string, args: string[], result?: ExitedResultFields): BackupRefScriptedExec {
 	return { command, args, result };
 }

@@ -1,5 +1,7 @@
-import type { ExecGateway } from "./exec-gateway.ts";
+import { commandFailureReason } from "@nseng-ai/foundation/exec";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+
+import type { ExecGateway } from "./exec-gateway.ts";
 
 export interface LoadGhCommandOptions {
 	pi: ExecGateway;
@@ -21,7 +23,10 @@ export async function loadGhCommand(options: LoadGhCommandOptions): Promise<Load
 		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
 	const stdout = result.stdout.trim();
-	if (result.killed) return { type: "failed", detail: "command timed out" };
+	if (result.type === "timed-out") return { type: "failed", detail: "command timed out" };
+	if (result.type !== "exited" || result.code === null || result.signal !== null) {
+		return { type: "failed", detail: commandFailureReason(result) };
+	}
 	if (result.code !== 0 && (options.shouldAllowNonZeroWithStdout !== true || stdout.length === 0)) {
 		return { type: "failed", detail: result.stderr.trim() || `exit code ${result.code}` };
 	}
