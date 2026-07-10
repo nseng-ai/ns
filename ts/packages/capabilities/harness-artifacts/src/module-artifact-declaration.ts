@@ -73,7 +73,7 @@ export function parseDescriptorArtifactDeclarations(
 ): ParseModuleArtifactDeclarationResult {
 	const packageInfo = parsePackageInfo(packageJsonText);
 	if (!packageInfo.ok) return packageInfo;
-	return parseDeclarations({
+	return parseModuleArtifactDeclarations({
 		packageName: packageInfo.packageName,
 		version: packageInfo.version,
 		declarations,
@@ -143,7 +143,7 @@ function emptyCatalog(
 	};
 }
 
-function parseDeclarations(options: {
+export function parseModuleArtifactDeclarations(options: {
 	packageName: string;
 	version: string;
 	declarations: readonly unknown[];

@@ -20,6 +20,7 @@ import { sortStrings } from "./sort.ts";
 import {
 	MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
 	parseDescriptorArtifactDeclarations,
+	parseModuleArtifactDeclarations,
 	parsePackageManifestArtifactDeclaration,
 	type ModuleArtifactDeclarationDiagnostic,
 	type ParseModuleArtifactDeclarationResult,
@@ -124,10 +125,11 @@ export async function discoverDeclaredExtensionModuleHarnessArtifacts(
 	for (const module of [...request.modules].sort((left, right) =>
 		left.moduleRoot.localeCompare(right.moduleRoot),
 	)) {
-		const parsed = parseDescriptorArtifactDeclarations(
-			JSON.stringify({ name: module.packageName, version: module.version }),
-			descriptorArtifactDeclarations(module.descriptor),
-		);
+		const parsed = parseModuleArtifactDeclarations({
+			packageName: module.packageName,
+			version: module.version,
+			declarations: descriptorArtifactDeclarations(module.descriptor),
+		});
 		if (!parsed.ok) {
 			catalogs.push({
 				type: "npm-module-catalog",
