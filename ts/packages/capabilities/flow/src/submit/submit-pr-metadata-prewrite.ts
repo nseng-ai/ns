@@ -6,8 +6,6 @@ import {
 	runGraphiteCommand,
 } from "@nseng-ai/capability-kit/graphite/branch";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import type { MaybePromise } from "@nseng-ai/foundation/primitives";
-
 import { commandFailure } from "./index.ts";
 import type { PrewrittenPrMetadata, PrCommitMessage } from "./index.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
@@ -15,6 +13,8 @@ import { preparePrDescription, resolvePrDescriptionGeneration } from "./index.ts
 import { err, ok, type ErrorInfo, type GatewayResult } from "./index.ts";
 import type { TextGenerator } from "./index.ts";
 import { formatItemCount } from "./submit-format.ts";
+import type { SubmitPlan } from "./submit-plan.ts";
+import { walkParentBranchChain } from "./parent-branch-chain.ts";
 import type {
 	SubmitMatrixCellState,
 	SubmitMetadataProgressReason,
@@ -71,10 +71,6 @@ interface SubmitStackBranchInfo {
 	output: string;
 }
 
-type ParentBranchWalkStep<T> =
-	| { readonly type: "visit"; readonly parentBranch: string | undefined; readonly item: T }
-	| { readonly type: "stop" };
-
 export interface SubmitMetadataGateway {
 	inspectSubmitStackTopology(
 		params: SubmitMetadataCommandParams,
@@ -92,13 +88,8 @@ export interface SubmitMetadataGateway {
 	}): Promise<GatewayResult<void>>;
 }
 
-export type SubmitPrMetadataPrewriteResult =
-	| {
-			kind: "prepared";
-			prepared: PrewrittenPrMetadata[];
-			hasUpstackBranches: boolean;
-			existingPrLinks: SubmitPrLink[];
-	  }
+export type SubmitMetadataPrewriteResult =
+	| { kind: "prepared"; prepared: PrewrittenPrMetadata[] }
 	| {
 			kind: "failed";
 			error: string;
@@ -395,63 +386,36 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 	}
 }
 
-export async function prepareSubmitPrMetadata(input: {
+export interface SubmitMetadataPrewriteDependencies {
 	cwd: string;
 	env: Record<string, string | undefined>;
-	gateway: SubmitMetadataGateway;
+	gateway: Pick<SubmitMetadataGateway, "ensureCleanWorktree" | "amendBranchMetadataCommit">;
 	git: GitGateway;
 	textGenerator: TextGenerator;
 	onProgress?: SubmitMetadataProgressListener;
 	onBranchProgress?: SubmitBranchMetadataProgressListener;
-}): Promise<SubmitPrMetadataPrewriteResult> {
-	input.onProgress?.("inspecting Graphite submit scope before metadata preparation");
-	const inspected = await input.gateway.inspectSubmitStack({
-		cwd: input.cwd,
-		...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
-	});
-	if (!inspected.ok) {
-		return { kind: "failed", error: inspected.error.message, amendedBranches: [] };
-	}
-	const existingPrLinks = inspected.value.branches.flatMap((branch) =>
-		branch.kind === "existing" ? [branch.pr] : [],
-	);
-	const preparedResult = (prepared: PrewrittenPrMetadata[]): SubmitPrMetadataPrewriteResult => ({
-		kind: "prepared",
-		prepared,
-		hasUpstackBranches: inspected.value.hasUpstackBranches,
-		existingPrLinks,
-	});
+}
 
-	const amendableBranches = await findAmendableBranchNames(inspected.value);
-	if (!amendableBranches.ok) {
-		return { kind: "failed", error: amendableBranches.error.message, amendedBranches: [] };
-	}
-	const newBranches = inspected.value.branches.filter(
-		(branch): branch is SubmitStackNewBranch =>
-			branch.kind === "new" &&
-			branch.commitMessages.length === 1 &&
-			amendableBranches.value.has(branch.branch),
-	);
-	const metadataBranches = new Set(newBranches.map((branch) => branch.branch));
-	for (const branch of inspected.value.branches) {
-		if (branch.kind === "existing") {
-			input.onBranchProgress?.({ branch: branch.branch, state: "skipped", reason: "existing-pr" });
-			continue;
-		}
-		if (!metadataBranches.has(branch.branch)) {
-			input.onBranchProgress?.({
-				branch: branch.branch,
-				state: "skipped",
-				reason: "amendment-not-applicable",
-			});
-		}
+export async function prewriteSubmitMetadata(
+	plan: SubmitPlan,
+	input: SubmitMetadataPrewriteDependencies,
+): Promise<SubmitMetadataPrewriteResult> {
+	for (const branch of plan.skippedMetadataBranches) {
+		input.onBranchProgress?.({
+			branch: branch.branch,
+			state: "skipped",
+			reason: branch.kind === "existing" ? "existing-pr" : "amendment-not-applicable",
+		});
 	}
 	input.onProgress?.(
-		formatMetadataPreparationDiscoveryProgress(inspected.value.branches.length, newBranches.length),
+		formatMetadataPreparationDiscoveryProgress(
+			plan.branches.length,
+			plan.metadataPrewriteBranches.length,
+		),
 	);
-	if (newBranches.length === 0) {
+	if (plan.metadataPrewriteBranches.length === 0) {
 		input.onProgress?.("no pre-submit PR metadata changes needed");
-		return preparedResult([]);
+		return { kind: "prepared", prepared: [] };
 	}
 
 	const generated = await generateMetadataForBranches({
@@ -459,16 +423,12 @@ export async function prepareSubmitPrMetadata(input: {
 		env: input.env,
 		git: input.git,
 		textGenerator: input.textGenerator,
-		branches: newBranches,
+		branches: plan.metadataPrewriteBranches,
 		...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		...(input.onBranchProgress === undefined ? {} : { onBranchProgress: input.onBranchProgress }),
 	});
-	if (generated.kind === "failed") {
-		return { ...generated, amendedBranches: [] };
-	}
-	if (generated.prepared.length === 0) {
-		return preparedResult([]);
-	}
+	if (generated.kind === "failed") return { ...generated, amendedBranches: [] };
+	if (generated.prepared.length === 0) return { kind: "prepared", prepared: [] };
 
 	input.onProgress?.("checking clean worktree before metadata amendment");
 	const clean = await input.gateway.ensureCleanWorktree({ cwd: input.cwd });
@@ -488,7 +448,7 @@ export async function prepareSubmitPrMetadata(input: {
 		});
 		const amended = await input.gateway.amendBranchMetadataCommit({
 			cwd: input.cwd,
-			currentBranch: inspected.value.currentBranch,
+			currentBranch: plan.currentBranch,
 			branch: metadata.branch,
 			title: metadata.title,
 			body: metadata.body,
@@ -515,7 +475,7 @@ export async function prepareSubmitPrMetadata(input: {
 	}
 
 	input.onProgress?.(formatPreparedMetadataProgress(generated.prepared.length));
-	return preparedResult(generated.prepared);
+	return { kind: "prepared", prepared: generated.prepared };
 }
 
 async function generateMetadataForBranches(input: {
@@ -590,50 +550,6 @@ async function generateMetadataForBranches(input: {
 		});
 	}
 	return { kind: "prepared", prepared };
-}
-
-async function findAmendableBranchNames(
-	inspection: SubmitStackInspection,
-): Promise<GatewayResult<Set<string>>> {
-	const byBranch = new Map(inspection.branches.map((branch) => [branch.branch, branch]));
-	const branchNames = await walkParentBranchChain<string>({
-		startBranch: inspection.currentBranch,
-		cycleError: (branch) => ({
-			code: "submit_amendable_parent_cycle",
-			message: `Submit branch amendment traversal looped at ${branch}.`,
-		}),
-		readStep: (branch) =>
-			ok({
-				type: "visit",
-				parentBranch: byBranch.get(branch)?.parentBranch,
-				item: branch,
-			}),
-	});
-	if (!branchNames.ok) return branchNames;
-	return ok(new Set(branchNames.value));
-}
-
-async function walkParentBranchChain<T>(input: {
-	readonly startBranch: string;
-	readonly stopBranch?: string;
-	readonly cycleError: (branch: string) => ErrorInfo;
-	readonly readStep: (branch: string) => MaybePromise<GatewayResult<ParentBranchWalkStep<T>>>;
-}): Promise<GatewayResult<T[]>> {
-	const items: T[] = [];
-	const visited = new Set<string>();
-	let branch: string | undefined = input.startBranch;
-	while (branch !== undefined && branch !== input.stopBranch) {
-		if (visited.has(branch)) return err(input.cycleError(branch));
-		visited.add(branch);
-
-		const step = await input.readStep(branch);
-		if (!step.ok) return step;
-		if (step.value.type === "stop") break;
-
-		items.push(step.value.item);
-		branch = step.value.parentBranch;
-	}
-	return ok(items);
 }
 
 function commandError(
