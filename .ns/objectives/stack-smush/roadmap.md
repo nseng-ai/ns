@@ -80,11 +80,18 @@ session on 2026-07-10 (see
       re-run. Canonical terms (Commit Run,
       Packaging/smush, Decision PR, Span PR, Slice Map, Span Squash) recorded in the
       root `CONTEXT.md`.
-- [ ] **Commit-message narration convention** (task) — Draft the run-building
+- [x] **Commit-message narration convention** (task) — Draft the run-building
       convention prose (skill-ready): commit messages that narrate intent and make
       decisions legible to packaging ("chose X over Y because…"), granularity
       guidance (one coherent semantic step per commit), and tip-green expectations.
       Agent-alone; with no structured markers, packaging quality rests on this.
+      Resolved (2026-07-10, autonomous runner step): convention at
+      [`references/commit-narration-convention.md`](references/commit-narration-convention.md)
+      — narrated intent with "chose X over Y because…" why-prose and no
+      self-classification; one coherent semantic step per commit, choices separated
+      from mechanical fallout, finer-over-smeared since packaging can merge but not
+      split; tip green required, interior span commits may be red, boundary
+      greenness owned by packaging.
 - [ ] **CCC disjoint-scope dispatch proposal** (task) — Design proposal for how CCC
       dispatch declares disjoint scopes for parallel subagents, orders the
       concatenation join onto the run branch, and serializes a piece when a join
