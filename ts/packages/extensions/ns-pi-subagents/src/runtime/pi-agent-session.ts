@@ -6,7 +6,7 @@ import {
 	getAgentDir,
 	type AgentSessionEvent,
 } from "@earendil-works/pi-coding-agent";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import type {
 	InProcessSubagentSession,
@@ -72,8 +72,8 @@ function createProductionGateway(): PiAgentSessionGateway {
 				resourceLoader,
 				sessionManager: SessionManager.create(input.cwd),
 				settingsManager,
-				...(input.model === undefined ? {} : { model: input.model }),
-				...(input.modelRegistry === undefined ? {} : { modelRegistry: input.modelRegistry }),
+				...optionalEntry("model", input.model),
+				...optionalEntry("modelRegistry", input.modelRegistry),
 			});
 			return session;
 		},
@@ -107,7 +107,7 @@ class PiInProcessSession implements InProcessSubagentSession {
 			});
 			this.emit({
 				type: "done",
-				...(this.finalText.length === 0 ? {} : { finalText: this.finalText }),
+				...optionalEntry("finalText", this.finalText.length === 0 ? undefined : this.finalText),
 			});
 		} catch (error) {
 			throw new Error(`Pi in-process prompt failed: ${formatErrorMessage(error)}`);

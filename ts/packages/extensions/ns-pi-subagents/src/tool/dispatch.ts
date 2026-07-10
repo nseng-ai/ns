@@ -48,6 +48,16 @@ export async function dispatchSubagentBatch(
 		cwd: args.ctx.cwd,
 		...optionalEntry("readGitHead", deps.readGitHead),
 	});
+	const finalizePlaceholder = (
+		index: number,
+		title: string,
+		status: "cancelled" | "error",
+		diagnostic: string,
+	): RunnerSubagentResult => {
+		const result = placeholderFleetTaskResult(status, diagnostic, title);
+		tracking.markDone(index, result);
+		return result;
+	};
 	try {
 		const results = await mapWithConcurrency({
 			items: args.tasks,
@@ -63,7 +73,7 @@ export async function dispatchSubagentBatch(
 				try {
 					result = await args.run(task, index, (update) => tracking.markProgress(index, update));
 				} catch (error) {
-					result = placeholderFleetTaskResult("error", formatErrorMessage(error), task.title);
+					return finalizePlaceholder(index, task.title, "error", formatErrorMessage(error));
 				}
 				tracking.markDone(index, result);
 				return result;
@@ -75,13 +85,7 @@ export async function dispatchSubagentBatch(
 			if (task === undefined) {
 				throw new Error(`Subagent batch has no task at result index ${index}.`);
 			}
-			const notStarted = placeholderFleetTaskResult(
-				"cancelled",
-				"Task was not started.",
-				task.title,
-			);
-			tracking.markDone(index, notStarted);
-			return notStarted;
+			return finalizePlaceholder(index, task.title, "cancelled", "Task was not started.");
 		});
 	} finally {
 		tracking.dispose();

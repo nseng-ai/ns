@@ -44,6 +44,7 @@ export {
 	type SubagentAgentRegistry,
 } from "../agents/registry.ts";
 export { EXPLORER_AGENT_DESCRIPTOR } from "../agents/explorer.ts";
+export type { ModelSelectionAuthContext } from "../agents/model-policy.ts";
 export { TASK_AGENT_DESCRIPTOR } from "../agents/task.ts";
 export { SUBAGENT_TOOL_NAME, registerSubagentTool } from "../tool/subagent.ts";
 export type {
@@ -66,6 +67,7 @@ export type {
 	SubagentRuntimeDispatchInput,
 	SubagentRuntimeKind,
 	SubagentRuntimeRegistry,
+	SubagentOutcome,
 } from "../runtime/seam.ts";
 export { createInProcessSubagentRuntime } from "../runtime/in-process.ts";
 export type {

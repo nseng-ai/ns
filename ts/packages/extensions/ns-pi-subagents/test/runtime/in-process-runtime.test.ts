@@ -192,6 +192,7 @@ describe("in-process subagent runtime", () => {
 			reason: "context cancelled",
 		});
 		expect(factory.createInputs).toHaveLength(0);
+		expect(result).not.toHaveProperty("sessionFile");
 	});
 
 	test("aborts a pending prompt from the context signal and cleans up once", async () => {
