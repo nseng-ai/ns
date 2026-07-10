@@ -1,11 +1,10 @@
-import { isAbsolute, join, normalize, resolve } from "node:path";
+import { join, resolve } from "node:path";
 
-import { isPathInside } from "@nseng-ai/foundation/primitives";
 import { resultOk, type Result } from "@nseng-ai/foundation/result";
 
 import type { HarnessArtifactFileSystemGateway } from "./filesystem.ts";
-import type { HarnessScope } from "./harness-paths.ts";
 import {
+	normalizeHarnessArtifactSafetyInspection,
 	stalePreparation,
 	unsafeManifestEntry,
 	type HarnessArtifactProvisionErrorInfo,
@@ -15,10 +14,11 @@ import {
 	manifestEntriesEqual,
 	manifestWithoutEntry,
 	readInstallManifest,
+	validateManifestEntryCoherence,
 	writeInstallManifest,
 	type InstallManifestEntryData,
 } from "./provision-manifest.ts";
-import { provisionIdentityKey, type TargetFileHashFact } from "./provision-plan.ts";
+import type { TargetFileHashFact } from "./provision-plan.ts";
 import { collectTargetHashFactsForPaths, targetFactsEqual } from "./provision-state.ts";
 
 export type HarnessArtifactRemovalReason =
@@ -53,20 +53,21 @@ export async function prepareHarnessArtifactRemoval(input: {
 		resolve(input.manifestPath) !==
 		resolve(join(input.expectedTargetRoot, INSTALL_MANIFEST_FILE_NAME))
 			? input.manifestPath
-			: validateRemovalEntry({ ...input, expectedScope: "project" });
+			: validateManifestEntryCoherence({ ...input, expectedScope: "project" });
 	if (unsafePath !== undefined) {
 		return unsafeManifestEntry(input.manifestPath, input.key, unsafePath);
 	}
 	const files = Object.values(input.entry.files);
-	const safety = await input.fs.inspectHarnessArtifactRemovalSafety({
-		trustedBoundaryRoot: input.trustedBoundaryRoot,
-		expectedTargetRoot: input.expectedTargetRoot,
-		targetPaths: [input.entry.targetArtifactPath, ...files.map((file) => file.targetPath)],
+	const safety = normalizeHarnessArtifactSafetyInspection({
+		inspection: await input.fs.inspectHarnessArtifactSafety({
+			trustedBoundaryRoot: input.trustedBoundaryRoot,
+			expectedTargetRoot: input.expectedTargetRoot,
+			targetPaths: [input.entry.targetArtifactPath, ...files.map((file) => file.targetPath)],
+		}),
+		manifestPath: input.manifestPath,
+		installKey: input.key,
 	});
 	if (!safety.ok) return safety;
-	if (safety.value.unsafePath !== undefined) {
-		return unsafeManifestEntry(input.manifestPath, input.key, safety.value.unsafePath);
-	}
 	const targetFacts = await collectTargetHashFactsForPaths({
 		fs: input.fs,
 		targetPaths: files.map((file) => file.targetPath),
@@ -94,18 +95,19 @@ export async function applyPreparedHarnessArtifactRemoval(
 	) {
 		return stalePreparation("manifest", prepared.manifestPath, prepared.key);
 	}
-	const safety = await prepared.fs.inspectHarnessArtifactRemovalSafety({
-		trustedBoundaryRoot: prepared.trustedBoundaryRoot,
-		expectedTargetRoot: prepared.entry.targetRoot,
-		targetPaths: [
-			prepared.entry.targetArtifactPath,
-			...Object.values(prepared.entry.files).map((file) => file.targetPath),
-		],
+	const safety = normalizeHarnessArtifactSafetyInspection({
+		inspection: await prepared.fs.inspectHarnessArtifactSafety({
+			trustedBoundaryRoot: prepared.trustedBoundaryRoot,
+			expectedTargetRoot: prepared.entry.targetRoot,
+			targetPaths: [
+				prepared.entry.targetArtifactPath,
+				...Object.values(prepared.entry.files).map((file) => file.targetPath),
+			],
+		}),
+		manifestPath: prepared.manifestPath,
+		installKey: prepared.key,
 	});
 	if (!safety.ok) return safety;
-	if (safety.value.unsafePath !== undefined) {
-		return unsafeManifestEntry(prepared.manifestPath, prepared.key, safety.value.unsafePath);
-	}
 	const currentFacts = await collectTargetHashFactsForPaths({
 		fs: prepared.fs,
 		targetPaths: prepared.targetFacts.map((fact) => fact.targetPath),
@@ -143,38 +145,4 @@ export async function applyPreparedHarnessArtifactRemoval(
 	);
 	if (!removedDirectory.ok) return removedDirectory;
 	return resultOk(removedFiles);
-}
-
-export function validateRemovalEntry(input: {
-	key: string;
-	entry: InstallManifestEntryData;
-	expectedHarness: string;
-	expectedScope: HarnessScope;
-	expectedTargetRoot: string;
-}): string | undefined {
-	const entry = input.entry;
-	if (input.key !== provisionIdentityKey(entry)) return input.key;
-	if (entry.harness !== input.expectedHarness || entry.scope !== input.expectedScope) {
-		return entry.targetRoot;
-	}
-	if (resolve(entry.targetRoot) !== resolve(input.expectedTargetRoot)) return entry.targetRoot;
-	if (
-		!isAbsolute(entry.targetArtifactPath) ||
-		resolve(entry.targetArtifactPath) !== resolve(join(entry.targetRoot, entry.provisionName)) ||
-		!isPathInside(entry.targetRoot, entry.targetArtifactPath)
-	) {
-		return entry.targetArtifactPath;
-	}
-	for (const [relativePath, file] of Object.entries(entry.files)) {
-		if (
-			isAbsolute(relativePath) ||
-			isAbsolute(file.sourcePath) ||
-			normalize(join(entry.source.relativePath, relativePath)) !== normalize(file.sourcePath) ||
-			resolve(entry.targetArtifactPath, relativePath) !== resolve(file.targetPath) ||
-			!isPathInside(entry.targetArtifactPath, file.targetPath)
-		) {
-			return file.targetPath;
-		}
-	}
-	return undefined;
 }

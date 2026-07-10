@@ -1,6 +1,9 @@
-import { resultErr, type Result } from "@nseng-ai/foundation/result";
+import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
-import type { HarnessArtifactFileSystemErrorInfo } from "./filesystem.ts";
+import type {
+	HarnessArtifactFileSystemErrorInfo,
+	HarnessArtifactRemovalSafety,
+} from "./filesystem.ts";
 import type { ProvisionDecisionErrorInfo, ProvisionPlanErrorInfo } from "./provision-plan.ts";
 
 export type HarnessArtifactProvisionErrorInfo =
@@ -22,6 +25,22 @@ export type HarnessArtifactProvisionErrorInfo =
 			message: string;
 			details: { manifestPath: string; installKey: string; path: string };
 	  };
+
+export function normalizeHarnessArtifactSafetyInspection(input: {
+	inspection: Result<HarnessArtifactRemovalSafety, HarnessArtifactFileSystemErrorInfo>;
+	manifestPath: string;
+	installKey: string;
+}): Result<void, HarnessArtifactProvisionErrorInfo> {
+	if (!input.inspection.ok) return input.inspection;
+	if (input.inspection.value.unsafePath !== undefined) {
+		return unsafeManifestEntry(
+			input.manifestPath,
+			input.installKey,
+			input.inspection.value.unsafePath,
+		);
+	}
+	return resultOk(undefined);
+}
 
 export function stalePreparation(
 	kind: "source" | "target" | "manifest",

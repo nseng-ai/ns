@@ -1,6 +1,6 @@
-import { join } from "node:path";
+import { isAbsolute, join, normalize, resolve } from "node:path";
 
-import { formatErrorMessage, formatZodIssue } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, formatZodIssue, isPathInside } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
@@ -13,6 +13,7 @@ import {
 	harnessIdSchema,
 	harnessScopeSchema,
 } from "./harness-artifact-schemas.ts";
+import type { HarnessScope } from "./harness-paths.ts";
 import type { HarnessArtifactProvisionErrorInfo } from "./provision-errors.ts";
 import {
 	installManifestKey,
@@ -162,6 +163,40 @@ export function buildInstallManifestData(
 		artifacts[provisionIdentityKey(entry)] = entry;
 	}
 	return { version: 1, artifacts };
+}
+
+export function validateManifestEntryCoherence(input: {
+	key: string;
+	entry: InstallManifestEntryData;
+	expectedHarness: string;
+	expectedScope: HarnessScope;
+	expectedTargetRoot: string;
+}): string | undefined {
+	const entry = input.entry;
+	if (input.key !== provisionIdentityKey(entry)) return input.key;
+	if (entry.harness !== input.expectedHarness || entry.scope !== input.expectedScope) {
+		return entry.targetRoot;
+	}
+	if (resolve(entry.targetRoot) !== resolve(input.expectedTargetRoot)) return entry.targetRoot;
+	if (
+		!isAbsolute(entry.targetArtifactPath) ||
+		resolve(entry.targetArtifactPath) !== resolve(join(entry.targetRoot, entry.provisionName)) ||
+		!isPathInside(entry.targetRoot, entry.targetArtifactPath)
+	) {
+		return entry.targetArtifactPath;
+	}
+	for (const [relativePath, file] of Object.entries(entry.files)) {
+		if (
+			isAbsolute(relativePath) ||
+			isAbsolute(file.sourcePath) ||
+			normalize(join(entry.source.relativePath, relativePath)) !== normalize(file.sourcePath) ||
+			resolve(entry.targetArtifactPath, relativePath) !== resolve(file.targetPath) ||
+			!isPathInside(entry.targetArtifactPath, file.targetPath)
+		) {
+			return file.targetPath;
+		}
+	}
+	return undefined;
 }
 
 export function manifestEntriesEqual(

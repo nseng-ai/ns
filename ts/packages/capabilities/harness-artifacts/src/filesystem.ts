@@ -46,10 +46,7 @@ export interface HarnessArtifactSafetyInspection {
 }
 
 export interface HarnessArtifactFileSystemGateway {
-	inspectHarnessArtifactProvisionSafety(
-		input: HarnessArtifactSafetyInspection,
-	): Promise<Result<HarnessArtifactRemovalSafety, HarnessArtifactFileSystemErrorInfo>>;
-	inspectHarnessArtifactRemovalSafety(
+	inspectHarnessArtifactSafety(
 		input: HarnessArtifactSafetyInspection,
 	): Promise<Result<HarnessArtifactRemovalSafety, HarnessArtifactFileSystemErrorInfo>>;
 	listFiles(
@@ -87,10 +84,7 @@ export interface HarnessArtifactModuleDiscoveryGateway {
 
 export const nodeHarnessArtifactFileSystemGateway: HarnessArtifactFileSystemGateway &
 	HarnessArtifactModuleDiscoveryGateway = {
-	async inspectHarnessArtifactProvisionSafety(input) {
-		return inspectHarnessArtifactSafety(input);
-	},
-	async inspectHarnessArtifactRemovalSafety(input) {
+	async inspectHarnessArtifactSafety(input) {
 		return inspectHarnessArtifactSafety(input);
 	},
 	async listFiles(rootPath) {

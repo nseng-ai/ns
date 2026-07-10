@@ -14,6 +14,7 @@ import {
 } from "./filesystem.ts";
 import { type HarnessPathContext, type HarnessScope } from "./harness-paths.ts";
 import {
+	normalizeHarnessArtifactSafetyInspection,
 	stalePreparation,
 	unsafeManifestEntry,
 	type HarnessArtifactProvisionErrorInfo,
@@ -23,12 +24,12 @@ import {
 	manifestEntriesEqual,
 	manifestWithProvision,
 	readInstallManifest,
+	validateManifestEntryCoherence,
 	writeInstallManifest,
 	type InstallManifestData,
 	type InstallManifestEntryData,
 	type InstallManifestFileData,
 } from "./provision-manifest.ts";
-import { validateRemovalEntry } from "./provision-removal.ts";
 import {
 	buildProvisionPlan,
 	classifyProvisionDecisions,
@@ -129,24 +130,25 @@ export async function prepareProvision(
 		plan: plan.value,
 		context: request.context,
 	});
-	const provisionSafety = await fs.inspectHarnessArtifactProvisionSafety({
-		trustedBoundaryRoot,
-		expectedTargetRoot: plan.value.targetRoot,
-		targetPaths: [
-			plan.value.targetArtifactPath,
-			...plan.value.files.map((file) => file.targetPath),
-			manifestPath,
-		],
+	const provisionSafety = normalizeHarnessArtifactSafetyInspection({
+		inspection: await fs.inspectHarnessArtifactSafety({
+			trustedBoundaryRoot,
+			expectedTargetRoot: plan.value.targetRoot,
+			targetPaths: [
+				plan.value.targetArtifactPath,
+				...plan.value.files.map((file) => file.targetPath),
+				manifestPath,
+			],
+		}),
+		manifestPath,
+		installKey,
 	});
 	if (!provisionSafety.ok) return provisionSafety;
-	if (provisionSafety.value.unsafePath !== undefined) {
-		return unsafeManifestEntry(manifestPath, installKey, provisionSafety.value.unsafePath);
-	}
 	const manifest = await readInstallManifest(fs, manifestPath);
 	if (!manifest.ok) return manifest;
 	const existingManifestEntry = manifest.value.artifacts[installKey];
 	if (existingManifestEntry !== undefined) {
-		const unsafePath = validateRemovalEntry({
+		const unsafePath = validateManifestEntryCoherence({
 			key: installKey,
 			entry: existingManifestEntry,
 			expectedHarness: plan.value.harness,
@@ -173,15 +175,19 @@ export async function prepareProvision(
 		)
 		.map(([, file]) => file);
 	if (obsoleteFiles.length > 0) {
-		const safety = await fs.inspectHarnessArtifactProvisionSafety({
-			trustedBoundaryRoot,
-			expectedTargetRoot: plan.value.targetRoot,
-			targetPaths: [plan.value.targetArtifactPath, ...obsoleteFiles.map((file) => file.targetPath)],
+		const safety = normalizeHarnessArtifactSafetyInspection({
+			inspection: await fs.inspectHarnessArtifactSafety({
+				trustedBoundaryRoot,
+				expectedTargetRoot: plan.value.targetRoot,
+				targetPaths: [
+					plan.value.targetArtifactPath,
+					...obsoleteFiles.map((file) => file.targetPath),
+				],
+			}),
+			manifestPath,
+			installKey,
 		});
 		if (!safety.ok) return safety;
-		if (safety.value.unsafePath !== undefined) {
-			return unsafeManifestEntry(manifestPath, installKey, safety.value.unsafePath);
-		}
 	}
 	const obsoleteTargetFacts = await collectTargetHashFactsForPaths({
 		fs,
@@ -256,24 +262,21 @@ export async function applyPreparedProvision(
 	}
 	const currentManifest = await validatePreparedProvision(prepared);
 	if (!currentManifest.ok) return currentManifest;
-	const safety = await prepared.fs.inspectHarnessArtifactProvisionSafety({
-		trustedBoundaryRoot: prepared.trustedBoundaryRoot,
-		expectedTargetRoot: prepared.plan.targetRoot,
-		targetPaths: [
-			prepared.plan.targetArtifactPath,
-			...prepared.plan.files.map((file) => file.targetPath),
-			...prepared.obsoleteFiles.map((file) => file.targetPath),
-			prepared.manifestPath,
-		],
+	const safety = normalizeHarnessArtifactSafetyInspection({
+		inspection: await prepared.fs.inspectHarnessArtifactSafety({
+			trustedBoundaryRoot: prepared.trustedBoundaryRoot,
+			expectedTargetRoot: prepared.plan.targetRoot,
+			targetPaths: [
+				prepared.plan.targetArtifactPath,
+				...prepared.plan.files.map((file) => file.targetPath),
+				...prepared.obsoleteFiles.map((file) => file.targetPath),
+				prepared.manifestPath,
+			],
+		}),
+		manifestPath: prepared.manifestPath,
+		installKey: installManifestKey(prepared.plan),
 	});
 	if (!safety.ok) return safety;
-	if (safety.value.unsafePath !== undefined) {
-		return unsafeManifestEntry(
-			prepared.manifestPath,
-			installManifestKey(prepared.plan),
-			safety.value.unsafePath,
-		);
-	}
 
 	const removedFiles: string[] = [];
 	for (const file of prepared.obsoleteFiles) {
