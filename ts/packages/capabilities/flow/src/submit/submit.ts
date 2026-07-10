@@ -59,7 +59,8 @@ import {
 	formatSubmitCommandDisplays,
 } from "./submit-command-spec.ts";
 import { mergePrLinks, partitionPrLinksByExisting, prNumberFromLink } from "./submit-pr-link.ts";
-import type { NsProgressPhaseEvent, NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
+import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import type { SubmitProgress } from "./submit-progress.ts";
 
 export { RealSubmitGateway } from "./submit-gateway.ts";
 
@@ -204,9 +205,8 @@ export interface RunSubmitCommandOptions {
 	force: boolean;
 	shouldForwardCommandOutput?: boolean;
 	onOutput?: SubmitOutputListener;
-	/** Typed phase sequencing for a presentation driver. Separate channel from the raw `onOutput`. */
-	onPhase?: NsProgressPhaseListener;
-	submitMatrix?: SubmitMatrixProgressSink;
+	/** Typed phase and matrix progress for a presentation driver. Separate channel from raw `onOutput`. */
+	progress: SubmitProgress;
 	confirmRestack?: SubmitRestackConfirmation;
 	prDescription: SubmitPrDescriptionOptions;
 	shouldRegenerateExistingPrDescriptions?: boolean;
@@ -228,12 +228,12 @@ export async function runSubmitCommand(
 			matrix.setGlobal("preflight", { state: "active" }),
 		);
 		const readiness = await withCommandOperations(
-			options.submitMatrix,
+			options.progress.matrix,
 			[submitDryRunCommandDisplay],
 			() => options.gateway.checkSubmitReadiness(commandParams),
 		);
 		if (readiness.kind === "failed") {
-			options.submitMatrix?.setGlobal("preflight", {
+			options.progress.matrix?.setGlobal("preflight", {
 				state: "failed",
 				text: "submit readiness failed",
 			});
@@ -257,11 +257,11 @@ export async function runSubmitCommand(
 			);
 		}
 		if (readiness.kind === "ready") {
-			options.submitMatrix?.setGlobal("preflight", { state: "done", text: "ready to submit" });
-			options.submitMatrix?.setGlobal("restack", { state: "skipped", text: "not required" });
+			options.progress.matrix?.setGlobal("preflight", { state: "done", text: "ready to submit" });
+			options.progress.matrix?.setGlobal("restack", { state: "skipped", text: "not required" });
 		}
 		if (readiness.kind === "restack_required") {
-			options.submitMatrix?.setGlobal("preflight", { state: "done", text: "restack required" });
+			options.progress.matrix?.setGlobal("preflight", { state: "done", text: "restack required" });
 			emitPhase(options, {
 				type: "phase-progress",
 				phaseKey: "preflight",
@@ -269,7 +269,7 @@ export async function runSubmitCommand(
 			});
 			const restackDecision = await shouldRunRestack(options, readiness.output);
 			if (restackDecision === "unavailable") {
-				options.submitMatrix?.setGlobal("restack", {
+				options.progress.matrix?.setGlobal("restack", {
 					state: "failed",
 					text: "restack required but disabled",
 				});
@@ -282,7 +282,10 @@ export async function runSubmitCommand(
 				});
 			}
 			if (restackDecision === "declined") {
-				options.submitMatrix?.setGlobal("restack", { state: "failed", text: "restack declined" });
+				options.progress.matrix?.setGlobal("restack", {
+					state: "failed",
+					text: "restack declined",
+				});
 				return deterministicFailure({
 					phase: "preflight",
 					commandDisplay: submitDryRunCommandDisplay,
@@ -292,19 +295,19 @@ export async function runSubmitCommand(
 				});
 			}
 
-			options.submitMatrix?.setGlobal("restack", { state: "active" });
+			options.progress.matrix?.setGlobal("restack", { state: "active" });
 			const restackFailure = await withCommandOperations(
-				options.submitMatrix,
+				options.progress.matrix,
 				[RESTACK_COMMAND_DISPLAY],
 				() => runRestackBeforeSubmit(options, commandParams),
 			);
 			if (restackFailure !== undefined) {
-				options.submitMatrix?.setGlobal("restack", { state: "failed", text: "restack failed" });
+				options.progress.matrix?.setGlobal("restack", { state: "failed", text: "restack failed" });
 				return restackFailure;
 			}
 
 			const rechecked = await withCommandOperations(
-				options.submitMatrix,
+				options.progress.matrix,
 				[submitDryRunCommandDisplay],
 				() => options.gateway.checkSubmitReadiness(commandParams),
 			);
@@ -314,14 +317,14 @@ export async function runSubmitCommand(
 				submitDryRunCommandDisplay,
 			});
 			if (recheckPreflightFailure !== undefined) {
-				options.submitMatrix?.setGlobal("restack", {
+				options.progress.matrix?.setGlobal("restack", {
 					state: "failed",
 					text: "readiness recheck failed",
 				});
 				return recheckPreflightFailure;
 			}
 			if (rechecked.kind !== "ready") {
-				options.submitMatrix?.setGlobal("restack", {
+				options.progress.matrix?.setGlobal("restack", {
 					state: "failed",
 					text: "readiness recheck failed",
 				});
@@ -332,7 +335,7 @@ export async function runSubmitCommand(
 					stderr: formatReadinessRecheckFailureOutput(submitDryRunCommandDisplay),
 				});
 			}
-			options.submitMatrix?.setGlobal("restack", { state: "done", text: "restack complete" });
+			options.progress.matrix?.setGlobal("restack", { state: "done", text: "restack complete" });
 		}
 		return undefined;
 	}
@@ -367,7 +370,7 @@ export async function runSubmitCommand(
 			(event) => {
 				const text =
 					event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
-				options.submitMatrix?.setCell(event.branch, "metadata", {
+				options.progress.matrix?.setCell(event.branch, "metadata", {
 					state: event.state,
 					...optionalEntry("text", text),
 				});
@@ -420,7 +423,7 @@ export async function runSubmitCommand(
 				phaseKey: "submit",
 				label: stackUpdateCommandDisplay,
 			});
-			options.submitMatrix?.setGlobal("submit", {
+			options.progress.matrix?.setGlobal("submit", {
 				state: "active",
 				text: "updating upstack PRs",
 			});
@@ -435,12 +438,12 @@ export async function runSubmitCommand(
 
 			combinedSubmitOutcome = combineSubmitOutcomes(combinedSubmitOutcome, stackUpdateStep.result);
 		}
-		options.submitMatrix?.setGlobal("submit", { state: "done", text: "stack submitted" });
+		options.progress.matrix?.setGlobal("submit", { state: "done", text: "stack submitted" });
 		emitSubmitPhase(options, { type: "phase-started", phaseKey: "verification" }, (matrix) =>
 			matrix.setGlobal("verify", { state: "active", text: "checking current PR" }),
 		);
 		const currentPr = await withCommandOperations(
-			options.submitMatrix,
+			options.progress.matrix,
 			[CURRENT_PR_COMMAND_DISPLAY],
 			() => options.gateway.verifyCurrentPr(commandParams),
 		);
@@ -448,7 +451,10 @@ export async function runSubmitCommand(
 			combinedSubmitOutcome.semanticFailureCause !== undefined ||
 			shouldFailPostSubmitVerification(combinedSubmitOutcome, currentPr)
 		) {
-			options.submitMatrix?.setGlobal("verify", { state: "failed", text: "verification failed" });
+			options.progress.matrix?.setGlobal("verify", {
+				state: "failed",
+				text: "verification failed",
+			});
 			const stderr = formatPostSubmitFailureOutput({
 				submitted: combinedSubmitOutcome,
 				currentPr,
@@ -472,14 +478,14 @@ export async function runSubmitCommand(
 			currentPr.kind === "present"
 				? mergePrLinks(combinedSubmitOutcome.prLinks, currentPr.prLinks)
 				: mergePrLinks(combinedSubmitOutcome.prLinks, []);
-		options.submitMatrix?.applyPrLinks(prLinks);
+		options.progress.matrix?.applyPrLinks(prLinks);
 		if (currentPr.kind === "present") {
-			options.submitMatrix?.setGlobal("verify", {
+			options.progress.matrix?.setGlobal("verify", {
 				state: "done",
 				text: formatVerifiedCurrentPrText(currentPr.prLinks),
 			});
 		} else {
-			options.submitMatrix?.setGlobal("verify", {
+			options.progress.matrix?.setGlobal("verify", {
 				state: "skipped",
 				text: "current PR not detected",
 			});
@@ -505,11 +511,11 @@ export async function runSubmitCommand(
 				if (prLinks.length === 0) matrix.setAllCells("description", { state: "skipped" });
 			},
 		);
-		options.submitMatrix?.setActiveOperations([]);
+		options.progress.matrix?.setActiveOperations([]);
 		for (const link of skippedExistingPrLinks) {
 			const number = prNumberFromLink(link);
 			if (number !== undefined) {
-				options.submitMatrix?.setCellByPrNumber(number, "description", {
+				options.progress.matrix?.setCellByPrNumber(number, "description", {
 					state: "skipped",
 					text: "existing PR",
 				});
@@ -524,14 +530,14 @@ export async function runSubmitCommand(
 				options,
 				"descriptions",
 				(event) => {
-					options.submitMatrix?.setCellByPrNumber(event.prNumber, "description", {
+					options.progress.matrix?.setCellByPrNumber(event.prNumber, "description", {
 						state: event.state,
 						...optionalEntry("text", event.message),
 					});
 				},
 			),
 		});
-		options.submitMatrix?.setActiveOperations([]);
+		options.progress.matrix?.setActiveOperations([]);
 		if (!descriptionResult.ok) {
 			const stderr = formatPrDescriptionFailureText(prLinks, descriptionResult.failures);
 			const details = formatPrDescriptionFailureDiagnostics(descriptionResult.failures);
@@ -541,7 +547,7 @@ export async function runSubmitCommand(
 			});
 		}
 
-		options.submitMatrix?.setPendingCells("description", { state: "skipped" });
+		options.progress.matrix?.setPendingCells("description", { state: "skipped" });
 		const successText =
 			prLinks.length > 0
 				? formatSubmitSuccessText(prLinks, descriptionResult)
@@ -636,7 +642,7 @@ async function shouldRunRestack(
 }
 
 async function runRestackBeforeSubmit(
-	options: Pick<RunSubmitCommandOptions, "gateway" | "onOutput" | "onPhase">,
+	options: Pick<RunSubmitCommandOptions, "gateway" | "onOutput" | "progress">,
 	commandParams: SubmitCommandParams,
 ): Promise<SubmitCommandResult | undefined> {
 	emitPhase(options, {
@@ -691,7 +697,7 @@ function combineSubmitOutcomes(
 }
 
 async function runSubmitPhaseStep(input: {
-	options: Pick<RunSubmitCommandOptions, "cwd" | "force" | "gateway" | "onOutput" | "submitMatrix">;
+	options: Pick<RunSubmitCommandOptions, "cwd" | "force" | "gateway" | "onOutput" | "progress">;
 	phaseLabel: string;
 	commandDisplay: string;
 	prepared: readonly PrewrittenPrMetadata[];
@@ -699,13 +705,13 @@ async function runSubmitPhaseStep(input: {
 	run: (gateway: SubmitGateway, params: SubmitCommandParams) => Promise<SubmitRunResult>;
 }): Promise<SubmitPhaseStepResult> {
 	const result = await withCommandOperations(
-		input.options.submitMatrix,
+		input.options.progress.matrix,
 		[input.commandDisplay],
 		() => input.run(input.options.gateway, submitStreamingCommandParams(input.options)),
 	);
 	if (result.kind === "success") return { kind: "success", result };
 
-	input.options.submitMatrix?.setGlobal("submit", {
+	input.options.progress.matrix?.setGlobal("submit", {
 		state: "failed",
 		text: `${input.phaseLabel} failed`,
 	});
@@ -773,30 +779,30 @@ function optionalOutputListenerParam(
 }
 
 function emitPhase(
-	options: Pick<RunSubmitCommandOptions, "onPhase">,
+	options: Pick<RunSubmitCommandOptions, "progress">,
 	event: NsProgressPhaseEvent,
 ): void {
-	options.onPhase?.(event);
+	options.progress.phase(event);
 }
 
 function emitSubmitPhase(
-	options: Pick<RunSubmitCommandOptions, "onPhase" | "submitMatrix">,
+	options: Pick<RunSubmitCommandOptions, "progress">,
 	event: NsProgressPhaseEvent,
 	updateMatrix: (matrix: SubmitMatrixProgressSink) => void,
 ): void {
-	emitPhase(options, event);
-	if (options.submitMatrix !== undefined) updateMatrix(options.submitMatrix);
+	options.progress.phase(event);
+	if (options.progress.matrix !== undefined) updateMatrix(options.progress.matrix);
 }
 
 function submitPhaseProgressListeners<ItemProgressEvent>(
-	options: Pick<RunSubmitCommandOptions, "onPhase" | "submitMatrix">,
+	options: Pick<RunSubmitCommandOptions, "progress">,
 	phaseKey: string,
 	onItemProgress: (event: ItemProgressEvent) => void,
 ): SubmitProgressListeners<ItemProgressEvent> {
 	return {
 		onProgress: (message) =>
 			emitPhase(options, { type: "phase-progress", phaseKey, label: message }),
-		onActiveOperations: (operations) => options.submitMatrix?.setActiveOperations(operations),
+		onActiveOperations: (operations) => options.progress.matrix?.setActiveOperations(operations),
 		onItemProgress,
 	};
 }
