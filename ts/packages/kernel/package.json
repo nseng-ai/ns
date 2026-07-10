@@ -1,7 +1,7 @@
 {
 	"name": "@nseng-ai/kernel",
 	"version": "0.1.2",
-	"description": "Emerging customer-facing Source Development Lifecycle CLI.",
+	"description": "Emerging customer-facing ns CLI.",
 	"type": "module",
 	"exports": {
 		"./cli": "./src/cli/index.ts",
