@@ -46,6 +46,7 @@ import {
 import { parseNsTomlExtensions, parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
 	applyPreparedProvisionReconciliation,
+	assertUniquePreparedTransitionKeys,
 	classifyProvisionAction,
 	conflictingFilesFromDecisions,
 	INSTALL_MANIFEST_FILE_NAME,
@@ -56,6 +57,7 @@ import {
 	type HarnessArtifactFileSystemErrorInfo,
 	type HarnessArtifactFileSystemGateway,
 	type HarnessArtifactProvisionErrorInfo,
+	type AppliedHarnessArtifactTransition,
 	type HarnessArtifactProvisionPreview,
 	type PreparedHarnessArtifactTransition,
 } from "./provision-apply.ts";
@@ -296,6 +298,14 @@ export type ReconcileErrorInfo =
 			details: { catalogId: string };
 	  };
 
+type PreparedReconcileArtifactItem =
+	| { readonly type: "static"; readonly outcome: ReconcileArtifactOutcome }
+	| {
+			readonly type: "transition";
+			readonly key: string;
+			readonly outcome: ReconcileArtifactOutcome;
+	  };
+
 export async function runHarnessArtifactReconcile(
 	request: RunHarnessArtifactReconcileRequest,
 ): Promise<Result<ReconcileReport, ReconcileErrorInfo>> {
@@ -374,9 +384,8 @@ export async function runHarnessArtifactReconcile(
 				}),
 	});
 
-	const artifacts: ReconcileArtifactOutcome[] = [];
+	const preparedItems: PreparedReconcileArtifactItem[] = [];
 	const transitions: PreparedHarnessArtifactTransition[] = [];
-	const removalOutcomes: ReconcileArtifactOutcome[] = [];
 	for (const removal of plan.removals) {
 		const prepared = await prepareHarnessArtifactRemoval({
 			key: removal.key,
@@ -389,21 +398,27 @@ export async function runHarnessArtifactReconcile(
 			fs,
 		});
 		if (!prepared.ok) return prepared;
-		if (prepared.value.conflictingFiles.length > 0) {
-			artifacts.push(removalOutcome(removal, [], prepared.value.conflictingFiles, "conflicted"));
+		const outcome = removalOutcome(
+			removal,
+			[],
+			prepared.value.conflictingFiles,
+			prepared.value.conflictingFiles.length > 0 ? "conflicted" : "removed",
+		);
+		if (prepared.value.conflictingFiles.length > 0 || !shouldApply) {
+			preparedItems.push({ type: "static", outcome });
 			continue;
 		}
-		transitions.push({ type: "remove", removal: prepared.value });
-		removalOutcomes.push(removalOutcome(removal, [], [], "removed"));
+		const transition = { type: "remove" as const, key: removal.key, removal: prepared.value };
+		transitions.push(transition);
+		preparedItems.push({ type: "transition", key: transition.key, outcome });
 	}
-	if (!shouldApply) artifacts.push(...removalOutcomes);
 	for (const desired of plan.skippedDesired) {
-		artifacts.push(
+		preparedItems.push(
 			...skippedCollisionOutcomes({
 				desired,
 				skillRoots: skillRoots.value,
 				harnesses: selection.value.harnessSelection,
-			}),
+			}).map((outcome) => ({ type: "static" as const, outcome })),
 		);
 	}
 	for (const pair of plan.pairs) {
@@ -417,33 +432,32 @@ export async function runHarnessArtifactReconcile(
 			fs,
 		});
 		if (!prepared.ok) return prepared;
+		const outcome = reconcileOutcomeFromProvision({
+			pair,
+			provision: prepared.value,
+			writtenFiles: [],
+			conflictingFiles: conflictingFilesFromDecisions(prepared.value.decisions),
+		});
 		if (!shouldApply) {
-			artifacts.push(
-				reconcileOutcomeFromProvision({
-					pair,
-					provision: prepared.value,
-					writtenFiles: [],
-					conflictingFiles: conflictingFilesFromDecisions(prepared.value.decisions),
-				}),
-			);
+			preparedItems.push({ type: "static", outcome });
 			continue;
 		}
-
-		transitions.push({ type: "provision", provision: prepared.value });
-		artifacts.push(
-			reconcileOutcomeFromProvision({
-				pair,
-				provision: prepared.value,
-				writtenFiles: [],
-				conflictingFiles: conflictingFilesFromDecisions(prepared.value.decisions),
-			}),
-		);
+		const transition = {
+			type: "provision" as const,
+			key: provisionIdentityKey(prepared.value.plan),
+			provision: prepared.value,
+		};
+		transitions.push(transition);
+		preparedItems.push({ type: "transition", key: transition.key, outcome });
 	}
+	assertUniquePreparedTransitionKeys(transitions);
 
-	const isForceRequired = artifacts.some((artifact) => artifact.action === "conflicted");
+	const preparedArtifacts = preparedItems.map((item) => item.outcome);
+	const isForceRequired = preparedArtifacts.some((artifact) => artifact.action === "conflicted");
+	let artifacts: readonly ReconcileArtifactOutcome[] = preparedArtifacts;
 	if (
 		shouldApply &&
-		!artifacts.some(
+		!preparedArtifacts.some(
 			(artifact) => artifact.action === "conflicted" && artifact.removalReason !== undefined,
 		)
 	) {
@@ -452,28 +466,7 @@ export async function runHarnessArtifactReconcile(
 			shouldForce: request.shouldForce,
 		});
 		if (!applied.ok) return applied;
-		let removalIndex = 0;
-		for (const transition of applied.value.outcomes) {
-			if (transition.type === "remove") {
-				const item = removalOutcomes[removalIndex];
-				removalIndex += 1;
-				if (item !== undefined) item.removedFiles = [...transition.removedFiles];
-				continue;
-			}
-			if (transition.outcome.outcome === "conflicted") continue;
-			const item = artifacts.find(
-				(artifact) =>
-					artifact.targetArtifactPath === transition.outcome.plan.targetArtifactPath &&
-					artifact.action !== "removed",
-			);
-			if (item === undefined) continue;
-			item.writtenFiles = [...transition.outcome.writtenFiles];
-			item.removedFiles = [...transition.outcome.removedFiles];
-			item.conflictingFiles = [];
-			if (transition.outcome.removedFiles.length > 0) item.removalReason = "obsolete-file";
-			if (item.action === "conflicted") item.action = "refreshed";
-		}
-		artifacts.unshift(...removalOutcomes);
+		artifacts = completedReconcileOutcomes(preparedItems, applied.value.outcomes);
 	}
 	return resultOk({
 		mode: shouldApply ? "applied" : "dry-run",
@@ -487,6 +480,38 @@ export async function runHarnessArtifactReconcile(
 		],
 		skippedCollisions: plan.skippedCollisions,
 		isForceRequired: isForceRequired && !request.shouldForce,
+	});
+}
+
+function completedReconcileOutcomes(
+	items: readonly PreparedReconcileArtifactItem[],
+	outcomes: ReadonlyMap<string, AppliedHarnessArtifactTransition>,
+): readonly ReconcileArtifactOutcome[] {
+	return items.map((item) => {
+		if (item.type === "static") return item.outcome;
+		const applied = outcomes.get(item.key);
+		if (applied === undefined) {
+			throw new Error(`Applied harness artifact outcome is missing for ${item.key}.`);
+		}
+		if (applied.type === "remove") {
+			return { ...item.outcome, removedFiles: [...applied.removedFiles] };
+		}
+		if (applied.outcome.outcome === "conflicted") {
+			return {
+				...item.outcome,
+				conflictingFiles: [...applied.outcome.conflictingFiles],
+			};
+		}
+		return {
+			...item.outcome,
+			action: item.outcome.action === "conflicted" ? "refreshed" : item.outcome.action,
+			writtenFiles: [...applied.outcome.writtenFiles],
+			removedFiles: [...applied.outcome.removedFiles],
+			conflictingFiles: [],
+			...(applied.outcome.removedFiles.length === 0
+				? {}
+				: { removalReason: "obsolete-file" as const }),
+		};
 	});
 }
 

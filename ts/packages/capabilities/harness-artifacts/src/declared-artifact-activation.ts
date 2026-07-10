@@ -20,6 +20,7 @@ import {
 } from "./module-artifact-discovery.ts";
 import {
 	applyPreparedProvisionReconciliation,
+	assertUniquePreparedTransitionKeys,
 	classifyProvisionAction,
 	conflictingFilesFromDecisions,
 	INSTALL_MANIFEST_FILE_NAME,
@@ -29,6 +30,7 @@ import {
 	readInstallManifestAtRoot,
 	type AppliedHarnessArtifactTransition,
 	type HarnessArtifactProvisionErrorInfo,
+	type HarnessArtifactProvisionReconciliationErrorInfo,
 	type PreparedHarnessArtifactRemoval,
 	type PreparedHarnessArtifactTransition,
 	type PreparedHarnessArtifactProvision,
@@ -113,7 +115,7 @@ export type ApplyPreparedDeclaredArtifactActivationResult =
 	| { readonly ok: true; readonly completed: readonly DeclaredArtifactActivationOutcome[] }
 	| {
 			readonly ok: false;
-			readonly error: HarnessArtifactProvisionErrorInfo;
+			readonly error: HarnessArtifactProvisionReconciliationErrorInfo;
 			readonly completed: readonly DeclaredArtifactActivationOutcome[];
 	  };
 
@@ -163,7 +165,7 @@ export async function prepareDeclaredArtifactActivation(
 			removal: removal.value,
 		});
 		if (removal.value.conflictingFiles.length === 0) {
-			transitions.push({ type: "remove", removal: removal.value });
+			transitions.push({ type: "remove", key: removal.value.key, removal: removal.value });
 		}
 	}
 	const replacementTargetPaths = new Set(
@@ -176,9 +178,14 @@ export async function prepareDeclaredArtifactActivation(
 		if (!item.ok) return item;
 		artifacts.push(item.value);
 		if (item.value.action !== "unchanged" && item.value.action !== "conflicted") {
-			transitions.push({ type: "provision", provision: item.value.provision });
+			transitions.push({
+				type: "provision",
+				key: installManifestKey(item.value.provision.plan),
+				provision: item.value.provision,
+			});
 		}
 	}
+	assertUniquePreparedTransitionKeys(transitions);
 	return resultOk({
 		modules: [...request.modules].sort((left, right) =>
 			left.moduleRoot.localeCompare(right.moduleRoot),
@@ -319,31 +326,22 @@ async function prepareProvisionItem(input: {
 
 function completedActivationOutcomes(
 	items: readonly PreparedDeclaredArtifactActivationItem[],
-	transitions: readonly AppliedHarnessArtifactTransition[],
+	transitions: ReadonlyMap<string, AppliedHarnessArtifactTransition>,
 ): readonly DeclaredArtifactActivationOutcome[] {
-	const completed: DeclaredArtifactActivationOutcome[] = [];
-	let transitionIndex = 0;
-	for (const item of items) {
-		if (item.action === "unchanged") {
-			completed.push(outcomeForItem(item, [], [], []));
-			continue;
-		}
-		const transition = transitions[transitionIndex];
-		if (transition === undefined) break;
-		transitionIndex += 1;
+	return items.flatMap((item) => {
+		if (item.action === "unchanged") return [outcomeForItem(item, [], [], [])];
+		const transition = transitions.get(item.key);
+		if (transition === undefined) return [];
 		if (transition.type === "remove") {
-			completed.push(outcomeForItem(item, [], [], transition.removedFiles));
-			continue;
+			return [outcomeForItem(item, [], [], transition.removedFiles)];
 		}
 		if (transition.outcome.outcome === "conflicted") {
-			completed.push(outcomeForItem(item, transition.outcome.conflictingFiles, [], []));
-			continue;
+			return [outcomeForItem(item, transition.outcome.conflictingFiles, [], [])];
 		}
-		completed.push(
+		return [
 			outcomeForItem(item, [], transition.outcome.writtenFiles, transition.outcome.removedFiles),
-		);
-	}
-	return completed;
+		];
+	});
 }
 
 function outcomeForItem(
