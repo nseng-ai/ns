@@ -6,7 +6,10 @@ import {
 	type DesiredHarnessArtifact,
 	type HarnessManifestSnapshot,
 } from "../src/reconcile.ts";
-import { buildInstallManifestData, type InstallManifestEntryData } from "../src/provision-plan.ts";
+import {
+	buildInstallManifestData,
+	type InstallManifestEntryData,
+} from "../src/provision-manifest.ts";
 
 const firstPartyObjective = artifact({
 	id: "objective-skill",

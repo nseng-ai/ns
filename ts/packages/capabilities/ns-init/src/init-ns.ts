@@ -1,24 +1,20 @@
 import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok, usageError } from "@nseng-ai/clinkr";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	ALL_HARNESS_IDS,
-	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
 	normalizeHarnessSelection,
 	parseNsTomlHarnesses,
 	planNsTomlHarnessesWrite,
-	type DeclaredArtifactActivationOutcome,
 	type HarnessId,
 	type NsTomlChange,
 } from "@nseng-ai/harness-artifacts/api";
 import { z } from "zod";
 
 import {
+	activationCompletedSchema,
 	applyNsActivation,
 	prepareNsActivation,
 	resolveActivationRepository,
-	type ActivationCompleted,
-	type ConsumerDirectoryOutcome,
 	type FileActivationOutcome,
 	type ResolveActivationRepositoryResult,
 } from "./activate-ns.ts";
@@ -30,53 +26,6 @@ export const initNsRequestSchema = z.object({
 		.array(z.string())
 		.default([])
 		.describe("Harness to activate; repeatable. One of claude-code, codex, pi."),
-});
-
-const fileChangeSchema: z.ZodType<FileActivationOutcome> = z.object({
-	change: z.enum(["created", "appended", "replaced", "unchanged"]),
-});
-const artifactOutcomeSchema: z.ZodType<DeclaredArtifactActivationOutcome> = z
-	.object({
-		key: z.string(),
-		action: z.enum(DECLARED_ARTIFACT_ACTIVATION_ACTIONS),
-		artifactId: z.string(),
-		skillName: z.string(),
-		harness: z.enum(ALL_HARNESS_IDS),
-		targetArtifactPath: z.string(),
-		manifestPath: z.string(),
-		writtenFiles: z.array(z.string()).readonly(),
-		conflictingFiles: z.array(z.string()).readonly(),
-		removedFiles: z.array(z.string()).readonly().optional(),
-		removalReason: z
-			.enum(["removed-source", "deselected-harness", "same-target-replacement", "obsolete-file"])
-			.optional(),
-	})
-	.transform((outcome) => ({
-		key: outcome.key,
-		action: outcome.action,
-		artifactId: outcome.artifactId,
-		skillName: outcome.skillName,
-		harness: outcome.harness,
-		targetArtifactPath: outcome.targetArtifactPath,
-		manifestPath: outcome.manifestPath,
-		writtenFiles: outcome.writtenFiles,
-		conflictingFiles: outcome.conflictingFiles,
-		...optionalEntry("removedFiles", outcome.removedFiles),
-		...optionalEntry("removalReason", outcome.removalReason),
-	}));
-const consumerDirectoryOutcomeSchema: z.ZodType<ConsumerDirectoryOutcome> = z.object({
-	path: z.string(),
-	change: z.enum(["created", "updated", "unchanged"]),
-});
-
-const activationCompletedSchema: z.ZodType<ActivationCompleted> = z.object({
-	nsToml: fileChangeSchema.optional(),
-	managedExtensionsIgnore: fileChangeSchema.optional(),
-	agentsInstructionFile: fileChangeSchema.optional(),
-	claudeInstructionFile: fileChangeSchema.optional(),
-	generatedInstructionsFile: fileChangeSchema.optional(),
-	consumerDirectories: z.array(consumerDirectoryOutcomeSchema).readonly().optional(),
-	artifacts: z.array(artifactOutcomeSchema).readonly().optional(),
 });
 
 export const initNsResultSchema = z.object({

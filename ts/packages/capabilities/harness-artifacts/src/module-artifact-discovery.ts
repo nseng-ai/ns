@@ -116,40 +116,46 @@ export async function discoverDeclaredExtensionModuleHarnessArtifacts(
 			version: module.version,
 			declarations: descriptorArtifactDeclarations(module.descriptor),
 		});
-		if (!parsed.ok) {
-			catalogs.push({
-				type: "npm-module-catalog",
-				moduleRoot: module.moduleRoot,
-				packageName: module.packageName,
-				version: module.version,
-				artifacts: [],
-				diagnostics: parsed.diagnostics.map((diagnostic) =>
-					declarationDiagnostic(diagnostic, module.moduleRoot),
-				),
-			});
-			continue;
-		}
-		const artifactResults = await validateDiscoveredArtifacts({
-			moduleRoot: module.moduleRoot,
-			packageName: module.packageName,
-			artifacts: parsed.artifacts,
-			gateway,
-		});
-		catalogs.push({
-			type: "npm-module-catalog",
-			moduleRoot: module.moduleRoot,
-			packageName: parsed.packageName,
-			version: parsed.version,
-			artifacts: artifactResults.artifacts,
-			diagnostics: sortDiscoveryDiagnostics([
-				...parsed.diagnostics.map((diagnostic) =>
-					declarationDiagnostic(diagnostic, module.moduleRoot),
-				),
-				...artifactResults.diagnostics,
-			]),
-		});
+		catalogs.push(await validateAndAssembleCatalog(module, parsed, gateway));
 	}
 	return finalizeDiscoveryResult(catalogs);
+}
+
+async function validateAndAssembleCatalog(
+	module: DeclaredExtensionModuleArtifactFacts,
+	parsed: ReturnType<typeof parseModuleArtifactDeclarations>,
+	gateway: HarnessArtifactModuleDiscoveryGateway,
+): Promise<ResolvedNpmModuleHarnessArtifactCatalog> {
+	const declarationDiagnostics = parsed.diagnostics.map((diagnostic) =>
+		declarationDiagnostic(diagnostic, module.moduleRoot),
+	);
+	if (!parsed.ok) {
+		return {
+			type: "npm-module-catalog",
+			moduleRoot: module.moduleRoot,
+			packageName: module.packageName,
+			version: module.version,
+			artifacts: [],
+			diagnostics: sortDiscoveryDiagnostics(declarationDiagnostics),
+		};
+	}
+	const artifactResults = await validateDiscoveredArtifacts({
+		moduleRoot: module.moduleRoot,
+		packageName: module.packageName,
+		artifacts: parsed.artifacts,
+		gateway,
+	});
+	return {
+		type: "npm-module-catalog",
+		moduleRoot: module.moduleRoot,
+		packageName: parsed.packageName,
+		version: parsed.version,
+		artifacts: artifactResults.artifacts,
+		diagnostics: sortDiscoveryDiagnostics([
+			...declarationDiagnostics,
+			...artifactResults.diagnostics,
+		]),
+	};
 }
 
 function finalizeDiscoveryResult(

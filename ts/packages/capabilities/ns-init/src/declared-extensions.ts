@@ -1,7 +1,6 @@
 import {
 	loadDeclaredExtensionDescriptors,
-	type DeclaredExtensionDescriptor,
-	type DeclaredExtensionDescriptorDiagnostic,
+	type LoadDeclaredExtensionDescriptorsResult,
 } from "@nseng-ai/kernel/extensions/declared-descriptors";
 
 export interface LoadDeclaredExtensionsParams {
@@ -9,17 +8,14 @@ export interface LoadDeclaredExtensionsParams {
 	readonly specs: readonly string[];
 }
 
-export interface LoadDeclaredExtensionsResult {
-	readonly descriptors: readonly DeclaredExtensionDescriptor[];
-	readonly diagnostics: readonly DeclaredExtensionDescriptorDiagnostic[];
-}
-
 export interface DeclaredExtensionsGateway {
-	load(params: LoadDeclaredExtensionsParams): Promise<LoadDeclaredExtensionsResult>;
+	load(params: LoadDeclaredExtensionsParams): Promise<LoadDeclaredExtensionDescriptorsResult>;
 }
 
 export class RealDeclaredExtensionsGateway implements DeclaredExtensionsGateway {
-	async load(params: LoadDeclaredExtensionsParams): Promise<LoadDeclaredExtensionsResult> {
+	async load(
+		params: LoadDeclaredExtensionsParams,
+	): Promise<LoadDeclaredExtensionDescriptorsResult> {
 		return loadDeclaredExtensionDescriptors(params);
 	}
 }

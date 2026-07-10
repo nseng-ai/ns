@@ -15,6 +15,7 @@ import {
 	type HarnessPathContext,
 	type HarnessScope,
 } from "./harness-paths.ts";
+import type { InstallManifestEntryData } from "./provision-manifest.ts";
 import { sortStrings } from "./sort.ts";
 
 export type ProvisionableHarnessArtifactEntry = Extract<HarnessArtifactEntry, { kind: "skill" }>;
@@ -77,31 +78,6 @@ export type ProvisionPlanErrorInfo =
 			message: string;
 			details: { input: string };
 	  };
-
-export interface InstallManifestFileData {
-	sourcePath: string;
-	targetPath: string;
-	contentHash: string;
-}
-
-export type InstallManifestSourceData = ProvisionSourceProvenance;
-
-export interface InstallManifestEntryData {
-	artifactId: string;
-	kind: "skill";
-	provisionName: string;
-	harness: HarnessId;
-	scope: HarnessScope;
-	targetRoot: string;
-	targetArtifactPath: string;
-	source: InstallManifestSourceData;
-	files: Record<string, InstallManifestFileData>;
-}
-
-export interface InstallManifestData {
-	version: 1;
-	artifacts: Record<string, InstallManifestEntryData>;
-}
 
 export type TargetFileHashFact =
 	| { type: "missing"; targetPath: string }
@@ -223,41 +199,6 @@ export function installManifestKey(plan: ProvisionPlan): string {
 	return provisionIdentityKey(plan);
 }
 
-export function buildInstallManifestEntry(plan: ProvisionPlan): InstallManifestEntryData {
-	const files: Record<string, InstallManifestFileData> = {};
-	for (const file of plan.files) {
-		files[file.relativePath] = {
-			sourcePath: file.sourcePath,
-			targetPath: file.targetPath,
-			contentHash: file.contentHash,
-		};
-	}
-	return {
-		artifactId: plan.artifactId,
-		kind: plan.kind,
-		provisionName: plan.provisionName,
-		harness: plan.harness,
-		scope: plan.scope,
-		targetRoot: plan.targetRoot,
-		targetArtifactPath: plan.targetArtifactPath,
-		source: plan.source,
-		files,
-	};
-}
-
-export function buildInstallManifestData(
-	entries: readonly InstallManifestEntryData[],
-): InstallManifestData {
-	const artifacts: Record<string, InstallManifestEntryData> = {};
-	const sortedEntries = [...entries].sort((left, right) =>
-		manifestEntryKey(left).localeCompare(manifestEntryKey(right)),
-	);
-	for (const entry of sortedEntries) {
-		artifacts[manifestEntryKey(entry)] = entry;
-	}
-	return { version: 1, artifacts };
-}
-
 export function classifyProvisionDecisions(input: {
 	plan: ProvisionPlan;
 	existingManifestEntry?: InstallManifestEntryData;
@@ -316,10 +257,6 @@ function sourceProvenance(
 		relativePath: source.relativePath,
 		version,
 	};
-}
-
-function manifestEntryKey(entry: InstallManifestEntryData): string {
-	return provisionIdentityKey(entry);
 }
 
 export function provisionIdentityKey(

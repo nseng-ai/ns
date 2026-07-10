@@ -68,6 +68,83 @@ export type ActivationFilesCompareResult =
 	| { readonly type: "mismatch"; readonly details: PreparedStateMismatchDetails }
 	| { readonly type: "error"; readonly error: NsInitErrorInfo };
 
+export function compareConsumerDirectoryState(
+	path: string,
+	expected: ExpectedConsumerDirectoryState,
+	actual: Exclude<ConsumerDirectoryInspectionResult, { type: "error" }>,
+): PreparedStateMismatchDetails | undefined {
+	if (expected.type === "missing") {
+		if (actual.type === "missing") return undefined;
+		if (actual.type === "directory") {
+			return activationPresenceMismatchDetails(path, "missing", "present");
+		}
+		return activationKindMismatchDetails(path, "missing", "file");
+	}
+	if (actual.type === "missing") {
+		return activationPresenceMismatchDetails(path, "present", "missing");
+	}
+	if (actual.type === "not-directory") {
+		return activationKindMismatchDetails(path, "directory", "file");
+	}
+	if (expected.gitkeep === actual.gitkeep) return undefined;
+	const gitkeepPath = `${path}/.gitkeep`;
+	if (actual.gitkeep === "not-file") {
+		return activationKindMismatchDetails(
+			gitkeepPath,
+			expected.gitkeep === "missing" ? "missing" : "file",
+			"directory",
+		);
+	}
+	return activationPresenceMismatchDetails(
+		gitkeepPath,
+		expected.gitkeep === "missing" ? "missing" : "present",
+		actual.gitkeep === "missing" ? "missing" : "present",
+	);
+}
+
+export function activationPresenceMismatch(
+	path: string,
+	expected: "missing" | "present",
+	actual: "missing" | "present",
+): Extract<ActivationFilesCompareResult, { type: "mismatch" }> {
+	return { type: "mismatch", details: activationPresenceMismatchDetails(path, expected, actual) };
+}
+
+export function activationKindMismatch(
+	path: string,
+	expected: "missing" | "file" | "directory",
+	actual: "file" | "directory" | "other",
+): Extract<ActivationFilesCompareResult, { type: "mismatch" }> {
+	return { type: "mismatch", details: activationKindMismatchDetails(path, expected, actual) };
+}
+
+export function activationFilesCompareError(
+	result: Exclude<ActivationFilesCompareResult, { type: "applied" }>,
+): NsInitErrorInfo {
+	if (result.type === "error") return result.error;
+	return {
+		code: "activation-prepared-state-mismatch",
+		message: `${result.details.path} changed after activation was prepared; no mutation was applied to that path.`,
+		details: { ...result.details },
+	};
+}
+
+function activationPresenceMismatchDetails(
+	path: string,
+	expected: "missing" | "present",
+	actual: "missing" | "present",
+): PreparedStateMismatchDetails {
+	return { type: "presence", path, expected, actual };
+}
+
+function activationKindMismatchDetails(
+	path: string,
+	expected: "missing" | "file" | "directory",
+	actual: "file" | "directory" | "other",
+): PreparedStateMismatchDetails {
+	return { type: "kind", path, expected, actual };
+}
+
 export interface ActivationFileParams {
 	readonly repoRoot: string;
 	readonly file: ActivationFile;

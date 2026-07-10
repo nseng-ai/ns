@@ -1,22 +1,25 @@
+import type { LoadDeclaredExtensionDescriptorsResult } from "@nseng-ai/kernel/extensions/declared-descriptors";
+
 import type {
 	DeclaredExtensionsGateway,
 	LoadDeclaredExtensionsParams,
-	LoadDeclaredExtensionsResult,
 } from "./declared-extensions.ts";
 
 export interface InMemoryDeclaredExtensionsState {
-	readonly result?: LoadDeclaredExtensionsResult;
+	readonly result?: LoadDeclaredExtensionDescriptorsResult;
 }
 
 export class InMemoryDeclaredExtensionsGateway implements DeclaredExtensionsGateway {
-	private readonly result: LoadDeclaredExtensionsResult;
+	private readonly result: LoadDeclaredExtensionDescriptorsResult;
 	private readonly loadLog: LoadDeclaredExtensionsParams[] = [];
 
 	constructor(state: InMemoryDeclaredExtensionsState = {}) {
 		this.result = copyLoadResult(state.result ?? { descriptors: [], diagnostics: [] });
 	}
 
-	async load(params: LoadDeclaredExtensionsParams): Promise<LoadDeclaredExtensionsResult> {
+	async load(
+		params: LoadDeclaredExtensionsParams,
+	): Promise<LoadDeclaredExtensionDescriptorsResult> {
 		this.loadLog.push({ repoRoot: params.repoRoot, specs: [...params.specs] });
 		return copyLoadResult(this.result);
 	}
@@ -26,6 +29,8 @@ export class InMemoryDeclaredExtensionsGateway implements DeclaredExtensionsGate
 	}
 }
 
-function copyLoadResult(result: LoadDeclaredExtensionsResult): LoadDeclaredExtensionsResult {
+function copyLoadResult(
+	result: LoadDeclaredExtensionDescriptorsResult,
+): LoadDeclaredExtensionDescriptorsResult {
 	return structuredClone(result);
 }
