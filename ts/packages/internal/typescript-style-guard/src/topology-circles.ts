@@ -89,15 +89,15 @@ export function discoverTopologyCircles(
 		});
 
 		for (const component of metadata.nsSubpackages) {
-			const componentDir = join(sourceDir, component.name);
+			const componentDir = join(sourceDir, component);
 			if (!directoryExists(componentDir)) continue;
-			const id = `${metadata.name}/${component.name}`;
+			const id = `${metadata.name}/${component}`;
 			if (circles.has(id)) continue;
 			circles.set(id, {
 				id,
 				packageName: metadata.name,
-				component: component.name,
-				tier: component.tier ?? metadata.nsTier,
+				component,
+				tier: metadata.nsTier,
 				path: relative(repoRoot, componentDir),
 			});
 		}

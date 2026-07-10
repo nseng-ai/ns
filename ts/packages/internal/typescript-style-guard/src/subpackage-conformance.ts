@@ -41,15 +41,15 @@ function collectMissingSubpackageDirectoryViolations(
 ): SourceRuleViolation[] {
 	const sourceDir = join(repoRoot, metadata.packageDir, "src");
 	return metadata.nsSubpackages
-		.filter((subpackage) => !directoryExists(join(sourceDir, subpackage.name)))
+		.filter((subpackage) => !directoryExists(join(sourceDir, subpackage)))
 		.map((subpackage) => ({
 			rule: BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
 			path: metadata.packageJsonPath,
 			line: 1,
 			column: 1,
 			text:
-				`Package ${metadata.name} declares ns.subpackages entry "${subpackage.name}" but ` +
-				`${relative(repoRoot, join(sourceDir, subpackage.name))} is not a directory.`,
+				`Package ${metadata.name} declares ns.subpackages entry "${subpackage}" but ` +
+				`${relative(repoRoot, join(sourceDir, subpackage))} is not a directory.`,
 		}));
 }
 

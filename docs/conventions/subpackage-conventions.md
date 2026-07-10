@@ -2,7 +2,7 @@
 
 Read this before creating a workspace package, declaring or renaming entries in `ns.subpackages`, adding `exports` entries to a container package, or restructuring a container package's `src/` layout.
 
-Decision record: ADR 0022 (container packages, manifest-declared subpackages), ADR 0023 (subpackage kinds, edge-significance rank), and ADR 0032 (multiple API-kind subpackages, bidirectional subpackage tiers). Canonical vocabulary: the package-topology cluster in the root `CONTEXT.md`.
+Decision record: ADR 0022 (container packages, manifest-declared subpackages), ADR 0023 (subpackage kinds, edge-significance rank), and ADR 0032 (multiple API-kind subpackages, single-tier packages). Canonical vocabulary: the package-topology cluster in the root `CONTEXT.md`.
 
 ## The rank test
 
@@ -35,9 +35,9 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 - Host-surface subpaths are imported only by their host packages.
 - A feature-level `api`/`testing` module (for example `@nseng-ai/flow/land/api`) serves sibling subpackages in the same package only. If another package wants it, route the need through an existing API-kind subpackage — or read the demand as a promotion signal: either deliberately declare the feature's surface API-kind, or extract the feature into its own package (see `docs/conventions/platform-and-consumer.md` for the promotion-path discipline).
 
-## Subpackage tiers: default plus bidirectional override
+## Subpackage tiers: one package, one tier
 
-`ns.tier` is the default effective tier for every declared subpackage. `ns.subpackageTiers` may override a declared subpackage's tier in either direction — above or below the container's tier (ADR 0032). Keys must exactly match entries in `ns.subpackages`, and values must be known package tiers. Cross-package layering is enforced against each topology circle's effective tier, so an override changes what the named subpackage may import and who may import it; guard tooling validates actual subpath imports rather than legalizing arbitrary whole-package edges. Do not declare an override that merely restates the package default.
+A package lives in a single tier: `ns.tier` is the tier for the package and every declared subpackage (ADR 0032). `ns.subpackageTiers` is not part of the model — the TypeScript style guard rejects any manifest declaring the key. Cross-package layering is enforced against the owning package's tier for every topology circle; guard tooling still validates actual subpath imports rather than legalizing arbitrary whole-package edges. A subpackage that genuinely earns a different tier is a promotion signal: extract it into its own package with its own `ns.tier`.
 
 ## Adding or consolidating
 

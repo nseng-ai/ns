@@ -37,7 +37,6 @@ import { findTypeScriptSourceFiles } from "@internal/typescript-style-guard/file
 import { collectInternalSpaceAdmissionViolations } from "@internal/typescript-style-guard/internal-space";
 import {
 	collectExportSubpaths,
-	declaredSubpackageNames,
 	loadPackageMetadata,
 	readNsSubpackages,
 	type PackageManifest,
@@ -789,7 +788,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		}
 	});
 
-	test("rejects whole-package dependency on a host that exposes an allowed public subpackage tier", () => {
+	test("rejects whole-package dependency on a host regardless of its declared subpackages", () => {
 		const metadataByName = buildSyntheticPackageMetadata(
 			new Set(["@nseng-ai/flow", "@nseng-ai/ns"]),
 			[{ from: "@nseng-ai/flow", to: "@nseng-ai/ns" }],
@@ -802,7 +801,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		if (nsMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/ns metadata");
 		metadataByName.set("@nseng-ai/ns", {
 			...nsMetadata,
-			nsSubpackages: [{ name: "kernel", tier: "sdk" }],
+			nsSubpackages: ["kernel"],
 		});
 
 		const violations = collectPackageTierLayeringViolations(metadataByName);
@@ -812,7 +811,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		);
 	});
 
-	test("rejects ns.subpackageTiers keys that are not declared subpackages", () => {
+	test("rejects any ns.subpackageTiers declaration, even a well-formed one", () => {
 		const metadataByName = buildSyntheticPackageMetadata(
 			new Set(["@nseng-ai/ns"]),
 			[],
@@ -822,7 +821,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		if (nsMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/ns metadata");
 		const manifest = {
 			...nsMetadata.manifest,
-			ns: { tier: "host", subpackages: ["cli"], subpackageTiers: { kernel: "sdk" } },
+			ns: { tier: "host", subpackages: ["kernel"], subpackageTiers: { kernel: "sdk" } },
 		};
 		metadataByName.set("@nseng-ai/ns", {
 			...nsMetadata,
@@ -834,32 +833,8 @@ describe("TypeScript style guard package tier layering rules", () => {
 		const violations = collectPackageTierLayeringViolations(metadataByName);
 
 		expect(formatViolations(violations)).toContain(
-			"ns.subpackageTiers.kernel does not match a declared ns.subpackages entry",
+			"declares ns.subpackageTiers, but packages are single-tier",
 		);
-	});
-
-	test("rejects ns.subpackageTiers values that are not package tiers", () => {
-		const metadataByName = buildSyntheticPackageMetadata(
-			new Set(["@nseng-ai/ns"]),
-			[],
-			new Map([["@nseng-ai/ns", "host"]]),
-		);
-		const nsMetadata = metadataByName.get("@nseng-ai/ns");
-		if (nsMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/ns metadata");
-		const manifest = {
-			...nsMetadata.manifest,
-			ns: { tier: "host", subpackages: ["kernel"], subpackageTiers: { kernel: "sdkk" } },
-		};
-		metadataByName.set("@nseng-ai/ns", {
-			...nsMetadata,
-			manifest,
-			manifestContent: JSON.stringify(manifest),
-			nsSubpackages: readNsSubpackages(manifest.ns),
-		});
-
-		const violations = collectPackageTierLayeringViolations(metadataByName);
-
-		expect(formatViolations(violations)).toContain("ns.subpackageTiers.kernel has unknown tier");
 	});
 
 	test("real repo package manifests satisfy declared tier policy through explicit debt allowlists", () => {
@@ -929,120 +904,31 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 		);
 	});
 
-	test("allows imports from a capability to an sdk-tier public subpackage of a host", () => {
-		const violations = collectTopologyCircleLayeringViolations({
-			repoRoot: REPO_ROOT,
-			packageMetadataByName: new Map(),
-			circles: [
-				{
-					id: "@nseng-ai/flow",
-					packageName: "@nseng-ai/flow",
-					component: ".",
-					tier: "capability",
-					path: "synthetic/flow/src",
-				},
-				{
-					id: "@nseng-ai/ns",
-					packageName: "@nseng-ai/ns",
-					component: ".",
-					tier: "host",
-					path: "synthetic/ns/src",
-				},
-				{
-					id: "@nseng-ai/kernel",
-					packageName: "@nseng-ai/ns",
-					component: "kernel",
-					tier: "sdk",
-					path: "synthetic/ns/src/kernel",
-				},
-			],
-			files: [
-				{
-					path: "synthetic/flow/src/index.ts",
-					content: 'import { NsCommandIo } from "@nseng-ai/kernel/sdk";',
-				},
-			],
-		});
-
-		expect(formatViolations(violations)).toBe("");
-	});
-
-	test("discovers explicit subpackage tiers above and below the package default", () => {
+	test("discovers every declared subpackage circle at the package tier", () => {
 		withTempRepo((repoRoot) => {
 			writeSyntheticPackage(repoRoot, "synthetic/base", [
-				"src/high/index.ts",
-				"src/low/index.ts",
+				"src/exec/index.ts",
+				"src/time/index.ts",
 				"src/plain/index.ts",
 			]);
 			const metadataByName = buildSyntheticSubpackageMetadata({
 				packageName: "@nseng-ai/base",
 				packageDir: "synthetic/base",
 				tier: "sdk",
-				subpackages: ["high", "low", "plain"],
+				subpackages: ["exec", "time", "plain"],
 				remainder: false,
-				subpackageTiers: new Map([
-					["high", "capability"],
-					["low", "neutral-infra"],
-				]),
 			});
 
 			const circles = discoverTopologyCircles(repoRoot, metadataByName);
 
-			expect(circles.get("@nseng-ai/base/high")?.tier).toBe("capability");
-			expect(circles.get("@nseng-ai/base/low")?.tier).toBe("neutral-infra");
+			expect(circles.get("@nseng-ai/base")?.tier).toBe("sdk");
+			expect(circles.get("@nseng-ai/base/exec")?.tier).toBe("sdk");
+			expect(circles.get("@nseng-ai/base/time")?.tier).toBe("sdk");
 			expect(circles.get("@nseng-ai/base/plain")?.tier).toBe("sdk");
 		});
 	});
 
-	test("rejects cross-package imports of a subpackage tiered above its package default", () => {
-		withTempRepo((repoRoot) => {
-			writeSyntheticPackage(repoRoot, "synthetic/base", [
-				"src/exec/index.ts",
-				"src/time/index.ts",
-				"src/sessions/index.ts",
-			]);
-			writeSyntheticPackage(repoRoot, "synthetic/consumer", ["src/index.ts"]);
-			const metadataByName = new Map([
-				...buildSyntheticSubpackageMetadata({
-					packageName: "@nseng-ai/base",
-					packageDir: "synthetic/base",
-					subpackages: ["exec", "time", "sessions"],
-					remainder: false,
-					subpackageTiers: new Map([["sessions", "capability-kit"]]),
-				}),
-				...buildSyntheticSubpackageMetadata({
-					packageName: "@nseng-ai/consumer",
-					packageDir: "synthetic/consumer",
-					tier: "sdk",
-					subpackages: [],
-					remainder: false,
-				}),
-			]);
-			const circles = [...discoverTopologyCircles(repoRoot, metadataByName).values()];
-			const collectFor = (content: string) =>
-				collectTopologyCircleLayeringViolations({
-					repoRoot,
-					packageMetadataByName: metadataByName,
-					circles,
-					files: [{ path: "synthetic/consumer/src/index.ts", content }],
-				});
-
-			const upwardViolations = collectFor(
-				'import { startSession } from "@nseng-ai/base/sessions";',
-			);
-			const defaultTierViolations = collectFor(
-				'import { runCommand } from "@nseng-ai/base/exec";\nimport { clock } from "@nseng-ai/base/time";',
-			);
-
-			expect(upwardViolations.map((violation) => violation.rule)).toEqual([
-				BAN_TOPOLOGY_CIRCLE_LAYERING,
-			]);
-			expect(upwardViolations[0]?.text).toContain("@nseng-ai/base/sessions (capability-kit)");
-			expect(defaultTierViolations).toEqual([]);
-		});
-	});
-
-	test("allows cross-package imports of a subpackage tiered below its package default", () => {
+	test("enforces cross-package subpackage imports against the owning package tier", () => {
 		withTempRepo((repoRoot) => {
 			writeSyntheticPackage(repoRoot, "synthetic/base", [
 				"src/kernel/index.ts",
@@ -1056,7 +942,6 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 					tier: "host",
 					subpackages: ["kernel", "cli"],
 					remainder: false,
-					subpackageTiers: new Map([["kernel", "sdk"]]),
 				}),
 				...buildSyntheticSubpackageMetadata({
 					packageName: "@nseng-ai/consumer",
@@ -1075,14 +960,17 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 					files: [{ path: "synthetic/consumer/src/index.ts", content }],
 				});
 
-			const downwardViolations = collectFor('import { sdk } from "@nseng-ai/base/kernel";');
-			const defaultTierViolations = collectFor('import { cli } from "@nseng-ai/base/cli";');
+			const kernelViolations = collectFor('import { sdk } from "@nseng-ai/base/kernel";');
+			const cliViolations = collectFor('import { cli } from "@nseng-ai/base/cli";');
 
-			expect(downwardViolations).toEqual([]);
-			expect(defaultTierViolations.map((violation) => violation.rule)).toEqual([
+			expect(kernelViolations.map((violation) => violation.rule)).toEqual([
 				BAN_TOPOLOGY_CIRCLE_LAYERING,
 			]);
-			expect(defaultTierViolations[0]?.text).toContain("@nseng-ai/base/cli (host)");
+			expect(kernelViolations[0]?.text).toContain("@nseng-ai/base/kernel (host)");
+			expect(cliViolations.map((violation) => violation.rule)).toEqual([
+				BAN_TOPOLOGY_CIRCLE_LAYERING,
+			]);
+			expect(cliViolations[0]?.text).toContain("@nseng-ai/base/cli (host)");
 		});
 	});
 
@@ -1116,7 +1004,7 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 		const circles = discoverTopologyCircles(REPO_ROOT, packageMetadataByName);
 		const retiredTimePackageName = "@nseng-ai/" + "time";
 
-		expect(declaredSubpackageNames(coreMetadata.nsSubpackages)).toContain("time");
+		expect(coreMetadata.nsSubpackages).toContain("time");
 		expect(circles.has("@nseng-ai/foundation/time")).toBe(true);
 		expect(packageMetadataByName.has(retiredTimePackageName)).toBe(false);
 	});
@@ -1692,7 +1580,6 @@ interface SyntheticSubpackageMetadataOptions {
 	readonly subpackages: readonly string[];
 	readonly remainder: boolean;
 	readonly exports?: Record<string, unknown>;
-	readonly subpackageTiers?: ReadonlyMap<string, PackageTier>;
 }
 
 function twoCircleCycleFiles(): readonly TopologyCircleSourceFile[] {
@@ -1744,9 +1631,6 @@ function buildSyntheticSubpackageMetadata(
 		ns: {
 			tier,
 			subpackages: options.subpackages,
-			...(options.subpackageTiers === undefined
-				? {}
-				: { subpackageTiers: Object.fromEntries(options.subpackageTiers) }),
 			...(options.remainder ? { remainder: true } : {}),
 		},
 		...(options.exports === undefined ? {} : { exports: options.exports }),

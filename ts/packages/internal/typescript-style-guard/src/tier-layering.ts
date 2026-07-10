@@ -8,7 +8,7 @@ import {
 import { packageEdgeKey } from "./package-tier-taxonomy.ts";
 import { collectExtensionManifestWorkspaceEdges } from "./dependency-graph.ts";
 import { findManifestKeyPosition, type TextPosition } from "./json-diagnostics.ts";
-import { declaredSubpackageNames, isRecord, type PackageMetadata } from "./package-metadata.ts";
+import { isRecord, type PackageMetadata } from "./package-metadata.ts";
 import type { SourceRuleViolation } from "./source-rules.ts";
 
 export function collectPackageTierLayeringViolations(
@@ -77,7 +77,7 @@ function isAllowedPiSubpackagePeerEdge(
 	if (edge.to !== "@nseng-ai/pi" || edge.field !== "peerDependencies") return false;
 	const metadata = metadataByName.get(edge.from);
 	if (metadata?.nsTier !== "capability") return false;
-	if (!declaredSubpackageNames(metadata.nsSubpackages).includes("pi")) return false;
+	if (!metadata.nsSubpackages.includes("pi")) return false;
 	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@nseng-ai/pi");
 }
 
@@ -87,47 +87,22 @@ function isOptionalPeer(peerDependenciesMeta: unknown, packageName: string): boo
 	return isRecord(entry) && entry.optional === true;
 }
 
+// Packages are single-tier (ADR 0032): ns.tier governs the package and every
+// declared subpackage, so any ns.subpackageTiers declaration is a defect.
 function collectSubpackageTierMetadataViolations(metadata: PackageMetadata): SourceRuleViolation[] {
 	const nsField = metadata.manifest.ns;
-	if (!isRecord(nsField) || !isRecord(nsField.subpackageTiers)) return [];
-	const violations: SourceRuleViolation[] = [];
-	for (const [subpackage, rawTier] of Object.entries(nsField.subpackageTiers)) {
-		if (!declaredSubpackageNames(metadata.nsSubpackages).includes(subpackage)) {
-			violations.push(
-				buildSubpackageTierMetadataViolation(
-					metadata,
-					subpackage,
-					`ns.subpackageTiers.${subpackage} does not match a declared ns.subpackages entry`,
-				),
-			);
-		}
-		if (typeof rawTier !== "string" || !packageTierValues.includes(rawTier as PackageTier)) {
-			violations.push(
-				buildSubpackageTierMetadataViolation(
-					metadata,
-					subpackage,
-					`ns.subpackageTiers.${subpackage} has unknown tier ${JSON.stringify(rawTier)}; declare one of: ${packageTierValues.join(", ")}`,
-				),
-			);
-		}
-	}
-	return violations;
-}
-
-function buildSubpackageTierMetadataViolation(
-	metadata: PackageMetadata,
-	subpackage: string,
-	reason: string,
-): SourceRuleViolation {
-	return buildManifestPositionViolation(
-		metadata,
-		findManifestKeyPosition(
-			metadata.manifestContent,
-			["ns", "subpackageTiers", subpackage],
-			subpackage,
+	if (!isRecord(nsField) || nsField.subpackageTiers === undefined) return [];
+	return [
+		buildManifestPositionViolation(
+			metadata,
+			findManifestKeyPosition(
+				metadata.manifestContent,
+				["ns", "subpackageTiers"],
+				"subpackageTiers",
+			),
+			"declares ns.subpackageTiers, but packages are single-tier: every declared subpackage shares ns.tier (ADR 0032). Remove the key; a subpackage that earns a different tier should be extracted into its own package.",
 		),
-		`${reason}.`,
-	);
+	];
 }
 
 function buildTierMetadataViolation(

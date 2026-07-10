@@ -3,8 +3,8 @@
 ## Status
 
 Accepted — supersedes the foundation-placement portions of ADR 0018 and ADR 0019, refines
-ADR 0023's subpackage-kind model, and refines the subpackage-tier semantics layered on ADR 0017
-and ADR 0022. The superseded claims are itemized in the Supersession section; everything not named
+ADR 0023's subpackage-kind model, and removes the subpackage-tier override mechanism layered on
+ADR 0017 and ADR 0022: packages are single-tier. The superseded claims are itemized in the Supersession section; everything not named
 there — the four-bucket consumption analysis, the multi-factor placement gate, old-door deletion
 atomicity, edge-significance rank, and the Testing/Host-surface importer restrictions — remains in
 force.
@@ -24,10 +24,12 @@ accepted standards contradict that reality in three places:
    cross-package programmatic import surface. Foundation's public surface is many precise doors
    (`/exec`, `/clock`, `/primitives`, …), and collapsing them behind one `@nseng-ai/foundation/api`
    barrel would destroy exactly the precision that makes them good contracts.
-3. **One-way tier overrides.** `docs/conventions/subpackage-conventions.md` says
-   `ns.subpackageTiers` may only declare subpaths *lower* than the container package's tier. The
-   style guard has never enforced that direction; the effective-tier pipeline
-   (`component.tier ?? metadata.nsTier`) is already direction-agnostic.
+3. **Incoherent subpackage tier overrides.** `docs/conventions/subpackage-conventions.md` says
+   `ns.subpackageTiers` may only declare subpaths *lower* than the container package's tier; the
+   style guard's effective-tier pipeline (`component.tier ?? metadata.nsTier`) silently honors
+   overrides in either direction; and the package dependency graph scores every package as a
+   single tiered node. Three surfaces give three different answers to what a subpackage's tier
+   is, and no manifest in the workspace actually declares an override.
 
 This ADR records one linked trade-off resolving all three, so foundation is an honest home for
 generic infrastructure — including I/O-performing infrastructure — behind a strong admission
@@ -81,16 +83,18 @@ Concrete genericity evidence for the two motivating surfaces:
 What is retired is the categorical claim that a gateway is *never* Neutral Infra: a gateway seam,
 fake, and real adapter may live in foundation when the surface passes the admission test above.
 
-### Package and subpackage tier semantics
+### Package tier semantics: one package, one tier
 
-- `ns.tier` is the **default effective tier** for the package and its unannotated declared
-  subpackages.
-- `ns.subpackageTiers` may override the default **in either direction** — a subpackage may sit
-  above or below its container's tier. This is a general mixed-tier container rule, not a
-  foundation allowlist.
-- Cross-package layering is enforced against each topology circle's **effective tier**
-  (`component.tier ?? metadata.nsTier`); intra-package circle edges remain allowed regardless of
-  tier, exactly as today.
+- `ns.tier` is **the** tier for the package and every declared subpackage. A package is one
+  distribution unit and one node in the package dependency graph; its tier is definitional, not a
+  default that subpaths may vary.
+- `ns.subpackageTiers` is removed from the model. The style guard rejects any manifest declaring
+  the key as a tier-declaration defect, so the ban is enforced rather than merely documented.
+- Cross-package layering is enforced against the owning package's tier for every topology circle;
+  intra-package circle edges remain allowed regardless of tier, exactly as today.
+- A subpackage that genuinely earns a different tier is a promotion signal: extract it into its
+  own package with its own `ns.tier`, the same promotion discipline that governs feature-surface
+  demand.
 - No new `platform` tier is added. Because Neutral Infra admits generic I/O, foundation exec and a
   future harness-session subpackage stay `neutral-infra`; performing I/O is not grounds for a
   higher tier.
@@ -142,8 +146,9 @@ Claims that no longer govern:
   programmatic import surface", and the implication that a second public door is per se illegal.
   The kind taxonomy, edge-significance rank test, Testing/Host-surface restrictions, and the
   layers-are-folders rule all stand.
-- **`docs/conventions/subpackage-conventions.md`** (operational, updated in place) — the rule that
-  `ns.subpackageTiers` may only declare tiers lower than the container's tier.
+- **`docs/conventions/subpackage-conventions.md`** (operational, updated in place) — the
+  `ns.subpackageTiers` override mechanism and its lower-only rule; subpackage tier overrides are
+  removed entirely rather than legalized.
 
 Historical ADR text is not rewritten; each affected ADR carries a one-line refinement annotation
 pointing here, matching the existing amendment convention.
@@ -151,12 +156,12 @@ pointing here, matching the existing amendment convention.
 ## Consequences
 
 - `@nseng-ai/foundation` keeps `ns.tier: neutral-infra` and its existing manifest unchanged;
-  `/exec` is legitimately home. No `ns.subpackageTiers` entry is added merely to restate the
-  default.
-- The style guard needs no behavioral change: the effective-tier pipeline is already bidirectional
-  and export-subpackage conformance already accepts multiple exporting subpackages. Tests pin both
-  override directions, effective-tier cross-package edge enforcement, and the conformance of
-  multiple API-kind surfaces, so the semantics are deliberate rather than accidental.
+  `/exec` is legitimately home.
+- The style guard sheds its dormant effective-tier override pipeline: `ns.subpackageTiers` is
+  rejected as a manifest defect, every topology circle carries its owning package's tier, and
+  export-subpackage conformance already accepts multiple exporting subpackages. Tests pin the
+  rejection and the conformance of multiple API-kind surfaces, so the semantics are deliberate
+  rather than accidental.
 - The admission boundary is enforced in review prose, not tooling: a foundation addition must state
   its external-consumer scenario concretely enough to evaluate the contract without ns vocabulary.
 - Capability Kit retains a clear role as ns extension-building substrate; nothing moves out of it
@@ -164,6 +169,12 @@ pointing here, matching the existing amendment convention.
 
 ## Rejected Alternatives
 
+- **Per-subpackage tier overrides (`ns.subpackageTiers`, mixed-tier containers).** Rejected,
+  whether lower-only or bidirectional: a package is one node in the dependency graph and its tier
+  is definitional; per-subpath overrides let a manifest carve tier exceptions inside a unit the
+  package graph scores as one tier, so the picture and the enforcement drift apart. A subpackage
+  that earns a different tier is a promotion signal to extract a package, not grounds to blur the
+  container's.
 - **Retain the purity definition and move exec out of foundation.** Rejected: it forces generic,
   externally credible infrastructure into ns-shaped homes, and would bar a generic harness-session
   surface from the only honest tier for it.
