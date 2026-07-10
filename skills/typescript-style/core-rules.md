@@ -104,6 +104,26 @@ Full reasoning: `references/type-system.md`.
 - **Model state machines as explicit unions.** Prefer one field like
   `mode: { type: "search"; query: string } | { type: "replace"; pattern: string } | null` over several
   booleans that can drift into impossible combinations.
+- **Classify absence at the seam.** Raw `undefined` is for mechanical absence: an omitted option, an
+  optional external field, or a local `Map.get`/index miss handled where it occurs. Before a value
+  crosses into a module's interior, decide what absence means. Resolve defaultable absence to a
+  concrete value. Give meaningful absence — "not selected", "not found", "unavailable" — a named
+  discriminated variant. If an established invariant makes a miss impossible, return `T` through one
+  checked accessor that throws on violation instead of propagating `T | undefined` to every caller.
+  Optional fields that are present or absent together belong in one union variant, not in caller
+  discipline.
+  ```ts
+  // Avoid: absence is unnamed and partial states are expressible.
+  interface Selection {
+    command?: Command;
+    source?: Source;
+  }
+
+  // Prefer: absence has a name; only legal combinations exist.
+  type Selection =
+    | { type: "not-selected" }
+    | { type: "selected"; command: Command; source: Source };
+  ```
 - **Expose deliberate extension points.** Empty interfaces plus declaration merging can let apps extend
   a core event/message union without forking it. `NS_TS_BAN_EMPTY_INTERFACE_EXTENDS`: an empty
   `interface Child extends Parent {}` is not an extension point; it is a type alias with worse

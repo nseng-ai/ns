@@ -120,6 +120,21 @@ function resolveRetryOptions(options: RetryOptions): ResolvedRetryOptions {
 
 For partial subsets, use `Required<Omit<T, "field">>` or an explicit resolved interface.
 
+Defaulting is one case of a general rule: classify absence at the seam. When absence is a meaningful
+state rather than an omitted input, name it instead of carrying `T | undefined` inward:
+
+```ts
+type CacheLookup<T> =
+  | { type: "found"; value: T }
+  | { type: "not-found" }
+  | { type: "unavailable"; diagnostic: string };
+```
+
+A local lookup miss handled immediately may stay `T | undefined`. A miss that an internal invariant
+forbids should fail loudly through one checked accessor returning `T`, so callers never handle an
+impossible case. Do not rename `undefined` to `null`, a `Symbol`, or a constant; the improvement comes
+from the named variant, not the sentinel.
+
 ## Declaration merging as an extension point
 
 A neutral core can expose an empty interface for app-specific variants:

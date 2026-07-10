@@ -35,6 +35,9 @@ and conventions as the baseline; this checklist catches design drift.
       (`NS_TS_BAN_EMPTY_INTERFACE_EXTENDS`).
 - [ ] Generic tags are carried through APIs so callers only see legal config for the selected tag.
 - [ ] State machines are explicit unions, not scattered booleans.
+- [ ] `undefined` stays seam-local: defaultable absence is resolved to a concrete value, meaningful
+      absence has a named discriminated variant, correlated optionals are one variant, and
+      invariant-guaranteed lookups return `T` through a single checked accessor.
 
 ## Architecture
 

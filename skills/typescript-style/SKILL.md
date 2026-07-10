@@ -53,9 +53,10 @@ Write strict, erasable TypeScript: no `enum`, no `namespace`, and no parameter p
 Closed sets are **string-literal unions**; runtime variants are **discriminated unions** using `type` by
 default, with domain/external tags only when they better express the model. Use `unknown` at boundaries
 and avoid `any` except isolated, commented library-forced seams. Validate external boundaries with Zod
-schemas and derive types with `z.infer`. Encode expected failure as returned data at async/system
-boundaries (`Result<T,E>`, terminal error events); throw only for programmer errors and broken
-invariants. Top-level module logic uses `function` declarations; callbacks and expression-position
+schemas and derive types with `z.infer`. Classify absence at the seam: resolve defaults to concrete
+values, give meaningful absence a named discriminated variant, and keep raw `undefined` local to
+optional inputs and lookups. Encode expected failure as returned data at async/system boundaries
+(`Result<T,E>`, terminal error events); throw only for programmer errors and broken invariants. Top-level module logic uses `function` declarations; callbacks and expression-position
 factories can use arrows. Prefer guard clauses, nullish operators for nullish semantics, and options
 objects for several/optional inputs. Respect ownership-boundary immutability: do not mutate inputs,
 returned values, or shared/public state in place. Keep the core minimal: optional behavior lives behind
