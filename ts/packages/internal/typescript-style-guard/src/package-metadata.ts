@@ -25,14 +25,9 @@ export interface PackageMetadata {
 	manifestContent: string;
 	readonly nsTier: PackageTier | undefined;
 	readonly rawNsTier: unknown;
-	readonly nsSubpackages: readonly NsSubpackage[];
+	readonly nsSubpackages: readonly string[];
 	readonly nsRemainder: boolean;
 	readonly exportSubpaths: ReadonlySet<string>;
-}
-
-export interface NsSubpackage {
-	readonly name: string;
-	readonly tier: PackageTier | undefined;
 }
 
 export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetadata> {
@@ -65,34 +60,16 @@ export function readRawNsTier(nsField: unknown): unknown {
 	return nsField.tier;
 }
 
-export function readNsSubpackages(nsField: unknown): readonly NsSubpackage[] {
+export function readNsSubpackages(nsField: unknown): readonly string[] {
 	if (!isRecord(nsField)) return [];
 	const value = nsField.subpackages;
 	if (!Array.isArray(value)) return [];
-	const subpackageTiers = readNsSubpackageTiers(nsField);
-	return value
-		.filter((entry): entry is string => typeof entry === "string" && entry !== "")
-		.map((name) => ({ name, tier: subpackageTiers.get(name) }));
-}
-
-export function declaredSubpackageNames(subpackages: readonly NsSubpackage[]): readonly string[] {
-	return subpackages.map((subpackage) => subpackage.name);
+	return value.filter((entry): entry is string => typeof entry === "string" && entry !== "");
 }
 
 export function readNsRemainder(nsField: unknown): boolean {
 	if (!isRecord(nsField)) return false;
 	return nsField.remainder === true;
-}
-
-export function readNsSubpackageTiers(nsField: unknown): ReadonlyMap<string, PackageTier> {
-	if (!isRecord(nsField)) return new Map();
-	if (!isRecord(nsField.subpackageTiers)) return new Map();
-	const tiers = new Map<string, PackageTier>();
-	for (const [subpackage, rawTier] of Object.entries(nsField.subpackageTiers)) {
-		const tier = parsePackageTier(rawTier);
-		if (tier !== undefined) tiers.set(subpackage, tier);
-	}
-	return tiers;
 }
 
 export function parsePackageTier(value: unknown): PackageTier | undefined {

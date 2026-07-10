@@ -11,6 +11,11 @@ a standalone/deferred home) is governed by ADR 0019.
 disposition table are now `@nseng-ai/foundation` at `ts/packages/infra/foundation`; the per-export
 bucket analysis below is otherwise unchanged.)
 
+(refined by ADR 0032: the target of a pure-utility-only foundation no longer governs — Neutral
+Infra is defined by external applicability and may perform real-world I/O, so I/O-performing
+generic surfaces such as `exec` may stay in foundation. The four-bucket consumption analysis
+otherwise stands.)
+
 ## Context
 
 `@sdl/core` currently mixes pure utilities, real-world I/O gateways, SDK-like host services,

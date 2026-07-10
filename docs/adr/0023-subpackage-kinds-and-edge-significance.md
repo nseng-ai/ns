@@ -1,5 +1,10 @@
 # Subpackage kinds and edge-significance rank
 
+Refined by ADR 0032: API-kind is generalized — a container may have multiple API-kind subpackages
+with cross-package runtime exports, and the literal `api` subpackage is the Capability API
+specialization rather than the sole public door. The rank test, Testing/Host-surface restrictions,
+and layers-are-folders rule stand.
+
 Refines ADR 0022. A **Subpackage** earns declaration in `sdl.subpackages` by anchoring a class of dependency edges worth tracking — never by source size. A 40-line contract with fourteen importers outranks a 4,000-line internal layer; a low-LOC entry that anchors no edge class its siblings don't already anchor is consolidated away.
 
 Every declared subpackage is one of four kinds, each with a sanctioned importer set:
