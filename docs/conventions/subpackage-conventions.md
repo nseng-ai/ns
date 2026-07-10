@@ -2,7 +2,7 @@
 
 Read this before creating a workspace package, declaring or renaming entries in `ns.subpackages`, adding `exports` entries to a container package, or restructuring a container package's `src/` layout.
 
-Decision record: ADR 0022 (container packages, manifest-declared subpackages) and ADR 0023 (subpackage kinds, edge-significance rank). Canonical vocabulary: the package-topology cluster in the root `CONTEXT.md`.
+Decision record: ADR 0022 (container packages, manifest-declared subpackages), ADR 0023 (subpackage kinds, edge-significance rank), and ADR 0032 (multiple API-kind subpackages, bidirectional subpackage tiers). Canonical vocabulary: the package-topology cluster in the root `CONTEXT.md`.
 
 ## The rank test
 
@@ -12,32 +12,32 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 
 | Kind         | Names                                                                    | Sanctioned importers                    |
 | ------------ | ------------------------------------------------------------------------ | --------------------------------------- |
-| API          | `api`                                                                    | any package (runtime)                   |
+| API-kind     | open; `api` required for a Capability API                                | any package (runtime)                   |
 | Testing      | `testing`                                                                | any package (tests only)                |
 | Host surface | `ns`, `pi`                                                               | the named host only                     |
 | Feature      | open, domain-meaningful (`land-stack`, `submit`, `cmux`, `lifecycle`, …) | sibling subpackages in the same package |
 
-- **API** hosts the package's Capability API (`@nseng-ai/<cap>/api`) as a thin contract/facade. It is the only cross-package programmatic door; logic lives in features, not here.
+- **API-kind** subpackages are the package's deliberate cross-package programmatic doors: any declared subpackage with supported cross-package runtime exports is API-kind, regardless of name, and a container may have several (`@nseng-ai/foundation/exec` and `@nseng-ai/foundation/time` are both API-kind). A capability's Capability API must still be the literally named `api` subpackage (`@nseng-ai/<cap>/api`), a thin contract/facade; logic lives in features, not here. Do not consolidate precise API-kind doors into one façade barrel.
 - **Testing** exports fakes and test kits for other packages' tests. Never imported by runtime code.
 - **Host surfaces** are thin adapters consumed by exactly one host: `ns` by the ns CLI kernel wiring and `pi` by the Pi host stack. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
-- **Features** are the package's real domain verticals — the entries that make the topology report say something package-specific. They never import host surfaces, and their edges stay intra-package.
+- **Features** are the package's real domain verticals — the entries that make the topology report say something package-specific. They never import host surfaces, and their edges stay intra-package. Private implementation layers of an API-kind subpackage are folders inside it, not sibling feature subpackages.
 
 ## Naming rules
 
-- The contract and host-surface vocabulary is **closed**: `api`, `testing`, `ns`, `pi`. Do not invent synonyms.
+- The Capability API, testing, and host-surface vocabulary is **closed**: `api`, `testing`, `ns`, `pi`. Do not invent synonyms such as `public` or `contract`. Other API-kind subpackages carry their domain name (`exec`, `time`), exactly like features — being exported is what makes them API-kind, not a reserved name.
 - Never declare internal layers as subpackages: `operations`, `gateways`, `commands`, `shared`, `shell`, `kit`. They are folders inside the kind that owns them.
 - `core` is acceptable only as the feature subpackage naming the package's central domain (when the package's namesake concept *is* the feature). It is not a home for consolidated layers.
 - Feature names must mean something in the package's domain. Prefer the term the package's `CONTEXT.md` already uses.
 
 ## Import rules in practice
 
-- Cross-package runtime imports target `<pkg>/api` only. Cross-package test imports may also target `<pkg>/testing`.
+- Cross-package runtime imports target exported API-kind subpackages only. For a capability that means `<pkg>/api`; for a package with several API-kind doors it means the precise exported subpath (`@nseng-ai/foundation/exec`). Cross-package test imports may also target `<pkg>/testing`.
 - Host-surface subpaths are imported only by their host packages.
-- A feature-level `api`/`testing` module (for example `@nseng-ai/flow/land/api`) serves sibling subpackages in the same package only. If another package wants it, route the need through the package `api` — or read the demand as a promotion signal and extract the feature into its own package (see `docs/conventions/platform-and-consumer.md` for the promotion-path discipline).
+- A feature-level `api`/`testing` module (for example `@nseng-ai/flow/land/api`) serves sibling subpackages in the same package only. If another package wants it, route the need through an existing API-kind subpackage — or read the demand as a promotion signal: either deliberately declare the feature's surface API-kind, or extract the feature into its own package (see `docs/conventions/platform-and-consumer.md` for the promotion-path discipline).
 
-## Lower-tier public subpaths
+## Subpackage tiers: default plus bidirectional override
 
-A container may declare `ns.subpackageTiers` only for public subpaths whose effective tier is lower than the container package's tier (for example a host package exposing an SDK-like public subpath during a transition). Keys must exactly match entries in `ns.subpackages`, and values must be known package tiers. This is not a general dependency escape hatch: it documents the rank of the named public subpackage, and guard tooling must validate actual subpath imports rather than legalizing arbitrary whole-package edges.
+`ns.tier` is the default effective tier for every declared subpackage. `ns.subpackageTiers` may override a declared subpackage's tier in either direction — above or below the container's tier (ADR 0032). Keys must exactly match entries in `ns.subpackages`, and values must be known package tiers. Cross-package layering is enforced against each topology circle's effective tier, so an override changes what the named subpackage may import and who may import it; guard tooling validates actual subpath imports rather than legalizing arbitrary whole-package edges. Do not declare an override that merely restates the package default.
 
 ## Adding or consolidating
 

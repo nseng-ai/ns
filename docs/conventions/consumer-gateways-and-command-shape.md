@@ -47,7 +47,7 @@ A single-consumer kit export needs an explicit justification and a demotion trig
 
 ## Relationship to ADR 0019
 
-ADR 0019 gates **where** a Real gateway implementation lives (which package owns `RealGitGateway`). This convention gates **the shape** of what consumers type against and what the kit may export as standalone command-shape. They are complementary: consult ADR 0019 for placement of a real adapter, and this doc for consumer-gateway narrowing and kit-export promotion. ADR 0019 cross-references this doc as the home of consumer-facing shape rules.
+ADR 0019 gates **where** a Real gateway implementation lives (which package owns `RealGitGateway`). This convention gates **the shape** of what consumers type against and what the kit may export as standalone command-shape. They are complementary: consult ADR 0019 for placement of a real adapter, and this doc for consumer-gateway narrowing and kit-export promotion. ADR 0019 cross-references this doc as the home of consumer-facing shape rules. Per ADR 0032, foundation is a possible placement outcome for a gateway whose contract is ns-independent with a credible external-consumer scenario (`@nseng-ai/foundation/exec` is the live example); performing I/O does not by itself rule foundation out, and moving an existing Kit Gateway there still requires the ADR 0019 gate plus this doc's channel analysis.
 
 ## Avoid
 

@@ -17,6 +17,10 @@ and adapter LOC stayed stable rather than bloating the kit. Consumer-facing shap
 consumers narrow against the seam and what the kit may export as standalone command-shape — now
 live in `docs/conventions/consumer-gateways-and-command-shape.md`.)
 
+(refined by ADR 0032: foundation is a possible placement outcome for gateway surfaces whose public
+contract is ns-independent with a credible external-consumer scenario; the multi-factor gate and
+old-door deletion atomicity below stand unchanged.)
+
 ## Context
 
 ADR 0018 established the four-bucket rule for decomposing `@sdl/core` (pure utility, Kit gateway,

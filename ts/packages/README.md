@@ -13,7 +13,7 @@ Structure *inside* a container package — which units earn `ns.subpackages` ran
 
 ## Category directories
 
-- `infra/` contains below-SDK neutral packages such as core primitives, CLI framework support, Branch Memory, and Graphite support. The former transitional domain-primitives package has been deleted; shared first-party capability-building primitives now live under precise `@nseng-ai/capability-kit/*` subpaths.
+- `infra/` contains below-SDK neutral packages such as core primitives, CLI framework support, Branch Memory, and Graphite support. Neutral means ns-independent, not effect-free: `@nseng-ai/foundation` is the home for generic infrastructure — including I/O-performing infrastructure such as `@nseng-ai/foundation/exec` — that passes ADR 0032's admission test (an ns-independent public contract plus a credible external-consumer scenario stated in reviewable prose). ns-shaped gateways and capability-building substrate stay in `@nseng-ai/capability-kit`. The former transitional domain-primitives package has been deleted; shared first-party capability-building primitives now live under precise `@nseng-ai/capability-kit/*` subpaths.
 - `capabilities/` contains first-party capabilities that are already in the category directory, including standalone capabilities and converted/certified capability extensions.
 - `hosts/` contains presentation/runtime hosts such as Pi and `nscc`.
 - `capability-pi/` contains Pi command/presentation packages attached to first-party capabilities. They depend on the owning capability APIs plus neutral Pi host helper subpaths, and project-local `.pi/extensions/*` discovery adapters import them directly.
