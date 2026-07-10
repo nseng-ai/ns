@@ -1,7 +1,10 @@
+import { runCommand } from "../../ts/packages/infra/foundation/src/exec/index.ts";
+
 import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
 } from "../../ts/packages/hosts/pi/src/commands/ack.ts";
+import { LiveCommandProgress } from "../../ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts";
 import { expandRepoSkillBlock } from "../../ts/packages/hosts/pi/src/kit/skills/expansion.ts";
 
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
@@ -24,9 +27,27 @@ type CommandContext = {
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
+		setWidget?(
+			key: string,
+			value: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
 	};
 	waitForIdle(): Promise<void>;
 };
+
+type ExecOptions = {
+	cwd?: string;
+	timeout?: number;
+	onStdout?: (text: string) => void;
+	onStderr?: (text: string) => void;
+};
+
+type ExecCommand = (
+	command: string,
+	args: readonly string[],
+	options?: ExecOptions,
+) => Promise<ExecResult>;
 
 type JustCommand = {
 	name: "just" | "just-ci";
@@ -61,7 +82,6 @@ type ExtensionAPI = {
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
 	): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
 	sendUserMessage(content: string): void;
 };
 
@@ -115,16 +135,28 @@ async function runJustThenInvokeSkill(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	command: JustCommand,
+	exec: ExecCommand,
 ): Promise<void> {
 	sendCommandProgressOrNotify({ host: pi, ctx, message: `Running \`${command.displayCommand}\`…` });
 	await ctx.waitForIdle();
 
-	ctx.ui.setStatus(command.name, `running ${command.displayCommand}…`);
+	const progress = new LiveCommandProgress(ctx, {
+		argv: command.recipeArgs,
+		cliName: "just",
+		commandName: command.displayCommand,
+		piCommandName: command.name,
+	});
+	progress.setPhase("running");
 	let result: ExecResult;
 	try {
-		result = await pi.exec("just", command.recipeArgs, { cwd: ctx.cwd, timeout: command.timeoutMs });
+		result = await exec("just", command.recipeArgs, {
+			cwd: ctx.cwd,
+			timeout: command.timeoutMs,
+			onStdout: (text) => progress.appendOutput("stdout", text),
+			onStderr: (text) => progress.appendOutput("stderr", text),
+		});
 	} finally {
-		ctx.ui.setStatus(command.name, undefined);
+		progress.close();
 	}
 
 	if (result.code === 0 && !result.killed) {
@@ -153,14 +185,14 @@ async function runJustThenInvokeSkill(
 	pi.sendUserMessage(buildFailurePrompt(skill?.block, result, ctx.cwd, command.displayCommand));
 }
 
-export default function justFixExtension(pi: ExtensionAPI): void {
+export default function justFixExtension(pi: ExtensionAPI, exec: ExecCommand = runCommand): void {
 	for (const command of JUST_COMMANDS) {
 		registerCommandWithImmediateAck({
 			host: pi,
 			commandName: command.name,
 			commandDefinition: {
 				description: command.description,
-				handler: async (_args, ctx) => runJustThenInvokeSkill(pi, ctx, command),
+				handler: async (_args, ctx) => runJustThenInvokeSkill(pi, ctx, command, exec),
 			},
 		});
 	}

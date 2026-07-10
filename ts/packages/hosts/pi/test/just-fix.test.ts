@@ -28,14 +28,26 @@ interface CommandContext {
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
+		setWidget?(
+			key: string,
+			value: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
 	};
 	waitForIdle(): Promise<void>;
 }
 
+interface ExecOptions {
+	cwd?: string;
+	timeout?: number;
+	onStdout?: (text: string) => void;
+	onStderr?: (text: string) => void;
+}
+
 interface ExecCall {
 	command: string;
-	args: string[];
-	options: { cwd?: string; timeout?: number } | undefined;
+	args: readonly string[];
+	options: ExecOptions | undefined;
 }
 
 interface Notification {
@@ -48,13 +60,19 @@ interface StatusUpdate {
 	value: string | undefined;
 }
 
+interface WidgetUpdate {
+	key: string;
+	value: string[] | undefined;
+	options: { placement?: "aboveEditor" | "belowEditor" } | undefined;
+}
+
 interface CustomMessage {
 	customType: string;
 	content: string;
 	display: boolean;
 }
 
-type JustFixExtension = (pi: FakePi) => void;
+type JustFixExtension = (pi: FakePi, exec?: FakePi["exec"]) => void;
 
 class FakePi {
 	readonly commands = new Map<string, RegisteredCommand>();
@@ -82,12 +100,10 @@ class FakePi {
 		this.messages.push(message);
 	}
 
-	async exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number },
-	): Promise<ExecResult> {
+	async exec(command: string, args: readonly string[], options?: ExecOptions): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
+		options?.onStdout?.(this.execResult.stdout);
+		options?.onStderr?.(this.execResult.stderr);
 		return this.execResult;
 	}
 
@@ -113,10 +129,12 @@ function createContext(cwd = ROOT): {
 	ctx: CommandContext;
 	notifications: Notification[];
 	statuses: StatusUpdate[];
+	widgets: WidgetUpdate[];
 	waitForIdleCalls: () => number;
 } {
 	const notifications: Notification[] = [];
 	const statuses: StatusUpdate[] = [];
+	const widgets: WidgetUpdate[] = [];
 	let waits = 0;
 	const ctx: CommandContext = {
 		cwd,
@@ -128,13 +146,20 @@ function createContext(cwd = ROOT): {
 			setStatus(key: string, value: string | undefined): void {
 				statuses.push({ key, value });
 			},
+			setWidget(
+				key: string,
+				value: string[] | undefined,
+				options?: { placement?: "aboveEditor" | "belowEditor" },
+			): void {
+				widgets.push({ key, value, options });
+			},
 		},
 		async waitForIdle(): Promise<void> {
 			waits += 1;
 		},
 	};
 
-	return { ctx, notifications, statuses, waitForIdleCalls: () => waits };
+	return { ctx, notifications, statuses, widgets, waitForIdleCalls: () => waits };
 }
 
 function skillCommandInfo(skillPath: string, baseDir: string): SkillCommandInfo {
@@ -176,7 +201,7 @@ Repair the failed just run.
 					[skillCommandInfo(skillPath, skillDir)],
 				);
 				const justFixExtension = await loadJustFixExtension();
-				justFixExtension(pi);
+				justFixExtension(pi, pi.exec.bind(pi));
 				const command = pi.commands.get("just");
 				expect(command).toBeDefined();
 				if (!command) {
@@ -188,13 +213,29 @@ Repair the failed just run.
 
 				expect(context.waitForIdleCalls()).toBe(1);
 				expect(pi.execCalls).toEqual([
-					{ command: "just", args: [], options: { cwd: repoDir, timeout: JUST_TIMEOUT_MS } },
+					{
+						command: "just",
+						args: [],
+						options: {
+							cwd: repoDir,
+							timeout: JUST_TIMEOUT_MS,
+							onStdout: expect.any(Function),
+							onStderr: expect.any(Function),
+						},
+					},
 				]);
-				// The generic command ack is suppressed by default; just owns its status.
-				expect(context.statuses).toEqual([
-					{ key: "just", value: "running just…" },
-					{ key: "just", value: undefined },
-				]);
+				expect(context.statuses).toEqual([{ key: "ns-cli-command", value: undefined }]);
+				expect(
+					context.widgets.some((update) => update.value?.includes("stdout: unit failed")),
+				).toBe(true);
+				expect(
+					context.widgets.some((update) => update.value?.includes("stderr: lint failed")),
+				).toBe(true);
+				expect(context.widgets.at(-1)).toEqual({
+					key: "ns-cli-command-output",
+					value: undefined,
+					options: undefined,
+				});
 				expect(pi.messages).toEqual([
 					{
 						customType: "ns-command-progress",
@@ -225,7 +266,7 @@ Repair the failed just run.
 	test("runs the CI recipe excluding docs-site and Reviews through just-ci", async () => {
 		const pi = new FakePi(execResult());
 		const justFixExtension = await loadJustFixExtension();
-		justFixExtension(pi);
+		justFixExtension(pi, pi.exec.bind(pi));
 		const command = pi.commands.get("just-ci");
 		expect(command?.description).toBe(
 			"Run CI excluding docs-site and Reviews; if it fails, invoke code-just-fix.",
@@ -242,13 +283,16 @@ Repair the failed just run.
 			{
 				command: "just",
 				args: ["ci"],
-				options: { cwd: ROOT, timeout: JUST_CI_TIMEOUT_MS },
+				options: {
+					cwd: ROOT,
+					timeout: JUST_CI_TIMEOUT_MS,
+					onStdout: expect.any(Function),
+					onStderr: expect.any(Function),
+				},
 			},
 		]);
-		expect(context.statuses).toEqual([
-			{ key: "just-ci", value: "running just ci…" },
-			{ key: "just-ci", value: undefined },
-		]);
+		expect(context.statuses).toEqual([{ key: "ns-cli-command", value: undefined }]);
+		expect(context.widgets.at(-1)?.value).toBeUndefined();
 		expect(pi.messages).toEqual([
 			{
 				customType: "ns-command-progress",
