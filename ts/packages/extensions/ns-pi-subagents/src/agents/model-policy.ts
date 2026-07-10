@@ -18,10 +18,12 @@ export type IsProviderAuthConfigured = (providerId: string) => boolean;
  */
 export type ExplorerLaunchPlan = { kind: "cheap"; model: string } | { kind: "inherit" };
 
-export interface ResolveExplorerLaunchPlanInput {
+export interface ModelSelectionAuthContext {
 	parentModel?: ModelInfo;
 	isProviderAuthConfigured: IsProviderAuthConfigured;
 }
+
+export type ResolveExplorerLaunchPlanInput = ModelSelectionAuthContext;
 
 export function resolveExplorerLaunchPlan(
 	input: ResolveExplorerLaunchPlanInput,
@@ -38,10 +40,8 @@ export function resolveExplorerLaunchPlan(
 	return { kind: "inherit" };
 }
 
-export interface ResolveDescriptorModelInput {
+export interface ResolveDescriptorModelInput extends ModelSelectionAuthContext {
 	policy: SubagentAgentDescriptor["modelPolicy"];
-	parentModel?: ModelInfo;
-	isProviderAuthConfigured: IsProviderAuthConfigured;
 }
 
 /**

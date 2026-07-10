@@ -28,7 +28,7 @@ Do not add agent-specific fields to the public input. If a policy belongs to an 
 
 ## Add a runtime adapter
 
-A `SubagentRuntimeAdapter` declares one execution kind and, given the tool context, creates a `SubagentRuntime` (`{ ok: true, runtime }`) or returns an availability diagnostic (`{ ok: false, diagnostic }`). The registry is built once at registration; adapters read per-call host state from the context passed to `create`. Register adapters separately from agent descriptors:
+A `SubagentRuntimeAdapter` declares one execution kind and, given the tool context, returns the shared `SubagentOutcome` shape: it creates a `SubagentRuntime` (`{ ok: true, runtime }`) or returns an availability diagnostic (`{ ok: false, diagnostic }`). The registry is built once at registration; adapters read per-call host state from the context passed to `create`. Register adapters separately from agent descriptors:
 
 ```ts
 const runtimes = createSubagentRuntimeRegistry([

@@ -19,7 +19,11 @@ import {
 	type SubagentAgentDescriptor,
 	type SubagentAgentRegistry,
 } from "../agents/registry.ts";
-import { resolveDescriptorModel, type IsProviderAuthConfigured } from "../agents/model-policy.ts";
+import {
+	resolveDescriptorModel,
+	type IsProviderAuthConfigured,
+	type ModelSelectionAuthContext,
+} from "../agents/model-policy.ts";
 import {
 	resultDiagnostic,
 	type RunnerSubagentContext,
@@ -69,21 +73,28 @@ function agentSchema(agentNames: readonly string[]): z.ZodType<string, string> {
  * additionalProperties; re-add the closed-object contract for the model.
  */
 function buildParameters(schema: ReturnType<typeof buildInputSchema>): Record<string, unknown> {
-	const parameters = z.toJSONSchema(schema, { io: "input" });
-	closeObjectSchemas(parameters);
-	return parameters;
+	return closeObjectSchemas(z.toJSONSchema(schema, { io: "input" }));
 }
 
-function closeObjectSchemas(node: z.core.JSONSchema.JSONSchema): void {
-	if (node.type === "object" && node.additionalProperties === undefined) {
-		node.additionalProperties = false;
-	}
-	for (const property of Object.values(node.properties ?? {})) {
-		if (typeof property === "object") closeObjectSchemas(property);
-	}
-	if (typeof node.items === "object" && !Array.isArray(node.items)) {
-		closeObjectSchemas(node.items);
-	}
+function closeObjectSchemas(node: z.core.JSONSchema.JSONSchema): z.core.JSONSchema.JSONSchema {
+	const properties = Object.fromEntries(
+		Object.entries(node.properties ?? {}).map(([key, property]) => [
+			key,
+			typeof property === "object" ? closeObjectSchemas(property) : property,
+		]),
+	);
+	const items =
+		typeof node.items === "object" && !Array.isArray(node.items)
+			? closeObjectSchemas(node.items)
+			: node.items;
+	return {
+		...node,
+		...optionalEntry("properties", node.properties === undefined ? undefined : properties),
+		...optionalEntry("items", items),
+		...(node.type === "object" && node.additionalProperties === undefined
+			? { additionalProperties: false }
+			: {}),
+	};
 }
 
 export type SubagentToolInput = z.infer<ReturnType<typeof buildInputSchema>>;
@@ -215,15 +226,14 @@ async function executeSubagent(
 				},
 			},
 		);
-		const result = formatResult({
+		const formatted = formatResult({
 			descriptor,
 			execution: runtime.kind,
 			tasks: input.tasks,
 			results,
 		});
-		if (result.details !== undefined)
-			notifyAbnormalCompletion(ctx, descriptor.name, result.details);
-		return result;
+		notifyAbnormalCompletion(ctx, descriptor.name, formatted);
+		return formatted.toolResult;
 	} finally {
 		scope.dispose();
 	}
@@ -232,15 +242,14 @@ async function executeSubagent(
 function notifyAbnormalCompletion(
 	ctx: ToolContext,
 	agent: string,
-	details: SubagentToolDetails,
+	formatted: FormattedSubagentResult,
 ): void {
-	if (details.status === "configuration-error") return;
 	if (!ctx.hasUI) return;
-	const unfinished = details.tasks.filter((task) => task.status !== "final-text").length;
+	const unfinished = formatted.totalCount - formatted.completedCount;
 	if (unfinished === 0) return;
 	try {
 		ctx.ui.notify(
-			`subagent: ${unfinished}/${details.tasks.length} ${agent} task(s) did not complete`,
+			`subagent: ${unfinished}/${formatted.totalCount} ${agent} task(s) did not complete`,
 			"warning",
 		);
 	} catch {
@@ -304,12 +313,12 @@ async function runTask(args: {
 	});
 }
 
-function selectTaskModel(input: {
+interface SelectTaskModelInput extends ModelSelectionAuthContext {
 	policy: SubagentAgentDescriptor["modelPolicy"];
 	explicitModel?: string;
-	parentModel?: RunnerSubagentContext["model"];
-	isProviderAuthConfigured: IsProviderAuthConfigured;
-}): string | undefined {
+}
+
+function selectTaskModel(input: SelectTaskModelInput): string | undefined {
 	if (input.explicitModel !== undefined) return input.explicitModel;
 	return resolveDescriptorModel({
 		policy: input.policy,
@@ -340,7 +349,13 @@ interface FormatResultOptions {
 	results: readonly RunnerSubagentResult[];
 }
 
-function formatResult(options: FormatResultOptions): ToolResult<SubagentToolDetails> {
+interface FormattedSubagentResult {
+	toolResult: ToolResult<SubagentToolDetails>;
+	completedCount: number;
+	totalCount: number;
+}
+
+function formatResult(options: FormatResultOptions): FormattedSubagentResult {
 	const { descriptor, execution, tasks, results } = options;
 	const agent = descriptor.name;
 	const finalTextCap = Math.min(
@@ -352,7 +367,8 @@ function formatResult(options: FormatResultOptions): ToolResult<SubagentToolDeta
 		if (result === undefined) {
 			throw new Error(`Subagent batch omitted positional result ${index}.`);
 		}
-		const originalFinalText = result.status === "final-text" ? result.finalText : undefined;
+		const isCompleted = result.status === "final-text";
+		const originalFinalText = isCompleted ? result.finalText : undefined;
 		const finalText = originalFinalText?.slice(0, finalTextCap);
 		const finalTextTruncated =
 			finalText !== undefined &&
@@ -365,15 +381,15 @@ function formatResult(options: FormatResultOptions): ToolResult<SubagentToolDeta
 			status: result.status,
 			...optionalEntry("sessionFile", runnerSubagentSessionFile(result)),
 			...optionalEntry("diagnostic", resultDiagnostic(result)),
-			...(finalText === undefined ? {} : { finalText }),
+			...optionalEntry("finalText", finalText),
 			...(finalTextTruncated ? { finalTextTruncated } : {}),
 		};
-		return { detail, originalFinalTextChars: originalFinalText?.length };
+		return { detail, isCompleted, originalFinalTextChars: originalFinalText?.length };
 	});
 	const details = entries.map((entry) => entry.detail);
-	const lines = [
-		`subagent result: ${details.filter((detail) => detail.status === "final-text").length}/${tasks.length} completed`,
-	];
+	const completedCount = entries.filter((entry) => entry.isCompleted).length;
+	const totalCount = tasks.length;
+	const lines = [`subagent result: ${completedCount}/${totalCount} completed`];
 	for (const { detail, originalFinalTextChars } of entries) {
 		lines.push(
 			"",
@@ -392,11 +408,15 @@ function formatResult(options: FormatResultOptions): ToolResult<SubagentToolDeta
 		if (detail.diagnostic !== undefined) lines.push(`Diagnostic: ${detail.diagnostic}`);
 	}
 	return {
-		content: [{ type: "text", text: lines.join("\n") }],
-		details: {
-			status: details.every((detail) => detail.status === "final-text") ? "completed" : "partial",
-			tasks: details,
+		toolResult: {
+			content: [{ type: "text", text: lines.join("\n") }],
+			details: {
+				status: completedCount === totalCount ? "completed" : "partial",
+				tasks: details,
+			},
 		},
+		completedCount,
+		totalCount,
 	};
 }
 

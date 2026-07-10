@@ -21,12 +21,13 @@ export interface SubagentRuntime {
 export const SUBAGENT_RUNTIME_KINDS = ["subprocess", "in-process"] as const;
 export type SubagentRuntimeKind = (typeof SUBAGENT_RUNTIME_KINDS)[number];
 export type SubagentExecution = "auto" | SubagentRuntimeKind;
+export type SubagentOutcome<T extends object> =
+	| ({ ok: true } & T)
+	| { ok: false; diagnostic: string };
 
 export interface SubagentRuntimeAdapter {
 	readonly kind: SubagentRuntimeKind;
-	create(
-		ctx: ToolContext,
-	): { ok: true; runtime: SubagentRuntime } | { ok: false; diagnostic: string };
+	create(ctx: ToolContext): SubagentOutcome<{ runtime: SubagentRuntime }>;
 }
 
 export interface SubagentRuntimeRegistry {
@@ -36,9 +37,7 @@ export interface SubagentRuntimeRegistry {
 		execution: SubagentExecution;
 		supported: readonly SubagentRuntimeKind[];
 		preference: readonly SubagentRuntimeKind[];
-	}):
-		| { ok: true; kind: SubagentRuntimeKind; runtime: SubagentRuntime }
-		| { ok: false; diagnostic: string };
+	}): SubagentOutcome<{ kind: SubagentRuntimeKind; runtime: SubagentRuntime }>;
 }
 
 export function createSubagentRuntimeRegistry(

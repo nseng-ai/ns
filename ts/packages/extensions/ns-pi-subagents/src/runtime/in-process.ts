@@ -1,7 +1,7 @@
 import type { Api, Model, ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { resolveCliModel, type ModelRegistry } from "@earendil-works/pi-coding-agent";
 import type { Clock } from "@nseng-ai/foundation/clock";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 
 import {
@@ -16,7 +16,7 @@ import type {
 	RunnerSubagentProgress,
 	RunnerSubagentResult,
 } from "../runner-subagents/index.ts";
-import type { SubagentRuntime, SubagentRuntimeDispatchInput } from "./seam.ts";
+import type { SubagentOutcome, SubagentRuntime, SubagentRuntimeDispatchInput } from "./seam.ts";
 
 export type InProcessSubagentSessionEvent =
 	| { type: "assistant"; text: string }
@@ -81,7 +81,12 @@ async function dispatchInProcessSubagent(
 	let stopReason: string | undefined;
 	let progress = initialProgress({ input, launch, elapsedMs, sessionFile: undefined });
 	let activity: RunnerSubagentActivity = {};
-	const initialCancellation = cancelledIfAborted({ abortSignals, progress, elapsedMs });
+	const initialCancellation = cancelledIfAborted({
+		abortSignals,
+		progress,
+		elapsedMs,
+		session,
+	});
 	if (initialCancellation !== undefined) return initialCancellation;
 	try {
 		const model = resolveConcreteModel(launch, options.modelRegistry);
@@ -98,7 +103,7 @@ async function dispatchInProcessSubagent(
 			cwd: input.options.cwd ?? input.ctx.cwd,
 			tools: input.options.tools ?? [],
 			thinkingLevel: model.thinkingLevel ?? launch?.thinkingLevel ?? "off",
-			...(model.model === undefined ? {} : { model: model.model }),
+			...optionalEntry("model", model.model),
 			modelRegistry: options.modelRegistry,
 		});
 		progress = initialProgress({ input, launch, elapsedMs, sessionFile: session.sessionFile });
@@ -117,7 +122,7 @@ async function dispatchInProcessSubagent(
 				abortSignals,
 				progress,
 				elapsedMs,
-				...(session.sessionFile === undefined ? {} : { sessionFile: session.sessionFile }),
+				session,
 			});
 			if (prePromptCancellation !== undefined) {
 				await session.abort();
@@ -143,7 +148,7 @@ async function dispatchInProcessSubagent(
 			abortSignals,
 			progress,
 			elapsedMs,
-			...(session.sessionFile === undefined ? {} : { sessionFile: session.sessionFile }),
+			session,
 		});
 		if (postPromptCancellation !== undefined) return postPromptCancellation;
 		if (finalText === undefined || finalText.trim().length === 0) {
@@ -152,8 +157,8 @@ async function dispatchInProcessSubagent(
 				diagnostic: "In-process subagent session stopped without final assistant text.",
 				elapsedMs: elapsedMs(),
 				progress,
-				...(session.sessionFile === undefined ? {} : { sessionFile: session.sessionFile }),
-				...(stopReason === undefined ? {} : { stopReason }),
+				...optionalEntry("sessionFile", session.sessionFile),
+				...optionalEntry("stopReason", stopReason),
 			};
 		}
 		return {
@@ -161,15 +166,15 @@ async function dispatchInProcessSubagent(
 			finalText,
 			elapsedMs: elapsedMs(),
 			progress,
-			...(session.sessionFile === undefined ? {} : { sessionFile: session.sessionFile }),
-			...(stopReason === undefined ? {} : { stopReason }),
+			...optionalEntry("sessionFile", session.sessionFile),
+			...optionalEntry("stopReason", stopReason),
 		};
 	} catch (error) {
 		const caughtCancellation = cancelledIfAborted({
 			abortSignals,
 			progress,
 			elapsedMs,
-			...(session?.sessionFile === undefined ? {} : { sessionFile: session.sessionFile }),
+			session,
 		});
 		if (caughtCancellation !== undefined) return caughtCancellation;
 		const message = formatErrorMessage(error);
@@ -179,7 +184,7 @@ async function dispatchInProcessSubagent(
 			error: { message },
 			elapsedMs: elapsedMs(),
 			progress: progressWithoutCurrentTool(progress, "stopped", elapsedMs),
-			...(session?.sessionFile === undefined ? {} : { sessionFile: session.sessionFile }),
+			...optionalEntry("sessionFile", session?.sessionFile),
 		};
 	} finally {
 		session?.dispose();
@@ -195,13 +200,13 @@ interface InitialProgressOptions {
 
 function initialProgress(options: InitialProgressOptions): RunnerSubagentProgress {
 	return {
-		...(options.input.options.title === undefined ? {} : { title: options.input.options.title }),
+		...optionalEntry("title", options.input.options.title),
 		state: "starting",
 		toolCount: 0,
 		turnCount: 0,
 		elapsedMs: options.elapsedMs(),
-		...(options.sessionFile === undefined ? {} : { sessionFile: options.sessionFile }),
-		...(options.launch === undefined ? {} : { launch: options.launch }),
+		...optionalEntry("sessionFile", options.sessionFile),
+		...optionalEntry("launch", options.launch),
 	};
 }
 
@@ -247,7 +252,7 @@ function mapInProcessEvent(options: MapInProcessEventOptions): {
 				activity: {
 					...activity,
 					lastToolName: event.toolName,
-					...(event.preview === undefined ? {} : { lastToolResultPreview: event.preview }),
+					...optionalEntry("lastToolResultPreview", event.preview),
 					lastToolResultIsError: false,
 				},
 			};
@@ -270,7 +275,7 @@ interface CancelledIfAbortedOptions {
 	abortSignals: readonly AbortSignal[];
 	progress: RunnerSubagentProgress;
 	elapsedMs: () => number;
-	sessionFile?: string;
+	session: InProcessSubagentSession | undefined;
 }
 
 function cancelledIfAborted(options: CancelledIfAbortedOptions): RunnerSubagentResult | undefined {
@@ -281,22 +286,20 @@ function cancelledIfAborted(options: CancelledIfAbortedOptions): RunnerSubagentR
 		diagnostic: reason ?? "In-process subagent dispatch was cancelled.",
 		elapsedMs: options.elapsedMs(),
 		progress: progressWithoutCurrentTool(options.progress, "stopped", options.elapsedMs),
-		...(reason === undefined ? {} : { reason }),
-		...(options.sessionFile === undefined ? {} : { sessionFile: options.sessionFile }),
+		...optionalEntry("reason", reason),
+		...optionalEntry("sessionFile", options.session?.sessionFile),
 	};
 }
 
 function resolveConcreteModel(
 	launch: SubagentRuntimeDispatchInput["options"]["preResolvedLaunch"],
 	modelRegistry: ModelRegistry,
-):
-	| { ok: true; model?: Model<Api>; thinkingLevel?: ModelThinkingLevel }
-	| { ok: false; diagnostic: string } {
+): SubagentOutcome<{ model?: Model<Api>; thinkingLevel?: ModelThinkingLevel }> {
 	if (launch === undefined) return { ok: true };
 	if (launch.requestedModel !== undefined) {
 		const resolved = resolveCliModel({
 			cliModel: launch.requestedModel,
-			...(launch.model?.provider === undefined ? {} : { cliProvider: launch.model.provider }),
+			...optionalEntry("cliProvider", launch.model?.provider),
 			modelRegistry,
 		});
 		if (resolved.model === undefined) {
@@ -310,7 +313,7 @@ function resolveConcreteModel(
 		return {
 			ok: true,
 			model: resolved.model,
-			...(resolved.thinkingLevel === undefined ? {} : { thinkingLevel: resolved.thinkingLevel }),
+			...optionalEntry("thinkingLevel", resolved.thinkingLevel),
 		};
 	}
 	const provider = launch.model?.provider;
@@ -352,13 +355,13 @@ function progressWithoutCurrentTool(
 	elapsedMs: () => number,
 ): RunnerSubagentProgress {
 	return {
-		...(progress.title === undefined ? {} : { title: progress.title }),
+		...optionalEntry("title", progress.title),
 		state,
 		toolCount: progress.toolCount,
 		turnCount: progress.turnCount,
 		elapsedMs: elapsedMs(),
-		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
-		...(progress.launch === undefined ? {} : { launch: progress.launch }),
+		...optionalEntry("sessionFile", progress.sessionFile),
+		...optionalEntry("launch", progress.launch),
 	};
 }
 
