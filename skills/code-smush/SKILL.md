@@ -10,7 +10,10 @@ Packaging — colloquially **smush** — is the opt-in, LM-driven, local operati
 classifies and slices an existing Graphite stack into **Decision PR** and **Span PR**
 form, then explicitly performs **Span Squash**. It produces a self-describing local
 stack for the user to submit; smush itself never submits. Repackaging is the same
-operation re-run over the already-packaged stack.
+operation re-run over the already-packaged stack. Smush constructs the packaged
+stack in one of two modes — **parallel** (new branches alongside an untouched input
+stack; the default whenever PRs may exist) or **in-place** (destructive reshaping of
+the input branches) — see Packaging modes below.
 
 Smush is **experimental** and **manually invoked only**. No other workflow — Flow,
 CCC, the default agent workflow — may invoke it implicitly. Do not run it because a
@@ -33,17 +36,30 @@ stack "looks like it needs packaging"; run it because the user asked.
 
 ## Safety contract (hard rules)
 
-1. **Local-only, always.** Never run `gt submit`, `git push`, `git fetch`,
-   `gh` commands, or anything that contacts GitHub or any remote. Never create,
-   update, close, or otherwise mutate a pull request. Submission belongs to the
-   user, afterward, outside this skill.
+1. **Local-only, always — by allowlist, not denylist.** Never run `gt submit`,
+   `git push`, `git fetch`, `gh` commands, or anything that contacts GitHub or any
+   remote. Never create, update, close, or otherwise mutate a pull request.
+   Submission belongs to the user, afterward, outside this skill. Treat every `gt`
+   verb outside the commands this document names as remote-capable until proven
+   otherwise — in particular, do **not** run `gt branch info` or other `gt` PR/read
+   verbs to inspect PR state; several refresh PR metadata from the remote. PR
+   associations come only from Graphite's local cache (or from the user); stale or
+   absent cache state is reported as *unknown*, never refreshed to improve the
+   proposal.
 2. **Never close PRs — not even indirectly.** `gt fold` is always used WITHOUT
    `--close`. Branches folded away that had open PRs become orphaned
    close-candidate PRs: report them loudly (a clearly marked section in the final
    report) and leave every decision about them to the user.
-3. **Propose before mutation.** Render the full proposed Slice Map (format below)
-   and wait for the user's explicit go-ahead. Silence, ambiguity, or a partial
-   answer is not consent. This proposal readback is the human's Slice Map view.
+3. **Propose before mutation — gate weight follows destructiveness.** Render the
+   full proposed Slice Map (format below) and wait for the user's explicit
+   go-ahead. Silence, ambiguity, or a partial answer is not consent. This proposal
+   readback is the human's Slice Map view. Destructive operations — `gt fold`,
+   `gt rename`, squash/modify/delete of pre-existing branches — always require
+   ratification of the exact map they mutate. Parallel pointer construction (new
+   refs plus `gt track` on new branches only) still needs a go-ahead, but is cheap
+   and fully reversible: building a candidate parallel stack, inspecting it, and
+   discarding it is a legitimate iteration loop while the user is actively
+   reshaping — prefer that loop over repeated rounds of prose re-ratification.
 4. **Backup before mutation.** Create timestamped local backup branches for the run
    tip and every branch the operation will move, fold, rename, or rewrite.
 5. **No durable state.** Classification and per-cut rationale live only in branch
@@ -55,6 +71,27 @@ stack "looks like it needs packaging"; run it because the user asked.
    json`; never parse `gt log` output.
 7. **No new CLI.** V1 is wholly LM-driven prose over the raw commands in this
    document. Do not build or reach for packaging-specific push-down commands.
+
+## Packaging modes
+
+- **Parallel (default).** Build the packaged stack as new branches alongside the
+  input stack: new refs at boundary SHAs, `gt track --parent` on the new branches
+  only, Span Squash only on new branches. The input stack — its branches, Graphite
+  metadata, and PR associations — is untouched. No orphaned PRs, no rename gap (the
+  new tip takes a grammar name), and a discarded candidate costs nothing: delete
+  the new branches and re-propose. Use this mode whenever any in-scope branch has,
+  or may have, a PR association — including whenever PR state is unknowable
+  offline.
+- **In-place (explicit, destructive).** Normalize with `gt fold --stack --keep`
+  (never `--close`) and reshape the input branches themselves. On submitted stacks
+  this produces orphaned close-candidate PRs and forbids renaming the
+  PR-associated tip. Use only when the user explicitly wants the old stack
+  replaced, under the full ratification gate.
+
+In parallel mode, prefer a `<run>` segment that cannot collide with the input
+stack's own name when both stacks must coexist ambiguously (e.g. append `-smush`);
+reusing the input run name is acceptable when the user will discard one of the two.
+State the chosen run name in the proposal.
 
 ## Input contract
 
@@ -138,24 +175,51 @@ Rules:
    from the user — without contacting the remote. These feed the orphaned-PR report
    and the rename rule; when unknowable offline, say so in the proposal.
 
-### Phase 1 — Read and classify (read-only)
+### Phase 1 — Decisions first, then commits (read-only)
 
-1. Read the run's history: `git log --reverse "<trunk>..<tip>"` (subjects and full
-   bodies).
-2. Identify decision commits from narrated prose: explicit "chose X over Y because
-   Z" paragraphs, interface/dependency/design-fork choices, narrated reversals.
-3. Partition the run into an **ordered partition** of the commits: each Decision PR
-   is one high-impact choice plus the commits needed to judge it in isolation; Span
-   PRs are the maximal stretches between decisions. Span sizing and splitting is
-   packaging judgment — packaging can merge commits into a span but can never split
-   a commit (`gt split` is unusable non-interactively; cuts land on commit
-   boundaries only).
-4. Draft per-cut rationale: why each boundary is where it is, and why each slice is
+Classify **outside-in from decisions**, never inside-out from commit subjects.
+
+1. Elicit the reviewability objective before proposing anything. The default:
+   **each high-leverage decision gets a minimal Decision PR; everything else —
+   implementation, fallout, incidental cleanup — goes to consequence Span PRs.**
+   If the user asks for a different shape ("condensed", "fewer PRs"), state the
+   tradeoff against decision isolation and confirm which objective wins before
+   drafting a map.
+2. Read the run's history: `git log --reverse "<trunk>..<tip>"` (subjects and full
+   bodies). Decision signal is narrated prose: explicit "chose X over Y because Z"
+   paragraphs, interface/dependency/design-fork choices, narrated reversals.
+3. Build a **Decision Inventory** before choosing any cut point. For each candidate
+   decision: the choice in one sentence, its minimal evidence commit, why it is
+   high-leverage, and which later commits are its consequences.
+4. Run a **coupling pass** over the inventory. Test each pair: *could a reviewer
+   reasonably accept A while rejecting B?* If no, A and B are one decision group
+   and one Decision PR. If yes, they stay separate Decision PRs even when adjacent
+   — correlated-but-separable decisions are independently rejectable.
+5. Apply the **demotion rule**: a commit with a decision-sounding subject whose
+   substantive choice was already ratified by an earlier decision group is a
+   consequence — it belongs in a span. Packaging holds override authority in both
+   directions (promote minor-looking commits, demote decision-sounding ones).
+6. Only then map the decision groups onto the commit order as an **ordered
+   partition**: each Decision PR is one decision group's minimal evidence plus the
+   commits needed to judge it in isolation; Span PRs are the maximal stretches
+   between. Packaging can merge commits into a span but can never split a commit
+   (`gt split` is unusable non-interactively; cuts land on commit boundaries only).
+7. Draft per-cut rationale: why each boundary is where it is, and why each slice is
    classified as it is. This prose will live in commit messages, nowhere else.
+
+**Feasibility invariant.** Any grouping that respects commit order is expressible
+with pure branch pointers. Infeasibility arises only when a desired decision
+boundary falls *inside* a single commit, or the grouping requires reordering
+commits. Never claim history rewriting is needed without first checking whether
+reclassification (demotion/promotion) achieves the target shape at existing
+boundaries. When a decision commit's fatness genuinely caps slice quality, say so
+and report it as commit-narration feedback — packaging cannot fix coarse commits.
 
 ### Phase 2 — Propose the Slice Map and wait
 
-Render the full proposal, slices bottom-up (trunk-adjacent first):
+Render the full proposal, slices bottom-up (trunk-adjacent first). Lead with the
+Decision Inventory and coupling conclusions, then the packaging mode (parallel or
+in-place) and the mapping from existing branches/PRs to proposed slices:
 
 - proposed branch name (grammar above) and classification;
 - boundary SHA and parent;
@@ -189,7 +253,11 @@ backup prefix for the final report.
 
 ### Phase 4 — Slice
 
-Slicing is pure branch metadata — no rebase, no SHA changes:
+Slicing is pure branch metadata — no rebase, no SHA changes. In **parallel mode**
+there is no reparenting, renaming, or folding of the input stack: create every
+slice branch (including the tip slice, which freely takes its grammar name) as a
+new ref at its boundary SHA, `gt track` them bottom-up, and leave the input
+stack's branches and metadata untouched. The in-place recipe:
 
 ```bash
 git branch <slice-01-name> <boundary-sha-1>
@@ -207,6 +275,11 @@ empty branches, so an empty slice is a defect), boundaries in order, `gt restack
 --no-interactive` reports nothing to restack.
 
 ### Phase 5 — Boundary validation
+
+Boundary validation dominates packaging cost: each slice costs one full validation
+run now and one CI run after submission, so slice count is not free — say so in
+the proposal when the map is large. Boundaries may be validated concurrently in
+separate temporary worktrees when resources allow.
 
 Every slice boundary must be green. For each slice branch tip, bottom-up, validate
 with the repo validation entrypoint (`just` in this repo) in a temporary worktree:
@@ -234,8 +307,12 @@ The run tip is the final boundary and must end green.
 ### Phase 6 — Span Squash
 
 Span Squash is a standard, explicit step — after slicing and boundary validation,
-never at land time. For each **span** slice (never decision slices), from that
-branch:
+never at land time. A span containing a **single commit needs no squash** — verify
+its message carries the span rationale and amend with `gt modify -m` if not.
+Before each mutating `gt` operation, check for a stale index lock
+(`git rev-parse --git-path index.lock`): stop if a live git process owns it;
+remove only a verified-stale lock. For each **multi-commit span** slice (never
+decision slices), from that branch:
 
 ```bash
 gt squash -m "<squash message>" --no-interactive
@@ -280,8 +357,13 @@ squash.
 
 ## Repackaging and multi-branch input
 
-Repackaging a previously packaged (possibly submitted) stack — and normalizing any
-accreted multi-branch stack — is the same operation re-run:
+For a submitted stack, **parallel mode is the preferred repackaging path**: build
+the new shape alongside the old stack and let the user retire the old PRs on their
+own terms — no fold, no orphaned PRs, no rename gap. The in-place path below
+remains for when the user explicitly wants the old stack itself replaced.
+
+Repackaging in place — and normalizing any accreted multi-branch stack — is the
+same operation re-run:
 
 1. Derive the current Slice Map first (topology from `ns slot gt exec
    stack-branches`, classification from grammar branch names, rationale from
@@ -327,6 +409,12 @@ Both are local mutations: propose-first and backup rules apply.
   re-run `gt track --parent` to restore metadata), then re-propose.
 - A conflicted `gt` operation (should not happen — smush never reorders history):
   abort with `git rebase --abort`, report, and stop.
+- A failed `gt squash` (e.g. a stale `index.lock` mid-batch): after confirming no
+  live git process owns the lock, remove the stale lock and retry. If the tool
+  keeps failing, the guarded equivalent — with a backup present, a clean tree, and
+  the parent verified — is `git reset --soft <parent> && git commit -m "<squash
+  message>"`, then `gt restack --no-interactive` and re-verification of
+  descendants. Recovery-only; never the normal path.
 
 ## Known limits (v1)
 
