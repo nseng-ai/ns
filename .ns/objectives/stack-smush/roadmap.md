@@ -104,11 +104,20 @@ session on 2026-07-10 (see
       declared narrative join order with barrier join, fold-to-run after join, and
       redo-by-default serialization of falsified pieces. The dispatch design
       decision itself remains a later live decision with the user.
-- [ ] **Slice-map ratification surface proposal** (task) — Graduated from Fog
+- [x] **Slice-map ratification surface proposal** (task) — Graduated from Fog
       (observability): propose how the human sees a packaged stack's slice map —
       cut points, decision/span classification, per-cut rationale — and reshapes it
-      asynchronously (ccc stack map or similar). Agent-alone proposal; the final
-      surface choice stays with the user.
+      asynchronously (ccc stack map or similar). Artifact produced (2026-07-10,
+      autonomous runner step):
+      [`references/slice-map-ratification-surface-proposal.md`](references/slice-map-ratification-surface-proposal.md)
+      — a shared derivation contract (re-derive from stack topology via existing
+      `ns slot gt exec` read-side commands, classification from branch names,
+      rationale from boundary/squash commit messages) plus options-and-recommendation:
+      a read-only map mode of the smush skill for v1, with an nscc stack-map
+      extension and a `ns slot gt exec slice-map` read-side push-down as
+      evidence-gated graduations; reshaping flows back only as a prose re-invocation
+      of smush (repackaging re-run), never hand-edited state. The final surface
+      choice stays with the user.
 - [ ] **Smush skill authoring** (task) — Now unblocked. Author the opt-in,
       experimental, local-only LM-driven packaging skill per the resolved mechanics,
       using surveyed raw git/Graphite commands and existing `ns slot gt exec`
