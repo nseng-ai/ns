@@ -4,14 +4,15 @@ import { isLikelyInProgressGitOperationFailure } from "../../submit/cli-prose-he
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
 import { parseGitCheckedOutElsewhere } from "./graphite-command-channel.ts";
 import { landStackFailure, type LandFlowFailure } from "./errors.ts";
-import { formatRestackFailureMessage, formatSubmitFailureMessage } from "../land-presentation.ts";
 import { validateOpenPrBasics } from "../api.ts";
 import type { LandContext, LandingPlan, PullRequestFacts } from "../api.ts";
 import { landingWarning, type LandingWarning } from "../types.ts";
-import type { MergeLoopState } from "./types.ts";
+import type { LandProgressReporter, MergeLoopState } from "./types.ts";
 import {
 	aggregateOptionalDescendantMaintenanceWarnings,
 	formatCheckedOutElsewhere,
+	formatRestackFailureMessage,
+	formatSubmitFailureMessage,
 	optionalDescendantRefreshDeferredWarning,
 	planGraphiteMaintenanceTargets,
 	refreshTargetsAfterMaintainedBranch,
@@ -23,10 +24,7 @@ import {
 	type MaintenanceTargetPlan,
 } from "./graphite-maintenance-plan.ts";
 
-export interface GraphiteMaintenanceProgress {
-	readonly note: (message: string) => void;
-	readonly setStatus: (message: string) => void;
-}
+export type GraphiteMaintenanceProgress = LandProgressReporter;
 
 interface GraphiteMaintenanceStep {
 	readonly index: number;

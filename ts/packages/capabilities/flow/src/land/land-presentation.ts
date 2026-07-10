@@ -395,28 +395,6 @@ export function indentLines(text: string, prefix: string): string[] {
 	return text.split("\n").map((line) => `${prefix}${line}`);
 }
 
-export function formatRestackFailureMessage(
-	previousPrNumber: number,
-	branch: string,
-	beforeAnotherMerge: boolean,
-): string {
-	if (beforeAnotherMerge) {
-		return `Restack failed after merging #${previousPrNumber}; stopping before merging ${branch}.`;
-	}
-	return `Restack failed after merging #${previousPrNumber}; descendant branch ${branch} was left for manual restack/update.`;
-}
-
-export function formatSubmitFailureMessage(
-	previousPrNumber: number,
-	branch: string,
-	beforeAnotherMerge: boolean,
-): string {
-	if (beforeAnotherMerge) {
-		return `Submit/update failed after merging #${previousPrNumber}; stopping before merging ${branch}.`;
-	}
-	return `Submit/update failed after merging #${previousPrNumber}; descendant branch ${branch} was left for manual PR update.`;
-}
-
 export function formatFailure(failure: LandFlowFailure, landed: readonly LandedPr[]): string {
 	const fields = failurePresentationFields(failure);
 	const { displayCommand, execResult, failedBranch, failedPrNumber, suggestedAction } = fields;

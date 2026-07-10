@@ -9,7 +9,7 @@ import {
 } from "./errors.ts";
 import type { LandingPlan } from "../types.ts";
 import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
-import type { LandStackCommandContext } from "./types.ts";
+import type { LandProgressReporter, LandStackCommandContext } from "./types.ts";
 
 const LANDING_CANCELLED_MESSAGE = "Cancelled before merge; no PRs were landed.";
 
@@ -18,6 +18,7 @@ export type PreMergeConfirmation = "prompt" | "already-approved";
 export interface PreMergeMaintenanceOptions {
 	runtime: StackLandingRuntime;
 	ctx: LandStackCommandContext;
+	progress: LandProgressReporter;
 	plan: LandingPlan;
 	confirmation?: PreMergeConfirmation;
 }

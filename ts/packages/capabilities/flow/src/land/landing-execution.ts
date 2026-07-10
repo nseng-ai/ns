@@ -1,6 +1,6 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
-import { landMatrixRowsFromPlan } from "../land-matrix-progress.ts";
+import { landMatrixRowsFromPlan } from "./land-matrix-progress.ts";
 import {
 	failureLevel,
 	formatFailure,
@@ -11,31 +11,39 @@ import {
 	presentBrief,
 	presentDryRunLanding,
 	presentLandingSuccess,
-	setStatus,
-} from "../land-presentation.ts";
-import { buildStackLandingPlan } from "../preflight.ts";
-import type { LandContext, LandingPlan, LandingWarning } from "../types.ts";
-import { LandStackCommandStream } from "./command-stream.ts";
+} from "./land-presentation.ts";
+import { buildStackLandingPlan } from "./preflight.ts";
+import type { LandContext, LandingPlan, LandingWarning } from "./types.ts";
+import { LandStackCommandStream } from "./stack/command-stream.ts";
 import {
 	failure,
 	success,
 	type LandFlowFailure,
 	type LandStackOutcome,
 	type LandStackResult,
-} from "./errors.ts";
+} from "./stack/errors.ts";
 import {
 	confirmAndFreeManagedSlots,
 	residualPreMergeFailure,
 	runMergeLoop,
-} from "./landing-operations.ts";
-import { confirmLandStackAction, type PreMergeConfirmation } from "./pre-merge-confirmation.ts";
-import { confirmAndSubmitRequiredPrUpdates } from "./pre-merge-submit.ts";
-import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
-import type { LandStackCommandContext, LandedPr, ParsedArgs } from "./types.ts";
+} from "./stack/landing-operations.ts";
+import {
+	confirmLandStackAction,
+	type PreMergeConfirmation,
+} from "./stack/pre-merge-confirmation.ts";
+import { confirmAndSubmitRequiredPrUpdates } from "./stack/pre-merge-submit.ts";
+import type { StackLandingRuntime } from "./stack/stack-landing-runtime.ts";
+import type {
+	LandProgressReporter,
+	LandStackCommandContext,
+	LandedPr,
+	ParsedArgs,
+} from "./stack/types.ts";
 
 export interface LandingSession {
 	readonly ctx: LandStackCommandContext;
 	readonly commandStream: LandStackCommandStream;
+	readonly progress: LandProgressReporter;
 	readonly landed: LandedPr[];
 }
 
@@ -55,7 +63,7 @@ export async function executeLandingPlan(
 	executionOptions: ExecuteLandingPlanOptions,
 ): Promise<LandStackResult<void>> {
 	const { runtime, parsedArgs, options, session, plan, warnings } = executionOptions;
-	const { ctx, commandStream, landed } = session;
+	const { ctx, commandStream, progress, landed } = session;
 	const planText = formatPlan(plan);
 
 	if (parsedArgs.isDryRun) {
@@ -83,7 +91,7 @@ export async function executeLandingPlan(
 
 	const mergeOutcome = await runMergeLoop({
 		runtime,
-		ctx,
+		progress,
 		plan: readyPlan.value,
 		landed,
 		warnings,
@@ -125,7 +133,7 @@ async function preparePlanForMergeCore(
 	options: PreparePlanForMergeOptions,
 ): Promise<LandStackResult<LandingPlan>> {
 	const { runtime, plan } = options;
-	const { ctx, commandStream } = options.session;
+	const { ctx, commandStream, progress } = options.session;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
 
 	if (plan.managedSlotConflicts.length === 0 && plan.prSubmitRequirements.length === 0) {
@@ -135,6 +143,7 @@ async function preparePlanForMergeCore(
 		const slotOutcome = await confirmAndFreeManagedSlots({
 			runtime,
 			ctx,
+			progress,
 			plan,
 			confirmation: preMergeConfirmation,
 		});
@@ -143,6 +152,7 @@ async function preparePlanForMergeCore(
 	if (plan.prSubmitRequirements.length > 0) {
 		return await submitRequiredUpdatesAndRecheckPlan({
 			ctx,
+			progress,
 			plan,
 			landContext: runtime.landContext,
 			commandStream,
@@ -154,22 +164,24 @@ async function preparePlanForMergeCore(
 
 async function submitRequiredUpdatesAndRecheckPlan(options: {
 	readonly ctx: LandStackCommandContext;
+	readonly progress: LandProgressReporter;
 	readonly plan: LandingPlan;
 	readonly landContext: LandContext;
 	readonly commandStream: LandStackCommandStream;
 	readonly preMergeConfirmation: PreMergeConfirmation;
 }): Promise<LandStackResult<LandingPlan>> {
-	const { ctx, plan, landContext, commandStream, preMergeConfirmation } = options;
+	const { ctx, progress, plan, landContext, commandStream, preMergeConfirmation } = options;
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
 		ctx,
 		plan,
 		landContext,
+		progress,
 		confirmation: preMergeConfirmation,
 	});
 	if (submitOutcome.type === "failure") return submitOutcome;
 
 	commandStream.note("Rechecking landing preflight...");
-	setStatus(ctx, "rechecking preflight...");
+	progress.setStatus("rechecking preflight...");
 	// Intentionally omit the preloaded shape: submit may have changed refs and PR metadata.
 	const rechecked = await buildStackLandingPlan(landContext, ctx.cwd, {
 		shouldAllowSubmitRequiredState: true,

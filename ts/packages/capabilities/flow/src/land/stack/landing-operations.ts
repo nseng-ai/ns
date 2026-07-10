@@ -16,12 +16,7 @@ import { boundaryFailureDiagnostics, validateStrictMergeGate } from "../api.ts";
 import { assertCleanRepo } from "./stack-facts.ts";
 import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type { LandingPlan, LandingWarning, PullRequestFacts, WorktreeConflict } from "../types.ts";
-import type {
-	LandStackCommandContext,
-	LandedPr,
-	MergeLoopState,
-	RemainingCleanup,
-} from "./types.ts";
+import type { LandProgressReporter, LandedPr, MergeLoopState, RemainingCleanup } from "./types.ts";
 import {
 	detectWorktreeConflicts,
 	formatConflict,
@@ -29,7 +24,6 @@ import {
 	slotFreeArgs,
 	slotNameFromPath,
 } from "./worktrees.ts";
-import { setStatus } from "../land-presentation.ts";
 import type { LandMatrixColumnKey, LandMatrixProgressSink } from "../land-matrix-progress.ts";
 import { runTrackedMatrixStep } from "../../phase-stream/matrix-progress-core.ts";
 import {
@@ -65,7 +59,7 @@ export function residualPreMergeFailure(plan: LandingPlan): LandFlowFailure | un
 export async function confirmAndFreeManagedSlots(
 	options: PreMergeMaintenanceOptions,
 ): Promise<LandStackOutcome> {
-	const { runtime, ctx, plan } = options;
+	const { runtime, ctx, progress, plan } = options;
 	const landContext = runtime.landContext;
 	const pi = runtime.commands;
 	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
@@ -91,14 +85,14 @@ export async function confirmAndFreeManagedSlots(
 	});
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
-	setStatus(ctx, "freeing landing slots...");
+	progress.setStatus("freeing landing slots...");
 	const result = await landContext.worktrees.freeSlots({
 		repoRoot: plan.repoRoot,
 		slots: plan.managedSlotConflicts.map(toManagedSlotWorktree),
 	});
 	if (result.type === "failure") return failure(preMergeSlotFailure(result.failure));
 
-	setStatus(ctx, "rechecking landing worktrees...");
+	progress.setStatus("rechecking landing worktrees...");
 	const cleanRepo = await assertCleanRepo(
 		pi,
 		plan.repoRoot,
@@ -192,7 +186,7 @@ export async function prepareMergeLoopState(
 
 export interface RunMergeLoopOptions {
 	readonly runtime: StackLandingRuntime;
-	readonly ctx: LandStackCommandContext;
+	readonly progress: LandProgressReporter;
 	readonly plan: LandingPlan;
 	readonly landed: LandedPr[];
 	readonly warnings: LandingWarning[];
@@ -238,7 +232,7 @@ async function withMatrixCellStep<T>(
 export async function runMergeLoop(
 	options: RunMergeLoopOptions,
 ): Promise<LandStackResult<RemainingCleanup>> {
-	const { runtime, ctx, plan, landed, warnings, commandStream } = options;
+	const { runtime, progress, plan, landed, warnings, commandStream } = options;
 	const landContext = runtime.landContext;
 	const matrix = commandStream.matrix ?? NULL_LAND_MATRIX_PROGRESS_SINK;
 	const { repoRoot, stack } = plan;
@@ -286,7 +280,7 @@ export async function runMergeLoop(
 			column: "merge",
 			op: async () => {
 				commandStream.note(`Merging PR #${currentPr.number} ${branch}...`);
-				setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
+				progress.setStatus(`merging #${currentPr.number} ${branch} with PR title/body...`);
 				const merge = await landContext.github.squashMergePullRequest({
 					repoRoot,
 					pullRequest: currentPr,
@@ -302,7 +296,7 @@ export async function runMergeLoop(
 			branch,
 			column: "verify",
 			op: async () => {
-				setStatus(ctx, `verifying #${currentPr.number}...`);
+				progress.setStatus(`verifying #${currentPr.number}...`);
 				const facts = await landContext.github.pullRequestFacts({
 					repoRoot,
 					branchOrNumber: String(currentPr.number),
@@ -356,10 +350,7 @@ export async function runMergeLoop(
 		matrix.setCell(branch, "restack", { state: "active" });
 		const maintenance = await performGraphiteMaintenance({
 			landContext,
-			progress: {
-				note: (message) => commandStream.note(message),
-				setStatus: (message) => setStatus(ctx, message),
-			},
+			progress,
 			plan,
 			step: { index, branch, prNumber: currentPr.number, state },
 		});

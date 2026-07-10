@@ -4,6 +4,11 @@ import type { LandingWarning } from "../types.ts";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
+export interface LandProgressReporter {
+	readonly note: (message: string) => void;
+	readonly setStatus: (message: string) => void;
+}
+
 /**
  * Visual intent of a land result block (house-style §3/§4/§7.3). Distinct from `NotifyLevel`, which
  * owns stdout/stderr routing and exit-code flipping: a declined guardrail renders `refusal` (warn)
