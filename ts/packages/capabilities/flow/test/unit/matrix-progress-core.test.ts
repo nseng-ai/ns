@@ -6,17 +6,15 @@ import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
 import {
 	commandOperations,
-	createMatrixProgressController,
+	defineMatrixWorkflow,
 	matrixFrameOptionalFields,
 	type MatrixGlobalRowSpec,
-	type MatrixProgressController,
 	modelOperation,
 	withActiveOperations,
 	withCommandOperations,
 } from "../../src/phase-stream/matrix-progress-core.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
 
-type TestColumnKey = "metadata";
 type TestGlobalKey = "hooks" | "checkpoint";
 
 function caps(parts: Partial<Caps> = {}): Caps {
@@ -54,21 +52,25 @@ const TEST_GLOBAL_ROWS: readonly MatrixGlobalRowSpec<TestGlobalKey>[] = [
 	},
 ];
 
+const testWorkflow = defineMatrixWorkflow({
+	columns: TEST_COLUMNS,
+	globalRows: TEST_GLOBAL_ROWS,
+	phases: [],
+	rowKey: (row: { label: string }) => row.label,
+});
+
 function createController(options: { capsParts?: Partial<Caps>; clockNowMs?: number }): {
-	controller: MatrixProgressController<TestColumnKey, TestGlobalKey>;
+	controller: ReturnType<typeof testWorkflow.createController>;
 	capture: ReturnType<typeof streamCapture>;
 	clock: ReturnType<typeof createManualClock>;
 } {
 	const capture = streamCapture({ sleep: "pending" });
 	const clock = createManualClock(options.clockNowMs ?? 0);
-	const controller = createMatrixProgressController<TestColumnKey, TestGlobalKey>({
+	const controller = testWorkflow.createController({
 		caps: caps(options.capsParts ?? {}),
 		deps: capture.deps,
 		title: "ns flow submit",
-		rows: [{ rowKey: "feature/a", label: "feature/a" }],
-		columns: TEST_COLUMNS,
-		globalRows: TEST_GLOBAL_ROWS,
-		phases: [],
+		rows: [{ label: "feature/a" }],
 		clock: clock.clock,
 	});
 	return { controller, capture, clock };
