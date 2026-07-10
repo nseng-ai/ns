@@ -288,7 +288,14 @@ describe("installExtension", () => {
 						{ kind: "target-name", value: "tools", packages: ["@acme/a", "@acme/b"] },
 					],
 					artifacts: [],
-					reconciliation: { transitions: [], shouldForce: false },
+					reconciliation: {
+						items: [],
+						transitions: [],
+						skippedDesired: [],
+						skippedCollisions: [],
+						orphans: [],
+						conflictPolicy: { type: "strict", shouldForce: false },
+					},
 				},
 			},
 		});

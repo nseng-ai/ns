@@ -45,22 +45,20 @@ import {
 } from "./module-artifact-discovery.ts";
 import { parseNsTomlExtensions, parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
-	applyPreparedProvisionReconciliation,
-	assertUniquePreparedTransitionKeys,
 	classifyProvisionAction,
-	conflictingFilesFromDecisions,
 	INSTALL_MANIFEST_FILE_NAME,
 	nodeHarnessArtifactFileSystemGateway,
-	prepareHarnessArtifactRemoval,
-	prepareProvision,
 	readInstallManifestAtRoot,
 	type HarnessArtifactFileSystemErrorInfo,
 	type HarnessArtifactFileSystemGateway,
 	type HarnessArtifactProvisionErrorInfo,
 	type AppliedHarnessArtifactTransition,
 	type HarnessArtifactProvisionPreview,
-	type PreparedHarnessArtifactTransition,
 } from "./provision-apply.ts";
+import {
+	applyProjectHarnessArtifactTransitions,
+	prepareProjectHarnessArtifactTransitions,
+} from "./project-harness-artifact-transitions.ts";
 import {
 	provisionIdentityKey,
 	type InstallManifestData,
@@ -362,10 +360,12 @@ export async function runHarnessArtifactReconcile(
 	const manifests = await readProjectManifestSnapshots({ skillRoots: skillRoots.value, fs });
 	if (!manifests.ok) return manifests;
 
-	const plan = planHarnessArtifactReconcile({
+	const projectTransitions = await prepareProjectHarnessArtifactTransitions({
 		desired: desired.value,
-		harnessSelection: selection.value.harnessSelection,
+		selectedHarnesses: selection.value.harnessSelection,
 		manifests: manifests.value,
+		pathContext: context,
+		trustedRepoRoot: request.projectRoot,
 		...(selection.value.harnessSelection === undefined
 			? {}
 			: {
@@ -382,76 +382,48 @@ export async function runHarnessArtifactReconcile(
 									acquisition.diagnostics.length > 0 || loadedDescriptors.diagnostics.length > 0,
 							},
 				}),
+		conflictPolicy: { type: "force-capable", shouldForce: request.shouldForce },
+		fs,
 	});
-
+	if (!projectTransitions.ok) return projectTransitions;
 	const preparedItems: PreparedReconcileArtifactItem[] = [];
-	const transitions: PreparedHarnessArtifactTransition[] = [];
-	for (const removal of plan.removals) {
-		const prepared = await prepareHarnessArtifactRemoval({
-			key: removal.key,
-			reason: removal.reason,
-			entry: removal.entry,
-			expectedHarness: removal.snapshot.harness,
-			expectedTargetRoot: removal.snapshot.targetRoot,
-			trustedBoundaryRoot: request.projectRoot,
-			manifestPath: removal.snapshot.manifestPath,
-			fs,
-		});
-		if (!prepared.ok) return prepared;
+	for (const item of projectTransitions.value.items) {
+		if (item.type !== "remove") continue;
 		const outcome = removalOutcome(
-			removal,
+			item.planned,
 			[],
-			prepared.value.conflictingFiles,
-			prepared.value.conflictingFiles.length > 0 ? "conflicted" : "removed",
+			item.conflictingFiles,
+			item.conflictingFiles.length > 0 ? "conflicted" : "removed",
 		);
-		if (prepared.value.conflictingFiles.length > 0 || !shouldApply) {
-			preparedItems.push({ type: "static", outcome });
-			continue;
-		}
-		const transition = { type: "remove" as const, key: removal.key, removal: prepared.value };
-		transitions.push(transition);
-		preparedItems.push({ type: "transition", key: transition.key, outcome });
+		preparedItems.push(
+			shouldApply && item.conflictingFiles.length === 0
+				? { type: "transition", key: item.key, outcome }
+				: { type: "static", outcome },
+		);
 	}
-	for (const desired of plan.skippedDesired) {
+	for (const skipped of projectTransitions.value.skippedDesired) {
 		preparedItems.push(
 			...skippedCollisionOutcomes({
-				desired,
+				desired: skipped,
 				skillRoots: skillRoots.value,
 				harnesses: selection.value.harnessSelection,
 			}).map((outcome) => ({ type: "static" as const, outcome })),
 		);
 	}
-	for (const pair of plan.pairs) {
-		const prepared = await prepareProvision({
-			artifact: pair.desired.artifact,
-			harness: pair.harness,
-			scope: pair.scope,
-			context,
-			sourceRoot: pair.desired.sourceRoot,
-			sourceVersion: pair.desired.sourceVersion,
-			fs,
-		});
-		if (!prepared.ok) return prepared;
+	for (const item of projectTransitions.value.items) {
+		if (item.type !== "provision") continue;
 		const outcome = reconcileOutcomeFromProvision({
-			pair,
-			provision: prepared.value,
+			pair: item.pair,
+			provision: item.provision,
 			writtenFiles: [],
-			conflictingFiles: conflictingFilesFromDecisions(prepared.value.decisions),
+			conflictingFiles: item.conflictingFiles,
 		});
-		if (!shouldApply) {
-			preparedItems.push({ type: "static", outcome });
-			continue;
-		}
-		const transition = {
-			type: "provision" as const,
-			key: provisionIdentityKey(prepared.value.plan),
-			provision: prepared.value,
-		};
-		transitions.push(transition);
-		preparedItems.push({ type: "transition", key: transition.key, outcome });
+		preparedItems.push(
+			shouldApply && item.action !== "unchanged"
+				? { type: "transition", key: item.key, outcome }
+				: { type: "static", outcome },
+		);
 	}
-	assertUniquePreparedTransitionKeys(transitions);
-
 	const preparedArtifacts = preparedItems.map((item) => item.outcome);
 	const isForceRequired = preparedArtifacts.some((artifact) => artifact.action === "conflicted");
 	let artifacts: readonly ReconcileArtifactOutcome[] = preparedArtifacts;
@@ -461,10 +433,7 @@ export async function runHarnessArtifactReconcile(
 			(artifact) => artifact.action === "conflicted" && artifact.removalReason !== undefined,
 		)
 	) {
-		const applied = await applyPreparedProvisionReconciliation({
-			transitions,
-			shouldForce: request.shouldForce,
-		});
+		const applied = await applyProjectHarnessArtifactTransitions(projectTransitions.value);
 		if (!applied.ok) return applied;
 		artifacts = completedReconcileOutcomes(preparedItems, applied.value.outcomes);
 	}
@@ -472,13 +441,13 @@ export async function runHarnessArtifactReconcile(
 		mode: shouldApply ? "applied" : "dry-run",
 		harnessSelection: selection.value.state,
 		artifacts,
-		orphans: plan.orphans,
+		orphans: projectTransitions.value.orphans,
 		diagnostics: [
 			...acquisition.diagnostics,
 			...loadedDescriptors.diagnostics,
 			...moduleDiscovery.diagnostics,
 		],
-		skippedCollisions: plan.skippedCollisions,
+		skippedCollisions: projectTransitions.value.skippedCollisions,
 		isForceRequired: isForceRequired && !request.shouldForce,
 	});
 }

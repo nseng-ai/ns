@@ -299,10 +299,7 @@ export async function applyPreparedProvision(
 	prepared: PreparedHarnessArtifactProvision,
 	options: ApplyPreparedProvisionOptions,
 ): Promise<Result<HarnessArtifactProvisionApplyOutcome, HarnessArtifactProvisionErrorInfo>> {
-	const conflictingFiles = [
-		...conflictingFilesFromDecisions(prepared.decisions),
-		...obsoleteConflictingFiles(prepared),
-	];
+	const conflictingFiles = provisionConflictingFiles(prepared);
 	if (conflictingFiles.length > 0 && !options.shouldForce) {
 		return resultOk({
 			outcome: "conflicted",
@@ -433,27 +430,16 @@ export async function applyPreparedProvisionReconciliation(
 > {
 	assertUniquePreparedTransitionKeys(prepared.transitions);
 	const outcomes = new Map<string, AppliedHarnessArtifactTransition>();
-	const removedPaths = new Set<string>();
-	const removedKeys = new Set<string>();
 	for (const transition of prepared.transitions) {
 		if (transition.type === "remove") {
 			const removed = await applyPreparedHarnessArtifactRemoval(transition.removal);
 			if (!removed.ok) {
 				return resultErr({ ...removed.error, completedTransitions: new Map(outcomes) });
 			}
-			for (const file of Object.values(transition.removal.entry.files)) {
-				removedPaths.add(file.targetPath);
-			}
-			removedKeys.add(transition.removal.key);
 			outcomes.set(transition.key, { type: "remove", removedFiles: removed.value });
 			continue;
 		}
-		const provision = accountForPriorAggregateRemovals(
-			transition.provision,
-			removedPaths,
-			removedKeys,
-		);
-		const applied = await applyPreparedProvision(provision, {
+		const applied = await applyPreparedProvision(transition.provision, {
 			shouldForce: prepared.shouldForce,
 		});
 		if (!applied.ok) {
@@ -462,40 +448,6 @@ export async function applyPreparedProvisionReconciliation(
 		outcomes.set(transition.key, { type: "provision", outcome: applied.value });
 	}
 	return resultOk({ outcomes });
-}
-
-function accountForPriorAggregateRemovals(
-	provision: PreparedHarnessArtifactProvision,
-	removedPaths: ReadonlySet<string>,
-	removedKeys: ReadonlySet<string>,
-): PreparedHarnessArtifactProvision {
-	const affectedPaths = new Set(
-		provision.targetFacts
-			.filter((fact) => removedPaths.has(fact.targetPath))
-			.map((fact) => fact.targetPath),
-	);
-	if (affectedPaths.size === 0 && !removedKeys.has(installManifestKey(provision.plan))) {
-		return provision;
-	}
-	return {
-		...provision,
-		expectedManifestEntry: removedKeys.has(installManifestKey(provision.plan))
-			? undefined
-			: provision.expectedManifestEntry,
-		targetFacts: provision.targetFacts.map((fact) =>
-			affectedPaths.has(fact.targetPath)
-				? { type: "missing" as const, targetPath: fact.targetPath }
-				: fact,
-		),
-		decisions: {
-			...provision.decisions,
-			files: provision.decisions.files.map((decision) =>
-				affectedPaths.has(decision.file.targetPath)
-					? { type: "fresh-write" as const, file: decision.file }
-					: decision,
-			),
-		},
-	};
 }
 
 async function validatePreparedProvision(
@@ -555,11 +507,18 @@ function manifestEntriesEqual(
 	return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function obsoleteConflictingFiles(prepared: PreparedHarnessArtifactProvision): readonly string[] {
-	return prepared.obsoleteFiles.flatMap((file) => {
-		const fact = prepared.obsoleteTargetFacts.find((item) => item.targetPath === file.targetPath);
-		return fact?.type === "file" && fact.contentHash !== file.contentHash ? [file.targetPath] : [];
-	});
+export function provisionConflictingFiles(
+	prepared: PreparedHarnessArtifactProvision,
+): readonly string[] {
+	return [
+		...conflictingFilesFromDecisions(prepared.decisions),
+		...prepared.obsoleteFiles.flatMap((file) => {
+			const fact = prepared.obsoleteTargetFacts.find((item) => item.targetPath === file.targetPath);
+			return fact?.type === "file" && fact.contentHash !== file.contentHash
+				? [file.targetPath]
+				: [];
+		}),
+	];
 }
 
 export type HarnessArtifactRemovalReason =

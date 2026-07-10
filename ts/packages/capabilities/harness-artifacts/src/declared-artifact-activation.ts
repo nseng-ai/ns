@@ -19,30 +19,24 @@ import {
 	type ModuleArtifactDiscoveryDiagnostic,
 } from "./module-artifact-discovery.ts";
 import {
-	applyPreparedProvisionReconciliation,
-	assertUniquePreparedTransitionKeys,
-	classifyProvisionAction,
-	conflictingFilesFromDecisions,
 	INSTALL_MANIFEST_FILE_NAME,
 	nodeHarnessArtifactFileSystemGateway,
-	prepareHarnessArtifactRemoval,
-	prepareProvision,
 	readInstallManifestAtRoot,
 	type AppliedHarnessArtifactTransition,
 	type HarnessArtifactProvisionErrorInfo,
 	type HarnessArtifactProvisionReconciliationErrorInfo,
-	type PreparedHarnessArtifactRemoval,
-	type PreparedHarnessArtifactTransition,
 	type PreparedHarnessArtifactProvision,
+	type PreparedHarnessArtifactRemoval,
 } from "./provision-apply.ts";
-import { installManifestKey, provisionIdentityKey } from "./provision-plan.ts";
 import {
-	planHarnessArtifactReconcile,
-	type DesiredHarnessArtifact,
-	type HarnessManifestSnapshot,
-	type PlannedHarnessArtifactRemoval,
-	type ReconcilePair,
-	type SkippedArtifactCollision,
+	applyProjectHarnessArtifactTransitions,
+	prepareProjectHarnessArtifactTransitions,
+	type PreparedProjectHarnessArtifactTransitions,
+} from "./project-harness-artifact-transitions.ts";
+import type {
+	DesiredHarnessArtifact,
+	HarnessManifestSnapshot,
+	SkippedArtifactCollision,
 } from "./reconcile.ts";
 
 export const DECLARED_ARTIFACT_ACTIVATION_ACTIONS = [
@@ -79,10 +73,7 @@ export interface PreparedDeclaredArtifactActivation {
 	readonly diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
 	readonly skippedCollisions: readonly SkippedArtifactCollision[];
 	readonly artifacts: readonly PreparedDeclaredArtifactActivationItem[];
-	readonly reconciliation: {
-		readonly transitions: readonly PreparedHarnessArtifactTransition[];
-		readonly shouldForce: false;
-	};
+	readonly reconciliation: PreparedProjectHarnessArtifactTransitions;
 }
 
 export interface PrepareDeclaredArtifactActivationRequest {
@@ -143,58 +134,48 @@ export async function prepareDeclaredArtifactActivation(
 	const context: HarnessPathContext = { projectRoot: request.projectRoot };
 	const manifests = await readAllProjectManifests({ context, fs });
 	if (!manifests.ok) return manifests;
-	const reconcilePlan = planHarnessArtifactReconcile({
+	const projectTransitions = await prepareProjectHarnessArtifactTransitions({
 		desired,
-		harnessSelection: selectedHarnesses,
+		selectedHarnesses,
 		manifests: manifests.value,
+		pathContext: context,
+		trustedRepoRoot: request.projectRoot,
 		deletionAuthority: {
 			type: "full",
 			preserveRemovedSources: discovery.diagnostics.length > 0,
 		},
+		conflictPolicy: { type: "strict", shouldForce: false },
+		fs,
 	});
-	const artifacts: PreparedDeclaredArtifactActivationItem[] = [];
-	const transitions: PreparedHarnessArtifactTransition[] = [];
-	for (const planned of reconcilePlan.removals) {
-		const removal = await prepareRemoval(planned, fs, request.projectRoot);
-		if (!removal.ok) return removal;
-		artifacts.push({
-			type: "remove",
-			key: removal.value.key,
-			harness: removal.value.entry.harness,
-			action: removal.value.conflictingFiles.length > 0 ? "conflicted" : "removed",
-			removal: removal.value,
-		});
-		if (removal.value.conflictingFiles.length === 0) {
-			transitions.push({ type: "remove", key: removal.value.key, removal: removal.value });
-		}
-	}
-	const replacementTargetPaths = new Set(
-		reconcilePlan.removals
-			.filter((removal) => removal.reason === "same-target-replacement")
-			.flatMap((removal) => Object.values(removal.entry.files).map((file) => file.targetPath)),
+	if (!projectTransitions.ok) return projectTransitions;
+	const artifacts: PreparedDeclaredArtifactActivationItem[] = projectTransitions.value.items.map(
+		(item) =>
+			item.type === "remove"
+				? {
+						type: "remove",
+						key: item.key,
+						harness: item.removal.entry.harness,
+						action: item.conflictingFiles.length > 0 ? "conflicted" : "removed",
+						removal: item.removal,
+					}
+				: {
+						type: "provision",
+						key: item.key,
+						artifact: item.pair.desired.artifact,
+						harness: item.pair.harness,
+						action: item.action,
+						provision: item.provision,
+					},
 	);
-	for (const pair of reconcilePlan.pairs) {
-		const item = await prepareProvisionItem({ pair, context, fs, replacementTargetPaths });
-		if (!item.ok) return item;
-		artifacts.push(item.value);
-		if (item.value.action !== "unchanged" && item.value.action !== "conflicted") {
-			transitions.push({
-				type: "provision",
-				key: installManifestKey(item.value.provision.plan),
-				provision: item.value.provision,
-			});
-		}
-	}
-	assertUniquePreparedTransitionKeys(transitions);
 	return resultOk({
 		modules: [...request.modules].sort((left, right) =>
 			left.moduleRoot.localeCompare(right.moduleRoot),
 		),
 		selectedHarnesses,
 		diagnostics: discovery.diagnostics,
-		skippedCollisions: reconcilePlan.skippedCollisions,
+		skippedCollisions: projectTransitions.value.skippedCollisions,
 		artifacts,
-		reconciliation: { transitions, shouldForce: false },
+		reconciliation: projectTransitions.value,
 	});
 }
 
@@ -206,7 +187,7 @@ export async function applyPreparedDeclaredArtifactActivation(
 	if (conflicts.length > 0) {
 		return { ok: true, completed: conflicts.map((item) => outcomeForItem(item, [], [], [])) };
 	}
-	const applied = await applyPreparedProvisionReconciliation(prepared.reconciliation);
+	const applied = await applyProjectHarnessArtifactTransitions(prepared.reconciliation);
 	if (!applied.ok) {
 		return {
 			ok: false,
@@ -246,84 +227,6 @@ async function readAllProjectManifests(input: {
 	return resultOk(snapshots);
 }
 
-function prepareRemoval(
-	planned: PlannedHarnessArtifactRemoval,
-	fs: HarnessArtifactFileSystemGateway,
-	trustedBoundaryRoot: string,
-): ReturnType<typeof prepareHarnessArtifactRemoval> {
-	return prepareHarnessArtifactRemoval({
-		key: planned.key,
-		reason: planned.reason,
-		entry: planned.entry,
-		expectedHarness: planned.snapshot.harness,
-		expectedTargetRoot: planned.snapshot.targetRoot,
-		trustedBoundaryRoot,
-		manifestPath: planned.snapshot.manifestPath,
-		fs,
-	});
-}
-
-async function prepareProvisionItem(input: {
-	pair: ReconcilePair;
-	context: HarnessPathContext;
-	fs: HarnessArtifactFileSystemGateway;
-	replacementTargetPaths: ReadonlySet<string>;
-}): Promise<
-	Result<
-		Extract<PreparedDeclaredArtifactActivationItem, { type: "provision" }>,
-		HarnessArtifactProvisionErrorInfo
-	>
-> {
-	const provision = await prepareProvision({
-		artifact: input.pair.desired.artifact,
-		harness: input.pair.harness,
-		scope: "project",
-		context: input.context,
-		sourceRoot: input.pair.desired.sourceRoot,
-		sourceVersion: input.pair.desired.sourceVersion,
-		fs: input.fs,
-	});
-	if (!provision.ok) return provision;
-	const preparedProvision: PreparedHarnessArtifactProvision = {
-		...provision.value,
-		decisions: {
-			...provision.value.decisions,
-			files: provision.value.decisions.files.map((decision) =>
-				decision.type === "locally-edited-conflict" &&
-				input.replacementTargetPaths.has(decision.file.targetPath)
-					? { type: "fresh-write" as const, file: decision.file }
-					: decision,
-			),
-		},
-	};
-	const conflictingFiles = [
-		...conflictingFilesFromDecisions(preparedProvision.decisions),
-		...provision.value.obsoleteFiles.flatMap((file) => {
-			const fact = provision.value.obsoleteTargetFacts.find(
-				(item) => item.targetPath === file.targetPath,
-			);
-			return fact?.type === "file" && fact.contentHash !== file.contentHash
-				? [file.targetPath]
-				: [];
-		}),
-	];
-	return resultOk({
-		type: "provision",
-		key: provisionIdentityKey(provision.value.plan),
-		artifact: input.pair.desired.artifact,
-		harness: input.pair.harness,
-		action: classifyProvisionAction({
-			conflictingFiles,
-			decisionsAreUnchanged:
-				preparedProvision.decisions.files.every((decision) => decision.type === "unchanged") &&
-				preparedProvision.obsoleteFiles.length === 0,
-			hasManifestEntry:
-				provision.value.manifest.artifacts[installManifestKey(provision.value.plan)] !== undefined,
-		}),
-		provision: preparedProvision,
-	});
-}
-
 function completedActivationOutcomes(
 	items: readonly PreparedDeclaredArtifactActivationItem[],
 	transitions: ReadonlyMap<string, AppliedHarnessArtifactTransition>,
@@ -332,9 +235,8 @@ function completedActivationOutcomes(
 		if (item.action === "unchanged") return [outcomeForItem(item, [], [], [])];
 		const transition = transitions.get(item.key);
 		if (transition === undefined) return [];
-		if (transition.type === "remove") {
+		if (transition.type === "remove")
 			return [outcomeForItem(item, [], [], transition.removedFiles)];
-		}
 		if (transition.outcome.outcome === "conflicted") {
 			return [outcomeForItem(item, transition.outcome.conflictingFiles, [], [])];
 		}

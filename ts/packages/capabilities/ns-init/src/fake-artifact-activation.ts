@@ -41,7 +41,14 @@ export class InMemoryArtifactActivationGateway implements ArtifactActivationGate
 					diagnostics: [],
 					skippedCollisions: [],
 					artifacts: [],
-					reconciliation: { transitions: [], shouldForce: false },
+					reconciliation: {
+						items: [],
+						transitions: [],
+						skippedDesired: [],
+						skippedCollisions: [],
+						orphans: [],
+						conflictPolicy: { type: "strict", shouldForce: false },
+					},
 				},
 			},
 		);
