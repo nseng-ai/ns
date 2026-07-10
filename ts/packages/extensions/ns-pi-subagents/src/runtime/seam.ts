@@ -19,8 +19,9 @@ export interface SubagentRuntime {
 }
 
 export const SUBAGENT_RUNTIME_KINDS = ["subprocess", "in-process"] as const;
+export const SUBAGENT_EXECUTION_VALUES = ["auto", ...SUBAGENT_RUNTIME_KINDS] as const;
 export type SubagentRuntimeKind = (typeof SUBAGENT_RUNTIME_KINDS)[number];
-export type SubagentExecution = "auto" | SubagentRuntimeKind;
+export type SubagentExecution = (typeof SUBAGENT_EXECUTION_VALUES)[number];
 export type SubagentOutcome<T extends object> =
 	| ({ ok: true } & T)
 	| { ok: false; diagnostic: string };
@@ -65,11 +66,14 @@ export function createSubagentRuntimeRegistry(
 				unavailable.push(created.diagnostic);
 				if (input.execution !== "auto") break;
 			}
+			const unavailableDiagnostic = unavailable.join(" ");
+			const availableKinds = kinds.length === 0 ? "none" : kinds.join(", ");
 			return {
 				ok: false,
 				diagnostic:
-					unavailable.join(" ") ||
-					`No compatible subagent runtime. Requested ${input.execution}; supported: ${input.supported.join(", ")}; available: ${kinds.join(", ") || "none"}.`,
+					unavailableDiagnostic.length > 0
+						? unavailableDiagnostic
+						: `No compatible subagent runtime. Requested ${input.execution}; supported: ${input.supported.join(", ")}; available: ${availableKinds}.`,
 			};
 		},
 	};

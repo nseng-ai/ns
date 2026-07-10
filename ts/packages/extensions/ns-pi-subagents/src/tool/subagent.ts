@@ -37,7 +37,7 @@ import type { SubagentFleetRegistry } from "../fleet/registry.ts";
 import type { ReadGitHead } from "../fleet/git-head.ts";
 import { dispatchSubagentBatch } from "./dispatch.ts";
 import {
-	SUBAGENT_RUNTIME_KINDS,
+	SUBAGENT_EXECUTION_VALUES,
 	type SubagentRuntime,
 	type SubagentRuntimeKind,
 	type SubagentRuntimeRegistry,
@@ -56,7 +56,7 @@ function buildInputSchema(agentNames: readonly string[]) {
 			.array(taskSchema)
 			.min(1)
 			.describe("One or more focused tasks; the selected agent enforces its task limit."),
-		execution: z.enum(["auto", ...SUBAGENT_RUNTIME_KINDS]).optional(),
+		execution: z.enum(SUBAGENT_EXECUTION_VALUES).optional(),
 		model: z.string().trim().min(1).optional().describe("Optional explicit Pi model override."),
 	});
 }

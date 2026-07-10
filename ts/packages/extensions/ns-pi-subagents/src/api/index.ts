@@ -54,6 +54,7 @@ export type {
 	SubagentToolRegistration,
 } from "../tool/subagent.ts";
 export {
+	SUBAGENT_EXECUTION_VALUES,
 	SUBAGENT_RUNTIME_KINDS,
 	createFunctionSubagentRuntime,
 	createSubagentRuntimeRegistry,

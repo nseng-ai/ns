@@ -9,6 +9,7 @@ export {
 	resultDiagnostic,
 	runnerSubagentPrimaryActivityPreview,
 } from "./extension-api.ts";
+export { errorResult } from "./results.ts";
 export type {
 	JsonObject,
 	RunnerSubagentBlockedResult,

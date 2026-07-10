@@ -5,6 +5,7 @@ import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
 } from "../runner-subagents/extension-api.ts";
+import { errorResult } from "../runner-subagents/results.ts";
 import { syncSubagentFleetDisplay, type SubagentFleetDisplayContext } from "./display.ts";
 
 export interface SubagentFleetRunTracking {
@@ -117,11 +118,12 @@ export function trackSubagentFleetRun(input: {
 				if (doneIndexes.has(task.index)) continue;
 				registry.markDone(
 					task.id,
-					placeholderFleetTaskResult(
-						"error",
-						"Subagent fleet tracking ended before this task produced a terminal result.",
-						task.title,
-					),
+					placeholderFleetTaskResult({
+						status: "error",
+						diagnostic:
+							"Subagent fleet tracking ended before this task produced a terminal result.",
+						title: task.title,
+					}),
 				);
 			}
 			unsubscribe();
@@ -129,21 +131,30 @@ export function trackSubagentFleetRun(input: {
 	};
 }
 
+export interface PlaceholderFleetTaskResultOptions {
+	status: "cancelled" | "error";
+	diagnostic: string;
+	title: string;
+}
+
 /** Terminal result for a task that never produced one itself. */
 export function placeholderFleetTaskResult(
-	status: "cancelled" | "error",
-	diagnostic: string,
-	title: string,
+	options: PlaceholderFleetTaskResultOptions,
 ): RunnerSubagentResult {
 	const progress = {
-		title,
+		title: options.title,
 		state: "stopped",
 		toolCount: 0,
 		turnCount: 0,
 		elapsedMs: 0,
 	} as const;
-	if (status === "error") {
-		return { status, title, diagnostic, error: { message: diagnostic }, elapsedMs: 0, progress };
+	if (options.status === "error") {
+		return errorResult(progress, options.diagnostic);
 	}
-	return { status, diagnostic, elapsedMs: 0, progress };
+	return {
+		status: "cancelled",
+		diagnostic: options.diagnostic,
+		elapsedMs: 0,
+		progress,
+	};
 }
