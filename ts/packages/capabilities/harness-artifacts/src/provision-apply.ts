@@ -70,6 +70,39 @@ export interface PreparedHarnessArtifactProvision extends HarnessArtifactProvisi
 	fs: HarnessArtifactFileSystemGateway;
 }
 
+/** Reclassify provision state after earlier removals in the same ordered transition. */
+export function sequenceProvisionAfterEffects(
+	provision: PreparedHarnessArtifactProvision,
+	priorRemovalEffects: {
+		readonly removedPaths: ReadonlySet<string>;
+		readonly removedKeys: ReadonlySet<string>;
+	},
+): PreparedHarnessArtifactProvision {
+	const key = installManifestKey(provision.plan);
+	const wasRemoved = (fact: TargetFileHashFact): boolean =>
+		priorRemovalEffects.removedPaths.has(fact.targetPath);
+	if (!priorRemovalEffects.removedKeys.has(key) && !provision.targetFacts.some(wasRemoved)) {
+		return provision;
+	}
+	return {
+		...provision,
+		expectedManifestEntry: priorRemovalEffects.removedKeys.has(key)
+			? undefined
+			: provision.expectedManifestEntry,
+		targetFacts: provision.targetFacts.map((fact) =>
+			wasRemoved(fact) ? { type: "missing" as const, targetPath: fact.targetPath } : fact,
+		),
+		decisions: {
+			...provision.decisions,
+			files: provision.decisions.files.map((decision) =>
+				priorRemovalEffects.removedPaths.has(decision.file.targetPath)
+					? { type: "fresh-write" as const, file: decision.file }
+					: decision,
+			),
+		},
+	};
+}
+
 export interface ApplyPreparedProvisionOptions {
 	shouldForce: boolean;
 }

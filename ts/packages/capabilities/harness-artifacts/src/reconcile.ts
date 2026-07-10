@@ -59,6 +59,7 @@ import {
 	type InstallManifestEntryData,
 } from "./provision-manifest.ts";
 import {
+	appliedHarnessArtifactTransitionFileEffects,
 	applyProjectHarnessArtifactTransitions,
 	prepareProjectHarnessArtifactTransitions,
 	type AppliedHarnessArtifactTransition,
@@ -462,24 +463,23 @@ function completedReconcileOutcomes(
 		if (applied === undefined) {
 			throw new Error(`Applied harness artifact outcome is missing for ${item.key}.`);
 		}
+		const effects = appliedHarnessArtifactTransitionFileEffects(applied);
 		if (applied.type === "remove") {
-			return { ...item.outcome, removedFiles: [...applied.removedFiles] };
+			return { ...item.outcome, removedFiles: [...effects.removedFiles] };
 		}
 		if (applied.outcome.outcome === "conflicted") {
 			return {
 				...item.outcome,
-				conflictingFiles: [...applied.outcome.conflictingFiles],
+				conflictingFiles: [...effects.conflictingFiles],
 			};
 		}
 		return {
 			...item.outcome,
 			action: item.outcome.action === "conflicted" ? "refreshed" : item.outcome.action,
-			writtenFiles: [...applied.outcome.writtenFiles],
-			removedFiles: [...applied.outcome.removedFiles],
-			conflictingFiles: [],
-			...(applied.outcome.removedFiles.length === 0
-				? {}
-				: { removalReason: "obsolete-file" as const }),
+			writtenFiles: [...effects.writtenFiles],
+			removedFiles: [...effects.removedFiles],
+			conflictingFiles: [...effects.conflictingFiles],
+			...(effects.removedFiles.length === 0 ? {} : { removalReason: "obsolete-file" as const }),
 		};
 	});
 }

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { prepareProjectHarnessArtifactTransitions } from "../src/project-harness-artifact-transitions.ts";
+import {
+	applyProjectHarnessArtifactTransitions,
+	prepareProjectHarnessArtifactTransitions,
+} from "../src/project-harness-artifact-transitions.ts";
 import type { DesiredHarnessArtifact, HarnessManifestSnapshot } from "../src/reconcile.ts";
 import { InMemoryHarnessFs } from "./support/in-memory-harness-fs.ts";
 
@@ -39,6 +42,37 @@ describe("project harness-artifact transitions", () => {
 				conflictPolicy,
 			},
 		});
+	});
+
+	test("strict conflicts short-circuit without outcomes or filesystem mutations", async () => {
+		const targetPath = "/repo/.pi/skills/demo/SKILL.md";
+		const fs = new InMemoryHarnessFs({
+			"/module/skills/demo/SKILL.md": "demo\n",
+			[targetPath]: "local edit\n",
+		});
+		const prepared = await prepareProjectHarnessArtifactTransitions({
+			desired: [desiredArtifact()],
+			selectedHarnesses: ["pi"],
+			manifests: manifestSnapshots(),
+			pathContext: { projectRoot: "/repo" },
+			trustedRepoRoot: "/repo",
+			deletionAuthority: { type: "full", preserveRemovedSources: false },
+			conflictPolicy: { type: "strict", shouldForce: false },
+			fs,
+		});
+		expect(prepared).toMatchObject({
+			ok: true,
+			value: { items: [{ type: "provision", conflictingFiles: [targetPath] }] },
+		});
+		if (!prepared.ok) return;
+
+		const applied = await applyProjectHarnessArtifactTransitions(prepared.value);
+
+		expect(applied).toEqual({ ok: true, value: { outcomes: new Map() } });
+		expect(fs.readText(targetPath)).toBe("local edit\n");
+		expect(fs.writtenFiles).toEqual([]);
+		expect(fs.removedFiles).toEqual([]);
+		expect(fs.removedDirectories).toEqual([]);
 	});
 
 	test("strict activation and update force are encoded only as explicit caller policy", async () => {

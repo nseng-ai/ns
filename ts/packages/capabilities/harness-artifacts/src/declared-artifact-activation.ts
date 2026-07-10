@@ -26,6 +26,7 @@ import {
 import { INSTALL_MANIFEST_FILE_NAME, readInstallManifestAtRoot } from "./provision-manifest.ts";
 import type { PreparedHarnessArtifactRemoval } from "./provision-removal.ts";
 import {
+	appliedHarnessArtifactTransitionFileEffects,
 	applyProjectHarnessArtifactTransitions,
 	prepareProjectHarnessArtifactTransitions,
 	type AppliedHarnessArtifactTransition,
@@ -234,13 +235,9 @@ function completedActivationOutcomes(
 		if (item.action === "unchanged") return [outcomeForItem(item, [], [], [])];
 		const transition = transitions.get(item.key);
 		if (transition === undefined) return [];
-		if (transition.type === "remove")
-			return [outcomeForItem(item, [], [], transition.removedFiles)];
-		if (transition.outcome.outcome === "conflicted") {
-			return [outcomeForItem(item, transition.outcome.conflictingFiles, [], [])];
-		}
+		const effects = appliedHarnessArtifactTransitionFileEffects(transition);
 		return [
-			outcomeForItem(item, [], transition.outcome.writtenFiles, transition.outcome.removedFiles),
+			outcomeForItem(item, effects.conflictingFiles, effects.writtenFiles, effects.removedFiles),
 		];
 	});
 }

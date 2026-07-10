@@ -6,6 +6,7 @@ import {
 	classifyProvisionAction,
 	prepareProvision,
 	provisionConflictingFiles,
+	sequenceProvisionAfterEffects,
 	type HarnessArtifactFileSystemGateway,
 	type HarnessArtifactProvisionApplyOutcome,
 	type HarnessArtifactProvisionErrorInfo,
@@ -16,7 +17,7 @@ import {
 	prepareHarnessArtifactRemoval,
 	type PreparedHarnessArtifactRemoval,
 } from "./provision-removal.ts";
-import { installManifestKey, type TargetFileHashFact } from "./provision-plan.ts";
+import { installManifestKey } from "./provision-plan.ts";
 import {
 	planHarnessArtifactReconcile,
 	type DesiredHarnessArtifact,
@@ -40,6 +41,18 @@ export type PreparedHarnessArtifactTransition =
 			readonly provision: PreparedHarnessArtifactProvision;
 	  };
 
+export function createPreparedHarnessArtifactRemovalTransition(
+	removal: PreparedHarnessArtifactRemoval,
+): PreparedHarnessArtifactTransition {
+	return { type: "remove", key: removal.key, removal };
+}
+
+export function createPreparedHarnessArtifactProvisionTransition(
+	provision: PreparedHarnessArtifactProvision,
+): PreparedHarnessArtifactTransition {
+	return { type: "provision", key: installManifestKey(provision.plan), provision };
+}
+
 export interface PreparedProvisionReconciliation {
 	readonly transitions: readonly PreparedHarnessArtifactTransition[];
 	readonly shouldForce: boolean;
@@ -48,6 +61,33 @@ export interface PreparedProvisionReconciliation {
 export type AppliedHarnessArtifactTransition =
 	| { readonly type: "remove"; readonly removedFiles: readonly string[] }
 	| { readonly type: "provision"; readonly outcome: HarnessArtifactProvisionApplyOutcome };
+
+export interface AppliedHarnessArtifactTransitionFileEffects {
+	readonly writtenFiles: readonly string[];
+	readonly removedFiles: readonly string[];
+	readonly conflictingFiles: readonly string[];
+}
+
+/** Project an applied transition to the file effects shared by all callers. */
+export function appliedHarnessArtifactTransitionFileEffects(
+	transition: AppliedHarnessArtifactTransition,
+): AppliedHarnessArtifactTransitionFileEffects {
+	if (transition.type === "remove") {
+		return { writtenFiles: [], removedFiles: transition.removedFiles, conflictingFiles: [] };
+	}
+	if (transition.outcome.outcome === "conflicted") {
+		return {
+			writtenFiles: [],
+			removedFiles: [],
+			conflictingFiles: transition.outcome.conflictingFiles,
+		};
+	}
+	return {
+		writtenFiles: transition.outcome.writtenFiles,
+		removedFiles: transition.outcome.removedFiles,
+		conflictingFiles: [],
+	};
+}
 
 export interface AppliedProvisionReconciliation {
 	readonly outcomes: ReadonlyMap<string, AppliedHarnessArtifactTransition>;
@@ -126,16 +166,17 @@ export async function prepareProjectHarnessArtifactTransitions(
 			fs: request.fs,
 		});
 		if (!removal.ok) return removal;
+		const transition = createPreparedHarnessArtifactRemovalTransition(removal.value);
 		items.push({
 			type: "remove",
-			key: planned.key,
+			key: transition.key,
 			planned,
 			removal: removal.value,
 			conflictingFiles: removal.value.conflictingFiles,
 		});
 		if (removal.value.conflictingFiles.length === 0) {
-			transitions.push({ type: "remove", key: planned.key, removal: removal.value });
-			precedingEffects.removedKeys.add(planned.key);
+			transitions.push(transition);
+			precedingEffects.removedKeys.add(transition.key);
 			for (const file of Object.values(planned.entry.files)) {
 				precedingEffects.removedPaths.add(file.targetPath);
 			}
@@ -164,11 +205,16 @@ export async function prepareProjectHarnessArtifactTransitions(
 				sequenced.manifest.artifacts[installManifestKey(sequenced.plan)] !== undefined &&
 				!precedingEffects.removedKeys.has(installManifestKey(sequenced.plan)),
 		});
-		const key = installManifestKey(sequenced.plan);
-		items.push({ type: "provision", key, pair, provision: sequenced, action, conflictingFiles });
-		if (action !== "unchanged") {
-			transitions.push({ type: "provision", key, provision: sequenced });
-		}
+		const transition = createPreparedHarnessArtifactProvisionTransition(sequenced);
+		items.push({
+			type: "provision",
+			key: transition.key,
+			pair,
+			provision: sequenced,
+			action,
+			conflictingFiles,
+		});
+		if (action !== "unchanged") transitions.push(transition);
 	}
 	assertUniquePreparedTransitionKeys(transitions);
 	return resultOk({
@@ -186,15 +232,6 @@ export function assertUniquePreparedTransitionKeys(
 ): void {
 	const keys = new Set<string>();
 	for (const transition of transitions) {
-		const identityKey =
-			transition.type === "remove"
-				? transition.removal.key
-				: installManifestKey(transition.provision.plan);
-		if (transition.key !== identityKey) {
-			throw new Error(
-				`Prepared harness artifact transition key ${transition.key} does not match ${identityKey}.`,
-			);
-		}
 		if (keys.has(transition.key)) {
 			throw new Error(`Duplicate prepared harness artifact transition key: ${transition.key}.`);
 		}
@@ -246,34 +283,4 @@ export async function applyProjectHarnessArtifactTransitions(
 		transitions: prepared.transitions,
 		shouldForce: prepared.conflictPolicy.shouldForce,
 	});
-}
-
-function sequenceProvisionAfterEffects(
-	provision: PreparedHarnessArtifactProvision,
-	effects: {
-		readonly removedPaths: ReadonlySet<string>;
-		readonly removedKeys: ReadonlySet<string>;
-	},
-): PreparedHarnessArtifactProvision {
-	const key = installManifestKey(provision.plan);
-	const wasRemoved = (fact: TargetFileHashFact): boolean =>
-		effects.removedPaths.has(fact.targetPath);
-	if (!effects.removedKeys.has(key) && !provision.targetFacts.some(wasRemoved)) return provision;
-	return {
-		...provision,
-		expectedManifestEntry: effects.removedKeys.has(key)
-			? undefined
-			: provision.expectedManifestEntry,
-		targetFacts: provision.targetFacts.map((fact) =>
-			wasRemoved(fact) ? { type: "missing" as const, targetPath: fact.targetPath } : fact,
-		),
-		decisions: {
-			...provision.decisions,
-			files: provision.decisions.files.map((decision) =>
-				effects.removedPaths.has(decision.file.targetPath)
-					? { type: "fresh-write" as const, file: decision.file }
-					: decision,
-			),
-		},
-	};
 }

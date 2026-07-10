@@ -173,6 +173,8 @@ export {
 } from "./provision-removal.ts";
 export {
 	applyPreparedProvisionReconciliation,
+	createPreparedHarnessArtifactProvisionTransition,
+	createPreparedHarnessArtifactRemovalTransition,
 	type AppliedHarnessArtifactTransition,
 	type AppliedProvisionReconciliation,
 	type HarnessArtifactProvisionReconciliationErrorInfo,
