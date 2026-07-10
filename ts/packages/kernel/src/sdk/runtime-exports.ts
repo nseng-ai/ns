@@ -31,6 +31,7 @@ import { z } from "./schema.ts";
 import {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
+	formatActiveOperation,
 	isMatrixProgressEvent,
 	matrixProgressDisplayWidthChars,
 	MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS,
@@ -55,6 +56,7 @@ export const nsSdkRuntimeExports = {
 	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
 	failure,
+	formatActiveOperation,
 	hiddenExecGroup,
 	isMatrixProgressEvent,
 	machineEnvelopeSchema,

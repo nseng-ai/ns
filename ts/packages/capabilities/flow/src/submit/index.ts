@@ -104,6 +104,7 @@ export {
 	parseParentBranch,
 	prepareSubmitPrMetadata,
 	type ParsedGtLogStack,
+	type SubmitBranchMetadataProgressEvent,
 	type SubmitBranchMetadataProgressListener,
 	type SubmitMetadataCommandParams,
 	type SubmitMetadataGateway,

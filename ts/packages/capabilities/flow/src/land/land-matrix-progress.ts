@@ -4,10 +4,12 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ActiveOperation, NsProgress } from "@nseng-ai/kernel/sdk";
 import {
 	createMatrixProgressController,
+	matrixFrameOptionalFields,
 	renderMatrixProgressFrame,
 	rowsWithKey,
 	type MatrixCellUpdate,
 	type MatrixColumnSpec,
+	type MatrixFrameOptionalFields,
 	type MatrixRowView,
 } from "../phase-stream/matrix-progress-core.ts";
 import { LAND_PHASES } from "../phase-stream/phase-stream-specs.ts";
@@ -126,22 +128,19 @@ export function createLandMatrixProgressController(options: {
 	};
 }
 
-export function renderLandMatrixProgressFrame(input: {
-	caps: Caps;
-	title: string;
-	activeOperations?: readonly ActiveOperation[];
-	rows: readonly (LandMatrixRowSpec & MatrixRowView<LandMatrixColumnKey>)[];
-	tailLine?: string;
-	tick?: number;
-}): readonly string[] {
+export function renderLandMatrixProgressFrame(
+	input: {
+		caps: Caps;
+		title: string;
+		rows: readonly (LandMatrixRowSpec & MatrixRowView<LandMatrixColumnKey>)[];
+	} & MatrixFrameOptionalFields,
+): readonly string[] {
 	return renderMatrixProgressFrame({
 		caps: input.caps,
 		title: input.title,
 		columns: LAND_MATRIX_COLUMNS,
-		...optionalEntry("activeOperations", input.activeOperations),
 		globals: [],
 		rows: input.rows,
-		...optionalEntry("tailLine", input.tailLine),
-		...optionalEntry("tick", input.tick),
+		...matrixFrameOptionalFields(input),
 	});
 }

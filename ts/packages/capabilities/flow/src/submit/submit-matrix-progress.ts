@@ -5,12 +5,15 @@ import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-a
 import {
 	commandOperations,
 	createMatrixProgressController,
+	matrixFrameOptionalFields,
+	modelOperation,
 	renderMatrixProgressFrame,
 	rowsWithKey,
 	updateForPhase,
 	type MatrixCellState,
 	type MatrixCellUpdate,
 	type MatrixColumnSpec,
+	type MatrixFrameOptionalFields,
 	type MatrixGlobalRowSpec,
 	type MatrixGlobalView,
 	type MatrixRowView,
@@ -191,6 +194,7 @@ export function createSubmitMatrixProgressController(options: {
 	deps: StreamSinkDeps;
 	title: string;
 	rows: readonly SubmitMatrixRowSpec[];
+	checkpointModelRef: string;
 	forward?: NsProgress;
 }): SubmitMatrixProgressController {
 	const controller = createMatrixProgressController({
@@ -217,7 +221,9 @@ export function createSubmitMatrixProgressController(options: {
 			return;
 		}
 		if (event.type === "phase-started") {
-			controller.setActiveOperations(commandOperations(checkpointCommandsForPhase(event.phaseKey)));
+			controller.setActiveOperations(
+				checkpointOperationsForPhase(event.phaseKey, options.checkpointModelRef),
+			);
 			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("active", event.label));
 		}
 		if (event.type === "phase-progress") {
@@ -306,24 +312,21 @@ export function applyPrLinksToRows(
 	}
 }
 
-export function renderSubmitMatrixProgressFrame(input: {
-	caps: Caps;
-	title: string;
-	activeOperations?: readonly ActiveOperation[];
-	globals: readonly MatrixGlobalView<SubmitMatrixGlobalKey>[];
-	rows: readonly SubmitMatrixRowView[];
-	tailLine?: string;
-	tick?: number;
-}): readonly string[] {
+export function renderSubmitMatrixProgressFrame(
+	input: {
+		caps: Caps;
+		title: string;
+		globals: readonly MatrixGlobalView<SubmitMatrixGlobalKey>[];
+		rows: readonly SubmitMatrixRowView[];
+	} & MatrixFrameOptionalFields,
+): readonly string[] {
 	return renderMatrixProgressFrame({
 		caps: input.caps,
 		title: input.title,
 		columns: SUBMIT_MATRIX_COLUMNS,
-		...(input.activeOperations === undefined ? {} : { activeOperations: input.activeOperations }),
 		globals: input.globals,
 		rows: rowsWithKey(input.rows, (row) => row.branch),
-		...(input.tailLine === undefined ? {} : { tailLine: input.tailLine }),
-		...(input.tick === undefined ? {} : { tick: input.tick }),
+		...matrixFrameOptionalFields(input),
 	});
 }
 
@@ -337,14 +340,17 @@ function prNumberForRow(row: SubmitMatrixRowView): string | undefined {
 	return row.pr === undefined ? undefined : prNumberFromLink(row.pr);
 }
 
-function checkpointCommandsForPhase(phaseKey: string): readonly string[] {
+function checkpointOperationsForPhase(
+	phaseKey: string,
+	modelRef: string,
+): readonly ActiveOperation[] {
 	switch (phaseKey) {
 		case "inspect":
-			return ["git status --porcelain", "git diff --stat", "git diff"];
+			return commandOperations(["git status --porcelain", "git diff --stat", "git diff"]);
 		case "generate":
-			return [];
+			return [modelOperation("generating checkpoint message", modelRef)];
 		case "commit":
-			return ["git add", "git commit"];
+			return commandOperations(["git add", "git commit"]);
 		default:
 			return [];
 	}

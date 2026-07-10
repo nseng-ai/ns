@@ -49,7 +49,9 @@ describe("land matrix progress", () => {
 
 		const output = stripAnsi(lines.join("\n"));
 		expect(output).toContain("ns flow land — 1/2 target PRs merged");
-		expect(output).toContain("Running: gh pr merge 123 --squash");
+		// Without global rows the in-flight operation keeps a dedicated slot at the bottom of
+		// the frame, adjacent to the tail, instead of a standalone header line.
+		expect(stripAnsi(lines.at(-1) ?? "")).toBe("Running: gh pr merge 123 --squash");
 		expect(output).not.toContain("Preflight");
 		expect(output).not.toContain("Prepare");
 		expect(output).not.toContain("Slots");
@@ -80,8 +82,33 @@ describe("land matrix progress", () => {
 		const firstFrame = stripAnsi(capture.redraws[0] ?? "");
 		expect(firstFrame).not.toContain("Preflight");
 		expect(firstFrame).toContain("ns flow land — 0/2 target PRs merged");
-		expect(firstFrame).toContain("Running: —");
+		// No placeholder dash while idle: the operations and tail slots stay reserved but blank.
+		expect(firstFrame).not.toContain("Running:");
+		expect(firstFrame.split("\n").slice(-2)).toEqual(["", ""]);
 		expectPendingMatrixRows(firstFrame);
+	});
+
+	test("renders the tail quiet-time counter once output goes stale", () => {
+		const rows = landMatrixRowsFromPlan(plan());
+		const fresh = renderLandMatrixProgressFrame({
+			caps: caps(),
+			title: "ns flow land",
+			activeOperations: [],
+			rows: rows.map((row) => landRowView(row)),
+			tailLine: "✓ packages/kernel (3 tests)",
+			tailSinceOutputMs: 1_000,
+		});
+		expect(stripAnsi(fresh.join("\n"))).not.toContain("ago");
+
+		const stale = renderLandMatrixProgressFrame({
+			caps: caps(),
+			title: "ns flow land",
+			activeOperations: [],
+			rows: rows.map((row) => landRowView(row)),
+			tailLine: "✓ packages/kernel (3 tests)",
+			tailSinceOutputMs: 14_000,
+		});
+		expect(stripAnsi(stale.at(-1) ?? "")).toBe("       ✓ packages/kernel (3 tests) · 14s ago");
 	});
 
 	test("renders the first branch matrix frame with every cell pending", () => {

@@ -13,6 +13,7 @@ export {
 	extensionPointCardinalityValues,
 	extensionPointDefinitionSchema,
 	failure,
+	formatActiveOperation,
 	hiddenExecGroup,
 	isMatrixProgressEvent,
 	machineEnvelopeSchema,

@@ -53,6 +53,15 @@ export type ActiveOperation =
 	| { kind: "command"; display: string }
 	| { kind: "model"; operation: string; modelRef: string; detail?: string };
 
+export function formatActiveOperation(operation: ActiveOperation): string {
+	switch (operation.kind) {
+		case "command":
+			return operation.display;
+		case "model":
+			return `LM · ${operation.operation} · ${operation.modelRef}${operation.detail === undefined ? "" : ` · ${operation.detail}`}`;
+	}
+}
+
 /** Lifecycle state of a single matrix cell. */
 export type NsProgressMatrixCellState = "pending" | "active" | "done" | "skipped" | "failed";
 
