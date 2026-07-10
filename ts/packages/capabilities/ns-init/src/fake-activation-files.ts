@@ -1,95 +1,102 @@
 import type {
 	ActivationFilesGateway,
 	ActivationFilesOperationResult,
-	EnsureObjectivesDirectoryResult,
-	InstructionFileName,
-	InstructionFileParams,
-	ProjectConfigFileParams,
-	TextFileReadResult,
-	WriteInstructionFileParams,
-	WriteProjectConfigFileParams,
+	ActivationPathParams,
+	ActivationTextFileReadResult,
+	ConsumerDirectoryInspectionResult,
+	WriteActivationTextFileParams,
 } from "./activation-files.ts";
-import { INSTRUCTION_FILE_NAMES } from "./activation-files.ts";
 import type { NsInitErrorInfo } from "./error-info.ts";
 
 export interface InMemoryActivationFilesState {
-	instructionFiles?: Readonly<Partial<Record<InstructionFileName, string>>>;
-	projectConfigFile?: string;
-	hasObjectivesDirectory?: boolean;
-	readFailure?: NsInitErrorInfo;
-	writeFailure?: NsInitErrorInfo;
-	ensureObjectivesDirectoryFailure?: NsInitErrorInfo;
+	readonly files?: Readonly<Record<string, string>>;
+	readonly directories?: readonly string[];
+	readonly nonFilePaths?: readonly string[];
+	readonly nonDirectoryPaths?: readonly string[];
+	readonly readFailure?: NsInitErrorInfo;
+	readonly writeFailures?: Readonly<Record<string, NsInitErrorInfo>>;
+	readonly directoryFailures?: Readonly<Record<string, NsInitErrorInfo>>;
 }
 
+export type ActivationFileOperation =
+	| { readonly type: "write"; readonly path: string }
+	| { readonly type: "ensure-directory"; readonly path: string };
+
 export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
-	private readonly instructionFiles: Map<InstructionFileName, string>;
-	private projectConfigFile: string | undefined;
-	private objectivesDirectoryExists: boolean;
+	private readonly files: Map<string, string>;
+	private readonly directories: Set<string>;
+	private readonly nonFilePaths: Set<string>;
+	private readonly nonDirectoryPaths: Set<string>;
 	private readonly readFailure: NsInitErrorInfo | undefined;
-	private readonly writeFailure: NsInitErrorInfo | undefined;
-	private readonly ensureObjectivesDirectoryFailure: NsInitErrorInfo | undefined;
+	private readonly writeFailures: Readonly<Record<string, NsInitErrorInfo>>;
+	private readonly directoryFailures: Readonly<Record<string, NsInitErrorInfo>>;
+	private readonly operationLog: ActivationFileOperation[] = [];
 
 	constructor(state: InMemoryActivationFilesState = {}) {
-		this.instructionFiles = new Map();
-		for (const name of INSTRUCTION_FILE_NAMES) {
-			const content = state.instructionFiles?.[name];
-			if (content !== undefined) this.instructionFiles.set(name, content);
-		}
-		this.projectConfigFile = state.projectConfigFile;
-		this.objectivesDirectoryExists = state.hasObjectivesDirectory ?? false;
+		this.files = new Map(Object.entries(state.files ?? {}));
+		this.directories = new Set(state.directories ?? []);
+		this.nonFilePaths = new Set(state.nonFilePaths ?? []);
+		this.nonDirectoryPaths = new Set(state.nonDirectoryPaths ?? []);
 		this.readFailure = state.readFailure;
-		this.writeFailure = state.writeFailure;
-		this.ensureObjectivesDirectoryFailure = state.ensureObjectivesDirectoryFailure;
+		this.writeFailures = { ...state.writeFailures };
+		this.directoryFailures = { ...state.directoryFailures };
 	}
 
-	async readInstructionFile(params: InstructionFileParams): Promise<TextFileReadResult> {
+	async readTextFile(params: ActivationPathParams): Promise<ActivationTextFileReadResult> {
 		if (this.readFailure !== undefined) return { type: "error", error: this.readFailure };
-		const content = this.instructionFiles.get(params.file);
-		if (content === undefined) return { type: "missing" };
-		return { type: "found", content };
+		if (this.nonFilePaths.has(params.relativePath)) return { type: "not-file" };
+		const content = this.files.get(params.relativePath);
+		return content === undefined ? { type: "missing" } : { type: "found", content };
 	}
 
-	async writeInstructionFile(
-		params: WriteInstructionFileParams,
+	async inspectConsumerDirectory(
+		params: ActivationPathParams,
+	): Promise<ConsumerDirectoryInspectionResult> {
+		if (this.readFailure !== undefined) return { type: "error", error: this.readFailure };
+		if (this.nonDirectoryPaths.has(params.relativePath)) return { type: "not-directory" };
+		if (!this.directories.has(params.relativePath)) return { type: "missing" };
+		const gitkeepPath = `${params.relativePath}/.gitkeep`;
+		return {
+			type: "directory",
+			gitkeep: this.nonFilePaths.has(gitkeepPath)
+				? "not-file"
+				: this.files.has(gitkeepPath)
+					? "file"
+					: "missing",
+		};
+	}
+
+	async writeTextFile(
+		params: WriteActivationTextFileParams,
 	): Promise<ActivationFilesOperationResult> {
-		if (this.writeFailure !== undefined) return { ok: false, error: this.writeFailure };
-		this.instructionFiles.set(params.file, params.content);
+		const failure = this.writeFailures[params.relativePath];
+		if (failure !== undefined) return { ok: false, error: failure };
+		this.files.set(params.relativePath, params.content);
+		this.operationLog.push({ type: "write", path: params.relativePath });
 		return { ok: true };
 	}
 
-	async readProjectConfigFile(_params: ProjectConfigFileParams): Promise<TextFileReadResult> {
-		if (this.readFailure !== undefined) return { type: "error", error: this.readFailure };
-		if (this.projectConfigFile === undefined) return { type: "missing" };
-		return { type: "found", content: this.projectConfigFile };
-	}
-
-	async writeProjectConfigFile(
-		params: WriteProjectConfigFileParams,
+	async ensureConsumerDirectory(
+		params: ActivationPathParams,
 	): Promise<ActivationFilesOperationResult> {
-		void params.repoRoot;
-		if (this.writeFailure !== undefined) return { ok: false, error: this.writeFailure };
-		this.projectConfigFile = params.content;
+		const failure = this.directoryFailures[params.relativePath];
+		if (failure !== undefined) return { ok: false, error: failure };
+		this.directories.add(params.relativePath);
+		const gitkeepPath = `${params.relativePath}/.gitkeep`;
+		if (!this.files.has(gitkeepPath)) this.files.set(gitkeepPath, "");
+		this.operationLog.push({ type: "ensure-directory", path: params.relativePath });
 		return { ok: true };
 	}
 
-	async ensureObjectivesDirectory(): Promise<EnsureObjectivesDirectoryResult> {
-		if (this.ensureObjectivesDirectoryFailure !== undefined) {
-			return { ok: false, error: this.ensureObjectivesDirectoryFailure };
-		}
-		if (this.objectivesDirectoryExists) return { ok: true, value: { created: false } };
-		this.objectivesDirectoryExists = true;
-		return { ok: true, value: { created: true } };
+	fileContent(relativePath: string): string | undefined {
+		return this.files.get(relativePath);
 	}
 
-	instructionFileContent(file: InstructionFileName): string | undefined {
-		return this.instructionFiles.get(file);
+	hasDirectory(relativePath: string): boolean {
+		return this.directories.has(relativePath);
 	}
 
-	projectConfigFileContent(): string | undefined {
-		return this.projectConfigFile;
-	}
-
-	hasObjectivesDirectory(): boolean {
-		return this.objectivesDirectoryExists;
+	operations(): readonly ActivationFileOperation[] {
+		return [...this.operationLog];
 	}
 }

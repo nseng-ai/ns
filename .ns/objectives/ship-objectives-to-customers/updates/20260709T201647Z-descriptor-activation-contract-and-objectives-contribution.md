@@ -42,7 +42,7 @@ Passed focused kernel and Objectives package typechecks/tests, the TypeScript st
 format/lint/typecheck gates, dprint formatting, and the full repository `just` gate (including all
 4,785 default TypeScript tests and the Objective edge sweep).
 
-## Follow-Up
+## Follow-Ups
 
 Implement generic descriptor consumption in `@nseng-ai/ns-init` and make lifecycle orchestration own
 all activation writes. Do not add activation hooks or delete extension consumer data during uninstall.

@@ -20,6 +20,7 @@ import {
 } from "./command-registry.ts";
 import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 import { nextDescriptorTraversalState } from "./descriptor-traversal.ts";
+import { loadDeclaredExtensionDescriptors } from "./declared-descriptors.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import {
 	loadedModuleReference,
@@ -46,7 +47,6 @@ import {
 	descriptorExportPathErrorInfo,
 	descriptorExportTarget,
 	parseDeclaredExtensionSpecsToml,
-	resolveAcquiredDescriptorPackageRoot,
 	resolveDescriptorExportPath,
 } from "../project-config/descriptor-package.ts";
 import type { DescriptorCommand } from "../sdk/index.ts";
@@ -376,14 +376,27 @@ async function loadProjectDescriptorCandidates(cwd: string): Promise<{
 }> {
 	const declared = readDeclaredExtensionSpecs(cwd);
 	if (!declared.ok) return { diagnostics: [declared.diagnostic], candidates: [] };
-	const diagnostics: ExtensionDiagnostic[] = [];
-	const candidates: ExtensionCommandCandidate[] = [];
-	for (const spec of declared.specs) {
-		const loaded = await loadDescriptorPackage({ cwd, spec });
-		diagnostics.push(...loaded.diagnostics);
-		candidates.push(...loaded.candidates);
-	}
-	return { diagnostics, candidates };
+	const loaded = await loadDeclaredExtensionDescriptors({ repoRoot: cwd, specs: declared.specs });
+	return {
+		diagnostics: loaded.diagnostics.map((diagnostic) =>
+			projectErrorDiagnostic(
+				diagnostic.code,
+				diagnostic.message,
+				diagnostic.path ?? join(cwd, "ns.toml"),
+			),
+		),
+		candidates: loaded.descriptors.flatMap((record) =>
+			descriptorCommandCandidates({
+				cwd,
+				spec: record.spec,
+				packageDir: record.moduleRoot,
+				descriptorPath: record.descriptorPath,
+				descriptor: record.descriptor,
+				sourceLevel: "project",
+				sourceLabel: `ns.toml descriptor ${record.spec}`,
+			}),
+		),
+	};
 }
 
 function projectErrorDiagnostic(
@@ -405,60 +418,6 @@ function readDeclaredExtensionSpecs(
 	return {
 		ok: false,
 		diagnostic: projectErrorDiagnostic(errorInfo.code, errorInfo.message, nsTomlPath),
-	};
-}
-
-async function loadDescriptorPackage(options: { cwd: string; spec: string }): Promise<{
-	diagnostics: readonly ExtensionDiagnostic[];
-	candidates: readonly ExtensionCommandCandidate[];
-}> {
-	const acquisition = resolveAcquiredDescriptorPackageRoot({
-		repoRoot: options.cwd,
-		spec: options.spec,
-	});
-	const packageDir = acquisition.packageRoot;
-	const packageJsonPath = join(packageDir, "package.json");
-	const descriptorPath = resolveDescriptorExport(packageDir, packageJsonPath);
-	if (!descriptorPath.ok) return { diagnostics: [descriptorPath.diagnostic], candidates: [] };
-	let descriptorExport: unknown;
-	try {
-		descriptorExport = await loadNsUserModuleDefault(descriptorPath.path);
-	} catch (error) {
-		return {
-			diagnostics: [
-				projectErrorDiagnostic(
-					"extension_descriptor_import_failed",
-					`Failed to load ns extension descriptor ${descriptorPath.path}.\n${formatErrorMessage(error)}`,
-					descriptorPath.path,
-				),
-			],
-			candidates: [],
-		};
-	}
-	const validation = validateExtensionDescriptor(descriptorExport, descriptorPath.path);
-	if (!validation.ok) {
-		return {
-			diagnostics: [
-				projectErrorDiagnostic(
-					"extension_descriptor_invalid",
-					validation.message,
-					descriptorPath.path,
-				),
-			],
-			candidates: [],
-		};
-	}
-	return {
-		diagnostics: [],
-		candidates: descriptorCommandCandidates({
-			cwd: options.cwd,
-			spec: options.spec,
-			packageDir,
-			descriptorPath: descriptorPath.path,
-			descriptor: validation.descriptor,
-			sourceLevel: "project",
-			sourceLabel: `ns.toml descriptor ${options.spec}`,
-		}),
 	};
 }
 

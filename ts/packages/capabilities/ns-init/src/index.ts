@@ -1,45 +1,53 @@
 export type {
 	ActivationFilesGateway,
 	ActivationFilesOperationResult,
-	EnsureObjectivesDirectoryResult,
-	InstructionFileName,
-	InstructionFileParams,
-	ProjectConfigFileParams,
-	TextFileReadResult,
-	WriteInstructionFileParams,
-	WriteProjectConfigFileParams,
+	ActivationPathParams,
+	ActivationTextFileReadResult,
+	ConsumerDirectoryInspectionResult,
+	WriteActivationTextFileParams,
 } from "./activation-files.ts";
+export type {
+	ArtifactActivationGateway,
+	PrepareArtifactActivationParams,
+	PrepareArtifactActivationResult,
+} from "./artifact-activation.ts";
+export type {
+	DeclaredExtensionsGateway,
+	LoadDeclaredExtensionsParams,
+	LoadDeclaredExtensionsResult,
+} from "./declared-extensions.ts";
+export { RealDeclaredExtensionsGateway } from "./declared-extensions.ts";
 export type { NsInitErrorInfo } from "./error-info.ts";
-export { INSTRUCTION_FILE_NAMES, OBJECTIVES_DIRECTORY_RELATIVE_PATH } from "./activation-files.ts";
 export { RealActivationFilesGateway } from "./real-activation-files.ts";
+export { RealArtifactActivationGateway } from "./real-artifact-activation.ts";
 export type {
-	SkillMaterializeParams,
-	SkillMaterializer,
-	SkillMaterializeResult,
-} from "./skill-materializer.ts";
-export { RealSkillMaterializer } from "./real-skill-materializer.ts";
-export type {
-	ApplyObjectiveInstructionBlockResult,
+	ApplyNsPointerStanzaResult,
 	EnsureClaudeAgentsImportResult,
 } from "./instruction-block.ts";
 export {
-	applyObjectiveInstructionBlock,
+	applyNsPointerStanza,
 	CLAUDE_AGENTS_IMPORT_LINE,
 	ensureClaudeAgentsImport,
-	OBJECTIVE_INSTRUCTION_BLOCK_VERSION,
-	renderObjectiveInstructionBlock,
+	GENERATED_INSTRUCTIONS_PATH,
+	NS_POINTER_STANZA_VERSION,
+	renderGeneratedInstructions,
+	renderNsPointerStanza,
 } from "./instruction-block.ts";
-export type { ObjectiveActivationContext } from "./activation-context.ts";
+export type { NsActivationContext } from "./activation-context.ts";
 export type {
-	ActivateObjectivesOptions,
-	ActivateObjectivesResult,
-	ObjectiveActivationReport,
-} from "./activate-objectives.ts";
-export { activateObjectives } from "./activate-objectives.ts";
-export type { InitObjectivesRequest, InitObjectivesResult } from "./init-objectives.ts";
+	ActivationCompleted,
+	ActivationDiagnostic,
+	ApplyNsActivationResult,
+	PrepareNsActivationOptions,
+	PrepareNsActivationResult,
+	PreparedNsActivation,
+	ResolvedActivationRepository,
+	ResolveActivationRepositoryResult,
+} from "./activate-ns.ts";
 export {
-	initObjectives,
-	initObjectivesRequestSchema,
-	initObjectivesResultSchema,
-	renderInitObjectivesHuman,
-} from "./init-objectives.ts";
+	applyNsActivation,
+	prepareNsActivation,
+	resolveActivationRepository,
+} from "./activate-ns.ts";
+export type { InitNsRequest, InitNsResult } from "./init-ns.ts";
+export { initNs, initNsRequestSchema, initNsResultSchema, renderInitNsHuman } from "./init-ns.ts";

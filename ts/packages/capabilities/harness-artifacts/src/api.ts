@@ -107,8 +107,11 @@ export {
 	type RunHarnessArtifactReconcileRequest,
 } from "./reconcile.ts";
 export {
+	discoverDeclaredExtensionModuleHarnessArtifacts,
 	discoverExtensionModuleHarnessArtifacts,
 	moduleArtifactDiscoveryDiagnosticSchema,
+	type DeclaredExtensionModuleArtifactFacts,
+	type DiscoverDeclaredExtensionModuleHarnessArtifactsRequest,
 	type DiscoverExtensionModuleHarnessArtifactsRequest,
 	type DiscoverExtensionModuleHarnessArtifactsResult,
 	type ExtensionDescriptorModuleLoader,
@@ -125,6 +128,16 @@ export {
 	type ModuleArtifactDeclarationDiagnosticCode,
 	type ParseModuleArtifactDeclarationResult,
 } from "./module-artifact-declaration.ts";
+export {
+	applyPreparedDeclaredArtifactActivation,
+	prepareDeclaredArtifactActivation,
+	type ApplyPreparedDeclaredArtifactActivationResult,
+	type DeclaredArtifactActivationAction,
+	type DeclaredArtifactActivationOutcome,
+	type PreparedDeclaredArtifactActivation,
+	type PreparedDeclaredArtifactActivationItem,
+	type PrepareDeclaredArtifactActivationRequest,
+} from "./declared-artifact-activation.ts";
 export {
 	applyPreparedProvision,
 	conflictingFilesFromDecisions,

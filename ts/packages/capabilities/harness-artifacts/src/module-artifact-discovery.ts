@@ -33,6 +33,18 @@ export interface DiscoverExtensionModuleHarnessArtifactsRequest {
 	descriptorLoader?: ExtensionDescriptorModuleLoader;
 }
 
+export interface DeclaredExtensionModuleArtifactFacts {
+	readonly moduleRoot: string;
+	readonly packageName: string;
+	readonly version: string;
+	readonly descriptor: ExtensionDescriptor;
+}
+
+export interface DiscoverDeclaredExtensionModuleHarnessArtifactsRequest {
+	readonly modules: readonly DeclaredExtensionModuleArtifactFacts[];
+	readonly gateway?: HarnessArtifactModuleDiscoveryGateway;
+}
+
 export interface ResolvedNpmModuleHarnessArtifactCatalog {
 	type: "npm-module-catalog";
 	moduleRoot: string;
@@ -102,6 +114,68 @@ export const moduleArtifactDiscoveryDiagnosticSchema: z.ZodType<ModuleArtifactDi
 			...optionalEntry("artifactId", diagnostic.artifactId),
 			...optionalEntry("artifactName", diagnostic.artifactName),
 		}));
+
+/** Discover artifacts from already-loaded declared descriptors without widening the source set. */
+export async function discoverDeclaredExtensionModuleHarnessArtifacts(
+	request: DiscoverDeclaredExtensionModuleHarnessArtifactsRequest,
+): Promise<DiscoverExtensionModuleHarnessArtifactsResult> {
+	const gateway = request.gateway ?? nodeHarnessArtifactFileSystemGateway;
+	const catalogs: ResolvedNpmModuleHarnessArtifactCatalog[] = [];
+	for (const module of [...request.modules].sort((left, right) =>
+		left.moduleRoot.localeCompare(right.moduleRoot),
+	)) {
+		const parsed = parseDescriptorArtifactDeclarations(
+			JSON.stringify({ name: module.packageName, version: module.version }),
+			descriptorArtifactDeclarations(module.descriptor),
+		);
+		if (!parsed.ok) {
+			catalogs.push({
+				type: "npm-module-catalog",
+				moduleRoot: module.moduleRoot,
+				packageName: module.packageName,
+				version: module.version,
+				artifacts: [],
+				diagnostics: parsed.diagnostics.map((diagnostic) =>
+					declarationDiagnostic(diagnostic, module.moduleRoot),
+				),
+			});
+			continue;
+		}
+		const artifactResults = await validateDiscoveredArtifacts({
+			moduleRoot: module.moduleRoot,
+			packageName: module.packageName,
+			artifacts: parsed.artifacts,
+			gateway,
+		});
+		catalogs.push({
+			type: "npm-module-catalog",
+			moduleRoot: module.moduleRoot,
+			packageName: parsed.packageName,
+			version: parsed.version,
+			artifacts: artifactResults.artifacts,
+			diagnostics: sortDiscoveryDiagnostics([
+				...parsed.diagnostics.map((diagnostic) =>
+					declarationDiagnostic(diagnostic, module.moduleRoot),
+				),
+				...artifactResults.diagnostics,
+			]),
+		});
+	}
+	const duplicateDiagnostics = duplicateArtifactDiagnostics(catalogs);
+	const catalogsWithDiagnostics = catalogs.map((catalog) => ({
+		...catalog,
+		diagnostics: sortDiscoveryDiagnostics([
+			...catalog.diagnostics,
+			...duplicateDiagnostics.filter((diagnostic) => diagnostic.path === catalog.moduleRoot),
+		]),
+	}));
+	return {
+		catalogs: catalogsWithDiagnostics,
+		diagnostics: sortDiscoveryDiagnostics(
+			catalogsWithDiagnostics.flatMap((catalog) => catalog.diagnostics),
+		),
+	};
+}
 
 export async function discoverExtensionModuleHarnessArtifacts(
 	request: DiscoverExtensionModuleHarnessArtifactsRequest,

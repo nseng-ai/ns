@@ -1,6 +1,6 @@
 # `@nseng-ai/init` renamed to `@nseng-ai/ns-init` before scaffold
 
-## What changed
+## Summary
 
 Amended one derived design decision from the 2026-07-01 grilling session
 (`updates/20260701T185244Z-grilling-decisions-and-distribution-split.md`): the `ns init`
@@ -30,9 +30,14 @@ only, surfaced as top-level `ns init`.
   bookkeeping: this adds one to the private-package inventory it tracks (9 of 25 at its
   last rebaseline), with a recorded treatment of bundle-inline.
 
-## Objective impact
+## Objective Impact
 
 - `objective.md` Resolved Decisions / naming prose and `roadmap.md` scaffold row now name
   `@nseng-ai/ns-init`.
 - No scope change; the scaffold row remains the next unblocked slice and proceeds against
   a run-from-source install while the checkout-free dependency finishes elsewhere.
+
+## Follow-Ups
+
+Scaffold `@nseng-ai/ns-init` under the amended package identity and keep its host-specific
+skill-location behavior behind the planned wiring seam.
