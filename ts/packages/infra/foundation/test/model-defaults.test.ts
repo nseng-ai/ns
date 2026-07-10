@@ -79,7 +79,7 @@ describe("resolveModelRef", () => {
 		const result = resolveModelRef({}, ENV_VAR, DEFAULT_FAST_MODEL_REF);
 		expect(result).toEqual({
 			ok: true,
-			value: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+			value: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 		});
 	});
 
@@ -97,7 +97,7 @@ describe("resolveModelRef", () => {
 			const result = resolveModelRef({ [ENV_VAR]: value }, ENV_VAR, DEFAULT_FAST_MODEL_REF);
 			expect(result).toEqual({
 				ok: true,
-				value: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+				value: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
 			});
 		}
 	});

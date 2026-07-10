@@ -88,7 +88,7 @@ The PR sidebar skill and deterministic Objective sidebar extension do not pass `
 PR sidebar updates are low-stakes semantic compression. The controller temporarily switches the follow-up PR turn to a faster model and minimal thinking:
 
 - env override: `NS_CCC_SIDEBAR_MODEL=provider/model`
-- default: `openai-codex/gpt-5.4-mini`
+- default: `openai-codex/gpt-5.6-luna`
 - thinking level: `minimal`
 
 The controller restores the previous model and thinking level on `agent_end`. If the fast model is missing or unavailable, it warns and uses the current model.

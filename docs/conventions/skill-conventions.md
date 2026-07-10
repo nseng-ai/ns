@@ -69,7 +69,7 @@ Public skills (those with a `skills/<name>` symlink for external discoverability
 
 ### Skill Model Examples
 
-When a skill body references model tiers or per-dispatch model selection, keep the default guidance harness-neutral, but always include concrete examples for both OpenAI and Anthropic (e.g. `openai-codex/gpt-5.4-mini` and `claude-haiku-4-5`), each labeled with its harness, so agents on either harness can resolve the tier unambiguously.
+When a skill body references model tiers or per-dispatch model selection, keep the default guidance harness-neutral, but always include concrete examples for both OpenAI and Anthropic (e.g. `openai-codex/gpt-5.6-luna` and `claude-haiku-4-5`), each labeled with its harness, so agents on either harness can resolve the tier unambiguously.
 
 ### Vendored Skill Code
 

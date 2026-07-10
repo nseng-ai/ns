@@ -38,7 +38,7 @@ The CLI owns the deterministic behavior:
 
 Text generation is controlled by the CLI environment:
 
-- `NS_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
+- `NS_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.6-luna`;
 - `NS_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `NS_CHECKPOINT_MODEL` is unset.
 
 ## Failure handling

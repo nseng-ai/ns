@@ -16,7 +16,7 @@ import { FakeSegmentationGateway, makeProfile, sequentialTurns } from "./context
 
 /** Models a buggy gateway that violates the errors-as-values contract by rejecting. */
 class RejectingSegmentationGateway implements AnalysisModelGateway {
-	readonly analysisModel = "openai-codex/gpt-5.4-mini";
+	readonly analysisModel = "openai-codex/gpt-5.6-luna";
 
 	async segmentTurns(): Promise<SegmentationCallResult> {
 		throw new Error("gateway contract violation");

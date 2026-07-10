@@ -215,7 +215,7 @@ for these restack conflict subagents. Concrete examples:
 
 If per-dispatch model selection is unavailable, continue with the session's
 current model but mention that no explicit smart model could be requested. Never
-copy cheap-model guidance such as `openai-codex/gpt-5.4-mini:medium` into this
+copy cheap-model guidance such as `openai-codex/gpt-5.6-luna:medium` into this
 workflow.
 
 ### Agent prompt template

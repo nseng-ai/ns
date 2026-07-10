@@ -49,7 +49,7 @@ export const PLAN_KEY = `${PLAN_SLUG}.md`;
 export const SAVED_PLAN_FILENAME = `${PLAN_SLUG}.md`;
 export const SOURCE_BRANCH = "source-branch";
 export const START_POINT = "0123456789abcdef0123456789abcdef01234567";
-export const FAST_MODEL: ModelInfo = { provider: "openai-codex", id: "gpt-5.4-mini" };
+export const FAST_MODEL: ModelInfo = { provider: "openai-codex", id: "gpt-5.6-luna" };
 export const PREVIOUS_MODEL: ModelInfo = { provider: "anthropic", id: "claude-sonnet-4-5" };
 
 type EventName = "agent_end" | "session_start";

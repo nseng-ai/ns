@@ -46,12 +46,12 @@ ns flow submit --restack
 
 Automatic checkpointing uses ns checkpoint environment variables:
 
-- `NS_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
+- `NS_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.6-luna`;
 - `NS_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `NS_CHECKPOINT_MODEL` is unset.
 
 PR description generation uses:
 
-- `NS_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.4-mini`;
+- `NS_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.6-luna`;
 - `NS_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
 - `.ns/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
 

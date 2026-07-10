@@ -93,7 +93,7 @@ describe("project-local cp extension behavior", () => {
 		]);
 		expect(run.context.textGeneratorCalls).toEqual([
 			expect.objectContaining({
-				modelRef: "openai-codex/gpt-5.4-mini",
+				modelRef: "openai-codex/gpt-5.6-luna",
 				operation: "checkpoint-message",
 				maxTokens: 512,
 				reasoning: "low",

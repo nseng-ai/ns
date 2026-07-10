@@ -30,7 +30,7 @@ import { parseLmJson } from "@nseng-ai/pi/models/lm-json";
 
 /** Fixed analysis model — never the session's main model. */
 export const SEGMENTATION_PROVIDER = "openai-codex";
-export const SEGMENTATION_MODEL = "gpt-5.4-mini";
+export const SEGMENTATION_MODEL = "gpt-5.6-luna";
 export const MAX_EPISODES = 12;
 export const MIN_TURNS_FOR_SEGMENTATION = 3;
 export const SEGMENTATION_PAYLOAD_MAX_CHARS = 60_000;

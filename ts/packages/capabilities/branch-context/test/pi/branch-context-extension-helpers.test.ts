@@ -242,7 +242,7 @@ describe("buildWritePlanPrompt", () => {
 		);
 		expect(checkedInContent).toContain('`subagent` with `agent: "task"`');
 		expect(checkedInContent).toContain("default_model");
-		expect(checkedInContent).toContain("openai-codex/gpt-5.4-mini:medium");
+		expect(checkedInContent).toContain("openai-codex/gpt-5.6-luna:medium");
 		expect(checkedInContent).toContain("one-command validation baseline");
 		expect(checkedInContent).toContain("before risky implementation work");
 		expect(checkedInContent).toContain(
