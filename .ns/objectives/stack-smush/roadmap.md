@@ -22,16 +22,20 @@ session on 2026-07-10 (see
       the commits needed to judge it in isolation; span PRs are the maximal
       stretches between; span sizing/splitting is packaging judgment narrated in the
       slice map.
-- [ ] **Graphite slicing-mechanics survey** (research) — What `gt` and
-      `@nseng-ai/capability-kit/graphite` primitives support packaging: splitting a
-      linear run into a stack, concatenation-rebase joins of disjoint subagent
-      branches, `gt fold` on branches with open PRs (PR fate, review threads, CI
-      state), explicit mid-stack span squash, and absorbing edits into a live stack;
-      what Flow autobranch/submit already provide; where the gaps are. Produces a
-      linked markdown summary.
-  - Policy: agent-alone; autonomous runner step allowed per `## Runner Policy`.
-  - Evidence: source-backed summary committed and linked from this row; findings on
-    the "Graphite can express packaging" assumption recorded in a Semantic Update.
+- [x] **Graphite slicing-mechanics survey** (research) — What `gt` and
+      `@nseng-ai/capability-kit/graphite` primitives support packaging. Resolved
+      (2026-07-10, autonomous runner step): survey at
+      [`references/graphite-slicing-mechanics-survey.md`](references/graphite-slicing-mechanics-survey.md),
+      observed on gt 1.8.6 in offline scratch repos. Local mechanics all supported:
+      slicing is pure metadata (`git branch` at boundary SHAs + `gt track --parent`,
+      no rebase; `gt fold --stack --keep` is its inverse), concatenation joins via
+      `gt move --onto` with conflicts surfacing non-destructively as falsified
+      disjointness, explicit span squash via `gt squash -m`, feedback absorption via
+      `gt absorb` / `gt modify --into`. Hard negative: `gt split` is unusable by
+      agents, so a slicing CLI push-down is mandatory. PR fate under fold/re-slice
+      (review threads, CI) is documented-but-not-observed — owned by the repackaging
+      prototype row. Findings recorded in
+      `updates/20260710T114846Z-graphite-slicing-survey-findings.md`.
 - [x] **Subagent run-building mechanics** (grilling) — How commit-granularity
       subagents produce one linear run. Resolved: serialize entangled work;
       parallelize only declared-disjoint scopes on private branches, joined by
@@ -42,8 +46,11 @@ session on 2026-07-10 (see
 - [ ] **Packaging mechanics design** (grilling) — The operation that slices a stack
       into decision/span form and its composition with Flow submit and the existing
       land path. Decided early: span squash is an explicit post-stack-creation
-      command, never implicit in packaging or land. Blocked by: Graphite
-      slicing-mechanics survey.
+      command, never implicit in packaging or land. Was blocked by the Graphite
+      slicing-mechanics survey — now unblocked (survey resolved 2026-07-10); ready
+      for a live session, with the survey's gaps list (slice push-down,
+      concatenation-join command, selective span squash, decision/span labeling) as
+      the agenda.
 - [x] **Review-policy encoding** (grilling) — Resolved: `decision`/`span` PR labels
       plus a body rationale written by packaging make review policy durable,
       visible, and queryable; decision PRs request careful human review; span PRs

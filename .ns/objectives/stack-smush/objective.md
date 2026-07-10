@@ -121,8 +121,13 @@ so only agent-alone rows are autonomous targets.
   real work.
 - **Assumption — Graphite can express packaging.** `gt` plus
   `@nseng-ai/capability-kit/graphite` mechanics can slice a linear run into a stack
-  and later squash spans without fighting the tool. The research row tests this
-  cheaply before any mechanics design.
+  and later squash spans without fighting the tool. Survey verdict (2026-07-10,
+  `roadmap.md` survey row; observed on gt 1.8.6): **supported for all local
+  mechanics** — slicing is pure branch-pointer metadata, fold is its inverse, span
+  squash and feedback absorption are non-interactive one-liners — but `gt split` is
+  unusable by agents (a slicing CLI push-down is mandatory), and the remote/PR half
+  (PR fate, review threads, CI across fold/re-slice) remains unobserved and shifts
+  onto the repackaging-chaos risk below.
 - **Risk — repackaging chaos.** Review feedback on a decision PR mid-review forces
   edits beneath a live stack; re-slicing could thrash PRs, reviews, and CI. Needs
   de-risking via prototype before the path is trusted on real work. Elevated by the
