@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
+	commandSucceeded,
 	type CommandExecApi,
+	type ExecResult,
 	formatCommand,
 	type StdinCapableCommandExecApi,
 } from "@nseng-ai/foundation/exec";
@@ -57,12 +59,7 @@ const ZERO_OBJECT_SHA = "0000000000000000000000000000000000000000";
 const GIT_BLOB_MODE_FILE = "100644";
 const GIT_TREE_MODE = "040000";
 
-interface GitRunResult {
-	code: number;
-	stdout: string;
-	stderr: string;
-	displayCommand: string;
-}
+type GitRunResult = ExecResult & { readonly displayCommand: string };
 
 interface SnapshotValidationContext {
 	namespace: string;
@@ -151,7 +148,14 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		const result = await runGit(this.commands, ["show", `${gitTarget}:${options.key}`], {
 			cwd: this.cwd,
 		});
-		if (result.code !== 0) return brmemMissing<EntryContent>();
+		if (!commandSucceeded(result)) {
+			if (isUnsignalledExit(result)) return brmemMissing<EntryContent>();
+			return brmemOptionalError(
+				"git-show-failed",
+				commandMessage("Could not read Entry.", result),
+				result.displayCommand,
+			);
+		}
 		return brmemFound({ content: result.stdout });
 	}
 
@@ -171,11 +175,18 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 			["cat-file", "-e", `${gitTarget}:${options.key}`],
 			{ cwd: this.cwd },
 		);
-		if (existence.code !== 0) return brmemMissing<EntryDiagnostic>();
+		if (!commandSucceeded(existence)) {
+			if (isUnsignalledExit(existence)) return brmemMissing<EntryDiagnostic>();
+			return brmemOptionalError(
+				"git-cat-file-failed",
+				commandMessage("Could not check Entry existence.", existence),
+				existence.displayCommand,
+			);
+		}
 		const blobSha = await runGit(this.commands, ["rev-parse", `${gitTarget}:${options.key}`], {
 			cwd: this.cwd,
 		});
-		if (blobSha.code !== 0)
+		if (!commandSucceeded(blobSha))
 			return brmemOptionalError<EntryDiagnostic>(
 				"git-rev-parse-failed",
 				commandMessage("Could not resolve blob SHA.", blobSha),
@@ -184,7 +195,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		const size = await runGit(this.commands, ["cat-file", "-s", `${gitTarget}:${options.key}`], {
 			cwd: this.cwd,
 		});
-		if (size.code !== 0)
+		if (!commandSucceeded(size))
 			return brmemOptionalError<EntryDiagnostic>(
 				"git-cat-file-failed",
 				commandMessage("Could not resolve blob size.", size),
@@ -193,7 +204,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		const log = await runGit(this.commands, ["log", "-1", "--format=%H%x09%cI", gitTarget], {
 			cwd: this.cwd,
 		});
-		if (log.code !== 0)
+		if (!commandSucceeded(log))
 			return brmemOptionalError<EntryDiagnostic>(
 				"git-log-failed",
 				commandMessage("Could not resolve snapshot metadata.", log),
@@ -269,7 +280,8 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 			["for-each-ref", "--format=%(refname)", ...snapshotRefPrefixes()],
 			{ cwd: this.cwd },
 		);
-		if (result.code !== 0) return brmemOk([]);
+		if (!commandSucceeded(result))
+			return gitError("git-for-each-ref-failed", "Could not list Snapshot refs.", result);
 		const entries: ListedEntry[] = [];
 		for (const line of result.stdout.split("\n")) {
 			const snapshotRef = line.trim();
@@ -362,7 +374,8 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			["for-each-ref", "--format=%(refname)", ...snapshotRefPrefixes()],
 			{ cwd: this.cwd },
 		);
-		if (result.code !== 0) return brmemOk([]);
+		if (!commandSucceeded(result))
+			return gitError("git-for-each-ref-failed", "Could not list Snapshot refs.", result);
 		const snapshotRefs = parseSnapshotRefsToCount(result.stdout, options.namespace);
 		let processed = 0;
 		const total = snapshotRefs.length;
@@ -390,7 +403,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			["for-each-ref", "--format=%(refname:strip=2)", "refs/heads"],
 			{ cwd: this.cwd },
 		);
-		if (result.code !== 0) {
+		if (!commandSucceeded(result)) {
 			return gitError("git-for-each-ref-failed", "Could not list local branches.", result);
 		}
 		return brmemOk(new Set(splitConfigValues(result.stdout)));
@@ -429,7 +442,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const result = await runGit(this.commands, ["update-ref", "-d", snapshotRef], {
 			cwd: this.cwd,
 		});
-		if (result.code === 0) return brmemOk(undefined);
+		if (commandSucceeded(result)) return brmemOk(undefined);
 		return gitError(
 			"git-update-ref-delete-failed",
 			`Could not delete Snapshot Ref ${JSON.stringify(snapshotRef)}.`,
@@ -463,7 +476,9 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const parent = await runGit(this.commands, ["rev-parse", "--verify", snapshotRef], {
 			cwd: this.cwd,
 		});
-		const parentSha = parent.code === 0 ? parent.stdout.trim() : undefined;
+		if (!commandSucceeded(parent) && !isUnsignalledExit(parent))
+			return gitError("git-rev-parse-failed", "Could not resolve Snapshot parent.", parent);
+		const parentSha = commandSucceeded(parent) ? parent.stdout.trim() : undefined;
 		const entriesResult = await this.loadSnapshotState({
 			namespace: options.namespace,
 			branch: options.branch,
@@ -485,7 +500,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			const blob = await runGit(this.commands, ["hash-object", "-w", "--no-filters", blobPath], {
 				cwd: this.cwd,
 			});
-			if (blob.code !== 0)
+			if (!commandSucceeded(blob))
 				return gitError("git-hash-object-failed", "Could not write Entry blob.", blob);
 			entries.set(options.key, blob.stdout.trim());
 		} finally {
@@ -496,7 +511,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const commitArgs = ["commit-tree", tree.value, "-m", behavior.commitMessage];
 		if (parentSha !== undefined) commitArgs.splice(2, 0, "-p", parentSha);
 		const commit = await runGit(this.commands, commitArgs, { cwd: this.cwd });
-		if (commit.code !== 0)
+		if (!commandSucceeded(commit))
 			return gitError(
 				"git-commit-tree-failed",
 				"Could not create Branch Memory Snapshot commit.",
@@ -521,8 +536,11 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const parent = await runGit(this.commands, ["rev-parse", "--verify", snapshotRef], {
 			cwd: this.cwd,
 		});
-		if (parent.code !== 0)
+		if (!commandSucceeded(parent)) {
+			if (!isUnsignalledExit(parent))
+				return gitError("git-rev-parse-failed", "Could not resolve Snapshot parent.", parent);
 			return brmemError("key-not-found", `key ${JSON.stringify(options.key)} not found`);
+		}
 		const entriesResult = await loadSnapshotEntries(this.commands, this.cwd, {
 			namespace: options.namespace,
 			branch: options.branch,
@@ -540,7 +558,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			["commit-tree", tree.value, "-p", parent.stdout.trim(), "-m", `brmem delete ${options.key}`],
 			{ cwd: this.cwd },
 		);
-		if (commit.code !== 0)
+		if (!commandSucceeded(commit))
 			return gitError("git-commit-tree-failed", "Could not create delete Snapshot commit.", commit);
 		const update = await updateSnapshotRef(this.commands, this.cwd, {
 			ref: snapshotRef,
@@ -584,12 +602,21 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const sourceSha = await runGit(this.commands, ["rev-parse", "--verify", sourceRef], {
 			cwd: this.cwd,
 		});
-		if (sourceSha.code !== 0) return brmemOk({ entries: [] });
+		if (!commandSucceeded(sourceSha)) {
+			if (isUnsignalledExit(sourceSha)) return brmemOk({ entries: [] });
+			return gitError("git-rev-parse-failed", "Could not resolve source Snapshot.", sourceSha);
+		}
 		const destRef = mustSnapshotRef(options.namespace, options.toBranch);
 		const destShaResult = await runGit(this.commands, ["rev-parse", "--verify", destRef], {
 			cwd: this.cwd,
 		});
-		const destSha = destShaResult.code === 0 ? destShaResult.stdout.trim() : undefined;
+		if (!commandSucceeded(destShaResult) && !isUnsignalledExit(destShaResult))
+			return gitError(
+				"git-rev-parse-failed",
+				"Could not resolve destination Snapshot.",
+				destShaResult,
+			);
+		const destSha = commandSucceeded(destShaResult) ? destShaResult.stdout.trim() : undefined;
 		if (options.keyGlob === undefined) {
 			return this.copySnapshot({
 				namespace: options.namespace,
@@ -700,7 +727,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		];
 		if (options.destSha !== undefined) commitArgs.splice(2, 0, "-p", options.destSha);
 		const commit = await runGit(this.commands, commitArgs, { cwd: this.cwd });
-		if (commit.code !== 0)
+		if (!commandSucceeded(commit))
 			return gitError("git-commit-tree-failed", "Could not create copy Snapshot commit.", commit);
 		const update = await updateSnapshotRef(this.commands, this.cwd, {
 			ref: options.destRef,
@@ -719,17 +746,36 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		remote: string,
 	): Promise<BrmemOptionalResult<import("./gateway.ts").GitRemoteConfig>> {
 		const exists = await runGit(this.commands, ["remote", "get-url", remote], { cwd: this.cwd });
-		if (exists.code !== 0) return brmemMissing();
+		if (!commandSucceeded(exists)) {
+			if (isUnsignalledExit(exists)) return brmemMissing();
+			return brmemOptionalError(
+				"git-remote-get-url-failed",
+				commandMessage("Could not inspect Git remote.", exists),
+				exists.displayCommand,
+			);
+		}
 
 		const push = await runGit(this.commands, ["config", "--get-all", `remote.${remote}.push`], {
 			cwd: this.cwd,
 		});
-		const pushValues = push.code === 0 ? splitConfigValues(push.stdout) : [];
+		if (!commandSucceeded(push) && !isUnsignalledExit(push))
+			return brmemOptionalError(
+				"git-config-read-failed",
+				commandMessage("Could not inspect Git push refspecs.", push),
+				push.displayCommand,
+			);
+		const pushValues = commandSucceeded(push) ? splitConfigValues(push.stdout) : [];
 
 		const fetch = await runGit(this.commands, ["config", "--get-all", `remote.${remote}.fetch`], {
 			cwd: this.cwd,
 		});
-		const fetchValues = fetch.code === 0 ? splitConfigValues(fetch.stdout) : [];
+		if (!commandSucceeded(fetch) && !isUnsignalledExit(fetch))
+			return brmemOptionalError(
+				"git-config-read-failed",
+				commandMessage("Could not inspect Git fetch refspecs.", fetch),
+				fetch.displayCommand,
+			);
+		const fetchValues = commandSucceeded(fetch) ? splitConfigValues(fetch.stdout) : [];
 
 		return brmemFound({ push: pushValues, fetch: fetchValues });
 	}
@@ -745,7 +791,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 				["config", "--local", "--add", `remote.${remote}.push`, p],
 				{ cwd: this.cwd },
 			);
-			if (res.code !== 0)
+			if (!commandSucceeded(res))
 				return gitError(
 					"git-config-write-failed",
 					`Could not add Git config remote.${remote}.push.`,
@@ -758,7 +804,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 				["config", "--local", "--add", `remote.${remote}.fetch`, f],
 				{ cwd: this.cwd },
 			);
-			if (res.code !== 0)
+			if (!commandSucceeded(res))
 				return gitError(
 					"git-config-write-failed",
 					`Could not add Git config remote.${remote}.fetch.`,
@@ -792,12 +838,7 @@ async function runGit(
 		env: options.env ?? process.env,
 		...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 	});
-	return {
-		code: result.code,
-		stdout: result.stdout,
-		stderr: result.stderr.length > 0 ? result.stderr : (result.startupError ?? ""),
-		displayCommand: formatCommand("git", args),
-	};
+	return { ...result, displayCommand: formatCommand("git", args) };
 }
 
 async function loadSnapshotEntries(
@@ -944,7 +985,8 @@ async function writeSnapshotTree(
 		cwd,
 		stdin: entries.map(formatMktreeEntry).join(""),
 	});
-	if (tree.code !== 0) return gitError("git-mktree-failed", "Could not build Snapshot tree.", tree);
+	if (!commandSucceeded(tree))
+		return gitError("git-mktree-failed", "Could not build Snapshot tree.", tree);
 	return brmemOk(tree.stdout.trim());
 }
 
@@ -1001,7 +1043,7 @@ async function enumerateTreeEntries(
 		{ cwd },
 	);
 	const entries = new Map<string, string>();
-	if (result.code !== 0) return entries;
+	if (!commandSucceeded(result)) return entries;
 	for (const line of result.stdout.split("\n")) {
 		const [path, blobSha] = line.split("\t");
 		if (path === undefined || path.length === 0 || blobSha === undefined || blobSha.length === 0)
@@ -1039,7 +1081,7 @@ async function countTreeEntries(
 			cwd,
 		},
 	);
-	if (result.code !== 0) return 0;
+	if (!commandSucceeded(result)) return 0;
 	let count = 0;
 	for (const line of result.stdout.split("\n")) {
 		if (line.length > 0) count += 1;
@@ -1076,7 +1118,7 @@ async function enumerateEntryUpdatedAt(
 	const result = await runGit(commands, ["log", "--format=%cI", "--name-status", snapshotRef], {
 		cwd,
 	});
-	if (result.code !== 0)
+	if (!commandSucceeded(result))
 		return gitError("git-log-failed", "Could not resolve Entry update metadata.", result);
 	return brmemOk(parseEntryUpdateLog(result.stdout));
 }
@@ -1113,7 +1155,7 @@ async function updateSnapshotRef(
 		["update-ref", options.ref, options.newSha, options.expectedOldSha ?? ZERO_OBJECT_SHA],
 		{ cwd },
 	);
-	if (update.code === 0) return brmemOk(undefined);
+	if (commandSucceeded(update)) return brmemOk(undefined);
 	return brmemError(
 		"snapshot-ref-changed",
 		commandMessage(
@@ -1128,10 +1170,28 @@ function formatInvalid(label: string, value: string, reason: string): string {
 	return `Invalid ${label} ${JSON.stringify(value)}: ${reason}`;
 }
 
+function isUnsignalledExit(
+	result: GitRunResult,
+): result is Extract<GitRunResult, { type: "exited" }> {
+	return result.type === "exited" && result.signal === null;
+}
+
 function commandMessage(message: string, result: GitRunResult): string {
 	const stderr = result.stderr.trim();
 	const details = stderr.length > 0 ? stderr : result.stdout.trim();
-	return details.length === 0 ? message : `${message}: ${details}`;
+	if (details.length > 0) return `${message}: ${details}`;
+	switch (result.type) {
+		case "spawn-failed":
+			return `${message}: ${result.error}`;
+		case "cancelled":
+			return `${message}: git command was cancelled.`;
+		case "timed-out":
+			return `${message}: git command timed out.`;
+		case "exited":
+			return result.signal === null
+				? `${message}: git exited with status ${result.code ?? "unknown"}.`
+				: `${message}: git exited after signal ${result.signal} (status ${result.code ?? "unknown"}).`;
+	}
 }
 
 function gitError<T>(code: string, message: string, result: GitRunResult): BrmemResult<T> {

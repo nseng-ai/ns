@@ -1,4 +1,4 @@
-import type { ExecResult, PiExecResultLike } from "@nseng-ai/foundation/command";
+import type { ExecResult } from "@nseng-ai/foundation/command";
 import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
 import type { LandingWarning, StackSnapshot } from "../types.ts";
 
@@ -100,7 +100,7 @@ export interface LandStackExtensionAPI {
 		command: string,
 		args: string[],
 		options?: { cwd?: string; timeout?: number },
-	): Promise<PiExecResultLike>;
+	): Promise<ExecResult>;
 }
 
 export interface ParsedArgs {

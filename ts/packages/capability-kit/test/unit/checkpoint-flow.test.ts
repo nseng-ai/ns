@@ -37,11 +37,11 @@ class ScriptedTextGenerator implements TextGenerator {
 }
 
 function ok(stdout = "", stderr = ""): CommandResult {
-	return { code: 0, stdout, stderr };
+	return { type: "exited", code: 0, signal: null, stdout, stderr };
 }
 
 function fail(stderr: string): CommandResult {
-	return { code: 1, stdout: "", stderr };
+	return { type: "exited", code: 1, signal: null, stdout: "", stderr };
 }
 
 function largeDiffWithSentinel(): string {
@@ -301,7 +301,9 @@ describe("createCommitWithPreparedMessage", () => {
 			},
 		});
 
-		expect(result).toEqual({ error: "Checkpoint commit failed.\nexit 1: pre-commit hook failed" });
+		expect(result).toEqual({
+			error: "Checkpoint commit failed.\nexit code 1: pre-commit hook failed",
+		});
 		expect(calls.map((call) => call.args[0])).toEqual(["add", "commit"]);
 		expect(calls.flatMap((call) => call.args)).not.toContain("--no-verify");
 		expect(calls.flatMap((call) => call.args)).not.toContain("--amend");

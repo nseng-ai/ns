@@ -1,4 +1,5 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 
 import { parseWatchCommandArgs } from "./command-args.ts";
 export { parseWatchCommandArgs } from "./command-args.ts";
@@ -48,7 +49,7 @@ export default function prFeedbackWatchExtension(
 	pi: ExtensionAPI,
 	options: PrFeedbackWatchExtensionOptions = {},
 ): void {
-	const controller = new PrFeedbackWatchController(pi, options);
+	const controller = new PrFeedbackWatchController(pi, createPiCommandExecApi(pi), options);
 
 	registerCommandWithImmediateAck({
 		host: pi,

@@ -13,9 +13,22 @@ interface RecordedCall {
 	options: ExecOptions | undefined;
 }
 
-/** A canned `ExecResult`; success unless overridden. */
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
-	return { stdout: "", stderr: "", code: 0, killed: false, ...overrides };
+interface ExitedResultOverrides {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly code?: number | null;
+	readonly signal?: string | null;
+}
+
+/** A canned exited result; success unless overridden. */
+function execResult(overrides: ExitedResultOverrides = {}): ExecResult {
+	return {
+		type: "exited",
+		stdout: overrides.stdout ?? "",
+		stderr: overrides.stderr ?? "",
+		code: overrides.code ?? 0,
+		signal: overrides.signal ?? null,
+	};
 }
 
 /**
@@ -189,13 +202,19 @@ describe("objectiveSlugsForBranch", () => {
 		expect(result).toEqual({ type: "exec-error", message: "exit code 1" });
 	});
 
-	test("treats a killed process as an exec-error", async () => {
-		const { execApi } = fakeExecApi(execResult({ code: 0, killed: true }));
+	test("treats a cancelled process as an exec-error", async () => {
+		const { execApi } = fakeExecApi({
+			type: "cancelled",
+			stdout: "",
+			stderr: "",
+			code: 0,
+			signal: null,
+		});
 		const result = await objectiveSlugsForBranch({
 			execApi,
 			cwd: "/repo",
 			lineage: { branch: "feature", parentBranch: "main" },
 		});
-		expect(result).toEqual({ type: "exec-error", message: "exit code 0 (killed)" });
+		expect(result).toEqual({ type: "exec-error", message: "cancelled" });
 	});
 });

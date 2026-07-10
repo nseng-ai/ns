@@ -13,7 +13,6 @@ import {
 } from "@nseng-ai/capability-kit/checkpoint-flow";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import {
-	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
@@ -224,7 +223,12 @@ export async function runCheckpointWorkflow(
 		cwd: options.cwd,
 		message: prepared.message,
 	});
-	if ("error" in committed) return { type: "commit-failed", error: committed.error };
+	if ("error" in committed) {
+		return {
+			type: "commit-failed",
+			error: committed.error.replace(/\bexit code (\d+)/u, "exit $1"),
+		};
+	}
 
 	return { type: "committed", summary: committed.summary, message: prepared.message };
 }
@@ -243,7 +247,7 @@ function formatCheckpointProgressEvent(event: TextRepairProgressEvent): string {
 }
 
 export function formatCheckpointSnapshotError(error: PendingWorktreeError): string {
-	const details = formatPendingWorktreeCommandDetails(error.result);
+	const details = formatFlowCommandDetails(error.result);
 	if (error.kind === "not_git_repo") {
 		return `Not inside a git repository.\n${details}`;
 	}
@@ -256,16 +260,31 @@ export function formatCheckpointSnapshotError(error: PendingWorktreeError): stri
 	return `Could not capture git diff.\n${details}`;
 }
 
-function toCheckpointCommandResult(result: ExecResult): CommandResult {
-	const converted: CommandResult = {
-		code: result.code,
-		stdout: result.stdout,
-		stderr: result.stderr,
-	};
-	if (result.killed) {
-		converted.killed = true;
+function formatFlowCommandDetails(result: ExecResult): string {
+	const detail = result.stderr.trim() || result.stdout.trim();
+	let status: string;
+	switch (result.type) {
+		case "spawn-failed":
+			status = `spawn failed: ${result.error}`;
+			break;
+		case "cancelled":
+			status = `cancelled (exit ${result.code})`;
+			break;
+		case "timed-out":
+			status = `timed out (exit ${result.code})`;
+			break;
+		case "exited":
+			status =
+				result.signal === null
+					? `exit ${result.code}`
+					: `signal ${result.signal} (exit ${result.code})`;
+			break;
 	}
-	return converted;
+	return detail === "" ? status : `${status}: ${detail}`;
+}
+
+function toCheckpointCommandResult(result: ExecResult): CommandResult {
+	return result;
 }
 
 function failure(exitCode: number, error: string): CheckpointCommandResult {

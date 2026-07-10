@@ -59,12 +59,19 @@ describe("flow push core", () => {
 	});
 });
 
-function makeExecResult(overrides: Partial<ExecResult> = {}): ExecResult {
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	code?: number | null;
+	signal?: string | null;
+}
+
+function makeExecResult(overrides: ExitedResultFields = {}): ExecResult {
 	return {
-		stdout: "",
-		stderr: "",
-		code: 0,
-		killed: false,
-		...overrides,
+		type: "exited",
+		stdout: overrides.stdout ?? "",
+		stderr: overrides.stderr ?? "",
+		code: overrides.code ?? 0,
+		signal: overrides.signal ?? null,
 	};
 }

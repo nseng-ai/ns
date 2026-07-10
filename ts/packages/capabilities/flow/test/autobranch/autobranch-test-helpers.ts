@@ -13,11 +13,11 @@ export type { CommandResult, PendingWorktreeSnapshot };
 export type UpstreamMode = "contains" | "ahead" | "none" | "failed";
 
 export function ok(stdout = "", stderr = ""): CommandResult & ExecResult {
-	return { code: 0, stdout, stderr, killed: false };
+	return { type: "exited", code: 0, signal: null, stdout, stderr };
 }
 
 export function fail(stderr: string, code = 1): CommandResult & ExecResult {
-	return { code, stdout: "", stderr, killed: false };
+	return { type: "exited", code, signal: null, stdout: "", stderr };
 }
 
 export function eventIndex(events: readonly string[], prefix: string): number {
@@ -30,12 +30,13 @@ export function createFakeBranchAvailability(
 	return {
 		async isBranchNameAvailable(branchName) {
 			const valid = await exec("git", ["check-ref-format", "--branch", branchName]);
-			if (valid.code !== 0) return false;
+			if (!(valid.type === "exited" && valid.signal === null && valid.code === 0)) return false;
 
 			const refsToCheck = [branchHeadRef(branchName), ...branchParentHeadRefs(branchName)];
 			for (const ref of refsToCheck) {
 				const exists = await exec("git", ["show-ref", "--verify", "--quiet", ref]);
-				if (exists.code !== 1) return false;
+				if (!(exists.type === "exited" && exists.signal === null && exists.code === 1))
+					return false;
 			}
 
 			const childRefs = await exec("git", [
@@ -43,7 +44,12 @@ export function createFakeBranchAvailability(
 				"--format=%(refname)",
 				`${branchHeadRef(branchName)}/`,
 			]);
-			return childRefs.code === 0 && childRefs.stdout.trim().length === 0;
+			return (
+				childRefs.type === "exited" &&
+				childRefs.signal === null &&
+				childRefs.code === 0 &&
+				childRefs.stdout.trim().length === 0
+			);
 		},
 	};
 }

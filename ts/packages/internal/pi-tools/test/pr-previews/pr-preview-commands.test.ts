@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@nseng-ai/foundation/exec";
+import type { RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
 
 import prPreviewsExtension, {
 	PR_PREVIEW_CHECKS_COMMAND_NAME,
@@ -54,11 +54,11 @@ class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly calls: ExecCall[] = [];
 	readonly userMessages: string[] = [];
-	private readonly fallbackResult: ExecResult;
-	private readonly results: ExecResult[];
+	private readonly fallbackResult: RawPiExecResult;
+	private readonly results: RawPiExecResult[];
 
 	constructor(
-		result: ExecResult | ExecResult[] = execResult({
+		result: RawPiExecResult | RawPiExecResult[] = execResult({
 			stdout: envelope(previewDownloadData()),
 		}),
 	) {
@@ -72,7 +72,7 @@ class FakePi implements ExtensionAPI {
 
 	on(_event: "session_start" | "agent_end" | "session_shutdown", _handler: unknown): void {}
 
-	async exec(command: string, args: string[]): Promise<ExecResult> {
+	async exec(command: string, args: string[]): Promise<RawPiExecResult> {
 		this.calls.push({ command, args });
 		return this.results.shift() ?? this.fallbackResult;
 	}
@@ -114,12 +114,17 @@ class FakeContext implements ExtensionContext {
 	async waitForIdle(): Promise<void> {}
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+interface RawResultOverrides {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly code?: number;
+}
+
+function execResult(overrides: RawResultOverrides = {}): RawPiExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
 	};
 }
 

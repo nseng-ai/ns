@@ -93,13 +93,19 @@ describe("flow land external-call telemetry classification", () => {
 		).toMatchObject({ rateLimitCost: 1 });
 	});
 
-	test("renames command telemetry killed field to isKilled", () => {
+	test("preserves timeout telemetry in isKilled", () => {
 		const event = commandExternalCallTelemetryEvent({
 			command: "git",
 			args: ["status"],
 			commandDisplay: "git status",
 			elapsedMs: 5,
-			result: { stdout: "", stderr: "", code: 143, killed: true },
+			result: {
+				type: "timed-out",
+				stdout: "",
+				stderr: "",
+				code: 143,
+				signal: "SIGTERM",
+			},
 		});
 
 		expect(event).toMatchObject({

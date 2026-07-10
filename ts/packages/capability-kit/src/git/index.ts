@@ -119,7 +119,7 @@ export class RealGitGateway implements GitGateway {
 	async optionalRepoRoot(params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		const run = await this.runGit(params, ["rev-parse", "--show-toplevel"]);
 		if (!run.ok) return { type: "missing" };
-		if (run.value.result.code !== 0 || run.value.result.killed) return { type: "missing" };
+		if (!commandSucceeded(run.value.result)) return { type: "missing" };
 
 		const root = firstNonEmptyLine(run.value.result.stdout);
 		return root === undefined ? { type: "missing" } : { type: "found", value: root };
@@ -128,7 +128,7 @@ export class RealGitGateway implements GitGateway {
 	async currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult> {
 		const run = await this.runGit(params, ["branch", "--show-current"]);
 		if (!run.ok) return { type: "failure", error: run.error };
-		if (run.value.result.code !== 0 || run.value.result.killed) {
+		if (!commandSucceeded(run.value.result)) {
 			return {
 				type: "failure",
 				error: failure("current-branch-failed", "git branch --show-current failed", run.value),
@@ -143,21 +143,16 @@ export class RealGitGateway implements GitGateway {
 	async isInsideWorkTree(params: GitCwdParams): Promise<GitResult<boolean>> {
 		const run = await this.runGit(params, ["rev-parse", "--is-inside-work-tree"]);
 		if (!run.ok) return run;
-		if (run.value.result.killed) {
-			return error(
-				"work_tree_probe_failed",
-				formatCommandFailure(
-					"git rev-parse --is-inside-work-tree failed",
-					run.value.displayCommand,
-					run.value.result,
-				),
-				run.value.displayCommand,
-			);
-		}
-		if (run.value.result.code === 0) {
+		if (commandSucceeded(run.value.result)) {
 			return { ok: true, value: run.value.result.stdout.trim() === "true" };
 		}
-		if (run.value.result.code === 128) return { ok: true, value: false };
+		if (
+			run.value.result.type === "exited" &&
+			run.value.result.signal === null &&
+			run.value.result.code === 128
+		) {
+			return { ok: true, value: false };
+		}
 		return error(
 			"work_tree_probe_failed",
 			formatCommandFailure(
@@ -171,7 +166,7 @@ export class RealGitGateway implements GitGateway {
 
 	async trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		const run = await this.runGit(params, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
-		if (run.ok && run.value.result.code === 0 && !run.value.result.killed) {
+		if (run.ok && commandSucceeded(run.value.result)) {
 			const ref = firstNonEmptyLine(run.value.result.stdout);
 			if (ref !== undefined) {
 				const candidate = ref.startsWith("origin/") ? ref.slice("origin/".length) : ref;
@@ -190,18 +185,16 @@ export class RealGitGateway implements GitGateway {
 	async originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		const run = await this.runGit(params, ["config", "--get", "remote.origin.url"]);
 		if (!run.ok) return { type: "error", error: run.error };
-		if (run.value.result.killed) {
-			return {
-				type: "error",
-				error: failure(
-					"origin-url-killed",
-					"git config --get remote.origin.url was killed",
-					run.value,
-				),
-			};
+		if (commandSucceeded(run.value.result)) {
+			return { type: "found", value: run.value.result.stdout };
 		}
-		if (run.value.result.code === 0) return { type: "found", value: run.value.result.stdout };
-		if (run.value.result.code === 1) return { type: "missing" };
+		if (
+			run.value.result.type === "exited" &&
+			run.value.result.signal === null &&
+			run.value.result.code === 1
+		) {
+			return { type: "missing" };
+		}
 		return {
 			type: "error",
 			error: failure("origin-url-failed", "git config --get remote.origin.url failed", run.value),
@@ -252,7 +245,7 @@ export class RealGitGateway implements GitGateway {
 	async previousBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		const run = await this.runGit(params, ["rev-parse", "--abbrev-ref", "@{-1}"]);
 		if (!run.ok) return { type: "error", error: run.error };
-		if (run.value.result.code !== 0 || run.value.result.killed) return { type: "missing" };
+		if (!commandSucceeded(run.value.result)) return { type: "missing" };
 
 		const branch = firstNonEmptyLine(run.value.result.stdout);
 		if (branch === undefined || branch === "@{-1}") return { type: "missing" };
@@ -287,7 +280,7 @@ export class RealGitGateway implements GitGateway {
 	async validateBranchRef(params: GitBranchParams): Promise<GitOperationResult> {
 		const run = await this.runGit(params, ["check-ref-format", "--branch", params.branch]);
 		if (!run.ok) return run;
-		if (run.value.result.code !== 0 || run.value.result.killed) {
+		if (!commandSucceeded(run.value.result)) {
 			return {
 				ok: false,
 				error: failure("branch-ref-invalid", "git check-ref-format failed", run.value),
@@ -300,20 +293,15 @@ export class RealGitGateway implements GitGateway {
 		const refName = `refs/heads/${params.branch}`;
 		const run = await this.runGit(params, ["rev-parse", "--verify", refName]);
 		if (!run.ok) return { type: "error", error: run.error };
-		if (run.value.result.killed) {
-			return {
-				type: "error",
-				error: failure(
-					"branch-presence-killed",
-					"git branch existence check was killed",
-					run.value,
-				),
-			};
-		}
-		if (run.value.result.code === 0) {
+		if (commandSucceeded(run.value.result)) {
 			return { type: "present", refName, displayCommand: run.value.displayCommand };
 		}
-		if (run.value.result.code === 1 || isMissingRevisionResult(run.value.result)) {
+		if (
+			(run.value.result.type === "exited" &&
+				run.value.result.signal === null &&
+				run.value.result.code === 1) ||
+			isMissingRevisionResult(run.value.result)
+		) {
 			return { type: "absent", refName };
 		}
 		return {
@@ -325,7 +313,7 @@ export class RealGitGateway implements GitGateway {
 	async createBranchAtHead(params: GitBranchParams): Promise<GitOperationResult> {
 		const run = await this.runGit(params, ["branch", params.branch, "HEAD"]);
 		if (!run.ok) return run;
-		if (run.value.result.code !== 0 || run.value.result.killed) {
+		if (!commandSucceeded(run.value.result)) {
 			return { ok: false, error: failure("branch-create-failed", "git branch failed", run.value) };
 		}
 		return { ok: true };
@@ -366,18 +354,7 @@ export class RealGitGateway implements GitGateway {
 		for (const ref of params.refs) {
 			const run = await this.runGit(params, ["rev-parse", `${ref}:${params.relativePath}`]);
 			if (!run.ok) return run;
-			if (run.value.result.killed) {
-				return error(
-					"git_tree_oid_failed",
-					formatCommandFailure(
-						"git tree lookup for path failed",
-						run.value.displayCommand,
-						run.value.result,
-					),
-					run.value.displayCommand,
-				);
-			}
-			if (run.value.result.code === 0) {
+			if (commandSucceeded(run.value.result)) {
 				values[ref] = firstNonEmptyLine(run.value.result.stdout) ?? null;
 				continue;
 			}
@@ -453,8 +430,10 @@ export class RealGitGateway implements GitGateway {
 		const run = await this.runGit(params, ["diff", "--cached", "--quiet", "--exit-code"]);
 		if (!run.ok) return run;
 		const { result, displayCommand } = run.value;
-		if (!result.killed && result.code === 0) return { ok: true, value: false };
-		if (!result.killed && result.code === 1) return { ok: true, value: true };
+		if (result.type === "exited" && result.signal === null && result.code === 0)
+			return { ok: true, value: false };
+		if (result.type === "exited" && result.signal === null && result.code === 1)
+			return { ok: true, value: true };
 		return error(
 			"git_staged_probe_failed",
 			formatCommandFailure("git diff --cached --quiet --exit-code failed", displayCommand, result),
@@ -563,7 +542,12 @@ function execOptions(params: GitCwdParams, timeout: number): ExecOptions {
 }
 
 function isMissingRevisionResult(result: ExecResult): boolean {
-	return result.code === 128 && outputIncludesAnyPhrase(result, ["Needed a single revision"]);
+	return (
+		result.type === "exited" &&
+		result.signal === null &&
+		result.code === 128 &&
+		outputIncludesAnyPhrase(result, ["Needed a single revision"])
+	);
 }
 
 function isMissingTreeResult(result: ExecResult): boolean {

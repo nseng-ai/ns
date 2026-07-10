@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	formatCommand,
 	formatCommandFailure,
-	formatCommandStartupFailure,
+	formatCommandSpawnFailure,
 } from "@nseng-ai/foundation/exec";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 
@@ -46,14 +46,20 @@ describe("pi extension runtime helpers", () => {
 	});
 
 	test("formats exec failures with the canonical command dialect", () => {
-		const result = { stdout: "", stderr: "boom", code: 2, killed: false };
+		const result = {
+			type: "exited" as const,
+			stdout: "",
+			stderr: "boom",
+			code: 2,
+			signal: null,
+		};
 		expect(
 			formatCommandFailure("objective command failed", "objective list", result).startsWith(
 				"objective command failed (exit code 2).",
 			),
 		).toBe(true);
 		expect(
-			formatCommandStartupFailure(
+			formatCommandSpawnFailure(
 				"objective command failed",
 				"objective list",
 				new Error("missing"),

@@ -1,16 +1,11 @@
+import type { ExecResult } from "@nseng-ai/foundation/exec";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+
+export type { ExecResult } from "@nseng-ai/foundation/exec";
 
 import type { ClinkrFormat, RenderCapabilities } from "./command.ts";
 import type { NsCommandIo, NsProgress } from "./services.ts";
 import type { TextGenerator } from "./text-generation.ts";
-
-export interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed: boolean;
-	startupError?: string;
-}
 
 export interface NsExecOptions {
 	timeoutMs?: number;

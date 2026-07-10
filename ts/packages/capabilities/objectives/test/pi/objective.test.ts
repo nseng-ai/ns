@@ -19,6 +19,8 @@ import objectiveExtension, {
 	type ObjectiveExtensionAPI,
 	type NotifyLevel,
 } from "../../src/pi/extension.ts";
+
+type ExecResultFixture = Partial<ExecResult>;
 import type { AgentEndContext, ExecOptions, SessionStartContext } from "@nseng-ai/pi/runtime/types";
 
 const ROOT = "/repo";
@@ -68,7 +70,7 @@ interface ExecCall {
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: ExecResultFixture | undefined;
 	error?: unknown;
 }
 
@@ -200,7 +202,7 @@ function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function execResult(overrides: ExecResultFixture = {}): ExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
@@ -209,7 +211,7 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
+function step(command: string, args: string[], result?: ExecResultFixture): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -476,14 +478,14 @@ function candidateStep(slugs: string[]): ScriptedExec {
 	});
 }
 
-function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
+function diffStep(stdout: string, result: ExecResultFixture = {}): ScriptedExec {
 	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".ns/objectives"], {
 		stdout,
 		...result,
 	});
 }
 
-function statusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
+function statusStep(stdout: string, result: ExecResultFixture = {}): ScriptedExec {
 	return step("git", ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"], {
 		stdout,
 		...result,
@@ -679,16 +681,20 @@ describe("ns:objective:autorun command", () => {
 
 			result.pi.assertDone();
 			expectNoObjectiveListExec(result);
-			expect(result.pi.execCalls[0]).toEqual({
+			expect(result.pi.execCalls[0]).toMatchObject({
 				command: "git",
 				args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".ns/objectives"],
-				options: { cwd: ROOT, timeout: 30_000 },
+				options: { cwd: ROOT },
 			});
-			expect(result.pi.execCalls[1]).toEqual({
+			expect(result.pi.execCalls[0]?.options?.signal).toBeInstanceOf(AbortSignal);
+			expect(result.pi.execCalls[0]?.options?.timeout).toBeUndefined();
+			expect(result.pi.execCalls[1]).toMatchObject({
 				command: "git",
 				args: ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"],
-				options: { cwd: ROOT, timeout: 30_000 },
+				options: { cwd: ROOT },
 			});
+			expect(result.pi.execCalls[1]?.options?.signal).toBeInstanceOf(AbortSignal);
+			expect(result.pi.execCalls[1]?.options?.timeout).toBeUndefined();
 			expect(result.waitForIdleCalls()).toBe(2);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
 		});
@@ -1199,11 +1205,13 @@ describe("objective command shared selection policy", () => {
 		]);
 
 		pi.assertDone();
-		expect(pi.execCalls[0]).toEqual({
+		expect(pi.execCalls[0]).toMatchObject({
 			command: "ns",
 			args: ["objective", "exec", "list-candidates", "--format", "json"],
-			options: { cwd: ROOT, timeout: 30_000 },
+			options: { cwd: ROOT },
 		});
+		expect(pi.execCalls[0]?.options?.signal).toBeInstanceOf(AbortSignal);
+		expect(pi.execCalls[0]?.options?.timeout).toBeUndefined();
 		expect(items).toEqual([
 			{ value: "alpha", label: "alpha", description: "open" },
 			{ value: "bravo", label: "bravo", description: "open" },

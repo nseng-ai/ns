@@ -359,7 +359,7 @@ export default defineExtension({
 				progress: noopNsProgress,
 				renderCapabilities: { canEmitAnsi: false },
 				async exec() {
-					return { code: 0, stdout: "", stderr: "", killed: false };
+					return { type: "exited", code: 0, signal: null, stdout: "", stderr: "" };
 				},
 				textGenerator: {
 					async generateText() {

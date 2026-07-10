@@ -1,4 +1,4 @@
-import type { ExecResult } from "@nseng-ai/foundation/command";
+import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
 import { z } from "zod";
 
 import { formatCommandOutput, notifyCommandUi } from "@nseng-ai/pi/commands/helpers";
@@ -7,6 +7,7 @@ import {
 	sendCommandProgressOrNotify,
 } from "@nseng-ai/pi/commands/ack";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 
 import { type FlowCommandContext, type FlowRegisteredCommand } from "./command-support.ts";
 import { type FlowGraphiteCommandHost, runFlowGraphiteCommand } from "./graphite-command.ts";
@@ -76,11 +77,11 @@ export async function runStackSquash(
 	pi: StackSquashExtensionAPI,
 	ctx: FlowCommandContext,
 ): Promise<void> {
-	const status = await pi.exec("git", ["status", "--porcelain=v1"], {
+	const status = await createPiCommandExecApi(pi).exec("git", ["status", "--porcelain=v1"], {
 		cwd: ctx.cwd,
 		timeout: GIT_STATUS_TIMEOUT_MS,
 	});
-	if (status.code !== 0 || status.killed) {
+	if (!commandSucceeded(status)) {
 		notifyCommandUi(
 			ctx,
 			`Cannot inspect worktree state; not starting stack squash.\n\n${formatCommandOutput(status)}`,
@@ -118,7 +119,7 @@ export async function runStackSquash(
 	const processed: ProcessedBranch[] = [];
 	for (const branch of branchesFromTip) {
 		const checkout = await runGt(pi, ctx, ["checkout", branch, "--no-interactive"]);
-		if (checkout.code !== 0 || checkout.killed) {
+		if (!commandSucceeded(checkout)) {
 			notifyCommandUi(
 				ctx,
 				formatFailureMessage({ label: `gt checkout failed for ${branch}`, result: checkout }),
@@ -133,8 +134,12 @@ export async function runStackSquash(
 			message: `Squashing ${branch}.`,
 		});
 		const squash = await runGt(pi, ctx, ["squash", "--no-edit", "--no-interactive"]);
-		if (squash.code !== 0 || squash.killed) {
-			if (!squash.killed && isAlreadyOneCommitSquashResult(squash)) {
+		if (!commandSucceeded(squash)) {
+			if (
+				squash.type === "exited" &&
+				squash.signal === null &&
+				isAlreadyOneCommitSquashResult(squash)
+			) {
 				processed.push({ branch, state: "already_one_commit" });
 			} else {
 				notifyCommandUi(
@@ -151,7 +156,7 @@ export async function runStackSquash(
 
 	if (tipBranch !== null) {
 		const restore = await runGt(pi, ctx, ["checkout", tipBranch, "--no-interactive"]);
-		if (restore.code !== 0 || restore.killed) {
+		if (!commandSucceeded(restore)) {
 			notifyCommandUi(
 				ctx,
 				formatFailureMessage({
@@ -171,7 +176,7 @@ async function loadDownstackBranches(
 	pi: StackSquashExtensionAPI,
 	ctx: FlowCommandContext,
 ): Promise<{ type: "ok"; branches: string[] } | { type: "failure"; message: string }> {
-	const result = await pi.exec(
+	const result = await createPiCommandExecApi(pi).exec(
 		"ns",
 		["slot", "gt", "exec", "stack-branches", "--downstack", "--format", "json"],
 		{
@@ -179,7 +184,7 @@ async function loadDownstackBranches(
 			timeout: SLOT_STACK_BRANCHES_TIMEOUT_MS,
 		},
 	);
-	if (result.code !== 0 || result.killed) {
+	if (!commandSucceeded(result)) {
 		return {
 			type: "failure",
 			message: `Could not read Graphite stack branches; not starting stack squash.\n\n${formatCommandOutput(result)}`,

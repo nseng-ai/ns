@@ -52,12 +52,12 @@ describe("cmux Objective sidebar", () => {
 			{
 				command: "ns",
 				args: ["objective", "exec", "read-objective", slug, "--format", "json"],
-				options: { cwd: repoRoot, timeout: 30_000 },
+				options: { cwd: repoRoot, signal: expect.any(AbortSignal) },
 			},
 			{
 				command: "git",
 				args: ["branch", "--show-current"],
-				options: { cwd: repoRoot, timeout: 30_000 },
+				options: { cwd: repoRoot, signal: expect.any(AbortSignal) },
 			},
 			{
 				command: "ccc",
@@ -71,7 +71,7 @@ describe("cmux Objective sidebar", () => {
 					"--format",
 					"json",
 				],
-				options: { cwd: repoRoot, timeout: 30_000 },
+				options: { cwd: repoRoot, signal: expect.any(AbortSignal) },
 			},
 		]);
 		expect(pi.sentUserMessages).toEqual([]);

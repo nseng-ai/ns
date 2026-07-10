@@ -103,14 +103,14 @@ const currentPrVerificationFailureCatalog = defineFailureCatalog<
 	},
 	startup_error: {
 		message: (failure) =>
-			`gt submit exited 0, but current PR verification could not start: ${failure.output.startupError ?? "unknown startup error"}`,
+			`gt submit exited 0, but current PR verification could not start: ${failure.output.type === "spawn-failed" ? failure.output.error : "unknown startup error"}`,
 	},
 	timeout: {
 		message: () => "gt submit exited 0, but current PR verification timed out after 60s.",
 	},
 	command_failed: {
 		message: (failure) =>
-			`gt submit exited 0, but current PR verification failed with exit code ${failure.output.exitCode}.`,
+			`gt submit exited 0, but current PR verification failed: ${formatVerificationTermination(failure.output)}.`,
 	},
 });
 
@@ -123,6 +123,12 @@ export function formatSubmitPreflightFailureCause(
 
 export function formatSubmitSemanticFailureCause(failure: SubmitSemanticFailureCause): string {
 	return formatFailureCatalogEntry(submitSemanticFailureCatalog, failure, undefined);
+}
+
+function formatVerificationTermination(output: SubmitCommandOutput): string {
+	if (output.type === "exited" && output.signal === null) return `exit code ${output.code}`;
+	if (output.type === "exited") return `signal ${output.signal}`;
+	return output.type;
 }
 
 export function formatCurrentPrVerificationFailureCause(

@@ -93,7 +93,8 @@ function fakeApi(): NsExtensionApi {
 				stdout: "",
 				stderr: "",
 				code: 0,
-				killed: false,
+				type: "exited",
+				signal: null,
 			};
 		},
 	};

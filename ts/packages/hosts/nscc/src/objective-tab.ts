@@ -1,3 +1,4 @@
+import { commandSucceeded } from "@nseng-ai/foundation/exec";
 import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
 import {
 	parseObjectiveListData,
@@ -45,7 +46,7 @@ async function loadModel(deps: TabModuleDeps): Promise<ObjectiveList> {
 		cwd: deps.cwd,
 		timeout: COMMAND_TIMEOUT_MS,
 	});
-	if (result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		throw new Error(formatInlineCommandFailure("ns objective list", result));
 	}
 	const parsed = parseObjectiveListStdout(result.stdout);

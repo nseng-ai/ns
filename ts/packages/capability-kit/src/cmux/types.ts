@@ -1,6 +1,15 @@
-import type { ExecResult } from "@nseng-ai/foundation/exec";
+export interface ExecResult {
+	stdout: string;
+	stderr: string;
+	code: number;
+	killed: boolean;
+}
 
-export type { ExecResult } from "@nseng-ai/foundation/exec";
+export interface ExecOptions {
+	cwd?: string;
+	timeout?: number;
+	signal?: AbortSignal;
+}
 
 export type NotifyLevel = "info" | "warning" | "error" | "success";
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
@@ -91,12 +100,6 @@ export interface CustomMessage {
 	content: string | Array<{ type: "text"; text: string }>;
 	display: boolean;
 	details?: unknown;
-}
-
-export interface ExecOptions {
-	cwd?: string;
-	timeout?: number;
-	signal?: AbortSignal;
 }
 
 export interface SkillCommandInfoLike {

@@ -25,6 +25,7 @@ import {
 } from "./command-constants.ts";
 import { setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { CommandContext, ExtensionAPI, ToolDefinition } from "./runtime-types.ts";
 
 export type { HandoffTabLaunchResult };
@@ -56,20 +57,21 @@ export function buildHandoffTabPrompt(
 
 export async function handleHandoffTabCommand(options: {
 	pi: ExtensionAPI;
+	commands: CommandExecApi;
 	rawArgs: string;
 	ctx: CommandContext;
 	git: GitGateway;
 }): Promise<void> {
-	const { pi, rawArgs, ctx, git } = options;
+	const { pi, commands, rawArgs, ctx, git } = options;
 	await runHandoffCreateCommand(pi, rawArgs, ctx, {
 		git,
 		statusKey: HANDOFF_TAB_STATUS_KEY,
 		promptCopy: HANDOFF_TAB_PROMPT_COPY,
 		startMessages: HANDOFF_TAB_START_MESSAGES,
-		async preflight({ pi, ctx }) {
+		async preflight({ ctx }) {
 			setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "checking cmux context…");
 			try {
-				const caller = await identifyCmuxCaller(pi, ctx.cwd);
+				const caller = await identifyCmuxCaller(commands, ctx.cwd);
 				if (caller.type === "failed") {
 					return { type: "failed", message: caller.message };
 				}
@@ -81,7 +83,7 @@ export async function handleHandoffTabCommand(options: {
 	});
 }
 
-export function buildDeriveHandoffSlugTool(pi: ExtensionAPI): ToolDefinition {
+export function buildDeriveHandoffSlugTool(commands: CommandExecApi): ToolDefinition {
 	return {
 		name: DERIVE_HANDOFF_SLUG_TOOL_NAME,
 		label: "Derive Handoff Slug",
@@ -114,7 +116,7 @@ export function buildDeriveHandoffSlugTool(pi: ExtensionAPI): ToolDefinition {
 			});
 			setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "deriving handoff slug…");
 			try {
-				const evidence = await deriveHandoffContentSlug(pi, {
+				const evidence = await deriveHandoffContentSlug(commands, {
 					content: content.content,
 					cwd: ctx.cwd,
 					...optionalEntry("signal", signal),
@@ -139,8 +141,11 @@ export function buildDeriveHandoffSlugTool(pi: ExtensionAPI): ToolDefinition {
 	};
 }
 
-export function buildHandoffTabLaunchTool(pi: ExtensionAPI): ToolDefinition {
-	return buildHandoffLaunchTool(pi, {
+export function buildHandoffTabLaunchTool(
+	pi: ExtensionAPI,
+	commands: CommandExecApi,
+): ToolDefinition {
+	return buildHandoffLaunchTool(commands, {
 		name: HANDOFF_TAB_LAUNCH_TOOL_NAME,
 		label: "Launch Handoff Tab",
 		description:
@@ -161,7 +166,12 @@ export function buildHandoffTabLaunchTool(pi: ExtensionAPI): ToolDefinition {
 		},
 		async launch({ params, ctx, signal, onUpdate }) {
 			const launched = await launchHandoffTab({
-				host: pi,
+				host: {
+					exec: commands.exec,
+					...(pi.getThinkingLevel === undefined
+						? {}
+						: { getThinkingLevel: pi.getThinkingLevel.bind(pi) }),
+				},
 				cwd: ctx.cwd,
 				model: ctx.model,
 				hasUI: ctx.hasUI,

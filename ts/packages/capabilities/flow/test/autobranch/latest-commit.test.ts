@@ -58,7 +58,7 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 			return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
 		}
 		if (command === "git" && args[0] === "merge-base") {
-			return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
+			return upstreamMode === "contains" ? ok() : fail("");
 		}
 		if (command === "gt" && args[0] === "children") {
 			return options.shouldChildrenFail ? fail("gt children failed") : ok(childBranches.join("\n"));
@@ -80,11 +80,11 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 		}
 		if (command === "git" && args[0] === "show-ref") {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-			return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
+			return existingBranches.has(branch) ? ok() : fail("");
 		}
 		if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-			return existingBranches.has(branch) ? ok(`${branch}\n`) : { code: 1, stdout: "", stderr: "" };
+			return existingBranches.has(branch) ? ok(`${branch}\n`) : fail("");
 		}
 		return ok();
 	};
@@ -153,18 +153,18 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 			return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
 		}
 		if (command === "git" && args[0] === "merge-base") {
-			return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
+			return upstreamMode === "contains" ? ok() : fail("");
 		}
 		if (command === "git" && args[0] === "check-ref-format") {
 			return ok();
 		}
 		if (command === "git" && args[0] === "show-ref") {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-			return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
+			return existingBranches.has(branch) ? ok() : fail("");
 		}
 		if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-			return existingBranches.has(branch) ? ok(`${branch}\n`) : { code: 1, stdout: "", stderr: "" };
+			return existingBranches.has(branch) ? ok(`${branch}\n`) : fail("");
 		}
 		if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
 			return ok(`${currentBranch}\n`);

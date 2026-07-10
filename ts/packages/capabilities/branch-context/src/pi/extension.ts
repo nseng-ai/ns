@@ -13,6 +13,7 @@ import {
 	registerBranchContextCommands,
 } from "./from-plan-commands.ts";
 import type { BranchContextExtensionOptions, ExtensionAPI } from "./host-types.ts";
+import { createBranchContextPiCommandApi } from "./pi-command-api.ts";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
 export const branchContextExtensionParity = definePiSurfaceParity([
@@ -149,6 +150,7 @@ export default function registerBranchContextExtension(
 	pi: ExtensionAPI,
 	options: BranchContextExtensionOptions = {},
 ): void {
-	registerEnrichedPlanCommandsAndTools(pi, options);
-	registerBranchContextCommands(pi, options);
+	const commandPi = createBranchContextPiCommandApi(pi);
+	registerEnrichedPlanCommandsAndTools(commandPi, options);
+	registerBranchContextCommands(commandPi, options);
 }

@@ -8,11 +8,11 @@ import {
 import type { GitGateway, GitOptionalResult } from "@nseng-ai/capability-kit/git";
 
 function ok(stdout = "", stderr = ""): WorktreeCommandResult {
-	return { code: 0, stdout, stderr };
+	return { type: "exited", code: 0, signal: null, stdout, stderr };
 }
 
 function fail(stderr: string): WorktreeCommandResult {
-	return { code: 1, stdout: "", stderr };
+	return { type: "exited", code: 1, signal: null, stdout: "", stderr };
 }
 
 function commandKey(args: string[]): string {
@@ -106,7 +106,13 @@ describe("loadPendingWorktreeSnapshot", () => {
 			error: {
 				kind: "not_git_repo",
 				message: "Not inside a git repository.",
-				result: { code: 128, stdout: "", stderr: "fatal: not a git repository" },
+				result: {
+					type: "exited",
+					code: 128,
+					signal: null,
+					stdout: "",
+					stderr: "fatal: not a git repository",
+				},
 			},
 		});
 		expect(harness.rootCalls).toEqual(["/repo"]);
@@ -130,7 +136,13 @@ describe("loadPendingWorktreeSnapshot", () => {
 			error: {
 				kind: "not_git_repo",
 				message: "Not inside a git repository.",
-				result: { code: 128, stdout: "", stderr: "git rev-parse failed" },
+				result: {
+					type: "exited",
+					code: 128,
+					signal: null,
+					stdout: "",
+					stderr: "git rev-parse failed",
+				},
 			},
 		});
 		expect(harness.rootCalls).toEqual(["/repo"]);
@@ -217,19 +229,30 @@ describe("formatPendingWorktreeCommandDetails", () => {
 	test("uses stderr before stdout and marks killed commands", () => {
 		expect(
 			formatPendingWorktreeCommandDetails({
+				type: "exited",
 				code: 2,
+				signal: null,
 				stdout: "stdout detail",
 				stderr: "stderr detail",
 			}),
-		).toBe("exit 2: stderr detail");
+		).toBe("exit code 2: stderr detail");
 		expect(
 			formatPendingWorktreeCommandDetails({
+				type: "timed-out",
 				code: 124,
+				signal: null,
 				stdout: "stdout detail",
 				stderr: "",
-				killed: true,
 			}),
-		).toBe("exit 124 (killed or timed out): stdout detail");
-		expect(formatPendingWorktreeCommandDetails({ code: 1, stdout: "", stderr: "" })).toBe("exit 1");
+		).toBe("timed out: stdout detail");
+		expect(
+			formatPendingWorktreeCommandDetails({
+				type: "exited",
+				code: 1,
+				signal: null,
+				stdout: "",
+				stderr: "",
+			}),
+		).toBe("exit code 1");
 	});
 });

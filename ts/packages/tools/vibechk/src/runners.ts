@@ -72,7 +72,7 @@ export class ClaudeRunner implements Runner {
 		const wallTimeSeconds = Math.round((performance.now() - started) / 10) / 100;
 
 		return {
-			exitCode: result.code,
+			exitCode: runnerExitCode(result),
 			transcript: "",
 			metrics: {
 				wallTimeSeconds,
@@ -123,4 +123,23 @@ export class ClaudeRunner implements Runner {
 
 export function buildProductionRunnerRegistry(): RunnerRegistry {
 	return new RunnerRegistry([new ClaudeRunner()]);
+}
+
+function runnerExitCode(result: ExecResult): number {
+	switch (result.type) {
+		case "spawn-failed":
+			throw new VibechkError(`Runner 'claude' failed to start: ${result.error}`);
+		case "cancelled":
+			throw new VibechkError("Runner 'claude' was cancelled.");
+		case "timed-out":
+			throw new VibechkError("Runner 'claude' timed out.");
+		case "exited":
+			if (result.signal !== null) {
+				throw new VibechkError(`Runner 'claude' was terminated by signal ${result.signal}.`);
+			}
+			if (result.code === null) {
+				throw new VibechkError("Runner 'claude' exited without an exit code.");
+			}
+			return result.code;
+	}
 }

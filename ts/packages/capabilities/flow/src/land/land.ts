@@ -1,6 +1,6 @@
 import { runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import type { NsCommandIo, NsConfirmOptions } from "@nseng-ai/kernel/sdk";
-import type { ExecOutputListener } from "@nseng-ai/foundation/command";
+import type { CommandExecApi, ExecOutputListener, ExecResult } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
 import { createCliCommandIo } from "@nseng-ai/kernel/command-io";
@@ -31,10 +31,12 @@ import type {
 	AutocompleteItem,
 	CustomMessage,
 	LandResultKind,
+	LandStackExtensionAPI,
 	MessageRenderer,
 	PrintAwareLandStackCommandContext,
 } from "./stack/types.ts";
 
+export type { ExecResult } from "@nseng-ai/foundation/command";
 export type { ExtensionMode, NotifyLevel, PrintOutput } from "./stack/types.ts";
 export type {
 	FlowLandExternalCallTelemetryEvent,
@@ -43,13 +45,6 @@ export type {
 };
 export type { ValidPullRequestView } from "../land/isolated-fast-path.ts";
 export { isIsolatedFastPath, parsePullRequestView } from "../land/isolated-fast-path.ts";
-
-export interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed?: boolean;
-}
 
 export type LandCommandContext = PrintAwareLandStackCommandContext;
 
@@ -67,22 +62,17 @@ export interface LandExtensionAPI {
 		message: CustomMessage,
 		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
 	): void;
-	exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number },
-	): Promise<ExecResult>;
 }
 
 const COMMAND_NAME = "ns:flow:land";
-export function registerLandCommand(pi: LandExtensionAPI): void {
+export function registerLandCommand(pi: LandExtensionAPI, commands: CommandExecApi): void {
 	registerLandStackRenderer(pi);
 
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Land the current PR or Graphite stack into trunk",
 		getArgumentCompletions: landArgumentCompletions,
 		handler: async (rawArgs, ctx) => {
-			await runLandCommand(pi, rawArgs, ctx);
+			await runLandCommand(commands, rawArgs, ctx);
 		},
 	});
 }
@@ -96,7 +86,7 @@ export type LandCliConfirmPrompt = (
 type RunLandCommandOptions = FlowLandObservabilityChannels;
 
 async function runLandCommand(
-	pi: LandExtensionAPI,
+	pi: LandStackExtensionAPI,
 	rawArgs: string,
 	ctx: LandCommandContext,
 	options: RunLandCommandOptions = {},
@@ -164,19 +154,7 @@ export interface LandCliInput {
 }
 
 export async function runLandCli(input: LandCliInput): Promise<number> {
-	let didRegister = false;
-	const api: LandExtensionAPI = {
-		registerCommand() {
-			didRegister = true;
-		},
-		exec: input.exec,
-	};
-	registerLandCommand(api);
-	if (!didRegister) {
-		input.stderr("Land command registration failed.\n");
-		return 1;
-	}
-
+	const api: LandStackExtensionAPI = { exec: input.exec };
 	const confirm = input.confirm;
 	const caps = input.caps;
 	const progressIo = input.progressIo ?? createCliCommandIo(input);

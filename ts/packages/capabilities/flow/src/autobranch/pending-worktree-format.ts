@@ -1,10 +1,8 @@
-import {
-	formatPendingWorktreeCommandDetails,
-	type PendingWorktreeError,
-} from "@nseng-ai/capability-kit/pending-worktree";
+import type { PendingWorktreeError } from "@nseng-ai/capability-kit/pending-worktree";
+import { formatAutobranchCommandDetails } from "./shared.ts";
 
 export function formatPendingWorktreeError(error: PendingWorktreeError): string {
-	const details = formatPendingWorktreeCommandDetails(error.result);
+	const details = formatAutobranchCommandDetails(error.result);
 	if (error.kind === "not_git_repo") {
 		return `Not inside a git repository.\n${details}`;
 	}

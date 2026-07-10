@@ -1,4 +1,4 @@
-import { formatCommand } from "@nseng-ai/foundation/command";
+import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS,
@@ -147,7 +147,7 @@ export function createLandContext(
 					cwd: repoRoot,
 					timeoutMs: GH_MERGE_TIMEOUT_MS,
 				});
-				if (result.code === 0) {
+				if (commandSucceeded(result)) {
 					return landSuccess({ stdout: result.stdout, stderr: result.stderr });
 				}
 
@@ -206,7 +206,7 @@ async function refreshBranchFromRemote(options: {
 		cwd: options.repoRoot,
 		timeoutMs: GT_MUTATION_TIMEOUT_MS,
 	});
-	if (result.result.code === 0) return { type: "success", result: result.result };
+	if (commandSucceeded(result.result)) return { type: "success", result: result.result };
 	if (result.checkoutConflict !== undefined) {
 		return {
 			type: "checkout-conflict",
@@ -261,7 +261,7 @@ async function runGraphiteMutation(options: {
 		cwd: options.repoRoot,
 		timeoutMs: GT_MUTATION_TIMEOUT_MS,
 	});
-	if (result.code === 0) return { type: "success", result };
+	if (commandSucceeded(result)) return { type: "success", result };
 	return {
 		type: "failure",
 		commandDisplay: formatGraphiteOperation(options.operation),
@@ -317,7 +317,7 @@ async function prepareGraphiteMutation(
 		cwd: options.repoRoot,
 		timeoutMs: GT_MUTATION_TIMEOUT_MS,
 	});
-	if (result.code === 0) return landCompleted();
+	if (commandSucceeded(result)) return landCompleted();
 
 	const commandDisplay = formatGraphiteOperation(options.operation);
 	return landOutcomeFailure({
@@ -342,7 +342,7 @@ async function freeSlots(
 		cwd: options.repoRoot,
 		timeoutMs: SLOT_TIMEOUT_MS,
 	});
-	if (result.code === 0) return landSuccess(options.slots.map(copyManagedSlotWorktree));
+	if (commandSucceeded(result)) return landSuccess(options.slots.map(copyManagedSlotWorktree));
 
 	return landFailure({
 		type: "boundary",
@@ -376,7 +376,7 @@ async function loadWorkingTreeStatus(
 		cwd: repoRoot,
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
-	if (status.code !== 0) {
+	if (!commandSucceeded(status)) {
 		return landBoundaryFailureResult("git", "preflight", `Could not inspect working tree status.`);
 	}
 	if (status.stdout.trim().length > 0) {
@@ -532,7 +532,7 @@ async function writeBackupSnapshotRefs(
 		cwd: options.repoRoot,
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
-	if (fetched.code === 0) return undefined;
+	if (commandSucceeded(fetched)) return undefined;
 
 	const firstBranch = options.branches[0] ?? "<none>";
 	const commandDisplay = formatCommand("git", args);
@@ -564,7 +564,7 @@ async function rotateBackupRefsToPrevious(
 		cwd: options.repoRoot,
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
-	if (rotated.code === 0) return undefined;
+	if (commandSucceeded(rotated)) return undefined;
 
 	const commandDisplay = formatCommand("git", args);
 	return {
@@ -593,7 +593,7 @@ async function pruneBackupNamespace(
 		cwd: options.repoRoot,
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
-	if (refs.code !== 0) {
+	if (!commandSucceeded(refs)) {
 		const commandDisplay = formatCommand("git", listArgs);
 		return {
 			type: "boundary",
@@ -616,7 +616,7 @@ async function pruneBackupNamespace(
 			cwd: options.repoRoot,
 			timeoutMs: GIT_TIMEOUT_MS,
 		});
-		if (deleted.code !== 0) {
+		if (!commandSucceeded(deleted)) {
 			const commandDisplay = formatCommand("git", deleteArgs);
 			return {
 				type: "boundary",
@@ -648,7 +648,7 @@ async function inspectBranchContainsParent(
 		cwd: options.repoRoot,
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
-	if (result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return failure(
 			landStackFailure(
 				`Could not inspect whether ${options.branch} contains parent ${options.parent}.`,

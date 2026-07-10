@@ -1,4 +1,4 @@
-import { formatCommand } from "@nseng-ai/foundation/command";
+import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 import { exec, formatCommandDetails } from "./command-exec.ts";
@@ -133,7 +133,7 @@ async function execAndParseJson<T>(request: GhJsonRequest<T>): Promise<LandStack
 		cwd: request.repoRoot,
 		timeoutMs: GH_TIMEOUT_MS,
 	});
-	if (result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return failure(
 			landStackFailure(
 				`${request.execFailureMessage}\n${formatCommandDetails(result, formatCommand("gh", args))}`,

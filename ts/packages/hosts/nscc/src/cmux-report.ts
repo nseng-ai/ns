@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/exec";
 import {
 	formatInlineCommandFailure,
 	runRealCommand,
@@ -29,9 +30,12 @@ export const nsccCmuxReportFailureDataSchema = z.strictObject({
 		.strictObject({
 			command: z.string(),
 			args: z.array(z.string()),
-			exitCode: z.number().int(),
+			exitCode: z.number().int().nullable(),
 			stdout: z.string(),
 			stderr: z.string(),
+			termination: z.enum(["exited", "spawn-failed", "cancelled", "timed-out"]),
+			signal: z.string().nullable().optional(),
+			error: z.string().optional(),
 		})
 		.nullable(),
 });
@@ -63,9 +67,12 @@ export type NsccCmuxReportFailureCode =
 export interface NsccCmuxReportCommandFailure {
 	readonly command: string;
 	readonly args: readonly string[];
-	readonly exitCode: number;
+	readonly exitCode: number | null;
 	readonly stdout: string;
 	readonly stderr: string;
+	readonly termination: ExecResult["type"];
+	readonly signal?: string | null;
+	readonly error?: string;
 }
 
 export interface NsccCmuxReportFailureData {
@@ -115,7 +122,7 @@ export async function runNsccCmuxReport(
 		cwd,
 		timeout: COMMAND_TIMEOUT_MS,
 	});
-	if (worktreeResult.code !== 0) {
+	if (!commandSucceeded(worktreeResult)) {
 		return {
 			type: "failed",
 			code: "not-git-worktree",
@@ -137,7 +144,7 @@ export async function runNsccCmuxReport(
 		cwd,
 		timeout: COMMAND_TIMEOUT_MS,
 	});
-	if (branchResult.code !== 0) {
+	if (!commandSucceeded(branchResult)) {
 		return {
 			type: "failed",
 			code: "git-branch-failed",
@@ -160,7 +167,7 @@ export async function runNsccCmuxReport(
 		cwd: worktreePath,
 		timeout: COMMAND_TIMEOUT_MS,
 	});
-	if (cmuxResult.code !== 0) {
+	if (!commandSucceeded(cmuxResult)) {
 		return {
 			type: "failed",
 			code: "cmux-resume-set-failed",
@@ -236,15 +243,38 @@ export function formatNsccCmuxReportHuman(
 function commandFailure(
 	command: string,
 	args: readonly string[],
-	result: { readonly code: number; readonly stdout: string; readonly stderr: string },
+	result: ExecResult,
 ): NsccCmuxReportCommandFailure {
-	return {
+	const base = {
 		command,
 		args: [...args],
-		exitCode: result.code,
 		stdout: result.stdout,
 		stderr: result.stderr,
 	};
+	switch (result.type) {
+		case "spawn-failed":
+			return {
+				...base,
+				exitCode: null,
+				termination: "spawn-failed",
+				error: result.error,
+			};
+		case "cancelled":
+		case "timed-out":
+			return {
+				...base,
+				exitCode: result.code,
+				termination: result.type,
+				signal: result.signal,
+			};
+		case "exited":
+			return {
+				...base,
+				exitCode: result.code,
+				termination: "exited",
+				signal: result.signal,
+			};
+	}
 }
 
 function nonEmptyString(value: string | undefined): string | undefined {

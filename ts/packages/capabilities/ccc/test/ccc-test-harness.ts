@@ -20,6 +20,8 @@ import type {
 	SessionStartContext,
 	ThinkingLevel,
 } from "@nseng-ai/capability-kit/cmux/types";
+
+type ExecResultFixture = Partial<ExecResult>;
 import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
@@ -65,7 +67,7 @@ export interface ExecCall {
 export interface ScriptedExec {
 	command: string;
 	args?: string[];
-	result?: Partial<ExecResult>;
+	result?: ExecResultFixture;
 	error?: unknown;
 }
 
@@ -376,7 +378,7 @@ function expectedArgsMismatch(
 	return !sameArgs(expectedArgs, actualArgs);
 }
 
-export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+export function execResult(overrides: ExecResultFixture = {}): ExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
@@ -388,7 +390,7 @@ export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 export function step(
 	command: string,
 	args: string[] | undefined,
-	result?: Partial<ExecResult>,
+	result?: ExecResultFixture,
 ): ScriptedExec {
 	return {
 		command,
@@ -428,17 +430,14 @@ export function objectiveReadStep(slug: string): ScriptedExec {
 	});
 }
 
-export function objectiveDiffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
+export function objectiveDiffStep(stdout: string, result: ExecResultFixture = {}): ScriptedExec {
 	return step("git", ["diff", "--name-status", "-M", "master...HEAD", "--", ".ns/objectives"], {
 		stdout,
 		...result,
 	});
 }
 
-export function objectiveStatusStep(
-	stdout: string,
-	result: Partial<ExecResult> = {},
-): ScriptedExec {
+export function objectiveStatusStep(stdout: string, result: ExecResultFixture = {}): ScriptedExec {
 	return step("git", ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"], {
 		stdout,
 		...result,
@@ -508,7 +507,7 @@ export function brmemPutJson(repoRoot: string, planFile: string): string {
 	});
 }
 
-export function missingRevisionResult(): Partial<ExecResult> {
+export function missingRevisionResult(): ExecResultFixture {
 	return { code: 128, stderr: "fatal: Needed a single revision\n" };
 }
 

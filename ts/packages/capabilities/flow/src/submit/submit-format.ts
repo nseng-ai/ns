@@ -129,9 +129,9 @@ export function formatPreflightFailureOutput(
 		commandDisplay: submitDryRunCommandDisplay,
 		output,
 		reason: {
-			startup: (error) =>
+			spawnFailed: (error) =>
 				`${submitDryRunCommandDisplay} could not start: ${error}. Submission was not attempted.`,
-			killed: `${submitDryRunCommandDisplay} timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.`,
+			timedOut: `${submitDryRunCommandDisplay} timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.`,
 			exit: (exitCode) =>
 				`${submitDryRunCommandDisplay} failed with exit code ${exitCode}. Submission was not attempted.`,
 		},
@@ -207,9 +207,9 @@ export function formatRestackFailureOutput(output: SubmitCommandOutput): string 
 		commandDisplay: "gt restack --downstack --no-interactive",
 		output,
 		reason: {
-			startup: (error) =>
+			spawnFailed: (error) =>
 				`gt restack --downstack could not start: ${error}. Submission was not attempted.`,
-			killed: `gt restack --downstack timed out after ${RESTACK_TIMEOUT_MS / 1000}s. Submission was not attempted.`,
+			timedOut: `gt restack --downstack timed out after ${RESTACK_TIMEOUT_MS / 1000}s. Submission was not attempted.`,
 			exit: (exitCode) =>
 				`gt restack --downstack --no-interactive failed with exit code ${exitCode}. Submission was not attempted.`,
 		},
@@ -253,8 +253,8 @@ export function formatSubmitFailureOutput(
 		commandDisplay: submitCommandDisplay,
 		output,
 		reason: {
-			startup: (error) => `${submitCommandDisplay} could not start: ${error}.`,
-			killed: `${submitCommandDisplay} timed out and was killed.`,
+			spawnFailed: (error) => `${submitCommandDisplay} could not start: ${error}.`,
+			timedOut: `${submitCommandDisplay} timed out and was terminated.`,
 			exit: (exitCode) => `${submitCommandDisplay} failed with exit code ${exitCode}.`,
 		},
 		detailLines: formatPrewrittenMetadataAdvisory(
@@ -330,20 +330,31 @@ function formatNoCurrentPrRecoveryGuidance(): string[] {
 }
 
 type SubmitCommandOutcome =
-	| { type: "startup"; error: string }
-	| { type: "killed" }
-	| { type: "exit"; exitCode: number };
+	| { type: "spawn-failed"; error: string }
+	| { type: "cancelled" }
+	| { type: "timed-out" }
+	| { type: "signalled"; signal: string; exitCode: number | null }
+	| { type: "exit"; exitCode: number | null };
 
 interface CommandFailureReasonFormatters {
-	startup: (error: string) => string;
-	killed: string;
+	spawnFailed: (error: string) => string;
+	timedOut: string;
 	exit: (exitCode: number) => string;
 }
 
 function classifySubmitCommandOutcome(output: SubmitCommandOutput): SubmitCommandOutcome {
-	if (output.startupError !== undefined) return { type: "startup", error: output.startupError };
-	if (output.killed) return { type: "killed" };
-	return { type: "exit", exitCode: output.exitCode };
+	switch (output.type) {
+		case "spawn-failed":
+			return { type: "spawn-failed", error: output.error };
+		case "cancelled":
+			return { type: "cancelled" };
+		case "timed-out":
+			return { type: "timed-out" };
+		case "exited":
+			return output.signal === null
+				? { type: "exit", exitCode: output.code }
+				: { type: "signalled", signal: output.signal, exitCode: output.code };
+	}
 }
 
 function formatCommandFailureText({
@@ -363,13 +374,7 @@ function formatCommandFailureText({
 }
 
 function submitCommandOutputToExecResult(output: SubmitCommandOutput): ExecResult {
-	return {
-		stdout: output.stdout,
-		stderr: output.stderr,
-		code: output.exitCode,
-		killed: Boolean(output.killed),
-		...(output.startupError === undefined ? {} : { startupError: output.startupError }),
-	};
+	return output;
 }
 
 function formatBufferedCommandSection(
@@ -394,12 +399,16 @@ function formatSubmitCommandOutcome(
 	reason: CommandFailureReasonFormatters,
 ): string {
 	switch (outcome.type) {
-		case "startup":
-			return reason.startup(outcome.error);
-		case "killed":
-			return reason.killed;
+		case "spawn-failed":
+			return reason.spawnFailed(outcome.error);
+		case "cancelled":
+			return "cancelled";
+		case "timed-out":
+			return reason.timedOut;
+		case "signalled":
+			return `terminated by ${outcome.signal}${outcome.exitCode === null ? "" : ` (exit code ${outcome.exitCode})`}`;
 		case "exit":
-			return reason.exit(outcome.exitCode);
+			return reason.exit(outcome.exitCode ?? 1);
 	}
 }
 
@@ -408,8 +417,8 @@ function formatBufferedSubmitCommandOutcome(
 	timeoutMs: number,
 ): string {
 	return formatSubmitCommandOutcome(outcome, {
-		startup: (error) => `startup error: ${error}`,
-		killed: `timed out after ${timeoutMs / 1000}s`,
+		spawnFailed: (error) => `spawn error: ${error}`,
+		timedOut: `timed out after ${timeoutMs / 1000}s`,
 		exit: (exitCode) => `exit code ${exitCode}`,
 	});
 }

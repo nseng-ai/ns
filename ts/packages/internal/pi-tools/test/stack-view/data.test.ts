@@ -44,19 +44,28 @@ interface ExecCall {
 	args: string[];
 }
 
+interface ExitedResultOverrides {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly code?: number | null;
+	readonly signal?: string | null;
+}
+
 interface ScriptedExec {
 	command: string;
 	args: string[] | ((args: string[]) => boolean);
 	description?: string;
-	result: Partial<ExecResult>;
+	result: ExecResult | ExitedResultOverrides;
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function execResult(overrides: ExecResult | ExitedResultOverrides = {}): ExecResult {
+	if ("type" in overrides) return overrides;
 	return {
+		type: "exited",
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
+		signal: overrides.signal ?? null,
 	};
 }
 
@@ -222,15 +231,15 @@ function threeBranchStack(): StackInfo {
 
 const THREE_BRANCH_ROWS = ["feature/top", "feature/mid", "feature/base"];
 
-function currentBranchStep(result: Partial<ExecResult>): ScriptedExec {
+function currentBranchStep(result: ExecResult | ExitedResultOverrides): ScriptedExec {
 	return { command: "git", args: ["branch", "--show-current"], result };
 }
 
-function gitCommonDirStep(result: Partial<ExecResult>): ScriptedExec {
+function gitCommonDirStep(result: ExecResult | ExitedResultOverrides): ScriptedExec {
 	return { command: "git", args: ["rev-parse", "--git-common-dir"], result };
 }
 
-function originUrlStep(result: Partial<ExecResult>): ScriptedExec {
+function originUrlStep(result: ExecResult | ExitedResultOverrides): ScriptedExec {
 	return { command: "git", args: ["config", "--get", "remote.origin.url"], result };
 }
 
@@ -242,7 +251,7 @@ function stackPrQueryStep(
 	branches: string[],
 	owner: string,
 	repo: string,
-	result: Partial<ExecResult>,
+	result: ExecResult | ExitedResultOverrides,
 ): ScriptedExec {
 	return {
 		command: "gh",
@@ -264,7 +273,7 @@ function stackPrQueryStep(
 function objectiveDiffStep(
 	branch: string,
 	parentBranch: string,
-	result: Partial<ExecResult>,
+	result: ExecResult | ExitedResultOverrides,
 ): ScriptedExec {
 	return {
 		command: "git",
@@ -459,8 +468,16 @@ describe("loadStackView error outcomes", () => {
 		execApi.assertDone();
 	});
 
-	test("current-branch resolution failure (killed process) surfaces an actionable error", async () => {
-		const execApi = new FakeExecApi([currentBranchStep({ code: 0, killed: true })]);
+	test("current-branch cancellation surfaces an actionable error", async () => {
+		const execApi = new FakeExecApi([
+			currentBranchStep({
+				type: "cancelled",
+				stdout: "",
+				stderr: "",
+				code: 0,
+				signal: null,
+			}),
+		]);
 
 		const result = await loadStackView({ execApi, cwd: CWD });
 

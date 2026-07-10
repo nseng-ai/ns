@@ -1,14 +1,8 @@
-import {
-	execApiToCommandRunner,
-	type ExecOptions,
-	type ExecResult,
-	piExecApiToCommandExecApi,
-} from "@nseng-ai/foundation/command";
+import { execApiToCommandRunner, type ExecResult } from "@nseng-ai/foundation/command";
+import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 
-export interface FlowGraphiteCommandHost {
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-}
+export type FlowGraphiteCommandHost = RawPiExecApi;
 
 export interface RunFlowGraphiteCommandOptions {
 	cwd: string;
@@ -20,5 +14,5 @@ export async function runFlowGraphiteCommand(
 	host: FlowGraphiteCommandHost,
 	options: RunFlowGraphiteCommandOptions,
 ): Promise<ExecResult> {
-	return await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(host)), options);
+	return await runGraphiteCommand(execApiToCommandRunner(createPiCommandExecApi(host)), options);
 }

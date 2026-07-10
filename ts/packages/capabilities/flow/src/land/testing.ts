@@ -845,7 +845,7 @@ function commandResult(state: OperationState | undefined): LandGraphiteCommandRe
 }
 
 function emptyExecResult(code = 0): ExecResult {
-	return { stdout: "", stderr: "", code, killed: false };
+	return { type: "exited", stdout: "", stderr: "", code, signal: null };
 }
 
 function isFailureState<T>(state: ValueState<T>): state is FailureState {

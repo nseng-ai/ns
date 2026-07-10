@@ -1,4 +1,4 @@
-import { nsCommandSurface } from "@nseng-ai/foundation/command";
+import { commandSucceeded, nsCommandSurface } from "@nseng-ai/foundation/command";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import {
 	registerCliCommandExtension,
@@ -8,9 +8,10 @@ import {
 	type ParsedCliCommandArgs,
 } from "@nseng-ai/pi/commands/cli-extension";
 import { parseMachineEnvelopeData } from "@nseng-ai/pi/runtime/machine-envelope";
-import type { ExecResult } from "@nseng-ai/foundation/command";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { notifyCommandUi } from "@nseng-ai/pi/commands/helpers";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
@@ -33,6 +34,7 @@ import {
 	type ObjectiveCandidatesParseResult,
 	type ObjectiveCommandSpec,
 	type ObjectiveListParsedArgs,
+	type ObjectiveSelectionHost,
 	type ObjectiveStatusFilter,
 } from "../api/index.ts";
 import { definePiSurfaceParity, type FullPiSurfaceParity } from "@nseng-ai/pi/parity/extension";
@@ -45,7 +47,7 @@ import type {
 } from "@nseng-ai/pi/runtime/types";
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "@nseng-ai/pi/runtime/types";
-export type { ExecResult } from "@nseng-ai/foundation/command";
+export type { ExecResult } from "@nseng-ai/pi/runtime/types";
 export {
 	completeObjectiveListArgs,
 	parseObjectiveListArgTokens,
@@ -56,7 +58,8 @@ export type ObjectiveExtensionAPI = Pick<
 	ExtensionAPI,
 	"on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage"
 > &
-	Pick<CliCommandExtensionAPI, "events" | "registerMessageRenderer">;
+	Pick<CliCommandExtensionAPI, "events" | "registerMessageRenderer"> &
+	Pick<Partial<ObjectiveSelectionHost>, "loadObjectiveList">;
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_EXTENSION_ID = "objective";
@@ -86,6 +89,7 @@ export interface ObjectiveExtensionOptions {
 
 interface ObjectiveInvocationContext<TSpec = ObjectiveCommandSpec> {
 	pi: ObjectiveExtensionAPI;
+	selectionHost: ObjectiveSelectionHost;
 	ctx: CommandContext;
 	spec: TSpec;
 }
@@ -120,9 +124,9 @@ async function invokeObjectiveSkill(
 }
 
 async function chooseObjectiveAndInvoke(invocation: ObjectiveInvocationContext): Promise<void> {
-	const { pi, ctx, spec } = invocation;
+	const { selectionHost, ctx, spec } = invocation;
 	const slug = await chooseActiveObjectiveSlug(
-		objectiveSelectionHostFromExec(pi),
+		selectionHost,
 		objectiveSelectionContextFromCommandContext(ctx),
 		spec,
 	);
@@ -210,6 +214,7 @@ function notifyCommandError(ctx: CommandContext, error: unknown): void {
 
 function createObjectiveCommandCompleter(
 	pi: ObjectiveExtensionAPI,
+	commands: CommandExecApi,
 ): (prefix: string) => Promise<AutocompleteItem[] | null> {
 	let cachedCwd: string | undefined;
 	let cachedItems: AutocompleteItem[] | null | undefined;
@@ -233,7 +238,7 @@ function createObjectiveCommandCompleter(
 			return inFlightLoad;
 		}
 
-		const loadPromise = loadObjectiveCompletionItems(pi, cachedCwd).then((items) => {
+		const loadPromise = loadObjectiveCompletionItems(commands, cachedCwd).then((items) => {
 			cachedItems = items;
 			cacheLoadedAtMs = Date.now();
 			return items;
@@ -261,12 +266,12 @@ function createObjectiveCommandCompleter(
 }
 
 async function loadObjectiveCompletionItems(
-	pi: ObjectiveExtensionAPI,
+	commands: CommandExecApi,
 	cwd: string | undefined,
 ): Promise<AutocompleteItem[] | null> {
-	let result: ExecResult;
+	let result: Awaited<ReturnType<CommandExecApi["exec"]>>;
 	try {
-		result = await pi.exec(
+		result = await commands.exec(
 			"ns",
 			[...ACTIVE_OBJECTIVE_CANDIDATES_ARGS],
 			objectiveCompletionExecOptions(cwd),
@@ -276,7 +281,7 @@ async function loadObjectiveCompletionItems(
 		return null;
 	}
 
-	if (result.code !== 0 || result.killed) {
+	if (!commandSucceeded(result)) {
 		return null;
 	}
 
@@ -444,7 +449,14 @@ export default function objectiveExtension(
 	pi: ObjectiveExtensionAPI,
 	options: ObjectiveExtensionOptions = {},
 ): void {
-	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi);
+	const commands = createPiCommandExecApi(pi);
+	const selectionHost = objectiveSelectionHostFromExec({
+		...commands,
+		...(pi.loadObjectiveList === undefined
+			? {}
+			: { loadObjectiveList: pi.loadObjectiveList.bind(pi) }),
+	});
+	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi, commands);
 
 	registerCliCommandExtension(pi, {
 		cliName: "objective",
@@ -463,6 +475,7 @@ export default function objectiveExtension(
 				handler: async (args, ctx) =>
 					handleObjectiveCreateCommand({
 						pi,
+						selectionHost,
 						spec,
 						rawArgs: args,
 						ctx,
@@ -479,7 +492,8 @@ export default function objectiveExtension(
 				description: spec.description,
 				argumentHint: OBJECTIVE_SELECTOR_ARGUMENT_HINT,
 				getArgumentCompletions: objectiveCommandCompleter,
-				handler: async (args, ctx) => handleObjectiveCommand({ pi, ctx, spec }, args),
+				handler: async (args, ctx) =>
+					handleObjectiveCommand({ pi, selectionHost, ctx, spec }, args),
 			},
 		});
 	}

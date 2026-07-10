@@ -1,5 +1,5 @@
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import { piExecApiToCommandExecApi, type PiExecApiLike } from "@nseng-ai/foundation/exec";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 
 import { conciseGitFailureReason } from "./git-output.ts";
 
@@ -11,8 +11,8 @@ export type GitHeadSnapshot =
 
 export type ReadGitHead = (input: { cwd: string }) => Promise<GitHeadSnapshot>;
 
-export function createGitReadHead(input: { exec: PiExecApiLike }): ReadGitHead {
-	const git = new RealGitGateway(piExecApiToCommandExecApi(input.exec), {
+export function createGitReadHead(input: { exec: CommandExecApi }): ReadGitHead {
+	const git = new RealGitGateway(input.exec, {
 		timeoutMs: GIT_HEAD_TIMEOUT_MS,
 	});
 	return async ({ cwd }) => {

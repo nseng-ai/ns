@@ -112,8 +112,9 @@ const arbitraryOperationRequest: TextGenerationRequest = {
 	operation: "project-specific-operation",
 };
 
-const commandResult = { code: 0, stdout: "", stderr: "", killed: false };
-const commandOk: boolean = commandResult.code === 0 && !commandResult.killed;
+const commandResult = { type: "exited", code: 0, signal: null, stdout: "", stderr: "" };
+const commandOk: boolean =
+	commandResult.type === "exited" && commandResult.code === 0 && commandResult.signal === null;
 
 void extension;
 void commandlessExtension;

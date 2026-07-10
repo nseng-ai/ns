@@ -1,9 +1,4 @@
-import {
-	type ExecResult,
-	formatOutputSection,
-	runNormalizedExecResult,
-	tailText,
-} from "@nseng-ai/foundation/command";
+import { type ExecResult, formatOutputSection, tailText } from "@nseng-ai/foundation/command";
 import {
 	MAX_COMMAND_STREAM_OUTPUT_LINES,
 	MAX_OUTPUT_TAIL_CHARS,
@@ -26,13 +21,10 @@ export async function exec(options: ExecOptions): Promise<ExecResult> {
 }
 
 export async function execRaw(options: ExecOptions): Promise<ExecResult> {
-	return runNormalizedExecResult(
-		async () =>
-			await options.pi.exec(options.command, options.args, {
-				cwd: options.cwd,
-				timeout: options.timeoutMs,
-			}),
-	);
+	return await options.pi.exec(options.command, options.args, {
+		cwd: options.cwd,
+		timeout: options.timeoutMs,
+	});
 }
 
 export function commandStreamOutputLines(result: ExecResult): string[] {
@@ -45,12 +37,11 @@ export function commandStreamOutputLines(result: ExecResult): string[] {
 }
 
 export function formatCommandDetails(result: ExecResult, commandDisplay?: string): string {
-	const killed = result.killed ? " (killed or timed out)" : "";
 	const lines: string[] = [];
 	if (commandDisplay) {
 		lines.push(`$ ${commandDisplay}`);
 	}
-	lines.push(`exit ${result.code}${killed}`);
+	lines.push(commandTermination(result));
 	lines.push(
 		formatOutputSection("stdout", result.stdout, {
 			maxLines: MAX_OUTPUT_TAIL_LINES,
@@ -64,6 +55,21 @@ export function formatCommandDetails(result: ExecResult, commandDisplay?: string
 		}),
 	);
 	return lines.join("\n");
+}
+
+function commandTermination(result: ExecResult): string {
+	switch (result.type) {
+		case "spawn-failed":
+			return `spawn failed: ${result.error}`;
+		case "cancelled":
+			return "cancelled";
+		case "timed-out":
+			return "timed out";
+		case "exited":
+			return result.signal === null
+				? `exit ${result.code}`
+				: `signal ${result.signal} (exit ${result.code})`;
+	}
 }
 
 export function outputTail(output: string): string {

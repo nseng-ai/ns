@@ -1,5 +1,10 @@
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import type { ExecOptions, PiExecApiLike } from "@nseng-ai/foundation/exec";
+import {
+	commandFailureReason,
+	commandSucceeded,
+	type CommandExecApi,
+	type ExecOptions,
+} from "@nseng-ai/foundation/exec";
 
 import { conciseGitFailureReason } from "./git-output.ts";
 
@@ -47,7 +52,7 @@ export function parseWorktreeState(input: ParseWorktreeStateInput): WorktreeStat
 	return { status: "available", files: [...byPath.values()].sort(compareWorktreeStateFiles) };
 }
 
-export function createGitReadWorktreeState(input: { exec: PiExecApiLike }): ReadWorktreeState {
+export function createGitReadWorktreeState(input: { exec: CommandExecApi }): ReadWorktreeState {
 	return async ({ cwd }) => {
 		try {
 			const results = await Promise.all([
@@ -141,15 +146,13 @@ function allGitReadsSucceeded(
 }
 
 async function runGit(
-	exec: PiExecApiLike,
+	exec: CommandExecApi,
 	cwd: string,
 	args: readonly string[],
 ): Promise<GitReadResult> {
 	const result = await exec.exec("git", [...args], gitExecOptions(cwd));
-	if (result.code === 0) return { status: "ok", stdout: result.stdout ?? "" };
-	const output =
-		result.stderr ?? result.stdout ?? result.startupError ?? `git exited ${result.code}`;
-	return { status: "failed", reason: conciseGitFailureReason(output) };
+	if (commandSucceeded(result)) return { status: "ok", stdout: result.stdout };
+	return { status: "failed", reason: conciseGitFailureReason(commandFailureReason(result)) };
 }
 
 function gitExecOptions(cwd: string): ExecOptions {

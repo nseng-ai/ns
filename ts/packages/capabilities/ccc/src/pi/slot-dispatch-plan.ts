@@ -11,6 +11,7 @@ import {
 	type DispatchPlanConfig,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import { createCccPiCommandApi, type CccPiCommandApi } from "./pi-command-api.ts";
 
 const WORKSPACE_COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME;
 const SURFACE_COMMAND_NAME = CCC_SURFACE_DISPATCH_PLAN_COMMAND_NAME;
@@ -31,18 +32,18 @@ export function registerCccSlotDispatchPlanCommand(
 	pi: ExtensionAPI,
 	options: CccSlotDispatchPlanOptions = {},
 ): void {
-	registerDispatchPlanCommand(pi, WORKSPACE_CONFIG, options);
+	registerDispatchPlanCommand(createCccPiCommandApi(pi), WORKSPACE_CONFIG, options);
 }
 
 export function registerCccSurfaceDispatchPlanCommand(
 	pi: ExtensionAPI,
 	options: CccSlotDispatchPlanOptions = {},
 ): void {
-	registerDispatchPlanCommand(pi, SURFACE_CONFIG, options);
+	registerDispatchPlanCommand(createCccPiCommandApi(pi), SURFACE_CONFIG, options);
 }
 
 function registerDispatchPlanCommand(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	config: DispatchPlanConfig,
 	options: CccSlotDispatchPlanOptions,
 ): void {

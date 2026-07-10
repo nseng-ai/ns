@@ -1,3 +1,4 @@
+import { commandSucceeded } from "@nseng-ai/foundation/command";
 import { shortSha } from "../commit-display/index.ts";
 import type { AutobranchExec, PendingWorktreeSnapshot } from "./shared.ts";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
@@ -191,7 +192,7 @@ async function inspectGraphiteChildBranches(
 	input: Pick<LatestCommitPreparationInput, "cwd" | "exec">,
 ): Promise<{ ok: true; children: string[] } | { ok: false; error: string }> {
 	const children = await input.exec("gt", ["children", "--no-interactive"], GT_TIMEOUT_MS);
-	if (children.code !== 0) {
+	if (!commandSucceeded(children)) {
 		return { ok: false, error: formatAutobranchCommandDetails(children) };
 	}
 	return { ok: true, children: nonEmptyLines(children.stdout) };

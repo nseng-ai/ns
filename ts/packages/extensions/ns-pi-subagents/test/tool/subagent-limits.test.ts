@@ -55,7 +55,7 @@ class FakeToolHost implements SubagentToolHost {
 	}
 
 	async exec(): Promise<ExecResult> {
-		return { stdout: "", stderr: "", code: 0, killed: false };
+		return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
 	}
 }
 

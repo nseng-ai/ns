@@ -95,7 +95,7 @@ describe("enriched-plan-commands", () => {
 			{
 				command: "git",
 				args: ["rev-parse", "--show-toplevel"],
-				options: { cwd: repoRoot, timeout: 10_000 },
+				options: { cwd: repoRoot, signal: expect.any(AbortSignal) },
 			},
 		]);
 		expect(pi.sentUserMessages).toHaveLength(1);

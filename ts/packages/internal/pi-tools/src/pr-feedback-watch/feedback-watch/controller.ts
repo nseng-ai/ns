@@ -1,4 +1,5 @@
 import { downloadPrFeedback, type PrAddressRunner } from "../feedback-download.ts";
+import { commandSucceeded } from "@nseng-ai/foundation/exec";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { unrefTimerScheduler } from "@nseng-ai/pi/shared/timers";
@@ -61,10 +62,12 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 	PrFeedbackWatchExtensionOptions,
+	ExecGateway,
 } from "./types.ts";
 
 export class PrFeedbackWatchController {
 	private readonly pi: ExtensionAPI;
+	private readonly commands: ExecGateway;
 	private activeSession: ActiveSession | undefined;
 	private nextSessionId = 0;
 	private readonly timers: TimerScheduler;
@@ -91,8 +94,9 @@ export class PrFeedbackWatchController {
 	private lastHeavyFallbackAt = 0;
 	private runner: PrAddressRunner | undefined;
 
-	constructor(pi: ExtensionAPI, options: PrFeedbackWatchExtensionOptions) {
+	constructor(pi: ExtensionAPI, commands: ExecGateway, options: PrFeedbackWatchExtensionOptions) {
 		this.pi = pi;
+		this.commands = commands;
 		this.runner = options.runner;
 		this.timers = options.timers ?? unrefTimerScheduler;
 	}
@@ -339,7 +343,7 @@ export class PrFeedbackWatchController {
 		}
 		const sinceIso = skewIso(new Date().toISOString());
 		const result = await loadRestFingerprint({
-			pi: this.pi,
+			pi: this.commands,
 			cwd: session.cwd,
 			identity,
 			...optionalEntry("sinceIso", sinceIso),
@@ -366,7 +370,7 @@ export class PrFeedbackWatchController {
 			return;
 		}
 		const result = await loadRestFingerprint({
-			pi: this.pi,
+			pi: this.commands,
 			cwd: session.cwd,
 			identity,
 			...optionalEntry("sinceIso", this.restSinceIso),
@@ -513,7 +517,7 @@ export class PrFeedbackWatchController {
 
 	private async refreshCheckSummary(session: ActiveSession, prNumber: number): Promise<void> {
 		const result = await loadPrCheckSummary({
-			pi: this.pi,
+			pi: this.commands,
 			cwd: session.cwd,
 			prNumber,
 			signal: session.abortController.signal,
@@ -527,7 +531,7 @@ export class PrFeedbackWatchController {
 		const runner = await this.resolveRunner(session);
 		if (runner.type === "failed") return runner;
 		const download = await downloadPrFeedback({
-			pi: this.pi,
+			pi: this.commands,
 			cwd: session.cwd,
 			timeoutMs: COMMAND_TIMEOUT_MS,
 			signal: session.abortController.signal,
@@ -536,13 +540,13 @@ export class PrFeedbackWatchController {
 		if (download.type === "error") return { type: "failed", message: download.message };
 		const currentUserLoginPromise =
 			this.currentUserLogin === undefined
-				? loadCurrentGitHubLogin(this.pi, session.cwd, session.abortController.signal)
+				? loadCurrentGitHubLogin(this.commands, session.cwd, session.abortController.signal)
 				: Promise.resolve(this.currentUserLogin);
 		const headRefOidPromise =
 			download.data.target.pr_number === undefined || download.data.target.pr_number === null
 				? Promise.resolve(undefined)
 				: loadHeadRefOid(
-						this.pi,
+						this.commands,
 						session.cwd,
 						download.data.target.pr_number,
 						session.abortController.signal,
@@ -571,12 +575,12 @@ export class PrFeedbackWatchController {
 		session: ActiveSession,
 	): Promise<{ type: "resolved"; runner: PrAddressRunner } | { type: "failed"; message: string }> {
 		if (this.runner !== undefined) return { type: "resolved", runner: this.runner };
-		const pathNs = await this.pi.exec("which", ["ns"], {
+		const pathNs = await this.commands.exec("which", ["ns"], {
 			cwd: session.cwd,
 			timeout: GIT_TIMEOUT_MS,
 			signal: session.abortController.signal,
 		});
-		if (!pathNs.killed && pathNs.code === 0 && pathNs.stdout.trim().length > 0) {
+		if (commandSucceeded(pathNs) && pathNs.stdout.trim().length > 0) {
 			this.runner = { command: "ns", baseArgs: ["address"] };
 			return { type: "resolved", runner: this.runner };
 		}
@@ -615,7 +619,11 @@ export class PrFeedbackWatchController {
 		session: ActiveSession,
 		options: { queuedCount?: number } = {},
 	): Promise<boolean> {
-		const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
+		const dirty = await isWorkingTreeDirty(
+			this.commands,
+			session.cwd,
+			session.abortController.signal,
+		);
 		if (!dirty || this.options.shouldAllowDirty) {
 			this.hasNotifiedDirtyPause = false;
 			return false;

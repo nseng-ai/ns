@@ -12,6 +12,7 @@
 // submit before any state changes.
 
 import {
+	commandSucceeded,
 	formatCommandResultFailure,
 	outputListenerToExecCallbacks,
 	type CommandRunner,
@@ -136,7 +137,7 @@ export async function runFlowSubmitHooks(
 			timeout: PRE_SUBMIT_HOOK_TIMEOUT_MS,
 			...outputListenerToExecCallbacks(options.onOutput),
 		});
-		if (result.code !== 0 || result.killed || result.startupError !== undefined) {
+		if (!commandSucceeded(result)) {
 			return { kind: "failed", hook, result };
 		}
 	}
@@ -144,7 +145,11 @@ export async function runFlowSubmitHooks(
 }
 
 export function flowSubmitHookFailureExitCode(failure: FlowSubmitHookFailure): number {
-	return failure.result.code === 0 ? 1 : failure.result.code;
+	const result = failure.result;
+	if (result.type === "spawn-failed") return 2;
+	if (result.type === "timed-out") return 124;
+	if (result.type === "cancelled") return 130;
+	return result.signal === null && result.code !== null && result.code !== 0 ? result.code : 1;
 }
 
 export function formatFlowSubmitHookFailure(failure: FlowSubmitHookFailure): string {

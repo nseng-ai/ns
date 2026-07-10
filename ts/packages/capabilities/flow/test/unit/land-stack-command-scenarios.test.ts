@@ -97,7 +97,7 @@ describe("flow land matrix progress forwarding", () => {
 			commandIo: noopNsCommandIo,
 			progress,
 			renderCapabilities: { canEmitAnsi: false },
-			exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
+			exec: async () => ({ code: 0, stdout: "", stderr: "", type: "exited", signal: null }),
 			textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		};
 	}
@@ -273,7 +273,7 @@ interface ExecCall {
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: ExitedResultFields | undefined;
 }
 
 interface Notification {
@@ -352,13 +352,20 @@ function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	code?: number | null;
+	signal?: string | null;
+}
+
+function execResult(overrides: ExitedResultFields = {}): ExecResult {
 	return {
+		type: "exited",
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
-		...(overrides.startupError === undefined ? {} : { startupError: overrides.startupError }),
+		signal: overrides.signal ?? null,
 	};
 }
 
@@ -370,7 +377,7 @@ function expectSuccess<T>(result: LandStackResult<T>): T {
 	return result.value;
 }
 
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
+function step(command: string, args: string[], result?: ExitedResultFields): ScriptedExec {
 	return { command, args, result };
 }
 

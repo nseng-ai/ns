@@ -57,7 +57,7 @@ export function createRealNsCommandContext(
 		stdout,
 		stderr,
 		exec: async (command, args, execOptions = {}) => {
-			const result = await runCommand(command, args, {
+			return await runCommand(command, args, {
 				cwd: execOptions.cwd ?? cwd,
 				env,
 				...(execOptions.timeoutMs === undefined ? {} : { timeout: execOptions.timeoutMs }),
@@ -65,12 +65,6 @@ export function createRealNsCommandContext(
 				...(execOptions.onStdout === undefined ? {} : { onStdout: execOptions.onStdout }),
 				...(execOptions.onStderr === undefined ? {} : { onStderr: execOptions.onStderr }),
 			});
-			return {
-				code: result.code,
-				stdout: result.stdout,
-				stderr: result.stderr,
-				killed: result.killed,
-			};
 		},
 		...(confirm === undefined ? {} : { confirm }),
 	};

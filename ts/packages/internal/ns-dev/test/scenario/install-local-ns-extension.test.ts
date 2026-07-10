@@ -1,7 +1,7 @@
 import { parse as parseToml } from "smol-toml";
 import { describe, expect, it } from "vitest";
 
-import { parseJsonOutput, runScenario, type ScenarioRun } from "./run-scenario.ts";
+import { exitedResult, parseJsonOutput, runScenario, type ScenarioRun } from "./run-scenario.ts";
 
 const BASE_FILES = {
 	"/target/package.json": JSON.stringify({ name: "target" }),
@@ -144,14 +144,57 @@ describe("install-local-ns-extension", () => {
 			],
 			{
 				files: BASE_FILES,
-				commandResults: [{ stdout: "", stderr: "boom", code: 7, killed: false }],
+				commandResults: [exitedResult({ stderr: "boom", code: 7 })],
 			},
 		);
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "failure",
 			errorType: "subprocess-failed",
-			data: { command: "pnpm", exitCode: 7, stderr: "boom" },
+			data: {
+				command: "pnpm",
+				exitCode: 7,
+				termination: "exited",
+				signal: null,
+				stderr: "boom",
+			},
+		});
+	});
+
+	it("returns spawn failure evidence without reconstructing an exit", async () => {
+		const run = runScenario(
+			[
+				"install-local-ns-extension",
+				"--target",
+				"/target",
+				"--package",
+				"@nseng-ai/example-extension",
+				"--format",
+				"json",
+			],
+			{
+				files: BASE_FILES,
+				commandResults: [
+					{
+						type: "spawn-failed",
+						stdout: "",
+						stderr: "spawn pnpm ENOENT",
+						error: "spawn pnpm ENOENT",
+					},
+				],
+			},
+		);
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
+			errorType: "subprocess-failed",
+			data: {
+				command: "pnpm",
+				exitCode: null,
+				termination: "spawn-failed",
+				error: "spawn pnpm ENOENT",
+				stderr: "spawn pnpm ENOENT",
+			},
 		});
 	});
 

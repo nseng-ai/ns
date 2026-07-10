@@ -19,9 +19,7 @@ import type { Caps } from "@nseng-ai/clinkr";
 import { dim, resultBlockHeadline } from "@nseng-ai/foundation/cli-theme";
 import type { ExecResult } from "@nseng-ai/kernel/sdk";
 
-type GitTranscriptResult = Pick<ExecResult, "stdout" | "stderr" | "code"> & {
-	readonly killed?: boolean;
-};
+type GitTranscriptResult = ExecResult;
 
 interface GitResultFacts {
 	/** The leading one-line summary (already-phrased prose); rendered bold + intent-painted. */
@@ -96,12 +94,24 @@ function causeLines(result: GitTranscriptResult): string[] {
 function plumbingLines(input: GitResultBlockInput): string[] {
 	const facts = [`Command: ${input.command}`, `Cwd: ${input.cwd}`];
 	if (input.kind === "failure") {
-		facts.push(`Exit: ${input.result.code}`);
-		if (input.result.killed === true) {
-			facts.push("Killed: true");
-		}
+		facts.push(`Termination: ${terminationText(input.result)}`);
 	}
 	return facts.map((fact) => dim(fact));
+}
+
+function terminationText(result: GitTranscriptResult): string {
+	switch (result.type) {
+		case "spawn-failed":
+			return `spawn failed: ${result.error}`;
+		case "cancelled":
+			return "cancelled";
+		case "timed-out":
+			return "timed out";
+		case "exited":
+			return result.signal === null
+				? `exit ${result.code}`
+				: `signal ${result.signal} (exit ${result.code})`;
+	}
 }
 
 function transcriptLines(result: GitTranscriptResult): string[] {

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
 	type CommandExecApi,
 	commandFailureReason,
+	commandSucceeded,
 	formatCommand,
 } from "@nseng-ai/foundation/command";
 import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
@@ -76,7 +77,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			});
 		}
 
-		if (result.code !== 0 || result.killed) {
+		if (!commandSucceeded(result)) {
 			return error({
 				code: "git-diff-failed",
 				message: `${displayCommand} failed in ${repoRoot.value}: ${commandFailureReason(result)}`,

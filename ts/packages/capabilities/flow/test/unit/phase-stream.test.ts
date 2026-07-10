@@ -74,7 +74,7 @@ function ctx(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 		commandIo: noopNsCommandIo,
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
-		exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
+		exec: async () => ({ code: 0, stdout: "", stderr: "", type: "exited", signal: null }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		...overrides,
 	};

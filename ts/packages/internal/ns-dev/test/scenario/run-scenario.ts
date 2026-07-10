@@ -11,6 +11,25 @@ export interface CommandCall {
 	readonly cwd?: string;
 }
 
+type ExitedExecResult = Extract<ExecResult, { type: "exited" }>;
+
+interface ExitedResultOverrides {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly code?: number | null;
+	readonly signal?: string | null;
+}
+
+export function exitedResult(overrides: ExitedResultOverrides = {}): ExitedExecResult {
+	return {
+		type: "exited",
+		stdout: overrides.stdout ?? "",
+		stderr: overrides.stderr ?? "",
+		code: overrides.code ?? 0,
+		signal: overrides.signal ?? null,
+	};
+}
+
 export interface ScenarioRunOptions {
 	readonly cwd?: string;
 	readonly homeDir?: string;
@@ -54,7 +73,7 @@ export function runScenario(
 				args: [...commandArgs],
 				...(commandOptions?.cwd === undefined ? {} : { cwd: commandOptions.cwd }),
 			});
-			return commandResults.shift() ?? { stdout: "", stderr: "", code: 0, killed: false };
+			return commandResults.shift() ?? exitedResult();
 		},
 	};
 	return { exit: runNsDevCli(args, deps), stdout, stderr, calls, fs };

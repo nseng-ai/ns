@@ -163,7 +163,7 @@ export default defineCommand({
   positionals: { branch: { position: 0 } },
   async completionProvider(ctx) {
     const result = await ctx.exec("git", ["branch", "--format=%(refname:short)"]);
-    if (result.code !== 0 || result.killed) return [];
+    if (result.type !== "exited" || result.code !== 0 || result.signal !== null) return [];
     return result.stdout
       .split("\n")
       .map((line) => line.trim())
@@ -391,7 +391,9 @@ async run(ctx: NsExtensionApi) {
   const root = await ctx.exec("git", ["rev-parse", "--show-toplevel"], {
     timeoutMs: 30_000,
   });
-  if (root.code !== 0 || root.killed) return failure("git-root-failed", "Not inside a git repository.");
+  if (root.type !== "exited" || root.code !== 0 || root.signal !== null) {
+    return failure("git-root-failed", "Not inside a git repository.");
+  }
   return ok(root.stdout.trim());
 }
 ```
@@ -522,27 +524,22 @@ await ctx.exec("git", ["commit", "-F", "-"], {
 The result of `ctx.exec`.
 
 ```ts
-interface ExecResult {
-  stdout: string;
-  stderr: string;
-  code: number;
-  killed: boolean;
-  startupError?: string;
-}
+type ExecResult =
+  | { type: "exited"; stdout: string; stderr: string; code: number | null; signal: string | null }
+  | { type: "spawn-failed"; stdout: string; stderr: string; error: string }
+  | { type: "cancelled"; stdout: string; stderr: string; code: number | null; signal: string | null }
+  | { type: "timed-out"; stdout: string; stderr: string; code: number | null; signal: string | null };
 ```
 
-**Fields.**
-
-- `stdout` / `stderr` — captured output streams.
-- `code` — process exit code.
-- `killed` — whether the process was killed (e.g. by timeout).
-- `startupError?` — present when the process could not be spawned.
+Every variant carries captured `stdout` and `stderr`. Ordinary exits, cancellation, and timeout also
+carry the observed exit `code` and termination `signal`; spawn failures carry an `error` string.
+Only an `exited` result with code `0` and a null signal is successful.
 
 **Example.**
 
 ```ts
 const log = await ctx.exec("git", ["log", "-1", "--oneline"]);
-if (log.code === 0 && !log.killed) {
+if (log.type === "exited" && log.code === 0 && log.signal === null) {
   ctx.stdout?.(log.stdout.trim());
 }
 ```

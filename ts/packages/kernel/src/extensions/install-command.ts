@@ -95,9 +95,9 @@ export const installCommand: NsCommand<
 			cwd: managedProjectRoot,
 		});
 		if (
+			installResult.type !== "exited" ||
 			installResult.code !== 0 ||
-			installResult.killed ||
-			installResult.startupError !== undefined
+			installResult.signal !== null
 		) {
 			return failure("npm-install-failed", "npm failed to install the extension package.", {
 				sourceSpec: request.source,
@@ -287,11 +287,12 @@ function nsTomlAppendFailure(
 
 function execResultData(result: ExecResult): Record<string, unknown> {
 	return {
-		exitCode: result.code,
+		type: result.type,
 		stdout: result.stdout,
 		stderr: result.stderr,
-		killed: result.killed,
-		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
+		...(result.type === "spawn-failed"
+			? { error: result.error }
+			: { code: result.code, signal: result.signal }),
 	};
 }
 

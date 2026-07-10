@@ -75,21 +75,27 @@ describe("flow exec read-graphite-branch-metadata command", () => {
 		expect(run.stdout.join("")).toBe("");
 	});
 
-	test("reports killed sqlite execution as a timeout-style failure", async () => {
+	test("reports timed-out sqlite execution as a timeout failure", async () => {
 		const run = runFlowExecReadGraphiteBranchMetadataCommandWithFakes({
 			request: { dbPath: DB_PATH },
 			state: {
 				exec: [
 					{
 						match: `sqlite3 -readonly -json ${DB_PATH} ${BRANCH_METADATA_QUERY}`,
-						result: { code: 0, killed: true },
+						result: {
+							type: "timed-out",
+							code: 0,
+							signal: null,
+							stdout: "",
+							stderr: "",
+						},
 					},
 				],
 			},
 		});
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("exit 0 (killed or timed out)");
+		expect(run.stderr.join("")).toContain("timed out");
 		expect(run.stdout.join("")).toBe("");
 	});
 });

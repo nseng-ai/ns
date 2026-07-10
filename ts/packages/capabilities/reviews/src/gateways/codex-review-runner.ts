@@ -1,4 +1,4 @@
-import { type CommandResolver } from "@nseng-ai/foundation/command";
+import { commandSucceeded, type CommandResolver } from "@nseng-ai/foundation/command";
 import { defaultCommandResolver } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
@@ -100,10 +100,16 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 			...(runOptions.signal === undefined ? {} : { signal: runOptions.signal }),
 		};
 		const result = await this.execApi.exec(binary, args, execOptions);
-		if (result.startupError !== undefined) {
-			return resultErr({ code: "harness-invocation-failed", message: result.startupError });
+		if (result.type === "spawn-failed") {
+			return resultErr({ code: "harness-invocation-failed", message: result.error });
 		}
-		if (result.code !== 0 || result.killed) {
+		if (result.type === "cancelled") {
+			return resultErr({
+				code: "review-execution-cancelled",
+				message: codexExecutionMessage(result),
+			});
+		}
+		if (!commandSucceeded(result)) {
 			return resultErr({
 				code: "harness-execution-failed",
 				message: codexExecutionMessage(result),
@@ -203,7 +209,16 @@ function resolveCodexBinary(binaryResolver: CommandResolver): ReviewResult<strin
 function codexExecutionMessage(result: ExecResult): string {
 	const stderr = result.stderr.trim();
 	if (stderr !== "") return stderr;
-	return result.killed
-		? `Codex exited with status ${result.code} after being killed or timed out.`
-		: `Codex exited with status ${result.code}.`;
+	switch (result.type) {
+		case "spawn-failed":
+			return result.error;
+		case "cancelled":
+			return "Codex execution was cancelled.";
+		case "timed-out":
+			return "Codex execution timed out.";
+		case "exited":
+			return result.signal === null
+				? `Codex exited with status ${result.code}.`
+				: `Codex exited after signal ${result.signal} (status ${result.code ?? "unknown"}).`;
+	}
 }

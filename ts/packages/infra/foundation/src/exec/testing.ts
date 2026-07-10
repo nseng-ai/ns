@@ -4,7 +4,11 @@ import type {
 	ExecOptions,
 	ExecResult,
 } from "@nseng-ai/foundation/command";
-import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
+import {
+	formatErrorMessage,
+	optionalEntries,
+	optionalEntry,
+} from "@nseng-ai/foundation/primitives";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 
 export interface DropExecOptionsFields {
@@ -25,17 +29,7 @@ export interface RunnerCall extends CommandCallFields {
 	readonly cwd?: string;
 }
 
-export interface ResultFields {
-	readonly stdout?: string;
-	readonly stderr?: string;
-	readonly exitCode?: number;
-	readonly startupError?: string;
-	readonly isKilled?: boolean;
-}
-
-export type StepOptions = ResultFields;
-
-export type ScriptStep = CommandCallFields & ResultFields;
+export type ScriptStep = CommandCallFields & { readonly result: ExecResult };
 
 export interface ScriptedCommandExecCall extends CommandCallFields {
 	readonly options?: ExecOptions;
@@ -62,22 +56,18 @@ export class ScriptedCommandRunner {
 		const missingStepMessage = `unexpected command: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
-			return result({ exitCode: 99, stderr: missingStepMessage });
+			return exitedResult({ code: 99, stderr: missingStepMessage });
 		}
 
 		if (expected.command !== command || !sameArgs(expected.args, args)) {
 			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
 			this.script.recordError(message);
-			return result({ exitCode: 99, stderr: message });
+			return exitedResult({ code: 99, stderr: message });
 		}
 
-		const commandResult = result(expected);
-		if (commandResult.stdout !== "") {
-			options.onStdout?.(commandResult.stdout);
-		}
-		if (commandResult.stderr !== "") {
-			options.onStderr?.(commandResult.stderr);
-		}
+		const commandResult = expected.result;
+		if (commandResult.stdout !== "") options.onStdout?.(commandResult.stdout);
+		if (commandResult.stderr !== "") options.onStderr?.(commandResult.stderr);
 		return commandResult;
 	};
 
@@ -90,14 +80,8 @@ export class ScriptedCommandExecApi implements CommandExecApi {
 	private readonly results: ExecResult[];
 	private readonly callsInternal: ScriptedCommandExecCall[] = [];
 
-	constructor(results: readonly Partial<ExecResult>[] = []) {
-		this.results = results.map((fields) => ({
-			stdout: "",
-			stderr: "",
-			code: 0,
-			killed: false,
-			...fields,
-		}));
+	constructor(results: readonly ExecResult[] = []) {
+		this.results = [...results];
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
@@ -106,7 +90,7 @@ export class ScriptedCommandExecApi implements CommandExecApi {
 			args: [...args],
 			...optionalEntry("options", options === undefined ? undefined : { ...options }),
 		});
-		return this.results.shift() ?? { stdout: "", stderr: "", code: 0, killed: false };
+		return this.results.shift() ?? exitedResult();
 	}
 
 	calls(): readonly ScriptedCommandExecCall[] {
@@ -149,7 +133,7 @@ export function copyExecOptionsWithout(
 			env: dropFields.shouldDropEnv === true ? undefined : options.env,
 			timeout: options.timeout,
 		}),
-		...optionalEntry("timeoutKillGraceMs", options.timeoutKillGraceMs),
+		...optionalEntry("terminationKillGraceMs", options.terminationKillGraceMs),
 		...optionalEntry("signal", options.signal),
 		...optionalEntry("stdin", dropFields.shouldDropStdin === true ? undefined : options.stdin),
 		...optionalEntries({ onStdout: options.onStdout, onStderr: options.onStderr }),
@@ -159,17 +143,47 @@ export function copyExecOptionsWithout(
 export function step(
 	command: string,
 	args: readonly string[],
-	options: StepOptions = {},
+	result = exitedResult(),
 ): ScriptStep {
-	return { command, args: [...args], ...options };
+	return { command, args: [...args], result };
 }
 
-export function startupErrorStep(
-	command: string,
-	args: readonly string[],
-	startupError: string,
-): ScriptStep {
-	return { command, args: [...args], exitCode: 127, startupError };
+export interface CloseResultFields {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly code?: number | null;
+	readonly signal?: string | null;
+}
+
+export function exitedResult(fields: CloseResultFields = {}): ExecResult {
+	return closeResult("exited", fields, 0);
+}
+
+export function cancelledResult(fields: CloseResultFields = {}): ExecResult {
+	return closeResult("cancelled", fields, null);
+}
+
+export function timedOutResult(fields: CloseResultFields = {}): ExecResult {
+	return closeResult("timed-out", fields, null);
+}
+
+export function spawnFailedResult(error: unknown, stdout = ""): ExecResult {
+	const message = formatErrorMessage(error);
+	return { type: "spawn-failed", stdout, stderr: message, error: message };
+}
+
+function closeResult(
+	type: "exited" | "cancelled" | "timed-out",
+	fields: CloseResultFields,
+	defaultCode: number | null,
+): ExecResult {
+	return {
+		type,
+		stdout: fields.stdout ?? "",
+		stderr: fields.stderr ?? "",
+		code: fields.code === undefined ? defaultCode : fields.code,
+		signal: fields.signal === undefined ? null : fields.signal,
+	};
 }
 
 function copyRunnerCall(call: RunnerCall): RunnerCall {
@@ -192,16 +206,6 @@ function copyCommandCallFields(call: CommandCallFields): CommandCallFields {
 
 function sameArgs(left: readonly string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function result(fields: ResultFields): ExecResult {
-	return {
-		code: fields.exitCode ?? 0,
-		stdout: fields.stdout ?? "",
-		stderr: fields.startupError ?? fields.stderr ?? "",
-		killed: fields.isKilled === true,
-		...optionalEntry("startupError", fields.startupError),
-	};
 }
 
 function copyScriptStep(stepValue: ScriptStep): ScriptStep {

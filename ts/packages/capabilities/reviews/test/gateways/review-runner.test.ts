@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 
 import {
 	FakeReviewRunnerGateway,
@@ -164,7 +164,7 @@ describe("FakeReviewRunnerGateway", () => {
 
 describe("ClaudeCodeProcessReviewRunner", () => {
 	test("resolves claude before spawning and invokes Claude Code with prompt on stdin", async () => {
-		const execApi = new ScriptedCommandExecApi([{ stdout: claudeStdout() }]);
+		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: claudeStdout() })]);
 		const resolved: string[] = [];
 		const gateway = new ClaudeCodeProcessReviewRunner({
 			execApi,
@@ -213,7 +213,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 	});
 
 	test("missing binary returns harness_binary_missing without spawning", async () => {
-		const execApi = new ScriptedCommandExecApi([{ stdout: claudeStdout() }]);
+		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: claudeStdout() })]);
 		const gateway = new ClaudeCodeProcessReviewRunner({ execApi, binaryResolver: () => undefined });
 
 		const result = await gateway.runReview(preparedRequest(), { cwd: "/repo" });
@@ -225,7 +225,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 
 	test("non-zero exit maps to harness_execution_failed with stderr precedence", async () => {
 		const execApi = new ScriptedCommandExecApi([
-			{ stdout: "last stdout line", stderr: "stderr wins", code: 2, killed: false },
+			exitedResult({ stdout: "last stdout line", stderr: "stderr wins", code: 2 }),
 		]);
 		const gateway = new ClaudeCodeProcessReviewRunner({
 			execApi,
@@ -242,7 +242,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 	});
 
 	test("successful stdout returns input coverage", async () => {
-		const execApi = new ScriptedCommandExecApi([{ stdout: claudeStdout() }]);
+		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: claudeStdout() })]);
 		const gateway = new ClaudeCodeProcessReviewRunner({
 			execApi,
 			binaryResolver: () => "/usr/bin/claude",

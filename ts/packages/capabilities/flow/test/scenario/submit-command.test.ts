@@ -1258,6 +1258,39 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls[0]?.prompt).not.toContain("Raw log path:");
 	});
 
+	test("spawn failure raw logs preserve termination evidence", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
+		const run = runWithFakes({
+			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: {
+							type: "spawn-failed",
+							stdout: "",
+							stderr: "spawn gt ENOENT",
+							error: "spawn gt ENOENT",
+						},
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		const error = run.stderr.join("");
+		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
+		expect(rawPath?.startsWith(logRoot)).toBe(true);
+		const rawLog = await readFile(rawPath ?? "", "utf8");
+		expect(rawLog).toContain("termination: spawn-failed");
+		expect(rawLog).toContain("exit code: unavailable");
+		expect(rawLog).toContain("spawn error: spawn gt ENOENT");
+		expect(rawLog).not.toContain("startup error:");
+		expect(rawLog).not.toContain("killed:");
+	});
+
 	test("unknown dry-run failure falls back to original stderr when model generation fails", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
 		const run = runWithFakes({

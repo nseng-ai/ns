@@ -20,8 +20,13 @@ import {
 } from "./metadata.ts";
 import { isAbsolute, resolve } from "node:path";
 
-import { commandSucceeded, NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import {
+	commandFailureReason,
+	commandSucceeded,
+	NodeCommandExecApi,
+	type CommandExecApi,
+	type ExecResult,
+} from "@nseng-ai/foundation/exec";
 import { isRecord, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 const GRAPHITE_STACK_COMMAND_TIMEOUT_MS = 10_000;
@@ -145,7 +150,7 @@ export class RealGraphiteStackGateway implements GraphiteStackGateway {
 				return { type: "untracked_branch", message: failure.message };
 			return { type: "failure", failure };
 		}
-		const branch = firstNonemptyLine(result.stdout);
+		const branch = firstNonemptyLine(result.result.stdout);
 		return branch === null ? { type: "no_parent" } : { type: "parent", branch };
 	}
 
@@ -157,13 +162,13 @@ export class RealGraphiteStackGateway implements GraphiteStackGateway {
 				return { type: "untracked_branch", message: failure.message };
 			return { type: "failure", failure };
 		}
-		return { type: "children", branches: nonemptyLines(result.stdout) };
+		return { type: "children", branches: nonemptyLines(result.result.stdout) };
 	}
 
 	async trunk(cwd: string): Promise<TrunkResult> {
 		const result = await this.run("gt", ["trunk", "--no-interactive"], cwd);
 		if (!result.isOk) return { type: "failure", failure: failureFromCommandResult(result) };
-		const branch = firstNonemptyLine(result.stdout);
+		const branch = firstNonemptyLine(result.result.stdout);
 		if (branch === null)
 			return {
 				type: "failure",
@@ -236,33 +241,23 @@ export class RealGraphiteStackGateway implements GraphiteStackGateway {
 			env: this.env,
 			timeout: GRAPHITE_STACK_COMMAND_TIMEOUT_MS,
 		});
-		return {
-			isOk: result.code === 0 && !result.killed,
-			stdout: result.stdout,
-			stderr: result.stderr,
-			code: result.code,
-			killed: result.killed,
-		};
+		return { isOk: commandSucceeded(result), result };
 	}
 }
 
 interface CommandResult {
 	isOk: boolean;
-	stdout: string;
-	stderr: string;
-	code: number | null;
-	killed: boolean;
+	result: ExecResult;
 }
 
-function failureFromCommandResult(result: CommandResult): GtCommandFailure {
-	const stderr = result.stderr.trim();
-	if (stderr !== "") return { message: stderr, returnCode: result.code };
-	const stdout = result.stdout.trim();
-	if (stdout !== "") return { message: stdout, returnCode: result.code };
-	return {
-		message: result.killed ? "command was killed" : "command failed",
-		returnCode: result.code,
-	};
+function failureFromCommandResult(run: CommandResult): GtCommandFailure {
+	const stderr = run.result.stderr.trim();
+	const returnCode =
+		run.result.type === "exited" && run.result.signal === null ? run.result.code : null;
+	if (stderr !== "") return { message: stderr, returnCode };
+	const stdout = run.result.stdout.trim();
+	if (stdout !== "") return { message: stdout, returnCode };
+	return { message: commandFailureReason(run.result), returnCode };
 }
 
 function firstNonemptyLine(text: string): string | null {

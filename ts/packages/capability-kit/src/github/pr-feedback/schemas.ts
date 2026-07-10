@@ -14,7 +14,7 @@ const githubPrFeedbackFailureDetailsSchema = z.object({
 	stdout: z.string().optional(),
 	stderr: z.string().optional(),
 	exitCode: z.number().int().optional(),
-	killed: z.boolean().optional(),
+	resultType: z.enum(["exited", "spawn-failed", "cancelled", "timed-out"]).optional(),
 	graphqlErrors: z.unknown().optional(),
 	zodError: z.string().optional(),
 	prNumber: z.number().int().optional(),

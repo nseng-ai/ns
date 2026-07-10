@@ -5,7 +5,7 @@ import {
 	type GitOptionalResult,
 	type GitResult,
 } from "@nseng-ai/capability-kit/git";
-import { normalizeExecResult, type CommandExecApi } from "@nseng-ai/foundation/command";
+import { commandSucceeded, type CommandExecApi } from "@nseng-ai/foundation/command";
 
 import type { AutobranchExec, CommandResult } from "./shared.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
@@ -64,9 +64,7 @@ function createAutobranchProviderGitGateway(exec: AutobranchExec): AutobranchPro
 function createAutobranchCommandExecApi(exec: AutobranchExec): CommandExecApi {
 	return {
 		async exec(command, args, options) {
-			return normalizeExecResult(
-				await exec(command, args, options?.timeout ?? GIT_FACT_TIMEOUT_MS),
-			);
+			return await exec(command, args, options?.timeout ?? GIT_FACT_TIMEOUT_MS);
 		},
 	};
 }
@@ -120,8 +118,12 @@ export function createAutobranchGitGateway(input: AutobranchGitGatewayInput): Au
 				["merge-base", "--is-ancestor", ancestor, descendant],
 				GIT_FACT_TIMEOUT_MS,
 			);
-			if (result.code === 0) return { ok: true, value: true };
-			if (result.code === 1) return { ok: true, value: false };
+			if (result.type === "exited" && result.signal === null && result.code === 0) {
+				return { ok: true, value: true };
+			}
+			if (result.type === "exited" && result.signal === null && result.code === 1) {
+				return { ok: true, value: false };
+			}
 			return commandFailure(result);
 		},
 		async listStashes() {
@@ -187,7 +189,7 @@ async function runGit(
 	timeout: number,
 ): Promise<AutobranchGitResult<CommandResult>> {
 	const result = await exec("git", args, timeout);
-	if (result.code !== 0) return commandFailure(result);
+	if (!commandSucceeded(result)) return commandFailure(result);
 	return { ok: true, value: result };
 }
 

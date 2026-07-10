@@ -9,6 +9,8 @@ import handoffExtension, {
 	type ExecResult,
 	type ExtensionAPI,
 } from "../../src/pi/extension.ts";
+
+type ExecResultFixture = Partial<ExecResult>;
 import type {
 	NewSessionOptions,
 	RenderComponent,
@@ -35,7 +37,7 @@ export interface ExecCall {
 export interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: ExecResultFixture | undefined;
 }
 
 export interface Notification {
@@ -161,7 +163,7 @@ export class FakePi implements ExtensionAPI {
 	}
 }
 
-export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+export function execResult(overrides: ExecResultFixture = {}): ExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
@@ -170,7 +172,7 @@ export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-export function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
+export function step(command: string, args: string[], result?: ExecResultFixture): ScriptedExec {
 	return { command, args, result };
 }
 

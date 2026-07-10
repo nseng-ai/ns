@@ -58,9 +58,9 @@ class CmuxCommandFake implements CommandExecApi {
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.events.push({ command, args: [...args], ...(options === undefined ? {} : { options }) });
 		if (args.join(" ") === this.failedCommand) {
-			return { stdout: "", stderr: "workspace not found", code: 2, killed: false };
+			return { type: "exited", stdout: "", stderr: "workspace not found", code: 2, signal: null };
 		}
-		return { stdout: "", stderr: "", code: 0, killed: false };
+		return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
 	}
 }
 

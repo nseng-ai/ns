@@ -11,10 +11,11 @@ import {
 import {
 	commandSucceeded,
 	execApiToCommandRunner,
+	type CommandExecApi,
 	formatCommand,
+	formatCommandDetails,
 	formatCommandFailure,
 	formatShellArg,
-	piExecApiToCommandExecApi,
 } from "@nseng-ai/foundation/command";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
@@ -30,7 +31,10 @@ import { CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME } from "./command-surfaces.t
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
 import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
-import type { CommandContext, ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import type { CommandContext } from "@nseng-ai/capability-kit/cmux/types";
+import type { CccPiCommandApi } from "./pi-command-api.ts";
+
+type DispatchPromptRuntime = CommandExecApi & Pick<CccPiCommandApi, "getThinkingLevel">;
 
 const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
@@ -56,7 +60,7 @@ interface ResolvedDispatchPromptPayloadOptions {
 }
 
 export interface HandleCccSlotDispatchPromptOptions {
-	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
+	pi: DispatchPromptRuntime;
 	payloadOptions: ResolvedDispatchPromptPayloadOptions;
 	slotClient?: SlotClient;
 	args: string;
@@ -115,7 +119,7 @@ export async function handleCccSlotDispatchPrompt(
 }
 
 export async function dispatchTrackedBranchPrompt(options: {
-	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
+	pi: DispatchPromptRuntime;
 	ctx: CommandContext;
 	branch: BranchCreateResult;
 	content: string;
@@ -166,7 +170,7 @@ function formatDispatchPromptSuccessMessage(
 }
 
 export async function createTrackedBranchForPrompt(
-	pi: Pick<ExtensionAPI, "exec">,
+	pi: CommandExecApi,
 	cwd: string,
 	prompt: string,
 ): Promise<BranchCreateResult | { error: string }> {
@@ -191,7 +195,7 @@ export async function createTrackedBranchForPrompt(
 }
 
 export async function createTrackedBranchFromResolvedParent(options: {
-	pi: Pick<ExtensionAPI, "exec">;
+	pi: CommandExecApi;
 	cwd: string;
 	prompt: string;
 	parentBranch: string;
@@ -213,7 +217,7 @@ export async function createTrackedBranchFromResolvedParent(options: {
 	}
 
 	const trackArgs = ["track", branchName, "--parent", parentBranch, "--no-interactive"];
-	const track = await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), {
+	const track = await runGraphiteCommand(execApiToCommandRunner(pi), {
 		cwd,
 		args: trackArgs,
 	});
@@ -235,7 +239,7 @@ export async function createTrackedBranchFromResolvedParent(options: {
 }
 
 async function chooseAvailableBranchName(
-	pi: Pick<ExtensionAPI, "exec">,
+	pi: CommandExecApi,
 	cwd: string,
 	baseName: string,
 ): Promise<string> {
@@ -246,11 +250,7 @@ async function chooseAvailableBranchName(
 	return candidate;
 }
 
-async function branchExists(
-	pi: Pick<ExtensionAPI, "exec">,
-	cwd: string,
-	branchName: string,
-): Promise<boolean> {
+async function branchExists(pi: CommandExecApi, cwd: string, branchName: string): Promise<boolean> {
 	const result = await pi.exec(
 		"git",
 		["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
@@ -259,7 +259,7 @@ async function branchExists(
 			timeout: 5_000,
 		},
 	);
-	return result.code === 0;
+	return commandSucceeded(result);
 }
 
 function appendBranchSuffix(branchName: string, suffix: number): string {
@@ -269,7 +269,7 @@ function appendBranchSuffix(branchName: string, suffix: number): string {
 }
 
 export async function storeDispatchPromptPayload(options: {
-	pi: Pick<ExtensionAPI, "exec">;
+	pi: CommandExecApi;
 	cwd: string;
 	branchName: string;
 	content: string;
@@ -318,7 +318,7 @@ export async function storeDispatchPromptPayload(options: {
 }
 
 async function checkDispatchPromptPayload(
-	pi: Pick<ExtensionAPI, "exec">,
+	pi: CommandExecApi,
 	cwd: string,
 	branchName: string,
 ): Promise<DispatchPromptPresenceResult> {
@@ -332,7 +332,7 @@ async function checkDispatchPromptPayload(
 }
 
 async function putDispatchPromptPayload(options: {
-	pi: Pick<ExtensionAPI, "exec">;
+	pi: CommandExecApi;
 	cwd: string;
 	branchName: string;
 	sourceFile: string;
@@ -442,18 +442,17 @@ export function buildLaunchPrompt(prompt: string, contextNote?: string): string 
 }
 
 export async function runText(
-	pi: Pick<ExtensionAPI, "exec">,
+	pi: CommandExecApi,
 	cwd: string,
 	command: string,
 	args: string[],
 ): Promise<TextResult> {
 	const result = await pi.exec(command, args, { cwd, timeout: 30_000 });
-	if (result.code === 0 && !result.killed) {
+	if (commandSucceeded(result)) {
 		return { ok: true, text: result.stdout.trim() };
 	}
 	return {
 		ok: false,
-		message:
-			result.stderr.trim() || result.stdout.trim() || `${command} exited with ${result.code}`,
+		message: result.stderr.trim() || result.stdout.trim() || formatCommandDetails(result),
 	};
 }

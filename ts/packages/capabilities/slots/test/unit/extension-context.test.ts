@@ -50,7 +50,13 @@ function extensionApi(options: { renderCapabilities: RenderCapabilities }): NsEx
 	return {
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
-		exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }),
+		exec: async () => ({
+			type: "exited",
+			stdout: "",
+			stderr: "",
+			code: 0,
+			signal: null,
+		}),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		commandIo: noopNsCommandIo,
 		progress: noopNsProgress,

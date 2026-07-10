@@ -2,8 +2,8 @@ export { default, thermoCouncilParity } from "./extension.ts";
 export type { ThermoCouncilExtensionOptions } from "./extension.ts";
 export type {
 	CustomMessage,
-	ExecOptions,
-	ExecResult,
+	RawPiExecOptions,
+	RawPiExecResult,
 	RegisteredCommand,
 	ThermoCouncilCommandContext,
 	ThermoCouncilExtensionAPI,

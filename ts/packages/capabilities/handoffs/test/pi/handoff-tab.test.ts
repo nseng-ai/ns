@@ -275,7 +275,10 @@ describe("handoff-tab extension", () => {
 		);
 
 		pi.assertDone();
-		expect(pi.execCalls[0]?.options).toMatchObject({ cwd: "/repo", timeout: 60_000, signal });
+		expect(pi.execCalls[0]?.options).toMatchObject({ cwd: "/repo" });
+		expect(pi.execCalls[0]?.options?.signal).toBeInstanceOf(AbortSignal);
+		expect(pi.execCalls[0]?.options?.signal).not.toBe(signal);
+		expect(pi.execCalls[0]?.options?.timeout).toBeUndefined();
 	});
 
 	test("handoff-tab launch tool opens a focused pickup cmux tab", async () => {

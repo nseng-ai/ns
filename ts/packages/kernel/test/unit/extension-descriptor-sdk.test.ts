@@ -16,7 +16,7 @@ import {
 const noopApi = {
 	cwd: "/repo",
 	env: {},
-	exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
+	exec: async () => ({ type: "exited", code: 0, signal: null, stdout: "", stderr: "" }),
 	commandIo: {
 		phase: () => {},
 		notify: () => {},

@@ -19,10 +19,12 @@ export interface ExecCall {
 	args: string[];
 }
 
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+
 export interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | Promise<Partial<ExecResult>> | undefined;
+	result: Partial<ExitedResult> | Promise<Partial<ExitedResult>> | undefined;
 	onCall?: () => void;
 }
 
@@ -35,7 +37,7 @@ export class OrderlessFakePi {
 		this.script = [...script];
 	}
 
-	async exec(command: string, args: string[]): Promise<ExecResult> {
+	async exec(command: string, args: string[]): Promise<ExitedResult> {
 		this.calls.push({ command, args: [...args] });
 		const index = this.script.findIndex(
 			(expected) => expected.command === command && sameArgs(expected.args, args),
@@ -96,7 +98,7 @@ export class RegistrationFakePi {
 		this.registeredEvents.push(event);
 	}
 
-	async exec(): Promise<ExecResult> {
+	async exec(): Promise<ExitedResult> {
 		return execResult({ code: 99 });
 	}
 
@@ -131,19 +133,20 @@ function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+export function execResult(overrides: Partial<ExitedResult> = {}): ExitedResult {
 	return {
+		type: "exited",
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
+		signal: overrides.signal ?? null,
 	};
 }
 
 export function step(
 	command: string,
 	args: string[],
-	result?: Partial<ExecResult> | Promise<Partial<ExecResult>>,
+	result?: Partial<ExitedResult> | Promise<Partial<ExitedResult>>,
 ): ScriptedExec {
 	return { command, args, result };
 }
@@ -188,7 +191,7 @@ export function basicGitStatusScript(
 }
 
 export function brmemListStep(
-	result: Partial<ExecResult> | Promise<Partial<ExecResult>>,
+	result: Partial<ExitedResult> | Promise<Partial<ExitedResult>>,
 ): ScriptedExec {
 	return step("brmem", ["list", "--format", "json"], result);
 }

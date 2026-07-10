@@ -12,6 +12,9 @@ import {
 } from "../src/core/index.ts";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
+
 const CWD = "/repo";
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";
 
@@ -24,14 +27,14 @@ interface ExecCall {
 class FakeSlugPi implements CommandExecApi {
 	readonly calls: ExecCall[] = [];
 	private readonly behavior: {
-		result?: Partial<ExecResult>;
-		results?: Partial<ExecResult>[];
+		result?: ExecResultFixture;
+		results?: ExecResultFixture[];
 		error?: Error;
 	};
 
 	constructor(behavior: {
-		result?: Partial<ExecResult>;
-		results?: Partial<ExecResult>[];
+		result?: ExecResultFixture;
+		results?: ExecResultFixture[];
 		error?: Error;
 	}) {
 		this.behavior =
@@ -44,15 +47,17 @@ class FakeSlugPi implements CommandExecApi {
 			throw this.behavior.error;
 		}
 		const result = this.nextResult();
+		if ("type" in result) return result;
 		return {
+			type: "exited",
 			stdout: result.stdout ?? "",
 			stderr: result.stderr ?? "",
 			code: result.code ?? 0,
-			killed: result.killed ?? false,
+			signal: result.signal ?? null,
 		};
 	}
 
-	private nextResult(): Partial<ExecResult> {
+	private nextResult(): ExecResultFixture {
 		if (this.behavior.results !== undefined) {
 			const result = this.behavior.results.shift();
 			if (result === undefined) {
@@ -184,12 +189,12 @@ describe("derivePlanContentSlug", () => {
 		}
 	});
 
-	test("repeated killed Pi model command fails with no fallback after one retry", async () => {
+	test("repeated timed-out Pi model command fails with no fallback after one retry", async () => {
 		const filePath = await makePlanFile();
 		const pi = new FakeSlugPi({
 			results: [
-				{ code: 143, killed: true },
-				{ code: 143, killed: true },
+				{ type: "timed-out", stdout: "", stderr: "", code: 143, signal: "SIGTERM" },
+				{ type: "timed-out", stdout: "", stderr: "", code: 143, signal: "SIGTERM" },
 			],
 		});
 
@@ -199,7 +204,7 @@ describe("derivePlanContentSlug", () => {
 		} catch (error) {
 			expectNoFallback(error);
 			expect((error as Error).message).toContain(
-				"Pi model command failed (exit code 143; process was killed or timed out).",
+				"Pi model command failed (timed out; signal SIGTERM).",
 			);
 		}
 		expect(pi.calls).toHaveLength(2);

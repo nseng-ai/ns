@@ -17,7 +17,7 @@ type FakeEffect = { readonly type: "bump"; readonly by: number };
 const DEPS: TabModuleDeps = {
 	cwd: "/repo",
 	env: {},
-	runCommand: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
+	runCommand: async () => ({ type: "exited", code: 0, signal: null, stdout: "", stderr: "" }),
 };
 
 interface FakeModuleOptions {

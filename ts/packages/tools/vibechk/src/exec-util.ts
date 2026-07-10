@@ -19,8 +19,8 @@ export async function runVibechkCommand(options: RunVibechkCommandOptions): Prom
 		const message = error instanceof Error ? error.message : String(error);
 		throw commandStartupError(options, message);
 	}
-	if (result.startupError !== undefined) {
-		throw commandStartupError(options, result.startupError);
+	if (result.type === "spawn-failed") {
+		throw commandStartupError(options, result.error);
 	}
 	return result;
 }

@@ -9,16 +9,20 @@ interface RecordedCall {
 	options: ExecOptions | undefined;
 }
 
-function fakeExec(result: Partial<ExecResult>): { api: CommandExecApi; calls: RecordedCall[] } {
+function fakeExec(result: Partial<Extract<ExecResult, { type: "exited" }>>): {
+	api: CommandExecApi;
+	calls: RecordedCall[];
+} {
 	const calls: RecordedCall[] = [];
 	const api: CommandExecApi = {
 		async exec(command, args, options) {
 			calls.push({ command, args: [...args], options });
 			return {
+				type: "exited",
 				stdout: result.stdout ?? "",
 				stderr: result.stderr ?? "",
 				code: result.code ?? 0,
-				killed: result.killed ?? false,
+				signal: result.signal ?? null,
 			};
 		},
 	};
@@ -43,7 +47,13 @@ describe("execGitCommonDir", () => {
 	});
 
 	test("returns null on a nonzero exit", async () => {
-		const fake = fakeExec({ code: 128, stderr: "fatal: not a git repository" });
+		const fake = fakeExec({
+			type: "exited",
+			stdout: "",
+			stderr: "fatal: not a git repository",
+			code: 128,
+			signal: null,
+		});
 		expect(await execGitCommonDir(fake.api, "/repo")).toBeNull();
 	});
 

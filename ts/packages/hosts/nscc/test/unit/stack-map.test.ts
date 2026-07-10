@@ -143,7 +143,13 @@ describe("loadStackMapModel", () => {
 					return successJson({ status: "ok", exitCode: 0, data: stackMapGraphFixture() });
 				if (command === "cmux")
 					return successJson(cmuxTreeFixture({ includeExplicitWorktree: true }));
-				return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
+				return {
+					type: "exited",
+					code: 2,
+					signal: null,
+					stdout: "",
+					stderr: `unexpected command ${command}`,
+				};
 			},
 		});
 
@@ -175,7 +181,13 @@ describe("loadStackMapModel", () => {
 						data: { trunk: "main", current: "main", edges: [], slots: [], warnings: [] },
 					});
 				if (command === "cmux") return successJson({ windows: [] });
-				return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
+				return {
+					type: "exited",
+					code: 2,
+					signal: null,
+					stdout: "",
+					stderr: `unexpected command ${command}`,
+				};
 			},
 		});
 
@@ -412,7 +424,7 @@ describe("createStackMapCmuxActivationExecutor", () => {
 			cwd: "/repo",
 			runCommand: async (command, args, options = {}) => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
-				return { code: 0, stdout: "{}", stderr: "", killed: false };
+				return { type: "exited", code: 0, signal: null, stdout: "{}", stderr: "" };
 			},
 		});
 
@@ -452,7 +464,7 @@ describe("createStackMapCmuxActivationExecutor", () => {
 			slotClient,
 			runCommand: async (command, args, options = {}) => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
-				return { code: 0, stdout: "{}", stderr: "", killed: false };
+				return { type: "exited", code: 0, signal: null, stdout: "{}", stderr: "" };
 			},
 		});
 
@@ -491,7 +503,7 @@ describe("createStackMapCmuxActivationExecutor", () => {
 			slotClient,
 			runCommand: async (command, args, options = {}) => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
-				return { code: 0, stdout: "{}", stderr: "", killed: false };
+				return { type: "exited", code: 0, signal: null, stdout: "{}", stderr: "" };
 			},
 		});
 
@@ -508,7 +520,7 @@ describe("createStackMapCmuxActivationExecutor", () => {
 			cwd: "/repo",
 			runCommand: async (command, args, options = {}) => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
-				return { code: 0, stdout: "{}", stderr: "", killed: false };
+				return { type: "exited", code: 0, signal: null, stdout: "{}", stderr: "" };
 			},
 		});
 
@@ -919,5 +931,5 @@ function tableSeparatorIndexes(line: string): readonly number[] {
 }
 
 function successJson(value: unknown): CommandOutput {
-	return { code: 0, stdout: JSON.stringify(value), stderr: "", killed: false };
+	return { type: "exited", code: 0, signal: null, stdout: JSON.stringify(value), stderr: "" };
 }
