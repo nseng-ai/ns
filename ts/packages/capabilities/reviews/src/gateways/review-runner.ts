@@ -4,7 +4,6 @@ import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundati
 import {
 	formatErrorMessage,
 	mapFromRecordOrMap,
-	optionalEntry,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
@@ -16,6 +15,7 @@ import {
 	reviewExecutionResponseSchema,
 	type ReviewRunnerRequest,
 	type ReviewExecutionResponse,
+	type ReviewInputCoverage,
 } from "../core/models.ts";
 import { resolveReviewsModelReference } from "../core/review-model-reference.ts";
 import { buildClaudeCodeArgs, parseClaudeCodeReviewOutput } from "./claude-code-review-runner.ts";
@@ -36,10 +36,15 @@ export interface ReviewRunnerGateway {
 	): Promise<ReviewResult<ReviewExecutionResponse>>;
 }
 
+export interface PreparedReviewHarnessRequest {
+	readonly modelId: string;
+	readonly promptText: string;
+	readonly inputCoverage: ReviewInputCoverage;
+}
+
 export interface ReviewHarnessRunner {
 	runReview(
-		request: ReviewRunnerRequest,
-		modelId: string,
+		request: PreparedReviewHarnessRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>>;
 }
@@ -64,11 +69,17 @@ export class RoutingReviewRunner implements ReviewRunnerGateway {
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		const resolved = resolveReviewsModelReference(request.model);
 		if (!resolved.ok) return resolved;
+		const assembled = assembleReviewPrompt(request);
+		const preparedRequest: PreparedReviewHarnessRequest = {
+			modelId: resolved.value.modelId,
+			promptText: assembled.promptText,
+			inputCoverage: assembled.inputCoverage,
+		};
 		switch (resolved.value.harness) {
 			case "claude-code":
-				return await this.claudeCode.runReview(request, resolved.value.modelId, options);
+				return await this.claudeCode.runReview(preparedRequest, options);
 			case "codex":
-				return await this.codex.runReview(request, resolved.value.modelId, options);
+				return await this.codex.runReview(preparedRequest, options);
 		}
 	}
 }
@@ -136,8 +147,7 @@ export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 	}
 
 	async runReview(
-		request: ReviewRunnerRequest,
-		modelId: string,
+		request: PreparedReviewHarnessRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		let resolvedBinary: string | undefined;
@@ -156,17 +166,14 @@ export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 			});
 		}
 
-		const assembled = assembleReviewPrompt({
-			reviewDefinition: request.reviewDefinition,
-			reviewDir: request.reviewDir,
-			target: request.target,
-			...optionalEntry("priorFindingsContext", request.priorFindingsContext),
+		const args = buildClaudeCodeArgs({
+			model: request.modelId,
+			systemPrompt: systemPromptFindings(),
 		});
-		const args = buildClaudeCodeArgs({ model: modelId, systemPrompt: systemPromptFindings() });
 		let result: ExecResult;
 		const execOptions: ExecOptions = {
 			cwd: options.cwd,
-			stdin: assembled.promptText,
+			stdin: request.promptText,
 			...(options.env === undefined ? {} : { env: options.env }),
 			...(options.signal === undefined ? {} : { signal: options.signal }),
 		};
@@ -191,7 +198,7 @@ export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 
 		return parseClaudeCodeReviewOutput({
 			stdout: result.stdout,
-			inputCoverage: assembled.inputCoverage,
+			inputCoverage: request.inputCoverage,
 		});
 	}
 }

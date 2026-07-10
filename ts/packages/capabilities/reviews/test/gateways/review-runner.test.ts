@@ -5,6 +5,7 @@ import {
 	FakeReviewRunnerGateway,
 	ClaudeCodeProcessReviewRunner,
 	RoutingReviewRunner,
+	type PreparedReviewHarnessRequest,
 	type ReviewHarnessRunner,
 	type RunReviewOptions,
 } from "../../src/gateways/review-runner.ts";
@@ -63,19 +64,39 @@ function successResponse(): ReviewExecutionResponse {
 	return { payload: createFindingsReview([]), usage: null, inputCoverage: null };
 }
 
+function preparedRequest(
+	options: { readonly modelId?: string; readonly promptText?: string } = {},
+): PreparedReviewHarnessRequest {
+	return {
+		modelId: options.modelId ?? "claude-haiku-4-5",
+		promptText: options.promptText ?? "REVIEW_PROMPT",
+		inputCoverage: {
+			fullDiffEstimatedTokens: 10,
+			promptDiffTokenCap: 120_000,
+			promptDiffFileTokenCap: 40_000,
+			changedPathCount: 1,
+			includedFileCount: 1,
+			omittedFileCount: 0,
+			omittedFiles: [],
+		},
+	};
+}
+
 function claudeStdout(): string {
 	return JSON.stringify({ type: "result", structured_output: { findings: [] } });
 }
 
 class RecordingHarnessRunner implements ReviewHarnessRunner {
-	readonly calls: Array<{ modelId: string; options: RunReviewOptions }> = [];
+	readonly calls: Array<{
+		request: PreparedReviewHarnessRequest;
+		options: RunReviewOptions;
+	}> = [];
 
 	async runReview(
-		_request: ReviewRunnerRequest,
-		modelId: string,
+		request: PreparedReviewHarnessRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
-		this.calls.push({ modelId, options });
+		this.calls.push({ request, options });
 		return { ok: true, value: successResponse() };
 	}
 }
@@ -153,9 +174,11 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 			},
 		});
 		const largeMarker = "UNIQUE_PROMPT_MARKER";
-		const reviewRequest = request({ diffText: `${largeMarker}\n${"x".repeat(200_000)}` });
+		const harnessRequest = preparedRequest({
+			promptText: `${largeMarker}\n${"x".repeat(200_000)}`,
+		});
 
-		const result = await gateway.runReview(reviewRequest, "claude-haiku-4-5", { cwd: "/repo" });
+		const result = await gateway.runReview(harnessRequest, { cwd: "/repo" });
 
 		expect(result.ok).toBe(true);
 		expect(resolved).toEqual(["claude"]);
@@ -193,7 +216,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 		const execApi = new ScriptedCommandExecApi([{ stdout: claudeStdout() }]);
 		const gateway = new ClaudeCodeProcessReviewRunner({ execApi, binaryResolver: () => undefined });
 
-		const result = await gateway.runReview(request(), "claude-haiku-4-5", { cwd: "/repo" });
+		const result = await gateway.runReview(preparedRequest(), { cwd: "/repo" });
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.code).toBe("harness-binary-missing");
@@ -209,7 +232,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 			binaryResolver: () => "/usr/bin/claude",
 		});
 
-		const result = await gateway.runReview(request(), "claude-haiku-4-5", { cwd: "/repo" });
+		const result = await gateway.runReview(preparedRequest(), { cwd: "/repo" });
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -225,7 +248,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 			binaryResolver: () => "/usr/bin/claude",
 		});
 
-		const result = await gateway.runReview(request(), "claude-haiku-4-5", { cwd: "/repo" });
+		const result = await gateway.runReview(preparedRequest(), { cwd: "/repo" });
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -253,7 +276,15 @@ describe("RoutingReviewRunner", () => {
 		expect(result.ok).toBe(true);
 		expect(claudeCode.calls).toHaveLength(harness === "claude-code" ? 1 : 0);
 		expect(codex.calls).toHaveLength(harness === "codex" ? 1 : 0);
-		expect((harness === "claude-code" ? claudeCode : codex).calls[0]?.modelId).toBe(modelId);
+		const dispatched = (harness === "claude-code" ? claudeCode : codex).calls[0];
+		expect(dispatched?.request.modelId).toBe(modelId);
+		expect(dispatched?.request.promptText).toContain("Flag concrete issues.");
+		expect(dispatched?.request.promptText).toContain("+change");
+		expect(dispatched?.request.inputCoverage).toMatchObject({
+			changedPathCount: 1,
+			includedFileCount: 1,
+			omittedFileCount: 0,
+		});
 	});
 
 	test.each([
