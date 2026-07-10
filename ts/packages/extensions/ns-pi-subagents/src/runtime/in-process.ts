@@ -4,6 +4,7 @@ import type { Clock } from "@nseng-ai/foundation/clock";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 
+import { errorResult } from "../runner-subagents/results.ts";
 import {
 	abortReason,
 	effectiveAbortSignal,
@@ -91,13 +92,11 @@ async function dispatchInProcessSubagent(
 	try {
 		const model = resolveConcreteModel(launch, options.modelRegistry);
 		if (!model.ok) {
-			return {
-				status: "error",
-				diagnostic: `In-process subagent dispatch failed: ${model.diagnostic}`,
-				error: { message: model.diagnostic },
-				elapsedMs: elapsedMs(),
-				progress: progressWithoutCurrentTool(progress, "stopped", elapsedMs),
-			};
+			return errorResult(
+				progressWithoutCurrentTool(progress, "stopped", elapsedMs),
+				`In-process subagent dispatch failed: ${model.diagnostic}`,
+				new Error(model.diagnostic),
+			);
 		}
 		session = await sessionFactory.create({
 			cwd: input.options.cwd ?? input.ctx.cwd,
@@ -178,14 +177,15 @@ async function dispatchInProcessSubagent(
 		});
 		if (caughtCancellation !== undefined) return caughtCancellation;
 		const message = formatErrorMessage(error);
-		return {
-			status: "error",
-			diagnostic: `In-process subagent dispatch failed: ${message}`,
-			error: { message },
-			elapsedMs: elapsedMs(),
-			progress: progressWithoutCurrentTool(progress, "stopped", elapsedMs),
-			...optionalEntry("sessionFile", session?.sessionFile),
-		};
+		const stopped = progressWithoutCurrentTool(progress, "stopped", elapsedMs);
+		return errorResult(
+			{
+				...stopped,
+				...optionalEntry("sessionFile", session?.sessionFile),
+			},
+			`In-process subagent dispatch failed: ${message}`,
+			error,
+		);
 	} finally {
 		session?.dispose();
 	}

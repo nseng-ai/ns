@@ -16,8 +16,8 @@ import {
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
-import type { NotifyLevel, ToolContext, ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
-import { makeErrorResult, makeFinalTextResult } from "./helpers/fleet-testing.ts";
+import type { NotifyLevel, ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
+import { makeErrorResult, makeFinalTextResult, toolContext } from "./helpers/fleet-testing.ts";
 import { READ_ONLY_SUBAGENT_TOOLS } from "../src/runner-subagents/read-only-tools.ts";
 import {
 	createFunctionSubagentRuntime,
@@ -86,18 +86,6 @@ function definition(
 function loader(name: string): PiAgentDefinition {
 	if (name === "explorer" || name === "task") return definition(name);
 	throw new Error(`unknown ${name}`);
-}
-
-function toolContext(
-	options: { notify?: (message: string, level?: NotifyLevel) => void } = {},
-): ToolContext {
-	return {
-		cwd: "/repo",
-		mode: "tui",
-		hasUI: options.notify !== undefined,
-		ui: { notify: options.notify ?? (() => {}) },
-		model: { provider: "anthropic", id: "claude-sonnet-4-5" },
-	};
 }
 
 function invokeBeforeAgentStart(

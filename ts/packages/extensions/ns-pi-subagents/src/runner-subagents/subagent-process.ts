@@ -24,7 +24,6 @@ import type {
 	RunnerSubagentCancelledResult,
 	RunnerSubagentCompletedResult,
 	RunnerSubagentContext,
-	RunnerSubagentErrorResult,
 	RunnerSubagentFinalTextResult,
 	RunnerSubagentLaunchMetadata,
 	RunnerSubagentOptions,
@@ -50,6 +49,7 @@ import {
 	type RuntimeResultV1,
 } from "./subagent-runtime.ts";
 import { emptyRunnerSubagentActivity } from "./activity.ts";
+import { errorResult } from "./results.ts";
 import {
 	createRunnerSubagentJsonEventParser,
 	type RunnerSubagentJsonEventParserSnapshot,
@@ -1053,19 +1053,6 @@ function cancelledResult(
 	};
 }
 
-function errorResult(
-	progress: RunnerSubagentProgress,
-	diagnostic: string,
-	error: unknown = new Error(diagnostic),
-): RunnerSubagentErrorResult {
-	return {
-		...resultBase(progress),
-		status: "error",
-		diagnostic,
-		error: errorPayload(error, diagnostic),
-	};
-}
-
 function protocolErrorResult(
 	progress: RunnerSubagentProgress,
 	message: string,
@@ -1109,15 +1096,6 @@ function stoppedProgress(input: {
 		elapsedMs,
 		...(input.sessionFile === undefined ? {} : { sessionFile: input.sessionFile }),
 		...(input.launch === undefined ? {} : { launch: input.launch }),
-	};
-}
-
-function errorPayload(error: unknown, fallbackMessage: string): RunnerSubagentErrorResult["error"] {
-	if (!(error instanceof Error)) return { message: fallbackMessage };
-	return {
-		message: error.message || fallbackMessage,
-		...(error.name === undefined || error.name.length === 0 ? {} : { name: error.name }),
-		...(error.stack === undefined ? {} : { stack: error.stack }),
 	};
 }
 

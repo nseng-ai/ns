@@ -8,7 +8,7 @@ import {
 	PI_AGENT_DEFINITION_SCHEMA,
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
-import type { ToolContext, ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
+import type { ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
 
 import {
 	createSubagentAgentRegistry,
@@ -30,6 +30,7 @@ import {
 	makeFinalTextResult,
 	settleMicrotasks,
 	stoppedProgress,
+	toolContext,
 } from "../helpers/fleet-testing.ts";
 
 const LIMITS_AGENT = "limits-probe";
@@ -98,16 +99,6 @@ function registerLimitsTool(input: {
 	const tool = pi.tools.get(SUBAGENT_TOOL_NAME);
 	if (tool === undefined) throw new Error("Missing subagent tool.");
 	return tool;
-}
-
-function toolContext(): ToolContext {
-	return {
-		cwd: "/repo",
-		mode: "tui",
-		hasUI: false,
-		ui: { notify: () => {} },
-		model: { provider: "anthropic", id: "claude-sonnet-4-5" },
-	};
 }
 
 function cancelledResult(reason: string): RunnerSubagentCancelledResult {

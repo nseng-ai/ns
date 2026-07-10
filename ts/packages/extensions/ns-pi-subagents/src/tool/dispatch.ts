@@ -54,7 +54,7 @@ export async function dispatchSubagentBatch(
 		status: "cancelled" | "error",
 		diagnostic: string,
 	): RunnerSubagentResult => {
-		const result = placeholderFleetTaskResult(status, diagnostic, title);
+		const result = placeholderFleetTaskResult({ status, diagnostic, title });
 		tracking.markDone(index, result);
 		return result;
 	};

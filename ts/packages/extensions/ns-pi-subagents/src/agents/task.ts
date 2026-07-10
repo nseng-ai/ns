@@ -1,3 +1,4 @@
+import { SUBAGENT_RUNTIME_KINDS } from "../runtime/seam.ts";
 import type { SubagentAgentDescriptor } from "./registry.ts";
 
 export const TASK_AGENT_DESCRIPTOR = {
@@ -10,6 +11,6 @@ export const TASK_AGENT_DESCRIPTOR = {
 	promptContext: "curated-worktree",
 	modelPolicy: "inherit",
 	maxTaskFinalTextChars: 48_000,
-	supportedRuntimes: ["subprocess", "in-process"],
-	runtimePreference: ["subprocess", "in-process"],
+	supportedRuntimes: SUBAGENT_RUNTIME_KINDS,
+	runtimePreference: SUBAGENT_RUNTIME_KINDS,
 } as const satisfies SubagentAgentDescriptor;
