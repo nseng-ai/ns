@@ -36,6 +36,7 @@ export {
 	z,
 } from "@nseng-ai/kernel/sdk";
 export type {
+	ActiveOperation,
 	BuildFailureMachineEnvelopeSchemaOptions,
 	BundledArtifactDefinition,
 	ClinkrCompletionCandidate,

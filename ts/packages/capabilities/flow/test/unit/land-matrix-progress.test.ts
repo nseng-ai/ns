@@ -43,7 +43,7 @@ describe("land matrix progress", () => {
 		const lines = renderLandMatrixProgressFrame({
 			caps: caps(),
 			title: "ns flow land — 1/2 target PRs merged",
-			runningCommands: ["gh pr merge 123 --squash"],
+			activeOperations: [{ kind: "command", display: "gh pr merge 123 --squash" }],
 			rows: rows.map((row) => landRowView(row)),
 		});
 
@@ -89,7 +89,7 @@ describe("land matrix progress", () => {
 		const lines = renderLandMatrixProgressFrame({
 			caps: caps(),
 			title: "ns flow land — 0/2 target PRs merged",
-			runningCommands: [],
+			activeOperations: [],
 			rows: rows.map((row) => pendingLandRowView(row)),
 		});
 
@@ -108,7 +108,7 @@ describe("land matrix progress", () => {
 		const lines = renderLandMatrixProgressFrame({
 			caps: caps(),
 			title: "ns flow land — 0/1 target PRs merged",
-			runningCommands: [],
+			activeOperations: [],
 			rows: rows.map((row) => pendingLandRowView(row)),
 		});
 

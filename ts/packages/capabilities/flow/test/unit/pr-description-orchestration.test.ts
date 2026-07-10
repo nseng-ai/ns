@@ -148,6 +148,7 @@ describe("orchestratePrDescription", () => {
 		});
 		const githubPr = new FakeGithubPrGateway({ pr: prDetails({ body }) });
 		const textGeneration = new ScriptedTextGenerator([]);
+		const modelEvents: Array<{ type: string; modelRef: string; prNumber: number }> = [];
 
 		const result = await orchestratePrDescription({
 			cwd: "/repo",
@@ -157,6 +158,7 @@ describe("orchestratePrDescription", () => {
 			textGenerator: textGeneration,
 			pr: prDetails({ body }),
 			generation: GENERATION,
+			onModelGeneration: (event) => modelEvents.push(event),
 		});
 
 		expect(result).toMatchObject({
@@ -166,6 +168,7 @@ describe("orchestratePrDescription", () => {
 		expect(githubPr.stablePatchIdCalls).toBe(1);
 		expect(githubPr.commitMessageCalls).toBe(0);
 		expect(githubPr.editCalls).toEqual([]);
+		expect(modelEvents).toEqual([]);
 		textGeneration.assertDone();
 	});
 
@@ -177,6 +180,7 @@ describe("orchestratePrDescription", () => {
 				text: "Generated title\n\nGenerated body\n\n## Key Changes\n\n- Adds behavior",
 			},
 		]);
+		const modelEvents: Array<{ type: string; modelRef: string; prNumber: number }> = [];
 
 		const result = await orchestratePrDescription({
 			cwd: "/repo",
@@ -186,6 +190,7 @@ describe("orchestratePrDescription", () => {
 			textGenerator: textGeneration,
 			pr: DEFAULT_PR,
 			generation: GENERATION,
+			onModelGeneration: (event) => modelEvents.push(event),
 		});
 
 		expect(result).toMatchObject({ type: "generated", title: "Generated title" });
@@ -197,6 +202,10 @@ describe("orchestratePrDescription", () => {
 			body: "Generated body\n\n## Key Changes\n\n- Adds behavior",
 		});
 		expect(textGeneration.requests).toHaveLength(1);
+		expect(modelEvents).toEqual([
+			{ type: "started", modelRef: "test-model", prNumber: 12 },
+			{ type: "finished", modelRef: "test-model", prNumber: 12 },
+		]);
 		textGeneration.assertDone();
 	});
 

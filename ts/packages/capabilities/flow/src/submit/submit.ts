@@ -7,6 +7,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
 
+import { commandOperations } from "../phase-stream/matrix-progress-core.ts";
 import type {
 	GithubPrGateway,
 	PrewrittenPrMetadata,
@@ -218,9 +219,9 @@ export async function runSubmitCommand(
 	emitSubmitPhase(options, { type: "phase-started", phaseKey: "preflight" }, (matrix) =>
 		matrix.setGlobal("preflight", { state: "active" }),
 	);
-	options.submitMatrix?.setRunningCommands([submitDryRunCommandDisplay]);
+	options.submitMatrix?.setActiveOperations(commandOperations([submitDryRunCommandDisplay]));
 	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
-	options.submitMatrix?.setRunningCommands([]);
+	options.submitMatrix?.setActiveOperations([]);
 	if (readiness.kind === "failed") {
 		options.submitMatrix?.setGlobal("preflight", {
 			state: "failed",
@@ -282,17 +283,17 @@ export async function runSubmitCommand(
 		}
 
 		options.submitMatrix?.setGlobal("restack", { state: "active" });
-		options.submitMatrix?.setRunningCommands([RESTACK_COMMAND_DISPLAY]);
+		options.submitMatrix?.setActiveOperations(commandOperations([RESTACK_COMMAND_DISPLAY]));
 		const restackFailure = await runRestackBeforeSubmit(options, commandParams);
-		options.submitMatrix?.setRunningCommands([]);
+		options.submitMatrix?.setActiveOperations([]);
 		if (restackFailure !== undefined) {
 			options.submitMatrix?.setGlobal("restack", { state: "failed", text: "restack failed" });
 			return restackFailure;
 		}
 
-		options.submitMatrix?.setRunningCommands([submitDryRunCommandDisplay]);
+		options.submitMatrix?.setActiveOperations(commandOperations([submitDryRunCommandDisplay]));
 		const rechecked = await options.gateway.checkSubmitReadiness(commandParams);
-		options.submitMatrix?.setRunningCommands([]);
+		options.submitMatrix?.setActiveOperations([]);
 		const recheckPreflightFailure = preflightFailureFor({
 			result: rechecked,
 			phase: "readiness recheck",
@@ -321,14 +322,16 @@ export async function runSubmitCommand(
 	}
 
 	emitSubmitPhase(options, { type: "phase-started", phaseKey: "metadata" }, (matrix) =>
-		matrix.setRunningCommands([
-			"gt log --stack --reverse --no-interactive",
-			"gt trunk --no-interactive",
-			"gt branch info --no-interactive --branch <stack-branch>",
-			"git log --format=%B%x00 <parent>..<branch>",
-			"git diff <parent>..<branch>",
-			"gt modify --no-interactive",
-		]),
+		matrix.setActiveOperations(
+			commandOperations([
+				"gt log --stack --reverse --no-interactive",
+				"gt trunk --no-interactive",
+				"gt branch info --no-interactive --branch <stack-branch>",
+				"git log --format=%B%x00 <parent>..<branch>",
+				"git diff <parent>..<branch>",
+				"gt modify --no-interactive",
+			]),
+		),
 	);
 	const prewrite = await prepareSubmitPrMetadata({
 		cwd: options.cwd,
@@ -339,6 +342,7 @@ export async function runSubmitCommand(
 		...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
 		onProgress: (message) =>
 			emitPhase(options, { type: "phase-progress", phaseKey: "metadata", label: message }),
+		onActiveOperations: (operations) => options.submitMatrix?.setActiveOperations(operations),
 		onBranchProgress: (event) => {
 			const text =
 				event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
@@ -348,7 +352,7 @@ export async function runSubmitCommand(
 			});
 		},
 	});
-	options.submitMatrix?.setRunningCommands([]);
+	options.submitMatrix?.setActiveOperations([]);
 	if (prewrite.kind === "failed") {
 		const stderr = formatPrewriteFailureOutput({
 			error: prewrite.error,
@@ -409,9 +413,9 @@ export async function runSubmitCommand(
 	emitSubmitPhase(options, { type: "phase-started", phaseKey: "verification" }, (matrix) =>
 		matrix.setGlobal("verify", { state: "active", text: "checking current PR" }),
 	);
-	options.submitMatrix?.setRunningCommands([CURRENT_PR_COMMAND_DISPLAY]);
+	options.submitMatrix?.setActiveOperations(commandOperations([CURRENT_PR_COMMAND_DISPLAY]));
 	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
-	options.submitMatrix?.setRunningCommands([]);
+	options.submitMatrix?.setActiveOperations([]);
 	if (
 		combinedSubmitOutcome.semanticFailureCause !== undefined ||
 		shouldFailPostSubmitVerification(combinedSubmitOutcome, currentPr)
@@ -470,9 +474,7 @@ export async function runSubmitCommand(
 			if (prLinks.length === 0) matrix.setAllCells("description", { state: "skipped" });
 		},
 	);
-	options.submitMatrix?.setRunningCommands(
-		descriptionPrLinks.length === 0 ? [] : ["PR description text generation / GitHub update"],
-	);
+	options.submitMatrix?.setActiveOperations([]);
 	for (const link of skippedExistingPrLinks) {
 		const number = prNumberFromLink(link);
 		if (number !== undefined) {
@@ -489,6 +491,7 @@ export async function runSubmitCommand(
 		prewrittenMetadata: prewrite.prepared,
 		onProgress: (message) =>
 			emitPhase(options, { type: "phase-progress", phaseKey: "descriptions", label: message }),
+		onActiveOperations: (operations) => options.submitMatrix?.setActiveOperations(operations),
 		onPrProgress: (event) => {
 			options.submitMatrix?.setCellByPrNumber(event.prNumber, "description", {
 				state: event.state,
@@ -496,7 +499,7 @@ export async function runSubmitCommand(
 			});
 		},
 	});
-	options.submitMatrix?.setRunningCommands([]);
+	options.submitMatrix?.setActiveOperations([]);
 	if (!descriptionResult.ok) {
 		const stderr = formatPrDescriptionFailureText(prLinks, descriptionResult.failures);
 		const details = formatPrDescriptionFailureDiagnostics(descriptionResult.failures);
@@ -662,12 +665,12 @@ async function runSubmitPhaseStep(input: {
 	knownFailurePhase?: string;
 	run: (gateway: SubmitGateway, params: SubmitCommandParams) => Promise<SubmitRunResult>;
 }): Promise<SubmitPhaseStepResult> {
-	input.options.submitMatrix?.setRunningCommands([input.commandDisplay]);
+	input.options.submitMatrix?.setActiveOperations(commandOperations([input.commandDisplay]));
 	const result = await input.run(
 		input.options.gateway,
 		submitStreamingCommandParams(input.options),
 	);
-	input.options.submitMatrix?.setRunningCommands([]);
+	input.options.submitMatrix?.setActiveOperations([]);
 	if (result.kind === "success") return { kind: "success", result };
 
 	input.options.submitMatrix?.setGlobal("submit", {

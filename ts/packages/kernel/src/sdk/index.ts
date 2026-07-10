@@ -95,6 +95,7 @@ export {
 	padMatrixProgressTextEnd,
 } from "./services.ts";
 export type {
+	ActiveOperation,
 	NsCommandIo,
 	NsCommandMessageOptions,
 	NsNotifyLevel,

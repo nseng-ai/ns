@@ -1,7 +1,7 @@
 import type { Caps } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { NsProgress } from "@nseng-ai/kernel/sdk";
+import type { ActiveOperation, NsProgress } from "@nseng-ai/kernel/sdk";
 import {
 	createMatrixProgressController,
 	renderMatrixProgressFrame,
@@ -23,7 +23,7 @@ export interface LandMatrixRowSpec {
 
 export interface LandMatrixProgressSink {
 	setRows(rows: readonly LandMatrixRowSpec[]): void;
-	setRunningCommands(commands: readonly string[]): void;
+	setActiveOperations(operations: readonly ActiveOperation[]): void;
 	setCell(branch: string, column: LandMatrixColumnKey, update: MatrixCellUpdate): void;
 	setAllCells(column: LandMatrixColumnKey, update: MatrixCellUpdate): void;
 	setAllOtherCells(column: LandMatrixColumnKey, branch: string, update: MatrixCellUpdate): void;
@@ -115,7 +115,7 @@ export function createLandMatrixProgressController(options: {
 		begin: controller.begin,
 		setTitle: controller.setTitle,
 		setRows,
-		setRunningCommands: controller.setRunningCommands,
+		setActiveOperations: controller.setActiveOperations,
 		setCell: controller.setCell,
 		setAllCells: controller.setAllCells,
 		setAllOtherCells: controller.setAllOtherCells,
@@ -129,7 +129,7 @@ export function createLandMatrixProgressController(options: {
 export function renderLandMatrixProgressFrame(input: {
 	caps: Caps;
 	title: string;
-	runningCommands?: readonly string[];
+	activeOperations?: readonly ActiveOperation[];
 	rows: readonly (LandMatrixRowSpec & MatrixRowView<LandMatrixColumnKey>)[];
 	tailLine?: string;
 	tick?: number;
@@ -138,7 +138,7 @@ export function renderLandMatrixProgressFrame(input: {
 		caps: input.caps,
 		title: input.title,
 		columns: LAND_MATRIX_COLUMNS,
-		...optionalEntry("runningCommands", input.runningCommands),
+		...optionalEntry("activeOperations", input.activeOperations),
 		globals: [],
 		rows: input.rows,
 		...optionalEntry("tailLine", input.tailLine),

@@ -1,8 +1,9 @@
 import type { Caps } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
-import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 
 import {
+	commandOperations,
 	createMatrixProgressController,
 	renderMatrixProgressFrame,
 	rowsWithKey,
@@ -32,6 +33,7 @@ export type SubmitMetadataProgressReason =
 	| "existing-pr"
 	| "amendment-not-applicable"
 	| "generating-metadata"
+	| "metadata-drafted"
 	| "amending-metadata-commit"
 	| "metadata-prepared"
 	| "metadata-amendment-failed"
@@ -62,7 +64,7 @@ export interface SubmitStackTopologyBranch {
 
 export interface SubmitMatrixProgressSink {
 	setRows(rows: readonly SubmitMatrixRowSpec[]): void;
-	setRunningCommands(commands: readonly string[]): void;
+	setActiveOperations(operations: readonly ActiveOperation[]): void;
 	setGlobal(key: SubmitMatrixGlobalKey, update: SubmitMatrixCellUpdate): void;
 	setGlobalSubstep(
 		globalKey: SubmitMatrixGlobalKey,
@@ -161,6 +163,8 @@ export function compactSubmitMetadataCellText(reason: SubmitMetadataProgressReas
 			return "n/a";
 		case "generating-metadata":
 			return "gen";
+		case "metadata-drafted":
+			return "drafted";
 		case "amending-metadata-commit":
 			return "amend";
 		case "metadata-prepared":
@@ -213,18 +217,18 @@ export function createSubmitMatrixProgressController(options: {
 			return;
 		}
 		if (event.type === "phase-started") {
-			controller.setRunningCommands(checkpointCommandsForPhase(event.phaseKey));
+			controller.setActiveOperations(commandOperations(checkpointCommandsForPhase(event.phaseKey)));
 			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("active", event.label));
 		}
 		if (event.type === "phase-progress") {
 			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("active", event.label));
 		}
 		if (event.type === "phase-done") {
-			controller.setRunningCommands([]);
+			controller.setActiveOperations([]);
 			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("done", event.detail));
 		}
 		if (event.type === "phase-failed") {
-			controller.setRunningCommands([]);
+			controller.setActiveOperations([]);
 			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("failed", event.detail));
 		}
 	}
@@ -263,7 +267,7 @@ export function createSubmitMatrixProgressController(options: {
 	return {
 		begin: controller.begin,
 		setRows: (rows) => controller.setRows(rowsWithKey(rows, (row) => row.branch)),
-		setRunningCommands: controller.setRunningCommands,
+		setActiveOperations: controller.setActiveOperations,
 		setGlobal: controller.setGlobal,
 		setGlobalSubstep: controller.setGlobalSubstep,
 		setCell: controller.setCell,
@@ -305,7 +309,7 @@ export function applyPrLinksToRows(
 export function renderSubmitMatrixProgressFrame(input: {
 	caps: Caps;
 	title: string;
-	runningCommands?: readonly string[];
+	activeOperations?: readonly ActiveOperation[];
 	globals: readonly MatrixGlobalView<SubmitMatrixGlobalKey>[];
 	rows: readonly SubmitMatrixRowView[];
 	tailLine?: string;
@@ -315,7 +319,7 @@ export function renderSubmitMatrixProgressFrame(input: {
 		caps: input.caps,
 		title: input.title,
 		columns: SUBMIT_MATRIX_COLUMNS,
-		...(input.runningCommands === undefined ? {} : { runningCommands: input.runningCommands }),
+		...(input.activeOperations === undefined ? {} : { activeOperations: input.activeOperations }),
 		globals: input.globals,
 		rows: rowsWithKey(input.rows, (row) => row.branch),
 		...(input.tailLine === undefined ? {} : { tailLine: input.tailLine }),
@@ -338,7 +342,7 @@ function checkpointCommandsForPhase(phaseKey: string): readonly string[] {
 		case "inspect":
 			return ["git status --porcelain", "git diff --stat", "git diff"];
 		case "generate":
-			return ["checkpoint message text generation"];
+			return [];
 		case "commit":
 			return ["git add", "git commit"];
 		default:

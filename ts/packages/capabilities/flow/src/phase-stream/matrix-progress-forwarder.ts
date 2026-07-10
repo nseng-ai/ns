@@ -4,7 +4,7 @@
 // bulk mutators (`setAllCells` / `setAllOtherCells`) are not wire events — they expand into
 // per-row `matrix-cell` events over the last declared row set.
 
-import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 
 import type { MatrixCellUpdate, MatrixColumnSpec, MatrixRowSpec } from "./matrix-progress-core.ts";
 
@@ -17,7 +17,7 @@ export interface MatrixProgressForwarderOptions<ColumnKey extends string> {
 
 export interface MatrixProgressForwarder<ColumnKey extends string> {
 	setRows(rows: readonly MatrixRowSpec[]): void;
-	setRunningCommands(commands: readonly string[]): void;
+	setActiveOperations(operations: readonly ActiveOperation[]): void;
 	setCell(rowKey: string, column: ColumnKey, update: MatrixCellUpdate): void;
 	setAllCells(column: ColumnKey, update: MatrixCellUpdate): void;
 	setAllOtherCells(column: ColumnKey, rowKey: string, update: MatrixCellUpdate): void;
@@ -65,8 +65,8 @@ export function createMatrixProgressForwarder<ColumnKey extends string>(
 
 	return {
 		setRows,
-		setRunningCommands: (commands) => {
-			emit({ type: "matrix-running", commands: [...commands] });
+		setActiveOperations: (operations) => {
+			emit({ type: "matrix-active-operations", operations: [...operations] });
 		},
 		setCell,
 		setAllCells: (column, update) => {

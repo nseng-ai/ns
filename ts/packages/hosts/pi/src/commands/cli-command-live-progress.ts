@@ -6,6 +6,7 @@ import {
 import {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
+	type ActiveOperation,
 	isMatrixProgressEvent,
 	matrixProgressDisplayWidthChars,
 	padMatrixProgressTextEnd,
@@ -123,7 +124,7 @@ export class MatrixWidgetState {
 	private labelHeader = MATRIX_DEFAULT_LABEL_HEADER;
 	private rows: { rowKey: string; label: string }[] = [];
 	private cellsByRow = new Map<string, Map<string, MatrixWidgetCell>>();
-	private runningCommands: readonly string[] = [];
+	private activeOperations: readonly ActiveOperation[] = [];
 	private hasDeclared = false;
 
 	get isActive(): boolean {
@@ -158,8 +159,8 @@ export class MatrixWidgetState {
 				});
 				return;
 			}
-			case "matrix-running":
-				this.runningCommands = [...event.commands];
+			case "matrix-active-operations":
+				this.activeOperations = [...event.operations];
 				return;
 		}
 	}
@@ -182,8 +183,8 @@ export class MatrixWidgetState {
 				.join("  ");
 			lines.push(`${label}  ${cells}`);
 		}
-		if (this.runningCommands.length > 0) {
-			lines.push(`Running: ${this.runningCommands.join("; ")}`);
+		if (this.activeOperations.length > 0) {
+			lines.push(`Running: ${this.activeOperations.map(formatActiveOperation).join("; ")}`);
 		}
 		return lines;
 	}
@@ -204,6 +205,15 @@ export class MatrixWidgetState {
 			...this.rows.map((row) => matrixProgressDisplayWidthChars(row.label)),
 		);
 		return clampMatrixProgressLabelWidthChars(longest);
+	}
+}
+
+function formatActiveOperation(operation: ActiveOperation): string {
+	switch (operation.kind) {
+		case "command":
+			return operation.display;
+		case "model":
+			return `LM · ${operation.operation} · ${operation.modelRef}${operation.detail === undefined ? "" : ` · ${operation.detail}`}`;
 	}
 }
 
