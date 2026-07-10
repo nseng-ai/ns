@@ -18,6 +18,11 @@ import {
 	type AutobranchGitGateway,
 } from "../autobranch/git-gateway.ts";
 import type { AutobranchExec } from "../autobranch/shared.ts";
+import type {
+	AutobranchDispatchEnv,
+	AutobranchFlowContext,
+} from "../autobranch/checkpoint-flow.ts";
+import type { ParsedAutobranchArgs } from "../autobranch/dirty-worktree.ts";
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 
@@ -55,6 +60,19 @@ export function createAutobranchExecContext(
 	const exec: AutobranchExec = (command, commandArgs, timeout) =>
 		execExtensionCommand({ ctx, command, args: commandArgs, cwd, timeoutMs: timeout });
 	return { exec, git: createAutobranchGitGateway({ cwd, exec }) };
+}
+
+export function createAutobranchDispatchEnv(
+	ctx: NsExtensionApi,
+	args: ParsedAutobranchArgs,
+): Pick<AutobranchDispatchEnv, "loadSnapshot" | "createFlowContext"> {
+	return {
+		loadSnapshot: () => loadFlowPendingWorktreeSnapshot(ctx),
+		createFlowContext: (snapshot): AutobranchFlowContext => {
+			const { exec, git } = createAutobranchExecContext(ctx, snapshot.root);
+			return { cwd: snapshot.root, args, exec, git };
+		},
+	};
 }
 
 export async function createCommitWithPreparedMessage(
