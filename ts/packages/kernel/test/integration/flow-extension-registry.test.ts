@@ -45,6 +45,7 @@ describe("checked-in flow ns extension registry loading", () => {
 			"flow/pull-trunk",
 			"flow/push",
 			"flow/regenerate-pr",
+			"flow/squash-stack",
 			"flow/submit",
 		]);
 

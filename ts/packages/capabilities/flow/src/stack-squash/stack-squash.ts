@@ -1,4 +1,8 @@
-import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	execApiToCommandRunner,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 import { z } from "zod";
 
@@ -82,19 +86,18 @@ export async function runStackSquashFlow(
 		cwd: options.cwd,
 		timeout: SLOT_STACK_BRANCHES_TIMEOUT_MS,
 	});
-	const stackFailure = stackDiscoveryFailure(stackResult);
-	if (stackFailure !== undefined) {
+	const stackDiscovery = parseStackDiscovery(stackResult);
+	if (stackDiscovery.kind === "failure") {
 		return {
 			kind: "stack-discovery-failed",
-			message: stackFailure,
+			message: stackDiscovery.message,
 			command: "ns",
 			args: STACK_BRANCHES_ARGS,
 			cwd: options.cwd,
 			execResult: stackResult,
 		};
 	}
-	const parsed = stackBranchesEnvelopeSchema.parse(JSON.parse(stackResult.stdout));
-	const branches = parsed.data?.branches ?? [];
+	const { branches } = stackDiscovery;
 	if (branches.length === 0) return { kind: "empty-stack", cwd: options.cwd };
 
 	const branchesFromTip = [...branches].reverse();
@@ -143,6 +146,27 @@ export async function runStackSquashFlow(
 	return { kind: "success", processed };
 }
 
+export function describeStackSquashOutcome(
+	outcome: Exclude<StackSquashOutcome, { kind: "success" }>,
+): string {
+	switch (outcome.kind) {
+		case "worktree-probe-failed":
+			return "Cannot inspect worktree state; stack squash did not run.";
+		case "worktree-dirty":
+			return "Worktree has uncommitted changes; stack squash did not run.";
+		case "stack-discovery-failed":
+			return outcome.message;
+		case "empty-stack":
+			return "No Graphite stack branches to squash.";
+		case "checkout-failed":
+			return `Could not check out Graphite branch \`${outcome.branch}\`; stack squash stopped.`;
+		case "squash-failed":
+			return `Could not squash Graphite branch \`${outcome.branch}\`; stack squash stopped.`;
+		case "tip-restore-failed":
+			return `Could not restore Graphite tip branch \`${outcome.branch}\`.`;
+	}
+}
+
 export function formatStackSquashSummary(processed: readonly ProcessedStackBranch[]): string {
 	return [
 		`Processed ${processed.length} Graphite stack branch${processed.length === 1 ? "" : "es"}; each now has one commit.`,
@@ -155,27 +179,41 @@ export function formatStackSquashSummary(processed: readonly ProcessedStackBranc
 	].join("\n");
 }
 
-function stackDiscoveryFailure(result: ExecResult): string | undefined {
-	if (!commandSucceeded(result))
-		return "Could not read Graphite stack branches; not starting stack squash.";
+function parseStackDiscovery(
+	result: ExecResult,
+): { kind: "success"; branches: string[] } | { kind: "failure"; message: string } {
+	if (!commandSucceeded(result)) {
+		return {
+			kind: "failure",
+			message: "Could not read Graphite stack branches; not starting stack squash.",
+		};
+	}
 	let value: unknown;
 	try {
 		value = JSON.parse(result.stdout);
 	} catch (caught) {
 		const message = caught instanceof Error ? caught.message : String(caught);
-		return `Could not parse ns slot gt exec stack-branches JSON: ${message}`;
+		return {
+			kind: "failure",
+			message: `Could not parse ns slot gt exec stack-branches JSON: ${message}`,
+		};
 	}
 	const envelope = stackBranchesEnvelopeSchema.safeParse(value);
 	if (!envelope.success) {
-		return `Unexpected ns slot gt exec stack-branches JSON shape: ${envelope.error.message}`;
+		return {
+			kind: "failure",
+			message: `Unexpected ns slot gt exec stack-branches JSON shape: ${envelope.error.message}`,
+		};
 	}
 	if (envelope.data.status !== "ok" || envelope.data.data === undefined) {
-		return (
-			envelope.data.message ??
-			`ns slot gt exec stack-branches failed with status ${envelope.data.status}`
-		);
+		return {
+			kind: "failure",
+			message:
+				envelope.data.message ??
+				`ns slot gt exec stack-branches failed with status ${envelope.data.status}`,
+		};
 	}
-	return undefined;
+	return { kind: "success", branches: envelope.data.data.branches };
 }
 
 async function runGt(
@@ -183,10 +221,11 @@ async function runGt(
 	cwd: string,
 	args: readonly string[],
 ): Promise<ExecResult> {
-	return await runGraphiteCommand(
-		(command, commandArgs, execOptions) => commands.exec(command, [...commandArgs], execOptions),
-		{ cwd, args, timeoutMs: GT_COMMAND_TIMEOUT_MS },
-	);
+	return await runGraphiteCommand(execApiToCommandRunner(commands), {
+		cwd,
+		args,
+		timeoutMs: GT_COMMAND_TIMEOUT_MS,
+	});
 }
 
 function isAlreadyOneCommitSquashResult(result: ExecResult): boolean {
