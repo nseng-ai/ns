@@ -31,6 +31,7 @@ The migration is a hard cut: no `explore` or `forked_pi_agent` compatibility ali
 - The host tool context exposes its concrete model registry so an in-process adapter resolves the same normalized provider/model decision to a Pi SDK model without casting a neutral model summary.
 - Agent definition identity changes require a restart because the tool schema is startup-bound; prompt prose is reloaded for the selected agent at execution time.
 - Existing prompts, skills, docs, and tests must migrate in one hard cut because aliases would preserve ambiguous routing language.
+- The unified tool preserves the pre-unification abnormal-completion UI notification at the tool layer: when any dispatched task ends without final text, the host UI is notified once per call.
 
 ## Considered options
 

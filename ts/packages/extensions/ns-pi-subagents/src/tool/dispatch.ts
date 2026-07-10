@@ -1,4 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
 import type { ReadGitHead } from "../fleet/git-head.ts";
@@ -55,9 +55,16 @@ export async function dispatchSubagentBatch(
 			...optionalEntry("signal", args.signal),
 			run: async (task, index) => {
 				tracking.markRunning(index);
-				const result = await args.run(task, index, (update) =>
-					tracking.markProgress(index, update),
-				);
+				// A thrown run() must become an error result instead of rejecting the
+				// batch: Promise.all rejection would orphan in-flight siblings while
+				// tracking.dispose() marks their slots, letting the detached workers
+				// overwrite terminal fleet state later.
+				let result: RunnerSubagentResult;
+				try {
+					result = await args.run(task, index, (update) => tracking.markProgress(index, update));
+				} catch (error) {
+					result = placeholderFleetTaskResult("error", formatErrorMessage(error), task.title);
+				}
 				tracking.markDone(index, result);
 				return result;
 			},
