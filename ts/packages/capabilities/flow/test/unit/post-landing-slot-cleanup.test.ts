@@ -10,8 +10,8 @@ import {
 	runPostLandingSlotCleanup,
 	type PostLandingSlotCleanupDecision,
 } from "../../src/land/post-landing-slot-cleanup.ts";
+import type { LandingShape } from "../../src/land/types.ts";
 import type {
-	LandingShape,
 	NotifyLevel,
 	ParsedArgs,
 	PrintAwareLandStackCommandContext,

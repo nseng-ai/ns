@@ -3,15 +3,12 @@ import { describe, expect, test } from "vitest";
 import { runIsolatedFastPathLanding } from "../../src/land/isolated-fast-path.ts";
 import type {
 	LandGithubPrGateway,
+	LandingShape,
 	LandResult,
 	PullRequestFacts,
 	SquashMergePullRequestResult,
 } from "../../src/land/types.ts";
-import type {
-	LandingShape,
-	NotifyLevel,
-	PrintAwareLandStackCommandContext,
-} from "../../src/land/stack/types.ts";
+import type { NotifyLevel, PrintAwareLandStackCommandContext } from "../../src/land/stack/types.ts";
 
 const ROOT = "/repo";
 const TRUNK = "main";

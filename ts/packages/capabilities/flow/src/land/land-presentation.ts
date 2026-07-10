@@ -43,7 +43,7 @@ import {
 	restackOperation,
 	restackTargetForSubmit,
 } from "./stack/graphite-command-channel.ts";
-import { formatPrSubmitRequirement } from "./stack/landing-plan.ts";
+import { formatPrSubmitRequirement } from "./stack/pre-merge-submit.ts";
 import type {
 	CommandStreamMessageDetails,
 	LandConfirmationPreview,

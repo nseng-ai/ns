@@ -1,3 +1,4 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	completed,
 	failure,
@@ -19,10 +20,6 @@ export interface PreMergeMaintenanceOptions {
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
 	confirmation?: PreMergeConfirmation;
-}
-
-export function optionalField<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
-	return value === undefined ? {} : ({ [key]: value } as { [P in K]: V });
 }
 
 interface ConfirmLandStackActionOptions {
@@ -58,7 +55,7 @@ export async function confirmLandStackAction(
 	const confirmOptions =
 		options.defaultAnswer === undefined
 			? undefined
-			: optionalField("defaultAnswer", options.defaultAnswer);
+			: optionalEntry("defaultAnswer", options.defaultAnswer);
 	const confirmed = await options.ctx.ui.confirm(options.title, details, confirmOptions);
 	if (confirmed) return completed();
 
@@ -95,6 +92,6 @@ export async function confirmPreMergeMaintenance(
 		title: options.title,
 		details: options.details,
 		nonInteractiveMessage: options.nonInteractiveMessage,
-		...optionalField("nonInteractiveFailureOptions", options.nonInteractiveFailureOptions),
+		...optionalEntry("nonInteractiveFailureOptions", options.nonInteractiveFailureOptions),
 	});
 }

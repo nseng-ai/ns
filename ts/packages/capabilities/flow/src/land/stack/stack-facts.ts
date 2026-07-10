@@ -33,11 +33,10 @@ import {
 	detectForkViolations,
 	formatForkViolations,
 	loadGraphiteTopology,
-	resolveMetadataDbPath,
 	type GraphiteTopology,
 } from "./graphite-topology.ts";
 import { landingWarning, type LandingWarning, type StackSnapshot } from "../types.ts";
-import type { LandStackExtensionAPI, LandingShape } from "./types.ts";
+import type { LandStackExtensionAPI } from "./types.ts";
 
 export async function loadRepoRoot(
 	pi: LandStackExtensionAPI,
@@ -114,42 +113,6 @@ export async function loadTrunk(
 		return failure(landStackFailure("gt trunk --no-interactive returned no branch."));
 	}
 	return success(trunk);
-}
-
-export async function loadLandingShape(
-	pi: LandStackExtensionAPI,
-	cwd: string,
-	options: { graphite?: LandGraphiteCommandChannel } = {},
-): Promise<LandStackResult<LandingShape>> {
-	const repoRoot = await loadRepoRoot(pi, cwd);
-	if (repoRoot.type === "failure") return repoRoot;
-
-	const current = await loadCurrentBranch(pi, repoRoot.value);
-	if (current.type === "failure") return current;
-
-	const graphite = options.graphite ?? createLandGraphiteCommandChannel({ pi });
-	const trunk = await loadTrunk(pi, repoRoot.value, graphite);
-	if (trunk.type === "failure") return trunk;
-
-	const metadataDbPath = await resolveMetadataDbPath(pi, repoRoot.value);
-	if (metadataDbPath.type === "failure") return metadataDbPath;
-
-	const stack = await loadStackSnapshot({
-		pi,
-		repoRoot: repoRoot.value,
-		metadataDbPath: metadataDbPath.value,
-		current: current.value,
-		trunk: trunk.value,
-	});
-	if (stack.type === "failure") return stack;
-
-	return success({
-		repoRoot: repoRoot.value,
-		current: current.value,
-		trunk: trunk.value,
-		metadataDbPath: metadataDbPath.value,
-		stack: stack.value,
-	});
 }
 
 export interface LoadStackSnapshotOptions {

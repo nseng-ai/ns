@@ -1,4 +1,5 @@
 import { collectSubmitRestackRequirements } from "../api.ts";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type {
 	LandContext,
 	LandingFailure,
@@ -7,11 +8,7 @@ import type {
 	RestackRequirement,
 } from "../api.ts";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";
-import {
-	confirmPreMergeMaintenance,
-	optionalField,
-	type PreMergeConfirmation,
-} from "./pre-merge-confirmation.ts";
+import { confirmPreMergeMaintenance, type PreMergeConfirmation } from "./pre-merge-confirmation.ts";
 import {
 	formatGraphiteOperation,
 	formatSubmitUpdateCommandLines,
@@ -19,7 +16,6 @@ import {
 	restackTargetForSubmit,
 	submitUpdateOperation,
 } from "./graphite-command-channel.ts";
-import { formatPrSubmitRequirement } from "./landing-plan.ts";
 import { setStatus } from "../land-presentation.ts";
 import type { LandStackCommandContext } from "./types.ts";
 
@@ -43,7 +39,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 
 	const confirmationOutcome = await confirmPreMergeMaintenance({
 		ctx,
-		...optionalField("confirmation", options.confirmation),
+		...optionalEntry("confirmation", options.confirmation),
 		title: restackTarget ? "Run gt restack + submit/update?" : "Run gt submit/update?",
 		details,
 		nonInteractiveMessage: [
@@ -116,6 +112,12 @@ function preMergeGraphiteFailure(
 	return landStackFailure(landFailureValue.message, {
 		suggestedAction: options.suggestedAction,
 	});
+}
+
+export function formatPrSubmitRequirement(
+	requirement: Pick<PrSubmitRequirement, "branch" | "prNumber" | "reasons">,
+): string {
+	return `- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`;
 }
 
 export function formatSubmitUpdateDetails(plan: LandingPlan): string {
