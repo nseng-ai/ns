@@ -7,9 +7,10 @@ import {
 } from "@nseng-ai/capability-kit/graphite/status";
 import type { LocalBranchRefReadResult } from "../../src/git/local-ref-reader.ts";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
-import type {
-	GraphiteMetadataDbAccess,
-	SqliteJsonError,
+import {
+	GRAPHITE_BRANCH_METADATA_QUERY,
+	type GraphiteMetadataDbAccess,
+	type SqliteJsonError,
 } from "@nseng-ai/capability-kit/graphite/metadata";
 const DB_PATH = "/repo/.git/.graphite_metadata.db";
 const EXPECTED_SCHEMA_ROWS = [
@@ -130,16 +131,23 @@ describe("Graphite metadata status lookup", () => {
 		expect(dbAccess.queries).toEqual([]);
 	});
 
-	test("loads the current branch parent and children without scanning unrelated rows", () => {
+	test("loads the current branch topology and stack counts from the full branch table", () => {
 		const dbAccess = new FakeGraphiteMetadataDbAccess({
 			responses: [
 				success(EXPECTED_SCHEMA_ROWS),
 				success([
 					branchRow({
+						branchName: "main",
+						children: ["feature/current"],
+						validationResult: "TRUNK",
+					}),
+					branchRow({
 						branchName: "feature/current",
 						parentBranchName: "main",
 						children: ["feature/child"],
 					}),
+					branchRow({ branchName: "feature/child", parentBranchName: "feature/current" }),
+					branchRow({ branchName: "feature/unrelated", parentBranchName: "main" }),
 				]),
 			],
 		});
@@ -150,8 +158,114 @@ describe("Graphite metadata status lookup", () => {
 			parent: "main",
 			children: ["feature/child"],
 			isCurrentTrunk: false,
+			stackTopologyCounts: { downstackCount: 0, upstackCount: 1 },
 		});
-		expect(dbAccess.queries[1]).toContain("WHERE branch_name = 'feature/current'");
+		expect(dbAccess.queries[1]).toBe(GRAPHITE_BRANCH_METADATA_QUERY);
+	});
+
+	test("counts stacked branches below excluding trunk and above across the subtree", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [
+				success(EXPECTED_SCHEMA_ROWS),
+				success([
+					branchRow({ branchName: "main", children: ["feature/base"], validationResult: "TRUNK" }),
+					branchRow({
+						branchName: "feature/base",
+						parentBranchName: "main",
+						children: ["feature/current"],
+					}),
+					branchRow({
+						branchName: "feature/current",
+						parentBranchName: "feature/base",
+						children: ["feature/top", "feature/sibling"],
+					}),
+					branchRow({ branchName: "feature/top", parentBranchName: "feature/current" }),
+					branchRow({ branchName: "feature/sibling", parentBranchName: "feature/current" }),
+				]),
+			],
+		});
+
+		expect(
+			loadWithFake(dbAccess, { liveBranches: ["feature/top", "feature/sibling"] }),
+		).toMatchObject({
+			type: "tracked",
+			stackTopologyCounts: { downstackCount: 1, upstackCount: 2 },
+		});
+	});
+
+	test("excludes dead-ref children from the upstack count", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [
+				success(EXPECTED_SCHEMA_ROWS),
+				success([
+					branchRow({
+						branchName: "main",
+						children: ["feature/current"],
+						validationResult: "TRUNK",
+					}),
+					branchRow({
+						branchName: "feature/current",
+						parentBranchName: "main",
+						children: ["feature/live", "feature/phantom"],
+					}),
+					branchRow({ branchName: "feature/live", parentBranchName: "feature/current" }),
+					branchRow({ branchName: "feature/phantom", parentBranchName: "feature/current" }),
+				]),
+			],
+		});
+
+		expect(loadWithFake(dbAccess, { liveBranches: ["feature/live"] })).toMatchObject({
+			type: "tracked",
+			children: ["feature/live"],
+			stackTopologyCounts: { upstackCount: 1 },
+		});
+	});
+
+	test("omits the downstack count when an ancestor metadata row is missing", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [
+				success(EXPECTED_SCHEMA_ROWS),
+				success([branchRow({ branchName: "feature/current", parentBranchName: "feature/ghost" })]),
+			],
+		});
+
+		const status = loadWithFake(dbAccess);
+		expect(status).toMatchObject({
+			type: "tracked",
+			stackTopologyCounts: { upstackCount: 0 },
+		});
+		if (status.type !== "tracked") throw new Error("expected tracked metadata status");
+		expect(Object.hasOwn(status.stackTopologyCounts ?? {}, "downstackCount")).toBe(false);
+	});
+
+	test("degrades to counting-once when the metadata topology contains a cycle", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [
+				success(EXPECTED_SCHEMA_ROWS),
+				success([
+					branchRow({
+						branchName: "feature/current",
+						parentBranchName: "feature/loop",
+						children: ["feature/loop"],
+					}),
+					branchRow({
+						branchName: "feature/loop",
+						parentBranchName: "feature/current",
+						children: ["feature/current"],
+					}),
+				]),
+			],
+		});
+
+		const status = loadWithFake(dbAccess, { liveBranches: ["feature/current", "feature/loop"] });
+		// The parent chain cannot complete, so the downstack count is unknown; the
+		// upstack traversal still counts each reachable branch once.
+		expect(status).toMatchObject({
+			type: "tracked",
+			stackTopologyCounts: { upstackCount: 1 },
+		});
+		if (status.type !== "tracked") throw new Error("expected tracked metadata status");
+		expect(Object.hasOwn(status.stackTopologyCounts ?? {}, "downstackCount")).toBe(false);
 	});
 
 	test("marks the current branch as trunk case-insensitively", () => {
@@ -176,6 +290,7 @@ describe("Graphite metadata status lookup", () => {
 			parent: undefined,
 			children: ["feature/current"],
 			isCurrentTrunk: true,
+			stackTopologyCounts: { downstackCount: 0, upstackCount: 1 },
 		});
 	});
 
@@ -340,6 +455,36 @@ describe("Graphite metadata status lookup", () => {
 		);
 		expect(
 			graphiteMetadataWorkerResponseFromValue({ type: "success", status: "bad" }),
+		).toBeUndefined();
+
+		const trackedWithCounts = {
+			type: "tracked",
+			currentBranch: "feature/current",
+			parent: "main",
+			children: [],
+			isCurrentTrunk: false,
+			stackTopologyCounts: { downstackCount: 2, upstackCount: 1 },
+		};
+		expect(
+			graphiteMetadataWorkerResponseFromValue({ type: "success", status: trackedWithCounts }),
+		).toEqual({ type: "success", status: trackedWithCounts });
+		expect(
+			graphiteMetadataWorkerResponseFromValue({
+				type: "success",
+				status: {
+					...trackedWithCounts,
+					stackTopologyCounts: { downstackCount: "2", upstackCount: 1 },
+				},
+			}),
+		).toBeUndefined();
+		expect(
+			graphiteMetadataWorkerResponseFromValue({
+				type: "success",
+				status: {
+					...trackedWithCounts,
+					stackTopologyCounts: { downstackCount: 2, upstackCount: -1 },
+				},
+			}),
 		).toBeUndefined();
 	});
 });
