@@ -1,12 +1,17 @@
 export type {
 	ActivationFile,
 	ActivationFileParams,
+	ActivationFilesCompareResult,
 	ActivationFilesGateway,
-	ActivationFilesOperationResult,
 	ActivationTextFileReadResult,
+	CompareAndEnsureConsumerDirectoryParams,
+	CompareAndWriteActivationFileParams,
 	ConsumerDirectoryInspectionResult,
 	ConsumerDirectoryParams,
-	WriteActivationFileParams,
+	ExpectedActivationTextFileState,
+	ExpectedConsumerDirectoryState,
+	PreparedActivationExpectedState,
+	PreparedStateMismatchDetails,
 } from "./activation-files.ts";
 export { ACTIVATION_FILE_PATHS, ACTIVATION_FILES } from "./activation-files.ts";
 export type {
@@ -21,6 +26,23 @@ export type {
 } from "./declared-extensions.ts";
 export { RealDeclaredExtensionsGateway } from "./declared-extensions.ts";
 export type { NsInitErrorInfo } from "./error-info.ts";
+export type {
+	EnsureExtensionSourceParams,
+	EnsureExtensionSourceResult,
+	ExtensionInstallAcquisitionGateway,
+} from "./extension-acquisition.ts";
+export { RealExtensionInstallAcquisitionGateway } from "./extension-acquisition.ts";
+export type {
+	ExtensionInstallContext,
+	InstallExtensionRequest,
+	InstallExtensionResult,
+} from "./install-extension.ts";
+export {
+	installExtension,
+	installExtensionRequestSchema,
+	installExtensionResultSchema,
+	renderInstallExtensionHuman,
+} from "./install-extension.ts";
 export { RealActivationFilesGateway } from "./real-activation-files.ts";
 export { RealArtifactActivationGateway } from "./real-artifact-activation.ts";
 export type {

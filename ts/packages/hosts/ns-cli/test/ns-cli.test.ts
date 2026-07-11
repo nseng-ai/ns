@@ -164,6 +164,66 @@ describe("ns CLI host", () => {
 		expect(stderr.join("")).toBe("");
 	});
 
+	test("merges extension install with kernel point commands and exposes no top-level alias", async () => {
+		const cwd = await createEmptyProject();
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+
+		const exit = await runNsCli(["extension", "--help"], {
+			cwd,
+			homeDir: join(cwd, ".home"),
+			env: { HOME: join(cwd, ".home") },
+			stdout: (text) => stdout.push(text),
+			stderr: (text) => stderr.push(text),
+		});
+
+		expect(exit).toBe(0);
+		expect(stdout.join("")).toContain("  install");
+		expect(stdout.join("")).toContain("  point");
+		expect(stdout.join("")).toContain("  points");
+		expect(stderr.join("")).toBe("");
+
+		const alias = await runNsCliJson(["install", "./extension"], cwd);
+		expect(alias.exit).toBe(2);
+		expect(alias.stderr).toContain("unknown command 'install'");
+	});
+
+	test("publishes extension install help, schema, usage, and failure contracts", async () => {
+		const cwd = await createEmptyProject();
+
+		const helpStdout: string[] = [];
+		const helpExit = await runNsCli(["extension", "install", "-h"], {
+			cwd,
+			stdout: (text) => helpStdout.push(text),
+			stderr: () => undefined,
+		});
+		expect(helpExit).toBe(0);
+		expect(helpStdout.join("")).toContain("Usage: ns extension install [options] <source>");
+		expect(helpStdout.join("")).not.toContain("--harness");
+		expect(helpStdout.join("")).not.toContain("--yes");
+		expect(helpStdout.join("")).not.toContain("--force");
+
+		const schemaStdout: string[] = [];
+		const schemaExit = await runNsCli(["extension", "install", "--json-schema"], {
+			cwd,
+			stdout: (text) => schemaStdout.push(text),
+			stderr: () => undefined,
+		});
+		expect(schemaExit).toBe(0);
+		const schema = JSON.parse(schemaStdout.join("")) as Record<string, unknown>;
+		expect(schema).toHaveProperty("inputJsonSchema");
+		expect(schema).toHaveProperty("outputJsonSchema");
+		expect(schemaStdout.join("")).toContain("sourceSpec");
+		expect(schemaStdout.join("")).toContain("completed");
+
+		const usage = await runNsCliJson(["extension", "install"], cwd);
+		expect(usage.exit).toBe(2);
+		expect(parseJsonOutput(usage)).toMatchObject({
+			status: "usageError",
+			errorType: "usageError",
+		});
+	});
+
 	test("lists first-party ns skills", async () => {
 		const cwd = await createEmptyProject();
 		const stdout: string[] = [];

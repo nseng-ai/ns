@@ -14,11 +14,30 @@ export interface FakeNpmInstallCall {
 	readonly isPinned: boolean;
 }
 
+export interface FakeExtensionAcquisitionGatewayOptions {
+	readonly installedPackageRoots?: readonly string[];
+	readonly failSpecs?: readonly string[];
+}
+
 export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGateway {
-	readonly installed = new Set<string>();
-	readonly installs: FakeNpmInstallCall[] = [];
 	ensureCalls = 0;
 	failSpec: string | undefined;
+	private readonly installedPackageRoots: Set<string>;
+	private readonly installLog: FakeNpmInstallCall[] = [];
+	private readonly failSpecs: ReadonlySet<string>;
+
+	constructor(options: FakeExtensionAcquisitionGatewayOptions = {}) {
+		this.installedPackageRoots = new Set(options.installedPackageRoots ?? []);
+		this.failSpecs = new Set(options.failSpecs ?? []);
+	}
+
+	get installed(): ReadonlySet<string> {
+		return new Set(this.installedPackageRoots);
+	}
+
+	get installs(): readonly FakeNpmInstallCall[] {
+		return this.installLog.map((install) => ({ ...install }));
+	}
 
 	async ensureManagedNpmProject(): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
 		this.ensureCalls += 1;
@@ -28,7 +47,7 @@ export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 	async isNpmPackageInstalled(
 		packageRoot: string,
 	): Promise<Result<boolean, ExtensionAcquisitionDiagnostic>> {
-		return resultOk(this.installed.has(packageRoot));
+		return resultOk(this.installedPackageRoots.has(packageRoot));
 	}
 
 	async installNpmPackage(request: {
@@ -38,20 +57,20 @@ export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 		version: string | undefined;
 		isPinned: boolean;
 	}): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
-		this.installs.push({
+		this.installLog.push({
 			rawSpec: request.rawSpec,
 			packageName: request.packageName,
 			version: request.version,
 			isPinned: request.isPinned,
 		});
-		if (request.rawSpec === this.failSpec) {
+		if (request.rawSpec === this.failSpec || this.failSpecs.has(request.rawSpec)) {
 			return resultErr({
 				code: "extension_acquisition_npm_install_failed",
 				message: `failed ${request.rawSpec}`,
 				spec: request.rawSpec,
 			});
 		}
-		this.installed.add(join(request.projectDir, "node_modules", request.packageName));
+		this.installedPackageRoots.add(join(request.projectDir, "node_modules", request.packageName));
 		return resultOk(undefined);
 	}
 }

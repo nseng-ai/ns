@@ -13,7 +13,6 @@ import {
 import { validateLoadedCommandName, type ExtensionCommandEntry } from "../sdk/descriptor.ts";
 
 import { extensionPointCommand, extensionPointsCommand } from "./built-in-extension-commands.ts";
-import { installCommand } from "./install-command.ts";
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
 export type NsCommandSourceLevel = "built-in" | "preinstalled" | "project";
@@ -58,11 +57,6 @@ export interface BuiltInCommandDefinition extends Partial<NsCommandPath> {
 }
 
 export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDefinition>> = {
-	install: {
-		name: "install",
-		helpGroup: "Built-ins:",
-		command: installCommand,
-	},
 	"extension/point": {
 		name: "point",
 		segments: ["extension", "point"],

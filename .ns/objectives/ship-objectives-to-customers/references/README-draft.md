@@ -30,8 +30,8 @@ ns extension points                    List extension points (inspection)
 ```bash
 npm install -g @nseng-ai/ns
 cd your-repo
-ns extension install npm:@nseng-ai/objectives
 ns init --harness claude-code
+ns extension install npm:@nseng-ai/objectives
 ```
 
 After this, `ns objective …` commands work in the repo, the objective skills are
@@ -61,27 +61,42 @@ explicit so that `ns.toml`, the CLI, and the loader share one unambiguous gramma
   npm project (`npm install --no-save --ignore-scripts`); local paths resolve in place
   and are never copied. `ns init` ensures the ignore rule.
 
-Because the record is repo-level and committed, teammates get extensions automatically:
-on the first `ns` invocation in a fresh clone, declared-but-missing npm extensions are
-installed into managed storage before the command catalog builds.
+Because the record is repo-level and committed, teammates share the intended extension
+set. In a fresh clone, initialize the project's harness configuration and run the exact
+recorded install spec to restore a missing managed npm package.
 
 ## Commands
 
 ### `ns extension install <source>`
 
-1. Acquires the package (npm → managed storage; local → validated in place).
-2. Validates it is an ns extension: `package.json` with `name`/`version` and a resolvable
-   `exports["./ns-extension"]` descriptor. Not-an-extension packages fail with
-   `missing-descriptor-export` and nothing is recorded.
-3. Records the spec in `ns.toml` `extensions = [...]` (created if absent, appended
-   idempotently, no unrelated reformatting).
-4. Provisions the extension's `bundledArtifacts` (skills) into the harnesses configured
-   in `ns.toml` (`harnesses = [...]`). If no harness is configured yet, install succeeds
-   and the result names `ns init` as the next step.
+The repository must already have valid top-level `harnesses = [...]` configuration from
+`ns init`. Missing or invalid harness configuration fails before acquisition or writes and
+directs the customer to `ns init --harness <claude-code|codex|pi>`.
 
-Re-running is idempotent: an already-recorded spec reports `isRecorded: false` and
-re-provisions artifacts only on drift. Danger tier 1 — scoped, reversible writes; no
-confirmation, output states exactly what changed.
+1. Parses the explicit source grammar and checks the prospective `ns.toml` edit. An exact
+   spec is idempotent; the same canonical npm package or normalized local path under a
+   different spec is an identity conflict and is rejected before acquisition.
+2. Acquires the package (npm → managed storage; local → resolved and validated in place,
+   never copied).
+3. Imports `exports["./ns-extension"]` and fully validates package identity/version,
+   export resolution, the descriptor module, and the complete descriptor schema together
+   with the prospective declared-descriptor set. Any diagnostic fails preflight and no
+   durable declaration or activation file is written.
+4. Records the exact requested spec in `ns.toml` `extensions = [...]` (appended
+   idempotently, with no unrelated reformatting) and runs full descriptor-driven
+   activation using the persisted harnesses.
+
+Re-running the exact spec reports `isRecorded: false`, restores a missing managed npm
+package, and reconciles activation drift. It does **not** refresh an already-present
+floating npm package; refresh belongs to `ns extension update`. If apply fails after some
+writes, the command preserves completed writes and reports the failed phase plus completed
+duties. Re-running performs forward recovery and converges safely rather than rolling
+back. Danger tier 1 — scoped, reversible writes; no confirmation, output states exactly
+what changed.
+
+> **Trust warning:** npm acquisition uses `--ignore-scripts`, but that only disables npm
+> lifecycle scripts. It does not sandbox imported descriptor code or selected command
+> modules. Install only extensions you trust.
 
 ### `ns extension uninstall <source>`
 
@@ -124,8 +139,8 @@ Unchanged inspection commands over descriptor-declared extension points.
   `CLAUDE.md → @AGENTS.md` import) and ensure `.ns/` ignore rules, and provision the
   artifacts of whatever extensions are installed. Extension-specific content —
   instruction-block sections, consumer dirs like `.ns/objectives/` — comes from the
-  extensions themselves, not from `init`. Either order works; the happy path installs
-  first so `init` can activate everything in one pass.
+  extensions themselves, not from `init`. Initialization comes first: extension install
+  consumes the harnesses already persisted by `ns init` and fails without them.
 - **`ns skills …`** remains the harness-artifact machinery (`list`/`path`/`install`);
   `ns extension install/update/remove` drive it internally rather than duplicating it.
 - **`ns update`** (top-level) narrows to ns **self-update** (reserved; owned by the
@@ -149,8 +164,9 @@ stable camelCase envelopes with kebab-case `errorType` values, exit codes `0/1/2
    breaking this grammar.
 2. **Top-level `ns install` is retired** in favor of `ns extension install`. Breaking
    change, allowed pre-release. `ns update --extensions` migrates likewise.
-3. **`install` provisions artifacts when harnesses are configured**, and degrades to a
-   hint otherwise, so command order (`install` vs `init`) is forgiving.
+3. **`ns init` owns harness selection and must run before `install`.** Install consumes
+   persisted harnesses and fails before acquisition or writes when they are absent or
+   invalid; it never accepts or infers a harness.
 4. **The removal verb is `uninstall`, mirroring `install`** (owner call, 2026-07-09).
    Pi's canonical verb is `remove` (with an `uninstall` alias); ns makes the mirror name
    canonical and ships no alias. Tier 1 (no `--yes`): it touches only ns-managed state
@@ -176,10 +192,9 @@ stable camelCase envelopes with kebab-case `errorType` values, exit codes `0/1/2
   requires removing bundled first-party descriptors from the host, republishing, and
   re-running the checkout-free smoke against the `extension install` path
   (`npx @nseng-ai/ns … objective list` after install).
-- **Registry trust.** `--ignore-scripts` guards npm lifecycle scripts, but descriptor
-  code executes at catalog build (recorded trust posture). The customer doc needs the
-  Pi-style blunt security note; whether v1 adds any consent gate is an explicit no per
-  the standing posture — confirm.
+- **Registry trust (settled for this slice).** `--ignore-scripts` guards npm lifecycle
+  scripts, but descriptor code executes during validation/catalog build and is not
+  sandboxed. The customer guidance above states this bluntly; v1 adds no consent gate.
 - **Parked (recorded, not designed):** `ns extension update --all` fleet mode; `git:`/URL
   sources; per-extension resource filtering and enable/disable (`pi config` parity);
   user/global scope; bare-name npm sugar; `ns extension update` moving pinned refs.
