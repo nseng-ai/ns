@@ -4,6 +4,7 @@ import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import {
+	buildLandFailurePresentation,
 	failureLevel,
 	formatFailedTarget,
 	formatFailure,
@@ -140,9 +141,16 @@ describe("land failure presentation", () => {
 	test("formats and classifies every flow failure variant", () => {
 		for (const failure of failures) {
 			const facts = landFlowFailureFacts(failure);
+			const presentation = buildLandFailurePresentation(failure, []);
 			expect(formatFailure(failure, [])).toContain(facts.message);
 			expect(formatFailureNotification(failure)).toBeTruthy();
 			expect(landFailureKind(failure)).toBe(facts.outcome === "refusal" ? "refusal" : "failure");
+			expect(presentation).toEqual({
+				fullMessage: formatFailure(failure, []),
+				level: facts.level,
+				uiMessage: formatFailureNotification(failure),
+				kind: landFailureKind(failure),
+			});
 		}
 	});
 
