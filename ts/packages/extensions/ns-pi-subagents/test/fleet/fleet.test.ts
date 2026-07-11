@@ -21,10 +21,21 @@ import {
 import type { GitHeadSnapshot } from "../../src/fleet/git-head.ts";
 
 describe("subagent fleet display for explorer", () => {
-	test("reuses one registry for the same Pi host", () => {
-		const pi = {};
-		const first = getOrCreateSubagentFleetRegistry(pi, { recentTaskCap: 1 });
-		const second = getOrCreateSubagentFleetRegistry(pi, { recentTaskCap: 20 });
+	test("shares one registry across distinct Pi facades with the same event bus", () => {
+		const events = {};
+		const agentsFacade = { events };
+		const councilFacade = { events };
+
+		const first = getOrCreateSubagentFleetRegistry(agentsFacade, { recentTaskCap: 1 });
+		const second = getOrCreateSubagentFleetRegistry(councilFacade, { recentTaskCap: 20 });
+
+		expect(second).toBe(first);
+	});
+
+	test("reuses one registry by facade identity when the host has no event bus", () => {
+		const host = {};
+		const first = getOrCreateSubagentFleetRegistry(host, { recentTaskCap: 1 });
+		const second = getOrCreateSubagentFleetRegistry(host, { recentTaskCap: 20 });
 		expect(second).toBe(first);
 	});
 

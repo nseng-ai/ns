@@ -1,3 +1,4 @@
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type {
 	RunnerSubagentContext,
 	RunnerSubagentPi,
@@ -12,7 +13,8 @@ import type {
 
 export type { RawPiExecOptions, RawPiExecResult };
 
-export interface ThermoCouncilExtensionAPI extends RunnerSubagentPi, RawPiExecApi {
+export interface ThermoCouncilExtensionAPI
+	extends RunnerSubagentPi, RawPiExecApi, Pick<ExtensionAPI, "events"> {
 	registerCommand(name: string, command: RegisteredCommand): void;
 	sendMessage?(message: CustomMessage): void | Promise<void>;
 }

@@ -9,6 +9,7 @@ import type {
 	BeforeAgentStartEventResult,
 	ExtensionAPI,
 	ExtensionHandler,
+	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
 import {
 	PI_AGENT_DEFINITION_SCHEMA,
@@ -39,6 +40,7 @@ const packageRoot = dirname(fileURLToPath(import.meta.url));
 const manifestPath = join(packageRoot, "..", "package.json");
 
 type BeforeAgentStartHandler = ExtensionHandler<BeforeAgentStartEvent, BeforeAgentStartEventResult>;
+type SessionStartHandler = ExtensionHandler<SessionStartEvent>;
 
 class FakePi implements NsPiSubagentsExtensionAPI {
 	readonly commands = new Map<
@@ -47,6 +49,13 @@ class FakePi implements NsPiSubagentsExtensionAPI {
 	>();
 	readonly tools = new Map<string, ToolDefinition>();
 	readonly beforeAgentStartHandlers: BeforeAgentStartHandler[] = [];
+	readonly sessionStartHandlers: SessionStartHandler[] = [];
+	readonly events: ExtensionAPI["events"] = {
+		emit() {},
+		on() {
+			return () => {};
+		},
+	};
 
 	getThinkingLevel(): "off" {
 		return "off";
@@ -68,8 +77,13 @@ class FakePi implements NsPiSubagentsExtensionAPI {
 	registerTool(definition: ToolDefinition): void {
 		this.tools.set(definition.name, definition);
 	}
-	readonly on = ((event: string, handler: BeforeAgentStartHandler): void => {
-		if (event === "before_agent_start") this.beforeAgentStartHandlers.push(handler);
+	readonly on = ((event: string, handler: BeforeAgentStartHandler | SessionStartHandler): void => {
+		if (event === "before_agent_start") {
+			this.beforeAgentStartHandlers.push(handler as BeforeAgentStartHandler);
+		}
+		if (event === "session_start") {
+			this.sessionStartHandlers.push(handler as SessionStartHandler);
+		}
 	}) as ExtensionAPI["on"];
 }
 
@@ -121,6 +135,13 @@ function invokeBeforeAgentStart(
 	);
 }
 
+async function invokeSessionStart(
+	handler: SessionStartHandler,
+	reason: SessionStartEvent["reason"],
+): Promise<void> {
+	await handler({ type: "session_start", reason }, undefined as never);
+}
+
 function requireSyncSystemPrompt(result: ReturnType<BeforeAgentStartHandler>): string {
 	if (result === undefined || "then" in result) throw new Error("Expected synchronous doctrine.");
 	return result.systemPrompt ?? "";
@@ -145,6 +166,24 @@ describe("ns-pi-subagents package", () => {
 			properties: { agent: { enum: ["explorer", "task"] } },
 		});
 		expect(pi.commands.has(SUBAGENT_FLEET_COMMAND_NAME)).toBe(true);
+	});
+
+	test("retains Fleet history on reload and clears it on session replacement", async () => {
+		const pi = new FakePi();
+		packageExtension(pi, { cwd: "/repo", loadAgentDefinition: loader });
+		const registry = getOrCreateSubagentFleetRegistry(pi);
+		const sessionStart = pi.sessionStartHandlers[0];
+		if (sessionStart === undefined) throw new Error("Missing session_start handler.");
+
+		registry.startRun([{ title: "Keep through reload" }]);
+		await invokeSessionStart(sessionStart, "reload");
+		expect(registry.snapshot()).toHaveLength(1);
+
+		for (const reason of ["startup", "new", "resume", "fork"] as const) {
+			registry.startRun([{ title: `Clear on ${reason}` }]);
+			await invokeSessionStart(sessionStart, reason);
+			expect(registry.snapshot()).toEqual([]);
+		}
 	});
 
 	test("derives the model-visible parameters from the zod input schema", () => {
