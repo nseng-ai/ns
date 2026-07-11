@@ -178,10 +178,11 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 				// Keep the parent checkpoint phase active for the clean-worktree path, while routing the
 				// workflow's keyed inspect/generate/commit events to the declared substeps.
 				stream.emit({ type: "phase-started", phaseKey: "checkpoint" });
+				const checkpointRunContext = runtime.createCheckpointRunContext();
 				const checkpoint = await runCheckpointIfPending({
 					cwd: ctx.cwd,
 					env: ctx.env,
-					gateway: runtime.createCheckpointGateway(),
+					...checkpointRunContext,
 					...checkpointContext,
 					textGenerator: ctx.textGenerator,
 					onPhase: stream.emit,
@@ -313,18 +314,16 @@ async function runSubmitWithMatrix(input: {
 			matrix.setGlobal("hooks", { state: "done", text: "hooks complete" });
 		}
 		const checkpointPhase = createMatrixPhaseForwarder(ctx, matrix);
-		const onActiveOperations = matrix.setActiveOperations;
-		const checkpointGateway = runtime.createCheckpointGateway(onActiveOperations);
+		const checkpointRunContext = runtime.createCheckpointRunContext(matrix.setActiveOperations);
 		checkpointPhase({ type: "phase-started", phaseKey: "checkpoint" });
 		matrix.setGlobal("checkpoint", { state: "active" });
 		const checkpoint = await runCheckpointIfPending({
 			cwd: ctx.cwd,
 			env: ctx.env,
-			gateway: checkpointGateway,
+			...checkpointRunContext,
 			...checkpointContext,
 			textGenerator: ctx.textGenerator,
 			onPhase: checkpointPhase,
-			onActiveOperations,
 		});
 		if (checkpoint.kind === "failed") {
 			return await matrixPhaseFailureResult(ctx, matrix, {

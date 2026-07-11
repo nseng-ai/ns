@@ -69,16 +69,19 @@ export function createNsCheckpointRuntime(ctx: NsExtensionApi): NsCheckpointRunt
 	};
 }
 
-export interface RunCheckpointCommandOptions {
+export interface CheckpointRunContext {
+	gateway: CheckpointGateway;
+	onActiveOperations?: (operations: readonly ActiveOperation[]) => void;
+}
+
+export interface RunCheckpointCommandOptions extends CheckpointRunContext {
 	cwd: string;
 	env: Record<string, string | undefined>;
-	gateway: CheckpointGateway;
 	textGenerator: TextGenerator;
 	repoRoot?: string;
 	/** Typed phase sequencing for a presentation driver (inspect → generate → commit). */
 	onPhase?: NsProgressPhaseListener;
 	time?: TimeServices;
-	onActiveOperations?: (operations: readonly ActiveOperation[]) => void;
 }
 
 export interface RunCheckpointWorkflowOptions extends RunCheckpointCommandOptions {
