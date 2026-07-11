@@ -1,6 +1,8 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import {
 	GRILL_ASK_TOOL_NAME,
+	GRILL_RETURN_COMMAND_NAME,
+	GRILL_SIDEQUEST_COMMAND_NAME,
 	GRILL_UI_COMMAND_NAME,
 	GRILL_WITH_DOCS_UI_COMMAND_NAME,
 } from "@nseng-ai/pi/grill/surfaces";
@@ -9,6 +11,7 @@ import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { executeGrillAsk } from "./execution.ts";
 import type { ExtensionAPI } from "./protocol.ts";
 import { handleGrillUiCommand, handleGrillWithDocsUiCommand } from "./runtime.ts";
+import { isSidequestCapableHost, registerGrillSidequest } from "./sidequest/register.ts";
 import { GRILL_ASK_PARAMETERS } from "./validate.ts";
 
 export { executeGrillAsk } from "./execution.ts";
@@ -46,11 +49,15 @@ export {
 
 export {
 	GRILL_ASK_TOOL_NAME,
+	GRILL_RETURN_COMMAND_NAME,
+	GRILL_SIDEQUEST_COMMAND_NAME,
 	GRILL_UI_COMMAND_NAME,
 	GRILL_UI_SKILL_NAME,
 	GRILL_WITH_DOCS_UI_COMMAND_NAME,
 	GRILL_WITH_DOCS_UI_SKILL_NAME,
 } from "@nseng-ai/pi/grill/surfaces";
+
+export { isSidequestCapableHost, registerGrillSidequest } from "./sidequest/register.ts";
 
 export const grillUiParity = definePiSurfaceParity([
 	{
@@ -76,9 +83,34 @@ export const grillUiParity = definePiSurfaceParity([
 		notes:
 			"Structured TUI interaction is Pi-native; portable fallback is the docs-aware skill workflow.",
 	},
+	{
+		kind: "command",
+		surface: GRILL_SIDEQUEST_COMMAND_NAME,
+		workflow: "Start a grill side quest before answering the pending question",
+		parity: "WAIVED",
+		fallback:
+			"Outside Pi, explore the tangent inline in the conversation, then re-ask the pending grill question.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@internal/pi-tools/grill",
+		sourceModule: "grill-ui",
+		notes: "Pi-native session-tree mark/return workflow; portable harnesses lack tree navigation.",
+	},
+	{
+		kind: "command",
+		surface: GRILL_RETURN_COMMAND_NAME,
+		workflow: "Return from a grill side quest to the marked pending question",
+		parity: "WAIVED",
+		fallback: "Outside Pi, summarize the tangent inline and re-ask the pending grill question.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@internal/pi-tools/grill",
+		sourceModule: "grill-ui",
+		notes: "Pi-native session-tree mark/return workflow; portable harnesses lack tree navigation.",
+	},
 ] as const);
 
 export function registerGrillUiExtension(pi: ExtensionAPI): void {
+	const sidequest = isSidequestCapableHost(pi) ? registerGrillSidequest(pi) : undefined;
+
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: GRILL_UI_COMMAND_NAME,
@@ -113,10 +145,15 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 			'If grill_ask returns action: "end-grill", stop asking questions and summarize decisions, unresolved branches, and final recommendation.',
 			'If grill_ask returns action: "status-request", use the requested status-report format, then call grill_ask again with the same pending question; do not treat the status request as an answer.',
 			'If grill_ask returns action: "ui-unavailable", ask the same one question normally with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.',
+			'If grill_ask returns action: "side-quest" or "side-quest-refused", follow the result text: a side quest pauses the interview and is never an answer; do not call grill_ask again until the side quest returns.',
 		],
 		parameters: GRILL_ASK_PARAMETERS,
-		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
-			executeGrillAsk(params, ctx, signal === undefined ? {} : { signal }),
+		execute: async (toolCallId, params, signal, _onUpdate, ctx) =>
+			executeGrillAsk(params, ctx, {
+				...(signal === undefined ? {} : { signal }),
+				toolCallId,
+				...(sidequest === undefined ? {} : { onSideQuestStarted: sidequest.onSideQuestStarted }),
+			}),
 	});
 }
 

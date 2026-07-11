@@ -18,6 +18,7 @@ import {
 	textResult,
 	type GrillAskDetails,
 } from "./result.ts";
+import { resolveFreeformSideQuest } from "./sidequest/sentinel.ts";
 import { validateGrillAskInput } from "./validate.ts";
 import { buildGrillAskRows, rowSelectDisplay } from "./view.ts";
 
@@ -48,7 +49,7 @@ export async function executeGrillAsk(
 			if (outcome === undefined) {
 				return cancelledResult(input.question);
 			}
-			return grillAskOutcomeResult(input, outcome, ctx);
+			return grillAskOutcomeResult(input, outcome, ctx, executionOptions);
 		} catch {
 			if (executionOptions.signal?.aborted) {
 				return cancelledResult(input.question);
@@ -57,12 +58,13 @@ export async function executeGrillAsk(
 		}
 	}
 
-	return executeLegacyGrillAsk(input, ctx);
+	return executeLegacyGrillAsk(input, ctx, executionOptions);
 }
 
 async function executeLegacyGrillAsk(
 	input: NormalizedGrillAskInput,
 	ctx: GrillAskToolContext,
+	executionOptions: GrillAskExecutionOptions,
 ): Promise<ToolResult<GrillAskDetails>> {
 	if (!ctx.hasUI || ctx.ui.select === undefined) {
 		return textResult(
@@ -89,7 +91,7 @@ async function executeLegacyGrillAsk(
 		case "choice":
 			return selectedChoiceResult(input.question, selectedRow);
 		case "freeform":
-			return executeLegacyFreeformAnswer(input, ctx);
+			return executeLegacyFreeformAnswer(input, ctx, executionOptions);
 		case "status":
 			return statusRequestResult(input.question, progress, input.estimatedRemaining);
 		case "end-grill":
@@ -104,6 +106,7 @@ async function executeLegacyGrillAsk(
 async function executeLegacyFreeformAnswer(
 	input: NormalizedGrillAskInput,
 	ctx: GrillAskToolContext,
+	executionOptions: GrillAskExecutionOptions,
 ): Promise<ToolResult<GrillAskDetails>> {
 	if (ctx.ui.editor === undefined) {
 		return textResult(
@@ -115,19 +118,40 @@ async function executeLegacyFreeformAnswer(
 	if (answer === undefined || answer.trim().length === 0) {
 		return cancelledResult(input.question, BLANK_FREEFORM_MESSAGE);
 	}
-	return freeformAnswerResult(input.question, answer);
+	return freeformOrSideQuestResult(input, ctx, executionOptions, answer);
+}
+
+function freeformOrSideQuestResult(
+	input: NormalizedGrillAskInput,
+	ctx: GrillAskToolContext,
+	executionOptions: GrillAskExecutionOptions,
+	answer: string,
+): ToolResult<GrillAskDetails> {
+	const sideQuest = resolveFreeformSideQuest({
+		answer,
+		question: input.question,
+		ctx,
+		...(executionOptions.toolCallId === undefined
+			? {}
+			: { toolCallId: executionOptions.toolCallId }),
+		...(executionOptions.onSideQuestStarted === undefined
+			? {}
+			: { onSideQuestStarted: executionOptions.onSideQuestStarted }),
+	});
+	return sideQuest ?? freeformAnswerResult(input.question, answer);
 }
 
 function grillAskOutcomeResult(
 	input: NormalizedGrillAskInput,
 	outcome: GrillAskOutcome,
 	ctx: GrillAskToolContext,
+	executionOptions: GrillAskExecutionOptions,
 ): ToolResult<GrillAskDetails> {
 	switch (outcome.action) {
 		case "choice":
 			return selectedChoiceResult(input.question, outcome.entry);
 		case "freeform":
-			return freeformAnswerResult(input.question, outcome.answer);
+			return freeformOrSideQuestResult(input, ctx, executionOptions, outcome.answer);
 		case "status-request":
 			return statusRequestResult(
 				input.question,

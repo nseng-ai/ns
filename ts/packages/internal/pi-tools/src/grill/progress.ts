@@ -8,7 +8,7 @@ export interface GrillAskProgress {
 	source: GrillAskProgressSource;
 }
 
-const GRILL_UI_KICKOFF_MARKERS = [
+export const GRILL_UI_KICKOFF_MARKERS = [
 	"<structured-grill-question-ui-contract>",
 	"<plan-or-design-to-grill>",
 ] as const;
