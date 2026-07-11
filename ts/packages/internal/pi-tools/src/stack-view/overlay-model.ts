@@ -18,13 +18,16 @@ import { clamp } from "@nseng-ai/pi/terminal/layout";
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import {
 	CHECK_BUCKET_DISPLAY,
-	checkBucketForCounts,
+	EXPECTED_GRAPHITE_PENDING_EXPLANATION,
+	checkPresentationForPr,
 	collapseWhitespace,
 	entriesForCheckBucket,
 	formatCheckEntryLabel,
 	formatThreadDetailLabel,
+	partitionPendingChecks,
 	stackRowLabel,
 	statusWord,
+	type StackCheckPresentation,
 	type StackThemeColor,
 } from "./format.ts";
 import type { EnrichmentEntry } from "./enrichment-store.ts";
@@ -41,14 +44,15 @@ export type StackRollupBucket = "failing" | "unresolved" | "pending" | "ready" |
 
 /**
  * Bucket a PR for the header rollup. The ladder mirrors {@link StackViewPrStatus}
- * priority, but splits "ready" into `pending` (checks still running) and `ready`.
+ * priority, but splits "ready" into `pending` when an ordinary or
+ * unaccounted pending check still requires attention.
  */
 export function rollupBucketForPr(pr: StackViewPr): StackRollupBucket {
 	if (pr.status === "no-pr") return "no-pr";
 	if (pr.status === "draft") return "draft";
 	if (pr.status === "checks-failing") return "failing";
 	if (pr.status === "unresolved") return "unresolved";
-	if (pr.checks.pending > 0) return "pending";
+	if (partitionPendingChecks(pr).ordinaryCount > 0) return "pending";
 	return "ready";
 }
 
@@ -79,7 +83,7 @@ export function buildStackRollupSegments(model: StackViewModel): StackRollupSegm
 		{ text: `${counts.failing} failing`, color: "error" },
 		{ text: `${counts.unresolved} unresolved`, color: "warning" },
 		{ text: `${counts.pending} pending`, color: "warning" },
-		{ text: `${counts.ready} ready`, color: "success" },
+		{ text: `${counts.ready} ready to merge`, color: "success" },
 	];
 	if (counts.draft > 0) segments.push({ text: `${counts.draft} draft`, color: "muted" });
 	if (counts["no-pr"] > 0) segments.push({ text: `${counts["no-pr"]} no-pr`, color: "dim" });
@@ -96,7 +100,7 @@ export interface StackRowCells {
 	label: string;
 	threads: string;
 	checks: string;
-	checkBucket: StackViewCheckBucket | null;
+	checkPresentation: StackCheckPresentation | null;
 	statusWord: string;
 }
 
@@ -106,7 +110,7 @@ export function formatStackRowCells(pr: StackViewPr): StackRowCells {
 		label: stackRowLabel(pr),
 		threads: formatThreadsCell(pr),
 		checks: formatChecksCell(pr),
-		checkBucket: checkBucketForCounts(pr.checks),
+		checkPresentation: checkPresentationForPr(pr),
 		statusWord: statusWord(pr.status),
 	};
 }
@@ -120,7 +124,9 @@ function formatChecksCell(pr: StackViewPr): string {
 	const { passing, failing, pending, cancelled, total } = pr.checks;
 	if (total <= 0) return "";
 	if (failing > 0) return `✗ ${failing}/${total}`;
-	if (pending > 0) return `⋯ ${pending}/${total}`;
+	const partition = partitionPendingChecks(pr);
+	if (partition.ordinaryCount > 0) return `⋯ ${pending}/${total}`;
+	if (partition.expectedCount > 0) return `⋯ ${partition.expectedCount} expected`;
 	if (cancelled > 0) return `⊘ ${cancelled}/${total}`;
 	return `✓ ${passing}/${total}`;
 }
@@ -144,6 +150,7 @@ export type StackDetailRole =
 	| "section"
 	| "check-failing"
 	| "check-pending"
+	| "check-expected-pending"
 	| "check-cancelled"
 	| "thread"
 	| "summary-pending"
@@ -249,7 +256,31 @@ function appendPassingChecks(rows: StackDetailRow[], pr: StackViewPr): void {
 }
 
 function appendPendingChecks(rows: StackDetailRow[], pr: StackViewPr): void {
-	appendCheckSection(rows, pr, { bucket: "pending", heading: "PENDING CHECKS" });
+	const pending = partitionPendingChecks(pr);
+	if (pending.ordinaryCount > 0) {
+		rows.push({ role: "section", text: `PENDING CHECKS (${pending.ordinaryCount})` });
+		for (const entry of pending.ordinaryEntries) {
+			rows.push({ role: "check-pending", text: `⋯ ${formatCheckEntryLabel(entry)}` });
+		}
+		if (pending.unaccountedOrdinaryCount > 0) {
+			rows.push({
+				role: "truncation-note",
+				text: `… ${pending.unaccountedOrdinaryCount} pending checks not fetched`,
+			});
+		}
+	}
+	if (pending.expectedEntries.length === 0) return;
+	rows.push({
+		role: "section",
+		text: `EXPECTED PENDING CHECKS (${pending.expectedEntries.length})`,
+	});
+	for (const entry of pending.expectedEntries) {
+		rows.push({ role: "check-expected-pending", text: `⋯ ${formatCheckEntryLabel(entry)}` });
+		rows.push({
+			role: "check-expected-pending",
+			text: `  ↳ ${EXPECTED_GRAPHITE_PENDING_EXPLANATION}`,
+		});
+	}
 }
 
 function appendCheckSection(

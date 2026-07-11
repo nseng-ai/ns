@@ -11,10 +11,12 @@
 import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 
 import {
+	EXPECTED_GRAPHITE_PENDING_EXPLANATION,
 	collapseWhitespace,
 	entriesForCheckBucket,
 	formatCheckEntryLabel,
 	formatThreadDetailLabel,
+	partitionPendingChecks,
 	stackRowLabel,
 	statusWord,
 } from "./format.ts";
@@ -57,9 +59,19 @@ export function renderPlainSnapshot(model: StackViewModel): string {
 			lines.push(`  unresolved: ${items}${suffix}`);
 		}
 
-		const pending = entriesForCheckBucket(row.checkEntries, "pending");
-		if (pending.length > 0) {
-			lines.push(`  pending: ${pending.map(formatCheckEntryLabel).join(", ")}`);
+		const pending = partitionPendingChecks(row);
+		if (pending.ordinaryCount > 0) {
+			const fetched = pending.ordinaryEntries.map(formatCheckEntryLabel).join(", ");
+			const missing =
+				pending.unaccountedOrdinaryCount > 0
+					? `${fetched.length > 0 ? " " : ""}[+${pending.unaccountedOrdinaryCount} not fetched]`
+					: "";
+			lines.push(`  pending: ${fetched}${missing}`);
+		}
+		if (pending.expectedEntries.length > 0) {
+			lines.push(
+				`  expected pending: ${pending.expectedEntries.map(formatCheckEntryLabel).join(", ")} — ${EXPECTED_GRAPHITE_PENDING_EXPLANATION}`,
+			);
 		}
 	}
 	lines.push(`- ─ trunk: ${model.trunk}`);
@@ -128,9 +140,11 @@ function plainRowMeta(row: StackViewPr): string {
 		parts.push(`threads ${row.threads.resolved}/${row.threads.total}`);
 	}
 	if (row.checks.total > 0) {
-		const badges = `${row.checks.passing}✓ ${row.checks.failing}✗ ${row.checks.pending}⋯`;
+		const pending = partitionPendingChecks(row);
+		const badges = `${row.checks.passing}✓ ${row.checks.failing}✗ ${pending.ordinaryCount}⋯`;
+		const expected = pending.expectedCount > 0 ? ` ${pending.expectedCount} expected` : "";
 		const cancelled = row.checks.cancelled > 0 ? ` ${row.checks.cancelled}⊘` : "";
-		parts.push(`checks ${badges}${cancelled}`);
+		parts.push(`checks ${badges}${expected}${cancelled}`);
 	}
 	parts.push(statusWord(row.status));
 	return parts.join(", ");

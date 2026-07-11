@@ -23,6 +23,17 @@ export function checkEntryFixture(
 	};
 }
 
+export function graphiteMergeabilityCheckFixture(
+	overrides: Partial<StackViewCheckEntry> = {},
+): StackViewCheckEntry {
+	return checkEntryFixture({
+		name: "Graphite / mergeability_check",
+		bucket: "pending",
+		identity: "status-context:Graphite / mergeability_check",
+		...overrides,
+	});
+}
+
 export function threadDetailFixture(
 	overrides: Partial<StackViewThreadDetail> = {},
 ): StackViewThreadDetail {

@@ -16,7 +16,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import { clamp, fitToWidth, padRight, reconcileScroll } from "@nseng-ai/pi/terminal/layout";
 
-import { checkBucketColor, statusColor, type StackThemeColor } from "./format.ts";
+import { checkPresentationColor, statusColor, type StackThemeColor } from "./format.ts";
 import type { StackViewModel, StackViewPr } from "./types.ts";
 import type { StackEnrichmentPort } from "./enrichment-engine.ts";
 import type { ComposeViewPort } from "./compose-controller.ts";
@@ -43,7 +43,7 @@ const BROWSE_FOOTER =
 
 /** Fixed cell widths for the right-hand columns of each list row. */
 const THREADS_CELL_WIDTH = 9;
-const CHECKS_CELL_WIDTH = 9;
+const CHECKS_CELL_WIDTH = 12;
 const STATUS_CELL_WIDTH = 14;
 
 /** What the user asked the host to do when the overlay settled. */
@@ -357,7 +357,7 @@ export class StackViewOverlay implements Component {
 			pr.threads.total - pr.threads.resolved > 0 ? "warning" : "muted";
 		const threads = padRight(this.color(threadsColor, cells.threads), THREADS_CELL_WIDTH);
 		const checks = padRight(
-			this.color(checkBucketColor(cells.checkBucket), cells.checks),
+			this.color(checkPresentationColor(cells.checkPresentation), cells.checks),
 			CHECKS_CELL_WIDTH,
 		);
 		const status = padRight(
@@ -409,6 +409,8 @@ export class StackViewOverlay implements Component {
 				return this.color("warning", row.text);
 			case "check-pending":
 				return this.color("warning", row.text);
+			case "check-expected-pending":
+				return this.color("muted", row.text);
 			case "check-cancelled":
 				return this.color("muted", row.text);
 			case "summary-pending":

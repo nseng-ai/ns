@@ -16,6 +16,12 @@ import {
 } from "../../src/stack-view/overlay-model.ts";
 import { sliceWrappedDetailLinesForViewport } from "../../src/overlay-kit/viewport.ts";
 import { checkEnrichmentKey, threadEnrichmentKey } from "../../src/stack-view/enrichment-keys.ts";
+import {
+	checkPresentationColor,
+	isExpectedGraphitePendingCheck,
+	partitionPendingChecks,
+	statusColor,
+} from "../../src/stack-view/format.ts";
 import type { EnrichmentEntry } from "../../src/stack-view/enrichment-store.ts";
 import type { StackEnrichmentPort } from "../../src/stack-view/enrichment-engine.ts";
 import { composeBodyLayout } from "../../src/stack-view/compose-model.ts";
@@ -29,6 +35,7 @@ import {
 import {
 	checkEntryFixture,
 	createFakeComposePort,
+	graphiteMergeabilityCheckFixture,
 	type FakeComposePort,
 	threadDetailFixture,
 } from "./stack-view-fixtures.ts";
@@ -93,6 +100,46 @@ describe("overlay-model units", () => {
 				),
 			).toBe("ready");
 		});
+
+		test("treats only exact pending Graphite mergeability entries as expected", () => {
+			const exact = graphiteMergeabilityCheckFixture();
+			const oldSnapshot = graphiteMergeabilityCheckFixture({ identity: null });
+			const failing = graphiteMergeabilityCheckFixture({ bucket: "failing" });
+			const nearMatch = graphiteMergeabilityCheckFixture({
+				name: "prefix Graphite / mergeability_check",
+				identity: null,
+			});
+
+			expect(isExpectedGraphitePendingCheck(exact)).toBe(true);
+			expect(isExpectedGraphitePendingCheck(oldSnapshot)).toBe(true);
+			expect(isExpectedGraphitePendingCheck(failing)).toBe(false);
+			expect(isExpectedGraphitePendingCheck(nearMatch)).toBe(false);
+		});
+
+		test("rolls up expected-only pending as ready but keeps mixed and unfetched counts pending", () => {
+			const expected = graphiteMergeabilityCheckFixture();
+			const ordinary = checkEntryFixture({ name: "unit", bucket: "pending" });
+			const expectedOnly = prFixture({
+				checks: { passing: 2, failing: 0, pending: 1, cancelled: 0, total: 3 },
+				checkEntries: [expected],
+			});
+			const mixed = prFixture({
+				checks: { passing: 1, failing: 0, pending: 2, cancelled: 0, total: 3 },
+				checkEntries: [expected, ordinary],
+			});
+			const truncated = prFixture({
+				checks: { passing: 1, failing: 0, pending: 2, cancelled: 0, total: 3 },
+				checkEntries: [expected],
+			});
+
+			expect(rollupBucketForPr(expectedOnly)).toBe("ready");
+			expect(rollupBucketForPr(mixed)).toBe("pending");
+			expect(rollupBucketForPr(truncated)).toBe("pending");
+			expect(partitionPendingChecks(truncated).ordinaryCount).toBe(1);
+			const truncatedDetails = buildStackDetailRows(truncated).map((row) => row.text);
+			expect(truncatedDetails).toContain("PENDING CHECKS (1)");
+			expect(truncatedDetails).toContain("… 1 pending checks not fetched");
+		});
 	});
 
 	describe("buildStackRollupSegments", () => {
@@ -101,7 +148,13 @@ describe("overlay-model units", () => {
 				modelFixture({ prs: [prFixture({ status: "ready" })] }),
 			);
 			const texts = segments.map((segment) => segment.text);
-			expect(texts).toEqual(["1 PRs", "0 failing", "0 unresolved", "0 pending", "1 ready"]);
+			expect(texts).toEqual([
+				"1 PRs",
+				"0 failing",
+				"0 unresolved",
+				"0 pending",
+				"1 ready to merge",
+			]);
 		});
 
 		test("appends draft and no-pr segments when nonzero", () => {
@@ -127,12 +180,25 @@ describe("overlay-model units", () => {
 			expect(ready.label).toBe("#12 feature/widget");
 			expect(ready.threads).toBe("");
 			expect(ready.checks).toBe("");
-			expect(ready.statusWord).toBe("ready");
+			expect(ready.statusWord).toBe("ready to merge");
 
 			const noPr = formatStackRowCells(
 				prFixture({ number: null, branch: "feature/x", status: "no-pr" }),
 			);
 			expect(noPr.label).toBe("(no PR) feature/x");
+		});
+
+		test("renders expected-only pending as a muted presentation cell", () => {
+			const cells = formatStackRowCells(
+				prFixture({
+					checks: { passing: 2, failing: 0, pending: 1, cancelled: 0, total: 3 },
+					checkEntries: [graphiteMergeabilityCheckFixture()],
+				}),
+			);
+			expect(cells.checks).toBe("⋯ 1 expected");
+			expect(cells.checkPresentation).toBe("expected-pending");
+			expect(checkPresentationColor(cells.checkPresentation)).toBe("muted");
+			expect(statusColor("ready")).toBe("success");
 		});
 
 		test("prefers failing then pending then passing check cells", () => {
@@ -213,6 +279,31 @@ describe("overlay-model units", () => {
 			const pendingIndex = texts.indexOf("PENDING CHECKS (1)");
 			expect(failingIndex).toBeLessThan(unresolvedIndex);
 			expect(unresolvedIndex).toBeLessThan(pendingIndex);
+		});
+
+		test("lists expected pending after ordinary pending with a shared explanation", () => {
+			const rows = buildStackDetailRows(
+				prFixture({
+					checks: { passing: 0, failing: 0, pending: 2, cancelled: 0, total: 2 },
+					checkEntries: [
+						checkEntryFixture({ name: "unit", bucket: "pending" }),
+						graphiteMergeabilityCheckFixture(),
+					],
+				}),
+			);
+			const texts = rows.map((row) => row.text);
+			expect(texts).toContain("PENDING CHECKS (1)");
+			expect(texts).toContain("EXPECTED PENDING CHECKS (1)");
+			expect(texts).toContain("⋯ Graphite / mergeability_check");
+			expect(texts).toContain("  ↳ passes as downstack PRs merge");
+			expect(texts.indexOf("PENDING CHECKS (1)")).toBeLessThan(
+				texts.indexOf("EXPECTED PENDING CHECKS (1)"),
+			);
+			expect(
+				rows
+					.filter((row) => row.text.includes("Graphite") || row.text.includes("downstack"))
+					.every((row) => row.role === "check-expected-pending"),
+			).toBe(true);
 		});
 
 		test("drops author suffix and marks unknown paths", () => {
@@ -464,6 +555,24 @@ describe("StackViewOverlay list region", () => {
 		expect(selected).toContain("#2 feature/2");
 		expect(list.some((line) => line.includes("*") && line.includes("#2 feature/2"))).toBe(true);
 		expect(list.some((line) => line.includes("─ main"))).toBe(true);
+	});
+
+	test("renders expected-pending detail muted with a green ready-to-merge rollup", () => {
+		const view = newColorView(
+			modelFixture({
+				currentBranch: "feature/1",
+				prs: [
+					prFixture({
+						checks: { passing: 2, failing: 0, pending: 1, cancelled: 0, total: 3 },
+						checkEntries: [graphiteMergeabilityCheckFixture()],
+					}),
+				],
+			}),
+		);
+		const text = view.render(180).join("\n");
+		expect(text).toContain("[muted]EXPECTED PENDING CHECKS (1)[/]");
+		expect(text).toContain("[muted]⋯ Graphite / mergeability_check[/]");
+		expect(text).toContain("[success]1 ready to merge[/]");
 	});
 
 	test("applies the selectedBg highlight through the tagging theme", () => {

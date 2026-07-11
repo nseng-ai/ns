@@ -27,6 +27,7 @@ import type {
 	StackViewThreadDetail,
 } from "../../src/stack-view/types.ts";
 import { checkEnrichmentKey, threadEnrichmentKey } from "../../src/stack-view/enrichment-keys.ts";
+import { graphiteMergeabilityCheckFixture } from "./stack-view-fixtures.ts";
 
 describe("extractDraft", () => {
 	test("happy path returns the draft body", () => {
@@ -416,9 +417,25 @@ describe("buildComposeSystemPrompt", () => {
 			objectiveSlugs: ["compose-subsystem", "stack-view"],
 		});
 		const prompt = buildComposeSystemPrompt({ model: modelFixture([pr]), enrichment: new Map() });
+		expect(prompt).toContain("status: ready to merge");
 		expect(prompt).toContain("PENDING CHECKS (1):");
 		expect(prompt).toContain("- build (CI)");
 		expect(prompt).toContain("objectives: compose-subsystem, stack-view");
+	});
+
+	test("separates expected Graphite pending checks and explains their stack behavior", () => {
+		const ordinary = checkFixture({ name: "build", bucket: "pending", conclusion: null });
+		const expected = graphiteMergeabilityCheckFixture();
+		const pr = prFixture({
+			checks: { passing: 0, failing: 0, pending: 3, cancelled: 0, total: 3 },
+			checkEntries: [ordinary, expected],
+		});
+		const prompt = buildComposeSystemPrompt({ model: modelFixture([pr]), enrichment: new Map() });
+		expect(prompt).toContain("status: ready to merge");
+		expect(prompt).toContain("PENDING CHECKS (2):\n- build (CI)\n- 1 pending checks not fetched");
+		expect(prompt).toContain(
+			"EXPECTED PENDING CHECKS (1):\n- Graphite / mergeability_check\n  passes as downstack PRs merge",
+		);
 	});
 
 	test("a PR-less row renders the no-PR heading", () => {
