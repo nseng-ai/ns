@@ -1,15 +1,13 @@
 # TypeScript Package Taxonomy
 
-This tree is part architecture map and part migration task list.
+This tree is a projection of the canonical `ns.tier` classification: each package's declared tier determines its directory, enforced tier→directory by the style-guard rule `NS_TS_TIER_DIRECTORY_PROJECTION` (ADR 0033). The projection map is `capability`→`capabilities/`, `neutral-infra`→`infra/`, `host`→`hosts/`, `standalone-tool`→`tools/`, `internal-tool`→`internal/`, plus the two top-level single-package homes below. Directories are a guard-enforced view, never an independent classification.
 
 Structure *inside* a container package — which units earn `ns.subpackages` rank, naming, and importer rules — is governed by [`docs/conventions/subpackage-conventions.md`](../../docs/conventions/subpackage-conventions.md) (ADR 0022/0023).
 
 ## Top-level packages
 
-- `kernel/` is the ns kernel and CLI package. It stays top-level by design. Some legacy directory names remain as migration residue until a focused path-move slice removes them.
-- `capability-kit/` is the first-party Capability Kit substrate (`@nseng-ai/capability-kit`). It stays top-level by design and does not need a category wrapper.
-- Capability packages move under `capabilities/` either when certified standalone (`plans`, `address`, `retros`) or during their container conversion slices. Remaining top-level capability packages are migration residue.
-- `ccc` is a capability, not a separate orchestrator category. It moves to `capabilities/ccc` only during its own conversion slice.
+- `kernel/` is the ns kernel and CLI package (`@nseng-ai/kernel`, tier `sdk`). It stays top-level by design.
+- `capability-kit/` is the first-party Capability Kit substrate (`@nseng-ai/capability-kit`, tier `capability-kit`). It stays top-level by design and does not need a category wrapper.
 
 ## Category directories
 
