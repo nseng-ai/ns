@@ -2,12 +2,9 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { landMatrixRowsFromPlan } from "./land-matrix-progress.ts";
 import {
-	failureLevel,
-	formatFailure,
-	formatFailureNotification,
+	buildLandFailurePresentation,
 	formatPlan,
 	formatSuccessSummary,
-	landFailureKind,
 	presentBrief,
 	presentDryRunLanding,
 	presentLandingSuccess,
@@ -225,13 +222,7 @@ export function presentLandStackFailure(options: {
 	readonly failure: LandFlowFailure;
 }): void {
 	const { ctx, commandStream, landed } = options.session;
-	const formatted = formatFailure(options.failure, landed);
-	commandStream.finishFailure(formatted);
-	presentBrief({
-		ctx,
-		fullMessage: formatted,
-		level: failureLevel(options.failure),
-		uiMessage: formatFailureNotification(options.failure),
-		kind: landFailureKind(options.failure),
-	});
+	const presentation = buildLandFailurePresentation(options.failure, landed);
+	commandStream.finishFailure(presentation.fullMessage);
+	presentBrief({ ctx, ...presentation });
 }

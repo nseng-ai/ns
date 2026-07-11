@@ -396,7 +396,10 @@ export function indentLines(text: string, prefix: string): string[] {
 }
 
 export function formatFailure(failure: LandFlowFailure, landed: readonly LandedPr[]): string {
-	const fields = failurePresentationFields(failure);
+	return formatFailureFields(failurePresentationFields(failure), landed);
+}
+
+function formatFailureFields(fields: LandFlowFailureFacts, landed: readonly LandedPr[]): string {
 	const { displayCommand, execResult, failedBranch, failedPrNumber, suggestedAction } = fields;
 	const simple =
 		landed.length === 0 && !displayCommand && !failedBranch && !failedPrNumber && !suggestedAction;
@@ -480,7 +483,10 @@ function nonBlank(value: string | undefined): string | undefined {
 }
 
 export function formatFailureNotification(failure: LandFlowFailure): string {
-	const fields = failurePresentationFields(failure);
+	return formatFailureNotificationFields(failurePresentationFields(failure));
+}
+
+function formatFailureNotificationFields(fields: LandFlowFailureFacts): string {
 	const detail = firstNonEmptyLine(fields.message) ?? "unknown error";
 	if (fields.failedBranch || fields.failedPrNumber) {
 		return `land stopped at ${formatFailedTargetFields(fields)}: ${detail}`;
@@ -489,17 +495,31 @@ export function formatFailureNotification(failure: LandFlowFailure): string {
 	return `land stopped: ${detail}`;
 }
 
+export interface LandFailurePresentation {
+	readonly fullMessage: string;
+	readonly level: NotifyLevel;
+	readonly uiMessage: string;
+	readonly kind: LandResultKind;
+}
+
+export function buildLandFailurePresentation(
+	landFailure: LandFlowFailure,
+	landed: readonly LandedPr[],
+): LandFailurePresentation {
+	const fields = failurePresentationFields(landFailure);
+	return {
+		fullMessage: formatFailureFields(fields, landed),
+		level: fields.level,
+		uiMessage: formatFailureNotificationFields(fields),
+		kind: fields.outcome === "refusal" ? "refusal" : "failure",
+	};
+}
+
 export function presentFailureAndReturn(
 	ctx: PrintAwareLandStackCommandContext,
 	landFailure: LandFlowFailure,
 ): LandStackResult<never> {
-	presentBrief({
-		ctx,
-		fullMessage: formatFailure(landFailure, []),
-		level: failureLevel(landFailure),
-		uiMessage: formatFailureNotification(landFailure),
-		kind: landFailureKind(landFailure),
-	});
+	presentBrief({ ctx, ...buildLandFailurePresentation(landFailure, []) });
 	return failure(landFailure);
 }
 
