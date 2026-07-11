@@ -86,22 +86,27 @@ function frameLine(frame: string, needle: string): string {
 
 describe("matrix progress core", () => {
 	test("projects only defined optional frame fields from a wider runtime object", () => {
-		const activeOperations = commandOperations(["just"]);
-		const runtime = {
-			activeOperations,
-			tailSinceOutputMs: 1_000,
-			caps: caps(),
-			title: "ns flow submit",
-			rows: [],
+		const widerInput = {
+			activeOperations: [{ kind: "command" as const, display: "just" }],
+			tailLine: "tests passing",
+			tailSinceOutputMs: 125,
+			tick: 3,
+			rows: ["unkeyed row"],
+			title: "must not pass through",
+			sentinel: true,
 		};
-		const projected = matrixFrameOptionalFields(runtime);
 
-		expect(projected).toEqual({ activeOperations, tailSinceOutputMs: 1_000 });
-		expect(Object.hasOwn(projected, "tailLine")).toBe(false);
-		expect(Object.hasOwn(projected, "tick")).toBe(false);
-		expect(Object.hasOwn(projected, "caps")).toBe(false);
-		expect(Object.hasOwn(projected, "title")).toBe(false);
-		expect(Object.hasOwn(projected, "rows")).toBe(false);
+		expect(matrixFrameOptionalFields(widerInput)).toEqual({
+			activeOperations: [{ kind: "command", display: "just" }],
+			tailLine: "tests passing",
+			tailSinceOutputMs: 125,
+			tick: 3,
+		});
+		const omitted = matrixFrameOptionalFields({});
+		expect(Object.hasOwn(omitted, "activeOperations")).toBe(false);
+		expect(Object.hasOwn(omitted, "tailLine")).toBe(false);
+		expect(Object.hasOwn(omitted, "tailSinceOutputMs")).toBe(false);
+		expect(Object.hasOwn(omitted, "tick")).toBe(false);
 	});
 
 	test("constructs model operations without an undefined detail", () => {

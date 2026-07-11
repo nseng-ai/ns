@@ -3,10 +3,9 @@ import { join } from "node:path";
 import process from "node:process";
 
 import type { Caps } from "@nseng-ai/clinkr";
-import { selectCheckpointModelRef } from "@nseng-ai/capability-kit/text-generation";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import { runCheckpointIfPending, type CheckpointGateway } from "../../checkpoint/checkpoint.ts";
+import { runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
 import { createFlowLiveOutput, type FlowLiveOutput } from "../../phase-stream/live-output.ts";
 import {
 	flowStreamDeps,
@@ -54,7 +53,6 @@ import { FLOW_COMMAND_FAILED, exitCodeToFlowCommandExit } from "../flow-cli-runn
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
 interface SubmitCheckpointContext {
-	gateway: CheckpointGateway;
 	repoRoot?: string;
 }
 
@@ -120,7 +118,6 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 			? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
 			: undefined;
 		const checkpointContext: SubmitCheckpointContext = {
-			gateway: runtime.checkpointGateway,
 			...optionalEntry("repoRoot", repoRoot),
 		};
 		const hooksLoad =
@@ -181,9 +178,11 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 				// Keep the parent checkpoint phase active for the clean-worktree path, while routing the
 				// workflow's keyed inspect/generate/commit events to the declared substeps.
 				stream.emit({ type: "phase-started", phaseKey: "checkpoint" });
+				const checkpointRunContext = runtime.createCheckpointRunContext();
 				const checkpoint = await runCheckpointIfPending({
 					cwd: ctx.cwd,
 					env: ctx.env,
+					...checkpointRunContext,
 					...checkpointContext,
 					textGenerator: ctx.textGenerator,
 					onPhase: stream.emit,
@@ -259,7 +258,6 @@ async function runSubmitWithMatrix(input: {
 		deps: flowStreamDeps(ctx, caps),
 		title: "ns flow submit",
 		rows: [],
-		checkpointModelRef: selectCheckpointModelRef(ctx.env),
 		...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
 	});
 	matrix.setGlobal("inventory", { state: "active" });
@@ -316,17 +314,17 @@ async function runSubmitWithMatrix(input: {
 			matrix.setGlobal("hooks", { state: "done", text: "hooks complete" });
 		}
 		const checkpointPhase = createMatrixPhaseForwarder(ctx, matrix);
+		const checkpointRunContext = runtime.createCheckpointRunContext(matrix.setActiveOperations);
 		checkpointPhase({ type: "phase-started", phaseKey: "checkpoint" });
 		matrix.setGlobal("checkpoint", { state: "active" });
-		const checkpoint = await withCommandOperations(matrix, [], () =>
-			runCheckpointIfPending({
-				cwd: ctx.cwd,
-				env: ctx.env,
-				...checkpointContext,
-				textGenerator: ctx.textGenerator,
-				onPhase: checkpointPhase,
-			}),
-		);
+		const checkpoint = await runCheckpointIfPending({
+			cwd: ctx.cwd,
+			env: ctx.env,
+			...checkpointRunContext,
+			...checkpointContext,
+			textGenerator: ctx.textGenerator,
+			onPhase: checkpointPhase,
+		});
 		if (checkpoint.kind === "failed") {
 			return await matrixPhaseFailureResult(ctx, matrix, {
 				key: "checkpoint",

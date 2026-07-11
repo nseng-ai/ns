@@ -7,8 +7,10 @@ import type {
 	TextGenerator,
 } from "@nseng-ai/capability-kit/text-generation";
 
+import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
+
 import { runCpCore } from "../../src/ns/commands/cp.ts";
-import type { CheckpointGateway } from "../../src/checkpoint/checkpoint.ts";
+import { runCheckpointWorkflow, type CheckpointGateway } from "../../src/checkpoint/checkpoint.ts";
 import type { PendingWorktreeError, PendingWorktreeSnapshot } from "../../src/ns/worktree.ts";
 
 const validCheckpointMessage = `[cp] Update cp core
@@ -188,6 +190,52 @@ describe("flow cp core", () => {
 		resolveModel({ ok: true, text: validCheckpointMessage });
 		expect(await result).toMatchObject({ type: "committed" });
 		expect(timers.pendingTimerCount()).toBe(0);
+	});
+
+	test("reports the selected model only while checkpoint message generation is pending", async () => {
+		const textGenerator = new FakeTextGenerator();
+		const gateway = new FakeCheckpointGateway({ loaded: { ok: true, snapshot: dirtySnapshot() } });
+		const snapshots: ActiveOperation[][] = [];
+
+		const result = await runCheckpointWorkflow({
+			cwd: "/repo",
+			env: { NS_CHECKPOINT_MODEL: "openai-codex/gpt-test" },
+			gateway,
+			textGenerator,
+			dryRun: true,
+			onActiveOperations: (operations) => snapshots.push([...operations]),
+		});
+
+		expect(result.type).toBe("dry-run");
+		expect(textGenerator.calls[0]?.modelRef).toBe("openai-codex/gpt-test");
+		expect(snapshots).toEqual([
+			[
+				{
+					kind: "model",
+					operation: "generating checkpoint message",
+					modelRef: "openai-codex/gpt-test",
+				},
+			],
+			[],
+		]);
+	});
+
+	test("clears model activity when checkpoint message generation fails", async () => {
+		const textGenerator = new FakeTextGenerator([{ ok: false, error: "auth failed" }]);
+		const gateway = new FakeCheckpointGateway({ loaded: { ok: true, snapshot: dirtySnapshot() } });
+		const snapshots: ActiveOperation[][] = [];
+
+		const result = await runCheckpointWorkflow({
+			cwd: "/repo",
+			env: { NS_CHECKPOINT_MODEL: "openai-codex/gpt-test" },
+			gateway,
+			textGenerator,
+			dryRun: false,
+			onActiveOperations: (operations) => snapshots.push([...operations]),
+		});
+
+		expect(result).toEqual({ type: "message-failed", error: "auth failed" });
+		expect(snapshots.at(-1)).toEqual([]);
 	});
 
 	test("message generation failure returns failure and does not commit", async () => {

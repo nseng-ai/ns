@@ -3,10 +3,8 @@ import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 
 import {
-	commandOperations,
 	createMatrixProgressController,
 	matrixFrameOptionalFields,
-	modelOperation,
 	renderMatrixProgressFrame,
 	rowsWithKey,
 	updateForPhase,
@@ -194,7 +192,6 @@ export function createSubmitMatrixProgressController(options: {
 	deps: StreamSinkDeps;
 	title: string;
 	rows: readonly SubmitMatrixRowSpec[];
-	checkpointModelRef: string;
 	forward?: NsProgress;
 }): SubmitMatrixProgressController {
 	const controller = createMatrixProgressController({
@@ -221,20 +218,15 @@ export function createSubmitMatrixProgressController(options: {
 			return;
 		}
 		if (event.type === "phase-started") {
-			controller.setActiveOperations(
-				checkpointOperationsForPhase(event.phaseKey, options.checkpointModelRef),
-			);
 			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("active", event.label));
 		}
 		if (event.type === "phase-progress") {
 			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("active", event.label));
 		}
 		if (event.type === "phase-done") {
-			controller.setActiveOperations([]);
 			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("done", event.detail));
 		}
 		if (event.type === "phase-failed") {
-			controller.setActiveOperations([]);
 			controller.setGlobalSubstep(key, event.phaseKey, updateForPhase("failed", event.detail));
 		}
 	}
@@ -338,22 +330,6 @@ function isSubmitMatrixRowView(
 
 function prNumberForRow(row: SubmitMatrixRowView): string | undefined {
 	return row.pr === undefined ? undefined : prNumberFromLink(row.pr);
-}
-
-function checkpointOperationsForPhase(
-	phaseKey: string,
-	modelRef: string,
-): readonly ActiveOperation[] {
-	switch (phaseKey) {
-		case "inspect":
-			return commandOperations(["git status --porcelain", "git diff --stat", "git diff"]);
-		case "generate":
-			return [modelOperation("generating checkpoint message", modelRef)];
-		case "commit":
-			return commandOperations(["git add", "git commit"]);
-		default:
-			return [];
-	}
 }
 
 function formatRowLabel(branch: string, pr: SubmitPrLink | undefined): string {
