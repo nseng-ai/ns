@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import {
 	runDirtyAutobranchFlow,
 	type AutobranchFlowInput,
@@ -42,7 +44,7 @@ export type AutobranchDirtyDependencies = Pick<
 >;
 
 export type AutobranchDispatchMode =
-	| { mode: "checkpoint"; dirty: AutobranchDirtyDependencies }
+	| { mode: "any-state"; dirty: AutobranchDirtyDependencies }
 	| { mode: "require-dirty"; dirty: AutobranchDirtyDependencies }
 	| { mode: "require-clean" };
 
@@ -95,8 +97,8 @@ export async function dispatchAutobranchCheckpoint(
 		const flow = await createLatestCommitAutobranchFlow({
 			...context,
 			snapshot,
-			...(env.onPhase === undefined ? {} : { onPhase: env.onPhase }),
-			...(env.now === undefined ? {} : { now: env.now }),
+			...optionalEntry("onPhase", env.onPhase),
+			...optionalEntry("now", env.now),
 		});
 		return { outcome: "flow", snapshot, flow };
 	}
@@ -108,8 +110,8 @@ export async function dispatchAutobranchCheckpoint(
 		...context,
 		snapshot,
 		...mode.dirty,
-		...(env.onPhase === undefined ? {} : { onPhase: env.onPhase }),
-		...(env.now === undefined ? {} : { now: env.now }),
+		...optionalEntry("onPhase", env.onPhase),
+		...optionalEntry("now", env.now),
 	});
 	return { outcome: "flow", snapshot, flow };
 }
@@ -120,12 +122,12 @@ export async function createFlowAutobranchCheckpointFlow(
 	const git = createAutobranchGitGateway({ cwd: input.cwd, exec: input.exec });
 	const result = await dispatchAutobranchCheckpoint(
 		{
-			mode: "checkpoint",
+			mode: "any-state",
 			dirty: {
 				prepareCheckpointMessage: input.prepareCheckpointMessage,
 				commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
-				...(input.readFile === undefined ? {} : { readFile: input.readFile }),
-				...(input.stat === undefined ? {} : { stat: input.stat }),
+				...optionalEntry("readFile", input.readFile),
+				...optionalEntry("stat", input.stat),
 			},
 		},
 		{
@@ -141,8 +143,8 @@ export async function createFlowAutobranchCheckpointFlow(
 				exec: input.exec,
 				git,
 			}),
-			...(input.onPhase === undefined ? {} : { onPhase: input.onPhase }),
-			...(input.now === undefined ? {} : { now: input.now }),
+			...optionalEntry("onPhase", input.onPhase),
+			...optionalEntry("now", input.now),
 		},
 	);
 

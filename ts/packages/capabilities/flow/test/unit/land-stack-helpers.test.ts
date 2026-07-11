@@ -11,7 +11,7 @@ import {
 	parseGitCheckedOutElsewhere,
 	stripAnsi,
 } from "../../src/land/stack/graphite-command-channel.ts";
-import { landStackFailure, type LandStackResult } from "../../src/land/stack/errors.ts";
+import { landingExecutionFailure, type LandStackResult } from "../../src/land/stack/errors.ts";
 import {
 	createLandUiCommandIo,
 	LandStackCommandStream,
@@ -730,7 +730,7 @@ describe("land-stack pure helpers", () => {
 
 		const landed: LandedPr[] = [{ branch: "feature-a", number: 101, title: "PR 101" }];
 		const failure = formatFailure(
-			landStackFailure("Restack failed.", {
+			landingExecutionFailure("Restack failed.", {
 				failedBranch: CURRENT,
 				suggestedAction: "Run gt restack.",
 			}),

@@ -6,7 +6,7 @@ import { parseGitWorktreePorcelain } from "@nseng-ai/capability-kit/git";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import type { WorktreeConflict } from "../types.ts";
-import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
+import { failure, landingExecutionFailure, success, type LandStackResult } from "./errors.ts";
 import type { LandStackExtensionAPI, WorktreeEntry } from "./types.ts";
 
 export interface DetectWorktreeConflictsOptions {
@@ -58,7 +58,7 @@ export async function loadWorktrees(
 	});
 	if (!commandSucceeded(result)) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				`Could not inspect git worktrees.\n${formatCommandDetails(result, formatCommand("git", ["worktree", "list", "--porcelain"]))}`,
 			),
 		);

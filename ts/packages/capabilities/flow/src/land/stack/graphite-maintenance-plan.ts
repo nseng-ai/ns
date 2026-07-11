@@ -174,28 +174,28 @@ export function formatCheckedOutElsewhere(checkoutConflict: CheckedOutElsewhere)
 export function formatRestackFailureMessage(
 	previousPrNumber: number,
 	branch: string,
-	beforeAnotherMerge: boolean,
+	shouldStopBeforeAnotherMerge: boolean,
 ): string {
 	return formatMaintenanceFailureMessage({
 		operation: "Restack",
 		manualAction: "manual restack/update",
 		previousPrNumber,
 		branch,
-		beforeAnotherMerge,
+		shouldStopBeforeAnotherMerge,
 	});
 }
 
 export function formatSubmitFailureMessage(
 	previousPrNumber: number,
 	branch: string,
-	beforeAnotherMerge: boolean,
+	shouldStopBeforeAnotherMerge: boolean,
 ): string {
 	return formatMaintenanceFailureMessage({
 		operation: "Submit/update",
 		manualAction: "manual PR update",
 		previousPrNumber,
 		branch,
-		beforeAnotherMerge,
+		shouldStopBeforeAnotherMerge,
 	});
 }
 
@@ -204,9 +204,9 @@ function formatMaintenanceFailureMessage(input: {
 	manualAction: "manual restack/update" | "manual PR update";
 	previousPrNumber: number;
 	branch: string;
-	beforeAnotherMerge: boolean;
+	shouldStopBeforeAnotherMerge: boolean;
 }): string {
-	if (input.beforeAnotherMerge) {
+	if (input.shouldStopBeforeAnotherMerge) {
 		return `${input.operation} failed after merging #${input.previousPrNumber}; stopping before merging ${input.branch}.`;
 	}
 	return `${input.operation} failed after merging #${input.previousPrNumber}; descendant branch ${input.branch} was left for ${input.manualAction}.`;

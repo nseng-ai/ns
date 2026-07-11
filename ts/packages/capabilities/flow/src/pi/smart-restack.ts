@@ -5,7 +5,7 @@ import {
 } from "@nseng-ai/foundation/command";
 import {
 	combinedCommandOutput,
-	isGitRebaseInProgressOutput,
+	isGitRebaseInProgressProse,
 } from "../submit/cli-prose-heuristics.ts";
 import {
 	sendCommandProgressOrNotify,
@@ -176,7 +176,7 @@ async function handleRestackFailure(options: HandleRestackFailureOptions): Promi
 }
 
 function isRebaseInProgress(result: ExecResult): boolean {
-	return isGitRebaseInProgressOutput(combinedCommandOutput(result));
+	return isGitRebaseInProgressProse(combinedCommandOutput(result));
 }
 
 function formatCleanRestackMessage(result: ExecResult): string {

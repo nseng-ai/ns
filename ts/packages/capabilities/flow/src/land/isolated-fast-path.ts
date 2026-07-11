@@ -3,7 +3,7 @@ import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
 import {
 	completed,
 	failure,
-	landStackFailure,
+	landingExecutionFailure,
 	type LandStackOutcome,
 	type LandStackResult,
 } from "./stack/errors.ts";
@@ -68,7 +68,7 @@ export async function runIsolatedFastPathLanding<BeforeMergeValue = undefined>(
 		const message = `Refusing to land PR #${pr.number}: base branch is '${pr.baseRefName}', not Graphite trunk '${options.target.trunk}'. Merge not attempted.`;
 		notifyPrintAware({ ctx: options.ctx, message, level: "error", kind: "refusal" });
 		return isolatedFastPathResult<BeforeMergeValue>(
-			failure(landStackFailure(message, { outcome: "refusal" })),
+			failure(landingExecutionFailure(message, { outcome: "refusal" })),
 			undefined,
 		);
 	}
@@ -114,7 +114,7 @@ export async function runIsolatedFastPathLanding<BeforeMergeValue = undefined>(
 	if (verified.type === "failure") {
 		const message = `gh pr merge exited 0, but verification could not load PR #${pr.number}; post-landing cleanup skipped.\n${verified.failure.message}`;
 		notifyPrintAware({ ctx: options.ctx, message, level: "error", kind: "failure" });
-		return isolatedFastPathResult(failure(landStackFailure(message)), beforeMergeValue);
+		return isolatedFastPathResult(failure(landingExecutionFailure(message)), beforeMergeValue);
 	}
 
 	const verificationFailure = mergedVerificationFailure({
@@ -129,7 +129,10 @@ export async function runIsolatedFastPathLanding<BeforeMergeValue = undefined>(
 			level: "error",
 			kind: "failure",
 		});
-		return isolatedFastPathResult(failure(landStackFailure(verificationFailure)), beforeMergeValue);
+		return isolatedFastPathResult(
+			failure(landingExecutionFailure(verificationFailure)),
+			beforeMergeValue,
+		);
 	}
 
 	const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;

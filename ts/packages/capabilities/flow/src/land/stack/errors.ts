@@ -3,12 +3,12 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { LandingFailure } from "../types.ts";
 import type { NotifyLevel } from "./types.ts";
 
-export interface LandStackFailureOptions {
+export interface LandingExecutionFailureOptions {
 	level?: NotifyLevel;
-	commandDisplay?: string;
-	result?: ExecResult;
+	displayCommand?: string;
+	execResult?: ExecResult;
 	failedBranch?: string;
-	failedPr?: number;
+	failedPrNumber?: number;
 	suggestedAction?: string;
 	/**
 	 * House-style visual intent (§7.3). A declined guardrail (cancellation, missing confirmation
@@ -79,18 +79,18 @@ export type LandStackResult<T> =
 
 export type LandStackOutcome = LandStackResult<void>;
 
-export function landStackFailure(
+export function landingExecutionFailure(
 	message: string,
-	options: LandStackFailureOptions = {},
+	options: LandingExecutionFailureOptions = {},
 ): LandingExecutionFailure {
 	return {
 		type: "execution",
 		level: options.level ?? "error",
 		message,
-		...optionalEntry("displayCommand", options.commandDisplay),
-		...optionalEntry("execResult", options.result),
+		...optionalEntry("displayCommand", options.displayCommand),
+		...optionalEntry("execResult", options.execResult),
 		...optionalEntry("failedBranch", options.failedBranch),
-		...optionalEntry("failedPrNumber", options.failedPr),
+		...optionalEntry("failedPrNumber", options.failedPrNumber),
 		...optionalEntry("suggestedAction", options.suggestedAction),
 		outcome: options.outcome ?? "failure",
 		...optionalEntry("refusalReason", options.refusalReason),

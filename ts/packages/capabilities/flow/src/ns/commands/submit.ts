@@ -31,7 +31,7 @@ import {
 } from "../../submit/submit-matrix-progress.ts";
 import {
 	createMatrixAwarePhaseListener,
-	createMatrixSubmitProgress,
+	bindMatrixSubmitProgress,
 	createStreamSubmitProgress,
 } from "../../submit/submit-progress.ts";
 import {
@@ -340,7 +340,7 @@ async function runSubmitWithMatrix(input: {
 		}
 		matrix.setGlobal("checkpoint", { state: "done", text: "checkpoint complete" });
 
-		const progress = createMatrixSubmitProgress({ ctx, matrix });
+		const progress = bindMatrixSubmitProgress({ ctx, matrix });
 		const result = await runSubmitCommand({
 			cwd: ctx.cwd,
 			gateway: runtime.submitGateway,

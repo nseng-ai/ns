@@ -7,7 +7,7 @@ import type {
 	PrSubmitRequirement,
 	RestackRequirement,
 } from "../api.ts";
-import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";
+import { completed, failure, landingExecutionFailure, type LandStackOutcome } from "./errors.ts";
 import { confirmPreMergeMaintenance, type PreMergeConfirmation } from "./pre-merge-confirmation.ts";
 import {
 	formatGraphiteOperation,
@@ -82,7 +82,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		}
 		if (remainingRestack.value.length > 0) {
 			return failure(
-				landStackFailure(formatRemainingSubmitRestackRequirements(remainingRestack.value), {
+				landingExecutionFailure(formatRemainingSubmitRestackRequirements(remainingRestack.value), {
 					suggestedAction:
 						"Free or detach the holding worktrees, restack the stack, then rerun /ns:flow:land.",
 				}),
@@ -109,7 +109,7 @@ function preMergeGraphiteFailure(
 	landFailureValue: LandingFailure,
 	options: { readonly suggestedAction: string },
 ) {
-	return landStackFailure(landFailureValue.message, {
+	return landingExecutionFailure(landFailureValue.message, {
 		suggestedAction: options.suggestedAction,
 	});
 }

@@ -10,7 +10,7 @@ import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 
 import {
-	detectGitConflictOutput,
+	isGitConflictWithConflictedFilesProse,
 	isNoCurrentPrProse,
 	isRestackNeededProse,
 } from "./cli-prose-heuristics.ts";
@@ -107,7 +107,7 @@ export class RealSubmitGateway implements SubmitGateway {
 		}
 
 		const conflictedFiles = await this.getConflictedFiles(params.cwd);
-		if (detectGitConflictOutput(joinOutput(output), conflictedFiles)) {
+		if (isGitConflictWithConflictedFilesProse(joinOutput(output), conflictedFiles)) {
 			return { kind: "conflict", output, conflictedFiles };
 		}
 

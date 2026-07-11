@@ -85,14 +85,14 @@ export function combinedCommandOutput(result: ExecResult): string {
 }
 
 export function isLikelyInProgressGitOperationFailure(result: ExecResult): boolean {
-	return isLikelyInProgressGitOperationOutput(combinedCommandOutput(result));
+	return isLikelyInProgressGitOperationProse(combinedCommandOutput(result));
 }
 
-export function isLikelyInProgressGitOperationOutput(output: string): boolean {
-	return isGitRebaseInProgressOutput(output) || isGitConflictOutput(output);
+export function isLikelyInProgressGitOperationProse(output: string): boolean {
+	return isGitRebaseInProgressProse(output) || isGitConflictProse(output);
 }
 
-export function isGitRebaseInProgressOutput(output: string): boolean {
+export function isGitRebaseInProgressProse(output: string): boolean {
 	const strippedOutput = strippedLowerOutput(output);
 	return [
 		"git rebase --continue",
@@ -105,7 +105,7 @@ export function isGitRebaseInProgressOutput(output: string): boolean {
 	].some((needle) => strippedOutput.includes(needle));
 }
 
-export function isGitConflictOutput(output: string): boolean {
+export function isGitConflictProse(output: string): boolean {
 	const strippedOutput = strippedLowerOutput(output);
 	return [
 		"fix conflicts and then run",
@@ -118,11 +118,11 @@ export function isGitConflictOutput(output: string): boolean {
 	].some((needle) => strippedOutput.includes(needle));
 }
 
-export function detectGitConflictOutput(
+export function isGitConflictWithConflictedFilesProse(
 	output: string,
 	conflictedFiles: readonly string[] = [],
 ): boolean {
-	return conflictedFiles.length > 0 || isGitConflictOutput(output);
+	return conflictedFiles.length > 0 || isGitConflictProse(output);
 }
 
 export function isNoCurrentPrProse(output: string): boolean {
@@ -132,6 +132,15 @@ export function isNoCurrentPrProse(output: string): boolean {
 export function isGithubDiffTooLargeProse(output: string): boolean {
 	return /diff exceeded the maximum number of lines|PullRequest\.diff too_large|HTTP 406/i.test(
 		output,
+	);
+}
+
+export function isGithubDiffTooLargeFailure(result: ExecResult): boolean {
+	return (
+		result.type === "exited" &&
+		result.signal === null &&
+		result.code === 1 &&
+		isGithubDiffTooLargeProse(combinedCommandOutput(result))
 	);
 }
 
