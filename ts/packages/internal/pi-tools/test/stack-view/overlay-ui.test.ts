@@ -67,12 +67,29 @@ describe("overlay-model units", () => {
 			expect(rollupBucketForPr(prFixture({ status: "unresolved" }))).toBe("unresolved");
 			expect(
 				rollupBucketForPr(
-					prFixture({ status: "ready", checks: { passing: 1, failing: 0, pending: 2, total: 3 } }),
+					prFixture({
+						status: "ready",
+						checks: { passing: 1, failing: 0, pending: 2, cancelled: 0, total: 3 },
+					}),
 				),
 			).toBe("pending");
 			expect(
 				rollupBucketForPr(
-					prFixture({ status: "ready", checks: { passing: 3, failing: 0, pending: 0, total: 3 } }),
+					prFixture({
+						status: "ready",
+						checks: { passing: 3, failing: 0, pending: 0, cancelled: 0, total: 3 },
+					}),
+				),
+			).toBe("ready");
+		});
+
+		test("keeps a cancelled-plus-passing PR in the ready bucket (cancelled never blocks)", () => {
+			expect(
+				rollupBucketForPr(
+					prFixture({
+						status: "ready",
+						checks: { passing: 6, failing: 0, pending: 0, cancelled: 3, total: 9 },
+					}),
 				),
 			).toBe("ready");
 		});
@@ -120,17 +137,25 @@ describe("overlay-model units", () => {
 
 		test("prefers failing then pending then passing check cells", () => {
 			expect(
-				formatStackRowCells(prFixture({ checks: { passing: 1, failing: 2, pending: 3, total: 6 } }))
-					.checks,
+				formatStackRowCells(
+					prFixture({ checks: { passing: 1, failing: 2, pending: 3, cancelled: 0, total: 6 } }),
+				).checks,
 			).toBe("✗ 2/6");
 			expect(
-				formatStackRowCells(prFixture({ checks: { passing: 1, failing: 0, pending: 3, total: 4 } }))
-					.checks,
+				formatStackRowCells(
+					prFixture({ checks: { passing: 1, failing: 0, pending: 3, cancelled: 0, total: 4 } }),
+				).checks,
 			).toBe("⋯ 3/4");
 			expect(
-				formatStackRowCells(prFixture({ checks: { passing: 4, failing: 0, pending: 0, total: 4 } }))
-					.checks,
+				formatStackRowCells(
+					prFixture({ checks: { passing: 4, failing: 0, pending: 0, cancelled: 0, total: 4 } }),
+				).checks,
 			).toBe("✓ 4/4");
+			expect(
+				formatStackRowCells(
+					prFixture({ checks: { passing: 6, failing: 0, pending: 0, cancelled: 3, total: 9 } }),
+				).checks,
+			).toBe("⊘ 3/9");
 			expect(formatStackRowCells(prFixture({ threads: { resolved: 1, total: 3 } })).threads).toBe(
 				"💬 1/3",
 			);
@@ -147,7 +172,7 @@ describe("overlay-model units", () => {
 					parentBranch: "main",
 					graphiteUrl: "https://app.graphite.dev/pr/7",
 					threads: { resolved: 1, total: 3 },
-					checks: { passing: 2, failing: 1, pending: 1, total: 4 },
+					checks: { passing: 2, failing: 1, pending: 1, cancelled: 0, total: 4 },
 					checkEntries: [
 						checkEntryFixture({ name: "lint", workflowName: "CI", bucket: "failing" }),
 						checkEntryFixture({ name: "unit", workflowName: null, bucket: "pending" }),
@@ -293,7 +318,7 @@ describe("overlay-model units", () => {
 				conclusion: "FAILURE",
 			});
 			const pr = prFixture({
-				checks: { passing: 0, failing: 1, pending: 0, total: 1 },
+				checks: { passing: 0, failing: 1, pending: 0, cancelled: 0, total: 1 },
 				checkEntries: [check],
 			});
 			const enrichment = enrichmentMap([
@@ -319,7 +344,7 @@ describe("overlay-model units", () => {
 			const pr = prFixture({
 				threads: { resolved: 0, total: 1 },
 				unresolvedThreads: [thread],
-				checks: { passing: 1, failing: 1, pending: 0, total: 2 },
+				checks: { passing: 1, failing: 1, pending: 0, cancelled: 0, total: 2 },
 				checkEntries: [
 					checkEntryFixture({ name: "lint", workflowName: "CI", bucket: "failing" }),
 					checkEntryFixture({ name: "build", workflowName: "CI", bucket: "passing" }),
@@ -344,13 +369,43 @@ describe("overlay-model units", () => {
 		test("omits the PASSING CHECKS section when there are no passing entries", () => {
 			const rows = buildStackDetailRows(
 				prFixture({
-					checks: { passing: 0, failing: 1, pending: 0, total: 1 },
+					checks: { passing: 0, failing: 1, pending: 0, cancelled: 0, total: 1 },
 					checkEntries: [
 						checkEntryFixture({ name: "lint", workflowName: "CI", bucket: "failing" }),
 					],
 				}),
 			);
 			expect(rows.some((row) => row.text.startsWith("PASSING CHECKS"))).toBe(false);
+		});
+
+		test("lists canceled checks in a muted CANCELLED CHECKS section between failing and pending", () => {
+			const rows = buildStackDetailRows(
+				prFixture({
+					status: "ready",
+					checks: { passing: 1, failing: 1, pending: 1, cancelled: 2, total: 5 },
+					checkEntries: [
+						checkEntryFixture({ name: "lint", workflowName: "CI", bucket: "failing" }),
+						checkEntryFixture({ name: "discover", workflowName: "reviews", bucket: "cancelled" }),
+						checkEntryFixture({ name: "review", workflowName: "reviews", bucket: "cancelled" }),
+						checkEntryFixture({ name: "unit", workflowName: null, bucket: "pending" }),
+						checkEntryFixture({ name: "build", workflowName: "CI", bucket: "passing" }),
+					],
+				}),
+			);
+			const texts = rows.map((row) => row.text);
+			expect(texts).toContain("CANCELLED CHECKS (2)");
+			expect(texts).toContain("⊘ discover (reviews)");
+			expect(texts).toContain("⊘ review (reviews)");
+			expect(rows.filter((row) => row.role === "check-cancelled").map((row) => row.text)).toEqual([
+				"⊘ discover (reviews)",
+				"⊘ review (reviews)",
+			]);
+			const failingIndex = texts.indexOf("FAILING CHECKS (1)");
+			const cancelledIndex = texts.indexOf("CANCELLED CHECKS (2)");
+			const pendingIndex = texts.indexOf("PENDING CHECKS (1)");
+			expect(failingIndex).toBeGreaterThanOrEqual(0);
+			expect(cancelledIndex).toBeGreaterThan(failingIndex);
+			expect(pendingIndex).toBeGreaterThan(cancelledIndex);
 		});
 	});
 
@@ -450,7 +505,7 @@ describe("StackViewOverlay detail pane", () => {
 					number: 1,
 					branch: "feature/1",
 					title: "First",
-					checks: { passing: 0, failing: 20, pending: 0, total: 20 },
+					checks: { passing: 0, failing: 20, pending: 0, cancelled: 0, total: 20 },
 					checkEntries: Array.from({ length: 20 }, (_unused, index) =>
 						checkEntryFixture({ name: `check-${index}`, workflowName: null, bucket: "failing" }),
 					),
@@ -471,7 +526,7 @@ describe("StackViewOverlay detail pane", () => {
 			number: 1,
 			branch: "feature/1",
 			title: "Long",
-			checks: { passing: 0, failing: 40, pending: 0, total: 40 },
+			checks: { passing: 0, failing: 40, pending: 0, cancelled: 0, total: 40 },
 			checkEntries: Array.from({ length: 40 }, (_unused, index) =>
 				checkEntryFixture({ name: `check-${index}`, workflowName: null, bucket: "failing" }),
 			),
@@ -1079,7 +1134,7 @@ function bigModel(): StackViewModel {
 				title: "First",
 				status: "checks-failing",
 				threads: { resolved: 1, total: 2 },
-				checks: { passing: 1, failing: 1, pending: 0, total: 2 },
+				checks: { passing: 1, failing: 1, pending: 0, cancelled: 0, total: 2 },
 				checkEntries: [checkEntryFixture({ name: "lint", workflowName: "CI", bucket: "failing" })],
 				unresolvedThreads: [threadDetailFixture({ path: "src/a.ts", line: 4, author: "alice" })],
 			}),
@@ -1099,7 +1154,7 @@ function prFixture(overrides: Partial<StackViewPr> = {}): StackViewPr {
 		isDraft: false,
 		body: "Body text",
 		threads: { resolved: 0, total: 0 },
-		checks: { passing: 0, failing: 0, pending: 0, total: 0 },
+		checks: { passing: 0, failing: 0, pending: 0, cancelled: 0, total: 0 },
 		checkEntries: [],
 		unresolvedThreads: [],
 		status: "ready",

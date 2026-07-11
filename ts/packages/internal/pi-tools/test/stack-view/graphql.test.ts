@@ -345,7 +345,7 @@ describe("parseStackPrResponse happy path", () => {
 			isDraft: false,
 			body: "first body",
 			threads: { resolved: 2, total: 3 },
-			checks: { passing: 2, failing: 1, pending: 1, total: 4 },
+			checks: { passing: 2, failing: 1, pending: 1, cancelled: 0, total: 4 },
 			checkEntries: [
 				checkEntry({
 					name: "build",
@@ -384,7 +384,7 @@ describe("parseStackPrResponse happy path", () => {
 			isDraft: true,
 			body: "second body",
 			threads: { resolved: 3, total: 3 },
-			checks: { passing: 1, failing: 0, pending: 1, total: 2 },
+			checks: { passing: 1, failing: 0, pending: 1, cancelled: 0, total: 2 },
 			checkEntries: [
 				checkEntry({ name: "ci/deploy", bucket: "passing", identity: "status-context:ci/deploy" }),
 				checkEntry({
@@ -416,7 +416,53 @@ describe("parseStackPrResponse happy path", () => {
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
 		// 1 passing, 0 failing, 2 unknown folded into pending, total = 3.
-		expect(result.prs[0]?.checks).toEqual({ passing: 1, failing: 0, pending: 2, total: 3 });
+		expect(result.prs[0]?.checks).toEqual({
+			passing: 1,
+			failing: 0,
+			pending: 2,
+			cancelled: 0,
+			total: 3,
+		});
+	});
+
+	it("maps canceled checks into the cancelled bucket without marking failing", () => {
+		const response = repoResponse({
+			b0: aliasNode(
+				prNode({
+					commits: commitsConnection([
+						checkRun("build", "COMPLETED", "SUCCESS"),
+						checkRun("review", "COMPLETED", "CANCELLED"),
+					]),
+				}),
+			),
+		});
+
+		const result = parseStackPrResponse(response, ["only"]);
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") return;
+		expect(result.prs[0]?.checks).toEqual({
+			passing: 1,
+			failing: 0,
+			pending: 0,
+			cancelled: 1,
+			total: 2,
+		});
+		expect(result.prs[0]?.checkEntries).toEqual([
+			checkEntry({
+				name: "build",
+				bucket: "passing",
+				status: "COMPLETED",
+				conclusion: "SUCCESS",
+				identity: "check-run:build",
+			}),
+			checkEntry({
+				name: "review",
+				bucket: "cancelled",
+				status: "COMPLETED",
+				conclusion: "CANCELLED",
+				identity: "check-run:review",
+			}),
+		]);
 	});
 
 	it("defaults missing scalar fields", () => {
@@ -433,7 +479,7 @@ describe("parseStackPrResponse happy path", () => {
 			isDraft: false,
 			body: "",
 			threads: { resolved: 0, total: 0 },
-			checks: { passing: 0, failing: 0, pending: 0, total: 0 },
+			checks: { passing: 0, failing: 0, pending: 0, cancelled: 0, total: 0 },
 			checkEntries: [],
 			unresolvedThreads: [],
 		});
@@ -799,7 +845,13 @@ describe("parseStackPrResponse pagination degradation", () => {
 		const result = parseStackPrResponse(response, ["big"]);
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
-		expect(result.prs[0]?.checks).toEqual({ passing: 1, failing: 1, pending: 1, total: 3 });
+		expect(result.prs[0]?.checks).toEqual({
+			passing: 1,
+			failing: 1,
+			pending: 1,
+			cancelled: 0,
+			total: 3,
+		});
 	});
 });
 

@@ -117,10 +117,11 @@ function formatThreadsCell(pr: StackViewPr): string {
 }
 
 function formatChecksCell(pr: StackViewPr): string {
-	const { passing, failing, pending, total } = pr.checks;
+	const { passing, failing, pending, cancelled, total } = pr.checks;
 	if (total <= 0) return "";
 	if (failing > 0) return `✗ ${failing}/${total}`;
 	if (pending > 0) return `⋯ ${pending}/${total}`;
+	if (cancelled > 0) return `⊘ ${cancelled}/${total}`;
 	return `✓ ${passing}/${total}`;
 }
 
@@ -143,6 +144,7 @@ export type StackDetailRole =
 	| "section"
 	| "check-failing"
 	| "check-pending"
+	| "check-cancelled"
 	| "thread"
 	| "summary-pending"
 	| "thread-summary"
@@ -191,6 +193,7 @@ export function buildStackDetailRows(
 	rows.push({ role: "spacer", text: "" });
 
 	appendFailingChecks(rows, pr, enrichment);
+	appendCancelledChecks(rows, pr);
 	appendUnresolvedThreads(rows, pr, enrichment);
 	appendPendingChecks(rows, pr);
 	appendPassingChecks(rows, pr);
@@ -233,6 +236,11 @@ function appendCheckWhy(
 			...rest.map((line) => ({ role: "check-why" as const, text: `     ${line}` })),
 		];
 	});
+}
+
+/** List canceled check entries under their own section; omitted when zero. Cancelled never blocks. */
+function appendCancelledChecks(rows: StackDetailRow[], pr: StackViewPr): void {
+	appendCheckSection(rows, pr, { bucket: "cancelled", heading: "CANCELLED CHECKS" });
 }
 
 /** List completed passing check entries under their own section; omitted when zero. */

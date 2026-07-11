@@ -32,12 +32,13 @@ export const CHECK_BUCKET_DISPLAY: Record<
 	StackViewCheckBucket,
 	{
 		glyph: string;
-		role: "check-failing" | "check-pending" | "check-passing";
+		role: "check-failing" | "check-pending" | "check-cancelled" | "check-passing";
 		color: StackThemeColor;
 	}
 > = {
 	failing: { glyph: "✗", role: "check-failing", color: "error" },
 	pending: { glyph: "⋯", role: "check-pending", color: "warning" },
+	cancelled: { glyph: "⊘", role: "check-cancelled", color: "muted" },
 	passing: { glyph: "✓", role: "check-passing", color: "success" },
 };
 
@@ -62,6 +63,7 @@ export function checkBucketForCounts(checks: StackViewPrChecks): StackViewCheckB
 	if (checks.total <= 0) return null;
 	if (checks.failing > 0) return "failing";
 	if (checks.pending > 0) return "pending";
+	if (checks.cancelled > 0) return "cancelled";
 	return "passing";
 }
 

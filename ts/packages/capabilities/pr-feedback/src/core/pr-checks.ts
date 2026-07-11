@@ -13,12 +13,13 @@ export interface PrChecksCountsPayload {
 	passing: number;
 	pending: number;
 	failing: number;
+	cancelled: number;
 	unknown: number;
 	hasMore: boolean;
 }
 
 export interface PrCheckEntryPayload {
-	bucket: "passing" | "pending" | "failing" | "unknown";
+	bucket: "passing" | "pending" | "failing" | "cancelled" | "unknown";
 	kind: "check_run" | "status_context" | "unknown";
 	name: string;
 	workflow_name: string | null;
@@ -113,6 +114,7 @@ export function statusChecksPayload(checks: GithubStatusChecks | undefined): Sta
 			passing: checks?.counts.passing ?? 0,
 			pending: checks?.counts.pending ?? 0,
 			failing: checks?.counts.failing ?? 0,
+			cancelled: checks?.counts.cancelled ?? 0,
 			unknown: checks?.counts.unknown ?? 0,
 			hasMore: checks?.counts.hasMore ?? false,
 		},

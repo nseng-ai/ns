@@ -74,7 +74,7 @@ describe("pr-address primitive exec commands", () => {
 			prs: [prSummary({ number: 12 })],
 			checks: {
 				12: {
-					counts: { passing: 1, pending: 0, failing: 1, unknown: 0, hasMore: false },
+					counts: { passing: 1, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: false },
 					checks: [
 						{
 							bucket: "failing",

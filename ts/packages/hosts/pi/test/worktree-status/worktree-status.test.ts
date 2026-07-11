@@ -435,7 +435,7 @@ describe("worktree status formatting", () => {
 				type: "available",
 				prNumber: 1736,
 				threads: { unresolved: 0, total: 8, hasMore: false },
-				checks: { passing: 16, pending: 0, failing: 0, unknown: 0, hasMore: false },
+				checks: { passing: 16, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 			}),
 		).toBe("[gh] #1736 · comments 8/8 · checks 16✓ · landable");
 		expect(
@@ -443,7 +443,7 @@ describe("worktree status formatting", () => {
 				type: "available",
 				prNumber: 1736,
 				threads: { unresolved: 18, total: 18, hasMore: false },
-				checks: { passing: 16, pending: 0, failing: 0, unknown: 0, hasMore: false },
+				checks: { passing: 16, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 			}),
 		).toBe("[gh] #1736 · comments 0/18 · checks 16✓");
 		expect(
@@ -451,16 +451,33 @@ describe("worktree status formatting", () => {
 				type: "available",
 				prNumber: 1736,
 				threads: { unresolved: 2, total: 100, hasMore: true },
-				checks: { passing: 16, pending: 3, failing: 1, unknown: 0, hasMore: false },
+				checks: { passing: 16, pending: 3, failing: 1, cancelled: 0, unknown: 0, hasMore: false },
 			}),
 		).toBe("[gh] #1736 · comments 98/100+ · checks 3⏳ 1✗");
+		// Canceled checks never block landability; they render as a dim ⊘ segment.
+		expect(
+			formatGhStatus({
+				type: "available",
+				prNumber: 1736,
+				threads: { unresolved: 0, total: 8, hasMore: false },
+				checks: { passing: 6, pending: 0, failing: 0, cancelled: 3, unknown: 0, hasMore: false },
+			}),
+		).toBe("[gh] #1736 · comments 8/8 · checks 6✓ 3⊘ · landable");
+		expect(
+			formatGhStatus({
+				type: "available",
+				prNumber: 1736,
+				threads: { unresolved: 0, total: 0, hasMore: false },
+				checks: { passing: 0, pending: 1, failing: 0, cancelled: 2, unknown: 0, hasMore: false },
+			}),
+		).toBe("[gh] #1736 · comments 0/0 · checks 1⏳ 2⊘");
 		expect(formatGhStatus({ type: "no-pr" })).toBe("[gh] no PR");
 		expect(
 			formatGhStatus({
 				type: "head-mismatch",
 				prNumber: 1736,
 				threads: { unresolved: 0, total: 8, hasMore: false },
-				checks: { passing: 16, pending: 0, failing: 0, unknown: 0, hasMore: false },
+				checks: { passing: 16, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 				prHeadOid: "stale-pr-head",
 			}),
 		).toBe("[gh] #1736 · comments 8/8 · checks 16✓ · PR behind local");
@@ -477,7 +494,7 @@ describe("worktree status formatting", () => {
 				prNumber: 1921,
 				url: "https://github.com/dagster-io/sdl-tools/pull/1921",
 				threads: { unresolved: 0, total: 0, hasMore: false },
-				checks: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+				checks: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 			}),
 		).toBe(
 			"[gh] \x1B]8;;https://github.com/dagster-io/sdl-tools/pull/1921\x07#1921\x1B]8;;\x07 · comments 0/0 · checks 0✓ · landable",
@@ -488,7 +505,7 @@ describe("worktree status formatting", () => {
 				prNumber: 1921,
 				url: "https://github.com/dagster-io/sdl-tools/pull/1921",
 				threads: { unresolved: 0, total: 0, hasMore: false },
-				checks: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+				checks: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 				prHeadOid: "stale-pr-head",
 			}),
 		).toBe(
@@ -501,7 +518,7 @@ describe("worktree status formatting", () => {
 				prNumber: 1921,
 				url: "javascript:alert(1)",
 				threads: { unresolved: 0, total: 0, hasMore: false },
-				checks: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+				checks: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 			}),
 		).toBe("[gh] #1921 · comments 0/0 · checks 0✓ · landable");
 		expect(
@@ -510,7 +527,7 @@ describe("worktree status formatting", () => {
 				prNumber: 1921,
 				url: "javascript:alert(1)",
 				threads: { unresolved: 0, total: 0, hasMore: false },
-				checks: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+				checks: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 				prHeadOid: "stale-pr-head",
 			}),
 		).toBe("[gh] #1921 · comments 0/0 · checks 0✓ · PR behind local");
@@ -526,7 +543,7 @@ describe("worktree status formatting", () => {
 					type: "available",
 					prNumber: 1907,
 					threads: { unresolved: 0, total: 1, hasMore: false },
-					checks: { passing: 0, pending: 4, failing: 0, unknown: 0, hasMore: false },
+					checks: { passing: 0, pending: 4, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 				},
 				{ ghRefreshAgeMs: 5_200 },
 			),
@@ -537,7 +554,7 @@ describe("worktree status formatting", () => {
 					type: "head-mismatch",
 					prNumber: 1907,
 					threads: { unresolved: 0, total: 1, hasMore: false },
-					checks: { passing: 0, pending: 4, failing: 0, unknown: 0, hasMore: false },
+					checks: { passing: 0, pending: 4, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 					prHeadOid: "stale-pr-head",
 				},
 				{ ghRefreshAgeMs: 65_000 },
@@ -555,7 +572,7 @@ describe("worktree status formatting", () => {
 					type: "available",
 					prNumber: 1907,
 					threads: { unresolved: 0, total: 1, hasMore: false },
-					checks: { passing: 0, pending: 4, failing: 0, unknown: 0, hasMore: false },
+					checks: { passing: 0, pending: 4, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 				},
 				{ isDormant: true },
 			),
@@ -566,7 +583,7 @@ describe("worktree status formatting", () => {
 					type: "head-mismatch",
 					prNumber: 1907,
 					threads: { unresolved: 0, total: 1, hasMore: false },
-					checks: { passing: 0, pending: 4, failing: 0, unknown: 0, hasMore: false },
+					checks: { passing: 0, pending: 4, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 					prHeadOid: "stale-pr-head",
 				},
 				{ isDormant: true },
@@ -580,7 +597,7 @@ describe("worktree status formatting", () => {
 				type: "available",
 				prNumber: 1736,
 				threads: { unresolved: 2, total: 100, hasMore: true },
-				checks: { passing: 16, pending: 3, failing: 1, unknown: 0, hasMore: false },
+				checks: { passing: 16, pending: 3, failing: 1, cancelled: 0, unknown: 0, hasMore: false },
 			},
 			{ theme: MARKER_THEME },
 		);
@@ -751,7 +768,7 @@ describe("composed local and gh worktree status loading", () => {
 			type: "available",
 			prNumber: 1736,
 			threads: { unresolved: 3, total: 5, hasMore: false },
-			checks: { passing: 4, pending: 2, failing: 1, unknown: 0, hasMore: false },
+			checks: { passing: 4, pending: 2, failing: 1, cancelled: 0, unknown: 0, hasMore: false },
 		});
 		expect(formatWorktreeStatus(status).map(stripTerminalEscapes)).toContain(
 			"[gh] #1736 · comments 2/5 · checks 2⏳ 1✗",
@@ -798,7 +815,7 @@ describe("composed local and gh worktree status loading", () => {
 		expect(status.gh).toMatchObject({
 			type: "available",
 			prNumber: 2066,
-			checks: { passing: 1, pending: 1, failing: 0, unknown: 0, hasMore: false },
+			checks: { passing: 1, pending: 1, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 		});
 		const formatted = formatWorktreeStatus(status).map(stripTerminalEscapes);
 		expect(formatted).toContain("[gh] #2066 · comments 0/0 · checks 1⏳");
@@ -826,7 +843,7 @@ describe("composed local and gh worktree status loading", () => {
 			prNumber: 1736,
 			url: "https://github.com/dagster-io/sdl-tools/pull/1736",
 			threads: { unresolved: 0, total: 0, hasMore: false },
-			checks: { passing: 4, pending: 0, failing: 0, unknown: 0, hasMore: false },
+			checks: { passing: 4, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 			prHeadOid: "different",
 		});
 		expect(formatWorktreeStatus(status).map(stripTerminalEscapes)).toContain(

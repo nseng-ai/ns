@@ -87,7 +87,7 @@ describe("worktree status extension registration and rendering", () => {
 					prNumber: 1795,
 					url: "https://github.com/dagster-io/asdl-tools/pull/1795",
 					threads: { unresolved: 0, total: 0, hasMore: false },
-					checks: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+					checks: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 					prHeadOid: "stale-pr-head",
 				}),
 				queued({
@@ -95,7 +95,7 @@ describe("worktree status extension registration and rendering", () => {
 					prNumber: 1795,
 					url: "https://github.com/dagster-io/asdl-tools/pull/1795",
 					threads: { unresolved: 0, total: 0, hasMore: false },
-					checks: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+					checks: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 				}),
 			],
 		});
@@ -242,7 +242,7 @@ describe("worktree status extension registration and rendering", () => {
 			type: "available",
 			prNumber: 1907,
 			threads: { unresolved: 0, total: 1, hasMore: false },
-			checks: { passing: 0, pending: 4, failing: 0, unknown: 0, hasMore: false },
+			checks: { passing: 0, pending: 4, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 		};
 		const pi = new LifecycleFakePi([]);
 		const statuses = new Map<string, string>();

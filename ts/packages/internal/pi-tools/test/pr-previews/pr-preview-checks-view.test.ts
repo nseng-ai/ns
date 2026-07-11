@@ -311,18 +311,27 @@ describe("PR checks preview vertical layout", () => {
 	});
 
 	test("compacts counts into severity-ordered badges omitting zero buckets", () => {
-		expect(compactCountsSummary({ failing: 1, pending: 2, unknown: 3, passing: 4 })).toBe(
-			"✗1 ⏳2 ?3 ✓4",
-		);
-		expect(compactCountsSummary({ failing: 0, pending: 1, unknown: 0, passing: 11 })).toBe(
-			"⏳1 ✓11",
-		);
-		expect(compactCountsSummary({ failing: 0, pending: 0, unknown: 0, passing: 12 })).toBe("✓12");
-		expect(compactCountsSummary({ failing: 0, pending: 0, unknown: 0, passing: 0 })).toBe(
-			"no checks",
-		);
 		expect(
-			compactCountsSummary({ failing: 1, pending: 0, unknown: 0, passing: 9, hasMore: true }),
+			compactCountsSummary({ failing: 1, pending: 2, unknown: 3, cancelled: 0, passing: 4 }),
+		).toBe("✗1 ⏳2 ?3 ✓4");
+		expect(
+			compactCountsSummary({ failing: 0, pending: 1, unknown: 0, cancelled: 0, passing: 11 }),
+		).toBe("⏳1 ✓11");
+		expect(
+			compactCountsSummary({ failing: 0, pending: 0, unknown: 0, cancelled: 0, passing: 12 }),
+		).toBe("✓12");
+		expect(
+			compactCountsSummary({ failing: 0, pending: 0, unknown: 0, cancelled: 0, passing: 0 }),
+		).toBe("no checks");
+		expect(
+			compactCountsSummary({
+				failing: 1,
+				pending: 0,
+				unknown: 0,
+				cancelled: 0,
+				passing: 9,
+				hasMore: true,
+			}),
 		).toBe("✗1 ✓9+");
 	});
 
@@ -411,7 +420,7 @@ function previewModel(checks: readonly PrPreviewCheck[]): PrPreviewChecksViewMod
 			base_ref_name: "main",
 			head_ref_oid: null,
 		},
-		counts: { failing: checks.length, pending: 0, unknown: 0, passing: 0 },
+		counts: { failing: checks.length, pending: 0, unknown: 0, cancelled: 0, passing: 0 },
 		fetchedAt: new Date("2026-06-25T00:00:00Z"),
 		checks,
 	};
@@ -421,7 +430,7 @@ function stackPreviewModel(stack: readonly PrPreviewChecksStackEntry[]): PrPrevi
 	const first = stack[0] ?? stackEntry("feature/checks", 123, []);
 	return {
 		target: first.target,
-		counts: { failing: 1, pending: 0, unknown: 0, passing: 1 },
+		counts: { failing: 1, pending: 0, unknown: 0, cancelled: 0, passing: 1 },
 		fetchedAt: new Date("2026-06-25T00:00:00Z"),
 		checks: stack.flatMap((entry) => [...entry.checks]),
 		stack,
@@ -446,6 +455,7 @@ function stackEntry(
 		counts: {
 			failing: checks.filter((check) => check.bucket === "failing").length,
 			pending: checks.filter((check) => check.bucket === "pending").length,
+			cancelled: checks.filter((check) => check.bucket === "cancelled").length,
 			unknown: checks.filter((check) => check.bucket === "unknown").length,
 			passing: checks.filter((check) => check.bucket === "passing").length,
 		},

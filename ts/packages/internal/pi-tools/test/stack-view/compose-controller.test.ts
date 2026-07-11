@@ -76,7 +76,7 @@ function makePr(overrides: Partial<StackViewPr> = {}): StackViewPr {
 		isDraft: false,
 		body: "body",
 		threads: { resolved: 0, total: 1 },
-		checks: { passing: 1, failing: 0, pending: 0, total: 1 },
+		checks: { passing: 1, failing: 0, pending: 0, cancelled: 0, total: 1 },
 		checkEntries: [],
 		unresolvedThreads: [makeThread("THREAD-XYZ")],
 		status: "unresolved",

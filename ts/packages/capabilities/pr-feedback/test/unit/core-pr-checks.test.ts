@@ -25,7 +25,7 @@ describe("collectPrChecks", () => {
 			prs: [pr],
 			checks: {
 				12: {
-					counts: { passing: 1, pending: 2, failing: 3, unknown: 4, hasMore: true },
+					counts: { passing: 1, pending: 2, failing: 3, cancelled: 0, unknown: 4, hasMore: true },
 					checks: [fullCheckEntry()],
 				},
 			},
@@ -52,7 +52,7 @@ describe("collectPrChecks", () => {
 					base_ref_name: "main",
 					head_ref_oid: "abc123",
 				},
-				counts: { passing: 1, pending: 2, failing: 3, unknown: 4, hasMore: true },
+				counts: { passing: 1, pending: 2, failing: 3, cancelled: 0, unknown: 4, hasMore: true },
 				checks: [
 					{
 						bucket: "failing",
@@ -96,7 +96,7 @@ describe("collectPrChecks", () => {
 					base_ref_name: null,
 					head_ref_oid: null,
 				},
-				counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+				counts: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 				checks: [],
 			},
 		});
@@ -136,7 +136,7 @@ describe("collectPrChecks", () => {
 			checks: {
 				found: true,
 				target: { pr_number: 21, branch: "feature/current" },
-				counts: { passing: 1, pending: 0, failing: 0, unknown: 0, hasMore: false },
+				counts: { passing: 1, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 			},
 		});
 	});
@@ -153,7 +153,7 @@ describe("collectPrChecks", () => {
 			checks: {
 				found: false,
 				target: { pr_number: null, branch: "feature/missing" },
-				counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+				counts: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 				checks: [],
 			},
 		});
@@ -226,6 +226,7 @@ describe("collectPrChecks", () => {
 			passing: 1,
 			pending: 0,
 			failing: 0,
+			cancelled: 0,
 			unknown: 0,
 			hasMore: false,
 		});
@@ -236,6 +237,7 @@ function statusChecks(counts: {
 	readonly passing?: number;
 	readonly pending?: number;
 	readonly failing?: number;
+	readonly cancelled?: number;
 	readonly unknown?: number;
 	readonly hasMore?: boolean;
 }): GithubStatusChecks {
@@ -244,6 +246,7 @@ function statusChecks(counts: {
 			passing: counts.passing ?? 0,
 			pending: counts.pending ?? 0,
 			failing: counts.failing ?? 0,
+			cancelled: counts.cancelled ?? 0,
 			unknown: counts.unknown ?? 0,
 			hasMore: counts.hasMore ?? false,
 		},

@@ -401,7 +401,7 @@ function threeBranchPrQueryStep(): ScriptedExec {
 	});
 }
 
-const NO_CHECKS = { passing: 0, failing: 0, pending: 0, total: 0 };
+const NO_CHECKS = { passing: 0, failing: 0, pending: 0, cancelled: 0, total: 0 };
 
 describe("loadStackView not-on-stack outcomes", () => {
 	test("detached HEAD returns a friendly not-on-stack reason", async () => {
@@ -601,7 +601,7 @@ describe("loadStackView happy path", () => {
 				isDraft: true,
 				body: "",
 				threads: { resolved: 0, total: 1 },
-				checks: { passing: 1, failing: 0, pending: 0, total: 1 },
+				checks: { passing: 1, failing: 0, pending: 0, cancelled: 0, total: 1 },
 				checkEntries: [
 					{
 						name: "build",

@@ -33,6 +33,8 @@ const previewChecksCountsSchema = z.looseObject({
 	passing: z.number().int().nonnegative(),
 	pending: z.number().int().nonnegative(),
 	failing: z.number().int().nonnegative(),
+	// Default keeps payloads from a pre-cancelled-bucket `ns` CLI parseable.
+	cancelled: z.number().int().nonnegative().default(0),
 	unknown: z.number().int().nonnegative(),
 	hasMore: z.boolean().optional(),
 });
@@ -42,6 +44,7 @@ const previewCheckSchema = z.looseObject({
 		z.literal("failing"),
 		z.literal("pending"),
 		z.literal("unknown"),
+		z.literal("cancelled"),
 		z.literal("passing"),
 	]),
 	kind: z.union([z.literal("check_run"), z.literal("status_context"), z.literal("unknown")]),
@@ -332,7 +335,7 @@ function buildPreviewChecksStackEntry(
 function unmappedStackEntry(branch: string): PrPreviewChecksStackEntry {
 	return {
 		target: fallbackTargetForUnmappedBranch(branch),
-		counts: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+		counts: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0 },
 		checks: [],
 	};
 }
@@ -385,6 +388,7 @@ function checksCounts(data: Pick<PreviewChecksData, "counts">): PrPreviewChecksC
 		passing: data.counts.passing,
 		pending: data.counts.pending,
 		failing: data.counts.failing,
+		cancelled: data.counts.cancelled,
 		unknown: data.counts.unknown,
 		...(data.counts.hasMore === undefined ? {} : { hasMore: data.counts.hasMore }),
 	};

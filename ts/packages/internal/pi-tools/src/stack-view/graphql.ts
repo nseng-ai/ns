@@ -312,7 +312,8 @@ function checksFromNode(commits: z.infer<typeof commitsSchema> | null | undefine
 		passing: tally.passing,
 		failing: tally.failing,
 		pending,
-		total: tally.passing + tally.failing + pending,
+		cancelled: tally.cancelled,
+		total: tally.passing + tally.failing + pending + tally.cancelled,
 	};
 	const entries: StackViewCheckEntry[] = checks.map((entry) => ({
 		name: entry.name,
