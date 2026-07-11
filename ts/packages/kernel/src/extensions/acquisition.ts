@@ -11,13 +11,14 @@ import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
 import {
-	extensionSourceSupport,
+	gitExtensionSourceUnsupportedMessage,
 	parseExtensionSourceSpec,
 } from "../project-config/extension-source-spec.ts";
 import { managedNpmPackagePaths } from "../project-config/managed-extension-paths.ts";
 
 export {
-	extensionSourceSupport,
+	gitExtensionSourceUnsupportedMessage,
+	GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON,
 	parseExtensionSourceSpec,
 } from "../project-config/extension-source-spec.ts";
 export {
@@ -162,7 +163,12 @@ export class RealExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 			if (commandSucceeded(result)) {
 				return resultOk(undefined);
 			}
-			const detail = result.type === "spawn-failed" ? result.error : result.stderr || result.stdout;
+			const detail =
+				result.type === "spawn-failed"
+					? result.error
+					: result.stderr === ""
+						? result.stdout
+						: result.stderr;
 			return npmInstallFailure(request, detail);
 		} catch (error) {
 			return npmInstallFailure(request, formatErrorMessage(error));
@@ -199,19 +205,16 @@ export async function resolveDeclaredExtensionModules(
 			continue;
 		}
 		if (parsed.value.kind === "git") {
-			const support = extensionSourceSupport(parsed.value);
-			if (support.ok)
-				throw new Error("Git extension source support classification is inconsistent.");
 			diagnostics.push({
 				code: "extension_acquisition_git_unsupported",
-				message: `${support.reason} Source: ${raw}.`,
+				message: gitExtensionSourceUnsupportedMessage(raw),
 				spec: raw,
 			});
 			continue;
 		}
 
 		const managedPaths = managedNpmPackagePaths(request.projectRoot, parsed.value.packageName);
-		const npmProjectDir = managedPaths.projectRoot;
+		const npmProjectDir = managedPaths.npmProjectRoot;
 		const packageRoot = managedPaths.packageRoot;
 		const installed = await gateway.isNpmPackageInstalled(packageRoot);
 		if (!installed.ok) {

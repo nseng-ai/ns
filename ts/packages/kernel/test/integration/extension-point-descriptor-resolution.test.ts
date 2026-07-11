@@ -61,8 +61,24 @@ describe("extension point descriptor resolution", () => {
 		});
 
 		expect(catalog.entries.map((entry) => entry.definition.id)).not.toContain("legacy.point");
-		expect(catalog.diagnostics.map(({ code }) => code)).toContain(
-			"extension_descriptor_package_json_read_failed",
+		const packageJsonPath = join(
+			root,
+			".ns",
+			"managed-extensions",
+			"npm",
+			"@acme",
+			"tools",
+			"node_modules",
+			"@acme",
+			"tools",
+			"package.json",
+		);
+		expect(catalog.diagnostics).toContainEqual(
+			expect.objectContaining({
+				code: "extension_descriptor_package_json_read_failed",
+				message: `Could not read extension package manifest ${packageJsonPath}.\nFile does not exist.`,
+				path: packageJsonPath,
+			}),
 		);
 	});
 

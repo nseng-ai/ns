@@ -5,7 +5,10 @@ import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitiv
 import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 
-import { loadExtensionDescriptorFromPackageRoot } from "./extension-package-descriptor.ts";
+import {
+	loadExtensionDescriptorFromPackageRoot,
+	presentExtensionDescriptorPackageError,
+} from "./extension-package-descriptor.ts";
 import { makeKernelDiagnostic } from "../runtime/diagnostics.ts";
 import { extensionPointAcceptsValues, type ExtensionDescriptor } from "../sdk/descriptor.ts";
 import {
@@ -13,7 +16,10 @@ import {
 	parseDeclaredExtensionSpecsToml,
 	resolveAcquiredDescriptorPackageRoot,
 } from "./descriptor-package.ts";
-import { extensionSourceSupport, parseExtensionSourceSpec } from "./extension-source-spec.ts";
+import {
+	gitExtensionSourceUnsupportedMessage,
+	parseExtensionSourceSpec,
+} from "./extension-source-spec.ts";
 
 export { extensionPointAcceptsValues };
 export const pointSemanticsValues = ["additive", "override"] as const;
@@ -392,14 +398,12 @@ async function loadDescriptorPointDefinitions(request: {
 		};
 	}
 	if (parsed.value.kind === "git") {
-		const support = extensionSourceSupport(parsed.value);
-		if (support.ok) throw new Error("Git extension source support classification is inconsistent.");
 		return {
 			pointDefinitions: [],
 			diagnostics: [
 				diagnostic(
 					"extension_descriptor_source_unsupported",
-					`${support.reason} Source: ${request.spec}.`,
+					gitExtensionSourceUnsupportedMessage(request.spec),
 					{ path: request.spec },
 				),
 			],
@@ -413,17 +417,18 @@ async function loadDescriptorPointDefinitions(request: {
 		packageRoot: acquisition.packageRoot,
 	});
 	if (!loaded.ok) {
-		const code =
-			loaded.error.type === "package-manifest-missing"
-				? "extension_descriptor_package_json_read_failed"
-				: loaded.error.code;
-		const message =
-			loaded.error.type === "package-manifest-missing"
-				? `Could not read extension package manifest ${loaded.error.packageJsonPath}.\nFile does not exist.`
-				: loaded.error.message;
+		const presentation = presentExtensionDescriptorPackageError({
+			error: loaded.error,
+			missingManifest: {
+				code: "extension_descriptor_package_json_read_failed",
+				message: `Could not read extension package manifest ${loaded.error.packageJsonPath}.\nFile does not exist.`,
+			},
+		});
 		return {
 			pointDefinitions: [],
-			diagnostics: [diagnostic(code, message, { path: loaded.error.path })],
+			diagnostics: [
+				diagnostic(presentation.code, presentation.message, { path: presentation.path }),
+			],
 		};
 	}
 	return {

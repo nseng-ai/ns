@@ -10,6 +10,7 @@ import {
 	buildInstallManifestData,
 	type InstallManifestEntryData,
 } from "../src/provision-manifest.ts";
+import { PLANNED_HARNESS_ARTIFACT_REMOVAL_REASONS } from "../src/provision-removal.ts";
 
 const firstPartyObjective = artifact({
 	id: "objective-skill",
@@ -38,6 +39,14 @@ function desired(artifactEntry: SkillHarnessArtifactEntry): DesiredHarnessArtifa
 }
 
 describe("harness artifact reconcile planner", () => {
+	test("exposes planned removal reasons in reconcile order", () => {
+		expect(PLANNED_HARNESS_ARTIFACT_REMOVAL_REASONS).toEqual([
+			"removed-source",
+			"deselected-harness",
+			"same-target-replacement",
+		]);
+	});
+
 	test("generates declared selection pairs in deterministic order", () => {
 		const result = planHarnessArtifactReconcile({
 			desired: [desired(modulePlan), desired(firstPartyObjective)],

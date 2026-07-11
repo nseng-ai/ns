@@ -13,27 +13,17 @@ export type ExtensionSourceSpec =
 	  }
 	| { kind: "git"; raw: string };
 
-export type ExtensionSourceSupport =
-	| { readonly ok: true }
-	| {
-			readonly ok: false;
-			readonly code: "extension_source_git_unsupported";
-			readonly reason: string;
-	  };
-
 export interface ExtensionSourceSpecDiagnostic {
 	readonly code: "extension_acquisition_invalid_npm_spec";
 	readonly message: string;
 	readonly spec: string;
 }
 
-export function extensionSourceSupport(spec: ExtensionSourceSpec): ExtensionSourceSupport {
-	if (spec.kind !== "git") return { ok: true };
-	return {
-		ok: false,
-		code: "extension_source_git_unsupported",
-		reason: "Git extension sources are recognized but unsupported.",
-	};
+export const GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON =
+	"Git extension sources are recognized but unsupported.";
+
+export function gitExtensionSourceUnsupportedMessage(spec: string): string {
+	return `${GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON} Source: ${spec}.`;
 }
 
 export function parseExtensionSourceSpec(

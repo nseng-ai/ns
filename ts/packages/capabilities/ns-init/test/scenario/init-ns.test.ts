@@ -104,6 +104,47 @@ describe("initNs", () => {
 		);
 	});
 
+	it("renders every non-empty report section byte-exactly", () => {
+		const rendered = renderInitNsHuman({
+			repoRoot: "/repo",
+			trunkBranch: "main",
+			harnesses: ["pi"],
+			harnessSource: "ns-toml",
+			completed: {
+				files: { "ns-toml": { change: "unchanged" } },
+				consumerDirectories: [{ path: ".ns/data", change: "created" }],
+				artifacts: [
+					{
+						key: "pi:removed",
+						action: "removed",
+						artifactId: "@test/removed:demo",
+						skillName: "demo",
+						harness: "pi",
+						targetArtifactPath: "/repo/.pi/skills/demo",
+						manifestPath: "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
+						writtenFiles: [],
+						conflictingFiles: [],
+						removedFiles: ["/repo/.pi/skills/demo/SKILL.md"],
+						removalReason: "removed-source",
+					},
+				],
+			},
+		});
+
+		expect(rendered).toBe(
+			[
+				"Activated ns in /repo.",
+				"Harnesses (ns-toml): pi.",
+				"Files:",
+				"  ns.toml  unchanged",
+				"Consumer directories:",
+				"  .ns/data  created",
+				"Artifacts:",
+				"  demo (pi)  removed [removed-source]",
+			].join("\n"),
+		);
+	});
+
 	it("renders sparse files in canonical order regardless of record insertion order", () => {
 		const rendered = renderInitNsHuman({
 			repoRoot: "/repo",

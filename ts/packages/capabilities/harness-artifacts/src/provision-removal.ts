@@ -31,14 +31,15 @@ export const HARNESS_ARTIFACT_REMOVAL_REASONS = [
 
 export type HarnessArtifactRemovalReason = (typeof HARNESS_ARTIFACT_REMOVAL_REASONS)[number];
 
-export const PLANNED_HARNESS_ARTIFACT_REMOVAL_REASONS = [
-	"removed-source",
-	"deselected-harness",
-	"same-target-replacement",
-] as const satisfies readonly HarnessArtifactRemovalReason[];
+export type PlannedHarnessArtifactRemovalReason = Exclude<
+	HarnessArtifactRemovalReason,
+	"obsolete-file"
+>;
 
-export type PlannedHarnessArtifactRemovalReason =
-	(typeof PLANNED_HARNESS_ARTIFACT_REMOVAL_REASONS)[number];
+export const PLANNED_HARNESS_ARTIFACT_REMOVAL_REASONS: readonly PlannedHarnessArtifactRemovalReason[] =
+	HARNESS_ARTIFACT_REMOVAL_REASONS.filter(
+		(reason): reason is PlannedHarnessArtifactRemovalReason => reason !== "obsolete-file",
+	);
 
 export interface PreparedHarnessArtifactRemoval {
 	readonly key: string;
@@ -57,7 +58,7 @@ export async function preparePlannedHarnessArtifactRemoval(input: {
 	trustedBoundaryRoot: string;
 	fs: HarnessArtifactFileSystemGateway;
 }): Promise<Result<PreparedHarnessArtifactRemoval, HarnessArtifactProvisionErrorInfo>> {
-	return prepareHarnessArtifactRemoval({
+	const removal = {
 		key: input.planned.key,
 		reason: input.planned.reason,
 		entry: input.planned.entry,
@@ -66,41 +67,29 @@ export async function preparePlannedHarnessArtifactRemoval(input: {
 		trustedBoundaryRoot: input.trustedBoundaryRoot,
 		manifestPath: input.planned.snapshot.manifestPath,
 		fs: input.fs,
-	});
-}
-
-async function prepareHarnessArtifactRemoval(input: {
-	key: string;
-	reason: HarnessArtifactRemovalReason;
-	entry: InstallManifestEntryData;
-	expectedHarness: string;
-	expectedTargetRoot: string;
-	trustedBoundaryRoot: string;
-	manifestPath: string;
-	fs: HarnessArtifactFileSystemGateway;
-}): Promise<Result<PreparedHarnessArtifactRemoval, HarnessArtifactProvisionErrorInfo>> {
+	};
 	const unsafePath =
-		resolve(input.manifestPath) !==
-		resolve(join(input.expectedTargetRoot, INSTALL_MANIFEST_FILE_NAME))
-			? input.manifestPath
-			: validateManifestEntryCoherence({ ...input, expectedScope: "project" });
+		resolve(removal.manifestPath) !==
+		resolve(join(removal.expectedTargetRoot, INSTALL_MANIFEST_FILE_NAME))
+			? removal.manifestPath
+			: validateManifestEntryCoherence({ ...removal, expectedScope: "project" });
 	if (unsafePath !== undefined) {
-		return unsafeManifestEntry(input.manifestPath, input.key, unsafePath);
+		return unsafeManifestEntry(removal.manifestPath, removal.key, unsafePath);
 	}
-	const files = Object.values(input.entry.files);
+	const files = Object.values(removal.entry.files);
 	const safety = await inspectHarnessArtifactSafety({
-		fs: input.fs,
+		fs: removal.fs,
 		inspection: {
-			trustedBoundaryRoot: input.trustedBoundaryRoot,
-			expectedTargetRoot: input.expectedTargetRoot,
-			targetPaths: [input.entry.targetArtifactPath, ...files.map((file) => file.targetPath)],
+			trustedBoundaryRoot: removal.trustedBoundaryRoot,
+			expectedTargetRoot: removal.expectedTargetRoot,
+			targetPaths: [removal.entry.targetArtifactPath, ...files.map((file) => file.targetPath)],
 		},
-		manifestPath: input.manifestPath,
-		installKey: input.key,
+		manifestPath: removal.manifestPath,
+		installKey: removal.key,
 	});
 	if (!safety.ok) return safety;
 	const targetFacts = await collectTargetHashFactsForPaths({
-		fs: input.fs,
+		fs: removal.fs,
 		targetPaths: files.map((file) => file.targetPath),
 	});
 	if (!targetFacts.ok) return targetFacts;
@@ -109,8 +98,8 @@ async function prepareHarnessArtifactRemoval(input: {
 		return fact?.type === "file" && fact.contentHash !== file.contentHash ? [file.targetPath] : [];
 	});
 	return resultOk({
-		...input,
-		expectedManifestEntry: input.entry,
+		...removal,
+		expectedManifestEntry: removal.entry,
 		targetFacts: targetFacts.value,
 		conflictingFiles,
 	});

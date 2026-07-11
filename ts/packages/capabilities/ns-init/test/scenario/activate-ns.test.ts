@@ -4,7 +4,11 @@ import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { createEmptyPreparedProjectHarnessArtifactTransitions } from "@nseng-ai/harness-artifacts/api";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
 
-import { applyNsActivation, prepareNsActivation } from "../../src/activate-ns.ts";
+import {
+	activationRepositoryFailureType,
+	applyNsActivation,
+	prepareNsActivation,
+} from "../../src/activate-ns.ts";
 import type { NsActivationContext } from "../../src/activation-context.ts";
 import {
 	InMemoryActivationFilesGateway,
@@ -57,6 +61,29 @@ function context(
 const repository = { repoRoot: "/repo", trunkBranch: "main" } as const;
 
 describe("ns activation planning and apply", () => {
+	it.each([
+		[
+			{ type: "not-a-git-repo", message: "missing", cwd: "/repo" } as const,
+			"ns-init-not-a-git-repo",
+		],
+		[
+			{ type: "trunk-undetectable", message: "missing trunk", repoRoot: "/repo" } as const,
+			"ns-init-trunk-undetectable",
+		],
+		[
+			{ type: "error", error: { code: "git-failed", message: "failed" } } as const,
+			"ns-init-activation-failed",
+		],
+	])("selects the capability error type for repository failure $type", (result, expected) => {
+		expect(
+			activationRepositoryFailureType(result, {
+				"not-a-git-repo": "ns-init-not-a-git-repo",
+				"trunk-undetectable": "ns-init-trunk-undetectable",
+				error: "ns-init-activation-failed",
+			}),
+		).toBe(expected);
+	});
+
 	it("preflights generic files, declaration-ordered instructions, and stable-deduplicated consumer dirs before applying in exact order", async () => {
 		const files = new InMemoryActivationFilesGateway({
 			files: { "AGENTS.md": "# Customer\n", "CLAUDE.md": "# Claude\n" },

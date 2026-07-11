@@ -3,12 +3,13 @@ import { z } from "zod";
 import { npmPackageRoot, parseExtensionSourceSpec } from "./acquisition.ts";
 import {
 	loadExtensionDescriptorFromPackageRoot,
+	presentExtensionDescriptorPackageError,
 	type DescriptorPackageFileResult,
 	type DescriptorPackageImportResult,
 	type DescriptorPackageManifestResult,
 	type ExtensionDescriptorPackageGateway,
 } from "../project-config/extension-package-descriptor.ts";
-import { extensionSourceSupport } from "../project-config/extension-source-spec.ts";
+import { gitExtensionSourceUnsupportedMessage } from "../project-config/extension-source-spec.ts";
 import type { ExtensionDescriptor } from "../sdk/descriptor.ts";
 
 export interface DeclaredExtensionDescriptor {
@@ -151,16 +152,14 @@ async function loadDeclaredExtensionDescriptor(options: {
 }): Promise<LoadDeclaredExtensionDescriptorResult> {
 	const parsed = options.parsed;
 	if (!parsed.ok) {
-		return failure(options.spec, parsed.error.code, parsed.error.message);
+		return failure({ spec: options.spec, code: parsed.error.code, message: parsed.error.message });
 	}
 	if (parsed.value.kind === "git") {
-		const support = extensionSourceSupport(parsed.value);
-		if (support.ok) throw new Error("Git extension source support classification is inconsistent.");
-		return failure(
-			options.spec,
-			"extension_descriptor_source_unsupported",
-			`${support.reason} Source: ${options.spec}.`,
-		);
+		return failure({
+			spec: options.spec,
+			code: "extension_descriptor_source_unsupported",
+			message: gitExtensionSourceUnsupportedMessage(options.spec),
+		});
 	}
 	const sourceKind = parsed.value.kind;
 	const packageRoot =
@@ -172,31 +171,38 @@ async function loadDeclaredExtensionDescriptor(options: {
 		...(options.gateway === undefined ? {} : { gateway: options.gateway }),
 	});
 	if (!loaded.ok) {
-		const message =
-			loaded.error.type === "package-manifest-missing"
-				? `Declared extension package is not installed: ${packageRoot}.`
-				: loaded.error.message;
-		return failure(options.spec, loaded.error.code, message, loaded.error.path);
+		const presentation = presentExtensionDescriptorPackageError({
+			error: loaded.error,
+			missingManifest: {
+				message: `Declared extension package is not installed: ${packageRoot}.`,
+			},
+		});
+		return failure({
+			spec: options.spec,
+			code: presentation.code,
+			message: presentation.message,
+			...(presentation.path === undefined ? {} : { path: presentation.path }),
+		});
 	}
 	if (parsed.value.kind === "npm" && loaded.value.packageName !== parsed.value.packageName) {
-		return failure(
-			options.spec,
-			"extension_descriptor_package_identity_mismatch",
-			`Managed extension package for ${options.spec} declares name ${loaded.value.packageName}; expected ${parsed.value.packageName}.`,
-			loaded.value.packageJsonPath,
-		);
+		return failure({
+			spec: options.spec,
+			code: "extension_descriptor_package_identity_mismatch",
+			message: `Managed extension package for ${options.spec} declares name ${loaded.value.packageName}; expected ${parsed.value.packageName}.`,
+			path: loaded.value.packageJsonPath,
+		});
 	}
 	if (
 		parsed.value.kind === "npm" &&
 		parsed.value.isPinned &&
 		loaded.value.version !== parsed.value.version
 	) {
-		return failure(
-			options.spec,
-			"extension_descriptor_package_version_mismatch",
-			`Managed extension package for ${options.spec} is version ${loaded.value.version}; expected ${parsed.value.version}.`,
-			loaded.value.packageJsonPath,
-		);
+		return failure({
+			spec: options.spec,
+			code: "extension_descriptor_package_version_mismatch",
+			message: `Managed extension package for ${options.spec} is version ${loaded.value.version}; expected ${parsed.value.version}.`,
+			path: loaded.value.packageJsonPath,
+		});
 	}
 	return {
 		ok: true,
@@ -212,20 +218,24 @@ async function loadDeclaredExtensionDescriptor(options: {
 	};
 }
 
+interface LoadDeclaredExtensionDescriptorFailureOptions {
+	readonly spec: string;
+	readonly code: string;
+	readonly message: string;
+	readonly path?: string;
+}
+
 function failure(
-	spec: string,
-	code: string,
-	message: string,
-	path?: string,
+	options: LoadDeclaredExtensionDescriptorFailureOptions,
 ): LoadDeclaredExtensionDescriptorResult {
 	return {
 		ok: false,
 		diagnostic: {
 			severity: "error",
-			code,
-			message,
-			spec,
-			...(path === undefined ? {} : { path }),
+			code: options.code,
+			message: options.message,
+			spec: options.spec,
+			...(options.path === undefined ? {} : { path: options.path }),
 		},
 	};
 }

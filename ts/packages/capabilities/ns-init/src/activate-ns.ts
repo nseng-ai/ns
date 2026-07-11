@@ -146,6 +146,9 @@ export async function prepareNsActivation(
 	options: PrepareNsActivationOptions,
 ): Promise<PrepareNsActivationResult> {
 	const diagnostics: ActivationDiagnostic[] = [];
+	const appendDiagnostic = (diagnostic: ActivationDiagnostic | undefined): void => {
+		if (diagnostic !== undefined) diagnostics.push(diagnostic);
+	};
 	const parsedExtensions = parseNsTomlExtensions(options.nsTomlContent);
 	if (parsedExtensions.type === "error") {
 		diagnostics.push(toActivationDiagnostic(parsedExtensions.error, "ns.toml"));
@@ -159,28 +162,31 @@ export async function prepareNsActivation(
 		diagnostics.push(toActivationDiagnostic(diagnostic));
 	}
 
-	const activationReads: Partial<Record<ActivationFile, ActivationTextFileReadResult>> = {};
-	for (const file of ACTIVATION_FILES) {
-		if (file === "ns-toml") continue;
-		activationReads[file] = await context.files.readActivationFile({
-			repoRoot: options.repository.repoRoot,
-			file,
-		});
-	}
-	const managedExtensionsIgnoreRead = requiredActivationRead(
-		activationReads,
-		"managed-extensions-ignore",
+	const [managedExtensionsIgnoreRead, agentsRead, claudeRead, instructionsRead] = await Promise.all(
+		[
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "managed-extensions-ignore",
+			}),
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "agents-instructions",
+			}),
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "claude-instructions",
+			}),
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "generated-instructions",
+			}),
+		],
 	);
-	const agentsRead = requiredActivationRead(activationReads, "agents-instructions");
-	const claudeRead = requiredActivationRead(activationReads, "claude-instructions");
-	const instructionsRead = requiredActivationRead(activationReads, "generated-instructions");
 	const managedExtensionsIgnorePreflight = textForPreflight(
 		managedExtensionsIgnoreRead,
 		ACTIVATION_FILE_PATHS["managed-extensions-ignore"],
 	);
-	if (managedExtensionsIgnorePreflight.diagnostic !== undefined) {
-		diagnostics.push(managedExtensionsIgnorePreflight.diagnostic);
-	}
+	appendDiagnostic(managedExtensionsIgnorePreflight.diagnostic);
 	const managedExtensionsIgnore = planManagedExtensionsIgnore(
 		managedExtensionsIgnoreRead,
 		managedExtensionsIgnorePreflight.text,
@@ -189,19 +195,17 @@ export async function prepareNsActivation(
 		agentsRead,
 		ACTIVATION_FILE_PATHS["agents-instructions"],
 	);
-	if (agentsPreflight.diagnostic !== undefined) diagnostics.push(agentsPreflight.diagnostic);
+	appendDiagnostic(agentsPreflight.diagnostic);
 	const claudePreflight = textForPreflight(
 		claudeRead,
 		ACTIVATION_FILE_PATHS["claude-instructions"],
 	);
-	if (claudePreflight.diagnostic !== undefined) diagnostics.push(claudePreflight.diagnostic);
+	appendDiagnostic(claudePreflight.diagnostic);
 	const instructionsPreflight = textForPreflight(
 		instructionsRead,
 		ACTIVATION_FILE_PATHS["generated-instructions"],
 	);
-	if (instructionsPreflight.diagnostic !== undefined) {
-		diagnostics.push(instructionsPreflight.diagnostic);
-	}
+	appendDiagnostic(instructionsPreflight.diagnostic);
 	const agentsText = agentsPreflight.text;
 	const claudeText = claudePreflight.text;
 	const agentsApplied = applyNsPointerStanza({ text: agentsText });
@@ -230,7 +234,7 @@ export async function prepareNsActivation(
 			relativePath: path,
 		});
 		const preflight = consumerDirectoryPreflight(path, inspection);
-		if (preflight.diagnostic !== undefined) diagnostics.push(preflight.diagnostic);
+		appendDiagnostic(preflight.diagnostic);
 		if (preflight.prepared !== undefined) {
 			preparedConsumerDirectories.push(preflight.prepared);
 			expectedConsumerDirectories[path] = expectedConsumerDirectoryState(inspection);
@@ -408,15 +412,6 @@ function expectedConsumerDirectoryState(
 	throw new Error("Cannot prepare expected state from a failed consumer directory inspection.");
 }
 
-function requiredActivationRead(
-	reads: Partial<Record<ActivationFile, ActivationTextFileReadResult>>,
-	file: ActivationFile,
-): ActivationTextFileReadResult {
-	const read = reads[file];
-	if (read === undefined) throw new Error(`Missing activation preflight read for ${file}.`);
-	return read;
-}
-
 function textForPreflight(
 	read: ActivationTextFileReadResult,
 	path: string,
@@ -539,6 +534,26 @@ function artifactConflictDiagnostic(artifactId: string, harness: HarnessId): Act
 		code: "artifact-local-conflict",
 		message: `Artifact ${artifactId} conflicts with local files for ${harness}.`,
 	};
+}
+
+export interface ActivationRepositoryFailureTypeOptions {
+	readonly "not-a-git-repo": string;
+	readonly "trunk-undetectable": string;
+	readonly error: string;
+}
+
+export function activationRepositoryFailureType(
+	result: Exclude<ResolveActivationRepositoryResult, { type: "resolved" }>,
+	options: ActivationRepositoryFailureTypeOptions,
+): string {
+	switch (result.type) {
+		case "not-a-git-repo":
+			return options["not-a-git-repo"];
+		case "trunk-undetectable":
+			return options["trunk-undetectable"];
+		case "error":
+			return options.error;
+	}
 }
 
 export function activationRepositoryFailureDiagnostic(

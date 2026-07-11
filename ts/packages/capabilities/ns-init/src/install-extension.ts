@@ -4,7 +4,7 @@ import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok } from "@nseng-ai/clinkr";
 import { ALL_HARNESS_IDS, parseNsTomlHarnesses } from "@nseng-ai/harness-artifacts/api";
 import {
-	extensionSourceSupport,
+	gitExtensionSourceUnsupportedMessage,
 	parseExtensionSourceSpec,
 } from "@nseng-ai/kernel/extensions/acquisition";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/kernel/project-config";
@@ -13,6 +13,7 @@ import { z } from "zod";
 import {
 	activationCompletedSchema,
 	activationRepositoryFailureDiagnostic,
+	activationRepositoryFailureType,
 	applyNsActivation,
 	prepareNsActivation,
 	resolveActivationRepository,
@@ -91,9 +92,7 @@ export async function installExtension(
 		);
 	}
 	if (parsedSource.value.kind === "git") {
-		const support = extensionSourceSupport(parsedSource.value);
-		if (support.ok) throw new Error("Git extension source support classification is inconsistent.");
-		return unsupportedSource(request.source, support.reason);
+		return unsupportedSource(request.source, gitExtensionSourceUnsupportedMessage(request.source));
 	}
 
 	const declaration = planDeclaredExtensionInstallToml({
@@ -225,13 +224,12 @@ function normalizeDiagnostic<T extends { readonly code: string }>(
 
 function unsupportedSource(
 	source: string,
-	canonicalReason?: string,
+	canonicalMessage?: string,
 ): ClinkrExit<InstallExtensionResult> {
 	return failure(
 		"ns-extension-install-source-unsupported",
-		canonicalReason === undefined
-			? `Extension source must be an npm: spec or an unprefixed local path: ${source}.`
-			: `${canonicalReason} Source: ${source}.`,
+		canonicalMessage ??
+			`Extension source must be an npm: spec or an unprefixed local path: ${source}.`,
 		{ phase: "preflight", sourceSpec: source, completed: {} },
 	);
 }
@@ -266,11 +264,10 @@ function repositoryFailure(
 	result: Exclude<ResolveActivationRepositoryResult, { type: "resolved" }>,
 ): ClinkrExit<InstallExtensionResult> {
 	const diagnostic = activationRepositoryFailureDiagnostic(result);
-	const errorType =
-		result.type === "not-a-git-repo"
-			? "ns-extension-install-not-a-git-repo"
-			: result.type === "trunk-undetectable"
-				? "ns-extension-install-trunk-undetectable"
-				: "ns-extension-install-repository-failed";
+	const errorType = activationRepositoryFailureType(result, {
+		"not-a-git-repo": "ns-extension-install-not-a-git-repo",
+		"trunk-undetectable": "ns-extension-install-trunk-undetectable",
+		error: "ns-extension-install-repository-failed",
+	});
 	return failure(errorType, diagnostic.message, preflightFailureEnvelope([diagnostic]));
 }

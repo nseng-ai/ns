@@ -178,7 +178,12 @@ export async function applyPreparedDeclaredArtifactActivation(
 ): Promise<ApplyPreparedDeclaredArtifactActivationResult> {
 	const conflicts = prepared.artifacts.filter((item) => item.action === "conflicted");
 	if (conflicts.length > 0) {
-		return { ok: true, completed: conflicts.map((item) => outcomeForItem(item, [], [], [])) };
+		return {
+			ok: true,
+			completed: conflicts.map((item) =>
+				outcomeForItem({ item, conflictingFiles: [], writtenFiles: [], removedFiles: [] }),
+			),
+		};
 	}
 	const applied = await applyProjectHarnessArtifactTransitions(prepared.reconciliation);
 	if (!applied.ok) {
@@ -204,20 +209,23 @@ function completedActivationOutcomes(
 	transitions: ReadonlyMap<string, AppliedHarnessArtifactTransition>,
 ): readonly DeclaredArtifactActivationOutcome[] {
 	return items.flatMap((item) => {
-		if (item.action === "unchanged") return [outcomeForItem(item, [], [], [])];
+		if (item.action === "unchanged") {
+			return [outcomeForItem({ item, conflictingFiles: [], writtenFiles: [], removedFiles: [] })];
+		}
 		const effects = appliedHarnessArtifactTransitionFileEffects(transitions, item.key);
-		return [
-			outcomeForItem(item, effects.conflictingFiles, effects.writtenFiles, effects.removedFiles),
-		];
+		return [outcomeForItem({ item, ...effects })];
 	});
 }
 
-function outcomeForItem(
-	item: PreparedDeclaredArtifactActivationItem,
-	conflictingFiles: readonly string[],
-	writtenFiles: readonly string[],
-	removedFiles: readonly string[],
-): DeclaredArtifactActivationOutcome {
+interface OutcomeForItemOptions {
+	readonly item: PreparedDeclaredArtifactActivationItem;
+	readonly conflictingFiles: readonly string[];
+	readonly writtenFiles: readonly string[];
+	readonly removedFiles: readonly string[];
+}
+
+function outcomeForItem(options: OutcomeForItemOptions): DeclaredArtifactActivationOutcome {
+	const { item, conflictingFiles, writtenFiles, removedFiles } = options;
 	if (item.type === "remove") {
 		return {
 			key: item.key,

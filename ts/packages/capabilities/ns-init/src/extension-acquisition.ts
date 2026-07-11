@@ -1,5 +1,5 @@
 import {
-	extensionSourceSupport,
+	gitExtensionSourceUnsupportedMessage,
 	npmPackageRoot,
 	parseExtensionSourceSpec,
 	resolveDeclaredExtensionModules,
@@ -73,15 +73,12 @@ export class InMemoryExtensionInstallAcquisitionGateway implements ExtensionInst
 		const parsed = parseExtensionSourceSpec(params.repoRoot, params.sourceSpec);
 		if (!parsed.ok) return { ok: false, diagnostics: [{ ...parsed.error }] };
 		if (parsed.value.kind === "git") {
-			const support = extensionSourceSupport(parsed.value);
-			if (support.ok)
-				throw new Error("Git extension source support classification is inconsistent.");
 			return {
 				ok: false,
 				diagnostics: [
 					{
 						code: "extension_acquisition_git_unsupported",
-						message: `${support.reason} Source: ${params.sourceSpec}.`,
+						message: gitExtensionSourceUnsupportedMessage(params.sourceSpec),
 						spec: params.sourceSpec,
 					},
 				],
