@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	extensionSourceSupport,
+	GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON,
 	managedNpmProjectRoot,
 	npmPackageRoot,
 	parseExtensionSourceSpec,
@@ -46,15 +46,16 @@ describe("extension acquisition", () => {
 		]);
 		const parsedGit = parseExtensionSourceSpec("/repo", "git:github/acme/ext@main");
 		expect(parsedGit).toMatchObject({ ok: true, value: { kind: "git" } });
-		if (!parsedGit.ok) return;
-		const support = extensionSourceSupport(parsedGit.value);
-		expect(support).toMatchObject({ ok: false });
-		if (support.ok) return;
-		expect(result.diagnostics).toMatchObject([
+		if (!parsedGit.ok || parsedGit.value.kind !== "git") return;
+		expect(GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON).toBe(
+			"Git extension sources are recognized but unsupported.",
+		);
+		expect(result.diagnostics).toEqual([
 			{
 				code: "extension_acquisition_git_unsupported",
 				spec: "git:github/acme/ext@main",
-				message: expect.stringContaining(support.reason),
+				message:
+					"Git extension sources are recognized but unsupported. Source: git:github/acme/ext@main.",
 			},
 		]);
 	});

@@ -1,5 +1,7 @@
 import { resolve } from "node:path";
 
+import { firstLineEnding } from "@nseng-ai/foundation/markdown-frontmatter";
+
 import { parseDeclaredExtensionSpecsToml } from "./descriptor-package.ts";
 import { parseExtensionSourceSpec, type ExtensionSourceSpec } from "./extension-source-spec.ts";
 
@@ -168,7 +170,7 @@ function appendBeforeArrayClose(options: {
 			? `${closeIndent}\t`
 			: indentationAt(options.source, options.scan.lastValueStart);
 	const trailingComma = options.scan.hasTrailingComma ? "," : "";
-	const lineEnding = options.scan.lineEndingBeforeClose ?? "\n";
+	const lineEnding = firstLineEnding(options.source) ?? "\n";
 	let next = `${options.source.slice(0, closeLineOffset)}${itemIndent}${encodedSpec}${trailingComma}${lineEnding}${options.source.slice(closeLineOffset)}`;
 	if (options.scan.lastValueEnd !== undefined && !options.scan.hasTrailingComma) {
 		next = `${next.slice(0, options.scan.lastValueEnd)},${next.slice(options.scan.lastValueEnd)}`;
@@ -181,7 +183,6 @@ interface ExtensionsArrayScan {
 	readonly lastValueStart: number | undefined;
 	readonly lastValueEnd: number | undefined;
 	readonly hasTrailingComma: boolean;
-	readonly lineEndingBeforeClose: "\n" | "\r\n" | undefined;
 }
 
 function scanExtensionsArray(source: string, openOffset: number): ExtensionsArrayScan | undefined {
@@ -194,11 +195,9 @@ function scanExtensionsArray(source: string, openOffset: number): ExtensionsArra
 	let lastValueStart: number | undefined;
 	let lastValueEnd: number | undefined;
 	let hasTrailingComma = false;
-	let lineEndingBeforeClose: "\n" | "\r\n" | undefined;
 	for (let index = openOffset + 1; index < source.length; index += 1) {
 		const char = source[index];
 		if (char === "\n") {
-			lineEndingBeforeClose = source[index - 1] === "\r" ? "\r\n" : "\n";
 			if (isComment) isComment = false;
 			continue;
 		}
@@ -241,7 +240,6 @@ function scanExtensionsArray(source: string, openOffset: number): ExtensionsArra
 					lastValueStart,
 					lastValueEnd,
 					hasTrailingComma,
-					lineEndingBeforeClose,
 				};
 			}
 			continue;

@@ -14,6 +14,7 @@ import { z } from "zod";
 import {
 	activationCompletedSchema,
 	activationRepositoryFailureDiagnostic,
+	activationRepositoryFailureType,
 	applyNsActivation,
 	prepareNsActivation,
 	resolveActivationRepository,
@@ -188,12 +189,11 @@ function repositoryFailure(
 	result: Exclude<ResolveActivationRepositoryResult, { type: "resolved" }>,
 ): ClinkrExit<InitNsResult> {
 	const diagnostic = activationRepositoryFailureDiagnostic(result);
-	const errorType =
-		result.type === "not-a-git-repo"
-			? "ns-init-not-a-git-repo"
-			: result.type === "trunk-undetectable"
-				? "ns-init-trunk-undetectable"
-				: "ns-init-activation-failed";
+	const errorType = activationRepositoryFailureType(result, {
+		"not-a-git-repo": "ns-init-not-a-git-repo",
+		"trunk-undetectable": "ns-init-trunk-undetectable",
+		error: "ns-init-activation-failed",
+	});
 	return failure(errorType, diagnostic.message, {
 		phase: "preflight",
 		diagnostics: [diagnostic],
@@ -219,25 +219,23 @@ export function renderInitNsHuman(data: InitNsResult): string {
 					: `${outcome.action} [${outcome.removalReason}]`,
 			] as const,
 	);
-	const lines = [
+	return [
 		`Activated ns in ${data.repoRoot}.`,
 		`Harnesses (${data.harnessSource}): ${data.harnesses.join(", ")}.`,
-	];
-	appendReportSection(lines, "Files:", fileRows);
-	appendReportSection(lines, "Consumer directories:", directoryRows);
-	appendReportSection(lines, "Artifacts:", artifactRows);
-	return lines.join("\n");
+		...buildReportSection("Files:", fileRows),
+		...buildReportSection("Consumer directories:", directoryRows),
+		...buildReportSection("Artifacts:", artifactRows),
+	].join("\n");
 }
 
-function appendReportSection(
-	lines: string[],
+function buildReportSection(
 	title: string,
 	rows: readonly (readonly [string, string])[],
-): void {
-	if (rows.length === 0) return;
+): readonly string[] {
+	if (rows.length === 0) return [];
 	const table = renderTextTable({
 		columns: [{ header: "" }, { header: "" }],
 		rows: rows.map(([label, value]) => [`  ${label}`, value]),
 	});
-	lines.push(title, ...table.split("\n").slice(1));
+	return [title, ...table.split("\n").slice(1)];
 }

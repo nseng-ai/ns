@@ -383,7 +383,7 @@ export async function runHarnessArtifactReconcile(
 		if (item.type !== "remove") continue;
 		const outcome = removalOutcome(item.planned, [], item.conflictingFiles, item.action);
 		preparedItems.push(
-			shouldApply && item.includedInApply
+			shouldApply && item.isIncludedInApply
 				? { type: "transition", key: item.key, outcome }
 				: { type: "static", outcome },
 		);
@@ -407,7 +407,7 @@ export async function runHarnessArtifactReconcile(
 			conflictingFiles: item.conflictingFiles,
 		});
 		preparedItems.push(
-			shouldApply && item.includedInApply
+			shouldApply && item.isIncludedInApply
 				? { type: "transition", key: item.key, outcome }
 				: { type: "static", outcome },
 		);

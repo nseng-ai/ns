@@ -3,12 +3,13 @@ import { z } from "zod";
 import { npmPackageRoot, parseExtensionSourceSpec } from "./acquisition.ts";
 import {
 	loadExtensionDescriptorFromPackageRoot,
+	presentExtensionDescriptorPackageError,
 	type DescriptorPackageFileResult,
 	type DescriptorPackageImportResult,
 	type DescriptorPackageManifestResult,
 	type ExtensionDescriptorPackageGateway,
 } from "../project-config/extension-package-descriptor.ts";
-import { extensionSourceSupport } from "../project-config/extension-source-spec.ts";
+import { GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON } from "../project-config/extension-source-spec.ts";
 import type { ExtensionDescriptor } from "../sdk/descriptor.ts";
 
 export interface DeclaredExtensionDescriptor {
@@ -154,12 +155,10 @@ async function loadDeclaredExtensionDescriptor(options: {
 		return failure(options.spec, parsed.error.code, parsed.error.message);
 	}
 	if (parsed.value.kind === "git") {
-		const support = extensionSourceSupport(parsed.value);
-		if (support.ok) throw new Error("Git extension source support classification is inconsistent.");
 		return failure(
 			options.spec,
 			"extension_descriptor_source_unsupported",
-			`${support.reason} Source: ${options.spec}.`,
+			`${GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON} Source: ${options.spec}.`,
 		);
 	}
 	const sourceKind = parsed.value.kind;
@@ -172,11 +171,13 @@ async function loadDeclaredExtensionDescriptor(options: {
 		...(options.gateway === undefined ? {} : { gateway: options.gateway }),
 	});
 	if (!loaded.ok) {
-		const message =
-			loaded.error.type === "package-manifest-missing"
-				? `Declared extension package is not installed: ${packageRoot}.`
-				: loaded.error.message;
-		return failure(options.spec, loaded.error.code, message, loaded.error.path);
+		const presentation = presentExtensionDescriptorPackageError({
+			error: loaded.error,
+			missingManifest: {
+				message: `Declared extension package is not installed: ${packageRoot}.`,
+			},
+		});
+		return failure(options.spec, presentation.code, presentation.message, presentation.path);
 	}
 	if (parsed.value.kind === "npm" && loaded.value.packageName !== parsed.value.packageName) {
 		return failure(

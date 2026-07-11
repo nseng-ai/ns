@@ -35,7 +35,7 @@ describe("project harness-artifact transitions", () => {
 						type: "provision",
 						key: "pi:project:skill:@acme/ext:demo",
 						action: "installed",
-						includedInApply: true,
+						isIncludedInApply: true,
 						conflictingFiles: [],
 					},
 				],

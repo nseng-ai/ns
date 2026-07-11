@@ -65,6 +65,37 @@ export type LoadExtensionDescriptorFromPackageRootResult =
 	| { readonly ok: true; readonly value: LoadedExtensionDescriptorPackage }
 	| { readonly ok: false; readonly error: ExtensionDescriptorPackageError };
 
+export interface ExtensionDescriptorPackageErrorPresentation {
+	readonly code: string;
+	readonly message: string;
+	readonly path: string;
+}
+
+export interface PresentExtensionDescriptorPackageErrorOptions {
+	readonly error: ExtensionDescriptorPackageError;
+	readonly missingManifest: {
+		readonly message: string;
+		readonly code?: string;
+	};
+}
+
+export function presentExtensionDescriptorPackageError(
+	options: PresentExtensionDescriptorPackageErrorOptions,
+): ExtensionDescriptorPackageErrorPresentation {
+	if (options.error.type !== "package-manifest-missing") {
+		return {
+			code: options.error.code,
+			message: options.error.message,
+			path: options.error.path,
+		};
+	}
+	return {
+		code: options.missingManifest.code ?? options.error.code,
+		message: options.missingManifest.message,
+		path: options.error.path,
+	};
+}
+
 export const nodeExtensionDescriptorPackageGateway: ExtensionDescriptorPackageGateway = {
 	async readPackageManifest(packageJsonPath) {
 		try {
@@ -101,93 +132,92 @@ export async function loadExtensionDescriptorFromPackageRoot(options: {
 	const packageJsonPath = join(options.packageRoot, "package.json");
 	const manifest = await gateway.readPackageManifest(packageJsonPath);
 	if (manifest.type === "missing") {
-		return packageFailure(
-			"package-manifest-missing",
-			"extension_descriptor_package_missing",
-			`Extension package manifest is missing: ${packageJsonPath}.`,
+		return packageFailure({
+			type: "package-manifest-missing",
+			code: "extension_descriptor_package_missing",
+			message: `Extension package manifest is missing: ${packageJsonPath}.`,
+			path: packageJsonPath,
 			packageJsonPath,
-			packageJsonPath,
-		);
+		});
 	}
 	if (manifest.type === "error") {
-		return packageFailure(
-			"package-manifest-read-failed",
-			"extension_descriptor_package_json_read_failed",
-			`Could not read extension package manifest ${packageJsonPath}.\n${manifest.message}`,
+		return packageFailure({
+			type: "package-manifest-read-failed",
+			code: "extension_descriptor_package_json_read_failed",
+			message: `Could not read extension package manifest ${packageJsonPath}.\n${manifest.message}`,
+			path: packageJsonPath,
 			packageJsonPath,
-			packageJsonPath,
-			undefined,
-			manifest.message,
-		);
+			causeMessage: manifest.message,
+		});
 	}
 	let packageManifestValue: unknown;
 	try {
 		packageManifestValue = JSON.parse(manifest.text);
 	} catch (error) {
-		return packageFailure(
-			"package-manifest-invalid",
-			"extension_descriptor_package_json_invalid",
-			`Extension package manifest is not valid JSON: ${packageJsonPath}.\n${formatErrorMessage(error)}`,
+		return packageFailure({
+			type: "package-manifest-invalid",
+			code: "extension_descriptor_package_json_invalid",
+			message: `Extension package manifest is not valid JSON: ${packageJsonPath}.\n${formatErrorMessage(error)}`,
+			path: packageJsonPath,
 			packageJsonPath,
-			packageJsonPath,
-		);
+		});
 	}
 	const packageManifest = extensionPackageManifestSchema.safeParse(packageManifestValue);
 	if (!packageManifest.success) {
-		return packageFailure(
-			"package-manifest-invalid",
-			"extension_descriptor_package_json_invalid",
-			`Extension package manifest must declare non-empty name and version fields: ${packageJsonPath}.`,
+		return packageFailure({
+			type: "package-manifest-invalid",
+			code: "extension_descriptor_package_json_invalid",
+			message: `Extension package manifest must declare non-empty name and version fields: ${packageJsonPath}.`,
+			path: packageJsonPath,
 			packageJsonPath,
-			packageJsonPath,
-		);
+		});
 	}
 	const exportPath = resolveDescriptorExportPath(options.packageRoot, packageManifest.data);
 	if (!exportPath.ok) {
 		const errorInfo = descriptorExportPathErrorInfo(exportPath, packageJsonPath);
-		return packageFailure(
-			"descriptor-export-invalid",
-			errorInfo.code,
-			errorInfo.message,
+		return packageFailure({
+			type: "descriptor-export-invalid",
+			code: errorInfo.code,
+			message: errorInfo.message,
+			path: packageJsonPath,
 			packageJsonPath,
-			packageJsonPath,
-		);
+		});
 	}
 	const descriptorFile = await gateway.inspectDescriptorFile(exportPath.path);
 	if (descriptorFile.type !== "found") {
 		const suffix = descriptorFile.type === "error" ? `\n${descriptorFile.message}` : "";
-		return packageFailure(
-			"descriptor-file-missing",
-			"extension_descriptor_export_missing_file",
-			`Extension descriptor export does not resolve to a file: ${exportPath.target}.${suffix}`,
-			exportPath.path,
+		return packageFailure({
+			type: "descriptor-file-missing",
+			code: "extension_descriptor_export_missing_file",
+			message: `Extension descriptor export does not resolve to a file: ${exportPath.target}.${suffix}`,
+			path: exportPath.path,
 			packageJsonPath,
-			exportPath.path,
-			descriptorFile.type === "error" ? descriptorFile.message : undefined,
-		);
+			candidatePath: exportPath.path,
+			...(descriptorFile.type === "error" ? { causeMessage: descriptorFile.message } : {}),
+		});
 	}
 	const imported = await gateway.importDescriptorDefault(exportPath.path);
 	if (!imported.ok) {
-		return packageFailure(
-			"descriptor-import-failed",
-			"extension_descriptor_import_failed",
-			`Failed to load ns extension descriptor ${exportPath.path}.\n${imported.message}`,
-			exportPath.path,
+		return packageFailure({
+			type: "descriptor-import-failed",
+			code: "extension_descriptor_import_failed",
+			message: `Failed to load ns extension descriptor ${exportPath.path}.\n${imported.message}`,
+			path: exportPath.path,
 			packageJsonPath,
-			exportPath.path,
-			imported.message,
-		);
+			candidatePath: exportPath.path,
+			causeMessage: imported.message,
+		});
 	}
 	const validation = validateExtensionDescriptor(imported.defaultExport, exportPath.path);
 	if (!validation.ok) {
-		return packageFailure(
-			"descriptor-invalid",
-			"extension_descriptor_invalid",
-			validation.message,
-			exportPath.path,
+		return packageFailure({
+			type: "descriptor-invalid",
+			code: "extension_descriptor_invalid",
+			message: validation.message,
+			path: exportPath.path,
 			packageJsonPath,
-			exportPath.path,
-		);
+			candidatePath: exportPath.path,
+		});
 	}
 	return {
 		ok: true,
@@ -202,25 +232,29 @@ export async function loadExtensionDescriptorFromPackageRoot(options: {
 	};
 }
 
+interface PackageFailureOptions {
+	readonly type: ExtensionDescriptorPackageError["type"];
+	readonly code: string;
+	readonly message: string;
+	readonly path: string;
+	readonly packageJsonPath: string;
+	readonly candidatePath?: string;
+	readonly causeMessage?: string;
+}
+
 function packageFailure(
-	type: ExtensionDescriptorPackageError["type"],
-	code: string,
-	message: string,
-	path: string,
-	packageJsonPath: string,
-	candidatePath?: string,
-	causeMessage?: string,
+	options: PackageFailureOptions,
 ): LoadExtensionDescriptorFromPackageRootResult {
 	return {
 		ok: false,
 		error: {
-			type,
-			code,
-			message,
-			path,
-			packageJsonPath,
-			...(candidatePath === undefined ? {} : { candidatePath }),
-			...(causeMessage === undefined ? {} : { causeMessage }),
+			type: options.type,
+			code: options.code,
+			message: options.message,
+			path: options.path,
+			packageJsonPath: options.packageJsonPath,
+			...(options.candidatePath === undefined ? {} : { candidatePath: options.candidatePath }),
+			...(options.causeMessage === undefined ? {} : { causeMessage: options.causeMessage }),
 		},
 	};
 }

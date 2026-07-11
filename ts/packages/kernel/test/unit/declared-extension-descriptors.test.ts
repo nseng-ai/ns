@@ -189,8 +189,15 @@ describe("declared extension descriptors", () => {
 				descriptor: { description: "Managed tools" },
 			},
 		]);
-		expect(result.diagnostics).toMatchObject([
-			{ code: "extension_descriptor_package_missing", spec: "npm:missing" },
+		expect(result.diagnostics).toEqual([
+			{
+				severity: "error",
+				code: "extension_descriptor_package_missing",
+				message:
+					"Declared extension package is not installed: /repo/.ns/managed-extensions/npm/missing/node_modules/missing.",
+				spec: "npm:missing",
+				path: "/repo/.ns/managed-extensions/npm/missing/node_modules/missing/package.json",
+			},
 		]);
 	});
 

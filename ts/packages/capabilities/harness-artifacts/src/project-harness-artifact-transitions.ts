@@ -156,7 +156,7 @@ export type PreparedProjectHarnessArtifactTransitionItem =
 			readonly planned: PlannedHarnessArtifactRemoval;
 			readonly removal: PreparedHarnessArtifactRemoval;
 			readonly action: "removed" | "conflicted";
-			readonly includedInApply: boolean;
+			readonly isIncludedInApply: boolean;
 			readonly conflictingFiles: readonly string[];
 	  }
 	| {
@@ -165,7 +165,7 @@ export type PreparedProjectHarnessArtifactTransitionItem =
 			readonly pair: ReconcilePair;
 			readonly provision: PreparedHarnessArtifactProvision;
 			readonly action: HarnessArtifactProvisionAction;
-			readonly includedInApply: boolean;
+			readonly isIncludedInApply: boolean;
 			readonly conflictingFiles: readonly string[];
 	  };
 
@@ -232,17 +232,17 @@ export async function prepareProjectHarnessArtifactTransitions(
 		const transition = createPreparedHarnessArtifactRemovalTransition(removal.value);
 		const conflictingFiles = removal.value.conflictingFiles;
 		const action = conflictingFiles.length > 0 ? "conflicted" : "removed";
-		const includedInApply = action === "removed";
+		const isIncludedInApply = action === "removed";
 		items.push({
 			type: "remove",
 			key: transition.key,
 			planned,
 			removal: removal.value,
 			action,
-			includedInApply,
+			isIncludedInApply,
 			conflictingFiles,
 		});
-		if (includedInApply) {
+		if (isIncludedInApply) {
 			transitions.push(transition);
 			precedingEffects.removedKeys.add(transition.key);
 			for (const file of Object.values(planned.entry.files)) {
@@ -266,23 +266,23 @@ export async function prepareProjectHarnessArtifactTransitions(
 		const conflictingFiles = provisionConflictingFiles(sequenced);
 		const action = classifyProvisionAction({
 			conflictingFiles,
-			decisionsAreUnchanged: allProvisionFileDecisionsUnchanged(sequenced),
+			isEveryDecisionUnchanged: allProvisionFileDecisionsUnchanged(sequenced),
 			hasManifestEntry:
 				sequenced.manifest.artifacts[installManifestKey(sequenced.plan)] !== undefined &&
 				!precedingEffects.removedKeys.has(installManifestKey(sequenced.plan)),
 		});
 		const transition = createPreparedHarnessArtifactProvisionTransition(sequenced);
-		const includedInApply = action !== "unchanged";
+		const isIncludedInApply = action !== "unchanged";
 		items.push({
 			type: "provision",
 			key: transition.key,
 			pair,
 			provision: sequenced,
 			action,
-			includedInApply,
+			isIncludedInApply,
 			conflictingFiles,
 		});
-		if (includedInApply) transitions.push(transition);
+		if (isIncludedInApply) transitions.push(transition);
 	}
 	assertUniquePreparedTransitionKeys(transitions);
 	return resultOk({
@@ -328,11 +328,11 @@ export function allProvisionFileDecisionsUnchanged(
 
 export function classifyProvisionAction(input: {
 	conflictingFiles: readonly string[];
-	decisionsAreUnchanged: boolean;
+	isEveryDecisionUnchanged: boolean;
 	hasManifestEntry: boolean;
 }): HarnessArtifactProvisionAction {
 	if (input.conflictingFiles.length > 0) return "conflicted";
-	if (input.decisionsAreUnchanged && input.hasManifestEntry) return "unchanged";
+	if (input.isEveryDecisionUnchanged && input.hasManifestEntry) return "unchanged";
 	if (input.hasManifestEntry) return "refreshed";
 	return "installed";
 }

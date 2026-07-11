@@ -11,20 +11,23 @@ import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
 import {
-	extensionSourceSupport,
+	GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON,
 	parseExtensionSourceSpec,
 } from "../project-config/extension-source-spec.ts";
 import { managedNpmPackagePaths } from "../project-config/managed-extension-paths.ts";
 
 export {
-	extensionSourceSupport,
+	GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON,
 	parseExtensionSourceSpec,
 } from "../project-config/extension-source-spec.ts";
 export {
 	managedNpmProjectRoot,
 	npmPackageRoot,
 } from "../project-config/managed-extension-paths.ts";
-export type { ExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
+export type {
+	ExtensionSourceSpec,
+	GitExtensionSourceSpec,
+} from "../project-config/extension-source-spec.ts";
 
 export interface ResolvedExtensionModuleRoot {
 	readonly spec: string;
@@ -199,19 +202,16 @@ export async function resolveDeclaredExtensionModules(
 			continue;
 		}
 		if (parsed.value.kind === "git") {
-			const support = extensionSourceSupport(parsed.value);
-			if (support.ok)
-				throw new Error("Git extension source support classification is inconsistent.");
 			diagnostics.push({
 				code: "extension_acquisition_git_unsupported",
-				message: `${support.reason} Source: ${raw}.`,
+				message: `${GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON} Source: ${raw}.`,
 				spec: raw,
 			});
 			continue;
 		}
 
 		const managedPaths = managedNpmPackagePaths(request.projectRoot, parsed.value.packageName);
-		const npmProjectDir = managedPaths.projectRoot;
+		const npmProjectDir = managedPaths.npmProjectRoot;
 		const packageRoot = managedPaths.packageRoot;
 		const installed = await gateway.isNpmPackageInstalled(packageRoot);
 		if (!installed.ok) {
