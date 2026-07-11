@@ -1,9 +1,16 @@
+import { join } from "node:path";
+
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
-import type { HarnessId, HarnessPathContext } from "./harness-paths.ts";
+import {
+	ALL_HARNESS_IDS,
+	resolveHarnessSkillRoot,
+	type HarnessId,
+	type HarnessPathContext,
+	type HarnessPathErrorInfo,
+} from "./harness-paths.ts";
 import {
 	applyPreparedProvision,
-	classifyProvisionAction,
 	prepareProvision,
 	provisionConflictingFiles,
 	sequenceProvisionAfterEffects,
@@ -14,9 +21,10 @@ import {
 } from "./provision-apply.ts";
 import {
 	applyPreparedHarnessArtifactRemoval,
-	prepareHarnessArtifactRemoval,
+	preparePlannedHarnessArtifactRemoval,
 	type PreparedHarnessArtifactRemoval,
 } from "./provision-removal.ts";
+import { INSTALL_MANIFEST_FILE_NAME, readInstallManifestAtRoot } from "./provision-manifest.ts";
 import { installManifestKey } from "./provision-plan.ts";
 import {
 	planHarnessArtifactReconcile,
@@ -28,6 +36,27 @@ import {
 	type ReconcilePair,
 	type SkippedArtifactCollision,
 } from "./reconcile.ts";
+
+export const HARNESS_ARTIFACT_PROVISION_ACTIONS = [
+	"installed",
+	"refreshed",
+	"unchanged",
+	"conflicted",
+] as const;
+export type HarnessArtifactProvisionAction = (typeof HARNESS_ARTIFACT_PROVISION_ACTIONS)[number];
+
+export const DECLARED_ARTIFACT_ACTIVATION_ACTIONS = [
+	...HARNESS_ARTIFACT_PROVISION_ACTIONS,
+	"removed",
+] as const;
+export type DeclaredArtifactActivationAction =
+	(typeof DECLARED_ARTIFACT_ACTIVATION_ACTIONS)[number];
+
+export const HARNESS_ARTIFACT_RECONCILE_ACTIONS = [
+	...DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
+	"skipped",
+] as const;
+export type HarnessArtifactReconcileAction = (typeof HARNESS_ARTIFACT_RECONCILE_ACTIONS)[number];
 
 export type PreparedHarnessArtifactTransition =
 	| {
@@ -41,16 +70,30 @@ export type PreparedHarnessArtifactTransition =
 			readonly provision: PreparedHarnessArtifactProvision;
 	  };
 
-export function createPreparedHarnessArtifactRemovalTransition(
+function createPreparedHarnessArtifactRemovalTransition(
 	removal: PreparedHarnessArtifactRemoval,
 ): PreparedHarnessArtifactTransition {
-	return { type: "remove", key: removal.key, removal };
+	return { type: "remove", key: preparedTransitionIdentity({ type: "remove", removal }), removal };
 }
 
-export function createPreparedHarnessArtifactProvisionTransition(
+function createPreparedHarnessArtifactProvisionTransition(
 	provision: PreparedHarnessArtifactProvision,
 ): PreparedHarnessArtifactTransition {
-	return { type: "provision", key: installManifestKey(provision.plan), provision };
+	return {
+		type: "provision",
+		key: preparedTransitionIdentity({ type: "provision", provision }),
+		provision,
+	};
+}
+
+function preparedTransitionIdentity(
+	transition:
+		| { readonly type: "remove"; readonly removal: PreparedHarnessArtifactRemoval }
+		| { readonly type: "provision"; readonly provision: PreparedHarnessArtifactProvision },
+): string {
+	return transition.type === "remove"
+		? transition.removal.key
+		: installManifestKey(transition.provision.plan);
 }
 
 export interface PreparedProvisionReconciliation {
@@ -70,8 +113,13 @@ export interface AppliedHarnessArtifactTransitionFileEffects {
 
 /** Project an applied transition to the file effects shared by all callers. */
 export function appliedHarnessArtifactTransitionFileEffects(
-	transition: AppliedHarnessArtifactTransition,
+	outcomes: ReadonlyMap<string, AppliedHarnessArtifactTransition>,
+	key: string,
 ): AppliedHarnessArtifactTransitionFileEffects {
+	const transition = outcomes.get(key);
+	if (transition === undefined) {
+		throw new Error(`Applied harness artifact outcome is missing for ${key}.`);
+	}
 	if (transition.type === "remove") {
 		return { writtenFiles: [], removedFiles: transition.removedFiles, conflictingFiles: [] };
 	}
@@ -107,6 +155,8 @@ export type PreparedProjectHarnessArtifactTransitionItem =
 			readonly key: string;
 			readonly planned: PlannedHarnessArtifactRemoval;
 			readonly removal: PreparedHarnessArtifactRemoval;
+			readonly action: "removed" | "conflicted";
+			readonly includedInApply: boolean;
 			readonly conflictingFiles: readonly string[];
 	  }
 	| {
@@ -114,7 +164,8 @@ export type PreparedProjectHarnessArtifactTransitionItem =
 			readonly key: string;
 			readonly pair: ReconcilePair;
 			readonly provision: PreparedHarnessArtifactProvision;
-			readonly action: "installed" | "refreshed" | "unchanged" | "conflicted";
+			readonly action: HarnessArtifactProvisionAction;
+			readonly includedInApply: boolean;
 			readonly conflictingFiles: readonly string[];
 	  };
 
@@ -166,28 +217,32 @@ export async function prepareProjectHarnessArtifactTransitions(
 	const items: PreparedProjectHarnessArtifactTransitionItem[] = [];
 	const transitions: PreparedHarnessArtifactTransition[] = [];
 	const precedingEffects = { removedPaths: new Set<string>(), removedKeys: new Set<string>() };
+	assertUniqueTransitionKeys([
+		...plan.removals.map((removal) => removal.key),
+		...plan.pairs.map((pair) => pair.key),
+	]);
 
 	for (const planned of plan.removals) {
-		const removal = await prepareHarnessArtifactRemoval({
-			key: planned.key,
-			reason: planned.reason,
-			entry: planned.entry,
-			expectedHarness: planned.snapshot.harness,
-			expectedTargetRoot: planned.snapshot.targetRoot,
+		const removal = await preparePlannedHarnessArtifactRemoval({
+			planned,
 			trustedBoundaryRoot: request.trustedRepoRoot,
-			manifestPath: planned.snapshot.manifestPath,
 			fs: request.fs,
 		});
 		if (!removal.ok) return removal;
 		const transition = createPreparedHarnessArtifactRemovalTransition(removal.value);
+		const conflictingFiles = removal.value.conflictingFiles;
+		const action = conflictingFiles.length > 0 ? "conflicted" : "removed";
+		const includedInApply = action === "removed";
 		items.push({
 			type: "remove",
 			key: transition.key,
 			planned,
 			removal: removal.value,
-			conflictingFiles: removal.value.conflictingFiles,
+			action,
+			includedInApply,
+			conflictingFiles,
 		});
-		if (removal.value.conflictingFiles.length === 0) {
+		if (includedInApply) {
 			transitions.push(transition);
 			precedingEffects.removedKeys.add(transition.key);
 			for (const file of Object.values(planned.entry.files)) {
@@ -211,23 +266,23 @@ export async function prepareProjectHarnessArtifactTransitions(
 		const conflictingFiles = provisionConflictingFiles(sequenced);
 		const action = classifyProvisionAction({
 			conflictingFiles,
-			decisionsAreUnchanged:
-				sequenced.decisions.files.every((decision) => decision.type === "unchanged") &&
-				sequenced.obsoleteFiles.length === 0,
+			decisionsAreUnchanged: allProvisionFileDecisionsUnchanged(sequenced),
 			hasManifestEntry:
 				sequenced.manifest.artifacts[installManifestKey(sequenced.plan)] !== undefined &&
 				!precedingEffects.removedKeys.has(installManifestKey(sequenced.plan)),
 		});
 		const transition = createPreparedHarnessArtifactProvisionTransition(sequenced);
+		const includedInApply = action !== "unchanged";
 		items.push({
 			type: "provision",
 			key: transition.key,
 			pair,
 			provision: sequenced,
 			action,
+			includedInApply,
 			conflictingFiles,
 		});
-		if (action !== "unchanged") transitions.push(transition);
+		if (includedInApply) transitions.push(transition);
 	}
 	assertUniquePreparedTransitionKeys(transitions);
 	return resultOk({
@@ -243,13 +298,75 @@ export async function prepareProjectHarnessArtifactTransitions(
 export function assertUniquePreparedTransitionKeys(
 	transitions: readonly PreparedHarnessArtifactTransition[],
 ): void {
-	const keys = new Set<string>();
 	for (const transition of transitions) {
-		if (keys.has(transition.key)) {
-			throw new Error(`Duplicate prepared harness artifact transition key: ${transition.key}.`);
+		const identity = preparedTransitionIdentity(transition);
+		if (transition.key !== identity) {
+			throw new Error(`Prepared harness artifact transition key drifted from ${identity}.`);
 		}
-		keys.add(transition.key);
 	}
+	assertUniqueTransitionKeys(transitions.map((transition) => transition.key));
+}
+
+function assertUniqueTransitionKeys(keys: readonly string[]): void {
+	const seen = new Set<string>();
+	for (const key of keys) {
+		if (seen.has(key)) {
+			throw new Error(`Duplicate prepared harness artifact transition key: ${key}.`);
+		}
+		seen.add(key);
+	}
+}
+
+export function allProvisionFileDecisionsUnchanged(
+	provision: PreparedHarnessArtifactProvision,
+): boolean {
+	return (
+		provision.decisions.files.every((decision) => decision.type === "unchanged") &&
+		provision.obsoleteFiles.length === 0
+	);
+}
+
+export function classifyProvisionAction(input: {
+	conflictingFiles: readonly string[];
+	decisionsAreUnchanged: boolean;
+	hasManifestEntry: boolean;
+}): HarnessArtifactProvisionAction {
+	if (input.conflictingFiles.length > 0) return "conflicted";
+	if (input.decisionsAreUnchanged && input.hasManifestEntry) return "unchanged";
+	if (input.hasManifestEntry) return "refreshed";
+	return "installed";
+}
+
+export async function readProjectHarnessManifestSnapshots(input: {
+	pathContext: HarnessPathContext;
+	fs: HarnessArtifactFileSystemGateway;
+}): Promise<
+	Result<
+		readonly HarnessManifestSnapshot[],
+		HarnessArtifactProvisionErrorInfo | HarnessPathErrorInfo
+	>
+> {
+	const snapshots: HarnessManifestSnapshot[] = [];
+	for (const harness of ALL_HARNESS_IDS) {
+		const root = resolveHarnessSkillRoot({
+			harness,
+			scope: "project",
+			context: input.pathContext,
+		});
+		if (!root.ok) return root;
+		const manifest = await readInstallManifestAtRoot({
+			targetRoot: root.value.rootPath,
+			fs: input.fs,
+		});
+		if (!manifest.ok) return manifest;
+		snapshots.push({
+			harness,
+			targetRoot: root.value.rootPath,
+			manifestPath: join(root.value.rootPath, INSTALL_MANIFEST_FILE_NAME),
+			manifest: manifest.value,
+		});
+	}
+	return resultOk(snapshots);
 }
 
 /** Apply one ordered reconciliation while rereading each transition's immediate state. */

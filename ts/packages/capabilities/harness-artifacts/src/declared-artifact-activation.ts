@@ -1,5 +1,3 @@
-import { join } from "node:path";
-
 import { resultOk, type Result } from "@nseng-ai/foundation/result";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
@@ -7,12 +5,7 @@ import type {
 	HarnessArtifactFileSystemGateway,
 	HarnessArtifactModuleDiscoveryGateway,
 } from "./filesystem.ts";
-import {
-	ALL_HARNESS_IDS,
-	resolveHarnessSkillRoot,
-	type HarnessId,
-	type HarnessPathContext,
-} from "./harness-paths.ts";
+import type { HarnessId, HarnessPathContext, HarnessPathErrorInfo } from "./harness-paths.ts";
 import {
 	discoverDeclaredExtensionModuleHarnessArtifacts,
 	type DeclaredExtensionModuleArtifactFacts,
@@ -23,7 +16,6 @@ import {
 	type HarnessArtifactProvisionErrorInfo,
 	type PreparedHarnessArtifactProvision,
 } from "./provision-apply.ts";
-import { INSTALL_MANIFEST_FILE_NAME, readInstallManifestAtRoot } from "./provision-manifest.ts";
 import type {
 	HarnessArtifactRemovalReason,
 	PreparedHarnessArtifactRemoval,
@@ -31,27 +23,18 @@ import type {
 import {
 	appliedHarnessArtifactTransitionFileEffects,
 	applyProjectHarnessArtifactTransitions,
+	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
 	prepareProjectHarnessArtifactTransitions,
+	readProjectHarnessManifestSnapshots,
 	type AppliedHarnessArtifactTransition,
+	type DeclaredArtifactActivationAction,
 	type HarnessArtifactProvisionReconciliationErrorInfo,
 	type PreparedProjectHarnessArtifactTransitions,
 } from "./project-harness-artifact-transitions.ts";
-import type {
-	DesiredHarnessArtifact,
-	HarnessManifestSnapshot,
-	SkippedArtifactCollision,
-} from "./reconcile.ts";
+import type { DesiredHarnessArtifact, SkippedArtifactCollision } from "./reconcile.ts";
 
-export const DECLARED_ARTIFACT_ACTIVATION_ACTIONS = [
-	"installed",
-	"refreshed",
-	"unchanged",
-	"conflicted",
-	"removed",
-] as const;
-
-export type DeclaredArtifactActivationAction =
-	(typeof DECLARED_ARTIFACT_ACTIVATION_ACTIONS)[number];
+export { DECLARED_ARTIFACT_ACTIVATION_ACTIONS };
+export type { DeclaredArtifactActivationAction };
 
 type PreparedDeclaredArtifactActivationItem =
 	| {
@@ -118,7 +101,12 @@ export type ApplyPreparedDeclaredArtifactActivationResult =
 /** Prepare a full project desired-state reconciliation for supplied declared descriptors. */
 export async function prepareDeclaredArtifactActivation(
 	request: PrepareDeclaredArtifactActivationRequest,
-): Promise<Result<PreparedDeclaredArtifactActivation, HarnessArtifactProvisionErrorInfo>> {
+): Promise<
+	Result<
+		PreparedDeclaredArtifactActivation,
+		HarnessArtifactProvisionErrorInfo | HarnessPathErrorInfo
+	>
+> {
 	const fs = request.fs ?? nodeHarnessArtifactFileSystemGateway;
 	const discovery = await discoverDeclaredExtensionModuleHarnessArtifacts({
 		modules: request.modules,
@@ -137,7 +125,7 @@ export async function prepareDeclaredArtifactActivation(
 		left.localeCompare(right),
 	);
 	const context: HarnessPathContext = { projectRoot: request.projectRoot };
-	const manifests = await readAllProjectManifests({ context, fs });
+	const manifests = await readProjectHarnessManifestSnapshots({ pathContext: context, fs });
 	if (!manifests.ok) return manifests;
 	const projectTransitions = await prepareProjectHarnessArtifactTransitions({
 		desired,
@@ -160,7 +148,7 @@ export async function prepareDeclaredArtifactActivation(
 						type: "remove",
 						key: item.key,
 						harness: item.removal.entry.harness,
-						action: item.conflictingFiles.length > 0 ? "conflicted" : "removed",
+						action: item.action,
 						removal: item.removal,
 					}
 				: {
@@ -198,7 +186,9 @@ export async function applyPreparedDeclaredArtifactActivation(
 			ok: false,
 			error: applied.error,
 			completed: completedActivationOutcomes(
-				prepared.artifacts,
+				prepared.artifacts.filter(
+					(item) => item.action === "unchanged" || applied.error.completedTransitions.has(item.key),
+				),
 				applied.error.completedTransitions,
 			),
 		};
@@ -209,38 +199,13 @@ export async function applyPreparedDeclaredArtifactActivation(
 	};
 }
 
-async function readAllProjectManifests(input: {
-	context: HarnessPathContext;
-	fs: HarnessArtifactFileSystemGateway;
-}): Promise<Result<readonly HarnessManifestSnapshot[], HarnessArtifactProvisionErrorInfo>> {
-	const snapshots: HarnessManifestSnapshot[] = [];
-	for (const harness of ALL_HARNESS_IDS) {
-		const root = resolveHarnessSkillRoot({ harness, scope: "project", context: input.context });
-		if (!root.ok) throw new Error(root.error.message);
-		const manifest = await readInstallManifestAtRoot({
-			targetRoot: root.value.rootPath,
-			fs: input.fs,
-		});
-		if (!manifest.ok) return manifest;
-		snapshots.push({
-			harness,
-			targetRoot: root.value.rootPath,
-			manifestPath: join(root.value.rootPath, INSTALL_MANIFEST_FILE_NAME),
-			manifest: manifest.value,
-		});
-	}
-	return resultOk(snapshots);
-}
-
 function completedActivationOutcomes(
 	items: readonly PreparedDeclaredArtifactActivationItem[],
 	transitions: ReadonlyMap<string, AppliedHarnessArtifactTransition>,
 ): readonly DeclaredArtifactActivationOutcome[] {
 	return items.flatMap((item) => {
 		if (item.action === "unchanged") return [outcomeForItem(item, [], [], [])];
-		const transition = transitions.get(item.key);
-		if (transition === undefined) return [];
-		const effects = appliedHarnessArtifactTransitionFileEffects(transition);
+		const effects = appliedHarnessArtifactTransitionFileEffects(transitions, item.key);
 		return [
 			outcomeForItem(item, effects.conflictingFiles, effects.writtenFiles, effects.removedFiles),
 		];

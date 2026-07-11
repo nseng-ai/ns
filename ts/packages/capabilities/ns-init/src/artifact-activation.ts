@@ -2,6 +2,7 @@ import type {
 	ApplyPreparedDeclaredArtifactActivationResult,
 	HarnessArtifactProvisionErrorInfo,
 	HarnessId,
+	HarnessPathErrorInfo,
 	PreparedDeclaredArtifactActivation,
 } from "@nseng-ai/harness-artifacts/api";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
@@ -14,7 +15,10 @@ export interface PrepareArtifactActivationParams {
 
 export type PrepareArtifactActivationResult =
 	| { readonly ok: true; readonly prepared: PreparedDeclaredArtifactActivation }
-	| { readonly ok: false; readonly error: HarnessArtifactProvisionErrorInfo };
+	| {
+			readonly ok: false;
+			readonly error: HarnessArtifactProvisionErrorInfo | HarnessPathErrorInfo;
+	  };
 
 export interface ArtifactActivationGateway {
 	prepare(params: PrepareArtifactActivationParams): Promise<PrepareArtifactActivationResult>;

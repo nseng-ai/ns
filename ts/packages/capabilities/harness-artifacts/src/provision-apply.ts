@@ -14,7 +14,7 @@ import {
 } from "./filesystem.ts";
 import { type HarnessPathContext, type HarnessScope } from "./harness-paths.ts";
 import {
-	normalizeHarnessArtifactSafetyInspection,
+	inspectHarnessArtifactSafety,
 	stalePreparation,
 	unsafeManifestEntry,
 	type HarnessArtifactProvisionErrorInfo,
@@ -163,8 +163,9 @@ export async function prepareProvision(
 		plan: plan.value,
 		context: request.context,
 	});
-	const provisionSafety = normalizeHarnessArtifactSafetyInspection({
-		inspection: await fs.inspectHarnessArtifactSafety({
+	const provisionSafety = await inspectHarnessArtifactSafety({
+		fs,
+		inspection: {
 			trustedBoundaryRoot,
 			expectedTargetRoot: plan.value.targetRoot,
 			targetPaths: [
@@ -172,7 +173,7 @@ export async function prepareProvision(
 				...plan.value.files.map((file) => file.targetPath),
 				manifestPath,
 			],
-		}),
+		},
 		manifestPath,
 		installKey,
 	});
@@ -208,15 +209,16 @@ export async function prepareProvision(
 		)
 		.map(([, file]) => file);
 	if (obsoleteFiles.length > 0) {
-		const safety = normalizeHarnessArtifactSafetyInspection({
-			inspection: await fs.inspectHarnessArtifactSafety({
+		const safety = await inspectHarnessArtifactSafety({
+			fs,
+			inspection: {
 				trustedBoundaryRoot,
 				expectedTargetRoot: plan.value.targetRoot,
 				targetPaths: [
 					plan.value.targetArtifactPath,
 					...obsoleteFiles.map((file) => file.targetPath),
 				],
-			}),
+			},
 			manifestPath,
 			installKey,
 		});
@@ -262,23 +264,10 @@ function trustedBoundaryRootForProvision(input: {
 	throw new Error("User-scope harness artifact safety requires a trusted home directory.");
 }
 
-export function conflictingFilesFromDecisions(decisions: ProvisionDecisionSet): readonly string[] {
+function conflictingFilesFromDecisions(decisions: ProvisionDecisionSet): readonly string[] {
 	return decisions.files
 		.filter((decision) => decision.type === "locally-edited-conflict")
 		.map((decision) => decision.file.targetPath);
-}
-
-export type ProvisionApplyAction = "installed" | "refreshed" | "unchanged" | "conflicted";
-
-export function classifyProvisionAction(input: {
-	conflictingFiles: readonly string[];
-	decisionsAreUnchanged: boolean;
-	hasManifestEntry: boolean;
-}): ProvisionApplyAction {
-	if (input.conflictingFiles.length > 0) return "conflicted";
-	if (input.decisionsAreUnchanged && input.hasManifestEntry) return "unchanged";
-	if (input.hasManifestEntry) return "refreshed";
-	return "installed";
 }
 
 export async function applyPreparedProvision(
@@ -295,8 +284,9 @@ export async function applyPreparedProvision(
 	}
 	const currentManifest = await validatePreparedProvision(prepared);
 	if (!currentManifest.ok) return currentManifest;
-	const safety = normalizeHarnessArtifactSafetyInspection({
-		inspection: await prepared.fs.inspectHarnessArtifactSafety({
+	const safety = await inspectHarnessArtifactSafety({
+		fs: prepared.fs,
+		inspection: {
 			trustedBoundaryRoot: prepared.trustedBoundaryRoot,
 			expectedTargetRoot: prepared.plan.targetRoot,
 			targetPaths: [
@@ -305,7 +295,7 @@ export async function applyPreparedProvision(
 				...prepared.obsoleteFiles.map((file) => file.targetPath),
 				prepared.manifestPath,
 			],
-		}),
+		},
 		manifestPath: prepared.manifestPath,
 		installKey: installManifestKey(prepared.plan),
 	});
@@ -388,13 +378,17 @@ export function provisionConflictingFiles(
 ): readonly string[] {
 	return [
 		...conflictingFilesFromDecisions(prepared.decisions),
-		...prepared.obsoleteFiles.flatMap((file) => {
-			const fact = prepared.obsoleteTargetFacts.find((item) => item.targetPath === file.targetPath);
-			return fact?.type === "file" && fact.contentHash !== file.contentHash
-				? [file.targetPath]
-				: [];
-		}),
+		...obsoleteProvisionConflictingFiles(prepared),
 	];
+}
+
+export function obsoleteProvisionConflictingFiles(
+	prepared: PreparedHarnessArtifactProvision,
+): readonly string[] {
+	return prepared.obsoleteFiles.flatMap((file) => {
+		const fact = prepared.obsoleteTargetFacts.find((item) => item.targetPath === file.targetPath);
+		return fact?.type === "file" && fact.contentHash !== file.contentHash ? [file.targetPath] : [];
+	});
 }
 
 export function previewFromPrepared(

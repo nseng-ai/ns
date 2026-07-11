@@ -2,7 +2,9 @@ import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 
 import type {
 	HarnessArtifactFileSystemErrorInfo,
+	HarnessArtifactFileSystemGateway,
 	HarnessArtifactRemovalSafety,
+	HarnessArtifactSafetyInspection,
 } from "./filesystem.ts";
 import type { ProvisionDecisionErrorInfo, ProvisionPlanErrorInfo } from "./provision-plan.ts";
 
@@ -26,7 +28,20 @@ export type HarnessArtifactProvisionErrorInfo =
 			details: { manifestPath: string; installKey: string; path: string };
 	  };
 
-export function normalizeHarnessArtifactSafetyInspection(input: {
+export async function inspectHarnessArtifactSafety(input: {
+	fs: HarnessArtifactFileSystemGateway;
+	inspection: HarnessArtifactSafetyInspection;
+	manifestPath: string;
+	installKey: string;
+}): Promise<Result<void, HarnessArtifactProvisionErrorInfo>> {
+	return normalizeHarnessArtifactSafetyInspection({
+		inspection: await input.fs.inspectHarnessArtifactSafety(input.inspection),
+		manifestPath: input.manifestPath,
+		installKey: input.installKey,
+	});
+}
+
+function normalizeHarnessArtifactSafetyInspection(input: {
 	inspection: Result<HarnessArtifactRemovalSafety, HarnessArtifactFileSystemErrorInfo>;
 	manifestPath: string;
 	installKey: string;
