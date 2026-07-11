@@ -207,11 +207,12 @@ describe("/pr:download-feedback", () => {
 		expect(ctx.editorTexts[0]).toContain(markdown);
 		expect(ctx.editorTexts[0]).toContain("## Addressing workflow boundary");
 		expect(ctx.editorTexts[0]).toContain(
-			"apply fixes, run appropriate local validation, submit the branch, resolve addressed threads, then stop and report",
+			"apply unambiguous, behavior-preserving fixes directly to this branch",
 		);
 		expect(ctx.editorTexts[0]).toContain(
 			"Do not wait for or poll CI, Graphite mergeability, automated review jobs, or newly generated feedback",
 		);
+		expect(ctx.editorTexts[0]).not.toContain("disposition plan");
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Downloaded PR feedback into the editor. Review/edit, then press Enter.",
 			level: "info",
@@ -264,6 +265,9 @@ describe("/pr:download-feedback", () => {
 		expect(ctx.editorTexts).toHaveLength(1);
 		expect(ctx.editorTexts[0]).toContain(markdown);
 		expect(ctx.editorTexts[0]).toContain("## Addressing workflow boundary");
+		expect(ctx.editorTexts[0]).toContain(
+			"apply unambiguous, behavior-preserving fixes directly to this branch",
+		);
 		expect(ctx.notifications.at(-1)?.level).toBe("info");
 		expect(pi.userMessages).toEqual([]);
 	});
@@ -427,6 +431,11 @@ describe("/pr:download-stack-feedback", () => {
 		expect(report).not.toContain("ns flow submit");
 		expect(report).not.toContain("Single-PR report footer should not leak");
 		expect(report).toContain("## Addressing workflow boundary");
+		expect(report).toContain("propose a disposition plan");
+		expect(report).toContain("omnibus");
+		expect(report).not.toContain(
+			"apply unambiguous, behavior-preserving fixes directly to this branch",
+		);
 		expect(report).toContain(
 			"Re-download feedback only when the user explicitly requests another pass or invokes a stack-repair/checks workflow",
 		);
