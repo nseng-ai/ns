@@ -8,7 +8,12 @@ import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
 
 import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
-import type { GithubPrGateway, PrewrittenPrMetadata, TextGenerator, TimeServices } from "./index.ts";
+import type {
+	GithubPrGateway,
+	PrewrittenPrMetadata,
+	TextGenerator,
+	TimeServices,
+} from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import {
 	compactSubmitMetadataCellText,
