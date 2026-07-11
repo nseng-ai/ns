@@ -147,7 +147,9 @@ so only agent-alone rows are autonomous targets.
   point, but it must be a deliberate, durably-encoded policy per PR, not silence;
   agent review may need to stand in. Resolved direction (2026-07-10):
   `decision`/`span` PR labels plus body rationale make skipping deliberate and
-  queryable, with agent review standing in on spans.
+  queryable, with agent review standing in on spans. Revised (2026-07-11, live
+  grilling): rendering is `[decision]`/`[span]` title prefixes plus the
+  grammar-bearing branch names; labels moved to Parked as consumer-less.
 - **Risk — workflow bifurcation.** An additional path that never proves out leaves
   two half-workflows. The promotion decision (criterion 3) is the forcing function:
   promote or retire deliberately.
@@ -164,6 +166,9 @@ graduates into roadmap rows as the Frontier advances:
   unchanged); the open question is PR count itself.
 - Interaction with Objectives, branch-context, and handoffs: how a commit run relates
   to objective runner steps, attached plans, and multi-session continuation.
+  Partially graduated (2026-07-11): smush-time objective binding via packaging-event
+  Semantic Updates is now a roadmap row; runner-step, branch-context, and handoff
+  interaction remains Fog.
 - Run-piece completion signalling and slot lifecycle at the CCC join: dispatched
   slots are never reclaimed automatically today and the concatenation join wants
   piece slots released first; how the orchestrator learns a piece is done (beyond

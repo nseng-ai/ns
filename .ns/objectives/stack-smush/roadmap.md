@@ -62,7 +62,12 @@ session on 2026-07-10 (see
       rationale make review policy durable, visible, and queryable; decision PRs
       request careful human review, while span PRs get agent review (the reviews
       capability) as the deliberate stand-in. PR metadata is outside the local-only
-      smush skill.
+      smush skill. Revised (2026-07-11, live grilling session — see
+      `updates/2026-07-11T073927Z-decision-lifecycle-first-runs-and-grilling-resolutions.md`):
+      post-submit rendering is `[decision]`/`[span]` **title prefixes** plus the
+      grammar-bearing branch names themselves; PR labels were judged consumer-less —
+      automation parses `headRefName` grammar directly — and moved to Parked behind a
+      concrete query consumer.
 - [ ] **Repackaging under change** (prototype) — Now unblocked. Prototype re-slicing
       a live, reviewed stack: review feedback beneath a decision PR, re-slicing a
       squashed span, and post-submit reclassification where branch renames threaten
@@ -138,6 +143,39 @@ session on 2026-07-10 (see
       mechanically parseable branch-name grammar `<run>--<NN><c>-<slug>`
       (`c` ∈ {`d`,`s`}, index from trunk) that the slice-map ratification proposal
       required of this row.
+- [ ] **Classification-aware PR titling in flow submit** (task) — Derive
+      `[decision]`/`[span]` title prefixes from the `<run>--<NN><c>-<slug>` branch
+      grammar at submit time and preserve them across title regeneration (today flow
+      regenerates the whole title and would strip them). No labels — see the
+      review-policy revision above. Consumer-neutral flow-side work: nothing beyond
+      grammar parsing enters the flow package. Proven manually on PRs #3364–#3371 and
+      #3377–#3381 (2026-07-10/11).
+- [ ] **Decisions-log convention** (task) — Canonize the isolated PR-body decisions-log
+      block proven on both live stacks: `<!-- ns-decisions-log:begin -->` /
+      `<!-- ns-decisions-log:end -->` markers outside flow's managed generated region,
+      entries of the form `Pending → Accepted/Rejected — date (@who)` with rationale and
+      a pointer to the committed record. Contract (resolved 2026-07-11, live grilling):
+      the decision record committed on the decision branch is **canonical**; the PR
+      block is a subordinate mirror that flow treats as opaque human-owned text
+      (**preserve-opaque**). Deliverables: convention prose plus a flow guard test that
+      non-managed body text survives description regeneration. Render-from-record is
+      Parked.
+- [ ] **Decide-skill authoring** (task) — Author the post-submit decision-loop skill:
+      walk each decision PR bottom-up; present the decision, trade-off, and a
+      recommendation to the human; on their answer, commit a decision record as a
+      Semantic Update on the decision branch (via `gt modify -c`, descendants
+      restacked), and flip the PR mirror from Pending to Accepted/Rejected. The owning
+      Objective is discovered from the smush-time packaging-event update (next row).
+      Loop proven manually across seven decision PRs on 2026-07-10/11 (see update). A
+      deterministic CLI push-down is Parked.
+- [ ] **Smush-time objective binding** (task) — Amend the smush skill to take the owning
+      Objective as invocation input (inferred from context, else asked) and to record
+      the packaging event — run, resulting stack branches, classification — as a
+      Semantic Update under that Objective (resolved 2026-07-11, live grilling: chosen
+      over commit-message trailers and brmem so the linkage lives in the Objective's
+      own update stream; repackaging appends further events). This keeps decision
+      records' home unambiguous for the decide skill and partially graduates the
+      objectives-interaction Fog item.
 
 ## Parked
 
@@ -155,3 +193,15 @@ session on 2026-07-10 (see
 - Promotion to the default agent workflow — already decided as the direction if the
   additional path proves out on real work; the rollout is follow-on work gated on the
   recorded promotion decision (Completion Criteria 3), likely its own Objective.
+- **PR classification labels** — `decision`/`span` GitHub labels, dropped from the
+  review-policy resolution on 2026-07-11: automation already parses the branch-name
+  grammar from `headRefName`, so labels have no consumer today. Graduate only when a
+  concrete consumer needs label-based UI filtering or querying.
+- **Render-from-record decisions-log** — flow re-rendering the PR decisions-log block
+  from the committed decision record (needs point-catalog wiring to stay
+  consumer-neutral). Preserve-opaque is the contract; graduate only on observed
+  mirror/record drift in real runs.
+- **Decide CLI push-down** — a deterministic decision-recording command (objective-side,
+  e.g. under `ns objective exec`, never the flow package) for the decide loop: write
+  the Semantic Update on the decision branch, commit/restack, flip the PR mirror.
+  Graduate on repetition evidence beyond the first manual runs of the decide skill.
