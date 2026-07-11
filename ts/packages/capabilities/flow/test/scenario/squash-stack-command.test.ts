@@ -60,6 +60,23 @@ describe("flow squash-stack command outcomes", () => {
 		expect(stderr).toContain("forked stack");
 	});
 
+	test("successful discovery command with a failure envelope omits command transcript", async () => {
+		const exec: ScriptedExecResponse[] = [
+			{ match: "git status --porcelain=v1", result: {} },
+			{
+				match: STACK_DISCOVERY,
+				result: { stdout: JSON.stringify({ status: "failure", message: "stack unavailable" }) },
+			},
+		];
+		const run = runFlowSquashStackCommandWithFakes({ state: { exec } });
+
+		expect(await run.exit).toBe(1);
+		const stderr = stripAnsi(run.stderr.join(""));
+		expect(stderr).toContain("stack unavailable");
+		expect(stderr).not.toContain(`Command: ${STACK_DISCOVERY}`);
+		expect(stderr).not.toContain('"status":"failure"');
+	});
+
 	test("mid-stack squash failure stops immediately with failed command details", async () => {
 		const exec: ScriptedExecResponse[] = [
 			{ match: "git status --porcelain=v1", result: {} },

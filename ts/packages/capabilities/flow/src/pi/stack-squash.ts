@@ -1,4 +1,3 @@
-import { commandSucceeded } from "@nseng-ai/foundation/command";
 import { formatCommandOutput, notifyCommandUi } from "@nseng-ai/pi/commands/helpers";
 import {
 	registerCommandWithImmediateAck,
@@ -11,6 +10,7 @@ import {
 	describeStackSquashOutcome,
 	formatStackSquashSummary,
 	runStackSquashFlow,
+	stackSquashCommandFailureDetail,
 	type StackSquashCommandFailure,
 } from "../stack-squash/stack-squash.ts";
 import { type FlowCommandContext, type FlowRegisteredCommand } from "./command-support.ts";
@@ -67,42 +67,26 @@ export async function runStackSquash(
 		case "success":
 			notifyCommandUi(ctx, formatStackSquashSummary(outcome.processed), "info");
 			return;
-		case "worktree-probe-failed":
-			notifyCommandUi(
-				ctx,
-				formatFailureMessage(describeStackSquashOutcome(outcome), outcome),
-				"error",
-			);
-			return;
 		case "worktree-dirty":
 			notifyCommandUi(ctx, `${describeStackSquashOutcome(outcome)}\n\n${outcome.status}`, "error");
-			return;
-		case "stack-discovery-failed":
-			notifyCommandUi(ctx, formatDiscoveryFailure(outcome), "error");
 			return;
 		case "empty-stack":
 			notifyCommandUi(ctx, describeStackSquashOutcome(outcome), "info");
 			return;
+		case "worktree-probe-failed":
+		case "stack-discovery-failed":
 		case "checkout-failed":
 		case "squash-failed":
-		case "tip-restore-failed":
+		case "tip-restore-failed": {
+			const message = describeStackSquashOutcome(outcome);
+			const failure = stackSquashCommandFailureDetail(outcome);
 			notifyCommandUi(
 				ctx,
-				formatFailureMessage(describeStackSquashOutcome(outcome), outcome),
+				failure === undefined ? message : formatFailureMessage(message, failure),
 				"error",
 			);
+		}
 	}
-}
-
-function formatDiscoveryFailure(
-	outcome: Extract<
-		Awaited<ReturnType<typeof runStackSquashFlow>>,
-		{ kind: "stack-discovery-failed" }
-	>,
-): string {
-	const message = describeStackSquashOutcome(outcome);
-	if (commandSucceeded(outcome.execResult)) return message;
-	return `${message}\n\n${formatCommandOutput(outcome.execResult)}`;
 }
 
 function formatFailureMessage(message: string, failure: StackSquashCommandFailure): string {

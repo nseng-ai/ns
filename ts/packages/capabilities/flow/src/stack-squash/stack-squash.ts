@@ -170,6 +170,23 @@ export async function runStackSquashFlow(
 	return { kind: "success", processed };
 }
 
+export function stackSquashCommandFailureDetail(
+	outcome: Exclude<StackSquashOutcome, { kind: "success" }>,
+): StackSquashCommandFailure | undefined {
+	switch (outcome.kind) {
+		case "worktree-probe-failed":
+		case "checkout-failed":
+		case "squash-failed":
+		case "tip-restore-failed":
+			return outcome;
+		case "stack-discovery-failed":
+			return commandSucceeded(outcome.execResult) ? undefined : outcome;
+		case "worktree-dirty":
+		case "empty-stack":
+			return undefined;
+	}
+}
+
 export function describeStackSquashOutcome(
 	outcome: Exclude<StackSquashOutcome, { kind: "success" }>,
 ): string {
