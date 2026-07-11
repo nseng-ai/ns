@@ -126,11 +126,11 @@ function appendToExistingExtensionsArray(source: string, spec: string): string |
 	const openIndex = startLine.indexOf("[", equalsIndex);
 	if (equalsIndex === -1 || openIndex === -1) return undefined;
 	const openOffset = (offsets[startIndex] ?? 0) + openIndex;
-	const layout = scanExtensionsArray(source, openOffset);
-	if (layout === undefined) return undefined;
+	const scan = scanExtensionsArray(source, openOffset);
+	if (scan === undefined) return undefined;
 	const closeLineIndex = offsets.findIndex(
 		(offset, index) =>
-			layout.closeOffset >= offset && layout.closeOffset < offset + (lines[index]?.length ?? 0),
+			scan.closeOffset >= offset && scan.closeOffset < offset + (lines[index]?.length ?? 0),
 	);
 	if (closeLineIndex === -1) return undefined;
 	return appendBeforeArrayClose({
@@ -139,7 +139,7 @@ function appendToExistingExtensionsArray(source: string, spec: string): string |
 		startIndex,
 		closeLineIndex,
 		spec,
-		layout,
+		scan,
 	});
 }
 
@@ -149,43 +149,42 @@ function appendBeforeArrayClose(options: {
 	readonly startIndex: number;
 	readonly closeLineIndex: number;
 	readonly spec: string;
-	readonly layout: ExtensionsArrayLayout;
+	readonly scan: ExtensionsArrayScan;
 }): string {
 	const offsets = lineStartOffsets(options.lines);
 	const closeLineOffset = offsets[options.closeLineIndex] ?? 0;
-	const closeOffset = options.layout.closeOffset;
+	const closeOffset = options.scan.closeOffset;
 	const encodedSpec = JSON.stringify(options.spec);
 	if (options.closeLineIndex === options.startIndex) {
 		const separator =
-			options.layout.lastValueEnd === undefined || options.layout.hasTrailingComma ? "" : ",";
-		const trailingComma = options.layout.hasTrailingComma ? "," : "";
+			options.scan.lastValueEnd === undefined || options.scan.hasTrailingComma ? "" : ",";
+		const trailingComma = options.scan.hasTrailingComma ? "," : "";
 		return `${options.source.slice(0, closeOffset)}${separator} ${encodedSpec}${trailingComma}${options.source.slice(closeOffset)}`;
 	}
 	const closeLine = options.lines[options.closeLineIndex] ?? "";
 	const closeIndent = closeLine.match(/^\s*/u)?.[0] ?? "";
 	const itemIndent =
-		options.layout.lastValueStart === undefined
+		options.scan.lastValueStart === undefined
 			? `${closeIndent}\t`
-			: indentationAt(options.source, options.layout.lastValueStart);
-	const trailingComma = options.layout.hasTrailingComma ? "," : "";
-	let next = `${options.source.slice(0, closeLineOffset)}${itemIndent}${encodedSpec}${trailingComma}\n${options.source.slice(closeLineOffset)}`;
-	if (options.layout.lastValueEnd !== undefined && !options.layout.hasTrailingComma) {
-		next = `${next.slice(0, options.layout.lastValueEnd)},${next.slice(options.layout.lastValueEnd)}`;
+			: indentationAt(options.source, options.scan.lastValueStart);
+	const trailingComma = options.scan.hasTrailingComma ? "," : "";
+	const lineEnding = options.scan.lineEndingBeforeClose ?? "\n";
+	let next = `${options.source.slice(0, closeLineOffset)}${itemIndent}${encodedSpec}${trailingComma}${lineEnding}${options.source.slice(closeLineOffset)}`;
+	if (options.scan.lastValueEnd !== undefined && !options.scan.hasTrailingComma) {
+		next = `${next.slice(0, options.scan.lastValueEnd)},${next.slice(options.scan.lastValueEnd)}`;
 	}
 	return next;
 }
 
-interface ExtensionsArrayLayout {
+interface ExtensionsArrayScan {
 	readonly closeOffset: number;
 	readonly lastValueStart: number | undefined;
 	readonly lastValueEnd: number | undefined;
 	readonly hasTrailingComma: boolean;
+	readonly lineEndingBeforeClose: "\n" | "\r\n" | undefined;
 }
 
-function scanExtensionsArray(
-	source: string,
-	openOffset: number,
-): ExtensionsArrayLayout | undefined {
+function scanExtensionsArray(source: string, openOffset: number): ExtensionsArrayScan | undefined {
 	if (openOffset < 0 || source[openOffset] !== "[") return undefined;
 	let depth = 1;
 	let quote: '"' | "'" | undefined;
@@ -195,12 +194,15 @@ function scanExtensionsArray(
 	let lastValueStart: number | undefined;
 	let lastValueEnd: number | undefined;
 	let hasTrailingComma = false;
+	let lineEndingBeforeClose: "\n" | "\r\n" | undefined;
 	for (let index = openOffset + 1; index < source.length; index += 1) {
 		const char = source[index];
-		if (isComment) {
-			if (char === "\n") isComment = false;
+		if (char === "\n") {
+			lineEndingBeforeClose = source[index - 1] === "\r" ? "\r\n" : "\n";
+			if (isComment) isComment = false;
 			continue;
 		}
+		if (isComment) continue;
 		if (quote !== undefined) {
 			if (quote === '"' && char === "\\" && !isEscaped) {
 				isEscaped = true;
@@ -234,7 +236,13 @@ function scanExtensionsArray(
 		if (char === "]") {
 			depth -= 1;
 			if (depth === 0) {
-				return { closeOffset: index, lastValueStart, lastValueEnd, hasTrailingComma };
+				return {
+					closeOffset: index,
+					lastValueStart,
+					lastValueEnd,
+					hasTrailingComma,
+					lineEndingBeforeClose,
+				};
 			}
 			continue;
 		}
