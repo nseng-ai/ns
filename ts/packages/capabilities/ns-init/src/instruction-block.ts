@@ -1,7 +1,8 @@
 import { parseManagedRegion, replaceManagedRegion } from "@nseng-ai/foundation/managed-region";
 
+import { GENERATED_INSTRUCTIONS_PATH } from "./activation-files.ts";
+
 export const NS_POINTER_STANZA_VERSION = 1;
-export const GENERATED_INSTRUCTIONS_PATH = ".ns/instructions.md";
 
 const BEGIN_MARKER_PREFIX = "<!-- ns:begin";
 const END_MARKER = "<!-- ns:end -->";
@@ -13,7 +14,7 @@ This repository uses ns. \`ns.toml\` declares its harnesses and extensions; run
 \`ns --help\` for the available command surface.`;
 
 export function renderNsPointerStanza(): string {
-	return `${BEGIN_MARKER_PREFIX} v${NS_POINTER_STANZA_VERSION} -->\n\nRead @.ns/instructions.md before working in this repository — ns tooling\ninstructions for agents (generated file).\n\n${END_MARKER}`;
+	return `${BEGIN_MARKER_PREFIX} v${NS_POINTER_STANZA_VERSION} -->\n\nRead @${GENERATED_INSTRUCTIONS_PATH} before working in this repository — ns tooling\ninstructions for agents (generated file).\n\n${END_MARKER}`;
 }
 
 export type ApplyNsPointerStanzaResult =

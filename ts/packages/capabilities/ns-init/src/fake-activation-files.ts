@@ -1,7 +1,6 @@
 import {
 	ACTIVATION_FILE_PATHS,
-	activationKindMismatch,
-	activationPresenceMismatch,
+	compareActivationTextFileState,
 	compareConsumerDirectoryState,
 	type ActivationFileParams,
 	type ActivationFilesCompareResult,
@@ -11,7 +10,6 @@ import {
 	type CompareAndWriteActivationFileParams,
 	type ConsumerDirectoryInspectionResult,
 	type ConsumerDirectoryParams,
-	type PreparedStateMismatchDetails,
 } from "./activation-files.ts";
 import type { NsInitErrorInfo } from "./error-info.ts";
 
@@ -88,7 +86,7 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 		const relativePath = ACTIVATION_FILE_PATHS[params.file];
 		const actual = await this.readActivationFile(params);
 		if (actual.type === "error") return { type: "error", error: actual.error };
-		const mismatch = compareFileState(relativePath, params.expected, actual);
+		const mismatch = compareActivationTextFileState(relativePath, params.expected, actual);
 		if (mismatch !== undefined) return { type: "mismatch", details: mismatch };
 		const failure = this.writeFailures[relativePath];
 		if (failure !== undefined) return { type: "error", error: failure };
@@ -152,34 +150,4 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 	operations(): readonly ActivationFileOperation[] {
 		return [...this.operationLog];
 	}
-}
-
-function compareFileState(
-	path: string,
-	expected: CompareAndWriteActivationFileParams["expected"],
-	actual: Exclude<ActivationTextFileReadResult, { type: "error" }>,
-): PreparedStateMismatchDetails | undefined {
-	if (actual.type === "not-file") {
-		return activationKindMismatch(
-			path,
-			expected.type === "missing" ? "missing" : "file",
-			"directory",
-		).details;
-	}
-	if (expected.type === "missing") {
-		return actual.type === "missing"
-			? undefined
-			: activationPresenceMismatch(path, "missing", "present").details;
-	}
-	if (actual.type === "missing") {
-		return activationPresenceMismatch(path, "present", "missing").details;
-	}
-	return actual.content === expected.content
-		? undefined
-		: {
-				type: "content",
-				path,
-				expectedContent: expected.content,
-				actualContent: actual.content,
-			};
 }

@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import {
 	activationCompletedSchema,
+	activationRepositoryFailureDiagnostic,
 	applyNsActivation,
 	prepareNsActivation,
 	resolveActivationRepository,
@@ -254,28 +255,12 @@ function configReadFailure(
 function repositoryFailure(
 	result: Exclude<ResolveActivationRepositoryResult, { type: "resolved" }>,
 ): ClinkrExit<InstallExtensionResult> {
-	switch (result.type) {
-		case "not-a-git-repo":
-			return failure(
-				"ns-extension-install-not-a-git-repo",
-				result.message,
-				preflightFailureEnvelope([
-					{ code: "not-a-git-repo", message: result.message, path: result.cwd },
-				]),
-			);
-		case "trunk-undetectable":
-			return failure(
-				"ns-extension-install-trunk-undetectable",
-				result.message,
-				preflightFailureEnvelope([
-					{ code: "trunk-undetectable", message: result.message, path: result.repoRoot },
-				]),
-			);
-		case "error":
-			return failure(
-				"ns-extension-install-repository-failed",
-				result.error.message,
-				preflightFailureEnvelope([result.error]),
-			);
-	}
+	const diagnostic = activationRepositoryFailureDiagnostic(result);
+	const errorType =
+		result.type === "not-a-git-repo"
+			? "ns-extension-install-not-a-git-repo"
+			: result.type === "trunk-undetectable"
+				? "ns-extension-install-trunk-undetectable"
+				: "ns-extension-install-repository-failed";
+	return failure(errorType, diagnostic.message, preflightFailureEnvelope([diagnostic]));
 }
