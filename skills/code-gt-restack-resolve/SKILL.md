@@ -2,7 +2,7 @@
 name: code-gt-restack-resolve
 disable-model-invocation: true
 description: "Restack the current Graphite stack with conflict resolution — full stack by default like `gt restack`, downstack on request. Auto-merge mechanically-safe conflicts (verified with project checks), escalate ambiguous ones. Use for 'restack and resolve conflicts', 'intelligent/auto restack', 'full restack', 'whole-stack restack', 'downstack restack', or a restack expected to conflict."
-model: sonnet
+model: opus
 ---
 
 # code-gt-restack-resolve
@@ -43,7 +43,7 @@ When the engine's Driver contract asks for overrides, use:
   selected scope** (an upstack branch during downstack scope, or a
   sibling/unrelated stack during any scope)
 - **Post-completion checks:** `git status` is clean; `ns slot gt exec stack-branches --format json` answers structured topology; `gt log` / `gt ls` may be used only as visual confirmation
-- **Subagent model tier:** Claude Code uses Sonnet 5; other harnesses use their strong/smart implementation tier; never the cheap/fast review tier
+- **Subagent model tier:** Claude Code uses Opus; other harnesses use their strong/smart implementation tier; never the cheap/fast review tier
 - **Escalation channel:** `return-to-parent`. A driven conflict subagent must
   not prompt the user. If escalation is required, it leaves the rebase stopped,
   returns the engine's structured escalation payload to the parent, and does
@@ -204,13 +204,12 @@ cheap/fast model tier.
 When the harness supports per-dispatch model selection, request the model below
 for these restack conflict subagents. Concrete examples:
 
-- Claude Code: launch the `Agent` conflict-resolution subagent on Sonnet 5
-  (use the Claude Code `sonnet`/Sonnet 5 selector available in the current
-  installation). Do not select Opus for this workflow.
+- Claude Code: launch the `Agent` conflict-resolution subagent on Opus
+  (use the Claude Code `opus` selector available in the current installation).
 - OpenAI Codex-backed Pi: call `subagent` with `agent: "task"` and set `model` to
   `openai-codex/gpt-5.6-sol:high` (or the local equivalent Sol model pattern).
 - Anthropic-backed Pi: call `subagent` with `agent: "task"` and set `model` to
-  `claude-sonnet-5` (or the local equivalent Sonnet 5 model pattern).
+  the current `claude-opus` model (or the local equivalent Opus model pattern).
 
 If per-dispatch model selection is unavailable, continue with the session's
 current model but mention that no explicit smart model could be requested. Never
