@@ -79,6 +79,12 @@ export interface PreparedDeclaredArtifactActivation {
 	readonly reconciliation: PreparedProjectHarnessArtifactTransitions;
 }
 
+export function preparedDeclaredArtifactActivationItemArtifactId(
+	item: PreparedDeclaredArtifactActivation["artifacts"][number],
+): string {
+	return item.type === "remove" ? item.removal.entry.artifactId : item.artifact.id;
+}
+
 export interface PrepareDeclaredArtifactActivationRequest {
 	readonly projectRoot: string;
 	readonly modules: readonly DeclaredExtensionModuleArtifactFacts[];

@@ -133,6 +133,7 @@ export {
 	applyPreparedDeclaredArtifactActivation,
 	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
 	prepareDeclaredArtifactActivation,
+	preparedDeclaredArtifactActivationItemArtifactId,
 	type ApplyPreparedDeclaredArtifactActivationResult,
 	type DeclaredArtifactActivationAction,
 	type DeclaredArtifactActivationOutcome,
@@ -166,22 +167,13 @@ export {
 	type InstallManifestSourceData,
 } from "./provision-manifest.ts";
 export {
-	applyPreparedHarnessArtifactRemoval,
 	HARNESS_ARTIFACT_REMOVAL_REASONS,
-	prepareHarnessArtifactRemoval,
 	type HarnessArtifactRemovalReason,
 	type PreparedHarnessArtifactRemoval,
 } from "./provision-removal.ts";
 export {
-	applyPreparedProvisionReconciliation,
 	createEmptyPreparedProjectHarnessArtifactTransitions,
-	createPreparedHarnessArtifactProvisionTransition,
-	createPreparedHarnessArtifactRemovalTransition,
-	type AppliedHarnessArtifactTransition,
-	type AppliedProvisionReconciliation,
 	type HarnessArtifactProvisionReconciliationErrorInfo,
-	type PreparedHarnessArtifactTransition,
-	type PreparedProvisionReconciliation,
 } from "./project-harness-artifact-transitions.ts";
 export {
 	buildProvisionPlan,

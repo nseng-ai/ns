@@ -139,11 +139,11 @@ export async function loadDeclaredExtensionDescriptors(
 	return { descriptors, diagnostics };
 }
 
-type NormalizedDeclaredExtensionSpec = {
+interface NormalizedDeclaredExtensionSpec {
 	readonly spec: string;
 	readonly parsed: ReturnType<typeof parseExtensionSourceSpec>;
 	readonly identity?: string;
-};
+}
 
 function normalizeDeclaredExtensionSpecs(
 	repoRoot: string,

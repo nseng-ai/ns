@@ -72,21 +72,19 @@ export async function installExtension(
 				: "ns-extension-install-harnesses-invalid",
 			`${diagnostic.message} Run ns init with an explicit harness before installing extensions.`,
 			{
-				phase: "preflight",
-				diagnostics: normalizeDiagnostics([{ ...diagnostic, path: "ns.toml" }]),
+				...preflightFailureEnvelope([{ ...diagnostic, path: "ns.toml" }]),
 				nextCommand: "ns init --harness <claude-code|codex|pi>",
-				completed: {},
 			},
 		);
 	}
 
 	const parsedSource = parseExtensionSourceSpec(repoRoot, request.source);
 	if (!parsedSource.ok) {
-		return failure("ns-extension-install-source-invalid", parsedSource.error.message, {
-			phase: "preflight",
-			diagnostics: normalizeDiagnostics([parsedSource.error]),
-			completed: {},
-		});
+		return failure(
+			"ns-extension-install-source-invalid",
+			parsedSource.error.message,
+			preflightFailureEnvelope([parsedSource.error]),
+		);
 	}
 	if (parsedSource.value.kind === "git") {
 		return unsupportedSource(request.source);
@@ -108,13 +106,13 @@ export async function installExtension(
 			});
 		}
 		if (declaration.reason === "invalid-source") return unsupportedSource(request.source);
-		return failure("ns-extension-install-config-invalid", declaration.message, {
-			phase: "preflight",
-			diagnostics: normalizeDiagnostics([
+		return failure(
+			"ns-extension-install-config-invalid",
+			declaration.message,
+			preflightFailureEnvelope([
 				{ code: declaration.reason, message: declaration.message, path: "ns.toml" },
 			]),
-			completed: {},
-		});
+		);
 	}
 
 	const acquired = await context.acquisition.ensure({
@@ -145,11 +143,7 @@ export async function installExtension(
 		return failure(
 			"ns-extension-install-preflight-failed",
 			"Extension activation preflight failed; no project files were written.",
-			{
-				phase: "preflight",
-				diagnostics: normalizeDiagnostics(prepared.diagnostics),
-				completed: {},
-			},
+			preflightFailureEnvelope(prepared.diagnostics),
 		);
 	}
 	const selected = prepared.activation.descriptors.find(
@@ -159,16 +153,12 @@ export async function installExtension(
 		return failure(
 			"ns-extension-install-preflight-failed",
 			`The acquired extension descriptor was not selected for ${request.source}.`,
-			{
-				phase: "preflight",
-				diagnostics: [
-					{
-						code: "extension-descriptor-not-selected",
-						message: `No validated descriptor was selected for ${request.source}.`,
-					},
-				],
-				completed: {},
-			},
+			preflightFailureEnvelope([
+				{
+					code: "extension-descriptor-not-selected",
+					message: `No validated descriptor was selected for ${request.source}.`,
+				},
+			]),
 		);
 	}
 
@@ -207,6 +197,14 @@ export function renderInstallExtensionHuman(result: InstallExtensionResult): str
 	].join("\n");
 }
 
+function preflightFailureEnvelope<T extends { readonly code: string }>(diagnostics: readonly T[]) {
+	return {
+		phase: "preflight" as const,
+		diagnostics: normalizeDiagnostics(diagnostics),
+		completed: {},
+	};
+}
+
 function normalizeDiagnostics<T extends { readonly code: string }>(
 	diagnostics: readonly T[],
 ): readonly (Omit<T, "code"> & { readonly code: string })[] {
@@ -235,11 +233,11 @@ function configReadFailure(
 	repoRoot: string,
 ): ClinkrExit<InstallExtensionResult> {
 	if (result.type === "error") {
-		return failure("ns-extension-install-config-invalid", result.error.message, {
-			phase: "preflight",
-			diagnostics: normalizeDiagnostics([{ ...result.error, path: "ns.toml" }]),
-			completed: {},
-		});
+		return failure(
+			"ns-extension-install-config-invalid",
+			result.error.message,
+			preflightFailureEnvelope([{ ...result.error, path: "ns.toml" }]),
+		);
 	}
 	const message =
 		result.type === "missing"
@@ -258,24 +256,26 @@ function repositoryFailure(
 ): ClinkrExit<InstallExtensionResult> {
 	switch (result.type) {
 		case "not-a-git-repo":
-			return failure("ns-extension-install-not-a-git-repo", result.message, {
-				phase: "preflight",
-				diagnostics: [{ code: "not-a-git-repo", message: result.message, path: result.cwd }],
-				completed: {},
-			});
+			return failure(
+				"ns-extension-install-not-a-git-repo",
+				result.message,
+				preflightFailureEnvelope([
+					{ code: "not-a-git-repo", message: result.message, path: result.cwd },
+				]),
+			);
 		case "trunk-undetectable":
-			return failure("ns-extension-install-trunk-undetectable", result.message, {
-				phase: "preflight",
-				diagnostics: [
+			return failure(
+				"ns-extension-install-trunk-undetectable",
+				result.message,
+				preflightFailureEnvelope([
 					{ code: "trunk-undetectable", message: result.message, path: result.repoRoot },
-				],
-				completed: {},
-			});
+				]),
+			);
 		case "error":
-			return failure("ns-extension-install-repository-failed", result.error.message, {
-				phase: "preflight",
-				diagnostics: normalizeDiagnostics([result.error]),
-				completed: {},
-			});
+			return failure(
+				"ns-extension-install-repository-failed",
+				result.error.message,
+				preflightFailureEnvelope([result.error]),
+			);
 	}
 }

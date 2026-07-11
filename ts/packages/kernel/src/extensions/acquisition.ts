@@ -11,14 +11,10 @@ import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
 import { parseExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
-import {
-	managedNpmProjectRoot,
-	npmPackageRoot,
-} from "../project-config/managed-extension-paths.ts";
+import { managedNpmPackagePaths } from "../project-config/managed-extension-paths.ts";
 
 export { parseExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
 export {
-	MANAGED_EXTENSIONS_ROOT,
 	managedNpmProjectRoot,
 	npmPackageRoot,
 } from "../project-config/managed-extension-paths.ts";
@@ -205,8 +201,9 @@ export async function resolveDeclaredExtensionModules(
 			continue;
 		}
 
-		const npmProjectDir = managedNpmProjectRoot(request.projectRoot, parsed.value.packageName);
-		const packageRoot = npmPackageRoot(request.projectRoot, parsed.value.packageName);
+		const managedPaths = managedNpmPackagePaths(request.projectRoot, parsed.value.packageName);
+		const npmProjectDir = managedPaths.projectRoot;
+		const packageRoot = managedPaths.packageRoot;
 		const installed = await gateway.isNpmPackageInstalled(packageRoot);
 		if (!installed.ok) {
 			diagnostics.push(withSpec(installed.error, raw));
