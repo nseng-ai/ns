@@ -1,29 +1,17 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { describe, expect, test, vi } from "vitest";
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import {
-	PI_AGENT_DEFINITION_SCHEMA,
-	type PiAgentDefinition,
-} from "@nseng-ai/pi/runtime/agent-definition";
-import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
-import type { ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
+import type {
+	ExtensionAPI,
+	ExtensionHandler,
+	SessionShutdownEvent,
+	SessionStartEvent,
+} from "@earendil-works/pi-coding-agent";
 import {
 	createFunctionSubagentRuntime,
 	getOrCreateSubagentFleetRegistry,
 } from "@nseng-ai/ns-pi-subagents/api";
-import nsPiSubagentsExtension, {
-	type NsPiSubagentsExtensionAPI,
-} from "@nseng-ai/ns-pi-subagents/extension";
-import {
-	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
-	type JsonObject,
-	type RunnerSubagentCompletedResult,
-	type RunnerSubagentStoppedWithoutTerminalResult,
-} from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import { RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES } from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
 import thermoCouncilExtension, {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
 	SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
@@ -37,8 +25,8 @@ import thermoCouncilExtension, {
 	type ThermoCouncilReviewerOutcome,
 	type ThermoCouncilScope,
 	type ThermoCouncilSeatConfig,
-	reviewerOutcomeFromRunnerResult,
 } from "../../src/thermo-council/index.ts";
+import type { ThermoCouncilExtensionAPI } from "../../src/thermo-council/host-api.ts";
 import {
 	FakeSpawnedChildProcess,
 	createFakeRunnerSubagentDispatcher,
@@ -67,40 +55,17 @@ interface FakeExecResult {
 }
 
 type FakeExecHandler = (command: string, args: readonly string[]) => FakeExecResult | undefined;
+type SessionStartHandler = ExtensionHandler<SessionStartEvent>;
+type SessionShutdownHandler = ExtensionHandler<SessionShutdownEvent>;
 
-class FakeAgentsPi implements NsPiSubagentsExtensionAPI {
-	readonly tools = new Map<string, ToolDefinition>();
-	readonly events: ExtensionAPI["events"];
-
-	constructor(events: ExtensionAPI["events"]) {
-		this.events = events;
-	}
-
-	getThinkingLevel(): "off" {
-		return "off";
-	}
-
-	async exec(
-		_command: string,
-		_args: string[],
-		_options?: RawPiExecOptions,
-	): Promise<RawPiExecResult> {
-		return { stdout: "", stderr: "", code: 0, killed: false };
-	}
-
-	registerTool(definition: ToolDefinition): void {
-		this.tools.set(definition.name, definition);
-	}
-
-	readonly on = (() => {}) as ExtensionAPI["on"];
-}
-
-class FakePi {
+class FakePi implements ThermoCouncilExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messages: Array<{ customType: string; content: string; display: boolean }> = [];
 	readonly execCalls: ExecCall[] = [];
 	readonly runnerCalls: SpawnCall[] = [];
 	readonly events: ExtensionAPI["events"];
+	readonly sessionStartHandlers: SessionStartHandler[] = [];
+	readonly sessionShutdownHandlers: SessionShutdownHandler[] = [];
 	readonly [RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
 	private readonly execResults: Map<string, FakeExecResult>;
 	private readonly execHandler: FakeExecHandler | undefined;
@@ -113,11 +78,10 @@ class FakePi {
 			runnerResult?: RuntimeResultV1;
 			runnerDependencies?: RunnerSubagentDispatcherDependencies;
 			finalSynthesisText?: string;
-			events?: ExtensionAPI["events"];
 		} = {},
 	) {
 		this.execResults = options.execResults ?? new Map();
-		this.events = options.events ?? fakeEventBus();
+		this.events = fakeEventBus();
 		this.execHandler = options.execHandler;
 		this.finalSynthesisText = options.finalSynthesisText ?? defaultFinalSynthesisText();
 		if (options.runnerDependencies !== undefined) {
@@ -131,19 +95,34 @@ class FakePi {
 		this.commands.set(name, command);
 	}
 
+	readonly on = ((event: string, handler: SessionStartHandler | SessionShutdownHandler): void => {
+		if (event === "session_start") this.sessionStartHandlers.push(handler as SessionStartHandler);
+		if (event === "session_shutdown") {
+			this.sessionShutdownHandlers.push(handler as SessionShutdownHandler);
+		}
+	}) as ExtensionAPI["on"];
+
 	sendMessage(message: { customType: string; content: string; display: boolean }): void {
 		this.messages.push(message);
 	}
 
 	async exec(
 		command: string,
-		args: readonly string[],
-	): Promise<{ stdout: string; stderr: string; code: number }> {
+		args: string[],
+		_options?: RawPiExecOptions,
+	): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args] });
 		const key = `${command} ${args.join(" ")}`;
 		const result = this.execHandler?.(command, args) ?? this.execResults.get(key);
-		if (result === undefined) return { stdout: "", stderr: `missing fake exec: ${key}`, code: 1 };
-		return { stdout: result.stdout, stderr: result.stderr ?? "", code: result.code ?? 0 };
+		if (result === undefined) {
+			return { stdout: "", stderr: `missing fake exec: ${key}`, code: 1, killed: false };
+		}
+		return {
+			stdout: result.stdout,
+			stderr: result.stderr ?? "",
+			code: result.code ?? 0,
+			killed: false,
+		};
 	}
 
 	private runnerDependencies(runnerResult: RuntimeResultV1): RunnerSubagentDispatcherDependencies {
@@ -269,6 +248,38 @@ describe("thermo council extension", () => {
 			"inferred checkout scope",
 		);
 		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.argumentHint).toContain("review guidance");
+	});
+
+	test("initializes and owns the Fleet manager lifecycle without another extension", async () => {
+		const pi = new FakePi();
+		thermoCouncilExtension(pi);
+		const registry = fleetRegistry(pi);
+
+		expect(pi.commands.has(THERMO_COUNCIL_COMMAND_NAME)).toBe(true);
+		expect(pi.sessionStartHandlers).toHaveLength(1);
+		expect(pi.sessionShutdownHandlers).toHaveLength(1);
+
+		registry.startRun([{ title: "preserved on reload" }]);
+		await pi.sessionStartHandlers[0]?.(
+			{ type: "session_start", reason: "reload" },
+			undefined as never,
+		);
+		expect(registry.snapshot()).toHaveLength(1);
+
+		for (const reason of ["startup", "new", "resume", "fork"] as const) {
+			registry.startRun([{ title: reason }]);
+			await pi.sessionStartHandlers[0]?.({ type: "session_start", reason }, undefined as never);
+			expect(registry.snapshot()).toEqual([]);
+		}
+
+		await pi.sessionShutdownHandlers[0]?.(
+			{ type: "session_shutdown", reason: "quit" },
+			undefined as never,
+		);
+		const rebound = fleetRegistry(pi);
+		expect(rebound).toBe(registry);
+		expect(pi.sessionStartHandlers).toHaveLength(2);
+		expect(pi.sessionShutdownHandlers).toHaveLength(2);
 	});
 
 	test("parses default, positional, and seat-specific model overrides", () => {
@@ -486,26 +497,17 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).toContain("No branches were created");
 	});
 
-	test("surfaces reviewer and final synthesis progress across distinct extension facades", async () => {
+	test("surfaces reviewer and final synthesis progress through the Thermo Fleet manager", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ runtimeResult: completedRunnerResult() });
-		const events = fakeEventBus();
-		const agentsPi = new FakeAgentsPi(events);
-		const councilPi = new FakePi({
+		const pi = new FakePi({
 			execResults: successfulScopeExecResults(),
 			runnerDependencies: runner.dependencies,
-			events,
 		});
-		nsPiSubagentsExtension(agentsPi, {
-			cwd: "/repo",
-			loadAgentDefinition: loadAgentDefinition,
-		});
-		thermoCouncilExtension(councilPi);
-		const fleetRegistry = getOrCreateSubagentFleetRegistry(agentsPi);
+		thermoCouncilExtension(pi);
+		const registry = fleetRegistry(pi);
 		const ctx = fakeContext();
 
-		const running = councilPi.commands
-			.get(THERMO_COUNCIL_COMMAND_NAME)
-			?.handler("origin/master", ctx);
+		const running = pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", ctx);
 		await waitForSpawnCount(runner.calls, 3);
 		runner.calls[0]?.process.emitStdout(jsonLine({ type: "agent_start" }));
 		runner.calls[0]?.process.emitStdout(jsonLine({ type: "turn_start" }));
@@ -519,7 +521,7 @@ describe("thermo council extension", () => {
 			}),
 		);
 
-		const reviewerTasks = fleetRegistry.snapshot().flatMap((run) => run.tasks);
+		const reviewerTasks = registry.snapshot().flatMap((run) => run.tasks);
 		expect(reviewerTasks).toMatchObject([
 			{
 				title: "Thermo council: Fable",
@@ -542,58 +544,69 @@ describe("thermo council extension", () => {
 		await running;
 
 		expect(
-			fleetRegistry
+			registry
 				.snapshot()
 				.flatMap((run) => run.tasks)
 				.find((task) => task.title === "Thermo council final synthesis"),
 		).toEqual(expect.objectContaining({ state: "done", finalStatus: "final-text" }));
 	});
 
-	test("uses the explicitly injected fleet registry for repair subagents", async () => {
+	test("shows reviewers, repairs, and final synthesis in one managed Fleet", async () => {
 		const pi = new FakePi({ execResults: successfulScopeExecResults() });
-		const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
 		const runtime = createFunctionSubagentRuntime(async (input) => {
 			const title = input.options.title;
 			if (title === undefined) throw new Error("Expected Thermo Council dispatch title.");
+			const progress = {
+				title,
+				state: "stopped",
+				toolCount: 1,
+				turnCount: 1,
+				elapsedMs: 1,
+			} as const;
 			if (title.startsWith("Thermo council: ")) {
-				return malformedCompletedReviewerResult();
+				return {
+					status: "completed",
+					elapsedMs: 1,
+					progress,
+					terminal: {
+						toolName: SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
+						status: "completed",
+						input: { findings: [{ title: "missing required fields" }] },
+					},
+				};
 			}
 			if (title.startsWith("Thermo council payload repair:")) {
-				return finalTextRunnerResult(
-					title,
-					`/tmp/${title.replaceAll(" ", "-")}.jsonl`,
-					repairedReviewJson(),
-				);
+				return {
+					status: "final-text",
+					elapsedMs: 1,
+					progress,
+					finalText: JSON.stringify({ summary: "Repaired review", findings: [] }),
+				};
 			}
-			return finalTextRunnerResult(
-				title,
-				"/tmp/thermo-final-synthesis.jsonl",
-				defaultFinalSynthesisText(),
-			);
+			return {
+				status: "final-text",
+				elapsedMs: 1,
+				progress,
+				finalText: defaultFinalSynthesisText(),
+			};
 		});
-		thermoCouncilExtension(pi, { runtime, fleetRegistry });
+		thermoCouncilExtension(pi, { runtime });
+		const registry = fleetRegistry(pi);
 
 		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
 
-		const repairTasks = repairFleetTasks(fleetRegistry);
-		expect(repairTasks).toHaveLength(3);
-		expect(repairTasks).toMatchObject([
-			{
-				title: "Thermo council payload repair: Fable (attempt 1)",
-				state: "done",
-				finalStatus: "final-text",
-			},
-			{
-				title: "Thermo council payload repair: Sol (attempt 1)",
-				state: "done",
-				finalStatus: "final-text",
-			},
-			{
-				title: "Thermo council payload repair: Gemini (attempt 1)",
-				state: "done",
-				finalStatus: "final-text",
-			},
+		const tasks = registry.snapshot().flatMap((run) => run.tasks);
+		expect(tasks.filter((task) => task.title.startsWith("Thermo council: "))).toHaveLength(3);
+		expect(
+			tasks.filter((task) => task.title.startsWith("Thermo council payload repair:")),
+		).toMatchObject([
+			{ title: "Thermo council payload repair: Fable (attempt 1)", finalStatus: "final-text" },
+			{ title: "Thermo council payload repair: Sol (attempt 1)", finalStatus: "final-text" },
+			{ title: "Thermo council payload repair: Gemini (attempt 1)", finalStatus: "final-text" },
 		]);
+		expect(tasks.find((task) => task.title === "Thermo council final synthesis")).toEqual(
+			expect.objectContaining({ state: "done", finalStatus: "final-text" }),
+		);
 	});
 
 	test("honors a lower thermo council concurrency override", async () => {
@@ -707,67 +720,6 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).not.toContain("No council seat completed");
 	});
 
-	test("recovers reviewer payloads from malformed session JSONL without repair context", async () => {
-		const sessionDir = await mkdtemp(join(tmpdir(), "thermo-council-session-"));
-		const sessionFile = join(sessionDir, "session.jsonl");
-		await writeFile(
-			sessionFile,
-			[
-				"{malformed line}\n",
-				jsonLine({
-					type: "toolCall",
-					name: SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
-					arguments: {
-						summary: "Recovered from session file.",
-						findings: [
-							{
-								id: "session-1",
-								title: "Session recovered finding",
-								files: ["src/file.ts"],
-								evidence: "The valid tool call survived a malformed preceding line.",
-								problem: "Reviewer ended with final text before terminal capture surfaced.",
-								proposedFix: "Recover the newest valid tool-call payload from the session file.",
-								behaviorRisk: "Low risk when JSONL recovery stays parser-backed and lenient.",
-								dependencyNotes: "None",
-								confidence: "likely",
-								severity: "medium",
-								validationHints: ["just ts-test"],
-							},
-						],
-						disagreements: [],
-					},
-				}),
-			].join(""),
-			"utf8",
-		);
-
-		const pi = new FakePi();
-		const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
-		const outcome = await reviewerOutcomeFromRunnerResult(
-			seat("openai-high", "Sol"),
-			{
-				status: "final-text",
-				elapsedMs: 1,
-				progress: {
-					state: "stopped",
-					toolCount: 0,
-					turnCount: 1,
-					elapsedMs: 1,
-				},
-				sessionFile,
-				finalText: "unstructured final text",
-			},
-			{ pi, ctx: fakeContext(), fleetRegistry, seatLabel: "Sol" },
-		);
-
-		expect(outcome.type).toBe("completed");
-		if (outcome.type !== "completed") return;
-		expect(outcome.review.summary).toBe("Recovered from session file.");
-		expect(outcome.review.findings[0]?.title).toBe("Session recovered finding");
-		expect(outcome.review.findings[0]?.validationHints).toEqual(["just ts-test"]);
-		expect(repairFleetTasks(fleetRegistry)).toEqual([]);
-	});
-
 	test("formats malformed completed reviewer payloads without throwing", async () => {
 		const runnerResult: RuntimeResultV1 = {
 			version: 1,
@@ -783,182 +735,6 @@ describe("thermo council extension", () => {
 
 		expect(pi.messages[0]?.content).toContain("No council seat completed");
 		expect(pi.messages[0]?.content).toContain("<root>");
-	});
-
-	test("tracks a successful model repair as one seat-specific fleet task", async () => {
-		const { runner, pi, ctx, fleetRegistry } = repairTestHarness();
-		const running = reviewerOutcomeFromRunnerResult(
-			seat("anthropic-fable", "Fable"),
-			malformedCompletedReviewerResult(),
-			{ pi, ctx, fleetRegistry, seatLabel: "Fable" },
-		);
-		await waitForSpawnCount(runner.calls, 1);
-		runner.calls[0]?.process.emitStdout(jsonLine({ type: "agent_start" }));
-		runner.calls[0]?.process.emitStdout(jsonLine({ type: "turn_start" }));
-		runner.calls[0]?.process.emitStdout(
-			jsonLine({
-				type: "message_update",
-				message: {
-					role: "assistant",
-					content: [{ type: "text", text: "Repairing malformed payload." }],
-				},
-			}),
-		);
-
-		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
-			{
-				title: "Thermo council payload repair: Fable (attempt 1)",
-				state: "running",
-				latestActivity: "Repairing malformed payload.",
-			},
-		]);
-		runner.calls[0]?.process.emitStdout(
-			finalAssistantTextEvent(`Here is the repaired payload:\n${repairedReviewJson()}`),
-		);
-		runner.calls[0]?.process.close(0);
-
-		const outcome = await running;
-
-		expect(outcome.type).toBe("completed");
-		if (outcome.type !== "completed") return;
-		expect(outcome.review.findings[0]?.title).toBe("Recovered payload finding");
-		expect(outcome.review.findings[0]?.validationHints).toEqual(["just ts-test"]);
-		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
-			{
-				title: "Thermo council payload repair: Fable (attempt 1)",
-				state: "done",
-				finalStatus: "final-text",
-				sessionFile: "/tmp/thermo-repair-1.jsonl",
-			},
-		]);
-	});
-
-	test("tracks each bounded repair attempt with an independent fleet lifecycle", async () => {
-		const { runner, pi, ctx, fleetRegistry } = repairTestHarness();
-		const running = reviewerOutcomeFromRunnerResult(
-			seat("openai-high", "Sol"),
-			malformedCompletedReviewerResult(),
-			{ pi, ctx, fleetRegistry, seatLabel: "Sol" },
-		);
-		await waitForSpawnCount(runner.calls, 1);
-		runner.calls[0]?.process.emitStdout(finalAssistantTextEvent("not json"));
-		runner.calls[0]?.process.close(0);
-		await waitForSpawnCount(runner.calls, 2);
-
-		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
-			{
-				title: "Thermo council payload repair: Sol (attempt 1)",
-				state: "done",
-				finalStatus: "final-text",
-				sessionFile: "/tmp/thermo-repair-1.jsonl",
-			},
-			{
-				title: "Thermo council payload repair: Sol (attempt 2)",
-				state: "running",
-			},
-		]);
-		runner.calls[1]?.process.emitStdout(finalAssistantTextEvent(repairedReviewJson()));
-		runner.calls[1]?.process.close(0);
-
-		const outcome = await running;
-
-		expect(runner.calls).toHaveLength(2);
-		expect(runner.calls[1]?.args.join("\n")).toContain("Your previous repair draft was invalid");
-		expect(runner.calls[1]?.args.join("\n")).toContain("response contains no JSON object");
-		expect(outcome.type).toBe("completed");
-		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
-			{ state: "done", finalStatus: "final-text", sessionFile: "/tmp/thermo-repair-1.jsonl" },
-			{ state: "done", finalStatus: "final-text", sessionFile: "/tmp/thermo-repair-2.jsonl" },
-		]);
-	});
-
-	test("disposes fleet tracking when repair dispatch throws", async () => {
-		const pi = new FakePi();
-		const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
-		const runtime = createFunctionSubagentRuntime(async () => {
-			throw new Error("repair dispatch exploded");
-		});
-
-		await expect(
-			reviewerOutcomeFromRunnerResult(
-				seat("anthropic-fable", "Fable"),
-				malformedCompletedReviewerResult(),
-				{ pi, ctx: fakeContext(), fleetRegistry, seatLabel: "Fable", runtime },
-			),
-		).rejects.toThrow("repair dispatch exploded");
-		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
-			{
-				title: "Thermo council payload repair: Fable (attempt 1)",
-				state: "done",
-				finalStatus: "error",
-			},
-		]);
-	});
-
-	test("keeps runner success statuses when both repair drafts are schema-invalid", async () => {
-		const { runner, pi, ctx, fleetRegistry } = repairTestHarness();
-		const running = reviewerOutcomeFromRunnerResult(
-			seat("gemini-high", "Gemini"),
-			malformedCompletedReviewerResult(),
-			{ pi, ctx, fleetRegistry, seatLabel: "Gemini" },
-		);
-		await waitForSpawnCount(runner.calls, 1);
-		runner.calls[0]?.process.emitStdout(finalAssistantTextEvent("not json"));
-		runner.calls[0]?.process.close(0);
-		await waitForSpawnCount(runner.calls, 2);
-		runner.calls[1]?.process.emitStdout(finalAssistantTextEvent("still not json"));
-		runner.calls[1]?.process.close(0);
-
-		const outcome = await running;
-
-		expect(runner.calls).toHaveLength(2);
-		expect(outcome.type).toBe("failed");
-		if (outcome.type !== "failed") return;
-		expect(outcome.diagnostic).toContain("findings");
-		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
-			{
-				title: "Thermo council payload repair: Gemini (attempt 1)",
-				state: "done",
-				finalStatus: "final-text",
-				sessionFile: "/tmp/thermo-repair-1.jsonl",
-			},
-			{
-				title: "Thermo council payload repair: Gemini (attempt 2)",
-				state: "done",
-				finalStatus: "final-text",
-				sessionFile: "/tmp/thermo-repair-2.jsonl",
-			},
-		]);
-	});
-
-	test("includes runner context when a reviewer stops without terminal capture", async () => {
-		const result = {
-			status: "stopped-without-terminal",
-			elapsedMs: 4_000,
-			progress: {
-				state: "stopped",
-				toolCount: 1,
-				turnCount: 1,
-				elapsedMs: 4_000,
-				launch: {
-					model: { provider: "google", id: "gemini-2.5-pro" },
-					thinkingLevel: "off",
-					observedThinkingLevel: "high",
-					hasModelArg: true,
-					hasThinkingArg: false,
-				},
-			},
-			diagnostic: "Forked Pi process stopped without terminal capture.",
-			stopReason: "stop",
-		} satisfies RunnerSubagentStoppedWithoutTerminalResult;
-
-		const outcome = await reviewerOutcomeFromRunnerResult(seat("gemini-high", "Gemini"), result);
-
-		expect(outcome.type).toBe("failed");
-		if (outcome.type !== "failed") return;
-		expect(outcome.diagnostic).toBe(
-			"Forked Pi process stopped without terminal capture (status: stopped-without-terminal; stopReason: stop; turns: 1; tools: 1; model: google/gemini-2.5-pro; thinking: high).",
-		);
 	});
 
 	test("formats malformed blocked reviewer payloads without throwing", async () => {
@@ -1200,27 +976,20 @@ describe("thermo council extension", () => {
 	});
 });
 
+function fleetRegistry(pi: FakePi) {
+	return getOrCreateSubagentFleetRegistry({
+		owner: pi.events,
+		onSessionStart: (handler) => pi.on("session_start", handler),
+		onSessionShutdown: (handler) => pi.on("session_shutdown", handler),
+	});
+}
+
 function fakeEventBus(): ExtensionAPI["events"] {
 	return {
 		emit() {},
 		on() {
 			return () => {};
 		},
-	};
-}
-
-function loadAgentDefinition(name: string): PiAgentDefinition {
-	if (name !== "explorer" && name !== "task") throw new Error(`Unknown agent: ${name}`);
-	return {
-		schema: PI_AGENT_DEFINITION_SCHEMA,
-		name,
-		toolName: "subagent",
-		label: name,
-		description: `${name} description`,
-		promptGuidelines: [],
-		delegationDoctrine: [],
-		body: "Delegated {{prompt}}",
-		filePath: `/repo/.ns/pi/agents/${name}.md`,
 	};
 }
 
@@ -1257,92 +1026,6 @@ function finalAssistantTextEvent(text: string): string {
 				content: [{ type: "text", text }],
 			},
 		],
-	});
-}
-
-function finalTextRunnerResult(title: string, sessionFile: string, finalText: string) {
-	return {
-		status: "final-text",
-		elapsedMs: 1,
-		progress: {
-			title,
-			state: "stopped",
-			toolCount: 0,
-			turnCount: 1,
-			elapsedMs: 1,
-		},
-		sessionFile,
-		finalText,
-	} as const;
-}
-
-function malformedCompletedReviewerResult(): RunnerSubagentCompletedResult<JsonObject> {
-	return {
-		status: "completed",
-		elapsedMs: 1,
-		progress: {
-			state: "stopped",
-			toolCount: 1,
-			turnCount: 1,
-			elapsedMs: 1,
-		},
-		sessionFile: "/tmp/malformed-reviewer.jsonl",
-		terminal: {
-			toolName: SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
-			status: "completed",
-			input: { findings: [{ title: "missing required fields" }] },
-		},
-	};
-}
-
-function repairTestHarness(): {
-	runner: ReturnType<typeof createFakeRunnerSubagentDispatcher>;
-	pi: FakePi;
-	ctx: FakeCommandContext;
-	fleetRegistry: ReturnType<typeof getOrCreateSubagentFleetRegistry>;
-} {
-	const runner = createFakeRunnerSubagentDispatcher();
-	let sessionNumber = 0;
-	const pi = new FakePi({
-		runnerDependencies: {
-			...runner.dependencies,
-			createSessionFile: () => `/tmp/thermo-repair-${(sessionNumber += 1)}.jsonl`,
-		},
-	});
-	return {
-		runner,
-		pi,
-		ctx: fakeContext(),
-		fleetRegistry: getOrCreateSubagentFleetRegistry(pi),
-	};
-}
-
-function repairFleetTasks(fleetRegistry: ReturnType<typeof getOrCreateSubagentFleetRegistry>) {
-	return fleetRegistry
-		.snapshot()
-		.flatMap((run) => run.tasks)
-		.filter((task) => task.title.startsWith("Thermo council payload repair:"));
-}
-
-function repairedReviewJson(): string {
-	return JSON.stringify({
-		summary: "Recovered review.",
-		findings: [
-			{
-				id: "recovered-1",
-				title: "Recovered payload finding",
-				files: ["src/file.ts"],
-				evidence: "The malformed payload contained this finding title.",
-				problem: "The reviewer payload needed schema repair.",
-				proposedFix: "Normalize the malformed payload through repair validation.",
-				behaviorRisk: "Low risk when schema validation accepts the repaired payload.",
-				dependencyNotes: "None",
-				confidence: "likely",
-				severity: "medium",
-				validationHints: "just ts-test",
-			},
-		],
-		disagreements: [],
 	});
 }
 

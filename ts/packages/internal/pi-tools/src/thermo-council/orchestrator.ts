@@ -10,9 +10,7 @@ import {
 } from "./contract.ts";
 import {
 	createSubprocessSubagentRuntime,
-	getOrCreateSubagentFleetRegistry,
 	mapWithConcurrency,
-	trackSingleSubagentFleetRun,
 	trackSubagentFleetRun,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
@@ -66,14 +64,14 @@ interface RunCouncilSeatsOptions extends ThermoCouncilRunContext {
 
 export interface RunThermoCouncilCommandOptions {
 	readonly runtime?: SubagentRuntime;
-	readonly fleetRegistry?: SubagentFleetRegistry;
+	readonly fleetRegistry: SubagentFleetRegistry;
 }
 
 export async function runThermoCouncilCommand(
 	pi: ThermoCouncilExtensionAPI,
 	ctx: ThermoCouncilCommandContext,
 	args: string,
-	options: RunThermoCouncilCommandOptions = {},
+	options: RunThermoCouncilCommandOptions,
 ): Promise<void> {
 	setStatus(ctx, "preflighting review scope…");
 	try {
@@ -88,7 +86,7 @@ export async function runThermoCouncilCommand(
 		const seats = parseThermoCouncilSeats(env);
 		const maxConcurrency = parseThermoCouncilMaxConcurrency(env);
 		const runtime = options.runtime ?? createSubprocessSubagentRuntime();
-		const fleetRegistry = options.fleetRegistry ?? getOrCreateSubagentFleetRegistry(pi);
+		const fleetRegistry = options.fleetRegistry;
 		setStatus(ctx, `launching ${seats.length} council seats: ${seatLabels(seats)}…`);
 		const outcomes = await runCouncilSeatsWithConcurrencyLimit({
 			pi,
@@ -107,27 +105,15 @@ export async function runThermoCouncilCommand(
 			return;
 		}
 		setStatus(ctx, "running final thermo council synthesis…");
-		const synthesisTracking = trackSingleSubagentFleetRun({
-			registry: fleetRegistry,
+		const synthesisResult = await synthesizeThermoCouncilFinalReport({
+			pi,
 			ctx,
-			title: "Thermo council final synthesis",
-			parentSessionFile: undefined,
-		});
-		const synthesisResult = await withDisposal(synthesisTracking, async () => {
-			synthesisTracking.onStart();
-			return await synthesizeThermoCouncilFinalReport({
-				pi,
-				ctx,
-				runtime,
-				scope: scopeResult.scope,
-				outcomes,
-				deterministicReport,
-				...(reviewGuidance === undefined ? {} : { reviewGuidance }),
-				onProgress: (update) => {
-					synthesisTracking.onProgress(update);
-				},
-				onRunnerResult: (result) => synthesisTracking.onDone(result),
-			});
+			runtime,
+			fleetRegistry,
+			scope: scopeResult.scope,
+			outcomes,
+			deterministicReport,
+			...(reviewGuidance === undefined ? {} : { reviewGuidance }),
 		});
 		const report =
 			synthesisResult.type === "completed"
@@ -187,7 +173,7 @@ async function launchThermoCouncilReviewer({
 			ctx,
 			runtime,
 			fleetRegistry,
-			seatLabel: seat.label,
+			seat,
 		}),
 		runnerResult: result,
 	};

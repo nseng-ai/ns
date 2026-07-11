@@ -18,7 +18,10 @@ export {
 	type SubagentFleetDisplayContext,
 } from "../fleet/display.ts";
 export { getOrCreateSubagentFleetRegistry } from "../fleet/provider.ts";
-export type { SubagentFleetRegistryProviderOptions } from "../fleet/provider.ts";
+export type {
+	SubagentFleetLifecycleRegistrar,
+	SubagentFleetManagerOptions,
+} from "../fleet/provider.ts";
 export {
 	SUBAGENT_FLEET_RECENT_TASK_CAP,
 	SubagentFleetRegistry,
@@ -31,8 +34,13 @@ export type {
 	SubagentFleetTaskSnapshot,
 	SubagentFleetTaskState,
 } from "../fleet/registry.ts";
-export { trackSingleSubagentFleetRun, trackSubagentFleetRun } from "../fleet/tracking.ts";
+export {
+	dispatchTrackedSingleSubagentFleetRun,
+	trackSingleSubagentFleetRun,
+	trackSubagentFleetRun,
+} from "../fleet/tracking.ts";
 export type {
+	DispatchTrackedSingleSubagentFleetRunInput,
 	SingleSubagentFleetRunTracking,
 	SubagentFleetRunTracking,
 } from "../fleet/tracking.ts";

@@ -1,7 +1,8 @@
 import {
+	dispatchTrackedSingleSubagentFleetRun,
 	resultDiagnostic,
 	type RunnerSubagentResult,
-	type RunnerSubagentUpdate,
+	type SubagentFleetRegistry,
 } from "@nseng-ai/ns-pi-subagents/api";
 import {
 	SAFETY_NOTE,
@@ -16,10 +17,9 @@ const SYNTHESIS_MODEL_ENV = "THERMO_COUNCIL_SYNTHESIS_MODEL";
 const MAX_SYNTHESIS_SOURCE_CHARS = 120_000;
 
 export interface SynthesizeThermoCouncilFinalReportOptions extends ThermoCouncilRunContext {
+	readonly fleetRegistry: SubagentFleetRegistry;
 	readonly outcomes: readonly ThermoCouncilReviewerOutcome[];
 	readonly deterministicReport: string;
-	readonly onProgress?: (update: RunnerSubagentUpdate) => void;
-	readonly onRunnerResult?: (result: RunnerSubagentResult) => void;
 }
 
 export type FinalSynthesisResult =
@@ -39,17 +39,20 @@ export async function synthesizeThermoCouncilFinalReport({
 	outcomes,
 	deterministicReport,
 	reviewGuidance,
-	onProgress,
-	onRunnerResult,
+	fleetRegistry,
 }: SynthesizeThermoCouncilFinalReportOptions): Promise<FinalSynthesisResult> {
 	if (!outcomes.some((outcome) => outcome.type === "completed")) {
 		return { type: "completed", report: deterministicReport };
 	}
 
 	const model = synthesisModelFromEnv(process.env);
-	const result = await runtime.dispatch({
+	const result = await dispatchTrackedSingleSubagentFleetRun({
 		pi,
 		ctx: toRunnerSubagentContext(ctx),
+		runtime,
+		registry: fleetRegistry,
+		fleetContext: ctx,
+		parentSessionFile: undefined,
 		options: {
 			title: "Thermo council final synthesis",
 			returnMode: "final-text",
@@ -61,10 +64,8 @@ export async function synthesizeThermoCouncilFinalReport({
 			}),
 			tools: [],
 			...(model === undefined ? {} : { model }),
-			...(onProgress === undefined ? {} : { onProgress }),
 		},
 	});
-	onRunnerResult?.(result);
 
 	if (result.status === "final-text" && result.finalText.trim().length > 0) {
 		return {

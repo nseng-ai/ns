@@ -2,10 +2,12 @@ import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitiv
 import { SubagentFleetRegistry, type SubagentFleetTaskInput } from "./registry.ts";
 import type { GitHeadSnapshot, ReadGitHead } from "./git-head.ts";
 import type {
+	RunnerSubagentOptions,
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
 } from "../runner-subagents/extension-api.ts";
 import { errorResult } from "../runner-subagents/results.ts";
+import type { SubagentRuntime, SubagentRuntimeDispatchInput } from "../runtime/seam.ts";
 import { syncSubagentFleetDisplay, type SubagentFleetDisplayContext } from "./display.ts";
 
 export interface SubagentFleetRunTracking {
@@ -20,6 +22,53 @@ export interface SingleSubagentFleetRunTracking {
 	onProgress(update: RunnerSubagentUpdate): void;
 	onDone(result: RunnerSubagentResult): void;
 	dispose(): void;
+}
+
+export interface DispatchTrackedSingleSubagentFleetRunInput extends Omit<
+	SubagentRuntimeDispatchInput,
+	"options"
+> {
+	readonly runtime: SubagentRuntime;
+	readonly options: RunnerSubagentOptions & { readonly title: string };
+	readonly registry: SubagentFleetRegistry;
+	readonly fleetContext: SubagentFleetDisplayContext;
+	readonly parentSessionFile: string | undefined;
+	readonly cwd?: string;
+	readonly readGitHead?: ReadGitHead;
+}
+
+/** Dispatches one raw runner request while owning its complete Fleet tracking lifecycle. */
+export async function dispatchTrackedSingleSubagentFleetRun(
+	input: DispatchTrackedSingleSubagentFleetRunInput,
+): Promise<RunnerSubagentResult> {
+	const tracking = trackSingleSubagentFleetRun({
+		registry: input.registry,
+		ctx: input.fleetContext,
+		title: input.options.title,
+		prompt: input.options.prompt,
+		parentSessionFile: input.parentSessionFile,
+		...optionalEntry("cwd", input.cwd),
+		...optionalEntry("readGitHead", input.readGitHead),
+	});
+	const callerOnProgress = input.options.onProgress;
+	try {
+		tracking.onStart();
+		const result = await input.runtime.dispatch({
+			pi: input.pi,
+			ctx: input.ctx,
+			options: {
+				...input.options,
+				onProgress: (update) => {
+					tracking.onProgress(update);
+					callerOnProgress?.(update);
+				},
+			},
+		});
+		tracking.onDone(result);
+		return result;
+	} finally {
+		tracking.dispose();
+	}
 }
 
 export function trackSingleSubagentFleetRun(input: {
