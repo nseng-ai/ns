@@ -13,6 +13,11 @@ const NS_PACKAGE_ROOT = fileURLToPath(new URL("../../../../kernel/", import.meta
 
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
 
+// Pi logs this line to stderr and continues when a project extension fails to load,
+// so it can leave the process exit status at 0. Assert on the marker directly rather
+// than relying on the exit code alone.
+const EXTENSION_LOAD_FAILURE_MARKER = "Failed to load extension";
+
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@nseng-ai/capability-kit/graphite/status",
 	"@nseng-ai/foundation/exec",
@@ -74,19 +79,26 @@ describe("Node runtime import smoke", () => {
 		);
 	}, 15_000);
 
-	test("pi starts with every project-local extension discovered", () => {
+	test("pi loads every project-local extension without failures", () => {
 		const tempConfigDir = mkdtempSync(join(tmpdir(), "ns-pi-extension-load-"));
 		try {
+			// `--list-models` exits before project extensions are initialized, so it never
+			// exercises extension loading. RPC mode with `--approve` trusts and actually imports
+			// every discovered `.pi/extensions/*.ts`, which is what surfaces module-resolution
+			// regressions in extension dependency graphs. EOF then exits without invoking a model,
+			// while `--offline` prevents startup network operations.
 			const result = spawnSync(
 				PI_BIN,
 				[
+					"--mode",
+					"rpc",
 					"--approve",
 					"--offline",
+					"--no-tools",
 					"--no-skills",
 					"--no-prompt-templates",
 					"--no-themes",
 					"--no-context-files",
-					"--list-models",
 				],
 				{
 					cwd: REPO_ROOT,
@@ -99,11 +111,13 @@ describe("Node runtime import smoke", () => {
 				},
 			);
 
-			expectSuccessfulNodeRun(result, {
-				cwd: REPO_ROOT,
-				label: `pi startup with ${PROJECT_EXTENSION_ADAPTERS.length} project-local extensions`,
-			});
-			expect(result.stdout).toContain("provider");
+			const label = `pi startup with ${PROJECT_EXTENSION_ADAPTERS.length} project-local extensions`;
+			const combinedOutput = `${result.stdout}\n${result.stderr}`;
+			expect(
+				combinedOutput.includes(EXTENSION_LOAD_FAILURE_MARKER),
+				formatNodeRunFailure(result, { cwd: REPO_ROOT, label }),
+			).toBe(false);
+			expectSuccessfulNodeRun(result, { cwd: REPO_ROOT, label });
 			expect(PROJECT_EXTENSION_ADAPTERS).toContain(".pi/extensions/ns.ts");
 		} finally {
 			rmSync(tempConfigDir, { force: true, recursive: true });
