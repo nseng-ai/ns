@@ -66,6 +66,25 @@ describe("extension point descriptor resolution", () => {
 		);
 	});
 
+	test("wraps the canonical unsupported-git reason in point diagnostic context", async () => {
+		const root = await projectRoot();
+		await writeFile(join(root, "ns.toml"), 'extensions = ["git:github/acme/tools@main"]\n');
+
+		const catalog = await loadPointCatalogWithDescriptors({
+			repoRoot: root,
+			gateway: nodeProjectConfigGateway,
+			env: {},
+		});
+
+		expect(catalog.diagnostics).toContainEqual(
+			expect.objectContaining({
+				code: "extension_descriptor_source_unsupported",
+				path: "git:github/acme/tools@main",
+				message: expect.stringContaining("Git extension sources are recognized but unsupported."),
+			}),
+		);
+	});
+
 	test("loads local descriptor points in place even when legacy storage has the same package", async () => {
 		const root = await projectRoot();
 		await writeDescriptorPackage(join(root, "extensions", "tools"), "@acme/tools", "local.point");

@@ -324,6 +324,7 @@ export async function runHarnessArtifactReconcile(
 		declaredSpecs: extensionSelection.value.declaredSpecs,
 		selectedSpecs: extensionSelection.value.selectedSpecs,
 		mode: shouldAcquire ? "apply" : "preview",
+		npmAcquisition: "refresh-floating",
 		...optionalEntry("gateway", request.acquisitionGateway),
 	});
 	const loadedDescriptors = await loadDeclaredExtensionDescriptors({

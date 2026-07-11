@@ -1,25 +1,19 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 
+import { loadExtensionDescriptorFromPackageRoot } from "./extension-package-descriptor.ts";
 import { makeKernelDiagnostic } from "../runtime/diagnostics.ts";
-import { loadNsUserModuleDefault } from "../runtime/module-loader.ts";
-import {
-	extensionPointAcceptsValues,
-	validateExtensionDescriptor,
-	type ExtensionDescriptor,
-} from "../sdk/descriptor.ts";
+import { extensionPointAcceptsValues, type ExtensionDescriptor } from "../sdk/descriptor.ts";
 import {
 	declaredExtensionSpecsErrorInfo,
-	descriptorExportPathErrorInfo,
 	parseDeclaredExtensionSpecsToml,
 	resolveAcquiredDescriptorPackageRoot,
-	resolveDescriptorExportPath,
 } from "./descriptor-package.ts";
-import { parseExtensionSourceSpec } from "./extension-source-spec.ts";
+import { extensionSourceSupport, parseExtensionSourceSpec } from "./extension-source-spec.ts";
 
 export { extensionPointAcceptsValues };
 export const pointSemanticsValues = ["additive", "override"] as const;
@@ -398,12 +392,14 @@ async function loadDescriptorPointDefinitions(request: {
 		};
 	}
 	if (parsed.value.kind === "git") {
+		const support = extensionSourceSupport(parsed.value);
+		if (support.ok) throw new Error("Git extension source support classification is inconsistent.");
 		return {
 			pointDefinitions: [],
 			diagnostics: [
 				diagnostic(
 					"extension_descriptor_source_unsupported",
-					`Git extension sources are reserved but unsupported: ${request.spec}.`,
+					`${support.reason} Source: ${request.spec}.`,
 					{ path: request.spec },
 				),
 			],
@@ -413,84 +409,29 @@ async function loadDescriptorPointDefinitions(request: {
 		repoRoot: request.repoRoot,
 		spec: request.spec,
 	});
-	const packageDir = acquisition.packageRoot;
-	const packageJsonPath = join(packageDir, "package.json");
-	const descriptorPath = resolveDescriptorExport(packageDir, packageJsonPath);
-	if (!descriptorPath.ok) return { pointDefinitions: [], diagnostics: [descriptorPath.diagnostic] };
-	let descriptorExport: unknown;
-	try {
-		descriptorExport = await loadNsUserModuleDefault(descriptorPath.path);
-	} catch (error) {
+	const loaded = await loadExtensionDescriptorFromPackageRoot({
+		packageRoot: acquisition.packageRoot,
+	});
+	if (!loaded.ok) {
+		const code =
+			loaded.error.type === "package-manifest-missing"
+				? "extension_descriptor_package_json_read_failed"
+				: loaded.error.code;
+		const message =
+			loaded.error.type === "package-manifest-missing"
+				? `Could not read extension package manifest ${loaded.error.packageJsonPath}.\nFile does not exist.`
+				: loaded.error.message;
 		return {
 			pointDefinitions: [],
-			diagnostics: [
-				diagnostic(
-					"extension_descriptor_import_failed",
-					`Failed to load ns extension descriptor ${descriptorPath.path}.\n${formatErrorMessage(error)}`,
-					{ path: descriptorPath.path },
-				),
-			],
-		};
-	}
-	const validation = validateExtensionDescriptor(descriptorExport, descriptorPath.path);
-	if (!validation.ok) {
-		return {
-			pointDefinitions: [],
-			diagnostics: [
-				diagnostic("extension_descriptor_invalid", validation.message, {
-					path: descriptorPath.path,
-				}),
-			],
+			diagnostics: [diagnostic(code, message, { path: loaded.error.path })],
 		};
 	}
 	return {
-		pointDefinitions: pointDefinitionsForDescriptor(validation.descriptor, descriptorPath.path),
+		pointDefinitions: pointDefinitionsForDescriptor(
+			loaded.value.descriptor,
+			loaded.value.descriptorPath,
+		),
 		diagnostics: [],
-	};
-}
-
-function resolveDescriptorExport(
-	packageDir: string,
-	packageJsonPath: string,
-): { ok: true; path: string } | { ok: false; diagnostic: ProjectConfigDiagnostic } {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-	} catch (error) {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"extension_descriptor_package_json_read_failed",
-				`Could not read extension package manifest ${packageJsonPath}.\n${formatErrorMessage(error)}`,
-				{ path: packageJsonPath },
-			),
-		};
-	}
-	const exportPath = resolveDescriptorExportPath(packageDir, parsed);
-	if (!exportPath.ok) return descriptorExportDiagnostic(exportPath, packageJsonPath);
-	try {
-		if (!statSync(exportPath.path).isFile()) throw new Error("not a file");
-	} catch {
-		return {
-			ok: false,
-			diagnostic: diagnostic(
-				"extension_descriptor_export_missing_file",
-				`Extension descriptor export does not resolve to a file: ${exportPath.target}.`,
-				{ path: packageJsonPath },
-			),
-		};
-	}
-	return { ok: true, path: exportPath.path };
-}
-
-function descriptorExportDiagnostic(
-	result: Exclude<ReturnType<typeof resolveDescriptorExportPath>, { ok: true }>,
-	packageJsonPath: string,
-): { ok: false; diagnostic: ProjectConfigDiagnostic } {
-	const errorInfo = descriptorExportPathErrorInfo(result, packageJsonPath);
-	return {
-		ok: false,
-		diagnostic: diagnostic(errorInfo.code, errorInfo.message, { path: packageJsonPath }),
 	};
 }
 

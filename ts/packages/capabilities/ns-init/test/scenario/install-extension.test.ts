@@ -186,6 +186,13 @@ describe("installExtension", () => {
 			expect(result).toMatchObject({
 				type: "failure",
 				errorType: "ns-extension-install-source-unsupported",
+				...(source.startsWith("git:")
+					? {
+							message: expect.stringContaining(
+								"Git extension sources are recognized but unsupported.",
+							),
+						}
+					: {}),
 				data: { completed: {} },
 			});
 			expect(acquisition.calls()).toEqual([]);

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	extensionSourceSupport,
 	managedNpmProjectRoot,
 	npmPackageRoot,
 	parseExtensionSourceSpec,
@@ -43,8 +44,18 @@ describe("extension acquisition", () => {
 		expect(result.roots).toEqual([
 			{ spec: "./local", sourceKind: "local", moduleRoot: "/repo/local" },
 		]);
+		const parsedGit = parseExtensionSourceSpec("/repo", "git:github/acme/ext@main");
+		expect(parsedGit).toMatchObject({ ok: true, value: { kind: "git" } });
+		if (!parsedGit.ok) return;
+		const support = extensionSourceSupport(parsedGit.value);
+		expect(support).toMatchObject({ ok: false });
+		if (support.ok) return;
 		expect(result.diagnostics).toMatchObject([
-			{ code: "extension_acquisition_git_unsupported", spec: "git:github/acme/ext@main" },
+			{
+				code: "extension_acquisition_git_unsupported",
+				spec: "git:github/acme/ext@main",
+				message: expect.stringContaining(support.reason),
+			},
 		]);
 	});
 
