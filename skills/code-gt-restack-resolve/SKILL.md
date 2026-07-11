@@ -208,8 +208,7 @@ for these restack conflict subagents. Concrete examples:
   (use the Claude Code `sonnet`/Sonnet 5 selector available in the current
   installation). Do not select Opus for this workflow.
 - OpenAI Codex-backed Pi: call `subagent` with `agent: "task"` and set `model` to
-  `openai-codex/gpt-5.5:high` (or the local equivalent smart GPT-5.5 model
-  pattern).
+  `openai-codex/gpt-5.6-sol:high` (or the local equivalent Sol model pattern).
 - Anthropic-backed Pi: call `subagent` with `agent: "task"` and set `model` to
   `claude-sonnet-5` (or the local equivalent Sonnet 5 model pattern).
 

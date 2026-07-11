@@ -25,7 +25,7 @@ interface ModelInfo {
 const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
 	{ command: "model:fable", provider: "anthropic", modelId: "claude-fable-5" },
 	{ command: "model:sonnet", provider: "anthropic", modelId: "claude-sonnet-4-5" },
-	{ command: "model:spud", provider: "openai-codex", modelId: "gpt-5.5" },
+	{ command: "model:spud", provider: "openai-codex", modelId: "gpt-5.6-sol" },
 	{ command: "model:sol", provider: "openai", modelId: "gpt-5.6-sol" },
 	{ command: "model:terra", provider: "openai", modelId: "gpt-5.6-terra" },
 	{ command: "model:luna", provider: "openai", modelId: "gpt-5.6-luna" },
@@ -132,7 +132,7 @@ describe("modelShortcutExtension", () => {
 
 		expect(pi.setModels).toEqual([]);
 		expect(notifications).toEqual([
-			{ message: "Model openai-codex/gpt-5.5 not found.", level: "error" },
+			{ message: "Model openai-codex/gpt-5.6-sol not found.", level: "error" },
 		]);
 	});
 

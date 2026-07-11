@@ -59,7 +59,7 @@ describe("runner subagent usage summaries", () => {
 		expect(summary.peakObservedPromptTokens).toBe(207);
 		expect(summary.configuredContextWindowTokens).toBeNull();
 		expect(summary.models).toEqual([
-			{ provider: "openai-codex", api: "responses", model: "gpt-5.5" },
+			{ provider: "openai-codex", api: "responses", model: "gpt-5.6-sol" },
 		]);
 	});
 
@@ -205,7 +205,7 @@ function assistantRecord(options: AssistantRecordOptions = {}): Record<string, u
 			role: "assistant",
 			provider: options.provider ?? "openai-codex",
 			api: options.api ?? "responses",
-			model: options.model ?? "gpt-5.5",
+			model: options.model ?? "gpt-5.6-sol",
 			usage: usage(options),
 		},
 	};
