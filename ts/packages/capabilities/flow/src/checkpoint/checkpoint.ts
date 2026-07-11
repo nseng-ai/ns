@@ -2,7 +2,11 @@ import type { Clock } from "@nseng-ai/foundation/clock";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { runCommand } from "@nseng-ai/foundation/exec";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
-import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
+import {
+	formatCommandDetails,
+	type CommandRunner,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
@@ -253,7 +257,7 @@ function formatCheckpointProgressEvent(event: TextRepairProgressEvent): string {
 }
 
 export function formatCheckpointSnapshotError(error: PendingWorktreeError): string {
-	const details = formatFlowCommandDetails(error.result);
+	const details = formatCommandDetails(error.result);
 	if (error.kind === "not_git_repo") {
 		return `Not inside a git repository.\n${details}`;
 	}
@@ -264,29 +268,6 @@ export function formatCheckpointSnapshotError(error: PendingWorktreeError): stri
 		return `Could not inspect git status.\n${details}`;
 	}
 	return `Could not capture git diff.\n${details}`;
-}
-
-function formatFlowCommandDetails(result: ExecResult): string {
-	const detail = result.stderr.trim() || result.stdout.trim();
-	let status: string;
-	switch (result.type) {
-		case "spawn-failed":
-			status = `spawn failed: ${result.error}`;
-			break;
-		case "cancelled":
-			status = `cancelled (exit ${result.code})`;
-			break;
-		case "timed-out":
-			status = `timed out (exit ${result.code})`;
-			break;
-		case "exited":
-			status =
-				result.signal === null
-					? `exit ${result.code}`
-					: `signal ${result.signal} (exit ${result.code})`;
-			break;
-	}
-	return detail === "" ? status : `${status}: ${detail}`;
 }
 
 function toCheckpointCommandResult(result: ExecResult): CommandResult {

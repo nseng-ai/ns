@@ -1,4 +1,8 @@
-import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	formatCommandTermination,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import {
 	combinedGitCommandOutput,
 	isGitRebaseInProgressOutput,
@@ -194,18 +198,7 @@ function formatRestackFailureMessage(result: ExecResult): string {
 }
 
 function formatFailureHeadline(command: string, result: ExecResult): string {
-	switch (result.type) {
-		case "spawn-failed":
-			return `${command} could not start: ${result.error}.`;
-		case "cancelled":
-			return `${command} was cancelled.`;
-		case "timed-out":
-			return `${command} timed out.`;
-		case "exited":
-			return result.signal === null
-				? `${command} exited with code ${result.code}.`
-				: `${command} was terminated by ${result.signal} (exit ${result.code}).`;
-	}
+	return `${command} ${formatCommandTermination(result)}.`;
 }
 
 async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void> {

@@ -160,7 +160,7 @@ export function formatCommandEvidence(options: FormatCommandEvidenceOptions): st
 		options.intro,
 		`Command: ${options.command}`,
 		`Cwd: ${options.cwd}`,
-		`Termination: ${commandTerminationSummary(options.result)}`,
+		`Termination: ${formatCommandTermination(options.result)}`,
 	];
 	if (options.guidance !== undefined) {
 		sections.push(options.guidance);
@@ -177,7 +177,7 @@ export function formatCommandEvidence(options: FormatCommandEvidenceOptions): st
 export function commandFailureReason(result: ExecResult): string {
 	const stderr = result.stderr.trim();
 	if (stderr !== "") return stderr;
-	return commandTerminationSummary(result);
+	return formatCommandTermination(result);
 }
 
 export function formatCommandError(summary: string, result: ExecResult): string {
@@ -186,7 +186,7 @@ export function formatCommandError(summary: string, result: ExecResult): string 
 
 export function formatCommandDetails(result: ExecResult): string {
 	const details = firstNonEmptyTrimmed(result.stderr, result.stdout);
-	const status = commandTerminationSummary(result);
+	const status = formatCommandTermination(result);
 	return details === "" ? status : `${status}: ${details}`;
 }
 
@@ -265,7 +265,7 @@ export function formatCommandFailure(
 	displayCommand: string,
 	result: ExecResult,
 ): string {
-	const status = commandTerminationSummary(result);
+	const status = formatCommandTermination(result);
 	return tailText(
 		[
 			`${title} (${status}).`,
@@ -293,7 +293,7 @@ export function formatCommandSpawnFailure(
 	);
 }
 
-function commandTerminationSummary(result: ExecResult): string {
+export function formatCommandTermination(result: ExecResult): string {
 	switch (result.type) {
 		case "exited":
 			return closeEvidence(`exit code ${result.code ?? "unknown"}`, result.signal);

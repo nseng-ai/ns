@@ -1,6 +1,11 @@
 import { createCommandIo } from "@nseng-ai/kernel/command-io";
 import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
-import { commandSucceeded, type ExecResult, formatCommand } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	type ExecResult,
+	formatCommand,
+	formatCommandTermination,
+} from "@nseng-ai/foundation/command";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
@@ -219,26 +224,11 @@ function formatCommandFinishSuffix(
 ): string {
 	const parts: string[] = [];
 	if (!commandSucceeded(result)) {
-		parts.push(commandTerminationText(result));
+		parts.push(formatCommandTermination(result));
 	}
 	if (note) parts.push(note);
 	if (elapsedMs !== undefined) parts.push(`finished in ${formatElapsedMs(elapsedMs)}`);
 	return parts.length === 0 ? "" : ` — ${parts.join(" — ")}`;
-}
-
-function commandTerminationText(result: ExecResult): string {
-	switch (result.type) {
-		case "spawn-failed":
-			return `spawn failed: ${result.error}`;
-		case "cancelled":
-			return "cancelled";
-		case "timed-out":
-			return "timed out";
-		case "exited":
-			return result.signal === null
-				? `exit ${result.code}`
-				: `terminated by ${result.signal} (exit ${result.code})`;
-	}
 }
 
 export function withCommandStreaming(

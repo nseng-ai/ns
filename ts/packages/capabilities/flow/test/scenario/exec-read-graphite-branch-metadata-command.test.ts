@@ -70,7 +70,7 @@ describe("flow exec read-graphite-branch-metadata command", () => {
 		const stderr = run.stderr.join("");
 		expect(stderr).toContain(`sqlite3 could not read Graphite branch metadata from ${DB_PATH}.`);
 		expect(stderr).toContain(`$ sqlite3 -readonly -json ${DB_PATH} '${BRANCH_METADATA_QUERY}'`);
-		expect(stderr).toContain("exit 1");
+		expect(stderr).toContain("exit code 1");
 		expect(stderr).toContain("database is locked");
 		expect(run.stdout.join("")).toBe("");
 	});
