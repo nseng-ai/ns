@@ -7,9 +7,12 @@ Fog the answer makes stateable, and rewire or drop invalidated rows.
 
 ## Work
 
-- [ ] (grilling) Submission-class surface — how cheap vs prod submission are invoked
-      and expressed (flag on `ns flow submit`, separate command, config), and exactly
-      what each class includes.
+- [x] (grilling) Submission-class surface — resolved as separate verbs:
+      `ns flow submit` is the fast WIP push with no reviews or PR prose;
+      `ns flow ship` is the completion/readiness pipeline that validates, reviews,
+      autofixes, reconciles stack-wide PR titles and managed descriptions, pushes,
+      and attests. Agent completion workflows must route to `ship`; raw `gt submit`
+      is an explicit recovery fallback, not a semantic substitute.
 - [ ] (grilling) Stack-tip review semantics — what diff the tip review sees
       (merge-base of the whole stack against trunk?), and whether findings map back to
       owning branches or stay stack-scoped.
@@ -37,10 +40,14 @@ Fog the answer makes stateable, and rewire or drop invalidated rows.
       an alternative store (git note, diff-hash key); what keys it and who reads/writes
       it locally versus in CI.
       Blocked by: Stack-tip review semantics.
-- [ ] (grilling) Prod-submit pipeline integration — phase position in the submit
-      phase stream, the never-block/never-dirty invariant, escape hatch, and TTY
-      confirmation before pushing auto-fixes.
-      Blocked by: Submission-class surface; Fixer engine.
+- [ ] (grilling) Ship pipeline integration — phase position in the Flow phase stream,
+      the never-block/never-dirty invariant, escape hatch, and TTY confirmation before
+      pushing auto-fixes. Include a stack-wide metadata reconciliation postcondition:
+      every submitted branch receives a PR plus title/managed-description disposition;
+      incomplete prose may degrade to a plain push, but the result is "submitted, not
+      shipped" and no ship attestation is recorded. Add an incident-regression scenario
+      for a three-branch new stack so partial metadata cannot report ship success.
+      Blocked by: Fixer engine.
 - [ ] (grilling) Remote roaster's residual role — whether the remote review workflow
       (`.github/workflows/reviews.yml`) keeps running tripwires as a backstop, shrinks
       to un-attested deltas only, or retires; how it honors review state written by

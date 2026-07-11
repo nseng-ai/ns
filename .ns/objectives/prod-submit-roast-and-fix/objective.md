@@ -6,13 +6,15 @@ row per session and graduate Fog as answers land.
 
 ## Thesis
 
-Submission splits into two classes. A **cheap submit** pushes or repushes a stack as
-fast as today's `ns flow submit`. A **prod submission** is the "I'm shipping this
-stack" pipeline: at the stack tip it runs the applicable tripwire (quick-profile)
+Submission splits into two explicit verbs. **`ns flow submit`** is the cheap push:
+it mirrors or remirrors work-in-progress stacks quickly and deliberately does not
+promise review readiness or PR prose. **`ns flow ship`** is the "this stack is done"
+pipeline: at the stack tip it validates, runs the applicable tripwire (quick-profile)
 roaster reviews in parallel over the whole-stack diff, auto-applies AUTO-classified
-fixes that survive local validation, and pushes a clean stack. Review state is encoded
-so roaster — local or remote — never re-reviews the same stack content incrementally;
-roaster becomes stack-aware and reviews only at the tip.
+fixes that survive local validation, reconciles titles and managed descriptions for
+every PR in the stack, and pushes a clean stack. Review state is encoded so roaster —
+local or remote — never re-reviews the same stack content incrementally; roaster
+becomes stack-aware and reviews only at the tip.
 
 This replaces the current loop (push → remote roaster comments → download-feedback →
 hand-apply → resubmit) for tripwire-grade findings: PRs arrive clean instead of being
@@ -20,8 +22,9 @@ cleaned up after the fact.
 
 ## Scope
 
-- The two-class submission surface in flow (invocation shape to be decided on the
-  frontier).
+- The two-class submission surface in flow: separate `ns flow submit` and
+  `ns flow ship` verbs, plus agent/workflow routing that selects between them from
+  intent rather than treating raw `gt submit` as an equivalent path.
 - Stack-aware, tip-only review execution over the whole-stack diff, run locally and in
   parallel during prod submission.
 - A new AUTO classification axis for roaster findings (review-level eligibility gate
@@ -43,12 +46,18 @@ cleaned up after the fact.
 
 ## Completion Criteria
 
-- Both submission classes exist and are used on this repo; cheap submit's latency is
-  unchanged from today's submit.
-- A prod submission on a real stack runs tripwire reviews at the tip over the
-  whole-stack diff, applies at least the validated AUTO subset of findings before
-  push, and never blocks or dirties the push when the fixer or validation fails
-  (fixes are discarded; findings surface as output).
+- Both submission verbs exist and are used on this repo: cheap `submit` retains its
+  fast no-review/no-prose contract, while completion-oriented agent workflows route
+  through `ship`; raw `gt submit` is an explicit recovery fallback rather than a
+  normal agent path.
+- A `ship` on a real stack runs tripwire reviews at the tip over the whole-stack
+  diff, applies at least the validated AUTO subset of findings before push, and never
+  blocks or dirties the push when the fixer fails (fixes are discarded; findings
+  surface as output).
+- `ship` resolves every submitted branch to a PR and records a title/managed-description
+  disposition for each one. It may degrade to a plain push when description generation
+  fails, but it reports "submitted, not shipped" and records no ship attestation until
+  stack-wide PR metadata is complete.
 - Reviewed stack content is not re-reviewed by subsequent local runs or by the remote
   roaster workflow (anti-incremental state is honored end to end).
 - Crystallization: the Frontier below is empty and what remains is PR-shaped execution
@@ -66,6 +75,13 @@ cleaned up after the fact.
 - **Risk:** pushing model-written fixes the human never saw. Mitigations to be decided
   on the frontier (fix placement/visibility row, TTY confirmation question in the
   integration row).
+- **Risk materialized — intent-routing bypass:** a 2026-07-11 feedback-remediation
+  stack created PRs #3395–#3397 through raw non-interactive `gt submit`; Graphite
+  pushed successfully, but the completion workflow skipped Flow's title/description
+  generation and left default commit-subject metadata. Command capability alone is
+  insufficient: agent-facing submission policy must route WIP synchronization to
+  `submit`, completion/review-readiness to `ship`, and raw `gt submit` only to an
+  explicit recovery path.
 - **Risk:** whole-stack tip review decouples findings from owning branches; if fixes
   must land per-branch, restack cost and complexity rise sharply. The fix-placement
   row owns this trade.
