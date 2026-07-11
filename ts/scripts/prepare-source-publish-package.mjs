@@ -105,7 +105,7 @@ function workspaceVersion(name) {
 async function readWorkspacePackageVersions() {
 	const packages = new Map();
 	const candidates = [
-		"packages/hosts/ns-cli/package.json",
+		"packages/hosts/ns/package.json",
 		"packages/capability-kit/package.json",
 		"packages/capabilities/branch-context/package.json",
 		"packages/capabilities/flow/package.json",

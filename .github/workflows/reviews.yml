@@ -56,7 +56,7 @@ jobs:
           git fetch origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
           status=0
-          output=$(node "$GITHUB_WORKSPACE/ts/packages/hosts/ns-cli/src/cli.ts" reviews list --ci --applicable --base-ref "$BASE_REF" --format json) || status=$?
+          output=$(node "$GITHUB_WORKSPACE/ts/packages/hosts/ns/src/cli.ts" reviews list --ci --applicable --base-ref "$BASE_REF" --format json) || status=$?
           if [ "$status" -ne 0 ]; then
             printf '%s\n' "$output"
             exit "$status"
@@ -134,7 +134,7 @@ jobs:
           BASE_MERGE_BASE_SHA=$(git merge-base "origin/$BASE_REF" "$PR_HEAD_SHA")
 
           status=0
-          output=$(node "$GITHUB_WORKSPACE/ts/packages/hosts/ns-cli/src/cli.ts" reviews run "$REVIEW_KEY" \
+          output=$(node "$GITHUB_WORKSPACE/ts/packages/hosts/ns/src/cli.ts" reviews run "$REVIEW_KEY" \
             --base-ref "$BASE_REF" \
             --log-branch "$GITHUB_HEAD_REF" \
             --prior-findings-pr-number "$PR_NUMBER" \
@@ -144,7 +144,7 @@ jobs:
           printf '%s\n' "$output"
           echo "--- end reviews envelope ---"
 
-          printf '%s' "$output" | node "$GITHUB_WORKSPACE/ts/packages/hosts/ns-cli/src/cli.ts" reviews exec publish-findings \
+          printf '%s' "$output" | node "$GITHUB_WORKSPACE/ts/packages/hosts/ns/src/cli.ts" reviews exec publish-findings \
             --pr-number "$PR_NUMBER" \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --review-name "$REVIEW_KEY" \

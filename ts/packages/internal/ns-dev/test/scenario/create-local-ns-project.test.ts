@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { exitedResult, parseJsonOutput, runScenario } from "./run-scenario.ts";
 
 const BASE_FILES = {
-	"/repo/ts/packages/hosts/ns-cli/package.json": JSON.stringify({
+	"/repo/ts/packages/hosts/ns/package.json": JSON.stringify({
 		name: "@nseng-ai/ns",
 		version: "0.4.0",
 	}),
-	"/repo/ts/packages/hosts/ns-cli/dist/publish/package.json": JSON.stringify({
+	"/repo/ts/packages/hosts/ns/dist/publish/package.json": JSON.stringify({
 		name: "@nseng-ai/ns",
 		version: "0.4.0",
 	}),
@@ -84,7 +84,7 @@ describe("create-local-ns-project", () => {
 			},
 			{
 				command: "npm",
-				args: ["install", "--save-dev", "/repo/ts/packages/hosts/ns-cli/dist/publish"],
+				args: ["install", "--save-dev", "/repo/ts/packages/hosts/ns/dist/publish"],
 				cwd: "/tmp/projects/ns-local-project-20260102030405",
 			},
 			{

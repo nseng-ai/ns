@@ -79,7 +79,7 @@ describe("install-local-ns-extension", () => {
 			},
 			{
 				command: "npm",
-				args: ["install", "--save-dev", "/repo/ts/packages/hosts/ns-cli/dist/publish"],
+				args: ["install", "--save-dev", "/repo/ts/packages/hosts/ns/dist/publish"],
 				cwd: "/target",
 			},
 		]);
@@ -237,7 +237,7 @@ describe("install-local-ns-extension", () => {
 			},
 			{
 				command: "npm",
-				args: ["install", "--save-dev", "/repo/ts/packages/hosts/ns-cli/dist/publish"],
+				args: ["install", "--save-dev", "/repo/ts/packages/hosts/ns/dist/publish"],
 				cwd: "/target",
 			},
 		]);

@@ -98,7 +98,7 @@ export function trackedCommandFailureExit(
 }
 
 export function nsCliPackageRoot(nsWorktree: string): string {
-	return join(nsWorktree, "ts", "packages", "hosts", "ns-cli");
+	return join(nsWorktree, "ts", "packages", "hosts", "ns");
 }
 
 export function nsCliPublishPath(nsWorktree: string): string {
