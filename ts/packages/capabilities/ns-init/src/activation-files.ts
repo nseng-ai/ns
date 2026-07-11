@@ -2,6 +2,7 @@ import type { NsInitErrorInfo } from "./error-info.ts";
 
 export const ACTIVATION_FILES = [
 	"ns-toml",
+	"managed-extensions-ignore",
 	"agents-instructions",
 	"claude-instructions",
 	"generated-instructions",
@@ -11,6 +12,7 @@ export type ActivationFile = (typeof ACTIVATION_FILES)[number];
 
 export const ACTIVATION_FILE_PATHS: Readonly<Record<ActivationFile, string>> = {
 	"ns-toml": "ns.toml",
+	"managed-extensions-ignore": ".gitignore",
 	"agents-instructions": "AGENTS.md",
 	"claude-instructions": "CLAUDE.md",
 	"generated-instructions": ".ns/instructions.md",

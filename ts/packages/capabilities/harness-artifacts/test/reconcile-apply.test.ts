@@ -3,12 +3,17 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import type { ExtensionAcquisitionGateway } from "@nseng-ai/kernel/extensions/acquisition";
+import type {
+	DeclaredDescriptorFileResult,
+	DeclaredDescriptorImportResult,
+	DeclaredDescriptorPackageManifestResult,
+	DeclaredExtensionDescriptorGateway,
+} from "@nseng-ai/kernel/extensions/declared-descriptors";
 import { FakeExtensionAcquisitionGateway } from "@nseng-ai/kernel/testing";
 import {
 	contentHashForText,
 	INSTALL_MANIFEST_FILE_NAME,
 	runHarnessArtifactReconcile,
-	type ExtensionDescriptorModuleLoader,
 	type InstallManifestData,
 } from "../src/index.ts";
 import { descriptorExtensionSource, descriptorPackageJson } from "./support/descriptor-fixtures.ts";
@@ -22,12 +27,16 @@ describe("harness artifact reconcile driver", () => {
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(result.value.artifacts.map((artifact) => artifact.action)).toEqual(["installed"]);
-		expect(result.value.artifacts.flatMap((artifact) => artifact.writtenFiles)).toEqual([
+		expect(result.value.artifacts.map((artifact) => artifact.action)).toEqual([
+			"installed",
+			"installed",
+		]);
+		expect(result.value.artifacts.flatMap((artifact) => artifact.writtenFiles).sort()).toEqual([
+			"/repo/.pi/skills/module-skill/SKILL.md",
 			"/repo/.pi/skills/objective/SKILL.md",
 		]);
 		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBe("objective v1\n");
-		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBeUndefined();
+		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBe("module v1\n");
 		const manifest = fixture.readManifest("/repo/.pi/skills");
 		expect(
 			manifest.artifacts["pi:project:skill:objective-skill"]?.files["SKILL.md"]?.contentHash,
@@ -43,7 +52,10 @@ describe("harness artifact reconcile driver", () => {
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(result.value.artifacts.map((artifact) => artifact.action)).toEqual(["unchanged"]);
+		expect(result.value.artifacts.map((artifact) => artifact.action)).toEqual([
+			"unchanged",
+			"unchanged",
+		]);
 		expect(result.value.artifacts.flatMap((artifact) => artifact.writtenFiles)).toEqual([]);
 	});
 
@@ -123,7 +135,7 @@ describe("harness artifact reconcile driver", () => {
 		const targeted = await runHarnessArtifactReconcile(
 			fixture.request({
 				extensionTarget: "./local-ext",
-				descriptorLoader: loadModuleArtifactDescriptor,
+				descriptorGateway: new TestDescriptorGateway(fixture.fs),
 			}),
 		);
 
@@ -159,7 +171,7 @@ describe("harness artifact reconcile driver", () => {
 			fixture.request({
 				extensionTarget: "npm:@acme/module@1.0.0",
 				acquisitionGateway,
-				descriptorLoader: loadModuleArtifactDescriptor,
+				descriptorGateway: new TestDescriptorGateway(fixture.fs),
 			}),
 		);
 
@@ -198,7 +210,10 @@ describe("harness artifact reconcile driver", () => {
 		acquisitionGateway.failSpec = "npm:@acme/bad";
 
 		const result = await runHarnessArtifactReconcile(
-			fixture.request({ acquisitionGateway, descriptorLoader: loadModuleArtifactDescriptor }),
+			fixture.request({
+				acquisitionGateway,
+				descriptorGateway: new TestDescriptorGateway(fixture.fs),
+			}),
 		);
 
 		expect(result).toMatchObject({ ok: true });
@@ -242,9 +257,19 @@ describe("harness artifact reconcile driver", () => {
 
 		expect(result).toMatchObject({ ok: true });
 		if (!result.ok) return;
-		expect(result.value.skippedCollisions).toEqual([]);
+		expect(result.value.skippedCollisions).toEqual([
+			{
+				kind: "target-name",
+				value: "module-skill",
+				packages: ["@acme/collision", "@acme/module"],
+			},
+		]);
 		expect(result.value.artifacts.map((artifact) => [artifact.skillName, artifact.action])).toEqual(
-			[["objective", "installed"]],
+			[
+				["module-skill", "skipped"],
+				["module-skill", "skipped"],
+				["objective", "installed"],
+			],
 		);
 		expect(fixture.fs.readText("/repo/.pi/skills/objective/SKILL.md")).toBe("objective v1\n");
 		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBeUndefined();
@@ -296,7 +321,7 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 				shouldForce?: boolean;
 				extensionTarget?: string;
 				acquisitionGateway?: ExtensionAcquisitionGateway;
-				descriptorLoader?: ExtensionDescriptorModuleLoader;
+				descriptorGateway?: DeclaredExtensionDescriptorGateway;
 			} = {},
 		) {
 			return {
@@ -311,9 +336,7 @@ function createFixture(options: { nsToml: string | undefined; includeModule?: bo
 				...(overrides.acquisitionGateway === undefined
 					? {}
 					: { acquisitionGateway: overrides.acquisitionGateway }),
-				...(overrides.descriptorLoader === undefined
-					? {}
-					: { descriptorLoader: overrides.descriptorLoader }),
+				descriptorGateway: overrides.descriptorGateway ?? new TestDescriptorGateway(fs),
 				fs,
 				discoveryGateway: fs,
 				firstPartySourceRoot: "/first-party",
@@ -344,11 +367,37 @@ function descriptorSource(artifact: { name: string; path: string }): string {
 	});
 }
 
-async function loadModuleArtifactDescriptor(): Promise<unknown> {
-	return {
-		description: "Test extension.",
-		bundledArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module" }],
-	};
+class TestDescriptorGateway implements DeclaredExtensionDescriptorGateway {
+	readonly #fs: InMemoryHarnessFs;
+
+	constructor(fs: InMemoryHarnessFs) {
+		this.#fs = fs;
+	}
+
+	async readPackageManifest(path: string): Promise<DeclaredDescriptorPackageManifestResult> {
+		const text = this.#fs.readText(path);
+		return text === undefined ? { type: "missing" } : { type: "found", manifest: JSON.parse(text) };
+	}
+
+	async inspectDescriptorFile(_path: string): Promise<DeclaredDescriptorFileResult> {
+		return { type: "found" };
+	}
+
+	async importDescriptorDefault(path: string): Promise<DeclaredDescriptorImportResult> {
+		return {
+			ok: true,
+			defaultExport: {
+				description: "Test extension.",
+				bundledArtifacts: [
+					{
+						kind: "skill",
+						name: "module-skill",
+						path: path.includes("/collision/") ? "skills/duplicate" : "skills/module",
+					},
+				],
+			},
+		};
+	}
 }
 
 function moduleManifest(): InstallManifestData {

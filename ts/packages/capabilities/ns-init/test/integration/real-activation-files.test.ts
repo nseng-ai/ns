@@ -36,6 +36,20 @@ describe("RealActivationFilesGateway", () => {
 		expect(await readFile(join(repoRoot, ".ns/instructions.md"), "utf8")).toBe("generated\n");
 	});
 
+	it("reads and writes .gitignore through the managed extensions duty", async () => {
+		expect(
+			await gateway.readActivationFile({ repoRoot, file: "managed-extensions-ignore" }),
+		).toEqual({ type: "missing" });
+		await gateway.writeActivationFile({
+			repoRoot,
+			file: "managed-extensions-ignore",
+			content: "node_modules/\n.ns/managed-extensions/\n",
+		});
+		expect(await readFile(join(repoRoot, ".gitignore"), "utf8")).toBe(
+			"node_modules/\n.ns/managed-extensions/\n",
+		);
+	});
+
 	it("creates consumer directories with .gitkeep and preserves consumer data", async () => {
 		const path = ".ns/data";
 		expect(await gateway.inspectConsumerDirectory({ repoRoot, relativePath: path })).toEqual({
@@ -49,6 +63,13 @@ describe("RealActivationFilesGateway", () => {
 		});
 		expect(await readFile(join(repoRoot, path, ".gitkeep"), "utf8")).toBe("");
 		expect(await readFile(join(repoRoot, path, "customer.md"), "utf8")).toBe("keep\n");
+	});
+
+	it("reports a non-file .gitignore without mutating it", async () => {
+		await mkdir(join(repoRoot, ".gitignore"));
+		expect(
+			await gateway.readActivationFile({ repoRoot, file: "managed-extensions-ignore" }),
+		).toEqual({ type: "not-file" });
 	});
 
 	it("reports file collisions without mutating them", async () => {

@@ -341,9 +341,14 @@ package-name installs are not yet supported.
 
 ## How loading works
 
-- On each invocation, `ns` reads `ns.toml`, resolves each declared extension's `./ns-extension`
-  export, and executes the descriptor to build the command catalog. Descriptors are small and
-  transpile-cached, so this is fast.
+- On each invocation, `ns` reads `ns.toml` and passes declarations through one canonical loader.
+  It validates the source spec, installed package identity, pinned npm version, `./ns-extension`
+  export, descriptor file, and descriptor schema before producing a loaded descriptor record.
+  Artifact activation consumes that same record rather than re-reading or independently
+  interpreting the package. Descriptors are small and transpile-cached, so this is fast.
+- Canonically duplicate declarations (including pinned/floating spellings of the same npm package
+  and equivalent normalized local paths) produce one `extension_descriptor_duplicate_identity`
+  diagnostic with `relatedSpecs`; every member of that duplicate group is excluded.
 - Invoking a command loads only that command's module, via its `load` thunk.
 - Rendering help for a selected group (`ns <group> --help`) loads that group's command modules
   eagerly to read module-owned summaries. Top-level help and completion stay catalog-driven and

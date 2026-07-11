@@ -92,6 +92,7 @@ describe("ns activation planning and apply", () => {
 		expect(applied.type).toBe("activated");
 		expect(files.operations()).toEqual([
 			{ type: "write", path: "ns.toml" },
+			{ type: "write", path: ".gitignore" },
 			{ type: "write", path: "AGENTS.md" },
 			{ type: "write", path: "CLAUDE.md" },
 			{ type: "write", path: ".ns/instructions.md" },
@@ -99,9 +100,91 @@ describe("ns activation planning and apply", () => {
 			{ type: "ensure-directory", path: ".ns/shared" },
 			{ type: "ensure-directory", path: ".ns/two" },
 		]);
+		expect(files.fileContent(".gitignore")).toBe(".ns/managed-extensions/\n");
 		expect(files.fileContent("AGENTS.md")).toContain("# Customer");
 		expect(files.fileContent("CLAUDE.md")).toContain("# Claude");
 		expect(files.fileContent(".ns/one/.gitkeep")).toBe("");
+	});
+
+	it("appends the managed extensions ignore rule exactly once without changing existing content", async () => {
+		const original = "# customer rules\nnode_modules/\n.ns/**\n";
+		const files = new InMemoryActivationFilesGateway({ files: { ".gitignore": original } });
+		const ctx = context({ files });
+		const prepared = await prepareNsActivation(ctx, {
+			repository,
+			harnesses: ["pi"],
+			harnessSource: "explicit",
+			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlChange: "created",
+		});
+		if (prepared.type !== "prepared") throw new Error("expected prepared");
+		expect(prepared.activation.managedExtensionsIgnore.change).toBe("appended");
+		await applyNsActivation(ctx, prepared.activation);
+		expect(files.fileContent(".gitignore")).toBe(`${original}.ns/managed-extensions/\n`);
+
+		const rerun = await prepareNsActivation(ctx, {
+			repository,
+			harnesses: ["pi"],
+			harnessSource: "ns-toml",
+			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlChange: "unchanged",
+		});
+		if (rerun.type !== "prepared") throw new Error("expected prepared rerun");
+		expect(rerun.activation.managedExtensionsIgnore.change).toBe("unchanged");
+	});
+
+	it("treats a comment containing the managed extensions rule as absent", async () => {
+		const files = new InMemoryActivationFilesGateway({
+			files: { ".gitignore": "# .ns/managed-extensions/\n" },
+		});
+		const prepared = await prepareNsActivation(context({ files }), {
+			repository,
+			harnesses: ["pi"],
+			harnessSource: "explicit",
+			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlChange: "created",
+		});
+		if (prepared.type !== "prepared") throw new Error("expected prepared");
+		expect(prepared.activation.managedExtensionsIgnore.content).toBe(
+			"# .ns/managed-extensions/\n.ns/managed-extensions/\n",
+		);
+	});
+
+	it("reports a non-file .gitignore during preflight and performs no operations", async () => {
+		const files = new InMemoryActivationFilesGateway({ nonFilePaths: [".gitignore"] });
+		const result = await prepareNsActivation(context({ files }), {
+			repository,
+			harnesses: ["pi"],
+			harnessSource: "explicit",
+			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlChange: "created",
+		});
+		expect(result).toMatchObject({
+			type: "preflight-failed",
+			diagnostics: [{ code: "activation-path-not-file", path: ".gitignore" }],
+		});
+		expect(files.operations()).toEqual([]);
+	});
+
+	it("reports .gitignore read errors during preflight and performs no operations", async () => {
+		const files = new InMemoryActivationFilesGateway({
+			readFailure: { code: "permission-denied", message: "permission denied" },
+		});
+		const result = await prepareNsActivation(context({ files }), {
+			repository,
+			harnesses: ["pi"],
+			harnessSource: "explicit",
+			nsTomlContent: 'harnesses = ["pi"]\n',
+			nsTomlChange: "created",
+		});
+		expect(result.type).toBe("preflight-failed");
+		if (result.type !== "preflight-failed") return;
+		expect(result.diagnostics).toContainEqual({
+			code: "permission-denied",
+			message: "permission denied",
+			path: ".gitignore",
+		});
+		expect(files.operations()).toEqual([]);
 	});
 
 	it("bare core still writes the pointer and core instructions", async () => {
@@ -191,6 +274,7 @@ describe("ns activation planning and apply", () => {
 		});
 		expect(files.operations()).toEqual([
 			{ type: "write", path: "ns.toml" },
+			{ type: "write", path: ".gitignore" },
 			{ type: "write", path: "AGENTS.md" },
 		]);
 	});

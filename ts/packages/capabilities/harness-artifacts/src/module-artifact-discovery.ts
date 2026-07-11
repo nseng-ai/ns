@@ -1,9 +1,7 @@
 import { join, resolve } from "node:path";
 
-import { formatErrorMessage, isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
-import { validateExtensionDescriptor, type ExtensionDescriptor } from "@nseng-ai/kernel/sdk";
-import { resolveDescriptorExportPath } from "@nseng-ai/kernel/project-config";
-import { loadNsUserModuleDefault } from "@nseng-ai/kernel/runtime/module-loader";
+import { isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { type ExtensionDescriptor } from "@nseng-ai/kernel/sdk";
 import { z } from "zod";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
@@ -16,23 +14,11 @@ import {
 	type ModuleDiscoveryDirectoryState,
 	type ModuleDiscoveryPathState,
 } from "./filesystem.ts";
-import { sortStrings } from "./sort.ts";
 import {
 	MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
-	parseDescriptorArtifactDeclarations,
 	parseModuleArtifactDeclarations,
-	parsePackageManifestArtifactDeclaration,
 	type ModuleArtifactDeclarationDiagnostic,
-	type ParseModuleArtifactDeclarationResult,
 } from "./module-artifact-declaration.ts";
-
-export type ExtensionDescriptorModuleLoader = (descriptorPath: string) => Promise<unknown>;
-
-export interface DiscoverExtensionModuleHarnessArtifactsRequest {
-	moduleRoots: readonly string[];
-	gateway?: HarnessArtifactModuleDiscoveryGateway;
-	descriptorLoader?: ExtensionDescriptorModuleLoader;
-}
 
 export interface DeclaredExtensionModuleArtifactFacts {
 	readonly moduleRoot: string;
@@ -166,25 +152,6 @@ export async function discoverDeclaredExtensionModuleHarnessArtifacts(
 	return finalizeDiscoveryResult(catalogs);
 }
 
-export async function discoverExtensionModuleHarnessArtifacts(
-	request: DiscoverExtensionModuleHarnessArtifactsRequest,
-): Promise<DiscoverExtensionModuleHarnessArtifactsResult> {
-	const gateway = request.gateway ?? nodeHarnessArtifactFileSystemGateway;
-	const descriptorLoader = request.descriptorLoader ?? loadNsUserModuleDefault;
-	const catalogs: ResolvedNpmModuleHarnessArtifactCatalog[] = [];
-	const diagnostics: ModuleArtifactDiscoveryDiagnostic[] = [];
-	for (const packageRoot of sortStrings(request.moduleRoots)) {
-		const packageResult = await discoverLocalExtensionPackage({
-			moduleRoot: packageRoot,
-			gateway,
-			descriptorLoader,
-		});
-		if (packageResult.type === "catalog") catalogs.push(packageResult.catalog);
-		else diagnostics.push(...packageResult.diagnostics);
-	}
-	return finalizeDiscoveryResult(catalogs, diagnostics);
-}
-
 function finalizeDiscoveryResult(
 	catalogs: readonly ResolvedNpmModuleHarnessArtifactCatalog[],
 	extraDiagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] = [],
@@ -206,197 +173,8 @@ function finalizeDiscoveryResult(
 	};
 }
 
-async function discoverLocalExtensionPackage(options: {
-	moduleRoot: string;
-	gateway: HarnessArtifactModuleDiscoveryGateway;
-	descriptorLoader: ExtensionDescriptorModuleLoader;
-}): Promise<
-	| { type: "catalog"; catalog: ResolvedNpmModuleHarnessArtifactCatalog }
-	| { type: "diagnostics"; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] }
-> {
-	const state = await options.gateway.readDirectory(options.moduleRoot);
-	if (!state.ok) {
-		return { type: "diagnostics", diagnostics: [discoveryFileSystemDiagnostic(state.error)] };
-	}
-	if (state.value.type === "missing") {
-		return {
-			type: "diagnostics",
-			diagnostics: [
-				{
-					code: "module_artifact_local_package_missing",
-					message: `Declared local extension package does not exist: ${options.moduleRoot}.`,
-					path: options.moduleRoot,
-				},
-			],
-		};
-	}
-	if (state.value.type !== "directory") {
-		return {
-			type: "diagnostics",
-			diagnostics: [
-				{
-					code: "module_artifact_local_package_not_directory",
-					message: `Declared local extension package must be a directory: ${options.moduleRoot}.`,
-					path: options.moduleRoot,
-				},
-			],
-		};
-	}
-	return discoverExtensionPackage({ ...options, shouldTreatMissingPackageJsonAsDiagnostic: true });
-}
-
-async function discoverExtensionPackage(options: {
-	moduleRoot: string;
-	gateway: HarnessArtifactModuleDiscoveryGateway;
-	descriptorLoader: ExtensionDescriptorModuleLoader;
-	shouldTreatMissingPackageJsonAsDiagnostic?: boolean;
-}): Promise<
-	| { type: "catalog"; catalog: ResolvedNpmModuleHarnessArtifactCatalog }
-	| { type: "diagnostics"; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] }
-> {
-	const packageJsonPath = join(options.moduleRoot, "package.json");
-	const packageText = await options.gateway.readOptionalTextFile(packageJsonPath);
-	if (!packageText.ok) {
-		return { type: "diagnostics", diagnostics: [discoveryFileSystemDiagnostic(packageText.error)] };
-	}
-	if (packageText.value.type === "missing") {
-		if (options.shouldTreatMissingPackageJsonAsDiagnostic === true) {
-			return {
-				type: "diagnostics",
-				diagnostics: [
-					{
-						code: "module_artifact_local_package_missing_package_json",
-						message: `Declared local extension package must contain package.json: ${options.moduleRoot}.`,
-						path: packageJsonPath,
-					},
-				],
-			};
-		}
-		return { type: "diagnostics", diagnostics: [] };
-	}
-	const parsed = await parsePackageArtifactDeclarationForDiscovery({
-		moduleRoot: options.moduleRoot,
-		packageJsonPath,
-		packageJsonText: packageText.value.text,
-		descriptorLoader: options.descriptorLoader,
-	});
-	if (!parsed.ok) return { type: "diagnostics", diagnostics: parsed.diagnostics };
-	const artifactResults = await validateDiscoveredArtifacts({
-		moduleRoot: options.moduleRoot,
-		packageName: parsed.packageName,
-		artifacts: parsed.artifacts,
-		gateway: options.gateway,
-	});
-	return {
-		type: "catalog",
-		catalog: {
-			type: "npm-module-catalog",
-			moduleRoot: options.moduleRoot,
-			packageName: parsed.packageName,
-			version: parsed.version,
-			artifacts: artifactResults.artifacts,
-			diagnostics: sortDiscoveryDiagnostics([
-				...parsed.diagnostics,
-				...artifactResults.diagnostics,
-			]),
-		},
-	};
-}
-
-async function parsePackageArtifactDeclarationForDiscovery(options: {
-	moduleRoot: string;
-	packageJsonPath: string;
-	packageJsonText: string;
-	descriptorLoader: ExtensionDescriptorModuleLoader;
-}): Promise<
-	| {
-			ok: true;
-			packageName: string;
-			version: string;
-			artifacts: readonly SkillHarnessArtifactEntry[];
-			diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
-	  }
-	| { ok: false; diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[] }
-> {
-	const descriptorPath = descriptorExportPath(options.moduleRoot, options.packageJsonText);
-	const parsed = descriptorPath.ok
-		? await parseDescriptorModuleArtifactDeclaration({
-				packageJsonText: options.packageJsonText,
-				descriptorPath: descriptorPath.path,
-				descriptorLoader: options.descriptorLoader,
-			})
-		: parsePackageManifestArtifactDeclaration(options.packageJsonText);
-	if (!parsed.ok) {
-		return {
-			ok: false,
-			diagnostics: parsed.diagnostics.map((diagnostic) =>
-				declarationDiagnostic(diagnostic, options.packageJsonPath),
-			),
-		};
-	}
-	return {
-		...parsed,
-		diagnostics: parsed.diagnostics.map((diagnostic) =>
-			declarationDiagnostic(diagnostic, options.packageJsonPath),
-		),
-	};
-}
-
-async function parseDescriptorModuleArtifactDeclaration(options: {
-	packageJsonText: string;
-	descriptorPath: string;
-	descriptorLoader: ExtensionDescriptorModuleLoader;
-}): Promise<ParseModuleArtifactDeclarationResult> {
-	let descriptorExport: unknown;
-	try {
-		descriptorExport = await options.descriptorLoader(options.descriptorPath);
-	} catch (error) {
-		return {
-			ok: false,
-			diagnostics: [
-				{
-					code: "module_artifact_descriptor_import_failed",
-					message: `Failed to load ns extension descriptor ${options.descriptorPath}: ${formatErrorMessage(error)}`,
-					path: options.descriptorPath,
-				},
-			],
-		};
-	}
-	const descriptor = validateExtensionDescriptor(descriptorExport, options.descriptorPath);
-	if (!descriptor.ok) {
-		return {
-			ok: false,
-			diagnostics: [
-				{
-					code: "module_artifact_descriptor_invalid",
-					message: descriptor.message,
-					path: options.descriptorPath,
-				},
-			],
-		};
-	}
-	return parseDescriptorArtifactDeclarations(
-		options.packageJsonText,
-		descriptorArtifactDeclarations(descriptor.descriptor),
-	);
-}
-
 function descriptorArtifactDeclarations(descriptor: ExtensionDescriptor): readonly unknown[] {
 	return descriptor.bundledArtifacts ?? [];
-}
-
-function descriptorExportPath(
-	moduleRoot: string,
-	packageJsonText: string,
-): { ok: true; path: string } | { ok: false } {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(packageJsonText);
-	} catch {
-		return { ok: false };
-	}
-	const result = resolveDescriptorExportPath(moduleRoot, parsed);
-	return result.ok ? { ok: true, path: result.path } : { ok: false };
 }
 
 async function validateDiscoveredArtifacts(options: {

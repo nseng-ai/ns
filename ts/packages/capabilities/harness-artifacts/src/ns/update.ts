@@ -99,8 +99,9 @@ export function renderNsUpdateHuman(result: NsUpdateResult): string {
 		lines.push("- none");
 	} else {
 		for (const artifact of result.artifacts) {
+			const reason = artifact.removalReason === undefined ? "" : ` [${artifact.removalReason}]`;
 			lines.push(
-				`- ${artifact.action} ${artifact.skillName} (${artifact.harness}) -> ${artifact.targetArtifactPath}`,
+				`- ${artifact.action}${reason} ${artifact.skillName} (${artifact.harness}) -> ${artifact.targetArtifactPath}`,
 			);
 		}
 	}
@@ -127,7 +128,7 @@ export function renderNsUpdateHuman(result: NsUpdateResult): string {
 	if (result.isForceRequired) lines.push("", "Conflicts found; re-run with --force to overwrite.");
 	lines.push(
 		"",
-		`summary: ${countArtifacts(result, "installed")} installed, ${countArtifacts(result, "refreshed")} refreshed, ${countArtifacts(result, "unchanged")} unchanged, ${countArtifacts(result, "conflicted")} conflicted, ${countArtifacts(result, "skipped")} skipped, ${result.orphans.length} orphaned, ${result.diagnostics.length} diagnostic(s)`,
+		`summary: ${countArtifacts(result, "installed")} installed, ${countArtifacts(result, "refreshed")} refreshed, ${countArtifacts(result, "unchanged")} unchanged, ${countArtifacts(result, "removed")} removed, ${countArtifacts(result, "conflicted")} conflicted, ${countArtifacts(result, "skipped")} skipped, ${result.orphans.length} orphaned, ${result.diagnostics.length} diagnostic(s)`,
 		"",
 	);
 	return lines.join("\n");
