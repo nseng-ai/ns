@@ -1,7 +1,8 @@
+import type { LatestCommitAutobranchInput } from "../../autobranch/latest-commit.ts";
 import {
-	createLatestCommitAutobranchFlow,
-	type LatestCommitAutobranchInput,
-} from "../../autobranch/latest-commit.ts";
+	dispatchAutobranchCheckpoint,
+	unexpectedAutobranchDispatchOutcome,
+} from "../../autobranch/checkpoint-flow.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
@@ -10,7 +11,7 @@ import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-r
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";
 import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
-import { createAutobranchExecContext, loadFlowPendingWorktreeSnapshot } from "../worktree.ts";
+import { createAutobranchDispatchEnv } from "../worktree.ts";
 
 const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible unpushed single-parent commit to a new Graphite child branch.
 
@@ -43,66 +44,66 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 			const args: LatestCommitAutobranchInput["args"] =
 				request.slug === undefined ? {} : { slug: request.slug };
 
-			const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
-			if (!loaded.ok) {
-				return negative(
-					renderPendingWorktreeFailure(caps, {
-						error: loaded.error,
-						cwd: ctx.cwd,
-						commandLabel: "`ns flow branch-latest-commit`",
-					}),
-				);
-			}
-
-			const snapshot = loaded.snapshot;
-			if (!snapshot.clean) {
-				return negative(
-					renderGitResultBlock(caps, {
-						kind: "refusal",
-						headline: "`ns flow branch-latest-commit` requires a clean worktree and did not run.",
-						command: "git status --porcelain=v1",
-						cwd: snapshot.root,
-						detail: snapshot.status,
-						guidance:
-							"Use `ns flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.",
-					}),
-				);
-			}
-
-			const { exec, git } = createAutobranchExecContext(ctx, snapshot.root);
-			const result = await createLatestCommitAutobranchFlow({
-				cwd: snapshot.root,
-				args,
-				snapshot,
-				exec,
-				git,
-			});
-			if (!result.ok) {
-				// A declined eligibility guardrail (already-pushed HEAD, Graphite children, root/merge commit)
-				// is a first-class warn refusal, not a red failure (house-style §7.3).
-				return negative(
-					renderAutobranchFailureResultBlock({
-						caps,
-						outcome: result.outcome,
-						cwd: snapshot.root,
-						error: result.error,
-						refusalHeadline: "Did not move the latest commit to a new Graphite branch.",
-						failureHeadline: "Could not move the latest commit to a new Graphite branch.",
-					}),
-				);
-			}
-
-			for (const warning of result.warnings) {
-				ctx.stderr?.(`${warning.trimEnd()}\n`);
-			}
-			return ok(
-				renderResultBlock(caps, {
-					kind: "success",
-					headline: "Moved the latest commit to a new Graphite branch.",
-					cwd: snapshot.root,
-					body: result.summary.trimEnd(),
-				}),
+			const dispatched = await dispatchAutobranchCheckpoint(
+				{ mode: "require-clean" },
+				createAutobranchDispatchEnv(ctx, args),
 			);
+
+			switch (dispatched.outcome) {
+				case "pending-worktree":
+					return negative(
+						renderPendingWorktreeFailure(caps, {
+							error: dispatched.error,
+							cwd: ctx.cwd,
+							commandLabel: "`ns flow branch-latest-commit`",
+						}),
+					);
+				case "refused-dirty":
+					return negative(
+						renderGitResultBlock(caps, {
+							kind: "refusal",
+							headline: "`ns flow branch-latest-commit` requires a clean worktree and did not run.",
+							command: "git status --porcelain=v1",
+							cwd: dispatched.snapshot.root,
+							detail: dispatched.snapshot.status,
+							guidance:
+								"Use `ns flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.",
+						}),
+					);
+				case "refused-clean":
+					return unexpectedAutobranchDispatchOutcome(dispatched);
+				case "flow": {
+					const result = dispatched.flow;
+					if (!result.ok) {
+						// A declined eligibility guardrail (already-pushed HEAD, Graphite children, root/merge commit)
+						// is a first-class warn refusal, not a red failure (house-style §7.3).
+						return negative(
+							renderAutobranchFailureResultBlock({
+								caps,
+								outcome: result.outcome,
+								cwd: dispatched.snapshot.root,
+								error: result.error,
+								refusalHeadline: "Did not move the latest commit to a new Graphite branch.",
+								failureHeadline: "Could not move the latest commit to a new Graphite branch.",
+							}),
+						);
+					}
+
+					for (const warning of result.warnings) {
+						ctx.stderr?.(`${warning.trimEnd()}\n`);
+					}
+					return ok(
+						renderResultBlock(caps, {
+							kind: "success",
+							headline: "Moved the latest commit to a new Graphite branch.",
+							cwd: dispatched.snapshot.root,
+							body: result.summary.trimEnd(),
+						}),
+					);
+				}
+				default:
+					return unexpectedAutobranchDispatchOutcome(dispatched);
+			}
 		},
 	});
 
