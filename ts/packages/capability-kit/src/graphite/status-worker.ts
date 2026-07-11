@@ -271,13 +271,21 @@ function isGraphiteMetadataStatus(value: unknown): value is GraphiteMetadataStat
 			(value.parent === undefined || typeof value.parent === "string") &&
 			Array.isArray(value.children) &&
 			value.children.every((child) => typeof child === "string") &&
-			typeof value.isCurrentTrunk === "boolean"
+			typeof value.isCurrentTrunk === "boolean" &&
+			isOptionalStackCount(value.downstackCount) &&
+			isOptionalStackCount(value.upstackCount)
 		);
 	}
 	if (value.type === "untracked") return typeof value.currentBranch === "string";
 	if (value.type !== "unavailable" || !isGraphiteMetadataUnavailableReason(value.reason))
 		return false;
 	return value.currentBranch === undefined || typeof value.currentBranch === "string";
+}
+
+function isOptionalStackCount(value: unknown): value is number | undefined {
+	return (
+		value === undefined || (typeof value === "number" && Number.isInteger(value) && value >= 0)
+	);
 }
 
 function isGraphiteMetadataUnavailableReason(

@@ -301,6 +301,8 @@ export function gtStatus(overrides: Partial<GtStatus> = {}): GtStatus {
 		up: overrides.up ?? "-",
 		commits: overrides.commits ?? { type: "count", count: 1 },
 		dirty: overrides.dirty ?? "no",
+		...(overrides.downCount === undefined ? {} : { downCount: overrides.downCount }),
+		...(overrides.upCount === undefined ? {} : { upCount: overrides.upCount }),
 	};
 }
 

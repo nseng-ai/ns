@@ -29,6 +29,18 @@ export type GraphiteMetadataStatus =
 			parent: string | undefined;
 			children: readonly string[];
 			isCurrentTrunk: boolean;
+			/**
+			 * Non-trunk ancestor branches below the current branch. Omitted when the
+			 * ancestor walk cannot complete (cycle or missing metadata row).
+			 */
+			downstackCount?: number;
+			/**
+			 * Distinct branches above the current branch reachable through live-ref
+			 * child links, across all chains. Stale diamond links and cycles count
+			 * each branch once. Optional only for wire tolerance; the loader always
+			 * sets it on tracked branches.
+			 */
+			upstackCount?: number;
 	  }
 	| { type: "untracked"; currentBranch: string }
 	| { type: "unavailable"; reason: GraphiteMetadataUnavailableReason; currentBranch?: string };

@@ -83,6 +83,10 @@ export type GtCommitStatus =
 export interface GtStatus {
 	down: string | undefined;
 	up: string;
+	/** Stacked branches below the current branch (excluding trunk); omitted when unknown. */
+	downCount?: number;
+	/** Stacked branches above the current branch across all chains; omitted when unknown. */
+	upCount?: number;
 	commits: GtCommitStatus;
 	dirty: "yes" | "no";
 }
@@ -250,7 +254,18 @@ export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStat
 		loadDirty(pi, cwd, signal),
 	]);
 
-	return { down, up, commits, dirty };
+	return { down, up, commits, dirty, ...stackCountsFromMetadata(metadata, signal) };
+}
+
+function stackCountsFromMetadata(
+	metadata: GraphiteMetadataStatus,
+	signal?: AbortSignal,
+): Pick<GtStatus, "downCount" | "upCount"> {
+	if (signal?.aborted || metadata.type !== "tracked") return {};
+	return {
+		...(metadata.downstackCount === undefined ? {} : { downCount: metadata.downstackCount }),
+		...(metadata.upstackCount === undefined ? {} : { upCount: metadata.upstackCount }),
+	};
 }
 
 async function loadBrmemStatus(

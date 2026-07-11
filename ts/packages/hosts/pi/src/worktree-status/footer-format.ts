@@ -155,17 +155,26 @@ function buildFooterIdentitySegments(
 	if (gt !== undefined) {
 		segments.push(
 			{ text: " ", color: "dim" },
-			{ text: "↓:", color: "dim" },
+			...stackArrowSegments("↓", gt.downCount),
 			{ text: gt.down ?? "-", color: "accent" },
 			{ text: " ", color: "dim" },
 			{ text: "commits:", color: "dim" },
 			{ text: formatGtCommitStatus(gt.commits, "compact"), color: "accent" },
 			{ text: " ", color: "dim" },
-			{ text: "↑:", color: "dim" },
+			...stackArrowSegments("↑", gt.upCount),
 			{ text: gt.up, color: "accent" },
 		);
 	}
 	return segments;
+}
+
+function stackArrowSegments(arrow: "↓" | "↑", count: number | undefined): FooterIdentitySegment[] {
+	if (count === undefined) return [{ text: `${arrow}:`, color: "dim" }];
+	return [
+		{ text: arrow, color: "dim" },
+		{ text: count.toString(), color: "accent" },
+		{ text: ":", color: "dim" },
+	];
 }
 
 function colorFooterIdentitySegments(

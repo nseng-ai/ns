@@ -6,7 +6,8 @@ import {
 	graphiteMetadataDbPath,
 	hasExpectedGraphiteBranchMetadataSchema,
 	parseGraphiteBranchMetadataRows,
-	sqliteTextLiteral,
+	walkGraphiteAncestors,
+	type GraphiteTopology,
 	type SqliteJsonError,
 } from "./metadata.ts";
 import { readLocalBranchRefs } from "../git/local-ref-reader.ts";
@@ -47,12 +48,9 @@ export function loadGraphiteMetadataStatus(
 		return { type: "unavailable", reason: "schema-mismatch", currentBranch: input.currentBranch };
 	}
 
-	const rowQuery = [
-		GRAPHITE_BRANCH_METADATA_QUERY,
-		`WHERE branch_name = ${sqliteTextLiteral(input.currentBranch)}`,
-		"LIMIT 1",
-	].join(" ");
-	const rowResult = dbAccess.queryJson(dbPath, rowQuery);
+	// Load the full branch table (not just the current row) so stack depth can be
+	// counted; the Graphite metadata table stays small (one row per branch).
+	const rowResult = dbAccess.queryJson(dbPath, GRAPHITE_BRANCH_METADATA_QUERY);
 	if (!rowResult.ok) {
 		return {
 			type: "unavailable",
@@ -81,6 +79,7 @@ export function loadGraphiteMetadataStatus(
 		};
 	}
 	const children = filterLiveBranchNames(row.children, liveBranches.branches).kept;
+	const downstackCount = downstackCountFromTopology(parsed.topology, input.currentBranch);
 
 	return {
 		type: "tracked",
@@ -88,7 +87,45 @@ export function loadGraphiteMetadataStatus(
 		parent: row.parent,
 		children,
 		isCurrentTrunk: row.isTrunkMarked,
+		...(downstackCount === undefined ? {} : { downstackCount }),
+		upstackCount: upstackCountFromTopology(
+			parsed.topology,
+			input.currentBranch,
+			liveBranches.branches,
+		),
 	};
+}
+
+function downstackCountFromTopology(
+	topology: GraphiteTopology,
+	currentBranch: string,
+): number | undefined {
+	const walk = walkGraphiteAncestors(topology, currentBranch);
+	if (walk.termination.type !== "completed") return undefined;
+	return walk.ancestors.filter((ancestor) => topology.get(ancestor)?.isTrunkMarked !== true).length;
+}
+
+function upstackCountFromTopology(
+	topology: GraphiteTopology,
+	currentBranch: string,
+	liveBranches: ReadonlySet<string>,
+): number {
+	// Count distinct branches reachable through live-ref children (matching the
+	// immediate-children reconciliation above). Real metadata tables carry stale
+	// diamond links and can even cycle, so a visited set — not walkGraphiteSubtree's
+	// revisit-is-corruption contract — is the right traversal here.
+	const visited = new Set([currentBranch]);
+	const pending = [currentBranch];
+	for (let branch = pending.pop(); branch !== undefined; branch = pending.pop()) {
+		const row = topology.get(branch);
+		if (row === undefined) continue;
+		for (const child of filterLiveBranchNames(row.children, liveBranches).kept) {
+			if (visited.has(child)) continue;
+			visited.add(child);
+			pending.push(child);
+		}
+	}
+	return visited.size - 1;
 }
 
 function statusReasonFromSqliteError(
