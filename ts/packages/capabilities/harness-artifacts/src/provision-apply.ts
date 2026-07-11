@@ -376,8 +376,37 @@ export async function applyPreparedProvision(
 }
 
 export type PreparedHarnessArtifactTransition =
-	| { readonly type: "remove"; readonly removal: PreparedHarnessArtifactRemoval }
-	| { readonly type: "provision"; readonly provision: PreparedHarnessArtifactProvision };
+	| {
+			readonly type: "remove";
+			readonly key: string;
+			readonly removal: PreparedHarnessArtifactRemoval;
+	  }
+	| {
+			readonly type: "provision";
+			readonly key: string;
+			readonly provision: PreparedHarnessArtifactProvision;
+	  };
+
+export function assertUniquePreparedTransitionKeys(
+	transitions: readonly PreparedHarnessArtifactTransition[],
+): void {
+	const keys = new Set<string>();
+	for (const transition of transitions) {
+		const identityKey =
+			transition.type === "remove"
+				? transition.removal.key
+				: installManifestKey(transition.provision.plan);
+		if (transition.key !== identityKey) {
+			throw new Error(
+				`Prepared harness artifact transition key ${transition.key} does not match ${identityKey}.`,
+			);
+		}
+		if (keys.has(transition.key)) {
+			throw new Error(`Duplicate prepared harness artifact transition key: ${transition.key}.`);
+		}
+		keys.add(transition.key);
+	}
+}
 
 export interface PreparedProvisionReconciliation {
 	readonly transitions: readonly PreparedHarnessArtifactTransition[];
@@ -389,11 +418,11 @@ export type AppliedHarnessArtifactTransition =
 	| { readonly type: "provision"; readonly outcome: HarnessArtifactProvisionApplyOutcome };
 
 export interface AppliedProvisionReconciliation {
-	readonly outcomes: readonly AppliedHarnessArtifactTransition[];
+	readonly outcomes: ReadonlyMap<string, AppliedHarnessArtifactTransition>;
 }
 
 export type HarnessArtifactProvisionReconciliationErrorInfo = HarnessArtifactProvisionErrorInfo & {
-	readonly completedTransitions: readonly AppliedHarnessArtifactTransition[];
+	readonly completedTransitions: ReadonlyMap<string, AppliedHarnessArtifactTransition>;
 };
 
 /** Apply one ordered reconciliation while rereading each transition's immediate state. */
@@ -402,20 +431,21 @@ export async function applyPreparedProvisionReconciliation(
 ): Promise<
 	Result<AppliedProvisionReconciliation, HarnessArtifactProvisionReconciliationErrorInfo>
 > {
-	const outcomes: AppliedHarnessArtifactTransition[] = [];
+	assertUniquePreparedTransitionKeys(prepared.transitions);
+	const outcomes = new Map<string, AppliedHarnessArtifactTransition>();
 	const removedPaths = new Set<string>();
 	const removedKeys = new Set<string>();
 	for (const transition of prepared.transitions) {
 		if (transition.type === "remove") {
 			const removed = await applyPreparedHarnessArtifactRemoval(transition.removal);
 			if (!removed.ok) {
-				return resultErr({ ...removed.error, completedTransitions: [...outcomes] });
+				return resultErr({ ...removed.error, completedTransitions: new Map(outcomes) });
 			}
 			for (const file of Object.values(transition.removal.entry.files)) {
 				removedPaths.add(file.targetPath);
 			}
 			removedKeys.add(transition.removal.key);
-			outcomes.push({ type: "remove", removedFiles: removed.value });
+			outcomes.set(transition.key, { type: "remove", removedFiles: removed.value });
 			continue;
 		}
 		const provision = accountForPriorAggregateRemovals(
@@ -427,9 +457,9 @@ export async function applyPreparedProvisionReconciliation(
 			shouldForce: prepared.shouldForce,
 		});
 		if (!applied.ok) {
-			return resultErr({ ...applied.error, completedTransitions: [...outcomes] });
+			return resultErr({ ...applied.error, completedTransitions: new Map(outcomes) });
 		}
-		outcomes.push({ type: "provision", outcome: applied.value });
+		outcomes.set(transition.key, { type: "provision", outcome: applied.value });
 	}
 	return resultOk({ outcomes });
 }

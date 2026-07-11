@@ -151,12 +151,22 @@ describe("declared artifact activation", () => {
 
 		expect(applied).toMatchObject({
 			ok: false,
-			error: {
-				code: "stale_prepared_reconciliation",
-				completedTransitions: [{ type: "provision" }],
-			},
-			completed: [{ artifactId: "@acme/ext:alpha", action: "installed" }],
+			error: { code: "stale_prepared_reconciliation" },
+			completed: [
+				{
+					key: "pi:project:skill:@acme/ext:alpha",
+					artifactId: "@acme/ext:alpha",
+					action: "installed",
+				},
+			],
 		});
+		if (applied.ok) return;
+		expect([...applied.error.completedTransitions]).toEqual([
+			[
+				"pi:project:skill:@acme/ext:alpha",
+				{ type: "provision", outcome: expect.objectContaining({ outcome: "applied" }) },
+			],
+		]);
 		expect(fixture.fs.readText("/repo/.pi/skills/alpha/SKILL.md")).toBe("alpha v1\n");
 		expect(fixture.fs.readText("/repo/.pi/skills/beta/SKILL.md")).toBeUndefined();
 	});
@@ -275,6 +285,58 @@ describe("declared artifact activation", () => {
 		expect(Object.keys(fixture.readManifest().artifacts)).toEqual([
 			"pi:project:skill:@acme/ext:module",
 		]);
+	});
+
+	test("attributes a completed removal by identity when a same-target provision fails", async () => {
+		const fixture = createFixture([moduleFacts("/modules/acme", "@acme/ext", "module")]);
+		const manifest = staleManifest();
+		const old = manifest.artifacts["pi:project:skill:@gone/ext:old"];
+		if (old === undefined) return;
+		old.provisionName = "module";
+		old.targetArtifactPath = "/repo/.pi/skills/module";
+		old.files["SKILL.md"] = {
+			sourcePath: "skills/old/SKILL.md",
+			targetPath: "/repo/.pi/skills/module/SKILL.md",
+			contentHash: contentHashForText("old\n"),
+		};
+		fixture.fs.setFile("/repo/.pi/skills/module/SKILL.md", "old\n");
+		fixture.writeManifest(manifest);
+		const prepared = await fixture.prepare(["pi"]);
+		if (!prepared.ok) return;
+		fixture.fs.setFile("/modules/acme/skills/module/SKILL.md", "changed after prepare\n");
+
+		const applied = await applyPreparedDeclaredArtifactActivation(prepared.value);
+
+		expect(applied).toEqual({
+			ok: false,
+			error: expect.objectContaining({
+				code: "stale_prepared_reconciliation",
+				completedTransitions: new Map([
+					[
+						"pi:project:skill:@gone/ext:old",
+						{
+							type: "remove",
+							removedFiles: ["/repo/.pi/skills/module/SKILL.md"],
+						},
+					],
+				]),
+			}),
+			completed: [
+				{
+					key: "pi:project:skill:@gone/ext:old",
+					action: "removed",
+					artifactId: "@gone/ext:old",
+					skillName: "module",
+					harness: "pi",
+					targetArtifactPath: "/repo/.pi/skills/module",
+					manifestPath: `/repo/.pi/skills/${INSTALL_MANIFEST_FILE_NAME}`,
+					writtenFiles: [],
+					conflictingFiles: [],
+					removedFiles: ["/repo/.pi/skills/module/SKILL.md"],
+					removalReason: "same-target-replacement",
+				},
+			],
+		});
 	});
 
 	test("deselection removes tracked files but retains untracked files and non-empty artifact dirs", async () => {
