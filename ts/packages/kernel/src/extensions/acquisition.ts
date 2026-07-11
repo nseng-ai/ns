@@ -10,10 +10,16 @@ import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/p
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
-import { parseExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
+import {
+	extensionSourceSupport,
+	parseExtensionSourceSpec,
+} from "../project-config/extension-source-spec.ts";
 import { managedNpmPackagePaths } from "../project-config/managed-extension-paths.ts";
 
-export { parseExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
+export {
+	extensionSourceSupport,
+	parseExtensionSourceSpec,
+} from "../project-config/extension-source-spec.ts";
 export {
 	managedNpmProjectRoot,
 	npmPackageRoot,
@@ -193,9 +199,12 @@ export async function resolveDeclaredExtensionModules(
 			continue;
 		}
 		if (parsed.value.kind === "git") {
+			const support = extensionSourceSupport(parsed.value);
+			if (support.ok)
+				throw new Error("Git extension source support classification is inconsistent.");
 			diagnostics.push({
 				code: "extension_acquisition_git_unsupported",
-				message: `Git extension sources are reserved but unsupported in this slice: ${raw}.`,
+				message: `${support.reason} Source: ${raw}.`,
 				spec: raw,
 			});
 			continue;

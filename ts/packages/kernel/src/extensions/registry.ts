@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,6 +21,7 @@ import {
 import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 import { nextDescriptorTraversalState } from "./descriptor-traversal.ts";
 import { loadDeclaredExtensionDescriptors } from "./declared-descriptors.ts";
+import { loadExtensionDescriptorFromPackageRoot } from "../project-config/extension-package-descriptor.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import {
 	loadedModuleReference,
@@ -30,24 +31,18 @@ import {
 	type NsCommandModuleReference,
 } from "./module-reference.ts";
 import {
-	formatErrorMessage,
 	isPathInside,
 	optionalEntry,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
-import { loadNsUserModuleDefault } from "../runtime/module-loader.ts";
 import {
-	validateExtensionDescriptor,
 	type ExtensionCommandEntry,
 	type ExtensionDescriptor,
 	type ExtensionEntry,
 } from "../sdk/descriptor.ts";
 import {
 	declaredExtensionSpecsErrorInfo,
-	descriptorExportPathErrorInfo,
-	descriptorExportTarget,
 	parseDeclaredExtensionSpecsToml,
-	resolveDescriptorExportPath,
 } from "../project-config/descriptor-package.ts";
 import type { DescriptorCommand } from "../sdk/index.ts";
 
@@ -421,53 +416,6 @@ function readDeclaredExtensionSpecs(
 	};
 }
 
-function resolveDescriptorExport(
-	packageDir: string,
-	packageJsonPath: string,
-): { ok: true; path: string } | { ok: false; diagnostic: ExtensionErrorDiagnostic } {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-	} catch (error) {
-		return {
-			ok: false,
-			diagnostic: projectErrorDiagnostic(
-				"extension_descriptor_package_json_read_failed",
-				`Could not read extension package manifest ${packageJsonPath}.\n${formatErrorMessage(error)}`,
-				packageJsonPath,
-			),
-		};
-	}
-	const exportPath = resolveDescriptorExportPath(packageDir, parsed);
-	if (!exportPath.ok) return descriptorExportErrorDiagnostic(exportPath, packageJsonPath);
-	try {
-		if (!statSync(exportPath.path).isFile()) {
-			throw new Error("not a file");
-		}
-	} catch {
-		return {
-			ok: false,
-			diagnostic: projectErrorDiagnostic(
-				"extension_descriptor_export_missing_file",
-				`Extension descriptor export does not resolve to a file: ${exportPath.target}.`,
-				packageJsonPath,
-			),
-		};
-	}
-	return { ok: true, path: exportPath.path };
-}
-
-function descriptorExportErrorDiagnostic(
-	result: Exclude<ReturnType<typeof resolveDescriptorExportPath>, { ok: true }>,
-	packageJsonPath: string,
-): { ok: false; diagnostic: ExtensionErrorDiagnostic } {
-	const errorInfo = descriptorExportPathErrorInfo(result, packageJsonPath);
-	return {
-		ok: false,
-		diagnostic: projectErrorDiagnostic(errorInfo.code, errorInfo.message, packageJsonPath),
-	};
-}
-
 function descriptorCommandCandidates(options: {
 	cwd: string;
 	spec: string;
@@ -616,48 +564,27 @@ async function loadSourceDevDescriptorCandidates(options: {
 	diagnostics: readonly ExtensionDiagnostic[];
 	candidates: readonly ExtensionCommandCandidate[];
 }> {
-	const packageJsonPath = join(options.packageDir, "package.json");
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-	} catch {
-		// Source-dev descriptor discovery is opportunistic; invalid manifests are ignored.
-		return { diagnostics: [], candidates: [] };
-	}
-	if (descriptorExportTarget(parsed) === undefined) return { diagnostics: [], candidates: [] };
-	const descriptorPath = resolveDescriptorExport(options.packageDir, packageJsonPath);
-	if (!descriptorPath.ok) {
-		return {
-			diagnostics: [{ ...descriptorPath.diagnostic, sourceLevel: "preinstalled" }],
-			candidates: [],
-		};
-	}
-	let descriptorExport: unknown;
-	try {
-		descriptorExport = await loadNsUserModuleDefault(descriptorPath.path);
-	} catch (error) {
+	const loaded = await loadExtensionDescriptorFromPackageRoot({ packageRoot: options.packageDir });
+	if (!loaded.ok) {
+		if (
+			loaded.error.type === "package-manifest-missing" ||
+			loaded.error.type === "package-manifest-read-failed" ||
+			loaded.error.type === "package-manifest-invalid" ||
+			loaded.error.code === "extension_descriptor_export_missing"
+		) {
+			// Source-dev discovery is opportunistic; packages without usable descriptor metadata are ignored.
+			return { diagnostics: [], candidates: [] };
+		}
 		return {
 			diagnostics: [
 				{
 					severity: "error",
-					code: "extension_descriptor_import_failed",
-					message: `Failed to load source-dev ns extension descriptor ${descriptorPath.path}.\n${formatErrorMessage(error)}`,
-					path: descriptorPath.path,
-					sourceLevel: "preinstalled",
-				},
-			],
-			candidates: [],
-		};
-	}
-	const validation = validateExtensionDescriptor(descriptorExport, descriptorPath.path);
-	if (!validation.ok) {
-		return {
-			diagnostics: [
-				{
-					severity: "error",
-					code: "extension_descriptor_invalid",
-					message: validation.message,
-					path: descriptorPath.path,
+					code: loaded.error.code,
+					message:
+						loaded.error.type === "descriptor-import-failed"
+							? `Failed to load source-dev ns extension descriptor ${loaded.error.path}.\n${loaded.error.causeMessage ?? loaded.error.message}`
+							: loaded.error.message,
+					path: loaded.error.path,
 					sourceLevel: "preinstalled",
 				},
 			],
@@ -671,8 +598,8 @@ async function loadSourceDevDescriptorCandidates(options: {
 			cwd: options.cwd,
 			spec,
 			packageDir: options.packageDir,
-			descriptorPath: descriptorPath.path,
-			descriptor: validation.descriptor,
+			descriptorPath: loaded.value.descriptorPath,
+			descriptor: loaded.value.descriptor,
 			sourceLevel: "preinstalled",
 			sourceLabel: `source-dev descriptor ${spec}`,
 		}),

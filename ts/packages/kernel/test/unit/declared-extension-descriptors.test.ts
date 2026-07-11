@@ -38,11 +38,13 @@ class FakeDeclaredExtensionDescriptorGateway implements DeclaredExtensionDescrip
 		}
 		return {
 			type: "found",
-			manifest: descriptorPackage.manifest ?? {
-				name: `fixture-${descriptorPackage.root.split("/").at(-1) ?? "extension"}`,
-				version: "1.0.0",
-				exports: { "./ns-extension": "./ns-extension.ts" },
-			},
+			text: JSON.stringify(
+				descriptorPackage.manifest ?? {
+					name: `fixture-${descriptorPackage.root.split("/").at(-1) ?? "extension"}`,
+					version: "1.0.0",
+					exports: { "./ns-extension": "./ns-extension.ts" },
+				},
+			),
 		};
 	}
 
@@ -189,6 +191,23 @@ describe("declared extension descriptors", () => {
 		]);
 		expect(result.diagnostics).toMatchObject([
 			{ code: "extension_descriptor_package_missing", spec: "npm:missing" },
+		]);
+	});
+
+	test("wraps the canonical unsupported-git reason in declared-descriptor context", async () => {
+		const result = await loadDeclaredExtensionDescriptors({
+			repoRoot: "/repo",
+			specs: ["git:github/acme/tools@main"],
+			gateway: new FakeDeclaredExtensionDescriptorGateway([]),
+		});
+
+		expect(result.descriptors).toEqual([]);
+		expect(result.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "extension_descriptor_source_unsupported",
+				spec: "git:github/acme/tools@main",
+				message: expect.stringContaining("Git extension sources are recognized but unsupported."),
+			}),
 		]);
 	});
 

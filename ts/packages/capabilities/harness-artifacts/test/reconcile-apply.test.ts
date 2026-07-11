@@ -186,6 +186,33 @@ describe("harness artifact reconcile driver", () => {
 		expect(fixture.fs.readText("/repo/.pi/skills/module-skill/SKILL.md")).toBe("npm v1\n");
 	});
 
+	test("reconcile refreshes installed floating npm extensions but keeps pinned installs stable", async () => {
+		for (const source of ["npm:@acme/module", "npm:@acme/module@1.0.0"] as const) {
+			const fixture = createFixture({
+				nsToml: `harnesses = ["pi"]\nextensions = ["${source}"]\n`,
+				includeModule: false,
+			});
+			const packageRoot = "/repo/.ns/managed-extensions/npm/@acme/module/node_modules/@acme/module";
+			fixture.fs.setFile(`${packageRoot}/package.json`, packageJson("@acme/module"));
+			fixture.fs.setFile(`${packageRoot}/skills/module/SKILL.md`, "npm v1\n");
+			const acquisitionGateway = new FakeExtensionAcquisitionGateway({
+				installedPackageRoots: [packageRoot],
+			});
+
+			const result = await runHarnessArtifactReconcile(
+				fixture.request({
+					acquisitionGateway,
+					descriptorGateway: new TestDescriptorGateway(fixture.fs),
+				}),
+			);
+
+			expect(result).toMatchObject({ ok: true });
+			expect(acquisitionGateway.installs.map((install) => install.rawSpec)).toEqual(
+				source.includes("@1.0.0") ? [] : [source],
+			);
+		}
+	});
+
 	test("declared-only npm targeting rejects undeclared specs", async () => {
 		const fixture = createFixture({
 			nsToml: 'harnesses = ["pi"]\nextensions = ["npm:@acme/module@1.0.0"]\n',
@@ -376,7 +403,7 @@ class TestDescriptorGateway implements DeclaredExtensionDescriptorGateway {
 
 	async readPackageManifest(path: string): Promise<DeclaredDescriptorPackageManifestResult> {
 		const text = this.#fs.readText(path);
-		return text === undefined ? { type: "missing" } : { type: "found", manifest: JSON.parse(text) };
+		return text === undefined ? { type: "missing" } : { type: "found", text };
 	}
 
 	async inspectDescriptorFile(_path: string): Promise<DeclaredDescriptorFileResult> {
