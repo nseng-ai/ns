@@ -4,7 +4,10 @@ import { registerCommandWithImmediateAck } from "./ack.ts";
 import { parseCliCommandArgs, type ParsedCliCommandArgs } from "./args.ts";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type { NotifyLevel } from "../runtime/tool-types.ts";
-import { LiveCommandProgress } from "./cli-command-live-progress.ts";
+import {
+	LiveCommandProgress,
+	type LiveProgressWidgetContent,
+} from "./cli-command-live-progress.ts";
 import { outputTraceFields, traceCliCommand } from "./cli-command-trace.ts";
 import { emitPiExtensionCommandFinished, type PiExtensionCommandEventEmitter } from "./events.ts";
 import { withSafePiUi, withSafePiUiAsync } from "../kit/shared/safe-ui.ts";
@@ -123,7 +126,7 @@ export interface CommandContext {
 		setStatus?(key: string, value: string | undefined): void;
 		setWidget?(
 			key: string,
-			value: string[] | undefined,
+			value: LiveProgressWidgetContent | undefined,
 			options?: { placement?: CommandWidgetPlacement },
 		): void;
 	};

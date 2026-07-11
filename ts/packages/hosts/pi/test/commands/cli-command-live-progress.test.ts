@@ -5,6 +5,7 @@ import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
 import {
 	LiveCommandProgress,
 	MatrixWidgetState,
+	type LiveProgressWidgetContent,
 } from "../../src/commands/cli-command-live-progress.ts";
 
 const LAND_COLUMNS = [
@@ -149,7 +150,13 @@ describe("MatrixWidgetState", () => {
 
 interface WidgetCall {
 	key: string;
-	value: string[] | undefined;
+	value: LiveProgressWidgetContent | undefined;
+}
+
+function renderWidgetContent(content: LiveProgressWidgetContent | undefined): string[] | undefined {
+	if (content === undefined) return undefined;
+	if (typeof content === "function") return content().render(100);
+	return content;
 }
 
 function createWidgetHarness() {
@@ -157,7 +164,7 @@ function createWidgetHarness() {
 	const ctx = {
 		hasUI: true,
 		ui: {
-			setWidget: (key: string, value: string[] | undefined) => {
+			setWidget: (key: string, value: LiveProgressWidgetContent | undefined) => {
 				widgetCalls.push({ key, value });
 			},
 		},
@@ -168,7 +175,11 @@ function createWidgetHarness() {
 		piCommandName: "ns:flow:land",
 		argv: ["flow", "land"],
 	});
-	return { progress, widgetCalls, latestWidget: () => widgetCalls.at(-1)?.value };
+	return {
+		progress,
+		widgetCalls,
+		latestWidget: () => renderWidgetContent(widgetCalls.at(-1)?.value),
+	};
 }
 
 const PHASE_EVENTS: readonly NsProgressPhaseEvent[] = [
@@ -229,6 +240,29 @@ describe("LiveCommandProgress matrix rendering", () => {
 			expect(lines?.[1]).toBe("");
 			expect(lines?.[2]).toMatch(/^Branch \/ PR\s+Gate/);
 			expect(lines).toHaveLength(5);
+		} finally {
+			progress.close();
+		}
+	});
+
+	test("renders every matrix row through an uncapped component widget", () => {
+		const { progress, widgetCalls, latestWidget } = createWidgetHarness();
+		try {
+			for (const event of PHASE_EVENTS) progress.applyPhaseEvent(event);
+			progress.applyPhaseEvent({ type: "matrix-declared", columns: LAND_COLUMNS });
+			progress.applyPhaseEvent({
+				type: "matrix-rows",
+				rows: Array.from({ length: 12 }, (_, index) => ({
+					rowKey: `feature-${index + 1}`,
+					label: `feature-${index + 1} (#${index + 1})`,
+				})),
+			});
+
+			expect(typeof widgetCalls.at(-1)?.value).toBe("function");
+			const lines = latestWidget();
+			expect(lines).toHaveLength(17);
+			expect(lines?.some((line) => line.startsWith("feature-12 (#12)"))).toBe(true);
+			expect(lines).not.toContain("... (widget truncated)");
 		} finally {
 			progress.close();
 		}
