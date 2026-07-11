@@ -36,6 +36,14 @@ export function formatItemCount(count: number, singular: string, plural: string)
 	return `${count} ${count === 1 ? singular : plural}`;
 }
 
+export function formatBatchPosition(options: {
+	noun: string;
+	index: number;
+	total: number;
+}): string {
+	return `${options.noun} ${options.index + 1}/${options.total}`;
+}
+
 export function formatSubmitSuccessText(
 	prLinks: SubmitPrLink[],
 	descriptions: SubmitPrDescriptionSummary,

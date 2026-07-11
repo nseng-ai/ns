@@ -1,6 +1,7 @@
 import { createNsCommandRunner } from "@nseng-ai/capability-kit";
 import { createNsGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
 import type { CommandRunner } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	RealGithubPrGateway,
 	RealSubmitGateway,
@@ -38,7 +39,7 @@ export function createNsSubmitRuntime(ctx: NsExtensionApi): NsSubmitRuntime {
 			new RealCheckpointGateway({
 				runner: commandRunner,
 				git,
-				...(onActiveOperations === undefined ? {} : { onActiveOperations }),
+				...optionalEntry("onActiveOperations", onActiveOperations),
 			}),
 		submitGateway: new RealSubmitGateway(commandRunner),
 		metadataGateway: new RealSubmitMetadataGateway(commandRunner),

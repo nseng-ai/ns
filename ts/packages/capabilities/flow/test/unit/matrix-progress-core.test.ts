@@ -93,7 +93,7 @@ describe("matrix progress core", () => {
 			tick: 3,
 			rows: ["unkeyed row"],
 			title: "must not pass through",
-			sentinel: true,
+			isSentinel: true,
 		};
 
 		expect(matrixFrameOptionalFields(widerInput)).toEqual({

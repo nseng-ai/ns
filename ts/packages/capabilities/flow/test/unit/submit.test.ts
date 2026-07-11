@@ -11,7 +11,7 @@ import {
 	type TextGenerator,
 } from "../../src/submit/index.ts";
 import { RealSubmitGateway } from "../../src/submit/index.ts";
-import { formatSubmitSuccessText } from "../../src/submit/submit-format.ts";
+import { formatBatchPosition, formatSubmitSuccessText } from "../../src/submit/submit-format.ts";
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import {
 	ScriptedCommandRunner,
@@ -40,6 +40,12 @@ function execStep(command: string, args: readonly string[], fields: ExitedResult
 function spawnFailedStep(command: string, args: readonly string[], error: string) {
 	return { command, args: [...args], result: spawnFailedResult(error) };
 }
+
+describe("formatBatchPosition", () => {
+	test("formats a zero-based batch index for display", () => {
+		expect(formatBatchPosition({ noun: "PR", index: 1, total: 3 })).toBe("PR 2/3");
+	});
+});
 
 describe("formatSubmitSuccessText", () => {
 	test("omits the description preview line when no first line is available", () => {
