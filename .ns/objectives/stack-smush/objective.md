@@ -140,12 +140,16 @@ so only agent-alone rows are autonomous targets.
   (fold/re-slice PR fate, `gt rename` breaking PR association, incidental orphaned
   close-candidates after `gt fold` without `--close`) are dead paths for
   repackaging. The skill still never mutates or closes PRs; the close-candidate set
-  is now deterministic — the entire old stack, reported loudly. Residual risk:
-  fidelity of review-feedback carry-forward from old PRs into the new shape, and
-  disciplined old-stack closure by the user. `gt rename` remains in use only at
-  initial packaging for the tip slice's grammar name (semantics verified from
-  gt 1.8.6 help text only). The rescoped prototype row owns observing one full
-  replacement cycle on a reviewed stack.
+  is now deterministic — the entire old stack, reported loudly. The residual has
+  narrowed further (2026-07-11, skill rewrite — see
+  `updates/2026-07-11T141712Z-code-smush-replacement-rewrite-and-embedded-decisions.md`):
+  coexistence naming is settled (`st<num>` run-segment suffix) and carry-forward's
+  home is settled (companion post-submit step, decide-skill family), so what
+  remains is carry-forward fidelity in practice and disciplined old-stack closure
+  by the user — both owned by the rescoped prototype row. `gt rename` remains in
+  use only at initial packaging for the tip slice's grammar name (semantics
+  verified from gt 1.8.6 help text only). The rescoped prototype row owns
+  observing one full replacement cycle on a reviewed stack.
 - **Risk — reduced oversight on span PRs.** Skipping human review on spans is the
   point, but it must be a deliberate, durably-encoded policy per PR, not silence;
   agent review may need to stand in. Resolved direction (2026-07-10):

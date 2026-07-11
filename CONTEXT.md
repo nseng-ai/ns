@@ -139,15 +139,15 @@ A linear, merge-free commit sequence on one feature branch off trunk — the bra
 *Avoid*: run registry, run manifest, decision trailer, marked commit
 
 **Packaging**:
-The opt-in, LM-driven local operation (colloquially *smush*, the skill's name) that classifies and slices any existing stack into **Decision PR** and **Span PR** form, then explicitly performs **Span Squash**. It produces a self-describing local stack for the user to submit; repackaging is the same operation re-run, never an automatic pipeline or land step.
+The opt-in, LM-driven local operation (colloquially *smush*, the skill's name) that classifies and slices any existing stack into **Decision PR** and **Span PR** form, then explicitly performs **Span Squash**. It produces a self-describing local stack for the user to submit; repackaging is replacement-stack construction — the new shape built alongside the untouched old stack from the same commits, with the entire old stack reported as the close-candidate set — never an automatic pipeline or land step.
 *Avoid*: accretion, automatic pipeline stage, deterministic slicer, submit step, land-time step
 
 **Decision PR**:
-A packaged stack slice encoding one high-impact choice plus the commits needed to judge it in isolation. Its local branch name and commit message carry classification and rationale; after submission its `decision` label and body request careful human review.
+A packaged stack slice encoding one high-impact choice plus the commits needed to judge it in isolation. Its local branch name and commit message carry classification and rationale; after submission its `[decision]` title prefix, grammar-bearing branch name, and body request careful human review.
 *Avoid*: big PR, important-looking PR, unlabeled review request
 
 **Span PR**:
-A packaged stack slice holding a maximal stretch of consequence-executing commits between decisions. Its local name and squashed commit carry classification, rationale, and narration; after submission its `span` label makes agent review visibly stand in by default.
+A packaged stack slice holding a maximal stretch of consequence-executing commits between decisions. Its local name and squashed commit carry classification, rationale, and narration; after submission its `[span]` title prefix and grammar-bearing branch name make agent review visibly stand in by default.
 *Avoid*: filler PR, silently-unreviewed PR, auto-squashed PR
 
 **Slice Map**:
