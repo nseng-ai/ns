@@ -1,11 +1,11 @@
 import { type CommandResolver } from "@nseng-ai/foundation/command";
 import { defaultCommandResolver } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
 
 import type { ReviewResult } from "../core/failures.ts";
-import type { ReviewExecutionResponse, ReviewRunnerRequest } from "../core/models.ts";
+import type { ReviewExecutionResponse } from "../core/models.ts";
 import {
 	RealCodexReviewOutputFiles,
 	type CodexReviewOutputFiles,
@@ -15,8 +15,12 @@ import {
 	buildReviewFindingsJsonSchema,
 	reviewResponseFromFindingsPayload,
 } from "./review-findings-output.ts";
-import type { ReviewHarnessRunner, RunReviewOptions } from "./review-runner.ts";
-import { assembleReviewPrompt, systemPromptFindings } from "./review-runner-prompt.ts";
+import type {
+	PreparedReviewHarnessRequest,
+	ReviewHarnessRunner,
+	RunReviewOptions,
+} from "./review-runner.ts";
+import { systemPromptFindings } from "./review-runner-prompt.ts";
 
 export const CODEX_BINARY = "codex";
 
@@ -28,9 +32,8 @@ export interface CodexProcessReviewRunnerOptions {
 
 interface ExecutePreparedOptions {
 	readonly binary: string;
-	readonly modelId: string;
+	readonly request: PreparedReviewHarnessRequest;
 	readonly runOptions: RunReviewOptions;
-	readonly assembled: ReturnType<typeof assembleReviewPrompt>;
 	readonly outputHandle: CodexReviewOutputHandle;
 }
 
@@ -46,19 +49,11 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 	}
 
 	async runReview(
-		request: ReviewRunnerRequest,
-		modelId: string,
+		request: PreparedReviewHarnessRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		const binary = resolveCodexBinary(this.binaryResolver);
 		if (!binary.ok) return binary;
-
-		const assembled = assembleReviewPrompt({
-			reviewDefinition: request.reviewDefinition,
-			reviewDir: request.reviewDir,
-			target: request.target,
-			...optionalEntry("priorFindingsContext", request.priorFindingsContext),
-		});
 
 		let handle: CodexReviewOutputHandle;
 		try {
@@ -74,9 +69,8 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 		try {
 			primary = await this.executePrepared({
 				binary: binary.value,
-				modelId,
+				request,
 				runOptions: options,
-				assembled,
 				outputHandle: handle,
 			});
 		} catch (error) {
@@ -97,11 +91,11 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 	private async executePrepared(
 		options: ExecutePreparedOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
-		const { binary, modelId, runOptions, assembled, outputHandle } = options;
-		const args = buildCodexArgs({ modelId, handle: outputHandle });
+		const { binary, request, runOptions, outputHandle } = options;
+		const args = buildCodexArgs({ modelId: request.modelId, handle: outputHandle });
 		const execOptions: ExecOptions = {
 			cwd: runOptions.cwd,
-			stdin: buildCodexPrompt(assembled.promptText),
+			stdin: buildCodexPrompt(request.promptText),
 			...(runOptions.env === undefined ? {} : { env: runOptions.env }),
 			...(runOptions.signal === undefined ? {} : { signal: runOptions.signal }),
 		};
@@ -125,7 +119,7 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 				message: `Failed to read Codex structured output: ${formatErrorMessage(error)}`,
 			});
 		}
-		return parseCodexReviewOutput(output, assembled.inputCoverage);
+		return parseCodexReviewOutput(output, request.inputCoverage);
 	}
 }
 
