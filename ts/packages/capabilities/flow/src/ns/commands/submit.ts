@@ -84,7 +84,7 @@ const submitSchema = z.object({
 		.boolean()
 		.default(false)
 		.describe(
-			"Regenerate titles and ns-managed descriptions for PRs that already existed before this submit.",
+			"Regenerate titles and ns-managed descriptions for all existing PRs, including PRs with non-empty bodies.",
 		),
 });
 
@@ -100,7 +100,7 @@ Environment:
   NS_SUBMIT_FAILURE_MODEL       Model reference for summarizing submit failures.
   NS_SUBMIT_FAILURE_LOG_DIR     Optional directory for raw submit-failure transcripts.
 
-By default, existing PRs are submitted without rechecking or rewriting their GitHub title/body. Use --regenerate-descriptions to regenerate titles and ns-managed descriptions for PRs that already existed before this submit.
+By default, existing PRs with empty bodies receive generated titles and descriptions; existing PRs with non-empty bodies are left unchanged. Use --regenerate-descriptions to regenerate titles and ns-managed descriptions for every existing PR.
 
 The command owns its output and exit code. It does not support --format.`;
 

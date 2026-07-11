@@ -83,8 +83,10 @@ function dirtyCheckpointResponses(): ScriptedExecResponse[] {
 	];
 }
 
-function successfulSubmitResponses(options: { force?: boolean } = {}): ScriptedExecResponse[] {
-	const submitCommand = options.force
+function successfulSubmitResponses(
+	options: { shouldForce?: boolean; existingPrBody?: string } = {},
+): ScriptedExecResponse[] {
+	const submitCommand = options.shouldForce
 		? "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --force"
 		: "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web";
 	const submitDryRunCommand = `${submitCommand} --dry-run`;
@@ -110,7 +112,7 @@ function successfulSubmitResponses(options: { force?: boolean } = {}): ScriptedE
 		{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
 		{
 			match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
-			result: { stdout: prJson({ body: "Hand edited body" }) },
+			result: { stdout: prJson({ body: options.existingPrBody ?? "Hand edited body" }) },
 		},
 		{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
@@ -245,7 +247,7 @@ describe("project-local submit extension", () => {
 		);
 	});
 
-	test("clean success skips existing PR description checks by default", async () => {
+	test("clean success preserves a non-empty existing PR description by default", async () => {
 		const run = runWithFakes();
 
 		expect(await run.exit).toBe(0);
@@ -253,10 +255,30 @@ describe("project-local submit extension", () => {
 		expect(output).toContain("Submitted 1 PR:");
 		expect(output).toContain(`✓ #123 ${PR_URL}`);
 		expect(output).not.toContain("description updated");
-		expect(formattedExecCalls(run.context)).not.toContain(
+		expect(formattedExecCalls(run.context)).toContain(
 			"gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
 		);
+		expect(formattedExecCalls(run.context)).not.toContain("gh pr view 123 --json commits");
+		expect(run.liveOutput).toContainEqual(
+			transient("skipping PR #123 description; existing PR body is not empty"),
+		);
 		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
+	test("clean success generates a description for an empty existing PR by default", async () => {
+		const run = runWithFakes({
+			state: { exec: successfulSubmitResponses({ existingPrBody: "" }) },
+		});
+
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain("description updated");
+		expect(output).toContain("new title: Generated PR");
+		expect(formattedExecCalls(run.context)).toContain("gh pr view 123 --json commits");
+		expect(formattedExecCalls(run.context)).toContainEqual(
+			expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /),
+		);
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
 	});
 
 	test("--verbose streams raw Graphite output in addition to concise progress", async () => {
@@ -348,7 +370,7 @@ describe("project-local submit extension", () => {
 	test("--force passes --force to Graphite submit readiness and submit", async () => {
 		const run = runWithFakes({
 			request: { force: true },
-			state: { exec: successfulSubmitResponses({ force: true }) },
+			state: { exec: successfulSubmitResponses({ shouldForce: true }) },
 		});
 
 		expect(await run.exit).toBe(0);
