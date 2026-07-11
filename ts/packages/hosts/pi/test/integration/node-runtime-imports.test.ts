@@ -12,6 +12,7 @@ const CCC_PACKAGE_ROOT = fileURLToPath(new URL("../../../../capabilities/ccc/", 
 const NS_PACKAGE_ROOT = fileURLToPath(new URL("../../../../kernel/", import.meta.url));
 
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
+const NS_PROJECT_EXTENSION_ADAPTER = ".pi/extensions/ns.ts";
 
 // Pi logs this line to stderr and continues when a project extension fails to load,
 // so it can leave the process exit status at 0. Assert on the marker directly rather
@@ -79,49 +80,31 @@ describe("Node runtime import smoke", () => {
 		);
 	}, 15_000);
 
-	test("pi loads every project-local extension without failures", () => {
-		const tempConfigDir = mkdtempSync(join(tmpdir(), "ns-pi-extension-load-"));
-		try {
-			// `--list-models` exits before project extensions are initialized, so it never
-			// exercises extension loading. RPC mode with `--approve` trusts and actually imports
-			// every discovered `.pi/extensions/*.ts`, which is what surfaces module-resolution
-			// regressions in extension dependency graphs. EOF then exits without invoking a model,
-			// while `--offline` prevents startup network operations.
-			const result = spawnSync(
-				PI_BIN,
-				[
-					"--mode",
-					"rpc",
-					"--approve",
-					"--offline",
-					"--no-tools",
-					"--no-skills",
-					"--no-prompt-templates",
-					"--no-themes",
-					"--no-context-files",
-				],
-				{
-					cwd: REPO_ROOT,
-					encoding: "utf8",
-					env: {
-						...process.env,
-						PI_CODING_AGENT_DIR: tempConfigDir,
-						PI_OFFLINE: "1",
-					},
-				},
-			);
+	test("pi loads the ns project extension adapter in isolation", () => {
+		// Loading every project extension together can mask jiti evaluation-order failures
+		// when another extension initializes a shared workspace barrel first.
+		const result = runPiExtensionLoad([
+			"--no-extensions",
+			"--extension",
+			NS_PROJECT_EXTENSION_ADAPTER,
+		]);
+		const context = {
+			cwd: REPO_ROOT,
+			label: `isolated ${NS_PROJECT_EXTENSION_ADAPTER} startup`,
+		};
 
-			const label = `pi startup with ${PROJECT_EXTENSION_ADAPTERS.length} project-local extensions`;
-			const combinedOutput = `${result.stdout}\n${result.stderr}`;
-			expect(
-				combinedOutput.includes(EXTENSION_LOAD_FAILURE_MARKER),
-				formatNodeRunFailure(result, { cwd: REPO_ROOT, label }),
-			).toBe(false);
-			expectSuccessfulNodeRun(result, { cwd: REPO_ROOT, label });
-			expect(PROJECT_EXTENSION_ADAPTERS).toContain(".pi/extensions/ns.ts");
-		} finally {
-			rmSync(tempConfigDir, { force: true, recursive: true });
-		}
+		expectSuccessfulPiExtensionLoad(result, context);
+	}, 30_000);
+
+	test("pi loads every project-local extension without failures", () => {
+		const result = runPiExtensionLoad([]);
+		const context = {
+			cwd: REPO_ROOT,
+			label: `pi startup with ${PROJECT_EXTENSION_ADAPTERS.length} project-local extensions`,
+		};
+
+		expectSuccessfulPiExtensionLoad(result, context);
+		expect(PROJECT_EXTENSION_ADAPTERS).toContain(NS_PROJECT_EXTENSION_ADAPTER);
 	}, 30_000);
 
 	test("pi package imports workspace exports through package links under Node", () => {
@@ -164,6 +147,44 @@ function runNodeEval(options: NodeEvalOptions): SpawnSyncReturns<string> {
 		encoding: "utf8",
 		env: process.env,
 	});
+}
+
+function runPiExtensionLoad(extensionArgs: readonly string[]): SpawnSyncReturns<string> {
+	const tempConfigDir = mkdtempSync(join(tmpdir(), "ns-pi-extension-load-"));
+	try {
+		// `--list-models` exits before extensions are initialized, so it never
+		// exercises extension loading. RPC mode with `--approve` trusts and actually
+		// imports extensions, which is what surfaces module-resolution regressions in
+		// extension dependency graphs. EOF then exits without invoking a model, while
+		// offline mode and disabled resources keep the run hermetic (no network, no
+		// tool execution).
+		return spawnSync(
+			PI_BIN,
+			[
+				"--mode",
+				"rpc",
+				"--approve",
+				"--offline",
+				...extensionArgs,
+				"--no-tools",
+				"--no-skills",
+				"--no-prompt-templates",
+				"--no-themes",
+				"--no-context-files",
+			],
+			{
+				cwd: REPO_ROOT,
+				encoding: "utf8",
+				env: {
+					...process.env,
+					PI_CODING_AGENT_DIR: tempConfigDir,
+					PI_OFFLINE: "1",
+				},
+			},
+		);
+	} finally {
+		rmSync(tempConfigDir, { force: true, recursive: true });
+	}
 }
 
 function discoverProjectExtensionAdapters(): readonly string[] {
@@ -210,6 +231,18 @@ function expectSuccessfulNodeRun(
 	context: NodeRunExpectationContext,
 ): void {
 	expect(result.status, formatNodeRunFailure(result, context)).toBe(0);
+}
+
+function expectSuccessfulPiExtensionLoad(
+	result: SpawnSyncReturns<string>,
+	context: NodeRunExpectationContext,
+): void {
+	const combinedOutput = `${result.stdout}\n${result.stderr}`;
+	expect(
+		combinedOutput.includes(EXTENSION_LOAD_FAILURE_MARKER),
+		formatNodeRunFailure(result, context),
+	).toBe(false);
+	expectSuccessfulNodeRun(result, context);
 }
 
 function formatNodeRunFailure(
