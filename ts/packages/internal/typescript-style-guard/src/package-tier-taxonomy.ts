@@ -21,9 +21,7 @@ export const packageTierIds = [
 	"sdk",
 	"neutral-infra",
 	"host",
-	"capability-pi",
 	"standalone-tool",
-	"internal-pi-tool",
 	"internal-tool",
 ] as const;
 
@@ -32,13 +30,11 @@ export type PackageTierId = (typeof packageTierIds)[number];
 /**
  * Layering policy is rank-derived: a tier may depend on itself and every tier below it in
  * this list. This supersedes the old hand-curated per-tier target lists, which were
- * strictly tighter for host, internal-tool, internal-pi-tool, and standalone-tool.
+ * strictly tighter for host, internal-tool, and standalone-tool.
  */
 export const tierRank = [
-	"internal-pi-tool",
 	"internal-tool",
 	"standalone-tool",
-	"capability-pi",
 	"host",
 	"capability",
 	"capability-kit",
@@ -77,23 +73,11 @@ const packageTierDefinitionsInput = {
 		stroke: "#0f172a",
 		allowedTargets: downwardTierTargets("host"),
 	},
-	"capability-pi": {
-		name: "capability Pi",
-		fill: "#bae6fd",
-		stroke: "#0284c7",
-		allowedTargets: downwardTierTargets("capability-pi"),
-	},
 	"standalone-tool": {
 		name: "standalone tool",
 		fill: "#f1f5f9",
 		stroke: "#94a3b8",
 		allowedTargets: downwardTierTargets("standalone-tool"),
-	},
-	"internal-pi-tool": {
-		name: "internal pi tool",
-		fill: "#e7e5e4",
-		stroke: "#a8a29e",
-		allowedTargets: downwardTierTargets("internal-pi-tool"),
 	},
 	"internal-tool": {
 		name: "internal tool",

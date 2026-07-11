@@ -721,21 +721,19 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@nseng-ai/capability-kit",
 		"@nseng-ai/foundation",
 		"@nseng-ai/handoffs",
-		"@nseng-ai/example-pi",
 		"@nseng-ai/pi",
 		"@nseng-ai/ns",
 		"@nseng-ai/kernel",
 		"@nseng-ai/slots",
 	]);
 	const baseTiers = new Map<string, SyntheticTier>([
-		["@internal/pi-tools/grill", "internal-pi-tool"],
-		["@internal/ns-pi-subagents/runner-subagents", "internal-pi-tool"],
+		["@internal/pi-tools/grill", "internal-tool"],
+		["@internal/ns-pi-subagents/runner-subagents", "internal-tool"],
 		["@nseng-ai/areg", "standalone-tool"],
 		["@nseng-ai/ccc", "capability"],
 		["@nseng-ai/capability-kit", "capability-kit"],
 		["@nseng-ai/foundation", "neutral-infra"],
 		["@nseng-ai/handoffs", "capability"],
-		["@nseng-ai/example-pi", "capability-pi"],
 		["@nseng-ai/pi", "host"],
 		["@nseng-ai/ns", "host"],
 		["@nseng-ai/kernel", "sdk"],
@@ -773,28 +771,8 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedViolation: false,
 		},
 		{
-			name: "capability pi to host is allowed",
-			edges: [{ from: "@nseng-ai/example-pi", to: "@nseng-ai/pi" }],
-			expectedViolation: false,
-		},
-		{
-			name: "capability pi to capability is allowed",
-			edges: [{ from: "@nseng-ai/example-pi", to: "@nseng-ai/handoffs" }],
-			expectedViolation: false,
-		},
-		{
-			name: "capability to capability pi is rejected",
-			edges: [{ from: "@nseng-ai/handoffs", to: "@nseng-ai/example-pi" }],
-			expectedTextIncludes: "capability-must-not-depend-on-capability-pi",
-		},
-		{
 			name: "standalone tool to host is allowed",
 			edges: [{ from: "@nseng-ai/areg", to: "@nseng-ai/pi" }],
-			expectedViolation: false,
-		},
-		{
-			name: "standalone tool to capability pi is deliberately allowed by rank policy",
-			edges: [{ from: "@nseng-ai/areg", to: "@nseng-ai/example-pi" }],
 			expectedViolation: false,
 		},
 		{
@@ -803,39 +781,30 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedViolation: false,
 		},
 		{
-			name: "internal pi tool to host is allowed",
+			name: "internal tool to host is allowed",
 			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/pi" }],
 			expectedViolation: false,
 		},
 		{
-			name: "internal pi tool to capability kit is allowed",
-			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/capability-kit" }],
-			expectedViolation: false,
-		},
-		{
-			name: "internal pi tool to internal pi tool is allowed",
+			name: "internal tool to internal tool is allowed",
 			edges: [
 				{ from: "@internal/pi-tools/grill", to: "@internal/ns-pi-subagents/runner-subagents" },
 			],
 			expectedViolation: false,
 		},
 		{
-			name: "internal pi tool to standalone tool is allowed",
+			name: "internal tool to standalone tool is allowed",
 			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/areg" }],
 			expectedViolation: false,
 		},
 		{
-			name: "standalone tool to internal pi tool is rejected",
+			name: "standalone tool to internal tool is rejected",
 			edges: [{ from: "@nseng-ai/areg", to: "@internal/pi-tools/grill" }],
-			expectedTextIncludes: "standalone-tool-must-not-depend-on-internal-pi-tool",
+			expectedTextIncludes: "standalone-tool-must-not-depend-on-internal-tool",
 		},
 		{
 			name: "internal tool to capability is allowed",
 			edges: [{ from: "@internal/ns-pi-subagents/runner-subagents", to: "@nseng-ai/handoffs" }],
-			tiers: new Map([
-				...baseTiers,
-				["@internal/ns-pi-subagents/runner-subagents", "internal-tool"],
-			]),
 			expectedViolation: false,
 		},
 		{
@@ -846,10 +815,6 @@ describe("TypeScript style guard package tier layering rules", () => {
 					to: "@nseng-ai/capability-kit",
 				},
 			],
-			tiers: new Map([
-				...baseTiers,
-				["@internal/ns-pi-subagents/runner-subagents", "internal-tool"],
-			]),
 			expectedViolation: false,
 		},
 		{
@@ -1752,7 +1717,7 @@ function buildInternalSpaceSyntheticMetadata(
 				name: syntheticPackage.name,
 				private: syntheticPackage.privateValue,
 				dependencies: syntheticPackage.dependencies ?? {},
-				ns: { tier: "internal-pi-tool" },
+				ns: { tier: "internal-tool" },
 			};
 			return [
 				syntheticPackage.name,
@@ -1762,8 +1727,8 @@ function buildInternalSpaceSyntheticMetadata(
 					packageJsonPath: `${syntheticPackage.packageDir}/package.json`,
 					manifest,
 					manifestContent: JSON.stringify(manifest, null, 2),
-					nsTier: "internal-pi-tool",
-					rawNsTier: "internal-pi-tool",
+					nsTier: "internal-tool",
+					rawNsTier: "internal-tool",
 					nsSubpackages: [],
 					nsRemainder: false,
 					exportSubpaths: new Set(["."]),
@@ -1880,9 +1845,7 @@ function isSyntheticPackageTier(value: SyntheticTier): value is PackageTier {
 		value === "sdk" ||
 		value === "neutral-infra" ||
 		value === "host" ||
-		value === "capability-pi" ||
 		value === "standalone-tool" ||
-		value === "internal-pi-tool" ||
 		value === "internal-tool"
 	);
 }

@@ -30,7 +30,7 @@
 		"@internal/pi-tools": "workspace:*"
 	},
 	"ns": {
-		"tier": "internal-pi-tool",
+		"tier": "internal-tool",
 		"subpackages": ["api"],
 		"remainder": true
 	}

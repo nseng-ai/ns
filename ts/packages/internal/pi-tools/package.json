@@ -37,7 +37,7 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/internal/pi-tools/test"
 	},
 	"ns": {
-		"tier": "internal-pi-tool",
+		"tier": "internal-tool",
 		"subpackages": [
 			"backing-skill-commands",
 			"context-profiler",

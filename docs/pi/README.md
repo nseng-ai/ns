@@ -44,11 +44,11 @@ Paths:
 
 ```text
 ts/packages/hosts/pi/
-ts/packages/capability-pi/<capability>/
+ts/packages/capabilities/<capability>/src/pi/
 ts/packages/internal/pi-tools/src/<tool>/
 ```
 
-The engineered layer is for durable behavior that benefits from tests, fake adapters, shared modules, or package-level validation. Project-local discovery adapters can stay in `.pi/extensions/` while the implementation lives in `@nseng-ai/pi`, a private capability-pi package such as `@nseng-ai/flow/pi`, or a private Internal Pi-tool package.
+The engineered layer is for durable behavior that benefits from tests, fake adapters, shared modules, or package-level validation. Project-local discovery adapters can stay in `.pi/extensions/` while the implementation lives in `@nseng-ai/pi`, a capability `pi` subpackage such as `@nseng-ai/flow/pi`, or a private Internal Pi-tool package.
 
 Use this layer for behavior that has proven stable, has meaningful safety risk, is reused by more than one extension, or needs fake-driven tests. For TypeScript package changes, validate with the canonical repo targets:
 
