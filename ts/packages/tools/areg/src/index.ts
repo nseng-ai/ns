@@ -20,3 +20,14 @@ export type {
 } from "./gateways.ts";
 export { parseSkillFrontmatterText } from "./operations/check.ts";
 export { RealAregProjectGateway } from "./gateways/project-gateway.ts";
+export {
+	commandBackedSkillRegistrations,
+	commandBackedSkillSurface,
+	genericBackingSkillRegistrations,
+	specializedCommandBackedSkillRegistrations,
+	visibleCommandBackedReplacementSurfaces,
+} from "./command-backed-skill-registry.ts";
+export type {
+	CommandBackedSkillRegistration,
+	CommandBackedSkillRegistrationKind,
+} from "./command-backed-skill-registry.ts";

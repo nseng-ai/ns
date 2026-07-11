@@ -3,7 +3,7 @@ import { lstat, mkdir, readdir, realpath, rm, rmdir, unlink, writeFile } from "n
 import path from "node:path";
 
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import { visibleCommandBackedReplacementSurfaces } from "@nseng-ai/command-backed-skill-registry";
+import { visibleCommandBackedReplacementSurfaces } from "../command-backed-skill-registry.ts";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {

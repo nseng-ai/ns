@@ -1,4 +1,4 @@
-import { commandBackedSkillSurface } from "@nseng-ai/command-backed-skill-registry";
+import { commandBackedSkillSurface } from "../command-backed-skill-registry.ts";
 
 export interface PiReplacementFacts {
 	verifiedSurfaces: readonly string[];

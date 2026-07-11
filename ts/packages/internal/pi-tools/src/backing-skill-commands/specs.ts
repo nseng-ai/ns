@@ -1,4 +1,4 @@
-import { genericBackingSkillRegistrations } from "@nseng-ai/command-backed-skill-registry";
+import { genericBackingSkillRegistrations } from "@nseng-ai/areg";
 
 export interface DerivedPiCommand {
 	surface: string;

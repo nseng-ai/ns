@@ -4,11 +4,11 @@ export {
 	genericBackingSkillRegistrations,
 	specializedCommandBackedSkillRegistrations,
 	visibleCommandBackedReplacementSurfaces,
-} from "@nseng-ai/command-backed-skill-registry";
+} from "@nseng-ai/areg";
 export type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
-} from "@nseng-ai/command-backed-skill-registry";
+} from "@nseng-ai/areg";
 
 export { backingSkillCommandsParity } from "./parity.ts";
 export { derivePiReplacementCommand, genericBackingSkillCommandSpecs } from "./specs.ts";

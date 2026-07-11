@@ -19,7 +19,7 @@ import {
 	genericBackingSkillRegistrations,
 	specializedCommandBackedSkillRegistrations,
 	visibleCommandBackedReplacementSurfaces,
-} from "../src/index.ts";
+} from "../../src/command-backed-skill-registry.ts";
 
 // Built via join("") on purpose: repo-wide greps validating the /ns:* rename
 // sweep for these legacy prefixes as literals, and this test asserting their
