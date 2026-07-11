@@ -39,6 +39,7 @@ import {
 import {
 	loadGraphiteMetadataStatusInWorker,
 	type GraphiteMetadataStatus,
+	type GraphiteStackTopologyCounts,
 	type GraphiteMetadataWorkerDiagnostic,
 	type LoadGraphiteMetadataStatusInWorkerOptions,
 } from "@nseng-ai/capability-kit/graphite/status";
@@ -83,6 +84,8 @@ export type GtCommitStatus =
 export interface GtStatus {
 	down: string | undefined;
 	up: string;
+	/** Stack topology counts, omitted when metadata carries no available count. */
+	stackTopologyCounts?: GraphiteStackTopologyCounts;
 	commits: GtCommitStatus;
 	dirty: "yes" | "no";
 }
@@ -250,7 +253,16 @@ export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStat
 		loadDirty(pi, cwd, signal),
 	]);
 
-	return { down, up, commits, dirty };
+	return { down, up, commits, dirty, ...stackCountsFromMetadata(metadata, signal) };
+}
+
+function stackCountsFromMetadata(
+	metadata: GraphiteMetadataStatus,
+	signal?: AbortSignal,
+): Pick<GtStatus, "stackTopologyCounts"> {
+	if (signal?.aborted || metadata.type !== "tracked" || metadata.stackTopologyCounts === undefined)
+		return {};
+	return { stackTopologyCounts: metadata.stackTopologyCounts };
 }
 
 async function loadBrmemStatus(

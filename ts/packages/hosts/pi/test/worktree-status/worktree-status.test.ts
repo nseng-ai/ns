@@ -165,6 +165,9 @@ function trackedMetadata(
 		parent: Object.hasOwn(overrides, "parent") ? overrides.parent : "main",
 		children: overrides.children ?? [],
 		isCurrentTrunk: overrides.isCurrentTrunk ?? false,
+		...(overrides.stackTopologyCounts === undefined
+			? {}
+			: { stackTopologyCounts: overrides.stackTopologyCounts }),
 	};
 }
 
@@ -1145,6 +1148,32 @@ describe("loadGtStatus", () => {
 		pi.assertDone();
 		expectNoGtCalls(pi);
 		expect(formatted).toBe("[gt] ↓ main · ↑ <multiple> · 1 commit");
+	});
+
+	test("threads stack topology counts from Graphite metadata into gt status", async () => {
+		const pi = new FakePi([revListStep("main", 1), dirtyStep()]);
+
+		const status = await loadGtStatusWithDefaultMetadata({
+			pi,
+			cwd: ROOT,
+			metadataLoader: metadataLoaderFor(
+				trackedMetadata({
+					stackTopologyCounts: { downstackCount: 2, upstackCount: 3 },
+				}),
+			),
+		});
+
+		pi.assertDone();
+		expect(status.stackTopologyCounts).toEqual({ downstackCount: 2, upstackCount: 3 });
+	});
+
+	test("omits stack topology counts when metadata does not carry them", async () => {
+		const pi = new FakePi([revListStep("main", 1), dirtyStep()]);
+
+		const status = await loadGtStatusWithDefaultMetadata({ pi, cwd: ROOT });
+
+		pi.assertDone();
+		expect(Object.hasOwn(status, "stackTopologyCounts")).toBe(false);
 	});
 
 	test("does not load passive PR status from gt branch info", async () => {

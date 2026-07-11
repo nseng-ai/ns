@@ -43,6 +43,7 @@ describe("Graphite metadata real sqlite integration", () => {
 				parent: "main",
 				children: ["feature/child"],
 				isCurrentTrunk: false,
+				stackTopologyCounts: { downstackCount: 0, upstackCount: 1 },
 			});
 		});
 	});
@@ -86,6 +87,10 @@ describe("Graphite metadata real sqlite integration", () => {
 				throw new Error("expected copied Graphite fixture to track master");
 			expect(status.children).toContain("add-retros-branch-retro-command");
 			expect(status.children.length).toBeGreaterThan(10);
+			expect(status.stackTopologyCounts?.downstackCount).toBe(0);
+			// Only master's direct children have live refs in this fixture, so the
+			// live-filtered upstack walk stops one level above trunk.
+			expect(status.stackTopologyCounts?.upstackCount).toBe(status.children.length);
 		});
 	});
 });

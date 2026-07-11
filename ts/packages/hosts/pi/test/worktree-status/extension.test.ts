@@ -236,6 +236,51 @@ describe("worktree status extension registration and rendering", () => {
 		await pi.sessionShutdown?.();
 	});
 
+	test("custom footer renders stack topology counts inline in the gt arrows", async () => {
+		const pi = new LifecycleFakePi([]);
+		const statuses = new Map<string, string>();
+		let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
+		const ctx = testContext({
+			statuses,
+			setFooter(factory) {
+				footerFactory = factory;
+			},
+			sessionCwd: "/repo",
+			model: { id: "test-model", contextWindow: 272000 },
+		});
+		const loaders = fakeWorktreeStatusLoaders({
+			footerBranch: "current-branch",
+			identities: [queued(worktreeIdentity({ head: { type: "branch", name: "current-branch" } }))],
+			localStatuses: [
+				queued(
+					localStatus({
+						identity: worktreeIdentity({ head: { type: "branch", name: "current-branch" } }),
+						gt: gtStatus({
+							stackTopologyCounts: { downstackCount: 2, upstackCount: 1 },
+						}),
+					}),
+				),
+			],
+		});
+
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
+		await pi.sessionStart?.({}, ctx);
+
+		pi.assertDone();
+		expect(footerFactory).toBeDefined();
+		if (footerFactory === undefined) throw new Error("expected custom footer factory");
+		const footer = footerFactory(
+			{ requestRender() {} },
+			TEST_THEME,
+			footerData(statuses, "current-branch"),
+		);
+		const footerLines = footer.render(200).map(stripTerminalEscapes);
+		expect(footerLines[0]).toBe(
+			"[wt] repo:repo wt:root pwd:/repo | br:current-branch ↓2:main commits:1 ↑1:-",
+		);
+		await pi.sessionShutdown?.();
+	});
+
 	test("custom footer shows gh refresh freshness age and resets after manual refresh", async () => {
 		const harness = createManualTimerHarness();
 		const availableGhStatus: WorktreeGhStatus = {
