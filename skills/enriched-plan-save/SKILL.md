@@ -76,7 +76,7 @@ The saved-plan slug is a local filename locator, not necessarily the later branc
      validation gaps; do not ask it to redesign the plan or review the eventual
      implementation.
    - Label model examples by harness, such as Pi/OpenAI
-     `openai-codex/gpt-5.4-mini:medium` and Claude/Anthropic
+     `openai-codex/gpt-5.6-luna:medium` and Claude/Anthropic
      `claude-haiku-4-5`, and do not apply those review examples to
      implementation subagents.
 

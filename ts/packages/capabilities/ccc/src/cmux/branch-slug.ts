@@ -35,7 +35,7 @@ export async function generateBranchSlug(
 	if (!result.ok) {
 		return {
 			ok: false,
-			message: `Could not generate branch slug with GPT Nano: ${result.message}`,
+			message: `Could not generate branch slug with the configured fast model: ${result.message}`,
 		};
 	}
 
@@ -58,12 +58,18 @@ export async function summarizePlanWithGptNano(
 ): Promise<TextResult> {
 	const result = await generateRawText(pi, cwd, buildPlanSummaryPrompt(input));
 	if (!result.ok) {
-		return { ok: false, message: `Could not summarize plan with GPT Nano: ${result.message}` };
+		return {
+			ok: false,
+			message: `Could not summarize plan with the configured fast model: ${result.message}`,
+		};
 	}
 
 	const summary = stripResponseFence(result.text).trim();
 	if (!summary) {
-		return { ok: false, message: "GPT Nano did not return a usable bullet summary." };
+		return {
+			ok: false,
+			message: "The configured fast model did not return a usable bullet summary.",
+		};
 	}
 	return { ok: true, text: summary };
 }

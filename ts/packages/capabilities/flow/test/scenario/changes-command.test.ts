@@ -62,7 +62,7 @@ describe("project-local changes extension behavior", () => {
 		).toBe(false);
 		expect(run.context.textGeneratorCalls).toEqual([
 			expect.objectContaining({
-				modelRef: "openai-codex/gpt-5.4-mini",
+				modelRef: "openai-codex/gpt-5.6-luna",
 				operation: "changes-summary",
 				maxTokens: 512,
 				reasoning: "low",

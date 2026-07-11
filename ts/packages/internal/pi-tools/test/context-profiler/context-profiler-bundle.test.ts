@@ -228,14 +228,14 @@ describe("context-profiler bundle", () => {
 		const json = buildEpisodesFileJson({
 			outcome: { type: "skipped", reason: "too-few-turns" },
 			contentHash: "abc",
-			analysisModel: "openai-codex/gpt-5.4-mini",
+			analysisModel: "openai-codex/gpt-5.6-luna",
 			generatedAt: new Date("2026-01-02T03:04:05.000Z"),
 		});
 
 		expect(JSON.parse(json)).toEqual({
 			version: 1,
 			contentHash: "abc",
-			analysisModel: "openai-codex/gpt-5.4-mini",
+			analysisModel: "openai-codex/gpt-5.6-luna",
 			generatedAt: "2026-01-02T03:04:05.000Z",
 			segmentation: { type: "skipped", reason: "too-few-turns" },
 			episodes: [],

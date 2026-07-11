@@ -5,7 +5,7 @@ export interface ParsedModelRef {
 
 export const DEFAULT_FAST_MODEL: ParsedModelRef = {
 	provider: "openai-codex",
-	modelId: "gpt-5.4-mini",
+	modelId: "gpt-5.6-luna",
 };
 export const DEFAULT_FAST_MODEL_REF = `${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`;
 

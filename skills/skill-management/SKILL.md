@@ -80,7 +80,7 @@ For every skill-management operation, produce an end state with:
 - **Do not maintain a duplicate skill index in `AGENTS.md`.** Installed skills
   are discovered from the on-disk install and `SKILL.md` frontmatter.
 - **Skill bodies that name model tiers must give concrete examples for both
-  OpenAI and Anthropic** (e.g. `openai-codex/gpt-5.4-mini`,
+  OpenAI and Anthropic** (e.g. `openai-codex/gpt-5.6-luna`,
   `claude-haiku-4-5`), each labeled with its harness, while keeping the default
   guidance harness-neutral. See `docs/conventions/skill-conventions.md` "Skill Model
   Examples".

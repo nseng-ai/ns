@@ -173,7 +173,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 		);
 		expect(run.context.textGeneratorCalls[0]).toMatchObject({
 			operation: "pr-description",
-			modelRef: "openai-codex/gpt-5.4-mini",
+			modelRef: "openai-codex/gpt-5.6-luna",
 			maxTokens: 2048,
 			reasoning: "low",
 		});

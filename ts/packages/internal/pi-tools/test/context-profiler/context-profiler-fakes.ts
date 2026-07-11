@@ -201,7 +201,7 @@ export class FakeInterrogationSessionFactory implements InterrogationSessionFact
 }
 
 export class FakeSegmentationGateway implements AnalysisModelGateway {
-	readonly analysisModel = "openai-codex/gpt-5.4-mini";
+	readonly analysisModel = "openai-codex/gpt-5.6-luna";
 	private readonly result: SegmentationCallResult;
 	private readonly analysisResult: EpisodeAnalysisCallResult;
 	private readonly gate: Promise<void> | null;
