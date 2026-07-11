@@ -133,16 +133,19 @@ so only agent-alone rows are autonomous targets.
   across fold/re-slice) remains unobserved and shifts onto the repackaging-chaos risk
   below.
 - **Risk — repackaging chaos.** Review feedback on a decision PR mid-review forces
-  edits beneath a live stack; re-slicing could thrash PRs, reviews, and CI. Needs
-  de-risking via prototype before the path is trusted on real work. The prototype
-  must now test the harder mechanics exposed by the packaging design: re-slicing a
-  previously squashed span, post-submit reclassification where branch renames can
-  break PR association, and orphaned close-candidate PRs after `gt fold` without
-  `--close`. The skill never mutates or closes PRs; it must report those candidates
-  loudly for the user to handle. The authored `code-smush` skill (2026-07-10) also
-  uses `gt rename` for the tip slice's grammar name — semantics verified from
-  gt 1.8.6 help text only, not yet exercised; the prototype should observe rename
-  behavior on a tracked, PR-associated tip slice.
+  edits beneath a live stack; re-slicing could thrash PRs, reviews, and CI. Largely
+  dissolved (2026-07-11, live exchange): repackaging is now **replacement-stack
+  construction** — build the new shape alongside from the same commits, verify, the
+  user submits and closes the old stack — so the in-place hazards this risk named
+  (fold/re-slice PR fate, `gt rename` breaking PR association, incidental orphaned
+  close-candidates after `gt fold` without `--close`) are dead paths for
+  repackaging. The skill still never mutates or closes PRs; the close-candidate set
+  is now deterministic — the entire old stack, reported loudly. Residual risk:
+  fidelity of review-feedback carry-forward from old PRs into the new shape, and
+  disciplined old-stack closure by the user. `gt rename` remains in use only at
+  initial packaging for the tip slice's grammar name (semantics verified from
+  gt 1.8.6 help text only). The rescoped prototype row owns observing one full
+  replacement cycle on a reviewed stack.
 - **Risk — reduced oversight on span PRs.** Skipping human review on spans is the
   point, but it must be a deliberate, durably-encoded policy per PR, not silence;
   agent review may need to stand in. Resolved direction (2026-07-10):
@@ -163,7 +166,9 @@ graduates into roadmap rows as the Frontier advances:
   defaults, CCC orchestration) when the path becomes the default.
 - CI cost and policy for span PRs — many small PRs mean many CI runs. Span squash
   timing no longer interacts (explicit post-creation command leaves PR count
-  unchanged); the open question is PR count itself.
+  unchanged); the open question is PR count itself. Sharpened (2026-07-11):
+  replacement-stack repackaging re-runs CI across the full new stack, so PR count
+  and repackaging frequency now compound.
 - Interaction with Objectives, branch-context, and handoffs: how a commit run relates
   to objective runner steps, attached plans, and multi-session continuation.
   Partially graduated (2026-07-11): smush-time objective binding via packaging-event
