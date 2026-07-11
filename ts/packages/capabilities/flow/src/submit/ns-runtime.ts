@@ -12,14 +12,16 @@ import {
 } from "./index.ts";
 import { RealCheckpointGateway, type CheckpointGateway } from "../checkpoint/checkpoint.ts";
 
-import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { ActiveOperation, NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 export { RealGithubPrGateway, RealSubmitGateway, RealSubmitMetadataGateway, runSubmitCommand };
 export type { RunSubmitCommandOptions, SubmitCommandResult, SubmitFailureTranscript };
 
 export interface NsSubmitRuntime {
 	commandRunner: CommandRunner;
-	checkpointGateway: CheckpointGateway;
+	createCheckpointGateway: (
+		onActiveOperations?: (operations: readonly ActiveOperation[]) => void,
+	) => CheckpointGateway;
 	submitGateway: RealSubmitGateway;
 	metadataGateway: RealSubmitMetadataGateway;
 	prDescription: RunSubmitCommandOptions["prDescription"];
@@ -32,7 +34,12 @@ export function createNsSubmitRuntime(ctx: NsExtensionApi): NsSubmitRuntime {
 	const git = createNsGitGateway(ctx);
 	return {
 		commandRunner,
-		checkpointGateway: new RealCheckpointGateway({ runner: commandRunner, git }),
+		createCheckpointGateway: (onActiveOperations) =>
+			new RealCheckpointGateway({
+				runner: commandRunner,
+				git,
+				...(onActiveOperations === undefined ? {} : { onActiveOperations }),
+			}),
 		submitGateway: new RealSubmitGateway(commandRunner),
 		metadataGateway: new RealSubmitMetadataGateway(commandRunner),
 		git,

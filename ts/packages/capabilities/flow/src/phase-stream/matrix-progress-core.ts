@@ -369,7 +369,12 @@ export interface MatrixFrameOptionalFields {
 export function matrixFrameOptionalFields(
 	input: MatrixFrameOptionalFields,
 ): MatrixFrameOptionalFields {
-	return optionalEntries({ ...input });
+	return optionalEntries({
+		activeOperations: input.activeOperations,
+		tailLine: input.tailLine,
+		tailSinceOutputMs: input.tailSinceOutputMs,
+		tick: input.tick,
+	});
 }
 
 export function renderMatrixProgressFrame<ColumnKey extends string, GlobalKey extends string>(

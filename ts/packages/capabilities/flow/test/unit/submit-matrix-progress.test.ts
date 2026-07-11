@@ -21,14 +21,13 @@ function caps(parts: Partial<Caps> = {}): Caps {
 }
 
 describe("submit matrix progress", () => {
-	test("derives checkpoint model operations from the phase event policy", () => {
+	test("updates checkpoint substeps without manufacturing active operations", () => {
 		const capture = streamCapture({ sleep: "pending" });
 		const controller = createSubmitMatrixProgressController({
 			caps: caps(),
 			deps: capture.deps,
 			title: "ns flow submit",
 			rows: [],
-			checkpointModelRef: "openai-codex/gpt-test",
 		});
 		controller.begin();
 
@@ -36,15 +35,17 @@ describe("submit matrix progress", () => {
 			type: "phase-started",
 			phaseKey: "generate",
 		});
-		expect(stripAnsi(capture.redraws.at(-1) ?? "")).toContain(
-			"LM · generating checkpoint message · openai-codex/gpt-test",
-		);
+		const activeFrame = stripAnsi(capture.redraws.at(-1) ?? "");
+		expect(activeFrame).toContain("Generate");
+		expect(activeFrame).not.toContain("Running:");
 
 		controller.applyGlobalPhaseEvent("checkpoint", {
 			type: "phase-done",
 			phaseKey: "generate",
 		});
-		expect(stripAnsi(capture.redraws.at(-1) ?? "")).not.toContain("generating checkpoint message");
+		const doneFrame = stripAnsi(capture.redraws.at(-1) ?? "");
+		expect(doneFrame).toContain("Generate");
+		expect(doneFrame).not.toContain("Running:");
 	});
 
 	test("renders reported operations on a dedicated line when no global row is active", () => {
