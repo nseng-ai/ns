@@ -30,6 +30,13 @@ export interface CodexProcessReviewRunnerOptions {
 	readonly outputFiles?: CodexReviewOutputFiles;
 }
 
+interface ExecutePreparedOptions {
+	readonly binary: string;
+	readonly request: PreparedReviewHarnessRequest;
+	readonly runOptions: RunReviewOptions;
+	readonly outputHandle: CodexReviewOutputHandle;
+}
+
 export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 	private readonly execApi: CommandExecApi;
 	private readonly binaryResolver: CommandResolver;
@@ -60,7 +67,12 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 
 		let primary: ReviewResult<ReviewExecutionResponse>;
 		try {
-			primary = await this.executePrepared(binary.value, request, options, handle);
+			primary = await this.executePrepared({
+				binary: binary.value,
+				request,
+				runOptions: options,
+				outputHandle: handle,
+			});
 		} catch (error) {
 			primary = resultErr({
 				code: "harness-invocation-failed",
@@ -77,17 +89,15 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 	}
 
 	private async executePrepared(
-		binary: string,
-		request: PreparedReviewHarnessRequest,
-		options: RunReviewOptions,
-		handle: CodexReviewOutputHandle,
+		options: ExecutePreparedOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
-		const args = buildCodexArgs({ modelId: request.modelId, handle });
+		const { binary, request, runOptions, outputHandle } = options;
+		const args = buildCodexArgs({ modelId: request.modelId, handle: outputHandle });
 		const execOptions: ExecOptions = {
-			cwd: options.cwd,
+			cwd: runOptions.cwd,
 			stdin: buildCodexPrompt(request.promptText),
-			...(options.env === undefined ? {} : { env: options.env }),
-			...(options.signal === undefined ? {} : { signal: options.signal }),
+			...(runOptions.env === undefined ? {} : { env: runOptions.env }),
+			...(runOptions.signal === undefined ? {} : { signal: runOptions.signal }),
 		};
 		const result = await this.execApi.exec(binary, args, execOptions);
 		if (result.type === "spawn-failed") {
@@ -108,7 +118,7 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 
 		let output: string;
 		try {
-			output = await this.outputFiles.readOutput(handle);
+			output = await this.outputFiles.readOutput(outputHandle);
 		} catch (error) {
 			return resultErr({
 				code: "review-execution-empty-output",

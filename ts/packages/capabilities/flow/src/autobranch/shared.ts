@@ -1,6 +1,7 @@
 import type { CommandResult } from "@nseng-ai/capability-kit/checkpoint-flow";
 
 export type { CommandResult };
+import { formatCommandDetails } from "@nseng-ai/foundation/command";
 import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 
 // Autobranch command execution is cwd-bound at the command/API boundary. Callers construct this
@@ -20,24 +21,7 @@ export interface PendingWorktreeSnapshot {
 }
 
 export function formatAutobranchCommandDetails(result: CommandResult): string {
-	const detail = result.stderr.trim() || result.stdout.trim();
-	const status = autobranchTerminationStatus(result);
-	return detail === "" ? status : `${status}: ${detail}`;
-}
-
-function autobranchTerminationStatus(result: CommandResult): string {
-	switch (result.type) {
-		case "spawn-failed":
-			return `spawn failed: ${result.error}`;
-		case "cancelled":
-			return `cancelled (exit ${result.code})`;
-		case "timed-out":
-			return `timed out (exit ${result.code})`;
-		case "exited":
-			return result.signal === null
-				? `exit ${result.code}`
-				: `signal ${result.signal} (exit ${result.code})`;
-	}
+	return formatCommandDetails(result);
 }
 
 export function truncateText(text: string, maxChars: number): string {

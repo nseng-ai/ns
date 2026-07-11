@@ -1,11 +1,11 @@
-export interface ExecResult {
+export interface RawPiExecResult {
 	stdout: string;
 	stderr: string;
 	code: number;
 	killed: boolean;
 }
 
-export interface ExecOptions {
+export interface RawPiExecOptions {
 	cwd?: string;
 	timeout?: number;
 	signal?: AbortSignal;
@@ -121,7 +121,7 @@ export interface ExtensionAPI {
 		handler: (_event: unknown, ctx: SessionStartContext) => Promise<void> | void,
 	): void;
 	registerCommand(name: string, options: CommandDefinition): void;
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
+	exec(command: string, args: string[], options?: RawPiExecOptions): Promise<RawPiExecResult>;
 	getCommands(): readonly SkillCommandInfoLike[];
 	getThinkingLevel(): ThinkingLevel;
 	setThinkingLevel(level: ThinkingLevel): void;

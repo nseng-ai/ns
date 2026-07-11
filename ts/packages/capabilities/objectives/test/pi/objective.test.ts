@@ -15,13 +15,17 @@ import type {
 import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "@nseng-ai/pi/commands/cli-extension";
 import objectiveExtension, {
 	type CommandContext,
-	type ExecResult,
+	type RawPiExecResult,
 	type ObjectiveExtensionAPI,
 	type NotifyLevel,
 } from "../../src/pi/extension.ts";
 
-type ExecResultFixture = Partial<ExecResult>;
-import type { AgentEndContext, ExecOptions, SessionStartContext } from "@nseng-ai/pi/runtime/types";
+type RawPiExecResultFixture = Partial<RawPiExecResult>;
+import type {
+	AgentEndContext,
+	RawPiExecOptions,
+	SessionStartContext,
+} from "@nseng-ai/pi/runtime/types";
 
 const ROOT = "/repo";
 const TRUNK = "master";
@@ -64,13 +68,13 @@ type CommandInfo = ReturnType<ObjectiveExtensionAPI["getCommands"]>[number];
 interface ExecCall {
 	command: string;
 	args: string[];
-	options: ExecOptions | undefined;
+	options: RawPiExecOptions | undefined;
 }
 
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: ExecResultFixture | undefined;
+	result: RawPiExecResultFixture | undefined;
 	error?: unknown;
 }
 
@@ -129,7 +133,11 @@ class FakePi implements ObjectiveExtensionAPI {
 		this.messageRenderers.set(customType, renderer);
 	}
 
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+	async exec(
+		command: string,
+		args: string[],
+		options?: RawPiExecOptions,
+	): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
@@ -202,7 +210,7 @@ function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function execResult(overrides: ExecResultFixture = {}): ExecResult {
+function execResult(overrides: RawPiExecResultFixture = {}): RawPiExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
@@ -211,7 +219,7 @@ function execResult(overrides: ExecResultFixture = {}): ExecResult {
 	};
 }
 
-function step(command: string, args: string[], result?: ExecResultFixture): ScriptedExec {
+function step(command: string, args: string[], result?: RawPiExecResultFixture): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -478,14 +486,14 @@ function candidateStep(slugs: string[]): ScriptedExec {
 	});
 }
 
-function diffStep(stdout: string, result: ExecResultFixture = {}): ScriptedExec {
+function diffStep(stdout: string, result: RawPiExecResultFixture = {}): ScriptedExec {
 	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".ns/objectives"], {
 		stdout,
 		...result,
 	});
 }
 
-function statusStep(stdout: string, result: ExecResultFixture = {}): ScriptedExec {
+function statusStep(stdout: string, result: RawPiExecResultFixture = {}): ScriptedExec {
 	return step("git", ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"], {
 		stdout,
 		...result,

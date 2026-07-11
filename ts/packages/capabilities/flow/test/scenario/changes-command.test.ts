@@ -172,7 +172,7 @@ describe("project-local changes extension behavior", () => {
 		});
 		expect(await notGit.exit).toBe(2);
 		expect(notGit.stderr.join("")).toBe(
-			"error: Not inside a git repository.\nexit 128: fatal: not a git repository\n",
+			"error: Not inside a git repository.\nexit code 128: fatal: not a git repository\n",
 		);
 		expect(notGit.context.textGeneratorCalls).toEqual([]);
 
@@ -187,7 +187,7 @@ describe("project-local changes extension behavior", () => {
 		});
 		expect(await statusFailed.exit).toBe(2);
 		expect(statusFailed.stderr.join("")).toBe(
-			"error: Could not inspect git status.\nexit 1: index locked\n",
+			"error: Could not inspect git status.\nexit code 1: index locked\n",
 		);
 		expect(statusFailed.context.textGeneratorCalls).toEqual([]);
 	});

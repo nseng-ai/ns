@@ -12,7 +12,6 @@ import type {
   SessionFactoryResult,
   TurnDiagnostics,
   TurnFailure,
-  TurnOutput,
   TurnRequest,
   TurnResult,
   UsageCore,
@@ -72,8 +71,8 @@ export class FakeFullFidelityExec {
           exitCode: 1,
           stdout: "",
           stderr: `No raw fixture for ${key}`,
-          timedOut: false,
-          cancelled: false,
+          isTimedOut: false,
+          isCancelled: false,
         }
       );
     });
@@ -104,9 +103,9 @@ export class FakeClaudeCodeHarness {
     this.exec = exec;
   }
 
-  async createIsolatedGenerationSession<TMode extends OutputMode>(
-    options: IsolatedGenerationOptions<TMode>,
-  ): Promise<SessionFactoryResult<IsolatedGenerationSession<ClaudeUsage | null, TMode>>> {
+  async createIsolatedGenerationSession(
+    options: IsolatedGenerationOptions,
+  ): Promise<SessionFactoryResult<IsolatedGenerationSession<ClaudeUsage | null>>> {
     const observation = createObservation("isolated-generation", options);
     const acquired = await acquireResource(this.exec, "claude", observation, ISOLATED_CWD);
     if (!acquired.ok) return acquired;
@@ -124,9 +123,9 @@ export class FakeClaudeCodeHarness {
     };
   }
 
-  async createReadOnlyAgentSession<TMode extends OutputMode>(
-    options: ReadOnlyAgentOptions<TMode>,
-  ): Promise<SessionFactoryResult<ReadOnlyAgentSession<ClaudeUsage | null, TMode>>> {
+  async createReadOnlyAgentSession(
+    options: ReadOnlyAgentOptions,
+  ): Promise<SessionFactoryResult<ReadOnlyAgentSession<ClaudeUsage | null>>> {
     const observation = createObservation("read-only-agent", options);
     const acquired = await acquireResource(this.exec, "claude", observation, options.repositoryCwd);
     if (!acquired.ok) return acquired;
@@ -153,9 +152,9 @@ export class FakeCodexHarness {
     this.exec = exec;
   }
 
-  async createIsolatedGenerationSession<TMode extends OutputMode>(
-    _options: IsolatedGenerationOptions<TMode>,
-  ): Promise<SessionFactoryResult<IsolatedGenerationSession<null, TMode>>> {
+  async createIsolatedGenerationSession(
+    _options: IsolatedGenerationOptions,
+  ): Promise<SessionFactoryResult<IsolatedGenerationSession<null>>> {
     return {
       ok: false,
       kind: "unsupported-profile",
@@ -164,9 +163,9 @@ export class FakeCodexHarness {
     };
   }
 
-  async createReadOnlyAgentSession<TMode extends OutputMode>(
-    options: ReadOnlyAgentOptions<TMode>,
-  ): Promise<SessionFactoryResult<ReadOnlyAgentSession<null, TMode>>> {
+  async createReadOnlyAgentSession(
+    options: ReadOnlyAgentOptions,
+  ): Promise<SessionFactoryResult<ReadOnlyAgentSession<null>>> {
     const observation = createObservation("read-only-agent", options);
     const acquired = await acquireResource(this.exec, "codex", observation, options.repositoryCwd);
     if (!acquired.ok) return acquired;
@@ -178,9 +177,9 @@ export class FakeCodexHarness {
   }
 }
 
-abstract class StatefulSession<TUsage extends UsageCore | null, TMode extends OutputMode> {
+abstract class StatefulSession<TUsage extends UsageCore | null> {
   abstract readonly profile: "isolated-generation" | "read-only-agent";
-  protected readonly outputMode: TMode;
+  protected readonly outputMode: OutputMode;
   protected readonly observation: MutableSessionObservation;
   private readonly isSingleTurn: boolean;
   private readonly exec: FullFidelityExecChannel;
@@ -189,7 +188,7 @@ abstract class StatefulSession<TUsage extends UsageCore | null, TMode extends Ou
   private isClosed = false;
 
   constructor(options: {
-    outputMode: TMode;
+    outputMode: OutputMode;
     observation: MutableSessionObservation;
     isSingleTurn: boolean;
     exec: FullFidelityExecChannel;
@@ -204,7 +203,7 @@ abstract class StatefulSession<TUsage extends UsageCore | null, TMode extends Ou
     this.cwd = options.cwd;
   }
 
-  async runTurn(request: TurnRequest): Promise<TurnResult<TUsage, TMode>> {
+  async runTurn(request: TurnRequest): Promise<TurnResult<TUsage>> {
     if (this.isClosed) {
       throw new SessionProfileViolationError("Cannot run a turn after the session is closed.");
     }
@@ -259,19 +258,18 @@ abstract class StatefulSession<TUsage extends UsageCore | null, TMode extends Ou
     }
   }
 
-  protected abstract mapEvidence(evidence: RawProcessEvidence): TurnResult<TUsage, TMode>;
+  protected abstract mapEvidence(evidence: RawProcessEvidence): TurnResult<TUsage>;
 }
 
-class ClaudeSession<
-  TMode extends OutputMode,
-  TProfile extends "isolated-generation" | "read-only-agent",
-> extends StatefulSession<ClaudeUsage | null, TMode> {
+class ClaudeSession<TProfile extends "isolated-generation" | "read-only-agent"> extends StatefulSession<
+  ClaudeUsage | null
+> {
   readonly profile: TProfile;
   readonly repositoryCwd: string;
 
   constructor(
     profile: TProfile,
-    options: IsolatedGenerationOptions<TMode> | ReadOnlyAgentOptions<TMode>,
+    options: IsolatedGenerationOptions | ReadOnlyAgentOptions,
     exec: FullFidelityExecChannel,
     observation: MutableSessionObservation,
     cwd: string,
@@ -289,20 +287,22 @@ class ClaudeSession<
     this.repositoryCwd = profile === "read-only-agent" ? cwd : "";
   }
 
-  protected mapEvidence(evidence: RawProcessEvidence): TurnResult<ClaudeUsage | null, TMode> {
-    return mapRawEvidence("claude", evidence, this.outputMode, parseClaudeCompletion);
+  protected mapEvidence(evidence: RawProcessEvidence): TurnResult<ClaudeUsage | null> {
+    return mapRawEvidence({
+      provider: "claude",
+      evidence,
+      outputMode: this.outputMode,
+      parseCompletion: parseClaudeCompletion,
+    });
   }
 }
 
-class CodexSession<TMode extends OutputMode>
-  extends StatefulSession<null, TMode>
-  implements ReadOnlyAgentSession<null, TMode>
-{
+class CodexSession extends StatefulSession<null> implements ReadOnlyAgentSession<null> {
   readonly profile = "read-only-agent" as const;
   readonly repositoryCwd: string;
 
   constructor(
-    options: ReadOnlyAgentOptions<TMode>,
+    options: ReadOnlyAgentOptions,
     exec: FullFidelityExecChannel,
     observation: MutableSessionObservation,
   ) {
@@ -317,14 +317,19 @@ class CodexSession<TMode extends OutputMode>
     this.repositoryCwd = options.repositoryCwd;
   }
 
-  protected mapEvidence(evidence: RawProcessEvidence): TurnResult<null, TMode> {
-    return mapRawEvidence("codex", evidence, this.outputMode, parseCodexCompletion);
+  protected mapEvidence(evidence: RawProcessEvidence): TurnResult<null> {
+    return mapRawEvidence({
+      provider: "codex",
+      evidence,
+      outputMode: this.outputMode,
+      parseCompletion: parseCodexCompletion,
+    });
   }
 }
 
 function createObservation(
   profile: "isolated-generation" | "read-only-agent",
-  options: IsolatedGenerationOptions<OutputMode> | ReadOnlyAgentOptions<OutputMode>,
+  options: IsolatedGenerationOptions | ReadOnlyAgentOptions,
 ): MutableSessionObservation {
   return {
     profile,
@@ -373,7 +378,9 @@ async function acquireResource(
     return {
       ok: false,
       kind: "resource-acquisition-failed",
-      message: evidence.startupError ?? (evidence.stderr || `${command} acquisition failed`),
+      message:
+        evidence.startupError ??
+        stderrOrFallback(evidence.stderr, `${command} acquisition failed`),
     };
   }
   return { ok: true };
@@ -412,20 +419,25 @@ interface ParsedCompletion<TUsage extends UsageCore | null> {
   readonly usage: TUsage;
 }
 
-function mapRawEvidence<TUsage extends UsageCore | null, TMode extends OutputMode>(
-  provider: "claude" | "codex",
-  evidence: RawProcessEvidence,
-  outputMode: TMode,
-  parseCompletion: (stdout: string) => ParsedCompletion<TUsage> | null,
-): TurnResult<TUsage, TMode> {
+interface MapRawEvidenceOptions<TUsage extends UsageCore | null> {
+  readonly provider: "claude" | "codex";
+  readonly evidence: RawProcessEvidence;
+  readonly outputMode: OutputMode;
+  readonly parseCompletion: (stdout: string) => ParsedCompletion<TUsage> | null;
+}
+
+function mapRawEvidence<TUsage extends UsageCore | null>(
+  options: MapRawEvidenceOptions<TUsage>,
+): TurnResult<TUsage> {
+  const { provider, evidence, outputMode, parseCompletion } = options;
   const diagnostics = { exitCode: evidence.exitCode, stderr: evidence.stderr };
   if (evidence.startupError !== null) {
     return turnFailure("invocation-failed", evidence.startupError, diagnostics);
   }
-  if (evidence.cancelled) {
+  if (evidence.isCancelled) {
     return turnFailure("cancelled", `${provider} turn cancelled.`, diagnostics);
   }
-  if (evidence.timedOut) {
+  if (evidence.isTimedOut) {
     return turnFailure("timed-out", `${provider} turn timed out.`, diagnostics);
   }
   if (evidence.exitCode !== 0) {
@@ -434,7 +446,7 @@ function mapRawEvidence<TUsage extends UsageCore | null, TMode extends OutputMod
     }
     return turnFailure(
       "execution-failed",
-      evidence.stderr || `${provider} exited unsuccessfully.`,
+      stderrOrFallback(evidence.stderr, `${provider} exited unsuccessfully.`),
       diagnostics,
     );
   }
@@ -447,7 +459,16 @@ function mapRawEvidence<TUsage extends UsageCore | null, TMode extends OutputMod
       diagnostics,
     );
   }
-  return completedResult(completion.output, completion.usage, diagnostics, outputMode);
+  return completedResult({
+    output: completion.output,
+    usage: completion.usage,
+    diagnostics,
+    outputMode,
+  });
+}
+
+function stderrOrFallback(stderr: string, fallback: string): string {
+  return stderr === "" ? fallback : stderr;
 }
 
 function isAuthenticationDiagnostic(provider: "claude" | "codex", stderr: string): boolean {
@@ -501,22 +522,27 @@ function parseClaudeUsage(value: unknown): ClaudeUsage | null {
   };
 }
 
-function completedResult<TUsage extends UsageCore | null, TMode extends OutputMode>(
-  output: unknown,
-  usage: TUsage,
-  diagnostics: TurnDiagnostics,
-  outputMode: TMode,
-): TurnResult<TUsage, TMode> {
+interface CompletedResultOptions<TUsage extends UsageCore | null> {
+  readonly output: unknown;
+  readonly usage: TUsage;
+  readonly diagnostics: TurnDiagnostics;
+  readonly outputMode: OutputMode;
+}
+
+function completedResult<TUsage extends UsageCore | null>(
+  options: CompletedResultOptions<TUsage>,
+): TurnResult<TUsage> {
+  const { output, usage, diagnostics, outputMode } = options;
   if (outputMode.type === "text") {
     if (typeof output !== "string") {
       return turnFailure("invalid-output", "Expected text output.", diagnostics);
     }
-    if (output.trim().length === 0) {
+    if (!isNonEmptyText(output)) {
       return turnFailure("empty-output", "Harness returned empty text.", diagnostics);
     }
     return {
       ok: true,
-      output: { type: "text", text: output } as TurnOutput<TMode>,
+      output: { type: "text", text: output },
       usage,
     };
   }
@@ -529,9 +555,13 @@ function completedResult<TUsage extends UsageCore | null, TMode extends OutputMo
   }
   return {
     ok: true,
-    output: { type: "structured", value: output } as TurnOutput<TMode>,
+    output: { type: "structured", value: output },
     usage,
   };
+}
+
+function isNonEmptyText(text: string): boolean {
+  return text.trim().length > 0;
 }
 
 function turnFailure(
@@ -577,9 +607,7 @@ export interface DirectTextExecutor {
   execute(request: DirectTextRequest): Promise<DirectTextResult>;
 }
 
-export interface TextGenerationRequest extends DirectTextRequest {
-  readonly operation?: string;
-}
+export type TextGenerationRequest = DirectTextRequest;
 
 export type TextGenerationResult =
   | { readonly ok: true; readonly text: string; readonly usage?: UsageCore }
@@ -605,9 +633,9 @@ export class FakeDirectTextExecutor implements DirectTextExecutor {
 }
 
 export interface ClaudeIsolatedSessionFactory {
-  createIsolatedGenerationSession<TMode extends OutputMode>(
-    options: IsolatedGenerationOptions<TMode>,
-  ): Promise<SessionFactoryResult<IsolatedGenerationSession<ClaudeUsage | null, TMode>>>;
+  createIsolatedGenerationSession(
+    options: IsolatedGenerationOptions,
+  ): Promise<SessionFactoryResult<IsolatedGenerationSession<ClaudeUsage | null>>>;
 }
 
 export interface RoutingTextGeneratorOptions {
@@ -635,7 +663,7 @@ export class RoutingTextGenerator {
     if (!this.isolatedClaudeModelRefs.has(request.modelRef)) {
       const result = await this.direct.execute(request);
       if (!result.ok) return { ok: false, error: result.message };
-      if (result.text.trim().length === 0) {
+      if (!isNonEmptyText(result.text)) {
         return { ok: false, error: "empty-output: Direct generation returned empty text." };
       }
       return result;
@@ -658,6 +686,9 @@ export class RoutingTextGenerator {
     try {
       const result = await created.session.runTurn({ input: request.prompt });
       if (!result.ok) return { ok: false, error: `${result.kind}: ${result.message}` };
+      if (result.output.type !== "text") {
+        return { ok: false, error: "invalid-output: Harness returned structured output." };
+      }
       return {
         ok: true,
         text: result.output.text,

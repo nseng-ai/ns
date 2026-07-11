@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import { objectiveCreatePatternCommandSpecs } from "../../src/api/index.ts";
 import objectiveExtension, {
 	type CommandContext,
-	type ExecResult,
+	type RawPiExecResult,
 	type ObjectiveExtensionAPI,
 	type NotifyLevel,
 } from "../../src/pi/extension.ts";
@@ -48,7 +48,7 @@ class FakePi implements ObjectiveExtensionAPI {
 		this.commands.set(name, options);
 	}
 
-	async exec(command: string, args: string[], options?: unknown): Promise<ExecResult> {
+	async exec(command: string, args: string[], options?: unknown): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		return { stdout: "", stderr: "", code: 0, killed: false };
 	}

@@ -147,8 +147,8 @@ export class LandStackCommandStream {
 
 	finish(invocation: CommandInvocation, finish: { result: ExecResult; note?: string }): void {
 		const result = finish.result;
-		const succeeded = commandSucceeded(result);
-		const icon = succeeded ? "✓" : "✗";
+		const isSuccessful = commandSucceeded(result);
+		const icon = isSuccessful ? "✓" : "✗";
 		const commandStart = this.takeCommandStart(invocation.display);
 		const elapsedMs =
 			commandStart === undefined
@@ -169,11 +169,11 @@ export class LandStackCommandStream {
 		this.landMatrix?.setRunningCommands(this.runningCommands);
 		const suffix = formatCommandFinishSuffix(result, finish.note, elapsedMs);
 		const lines = [`${icon} $ ${invocation.display}${suffix}`];
-		if (!succeeded) {
+		if (!isSuccessful) {
 			lines.push(...commandStreamOutputLines(result));
 		}
 		this.io.message(lines.join("\n"), {
-			level: succeeded ? "info" : "error",
+			level: isSuccessful ? "info" : "error",
 			isRichOnly: !this.shouldMirrorFinishedCommandsToNonUi,
 		});
 	}
