@@ -492,39 +492,28 @@ export async function runSubmitCommand(
 		}
 		const shouldRegenerateExistingPrDescriptions =
 			options.shouldRegenerateExistingPrDescriptions === true;
-		const partitionedPrLinks = shouldRegenerateExistingPrDescriptions
-			? { newPrLinks: prLinks, existingPrLinks: [] }
-			: partitionPrLinksByExisting(prLinks, planToExecute.existingPrLinks);
-		const descriptionPrLinks = partitionedPrLinks.newPrLinks;
-		const skippedExistingPrLinks = partitionedPrLinks.existingPrLinks;
+		const partitionedPrLinks = partitionPrLinksByExisting(prLinks, planToExecute.existingPrLinks);
+		const descriptionPrLinks = prLinks;
+		const emptyBodyOnlyPrLinks = shouldRegenerateExistingPrDescriptions
+			? []
+			: partitionedPrLinks.existingPrLinks;
 		emitSubmitPhase(
 			options,
 			{
 				type: "phase-started",
 				phaseKey: "descriptions",
-				label: formatDescriptionPhaseStart(
-					descriptionPrLinks.length,
-					skippedExistingPrLinks.length,
-				),
+				label: formatDescriptionPhaseStart(descriptionPrLinks.length),
 			},
 			(matrix) => {
 				if (prLinks.length === 0) matrix.setAllCells("description", { state: "skipped" });
 			},
 		);
 		options.progress.matrix?.setActiveOperations([]);
-		for (const link of skippedExistingPrLinks) {
-			const number = prNumberFromLink(link);
-			if (number !== undefined) {
-				options.progress.matrix?.setCellByPrNumber(number, "description", {
-					state: "skipped",
-					text: "existing PR",
-				});
-			}
-		}
 		const descriptionResult = await generateSubmitPrDescriptions({
 			cwd: options.cwd,
 			prDescription: options.prDescription,
 			prLinks: descriptionPrLinks,
+			emptyBodyOnlyPrLinks,
 			prewrittenMetadata: prepared,
 			progress: submitPhaseProgressListeners<SubmitPrDescriptionProgressEvent>(
 				options,
@@ -561,13 +550,8 @@ export async function runSubmitCommand(
 
 type RestackDecision = "run" | "declined" | "unavailable";
 
-function formatDescriptionPhaseStart(prCount: number, skippedExistingCount: number): string {
-	if (prCount === 0 && skippedExistingCount === 0) {
-		return "checking PR descriptions; no PR links detected yet";
-	}
-	if (prCount === 0) {
-		return `skipping ${formatItemCount(skippedExistingCount, "existing PR description", "existing PR descriptions")}`;
-	}
+function formatDescriptionPhaseStart(prCount: number): string {
+	if (prCount === 0) return "checking PR descriptions; no PR links detected yet";
 	return `checking ${formatItemCount(prCount, "PR description", "PR descriptions")} for skip or regeneration`;
 }
 

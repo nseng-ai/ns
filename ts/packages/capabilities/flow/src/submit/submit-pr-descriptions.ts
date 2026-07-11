@@ -58,10 +58,13 @@ export async function generateSubmitPrDescriptions(input: {
 	cwd: string;
 	prDescription: SubmitPrDescriptionOptions;
 	prLinks: readonly SubmitPrLink[];
+	/** PRs in this set are generated only when their current GitHub body is empty. */
+	emptyBodyOnlyPrLinks?: readonly SubmitPrLink[];
 	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 	progress?: SubmitProgressListeners<SubmitPrDescriptionProgressEvent>;
 }): Promise<SubmitPrDescriptionGenerationResult> {
 	let accumulator: PrDescriptionAccumulator = createPrDescriptionAccumulator();
+	const emptyBodyOnlyPrUrls = new Set((input.emptyBodyOnlyPrLinks ?? []).map((link) => link.url));
 	const prewrittenByBranch = new Map(
 		(input.prewrittenMetadata ?? []).map((metadata) => [metadata.branch, metadata]),
 	);
@@ -101,6 +104,22 @@ export async function generateSubmitPrDescriptions(input: {
 				reason: viewed.error.message,
 				diagnostic: viewed.error,
 			});
+			continue;
+		}
+
+		if (emptyBodyOnlyPrUrls.has(link.url) && viewed.value.body.trim() !== "") {
+			input.progress?.onProgress?.(
+				`skipping PR #${number} description; existing PR body is not empty`,
+			);
+			input.progress?.onItemProgress?.({
+				prNumber: number,
+				state: "skipped",
+				message: "existing description",
+			});
+			accumulator = {
+				...accumulator,
+				skipped: [...accumulator.skipped, link],
+			};
 			continue;
 		}
 
