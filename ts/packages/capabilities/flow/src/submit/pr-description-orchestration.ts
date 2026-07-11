@@ -43,6 +43,7 @@ export interface PrDescriptionUpdateOptions {
 	pr: GithubPrDetails;
 	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
 	fingerprintPolicy?: PrDescriptionFingerprintPolicy;
+	activeOperationDetail?: string;
 	onProgress?: (message: string) => void;
 	time?: TimeServices;
 	onActiveOperations?: (operations: readonly ActiveOperation[]) => void;
@@ -165,7 +166,13 @@ export async function preparePrDescriptionUpdate(
 
 	const prepared = await withActiveOperations(
 		options.onActiveOperations,
-		[modelOperation("generating PR description", generation.modelRef, `PR #${pr.number}`)],
+		[
+			modelOperation(
+				"generating PR description",
+				generation.modelRef,
+				options.activeOperationDetail ?? `PR #${pr.number}`,
+			),
+		],
 		() =>
 			preparePrDescription({
 				textGenerator: options.textGenerator,
@@ -234,6 +241,9 @@ export async function orchestratePrDescription(
 		pr,
 		...(options.generation === undefined ? {} : { generation: options.generation }),
 		fingerprintPolicy: prDescriptionFingerprintPolicyForForce(options.shouldForce === true),
+		...(options.activeOperationDetail === undefined
+			? {}
+			: { activeOperationDetail: options.activeOperationDetail }),
 		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 		...(options.time === undefined ? {} : { time: options.time }),
 		...(options.onActiveOperations === undefined

@@ -1,4 +1,4 @@
-import { runCommand } from "@nseng-ai/foundation/exec";
+import { formatCommand, runCommand } from "@nseng-ai/foundation/exec";
 import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import {
@@ -19,7 +19,11 @@ import {
 import { err, ok, type ErrorInfo, type GatewayResult } from "./index.ts";
 import type { TextGenerator } from "./index.ts";
 import { formatItemCount } from "./submit-format.ts";
-import { modelOperation, withActiveOperations } from "../phase-stream/matrix-progress-core.ts";
+import {
+	commandOperations,
+	modelOperation,
+	withActiveOperations,
+} from "../phase-stream/matrix-progress-core.ts";
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import type {
 	SubmitMatrixCellState,
@@ -92,13 +96,41 @@ export interface SubmitMetadataGateway {
 		params: SubmitMetadataCommandParams,
 	): Promise<GatewayResult<SubmitStackInspection>>;
 	ensureCleanWorktree(params: SubmitMetadataCommandParams): Promise<GatewayResult<void>>;
-	amendBranchMetadataCommit(params: {
-		cwd: string;
-		currentBranch: string;
-		branch: string;
-		title: string;
-		body: string;
-	}): Promise<GatewayResult<void>>;
+	amendBranchMetadataCommit(
+		params: AmendBranchMetadataParams & { cwd: string },
+	): Promise<GatewayResult<void>>;
+}
+
+interface AmendBranchMetadataParams {
+	currentBranch: string;
+	branch: string;
+	title: string;
+	body: string;
+}
+
+interface AmendBranchMetadataCommandShape {
+	/** Full argv for execution, including the `-m` message arguments. */
+	argv: string[];
+	/** Safe progress display; never contains title/body message arguments. */
+	display: string;
+}
+
+/**
+ * Single source of the `gt modify` amendment command shape so the executed invocation and
+ * the reported operation display cannot drift; the display deliberately excludes the `-m`
+ * message arguments because they carry generated PR content.
+ */
+function amendBranchMetadataCommandShape(
+	params: AmendBranchMetadataParams,
+): AmendBranchMetadataCommandShape {
+	const targetArgs =
+		params.currentBranch === params.branch
+			? [...GT_MODIFY_BASE_ARGS]
+			: [...GT_MODIFY_BASE_ARGS, "--into", params.branch];
+	return {
+		argv: [...targetArgs, "-m", params.title, "-m", params.body],
+		display: formatCommand(GRAPHITE_COMMAND_NAME, targetArgs),
+	};
 }
 
 export type SubmitPrMetadataPrewriteResult =
@@ -218,17 +250,10 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 		return ok(undefined);
 	}
 
-	async amendBranchMetadataCommit(params: {
-		cwd: string;
-		currentBranch: string;
-		branch: string;
-		title: string;
-		body: string;
-	}): Promise<GatewayResult<void>> {
-		const args =
-			params.currentBranch === params.branch
-				? [...GT_MODIFY_BASE_ARGS, "-m", params.title, "-m", params.body]
-				: [...GT_MODIFY_BASE_ARGS, "--into", params.branch, "-m", params.title, "-m", params.body];
+	async amendBranchMetadataCommit(
+		params: AmendBranchMetadataParams & { cwd: string },
+	): Promise<GatewayResult<void>> {
+		const args = amendBranchMetadataCommandShape(params).argv;
 		const result = await this.runGt(args, params.cwd, MODIFY_TIMEOUT_MS);
 		const resultError = commandError(
 			GRAPHITE_COMMAND_NAME,
@@ -499,13 +524,17 @@ export async function prepareSubmitPrMetadata(input: {
 			state: "active",
 			reason: "amending-metadata-commit",
 		});
-		const amended = await input.gateway.amendBranchMetadataCommit({
-			cwd: input.cwd,
+		const amendParams = {
 			currentBranch: inspected.value.currentBranch,
 			branch: metadata.branch,
 			title: metadata.title,
 			body: metadata.body,
-		});
+		};
+		const amended = await withActiveOperations(
+			input.progress?.onActiveOperations,
+			commandOperations([amendBranchMetadataCommandShape(amendParams).display]),
+			() => input.gateway.amendBranchMetadataCommit({ cwd: input.cwd, ...amendParams }),
+		);
 		if (!amended.ok) {
 			input.progress?.onItemProgress?.({
 				branch: metadata.branch,
@@ -568,6 +597,7 @@ async function generateMetadataForBranches(input: {
 			reason: "generating-metadata",
 		});
 		const currentTitle = branch.commitMessages[0]?.headline ?? branch.branch;
+		// One model operation spans the whole generation, including repair attempts.
 		const generated = await withActiveOperations(
 			input.progress?.onActiveOperations,
 			[

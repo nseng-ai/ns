@@ -47,7 +47,7 @@ describe("submit matrix progress", () => {
 		expect(stripAnsi(capture.redraws.at(-1) ?? "")).not.toContain("generating checkpoint message");
 	});
 
-	test("renders fixed global rows, checkpoint substeps, and two branch columns", () => {
+	test("renders reported operations on a dedicated line when no global row is active", () => {
 		const rows = submitMatrixRowsFromTopology({
 			currentBranch: "feature/b",
 			branches: [
@@ -61,6 +61,8 @@ describe("submit matrix progress", () => {
 			],
 		});
 
+		// A real metadata/description phase: every global row is settled, skipped, or pending —
+		// only a branch cell is active — yet the reported model operation must stay visible.
 		const lines = renderSubmitMatrixProgressFrame({
 			caps: caps(),
 			title: "ns flow submit",
@@ -74,35 +76,27 @@ describe("submit matrix progress", () => {
 			],
 			globals: [
 				{
-					key: "inventory",
-					label: "Inventory",
-					detail: "2 branches in submit stack",
-					activeLabel: "reading submit stack topology…",
+					key: "preflight",
+					label: "Preflight",
+					detail: "ready to submit",
+					activeLabel: "checking submit readiness…",
 					state: "done",
 					substeps: [],
 				},
 				{
-					key: "checkpoint",
-					label: "Checkpoint",
-					detail: "checkpoint complete",
-					activeLabel: "checkpointing pending changes…",
-					state: "active",
-					substeps: [
-						{
-							key: "inspect",
-							label: "Inspect",
-							detail: "worktree inspected",
-							activeLabel: "inspecting worktree…",
-							state: "done",
-						},
-					],
+					key: "restack",
+					label: "Restack",
+					detail: "restack complete",
+					activeLabel: "running gt restack…",
+					state: "skipped",
+					substeps: [],
 				},
 				{
 					key: "submit",
 					label: "Submit",
 					detail: "stack submitted",
 					activeLabel: "running gt submit…",
-					state: "active",
+					state: "pending",
 					substeps: [],
 				},
 				{
@@ -120,36 +114,118 @@ describe("submit matrix progress", () => {
 				kind: row.kind,
 				...(row.pr === undefined ? {} : { pr: row.pr }),
 				cells: {
-					metadata: { state: row.kind === "existing" ? "skipped" : "done" },
+					metadata: { state: row.kind === "existing" ? "skipped" : "active" },
 					description: { state: "pending" },
 				},
 			})),
+			tailLine: "",
 		});
 
-		const output = stripAnsi(lines.join("\n"));
+		const plainLines = lines.map((line) => stripAnsi(line));
+		const output = plainLines.join("\n");
 		expect(output).toContain("ns flow submit");
-		// The in-flight operation renders on the deepest active row (here the Submit phase, the
-		// last active global) instead of a standalone "Running:" header.
-		expect(output).not.toContain("Running:");
-		const submitLine = output.split("\n").find((line) => line.includes("Submit"));
-		expect(submitLine).toContain(
-			"LM · generating PR metadata · openai-codex/gpt-5.4-mini · branch 2/3",
+		// The dedicated operations line sits immediately before the tail slot.
+		expect(plainLines.at(-1)).toBe("");
+		expect(plainLines.at(-2)).toBe(
+			"Running: LM · generating PR metadata · openai-codex/gpt-5.4-mini · branch 2/3",
 		);
-		expect(output).toContain("Inventory");
-		expect(output).toContain("Checkpoint");
-		expect(output).toContain("Inspect");
+		// The operation renders exactly once — no global row hosts it.
+		expect(plainLines.filter((line) => line.includes("generating PR metadata"))).toHaveLength(1);
+		expect(output).toContain("Preflight");
 		expect(output).toContain("Branch / PR");
 		expect(output).toContain("Metadata");
 		expect(output).toContain("Description");
 		expect(output).toContain("Submit");
 		expect(output).toContain("Verify");
-		const headerLine = output.split("\n").find((line) => line.includes("Branch / PR"));
+		const headerLine = plainLines.find((line) => line.includes("Branch / PR"));
 		expect(headerLine).toContain("Metadata");
 		expect(headerLine).toContain("Description");
 		expect(headerLine).not.toContain("Submit");
 		expect(headerLine).not.toContain("Verify");
 		expect(output).toContain("feature/a (#123)");
 		expect(output).toContain("feature/b");
+	});
+
+	test("keeps active global labels while the operation renders on the dedicated line", () => {
+		const lines = renderSubmitMatrixProgressFrame({
+			caps: caps(),
+			title: "ns flow submit",
+			activeOperations: [{ kind: "command", display: "gt submit --no-interactive" }],
+			globals: [
+				{
+					key: "submit",
+					label: "Submit",
+					detail: "stack submitted",
+					activeLabel: "running gt submit…",
+					state: "active",
+					substeps: [],
+				},
+			],
+			rows: [
+				{
+					branch: "feature/a",
+					label: "feature/a",
+					kind: "new",
+					cells: {
+						metadata: { state: "done" },
+						description: { state: "pending" },
+					},
+				},
+			],
+			tailLine: "",
+		});
+
+		const plainLines = lines.map((line) => stripAnsi(line));
+		const submitLine = plainLines.find((line) => line.includes("running gt submit…"));
+		expect(submitLine).toBeDefined();
+		expect(submitLine).not.toContain("gt submit --no-interactive");
+		expect(plainLines.at(-2)).toBe("Running: gt submit --no-interactive");
+	});
+
+	test("reserves one blank operations slot on live frames and omits it when settled", () => {
+		const globals = [
+			{
+				key: "submit" as const,
+				label: "Submit",
+				detail: "stack submitted",
+				activeLabel: "running gt submit…",
+				state: "done" as const,
+				substeps: [],
+			},
+		];
+		const rows = [
+			{
+				branch: "feature/a",
+				label: "feature/a",
+				kind: "new" as const,
+				cells: {
+					metadata: { state: "done" as const },
+					description: { state: "pending" as const },
+				},
+			},
+		];
+
+		const live = renderSubmitMatrixProgressFrame({
+			caps: caps(),
+			title: "ns flow submit",
+			activeOperations: [],
+			globals,
+			rows,
+			tailLine: "",
+		});
+		const livePlain = live.map((line) => stripAnsi(line));
+		// Exactly one blank operations slot plus the blank tail slot: the row line is third from last.
+		expect(livePlain.slice(-2)).toEqual(["", ""]);
+		expect(livePlain.at(-3)).toContain("feature/a");
+
+		const settled = renderSubmitMatrixProgressFrame({
+			caps: caps(),
+			title: "ns flow submit",
+			globals,
+			rows,
+		});
+		const settledPlain = settled.map((line) => stripAnsi(line));
+		expect(settledPlain.at(-1)).toContain("feature/a");
 	});
 
 	test("branch cells render compact text when it fits and keep symbols otherwise", () => {

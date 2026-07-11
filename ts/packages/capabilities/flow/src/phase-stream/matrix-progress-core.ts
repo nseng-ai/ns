@@ -11,7 +11,6 @@ import {
 	ellipsisFor,
 	padPlain,
 	paint,
-	PHASE_NAME_WIDTH,
 	spinnerFrame,
 	statusLine,
 	truncatePlain,
@@ -359,7 +358,7 @@ export function createMatrixRowViews<ColumnKey extends string>(
 }
 
 export interface MatrixFrameOptionalFields {
-	/** Omit for a settled frame; an empty array reserves the operations slot on globals-free frames. */
+	/** Omit for a settled frame; an empty array reserves the operations slot on every live frame. */
 	activeOperations?: readonly ActiveOperation[];
 	/** Omit for a settled frame; an empty string reserves a blank tail slot before any output. */
 	tailLine?: string;
@@ -389,29 +388,12 @@ export function renderMatrixProgressFrame<ColumnKey extends string, GlobalKey ex
 	} & MatrixFrameOptionalFields,
 ): readonly string[] {
 	const tick = input.tick ?? 0;
-	// The in-flight operation renders on the row that owns it instead of a standalone
-	// "Running:" header, so the frame carries exactly one "what is happening now" surface.
 	const operationsText = formatActiveOperationsText(input.activeOperations);
-	const host = operationsText === undefined ? undefined : activeOperationHost(input.globals);
 	const lines = [bold(input.title)];
 	for (const global of input.globals) {
-		lines.push(
-			renderGlobalLine({
-				caps: input.caps,
-				row: global,
-				tick,
-				...optionalEntry("operationsText", host === global ? operationsText : undefined),
-			}),
-		);
+		lines.push(renderMatrixStatusLine(input.caps, global, tick));
 		for (const substep of global.substeps) {
-			lines.push(
-				renderGlobalSubstepLine({
-					caps: input.caps,
-					row: substep,
-					tick,
-					...optionalEntry("operationsText", host === substep ? operationsText : undefined),
-				}),
-			);
+			lines.push(renderGlobalSubstepLine(input.caps, substep, tick));
 		}
 	}
 	lines.push("");
@@ -419,9 +401,9 @@ export function renderMatrixProgressFrame<ColumnKey extends string, GlobalKey ex
 	for (const row of input.rows) {
 		lines.push(renderMatrixRow(input.caps, input.columns, row, tick));
 	}
-	// Frames without global rows (land) have no row to host the operation, so they keep a
-	// dedicated operations slot at the bottom, adjacent to the tail.
-	if (input.globals.length === 0 && input.activeOperations !== undefined) {
+	// Every live frame keeps a dedicated operations slot at the bottom, adjacent to the tail,
+	// so a reported operation is visible regardless of which rows happen to be active.
+	if (input.activeOperations !== undefined) {
 		lines.push(renderOperationsLine(input.caps, operationsText));
 	}
 	if (input.tailLine !== undefined) {
@@ -435,24 +417,6 @@ function formatActiveOperationsText(
 ): string | undefined {
 	if (operations === undefined || operations.length === 0) return undefined;
 	return operations.map(formatActiveOperation).join("; ");
-}
-
-/**
- * The row whose in-flight label carries the operations text: the deepest active line wins
- * (an active substep over its active parent), and later phases win over earlier ones.
- */
-function activeOperationHost(
-	globals: readonly MatrixGlobalView<string>[],
-): MatrixGlobalView<string> | MatrixGlobalSubstepView | undefined {
-	let globalHost: MatrixGlobalView<string> | undefined;
-	let substepHost: MatrixGlobalSubstepView | undefined;
-	for (const global of globals) {
-		if (global.state === "active") globalHost = global;
-		for (const substep of global.substeps) {
-			if (substep.state === "active") substepHost = substep;
-		}
-	}
-	return substepHost ?? globalHost;
 }
 
 function renderOperationsLine(caps: Caps, operationsText: string | undefined): string {
@@ -595,59 +559,27 @@ export async function withCommandOperations<T>(
 	);
 }
 
-interface RenderGlobalLineOptions {
-	caps: Caps;
-	row: MatrixGlobalView<string>;
-	tick: number;
-	operationsText?: string;
-}
-
-function renderGlobalLine(options: RenderGlobalLineOptions): string {
-	return renderMatrixStatusLine(options);
-}
-
-interface RenderGlobalSubstepLineOptions {
-	caps: Caps;
-	row: MatrixGlobalSubstepView;
-	tick: number;
-	operationsText?: string;
-}
-
-function renderGlobalSubstepLine(options: RenderGlobalSubstepLineOptions): string {
-	const rendered = renderMatrixStatusLine({
-		...options,
-		caps: { ...options.caps, columns: Math.max(0, options.caps.columns - 4) },
-	});
+function renderGlobalSubstepLine(caps: Caps, row: MatrixGlobalSubstepView, tick: number): string {
+	const rendered = renderMatrixStatusLine(
+		{ ...caps, columns: Math.max(0, caps.columns - 4) },
+		row,
+		tick,
+	);
 	return `    ${rendered}`;
 }
 
-interface RenderMatrixStatusLineOptions {
-	caps: Caps;
-	row: MatrixGlobalView<string> | MatrixGlobalSubstepView;
-	tick: number;
-	operationsText?: string;
-}
-
-function renderMatrixStatusLine(options: RenderMatrixStatusLineOptions): string {
-	const { caps, row, tick, operationsText } = options;
-	// The hosted operations text replaces the in-flight label; it is truncated to the label
-	// slot so a long command display cannot wrap and break the live region's height.
-	const label =
-		row.state === "active" && operationsText !== undefined
-			? truncatePlain(operationsText, statusLineLabelWidth(caps), ellipsisFor(caps))
-			: (row.text ?? row.activeLabel);
+function renderMatrixStatusLine(
+	caps: Caps,
+	row: MatrixGlobalView<string> | MatrixGlobalSubstepView,
+	tick: number,
+): string {
 	return statusLine({
 		caps,
-		item: { name: row.label, detail: row.text ?? row.detail, label },
+		item: { name: row.label, detail: row.text ?? row.detail, label: row.text ?? row.activeLabel },
 		state: row.state,
 		tick,
 		showSettledText: false,
 	});
-}
-
-/** Columns left for the in-flight label after statusLine's indent, glyph, and padded name. */
-function statusLineLabelWidth(caps: Caps): number {
-	return Math.max(0, caps.columns - PHASE_NAME_WIDTH - 5);
 }
 
 function renderHeader<ColumnKey extends string>(
