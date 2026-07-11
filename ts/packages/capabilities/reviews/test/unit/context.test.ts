@@ -12,12 +12,17 @@ import { describe, expect, test } from "vitest";
 
 import {
 	catalogOptions,
+	createRealReviewsContext,
 	createReviewsRuntime,
 	environmentOptions,
 	type ReviewsGithubPrFeedbackGateway,
 } from "../../src/core/context.ts";
 import type { ReviewResult } from "../../src/core/failures.ts";
-import type { ReviewRunnerGateway, RunReviewOptions } from "../../src/gateways/review-runner.ts";
+import {
+	RoutingReviewRunner,
+	type ReviewRunnerGateway,
+	type RunReviewOptions,
+} from "../../src/gateways/review-runner.ts";
 import type { LoadDiffOptions, LocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import type { ReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 import {
@@ -156,6 +161,20 @@ class RecordingGitHubGateway implements ReviewsGithubPrFeedbackGateway {
 	}
 }
 
+describe("createRealReviewsContext", () => {
+	test("binds the provider-routing real review runner by default", () => {
+		const context = createRealReviewsContext({
+			cwd: "/repo",
+			env: {},
+			stdin: async () => "",
+			stdout: () => {},
+			stderr: () => {},
+		});
+
+		expect(context.reviewRunner).toBeInstanceOf(RoutingReviewRunner);
+	});
+});
+
 describe("createReviewsRuntime", () => {
 	test("derives operation capabilities from the full CLI context", async () => {
 		const localDiff = new RecordingLocalDiffGateway();
@@ -194,7 +213,7 @@ describe("createReviewsRuntime", () => {
 		await ctx.reviewCatalog.loadReviewSource({ ...catalogRunOptions, key: "typescript-style" });
 		await ctx.reviewRunner.runReview(
 			{
-				model: "sonnet",
+				model: "anthropic/claude-sonnet-4-6",
 				reviewDefinition: sampleReviewDefinition,
 				reviewDir: "/repo/.ns/reviews/typescript-style",
 				target: { localDiff: sampleDiff },

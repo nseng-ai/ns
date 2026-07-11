@@ -57,7 +57,7 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[reviews.diff]\nexclude = ["generated/**"]\n[reviews.model_profiles]\ndeep = "opus"\n',
+			'[reviews.diff]\nexclude = ["generated/**"]\n[reviews.model_profiles]\ndeep = "anthropic/claude-opus-4-6"\n',
 		);
 		const localDiff = new FakeLocalDiffGateway({
 			defaultDiff: {
@@ -104,16 +104,62 @@ describe("runReview", () => {
 		expect(outcome.result).toMatchObject({
 			reviewName: "typescript-style",
 			modelProfile: "deep",
-			model: "opus",
+			model: "anthropic/claude-opus-4-6",
 			baseRef: "main",
 			count: 1,
 		});
 		expect(outcome.progress.modelProfile).toBe("deep");
-		expect(reviewRunner.calls()[0]?.request.model).toBe("opus");
+		expect(reviewRunner.calls()[0]?.request.model).toBe("anthropic/claude-opus-4-6");
 		expect(reviewRunner.calls()[0]?.request.reviewDir).toBe("/repo/.ns/reviews/typescript-style");
 		expect(localDiff.requestedExcludeGlobs()).toEqual([["generated/**"]]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
 		expect(reviewLog.writtenEntries()[0]?.reviewKey).toBe("typescript-style");
+	});
+
+	test("retains a qualified OpenAI override in progress, results, runner input, and logs", async () => {
+		const reviewRunner = new FakeReviewRunnerGateway();
+		const reviewLog = new FakeReviewLogGateway();
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
+				reviewCatalog: new FakeReviewCatalogGateway({
+					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
+				}),
+				reviewRunner,
+				reviewLog,
+			}),
+		);
+
+		const outcome = await runReview(ctx, {
+			key: "typescript-style",
+			model: " openai/gpt-5.6-luna ",
+		});
+
+		expect(outcome.type).toBe("completed");
+		if (outcome.type !== "completed") return;
+		expect(outcome.progress.model).toBe("openai/gpt-5.6-luna");
+		expect(outcome.result.model).toBe("openai/gpt-5.6-luna");
+		expect(reviewRunner.calls()[0]?.request.model).toBe("openai/gpt-5.6-luna");
+		expect(reviewLog.writtenEntries()[0]?.content).toContain("openai/gpt-5.6-luna");
+	});
+
+	test("rejects an unqualified one-run model override before invoking the runner", async () => {
+		const reviewRunner = new FakeReviewRunnerGateway();
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
+				reviewCatalog: new FakeReviewCatalogGateway({
+					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
+				}),
+				reviewRunner,
+			}),
+		);
+
+		const outcome = await runReview(ctx, { key: "typescript-style", model: "haiku" });
+
+		expect(outcome.type).toBe("failed");
+		if (outcome.type === "failed") {
+			expect(outcome.error.code).toBe("model-not-supported-by-harness");
+		}
+		expect(reviewRunner.calls()).toEqual([]);
 	});
 
 	test("sends only applicability-matching files to the review runner", async () => {

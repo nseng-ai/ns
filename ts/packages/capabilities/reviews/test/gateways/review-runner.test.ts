@@ -4,8 +4,12 @@ import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 import {
 	FakeReviewRunnerGateway,
 	ClaudeCodeProcessReviewRunner,
+	RoutingReviewRunner,
+	type ReviewHarnessRunner,
+	type RunReviewOptions,
 } from "../../src/gateways/review-runner.ts";
-import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/claude-code-review-runner.ts";
+import type { ReviewResult } from "../../src/core/failures.ts";
+import { buildReviewFindingsJsonSchema } from "../../src/gateways/review-findings-output.ts";
 import {
 	createFindingsReview,
 	createLocalDiff,
@@ -22,7 +26,7 @@ function request(
 ): ReviewRunnerRequest {
 	const diffText = options.diffText ?? "diff --git a/src/app.ts b/src/app.ts\n+change\n";
 	return {
-		model: options.model ?? "haiku",
+		model: options.model ?? "anthropic/claude-haiku-4-5",
 		reviewDefinition: {
 			name: options.reviewName ?? "typescript-style",
 			description: "Review TypeScript diffs.",
@@ -61,6 +65,19 @@ function successResponse(): ReviewExecutionResponse {
 
 function claudeStdout(): string {
 	return JSON.stringify({ type: "result", structured_output: { findings: [] } });
+}
+
+class RecordingHarnessRunner implements ReviewHarnessRunner {
+	readonly calls: Array<{ modelId: string; options: RunReviewOptions }> = [];
+
+	async runReview(
+		_request: ReviewRunnerRequest,
+		modelId: string,
+		options: RunReviewOptions,
+	): Promise<ReviewResult<ReviewExecutionResponse>> {
+		this.calls.push({ modelId, options });
+		return { ok: true, value: successResponse() };
+	}
 }
 
 describe("FakeReviewRunnerGateway", () => {
@@ -138,12 +155,12 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 		const largeMarker = "UNIQUE_PROMPT_MARKER";
 		const reviewRequest = request({ diffText: `${largeMarker}\n${"x".repeat(200_000)}` });
 
-		const result = await gateway.runReview(reviewRequest, { cwd: "/repo" });
+		const result = await gateway.runReview(reviewRequest, "claude-haiku-4-5", { cwd: "/repo" });
 
 		expect(result.ok).toBe(true);
 		expect(resolved).toEqual(["claude"]);
 		const call = execApi.calls()[0];
-		expect(call?.command).toBe("claude");
+		expect(call?.command).toBe("/usr/bin/claude");
 		expect(call?.args.slice(0, 8)).toEqual([
 			"-p",
 			"--output-format",
@@ -152,7 +169,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 			"--tools",
 			"Bash,Read",
 			"--model",
-			"haiku",
+			"claude-haiku-4-5",
 		]);
 		expect(call?.args[6]).toBe("--model");
 		expect(call?.args).toContain("--system-prompt");
@@ -160,7 +177,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 		const schemaArg = call?.args.at((call?.args.indexOf("--json-schema") ?? -2) + 1);
 		expect(schemaArg).toBeDefined();
 		if (schemaArg !== undefined) {
-			expect(JSON.parse(schemaArg)).toEqual(buildClaudeDiffFindingsJsonSchema());
+			expect(JSON.parse(schemaArg)).toEqual(buildReviewFindingsJsonSchema());
 			expect(JSON.parse(schemaArg)).not.toHaveProperty("$schema");
 		}
 		expect(call?.args.join(" ")).not.toContain("Edit");
@@ -176,24 +193,10 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 		const execApi = new ScriptedCommandExecApi([{ stdout: claudeStdout() }]);
 		const gateway = new ClaudeCodeProcessReviewRunner({ execApi, binaryResolver: () => undefined });
 
-		const result = await gateway.runReview(request(), { cwd: "/repo" });
+		const result = await gateway.runReview(request(), "claude-haiku-4-5", { cwd: "/repo" });
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.code).toBe("harness-binary-missing");
-		expect(execApi.calls()).toEqual([]);
-	});
-
-	test("rejects unsupported models before spawning", async () => {
-		const execApi = new ScriptedCommandExecApi([{ stdout: claudeStdout() }]);
-		const gateway = new ClaudeCodeProcessReviewRunner({
-			execApi,
-			binaryResolver: () => "/usr/bin/claude",
-		});
-
-		const result = await gateway.runReview(request({ model: "gpt-4" }), { cwd: "/repo" });
-
-		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error.code).toBe("model-not-supported-by-harness");
 		expect(execApi.calls()).toEqual([]);
 	});
 
@@ -206,7 +209,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 			binaryResolver: () => "/usr/bin/claude",
 		});
 
-		const result = await gateway.runReview(request(), { cwd: "/repo" });
+		const result = await gateway.runReview(request(), "claude-haiku-4-5", { cwd: "/repo" });
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -222,7 +225,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 			binaryResolver: () => "/usr/bin/claude",
 		});
 
-		const result = await gateway.runReview(request(), { cwd: "/repo" });
+		const result = await gateway.runReview(request(), "claude-haiku-4-5", { cwd: "/repo" });
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -232,5 +235,43 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 				omittedFileCount: 0,
 			});
 		}
+	});
+});
+
+describe("RoutingReviewRunner", () => {
+	test.each([
+		["anthropic/claude-sonnet-4-6", "claude-code", "claude-sonnet-4-6"],
+		["openai/gpt-5.6-luna", "codex", "gpt-5.6-luna"],
+		["openai-codex/gpt-5.6-terra", "codex", "gpt-5.6-terra"],
+	] as const)("routes %s to %s with only the model ID", async (model, harness, modelId) => {
+		const claudeCode = new RecordingHarnessRunner();
+		const codex = new RecordingHarnessRunner();
+		const runner = new RoutingReviewRunner({ claudeCode, codex });
+
+		const result = await runner.runReview(request({ model }), { cwd: "/repo" });
+
+		expect(result.ok).toBe(true);
+		expect(claudeCode.calls).toHaveLength(harness === "claude-code" ? 1 : 0);
+		expect(codex.calls).toHaveLength(harness === "codex" ? 1 : 0);
+		expect((harness === "claude-code" ? claudeCode : codex).calls[0]?.modelId).toBe(modelId);
+	});
+
+	test.each([
+		"haiku",
+		"google/gemini-3-pro",
+		"acme/gpt-5.6-luna",
+		"/missing-provider",
+		"openai//gpt-5.6-luna",
+	])("rejects unsupported reference %s without dispatching", async (model) => {
+		const claudeCode = new RecordingHarnessRunner();
+		const codex = new RecordingHarnessRunner();
+		const runner = new RoutingReviewRunner({ claudeCode, codex });
+
+		const result = await runner.runReview(request({ model }), { cwd: "/repo" });
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error.code).toBe("model-not-supported-by-harness");
+		expect(claudeCode.calls).toEqual([]);
+		expect(codex.calls).toEqual([]);
 	});
 });

@@ -8,6 +8,8 @@ import {
 import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
+import { resolveReviewsModelReference } from "./review-model-reference.ts";
+
 export interface ReviewsDiffProjectConfig {
 	readonly exclude: readonly string[];
 }
@@ -41,8 +43,8 @@ export interface GitDiffArgsOptions {
 }
 
 export const DEFAULT_REVIEWS_MODEL_PROFILES: ReviewsModelProfilesProjectConfig = {
-	quick: "haiku",
-	deep: "sonnet",
+	quick: "openai/gpt-5.6-luna",
+	deep: "openai/gpt-5.6-terra",
 };
 
 const EMPTY_CONFIG: ReviewsProjectConfig = {
@@ -188,13 +190,23 @@ function parseModelProfiles(
 	for (const key of MODEL_PROFILE_KEYS) {
 		if (!(key in settings)) continue;
 		const profileValue = settings[key];
-		if (typeof profileValue !== "string" || profileValue.trim() === "") {
+		if (typeof profileValue !== "string") {
 			return resultErrOf(
 				"invalid-model-profiles",
-				formatMessage(`[reviews.model_profiles].${key} must be a non-empty string.`, pathLabel),
+				formatMessage(
+					`[reviews.model_profiles].${key} must be a qualified model reference string.`,
+					pathLabel,
+				),
 			);
 		}
-		profiles[key] = profileValue.trim();
+		const resolved = resolveReviewsModelReference(profileValue);
+		if (!resolved.ok) {
+			return resultErrOf(
+				"invalid-model-profiles",
+				formatMessage(`[reviews.model_profiles].${key}: ${resolved.error.message}`, pathLabel),
+			);
+		}
+		profiles[key] = resolved.value.reference;
 	}
 	return { ok: true, value: profiles };
 }

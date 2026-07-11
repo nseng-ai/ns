@@ -1,7 +1,6 @@
 import { type CommandResolver } from "@nseng-ai/foundation/command";
 import { defaultCommandResolver } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
-import { isClaudeCodeSupportedModelPattern } from "@nseng-ai/foundation/model-slug";
 import {
 	formatErrorMessage,
 	mapFromRecordOrMap,
@@ -18,6 +17,7 @@ import {
 	type ReviewRunnerRequest,
 	type ReviewExecutionResponse,
 } from "../core/models.ts";
+import { resolveReviewsModelReference } from "../core/review-model-reference.ts";
 import { buildClaudeCodeArgs, parseClaudeCodeReviewOutput } from "./claude-code-review-runner.ts";
 import { assembleReviewPrompt, systemPromptFindings } from "./review-runner-prompt.ts";
 
@@ -34,6 +34,43 @@ export interface ReviewRunnerGateway {
 		request: ReviewRunnerRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>>;
+}
+
+export interface ReviewHarnessRunner {
+	runReview(
+		request: ReviewRunnerRequest,
+		modelId: string,
+		options: RunReviewOptions,
+	): Promise<ReviewResult<ReviewExecutionResponse>>;
+}
+
+export interface RoutingReviewRunnerOptions {
+	readonly claudeCode: ReviewHarnessRunner;
+	readonly codex: ReviewHarnessRunner;
+}
+
+export class RoutingReviewRunner implements ReviewRunnerGateway {
+	private readonly claudeCode: ReviewHarnessRunner;
+	private readonly codex: ReviewHarnessRunner;
+
+	constructor(options: RoutingReviewRunnerOptions) {
+		this.claudeCode = options.claudeCode;
+		this.codex = options.codex;
+	}
+
+	async runReview(
+		request: ReviewRunnerRequest,
+		options: RunReviewOptions,
+	): Promise<ReviewResult<ReviewExecutionResponse>> {
+		const resolved = resolveReviewsModelReference(request.model);
+		if (!resolved.ok) return resolved;
+		switch (resolved.value.harness) {
+			case "claude-code":
+				return await this.claudeCode.runReview(request, resolved.value.modelId, options);
+			case "codex":
+				return await this.codex.runReview(request, resolved.value.modelId, options);
+		}
+	}
 }
 
 export interface ClaudeCodeProcessReviewRunnerOptions {
@@ -89,7 +126,7 @@ export class FakeReviewRunnerGateway implements ReviewRunnerGateway {
 	}
 }
 
-export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
+export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 	private readonly execApi: CommandExecApi;
 	private readonly binaryResolver: CommandResolver;
 
@@ -100,21 +137,9 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 
 	async runReview(
 		request: ReviewRunnerRequest,
+		modelId: string,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
-		if (request.model.trim() === "") {
-			return resultErr({
-				code: "model-not-provided",
-				message: "A Claude Code model must be provided.",
-			});
-		}
-		if (!isClaudeCodeSupportedModelPattern(request.model)) {
-			return resultErr({
-				code: "model-not-supported-by-harness",
-				message: `Model is not supported by the Claude Code harness: ${request.model}`,
-			});
-		}
-
 		let resolvedBinary: string | undefined;
 		try {
 			resolvedBinary = this.binaryResolver(CLAUDE_BINARY);
@@ -137,10 +162,7 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 			target: request.target,
 			...optionalEntry("priorFindingsContext", request.priorFindingsContext),
 		});
-		const args = buildClaudeCodeArgs({
-			model: request.model,
-			systemPrompt: systemPromptFindings(),
-		});
+		const args = buildClaudeCodeArgs({ model: modelId, systemPrompt: systemPromptFindings() });
 		let result: ExecResult;
 		const execOptions: ExecOptions = {
 			cwd: options.cwd,
@@ -149,7 +171,7 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 			...(options.signal === undefined ? {} : { signal: options.signal }),
 		};
 		try {
-			result = await this.execApi.exec(CLAUDE_BINARY, args, execOptions);
+			result = await this.execApi.exec(resolvedBinary, args, execOptions);
 		} catch (error) {
 			return resultErr({
 				code: "harness-invocation-failed",

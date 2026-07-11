@@ -99,12 +99,22 @@ jobs:
       - name: Add TS workspace binaries to PATH
         run: echo "$GITHUB_WORKSPACE/ts/node_modules/.bin" >> "$GITHUB_PATH"
 
-      - name: Install claude-code CLI
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Install review harness CLIs
+        run: |
+          npm install -g @anthropic-ai/claude-code@2.1.205 @openai/codex@0.144.0
+          claude --version
+          codex --version
+
+      - name: Authenticate Codex CLI
+        if: ${{ env.OPENAI_API_KEY != '' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: printf '%s' "$OPENAI_API_KEY" | codex login --with-api-key
 
       - name: Run reviews and post summary comment
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           REVIEW_KEY: ${{ matrix.review }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
