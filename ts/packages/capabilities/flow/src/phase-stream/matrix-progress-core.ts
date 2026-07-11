@@ -22,7 +22,7 @@ import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
-	formatActiveOperation,
+	formatActiveOperationsLine,
 	matrixProgressDisplayWidthChars,
 	type ActiveOperation,
 	type NsProgress,
@@ -388,7 +388,7 @@ export function renderMatrixProgressFrame<ColumnKey extends string, GlobalKey ex
 	} & MatrixFrameOptionalFields,
 ): readonly string[] {
 	const tick = input.tick ?? 0;
-	const operationsText = formatActiveOperationsText(input.activeOperations);
+	const operationsLine = formatActiveOperationsLine(input.activeOperations ?? []);
 	const lines = [bold(input.title)];
 	for (const global of input.globals) {
 		lines.push(renderMatrixStatusLine(input.caps, global, tick));
@@ -404,7 +404,7 @@ export function renderMatrixProgressFrame<ColumnKey extends string, GlobalKey ex
 	// Every live frame keeps a dedicated operations slot at the bottom, adjacent to the tail,
 	// so a reported operation is visible regardless of which rows happen to be active.
 	if (input.activeOperations !== undefined) {
-		lines.push(renderOperationsLine(input.caps, operationsText));
+		lines.push(renderOperationsLine(input.caps, operationsLine));
 	}
 	if (input.tailLine !== undefined) {
 		lines.push(renderTailLine(input.caps, input.tailLine, input.tailSinceOutputMs));
@@ -412,16 +412,9 @@ export function renderMatrixProgressFrame<ColumnKey extends string, GlobalKey ex
 	return lines;
 }
 
-function formatActiveOperationsText(
-	operations: readonly ActiveOperation[] | undefined,
-): string | undefined {
-	if (operations === undefined || operations.length === 0) return undefined;
-	return operations.map(formatActiveOperation).join("; ");
-}
-
-function renderOperationsLine(caps: Caps, operationsText: string | undefined): string {
-	if (operationsText === undefined) return "";
-	return dim(truncatePlain(`Running: ${operationsText}`, caps.columns, ellipsisFor(caps)));
+function renderOperationsLine(caps: Caps, operationsLine: string | undefined): string {
+	if (operationsLine === undefined) return "";
+	return dim(truncatePlain(operationsLine, caps.columns, ellipsisFor(caps)));
 }
 
 function renderTailLine(caps: Caps, tailLine: string, sinceOutputMs: number | undefined): string {
@@ -504,11 +497,11 @@ function createMatrixProgressRenderer<ColumnKey extends string, GlobalKey extend
 			caps: options.caps,
 			title: options.title(),
 			columns: options.columns,
-			...(activeOperations === undefined ? {} : { activeOperations }),
+			...optionalEntry("activeOperations", activeOperations),
 			globals: options.globals(),
 			rows: options.rows(),
 			...(tailLine === undefined ? {} : { tailLine }),
-			...(tailSinceOutputMs === undefined ? {} : { tailSinceOutputMs }),
+			...optionalEntry("tailSinceOutputMs", tailSinceOutputMs),
 			tick,
 		});
 	};

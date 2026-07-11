@@ -87,6 +87,7 @@ export {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
 	formatActiveOperation,
+	formatActiveOperationsLine,
 	isMatrixProgressEvent,
 	matrixProgressDisplayWidthChars,
 	MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS,

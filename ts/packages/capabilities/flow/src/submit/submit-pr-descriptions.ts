@@ -20,7 +20,7 @@ import type {
 } from "./pr-description-orchestration.ts";
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
-import { formatItemCount } from "./submit-format.ts";
+import { formatBatchPosition, formatItemCount } from "./submit-format.ts";
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import type { SubmitMatrixCellState } from "./submit-matrix-progress.ts";
 
@@ -136,7 +136,11 @@ export async function generateSubmitPrDescriptions(input: {
 			git: input.prDescription.git,
 			pr: viewed.value,
 			...(generation === undefined ? {} : { generation }),
-			activeOperationDetail: `PR ${index + 1}/${input.prLinks.length}`,
+			activeOperationDetail: formatBatchPosition({
+				noun: "PR",
+				index,
+				total: input.prLinks.length,
+			}),
 			...(prewrittenMetadata === undefined ? {} : { prewrittenMetadata }),
 			...(input.progress?.onProgress === undefined
 				? {}

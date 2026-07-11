@@ -18,7 +18,7 @@ import {
 } from "./index.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "./index.ts";
 import type { TextGenerator } from "./index.ts";
-import { formatItemCount } from "./submit-format.ts";
+import { formatBatchPosition, formatItemCount } from "./submit-format.ts";
 import {
 	commandOperations,
 	modelOperation,
@@ -604,7 +604,7 @@ async function generateMetadataForBranches(input: {
 				modelOperation(
 					"generating PR metadata",
 					generation.modelRef,
-					`branch ${index + 1}/${input.branches.length}`,
+					formatBatchPosition({ noun: "branch", index, total: input.branches.length }),
 				),
 			],
 			() =>
