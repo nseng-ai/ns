@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import {
 	GRILL_RETURN_COMMAND_NAME,
@@ -13,12 +15,12 @@ import {
 	handleSessionShutdown,
 	handleSessionTree,
 } from "./hooks.ts";
-import type { SideQuestStartedInfo, SidequestHost } from "./protocol.ts";
+import type { GrillSidequestCapability, GrillSidequestEvent, SidequestHost } from "./protocol.ts";
+import { GRILL_SIDEQUEST_EVENT_ENTRY_TYPE } from "./state.ts";
 import { refreshGrillStatusWidget } from "./status.ts";
 
-export interface GrillSidequestRegistration {
-	/** Passed into grill_ask execution so freeform side-quest starts get their mark labeled. */
-	onSideQuestStarted(info: SideQuestStartedInfo): void;
+export interface RegisterGrillSidequestOptions {
+	createQuestId?: () => string;
 }
 
 /**
@@ -36,9 +38,28 @@ export function isSidequestCapableHost(pi: ExtensionAPI): pi is ExtensionAPI & S
 	);
 }
 
-/** Single wiring point for the side-quest workflow; delete the call site to rip the feature out. */
-export function registerGrillSidequest(pi: SidequestHost): GrillSidequestRegistration {
+/** Single wiring and ownership point for the optional side-quest capability. */
+export function registerGrillSidequest(
+	pi: SidequestHost,
+	options: RegisterGrillSidequestOptions = {},
+): GrillSidequestCapability {
 	const state = createGrillSidequestRuntimeState();
+	const createQuestId = options.createQuestId ?? randomUUID;
+	const capability: GrillSidequestCapability = {
+		startSideQuest: (topic, pendingAsk) => {
+			const questId = createQuestId();
+			const event: GrillSidequestEvent = {
+				version: 1,
+				event: "started",
+				questId,
+				topic,
+				...(pendingAsk === undefined ? {} : { pendingAsk }),
+			};
+			pi.appendEntry(GRILL_SIDEQUEST_EVENT_ENTRY_TYPE, event);
+			state.stashPendingMarkLabel(questId, pendingAsk?.question ?? `Side quest: ${topic}`);
+			return questId;
+		},
+	};
 
 	registerCommandWithImmediateAck({
 		host: pi,
@@ -46,7 +67,7 @@ export function registerGrillSidequest(pi: SidequestHost): GrillSidequestRegistr
 		commandDefinition: {
 			description:
 				"Start a grill side quest on a topic before answering the pending grill question.",
-			handler: async (args, ctx) => handleGrillSidequestCommand(pi, args, ctx),
+			handler: async (args, ctx) => handleGrillSidequestCommand({ pi, capability, args, ctx }),
 		},
 	});
 
@@ -76,11 +97,7 @@ export function registerGrillSidequest(pi: SidequestHost): GrillSidequestRegistr
 		handleSessionShutdown(ctx);
 	});
 
-	return {
-		onSideQuestStarted: (info) => {
-			state.stashPendingMarkLabel(info);
-		},
-	};
+	return capability;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

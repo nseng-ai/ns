@@ -18,7 +18,7 @@ describe("buildGrillStatusWidgetLines", () => {
 		const lines = buildGrillStatusWidgetLines({
 			grill: "active",
 			answeredCount: 2,
-			latestAsk: {
+			pendingAsk: {
 				question: "How should the cache invalidate entries across worktrees?",
 				toolCallId: "call-3",
 				estimatedRemaining: { kind: "range", min: 2, max: 4, basis: "two open branches" },
@@ -28,17 +28,17 @@ describe("buildGrillStatusWidgetLines", () => {
 		expect(lines).toHaveLength(1);
 		const line = lines?.[0];
 		if (line === undefined) throw new Error("Expected one Grill status line");
-		expect(line).toContain("▌GRILL · Q3 pending · 2 answered");
+		expect(line).toContain("▌GRILL · 2 answered · Q3 pending");
 		expect(line).toContain("Remaining 2–4");
 		expect(line).toContain('"How should the cache invalidate entries across worktrees?"');
 		expect(line).toContain("⚑ Start a side quest in grill menu");
 	});
 
-	test("grilling state without a latest ask still shows counts and the hint", () => {
+	test("grilling state without a pending ask truthfully reports being between questions", () => {
 		const lines = buildGrillStatusWidgetLines({ grill: "active", answeredCount: 0 });
 
 		expect(lines).toEqual([
-			"▌GRILL · Q1 pending · 0 answered · ⚑ Start a side quest in grill menu",
+			"▌GRILL · 0 answered · between questions · ⚑ Start a side quest in grill menu",
 		]);
 	});
 
@@ -47,7 +47,7 @@ describe("buildGrillStatusWidgetLines", () => {
 		const lines = buildGrillStatusWidgetLines({
 			grill: "active",
 			answeredCount: 1,
-			latestAsk: { question: longQuestion },
+			pendingAsk: { question: longQuestion },
 		});
 
 		const line = lines?.[0];
@@ -60,7 +60,12 @@ describe("buildGrillStatusWidgetLines", () => {
 		const lines = buildGrillStatusWidgetLines({
 			grill: "active",
 			answeredCount: 2,
-			activeQuest: { markEntryId: "mark", topic: "cache layout", pendingQuestion: "Q?" },
+			activeQuest: {
+				questId: "quest-1",
+				markEntryId: "mark",
+				topic: "cache layout",
+				pendingAsk: { question: "Q?" },
+			},
 		});
 
 		expect(lines).toEqual([
@@ -109,7 +114,7 @@ describe("refreshGrillStatusWidget", () => {
 		refreshGrillStatusWidget(active.ctx);
 		expect(active.calls).toEqual([
 			{
-				lines: ["▌GRILL · Q1 pending · 0 answered · ⚑ Start a side quest in grill menu"],
+				lines: ["▌GRILL · 0 answered · between questions · ⚑ Start a side quest in grill menu"],
 				placement: "belowEditor",
 			},
 		]);

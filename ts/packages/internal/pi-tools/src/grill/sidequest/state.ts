@@ -2,30 +2,21 @@ import { GRILL_ASK_TOOL_NAME } from "@nseng-ai/pi/grill/surfaces";
 
 import { GRILL_UI_KICKOFF_MARKERS } from "../progress.ts";
 import type { GrillAskRemainingEstimate } from "../protocol.ts";
-import {
-	GRILL_SIDEQUEST_KICKOFF_MARKER_CLOSE,
-	GRILL_SIDEQUEST_KICKOFF_MARKER_OPEN,
-} from "./prompts.ts";
 import type {
 	ActiveSideQuest,
-	GrillSidequestLatestAsk,
+	GrillSidequestEvent,
+	PendingGrillAsk,
 	SidequestScanState,
 	SidequestSessionManagerLike,
 } from "./protocol.ts";
 
-/** Custom session-entry type that closes a side quest. Not sent to the LLM. */
-export const GRILL_SIDEQUEST_CLOSURE_ENTRY_TYPE = "grill-sidequest";
-
-/** Correlation key a closure entry's `data.returned` must carry to close a quest. */
-export function sideQuestClosureKey(quest: ActiveSideQuest): string {
-	return quest.toolCallId ?? quest.markEntryId;
-}
+/** Canonical custom session-entry type for side-quest lifecycle events. Not sent to the LLM. */
+export const GRILL_SIDEQUEST_EVENT_ENTRY_TYPE = "grill-sidequest";
 
 /**
- * Pure scanner over the current session branch. All quest state derives from
- * session entries — a return parks the leaf at the mark with a closure entry
- * after it, and jumping before the mark drops the stamp off the branch — so
- * there is no hidden runtime state to corrupt or restore.
+ * Pure reducer over the current session branch after its latest grill kickoff.
+ * Ask/result state comes from grill_ask messages; quest state comes only from
+ * valid v1 custom events. Presentation markers and result prose are ignored.
  */
 export function scanGrillBranch(entries: readonly unknown[]): SidequestScanState {
 	const kickoffIndex = latestGrillKickoffIndex(entries);
@@ -33,37 +24,55 @@ export function scanGrillBranch(entries: readonly unknown[]): SidequestScanState
 
 	let answeredCount = 0;
 	let hasEnded = false;
-	let latestAsk: GrillSidequestLatestAsk | undefined;
+	let pendingAsk: PendingGrillAsk | undefined;
 	let openQuests: ActiveSideQuest[] = [];
 
 	for (let index = kickoffIndex + 1; index < entries.length; index += 1) {
 		const entry = entries[index];
-
-		const closureKey = closedQuestKey(entry);
-		if (closureKey !== undefined) {
-			openQuests = openQuests.filter((quest) => sideQuestClosureKey(quest) !== closureKey);
+		const event = sideQuestEventFromEntry(entry);
+		if (event?.event === "started") {
+			const markEntryId = entryId(entry);
+			if (markEntryId !== undefined) {
+				openQuests.push({
+					questId: event.questId,
+					markEntryId,
+					topic: event.topic,
+					...(event.pendingAsk === undefined ? {} : { pendingAsk: event.pendingAsk }),
+				});
+			}
+			continue;
+		}
+		if (event?.event === "closed") {
+			openQuests = openQuests.filter((quest) => quest.questId !== event.questId);
 			continue;
 		}
 
 		const ask = grillAskCallFromEntry(entry);
 		if (ask !== undefined) {
-			latestAsk = ask;
+			pendingAsk = ask;
 			continue;
 		}
 
-		const commandQuest = commandQuestFromEntry(entry, latestAsk);
-		if (commandQuest !== undefined) {
-			openQuests.push(commandQuest);
-			continue;
-		}
-
-		const details = grillAskResultDetails(entry);
-		if (details === undefined) continue;
-		if (details.action === "answer") answeredCount += 1;
-		if (details.action === "end-grill") hasEnded = true;
-		if (details.action === "side-quest") {
-			const stampedQuest = stampedQuestFromEntry(entry, details);
-			if (stampedQuest !== undefined) openQuests.push(stampedQuest);
+		const result = grillAskResultFromEntry(entry);
+		if (result === undefined) continue;
+		switch (result.action) {
+			case "answer":
+				answeredCount += 1;
+				if (matchesPendingAsk(pendingAsk, result.toolCallId)) pendingAsk = undefined;
+				break;
+			case "cancelled":
+			case "ui-unavailable":
+			case "invalid-tool-input":
+				if (matchesPendingAsk(pendingAsk, result.toolCallId)) pendingAsk = undefined;
+				break;
+			case "end-grill":
+				pendingAsk = undefined;
+				hasEnded = true;
+				break;
+			case "status-request":
+			case "side-quest":
+			case "side-quest-refused":
+				break;
 		}
 	}
 
@@ -73,7 +82,7 @@ export function scanGrillBranch(entries: readonly unknown[]): SidequestScanState
 	return {
 		grill: "active",
 		answeredCount,
-		...(latestAsk === undefined ? {} : { latestAsk }),
+		...(pendingAsk === undefined ? {} : { pendingAsk }),
 		...(activeQuest === undefined ? {} : { activeQuest }),
 	};
 }
@@ -99,16 +108,16 @@ export function readBranchEntries(
 	return Array.isArray(branch) ? branch : undefined;
 }
 
-/** Locate the session entry id of the tool result for a given tool call, for deferred mark labeling. */
-export function findToolResultEntryId(
+/** Locate the canonical started-event entry for deferred mark labeling. */
+export function findSideQuestStartEntryId(
 	entries: readonly unknown[],
-	toolCallId: string,
+	questId: string,
 ): string | undefined {
 	for (const entry of entries) {
-		if (!isRecord(entry) || typeof entry.id !== "string") continue;
-		const message = messageFromEntry(entry);
-		if (!isRecord(message) || message.role !== "toolResult") continue;
-		if (message.toolCallId === toolCallId) return entry.id;
+		const event = sideQuestEventFromEntry(entry);
+		if (event?.event !== "started" || event.questId !== questId) continue;
+		const id = entryId(entry);
+		if (id !== undefined) return id;
 	}
 	return undefined;
 }
@@ -122,25 +131,45 @@ function latestGrillKickoffIndex(entries: readonly unknown[]): number | undefine
 	return undefined;
 }
 
-function closedQuestKey(entry: unknown): string | undefined {
+function sideQuestEventFromEntry(entry: unknown): GrillSidequestEvent | undefined {
 	if (!isRecord(entry) || entry.type !== "custom") return undefined;
-	if (entry.customType !== GRILL_SIDEQUEST_CLOSURE_ENTRY_TYPE) return undefined;
-	if (!isRecord(entry.data) || typeof entry.data.returned !== "string") return undefined;
-	return entry.data.returned;
+	if (entry.customType !== GRILL_SIDEQUEST_EVENT_ENTRY_TYPE || !isRecord(entry.data)) {
+		return undefined;
+	}
+	const data = entry.data;
+	if (data.version !== 1 || typeof data.questId !== "string" || data.questId.length === 0) {
+		return undefined;
+	}
+	if (data.event === "closed") {
+		return { version: 1, event: "closed", questId: data.questId };
+	}
+	if (data.event !== "started" || typeof data.topic !== "string" || data.topic.length === 0) {
+		return undefined;
+	}
+	const pendingAsk = narrowPendingAsk(data.pendingAsk);
+	if (data.pendingAsk !== undefined && pendingAsk === undefined) return undefined;
+	return {
+		version: 1,
+		event: "started",
+		questId: data.questId,
+		topic: data.topic,
+		...(pendingAsk === undefined ? {} : { pendingAsk }),
+	};
 }
 
-function grillAskCallFromEntry(entry: unknown): GrillSidequestLatestAsk | undefined {
+function grillAskCallFromEntry(entry: unknown): PendingGrillAsk | undefined {
 	const message = messageFromEntry(entry);
 	if (!isRecord(message) || message.role !== "assistant" || !Array.isArray(message.content)) {
 		return undefined;
 	}
 	for (const item of message.content) {
 		if (!isRecord(item) || item.type !== "toolCall" || item.name !== GRILL_ASK_TOOL_NAME) continue;
-		const args = isRecord(item.arguments) ? item.arguments : {};
-		if (typeof args.question !== "string") continue;
-		const estimatedRemaining = narrowRemainingEstimate(args.estimatedRemaining);
+		if (!isRecord(item.arguments) || typeof item.arguments.question !== "string") continue;
+		const question = item.arguments.question.trim();
+		if (question.length === 0) continue;
+		const estimatedRemaining = narrowRemainingEstimate(item.arguments.estimatedRemaining);
 		return {
-			question: args.question,
+			question,
 			...(typeof item.id === "string" ? { toolCallId: item.id } : {}),
 			...(estimatedRemaining === undefined ? {} : { estimatedRemaining }),
 		};
@@ -148,54 +177,77 @@ function grillAskCallFromEntry(entry: unknown): GrillSidequestLatestAsk | undefi
 	return undefined;
 }
 
-function grillAskResultDetails(entry: unknown): Record<string, unknown> | undefined {
-	const message = messageFromEntry(entry);
-	if (!isRecord(message) || message.role !== "toolResult") return undefined;
-	if (message.toolName !== GRILL_ASK_TOOL_NAME) return undefined;
-	return isRecord(message.details) ? message.details : undefined;
+interface GrillAskResultSnapshot {
+	action:
+		| "answer"
+		| "end-grill"
+		| "status-request"
+		| "side-quest"
+		| "side-quest-refused"
+		| "cancelled"
+		| "ui-unavailable"
+		| "invalid-tool-input";
+	toolCallId?: string;
 }
 
-function stampedQuestFromEntry(
-	entry: unknown,
-	details: Record<string, unknown>,
-): ActiveSideQuest | undefined {
-	if (!isRecord(entry) || typeof entry.id !== "string") return undefined;
-	if (typeof details.topic !== "string") return undefined;
+function grillAskResultFromEntry(entry: unknown): GrillAskResultSnapshot | undefined {
 	const message = messageFromEntry(entry);
-	const toolCallId = isRecord(message) ? message.toolCallId : undefined;
+	if (
+		!isRecord(message) ||
+		message.role !== "toolResult" ||
+		message.toolName !== GRILL_ASK_TOOL_NAME
+	) {
+		return undefined;
+	}
+	if (!isRecord(message.details) || !isGrillAskResultAction(message.details.action))
+		return undefined;
 	return {
-		markEntryId: entry.id,
-		...(typeof toolCallId === "string" ? { toolCallId } : {}),
-		topic: details.topic,
-		...(typeof details.question === "string" ? { pendingQuestion: details.question } : {}),
+		action: message.details.action,
+		...(typeof message.toolCallId === "string" ? { toolCallId: message.toolCallId } : {}),
 	};
 }
 
-function commandQuestFromEntry(
-	entry: unknown,
-	latestAsk: GrillSidequestLatestAsk | undefined,
-): ActiveSideQuest | undefined {
-	if (!isRecord(entry) || typeof entry.id !== "string") return undefined;
-	const text = userMessageText(entry);
-	if (text === undefined) return undefined;
-	const openIndex = text.indexOf(GRILL_SIDEQUEST_KICKOFF_MARKER_OPEN);
-	if (openIndex < 0) return undefined;
-	const closeIndex = text.indexOf(GRILL_SIDEQUEST_KICKOFF_MARKER_CLOSE, openIndex);
-	if (closeIndex < 0) return undefined;
-	const topic = text
-		.slice(openIndex + GRILL_SIDEQUEST_KICKOFF_MARKER_OPEN.length, closeIndex)
-		.trim();
-	if (topic.length === 0) return undefined;
+function isGrillAskResultAction(value: unknown): value is GrillAskResultSnapshot["action"] {
+	return (
+		value === "answer" ||
+		value === "end-grill" ||
+		value === "status-request" ||
+		value === "side-quest" ||
+		value === "side-quest-refused" ||
+		value === "cancelled" ||
+		value === "ui-unavailable" ||
+		value === "invalid-tool-input"
+	);
+}
+
+function matchesPendingAsk(
+	pendingAsk: PendingGrillAsk | undefined,
+	resultToolCallId: string | undefined,
+): boolean {
+	if (pendingAsk === undefined) return false;
+	if (resultToolCallId === undefined) return true;
+	if (pendingAsk.toolCallId === undefined) return false;
+	return pendingAsk.toolCallId === resultToolCallId;
+}
+
+function narrowPendingAsk(value: unknown): PendingGrillAsk | undefined {
+	if (!isRecord(value) || typeof value.question !== "string" || value.question.length === 0) {
+		return undefined;
+	}
+	const estimatedRemaining = narrowRemainingEstimate(value.estimatedRemaining);
+	if (value.estimatedRemaining !== undefined && estimatedRemaining === undefined) return undefined;
+	if (value.toolCallId !== undefined && typeof value.toolCallId !== "string") return undefined;
 	return {
-		markEntryId: entry.id,
-		topic,
-		...(latestAsk === undefined ? {} : { pendingQuestion: latestAsk.question }),
+		question: value.question,
+		...(typeof value.toolCallId === "string" ? { toolCallId: value.toolCallId } : {}),
+		...(estimatedRemaining === undefined ? {} : { estimatedRemaining }),
 	};
 }
 
 function narrowRemainingEstimate(value: unknown): GrillAskRemainingEstimate | undefined {
 	if (!isRecord(value)) return undefined;
-	if (value.kind === "exact" && typeof value.count === "number") {
+	if (value.kind === "exact" && isNonNegativeInteger(value.count)) {
+		if (value.basis !== undefined && typeof value.basis !== "string") return undefined;
 		return {
 			kind: "exact",
 			count: value.count,
@@ -204,16 +256,26 @@ function narrowRemainingEstimate(value: unknown): GrillAskRemainingEstimate | un
 	}
 	if (
 		value.kind === "range" &&
-		typeof value.min === "number" &&
-		typeof value.max === "number" &&
-		typeof value.basis === "string"
+		isNonNegativeInteger(value.min) &&
+		isNonNegativeInteger(value.max) &&
+		value.min <= value.max &&
+		typeof value.basis === "string" &&
+		value.basis.length > 0
 	) {
 		return { kind: "range", min: value.min, max: value.max, basis: value.basis };
 	}
-	if (value.kind === "unknown" && typeof value.basis === "string") {
+	if (value.kind === "unknown" && typeof value.basis === "string" && value.basis.length > 0) {
 		return { kind: "unknown", basis: value.basis };
 	}
 	return undefined;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+	return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function entryId(entry: unknown): string | undefined {
+	return isRecord(entry) && typeof entry.id === "string" ? entry.id : undefined;
 }
 
 function userMessageText(entry: unknown): string | undefined {

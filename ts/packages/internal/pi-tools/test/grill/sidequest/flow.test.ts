@@ -5,16 +5,25 @@ import {
 	GRILL_RETURN_COMMAND_NAME,
 	GRILL_SIDEQUEST_COMMAND_NAME,
 	GRILL_UI_CONTRACT,
+	executeGrillAsk,
 	registerGrillUiExtension,
 	type GrillUiCommandContext,
 	type ToolDefinition,
 } from "../../../src/grill/extension.ts";
 import { SIDE_QUEST_DISPOSITION_CHOICES } from "../../../src/grill/sidequest/prompts.ts";
+import { registerGrillSidequest } from "../../../src/grill/sidequest/register.ts";
 import type {
+	SidequestBeforeTreeEvent,
+	SidequestBeforeTreeResult,
 	SidequestCommandContext,
 	SidequestEventContext,
+	SidequestEventHandler,
+	SidequestTreeEvent,
 } from "../../../src/grill/sidequest/protocol.ts";
-import { GRILL_SIDEQUEST_CLOSURE_ENTRY_TYPE } from "../../../src/grill/sidequest/state.ts";
+import {
+	GRILL_SIDEQUEST_EVENT_ENTRY_TYPE,
+	scanGrillBranch,
+} from "../../../src/grill/sidequest/state.ts";
 import { GRILL_STATUS_WIDGET_KEY } from "../../../src/grill/sidequest/status.ts";
 
 const KICKOFF_TEXT = "<structured-grill-question-ui-contract>\nplan under grill";
@@ -31,15 +40,15 @@ interface FakeCommand {
 	handler(args: string, ctx: FakeCommandContext): Promise<void> | void;
 }
 
-type FakeEventHandler = (event: unknown, ctx: SidequestEventContext) => Promise<unknown> | unknown;
-
 class FakeSidequestPi {
 	readonly commands = new Map<string, FakeCommand>();
 	readonly tools = new Map<string, ToolDefinition>();
 	readonly sentUserMessages: string[] = [];
 	readonly appendedEntries: Array<{ customType: string; data?: unknown }> = [];
+	readonly materializedEntries: unknown[] = [];
+	private nextEntryNumber = 1;
 	readonly labels: Array<{ entryId: string; label: string | undefined }> = [];
-	private readonly handlers = new Map<string, FakeEventHandler[]>();
+	private readonly handlers = new Map<string, unknown[]>();
 
 	registerCommand(name: string, options: FakeCommand): void {
 		this.commands.set(name, options);
@@ -53,7 +62,16 @@ class FakeSidequestPi {
 		this.sentUserMessages.push(content);
 	}
 
-	on(event: string, handler: FakeEventHandler): void {
+	on(
+		event: "session_before_tree",
+		handler: SidequestEventHandler<SidequestBeforeTreeEvent, SidequestBeforeTreeResult>,
+	): void;
+	on(event: "session_tree", handler: SidequestEventHandler<SidequestTreeEvent>): void;
+	on(
+		event: "agent_settled" | "turn_end" | "session_start" | "session_shutdown",
+		handler: SidequestEventHandler<unknown>,
+	): void;
+	on(event: string, handler: unknown): void {
 		const list = this.handlers.get(event) ?? [];
 		list.push(handler);
 		this.handlers.set(event, list);
@@ -61,6 +79,14 @@ class FakeSidequestPi {
 
 	appendEntry(customType: string, data?: unknown): void {
 		this.appendedEntries.push({ customType, data });
+		this.materializedEntries.push({
+			type: "custom",
+			id: `custom-${this.nextEntryNumber}`,
+			parentId: null,
+			customType,
+			data,
+		});
+		this.nextEntryNumber += 1;
 	}
 
 	setLabel(entryId: string, label: string | undefined): void {
@@ -71,7 +97,7 @@ class FakeSidequestPi {
 		const registered = this.handlers.get(event) ?? [];
 		expect(registered.length, `exactly one ${event} handler`).toBe(1);
 		const handler = registered[0];
-		if (handler === undefined) throw new Error(`Missing ${event} handler`);
+		if (typeof handler !== "function") throw new Error(`Missing ${event} handler`);
 		return handler(payload, ctx);
 	}
 
@@ -113,32 +139,24 @@ function askEntry(id: string, toolCallId: string, question: string): unknown {
 	};
 }
 
-function grillResultEntry(id: string, details: unknown, toolCallId?: string): unknown {
-	return {
-		type: "message",
-		id,
-		parentId: null,
-		message: {
-			role: "toolResult",
-			toolName: GRILL_ASK_TOOL_NAME,
-			...(toolCallId === undefined ? {} : { toolCallId }),
-			details,
-		},
-	};
-}
-
 function grillingBranch(): unknown[] {
 	return [userEntry("kickoff", KICKOFF_TEXT), askEntry("ask-1", "call-1", "Pending question?")];
+}
+
+function sideQuestEventEntry(id: string, data: unknown): unknown {
+	return { type: "custom", id, parentId: null, customType: GRILL_SIDEQUEST_EVENT_ENTRY_TYPE, data };
 }
 
 function questBranch(): unknown[] {
 	return [
 		...grillingBranch(),
-		grillResultEntry(
-			"mark",
-			{ action: "side-quest", question: "Pending question?", topic: "cache layout" },
-			"call-1",
-		),
+		sideQuestEventEntry("mark", {
+			version: 1,
+			event: "started",
+			questId: "quest-1",
+			topic: "cache layout",
+			pendingAsk: { question: "Pending question?", toolCallId: "call-1" },
+		}),
 	];
 }
 
@@ -228,7 +246,7 @@ describe("registerGrillSidequest wiring", () => {
 });
 
 describe("freeform sentinel to labeled mark", () => {
-	test("a sentinel answer stamps the result and the mark is labeled on agent_settled", async () => {
+	test("a sentinel answer appends the canonical start and labels its mark on agent_settled", async () => {
 		const { pi, tool } = register();
 
 		const result = await tool.execute(
@@ -255,11 +273,15 @@ describe("freeform sentinel to labeled mark", () => {
 
 		expect(result.details).toMatchObject({ action: "side-quest", topic: "cache layout" });
 
-		const { ctx } = fakeCommandContext({ branch: questBranch(), entries: questBranch() });
+		const materializedBranch = [...grillingBranch(), ...pi.materializedEntries];
+		const { ctx } = fakeCommandContext({
+			branch: materializedBranch,
+			entries: materializedBranch,
+		});
 		await pi.emit("agent_settled", { type: "agent_settled" }, ctx);
 
 		expect(pi.labels).toEqual([
-			{ entryId: "mark", label: "⚑ side quest base · Pending question?" },
+			{ entryId: "custom-1", label: "⚑ side quest base · Pending question?" },
 		]);
 
 		// A second settle does not re-label.
@@ -291,13 +313,23 @@ describe("/pi:grill-sidequest command", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 	});
 
-	test("starts an idle side quest with the scanner marker and pending question", async () => {
+	test("starts an idle side quest with a canonical event and pending question", async () => {
 		const { pi } = register();
 		const command = registeredCommand(pi, GRILL_SIDEQUEST_COMMAND_NAME);
 		const { ctx } = fakeCommandContext({ branch: grillingBranch() });
 
 		await command.handler("explore the cache layer", ctx);
 
+		expect(pi.appendedEntries).toHaveLength(1);
+		expect(pi.appendedEntries[0]).toMatchObject({
+			customType: GRILL_SIDEQUEST_EVENT_ENTRY_TYPE,
+			data: {
+				version: 1,
+				event: "started",
+				topic: "explore the cache layer",
+				pendingAsk: { question: "Pending question?", toolCallId: "call-1" },
+			},
+		});
 		expect(pi.sentUserMessages).toHaveLength(1);
 		const message = pi.sentUserMessages[0];
 		if (message === undefined) throw new Error("Missing side-quest kickoff message");
@@ -306,6 +338,95 @@ describe("/pi:grill-sidequest command", () => {
 		);
 		expect(message).toContain("The pending question was: Pending question?");
 		expect(message).toContain("NOT an answer");
+	});
+});
+
+describe("canonical start event parity", () => {
+	test("menu, sentinel, and slash command emit the same v1 start shape", async () => {
+		const pi = new FakeSidequestPi();
+		const questIds = ["quest-menu", "quest-sentinel", "quest-command"];
+		const capability = registerGrillSidequest(pi, {
+			createQuestId: () => {
+				const questId = questIds.shift();
+				if (questId === undefined) throw new Error("Missing deterministic quest id");
+				return questId;
+			},
+		});
+		const input = {
+			question: "Pending question?",
+			recommended: { answer: "A", optionValue: "a" },
+			options: [
+				{ value: "a", label: "A" },
+				{ value: "b", label: "B" },
+			],
+		};
+		const menuContext = {
+			hasUI: true,
+			ui: {
+				select: async (_title: string, choices: string[]) =>
+					choices.find((choice) => choice.includes("Start a side quest")),
+				editor: async () => "same topic",
+			},
+			sessionManager: { getBranch: () => grillingBranch() },
+		};
+		await executeGrillAsk(input, menuContext, {
+			toolCallId: "call-1",
+			sideQuest: capability,
+		});
+
+		await executeGrillAsk(
+			input,
+			{
+				...menuContext,
+				ui: {
+					select: async (_title: string, choices: string[]) =>
+						choices.find((choice) => choice.includes("Other")),
+					editor: async () => "sq: same topic",
+				},
+			},
+			{ toolCallId: "call-1", sideQuest: capability },
+		);
+
+		const slash = registeredCommand(pi, GRILL_SIDEQUEST_COMMAND_NAME);
+		await slash.handler("same topic", fakeCommandContext({ branch: grillingBranch() }).ctx);
+
+		expect(pi.appendedEntries).toEqual(
+			["quest-menu", "quest-sentinel", "quest-command"].map((questId) => ({
+				customType: GRILL_SIDEQUEST_EVENT_ENTRY_TYPE,
+				data: {
+					version: 1,
+					event: "started",
+					questId,
+					topic: "same topic",
+					pendingAsk: { question: "Pending question?", toolCallId: "call-1" },
+				},
+			})),
+		);
+		expect(pi.materializedEntries).toMatchObject([
+			{ id: "custom-1", customType: GRILL_SIDEQUEST_EVENT_ENTRY_TYPE },
+			{ id: "custom-2", customType: GRILL_SIDEQUEST_EVENT_ENTRY_TYPE },
+			{ id: "custom-3", customType: GRILL_SIDEQUEST_EVENT_ENTRY_TYPE },
+		]);
+	});
+
+	test("reload reconstruction needs only the canonical custom start entry", () => {
+		const reloaded = scanGrillBranch([
+			...grillingBranch(),
+			sideQuestEventEntry("canonical-mark", {
+				version: 1,
+				event: "started",
+				questId: "quest-reloaded",
+				topic: "reloaded topic",
+				pendingAsk: { question: "Pending question?", toolCallId: "call-1" },
+			}),
+		]);
+
+		expect(reloaded).toHaveProperty("activeQuest", {
+			questId: "quest-reloaded",
+			markEntryId: "canonical-mark",
+			topic: "reloaded topic",
+			pendingAsk: { question: "Pending question?", toolCallId: "call-1" },
+		});
 	});
 });
 
@@ -484,7 +605,10 @@ describe("session_tree landing", () => {
 		await pi.emit("session_tree", { newLeafId: "mark", oldLeafId: "quest-leaf" }, ctx);
 
 		expect(pi.appendedEntries).toEqual([
-			{ customType: GRILL_SIDEQUEST_CLOSURE_ENTRY_TYPE, data: { returned: "call-1" } },
+			{
+				customType: GRILL_SIDEQUEST_EVENT_ENTRY_TYPE,
+				data: { version: 1, event: "closed", questId: "quest-1" },
+			},
 		]);
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain("Side quest `cache layout` is finished");
@@ -533,7 +657,7 @@ describe("status widget events", () => {
 
 		expect(recording.widgets).toHaveLength(1);
 		expect(recording.widgets[0]?.placement).toBe("belowEditor");
-		expect(recording.widgets[0]?.lines?.[0]).toContain("▌GRILL · Q1 pending");
+		expect(recording.widgets[0]?.lines?.[0]).toContain("▌GRILL · 0 answered · Q1 pending");
 	});
 
 	test("session_shutdown clears the widget", async () => {

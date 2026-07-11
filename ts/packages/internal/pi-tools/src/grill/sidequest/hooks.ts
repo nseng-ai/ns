@@ -7,7 +7,7 @@ import {
 	sideQuestSummaryInstructions,
 } from "./prompts.ts";
 import type {
-	SideQuestStartedInfo,
+	GrillSidequestEvent,
 	SidequestBeforeTreeEvent,
 	SidequestBeforeTreeResult,
 	SidequestEventContext,
@@ -15,10 +15,9 @@ import type {
 	SidequestTreeEvent,
 } from "./protocol.ts";
 import {
-	GRILL_SIDEQUEST_CLOSURE_ENTRY_TYPE,
-	findToolResultEntryId,
+	GRILL_SIDEQUEST_EVENT_ENTRY_TYPE,
+	findSideQuestStartEntryId,
 	scanGrillBranchFromSessionManager,
-	sideQuestClosureKey,
 } from "./state.ts";
 import { clearGrillStatusWidget, refreshGrillStatusWidget } from "./status.ts";
 
@@ -28,21 +27,21 @@ import { clearGrillStatusWidget, refreshGrillStatusWidget } from "./status.ts";
  * session entries, so losing this state (restart, reload) degrades gracefully.
  */
 export class GrillSidequestRuntimeState {
-	/** Deferred ⚑ mark labels, keyed by grill_ask tool call id, applied on agent_settled. */
+	/** Deferred ⚑ mark labels, keyed by quest id, applied on agent_settled. */
 	private readonly pendingMarkLabels = new Map<string, string>();
 	/** Set while /pi:grill-return navigates, so the before-tree hook skips the picker. */
 	private isCommandInitiatedReturn = false;
 
-	stashPendingMarkLabel(info: SideQuestStartedInfo): void {
-		this.pendingMarkLabels.set(info.toolCallId, buildSideQuestMarkLabel(info.question));
+	stashPendingMarkLabel(questId: string, labelSource: string): void {
+		this.pendingMarkLabels.set(questId, buildSideQuestMarkLabel(labelSource));
 	}
 
 	pendingMarkLabelEntries(): ReadonlyArray<readonly [string, string]> {
 		return [...this.pendingMarkLabels.entries()];
 	}
 
-	discardPendingMarkLabel(toolCallId: string): void {
-		this.pendingMarkLabels.delete(toolCallId);
+	discardPendingMarkLabel(questId: string): void {
+		this.pendingMarkLabels.delete(questId);
 	}
 
 	async runCommandInitiatedReturn(navigate: () => Promise<void>): Promise<void> {
@@ -120,10 +119,13 @@ export function handleSessionTree(
 		const hasLandedAtMark =
 			event.newLeafId === quest.markEntryId || event.summaryEntry?.parentId === quest.markEntryId;
 		if (hasLandedAtMark) {
-			pi.appendEntry(GRILL_SIDEQUEST_CLOSURE_ENTRY_TYPE, {
-				returned: sideQuestClosureKey(quest),
-			});
-			pi.sendUserMessage(buildSideQuestResumeMessage(quest.topic, quest.pendingQuestion));
+			const event: GrillSidequestEvent = {
+				version: 1,
+				event: "closed",
+				questId: quest.questId,
+			};
+			pi.appendEntry(GRILL_SIDEQUEST_EVENT_ENTRY_TYPE, event);
+			pi.sendUserMessage(buildSideQuestResumeMessage(quest.topic, quest.pendingAsk?.question));
 		}
 	}
 	refreshGrillStatusWidget(ctx);
@@ -142,15 +144,15 @@ function flushPendingMarkLabels(
 	if (pendingMarkLabels.length === 0) return;
 	const entries = readSessionEntries(ctx);
 	if (entries === undefined) return;
-	for (const [toolCallId, label] of pendingMarkLabels) {
-		const entryId = findToolResultEntryId(entries, toolCallId);
+	for (const [questId, label] of pendingMarkLabels) {
+		const entryId = findSideQuestStartEntryId(entries, questId);
 		if (entryId === undefined) continue;
-		state.discardPendingMarkLabel(toolCallId);
+		state.discardPendingMarkLabel(questId);
 		try {
 			pi.setLabel(entryId, label);
 		} catch {
-			// The label is a cosmetic navigation aid; the details stamp on the
-			// tool result is the machine-readable mark.
+			// The label is a cosmetic navigation aid; the canonical started
+			// event remains the machine-readable mark.
 		}
 	}
 }

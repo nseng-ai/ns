@@ -1,10 +1,11 @@
 /**
  * Model-facing texts for the grill side-quest workflow: tool-result texts,
- * the command-path kickoff message with its machine-readable marker, the
+ * the command-path kickoff message with its presentation-only marker, the
  * resume message, per-disposition branch-summary instructions, and the
  * delimited contract block spliced into GRILL_UI_CONTRACT.
  */
 
+/** Presentation delimiters only; scanner state comes exclusively from canonical custom events. */
 export const GRILL_SIDEQUEST_KICKOFF_MARKER_OPEN = "<grill-sidequest-start>";
 export const GRILL_SIDEQUEST_KICKOFF_MARKER_CLOSE = "</grill-sidequest-start>";
 

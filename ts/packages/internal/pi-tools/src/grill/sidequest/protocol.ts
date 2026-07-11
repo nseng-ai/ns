@@ -3,8 +3,9 @@ import type { GrillAskRemainingEstimate } from "../protocol.ts";
 /**
  * Structural types for the grill side-quest workflow. Like the grill module's
  * own `ExtensionAPI`, these declare only the Pi host capabilities this
- * directory uses so the whole feature stays fake-drivable and rip-out
- * friendly: deleting `src/grill/sidequest/` removes every consumer.
+ * directory uses so the optional capability stays fake-drivable. The grill
+ * execution layer depends only on `GrillSidequestCapability`; registration
+ * owns Pi event/session integration.
  *
  * Session entries are scanned structurally at runtime; real Pi shapes are
  * narrowed at read time, matching the `progress.ts` precedent.
@@ -107,26 +108,37 @@ export interface SidequestHost {
 	setLabel(entryId: string, label: string | undefined): void;
 }
 
-export interface SideQuestStartedInfo {
-	toolCallId: string;
-	topic: string;
-	question: string;
-}
-
-export interface GrillSidequestLatestAsk {
+export interface PendingGrillAsk {
 	question: string;
 	toolCallId?: string;
 	estimatedRemaining?: GrillAskRemainingEstimate;
 }
 
+export type GrillSidequestEvent =
+	| {
+			version: 1;
+			event: "started";
+			questId: string;
+			topic: string;
+			pendingAsk?: PendingGrillAsk;
+	  }
+	| {
+			version: 1;
+			event: "closed";
+			questId: string;
+	  };
+
+export interface GrillSidequestCapability {
+	/** Synchronously append the canonical start event and return its quest id. */
+	startSideQuest(topic: string, pendingAsk: PendingGrillAsk | undefined): string;
+}
+
 export interface ActiveSideQuest {
-	/** Session entry id of the mark: the side-quest tool result or the command kickoff message. */
+	questId: string;
+	/** Session entry id of the canonical started event. */
 	markEntryId: string;
-	/** Tool call id of the stamped side-quest result; absent for command-initiated quests. */
-	toolCallId?: string;
 	topic: string;
-	/** Question that was pending when the quest started; absent when no ask was found. */
-	pendingQuestion?: string;
+	pendingAsk?: PendingGrillAsk;
 }
 
 export type SidequestScanState =
@@ -135,6 +147,6 @@ export type SidequestScanState =
 	| {
 			grill: "active";
 			answeredCount: number;
-			latestAsk?: GrillSidequestLatestAsk;
+			pendingAsk?: PendingGrillAsk;
 			activeQuest?: ActiveSideQuest;
 	  };

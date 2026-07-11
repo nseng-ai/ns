@@ -18,6 +18,7 @@ import {
 	textResult,
 	type GrillAskDetails,
 } from "./result.ts";
+import type { PendingGrillAsk } from "./sidequest/protocol.ts";
 import { resolveFreeformSideQuest, resolveSideQuest } from "./sidequest/sentinel.ts";
 import { validateGrillAskInput } from "./validate.ts";
 import { buildGrillAskRows, rowSelectDisplay } from "./view.ts";
@@ -38,6 +39,7 @@ export async function executeGrillAsk(
 	}
 
 	const input = validation.input;
+	const canStartSideQuest = executionOptions.sideQuest !== undefined;
 	if (executionOptions.signal?.aborted) {
 		return cancelledResult(input.question);
 	}
@@ -45,9 +47,7 @@ export async function executeGrillAsk(
 	if (ctx.hasUI && ctx.ui.custom !== undefined) {
 		const uiRunner = executionOptions.uiRunner ?? runGrillAskInlineUi;
 		try {
-			const outcome = await uiRunner(input, ctx, {
-				canStartSideQuest: executionOptions.onSideQuestStarted !== undefined,
-			});
+			const outcome = await uiRunner(input, ctx, { canStartSideQuest });
 			if (outcome === undefined) {
 				return cancelledResult(input.question);
 			}
@@ -60,13 +60,14 @@ export async function executeGrillAsk(
 		}
 	}
 
-	return executeLegacyGrillAsk(input, ctx, executionOptions);
+	return executeLegacyGrillAsk(input, ctx, executionOptions, canStartSideQuest);
 }
 
 async function executeLegacyGrillAsk(
 	input: NormalizedGrillAskInput,
 	ctx: GrillAskToolContext,
 	executionOptions: GrillAskExecutionOptions,
+	canStartSideQuest: boolean,
 ): Promise<ToolResult<GrillAskDetails>> {
 	if (!ctx.hasUI || ctx.ui.select === undefined) {
 		return textResult(
@@ -75,9 +76,7 @@ async function executeLegacyGrillAsk(
 		);
 	}
 
-	const rows = buildGrillAskRows(input, {
-		canStartSideQuest: executionOptions.onSideQuestStarted !== undefined,
-	});
+	const rows = buildGrillAskRows(input, { canStartSideQuest });
 	const displays = rows.map(rowSelectDisplay);
 	const progress = readGrillAskProgress(ctx);
 	const selectedDisplay = await ctx.ui.select(buildGrillAskSelectTitle(input, progress), displays);
@@ -152,41 +151,49 @@ interface SideQuestResultOptions {
 	text: string;
 }
 
-interface SideQuestResolutionContext {
-	question: string;
-	ctx: GrillAskToolContext;
-	toolCallId?: string;
-	onSideQuestStarted?: NonNullable<GrillAskExecutionOptions["onSideQuestStarted"]>;
-}
-
-function buildSideQuestResolutionContext(
-	options: SideQuestResultOptions,
-): SideQuestResolutionContext {
-	return {
-		question: options.input.question,
-		ctx: options.ctx,
-		...(options.executionOptions.toolCallId === undefined
-			? {}
-			: { toolCallId: options.executionOptions.toolCallId }),
-		...(options.executionOptions.onSideQuestStarted === undefined
-			? {}
-			: { onSideQuestStarted: options.executionOptions.onSideQuestStarted }),
-	};
-}
-
 function sideQuestResult(options: SideQuestResultOptions): ToolResult<GrillAskDetails> {
+	const capability = options.executionOptions.sideQuest;
+	if (capability === undefined) {
+		return textResult(
+			"Structured grill side quests are unavailable in this host. Treat this as neither an answer nor a started side quest; re-ask the pending question.",
+			{ action: "ui-unavailable", question: options.input.question },
+		);
+	}
 	return resolveSideQuest({
 		topic: options.text,
-		...buildSideQuestResolutionContext(options),
+		pendingAsk: pendingAskFromExecution(options.input, options.executionOptions),
+		ctx: options.ctx,
+		capability,
 	});
 }
 
 function freeformOrSideQuestResult(options: SideQuestResultOptions): ToolResult<GrillAskDetails> {
+	const capability = options.executionOptions.sideQuest;
+	if (capability === undefined) {
+		return freeformAnswerResult(options.input.question, options.text);
+	}
 	const sideQuest = resolveFreeformSideQuest({
 		answer: options.text,
-		...buildSideQuestResolutionContext(options),
+		pendingAsk: pendingAskFromExecution(options.input, options.executionOptions),
+		ctx: options.ctx,
+		capability,
 	});
 	return sideQuest ?? freeformAnswerResult(options.input.question, options.text);
+}
+
+function pendingAskFromExecution(
+	input: NormalizedGrillAskInput,
+	executionOptions: GrillAskExecutionOptions,
+): PendingGrillAsk {
+	return {
+		question: input.question,
+		...(executionOptions.toolCallId === undefined
+			? {}
+			: { toolCallId: executionOptions.toolCallId }),
+		...(input.estimatedRemaining === undefined
+			? {}
+			: { estimatedRemaining: input.estimatedRemaining }),
+	};
 }
 
 function grillAskOutcomeResult(
