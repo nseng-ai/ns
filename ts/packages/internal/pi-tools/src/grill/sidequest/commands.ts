@@ -7,37 +7,51 @@ import {
 	sideQuestSummaryInstructions,
 	type SideQuestDisposition,
 } from "./prompts.ts";
-import type { SidequestCommandContext, SidequestHost } from "./protocol.ts";
+import type {
+	GrillSidequestCapability,
+	SidequestCommandContext,
+	SidequestHost,
+} from "./protocol.ts";
 import { scanGrillBranchFromSessionManager } from "./state.ts";
 
-/** `/pi:grill-sidequest <topic>` — start a side quest while the grill is idle. */
+interface HandleGrillSidequestCommandOptions {
+	pi: SidequestHost;
+	capability: GrillSidequestCapability;
+	args: string;
+	ctx: SidequestCommandContext;
+}
+
+/** `/pi:grill-sidequest <topic>` — pause the active grill for a side quest. */
 export async function handleGrillSidequestCommand(
-	pi: SidequestHost,
-	args: string,
-	ctx: SidequestCommandContext,
+	options: HandleGrillSidequestCommandOptions,
 ): Promise<void> {
-	const topic = args.trim();
+	const topic = options.args.trim();
 	if (topic.length === 0) {
-		notify(ctx, "Usage: /pi:grill-sidequest <topic>", "warning");
+		notify(options.ctx, "Usage: /pi:grill-sidequest <topic>", "warning");
 		return;
 	}
 
-	await ctx.waitForIdle();
-	const scan = scanGrillBranchFromSessionManager(ctx.sessionManager);
+	await options.ctx.waitForIdle();
+	const scan = scanGrillBranchFromSessionManager(options.ctx.sessionManager);
 	if (scan.grill !== "active") {
-		notify(ctx, "No active grill session on this branch; start one with /pi:grill-me.", "warning");
+		notify(
+			options.ctx,
+			"No active grill session on this branch; start one with /pi:grill-me.",
+			"warning",
+		);
 		return;
 	}
 	if (scan.activeQuest !== undefined) {
 		notify(
-			ctx,
+			options.ctx,
 			`A side quest is already active (${scan.activeQuest.topic}). Return first with /pi:grill-return.`,
 			"warning",
 		);
 		return;
 	}
 
-	pi.sendUserMessage(buildSideQuestKickoffMessage(topic, scan.latestAsk?.question));
+	options.capability.startSideQuest(topic, scan.pendingAsk);
+	options.pi.sendUserMessage(buildSideQuestKickoffMessage(topic, scan.pendingAsk?.question));
 }
 
 /** `/pi:grill-return` — pick a disposition and jump back to the side-quest mark. */

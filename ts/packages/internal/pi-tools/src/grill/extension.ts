@@ -152,7 +152,7 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 			executeGrillAsk(params, ctx, {
 				...(signal === undefined ? {} : { signal }),
 				toolCallId,
-				...(sidequest === undefined ? {} : { onSideQuestStarted: sidequest.onSideQuestStarted }),
+				...(sidequest === undefined ? {} : { sideQuest: sidequest }),
 			}),
 	});
 }

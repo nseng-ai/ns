@@ -3,6 +3,11 @@ import { describe, expect, test } from "vitest";
 import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 
 import { buildGrillAskRows } from "../../src/grill/view.ts";
+import type {
+	GrillSidequestCapability,
+	PendingGrillAsk,
+} from "../../src/grill/sidequest/protocol.ts";
+import { GRILL_SIDEQUEST_EVENT_ENTRY_TYPE } from "../../src/grill/sidequest/state.ts";
 import {
 	GRILL_ASK_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
@@ -97,6 +102,22 @@ function baseInput(): GrillAskInput {
 
 function nonUiContext(): GrillAskToolContext {
 	return { hasUI: false, ui: {} };
+}
+
+function sideQuestCapabilityFake(): {
+	capability: GrillSidequestCapability;
+	starts: Array<{ topic: string; pendingAsk: PendingGrillAsk | undefined }>;
+} {
+	const starts: Array<{ topic: string; pendingAsk: PendingGrillAsk | undefined }> = [];
+	return {
+		capability: {
+			startSideQuest: (topic, pendingAsk) => {
+				starts.push({ topic, pendingAsk });
+				return "quest-1";
+			},
+		},
+		starts,
+	};
 }
 
 function text(result: ToolResult): string {
@@ -671,8 +692,45 @@ describe("grill_ask execution", () => {
 		expect(text(result)).toContain("User provided a freeform answer: Use an even smaller spike.");
 	});
 
-	test("first-class side-quest row asks for a topic and starts the quest", async () => {
-		const started: unknown[] = [];
+	test.each([
+		{ label: "sq", answer: "sq: ordinary legacy text" },
+		{ label: "sidequest", answer: "sidequest: ordinary legacy text" },
+	])(
+		"legacy $label text is an ordinary freeform answer without the capability",
+		async ({ answer }) => {
+			const result = await executeGrillAsk(baseInput(), {
+				hasUI: true,
+				ui: {
+					select: async (_title, options) => options.find((option) => option.includes("Other")),
+					editor: async () => answer,
+				},
+			});
+
+			expect(result.details).toMatchObject({ action: "answer", kind: "freeform", answer });
+		},
+	);
+
+	test.each(["sq: ordinary inline text", "sidequest: ordinary inline text"])(
+		"inline %s is an ordinary freeform answer without the capability",
+		async (answer) => {
+			const result = await executeGrillAsk(
+				baseInput(),
+				{
+					hasUI: true,
+					ui: {
+						custom: async () => {
+							throw new Error("uiRunner supplies the inline outcome");
+						},
+					},
+				},
+				{ uiRunner: async () => ({ action: "freeform", answer }) },
+			);
+			expect(result.details).toMatchObject({ action: "answer", kind: "freeform", answer });
+		},
+	);
+
+	test("first-class side-quest row asks for a topic and starts through the capability", async () => {
+		const fake = sideQuestCapabilityFake();
 		const result = await executeGrillAsk(
 			baseInput(),
 			{
@@ -686,7 +744,7 @@ describe("grill_ask execution", () => {
 					},
 				},
 			},
-			{ toolCallId: "call-7", onSideQuestStarted: (info) => started.push(info) },
+			{ toolCallId: "call-7", sideQuest: fake.capability },
 		);
 
 		expect(result.details).toEqual({
@@ -694,16 +752,19 @@ describe("grill_ask execution", () => {
 			question: "How should we ship this UI improvement?",
 			topic: "cache dependencies",
 		});
-		expect(started).toEqual([
+		expect(fake.starts).toEqual([
 			{
-				toolCallId: "call-7",
-				question: "How should we ship this UI improvement?",
 				topic: "cache dependencies",
+				pendingAsk: {
+					question: "How should we ship this UI improvement?",
+					toolCallId: "call-7",
+				},
 			},
 		]);
 	});
 
-	test("freeform sq: sentinel routes to a side-quest result instead of an answer", async () => {
+	test("freeform sq: sentinel routes to a side quest when the capability is present", async () => {
+		const fake = sideQuestCapabilityFake();
 		const result = await executeGrillAsk(
 			baseInput(),
 			{
@@ -713,7 +774,7 @@ describe("grill_ask execution", () => {
 					editor: async () => "sq: what does the cache depend on?",
 				},
 			},
-			{ toolCallId: "call-7" },
+			{ toolCallId: "call-7", sideQuest: fake.capability },
 		);
 
 		expect(result.details).toEqual({
@@ -725,7 +786,8 @@ describe("grill_ask execution", () => {
 		expect(text(result)).toContain("NOT an answer");
 	});
 
-	test("inline UI freeform sq: sentinel routes to a side-quest result", async () => {
+	test("inline UI freeform sq: sentinel routes to a side quest when capable", async () => {
+		const fake = sideQuestCapabilityFake();
 		const result = await executeGrillAsk(
 			baseInput(),
 			{
@@ -736,7 +798,10 @@ describe("grill_ask execution", () => {
 					},
 				},
 			},
-			{ uiRunner: async () => ({ action: "freeform", answer: "sidequest: explore the tree API" }) },
+			{
+				uiRunner: async () => ({ action: "freeform", answer: "sidequest: explore the tree API" }),
+				sideQuest: fake.capability,
+			},
 		);
 
 		expect(result.details).toEqual({
@@ -747,28 +812,34 @@ describe("grill_ask execution", () => {
 	});
 
 	test("freeform sq: sentinel is refused while a side quest is already active", async () => {
-		const result = await executeGrillAsk(baseInput(), {
-			hasUI: true,
-			ui: {
-				select: async (_title, options) => options.find((option) => option.includes("Other")),
-				editor: async () => "sq: another tangent",
-			},
-			sessionManager: {
-				getBranch: () => [
-					userMessage("<structured-grill-question-ui-contract>"),
-					{
-						type: "message",
-						id: "mark",
-						message: {
-							role: "toolResult",
-							toolName: GRILL_ASK_TOOL_NAME,
-							toolCallId: "call-1",
-							details: { action: "side-quest", question: "Q?", topic: "first tangent" },
+		const fake = sideQuestCapabilityFake();
+		const result = await executeGrillAsk(
+			baseInput(),
+			{
+				hasUI: true,
+				ui: {
+					select: async (_title, options) => options.find((option) => option.includes("Other")),
+					editor: async () => "sq: another tangent",
+				},
+				sessionManager: {
+					getBranch: () => [
+						userMessage("<structured-grill-question-ui-contract>"),
+						{
+							type: "custom",
+							id: "mark",
+							customType: GRILL_SIDEQUEST_EVENT_ENTRY_TYPE,
+							data: {
+								version: 1,
+								event: "started",
+								questId: "quest-active",
+								topic: "first tangent",
+							},
 						},
-					},
-				],
+					],
+				},
 			},
-		});
+			{ sideQuest: fake.capability },
+		);
 
 		expect(result.details).toEqual({
 			action: "side-quest-refused",
