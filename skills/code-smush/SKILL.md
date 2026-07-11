@@ -9,11 +9,13 @@ description: Use when the user explicitly asks to smush, package, or repackage a
 Packaging — colloquially **smush** — is the opt-in, LM-driven, local operation that
 classifies and slices an existing Graphite stack into **Decision PR** and **Span PR**
 form, then explicitly performs **Span Squash**. It produces a self-describing local
-stack for the user to submit; smush itself never submits. Repackaging is the same
-operation re-run over the already-packaged stack. Smush constructs the packaged
-stack in one of two modes — **parallel** (new branches alongside an untouched input
-stack; the default whenever PRs may exist) or **in-place** (destructive reshaping of
-the input branches) — see Packaging modes below.
+stack for the user to submit; smush itself never submits. Repackaging is
+**replacement-stack construction**: build the new shape alongside the old stack
+from the same underlying commits, verify it, and hand it to the user to submit —
+the old stack stays untouched and is reported, in its entirety, as the
+close-candidate set. Which construction path applies is a deterministic rule, not
+a user choice: a fresh, single-branch, PR-free run is packaged in place;
+everything else gets a replacement stack — see Packaging rule below.
 
 Smush is **experimental** and **manually invoked only**. No other workflow — Flow,
 CCC, the default agent workflow — may invoke it implicitly. Do not run it because a
@@ -46,22 +48,23 @@ stack "looks like it needs packaging"; run it because the user asked.
    associations come only from Graphite's local cache (or from the user); stale or
    absent cache state is reported as *unknown*, never refreshed to improve the
    proposal.
-2. **Never close PRs — not even indirectly.** `gt fold` is always used WITHOUT
-   `--close`. Branches folded away that had open PRs become orphaned
-   close-candidate PRs: report them loudly (a clearly marked section in the final
-   report) and leave every decision about them to the user.
+2. **Never close PRs — not even indirectly.** Smush never creates, updates,
+   closes, or otherwise mutates a pull request. On repackaging, the
+   close-candidate set is deterministic — the **entire old stack** — and is
+   reported loudly (a clearly marked section in the final report); every decision
+   about closing it belongs to the user.
 3. **Propose before mutation — gate weight follows destructiveness.** Render the
    full proposed Slice Map (format below) and wait for the user's explicit
    go-ahead. Silence, ambiguity, or a partial answer is not consent. This proposal
-   readback is the human's Slice Map view. Destructive operations — `gt fold`,
-   `gt rename`, squash/modify/delete of pre-existing branches — always require
-   ratification of the exact map they mutate. Parallel pointer construction (new
-   refs plus `gt track` on new branches only) still needs a go-ahead, but is cheap
-   and fully reversible: building a candidate parallel stack, inspecting it, and
+   readback is the human's Slice Map view. Destructive operations — `gt rename`,
+   squash/modify/delete of pre-existing branches — always require ratification of
+   the exact map they mutate. Replacement construction (new refs plus `gt track`
+   on new branches only) still needs a go-ahead, but is cheap and fully
+   reversible: building a candidate replacement stack, inspecting it, and
    discarding it is a legitimate iteration loop while the user is actively
    reshaping — prefer that loop over repeated rounds of prose re-ratification.
 4. **Backup before mutation.** Create timestamped local backup branches for the run
-   tip and every branch the operation will move, fold, rename, or rewrite.
+   tip and every branch the operation will move, rename, or rewrite.
 5. **No durable state.** Classification and per-cut rationale live only in branch
    names and commit messages. Write no state files, no map files, no markers or
    trailers. Any JSON passed between steps is transient process input; nothing of
@@ -72,26 +75,39 @@ stack "looks like it needs packaging"; run it because the user asked.
 7. **No new CLI.** V1 is wholly LM-driven prose over the raw commands in this
    document. Do not build or reach for packaging-specific push-down commands.
 
-## Packaging modes
+## Packaging rule
 
-- **Parallel (default).** Build the packaged stack as new branches alongside the
-  input stack: new refs at boundary SHAs, `gt track --parent` on the new branches
-  only, Span Squash only on new branches. The input stack — its branches, Graphite
-  metadata, and PR associations — is untouched. No orphaned PRs, no rename gap (the
-  new tip takes a grammar name), and a discarded candidate costs nothing: delete
-  the new branches and re-propose. Use this mode whenever any in-scope branch has,
-  or may have, a PR association — including whenever PR state is unknowable
-  offline.
-- **In-place (explicit, destructive).** Normalize with `gt fold --stack --keep`
-  (never `--close`) and reshape the input branches themselves. On submitted stacks
-  this produces orphaned close-candidate PRs and forbids renaming the
-  PR-associated tip. Use only when the user explicitly wants the old stack
-  replaced, under the full ratification gate.
+Which construction path applies is deterministic — derived from the Phase 0 facts,
+never chosen by the user:
 
-In parallel mode, prefer a `<run>` segment that cannot collide with the input
-stack's own name when both stacks must coexist ambiguously (e.g. append `-smush`);
-reusing the input run name is acceptable when the user will discard one of the two.
-State the chosen run name in the proposal.
+- **Initial packaging (in place).** A fresh run — one linear branch off trunk,
+  never previously packaged, with no PR association (known or possible) anywhere
+  in scope — is reshaped in place: slice refs at boundary SHAs, reparent the run
+  tip, `gt rename` the tip to its grammar name. This is the only path where
+  `gt rename` is used.
+- **Replacement construction (everything else).** Input that was previously
+  packaged, has been submitted, has any PR-associated or unknown-PR-state branch,
+  or is an accreted multi-branch stack gets its packaged stack built alongside it:
+  new refs at boundary SHAs from the same underlying commits, `gt track --parent`
+  on the new branches only, Span Squash only on new branches. The input stack —
+  its branches, Graphite metadata, and PR associations — is untouched, and the
+  entire old stack becomes the deterministic close-candidate set for the final
+  report. A discarded candidate costs nothing: delete the new branches and
+  re-propose.
+
+Replacement stacks coexist with their input, so their branch names carry a
+**generation token**: a `-st<num>` suffix on the `<run>` segment, starting at
+`st2` for the first replacement (initial packaging is implicitly generation 1 and
+carries no token). Choose the lowest number not already used by a local branch —
+LBYL against existing local branches before proposing. The greedy `<run>` segment
+absorbs the token, so the grammar and parse regex are unchanged and generations
+sort adjacent to the original run:
+
+```
+retry-budgets-st2--01s-gateway-scaffolding
+```
+
+State the chosen replacement run name in the proposal.
 
 ## Input contract
 
@@ -102,8 +118,11 @@ Smush accepts **any existing stack**:
   Z"), tip green.
 - **Valid degraded input** — accreted multi-branch stacks (e.g. autobranch
   checkpoints), feedback-laden stacks, and previously packaged stacks. Degraded
-  input lowers classification quality, not eligibility. Multi-branch input is first
-  normalized to a single run branch (see Repackaging), then packaged.
+  input lowers classification quality, not eligibility. Multi-branch and
+  previously packaged input is packaged by replacement construction: new slices
+  are cut from the underlying `trunk..tip` commit sequence directly, and the
+  input's existing branch boundaries are classification signal, not constraints
+  (see Repackaging).
 
 Classification signal is narrative prose only. There are no structured markers, and
 producers do not self-classify; packaging judges from the commit messages and holds
@@ -120,7 +139,9 @@ branch produced by smush — including the stack tip — uses this grammar:
 ```
 
 - `<run>` — the run branch's name at packaging time (greedy; may itself contain
-  hyphens or slashes).
+  hyphens or slashes). On a replacement stack it ends in the `-st<num>` generation
+  token (see Packaging rule); the greedy match absorbs it, so the regex below is
+  unchanged.
 - `--` — literal double-hyphen separator. The slug must not contain `--`, so the
   last grammar-conforming `--` in the name is the separator.
 - `<NN>` — two-digit, zero-padded, 1-based slice index counting **from trunk**
@@ -144,11 +165,12 @@ retry-budgets--03s-callsite-propagation
 
 Rules:
 
-- The tip slice carries a grammar name too: after reparenting, rename the run
-  branch with `gt rename <new-name> --no-interactive`. `gt rename` updates
-  Graphite metadata but removes any open-PR association — so never rename a branch
-  that has an open PR (never pass `-f`). On repackaging a submitted stack, keep the
-  PR-associated name for that branch and report the naming gap loudly instead.
+- The tip slice carries a grammar name too. At initial packaging of a fresh run —
+  the only place smush renames anything — reparent the run branch, then rename it
+  with `gt rename <new-name> --no-interactive` (`gt rename` removes any open-PR
+  association, which is safe only because this path requires a PR-free run; never
+  pass `-f`). Replacement stacks never rename: every branch, including the tip, is
+  a new ref that takes its grammar name at creation.
 - LBYL: before mutating, check every proposed name against existing local branches
   and refuse collisions.
 - A branch matching the grammar declares its classification and order; a
@@ -172,8 +194,10 @@ Rules:
    packaging scope must be a single linear chain (no forks branching off in-scope
    commits per the stack graph). A non-linear scope is not packageable; report it.
 6. Note pre-existing PR associations of in-scope branches from Graphite metadata or
-   from the user — without contacting the remote. These feed the orphaned-PR report
-   and the rename rule; when unknowable offline, say so in the proposal.
+   from the user — without contacting the remote. These drive the Packaging rule
+   (any PR-associated or unknown-PR-state branch forces replacement construction)
+   and the old-stack close-candidate list; when unknowable offline, say so in the
+   proposal.
 
 ### Phase 1 — Decisions first, then commits (read-only)
 
@@ -218,8 +242,9 @@ and report it as commit-narration feedback — packaging cannot fix coarse commi
 ### Phase 2 — Propose the Slice Map and wait
 
 Render the full proposal, slices bottom-up (trunk-adjacent first). Lead with the
-Decision Inventory and coupling conclusions, then the packaging mode (parallel or
-in-place) and the mapping from existing branches/PRs to proposed slices:
+Decision Inventory and coupling conclusions, then the construction path the
+Packaging rule selects (initial in-place packaging or replacement construction)
+and the mapping from existing branches/PRs to proposed slices:
 
 - proposed branch name (grammar above) and classification;
 - boundary SHA and parent;
@@ -228,8 +253,9 @@ in-place) and the mapping from existing branches/PRs to proposed slices:
 - planned Span Squash targets (every span slice) and what each squash message will
   preserve;
 - backup branch names to be created;
-- on repackaging: branches to fold, and the orphaned close-candidate PRs that will
-  result;
+- on repackaging: the replacement run name (with its `st<num>` generation token)
+  and the complete old-stack close-candidate list — every old branch, with PR
+  numbers where known;
 - any preconditions found in Phase 0 worth the user's eyes (unknown PR state, parse
   gaps, red tip).
 
@@ -248,16 +274,19 @@ git branch "backup/smush-$stamp/<safe-branch-name>" "<branch>"
 ```
 
 Create one backup per affected branch (run tip always; every branch that will be
-folded, renamed, or squashed). Encode `/` in branch names as `__`. Record the
-backup prefix for the final report.
+renamed or squashed). Encode `/` in branch names as `__`. Record the backup
+prefix for the final report.
 
 ### Phase 4 — Slice
 
-Slicing is pure branch metadata — no rebase, no SHA changes. In **parallel mode**
-there is no reparenting, renaming, or folding of the input stack: create every
-slice branch (including the tip slice, which freely takes its grammar name) as a
-new ref at its boundary SHA, `gt track` them bottom-up, and leave the input
-stack's branches and metadata untouched. The in-place recipe:
+Slicing is pure branch metadata — no rebase, no SHA changes.
+
+**Replacement construction** never reparents or renames the input stack: create
+every slice branch (including the tip slice, which freely takes its grammar name)
+as a new ref at its boundary SHA in the same underlying commit history, `gt track`
+them bottom-up, and leave the input stack's branches and metadata untouched.
+
+**Initial packaging of a fresh run** reshapes in place:
 
 ```bash
 git branch <slice-01-name> <boundary-sha-1>
@@ -265,7 +294,7 @@ git branch <slice-02-name> <boundary-sha-2>
 gt track <slice-01-name> --parent <trunk>         --no-interactive
 gt track <slice-02-name> --parent <slice-01-name> --no-interactive
 gt track <run>           --parent <slice-02-name> --no-interactive   # reparent tip
-gt rename <tip-slice-name> --no-interactive                          # from the run branch; skip if it has an open PR
+gt rename <tip-slice-name> --no-interactive                          # from the run branch; initial packaging only
 ```
 
 Track bottom-up. Re-running `gt track` on a tracked branch reparents it in place;
@@ -350,41 +379,46 @@ squash.
 2. `git status --porcelain` clean.
 3. Report: the final Slice Map (branch names, classification, boundary SHAs,
    commit counts), the backup branch prefix, validation results per boundary, and —
-   **loudly, in its own clearly-marked section** — every orphaned close-candidate
-   PR, with the explicit note that smush did not and will not touch them.
-4. Remind the user that submission (and everything PR-shaped: labels, bodies,
+   on repackaging, **loudly, in its own clearly-marked section** — the complete
+   old-stack close-candidate list (every old branch, with PR numbers where known),
+   with the explicit note that smush did not and will not touch those PRs.
+4. On repackaging, hand off review-feedback carry-forward: point the user at the
+   companion post-submit step (decide-skill family) that moves relevant feedback
+   from the old PRs into the new shape — smush stays local-only and does not
+   inspect PR threads. For commit-content feedback that does not move slice
+   boundaries, `gt absorb` / `gt modify --into` (see Absorbing feedback below)
+   remains the local path.
+5. Remind the user that submission (and everything PR-shaped: titles, bodies,
    review policy) is theirs, outside this skill.
 
 ## Repackaging and multi-branch input
 
-For a submitted stack, **parallel mode is the preferred repackaging path**: build
-the new shape alongside the old stack and let the user retire the old PRs on their
-own terms — no fold, no orphaned PRs, no rename gap. The in-place path below
-remains for when the user explicitly wants the old stack itself replaced.
-
-Repackaging in place — and normalizing any accreted multi-branch stack — is the
-same operation re-run:
+Repackaging a previously packaged or submitted stack — and packaging any accreted
+multi-branch stack — is **replacement-stack construction**: the same
+classify/slice/squash operation, targeting new branches built alongside the input
+from the same underlying commits.
 
 1. Derive the current Slice Map first (topology from `ns slot gt exec
    stack-branches`, classification from grammar branch names, rationale from
    boundary/squash commit messages) and include it in the Phase 2 proposal next to
    the proposed new map.
-2. Collapse the in-scope chain to a single run branch from its tip:
+2. Slice the underlying `trunk..tip` commit sequence directly — the input's
+   existing branch boundaries are classification signal, not constraints. Name the
+   new branches with the next `-st<num>` generation token (see Packaging rule) and
+   state the chosen run name in the proposal.
+3. Build the replacement per Phase 4's replacement recipe: new refs at boundary
+   SHAs, `gt track` bottom-up, input stack untouched.
+4. Validate boundaries (Phase 5) and Span Squash (Phase 6) on the new branches
+   only.
+5. Report per Phase 7: the entire old stack is the close-candidate set, closing it
+   belongs to the user, and review-feedback carry-forward is handed to the
+   companion post-submit step.
 
-   ```bash
-   gt fold --stack --keep --no-interactive
-   ```
-
-   Never pass `--close`. Folding preserves commits and SHAs; branches folded away
-   that had open PRs become orphaned close-candidate PRs — collect them for the
-   loud report.
-3. Proceed from Phase 4 over the collapsed run.
-
-Costs to state in the proposal so the user reshapes with open eyes: pre-submit
-reshapes are cheap local metadata; post-submit reshapes can break branch↔PR
-association on rename and orphan PRs on fold; re-slicing a previously squashed span
-cannot recover its interior commits (only the narration digest survives) — an
-accepted cost of Span Squash.
+Costs to state in the proposal so the user reshapes with open eyes: re-slicing a
+previously squashed span cannot recover its interior commits (only the narration
+digest survives) — an accepted cost of Span Squash; and once the user submits, a
+replacement stack re-runs CI across the full new stack, so repackaging frequency
+and PR count compound.
 
 ## Absorbing feedback into a packaged stack
 
@@ -404,7 +438,9 @@ Both are local mutations: propose-first and backup rules apply.
 - Slicing mistakes before squash: slice branches are pointers into unchanged
   history — delete wrong branches (`gt untrack` then `git branch -D`), re-track,
   or `git branch -f` to move a cut.
-- After squash or fold mistakes: restore pointers from the `backup/smush-<stamp>/`
+- Replacement-construction mistakes cost nothing: the input stack was never
+  touched, so delete the new branches and re-propose.
+- After a squash mistake: restore pointers from the `backup/smush-<stamp>/`
   branches (`git branch -f <branch> backup/smush-<stamp>/<safe-branch-name>`,
   re-run `gt track --parent` to restore metadata), then re-propose.
 - A conflicted `gt` operation (should not happen — smush never reorders history):
@@ -419,8 +455,10 @@ Both are local mutations: propose-first and backup rules apply.
 ## Known limits (v1)
 
 - Cuts land on commit boundaries only; a too-coarse commit cannot be split.
-- Post-submit PR/review-thread/CI fate under fold and re-slice is not yet
-  fully observed; treat submitted-stack repackaging as the riskiest path and lean
-  on the loud orphaned-PR report.
+- The full replacement cycle on a live, reviewed stack — feedback carry-forward,
+  old-stack closure, coexistence naming, CI cost — is not yet observed end to end
+  (owned by the objective's repackaging prototype row).
+- A submitted replacement stack re-runs CI across the full new stack; repackaging
+  frequency compounds that cost across generations.
 - Deterministic push-downs (slicing, selective span squash, slice-map read-side)
   are deliberately parked; do not add them from this skill.

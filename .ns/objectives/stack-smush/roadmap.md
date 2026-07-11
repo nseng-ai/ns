@@ -187,18 +187,24 @@ session on 2026-07-10 (see
       own update stream; repackaging appends further events). This keeps decision
       records' home unambiguous for the decide skill and partially graduates the
       objectives-interaction Fog item.
-- [ ] **Code-smush replacement-stack repackaging rewrite** (task) — Rewrite the
+- [x] **Code-smush replacement-stack repackaging rewrite** (task) — Rewrite the
       repackaging section of `skills/code-smush/SKILL.md` to replacement-stack
       semantics (resolved 2026-07-11 — see
       `updates/2026-07-11T132402Z-replacement-stack-repackaging-resolved.md`): build
       the replacement alongside from the same commits, verify boundaries, report the
       entire old stack as the close-candidate set (never mutate/close PRs), drop
-      `gt fold`-based repackaging and orphan detection. Settle the `s<num>`
-      generation token's exact placement in the `<run>--<NN><c>-<slug>` grammar
-      (human legibility first) and decide where review-feedback carry-forward lives,
-      since inspecting old PR threads needs read-only GitHub access the local-only
-      v1 skill deliberately lacks: a read-only inspection step in the skill, or a
-      companion post-submit step.
+      `gt fold`-based repackaging and orphan detection. Resolved (2026-07-11 — see
+      `updates/2026-07-11T141712Z-code-smush-replacement-rewrite-and-embedded-decisions.md`):
+      skill rewritten with repackaging as replacement-stack construction under a
+      deterministic path rule (in-place packaging only for a fresh, single-branch,
+      PR-free run; `gt rename` survives only there), fold/orphan paths pruned to
+      zero. Both embedded decisions settled live: the generation token is an
+      `st<num>` **run-segment suffix** (`retry-budgets-st2--01s-...`; grammar and
+      regex unchanged; no token at initial packaging, first replacement `st2`,
+      lowest unused number by LBYL), and review-feedback carry-forward lives in a
+      **companion post-submit step** (decide-skill family; authoring it belongs to
+      the decide-skill row) — smush stays local-only and hands off the old-stack
+      close list plus a pointer to that step.
 
 ## Parked
 
