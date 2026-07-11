@@ -134,7 +134,7 @@ describe("thermo council review recovery", () => {
 				sessionFile,
 				finalText: "unstructured final text",
 			},
-			{ pi, ctx: fakeContext(), fleetRegistry: registry, seat: seat("openai-high", "Sol") },
+			{ pi, ctx: fakeContext(), fleetRegistry: registry },
 		);
 
 		expect(outcome.type).toBe("completed");
@@ -147,10 +147,11 @@ describe("thermo council review recovery", () => {
 
 	test("tracks a successful model repair as one seat-specific fleet task", async () => {
 		const { runner, pi, ctx, registry } = repairTestHarness();
+		const canonicalSeat = seat("anthropic-fable", "Canonical Fable");
 		const running = reviewerOutcomeFromRunnerResult(
-			seat("anthropic-fable", "Fable"),
+			canonicalSeat,
 			malformedCompletedReviewerResult(),
-			{ pi, ctx, fleetRegistry: registry, seat: seat("anthropic-fable", "Fable") },
+			{ pi, ctx, fleetRegistry: registry },
 		);
 		await waitForSpawnCount(runner.calls, 1);
 		runner.calls[0]?.process.emitStdout(jsonLine({ type: "agent_start" }));
@@ -166,7 +167,7 @@ describe("thermo council review recovery", () => {
 		);
 		expect(repairFleetTasks(registry)).toMatchObject([
 			{
-				title: "Thermo council payload repair: Fable (attempt 1)",
+				title: `Thermo council payload repair: ${canonicalSeat.label} (attempt 1)`,
 				state: "running",
 				latestActivity: "Repairing malformed payload.",
 			},
@@ -180,11 +181,12 @@ describe("thermo council review recovery", () => {
 
 		expect(outcome.type).toBe("completed");
 		if (outcome.type !== "completed") return;
+		expect(outcome.seat).toBe(canonicalSeat);
 		expect(outcome.review.findings[0]?.title).toBe("Recovered payload finding");
 		expect(outcome.review.findings[0]?.validationHints).toEqual(["just ts-test"]);
 		expect(repairFleetTasks(registry)).toMatchObject([
 			{
-				title: "Thermo council payload repair: Fable (attempt 1)",
+				title: `Thermo council payload repair: ${canonicalSeat.label} (attempt 1)`,
 				state: "done",
 				finalStatus: "final-text",
 				sessionFile: "/tmp/thermo-repair-1.jsonl",
@@ -199,7 +201,6 @@ describe("thermo council review recovery", () => {
 			pi,
 			ctx,
 			fleetRegistry: registry,
-			seat: sol,
 		});
 		await waitForSpawnCount(runner.calls, 1);
 		runner.calls[0]?.process.emitStdout(finalAssistantTextEvent("not json"));
@@ -246,7 +247,6 @@ describe("thermo council review recovery", () => {
 				pi,
 				ctx: fakeContext(),
 				fleetRegistry: registry,
-				seat: fable,
 				runtime,
 			}),
 		).rejects.toThrow("repair dispatch exploded");
@@ -266,7 +266,6 @@ describe("thermo council review recovery", () => {
 			pi,
 			ctx,
 			fleetRegistry: registry,
-			seat: gemini,
 		});
 		await waitForSpawnCount(runner.calls, 1);
 		runner.calls[0]?.process.emitStdout(finalAssistantTextEvent("not json"));

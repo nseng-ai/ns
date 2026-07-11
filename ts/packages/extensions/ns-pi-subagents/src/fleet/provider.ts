@@ -8,9 +8,13 @@ import { SubagentFleetRegistry } from "./registry.ts";
 
 const SUBAGENT_FLEET_MANAGERS_GLOBAL_KEY = "__nsSubagentFleetManagers";
 
+interface SubagentFleetLifecycleBinding {
+	dispose(): void;
+}
+
 interface SubagentFleetManagerRecord {
 	readonly registry: SubagentFleetRegistry;
-	isLifecycleBound: boolean;
+	lifecycleBinding: SubagentFleetLifecycleBinding | undefined;
 }
 
 interface SubagentFleetManagerGlobal {
@@ -36,7 +40,6 @@ export interface SubagentFleetLifecycleRegistrar {
 
 export interface SubagentFleetManagerOptions extends SubagentFleetLifecycleRegistrar {
 	readonly owner: ExtensionAPI["events"];
-	readonly recentTaskCap?: number;
 }
 
 /** Acquires the event-bus-owned Fleet registry and binds its active-runtime lifecycle once. */
@@ -47,11 +50,8 @@ export function getOrCreateSubagentFleetRegistry(
 	let manager = managers.get(options.owner);
 	if (manager === undefined) {
 		manager = {
-			registry:
-				options.recentTaskCap === undefined
-					? new SubagentFleetRegistry()
-					: new SubagentFleetRegistry({ recentTaskCap: options.recentTaskCap }),
-			isLifecycleBound: false,
+			registry: new SubagentFleetRegistry(),
+			lifecycleBinding: undefined,
 		};
 		managers.set(options.owner, manager);
 	}
@@ -63,9 +63,17 @@ function bindLifecycle(
 	manager: SubagentFleetManagerRecord,
 	registrar: SubagentFleetLifecycleRegistrar,
 ): void {
-	if (manager.isLifecycleBound) return;
-	manager.isLifecycleBound = true;
+	if (manager.lifecycleBinding !== undefined) return;
+	let isActive = true;
+	const binding: SubagentFleetLifecycleBinding = {
+		dispose() {
+			if (!isActive) return;
+			isActive = false;
+		},
+	};
+	manager.lifecycleBinding = binding;
 	registrar.onSessionStart((event) => {
+		if (!isActive) return;
 		switch (event.reason) {
 			case "reload":
 				return;
@@ -82,6 +90,8 @@ function bindLifecycle(
 		}
 	});
 	registrar.onSessionShutdown(() => {
-		manager.isLifecycleBound = false;
+		if (!isActive) return;
+		binding.dispose();
+		if (manager.lifecycleBinding === binding) manager.lifecycleBinding = undefined;
 	});
 }

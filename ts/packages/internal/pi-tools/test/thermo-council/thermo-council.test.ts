@@ -250,36 +250,54 @@ describe("thermo council extension", () => {
 		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.argumentHint).toContain("review guidance");
 	});
 
-	test("initializes and owns the Fleet manager lifecycle without another extension", async () => {
+	test("initializes Fleet lifecycle and keeps retained handlers inert after rebound", async () => {
 		const pi = new FakePi();
 		thermoCouncilExtension(pi);
 		const registry = fleetRegistry(pi);
+		const firstStart = pi.sessionStartHandlers[0];
+		const firstShutdown = pi.sessionShutdownHandlers[0];
+		if (firstStart === undefined || firstShutdown === undefined) {
+			throw new Error("missing initial Fleet lifecycle binding");
+		}
 
 		expect(pi.commands.has(THERMO_COUNCIL_COMMAND_NAME)).toBe(true);
+		registry.startRun([{ title: "preserved on reload" }]);
+		await firstStart({ type: "session_start", reason: "reload" }, undefined as never);
+		expect(registry.snapshot()).toHaveLength(1);
+
+		await firstStart({ type: "session_start", reason: "startup" }, undefined as never);
+		expect(registry.snapshot()).toEqual([]);
+		expect(fleetRegistry(pi)).toBe(registry);
 		expect(pi.sessionStartHandlers).toHaveLength(1);
 		expect(pi.sessionShutdownHandlers).toHaveLength(1);
 
-		registry.startRun([{ title: "preserved on reload" }]);
-		await pi.sessionStartHandlers[0]?.(
-			{ type: "session_start", reason: "reload" },
-			undefined as never,
-		);
-		expect(registry.snapshot()).toHaveLength(1);
-
-		for (const reason of ["startup", "new", "resume", "fork"] as const) {
-			registry.startRun([{ title: reason }]);
-			await pi.sessionStartHandlers[0]?.({ type: "session_start", reason }, undefined as never);
-			expect(registry.snapshot()).toEqual([]);
-		}
-
-		await pi.sessionShutdownHandlers[0]?.(
-			{ type: "session_shutdown", reason: "quit" },
-			undefined as never,
-		);
-		const rebound = fleetRegistry(pi);
-		expect(rebound).toBe(registry);
+		await firstShutdown({ type: "session_shutdown", reason: "quit" }, undefined as never);
+		expect(fleetRegistry(pi)).toBe(registry);
 		expect(pi.sessionStartHandlers).toHaveLength(2);
 		expect(pi.sessionShutdownHandlers).toHaveLength(2);
+
+		const secondStart = pi.sessionStartHandlers[1];
+		if (secondStart === undefined) throw new Error("missing rebound Fleet lifecycle binding");
+		registry.startRun([{ title: "preserved from stale first binding" }]);
+		await firstStart({ type: "session_start", reason: "fork" }, undefined as never);
+		await firstShutdown({ type: "session_shutdown", reason: "quit" }, undefined as never);
+		expect(registry.snapshot()).toHaveLength(1);
+		expect(fleetRegistry(pi)).toBe(registry);
+		expect(pi.sessionStartHandlers).toHaveLength(2);
+		expect(pi.sessionShutdownHandlers).toHaveLength(2);
+
+		await secondStart({ type: "session_start", reason: "resume" }, undefined as never);
+		expect(registry.snapshot()).toEqual([]);
+		expect(fleetRegistry(pi)).toBe(registry);
+		expect(pi.sessionStartHandlers).toHaveLength(2);
+		expect(pi.sessionShutdownHandlers).toHaveLength(2);
+
+		registry.startRun([{ title: "preserved after stale shutdown" }]);
+		await firstShutdown({ type: "session_shutdown", reason: "quit" }, undefined as never);
+		expect(fleetRegistry(pi)).toBe(registry);
+		expect(pi.sessionStartHandlers).toHaveLength(2);
+		expect(pi.sessionShutdownHandlers).toHaveLength(2);
+		expect(registry.snapshot()).toHaveLength(1);
 	});
 
 	test("parses default, positional, and seat-specific model overrides", () => {

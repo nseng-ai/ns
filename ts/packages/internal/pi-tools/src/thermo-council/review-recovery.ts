@@ -36,7 +36,6 @@ interface ReviewerRecoveryContext {
 	readonly pi: ThermoCouncilExtensionAPI;
 	readonly ctx: ThermoCouncilCommandContext;
 	readonly fleetRegistry: SubagentFleetRegistry;
-	readonly seat: ThermoCouncilSeatConfig;
 	readonly runtime?: SubagentRuntime;
 }
 
@@ -57,7 +56,7 @@ export async function reviewerOutcomeFromRunnerResult(
 				`Unexpected terminal tool: ${result.terminal.toolName}`,
 			);
 		}
-		const recovered = await recoverReviewFromPayload({
+		const recovered = await recoverReviewFromPayload(seat, {
 			payload: result.terminal.input,
 			...(result.sessionFile === undefined ? {} : { sessionFile: result.sessionFile }),
 			...(recoveryContext === undefined ? {} : { recoveryContext }),
@@ -91,7 +90,7 @@ export async function reviewerOutcomeFromRunnerResult(
 		};
 	}
 
-	const recovered = await recoverReviewFromSessionFile(result.sessionFile, recoveryContext);
+	const recovered = await recoverReviewFromSessionFile(seat, result.sessionFile, recoveryContext);
 	if (recovered !== undefined) {
 		return {
 			type: "completed",
@@ -168,6 +167,7 @@ function normalizeReview(data: z.infer<typeof reviewSchema>): ThermoCouncilRevie
 }
 
 async function recoverReviewFromSessionFile(
+	seat: ThermoCouncilSeatConfig,
 	sessionFile: string | undefined,
 	recoveryContext: ReviewerRecoveryContext | undefined,
 ): Promise<ReviewParseRecovery | undefined> {
@@ -184,7 +184,7 @@ async function recoverReviewFromSessionFile(
 		SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
 	);
 	for (const payload of payloads.toReversed()) {
-		const recovered = await recoverReviewFromPayload({
+		const recovered = await recoverReviewFromPayload(seat, {
 			payload,
 			sessionFile,
 			...(recoveryContext === undefined ? {} : { recoveryContext }),
@@ -194,15 +194,18 @@ async function recoverReviewFromSessionFile(
 	return undefined;
 }
 
-async function recoverReviewFromPayload(input: {
-	readonly payload: unknown;
-	readonly sessionFile?: string;
-	readonly recoveryContext?: ReviewerRecoveryContext;
-}): Promise<ReviewParseRecovery | undefined> {
+async function recoverReviewFromPayload(
+	seat: ThermoCouncilSeatConfig,
+	input: {
+		readonly payload: unknown;
+		readonly sessionFile?: string;
+		readonly recoveryContext?: ReviewerRecoveryContext;
+	},
+): Promise<ReviewParseRecovery | undefined> {
 	const parsed = reviewSchema.safeParse(input.payload);
 	if (parsed.success) return { review: normalizeReview(parsed.data) };
 	if (input.recoveryContext === undefined) return undefined;
-	return await repairReviewWithModel({
+	return await repairReviewWithModel(seat, {
 		payload: input.payload,
 		parseDiagnostic: formatZodError(parsed.error),
 		...(input.sessionFile === undefined ? {} : { sessionFile: input.sessionFile }),
@@ -210,12 +213,15 @@ async function recoverReviewFromPayload(input: {
 	});
 }
 
-async function repairReviewWithModel(input: {
-	readonly payload: unknown;
-	readonly parseDiagnostic: string;
-	readonly sessionFile?: string;
-	readonly recoveryContext: ReviewerRecoveryContext;
-}): Promise<ReviewParseRecovery | undefined> {
+async function repairReviewWithModel(
+	seat: ThermoCouncilSeatConfig,
+	input: {
+		readonly payload: unknown;
+		readonly parseDiagnostic: string;
+		readonly sessionFile?: string;
+		readonly recoveryContext: ReviewerRecoveryContext;
+	},
+): Promise<ReviewParseRecovery | undefined> {
 	// prepareRepairedText currently calls generate serially and once per attempt. Replace this
 	// local counter only when text repair itself gains an explicit attempt-number contract.
 	let attempt = 0;
@@ -224,7 +230,7 @@ async function repairReviewWithModel(input: {
 		initialPrompt: buildReviewRepairPrompt(input),
 		generate: async (prompt) => {
 			attempt += 1;
-			return await generateReviewRepairText({
+			return await generateReviewRepairText(seat, {
 				prompt,
 				attempt,
 				recoveryContext: input.recoveryContext,
@@ -236,13 +242,16 @@ async function repairReviewWithModel(input: {
 	return prepared.ok ? prepared.value : undefined;
 }
 
-async function generateReviewRepairText(input: {
-	readonly prompt: string;
-	readonly attempt: number;
-	readonly recoveryContext: ReviewerRecoveryContext;
-}): Promise<TextGenerationResult> {
+async function generateReviewRepairText(
+	seat: ThermoCouncilSeatConfig,
+	input: {
+		readonly prompt: string;
+		readonly attempt: number;
+		readonly recoveryContext: ReviewerRecoveryContext;
+	},
+): Promise<TextGenerationResult> {
 	const runtime = input.recoveryContext.runtime ?? createSubprocessSubagentRuntime();
-	const title = `Thermo council payload repair: ${input.recoveryContext.seat.label} (attempt ${input.attempt})`;
+	const title = `Thermo council payload repair: ${seat.label} (attempt ${input.attempt})`;
 	const result = await dispatchTrackedSingleSubagentFleetRun({
 		pi: input.recoveryContext.pi,
 		ctx: toRunnerSubagentContext(input.recoveryContext.ctx),
