@@ -238,7 +238,7 @@ export class InMemoryGithubPrFeedbackGateway implements PrAddressGithubGateway {
 			ok: true,
 			value: clone(
 				this.checks.get(params.prNumber) ?? {
-					counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+					counts: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 					checks: [],
 				},
 			),
@@ -268,7 +268,14 @@ export class InMemoryGithubPrFeedbackGateway implements PrAddressGithubGateway {
 				pr: clone(pr),
 				checks: clone(
 					this.checks.get(pr.number) ?? {
-						counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+						counts: {
+							passing: 0,
+							pending: 0,
+							failing: 0,
+							cancelled: 0,
+							unknown: 0,
+							hasMore: false,
+						},
 						checks: [],
 					},
 				),

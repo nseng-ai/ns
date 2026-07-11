@@ -102,6 +102,7 @@ describe("@nseng-ai/pr-feedback/api boundary", () => {
 			passing: 1,
 			pending: 0,
 			failing: 0,
+			cancelled: 0,
 			unknown: 0,
 			hasMore: false,
 		};

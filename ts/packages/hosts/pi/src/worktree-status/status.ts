@@ -861,7 +861,8 @@ function isGhStatusLandable(status: GhStatus): boolean {
 }
 
 function hasNoBlockingChecks(checks: GithubCheckTally): boolean {
-	// Zero configured checks are treated as no blocking checks.
+	// Zero configured checks are treated as no blocking checks. Cancelled runs
+	// are deliberately excluded: like Graphite, a canceled check never blocks.
 	return checks.pending === 0 && checks.failing === 0 && checks.unknown === 0;
 }
 
@@ -881,6 +882,8 @@ function formatActionBucketSegments(checks: GithubCheckTally, theme?: StatusThem
 		if (checks.unknown > 0)
 			buckets.push(formatColoredSegment(`${checks.unknown}?`, "warning", theme));
 	}
+	if (checks.cancelled > 0)
+		buckets.push(formatColoredSegment(`${checks.cancelled}⊘`, "dim", theme));
 	if (hasMoreStatusChecks(checks)) buckets.push(formatColoredSegment("+", "warning", theme));
 	return intersperseActionBucketSpaces(buckets, theme);
 }

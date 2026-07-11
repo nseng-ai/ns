@@ -18,11 +18,12 @@ export interface StackViewPrChecks {
 	passing: number;
 	failing: number;
 	pending: number;
+	cancelled: number;
 	total: number;
 }
 
 /** Which rollup bucket a named check landed in. Upstream `unknown` is folded into `pending`. */
-export type StackViewCheckBucket = "passing" | "failing" | "pending";
+export type StackViewCheckBucket = "passing" | "failing" | "pending" | "cancelled";
 
 /** One named CI check for the detail pane. */
 export interface StackViewCheckEntry {

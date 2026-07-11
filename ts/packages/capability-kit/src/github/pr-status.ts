@@ -13,12 +13,13 @@ export interface GithubReviewThreadCounts {
 	hasMore: boolean;
 }
 
-export type GithubCheckBucket = "passing" | "pending" | "failing" | "unknown";
+export type GithubCheckBucket = "passing" | "pending" | "failing" | "cancelled" | "unknown";
 
 export interface GithubCheckTally {
 	passing: number;
 	pending: number;
 	failing: number;
+	cancelled: number;
 	unknown: number;
 	hasMore: boolean;
 }
@@ -123,12 +124,13 @@ const githubWorktreePrStatusResponseSchema = z
 const PASSING_CHECK_RUN_CONCLUSIONS = new Set(["SUCCESS", "NEUTRAL", "SKIPPED"]);
 const FAILING_CHECK_RUN_CONCLUSIONS = new Set([
 	"ACTION_REQUIRED",
-	"CANCELLED",
 	"FAILURE",
 	"STARTUP_FAILURE",
 	"STALE",
 	"TIMED_OUT",
 ]);
+// Graphite treats canceled runs as a distinct non-blocking state, not a failure.
+const CANCELLED_CHECK_RUN_CONCLUSIONS = new Set(["CANCELLED"]);
 const PENDING_CHECK_RUN_STATUSES = new Set([
 	"QUEUED",
 	"IN_PROGRESS",
@@ -204,6 +206,7 @@ export function normalizeGithubStatusChecks(
 		passing: 0,
 		pending: 0,
 		failing: 0,
+		cancelled: 0,
 		unknown: 0,
 		hasMore: options.hasMore === true,
 	};
@@ -548,6 +551,7 @@ function classifyCheckRun(value: Record<string, unknown>): GithubCheckBucket {
 	const conclusion = typeof value.conclusion === "string" ? value.conclusion : undefined;
 	if (conclusion === undefined) return "unknown";
 	if (PASSING_CHECK_RUN_CONCLUSIONS.has(conclusion)) return "passing";
+	if (CANCELLED_CHECK_RUN_CONCLUSIONS.has(conclusion)) return "cancelled";
 	if (FAILING_CHECK_RUN_CONCLUSIONS.has(conclusion)) return "failing";
 	return "unknown";
 }

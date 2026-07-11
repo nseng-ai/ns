@@ -409,6 +409,8 @@ export class StackViewOverlay implements Component {
 				return this.color("warning", row.text);
 			case "check-pending":
 				return this.color("warning", row.text);
+			case "check-cancelled":
+				return this.color("muted", row.text);
 			case "summary-pending":
 				return this.color("dim", row.text);
 			case "thread-summary":

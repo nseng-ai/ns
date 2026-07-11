@@ -39,6 +39,7 @@ const prCheckBucketSchema = z.union([
 	z.literal("passing"),
 	z.literal("pending"),
 	z.literal("failing"),
+	z.literal("cancelled"),
 	z.literal("unknown"),
 ]);
 
@@ -62,6 +63,7 @@ const prChecksCountsSchema = z.object({
 	passing: z.int(),
 	pending: z.int(),
 	failing: z.int(),
+	cancelled: z.int(),
 	unknown: z.int(),
 	hasMore: z.boolean(),
 });

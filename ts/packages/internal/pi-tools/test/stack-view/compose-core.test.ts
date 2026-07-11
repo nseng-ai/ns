@@ -265,7 +265,7 @@ function prFixture(overrides?: Partial<StackViewPr>): StackViewPr {
 		isDraft: false,
 		body: "body",
 		threads: { resolved: 0, total: 0 },
-		checks: { passing: 0, failing: 0, pending: 0, total: 0 },
+		checks: { passing: 0, failing: 0, pending: 0, cancelled: 0, total: 0 },
 		checkEntries: [],
 		unresolvedThreads: [],
 		status: "ready",
@@ -342,7 +342,7 @@ describe("buildComposeSystemPrompt", () => {
 			identity: "CI/lint",
 		});
 		const pr = prFixture({
-			checks: { passing: 0, failing: 2, pending: 0, total: 2 },
+			checks: { passing: 0, failing: 2, pending: 0, cancelled: 0, total: 2 },
 			checkEntries: [diagnosed, undiagnosed],
 			status: "checks-failing",
 		});
@@ -359,7 +359,7 @@ describe("buildComposeSystemPrompt", () => {
 	test("non-ready enrichment states fall back to the no-diagnosis marker", () => {
 		const check = checkFixture();
 		const pr = prFixture({
-			checks: { passing: 0, failing: 1, pending: 0, total: 1 },
+			checks: { passing: 0, failing: 1, pending: 0, cancelled: 0, total: 1 },
 			checkEntries: [check],
 			status: "checks-failing",
 		});
@@ -411,7 +411,7 @@ describe("buildComposeSystemPrompt", () => {
 	test("pending checks and objectives are listed", () => {
 		const pending = checkFixture({ name: "build", bucket: "pending", conclusion: null });
 		const pr = prFixture({
-			checks: { passing: 0, failing: 0, pending: 1, total: 1 },
+			checks: { passing: 0, failing: 0, pending: 1, cancelled: 0, total: 1 },
 			checkEntries: [pending],
 			objectiveSlugs: ["compose-subsystem", "stack-view"],
 		});

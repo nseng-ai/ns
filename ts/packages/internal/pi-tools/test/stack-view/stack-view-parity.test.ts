@@ -61,7 +61,7 @@ describe("stack-view snapshot details back-compat", () => {
 						isDraft: false,
 						body: "body",
 						threads: { resolved: 0, total: 1 },
-						checks: { passing: 1, failing: 0, pending: 0, total: 1 },
+						checks: { passing: 1, failing: 0, pending: 0, cancelled: 0, total: 1 },
 						checkEntries: [{ name: "build", workflowName: "CI", bucket: "passing" }],
 						unresolvedThreads: [{ path: "src/a.ts", line: 5, author: "reviewer" }],
 						status: "unresolved",

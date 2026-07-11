@@ -19,13 +19,15 @@ export const stackViewPrChecksSchema = z.object({
 	passing: z.number(),
 	failing: z.number(),
 	pending: z.number(),
+	// Additive field: old persisted snapshots omit it, so default it.
+	cancelled: z.number().default(0),
 	total: z.number(),
 }) satisfies z.ZodType<StackViewPrChecks>;
 
 export const stackViewCheckEntrySchema = z.object({
 	name: z.string(),
 	workflowName: z.string().nullable(),
-	bucket: z.enum(["passing", "failing", "pending"]),
+	bucket: z.enum(["passing", "failing", "pending", "cancelled"]),
 	// Additive fields: old persisted snapshots omit these, so default them.
 	status: z.string().nullable().default(null),
 	conclusion: z.string().nullable().default(null),

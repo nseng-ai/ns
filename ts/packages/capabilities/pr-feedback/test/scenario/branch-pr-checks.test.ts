@@ -45,7 +45,7 @@ function stackedPrFeedback(): InMemoryGithubPrFeedbackGateway {
 		],
 		checks: {
 			11: {
-				counts: { passing: 2, pending: 0, failing: 1, unknown: 0, hasMore: false },
+				counts: { passing: 2, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: false },
 				checks: [
 					{
 						bucket: "failing",
@@ -90,14 +90,14 @@ describe("ns address exec branch-pr-checks", () => {
 				branch: "feature-b",
 				status: "found",
 				target: expect.objectContaining({ pr_number: 12, head_ref_name: "feature-b" }),
-				counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+				counts: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 				checks: [],
 			}),
 			expect.objectContaining({
 				branch: "feature-a",
 				status: "found",
 				target: expect.objectContaining({ pr_number: 11, head_ref_name: "feature-a" }),
-				counts: { passing: 2, pending: 0, failing: 1, unknown: 0, hasMore: false },
+				counts: { passing: 2, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: false },
 				checks: [expect.objectContaining({ name: "typescript", bucket: "failing" })],
 			}),
 		]);

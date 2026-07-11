@@ -1,12 +1,13 @@
 import { stripTerminalEscapes } from "@nseng-ai/pi/terminal/presentation";
 
-export type PrPreviewCheckBucket = "failing" | "pending" | "unknown" | "passing";
+export type PrPreviewCheckBucket = "failing" | "pending" | "unknown" | "cancelled" | "passing";
 export type PrPreviewCheckKind = "check_run" | "status_context" | "unknown";
 
 export const PREVIEW_CHECK_BUCKET_ORDER = [
 	"failing",
 	"pending",
 	"unknown",
+	"cancelled",
 	"passing",
 ] as const satisfies readonly PrPreviewCheckBucket[];
 
@@ -28,6 +29,7 @@ export interface PrPreviewChecksCounts {
 	passing: number;
 	pending: number;
 	failing: number;
+	cancelled: number;
 	unknown: number;
 	hasMore?: boolean;
 }
@@ -80,6 +82,7 @@ export const BUCKET_PRESENTATION = {
 	failing: { icon: "✗", color: "error", bold: true },
 	pending: { icon: "⏳", color: "warning", bold: false },
 	unknown: { icon: "?", color: "muted", bold: false },
+	cancelled: { icon: "⊘", color: "dim", bold: false },
 	passing: { icon: "✓", color: "dim", bold: false },
 } satisfies Record<PrPreviewCheckBucket, PrPreviewBucketPresentation>;
 
@@ -153,10 +156,11 @@ export function aggregatePreviewChecksCounts(
 			passing: counts.passing + entry.counts.passing,
 			pending: counts.pending + entry.counts.pending,
 			failing: counts.failing + entry.counts.failing,
+			cancelled: counts.cancelled + entry.counts.cancelled,
 			unknown: counts.unknown + entry.counts.unknown,
 			...(counts.hasMore === true || entry.counts.hasMore === true ? { hasMore: true } : {}),
 		}),
-		{ passing: 0, pending: 0, failing: 0, unknown: 0 },
+		{ passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0 },
 	);
 }
 

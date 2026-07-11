@@ -250,7 +250,7 @@ function buildStackViewPr(params: BuildStackViewPrParams): StackViewPr {
 			isDraft: false,
 			body: "",
 			threads: { resolved: 0, total: 0 },
-			checks: { passing: 0, failing: 0, pending: 0, total: 0 },
+			checks: { passing: 0, failing: 0, pending: 0, cancelled: 0, total: 0 },
 			checkEntries: [],
 			unresolvedThreads: [],
 			status: noPrStatus(),

@@ -34,7 +34,7 @@ describe("collectBranchPrChecks", () => {
 			],
 			checks: {
 				11: {
-					counts: { passing: 1, pending: 0, failing: 1, unknown: 0, hasMore: true },
+					counts: { passing: 1, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: true },
 					checks: [failingCheck()],
 				},
 			},
@@ -63,7 +63,14 @@ describe("collectBranchPrChecks", () => {
 							base_ref_name: "feature-a",
 							head_ref_oid: "oid-b",
 						},
-						counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
+						counts: {
+							passing: 0,
+							pending: 0,
+							failing: 0,
+							cancelled: 0,
+							unknown: 0,
+							hasMore: false,
+						},
 						checks: [],
 					},
 					{
@@ -79,7 +86,7 @@ describe("collectBranchPrChecks", () => {
 							base_ref_name: "main",
 							head_ref_oid: "oid-a",
 						},
-						counts: { passing: 1, pending: 0, failing: 1, unknown: 0, hasMore: true },
+						counts: { passing: 1, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: true },
 						checks: [
 							{
 								bucket: "failing",

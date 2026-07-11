@@ -106,7 +106,7 @@ describe("GitHub status boundary parsing", () => {
 				headRefName: "feature/current",
 				headRefOid: "abc123",
 				threads: { unresolved: 1, total: 2, hasMore: true },
-				checks: { passing: 1, pending: 1, failing: 0, unknown: 0, hasMore: true },
+				checks: { passing: 1, pending: 1, failing: 0, cancelled: 0, unknown: 0, hasMore: true },
 			},
 		]);
 	});
@@ -240,6 +240,7 @@ describe("GitHub status check classification", () => {
 			passing: 0,
 			pending: 1,
 			failing: 1,
+			cancelled: 0,
 			unknown: 1,
 			hasMore: true,
 		});
@@ -284,6 +285,13 @@ describe("GitHub status check classification", () => {
 			classifyGithubStatusCheck({
 				__typename: "CheckRun",
 				status: "COMPLETED",
+				conclusion: "CANCELLED",
+			}),
+		).toBe("cancelled");
+		expect(
+			classifyGithubStatusCheck({
+				__typename: "CheckRun",
+				status: "COMPLETED",
 				conclusion: "MYSTERY",
 			}),
 		).toBe("unknown");
@@ -310,7 +318,7 @@ describe("GitHub status check classification", () => {
 				{ __typename: "CheckRun", status: "COMPLETED", conclusion: "MYSTERY" },
 				null,
 			]),
-		).toEqual({ passing: 1, pending: 1, failing: 1, unknown: 2, hasMore: false });
+		).toEqual({ passing: 1, pending: 1, failing: 1, cancelled: 0, unknown: 2, hasMore: false });
 	});
 
 	test("ignores a superseded canceled check run", () => {
@@ -331,7 +339,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-01-01T00:05:00Z",
 				}),
 			]),
-		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0, hasMore: false });
+		).toEqual({ passing: 1, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false });
 	});
 
 	test("keeps the newest canceled or stale check run as failing", () => {
@@ -352,7 +360,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-01-01T00:05:00Z",
 				}),
 			]),
-		).toEqual({ passing: 0, pending: 0, failing: 1, unknown: 0, hasMore: false });
+		).toEqual({ passing: 0, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: false });
 	});
 
 	test("ignores check runs from older workflow runs even when matrix names change", () => {
@@ -395,10 +403,10 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-06-26T14:22:00Z",
 				}),
 			]),
-		).toEqual({ passing: 3, pending: 0, failing: 0, unknown: 0, hasMore: false });
+		).toEqual({ passing: 3, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false });
 	});
 
-	test("keeps a canceled check run from the latest workflow run as failing", () => {
+	test("keeps a canceled check run from the latest workflow run as cancelled", () => {
 		expect(
 			tallyGithubStatusChecks([
 				githubWorkflowCheckRun({
@@ -420,7 +428,63 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-06-26T14:22:00Z",
 				}),
 			]),
-		).toEqual({ passing: 0, pending: 0, failing: 1, unknown: 0, hasMore: false });
+		).toEqual({ passing: 0, pending: 0, failing: 0, cancelled: 1, unknown: 0, hasMore: false });
+	});
+
+	test("counts a concurrency-canceled duplicate run as cancelled, never failing", () => {
+		// PR #3373's reviews workflow: `cancel-in-progress` canceled the newer
+		// duplicate run (bare job names) while the older run passed with matrix
+		// job names. The run supersede keeps the canceled run; Graphite renders
+		// those entries as a distinct non-blocking canceled state.
+		expect(
+			tallyGithubStatusChecks([
+				githubWorkflowCheckRun({
+					workflowName: "reviews",
+					workflowRunDatabaseId: 1250,
+					workflowRunUpdatedAt: "2026-07-10T14:22:00Z",
+					name: "discover",
+					status: "COMPLETED",
+					conclusion: "CANCELLED",
+					completedAt: "2026-07-10T14:22:00Z",
+				}),
+				githubWorkflowCheckRun({
+					workflowName: "reviews",
+					workflowRunDatabaseId: 1250,
+					workflowRunUpdatedAt: "2026-07-10T14:22:00Z",
+					name: "review",
+					status: "COMPLETED",
+					conclusion: "CANCELLED",
+					completedAt: "2026-07-10T14:22:00Z",
+				}),
+				githubWorkflowCheckRun({
+					workflowName: "reviews",
+					workflowRunDatabaseId: 1249,
+					workflowRunUpdatedAt: "2026-07-10T14:21:00Z",
+					name: "discover",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					completedAt: "2026-07-10T14:18:40Z",
+				}),
+				githubWorkflowCheckRun({
+					workflowName: "reviews",
+					workflowRunDatabaseId: 1249,
+					workflowRunUpdatedAt: "2026-07-10T14:21:00Z",
+					name: "review (reinvented-abstractions-tripwire)",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					completedAt: "2026-07-10T14:21:00Z",
+				}),
+				githubWorkflowCheckRun({
+					workflowName: "reviews",
+					workflowRunDatabaseId: 1249,
+					workflowRunUpdatedAt: "2026-07-10T14:21:00Z",
+					name: "review (ns-typescript-style-tripwire)",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					completedAt: "2026-07-10T14:20:00Z",
+				}),
+			]),
+		).toEqual({ passing: 0, pending: 0, failing: 0, cancelled: 2, unknown: 0, hasMore: false });
 	});
 
 	test("keeps distinct workflow and check name pairs separate", () => {
@@ -441,7 +505,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-01-01T00:01:00Z",
 				}),
 			]),
-		).toEqual({ passing: 1, pending: 0, failing: 1, unknown: 0, hasMore: false });
+		).toEqual({ passing: 1, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: false });
 	});
 
 	test("dedupes status contexts by context name", () => {
@@ -460,7 +524,7 @@ describe("GitHub status check classification", () => {
 					createdAt: "2026-01-01T00:05:00Z",
 				},
 			]),
-		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0, hasMore: false });
+		).toEqual({ passing: 1, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false });
 	});
 
 	test("preserves multiple unknown-identity entries", () => {
@@ -470,7 +534,7 @@ describe("GitHub status check classification", () => {
 				{ __typename: "StatusContext", state: "MYSTERY" },
 				null,
 			]),
-		).toEqual({ passing: 0, pending: 0, failing: 0, unknown: 3, hasMore: false });
+		).toEqual({ passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 3, hasMore: false });
 	});
 
 	test("uses the last returned check when matching identities have no timestamps", () => {
@@ -489,7 +553,7 @@ describe("GitHub status check classification", () => {
 					conclusion: "SUCCESS",
 				}),
 			]),
-		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0, hasMore: false });
+		).toEqual({ passing: 1, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false });
 	});
 });
 

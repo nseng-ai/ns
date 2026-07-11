@@ -45,6 +45,11 @@ export function renderPlainSnapshot(model: StackViewModel): string {
 			lines.push(`  failing: ${failing.map(formatCheckEntryLabel).join(", ")}`);
 		}
 
+		const cancelled = entriesForCheckBucket(row.checkEntries, "cancelled");
+		if (cancelled.length > 0) {
+			lines.push(`  cancelled: ${cancelled.map(formatCheckEntryLabel).join(", ")}`);
+		}
+
 		if (row.unresolvedThreads.length > 0) {
 			const items = row.unresolvedThreads.map(formatThreadDetailLabel).join("; ");
 			const hidden = row.threads.total - row.threads.resolved - row.unresolvedThreads.length;
@@ -123,7 +128,9 @@ function plainRowMeta(row: StackViewPr): string {
 		parts.push(`threads ${row.threads.resolved}/${row.threads.total}`);
 	}
 	if (row.checks.total > 0) {
-		parts.push(`checks ${row.checks.passing}✓ ${row.checks.failing}✗ ${row.checks.pending}⋯`);
+		const badges = `${row.checks.passing}✓ ${row.checks.failing}✗ ${row.checks.pending}⋯`;
+		const cancelled = row.checks.cancelled > 0 ? ` ${row.checks.cancelled}⊘` : "";
+		parts.push(`checks ${badges}${cancelled}`);
 	}
 	parts.push(statusWord(row.status));
 	return parts.join(", ");

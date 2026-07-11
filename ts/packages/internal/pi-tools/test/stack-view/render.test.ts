@@ -15,7 +15,7 @@ function pr(overrides: Partial<StackViewPr> = {}): StackViewPr {
 		isDraft: false,
 		body: "Body text.",
 		threads: { resolved: 0, total: 0 },
-		checks: { passing: 0, failing: 0, pending: 0, total: 0 },
+		checks: { passing: 0, failing: 0, pending: 0, cancelled: 0, total: 0 },
 		checkEntries: [],
 		unresolvedThreads: [],
 		status: "ready",
@@ -87,7 +87,7 @@ describe("renderPlainSnapshot", () => {
 						number: 101,
 						title: "Solo change",
 						threads: { resolved: 1, total: 2 },
-						checks: { passing: 1, failing: 1, pending: 1, total: 3 },
+						checks: { passing: 1, failing: 1, pending: 1, cancelled: 0, total: 3 },
 						status: "unresolved",
 					}),
 				],
@@ -95,6 +95,31 @@ describe("renderPlainSnapshot", () => {
 		);
 
 		expect(snapshot).toContain("threads 1/2, checks 1✓ 1✗ 1⋯, unresolved");
+	});
+
+	test("lists canceled checks in their own line and appends a ⊘ badge only when present", () => {
+		const snapshot = renderPlainSnapshot(
+			model({
+				currentBranch: "solo",
+				prs: [
+					pr({
+						branch: "solo",
+						number: 101,
+						title: "Solo change",
+						checks: { passing: 1, failing: 0, pending: 0, cancelled: 2, total: 3 },
+						status: "ready",
+						checkEntries: [
+							checkEntryFixture({ name: "build", workflowName: "CI", bucket: "passing" }),
+							checkEntryFixture({ name: "discover", workflowName: "reviews", bucket: "cancelled" }),
+							checkEntryFixture({ name: "review", workflowName: "reviews", bucket: "cancelled" }),
+						],
+					}),
+				],
+			}),
+		);
+
+		expect(snapshot).toContain("checks 1✓ 0✗ 0⋯ 2⊘, ready");
+		expect(snapshot).toContain("  cancelled: discover (reviews), review (reviews)");
 	});
 
 	test("includes Graphite URLs for PR rows but not for no-pr rows", () => {
@@ -131,7 +156,7 @@ describe("renderPlainSnapshot", () => {
 						branch: "solo",
 						number: 101,
 						title: "Solo change",
-						checks: { passing: 0, failing: 1, pending: 1, total: 2 },
+						checks: { passing: 0, failing: 1, pending: 1, cancelled: 0, total: 2 },
 						status: "checks-failing",
 						checkEntries: [
 							checkEntryFixture({ name: "build", workflowName: "CI", bucket: "failing" }),
