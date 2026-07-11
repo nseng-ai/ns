@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { runCli } from "@nseng-ai/kernel/cli";
+import { createRealNsCommandContext } from "@nseng-ai/kernel/context";
 
 import { nsShellIntegrationBeginMarker, nsShellIntegrationEndMarker } from "../../src/cli/shell.ts";
 
@@ -69,10 +70,18 @@ function runScenario(
 ): { exit: Promise<number>; stdout: string[]; stderr: string[] } {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
+	const cwd = process.cwd();
+	const env = { ...process.env, ...(options.env ?? {}) };
+	const context = createRealNsCommandContext({
+		cwd,
+		env,
+		textGenerator: { generateText: async () => ({ ok: false, error: "not used" }) },
+	});
 	return {
 		exit: runCli(args, {
-			cwd: process.cwd(),
-			env: { ...process.env, ...(options.env ?? {}) },
+			context,
+			cwd,
+			env,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 		}),

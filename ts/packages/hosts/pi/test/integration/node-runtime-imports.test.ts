@@ -40,8 +40,8 @@ const NS_EXPORT_IMPORTS = [
 	"@nseng-ai/kernel/cli",
 	"@nseng-ai/kernel/context",
 	"@nseng-ai/capability-kit/pending-worktree",
-	"@nseng-ai/kernel/pi-text-generation",
 	"@nseng-ai/kernel/sdk",
+	"@nseng-ai/ns/cli",
 	"@nseng-ai/capability-kit/text-generation",
 	"@nseng-ai/capability-kit/text-repair",
 ] as const;

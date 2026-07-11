@@ -5,13 +5,12 @@ import { uuidv7 } from "@earendil-works/pi-agent-core";
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
 
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-
 import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerationUsage,
 	TextGenerator,
-} from "../sdk/index.ts";
+} from "@nseng-ai/kernel/sdk";
 
 const DEFAULT_MAX_TOKENS = 512;
 const DEFAULT_REASONING = "low";
@@ -23,12 +22,12 @@ type ModelAuth =
 	| { ok: true; apiKey?: string; headers?: Record<string, string> }
 	| { ok: false; error: string };
 
-export interface PiModelRegistry {
+interface PiModelRegistry {
 	find(provider: string, modelId: string): Model<Api> | undefined;
 	getApiKeyAndHeaders(model: Model<Api>): Promise<ModelAuth>;
 }
 
-export interface PiTextGeneratorOptions {
+interface PiTextGeneratorOptions {
 	modelRegistry?: PiModelRegistry;
 	completeSimple?: CompleteSimpleFunction;
 	loadDefaultModelRegistry?: () => Promise<PiModelRegistry>;
@@ -53,9 +52,7 @@ export class PiTextGenerator implements TextGenerator {
 
 	async generateText(request: TextGenerationRequest): Promise<TextGenerationResult> {
 		const parsed = parsePiModelRef(request.modelRef);
-		if (!parsed.ok) {
-			return { ok: false, error: parsed.error };
-		}
+		if (!parsed.ok) return { ok: false, error: parsed.error };
 
 		const modelRegistry = this.modelRegistry ?? (await this.loadDefaultModelRegistry());
 		const model = modelRegistry.find(parsed.provider, parsed.modelId);
@@ -118,11 +115,7 @@ export class PiTextGenerator implements TextGenerator {
 			}
 
 			const usage = textGenerationUsageFromResponse(response.usage);
-			return {
-				ok: true,
-				text,
-				...(usage === undefined ? {} : { usage }),
-			};
+			return { ok: true, text, ...(usage === undefined ? {} : { usage }) };
 		} catch (error) {
 			return {
 				ok: false,
@@ -139,10 +132,7 @@ function textGenerationUsageFromResponse(usage: {
 	output: number;
 }): TextGenerationUsage | undefined {
 	if (!Number.isFinite(usage.input) || !Number.isFinite(usage.output)) return undefined;
-	return {
-		inputTokens: usage.input,
-		outputTokens: usage.output,
-	};
+	return { inputTokens: usage.input, outputTokens: usage.output };
 }
 
 type ParsedPiModelRef =
@@ -157,7 +147,6 @@ function parsePiModelRef(modelRef: string): ParsedPiModelRef {
 			error: `Invalid Pi model reference ${JSON.stringify(modelRef)}. Expected provider/model-id.`,
 		};
 	}
-
 	return {
 		ok: true,
 		provider: modelRef.slice(0, separator),

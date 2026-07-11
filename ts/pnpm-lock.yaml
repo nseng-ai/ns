@@ -529,6 +529,9 @@ importers:
 
   packages/hosts/ns-cli:
     dependencies:
+      '@earendil-works/pi-agent-core':
+        specifier: 'catalog:'
+        version: 0.80.5(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
         version: 0.80.5(ws@8.21.0)(zod@4.4.3)
@@ -713,15 +716,6 @@ importers:
 
   packages/kernel:
     dependencies:
-      '@earendil-works/pi-agent-core':
-        specifier: 'catalog:'
-        version: 0.80.5(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-ai':
-        specifier: 'catalog:'
-        version: 0.80.5(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 0.80.5(ws@8.21.0)(zod@4.4.3)
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../infra/clinkr

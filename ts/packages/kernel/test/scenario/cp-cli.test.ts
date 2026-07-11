@@ -114,7 +114,7 @@ describe("empty ns kernel CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @nseng-ai/kernel bin ns -> ts/packages/kernel/src/cli/index.ts\n",
+			"runtime: typescript\nentry_point: @nseng-ai/kernel bin kernel -> ts/packages/kernel/(no package bin)\n",
 		);
 		expect(run.stderr.join("")).toBe("");
 	});

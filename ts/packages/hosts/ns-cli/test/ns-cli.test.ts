@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 
 import { commandSucceeded, formatCommandFailure, runCommand } from "@nseng-ai/foundation/exec";
 
-import { runNsCli } from "../src/cli.ts";
+import { runNsCli } from "../src/cli/index.ts";
 import {
 	createEmptyProject,
 	dataFromEnvelope,

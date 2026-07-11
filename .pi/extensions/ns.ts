@@ -1,5 +1,12 @@
-import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
+import { importTypeScriptWorkspaceModule } from "../lib/workspace-packages.ts";
 
-const nsExtension = await importTypeScriptWorkspaceDefault("@nseng-ai/flow/pi/ns-extension");
+const [{ default: nsExtension }, { runNsCli }] = await Promise.all([
+	importTypeScriptWorkspaceModule<typeof import("@nseng-ai/flow/pi/ns-extension")>(
+		"@nseng-ai/flow/pi/ns-extension",
+	),
+	importTypeScriptWorkspaceModule<typeof import("@nseng-ai/ns/cli")>("@nseng-ai/ns/cli"),
+]);
 
-export default nsExtension;
+export default function registerNsExtension(pi: Parameters<typeof nsExtension>[0]): void {
+	nsExtension(pi, { runCli: runNsCli });
+}

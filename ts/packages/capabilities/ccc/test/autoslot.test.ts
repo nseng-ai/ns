@@ -1,9 +1,17 @@
 import { describe, expect, test } from "vitest";
+import type { CommandResult } from "@nseng-ai/capability-kit/checkpoint-flow";
 import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import type { AutoslotCliInput, AutoslotFlowInput } from "../src/ns/autoslot.ts";
 import { createAutoslotFlow, runAutoslotCli } from "../src/ns/autoslot.ts";
-import { fail, ok, type CommandResult } from "./autobranch-test-helpers.ts";
+
+function ok(stdout = "", stderr = ""): CommandResult {
+	return { type: "exited", code: 0, signal: null, stdout, stderr };
+}
+
+function fail(stderr: string, code = 1): CommandResult {
+	return { type: "exited", code, signal: null, stdout: "", stderr };
+}
 
 // Mono caps keep durable-outcome assertions readable: no color SGR, glyph still present. The
 // house-style/caps-degradation ladder is verified directly in `autoslot-presentation.test.ts`.
@@ -249,6 +257,11 @@ describe("autoslot flow", () => {
 			cwd: "/repo",
 			env: {},
 			args: { slug: "test-branch" },
+			textGenerator: {
+				generateText: async () => {
+					throw new Error("text generation should not run after a status probe failure");
+				},
+			},
 			caps: TEST_CAPS,
 			exec: async (command, args) => {
 				if (command === "git" && args[0] === "rev-parse" && args[1] === "--show-toplevel")

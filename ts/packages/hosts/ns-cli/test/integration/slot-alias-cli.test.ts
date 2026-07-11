@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { VERSION, runCli } from "@nseng-ai/kernel/cli";
+import { VERSION } from "@nseng-ai/kernel/cli";
+
+import { runNsCli } from "../../src/cli/index.ts";
 
 describe("ns slot extension CLI", () => {
 	it("keeps CLI metadata on the owning ns entrypoint", async () => {
@@ -11,7 +13,7 @@ describe("ns slot extension CLI", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @nseng-ai/kernel bin ns -> ts/packages/kernel/src/cli/index.ts\n",
+			"runtime: typescript\nentry_point: @nseng-ai/ns bin ns -> ts/packages/hosts/ns-cli/bin/ns.js\n",
 		);
 	});
 
@@ -50,9 +52,10 @@ function runScenario(args: readonly string[]): {
 } {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
+	const cwd = process.cwd();
 	return {
-		exit: runCli(args, {
-			cwd: process.cwd(),
+		exit: runNsCli(args, {
+			cwd,
 			env: process.env,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),

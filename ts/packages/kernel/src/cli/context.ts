@@ -11,9 +11,7 @@ import { runCommand } from "@nseng-ai/foundation/exec";
 import { optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
-import { PiTextGenerator } from "../runtime/pi-text-generation.ts";
-import type { NsConfirmPrompt, NsExtensionApi } from "../sdk/index.ts";
-import type { TextGenerator } from "../sdk/index.ts";
+import type { NsConfirmPrompt, NsExtensionApi, TextGenerator } from "../sdk/index.ts";
 
 export interface NsCliContext {
 	context: NsExtensionApi;
@@ -25,22 +23,16 @@ export interface NsCliContext {
 }
 
 export interface RealNsCommandContextOptions {
+	textGenerator: TextGenerator;
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	homeDir?: string;
 }
 
-export function createTextGenerator(): TextGenerator {
-	return new PiTextGenerator();
-}
-
-export function createRealNsCommandContext(
-	options: RealNsCommandContextOptions = {},
-): NsExtensionApi {
+export function createRealNsCommandContext(options: RealNsCommandContextOptions): NsExtensionApi {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const homeDir = resolveHomeDir(options.homeDir, env);
-	const textGenerator = createTextGenerator();
 	const confirm = createTerminalConfirmPrompt();
 	const stdout = (text: string) => process.stdout.write(text);
 	const stderr = (text: string) => process.stderr.write(text);
@@ -49,7 +41,7 @@ export function createRealNsCommandContext(
 		cwd,
 		env,
 		...optionalEntry("homeDir", homeDir),
-		textGenerator,
+		textGenerator: options.textGenerator,
 		commandIo,
 		progress: noopNsProgress,
 		renderCapabilities: renderCapabilitiesForTerminal(resolveProcessCaps()),

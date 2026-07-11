@@ -15,7 +15,12 @@ import {
 } from "@nseng-ai/clinkr";
 import { renderCompletionCandidatesNewline } from "@nseng-ai/clinkr/completion";
 import { rawCommand } from "@nseng-ai/clinkr/raw";
-import { defineCli, readStdin, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
+import {
+	defineCli,
+	readStdin,
+	type CliEntrypointDeps,
+	type DefineCliOptions,
+} from "@nseng-ai/foundation/cli-runtime";
 import { optionalEntries, optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 
 import {
@@ -23,11 +28,7 @@ import {
 	renderNsCompletionScriptResult,
 	nsCompletionScriptResultSchema,
 } from "./completion.ts";
-import {
-	createRealNsCommandContext,
-	createNsCliInteraction,
-	type NsCliContext,
-} from "./context.ts";
+import { createNsCliInteraction, type NsCliContext } from "./context.ts";
 import {
 	renderNsShellInstall,
 	renderNsShellShow,
@@ -96,7 +97,8 @@ export interface NsCliDeps extends Pick<
 	CliEntrypointDeps,
 	"cwd" | "env" | "stdout" | "stderr" | "renderCapabilities"
 > {
-	context?: NsExtensionApi;
+	context: NsExtensionApi;
+	entryMetaUrl?: string;
 	homeDir?: string;
 	onOutput?: (stream: NsOutputStream, text: string) => void;
 	onProgress?: NsProgressPhaseListener;
@@ -125,7 +127,7 @@ interface NsCliCommandContextInput {
 }
 
 interface NsCliRawContextInputs {
-	deps: NsCliDeps;
+	deps: Partial<NsCliDeps>;
 	injectedContext?: NsExtensionApi;
 	cwd: string;
 	env: Record<string, string | undefined>;
@@ -138,7 +140,7 @@ function resolveNsCliCommandContextInput(options: NsCliRawContextInputs): NsCliC
 	return { cwd, env, ...optionalEntry("homeDir", homeDir) };
 }
 
-const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
+const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> = {
 	metaUrl: new URL("../cli.ts", import.meta.url).href,
 	runtime: "typescript",
 	description: "ns tools.",
@@ -251,7 +253,13 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 			buildState: selectedCommandResolution.resolution,
 		};
 	},
-	configureCli: ({ root, buildState }) => {
+	buildCli: ({ description, version, runtimeInfo, buildState }) => {
+		const root = new ClinkrGroup<NsCliContext>({
+			name: "ns",
+			description,
+			version,
+			runtimeInfo,
+		});
 		const groups = new Map<string, ClinkrGroup<NsCliContext>>();
 		for (const commandInfo of buildState.commandInfos) {
 			const parent = groupForCommand(root, groups, commandInfo);
@@ -355,8 +363,11 @@ const entry = defineCli<NsCliContext, NsCliDeps, NsCliBuildState>({
 		}
 		root.group(buildNsShellGroup());
 		root.group(buildNsCompletionGroup());
+		return root;
 	},
-});
+};
+
+const entry = defineCli(entryOptions);
 
 export function buildCli(options: BuildNsCliOptions = {}): ClinkrGroup<NsCliContext> {
 	return entry.buildCli({
@@ -376,8 +387,9 @@ export function listNsCommands(): NsCommandInfo[] {
 	}));
 }
 
-export async function runCli(args: readonly string[], deps: NsCliDeps = {}): Promise<number> {
-	return await entry.run(args, deps);
+export async function runCli(args: readonly string[], deps: NsCliDeps): Promise<number> {
+	if (deps.entryMetaUrl === undefined) return await entry.run(args, deps);
+	return await defineCli({ ...entryOptions, metaUrl: deps.entryMetaUrl }).run(args, deps);
 }
 
 async function handleCompletionResolverInvocation(options: {
@@ -481,7 +493,10 @@ async function buildNsCliContext(options: {
 	confirm?: NsConfirmPrompt;
 	renderCapabilities: RenderCapabilities;
 }): Promise<NsCliContext> {
-	const baseContext = options.injectedContext ?? createRealNsCommandContext(options.commandContext);
+	const baseContext = options.injectedContext;
+	if (baseContext === undefined) {
+		throw new Error("Ns CLI context is required.");
+	}
 	const onOutput = options.onOutput ?? baseContext.onOutput;
 	const confirm = options.confirm ?? baseContext.confirm;
 	const stdin = baseContext.stdin ?? readStdin;
