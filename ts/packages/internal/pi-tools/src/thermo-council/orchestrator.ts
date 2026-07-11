@@ -173,7 +173,6 @@ async function launchThermoCouncilReviewer({
 			ctx,
 			runtime,
 			fleetRegistry,
-			seat,
 		}),
 		runnerResult: result,
 	};

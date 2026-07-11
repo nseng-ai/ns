@@ -8,7 +8,7 @@ import type {
 import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
 import { getOrCreateSubagentFleetRegistry } from "../../src/fleet/provider.ts";
-import { SubagentFleetRegistry } from "../../src/fleet/registry.ts";
+import { SUBAGENT_FLEET_RECENT_TASK_CAP, SubagentFleetRegistry } from "../../src/fleet/registry.ts";
 import {
 	SUBAGENT_FLEET_STATUS_KEY,
 	SUBAGENT_FLEET_WIDGET_KEY,
@@ -56,52 +56,41 @@ function eventBusOwner(): ExtensionAPI["events"] {
 function managedRegistry(
 	owner: ExtensionAPI["events"],
 	lifecycle: FakeFleetLifecycle,
-	recentTaskCap?: number,
 ): SubagentFleetRegistry {
 	return getOrCreateSubagentFleetRegistry({
 		owner,
 		onSessionStart: (handler) => lifecycle.onSessionStart(handler),
 		onSessionShutdown: (handler) => lifecycle.onSessionShutdown(handler),
-		...(recentTaskCap === undefined ? {} : { recentTaskCap }),
 	});
 }
 
 describe("subagent fleet manager", () => {
-	test("keys by event bus owner, binds once, and keeps the first options", () => {
+	test("preserves registry identity by event bus owner with one active binding", () => {
 		const owner = eventBusOwner();
 		const firstLifecycle = new FakeFleetLifecycle();
 		const ignoredLifecycle = new FakeFleetLifecycle();
-		const first = managedRegistry(owner, firstLifecycle, 1);
-		const second = managedRegistry(owner, ignoredLifecycle, 20);
+		const first = managedRegistry(owner, firstLifecycle);
+		const second = managedRegistry(owner, ignoredLifecycle);
 
 		expect(second).toBe(first);
 		expect(firstLifecycle.sessionStartHandlers).toHaveLength(1);
 		expect(firstLifecycle.sessionShutdownHandlers).toHaveLength(1);
 		expect(ignoredLifecycle.sessionStartHandlers).toHaveLength(0);
 		expect(ignoredLifecycle.sessionShutdownHandlers).toHaveLength(0);
-
-		for (const title of ["old", "new"]) {
-			const run = first.startRun([{ title }]);
-			const taskId = run.tasks[0]?.id;
-			if (taskId === undefined) throw new Error("missing task id");
-			first.markDone(taskId, makeFinalTextResult(title));
-		}
-		expect(
-			first
-				.snapshot()
-				.flatMap((run) => run.tasks)
-				.map((task) => task.title),
-		).toEqual(["new"]);
 	});
 
-	test("creates distinct registries for different event bus owners", () => {
-		const first = managedRegistry(eventBusOwner(), new FakeFleetLifecycle());
-		const second = managedRegistry(eventBusOwner(), new FakeFleetLifecycle());
+	test("creates distinct registries and bindings for different event bus owners", () => {
+		const firstLifecycle = new FakeFleetLifecycle();
+		const secondLifecycle = new FakeFleetLifecycle();
+		const first = managedRegistry(eventBusOwner(), firstLifecycle);
+		const second = managedRegistry(eventBusOwner(), secondLifecycle);
 
 		expect(second).not.toBe(first);
+		expect(firstLifecycle.sessionStartHandlers).toHaveLength(1);
+		expect(secondLifecycle.sessionStartHandlers).toHaveLength(1);
 	});
 
-	test("clears replacement sessions but preserves reload", () => {
+	test("preserves the managed registry on reload", () => {
 		const lifecycle = new FakeFleetLifecycle();
 		const registry = managedRegistry(eventBusOwner(), lifecycle);
 		const onSessionStart = lifecycle.sessionStartHandlers[0];
@@ -110,34 +99,80 @@ describe("subagent fleet manager", () => {
 		registry.startRun([{ title: "keep" }]);
 		onSessionStart({ type: "session_start", reason: "reload" });
 		expect(registry.snapshot()).toHaveLength(1);
+	});
 
+	test("clears exactly once for each replacement session reason", () => {
+		for (const reason of ["startup", "new", "resume", "fork"] as const) {
+			const lifecycle = new FakeFleetLifecycle();
+			const registry = managedRegistry(eventBusOwner(), lifecycle);
+			const onSessionStart = lifecycle.sessionStartHandlers[0];
+			if (onSessionStart === undefined) throw new Error("missing session start binding");
+			registry.startRun([{ title: reason }]);
+			let changeCount = 0;
+			registry.subscribe(() => {
+				changeCount += 1;
+			});
+
+			onSessionStart({ type: "session_start", reason });
+
+			expect(registry.snapshot()).toEqual([]);
+			expect(changeCount).toBe(1);
+		}
+	});
+
+	test("uses the canonical recent-task cap for managed registries", () => {
+		const registry = managedRegistry(eventBusOwner(), new FakeFleetLifecycle());
+		for (let index = 0; index < SUBAGENT_FLEET_RECENT_TASK_CAP + 3; index += 1) {
+			const run = registry.startRun([{ title: `task ${index}` }]);
+			const taskId = run.tasks[0]?.id;
+			if (taskId === undefined) throw new Error("missing task id");
+			registry.markDone(taskId, makeFinalTextResult(`task ${index}`));
+		}
+
+		expect(registry.snapshot().flatMap((run) => run.tasks)).toHaveLength(
+			SUBAGENT_FLEET_RECENT_TASK_CAP,
+		);
+	});
+
+	test("keeps retained wrappers inert across repeated shutdown and reacquisition", () => {
+		const owner = eventBusOwner();
+		const lifecycle = new FakeFleetLifecycle();
+		const registry = managedRegistry(owner, lifecycle);
+		for (let cycle = 0; cycle < 3; cycle += 1) {
+			const onShutdown = lifecycle.sessionShutdownHandlers[cycle];
+			if (onShutdown === undefined) throw new Error("missing session shutdown binding");
+			onShutdown({ type: "session_shutdown", reason: "quit" });
+			expect(managedRegistry(owner, lifecycle)).toBe(registry);
+
+			for (const staleShutdown of lifecycle.sessionShutdownHandlers.slice(0, cycle + 1)) {
+				staleShutdown({ type: "session_shutdown", reason: "quit" });
+			}
+			expect(managedRegistry(owner, lifecycle)).toBe(registry);
+			expect(lifecycle.sessionShutdownHandlers).toHaveLength(cycle + 2);
+		}
+		expect(lifecycle.sessionStartHandlers).toHaveLength(4);
+		expect(lifecycle.sessionShutdownHandlers).toHaveLength(4);
+
+		registry.startRun([{ title: "clear once" }]);
 		let changeCount = 0;
 		registry.subscribe(() => {
 			changeCount += 1;
 		});
-		for (const reason of ["startup", "new", "resume", "fork"] as const) {
-			registry.startRun([{ title: reason }]);
-			const countBeforeReset = changeCount;
-			onSessionStart({ type: "session_start", reason });
-			expect(registry.snapshot()).toEqual([]);
-			expect(changeCount).toBe(countBeforeReset + 1);
+		for (const onSessionStart of lifecycle.sessionStartHandlers) {
+			onSessionStart({ type: "session_start", reason: "startup" });
 		}
-	});
+		expect(registry.snapshot()).toEqual([]);
+		expect(changeCount).toBe(1);
+		expect(managedRegistry(owner, lifecycle)).toBe(registry);
+		expect(lifecycle.sessionStartHandlers).toHaveLength(4);
 
-	test("shutdown releases the binding and the next acquisition rebinds the same registry", () => {
-		const owner = eventBusOwner();
-		const firstLifecycle = new FakeFleetLifecycle();
-		const registry = managedRegistry(owner, firstLifecycle);
-		const onShutdown = firstLifecycle.sessionShutdownHandlers[0];
-		if (onShutdown === undefined) throw new Error("missing session shutdown binding");
-
-		onShutdown({ type: "session_shutdown", reason: "quit" });
-		const nextLifecycle = new FakeFleetLifecycle();
-		const reacquired = managedRegistry(owner, nextLifecycle);
-
-		expect(reacquired).toBe(registry);
-		expect(nextLifecycle.sessionStartHandlers).toHaveLength(1);
-		expect(nextLifecycle.sessionShutdownHandlers).toHaveLength(1);
+		registry.startRun([{ title: "keep after stale starts" }]);
+		const countBeforeStaleStarts = changeCount;
+		for (const staleSessionStart of lifecycle.sessionStartHandlers.slice(0, -1)) {
+			staleSessionStart({ type: "session_start", reason: "fork" });
+		}
+		expect(registry.snapshot()).toHaveLength(1);
+		expect(changeCount).toBe(countBeforeStaleStarts);
 	});
 });
 
