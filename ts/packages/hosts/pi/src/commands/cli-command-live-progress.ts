@@ -6,7 +6,7 @@ import {
 import {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
-	formatActiveOperation,
+	formatActiveOperationsLine,
 	type ActiveOperation,
 	isMatrixProgressEvent,
 	matrixProgressDisplayWidthChars,
@@ -184,9 +184,8 @@ export class MatrixWidgetState {
 				.join("  ");
 			lines.push(`${label}  ${cells}`);
 		}
-		if (this.activeOperations.length > 0) {
-			lines.push(`Running: ${this.activeOperations.map(formatActiveOperation).join("; ")}`);
-		}
+		const activeOperationsLine = formatActiveOperationsLine(this.activeOperations);
+		if (activeOperationsLine !== undefined) lines.push(activeOperationsLine);
 		return lines;
 	}
 

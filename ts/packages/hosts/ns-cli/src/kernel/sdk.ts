@@ -14,6 +14,7 @@ export {
 	extensionPointDefinitionSchema,
 	failure,
 	formatActiveOperation,
+	formatActiveOperationsLine,
 	hiddenExecGroup,
 	isMatrixProgressEvent,
 	machineEnvelopeSchema,

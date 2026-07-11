@@ -62,6 +62,14 @@ export function formatActiveOperation(operation: ActiveOperation): string {
 	}
 }
 
+/** Formats active operations as one host-facing line, or omits the line when none are active. */
+export function formatActiveOperationsLine(
+	operations: readonly ActiveOperation[],
+): string | undefined {
+	if (operations.length === 0) return undefined;
+	return `Running: ${operations.map(formatActiveOperation).join("; ")}`;
+}
+
 /** Lifecycle state of a single matrix cell. */
 export type NsProgressMatrixCellState = "pending" | "active" | "done" | "skipped" | "failed";
 
