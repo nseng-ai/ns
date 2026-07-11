@@ -1,4 +1,8 @@
+import { z } from "zod";
+
 import type { NsInitErrorInfo } from "./error-info.ts";
+
+export const GENERATED_INSTRUCTIONS_PATH = ".ns/instructions.md";
 
 export const ACTIVATION_FILES = [
 	"ns-toml",
@@ -9,13 +13,14 @@ export const ACTIVATION_FILES = [
 ] as const;
 
 export type ActivationFile = (typeof ACTIVATION_FILES)[number];
+export const activationFileSchema = z.enum(ACTIVATION_FILES);
 
 export const ACTIVATION_FILE_PATHS: Readonly<Record<ActivationFile, string>> = {
 	"ns-toml": "ns.toml",
 	"managed-extensions-ignore": ".gitignore",
 	"agents-instructions": "AGENTS.md",
 	"claude-instructions": "CLAUDE.md",
-	"generated-instructions": ".ns/instructions.md",
+	"generated-instructions": GENERATED_INSTRUCTIONS_PATH,
 };
 
 export type ActivationTextFileReadResult =
@@ -67,6 +72,36 @@ export type ActivationFilesCompareResult =
 	| { readonly type: "applied" }
 	| { readonly type: "mismatch"; readonly details: PreparedStateMismatchDetails }
 	| { readonly type: "error"; readonly error: NsInitErrorInfo };
+
+export function compareActivationTextFileState(
+	path: string,
+	expected: ExpectedActivationTextFileState,
+	actual: Exclude<ActivationTextFileReadResult, { type: "error" }>,
+): PreparedStateMismatchDetails | undefined {
+	if (actual.type === "not-file") {
+		return activationKindMismatchDetails(
+			path,
+			expected.type === "missing" ? "missing" : "file",
+			"directory",
+		);
+	}
+	if (expected.type === "missing") {
+		return actual.type === "missing"
+			? undefined
+			: activationPresenceMismatchDetails(path, "missing", "present");
+	}
+	if (actual.type === "missing") {
+		return activationPresenceMismatchDetails(path, "present", "missing");
+	}
+	return actual.content === expected.content
+		? undefined
+		: {
+				type: "content",
+				path,
+				expectedContent: expected.content,
+				actualContent: actual.content,
+			};
+}
 
 export function compareConsumerDirectoryState(
 	path: string,

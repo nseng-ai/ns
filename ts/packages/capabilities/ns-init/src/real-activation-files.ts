@@ -8,6 +8,7 @@ import {
 	ACTIVATION_FILE_PATHS,
 	activationKindMismatch,
 	activationPresenceMismatch,
+	compareActivationTextFileState,
 	compareConsumerDirectoryState,
 	type ActivationFileParams,
 	type ActivationFilesCompareResult,
@@ -64,7 +65,7 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 		const relativePath = ACTIVATION_FILE_PATHS[params.file];
 		const target = join(params.repoRoot, relativePath);
 		if (params.expected.type === "missing") {
-			const comparison = await compareMissingPath(target, relativePath, "file");
+			const comparison = await compareMissingPath(target, relativePath);
 			if (comparison !== undefined) return comparison;
 			try {
 				await mkdir(dirname(target), { recursive: true });
@@ -77,7 +78,7 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 				return { type: "applied" };
 			} catch (error) {
 				if (isNodeErrorCode(error, "EEXIST")) {
-					return compareCreatedPath(target, relativePath, "file");
+					return compareCreatedPath(target, relativePath);
 				}
 				return writeError(error);
 			}
@@ -104,16 +105,12 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 				);
 			}
 			const actualContent = await handle.readFile("utf8");
-			if (actualContent !== params.expected.content) {
-				return closeWithResult(handle, {
-					type: "mismatch",
-					details: {
-						type: "content",
-						path: relativePath,
-						expectedContent: params.expected.content,
-						actualContent,
-					},
-				});
+			const mismatch = compareActivationTextFileState(relativePath, params.expected, {
+				type: "found",
+				content: actualContent,
+			});
+			if (mismatch !== undefined) {
+				return closeWithResult(handle, { type: "mismatch", details: mismatch });
 			}
 			await writeAll(handle, params.content);
 			return closeWithResult(handle, { type: "applied" });
@@ -140,18 +137,14 @@ export class RealActivationFilesGateway implements ActivationFilesGateway {
 			}
 			const gitkeepPath = join(target, ".gitkeep");
 			const gitkeepRelativePath = `${params.relativePath}/.gitkeep`;
-			const gitkeepComparison = await compareMissingPath(gitkeepPath, gitkeepRelativePath, "file");
+			const gitkeepComparison = await compareMissingPath(gitkeepPath, gitkeepRelativePath);
 			if (gitkeepComparison !== undefined) return gitkeepComparison;
 			const handle = await open(gitkeepPath, "wx");
 			await handle.close();
 			return { type: "applied" };
 		} catch (error) {
 			if (isNodeErrorCode(error, "EEXIST")) {
-				return compareCreatedPath(
-					join(target, ".gitkeep"),
-					`${params.relativePath}/.gitkeep`,
-					"file",
-				);
+				return compareCreatedPath(join(target, ".gitkeep"), `${params.relativePath}/.gitkeep`);
 			}
 			return {
 				type: "error",
@@ -174,16 +167,22 @@ async function writeAll(handle: FileHandle, content: string): Promise<void> {
 async function compareMissingPath(
 	target: string,
 	relativePath: string,
-	createdKind: "file" | "directory",
 ): Promise<ActivationFilesCompareResult | undefined> {
+	const actual = await inspectActivationTextFilePath(target);
+	if (actual.type === "error") return { type: "error", error: actual.error };
+	const mismatch = compareActivationTextFileState(relativePath, { type: "missing" }, actual);
+	return mismatch === undefined ? undefined : { type: "mismatch", details: mismatch };
+}
+
+async function inspectActivationTextFilePath(
+	target: string,
+): Promise<ActivationTextFileReadResult> {
 	try {
 		const state = await stat(target);
-		const actual = state.isFile() ? "file" : state.isDirectory() ? "directory" : "other";
-		if (actual === createdKind)
-			return activationPresenceMismatch(relativePath, "missing", "present");
-		return activationKindMismatch(relativePath, "missing", actual);
+		if (!state.isFile()) return { type: "not-file" };
+		return { type: "found", content: await readFile(target, "utf8") };
 	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return undefined;
+		if (isNodeErrorCode(error, "ENOENT")) return { type: "missing" };
 		return {
 			type: "error",
 			error: { code: "activation-path-inspect-failed", message: formatErrorMessage(error) },
@@ -194,9 +193,8 @@ async function compareMissingPath(
 async function compareCreatedPath(
 	target: string,
 	relativePath: string,
-	createdKind: "file" | "directory",
 ): Promise<ActivationFilesCompareResult> {
-	const comparison = await compareMissingPath(target, relativePath, createdKind);
+	const comparison = await compareMissingPath(target, relativePath);
 	return (
 		comparison ?? {
 			type: "error",

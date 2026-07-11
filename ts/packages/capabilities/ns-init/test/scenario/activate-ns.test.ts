@@ -81,9 +81,9 @@ describe("ns activation planning and apply", () => {
 		expect(declaredExtensions.calls()).toEqual([{ repoRoot: "/repo", specs: ["one", "two"] }]);
 		expect(prepared.type).toBe("prepared");
 		if (prepared.type !== "prepared") return;
-		expect(prepared.activation.instructions.content.indexOf("## One")).toBeLessThan(
-			prepared.activation.instructions.content.indexOf("## Two"),
-		);
+		expect(
+			prepared.activation.files["generated-instructions"].content.indexOf("## One"),
+		).toBeLessThan(prepared.activation.files["generated-instructions"].content.indexOf("## Two"));
 		expect(prepared.activation.consumerDirectories.map((entry) => entry.path)).toEqual([
 			".ns/one",
 			".ns/shared",
@@ -121,7 +121,7 @@ describe("ns activation planning and apply", () => {
 			nsTomlExpected: { type: "missing" },
 		});
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
-		expect(prepared.activation.managedExtensionsIgnore.change).toBe("appended");
+		expect(prepared.activation.files["managed-extensions-ignore"].change).toBe("appended");
 		await applyNsActivation(ctx, prepared.activation);
 		expect(files.fileContent(".gitignore")).toBe(`${original}.ns/managed-extensions/\n`);
 
@@ -134,7 +134,7 @@ describe("ns activation planning and apply", () => {
 			nsTomlExpected: { type: "file", content: 'harnesses = ["pi"]\n' },
 		});
 		if (rerun.type !== "prepared") throw new Error("expected prepared rerun");
-		expect(rerun.activation.managedExtensionsIgnore.change).toBe("unchanged");
+		expect(rerun.activation.files["managed-extensions-ignore"].change).toBe("unchanged");
 	});
 
 	it("treats a comment containing the managed extensions rule as absent", async () => {
@@ -150,7 +150,7 @@ describe("ns activation planning and apply", () => {
 			nsTomlExpected: { type: "missing" },
 		});
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
-		expect(prepared.activation.managedExtensionsIgnore.content).toBe(
+		expect(prepared.activation.files["managed-extensions-ignore"].content).toBe(
 			"# .ns/managed-extensions/\n.ns/managed-extensions/\n",
 		);
 	});
@@ -400,8 +400,10 @@ describe("ns activation planning and apply", () => {
 			phase: "consumer-directories",
 			error: { code: "activation-prepared-state-mismatch", details },
 			completed: {
-				nsToml: { change: "created" },
-				generatedInstructionsFile: { change: "created" },
+				files: {
+					"ns-toml": { change: "created" },
+					"generated-instructions": { change: "created" },
+				},
 			},
 		});
 	});
@@ -424,7 +426,12 @@ describe("ns activation planning and apply", () => {
 		expect(result).toMatchObject({
 			type: "apply-failed",
 			phase: "claude-instructions",
-			completed: { nsToml: { change: "created" }, agentsInstructionFile: { change: "created" } },
+			completed: {
+				files: {
+					"ns-toml": { change: "created" },
+					"agents-instructions": { change: "created" },
+				},
+			},
 		});
 		expect(files.operations()).toEqual([
 			{ type: "write", path: "ns.toml" },

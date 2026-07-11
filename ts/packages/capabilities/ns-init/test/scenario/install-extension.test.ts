@@ -332,8 +332,10 @@ describe("installExtension", () => {
 			data: {
 				phase: "agents-instructions",
 				completed: {
-					nsToml: { change: "appended" },
-					managedExtensionsIgnore: { change: "created" },
+					files: {
+						"ns-toml": { change: "appended" },
+						"managed-extensions-ignore": { change: "created" },
+					},
 				},
 			},
 		});
@@ -355,8 +357,10 @@ describe("installExtension", () => {
 			data: {
 				isRecorded: false,
 				completed: {
-					nsToml: { change: "unchanged" },
-					managedExtensionsIgnore: { change: "unchanged" },
+					files: {
+						"ns-toml": { change: "unchanged" },
+						"managed-extensions-ignore": { change: "unchanged" },
+					},
 				},
 			},
 		});

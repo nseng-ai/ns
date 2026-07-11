@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { InMemoryActivationFilesGateway } from "../../src/fake-activation-files.ts";
 import { RealActivationFilesGateway } from "../../src/real-activation-files.ts";
 
 describe("RealActivationFilesGateway", () => {
@@ -98,5 +99,59 @@ describe("RealActivationFilesGateway", () => {
 			type: "not-directory",
 		});
 		expect(await readFile(join(repoRoot, ".ns/data"), "utf8")).toBe("consumer data\n");
+	});
+
+	it("matches fake mismatch details for presence, kind, content, and gitkeep drift", async () => {
+		const fake = new InMemoryActivationFilesGateway();
+		const write = {
+			repoRoot,
+			file: "agents-instructions" as const,
+			expected: { type: "missing" as const },
+			content: "replacement\n",
+		};
+		await writeFile(join(repoRoot, "AGENTS.md"), "created externally\n", "utf8");
+		fake.simulateExternalMutation({
+			type: "write-file",
+			path: "AGENTS.md",
+			content: "created externally\n",
+		});
+		expect(await gateway.compareAndWriteActivationFile(write)).toEqual(
+			await fake.compareAndWriteActivationFile(write),
+		);
+
+		await rm(join(repoRoot, "AGENTS.md"));
+		await mkdir(join(repoRoot, "AGENTS.md"));
+		fake.simulateExternalMutation({ type: "replace-file-with-non-file", path: "AGENTS.md" });
+		const expectedFileWrite = {
+			...write,
+			expected: { type: "file" as const, content: "prepared\n" },
+		};
+		expect(await gateway.compareAndWriteActivationFile(expectedFileWrite)).toEqual(
+			await fake.compareAndWriteActivationFile(expectedFileWrite),
+		);
+
+		await rm(join(repoRoot, "AGENTS.md"), { recursive: true });
+		await writeFile(join(repoRoot, "AGENTS.md"), "changed\n", "utf8");
+		fake.simulateExternalMutation({ type: "write-file", path: "AGENTS.md", content: "changed\n" });
+		expect(await gateway.compareAndWriteActivationFile(expectedFileWrite)).toEqual(
+			await fake.compareAndWriteActivationFile(expectedFileWrite),
+		);
+
+		await mkdir(join(repoRoot, ".ns/data"), { recursive: true });
+		await writeFile(join(repoRoot, ".ns/data/.gitkeep"), "external\n", "utf8");
+		const fakeDirectory = new InMemoryActivationFilesGateway({ directories: [".ns/data"] });
+		fakeDirectory.simulateExternalMutation({
+			type: "write-file",
+			path: ".ns/data/.gitkeep",
+			content: "external\n",
+		});
+		const ensure = {
+			repoRoot,
+			relativePath: ".ns/data",
+			expected: { type: "directory" as const, gitkeep: "missing" as const },
+		};
+		expect(await gateway.compareAndEnsureConsumerDirectory(ensure)).toEqual(
+			await fakeDirectory.compareAndEnsureConsumerDirectory(ensure),
+		);
 	});
 });

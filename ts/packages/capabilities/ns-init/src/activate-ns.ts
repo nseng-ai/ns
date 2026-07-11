@@ -15,6 +15,8 @@ import { z } from "zod";
 import type { NsActivationContext } from "./activation-context.ts";
 import {
 	ACTIVATION_FILE_PATHS,
+	ACTIVATION_FILES,
+	activationFileSchema,
 	activationFilesCompareError,
 	type ActivationFile,
 	type ActivationTextFileReadResult,
@@ -78,20 +80,12 @@ export const declaredArtifactActivationOutcomeSchema = z
 
 export const activationCompletedSchema = z
 	.object({
-		nsToml: fileActivationOutcomeSchema.optional(),
-		managedExtensionsIgnore: fileActivationOutcomeSchema.optional(),
-		agentsInstructionFile: fileActivationOutcomeSchema.optional(),
-		claudeInstructionFile: fileActivationOutcomeSchema.optional(),
-		generatedInstructionsFile: fileActivationOutcomeSchema.optional(),
+		files: z.partialRecord(activationFileSchema, fileActivationOutcomeSchema),
 		consumerDirectories: z.array(consumerDirectoryOutcomeSchema).readonly().optional(),
 		artifacts: z.array(declaredArtifactActivationOutcomeSchema).readonly().optional(),
 	})
 	.overwrite((completed) => ({
-		...optionalEntry("nsToml", completed.nsToml),
-		...optionalEntry("managedExtensionsIgnore", completed.managedExtensionsIgnore),
-		...optionalEntry("agentsInstructionFile", completed.agentsInstructionFile),
-		...optionalEntry("claudeInstructionFile", completed.claudeInstructionFile),
-		...optionalEntry("generatedInstructionsFile", completed.generatedInstructionsFile),
+		files: completed.files,
 		...optionalEntry("consumerDirectories", completed.consumerDirectories),
 		...optionalEntry("artifacts", completed.artifacts),
 	}));
@@ -115,11 +109,7 @@ export interface PreparedNsActivation {
 	readonly repository: ResolvedActivationRepository;
 	readonly harnesses: readonly HarnessId[];
 	readonly harnessSource: "explicit" | "ns-toml";
-	readonly nsToml: PreparedFileWrite;
-	readonly managedExtensionsIgnore: PreparedFileWrite;
-	readonly agents: PreparedFileWrite;
-	readonly claude: PreparedFileWrite;
-	readonly instructions: PreparedFileWrite;
+	readonly files: Readonly<Record<ActivationFile, PreparedFileWrite>>;
 	readonly consumerDirectories: readonly PreparedConsumerDirectory[];
 	readonly expectedState: PreparedActivationExpectedState;
 	readonly artifacts: PreparedDeclaredArtifactActivation;
@@ -169,46 +159,51 @@ export async function prepareNsActivation(
 		diagnostics.push(toActivationDiagnostic(diagnostic));
 	}
 
-	const [managedExtensionsIgnoreRead, agentsRead, claudeRead, instructionsRead] = await Promise.all(
-		[
-			context.files.readActivationFile({
-				repoRoot: options.repository.repoRoot,
-				file: "managed-extensions-ignore",
-			}),
-			context.files.readActivationFile({
-				repoRoot: options.repository.repoRoot,
-				file: "agents-instructions",
-			}),
-			context.files.readActivationFile({
-				repoRoot: options.repository.repoRoot,
-				file: "claude-instructions",
-			}),
-			context.files.readActivationFile({
-				repoRoot: options.repository.repoRoot,
-				file: "generated-instructions",
-			}),
-		],
+	const activationReads: Partial<Record<ActivationFile, ActivationTextFileReadResult>> = {};
+	for (const file of ACTIVATION_FILES) {
+		if (file === "ns-toml") continue;
+		activationReads[file] = await context.files.readActivationFile({
+			repoRoot: options.repository.repoRoot,
+			file,
+		});
+	}
+	const managedExtensionsIgnoreRead = requiredActivationRead(
+		activationReads,
+		"managed-extensions-ignore",
 	);
-	const managedExtensionsIgnoreText = textForPreflight(
+	const agentsRead = requiredActivationRead(activationReads, "agents-instructions");
+	const claudeRead = requiredActivationRead(activationReads, "claude-instructions");
+	const instructionsRead = requiredActivationRead(activationReads, "generated-instructions");
+	const managedExtensionsIgnorePreflight = textForPreflight(
 		managedExtensionsIgnoreRead,
 		ACTIVATION_FILE_PATHS["managed-extensions-ignore"],
-		diagnostics,
 	);
+	if (managedExtensionsIgnorePreflight.diagnostic !== undefined) {
+		diagnostics.push(managedExtensionsIgnorePreflight.diagnostic);
+	}
 	const managedExtensionsIgnore = planManagedExtensionsIgnore(
 		managedExtensionsIgnoreRead,
-		managedExtensionsIgnoreText,
+		managedExtensionsIgnorePreflight.text,
 	);
-	const agentsText = textForPreflight(
+	const agentsPreflight = textForPreflight(
 		agentsRead,
 		ACTIVATION_FILE_PATHS["agents-instructions"],
-		diagnostics,
 	);
-	const claudeText = textForPreflight(
+	if (agentsPreflight.diagnostic !== undefined) diagnostics.push(agentsPreflight.diagnostic);
+	const claudePreflight = textForPreflight(
 		claudeRead,
 		ACTIVATION_FILE_PATHS["claude-instructions"],
-		diagnostics,
 	);
-	textForPreflight(instructionsRead, ACTIVATION_FILE_PATHS["generated-instructions"], diagnostics);
+	if (claudePreflight.diagnostic !== undefined) diagnostics.push(claudePreflight.diagnostic);
+	const instructionsPreflight = textForPreflight(
+		instructionsRead,
+		ACTIVATION_FILE_PATHS["generated-instructions"],
+	);
+	if (instructionsPreflight.diagnostic !== undefined) {
+		diagnostics.push(instructionsPreflight.diagnostic);
+	}
+	const agentsText = agentsPreflight.text;
+	const claudeText = claudePreflight.text;
 	const agentsApplied = applyNsPointerStanza({ text: agentsText });
 	if (agentsApplied.type === "malformed") {
 		diagnostics.push(
@@ -234,9 +229,10 @@ export async function prepareNsActivation(
 			repoRoot: options.repository.repoRoot,
 			relativePath: path,
 		});
-		const prepared = consumerDirectoryPreflight(path, inspection, diagnostics);
-		if (prepared !== undefined) {
-			preparedConsumerDirectories.push(prepared);
+		const preflight = consumerDirectoryPreflight(path, inspection);
+		if (preflight.diagnostic !== undefined) diagnostics.push(preflight.diagnostic);
+		if (preflight.prepared !== undefined) {
+			preparedConsumerDirectories.push(preflight.prepared);
 			expectedConsumerDirectories[path] = expectedConsumerDirectoryState(inspection);
 		}
 	}
@@ -278,22 +274,28 @@ export async function prepareNsActivation(
 			repository: options.repository,
 			harnesses: [...options.harnesses],
 			harnessSource: options.harnessSource,
-			nsToml: { file: "ns-toml", content: options.nsTomlContent, change: options.nsTomlChange },
-			managedExtensionsIgnore,
-			agents: {
-				file: "agents-instructions",
-				content: agentsApplied.content,
-				change: fileChange(agentsRead, agentsApplied.change),
-			},
-			claude: {
-				file: "claude-instructions",
-				content: claudeApplied.content,
-				change: fileChange(claudeRead, claudeApplied.change),
-			},
-			instructions: {
-				file: "generated-instructions",
-				content: generatedInstructions,
-				change: generatedFileChange(instructionsRead, generatedInstructions),
+			files: {
+				"ns-toml": {
+					file: "ns-toml",
+					content: options.nsTomlContent,
+					change: options.nsTomlChange,
+				},
+				"managed-extensions-ignore": managedExtensionsIgnore,
+				"agents-instructions": {
+					file: "agents-instructions",
+					content: agentsApplied.content,
+					change: fileChange(agentsRead, agentsApplied.change),
+				},
+				"claude-instructions": {
+					file: "claude-instructions",
+					content: claudeApplied.content,
+					change: fileChange(claudeRead, claudeApplied.change),
+				},
+				"generated-instructions": {
+					file: "generated-instructions",
+					content: generatedInstructions,
+					change: generatedFileChange(instructionsRead, generatedInstructions),
+				},
 			},
 			consumerDirectories: preparedConsumerDirectories,
 			expectedState: {
@@ -316,15 +318,9 @@ export async function applyNsActivation(
 	context: NsActivationContext,
 	prepared: PreparedNsActivation,
 ): Promise<ApplyNsActivationResult> {
-	const completed: MutableActivationCompleted = {};
-	const fileDuties = [
-		["nsToml", prepared.nsToml],
-		["managedExtensionsIgnore", prepared.managedExtensionsIgnore],
-		["agentsInstructionFile", prepared.agents],
-		["claudeInstructionFile", prepared.claude],
-		["generatedInstructionsFile", prepared.instructions],
-	] as const;
-	for (const [field, write] of fileDuties) {
+	const completed: MutableActivationCompleted = { files: {} };
+	for (const file of ACTIVATION_FILES) {
+		const write = prepared.files[file];
 		if (write.change !== "unchanged") {
 			const written = await context.files.compareAndWriteActivationFile({
 				repoRoot: prepared.repository.repoRoot,
@@ -341,7 +337,7 @@ export async function applyNsActivation(
 				};
 			}
 		}
-		completed[field] = { change: write.change };
+		completed.files[file] = { change: write.change };
 	}
 
 	const consumerOutcomes: ConsumerDirectoryOutcome[] = [];
@@ -388,9 +384,11 @@ export async function applyNsActivation(
 	return { type: "activated", completed };
 }
 
-type MutableActivationCompleted = {
-	-readonly [Key in keyof ActivationCompleted]?: ActivationCompleted[Key];
-};
+interface MutableActivationCompleted {
+	files: Partial<Record<ActivationFile, FileActivationOutcome>>;
+	consumerDirectories?: readonly ConsumerDirectoryOutcome[];
+	artifacts?: ActivationCompleted["artifacts"];
+}
 
 function expectedTextFileState(
 	read: ActivationTextFileReadResult,
@@ -410,52 +408,71 @@ function expectedConsumerDirectoryState(
 	throw new Error("Cannot prepare expected state from a failed consumer directory inspection.");
 }
 
+function requiredActivationRead(
+	reads: Partial<Record<ActivationFile, ActivationTextFileReadResult>>,
+	file: ActivationFile,
+): ActivationTextFileReadResult {
+	const read = reads[file];
+	if (read === undefined) throw new Error(`Missing activation preflight read for ${file}.`);
+	return read;
+}
+
 function textForPreflight(
 	read: ActivationTextFileReadResult,
 	path: string,
-	diagnostics: ActivationDiagnostic[],
-): string {
-	if (read.type === "found") return read.content;
-	if (read.type === "missing") return "";
+): { readonly text: string; readonly diagnostic?: ActivationDiagnostic } {
+	if (read.type === "found") return { text: read.content };
+	if (read.type === "missing") return { text: "" };
 	if (read.type === "not-file") {
-		diagnostics.push({
-			code: "activation-path-not-file",
-			message: `${path} exists but is not a file.`,
-			path,
-		});
-		return "";
+		return {
+			text: "",
+			diagnostic: {
+				code: "activation-path-not-file",
+				message: `${path} exists but is not a file.`,
+				path,
+			},
+		};
 	}
-	diagnostics.push({ code: read.error.code, message: read.error.message, path });
-	return "";
+	return {
+		text: "",
+		diagnostic: { code: read.error.code, message: read.error.message, path },
+	};
 }
 
 function consumerDirectoryPreflight(
 	path: string,
 	inspection: ConsumerDirectoryInspectionResult,
-	diagnostics: ActivationDiagnostic[],
-): PreparedConsumerDirectory | undefined {
-	if (inspection.type === "missing") return { path, change: "created" };
+): {
+	readonly prepared?: PreparedConsumerDirectory;
+	readonly diagnostic?: ActivationDiagnostic;
+} {
+	if (inspection.type === "missing") return { prepared: { path, change: "created" } };
 	if (inspection.type === "not-directory") {
-		diagnostics.push({
-			code: "consumer-path-not-directory",
-			message: `${path} exists but is not a directory.`,
-			path,
-		});
-		return undefined;
+		return {
+			diagnostic: {
+				code: "consumer-path-not-directory",
+				message: `${path} exists but is not a directory.`,
+				path,
+			},
+		};
 	}
 	if (inspection.type === "error") {
-		diagnostics.push({ code: inspection.error.code, message: inspection.error.message, path });
-		return undefined;
+		return {
+			diagnostic: { code: inspection.error.code, message: inspection.error.message, path },
+		};
 	}
 	if (inspection.gitkeep === "not-file") {
-		diagnostics.push({
-			code: "consumer-gitkeep-not-file",
-			message: `${path}/.gitkeep exists but is not a file.`,
-			path: `${path}/.gitkeep`,
-		});
-		return undefined;
+		return {
+			diagnostic: {
+				code: "consumer-gitkeep-not-file",
+				message: `${path}/.gitkeep exists but is not a file.`,
+				path: `${path}/.gitkeep`,
+			},
+		};
 	}
-	return { path, change: inspection.gitkeep === "missing" ? "updated" : "unchanged" };
+	return {
+		prepared: { path, change: inspection.gitkeep === "missing" ? "updated" : "unchanged" },
+	};
 }
 
 function stableConsumerDirectories(
@@ -522,6 +539,19 @@ function artifactConflictDiagnostic(artifactId: string, harness: HarnessId): Act
 		code: "artifact-local-conflict",
 		message: `Artifact ${artifactId} conflicts with local files for ${harness}.`,
 	};
+}
+
+export function activationRepositoryFailureDiagnostic(
+	result: Exclude<ResolveActivationRepositoryResult, { type: "resolved" }>,
+): ActivationDiagnostic {
+	switch (result.type) {
+		case "not-a-git-repo":
+			return { code: "not-a-git-repo", message: result.message, path: result.cwd };
+		case "trunk-undetectable":
+			return { code: "trunk-undetectable", message: result.message, path: result.repoRoot };
+		case "error":
+			return toActivationDiagnostic(result.error);
+	}
 }
 
 export async function resolveActivationRepository(

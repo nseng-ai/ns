@@ -8,10 +8,12 @@ import {
 	type HarnessId,
 	type NsTomlChange,
 } from "@nseng-ai/harness-artifacts/api";
+import { renderTextTable } from "@nseng-ai/foundation/text-table";
 import { z } from "zod";
 
 import {
 	activationCompletedSchema,
+	activationRepositoryFailureDiagnostic,
 	applyNsActivation,
 	prepareNsActivation,
 	resolveActivationRepository,
@@ -19,7 +21,7 @@ import {
 	type ResolveActivationRepositoryResult,
 } from "./activate-ns.ts";
 import type { NsActivationContext } from "./activation-context.ts";
-import { ACTIVATION_FILE_PATHS, type ActivationFile } from "./activation-files.ts";
+import { ACTIVATION_FILE_PATHS, ACTIVATION_FILES } from "./activation-files.ts";
 
 export const initNsRequestSchema = z.object({
 	harness: z
@@ -185,42 +187,26 @@ function preflightFailure(
 function repositoryFailure(
 	result: Exclude<ResolveActivationRepositoryResult, { type: "resolved" }>,
 ): ClinkrExit<InitNsResult> {
-	switch (result.type) {
-		case "not-a-git-repo":
-			return failure("ns-init-not-a-git-repo", result.message, {
-				phase: "preflight",
-				diagnostics: [{ code: "not-a-git-repo", message: result.message, path: result.cwd }],
-				completed: {},
-			});
-		case "trunk-undetectable":
-			return failure("ns-init-trunk-undetectable", result.message, {
-				phase: "preflight",
-				diagnostics: [
-					{ code: "trunk-undetectable", message: result.message, path: result.repoRoot },
-				],
-				completed: {},
-			});
-		case "error":
-			return failure("ns-init-activation-failed", result.error.message, {
-				phase: "preflight",
-				diagnostics: [result.error],
-				completed: {},
-			});
-	}
+	const diagnostic = activationRepositoryFailureDiagnostic(result);
+	const errorType =
+		result.type === "not-a-git-repo"
+			? "ns-init-not-a-git-repo"
+			: result.type === "trunk-undetectable"
+				? "ns-init-trunk-undetectable"
+				: "ns-init-activation-failed";
+	return failure(errorType, diagnostic.message, {
+		phase: "preflight",
+		diagnostics: [diagnostic],
+		completed: {},
+	});
 }
 
 export function renderInitNsHuman(data: InitNsResult): string {
 	const completed = data.completed;
-	const fileOutcomes: readonly (readonly [ActivationFile, FileActivationOutcome | undefined])[] = [
-		["ns-toml", completed.nsToml],
-		["managed-extensions-ignore", completed.managedExtensionsIgnore],
-		["agents-instructions", completed.agentsInstructionFile],
-		["claude-instructions", completed.claudeInstructionFile],
-		["generated-instructions", completed.generatedInstructionsFile],
-	];
-	const fileRows = fileOutcomes.flatMap(([file, outcome]) =>
-		outcome === undefined ? [] : [[ACTIVATION_FILE_PATHS[file], outcome.change] as const],
-	);
+	const fileRows = ACTIVATION_FILES.flatMap((file) => {
+		const outcome: FileActivationOutcome | undefined = completed.files[file];
+		return outcome === undefined ? [] : [[ACTIVATION_FILE_PATHS[file], outcome.change] as const];
+	});
 	const directoryRows = (completed.consumerDirectories ?? []).map(
 		(outcome) => [outcome.path, outcome.change] as const,
 	);
@@ -233,18 +219,13 @@ export function renderInitNsHuman(data: InitNsResult): string {
 					: `${outcome.action} [${outcome.removalReason}]`,
 			] as const,
 	);
-	const labelWidth =
-		Math.max(
-			0,
-			...[...fileRows, ...directoryRows, ...artifactRows].map(([label]) => label.length),
-		) + 2;
 	const lines = [
 		`Activated ns in ${data.repoRoot}.`,
 		`Harnesses (${data.harnessSource}): ${data.harnesses.join(", ")}.`,
 	];
-	appendReportSection(lines, "Files:", fileRows, labelWidth);
-	appendReportSection(lines, "Consumer directories:", directoryRows, labelWidth);
-	appendReportSection(lines, "Artifacts:", artifactRows, labelWidth);
+	appendReportSection(lines, "Files:", fileRows);
+	appendReportSection(lines, "Consumer directories:", directoryRows);
+	appendReportSection(lines, "Artifacts:", artifactRows);
 	return lines.join("\n");
 }
 
@@ -252,11 +233,11 @@ function appendReportSection(
 	lines: string[],
 	title: string,
 	rows: readonly (readonly [string, string])[],
-	labelWidth: number,
 ): void {
 	if (rows.length === 0) return;
-	lines.push(title);
-	for (const [label, value] of rows) {
-		lines.push(`  ${label.padEnd(labelWidth)}${value}`);
-	}
+	const table = renderTextTable({
+		columns: [{ header: "" }, { header: "" }],
+		rows: rows.map(([label, value]) => [`  ${label}`, value]),
+	});
+	lines.push(title, ...table.split("\n").slice(1));
 }

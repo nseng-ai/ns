@@ -17,8 +17,13 @@ describe("activation completion schema", () => {
 		expect(() => z.toJSONSchema(installExtensionResultSchema, { io: "output" })).not.toThrow();
 	});
 
-	it("omits absent optional completion and artifact keys", () => {
-		expect(activationCompletedSchema.parse({ nsToml: undefined })).toEqual({});
+	it("omits unattempted file outcomes and absent artifact keys", () => {
+		const completed = activationCompletedSchema.parse({
+			files: { "agents-instructions": { change: "created" } },
+		});
+		expect(completed).toEqual({ files: { "agents-instructions": { change: "created" } } });
+		expect("ns-toml" in completed.files).toBe(false);
+		expect(() => activationCompletedSchema.parse({ files: { "ns-toml": undefined } })).toThrow();
 
 		expect(
 			declaredArtifactActivationOutcomeSchema.parse({

@@ -13,7 +13,14 @@ export type {
 	PreparedActivationExpectedState,
 	PreparedStateMismatchDetails,
 } from "./activation-files.ts";
-export { ACTIVATION_FILE_PATHS, ACTIVATION_FILES } from "./activation-files.ts";
+export {
+	ACTIVATION_FILE_PATHS,
+	ACTIVATION_FILES,
+	activationFileSchema,
+	compareActivationTextFileState,
+	compareConsumerDirectoryState,
+	GENERATED_INSTRUCTIONS_PATH,
+} from "./activation-files.ts";
 export type {
 	ArtifactActivationGateway,
 	PrepareArtifactActivationParams,
@@ -52,7 +59,6 @@ export {
 	applyNsPointerStanza,
 	CLAUDE_AGENTS_IMPORT_LINE,
 	ensureClaudeAgentsImport,
-	GENERATED_INSTRUCTIONS_PATH,
 	NS_POINTER_STANZA_VERSION,
 	renderGeneratedInstructions,
 	renderNsPointerStanza,
@@ -69,6 +75,7 @@ export type {
 	ResolveActivationRepositoryResult,
 } from "./activate-ns.ts";
 export {
+	activationRepositoryFailureDiagnostic,
 	applyNsActivation,
 	prepareNsActivation,
 	resolveActivationRepository,

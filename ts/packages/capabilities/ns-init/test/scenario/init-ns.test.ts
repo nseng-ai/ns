@@ -49,10 +49,12 @@ describe("initNs", () => {
 			harnesses: ["codex", "claude-code"],
 			harnessSource: "explicit",
 			completed: {
-				nsToml: { change: "created" },
-				managedExtensionsIgnore: { change: "created" },
-				agentsInstructionFile: { change: "created" },
-				generatedInstructionsFile: { change: "created" },
+				files: {
+					"ns-toml": { change: "created" },
+					"managed-extensions-ignore": { change: "created" },
+					"agents-instructions": { change: "created" },
+					"generated-instructions": { change: "created" },
+				},
 				consumerDirectories: [],
 				artifacts: [],
 			},
@@ -72,10 +74,12 @@ describe("initNs", () => {
 			data: {
 				harnessSource: "ns-toml",
 				completed: {
-					nsToml: { change: "unchanged" },
-					managedExtensionsIgnore: { change: "unchanged" },
-					agentsInstructionFile: { change: "unchanged" },
-					generatedInstructionsFile: { change: "unchanged" },
+					files: {
+						"ns-toml": { change: "unchanged" },
+						"managed-extensions-ignore": { change: "unchanged" },
+						"agents-instructions": { change: "unchanged" },
+						"generated-instructions": { change: "unchanged" },
+					},
 				},
 			},
 		});
@@ -98,6 +102,25 @@ describe("initNs", () => {
 				"  .ns/instructions.md  created",
 			].join("\n"),
 		);
+	});
+
+	it("renders sparse files in canonical order regardless of record insertion order", () => {
+		const rendered = renderInitNsHuman({
+			repoRoot: "/repo",
+			trunkBranch: "main",
+			harnesses: ["pi"],
+			harnessSource: "explicit",
+			completed: {
+				files: {
+					"generated-instructions": { change: "created" },
+					"ns-toml": { change: "unchanged" },
+					"agents-instructions": { change: "appended" },
+				},
+			},
+		});
+		expect(rendered.indexOf("ns.toml")).toBeLessThan(rendered.indexOf("AGENTS.md"));
+		expect(rendered.indexOf("AGENTS.md")).toBeLessThan(rendered.indexOf(".ns/instructions.md"));
+		expect(rendered).not.toContain(".gitignore");
 	});
 
 	it("preserves removed artifact cleanup details in structured and human reports", async () => {
