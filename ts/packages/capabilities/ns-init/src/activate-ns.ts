@@ -4,6 +4,7 @@ import {
 	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
 	HARNESS_ARTIFACT_REMOVAL_REASONS,
 	parseNsTomlExtensions,
+	preparedDeclaredArtifactActivationItemArtifactId,
 	type HarnessId,
 	type NsTomlChange,
 	type PreparedDeclaredArtifactActivation,
@@ -259,8 +260,12 @@ export async function prepareNsActivation(
 		}
 		for (const item of artifactPreparation.prepared.artifacts) {
 			if (item.action !== "conflicted") continue;
-			const artifactId = item.type === "remove" ? item.removal.entry.artifactId : item.artifact.id;
-			diagnostics.push(artifactConflictDiagnostic(artifactId, item.harness));
+			diagnostics.push(
+				artifactConflictDiagnostic(
+					preparedDeclaredArtifactActivationItemArtifactId(item),
+					item.harness,
+				),
+			);
 		}
 	}
 

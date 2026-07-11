@@ -130,14 +130,13 @@ async function validateAndAssembleCatalog(
 		declarationDiagnostic(diagnostic, module.moduleRoot),
 	);
 	if (!parsed.ok) {
-		return {
-			type: "npm-module-catalog",
+		return createResolvedNpmModuleHarnessArtifactCatalog({
 			moduleRoot: module.moduleRoot,
 			packageName: module.packageName,
 			version: module.version,
 			artifacts: [],
-			diagnostics: sortDiscoveryDiagnostics(declarationDiagnostics),
-		};
+			diagnostics: declarationDiagnostics,
+		});
 	}
 	const artifactResults = await validateDiscoveredArtifacts({
 		moduleRoot: module.moduleRoot,
@@ -145,16 +144,22 @@ async function validateAndAssembleCatalog(
 		artifacts: parsed.artifacts,
 		gateway,
 	});
-	return {
-		type: "npm-module-catalog",
+	return createResolvedNpmModuleHarnessArtifactCatalog({
 		moduleRoot: module.moduleRoot,
 		packageName: parsed.packageName,
 		version: parsed.version,
 		artifacts: artifactResults.artifacts,
-		diagnostics: sortDiscoveryDiagnostics([
-			...declarationDiagnostics,
-			...artifactResults.diagnostics,
-		]),
+		diagnostics: [...declarationDiagnostics, ...artifactResults.diagnostics],
+	});
+}
+
+function createResolvedNpmModuleHarnessArtifactCatalog(
+	catalog: Omit<ResolvedNpmModuleHarnessArtifactCatalog, "type">,
+): ResolvedNpmModuleHarnessArtifactCatalog {
+	return {
+		type: "npm-module-catalog",
+		...catalog,
+		diagnostics: sortDiscoveryDiagnostics(catalog.diagnostics),
 	};
 }
 
