@@ -31,14 +31,14 @@ describe("buildGrillStatusWidgetLines", () => {
 		expect(line).toContain("▌GRILL · Q3 pending · 2 answered");
 		expect(line).toContain("Remaining 2–4");
 		expect(line).toContain('"How should the cache invalidate entries across worktrees?"');
-		expect(line).toContain("sq:<topic> in freeform = side quest");
+		expect(line).toContain("⚑ Start a side quest in grill menu");
 	});
 
 	test("grilling state without a latest ask still shows counts and the hint", () => {
 		const lines = buildGrillStatusWidgetLines({ grill: "active", answeredCount: 0 });
 
 		expect(lines).toEqual([
-			"▌GRILL · Q1 pending · 0 answered · sq:<topic> in freeform = side quest",
+			"▌GRILL · Q1 pending · 0 answered · ⚑ Start a side quest in grill menu",
 		]);
 	});
 
@@ -109,7 +109,7 @@ describe("refreshGrillStatusWidget", () => {
 		refreshGrillStatusWidget(active.ctx);
 		expect(active.calls).toEqual([
 			{
-				lines: ["▌GRILL · Q1 pending · 0 answered · sq:<topic> in freeform = side quest"],
+				lines: ["▌GRILL · Q1 pending · 0 answered · ⚑ Start a side quest in grill menu"],
 				placement: "belowEditor",
 			},
 		]);

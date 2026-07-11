@@ -56,6 +56,10 @@ export interface GrillAskInput {
 	allowEnd?: boolean;
 }
 
+export interface GrillAskViewOptions {
+	canStartSideQuest?: boolean;
+}
+
 export interface NormalizedGrillAskInput {
 	question: string;
 	context?: string;
@@ -69,6 +73,7 @@ export interface NormalizedGrillAskInput {
 export type GrillAskUiRunner = (
 	input: NormalizedGrillAskInput,
 	ctx: GrillAskToolContext,
+	viewOptions?: GrillAskViewOptions,
 ) => Promise<GrillAskOutcome | undefined>;
 
 export interface GrillAskExecutionOptions {

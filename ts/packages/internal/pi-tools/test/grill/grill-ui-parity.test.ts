@@ -8,7 +8,7 @@ describe("grill Pi extension parity metadata", () => {
 		// The side-quest commands register only on hosts with session-entry
 		// capabilities; extend the fake host so all metadata rows go live.
 		await expectPiSurfaceParity((pi: FakePiSurfaceHost) => {
-			const sidequestCapablePi = Object.assign(pi, {
+			const sidequestCapablePi = Object.assign(Object.create(pi), {
 				appendEntry: () => {},
 				setLabel: () => {},
 			});

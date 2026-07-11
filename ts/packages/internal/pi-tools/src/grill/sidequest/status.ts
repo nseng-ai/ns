@@ -5,15 +5,15 @@ import { scanGrillBranchFromSessionManager } from "./state.ts";
 
 export const GRILL_STATUS_WIDGET_KEY = "grill-sidequest-status";
 
-const QUESTION_PREVIEW_MAX_LENGTH = 60;
-const TOPIC_PREVIEW_MAX_LENGTH = 40;
+const QUESTION_PREVIEW_MAX_CHARS = 60;
+const TOPIC_PREVIEW_MAX_CHARS = 40;
 
 /** Pure widget-line renderer. `undefined` means the widget should be cleared. */
 export function buildGrillStatusWidgetLines(state: SidequestScanState): string[] | undefined {
 	if (state.grill !== "active") return undefined;
 
 	if (state.activeQuest !== undefined) {
-		const topic = truncateSingleLine(state.activeQuest.topic, TOPIC_PREVIEW_MAX_LENGTH);
+		const topic = truncateSingleLine(state.activeQuest.topic, TOPIC_PREVIEW_MAX_CHARS);
 		return [
 			`▌GRILL ⚑ side quest: ${topic} · paused at Q${state.answeredCount + 1} · back: tree → ⚑ mark, or /pi:grill-return`,
 		];
@@ -23,10 +23,10 @@ export function buildGrillStatusWidgetLines(state: SidequestScanState): string[]
 	if (state.latestAsk !== undefined) {
 		parts.push(
 			formatRemainingEstimate(state.latestAsk.estimatedRemaining, "compact"),
-			`"${truncateSingleLine(state.latestAsk.question, QUESTION_PREVIEW_MAX_LENGTH)}"`,
+			`"${truncateSingleLine(state.latestAsk.question, QUESTION_PREVIEW_MAX_CHARS)}"`,
 		);
 	}
-	parts.push("sq:<topic> in freeform = side quest");
+	parts.push("⚑ Start a side quest in grill menu");
 	return [parts.join(" · ")];
 }
 

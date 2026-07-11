@@ -18,7 +18,7 @@ import {
 	textResult,
 	type GrillAskDetails,
 } from "./result.ts";
-import { resolveFreeformSideQuest } from "./sidequest/sentinel.ts";
+import { resolveFreeformSideQuest, resolveSideQuest } from "./sidequest/sentinel.ts";
 import { validateGrillAskInput } from "./validate.ts";
 import { buildGrillAskRows, rowSelectDisplay } from "./view.ts";
 
@@ -45,7 +45,9 @@ export async function executeGrillAsk(
 	if (ctx.hasUI && ctx.ui.custom !== undefined) {
 		const uiRunner = executionOptions.uiRunner ?? runGrillAskInlineUi;
 		try {
-			const outcome = await uiRunner(input, ctx);
+			const outcome = await uiRunner(input, ctx, {
+				canStartSideQuest: executionOptions.onSideQuestStarted !== undefined,
+			});
 			if (outcome === undefined) {
 				return cancelledResult(input.question);
 			}
@@ -73,7 +75,9 @@ async function executeLegacyGrillAsk(
 		);
 	}
 
-	const rows = buildGrillAskRows(input);
+	const rows = buildGrillAskRows(input, {
+		canStartSideQuest: executionOptions.onSideQuestStarted !== undefined,
+	});
 	const displays = rows.map(rowSelectDisplay);
 	const progress = readGrillAskProgress(ctx);
 	const selectedDisplay = await ctx.ui.select(buildGrillAskSelectTitle(input, progress), displays);
@@ -92,6 +96,8 @@ async function executeLegacyGrillAsk(
 			return selectedChoiceResult(input.question, selectedRow);
 		case "freeform":
 			return executeLegacyFreeformAnswer(input, ctx, executionOptions);
+		case "side-quest":
+			return executeLegacySideQuest(input, ctx, executionOptions);
 		case "status":
 			return statusRequestResult(input.question, progress, input.estimatedRemaining);
 		case "end-grill":
@@ -101,6 +107,24 @@ async function executeLegacyGrillAsk(
 			return exhaustive;
 		}
 	}
+}
+
+async function executeLegacySideQuest(
+	input: NormalizedGrillAskInput,
+	ctx: GrillAskToolContext,
+	executionOptions: GrillAskExecutionOptions,
+): Promise<ToolResult<GrillAskDetails>> {
+	if (ctx.ui.editor === undefined) {
+		return textResult(
+			"Structured grill side-quest editor is unavailable. Ask the user for the side-quest topic without treating it as an answer to the pending grill question.",
+			{ action: "ui-unavailable", question: input.question },
+		);
+	}
+	const topic = await ctx.ui.editor("Side quest topic", "");
+	if (topic === undefined || topic.trim().length === 0) {
+		return cancelledResult(input.question, BLANK_FREEFORM_MESSAGE);
+	}
+	return sideQuestResult({ input, ctx, executionOptions, text: topic });
 }
 
 async function executeLegacyFreeformAnswer(
@@ -118,27 +142,51 @@ async function executeLegacyFreeformAnswer(
 	if (answer === undefined || answer.trim().length === 0) {
 		return cancelledResult(input.question, BLANK_FREEFORM_MESSAGE);
 	}
-	return freeformOrSideQuestResult(input, ctx, executionOptions, answer);
+	return freeformOrSideQuestResult({ input, ctx, executionOptions, text: answer });
 }
 
-function freeformOrSideQuestResult(
-	input: NormalizedGrillAskInput,
-	ctx: GrillAskToolContext,
-	executionOptions: GrillAskExecutionOptions,
-	answer: string,
-): ToolResult<GrillAskDetails> {
-	const sideQuest = resolveFreeformSideQuest({
-		answer,
-		question: input.question,
-		ctx,
-		...(executionOptions.toolCallId === undefined
+interface SideQuestResultOptions {
+	input: NormalizedGrillAskInput;
+	ctx: GrillAskToolContext;
+	executionOptions: GrillAskExecutionOptions;
+	text: string;
+}
+
+interface SideQuestResolutionContext {
+	question: string;
+	ctx: GrillAskToolContext;
+	toolCallId?: string;
+	onSideQuestStarted?: NonNullable<GrillAskExecutionOptions["onSideQuestStarted"]>;
+}
+
+function buildSideQuestResolutionContext(
+	options: SideQuestResultOptions,
+): SideQuestResolutionContext {
+	return {
+		question: options.input.question,
+		ctx: options.ctx,
+		...(options.executionOptions.toolCallId === undefined
 			? {}
-			: { toolCallId: executionOptions.toolCallId }),
-		...(executionOptions.onSideQuestStarted === undefined
+			: { toolCallId: options.executionOptions.toolCallId }),
+		...(options.executionOptions.onSideQuestStarted === undefined
 			? {}
-			: { onSideQuestStarted: executionOptions.onSideQuestStarted }),
+			: { onSideQuestStarted: options.executionOptions.onSideQuestStarted }),
+	};
+}
+
+function sideQuestResult(options: SideQuestResultOptions): ToolResult<GrillAskDetails> {
+	return resolveSideQuest({
+		topic: options.text,
+		...buildSideQuestResolutionContext(options),
 	});
-	return sideQuest ?? freeformAnswerResult(input.question, answer);
+}
+
+function freeformOrSideQuestResult(options: SideQuestResultOptions): ToolResult<GrillAskDetails> {
+	const sideQuest = resolveFreeformSideQuest({
+		answer: options.text,
+		...buildSideQuestResolutionContext(options),
+	});
+	return sideQuest ?? freeformAnswerResult(options.input.question, options.text);
 }
 
 function grillAskOutcomeResult(
@@ -151,7 +199,14 @@ function grillAskOutcomeResult(
 		case "choice":
 			return selectedChoiceResult(input.question, outcome.entry);
 		case "freeform":
-			return freeformOrSideQuestResult(input, ctx, executionOptions, outcome.answer);
+			return freeformOrSideQuestResult({
+				input,
+				ctx,
+				executionOptions,
+				text: outcome.answer,
+			});
+		case "side-quest":
+			return sideQuestResult({ input, ctx, executionOptions, text: outcome.topic });
 		case "status-request":
 			return statusRequestResult(
 				input.question,

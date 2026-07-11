@@ -12,7 +12,6 @@ import {
 	handleSessionBeforeTree,
 	handleSessionShutdown,
 	handleSessionTree,
-	stashPendingMarkLabel,
 } from "./hooks.ts";
 import type { SideQuestStartedInfo, SidequestHost } from "./protocol.ts";
 import { refreshGrillStatusWidget } from "./status.ts";
@@ -79,7 +78,7 @@ export function registerGrillSidequest(pi: SidequestHost): GrillSidequestRegistr
 
 	return {
 		onSideQuestStarted: (info) => {
-			stashPendingMarkLabel(state, info);
+			state.stashPendingMarkLabel(info);
 		},
 	};
 }

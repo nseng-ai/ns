@@ -59,8 +59,7 @@ export async function handleGrillReturnCommand(
 		return;
 	}
 
-	state.isCommandInitiatedReturn = true;
-	try {
+	await state.runCommandInitiatedReturn(async () => {
 		await ctx.navigateTree(quest.markEntryId, {
 			summarize: disposition !== "discard",
 			...(disposition === "discard"
@@ -70,9 +69,7 @@ export async function handleGrillReturnCommand(
 						label: buildSideQuestReturnLabel(quest.topic),
 					}),
 		});
-	} finally {
-		state.isCommandInitiatedReturn = false;
-	}
+	});
 }
 
 async function pickReturnDisposition(

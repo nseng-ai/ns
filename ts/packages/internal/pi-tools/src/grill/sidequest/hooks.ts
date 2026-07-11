@@ -27,22 +27,42 @@ import { clearGrillStatusWidget, refreshGrillStatusWidget } from "./status.ts";
  * flow-control data lives here: the machine-readable quest state derives from
  * session entries, so losing this state (restart, reload) degrades gracefully.
  */
-export interface GrillSidequestRuntimeState {
+export class GrillSidequestRuntimeState {
 	/** Deferred ⚑ mark labels, keyed by grill_ask tool call id, applied on agent_settled. */
-	pendingMarkLabels: Map<string, string>;
+	private readonly pendingMarkLabels = new Map<string, string>();
 	/** Set while /pi:grill-return navigates, so the before-tree hook skips the picker. */
-	isCommandInitiatedReturn: boolean;
+	private isCommandInitiatedReturn = false;
+
+	stashPendingMarkLabel(info: SideQuestStartedInfo): void {
+		this.pendingMarkLabels.set(info.toolCallId, buildSideQuestMarkLabel(info.question));
+	}
+
+	pendingMarkLabelEntries(): ReadonlyArray<readonly [string, string]> {
+		return [...this.pendingMarkLabels.entries()];
+	}
+
+	discardPendingMarkLabel(toolCallId: string): void {
+		this.pendingMarkLabels.delete(toolCallId);
+	}
+
+	async runCommandInitiatedReturn(navigate: () => Promise<void>): Promise<void> {
+		this.isCommandInitiatedReturn = true;
+		try {
+			await navigate();
+		} finally {
+			this.isCommandInitiatedReturn = false;
+		}
+	}
+
+	consumeCommandInitiatedReturn(): boolean {
+		if (!this.isCommandInitiatedReturn) return false;
+		this.isCommandInitiatedReturn = false;
+		return true;
+	}
 }
 
 export function createGrillSidequestRuntimeState(): GrillSidequestRuntimeState {
-	return { pendingMarkLabels: new Map(), isCommandInitiatedReturn: false };
-}
-
-export function stashPendingMarkLabel(
-	state: GrillSidequestRuntimeState,
-	info: SideQuestStartedInfo,
-): void {
-	state.pendingMarkLabels.set(info.toolCallId, buildSideQuestMarkLabel(info.question));
+	return new GrillSidequestRuntimeState();
 }
 
 export function handleAgentSettled(
@@ -64,10 +84,9 @@ export async function handleSessionBeforeTree(
 	const quest = scan.activeQuest;
 	if (event.preparation.targetId !== quest.markEntryId) return undefined;
 
-	if (state.isCommandInitiatedReturn) {
+	if (state.consumeCommandInitiatedReturn()) {
 		// /pi:grill-return already chose the disposition and passed the
 		// summarize/customInstructions/label overrides through navigateTree.
-		state.isCommandInitiatedReturn = false;
 		return undefined;
 	}
 
@@ -119,13 +138,14 @@ function flushPendingMarkLabels(
 	state: GrillSidequestRuntimeState,
 	ctx: SidequestEventContext,
 ): void {
-	if (state.pendingMarkLabels.size === 0) return;
+	const pendingMarkLabels = state.pendingMarkLabelEntries();
+	if (pendingMarkLabels.length === 0) return;
 	const entries = readSessionEntries(ctx);
 	if (entries === undefined) return;
-	for (const [toolCallId, label] of [...state.pendingMarkLabels]) {
+	for (const [toolCallId, label] of pendingMarkLabels) {
 		const entryId = findToolResultEntryId(entries, toolCallId);
 		if (entryId === undefined) continue;
-		state.pendingMarkLabels.delete(toolCallId);
+		state.discardPendingMarkLabel(toolCallId);
 		try {
 			pi.setLabel(entryId, label);
 		} catch {

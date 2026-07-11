@@ -11,7 +11,7 @@ export const GRILL_SIDEQUEST_KICKOFF_MARKER_CLOSE = "</grill-sidequest-start>";
 export const SIDE_QUEST_DISPOSITIONS = ["fold-in", "note", "discard"] as const;
 export type SideQuestDisposition = (typeof SIDE_QUEST_DISPOSITIONS)[number];
 
-const MARK_LABEL_QUESTION_MAX_LENGTH = 48;
+const MARK_LABEL_QUESTION_MAX_CHARS = 48;
 
 export function buildSideQuestStartedText(topic: string, question: string): string {
 	return [
@@ -77,11 +77,11 @@ export function sideQuestSummaryInstructions(mode: "fold-in" | "note"): string {
 }
 
 export function buildSideQuestMarkLabel(question: string): string {
-	return `⚑ side quest base · ${truncateSingleLine(question, MARK_LABEL_QUESTION_MAX_LENGTH)}`;
+	return `⚑ side quest base · ${truncateSingleLine(question, MARK_LABEL_QUESTION_MAX_CHARS)}`;
 }
 
 export function buildSideQuestReturnLabel(topic: string): string {
-	return `side quest: ${truncateSingleLine(topic, MARK_LABEL_QUESTION_MAX_LENGTH)}`;
+	return `side quest: ${truncateSingleLine(topic, MARK_LABEL_QUESTION_MAX_CHARS)}`;
 }
 
 export const SIDE_QUEST_DISPOSITION_CHOICES = {

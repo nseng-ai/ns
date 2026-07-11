@@ -85,7 +85,14 @@ function register(): { pi: FakeSidequestPi; tool: ToolDefinition } {
 	registerGrillUiExtension(pi);
 	const tool = pi.tools.get(GRILL_ASK_TOOL_NAME);
 	expect(tool).toBeDefined();
-	return { pi, tool: tool! };
+	if (tool === undefined) throw new Error("Missing registered grill_ask tool");
+	return { pi, tool };
+}
+
+function registeredCommand(pi: FakeSidequestPi, name: string): FakeCommand {
+	const command = pi.commands.get(name);
+	if (command === undefined) throw new Error(`Missing registered ${name} command`);
+	return command;
 }
 
 function userEntry(id: string, text: string): unknown {
@@ -264,7 +271,7 @@ describe("freeform sentinel to labeled mark", () => {
 describe("/pi:grill-sidequest command", () => {
 	test("refuses blank topics, missing grills, and active quests", async () => {
 		const { pi } = register();
-		const command = pi.commands.get(GRILL_SIDEQUEST_COMMAND_NAME)!;
+		const command = registeredCommand(pi, GRILL_SIDEQUEST_COMMAND_NAME);
 
 		const blank = fakeCommandContext({ branch: grillingBranch() });
 		await command.handler("   ", blank.ctx);
@@ -286,13 +293,14 @@ describe("/pi:grill-sidequest command", () => {
 
 	test("starts an idle side quest with the scanner marker and pending question", async () => {
 		const { pi } = register();
-		const command = pi.commands.get(GRILL_SIDEQUEST_COMMAND_NAME)!;
+		const command = registeredCommand(pi, GRILL_SIDEQUEST_COMMAND_NAME);
 		const { ctx } = fakeCommandContext({ branch: grillingBranch() });
 
 		await command.handler("explore the cache layer", ctx);
 
 		expect(pi.sentUserMessages).toHaveLength(1);
-		const message = pi.sentUserMessages[0]!;
+		const message = pi.sentUserMessages[0];
+		if (message === undefined) throw new Error("Missing side-quest kickoff message");
 		expect(message).toContain(
 			"<grill-sidequest-start>\nexplore the cache layer\n</grill-sidequest-start>",
 		);
@@ -304,7 +312,7 @@ describe("/pi:grill-sidequest command", () => {
 describe("/pi:grill-return command", () => {
 	test("warns when no side quest is active", async () => {
 		const { pi } = register();
-		const command = pi.commands.get(GRILL_RETURN_COMMAND_NAME)!;
+		const command = registeredCommand(pi, GRILL_RETURN_COMMAND_NAME);
 		const { ctx, recording } = fakeCommandContext({ branch: grillingBranch() });
 
 		await command.handler("", ctx);
@@ -328,7 +336,7 @@ describe("/pi:grill-return command", () => {
 		},
 	])("navigates to the mark with $choice", async ({ choice, summarize, instructionFragment }) => {
 		const { pi } = register();
-		const command = pi.commands.get(GRILL_RETURN_COMMAND_NAME)!;
+		const command = registeredCommand(pi, GRILL_RETURN_COMMAND_NAME);
 		const { ctx, recording } = fakeCommandContext({
 			branch: questBranch(),
 			selectResult: choice,
@@ -337,7 +345,8 @@ describe("/pi:grill-return command", () => {
 		await command.handler("", ctx);
 
 		expect(recording.navigations).toHaveLength(1);
-		const navigation = recording.navigations[0]!;
+		const navigation = recording.navigations[0];
+		if (navigation === undefined) throw new Error("Missing side-quest return navigation");
 		expect(navigation.targetId).toBe("mark");
 		expect(navigation.options).toMatchObject({
 			summarize,
@@ -348,7 +357,7 @@ describe("/pi:grill-return command", () => {
 
 	test("discard navigates without summary or instructions", async () => {
 		const { pi } = register();
-		const command = pi.commands.get(GRILL_RETURN_COMMAND_NAME)!;
+		const command = registeredCommand(pi, GRILL_RETURN_COMMAND_NAME);
 		const { ctx, recording } = fakeCommandContext({
 			branch: questBranch(),
 			selectResult: SIDE_QUEST_DISPOSITION_CHOICES.discard,
@@ -361,7 +370,7 @@ describe("/pi:grill-return command", () => {
 
 	test("cancelling the picker skips navigation", async () => {
 		const { pi } = register();
-		const command = pi.commands.get(GRILL_RETURN_COMMAND_NAME)!;
+		const command = registeredCommand(pi, GRILL_RETURN_COMMAND_NAME);
 		const { ctx, recording } = fakeCommandContext({ branch: questBranch() });
 
 		await command.handler("", ctx);
@@ -374,7 +383,7 @@ describe("/pi:grill-return command", () => {
 
 	test("the before-tree hook skips its picker during a command-initiated return", async () => {
 		const { pi } = register();
-		const command = pi.commands.get(GRILL_RETURN_COMMAND_NAME)!;
+		const command = registeredCommand(pi, GRILL_RETURN_COMMAND_NAME);
 		const beforeTreeResults: unknown[] = [];
 		let hookSelectCalls = 0;
 

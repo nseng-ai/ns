@@ -671,6 +671,38 @@ describe("grill_ask execution", () => {
 		expect(text(result)).toContain("User provided a freeform answer: Use an even smaller spike.");
 	});
 
+	test("first-class side-quest row asks for a topic and starts the quest", async () => {
+		const started: unknown[] = [];
+		const result = await executeGrillAsk(
+			baseInput(),
+			{
+				hasUI: true,
+				ui: {
+					select: async (_title, options) =>
+						options.find((option) => option.includes("Start a side quest")),
+					editor: async (title) => {
+						expect(title).toBe("Side quest topic");
+						return " cache dependencies ";
+					},
+				},
+			},
+			{ toolCallId: "call-7", onSideQuestStarted: (info) => started.push(info) },
+		);
+
+		expect(result.details).toEqual({
+			action: "side-quest",
+			question: "How should we ship this UI improvement?",
+			topic: "cache dependencies",
+		});
+		expect(started).toEqual([
+			{
+				toolCallId: "call-7",
+				question: "How should we ship this UI improvement?",
+				topic: "cache dependencies",
+			},
+		]);
+	});
+
 	test("freeform sq: sentinel routes to a side-quest result instead of an answer", async () => {
 		const result = await executeGrillAsk(
 			baseInput(),

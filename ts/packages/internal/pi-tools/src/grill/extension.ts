@@ -133,9 +133,9 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 		name: GRILL_ASK_TOOL_NAME,
 		label: "Grill Ask",
 		description:
-			"Ask exactly one grill-me question through a structured UI with explicit answer choices, an optional recommendation/rationale, an honest remaining-question estimate, a freeform path, a status checkpoint path, and an end-session path.",
+			"Ask exactly one grill-me question through a structured UI with explicit answer choices, an optional recommendation/rationale, an honest remaining-question estimate, and first-class freeform, side-quest, status checkpoint, and end-session paths.",
 		promptSnippet:
-			"Ask one grill-me question through structured choices, freeform, status, or end-session UI",
+			"Ask one grill-me question through structured choices, freeform, side-quest, status, or end-session UI",
 		promptGuidelines: [
 			"Use grill_ask for each user-facing question in grill-me sessions; do not ask those questions in prose while grill_ask is available.",
 			"Ask exactly one question per grill_ask call and include 2–5 affirmative, mutually exclusive options plus your recommendation.",

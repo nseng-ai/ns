@@ -32,7 +32,20 @@ export function resolveFreeformSideQuest(
 ): ToolResult<GrillAskDetails> | undefined {
 	const topic = parseSideQuestSentinel(options.answer);
 	if (topic === undefined) return undefined;
+	return resolveSideQuest({ ...options, topic });
+}
 
+export interface ResolveSideQuestOptions {
+	topic: string;
+	question: string;
+	ctx: GrillAskToolContext;
+	toolCallId?: string;
+	onSideQuestStarted?: (info: SideQuestStartedInfo) => void;
+}
+
+/** Start a side quest from a dedicated UI path. Single-level: an active quest refuses another. */
+export function resolveSideQuest(options: ResolveSideQuestOptions): ToolResult<GrillAskDetails> {
+	const topic = options.topic.trim();
 	const scan = scanGrillBranchFromSessionManager(options.ctx.sessionManager);
 	const activeQuest = scan.grill === "active" ? scan.activeQuest : undefined;
 	if (activeQuest !== undefined) {
