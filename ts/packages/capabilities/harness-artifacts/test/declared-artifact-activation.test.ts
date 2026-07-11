@@ -189,6 +189,35 @@ describe("declared artifact activation", () => {
 		expect(fixture.fs.readText("/repo/.pi/skills/old/SKILL.md")).toBe("old\n");
 	});
 
+	test("rejects malformed manifest source paths without writing or removing", async () => {
+		const fixture = createFixture([]);
+		const manifest = staleManifest();
+		const entry = manifest.artifacts["pi:project:skill:@gone/ext:old"];
+		if (entry === undefined) return;
+		const file = entry.files["SKILL.md"];
+		if (file === undefined) return;
+		file.sourcePath = "../customer.md";
+		fixture.writeManifest(manifest);
+		fixture.fs.clearWrittenFiles();
+
+		const prepared = await fixture.prepare(["pi"]);
+
+		expect(prepared).toMatchObject({
+			ok: false,
+			error: {
+				code: "unsafe_manifest_entry",
+				details: {
+					manifestPath: `/repo/.pi/skills/${INSTALL_MANIFEST_FILE_NAME}`,
+					installKey: "pi:project:skill:@gone/ext:old",
+					path: "/repo/.pi/skills/old/SKILL.md",
+				},
+			},
+		});
+		expect(fixture.fs.writtenFiles).toEqual([]);
+		expect(fixture.fs.removedFiles).toEqual([]);
+		expect(fixture.fs.readText("/repo/.pi/skills/old/SKILL.md")).toBe("old\n");
+	});
+
 	test("rechecks destructive path safety immediately before apply", async () => {
 		const fixture = createFixture([]);
 		fixture.writeManifest(staleManifest());
@@ -207,6 +236,8 @@ describe("declared artifact activation", () => {
 			completed: [],
 		});
 		expect(fixture.fs.readText("/repo/.pi/skills/old/SKILL.md")).toBe("old\n");
+		expect(fixture.fs.writtenFiles).toEqual([]);
+		expect(fixture.fs.removedFiles).toEqual([]);
 	});
 
 	test("refuses an out-of-root obsolete file on a retained manifest entry", async () => {

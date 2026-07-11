@@ -2,16 +2,13 @@ import { join } from "node:path";
 
 import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok } from "@nseng-ai/clinkr";
-import {
-	ALL_HARNESS_IDS,
-	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
-	parseNsTomlHarnesses,
-} from "@nseng-ai/harness-artifacts/api";
+import { ALL_HARNESS_IDS, parseNsTomlHarnesses } from "@nseng-ai/harness-artifacts/api";
 import { parseExtensionSourceSpec } from "@nseng-ai/kernel/extensions/acquisition";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/kernel/project-config";
 import { z } from "zod";
 
 import {
+	activationCompletedSchema,
 	applyNsActivation,
 	prepareNsActivation,
 	resolveActivationRepository,
@@ -31,48 +28,6 @@ export const installExtensionRequestSchema = z.object({
 		.describe("npm: package spec or unprefixed local extension package path."),
 });
 
-const activationCompletedSchema = z.object({
-	nsToml: fileChangeSchema().optional(),
-	managedExtensionsIgnore: fileChangeSchema().optional(),
-	agentsInstructionFile: fileChangeSchema().optional(),
-	claudeInstructionFile: fileChangeSchema().optional(),
-	generatedInstructionsFile: fileChangeSchema().optional(),
-	consumerDirectories: z
-		.array(
-			z.object({
-				path: z.string(),
-				change: z.enum(["created", "updated", "unchanged"]),
-			}),
-		)
-		.readonly()
-		.optional(),
-	artifacts: z
-		.array(
-			z.object({
-				key: z.string(),
-				action: z.enum(DECLARED_ARTIFACT_ACTIVATION_ACTIONS),
-				artifactId: z.string(),
-				skillName: z.string(),
-				harness: z.enum(ALL_HARNESS_IDS),
-				targetArtifactPath: z.string(),
-				manifestPath: z.string(),
-				writtenFiles: z.array(z.string()).readonly(),
-				conflictingFiles: z.array(z.string()).readonly(),
-				removedFiles: z.array(z.string()).readonly().optional(),
-				removalReason: z
-					.enum([
-						"removed-source",
-						"deselected-harness",
-						"same-target-replacement",
-						"obsolete-file",
-					])
-					.optional(),
-			}),
-		)
-		.readonly()
-		.optional(),
-});
-
 export const installExtensionResultSchema = z.object({
 	sourceSpec: z.string(),
 	sourceKind: z.enum(["local", "npm"]),
@@ -86,10 +41,6 @@ export const installExtensionResultSchema = z.object({
 	harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
 	completed: activationCompletedSchema,
 });
-
-function fileChangeSchema() {
-	return z.object({ change: z.enum(["created", "appended", "replaced", "unchanged"]) });
-}
 
 export type InstallExtensionRequest = z.infer<typeof installExtensionRequestSchema> & {
 	readonly cwd: string;

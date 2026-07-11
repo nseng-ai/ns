@@ -1,6 +1,7 @@
-import type {
-	ApplyPreparedDeclaredArtifactActivationResult,
-	PreparedDeclaredArtifactActivation,
+import {
+	createEmptyPreparedProjectHarnessArtifactTransitions,
+	type ApplyPreparedDeclaredArtifactActivationResult,
+	type PreparedDeclaredArtifactActivation,
 } from "@nseng-ai/harness-artifacts/api";
 
 import type {
@@ -41,7 +42,10 @@ export class InMemoryArtifactActivationGateway implements ArtifactActivationGate
 					diagnostics: [],
 					skippedCollisions: [],
 					artifacts: [],
-					reconciliation: { transitions: [], shouldForce: false },
+					reconciliation: createEmptyPreparedProjectHarnessArtifactTransitions({
+						type: "strict",
+						shouldForce: false,
+					}),
 				},
 			},
 		);

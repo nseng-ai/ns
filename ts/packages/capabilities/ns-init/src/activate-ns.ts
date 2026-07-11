@@ -1,22 +1,26 @@
-import type {
-	DeclaredArtifactActivationOutcome,
-	HarnessId,
-	NsTomlChange,
-	PreparedDeclaredArtifactActivation,
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import {
+	ALL_HARNESS_IDS,
+	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
+	HARNESS_ARTIFACT_REMOVAL_REASONS,
+	parseNsTomlExtensions,
+	type HarnessId,
+	type NsTomlChange,
+	type PreparedDeclaredArtifactActivation,
 } from "@nseng-ai/harness-artifacts/api";
-import { parseNsTomlExtensions } from "@nseng-ai/harness-artifacts/api";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
+import { z } from "zod";
 
 import type { NsActivationContext } from "./activation-context.ts";
 import {
 	ACTIVATION_FILE_PATHS,
+	activationFilesCompareError,
 	type ActivationFile,
 	type ActivationTextFileReadResult,
 	type ConsumerDirectoryInspectionResult,
 	type ExpectedActivationTextFileState,
 	type ExpectedConsumerDirectoryState,
 	type PreparedActivationExpectedState,
-	type PreparedStateMismatchDetails,
 } from "./activation-files.ts";
 import type { NsInitErrorInfo } from "./error-info.ts";
 import {
@@ -42,24 +46,58 @@ export interface ActivationDiagnostic {
 	readonly path?: string;
 }
 
-export interface FileActivationOutcome {
-	readonly change: "created" | "appended" | "replaced" | "unchanged";
-}
+export const fileActivationOutcomeSchema = z.object({
+	change: z.enum(["created", "appended", "replaced", "unchanged"]),
+});
 
-export interface ConsumerDirectoryOutcome {
-	readonly path: string;
-	readonly change: "created" | "updated" | "unchanged";
-}
+export const consumerDirectoryOutcomeSchema = z.object({
+	path: z.string(),
+	change: z.enum(["created", "updated", "unchanged"]),
+});
 
-export interface ActivationCompleted {
-	readonly nsToml?: FileActivationOutcome | undefined;
-	readonly managedExtensionsIgnore?: FileActivationOutcome | undefined;
-	readonly agentsInstructionFile?: FileActivationOutcome | undefined;
-	readonly claudeInstructionFile?: FileActivationOutcome | undefined;
-	readonly generatedInstructionsFile?: FileActivationOutcome | undefined;
-	readonly consumerDirectories?: readonly ConsumerDirectoryOutcome[] | undefined;
-	readonly artifacts?: readonly DeclaredArtifactActivationOutcome[] | undefined;
-}
+export const declaredArtifactActivationOutcomeSchema = z
+	.object({
+		key: z.string(),
+		action: z.enum(DECLARED_ARTIFACT_ACTIVATION_ACTIONS),
+		artifactId: z.string(),
+		skillName: z.string(),
+		harness: z.enum(ALL_HARNESS_IDS),
+		targetArtifactPath: z.string(),
+		manifestPath: z.string(),
+		writtenFiles: z.array(z.string()).readonly(),
+		conflictingFiles: z.array(z.string()).readonly(),
+		removedFiles: z.array(z.string()).readonly().optional(),
+		removalReason: z.enum(HARNESS_ARTIFACT_REMOVAL_REASONS).optional(),
+	})
+	.overwrite(({ removedFiles, removalReason, ...required }) => ({
+		...required,
+		...optionalEntry("removedFiles", removedFiles),
+		...optionalEntry("removalReason", removalReason),
+	}));
+
+export const activationCompletedSchema = z
+	.object({
+		nsToml: fileActivationOutcomeSchema.optional(),
+		managedExtensionsIgnore: fileActivationOutcomeSchema.optional(),
+		agentsInstructionFile: fileActivationOutcomeSchema.optional(),
+		claudeInstructionFile: fileActivationOutcomeSchema.optional(),
+		generatedInstructionsFile: fileActivationOutcomeSchema.optional(),
+		consumerDirectories: z.array(consumerDirectoryOutcomeSchema).readonly().optional(),
+		artifacts: z.array(declaredArtifactActivationOutcomeSchema).readonly().optional(),
+	})
+	.overwrite((completed) => ({
+		...optionalEntry("nsToml", completed.nsToml),
+		...optionalEntry("managedExtensionsIgnore", completed.managedExtensionsIgnore),
+		...optionalEntry("agentsInstructionFile", completed.agentsInstructionFile),
+		...optionalEntry("claudeInstructionFile", completed.claudeInstructionFile),
+		...optionalEntry("generatedInstructionsFile", completed.generatedInstructionsFile),
+		...optionalEntry("consumerDirectories", completed.consumerDirectories),
+		...optionalEntry("artifacts", completed.artifacts),
+	}));
+
+export type FileActivationOutcome = z.infer<typeof fileActivationOutcomeSchema>;
+export type ConsumerDirectoryOutcome = z.infer<typeof consumerDirectoryOutcomeSchema>;
+export type ActivationCompleted = z.infer<typeof activationCompletedSchema>;
 
 interface PreparedFileWrite {
 	readonly file: ActivationFile;
@@ -293,8 +331,7 @@ export async function applyNsActivation(
 				return {
 					type: "apply-failed",
 					phase: write.file,
-					error:
-						written.type === "error" ? written.error : preparedStateMismatchError(written.details),
+					error: activationFilesCompareError(written),
 					completed,
 				};
 			}
@@ -317,8 +354,7 @@ export async function applyNsActivation(
 				return {
 					type: "apply-failed",
 					phase: "consumer-directories",
-					error:
-						ensured.type === "error" ? ensured.error : preparedStateMismatchError(ensured.details),
+					error: activationFilesCompareError(ensured),
 					completed,
 				};
 			}
@@ -367,14 +403,6 @@ function expectedConsumerDirectoryState(
 		return { type: "directory", gitkeep: inspection.gitkeep };
 	}
 	throw new Error("Cannot prepare expected state from a failed consumer directory inspection.");
-}
-
-function preparedStateMismatchError(details: PreparedStateMismatchDetails): NsInitErrorInfo {
-	return {
-		code: "activation-prepared-state-mismatch",
-		message: `${details.path} changed after activation was prepared; no mutation was applied to that path.`,
-		details: { ...details },
-	};
 }
 
 function textForPreflight(

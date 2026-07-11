@@ -239,6 +239,32 @@ describe("harness artifact provision apply", () => {
 		});
 	});
 
+	test("returns the existing unsafe manifest error without writing or removing after apply safety fails", async () => {
+		const fixture = fakeProvisionFixture();
+		const prepared = await prepareProvision(fixture.request);
+		expect(prepared).toMatchObject({ ok: true });
+		if (!prepared.ok) return;
+		fixture.fs.markUnsafeRemovalPath(fixture.targetPath);
+		fixture.fs.clearWrittenFiles();
+
+		const result = await applyPreparedProvision(prepared.value, { shouldForce: false });
+
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				code: "unsafe_manifest_entry",
+				message: `Install manifest entry pi:project:skill:objective-next-skill is not coherent with its harness root: ${fixture.targetPath}.`,
+				details: {
+					manifestPath: fixture.manifestPath,
+					installKey: "pi:project:skill:objective-next-skill",
+					path: fixture.targetPath,
+				},
+			},
+		});
+		expect(fixture.fs.writtenFiles).toEqual([]);
+		expect(fixture.fs.removedFiles).toEqual([]);
+	});
+
 	test("preserves unrelated manifest entries but rejects same-key manifest drift", async () => {
 		const unrelatedFixture = fakeProvisionFixture();
 		const unrelatedPrepared = await prepareProvision(unrelatedFixture.request);

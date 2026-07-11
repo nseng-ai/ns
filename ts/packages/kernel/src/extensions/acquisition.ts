@@ -1,7 +1,11 @@
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { runCommand } from "@nseng-ai/foundation/exec";
+import {
+	commandSucceeded,
+	NodeCommandExecApi,
+	type CommandExecApi,
+} from "@nseng-ai/foundation/exec";
 import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
@@ -52,18 +56,6 @@ export const extensionAcquisitionDiagnosticSchema = z.object({
 	path: z.string().optional(),
 });
 
-export type ExtensionAcquisitionExec = (
-	command: string,
-	args: string[],
-	options: { cwd: string },
-) => Promise<{
-	readonly stdout: string;
-	readonly stderr: string;
-	readonly code: number;
-	readonly killed?: boolean;
-	readonly startupError?: string;
-}>;
-
 export interface ExtensionAcquisitionGateway {
 	ensureManagedNpmProject(
 		projectDir: string,
@@ -96,9 +88,9 @@ export interface ResolveDeclaredExtensionModulesResult {
 }
 
 export class RealExtensionAcquisitionGateway implements ExtensionAcquisitionGateway {
-	private readonly exec: ExtensionAcquisitionExec;
+	private readonly exec: CommandExecApi;
 
-	constructor(exec: ExtensionAcquisitionExec) {
+	constructor(exec: CommandExecApi) {
 		this.exec = exec;
 	}
 
@@ -153,24 +145,22 @@ export class RealExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 			request.version === undefined
 				? request.packageName
 				: `${request.packageName}@${request.version}`;
+		const command = "npm";
+		const args = [
+			"install",
+			"--no-save",
+			"--package-lock=false",
+			"--ignore-scripts",
+			"--legacy-peer-deps",
+			packageRequest,
+		];
 		try {
-			const result = await this.exec(
-				"npm",
-				[
-					"install",
-					"--no-save",
-					"--package-lock=false",
-					"--ignore-scripts",
-					"--legacy-peer-deps",
-					packageRequest,
-				],
-				{ cwd: request.projectDir },
-			);
+			const result = await this.exec.exec(command, args, { cwd: request.projectDir });
 			await rm(join(request.projectDir, "package-lock.json"), { force: true });
-			if (result.code === 0 && result.killed !== true && result.startupError === undefined) {
+			if (commandSucceeded(result)) {
 				return resultOk(undefined);
 			}
-			const detail = result.startupError ?? (result.stderr || result.stdout);
+			const detail = result.type === "spawn-failed" ? result.error : result.stderr || result.stdout;
 			return npmInstallFailure(request, detail);
 		} catch (error) {
 			return npmInstallFailure(request, formatErrorMessage(error));
@@ -179,24 +169,13 @@ export class RealExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 }
 
 export function createRealExtensionAcquisitionGateway(
-	exec: ExtensionAcquisitionExec,
+	exec: CommandExecApi,
 ): ExtensionAcquisitionGateway {
 	return new RealExtensionAcquisitionGateway(exec);
 }
 
 export const nodeExtensionAcquisitionGateway: ExtensionAcquisitionGateway =
-	createRealExtensionAcquisitionGateway(async (command, args, options) => {
-		const result = await runCommand(command, args, options);
-		if (result.type === "spawn-failed") {
-			return { stdout: result.stdout, stderr: result.stderr, code: 1, startupError: result.error };
-		}
-		return {
-			stdout: result.stdout,
-			stderr: result.stderr,
-			code: result.code ?? 1,
-			killed: result.signal !== null,
-		};
-	});
+	createRealExtensionAcquisitionGateway(new NodeCommandExecApi());
 
 export async function resolveDeclaredExtensionModules(
 	request: ResolveDeclaredExtensionModulesRequest,

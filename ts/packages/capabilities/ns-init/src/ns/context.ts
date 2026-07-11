@@ -1,4 +1,5 @@
 import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
+import { piExecApiToCommandExecApi } from "@nseng-ai/foundation/exec";
 import { createRealExtensionAcquisitionGateway } from "@nseng-ai/kernel/extensions/acquisition";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
@@ -16,9 +17,7 @@ export function createNsInitContext(
 		cwd: ctx.cwd,
 		git: createNsGitGateway(ctx),
 		acquisition: new RealExtensionInstallAcquisitionGateway(
-			createRealExtensionAcquisitionGateway((command, args, options) =>
-				ctx.exec(command, args, { cwd: options.cwd }),
-			),
+			createRealExtensionAcquisitionGateway(piExecApiToCommandExecApi(ctx)),
 		),
 		files: new RealActivationFilesGateway(),
 		declaredExtensions: new RealDeclaredExtensionsGateway(),

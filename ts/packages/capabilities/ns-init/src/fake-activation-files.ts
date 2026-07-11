@@ -1,5 +1,8 @@
 import {
 	ACTIVATION_FILE_PATHS,
+	activationKindMismatch,
+	activationPresenceMismatch,
+	compareConsumerDirectoryState,
 	type ActivationFileParams,
 	type ActivationFilesCompareResult,
 	type ActivationFilesGateway,
@@ -8,7 +11,6 @@ import {
 	type CompareAndWriteActivationFileParams,
 	type ConsumerDirectoryInspectionResult,
 	type ConsumerDirectoryParams,
-	type ExpectedConsumerDirectoryState,
 	type PreparedStateMismatchDetails,
 } from "./activation-files.ts";
 import type { NsInitErrorInfo } from "./error-info.ts";
@@ -100,7 +102,7 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 	): Promise<ActivationFilesCompareResult> {
 		const actual = await this.inspectConsumerDirectory(params);
 		if (actual.type === "error") return { type: "error", error: actual.error };
-		const mismatch = compareConsumerState(params.relativePath, params.expected, actual);
+		const mismatch = compareConsumerDirectoryState(params.relativePath, params.expected, actual);
 		if (mismatch !== undefined) return { type: "mismatch", details: mismatch };
 		const failure = this.directoryFailures[params.relativePath];
 		if (failure !== undefined) return { type: "error", error: failure };
@@ -158,20 +160,19 @@ function compareFileState(
 	actual: Exclude<ActivationTextFileReadResult, { type: "error" }>,
 ): PreparedStateMismatchDetails | undefined {
 	if (actual.type === "not-file") {
-		return {
-			type: "kind",
+		return activationKindMismatch(
 			path,
-			expected: expected.type === "missing" ? "missing" : "file",
-			actual: "directory",
-		};
+			expected.type === "missing" ? "missing" : "file",
+			"directory",
+		).details;
 	}
 	if (expected.type === "missing") {
 		return actual.type === "missing"
 			? undefined
-			: { type: "presence", path, expected: "missing", actual: "present" };
+			: activationPresenceMismatch(path, "missing", "present").details;
 	}
 	if (actual.type === "missing") {
-		return { type: "presence", path, expected: "present", actual: "missing" };
+		return activationPresenceMismatch(path, "present", "missing").details;
 	}
 	return actual.content === expected.content
 		? undefined
@@ -181,40 +182,4 @@ function compareFileState(
 				expectedContent: expected.content,
 				actualContent: actual.content,
 			};
-}
-
-function compareConsumerState(
-	path: string,
-	expected: ExpectedConsumerDirectoryState,
-	actual: Exclude<ConsumerDirectoryInspectionResult, { type: "error" }>,
-): PreparedStateMismatchDetails | undefined {
-	if (expected.type === "missing") {
-		if (actual.type === "missing") return undefined;
-		if (actual.type === "directory") {
-			return { type: "presence", path, expected: "missing", actual: "present" };
-		}
-		return { type: "kind", path, expected: "missing", actual: "file" };
-	}
-	if (actual.type === "missing") {
-		return { type: "presence", path, expected: "present", actual: "missing" };
-	}
-	if (actual.type === "not-directory") {
-		return { type: "kind", path, expected: "directory", actual: "file" };
-	}
-	if (expected.gitkeep === actual.gitkeep) return undefined;
-	const gitkeepPath = `${path}/.gitkeep`;
-	if (actual.gitkeep === "not-file") {
-		return {
-			type: "kind",
-			path: gitkeepPath,
-			expected: expected.gitkeep === "missing" ? "missing" : "file",
-			actual: "directory",
-		};
-	}
-	return {
-		type: "presence",
-		path: gitkeepPath,
-		expected: expected.gitkeep === "missing" ? "missing" : "present",
-		actual: actual.gitkeep === "missing" ? "missing" : "present",
-	};
 }

@@ -4,14 +4,13 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { runCommand } from "@nseng-ai/foundation/exec";
+import { runCommand, type CommandExecApi } from "@nseng-ai/foundation/exec";
 
 import {
 	createRealExtensionAcquisitionGateway,
 	managedNpmProjectRoot,
 	npmPackageRoot,
 	resolveDeclaredExtensionModules,
-	type ExtensionAcquisitionExec,
 } from "../../src/extensions/acquisition.ts";
 import { loadDeclaredExtensionDescriptors } from "../../src/extensions/declared-descriptors.ts";
 
@@ -25,10 +24,13 @@ const request = {
 describe("RealExtensionAcquisitionGateway", () => {
 	test("uses the bound exec channel and removes npm lock residue", async () => {
 		const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
-		const gateway = createRealExtensionAcquisitionGateway(async (command, args, options) => {
-			calls.push({ command, args: [...args], cwd: options.cwd });
-			await writeFile(join(options.cwd, "package-lock.json"), "npm residue");
-			return { stdout: "", stderr: "", code: 0 };
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec(command, args, options) {
+				if (options?.cwd === undefined) throw new Error("expected npm cwd");
+				calls.push({ command, args: [...args], cwd: options.cwd });
+				await writeFile(join(options.cwd, "package-lock.json"), "npm residue");
+				return { stdout: "", stderr: "", code: 0, killed: false };
+			},
 		});
 		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
 
@@ -55,8 +57,10 @@ describe("RealExtensionAcquisitionGateway", () => {
 	});
 
 	test("normalizes exec rejection into a diagnostic", async () => {
-		const gateway = createRealExtensionAcquisitionGateway(async () => {
-			throw new Error("npm executable unavailable");
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec() {
+				throw new Error("npm executable unavailable");
+			},
 		});
 		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
 
@@ -69,12 +73,57 @@ describe("RealExtensionAcquisitionGateway", () => {
 		});
 	});
 
+	test("preserves killed-process diagnostics", async () => {
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec() {
+				return {
+					stdout: "partial output",
+					stderr: "terminated",
+					code: 0,
+					killed: true,
+				};
+			},
+		});
+		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
+
+		await expect(gateway.installNpmPackage({ ...request, projectDir })).resolves.toMatchObject({
+			ok: false,
+			error: {
+				code: "extension_acquisition_npm_install_failed",
+				message: expect.stringContaining("terminated"),
+			},
+		});
+	});
+
+	test("preserves startup-failure diagnostics", async () => {
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec() {
+				return {
+					stdout: "",
+					stderr: "secondary stderr",
+					code: 0,
+					killed: false,
+					startupError: "spawn npm ENOENT",
+				};
+			},
+		});
+		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
+
+		await expect(gateway.installNpmPackage({ ...request, projectDir })).resolves.toMatchObject({
+			ok: false,
+			error: {
+				code: "extension_acquisition_npm_install_failed",
+				message: expect.stringContaining("spawn npm ENOENT"),
+			},
+		});
+	});
+
 	test("normalizes package-lock cleanup failure into a diagnostic", async () => {
-		const gateway = createRealExtensionAcquisitionGateway(async () => ({
-			stdout: "",
-			stderr: "",
-			code: 0,
-		}));
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec() {
+				return { stdout: "", stderr: "", code: 0, killed: false };
+			},
+		});
 		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
 		await mkdir(join(projectDir, "package-lock.json", "child"), { recursive: true });
 
@@ -160,7 +209,7 @@ interface TarballPackage {
 
 async function createTarballFixture(packages: readonly TarballPackage[]): Promise<{
 	repoRoot: string;
-	exec: ExtensionAcquisitionExec;
+	exec: CommandExecApi;
 }> {
 	const repoRoot = await mkdtemp(join(tmpdir(), "ns-extension-isolation-"));
 	const tarballs = new Map<string, string>();
@@ -196,21 +245,17 @@ async function createTarballFixture(packages: readonly TarballPackage[]): Promis
 	}
 	return {
 		repoRoot,
-		exec: async (command, args, options) => {
-			const requested = args.at(-1);
-			const tarball = requested === undefined ? undefined : tarballs.get(requested);
-			const installTarget = tarball ?? join(repoRoot, "tarballs", "missing-package.tgz");
-			const result = await runCommand(
-				command,
-				[...args.slice(0, -1), "--offline", installTarget],
-				options,
-			);
-			return {
-				stdout: result.stdout,
-				stderr: result.stderr,
-				code: result.code,
-				killed: result.killed,
-			};
+		exec: {
+			async exec(command, args, options) {
+				const requested = args.at(-1);
+				const tarball = requested === undefined ? undefined : tarballs.get(requested);
+				const installTarget = tarball ?? join(repoRoot, "tarballs", "missing-package.tgz");
+				return await runCommand(
+					command,
+					[...args.slice(0, -1), "--offline", installTarget],
+					options,
+				);
+			},
 		},
 	};
 }

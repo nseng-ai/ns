@@ -43,15 +43,7 @@ export class InMemoryHarnessFs
 		this.unsafeRemovalPaths.add(path);
 	}
 
-	async inspectHarnessArtifactProvisionSafety(input: {
-		trustedBoundaryRoot: string;
-		expectedTargetRoot: string;
-		targetPaths: readonly string[];
-	}) {
-		return this.inspectHarnessArtifactRemovalSafety(input);
-	}
-
-	async inspectHarnessArtifactRemovalSafety(input: {
+	async inspectHarnessArtifactSafety(input: {
 		trustedBoundaryRoot: string;
 		expectedTargetRoot: string;
 		targetPaths: readonly string[];
