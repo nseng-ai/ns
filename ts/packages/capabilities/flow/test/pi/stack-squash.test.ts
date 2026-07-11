@@ -100,4 +100,19 @@ describe("stack squash Pi bridge", () => {
 			message: "Worktree has uncommitted changes; stack squash did not run.\n\nM file.ts",
 		});
 	});
+
+	test("suppresses command detail when successful discovery reports a failure envelope", async () => {
+		const pi = new FakePi([
+			{},
+			{ stdout: JSON.stringify({ status: "failure", message: "stack unavailable" }) },
+		]);
+		const ctx = fakeCtx();
+
+		await runStackSquash(pi, ctx);
+
+		expect(ctx.ui.notifications.at(-1)).toEqual({
+			level: "error",
+			message: "stack unavailable",
+		});
+	});
 });

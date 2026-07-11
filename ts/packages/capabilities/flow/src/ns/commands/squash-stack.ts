@@ -7,6 +7,7 @@ import {
 	describeStackSquashOutcome,
 	formatStackSquashSummary,
 	runStackSquashFlow,
+	stackSquashCommandFailureDetail,
 	type StackSquashCommandFailure,
 	type StackSquashOutcome,
 } from "../../stack-squash/stack-squash.ts";
@@ -69,8 +70,12 @@ function renderStackSquashNegative(
 		case "stack-discovery-failed":
 		case "checkout-failed":
 		case "squash-failed":
-		case "tip-restore-failed":
-			return renderCommandFailure(caps, outcome, describeStackSquashOutcome(outcome));
+		case "tip-restore-failed": {
+			const headline = describeStackSquashOutcome(outcome);
+			const failure = stackSquashCommandFailureDetail(outcome);
+			if (failure !== undefined) return renderCommandFailure(caps, failure, headline);
+			return renderResultBlock(caps, { kind: "failure", headline, cwd: outcome.cwd });
+		}
 	}
 }
 
