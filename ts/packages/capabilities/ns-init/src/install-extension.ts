@@ -4,7 +4,7 @@ import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok } from "@nseng-ai/clinkr";
 import { ALL_HARNESS_IDS, parseNsTomlHarnesses } from "@nseng-ai/harness-artifacts/api";
 import {
-	GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON,
+	gitExtensionSourceUnsupportedMessage,
 	parseExtensionSourceSpec,
 } from "@nseng-ai/kernel/extensions/acquisition";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/kernel/project-config";
@@ -92,7 +92,7 @@ export async function installExtension(
 		);
 	}
 	if (parsedSource.value.kind === "git") {
-		return unsupportedSource(request.source, GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON);
+		return unsupportedSource(request.source, gitExtensionSourceUnsupportedMessage(request.source));
 	}
 
 	const declaration = planDeclaredExtensionInstallToml({
@@ -224,13 +224,12 @@ function normalizeDiagnostic<T extends { readonly code: string }>(
 
 function unsupportedSource(
 	source: string,
-	canonicalReason?: string,
+	canonicalMessage?: string,
 ): ClinkrExit<InstallExtensionResult> {
 	return failure(
 		"ns-extension-install-source-unsupported",
-		canonicalReason === undefined
-			? `Extension source must be an npm: spec or an unprefixed local path: ${source}.`
-			: `${canonicalReason} Source: ${source}.`,
+		canonicalMessage ??
+			`Extension source must be an npm: spec or an unprefixed local path: ${source}.`,
 		{ phase: "preflight", sourceSpec: source, completed: {} },
 	);
 }

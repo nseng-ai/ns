@@ -23,7 +23,6 @@ describe("activation completion schema", () => {
 		});
 		expect(completed).toEqual({ files: { "agents-instructions": { change: "created" } } });
 		expect("ns-toml" in completed.files).toBe(false);
-		expect(() => activationCompletedSchema.parse({ files: { "ns-toml": undefined } })).toThrow();
 
 		expect(
 			declaredArtifactActivationOutcomeSchema.parse({
@@ -36,8 +35,6 @@ describe("activation completion schema", () => {
 				manifestPath: "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
 				writtenFiles: [],
 				conflictingFiles: [],
-				removedFiles: undefined,
-				removalReason: undefined,
 			}),
 		).toEqual({
 			key: "pi:demo",

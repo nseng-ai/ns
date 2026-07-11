@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { runCommand, type CommandExecApi } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, runCommand, type CommandExecApi } from "@nseng-ai/foundation/exec";
 
 import {
 	createRealExtensionAcquisitionGateway,
@@ -29,7 +29,7 @@ describe("RealExtensionAcquisitionGateway", () => {
 				if (options?.cwd === undefined) throw new Error("expected npm cwd");
 				calls.push({ command, args: [...args], cwd: options.cwd });
 				await writeFile(join(options.cwd, "package-lock.json"), "npm residue");
-				return { stdout: "", stderr: "", code: 0, killed: false };
+				return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
 			},
 		});
 		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
@@ -77,10 +77,11 @@ describe("RealExtensionAcquisitionGateway", () => {
 		const gateway = createRealExtensionAcquisitionGateway({
 			async exec() {
 				return {
+					type: "timed-out",
 					stdout: "partial output",
 					stderr: "terminated",
-					code: 0,
-					killed: true,
+					code: null,
+					signal: "SIGTERM",
 				};
 			},
 		});
@@ -99,11 +100,10 @@ describe("RealExtensionAcquisitionGateway", () => {
 		const gateway = createRealExtensionAcquisitionGateway({
 			async exec() {
 				return {
+					type: "spawn-failed",
 					stdout: "",
 					stderr: "secondary stderr",
-					code: 0,
-					killed: false,
-					startupError: "spawn npm ENOENT",
+					error: "spawn npm ENOENT",
 				};
 			},
 		});
@@ -121,7 +121,7 @@ describe("RealExtensionAcquisitionGateway", () => {
 	test("normalizes package-lock cleanup failure into a diagnostic", async () => {
 		const gateway = createRealExtensionAcquisitionGateway({
 			async exec() {
-				return { stdout: "", stderr: "", code: 0, killed: false };
+				return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
 			},
 		});
 		const projectDir = await mkdtemp(join(tmpdir(), "ns-extension-acquisition-"));
@@ -234,7 +234,8 @@ async function createTarballFixture(packages: readonly TarballPackage[]): Promis
 		const packed = await runCommand("npm", ["pack", "--pack-destination", tarballDir], {
 			cwd: packageDir,
 		});
-		if (packed.code !== 0) throw new Error(`npm pack failed: ${packed.stderr || packed.stdout}`);
+		if (!commandSucceeded(packed))
+			throw new Error(`npm pack failed: ${packed.stderr === "" ? packed.stdout : packed.stderr}`);
 		const filename = packed.stdout.trim().split("\n").at(-1);
 		if (filename === undefined || filename === "")
 			throw new Error("npm pack returned no filename.");

@@ -162,21 +162,26 @@ export async function prepareNsActivation(
 		diagnostics.push(toActivationDiagnostic(diagnostic));
 	}
 
-	const activationReads: Partial<Record<ActivationFile, ActivationTextFileReadResult>> = {};
-	for (const file of ACTIVATION_FILES) {
-		if (file === "ns-toml") continue;
-		activationReads[file] = await context.files.readActivationFile({
-			repoRoot: options.repository.repoRoot,
-			file,
-		});
-	}
-	const managedExtensionsIgnoreRead = requiredActivationRead(
-		activationReads,
-		"managed-extensions-ignore",
+	const [managedExtensionsIgnoreRead, agentsRead, claudeRead, instructionsRead] = await Promise.all(
+		[
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "managed-extensions-ignore",
+			}),
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "agents-instructions",
+			}),
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "claude-instructions",
+			}),
+			context.files.readActivationFile({
+				repoRoot: options.repository.repoRoot,
+				file: "generated-instructions",
+			}),
+		],
 	);
-	const agentsRead = requiredActivationRead(activationReads, "agents-instructions");
-	const claudeRead = requiredActivationRead(activationReads, "claude-instructions");
-	const instructionsRead = requiredActivationRead(activationReads, "generated-instructions");
 	const managedExtensionsIgnorePreflight = textForPreflight(
 		managedExtensionsIgnoreRead,
 		ACTIVATION_FILE_PATHS["managed-extensions-ignore"],
@@ -405,15 +410,6 @@ function expectedConsumerDirectoryState(
 		return { type: "directory", gitkeep: inspection.gitkeep };
 	}
 	throw new Error("Cannot prepare expected state from a failed consumer directory inspection.");
-}
-
-function requiredActivationRead(
-	reads: Partial<Record<ActivationFile, ActivationTextFileReadResult>>,
-	file: ActivationFile,
-): ActivationTextFileReadResult {
-	const read = reads[file];
-	if (read === undefined) throw new Error(`Missing activation preflight read for ${file}.`);
-	return read;
 }
 
 function textForPreflight(

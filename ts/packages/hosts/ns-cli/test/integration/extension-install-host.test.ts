@@ -3,10 +3,10 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { runCommand } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, runCommand } from "@nseng-ai/foundation/exec";
 import { nsExtensionInstallCommand } from "@nseng-ai/ns-init/ns/commands/extension-install";
 
-import { runNsCli } from "../../src/cli.ts";
+import { runNsCli } from "../../src/cli/index.ts";
 import {
 	createEmptyProject,
 	parseJsonOutput,
@@ -49,8 +49,8 @@ describe("extension install host integration", () => {
 			cwd,
 			homeDir: join(cwd, ".home"),
 			env: { HOME: join(cwd, ".home") },
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
+			stdout: (text: string) => stdout.push(text),
+			stderr: (text: string) => stderr.push(text),
 		});
 		expect(rerunExit).toBe(0);
 		expect(stdout.join("")).toContain("Ensured already-present @acme/module@1.0.0");
@@ -77,7 +77,7 @@ async function initializeGitRepo(projectRoot: string): Promise<void> {
 	const initialized = await runCommand("git", ["init", "--initial-branch=main"], {
 		cwd: projectRoot,
 	});
-	if (initialized.code !== 0) {
+	if (!commandSucceeded(initialized)) {
 		throw new Error(`git init failed: ${initialized.stderr || initialized.stdout}`);
 	}
 	const committed = await runCommand(
@@ -94,7 +94,7 @@ async function initializeGitRepo(projectRoot: string): Promise<void> {
 		],
 		{ cwd: projectRoot },
 	);
-	if (committed.code !== 0) {
+	if (!commandSucceeded(committed)) {
 		throw new Error(`git commit failed: ${committed.stderr || committed.stdout}`);
 	}
 }

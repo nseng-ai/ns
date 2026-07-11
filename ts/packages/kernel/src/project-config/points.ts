@@ -17,7 +17,7 @@ import {
 	resolveAcquiredDescriptorPackageRoot,
 } from "./descriptor-package.ts";
 import {
-	GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON,
+	gitExtensionSourceUnsupportedMessage,
 	parseExtensionSourceSpec,
 } from "./extension-source-spec.ts";
 
@@ -403,7 +403,7 @@ async function loadDescriptorPointDefinitions(request: {
 			diagnostics: [
 				diagnostic(
 					"extension_descriptor_source_unsupported",
-					`${GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON} Source: ${request.spec}.`,
+					gitExtensionSourceUnsupportedMessage(request.spec),
 					{ path: request.spec },
 				),
 			],

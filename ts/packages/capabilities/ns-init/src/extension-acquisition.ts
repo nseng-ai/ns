@@ -1,5 +1,5 @@
 import {
-	GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON,
+	gitExtensionSourceUnsupportedMessage,
 	npmPackageRoot,
 	parseExtensionSourceSpec,
 	resolveDeclaredExtensionModules,
@@ -78,7 +78,7 @@ export class InMemoryExtensionInstallAcquisitionGateway implements ExtensionInst
 				diagnostics: [
 					{
 						code: "extension_acquisition_git_unsupported",
-						message: `${GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON} Source: ${params.sourceSpec}.`,
+						message: gitExtensionSourceUnsupportedMessage(params.sourceSpec),
 						spec: params.sourceSpec,
 					},
 				],

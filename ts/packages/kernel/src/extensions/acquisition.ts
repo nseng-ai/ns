@@ -11,12 +11,13 @@ import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
 import {
-	GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON,
+	gitExtensionSourceUnsupportedMessage,
 	parseExtensionSourceSpec,
 } from "../project-config/extension-source-spec.ts";
 import { managedNpmPackagePaths } from "../project-config/managed-extension-paths.ts";
 
 export {
+	gitExtensionSourceUnsupportedMessage,
 	GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON,
 	parseExtensionSourceSpec,
 } from "../project-config/extension-source-spec.ts";
@@ -24,10 +25,7 @@ export {
 	managedNpmProjectRoot,
 	npmPackageRoot,
 } from "../project-config/managed-extension-paths.ts";
-export type {
-	ExtensionSourceSpec,
-	GitExtensionSourceSpec,
-} from "../project-config/extension-source-spec.ts";
+export type { ExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
 
 export interface ResolvedExtensionModuleRoot {
 	readonly spec: string;
@@ -165,7 +163,12 @@ export class RealExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 			if (commandSucceeded(result)) {
 				return resultOk(undefined);
 			}
-			const detail = result.type === "spawn-failed" ? result.error : result.stderr || result.stdout;
+			const detail =
+				result.type === "spawn-failed"
+					? result.error
+					: result.stderr === ""
+						? result.stdout
+						: result.stderr;
 			return npmInstallFailure(request, detail);
 		} catch (error) {
 			return npmInstallFailure(request, formatErrorMessage(error));
@@ -204,7 +207,7 @@ export async function resolveDeclaredExtensionModules(
 		if (parsed.value.kind === "git") {
 			diagnostics.push({
 				code: "extension_acquisition_git_unsupported",
-				message: `${GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON} Source: ${raw}.`,
+				message: gitExtensionSourceUnsupportedMessage(raw),
 				spec: raw,
 			});
 			continue;

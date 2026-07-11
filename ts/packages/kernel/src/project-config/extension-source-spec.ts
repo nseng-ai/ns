@@ -13,8 +13,6 @@ export type ExtensionSourceSpec =
 	  }
 	| { kind: "git"; raw: string };
 
-export type GitExtensionSourceSpec = Extract<ExtensionSourceSpec, { kind: "git" }>;
-
 export interface ExtensionSourceSpecDiagnostic {
 	readonly code: "extension_acquisition_invalid_npm_spec";
 	readonly message: string;
@@ -23,6 +21,10 @@ export interface ExtensionSourceSpecDiagnostic {
 
 export const GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON =
 	"Git extension sources are recognized but unsupported.";
+
+export function gitExtensionSourceUnsupportedMessage(spec: string): string {
+	return `${GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON} Source: ${spec}.`;
+}
 
 export function parseExtensionSourceSpec(
 	projectRoot: string,
