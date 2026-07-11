@@ -17,8 +17,11 @@ waiting for checks, then walking upward until the stack is green.
 ## Core loop
 
 1. **Inventory the stack**
-   - Use `gt ls` for local stack shape.
-   - Use `ns address exec branch-pr-checks --branches-json ... --format json` or equivalent stack-check tooling to list PR checks.
+   - Use `ns slot gt exec stack-branches --format json` for structured current-stack topology.
+   - Use `gt branch info --no-interactive` for concise current-branch PR, submission, and restack presentation, never as machine-readable topology.
+   - Use `gt parent --no-interactive` or `gt children --no-interactive` for immediate-edge questions.
+   - Use `gt ls` only as optional human visual confirmation.
+   - Pass the discovered branch names to `ns address exec branch-pr-checks --branches-json ... --format json` or equivalent stack-check tooling to list remote PR checks.
    - Classify each PR as:
      - green/ready;
      - failing checks;
