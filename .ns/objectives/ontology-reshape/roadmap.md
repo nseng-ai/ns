@@ -159,6 +159,12 @@ live exchange with the user. Assets link from row notes and live in
     rolled back by user steer; the spec now carries the intended implementation
     order (items 1 → 10) plus the scope facts that attempt surfaced. Input for this
     row's vehicle decision.
+  - Evidence (2026-07-11, second): the full spec (items 1–10) executed via the
+    saved-plan vehicle — a ratified enriched plan implemented in one session as nine
+    local stacked slices, `just` green per slice, user-run pause point for the
+    residue deletion. Experience report (what the spec got right, where ground truth
+    moved, one mechanical hazard) in
+    `updates/2026-07-11-layering-reshape-executed.md`.
 - [ ] Reexamine the source-control lifecycle spread (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,
