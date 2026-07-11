@@ -2,6 +2,7 @@ import { optionalEntries, type ExplicitUndefined } from "@nseng-ai/foundation/pr
 import {
 	type CommandExecApi,
 	type CommandRunner,
+	commandSucceeded,
 	execApiToCommandRunner,
 	type ExecOptions,
 	type ExecResult,
@@ -84,7 +85,7 @@ export class RealGraphiteBranchGateway implements GraphiteBranchGateway {
 			return { ok: false, error: startupFailure(displayCommand, caught) };
 		}
 
-		if (result.code !== 0 || result.killed) {
+		if (!commandSucceeded(result)) {
 			return {
 				ok: true,
 				tracked: false,
@@ -112,7 +113,7 @@ export class RealGraphiteBranchGateway implements GraphiteBranchGateway {
 			return { ok: false, error: startupFailure(displayCommand, caught) };
 		}
 
-		if (result.code !== 0 || result.killed) {
+		if (!commandSucceeded(result)) {
 			return {
 				ok: false,
 				error: failure("graphite-track-failed", "gt track failed", { result, displayCommand }),

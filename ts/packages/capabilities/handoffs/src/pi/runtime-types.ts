@@ -4,7 +4,7 @@ export type {
 	CommandContext,
 	CommandInfo,
 	CustomMessage,
-	ExecResult,
+	RawPiExecResult,
 	ExtensionAPI,
 	ExtensionMode,
 	MessageRenderer,

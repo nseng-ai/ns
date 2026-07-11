@@ -1,16 +1,36 @@
 import { formatErrorMessage } from "./primitives.ts";
 import { stripTerminalEscapes } from "./terminal-escapes.ts";
 
-const STARTUP_FAILURE_EXIT_CODE = 127;
 export const MAX_ERROR_CHARS = 4_000;
 
-export interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed: boolean;
-	startupError?: string;
-}
+export type ExecResult =
+	| {
+			readonly type: "exited";
+			readonly stdout: string;
+			readonly stderr: string;
+			readonly code: number | null;
+			readonly signal: string | null;
+	  }
+	| {
+			readonly type: "spawn-failed";
+			readonly stdout: string;
+			readonly stderr: string;
+			readonly error: string;
+	  }
+	| {
+			readonly type: "cancelled";
+			readonly stdout: string;
+			readonly stderr: string;
+			readonly code: number | null;
+			readonly signal: string | null;
+	  }
+	| {
+			readonly type: "timed-out";
+			readonly stdout: string;
+			readonly stderr: string;
+			readonly code: number | null;
+			readonly signal: string | null;
+	  };
 
 export type ExecOutputStream = "stdout" | "stderr";
 export type ExecOutputListener = (stream: ExecOutputStream, text: string) => void;
@@ -19,7 +39,7 @@ export interface ExecOptions {
 	cwd?: string;
 	env?: NodeJS.ProcessEnv;
 	timeout?: number;
-	timeoutKillGraceMs?: number;
+	terminationKillGraceMs?: number;
 	signal?: AbortSignal;
 	stdin?: string;
 	onStdout?: (text: string) => void;
@@ -46,22 +66,14 @@ export type CommandRunner = (
 	options?: ExecOptions,
 ) => Promise<ExecResult>;
 
-/**
- * ns's command execution gateway.
- *
- * This shape is intentionally compatible with Pi's extension-host `ctx.exec`,
- * but ns's `ExecOptions`/`ExecResult` contract is wider. Code that relies on
- * behavior Pi does not provide, such as stdin piping, must require a narrower
- * capability interface instead of this Pi-compatible base shape.
- */
+/** ns's command execution gateway. */
 export interface CommandExecApi {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 }
 
 /**
- * A CommandExecApi whose exec implementation actually pipes `options.stdin` to the
- * child process. The Pi host `exec` is intentionally NOT branded: it silently drops
- * stdin, so code that drives `git mktree`/`git hash-object` etc. must require this brand.
+ * A CommandExecApi whose implementation actually pipes `options.stdin` to the child process.
+ * Code that drives stdin-consuming commands must require this capability explicitly.
  */
 export interface StdinCapableCommandExecApi extends CommandExecApi {
 	readonly supportsStdin: true;
@@ -69,26 +81,6 @@ export interface StdinCapableCommandExecApi extends CommandExecApi {
 
 export function execApiToCommandRunner(execApi: CommandExecApi): CommandRunner {
 	return async (command, args, options) => await execApi.exec(command, [...args], options);
-}
-
-export interface PiExecResultLike {
-	stdout?: string;
-	stderr?: string;
-	code: number;
-	killed?: boolean;
-	startupError?: string;
-}
-
-export interface PiExecApiLike {
-	exec(command: string, args: string[], options?: ExecOptions): Promise<PiExecResultLike>;
-}
-
-export function piExecApiToCommandExecApi(execApi: PiExecApiLike): CommandExecApi {
-	return {
-		async exec(command, args, options) {
-			return normalizeExecResult(await execApi.exec(command, args, options));
-		},
-	};
 }
 
 export interface TailTextOptions {
@@ -144,35 +136,15 @@ export interface CommandPrefix {
 	args: string[];
 }
 
-export function normalizeExecResult(result: PiExecResultLike): ExecResult {
-	return {
-		stdout: result.stdout ?? "",
-		stderr: result.stderr ?? "",
-		code: result.code,
-		killed: Boolean(result.killed),
-		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
-	};
-}
-
-export async function runNormalizedExecResult(
-	run: () => Promise<PiExecResultLike>,
-): Promise<ExecResult> {
-	try {
-		return normalizeExecResult(await run());
-	} catch (error) {
-		const startupError = formatErrorMessage(error);
-		return {
-			stdout: "",
-			stderr: startupError,
-			code: STARTUP_FAILURE_EXIT_CODE,
-			killed: false,
-			startupError,
-		};
-	}
-}
-
 export function commandSucceeded(result: ExecResult): boolean {
-	return result.code === 0 && !result.killed;
+	switch (result.type) {
+		case "exited":
+			return result.code === 0 && result.signal === null;
+		case "spawn-failed":
+		case "cancelled":
+		case "timed-out":
+			return false;
+	}
 }
 
 export interface FormatCommandEvidenceOptions {
@@ -188,8 +160,7 @@ export function formatCommandEvidence(options: FormatCommandEvidenceOptions): st
 		options.intro,
 		`Command: ${options.command}`,
 		`Cwd: ${options.cwd}`,
-		`Exit: ${options.result.code}`,
-		`Killed: ${options.result.killed}`,
+		`Termination: ${formatCommandTermination(options.result)}`,
 	];
 	if (options.guidance !== undefined) {
 		sections.push(options.guidance);
@@ -205,24 +176,18 @@ export function formatCommandEvidence(options: FormatCommandEvidenceOptions): st
 
 export function commandFailureReason(result: ExecResult): string {
 	const stderr = result.stderr.trim();
-	return stderr !== "" ? stderr : `exit code ${result.code}${result.killed ? " (killed)" : ""}`;
+	if (stderr !== "") return stderr;
+	return formatCommandTermination(result);
 }
 
-export function formatCommandError(
-	summary: string,
-	result: Pick<ExecResult, "stdout" | "stderr" | "code" | "killed">,
-): string {
+export function formatCommandError(summary: string, result: ExecResult): string {
 	return [summary, formatCommandDetails(result)].join("\n");
 }
 
-export function formatCommandDetails(
-	result: Pick<ExecResult, "stdout" | "stderr" | "code" | "killed">,
-): string {
+export function formatCommandDetails(result: ExecResult): string {
 	const details = firstNonEmptyTrimmed(result.stderr, result.stdout);
-	const killed = result.killed ? " (killed or timed out)" : "";
-	return details === ""
-		? `exit ${result.code}${killed}`
-		: `exit ${result.code}${killed}: ${details}`;
+	const status = formatCommandTermination(result);
+	return details === "" ? status : `${status}: ${details}`;
 }
 
 export function formatCommand(command: string, args: readonly string[]): string {
@@ -236,10 +201,14 @@ export function formatCommandResultFailure(
 	result: ExecResult,
 ): string {
 	const displayCommand = formatCommand(command, args);
-	if (result.startupError !== undefined) {
-		return formatCommandStartupFailure(title, displayCommand, result.startupError);
+	switch (result.type) {
+		case "spawn-failed":
+			return formatCommandSpawnFailure(title, displayCommand, result.error);
+		case "exited":
+		case "cancelled":
+		case "timed-out":
+			return formatCommandFailure(title, displayCommand, result);
 	}
-	return formatCommandFailure(title, displayCommand, result);
 }
 
 export function formatShellArg(value: string): string {
@@ -296,9 +265,7 @@ export function formatCommandFailure(
 	displayCommand: string,
 	result: ExecResult,
 ): string {
-	const status = result.killed
-		? `exit code ${result.code}; process was killed or timed out`
-		: `exit code ${result.code}`;
+	const status = formatCommandTermination(result);
 	return tailText(
 		[
 			`${title} (${status}).`,
@@ -310,7 +277,7 @@ export function formatCommandFailure(
 	);
 }
 
-export function formatCommandStartupFailure(
+export function formatCommandSpawnFailure(
 	title: string,
 	displayCommand: string,
 	error: unknown,
@@ -324,6 +291,23 @@ export function formatCommandStartupFailure(
 		].join("\n\n"),
 		{ maxChars: MAX_ERROR_CHARS, maxLines: 120 },
 	);
+}
+
+export function formatCommandTermination(result: ExecResult): string {
+	switch (result.type) {
+		case "exited":
+			return closeEvidence(`exit code ${result.code ?? "unknown"}`, result.signal);
+		case "spawn-failed":
+			return `spawn failed: ${result.error}`;
+		case "cancelled":
+			return closeEvidence("cancelled", result.signal);
+		case "timed-out":
+			return closeEvidence("timed out", result.signal);
+	}
+}
+
+function closeEvidence(summary: string, signal: string | null): string {
+	return signal === null ? summary : `${summary}; signal ${signal}`;
 }
 
 function applyLineLimit(

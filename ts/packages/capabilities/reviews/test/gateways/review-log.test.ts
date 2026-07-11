@@ -1,5 +1,5 @@
 import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/command";
-import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 import { describe, expect, test } from "vitest";
 
 import { RealReviewLogGateway } from "../../src/gateways/review-log.ts";
@@ -22,10 +22,7 @@ class EchoPutCommandExecApi implements CommandExecApi {
 			...(options === undefined ? {} : { options: { ...options } }),
 		});
 		const sourceFile = args[args.indexOf("--file") + 1] ?? "";
-		return {
-			code: 0,
-			killed: false,
-			stderr: "",
+		return exitedResult({
 			stdout: JSON.stringify({
 				exitCode: 0,
 				data: {
@@ -38,7 +35,7 @@ class EchoPutCommandExecApi implements CommandExecApi {
 					sourceFile,
 				},
 			}),
-		};
+		});
 	}
 
 	calls(): readonly ExecCall[] {
@@ -83,7 +80,7 @@ describe("RealReviewLogGateway", () => {
 
 	test("lists and filters review logs from brmem list", async () => {
 		const execApi = new ScriptedCommandExecApi([
-			{
+			exitedResult({
 				stdout: JSON.stringify({
 					exitCode: 0,
 					data: {
@@ -105,7 +102,7 @@ describe("RealReviewLogGateway", () => {
 						],
 					},
 				}),
-			},
+			}),
 		]);
 		const gateway = new RealReviewLogGateway({ execApi });
 
@@ -127,7 +124,7 @@ describe("RealReviewLogGateway", () => {
 
 	test("maps process and invalid JSON failures", async () => {
 		const processFailure = new RealReviewLogGateway({
-			execApi: new ScriptedCommandExecApi([{ code: 127, stderr: "brmem missing" }]),
+			execApi: new ScriptedCommandExecApi([exitedResult({ code: 127, stderr: "brmem missing" })]),
 		});
 		const failedWrite = await processFailure.writeReviewLog({
 			...scope,
@@ -141,13 +138,13 @@ describe("RealReviewLogGateway", () => {
 
 		const envelopeFailure = new RealReviewLogGateway({
 			execApi: new ScriptedCommandExecApi([
-				{
+				exitedResult({
 					code: 1,
 					stdout: JSON.stringify({
 						exitCode: 1,
 						message: "Source file is 2 MiB; Branch Memory Entries are capped at 1 MiB",
 					}),
-				},
+				}),
 			]),
 		});
 		const failedEnvelopeWrite = await envelopeFailure.writeReviewLog({
@@ -161,7 +158,7 @@ describe("RealReviewLogGateway", () => {
 		expect(failedEnvelopeWrite.error.message).toContain("Source file is 2 MiB");
 
 		const invalidJson = new RealReviewLogGateway({
-			execApi: new ScriptedCommandExecApi([{ stdout: "not json" }]),
+			execApi: new ScriptedCommandExecApi([exitedResult({ stdout: "not json" })]),
 		});
 		const failedList = await invalidJson.listReviewLogs(scope);
 		expect(failedList.ok).toBe(false);

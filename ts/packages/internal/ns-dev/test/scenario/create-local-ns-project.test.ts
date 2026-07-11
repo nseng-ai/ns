@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseJsonOutput, runScenario } from "./run-scenario.ts";
+import { exitedResult, parseJsonOutput, runScenario } from "./run-scenario.ts";
 
 const BASE_FILES = {
 	"/repo/ts/packages/hosts/ns-cli/package.json": JSON.stringify({
@@ -154,13 +154,8 @@ describe("create-local-ns-project", () => {
 	});
 
 	it("reports the failed verification command", async () => {
-		const commandResults = Array.from({ length: 6 }, () => ({
-			stdout: "",
-			stderr: "",
-			code: 0,
-			killed: false,
-		}));
-		commandResults.push({ stdout: "", stderr: "bad ns", code: 9, killed: false });
+		const commandResults = Array.from({ length: 6 }, () => exitedResult());
+		commandResults.push(exitedResult({ stderr: "bad ns", code: 9 }));
 		const run = runScenario(
 			[
 				"create-local-ns-project",

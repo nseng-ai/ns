@@ -10,6 +10,7 @@ import {
 	type DispatchPromptPayloadOptions,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import { createCccPiCommandApi } from "./pi-command-api.ts";
 import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
 
 const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME;
@@ -19,9 +20,10 @@ export interface CccSlotDispatchFromTrunkOptions extends DispatchPromptPayloadOp
 }
 
 export function registerCccSlotDispatchFromTrunkCommand(
-	pi: ExtensionAPI,
+	rawPi: ExtensionAPI,
 	options: CccSlotDispatchFromTrunkOptions = {},
 ): void {
+	const pi = createCccPiCommandApi(rawPi);
 	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
 	registerCommandWithImmediateAck({
 		host: pi,

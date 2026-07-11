@@ -16,6 +16,7 @@ import { checkHandoffExists } from "./handoff-existence.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type { ExpandedSkillBlock } from "@nseng-ai/pi/skills/expansion";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type {
 	CommandContext,
 	ExtensionAPI,
@@ -241,7 +242,7 @@ export async function runHandoffCreateCommand(
 }
 
 export async function verifyHandoffLaunchTarget<P extends HandoffLaunchParams>(
-	pi: ExtensionAPI,
+	commands: CommandExecApi,
 	ctx: ToolContext,
 	options: VerifyHandoffLaunchOptions<P>,
 ): Promise<VerifyHandoffLaunchResult> {
@@ -251,7 +252,7 @@ export async function verifyHandoffLaunchTarget<P extends HandoffLaunchParams>(
 	setStatus(ctx, options.statusKey, options.verifyStatus);
 	try {
 		const exists = await checkHandoffExists({
-			pi,
+			commands,
 			cwd: ctx.cwd,
 			branch: options.params.branch,
 			key: options.params.key,
@@ -282,7 +283,7 @@ export async function verifyHandoffLaunchTarget<P extends HandoffLaunchParams>(
 }
 
 export function buildHandoffLaunchTool<P extends HandoffLaunchParams = HandoffLaunchParams>(
-	pi: ExtensionAPI,
+	commands: CommandExecApi,
 	spec: HandoffLaunchToolSpec<P>,
 ): ToolDefinition {
 	const parseParams =
@@ -322,7 +323,7 @@ export function buildHandoffLaunchTool<P extends HandoffLaunchParams = HandoffLa
 				return handoffLaunchToolFailure(gateFailure);
 			}
 
-			const verified = await verifyHandoffLaunchTarget(pi, ctx, {
+			const verified = await verifyHandoffLaunchTarget(commands, ctx, {
 				params: parsed.params,
 				statusKey: spec.statusKey,
 				verifyStatus: spec.verifyStatus(parsed.params),

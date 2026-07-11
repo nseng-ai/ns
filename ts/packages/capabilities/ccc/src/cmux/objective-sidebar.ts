@@ -1,9 +1,11 @@
 import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 
 import {
+	commandSucceeded,
+	type CommandExecApi,
 	type ExecResult,
 	formatCommand,
-	formatOutputSection,
+	formatCommandFailure,
 	tailText,
 } from "@nseng-ai/foundation/command";
 import {
@@ -11,7 +13,6 @@ import {
 	type MachineEnvelopeDataParseValid,
 } from "@nseng-ai/foundation/machine-envelope";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
 export const CMUX_WORKSPACE_SUMMARY_TIMEOUT_MS = 30_000;
@@ -96,7 +97,7 @@ export function resolveObjectiveSelector(
 }
 
 export async function validateObjectiveSidebarSlug(
-	pi: Pick<ExtensionAPI, "exec">,
+	pi: CommandExecApi,
 	cwd: string,
 	slug: string,
 ): Promise<ObjectiveSidebarValidationResult> {
@@ -115,7 +116,7 @@ export async function validateObjectiveSidebarSlug(
 }
 
 export async function readCurrentBranchSlug(
-	pi: Pick<ExtensionAPI, "exec">,
+	pi: CommandExecApi,
 	cwd: string,
 ): Promise<BranchSlugReadResult> {
 	const args = ["branch", "--show-current"];
@@ -135,10 +136,10 @@ export async function readCurrentBranchSlug(
 	}
 
 	const commandDisplay = formatCommand("git", args);
-	if (result.killed || result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return {
 			type: "failed",
-			message: formatExecFailure(
+			message: formatCommandFailure(
 				"Could not read current branch for cmux Objective sidebar.",
 				commandDisplay,
 				result,
@@ -170,7 +171,7 @@ export function formatObjectiveSidebarFields(input: ObjectiveSidebarFormatInput)
 }
 
 export async function applyObjectiveSidebarFields(
-	pi: Pick<ExtensionAPI, "exec">,
+	pi: CommandExecApi,
 	cwd: string,
 	fields: SidebarFields,
 ): Promise<ObjectiveSidebarApplyResult> {
@@ -205,7 +206,7 @@ export async function applyObjectiveSidebarFields(
 }
 
 async function runJsonExecCommand(options: {
-	pi: Pick<ExtensionAPI, "exec">;
+	pi: CommandExecApi;
 	cwd: string;
 	command: string;
 	args: string[];
@@ -227,7 +228,7 @@ async function runJsonExecCommand(options: {
 	}
 
 	const commandDisplay = formatCommand(options.command, options.args);
-	if (result.killed || result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return {
 			type: "failed",
 			message: formatFailedEnvelopeOrExecFailure(
@@ -342,23 +343,5 @@ function formatFailedEnvelopeOrExecFailure(
 			return `${summary}\nCommand: ${commandDisplay}\n${parsed.message}`;
 		}
 	}
-	return formatExecFailure(summary, commandDisplay, result);
-}
-
-function formatExecFailure(summary: string, commandDisplay: string, result: ExecResult): string {
-	const lines = [
-		summary,
-		`Command: ${commandDisplay}`,
-		`Exit code: ${result.code}`,
-		`Killed: ${result.killed ? "yes" : "no"}`,
-		formatOutputSection("stdout", result.stdout, {
-			maxChars: MAX_ERROR_CHARS,
-			maxLines: MAX_ERROR_LINES,
-		}),
-		formatOutputSection("stderr", result.stderr, {
-			maxChars: MAX_ERROR_CHARS,
-			maxLines: MAX_ERROR_LINES,
-		}),
-	];
-	return tailText(lines.join("\n"), { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES });
+	return formatCommandFailure(summary, commandDisplay, result);
 }

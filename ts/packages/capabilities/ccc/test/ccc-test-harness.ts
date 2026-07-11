@@ -12,14 +12,16 @@ import type {
 	AutocompleteProvider,
 	CommandContext,
 	CommandDefinition,
-	ExecOptions,
-	ExecResult,
+	RawPiExecOptions,
+	RawPiExecResult,
 	ExtensionAPI,
 	ModelInfo,
 	NotifyLevel,
 	SessionStartContext,
 	ThinkingLevel,
 } from "@nseng-ai/capability-kit/cmux/types";
+
+type RawPiExecResultFixture = Partial<RawPiExecResult>;
 import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
@@ -59,13 +61,13 @@ type SessionStartHandler = (_event: unknown, ctx: SessionStartContext) => Promis
 export interface ExecCall {
 	command: string;
 	args: string[];
-	options: ExecOptions | undefined;
+	options: RawPiExecOptions | undefined;
 }
 
 export interface ScriptedExec {
 	command: string;
 	args?: string[];
-	result?: Partial<ExecResult>;
+	result?: RawPiExecResultFixture;
 	error?: unknown;
 }
 
@@ -133,7 +135,11 @@ export class FakePi implements ExtensionAPI {
 		this.commands.set(name, options);
 	}
 
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+	async exec(
+		command: string,
+		args: string[],
+		options?: RawPiExecOptions,
+	): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
@@ -337,7 +343,7 @@ export interface RunScriptedExecOptions {
 }
 
 export interface RunScriptedExecResult {
-	result: ExecResult;
+	result: RawPiExecResult;
 	errorMessage?: string;
 }
 
@@ -376,7 +382,7 @@ function expectedArgsMismatch(
 	return !sameArgs(expectedArgs, actualArgs);
 }
 
-export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+export function execResult(overrides: RawPiExecResultFixture = {}): RawPiExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
@@ -388,7 +394,7 @@ export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 export function step(
 	command: string,
 	args: string[] | undefined,
-	result?: Partial<ExecResult>,
+	result?: RawPiExecResultFixture,
 ): ScriptedExec {
 	return {
 		command,
@@ -428,7 +434,10 @@ export function objectiveReadStep(slug: string): ScriptedExec {
 	});
 }
 
-export function objectiveDiffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
+export function objectiveDiffStep(
+	stdout: string,
+	result: RawPiExecResultFixture = {},
+): ScriptedExec {
 	return step("git", ["diff", "--name-status", "-M", "master...HEAD", "--", ".ns/objectives"], {
 		stdout,
 		...result,
@@ -437,7 +446,7 @@ export function objectiveDiffStep(stdout: string, result: Partial<ExecResult> = 
 
 export function objectiveStatusStep(
 	stdout: string,
-	result: Partial<ExecResult> = {},
+	result: RawPiExecResultFixture = {},
 ): ScriptedExec {
 	return step("git", ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"], {
 		stdout,
@@ -508,7 +517,7 @@ export function brmemPutJson(repoRoot: string, planFile: string): string {
 	});
 }
 
-export function missingRevisionResult(): Partial<ExecResult> {
+export function missingRevisionResult(): RawPiExecResultFixture {
 	return { code: 128, stderr: "fatal: Needed a single revision\n" };
 }
 

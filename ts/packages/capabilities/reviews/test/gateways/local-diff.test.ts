@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
-import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 
 import {
 	FakeLocalDiffGateway,
@@ -44,7 +44,7 @@ describe("RealLocalDiffGateway", () => {
 			'[reviews.diff]\nexclude = [".agents/skills/**/*.py"]\n',
 			"utf8",
 		);
-		const execApi = new ScriptedCommandExecApi([{ stdout: SAMPLE_DIFF }]);
+		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: SAMPLE_DIFF })]);
 		const gateway = new RealLocalDiffGateway({
 			execApi,
 			gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }),
@@ -81,7 +81,9 @@ describe("RealLocalDiffGateway", () => {
 	test("falls back to trunk branch and reports git diff failures", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "reviews-local-diff-failure-"));
 		await mkdir(repoRoot, { recursive: true });
-		const execApi = new ScriptedCommandExecApi([{ stderr: "fatal: bad revision", code: 128 }]);
+		const execApi = new ScriptedCommandExecApi([
+			exitedResult({ stderr: "fatal: bad revision", code: 128 }),
+		]);
 		const gateway = new RealLocalDiffGateway({
 			execApi,
 			gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }),

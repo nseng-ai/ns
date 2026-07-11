@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { formatCommand } from "@nseng-ai/foundation/command";
+import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
 import {
 	GRAPHITE_METADATA_DB_NAME,
 	detectGraphiteForkViolations,
@@ -32,7 +32,7 @@ export async function resolveMetadataDbPath(
 ): Promise<LandStackResult<string>> {
 	const args = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
 	const result = await exec({ pi, command: "git", args, cwd: repoRoot, timeoutMs: GIT_TIMEOUT_MS });
-	if (result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return failure(
 			landStackFailure(
 				`Could not resolve the git common directory for Graphite metadata.\n${formatCommandDetails(result, formatCommand("git", args))}`,
@@ -59,7 +59,7 @@ export async function loadGraphiteTopology(
 		cwd: repoRoot,
 		timeoutMs: SQLITE_TIMEOUT_MS,
 	});
-	if (result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return failure(
 			landStackFailure(classifyTopologyReadFailure(result.stderr, dbPath), {
 				commandDisplay: metadataCommand.display,

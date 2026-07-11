@@ -17,7 +17,7 @@ export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGe
 
 export interface ScriptedExecResponse {
 	match: string | RegExp | ((call: ExecCall) => boolean);
-	result: Partial<ExecResult>;
+	result: Partial<Extract<ExecResult, { type: "exited" }>>;
 	isRepeatable?: boolean;
 }
 
@@ -167,13 +167,15 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 	};
 }
 
-export function execResult(result: Partial<ExecResult> = {}): ExecResult {
+export function execResult(
+	result: Partial<Extract<ExecResult, { type: "exited" }>> = {},
+): ExecResult {
 	return {
+		type: "exited",
 		code: result.code ?? 0,
+		signal: result.signal ?? null,
 		stdout: result.stdout ?? "",
 		stderr: result.stderr ?? "",
-		killed: result.killed ?? false,
-		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
 	};
 }
 

@@ -10,11 +10,11 @@ import type {
 	ExtensionAPI,
 	ExtensionHandler,
 } from "@earendil-works/pi-coding-agent";
-import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import {
 	PI_AGENT_DEFINITION_SCHEMA,
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
+import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 import type { NotifyLevel, ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
 import { makeErrorResult, makeFinalTextResult, toolContext } from "./helpers/fleet-testing.ts";
@@ -29,7 +29,11 @@ import { SUBAGENT_FLEET_COMMAND_NAME } from "../src/fleet/contract.ts";
 import { getOrCreateSubagentFleetRegistry } from "../src/fleet/provider.ts";
 import { SubagentFleetRegistry } from "../src/fleet/registry.ts";
 import packageExtension, { type NsPiSubagentsExtensionAPI } from "../src/extension.ts";
-import { registerSubagentTool, SUBAGENT_TOOL_NAME } from "../src/tool/subagent.ts";
+import {
+	registerSubagentTool,
+	SUBAGENT_TOOL_NAME,
+	type SubagentToolHost,
+} from "../src/tool/subagent.ts";
 
 const packageRoot = dirname(fileURLToPath(import.meta.url));
 const manifestPath = join(packageRoot, "..", "package.json");
@@ -48,7 +52,11 @@ class FakePi implements NsPiSubagentsExtensionAPI {
 		return "off";
 	}
 
-	async exec(_command: string, _args: string[], _options?: ExecOptions): Promise<ExecResult> {
+	async exec(
+		_command: string,
+		_args: string[],
+		_options?: RawPiExecOptions,
+	): Promise<RawPiExecResult> {
 		return { stdout: "", stderr: "", code: 0, killed: false };
 	}
 	registerCommand(
@@ -86,6 +94,15 @@ function definition(
 function loader(name: string): PiAgentDefinition {
 	if (name === "explorer" || name === "task") return definition(name);
 	throw new Error(`unknown ${name}`);
+}
+
+function commandBackedToolHost(pi: FakePi): SubagentToolHost {
+	return {
+		...pi,
+		registerTool: pi.registerTool.bind(pi),
+		getThinkingLevel: pi.getThinkingLevel.bind(pi),
+		exec: async () => ({ type: "exited", stdout: "", stderr: "", code: 0, signal: null }),
+	};
 }
 
 function invokeBeforeAgentStart(
@@ -287,7 +304,7 @@ describe("ns-pi-subagents package", () => {
 			],
 			() => consumerDefinition,
 		);
-		registerSubagentTool(pi, {
+		registerSubagentTool(commandBackedToolHost(pi), {
 			agents,
 			fleetRegistry: new SubagentFleetRegistry(),
 			loadAgentDefinition: () => consumerDefinition,

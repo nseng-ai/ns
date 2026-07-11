@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 import {
 	createSlotDiagnosticSinkFromEnv,
 	runDiagnosticCommand,
@@ -23,13 +23,12 @@ describe("slot diagnostics", () => {
 			const sink = createSlotDiagnosticSinkFromEnv({ [SLOT_DIAGNOSTIC_LOG_ENV]: logPath });
 			if (sink === undefined) throw new Error("expected configured diagnostic sink");
 			const execApi = new ScriptedCommandExecApi([
-				{
+				exitedResult({
 					stdout: "hello\n",
 					stderr: "warning\n",
 					code: 7,
-					killed: true,
-					startupError: "startup detail",
-				},
+					signal: "SIGTERM",
+				}),
 			]);
 
 			const result = await runDiagnosticCommand({
@@ -41,12 +40,14 @@ describe("slot diagnostics", () => {
 				diagnosticSink: sink,
 			});
 
-			expect(result).toMatchObject({
-				stdout: "hello\n",
-				stderr: "warning\n",
-				code: 7,
-				killed: true,
-			});
+			expect(result).toEqual(
+				exitedResult({
+					stdout: "hello\n",
+					stderr: "warning\n",
+					code: 7,
+					signal: "SIGTERM",
+				}),
+			);
 			const lines = (await readFile(logPath, "utf8")).trimEnd().split("\n");
 			expect(lines).toHaveLength(1);
 			const event = JSON.parse(lines[0] ?? "{}");
@@ -58,11 +59,9 @@ describe("slot diagnostics", () => {
 				displayCommand: "git worktree list --porcelain",
 				cwd: "/repo",
 				timeoutMs: 123,
-				exitCode: 7,
-				killed: true,
+				termination: { type: "exited", code: 7, signal: "SIGTERM" },
 				stdoutBytes: 6,
 				stderrBytes: 8,
-				startupError: "startup detail",
 			});
 			expect(event.startedAt).toEqual(expect.any(String));
 			expect(event.durationMs).toEqual(expect.any(Number));

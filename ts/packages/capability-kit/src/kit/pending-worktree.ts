@@ -1,4 +1,4 @@
-import { formatCommandDetails } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, formatCommandDetails } from "@nseng-ai/foundation/exec";
 
 import type { GitCwdParams, GitOptionalResult } from "./git-contract.ts";
 import type { CommandResult } from "./command-result.ts";
@@ -54,7 +54,7 @@ export async function loadPendingWorktreeSnapshot(input: {
 	}
 
 	const branch = await input.execGit(["symbolic-ref", "--short", "HEAD"], GIT_FACT_TIMEOUT_MS);
-	if (branch.code !== 0) {
+	if (!commandSucceeded(branch)) {
 		return {
 			ok: false,
 			error: { kind: "detached_head", message: "Detached HEAD.", result: branch },
@@ -62,7 +62,7 @@ export async function loadPendingWorktreeSnapshot(input: {
 	}
 
 	const status = await input.execGit(["status", "--porcelain=v1"], GIT_FACT_TIMEOUT_MS);
-	if (status.code !== 0) {
+	if (!commandSucceeded(status)) {
 		return {
 			ok: false,
 			error: { kind: "status_failed", message: "Could not read git status.", result: status },
@@ -70,7 +70,7 @@ export async function loadPendingWorktreeSnapshot(input: {
 	}
 
 	const diff = await input.execGit(["diff", "HEAD", "--no-ext-diff"], GIT_FACT_TIMEOUT_MS);
-	if (diff.code !== 0) {
+	if (!commandSucceeded(diff)) {
 		return {
 			ok: false,
 			error: { kind: "diff_failed", message: "Could not read git diff.", result: diff },
@@ -90,14 +90,16 @@ export async function loadPendingWorktreeSnapshot(input: {
 }
 
 export function formatPendingWorktreeCommandDetails(result: WorktreeCommandResult): string {
-	return formatCommandDetails({ ...result, killed: result.killed ?? false });
+	return formatCommandDetails(result);
 }
 
 function gitRootMissingCommandResult(
 	error: { message: string } | undefined,
 ): WorktreeCommandResult {
 	return {
+		type: "exited",
 		code: 128,
+		signal: null,
 		stdout: "",
 		stderr: error?.message ?? "fatal: not a git repository",
 	};

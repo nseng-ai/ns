@@ -8,12 +8,7 @@ export interface FakeSlotCommandInvocation {
 	cwd: string;
 }
 
-export interface FakeSlotExecResult {
-	stdout?: string;
-	stderr?: string;
-	code?: number;
-	killed?: boolean;
-}
+export type FakeSlotExecResult = ExecResult;
 
 export interface FakeSlotCommandGatewayOptions {
 	/** Scripted results keyed by worktree path (`cwd`). */
@@ -29,7 +24,13 @@ export class FakeSlotCommandGateway implements SlotCommandGateway {
 
 	constructor(options: FakeSlotCommandGatewayOptions = {}) {
 		this.resultsByCwd = options.resultsByCwd ?? {};
-		this.defaultResult = options.defaultResult ?? {};
+		this.defaultResult = options.defaultResult ?? {
+			type: "exited",
+			stdout: "",
+			stderr: "",
+			code: 0,
+			signal: null,
+		};
 	}
 
 	async run(
@@ -39,12 +40,7 @@ export class FakeSlotCommandGateway implements SlotCommandGateway {
 	): Promise<ExecResult> {
 		this.log.push({ command, args: [...args], cwd: options.cwd });
 		const scripted = this.resultsByCwd[options.cwd] ?? this.defaultResult;
-		return {
-			stdout: scripted.stdout ?? "",
-			stderr: scripted.stderr ?? "",
-			code: scripted.code ?? 0,
-			killed: scripted.killed ?? false,
-		};
+		return scripted;
 	}
 
 	invocations(): readonly FakeSlotCommandInvocation[] {

@@ -37,7 +37,6 @@ class FakePi implements SmartRestackExtensionAPI {
 		stderr: string;
 		code: number;
 		killed: boolean;
-		startupError?: string;
 	}[];
 
 	constructor(
@@ -46,7 +45,6 @@ class FakePi implements SmartRestackExtensionAPI {
 			stderr?: string;
 			code: number;
 			killed?: boolean;
-			startupError?: string;
 		}[] = [],
 	) {
 		this.execResults = execResults.map((result) => ({
@@ -54,7 +52,6 @@ class FakePi implements SmartRestackExtensionAPI {
 			stderr: result.stderr ?? "",
 			code: result.code,
 			killed: result.killed ?? false,
-			...(result.startupError === undefined ? {} : { startupError: result.startupError }),
 		}));
 	}
 
@@ -77,7 +74,6 @@ class FakePi implements SmartRestackExtensionAPI {
 		stderr: string;
 		code: number;
 		killed: boolean;
-		startupError?: string;
 	}> {
 		this.execCalls.push(
 			options?.cwd === undefined ? { command, args } : { command, args, cwd: options.cwd },

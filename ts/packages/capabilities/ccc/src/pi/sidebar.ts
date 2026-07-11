@@ -9,6 +9,7 @@ import {
 	type ObjectiveSidebarHandlerOptions,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import { createCccPiCommandApi } from "./pi-command-api.ts";
 
 const SESSION_SIDEBAR_COMMAND_NAME = CCC_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME;
 const BRANCH_STATE_SIDEBAR_COMMAND_NAME = CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME;
@@ -48,7 +49,8 @@ export function registerCccSidebarCommands(
 	});
 }
 
-export function createCccSidebarControllerWithPiWiring(pi: ExtensionAPI): CccSidebarController {
+export function createCccSidebarControllerWithPiWiring(rawPi: ExtensionAPI): CccSidebarController {
+	const pi = createCccPiCommandApi(rawPi);
 	const objectiveSidebarOptions: ObjectiveSidebarHandlerOptions = {
 		expandSkillBlock: async (cwd, skillName) => expandRepoSkillBlock({ cwd, skillName }),
 	};

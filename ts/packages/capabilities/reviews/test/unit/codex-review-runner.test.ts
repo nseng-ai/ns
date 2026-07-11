@@ -1,4 +1,4 @@
-import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 import { describe, expect, test } from "vitest";
 
 import type { PreparedReviewHarnessRequest } from "../../src/gateways/review-runner.ts";
@@ -27,7 +27,7 @@ function request(): PreparedReviewHarnessRequest {
 
 describe("CodexProcessReviewRunner", () => {
 	test("invokes Codex read-only and ephemeral with structured output files and prompt on stdin", async () => {
-		const execApi = new ScriptedCommandExecApi([{}]);
+		const execApi = new ScriptedCommandExecApi([exitedResult()]);
 		const outputFiles = new InMemoryCodexReviewOutputFiles({
 			output: '{"findings":[]}',
 		});
@@ -71,7 +71,7 @@ describe("CodexProcessReviewRunner", () => {
 	});
 
 	test("cleans up after process failure and preserves stderr diagnostics", async () => {
-		const execApi = new ScriptedCommandExecApi([{ code: 2, stderr: "codex failed" }]);
+		const execApi = new ScriptedCommandExecApi([exitedResult({ code: 2, stderr: "codex failed" })]);
 		const outputFiles = new InMemoryCodexReviewOutputFiles();
 		const runner = new CodexProcessReviewRunner({
 			execApi,
@@ -89,7 +89,7 @@ describe("CodexProcessReviewRunner", () => {
 	});
 
 	test("propagates env and cancellation signal and returns input coverage", async () => {
-		const execApi = new ScriptedCommandExecApi([{}]);
+		const execApi = new ScriptedCommandExecApi([exitedResult()]);
 		const outputFiles = new InMemoryCodexReviewOutputFiles();
 		const runner = new CodexProcessReviewRunner({
 			execApi,
@@ -112,7 +112,7 @@ describe("CodexProcessReviewRunner", () => {
 	});
 
 	test("cleans up after output read failure", async () => {
-		const execApi = new ScriptedCommandExecApi([{}]);
+		const execApi = new ScriptedCommandExecApi([exitedResult()]);
 		const outputFiles = new InMemoryCodexReviewOutputFiles({
 			readError: new Error("missing output"),
 		});
@@ -130,7 +130,7 @@ describe("CodexProcessReviewRunner", () => {
 	});
 
 	test("preserves a successful review when cleanup fails", async () => {
-		const execApi = new ScriptedCommandExecApi([{}]);
+		const execApi = new ScriptedCommandExecApi([exitedResult()]);
 		const outputFiles = new InMemoryCodexReviewOutputFiles({
 			output: '{"findings":[]}',
 			cleanupError: new Error("cleanup failure"),
@@ -152,7 +152,9 @@ describe("CodexProcessReviewRunner", () => {
 	});
 
 	test("does not hide a primary process failure with a cleanup failure", async () => {
-		const execApi = new ScriptedCommandExecApi([{ code: 2, stderr: "primary failure" }]);
+		const execApi = new ScriptedCommandExecApi([
+			exitedResult({ code: 2, stderr: "primary failure" }),
+		]);
 		const outputFiles = new InMemoryCodexReviewOutputFiles({
 			cleanupError: new Error("cleanup failure"),
 		});
@@ -172,7 +174,7 @@ describe("CodexProcessReviewRunner", () => {
 	});
 
 	test("missing binary does not prepare artifacts or spawn", async () => {
-		const execApi = new ScriptedCommandExecApi([{}]);
+		const execApi = new ScriptedCommandExecApi([exitedResult()]);
 		const outputFiles = new InMemoryCodexReviewOutputFiles();
 		const runner = new CodexProcessReviewRunner({
 			execApi,

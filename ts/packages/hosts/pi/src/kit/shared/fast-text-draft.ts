@@ -6,11 +6,12 @@ import {
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CommandResult } from "@nseng-ai/capability-kit/checkpoint-flow";
+import { commandSucceeded, type CommandExecApi, type ExecResult } from "@nseng-ai/foundation/exec";
 import { callPiModelText, type PiModelRegistryLike } from "../models/call.ts";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import { truncateDisplayLine } from "../terminal/presentation.ts";
 import { withSafePiUi } from "./safe-ui.ts";
+import { createPiCommandExecApi, type RawPiExecApi } from "./exec-gateway.ts";
 import { unrefTimerScheduler } from "./timers.ts";
 
 export const HARNESS_ENV = "PI_DRAFT_HARNESS";
@@ -49,7 +50,7 @@ export interface ExtensionCommandContext {
 	waitForIdle(): Promise<void>;
 }
 
-export interface ExtensionAPI {
+export interface ExtensionAPI extends RawPiExecApi {
 	registerCommand(
 		name: string,
 		options: {
@@ -57,11 +58,6 @@ export interface ExtensionAPI {
 			handler(args: string, ctx: ExtensionCommandContext): Promise<void> | void;
 		},
 	): void;
-	exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number },
-	): Promise<CommandResult>;
 }
 
 export interface FastTextDraftInput {
@@ -145,7 +141,7 @@ export async function draftWithFastText(
 		}
 		return draftWithPiModel(ctx, resolved.value, input);
 	}
-	return draftWithClaudeCli(pi, ctx, input);
+	return draftWithClaudeCli(createPiCommandExecApi(pi), ctx, input);
 }
 
 async function draftWithPiModel(
@@ -194,7 +190,7 @@ function piModelDraftError(
 }
 
 async function draftWithClaudeCli(
-	pi: Pick<ExtensionAPI, "exec">,
+	pi: CommandExecApi,
 	ctx: ExtensionCommandContext,
 	input: FastTextDraftInput,
 ): Promise<{ output: string } | { error: string }> {
@@ -224,7 +220,7 @@ async function draftWithClaudeCli(
 					{ cwd: ctx.cwd, timeout: 120_000 },
 				),
 		);
-		if (result.code !== 0) {
+		if (!commandSucceeded(result)) {
 			return {
 				error: formatCommandError(
 					`${CLAUDE_CLI_LABEL} failed to draft a ${input.taskNoun}.`,
@@ -306,13 +302,9 @@ function clearProgress(ctx: ExtensionCommandContext, spinnerKey: string): void {
 	ctx.ui.setStatus(spinnerKey, undefined);
 }
 
-function formatCommandError(summary: string, result: CommandResult): string {
+function formatCommandError(summary: string, result: ExecResult): string {
 	const details = result.stderr.trim() || result.stdout.trim();
-	const killed = result.killed ? " (killed or timed out)" : "";
-	return [
-		summary,
-		details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`,
-	]
-		.filter(Boolean)
-		.join("\n");
+	const termination =
+		result.type === "exited" ? `exit ${result.code ?? "unknown"}` : result.type.replace("-", " ");
+	return [summary, details ? `${termination}: ${details}` : termination].filter(Boolean).join("\n");
 }

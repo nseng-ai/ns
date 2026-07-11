@@ -5,21 +5,15 @@ import {
 	commandSucceeded,
 	formatCommand,
 	formatCommandFailure,
-	formatCommandStartupFailure,
+	formatCommandSpawnFailure,
 } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 // Neutral cmux command runner: keep process execution behind CommandExecApi for package extraction.
-export const CMUX_STARTUP_FAILURE_EXIT_CODE = 127;
-
 export interface CmuxCommandFailure {
 	command: string[];
 	displayCommand: string;
-	exitCode: number;
-	stdout: string;
-	stderr: string;
-	isKilled: boolean;
-	startupError?: string;
+	result: ExecResult;
 }
 
 export type CmuxCommandResult =
@@ -66,50 +60,21 @@ export async function runCmuxCommand(options: RunCmuxCommandOptions): Promise<Cm
 	try {
 		result = await options.commands.exec("cmux", args, execOptions);
 	} catch (error) {
-		const startupError = formatErrorMessage(error);
-		const stderr = formatCommandStartupFailure("cmux command failed", displayCommand, error);
-		return {
-			type: "failed",
-			failure: {
-				command,
-				displayCommand,
-				exitCode: CMUX_STARTUP_FAILURE_EXIT_CODE,
-				stdout: "",
-				stderr,
-				isKilled: false,
-				startupError,
-			},
-		};
+		const message = formatErrorMessage(error);
+		result = { type: "spawn-failed", stdout: "", stderr: message, error: message };
 	}
 
 	if (commandSucceeded(result)) return { type: "success", result };
-
-	return {
-		type: "failed",
-		failure: {
-			command,
-			displayCommand,
-			exitCode: result.code,
-			stdout: result.stdout,
-			stderr:
-				result.stderr || result.startupError || (result.killed ? "cmux command timed out." : ""),
-			isKilled: result.killed,
-		},
-	};
+	return { type: "failed", failure: { command, displayCommand, result } };
 }
 
 export function formatCmuxCommandFailure(failure: CmuxCommandFailure): string {
-	if (failure.startupError !== undefined) {
-		return formatCommandStartupFailure(
+	if (failure.result.type === "spawn-failed") {
+		return formatCommandSpawnFailure(
 			"cmux command failed",
 			failure.displayCommand,
-			failure.startupError,
+			failure.result.error,
 		);
 	}
-	return formatCommandFailure("cmux command failed", failure.displayCommand, {
-		stdout: failure.stdout,
-		stderr: failure.stderr,
-		code: failure.exitCode,
-		killed: failure.isKilled,
-	});
+	return formatCommandFailure("cmux command failed", failure.displayCommand, failure.result);
 }

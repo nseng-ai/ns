@@ -1,5 +1,5 @@
 import { GRAPHITE_COMMAND_NAME } from "@nseng-ai/capability-kit/graphite/branch";
-import type { ExecResult } from "@nseng-ai/foundation/command";
+import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { isReadGraphiteBranchMetadataArgs } from "./graphite-command-channel.ts";
 
@@ -68,11 +68,22 @@ export function commandExternalCallTelemetryEvent(
 		display: input.commandDisplay,
 		elapsedMs: input.elapsedMs,
 		count: 1,
-		status: input.result.code === 0 ? "success" : "failure",
-		exitCode: input.result.code,
-		isKilled: Boolean(input.result.killed),
+		status: commandSucceeded(input.result) ? "success" : "failure",
+		...optionalEntry(
+			"exitCode",
+			input.result.type === "spawn-failed" ? undefined : (input.result.code ?? undefined),
+		),
+		isKilled: wasCommandKilled(input.result),
 		...optionalEntry("quota", cloneQuotaEstimate(classification.quota)),
 	};
+}
+
+function wasCommandKilled(result: ExecResult): boolean {
+	return (
+		result.type === "cancelled" ||
+		result.type === "timed-out" ||
+		(result.type === "exited" && result.signal !== null)
+	);
 }
 
 export function classifyCommandInvocation(

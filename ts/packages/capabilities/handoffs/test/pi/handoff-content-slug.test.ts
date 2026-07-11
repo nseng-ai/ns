@@ -6,8 +6,10 @@ import {
 	deriveHandoffContentSlug,
 	normalizeHandoffContentSlugOutput,
 } from "../../src/pi/content-slug.ts";
-import type { ExecResult } from "@nseng-ai/foundation/command";
-import type { ExtensionAPI } from "../../src/pi/extension.ts";
+import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/command";
+
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
 
 const CWD = "/repo";
 const HANDOFF_CONTENT = `# Handoff: Associate Sessions With Branches
@@ -30,11 +32,11 @@ interface ExecCall {
 	options: { cwd?: string; timeout?: number; signal?: AbortSignal } | undefined;
 }
 
-class FakeSlugPi implements Pick<ExtensionAPI, "exec"> {
+class FakeSlugPi implements CommandExecApi {
 	readonly calls: ExecCall[] = [];
-	private readonly behavior: { result?: Partial<ExecResult>; error?: Error };
+	private readonly behavior: { result?: ExecResultFixture; error?: Error };
 
-	constructor(behavior: { result?: Partial<ExecResult>; error?: Error }) {
+	constructor(behavior: { result?: ExecResultFixture; error?: Error }) {
 		this.behavior = behavior;
 	}
 
@@ -48,11 +50,13 @@ class FakeSlugPi implements Pick<ExtensionAPI, "exec"> {
 			throw this.behavior.error;
 		}
 		const result = this.behavior.result ?? {};
+		if ("type" in result) return result;
 		return {
+			type: "exited",
 			stdout: result.stdout ?? "",
 			stderr: result.stderr ?? "",
 			code: result.code ?? 0,
-			killed: result.killed ?? false,
+			signal: result.signal ?? null,
 		};
 	}
 }

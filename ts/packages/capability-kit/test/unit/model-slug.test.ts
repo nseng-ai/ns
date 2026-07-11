@@ -42,7 +42,13 @@ describe("generateRawTextWithModel", () => {
 			cwd: "/repo",
 			prompt: "summary prompt",
 			env: {},
-			exec: recordingExec(calls, { stdout: "- first bullet\n- second bullet\n", code: 0 }),
+			exec: recordingExec(calls, {
+				type: "exited",
+				stdout: "- first bullet\n- second bullet\n",
+				stderr: "",
+				code: 0,
+				signal: null,
+			}),
 		});
 
 		expect(result).toEqual({
@@ -62,7 +68,13 @@ describe("generateRawTextWithModel", () => {
 			cwd: "/repo",
 			prompt: "summary prompt",
 			env: { [SLUG_MODEL_ENV]: "acme/fast-1" },
-			exec: recordingExec(calls, { stdout: "raw output\n", code: 0 }),
+			exec: recordingExec(calls, {
+				type: "exited",
+				stdout: "raw output\n",
+				stderr: "",
+				code: 0,
+				signal: null,
+			}),
 		});
 
 		expect(result).toEqual({
@@ -82,8 +94,8 @@ describe("generateRawTextWithModel", () => {
 			prompt: "summary prompt",
 			env: {},
 			exec: recordingExecSequence(calls, [
-				{ stdout: "", stderr: "", code: 143, killed: true },
-				{ stdout: "recovered summary\n", code: 0 },
+				{ stdout: "", stderr: "", code: 143, type: "timed-out", signal: null },
+				{ type: "exited", stdout: "recovered summary\n", stderr: "", code: 0, signal: null },
 			]),
 			signal: controller.signal,
 		});
@@ -110,7 +122,13 @@ describe("deriveSlugWithModel", () => {
 			slugKind: "test slug",
 			env: {},
 			normalizeOutput: (output) => output.trim(),
-			exec: recordingExec(calls, { stdout: "my-slug\n", code: 0 }),
+			exec: recordingExec(calls, {
+				type: "exited",
+				stdout: "my-slug\n",
+				stderr: "",
+				code: 0,
+				signal: null,
+			}),
 		});
 		expect(result).toEqual({
 			ok: true,
@@ -132,7 +150,13 @@ describe("deriveSlugWithModel", () => {
 			slugKind: "test slug",
 			env: { [SLUG_MODEL_ENV]: "acme/fast-1" },
 			normalizeOutput: (output) => output.trim(),
-			exec: recordingExec(calls, { stdout: "my-slug\n", code: 0 }),
+			exec: recordingExec(calls, {
+				type: "exited",
+				stdout: "my-slug\n",
+				stderr: "",
+				code: 0,
+				signal: null,
+			}),
 		});
 		expect(result).toEqual({
 			ok: true,
@@ -151,7 +175,13 @@ describe("deriveSlugWithModel", () => {
 			slugKind: "test slug",
 			env: { [SLUG_MODEL_ENV]: "not-a-ref" },
 			normalizeOutput: (output) => output.trim(),
-			exec: recordingExec(calls, { stdout: "my-slug\n", code: 0 }),
+			exec: recordingExec(calls, {
+				type: "exited",
+				stdout: "my-slug\n",
+				stderr: "",
+				code: 0,
+				signal: null,
+			}),
 		});
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -172,8 +202,8 @@ describe("deriveSlugWithModel", () => {
 			env: {},
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
-				{ stdout: "", stderr: "", code: 143, killed: true },
-				{ stdout: "recovered-slug\n", code: 0 },
+				{ stdout: "", stderr: "", code: 143, type: "timed-out", signal: null },
+				{ type: "exited", stdout: "recovered-slug\n", stderr: "", code: 0, signal: null },
 			]),
 			signal: controller.signal,
 		});
@@ -204,7 +234,9 @@ describe("deriveSlugWithModel", () => {
 			slugKind: "test slug",
 			env: {},
 			normalizeOutput: (output) => output.trim(),
-			exec: recordingExecSequence(calls, [{ code: 2, stderr: "bad request", killed: false }]),
+			exec: recordingExecSequence(calls, [
+				{ type: "exited", code: 2, signal: null, stdout: "", stderr: "bad request" },
+			]),
 		});
 
 		expect(result.ok).toBe(false);
@@ -224,7 +256,9 @@ describe("deriveSlugWithModel", () => {
 			slugKind: "test slug",
 			env: {},
 			normalizeOutput: (output) => output.trim(),
-			exec: recordingExecSequence(calls, [{ code: 143, killed: true }]),
+			exec: recordingExecSequence(calls, [
+				{ type: "timed-out", code: 143, signal: null, stdout: "", stderr: "" },
+			]),
 			signal: controller.signal,
 		});
 

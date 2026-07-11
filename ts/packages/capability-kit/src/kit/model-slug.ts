@@ -1,4 +1,10 @@
-import { formatCommand, formatOutputSection } from "@nseng-ai/foundation/command";
+import {
+	commandFailureReason,
+	commandSucceeded,
+	formatCommand,
+	formatOutputSection,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import {
 	DEFAULT_FAST_MODEL,
 	DEFAULT_FAST_MODEL_REF,
@@ -19,12 +25,7 @@ export interface RawTextModelExecOptions {
 	signal?: AbortSignal;
 }
 
-export interface RawTextModelCommandResult {
-	stdout?: string;
-	stderr?: string;
-	code: number;
-	killed?: boolean;
-}
+export type RawTextModelCommandResult = ExecResult;
 
 export interface RawTextModelEvidence {
 	rawOutput: string;
@@ -171,10 +172,8 @@ async function runRawTextModelAttempt(
 		return { type: "retry" };
 	}
 
-	if (result.code !== 0 || result.killed) {
-		const status = result.killed
-			? `exit code ${result.code}; process was killed or timed out`
-			: `exit code ${result.code}`;
+	if (!commandSucceeded(result)) {
+		const status = commandFailureReason(result);
 		return {
 			type: "terminal",
 			result: {
@@ -186,11 +185,11 @@ async function runRawTextModelAttempt(
 							? ["Retried once after a killed/timeout result."]
 							: []),
 						`Command: ${options.displayCommand}`,
-						formatOutputSection("stdout", result.stdout ?? "", {
+						formatOutputSection("stdout", result.stdout, {
 							maxChars: MAX_ERROR_CHARS,
 							maxLines: 80,
 						}),
-						formatOutputSection("stderr", result.stderr ?? "", {
+						formatOutputSection("stderr", result.stderr, {
 							maxChars: MAX_ERROR_CHARS,
 							maxLines: 80,
 						}),
@@ -200,7 +199,7 @@ async function runRawTextModelAttempt(
 		};
 	}
 
-	const rawOutput = result.stdout ?? "";
+	const rawOutput = result.stdout;
 	if (rawOutput.trim().length === 0) {
 		return {
 			type: "terminal",
@@ -265,6 +264,6 @@ function shouldRetryKilledRawTextModelResult(
 	attempt: number,
 ): boolean {
 	return (
-		result.killed === true && signal?.aborted !== true && attempt < RAW_TEXT_MODEL_MAX_ATTEMPTS
+		result.type === "timed-out" && signal?.aborted !== true && attempt < RAW_TEXT_MODEL_MAX_ATTEMPTS
 	);
 }

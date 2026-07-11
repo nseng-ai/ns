@@ -79,7 +79,13 @@ function expectNoFallback(error: unknown): void {
 
 describe("deriveKitContentSlug", () => {
 	test("successful model output yields content slug evidence", async () => {
-		const exec = new FakeSlugExec({ stdout: "Content Slug Kit Artifact\n", code: 0 });
+		const exec = new FakeSlugExec({
+			type: "exited",
+			stdout: "Content Slug Kit Artifact\n",
+			stderr: "",
+			code: 0,
+			signal: null,
+		});
 
 		const evidence = await deriveKitContentSlug(exec, { content: CONTENT, cwd: CWD }, TEST_VARIANT);
 
@@ -100,7 +106,13 @@ describe("deriveKitContentSlug", () => {
 
 	test("threads abort signals into model execution", async () => {
 		const controller = new AbortController();
-		const exec = new FakeSlugExec({ stdout: "Content Slug Kit\n", code: 0 });
+		const exec = new FakeSlugExec({
+			type: "exited",
+			stdout: "Content Slug Kit\n",
+			stderr: "",
+			code: 0,
+			signal: null,
+		});
 
 		await deriveKitContentSlug(
 			exec,
@@ -113,18 +125,38 @@ describe("deriveKitContentSlug", () => {
 
 	test("model failure, empty output, invalid slug, and repeated killed result fail without fallback", async () => {
 		const failureCases: readonly [string, FakeSlugExec, string][] = [
-			["nonzero", new FakeSlugExec({ code: 1, stderr: "model unavailable" }), "model unavailable"],
-			["empty", new FakeSlugExec({ code: 0, stdout: "  \n" }), "empty output"],
+			[
+				"nonzero",
+				new FakeSlugExec({
+					type: "exited",
+					stdout: "",
+					stderr: "model unavailable",
+					code: 1,
+					signal: null,
+				}),
+				"model unavailable",
+			],
+			[
+				"empty",
+				new FakeSlugExec({ type: "exited", code: 0, signal: null, stdout: "  \n", stderr: "" }),
+				"empty output",
+			],
 			[
 				"invalid",
-				new FakeSlugExec({ code: 0, stdout: "invalid slug\n" }),
+				new FakeSlugExec({
+					type: "exited",
+					code: 0,
+					signal: null,
+					stdout: "invalid slug\n",
+					stderr: "",
+				}),
 				"content artifact slug is reserved",
 			],
 			[
 				"killed twice",
 				new FakeSlugExec([
-					{ code: 143, killed: true },
-					{ code: 143, killed: true },
+					{ type: "timed-out", code: 143, signal: null, stdout: "", stderr: "" },
+					{ type: "timed-out", code: 143, signal: null, stdout: "", stderr: "" },
 				]),
 				"Retried once after a killed/timeout result.",
 			],

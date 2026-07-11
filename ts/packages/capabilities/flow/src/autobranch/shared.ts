@@ -1,7 +1,7 @@
 import type { CommandResult } from "@nseng-ai/capability-kit/checkpoint-flow";
-import { formatCommandDetails } from "@nseng-ai/foundation/command";
 
 export type { CommandResult };
+import { formatCommandDetails } from "@nseng-ai/foundation/command";
 import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 
 // Autobranch command execution is cwd-bound at the command/API boundary. Callers construct this
@@ -21,7 +21,7 @@ export interface PendingWorktreeSnapshot {
 }
 
 export function formatAutobranchCommandDetails(result: CommandResult): string {
-	return formatCommandDetails({ ...result, killed: result.killed ?? false });
+	return formatCommandDetails(result);
 }
 
 export function truncateText(text: string, maxChars: number): string {

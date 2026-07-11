@@ -1,6 +1,7 @@
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { formatZodError, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -8,9 +9,9 @@ import { parseCliCommandArgs } from "../../commands/cli-extension.ts";
 import { parseMachineEnvelopeDataWithFailureData } from "../../runtime/machine-envelope.ts";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import { definePiSurfaceParity } from "../../runtime/parity-extension.ts";
+import { createPiCommandExecApi, type RawPiExecApi } from "../../kit/shared/exec-gateway.ts";
 import {
 	downloadPrFeedback,
-	type ExecOptions,
 	type ExecResult,
 	type PrFeedbackDownloadCounts,
 } from "./feedback-download.ts";
@@ -129,27 +130,27 @@ interface CustomMessage {
 	details?: unknown;
 }
 
-export interface ExtensionAPI {
+export interface ExtensionAPI extends RawPiExecApi {
 	registerCommand(name: string, command: RegisteredCommand): void;
 	on(
 		event: "session_start",
 		handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void,
 	): void;
 	on(event: "agent_end" | "session_shutdown", handler: () => Promise<void> | void): void;
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	sendUserMessage?(content: string, options?: unknown): void;
 	sendMessage?(message: CustomMessage, options?: unknown): void;
 	appendEntry?(customType: string, data?: unknown): void;
 }
 
 export default function prExtension(pi: ExtensionAPI): void {
+	const commands = createPiCommandExecApi(pi);
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 		commandDefinition: {
 			description: "Download current PR feedback into the editor as a report.",
 			handler: async (rawArgs, ctx) => {
-				await runPrDownloadFeedbackCommand(pi, rawArgs, ctx);
+				await runPrDownloadFeedbackCommand(commands, rawArgs, ctx);
 			},
 		},
 	});
@@ -160,14 +161,14 @@ export default function prExtension(pi: ExtensionAPI): void {
 			description:
 				"Download feedback from every PR in the current Graphite downstack into the editor as a report.",
 			handler: async (rawArgs, ctx) => {
-				await runPrDownloadStackFeedbackCommand(pi, rawArgs, ctx);
+				await runPrDownloadStackFeedbackCommand(commands, rawArgs, ctx);
 			},
 		},
 	});
 }
 
 async function runPrDownloadFeedbackCommand(
-	pi: ExtensionAPI,
+	pi: CommandExecApi,
 	rawArgs: string,
 	ctx: ExtensionContext,
 ): Promise<void> {
@@ -203,7 +204,7 @@ async function runPrDownloadFeedbackCommand(
 }
 
 async function runPrDownloadStackFeedbackCommand(
-	pi: ExtensionAPI,
+	pi: CommandExecApi,
 	rawArgs: string,
 	ctx: ExtensionContext,
 ): Promise<void> {
@@ -299,7 +300,7 @@ function isPositiveIntegerToken(value: string): boolean {
 }
 
 async function loadStackBranches(
-	pi: ExtensionAPI,
+	pi: CommandExecApi,
 	ctx: ExtensionContext,
 ): Promise<{ type: "ok"; branches: string[] } | { type: "error"; message: string }> {
 	const result = await pi.exec(
@@ -321,7 +322,7 @@ async function loadStackBranches(
 }
 
 async function mapStackBranchesToPrs(
-	pi: ExtensionAPI,
+	pi: CommandExecApi,
 	ctx: ExtensionContext,
 	branches: readonly string[],
 ): Promise<
@@ -362,7 +363,7 @@ function branchNames(entries: NonNullable<MapBranchPrsData["ambiguousBranches"]>
 }
 
 async function downloadFeedbackForPr(
-	pi: ExtensionAPI,
+	pi: CommandExecApi,
 	ctx: ExtensionContext,
 	entry: BranchPrEntry,
 ): Promise<CommandResult<StackFeedbackDownload>> {

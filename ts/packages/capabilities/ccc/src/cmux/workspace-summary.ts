@@ -176,11 +176,14 @@ function commandFailure(
 		return { code, message: failure.message };
 	}
 
-	const details = commandFailureValue.stderr.trim() || commandFailureValue.stdout.trim();
+	const result = commandFailureValue.result;
+	const stderr = result.stderr.trim();
+	const details = stderr === "" ? result.stdout.trim() : stderr;
+	const exitCode = result.type === "exited" ? (result.code ?? -1) : -1;
 	const message =
 		details.length > 0
-			? `${baseMessage} exit ${commandFailureValue.exitCode}: ${details}`
-			: `${baseMessage} exit ${commandFailureValue.exitCode}.`;
+			? `${baseMessage} exit ${exitCode}: ${details}`
+			: `${baseMessage} exit ${exitCode}.`;
 	return { code, message, commandFailure: commandFailureValue };
 }
 
@@ -203,9 +206,12 @@ function failedExit(
 					? null
 					: {
 							command: failureResult.commandFailure.command,
-							exitCode: failureResult.commandFailure.exitCode,
-							stdout: failureResult.commandFailure.stdout,
-							stderr: failureResult.commandFailure.stderr,
+							exitCode:
+								failureResult.commandFailure.result.type === "exited"
+									? (failureResult.commandFailure.result.code ?? -1)
+									: -1,
+							stdout: failureResult.commandFailure.result.stdout,
+							stderr: failureResult.commandFailure.result.stderr,
 						},
 		},
 	};

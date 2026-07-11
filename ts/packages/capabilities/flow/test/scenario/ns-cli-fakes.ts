@@ -14,9 +14,18 @@ import type {
 
 export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
 
+interface ExitedResultFields {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly code?: number | null;
+	readonly signal?: string | null;
+}
+
+type ScriptedExecResult = ExecResult | ExitedResultFields;
+
 export interface ScriptedExecResponse {
 	match: string | RegExp | ((call: ExecCall) => boolean);
-	result: Partial<ExecResult>;
+	result: ScriptedExecResult;
 }
 
 export interface ExecCall {
@@ -147,12 +156,14 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 	};
 }
 
-export function execResult(result: Partial<ExecResult> = {}): ExecResult {
+export function execResult(result: ScriptedExecResult = {}): ExecResult {
+	if ("type" in result) return result;
 	return {
+		type: "exited",
 		code: result.code ?? 0,
+		signal: result.signal ?? null,
 		stdout: result.stdout ?? "",
 		stderr: result.stderr ?? "",
-		killed: result.killed ?? false,
 	};
 }
 

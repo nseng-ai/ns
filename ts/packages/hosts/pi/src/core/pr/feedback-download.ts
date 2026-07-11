@@ -1,3 +1,4 @@
+import { commandFailureReason } from "@nseng-ai/foundation/exec";
 import { formatZodError, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import type { ExecResult } from "../../kit/shared/exec-gateway.ts";
 import type { ExecGateway } from "../../kit/shared/exec-gateway.ts";
@@ -95,8 +96,11 @@ export async function downloadPrFeedback(
 			...(options.signal === undefined ? {} : { signal: options.signal }),
 		},
 	);
-	if (result.killed) {
+	if (result.type === "timed-out") {
 		return { type: "error", message: "download-feedback timed out." };
+	}
+	if (result.type !== "exited" || result.code === null || result.signal !== null) {
+		return downloadFeedbackFailed(result);
 	}
 	if (
 		result.code !== 0 &&
@@ -118,7 +122,7 @@ export async function downloadPrFeedback(
 function downloadFeedbackFailed(result: ExecResult): { type: "error"; message: string } {
 	return {
 		type: "error",
-		message: `download-feedback failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
+		message: `download-feedback failed: ${commandFailureReason(result)}`,
 	};
 }
 

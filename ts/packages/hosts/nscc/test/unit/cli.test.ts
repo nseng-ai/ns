@@ -40,11 +40,18 @@ function successRunner(calls: CommandCall[] = []): CommandRunner {
 	return async (command, args, options) => {
 		calls.push({ command, args: [...args], options });
 		if (command === "git" && args[0] === "rev-parse")
-			return { code: 0, stdout: "/repo/slot-05\n", stderr: "", killed: false };
+			return { type: "exited", code: 0, signal: null, stdout: "/repo/slot-05\n", stderr: "" };
 		if (command === "git" && args[0] === "branch")
-			return { code: 0, stdout: "feature/report\n", stderr: "", killed: false };
-		if (command === "cmux") return { code: 0, stdout: "", stderr: "", killed: false };
-		return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
+			return { type: "exited", code: 0, signal: null, stdout: "feature/report\n", stderr: "" };
+		if (command === "cmux")
+			return { type: "exited", code: 0, signal: null, stdout: "", stderr: "" };
+		return {
+			type: "exited",
+			code: 2,
+			signal: null,
+			stdout: "",
+			stderr: `unexpected command ${command}`,
+		};
 	};
 }
 
@@ -233,7 +240,13 @@ describe("runNsccCli", () => {
 			env: reportEnv(),
 			runCommand: async (command, args, options): Promise<CommandOutput> => {
 				calls.push({ command, args: [...args], options });
-				return { code: 128, stdout: "", stderr: "fatal: not a git repository", killed: false };
+				return {
+					type: "exited",
+					code: 128,
+					signal: null,
+					stdout: "",
+					stderr: "fatal: not a git repository",
+				};
 			},
 		});
 
@@ -248,6 +261,30 @@ describe("runNsccCli", () => {
 		]);
 	});
 
+	test("reports spawn failures truthfully in JSON command evidence", async () => {
+		const run = runWithFakes(["cmux", "report", "--format", "json"], {
+			cwd: "/tmp",
+			env: reportEnv(),
+			runCommand: async (): Promise<CommandOutput> => ({
+				type: "spawn-failed",
+				stdout: "",
+				stderr: "spawn git ENOENT",
+				error: "spawn git ENOENT",
+			}),
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			data: {
+				commandFailure: {
+					exitCode: null,
+					termination: "spawn-failed",
+					error: "spawn git ENOENT",
+				},
+			},
+		});
+	});
+
 	test("fails before mutation on detached HEAD", async () => {
 		const calls: CommandCall[] = [];
 		const run = runWithFakes(["cmux", "report"], {
@@ -256,10 +293,16 @@ describe("runNsccCli", () => {
 			runCommand: async (command, args, options): Promise<CommandOutput> => {
 				calls.push({ command, args: [...args], options });
 				if (command === "git" && args[0] === "rev-parse")
-					return { code: 0, stdout: "/repo/slot-05\n", stderr: "", killed: false };
+					return { type: "exited", code: 0, signal: null, stdout: "/repo/slot-05\n", stderr: "" };
 				if (command === "git" && args[0] === "branch")
-					return { code: 0, stdout: "\n", stderr: "", killed: false };
-				return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
+					return { type: "exited", code: 0, signal: null, stdout: "\n", stderr: "" };
+				return {
+					type: "exited",
+					code: 2,
+					signal: null,
+					stdout: "",
+					stderr: `unexpected command ${command}`,
+				};
 			},
 		});
 
@@ -274,12 +317,24 @@ describe("runNsccCli", () => {
 			env: reportEnv(),
 			runCommand: async (command, args): Promise<CommandOutput> => {
 				if (command === "git" && args[0] === "rev-parse")
-					return { code: 0, stdout: "/repo/slot-05\n", stderr: "", killed: false };
+					return { type: "exited", code: 0, signal: null, stdout: "/repo/slot-05\n", stderr: "" };
 				if (command === "git" && args[0] === "branch")
-					return { code: 0, stdout: "feature/report\n", stderr: "", killed: false };
+					return { type: "exited", code: 0, signal: null, stdout: "feature/report\n", stderr: "" };
 				if (command === "cmux")
-					return { code: 7, stdout: "", stderr: "no current surface", killed: false };
-				return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
+					return {
+						type: "exited",
+						code: 7,
+						signal: null,
+						stdout: "",
+						stderr: "no current surface",
+					};
+				return {
+					type: "exited",
+					code: 2,
+					signal: null,
+					stdout: "",
+					stderr: `unexpected command ${command}`,
+				};
 			},
 		});
 

@@ -79,7 +79,11 @@ describe("runAutobranchTransaction", () => {
 
 		const result = await runAutobranchTransaction(harness.input);
 
-		expect(result).toEqual({ ok: false, kind: "stash_failed", error: "exit 1: stash push failed" });
+		expect(result).toEqual({
+			ok: false,
+			kind: "stash_failed",
+			error: "exit code 1: stash push failed",
+		});
 		expect(harness.events.some((event) => event.startsWith("exec:gt create"))).toBe(false);
 		expect(harness.events.some((event) => event.startsWith("commit:"))).toBe(false);
 	});
@@ -107,7 +111,7 @@ describe("runAutobranchTransaction", () => {
 		expect(result).toEqual({
 			ok: false,
 			kind: "graphite_create_failed",
-			createError: "exit 1: gt create failed",
+			createError: "exit code 1: gt create failed",
 			restored: true,
 		});
 		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(
@@ -124,9 +128,9 @@ describe("runAutobranchTransaction", () => {
 		expect(result).toEqual({
 			ok: false,
 			kind: "graphite_create_failed",
-			createError: "exit 1: gt create failed",
+			createError: "exit code 1: gt create failed",
 			restored: false,
-			restoreError: "exit 1: stash conflict",
+			restoreError: "exit code 1: stash conflict",
 		});
 		expect(harness.events.some((event) => event.startsWith("commit:"))).toBe(false);
 	});
@@ -139,7 +143,7 @@ describe("runAutobranchTransaction", () => {
 		expect(result).toEqual({
 			ok: false,
 			kind: "restore_failed_after_branch_create",
-			restoreError: "exit 1: stash conflict",
+			restoreError: "exit code 1: stash conflict",
 		});
 		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(
 			eventIndex(harness.events, "exec:gt create"),

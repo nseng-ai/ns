@@ -3,12 +3,15 @@ import { describe, expect, test } from "vitest";
 
 import { loadGhCommand } from "../src/kit/shared/gh-command.ts";
 
-function execResult(result: Partial<ExecResult> = {}): ExecResult {
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+
+function execResult(result: Partial<ExitedResult> = {}): ExecResult {
 	return {
+		type: "exited",
 		stdout: "",
 		stderr: "",
 		code: 0,
-		killed: false,
+		signal: null,
 		...result,
 	};
 }
@@ -34,9 +37,17 @@ describe("loadGhCommand", () => {
 		]);
 	});
 
-	test("reports killed commands as timed out", async () => {
+	test("reports timed-out commands", async () => {
 		const result = await loadGhCommand({
-			pi: { exec: async () => execResult({ killed: true }) },
+			pi: {
+				exec: async () => ({
+					type: "timed-out",
+					stdout: "",
+					stderr: "",
+					code: 143,
+					signal: null,
+				}),
+			},
 			args: ["run", "view"],
 			cwd: "/repo",
 			timeoutMs: 123,

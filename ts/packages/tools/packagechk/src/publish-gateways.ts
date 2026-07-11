@@ -1,12 +1,14 @@
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { defaultCommandResolver, runCommand } from "@nseng-ai/foundation/exec";
 import {
+	commandSucceeded,
+	defaultCommandResolver,
 	type ExecResult,
 	formatCommand,
 	formatCommandResultFailure,
-	formatCommandStartupFailure,
+	formatCommandSpawnFailure,
+	runCommand,
 } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
@@ -59,7 +61,7 @@ export class RealPypiPublishGateway implements PypiPublishGateway {
 				rmSync(distDir, { recursive: true, force: true });
 			}
 			const result = await this.commandRunner("uv", ["build"], { cwd: projectDir });
-			if (result.code !== 0) {
+			if (!commandSucceeded(result)) {
 				return buildFailure(formatCommandResultFailure("uv build failed", "uv", ["build"], result));
 			}
 			if (!exists(distDir)) return buildFailure("uv build did not create a dist/ directory");
@@ -209,9 +211,11 @@ async function runPublishProcess(
 ): Promise<string | null> {
 	try {
 		const result = await runner(command, args, { cwd });
-		return result.code === 0 ? null : formatCommandResultFailure(title, command, args, result);
+		return commandSucceeded(result)
+			? null
+			: formatCommandResultFailure(title, command, args, result);
 	} catch (error) {
-		return formatCommandStartupFailure(title, formatCommand(command, args), error);
+		return formatCommandSpawnFailure(title, formatCommand(command, args), error);
 	}
 }
 

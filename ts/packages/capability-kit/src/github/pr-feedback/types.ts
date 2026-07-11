@@ -186,7 +186,7 @@ export interface GithubPrFeedbackFailureDetails extends GithubPrFeedbackCursorCo
 	readonly stdout?: string;
 	readonly stderr?: string;
 	readonly exitCode?: number;
-	readonly killed?: boolean;
+	readonly resultType?: "exited" | "spawn-failed" | "cancelled" | "timed-out";
 	readonly graphqlErrors?: unknown;
 	readonly zodError?: string;
 }

@@ -1,4 +1,3 @@
-import type { ExecResult } from "@nseng-ai/foundation/exec";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,
@@ -8,7 +7,18 @@ import type {
 import type { ThinkingLevel } from "./types.ts";
 import type { ExtensionMode, ToolContext, ToolDefinition } from "./tool-types.ts";
 
-export type { ExecResult } from "@nseng-ai/foundation/exec";
+export interface RawPiExecResult {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly code: number;
+	readonly killed?: boolean;
+}
+
+export interface RawPiExecOptions {
+	readonly cwd?: string;
+	readonly signal?: AbortSignal;
+	readonly timeout?: number;
+}
 export type { ModelInfo, ThinkingLevel } from "./types.ts";
 export type {
 	ExtensionMode,
@@ -120,11 +130,7 @@ export interface ExtensionAPI {
 		},
 	): void;
 	registerTool?(definition: ToolDefinition): void;
-	exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
-	): Promise<ExecResult>;
+	exec(command: string, args: string[], options?: RawPiExecOptions): Promise<RawPiExecResult>;
 	getCommands?(): CommandInfo[];
 	getThinkingLevel?(): ThinkingLevel;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;

@@ -1,8 +1,9 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+import type { ExecResult } from "@nseng-ai/foundation/exec";
 import { formatZodError } from "@nseng-ai/foundation/primitives";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
+import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 import { parseCliCommandArgs } from "@nseng-ai/pi/commands/args";
 import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
@@ -73,12 +74,11 @@ export type RegisteredCommand = Omit<PiCommandRegistration, "handler"> & {
 	handler(args: string, ctx: ExtensionContext): Promise<void> | void;
 };
 
-export interface ExtensionAPI {
+export interface ExtensionAPI extends RawPiExecApi {
 	registerCommand(
 		name: string,
 		command: RegisteredCommand,
 	): ReturnType<PiCommandHost["registerCommand"]>;
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 }
 
 type ParsedDownloadFeedbackArgs =
@@ -95,10 +95,11 @@ export interface EnvelopeWithSchemaOptions<T> {
 }
 
 export function registerPrPreviewsExtension(pi: ExtensionAPI): void {
+	const commands = createPiCommandExecApi(pi);
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: PR_PREVIEW_FEEDBACK_COMMAND_NAME,
-		commandDefinition: createPrPreviewFeedbackCommand(pi, {
+		commandDefinition: createPrPreviewFeedbackCommand(commands, {
 			statusKey: PREVIEW_FEEDBACK_STATUS_KEY,
 			commandTimeoutMs: COMMAND_TIMEOUT_MS,
 			parseOptionalPrNumberArgs,
@@ -109,7 +110,7 @@ export function registerPrPreviewsExtension(pi: ExtensionAPI): void {
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: PR_PREVIEW_CHECKS_COMMAND_NAME,
-		commandDefinition: createPrPreviewChecksCommand(pi, {
+		commandDefinition: createPrPreviewChecksCommand(commands, {
 			statusKey: PREVIEW_CHECKS_STATUS_KEY,
 			commandTimeoutMs: COMMAND_TIMEOUT_MS,
 			parseOptionalPrNumberArgs,

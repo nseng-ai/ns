@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { createPiHandoffGitGateway } from "../../src/pi/api-context.ts";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 import {
 	buildHandoffLaunchRequest,
 	runHandoffCreateCommand,
@@ -53,7 +54,7 @@ describe("handoff launch flow helpers", () => {
 			const context = createContext({ cwd: repoDir });
 
 			await runHandoffCreateCommand(pi, "  finish the widget  ", context.ctx, {
-				git: createPiHandoffGitGateway(pi),
+				git: createPiHandoffGitGateway(createPiCommandExecApi(pi)),
 				statusKey: "handoff:test",
 				promptCopy: PROMPT_COPY,
 				startMessages: START_MESSAGES,

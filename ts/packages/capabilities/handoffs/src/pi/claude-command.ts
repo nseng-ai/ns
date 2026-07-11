@@ -1,4 +1,5 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 import { createPiHandoffGitGateway } from "./api-context.ts";
 import {
 	buildHandoffLaunchPrompt,
@@ -19,6 +20,7 @@ import type {
 } from "./runtime-types.ts";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
 
 export type {
@@ -193,10 +195,10 @@ export async function handleClaudeHandoffCommand(
 }
 
 export function buildClaudeHandoffLaunchTool(
-	pi: ExtensionAPI,
+	commands: CommandExecApi,
 	deps: ClaudeHandoffDeps,
 ): ToolDefinition {
-	return buildHandoffLaunchTool(pi, {
+	return buildHandoffLaunchTool(commands, {
 		name: CLAUDE_HANDOFF_LAUNCH_TOOL_NAME,
 		label: "Launch Claude Handoff",
 		description:
@@ -263,10 +265,11 @@ export function buildClaudeHandoffLaunchTool(
 }
 
 export function registerClaudeHandoffCommand(pi: ExtensionAPI, deps: ClaudeHandoffDeps): void {
-	const git = createPiHandoffGitGateway(pi);
+	const commands = createPiCommandExecApi(pi);
+	const git = createPiHandoffGitGateway(commands);
 	const launchToolRegistered = pi.registerTool !== undefined;
 	if (launchToolRegistered) {
-		pi.registerTool?.(buildClaudeHandoffLaunchTool(pi, deps));
+		pi.registerTool?.(buildClaudeHandoffLaunchTool(commands, deps));
 	}
 	registerCommandWithImmediateAck({
 		host: pi,

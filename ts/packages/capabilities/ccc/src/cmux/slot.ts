@@ -1,12 +1,12 @@
-import { piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
 import { RealCmuxGateway, type CmuxGatewayFailure } from "@nseng-ai/capability-kit/cmux/gateway";
 import { getWorktreeDescription } from "./worktree-description.ts";
-import type { ExtensionAPI, NotifyLevel } from "@nseng-ai/capability-kit/cmux/types";
+import type { NotifyLevel } from "@nseng-ai/capability-kit/cmux/types";
 
 export interface BranchCmuxSlotCheckoutOptions {
-	pi: Pick<ExtensionAPI, "exec">;
+	pi: CommandExecApi;
 	cwd: string;
 	branchName: string;
 	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
@@ -74,11 +74,11 @@ export async function openBranchInCmuxSlot(
 }
 
 export async function openCmuxWorkspace(
-	pi: Pick<ExtensionAPI, "exec">,
+	pi: CommandExecApi,
 	target: SlotCheckoutTarget,
 	options: OpenCmuxWorkspaceOptions,
 ): Promise<{ ok: true } | { error: string }> {
-	const cmux = new RealCmuxGateway(piExecApiToCommandExecApi(pi));
+	const cmux = new RealCmuxGateway(pi);
 	const result = await cmux.openWorkspace({
 		cwd: target.worktreePath,
 		name: target.branchName,

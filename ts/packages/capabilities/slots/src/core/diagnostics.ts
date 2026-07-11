@@ -11,6 +11,12 @@ import {
 
 export const SLOT_DIAGNOSTIC_LOG_ENV = "NS_SLOT_DIAGNOSTIC_LOG";
 
+export type SlotCommandTermination =
+	| { readonly type: "exited"; readonly code: number | null; readonly signal: string | null }
+	| { readonly type: "spawn-failed"; readonly error: string }
+	| { readonly type: "cancelled"; readonly code: number | null; readonly signal: string | null }
+	| { readonly type: "timed-out"; readonly code: number | null; readonly signal: string | null };
+
 export interface SlotCommandDiagnosticEvent {
 	readonly type: "slot.command";
 	readonly operation: string;
@@ -21,11 +27,9 @@ export interface SlotCommandDiagnosticEvent {
 	readonly timeoutMs?: number;
 	readonly startedAt: string;
 	readonly durationMs: number;
-	readonly exitCode: number;
-	readonly killed: boolean;
+	readonly termination: SlotCommandTermination;
 	readonly stdoutBytes: number;
 	readonly stderrBytes: number;
-	readonly startupError?: string;
 }
 
 export interface SlotDiagnosticSink {
@@ -104,11 +108,20 @@ export async function runDiagnosticCommand(
 			: { timeoutMs: options.execOptions.timeout }),
 		startedAt: startedAt.toISOString(),
 		durationMs: Number(finishedNs - startedNs) / 1_000_000,
-		exitCode: result.code,
-		killed: result.killed,
+		termination: diagnosticTermination(result),
 		stdoutBytes: Buffer.byteLength(result.stdout, "utf8"),
 		stderrBytes: Buffer.byteLength(result.stderr, "utf8"),
-		...optionalEntry("startupError", result.startupError),
 	});
 	return result;
+}
+
+function diagnosticTermination(result: ExecResult): SlotCommandTermination {
+	switch (result.type) {
+		case "spawn-failed":
+			return { type: result.type, error: result.error };
+		case "exited":
+		case "cancelled":
+		case "timed-out":
+			return { type: result.type, code: result.code, signal: result.signal };
+	}
 }

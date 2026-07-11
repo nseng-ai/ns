@@ -218,7 +218,9 @@ describe("writeSavedPlanFile", () => {
 	});
 });
 
-const unusedPi = { exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }) };
+const unusedPi = {
+	exec: async () => ({ type: "exited" as const, stdout: "", stderr: "", code: 0, signal: null }),
+};
 
 function fakeCurrentBranch(branch: string): FakeCurrentBranch {
 	return { type: "branch", branch };

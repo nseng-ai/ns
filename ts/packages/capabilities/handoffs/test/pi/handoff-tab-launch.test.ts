@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { launchHandoffTab, type HandoffTabLaunchHost } from "../../src/pi/tab-launch.ts";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 import {
 	cmuxCreateSurfaceRefStep,
 	cmuxCreateSurfaceStep,
@@ -19,6 +20,13 @@ const STATUS_KEY = "handoff-tab";
 
 function params(): { branch: string; slug: string; key: string; pickupCommand: string } {
 	return { branch: BRANCH, slug: SLUG, key: KEY, pickupCommand: PICKUP_COMMAND };
+}
+
+function launchHost(pi: FakePi): HandoffTabLaunchHost {
+	return {
+		exec: createPiCommandExecApi(pi).exec,
+		getThinkingLevel: () => pi.getThinkingLevel(),
+	};
 }
 
 interface CmuxLocationOptions {
@@ -79,7 +87,7 @@ describe("handoff-tab launch orchestration", () => {
 		const updates: unknown[] = [];
 
 		const result = await launchHandoffTab({
-			host: pi,
+			host: launchHost(pi),
 			cwd: context.ctx.cwd,
 			model: context.ctx.model,
 			hasUI: context.ctx.hasUI,
@@ -127,7 +135,7 @@ describe("handoff-tab launch orchestration", () => {
 		const context = createContext();
 
 		const result = await launchHandoffTab({
-			host: pi,
+			host: launchHost(pi),
 			cwd: context.ctx.cwd,
 			model: undefined,
 			hasUI: context.ctx.hasUI,
@@ -175,7 +183,7 @@ describe("handoff-tab launch orchestration", () => {
 		const context = createContext();
 
 		const result = await launchHandoffTab({
-			host: pi,
+			host: launchHost(pi),
 			cwd: context.ctx.cwd,
 			model: undefined,
 			hasUI: context.ctx.hasUI,
@@ -221,9 +229,7 @@ describe("handoff-tab launch orchestration", () => {
 				},
 			),
 		]);
-		const hostWithoutThinking: HandoffTabLaunchHost = {
-			exec: (cmd, args, options) => pi.exec(cmd, args, options),
-		};
+		const hostWithoutThinking: HandoffTabLaunchHost = createPiCommandExecApi(pi);
 		const context = createContext();
 
 		const result = await launchHandoffTab({
@@ -261,7 +267,7 @@ describe("handoff-tab launch orchestration", () => {
 		context.ctx.model = { provider: "openai-codex", id: "gpt-5.4-mini" };
 
 		const result = await launchHandoffTab({
-			host: pi,
+			host: launchHost(pi),
 			cwd: context.ctx.cwd,
 			model: context.ctx.model,
 			hasUI: context.ctx.hasUI,

@@ -73,5 +73,5 @@ export function isFailure<T>(
 }
 
 export function emptyResult(): ExecResult {
-	return { stdout: "", stderr: "", code: 1, killed: false };
+	return { type: "exited", stdout: "", stderr: "", code: 1, signal: null };
 }

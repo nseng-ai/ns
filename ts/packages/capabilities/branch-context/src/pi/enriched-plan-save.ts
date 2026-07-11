@@ -2,7 +2,6 @@ import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { readFileSync, type Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import { Text } from "@earendil-works/pi-tui";
-import { piExecApiToCommandExecApi } from "@nseng-ai/foundation/command";
 import { RealGitGateway } from "@nseng-ai/capability-kit/git";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import {
@@ -33,12 +32,12 @@ import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./op
 import type {
 	BranchContextExtensionOptions,
 	CommandContext,
-	ExtensionAPI,
 	ToolContext,
 	ToolDefinition,
 	ToolResult,
 	ToolUpdateHandler,
 } from "./host-types.ts";
+import type { BranchContextPiCommandApi } from "./pi-command-api.ts";
 
 export { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "./surfaces.ts";
 const WRITE_PLAN_TOOL_STATUS_KEY = WRITE_PLAN_COMMAND_NAME;
@@ -117,10 +116,10 @@ Final plan requirements:
 }
 
 async function resolveWritePlanPromptBody(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	cwd: string,
 ): Promise<WritePlanPromptBodyResolution> {
-	const repoRoot = await resolveGitRoot(new RealGitGateway(piExecApiToCommandExecApi(pi)), cwd);
+	const repoRoot = await resolveGitRoot(new RealGitGateway(pi), cwd);
 	if (repoRoot.type === "failed") {
 		return fallbackWritePlanPromptBody(repoRoot.reason);
 	}
@@ -190,7 +189,7 @@ async function assertNotSymlink(targetPath: string, label: string): Promise<Stat
 }
 
 export async function handleWritePlanCommand(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	args: string,
 	ctx: CommandContext,
 ): Promise<void> {
@@ -209,7 +208,7 @@ export async function handleWritePlanCommand(
 }
 
 export async function handleWriteGrilledPlanCommand(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	args: string,
 	ctx: CommandContext,
 ): Promise<void> {
@@ -224,7 +223,7 @@ export async function handleWriteGrilledPlanCommand(
 }
 
 export function buildWriteSavedPlanFileTool(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	options: BranchContextExtensionOptions,
 ): ToolDefinition {
 	return {
@@ -464,7 +463,7 @@ function formatSteeringBlock(steering: string): string {
 }
 
 export function registerEnrichedPlanCommandsAndTools(
-	pi: ExtensionAPI,
+	pi: BranchContextPiCommandApi,
 	options: BranchContextExtensionOptions = {},
 ): void {
 	registerCommandWithImmediateAck({

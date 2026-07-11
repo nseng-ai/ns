@@ -32,11 +32,8 @@ import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-k
 import type { PiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
 import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
-import type {
-	CommandContext,
-	ExtensionAPI,
-	NotifyLevel,
-} from "@nseng-ai/capability-kit/cmux/types";
+import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/cmux/types";
+import type { CccPiCommandApi } from "./pi-command-api.ts";
 
 const BRANCH_CREATION = "graphite";
 
@@ -54,7 +51,7 @@ interface CommandArgs {
 }
 
 interface HandleCommandOptions {
-	pi: ExtensionAPI;
+	pi: CccPiCommandApi;
 	rawArgs: string;
 	ctx: CommandContext;
 	options: CccSlotDispatchPlanOptions;
@@ -64,7 +61,7 @@ interface HandleCommandOptions {
 }
 
 interface AttachSlotAndLaunchOptions {
-	pi: ExtensionAPI;
+	pi: CccPiCommandApi;
 	ctx: CommandContext;
 	checkout: PlanStoreDirectoryEvidence;
 	operation: BranchContextCreateOperation;
@@ -99,7 +96,7 @@ interface FormatSurfaceSuccessOptions {
 
 export interface CccSlotDispatchPlanOptions {
 	planStoreRoot?: string;
-	createBranchContextContext?: BranchContextContextFactory<[pi: ExtensionAPI, cwd: string]>;
+	createBranchContextContext?: BranchContextContextFactory<[pi: CccPiCommandApi, cwd: string]>;
 	slotClient?: SlotClient;
 }
 
@@ -198,7 +195,7 @@ export async function handleCccSlotDispatchPlan({
 }
 
 function dispatchBranchContextContext(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	cwd: string,
 	options: CccSlotDispatchPlanOptions,
 ): BranchContextContext {
@@ -254,7 +251,7 @@ async function resolveLatestSavedPlanFromSession(
 }
 
 async function resolveCurrentCheckout(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	cwd: string,
 	options: CccSlotDispatchPlanOptions,
 ): Promise<PlanStoreDirectoryEvidence | { error: string }> {
@@ -334,7 +331,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 type PresentLevel = Exclude<NotifyLevel, "success">;
 
 function presentBranchContextMessage(
-	pi: ExtensionAPI,
+	pi: CccPiCommandApi,
 	ctx: CommandContext,
 	content: string,
 	details: BranchContextOutputDetails,
@@ -488,7 +485,7 @@ Run /ns:plan:save first, then rerun /${config.commandName}.`;
 }
 
 async function openBranchInCmuxSurface(options: {
-	pi: ExtensionAPI;
+	pi: CccPiCommandApi;
 	ctx: CommandContext;
 	cwd: string;
 	branchName: string;

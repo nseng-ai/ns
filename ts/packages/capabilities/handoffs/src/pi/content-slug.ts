@@ -7,7 +7,7 @@ import {
 	type ContentSlugEvidence,
 } from "@nseng-ai/capability-kit/content-slug";
 import { parseFlatHandoffSlug } from "../api/index.ts";
-import type { ExtensionAPI } from "./runtime-types.ts";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 
 const MAX_HANDOFF_SLUG_WORDS = 8;
 const GENERIC_ONLY_WORDS = new Set([
@@ -53,14 +53,10 @@ const HANDOFF_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 };
 
 export async function deriveHandoffContentSlug(
-	host: Pick<ExtensionAPI, "exec">,
+	commands: CommandExecApi,
 	input: { content: string; cwd: string; signal?: AbortSignal },
 ): Promise<HandoffContentSlugEvidence> {
-	return deriveKitContentSlug(
-		{ exec: (command, args, options) => host.exec(command, args, options) },
-		input,
-		HANDOFF_CONTENT_SLUG_VARIANT,
-	);
+	return deriveKitContentSlug(commands, input, HANDOFF_CONTENT_SLUG_VARIANT);
 }
 
 export function buildHandoffContentSlugPrompt(content: string): string {

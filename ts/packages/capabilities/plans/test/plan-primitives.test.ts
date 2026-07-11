@@ -350,7 +350,9 @@ describe("normalizePlanFilePath", () => {
 	});
 });
 
-const unusedPi = { exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }) };
+const unusedPi = {
+	exec: async () => ({ type: "exited" as const, stdout: "", stderr: "", code: 0, signal: null }),
+};
 
 let tempDirCounter = 0;
 function makeTempDir(prefix: string): string {

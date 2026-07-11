@@ -1,9 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
 
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import type { RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
 import {
 	parseDownloadFeedbackData,
-	type ExecResult,
 	type PrAddressRunner,
 } from "../../src/pr-feedback-watch/feedback-download.ts";
 import prFeedbackWatchExtension, {
@@ -28,15 +28,21 @@ interface ExecCall {
 	args: string[];
 }
 
+interface RawResultOverrides {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly code?: number;
+}
+
 interface ScriptedExec {
 	command: string;
 	args: string[] | ((args: string[]) => boolean);
 	description?: string;
-	result: Partial<ExecResult>;
+	result: RawResultOverrides;
 }
 
 interface StepOptions {
-	result?: Partial<ExecResult>;
+	result?: RawResultOverrides;
 	description?: string;
 }
 
@@ -78,7 +84,7 @@ class FakePi implements ExtensionAPI {
 		this.handlers.set(event, handler);
 	}
 
-	async exec(command: string, args: string[]): Promise<ExecResult> {
+	async exec(command: string, args: string[]): Promise<RawPiExecResult> {
 		this.calls.push({ command, args: [...args] });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
@@ -150,12 +156,11 @@ class FakeContext implements ExtensionContext {
 	}
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function execResult(overrides: RawResultOverrides = {}): RawPiExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
 	};
 }
 

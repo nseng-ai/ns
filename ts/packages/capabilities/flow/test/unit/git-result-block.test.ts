@@ -21,8 +21,21 @@ function caps(parts: { colorDepth?: ColorDepth; canRenderUnicode?: boolean } = {
 	};
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
-	return { stdout: "", stderr: "", code: 0, killed: false, ...overrides };
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	code?: number | null;
+	signal?: string | null;
+}
+
+function execResult(overrides: ExitedResultFields = {}): ExecResult {
+	return {
+		type: "exited",
+		stdout: overrides.stdout ?? "",
+		stderr: overrides.stderr ?? "",
+		code: overrides.code ?? 0,
+		signal: overrides.signal ?? null,
+	};
 }
 
 function hasNormalWeightLine(block: string, expected: string): boolean {
@@ -50,7 +63,7 @@ describe("renderGitResultBlock — success", () => {
 		expect(plain).toContain("Command: git push");
 		expect(plain).toContain("Cwd: /repo");
 		expect(plain).not.toContain("Exit: 0");
-		expect(plain).not.toContain("Killed:");
+		expect(plain).not.toContain("timed out");
 		expect(plain).not.toContain("stdout:");
 		expect(plain).not.toContain("Everything up-to-date");
 	});
@@ -98,8 +111,8 @@ describe("renderGitResultBlock — failure", () => {
 
 	test("guidance is present and plumbing + full transcript are dimmed", () => {
 		expect(plain).toContain("Use `ns flow submit` when appropriate.");
-		expect(block).toContain(`${DIM}Exit: 1${RESET}`);
-		expect(plain).not.toContain("Killed:");
+		expect(block).toContain(`${DIM}Termination: exit code 1${RESET}`);
+		expect(plain).not.toContain("timed out");
 		expect(block).toContain(`${DIM}stderr:${RESET}`);
 	});
 
@@ -115,16 +128,16 @@ describe("renderGitResultBlock — failure", () => {
 		expect(hasNormalWeightLine(fastForwardBlock, "not fast-forward")).toBe(true);
 	});
 
-	test("renders killed plumbing only when the subprocess was killed", () => {
+	test("renders timeout termination truthfully", () => {
 		const killedBlock = renderGitResultBlock(caps(), {
 			kind: "failure",
 			headline: "`git push` was killed.",
 			command: "git push",
 			cwd: "/repo",
-			result: execResult({ code: 1, killed: true }),
+			result: { type: "timed-out", stdout: "", stderr: "", code: 1, signal: null },
 		});
 
-		expect(killedBlock).toContain(`${DIM}Killed: true${RESET}`);
+		expect(killedBlock).toContain(`${DIM}Termination: timed out${RESET}`);
 	});
 
 	test("normalizes CRLF transcript lines before promotion and full rendering", () => {
@@ -172,16 +185,16 @@ describe("renderGitResultBlock — failure", () => {
 		).toBe(true);
 	});
 
-	test("renders Killed only when the subprocess was actually killed", () => {
+	test("renders independent signal termination as failure evidence", () => {
 		const block = renderGitResultBlock(caps(), {
 			kind: "failure",
 			headline: "`git push` was killed.",
 			command: "git push",
 			cwd: "/repo",
-			result: execResult({ code: 143, killed: true }),
+			result: { type: "exited", stdout: "", stderr: "", code: 143, signal: "SIGTERM" },
 		});
 
-		expect(block).toContain(`${DIM}Killed: true${RESET}`);
+		expect(block).toContain(`${DIM}Termination: exit code 143; signal SIGTERM${RESET}`);
 	});
 
 	test("normalizes CRLF transcript output and promoted cause lines", () => {
@@ -247,7 +260,7 @@ describe("renderGitResultBlock — refusal (dirty worktree)", () => {
 		expect(plain).toContain("Commit or stash outstanding changes first.");
 		expect(plain).toContain("Command: git status --porcelain");
 		expect(plain).not.toContain("Exit:");
-		expect(plain).not.toContain("Killed:");
+		expect(plain).not.toContain("timed out");
 	});
 
 	test("porcelain detail stays at normal weight under a dimmed stdout label", () => {

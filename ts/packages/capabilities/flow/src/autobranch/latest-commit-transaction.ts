@@ -1,3 +1,4 @@
+import { commandSucceeded } from "@nseng-ai/foundation/command";
 import type { AutobranchExec } from "./shared.ts";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
 import type { AutobranchFlowOutcome } from "./flow-result.ts";
@@ -132,7 +133,7 @@ export async function runLatestCommitAutobranchTransaction(
 		["create", input.plan.branchName, "--no-interactive", "--no-ai"],
 		GT_TIMEOUT_MS,
 	);
-	if (created.code !== 0) {
+	if (!commandSucceeded(created)) {
 		const recovery = await restoreSourceAndDeleteCreatedBranch(input);
 		return {
 			ok: false,

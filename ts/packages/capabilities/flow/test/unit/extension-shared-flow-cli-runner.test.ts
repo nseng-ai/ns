@@ -22,7 +22,9 @@ describe("project extension shared Flow CLI runner", () => {
 			run: async (io) => {
 				const execResult = await io.exec("git", ["status"], { cwd: "/repo", timeout: 42 });
 				io.stdout("done\n");
-				return execResult.code;
+				return execResult.type === "exited" && execResult.signal === null
+					? (execResult.code ?? 1)
+					: 1;
 			},
 		});
 
@@ -117,7 +119,9 @@ describe("project extension shared Flow CLI runner", () => {
 			shouldForwardLiveOutput: true,
 			run: async (io) => {
 				const execResult = await io.exec("gt", ["status"], { timeout: 9 });
-				return execResult.code;
+				return execResult.type === "exited" && execResult.signal === null
+					? (execResult.code ?? 1)
+					: 1;
 			},
 		});
 
@@ -206,7 +210,9 @@ describe("project extension shared Flow CLI runner", () => {
 					cwd: "/trunk",
 					timeout: 42,
 				});
-				return execResult.code;
+				return execResult.type === "exited" && execResult.signal === null
+					? (execResult.code ?? 1)
+					: 1;
 			},
 		});
 
@@ -289,12 +295,19 @@ function createFakeApi(results: readonly ExecResult[]): {
 	};
 }
 
-function makeExecResult(overrides: Partial<ExecResult> = {}): ExecResult {
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	code?: number | null;
+	signal?: string | null;
+}
+
+function makeExecResult(overrides: ExitedResultFields = {}): ExecResult {
 	return {
-		stdout: "",
-		stderr: "",
-		code: 0,
-		killed: false,
-		...overrides,
+		type: "exited",
+		stdout: overrides.stdout ?? "",
+		stderr: overrides.stderr ?? "",
+		code: overrides.code ?? 0,
+		signal: overrides.signal ?? null,
 	};
 }

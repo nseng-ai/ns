@@ -2,6 +2,9 @@ import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@nseng-ai/foundation/command";
 
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
+
 import { runTrunkPullDetailed } from "../src/ns/trunk-pull.ts";
 
 type TrunkPullCommands = Parameters<typeof runTrunkPullDetailed>[0];
@@ -10,7 +13,7 @@ type ExecOptions = Parameters<TrunkPullCommands["exec"]>[2];
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result?: Partial<ExecResult>;
+	result?: ExecResultFixture;
 }
 
 class FakeCommands implements TrunkPullCommands {
@@ -36,11 +39,22 @@ class FakeCommands implements TrunkPullCommands {
 				`expected ${next.command} ${next.args.join(" ")}, got ${command} ${args.join(" ")}`,
 			);
 		}
-		return { stdout: "", stderr: "", code: 0, killed: false, ...next.result };
+		return execResult(next.result);
 	}
 }
 
-function step(command: string, args: string[], result: Partial<ExecResult> = {}): ScriptedExec {
+function execResult(result: ExecResultFixture = {}): ExecResult {
+	if ("type" in result) return result;
+	return {
+		type: "exited",
+		stdout: result.stdout ?? "",
+		stderr: result.stderr ?? "",
+		code: result.code ?? 0,
+		signal: result.signal ?? null,
+	};
+}
+
+function step(command: string, args: string[], result: ExecResultFixture = {}): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -80,7 +94,7 @@ describe("runTrunkPullDetailed", () => {
 			command: "git",
 			args: ["fetch", "origin", "refs/heads/main:refs/heads/main"],
 			cwd: "/repo",
-			execResult: { stdout: "updated\n", code: 0, killed: false },
+			execResult: { stdout: "updated\n", code: 0 },
 		});
 		expect(commands.execCalls.map((call) => [call.command, call.args])).toEqual([
 			["gt", ["trunk", "--no-interactive"]],
@@ -131,7 +145,7 @@ describe("runTrunkPullDetailed", () => {
 			command: "gt",
 			args: ["trunk", "--no-interactive"],
 			cwd: "/repo",
-			execResult: { stderr: "no trunk\n", code: 1, killed: false },
+			execResult: { stderr: "no trunk\n", code: 1 },
 		});
 		expect(commands.execCalls).toHaveLength(1);
 	});
@@ -148,7 +162,7 @@ describe("runTrunkPullDetailed", () => {
 			command: "gt",
 			args: ["trunk", "--no-interactive"],
 			cwd: "/repo",
-			execResult: { stdout: "\n", code: 0, killed: false },
+			execResult: { stdout: "\n", code: 0 },
 		});
 	});
 
@@ -168,7 +182,7 @@ describe("runTrunkPullDetailed", () => {
 			command: "git",
 			args: ["worktree", "list", "--porcelain"],
 			cwd: "/repo",
-			execResult: { stderr: "fatal: worktree metadata unavailable\n", code: 1, killed: false },
+			execResult: { stderr: "fatal: worktree metadata unavailable\n", code: 1 },
 		});
 	});
 
@@ -189,7 +203,7 @@ describe("runTrunkPullDetailed", () => {
 			command: "git",
 			args: ["pull", "--ff-only", "origin", "master"],
 			cwd: "/Users/schrockn/code/sdl-tools",
-			execResult: { stderr: "not fast-forward\n", code: 1, killed: false },
+			execResult: { stderr: "not fast-forward\n", code: 1 },
 		});
 	});
 });

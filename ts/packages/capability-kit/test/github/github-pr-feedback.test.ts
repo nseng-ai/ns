@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import type { CommandRunner, ExecOptions } from "@nseng-ai/foundation/exec";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
 import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
-import { ScriptedCommandRunner, step } from "@nseng-ai/foundation/exec/testing";
+import { exitedResult, ScriptedCommandRunner } from "@nseng-ai/foundation/exec/testing";
 
 import {
 	branchPrChecksArgs,
@@ -21,6 +21,22 @@ import {
 	reviewThreadCommentsQuery,
 	reviewThreadsQuery,
 } from "../../src/github/pr-feedback/queries.ts";
+
+function step(
+	command: string,
+	args: readonly string[],
+	result: { readonly stdout?: string; readonly stderr?: string; readonly exitCode?: number } = {},
+) {
+	return {
+		command,
+		args: [...args],
+		result: exitedResult({
+			code: result.exitCode ?? 0,
+			stdout: result.stdout ?? "",
+			stderr: result.stderr ?? "",
+		}),
+	};
+}
 
 function reviewThreadsResponse(
 	nodes: readonly unknown[],
@@ -469,7 +485,13 @@ describe("RealGithubPrFeedbackGateway", () => {
 		const calls: Array<{ command: string; args: readonly string[]; options: ExecOptions }> = [];
 		const runner: CommandRunner = async (command, args, options = {}) => {
 			calls.push({ command, args: [...args], options });
-			return { stdout: reviewThreadsResponse([]), stderr: "", code: 0, killed: false };
+			return {
+				stdout: reviewThreadsResponse([]),
+				stderr: "",
+				code: 0,
+				type: "exited",
+				signal: null,
+			};
 		};
 		const gateway = new RealGithubPrFeedbackGateway(runner);
 		const env = { PATH: "/fake/bin" };

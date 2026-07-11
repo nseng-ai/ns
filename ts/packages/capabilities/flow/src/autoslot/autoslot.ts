@@ -1,4 +1,5 @@
 import type { Caps } from "@nseng-ai/clinkr";
+import type { ExecResult } from "@nseng-ai/foundation/command";
 import { createCliCommandIo, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
 import {
@@ -36,7 +37,7 @@ export interface AutoslotCliInput {
 		command: string,
 		args: string[],
 		options?: { cwd?: string; timeout?: number },
-	): Promise<{ stdout: string; stderr: string; code: number; killed: boolean }>;
+	): Promise<ExecResult>;
 	stdout(text: string): void;
 	stderr(text: string): void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;

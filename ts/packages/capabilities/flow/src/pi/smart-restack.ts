@@ -1,4 +1,8 @@
-import type { ExecResult } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	formatCommandTermination,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import {
 	combinedGitCommandOutput,
 	isGitRebaseInProgressOutput,
@@ -10,6 +14,7 @@ import {
 
 import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 import { formatCommandOutput, notifyCommandUi } from "@nseng-ai/pi/commands/helpers";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { expandRepoSkillBlock } from "@nseng-ai/pi/skills/expansion";
 
@@ -86,8 +91,12 @@ export async function runSmartRestack(
 	ctx: FlowCommandContext,
 	args: string,
 ): Promise<void> {
-	const status = await pi.exec("git", ["status"], { cwd: ctx.cwd, timeout: GIT_STATUS_TIMEOUT_MS });
-	if (status.code !== 0) {
+	const commands = createPiCommandExecApi(pi);
+	const status = await commands.exec("git", ["status"], {
+		cwd: ctx.cwd,
+		timeout: GIT_STATUS_TIMEOUT_MS,
+	});
+	if (!commandSucceeded(status)) {
 		notifyCommandUi(
 			ctx,
 			`Cannot inspect repository state with git status; not starting gt restack.\n\n${formatCommandOutput(status, COMMAND_OUTPUT_TAIL_OPTIONS)}`,
@@ -117,7 +126,7 @@ export async function runSmartRestack(
 		args: ["restack"],
 		timeoutMs: GT_RESTACK_TIMEOUT_MS,
 	});
-	if (restack.code === 0) {
+	if (commandSucceeded(restack)) {
 		notifyCommandUi(ctx, formatCleanRestackMessage(restack), "info");
 		return;
 	}
@@ -181,11 +190,15 @@ function formatCleanRestackMessage(result: ExecResult): string {
 
 function formatRestackFailureMessage(result: ExecResult): string {
 	return [
-		`gt restack exited with code ${result.code}.`,
+		formatFailureHeadline("gt restack", result),
 		formatCommandOutput(result, COMMAND_OUTPUT_TAIL_OPTIONS),
 	]
 		.filter((part) => part.length > 0)
 		.join("\n\n");
+}
+
+function formatFailureHeadline(command: string, result: ExecResult): string {
+	return `${command} ${formatCommandTermination(result)}.`;
 }
 
 async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void> {
@@ -235,17 +248,17 @@ function buildResolverPrompt(
 
 async function abortRebase(pi: SmartRestackExtensionAPI, ctx: FlowCommandContext): Promise<void> {
 	notifyCommandUi(ctx, "Aborting rebase with git rebase --abort.", "warning");
-	const abort = await pi.exec("git", ["rebase", "--abort"], {
+	const abort = await createPiCommandExecApi(pi).exec("git", ["rebase", "--abort"], {
 		cwd: ctx.cwd,
 		timeout: GIT_ABORT_TIMEOUT_MS,
 	});
-	if (abort.code === 0) {
+	if (commandSucceeded(abort)) {
 		notifyCommandUi(ctx, "Rebase aborted. No LM turn was started.", "info");
 		return;
 	}
 	notifyCommandUi(
 		ctx,
-		`git rebase --abort exited with code ${abort.code}.\n\n${formatCommandOutput(abort, COMMAND_OUTPUT_TAIL_OPTIONS)}`,
+		`${formatFailureHeadline("git rebase --abort", abort)}\n\n${formatCommandOutput(abort, COMMAND_OUTPUT_TAIL_OPTIONS)}`,
 		"error",
 	);
 }

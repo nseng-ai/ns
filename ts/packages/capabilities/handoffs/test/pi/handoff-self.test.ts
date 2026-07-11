@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 
 import { createDeferred } from "@nseng-ai/foundation/test-kit";
 
@@ -451,8 +452,10 @@ describe("ns:handoff:self pure helpers", () => {
 });
 
 function registerSelfOnly(pi: FakePi, timeoutMs: number): void {
+	const commands = createPiCommandExecApi(pi);
 	const workflow = createHandoffSelfWorkflow(pi, {
-		git: createPiHandoffContext(pi).git,
+		git: createPiHandoffContext(commands).git,
+		commands,
 		timeoutMs,
 		skillLoader: fakeHandoffCreateSkillLoader(),
 	});

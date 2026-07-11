@@ -1,6 +1,10 @@
 import { runGitHubCliAsExecResult } from "@nseng-ai/capability-kit/github/cli";
 import { parseJsonUnknown } from "@nseng-ai/capability-kit/github/graphql-json";
-import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	type CommandExecApi,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import {
 	formatErrorMessage,
@@ -96,11 +100,11 @@ export class RealSlotPrGateway implements SlotPrGateway {
 			["pr", "view", branch, "--json", "number,state,url,headRefName"],
 			"slot.pr.view_branch",
 		);
-		if (result.code !== 0 || result.killed) {
+		if (!commandSucceeded(result)) {
 			if (isPrLookupMiss(result.stdout, result.stderr)) return { type: "miss" };
 			return {
 				type: "failure",
-				failure: failureFromExec(result.stdout, result.stderr, result.code),
+				failure: failureFromExec(result),
 			};
 		}
 		const parsedJson = parseJsonUnknown(result.stdout);
@@ -110,7 +114,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 		if (!parsed.success)
 			return {
 				type: "failure",
-				failure: failureFromExec(result.stdout, parsed.error.message, result.code),
+				failure: failureFromExec(result, parsed.error.message),
 			};
 		return { type: "found", pr: parsed.data };
 	}
@@ -126,10 +130,10 @@ export class RealSlotPrGateway implements SlotPrGateway {
 			["api", "graphql", "-F", `query=${query}`],
 			"slot.pr.batch_lookup",
 		);
-		if (result.code !== 0 || result.killed)
+		if (!commandSucceeded(result))
 			return {
 				type: "failure",
-				failure: failureFromExec(result.stdout, result.stderr, result.code),
+				failure: failureFromExec(result),
 			};
 		const parsedJson = parseJsonUnknown(result.stdout);
 		if (parsedJson.type === "error")
@@ -138,26 +142,18 @@ export class RealSlotPrGateway implements SlotPrGateway {
 		if (!parsed.success)
 			return {
 				type: "failure",
-				failure: failureFromExec(result.stdout, parsed.error.message, result.code),
+				failure: failureFromExec(result, parsed.error.message),
 			};
 		if (parsed.data.errors !== undefined)
 			return {
 				type: "failure",
-				failure: failureFromExec(
-					result.stdout,
-					graphQlErrorsMessage(parsed.data.errors),
-					result.code,
-				),
+				failure: failureFromExec(result, graphQlErrorsMessage(parsed.data.errors)),
 			};
 		const repository = parsed.data.data?.repository;
 		if (repository === undefined || repository === null)
 			return {
 				type: "failure",
-				failure: failureFromExec(
-					result.stdout,
-					"GitHub GraphQL response did not include repository data",
-					result.code,
-				),
+				failure: failureFromExec(result, "GitHub GraphQL response did not include repository data"),
 			};
 		const results = new Map<string, PrLookupResult>();
 		for (const { alias, branch } of aliases) {
@@ -166,16 +162,15 @@ export class RealSlotPrGateway implements SlotPrGateway {
 				return {
 					type: "failure",
 					failure: failureFromExec(
-						result.stdout,
+						result,
 						`GitHub GraphQL response did not include alias ${alias} for ${branch}`,
-						result.code,
 					),
 				};
 			const resultForBranch = prLookupResultFromNodes(branch, connection.nodes);
 			if (resultForBranch.type === "failure")
 				return {
 					type: "failure",
-					failure: failureFromExec(result.stdout, resultForBranch.message, result.code),
+					failure: failureFromExec(result, resultForBranch.message),
 				};
 			results.set(branch, resultForBranch.result);
 		}
@@ -184,8 +179,8 @@ export class RealSlotPrGateway implements SlotPrGateway {
 
 	async closePr(number: number): Promise<PrCloseResult> {
 		const result = await this.runGh(["pr", "close", String(number)], "slot.pr.close");
-		if (result.code === 0 && !result.killed) return { type: "ok" };
-		return { type: "failure", failure: failureFromExec(result.stdout, result.stderr, result.code) };
+		if (commandSucceeded(result)) return { type: "ok" };
+		return { type: "failure", failure: failureFromExec(result) };
 	}
 
 	private async resolveRepository(): Promise<
@@ -195,10 +190,10 @@ export class RealSlotPrGateway implements SlotPrGateway {
 			["repo", "view", "--json", "nameWithOwner"],
 			"slot.pr.resolve_repository",
 		);
-		if (result.code !== 0 || result.killed)
+		if (!commandSucceeded(result))
 			return {
 				type: "failure",
-				failure: failureFromExec(result.stdout, result.stderr, result.code),
+				failure: failureFromExec(result),
 			};
 		const parsedJson = parseJsonUnknown(result.stdout);
 		if (parsedJson.type === "error")
@@ -207,7 +202,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 		if (!parsed.success)
 			return {
 				type: "failure",
-				failure: failureFromExec(result.stdout, parsed.error.message, result.code),
+				failure: failureFromExec(result, parsed.error.message),
 			};
 		const [owner, ...nameParts] = parsed.data.nameWithOwner.split("/");
 		const name = nameParts.join("/");
@@ -215,9 +210,8 @@ export class RealSlotPrGateway implements SlotPrGateway {
 			return {
 				type: "failure",
 				failure: failureFromExec(
-					result.stdout,
+					result,
 					`Unexpected gh repo view nameWithOwner: ${parsed.data.nameWithOwner}`,
-					result.code,
 				),
 			};
 		}
@@ -304,14 +298,31 @@ export function prFailureMessage(failure: PrGatewayFailure, fallbackPrefix = "gh
 }
 
 function failureFromJsonParse(result: ExecResult, error: unknown): PrGatewayFailure {
-	return failureFromExec(result.stdout, formatErrorMessage(error), result.code);
+	return failureFromExec(result, formatErrorMessage(error));
 }
 
-function failureFromExec(
-	stdout: string,
-	stderr: string,
-	returnCode: number | null,
-): PrGatewayFailure {
-	const message = stderr.trim() || stdout.trim() || `gh exited ${returnCode ?? "unknown"}`;
-	return { stdout, stderr, returnCode, message };
+function failureFromExec(result: ExecResult, stderrOverride?: string): PrGatewayFailure {
+	const stderr = stderrOverride ?? result.stderr;
+	const returnCode = result.type === "spawn-failed" ? null : result.code;
+	const evidence = commandFailureEvidence(result);
+	const trimmedStderr = stderr.trim();
+	const trimmedStdout = result.stdout.trim();
+	const message =
+		trimmedStderr !== "" ? trimmedStderr : trimmedStdout !== "" ? trimmedStdout : evidence;
+	return { stdout: result.stdout, stderr, returnCode, message };
+}
+
+function commandFailureEvidence(result: ExecResult): string {
+	switch (result.type) {
+		case "spawn-failed":
+			return `gh failed to start: ${result.error}`;
+		case "cancelled":
+			return "gh was cancelled";
+		case "timed-out":
+			return "gh timed out";
+		case "exited":
+			return result.signal === null
+				? `gh exited ${result.code ?? "unknown"}`
+				: `gh exited after signal ${result.signal} (status ${result.code ?? "unknown"})`;
+	}
 }

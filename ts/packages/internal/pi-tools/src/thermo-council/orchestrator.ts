@@ -22,6 +22,7 @@ import {
 	type SubagentRuntime,
 } from "@nseng-ai/ns-pi-subagents/api";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
 import { buildReviewerPrompt } from "./prompt.ts";
 import {
@@ -76,7 +77,7 @@ export async function runThermoCouncilCommand(
 	setStatus(ctx, "preflighting review scope…");
 	try {
 		const reviewGuidance = normalizeReviewGuidance(args);
-		const scopeResult = await collectThermoCouncilScope(pi, ctx);
+		const scopeResult = await collectThermoCouncilScope(createPiCommandExecApi(pi), ctx);
 		if (scopeResult.type === "failed") {
 			emitReport(pi, ctx, renderFatalReport(scopeResult.message));
 			return;

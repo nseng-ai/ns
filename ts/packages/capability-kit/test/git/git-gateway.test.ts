@@ -17,11 +17,14 @@ interface ExecCall {
 	options: ExecOptions | undefined;
 }
 
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<ExitedResult> | Exclude<ExecResult, ExitedResult>;
+
 type ScriptedExec =
 	| {
 			command: string;
 			args: string[];
-			result: Partial<ExecResult>;
+			result: ExecResultFixture;
 	  }
 	| {
 			command: string;
@@ -42,12 +45,18 @@ class ScriptedCommands implements CommandExecApi {
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
-			return execResult({ code: 99, stderr: missingStepMessage });
+			return execResult({
+				type: "exited",
+				stdout: "",
+				stderr: missingStepMessage,
+				code: 99,
+				signal: null,
+			});
 		}
 		if (expected.command !== command || !sameArgs(expected.args, args)) {
 			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
 			this.script.recordError(message);
-			return execResult({ code: 99, stderr: message });
+			return execResult({ type: "exited", stdout: "", stderr: message, code: 99, signal: null });
 		}
 		if ("error" in expected) throw expected.error;
 		return execResult(expected.result);
@@ -58,16 +67,23 @@ class ScriptedCommands implements CommandExecApi {
 	}
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function execResult(overrides: ExecResultFixture = {}): ExecResult {
+	switch (overrides.type) {
+		case "spawn-failed":
+		case "cancelled":
+		case "timed-out":
+			return overrides;
+	}
 	return {
+		type: "exited",
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
+		signal: overrides.signal ?? null,
 	};
 }
 
-function step(command: string, args: string[], result: Partial<ExecResult> = {}): ScriptedExec {
+function step(command: string, args: string[], result: ExecResultFixture = {}): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -160,7 +176,13 @@ describe("real git gateway", () => {
 	test("resolves previous branch as optional command protocol", async () => {
 		const commands = new ScriptedCommands([
 			step("git", ["rev-parse", "--abbrev-ref", "@{-1}"], { stdout: "feature/previous\n" }),
-			step("git", ["rev-parse", "--abbrev-ref", "@{-1}"], { code: 128, stderr: "no reflog" }),
+			step("git", ["rev-parse", "--abbrev-ref", "@{-1}"], {
+				type: "exited",
+				stdout: "",
+				stderr: "no reflog",
+				code: 128,
+				signal: null,
+			}),
 		]);
 		const git = new RealGitGateway(commands);
 
@@ -264,7 +286,13 @@ describe("real git gateway", () => {
 
 	test("reports current branch command failures", async () => {
 		const commands = new ScriptedCommands([
-			step("git", ["branch", "--show-current"], { code: 2, stderr: "boom" }),
+			step("git", ["branch", "--show-current"], {
+				type: "exited",
+				stdout: "",
+				stderr: "boom",
+				code: 2,
+				signal: null,
+			}),
 		]);
 		const git = new RealGitGateway(commands);
 
@@ -294,8 +322,20 @@ describe("real git gateway", () => {
 
 	test("reports unexpected work tree probe failures", async () => {
 		const commands = new ScriptedCommands([
-			step("git", ["rev-parse", "--is-inside-work-tree"], { code: 2, stderr: "boom" }),
-			step("git", ["rev-parse", "--is-inside-work-tree"], { killed: true }),
+			step("git", ["rev-parse", "--is-inside-work-tree"], {
+				type: "exited",
+				stdout: "",
+				stderr: "boom",
+				code: 2,
+				signal: null,
+			}),
+			step("git", ["rev-parse", "--is-inside-work-tree"], {
+				type: "timed-out",
+				stdout: "",
+				stderr: "",
+				code: null,
+				signal: null,
+			}),
 		]);
 		const git = new RealGitGateway(commands);
 
@@ -368,7 +408,13 @@ describe("real git gateway", () => {
 			step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
 				stdout: "origin/trunk\n",
 			}),
-			step("git", ["rev-parse", "--verify", "refs/heads/trunk"], { code: 2, stderr: "boom" }),
+			step("git", ["rev-parse", "--verify", "refs/heads/trunk"], {
+				type: "exited",
+				stdout: "",
+				stderr: "boom",
+				code: 2,
+				signal: null,
+			}),
 			step("git", ["rev-parse", "--verify", "refs/heads/main"]),
 		]);
 		const git = new RealGitGateway(commands);
@@ -520,9 +566,19 @@ describe("real git gateway", () => {
 				stderr: "bad status",
 			}),
 			errorStep("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], new Error("spawn ENOENT")),
-			step("git", ["rev-parse", "HEAD:.ns/objectives"], { code: 2, stderr: "unexpected" }),
+			step("git", ["rev-parse", "HEAD:.ns/objectives"], {
+				type: "exited",
+				stdout: "",
+				stderr: "unexpected",
+				code: 2,
+				signal: null,
+			}),
 			step("git", ["diff", "--name-only", "main..feature", "--", ".ns/objectives"], {
-				killed: true,
+				type: "timed-out",
+				stdout: "",
+				stderr: "",
+				code: null,
+				signal: null,
 			}),
 		]);
 		const git = new RealGitGateway(commands);
@@ -621,7 +677,13 @@ describe("real git gateway", () => {
 
 	test("maps status command and parse failures to distinct codes", async () => {
 		const commands = new ScriptedCommands([
-			step("git", ["status", "--porcelain=v1", "-z"], { code: 2, stderr: "bad status" }),
+			step("git", ["status", "--porcelain=v1", "-z"], {
+				type: "exited",
+				stdout: "",
+				stderr: "bad status",
+				code: 2,
+				signal: null,
+			}),
 			step("git", ["status", "--porcelain=v1", "-z"], { stdout: "garbage-line\0" }),
 		]);
 		const git = new RealGitGateway(commands);
@@ -674,7 +736,13 @@ describe("real git gateway", () => {
 
 	test("maps commit failures to git_commit_failed", async () => {
 		const commands = new ScriptedCommands([
-			step("git", ["commit", "-m", "subject"], { code: 1, stderr: "nothing to commit" }),
+			step("git", ["commit", "-m", "subject"], {
+				type: "exited",
+				stdout: "",
+				stderr: "nothing to commit",
+				code: 1,
+				signal: null,
+			}),
 		]);
 		const git = new RealGitGateway(commands);
 
@@ -703,8 +771,20 @@ describe("real git gateway", () => {
 
 	test("maps completed staged-changes probe failures and propagates startup failures", async () => {
 		const commands = new ScriptedCommands([
-			step("git", ["diff", "--cached", "--quiet", "--exit-code"], { code: 128, stderr: "boom" }),
-			step("git", ["diff", "--cached", "--quiet", "--exit-code"], { killed: true }),
+			step("git", ["diff", "--cached", "--quiet", "--exit-code"], {
+				type: "exited",
+				stdout: "",
+				stderr: "boom",
+				code: 128,
+				signal: null,
+			}),
+			step("git", ["diff", "--cached", "--quiet", "--exit-code"], {
+				type: "timed-out",
+				stdout: "",
+				stderr: "",
+				code: null,
+				signal: null,
+			}),
 			errorStep("git", ["diff", "--cached", "--quiet", "--exit-code"], new Error("spawn ENOENT")),
 		]);
 		const git = new RealGitGateway(commands);
@@ -727,7 +807,13 @@ describe("real git gateway", () => {
 	test("checks staged whitespace as a two-state cached diff", async () => {
 		const commands = new ScriptedCommands([
 			step("git", ["diff", "--cached", "--check"], { code: 0 }),
-			step("git", ["diff", "--cached", "--check"], { code: 2, stderr: "trailing whitespace" }),
+			step("git", ["diff", "--cached", "--check"], {
+				type: "exited",
+				stdout: "",
+				stderr: "trailing whitespace",
+				code: 2,
+				signal: null,
+			}),
 		]);
 		const git = new RealGitGateway(commands);
 
@@ -746,7 +832,13 @@ describe("real git gateway", () => {
 	test("unstages the index and reports reset failures", async () => {
 		const commands = new ScriptedCommands([
 			step("git", ["reset", "--"], { code: 0 }),
-			step("git", ["reset", "--"], { code: 1, stderr: "reset failed" }),
+			step("git", ["reset", "--"], {
+				type: "exited",
+				stdout: "",
+				stderr: "reset failed",
+				code: 1,
+				signal: null,
+			}),
 		]);
 		const git = new RealGitGateway(commands);
 
@@ -765,7 +857,13 @@ describe("real git gateway", () => {
 	test("checks out a branch and reports checkout failures", async () => {
 		const commands = new ScriptedCommands([
 			step("git", ["checkout", BRANCH], { code: 0 }),
-			step("git", ["checkout", BRANCH], { code: 1, stderr: "checkout failed" }),
+			step("git", ["checkout", BRANCH], {
+				type: "exited",
+				stdout: "",
+				stderr: "checkout failed",
+				code: 1,
+				signal: null,
+			}),
 		]);
 		const git = new RealGitGateway(commands);
 

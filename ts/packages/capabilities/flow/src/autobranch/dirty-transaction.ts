@@ -1,3 +1,4 @@
+import { commandSucceeded } from "@nseng-ai/foundation/command";
 import type { AutobranchExec } from "./shared.ts";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
@@ -124,7 +125,7 @@ async function createGraphiteBranch(
 		["create", input.branchName, "--no-interactive", "--no-ai"],
 		GT_CREATE_TIMEOUT_MS,
 	);
-	if (created.code !== 0) {
+	if (!commandSucceeded(created)) {
 		return { ok: false, error: formatAutobranchCommandDetails(created) };
 	}
 	return { ok: true };

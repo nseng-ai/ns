@@ -74,7 +74,7 @@ describe("worktree state", () => {
 			exec: {
 				async exec(command, args) {
 					calls.push([command, ...args].join(" "));
-					return { stdout: "", stderr: "", code: 0, killed: false };
+					return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
 				},
 			},
 		});
@@ -95,10 +95,11 @@ describe("worktree state", () => {
 			exec: {
 				async exec(command, args) {
 					return {
+						type: "exited",
 						stdout: "",
 						stderr: `${command} ${args.join(" ")} failed noisily`,
 						code: 1,
-						killed: false,
+						signal: null,
 					};
 				},
 			},
@@ -114,7 +115,7 @@ describe("worktree state", () => {
 		const readHead = createGitReadHead({
 			exec: {
 				async exec() {
-					return { stdout: "abcdef123456\n", stderr: "", code: 0, killed: false };
+					return { type: "exited", stdout: "abcdef123456\n", stderr: "", code: 0, signal: null };
 				},
 			},
 		});
@@ -129,7 +130,13 @@ describe("worktree state", () => {
 		const readHead = createGitReadHead({
 			exec: {
 				async exec() {
-					return { stdout: "", stderr: "fatal: not a git repo", code: 128, killed: false };
+					return {
+						type: "exited",
+						stdout: "",
+						stderr: "fatal: not a git repo",
+						code: 128,
+						signal: null,
+					};
 				},
 			},
 		});

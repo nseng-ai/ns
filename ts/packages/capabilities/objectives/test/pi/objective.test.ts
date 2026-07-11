@@ -15,11 +15,17 @@ import type {
 import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "@nseng-ai/pi/commands/cli-extension";
 import objectiveExtension, {
 	type CommandContext,
-	type ExecResult,
+	type RawPiExecResult,
 	type ObjectiveExtensionAPI,
 	type NotifyLevel,
 } from "../../src/pi/extension.ts";
-import type { AgentEndContext, ExecOptions, SessionStartContext } from "@nseng-ai/pi/runtime/types";
+
+type RawPiExecResultFixture = Partial<RawPiExecResult>;
+import type {
+	AgentEndContext,
+	RawPiExecOptions,
+	SessionStartContext,
+} from "@nseng-ai/pi/runtime/types";
 
 const ROOT = "/repo";
 const TRUNK = "master";
@@ -62,13 +68,13 @@ type CommandInfo = ReturnType<ObjectiveExtensionAPI["getCommands"]>[number];
 interface ExecCall {
 	command: string;
 	args: string[];
-	options: ExecOptions | undefined;
+	options: RawPiExecOptions | undefined;
 }
 
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: RawPiExecResultFixture | undefined;
 	error?: unknown;
 }
 
@@ -127,7 +133,11 @@ class FakePi implements ObjectiveExtensionAPI {
 		this.messageRenderers.set(customType, renderer);
 	}
 
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+	async exec(
+		command: string,
+		args: string[],
+		options?: RawPiExecOptions,
+	): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
@@ -200,7 +210,7 @@ function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function execResult(overrides: RawPiExecResultFixture = {}): RawPiExecResult {
 	return {
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
@@ -209,7 +219,7 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
+function step(command: string, args: string[], result?: RawPiExecResultFixture): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -476,14 +486,14 @@ function candidateStep(slugs: string[]): ScriptedExec {
 	});
 }
 
-function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
+function diffStep(stdout: string, result: RawPiExecResultFixture = {}): ScriptedExec {
 	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".ns/objectives"], {
 		stdout,
 		...result,
 	});
 }
 
-function statusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
+function statusStep(stdout: string, result: RawPiExecResultFixture = {}): ScriptedExec {
 	return step("git", ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"], {
 		stdout,
 		...result,
@@ -679,16 +689,20 @@ describe("ns:objective:autorun command", () => {
 
 			result.pi.assertDone();
 			expectNoObjectiveListExec(result);
-			expect(result.pi.execCalls[0]).toEqual({
+			expect(result.pi.execCalls[0]).toMatchObject({
 				command: "git",
 				args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".ns/objectives"],
-				options: { cwd: ROOT, timeout: 30_000 },
+				options: { cwd: ROOT },
 			});
-			expect(result.pi.execCalls[1]).toEqual({
+			expect(result.pi.execCalls[0]?.options?.signal).toBeInstanceOf(AbortSignal);
+			expect(result.pi.execCalls[0]?.options?.timeout).toBeUndefined();
+			expect(result.pi.execCalls[1]).toMatchObject({
 				command: "git",
 				args: ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"],
-				options: { cwd: ROOT, timeout: 30_000 },
+				options: { cwd: ROOT },
 			});
+			expect(result.pi.execCalls[1]?.options?.signal).toBeInstanceOf(AbortSignal);
+			expect(result.pi.execCalls[1]?.options?.timeout).toBeUndefined();
 			expect(result.waitForIdleCalls()).toBe(2);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
 		});
@@ -1199,11 +1213,13 @@ describe("objective command shared selection policy", () => {
 		]);
 
 		pi.assertDone();
-		expect(pi.execCalls[0]).toEqual({
+		expect(pi.execCalls[0]).toMatchObject({
 			command: "ns",
 			args: ["objective", "exec", "list-candidates", "--format", "json"],
-			options: { cwd: ROOT, timeout: 30_000 },
+			options: { cwd: ROOT },
 		});
+		expect(pi.execCalls[0]?.options?.signal).toBeInstanceOf(AbortSignal);
+		expect(pi.execCalls[0]?.options?.timeout).toBeUndefined();
 		expect(items).toEqual([
 			{ value: "alpha", label: "alpha", description: "open" },
 			{ value: "bravo", label: "bravo", description: "open" },

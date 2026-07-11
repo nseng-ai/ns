@@ -17,11 +17,10 @@
 
 import type { Caps } from "@nseng-ai/clinkr";
 import { dim, resultBlockHeadline } from "@nseng-ai/foundation/cli-theme";
+import { formatCommandTermination } from "@nseng-ai/foundation/command";
 import type { ExecResult } from "@nseng-ai/kernel/sdk";
 
-type GitTranscriptResult = Pick<ExecResult, "stdout" | "stderr" | "code"> & {
-	readonly killed?: boolean;
-};
+type GitTranscriptResult = ExecResult;
 
 interface GitResultFacts {
 	/** The leading one-line summary (already-phrased prose); rendered bold + intent-painted. */
@@ -96,10 +95,7 @@ function causeLines(result: GitTranscriptResult): string[] {
 function plumbingLines(input: GitResultBlockInput): string[] {
 	const facts = [`Command: ${input.command}`, `Cwd: ${input.cwd}`];
 	if (input.kind === "failure") {
-		facts.push(`Exit: ${input.result.code}`);
-		if (input.result.killed === true) {
-			facts.push("Killed: true");
-		}
+		facts.push(`Termination: ${formatCommandTermination(input.result)}`);
 	}
 	return facts.map((fact) => dim(fact));
 }

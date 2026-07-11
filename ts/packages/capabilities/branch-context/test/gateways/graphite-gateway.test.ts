@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@nseng-ai/foundation/exec";
+
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
@@ -20,7 +23,7 @@ type ScriptedExec =
 	| {
 			command: string;
 			args: string[];
-			result: Partial<ExecResult>;
+			result: ExecResultFixture;
 	  }
 	| {
 			command: string;
@@ -57,16 +60,18 @@ class ScriptedCommands implements CommandExecApi {
 	}
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+function execResult(overrides: ExecResultFixture = {}): ExecResult {
+	if ("type" in overrides) return overrides;
 	return {
+		type: "exited",
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
+		signal: overrides.signal ?? null,
 	};
 }
 
-function step(command: string, args: string[], result: Partial<ExecResult> = {}): ScriptedExec {
+function step(command: string, args: string[], result: ExecResultFixture = {}): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -274,8 +279,16 @@ describe("real branch-context graphite gateway", () => {
 		commands.assertDone();
 	});
 
-	test("returns killed track failures with timeout wording", async () => {
-		const commands = new ScriptedCommands([step("gt", trackArgs(), { code: 124, killed: true })]);
+	test("returns timed-out track failures with timeout wording", async () => {
+		const commands = new ScriptedCommands([
+			step("gt", trackArgs(), {
+				type: "timed-out",
+				stdout: "",
+				stderr: "",
+				code: 124,
+				signal: "SIGTERM",
+			}),
+		]);
 		const graphite = new RealGraphiteBranchGateway(commands);
 
 		const result = await graphite.trackBranch({
@@ -286,7 +299,7 @@ describe("real branch-context graphite gateway", () => {
 
 		expect(result).toMatchObject({ ok: false, error: { code: "graphite-track-failed" } });
 		if (!result.ok) {
-			expect(result.error.message).toContain("process was killed or timed out");
+			expect(result.error.message).toContain("timed out; signal SIGTERM");
 		}
 		commands.assertDone();
 	});

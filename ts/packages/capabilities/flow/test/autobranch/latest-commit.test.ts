@@ -58,7 +58,7 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 			return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
 		}
 		if (command === "git" && args[0] === "merge-base") {
-			return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
+			return upstreamMode === "contains" ? ok() : fail("");
 		}
 		if (command === "gt" && args[0] === "children") {
 			return options.shouldChildrenFail ? fail("gt children failed") : ok(childBranches.join("\n"));
@@ -80,11 +80,11 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 		}
 		if (command === "git" && args[0] === "show-ref") {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-			return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
+			return existingBranches.has(branch) ? ok() : fail("");
 		}
 		if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-			return existingBranches.has(branch) ? ok(`${branch}\n`) : { code: 1, stdout: "", stderr: "" };
+			return existingBranches.has(branch) ? ok(`${branch}\n`) : fail("");
 		}
 		return ok();
 	};
@@ -153,18 +153,18 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 			return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
 		}
 		if (command === "git" && args[0] === "merge-base") {
-			return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
+			return upstreamMode === "contains" ? ok() : fail("");
 		}
 		if (command === "git" && args[0] === "check-ref-format") {
 			return ok();
 		}
 		if (command === "git" && args[0] === "show-ref") {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-			return existingBranches.has(branch) ? ok() : { code: 1, stdout: "", stderr: "" };
+			return existingBranches.has(branch) ? ok() : fail("");
 		}
 		if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-			return existingBranches.has(branch) ? ok(`${branch}\n`) : { code: 1, stdout: "", stderr: "" };
+			return existingBranches.has(branch) ? ok(`${branch}\n`) : fail("");
 		}
 		if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
 			return ok(`${currentBranch}\n`);
@@ -312,7 +312,7 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		expect(upstreamFailed).toEqual({
 			ok: false,
 			kind: "upstream_check_failed",
-			error: "exit 128: bad upstream state",
+			error: "exit code 128: bad upstream state",
 		});
 
 		const root = await prepareLatestCommitAutobranchPlan(
@@ -387,7 +387,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 		expect(failedResult).toEqual({
 			ok: false,
 			kind: "transaction_upstream_check_failed",
-			error: "exit 128: bad upstream state",
+			error: "exit code 128: bad upstream state",
 		});
 		expect(eventIndex(failed.events, "exec:git branch autobranch-backup/")).toBe(-1);
 	});
@@ -443,7 +443,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			commitSummary: "abc123d Add latest commit support",
 			backupDeleted: false,
 			backupBranch: "autobranch-backup/feature/base/123",
-			backupDeleteError: "exit 1: delete failed",
+			backupDeleteError: "exit code 1: delete failed",
 		});
 	});
 
@@ -477,7 +477,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			ok: false,
 			kind: "source_reset_failed",
 			backupBranch: "autobranch-backup/feature/base/123",
-			error: "exit 1: source reset failed",
+			error: "exit code 1: source reset failed",
 			backupCleanup: "deleted",
 		});
 		expect(
@@ -516,7 +516,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			kind: "graphite_create_failed",
 			backupBranch: "autobranch-backup/feature/base/123",
 			branchName: "latest-commit-branch",
-			createError: "exit 1: gt create failed",
+			createError: "exit code 1: gt create failed",
 			restored: true,
 			createdBranchDeleted: true,
 		});
@@ -542,10 +542,10 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			kind: "graphite_create_failed",
 			backupBranch: "autobranch-backup/feature/base/123",
 			branchName: "latest-commit-branch",
-			createError: "exit 1: gt create failed",
+			createError: "exit code 1: gt create failed",
 			restored: true,
 			createdBranchDeleted: false,
-			createdBranchDeleteError: "exit 1: delete created failed",
+			createdBranchDeleteError: "exit code 1: delete created failed",
 		});
 	});
 
@@ -559,7 +559,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			kind: "branch_reset_failed",
 			backupBranch: "autobranch-backup/feature/base/123",
 			branchName: "latest-commit-branch",
-			resetError: "exit 1: branch reset failed",
+			resetError: "exit code 1: branch reset failed",
 			restored: true,
 			createdBranchDeleted: true,
 		});

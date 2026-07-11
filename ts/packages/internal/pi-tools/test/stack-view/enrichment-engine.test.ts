@@ -14,7 +14,7 @@ import {
 	createEnrichmentStore,
 	type EnrichmentStore,
 } from "../../src/stack-view/enrichment-store.ts";
-import type { CommandExecApi, ExecOptions, ExecResult } from "../../src/stack-view/exec.ts";
+import type { CommandExecApi, ExecOptions } from "../../src/stack-view/exec.ts";
 import type {
 	StackViewCheckEntry,
 	StackViewModel,
@@ -68,16 +68,24 @@ interface FakeExec {
 	calls: RecordedExecCall[];
 }
 
-function fakeExec(result: Partial<ExecResult>): FakeExec {
+interface ExitedResultOverrides {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly code?: number | null;
+	readonly signal?: string | null;
+}
+
+function fakeExec(overrides: ExitedResultOverrides): FakeExec {
 	const calls: RecordedExecCall[] = [];
 	const api: CommandExecApi = {
 		async exec(command, args, options) {
 			calls.push({ command, args: [...args], options });
 			return {
-				stdout: result.stdout ?? "",
-				stderr: result.stderr ?? "",
-				code: result.code ?? 0,
-				killed: result.killed ?? false,
+				type: "exited",
+				stdout: overrides.stdout ?? "",
+				stderr: overrides.stderr ?? "",
+				code: overrides.code ?? 0,
+				signal: overrides.signal ?? null,
 			};
 		},
 	};

@@ -97,7 +97,7 @@ describe("flow land matrix progress forwarding", () => {
 			commandIo: noopNsCommandIo,
 			progress,
 			renderCapabilities: { canEmitAnsi: false },
-			exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
+			exec: async () => ({ code: 0, stdout: "", stderr: "", type: "exited", signal: null }),
 			textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		};
 	}
@@ -273,7 +273,7 @@ interface ExecCall {
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: ExitedResultFields | undefined;
 }
 
 interface Notification {
@@ -352,13 +352,20 @@ function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	code?: number | null;
+	signal?: string | null;
+}
+
+function execResult(overrides: ExitedResultFields = {}): ExecResult {
 	return {
+		type: "exited",
 		stdout: overrides.stdout ?? "",
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
-		killed: overrides.killed ?? false,
-		...(overrides.startupError === undefined ? {} : { startupError: overrides.startupError }),
+		signal: overrides.signal ?? null,
 	};
 }
 
@@ -370,7 +377,7 @@ function expectSuccess<T>(result: LandStackResult<T>): T {
 	return result.value;
 }
 
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
+function step(command: string, args: string[], result?: ExitedResultFields): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -1909,7 +1916,7 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain(
 			"Optional descendant restack/update was deferred because Graphite could not refresh descendant branch feature-c: main is checked out at /repo-main.",
 		);
-		expect(streamText).not.toContain(`✗ $ ${formatCommand("gt", getArgs)} — exit 1`);
+		expect(streamText).not.toContain(`✗ $ ${formatCommand("gt", getArgs)} — exit code 1`);
 		expect(streamText).not.toContain("Completed with 1 warning:");
 		expect(streamText).not.toContain("fatal: 'main' is already checked out");
 		expect(streamText).not.toContain("land stopped");
@@ -2329,7 +2336,7 @@ describe("land-stack command scenarios", () => {
 			"Landed 1 PR: #101 feature-a.",
 		);
 		const streamText = commandMessagesText(messages);
-		expect(streamText).not.toContain("✗ $ gt delete feature-a -f -q — exit 1");
+		expect(streamText).not.toContain("✗ $ gt delete feature-a -f -q — exit code 1");
 		expect(streamText).not.toContain("fatal: 'feature-a' is already checked out");
 		expect(streamText).toContain(
 			"✓ $ gt delete feature-a -f -q — branch feature-a still checked out; clean up manually with gt sync or direct branch deletion",
@@ -2367,7 +2374,7 @@ describe("land-stack command scenarios", () => {
 		);
 		expect(notificationText).not.toContain("Landed 1 PR");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit 1");
+		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit code 1");
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
 		expect(streamText).toContain("Completed with 1 warning:");
 		expect(streamText).toContain(
@@ -2873,7 +2880,7 @@ describe("land-stack command scenarios", () => {
 		expect(notifications[0]?.message).not.toContain("Line 2");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain(
-			`✗ $ gh pr merge 101 --squash --match-head-commit ${SHA_A} --subject 'PR 101' --body '<PR body>' — exit 1`,
+			`✗ $ gh pr merge 101 --squash --match-head-commit ${SHA_A} --subject 'PR 101' --body '<PR body>' — exit code 1`,
 		);
 		expect(streamText).not.toContain("Line 1");
 		expect(streamText).not.toContain("Line 2");

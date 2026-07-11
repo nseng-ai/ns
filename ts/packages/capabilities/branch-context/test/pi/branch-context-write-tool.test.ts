@@ -68,7 +68,10 @@ describe("write_saved_plan_file tool", () => {
 		pi.assertDone();
 		expect(pi.execCalls[0]?.command).toBe("pi");
 		expect(pi.execCalls[0]?.args).toEqual(savedPlanSlugArgs(content));
-		expect(pi.execCalls[0]?.options).toMatchObject({ cwd: ROOT, timeout: 60_000 });
+		expect(pi.execCalls[0]?.options).toMatchObject({
+			cwd: ROOT,
+			signal: expect.any(AbortSignal),
+		});
 		expect(fakes.writePlanCalls[0]?.[1]).toEqual({
 			slug: PLAN_SLUG,
 			content,

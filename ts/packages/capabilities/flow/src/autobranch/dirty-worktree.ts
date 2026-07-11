@@ -1,3 +1,4 @@
+import { commandSucceeded } from "@nseng-ai/foundation/command";
 import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
@@ -155,7 +156,7 @@ async function readUntrackedSnippets(
 		["ls-files", "--others", "--exclude-standard", "-z"],
 		AUTOBRANCH_GIT_TIMEOUT_MS,
 	);
-	if (listed.code !== 0 || listed.stdout.length === 0) {
+	if (!commandSucceeded(listed) || listed.stdout.length === 0) {
 		return "";
 	}
 

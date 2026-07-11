@@ -1,3 +1,4 @@
+import { exitedResult } from "@nseng-ai/foundation/exec/testing";
 import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
@@ -16,8 +17,8 @@ describe("slot foreach CLI", () => {
 			},
 			command: {
 				resultsByCwd: {
-					"/slots/repos/repo/worktrees/slot-01": { stdout: "clean a\n" },
-					"/slots/repos/repo/worktrees/slot-02": { stdout: "clean b\n" },
+					"/slots/repos/repo/worktrees/slot-01": exitedResult({ stdout: "clean a\n" }),
+					"/slots/repos/repo/worktrees/slot-02": exitedResult({ stdout: "clean b\n" }),
 				},
 			},
 		});
@@ -45,7 +46,7 @@ describe("slot foreach CLI", () => {
 			},
 			command: {
 				resultsByCwd: {
-					"/slots/repos/repo/worktrees/slot-02": { code: 1, stderr: "boom\n" },
+					"/slots/repos/repo/worktrees/slot-02": exitedResult({ code: 1, stderr: "boom\n" }),
 				},
 			},
 		});

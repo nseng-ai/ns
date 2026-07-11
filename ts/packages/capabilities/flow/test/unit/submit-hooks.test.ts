@@ -13,6 +13,7 @@ import {
 	parseFlowSubmitHookCommands,
 	runFlowSubmitHooks,
 	type FlowSubmitHook,
+	type FlowSubmitHookFailure,
 } from "../../src/submit/submit-hooks.ts";
 import { writeTestPointManifest } from "../support/point-manifest.ts";
 
@@ -24,13 +25,20 @@ afterEach(() => {
 	}
 });
 
-function execResult(result: Partial<ExecResult> = {}): ExecResult {
+interface ExitedResultFields {
+	stdout?: string;
+	stderr?: string;
+	code?: number | null;
+	signal?: string | null;
+}
+
+function execResult(result: ExitedResultFields = {}): ExecResult {
 	return {
+		type: "exited",
 		stdout: result.stdout ?? "",
 		stderr: result.stderr ?? "",
 		code: result.code ?? 0,
-		killed: result.killed ?? false,
-		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
+		signal: result.signal ?? null,
 	};
 }
 
@@ -175,13 +183,18 @@ describe("flow submit hooks", () => {
 		expect(formatted.length).toBeLessThan(4_500);
 	});
 
-	test("formats startup and killed hook failures", () => {
+	test("formats spawn failures", () => {
 		const failure = {
 			hook: hook("missing-hook"),
-			result: execResult({ code: 0, killed: true, startupError: "spawn ENOENT" }),
-		};
+			result: {
+				type: "spawn-failed",
+				stdout: "",
+				stderr: "spawn ENOENT",
+				error: "spawn ENOENT",
+			},
+		} satisfies FlowSubmitHookFailure;
 
-		expect(flowSubmitHookFailureExitCode(failure)).toBe(1);
+		expect(flowSubmitHookFailureExitCode(failure)).toBe(2);
 		expect(formatFlowSubmitHookFailure(failure)).toContain(
 			"Pre-submit hook failed (failed before completion).",
 		);

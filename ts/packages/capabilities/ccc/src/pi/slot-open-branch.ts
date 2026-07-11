@@ -8,13 +8,15 @@ import {
 	type CccSlotOpenBranchOptions,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import { createCccPiCommandApi } from "./pi-command-api.ts";
 
 const COMMAND_NAME = CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME;
 
 export function registerCccSlotOpenBranchCommand(
-	pi: ExtensionAPI,
+	rawPi: ExtensionAPI,
 	options: CccSlotOpenBranchOptions = {},
 ): void {
+	const pi = createCccPiCommandApi(rawPi);
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: COMMAND_NAME,

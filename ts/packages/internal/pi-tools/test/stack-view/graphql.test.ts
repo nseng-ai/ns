@@ -7,8 +7,8 @@ import {
 	parseStackPrResponse,
 	type FetchStackPrsResult,
 } from "../../src/stack-view/graphql.ts";
-import type { CommandExecApi, ExecOptions, ExecResult } from "../../src/stack-view/exec.ts";
-import { stackViewExecApi } from "../../src/stack-view/exec.ts";
+import type { CommandExecApi, ExecOptions } from "../../src/stack-view/exec.ts";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
 import { GITHUB_CLI_TIMEOUT_MS } from "@nseng-ai/capability-kit/github";
 import { deriveStatus, type StackViewStatusInput } from "../../src/stack-view/types.ts";
 import { checkEntryFixture, threadDetailFixture } from "./stack-view-fixtures.ts";
@@ -30,16 +30,24 @@ interface FakeExec {
 	calls: RecordedCall[];
 }
 
-function fakeExec(result: Partial<ExecResult>): FakeExec {
+interface ExitedResultOverrides {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly code?: number | null;
+	readonly signal?: string | null;
+}
+
+function fakeExec(overrides: ExitedResultOverrides): FakeExec {
 	const calls: RecordedCall[] = [];
 	const api: CommandExecApi = {
 		async exec(command, args, options) {
 			calls.push({ command, args: [...args], options });
 			return {
-				stdout: result.stdout ?? "",
-				stderr: result.stderr ?? "",
-				code: result.code ?? 0,
-				killed: result.killed ?? false,
+				type: "exited",
+				stdout: overrides.stdout ?? "",
+				stderr: overrides.stderr ?? "",
+				code: overrides.code ?? 0,
+				signal: overrides.signal ?? null,
 			};
 		},
 	};
@@ -889,21 +897,24 @@ describe("fetchStackPrs", () => {
 	});
 });
 
-describe("stackViewExecApi throw-safety", () => {
-	it("normalizes a rejecting host exec into a code:127 startupError result instead of throwing", async () => {
-		const execApi = stackViewExecApi({
+describe("Pi exec adapter throw-safety", () => {
+	it("normalizes a rejecting host exec into a spawn-failed result instead of throwing", async () => {
+		const execApi = createPiCommandExecApi({
 			exec: () => Promise.reject(new Error("spawn gh ENOENT")),
 		});
 
 		const result = await execApi.exec("gh", ["api", "graphql"], { cwd: CWD });
 
-		expect(result.code).toBe(127);
-		expect(result.killed).toBe(false);
-		expect(result.startupError).toContain("spawn gh ENOENT");
+		expect(result).toEqual({
+			type: "spawn-failed",
+			stdout: "",
+			stderr: "spawn gh ENOENT",
+			error: "spawn gh ENOENT",
+		});
 	});
 
 	it("keeps fetchStackPrs from throwing when the host exec rejects, mapping to exec-error", async () => {
-		const execApi = stackViewExecApi({
+		const execApi = createPiCommandExecApi({
 			exec: () => Promise.reject(new Error("spawn gh ENOENT")),
 		});
 

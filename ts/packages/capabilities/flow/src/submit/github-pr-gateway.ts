@@ -366,6 +366,8 @@ function checkedCommandResult(params: {
 function isGithubDiffTooLarge(result: ExecResult): boolean {
 	const output = `${result.stderr}\n${result.stdout}`;
 	return (
+		result.type === "exited" &&
+		result.signal === null &&
 		result.code === 1 &&
 		/diff exceeded the maximum number of lines|PullRequest\.diff too_large|HTTP 406/i.test(output)
 	);

@@ -3,15 +3,12 @@ import {
 	type BranchContextEvidence,
 } from "@nseng-ai/branch-context/api";
 
+import { commandSucceeded, type CommandExecApi } from "@nseng-ai/foundation/command";
 import { CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME } from "./command-surfaces.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
 import type { SlotClient } from "@nseng-ai/slots/api";
-import type {
-	AutocompleteItem,
-	CommandContext,
-	ExtensionAPI,
-} from "@nseng-ai/capability-kit/cmux/types";
+import type { AutocompleteItem, CommandContext } from "@nseng-ai/capability-kit/cmux/types";
 
 interface BranchCandidate {
 	name: string;
@@ -28,7 +25,7 @@ export interface CccSlotOpenBranchOptions {
 }
 
 export interface HandleCccSlotOpenBranchOptions {
-	pi: Pick<ExtensionAPI, "exec">;
+	pi: CommandExecApi;
 	args: string;
 	ctx: CommandContext;
 	options?: CccSlotOpenBranchOptions;
@@ -151,7 +148,7 @@ export function extractCommandArgumentPrefix(textBeforeCursor: string): string |
 }
 
 export async function getBranchCompletions(
-	pi: Pick<ExtensionAPI, "exec">,
+	pi: CommandExecApi,
 	cwd: string,
 	argumentPrefix: string,
 ): Promise<AutocompleteItem[]> {
@@ -175,7 +172,7 @@ export async function getBranchCompletions(
 }
 
 async function listBranchCandidates(
-	pi: Pick<ExtensionAPI, "exec">,
+	pi: CommandExecApi,
 	cwd: string,
 ): Promise<BranchCandidate[] | undefined> {
 	const result = await pi.exec(
@@ -183,7 +180,7 @@ async function listBranchCandidates(
 		["for-each-ref", `--format=${BRANCH_FORMAT}`, "refs/heads", "refs/remotes"],
 		{ cwd, timeout: 5_000 },
 	);
-	if (result.code !== 0) {
+	if (!commandSucceeded(result)) {
 		return undefined;
 	}
 

@@ -1,7 +1,7 @@
 import {
 	type ExecResult,
+	formatCommandTermination,
 	formatOutputSection,
-	runNormalizedExecResult,
 	tailText,
 } from "@nseng-ai/foundation/command";
 import {
@@ -26,13 +26,10 @@ export async function exec(options: ExecOptions): Promise<ExecResult> {
 }
 
 export async function execRaw(options: ExecOptions): Promise<ExecResult> {
-	return runNormalizedExecResult(
-		async () =>
-			await options.pi.exec(options.command, options.args, {
-				cwd: options.cwd,
-				timeout: options.timeoutMs,
-			}),
-	);
+	return await options.pi.exec(options.command, options.args, {
+		cwd: options.cwd,
+		timeout: options.timeoutMs,
+	});
 }
 
 export function commandStreamOutputLines(result: ExecResult): string[] {
@@ -45,12 +42,11 @@ export function commandStreamOutputLines(result: ExecResult): string[] {
 }
 
 export function formatCommandDetails(result: ExecResult, commandDisplay?: string): string {
-	const killed = result.killed ? " (killed or timed out)" : "";
 	const lines: string[] = [];
 	if (commandDisplay) {
 		lines.push(`$ ${commandDisplay}`);
 	}
-	lines.push(`exit ${result.code}${killed}`);
+	lines.push(formatCommandTermination(result));
 	lines.push(
 		formatOutputSection("stdout", result.stdout, {
 			maxLines: MAX_OUTPUT_TAIL_LINES,

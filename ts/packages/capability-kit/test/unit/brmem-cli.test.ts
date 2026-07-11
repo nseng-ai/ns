@@ -13,7 +13,7 @@ import {
 	runBrmem,
 	type BrmemExecGateway,
 } from "@nseng-ai/capability-kit/brmem-cli";
-import type { PiExecResultLike } from "@nseng-ai/foundation/command";
+import type { ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 
 const ROOT = "/repo";
@@ -26,8 +26,11 @@ interface ExecCall {
 	options: ExecOptions;
 }
 
+type ExitedResult = Extract<ExecResult, { type: "exited" }>;
+type ExecResultFixture = Partial<ExitedResult> | Exclude<ExecResult, ExitedResult>;
+
 type ScriptedExec =
-	| { command: string; args: string[]; result: PiExecResultLike }
+	| { command: string; args: string[]; result: ExecResult }
 	| { command: string; args: string[]; error: Error };
 
 class FakeGateway implements BrmemExecGateway {
@@ -38,17 +41,17 @@ class FakeGateway implements BrmemExecGateway {
 		this.script = new ScriptedQueue(script, (step) => step);
 	}
 
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<PiExecResultLike> {
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args], options });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
-			return { code: 99, stderr: missingStepMessage };
+			return { type: "exited", stdout: "", stderr: missingStepMessage, code: 99, signal: null };
 		}
 		if (expected.command !== command || !sameArgs(expected.args, args)) {
 			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
 			this.script.recordError(message);
-			return { code: 99, stderr: message };
+			return { type: "exited", stdout: "", stderr: message, code: 99, signal: null };
 		}
 		if ("error" in expected) throw expected.error;
 		return expected.result;
@@ -63,12 +66,24 @@ function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function step(
-	command: string,
-	args: string[],
-	result: PiExecResultLike = { code: 0 },
-): ScriptedExec {
-	return { command, args, result };
+function step(command: string, args: string[], result: ExecResultFixture = {}): ScriptedExec {
+	return { command, args, result: makeExecResult(result) };
+}
+
+function makeExecResult(result: ExecResultFixture): ExecResult {
+	switch (result.type) {
+		case "spawn-failed":
+		case "cancelled":
+		case "timed-out":
+			return result;
+	}
+	return {
+		type: "exited",
+		stdout: result.stdout ?? "",
+		stderr: result.stderr ?? "",
+		code: result.code ?? 0,
+		signal: result.signal ?? null,
+	};
 }
 
 function errorStep(command: string, args: string[], error: Error): ScriptedExec {
@@ -102,7 +117,13 @@ describe("runBrmem", () => {
 	test("falls back to the TS workspace brmem command after PATH brmem is unavailable", async () => {
 		const workspaceRoot = process.cwd();
 		const gateway = new FakeGateway([
-			step("brmem", ["list"], { code: 127, stderr: "brmem: command not found" }),
+			step("brmem", ["list"], {
+				type: "exited",
+				stdout: "",
+				stderr: "brmem: command not found",
+				code: 127,
+				signal: null,
+			}),
 			step(
 				"pnpm",
 				["--config.verify-deps-before-run=false", "--dir", workspaceRoot, "exec", "brmem", "list"],
@@ -127,11 +148,17 @@ describe("runBrmem", () => {
 	test("returns unavailable with plural failures when every candidate is unavailable", async () => {
 		const workspaceRoot = process.cwd();
 		const gateway = new FakeGateway([
-			step("brmem", ["list"], { code: 127, stderr: "brmem: command not found" }),
+			step("brmem", ["list"], {
+				type: "exited",
+				stdout: "",
+				stderr: "brmem: command not found",
+				code: 127,
+				signal: null,
+			}),
 			step(
 				"pnpm",
 				["--config.verify-deps-before-run=false", "--dir", workspaceRoot, "exec", "brmem", "list"],
-				{ code: 127, stderr: "brmem: command not found" },
+				{ type: "exited", stdout: "", stderr: "brmem: command not found", code: 127, signal: null },
 			),
 		]);
 
@@ -214,13 +241,19 @@ describe("runAvailableBrmemCommand", () => {
 		expect(run.ok).toBe(true);
 		if (!run.ok) throw new Error(`expected successful run: ${run.error.message}`);
 		expect(run.value.command).toBe("brmem");
-		expect(run.value.result.code).toBe(1);
+		expect(run.value.result).toMatchObject({ type: "exited", code: 1, signal: null });
 		expect(gateway.calls.map((call) => call.options?.timeout)).toEqual([5678]);
 	});
 
 	test("returns a structured unavailable error when PATH brmem is unavailable", async () => {
 		const gateway = new FakeGateway([
-			step("brmem", ["list"], { code: 127, stderr: "brmem: command not found" }),
+			step("brmem", ["list"], {
+				type: "exited",
+				stdout: "",
+				stderr: "brmem: command not found",
+				code: 127,
+				signal: null,
+			}),
 		]);
 
 		const run = await runAvailableBrmemCommand({ gateway, cwd: ROOT, brmemArgs: ["list"] });
@@ -310,7 +343,13 @@ describe("checkBrmemEntry", () => {
 
 	test("maps check failures", async () => {
 		const killed = new FakeGateway([
-			step("brmem", checkArgs, { code: 124, killed: true, stderr: "timeout" }),
+			step("brmem", checkArgs, {
+				type: "timed-out",
+				code: 124,
+				signal: null,
+				stdout: "",
+				stderr: "timeout",
+			}),
 		]);
 		expect(await checkBrmemEntry({ gateway: killed, cwd: ROOT, ...locator })).toMatchObject({
 			type: "error",
@@ -318,7 +357,15 @@ describe("checkBrmemEntry", () => {
 		});
 		killed.assertDone();
 
-		const nonzero = new FakeGateway([step("brmem", checkArgs, { code: 2, stderr: "bad args" })]);
+		const nonzero = new FakeGateway([
+			step("brmem", checkArgs, {
+				type: "exited",
+				stdout: "",
+				stderr: "bad args",
+				code: 2,
+				signal: null,
+			}),
+		]);
 		expect(await checkBrmemEntry({ gateway: nonzero, cwd: ROOT, ...locator })).toMatchObject({
 			type: "error",
 			error: { code: "brmem_check_failed" },
@@ -326,7 +373,13 @@ describe("checkBrmemEntry", () => {
 		nonzero.assertDone();
 
 		const unavailable = new FakeGateway([
-			step("brmem", checkArgs, { code: 127, stderr: "brmem: command not found" }),
+			step("brmem", checkArgs, {
+				type: "exited",
+				stdout: "",
+				stderr: "brmem: command not found",
+				code: 127,
+				signal: null,
+			}),
 		]);
 		expect(await checkBrmemEntry({ gateway: unavailable, cwd: ROOT, ...locator })).toMatchObject({
 			type: "error",
@@ -411,7 +464,13 @@ describe("putBrmemEntryFromFile", () => {
 
 	test("maps put command failures", async () => {
 		const killed = new FakeGateway([
-			step("brmem", putArgs, { code: 124, killed: true, stderr: "timeout" }),
+			step("brmem", putArgs, {
+				type: "timed-out",
+				code: 124,
+				signal: null,
+				stdout: "",
+				stderr: "timeout",
+			}),
 		]);
 		expect(
 			await putBrmemEntryFromFile({ gateway: killed, cwd: ROOT, ...locator, sourceFile }),
@@ -421,7 +480,15 @@ describe("putBrmemEntryFromFile", () => {
 		});
 		killed.assertDone();
 
-		const nonzero = new FakeGateway([step("brmem", putArgs, { code: 2, stderr: "bad args" })]);
+		const nonzero = new FakeGateway([
+			step("brmem", putArgs, {
+				type: "exited",
+				stdout: "",
+				stderr: "bad args",
+				code: 2,
+				signal: null,
+			}),
+		]);
 		expect(
 			await putBrmemEntryFromFile({ gateway: nonzero, cwd: ROOT, ...locator, sourceFile }),
 		).toMatchObject({
@@ -431,7 +498,13 @@ describe("putBrmemEntryFromFile", () => {
 		nonzero.assertDone();
 
 		const unavailable = new FakeGateway([
-			step("brmem", putArgs, { code: 127, stderr: "brmem: command not found" }),
+			step("brmem", putArgs, {
+				type: "exited",
+				stdout: "",
+				stderr: "brmem: command not found",
+				code: 127,
+				signal: null,
+			}),
 		]);
 		expect(
 			await putBrmemEntryFromFile({ gateway: unavailable, cwd: ROOT, ...locator, sourceFile }),
@@ -626,7 +699,15 @@ describe("listBrmemEntries", () => {
 	});
 
 	test("maps list command failures", async () => {
-		const nonzero = new FakeGateway([step("brmem", listArgs, { code: 2, stderr: "bad args" })]);
+		const nonzero = new FakeGateway([
+			step("brmem", listArgs, {
+				type: "exited",
+				stdout: "",
+				stderr: "bad args",
+				code: 2,
+				signal: null,
+			}),
+		]);
 		expect(
 			await listBrmemEntries({ gateway: nonzero, cwd: ROOT, namespace: "reviews" }),
 		).toMatchObject({
@@ -636,7 +717,13 @@ describe("listBrmemEntries", () => {
 		nonzero.assertDone();
 
 		const unavailable = new FakeGateway([
-			step("brmem", listArgs, { code: 127, stderr: "brmem: command not found" }),
+			step("brmem", listArgs, {
+				type: "exited",
+				stdout: "",
+				stderr: "brmem: command not found",
+				code: 127,
+				signal: null,
+			}),
 		]);
 		expect(
 			await listBrmemEntries({ gateway: unavailable, cwd: ROOT, namespace: "reviews" }),
@@ -670,7 +757,7 @@ describe("brmemCommandFailure", () => {
 			command: "brmem",
 			args: ["put", "plan.md"],
 			displayCommand: "brmem put plan.md",
-			result: { code: 2, killed: false, stdout: "out", stderr: "err" },
+			result: { code: 2, type: "exited", signal: null, stdout: "out", stderr: "err" },
 		});
 
 		expect(error.code).toBe("brmem_put_failed");
@@ -689,7 +776,8 @@ describe("brmemCommandFailure", () => {
 			displayCommand: "brmem put plan.md",
 			result: {
 				code: 1,
-				killed: false,
+				type: "exited",
+				signal: null,
 				stdout: JSON.stringify({ exitCode: 1, message: "Source file is too large" }),
 				stderr: "",
 			},

@@ -1,4 +1,4 @@
-import { formatCommandDetails } from "@nseng-ai/foundation/exec";
+import { commandSucceeded, formatCommandDetails } from "@nseng-ai/foundation/exec";
 import { truncateTextHead, truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 
 import type { CommandResult } from "./command-result.ts";
@@ -127,17 +127,17 @@ export async function createCommitWithPreparedMessage(input: {
 		{ prefix: "pi-cp-commit-", filename: "message.txt", contents: `${input.message}\n` },
 		async (messagePath) => {
 			const add = await input.exec("git", ["add", "-A"], input.cwd, 30_000);
-			if (add.code !== 0) {
+			if (!commandSucceeded(add)) {
 				return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
 			}
 
 			const commit = await input.exec("git", ["commit", "-F", messagePath], input.cwd, 120_000);
-			if (commit.code !== 0) {
+			if (!commandSucceeded(commit)) {
 				return { error: formatCommandError("Checkpoint commit failed.", commit) };
 			}
 
 			const log = await input.exec("git", ["log", "-1", "--oneline"], input.cwd, 5_000);
-			if (log.code !== 0) {
+			if (!commandSucceeded(log)) {
 				return {
 					error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
 				};
@@ -308,5 +308,5 @@ async function generateCheckpointText(
 }
 
 function formatCommandError(summary: string, result: CommandResult): string {
-	return [summary, formatCommandDetails({ ...result, killed: result.killed ?? false })].join("\n");
+	return [summary, formatCommandDetails(result)].join("\n");
 }

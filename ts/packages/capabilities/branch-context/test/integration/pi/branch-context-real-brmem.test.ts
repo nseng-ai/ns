@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
+import type { RawPiExecOptions, RawPiExecResult } from "../../../src/pi/host-types.ts";
 import { copyExecOptionsWithout } from "@nseng-ai/foundation/exec/testing";
 import { createTempGitRepo } from "@nseng-ai/capability-kit/git/testing";
 import { createTempDirTracker } from "@nseng-ai/foundation/test-kit";
@@ -72,13 +72,23 @@ class StdinDroppingPi implements ExtensionAPI {
 		this.tools.set(definition.name, definition);
 	}
 
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+	async exec(
+		command: string,
+		args: string[],
+		options?: RawPiExecOptions,
+	): Promise<RawPiExecResult> {
 		if (command === "pi") return execResult({ stdout: `${PLAN_SLUG}\n` });
-		return await this.delegate.exec(
+		const result = await this.delegate.exec(
 			command,
 			args,
 			copyExecOptionsWithout(options, { shouldDropStdin: true }),
 		);
+		return {
+			stdout: result.stdout,
+			stderr: result.stderr,
+			code: result.type === "exited" ? (result.code ?? 1) : 1,
+			killed: result.type === "cancelled" || result.type === "timed-out",
+		};
 	}
 
 	sendMessage(message: CustomMessage): void {

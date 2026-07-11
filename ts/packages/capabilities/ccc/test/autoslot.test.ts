@@ -252,11 +252,17 @@ describe("autoslot flow", () => {
 			caps: TEST_CAPS,
 			exec: async (command, args) => {
 				if (command === "git" && args[0] === "rev-parse" && args[1] === "--show-toplevel")
-					return { code: 0, killed: false, stdout: "/repo\n", stderr: "" };
+					return { type: "exited", code: 0, signal: null, stdout: "/repo\n", stderr: "" };
 				if (command === "git" && args[0] === "symbolic-ref")
-					return { code: 0, killed: false, stdout: "source-branch\n", stderr: "" };
+					return { type: "exited", code: 0, signal: null, stdout: "source-branch\n", stderr: "" };
 				if (command === "git" && args[0] === "status")
-					return { code: 1, killed: false, stdout: "", stderr: "fatal: status failed\n" };
+					return {
+						type: "exited",
+						code: 1,
+						signal: null,
+						stdout: "",
+						stderr: "fatal: status failed\n",
+					};
 				throw new Error(`unexpected exec: ${command} ${args.join(" ")}`);
 			},
 			stdout: (text) => stdout.push(text),

@@ -28,10 +28,11 @@ interface NsCliExecAdapterOptions {
 export async function execNsCommand(options: ExecNsCommandOptions): Promise<ExecResult> {
 	if (options.cwd !== undefined && options.cwd !== options.ctx.cwd) {
 		return {
+			type: "exited",
 			code: 2,
+			signal: null,
 			stdout: "",
 			stderr: `ns command execution is scoped to ${options.ctx.cwd}; refusing command cwd ${options.cwd}.`,
-			killed: false,
 		};
 	}
 	const execOptions = {

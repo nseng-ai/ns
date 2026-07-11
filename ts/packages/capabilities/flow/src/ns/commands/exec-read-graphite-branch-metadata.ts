@@ -1,4 +1,8 @@
-import { formatCommand } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	formatCommand,
+	formatCommandDetails,
+} from "@nseng-ai/foundation/command";
 import {
 	GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS,
 	graphiteBranchMetadataReadonlyJsonArgs,
@@ -40,16 +44,12 @@ async function runExecReadGraphiteBranchMetadata(
 	const result = await ctx.exec("sqlite3", args, {
 		timeoutMs: GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS,
 	});
-	if (result.code !== 0 || result.killed) {
-		const killed = result.killed ? " (killed or timed out)" : "";
+	if (!commandSucceeded(result)) {
 		const details = [
 			`sqlite3 could not read Graphite branch metadata from ${request.dbPath}.`,
 			`$ ${formatCommand("sqlite3", args)}`,
-			`exit ${result.code}${killed}`,
-			result.stderr.trim() === "" ? undefined : result.stderr.trim(),
-		]
-			.filter((line): line is string => line !== undefined)
-			.join("\n");
+			formatCommandDetails(result),
+		].join("\n");
 		return failure(FLOW_COMMAND_FAILED, details);
 	}
 	return ok(result.stdout.trim() === "" ? "[]" : result.stdout.trim());

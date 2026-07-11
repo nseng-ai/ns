@@ -1,3 +1,4 @@
+import { commandSucceeded } from "@nseng-ai/foundation/exec";
 import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
@@ -239,6 +240,12 @@ async function loadStackMapGraph(
 		["slot", "gt", "exec", "stack-map-branches", "--format", "json"],
 		{ cwd, timeout: COMMAND_TIMEOUT_MS },
 	);
+	if (!commandSucceeded(result)) {
+		return {
+			type: "failure",
+			message: `Could not load Graphite stack data: ${formatInlineCommandFailure("ns slot gt exec stack-map-branches", result)}`,
+		};
+	}
 	const parsed = parseStackMapMachineEnvelopeData(
 		result.stdout,
 		"ns slot gt exec stack-map-branches JSON",
@@ -264,7 +271,7 @@ async function loadCmuxTabs(
 		cwd,
 		timeout: COMMAND_TIMEOUT_MS,
 	});
-	if (result.code !== 0)
+	if (!commandSucceeded(result))
 		return {
 			type: "failure",
 			message: `Could not load cmux tab inventory: ${formatInlineCommandFailure("cmux tree", result)}`,
