@@ -17,7 +17,7 @@ import {
 	truncatePlain,
 } from "@nseng-ai/foundation/cli-theme";
 import type { Clock } from "@nseng-ai/foundation/clock";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import {
@@ -370,12 +370,7 @@ export interface MatrixFrameOptionalFields {
 export function matrixFrameOptionalFields(
 	input: MatrixFrameOptionalFields,
 ): MatrixFrameOptionalFields {
-	return {
-		...optionalEntry("activeOperations", input.activeOperations),
-		...optionalEntry("tailLine", input.tailLine),
-		...optionalEntry("tailSinceOutputMs", input.tailSinceOutputMs),
-		...optionalEntry("tick", input.tick),
-	};
+	return optionalEntries({ ...input });
 }
 
 export function renderMatrixProgressFrame<ColumnKey extends string, GlobalKey extends string>(
