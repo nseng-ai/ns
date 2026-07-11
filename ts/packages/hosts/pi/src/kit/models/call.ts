@@ -1,4 +1,5 @@
-import type { Api, Model } from "@earendil-works/pi-ai";
+import { cleanupSessionResources, type Api, type Model } from "@earendil-works/pi-ai";
+import { uuidv7 } from "@earendil-works/pi-agent-core";
 // Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
 // Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
@@ -46,6 +47,7 @@ export async function callPiModelText(options: CallPiModelTextOptions): Promise<
 	if (auth.apiKey === undefined || auth.apiKey.length === 0)
 		return { ok: false, reason: "empty-auth", message: null };
 
+	const requestSessionId = uuidv7();
 	try {
 		const completeFn = options.completeFn ?? (await loadCompleteSimple());
 		const response = await completeFn(
@@ -62,6 +64,7 @@ export async function callPiModelText(options: CallPiModelTextOptions): Promise<
 			},
 			{
 				apiKey: auth.apiKey,
+				sessionId: requestSessionId,
 				...(auth.headers === undefined ? {} : { headers: auth.headers }),
 				...(options.signal === undefined ? {} : { signal: options.signal }),
 				maxTokens: options.maxTokens,
@@ -88,6 +91,8 @@ export async function callPiModelText(options: CallPiModelTextOptions): Promise<
 			reason: "request-failed",
 			message: error instanceof Error ? error.message : String(error),
 		};
+	} finally {
+		cleanupSessionResources(requestSessionId);
 	}
 }
 
