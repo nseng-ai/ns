@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: ship-objectives-to-customers
+    annotation: Consumed upstream; its customer extension-acquisition surface (`ns extension install`/`uninstall`/`update`, designed 2026-07-09) extends the descriptor contract and managed `ns install`/acquisition machinery this record landed.
+---
+
 # Extension Descriptor Contract
 
 ## Thesis
