@@ -288,6 +288,7 @@ describe("installExtension", () => {
 						{ kind: "target-name", value: "tools", packages: ["@acme/a", "@acme/b"] },
 					],
 					artifacts: [],
+					reconciliation: { transitions: [], shouldForce: false },
 				},
 			},
 		});
