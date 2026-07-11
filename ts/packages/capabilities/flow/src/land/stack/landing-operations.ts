@@ -206,7 +206,7 @@ const ignoreLandMatrixProgress = (): void => undefined;
 
 const NULL_LAND_MATRIX_PROGRESS_SINK: LandMatrixProgressSink = {
 	setRows: ignoreLandMatrixProgress,
-	setRunningCommands: ignoreLandMatrixProgress,
+	setActiveOperations: ignoreLandMatrixProgress,
 	setCell: ignoreLandMatrixProgress,
 	setAllCells: ignoreLandMatrixProgress,
 	setAllOtherCells: ignoreLandMatrixProgress,

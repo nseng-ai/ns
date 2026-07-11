@@ -73,8 +73,10 @@ describe("generateSubmitPrDescriptions", () => {
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				env: {},
 			},
-			onPrProgress: (event) => {
-				events.push(event);
+			progress: {
+				onItemProgress: (event) => {
+					events.push(event);
+				},
 			},
 		});
 

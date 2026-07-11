@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
 import {
 	GENERATED_BODY_MARKER,
 	formatManagedGeneratedRegion,
@@ -148,6 +149,7 @@ describe("orchestratePrDescription", () => {
 		});
 		const githubPr = new FakeGithubPrGateway({ pr: prDetails({ body }) });
 		const textGeneration = new ScriptedTextGenerator([]);
+		const operationSnapshots: ActiveOperation[][] = [];
 
 		const result = await orchestratePrDescription({
 			cwd: "/repo",
@@ -157,6 +159,7 @@ describe("orchestratePrDescription", () => {
 			textGenerator: textGeneration,
 			pr: prDetails({ body }),
 			generation: GENERATION,
+			onActiveOperations: (operations) => operationSnapshots.push([...operations]),
 		});
 
 		expect(result).toMatchObject({
@@ -166,6 +169,7 @@ describe("orchestratePrDescription", () => {
 		expect(githubPr.stablePatchIdCalls).toBe(1);
 		expect(githubPr.commitMessageCalls).toBe(0);
 		expect(githubPr.editCalls).toEqual([]);
+		expect(operationSnapshots).toEqual([]);
 		textGeneration.assertDone();
 	});
 
@@ -177,6 +181,7 @@ describe("orchestratePrDescription", () => {
 				text: "Generated title\n\nGenerated body\n\n## Key Changes\n\n- Adds behavior",
 			},
 		]);
+		const operationSnapshots: ActiveOperation[][] = [];
 
 		const result = await orchestratePrDescription({
 			cwd: "/repo",
@@ -186,6 +191,7 @@ describe("orchestratePrDescription", () => {
 			textGenerator: textGeneration,
 			pr: DEFAULT_PR,
 			generation: GENERATION,
+			onActiveOperations: (operations) => operationSnapshots.push([...operations]),
 		});
 
 		expect(result).toMatchObject({ type: "generated", title: "Generated title" });
@@ -197,6 +203,17 @@ describe("orchestratePrDescription", () => {
 			body: "Generated body\n\n## Key Changes\n\n- Adds behavior",
 		});
 		expect(textGeneration.requests).toHaveLength(1);
+		expect(operationSnapshots).toEqual([
+			[
+				{
+					kind: "model",
+					operation: "generating PR description",
+					modelRef: "test-model",
+					detail: "PR #12",
+				},
+			],
+			[],
+		]);
 		textGeneration.assertDone();
 	});
 

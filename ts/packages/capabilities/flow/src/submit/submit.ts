@@ -7,6 +7,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
 
+import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
 import type {
 	GithubPrGateway,
 	PrewrittenPrMetadata,
@@ -42,13 +43,16 @@ import {
 } from "./submit-format.ts";
 import {
 	prepareSubmitPrMetadata,
+	type SubmitBranchMetadataProgressEvent,
 	type SubmitMetadataGateway,
 } from "./submit-pr-metadata-prewrite.ts";
 import {
 	formatPrDescriptionFailureDiagnostics,
 	formatPrDescriptionFailureText,
 	generateSubmitPrDescriptions,
+	type SubmitPrDescriptionProgressEvent,
 } from "./submit-pr-descriptions.ts";
+import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import {
 	formatStackUpdateCommandDisplay,
 	formatSubmitCommandDisplays,
@@ -218,9 +222,11 @@ export async function runSubmitCommand(
 	emitSubmitPhase(options, { type: "phase-started", phaseKey: "preflight" }, (matrix) =>
 		matrix.setGlobal("preflight", { state: "active" }),
 	);
-	options.submitMatrix?.setRunningCommands([submitDryRunCommandDisplay]);
-	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
-	options.submitMatrix?.setRunningCommands([]);
+	const readiness = await withCommandOperations(
+		options.submitMatrix,
+		[submitDryRunCommandDisplay],
+		() => options.gateway.checkSubmitReadiness(commandParams),
+	);
 	if (readiness.kind === "failed") {
 		options.submitMatrix?.setGlobal("preflight", {
 			state: "failed",
@@ -282,17 +288,21 @@ export async function runSubmitCommand(
 		}
 
 		options.submitMatrix?.setGlobal("restack", { state: "active" });
-		options.submitMatrix?.setRunningCommands([RESTACK_COMMAND_DISPLAY]);
-		const restackFailure = await runRestackBeforeSubmit(options, commandParams);
-		options.submitMatrix?.setRunningCommands([]);
+		const restackFailure = await withCommandOperations(
+			options.submitMatrix,
+			[RESTACK_COMMAND_DISPLAY],
+			() => runRestackBeforeSubmit(options, commandParams),
+		);
 		if (restackFailure !== undefined) {
 			options.submitMatrix?.setGlobal("restack", { state: "failed", text: "restack failed" });
 			return restackFailure;
 		}
 
-		options.submitMatrix?.setRunningCommands([submitDryRunCommandDisplay]);
-		const rechecked = await options.gateway.checkSubmitReadiness(commandParams);
-		options.submitMatrix?.setRunningCommands([]);
+		const rechecked = await withCommandOperations(
+			options.submitMatrix,
+			[submitDryRunCommandDisplay],
+			() => options.gateway.checkSubmitReadiness(commandParams),
+		);
 		const recheckPreflightFailure = preflightFailureFor({
 			result: rechecked,
 			phase: "readiness recheck",
@@ -320,35 +330,39 @@ export async function runSubmitCommand(
 		options.submitMatrix?.setGlobal("restack", { state: "done", text: "restack complete" });
 	}
 
-	emitSubmitPhase(options, { type: "phase-started", phaseKey: "metadata" }, (matrix) =>
-		matrix.setRunningCommands([
+	emitPhase(options, { type: "phase-started", phaseKey: "metadata" });
+	const prewrite = await withCommandOperations(
+		options.submitMatrix,
+		[
 			"gt log --stack --reverse --no-interactive",
 			"gt trunk --no-interactive",
 			"gt branch info --no-interactive --branch <stack-branch>",
 			"git log --format=%B%x00 <parent>..<branch>",
 			"git diff <parent>..<branch>",
 			"gt modify --no-interactive",
-		]),
+		],
+		() =>
+			prepareSubmitPrMetadata({
+				cwd: options.cwd,
+				env: options.prDescription.env,
+				gateway: options.metadataGateway,
+				git: options.prDescription.git,
+				textGenerator: options.prDescription.textGenerator,
+				...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
+				progress: submitPhaseProgressListeners<SubmitBranchMetadataProgressEvent>(
+					options,
+					"metadata",
+					(event) => {
+						const text =
+							event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
+						options.submitMatrix?.setCell(event.branch, "metadata", {
+							state: event.state,
+							...optionalEntry("text", text),
+						});
+					},
+				),
+			}),
 	);
-	const prewrite = await prepareSubmitPrMetadata({
-		cwd: options.cwd,
-		env: options.prDescription.env,
-		gateway: options.metadataGateway,
-		git: options.prDescription.git,
-		textGenerator: options.prDescription.textGenerator,
-		...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
-		onProgress: (message) =>
-			emitPhase(options, { type: "phase-progress", phaseKey: "metadata", label: message }),
-		onBranchProgress: (event) => {
-			const text =
-				event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
-			options.submitMatrix?.setCell(event.branch, "metadata", {
-				state: event.state,
-				...optionalEntry("text", text),
-			});
-		},
-	});
-	options.submitMatrix?.setRunningCommands([]);
 	if (prewrite.kind === "failed") {
 		const stderr = formatPrewriteFailureOutput({
 			error: prewrite.error,
@@ -409,9 +423,11 @@ export async function runSubmitCommand(
 	emitSubmitPhase(options, { type: "phase-started", phaseKey: "verification" }, (matrix) =>
 		matrix.setGlobal("verify", { state: "active", text: "checking current PR" }),
 	);
-	options.submitMatrix?.setRunningCommands([CURRENT_PR_COMMAND_DISPLAY]);
-	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
-	options.submitMatrix?.setRunningCommands([]);
+	const currentPr = await withCommandOperations(
+		options.submitMatrix,
+		[CURRENT_PR_COMMAND_DISPLAY],
+		() => options.gateway.verifyCurrentPr(commandParams),
+	);
 	if (
 		combinedSubmitOutcome.semanticFailureCause !== undefined ||
 		shouldFailPostSubmitVerification(combinedSubmitOutcome, currentPr)
@@ -470,9 +486,7 @@ export async function runSubmitCommand(
 			if (prLinks.length === 0) matrix.setAllCells("description", { state: "skipped" });
 		},
 	);
-	options.submitMatrix?.setRunningCommands(
-		descriptionPrLinks.length === 0 ? [] : ["PR description text generation / GitHub update"],
-	);
+	options.submitMatrix?.setActiveOperations([]);
 	for (const link of skippedExistingPrLinks) {
 		const number = prNumberFromLink(link);
 		if (number !== undefined) {
@@ -487,16 +501,18 @@ export async function runSubmitCommand(
 		prDescription: options.prDescription,
 		prLinks: descriptionPrLinks,
 		prewrittenMetadata: prewrite.prepared,
-		onProgress: (message) =>
-			emitPhase(options, { type: "phase-progress", phaseKey: "descriptions", label: message }),
-		onPrProgress: (event) => {
-			options.submitMatrix?.setCellByPrNumber(event.prNumber, "description", {
-				state: event.state,
-				...optionalEntry("text", event.message),
-			});
-		},
+		progress: submitPhaseProgressListeners<SubmitPrDescriptionProgressEvent>(
+			options,
+			"descriptions",
+			(event) => {
+				options.submitMatrix?.setCellByPrNumber(event.prNumber, "description", {
+					state: event.state,
+					...optionalEntry("text", event.message),
+				});
+			},
+		),
 	});
-	options.submitMatrix?.setRunningCommands([]);
+	options.submitMatrix?.setActiveOperations([]);
 	if (!descriptionResult.ok) {
 		const stderr = formatPrDescriptionFailureText(prLinks, descriptionResult.failures);
 		const details = formatPrDescriptionFailureDiagnostics(descriptionResult.failures);
@@ -662,12 +678,11 @@ async function runSubmitPhaseStep(input: {
 	knownFailurePhase?: string;
 	run: (gateway: SubmitGateway, params: SubmitCommandParams) => Promise<SubmitRunResult>;
 }): Promise<SubmitPhaseStepResult> {
-	input.options.submitMatrix?.setRunningCommands([input.commandDisplay]);
-	const result = await input.run(
-		input.options.gateway,
-		submitStreamingCommandParams(input.options),
+	const result = await withCommandOperations(
+		input.options.submitMatrix,
+		[input.commandDisplay],
+		() => input.run(input.options.gateway, submitStreamingCommandParams(input.options)),
 	);
-	input.options.submitMatrix?.setRunningCommands([]);
 	if (result.kind === "success") return { kind: "success", result };
 
 	input.options.submitMatrix?.setGlobal("submit", {
@@ -751,6 +766,19 @@ function emitSubmitPhase(
 ): void {
 	emitPhase(options, event);
 	if (options.submitMatrix !== undefined) updateMatrix(options.submitMatrix);
+}
+
+function submitPhaseProgressListeners<ItemProgressEvent>(
+	options: Pick<RunSubmitCommandOptions, "onPhase" | "submitMatrix">,
+	phaseKey: string,
+	onItemProgress: (event: ItemProgressEvent) => void,
+): SubmitProgressListeners<ItemProgressEvent> {
+	return {
+		onProgress: (message) =>
+			emitPhase(options, { type: "phase-progress", phaseKey, label: message }),
+		onActiveOperations: (operations) => options.submitMatrix?.setActiveOperations(operations),
+		onItemProgress,
+	};
 }
 
 function shouldFailPostSubmitVerification(

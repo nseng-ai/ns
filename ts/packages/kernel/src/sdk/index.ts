@@ -86,6 +86,7 @@ export type {
 export {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
+	formatActiveOperation,
 	isMatrixProgressEvent,
 	matrixProgressDisplayWidthChars,
 	MATRIX_PROGRESS_MAX_LABEL_WIDTH_CHARS,
@@ -95,6 +96,7 @@ export {
 	padMatrixProgressTextEnd,
 } from "./services.ts";
 export type {
+	ActiveOperation,
 	NsCommandIo,
 	NsCommandMessageOptions,
 	NsNotifyLevel,

@@ -1,5 +1,5 @@
 import { createCommandIo } from "@nseng-ai/kernel/command-io";
-import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
+import type { ActiveOperation, NsCommandIo } from "@nseng-ai/kernel/sdk";
 import {
 	commandSucceeded,
 	type ExecResult,
@@ -113,7 +113,7 @@ export class LandStackCommandStream {
 	private readonly landMatrix: LandMatrixProgressSink | undefined;
 	private readonly externalCallTelemetry: FlowLandExternalCallTelemetrySink | undefined;
 	private readonly commandStarts = new Map<string, CommandStart>();
-	private readonly runningCommands: string[] = [];
+	private readonly activeOperations: ActiveOperation[] = [];
 
 	constructor(io: NsCommandIo, options: LandStackCommandStreamOptions = {}) {
 		this.io = io;
@@ -143,8 +143,8 @@ export class LandStackCommandStream {
 		// Keep active subprocess visibility transient: completed command results are
 		// emitted separately, so a long-running Graphite/GitHub command does not pin a
 		// rewritten widget above the editor while it is still pending.
-		this.runningCommands.push(invocation.display);
-		this.landMatrix?.setRunningCommands(this.runningCommands);
+		this.activeOperations.push({ kind: "command", display: invocation.display });
+		this.landMatrix?.setActiveOperations(this.activeOperations);
 		if (this.shouldShowRunningCommandStatus) {
 			this.io.phase(`land: running ${invocation.display}...`);
 		}
@@ -171,7 +171,7 @@ export class LandStackCommandStream {
 			);
 		}
 		this.removeRunningCommand(invocation.display);
-		this.landMatrix?.setRunningCommands(this.runningCommands);
+		this.landMatrix?.setActiveOperations(this.activeOperations);
 		const suffix = formatCommandFinishSuffix(result, finish.note, elapsedMs);
 		const lines = [`${icon} $ ${invocation.display}${suffix}`];
 		if (!isSuccessful) {
@@ -199,8 +199,10 @@ export class LandStackCommandStream {
 	}
 
 	private removeRunningCommand(commandDisplay: string): void {
-		const index = this.runningCommands.indexOf(commandDisplay);
-		if (index >= 0) this.runningCommands.splice(index, 1);
+		const index = this.activeOperations.findIndex(
+			(operation) => operation.kind === "command" && operation.display === commandDisplay,
+		);
+		if (index >= 0) this.activeOperations.splice(index, 1);
 	}
 
 	private takeCommandStart(commandDisplay: string): CommandStart | undefined {

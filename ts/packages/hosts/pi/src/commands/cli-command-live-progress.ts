@@ -6,6 +6,8 @@ import {
 import {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
+	formatActiveOperation,
+	type ActiveOperation,
 	isMatrixProgressEvent,
 	matrixProgressDisplayWidthChars,
 	padMatrixProgressTextEnd,
@@ -123,7 +125,7 @@ export class MatrixWidgetState {
 	private labelHeader = MATRIX_DEFAULT_LABEL_HEADER;
 	private rows: { rowKey: string; label: string }[] = [];
 	private cellsByRow = new Map<string, Map<string, MatrixWidgetCell>>();
-	private runningCommands: readonly string[] = [];
+	private activeOperations: readonly ActiveOperation[] = [];
 	private hasDeclared = false;
 
 	get isActive(): boolean {
@@ -158,8 +160,8 @@ export class MatrixWidgetState {
 				});
 				return;
 			}
-			case "matrix-running":
-				this.runningCommands = [...event.commands];
+			case "matrix-active-operations":
+				this.activeOperations = [...event.operations];
 				return;
 		}
 	}
@@ -182,8 +184,8 @@ export class MatrixWidgetState {
 				.join("  ");
 			lines.push(`${label}  ${cells}`);
 		}
-		if (this.runningCommands.length > 0) {
-			lines.push(`Running: ${this.runningCommands.join("; ")}`);
+		if (this.activeOperations.length > 0) {
+			lines.push(`Running: ${this.activeOperations.map(formatActiveOperation).join("; ")}`);
 		}
 		return lines;
 	}

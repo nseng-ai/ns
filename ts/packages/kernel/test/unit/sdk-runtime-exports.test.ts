@@ -9,6 +9,7 @@ import {
 	extensionDescriptorSchema,
 	extensionPointDefinitionSchema,
 	failure,
+	formatActiveOperation,
 	machineEnvelopeSchema,
 	negative,
 	noopNsCommandIo,
@@ -33,6 +34,7 @@ const runtimeExports = {
 	extensionDescriptorSchema,
 	extensionPointDefinitionSchema,
 	failure,
+	formatActiveOperation,
 	machineEnvelopeSchema,
 	negative,
 	noopNsCommandIo,
@@ -57,6 +59,7 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"extensionDescriptorSchema",
 	"extensionPointDefinitionSchema",
 	"failure",
+	"formatActiveOperation",
 	"machineEnvelopeSchema",
 	"negative",
 	"noopNsCommandIo",
@@ -86,6 +89,15 @@ describe("@nseng-ai/kernel/sdk runtime exports", () => {
 			errorType: "test-failed",
 			message: "nope",
 		});
+		expect(formatActiveOperation({ kind: "command", display: "gt restack" })).toBe("gt restack");
+		expect(
+			formatActiveOperation({
+				kind: "model",
+				operation: "generating metadata",
+				modelRef: "openai/gpt-test",
+				detail: "branch 1/2",
+			}),
+		).toBe("LM · generating metadata · openai/gpt-test · branch 1/2");
 		expect(() => noopNsCommandIo.phase("working")).not.toThrow();
 		expect(() => noopNsProgress.phase({ type: "phase-started", phaseKey: "test" })).not.toThrow();
 		expect(z).toBe(zod);

@@ -11,14 +11,21 @@ import {
 	ellipsisFor,
 	padPlain,
 	paint,
+	PHASE_NAME_WIDTH,
 	spinnerFrame,
 	statusLine,
 	truncatePlain,
 } from "@nseng-ai/foundation/cli-theme";
+import type { Clock } from "@nseng-ai/foundation/clock";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { systemClock } from "@nseng-ai/foundation/time";
+import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
+	formatActiveOperation,
 	matrixProgressDisplayWidthChars,
+	type ActiveOperation,
 	type NsProgress,
 	type NsProgressPhaseInfo,
 } from "@nseng-ai/kernel/sdk";
@@ -99,7 +106,7 @@ export interface MatrixGlobalSubstepView {
 
 export interface MatrixProgressSink<ColumnKey extends string, GlobalKey extends string> {
 	setRows(rows: readonly MatrixRowSpec[]): void;
-	setRunningCommands(commands: readonly string[]): void;
+	setActiveOperations(operations: readonly ActiveOperation[]): void;
 	setGlobal(key: GlobalKey, update: MatrixCellUpdate): void;
 	setGlobalSubstep(globalKey: GlobalKey, substepKey: string, update: MatrixCellUpdate): void;
 	setCell(rowKey: string, column: ColumnKey, update: MatrixCellUpdate): void;
@@ -120,7 +127,7 @@ export interface MatrixProgressController<
 }
 
 export interface MatrixProgressState<ColumnKey extends string, GlobalKey extends string> {
-	runningCommands: string[];
+	activeOperations: ActiveOperation[];
 	globals: MatrixGlobalView<GlobalKey>[];
 	rows: MatrixRowView<ColumnKey>[];
 }
@@ -138,7 +145,12 @@ export interface CreateMatrixProgressControllerOptions<
 	phases: readonly PhaseSpec[];
 	forward?: NsProgress;
 	begin?: "immediate" | "lazy";
+	/** Wall-clock seam for the tail line's quiet-time counter. Defaults to the system clock. */
+	clock?: Clock;
 }
+
+/** Quiet time before the tail line grows a "· Ns ago" counter; below this, output reads as flowing. */
+export const TAIL_QUIET_NOTICE_MS = 3_000;
 
 export function createMatrixProgressController<ColumnKey extends string, GlobalKey extends string>(
 	options: CreateMatrixProgressControllerOptions<ColumnKey, GlobalKey>,
@@ -146,18 +158,27 @@ export function createMatrixProgressController<ColumnKey extends string, GlobalK
 	const sink = createStreamSink(options.caps, options.deps);
 	const lifecycle = createPhaseStreamLifecycle(options.caps, sink);
 	const tail = createTranscriptTail();
+	const clock = options.clock ?? systemClock;
 	const state = createMatrixProgressState(options.rows, options.columns, options.globalRows);
 	let currentTitle = options.title;
 	let hasBegun = false;
+	let isSettled = false;
+	let lastNoteAtMs: number | undefined;
 	const renderer = createMatrixProgressRenderer({
 		caps: options.caps,
 		sink,
 		title: () => currentTitle,
 		columns: options.columns,
-		runningCommands: () => state.runningCommands,
+		// The live frame reserves the operations and tail slots (blank when empty) so the region
+		// height stays stable; the settled frame drops both so scrollback carries no empty lines.
+		activeOperations: () => (isSettled ? undefined : state.activeOperations),
 		globals: () => state.globals,
 		rows: () => state.rows,
-		tailLine: tail.line,
+		tailLine: () => (isSettled ? undefined : (tail.line() ?? "")),
+		tailSinceOutputMs: () =>
+			isSettled || lastNoteAtMs === undefined
+				? undefined
+				: Math.max(0, clock.nowMs() - lastNoteAtMs),
 	});
 	const isForwarding = options.forward?.isLive === true;
 
@@ -197,8 +218,8 @@ export function createMatrixProgressController<ColumnKey extends string, GlobalK
 		render();
 	}
 
-	function setRunningCommands(commands: readonly string[]): void {
-		state.runningCommands = [...commands];
+	function setActiveOperations(operations: readonly ActiveOperation[]): void {
+		state.activeOperations = [...operations];
 		render();
 	}
 
@@ -258,6 +279,7 @@ export function createMatrixProgressController<ColumnKey extends string, GlobalK
 	function note(text: string): void {
 		if (!options.caps.isTty) return;
 		tail.note(text);
+		lastNoteAtMs = clock.nowMs();
 		render();
 	}
 
@@ -273,6 +295,8 @@ export function createMatrixProgressController<ColumnKey extends string, GlobalK
 		await lifecycle.drainPump();
 		if (finishOptions.isFailed === true) failActive();
 		else settleActiveCells(state, options.columns, "done");
+		isSettled = true;
+		state.activeOperations = [];
 		tail.clear();
 		renderer.render();
 		sink.finish(finishOptions.finalLines ?? []);
@@ -290,7 +314,7 @@ export function createMatrixProgressController<ColumnKey extends string, GlobalK
 		begin,
 		setTitle,
 		setRows,
-		setRunningCommands,
+		setActiveOperations,
 		setGlobal,
 		setGlobalSubstep,
 		setCell,
@@ -309,7 +333,7 @@ export function createMatrixProgressState<ColumnKey extends string, GlobalKey ex
 	globalRows: readonly MatrixGlobalRowSpec<GlobalKey>[],
 ): MatrixProgressState<ColumnKey, GlobalKey> {
 	return {
-		runningCommands: [],
+		activeOperations: [],
 		globals: globalRows.map((row) => ({
 			key: row.key,
 			label: row.label,
@@ -334,26 +358,60 @@ export function createMatrixRowViews<ColumnKey extends string>(
 	}));
 }
 
-export function renderMatrixProgressFrame<
-	ColumnKey extends string,
-	GlobalKey extends string,
->(input: {
-	caps: Caps;
-	title: string;
-	runningCommands?: readonly string[];
-	columns: readonly MatrixColumnSpec<ColumnKey>[];
-	globals: readonly MatrixGlobalView<GlobalKey>[];
-	rows: readonly MatrixRowView<ColumnKey>[];
-	labelHeader?: string;
+export interface MatrixFrameOptionalFields {
+	/** Omit for a settled frame; an empty array reserves the operations slot on globals-free frames. */
+	activeOperations?: readonly ActiveOperation[];
+	/** Omit for a settled frame; an empty string reserves a blank tail slot before any output. */
 	tailLine?: string;
+	tailSinceOutputMs?: number;
 	tick?: number;
-}): readonly string[] {
+}
+
+export function matrixFrameOptionalFields(
+	input: MatrixFrameOptionalFields,
+): MatrixFrameOptionalFields {
+	return optionalEntries({
+		activeOperations: input.activeOperations,
+		tailLine: input.tailLine,
+		tailSinceOutputMs: input.tailSinceOutputMs,
+		tick: input.tick,
+	});
+}
+
+export function renderMatrixProgressFrame<ColumnKey extends string, GlobalKey extends string>(
+	input: {
+		caps: Caps;
+		title: string;
+		columns: readonly MatrixColumnSpec<ColumnKey>[];
+		globals: readonly MatrixGlobalView<GlobalKey>[];
+		rows: readonly MatrixRowView<ColumnKey>[];
+		labelHeader?: string;
+	} & MatrixFrameOptionalFields,
+): readonly string[] {
 	const tick = input.tick ?? 0;
-	const lines = [bold(input.title), renderRunningCommands(input.caps, input.runningCommands ?? [])];
+	// The in-flight operation renders on the row that owns it instead of a standalone
+	// "Running:" header, so the frame carries exactly one "what is happening now" surface.
+	const operationsText = formatActiveOperationsText(input.activeOperations);
+	const host = operationsText === undefined ? undefined : activeOperationHost(input.globals);
+	const lines = [bold(input.title)];
 	for (const global of input.globals) {
-		lines.push(renderGlobalLine(input.caps, global, tick));
+		lines.push(
+			renderGlobalLine({
+				caps: input.caps,
+				row: global,
+				tick,
+				...optionalEntry("operationsText", host === global ? operationsText : undefined),
+			}),
+		);
 		for (const substep of global.substeps) {
-			lines.push(renderGlobalSubstepLine(input.caps, substep, tick));
+			lines.push(
+				renderGlobalSubstepLine({
+					caps: input.caps,
+					row: substep,
+					tick,
+					...optionalEntry("operationsText", host === substep ? operationsText : undefined),
+				}),
+			);
 		}
 	}
 	lines.push("");
@@ -361,12 +419,57 @@ export function renderMatrixProgressFrame<
 	for (const row of input.rows) {
 		lines.push(renderMatrixRow(input.caps, input.columns, row, tick));
 	}
+	// Frames without global rows (land) have no row to host the operation, so they keep a
+	// dedicated operations slot at the bottom, adjacent to the tail.
+	if (input.globals.length === 0 && input.activeOperations !== undefined) {
+		lines.push(renderOperationsLine(input.caps, operationsText));
+	}
 	if (input.tailLine !== undefined) {
-		lines.push(
-			`       ${dim(truncatePlain(input.tailLine, Math.max(0, input.caps.columns - 7), ellipsisFor(input.caps)))}`,
-		);
+		lines.push(renderTailLine(input.caps, input.tailLine, input.tailSinceOutputMs));
 	}
 	return lines;
+}
+
+function formatActiveOperationsText(
+	operations: readonly ActiveOperation[] | undefined,
+): string | undefined {
+	if (operations === undefined || operations.length === 0) return undefined;
+	return operations.map(formatActiveOperation).join("; ");
+}
+
+/**
+ * The row whose in-flight label carries the operations text: the deepest active line wins
+ * (an active substep over its active parent), and later phases win over earlier ones.
+ */
+function activeOperationHost(
+	globals: readonly MatrixGlobalView<string>[],
+): MatrixGlobalView<string> | MatrixGlobalSubstepView | undefined {
+	let globalHost: MatrixGlobalView<string> | undefined;
+	let substepHost: MatrixGlobalSubstepView | undefined;
+	for (const global of globals) {
+		if (global.state === "active") globalHost = global;
+		for (const substep of global.substeps) {
+			if (substep.state === "active") substepHost = substep;
+		}
+	}
+	return substepHost ?? globalHost;
+}
+
+function renderOperationsLine(caps: Caps, operationsText: string | undefined): string {
+	if (operationsText === undefined) return "";
+	return dim(truncatePlain(`Running: ${operationsText}`, caps.columns, ellipsisFor(caps)));
+}
+
+function renderTailLine(caps: Caps, tailLine: string, sinceOutputMs: number | undefined): string {
+	if (tailLine === "") return "";
+	// The quiet-time counter is the honest liveness signal: it climbs while the subprocess
+	// produces nothing, which is exactly when a spinner alone cannot prove forward motion.
+	const suffix =
+		sinceOutputMs !== undefined && sinceOutputMs >= TAIL_QUIET_NOTICE_MS
+			? ` · ${formatElapsedMs(sinceOutputMs)} ago`
+			: "";
+	const width = Math.max(0, caps.columns - 7 - suffix.length);
+	return `       ${dim(`${truncatePlain(tailLine, width, ellipsisFor(caps))}${suffix}`)}`;
 }
 
 export function updateForPhase(state: MatrixCellState, text: string | undefined): MatrixCellUpdate {
@@ -423,21 +526,25 @@ function createMatrixProgressRenderer<ColumnKey extends string, GlobalKey extend
 	sink: StreamSink;
 	title: () => string;
 	columns: readonly MatrixColumnSpec<ColumnKey>[];
-	runningCommands: () => readonly string[];
+	activeOperations: () => readonly ActiveOperation[] | undefined;
 	globals: () => readonly MatrixGlobalView<GlobalKey>[];
 	rows: () => readonly MatrixRowView<ColumnKey>[];
 	tailLine: () => string | undefined;
+	tailSinceOutputMs: () => number | undefined;
 }): { render(): void } {
 	const frame: FrameRenderer = (tick) => {
+		const activeOperations = options.activeOperations();
 		const tailLine = options.tailLine();
+		const tailSinceOutputMs = options.tailSinceOutputMs();
 		return renderMatrixProgressFrame({
 			caps: options.caps,
 			title: options.title(),
 			columns: options.columns,
-			runningCommands: options.runningCommands(),
+			...(activeOperations === undefined ? {} : { activeOperations }),
 			globals: options.globals(),
 			rows: options.rows(),
 			...(tailLine === undefined ? {} : { tailLine }),
+			...(tailSinceOutputMs === undefined ? {} : { tailSinceOutputMs }),
 			tick,
 		});
 	};
@@ -446,36 +553,101 @@ function createMatrixProgressRenderer<ColumnKey extends string, GlobalKey extend
 	};
 }
 
-function renderRunningCommands(caps: Caps, commands: readonly string[]): string {
-	const text = commands.length === 0 ? "Running: —" : `Running: ${commands.join("; ")}`;
-	return dim(truncatePlain(text, caps.columns, ellipsisFor(caps)));
+export function commandOperations(displays: readonly string[]): readonly ActiveOperation[] {
+	return displays.map((display) => ({ kind: "command", display }));
 }
 
-function renderGlobalLine(caps: Caps, row: MatrixGlobalView<string>, tick: number): string {
-	return renderMatrixStatusLine(caps, row, tick);
+export function modelOperation(
+	operation: string,
+	modelRef: string,
+	detail?: string,
+): ActiveOperation {
+	return {
+		kind: "model",
+		operation,
+		modelRef,
+		...optionalEntry("detail", detail),
+	};
 }
 
-function renderGlobalSubstepLine(caps: Caps, row: MatrixGlobalSubstepView, tick: number): string {
-	const rendered = renderMatrixStatusLine(
-		{ ...caps, columns: Math.max(0, caps.columns - 4) },
-		row,
-		tick,
+export async function withActiveOperations<T>(
+	onActiveOperations: ((operations: readonly ActiveOperation[]) => void) | undefined,
+	operations: readonly ActiveOperation[],
+	run: () => Promise<T>,
+): Promise<T> {
+	onActiveOperations?.(operations);
+	try {
+		return await run();
+	} finally {
+		onActiveOperations?.([]);
+	}
+}
+
+export async function withCommandOperations<T>(
+	sink: Pick<MatrixProgressSink<string, string>, "setActiveOperations"> | undefined,
+	displays: readonly string[],
+	run: () => Promise<T>,
+): Promise<T> {
+	return withActiveOperations(
+		sink === undefined ? undefined : (operations) => sink.setActiveOperations(operations),
+		commandOperations(displays),
+		run,
 	);
+}
+
+interface RenderGlobalLineOptions {
+	caps: Caps;
+	row: MatrixGlobalView<string>;
+	tick: number;
+	operationsText?: string;
+}
+
+function renderGlobalLine(options: RenderGlobalLineOptions): string {
+	return renderMatrixStatusLine(options);
+}
+
+interface RenderGlobalSubstepLineOptions {
+	caps: Caps;
+	row: MatrixGlobalSubstepView;
+	tick: number;
+	operationsText?: string;
+}
+
+function renderGlobalSubstepLine(options: RenderGlobalSubstepLineOptions): string {
+	const rendered = renderMatrixStatusLine({
+		...options,
+		caps: { ...options.caps, columns: Math.max(0, options.caps.columns - 4) },
+	});
 	return `    ${rendered}`;
 }
 
-function renderMatrixStatusLine(
-	caps: Caps,
-	row: MatrixGlobalView<string> | MatrixGlobalSubstepView,
-	tick: number,
-): string {
+interface RenderMatrixStatusLineOptions {
+	caps: Caps;
+	row: MatrixGlobalView<string> | MatrixGlobalSubstepView;
+	tick: number;
+	operationsText?: string;
+}
+
+function renderMatrixStatusLine(options: RenderMatrixStatusLineOptions): string {
+	const { caps, row, tick, operationsText } = options;
+	// The hosted operations text replaces the in-flight label; it is truncated to the label
+	// slot so a long command display cannot wrap and break the live region's height.
+	const label =
+		row.state === "active" && operationsText !== undefined
+			? truncatePlain(operationsText, statusLineLabelWidth(caps), ellipsisFor(caps))
+			: (row.text ?? row.activeLabel);
 	return statusLine({
 		caps,
-		item: { name: row.label, detail: row.text ?? row.detail, label: row.text ?? row.activeLabel },
+		item: { name: row.label, detail: row.text ?? row.detail, label },
 		state: row.state,
 		tick,
 		showSettledText: false,
 	});
+}
+
+/** Columns left for the in-flight label after statusLine's indent, glyph, and padded name. */
+function statusLineLabelWidth(caps: Caps): number {
+	return Math.max(0, caps.columns - PHASE_NAME_WIDTH - 5);
 }
 
 function renderHeader<ColumnKey extends string>(

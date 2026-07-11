@@ -19,6 +19,8 @@ import {
 import { err, ok, type ErrorInfo, type GatewayResult } from "./index.ts";
 import type { TextGenerator } from "./index.ts";
 import { formatItemCount } from "./submit-format.ts";
+import { modelOperation, withActiveOperations } from "../phase-stream/matrix-progress-core.ts";
+import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import type {
 	SubmitMatrixCellState,
 	SubmitMetadataProgressReason,
@@ -35,11 +37,14 @@ const COMMAND_TIMEOUT_MS = 60_000;
 const MODIFY_TIMEOUT_MS = 600_000;
 
 export type SubmitMetadataProgressListener = (message: string) => void;
-export type SubmitBranchMetadataProgressListener = (event: {
+export interface SubmitBranchMetadataProgressEvent {
 	branch: string;
 	state: Exclude<SubmitMatrixCellState, "pending">;
 	reason?: SubmitMetadataProgressReason;
-}) => void;
+}
+export type SubmitBranchMetadataProgressListener = (
+	event: SubmitBranchMetadataProgressEvent,
+) => void;
 
 export interface SubmitMetadataCommandParams {
 	cwd: string;
@@ -406,13 +411,12 @@ export async function prepareSubmitPrMetadata(input: {
 	git: GitGateway;
 	textGenerator: TextGenerator;
 	time?: TimeServices;
-	onProgress?: SubmitMetadataProgressListener;
-	onBranchProgress?: SubmitBranchMetadataProgressListener;
+	progress?: SubmitProgressListeners<SubmitBranchMetadataProgressEvent>;
 }): Promise<SubmitPrMetadataPrewriteResult> {
-	input.onProgress?.("inspecting Graphite submit scope before metadata preparation");
+	input.progress?.onProgress?.("inspecting Graphite submit scope before metadata preparation");
 	const inspected = await input.gateway.inspectSubmitStack({
 		cwd: input.cwd,
-		...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
+		...(input.progress?.onProgress === undefined ? {} : { onProgress: input.progress.onProgress }),
 	});
 	if (!inspected.ok) {
 		return { kind: "failed", error: inspected.error.message, amendedBranches: [] };
@@ -440,22 +444,26 @@ export async function prepareSubmitPrMetadata(input: {
 	const metadataBranches = new Set(newBranches.map((branch) => branch.branch));
 	for (const branch of inspected.value.branches) {
 		if (branch.kind === "existing") {
-			input.onBranchProgress?.({ branch: branch.branch, state: "skipped", reason: "existing-pr" });
+			input.progress?.onItemProgress?.({
+				branch: branch.branch,
+				state: "skipped",
+				reason: "existing-pr",
+			});
 			continue;
 		}
 		if (!metadataBranches.has(branch.branch)) {
-			input.onBranchProgress?.({
+			input.progress?.onItemProgress?.({
 				branch: branch.branch,
 				state: "skipped",
 				reason: "amendment-not-applicable",
 			});
 		}
 	}
-	input.onProgress?.(
+	input.progress?.onProgress?.(
 		formatMetadataPreparationDiscoveryProgress(inspected.value.branches.length, newBranches.length),
 	);
 	if (newBranches.length === 0) {
-		input.onProgress?.("no pre-submit PR metadata changes needed");
+		input.progress?.onProgress?.("no pre-submit PR metadata changes needed");
 		return preparedResult([]);
 	}
 
@@ -466,8 +474,7 @@ export async function prepareSubmitPrMetadata(input: {
 		textGenerator: input.textGenerator,
 		branches: newBranches,
 		...(input.time === undefined ? {} : { time: input.time }),
-		...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
-		...(input.onBranchProgress === undefined ? {} : { onBranchProgress: input.onBranchProgress }),
+		...(input.progress === undefined ? {} : { progress: input.progress }),
 	});
 	if (generated.kind === "failed") {
 		return { ...generated, amendedBranches: [] };
@@ -476,7 +483,7 @@ export async function prepareSubmitPrMetadata(input: {
 		return preparedResult([]);
 	}
 
-	input.onProgress?.("checking clean worktree before metadata amendment");
+	input.progress?.onProgress?.("checking clean worktree before metadata amendment");
 	const clean = await input.gateway.ensureCleanWorktree({ cwd: input.cwd });
 	if (!clean.ok) {
 		return { kind: "failed", error: clean.error.message, amendedBranches: [] };
@@ -484,10 +491,10 @@ export async function prepareSubmitPrMetadata(input: {
 
 	const amendedBranches: string[] = [];
 	for (const [index, metadata] of generated.prepared.entries()) {
-		input.onProgress?.(
+		input.progress?.onProgress?.(
 			`amending local PR metadata commit for ${metadata.branch} (${index + 1}/${generated.prepared.length})`,
 		);
-		input.onBranchProgress?.({
+		input.progress?.onItemProgress?.({
 			branch: metadata.branch,
 			state: "active",
 			reason: "amending-metadata-commit",
@@ -500,7 +507,7 @@ export async function prepareSubmitPrMetadata(input: {
 			body: metadata.body,
 		});
 		if (!amended.ok) {
-			input.onBranchProgress?.({
+			input.progress?.onItemProgress?.({
 				branch: metadata.branch,
 				state: "failed",
 				reason: "metadata-amendment-failed",
@@ -513,14 +520,14 @@ export async function prepareSubmitPrMetadata(input: {
 			};
 		}
 		amendedBranches.push(metadata.branch);
-		input.onBranchProgress?.({
+		input.progress?.onItemProgress?.({
 			branch: metadata.branch,
 			state: "done",
 			reason: "metadata-prepared",
 		});
 	}
 
-	input.onProgress?.(formatPreparedMetadataProgress(generated.prepared.length));
+	input.progress?.onProgress?.(formatPreparedMetadataProgress(generated.prepared.length));
 	return preparedResult(generated.prepared);
 }
 
@@ -531,8 +538,7 @@ async function generateMetadataForBranches(input: {
 	textGenerator: TextGenerator;
 	branches: readonly SubmitStackNewBranch[];
 	time?: TimeServices;
-	onProgress?: SubmitMetadataProgressListener;
-	onBranchProgress?: SubmitBranchMetadataProgressListener;
+	progress?: SubmitProgressListeners<SubmitBranchMetadataProgressEvent>;
 }): Promise<
 	| { kind: "prepared"; prepared: PrewrittenPrMetadata[] }
 	| { kind: "failed"; error: string; exitCode?: number }
@@ -550,35 +556,48 @@ async function generateMetadataForBranches(input: {
 		};
 	}
 
-	input.onProgress?.(`resolved PR metadata model ${generation.modelRef}`);
+	input.progress?.onProgress?.(`resolved PR metadata model ${generation.modelRef}`);
 	const prepared: PrewrittenPrMetadata[] = [];
 	for (const [index, branch] of input.branches.entries()) {
-		input.onProgress?.(
+		input.progress?.onProgress?.(
 			`generating initial PR metadata for ${branch.branch} (${index + 1}/${input.branches.length})`,
 		);
-		input.onBranchProgress?.({
+		input.progress?.onItemProgress?.({
 			branch: branch.branch,
 			state: "active",
 			reason: "generating-metadata",
 		});
 		const currentTitle = branch.commitMessages[0]?.headline ?? branch.branch;
-		const generated = await preparePrDescription({
-			textGenerator: input.textGenerator,
-			modelRef: generation.modelRef,
-			promptText: generation.promptText,
-			context: {
-				kind: "local",
-				title: currentTitle,
-				headRefName: branch.branch,
-				baseRefName: branch.parentBranch,
-				commitMessages: branch.commitMessages,
-				diff: branch.diff,
-			},
-			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
-			...(input.time === undefined ? {} : { time: input.time }),
-		});
+		const generated = await withActiveOperations(
+			input.progress?.onActiveOperations,
+			[
+				modelOperation(
+					"generating PR metadata",
+					generation.modelRef,
+					`branch ${index + 1}/${input.branches.length}`,
+				),
+			],
+			() =>
+				preparePrDescription({
+					textGenerator: input.textGenerator,
+					modelRef: generation.modelRef,
+					promptText: generation.promptText,
+					context: {
+						kind: "local",
+						title: currentTitle,
+						headRefName: branch.branch,
+						baseRefName: branch.parentBranch,
+						commitMessages: branch.commitMessages,
+						diff: branch.diff,
+					},
+					...(input.progress?.onProgress === undefined
+						? {}
+						: { onProgress: input.progress.onProgress }),
+					...(input.time === undefined ? {} : { time: input.time }),
+				}),
+		);
 		if (!generated.ok) {
-			input.onBranchProgress?.({
+			input.progress?.onItemProgress?.({
 				branch: branch.branch,
 				state: "failed",
 				reason: "metadata-generation-failed",
@@ -588,6 +607,11 @@ async function generateMetadataForBranches(input: {
 				error: `Could not generate initial PR metadata for ${branch.branch}: ${generated.error}`,
 			};
 		}
+		input.progress?.onItemProgress?.({
+			branch: branch.branch,
+			state: "done",
+			reason: "metadata-drafted",
+		});
 		prepared.push({
 			branch: branch.branch,
 			parentBranch: branch.parentBranch,

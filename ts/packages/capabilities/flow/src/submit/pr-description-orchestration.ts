@@ -1,7 +1,9 @@
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 import type { ErrorInfo } from "@nseng-ai/foundation/result";
+import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
 
+import { modelOperation, withActiveOperations } from "../phase-stream/matrix-progress-core.ts";
 import type { GithubPrDetails, GithubPrGateway } from "./github-pr-gateway.ts";
 import {
 	appendGeneratedMarker,
@@ -43,6 +45,7 @@ export interface PrDescriptionUpdateOptions {
 	fingerprintPolicy?: PrDescriptionFingerprintPolicy;
 	onProgress?: (message: string) => void;
 	time?: TimeServices;
+	onActiveOperations?: (operations: readonly ActiveOperation[]) => void;
 }
 
 export type CurrentBranchPrDescriptionUpdateOptions = Omit<PrDescriptionUpdateOptions, "pr">;
@@ -160,23 +163,28 @@ export async function preparePrDescriptionUpdate(
 		return { type: "failed", pr, reason: commits.error.message, diagnostic: commits.error };
 	}
 
-	const prepared = await preparePrDescription({
-		textGenerator: options.textGenerator,
-		modelRef: generation.modelRef,
-		promptText: generation.promptText,
-		context: {
-			kind: "github",
-			number: pr.number,
-			url: pr.url,
-			title: pr.title,
-			headRefName: pr.headRefName,
-			baseRefName: pr.baseRefName,
-			commitMessages: commits.value,
-			diff: patchId.value.diff,
-		},
-		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
-		...(options.time === undefined ? {} : { time: options.time }),
-	});
+	const prepared = await withActiveOperations(
+		options.onActiveOperations,
+		[modelOperation("generating PR description", generation.modelRef, `PR #${pr.number}`)],
+		() =>
+			preparePrDescription({
+				textGenerator: options.textGenerator,
+				modelRef: generation.modelRef,
+				promptText: generation.promptText,
+				context: {
+					kind: "github",
+					number: pr.number,
+					url: pr.url,
+					title: pr.title,
+					headRefName: pr.headRefName,
+					baseRefName: pr.baseRefName,
+					commitMessages: commits.value,
+					diff: patchId.value.diff,
+				},
+				...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
+				...(options.time === undefined ? {} : { time: options.time }),
+			}),
+	);
 	if (!prepared.ok) return { type: "failed", pr, reason: prepared.error };
 
 	return {
@@ -228,6 +236,9 @@ export async function orchestratePrDescription(
 		fingerprintPolicy: prDescriptionFingerprintPolicyForForce(options.shouldForce === true),
 		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 		...(options.time === undefined ? {} : { time: options.time }),
+		...(options.onActiveOperations === undefined
+			? {}
+			: { onActiveOperations: options.onActiveOperations }),
 	});
 	if (prepared.type === "failed") return prepared;
 	if (prepared.type === "skipped") {

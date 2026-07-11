@@ -21,6 +21,7 @@ import type {
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 import { formatItemCount } from "./submit-format.ts";
+import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import type { SubmitMatrixCellState } from "./submit-matrix-progress.ts";
 
 export type SubmitPrDescriptionGenerationResult =
@@ -58,8 +59,7 @@ export async function generateSubmitPrDescriptions(input: {
 	prDescription: SubmitPrDescriptionOptions;
 	prLinks: readonly SubmitPrLink[];
 	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
-	onProgress?: (message: string) => void;
-	onPrProgress?: SubmitPrDescriptionProgressListener;
+	progress?: SubmitProgressListeners<SubmitPrDescriptionProgressEvent>;
 }): Promise<SubmitPrDescriptionGenerationResult> {
 	let accumulator: PrDescriptionAccumulator = createPrDescriptionAccumulator();
 	const prewrittenByBranch = new Map(
@@ -68,9 +68,9 @@ export async function generateSubmitPrDescriptions(input: {
 	let generation: Extract<PrDescriptionGenerationResolution, { ok: true }> | undefined;
 
 	if (input.prLinks.length === 0) {
-		input.onProgress?.("no PR links available for description generation");
+		input.progress?.onProgress?.("no PR links available for description generation");
 	} else {
-		input.onProgress?.(
+		input.progress?.onProgress?.(
 			`preparing descriptions for ${formatItemCount(input.prLinks.length, "PR", "PRs")}`,
 		);
 	}
@@ -80,15 +80,17 @@ export async function generateSubmitPrDescriptions(input: {
 		const number = prNumberFromLink(link);
 		if (number === undefined) continue;
 
-		input.onProgress?.(`loading PR #${number} metadata (${index + 1}/${input.prLinks.length})`);
-		input.onPrProgress?.({
+		input.progress?.onProgress?.(
+			`loading PR #${number} metadata (${index + 1}/${input.prLinks.length})`,
+		);
+		input.progress?.onItemProgress?.({
 			prNumber: number,
 			state: "active",
 			message: "loading PR metadata",
 		});
 		const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number });
 		if (!viewed.ok) {
-			input.onPrProgress?.({
+			input.progress?.onItemProgress?.({
 				prNumber: number,
 				state: "failed",
 				message: firstNonEmptyLine(viewed.error.message) ?? "metadata load failed",
@@ -104,14 +106,14 @@ export async function generateSubmitPrDescriptions(input: {
 
 		const prewrittenMetadata = prewrittenByBranch.get(viewed.value.headRefName);
 		if (prewrittenMetadata === undefined && generation === undefined) {
-			input.onProgress?.("resolving PR description prompt and model");
+			input.progress?.onProgress?.("resolving PR description prompt and model");
 			const resolvedGeneration = await resolvePrDescriptionGeneration({
 				cwd: input.cwd,
 				env: input.prDescription.env,
 				git: input.prDescription.git,
 			});
 			if (!resolvedGeneration.ok) {
-				input.onPrProgress?.({
+				input.progress?.onItemProgress?.({
 					prNumber: number,
 					state: "failed",
 					message: firstNonEmptyLine(resolvedGeneration.error) ?? "generation setup failed",
@@ -135,12 +137,17 @@ export async function generateSubmitPrDescriptions(input: {
 			pr: viewed.value,
 			...(generation === undefined ? {} : { generation }),
 			...(prewrittenMetadata === undefined ? {} : { prewrittenMetadata }),
-			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
+			...(input.progress?.onProgress === undefined
+				? {}
+				: { onProgress: input.progress.onProgress }),
 			...(input.prDescription.time === undefined ? {} : { time: input.prDescription.time }),
+			...(input.progress?.onActiveOperations === undefined
+				? {}
+				: { onActiveOperations: input.progress.onActiveOperations }),
 		});
 
 		const progress = prProgressForResult(result);
-		input.onPrProgress?.({
+		input.progress?.onItemProgress?.({
 			prNumber: number,
 			state: progress.state,
 			...optionalEntry("message", progress.message),
@@ -150,7 +157,9 @@ export async function generateSubmitPrDescriptions(input: {
 			link,
 			number,
 			accumulator,
-			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
+			...(input.progress?.onProgress === undefined
+				? {}
+				: { onProgress: input.progress.onProgress }),
 		});
 	}
 

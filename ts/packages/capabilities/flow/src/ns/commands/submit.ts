@@ -3,6 +3,7 @@ import { join } from "node:path";
 import process from "node:process";
 
 import type { Caps } from "@nseng-ai/clinkr";
+import { selectCheckpointModelRef } from "@nseng-ai/capability-kit/text-generation";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { runCheckpointIfPending, type CheckpointGateway } from "../../checkpoint/checkpoint.ts";
@@ -20,6 +21,10 @@ import {
 	type NsSubmitRuntime,
 	type SubmitCommandResult,
 } from "../../submit/ns-runtime.ts";
+import {
+	commandOperations,
+	withCommandOperations,
+} from "../../phase-stream/matrix-progress-core.ts";
 import {
 	createSubmitMatrixProgressController,
 	submitMatrixRowsFromTopology,
@@ -254,19 +259,22 @@ async function runSubmitWithMatrix(input: {
 		deps: flowStreamDeps(ctx, caps),
 		title: "ns flow submit",
 		rows: [],
+		checkpointModelRef: selectCheckpointModelRef(ctx.env),
 		...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
 	});
 	matrix.setGlobal("inventory", { state: "active" });
 	matrix.begin();
 
 	try {
-		matrix.setRunningCommands([
-			"gt log --stack --reverse --no-interactive",
-			"gt trunk --no-interactive",
-			"gt branch info --no-interactive --branch <stack-branch>",
-		]);
-		const topology = await runtime.metadataGateway.inspectSubmitStackTopology({ cwd: ctx.cwd });
-		matrix.setRunningCommands([]);
+		const topology = await withCommandOperations(
+			matrix,
+			[
+				"gt log --stack --reverse --no-interactive",
+				"gt trunk --no-interactive",
+				"gt branch info --no-interactive --branch <stack-branch>",
+			],
+			() => runtime.metadataGateway.inspectSubmitStackTopology({ cwd: ctx.cwd }),
+		);
 		if (!topology.ok) {
 			matrix.setGlobal("inventory", { state: "failed", text: "inventory failed" });
 			await matrix.finish({ isFailed: true });
@@ -282,17 +290,20 @@ async function runSubmitWithMatrix(input: {
 		const onOutput: FlowLiveOutput = (_stream, text) => matrix.note(text);
 		if (hooksLoad.kind === "hooks") {
 			matrix.setGlobal("hooks", { state: "active" });
-			const hooksOutcome = await runFlowSubmitHooks({
-				hooks: hooksLoad.hooks,
-				runner: runtime.commandRunner,
-				onHookStarted: ({ hook, index, total }) =>
-					matrix.setGlobal("hooks", {
-						state: "active",
-						text: hookProgressLabel({ hook, index, total }),
-					}),
-				onOutput,
-			});
-			matrix.setRunningCommands([]);
+			const hooksOutcome = await withCommandOperations(matrix, [], () =>
+				runFlowSubmitHooks({
+					hooks: hooksLoad.hooks,
+					runner: runtime.commandRunner,
+					onHookStarted: ({ hook, index, total }) => {
+						matrix.setActiveOperations(commandOperations([hook.display]));
+						matrix.setGlobal("hooks", {
+							state: "active",
+							text: hookProgressLabel({ hook, index, total }),
+						});
+					},
+					onOutput,
+				}),
+			);
 			if (hooksOutcome.kind === "failed") {
 				return await matrixPhaseFailureResult(ctx, matrix, {
 					key: "hooks",
@@ -307,14 +318,15 @@ async function runSubmitWithMatrix(input: {
 		const checkpointPhase = createMatrixPhaseForwarder(ctx, matrix);
 		checkpointPhase({ type: "phase-started", phaseKey: "checkpoint" });
 		matrix.setGlobal("checkpoint", { state: "active" });
-		const checkpoint = await runCheckpointIfPending({
-			cwd: ctx.cwd,
-			env: ctx.env,
-			...checkpointContext,
-			textGenerator: ctx.textGenerator,
-			onPhase: checkpointPhase,
-		});
-		matrix.setRunningCommands([]);
+		const checkpoint = await withCommandOperations(matrix, [], () =>
+			runCheckpointIfPending({
+				cwd: ctx.cwd,
+				env: ctx.env,
+				...checkpointContext,
+				textGenerator: ctx.textGenerator,
+				onPhase: checkpointPhase,
+			}),
+		);
 		if (checkpoint.kind === "failed") {
 			return await matrixPhaseFailureResult(ctx, matrix, {
 				key: "checkpoint",
