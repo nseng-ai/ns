@@ -584,6 +584,9 @@ importers:
 
   packages/hosts/pi:
     dependencies:
+      '@earendil-works/pi-agent-core':
+        specifier: 'catalog:'
+        version: 0.80.5(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
         version: 0.80.5
