@@ -5,6 +5,7 @@ import {
 	type CommandRunner,
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
+import type { TimeServices } from "@nseng-ai/foundation/time";
 import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
@@ -70,6 +71,7 @@ export interface RunCheckpointCommandOptions {
 	repoRoot?: string;
 	/** Typed phase sequencing for a presentation driver (inspect → generate → commit). */
 	onPhase?: NsProgressPhaseListener;
+	time?: TimeServices;
 }
 
 export interface RunCheckpointWorkflowOptions extends RunCheckpointCommandOptions {
@@ -215,6 +217,7 @@ export async function runCheckpointWorkflow(
 							label: formatCheckpointProgressEvent(event),
 						}),
 				}),
+		...(options.time === undefined ? {} : { time: options.time }),
 	});
 	if (!prepared.ok) return { type: "message-failed", error: prepared.error };
 

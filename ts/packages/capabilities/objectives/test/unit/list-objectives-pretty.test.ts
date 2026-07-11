@@ -1,5 +1,5 @@
 import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import type { ObjectiveListResult } from "../../src/core/operations/list-objectives.ts";
 import {
@@ -9,11 +9,6 @@ import {
 
 const ESC = String.fromCharCode(0x1b);
 const NOW = Date.parse("2026-06-27T18:00:00Z");
-
-afterEach(() => {
-	vi.restoreAllMocks();
-	vi.unstubAllEnvs();
-});
 
 function caps(
 	parts: { colorDepth?: ColorDepth; columns?: number; canRenderUnicode?: boolean } = {},

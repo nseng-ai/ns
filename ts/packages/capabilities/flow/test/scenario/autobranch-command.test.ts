@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import {
@@ -7,13 +7,8 @@ import {
 } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
-afterEach(() => {
-	vi.useRealTimers();
-});
-
 describe("flow autobranch command outcomes", () => {
 	test("dirty worktree success exits 0 on stdout with a house-style result block", async () => {
-		vi.setSystemTime(new Date(123456789));
 		const run = runFlowAutobranchCommandWithFakes();
 
 		expect(await run.exit).toBe(0);
@@ -121,7 +116,6 @@ describe("flow autobranch command outcomes", () => {
 	});
 
 	test("Graphite create failure exits 1 on stderr and surfaces recovery guidance", async () => {
-		vi.setSystemTime(new Date(123456789));
 		const run = runFlowAutobranchCommandWithFakes({
 			state: {
 				exec: autobranchGtCreateFailExec(),

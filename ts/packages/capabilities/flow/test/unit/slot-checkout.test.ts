@@ -1,35 +1,14 @@
-import type { SlotClient, SlotClientOptions } from "@nseng-ai/slots/api";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-const slotClient: SlotClient = {
-	checkoutCurrent: async () => ({
-		ok: false,
-		failure: { errorType: "not-implemented", message: "not used by this test" },
-	}),
-	checkoutBranch: async () => ({
-		ok: false,
-		failure: { errorType: "not-implemented", message: "not used by this test" },
-	}),
-};
-const createSlotClient = vi.fn((options: SlotClientOptions) => {
-	void options;
-	return slotClient;
-});
-
-vi.mock("@nseng-ai/slots/api", () => ({
-	createSlotClient,
-}));
-vi.resetModules();
-
-const { createFlowSlotClient } = await import("../../src/autoslot/slot-checkout.ts");
+import { buildFlowSlotClientOptions } from "../../src/autoslot/slot-checkout.ts";
 
 describe("Flow slot checkout client", () => {
 	it("enables parent-shell cd directives for CLI autoslot while suppressing clipboard writes", () => {
 		const env = { PATH: "/fake/bin", NS_CD_DIRECTIVE_FILE: "/tmp/ns-cd" };
 
-		createFlowSlotClient({ cwd: "/repo", env });
+		const options = buildFlowSlotClientOptions({ cwd: "/repo", env });
 
-		expect(createSlotClient).toHaveBeenCalledWith({
+		expect(options).toEqual({
 			cwd: "/repo",
 			env,
 			sideEffects: { shouldCopyClipboard: false, shouldWriteCdDirective: true },

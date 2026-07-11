@@ -9,6 +9,11 @@ import {
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE,
 	BAN_RAW_PRODUCTION_TIMERS,
+	BAN_SHARED_TEST_FAKE_TIMERS,
+	BAN_SHARED_TEST_GLOBAL_LISTENERS,
+	BAN_SHARED_TEST_MODULE_STATE,
+	BAN_SHARED_TEST_PROCESS_MUTATION,
+	BAN_SHARED_TEST_SINGLETON_STATE,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
 	capabilityPackageNames,
 	type ConcreteCapabilityCommandSurface,
@@ -52,6 +57,66 @@ export function collectViolations(
 					sourceFile,
 					node,
 					"Raw production timers are banned. Use Clock for wall-clock reads, TimerScheduler for timeout/interval scheduling, unrefTimerScheduler for Pi host background timers, or isolate raw timers in an explicit adapter/runtime-boundary allowlist.",
+				),
+			);
+		}
+
+		if (isSharedTestModuleStateNode(node, path)) {
+			violations.push(
+				buildViolationWithText(
+					BAN_SHARED_TEST_MODULE_STATE,
+					path,
+					sourceFile,
+					node,
+					"Shared-cache tests must not mutate Vitest module state. Prefer an injected fake, or move a test whose subject is import binding or module loading under test/isolated/.",
+				),
+			);
+		}
+
+		if (isSharedTestFakeTimerNode(node, path)) {
+			violations.push(
+				buildViolationWithText(
+					BAN_SHARED_TEST_FAKE_TIMERS,
+					path,
+					sourceFile,
+					node,
+					"Shared-cache tests must not install Vitest fake timers. Inject TimerScheduler and use createManualTimerScheduler(), or isolate host-owned timer behavior under test/isolated/.",
+				),
+			);
+		}
+
+		if (isSharedTestProcessMutationNode(node, path)) {
+			violations.push(
+				buildViolationWithText(
+					BAN_SHARED_TEST_PROCESS_MUTATION,
+					path,
+					sourceFile,
+					node,
+					"Shared-cache tests must not mutate process.env or cwd directly. Pass env/cwd through an existing seam, use vi.stubEnv(), or isolate genuinely ambient behavior under test/isolated/.",
+				),
+			);
+		}
+
+		if (isSharedTestGlobalListenerNode(node, path)) {
+			violations.push(
+				buildViolationWithText(
+					BAN_SHARED_TEST_GLOBAL_LISTENERS,
+					path,
+					sourceFile,
+					node,
+					"Shared-cache tests must not mutate process-global listeners. Inject an event source, or move a test whose subject is process listener behavior under test/isolated/.",
+				),
+			);
+		}
+
+		if (isSharedTestSingletonStateNode(node, path)) {
+			violations.push(
+				buildViolationWithText(
+					BAN_SHARED_TEST_SINGLETON_STATE,
+					path,
+					sourceFile,
+					node,
+					"Shared-cache tests must not exercise the module-global Graphite metadata worker lifecycle. Inject an owned worker seam or move focused lifecycle coverage under test/isolated/.",
 				),
 			);
 		}
@@ -139,6 +204,27 @@ export function collectViolations(
 }
 
 const RAW_TIMER_GLOBALS = new Set(["setTimeout", "clearTimeout", "setInterval", "clearInterval"]);
+const SHARED_TEST_MODULE_STATE_METHODS = new Set([
+	"mock",
+	"doMock",
+	"unmock",
+	"doUnmock",
+	"resetModules",
+]);
+const SHARED_TEST_FAKE_TIMER_METHODS = new Set(["useFakeTimers", "useRealTimers"]);
+const PROCESS_GLOBAL_LISTENER_METHODS = new Set([
+	"on",
+	"once",
+	"addListener",
+	"prependListener",
+	"removeListener",
+	"off",
+	"removeAllListeners",
+]);
+const GRAPHITE_METADATA_SINGLETON_METHODS = new Set([
+	"loadGraphiteMetadataStatusInWorker",
+	"shutdownGraphiteMetadataWorker",
+]);
 const DESCRIPTOR_ALLOWED_VALUE_IMPORT = "@nseng-ai/kernel/sdk";
 const LOWER_LAYER_SURFACE_TIERS = new Set(["neutral-infra", "sdk", "capability-kit"]);
 const RAW_TIMER_ADAPTER_PATHS = new Set([
@@ -155,6 +241,103 @@ function isRawProductionTimerNode(node: ts.Node, path: string): boolean {
 	const expression = node.expression;
 	if (ts.isIdentifier(expression)) return RAW_TIMER_GLOBALS.has(expression.text);
 	return isGlobalThisRawTimerCall(expression);
+}
+
+function isSharedTestModuleStateNode(node: ts.Node, path: string): boolean {
+	return (
+		isSharedTestStateGuardPath(path) &&
+		ts.isCallExpression(node) &&
+		SHARED_TEST_MODULE_STATE_METHODS.has(staticMemberCallName(node, "vi") ?? "")
+	);
+}
+
+function isSharedTestFakeTimerNode(node: ts.Node, path: string): boolean {
+	return (
+		isSharedTestStateGuardPath(path) &&
+		ts.isCallExpression(node) &&
+		SHARED_TEST_FAKE_TIMER_METHODS.has(staticMemberCallName(node, "vi") ?? "")
+	);
+}
+
+function isSharedTestProcessMutationNode(node: ts.Node, path: string): boolean {
+	if (!isSharedTestStateGuardPath(path)) return false;
+	if (ts.isCallExpression(node) && staticMemberCallName(node, "process") === "chdir") return true;
+	if (ts.isDeleteExpression(node)) return isRootedAtProcessEnv(node.expression);
+	return (
+		ts.isBinaryExpression(node) &&
+		isAssignmentOperator(node.operatorToken.kind) &&
+		isRootedAtProcessEnv(node.left)
+	);
+}
+
+function isSharedTestGlobalListenerNode(node: ts.Node, path: string): boolean {
+	return (
+		isSharedTestStateGuardPath(path) &&
+		ts.isCallExpression(node) &&
+		PROCESS_GLOBAL_LISTENER_METHODS.has(staticMemberCallName(node, "process") ?? "")
+	);
+}
+
+function isSharedTestSingletonStateNode(node: ts.Node, path: string): boolean {
+	return (
+		isSharedTestStateGuardPath(path) &&
+		ts.isCallExpression(node) &&
+		ts.isIdentifier(node.expression) &&
+		GRAPHITE_METADATA_SINGLETON_METHODS.has(node.expression.text)
+	);
+}
+
+function isSharedTestStateGuardPath(path: string): boolean {
+	return (
+		path.startsWith("ts/packages/") && path.includes("/test/") && !path.includes("/test/isolated/")
+	);
+}
+
+function staticMemberCallName(node: ts.CallExpression, owner: string): string | undefined {
+	const expression = node.expression;
+	if (ts.isPropertyAccessExpression(expression)) {
+		return ts.isIdentifier(expression.expression) && expression.expression.text === owner
+			? expression.name.text
+			: undefined;
+	}
+	if (!ts.isElementAccessExpression(expression)) return undefined;
+	if (!ts.isIdentifier(expression.expression) || expression.expression.text !== owner)
+		return undefined;
+	return staticPropertyName(expression.argumentExpression);
+}
+
+function staticPropertyName(expression: ts.Expression | undefined): string | undefined {
+	if (expression === undefined || !ts.isStringLiteralLike(expression)) return undefined;
+	return expression.text;
+}
+
+function isRootedAtProcessEnv(expression: ts.Expression): boolean {
+	const unwrapped = unwrapParentheses(expression);
+	if (isProcessEnvAccess(unwrapped)) return true;
+	if (ts.isPropertyAccessExpression(unwrapped) || ts.isElementAccessExpression(unwrapped)) {
+		return isRootedAtProcessEnv(unwrapped.expression);
+	}
+	return false;
+}
+
+function isProcessEnvAccess(expression: ts.Expression): boolean {
+	if (ts.isPropertyAccessExpression(expression)) {
+		return (
+			ts.isIdentifier(expression.expression) &&
+			expression.expression.text === "process" &&
+			expression.name.text === "env"
+		);
+	}
+	return (
+		ts.isElementAccessExpression(expression) &&
+		ts.isIdentifier(expression.expression) &&
+		expression.expression.text === "process" &&
+		staticPropertyName(expression.argumentExpression) === "env"
+	);
+}
+
+function isAssignmentOperator(kind: ts.SyntaxKind): boolean {
+	return kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment;
 }
 
 function isRawProductionTimerGuardPath(path: string): boolean {

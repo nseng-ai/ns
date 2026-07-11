@@ -25,6 +25,7 @@ interface LoadRestFingerprintOptions {
 	identity: PrFeedbackWatchGithubPrIdentity;
 	sinceIso?: string;
 	signal?: AbortSignal;
+	fetchedAt?: string;
 }
 
 interface LoadPrCheckSummaryOptions {
@@ -121,7 +122,7 @@ export async function loadRestFingerprint(
 ): Promise<
 	{ type: "loaded"; fingerprint: FeedbackFingerprint } | { type: "failed"; message: string }
 > {
-	const { pi, cwd, identity, sinceIso, signal } = options;
+	const { pi, cwd, identity, sinceIso, signal, fetchedAt } = options;
 	const gateway = new RealGithubPrFeedbackGateway(execApiToCommandRunner(pi));
 	const result = await gateway.getPrRestFeedbackFingerprintParts({
 		cwd,
@@ -132,11 +133,14 @@ export async function loadRestFingerprint(
 	if (!result.ok) return { type: "failed", message: feedbackFailureMessage(result.error.message) };
 	return {
 		type: "loaded",
-		fingerprint: buildFeedbackFingerprint([
-			...parseDiscussionCommentFingerprint(result.value.discussionComments),
-			...parseReviewFingerprint(result.value.reviews),
-			...parseReviewCommentFingerprint(result.value.reviewComments),
-		]),
+		fingerprint: buildFeedbackFingerprint(
+			[
+				...parseDiscussionCommentFingerprint(result.value.discussionComments),
+				...parseReviewFingerprint(result.value.reviews),
+				...parseReviewCommentFingerprint(result.value.reviewComments),
+			],
+			fetchedAt,
+		),
 	};
 }
 

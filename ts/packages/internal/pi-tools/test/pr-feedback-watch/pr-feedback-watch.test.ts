@@ -1,6 +1,7 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { createManualTimerHarness } from "@nseng-ai/foundation/time/testing";
 import type { RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
 import {
 	parseDownloadFeedbackData,
@@ -707,41 +708,37 @@ describe("pr feedback watch extension", () => {
 	});
 
 	test("start with baseline-existing preserves old baseline behavior", async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-06-14T05:40:00.000Z"));
-		try {
-			const pi = new FakePi([
-				downloadStep(downloadData()),
-				currentUserStep(),
-				headOidStep(),
-				...restFingerprintSteps(),
-			]);
-			const ctx = new FakeContext();
-			prFeedbackWatchExtension(pi, { runner: RUNNER });
+		const time = createManualTimerHarness(Date.parse("2026-06-14T05:40:00.000Z"));
+		const pi = new FakePi([
+			downloadStep(downloadData()),
+			currentUserStep(),
+			headOidStep(),
+			...restFingerprintSteps(),
+		]);
+		const ctx = new FakeContext();
+		prFeedbackWatchExtension(pi, { runner: RUNNER, time });
 
-			await pi.commands.get("pr:watch-feedback")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("start --baseline-existing", ctx);
 
-			expect(pi.userMessages).toEqual([]);
-			expect(
-				pi.entries
-					.map((entry) => entry.data)
-					.some((entry) => JSON.stringify(entry).includes("baseline")),
-			).toBe(true);
-			expect(ctx.notifications.at(-1)?.message).toContain("existing feedback was baselined");
-			expect(ctx.statuses.get("pr:watch-feedback")).toBe(
-				"PR #123 · feedback 0s/15s · [ci](pending:3 ok:4 fail:1) · /pr:watch-feedback stops",
-			);
+		expect(pi.userMessages).toEqual([]);
+		expect(
+			pi.entries
+				.map((entry) => entry.data)
+				.some((entry) => JSON.stringify(entry).includes("baseline")),
+		).toBe(true);
+		expect(ctx.notifications.at(-1)?.message).toContain("existing feedback was baselined");
+		expect(ctx.statuses.get("pr:watch-feedback")).toBe(
+			"PR #123 · feedback 0s/15s · [ci](pending:3 ok:4 fail:1) · /pr:watch-feedback stops",
+		);
 
-			vi.advanceTimersByTime(5_000);
-			expect(ctx.statuses.get("pr:watch-feedback")).toBe(
-				"PR #123 · feedback 5s/15s · [ci](pending:3 ok:4 fail:1) · /pr:watch-feedback stops",
-			);
+		time.advanceMs(5_000);
+		expect(ctx.statuses.get("pr:watch-feedback")).toBe(
+			"PR #123 · feedback 5s/15s · [ci](pending:3 ok:4 fail:1) · /pr:watch-feedback stops",
+		);
 
-			await pi.commands.get("pr:watch-feedback")?.handler("stop", ctx);
-			pi.assertDone();
-		} finally {
-			vi.useRealTimers();
-		}
+		await pi.commands.get("pr:watch-feedback")?.handler("stop", ctx);
+		expect(time.pendingTimerCount()).toBe(0);
+		pi.assertDone();
 	});
 
 	test("once dispatches current feedback by default", async () => {

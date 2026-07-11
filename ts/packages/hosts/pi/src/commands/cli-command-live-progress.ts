@@ -13,7 +13,7 @@ import {
 	type NsProgressMatrixEvent,
 	type NsProgressPhaseEvent,
 } from "@nseng-ai/kernel/sdk";
-import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
+import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 
 import { withSafePiUi, withSafePiUiValue } from "../kit/shared/safe-ui.ts";
@@ -49,6 +49,7 @@ interface LiveCommandProgressOptions {
 	commandName: string;
 	piCommandName: string;
 	argv: readonly string[];
+	timers?: TimerScheduler;
 }
 
 interface LiveOutputLine {
@@ -237,7 +238,7 @@ export class LiveCommandProgress {
 		if (this.target === "none") return;
 
 		this.render();
-		this.timer = unrefTimerScheduler.setInterval(() => {
+		this.timer = (options.timers ?? unrefTimerScheduler).setInterval(() => {
 			this.render();
 		}, LIVE_PROGRESS_INTERVAL_MS);
 	}

@@ -14,6 +14,7 @@ import {
 	type PrDescriptionFingerprintMetadata,
 	type PrDescriptionGenerationResolution,
 	type PromptSource,
+	type TimeServices,
 } from "./pr-description.ts";
 export interface PrewrittenPrMetadata {
 	branch: string;
@@ -41,6 +42,7 @@ export interface PrDescriptionUpdateOptions {
 	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
 	fingerprintPolicy?: PrDescriptionFingerprintPolicy;
 	onProgress?: (message: string) => void;
+	time?: TimeServices;
 }
 
 export type CurrentBranchPrDescriptionUpdateOptions = Omit<PrDescriptionUpdateOptions, "pr">;
@@ -173,6 +175,7 @@ export async function preparePrDescriptionUpdate(
 			diff: patchId.value.diff,
 		},
 		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
+		...(options.time === undefined ? {} : { time: options.time }),
 	});
 	if (!prepared.ok) return { type: "failed", pr, reason: prepared.error };
 
@@ -224,6 +227,7 @@ export async function orchestratePrDescription(
 		...(options.generation === undefined ? {} : { generation: options.generation }),
 		fingerprintPolicy: prDescriptionFingerprintPolicyForForce(options.shouldForce === true),
 		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
+		...(options.time === undefined ? {} : { time: options.time }),
 	});
 	if (prepared.type === "failed") return prepared;
 	if (prepared.type === "skipped") {

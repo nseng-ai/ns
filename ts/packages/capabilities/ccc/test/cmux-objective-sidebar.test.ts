@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
 	createCccSidebarControllerWithPiWiring,
@@ -28,7 +28,7 @@ afterEach(resetCmuxTestEnvironment);
 
 describe("cmux Objective sidebar", () => {
 	test("ns:ccc:sidebar:objective-summary applies deterministic Objective sidebar from explicit slug", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const repoRoot = await makeTempDir();
 		const slug = "cmux-extension-consolidation";
 		const expectedTitle = `obj:${slug}`;
@@ -85,7 +85,7 @@ describe("cmux Objective sidebar", () => {
 	});
 
 	test("ns:ccc:sidebar:objective-summary resolves Objective path selector to slug", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const repoRoot = await makeTempDir();
 		const slug = "cmux-extension-consolidation";
 		const expectedTitle = `obj:${slug}`;
@@ -114,7 +114,7 @@ describe("cmux Objective sidebar", () => {
 	});
 
 	test("ns:ccc:sidebar:objective-summary without selector opens Objective picker and applies selection", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const repoRoot = await makeTempDir();
 		const slug = "bravo-objective";
 		const expectedTitle = `obj:${slug}`;
@@ -172,7 +172,7 @@ describe("cmux Objective sidebar", () => {
 	});
 
 	test("ns:ccc:sidebar:objective-summary suggests the only changed active Objective", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const repoRoot = await makeTempDir();
 		const slug = "bravo-objective";
 		const expectedTitle = `obj:${slug}`;
@@ -221,7 +221,7 @@ describe("cmux Objective sidebar", () => {
 	});
 
 	test("ns:ccc:sidebar:objective-summary can escape from changed suggestion to other active Objectives", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const repoRoot = await makeTempDir();
 		const slug = "charlie-objective";
 		const expectedTitle = `obj:${slug}`;
@@ -262,7 +262,7 @@ describe("cmux Objective sidebar", () => {
 	});
 
 	test("ns:ccc:sidebar:objective-summary picker cancellation stops without model or apply", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const pi = new FakePi({
 			script: [
 				objectiveListStep(["alpha-objective"]),
@@ -286,7 +286,7 @@ describe("cmux Objective sidebar", () => {
 	});
 
 	test("ns:ccc:sidebar:objective-summary with no active Objectives stops without model or apply", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const pi = new FakePi({ script: [objectiveListStep([])] });
 		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
@@ -304,8 +304,8 @@ describe("cmux Objective sidebar", () => {
 	});
 
 	test("ns:ccc:sidebar:objective-summary missing workspace skips deterministic work", async () => {
-		delete process.env.CMUX_WORKSPACE_ID;
-		delete process.env.CMUX_TAB_ID;
+		vi.stubEnv("CMUX_WORKSPACE_ID", undefined);
+		vi.stubEnv("CMUX_TAB_ID", undefined);
 		const pi = new FakePi();
 		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
@@ -320,7 +320,7 @@ describe("cmux Objective sidebar", () => {
 	});
 
 	test("ns:ccc:sidebar:objective-summary surfaces Objective read failure without applying cmux", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const slug = "ghost-objective";
 		const pi = new FakePi({
 			script: [
@@ -348,7 +348,7 @@ describe("cmux Objective sidebar", () => {
 	});
 
 	test("ns:ccc:sidebar:objective-summary rejects mismatched Objective read slug", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const slug = "requested-objective";
 		const pi = new FakePi({
 			script: [
@@ -371,7 +371,7 @@ describe("cmux Objective sidebar", () => {
 	});
 
 	test("ns:ccc:sidebar:objective-summary surfaces cmux apply failure", async () => {
-		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const repoRoot = await makeTempDir();
 		const slug = "cmux-extension-consolidation";
 		const pi = new FakePi({

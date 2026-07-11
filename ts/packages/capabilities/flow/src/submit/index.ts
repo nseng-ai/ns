@@ -55,6 +55,7 @@ export {
 	type PrDescriptionPromptContext,
 	type PreparedPrDescription,
 	type PromptSource,
+	type TimeServices,
 } from "./pr-description.ts";
 export {
 	commandFailure,

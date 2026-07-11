@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 import type {
 	TextGenerationRequest,
 	TextGenerationResult,
@@ -142,6 +143,51 @@ describe("flow cp core", () => {
 		expect(textGenerator.calls).toHaveLength(1);
 		expect(textGenerator.calls[0]).toMatchObject({ operation: "checkpoint-message" });
 		expect(gateway.commits).toEqual([]);
+	});
+
+	test("reports elapsed generation progress through the workflow seam", async () => {
+		const clock = createManualClock(0);
+		const timers = createManualTimerScheduler();
+		const gateway = new FakeCheckpointGateway({ loaded: { ok: true, snapshot: dirtySnapshot() } });
+		let resolveModel!: (result: TextGenerationResult) => void;
+		let markStarted!: () => void;
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		const pendingModel = new Promise<TextGenerationResult>((resolve) => {
+			resolveModel = resolve;
+		});
+		const progress: string[] = [];
+		const result = runCpCore({
+			...defaultOptions({
+				checkpointGateway: gateway,
+				textGenerator: {
+					generateText: async () => {
+						markStarted();
+						return await pendingModel;
+					},
+				},
+			}),
+			onPhase: (event) => {
+				if (event.type === "phase-progress") progress.push(event.label);
+			},
+			time: { clock: clock.clock, timers: timers.timers },
+		});
+
+		await started;
+		expect(progress).toContain("• Generating checkpoint message with model…");
+
+		clock.advanceMs(5_000);
+		timers.advanceMs(5_000);
+		expect(progress).toContain("  … still generating checkpoint message (5s elapsed)");
+
+		clock.advanceMs(5_000);
+		timers.advanceMs(5_000);
+		expect(progress).toContain("  … still generating checkpoint message (10s elapsed)");
+
+		resolveModel({ ok: true, text: validCheckpointMessage });
+		expect(await result).toMatchObject({ type: "committed" });
+		expect(timers.pendingTimerCount()).toBe(0);
 	});
 
 	test("message generation failure returns failure and does not commit", async () => {

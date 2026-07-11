@@ -1,3 +1,4 @@
+import type { TimeServices } from "@nseng-ai/foundation/time";
 import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
@@ -94,6 +95,7 @@ export interface RunCpCoreOptions {
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
 	onPhase?: NsProgressPhaseListener;
+	time?: TimeServices;
 }
 
 export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreResult> {
@@ -104,6 +106,7 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 		textGenerator: options.textGenerator,
 		dryRun: options.isDryRun,
 		...(options.onPhase === undefined ? {} : { onPhase: options.onPhase }),
+		...(options.time === undefined ? {} : { time: options.time }),
 	});
 }
 

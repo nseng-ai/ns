@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 
 import { describe, expect, test } from "vitest";
 
+import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
+import type { TextGenerationResult } from "@nseng-ai/capability-kit/text-generation";
 import {
 	appendGeneratedMarker,
 	buildPrDescriptionUserPrompt,
@@ -17,6 +19,7 @@ import {
 	isCommitMessagePrefillBody,
 	parseManagedGeneratedRegion,
 	parsePrDescriptionOutput,
+	preparePrDescription,
 	PR_DESCRIPTION_PROMPT_ENV,
 	replaceOrInsertGeneratedRegion,
 	resolvePrDescriptionPrompt,
@@ -36,6 +39,57 @@ This updates submit to generate PR descriptions through the ns prompt pipeline.
 }
 
 describe("PR description helpers", () => {
+	test("reports elapsed model-generation progress through the preparation seam", async () => {
+		const clock = createManualClock(0);
+		const timers = createManualTimerScheduler();
+		let resolveModel!: (result: TextGenerationResult) => void;
+		let markStarted!: () => void;
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		const pendingModel = new Promise<TextGenerationResult>((resolve) => {
+			resolveModel = resolve;
+		});
+		const progress: string[] = [];
+		const result = preparePrDescription({
+			textGenerator: {
+				generateText: async () => {
+					markStarted();
+					return await pendingModel;
+				},
+			},
+			modelRef: "anthropic/claude-sonnet-4-5",
+			promptText: "Write a PR description.",
+			context: {
+				kind: "github",
+				number: 12,
+				url: "https://github.com/acme/project/pull/12",
+				title: "Current title",
+				headRefName: "feature/demo",
+				baseRefName: "main",
+				commitMessages: [{ headline: "Add feature" }],
+				diff: "diff --git a/src/app.ts b/src/app.ts\n+code\n",
+			},
+			onProgress: (message) => progress.push(message),
+			time: { clock: clock.clock, timers: timers.timers },
+		});
+
+		await started;
+		expect(progress).toContain("generating PR metadata (attempt 1/2)");
+
+		clock.advanceMs(5_000);
+		timers.advanceMs(5_000);
+		expect(progress).toContain("still generating PR metadata (5s elapsed)");
+
+		clock.advanceMs(5_000);
+		timers.advanceMs(5_000);
+		expect(progress).toContain("still generating PR metadata (10s elapsed)");
+
+		resolveModel({ ok: true, text: validDraft() });
+		expect(await result).toMatchObject({ ok: true });
+		expect(timers.pendingTimerCount()).toBe(0);
+	});
+
 	test("parses title and body after stripping an outer code fence", () => {
 		expect(parsePrDescriptionOutput(`\`\`\`markdown\n${validDraft()}\n\`\`\``)).toEqual({
 			ok: true,

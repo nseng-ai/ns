@@ -1,6 +1,11 @@
 import type { Clock } from "./clock.ts";
 import { TimerScheduler, type ScheduledTimer } from "./timers.ts";
 
+export interface TimeServices {
+	readonly clock?: Clock;
+	readonly timers?: TimerScheduler;
+}
+
 export const systemClock: Clock = {
 	nowMs: () => Date.now(),
 };
