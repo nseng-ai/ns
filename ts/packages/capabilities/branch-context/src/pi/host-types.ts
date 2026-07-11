@@ -11,10 +11,10 @@ import type {
 	SessionReplacementResult,
 } from "@nseng-ai/pi/sessions/replacement";
 import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@nseng-ai/plans/api";
-import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/command-exec";
 import type { SendMessageOptions } from "@nseng-ai/pi/shared/message-delivery";
 
-export type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+export type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/command-exec";
 
 export type NotifyLevel = "info" | "warning" | "error";
 

@@ -7,7 +7,7 @@ import {
 	type RawPiExecApi,
 	type RawPiExecOptions,
 	type RawPiExecResult,
-} from "../src/kit/shared/exec-gateway.ts";
+} from "../src/kit/shared/command-exec.ts";
 
 interface ExecCall {
 	readonly command: string;

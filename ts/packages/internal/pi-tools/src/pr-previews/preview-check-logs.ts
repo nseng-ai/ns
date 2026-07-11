@@ -2,7 +2,7 @@ import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { callPiModelText } from "@nseng-ai/pi/models/call";
-import type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
+import type { CommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { loadGhCommand } from "@nseng-ai/pi/shared/gh-command";
 import { splitTextLines } from "@nseng-ai/pi/shared/text-lines";
 import type { ExtensionContext } from "./extension.ts";
@@ -12,7 +12,7 @@ const MAX_LOG_SUMMARY_INPUT_CHARS = 80_000;
 const LOG_SUMMARY_MAX_TOKENS = 900;
 
 interface PrPreviewCheckLogRuntime {
-	pi: ExecGateway;
+	pi: CommandExecApi;
 	commandTimeoutMs: number;
 }
 

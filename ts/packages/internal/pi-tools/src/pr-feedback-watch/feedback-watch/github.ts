@@ -17,10 +17,10 @@ import type {
 	PrCheckSummary,
 	PrFeedbackWatchGithubPrIdentity,
 } from "./model.ts";
-import type { ExecGateway } from "./types.ts";
+import type { CommandExecApi } from "./types.ts";
 
 interface LoadRestFingerprintOptions {
-	pi: ExecGateway;
+	pi: CommandExecApi;
 	cwd: string;
 	identity: PrFeedbackWatchGithubPrIdentity;
 	sinceIso?: string;
@@ -29,14 +29,14 @@ interface LoadRestFingerprintOptions {
 }
 
 interface LoadPrCheckSummaryOptions {
-	pi: ExecGateway;
+	pi: CommandExecApi;
 	cwd: string;
 	prNumber: number;
 	signal?: AbortSignal;
 }
 
 interface GhJsonCommandOptions {
-	pi: ExecGateway;
+	pi: CommandExecApi;
 	cwd: string;
 	args: string[];
 	label: string;
@@ -55,7 +55,7 @@ export function parseGitHubPullRequestUrl(
 	return identity === undefined ? undefined : { ...identity, url };
 }
 export async function loadCurrentGitHubLogin(
-	pi: ExecGateway,
+	pi: CommandExecApi,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<string | undefined> {
@@ -70,7 +70,7 @@ export async function loadCurrentGitHubLogin(
 }
 
 export async function loadHeadRefOid(
-	pi: ExecGateway,
+	pi: CommandExecApi,
 	cwd: string,
 	prNumber: number,
 	signal?: AbortSignal,

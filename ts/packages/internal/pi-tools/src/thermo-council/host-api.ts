@@ -9,7 +9,7 @@ import type {
 	RawPiExecApi,
 	RawPiExecOptions,
 	RawPiExecResult,
-} from "@nseng-ai/pi/shared/exec-gateway";
+} from "@nseng-ai/pi/shared/command-exec";
 
 export type { RawPiExecOptions, RawPiExecResult };
 

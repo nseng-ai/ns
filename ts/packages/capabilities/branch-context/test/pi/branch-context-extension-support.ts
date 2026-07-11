@@ -16,7 +16,7 @@ import {
 	type LoadedAttachedPlan,
 } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import type { RawPiExecOptions, RawPiExecResult } from "../../src/pi/host-types.ts";
 
 type ExecResultFixture = Partial<RawPiExecResult>;

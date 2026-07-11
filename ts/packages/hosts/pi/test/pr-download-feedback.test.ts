@@ -7,7 +7,7 @@ import prExtension, {
 	type ExtensionContext,
 	type RegisteredCommand,
 } from "../src/core/pr/extension.ts";
-import type { RawPiExecResult } from "../src/kit/shared/exec-gateway.ts";
+import type { RawPiExecResult } from "../src/kit/shared/command-exec.ts";
 
 const ROOT = "/repo";
 

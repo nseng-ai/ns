@@ -16,7 +16,7 @@ import {
 	type NotifyLevel,
 } from "@nseng-ai/ccc/land";
 
-import { createPiCommandExecApi, type RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi, type RawPiExecResult } from "@nseng-ai/pi/shared/command-exec";
 
 type ExecResultFixture = Partial<RawPiExecResult>;
 import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";

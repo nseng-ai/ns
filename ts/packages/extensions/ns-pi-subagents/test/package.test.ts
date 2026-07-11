@@ -16,7 +16,7 @@ import {
 	PI_AGENT_DEFINITION_SCHEMA,
 	type PiAgentDefinition,
 } from "@nseng-ai/pi/runtime/agent-definition";
-import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/command-exec";
 import type { CommandContext } from "@nseng-ai/pi/runtime/extension-types";
 import type { NotifyLevel, ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
 import { makeErrorResult, makeFinalTextResult, toolContext } from "./helpers/fleet-testing.ts";

@@ -1,11 +1,11 @@
 import { commandFailureReason } from "@nseng-ai/foundation/exec";
-import type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
+import type { CommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { z } from "zod";
 
 import type { CommandResult, EnvelopeWithSchemaOptions, ExtensionContext } from "./extension.ts";
 
 interface ExecNsJsonRuntime {
-	readonly pi: ExecGateway;
+	readonly pi: CommandExecApi;
 	readonly commandTimeoutMs: number;
 	parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): CommandResult<T>;
 }

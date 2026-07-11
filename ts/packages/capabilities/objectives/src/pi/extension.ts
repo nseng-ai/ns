@@ -11,7 +11,7 @@ import { parseMachineEnvelopeData } from "@nseng-ai/pi/runtime/machine-envelope"
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { notifyCommandUi } from "@nseng-ai/pi/commands/helpers";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,

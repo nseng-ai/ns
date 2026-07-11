@@ -16,7 +16,7 @@ import {
 	loadWorktreeGhStatus,
 	renderWorktreeStatusMessage,
 	repoNameFromWorktreeStatusGitPaths,
-	type ExecGateway,
+	type WorktreeStatusExecApi,
 	type ExecResult,
 	type GraphiteMetadataLoader,
 	type LoadGtStatusOptions,
@@ -189,7 +189,7 @@ function withDefaultLocalOptions(
 }
 
 async function loadLocalWorktreeStatusWithDefaultMetadata(
-	pi: ExecGateway,
+	pi: WorktreeStatusExecApi,
 	cwd: string,
 	options: LoadLocalWorktreeStatusOptions = {},
 ): Promise<LocalWorktreeStatus> {
@@ -217,7 +217,7 @@ async function loadFormattedStatus(
 }
 
 async function loadComposedWorktreeStatus(
-	pi: ExecGateway,
+	pi: WorktreeStatusExecApi,
 	cwd: string,
 	options: LoadLocalWorktreeStatusOptions = {},
 ): Promise<WorktreeStatus> {

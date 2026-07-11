@@ -3,7 +3,7 @@ import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 
-export type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+export type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 /** The structural result returned by Pi's upstream exec capability. */
 export interface RawPiExecResult {
@@ -40,8 +40,6 @@ export function createPiCommandExecApi(
 		},
 	};
 }
-
-export type ExecGateway = CommandExecApi;
 
 type OwnedTerminationCause = "cancelled" | "timed-out";
 

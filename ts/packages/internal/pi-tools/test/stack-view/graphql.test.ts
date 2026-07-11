@@ -8,7 +8,7 @@ import {
 	type FetchStackPrsResult,
 } from "../../src/stack-view/graphql.ts";
 import type { CommandExecApi, ExecOptions } from "../../src/stack-view/exec.ts";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { GITHUB_CLI_TIMEOUT_MS } from "@nseng-ai/capability-kit/github";
 import { deriveStatus, type StackViewStatusInput } from "../../src/stack-view/types.ts";
 import { checkEntryFixture, threadDetailFixture } from "./stack-view-fixtures.ts";

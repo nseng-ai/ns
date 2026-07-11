@@ -10,7 +10,7 @@ Use for TypeScript testing architecture when code touches external systems such 
 ## Core model
 
 - Define semantic gateway types for external capabilities.
-- A gateway is the canonical interface to an external **or non-deterministic** capability: process execution, git, gh, filesystem, network, plus the system clock and timers. External-service boundaries carry the `Gateway` suffix (`ExecGateway`, `GitGateway`); bare runtime primitives (`Clock`, `TimerScheduler`) are gateways by category but named without the suffix.
+- A gateway is the canonical interface to an external **or non-deterministic** capability: process execution, git, gh, filesystem, network, plus the system clock and timers. External-service boundaries carry the `Gateway` suffix (`GitGateway`, `GithubPrFeedbackGateway`); bare runtime primitives (`Clock`, `TimerScheduler`) are gateways by category but named without the suffix, and incumbent generic names win absent confusion (foundation's exec seam is `CommandExecApi`; the name `ExecGateway` is retired).
 - Keep domain logic above gateways and inject a small context object manually. Name domain logic with a domain-specific verb (`load`/`read`/`resolve`/`assemble`, chosen for the action); do not mint `…Loader` noun-types or a `loaders`/`…Dependencies` injection bag, which dress stateless functions up as a stateful collaborator. Fake the gateway beneath domain logic, never the domain logic itself.
 - Implement real adapters at the edge; they own subprocess, filesystem, HTTP, env parsing, and wire-format parsing.
 - Implement in-memory fakes as true alternate implementations of the gateway types.

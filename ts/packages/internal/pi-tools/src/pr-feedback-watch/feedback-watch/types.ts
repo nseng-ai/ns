@@ -2,7 +2,7 @@ import type {
 	RawPiExecApi,
 	RawPiExecOptions,
 	RawPiExecResult,
-} from "@nseng-ai/pi/shared/exec-gateway";
+} from "@nseng-ai/pi/shared/command-exec";
 
 import type { TimeServices } from "@nseng-ai/foundation/time";
 import type {
@@ -59,7 +59,7 @@ export interface ExtensionAPI extends RawPiExecApi {
 	appendEntry?(customType: string, data?: unknown): void;
 }
 
-export type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
+export type { CommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 export type { RawPiExecOptions, RawPiExecResult };
 
 export interface PrFeedbackWatchExtensionOptions {

@@ -2,7 +2,7 @@ import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 import { isRecord, stringField } from "@nseng-ai/pi/runtime/primitives";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import {
 	buildHandoffLaunchPrompt,
 	buildHandoffLaunchTool,

@@ -20,7 +20,7 @@ import {
 	type SubagentRuntime,
 } from "@nseng-ai/ns-pi-subagents/api";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
 import { buildReviewerPrompt } from "./prompt.ts";
 import {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+import type { RawPiExecResult } from "@nseng-ai/pi/shared/command-exec";
 
 import prPreviewsExtension, {
 	PR_PREVIEW_CHECKS_COMMAND_NAME,

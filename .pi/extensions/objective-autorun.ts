@@ -32,7 +32,7 @@ import type {
 	RunnerSubagentUpdate,
 	SingleSubagentFleetRunTracking,
 } from "@nseng-ai/ns-pi-subagents/api";
-import type { RawPiExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import type { RawPiExecApi } from "@nseng-ai/pi/shared/command-exec";
 import {
 	formatZodError,
 	isRecord,
@@ -57,8 +57,8 @@ const {
 	"@nseng-ai/ns-pi-subagents/api",
 );
 const { createPiCommandExecApi } = await importTypeScriptWorkspaceModule<
-	typeof import("@nseng-ai/pi/shared/exec-gateway")
->("@nseng-ai/pi/shared/exec-gateway");
+	typeof import("@nseng-ai/pi/shared/command-exec")
+>("@nseng-ai/pi/shared/command-exec");
 
 const TOOL_NAME = "objective_runner_step";
 const WIDGET_KEY = "objective-runner-step";

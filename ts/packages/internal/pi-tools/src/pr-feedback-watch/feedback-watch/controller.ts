@@ -64,12 +64,12 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 	PrFeedbackWatchExtensionOptions,
-	ExecGateway,
+	CommandExecApi,
 } from "./types.ts";
 
 export class PrFeedbackWatchController {
 	private readonly pi: ExtensionAPI;
-	private readonly commands: ExecGateway;
+	private readonly commands: CommandExecApi;
 	private activeSession: ActiveSession | undefined;
 	private nextSessionId = 0;
 	private readonly clock: Clock;
@@ -97,7 +97,11 @@ export class PrFeedbackWatchController {
 	private lastHeavyFallbackAt = 0;
 	private runner: PrAddressRunner | undefined;
 
-	constructor(pi: ExtensionAPI, commands: ExecGateway, options: PrFeedbackWatchExtensionOptions) {
+	constructor(
+		pi: ExtensionAPI,
+		commands: CommandExecApi,
+		options: PrFeedbackWatchExtensionOptions,
+	) {
 		this.pi = pi;
 		this.commands = commands;
 		this.runner = options.runner;

@@ -1,10 +1,10 @@
 import { commandFailureReason } from "@nseng-ai/foundation/exec";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
-import type { ExecGateway } from "./exec-gateway.ts";
+import type { CommandExecApi } from "./command-exec.ts";
 
 export interface LoadGhCommandOptions {
-	pi: ExecGateway;
+	pi: CommandExecApi;
 	args: string[];
 	cwd: string;
 	timeoutMs: number;

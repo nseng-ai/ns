@@ -1,4 +1,4 @@
-import type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
+import type { CommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { z } from "zod";
 
 import { PrPreviewFeedbackView, type PrPreviewFeedbackViewModel } from "./preview-feedback-view.ts";
@@ -78,7 +78,7 @@ interface PrPreviewFeedbackCommandOptions {
 }
 
 interface PrPreviewFeedbackCommandRuntime extends PrPreviewFeedbackCommandOptions {
-	pi: ExecGateway;
+	pi: CommandExecApi;
 }
 
 interface RunPrPreviewFeedbackCommandOptions {
@@ -100,7 +100,7 @@ interface LoadPreviewReviewThreadsOptions {
 }
 
 export function createPrPreviewFeedbackCommand(
-	pi: ExecGateway,
+	pi: CommandExecApi,
 	options: PrPreviewFeedbackCommandOptions,
 ): {
 	description: string;

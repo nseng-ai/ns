@@ -1,5 +1,5 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { createPiHandoffGitGateway } from "./api-context.ts";
 import {
 	buildHandoffLaunchPrompt,
