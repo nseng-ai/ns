@@ -25,19 +25,24 @@ import {
 	type LandStackResult,
 } from "./stack/errors.ts";
 import { landCompletionFlags, parseLandFlagToken } from "./stack/flags.ts";
-import { buildLandingPlan } from "./stack/landing-plan.ts";
-import { presentLandStackFailure, type LandingSession } from "./stack/landing-coordination.ts";
+import { buildStackLandingPlan } from "./preflight.ts";
 import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
 import { landMatrixRowsFromPlan } from "./land-matrix-progress.ts";
 import { present, setStatus, usage } from "./land-presentation.ts";
-import { executeLandingPlan } from "./stack/landing-plan-execution.ts";
+import {
+	executeLandingPlan,
+	presentLandStackFailure,
+	type LandingSession,
+} from "./landing-execution.ts";
 import type {
+	LandProgressReporter,
 	LandStackCommandContext,
 	LandStackExtensionAPI,
 	LandedPr,
 	ParsedArgs,
 } from "./stack/types.ts";
 import type { LandingWarning } from "./types.ts";
+import type { StackLandingShape } from "./preflight.ts";
 
 export type { LandStackExtensionAPI } from "./stack/types.ts";
 
@@ -50,6 +55,7 @@ export interface ExecuteStackLandingOptions {
 	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
 	observabilityChannels?: FlowLandObservabilityChannels;
 	gitStateFs?: GitWorktreeStateFs;
+	shape?: StackLandingShape;
 }
 
 export function registerLandStackRenderer(
@@ -80,7 +86,11 @@ export async function executeStackLanding(
 		shouldShowRunningCommandStatus: ctx.hasUI,
 		...landCommandStreamObservabilityOptions(observabilityChannels),
 	});
-	const session: LandingSession = { ctx, commandStream, landed };
+	const progress: LandProgressReporter = {
+		note: (message) => commandStream.note(message),
+		setStatus: (message) => setStatus(ctx, message),
+	};
+	const session: LandingSession = { ctx, commandStream, progress, landed };
 	const runtime: StackLandingRuntime = createStackLandingRuntime(pi, commandStream, {
 		...optionalEntry("gitStateFs", options.gitStateFs),
 		...optionalEntry("graphite", options.graphite),
@@ -91,9 +101,10 @@ export async function executeStackLanding(
 			return completed();
 		}
 
-		setStatus(ctx, "preflighting...");
-		const plan = await buildLandingPlan(runtime.landContext, ctx.cwd, {
+		progress.setStatus("preflighting...");
+		const plan = await buildStackLandingPlan(runtime.landContext, ctx.cwd, {
 			shouldAllowSubmitRequiredState: true,
+			...optionalEntry("shape", options.shape),
 		});
 		if (plan.type === "failure") {
 			presentLandStackFailure({ session, failure: plan.failure });

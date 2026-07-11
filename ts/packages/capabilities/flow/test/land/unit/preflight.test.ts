@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { buildStackLandingPlan, executeLanding } from "@nseng-ai/flow/land/api";
+import {
+	buildStackLandingPlan,
+	executeLanding,
+	loadStackLandingShape,
+	type StackLandingShape,
+} from "@nseng-ai/flow/land/api";
 import {
 	createInMemoryLandContext,
 	pullRequestFacts,
@@ -13,6 +18,64 @@ const SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const SHA_PR_OLD = "1111111111111111111111111111111111111111";
 
 describe("@nseng-ai/flow land stack preflight planning", () => {
+	test("loads stack landing shape once through the public land API", async () => {
+		const { context, git, graphite } = createInMemoryLandContext({
+			git: {
+				repoRoot: ROOT,
+				currentBranch: "feature-a",
+				localBranches: [{ name: "feature-a", sha: SHA_A }],
+			},
+			graphite: {
+				stackShape: stackSnapshot({ current: "feature-a", landingBranches: ["feature-a"] }),
+			},
+		});
+
+		const shape = await loadStackLandingShape(context, "/repo/subdir");
+
+		expect(shape).toMatchObject({
+			type: "success",
+			value: {
+				repoRoot: ROOT,
+				current: "feature-a",
+				trunk: "main",
+				localBranches: [{ name: "feature-a", sha: SHA_A }],
+			},
+		});
+		expect(git.resolveRepoRootCalls).toEqual([{ cwd: "/repo/subdir" }]);
+		expect(git.currentBranchCalls).toEqual([{ repoRoot: ROOT }]);
+		expect(graphite.trunkCalls).toEqual([{ repoRoot: ROOT }]);
+		expect(graphite.metadataDbPathCalls).toEqual([{ repoRoot: ROOT }]);
+		expect(git.listLocalBranchesCalls).toEqual([{ repoRoot: ROOT }]);
+		expect(graphite.stackShapeCalls).toHaveLength(1);
+	});
+
+	test("builds from a supplied stack landing shape without reloading gateway facts", async () => {
+		const { context, git, graphite } = createInMemoryLandContext({
+			github: {
+				pullRequests: [pullRequestFacts({ headRefName: "feature-a", headRefOid: SHA_A })],
+			},
+		});
+		const shape: StackLandingShape = {
+			repoRoot: ROOT,
+			current: "feature-a",
+			trunk: "main",
+			metadataDbPath: "/repo/.git/graphite.db",
+			stack: stackSnapshot({ current: "feature-a", landingBranches: ["feature-a"] }),
+			localBranches: [{ name: "feature-a", sha: SHA_A }],
+		};
+
+		const plan = await buildStackLandingPlan(context, "/ignored", { shape });
+
+		expect(plan).toMatchObject({ type: "success", value: { repoRoot: ROOT } });
+		expect(git.resolveRepoRootCalls).toEqual([]);
+		expect(git.currentBranchCalls).toEqual([]);
+		expect(graphite.trunkCalls).toEqual([]);
+		expect(graphite.metadataDbPathCalls).toEqual([]);
+		expect(git.listLocalBranchesCalls).toEqual([]);
+		expect(graphite.stackShapeCalls).toEqual([]);
+		expect(git.workingTreeStatusCalls).toEqual([{ repoRoot: ROOT }]);
+	});
+
 	test("builds a renderer-independent dry-run outcome without merge mutations", async () => {
 		const { context, git, graphite } = createInMemoryLandContext({
 			git: {

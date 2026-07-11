@@ -7,11 +7,11 @@ import {
 	type LandStackOutcome,
 	type LandStackResult,
 } from "./stack/errors.ts";
-import { toLandStackFailure } from "./stack/landing-plan.ts";
 import { notifyPrintAware, presentFailureAndReturn, setStatus } from "./land-presentation.ts";
-import type { LandingShape, PrintAwareLandStackCommandContext } from "./stack/types.ts";
+import type { PrintAwareLandStackCommandContext } from "./stack/types.ts";
 import type {
 	LandGithubPrGateway,
+	LandingShape,
 	LandingFailure,
 	PullRequestFacts,
 	StackSnapshot,
@@ -171,7 +171,7 @@ function presentLandingFailure(
 	ctx: PrintAwareLandStackCommandContext,
 	landingFailure: LandingFailure,
 ): LandStackOutcome {
-	return presentFailureAndReturn(ctx, toLandStackFailure(landingFailure));
+	return presentFailureAndReturn(ctx, landingFailure);
 }
 
 function mergedVerificationFailure(options: {

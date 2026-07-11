@@ -1,8 +1,13 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
-import type { LandingWarning, StackSnapshot } from "../types.ts";
+import type { LandingWarning } from "../types.ts";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
+
+export interface LandProgressReporter {
+	readonly note: (message: string) => void;
+	readonly setStatus: (message: string) => void;
+}
 
 /**
  * Visual intent of a land result block (house-style §3/§4/§7.3). Distinct from `NotifyLevel`, which
@@ -110,14 +115,6 @@ export interface ParsedArgs {
 	shouldForceCleanup: boolean;
 	shouldShowHelp: boolean;
 	shouldStreamVerboseOutput: boolean;
-}
-
-export interface LandingShape {
-	repoRoot: string;
-	current: string;
-	trunk: string;
-	metadataDbPath: string;
-	stack: StackSnapshot;
 }
 
 export interface WorktreeEntry {

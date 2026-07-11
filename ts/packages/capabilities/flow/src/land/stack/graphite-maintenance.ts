@@ -3,15 +3,16 @@ import { shortSha } from "../../commit-display/index.ts";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/cli-prose-heuristics.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
 import { parseGitCheckedOutElsewhere } from "./graphite-command-channel.ts";
-import { landStackFailure, type LandStackFailure } from "./errors.ts";
-import { formatRestackFailureMessage, formatSubmitFailureMessage } from "../land-presentation.ts";
+import { landStackFailure, type LandFlowFailure } from "./errors.ts";
 import { validateOpenPrBasics } from "../api.ts";
 import type { LandContext, LandingPlan, PullRequestFacts } from "../api.ts";
 import { landingWarning, type LandingWarning } from "../types.ts";
-import type { MergeLoopState } from "./types.ts";
+import type { LandProgressReporter, MergeLoopState } from "./types.ts";
 import {
 	aggregateOptionalDescendantMaintenanceWarnings,
 	formatCheckedOutElsewhere,
+	formatRestackFailureMessage,
+	formatSubmitFailureMessage,
 	optionalDescendantRefreshDeferredWarning,
 	planGraphiteMaintenanceTargets,
 	refreshTargetsAfterMaintainedBranch,
@@ -23,10 +24,7 @@ import {
 	type MaintenanceTargetPlan,
 } from "./graphite-maintenance-plan.ts";
 
-export interface GraphiteMaintenanceProgress {
-	readonly note: (message: string) => void;
-	readonly setStatus: (message: string) => void;
-}
+export type GraphiteMaintenanceProgress = LandProgressReporter;
 
 interface GraphiteMaintenanceStep {
 	readonly index: number;
@@ -38,7 +36,7 @@ interface GraphiteMaintenanceStep {
 type GraphiteMaintenanceOutcome =
 	| { kind: "proceed" }
 	| { kind: "skip"; warning?: LandingWarning }
-	| { kind: "halt"; failure: LandStackFailure };
+	| { kind: "halt"; failure: LandFlowFailure };
 
 type GraphiteMaintenanceStop = Extract<GraphiteMaintenanceOutcome, { kind: "halt" | "skip" }>;
 type GraphiteMaintenanceHalt = Extract<GraphiteMaintenanceOutcome, { kind: "halt" }>;
@@ -56,7 +54,7 @@ interface MaintenanceStepRecorder {
 
 function failOrWarn(
 	severity: MaintenanceSeverity,
-	pair: { failure: LandStackFailure; warning: LandingWarning },
+	pair: { failure: LandFlowFailure; warning: LandingWarning },
 ): GraphiteMaintenanceStop {
 	if (severity === "fail") return { kind: "halt", failure: pair.failure };
 	return { kind: "skip", warning: pair.warning };
@@ -69,7 +67,7 @@ interface GraphiteRefreshFailureOptions {
 	got: ExecResult;
 }
 
-function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): LandStackFailure {
+function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): LandFlowFailure {
 	const { prNumber, maintenanceBranch, getCommandDisplay, got } = failureOptions;
 	const checkoutConflict = parseGitCheckedOutElsewhere(got);
 	if (checkoutConflict) {
@@ -629,7 +627,7 @@ interface LocalBranchDeletionFailurePairOptions {
 }
 
 function localBranchDeletionFailurePair(options: LocalBranchDeletionFailurePairOptions): {
-	failure: LandStackFailure;
+	failure: LandFlowFailure;
 	warning: LandingWarning;
 } {
 	const details = localBranchDeletionFailureDetails(options);

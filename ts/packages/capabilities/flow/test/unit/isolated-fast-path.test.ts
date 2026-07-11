@@ -3,15 +3,12 @@ import { describe, expect, test } from "vitest";
 import { runIsolatedFastPathLanding } from "../../src/land/isolated-fast-path.ts";
 import type {
 	LandGithubPrGateway,
+	LandingShape,
 	LandResult,
 	PullRequestFacts,
 	SquashMergePullRequestResult,
 } from "../../src/land/types.ts";
-import type {
-	LandingShape,
-	NotifyLevel,
-	PrintAwareLandStackCommandContext,
-} from "../../src/land/stack/types.ts";
+import type { NotifyLevel, PrintAwareLandStackCommandContext } from "../../src/land/stack/types.ts";
 
 const ROOT = "/repo";
 const TRUNK = "main";
@@ -134,9 +131,10 @@ describe("isolated fast-path landing", () => {
 		expect(result.outcome).toEqual({
 			type: "failure",
 			failure: expect.objectContaining({
+				type: "boundary",
 				message: "Merge rejected.",
-				commandDisplay: "gh pr merge 101 --body '<PR body>'",
-				result: {
+				displayCommand: "gh pr merge 101 --body '<PR body>'",
+				execResult: {
 					stdout: "",
 					stderr: "merge rejected\n",
 					code: 1,

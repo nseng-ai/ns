@@ -1,4 +1,5 @@
 import { collectSubmitRestackRequirements } from "../api.ts";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type {
 	LandContext,
 	LandingFailure,
@@ -7,11 +8,7 @@ import type {
 	RestackRequirement,
 } from "../api.ts";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";
-import {
-	confirmPreMergeMaintenance,
-	optionalField,
-	type PreMergeConfirmation,
-} from "./pre-merge-confirmation.ts";
+import { confirmPreMergeMaintenance, type PreMergeConfirmation } from "./pre-merge-confirmation.ts";
 import {
 	formatGraphiteOperation,
 	formatSubmitUpdateCommandLines,
@@ -19,21 +16,20 @@ import {
 	restackTargetForSubmit,
 	submitUpdateOperation,
 } from "./graphite-command-channel.ts";
-import { formatPrSubmitRequirement, toLandStackFailure } from "./landing-plan.ts";
-import { setStatus } from "../land-presentation.ts";
-import type { LandStackCommandContext } from "./types.ts";
+import type { LandProgressReporter, LandStackCommandContext } from "./types.ts";
 
 export interface PreMergeSubmitMaintenanceOptions {
 	readonly ctx: LandStackCommandContext;
 	readonly plan: LandingPlan;
 	readonly landContext: LandContext;
+	readonly progress: LandProgressReporter;
 	readonly confirmation?: PreMergeConfirmation;
 }
 
 export async function confirmAndSubmitRequiredPrUpdates(
 	options: PreMergeSubmitMaintenanceOptions,
 ): Promise<LandStackOutcome> {
-	const { ctx, landContext, plan } = options;
+	const { ctx, landContext, progress, plan } = options;
 	const submitOperation = submitUpdateOperation({ branch: plan.stack.landingTargetBranch });
 	const restackTarget = restackTargetForSubmit(plan);
 	const details = formatSubmitUpdateDetails(plan);
@@ -43,7 +39,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 
 	const confirmationOutcome = await confirmPreMergeMaintenance({
 		ctx,
-		...optionalField("confirmation", options.confirmation),
+		...optionalEntry("confirmation", options.confirmation),
 		title: restackTarget ? "Run gt restack + submit/update?" : "Run gt submit/update?",
 		details,
 		nonInteractiveMessage: [
@@ -62,7 +58,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			branch: restackTarget,
 			scope: "upstack",
 		});
-		setStatus(ctx, `restacking ${restackTarget}...`);
+		progress.setStatus(`restacking ${restackTarget}...`);
 		const restacked = await landContext.graphite.prepareRestackForSubmit({
 			repoRoot: plan.repoRoot,
 			branch: restackTarget,
@@ -75,14 +71,14 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			);
 		}
 
-		setStatus(ctx, "verifying restack...");
+		progress.setStatus("verifying restack...");
 		const remainingRestack = await collectSubmitRestackRequirements(
 			landContext,
 			plan.repoRoot,
 			plan.stack,
 		);
 		if (remainingRestack.type === "failure") {
-			return failure(toLandStackFailure(remainingRestack.failure));
+			return failure(remainingRestack.failure);
 		}
 		if (remainingRestack.value.length > 0) {
 			return failure(
@@ -94,7 +90,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		}
 	}
 
-	setStatus(ctx, `submitting ${plan.stack.landingTargetBranch}...`);
+	progress.setStatus(`submitting ${plan.stack.landingTargetBranch}...`);
 	const result = await landContext.graphite.prepareSubmitUpdate({
 		repoRoot: plan.repoRoot,
 		branch: plan.stack.landingTargetBranch,
@@ -116,6 +112,12 @@ function preMergeGraphiteFailure(
 	return landStackFailure(landFailureValue.message, {
 		suggestedAction: options.suggestedAction,
 	});
+}
+
+export function formatPrSubmitRequirement(
+	requirement: Pick<PrSubmitRequirement, "branch" | "prNumber" | "reasons">,
+): string {
+	return `- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`;
 }
 
 export function formatSubmitUpdateDetails(plan: LandingPlan): string {

@@ -1,14 +1,15 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	completed,
 	failure,
 	landStackFailure,
-	type LandStackFailure,
+	type LandFlowFailure,
 	type LandStackFailureOptions,
 	type LandStackOutcome,
 } from "./errors.ts";
 import type { LandingPlan } from "../types.ts";
 import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
-import type { LandStackCommandContext } from "./types.ts";
+import type { LandProgressReporter, LandStackCommandContext } from "./types.ts";
 
 const LANDING_CANCELLED_MESSAGE = "Cancelled before merge; no PRs were landed.";
 
@@ -17,12 +18,9 @@ export type PreMergeConfirmation = "prompt" | "already-approved";
 export interface PreMergeMaintenanceOptions {
 	runtime: StackLandingRuntime;
 	ctx: LandStackCommandContext;
+	progress: LandProgressReporter;
 	plan: LandingPlan;
 	confirmation?: PreMergeConfirmation;
-}
-
-export function optionalField<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
-	return value === undefined ? {} : ({ [key]: value } as { [P in K]: V });
 }
 
 interface ConfirmLandStackActionOptions {
@@ -36,7 +34,7 @@ interface ConfirmLandStackActionOptions {
 	cancellationFailureOptions?: LandStackFailureOptions;
 	renderDetails?: (details: string) => string;
 	defaultAnswer?: "yes" | "no";
-	onFailure?: (landFailure: LandStackFailure) => void;
+	onFailure?: (landFailure: LandFlowFailure) => void;
 }
 
 export async function confirmLandStackAction(
@@ -58,7 +56,7 @@ export async function confirmLandStackAction(
 	const confirmOptions =
 		options.defaultAnswer === undefined
 			? undefined
-			: optionalField("defaultAnswer", options.defaultAnswer);
+			: optionalEntry("defaultAnswer", options.defaultAnswer);
 	const confirmed = await options.ctx.ui.confirm(options.title, details, confirmOptions);
 	if (confirmed) return completed();
 
@@ -95,6 +93,6 @@ export async function confirmPreMergeMaintenance(
 		title: options.title,
 		details: options.details,
 		nonInteractiveMessage: options.nonInteractiveMessage,
-		...optionalField("nonInteractiveFailureOptions", options.nonInteractiveFailureOptions),
+		...optionalEntry("nonInteractiveFailureOptions", options.nonInteractiveFailureOptions),
 	});
 }

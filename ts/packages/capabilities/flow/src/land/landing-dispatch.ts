@@ -8,9 +8,7 @@ import {
 	presentFailureAndReturn,
 	renderPlainLandConfirmationDetails,
 } from "./land-presentation.ts";
-import { loadLandingShape } from "./stack/stack-facts.ts";
 import type {
-	LandingShape,
 	LandConfirmationPreview,
 	ParsedArgs,
 	PrintAwareLandStackCommandContext,
@@ -19,7 +17,7 @@ import {
 	confirmLandStackAction,
 	type PreMergeConfirmation,
 } from "./stack/pre-merge-confirmation.ts";
-import type { LandContext } from "./api.ts";
+import { loadStackLandingShape, type LandContext, type LandingShape } from "./api.ts";
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
 import {
 	planPostLandingSlotCleanup,
@@ -41,9 +39,7 @@ export async function runLandingDispatch(
 ): Promise<LandStackOutcome> {
 	const { runtime } = options;
 	const { observabilityChannels } = options;
-	const shape = await loadLandingShape(runtime.commands, options.ctx.cwd, {
-		graphite: runtime.graphite,
-	});
+	const shape = await loadStackLandingShape(runtime.landContext, options.ctx.cwd);
 	if (shape.type === "failure") {
 		return presentFailureAndReturn(options.ctx, shape.failure);
 	}
@@ -121,6 +117,7 @@ export async function runLandingDispatch(
 			? {}
 			: { preMergeConfirmation: "already-approved" }),
 		observabilityChannels,
+		shape: shape.value,
 	});
 	return await finishAfterLanding(outcome, {
 		ctx: options.ctx,

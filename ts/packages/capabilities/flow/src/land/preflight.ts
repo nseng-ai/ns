@@ -28,9 +28,10 @@ import type {
 export interface BuildStackLandingPlanOptions {
 	readonly shouldAllowSubmitRequiredState?: boolean;
 	readonly landingBranchLimit?: number;
+	readonly shape?: StackLandingShape;
 }
 
-interface LoadedLandingShape extends LandingShape {
+export interface StackLandingShape extends LandingShape {
 	readonly localBranches: readonly LocalBranchTip[];
 }
 
@@ -39,10 +40,14 @@ export async function buildStackLandingPlan(
 	cwd: string,
 	options: BuildStackLandingPlanOptions = {},
 ): Promise<LandResult<LandingPlan>> {
-	const shape = await loadLandingShape(context, cwd);
-	if (shape.type === "failure") return shape;
+	const loadedShape =
+		options.shape === undefined
+			? await loadStackLandingShape(context, cwd)
+			: landSuccess(options.shape);
+	if (loadedShape.type === "failure") return loadedShape;
+	const shape = loadedShape.value;
 
-	const stack = scopeStackSnapshot(shape.value.stack, options.landingBranchLimit);
+	const stack = scopeStackSnapshot(shape.stack, options.landingBranchLimit);
 	if (stack.actualCurrentBranch === stack.trunk || stack.landingBranches.length === 0) {
 		return landFailure(
 			domainFailure({
@@ -53,15 +58,13 @@ export async function buildStackLandingPlan(
 		);
 	}
 
-	const cleanRepo = await assertCleanRepo(context, shape.value.repoRoot);
+	const cleanRepo = await assertCleanRepo(context, shape.repoRoot);
 	if (cleanRepo.type === "failure") return cleanRepo;
 
-	const localBranchShas = new Map(
-		shape.value.localBranches.map((branch) => [branch.name, branch.sha]),
-	);
+	const localBranchShas = new Map(shape.localBranches.map((branch) => [branch.name, branch.sha]));
 	const branchPlans = await loadBranchPlans(
 		context,
-		shape.value.repoRoot,
+		shape.repoRoot,
 		stack.landingBranches,
 		localBranchShas,
 	);
@@ -75,7 +78,7 @@ export async function buildStackLandingPlan(
 
 	const landingConflicts = await detectWorktreeConflicts({
 		context,
-		repoRoot: shape.value.repoRoot,
+		repoRoot: shape.repoRoot,
 		currentBranch: stack.actualCurrentBranch,
 		relevantBranches: stack.landingBranches,
 	});
@@ -102,7 +105,7 @@ export async function buildStackLandingPlan(
 			? landSuccess([])
 			: await detectWorktreeConflicts({
 					context,
-					repoRoot: shape.value.repoRoot,
+					repoRoot: shape.repoRoot,
 					currentBranch: stack.actualCurrentBranch,
 					relevantBranches: descendantBranches,
 				});
@@ -111,7 +114,7 @@ export async function buildStackLandingPlan(
 	const submitRestackRequirements =
 		prSubmitRequirements.length === 0
 			? landSuccess([])
-			: await collectSubmitRestackRequirements(context, shape.value.repoRoot, stack);
+			: await collectSubmitRestackRequirements(context, shape.repoRoot, stack);
 	if (submitRestackRequirements.type === "failure") return submitRestackRequirements;
 
 	const preflightWarnings = [...stack.warnings];
@@ -121,8 +124,8 @@ export async function buildStackLandingPlan(
 		stack.descendantRootBranches,
 	);
 	return landSuccess({
-		repoRoot: shape.value.repoRoot,
-		metadataDbPath: shape.value.metadataDbPath,
+		repoRoot: shape.repoRoot,
+		metadataDbPath: shape.metadataDbPath,
 		stack,
 		branchPlans: branchPlans.value,
 		preflight: {
@@ -210,10 +213,10 @@ export function scopeStackSnapshot(
 	};
 }
 
-async function loadLandingShape(
+export async function loadStackLandingShape(
 	context: LandContext,
 	cwd: string,
-): Promise<LandResult<LoadedLandingShape>> {
+): Promise<LandResult<StackLandingShape>> {
 	const repoRoot = await context.git.resolveRepoRoot({ cwd });
 	if (repoRoot.type === "failure") return repoRoot;
 	const current = await context.git.currentBranch({ repoRoot: repoRoot.value });

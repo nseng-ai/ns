@@ -5,14 +5,20 @@ import {
 } from "./stack/graphite-command-channel.ts";
 import {
 	completed,
+	landFlowFailureFacts,
 	landStackFailure,
 	success,
 	type LandStackOutcome,
 	type LandStackResult,
 } from "./stack/errors.ts";
 import { notifyPrintAware, presentFailureAndReturn, setStatus } from "./land-presentation.ts";
-import { boundaryFailureDiagnostics, type LandContext, type ManagedSlotWorktree } from "./api.ts";
-import type { LandingShape, PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
+import {
+	boundaryFailureDiagnostics,
+	type LandContext,
+	type LandingShape,
+	type ManagedSlotWorktree,
+} from "./api.ts";
+import type { PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
 import {
 	confirmLandStackAction,
 	type PreMergeConfirmation,
@@ -121,8 +127,9 @@ export async function resolvePostLandingSlotCleanupDecision({
 		defaultAnswer: "yes",
 	});
 	if (confirmationOutcome.type === "success") return success({ type: "approved" });
-	if (confirmationOutcome.failure.refusalReason === "declined")
+	if (landFlowFailureFacts(confirmationOutcome.failure).refusalReason === "declined") {
 		return success({ type: "declined" });
+	}
 
 	return presentFailureAndReturn(ctx, confirmationOutcome.failure);
 }
