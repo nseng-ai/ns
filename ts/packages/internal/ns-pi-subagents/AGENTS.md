@@ -1,4 +1,4 @@
-# @nseng-ai/ns-pi-subagents Agent Notes
+# @internal/ns-pi-subagents Agent Notes
 
 Repo-wide and `ts/AGENTS.md` rules apply. Read [AUTHORING.md](./AUTHORING.md) before changing the author interface.
 
@@ -16,7 +16,7 @@ Do not reintroduce `explore` or `forked_pi_agent` compatibility tools, per-agent
 
 ## Public surface
 
-New consumers use `@nseng-ai/ns-pi-subagents/api`. Preserve `SubagentRuntime.dispatch`, `createSubprocessSubagentRuntime()`, and lower-level terminal/final-text behavior for direct consumers. The production in-process adapter supports final text only, disables extension recursion, retains skills/context discovery, and preserves persistent session evidence.
+New consumers use `@internal/ns-pi-subagents/api`. Preserve `SubagentRuntime.dispatch`, `createSubprocessSubagentRuntime()`, and lower-level terminal/final-text behavior for direct consumers. The production in-process adapter supports final text only, disables extension recursion, retains skills/context discovery, and preserves persistent session evidence.
 
 ## Validation
 

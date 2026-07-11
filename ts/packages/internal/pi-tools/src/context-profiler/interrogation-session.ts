@@ -8,7 +8,7 @@
  */
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
-import { READ_ONLY_SUBAGENT_TOOLS } from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import { READ_ONLY_SUBAGENT_TOOLS } from "@internal/ns-pi-subagents/runner-subagents";
 import {
 	createPiSideSessionFactory,
 	type CreateSideSessionResult,

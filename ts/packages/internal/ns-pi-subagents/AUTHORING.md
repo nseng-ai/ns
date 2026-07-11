@@ -60,6 +60,6 @@ Cover descriptor validation and healthy-entry degradation; generated schema/cata
 Run:
 
 ```bash
-pnpm --dir ts --filter @nseng-ai/ns-pi-subagents test
-pnpm --dir ts --filter @nseng-ai/ns-pi-subagents check
+pnpm --dir ts --filter @internal/ns-pi-subagents test
+pnpm --dir ts --filter @internal/ns-pi-subagents check
 ```

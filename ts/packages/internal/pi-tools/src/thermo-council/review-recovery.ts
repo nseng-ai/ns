@@ -16,7 +16,7 @@ import {
 	type RunnerSubagentResult,
 	type SubagentFleetRegistry,
 	type SubagentRuntime,
-} from "@nseng-ai/ns-pi-subagents/api";
+} from "@internal/ns-pi-subagents/api";
 import { parseLmJson } from "@nseng-ai/pi/models/lm-json";
 
 import {

@@ -1,4 +1,4 @@
-# @nseng-ai/ns-pi-subagents
+# @internal/ns-pi-subagents
 
 Pi extension package for typed subagent delegation and session-local fleet visibility.
 
@@ -59,16 +59,16 @@ See [AUTHORING.md](./AUTHORING.md) for the complete procedure.
 
 ## Public surfaces
 
-- `@nseng-ai/ns-pi-subagents/extension` — production Pi extension.
-- `@nseng-ai/ns-pi-subagents/api` — curated agent/runtime/fleet authoring contracts.
-- `@nseng-ai/ns-pi-subagents/runner-subagents` — lower-level process, JSON protocol, terminal capture, and final-text substrate for existing direct consumers.
-- `@nseng-ai/ns-pi-subagents/runner-subagents/testing` — lower-level test helpers.
+- `@internal/ns-pi-subagents/extension` — production Pi extension.
+- `@internal/ns-pi-subagents/api` — curated agent/runtime/fleet authoring contracts.
+- `@internal/ns-pi-subagents/runner-subagents` — lower-level process, JSON protocol, terminal capture, and final-text substrate for existing direct consumers.
+- `@internal/ns-pi-subagents/runner-subagents/testing` — lower-level test helpers.
 
 `SubagentRuntime.dispatch` and `createSubprocessSubagentRuntime()` remain source-compatible for direct consumers such as terminal-capture councils. `RunnerSubagent*` is valid substrate vocabulary; it is not the retired `runner` agent type.
 
 ## Validation
 
 ```bash
-pnpm --dir ts --filter @nseng-ai/ns-pi-subagents test
-pnpm --dir ts --filter @nseng-ai/ns-pi-subagents check
+pnpm --dir ts --filter @internal/ns-pi-subagents test
+pnpm --dir ts --filter @internal/ns-pi-subagents check
 ```

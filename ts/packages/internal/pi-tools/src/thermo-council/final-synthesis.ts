@@ -3,7 +3,7 @@ import {
 	resultDiagnostic,
 	type RunnerSubagentResult,
 	type SubagentFleetRegistry,
-} from "@nseng-ai/ns-pi-subagents/api";
+} from "@internal/ns-pi-subagents/api";
 import {
 	SAFETY_NOTE,
 	type ThermoCouncilReviewerOutcome,

@@ -715,7 +715,7 @@ describe("TypeScript style guard internal-space admission rules", () => {
 describe("TypeScript style guard package tier layering rules", () => {
 	const syntheticPackages = new Set([
 		"@internal/pi-tools/grill",
-		"@nseng-ai/ns-pi-subagents/runner-subagents",
+		"@internal/ns-pi-subagents/runner-subagents",
 		"@nseng-ai/areg",
 		"@nseng-ai/ccc",
 		"@nseng-ai/capability-kit",
@@ -729,7 +729,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 	]);
 	const baseTiers = new Map<string, SyntheticTier>([
 		["@internal/pi-tools/grill", "internal-pi-tool"],
-		["@nseng-ai/ns-pi-subagents/runner-subagents", "internal-pi-tool"],
+		["@internal/ns-pi-subagents/runner-subagents", "internal-pi-tool"],
 		["@nseng-ai/areg", "standalone-tool"],
 		["@nseng-ai/ccc", "capability"],
 		["@nseng-ai/capability-kit", "capability-kit"],
@@ -815,7 +815,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		{
 			name: "internal pi tool to internal pi tool is allowed",
 			edges: [
-				{ from: "@internal/pi-tools/grill", to: "@nseng-ai/ns-pi-subagents/runner-subagents" },
+				{ from: "@internal/pi-tools/grill", to: "@internal/ns-pi-subagents/runner-subagents" },
 			],
 			expectedViolation: false,
 		},
@@ -831,10 +831,10 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "internal tool to capability is allowed",
-			edges: [{ from: "@nseng-ai/ns-pi-subagents/runner-subagents", to: "@nseng-ai/handoffs" }],
+			edges: [{ from: "@internal/ns-pi-subagents/runner-subagents", to: "@nseng-ai/handoffs" }],
 			tiers: new Map([
 				...baseTiers,
-				["@nseng-ai/ns-pi-subagents/runner-subagents", "internal-tool"],
+				["@internal/ns-pi-subagents/runner-subagents", "internal-tool"],
 			]),
 			expectedViolation: false,
 		},
@@ -842,13 +842,13 @@ describe("TypeScript style guard package tier layering rules", () => {
 			name: "internal tool to capability kit is deliberately allowed by rank policy",
 			edges: [
 				{
-					from: "@nseng-ai/ns-pi-subagents/runner-subagents",
+					from: "@internal/ns-pi-subagents/runner-subagents",
 					to: "@nseng-ai/capability-kit",
 				},
 			],
 			tiers: new Map([
 				...baseTiers,
-				["@nseng-ai/ns-pi-subagents/runner-subagents", "internal-tool"],
+				["@internal/ns-pi-subagents/runner-subagents", "internal-tool"],
 			]),
 			expectedViolation: false,
 		},

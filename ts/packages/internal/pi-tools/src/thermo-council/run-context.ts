@@ -1,4 +1,4 @@
-import type { SubagentRuntime } from "@nseng-ai/ns-pi-subagents/api";
+import type { SubagentRuntime } from "@internal/ns-pi-subagents/api";
 
 import type { ThermoCouncilScope } from "./contract.ts";
 import type { ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./host-api.ts";

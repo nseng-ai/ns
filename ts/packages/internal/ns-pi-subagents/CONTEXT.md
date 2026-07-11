@@ -1,4 +1,4 @@
-# @nseng-ai/ns-pi-subagents
+# @internal/ns-pi-subagents
 
 This package owns Pi's model-visible subagent delegation interface and session-local fleet visibility. Lower-level runner-subagent process and protocol vocabulary remains valid substrate beneath that interface.
 

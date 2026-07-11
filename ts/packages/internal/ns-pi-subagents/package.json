@@ -1,5 +1,5 @@
 {
-	"name": "@nseng-ai/ns-pi-subagents",
+	"name": "@internal/ns-pi-subagents",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
@@ -16,7 +16,7 @@
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
-		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/extensions/ns-pi-subagents/test"
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/internal/ns-pi-subagents/test"
 	},
 	"dependencies": {
 		"@earendil-works/pi-ai": "catalog:",

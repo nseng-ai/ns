@@ -3,7 +3,7 @@ import type {
 	RunnerSubagentContext,
 	RunnerSubagentPi,
 	SubagentFleetDisplayContext,
-} from "@nseng-ai/ns-pi-subagents/api";
+} from "@internal/ns-pi-subagents/api";
 import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
 import type {
 	RawPiExecApi,

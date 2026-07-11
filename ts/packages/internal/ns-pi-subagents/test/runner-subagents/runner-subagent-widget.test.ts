@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { RunnerSubagentUpdate } from "@nseng-ai/ns-pi-subagents/runner-subagents";
+import type { RunnerSubagentUpdate } from "@internal/ns-pi-subagents/runner-subagents";
 import {
 	formatRunnerSubagentActivityWidgetLines,
 	setRunnerSubagentWidget,

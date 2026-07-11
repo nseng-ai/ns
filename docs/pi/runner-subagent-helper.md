@@ -4,7 +4,7 @@ This document describes the lower-level runner-subagent substrate and its relati
 
 ## Two interfaces
 
-`@nseng-ai/ns-pi-subagents/extension` registers one model-visible tool named `subagent`. It selects an Agent Type (`explorer` or `task`) independently from an Execution Architecture (`subprocess`, `in-process`, or automatic descriptor preference). Both built-ins request final assistant text and expose bounded results plus session evidence.
+`@internal/ns-pi-subagents/extension` registers one model-visible tool named `subagent`. It selects an Agent Type (`explorer` or `task`) independently from an Execution Architecture (`subprocess`, `in-process`, or automatic descriptor preference). Both built-ins request final assistant text and expose bounded results plus session evidence.
 
 Direct extension consumers may instead call `dispatchRunnerSubagent(pi, ctx, options)` or use `createSubprocessSubagentRuntime()`. These lower-level `RunnerSubagent*` APIs remain valid substrate vocabulary and support both final-text and terminal-capture modes. They are not aliases for the retired `runner` agent type.
 
