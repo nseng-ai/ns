@@ -671,6 +671,113 @@ describe("grill_ask execution", () => {
 		expect(text(result)).toContain("User provided a freeform answer: Use an even smaller spike.");
 	});
 
+	test("first-class side-quest row asks for a topic and starts the quest", async () => {
+		const started: unknown[] = [];
+		const result = await executeGrillAsk(
+			baseInput(),
+			{
+				hasUI: true,
+				ui: {
+					select: async (_title, options) =>
+						options.find((option) => option.includes("Start a side quest")),
+					editor: async (title) => {
+						expect(title).toBe("Side quest topic");
+						return " cache dependencies ";
+					},
+				},
+			},
+			{ toolCallId: "call-7", onSideQuestStarted: (info) => started.push(info) },
+		);
+
+		expect(result.details).toEqual({
+			action: "side-quest",
+			question: "How should we ship this UI improvement?",
+			topic: "cache dependencies",
+		});
+		expect(started).toEqual([
+			{
+				toolCallId: "call-7",
+				question: "How should we ship this UI improvement?",
+				topic: "cache dependencies",
+			},
+		]);
+	});
+
+	test("freeform sq: sentinel routes to a side-quest result instead of an answer", async () => {
+		const result = await executeGrillAsk(
+			baseInput(),
+			{
+				hasUI: true,
+				ui: {
+					select: async (_title, options) => options.find((option) => option.includes("Other")),
+					editor: async () => "sq: what does the cache depend on?",
+				},
+			},
+			{ toolCallId: "call-7" },
+		);
+
+		expect(result.details).toEqual({
+			action: "side-quest",
+			question: "How should we ship this UI improvement?",
+			topic: "what does the cache depend on?",
+		});
+		expect(text(result)).toContain("Side quest started");
+		expect(text(result)).toContain("NOT an answer");
+	});
+
+	test("inline UI freeform sq: sentinel routes to a side-quest result", async () => {
+		const result = await executeGrillAsk(
+			baseInput(),
+			{
+				hasUI: true,
+				ui: {
+					custom: async () => {
+						throw new Error("inline UI runner test should not invoke fake custom directly");
+					},
+				},
+			},
+			{ uiRunner: async () => ({ action: "freeform", answer: "sidequest: explore the tree API" }) },
+		);
+
+		expect(result.details).toEqual({
+			action: "side-quest",
+			question: "How should we ship this UI improvement?",
+			topic: "explore the tree API",
+		});
+	});
+
+	test("freeform sq: sentinel is refused while a side quest is already active", async () => {
+		const result = await executeGrillAsk(baseInput(), {
+			hasUI: true,
+			ui: {
+				select: async (_title, options) => options.find((option) => option.includes("Other")),
+				editor: async () => "sq: another tangent",
+			},
+			sessionManager: {
+				getBranch: () => [
+					userMessage("<structured-grill-question-ui-contract>"),
+					{
+						type: "message",
+						id: "mark",
+						message: {
+							role: "toolResult",
+							toolName: GRILL_ASK_TOOL_NAME,
+							toolCallId: "call-1",
+							details: { action: "side-quest", question: "Q?", topic: "first tangent" },
+						},
+					},
+				],
+			},
+		});
+
+		expect(result.details).toEqual({
+			action: "side-quest-refused",
+			question: "How should we ship this UI improvement?",
+			topic: "another tangent",
+		});
+		expect(text(result)).toContain("already active");
+	});
+
 	test("status path returns action status-request and re-ask instruction", async () => {
 		const result = await executeGrillAsk(baseInput(), {
 			hasUI: true,

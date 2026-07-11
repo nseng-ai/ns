@@ -1,6 +1,6 @@
 import { clamp } from "@nseng-ai/pi/terminal/layout";
 
-import type { NormalizedGrillAskInput } from "./protocol.ts";
+import type { GrillAskViewOptions, NormalizedGrillAskInput } from "./protocol.ts";
 import {
 	buildGrillAskRows,
 	defaultGrillAskRowIndex,
@@ -12,6 +12,7 @@ import {
 export type GrillAskOutcome =
 	| { action: "choice"; entry: GrillAskChoiceRow }
 	| { action: "freeform"; answer: string }
+	| { action: "side-quest"; topic: string }
 	| { action: "status-request" }
 	| { action: "end-grill" }
 	| { action: "cancelled" };
@@ -23,9 +24,9 @@ export class GrillAskController {
 	private currentMode: GrillAskMode = "choices";
 	private currentFocusIndex: number;
 
-	constructor(input: NormalizedGrillAskInput) {
+	constructor(input: NormalizedGrillAskInput, viewOptions: GrillAskViewOptions = {}) {
 		this.input = input;
-		this.rows = buildGrillAskRows(input);
+		this.rows = buildGrillAskRows(input, viewOptions);
 		this.currentFocusIndex = defaultGrillAskRowIndex(input, this.rows);
 	}
 
@@ -63,7 +64,7 @@ export class GrillAskController {
 		this.currentMode = "freeform";
 	}
 
-	closeFreeform(): void {
+	closeEditor(): void {
 		this.currentMode = "choices";
 	}
 
@@ -74,6 +75,9 @@ export class GrillAskController {
 				return { action: "choice", entry: row };
 			case "freeform":
 				this.currentMode = "freeform";
+				return undefined;
+			case "side-quest":
+				this.currentMode = "side-quest";
 				return undefined;
 			case "status":
 				return { action: "status-request" };
@@ -86,15 +90,17 @@ export class GrillAskController {
 		}
 	}
 
-	submitFreeform(answer: string): GrillAskOutcome | undefined {
-		const trimmed = answer.trim();
+	submitEditor(value: string): GrillAskOutcome | undefined {
+		const trimmed = value.trim();
 		if (trimmed.length === 0) return undefined;
-		return { action: "freeform", answer: trimmed };
+		if (this.currentMode === "side-quest") return { action: "side-quest", topic: trimmed };
+		if (this.currentMode === "freeform") return { action: "freeform", answer: trimmed };
+		return undefined;
 	}
 
 	escape(): GrillAskOutcome | undefined {
-		if (this.currentMode === "freeform") {
-			this.closeFreeform();
+		if (this.currentMode !== "choices") {
+			this.closeEditor();
 			return undefined;
 		}
 		return { action: "cancelled" };

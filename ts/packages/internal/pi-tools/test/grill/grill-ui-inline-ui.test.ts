@@ -89,6 +89,25 @@ describe("grill_ask view helpers", () => {
 		expect(defaultGrillAskRowIndex(input, rows)).toBe(1);
 	});
 
+	test("adds a first-class side-quest row when the host supports mark and return", () => {
+		const rows = buildGrillAskRows(normalizedInput(), { canStartSideQuest: true });
+
+		expect(rows.map((row) => row.kind)).toEqual([
+			"choice",
+			"choice",
+			"freeform",
+			"side-quest",
+			"status",
+			"end-grill",
+		]);
+		const sideQuestRow = rows[3];
+		expect(sideQuestRow).toBeDefined();
+		if (sideQuestRow === undefined) throw new Error("Missing side-quest row");
+		expect(rowValue(sideQuestRow)).toBe("__side-quest__");
+		expect(rowLabel(sideQuestRow)).toBe("4. Start a side quest");
+		expect(rowSelectDisplay(sideQuestRow)).toBe("4. ⚑ Start a side quest");
+	});
+
 	test("always includes status when freeform and end are disabled", () => {
 		const rows = buildGrillAskRows(normalizedInput({ allowFreeform: false, allowEnd: false }));
 
@@ -111,16 +130,27 @@ describe("GrillAskController", () => {
 		expect(controller.submitFocused()).toEqual({ action: "end-grill" });
 	});
 
-	test("freeform escape returns to choices and empty submit stays open", () => {
+	test("editors escape to choices and empty submit stays open", () => {
 		const controller = new GrillAskController(normalizedInput());
 
 		controller.setFocus(2);
 		expect(controller.submitFocused()).toBeUndefined();
 		expect(controller.mode).toBe("freeform");
-		expect(controller.submitFreeform("   ")).toBeUndefined();
+		expect(controller.submitEditor("   ")).toBeUndefined();
 		expect(controller.escape()).toBeUndefined();
 		expect(controller.mode).toBe("choices");
 		expect(controller.escape()).toEqual({ action: "cancelled" });
+
+		const sideQuestController = new GrillAskController(normalizedInput(), {
+			canStartSideQuest: true,
+		});
+		sideQuestController.setFocus(3);
+		expect(sideQuestController.submitFocused()).toBeUndefined();
+		expect(sideQuestController.mode).toBe("side-quest");
+		expect(sideQuestController.submitEditor(" cache dependencies ")).toEqual({
+			action: "side-quest",
+			topic: "cache dependencies",
+		});
 	});
 });
 
@@ -510,7 +540,7 @@ describe("grill_ask inline UI component", () => {
 		]);
 	});
 
-	test("numbered exceptional rows open freeform, status, and end grilling", () => {
+	test("numbered exceptional rows open freeform, side quest, status, and end grilling", () => {
 		const freeformDoneValues: unknown[] = [];
 		const freeformComponent = createGrillAskInlineComponent(
 			normalizedInput(),
@@ -527,6 +557,22 @@ describe("grill_ask inline UI component", () => {
 
 		expect(freeformDoneValues).toEqual([{ action: "freeform", answer: "Ok" }]);
 
+		const sideQuestDoneValues: unknown[] = [];
+		const sideQuestComponent = createGrillAskInlineComponent(
+			normalizedInput(),
+			fakeRuntime(),
+			fakeTui(),
+			{},
+			(outcome) => sideQuestDoneValues.push(outcome),
+			undefined,
+			{ canStartSideQuest: true },
+		);
+		sideQuestComponent.handleInput?.("4");
+		sideQuestComponent.handleInput?.("C");
+		sideQuestComponent.handleInput?.("enter");
+
+		expect(sideQuestDoneValues).toEqual([{ action: "side-quest", topic: "C" }]);
+
 		const statusDoneValues: unknown[] = [];
 		const statusComponent = createGrillAskInlineComponent(
 			normalizedInput(),
@@ -534,8 +580,10 @@ describe("grill_ask inline UI component", () => {
 			fakeTui(),
 			{},
 			(outcome) => statusDoneValues.push(outcome),
+			undefined,
+			{ canStartSideQuest: true },
 		);
-		statusComponent.handleInput?.("4");
+		statusComponent.handleInput?.("5");
 
 		expect(statusDoneValues).toEqual([{ action: "status-request" }]);
 
@@ -546,8 +594,10 @@ describe("grill_ask inline UI component", () => {
 			fakeTui(),
 			{},
 			(outcome) => endDoneValues.push(outcome),
+			undefined,
+			{ canStartSideQuest: true },
 		);
-		endComponent.handleInput?.("5");
+		endComponent.handleInput?.("6");
 
 		expect(endDoneValues).toEqual([{ action: "end-grill" }]);
 	});

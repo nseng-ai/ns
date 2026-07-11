@@ -2,6 +2,7 @@ import { GRILL_UI_SKILL_NAME, GRILL_WITH_DOCS_UI_SKILL_NAME } from "@nseng-ai/pi
 
 import { formatGrillAskProgressLine, type GrillAskProgress } from "./progress.ts";
 import type { NormalizedGrillAskInput } from "./protocol.ts";
+import { GRILL_SIDEQUEST_CONTRACT_BLOCK } from "./sidequest/prompts.ts";
 
 // Lineage: the fallback skill blocks and GRILL_UI_CONTRACT below are semantically
 // melded from the upstream `grilling` skill (mattpocock/skills, upstream path
@@ -62,6 +63,8 @@ When you need user input during this grill session:
 - If grill_ask returns action: "end-grill", stop asking questions and summarize decisions, unresolved branches, and final recommendation.
 - If grill_ask returns action: "status-request", the user has not answered the current question. Produce a compact status report with answered count, estimated remaining questions, current pending question, resolved decisions, unresolved branches, and current recommendation. Then re-ask the exact same pending question with grill_ask; do not advance to a new question and do not count the status request as an answer.
 - If grill_ask is unavailable or returns action: "ui-unavailable", ask the same one question normally with numbered choices, including Other/freeform when allowed, Show current grill status, and End grilling session when allowed.
+
+${GRILL_SIDEQUEST_CONTRACT_BLOCK}
 </structured-grill-question-ui-contract>`;
 
 export function buildGrillUiPrompt(skillBlock: string | undefined, target: string): string {

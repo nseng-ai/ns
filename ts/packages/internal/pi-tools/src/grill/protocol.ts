@@ -2,6 +2,7 @@ import type { NotifyLevel } from "@nseng-ai/pi/runtime/tool-types";
 
 import type { GrillAskOutcome } from "./controller.ts";
 import type { GrillAskDetails } from "./result.ts";
+import type { SideQuestStartedInfo } from "./sidequest/protocol.ts";
 
 export type { NotifyLevel };
 
@@ -55,6 +56,10 @@ export interface GrillAskInput {
 	allowEnd?: boolean;
 }
 
+export interface GrillAskViewOptions {
+	canStartSideQuest?: boolean;
+}
+
 export interface NormalizedGrillAskInput {
 	question: string;
 	context?: string;
@@ -68,11 +73,16 @@ export interface NormalizedGrillAskInput {
 export type GrillAskUiRunner = (
 	input: NormalizedGrillAskInput,
 	ctx: GrillAskToolContext,
+	viewOptions?: GrillAskViewOptions,
 ) => Promise<GrillAskOutcome | undefined>;
 
 export interface GrillAskExecutionOptions {
 	uiRunner?: GrillAskUiRunner;
 	signal?: AbortSignal;
+	/** Tool call id of the running grill_ask execution; correlates the side-quest mark entry. */
+	toolCallId?: string;
+	/** Notified when a freeform answer starts a side quest, so hooks can label the mark. */
+	onSideQuestStarted?: (info: SideQuestStartedInfo) => void;
 }
 
 export interface GrillAskCustomComponent {
