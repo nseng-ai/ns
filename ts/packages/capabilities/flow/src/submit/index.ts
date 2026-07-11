@@ -131,7 +131,7 @@ export {
 export { mergePrLinks, partitionPrLinksByExisting } from "./submit-pr-link.ts";
 export { extractPrLinks, prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 export {
-	createMatrixSubmitProgress,
+	bindMatrixSubmitProgress,
 	createStreamSubmitProgress,
 	type SubmitProgress,
 } from "./submit-progress.ts";

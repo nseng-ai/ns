@@ -22,7 +22,7 @@ import {
 import {
 	completed,
 	failure,
-	landStackFailure,
+	landingExecutionFailure,
 	success,
 	type LandStackOutcome,
 	type LandStackResult,
@@ -51,14 +51,16 @@ export async function loadRepoRoot(
 	});
 	if (!commandSucceeded(result)) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				`Not inside a git repository.\n${formatCommandDetails(result, formatCommand("git", ["rev-parse", "--show-toplevel"]))}`,
 			),
 		);
 	}
 	const root = result.stdout.trim();
 	if (!root) {
-		return failure(landStackFailure("git rev-parse --show-toplevel returned no repository root."));
+		return failure(
+			landingExecutionFailure("git rev-parse --show-toplevel returned no repository root."),
+		);
 	}
 	return success(root);
 }
@@ -76,7 +78,7 @@ export async function loadCurrentBranch(
 	});
 	if (!commandSucceeded(result)) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				`Detached HEAD; check out a branch before running /ns:flow:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
 			),
 		);
@@ -84,7 +86,7 @@ export async function loadCurrentBranch(
 	const branch = result.stdout.trim();
 	if (!branch) {
 		return failure(
-			landStackFailure("Could not resolve current branch before running /ns:flow:land."),
+			landingExecutionFailure("Could not resolve current branch before running /ns:flow:land."),
 		);
 	}
 	return success(branch);
@@ -103,14 +105,14 @@ export async function loadTrunk(
 	});
 	if (!commandSucceeded(result)) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				`Could not resolve Graphite trunk.\n${formatCommandDetails(result, formatGraphiteOperation(operation))}`,
 			),
 		);
 	}
 	const trunk = firstNonEmptyLine(result.stdout);
 	if (!trunk) {
-		return failure(landStackFailure("gt trunk --no-interactive returned no branch."));
+		return failure(landingExecutionFailure("gt trunk --no-interactive returned no branch."));
 	}
 	return success(trunk);
 }
@@ -188,7 +190,7 @@ export async function loadLiveLocalBranchTips(
 	const tips = await git.listLocalBranchTips({ cwd: repoRoot });
 	if (!tips.ok) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				`Could not enumerate local branches to reconcile Graphite metadata.\n${tips.error.message}`,
 			),
 		);
@@ -269,19 +271,21 @@ export async function assertCleanRepo(
 	});
 	if (!commandSucceeded(status)) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				`Could not inspect working tree status.\n${formatCommandDetails(status, formatCommand("git", ["status", "--porcelain=v1"]))}`,
 			),
 		);
 	}
 	if (status.stdout.trim().length > 0) {
-		return failure(landStackFailure("Working tree is dirty; refusing to start stack landing."));
+		return failure(
+			landingExecutionFailure("Working tree is dirty; refusing to start stack landing."),
+		);
 	}
 
 	const operation = detectInProgressOperation(repoRoot, optionalEntry("fs", options.gitStateFs));
 	if (operation) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				`${formatInProgressOperationLabel(operation)} is in progress; refusing to start stack landing.`,
 			),
 		);
@@ -318,7 +322,7 @@ export async function assertLocalBranchExists(
 	});
 	if (!commandSucceeded(result)) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				`Local branch ${branch} does not exist; refusing to start stack landing.\n${formatCommandDetails(result)}`,
 			),
 		);
@@ -341,14 +345,14 @@ export async function loadLocalSha(
 	});
 	if (!commandSucceeded(result)) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				`Could not resolve local branch ${branch}.\n${formatCommandDetails(result, formatCommand("git", ["rev-parse", "--verify", ref]))}`,
 			),
 		);
 	}
 	const sha = result.stdout.trim();
 	if (!sha) {
-		return failure(landStackFailure(`git rev-parse returned no SHA for ${branch}.`));
+		return failure(landingExecutionFailure(`git rev-parse returned no SHA for ${branch}.`));
 	}
 	return success(sha);
 }

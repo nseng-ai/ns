@@ -2,9 +2,9 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	completed,
 	failure,
-	landStackFailure,
+	landingExecutionFailure,
 	type LandFlowFailure,
-	type LandStackFailureOptions,
+	type LandingExecutionFailureOptions,
 	type LandStackOutcome,
 } from "./errors.ts";
 import type { LandingPlan } from "../types.ts";
@@ -29,9 +29,9 @@ interface ConfirmLandStackActionOptions {
 	title: string;
 	details: string;
 	nonInteractiveMessage: string;
-	nonInteractiveFailureOptions?: LandStackFailureOptions;
+	nonInteractiveFailureOptions?: LandingExecutionFailureOptions;
 	cancellationMessage?: string;
-	cancellationFailureOptions?: LandStackFailureOptions;
+	cancellationFailureOptions?: LandingExecutionFailureOptions;
 	renderDetails?: (details: string) => string;
 	defaultAnswer?: "yes" | "no";
 	onFailure?: (landFailure: LandFlowFailure) => void;
@@ -43,7 +43,7 @@ export async function confirmLandStackAction(
 	if (!options.shouldPrompt) return completed();
 
 	if (!options.ctx.hasUI) {
-		const landFailure = landStackFailure(options.nonInteractiveMessage, {
+		const landFailure = landingExecutionFailure(options.nonInteractiveMessage, {
 			...options.nonInteractiveFailureOptions,
 			outcome: "refusal",
 			refusalReason: "non-interactive",
@@ -67,7 +67,7 @@ export async function confirmLandStackAction(
 		}),
 		refusalReason: "declined" as const,
 	};
-	const landFailure = landStackFailure(
+	const landFailure = landingExecutionFailure(
 		options.cancellationMessage ?? LANDING_CANCELLED_MESSAGE,
 		cancellationFailureOptions,
 	);
@@ -81,7 +81,7 @@ interface ConfirmPreMergeMaintenanceOptions {
 	title: string;
 	details: string;
 	nonInteractiveMessage: string;
-	nonInteractiveFailureOptions?: LandStackFailureOptions;
+	nonInteractiveFailureOptions?: LandingExecutionFailureOptions;
 }
 
 export async function confirmPreMergeMaintenance(

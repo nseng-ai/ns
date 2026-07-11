@@ -1,10 +1,12 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	isGitConflictOutput,
-	isNoCurrentPrProse,
-	isGitRebaseInProgressOutput,
+	isGitConflictProse,
+	isGitConflictWithConflictedFilesProse,
+	isGithubDiffTooLargeFailure,
 	isGithubDiffTooLargeProse,
+	isGitRebaseInProgressProse,
+	isNoCurrentPrProse,
 } from "../../src/submit/cli-prose-heuristics.ts";
 
 describe("CLI prose heuristics", () => {
@@ -23,6 +25,36 @@ describe("CLI prose heuristics", () => {
 		expect(isGithubDiffTooLargeProse(output)).toBe(true);
 	});
 
+	test("classifies a usable exit-1 GitHub diff-too-large failure", () => {
+		expect(
+			isGithubDiffTooLargeFailure({
+				type: "exited",
+				stdout: "",
+				stderr: "HTTP 406",
+				code: 1,
+				signal: null,
+			}),
+		).toBe(true);
+		expect(
+			isGithubDiffTooLargeFailure({
+				type: "exited",
+				stdout: "",
+				stderr: "HTTP 406",
+				code: 2,
+				signal: null,
+			}),
+		).toBe(false);
+		expect(
+			isGithubDiffTooLargeFailure({
+				type: "exited",
+				stdout: "",
+				stderr: "HTTP 406",
+				code: 1,
+				signal: "SIGTERM",
+			}),
+		).toBe(false);
+	});
+
 	test.each([
 		"git rebase --continue",
 		"git rebase --abort",
@@ -32,7 +64,7 @@ describe("CLI prose heuristics", () => {
 		"could not apply",
 		"patch failed",
 	])("detects Git rebase-in-progress prose: %s", (output) => {
-		expect(isGitRebaseInProgressOutput(output)).toBe(true);
+		expect(isGitRebaseInProgressProse(output)).toBe(true);
 	});
 
 	test.each([
@@ -44,6 +76,10 @@ describe("CLI prose heuristics", () => {
 		"conflict: file.ts",
 		"merge conflict",
 	])("detects Git conflict prose: %s", (output) => {
-		expect(isGitConflictOutput(output)).toBe(true);
+		expect(isGitConflictProse(output)).toBe(true);
+	});
+
+	test("classifies conflicted files even without conflict prose", () => {
+		expect(isGitConflictWithConflictedFilesProse("", ["conflicted.ts"])).toBe(true);
 	});
 });

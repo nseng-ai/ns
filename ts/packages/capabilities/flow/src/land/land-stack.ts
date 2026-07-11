@@ -19,7 +19,7 @@ import {
 import {
 	completed,
 	failure,
-	landStackFailure,
+	landingExecutionFailure,
 	success,
 	type LandStackOutcome,
 	type LandStackResult,
@@ -120,7 +120,9 @@ export async function executeStackLanding(
 			warnings,
 		});
 	} catch (error) {
-		const landFailure = landStackFailure(`land failed unexpectedly: ${formatErrorMessage(error)}`);
+		const landFailure = landingExecutionFailure(
+			`land failed unexpectedly: ${formatErrorMessage(error)}`,
+		);
 		presentLandStackFailure({
 			session,
 			failure: landFailure,
@@ -157,7 +159,9 @@ export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
 	for (const part of parts) {
 		const parsedFlag = parseLandFlagToken(part);
 		if (parsedFlag === undefined) {
-			return failure(landStackFailure(`Unknown /${COMMAND_NAME} argument: ${part}\n\n${usage()}`));
+			return failure(
+				landingExecutionFailure(`Unknown /${COMMAND_NAME} argument: ${part}\n\n${usage()}`),
+			);
 		}
 		parsed[parsedFlag] = true;
 	}

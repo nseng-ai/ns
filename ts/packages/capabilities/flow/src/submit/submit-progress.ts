@@ -14,7 +14,7 @@ export interface SubmitProgress {
 	matrix: SubmitMatrixProgressSink | undefined;
 }
 
-export function createMatrixSubmitProgress(input: {
+export function bindMatrixSubmitProgress(input: {
 	ctx: NsExtensionApi;
 	matrix: SubmitMatrixProgressController;
 }): SubmitProgress {

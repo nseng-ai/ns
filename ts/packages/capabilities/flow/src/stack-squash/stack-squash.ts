@@ -76,7 +76,12 @@ export async function runStackSquashFlow(
 		timeout: GIT_STATUS_TIMEOUT_MS,
 	});
 	if (!commandSucceeded(status)) {
-		return commandFailure("worktree-probe-failed", "git", statusArgs, options.cwd, status);
+		return commandFailure("worktree-probe-failed", {
+			command: "git",
+			args: statusArgs,
+			cwd: options.cwd,
+			execResult: status,
+		});
 	}
 	if (status.stdout.trim().length > 0) {
 		return { kind: "worktree-dirty", status: status.stdout.trim(), cwd: options.cwd };
@@ -113,7 +118,12 @@ export async function runStackSquashFlow(
 		const checkout = await runGt(commands, options.cwd, checkoutArgs);
 		if (!commandSucceeded(checkout)) {
 			return {
-				...commandFailure("checkout-failed", "gt", checkoutArgs, options.cwd, checkout),
+				...commandFailure("checkout-failed", {
+					command: "gt",
+					args: checkoutArgs,
+					cwd: options.cwd,
+					execResult: checkout,
+				}),
 				branch,
 			};
 		}
@@ -131,7 +141,12 @@ export async function runStackSquashFlow(
 				continue;
 			}
 			return {
-				...commandFailure("squash-failed", "gt", squashArgs, options.cwd, squash),
+				...commandFailure("squash-failed", {
+					command: "gt",
+					args: squashArgs,
+					cwd: options.cwd,
+					execResult: squash,
+				}),
 				branch,
 			};
 		}
@@ -142,7 +157,12 @@ export async function runStackSquashFlow(
 	const restore = await runGt(commands, options.cwd, restoreArgs);
 	if (!commandSucceeded(restore)) {
 		return {
-			...commandFailure("tip-restore-failed", "gt", restoreArgs, options.cwd, restore),
+			...commandFailure("tip-restore-failed", {
+				command: "gt",
+				args: restoreArgs,
+				cwd: options.cwd,
+				execResult: restore,
+			}),
 			branch: tipBranch,
 		};
 	}
@@ -240,10 +260,7 @@ function isAlreadyOneCommitSquashResult(result: ExecResult): boolean {
 
 function commandFailure<Kind extends StackSquashOutcome["kind"]>(
 	kind: Kind,
-	command: StackSquashCommandFailure["command"],
-	args: readonly string[],
-	cwd: string,
-	execResult: ExecResult,
+	failure: StackSquashCommandFailure,
 ): { kind: Kind } & StackSquashCommandFailure {
-	return { kind, command, args, cwd, execResult };
+	return { kind, ...failure };
 }

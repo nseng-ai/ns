@@ -3,7 +3,7 @@ import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELD_NAMES, PR_FIELDS } from "./constants.ts";
-import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
+import { failure, landingExecutionFailure, success, type LandStackResult } from "./errors.ts";
 import type { PullRequestFacts } from "../types.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
@@ -135,7 +135,7 @@ async function execAndParseJson<T>(request: GhJsonRequest<T>): Promise<LandStack
 	});
 	if (!commandSucceeded(result)) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				`${request.execFailureMessage}\n${formatCommandDetails(result, formatCommand("gh", args))}`,
 			),
 		);
@@ -145,11 +145,12 @@ async function execAndParseJson<T>(request: GhJsonRequest<T>): Promise<LandStack
 	try {
 		raw = JSON.parse(result.stdout);
 	} catch (error) {
-		return failure(landStackFailure(request.parseFailureMessage(error)));
+		return failure(landingExecutionFailure(request.parseFailureMessage(error)));
 	}
 
 	const parsed = request.parse(raw);
-	if (parsed === undefined) return failure(landStackFailure(request.validationFailureMessage));
+	if (parsed === undefined)
+		return failure(landingExecutionFailure(request.validationFailureMessage));
 	return success(parsed);
 }
 

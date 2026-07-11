@@ -15,7 +15,7 @@ import {
 } from "../../src/land/land-presentation.ts";
 import {
 	landFlowFailureFacts,
-	landStackFailure,
+	landingExecutionFailure,
 	type LandFlowFailure,
 } from "../../src/land/stack/errors.ts";
 import type { LandConfirmationPreview } from "../../src/land/stack/types.ts";
@@ -103,12 +103,12 @@ const execResult = {
 } as const;
 
 const failures = [
-	landStackFailure("Execution failed.", {
+	landingExecutionFailure("Execution failed.", {
 		level: "warning",
-		commandDisplay: "gt restack",
-		result: execResult,
+		displayCommand: "gt restack",
+		execResult,
 		failedBranch: "feature-a",
-		failedPr: 42,
+		failedPrNumber: 42,
 		outcome: "refusal",
 	}),
 	{
@@ -147,7 +147,7 @@ describe("land failure presentation", () => {
 	});
 
 	test("preserves execution metadata and failure defaults", () => {
-		const defaultExecution = landStackFailure("Default execution failure.");
+		const defaultExecution = landingExecutionFailure("Default execution failure.");
 		expect(failureLevel(defaultExecution)).toBe("error");
 		expect(landFlowFailureFacts(defaultExecution).outcome).toBe("failure");
 

@@ -63,7 +63,7 @@ describe("dispatchAutobranchCheckpoint", () => {
 		const createFlowContext = vi.fn();
 
 		const result = await dispatchAutobranchCheckpoint(
-			{ mode: "checkpoint", dirty: dirtyDependencies() },
+			{ mode: "any-state", dirty: dirtyDependencies() },
 			{ loadSnapshot: async () => ({ ok: false, error }), createFlowContext },
 		);
 
@@ -72,7 +72,7 @@ describe("dispatchAutobranchCheckpoint", () => {
 	});
 
 	test.each([
-		["checkpoint", "flow"],
+		["any-state", "flow"],
 		["require-dirty", "refused-clean"],
 		["require-clean", "flow"],
 	] as const)("dispatches a clean snapshot in %s mode as %s", async (modeName, expected) => {
@@ -89,7 +89,7 @@ describe("dispatchAutobranchCheckpoint", () => {
 	});
 
 	test.each([
-		["checkpoint", "flow"],
+		["any-state", "flow"],
 		["require-dirty", "flow"],
 		["require-clean", "refused-dirty"],
 	] as const)("dispatches a dirty snapshot in %s mode as %s", async (modeName, expected) => {

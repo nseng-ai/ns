@@ -1,5 +1,4 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 
@@ -117,6 +116,6 @@ export function detectSubmitSemanticFailureCause(
 	if (emptyBranch === undefined) return undefined;
 	return {
 		kind: "empty_branch_skipped",
-		...optionalEntry("branchName", emptyBranch.branchName),
+		...emptyBranch,
 	};
 }

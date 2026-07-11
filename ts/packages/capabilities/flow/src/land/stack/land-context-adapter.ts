@@ -27,7 +27,7 @@ import {
 } from "./constants.ts";
 import {
 	failure,
-	landStackFailure,
+	landingExecutionFailure,
 	success,
 	type LandingExecutionFailure,
 	type LandStackResult,
@@ -453,11 +453,11 @@ async function inspectBranchContainsParent(
 	});
 	if (!commandSucceeded(result)) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				`Could not inspect whether ${options.branch} contains parent ${options.parent}.`,
 				{
-					commandDisplay: formatCommand("git", args),
-					result,
+					displayCommand: formatCommand("git", args),
+					execResult: result,
 				},
 			),
 		);
@@ -506,18 +506,18 @@ function landBoundaryFailureResult(
 }
 
 function toLandingFailure(
-	failure: LandingFailure | LandingExecutionFailure,
+	landFlowFailure: LandingFailure | LandingExecutionFailure,
 	source: LandingFailureSource,
 	phase: LandingPhase,
 ): LandingFailure {
-	if (failure.type !== "execution") return failure;
+	if (landFlowFailure.type !== "execution") return landFlowFailure;
 	return {
 		type: "boundary",
 		phase,
 		source,
 		code: `${source}-gateway-failure`,
-		message: failure.message,
-		...optionalEntry("suggestedAction", failure.suggestedAction),
+		message: landFlowFailure.message,
+		...optionalEntry("suggestedAction", landFlowFailure.suggestedAction),
 	};
 }
 

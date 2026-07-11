@@ -113,7 +113,6 @@ export interface MatrixProgressSink<
 > {
 	setRows(rows: readonly Row[]): void;
 	getRows(): readonly Readonly<Row>[];
-	replaceRow(rowKey: string, row: Row): void;
 	patchRow(rowKey: string, patch: Partial<Omit<Row, "rowKey">>): void;
 	setActiveOperations(operations: readonly ActiveOperation[]): void;
 	setGlobal(key: GlobalKey, update: MatrixCellUpdate): void;
@@ -241,14 +240,6 @@ function createMatrixProgressController<
 		return state.rows.map((row) => ({ ...row }));
 	}
 
-	function replaceRow(rowKey: string, row: Row): void {
-		const rowIndex = state.rows.findIndex((candidate) => candidate.rowKey === rowKey);
-		const existing = state.rows[rowIndex];
-		if (existing === undefined) return;
-		state.rows[rowIndex] = { ...row, cells: existing.cells };
-		render();
-	}
-
 	function patchRow(rowKey: string, patch: Partial<Omit<Row, "rowKey">>): void {
 		const rowIndex = state.rows.findIndex((candidate) => candidate.rowKey === rowKey);
 		const existing = state.rows[rowIndex];
@@ -361,7 +352,6 @@ function createMatrixProgressController<
 		setTitle,
 		setRows,
 		getRows,
-		replaceRow,
 		patchRow,
 		setActiveOperations,
 		setGlobal,

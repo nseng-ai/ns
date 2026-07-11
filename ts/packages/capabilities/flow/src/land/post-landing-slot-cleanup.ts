@@ -1,4 +1,5 @@
 import { formatCommand } from "@nseng-ai/foundation/command";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	deleteLocalBranchOperation,
 	formatGraphiteOperation,
@@ -6,7 +7,7 @@ import {
 import {
 	completed,
 	landFlowFailureFacts,
-	landStackFailure,
+	landingExecutionFailure,
 	success,
 	type LandStackOutcome,
 	type LandStackResult,
@@ -147,7 +148,7 @@ export async function runPostLandingSlotCleanup({
 	if (target === undefined) return completed();
 
 	if (cleanupDecision.type === "declined") {
-		const landFailure = landStackFailure(
+		const landFailure = landingExecutionFailure(
 			`Skipped post-landing cleanup by upfront choice; PRs were landed but ${target.slotName} and local branch ${target.branch} were kept.`,
 			{
 				level: "warning",
@@ -172,13 +173,13 @@ export async function runPostLandingSlotCleanup({
 		});
 		if (freeResult.type === "failure") {
 			const diagnostics = boundaryFailureDiagnostics(freeResult.failure);
-			const landFailure = landStackFailure(
+			const landFailure = landingExecutionFailure(
 				`PRs were landed, but freeing ${target.slotName} failed.`,
 				{
-					commandDisplay:
+					displayCommand:
 						diagnostics.displayCommand ??
 						formatCommand("ns", ["slot", "free", "--wt", target.slotName]),
-					...(diagnostics.execResult === undefined ? {} : { result: diagnostics.execResult }),
+					...optionalEntry("execResult", diagnostics.execResult),
 					suggestedAction: target.suggestedAction,
 				},
 			);
@@ -198,14 +199,14 @@ export async function runPostLandingSlotCleanup({
 				checkedOutConflictHandling: "fail",
 			});
 			if (deletion.type !== "deleted") {
-				const landFailure = landStackFailure(
+				const landFailure = landingExecutionFailure(
 					`PRs were landed and ${target.slotName} was freed, but deleting local branch ${branch} failed.`,
 					{
-						commandDisplay:
+						displayCommand:
 							deletion.type === "failed"
 								? deletion.commandDisplay
 								: formatGraphiteOperation(deleteOperation),
-						...(deletion.type === "failed" ? { result: deletion.result } : {}),
+						...(deletion.type === "failed" ? { execResult: deletion.result } : {}),
 						suggestedAction: `Delete local branch ${branch} manually when safe.`,
 					},
 				);

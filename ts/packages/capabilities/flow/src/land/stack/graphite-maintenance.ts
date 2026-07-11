@@ -3,7 +3,7 @@ import { shortSha } from "../../commit-display/index.ts";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/cli-prose-heuristics.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
 import { parseGitCheckedOutElsewhere } from "./graphite-command-channel.ts";
-import { landStackFailure, type LandFlowFailure } from "./errors.ts";
+import { landingExecutionFailure, type LandFlowFailure } from "./errors.ts";
 import { validateOpenPrBasics } from "../api.ts";
 import type { LandContext, LandingPlan, PullRequestFacts } from "../api.ts";
 import { landingWarning, type LandingWarning } from "../types.ts";
@@ -71,20 +71,20 @@ function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): 
 	const { prNumber, maintenanceBranch, getCommandDisplay, got } = failureOptions;
 	const checkoutConflict = parseGitCheckedOutElsewhere(got);
 	if (checkoutConflict) {
-		return landStackFailure(
+		return landingExecutionFailure(
 			`PR #${prNumber} merged, but Graphite could not refresh next landing branch ${maintenanceBranch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
 			{
-				commandDisplay: getCommandDisplay,
-				result: got,
+				displayCommand: getCommandDisplay,
+				execResult: got,
 				failedBranch: maintenanceBranch,
 				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
 			},
 		);
 	}
 
-	return landStackFailure(`PR #${prNumber} merged, but targeted Graphite refresh failed.`, {
-		commandDisplay: getCommandDisplay,
-		result: got,
+	return landingExecutionFailure(`PR #${prNumber} merged, but targeted Graphite refresh failed.`, {
+		displayCommand: getCommandDisplay,
+		execResult: got,
 		failedBranch: maintenanceBranch,
 		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
 	});
@@ -178,7 +178,7 @@ async function checkSubmitMaintenanceBranch(
 	const localSha = await landContext.git.localBranchSha({ repoRoot, branch: maintenanceBranch });
 	if (localSha.type === "failure") {
 		return failOrWarn(maintenance.severity, {
-			failure: landStackFailure(
+			failure: landingExecutionFailure(
 				`PR #${prNumber} merged, but could not re-read local branch ${maintenanceBranch} after restack.\n${localSha.failure.message}`,
 				{
 					failedBranch: maintenanceBranch,
@@ -198,7 +198,7 @@ async function checkSubmitMaintenanceBranch(
 	});
 	if (pr.type === "failure") {
 		return failOrWarn(maintenance.severity, {
-			failure: landStackFailure(
+			failure: landingExecutionFailure(
 				`PR #${prNumber} merged, but could not verify PR metadata for ${maintenanceBranch} after restack.\n${pr.failure.message}`,
 				{
 					failedBranch: maintenanceBranch,
@@ -248,7 +248,7 @@ async function refreshExpectedShaAfterRestack(
 		if (refreshedSha.type === "failure") {
 			return {
 				kind: "halt",
-				failure: landStackFailure(
+				failure: landingExecutionFailure(
 					`PR #${prNumber} merged, but could not re-read local branch ${refreshTarget} after restack.\n${refreshedSha.failure.message}`,
 					{
 						failedBranch: refreshTarget,
@@ -276,12 +276,15 @@ async function submitMaintenanceBranch(
 	if (submitted.type === "success") return { kind: "proceed" };
 
 	return failOrWarn(maintenance.severity, {
-		failure: landStackFailure(formatSubmitFailureMessage(prNumber, maintenanceBranch, true), {
-			commandDisplay: submitted.commandDisplay,
-			result: submitted.result,
-			failedBranch: maintenanceBranch,
-			suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /ns:flow:land if appropriate.`,
-		}),
+		failure: landingExecutionFailure(
+			formatSubmitFailureMessage(prNumber, maintenanceBranch, true),
+			{
+				displayCommand: submitted.commandDisplay,
+				execResult: submitted.result,
+				failedBranch: maintenanceBranch,
+				suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /ns:flow:land if appropriate.`,
+			},
+		),
 		warning: landingWarning({
 			message: formatSubmitFailureMessage(prNumber, maintenanceBranch, false),
 			commandDisplay: submitted.commandDisplay,
@@ -408,7 +411,7 @@ async function guardMaintenanceBranch(
 	const guardSha = await landContext.git.localBranchSha({ repoRoot, branch: maintenanceBranch });
 	if (guardSha.type === "failure") {
 		return failOrWarn(maintenance.severity, {
-			failure: landStackFailure(
+			failure: landingExecutionFailure(
 				`PR #${prNumber} merged, but could not verify local branch ${maintenanceBranch} before refreshing it.\n${guardSha.failure.message}`,
 				{
 					failedBranch: maintenanceBranch,
@@ -427,7 +430,7 @@ async function guardMaintenanceBranch(
 	const expectedDisplay = expectedSha === undefined ? "(unrecorded)" : shortSha(expectedSha);
 	const movedMessage = `local branch ${maintenanceBranch} moved from ${expectedDisplay} to ${shortSha(guardSha.value)} since landing started; refusing gt get --force to avoid clobbering local commits`;
 	return failOrWarn(maintenance.severity, {
-		failure: landStackFailure(`PR #${prNumber} merged, but ${movedMessage}.`, {
+		failure: landingExecutionFailure(`PR #${prNumber} merged, but ${movedMessage}.`, {
 			failedBranch: maintenanceBranch,
 			suggestedAction: `Inspect local branch ${maintenanceBranch}, reconcile it with the remote, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 		}),
@@ -533,11 +536,11 @@ async function checkGraphiteBranchBeforeDelete(
 	if (unexpectedChildren.length === 0) return undefined;
 
 	return failOrWarn(maintenance.severity, {
-		failure: landStackFailure(
+		failure: landingExecutionFailure(
 			`PR #${prNumber} merged, but ${branch} now has unexpected Graphite children (${unexpectedChildren.join(", ")}); refusing gt delete to avoid destroying another stack.`,
 			{
 				failedBranch: branch,
-				failedPr: prNumber,
+				failedPrNumber: prNumber,
 				suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${branch} manually before rerunning /ns:flow:land. ${LAND_BACKUP_RECOVERY_HINT}`,
 			},
 		),
@@ -603,12 +606,15 @@ async function restackMaintenanceBranch(
 	if (restacked.type !== "failure") return { kind: "proceed" };
 
 	return failOrWarn(maintenance.severity, {
-		failure: landStackFailure(formatRestackFailureMessage(prNumber, maintenanceBranch, true), {
-			commandDisplay: restacked.commandDisplay,
-			result: restacked.result,
-			failedBranch: maintenanceBranch,
-			suggestedAction: `Resolve restack failures for ${maintenanceBranch}, run gt submit/update, then rerun /ns:flow:land if appropriate.`,
-		}),
+		failure: landingExecutionFailure(
+			formatRestackFailureMessage(prNumber, maintenanceBranch, true),
+			{
+				displayCommand: restacked.commandDisplay,
+				execResult: restacked.result,
+				failedBranch: maintenanceBranch,
+				suggestedAction: `Resolve restack failures for ${maintenanceBranch}, run gt submit/update, then rerun /ns:flow:land if appropriate.`,
+			},
+		),
 		warning: landingWarning({
 			message: formatRestackFailureMessage(prNumber, maintenanceBranch, false),
 			commandDisplay: restacked.commandDisplay,
@@ -632,11 +638,11 @@ function localBranchDeletionFailurePair(options: LocalBranchDeletionFailurePairO
 } {
 	const details = localBranchDeletionFailureDetails(options);
 	return {
-		failure: landStackFailure(details.failureMessage, {
-			commandDisplay: options.commandDisplay,
-			result: options.result,
+		failure: landingExecutionFailure(details.failureMessage, {
+			displayCommand: options.commandDisplay,
+			execResult: options.result,
 			failedBranch: options.branch,
-			failedPr: options.prNumber,
+			failedPrNumber: options.prNumber,
 			suggestedAction: details.failureSuggestedAction,
 		}),
 		warning: landingWarning({

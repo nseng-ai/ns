@@ -15,7 +15,7 @@ import {
 	type GatewayResult,
 } from "@nseng-ai/capability-kit/gateway-result";
 
-import { combinedCommandOutput, isGithubDiffTooLargeProse } from "./cli-prose-heuristics.ts";
+import { isGithubDiffTooLargeFailure } from "./cli-prose-heuristics.ts";
 
 const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
 const VIEW_TIMEOUT_MS = GITHUB_CLI_TIMEOUT_MS;
@@ -171,10 +171,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		if (
 			params.baseRefName !== undefined &&
 			params.headRefName !== undefined &&
-			run.execResult.type === "exited" &&
-			run.execResult.signal === null &&
-			run.execResult.code === 1 &&
-			isGithubDiffTooLargeProse(combinedCommandOutput(run.execResult))
+			isGithubDiffTooLargeFailure(run.execResult)
 		) {
 			return await this.getLocalPrDiff({
 				cwd: params.cwd,

@@ -4,7 +4,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	completed,
 	failure,
-	landStackFailure,
+	landingExecutionFailure,
 	success,
 	type LandFlowFailure,
 	type LandStackOutcome,
@@ -44,12 +44,12 @@ function formatRemainingManagedSlotConflicts(conflicts: readonly WorktreeConflic
 
 export function residualPreMergeFailure(plan: LandingPlan): LandFlowFailure | undefined {
 	if (plan.managedSlotConflicts.length > 0) {
-		return landStackFailure(formatRemainingManagedSlotConflicts(plan.managedSlotConflicts), {
+		return landingExecutionFailure(formatRemainingManagedSlotConflicts(plan.managedSlotConflicts), {
 			suggestedAction: `Run ${formatCommand("ns", ["slot", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /ns:flow:land.`,
 		});
 	}
 	if (plan.prSubmitRequirements.length > 0) {
-		return landStackFailure(formatRemainingSubmitRequirements(plan.prSubmitRequirements), {
+		return landingExecutionFailure(formatRemainingSubmitRequirements(plan.prSubmitRequirements), {
 			suggestedAction: `Run ${formatGraphiteOperation({ kind: "submit-update", branch: plan.stack.landingTargetBranch })} manually, inspect PR heads, and rerun /ns:flow:land.`,
 		});
 	}
@@ -109,7 +109,7 @@ export async function confirmAndFreeManagedSlots(
 	const remaining = conflicts.value.filter((conflict) => conflict.type !== "current");
 	if (remaining.length > 0) {
 		return failure(
-			landStackFailure(
+			landingExecutionFailure(
 				[
 					"ns slot free completed, but landing branches are still checked out in other worktrees.",
 					...remaining.map((conflict) => `- ${formatConflict(conflict)}`),
@@ -136,7 +136,7 @@ function toManagedSlotWorktree(conflict: WorktreeConflict): ManagedSlotWorktree 
 }
 
 function preMergeSlotFailure(landFailureValue: LandingFailure): LandFlowFailure {
-	return landStackFailure(landFailureValue.message, {
+	return landingExecutionFailure(landFailureValue.message, {
 		suggestedAction:
 			"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /ns:flow:land.",
 	});
@@ -148,15 +148,15 @@ function stackMergeRejectedFailure(
 	branch: string,
 ): LandFlowFailure {
 	const { displayCommand, execResult } = boundaryFailureDiagnostics(landFailureValue);
-	return landStackFailure("Merge rejected; stopping stack landing immediately.", {
+	return landingExecutionFailure("Merge rejected; stopping stack landing immediately.", {
 		...(execResult === undefined
 			? {}
 			: {
-					...(displayCommand === undefined ? {} : { commandDisplay: displayCommand }),
-					result: execResult,
+					...optionalEntry("displayCommand", displayCommand),
+					execResult,
 				}),
 		failedBranch: branch,
-		failedPr: pr.number,
+		failedPrNumber: pr.number,
 		suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /ns:flow:land from the desired branch.`,
 	});
 }
@@ -303,11 +303,11 @@ export async function runMergeLoop(
 				});
 				if (facts.type === "failure") {
 					return failure(
-						landStackFailure(
+						landingExecutionFailure(
 							`gh pr merge exited 0, but verification could not load PR #${currentPr.number}; local Graphite cleanup skipped.\n${facts.failure.message}`,
 							{
 								failedBranch: branch,
-								failedPr: currentPr.number,
+								failedPrNumber: currentPr.number,
 								suggestedAction: `Inspect PR #${currentPr.number} on GitHub before deleting or restacking local Graphite branches.`,
 							},
 						),
@@ -320,11 +320,11 @@ export async function runMergeLoop(
 					facts.value.headRefName !== branch
 				) {
 					return failure(
-						landStackFailure(
+						landingExecutionFailure(
 							"gh pr merge exited 0 but PR did not verify as MERGED; local Graphite cleanup skipped.",
 							{
 								failedBranch: branch,
-								failedPr: currentPr.number,
+								failedPrNumber: currentPr.number,
 								suggestedAction: `Inspect PR #${currentPr.number} on GitHub before deleting or restacking local Graphite branches.`,
 							},
 						),
