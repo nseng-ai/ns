@@ -130,8 +130,17 @@ Prefer `gt` over raw `git` for these operations:
   `git commit --amend`.
 - Submitting / updating PRs: use `gt submit --no-interactive` instead of
   `git push` / `gh pr create`.
-- Navigating and reshaping stacks: `gt up` / `gt down` / `gt ls` /
-  `gt restack` / `gt move`.
+- Navigating and reshaping stacks: `gt up` / `gt down` / `gt restack` /
+  `gt move`.
+
+For diagnosis, use the narrowest native command that answers the question:
+
+- Current-branch PR, submission, and restack presentation:
+  `gt branch info --no-interactive`.
+- Immediate topology: `gt parent --no-interactive` or
+  `gt children --no-interactive`.
+- Explicit human visualization: `gt ls`. Never treat its display as
+  machine-readable diagnostic output.
 
 Fall back to raw `git` only when `gt` cannot express the operation (e.g.,
 surgical `git rebase` during conflict resolution — see the `graphite` skill's
