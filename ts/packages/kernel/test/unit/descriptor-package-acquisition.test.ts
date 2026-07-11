@@ -96,6 +96,11 @@ describe("ns.toml extension spec edits", () => {
 			expected: 'extensions = [\n  "./extensions/a", # keep ], here\n  "./extensions/new"\n]\n',
 		},
 		{
+			name: "CRLF multiline array",
+			source: 'extensions = [\r\n  "./extensions/a" # keep ]\r\n]\r\n',
+			expected: 'extensions = [\r\n  "./extensions/a", # keep ]\r\n  "./extensions/new"\r\n]\r\n',
+		},
+		{
 			name: "quoted bracket and hash characters",
 			source: 'extensions = ["./extensions/[a]#value"]\n',
 			expected: 'extensions = ["./extensions/[a]#value", "./extensions/new"]\n',
@@ -109,6 +114,11 @@ describe("ns.toml extension spec edits", () => {
 			name: "single-quoted value",
 			source: "extensions = ['./extensions/[a]#value']\n",
 			expected: "extensions = ['./extensions/[a]#value', \"./extensions/new\"]\n",
+		},
+		{
+			name: "same-line close with a surrounding comment",
+			source: 'extensions = ["./extensions/a"] # keep surrounding TOML\r\n',
+			expected: 'extensions = ["./extensions/a", "./extensions/new"] # keep surrounding TOML\r\n',
 		},
 		{
 			name: "empty same-line array",
