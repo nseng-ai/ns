@@ -326,8 +326,8 @@ The source grammar is explicit:
 - `git:` and URL sources are reserved but not supported yet.
 
 Local packages resolve **in place** and are never copied or linked into managed storage, so source
-edits are visible immediately. npm packages are acquired under
-`.ns/managed-extensions/npm/node_modules/`; `.ns/managed-extensions/` is ignored while `ns.toml`
+edits are visible immediately. npm packages are acquired into a package-specific private project under
+`.ns/managed-extensions/npm/<package-name>/`; `.ns/managed-extensions/` is ignored while `ns.toml`
 is the committed durable declaration.
 
 Before recording the exact requested spec, installation imports and fully validates the package's

@@ -158,11 +158,11 @@ describe("harness artifact reconcile driver", () => {
 			includeModule: false,
 		});
 		fixture.fs.setFile(
-			"/repo/.ns/managed-extensions/npm/node_modules/@acme/module/package.json",
+			"/repo/.ns/managed-extensions/npm/@acme/module/node_modules/@acme/module/package.json",
 			packageJson("@acme/module"),
 		);
 		fixture.fs.setFile(
-			"/repo/.ns/managed-extensions/npm/node_modules/@acme/module/skills/module/SKILL.md",
+			"/repo/.ns/managed-extensions/npm/@acme/module/node_modules/@acme/module/skills/module/SKILL.md",
 			"npm v1\n",
 		);
 		const acquisitionGateway = new FakeExtensionAcquisitionGateway();
