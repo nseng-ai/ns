@@ -38,13 +38,16 @@ import {
 } from "./submit-format.ts";
 import {
 	prepareSubmitPrMetadata,
+	type SubmitBranchMetadataProgressEvent,
 	type SubmitMetadataGateway,
 } from "./submit-pr-metadata-prewrite.ts";
 import {
 	formatPrDescriptionFailureDiagnostics,
 	formatPrDescriptionFailureText,
 	generateSubmitPrDescriptions,
+	type SubmitPrDescriptionProgressEvent,
 } from "./submit-pr-descriptions.ts";
+import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import {
 	formatStackUpdateCommandDisplay,
 	formatSubmitCommandDisplays,
@@ -341,15 +344,10 @@ export async function runSubmitCommand(
 				git: options.prDescription.git,
 				textGenerator: options.prDescription.textGenerator,
 				...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
-				progress: {
-					onProgress: (message) =>
-						emitPhase(options, {
-							type: "phase-progress",
-							phaseKey: "metadata",
-							label: message,
-						}),
-					onActiveOperations: (operations) => options.submitMatrix?.setActiveOperations(operations),
-					onItemProgress: (event) => {
+				progress: submitPhaseProgressListeners<SubmitBranchMetadataProgressEvent>(
+					options,
+					"metadata",
+					(event) => {
 						const text =
 							event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
 						options.submitMatrix?.setCell(event.branch, "metadata", {
@@ -357,7 +355,7 @@ export async function runSubmitCommand(
 							...optionalEntry("text", text),
 						});
 					},
-				},
+				),
 			}),
 	);
 	if (prewrite.kind === "failed") {
@@ -498,21 +496,16 @@ export async function runSubmitCommand(
 		prDescription: options.prDescription,
 		prLinks: descriptionPrLinks,
 		prewrittenMetadata: prewrite.prepared,
-		progress: {
-			onProgress: (message) =>
-				emitPhase(options, {
-					type: "phase-progress",
-					phaseKey: "descriptions",
-					label: message,
-				}),
-			onActiveOperations: (operations) => options.submitMatrix?.setActiveOperations(operations),
-			onItemProgress: (event) => {
+		progress: submitPhaseProgressListeners<SubmitPrDescriptionProgressEvent>(
+			options,
+			"descriptions",
+			(event) => {
 				options.submitMatrix?.setCellByPrNumber(event.prNumber, "description", {
 					state: event.state,
 					...optionalEntry("text", event.message),
 				});
 			},
-		},
+		),
 	});
 	options.submitMatrix?.setActiveOperations([]);
 	if (!descriptionResult.ok) {
@@ -768,6 +761,19 @@ function emitSubmitPhase(
 ): void {
 	emitPhase(options, event);
 	if (options.submitMatrix !== undefined) updateMatrix(options.submitMatrix);
+}
+
+function submitPhaseProgressListeners<ItemProgressEvent>(
+	options: Pick<RunSubmitCommandOptions, "onPhase" | "submitMatrix">,
+	phaseKey: string,
+	onItemProgress: (event: ItemProgressEvent) => void,
+): SubmitProgressListeners<ItemProgressEvent> {
+	return {
+		onProgress: (message) =>
+			emitPhase(options, { type: "phase-progress", phaseKey, label: message }),
+		onActiveOperations: (operations) => options.submitMatrix?.setActiveOperations(operations),
+		onItemProgress,
+	};
 }
 
 function shouldFailPostSubmitVerification(

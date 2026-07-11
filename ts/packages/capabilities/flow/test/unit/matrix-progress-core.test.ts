@@ -7,6 +7,7 @@ import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
 import {
 	commandOperations,
 	createMatrixProgressController,
+	matrixFrameOptionalFields,
 	type MatrixGlobalRowSpec,
 	type MatrixProgressController,
 	modelOperation,
@@ -84,6 +85,25 @@ function frameLine(frame: string, needle: string): string {
 }
 
 describe("matrix progress core", () => {
+	test("projects only defined optional frame fields from a wider runtime object", () => {
+		const activeOperations = commandOperations(["just"]);
+		const runtime = {
+			activeOperations,
+			tailSinceOutputMs: 1_000,
+			caps: caps(),
+			title: "ns flow submit",
+			rows: [],
+		};
+		const projected = matrixFrameOptionalFields(runtime);
+
+		expect(projected).toEqual({ activeOperations, tailSinceOutputMs: 1_000 });
+		expect(Object.hasOwn(projected, "tailLine")).toBe(false);
+		expect(Object.hasOwn(projected, "tick")).toBe(false);
+		expect(Object.hasOwn(projected, "caps")).toBe(false);
+		expect(Object.hasOwn(projected, "title")).toBe(false);
+		expect(Object.hasOwn(projected, "rows")).toBe(false);
+	});
+
 	test("constructs model operations without an undefined detail", () => {
 		expect(modelOperation("generating metadata", "openai/gpt-test")).toEqual({
 			kind: "model",

@@ -17,7 +17,7 @@ import {
 	truncatePlain,
 } from "@nseng-ai/foundation/cli-theme";
 import type { Clock } from "@nseng-ai/foundation/clock";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import {
@@ -370,12 +370,12 @@ export interface MatrixFrameOptionalFields {
 export function matrixFrameOptionalFields(
 	input: MatrixFrameOptionalFields,
 ): MatrixFrameOptionalFields {
-	return {
-		...optionalEntry("activeOperations", input.activeOperations),
-		...optionalEntry("tailLine", input.tailLine),
-		...optionalEntry("tailSinceOutputMs", input.tailSinceOutputMs),
-		...optionalEntry("tick", input.tick),
-	};
+	return optionalEntries({
+		activeOperations: input.activeOperations,
+		tailLine: input.tailLine,
+		tailSinceOutputMs: input.tailSinceOutputMs,
+		tick: input.tick,
+	});
 }
 
 export function renderMatrixProgressFrame<ColumnKey extends string, GlobalKey extends string>(
@@ -396,16 +396,21 @@ export function renderMatrixProgressFrame<ColumnKey extends string, GlobalKey ex
 	const lines = [bold(input.title)];
 	for (const global of input.globals) {
 		lines.push(
-			renderGlobalLine(input.caps, global, tick, host === global ? operationsText : undefined),
+			renderGlobalLine({
+				caps: input.caps,
+				row: global,
+				tick,
+				...optionalEntry("operationsText", host === global ? operationsText : undefined),
+			}),
 		);
 		for (const substep of global.substeps) {
 			lines.push(
-				renderGlobalSubstepLine(
-					input.caps,
-					substep,
+				renderGlobalSubstepLine({
+					caps: input.caps,
+					row: substep,
 					tick,
-					host === substep ? operationsText : undefined,
-				),
+					...optionalEntry("operationsText", host === substep ? operationsText : undefined),
+				}),
 			);
 		}
 	}
@@ -590,36 +595,41 @@ export async function withCommandOperations<T>(
 	);
 }
 
-function renderGlobalLine(
-	caps: Caps,
-	row: MatrixGlobalView<string>,
-	tick: number,
-	operationsText?: string,
-): string {
-	return renderMatrixStatusLine(caps, row, tick, operationsText);
+interface RenderGlobalLineOptions {
+	caps: Caps;
+	row: MatrixGlobalView<string>;
+	tick: number;
+	operationsText?: string;
 }
 
-function renderGlobalSubstepLine(
-	caps: Caps,
-	row: MatrixGlobalSubstepView,
-	tick: number,
-	operationsText?: string,
-): string {
-	const rendered = renderMatrixStatusLine(
-		{ ...caps, columns: Math.max(0, caps.columns - 4) },
-		row,
-		tick,
-		operationsText,
-	);
+function renderGlobalLine(options: RenderGlobalLineOptions): string {
+	return renderMatrixStatusLine(options);
+}
+
+interface RenderGlobalSubstepLineOptions {
+	caps: Caps;
+	row: MatrixGlobalSubstepView;
+	tick: number;
+	operationsText?: string;
+}
+
+function renderGlobalSubstepLine(options: RenderGlobalSubstepLineOptions): string {
+	const rendered = renderMatrixStatusLine({
+		...options,
+		caps: { ...options.caps, columns: Math.max(0, options.caps.columns - 4) },
+	});
 	return `    ${rendered}`;
 }
 
-function renderMatrixStatusLine(
-	caps: Caps,
-	row: MatrixGlobalView<string> | MatrixGlobalSubstepView,
-	tick: number,
-	operationsText?: string,
-): string {
+interface RenderMatrixStatusLineOptions {
+	caps: Caps;
+	row: MatrixGlobalView<string> | MatrixGlobalSubstepView;
+	tick: number;
+	operationsText?: string;
+}
+
+function renderMatrixStatusLine(options: RenderMatrixStatusLineOptions): string {
+	const { caps, row, tick, operationsText } = options;
 	// The hosted operations text replaces the in-flight label; it is truncated to the label
 	// slot so a long command display cannot wrap and break the live region's height.
 	const label =
