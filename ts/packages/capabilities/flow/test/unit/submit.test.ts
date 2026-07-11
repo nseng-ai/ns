@@ -771,7 +771,7 @@ describe("runSubmitCommand", () => {
 				githubPr,
 				textGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
-				env: {},
+				env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/gpt-5.4-mini" },
 			},
 			submitMatrix,
 		});
