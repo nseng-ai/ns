@@ -5,7 +5,7 @@ import {
 	type ExecGit,
 	type WorktreeCommandResult,
 } from "@nseng-ai/capability-kit/pending-worktree";
-import type { GitGateway, GitOptionalResult } from "@nseng-ai/capability-kit/git";
+import type { GitGateway, GitOptionalResult } from "@nseng-ai/foundation/git";
 
 function ok(stdout = "", stderr = ""): WorktreeCommandResult {
 	return { type: "exited", code: 0, signal: null, stdout, stderr };

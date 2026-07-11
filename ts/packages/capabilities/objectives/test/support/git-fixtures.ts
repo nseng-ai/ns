@@ -1,4 +1,4 @@
-import type { GitErrorInfo } from "@nseng-ai/capability-kit/git";
+import type { GitErrorInfo } from "@nseng-ai/foundation/git";
 
 export function stagedWhitespaceFailure(): GitErrorInfo {
 	return {

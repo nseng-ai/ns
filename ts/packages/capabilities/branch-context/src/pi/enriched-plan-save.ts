@@ -2,8 +2,8 @@ import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { readFileSync, type Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import { Text } from "@earendil-works/pi-tui";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
 	formatErrorMessage,
 	optionalEntries,

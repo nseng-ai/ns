@@ -6,8 +6,8 @@ import {
 	formatCommand,
 	formatCommandFailure,
 } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { GitGateway, GitOperationResult, GitResult } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway, GitOperationResult, GitResult } from "@nseng-ai/foundation/git";
 
 import { isMissingExecutableError, runVibechkCommand } from "./exec-util.ts";
 import type { GitProvenance } from "./models.ts";

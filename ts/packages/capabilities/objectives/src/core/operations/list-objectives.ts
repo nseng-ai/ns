@@ -9,7 +9,7 @@ import {
 } from "@nseng-ai/clinkr";
 import { z } from "zod";
 
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { glyph, type GlyphName, type Intent } from "@nseng-ai/foundation/cli-theme";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
 

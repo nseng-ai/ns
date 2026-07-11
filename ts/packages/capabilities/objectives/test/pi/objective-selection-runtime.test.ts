@@ -4,7 +4,7 @@ import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
 } from "../../src/api/index.ts";
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { CommandContext } from "@nseng-ai/pi/runtime/types";
 
 describe("objective selection runtime behavior", () => {

@@ -9,7 +9,7 @@ import {
 	formatCommand,
 	type StdinCapableCommandExecApi,
 } from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 
 import {
 	brmemError,

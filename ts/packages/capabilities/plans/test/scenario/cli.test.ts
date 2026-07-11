@@ -4,8 +4,8 @@ import { join, relative } from "node:path";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import type { GitGateway } from "@nseng-ai/foundation/git";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { VERSION } from "../../src/cli.ts";
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";
 import { InMemoryPlanStoreGateway } from "../../src/testing.ts";

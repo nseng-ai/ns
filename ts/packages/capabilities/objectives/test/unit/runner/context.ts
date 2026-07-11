@@ -3,11 +3,8 @@ import type {
 	GitCwdParams,
 	GitResult,
 	GitStatusPathFacts,
-} from "@nseng-ai/capability-kit/git";
-import {
-	InMemoryGitGateway,
-	type InMemoryGitGatewayState,
-} from "@nseng-ai/capability-kit/git/testing";
+} from "@nseng-ai/foundation/git";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@nseng-ai/foundation/git/testing";
 import {
 	InMemoryGraphiteBranchGateway,
 	type InMemoryGraphiteGatewayState,

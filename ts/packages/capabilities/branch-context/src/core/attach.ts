@@ -20,7 +20,7 @@ import {
 import type { BranchContextContext } from "./context.ts";
 import type { BrmemGateway } from "@nseng-ai/brmem";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
 	buildPlanStoreOptions,
 	listSavedPlans,

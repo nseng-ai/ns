@@ -6,9 +6,9 @@ import {
 } from "@nseng-ai/brmem";
 import { createNsClinkrInteraction, NsStdinCapableCommandExecApi } from "@nseng-ai/capability-kit";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
+import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import type { ClinkrInteraction, ConfirmationRequest } from "@nseng-ai/clinkr";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import type { HandoffCliContext } from "../core/context.ts";

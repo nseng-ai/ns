@@ -16,6 +16,7 @@ export {
 	type GatewayResult,
 	type Result,
 } from "./gateway-result.ts";
+export { createNsGitGateway } from "./git-gateway.ts";
 export { createNsDomainCommand, type NsDomainCommandOptions } from "./ns-command.ts";
 export {
 	createNsClinkrInteraction,

@@ -17,7 +17,7 @@ import type {
 } from "@nseng-ai/pr-feedback/api";
 import type { Result } from "@nseng-ai/foundation/result";
 
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 
 import type { PrAddressContext } from "../../src/context.ts";
 

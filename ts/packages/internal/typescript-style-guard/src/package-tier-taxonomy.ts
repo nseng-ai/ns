@@ -110,12 +110,6 @@ export const packageTierDebtEdgeDefinitions = [
 		reason:
 			"SDK-to-capability-kit CLI shell-support debt: @nseng-ai/kernel still reuses Capability Kit shell wrappers for the ns shell operation.",
 	},
-	{
-		from: "@nseng-ai/brmem",
-		to: "@nseng-ai/capability-kit",
-		reason:
-			"Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
-	},
 ] as const satisfies readonly AllowedPackageTierDebtEdge[];
 
 export function packageEdgeKey(from: string, to: string): string {

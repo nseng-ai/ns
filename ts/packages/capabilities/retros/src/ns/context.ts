@@ -1,4 +1,4 @@
-import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
+import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import type { RetrosCliContext } from "../context.ts";

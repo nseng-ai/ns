@@ -569,9 +569,6 @@ importers:
 
   packages/infra/brmem:
     dependencies:
-      '@nseng-ai/capability-kit':
-        specifier: workspace:*
-        version: link:../../capability-kit
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../clinkr

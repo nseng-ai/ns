@@ -10,7 +10,7 @@ import {
 	type GraphiteTopology,
 	type SqliteJsonError,
 } from "./metadata.ts";
-import { readLocalBranchRefs } from "../git/local-ref-reader.ts";
+import { readLocalBranchRefs } from "@nseng-ai/foundation/git";
 import type {
 	GraphiteBranchAccess,
 	GraphiteMetadataLookupInput,

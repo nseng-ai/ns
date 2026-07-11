@@ -2,7 +2,7 @@ import type { Dirent } from "node:fs";
 import { lstat, mkdir, readdir, realpath, rm, rmdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { visibleCommandBackedReplacementSurfaces } from "../command-backed-skill-registry.ts";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";

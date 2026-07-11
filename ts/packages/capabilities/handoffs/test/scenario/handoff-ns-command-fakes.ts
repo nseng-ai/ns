@@ -1,6 +1,6 @@
 import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@nseng-ai/brmem";
 import type { ClinkrExit, ClinkrInteraction } from "@nseng-ai/clinkr";
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
 import type {

@@ -1,4 +1,4 @@
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { CommandContext } from "./runtime-types.ts";
 
 export async function currentBranch(

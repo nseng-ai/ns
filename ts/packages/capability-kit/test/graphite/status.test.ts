@@ -5,7 +5,7 @@ import {
 	graphiteMetadataWorkerResponseFromValue,
 	loadGraphiteMetadataStatus,
 } from "@nseng-ai/capability-kit/graphite/status";
-import type { LocalBranchRefReadResult } from "../../src/git/local-ref-reader.ts";
+import type { LocalBranchRefReadResult } from "@nseng-ai/foundation/git";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import {
 	GRAPHITE_BRANCH_METADATA_QUERY,

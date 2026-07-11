@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { GithubStatusChecks } from "@nseng-ai/pr-feedback/api";
 
 import { collectPrChecks } from "../../src/core/pr-checks.ts";

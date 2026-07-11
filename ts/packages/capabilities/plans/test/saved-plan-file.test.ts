@@ -6,8 +6,8 @@ import type {
 	GitCwdParams,
 	GitOptionalResult,
 	GitResult,
-} from "@nseng-ai/capability-kit/git";
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+} from "@nseng-ai/foundation/git";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import {
 	buildRepoPlanStoreKey,
 	defaultPlanStoreRoot,

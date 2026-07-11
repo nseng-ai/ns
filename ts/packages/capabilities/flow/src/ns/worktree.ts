@@ -4,7 +4,7 @@ import {
 	type PendingWorktreeSnapshot,
 	type WorktreeCommandResult,
 } from "@nseng-ai/capability-kit/pending-worktree";
-import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
+import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import { createNsCliExecAdapter, execNsCommand, execNsGit } from "./exec.ts";
 import {
 	commandSucceeded,

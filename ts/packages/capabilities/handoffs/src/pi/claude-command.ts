@@ -19,7 +19,7 @@ import type {
 	ToolDefinition,
 } from "./runtime-types.ts";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
 

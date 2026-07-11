@@ -1,7 +1,7 @@
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { execApiToCommandRunner, type CommandExecApi } from "@nseng-ai/foundation/command";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
 import type { GithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
 

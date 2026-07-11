@@ -1,4 +1,4 @@
-import { RealGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 

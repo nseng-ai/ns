@@ -1,4 +1,4 @@
-import type { GitWorktreeStateFs } from "@nseng-ai/capability-kit/git";
+import type { GitWorktreeStateFs } from "@nseng-ai/foundation/git";
 import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import {

@@ -4,10 +4,7 @@ import { join } from "node:path";
 
 import { runCli } from "../../src/core/cli.ts";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import {
-	InMemoryGitGateway,
-	type InMemoryGitGatewayState,
-} from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@nseng-ai/foundation/git/testing";
 import { createTempDirTracker } from "@nseng-ai/foundation/test-kit";
 import { encodeBranchForPlanPath } from "@nseng-ai/plans";
 import {

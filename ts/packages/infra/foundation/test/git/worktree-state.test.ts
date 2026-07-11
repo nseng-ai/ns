@@ -9,7 +9,7 @@ import {
 	resolveWorktreeGitDirs,
 	type GitOperationInProgress,
 	type GitWorktreeStateFs,
-} from "@nseng-ai/capability-kit/git";
+} from "@nseng-ai/foundation/git";
 import { detectGitOperationInProgress } from "../../src/git/worktree-state.ts";
 
 const tempRoots: string[] = [];

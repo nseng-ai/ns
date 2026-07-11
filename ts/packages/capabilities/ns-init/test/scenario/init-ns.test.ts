@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 
 import { initNs, initNsResultSchema, renderInitNsHuman } from "../../src/init-ns.ts";
 import type { NsActivationContext } from "../../src/activation-context.ts";

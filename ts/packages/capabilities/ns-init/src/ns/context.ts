@@ -1,4 +1,4 @@
-import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
+import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { createRealExtensionAcquisitionGateway } from "@nseng-ai/kernel/extensions/acquisition";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";

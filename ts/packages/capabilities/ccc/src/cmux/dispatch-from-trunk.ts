@@ -11,7 +11,7 @@ import { isAbsolute, resolve } from "node:path";
 import {
 	planLocalBranchRefreshFromWorktrees,
 	type LocalBranchRefreshPlan,
-} from "@nseng-ai/capability-kit/git";
+} from "@nseng-ai/foundation/git";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 import {
 	createGraphiteMetadataDbAccess,

@@ -13,7 +13,7 @@ import {
 } from "../../src/submit/index.ts";
 import { RealSubmitGateway } from "../../src/submit/index.ts";
 import { formatBatchPosition, formatSubmitSuccessText } from "../../src/submit/submit-format.ts";
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import {
 	ScriptedCommandRunner,
 	exitedResult,
