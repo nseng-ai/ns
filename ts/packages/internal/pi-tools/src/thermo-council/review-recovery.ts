@@ -12,7 +12,9 @@ import {
 	createSubprocessSubagentRuntime,
 	extractRunnerSubagentToolCallPayloadsFromSessionJsonl,
 	resultDiagnostic,
+	trackSingleSubagentFleetRun,
 	type RunnerSubagentResult,
+	type SubagentFleetRegistry,
 	type SubagentRuntime,
 } from "@nseng-ai/ns-pi-subagents/api";
 import { parseLmJson } from "@nseng-ai/pi/models/lm-json";
@@ -33,6 +35,8 @@ import {
 interface ReviewerRecoveryContext {
 	readonly pi: ThermoCouncilExtensionAPI;
 	readonly ctx: ThermoCouncilCommandContext;
+	readonly fleetRegistry: SubagentFleetRegistry;
+	readonly seatLabel: string;
 	readonly runtime?: SubagentRuntime;
 }
 
@@ -212,11 +216,18 @@ async function repairReviewWithModel(input: {
 	readonly sessionFile?: string;
 	readonly recoveryContext: ReviewerRecoveryContext;
 }): Promise<ReviewParseRecovery | undefined> {
+	let attempt = 0;
 	const prepared = await prepareRepairedText<ReviewParseRecovery>({
 		noun: "thermo-council review payload",
 		initialPrompt: buildReviewRepairPrompt(input),
-		generate: async (prompt) =>
-			await generateReviewRepairText({ prompt, recoveryContext: input.recoveryContext }),
+		generate: async (prompt) => {
+			attempt += 1;
+			return await generateReviewRepairText({
+				prompt,
+				attempt,
+				recoveryContext: input.recoveryContext,
+			});
+		},
 		validate: validateReviewRepairText,
 		buildRepairPrompt: buildReviewRepairRetryPrompt,
 	});
@@ -225,28 +236,46 @@ async function repairReviewWithModel(input: {
 
 async function generateReviewRepairText(input: {
 	readonly prompt: string;
+	readonly attempt: number;
 	readonly recoveryContext: ReviewerRecoveryContext;
 }): Promise<TextGenerationResult> {
 	const runtime = input.recoveryContext.runtime ?? createSubprocessSubagentRuntime();
-	const result = await runtime.dispatch({
-		pi: input.recoveryContext.pi,
-		ctx: toRunnerSubagentContext(input.recoveryContext.ctx),
-		options: {
-			title: "Thermo council payload repair",
-			returnMode: "final-text",
-			tools: [],
-			prompt: input.prompt,
-		},
+	const title = `Thermo council payload repair: ${input.recoveryContext.seatLabel} (attempt ${input.attempt})`;
+	const tracking = trackSingleSubagentFleetRun({
+		registry: input.recoveryContext.fleetRegistry,
+		ctx: input.recoveryContext.ctx,
+		title,
+		prompt: input.prompt,
+		parentSessionFile: undefined,
 	});
-	if (result.status !== "final-text") {
-		return {
-			ok: false,
-			error: resultDiagnostic(result) ?? `Unexpected repair result status: ${result.status}.`,
-		};
+	try {
+		tracking.onStart();
+		const result = await runtime.dispatch({
+			pi: input.recoveryContext.pi,
+			ctx: toRunnerSubagentContext(input.recoveryContext.ctx),
+			options: {
+				title,
+				returnMode: "final-text",
+				tools: [],
+				prompt: input.prompt,
+				onProgress: (update) => tracking.onProgress(update),
+			},
+		});
+		tracking.onDone(result);
+		if (result.status !== "final-text") {
+			return {
+				ok: false,
+				error: resultDiagnostic(result) ?? `Unexpected repair result status: ${result.status}.`,
+			};
+		}
+		const text = result.finalText.trim();
+		if (text.length === 0) {
+			return { ok: false, error: "Repair subagent returned empty final text." };
+		}
+		return { ok: true, text };
+	} finally {
+		tracking.dispose();
 	}
-	const text = result.finalText.trim();
-	if (text.length === 0) return { ok: false, error: "Repair subagent returned empty final text." };
-	return { ok: true, text };
 }
 
 function validateReviewRepairText(text: string): ValidateGeneratedTextResult<ReviewParseRecovery> {
