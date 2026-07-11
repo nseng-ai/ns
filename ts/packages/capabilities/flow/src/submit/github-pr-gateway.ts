@@ -15,6 +15,8 @@ import {
 	type GatewayResult,
 } from "@nseng-ai/capability-kit/gateway-result";
 
+import { combinedCommandOutput, isGithubDiffTooLargeProse } from "./cli-prose-heuristics.ts";
+
 const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
 const VIEW_TIMEOUT_MS = GITHUB_CLI_TIMEOUT_MS;
 const VIEW_PR_RETRY_DELAYS_MS = [500, 1_500, 3_000] as const;
@@ -169,7 +171,10 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		if (
 			params.baseRefName !== undefined &&
 			params.headRefName !== undefined &&
-			isGithubDiffTooLarge(run.execResult)
+			run.execResult.type === "exited" &&
+			run.execResult.signal === null &&
+			run.execResult.code === 1 &&
+			isGithubDiffTooLargeProse(combinedCommandOutput(run.execResult))
 		) {
 			return await this.getLocalPrDiff({
 				cwd: params.cwd,
@@ -361,16 +366,6 @@ function checkedCommandResult(params: {
 	});
 	if (failure !== undefined) return err(failure);
 	return ok(params.result);
-}
-
-function isGithubDiffTooLarge(result: ExecResult): boolean {
-	const output = `${result.stderr}\n${result.stdout}`;
-	return (
-		result.type === "exited" &&
-		result.signal === null &&
-		result.code === 1 &&
-		/diff exceeded the maximum number of lines|PullRequest\.diff too_large|HTTP 406/i.test(output)
-	);
 }
 
 function parseGithubPrDetails(stdout: string): GatewayResult<GithubPrDetails> {

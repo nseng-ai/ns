@@ -1,6 +1,6 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { shortSha } from "../../commit-display/index.ts";
-import { isLikelyInProgressGitOperationFailure } from "../../submit/git-operation-output.ts";
+import { isLikelyInProgressGitOperationFailure } from "../../submit/cli-prose-heuristics.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
 import { parseGitCheckedOutElsewhere } from "./graphite-command-channel.ts";
 import { landStackFailure, type LandStackFailure } from "./errors.ts";
