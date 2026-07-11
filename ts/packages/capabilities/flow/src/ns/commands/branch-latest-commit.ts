@@ -1,8 +1,5 @@
 import type { LatestCommitAutobranchInput } from "../../autobranch/latest-commit.ts";
-import {
-	dispatchAutobranchCheckpoint,
-	unexpectedAutobranchDispatchOutcome,
-} from "../../autobranch/checkpoint-flow.ts";
+import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
@@ -70,8 +67,6 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 								"Use `ns flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.",
 						}),
 					);
-				case "refused-clean":
-					return unexpectedAutobranchDispatchOutcome(dispatched);
 				case "flow": {
 					const result = dispatched.flow;
 					if (!result.ok) {
@@ -101,8 +96,6 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 						}),
 					);
 				}
-				default:
-					return unexpectedAutobranchDispatchOutcome(dispatched);
 			}
 		},
 	});

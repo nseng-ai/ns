@@ -43,10 +43,24 @@ export type AutobranchDirtyDependencies = Pick<
 	"prepareCheckpointMessage" | "commitPreparedCheckpointMessage" | "readFile" | "stat"
 >;
 
+export interface AnyStateAutobranchDispatchMode {
+	mode: "any-state";
+	dirty: AutobranchDirtyDependencies;
+}
+
+export interface RequireDirtyAutobranchDispatchMode {
+	mode: "require-dirty";
+	dirty: AutobranchDirtyDependencies;
+}
+
+export interface RequireCleanAutobranchDispatchMode {
+	mode: "require-clean";
+}
+
 export type AutobranchDispatchMode =
-	| { mode: "any-state"; dirty: AutobranchDirtyDependencies }
-	| { mode: "require-dirty"; dirty: AutobranchDirtyDependencies }
-	| { mode: "require-clean" };
+	| AnyStateAutobranchDispatchMode
+	| RequireDirtyAutobranchDispatchMode
+	| RequireCleanAutobranchDispatchMode;
 
 export interface AutobranchFlowContext {
 	cwd: string;
@@ -64,16 +78,38 @@ export interface AutobranchDispatchEnv {
 	now?: () => number;
 }
 
-export type AutobranchDispatchOutcome =
+type AutobranchDispatchCommonOutcome =
 	| { outcome: "pending-worktree"; error: PendingWorktreeError }
-	| { outcome: "refused-clean"; snapshot: PendingWorktreeSnapshot }
-	| { outcome: "refused-dirty"; snapshot: PendingWorktreeSnapshot }
 	| {
 			outcome: "flow";
 			snapshot: PendingWorktreeSnapshot;
 			flow: AutobranchFlowResult;
 	  };
 
+export type AnyStateAutobranchDispatchOutcome = AutobranchDispatchCommonOutcome;
+export type RequireDirtyAutobranchDispatchOutcome =
+	| AutobranchDispatchCommonOutcome
+	| { outcome: "refused-clean"; snapshot: PendingWorktreeSnapshot };
+export type RequireCleanAutobranchDispatchOutcome =
+	| AutobranchDispatchCommonOutcome
+	| { outcome: "refused-dirty"; snapshot: PendingWorktreeSnapshot };
+export type AutobranchDispatchOutcome =
+	| AnyStateAutobranchDispatchOutcome
+	| RequireDirtyAutobranchDispatchOutcome
+	| RequireCleanAutobranchDispatchOutcome;
+
+export function dispatchAutobranchCheckpoint(
+	mode: AnyStateAutobranchDispatchMode,
+	env: AutobranchDispatchEnv,
+): Promise<AnyStateAutobranchDispatchOutcome>;
+export function dispatchAutobranchCheckpoint(
+	mode: RequireDirtyAutobranchDispatchMode,
+	env: AutobranchDispatchEnv,
+): Promise<RequireDirtyAutobranchDispatchOutcome>;
+export function dispatchAutobranchCheckpoint(
+	mode: RequireCleanAutobranchDispatchMode,
+	env: AutobranchDispatchEnv,
+): Promise<RequireCleanAutobranchDispatchOutcome>;
 export async function dispatchAutobranchCheckpoint(
 	mode: AutobranchDispatchMode,
 	env: AutobranchDispatchEnv,
@@ -85,15 +121,9 @@ export async function dispatchAutobranchCheckpoint(
 	}
 
 	const snapshot = loaded.snapshot;
-	if (mode.mode === "require-dirty" && snapshot.clean) {
-		return { outcome: "refused-clean", snapshot };
-	}
-	if (mode.mode === "require-clean" && !snapshot.clean) {
-		return { outcome: "refused-dirty", snapshot };
-	}
-
-	const context = env.createFlowContext(snapshot);
 	if (snapshot.clean) {
+		if (mode.mode === "require-dirty") return { outcome: "refused-clean", snapshot };
+		const context = env.createFlowContext(snapshot);
 		const flow = await createLatestCommitAutobranchFlow({
 			...context,
 			snapshot,
@@ -103,9 +133,8 @@ export async function dispatchAutobranchCheckpoint(
 		return { outcome: "flow", snapshot, flow };
 	}
 
-	if (mode.mode === "require-clean") {
-		return unexpectedAutobranchDispatchOutcome({ outcome: "refused-dirty", snapshot });
-	}
+	if (mode.mode === "require-clean") return { outcome: "refused-dirty", snapshot };
+	const context = env.createFlowContext(snapshot);
 	const flow = await runDirtyAutobranchFlow({
 		...context,
 		snapshot,
@@ -157,12 +186,5 @@ export async function createFlowAutobranchCheckpointFlow(
 			};
 		case "flow":
 			return result.flow;
-		case "refused-clean":
-		case "refused-dirty":
-			return unexpectedAutobranchDispatchOutcome(result);
 	}
-}
-
-export function unexpectedAutobranchDispatchOutcome(value: AutobranchDispatchOutcome): never {
-	throw new Error(`Unexpected autobranch dispatch outcome: ${JSON.stringify(value)}`);
 }

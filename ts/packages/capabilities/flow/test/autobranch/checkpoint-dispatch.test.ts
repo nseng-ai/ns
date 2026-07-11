@@ -4,7 +4,7 @@ import type { PendingWorktreeError } from "@nseng-ai/capability-kit/pending-work
 import {
 	dispatchAutobranchCheckpoint,
 	type AutobranchDispatchEnv,
-	type AutobranchDispatchMode,
+	type AutobranchDispatchOutcome,
 	type AutobranchDirtyDependencies,
 } from "../../src/autobranch/checkpoint-flow.ts";
 import { createAutobranchGitGateway } from "../../src/autobranch/git-gateway.ts";
@@ -34,6 +34,20 @@ function dirtyDependencies(): AutobranchDirtyDependencies {
 		prepareCheckpointMessage: async () => ({ ok: true, message: "[cp] Save work" }),
 		commitPreparedCheckpointMessage: async () => ({ summary: "abc123 [cp] Save work" }),
 	};
+}
+
+async function dispatchMode(
+	mode: "any-state" | "require-dirty" | "require-clean",
+	env: AutobranchDispatchEnv,
+): Promise<AutobranchDispatchOutcome> {
+	switch (mode) {
+		case "any-state":
+			return await dispatchAutobranchCheckpoint({ mode, dirty: dirtyDependencies() }, env);
+		case "require-dirty":
+			return await dispatchAutobranchCheckpoint({ mode, dirty: dirtyDependencies() }, env);
+		case "require-clean":
+			return await dispatchAutobranchCheckpoint({ mode }, env);
+	}
 }
 
 function createEnv(snapshot: PendingWorktreeSnapshot) {
@@ -77,12 +91,8 @@ describe("dispatchAutobranchCheckpoint", () => {
 		["require-clean", "flow"],
 	] as const)("dispatches a clean snapshot in %s mode as %s", async (modeName, expected) => {
 		const { env, createFlowContext } = createEnv(cleanSnapshot);
-		const mode: AutobranchDispatchMode =
-			modeName === "require-clean"
-				? { mode: modeName }
-				: { mode: modeName, dirty: dirtyDependencies() };
 
-		const result = await dispatchAutobranchCheckpoint(mode, env);
+		const result = await dispatchMode(modeName, env);
 
 		expect(result.outcome).toBe(expected);
 		expect(createFlowContext).toHaveBeenCalledTimes(expected === "flow" ? 1 : 0);
@@ -94,12 +104,8 @@ describe("dispatchAutobranchCheckpoint", () => {
 		["require-clean", "refused-dirty"],
 	] as const)("dispatches a dirty snapshot in %s mode as %s", async (modeName, expected) => {
 		const { env, createFlowContext } = createEnv(dirtySnapshot);
-		const mode: AutobranchDispatchMode =
-			modeName === "require-clean"
-				? { mode: modeName }
-				: { mode: modeName, dirty: dirtyDependencies() };
 
-		const result = await dispatchAutobranchCheckpoint(mode, env);
+		const result = await dispatchMode(modeName, env);
 
 		expect(result.outcome).toBe(expected);
 		expect(createFlowContext).toHaveBeenCalledTimes(expected === "flow" ? 1 : 0);

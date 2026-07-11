@@ -1,8 +1,5 @@
 import type { ParsedAutobranchArgs } from "../../autobranch/dirty-worktree.ts";
-import {
-	dispatchAutobranchCheckpoint,
-	unexpectedAutobranchDispatchOutcome,
-} from "../../autobranch/checkpoint-flow.ts";
+import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
@@ -94,8 +91,6 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 								"Use `ns flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.",
 						}),
 					);
-				case "refused-dirty":
-					return unexpectedAutobranchDispatchOutcome(result);
 				case "flow": {
 					const flow = result.flow;
 					if (flow.ok) {
@@ -122,8 +117,6 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 						}),
 					);
 				}
-				default:
-					return unexpectedAutobranchDispatchOutcome(result);
 			}
 		});
 	},
