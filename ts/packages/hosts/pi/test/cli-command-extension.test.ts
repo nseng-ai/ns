@@ -154,10 +154,16 @@ function createContext(
 		};
 	}
 	if (options.setWidget ?? true) {
-		ui.setWidget = (key, lines, widgetOptions): void => {
+		ui.setWidget = (key, content, widgetOptions): void => {
+			const lines =
+				content === undefined
+					? undefined
+					: typeof content === "function"
+						? content().render(100)
+						: [...content];
 			widgets.push({
 				key,
-				lines: lines === undefined ? undefined : [...lines],
+				lines,
 				placement: widgetOptions?.placement,
 			});
 		};

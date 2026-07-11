@@ -4,6 +4,7 @@ import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 
 import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
 import type { RawPiExecResult } from "../src/kit/shared/exec-gateway.ts";
+import type { LiveProgressWidgetContent } from "../src/commands/cli-command-live-progress.ts";
 
 const ROOT = "/repo";
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
@@ -24,7 +25,7 @@ interface CommandContext {
 		setStatus(key: string, value: string | undefined): void;
 		setWidget?(
 			key: string,
-			value: string[] | undefined,
+			value: LiveProgressWidgetContent | undefined,
 			options?: { placement?: "aboveEditor" | "belowEditor" },
 		): void;
 	};
@@ -145,9 +146,15 @@ function createContext(cwd = ROOT): {
 			},
 			setWidget(
 				key: string,
-				value: string[] | undefined,
+				content: LiveProgressWidgetContent | undefined,
 				options?: { placement?: "aboveEditor" | "belowEditor" },
 			): void {
+				const value =
+					content === undefined
+						? undefined
+						: typeof content === "function"
+							? content().render(100)
+							: content;
 				widgets.push({ key, value, options });
 			},
 		},

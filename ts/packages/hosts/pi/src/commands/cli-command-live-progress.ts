@@ -17,6 +17,7 @@ import {
 } from "@nseng-ai/kernel/sdk";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
+import type { Component } from "@earendil-works/pi-tui";
 
 import { withSafePiUi, withSafePiUiValue } from "../kit/shared/safe-ui.ts";
 import { unrefTimerScheduler } from "../kit/shared/timers.ts";
@@ -34,13 +35,15 @@ type OutputStreamName = "stdout" | "stderr";
 type LiveProgressTarget = "none" | "status" | "widget";
 type CommandWidgetPlacement = "aboveEditor" | "belowEditor";
 
+export type LiveProgressWidgetContent = string[] | (() => Component & { dispose?(): void });
+
 interface LiveCommandProgressContext {
 	hasUI?: boolean;
 	ui: {
 		setStatus?(key: string, value: string | undefined): void;
 		setWidget?(
 			key: string,
-			value: string[] | undefined,
+			value: LiveProgressWidgetContent | undefined,
 			options?: { placement?: CommandWidgetPlacement },
 		): void;
 	};
@@ -308,9 +311,18 @@ export class LiveCommandProgress {
 		const elapsed = formatElapsedMs(Date.now() - this.startedAt);
 		this.runLiveUiUpdate(() => {
 			this.renderStatus(elapsed);
-			this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), {
-				placement: "aboveEditor",
-			});
+			const lines = this.widgetLines(elapsed);
+			this.ctx.ui.setWidget?.(
+				LIVE_PROGRESS_WIDGET_ID,
+				() => ({
+					render: (width) =>
+						lines.map((line) =>
+							truncateDisplayLine(line, Math.min(width, LIVE_PROGRESS_MAX_LINE_CHARS)),
+						),
+					invalidate() {},
+				}),
+				{ placement: "aboveEditor" },
+			);
 		});
 	}
 
