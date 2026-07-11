@@ -22,12 +22,21 @@ const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
-const ADDRESSING_FOLLOW_UP = [
+const NO_POLLING_PARAGRAPH =
+	"Do not wait for or poll CI, Graphite mergeability, automated review jobs, or newly generated feedback. Re-download feedback only when the user explicitly requests another pass or invokes a stack-repair/checks workflow. The `code-fix-gh-stack` workflow owns waiting, re-querying checks, and iterative repair.";
+const SINGLE_PR_ADDRESSING_FOLLOW_UP = [
 	"## Addressing workflow boundary",
 	"",
-	"If asked to address this feedback, treat this download as one snapshot: apply fixes, run appropriate local validation, submit the branch, resolve addressed threads, then stop and report.",
+	"If asked to address this feedback: apply unambiguous, behavior-preserving fixes directly to this branch, resubmit, and resolve the addressed threads. Obvious declines (already fixed, stale) may be replied to and resolved directly; bring judgment calls back to the user at the end of the pass. Treat this download as one snapshot, then stop and report.",
 	"",
-	"Do not wait for or poll CI, Graphite mergeability, automated review jobs, or newly generated feedback. Re-download feedback only when the user explicitly requests another pass or invokes a stack-repair/checks workflow. The `code-fix-gh-stack` workflow owns waiting, re-querying checks, and iterative repair.",
+	NO_POLLING_PARAGRAPH,
+].join("\n");
+const STACK_ADDRESSING_FOLLOW_UP = [
+	"## Addressing workflow boundary",
+	"",
+	"If asked to address this feedback: propose a disposition plan first — default is one omnibus follow-up PR for mechanical fixes, with single-thesis split-outs proposed per item — and wait for explicit approval before changing anything. If not at the stack tip, surface placement options rather than choosing. Treat this download as one snapshot, then stop and report.",
+	"",
+	NO_POLLING_PARAGRAPH,
 ].join("\n");
 const stackBranchesDataSchema = z.looseObject({
 	branches: z.array(z.string()),
@@ -197,7 +206,11 @@ async function runPrDownloadFeedbackCommand(
 			downloaded.exitCode === 0
 				? "Downloaded PR feedback into the editor. Review/edit, then press Enter."
 				: "Downloaded PR feedback report into the editor. Review/edit, then press Enter.";
-		prefillEditor(ctx, appendAddressingFollowUp(downloaded.data.markdown), message);
+		prefillEditor(
+			ctx,
+			appendAddressingFollowUp(downloaded.data.markdown, SINGLE_PR_ADDRESSING_FOLLOW_UP),
+			message,
+		);
 	} finally {
 		ctx.ui?.setStatus?.(DOWNLOAD_FEEDBACK_STATUS_KEY, undefined);
 	}
@@ -259,7 +272,7 @@ async function runPrDownloadStackFeedbackCommand(
 		});
 		prefillEditor(
 			ctx,
-			appendAddressingFollowUp(markdown),
+			appendAddressingFollowUp(markdown, STACK_ADDRESSING_FOLLOW_UP),
 			stackDownloadCompleteMessage(downloads.length, mapped.missingBranches),
 		);
 	} finally {
@@ -404,8 +417,8 @@ function parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): Comm
 	return { type: "ok", value: schemaResult.data };
 }
 
-function appendAddressingFollowUp(markdown: string): string {
-	return `${markdown.trimEnd()}\n\n${ADDRESSING_FOLLOW_UP}`;
+function appendAddressingFollowUp(markdown: string, followUp: string): string {
+	return `${markdown.trimEnd()}\n\n${followUp}`;
 }
 
 function buildStackDownloadFeedbackMarkdown(
