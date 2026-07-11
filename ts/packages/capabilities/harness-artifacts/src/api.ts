@@ -142,7 +142,6 @@ export {
 } from "./declared-artifact-activation.ts";
 export {
 	applyPreparedProvision,
-	conflictingFilesFromDecisions,
 	prepareProvision,
 	previewFromPrepared,
 	type ApplyPreparedProvisionOptions,

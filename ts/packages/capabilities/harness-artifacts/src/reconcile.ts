@@ -31,13 +31,7 @@ import {
 	harnessIdSchema,
 	harnessScopeSchema,
 } from "./harness-artifact-schemas.ts";
-import {
-	ALL_HARNESS_IDS,
-	resolveHarnessSkillRoot,
-	type HarnessId,
-	type HarnessPathErrorInfo,
-	type HarnessScope,
-} from "./harness-paths.ts";
+import { type HarnessId, type HarnessPathErrorInfo, type HarnessScope } from "./harness-paths.ts";
 import {
 	discoverDeclaredExtensionModuleHarnessArtifacts,
 	moduleArtifactDiscoveryDiagnosticSchema,
@@ -45,29 +39,25 @@ import {
 } from "./module-artifact-discovery.ts";
 import { parseNsTomlExtensions, parseNsTomlHarnesses, type NsTomlErrorInfo } from "./ns-toml.ts";
 import {
-	classifyProvisionAction,
 	nodeHarnessArtifactFileSystemGateway,
 	type HarnessArtifactFileSystemErrorInfo,
 	type HarnessArtifactFileSystemGateway,
 	type HarnessArtifactProvisionErrorInfo,
 	type HarnessArtifactProvisionPreview,
 } from "./provision-apply.ts";
-import {
-	INSTALL_MANIFEST_FILE_NAME,
-	readInstallManifestAtRoot,
-	type InstallManifestData,
-	type InstallManifestEntryData,
-} from "./provision-manifest.ts";
+import type { InstallManifestData, InstallManifestEntryData } from "./provision-manifest.ts";
 import {
 	appliedHarnessArtifactTransitionFileEffects,
 	applyProjectHarnessArtifactTransitions,
+	HARNESS_ARTIFACT_RECONCILE_ACTIONS,
 	prepareProjectHarnessArtifactTransitions,
+	readProjectHarnessManifestSnapshots,
 	type AppliedHarnessArtifactTransition,
 } from "./project-harness-artifact-transitions.ts";
 import { provisionIdentityKey } from "./provision-plan.ts";
 import {
 	HARNESS_ARTIFACT_REMOVAL_REASONS,
-	type HarnessArtifactRemovalReason,
+	type PlannedHarnessArtifactRemovalReason,
 } from "./provision-removal.ts";
 import { sortStrings } from "./sort.ts";
 
@@ -101,7 +91,7 @@ export interface PlannedHarnessArtifactRemoval {
 	readonly key: string;
 	readonly snapshot: HarnessManifestSnapshot;
 	readonly entry: InstallManifestEntryData;
-	readonly reason: Exclude<HarnessArtifactRemovalReason, "obsolete-file">;
+	readonly reason: PlannedHarnessArtifactRemovalReason;
 }
 
 export const orphanedManifestEntrySchema = z.object({
@@ -248,7 +238,7 @@ export const harnessSelectionStateSchema = z.discriminatedUnion("type", [
 export type HarnessSelectionState = z.output<typeof harnessSelectionStateSchema>;
 
 export const reconcileArtifactOutcomeSchema = z.object({
-	action: z.enum(["installed", "refreshed", "unchanged", "conflicted", "skipped", "removed"]),
+	action: z.enum(HARNESS_ARTIFACT_RECONCILE_ACTIONS),
 	artifactId: z.string(),
 	skillName: z.string(),
 	harness: harnessIdSchema,
@@ -358,9 +348,7 @@ export async function runHarnessArtifactReconcile(
 		...optionalEntry("homeDir", request.homeDir),
 		env: request.env,
 	});
-	const skillRoots = resolveProjectSkillRoots(context);
-	if (!skillRoots.ok) return skillRoots;
-	const manifests = await readProjectManifestSnapshots({ skillRoots: skillRoots.value, fs });
+	const manifests = await readProjectHarnessManifestSnapshots({ pathContext: context, fs });
 	if (!manifests.ok) return manifests;
 
 	const projectTransitions = await prepareProjectHarnessArtifactTransitions({
@@ -392,14 +380,9 @@ export async function runHarnessArtifactReconcile(
 	const preparedItems: PreparedReconcileArtifactItem[] = [];
 	for (const item of projectTransitions.value.items) {
 		if (item.type !== "remove") continue;
-		const outcome = removalOutcome(
-			item.planned,
-			[],
-			item.conflictingFiles,
-			item.conflictingFiles.length > 0 ? "conflicted" : "removed",
-		);
+		const outcome = removalOutcome(item.planned, [], item.conflictingFiles, item.action);
 		preparedItems.push(
-			shouldApply && item.conflictingFiles.length === 0
+			shouldApply && item.includedInApply
 				? { type: "transition", key: item.key, outcome }
 				: { type: "static", outcome },
 		);
@@ -408,7 +391,7 @@ export async function runHarnessArtifactReconcile(
 		preparedItems.push(
 			...skippedCollisionOutcomes({
 				desired: skipped,
-				skillRoots: skillRoots.value,
+				manifests: manifests.value,
 				harnesses: selection.value.harnessSelection,
 			}).map((outcome) => ({ type: "static" as const, outcome })),
 		);
@@ -418,11 +401,12 @@ export async function runHarnessArtifactReconcile(
 		const outcome = reconcileOutcomeFromProvision({
 			pair: item.pair,
 			provision: item.provision,
+			action: item.action,
 			writtenFiles: [],
 			conflictingFiles: item.conflictingFiles,
 		});
 		preparedItems.push(
-			shouldApply && item.action !== "unchanged"
+			shouldApply && item.includedInApply
 				? { type: "transition", key: item.key, outcome }
 				: { type: "static", outcome },
 		);
@@ -465,7 +449,7 @@ function completedReconcileOutcomes(
 		if (applied === undefined) {
 			throw new Error(`Applied harness artifact outcome is missing for ${item.key}.`);
 		}
-		const effects = appliedHarnessArtifactTransitionFileEffects(applied);
+		const effects = appliedHarnessArtifactTransitionFileEffects(outcomes, item.key);
 		if (applied.type === "remove") {
 			return { ...item.outcome, removedFiles: [...effects.removedFiles] };
 		}
@@ -636,26 +620,6 @@ function parseHarnessSelection(
 	});
 }
 
-interface ResolvedProjectSkillRoot {
-	rootPath: string;
-	manifestPath: string;
-}
-
-function resolveProjectSkillRoots(
-	context: ReturnType<typeof firstPartySkillProvisionPathContext>,
-): Result<ReadonlyMap<HarnessId, ResolvedProjectSkillRoot>, ReconcileErrorInfo> {
-	const roots = new Map<HarnessId, ResolvedProjectSkillRoot>();
-	for (const harness of ALL_HARNESS_IDS) {
-		const root = resolveHarnessSkillRoot({ harness, scope: "project", context });
-		if (!root.ok) return root;
-		roots.set(harness, {
-			rootPath: root.value.rootPath,
-			manifestPath: join(root.value.rootPath, INSTALL_MANIFEST_FILE_NAME),
-		});
-	}
-	return resultOk(roots);
-}
-
 function parseExtensionSelection(input: {
 	state: { type: "missing" } | { type: "file"; text: string };
 	nsTomlPath: string;
@@ -749,38 +713,18 @@ function normalizeExtensionPath(projectRoot: string, value: string): string {
 	return resolve(isAbsolute(value) ? value : join(projectRoot, value));
 }
 
-async function readProjectManifestSnapshots(input: {
-	skillRoots: ReadonlyMap<HarnessId, ResolvedProjectSkillRoot>;
-	fs: HarnessArtifactFileSystemGateway;
-}): Promise<Result<readonly HarnessManifestSnapshot[], ReconcileErrorInfo>> {
-	const snapshots: HarnessManifestSnapshot[] = [];
-	for (const [harness, root] of input.skillRoots) {
-		const manifest = await readInstallManifestAtRoot({
-			targetRoot: root.rootPath,
-			fs: input.fs,
-		});
-		if (!manifest.ok) return manifest;
-		if (Object.keys(manifest.value.artifacts).length === 0) continue;
-		snapshots.push({
-			harness,
-			targetRoot: root.rootPath,
-			manifestPath: root.manifestPath,
-			manifest: manifest.value,
-		});
-	}
-	return resultOk(snapshots);
-}
-
 function skippedCollisionOutcomes(input: {
 	desired: DesiredHarnessArtifact;
-	skillRoots: ReadonlyMap<HarnessId, ResolvedProjectSkillRoot>;
+	manifests: readonly HarnessManifestSnapshot[];
 	harnesses: readonly HarnessId[] | undefined;
 }): readonly ReconcileArtifactOutcome[] {
 	const harnesses = input.harnesses ?? [];
 	return harnesses.flatMap((harness) => {
-		const root = input.skillRoots.get(harness);
-		if (root === undefined) return [];
-		const targetArtifactPath = join(root.rootPath, input.desired.artifact.skillName);
+		const snapshot = input.manifests.find((item) => item.harness === harness);
+		if (snapshot === undefined) {
+			throw new Error(`Project harness manifest snapshot is missing for ${harness}.`);
+		}
+		const targetArtifactPath = join(snapshot.targetRoot, input.desired.artifact.skillName);
 		return [
 			{
 				action: "skipped" as const,
@@ -792,7 +736,7 @@ function skippedCollisionOutcomes(input: {
 				sourceType: input.desired.artifact.source.type,
 				packageName: input.desired.artifact.source.packageName,
 				targetArtifactPath,
-				manifestPath: root.manifestPath,
+				manifestPath: snapshot.manifestPath,
 				writtenFiles: [],
 				removedFiles: [],
 				conflictingFiles: [],
@@ -804,17 +748,12 @@ function skippedCollisionOutcomes(input: {
 function reconcileOutcomeFromProvision(input: {
 	pair: ReconcilePair;
 	provision: HarnessArtifactProvisionPreview;
+	action: ReconcileArtifactOutcome["action"];
 	writtenFiles: readonly string[];
 	conflictingFiles: readonly string[];
 }): ReconcileArtifactOutcome {
 	return {
-		action: classifyProvisionAction({
-			conflictingFiles: input.conflictingFiles,
-			decisionsAreUnchanged: input.provision.decisions.files.every(
-				(decision) => decision.type === "unchanged",
-			),
-			hasManifestEntry: input.pair.hasManifestEntry,
-		}),
+		action: input.action,
 		artifactId: input.pair.desired.artifact.id,
 		skillName: input.pair.desired.artifact.skillName,
 		harness: input.pair.harness,

@@ -4,7 +4,7 @@ import { resultOk, type Result } from "@nseng-ai/foundation/result";
 
 import type { HarnessArtifactFileSystemGateway } from "./filesystem.ts";
 import {
-	normalizeHarnessArtifactSafetyInspection,
+	inspectHarnessArtifactSafety,
 	stalePreparation,
 	unsafeManifestEntry,
 	type HarnessArtifactProvisionErrorInfo,
@@ -19,6 +19,7 @@ import {
 	type InstallManifestEntryData,
 } from "./provision-manifest.ts";
 import type { TargetFileHashFact } from "./provision-plan.ts";
+import type { PlannedHarnessArtifactRemoval } from "./reconcile.ts";
 import { collectTargetHashFactsForPaths, targetFactsEqual } from "./provision-state.ts";
 
 export const HARNESS_ARTIFACT_REMOVAL_REASONS = [
@@ -29,6 +30,15 @@ export const HARNESS_ARTIFACT_REMOVAL_REASONS = [
 ] as const;
 
 export type HarnessArtifactRemovalReason = (typeof HARNESS_ARTIFACT_REMOVAL_REASONS)[number];
+
+export const PLANNED_HARNESS_ARTIFACT_REMOVAL_REASONS = [
+	"removed-source",
+	"deselected-harness",
+	"same-target-replacement",
+] as const satisfies readonly HarnessArtifactRemovalReason[];
+
+export type PlannedHarnessArtifactRemovalReason =
+	(typeof PLANNED_HARNESS_ARTIFACT_REMOVAL_REASONS)[number];
 
 export interface PreparedHarnessArtifactRemoval {
 	readonly key: string;
@@ -42,7 +52,24 @@ export interface PreparedHarnessArtifactRemoval {
 	readonly fs: HarnessArtifactFileSystemGateway;
 }
 
-export async function prepareHarnessArtifactRemoval(input: {
+export async function preparePlannedHarnessArtifactRemoval(input: {
+	planned: PlannedHarnessArtifactRemoval;
+	trustedBoundaryRoot: string;
+	fs: HarnessArtifactFileSystemGateway;
+}): Promise<Result<PreparedHarnessArtifactRemoval, HarnessArtifactProvisionErrorInfo>> {
+	return prepareHarnessArtifactRemoval({
+		key: input.planned.key,
+		reason: input.planned.reason,
+		entry: input.planned.entry,
+		expectedHarness: input.planned.snapshot.harness,
+		expectedTargetRoot: input.planned.snapshot.targetRoot,
+		trustedBoundaryRoot: input.trustedBoundaryRoot,
+		manifestPath: input.planned.snapshot.manifestPath,
+		fs: input.fs,
+	});
+}
+
+async function prepareHarnessArtifactRemoval(input: {
 	key: string;
 	reason: HarnessArtifactRemovalReason;
 	entry: InstallManifestEntryData;
@@ -61,12 +88,13 @@ export async function prepareHarnessArtifactRemoval(input: {
 		return unsafeManifestEntry(input.manifestPath, input.key, unsafePath);
 	}
 	const files = Object.values(input.entry.files);
-	const safety = normalizeHarnessArtifactSafetyInspection({
-		inspection: await input.fs.inspectHarnessArtifactSafety({
+	const safety = await inspectHarnessArtifactSafety({
+		fs: input.fs,
+		inspection: {
 			trustedBoundaryRoot: input.trustedBoundaryRoot,
 			expectedTargetRoot: input.expectedTargetRoot,
 			targetPaths: [input.entry.targetArtifactPath, ...files.map((file) => file.targetPath)],
-		}),
+		},
 		manifestPath: input.manifestPath,
 		installKey: input.key,
 	});
@@ -98,15 +126,16 @@ export async function applyPreparedHarnessArtifactRemoval(
 	) {
 		return stalePreparation("manifest", prepared.manifestPath, prepared.key);
 	}
-	const safety = normalizeHarnessArtifactSafetyInspection({
-		inspection: await prepared.fs.inspectHarnessArtifactSafety({
+	const safety = await inspectHarnessArtifactSafety({
+		fs: prepared.fs,
+		inspection: {
 			trustedBoundaryRoot: prepared.trustedBoundaryRoot,
 			expectedTargetRoot: prepared.entry.targetRoot,
 			targetPaths: [
 				prepared.entry.targetArtifactPath,
 				...Object.values(prepared.entry.files).map((file) => file.targetPath),
 			],
-		}),
+		},
 		manifestPath: prepared.manifestPath,
 		installKey: prepared.key,
 	});
