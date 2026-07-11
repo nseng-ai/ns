@@ -1,9 +1,10 @@
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ErrorInfo } from "@nseng-ai/foundation/result";
-import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
 
 import { modelOperation, withActiveOperations } from "../phase-stream/matrix-progress-core.ts";
+import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import type { GithubPrDetails, GithubPrGateway } from "./github-pr-gateway.ts";
 import {
 	appendGeneratedMarker,
@@ -34,6 +35,11 @@ export interface PrDescriptionContent {
 
 export type PrDescriptionFingerprintPolicy = "skip-current" | "force";
 
+export type PrDescriptionProgressListeners = Pick<
+	SubmitProgressListeners<never>,
+	"onProgress" | "onActiveOperations"
+>;
+
 export interface PrDescriptionUpdateOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
@@ -44,9 +50,8 @@ export interface PrDescriptionUpdateOptions {
 	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
 	fingerprintPolicy?: PrDescriptionFingerprintPolicy;
 	activeOperationDetail?: string;
-	onProgress?: (message: string) => void;
+	progress?: PrDescriptionProgressListeners;
 	time?: TimeServices;
-	onActiveOperations?: (operations: readonly ActiveOperation[]) => void;
 }
 
 export type CurrentBranchPrDescriptionUpdateOptions = Omit<PrDescriptionUpdateOptions, "pr">;
@@ -119,7 +124,7 @@ export async function preparePrDescriptionUpdate(
 		};
 	}
 
-	options.onProgress?.(`checking PR #${pr.number} description fingerprint`);
+	options.progress?.onProgress?.(`checking PR #${pr.number} description fingerprint`);
 	const patchId = await options.githubPr.stablePatchIdForPr({
 		cwd: options.cwd,
 		number: pr.number,
@@ -142,7 +147,7 @@ export async function preparePrDescriptionUpdate(
 		parsedRegion.type === "found" &&
 		fingerprintsMatch(parsedRegion.metadata, metadata)
 	) {
-		options.onProgress?.(
+		options.progress?.onProgress?.(
 			`skipping PR #${pr.number} description; generated fingerprint is unchanged`,
 		);
 		return {
@@ -153,7 +158,7 @@ export async function preparePrDescriptionUpdate(
 		};
 	}
 
-	options.onProgress?.(
+	options.progress?.onProgress?.(
 		`recomputing PR #${pr.number} description (${formatFingerprintMismatchReason(parsedRegion.type)})`,
 	);
 	const commits = await options.githubPr.getPrCommitMessages({
@@ -165,7 +170,7 @@ export async function preparePrDescriptionUpdate(
 	}
 
 	const prepared = await withActiveOperations(
-		options.onActiveOperations,
+		options.progress?.onActiveOperations,
 		[
 			modelOperation(
 				"generating PR description",
@@ -188,7 +193,7 @@ export async function preparePrDescriptionUpdate(
 					commitMessages: commits.value,
 					diff: patchId.value.diff,
 				},
-				...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
+				...optionalEntry("onProgress", options.progress?.onProgress),
 				...(options.time === undefined ? {} : { time: options.time }),
 			}),
 	);
@@ -244,11 +249,8 @@ export async function orchestratePrDescription(
 		...(options.activeOperationDetail === undefined
 			? {}
 			: { activeOperationDetail: options.activeOperationDetail }),
-		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
+		...optionalEntry("progress", options.progress),
 		...(options.time === undefined ? {} : { time: options.time }),
-		...(options.onActiveOperations === undefined
-			? {}
-			: { onActiveOperations: options.onActiveOperations }),
 	});
 	if (prepared.type === "failed") return prepared;
 	if (prepared.type === "skipped") {
@@ -259,7 +261,7 @@ export async function orchestratePrDescription(
 		};
 	}
 
-	options.onProgress?.(`updating PR #${pr.number} description`);
+	options.progress?.onProgress?.(`updating PR #${pr.number} description`);
 	const edited = await applyPreparedPrDescriptionUpdate({
 		cwd: options.cwd,
 		githubPr: options.githubPr,
@@ -284,11 +286,13 @@ export async function orchestratePrDescription(
 }
 
 async function reconcilePrewrittenPr(params: {
-	options: Pick<PrDescriptionOrchestrationOptions, "cwd" | "githubPr" | "onProgress">;
+	options: Pick<PrDescriptionOrchestrationOptions, "cwd" | "githubPr" | "progress">;
 	pr: GithubPrDetails;
 	metadata: PrewrittenPrMetadata;
 }): Promise<PrDescriptionOrchestrationResult> {
-	params.options.onProgress?.(`validating prewritten metadata for PR #${params.pr.number}`);
+	params.options.progress?.onProgress?.(
+		`validating prewritten metadata for PR #${params.pr.number}`,
+	);
 	if (prMetadataMatches(params.pr.title, params.pr.body, params.metadata)) {
 		return {
 			type: "matched_prewritten",
@@ -298,7 +302,9 @@ async function reconcilePrewrittenPr(params: {
 		};
 	}
 
-	params.options.onProgress?.(`updating PR #${params.pr.number} with prewritten metadata`);
+	params.options.progress?.onProgress?.(
+		`updating PR #${params.pr.number} with prewritten metadata`,
+	);
 	const edited = await params.options.githubPr.editPr({
 		cwd: params.options.cwd,
 		number: params.pr.number,

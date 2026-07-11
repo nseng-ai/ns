@@ -68,7 +68,7 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = def
 				git: runtime.git,
 				textGenerator: ctx.textGenerator,
 				fingerprintPolicy: prDescriptionFingerprintPolicyForForce(request.force),
-				onProgress: (message) => io.phase(message),
+				progress: { onProgress: (message) => io.phase(message) },
 			});
 			if (prepared.type === "failed") {
 				// PR lookup / diff / prompt / generation failure: the domain string already leads with a
