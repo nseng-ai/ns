@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 
 import { Key, matchesKey, type KeyId } from "@earendil-works/pi-tui";
 import type { Clock } from "@nseng-ai/foundation/clock";
@@ -36,7 +37,6 @@ import {
 	loadFleetEntryDetail,
 	loadFleetTaskDetail,
 	placeholderDetail,
-	readWorktreeStateUnavailable,
 	type FleetDetailContext,
 	type FleetEntrySessionParseCache,
 	type FleetNavigatorEntry,
@@ -59,7 +59,6 @@ export { SUBAGENT_FLEET_PARENT_ENTRY_ID, loadFleetTaskDetail } from "./detail.ts
 const PARENT_ENTRY_TITLE = "Parent Pi session";
 
 const LIST_FOOTER = "↑/k ↓/j move · Enter/o open · q/Esc close";
-const DETAIL_FOOTER = "↑/k ↓/j scroll · f follow · p prompt · r reload · b back · q/Esc close";
 const DEFAULT_DETAIL_REFRESH_INTERVAL_MS = 1_000;
 
 /**
@@ -82,7 +81,6 @@ type DetailLoadResult =
 	| { status: "failed"; detail: SubagentFleetTaskDetail };
 
 export interface SubagentFleetNavigatorContext {
-	cwd: string;
 	hasUI: boolean;
 	sessionManager?: { getSessionFile?(): string | undefined };
 	ui: Pick<CommandContext["ui"], "notify" | "custom">;
@@ -163,11 +161,7 @@ export async function openSubagentFleetNavigator(input: {
 	const parentSessionFile = input.ctx.sessionManager?.getSessionFile?.();
 	const readTextFile =
 		input.dependencies?.readTextFile ?? ((path: string) => readFile(path, "utf8"));
-	const detailContext: FleetDetailContext = {
-		readTextFile,
-		readWorktreeState: input.dependencies?.readWorktreeState ?? readWorktreeStateUnavailable,
-		cwd: input.ctx.cwd,
-	};
+	const detailContext: FleetDetailContext = { readTextFile };
 	if (!input.ctx.hasUI || input.ctx.ui.custom === undefined) {
 		const lines = await formatNoUiSubagentFleetLines({
 			registry: input.registry,
@@ -246,6 +240,8 @@ export interface SubagentFleetNavigatorOptions {
 	clock?: Clock;
 	timers?: TimerScheduler;
 	detailRefreshIntervalMs?: number;
+	/** Home directory used to abbreviate absolute timeline paths; defaults to os.homedir(). */
+	homeDir?: string;
 }
 
 export class SubagentFleetNavigator implements RenderComponent {
@@ -257,6 +253,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private readonly clock: Clock;
 	private readonly timers: TimerScheduler;
 	private readonly detailRefreshIntervalMs: number;
+	private readonly homeDir: string;
 	private readonly unsubscribe: () => void;
 	private mode: "list" | "detail" = "list";
 	private entries: FleetNavigatorEntry[];
@@ -283,6 +280,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 		this.timers = options.timers ?? unrefTimerScheduler;
 		this.detailRefreshIntervalMs =
 			options.detailRefreshIntervalMs ?? DEFAULT_DETAIL_REFRESH_INTERVAL_MS;
+		this.homeDir = options.homeDir ?? homedir();
 		this.entries = this.readEntries();
 		this.selectedEntryId = defaultSelectionId(this.entries);
 		this.unsubscribe = this.registry.subscribe(() => {
@@ -307,10 +305,21 @@ export class SubagentFleetNavigator implements RenderComponent {
 		return renderOverlayFrame({
 			header: header.map((line) => truncatePlain(line, innerWidth)),
 			body: padRows(body, bodyRows),
-			footer: this.mode === "detail" ? DETAIL_FOOTER : LIST_FOOTER,
+			// Computed after the body call above: the body render refreshes scroll state.
+			footer: this.mode === "detail" ? this.detailFooter() : LIST_FOOTER,
 			width,
 			colorizeBorder: (text) => text,
 		});
+	}
+
+	private detailFooter(): string {
+		const hiddenBelow = Math.max(0, this.detailMaxScroll - this.detailScroll);
+		const followSegment = this.isFollowing
+			? "f follow ●"
+			: hiddenBelow > 0
+				? `↓ ${hiddenBelow} new · f follow`
+				: "f follow ○";
+		return `↑/k ↓/j scroll · ${followSegment} · p prompt · b back · q close`;
 	}
 
 	invalidate(): void {}
@@ -607,6 +616,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 		return renderFleetDetailHeaderLines({
 			entry: this.selectedEntry(),
 			detail: this.detail,
+			nowMs: this.clock.nowMs(),
 		});
 	}
 
@@ -629,6 +639,10 @@ export class SubagentFleetNavigator implements RenderComponent {
 		return renderFleetDetailContentLines({
 			detail,
 			isPromptExpanded: this.isPromptExpanded,
+			timelineContext: {
+				...optionalEntry("sessionCwd", detail.sessionCwd),
+				homeDir: this.homeDir,
+			},
 		});
 	}
 

@@ -39,6 +39,7 @@ describe("runner subagent timeline", () => {
 				state: "ok",
 				inputPreview: '{"path":"src/index.ts"}',
 				resultPreview: "file contents",
+				display: { kind: "path", path: "src/index.ts" },
 			},
 			{ kind: "assistant", text: "Done" },
 		]);
@@ -61,7 +62,13 @@ describe("runner subagent timeline", () => {
 		);
 
 		expect(timeline.entries).toEqual([
-			{ kind: "tool", toolName: "bash", state: "running", inputPreview: "npm test" },
+			{
+				kind: "tool",
+				toolName: "bash",
+				state: "running",
+				inputPreview: "npm test",
+				display: { kind: "command", command: "npm test" },
+			},
 			{ kind: "tool", toolName: "read", state: "error", resultPreview: "missing file" },
 		]);
 		expect(timeline.currentAction).toEqual({
@@ -151,6 +158,7 @@ describe("runner subagent timeline", () => {
 				state: "ok",
 				inputPreview: '{"path":"src/index.ts"}',
 				resultPreview: "file contents",
+				display: { kind: "path", path: "src/index.ts" },
 			},
 		]);
 		expect(timeline.currentAction).toEqual({ kind: "idle" });
@@ -170,7 +178,13 @@ describe("runner subagent timeline", () => {
 		);
 
 		expect(timeline.entries).toEqual([
-			{ kind: "tool", toolName: "bash", state: "running", inputPreview: "just test" },
+			{
+				kind: "tool",
+				toolName: "bash",
+				state: "running",
+				inputPreview: "just test",
+				display: { kind: "command", command: "just test" },
+			},
 		]);
 		expect(timeline.currentAction).toEqual({
 			kind: "tool",
@@ -224,6 +238,169 @@ describe("runner subagent timeline", () => {
 		expect(timeline.entries).toEqual([
 			{ kind: "assistant", text: "two" },
 			{ kind: "assistant", text: "three" },
+		]);
+	});
+
+	test("stamps entries with event timestamps and reports the event span", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{
+					type: "message_end",
+					timestamp: "2026-07-11T09:12:01.000Z",
+					message: assistantMessage("Starting"),
+				},
+				{
+					type: "tool_execution_start",
+					timestamp: "2026-07-11T09:12:09.000Z",
+					toolName: "bash",
+					toolCallId: "tool-1",
+					args: "just ts-check",
+				},
+				{
+					type: "tool_execution_end",
+					timestamp: "2026-07-11T09:12:31.000Z",
+					toolName: "bash",
+					toolCallId: "tool-1",
+					result: "ok",
+				},
+			]),
+		);
+
+		expect(timeline.entries).toEqual([
+			{ kind: "assistant", text: "Starting", timestampMs: Date.parse("2026-07-11T09:12:01.000Z") },
+			{
+				kind: "tool",
+				toolName: "bash",
+				state: "ok",
+				inputPreview: "just ts-check",
+				resultPreview: "ok",
+				timestampMs: Date.parse("2026-07-11T09:12:09.000Z"),
+				display: { kind: "command", command: "just ts-check" },
+			},
+		]);
+		expect(timeline.eventSpan).toEqual({
+			firstEventAtMs: Date.parse("2026-07-11T09:12:01.000Z"),
+			lastEventAtMs: Date.parse("2026-07-11T09:12:31.000Z"),
+		});
+	});
+
+	test("threads top-level message-event timestamps to synthesized entries", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{
+					type: "message",
+					timestamp: "2026-07-11T10:00:00.000Z",
+					message: {
+						role: "assistant",
+						content: [
+							{ type: "text", text: "Reading files" },
+							{ type: "toolCall", id: "tool-1", name: "read", arguments: { path: "src/index.ts" } },
+						],
+					},
+				},
+			]),
+		);
+
+		expect(timeline.entries).toEqual([
+			{
+				kind: "assistant",
+				text: "Reading files",
+				timestampMs: Date.parse("2026-07-11T10:00:00.000Z"),
+			},
+			{
+				kind: "tool",
+				toolName: "read",
+				state: "running",
+				inputPreview: '{"path":"src/index.ts"}',
+				timestampMs: Date.parse("2026-07-11T10:00:00.000Z"),
+				display: { kind: "path", path: "src/index.ts" },
+			},
+		]);
+	});
+
+	test("ignores malformed timestamps for stamping and span", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{
+					type: "message_end",
+					timestamp: "not-a-timestamp",
+					message: assistantMessage("Unstamped"),
+				},
+			]),
+		);
+
+		expect(timeline.entries).toEqual([{ kind: "assistant", text: "Unstamped" }]);
+		expect(timeline.eventSpan).toBeUndefined();
+	});
+
+	test("derives command display from bash record-form input", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{
+					type: "tool_execution_start",
+					toolName: "bash",
+					toolCallId: "tool-1",
+					args: { command: "pnpm run test" },
+				},
+			]),
+		);
+
+		expect(timeline.entries).toEqual([
+			{
+				kind: "tool",
+				toolName: "bash",
+				state: "running",
+				inputPreview: '{"command":"pnpm run test"}',
+				display: { kind: "command", command: "pnpm run test" },
+			},
+		]);
+	});
+
+	test("derives path display for write and edit tools", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{
+					type: "tool_execution_start",
+					toolName: "write",
+					toolCallId: "tool-1",
+					args: { path: "docs/notes.md", content: "hello" },
+				},
+				{
+					type: "tool_execution_start",
+					toolName: "edit",
+					toolCallId: "tool-2",
+					args: { path: "src/app.ts", oldText: "a", newText: "b" },
+				},
+			]),
+		);
+
+		expect(timeline.entries).toMatchObject([
+			{ toolName: "write", display: { kind: "path", path: "docs/notes.md" } },
+			{ toolName: "edit", display: { kind: "path", path: "src/app.ts" } },
+		]);
+	});
+
+	test("leaves display undefined for unknown tools and unexpected input shapes", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{
+					type: "tool_execution_start",
+					toolName: "grep",
+					toolCallId: "tool-1",
+					args: { pattern: "foo" },
+				},
+				{
+					type: "tool_execution_start",
+					toolName: "read",
+					toolCallId: "tool-2",
+					args: { path: 42 },
+				},
+			]),
+		);
+
+		expect(timeline.entries).toEqual([
+			{ kind: "tool", toolName: "grep", state: "running", inputPreview: '{"pattern":"foo"}' },
+			{ kind: "tool", toolName: "read", state: "running", inputPreview: '{"path":42}' },
 		]);
 	});
 

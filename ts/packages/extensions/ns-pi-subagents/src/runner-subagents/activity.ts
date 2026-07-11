@@ -90,6 +90,10 @@ export function toolInputPreviewFromEvent(event: Record<string, unknown>): strin
 	return firstMatchingEventPreview(event, ["args", "arguments", "input"]);
 }
 
+export function toolInputValueFromEvent(event: Record<string, unknown>): unknown {
+	return firstOwnFieldValue(event, ["args", "arguments", "input"]);
+}
+
 export function toolResultPreviewFromEvent(event: Record<string, unknown>): string | undefined {
 	if (!Object.prototype.hasOwnProperty.call(event, "result")) return undefined;
 	const result = event.result;
