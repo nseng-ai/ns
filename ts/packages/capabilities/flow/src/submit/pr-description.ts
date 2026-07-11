@@ -13,12 +13,7 @@ import {
 	type TextGenerationUsage,
 	type TextGenerator,
 } from "@nseng-ai/capability-kit/text-generation";
-import {
-	parseManagedRegion,
-	replaceMalformedManagedRegionFromBegin,
-	replaceManagedRegion,
-} from "@nseng-ai/foundation/managed-region";
-import { formatErrorMessage, sha256Digest } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { normalizeTextOutput, trimOuterBlankLines } from "@nseng-ai/foundation/text-normalization";
 import { truncateTextHeadTail } from "@nseng-ai/foundation/text-truncation";
 import { prepareRepairedText } from "@nseng-ai/capability-kit/text-repair";
@@ -42,10 +37,6 @@ export { DEFAULT_PR_DESCRIPTION_MODEL_REF, PR_DESCRIPTION_MODEL_ENV, selectPrDes
 export const PR_DESCRIPTION_PROMPT_ENV = "NS_DEV_PR_DESCRIPTION_PROMPT";
 export const FLOW_PR_DESCRIPTION_POINT_ID = "flow.submit.pr-description";
 export const REPO_PR_DESCRIPTION_PROMPT_PATH = `.ns/prompts/${FLOW_PR_DESCRIPTION_POINT_ID}.md`;
-export const GENERATED_BODY_MARKER = "<!-- generated-by: ji-dev pr-description v1 -->";
-export const MANAGED_BODY_BEGIN_MARKER = "<!-- ns-pr-description:begin";
-export const MANAGED_BODY_END_MARKER = "<!-- ns-pr-description:end -->";
-export const PR_DESCRIPTION_GENERATOR_VERSION = "ns-pr-description-v2";
 export const MAX_DIFF_CHARS = 120_000;
 
 const prDescriptionPromptEnvOverride = {
@@ -116,24 +107,6 @@ export interface ParsedPrDescription {
 	body: string;
 }
 
-export interface PrDescriptionFingerprintMetadata {
-	version: "2";
-	patchId: string;
-	promptHash: string;
-	generator: string;
-}
-
-export type ManagedGeneratedRegionParseResult =
-	| {
-			type: "found";
-			metadata: PrDescriptionFingerprintMetadata;
-			body: string;
-			start: number;
-			end: number;
-	  }
-	| { type: "missing" }
-	| { type: "malformed"; reason: string };
-
 export type PrDescriptionValidationIssue =
 	| { type: "empty_title" }
 	| { type: "title_too_long"; length: number; maxLength: number }
@@ -147,92 +120,6 @@ export type PrDescriptionValidationResult =
 export type PreparedPrDescription =
 	| { ok: true; title: string; body: string; source: "model" | "repaired_model"; feedback?: string }
 	| { ok: false; error: string };
-
-export function hasGeneratedMarker(body: string): boolean {
-	return body.includes(GENERATED_BODY_MARKER) || body.includes(MANAGED_BODY_BEGIN_MARKER);
-}
-
-export function hashPrDescriptionPrompt(promptText: string): string {
-	return `sha256:${sha256Digest(promptText)}`;
-}
-
-export function formatManagedGeneratedRegion(
-	body: string,
-	metadata: PrDescriptionFingerprintMetadata,
-): string {
-	const begin = `${MANAGED_BODY_BEGIN_MARKER} version=${metadata.version} patch-id=${metadata.patchId} prompt=${metadata.promptHash} generator=${metadata.generator} -->`;
-	return [
-		begin,
-		"<details open>",
-		"<summary>Generated PR description</summary>",
-		"",
-		body.trim(),
-		"",
-		"</details>",
-		MANAGED_BODY_END_MARKER,
-	].join("\n");
-}
-
-export function parseManagedGeneratedRegion(body: string): ManagedGeneratedRegionParseResult {
-	const parsed = parseManagedRegion({
-		text: body,
-		markers: { beginPrefix: MANAGED_BODY_BEGIN_MARKER, end: MANAGED_BODY_END_MARKER },
-		parseMetadata: parseManagedRegionMetadata,
-		extractBody: extractManagedRegionBody,
-	});
-	if (parsed.type !== "found") return parsed;
-	return {
-		type: "found",
-		metadata: parsed.metadata,
-		body: parsed.body,
-		start: parsed.start,
-		end: parsed.end,
-	};
-}
-
-export function replaceOrInsertGeneratedRegion(
-	existingBody: string,
-	generatedBody: string,
-	metadata: PrDescriptionFingerprintMetadata,
-): string {
-	const region = formatManagedGeneratedRegion(generatedBody, metadata);
-	const parsed = parseManagedGeneratedRegion(existingBody);
-	if (parsed.type === "found") {
-		return replaceManagedRegion({
-			text: existingBody,
-			replacement: region,
-			start: parsed.start,
-			end: parsed.end,
-		});
-	}
-	if (parsed.type === "malformed") {
-		return replaceMalformedManagedRegionFromBegin({
-			text: existingBody,
-			beginPrefix: MANAGED_BODY_BEGIN_MARKER,
-			replacement: region,
-		});
-	}
-	if (existingBody.includes(GENERATED_BODY_MARKER)) {
-		return region;
-	}
-	const trimmedExisting = existingBody.trim();
-	return trimmedExisting === "" ? region : `${region}\n\n${trimmedExisting}`;
-}
-
-export function isCommitMessagePrefillBody(
-	body: string,
-	commits: readonly PrCommitMessage[],
-): boolean {
-	const trimmedBody = body.trim();
-	// Empty bodies are owned by the existing empty-body overwrite check.
-	if (trimmedBody === "") return false;
-	return commits.some((commit) => commit.body?.trim() === trimmedBody);
-}
-
-export function appendGeneratedMarker(body: string): string {
-	const withoutExistingMarker = body.replace(GENERATED_BODY_MARKER, "").trimEnd();
-	return `${withoutExistingMarker}\n\n${GENERATED_BODY_MARKER}`;
-}
 
 export async function resolvePrDescriptionGeneration(input: {
 	env: Record<string, string | undefined>;
@@ -505,36 +392,6 @@ function formatCommitMessages(messages: readonly PrCommitMessage[]): string {
 		.map((message) => message.headline.trim())
 		.filter((message) => message !== "")
 		.join("\n\n---\n\n");
-}
-
-function parseManagedRegionMetadata(comment: string): PrDescriptionFingerprintMetadata | undefined {
-	const fields = new Map<string, string>();
-	for (const match of comment.matchAll(/([a-z-]+)=([^\s>]+)/g)) {
-		const key = match[1];
-		const value = match[2];
-		if (key === undefined || value === undefined) continue;
-		fields.set(key, value);
-	}
-	const version = fields.get("version");
-	const patchId = fields.get("patch-id");
-	const promptHash = fields.get("prompt");
-	const generator = fields.get("generator");
-	if (
-		version !== "2" ||
-		patchId === undefined ||
-		promptHash === undefined ||
-		generator === undefined
-	)
-		return undefined;
-	return { version, patchId, promptHash, generator };
-}
-
-function extractManagedRegionBody(regionContents: string): string {
-	const normalized = regionContents.replace(/\r/g, "");
-	const match = normalized.match(
-		/<details open>\n<summary>Generated PR description<\/summary>\n\n([\s\S]*?)\n\n<\/details>/,
-	);
-	return match?.[1]?.trim() ?? normalized.trim();
 }
 
 function isLockfileDiffSection(section: string): boolean {

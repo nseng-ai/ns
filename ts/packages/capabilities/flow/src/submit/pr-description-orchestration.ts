@@ -7,14 +7,16 @@ import { modelOperation, withActiveOperations } from "../phase-stream/matrix-pro
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import type { GithubPrDetails, GithubPrGateway } from "./github-pr-gateway.ts";
 import {
-	appendGeneratedMarker,
-	PR_DESCRIPTION_GENERATOR_VERSION,
-	hashPrDescriptionPrompt,
-	parseManagedGeneratedRegion,
+	buildFingerprint,
+	decidePrBodyUpdate,
+	mergeGeneratedBody,
+	prewrittenFallbackBody,
+	prewrittenMetadataMatches,
+	type PrDescriptionFingerprintPolicy,
+} from "./pr-description-body.ts";
+import {
 	preparePrDescription,
-	replaceOrInsertGeneratedRegion,
 	resolvePrDescriptionGeneration,
-	type PrDescriptionFingerprintMetadata,
 	type PrDescriptionGenerationResolution,
 	type PromptSource,
 	type TimeServices,
@@ -33,7 +35,7 @@ export interface PrDescriptionContent {
 	previewBody: string;
 }
 
-export type PrDescriptionFingerprintPolicy = "skip-current" | "force";
+export type { PrDescriptionFingerprintPolicy } from "./pr-description-body.ts";
 
 export type PrDescriptionProgressListeners = Pick<
 	SubmitProgressListeners<never>,
@@ -135,18 +137,16 @@ export async function preparePrDescriptionUpdate(
 		return { type: "failed", pr, reason: patchId.error.message, diagnostic: patchId.error };
 	}
 
-	const metadata: PrDescriptionFingerprintMetadata = {
-		version: "2",
+	const fingerprint = buildFingerprint({
 		patchId: patchId.value.patchId,
-		promptHash: hashPrDescriptionPrompt(generation.promptText),
-		generator: PR_DESCRIPTION_GENERATOR_VERSION,
-	};
-	const parsedRegion = parseManagedGeneratedRegion(pr.body);
-	if (
-		(options.fingerprintPolicy ?? "skip-current") === "skip-current" &&
-		parsedRegion.type === "found" &&
-		fingerprintsMatch(parsedRegion.metadata, metadata)
-	) {
+		promptText: generation.promptText,
+	});
+	const decision = decidePrBodyUpdate({
+		existingBody: pr.body,
+		fingerprint,
+		policy: options.fingerprintPolicy ?? "skip-current",
+	});
+	if (decision.type === "skip") {
 		options.progress?.onProgress?.(
 			`skipping PR #${pr.number} description; generated fingerprint is unchanged`,
 		);
@@ -158,9 +158,7 @@ export async function preparePrDescriptionUpdate(
 		};
 	}
 
-	options.progress?.onProgress?.(
-		`recomputing PR #${pr.number} description (${formatFingerprintMismatchReason(parsedRegion.type)})`,
-	);
+	options.progress?.onProgress?.(`recomputing PR #${pr.number} description (${decision.reason})`);
 	const commits = await options.githubPr.getPrCommitMessages({
 		cwd: options.cwd,
 		number: pr.number,
@@ -203,7 +201,11 @@ export async function preparePrDescriptionUpdate(
 		type: "prepared",
 		pr,
 		title: prepared.title,
-		mergedBody: replaceOrInsertGeneratedRegion(pr.body, prepared.body, metadata),
+		mergedBody: mergeGeneratedBody({
+			existingBody: pr.body,
+			generatedBody: prepared.body,
+			fingerprint,
+		}),
 		previewBody: prepared.body,
 		promptSource: generation.promptSource,
 	};
@@ -293,7 +295,7 @@ async function reconcilePrewrittenPr(params: {
 	params.options.progress?.onProgress?.(
 		`validating prewritten metadata for PR #${params.pr.number}`,
 	);
-	if (prMetadataMatches(params.pr.title, params.pr.body, params.metadata)) {
+	if (prewrittenMetadataMatches(params.pr.title, params.pr.body, params.metadata)) {
 		return {
 			type: "matched_prewritten",
 			pr: params.pr,
@@ -309,7 +311,7 @@ async function reconcilePrewrittenPr(params: {
 		cwd: params.options.cwd,
 		number: params.pr.number,
 		title: params.metadata.title,
-		body: appendGeneratedMarker(params.metadata.body),
+		body: prewrittenFallbackBody(params.metadata.body),
 	});
 	if (edited.ok) {
 		return {
@@ -326,33 +328,4 @@ async function reconcilePrewrittenPr(params: {
 		reason: `Generated initial metadata, but failed to update PR #${params.pr.number} after Graphite created mismatched metadata.\n${edited.error.message}`,
 		diagnostic: edited.error,
 	};
-}
-
-function formatFingerprintMismatchReason(
-	type: ReturnType<typeof parseManagedGeneratedRegion>["type"],
-): string {
-	switch (type) {
-		case "missing":
-			return "no generated fingerprint found";
-		case "malformed":
-			return "generated fingerprint is malformed";
-		case "found":
-			return "generated fingerprint changed";
-	}
-}
-
-function prMetadataMatches(title: string, body: string, metadata: PrewrittenPrMetadata): boolean {
-	return title.trim() === metadata.title.trim() && body.trim() === metadata.body.trim();
-}
-
-function fingerprintsMatch(
-	left: PrDescriptionFingerprintMetadata,
-	right: PrDescriptionFingerprintMetadata,
-): boolean {
-	return (
-		left.version === right.version &&
-		left.patchId === right.patchId &&
-		left.promptHash === right.promptHash &&
-		left.generator === right.generator
-	);
 }

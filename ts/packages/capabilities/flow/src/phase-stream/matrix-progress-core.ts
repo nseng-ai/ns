@@ -51,7 +51,7 @@ export interface MatrixRowSpec {
 	label: string;
 }
 
-export function rowsWithKey<Row extends { label: string }>(
+function rowsWithKey<Row extends { label: string }>(
 	rows: readonly Row[],
 	keyOf: (row: Row) => string,
 ): readonly (Row & MatrixRowSpec)[] {
@@ -80,9 +80,12 @@ export interface MatrixCellView {
 
 export type MatrixCellRecord<ColumnKey extends string> = Record<ColumnKey, MatrixCellView>;
 
-export interface MatrixRowView<ColumnKey extends string> extends MatrixRowSpec {
+export type MatrixRowView<
+	ColumnKey extends string,
+	Row extends MatrixRowSpec = MatrixRowSpec,
+> = Row & {
 	cells: MatrixCellRecord<ColumnKey>;
-}
+};
 
 export interface MatrixGlobalView<GlobalKey extends string> {
 	key: GlobalKey;
@@ -103,12 +106,20 @@ export interface MatrixGlobalSubstepView {
 	text?: string;
 }
 
-export interface MatrixProgressSink<ColumnKey extends string, GlobalKey extends string> {
-	setRows(rows: readonly MatrixRowSpec[]): void;
+export interface MatrixProgressSink<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec = MatrixRowSpec,
+> {
+	setRows(rows: readonly Row[]): void;
+	getRows(): readonly Readonly<Row>[];
+	replaceRow(rowKey: string, row: Row): void;
+	patchRow(rowKey: string, patch: Partial<Omit<Row, "rowKey">>): void;
 	setActiveOperations(operations: readonly ActiveOperation[]): void;
 	setGlobal(key: GlobalKey, update: MatrixCellUpdate): void;
 	setGlobalSubstep(globalKey: GlobalKey, substepKey: string, update: MatrixCellUpdate): void;
 	setCell(rowKey: string, column: ColumnKey, update: MatrixCellUpdate): void;
+	setCellsInState(column: ColumnKey, fromState: MatrixCellState, update: MatrixCellUpdate): void;
 	setAllCells(column: ColumnKey, update: MatrixCellUpdate): void;
 	setAllOtherCells(column: ColumnKey, rowKey: string, update: MatrixCellUpdate): void;
 }
@@ -116,29 +127,34 @@ export interface MatrixProgressSink<ColumnKey extends string, GlobalKey extends 
 export interface MatrixProgressController<
 	ColumnKey extends string,
 	GlobalKey extends string,
-> extends MatrixProgressSink<ColumnKey, GlobalKey> {
+	Row extends MatrixRowSpec = MatrixRowSpec,
+> extends MatrixProgressSink<ColumnKey, GlobalKey, Row> {
 	begin(): void;
 	setTitle(title: string): void;
-	updateRows(mutator: (rows: MatrixRowView<ColumnKey>[]) => void): void;
 	note(text: string): void;
 	finish(options?: { isFailed?: boolean; finalLines?: readonly string[] }): Promise<void>;
 	stop(): Promise<void>;
 }
 
-export interface MatrixProgressState<ColumnKey extends string, GlobalKey extends string> {
-	activeOperations: ActiveOperation[];
-	globals: MatrixGlobalView<GlobalKey>[];
-	rows: MatrixRowView<ColumnKey>[];
-}
-
-export interface CreateMatrixProgressControllerOptions<
+interface MatrixProgressState<
 	ColumnKey extends string,
 	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+> {
+	activeOperations: ActiveOperation[];
+	globals: MatrixGlobalView<GlobalKey>[];
+	rows: MatrixRowView<ColumnKey, Row>[];
+}
+
+interface CreateMatrixProgressControllerOptions<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
 > {
 	caps: Caps;
 	deps: StreamSinkDeps;
 	title: string;
-	rows: readonly MatrixRowSpec[];
+	rows: readonly Row[];
 	columns: readonly MatrixColumnSpec<ColumnKey>[];
 	globalRows: readonly MatrixGlobalRowSpec<GlobalKey>[];
 	phases: readonly PhaseSpec[];
@@ -151,9 +167,13 @@ export interface CreateMatrixProgressControllerOptions<
 /** Quiet time before the tail line grows a "· Ns ago" counter; below this, output reads as flowing. */
 export const TAIL_QUIET_NOTICE_MS = 3_000;
 
-export function createMatrixProgressController<ColumnKey extends string, GlobalKey extends string>(
-	options: CreateMatrixProgressControllerOptions<ColumnKey, GlobalKey>,
-): MatrixProgressController<ColumnKey, GlobalKey> {
+function createMatrixProgressController<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(
+	options: CreateMatrixProgressControllerOptions<ColumnKey, GlobalKey, Row>,
+): MatrixProgressController<ColumnKey, GlobalKey, Row> {
 	const sink = createStreamSink(options.caps, options.deps);
 	const lifecycle = createPhaseStreamLifecycle(options.caps, sink);
 	const tail = createTranscriptTail();
@@ -211,9 +231,29 @@ export function createMatrixProgressController<ColumnKey extends string, GlobalK
 		render();
 	}
 
-	function setRows(rows: readonly MatrixRowSpec[]): void {
+	function setRows(rows: readonly Row[]): void {
 		state.rows = createMatrixRowViews(rows, options.columns);
 		ensureBegun();
+		render();
+	}
+
+	function getRows(): readonly Readonly<Row>[] {
+		return state.rows.map((row) => ({ ...row }));
+	}
+
+	function replaceRow(rowKey: string, row: Row): void {
+		const rowIndex = state.rows.findIndex((candidate) => candidate.rowKey === rowKey);
+		const existing = state.rows[rowIndex];
+		if (existing === undefined) return;
+		state.rows[rowIndex] = { ...row, cells: existing.cells };
+		render();
+	}
+
+	function patchRow(rowKey: string, patch: Partial<Omit<Row, "rowKey">>): void {
+		const rowIndex = state.rows.findIndex((candidate) => candidate.rowKey === rowKey);
+		const existing = state.rows[rowIndex];
+		if (existing === undefined) return;
+		state.rows[rowIndex] = { ...existing, ...patch };
 		render();
 	}
 
@@ -253,6 +293,18 @@ export function createMatrixProgressController<ColumnKey extends string, GlobalK
 		render();
 	}
 
+	function setCellsInState(
+		column: ColumnKey,
+		fromState: MatrixCellState,
+		update: MatrixCellUpdate,
+	): void {
+		for (const row of state.rows) {
+			if (row.cells[column].state !== fromState) continue;
+			row.cells[column] = matrixCellFromUpdate(update);
+		}
+		render();
+	}
+
 	function setAllCells(column: ColumnKey, update: MatrixCellUpdate): void {
 		for (const row of state.rows) {
 			row.cells[column] = matrixCellFromUpdate(update);
@@ -267,11 +319,6 @@ export function createMatrixProgressController<ColumnKey extends string, GlobalK
 			row.cells[column] = matrixCellFromUpdate(update);
 		}
 		ensureBegun();
-		render();
-	}
-
-	function updateRows(mutator: (rows: MatrixRowView<ColumnKey>[]) => void): void {
-		mutator(state.rows);
 		render();
 	}
 
@@ -313,24 +360,95 @@ export function createMatrixProgressController<ColumnKey extends string, GlobalK
 		begin,
 		setTitle,
 		setRows,
+		getRows,
+		replaceRow,
+		patchRow,
 		setActiveOperations,
 		setGlobal,
 		setGlobalSubstep,
 		setCell,
+		setCellsInState,
 		setAllCells,
 		setAllOtherCells,
-		updateRows,
 		note,
 		finish,
 		stop,
 	};
 }
 
-export function createMatrixProgressState<ColumnKey extends string, GlobalKey extends string>(
-	rows: readonly MatrixRowSpec[],
+export interface MatrixWorkflowConfig<
+	Row extends { label: string },
+	ColumnKey extends string,
+	GlobalKey extends string,
+> {
+	columns: readonly MatrixColumnSpec<ColumnKey>[];
+	globalRows: readonly MatrixGlobalRowSpec<GlobalKey>[];
+	phases: readonly PhaseSpec[];
+	rowKey(row: Row): string;
+}
+
+export interface MatrixWorkflow<
+	Row extends { label: string },
+	ColumnKey extends string,
+	GlobalKey extends string,
+> {
+	createController(
+		options: Omit<
+			CreateMatrixProgressControllerOptions<ColumnKey, GlobalKey, Row & MatrixRowSpec>,
+			"rows" | "columns" | "globalRows" | "phases"
+		> & { rows: readonly Row[] },
+	): Omit<MatrixProgressController<ColumnKey, GlobalKey, Row & MatrixRowSpec>, "setRows"> & {
+		setRows(rows: readonly Row[]): void;
+	};
+	renderFrame(
+		input: Omit<
+			Parameters<typeof renderMatrixProgressFrame<ColumnKey, GlobalKey>>[0],
+			"columns" | "rows"
+		> & {
+			rows: readonly (Row & Pick<MatrixRowView<ColumnKey>, "cells">)[];
+		},
+	): readonly string[];
+}
+
+export function defineMatrixWorkflow<
+	Row extends { label: string },
+	ColumnKey extends string,
+	GlobalKey extends string,
+>(
+	config: MatrixWorkflowConfig<Row, ColumnKey, GlobalKey>,
+): MatrixWorkflow<Row, ColumnKey, GlobalKey> {
+	return {
+		createController: (options) => {
+			const controller = createMatrixProgressController({
+				...options,
+				rows: rowsWithKey(options.rows, config.rowKey),
+				columns: config.columns,
+				globalRows: config.globalRows,
+				phases: config.phases,
+			});
+			return {
+				...controller,
+				setRows: (rows) => controller.setRows(rowsWithKey(rows, config.rowKey)),
+			};
+		},
+		renderFrame: (input) =>
+			renderMatrixProgressFrame({
+				...input,
+				columns: config.columns,
+				rows: rowsWithKey(input.rows, config.rowKey),
+			}),
+	};
+}
+
+function createMatrixProgressState<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(
+	rows: readonly Row[],
 	columns: readonly MatrixColumnSpec<ColumnKey>[],
 	globalRows: readonly MatrixGlobalRowSpec<GlobalKey>[],
-): MatrixProgressState<ColumnKey, GlobalKey> {
+): MatrixProgressState<ColumnKey, GlobalKey, Row> {
 	return {
 		activeOperations: [],
 		globals: globalRows.map((row) => ({
@@ -345,10 +463,10 @@ export function createMatrixProgressState<ColumnKey extends string, GlobalKey ex
 	};
 }
 
-export function createMatrixRowViews<ColumnKey extends string>(
-	rows: readonly MatrixRowSpec[],
+function createMatrixRowViews<ColumnKey extends string, Row extends MatrixRowSpec>(
+	rows: readonly Row[],
 	columns: readonly MatrixColumnSpec<ColumnKey>[],
-): MatrixRowView<ColumnKey>[] {
+): MatrixRowView<ColumnKey, Row>[] {
 	return rows.map((row) => ({
 		...row,
 		cells: Object.fromEntries(
@@ -450,7 +568,7 @@ export async function runTrackedMatrixStep<Result extends { type: string }>(
 	return result;
 }
 
-export function settleActiveCells<ColumnKey extends string, GlobalKey extends string>(
+function settleActiveCells<ColumnKey extends string, GlobalKey extends string>(
 	state: { globals: MatrixGlobalView<GlobalKey>[]; rows: MatrixRowView<ColumnKey>[] },
 	columns: readonly MatrixColumnSpec<ColumnKey>[],
 	target: MatrixCellState,
@@ -469,7 +587,7 @@ export function settleActiveCells<ColumnKey extends string, GlobalKey extends st
 	}
 }
 
-export function applyCellUpdate<Cell extends { state: MatrixCellState; text?: string }>(
+function applyCellUpdate<Cell extends { state: MatrixCellState; text?: string }>(
 	cell: Cell,
 	update: MatrixCellUpdate,
 ): Cell {

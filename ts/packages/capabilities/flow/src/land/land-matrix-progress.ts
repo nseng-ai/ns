@@ -3,10 +3,8 @@ import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ActiveOperation, NsProgress } from "@nseng-ai/kernel/sdk";
 import {
-	createMatrixProgressController,
+	defineMatrixWorkflow,
 	matrixFrameOptionalFields,
-	renderMatrixProgressFrame,
-	rowsWithKey,
 	type MatrixCellUpdate,
 	type MatrixColumnSpec,
 	type MatrixFrameOptionalFields,
@@ -81,6 +79,13 @@ export function landMatrixRowsFromPlan(
 	});
 }
 
+const landMatrixWorkflow = defineMatrixWorkflow<LandMatrixRowSpec, LandMatrixColumnKey, never>({
+	columns: LAND_MATRIX_COLUMNS,
+	globalRows: [],
+	phases: LAND_PHASES,
+	rowKey: (row) => row.branch,
+});
+
 export function createLandMatrixProgressController(options: {
 	caps: Caps;
 	deps: StreamSinkDeps;
@@ -88,14 +93,11 @@ export function createLandMatrixProgressController(options: {
 }): LandMatrixProgressController {
 	const liveState: LandLiveProgressState = { landedPrs: 0 };
 	const landedPrNumbers = new Set<number>();
-	const controller = createMatrixProgressController({
+	const controller = landMatrixWorkflow.createController({
 		caps: options.caps,
 		deps: options.deps,
 		title: formatLandProgressTitle(liveState),
 		rows: [],
-		columns: LAND_MATRIX_COLUMNS,
-		globalRows: [],
-		phases: LAND_PHASES,
 		...optionalEntry("forward", options.forward),
 		begin: "lazy",
 	});
@@ -103,7 +105,7 @@ export function createLandMatrixProgressController(options: {
 	function setRows(rows: readonly LandMatrixRowSpec[]): void {
 		liveState.totalPrs = rows.length;
 		controller.setTitle(formatLandProgressTitle(liveState));
-		controller.setRows(rowsWithKey(rows, (row) => row.branch));
+		controller.setRows(rows);
 	}
 
 	function recordMergedPr(prNumber: number): void {
@@ -135,10 +137,9 @@ export function renderLandMatrixProgressFrame(
 		rows: readonly (LandMatrixRowSpec & MatrixRowView<LandMatrixColumnKey>)[];
 	} & MatrixFrameOptionalFields,
 ): readonly string[] {
-	return renderMatrixProgressFrame({
+	return landMatrixWorkflow.renderFrame({
 		caps: input.caps,
 		title: input.title,
-		columns: LAND_MATRIX_COLUMNS,
 		globals: [],
 		rows: input.rows,
 		...matrixFrameOptionalFields(input),
