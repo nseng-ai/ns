@@ -103,7 +103,7 @@ live exchange with the user. Assets link from row notes and live in
     whose boundary took paragraphs to describe in the old `CONTEXT-MAP.md`. Decide
     what the orchestration layer *is*, what it should be named, what belongs in it
     versus in the capabilities it composes, and spec any resulting renames/moves.
-- [ ] Reexamine extension, host, and kernel layering vocabulary (grilling)
+- [x] Reexamine extension, host, and kernel layering vocabulary (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,
     capability-kit, tools.
@@ -114,8 +114,51 @@ live exchange with the user. Assets link from row notes and live in
     topology (role directories, `@internal` space, unscoped `nscc`, hosts like
     pi-command-surfaces and command-backed-skill-registry) express it, and what
     renames/merges would make the layering legible? Spec resulting changes.
-  - Note: read the `cross-harness-parity` and `extension-descriptor-contract`
-    orientations before this session; their direction constrains it.
+  - Resolved 2026-07-11: thirteen ratified decisions, recorded as ADR 0033 and the
+    execution spec `docs/wayfinding/ontology-reshape/layering-reshape-spec.md`.
+    Headliners: `ns.tier` is canonical with role directories as a guard-enforced
+    projection (four mismatches dispositioned — pi-command-surfaces deleted, reviews
+    and ns-dev retiered, ns-pi-subagents into internal space); taxonomy trimmed nine →
+    seven tiers; DI Seam vs Gateway distinction canonized with `CommandExecApi`
+    winning and `ExecGateway` retired; brmem made honestly Neutral Infra via git-seam
+    relocation to foundation (debt edge deleted); command-backed-skill-registry folded
+    into areg (Objective Edge to `skill-management-subsystem` records the input);
+    `hosts/ns-cli` → `hosts/ns` with the checkout-free pair glossaried; 45 residue
+    directories slated for deletion. Kernel rename parked (see Parked). Code-independent
+    glossary edits landed in place; code-coupled edits ride the executing PRs per the
+    spec. Semantic update: `updates/2026-07-11-layering-reshape-decisions.md`.
+- [ ] Reexamine foundation domain residue and the capability-kit junk drawer (grilling)
+  - Graduated 2026-07-11 from the layering row's leftovers (was Fog-adjacent sweep
+    material, now specifiable).
+  - Question: Foundation carries domain-smelling vocabulary below the SDK
+    (`terminal/runner-usage`, `terminal/terminal-presentation`,
+    `primitives/skill-lookup`) and a one-module `config` subpackage; capability-kit's
+    `kit` subpackage is a ~19-subpath junk drawer of checkpoint/slug/text-gen/shell/
+    xdg/brmem concerns; Machine Envelope is constructed in clinkr and parsed in
+    foundation with no recorded seam; checkpoint vocabulary spans kit and flow. What
+    moves up, what collapses, what is `kit`, and who owns Machine Envelope? Spec
+    resulting changes.
+- [ ] Batch-name the unglossaried brands (grilling)
+  - Graduated 2026-07-11 from the layering row (sweep pattern: deferred-to vocabulary
+    that does not exist).
+  - Question: `clinkr` and `areg` are bins/packages whose name expansions are recorded
+    nowhere — the root glossary even defers to "areg vocabulary" that does not exist.
+    Decide each expansion (or decide the name is opaque-by-design and record that),
+    and where brand-name expansions live. `nscc` is excluded — it belongs to the
+    CCC/orchestration row.
+- [ ] Decide the reshaping handoff vehicle (grilling)
+  - Graduated 2026-07-11 from the "Reshaping handoff vehicle" Fog: the first reshaping
+    spec now exists (`layering-reshape-spec.md`), which was that Fog's stated
+    graduation trigger.
+  - Question: How do decided reshapings get executed after this Objective — new
+    objectives, branch-context plans, or direct implementation sessions — and what
+    must a spec asset contain to hand off cleanly? Judge against the live example:
+    the layering spec's ten execution items.
+  - Evidence (2026-07-11): a same-session direct-implementation pass on the layering
+    spec's batch one was started (items 1, 2 validated green as stacked slices) and
+    rolled back by user steer; the spec now carries the intended implementation
+    order (items 1 → 10) plus the scope facts that attempt surfaced. Input for this
+    row's vehicle decision.
 - [ ] Reexamine the source-control lifecycle spread (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,
@@ -149,3 +192,13 @@ live exchange with the user. Assets link from row notes and live in
     documentation-phase Fog.
 
 ## Parked
+
+- [ ] Decide the `@nseng-ai/kernel` name: commit to the kernel brand or rename to
+      SDK/host/loader language (grilling)
+  - Parked 2026-07-11 by user decision during the layering grilling row. Revisit
+    trigger: the `extension-descriptor-contract` Objective closes (the name anchors
+    its public author contract — `@nseng-ai/kernel/sdk` imports, folded
+    `@nseng-ai/ns/kernel/*` subpaths, `kernel/docs/writing-an-ns-extension.md`).
+    Until then, no new kernel-brand prose (no glossary entry committing to the OS
+    analogy) so the decision stays cheap in both directions. Evidence for the session:
+    ideas.md "kernel name/analogy under user skepticism" plus ADR 0033 §7.

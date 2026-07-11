@@ -162,9 +162,13 @@ The standard explicit Packaging step that collapses a **Span PR**'s interior com
 
 These terms are general across the codebase. The canonical definitions are replicated here for discoverability; the `typescript-fake-driven-testing` skill carries the fuller mechanics.
 
+**DI Seam**:
+An injected boundary where a real dependency is replaced by a fake in tests — the umbrella category for test-substitutable collaborators. Every **Gateway** is a DI seam, but not every DI seam is a Gateway: lightweight runtime primitives such as `Clock` and `TimerScheduler` are DI seams that are not Gateways.
+*Avoid*: gateway (for lightweight primitives), service locator, dependency-injection container, port
+
 **Gateway**:
-The canonical interface to an external or non-deterministic capability — process execution, Git, GitHub, filesystem-backed storage, network, the system clock, and timers. Business logic depends on a Gateway rather than on the raw capability, so the Gateway is the single seam where real I/O is replaced by an in-memory fake in tests. External-service boundaries carry the `Gateway` suffix (`ExecGateway`, `GitGateway`, `PRGateway`); small runtime primitives are Gateways by category but named bare (`Clock`, `TimerScheduler`). Filesystem-backed gateways must be domain-specific seams above raw filesystem operations, such as `ObjectiveStorageGateway` or plan-store storage, not a pure/shared `FileSystemGateway`; the domain gateway owns path vocabulary, containment rules, and persistence semantics while its real adapter may use `fs` internally. This remains true when the current implementation is thin: the seam still speaks in domain objects and operations rather than raw file reads, directory listings, or path stats.
-*Avoid*: port, generic service locator, dependency-injection bag, pure filesystem gateway, shared `FileSystemGateway`, substrate-shaped capability gateway
+The subset of **DI Seams** that abstracts a stateful or heavyweight external service or capability — process execution, Git, GitHub, filesystem-backed storage, network. Business logic depends on the Gateway rather than the raw capability, so the Gateway is the single seam where real I/O is replaced by an in-memory fake in tests. The `Gateway` suffix marks genuine heavyweight-service seams wherever they live (`GitGateway`, `GithubPrFeedbackGateway`); a seam's *placement* (Kit Gateway vs Neutral Infra) follows its contract's ns-shape and is not reflected in the suffix, and incumbent generic names win absent confusion — foundation's exec seam is `CommandExecApi`, and the name `ExecGateway` is retired. Lightweight primitives (`Clock`, `TimerScheduler`) are DI seams, not Gateways. Filesystem-backed gateways must be domain-specific seams above raw filesystem operations, such as `ObjectiveStorageGateway` or plan-store storage, not a pure/shared `FileSystemGateway`; the domain gateway owns path vocabulary, containment rules, and persistence semantics while its real adapter may use `fs` internally. This remains true when the current implementation is thin: the seam still speaks in domain objects and operations rather than raw file reads, directory listings, or path stats.
+*Avoid*: port, generic service locator, dependency-injection bag, pure filesystem gateway, shared `FileSystemGateway`, substrate-shaped capability gateway, `ExecGateway` (retired name), gateway as a synonym for every DI seam
 
 **Domain logic**:
 Deterministic code that consumes one or more **Gateways** to produce or transform domain values, such as assembling a worktree's status from several `ExecGateway` calls. It is not a seam to the outside world: substituting domain logic in a test fakes logic you own, so prefer faking the **Gateway** beneath it. Name domain logic with a domain-specific verb (`load`, `read`, `resolve`, `assemble`, …, chosen for the domain action, not a mandated prefix); do not mint `…Loader` noun-types or a `loaders`/`…Dependencies` collection that dresses stateless functions up as a stateful collaborator.
@@ -235,6 +239,10 @@ The technical construct — a package that plugs into the SDK via `defineExtensi
 An **Extension** whose command-group slug names the singular domain noun users operate on, not the package name and not an implementation acronym. Prefer stable domain nouns that read like ns command families — `ns objective ...`, `ns handoff ...`, `ns retro ...` — even when the npm package is plural for package-naming reasons (`@nseng-ai/objectives`, `@nseng-ai/handoffs`, `@nseng-ai/retros`). Use plural command groups only when the domain noun is genuinely plural or collection-shaped in user language. This term governs command-facing vocabulary, not TypeScript symbol names or npm package identity.
 *Avoid*: package-oriented command group, implementation acronym command group, plural-by-package-name, CLI family named after the package
 
+**Command Face**:
+A **Capability**'s user-facing `ns <noun> ...` CLI presentation surface — role vocabulary for what the capability exposes to users, distinct from the mechanism that carries it (the `ns` **Host-surface subpackage**). Qualified per capability when useful (Handoff Command Face). One spelling: Command Face.
+*Avoid*: command-face, command face (lowercase), ns Host-surface subpackage as a synonym, bare command group
+
 **Capability**:
 A first-party ns feature area (objectives, handoff, slot, flow, …) — a set of domain capabilities packaged as an **Extension** built on the **Capability Kit**. It exposes kernel-loaded CLI/Pi commands, and adds a **Capability API** only when a **consumer** extension depends on it in-process.
 *Avoid*: plugin, built-in, the bare construct "extension" (the extension is the mechanism; the capability is the feature area)
@@ -288,7 +296,7 @@ The `testing` **Subpackage**: the cross-package test-time contract exporting fak
 *Avoid*: test folder, test utils, mocks folder
 
 **Host-surface subpackage**:
-A **Subpackage** that exists because exactly one host consumes it as an entry surface — `ns` (the ns Command Face), `pi` (Pi mirrors), `repo-local-ns-extension` (kernel extension loading) — and that only its host may import. It holds thin per-feature adapters, not domain logic.
+A **Subpackage** that exists because exactly one host consumes it as an entry surface — `ns` (the ns **Command Face**), `pi` (Pi mirrors), `ns-extension` (kernel extension descriptor loading) — and that only its host may import. It holds thin per-feature adapters, not domain logic.
 *Avoid*: context subpackage, commands, shell, presentation layer
 
 **Feature subpackage**:
@@ -298,6 +306,14 @@ A **Subpackage** naming a real domain vertical of a **Container package** (for e
 **Remainder subpackage**:
 The explicitly declared transitional unit for unconverted source in a package being containerized, enabled by `ns.remainder: true`; its membership is the source not claimed by a declared **Subpackage**. A properly formed **Container package** has no remainder.
 *Avoid*: miscellaneous folder, hidden subpackage, sentinel entry, `.` subpackage, debt label
+
+**Checkout-free distribution**:
+The npm distribution of the `ns` CLI as `@nseng-ai/ns`: a prebuilt bin assembled by **Package preparation**, installable without this repository's checkout. Two bins, one product, deliberately: `@nseng-ai/kernel` bins `ns` from source for checkout consumers; `@nseng-ai/ns` bins prebuilt JavaScript for checkout-free consumers.
+*Avoid*: checkout-free SDL distribution, ns-cli (as the package name), second product
+
+**Package preparation**:
+The assembly step that produces `@nseng-ai/ns`'s publishable form: prebuilt bin, rewritten manifest, and kernel subpath folding — `@nseng-ai/kernel` (private) folded into `@nseng-ai/ns/kernel/*` so checkout-free consumers reach the public kernel subpaths through the published package.
+*Avoid*: build step (bare), publish (the separate authorized step), bundling
 
 **Internal space**:
 The private workspace area for repo-local Pi-tool packages: packages under `ts/packages/internal/` using the `@internal/*` scope, marked private, and without outside workspace dependents.

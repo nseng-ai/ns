@@ -2,6 +2,8 @@
 edges:
   - objective: repo-ontology
     annotation: Supersedes this closed standing record; its remaining reconciliation scope and standing non-goals carry over here, and its mined facts live in the effort folder's ideas.md.
+  - objective: skill-management-subsystem
+    annotation: The layering reshape (ADR 0033, layering-reshape-spec.md item 7) folds the command-backed-skill-registry into areg — recorded input that Objective must consume before reshaping skill surfaces further.
 ---
 
 # Ontology Reshape
@@ -99,10 +101,6 @@ Rows as the Frontier advances, and none is pre-sliced before then:
   capability-kit and pi-tools decisions), glossary authoring/rewrites, and the final
   `CONTEXT-MAP.md` rewrite and unfamiliar-contributor readback. Specifiable once the
   reexamination clusters settle; will graduate into per-cluster or per-package rows.
-- **Reshaping handoff vehicle** — how decided reshapings get executed after this
-  Objective: new objectives, branch-context plans, or direct implementation sessions;
-  and what a "spec" asset must contain to hand off cleanly. Decide when the first
-  reshaping decision exists.
 - **Doc-structure changes** — whether the context-doc system itself changes shape: the
   `@nseng-ai/foundation` single-file-with-anchors question, whether this record should
   index `docs/adr/` (36 ADRs, five duplicated numbers — treatment undecided), and how
