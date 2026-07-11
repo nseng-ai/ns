@@ -1,5 +1,4 @@
-import type { Api, Model } from "@earendil-works/pi-ai";
-import { closeOpenAICodexWebSocketSessions } from "@earendil-works/pi-ai/api/openai-codex-responses";
+import { cleanupSessionResources, type Api, type Model } from "@earendil-works/pi-ai";
 import { uuidv7 } from "@earendil-works/pi-agent-core";
 // Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
 // Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
@@ -49,7 +48,7 @@ export class PiTextGenerator implements TextGenerator {
 		this.completeSimple = options.completeSimple;
 		this.loadDefaultModelRegistry = options.loadDefaultModelRegistry ?? loadDefaultModelRegistry;
 		this.createRequestSessionId = options.createRequestSessionId ?? uuidv7;
-		this.cleanupRequestSession = options.cleanupRequestSession ?? closeOpenAICodexWebSocketSessions;
+		this.cleanupRequestSession = options.cleanupRequestSession ?? cleanupSessionResources;
 	}
 
 	async generateText(request: TextGenerationRequest): Promise<TextGenerationResult> {
