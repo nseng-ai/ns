@@ -13,7 +13,6 @@ import { extractRunnerSubagentTimelineFromSessionJsonl } from "../runner-subagen
 import type {
 	RunnerSubagentCurrentAction,
 	RunnerSubagentTimeline,
-	RunnerSubagentTimelineEventSpan,
 } from "../runner-subagents/timeline.ts";
 import type { GitHeadSnapshot } from "./git-head.ts";
 import type { ReadTextFile } from "./read-text-dependencies.ts";
@@ -190,7 +189,7 @@ export function detailFromSnapshot(input: {
 		modelText: modelText(input.snapshot),
 		turnCount: input.snapshot.progress.turnCount,
 		toolCount: input.snapshot.progress.toolCount,
-		duration: runDuration(task, input.timeline.eventSpan),
+		duration: runDuration(task),
 		state: input.snapshot.progress.state,
 		status,
 		timeline: input.timeline,
@@ -199,13 +198,24 @@ export function detailFromSnapshot(input: {
 	};
 }
 
-function runDuration(
-	task: SubagentFleetTaskSnapshot | undefined,
-	eventSpan: RunnerSubagentTimelineEventSpan | undefined,
-): SubagentFleetRunDuration {
-	if (eventSpan === undefined) return { kind: "unknown" };
-	if (task?.state === "running") return { kind: "running", startedAtMs: eventSpan.firstEventAtMs };
-	return { kind: "completed", elapsedMs: eventSpan.lastEventAtMs - eventSpan.firstEventAtMs };
+function runDuration(task: SubagentFleetTaskSnapshot | undefined): SubagentFleetRunDuration {
+	if (task === undefined) return { kind: "unknown" };
+	switch (task.state) {
+		case "queued":
+			return { kind: "unknown" };
+		case "running":
+			return task.startedAtMs === undefined
+				? { kind: "unknown" }
+				: { kind: "running", startedAtMs: task.startedAtMs };
+		case "done":
+			return task.finalElapsedMs === undefined
+				? { kind: "unknown" }
+				: { kind: "completed", elapsedMs: task.finalElapsedMs };
+		default: {
+			const exhaustive: never = task.state;
+			return exhaustive;
+		}
+	}
 }
 
 function sessionCwdFromSnapshot(

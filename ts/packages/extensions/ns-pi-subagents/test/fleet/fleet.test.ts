@@ -5,6 +5,7 @@ import type {
 	SessionShutdownEvent,
 	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
+import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
 import { getOrCreateSubagentFleetRegistry } from "../../src/fleet/provider.ts";
@@ -173,6 +174,26 @@ describe("subagent fleet manager", () => {
 		}
 		expect(registry.snapshot()).toHaveLength(1);
 		expect(changeCount).toBe(countBeforeStaleStarts);
+	});
+});
+
+describe("subagent fleet registry timing", () => {
+	test("captures lifecycle start time and terminal elapsed time", () => {
+		const manualClock = createManualClock(1_000);
+		const registry = new SubagentFleetRegistry({ clock: manualClock.clock });
+		const run = registry.startRun([{ title: "Timed" }]);
+		const taskId = run.tasks[0]?.id;
+		if (taskId === undefined) throw new Error("missing task id");
+
+		registry.markRunning(taskId);
+		manualClock.advanceMs(500);
+		registry.markDone(taskId, { ...makeFinalTextResult("done"), elapsedMs: 125 });
+
+		expect(registry.snapshot()[0]?.tasks[0]).toMatchObject({
+			state: "done",
+			startedAtMs: 1_000,
+			finalElapsedMs: 125,
+		});
 	});
 });
 

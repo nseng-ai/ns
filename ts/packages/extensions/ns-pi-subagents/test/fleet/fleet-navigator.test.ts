@@ -114,7 +114,7 @@ describe("subagent fleet navigator", () => {
 			kind: "tool",
 			toolName: "read",
 			state: "ok",
-			display: { kind: "path", path: "/repo/src/index.ts" },
+			invocation: { kind: "fields", fields: { path: "/repo/src/index.ts" } },
 		} as const;
 		expect(renderTimelineEntryLines(entry, { sessionCwd: "/repo", homeDir: "/Users/dev" })).toEqual(
 			["✓ read src/index.ts"],
@@ -126,7 +126,7 @@ describe("subagent fleet navigator", () => {
 		expect(
 			renderTimelineEntryLines({
 				...entry,
-				display: { kind: "path", path: "docs/notes.md" },
+				invocation: { kind: "fields", fields: { path: "docs/notes.md" } },
 			}),
 		).toEqual(["✓ read docs/notes.md"]);
 	});
@@ -137,9 +137,57 @@ describe("subagent fleet navigator", () => {
 				kind: "tool",
 				toolName: "bash",
 				state: "ok",
-				display: { kind: "command", command: "just ts-check" },
+				invocation: { kind: "text", text: "just ts-check" },
 			}),
 		).toEqual(["✓ just ts-check"]);
+	});
+
+	test.each([
+		{
+			toolName: "functions.read",
+			invocation: { kind: "fields", fields: { path: "src/a.ts" } },
+			expected: "✓ functions.read src/a.ts",
+		},
+		{
+			toolName: "functions.write",
+			invocation: { kind: "fields", fields: { path: "src/a.ts" } },
+			expected: "✓ functions.write src/a.ts",
+		},
+		{
+			toolName: "functions.edit",
+			invocation: { kind: "fields", fields: { path: "src/a.ts" } },
+			expected: "✓ functions.edit src/a.ts",
+		},
+		{
+			toolName: "functions.bash",
+			invocation: { kind: "text", text: "just test" },
+			expected: "✓ just test",
+		},
+	] as const)("renders the exact $toolName alias policy", ({ toolName, invocation, expected }) => {
+		expect(renderTimelineEntryLines({ kind: "tool", toolName, state: "ok", invocation })).toEqual([
+			expected,
+		]);
+	});
+
+	test("does not specialize unknown aliases or malformed projections", () => {
+		expect(
+			renderTimelineEntryLines({
+				kind: "tool",
+				toolName: "vendor.read",
+				state: "ok",
+				inputPreview: '{"path":"src/a.ts"}',
+				invocation: { kind: "fields", fields: { path: "src/a.ts" } },
+			}),
+		).toEqual(["✓ vendor.read · path: src/a.ts"]);
+		expect(
+			renderTimelineEntryLines({
+				kind: "tool",
+				toolName: "read",
+				state: "ok",
+				inputPreview: '{"command":"just test"}',
+				invocation: { kind: "fields", fields: { command: "just test" } },
+			}),
+		).toEqual(["✓ read · command: just test"]);
 	});
 
 	test("keeps the error result line and indents it under the icon column", () => {
@@ -151,7 +199,7 @@ describe("subagent fleet navigator", () => {
 					state: "error",
 					timestampMs: Date.parse("2026-07-11T09:12:09.000Z"),
 					resultPreview: "error: TS2345",
-					display: { kind: "command", command: "just ts-check" },
+					invocation: { kind: "text", text: "just ts-check" },
 				},
 				{ timeZone: "UTC" },
 			),
@@ -247,7 +295,7 @@ describe("subagent fleet navigator", () => {
 			state: "ok",
 			inputPreview: '{"path":"a.ts"}',
 			resultPreview: "contents",
-			display: { kind: "path", path: "a.ts" },
+			invocation: { kind: "fields", fields: { path: "a.ts" } },
 		});
 		if (detail.usage?.status !== "available") throw new Error("expected available usage");
 		expect(detail.usage.totals.input).toBe(1600);
@@ -314,7 +362,7 @@ describe("subagent fleet navigator", () => {
 				state: "ok",
 				inputPreview: '{"path":"README.md"}',
 				resultPreview: "file contents",
-				display: { kind: "path", path: "README.md" },
+				invocation: { kind: "fields", fields: { path: "README.md" } },
 			},
 		]);
 		expect(detail.timeline.currentAction).toEqual({ kind: "idle" });
@@ -386,7 +434,8 @@ describe("subagent fleet navigator", () => {
 	});
 
 	test("scrolls detail with CSI arrows while preserving vim keys", async () => {
-		const registry = new SubagentFleetRegistry();
+		const manualClock = createManualClock(0);
+		const registry = new SubagentFleetRegistry({ clock: manualClock.clock });
 		const run = registry.startRun([{ title: "Scrollable", prompt: "short prompt" }]);
 		const task = run.tasks[0];
 		if (task === undefined) throw new Error("missing task fixture");
@@ -403,6 +452,7 @@ describe("subagent fleet navigator", () => {
 			registry,
 			detailContext: testDetailContext({ readTextFile: async () => content }),
 			done: () => {},
+			clock: manualClock.clock,
 		});
 
 		view.handleInput("\r");
@@ -420,7 +470,7 @@ describe("subagent fleet navigator", () => {
 		expect(view.render(100).join("\n")).toBe(bottom);
 	});
 
-	test("footer follow indicator tracks scroll state and hidden appended lines", async () => {
+	test("footer follow indicator tracks wrapped lines below the viewport", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Tall" }]);
 		const task = run.tasks[0];
@@ -447,7 +497,7 @@ describe("subagent fleet navigator", () => {
 		expect(view.render(100).join("\n")).toContain("f follow ●");
 
 		view.handleInput("k");
-		expect(view.render(100).join("\n")).toContain("↓ 1 new · f follow");
+		expect(view.render(100).join("\n")).toContain("↓ 1 below · f follow");
 
 		view.handleInput("j");
 		expect(view.render(100).join("\n")).toContain("f follow ●");
@@ -457,7 +507,7 @@ describe("subagent fleet navigator", () => {
 		content = tallContent(23);
 		view.handleInput("r");
 		await settleMicrotasks();
-		expect(view.render(100).join("\n")).toContain("↓ 4 new · f follow");
+		expect(view.render(100).join("\n")).toContain("↓ 4 below · f follow");
 	});
 
 	test("drives list, detail, prompt toggle, live reload, back, and close", async () => {
@@ -784,14 +834,15 @@ describe("subagent fleet navigator", () => {
 		expect(readCount).toBe(3);
 	});
 
-	test("renders running duration from the event span and advances with the clock", async () => {
-		const registry = new SubagentFleetRegistry();
+	test("renders running duration from the lifecycle transition and advances with the clock", async () => {
+		const manualClock = createManualClock(Date.parse("2026-07-11T09:12:20.000Z"));
+		const registry = new SubagentFleetRegistry({ clock: manualClock.clock });
 		const run = registry.startRun([{ title: "Timed" }]);
 		const task = run.tasks[0];
 		if (task === undefined) throw new Error("missing task fixture");
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/timed.jsonl"));
-		const manualClock = createManualClock(Date.parse("2026-07-11T09:12:27.000Z"));
+		manualClock.advanceMs(7_000);
 		const manualTimers = createManualTimerScheduler();
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
@@ -814,13 +865,13 @@ describe("subagent fleet navigator", () => {
 
 		view.handleInput("\r");
 		await settleMicrotasks();
-		expect(view.render(120).join("\n")).toContain("· 12m 27s");
+		expect(view.render(120).join("\n")).toContain("· 7s");
 
 		manualClock.advanceMs(5_000);
-		expect(view.render(120).join("\n")).toContain("· 12m 32s");
+		expect(view.render(120).join("\n")).toContain("· 12s");
 	});
 
-	test("derives fixed span duration for completed tasks and unknown without timestamps", async () => {
+	test("uses terminal elapsed time and leaves incomplete lifecycle states unknown", async () => {
 		const doneTask = {
 			id: "task-1",
 			runId: "run-1",
@@ -828,9 +879,10 @@ describe("subagent fleet navigator", () => {
 			title: "Done",
 			state: "done",
 			finalStatus: "final-text",
+			finalElapsedMs: 5_000,
 			sessionFile: "/tmp/done.jsonl",
 		} as const;
-		const detailWithSpan = await loadFleetTaskDetail({
+		const completedDetail = await loadFleetTaskDetail({
 			task: doneTask,
 			context: testDetailContext({
 				readTextFile: async () =>
@@ -848,13 +900,57 @@ describe("subagent fleet navigator", () => {
 					]),
 			}),
 		});
-		expect(detailWithSpan.duration).toEqual({ kind: "completed", elapsedMs: 747_000 });
+		expect(completedDetail.duration).toEqual({ kind: "completed", elapsedMs: 5_000 });
 
-		const detailWithoutTimestamps = await loadFleetTaskDetail({
-			task: doneTask,
-			context: testDetailContext(),
+		for (const task of [
+			{
+				id: "queued",
+				runId: "run-1",
+				index: 0,
+				title: "Queued",
+				state: "queued" as const,
+				sessionFile: "/tmp/done.jsonl",
+			},
+			{
+				id: "running",
+				runId: "run-1",
+				index: 0,
+				title: "Running",
+				state: "running" as const,
+				sessionFile: "/tmp/done.jsonl",
+			},
+			{
+				id: "done",
+				runId: "run-1",
+				index: 0,
+				title: "Done",
+				state: "done" as const,
+				sessionFile: "/tmp/done.jsonl",
+			},
+		]) {
+			const detail = await loadFleetTaskDetail({ task, context: testDetailContext() });
+			expect(detail.duration).toEqual({ kind: "unknown" });
+		}
+
+		const parent = await loadFleetEntryDetail({
+			entry: {
+				kind: "parent",
+				id: "parent-session",
+				title: "Parent",
+				sessionFile: "/tmp/parent.jsonl",
+			},
+			context: testDetailContext({
+				readTextFile: async () =>
+					sessionJsonl([
+						{
+							type: "message_end",
+							timestamp: "2026-07-11T09:12:27.000Z",
+							message: assistantMessage("late parent event"),
+						},
+					]),
+			}),
 		});
-		expect(detailWithoutTimestamps.duration).toEqual({ kind: "unknown" });
+		expect(parent.detail.duration).toEqual({ kind: "unknown" });
 	});
 
 	test("does not poll parent or completed task detail screens", async () => {
