@@ -91,7 +91,7 @@ describe("ns Pi extension", () => {
 	test("exposes only nested flow ns lifecycle mirrors", () => {
 		const pi = new FakePi();
 
-		nsExtension(pi);
+		nsExtension(pi, { runCli: async () => 0 });
 
 		expect([...pi.commands.keys()]).toEqual(FLOW_COMMANDS.map((name) => `ns:flow:${name}`));
 		for (const legacyAlias of [
@@ -128,7 +128,7 @@ describe("ns Pi extension", () => {
 			nsExtension(pi, {
 				runCli: async (args, deps) => {
 					runCliCalls.push([...args]);
-					deps?.stdout?.(`pi-custom-${commandName}`);
+					deps.stdout(`pi-custom-${commandName}`);
 					return 0;
 				},
 			});

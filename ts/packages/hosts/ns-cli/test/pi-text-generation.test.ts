@@ -8,7 +8,7 @@ import type {
 } from "@earendil-works/pi-ai";
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
 
-import { PiTextGenerator, type PiModelRegistry } from "../../src/runtime/pi-text-generation.ts";
+import { PiTextGenerator } from "../src/cli/pi-text-generation.ts";
 
 const TEST_MODEL: Model<Api> = {
 	id: "gpt-5.6-luna",
@@ -32,14 +32,14 @@ const ZERO_USAGE: Usage = {
 	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 };
 
-function makeRegistry(): PiModelRegistry {
+function makeRegistry() {
 	return {
 		find: () => TEST_MODEL,
-		getApiKeyAndHeaders: async () => ({ ok: true, apiKey: "key" }),
+		getApiKeyAndHeaders: async () => ({ ok: true as const, apiKey: "key" }),
 	};
 }
 
-function makeResponse(): AssistantMessage {
+function makeResponse(options: { stopReason?: "stop" | "error" } = {}): AssistantMessage {
 	return {
 		role: "assistant",
 		api: TEST_MODEL.api,
@@ -47,7 +47,8 @@ function makeResponse(): AssistantMessage {
 		model: TEST_MODEL.id,
 		usage: ZERO_USAGE,
 		timestamp: 0,
-		stopReason: "stop",
+		stopReason: options.stopReason ?? "stop",
+		...(options.stopReason === "error" ? { errorMessage: "generation failed" } : {}),
 		content: [{ type: "text", text: "OK" }],
 	};
 }
@@ -61,8 +62,8 @@ function request() {
 	};
 }
 
-describe("PiTextGenerator", () => {
-	test("supplies a UUIDv7 session ID to Pi text generation", async () => {
+describe("private PiTextGenerator", () => {
+	test("passes a generated UUIDv7 request session ID to generation", async () => {
 		let observedOptions: SimpleStreamOptions | undefined;
 		const complete: typeof completeSimple = async (_model, _context, options) => {
 			observedOptions = options;
@@ -82,25 +83,26 @@ describe("PiTextGenerator", () => {
 		);
 	});
 
-	test("uses and cleans up a fresh request session ID for each generation", async () => {
+	test.each([
+		["success", async () => makeResponse()],
+		["failure", async () => makeResponse({ stopReason: "error" })],
+		["throw", async () => Promise.reject(new Error("boom"))],
+	] as const)("cleans the same injected request session ID after %s", async (_name, complete) => {
 		const observedSessionIds: Array<string | undefined> = [];
 		const cleanedSessionIds: string[] = [];
-		const sessionIds = ["session-1", "session-2"];
-		const complete: typeof completeSimple = async (_model, _context, options) => {
-			observedSessionIds.push(options?.sessionId);
-			return makeResponse();
-		};
 		const generator = new PiTextGenerator({
 			modelRegistry: makeRegistry(),
-			completeSimple: complete,
-			createRequestSessionId: () => sessionIds.shift() ?? "unexpected",
+			completeSimple: async (_model, _context, options) => {
+				observedSessionIds.push(options?.sessionId);
+				return await complete();
+			},
+			createRequestSessionId: () => "request-session",
 			cleanupRequestSession: (sessionId) => cleanedSessionIds.push(sessionId),
 		});
 
 		await generator.generateText(request());
-		await generator.generateText(request());
 
-		expect(observedSessionIds).toEqual(["session-1", "session-2"]);
-		expect(cleanedSessionIds).toEqual(["session-1", "session-2"]);
+		expect(observedSessionIds).toEqual(["request-session"]);
+		expect(cleanedSessionIds).toEqual(["request-session"]);
 	});
 });

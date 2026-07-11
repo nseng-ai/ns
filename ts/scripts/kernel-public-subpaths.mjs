@@ -1,4 +1,4 @@
-export const kernelPublicSubpaths = ["cli", "command-io", "context", "pi-text-generation", "sdk"];
+export const kernelPublicSubpaths = ["cli", "command-io", "context", "sdk"];
 
 export function kernelPublicExportSubpath(subpath) {
 	return `./${subpath}`;
@@ -15,7 +15,6 @@ export function kernelSourcePathForSubpath(subpath) {
 		cli: "cli/index",
 		"command-io": "runtime/command-io",
 		context: "cli/context",
-		"pi-text-generation": "runtime/pi-text-generation",
 		sdk: "sdk/index",
 	};
 	const sourcePath = sourcePaths[subpath];

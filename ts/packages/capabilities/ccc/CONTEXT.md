@@ -1,11 +1,11 @@
 # @nseng-ai/ccc
 
-`@nseng-ai/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC is a container package: `core`, `autobranch`, and `cmux` compose lower-level capabilities through Pi-free orchestration interfaces, while the `pi` subpackage owns CCC-specific Pi registration and presentation wiring and is the only CCC unit that may import neutral `@nseng-ai/pi/...` helpers.
+`@nseng-ai/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC is a container package: `core` and `cmux` compose lower-level capabilities through Pi-free orchestration interfaces, while the `pi` subpackage owns CCC-specific Pi registration and presentation wiring and is the only CCC unit that may import neutral `@nseng-ai/pi/...` helpers.
 
 ## Language
 
 **CCC**:
-The durable private TypeScript layer for coordinating multi-step, repo-opinionated command-and-control workflows that span Pi command surfaces, cmux workspaces, Graphite stack operations, Objective implementation, handoff continuation, branch-context implementation, autobranch/unified-land behavior, and worktree-status presentation.
+The durable private TypeScript layer for coordinating multi-step, repo-opinionated command-and-control workflows that span Pi command surfaces, cmux workspaces, Graphite stack operations, Objective implementation, handoff continuation, branch-context implementation, unified-land behavior, and worktree-status presentation.
 *Avoid*: public slash-command namespace, published npm package, replacement for cmux, replacement for Graphite, generic automation framework.
 
 **Cmux Command and Control**:
@@ -37,16 +37,12 @@ The CCC-owned Pi slash commands users invoke through the `ns:ccc` extension surf
 *Avoid*: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command, legacy top-level CCC alias.
 
 **Stable non-CCC orchestration surface**:
-A public Pi command whose user-facing namespace remains outside `ns:ccc` while CCC may compose repo-opinionated behavior through lower Capability APIs, such as `/ns:objective:stack-impl` or `/ns:flow:land`. Autobranch is now public ns lifecycle surface `ns flow autobranch` / `/ns:flow:autobranch`, with `ccc exec autobranch` retained as hidden internal compatibility over Flow-owned behavior.
+A public Pi command whose user-facing namespace remains outside `ns:ccc` while CCC may compose repo-opinionated behavior through lower Capability APIs, such as `/ns:objective:stack-impl` or `/ns:flow:land`. Autobranch is a public Flow lifecycle surface at `ns flow autobranch` / `/ns:flow:autobranch`, not a CCC command.
 *Avoid*: compatibility alias, evidence that namespace alone determines domain ownership, old `/code:*` lifecycle alias.
 
 **Objective stack implementation orchestration**:
 The CCC-owned launch/orchestration path behind public `/ns:objective:stack-impl`: active Objective selection handoff, skill expansion or fallback prompt construction, and dispatching one explicit Objective selector into the portable stack-implementation skill. Objective record storage, list/current/update/next/close/delete semantics remain lower capabilities.
 *Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ns:ccc:*` alias for stack implementation.
-
-**Autobranch compatibility flow**:
-The hidden CCC `ccc exec autobranch` wrapper retained for internal compatibility, consuming Flow-owned autobranch behavior through the Flow Capability API while adapting CCC CLI dependencies and checkpoint-message helpers. The public ns lifecycle boundary is `ns flow autobranch` / `/ns:flow:autobranch`.
-*Avoid*: public Pi registration adapter, current `/ns:flow:autobranch` surface, checkpoint primitive owner, plain branch creation helper, old `/code:autobranch` alias.
 
 **Flow land consumption**:
 The CCC composition path behind public unified `/ns:flow:land`, consuming Flow-owned land behavior through `@nseng-ai/flow/api` for strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
@@ -63,18 +59,6 @@ The CCC-owned operational model and presentation for repository status surfaced 
 **Graphite metadata status**:
 A passive CCC worktree-status fact derived from Graphite's local metadata database to identify the current branch parent, children, and trunk state without shelling out to `gt branch info` for presentation.
 *Avoid*: Graphite command gateway, mutation policy, full stack lifecycle owner.
-
-**Autobranch preparation**:
-The deterministic pre-transaction plan for the autobranch flow: choose a branch slug/name and collect facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
-*Avoid*: branch transaction, stash operation, model prompt alone.
-
-**Autobranch transaction**:
-The mutating autobranch dirty-worktree sequence that creates a Graphite branch from dirty worktree changes by stashing, creating the branch, restoring changes, and writing a checkpoint commit.
-*Avoid*: latest-commit extraction, preparation, reusable checkpoint message generation.
-
-**Latest-commit autobranch transaction**:
-The clean-worktree autobranch mutation path that creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
-*Avoid*: dirty-worktree stash path, plain `gt create`, landing command.
 
 **Orchestration candidate**:
 An existing command flow that likely belongs in CCC once behavior is moved deliberately, including cmux workspace/sidebar flows, branch-context upstack implementation sessions, handoff-tab, remaining source-control wrappers, and worktree-status behavior.

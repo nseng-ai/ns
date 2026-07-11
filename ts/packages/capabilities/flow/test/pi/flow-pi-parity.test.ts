@@ -8,7 +8,7 @@ import {
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi/parity/testing";
 import codeExtension from "../../src/pi/code-extension.ts";
 import codeWorkflowsExtension, { codeWorkflowsParity } from "../../src/pi/code-workflows.ts";
-import nsExtension, { nsExtensionParity } from "../../src/pi/ns-extension.ts";
+import nsExtension, { nsExtensionParity, type NsExtensionAPI } from "../../src/pi/ns-extension.ts";
 import { smartRestackParity } from "../../src/pi/smart-restack.ts";
 import { stackSquashParity } from "../../src/pi/stack-squash.ts";
 
@@ -16,7 +16,9 @@ async function collectFlowPiSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 	await registerWithFakeHost(pi, codeWorkflowsExtension);
 	await registerWithFakeHost(pi, codeExtension);
-	await registerWithFakeHost(pi, nsExtension);
+	await registerWithFakeHost(pi, (host: NsExtensionAPI) =>
+		nsExtension(host, { runCli: async () => 0 }),
+	);
 	return pi.surfaces();
 }
 

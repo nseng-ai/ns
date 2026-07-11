@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import {
+	autobranchGtCreateFailExec,
 	autoslotStatusProbeFailExec,
 	branchLatestCommitChildBranchRefusalExec,
 	runFlowAutoslotCommandWithFakes,
@@ -47,6 +48,26 @@ describe("flow autoslot command outcomes", () => {
 		const calls = formattedExecCalls(run.context);
 		expect(calls.some((call) => call.startsWith("gt create"))).toBe(false);
 		expect(calls.some((call) => call.includes("stash"))).toBe(false);
+	});
+
+	test("injects the command context text generator into checkpoint generation", async () => {
+		const run = runFlowAutoslotCommandWithFakes({
+			state: {
+				exec: autobranchGtCreateFailExec(),
+				textGeneration: [
+					{
+						ok: true,
+						text: "[cp] Checkpoint autoslot work\n\n- Prove injected generation",
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls[0]).toMatchObject({
+			operation: "checkpoint-message",
+		});
 	});
 
 	test("transient phases route through onOutput on stderr, never stdout", async () => {

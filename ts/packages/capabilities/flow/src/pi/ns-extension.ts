@@ -1,19 +1,21 @@
 import { nsCommandSurface } from "@nseng-ai/foundation/command";
-import { runCli, type NsCommandInfo } from "@nseng-ai/kernel/cli";
-import { PUSH_COMMAND_SUMMARY } from "../ns/commands/push.ts";
 
 import {
 	registerCliCommandExtension,
 	type CliCommandExtensionAPI,
+	type CliCommandExtensionSpec,
 } from "@nseng-ai/pi/commands/cli-extension";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
 export type NsExtensionAPI = CliCommandExtensionAPI;
 
-type FlowCommandInfo = NsCommandInfo & {
+interface FlowCommandInfo {
+	name: string;
+	description: string;
+	group: "flow";
 	argvPrefix: readonly ["flow", string];
 	displayName: string;
-};
+}
 
 function flowCommand(name: string, description: string): FlowCommandInfo {
 	return {
@@ -39,7 +41,7 @@ const NS_FLOW_COMMANDS = [
 	),
 	flowCommand("submit", "Checkpoint outstanding changes, then submit the current Graphite stack."),
 	flowCommand("regenerate-pr", "Regenerate the current branch PR title and description."),
-	flowCommand("push", PUSH_COMMAND_SUMMARY),
+	flowCommand("push", "Push committed non-Graphite branch work with git push."),
 	flowCommand("land", "Land the current PR or Graphite stack into trunk."),
 	flowCommand(
 		"pull-trunk",
@@ -69,20 +71,15 @@ export const nsExtensionParity = definePiSurfaceParity(
 );
 
 export interface NsExtensionOptions {
-	/**
-	 * Seam for the ns CLI runner. Defaults to the real {@link runCli}, which discovers descriptor
-	 * commands from preinstalled and ns.toml-declared extensions. Tests inject a fake to exercise the
-	 * Pi command bridge (argv routing and output rendering) without standing up a temporary ns
-	 * extension project.
-	 */
-	runCli?: typeof runCli;
+	/** Explicit host-composed ns CLI runner. */
+	runCli: CliCommandExtensionSpec["runCli"];
 }
 
-export default function nsExtension(pi: NsExtensionAPI, options: NsExtensionOptions = {}): void {
+export default function nsExtension(pi: NsExtensionAPI, options: NsExtensionOptions): void {
 	registerCliCommandExtension(pi, {
 		cliName: "ns",
 		piNamespace: "ns:flow",
 		commands: NS_FLOW_COMMANDS,
-		runCli: options.runCli ?? runCli,
+		runCli: options.runCli,
 	});
 }

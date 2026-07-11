@@ -7,15 +7,16 @@
 	},
 	"files": [
 		"bin",
+		"cli",
 		"kernel",
 		"README.md"
 	],
 	"type": "module",
 	"exports": {
+		"./cli": "./src/cli/index.ts",
 		"./kernel/cli": "./src/kernel/cli.ts",
 		"./kernel/command-io": "./src/kernel/command-io.ts",
 		"./kernel/context": "./src/kernel/context.ts",
-		"./kernel/pi-text-generation": "./src/kernel/pi-text-generation.ts",
 		"./kernel/sdk": "./src/kernel/sdk.ts"
 	},
 	"publishConfig": {
@@ -31,6 +32,7 @@
 		"prepublishOnly": "node -e \"throw new Error('Use pnpm --dir ts run release:publish / release:publish-dry-run; @nseng-ai/ns is published from dist/publish only.')\""
 	},
 	"dependencies": {
+		"@earendil-works/pi-agent-core": "catalog:",
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@nseng-ai/branch-context": "workspace:*",
@@ -49,6 +51,7 @@
 	"ns": {
 		"tier": "host",
 		"subpackages": [
+			"cli",
 			"kernel"
 		],
 		"remainder": true

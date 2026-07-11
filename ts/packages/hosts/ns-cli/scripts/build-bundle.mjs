@@ -27,7 +27,7 @@ await writeFile(
 		"// Disable nested source CLI entrypoint fallbacks while bundled modules initialize.",
 		"const directArgvPath = process.argv[1];",
 		'process.argv[1] = "";',
-		'const { runNsCli } = await import("../src/cli.ts");',
+		'const { runNsCli } = await import("../src/cli/index.ts");',
 		"process.argv[1] = directArgvPath;",
 		"process.exitCode = await runNsCli(process.argv.slice(2));",
 		"",
@@ -48,7 +48,10 @@ await build({
 	logLevel: "info",
 });
 await build({
-	entryPoints: kernelExportEntries,
+	entryPoints: {
+		...kernelExportEntries,
+		"cli/index": resolve(packageRoot, "src", "cli", "index.ts"),
+	},
 	outdir: bundleRoot,
 	bundle: true,
 	platform: "node",

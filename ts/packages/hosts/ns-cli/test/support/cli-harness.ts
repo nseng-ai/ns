@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach } from "vitest";
 
-import { runNsCli } from "../../src/cli.ts";
+import { runNsCli } from "../../src/cli/index.ts";
 
 const tempDirs: string[] = [];
 

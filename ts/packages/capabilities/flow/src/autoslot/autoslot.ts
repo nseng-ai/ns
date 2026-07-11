@@ -1,3 +1,4 @@
+import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 import type { Caps } from "@nseng-ai/clinkr";
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { createCliCommandIo, runWithNsCommandIo } from "@nseng-ai/kernel/command-io";
@@ -31,6 +32,7 @@ export interface AutoslotCliInput {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	args: FlowAutobranchRequest;
+	textGenerator: TextGenerator;
 	/** Resolved terminal caps from the host seam (`resolveFlowStreamCaps` in the flow wrapper). */
 	caps: Caps;
 	exec(
@@ -59,7 +61,7 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 			caps: input.caps,
 			exec,
 			prepareCheckpointMessage: (snapshot) =>
-				prepareAutobranchCheckpointMessage(snapshot, input.env),
+				prepareAutobranchCheckpointMessage(snapshot, input.env, input.textGenerator),
 			commitPreparedCheckpointMessage: (message) =>
 				commitAutobranchCheckpointMessage(
 					(command, commandArgs, commandCwd, timeout) =>

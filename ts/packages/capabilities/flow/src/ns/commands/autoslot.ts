@@ -32,6 +32,7 @@ export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineComma
 					cwd: ctx.cwd,
 					env: ctx.env,
 					args: request.slug === undefined ? {} : { slug: request.slug },
+					textGenerator: ctx.textGenerator,
 					caps,
 					exec: io.exec,
 					stdout: io.stdout,
