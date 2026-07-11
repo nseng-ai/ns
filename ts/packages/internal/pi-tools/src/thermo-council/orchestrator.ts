@@ -49,6 +49,7 @@ const STATUS_KEY = THERMO_COUNCIL_COMMAND_NAME;
 
 interface LaunchThermoCouncilReviewerOptions extends ThermoCouncilRunContext {
 	readonly seat: ThermoCouncilSeatConfig;
+	readonly fleetRegistry: SubagentFleetRegistry;
 	readonly onProgress?: (update: RunnerSubagentUpdate) => void;
 }
 
@@ -158,6 +159,7 @@ async function launchThermoCouncilReviewer({
 	scope,
 	seat,
 	reviewGuidance,
+	fleetRegistry,
 	onProgress,
 	runtime,
 }: LaunchThermoCouncilReviewerOptions): Promise<LaunchThermoCouncilReviewerResult> {
@@ -180,7 +182,13 @@ async function launchThermoCouncilReviewer({
 		},
 	});
 	return {
-		outcome: await reviewerOutcomeFromRunnerResult(seat, result, { pi, ctx, runtime }),
+		outcome: await reviewerOutcomeFromRunnerResult(seat, result, {
+			pi,
+			ctx,
+			runtime,
+			fleetRegistry,
+			seatLabel: seat.label,
+		}),
 		runnerResult: result,
 	};
 }
@@ -209,6 +217,7 @@ async function runCouncilSeatsWithConcurrencyLimit({
 						pi,
 						ctx,
 						runtime,
+						fleetRegistry,
 						scope,
 						seat,
 						...(reviewGuidance === undefined ? {} : { reviewGuidance }),

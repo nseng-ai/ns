@@ -11,7 +11,10 @@ import {
 } from "@nseng-ai/pi/runtime/agent-definition";
 import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
 import type { ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
-import { getOrCreateSubagentFleetRegistry } from "@nseng-ai/ns-pi-subagents/api";
+import {
+	createFunctionSubagentRuntime,
+	getOrCreateSubagentFleetRegistry,
+} from "@nseng-ai/ns-pi-subagents/api";
 import nsPiSubagentsExtension, {
 	type NsPiSubagentsExtensionAPI,
 } from "@nseng-ai/ns-pi-subagents/extension";
@@ -546,6 +549,53 @@ describe("thermo council extension", () => {
 		).toEqual(expect.objectContaining({ state: "done", finalStatus: "final-text" }));
 	});
 
+	test("uses the explicitly injected fleet registry for repair subagents", async () => {
+		const pi = new FakePi({ execResults: successfulScopeExecResults() });
+		const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
+		const runtime = createFunctionSubagentRuntime(async (input) => {
+			const title = input.options.title;
+			if (title === undefined) throw new Error("Expected Thermo Council dispatch title.");
+			if (title.startsWith("Thermo council: ")) {
+				return malformedCompletedReviewerResult();
+			}
+			if (title.startsWith("Thermo council payload repair:")) {
+				return finalTextRunnerResult(
+					title,
+					`/tmp/${title.replaceAll(" ", "-")}.jsonl`,
+					repairedReviewJson(),
+				);
+			}
+			return finalTextRunnerResult(
+				title,
+				"/tmp/thermo-final-synthesis.jsonl",
+				defaultFinalSynthesisText(),
+			);
+		});
+		thermoCouncilExtension(pi, { runtime, fleetRegistry });
+
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
+
+		const repairTasks = repairFleetTasks(fleetRegistry);
+		expect(repairTasks).toHaveLength(3);
+		expect(repairTasks).toMatchObject([
+			{
+				title: "Thermo council payload repair: Fable (attempt 1)",
+				state: "done",
+				finalStatus: "final-text",
+			},
+			{
+				title: "Thermo council payload repair: Sol (attempt 1)",
+				state: "done",
+				finalStatus: "final-text",
+			},
+			{
+				title: "Thermo council payload repair: Gemini (attempt 1)",
+				state: "done",
+				finalStatus: "final-text",
+			},
+		]);
+	});
+
 	test("honors a lower thermo council concurrency override", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ runtimeResult: completedRunnerResult() });
 		const pi = new FakePi({
@@ -691,24 +741,31 @@ describe("thermo council extension", () => {
 			"utf8",
 		);
 
-		const outcome = await reviewerOutcomeFromRunnerResult(seat("openai-high", "Sol"), {
-			status: "final-text",
-			elapsedMs: 1,
-			progress: {
-				state: "stopped",
-				toolCount: 0,
-				turnCount: 1,
+		const pi = new FakePi();
+		const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
+		const outcome = await reviewerOutcomeFromRunnerResult(
+			seat("openai-high", "Sol"),
+			{
+				status: "final-text",
 				elapsedMs: 1,
+				progress: {
+					state: "stopped",
+					toolCount: 0,
+					turnCount: 1,
+					elapsedMs: 1,
+				},
+				sessionFile,
+				finalText: "unstructured final text",
 			},
-			sessionFile,
-			finalText: "unstructured final text",
-		});
+			{ pi, ctx: fakeContext(), fleetRegistry, seatLabel: "Sol" },
+		);
 
 		expect(outcome.type).toBe("completed");
 		if (outcome.type !== "completed") return;
 		expect(outcome.review.summary).toBe("Recovered from session file.");
 		expect(outcome.review.findings[0]?.title).toBe("Session recovered finding");
 		expect(outcome.review.findings[0]?.validationHints).toEqual(["just ts-test"]);
+		expect(repairFleetTasks(fleetRegistry)).toEqual([]);
 	});
 
 	test("formats malformed completed reviewer payloads without throwing", async () => {
@@ -728,15 +785,33 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).toContain("<root>");
 	});
 
-	test("recovers malformed reviewer payloads from model-repaired final text", async () => {
-		const runner = createFakeRunnerSubagentDispatcher();
-		const pi = new FakePi({ runnerDependencies: runner.dependencies });
+	test("tracks a successful model repair as one seat-specific fleet task", async () => {
+		const { runner, pi, ctx, fleetRegistry } = repairTestHarness();
 		const running = reviewerOutcomeFromRunnerResult(
 			seat("anthropic-fable", "Fable"),
 			malformedCompletedReviewerResult(),
-			{ pi, ctx: fakeContext() },
+			{ pi, ctx, fleetRegistry, seatLabel: "Fable" },
 		);
 		await waitForSpawnCount(runner.calls, 1);
+		runner.calls[0]?.process.emitStdout(jsonLine({ type: "agent_start" }));
+		runner.calls[0]?.process.emitStdout(jsonLine({ type: "turn_start" }));
+		runner.calls[0]?.process.emitStdout(
+			jsonLine({
+				type: "message_update",
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "Repairing malformed payload." }],
+				},
+			}),
+		);
+
+		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
+			{
+				title: "Thermo council payload repair: Fable (attempt 1)",
+				state: "running",
+				latestActivity: "Repairing malformed payload.",
+			},
+		]);
 		runner.calls[0]?.process.emitStdout(
 			finalAssistantTextEvent(`Here is the repaired payload:\n${repairedReviewJson()}`),
 		);
@@ -748,20 +823,40 @@ describe("thermo council extension", () => {
 		if (outcome.type !== "completed") return;
 		expect(outcome.review.findings[0]?.title).toBe("Recovered payload finding");
 		expect(outcome.review.findings[0]?.validationHints).toEqual(["just ts-test"]);
+		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
+			{
+				title: "Thermo council payload repair: Fable (attempt 1)",
+				state: "done",
+				finalStatus: "final-text",
+				sessionFile: "/tmp/thermo-repair-1.jsonl",
+			},
+		]);
 	});
 
-	test("retries invalid model repairs once through bounded text repair", async () => {
-		const runner = createFakeRunnerSubagentDispatcher();
-		const pi = new FakePi({ runnerDependencies: runner.dependencies });
+	test("tracks each bounded repair attempt with an independent fleet lifecycle", async () => {
+		const { runner, pi, ctx, fleetRegistry } = repairTestHarness();
 		const running = reviewerOutcomeFromRunnerResult(
 			seat("openai-high", "Sol"),
 			malformedCompletedReviewerResult(),
-			{ pi, ctx: fakeContext() },
+			{ pi, ctx, fleetRegistry, seatLabel: "Sol" },
 		);
 		await waitForSpawnCount(runner.calls, 1);
 		runner.calls[0]?.process.emitStdout(finalAssistantTextEvent("not json"));
 		runner.calls[0]?.process.close(0);
 		await waitForSpawnCount(runner.calls, 2);
+
+		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
+			{
+				title: "Thermo council payload repair: Sol (attempt 1)",
+				state: "done",
+				finalStatus: "final-text",
+				sessionFile: "/tmp/thermo-repair-1.jsonl",
+			},
+			{
+				title: "Thermo council payload repair: Sol (attempt 2)",
+				state: "running",
+			},
+		]);
 		runner.calls[1]?.process.emitStdout(finalAssistantTextEvent(repairedReviewJson()));
 		runner.calls[1]?.process.close(0);
 
@@ -771,15 +866,41 @@ describe("thermo council extension", () => {
 		expect(runner.calls[1]?.args.join("\n")).toContain("Your previous repair draft was invalid");
 		expect(runner.calls[1]?.args.join("\n")).toContain("response contains no JSON object");
 		expect(outcome.type).toBe("completed");
+		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
+			{ state: "done", finalStatus: "final-text", sessionFile: "/tmp/thermo-repair-1.jsonl" },
+			{ state: "done", finalStatus: "final-text", sessionFile: "/tmp/thermo-repair-2.jsonl" },
+		]);
 	});
 
-	test("fails malformed reviewer payloads after bounded repair attempts", async () => {
-		const runner = createFakeRunnerSubagentDispatcher();
-		const pi = new FakePi({ runnerDependencies: runner.dependencies });
+	test("disposes fleet tracking when repair dispatch throws", async () => {
+		const pi = new FakePi();
+		const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
+		const runtime = createFunctionSubagentRuntime(async () => {
+			throw new Error("repair dispatch exploded");
+		});
+
+		await expect(
+			reviewerOutcomeFromRunnerResult(
+				seat("anthropic-fable", "Fable"),
+				malformedCompletedReviewerResult(),
+				{ pi, ctx: fakeContext(), fleetRegistry, seatLabel: "Fable", runtime },
+			),
+		).rejects.toThrow("repair dispatch exploded");
+		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
+			{
+				title: "Thermo council payload repair: Fable (attempt 1)",
+				state: "done",
+				finalStatus: "error",
+			},
+		]);
+	});
+
+	test("keeps runner success statuses when both repair drafts are schema-invalid", async () => {
+		const { runner, pi, ctx, fleetRegistry } = repairTestHarness();
 		const running = reviewerOutcomeFromRunnerResult(
 			seat("gemini-high", "Gemini"),
 			malformedCompletedReviewerResult(),
-			{ pi, ctx: fakeContext() },
+			{ pi, ctx, fleetRegistry, seatLabel: "Gemini" },
 		);
 		await waitForSpawnCount(runner.calls, 1);
 		runner.calls[0]?.process.emitStdout(finalAssistantTextEvent("not json"));
@@ -794,6 +915,20 @@ describe("thermo council extension", () => {
 		expect(outcome.type).toBe("failed");
 		if (outcome.type !== "failed") return;
 		expect(outcome.diagnostic).toContain("findings");
+		expect(repairFleetTasks(fleetRegistry)).toMatchObject([
+			{
+				title: "Thermo council payload repair: Gemini (attempt 1)",
+				state: "done",
+				finalStatus: "final-text",
+				sessionFile: "/tmp/thermo-repair-1.jsonl",
+			},
+			{
+				title: "Thermo council payload repair: Gemini (attempt 2)",
+				state: "done",
+				finalStatus: "final-text",
+				sessionFile: "/tmp/thermo-repair-2.jsonl",
+			},
+		]);
 	});
 
 	test("includes runner context when a reviewer stops without terminal capture", async () => {
@@ -1125,6 +1260,22 @@ function finalAssistantTextEvent(text: string): string {
 	});
 }
 
+function finalTextRunnerResult(title: string, sessionFile: string, finalText: string) {
+	return {
+		status: "final-text",
+		elapsedMs: 1,
+		progress: {
+			title,
+			state: "stopped",
+			toolCount: 0,
+			turnCount: 1,
+			elapsedMs: 1,
+		},
+		sessionFile,
+		finalText,
+	} as const;
+}
+
 function malformedCompletedReviewerResult(): RunnerSubagentCompletedResult<JsonObject> {
 	return {
 		status: "completed",
@@ -1142,6 +1293,35 @@ function malformedCompletedReviewerResult(): RunnerSubagentCompletedResult<JsonO
 			input: { findings: [{ title: "missing required fields" }] },
 		},
 	};
+}
+
+function repairTestHarness(): {
+	runner: ReturnType<typeof createFakeRunnerSubagentDispatcher>;
+	pi: FakePi;
+	ctx: FakeCommandContext;
+	fleetRegistry: ReturnType<typeof getOrCreateSubagentFleetRegistry>;
+} {
+	const runner = createFakeRunnerSubagentDispatcher();
+	let sessionNumber = 0;
+	const pi = new FakePi({
+		runnerDependencies: {
+			...runner.dependencies,
+			createSessionFile: () => `/tmp/thermo-repair-${(sessionNumber += 1)}.jsonl`,
+		},
+	});
+	return {
+		runner,
+		pi,
+		ctx: fakeContext(),
+		fleetRegistry: getOrCreateSubagentFleetRegistry(pi),
+	};
+}
+
+function repairFleetTasks(fleetRegistry: ReturnType<typeof getOrCreateSubagentFleetRegistry>) {
+	return fleetRegistry
+		.snapshot()
+		.flatMap((run) => run.tasks)
+		.filter((task) => task.title.startsWith("Thermo council payload repair:"));
 }
 
 function repairedReviewJson(): string {
