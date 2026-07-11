@@ -8,7 +8,12 @@ import type { GitGateway } from "@nseng-ai/capability-kit/git";
 import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
 
 import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
-import type { GithubPrGateway, PrewrittenPrMetadata, TextGenerator, TimeServices } from "./index.ts";
+import type {
+	GithubPrGateway,
+	PrewrittenPrMetadata,
+	TextGenerator,
+	TimeServices,
+} from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import {
 	compactSubmitMetadataCellText,
@@ -326,38 +331,28 @@ export async function runSubmitCommand(
 	}
 
 	emitPhase(options, { type: "phase-started", phaseKey: "metadata" });
-	const prewrite = await withCommandOperations(
-		options.submitMatrix,
-		[
-			"gt log --stack --reverse --no-interactive",
-			"gt trunk --no-interactive",
-			"gt branch info --no-interactive --branch <stack-branch>",
-			"git log --format=%B%x00 <parent>..<branch>",
-			"git diff <parent>..<branch>",
-			"gt modify --no-interactive",
-		],
-		() =>
-			prepareSubmitPrMetadata({
-				cwd: options.cwd,
-				env: options.prDescription.env,
-				gateway: options.metadataGateway,
-				git: options.prDescription.git,
-				textGenerator: options.prDescription.textGenerator,
-				...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
-				progress: submitPhaseProgressListeners<SubmitBranchMetadataProgressEvent>(
-					options,
-					"metadata",
-					(event) => {
-						const text =
-							event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
-						options.submitMatrix?.setCell(event.branch, "metadata", {
-							state: event.state,
-							...optionalEntry("text", text),
-						});
-					},
-				),
-			}),
-	);
+	// The metadata workflow reports its own operations (model generation and each `gt modify`
+	// amendment) at their true source, so no broad command snapshot wraps this phase.
+	const prewrite = await prepareSubmitPrMetadata({
+		cwd: options.cwd,
+		env: options.prDescription.env,
+		gateway: options.metadataGateway,
+		git: options.prDescription.git,
+		textGenerator: options.prDescription.textGenerator,
+		...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
+		progress: submitPhaseProgressListeners<SubmitBranchMetadataProgressEvent>(
+			options,
+			"metadata",
+			(event) => {
+				const text =
+					event.reason === undefined ? undefined : compactSubmitMetadataCellText(event.reason);
+				options.submitMatrix?.setCell(event.branch, "metadata", {
+					state: event.state,
+					...optionalEntry("text", text),
+				});
+			},
+		),
+	});
 	if (prewrite.kind === "failed") {
 		const stderr = formatPrewriteFailureOutput({
 			error: prewrite.error,

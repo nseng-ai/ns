@@ -134,15 +134,14 @@ describe("matrix progress core", () => {
 		expect(snapshots).toEqual([[operation], []]);
 	});
 
-	test("hosts the active operation on the deepest active row instead of a header line", () => {
+	test("renders active operations on a dedicated line while rows keep their own labels", () => {
 		const { controller, capture } = createController({});
 
 		controller.setGlobal("hooks", { state: "active", text: "running just…" });
 		controller.setActiveOperations(commandOperations(["just"]));
 		let frame = lastFrame(capture);
-		expect(frame).not.toContain("Running:");
-		expect(frameLine(frame, "Hooks")).toContain("just");
-		expect(frame).not.toContain("running just…");
+		expect(frameLine(frame, "Hooks")).toContain("running just…");
+		expect(frameLine(frame, "Running:")).toBe("Running: just");
 
 		controller.setGlobal("hooks", { state: "done", text: "hooks complete" });
 		controller.setGlobal("checkpoint", { state: "active" });
@@ -152,13 +151,15 @@ describe("matrix progress core", () => {
 		});
 		controller.setActiveOperations(commandOperations(["git status --porcelain"]));
 		frame = lastFrame(capture);
-		// The active substep is deeper than its still-active parent, so it hosts the operation.
-		expect(frameLine(frame, "Inspect")).toContain("git status --porcelain");
-		expect(frameLine(frame, "Checkpoint")).not.toContain("git status --porcelain");
+		// Active rows keep their own labels; the operation stays on the dedicated line.
+		expect(frameLine(frame, "Inspect")).toContain("inspecting worktree…");
+		expect(frameLine(frame, "Inspect")).not.toContain("git status --porcelain");
+		expect(frameLine(frame, "Running:")).toBe("Running: git status --porcelain");
 
 		controller.setActiveOperations([]);
 		frame = lastFrame(capture);
-		// Without an operation the row falls back to its own in-flight label.
+		// Without an operation the slot stays reserved but blank.
+		expect(frame).not.toContain("Running:");
 		expect(frameLine(frame, "Inspect")).toContain("inspecting worktree…");
 	});
 

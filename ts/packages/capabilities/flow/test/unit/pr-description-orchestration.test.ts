@@ -8,11 +8,13 @@ import {
 	hashPrDescriptionPrompt,
 	orchestratePrDescription,
 	parseManagedGeneratedRegion,
+	preparePrDescriptionUpdate,
 	type GithubPrDetails,
 	type GithubPrGateway,
 	type PrCommitMessage,
 	type PromptSource,
 	type StablePatchIdForPrResult,
+	type TextGenerator,
 } from "../../src/submit/index.ts";
 import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/testing";
 
@@ -215,6 +217,42 @@ describe("orchestratePrDescription", () => {
 			[],
 		]);
 		textGeneration.assertDone();
+	});
+
+	test("clears active operations when text generation rejects", async () => {
+		const githubPr = new FakeGithubPrGateway();
+		const operationSnapshots: ActiveOperation[][] = [];
+		const throwingGenerator: TextGenerator = {
+			generateText: async () => {
+				throw new Error("model transport failed");
+			},
+		};
+
+		await expect(
+			preparePrDescriptionUpdate({
+				cwd: "/repo",
+				env: {},
+				git: UNUSED_GIT,
+				githubPr,
+				textGenerator: throwingGenerator,
+				pr: DEFAULT_PR,
+				generation: GENERATION,
+				onActiveOperations: (operations) => operationSnapshots.push([...operations]),
+			}),
+		).rejects.toThrow("model transport failed");
+
+		expect(operationSnapshots).toEqual([
+			[
+				{
+					kind: "model",
+					operation: "generating PR description",
+					modelRef: "test-model",
+					detail: "PR #12",
+				},
+			],
+			[],
+		]);
+		expect(githubPr.editCalls).toEqual([]);
 	});
 
 	test("forced regeneration bypasses a matching fingerprint", async () => {

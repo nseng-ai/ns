@@ -1,12 +1,8 @@
 import { describe, expect, test } from "vitest";
 
+import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
 import {
-	parseCommitMessages,
-	parseGtLogStack,
 	ok,
-	parseParentBranch,
-	prepareSubmitPrMetadata,
-	RealSubmitMetadataGateway,
 	runSubmitCommand,
 	type GithubPrGateway,
 	type SubmitGateway,
@@ -713,90 +709,6 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 	});
 });
 
-describe("prepareSubmitPrMetadata", () => {
-	test("reports the active model operation and settles each generated branch as drafted", async () => {
-		const textGenerator = new ScriptedTextGenerator([
-			{ ok: true, text: "Generated A\n\nGenerated body A" },
-			{ ok: true, text: "Generated B\n\nGenerated body B" },
-		]);
-		type ProgressListeners = NonNullable<Parameters<typeof prepareSubmitPrMetadata>[0]["progress"]>;
-		const activeOperations: Parameters<NonNullable<ProgressListeners["onActiveOperations"]>>[0][] =
-			[];
-		const branchProgress: Parameters<NonNullable<ProgressListeners["onItemProgress"]>>[0][] = [];
-		const result = await prepareSubmitPrMetadata({
-			cwd: "/repo",
-			env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/gpt-5.4-mini" },
-			git: new InMemoryGitGateway({ repoRoot: "/repo" }),
-			textGenerator,
-			gateway: {
-				inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
-				inspectSubmitStack: async () => ({
-					ok: true,
-					value: {
-						currentBranch: "feature/b",
-						hasUpstackBranches: false,
-						branches: [
-							{
-								kind: "new",
-								branch: "feature/a",
-								parentBranch: "main",
-								commitMessages: [{ headline: "Add feature A" }],
-								diff: "diff --git a/a.ts b/a.ts\n",
-							},
-							{
-								kind: "new",
-								branch: "feature/b",
-								parentBranch: "feature/a",
-								commitMessages: [{ headline: "Add feature B" }],
-								diff: "diff --git a/b.ts b/b.ts\n",
-							},
-						],
-					},
-				}),
-				ensureCleanWorktree: async () => ok(undefined),
-				amendBranchMetadataCommit: async () => ok(undefined),
-			},
-			progress: {
-				onActiveOperations: (operations) => activeOperations.push([...operations]),
-				onItemProgress: (event) => branchProgress.push(event),
-			},
-		});
-
-		expect(result.kind).toBe("prepared");
-		expect(activeOperations).toEqual([
-			[
-				{
-					kind: "model",
-					operation: "generating PR metadata",
-					modelRef: "openai-codex/gpt-5.4-mini",
-					detail: "branch 1/2",
-				},
-			],
-			[],
-			[
-				{
-					kind: "model",
-					operation: "generating PR metadata",
-					modelRef: "openai-codex/gpt-5.4-mini",
-					detail: "branch 2/2",
-				},
-			],
-			[],
-		]);
-		expect(branchProgress).toEqual([
-			{ branch: "feature/a", state: "active", reason: "generating-metadata" },
-			{ branch: "feature/a", state: "done", reason: "metadata-drafted" },
-			{ branch: "feature/b", state: "active", reason: "generating-metadata" },
-			{ branch: "feature/b", state: "done", reason: "metadata-drafted" },
-			{ branch: "feature/a", state: "active", reason: "amending-metadata-commit" },
-			{ branch: "feature/a", state: "done", reason: "metadata-prepared" },
-			{ branch: "feature/b", state: "active", reason: "amending-metadata-commit" },
-			{ branch: "feature/b", state: "done", reason: "metadata-prepared" },
-		]);
-		textGenerator.assertDone();
-	});
-});
-
 describe("runSubmitCommand", () => {
 	test("records submit and verify as global matrix rows and descriptions by PR", async () => {
 		const linkA = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
@@ -883,6 +795,27 @@ describe("runSubmitCommand", () => {
 			{ prNumber: 456, column: "description", state: "active", text: "loading PR metadata" },
 			{ prNumber: 456, column: "description", state: "done", text: "generated" },
 		]);
+		// The metadata phase reports only work that is actually pending: never the former broad
+		// six-command snapshot, only true single operations (detailed ordering is covered at the
+		// prepareSubmitPrMetadata and generateSubmitPrDescriptions seams).
+		expect(submitMatrix.operationSnapshots.every((snapshot) => snapshot.length <= 1)).toBe(true);
+		expect(
+			submitMatrix.operationSnapshots.some((snapshot) =>
+				snapshot.some(
+					(operation) =>
+						operation.kind === "command" &&
+						operation.display === "gt log --stack --reverse --no-interactive",
+				),
+			),
+		).toBe(false);
+		expect(submitMatrix.operationSnapshots).toContainEqual([
+			{
+				kind: "model",
+				operation: "generating PR description",
+				modelRef: "openai-codex/gpt-5.4-mini",
+				detail: "PR 1/2",
+			},
+		]);
 		textGenerator.assertDone();
 	});
 
@@ -946,10 +879,13 @@ interface SubmitMatrixPrCellEvent {
 class RecordingSubmitMatrix implements SubmitMatrixProgressSink {
 	readonly globalEvents: SubmitMatrixGlobalEvent[] = [];
 	readonly prCellEvents: SubmitMatrixPrCellEvent[] = [];
+	readonly operationSnapshots: ActiveOperation[][] = [];
 
 	setRows(): void {}
 
-	setActiveOperations(): void {}
+	setActiveOperations(operations: readonly ActiveOperation[]): void {
+		this.operationSnapshots.push([...operations]);
+	}
 
 	setGlobal(
 		key: Parameters<SubmitMatrixProgressSink["setGlobal"]>[0],
@@ -1044,243 +980,3 @@ const unusedGitGateway = new InMemoryGitGateway();
 function unexpectedCall(name: string): never {
 	throw new Error(`Unexpected test call: ${name}`);
 }
-
-describe("RealSubmitMetadataGateway", () => {
-	test("parses Graphite stack and branch metadata facts", () => {
-		const log = `◯ parent-branch
-│
-◉ feature/demo (current)
-│
-◯ master
-`;
-
-		expect(parseGtLogStack(log)).toEqual({
-			branches: ["parent-branch", "feature/demo", "master"],
-			currentBranch: "feature/demo",
-		});
-		expect(parseParentBranch("feature/demo\n\nParent: parent-branch\n")).toBe("parent-branch");
-		expect(parseCommitMessages("Add widget\n\nImplement widget.\0Fix tests\0")).toEqual([
-			{ headline: "Add widget", body: "Implement widget." },
-			{ headline: "Fix tests" },
-		]);
-	});
-
-	test("inspectSubmitStack skips local diff reads for existing PR branches", async () => {
-		const runner = new ScriptedCommandRunner([
-			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
-				stdout: "◯ master\n│\n◉ feature/demo (current)\n",
-			}),
-			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
-				stdout:
-					"feature/demo\n\nPR #456 (Open) Demo PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
-			}),
-		]);
-		const gateway = new RealSubmitMetadataGateway(runner.runner);
-
-		const result = await gateway.inspectSubmitStack({ cwd: "/repo" });
-
-		expect(result).toEqual({
-			ok: true,
-			value: {
-				currentBranch: "feature/demo",
-				hasUpstackBranches: false,
-				branches: [
-					{
-						kind: "existing",
-						branch: "feature/demo",
-						parentBranch: "master",
-						pr: { label: "#456", url: "https://github.com/acme/project/pull/456" },
-					},
-				],
-			},
-		});
-		runner.assertDone();
-	});
-
-	test("inspectSubmitStack fails when branch info reports a PR without a link", async () => {
-		const runner = new ScriptedCommandRunner([
-			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
-				stdout: "◯ master\n│\n◉ feature/demo (current)\n",
-			}),
-			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
-				stdout: "feature/demo\n\nPR #456 (Open) Demo PR\n\nParent: master\n",
-			}),
-		]);
-		const gateway = new RealSubmitMetadataGateway(runner.runner);
-
-		const result = await gateway.inspectSubmitStack({ cwd: "/repo" });
-
-		expect(result).toMatchObject({ ok: false, error: { code: "submit_existing_pr_link_missing" } });
-		runner.assertDone();
-	});
-
-	test("inspectSubmitStackTopology reads only topology and existing PR facts", async () => {
-		const runner = new ScriptedCommandRunner([
-			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
-				stdout: "◯ master\n│\n◯ feature/base\n│\n◉ feature/demo (current)\n",
-			}),
-			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
-				stdout: "feature/demo\n\nParent: feature/base\n",
-			}),
-			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/base"], {
-				stdout:
-					"feature/base\n\nPR #456 (Open) Base PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
-			}),
-		]);
-		const gateway = new RealSubmitMetadataGateway(runner.runner);
-
-		const result = await gateway.inspectSubmitStackTopology({ cwd: "/repo" });
-
-		expect(result).toEqual({
-			ok: true,
-			value: {
-				currentBranch: "feature/demo",
-				branches: [
-					{
-						kind: "existing",
-						branch: "feature/base",
-						parentBranch: "master",
-						pr: { label: "#456", url: "https://github.com/acme/project/pull/456" },
-					},
-					{ kind: "new", branch: "feature/demo", parentBranch: "feature/base" },
-				],
-			},
-		});
-		expect(runner.calls.map((call) => call.command)).toEqual(["gt", "gt", "gt", "gt"]);
-		runner.assertDone();
-	});
-
-	test("inspectSubmitStack reads local diffs and commits for new submit branches", async () => {
-		const runner = new ScriptedCommandRunner([
-			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
-				stdout: "◯ master\n│\n◯ feature/demo (current)\n",
-			}),
-			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
-				stdout: "feature/demo\n\nParent: master\n",
-			}),
-			execStep("git", ["log", "--format=%B%x00", "master..feature/demo"], {
-				stdout: "Add widget\n\nImplement widget.\0",
-			}),
-			execStep("git", ["diff", "master..feature/demo"], {
-				stdout: "diff --git a/src/widget.ts b/src/widget.ts\n+code\n",
-			}),
-		]);
-		const gateway = new RealSubmitMetadataGateway(runner.runner);
-
-		const result = await gateway.inspectSubmitStack({ cwd: "/repo" });
-
-		expect(result).toEqual({
-			ok: true,
-			value: {
-				currentBranch: "feature/demo",
-				hasUpstackBranches: false,
-				branches: [
-					{
-						kind: "new",
-						branch: "feature/demo",
-						parentBranch: "master",
-						commitMessages: [{ headline: "Add widget", body: "Implement widget." }],
-						diff: "diff --git a/src/widget.ts b/src/widget.ts\n+code\n",
-					},
-				],
-			},
-		});
-		runner.assertDone();
-	});
-
-	test("inspectSubmitStack ignores upstack descendants when reading branch metadata", async () => {
-		const runner = new ScriptedCommandRunner([
-			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
-				stdout:
-					"◯ master\n│\n◯ downstack/base\n│\n◉ feature/current (current)\n│\n◯ feature/upstack\n",
-			}),
-			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/current"], {
-				stdout:
-					"feature/current\n\nPR #789 (Open) Current PR\nhttps://github.com/acme/project/pull/789\n\nParent: downstack/base\n",
-			}),
-			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "downstack/base"], {
-				stdout:
-					"downstack/base\n\nPR #456 (Open) Base PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
-			}),
-		]);
-		const gateway = new RealSubmitMetadataGateway(runner.runner);
-
-		const result = await gateway.inspectSubmitStack({ cwd: "/repo" });
-
-		expect(result).toEqual({
-			ok: true,
-			value: {
-				currentBranch: "feature/current",
-				hasUpstackBranches: true,
-				branches: [
-					{
-						kind: "existing",
-						branch: "downstack/base",
-						parentBranch: "master",
-						pr: { label: "#456", url: "https://github.com/acme/project/pull/456" },
-					},
-					{
-						kind: "existing",
-						branch: "feature/current",
-						parentBranch: "downstack/base",
-						pr: { label: "#789", url: "https://github.com/acme/project/pull/789" },
-					},
-				],
-			},
-		});
-		expect(runner.calls.map((call) => call.args.join(" "))).not.toContain(
-			"branch info --no-interactive --branch feature/upstack",
-		);
-		runner.assertDone();
-	});
-
-	test("inspectSubmitStack fails on branch parent cycles", async () => {
-		const runner = new ScriptedCommandRunner([
-			execStep("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
-				stdout: "◯ master\n│\n◯ feature/base\n│\n◉ feature/current (current)\n",
-			}),
-			execStep("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/current"], {
-				stdout: "feature/current\n\nParent: feature/base\n",
-			}),
-			execStep("gt", ["branch", "info", "--no-interactive", "--branch", "feature/base"], {
-				stdout: "feature/base\n\nParent: feature/current\n",
-			}),
-		]);
-		const gateway = new RealSubmitMetadataGateway(runner.runner);
-
-		const result = await gateway.inspectSubmitStack({ cwd: "/repo" });
-
-		expect(result).toMatchObject({ ok: false, error: { code: "submit_branch_parent_cycle" } });
-		runner.assertDone();
-	});
-
-	test("amendBranchMetadataCommit uses Graphite modify without generated markers", async () => {
-		const runner = new ScriptedCommandRunner([
-			execStep(
-				"gt",
-				["modify", "--no-interactive", "-m", "Generated title", "-m", "Generated body"],
-				{
-					stdout: "Modified\n",
-				},
-			),
-		]);
-		const gateway = new RealSubmitMetadataGateway(runner.runner);
-
-		expect(
-			await gateway.amendBranchMetadataCommit({
-				cwd: "/repo",
-				currentBranch: "feature/demo",
-				branch: "feature/demo",
-				title: "Generated title",
-				body: "Generated body",
-			}),
-		).toEqual({ ok: true, value: undefined });
-		runner.assertDone();
-	});
-});
