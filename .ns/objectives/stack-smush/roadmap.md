@@ -55,7 +55,14 @@ session on 2026-07-10 (see
       the skill. Repackaging uses `gt fold` without `--close`, never touches PRs, and
       loudly reports orphaned close-candidate PRs. CCC, not smush, owns joining
       disjoint subagent branches into the input stack. Full resolution:
-      `updates/20260710T122903Z-packaging-mechanics-design-resolved.md`.
+      `updates/20260710T122903Z-packaging-mechanics-design-resolved.md`. Revised
+      (2026-07-11, live exchange — see
+      `updates/2026-07-11T132402Z-replacement-stack-repackaging-resolved.md`):
+      repackaging is **replacement-stack construction** — build the new shape
+      alongside from the same commits, verify, user submits and closes the old
+      stack (the skill reports the whole old stack as the close-candidate set) —
+      not in-place `gt fold` / re-slice; fold remains a surveyed mechanic but is
+      no longer the repackaging process.
 - [x] **Review-policy encoding** (grilling) — Resolved: the local packaged stack is
       self-describing through classification-bearing branch names and commit-message
       rationale. After the user submits it, `decision`/`span` PR labels plus body
@@ -68,17 +75,21 @@ session on 2026-07-10 (see
       grammar-bearing branch names themselves; PR labels were judged consumer-less —
       automation parses `headRefName` grammar directly — and moved to Parked behind a
       concrete query consumer.
-- [ ] **Repackaging under change** (prototype) — Now unblocked. Prototype re-slicing
-      a live, reviewed stack: review feedback beneath a decision PR, re-slicing a
-      squashed span, and post-submit reclassification where branch renames threaten
-      PR association. Observe PR/review-thread/CI fate and the orphaned PR candidates
-      produced by `gt fold` without `--close`; the skill must report rather than
-      mutate or close them. Partial evidence (2026-07-10, first real run — see
+- [ ] **Repackaging under change** (prototype) — Rescoped (2026-07-11, live
+      exchange — see
+      `updates/2026-07-11T132402Z-replacement-stack-repackaging-resolved.md`):
+      repackaging is replacement-stack construction, so the fold/re-slice and
+      rename-under-PR-association observations this row was chartered for are dead
+      paths and no longer owned here. Remaining: one deliberate full replacement
+      cycle on a live, reviewed stack — carry relevant review feedback forward from
+      the old PRs into the new shape, exercise coexistence naming (`s<num>`
+      generation token), hand the user the old-stack close list, and observe CI cost
+      across the replacement. Partial evidence (2026-07-10, first real run — see
       `updates/20260710T223421Z-first-real-run-parallel-packaging-and-decision-first-revision.md`):
-      a live submitted 18-branch stack was repackaged **in parallel mode**, which
-      sidesteps fold/rename hazards entirely (zero orphaned PRs; user submitted the
-      new shape as PRs #3364–#3371); in-place fold/re-slice PR fate remains
-      unobserved and still owns this row.
+      the 18-branch stack was repackaged in parallel mode with zero orphaned PRs
+      (user submitted the new shape as PRs #3364–#3371), but that run predated the
+      feedback-carry-forward and naming decisions and did not include a reviewed
+      decision PR.
 - [x] **Vocabulary and placement** (grilling) — Resolved early (formally blocked by
       mechanics design; the placement and vocabulary decisions did not depend on
       it). Placement: packaging lives as a **skill** — an LM-driven mutation of an
@@ -176,6 +187,18 @@ session on 2026-07-10 (see
       own update stream; repackaging appends further events). This keeps decision
       records' home unambiguous for the decide skill and partially graduates the
       objectives-interaction Fog item.
+- [ ] **Code-smush replacement-stack repackaging rewrite** (task) — Rewrite the
+      repackaging section of `skills/code-smush/SKILL.md` to replacement-stack
+      semantics (resolved 2026-07-11 — see
+      `updates/2026-07-11T132402Z-replacement-stack-repackaging-resolved.md`): build
+      the replacement alongside from the same commits, verify boundaries, report the
+      entire old stack as the close-candidate set (never mutate/close PRs), drop
+      `gt fold`-based repackaging and orphan detection. Settle the `s<num>`
+      generation token's exact placement in the `<run>--<NN><c>-<slug>` grammar
+      (human legibility first) and decide where review-feedback carry-forward lives,
+      since inspecting old PR threads needs read-only GitHub access the local-only
+      v1 skill deliberately lacks: a read-only inspection step in the skill, or a
+      companion post-submit step.
 
 ## Parked
 
