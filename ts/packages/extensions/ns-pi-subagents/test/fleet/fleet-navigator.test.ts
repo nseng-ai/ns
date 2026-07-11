@@ -23,7 +23,6 @@ import {
 } from "../../src/fleet/detail.ts";
 import { renderTimelineEntryLines } from "../../src/fleet/detail-render.ts";
 import type { ReadTextFile } from "../../src/fleet/read-text-dependencies.ts";
-import type { ReadWorktreeState, WorktreeStateSnapshot } from "../../src/fleet/worktree-state.ts";
 import { settleMicrotasks } from "../helpers/fleet-testing.ts";
 
 function jsonl(events: readonly unknown[]): string {
@@ -72,15 +71,10 @@ function updateWithSessionFile(sessionFile: string): RunnerSubagentUpdate {
 function testDetailContext(
 	input: {
 		readTextFile?: ReadTextFile;
-		readWorktreeState?: ReadWorktreeState;
 	} = {},
 ): FleetDetailContext {
 	return {
-		cwd: "/repo",
 		readTextFile: input.readTextFile ?? (() => Promise.resolve(sessionJsonl())),
-		readWorktreeState:
-			input.readWorktreeState ??
-			(() => Promise.resolve({ status: "unavailable", reason: "not read" })),
 	};
 }
 
@@ -103,7 +97,7 @@ const CSI_UP = "\u001b[1;1A";
 const CSI_DOWN = "\u001b[1;1B";
 
 describe("subagent fleet navigator", () => {
-	test("renders tool timeline rows without raw JSON argument blobs", () => {
+	test("renders successful tool rows as a single line without raw JSON argument blobs", () => {
 		expect(
 			renderTimelineEntryLines({
 				kind: "tool",
@@ -112,10 +106,69 @@ describe("subagent fleet navigator", () => {
 				inputPreview: '{"path":"ts/packages/kernel/src/cli/index.ts","limit":100}',
 				resultPreview: '#!/usr/bin/env node import { z } from "zod";',
 			}),
-		).toEqual([
-			"✓ read · path: ts/packages/kernel/src/cli/index.ts · limit: 100",
-			'  ↳ #!/usr/bin/env node import { z } from "zod";',
-		]);
+		).toEqual(["✓ read · path: ts/packages/kernel/src/cli/index.ts · limit: 100"]);
+	});
+
+	test("renders path-display tool rows with relative and abbreviated paths", () => {
+		const entry = {
+			kind: "tool",
+			toolName: "read",
+			state: "ok",
+			display: { kind: "path", path: "/repo/src/index.ts" },
+		} as const;
+		expect(renderTimelineEntryLines(entry, { sessionCwd: "/repo", homeDir: "/Users/dev" })).toEqual(
+			["✓ read src/index.ts"],
+		);
+		expect(renderTimelineEntryLines(entry, { sessionCwd: "/elsewhere", homeDir: "/repo" })).toEqual(
+			["✓ read ~/src/index.ts"],
+		);
+		expect(renderTimelineEntryLines(entry, {})).toEqual(["✓ read /repo/src/index.ts"]);
+		expect(
+			renderTimelineEntryLines({
+				...entry,
+				display: { kind: "path", path: "docs/notes.md" },
+			}),
+		).toEqual(["✓ read docs/notes.md"]);
+	});
+
+	test("renders command-display tool rows without a tool label", () => {
+		expect(
+			renderTimelineEntryLines({
+				kind: "tool",
+				toolName: "bash",
+				state: "ok",
+				display: { kind: "command", command: "just ts-check" },
+			}),
+		).toEqual(["✓ just ts-check"]);
+	});
+
+	test("keeps the error result line and indents it under the icon column", () => {
+		expect(
+			renderTimelineEntryLines(
+				{
+					kind: "tool",
+					toolName: "bash",
+					state: "error",
+					timestampMs: Date.parse("2026-07-11T09:12:09.000Z"),
+					resultPreview: "error: TS2345",
+					display: { kind: "command", command: "just ts-check" },
+				},
+				{ timeZone: "UTC" },
+			),
+		).toEqual(["09:12:09 ✗ just ts-check", "           ↳ error: TS2345"]);
+	});
+
+	test("stamps timeline rows with pinned-time HH:MM:SS prefixes", () => {
+		expect(
+			renderTimelineEntryLines(
+				{
+					kind: "assistant",
+					text: "Fixed the type error; rerunning validation.",
+					timestampMs: Date.parse("2026-07-11T09:12:31.000Z"),
+				},
+				{ timeZone: "UTC" },
+			),
+		).toEqual(["09:12:31 ● assistant: Fixed the type error; rerunning validation."]);
 	});
 
 	test("renders nested tool preview records through the same compact formatter", () => {
@@ -194,6 +247,7 @@ describe("subagent fleet navigator", () => {
 			state: "ok",
 			inputPreview: '{"path":"a.ts"}',
 			resultPreview: "contents",
+			display: { kind: "path", path: "a.ts" },
 		});
 		if (detail.usage?.status !== "available") throw new Error("expected available usage");
 		expect(detail.usage.totals.input).toBe(1600);
@@ -260,12 +314,13 @@ describe("subagent fleet navigator", () => {
 				state: "ok",
 				inputPreview: '{"path":"README.md"}',
 				resultPreview: "file contents",
+				display: { kind: "path", path: "README.md" },
 			},
 		]);
 		expect(detail.timeline.currentAction).toEqual({ kind: "idle" });
 	});
 
-	test("renders usage trend with peak prompt fallback in detail header", async () => {
+	test("renders peak prompt tokens on the header usage line without a trend line", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Usage trend" }]);
 		const task = run.tasks[0];
@@ -300,8 +355,8 @@ describe("subagent fleet navigator", () => {
 		view.handleInput("\r");
 		await settleMicrotasks();
 		const detail = view.render(140).join("\n");
-		expect(detail).toContain("tokens: 1.4k in · 28 out · 200 cached · $0.000");
-		expect(detail).toContain("trend: latest +400 in/+8 out · peak prompt 1.2k");
+		expect(detail).toContain("tokens: 1.4k in · 28 out · 200 cached · $0.000 · peak 1.2k");
+		expect(detail).not.toContain("trend:");
 	});
 
 	test("moves the list selection with CSI arrows while preserving vim keys", () => {
@@ -363,6 +418,46 @@ describe("subagent fleet navigator", () => {
 		expect(afterVimUp).not.toBe(bottom);
 		view.handleInput("j");
 		expect(view.render(100).join("\n")).toBe(bottom);
+	});
+
+	test("footer follow indicator tracks scroll state and hidden appended lines", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Tall" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/tall.jsonl"));
+		const tallContent = (lineCount: number) =>
+			sessionJsonl(
+				Array.from({ length: lineCount }, (_, index) => ({
+					type: "message_end",
+					message: assistantMessage(`detail line ${index}`),
+				})),
+			);
+		let content = tallContent(20);
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {}, terminal: { rows: 9 } },
+			registry,
+			detailContext: testDetailContext({ readTextFile: async () => content }),
+			done: () => {},
+		});
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		expect(view.render(100).join("\n")).toContain("f follow ●");
+
+		view.handleInput("k");
+		expect(view.render(100).join("\n")).toContain("↓ 1 new · f follow");
+
+		view.handleInput("j");
+		expect(view.render(100).join("\n")).toContain("f follow ●");
+
+		view.handleInput("k");
+		view.render(100);
+		content = tallContent(23);
+		view.handleInput("r");
+		await settleMicrotasks();
+		expect(view.render(100).join("\n")).toContain("↓ 4 new · f follow");
 	});
 
 	test("drives list, detail, prompt toggle, live reload, back, and close", async () => {
@@ -448,26 +543,21 @@ describe("subagent fleet navigator", () => {
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
 			registry,
-			detailContext: testDetailContext({
-				readWorktreeState: async () => ({
-					status: "available",
-					files: [{ path: "src/fleet/navigator.ts", status: "M", additions: 12, deletions: 3 }],
-				}),
-			}),
+			detailContext: testDetailContext(),
 			done: () => {},
 		});
 
 		view.handleInput("\r");
 		await settleMicrotasks();
 		const detail = view.render(120).join("\n");
-		expect(detail).toContain("post-run summary:");
-		expect(detail).toContain("status: final-text");
-		expect(detail).toContain("commit: HEAD changed abcdef1 → fedcba6");
-		expect(detail).toContain("shared worktree: 1 changed files");
-		expect(detail).toContain("M src/fleet/navigator.ts +12/-3");
-		expect(detail).toContain("✓ read");
+		expect(detail).toContain("final-text · commit: HEAD changed abcdef1 → fedcba6");
+		expect(detail).toContain("── run finished · final-text ──");
+		expect(detail.indexOf("✓ read")).toBeGreaterThan(-1);
+		expect(detail.indexOf("── run finished · final-text ──")).toBeGreaterThan(
+			detail.indexOf("✓ read"),
+		);
+		expect(detail).not.toContain("post-run summary:");
 		expect(detail).not.toContain("current action:");
-		expect(detail).not.toContain("worktree state:");
 	});
 
 	test("renders unavailable post-run commit status gracefully", async () => {
@@ -505,80 +595,7 @@ describe("subagent fleet navigator", () => {
 		).toBe("unavailable; final status blocked");
 	});
 
-	test("renders shared worktree state on task details", async () => {
-		const registry = new SubagentFleetRegistry();
-		const run = registry.startRun([{ title: "Dirty" }]);
-		const task = run.tasks[0];
-		if (task === undefined) throw new Error("missing task fixture");
-		registry.markRunning(task.id);
-		registry.markProgress(task.id, updateWithSessionFile("/tmp/dirty.jsonl"));
-		const view = new SubagentFleetNavigator({
-			tui: { requestRender: () => {} },
-			registry,
-			detailContext: testDetailContext({
-				readWorktreeState: async () => ({
-					status: "available",
-					files: [
-						{ path: "src/fleet/navigator.ts", status: "M", additions: 12, deletions: 3 },
-						{ path: "notes.md", status: "??" },
-					],
-				}),
-			}),
-			done: () => {},
-		});
-
-		view.handleInput("\r");
-		await settleMicrotasks();
-		const detail = view.render(120).join("\n");
-		expect(detail).toContain("worktree state: 2 changed files");
-		expect(detail).toContain("M src/fleet/navigator.ts +12/-3");
-		expect(detail).toContain("?? notes.md");
-		expect(detail).toContain("✓ read");
-	});
-
-	test("auto-refreshes running task worktree state with existing detail polling", async () => {
-		const registry = new SubagentFleetRegistry();
-		const run = registry.startRun([{ title: "Live dirty" }]);
-		const task = run.tasks[0];
-		if (task === undefined) throw new Error("missing task fixture");
-		registry.markRunning(task.id);
-		registry.markProgress(task.id, updateWithSessionFile("/tmp/live-dirty.jsonl"));
-		let worktreeState: WorktreeStateSnapshot = {
-			status: "available",
-			files: [{ path: "a.ts", status: "M", additions: 1, deletions: 0 }],
-		};
-		let worktreeReadCount = 0;
-		const manualTimers = createManualTimerScheduler();
-		const view = new SubagentFleetNavigator({
-			tui: { requestRender: () => {} },
-			registry,
-			detailContext: testDetailContext({
-				readWorktreeState: async () => {
-					worktreeReadCount += 1;
-					return worktreeState;
-				},
-			}),
-			done: () => {},
-			timers: manualTimers.timers,
-			detailRefreshIntervalMs: 1_000,
-		});
-
-		view.handleInput("\r");
-		await settleMicrotasks();
-		expect(worktreeReadCount).toBe(1);
-		expect(view.render(120).join("\n")).toContain("M a.ts +1/-0");
-
-		worktreeState = {
-			status: "available",
-			files: [{ path: "b.ts", status: "A", additions: 4, deletions: 0 }],
-		};
-		manualTimers.advanceMs(1_000);
-		await settleMicrotasks();
-		expect(worktreeReadCount).toBe(2);
-		expect(view.render(120).join("\n")).toContain("A b.ts +4/-0");
-	});
-
-	test("reuses cached session parses while recomposing fresh task and worktree state", async () => {
+	test("reuses cached session parses while recomposing fresh task state", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Cached done" }]);
 		const task = run.tasks[0];
@@ -586,11 +603,6 @@ describe("subagent fleet navigator", () => {
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/cached.jsonl"));
 		let sessionReadCount = 0;
-		let worktreeState: WorktreeStateSnapshot = {
-			status: "available",
-			files: [{ path: "before.ts", status: "M", additions: 1, deletions: 0 }],
-		};
-		let worktreeReadCount = 0;
 		const content = sessionJsonl();
 		const view = new SubagentFleetNavigator({
 			tui: { requestRender: () => {} },
@@ -600,10 +612,6 @@ describe("subagent fleet navigator", () => {
 					sessionReadCount += 1;
 					return content;
 				},
-				readWorktreeState: async () => {
-					worktreeReadCount += 1;
-					return worktreeState;
-				},
 			}),
 			done: () => {},
 		});
@@ -611,14 +619,8 @@ describe("subagent fleet navigator", () => {
 		view.handleInput("\r");
 		await settleMicrotasks();
 		expect(sessionReadCount).toBe(1);
-		expect(worktreeReadCount).toBe(1);
 		expect(view.render(120).join("\n")).toContain("stopped · running");
-		expect(view.render(120).join("\n")).toContain("M before.ts +1/-0");
 
-		worktreeState = {
-			status: "available",
-			files: [{ path: "after.ts", status: "A", additions: 3, deletions: 0 }],
-		};
 		registry.markDone(task.id, {
 			status: "final-text",
 			finalText: "done",
@@ -630,11 +632,9 @@ describe("subagent fleet navigator", () => {
 
 		const detail = view.render(120).join("\n");
 		expect(sessionReadCount).toBe(2);
-		expect(worktreeReadCount).toBe(2);
 		expect(detail).toContain("stopped · final-text");
-		expect(detail).toContain("post-run summary:");
-		expect(detail).toContain("commit: unavailable (missing baseline HEAD)");
-		expect(detail).toContain("A after.ts +3/-0");
+		expect(detail).toContain("final-text · commit: unavailable (missing baseline HEAD)");
+		expect(detail).toContain("── run finished · final-text ──");
 		expect(detail).toContain("✓ read");
 	});
 
@@ -685,31 +685,6 @@ describe("subagent fleet navigator", () => {
 			{ kind: "assistant", text: "cached timeline" },
 		]);
 		expect(loaded.detail.usage).toMatchObject({ diagnostic: "cached usage" });
-	});
-
-	test("renders rejected worktree reads without hiding timeline", async () => {
-		const registry = new SubagentFleetRegistry();
-		const run = registry.startRun([{ title: "Failure" }]);
-		const task = run.tasks[0];
-		if (task === undefined) throw new Error("missing task fixture");
-		registry.markRunning(task.id);
-		registry.markProgress(task.id, updateWithSessionFile("/tmp/failure.jsonl"));
-		const view = new SubagentFleetNavigator({
-			tui: { requestRender: () => {} },
-			registry,
-			detailContext: testDetailContext({
-				readWorktreeState: async () => {
-					throw new Error("not a git repo");
-				},
-			}),
-			done: () => {},
-		});
-
-		view.handleInput("\r");
-		await settleMicrotasks();
-		const detail = view.render(120).join("\n");
-		expect(detail).toContain("worktree state: unavailable (not a git repo)");
-		expect(detail).toContain("✓ read");
 	});
 
 	test("manual reload recovers after a synchronous first detail read failure", async () => {
@@ -778,14 +753,13 @@ describe("subagent fleet navigator", () => {
 		await settleMicrotasks();
 		expect(readCount).toBe(1);
 		expect(manualTimers.pendingTimerCount()).toBe(1);
-		expect(view.render(100).join("\n")).toContain("current action: ▶ bash · just test");
-		expect(view.render(100).join("\n")).toContain("heartbeat: quiet 0s");
+		expect(view.render(100).join("\n")).toContain("▶ bash · just test · quiet 0s");
 
 		manualClock.advanceMs(2_000);
 		manualTimers.advanceMs(1_000);
 		await settleMicrotasks();
 		expect(readCount).toBe(2);
-		expect(view.render(100).join("\n")).toContain("heartbeat: quiet 2s");
+		expect(view.render(100).join("\n")).toContain("· quiet 2s");
 
 		content = sessionJsonl([
 			{ type: "tool_execution_start", toolName: "bash", toolCallId: "tool-1", args: "just test" },
@@ -800,7 +774,7 @@ describe("subagent fleet navigator", () => {
 		manualTimers.advanceMs(1_000);
 		await settleMicrotasks();
 		expect(readCount).toBe(3);
-		expect(view.render(100).join("\n")).toContain("heartbeat: quiet 0s");
+		expect(view.render(100).join("\n")).toContain("· quiet 0s");
 		expect(view.render(100).join("\n")).toContain("↳ still running");
 
 		view.handleInput("b");
@@ -808,6 +782,79 @@ describe("subagent fleet navigator", () => {
 		manualTimers.advanceMs(5_000);
 		await settleMicrotasks();
 		expect(readCount).toBe(3);
+	});
+
+	test("renders running duration from the event span and advances with the clock", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Timed" }]);
+		const task = run.tasks[0];
+		if (task === undefined) throw new Error("missing task fixture");
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/timed.jsonl"));
+		const manualClock = createManualClock(Date.parse("2026-07-11T09:12:27.000Z"));
+		const manualTimers = createManualTimerScheduler();
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: testDetailContext({
+				readTextFile: async () =>
+					sessionJsonl([
+						{
+							type: "message_end",
+							timestamp: "2026-07-11T09:00:00.000Z",
+							message: assistantMessage("begin"),
+						},
+					]),
+			}),
+			done: () => {},
+			clock: manualClock.clock,
+			timers: manualTimers.timers,
+			detailRefreshIntervalMs: 1_000,
+		});
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).toContain("· 12m 27s");
+
+		manualClock.advanceMs(5_000);
+		expect(view.render(120).join("\n")).toContain("· 12m 32s");
+	});
+
+	test("derives fixed span duration for completed tasks and unknown without timestamps", async () => {
+		const doneTask = {
+			id: "task-1",
+			runId: "run-1",
+			index: 0,
+			title: "Done",
+			state: "done",
+			finalStatus: "final-text",
+			sessionFile: "/tmp/done.jsonl",
+		} as const;
+		const detailWithSpan = await loadFleetTaskDetail({
+			task: doneTask,
+			context: testDetailContext({
+				readTextFile: async () =>
+					sessionJsonl([
+						{
+							type: "message_end",
+							timestamp: "2026-07-11T09:00:00.000Z",
+							message: assistantMessage("begin"),
+						},
+						{
+							type: "message_end",
+							timestamp: "2026-07-11T09:12:27.000Z",
+							message: assistantMessage("end"),
+						},
+					]),
+			}),
+		});
+		expect(detailWithSpan.duration).toEqual({ kind: "completed", elapsedMs: 747_000 });
+
+		const detailWithoutTimestamps = await loadFleetTaskDetail({
+			task: doneTask,
+			context: testDetailContext(),
+		});
+		expect(detailWithoutTimestamps.duration).toEqual({ kind: "unknown" });
 	});
 
 	test("does not poll parent or completed task detail screens", async () => {
@@ -961,7 +1008,6 @@ describe("subagent fleet navigator", () => {
 		expect(detail).toContain("Parent Pi session");
 		expect(detail).toContain("stopped · stopped");
 		expect(detail).not.toContain("running · running");
-		expect(detail).not.toContain("worktree state");
 		expect(detail).toContain("openai-codex/gpt-5.4");
 	});
 });

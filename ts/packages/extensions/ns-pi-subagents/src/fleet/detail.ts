@@ -13,11 +13,11 @@ import { extractRunnerSubagentTimelineFromSessionJsonl } from "../runner-subagen
 import type {
 	RunnerSubagentCurrentAction,
 	RunnerSubagentTimeline,
+	RunnerSubagentTimelineEventSpan,
 } from "../runner-subagents/timeline.ts";
 import type { GitHeadSnapshot } from "./git-head.ts";
 import type { ReadTextFile } from "./read-text-dependencies.ts";
 import type { SubagentFleetTaskSnapshot } from "./registry.ts";
-import type { ReadWorktreeState, WorktreeStateSnapshot } from "./worktree-state.ts";
 
 export const SUBAGENT_FLEET_PARENT_ENTRY_ID = "parent-session";
 
@@ -44,7 +44,6 @@ export interface SubagentFleetPostRunSummary {
 	status: string;
 	lastDiagnostic?: string;
 	commit: SubagentFleetPostRunCommitSummary;
-	worktreeState?: WorktreeStateSnapshot;
 }
 
 export type SubagentFleetPostRunCommitSummary =
@@ -52,20 +51,25 @@ export type SubagentFleetPostRunCommitSummary =
 	| { status: "unchanged"; head: string }
 	| { status: "unavailable"; reason: string };
 
+export type SubagentFleetRunDuration =
+	| { kind: "completed"; elapsedMs: number }
+	| { kind: "running"; startedAtMs: number }
+	| { kind: "unknown" };
+
 export interface SubagentFleetTaskDetail {
 	title: string;
 	prompt?: string;
 	sessionFile?: string;
+	sessionCwd?: string;
 	modelText: string;
 	turnCount: number;
 	toolCount: number;
-	elapsedMs: number;
+	duration: SubagentFleetRunDuration;
 	state: string;
 	status: string;
 	timeline: RunnerSubagentTimeline;
 	usage?: RunnerSubagentUsageMetadata;
 	liveActivity?: SubagentFleetTaskLiveActivity;
-	worktreeState?: WorktreeStateSnapshot;
 	postRunSummary?: SubagentFleetPostRunSummary;
 	message?: string;
 }
@@ -85,8 +89,6 @@ export interface LoadedFleetEntryDetail {
 
 export interface FleetDetailContext {
 	readTextFile: ReadTextFile;
-	readWorktreeState: ReadWorktreeState;
-	cwd: string;
 }
 
 export async function loadFleetTaskDetail(input: {
@@ -105,10 +107,9 @@ export async function loadFleetEntryDetail(input: {
 	context: FleetDetailContext;
 	previous?: FleetEntrySessionParseCache;
 }): Promise<LoadedFleetEntryDetail> {
-	const worktreeState = await loadEntryWorktreeState(input.entry, input.context);
 	const sessionFile = entrySessionFile(input.entry);
 	if (sessionFile === undefined)
-		return { detail: placeholderDetail(input.entry, "no session file yet", worktreeState) };
+		return { detail: placeholderDetail(input.entry, "no session file yet") };
 	let jsonl: string;
 	try {
 		jsonl = await input.context.readTextFile(sessionFile);
@@ -117,7 +118,6 @@ export async function loadFleetEntryDetail(input: {
 			detail: placeholderDetail(
 				input.entry,
 				`Could not read session file: ${formatErrorMessage(error)}`,
-				worktreeState,
 			),
 		};
 	}
@@ -138,7 +138,6 @@ export async function loadFleetEntryDetail(input: {
 			snapshot: parsed.snapshot,
 			timeline: parsed.timeline,
 			usage: parsed.usage,
-			...optionalEntry("worktreeState", worktreeState),
 		}),
 		sessionContentSignature: signature,
 		sessionParseCache: parsed,
@@ -171,7 +170,6 @@ export function detailFromSnapshot(input: {
 	snapshot: RunnerSubagentJsonEventParserSnapshot;
 	timeline: RunnerSubagentTimeline;
 	usage: RunnerSubagentUsageMetadata;
-	worktreeState?: WorktreeStateSnapshot;
 }): SubagentFleetTaskDetail {
 	const task = entryTask(input.entry);
 	const status =
@@ -182,30 +180,44 @@ export function detailFromSnapshot(input: {
 					task,
 					snapshot: input.snapshot,
 					status: task.finalStatus,
-					...optionalEntry("worktreeState", input.worktreeState),
 				})
 			: undefined;
 	return {
 		title: entryTitle(input.entry),
 		...(task?.prompt === undefined ? {} : { prompt: task.prompt }),
 		sessionFile: input.sessionFile,
+		...optionalEntry("sessionCwd", sessionCwdFromSnapshot(input.snapshot)),
 		modelText: modelText(input.snapshot),
 		turnCount: input.snapshot.progress.turnCount,
 		toolCount: input.snapshot.progress.toolCount,
-		elapsedMs: input.snapshot.progress.elapsedMs,
+		duration: runDuration(task, input.timeline.eventSpan),
 		state: input.snapshot.progress.state,
 		status,
 		timeline: input.timeline,
 		usage: input.usage,
-		...optionalEntry("worktreeState", input.worktreeState),
 		...optionalEntry("postRunSummary", postRunSummary),
 	};
+}
+
+function runDuration(
+	task: SubagentFleetTaskSnapshot | undefined,
+	eventSpan: RunnerSubagentTimelineEventSpan | undefined,
+): SubagentFleetRunDuration {
+	if (eventSpan === undefined) return { kind: "unknown" };
+	if (task?.state === "running") return { kind: "running", startedAtMs: eventSpan.firstEventAtMs };
+	return { kind: "completed", elapsedMs: eventSpan.lastEventAtMs - eventSpan.firstEventAtMs };
+}
+
+function sessionCwdFromSnapshot(
+	snapshot: RunnerSubagentJsonEventParserSnapshot,
+): string | undefined {
+	const cwd = snapshot.sessionHeader?.cwd;
+	return typeof cwd === "string" && cwd.length > 0 ? cwd : undefined;
 }
 
 export function placeholderDetail(
 	entry: FleetNavigatorEntry,
 	message: string,
-	worktreeState?: WorktreeStateSnapshot,
 ): SubagentFleetTaskDetail {
 	const task = entryTask(entry);
 	const sessionFile = entrySessionFile(entry);
@@ -216,29 +228,12 @@ export function placeholderDetail(
 		modelText: "model unknown",
 		turnCount: 0,
 		toolCount: 0,
-		elapsedMs: 0,
+		duration: { kind: "unknown" },
 		state: task?.state ?? "session",
 		status: task?.finalStatus ?? task?.state ?? "session",
 		timeline: { entries: [], droppedEntryCount: 0, currentAction: { kind: "idle" } },
-		...optionalEntry("worktreeState", worktreeState),
 		message,
 	};
-}
-
-export async function loadEntryWorktreeState(
-	entry: FleetNavigatorEntry,
-	context: FleetDetailContext,
-): Promise<WorktreeStateSnapshot | undefined> {
-	if (entry.kind !== "task") return undefined;
-	try {
-		return await context.readWorktreeState({ cwd: context.cwd });
-	} catch (error) {
-		return { status: "unavailable", reason: formatErrorMessage(error) };
-	}
-}
-
-export function readWorktreeStateUnavailable(): Promise<WorktreeStateSnapshot> {
-	return Promise.resolve({ status: "unavailable", reason: "git reader unavailable" });
 }
 
 export function entryId(entry: FleetNavigatorEntry | undefined): string | undefined {
@@ -281,14 +276,12 @@ export function buildPostRunSummary(input: {
 	task: SubagentFleetTaskSnapshot;
 	snapshot: RunnerSubagentJsonEventParserSnapshot;
 	status: RunnerSubagentResult["status"];
-	worktreeState?: WorktreeStateSnapshot;
 }): SubagentFleetPostRunSummary {
 	const lastDiagnostic = postRunDiagnostic(input.snapshot, input.status);
 	return {
 		status: input.status,
 		...optionalEntry("lastDiagnostic", lastDiagnostic),
 		commit: summarizeHeadChange(input.task.headBaseline, input.task.finalHead),
-		...optionalEntry("worktreeState", input.worktreeState),
 	};
 }
 

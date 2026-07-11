@@ -1,9 +1,10 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { isRecord, optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import {
 	assistantVisibleTextFromMessage,
 	firstMatchingEventPreview,
 	toolInputPreviewFromEvent,
+	toolInputValueFromEvent,
 	toolResultPreviewFromEvent,
 } from "./activity.ts";
 import { createSessionEventNormalizer } from "./message-normalization.ts";
@@ -13,9 +14,14 @@ import {
 	type JsonRecord,
 } from "./json-events.ts";
 
+export type RunnerSubagentToolDisplay =
+	| { kind: "path"; path: string }
+	| { kind: "command"; command: string };
+
 export interface RunnerSubagentTimelineAssistantEntry {
 	kind: "assistant";
 	text: string;
+	timestampMs?: number;
 }
 
 export interface RunnerSubagentTimelineToolEntry {
@@ -24,6 +30,8 @@ export interface RunnerSubagentTimelineToolEntry {
 	state: "running" | "ok" | "error";
 	inputPreview?: string;
 	resultPreview?: string;
+	timestampMs?: number;
+	display?: RunnerSubagentToolDisplay;
 }
 
 export type RunnerSubagentTimelineEntry =
@@ -40,10 +48,16 @@ export type RunnerSubagentCurrentAction =
 	| { kind: "thinking" }
 	| { kind: "idle" };
 
+export interface RunnerSubagentTimelineEventSpan {
+	firstEventAtMs: number;
+	lastEventAtMs: number;
+}
+
 export interface RunnerSubagentTimeline {
 	entries: readonly RunnerSubagentTimelineEntry[];
 	droppedEntryCount: number;
 	currentAction: RunnerSubagentCurrentAction;
+	eventSpan?: RunnerSubagentTimelineEventSpan;
 }
 
 export interface ExtractRunnerSubagentTimelineOptions {
@@ -71,35 +85,60 @@ export function extractRunnerSubagentTimelineFromSessionJsonl(
 		pendingTools: new Map(),
 	};
 	const normalizer = createSessionEventNormalizer();
+	let eventSpan: RunnerSubagentTimelineEventSpan | undefined;
 	visitRunnerSubagentSessionJsonlEvents(jsonl, (event) => {
+		const timestampMs = eventTimestampMs(event);
+		if (timestampMs !== undefined) eventSpan = widenEventSpan(eventSpan, timestampMs);
 		for (const normalizedEvent of normalizer.normalize(event)) {
-			captureTimelineEvent(accumulator, normalizedEvent);
+			captureTimelineEvent(accumulator, normalizedEvent, timestampMs);
 		}
 	});
 	return {
 		entries: accumulator.entries,
 		droppedEntryCount: accumulator.droppedEntryCount,
 		currentAction: currentActionFromPendingTools(accumulator.pendingTools),
+		...optionalEntry("eventSpan", eventSpan),
 	};
 }
 
-function captureTimelineEvent(accumulator: TimelineAccumulator, event: JsonEvent): void {
+function eventTimestampMs(event: JsonRecord): number | undefined {
+	if (typeof event.timestamp !== "string") return undefined;
+	const parsedMs = Date.parse(event.timestamp);
+	return Number.isNaN(parsedMs) ? undefined : parsedMs;
+}
+
+function widenEventSpan(
+	span: RunnerSubagentTimelineEventSpan | undefined,
+	timestampMs: number,
+): RunnerSubagentTimelineEventSpan {
+	if (span === undefined) return { firstEventAtMs: timestampMs, lastEventAtMs: timestampMs };
+	return {
+		firstEventAtMs: Math.min(span.firstEventAtMs, timestampMs),
+		lastEventAtMs: Math.max(span.lastEventAtMs, timestampMs),
+	};
+}
+
+function captureTimelineEvent(
+	accumulator: TimelineAccumulator,
+	event: JsonEvent,
+	timestampMs: number | undefined,
+): void {
 	switch (event.type) {
 		case "message_end":
 		case "turn_end":
-			captureAssistantEntry(accumulator, event.message);
+			captureAssistantEntry(accumulator, event.message, timestampMs);
 			return;
 		case "agent_end":
-			captureAgentEndAssistantEntries(accumulator, event.messages);
+			captureAgentEndAssistantEntries(accumulator, event.messages, timestampMs);
 			return;
 		case "tool_execution_start":
-			captureToolStart(accumulator, event);
+			captureToolStart(accumulator, event, timestampMs);
 			return;
 		case "tool_execution_update":
 			captureToolUpdate(accumulator, event);
 			return;
 		case "tool_execution_end":
-			captureToolEnd(accumulator, event);
+			captureToolEnd(accumulator, event, timestampMs);
 			return;
 		default:
 			return;
@@ -109,26 +148,41 @@ function captureTimelineEvent(accumulator: TimelineAccumulator, event: JsonEvent
 function captureAgentEndAssistantEntries(
 	accumulator: TimelineAccumulator,
 	messages: unknown,
+	timestampMs: number | undefined,
 ): void {
 	if (!Array.isArray(messages)) return;
-	for (const message of messages) captureAssistantEntry(accumulator, message);
+	for (const message of messages) captureAssistantEntry(accumulator, message, timestampMs);
 }
 
-function captureAssistantEntry(accumulator: TimelineAccumulator, message: unknown): void {
+function captureAssistantEntry(
+	accumulator: TimelineAccumulator,
+	message: unknown,
+	timestampMs: number | undefined,
+): void {
 	const text = assistantVisibleTextFromMessage(message);
 	if (text === undefined) return;
 	const last = accumulator.entries.at(-1);
 	if (last?.kind === "assistant" && last.text === text) return;
-	pushTimelineEntry(accumulator, { kind: "assistant", text });
+	pushTimelineEntry(accumulator, {
+		kind: "assistant",
+		text,
+		...optionalEntry("timestampMs", timestampMs),
+	});
 }
 
-function captureToolStart(accumulator: TimelineAccumulator, event: JsonRecord): void {
+function captureToolStart(
+	accumulator: TimelineAccumulator,
+	event: JsonRecord,
+	timestampMs: number | undefined,
+): void {
 	const toolName = eventToolName(event);
 	const key = toolKey(event, toolName);
 	const inputPreview = toolInputPreviewFromEvent(event);
+	const display = toolDisplayFromEvent(event, toolName);
 	const pending = accumulator.pendingTools.get(key);
 	if (pending !== undefined) {
 		if (inputPreview !== undefined) pending.inputPreview = inputPreview;
+		if (display !== undefined) pending.display = display;
 		return;
 	}
 	const entry: RunnerSubagentTimelineToolEntry = {
@@ -136,6 +190,8 @@ function captureToolStart(accumulator: TimelineAccumulator, event: JsonRecord): 
 		toolName,
 		state: "running",
 		...optionalEntry("inputPreview", inputPreview),
+		...optionalEntry("timestampMs", timestampMs),
+		...optionalEntry("display", display),
 	};
 	pushTimelineEntry(accumulator, entry);
 	accumulator.pendingTools.set(key, entry);
@@ -147,11 +203,17 @@ function captureToolUpdate(accumulator: TimelineAccumulator, event: JsonRecord):
 	if (pending === undefined) return;
 	const inputPreview = toolInputPreviewFromEvent(event);
 	const resultPreview = toolOutputPreviewFromEvent(event);
+	const display = toolDisplayFromEvent(event, toolName);
 	if (inputPreview !== undefined) pending.inputPreview = inputPreview;
 	if (resultPreview !== undefined) pending.resultPreview = resultPreview;
+	if (display !== undefined) pending.display = display;
 }
 
-function captureToolEnd(accumulator: TimelineAccumulator, event: JsonRecord): void {
+function captureToolEnd(
+	accumulator: TimelineAccumulator,
+	event: JsonRecord,
+	timestampMs: number | undefined,
+): void {
 	const toolName = eventToolName(event);
 	const state = event.isError === true ? "error" : "ok";
 	const resultPreview = toolResultPreviewFromEvent(event);
@@ -166,7 +228,34 @@ function captureToolEnd(accumulator: TimelineAccumulator, event: JsonRecord): vo
 		toolName,
 		state,
 		...optionalEntry("resultPreview", resultPreview),
+		...optionalEntry("timestampMs", timestampMs),
 	});
+}
+
+function toolDisplayFromEvent(
+	event: JsonRecord,
+	toolName: string,
+): RunnerSubagentToolDisplay | undefined {
+	const input = toolInputValueFromEvent(event);
+	switch (toolName) {
+		case "read":
+		case "write":
+		case "edit":
+			if (isRecord(input) && typeof input.path === "string" && input.path.length > 0) {
+				return { kind: "path", path: input.path };
+			}
+			return undefined;
+		case "bash":
+			if (typeof input === "string" && input.length > 0) {
+				return { kind: "command", command: input };
+			}
+			if (isRecord(input) && typeof input.command === "string" && input.command.length > 0) {
+				return { kind: "command", command: input.command };
+			}
+			return undefined;
+		default:
+			return undefined;
+	}
 }
 
 function currentActionFromPendingTools(
@@ -208,6 +297,8 @@ function finishPendingTool(input: {
 		state: input.event.isError === true ? "error" : "ok",
 		...optionalEntry("inputPreview", input.pending.inputPreview),
 		...optionalEntry("resultPreview", resultPreview),
+		...optionalEntry("timestampMs", input.pending.timestampMs),
+		...optionalEntry("display", input.pending.display),
 	};
 }
 

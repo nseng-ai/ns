@@ -34,7 +34,11 @@ const RESULT: RunnerSubagentResult = {
 describe("runner subagent presentation helpers", () => {
 	test("formats elapsed time consistently", () => {
 		expect(formatRunnerSubagentElapsed(999)).toBe("999ms");
-		expect(formatRunnerSubagentElapsed(1_250)).toBe("1.3s");
+		expect(formatRunnerSubagentElapsed(1_250)).toBe("1s");
+		expect(formatRunnerSubagentElapsed(47_900)).toBe("47s");
+		expect(formatRunnerSubagentElapsed(747_000)).toBe("12m 27s");
+		expect(formatRunnerSubagentElapsed(65_000)).toBe("1m 05s");
+		expect(formatRunnerSubagentElapsed(3_780_000)).toBe("1h 03m");
 	});
 
 	test("derives display titles from results and progress snapshots", () => {
@@ -87,7 +91,7 @@ describe("runner subagent presentation helpers", () => {
 			"State: running",
 			"Tool: read",
 			"Turns/tools: 1/2",
-			"Elapsed: 1.3s",
+			"Elapsed: 1s",
 			"Session: /tmp/progress.jsonl",
 		]);
 		const progressWithoutTitle: RunnerSubagentProgress = {

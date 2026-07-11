@@ -15,7 +15,13 @@ export interface RunnerSubagentProgressWidgetOptions {
 
 export function formatRunnerSubagentElapsed(elapsedMs: number): string {
 	if (elapsedMs < 1_000) return `${elapsedMs}ms`;
-	return `${(elapsedMs / 1_000).toFixed(1)}s`;
+	const totalSeconds = Math.floor(elapsedMs / 1_000);
+	if (totalSeconds < 60) return `${totalSeconds}s`;
+	const totalMinutes = Math.floor(totalSeconds / 60);
+	if (totalMinutes < 60) {
+		return `${totalMinutes}m ${String(totalSeconds % 60).padStart(2, "0")}s`;
+	}
+	return `${Math.floor(totalMinutes / 60)}h ${String(totalMinutes % 60).padStart(2, "0")}m`;
 }
 
 export function runnerSubagentDisplayTitle(

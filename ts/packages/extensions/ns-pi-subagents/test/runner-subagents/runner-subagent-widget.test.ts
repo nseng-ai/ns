@@ -36,7 +36,7 @@ describe("runner subagent activity widget", () => {
 			"Thinking: medium",
 			"Tool: read",
 			"Turns/tools: 1/2",
-			"Elapsed: 1.3s",
+			"Elapsed: 1s",
 			"Session: /tmp/progress.jsonl",
 		]);
 	});
@@ -62,7 +62,7 @@ describe("runner subagent activity widget", () => {
 			'Input: {"path":"README.md"}',
 			"Last result (bash): tests passed",
 			"Turns/tools: 1/2",
-			"Elapsed: 1.3s",
+			"Elapsed: 1s",
 			"Session: /tmp/progress.jsonl",
 		]);
 	});
