@@ -256,6 +256,32 @@ describe("createSlashCommandRerankProvider", () => {
 		expect(result).toBe(applyResult);
 	});
 
+	test("refuses a stale slash-command completion after the editor text advances", () => {
+		const fake = createFakeCurrentProvider();
+		const wrapped = createSlashCommandRerankProvider(fake.provider);
+		const command = "/ns:ccc:surface:dispatch-plan";
+		const lines = [command];
+		const item: AutocompleteItem = { value: "settings" };
+
+		const result = wrapped.applyCompletion(lines, 0, command.length, item, "/");
+
+		expect(result).toEqual({ lines, cursorLine: 0, cursorCol: command.length });
+		expect(fake.applyCompletionCalls).toEqual([]);
+	});
+
+	test("refuses slash-command completion when non-whitespace text remains after the cursor", () => {
+		const fake = createFakeCurrentProvider();
+		const wrapped = createSlashCommandRerankProvider(fake.provider);
+		const command = "/ns:ccc:surface:dispatch-plan";
+		const lines = [command];
+		const item: AutocompleteItem = { value: "settings" };
+
+		const result = wrapped.applyCompletion(lines, 0, 1, item, "/");
+
+		expect(result).toEqual({ lines, cursorLine: 0, cursorCol: 1 });
+		expect(fake.applyCompletionCalls).toEqual([]);
+	});
+
 	test("exposes shouldTriggerFileCompletion only when current has it", () => {
 		const withMethod = createSlashCommandRerankProvider(
 			createFakeCurrentProvider({ shouldTriggerFileCompletion: true }).provider,
