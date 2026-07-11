@@ -39,7 +39,7 @@ describe("runner subagent timeline", () => {
 				state: "ok",
 				inputPreview: '{"path":"src/index.ts"}',
 				resultPreview: "file contents",
-				display: { kind: "path", path: "src/index.ts" },
+				invocation: { kind: "fields", fields: { path: "src/index.ts" } },
 			},
 			{ kind: "assistant", text: "Done" },
 		]);
@@ -67,7 +67,7 @@ describe("runner subagent timeline", () => {
 				toolName: "bash",
 				state: "running",
 				inputPreview: "npm test",
-				display: { kind: "command", command: "npm test" },
+				invocation: { kind: "text", text: "npm test" },
 			},
 			{ kind: "tool", toolName: "read", state: "error", resultPreview: "missing file" },
 		]);
@@ -158,7 +158,7 @@ describe("runner subagent timeline", () => {
 				state: "ok",
 				inputPreview: '{"path":"src/index.ts"}',
 				resultPreview: "file contents",
-				display: { kind: "path", path: "src/index.ts" },
+				invocation: { kind: "fields", fields: { path: "src/index.ts" } },
 			},
 		]);
 		expect(timeline.currentAction).toEqual({ kind: "idle" });
@@ -183,7 +183,7 @@ describe("runner subagent timeline", () => {
 				toolName: "bash",
 				state: "running",
 				inputPreview: "just test",
-				display: { kind: "command", command: "just test" },
+				invocation: { kind: "text", text: "just test" },
 			},
 		]);
 		expect(timeline.currentAction).toEqual({
@@ -275,13 +275,9 @@ describe("runner subagent timeline", () => {
 				inputPreview: "just ts-check",
 				resultPreview: "ok",
 				timestampMs: Date.parse("2026-07-11T09:12:09.000Z"),
-				display: { kind: "command", command: "just ts-check" },
+				invocation: { kind: "text", text: "just ts-check" },
 			},
 		]);
-		expect(timeline.eventSpan).toEqual({
-			firstEventAtMs: Date.parse("2026-07-11T09:12:01.000Z"),
-			lastEventAtMs: Date.parse("2026-07-11T09:12:31.000Z"),
-		});
 	});
 
 	test("threads top-level message-event timestamps to synthesized entries", () => {
@@ -313,7 +309,7 @@ describe("runner subagent timeline", () => {
 				state: "running",
 				inputPreview: '{"path":"src/index.ts"}',
 				timestampMs: Date.parse("2026-07-11T10:00:00.000Z"),
-				display: { kind: "path", path: "src/index.ts" },
+				invocation: { kind: "fields", fields: { path: "src/index.ts" } },
 			},
 		]);
 	});
@@ -330,7 +326,6 @@ describe("runner subagent timeline", () => {
 		);
 
 		expect(timeline.entries).toEqual([{ kind: "assistant", text: "Unstamped" }]);
-		expect(timeline.eventSpan).toBeUndefined();
 	});
 
 	test("derives command display from bash record-form input", () => {
@@ -351,7 +346,7 @@ describe("runner subagent timeline", () => {
 				toolName: "bash",
 				state: "running",
 				inputPreview: '{"command":"pnpm run test"}',
-				display: { kind: "command", command: "pnpm run test" },
+				invocation: { kind: "fields", fields: { command: "pnpm run test" } },
 			},
 		]);
 	});
@@ -375,12 +370,12 @@ describe("runner subagent timeline", () => {
 		);
 
 		expect(timeline.entries).toMatchObject([
-			{ toolName: "write", display: { kind: "path", path: "docs/notes.md" } },
-			{ toolName: "edit", display: { kind: "path", path: "src/app.ts" } },
+			{ toolName: "write", invocation: { kind: "fields", fields: { path: "docs/notes.md" } } },
+			{ toolName: "edit", invocation: { kind: "fields", fields: { path: "src/app.ts" } } },
 		]);
 	});
 
-	test("leaves display undefined for unknown tools and unexpected input shapes", () => {
+	test("keeps invocation generic for unknown tools and ignores unsupported input fields", () => {
 		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
 			jsonl([
 				{
@@ -402,6 +397,106 @@ describe("runner subagent timeline", () => {
 			{ kind: "tool", toolName: "grep", state: "running", inputPreview: '{"pattern":"foo"}' },
 			{ kind: "tool", toolName: "read", state: "running", inputPreview: '{"path":42}' },
 		]);
+	});
+
+	test.each([
+		{ name: "text", input: "  just   test  ", expected: { kind: "text", text: "just test" } },
+		{
+			name: "allowed scalar fields",
+			input: { path: "src/app.ts", command: "pnpm test", token: "secret" },
+			expected: { kind: "fields", fields: { path: "src/app.ts", command: "pnpm test" } },
+		},
+		{ name: "nested field", input: { path: { value: "src/app.ts" } }, expected: undefined },
+		{ name: "non-string field", input: { command: 42 }, expected: undefined },
+		{ name: "array input", input: ["pnpm test"], expected: undefined },
+		{ name: "sensitive-only field", input: { password: "secret" }, expected: undefined },
+	])("extracts a bounded generic invocation for $name input", ({ input, expected }) => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{ type: "tool_execution_start", toolName: "custom", toolCallId: "tool-1", args: input },
+			]),
+		);
+		const entry = timeline.entries[0];
+		if (entry?.kind !== "tool") throw new Error("missing tool entry");
+		expect(entry.invocation).toEqual(expected);
+	});
+
+	test("caps strings retained by the generic invocation projection", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{
+					type: "tool_execution_start",
+					toolName: "custom",
+					toolCallId: "tool-1",
+					args: { path: "a".repeat(300) },
+				},
+			]),
+		);
+		const entry = timeline.entries[0];
+		if (entry?.kind !== "tool" || entry.invocation?.kind !== "fields") {
+			throw new Error("missing field invocation");
+		}
+		expect(entry.invocation.fields.path).toHaveLength(240);
+		expect(entry.invocation.fields.path).toMatch(/…$/);
+	});
+
+	test("preserves an existing invocation when an update has no valid projection", () => {
+		const timeline = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{ type: "tool_execution_start", toolName: "custom", toolCallId: "one", args: "first" },
+				{
+					type: "tool_execution_update",
+					toolName: "custom",
+					toolCallId: "one",
+					args: { path: 42 },
+				},
+			]),
+		);
+		expect(timeline.entries[0]).toMatchObject({
+			inputPreview: '{"path":42}',
+			invocation: { kind: "text", text: "first" },
+		});
+	});
+
+	test("preserves update fields at completion and replaces result only when terminal data exists", () => {
+		const preserved = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{ type: "tool_execution_start", toolName: "bash", toolCallId: "one", args: "first" },
+				{
+					type: "tool_execution_update",
+					toolName: "bash",
+					toolCallId: "one",
+					args: { command: "updated" },
+					partialResult: "update result",
+				},
+				{ type: "tool_execution_end", toolName: "bash", toolCallId: "one" },
+			]),
+		);
+		expect(preserved.entries[0]).toMatchObject({
+			state: "ok",
+			inputPreview: '{"command":"updated"}',
+			resultPreview: "update result",
+			invocation: { kind: "fields", fields: { command: "updated" } },
+		});
+
+		const replaced = extractRunnerSubagentTimelineFromSessionJsonl(
+			jsonl([
+				{ type: "tool_execution_start", toolName: "bash", toolCallId: "two", args: "first" },
+				{
+					type: "tool_execution_update",
+					toolName: "bash",
+					toolCallId: "two",
+					partialResult: "update result",
+				},
+				{
+					type: "tool_execution_end",
+					toolName: "bash",
+					toolCallId: "two",
+					result: "terminal result",
+				},
+			]),
+		);
+		expect(replaced.entries[0]).toMatchObject({ resultPreview: "terminal result" });
 	});
 
 	test("tolerates prose lines, malformed JSON, missing tool names, and unmatched ends", () => {

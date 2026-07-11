@@ -20,6 +20,7 @@ import {
 	overlayRenderLayout,
 	renderOverlayFrame,
 	sliceWrappedDetailLinesForViewport,
+	type WrappedDetailViewport,
 } from "@internal/pi-tools/overlay-kit";
 import type {
 	SubagentFleetRegistry,
@@ -298,28 +299,25 @@ export class SubagentFleetNavigator implements RenderComponent {
 			terminalRows: readTerminalRows(this.tui),
 			headerLength: header.length,
 		});
-		const body =
-			this.mode === "detail"
-				? this.detailBody(innerWidth, bodyRows)
-				: this.listBody(innerWidth, bodyRows);
+		let body: string[];
+		let footer: string;
+		if (this.mode === "detail") {
+			const viewport = this.detailViewport(innerWidth, bodyRows);
+			this.detailScroll = viewport.scroll;
+			this.detailMaxScroll = viewport.maxScroll;
+			body = viewport.lines;
+			footer = formatDetailFooter(viewport, this.isFollowing);
+		} else {
+			body = this.listBody(innerWidth, bodyRows);
+			footer = LIST_FOOTER;
+		}
 		return renderOverlayFrame({
 			header: header.map((line) => truncatePlain(line, innerWidth)),
 			body: padRows(body, bodyRows),
-			// Computed after the body call above: the body render refreshes scroll state.
-			footer: this.mode === "detail" ? this.detailFooter() : LIST_FOOTER,
+			footer,
 			width,
 			colorizeBorder: (text) => text,
 		});
-	}
-
-	private detailFooter(): string {
-		const hiddenBelow = Math.max(0, this.detailMaxScroll - this.detailScroll);
-		const followSegment = this.isFollowing
-			? "f follow ●"
-			: hiddenBelow > 0
-				? `↓ ${hiddenBelow} new · f follow`
-				: "f follow ○";
-		return `↑/k ↓/j scroll · ${followSegment} · p prompt · b back · q close`;
 	}
 
 	invalidate(): void {}
@@ -620,19 +618,15 @@ export class SubagentFleetNavigator implements RenderComponent {
 		});
 	}
 
-	private detailBody(innerWidth: number, bodyRows: number): string[] {
+	private detailViewport(innerWidth: number, bodyRows: number): WrappedDetailViewport {
 		const detail = this.detail;
-		if (detail === undefined) return ["Reading child session…"];
-		const lines = this.detailContentLines(detail);
-		const viewport = sliceWrappedDetailLinesForViewport({
-			lines,
+		if (detail === undefined) return { lines: ["Reading child session…"], scroll: 0, maxScroll: 0 };
+		return sliceWrappedDetailLinesForViewport({
+			lines: this.detailContentLines(detail),
 			width: innerWidth,
 			rows: bodyRows,
 			scroll: this.isFollowing ? Number.MAX_SAFE_INTEGER : this.detailScroll,
 		});
-		this.detailScroll = viewport.scroll;
-		this.detailMaxScroll = viewport.maxScroll;
-		return viewport.lines;
 	}
 
 	private detailContentLines(detail: SubagentFleetTaskDetail): string[] {
@@ -650,6 +644,19 @@ export class SubagentFleetNavigator implements RenderComponent {
 		this.dispose();
 		this.done(undefined);
 	}
+}
+
+function formatDetailFooter(
+	viewport: Pick<WrappedDetailViewport, "scroll" | "maxScroll">,
+	isFollowing: boolean,
+): string {
+	const hiddenBelow = Math.max(0, viewport.maxScroll - viewport.scroll);
+	const followSegment = isFollowing
+		? "f follow ●"
+		: hiddenBelow > 0
+			? `↓ ${hiddenBelow} below · f follow`
+			: "f follow ○";
+	return `↑/k ↓/j scroll · ${followSegment} · p prompt · b back · q close`;
 }
 
 function entrySessionIdentityKey(entry: FleetNavigatorEntry): string {

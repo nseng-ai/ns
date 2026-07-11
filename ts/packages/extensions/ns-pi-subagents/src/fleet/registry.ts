@@ -1,3 +1,6 @@
+import type { Clock } from "@nseng-ai/foundation/clock";
+import { systemClock } from "@nseng-ai/foundation/time";
+
 import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
@@ -21,6 +24,8 @@ export interface SubagentFleetTaskSnapshot {
 	title: string;
 	prompt?: string;
 	state: SubagentFleetTaskState;
+	startedAtMs?: number;
+	finalElapsedMs?: number;
 	latestActivity?: string;
 	finalStatus?: RunnerSubagentResult["status"];
 	sessionFile?: string;
@@ -46,6 +51,8 @@ interface MutableSubagentFleetTask {
 	title: string;
 	prompt?: string;
 	state: SubagentFleetTaskState;
+	startedAtMs?: number;
+	finalElapsedMs?: number;
 	latestActivity?: string;
 	finalStatus?: RunnerSubagentResult["status"];
 	sessionFile?: string;
@@ -63,13 +70,15 @@ interface MutableSubagentFleetRun {
 
 export class SubagentFleetRegistry {
 	private readonly recentTaskCap: number;
+	private readonly clock: Clock;
 	private nextRunNumber = 1;
 	private sequence = 1;
 	private readonly runs: MutableSubagentFleetRun[] = [];
 	private readonly listeners = new Set<() => void>();
 
-	constructor(options: { recentTaskCap?: number } = {}) {
+	constructor(options: { recentTaskCap?: number; clock?: Clock } = {}) {
 		this.recentTaskCap = options.recentTaskCap ?? SUBAGENT_FLEET_RECENT_TASK_CAP;
+		this.clock = options.clock ?? systemClock;
 	}
 
 	subscribe(listener: () => void): () => void {
@@ -104,18 +113,23 @@ export class SubagentFleetRegistry {
 	}
 
 	markRunning(taskId: string): void {
-		this.updateTask(taskId, (task) => {
-			task.state = "running";
-			task.sequence = this.sequence++;
-		});
+		this.updateTask(taskId, () => ({
+			state: "running",
+			startedAtMs: this.clock.nowMs(),
+			sequence: this.sequence++,
+		}));
 	}
 
 	markProgress(taskId: string, update: RunnerSubagentUpdate): void {
-		this.updateTask(taskId, (task) => {
+		this.updateTask(taskId, () => {
 			const activity = activityDescription(update);
-			if (activity !== undefined) task.latestActivity = activity;
-			if (update.progress.sessionFile !== undefined) task.sessionFile = update.progress.sessionFile;
-			task.sequence = this.sequence++;
+			return {
+				...(activity === undefined ? {} : { latestActivity: activity }),
+				...(update.progress.sessionFile === undefined
+					? {}
+					: { sessionFile: update.progress.sessionFile }),
+				sequence: this.sequence++,
+			};
 		});
 	}
 
@@ -127,26 +141,21 @@ export class SubagentFleetRegistry {
 	}
 
 	markTaskHeadBaseline(taskId: string, head: GitHeadSnapshot): void {
-		this.updateTask(taskId, (task) => {
-			task.headBaseline = head;
-			task.sequence = this.sequence++;
-		});
+		this.updateTask(taskId, () => ({ headBaseline: head, sequence: this.sequence++ }));
 	}
 
 	markTaskFinalHead(taskId: string, head: GitHeadSnapshot): void {
-		this.updateTask(taskId, (task) => {
-			task.finalHead = head;
-			task.sequence = this.sequence++;
-		});
+		this.updateTask(taskId, () => ({ finalHead: head, sequence: this.sequence++ }));
 	}
 
 	markDone(taskId: string, result: RunnerSubagentResult): void {
-		this.updateTask(taskId, (task) => {
-			task.state = "done";
-			task.finalStatus = result.status;
-			if (result.sessionFile !== undefined) task.sessionFile = result.sessionFile;
-			task.sequence = this.sequence++;
-		});
+		this.updateTask(taskId, () => ({
+			state: "done",
+			finalElapsedMs: result.elapsedMs,
+			finalStatus: result.status,
+			...(result.sessionFile === undefined ? {} : { sessionFile: result.sessionFile }),
+			sequence: this.sequence++,
+		}));
 		this.evictCompletedOverflow();
 	}
 
@@ -166,10 +175,10 @@ export class SubagentFleetRegistry {
 			.sort(compareFleetTasksForDisplay);
 	}
 
-	private updateTask(taskId: string, update: (task: MutableSubagentFleetTask) => void): void {
+	private updateTask(taskId: string, buildPatch: () => Partial<MutableSubagentFleetTask>): void {
 		const task = this.findTask(taskId);
 		if (task === undefined) return;
-		update(task);
+		Object.assign(task, buildPatch());
 		this.emit();
 	}
 
@@ -239,6 +248,8 @@ function snapshotTask(
 		title: task.title,
 		...(task.prompt === undefined ? {} : { prompt: task.prompt }),
 		state: task.state,
+		...(task.startedAtMs === undefined ? {} : { startedAtMs: task.startedAtMs }),
+		...(task.finalElapsedMs === undefined ? {} : { finalElapsedMs: task.finalElapsedMs }),
 		...(task.latestActivity === undefined ? {} : { latestActivity: task.latestActivity }),
 		...(task.finalStatus === undefined ? {} : { finalStatus: task.finalStatus }),
 		...(task.sessionFile === undefined ? {} : { sessionFile: task.sessionFile }),

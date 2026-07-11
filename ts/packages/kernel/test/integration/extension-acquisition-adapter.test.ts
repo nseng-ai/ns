@@ -73,7 +73,7 @@ describe("RealExtensionAcquisitionGateway", () => {
 		});
 	});
 
-	test("preserves killed-process diagnostics", async () => {
+	test("preserves terminated-process diagnostics", async () => {
 		const gateway = createRealExtensionAcquisitionGateway({
 			async exec() {
 				return {

@@ -13,6 +13,7 @@ import type {
 	SubagentFleetRunDuration,
 	SubagentFleetTaskDetail,
 } from "./detail.ts";
+import { fleetToolPresentation } from "./tool-presentation.ts";
 
 export function usageLine(detail: SubagentFleetTaskDetail): string {
 	switch (detail.usage?.status) {
@@ -84,10 +85,14 @@ function toolRowText(
 	entry: RunnerSubagentTimelineToolEntry,
 	context: FleetTimelineRenderContext,
 ): string {
-	if (entry.display?.kind === "path") {
-		return `${entry.toolName} ${formatFleetDisplayPath(entry.display.path, context)}`;
+	const presentation = fleetToolPresentation({
+		toolName: entry.toolName,
+		invocation: entry.invocation,
+	});
+	if (presentation?.kind === "path") {
+		return `${entry.toolName} ${formatFleetDisplayPath(presentation.path, context)}`;
 	}
-	if (entry.display?.kind === "command") return compactPlain(entry.display.command);
+	if (presentation?.kind === "command") return compactPlain(presentation.command);
 	const input = formatToolPreview(entry.inputPreview);
 	const suffix = input === undefined ? "" : ` · ${input}`;
 	return `${entry.toolName}${suffix}`;

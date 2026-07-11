@@ -2,8 +2,9 @@ import { isRecord, optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import {
 	assistantVisibleTextFromMessage,
+	compactPreviewText,
 	firstMatchingEventPreview,
-	toolInputPreviewFromEvent,
+	previewJsonEventValue,
 	toolInputValueFromEvent,
 	toolResultPreviewFromEvent,
 } from "./activity.ts";
@@ -14,9 +15,12 @@ import {
 	type JsonRecord,
 } from "./json-events.ts";
 
-export type RunnerSubagentToolDisplay =
-	| { kind: "path"; path: string }
-	| { kind: "command"; command: string };
+export type RunnerSubagentToolInvocation =
+	| { kind: "text"; text: string }
+	| {
+			kind: "fields";
+			fields: Readonly<{ path?: string; command?: string }>;
+	  };
 
 export interface RunnerSubagentTimelineAssistantEntry {
 	kind: "assistant";
@@ -31,7 +35,7 @@ export interface RunnerSubagentTimelineToolEntry {
 	inputPreview?: string;
 	resultPreview?: string;
 	timestampMs?: number;
-	display?: RunnerSubagentToolDisplay;
+	invocation?: RunnerSubagentToolInvocation;
 }
 
 export type RunnerSubagentTimelineEntry =
@@ -48,16 +52,10 @@ export type RunnerSubagentCurrentAction =
 	| { kind: "thinking" }
 	| { kind: "idle" };
 
-export interface RunnerSubagentTimelineEventSpan {
-	firstEventAtMs: number;
-	lastEventAtMs: number;
-}
-
 export interface RunnerSubagentTimeline {
 	entries: readonly RunnerSubagentTimelineEntry[];
 	droppedEntryCount: number;
 	currentAction: RunnerSubagentCurrentAction;
-	eventSpan?: RunnerSubagentTimelineEventSpan;
 }
 
 export interface ExtractRunnerSubagentTimelineOptions {
@@ -85,10 +83,8 @@ export function extractRunnerSubagentTimelineFromSessionJsonl(
 		pendingTools: new Map(),
 	};
 	const normalizer = createSessionEventNormalizer();
-	let eventSpan: RunnerSubagentTimelineEventSpan | undefined;
 	visitRunnerSubagentSessionJsonlEvents(jsonl, (event) => {
 		const timestampMs = eventTimestampMs(event);
-		if (timestampMs !== undefined) eventSpan = widenEventSpan(eventSpan, timestampMs);
 		for (const normalizedEvent of normalizer.normalize(event)) {
 			captureTimelineEvent(accumulator, normalizedEvent, timestampMs);
 		}
@@ -97,7 +93,6 @@ export function extractRunnerSubagentTimelineFromSessionJsonl(
 		entries: accumulator.entries,
 		droppedEntryCount: accumulator.droppedEntryCount,
 		currentAction: currentActionFromPendingTools(accumulator.pendingTools),
-		...optionalEntry("eventSpan", eventSpan),
 	};
 }
 
@@ -105,17 +100,6 @@ function eventTimestampMs(event: JsonRecord): number | undefined {
 	if (typeof event.timestamp !== "string") return undefined;
 	const parsedMs = Date.parse(event.timestamp);
 	return Number.isNaN(parsedMs) ? undefined : parsedMs;
-}
-
-function widenEventSpan(
-	span: RunnerSubagentTimelineEventSpan | undefined,
-	timestampMs: number,
-): RunnerSubagentTimelineEventSpan {
-	if (span === undefined) return { firstEventAtMs: timestampMs, lastEventAtMs: timestampMs };
-	return {
-		firstEventAtMs: Math.min(span.firstEventAtMs, timestampMs),
-		lastEventAtMs: Math.max(span.lastEventAtMs, timestampMs),
-	};
 }
 
 function captureTimelineEvent(
@@ -177,12 +161,13 @@ function captureToolStart(
 ): void {
 	const toolName = eventToolName(event);
 	const key = toolKey(event, toolName);
-	const inputPreview = toolInputPreviewFromEvent(event);
-	const display = toolDisplayFromEvent(event, toolName);
+	const input = toolInputValueFromEvent(event);
+	const inputPreview = previewJsonEventValue(input);
+	const invocation = toolInvocationFromInput(input);
 	const pending = accumulator.pendingTools.get(key);
 	if (pending !== undefined) {
 		if (inputPreview !== undefined) pending.inputPreview = inputPreview;
-		if (display !== undefined) pending.display = display;
+		if (invocation !== undefined) pending.invocation = invocation;
 		return;
 	}
 	const entry: RunnerSubagentTimelineToolEntry = {
@@ -191,7 +176,7 @@ function captureToolStart(
 		state: "running",
 		...optionalEntry("inputPreview", inputPreview),
 		...optionalEntry("timestampMs", timestampMs),
-		...optionalEntry("display", display),
+		...optionalEntry("invocation", invocation),
 	};
 	pushTimelineEntry(accumulator, entry);
 	accumulator.pendingTools.set(key, entry);
@@ -201,12 +186,13 @@ function captureToolUpdate(accumulator: TimelineAccumulator, event: JsonRecord):
 	const toolName = eventToolName(event);
 	const pending = accumulator.pendingTools.get(toolKey(event, toolName));
 	if (pending === undefined) return;
-	const inputPreview = toolInputPreviewFromEvent(event);
+	const input = toolInputValueFromEvent(event);
+	const inputPreview = previewJsonEventValue(input);
 	const resultPreview = toolOutputPreviewFromEvent(event);
-	const display = toolDisplayFromEvent(event, toolName);
+	const invocation = toolInvocationFromInput(input);
 	if (inputPreview !== undefined) pending.inputPreview = inputPreview;
 	if (resultPreview !== undefined) pending.resultPreview = resultPreview;
-	if (display !== undefined) pending.display = display;
+	if (invocation !== undefined) pending.invocation = invocation;
 }
 
 function captureToolEnd(
@@ -232,30 +218,28 @@ function captureToolEnd(
 	});
 }
 
-function toolDisplayFromEvent(
-	event: JsonRecord,
-	toolName: string,
-): RunnerSubagentToolDisplay | undefined {
-	const input = toolInputValueFromEvent(event);
-	switch (toolName) {
-		case "read":
-		case "write":
-		case "edit":
-			if (isRecord(input) && typeof input.path === "string" && input.path.length > 0) {
-				return { kind: "path", path: input.path };
-			}
-			return undefined;
-		case "bash":
-			if (typeof input === "string" && input.length > 0) {
-				return { kind: "command", command: input };
-			}
-			if (isRecord(input) && typeof input.command === "string" && input.command.length > 0) {
-				return { kind: "command", command: input.command };
-			}
-			return undefined;
-		default:
-			return undefined;
+function toolInvocationFromInput(input: unknown): RunnerSubagentToolInvocation | undefined {
+	if (typeof input === "string") {
+		const text = compactPreviewText(input);
+		return text.length === 0 ? undefined : { kind: "text", text };
 	}
+	if (!isRecord(input)) return undefined;
+	const path = boundedInvocationField(input.path);
+	const command = boundedInvocationField(input.command);
+	if (path === undefined && command === undefined) return undefined;
+	return {
+		kind: "fields",
+		fields: {
+			...optionalEntry("path", path),
+			...optionalEntry("command", command),
+		},
+	};
+}
+
+function boundedInvocationField(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const bounded = compactPreviewText(value);
+	return bounded.length === 0 ? undefined : bounded;
 }
 
 function currentActionFromPendingTools(
@@ -292,13 +276,9 @@ function finishPendingTool(input: {
 }): RunnerSubagentTimelineToolEntry {
 	const resultPreview = toolResultPreviewFromEvent(input.event);
 	return {
-		kind: "tool",
-		toolName: input.pending.toolName,
+		...input.pending,
 		state: input.event.isError === true ? "error" : "ok",
-		...optionalEntry("inputPreview", input.pending.inputPreview),
 		...optionalEntry("resultPreview", resultPreview),
-		...optionalEntry("timestampMs", input.pending.timestampMs),
-		...optionalEntry("display", input.pending.display),
 	};
 }
 

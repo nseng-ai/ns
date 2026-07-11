@@ -67,7 +67,6 @@ export type {
 	RunnerSubagentTimeline,
 	RunnerSubagentTimelineAssistantEntry,
 	RunnerSubagentTimelineEntry,
-	RunnerSubagentTimelineEventSpan,
 	RunnerSubagentTimelineToolEntry,
-	RunnerSubagentToolDisplay,
+	RunnerSubagentToolInvocation,
 } from "./timeline.ts";
