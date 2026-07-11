@@ -14,7 +14,7 @@ import type {
 export type { RawPiExecOptions, RawPiExecResult };
 
 export interface ThermoCouncilExtensionAPI
-	extends RunnerSubagentPi, RawPiExecApi, Pick<ExtensionAPI, "events"> {
+	extends RunnerSubagentPi, RawPiExecApi, Pick<ExtensionAPI, "events" | "on"> {
 	registerCommand(name: string, command: RegisteredCommand): void;
 	sendMessage?(message: CustomMessage): void | Promise<void>;
 }

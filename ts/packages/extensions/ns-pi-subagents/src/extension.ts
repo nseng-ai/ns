@@ -54,22 +54,10 @@ export default function nsPiSubagentsExtension(
 	const loadDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
 	const commands = createPiCommandExecApi(pi);
 	const subagentToolHost = createSubagentToolHost(pi, commands);
-	const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
-	pi.on("session_start", (event) => {
-		switch (event.reason) {
-			case "reload":
-				return;
-			case "startup":
-			case "new":
-			case "resume":
-			case "fork":
-				fleetRegistry.clear();
-				return;
-			default: {
-				const exhaustive: never = event.reason;
-				return exhaustive;
-			}
-		}
+	const fleetRegistry = getOrCreateSubagentFleetRegistry({
+		owner: pi.events,
+		onSessionStart: (handler) => pi.on("session_start", handler),
+		onSessionShutdown: (handler) => pi.on("session_shutdown", handler),
 	});
 	const readGitHead = options.readGitHead ?? createGitReadHead({ exec: commands });
 	const fleetNavigatorDependencies = resolveFleetNavigatorDependencies(commands, options);

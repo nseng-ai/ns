@@ -9,6 +9,7 @@ import type {
 	BeforeAgentStartEventResult,
 	ExtensionAPI,
 	ExtensionHandler,
+	SessionShutdownEvent,
 	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
 import {
@@ -41,6 +42,7 @@ const manifestPath = join(packageRoot, "..", "package.json");
 
 type BeforeAgentStartHandler = ExtensionHandler<BeforeAgentStartEvent, BeforeAgentStartEventResult>;
 type SessionStartHandler = ExtensionHandler<SessionStartEvent>;
+type SessionShutdownHandler = ExtensionHandler<SessionShutdownEvent>;
 
 class FakePi implements NsPiSubagentsExtensionAPI {
 	readonly commands = new Map<
@@ -50,6 +52,7 @@ class FakePi implements NsPiSubagentsExtensionAPI {
 	readonly tools = new Map<string, ToolDefinition>();
 	readonly beforeAgentStartHandlers: BeforeAgentStartHandler[] = [];
 	readonly sessionStartHandlers: SessionStartHandler[] = [];
+	readonly sessionShutdownHandlers: SessionShutdownHandler[] = [];
 	readonly events: ExtensionAPI["events"] = {
 		emit() {},
 		on() {
@@ -77,14 +80,28 @@ class FakePi implements NsPiSubagentsExtensionAPI {
 	registerTool(definition: ToolDefinition): void {
 		this.tools.set(definition.name, definition);
 	}
-	readonly on = ((event: string, handler: BeforeAgentStartHandler | SessionStartHandler): void => {
+	readonly on = ((
+		event: string,
+		handler: BeforeAgentStartHandler | SessionStartHandler | SessionShutdownHandler,
+	): void => {
 		if (event === "before_agent_start") {
 			this.beforeAgentStartHandlers.push(handler as BeforeAgentStartHandler);
 		}
 		if (event === "session_start") {
 			this.sessionStartHandlers.push(handler as SessionStartHandler);
 		}
+		if (event === "session_shutdown") {
+			this.sessionShutdownHandlers.push(handler as SessionShutdownHandler);
+		}
 	}) as ExtensionAPI["on"];
+}
+
+function fleetRegistry(pi: FakePi): SubagentFleetRegistry {
+	return getOrCreateSubagentFleetRegistry({
+		owner: pi.events,
+		onSessionStart: (handler) => pi.on("session_start", handler),
+		onSessionShutdown: (handler) => pi.on("session_shutdown", handler),
+	});
 }
 
 function definition(
@@ -168,10 +185,10 @@ describe("ns-pi-subagents package", () => {
 		expect(pi.commands.has(SUBAGENT_FLEET_COMMAND_NAME)).toBe(true);
 	});
 
-	test("retains Fleet history on reload and clears it on session replacement", async () => {
+	test("integrates Fleet history with Pi session lifecycle", async () => {
 		const pi = new FakePi();
 		packageExtension(pi, { cwd: "/repo", loadAgentDefinition: loader });
-		const registry = getOrCreateSubagentFleetRegistry(pi);
+		const registry = fleetRegistry(pi);
 		const sessionStart = pi.sessionStartHandlers[0];
 		if (sessionStart === undefined) throw new Error("Missing session_start handler.");
 
@@ -179,11 +196,10 @@ describe("ns-pi-subagents package", () => {
 		await invokeSessionStart(sessionStart, "reload");
 		expect(registry.snapshot()).toHaveLength(1);
 
-		for (const reason of ["startup", "new", "resume", "fork"] as const) {
-			registry.startRun([{ title: `Clear on ${reason}` }]);
-			await invokeSessionStart(sessionStart, reason);
-			expect(registry.snapshot()).toEqual([]);
-		}
+		await invokeSessionStart(sessionStart, "new");
+		expect(registry.snapshot()).toEqual([]);
+		expect(pi.sessionStartHandlers).toHaveLength(1);
+		expect(pi.sessionShutdownHandlers).toHaveLength(1);
 	});
 
 	test("derives the model-visible parameters from the zod input schema", () => {
@@ -405,7 +421,7 @@ describe("ns-pi-subagents package", () => {
 			toolContext(),
 		);
 		expect(result?.details).toMatchObject({ status: "completed" });
-		const fleet = getOrCreateSubagentFleetRegistry(pi).snapshot();
+		const fleet = fleetRegistry(pi).snapshot();
 		expect(fleet).toHaveLength(1);
 		expect(fleet[0]?.tasks.map((task) => [task.index, task.title, task.finalStatus])).toEqual([
 			[0, "one", "final-text"],
@@ -454,7 +470,7 @@ describe("ns-pi-subagents package", () => {
 			status: "partial",
 			tasks: [{ status: "error", diagnostic: "launch failure" }],
 		});
-		const fleet = getOrCreateSubagentFleetRegistry(pi).snapshot();
+		const fleet = fleetRegistry(pi).snapshot();
 		expect(fleet).toHaveLength(1);
 		expect(fleet[0]?.tasks).toMatchObject([
 			{
@@ -511,7 +527,7 @@ describe("ns-pi-subagents package", () => {
 			status: "partial",
 			tasks: tasks.map((task) => ({ title: task.title, status: "cancelled" })),
 		});
-		const fleetTasks = getOrCreateSubagentFleetRegistry(pi)
+		const fleetTasks = fleetRegistry(pi)
 			.snapshot()
 			.flatMap((run) => run.tasks);
 		expect(fleetTasks.map((task) => [task.index, task.finalStatus])).toEqual(
@@ -553,7 +569,7 @@ describe("ns-pi-subagents package", () => {
 				{ title: "steady", status: "final-text", finalText: "sibling done" },
 			],
 		});
-		const fleetTasks = getOrCreateSubagentFleetRegistry(pi)
+		const fleetTasks = fleetRegistry(pi)
 			.snapshot()
 			.flatMap((run) => run.tasks);
 		expect(fleetTasks.map((task) => [task.index, task.state, task.finalStatus])).toEqual([

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
 
+import type {
+	ExtensionAPI,
+	SessionShutdownEvent,
+	SessionStartEvent,
+} from "@earendil-works/pi-coding-agent";
 import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
 import { getOrCreateSubagentFleetRegistry } from "../../src/fleet/provider.ts";
@@ -12,33 +17,131 @@ import {
 	formatSubagentFleetWidgetLines,
 	syncSubagentFleetDisplay,
 } from "../../src/fleet/display.ts";
-import { trackSingleSubagentFleetRun, trackSubagentFleetRun } from "../../src/fleet/tracking.ts";
+import {
+	dispatchTrackedSingleSubagentFleetRun,
+	trackSingleSubagentFleetRun,
+	trackSubagentFleetRun,
+} from "../../src/fleet/tracking.ts";
+import { createFunctionSubagentRuntime } from "../../src/runtime/seam.ts";
 import {
 	makeErrorResult,
 	makeFinalTextResult,
 	settleMicrotasks,
+	toolContext,
 } from "../helpers/fleet-testing.ts";
 import type { GitHeadSnapshot } from "../../src/fleet/git-head.ts";
 
+class FakeFleetLifecycle {
+	readonly sessionStartHandlers: Array<(event: SessionStartEvent) => void> = [];
+	readonly sessionShutdownHandlers: Array<(event: SessionShutdownEvent) => void> = [];
+
+	onSessionStart(handler: (event: SessionStartEvent) => void): void {
+		this.sessionStartHandlers.push(handler);
+	}
+
+	onSessionShutdown(handler: (event: SessionShutdownEvent) => void): void {
+		this.sessionShutdownHandlers.push(handler);
+	}
+}
+
+function eventBusOwner(): ExtensionAPI["events"] {
+	return {
+		emit() {},
+		on() {
+			return () => {};
+		},
+	};
+}
+
+function managedRegistry(
+	owner: ExtensionAPI["events"],
+	lifecycle: FakeFleetLifecycle,
+	recentTaskCap?: number,
+): SubagentFleetRegistry {
+	return getOrCreateSubagentFleetRegistry({
+		owner,
+		onSessionStart: (handler) => lifecycle.onSessionStart(handler),
+		onSessionShutdown: (handler) => lifecycle.onSessionShutdown(handler),
+		...(recentTaskCap === undefined ? {} : { recentTaskCap }),
+	});
+}
+
+describe("subagent fleet manager", () => {
+	test("keys by event bus owner, binds once, and keeps the first options", () => {
+		const owner = eventBusOwner();
+		const firstLifecycle = new FakeFleetLifecycle();
+		const ignoredLifecycle = new FakeFleetLifecycle();
+		const first = managedRegistry(owner, firstLifecycle, 1);
+		const second = managedRegistry(owner, ignoredLifecycle, 20);
+
+		expect(second).toBe(first);
+		expect(firstLifecycle.sessionStartHandlers).toHaveLength(1);
+		expect(firstLifecycle.sessionShutdownHandlers).toHaveLength(1);
+		expect(ignoredLifecycle.sessionStartHandlers).toHaveLength(0);
+		expect(ignoredLifecycle.sessionShutdownHandlers).toHaveLength(0);
+
+		for (const title of ["old", "new"]) {
+			const run = first.startRun([{ title }]);
+			const taskId = run.tasks[0]?.id;
+			if (taskId === undefined) throw new Error("missing task id");
+			first.markDone(taskId, makeFinalTextResult(title));
+		}
+		expect(
+			first
+				.snapshot()
+				.flatMap((run) => run.tasks)
+				.map((task) => task.title),
+		).toEqual(["new"]);
+	});
+
+	test("creates distinct registries for different event bus owners", () => {
+		const first = managedRegistry(eventBusOwner(), new FakeFleetLifecycle());
+		const second = managedRegistry(eventBusOwner(), new FakeFleetLifecycle());
+
+		expect(second).not.toBe(first);
+	});
+
+	test("clears replacement sessions but preserves reload", () => {
+		const lifecycle = new FakeFleetLifecycle();
+		const registry = managedRegistry(eventBusOwner(), lifecycle);
+		const onSessionStart = lifecycle.sessionStartHandlers[0];
+		if (onSessionStart === undefined) throw new Error("missing session start binding");
+
+		registry.startRun([{ title: "keep" }]);
+		onSessionStart({ type: "session_start", reason: "reload" });
+		expect(registry.snapshot()).toHaveLength(1);
+
+		let changeCount = 0;
+		registry.subscribe(() => {
+			changeCount += 1;
+		});
+		for (const reason of ["startup", "new", "resume", "fork"] as const) {
+			registry.startRun([{ title: reason }]);
+			const countBeforeReset = changeCount;
+			onSessionStart({ type: "session_start", reason });
+			expect(registry.snapshot()).toEqual([]);
+			expect(changeCount).toBe(countBeforeReset + 1);
+		}
+	});
+
+	test("shutdown releases the binding and the next acquisition rebinds the same registry", () => {
+		const owner = eventBusOwner();
+		const firstLifecycle = new FakeFleetLifecycle();
+		const registry = managedRegistry(owner, firstLifecycle);
+		const onShutdown = firstLifecycle.sessionShutdownHandlers[0];
+		if (onShutdown === undefined) throw new Error("missing session shutdown binding");
+
+		onShutdown({ type: "session_shutdown", reason: "quit" });
+		const nextLifecycle = new FakeFleetLifecycle();
+		const reacquired = managedRegistry(owner, nextLifecycle);
+
+		expect(reacquired).toBe(registry);
+		expect(nextLifecycle.sessionStartHandlers).toHaveLength(1);
+		expect(nextLifecycle.sessionShutdownHandlers).toHaveLength(1);
+	});
+});
+
 describe("subagent fleet display for explorer", () => {
-	test("shares one registry across distinct Pi facades with the same event bus", () => {
-		const events = {};
-		const agentsFacade = { events };
-		const councilFacade = { events };
-
-		const first = getOrCreateSubagentFleetRegistry(agentsFacade, { recentTaskCap: 1 });
-		const second = getOrCreateSubagentFleetRegistry(councilFacade, { recentTaskCap: 20 });
-
-		expect(second).toBe(first);
-	});
-
-	test("reuses one registry by facade identity when the host has no event bus", () => {
-		const host = {};
-		const first = getOrCreateSubagentFleetRegistry(host, { recentTaskCap: 1 });
-		const second = getOrCreateSubagentFleetRegistry(host, { recentTaskCap: 20 });
-		expect(second).toBe(first);
-	});
-
 	test("renders one active widget line and clears once the fleet is idle", () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Scout files" }, { title: "Scout tests" }]);
@@ -250,6 +353,112 @@ describe("subagent fleet display for explorer", () => {
 				finalHead: { status: "available", oid: "single-task-done" },
 			},
 		]);
+	});
+
+	test("dispatches one tracked run through start, progress, and done while returning the raw result", async () => {
+		const registry = new SubagentFleetRegistry();
+		const ctx = toolContext();
+		const result = { ...makeFinalTextResult("raw result"), sessionFile: "/tmp/final.jsonl" };
+		const observations: string[] = [];
+		const runtime = createFunctionSubagentRuntime(async (input) => {
+			expect(input.options.title).toBe("Tracked title");
+			expect(input.options.prompt).toBe("Tracked prompt");
+			expect(registry.snapshot()[0]?.tasks[0]).toMatchObject({
+				title: "Tracked title",
+				prompt: "Tracked prompt",
+				state: "running",
+			});
+			input.options.onProgress?.({
+				progress: {
+					state: "running",
+					toolCount: 1,
+					turnCount: 1,
+					elapsedMs: 3,
+					sessionFile: "/tmp/progress.jsonl",
+				},
+				activity: { assistantPreview: "observable progress" },
+			});
+			return result;
+		});
+
+		const returned = await dispatchTrackedSingleSubagentFleetRun({
+			pi: {},
+			ctx,
+			runtime,
+			registry,
+			fleetContext: ctx,
+			parentSessionFile: "/tmp/parent.jsonl",
+			options: {
+				title: "Tracked title",
+				prompt: "Tracked prompt",
+				returnMode: "final-text",
+				onProgress: () => {
+					observations.push(registry.snapshot()[0]?.tasks[0]?.latestActivity ?? "missing");
+				},
+			},
+		});
+
+		expect(returned).toBe(result);
+		expect(observations).toEqual(["observable progress"]);
+		expect(registry.snapshot()[0]).toMatchObject({
+			parentSessionFile: "/tmp/parent.jsonl",
+			tasks: [
+				{
+					title: "Tracked title",
+					prompt: "Tracked prompt",
+					state: "done",
+					latestActivity: "observable progress",
+					finalStatus: "final-text",
+					sessionFile: "/tmp/final.jsonl",
+				},
+			],
+		});
+	});
+
+	test("terminalizes the placeholder and disposes tracking when dispatch throws", async () => {
+		const registry = new SubagentFleetRegistry();
+		const statusCalls: Array<string | undefined> = [];
+		const ctx: ToolContext = {
+			cwd: "/repo",
+			hasUI: true,
+			mode: "tui",
+			ui: {
+				notify: () => {},
+				setWidget: () => {},
+				setStatus: (_key, value) => statusCalls.push(value),
+			},
+		};
+		const runtime = createFunctionSubagentRuntime(async () => {
+			throw new Error("dispatch exploded");
+		});
+
+		await expect(
+			dispatchTrackedSingleSubagentFleetRun({
+				pi: {},
+				ctx,
+				runtime,
+				registry,
+				fleetContext: ctx,
+				parentSessionFile: undefined,
+				options: {
+					title: "Throwing runner",
+					prompt: "Throw now",
+					returnMode: "final-text",
+				},
+			}),
+		).rejects.toThrow("dispatch exploded");
+		expect(registry.snapshot()[0]?.tasks).toMatchObject([
+			{
+				title: "Throwing runner",
+				prompt: "Throw now",
+				state: "done",
+				finalStatus: "error",
+			},
+		]);
+
+		const callsAfterDisposal = statusCalls.length;
+		registry.startRun([{ title: "unobserved after disposal" }]);
+		expect(statusCalls).toHaveLength(callsAfterDisposal);
 	});
 
 	test("syncs widget lines and footer status through the tool context", () => {
