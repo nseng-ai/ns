@@ -4,7 +4,17 @@ import { join } from "node:path";
 
 import { describe, expect, test, vi } from "vitest";
 
-import { SubagentFleetRegistry } from "@nseng-ai/ns-pi-subagents/api";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import {
+	PI_AGENT_DEFINITION_SCHEMA,
+	type PiAgentDefinition,
+} from "@nseng-ai/pi/runtime/agent-definition";
+import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+import type { ToolDefinition } from "@nseng-ai/pi/runtime/tool-types";
+import { getOrCreateSubagentFleetRegistry } from "@nseng-ai/ns-pi-subagents/api";
+import nsPiSubagentsExtension, {
+	type NsPiSubagentsExtensionAPI,
+} from "@nseng-ai/ns-pi-subagents/extension";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type JsonObject,
@@ -55,11 +65,39 @@ interface FakeExecResult {
 
 type FakeExecHandler = (command: string, args: readonly string[]) => FakeExecResult | undefined;
 
+class FakeAgentsPi implements NsPiSubagentsExtensionAPI {
+	readonly tools = new Map<string, ToolDefinition>();
+	readonly events: ExtensionAPI["events"];
+
+	constructor(events: ExtensionAPI["events"]) {
+		this.events = events;
+	}
+
+	getThinkingLevel(): "off" {
+		return "off";
+	}
+
+	async exec(
+		_command: string,
+		_args: string[],
+		_options?: RawPiExecOptions,
+	): Promise<RawPiExecResult> {
+		return { stdout: "", stderr: "", code: 0, killed: false };
+	}
+
+	registerTool(definition: ToolDefinition): void {
+		this.tools.set(definition.name, definition);
+	}
+
+	readonly on = (() => {}) as ExtensionAPI["on"];
+}
+
 class FakePi {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messages: Array<{ customType: string; content: string; display: boolean }> = [];
 	readonly execCalls: ExecCall[] = [];
 	readonly runnerCalls: SpawnCall[] = [];
+	readonly events: ExtensionAPI["events"];
 	readonly [RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
 	private readonly execResults: Map<string, FakeExecResult>;
 	private readonly execHandler: FakeExecHandler | undefined;
@@ -72,9 +110,11 @@ class FakePi {
 			runnerResult?: RuntimeResultV1;
 			runnerDependencies?: RunnerSubagentDispatcherDependencies;
 			finalSynthesisText?: string;
+			events?: ExtensionAPI["events"];
 		} = {},
 	) {
 		this.execResults = options.execResults ?? new Map();
+		this.events = options.events ?? fakeEventBus();
 		this.execHandler = options.execHandler;
 		this.finalSynthesisText = options.finalSynthesisText ?? defaultFinalSynthesisText();
 		if (options.runnerDependencies !== undefined) {
@@ -443,17 +483,26 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).toContain("No branches were created");
 	});
 
-	test("surfaces reviewer and final synthesis progress in the shared agents fleet", async () => {
+	test("surfaces reviewer and final synthesis progress across distinct extension facades", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ runtimeResult: completedRunnerResult() });
-		const pi = new FakePi({
+		const events = fakeEventBus();
+		const agentsPi = new FakeAgentsPi(events);
+		const councilPi = new FakePi({
 			execResults: successfulScopeExecResults(),
 			runnerDependencies: runner.dependencies,
+			events,
 		});
-		const fleetRegistry = new SubagentFleetRegistry();
-		thermoCouncilExtension(pi, { fleetRegistry });
+		nsPiSubagentsExtension(agentsPi, {
+			cwd: "/repo",
+			loadAgentDefinition: loadAgentDefinition,
+		});
+		thermoCouncilExtension(councilPi);
+		const fleetRegistry = getOrCreateSubagentFleetRegistry(agentsPi);
 		const ctx = fakeContext();
 
-		const running = pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", ctx);
+		const running = councilPi.commands
+			.get(THERMO_COUNCIL_COMMAND_NAME)
+			?.handler("origin/master", ctx);
 		await waitForSpawnCount(runner.calls, 3);
 		runner.calls[0]?.process.emitStdout(jsonLine({ type: "agent_start" }));
 		runner.calls[0]?.process.emitStdout(jsonLine({ type: "turn_start" }));
@@ -467,16 +516,16 @@ describe("thermo council extension", () => {
 			}),
 		);
 
-		const firstSeatTask = fleetRegistry
-			.snapshot()
-			.flatMap((run) => run.tasks)
-			.find((task) => task.title === "Thermo council: Fable");
-		expect(firstSeatTask).toEqual(
-			expect.objectContaining({
+		const reviewerTasks = fleetRegistry.snapshot().flatMap((run) => run.tasks);
+		expect(reviewerTasks).toMatchObject([
+			{
+				title: "Thermo council: Fable",
 				state: "running",
 				latestActivity: "Inspecting changed files.",
-			}),
-		);
+			},
+			{ title: "Thermo council: Sol", state: "running" },
+			{ title: "Thermo council: Gemini", state: "running" },
+		]);
 		expect(ctx.ui.statuses.some((status) => status.includes("subagent fleet: 3 running"))).toBe(
 			true,
 		);
@@ -1015,6 +1064,30 @@ describe("thermo council extension", () => {
 		expect(report).toContain("model unavailable");
 	});
 });
+
+function fakeEventBus(): ExtensionAPI["events"] {
+	return {
+		emit() {},
+		on() {
+			return () => {};
+		},
+	};
+}
+
+function loadAgentDefinition(name: string): PiAgentDefinition {
+	if (name !== "explorer" && name !== "task") throw new Error(`Unknown agent: ${name}`);
+	return {
+		schema: PI_AGENT_DEFINITION_SCHEMA,
+		name,
+		toolName: "subagent",
+		label: name,
+		description: `${name} description`,
+		promptGuidelines: [],
+		delegationDoctrine: [],
+		body: "Delegated {{prompt}}",
+		filePath: `/repo/.ns/pi/agents/${name}.md`,
+	};
+}
 
 function defaultFinalSynthesisText(): string {
 	return [

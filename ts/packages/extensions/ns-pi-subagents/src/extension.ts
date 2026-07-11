@@ -31,7 +31,7 @@ import { registerSubagentTool, type SubagentToolHost } from "./tool/subagent.ts"
 
 export type NsPiSubagentsExtensionAPI = Omit<SubagentToolHost, "exec"> &
 	RawPiExecApi &
-	Pick<ExtensionAPI, "on"> & {
+	Pick<ExtensionAPI, "events" | "on"> & {
 		registerCommand?: CommandRegistrar;
 		registerShortcut?: RegisterShortcutFunction;
 	};
@@ -55,6 +55,22 @@ export default function nsPiSubagentsExtension(
 	const commands = createPiCommandExecApi(pi);
 	const subagentToolHost = createSubagentToolHost(pi, commands);
 	const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
+	pi.on("session_start", (event) => {
+		switch (event.reason) {
+			case "reload":
+				return;
+			case "startup":
+			case "new":
+			case "resume":
+			case "fork":
+				fleetRegistry.clear();
+				return;
+			default: {
+				const exhaustive: never = event.reason;
+				return exhaustive;
+			}
+		}
+	});
 	const readGitHead = options.readGitHead ?? createGitReadHead({ exec: commands });
 	const fleetNavigatorDependencies = resolveFleetNavigatorDependencies(commands, options);
 	const fleetCommandInput = {

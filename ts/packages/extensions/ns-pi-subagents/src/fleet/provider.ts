@@ -1,4 +1,3 @@
-import type { RunnerSubagentPi } from "../runner-subagents/index.ts";
 import { SubagentFleetRegistry } from "./registry.ts";
 
 const SUBAGENT_FLEET_REGISTRIES_GLOBAL_KEY = "__nsSubagentFleetRegistries";
@@ -16,18 +15,23 @@ function subagentFleetRegistries(): WeakMap<object, SubagentFleetRegistry> {
 	return registries;
 }
 
+export interface SubagentFleetRegistryHost {
+	readonly events?: unknown;
+}
+
 export interface SubagentFleetRegistryProviderOptions {
 	readonly recentTaskCap?: number;
 }
 
 export function getOrCreateSubagentFleetRegistry(
-	pi: RunnerSubagentPi,
+	host: object & SubagentFleetRegistryHost,
 	options: SubagentFleetRegistryProviderOptions = {},
 ): SubagentFleetRegistry {
+	const owner = typeof host.events === "object" && host.events !== null ? host.events : host;
 	const registries = subagentFleetRegistries();
-	const existing = registries.get(pi);
+	const existing = registries.get(owner);
 	if (existing !== undefined) return existing;
 	const registry = new SubagentFleetRegistry(options);
-	registries.set(pi, registry);
+	registries.set(owner, registry);
 	return registry;
 }
