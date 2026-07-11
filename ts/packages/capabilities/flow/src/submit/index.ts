@@ -23,6 +23,7 @@ export {
 	type PrDescriptionFingerprintPolicy,
 	type PrDescriptionOrchestrationOptions,
 	type PrDescriptionOrchestrationResult,
+	type PrDescriptionProgressListeners,
 	type PrDescriptionUpdateOptions,
 	type PrDescriptionUpdateResult,
 } from "./pr-description-orchestration.ts";

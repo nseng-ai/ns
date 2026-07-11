@@ -161,7 +161,9 @@ describe("orchestratePrDescription", () => {
 			textGenerator: textGeneration,
 			pr: prDetails({ body }),
 			generation: GENERATION,
-			onActiveOperations: (operations) => operationSnapshots.push([...operations]),
+			progress: {
+				onActiveOperations: (operations) => operationSnapshots.push([...operations]),
+			},
 		});
 
 		expect(result).toMatchObject({
@@ -193,7 +195,9 @@ describe("orchestratePrDescription", () => {
 			textGenerator: textGeneration,
 			pr: DEFAULT_PR,
 			generation: GENERATION,
-			onActiveOperations: (operations) => operationSnapshots.push([...operations]),
+			progress: {
+				onActiveOperations: (operations) => operationSnapshots.push([...operations]),
+			},
 		});
 
 		expect(result).toMatchObject({ type: "generated", title: "Generated title" });
@@ -237,7 +241,9 @@ describe("orchestratePrDescription", () => {
 				textGenerator: throwingGenerator,
 				pr: DEFAULT_PR,
 				generation: GENERATION,
-				onActiveOperations: (operations) => operationSnapshots.push([...operations]),
+				progress: {
+					onActiveOperations: (operations) => operationSnapshots.push([...operations]),
+				},
 			}),
 		).rejects.toThrow("model transport failed");
 

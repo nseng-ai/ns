@@ -142,13 +142,8 @@ export async function generateSubmitPrDescriptions(input: {
 				total: input.prLinks.length,
 			}),
 			...(prewrittenMetadata === undefined ? {} : { prewrittenMetadata }),
-			...(input.progress?.onProgress === undefined
-				? {}
-				: { onProgress: input.progress.onProgress }),
+			...optionalEntry("progress", input.progress),
 			...(input.prDescription.time === undefined ? {} : { time: input.prDescription.time }),
-			...(input.progress?.onActiveOperations === undefined
-				? {}
-				: { onActiveOperations: input.progress.onActiveOperations }),
 		});
 
 		const progress = prProgressForResult(result);
