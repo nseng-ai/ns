@@ -1,12 +1,13 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { runCommand } from "@nseng-ai/foundation/exec";
 import {
+	formatCommand,
 	formatCommandDetails,
 	type CommandRunner,
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
 import type { TimeServices } from "@nseng-ai/foundation/time";
-import type { NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
+import type { ActiveOperation, NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
 import { createNsGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
@@ -26,6 +27,11 @@ import {
 	selectCheckpointModelRef,
 	type TextGenerator,
 } from "@nseng-ai/capability-kit/text-generation";
+import {
+	commandOperations,
+	modelOperation,
+	withActiveOperations,
+} from "../phase-stream/matrix-progress-core.ts";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string; repoRoot?: string }): Promise<
@@ -63,10 +69,14 @@ export function createNsCheckpointRuntime(ctx: NsExtensionApi): NsCheckpointRunt
 	};
 }
 
-export interface RunCheckpointCommandOptions {
+export interface CheckpointRunContext {
+	gateway: CheckpointGateway;
+	onActiveOperations?: (operations: readonly ActiveOperation[]) => void;
+}
+
+export interface RunCheckpointCommandOptions extends CheckpointRunContext {
 	cwd: string;
 	env: Record<string, string | undefined>;
-	gateway: CheckpointGateway;
 	textGenerator: TextGenerator;
 	repoRoot?: string;
 	/** Typed phase sequencing for a presentation driver (inspect → generate → commit). */
@@ -103,10 +113,18 @@ export type CheckpointIfPendingResult =
 export class RealCheckpointGateway implements CheckpointGateway {
 	private readonly runner: CommandRunner;
 	private readonly git: Pick<GitGateway, "optionalRepoRoot">;
+	private readonly onActiveOperations:
+		| ((operations: readonly ActiveOperation[]) => void)
+		| undefined;
 
-	constructor(options: { runner?: CommandRunner; git: Pick<GitGateway, "optionalRepoRoot"> }) {
+	constructor(options: {
+		runner?: CommandRunner;
+		git: Pick<GitGateway, "optionalRepoRoot">;
+		onActiveOperations?: (operations: readonly ActiveOperation[]) => void;
+	}) {
 		this.runner = options.runner ?? runCommand;
 		this.git = options.git;
+		this.onActiveOperations = options.onActiveOperations;
 	}
 
 	async loadPendingWorktreeSnapshot(params: { cwd: string; repoRoot?: string }): Promise<
@@ -144,8 +162,14 @@ export class RealCheckpointGateway implements CheckpointGateway {
 		cwd: string,
 		timeout: number,
 	): Promise<CommandResult> {
-		const result = await this.runner(command, args, { cwd, timeout });
-		return toCheckpointCommandResult(result);
+		return withActiveOperations(
+			this.onActiveOperations,
+			commandOperations([formatCommand(command, args)]),
+			async () => {
+				const result = await this.runner(command, args, { cwd, timeout });
+				return toCheckpointCommandResult(result);
+			},
+		);
 	}
 }
 
@@ -202,23 +226,29 @@ export async function runCheckpointWorkflow(
 	if (snapshot.clean) return { type: "clean" };
 
 	onPhase?.({ type: "phase-started", phaseKey: "generate" });
-	const prepared = await prepareCheckpointMessage({
-		status: snapshot.status,
-		diff: snapshot.diff,
-		textGenerator: options.textGenerator,
-		modelRef: selectCheckpointModelRef(options.env),
-		...(onPhase === undefined
-			? {}
-			: {
-					onProgress: (event) =>
-						onPhase({
-							type: "phase-progress",
-							phaseKey: "generate",
-							label: formatCheckpointProgressEvent(event),
+	const modelRef = selectCheckpointModelRef(options.env);
+	const prepared = await withActiveOperations(
+		options.onActiveOperations,
+		[modelOperation("generating checkpoint message", modelRef)],
+		() =>
+			prepareCheckpointMessage({
+				status: snapshot.status,
+				diff: snapshot.diff,
+				textGenerator: options.textGenerator,
+				modelRef,
+				...(onPhase === undefined
+					? {}
+					: {
+							onProgress: (event) =>
+								onPhase({
+									type: "phase-progress",
+									phaseKey: "generate",
+									label: formatCheckpointProgressEvent(event),
+								}),
 						}),
-				}),
-		...(options.time === undefined ? {} : { time: options.time }),
-	});
+				...(options.time === undefined ? {} : { time: options.time }),
+			}),
+	);
 	if (!prepared.ok) return { type: "message-failed", error: prepared.error };
 
 	if (options.dryRun) {
