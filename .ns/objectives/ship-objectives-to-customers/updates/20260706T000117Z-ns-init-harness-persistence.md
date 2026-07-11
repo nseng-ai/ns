@@ -1,6 +1,9 @@
 # Update: `ns init` harness persistence and host wiring landed
 
-Implemented the bundle-independent `ns init` activation slice.
+## Summary
+
+Implemented the bundle-independent `ns init` activation slice, including harness persistence and
+host command wiring.
 
 ## Delivered
 
@@ -22,6 +25,11 @@ Implemented the bundle-independent `ns init` activation slice.
 - `just ts-format-check`
 - `just ts-lint`
 
-## Roadmap impact
+## Objective Impact
 
 Marked the `@nseng-ai/ns-init` scaffold row complete and the bundle-independent `ns init` behavior row complete. Remaining customer-shipment work is still gated on checkout-free publish verification, skill installation/materialization, docs, and all-harness end-to-end verification.
+
+## Follow-Ups
+
+Wire real skill materialization after the bundle and skill-management dependencies land, then verify
+the customer activation path end to end across the required harnesses.

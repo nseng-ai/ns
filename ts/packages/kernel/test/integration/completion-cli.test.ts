@@ -131,6 +131,7 @@ function writeDescriptorPackage(cwd: string, commandNames: readonly string[]): v
 		join(cwd, "extensions", "tools", "package.json"),
 		JSON.stringify({
 			name: "tools",
+			version: "1.0.0",
 			type: "module",
 			exports: { "./ns-extension": "./src/ns/extension.ts" },
 		}),

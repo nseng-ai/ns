@@ -65,7 +65,38 @@ export default defineExtension({
 An extension package exposes its descriptor module through `package.json` `exports["./ns-extension"]`.
 The descriptor module default-exports `defineExtension({ ... })`. Production discovery loads extension packages named in repo-root `ns.toml` `extensions`; legacy extension roots and package JSON contribution shims are not discovery inputs.
 
-Descriptor-level contributions include `entries` for commands, `points` for point definitions, and `bundledArtifacts` for harness artifacts.
+Descriptor-level contributions include `entries` for commands, `points` for point definitions,
+`activation` for repository activation metadata, and `bundledArtifacts` for harness artifacts.
+
+### `ExtensionDescriptor` / `ExtensionActivation`
+
+```ts
+interface ExtensionActivation {
+  readonly instructions?: string;
+  readonly consumerDirs?: readonly string[];
+}
+
+interface ExtensionDescriptor {
+  readonly group?: string;
+  readonly description: string;
+  readonly entries?: readonly ExtensionEntry[];
+  readonly points?: readonly ExtensionPointDefinition[];
+  readonly activation?: ExtensionActivation;
+  readonly bundledArtifacts?: readonly BundledArtifactDefinition[];
+}
+```
+
+`ExtensionActivation` is the public plain-data contract for activation needs. `instructions`, when
+present, is preserved verbatim and must be one non-empty Markdown section beginning with a non-empty
+`##` heading; deeper subsections are allowed, but another `##` heading is rejected. `consumerDirs`,
+when present, contains unique canonical POSIX-style repository-relative directories strictly beneath
+`.ns/`. Validation rejects `.ns` itself, absolute or outside paths, trailing slashes, empty or `.`/`..`
+segments, backslashes, and duplicates rather than normalizing them. Both fields are independently
+optional, so an empty activation object is valid.
+
+The descriptor carries no activation hook or filesystem behavior. Core lifecycle machinery owns
+instruction rendering and consumer-directory creation; descriptor validation defines the author
+contract independently of that lifecycle consumption.
 
 ### `hiddenExecGroup()`
 

@@ -1,10 +1,12 @@
 import type { GitGateway } from "@nseng-ai/capability-kit/git";
 
 import type { ActivationFilesGateway } from "./activation-files.ts";
-import type { SkillMaterializer } from "./skill-materializer.ts";
+import type { ArtifactActivationGateway } from "./artifact-activation.ts";
+import type { DeclaredExtensionsGateway } from "./declared-extensions.ts";
 
-export interface ObjectiveActivationContext {
-	git: GitGateway;
-	files: ActivationFilesGateway;
-	skills: SkillMaterializer;
+export interface NsActivationContext {
+	readonly git: GitGateway;
+	readonly files: ActivationFilesGateway;
+	readonly declaredExtensions: DeclaredExtensionsGateway;
+	readonly artifacts: ArtifactActivationGateway;
 }

@@ -1,48 +1,56 @@
 import type { NsInitErrorInfo } from "./error-info.ts";
 
-export type InstructionFileName = "AGENTS.md" | "CLAUDE.md";
+export const ACTIVATION_FILES = [
+	"ns-toml",
+	"agents-instructions",
+	"claude-instructions",
+	"generated-instructions",
+] as const;
 
-export const INSTRUCTION_FILE_NAMES = [
-	"AGENTS.md",
-	"CLAUDE.md",
-] as const satisfies readonly InstructionFileName[];
+export type ActivationFile = (typeof ACTIVATION_FILES)[number];
 
-export const OBJECTIVES_DIRECTORY_RELATIVE_PATH = ".ns/objectives";
+export const ACTIVATION_FILE_PATHS: Readonly<Record<ActivationFile, string>> = {
+	"ns-toml": "ns.toml",
+	"agents-instructions": "AGENTS.md",
+	"claude-instructions": "CLAUDE.md",
+	"generated-instructions": ".ns/instructions.md",
+};
 
-export type TextFileReadResult =
-	| { type: "found"; content: string }
-	| { type: "missing" }
-	| { type: "error"; error: NsInitErrorInfo };
+export type ActivationTextFileReadResult =
+	| { readonly type: "found"; readonly content: string }
+	| { readonly type: "missing" }
+	| { readonly type: "not-file" }
+	| { readonly type: "error"; readonly error: NsInitErrorInfo };
 
-export type ActivationFilesOperationResult = { ok: true } | { ok: false; error: NsInitErrorInfo };
+export type ConsumerDirectoryInspectionResult =
+	| { readonly type: "missing" }
+	| { readonly type: "directory"; readonly gitkeep: "missing" | "file" | "not-file" }
+	| { readonly type: "not-directory" }
+	| { readonly type: "error"; readonly error: NsInitErrorInfo };
 
-export type EnsureObjectivesDirectoryResult =
-	| { ok: true; value: { created: boolean } }
-	| { ok: false; error: NsInitErrorInfo };
+export type ActivationFilesOperationResult =
+	| { readonly ok: true }
+	| { readonly ok: false; readonly error: NsInitErrorInfo };
 
-export interface InstructionFileParams {
-	repoRoot: string;
-	file: InstructionFileName;
+export interface ActivationFileParams {
+	readonly repoRoot: string;
+	readonly file: ActivationFile;
 }
 
-export interface WriteInstructionFileParams extends InstructionFileParams {
-	content: string;
+export interface WriteActivationFileParams extends ActivationFileParams {
+	readonly content: string;
 }
 
-export interface ProjectConfigFileParams {
-	repoRoot: string;
-}
-
-export interface WriteProjectConfigFileParams extends ProjectConfigFileParams {
-	content: string;
+export interface ConsumerDirectoryParams {
+	readonly repoRoot: string;
+	readonly relativePath: string;
 }
 
 export interface ActivationFilesGateway {
-	readInstructionFile(params: InstructionFileParams): Promise<TextFileReadResult>;
-	writeInstructionFile(params: WriteInstructionFileParams): Promise<ActivationFilesOperationResult>;
-	readProjectConfigFile(params: ProjectConfigFileParams): Promise<TextFileReadResult>;
-	writeProjectConfigFile(
-		params: WriteProjectConfigFileParams,
-	): Promise<ActivationFilesOperationResult>;
-	ensureObjectivesDirectory(params: { repoRoot: string }): Promise<EnsureObjectivesDirectoryResult>;
+	readActivationFile(params: ActivationFileParams): Promise<ActivationTextFileReadResult>;
+	inspectConsumerDirectory(
+		params: ConsumerDirectoryParams,
+	): Promise<ConsumerDirectoryInspectionResult>;
+	writeActivationFile(params: WriteActivationFileParams): Promise<ActivationFilesOperationResult>;
+	ensureConsumerDirectory(params: ConsumerDirectoryParams): Promise<ActivationFilesOperationResult>;
 }

@@ -1,7 +1,7 @@
 # Writing an ns extension
 
-An ns extension is an npm package that contributes commands, points, and bundled artifacts to the
-`ns` CLI. An extension declares everything about itself in **one typed descriptor module** that
+An ns extension is an npm package that contributes commands, points, activation metadata, and bundled
+artifacts to the `ns` CLI. An extension declares everything about itself in **one typed descriptor module** that
 `ns` discovers through a standard package export. There are no JSON manifests, no registration
 files, and no generated artifacts — the descriptor is ordinary TypeScript that you typecheck with
 the rest of your code.
@@ -109,6 +109,7 @@ Descriptor fields:
 | `description`      | yes      | One-line group/extension description shown in `ns --help`.                     |
 | `entries`          | no       | Command and subgroup entries (below).                                          |
 | `points`           | no       | Extension point definitions (below).                                           |
+| `activation`       | no       | Agent instructions and consumer-directory declarations (below).                |
 | `bundledArtifacts` | no       | Bundled artifact declarations (below).                                         |
 
 ### Entries
@@ -273,6 +274,33 @@ bundledArtifacts: [
 	},
 ]
 ```
+
+## Activation
+
+`activation` is optional plain data describing how core lifecycle machinery should activate an
+installed extension in a repository:
+
+```ts
+activation: {
+	instructions: "## My extension\n\nUse `ns my-extension` to work with this extension.",
+	consumerDirs: [".ns/my-extension"],
+}
+```
+
+- `instructions` is an optional, non-empty Markdown section. It must begin on its first line with a
+  non-empty level-2 heading (`## Title`) and may contain `###` or deeper subsections, but not a second
+  level-2 section. ns preserves valid text verbatim.
+- `consumerDirs` is an optional list of unique, canonical POSIX-style repository-relative directories
+  strictly beneath `.ns/`, such as `.ns/my-extension/cache`. Absolute paths, `.ns` itself, trailing
+  slashes, empty, `.` or `..` segments, backslashes, and duplicate entries are rejected rather than
+  normalized.
+
+There is deliberately no activation callback. Extensions declare what they need while core owns all
+file writes, keeping activation bounded, auditable, and idempotent. The target lifecycle contract is
+for `ns init` and extension lifecycle commands to render contributed instructions and create declared
+consumer directories; lifecycle consumption is being implemented separately from this descriptor
+contract. Consumer directories hold extension-owned durable data and are never deleted automatically
+when an extension is uninstalled.
 
 ## Installing an extension into a project
 
