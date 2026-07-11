@@ -391,29 +391,9 @@ export function renderMatrixProgressFrame<ColumnKey extends string, GlobalKey ex
 	const operationsText = formatActiveOperationsText(input.activeOperations);
 	const lines = [bold(input.title)];
 	for (const global of input.globals) {
-<<<<<<< HEAD
-		lines.push(
-			renderGlobalLine({
-				caps: input.caps,
-				row: global,
-				tick,
-				...optionalEntry("operationsText", host === global ? operationsText : undefined),
-			}),
-		);
-		for (const substep of global.substeps) {
-			lines.push(
-				renderGlobalSubstepLine({
-					caps: input.caps,
-					row: substep,
-					tick,
-					...optionalEntry("operationsText", host === substep ? operationsText : undefined),
-				}),
-			);
-=======
 		lines.push(renderMatrixStatusLine(input.caps, global, tick));
 		for (const substep of global.substeps) {
 			lines.push(renderGlobalSubstepLine(input.caps, substep, tick));
->>>>>>> fd6a968f6 (Name metadata rejection flag as predicate)
 		}
 	}
 	lines.push("");
