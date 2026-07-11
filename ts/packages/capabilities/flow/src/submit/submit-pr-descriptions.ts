@@ -136,6 +136,7 @@ export async function generateSubmitPrDescriptions(input: {
 			git: input.prDescription.git,
 			pr: viewed.value,
 			...(generation === undefined ? {} : { generation }),
+			activeOperationDetail: `PR ${index + 1}/${input.prLinks.length}`,
 			...(prewrittenMetadata === undefined ? {} : { prewrittenMetadata }),
 			...(input.progress?.onProgress === undefined
 				? {}
