@@ -1,4 +1,5 @@
 import { nsCommandSurface } from "@nseng-ai/foundation/command";
+import { SQUASH_STACK_COMMAND_SUMMARY } from "../ns/commands/squash-stack.ts";
 
 import {
 	registerCliCommandExtension,
@@ -47,6 +48,7 @@ const NS_FLOW_COMMANDS = [
 		"pull-trunk",
 		"Pull the configured Graphite trunk branch without running full gt sync.",
 	),
+	flowCommand("squash-stack", SQUASH_STACK_COMMAND_SUMMARY),
 ] as const satisfies readonly FlowCommandInfo[];
 
 export function nsFlowCommandSurface(name: string): string {
