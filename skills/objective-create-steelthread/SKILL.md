@@ -6,9 +6,9 @@ description: Create a steelthread ns Objective — the thinnest end-to-end slice
 
 # objective-create-steelthread
 
-Create one ns Objective whose whole scope is the thinnest end-to-end slice of a larger ambition: one real task completing through every layer of the real system, with widening explicitly out of scope. The seams between layers are where the surprises live; the thread de-risks integration while the design is still cheap to change. This facade owns the steelthread creation procedure and composes two skills for record mechanics:
+Create one ns Objective whose whole scope is the thinnest end-to-end slice of a larger ambition: one real task completing through every layer of the real system, with widening explicitly out of scope (motivation and recognition: the `objective` skill's patterns catalog). This facade owns the steelthread creation procedure and composes:
 
-- `objective` (umbrella) and `objective-create` (step) own shared vocabulary, slug confirmation and root checks, required headings, Record Frontmatter, the interview, and Verify. Load both first.
+- Load `objective` (umbrella) and `objective-create` (step) first; they own all record mechanics.
 
 ## Procedure
 
@@ -24,4 +24,4 @@ Create one ns Objective whose whole scope is the thinnest end-to-end slice of a 
 
 ## Layering
 
-Layers well with **autoobjective**: the thread is bounded, concrete, and slice-shaped — a natural autorun target. **Never composes with standing**: a steelthread is bounded by definition. The pattern names the whole record's scope; a steelthread roadmap row inside a broader Objective is a milestone, not a Steelthread Objective.
+Composition facts live in the patterns catalog. Procedure-affecting here: **never composes with standing** — a steelthread is bounded by definition.

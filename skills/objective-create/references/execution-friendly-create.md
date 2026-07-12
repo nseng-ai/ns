@@ -7,7 +7,6 @@ Read the `objective` skill's execution policy reference first when available.
 ## Interview timing
 
 - Do not ask execution-policy questions before slug and purpose are sufficiently clear.
-- Default ordinary Objectives to planning-only unless the user requested execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point.
 - Stop and ask when the user has not provided enough durable execution policy context; do not invent permission boundaries.
 
 ## Minimum policy to gather

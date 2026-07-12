@@ -8,15 +8,15 @@ description: "Parent orchestration loop for driving one ns Objective through rep
 
 Drive one ns Objective forward through repeated verified runner steps. You are the **parent** for the whole run: each step is one begin → subagent → finish cycle (one implementation subagent, one local verified commit, one Runner Checkpoint), and you make every between-step decision — base branch, continue, recover, update tracking, stop, ask the human, or do any later push/submit/handoff outside the runner.
 
-Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary and safety rules, and the `objective-runner-step` skill for the per-step contract (the three-phase flow, flags, checkpoint zones, exit codes, post-checkpoint playbook). This skill owns only the loop around it.
+Use the `objective` umbrella skill first for shared vocabulary and safety rules, and the `objective-runner-step` skill for the per-step contract (the three-phase flow, flags, checkpoint zones, exit codes, post-checkpoint playbook). This skill owns only the loop around it.
 
-This is parent-judgment iteration per ADR 0022/0024, not batch mode. The runner deliberately has no multi-step or retry behavior; the loop exists only as your repeated, judged re-invocation. Never degrade it into an unattended batch controller: no new step without reading the previous checkpoint and making an explicit continue decision.
+This is parent-judgment iteration per ADR 0022/0024, not batch mode. The runner deliberately has no multi-step or retry behavior; the loop exists only as your repeated, judged re-invocation.
 
 ## Before the run
 
 1. **Select the Objective** by explicit slug/path per the umbrella skill's selection rules. Read its `objective.md`, `roadmap.md`, `orientation.md` (if present), and any `## Runner Policy` / `## Definition of Progress` sections (see the `objective` skill's `references/execution-policy.md`). Stop/ask boundaries live in that prose — consume them; do not invent your own.
 2. **Capture the launch scope** from the user: which roadmap slice(s) to pursue, an optional step budget ("run 3 steps" is a hard cap on begin→finish cycles, never a quota to fill), and any standing guidance to carry into every step.
-3. **Preview and confirm.** Before the first begin, present a compact launch preview — the selected slug, the roadmap slice(s) in scope with one-line theses, the step budget if any, expected validation posture, exact stop conditions, and a reminder that push/submit/PR actions will not happen — and wait for an explicit affirmative (`yes`, `proceed`, or a clear equivalent). If the user asks for changes, revise and re-present; if the scope changes materially mid-run, stop and re-preview. Draw slice boundaries by human-legible decision count and thesis clarity, never by diff size.
+3. **Preview and confirm.** Before the first begin, present a compact launch preview — the selected slug, the roadmap slice(s) in scope with one-line theses, the step budget if any, expected validation posture, exact stop conditions, and a reminder that push/submit/PR actions will not happen — and wait for an explicit affirmative (`yes`, `proceed`, or a clear equivalent). If the user asks for changes, revise and re-present; if the scope changes materially mid-run, stop and re-preview.
 4. **Check preconditions**: Objective open, worktree clean, HEAD on the named branch the first step should build on. `runner-begin` enforces these too (LBYL), but a refusal you could have predicted is a wasted invocation.
 5. **Pick a step-artifact home**: the harness scratchpad (outside the repo worktree), with numbered per-step pairs — `step-<n>-facts.json` and `step-<n>-report.json`. Every attempt, including every `--recover` attempt, gets a fresh report path; begin refuses a used one.
 
@@ -38,8 +38,8 @@ Each iteration:
    ns objective exec runner-finish <slug> --facts @<scratch>/step-<n>-facts.json
    ```
 
-3. **Read the checkpoint and decide**, using the `objective-runner-step` post-checkpoint playbook verbatim: `committed` → judge the verified facts and claimed narrative, then continue or stop; `verification-failed`/`blocked` → recover (biased default: begin again with `--recover`, sharpened guidance, and a new report path), hand-fix, reset, or escalate; `stop` → honor the subagent's reason; `malfunction` → read diagnostics and check the worktree before anything else, and escalate on repetition.
-4. **Judge Semantic Updates.** After a step with material Objective impact, record it through the `objective-update` skill and commit that update yourself — between steps only, never between begin and finish. Most committed steps need none; updates are learning and decision records, not step changelogs.
+3. **Read the checkpoint and decide**, using the `objective-runner-step` post-checkpoint playbook verbatim. Parent-loop deltas: every recovery attempt gets sharpened guidance and a fresh report path; two consecutive failed recoveries on the same step end the run (Stop conditions).
+4. **Judge Semantic Updates.** After a step with material Objective impact, record it through the `objective-update` skill and commit that update yourself — between steps only, never between begin and finish. Most committed steps need none; update judgment lives in the `objective-runner-step` skill and the umbrella's `updates/` rules.
 
 ## Stop conditions
 
@@ -56,7 +56,7 @@ When stopping for judgment reasons, report to the human rather than grinding: a 
 
 ## End of run
 
-When the run stops, read `references/run-digest.md` first, then finish with the `## Autorun digest` run report it specifies: steps run with checkpoint statuses, the local branch stack and commits produced, Semantic Updates written, runner-subagent usage telemetry, open risks or blockers, and your recommended next action. Leave HEAD on the last step's branch. Do not perform forbidden external actions or launch a separate handoff unless the human separately asks after the run report.
+When the run stops, read `references/run-digest.md` first, then finish with the `## Autorun digest` run report it specifies. Leave HEAD on the last step's branch. Do not perform forbidden external actions or launch a separate handoff unless the human separately asks after the run report.
 
 ## Hard boundaries
 

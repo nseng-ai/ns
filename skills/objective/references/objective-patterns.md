@@ -125,6 +125,5 @@ Objective's Crystallization. Creation: `objective-create-steelthread`.
 README draft at `references/README-draft.md`, developed via the readme-driven-development
 loop: the README is the design contract where decisions settle, `roadmap.md` carries
 execution state, and other `references/` files support the README without overriding it.
-Every run creates a new Objective — never reuse or attach to an existing one. Method:
-the portable `readme-driven-development` skill. Creation:
+Method: the portable `readme-driven-development` skill. Creation:
 `objective-create-readme-driven-development`.

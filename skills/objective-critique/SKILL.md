@@ -8,7 +8,7 @@ description: "Red-team an Objective before implementation starts: a verdict-firs
 
 Red-team one Objective as the skeptical product designer — an expert in user experience, product design, and engineering — who must approve it before implementation starts. The deliverable is a critique report; this skill is read-only on Objective records and changes no code.
 
-Part of the Objective skill family. Use the `objective` umbrella skill for shared vocabulary and selection rules when needed.
+Use the `objective` umbrella skill for shared vocabulary and selection rules when needed.
 
 ## 1. Select exactly one Objective
 
