@@ -22,7 +22,7 @@ every row; row notes call out only slice-local guidance.
     projection and debt-edge literals, path references, lockfile refresh.
   - Evidence: `just` green; live greps for `@nseng-ai/kernel` and
     `ts/packages/kernel` return nothing.
-- [ ] Spec item 2: author entry point becomes the package root — branch
+- [x] Spec item 2: author entry point becomes the package root — branch
       `kernel-sdk-rename/root-entry-point`
   - Exports `"."`, `publicPluginApi: ["."]`, ~182 author-API imports →
     `@nseng-ai/sdk`, module-loader key, live surfaces outside `ts/packages/`,

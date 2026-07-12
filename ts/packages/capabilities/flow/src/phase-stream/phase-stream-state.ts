@@ -3,7 +3,7 @@ import {
 	type ProgressPhaseSpec,
 	type ProgressPhaseView,
 } from "@nseng-ai/sdk/progress-phase-state";
-import { isMatrixProgressEvent, type NsProgressPhaseEvent } from "@nseng-ai/sdk/sdk";
+import { isMatrixProgressEvent, type NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import type { PhaseState, StatusLineItem } from "@nseng-ai/foundation/cli-theme";
 
 import type { PhaseSpec, PhaseSubstepSpec } from "./phase-stream-specs.ts";

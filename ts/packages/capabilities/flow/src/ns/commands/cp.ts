@@ -1,7 +1,7 @@
 import type { TimeServices } from "@nseng-ai/foundation/time";
-import type { NsProgressPhaseListener } from "@nseng-ai/sdk/sdk";
+import type { NsProgressPhaseListener } from "@nseng-ai/sdk";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
-import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/sdk/sdk";
+import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import {
 	CP_PHASES,
 	flowStreamDeps,

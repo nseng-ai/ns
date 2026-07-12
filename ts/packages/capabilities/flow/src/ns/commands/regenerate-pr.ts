@@ -2,14 +2,7 @@ import { createNsClinkrInteraction } from "@nseng-ai/capability-kit";
 import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
 import { renderResultBlock, renderResultBlockFromMessage } from "@nseng-ai/foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
-import {
-	defineCommand,
-	negative,
-	ok,
-	z,
-	type NsCommand,
-	type NsExtensionApi,
-} from "@nseng-ai/sdk/sdk";
+import { defineCommand, negative, ok, z, type NsCommand, type NsExtensionApi } from "@nseng-ai/sdk";
 
 import {
 	applyPreparedPrDescriptionUpdate,

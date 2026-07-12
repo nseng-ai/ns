@@ -17,7 +17,7 @@ import {
 	type CustomMessageContent,
 } from "../kit/terminal/presentation.ts";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
-import type { NsConfirmOptions, NsProgressPhaseEvent } from "@nseng-ai/sdk/sdk";
+import type { NsConfirmOptions, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 export { cliCommandTracePath } from "./cli-command-trace.ts";
 

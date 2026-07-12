@@ -40,7 +40,7 @@ export async function writeModuleExtension(projectRoot: string): Promise<void> {
 	);
 	await writeFile(
 		join(moduleRoot, "src", "ns", "extension.ts"),
-		`import { defineExtension } from "@nseng-ai/sdk/sdk";
+		`import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
 	description: "ACME module.",
 	bundledArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module-skill" }],

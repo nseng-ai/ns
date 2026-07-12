@@ -2,7 +2,7 @@ import {
 	createNsDomainCommand,
 	type NsDomainCommandOptions,
 } from "@nseng-ai/capability-kit/ns-command";
-import type { NsCommand, NsCommandSchema } from "@nseng-ai/sdk/sdk";
+import type { NsCommand, NsCommandSchema } from "@nseng-ai/sdk";
 
 import type { ExtensionInstallContext } from "../install-extension.ts";
 import type { ExtensionUninstallContext } from "../uninstall-extension.ts";

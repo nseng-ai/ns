@@ -202,13 +202,13 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "ns-extension descriptor implementation import is rejected",
-			code: 'import { defineExtension } from "@nseng-ai/sdk/sdk";\nimport { makeCommand } from "./command.ts";',
+			code: 'import { defineExtension } from "@nseng-ai/sdk";\nimport { makeCommand } from "./command.ts";',
 			path: "ts/packages/capabilities/pr-feedback/src/ns-extension.ts",
 			expectedRules: [BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT],
 		},
 		{
 			name: "ns extension descriptor allows sdk value imports and local type imports",
-			code: 'import { defineExtension, type ExtensionDescriptor } from "@nseng-ai/sdk/sdk";\nimport type { CommandConfig } from "./command.ts";\nimport { type LocalDescriptorFact } from "./facts.ts";',
+			code: 'import { defineExtension, type ExtensionDescriptor } from "@nseng-ai/sdk";\nimport type { CommandConfig } from "./command.ts";\nimport { type LocalDescriptorFact } from "./facts.ts";',
 			path: "ts/packages/capabilities/slots/src/ns/ns-extension.ts",
 			expectedRules: [],
 		},
@@ -497,7 +497,7 @@ describe("TypeScript style guard source rules", () => {
 		} satisfies PackageMetadata);
 
 		const actualRules = collectViolations(
-			'import { defineExtension } from "@nseng-ai/sdk/sdk";\nimport { makeCommand } from "./command.ts";',
+			'import { defineExtension } from "@nseng-ai/sdk";\nimport { makeCommand } from "./command.ts";',
 			"ts/packages/capabilities/conditional/src/ns/extension.ts",
 			metadataByName,
 		).map((violation) => violation.rule);

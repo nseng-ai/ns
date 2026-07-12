@@ -3,12 +3,12 @@ import { createJiti } from "jiti/static";
 import { nsSdkRuntimeExports } from "../sdk/runtime-exports.ts";
 
 /** Module specifier that ns command entries import the SDK from. */
-const SDK_SPECIFIER = "@nseng-ai/sdk/sdk";
+const SDK_SPECIFIER = "@nseng-ai/sdk";
 
 /**
  * Create the ns-aware jiti instance used for user-authored modules.
  *
- * The load-bearing option is `virtualModules`: it binds `@nseng-ai/sdk/sdk` to the
+ * The load-bearing option is `virtualModules`: it binds `@nseng-ai/sdk` to the
  * exact SDK object imported by this process, so descriptor and command modules share host SDK
  * identity instead of resolving dependency copies from their package roots.
  *

@@ -105,7 +105,7 @@ Points are declared as static metadata in the extension descriptor module
 exported from `exports["./ns-extension"]` and created with `defineExtension()`:
 
 ```ts
-import { defineExtension } from "@nseng-ai/sdk/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "flow",

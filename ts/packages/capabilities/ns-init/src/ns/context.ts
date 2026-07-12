@@ -1,7 +1,7 @@
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { createRealExtensionAcquisitionGateway } from "@nseng-ai/sdk/extensions/acquisition";
-import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import type { NsActivationContext } from "../activation-context.ts";
 import {

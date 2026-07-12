@@ -4,6 +4,7 @@
 	"description": "Emerging customer-facing ns CLI.",
 	"type": "module",
 	"exports": {
+		".": "./src/sdk/index.ts",
 		"./cli": "./src/cli/index.ts",
 		"./command-io": "./src/runtime/command-io.ts",
 		"./project-config/descriptor-package": "./src/project-config/descriptor-package.ts",
@@ -14,7 +15,6 @@
 		"./project-config": "./src/project-config/index.ts",
 		"./project-config/points": "./src/project-config/points.ts",
 		"./runtime/module-loader": "./src/runtime/module-loader.ts",
-		"./sdk": "./src/sdk/index.ts",
 		"./testing": "./src/testing/index.ts"
 	},
 	"ns": {
@@ -28,7 +28,7 @@
 			"testing"
 		],
 		"publicPluginApi": [
-			"./sdk"
+			"."
 		],
 		"internalWorkspaceExports": [
 			"./cli",

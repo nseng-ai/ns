@@ -70,7 +70,7 @@ describe("ns extension loader CLI integration", () => {
 	test("direct command summary appears in top-level help after importing the module", async () => {
 		const cwd = await createDescriptorProject(
 			"hello",
-			`import { ok } from "@nseng-ai/sdk/sdk";
+			`import { ok } from "@nseng-ai/sdk";
 
 export default {
 	name: "hello",
@@ -106,7 +106,7 @@ export default {
 	test("project-local command help uses selected command metadata and schema", async () => {
 		const cwd = await createDescriptorProject(
 			"sample",
-			`import { ok, z } from "@nseng-ai/sdk/sdk";
+			`import { ok, z } from "@nseng-ai/sdk";
 
 export default {
 	name: "sample",
@@ -134,7 +134,7 @@ export default {
 	test("project-only ns command entry runs when invoked", async () => {
 		const cwd = await createDescriptorProject(
 			"hello",
-			`import { ok } from "@nseng-ai/sdk/sdk";
+			`import { ok } from "@nseng-ai/sdk";
 
 export default {
 	name: "hello",
@@ -162,7 +162,7 @@ export default {
 	test("selected ns command entry help schema and invocation use the loaded request schema", async () => {
 		const cwd = await createDescriptorProject(
 			"hello",
-			`import { ok, z } from "@nseng-ai/sdk/sdk";
+			`import { ok, z } from "@nseng-ai/sdk";
 
 export default {
 	name: "hello",
@@ -210,7 +210,7 @@ export default {
 	test("malformed unrelated descriptor warns without breaking a valid project command", async () => {
 		const cwd = await createDescriptorProject(
 			"hello",
-			`import { ok } from "@nseng-ai/sdk/sdk";
+			`import { ok } from "@nseng-ai/sdk";
 export default { name: "hello", summary: "Hello", description: "Hello", run() { return ok("hello"); } };
 `,
 		);
@@ -244,7 +244,7 @@ export default { name: "hello", summary: "Hello", description: "Hello", run() { 
 			"Invalid ns descriptor command ns.toml descriptor ./extensions/tools",
 		);
 		expect(run.stderr.join("")).toContain(
-			"command schema must be a Zod object schema from @nseng-ai/sdk/sdk",
+			"command schema must be a Zod object schema from @nseng-ai/sdk",
 		);
 		expect(run.context.execCalls).toEqual([]);
 	});
@@ -276,7 +276,7 @@ function writeDescriptorPackage(
 			.join(",\n\t\t");
 	writeFileSyncWithParents(
 		join(cwd, "extensions", "tools", "src", "ns", "extension.ts"),
-		`import { defineExtension } from "@nseng-ai/sdk/sdk";
+		`import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
 	description: "Project test tools.",
 	entries: [

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/testing";
-import type { ActiveOperation } from "@nseng-ai/sdk/sdk";
+import type { ActiveOperation } from "@nseng-ai/sdk";
 import { ok, type GithubPrGateway, type TextGenerator } from "../../src/submit/index.ts";
 import { generateSubmitPrDescriptions } from "../../src/submit/submit-pr-descriptions.ts";
 

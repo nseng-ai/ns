@@ -7,8 +7,8 @@ import {
 	createCommandIo,
 	runWithNsCommandIo,
 } from "../src/runtime/command-io.ts";
-import { noopNsProgress } from "@nseng-ai/sdk/sdk";
-import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import { noopNsProgress } from "@nseng-ai/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 function createCtx(overrides: Partial<NsExtensionApi>): NsExtensionApi {
 	const commandIo = createCliCommandIo(

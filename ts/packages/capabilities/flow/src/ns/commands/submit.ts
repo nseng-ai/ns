@@ -52,7 +52,7 @@ import {
 	type NsCommand,
 	type NsExtensionApi,
 	type NsProgressPhaseEvent,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 import { FLOW_COMMAND_FAILED, exitCodeToFlowCommandExit } from "../flow-cli-runner.ts";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;

@@ -1,20 +1,20 @@
-# `@nseng-ai/sdk/sdk` — Reference
+# `@nseng-ai/sdk` — Reference
 
-`@nseng-ai/sdk/sdk` is the public author API for ns extensions — the one package you import from to write an ns extension; this document is the complete reference for its exports. `@nseng-ai/sdk/sdk` is the SDK layer; `@nseng-ai/sdk` is the host/kernel that loads extensions.
+`@nseng-ai/sdk` is the public author API for ns extensions — the one package you import from to write an ns extension; this document is the complete reference for its exports. `@nseng-ai/sdk` is the SDK layer; `@nseng-ai/sdk` is the host/kernel that loads extensions.
 
 For an end-to-end package layout and extension authoring walkthrough, start with [Writing an ns extension](./writing-an-ns-extension.md).
 Import the SDK's own surface from the package itself:
 
 ```ts
-import { defineExtension, failure, hiddenExecGroup, ok, usageError, z } from "@nseng-ai/sdk/sdk";
-import type { CommandExit, NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import { defineExtension, failure, hiddenExecGroup, ok, usageError, z } from "@nseng-ai/sdk";
+import type { CommandExit, NsExtensionApi } from "@nseng-ai/sdk";
 ```
 
 Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the ns host.
 
 Do not import ns implementation modules (`@nseng-ai/sdk/*`, `@nseng-ai/foundation/*`, `@nseng-ai/clinkr/*`) from ns extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
-Capability APIs such as `@nseng-ai/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `@nseng-ai/sdk/sdk` and not general ns extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
+Capability APIs such as `@nseng-ai/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `@nseng-ai/sdk` and not general ns extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
 For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/capabilities/flow/src/shared/` in `@nseng-ai/flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/sdk/package.json` and capability-building primitive subpaths under `@nseng-ai/capability-kit/*` exist for package/internal workspace sharing, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
 
 The SDK is intentionally small. A command should own its workflow policy — prompts, validation, repair, external commands, GitHub/Graphite choreography, and confirmation boundaries — unless repeated command migrations prove a deeper kernel helper belongs in this author API. When a helper is promoted, this reference becomes the source of truth for the new public surface.
@@ -49,7 +49,7 @@ function defineExtension<const TDescriptor extends ExtensionDescriptor>(extensio
 **Example.**
 
 ```ts
-import { defineExtension } from "@nseng-ai/sdk/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
   group: "greet",
@@ -111,7 +111,7 @@ Use this helper instead of hand-writing `{ group: "exec", hidden: true, ... }` i
 **Example.**
 
 ```ts
-import { defineExtension, hiddenExecGroup } from "@nseng-ai/sdk/sdk";
+import { defineExtension, hiddenExecGroup } from "@nseng-ai/sdk";
 
 export default defineExtension({
   group: "sample",
@@ -147,7 +147,7 @@ interface RawArgvCommand<T = unknown> {
 **Example.** Use `defineCommand()` so `request` is inferred from `schema` while the exported command remains neutral:
 
 ```ts
-import { defineCommand, ok, z } from "@nseng-ai/sdk/sdk";
+import { defineCommand, ok, z } from "@nseng-ai/sdk";
 
 export default defineCommand({
   name: "greet",
@@ -183,7 +183,7 @@ Provides dynamic completion candidates for the selected command without invoking
 **Example.** Complete local branch names for a positional argument:
 
 ```ts
-import { defineCommand, ok, z } from "@nseng-ai/sdk/sdk";
+import { defineCommand, ok, z } from "@nseng-ai/sdk";
 
 export default defineCommand({
   name: "checkout",
@@ -213,13 +213,13 @@ The user-facing setup, resolver behavior, supported shells, and limitations for 
 type NsCommandSchema = z.ZodObject;
 ```
 
-The schema type a command may declare. Always a Zod object, built with `z` imported from `@nseng-ai/sdk/sdk`.
+The schema type a command may declare. Always a Zod object, built with `z` imported from `@nseng-ai/sdk`.
 
 **Example.**
 
 ```ts
-import { z } from "@nseng-ai/sdk/sdk";
-import type { NsCommandSchema } from "@nseng-ai/sdk/sdk";
+import { z } from "@nseng-ai/sdk";
+import type { NsCommandSchema } from "@nseng-ai/sdk";
 
 const schema: NsCommandSchema = z.object({ force: z.boolean().default(false) });
 ```
@@ -235,8 +235,8 @@ The parsed-request type derived from a `defineCommand()` schema — the type `ha
 **Example.**
 
 ```ts
-import { ok, z } from "@nseng-ai/sdk/sdk";
-import type { CommandExit, NsCommandRequest, NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import { ok, z } from "@nseng-ai/sdk";
+import type { CommandExit, NsCommandRequest, NsExtensionApi } from "@nseng-ai/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 
@@ -359,8 +359,8 @@ Use constructors rather than building exits by hand:
 **Example.**
 
 ```ts
-import { failure, ok, usageError } from "@nseng-ai/sdk/sdk";
-import type { CommandExit, NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import { failure, ok, usageError } from "@nseng-ai/sdk";
+import type { CommandExit, NsExtensionApi } from "@nseng-ai/sdk";
 
 function run(ctx: NsExtensionApi): CommandExit<{ pushed: boolean }> {
   if (ctx.cwd === "") return usageError("cwd is required", { field: "cwd" });
@@ -667,7 +667,7 @@ ctx.stdout?.(result.text);
 Command schemas are [Zod](https://zod.dev) schemas. The SDK exports the host's schema builder so single-file extensions do not need their own resolvable `zod` dependency. Its API is Zod's own — see the Zod documentation; it is not re-documented here.
 
 ```ts
-import { z } from "@nseng-ai/sdk/sdk";
+import { z } from "@nseng-ai/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 ```

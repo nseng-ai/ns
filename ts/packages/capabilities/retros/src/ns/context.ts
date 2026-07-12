@@ -1,5 +1,5 @@
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
-import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import type { RetrosCliContext } from "../context.ts";
 import { PiJsonlSessionSource } from "../sessions/pi-jsonl-source.ts";

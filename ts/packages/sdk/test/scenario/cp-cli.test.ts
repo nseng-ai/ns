@@ -142,7 +142,7 @@ describe("ns extension discovery without dynamic imports", () => {
 		const cwd = await createLegacyCommandProject(
 			"hello.ts",
 			`
-import { defineExtension, ok } from "@nseng-ai/sdk/sdk";
+import { defineExtension, ok } from "@nseng-ai/sdk";
 export default defineExtension({
 	commands: [{ name: "hello", summary: "Legacy hello", description: "Legacy hello", run() { return ok("legacy"); } }],
 });

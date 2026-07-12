@@ -1,4 +1,4 @@
-import { defineCommand, defineExtension, failure, ok, z } from "@nseng-ai/sdk/sdk";
+import { defineCommand, defineExtension, failure, ok, z } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
 	PositionalSpec,
@@ -19,7 +19,7 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;

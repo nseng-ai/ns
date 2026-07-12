@@ -1,6 +1,6 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
 import { formatCommand } from "@nseng-ai/foundation/command";
-import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk/sdk";
+import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 
 import { runFlowCliOperation } from "../flow-cli-runner.ts";

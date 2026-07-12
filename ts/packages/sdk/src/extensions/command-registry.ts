@@ -283,7 +283,7 @@ function parseParsedDescriptorCommand(
 	if (parsed.ok) return parsed;
 	return {
 		ok: false,
-		message: "command schema must be a Zod object schema from @nseng-ai/sdk/sdk.",
+		message: "command schema must be a Zod object schema from @nseng-ai/sdk.",
 	};
 }
 

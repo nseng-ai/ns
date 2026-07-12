@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import descriptor from "../../src/ns-extension.ts";
 import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
-import type { ExtensionEntry } from "@nseng-ai/sdk/sdk";
+import type { ExtensionEntry } from "@nseng-ai/sdk";
 
 function commandEntryNames(entries: readonly ExtensionEntry[] | undefined): readonly string[] {
 	return (entries ?? []).flatMap((entry) =>

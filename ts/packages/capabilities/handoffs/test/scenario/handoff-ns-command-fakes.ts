@@ -2,7 +2,7 @@ import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from
 import type { ClinkrExit, ClinkrInteraction } from "@nseng-ai/clinkr";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
 	NsCommand,
@@ -11,7 +11,7 @@ import type {
 	NsExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 import { HANDOFF_NAMESPACE } from "../../src/core/identity.ts";
 

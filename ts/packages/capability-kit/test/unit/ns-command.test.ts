@@ -1,5 +1,5 @@
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk/sdk";
-import type { ClinkrDynamicCompletionRequest, NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+import type { ClinkrDynamicCompletionRequest, NsExtensionApi } from "@nseng-ai/sdk";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 

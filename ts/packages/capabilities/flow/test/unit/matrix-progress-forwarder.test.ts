@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk/sdk";
+import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import { createMatrixProgressForwarder } from "../../src/phase-stream/matrix-progress-forwarder.ts";
 import type { MatrixColumnSpec } from "../../src/phase-stream/matrix-progress-core.ts";

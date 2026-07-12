@@ -26,7 +26,7 @@ describe("ns completion CLI extension loader integration", () => {
 	test("project extension command schema is importable for selected option completion", async () => {
 		const cwd = await createDescriptorExtensionProject(
 			"hello",
-			`import { ok, z } from "@nseng-ai/sdk/sdk";
+			`import { ok, z } from "@nseng-ai/sdk";
 export default {
 	name: "hello",
 	summary: "Hello",
@@ -49,7 +49,7 @@ export default {
 	test("unrelated broken extension command is not imported for selected valid command completion", async () => {
 		const cwd = await createDescriptorExtensionProject(
 			"hello",
-			`import { ok, z } from "@nseng-ai/sdk/sdk";
+			`import { ok, z } from "@nseng-ai/sdk";
 export default {
 	name: "hello",
 	summary: "Hello",
@@ -74,7 +74,7 @@ export default {
 	test("selected dynamic completion provider runs through the real extension loader", async () => {
 		const cwd = await createDescriptorExtensionProject(
 			"hello",
-			`import { ok, z } from "@nseng-ai/sdk/sdk";
+			`import { ok, z } from "@nseng-ai/sdk";
 export default {
 	name: "hello",
 	summary: "Hello",
@@ -144,7 +144,7 @@ function writeDescriptorPackage(cwd: string, commandNames: readonly string[]): v
 		.join(",\n\t\t");
 	writeFileSyncWithParents(
 		join(cwd, "extensions", "tools", "src", "ns", "extension.ts"),
-		`import { defineExtension } from "@nseng-ai/sdk/sdk";
+		`import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
 	description: "Project test tools.",
 	entries: [

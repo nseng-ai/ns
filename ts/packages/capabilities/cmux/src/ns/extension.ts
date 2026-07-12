@@ -1,4 +1,4 @@
-import { defineExtension, hiddenExecGroup } from "@nseng-ai/sdk/sdk";
+import { defineExtension, hiddenExecGroup } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "cmux",

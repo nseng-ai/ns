@@ -8,7 +8,7 @@ import type {
 	NsCommandCompletionProvider,
 	NsCommandSchema,
 	NsExtensionApi,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 import { createRealSlotContext, type SlotCliContext } from "../core/context.ts";
 import { checkoutBranchesCompletionProviderFor } from "./checkout-completion.ts";

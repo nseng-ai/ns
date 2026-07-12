@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { defineRawCommand, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/sdk/sdk";
+import { defineRawCommand, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/sdk";
 import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
@@ -37,7 +37,7 @@ const builtInCommandInfos = [
 
 function descriptorCommandModule(name: string, message: string): string {
 	return `
-import { defineRawCommand, ok } from "@nseng-ai/sdk/sdk";
+import { defineRawCommand, ok } from "@nseng-ai/sdk";
 
 export default defineRawCommand({
 	name: ${JSON.stringify(name)},
@@ -84,7 +84,7 @@ describe("extension registry", () => {
 		writeWorkspaceFile(
 			join(workspace.cwd, "extensions", "tools", "src", "ns", "extension.ts"),
 			`
-import { defineExtension } from "@nseng-ai/sdk/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "tools",
@@ -206,7 +206,7 @@ export default defineExtension({
 		writeWorkspaceFile(
 			join(workspace.cwd, "extensions", "tools", "src", "ns", "extension.ts"),
 			`
-import { defineExtension } from "@nseng-ai/sdk/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "tools",
@@ -260,7 +260,7 @@ export default defineExtension({
 		writeWorkspaceFile(
 			join(workspace.cwd, "extensions", "good", "src", "ns", "extension.ts"),
 			`
-import { defineExtension } from "@nseng-ai/sdk/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "good",

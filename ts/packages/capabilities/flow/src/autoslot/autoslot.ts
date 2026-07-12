@@ -2,7 +2,7 @@ import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 import type { Caps } from "@nseng-ai/clinkr";
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { createCliCommandIo, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
-import type { NsCommandIo } from "@nseng-ai/sdk/sdk";
+import type { NsCommandIo } from "@nseng-ai/sdk";
 import {
 	createFlowAutobranchCheckpointFlow,
 	type FlowAutobranchCheckpointInput,

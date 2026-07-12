@@ -18,7 +18,7 @@
 import type { Caps } from "@nseng-ai/clinkr";
 import { dim, resultBlockHeadline } from "@nseng-ai/foundation/cli-theme";
 import { formatCommandTermination } from "@nseng-ai/foundation/command";
-import type { ExecResult } from "@nseng-ai/sdk/sdk";
+import type { ExecResult } from "@nseng-ai/sdk";
 
 type GitTranscriptResult = ExecResult;
 

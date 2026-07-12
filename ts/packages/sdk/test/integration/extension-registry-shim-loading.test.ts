@@ -21,7 +21,7 @@ describe("extension registry descriptor loading", () => {
 		);
 		writeWorkspaceFile(
 			workspace.cwd + "/extensions/tools/src/ns/extension.ts",
-			`import { defineExtension } from "@nseng-ai/sdk/sdk";
+			`import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
 	description: "Project tools.",
 	entries: [{ name: "list", load: async () => await import("../commands/list.ts") }],
@@ -30,7 +30,7 @@ export default defineExtension({
 		);
 		writeWorkspaceFile(
 			workspace.cwd + "/extensions/tools/src/commands/list.ts",
-			`import { defineRawCommand, ok } from "@nseng-ai/sdk/sdk";
+			`import { defineRawCommand, ok } from "@nseng-ai/sdk";
 export default defineRawCommand({
 	name: "list",
 	summary: "List project tools.",

@@ -15,7 +15,7 @@ import {
 	ok,
 	type NsCommand,
 	type NsProgressPhaseEvent,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 const optionProbeSchema = z.object({
 	force: z.boolean().default(false).describe("Force the operation."),

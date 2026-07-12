@@ -1,5 +1,5 @@
 import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
-import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import { NsCommandExecApi } from "./command-runner.ts";
 

@@ -25,7 +25,7 @@ import {
 	validateExtensionDescriptor,
 	validateLoadedCommandName,
 	z,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 const runtimeExports = {
 	bundledArtifactDefinitionSchema,
@@ -79,7 +79,7 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"z",
 ] as const;
 
-describe("@nseng-ai/sdk/sdk runtime exports", () => {
+describe("@nseng-ai/sdk runtime exports", () => {
 	test("exposes the intended runtime author surface", () => {
 		expect(Object.keys(runtimeExports).sort()).toEqual([...EXPECTED_RUNTIME_EXPORTS].sort());
 	});

@@ -1,6 +1,6 @@
 import type { Caps } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
-import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk/sdk";
+import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import {
 	defineMatrixWorkflow,

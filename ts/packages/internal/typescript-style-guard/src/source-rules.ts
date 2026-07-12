@@ -150,7 +150,7 @@ export function collectViolations(
 					path,
 					sourceFile,
 					node.moduleSpecifier,
-					"First-party ns-extension descriptor modules may statically import only @nseng-ai/sdk/sdk; keep implementation modules behind descriptor load thunks.",
+					"First-party ns-extension descriptor modules may statically import only @nseng-ai/sdk; keep implementation modules behind descriptor load thunks.",
 				),
 			);
 		}
@@ -225,7 +225,7 @@ const GRAPHITE_METADATA_SINGLETON_METHODS = new Set([
 	"loadGraphiteMetadataStatusInWorker",
 	"shutdownGraphiteMetadataWorker",
 ]);
-const DESCRIPTOR_ALLOWED_VALUE_IMPORT = "@nseng-ai/sdk/sdk";
+const DESCRIPTOR_ALLOWED_VALUE_IMPORT = "@nseng-ai/sdk";
 const LOWER_LAYER_SURFACE_TIERS = new Set(["neutral-infra", "sdk", "capability-kit"]);
 const RAW_TIMER_ADAPTER_PATHS = new Set([
 	"ts/packages/infra/foundation/src/time/index.ts",

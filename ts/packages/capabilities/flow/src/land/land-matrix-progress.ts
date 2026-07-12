@@ -1,7 +1,7 @@
 import type { Caps } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { ActiveOperation, NsProgress } from "@nseng-ai/sdk/sdk";
+import type { ActiveOperation, NsProgress } from "@nseng-ai/sdk";
 import {
 	defineMatrixWorkflow,
 	matrixFrameOptionalFields,

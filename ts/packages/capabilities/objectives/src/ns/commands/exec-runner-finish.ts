@@ -1,5 +1,5 @@
 import { createNsDomainCommand } from "@nseng-ai/capability-kit/ns-command";
-import { type NsCommand } from "@nseng-ai/sdk/sdk";
+import { type NsCommand } from "@nseng-ai/sdk";
 
 import {
 	runnerFinishRequestSchema,

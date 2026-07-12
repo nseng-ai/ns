@@ -9,7 +9,7 @@ import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import type { ClinkrInteraction, ConfirmationRequest } from "@nseng-ai/clinkr";
 import type { GitGateway } from "@nseng-ai/foundation/git";
-import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import type { HandoffCliContext } from "../core/context.ts";
 
