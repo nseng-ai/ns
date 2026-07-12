@@ -258,6 +258,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private isPromptExpanded = false;
 	private isDisposed = false;
 	private detailPollTimer: ScheduledTimer | undefined;
+	/** Navigator-wide monotonic source for surface lifetime generations. */
+	private nextLifetimeGeneration = 1;
 
 	constructor(options: SubagentFleetNavigatorOptions) {
 		this.tui = options.tui;
@@ -323,7 +325,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 		if (this.isDisposed) return;
 		this.isDisposed = true;
 		this.stopRefreshPolling();
-		for (const state of this.entryStates.values()) state.hasQueuedRead = false;
+		for (const state of this.entryStates.values()) delete state.queuedGeneration;
 		this.unsubscribe();
 	}
 
@@ -483,74 +485,108 @@ export class SubagentFleetNavigator implements RenderComponent {
 		const id = entryId(entry);
 		if (id === undefined) return;
 		const state = this.ensureEntryState(id);
-		if (state.isReadInFlight) {
-			state.hasQueuedRead = true;
+		const sessionIdentityKey = entrySessionIdentityKey(entry);
+		if (state.sessionIdentityKey !== sessionIdentityKey) {
+			// A mid-lifetime session identity change is a lifecycle reset: old
+			// content must not populate the new identity, so pending completions
+			// are invalidated and cache/observation are dropped before loading.
+			if (state.sessionIdentityKey !== undefined) {
+				state.generation = this.nextLifetimeGeneration++;
+				delete state.cache;
+				delete state.observation;
+				delete state.queuedGeneration;
+			}
+			state.sessionIdentityKey = sessionIdentityKey;
+		}
+		const generation = state.generation;
+		if (state.inFlightGenerations.has(generation)) {
+			state.queuedGeneration = generation;
 			return;
 		}
-		state.isReadInFlight = true;
-		void this.runEntryDetailLoad(entry, id, surface);
+		state.inFlightGenerations.add(generation);
+		void this.runEntryDetailLoad({ entry, id, surface, generation, sessionIdentityKey });
 	}
 
-	private async runEntryDetailLoad(
-		entry: FleetNavigatorEntry,
-		id: string,
-		surface: FleetEntrySurface,
-	): Promise<void> {
+	private async runEntryDetailLoad(request: {
+		entry: FleetNavigatorEntry;
+		id: string;
+		surface: FleetEntrySurface;
+		generation: number;
+		sessionIdentityKey: string;
+	}): Promise<void> {
 		try {
-			const state = this.entryStates.get(id);
-			const sessionIdentityKey = entrySessionIdentityKey(entry);
-			// A session identity change resets cache and observation: prior state
-			// for another identity is never offered to the load operation.
+			const state = this.entryStates.get(request.id);
+			// Prior state for another session identity is never offered to the
+			// load operation.
 			const previousCache =
-				state?.cache?.sessionIdentityKey === sessionIdentityKey ? state.cache.cache : undefined;
+				state?.cache?.sessionIdentityKey === request.sessionIdentityKey
+					? state.cache.cache
+					: undefined;
 			const previousObservation =
-				state?.observation?.sessionIdentityKey === sessionIdentityKey
+				state?.observation?.sessionIdentityKey === request.sessionIdentityKey
 					? state.observation
 					: undefined;
 			const result = await loadAndDecorateEntryDetail({
-				entry,
-				surface,
+				entry: request.entry,
+				surface: request.surface,
 				context: this.detailContext,
-				sessionIdentityKey,
+				sessionIdentityKey: request.sessionIdentityKey,
 				...optionalEntry("previousCache", previousCache),
 				...optionalEntry("previousObservation", previousObservation),
 				nowMs: this.clock.nowMs(),
 			});
-			this.commitEntryDetailLoad({ id, surface, sessionIdentityKey, result });
+			this.commitEntryDetailLoad({
+				id: request.id,
+				surface: request.surface,
+				generation: request.generation,
+				sessionIdentityKey: request.sessionIdentityKey,
+				result,
+			});
 		} finally {
-			const state = this.entryStates.get(id);
+			const state = this.entryStates.get(request.id);
 			if (state !== undefined) {
-				state.isReadInFlight = false;
-				if (!this.isDisposed && state.hasQueuedRead) {
-					state.hasQueuedRead = false;
+				// Only this request's own generation marker is cleared; an obsolete
+				// completion can never clear the current generation's in-flight
+				// marker or consume its queued follow-up.
+				state.inFlightGenerations.delete(request.generation);
+				if (
+					!this.isDisposed &&
+					state.queuedGeneration === request.generation &&
+					state.generation === request.generation
+				) {
+					delete state.queuedGeneration;
 					// Follow-ups consume the latest registry snapshot for this id and
 					// the entry's current surface; snapshot object identity is never a
 					// revision signal.
-					const currentEntry = this.entries.find((candidate) => entryId(candidate) === id);
+					const currentEntry = this.entries.find((candidate) => entryId(candidate) === request.id);
 					const currentSurface = state.activeSurface;
 					if (currentEntry !== undefined && currentSurface !== undefined) {
 						this.scheduleEntryDetailLoad(currentEntry, currentSurface);
 					}
 				}
+				this.removeEntryStateIfIdle(request.id);
 			}
 		}
 	}
 
 	/**
 	 * Commits a settled load only when its surface lifetime is still current
-	 * and visible: the state must exist, its active surface must match, a
-	 * preview target must still be expanded, and a detail target must still be
-	 * the selected entry in detail mode.
+	 * and visible: the state must exist, its generation must equal the one
+	 * captured at request start, its active surface must match, a preview
+	 * target must still be expanded, and a detail target must still be the
+	 * selected entry in detail mode.
 	 */
 	private commitEntryDetailLoad(input: {
 		id: string;
 		surface: FleetEntrySurface;
+		generation: number;
 		sessionIdentityKey: string;
 		result: LoadEntryDetailOperationResult;
 	}): void {
 		if (this.isDisposed) return;
 		const state = this.entryStates.get(input.id);
-		if (state === undefined || state.activeSurface !== input.surface) return;
+		if (state === undefined || state.generation !== input.generation) return;
+		if (state.activeSurface !== input.surface) return;
 		if (input.surface === "preview" && !state.isExpanded) return;
 		if (
 			input.surface === "detail" &&
@@ -579,28 +615,37 @@ export class SubagentFleetNavigator implements RenderComponent {
 		if (existing !== undefined) return existing;
 		const created: EntryDetailState = {
 			isExpanded: false,
-			isReadInFlight: false,
-			hasQueuedRead: false,
+			generation: this.nextLifetimeGeneration++,
+			inFlightGenerations: new Set(),
 		};
 		this.entryStates.set(id, created);
 		return created;
 	}
 
-	/** Activates a fresh surface lifetime, clearing all committed lifetime state. */
+	/**
+	 * Activates a fresh surface lifetime: a new generation invalidates every
+	 * pending completion of prior lifetimes, and all committed lifetime state
+	 * is cleared. A fresh read for the new generation may start immediately
+	 * even while an obsolete request is still unresolved.
+	 */
 	private activateSurfaceLifetime(state: EntryDetailState, surface: FleetEntrySurface): void {
 		state.activeSurface = surface;
+		state.generation = this.nextLifetimeGeneration++;
+		delete state.sessionIdentityKey;
 		delete state.committedDetail;
 		delete state.cache;
 		delete state.observation;
-		state.hasQueuedRead = false;
+		delete state.queuedGeneration;
 	}
 
 	private deactivateSurfaceLifetime(state: EntryDetailState): void {
 		delete state.activeSurface;
+		state.generation = this.nextLifetimeGeneration++;
+		delete state.sessionIdentityKey;
 		delete state.committedDetail;
 		delete state.cache;
 		delete state.observation;
-		state.hasQueuedRead = false;
+		delete state.queuedGeneration;
 	}
 
 	/**
@@ -611,7 +656,13 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private removeEntryStateIfIdle(id: string): void {
 		const state = this.entryStates.get(id);
 		if (state === undefined) return;
-		if (state.isReadInFlight || state.isExpanded || state.activeSurface !== undefined) return;
+		if (
+			state.inFlightGenerations.size > 0 ||
+			state.isExpanded ||
+			state.activeSurface !== undefined
+		) {
+			return;
+		}
 		this.entryStates.delete(id);
 	}
 

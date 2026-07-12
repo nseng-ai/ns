@@ -30,16 +30,31 @@ export interface EntryDetailState {
 	isExpanded: boolean;
 	/** The active observation surface; undefined while dormant. */
 	activeSurface?: FleetEntrySurface;
+	/**
+	 * Monotonic lifetime generation assigned from a navigator-wide counter, so
+	 * it cannot collide after this state is deleted and recreated. Every
+	 * lifecycle reset (collapse, re-expand, surface transition, session
+	 * identity change, deactivation) replaces it, and a settled load may commit
+	 * only when its captured generation still matches exactly.
+	 */
+	generation: number;
+	/** Session identity the current lifetime's state belongs to. */
+	sessionIdentityKey?: string;
 	/** Detail committed for the active surface lifetime. */
 	committedDetail?: SubagentFleetTaskDetail;
 	/** Within-lifetime parse cache, valid only for its session identity. */
 	cache?: EntryDetailParseCacheState;
 	/** Detail-surface quiet-time observation for the active lifetime. */
 	observation?: EntryDetailQuietObservation;
-	/** Whether a load request for this entry is currently in flight. */
-	isReadInFlight: boolean;
-	/** One coalesced follow-up read requested while a load was in flight. */
-	hasQueuedRead: boolean;
+	/**
+	 * Generations with an active in-flight request. Tracking per generation
+	 * lets a fresh lifetime start its own read while an obsolete request is
+	 * still unresolved, and an obsolete `finally` can only clear its own
+	 * generation's marker.
+	 */
+	inFlightGenerations: Set<number>;
+	/** One coalesced follow-up read queued for the current generation. */
+	queuedGeneration?: number;
 }
 
 export interface EntryDetailParseCacheState {
