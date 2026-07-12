@@ -431,7 +431,10 @@ describe("/pr:download-stack-feedback", () => {
 		expect(report).not.toContain("ns flow submit");
 		expect(report).not.toContain("Single-PR report footer should not leak");
 		expect(report).toContain("## Addressing workflow boundary");
-		expect(report).toContain("propose a disposition plan");
+		expect(report).toContain("Propose a disposition plan for this feedback now");
+		expect(report).toContain("even if the user only submitted this report");
+		expect(report).toContain("explicitly offering the option to revise it or do something else");
+		expect(report).toContain("wait for explicit approval before changing anything");
 		expect(report).toContain("omnibus");
 		expect(report).not.toContain(
 			"apply unambiguous, behavior-preserving fixes directly to this branch",

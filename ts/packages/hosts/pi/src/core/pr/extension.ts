@@ -34,7 +34,7 @@ const SINGLE_PR_ADDRESSING_FOLLOW_UP = [
 const STACK_ADDRESSING_FOLLOW_UP = [
 	"## Addressing workflow boundary",
 	"",
-	"If asked to address this feedback: propose a disposition plan first — default is one omnibus follow-up PR for mechanical fixes, with single-thesis split-outs proposed per item — and wait for explicit approval before changing anything. If not at the stack tip, surface placement options rather than choosing. Treat this download as one snapshot, then stop and report.",
+	"Propose a disposition plan for this feedback now, even if the user only submitted this report — default is one omnibus follow-up PR for mechanical fixes, with single-thesis split-outs proposed per item. Ask the user to confirm the plan, explicitly offering the option to revise it or do something else, and wait for explicit approval before changing anything. If not at the stack tip, surface placement options rather than choosing. Treat this download as one snapshot, then stop and report.",
 	"",
 	NO_POLLING_PARAGRAPH,
 ].join("\n");

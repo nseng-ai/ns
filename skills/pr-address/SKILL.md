@@ -36,7 +36,7 @@ Both workflows below are one bounded pass over one downloaded snapshot, and both
 
 ### Stack feedback: disposition plan (always HITL)
 
-When asked to address stack feedback, produce a disposition plan and wait for explicit approval before changing anything.
+When presented with downloaded stack feedback, proactively produce a disposition plan even if the human only submitted the report. Ask the human to confirm it, explicitly offering the option to revise the plan or do something else, and wait for explicit approval before changing anything.
 
 Plan format:
 
