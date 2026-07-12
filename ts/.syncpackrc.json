@@ -22,7 +22,7 @@
         "@opentui/core",
         "@pierre/diffs",
         "@types/node",
-        "@typescript/native-preview",
+        "@typescript/native",
         "commander",
         "jiti",
         "oxfmt",

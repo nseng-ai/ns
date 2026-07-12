@@ -40,7 +40,7 @@
 		"./worktree-status/extension": "./src/worktree-status/extension.ts"
 	},
 	"scripts": {
-		"check": "tsgo -p tsconfig.json",
+		"check": "tsc -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/pi/test"
 	},
 	"dependencies": {

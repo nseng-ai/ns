@@ -15,7 +15,7 @@
 		"./testing": "./src/testing/index.ts"
 	},
 	"scripts": {
-		"check": "tsgo -p tsconfig.json",
+		"check": "tsc -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/ns-init/test"
 	},
 	"dependencies": {

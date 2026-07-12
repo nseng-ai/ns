@@ -1,6 +1,6 @@
 ---
 name: ns-typescript
-description: "TypeScript overlay for ns. Use when editing or reviewing TS in this repo: tsconfig baseline, pnpm/Vitest/oxlint/oxfmt/tsgo commands, relative .ts imports, workspace subpath exports, exactOptionalPropertyTypes spread idiom, and the `as unknown as` hard ban."
+description: "TypeScript overlay for ns. Use when editing or reviewing TS in this repo: tsconfig baseline, pnpm/Vitest/oxlint/oxfmt/native tsc commands, relative .ts imports, workspace subpath exports, exactOptionalPropertyTypes spread idiom, and the `as unknown as` hard ban."
 references:
   - references/internal-import-alternatives
 ---
@@ -19,7 +19,7 @@ Load this after `typescript-style` whenever the task touches TypeScript in this 
 - Dependency governance: pnpm catalog plus Syncpack via `just ts-deps-check`.
 - Default tests: Vitest 4 via `pnpm --dir ts run test` or `just ts-test`; specialized integration,
   isolated, and TypeScript style guard lanes are explicit commands.
-- Development typecheck: native TypeScript preview / `tsgo` only, via `pnpm --dir ts run check` or `just ts-check`.
+- Development typecheck: stable native TypeScript 7 / `tsc`, via `pnpm --dir ts run check` or `just ts-check`.
 - Formatting: oxfmt via `pnpm --dir ts run fmt:check` / `just ts-format-check`; autofix with `pnpm --dir ts run fmt` / `just ts-format-fix`.
 - Linting: oxlint via `pnpm --dir ts run lint` / `just ts-lint`; autofix with `pnpm --dir ts run lint:fix` / `just ts-lint-fix`.
 - Repo Markdown/TOML formatting remains dprint via `dprint check` / `just dprint-check`; autofix with `just dprint-fix`.

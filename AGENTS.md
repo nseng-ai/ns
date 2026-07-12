@@ -89,7 +89,7 @@ The ns Pi harness automatically excludes `*.map`, `*.min.js`, and `*.min.css` th
 
 ## TypeScript and CLI work
 
-- Procedural rules for editing under `ts/` (tsgo typecheck, Vitest suite, Bun ban, format/lint autofixers) and for authoring CLI commands live in `ts/AGENTS.md`. Read it before editing any `.ts` file or designing a CLI surface.
+- Procedural rules for editing under `ts/` (native TypeScript 7 typecheck, Vitest suite, Bun ban, format/lint autofixers) and for authoring CLI commands live in `ts/AGENTS.md`. Read it before editing any `.ts` file or designing a CLI surface.
 
 ## Git, Graphite, GitHub
 

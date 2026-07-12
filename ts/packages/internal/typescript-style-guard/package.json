@@ -24,7 +24,7 @@
 		"typescript": "catalog:"
 	},
 	"scripts": {
-		"check": "tsgo -p tsconfig.json",
+		"check": "tsc -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.typescript-style-guard.config.ts"
 	},
 	"ns": {

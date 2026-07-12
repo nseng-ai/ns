@@ -5,7 +5,7 @@ Rules for working under `ts/`, the pnpm workspace holding the ns first-party Typ
 ## TypeScript
 
 - Before TypeScript work, read `.agents/skills/typescript-style/SKILL.md` and `.agents/skills/ns-typescript/SKILL.md`.
-- Typecheck only through tsgo: `just ts-check` or `pnpm --dir ts run check`.
+- Typecheck with the native TypeScript 7 `tsc`: `just ts-check` or `pnpm --dir ts run check`.
 - `ts/` package tests are Vitest-backed; default to the full TS validation suite rather than asking to narrow scope.
 - Do not add Bun-runner package tests. Only standalone Bun templates/projects may use Bun tests, and then run `bun test --sequential`.
 

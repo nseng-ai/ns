@@ -155,7 +155,7 @@ The explicit follow-up ADR 0032 anticipated, scoped to git only:
 
 ## Verification
 
-Per item: `just` (tsgo + Vitest + guard) green; after items 8–9, the style guard is
+Per item: `just` (native `tsc` + Vitest + guard) green; after items 8–9, the style guard is
 the proof the taxonomy and projection hold. After item 3, `ls ts/packages` shows
 exactly the tracked role roots. Corrected sweep finding recorded here for the record:
 `@internal/pi-tools`'s `side-session` is a live, conformant Feature subpackage
