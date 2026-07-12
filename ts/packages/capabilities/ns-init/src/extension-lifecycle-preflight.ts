@@ -128,6 +128,12 @@ export async function prepareExtensionLifecycle(
 	};
 }
 
+function extensionLifecycleGerund(verb: ExtensionLifecycleVerb): string {
+	if (verb === "install") return "installing";
+	if (verb === "uninstall") return "uninstalling";
+	return "updating";
+}
+
 export function extensionLifecycleFailure<TResult>(
 	verb: ExtensionLifecycleVerb,
 	preflightFailure: ExtensionLifecyclePreflightFailure,
@@ -157,7 +163,7 @@ export function extensionLifecycleFailure<TResult>(
 		}
 		const message =
 			result.type === "missing"
-				? `ns.toml is missing; initialize ns before ${verb === "install" ? "installing" : verb === "uninstall" ? "uninstalling" : "updating"} extensions.`
+				? `ns.toml is missing; initialize ns before ${extensionLifecycleGerund(verb)} extensions.`
 				: "ns.toml exists but is not a file.";
 		return failure(`${prefix}-harnesses-missing`, message, {
 			phase: "preflight",
@@ -170,11 +176,9 @@ export function extensionLifecycleFailure<TResult>(
 		preflightFailure.type === "harnesses-missing" ||
 		preflightFailure.type === "harnesses-invalid"
 	) {
-		const action =
-			verb === "install" ? "installing" : verb === "uninstall" ? "uninstalling" : "updating";
 		return failure(
 			`${prefix}-${preflightFailure.type}`,
-			`${preflightFailure.diagnostic.message} Run ns init with an explicit harness before ${action} extensions.`,
+			`${preflightFailure.diagnostic.message} Run ns init with an explicit harness before ${extensionLifecycleGerund(verb)} extensions.`,
 			{
 				...extensionLifecyclePreflightEnvelope([preflightFailure.diagnostic]),
 				nextCommand: "ns init --harness <claude-code|codex|pi>",

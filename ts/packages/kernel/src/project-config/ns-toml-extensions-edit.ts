@@ -66,18 +66,18 @@ export type NsTomlExtensionTargetPlan =
 	  }
 	| InvalidSourcePlan;
 
-type InvalidSourcePlan = {
+interface InvalidSourcePlan {
 	readonly ok: false;
 	readonly reason: "invalid-source";
 	readonly requestedSpec: string;
 	readonly message: string;
-};
+}
 
-type NsTomlSyntaxFailure = {
+interface NsTomlSyntaxFailure {
 	readonly ok: false;
 	readonly reason: "invalid-toml" | "invalid-extensions" | "unsupported-format";
 	readonly message: string;
-};
+}
 
 export function planDeclaredExtensionUninstallToml(options: {
 	readonly projectRoot: string;

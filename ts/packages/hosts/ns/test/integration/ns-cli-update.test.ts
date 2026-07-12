@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,13 +14,32 @@ const tempDirs: string[] = [];
 async function createEmptyProject(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-cli-host-"));
 	tempDirs.push(directory);
-	return directory;
+	return await realpath(directory);
 }
 
 async function initializeGitRepo(projectRoot: string): Promise<void> {
-	const result = await runCommand("git", ["init"], { cwd: projectRoot });
-	if (!commandSucceeded(result)) {
-		throw new Error(formatCommandFailure("git init failed", "git init", result));
+	const initialized = await runCommand("git", ["init", "--initial-branch=main"], {
+		cwd: projectRoot,
+	});
+	if (!commandSucceeded(initialized)) {
+		throw new Error(formatCommandFailure("git init failed", "git init", initialized));
+	}
+	const committed = await runCommand(
+		"git",
+		[
+			"-c",
+			"user.name=ns tests",
+			"-c",
+			"user.email=ns-tests@example.invalid",
+			"commit",
+			"--allow-empty",
+			"-m",
+			"initialize test repository",
+		],
+		{ cwd: projectRoot },
+	);
+	if (!commandSucceeded(committed)) {
+		throw new Error(formatCommandFailure("git commit failed", "git commit", committed));
 	}
 }
 
@@ -59,7 +78,7 @@ afterEach(async () => {
 });
 
 describe("ns CLI host integration", () => {
-	test("updates module and first-party artifacts from a git-root subdirectory", async () => {
+	test("updates one declared extension and reconciles artifacts from a git-root subdirectory", async () => {
 		const projectRoot = await createEmptyProject();
 		await initializeGitRepo(projectRoot);
 		await mkdir(join(projectRoot, "nested"), { recursive: true });
@@ -71,23 +90,23 @@ describe("ns CLI host integration", () => {
 		await writeModuleExtension(projectRoot);
 		const cwd = join(projectRoot, "nested");
 
-		const installed = await runNsCliJson(["update", "--extensions"], cwd);
+		const installed = await runNsCliJson(["extension", "update", "./extensions/acme-module"], cwd);
 		const installedData = dataFromEnvelope(parseJsonOutput(installed));
 		const moduleTarget = join(projectRoot, ".pi", "skills", "module-skill", "SKILL.md");
-		const objectiveTarget = join(projectRoot, ".pi", "skills", "objective", "SKILL.md");
 		const manifestPath = join(projectRoot, ".pi", "skills", ".ns-harness-artifacts-manifest.json");
-		const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
 
 		expect(installed.exit).toBe(0);
-		expect(installedData).toMatchObject({ mode: "applied", isForceRequired: false });
-		expect(installedData.artifacts).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ skillName: "module-skill", action: "installed" }),
-				expect.objectContaining({ skillName: "objective", action: "installed" }),
-			]),
-		);
+		expect(installedData).toMatchObject({
+			mode: "applied",
+			acquisitionIntent: "local-in-place",
+			acquisitionOutcome: "not-applicable",
+		});
+		const installedCompleted = installedData.completed as Record<string, unknown>;
+		expect(installedCompleted.artifacts).toEqual([
+			expect.objectContaining({ skillName: "module-skill", action: "installed" }),
+		]);
 		expect(await readFile(moduleTarget, "utf8")).toBe("# module skill\n");
-		expect(await readFile(objectiveTarget, "utf8")).toContain("# objective");
+		const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>;
 		expect(manifest).toMatchObject({
 			version: 1,
 			artifacts: {
@@ -95,49 +114,36 @@ describe("ns CLI host integration", () => {
 					artifactId: "@acme/module:module-skill",
 					provisionName: "module-skill",
 				},
-				"pi:project:skill:objective-skill": {
-					artifactId: "objective-skill",
-					provisionName: "objective",
-				},
 			},
 		});
 
-		const rerun = await runNsCliJson(["update", "--extensions"], cwd);
+		const rerun = await runNsCliJson(["extension", "update", "./extensions/acme-module"], cwd);
 		const rerunData = dataFromEnvelope(parseJsonOutput(rerun));
 		expect(rerun.exit).toBe(0);
-		expect(rerunData.artifacts).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ skillName: "module-skill", action: "unchanged" }),
-				expect.objectContaining({ skillName: "objective", action: "unchanged" }),
-			]),
-		);
+		const rerunCompleted = rerunData.completed as Record<string, unknown>;
+		expect(rerunCompleted.artifacts).toEqual([
+			expect.objectContaining({ skillName: "module-skill", action: "unchanged" }),
+		]);
 
-		await writeFile(objectiveTarget, "local edit\n", "utf8");
+		await writeFile(moduleTarget, "local edit\n", "utf8");
 		await writeFile(
 			join(projectRoot, "extensions", "acme-module", "skills", "module-skill", "SKILL.md"),
 			"# module skill v2\n",
 			"utf8",
 		);
-		const refused = await runNsCliJson(["update", "--extensions"], cwd);
+		const refused = await runNsCliJson(["extension", "update", "./extensions/acme-module"], cwd);
 		const refusedEnvelope = parseJsonOutput(refused);
-		expect(refused.exit).toBe(1);
-		expect(refusedEnvelope).toMatchObject({ status: "negative", exitCode: 1 });
-		expect(dataFromEnvelope(refusedEnvelope)).toMatchObject({
-			mode: "dry-run",
-			isForceRequired: true,
+		expect(refused.exit).toBe(2);
+		expect(refusedEnvelope).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-update-preflight-failed",
+			exitCode: 2,
 		});
-		expect(dataFromEnvelope(refusedEnvelope).artifacts).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ skillName: "module-skill", action: "refreshed" }),
-				expect.objectContaining({ skillName: "objective", action: "conflicted" }),
-			]),
-		);
-		expect(await readFile(moduleTarget, "utf8")).toBe("# module skill\n");
-		expect(await readFile(objectiveTarget, "utf8")).toBe("local edit\n");
+		expect(await readFile(moduleTarget, "utf8")).toBe("local edit\n");
 
-		const forced = await runNsCliJson(["update", "--extensions", "--force"], cwd);
-		expect(forced.exit).toBe(0);
+		await writeFile(moduleTarget, "# module skill\n", "utf8");
+		const recovered = await runNsCliJson(["extension", "update", "./extensions/acme-module"], cwd);
+		expect(recovered.exit).toBe(0);
 		expect(await readFile(moduleTarget, "utf8")).toBe("# module skill v2\n");
-		expect(await readFile(objectiveTarget, "utf8")).toContain("# objective");
 	});
 });

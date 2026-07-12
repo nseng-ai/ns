@@ -7,7 +7,7 @@ export const nsUpdateRequestSchema = z.object({});
 export const nsUpdateCliRequestSchema = nsUpdateRequestSchema;
 export const nsUpdateResultSchema = z.object({
 	update: z.literal("self"),
-	implemented: z.literal(false),
+	isImplemented: z.literal(false),
 });
 
 export type NsUpdateRequest = z.output<typeof nsUpdateRequestSchema>;
@@ -29,7 +29,7 @@ export async function runNsUpdate(
 }
 
 export function renderNsUpdateHuman(result: NsUpdateResult): string {
-	return result.implemented ? "ns self-update complete." : "ns self-update is not implemented.";
+	return result.isImplemented ? "ns self-update complete." : "ns self-update is not implemented.";
 }
 
 function selfUpdateNotImplemented(): ClinkrExit<NsUpdateResult> {
