@@ -8,7 +8,7 @@ import { describe, expect, test } from "vitest";
 const REPO_ROOT = fileURLToPath(new URL("../../../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PI_BIN = fileURLToPath(new URL("../../node_modules/.bin/pi", import.meta.url));
-const CCC_PACKAGE_ROOT = fileURLToPath(new URL("../../../../capabilities/ccc/", import.meta.url));
+const CMUX_PACKAGE_ROOT = fileURLToPath(new URL("../../../../capabilities/cmux/", import.meta.url));
 const NS_PACKAGE_ROOT = fileURLToPath(new URL("../../../../kernel/", import.meta.url));
 
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
@@ -27,7 +27,7 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@nseng-ai/kernel/cli",
 ] as const;
 
-const CCC_WORKSPACE_IMPORTS = [
+const CMUX_WORKSPACE_IMPORTS = [
 	"@nseng-ai/foundation/exec",
 	"@nseng-ai/branch-context",
 	"@nseng-ai/plans",
@@ -120,13 +120,13 @@ describe("Node runtime import smoke", () => {
 		expect(result.stdout).toContain("imported 5 package specifiers");
 	});
 
-	test("ccc package imports representative cross-package dependencies under Node", () => {
+	test("cmux package imports representative cross-package dependencies under Node", () => {
 		const result = runNodeEval({
-			cwd: CCC_PACKAGE_ROOT,
-			source: buildPackageImportScript(CCC_WORKSPACE_IMPORTS),
+			cwd: CMUX_PACKAGE_ROOT,
+			source: buildPackageImportScript(CMUX_WORKSPACE_IMPORTS),
 		});
 
-		expectSuccessfulNodeRun(result, { cwd: CCC_PACKAGE_ROOT, label: "ccc package imports" });
+		expectSuccessfulNodeRun(result, { cwd: CMUX_PACKAGE_ROOT, label: "cmux package imports" });
 		expect(result.stdout).toContain("imported 4 package specifiers");
 	});
 
