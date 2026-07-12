@@ -135,20 +135,30 @@ function formatTimelineStamp(
 	return `${formatter.format(new Date(timestampMs))} `;
 }
 
+/**
+ * Summary lines for an expanded list-entry preview. Chooses its lines
+ * explicitly by semantic state instead of slicing the full-detail header, so
+ * the preview cannot silently depend on full-detail line order.
+ *
+ * Lines are unindented; the navigator's entry-block composition owns preview
+ * indentation.
+ */
 export function renderFleetEntrySummaryLines(input: {
 	entry: FleetNavigatorEntry;
 	detail: SubagentFleetTaskDetail | undefined;
 	nowMs: number;
 	timelineContext?: FleetTimelineRenderContext;
 }): string[] {
-	const header = renderFleetDetailHeaderLines(input).slice(1);
 	const detail = input.detail;
-	if (detail === undefined) return header;
-	if (detail.message !== undefined) return [...header, detail.message];
+	if (detail === undefined) {
+		return ["loading session…", `session: ${entrySessionFile(input.entry) ?? "—"}`];
+	}
+	const metadata = renderFleetDetailMetadataLines({ detail, nowMs: input.nowMs });
+	if (detail.message !== undefined) return [...metadata, detail.message];
 	const latestEntry = detail.timeline.entries.at(-1);
-	if (latestEntry === undefined) return header;
+	if (latestEntry === undefined) return metadata;
 	return [
-		...header,
+		...metadata,
 		...renderTimelineEntryLines(latestEntry, input.timelineContext).map(
 			(line, index) => `${index === 0 ? "latest: " : "        "}${line}`,
 		),
@@ -171,8 +181,21 @@ export function renderFleetDetailHeaderLines(input: {
 			`session: ${entrySessionFile(entry) ?? "—"}`,
 		];
 	}
+	return [entryTitle(entry), ...renderFleetDetailMetadataLines({ detail, nowMs: input.nowMs })];
+}
+
+/**
+ * The semantic metadata/status lines shared by the full-detail header and the
+ * expanded-entry summary: lifecycle/status/model/count/duration, usage,
+ * session, and live/post-run status slots. Deliberately excludes the entry
+ * title, which is a full-detail-header concern.
+ */
+export function renderFleetDetailMetadataLines(input: {
+	detail: SubagentFleetTaskDetail;
+	nowMs: number;
+}): string[] {
+	const detail = input.detail;
 	return [
-		entryTitle(entry),
 		`${detail.state} · ${detail.status} · ${detail.modelText} · ${detail.turnCount} turns / ${detail.toolCount} tools · ${formatDetailDuration(detail.duration, input.nowMs)}`,
 		usageLine(detail),
 		`session: ${detail.sessionFile ?? "no session file yet"}`,
