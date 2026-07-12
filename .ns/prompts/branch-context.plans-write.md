@@ -95,7 +95,7 @@ Subagent model routing:
   - Only set an explicit model for editing work if the user or command explicitly provides one.
 - For review-only subagents:
   - Cheap model routing applies only to bounded diff review tasks.
-  - When launching a review subagent from `reviews/typescript-style.md` or `reviews/dignified-python.md`, use that review definition's `default_model` if available.
+  - When launching a review subagent from `reviews/typescript-style.md`, use that review definition's `default_model` if available.
   - Never reuse review model guidance for implementation, package creation, refactors, or test-writing subagents.
 
 Closeout review plan:
@@ -105,8 +105,7 @@ Closeout review plan:
 - Plans should include exactly one in-session style review subagent per applicable review family, run after implementation is complete and focused validation has passed.
 - The cheap-model guidance in this section is exclusively for review-only subagents after implementation is complete; never apply it to implementation/editing subagents. Review-only subagents may use the review definition's `default_model` when available. For OpenAI-family Pi routing, the cheap review-capable pattern is `openai-codex/gpt-5.6-luna:medium`.
 - If TypeScript-family files (`.ts`, `.tsx`, `.mts`, `.cts`) are likely to change, include a single in-session `typescript-style` review subagent on the changed diff.
-- If Python files (`.py`) are likely to change, include a single in-session `dignified-python` review subagent on the changed diff.
-- Instruct the implementation agent to inspect review subagent final text/status, remediate only local/mechanical/low-risk findings, rerun focused validation after easy fixes, and report judgment calls instead of guessing. Do not tell the implementation agent to repeat TypeScript/Python style review subagents after remediation; the final PR review is the final style/quality checkstep.
+- Instruct the implementation agent to inspect review subagent final text/status, remediate only local/mechanical/low-risk findings, rerun focused validation after easy fixes, and report judgment calls instead of guessing. Do not tell the implementation agent to repeat TypeScript style review subagents after remediation; the final PR review is the final style/quality checkstep.
 
 Workflow:
 

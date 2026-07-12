@@ -107,31 +107,11 @@
       "sourceType": "local",
       "computedHash": "6f2294d64178262f251c0a3ec2e9b857fd3f8eab57e5a6c3f0230735c9aa79c9"
     },
-    "create-python-dev-cli": {
-      "source": "skills/create-python-dev-cli",
-      "sourceType": "local",
-      "computedHash": "a86ad4c6bee4924e95628bf9ecf02cf191a93f092cec1ae54af653bd72f3c06a"
-    },
-    "create-python-package": {
-      "source": "skills/create-python-package",
-      "sourceType": "local",
-      "computedHash": "a1d58290263dcbee8b86f5305a0846708048dea8ca47e81595aa77390aaa6eb0"
-    },
     "diagnosing-bugs": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
       "computedHash": "1a993ce9b2aaa653ee441c8d7efb7f27de03493c722be6dfb8137bcb8db1bc72"
-    },
-    "dignified-python": {
-      "source": "skills/dignified-python",
-      "sourceType": "local",
-      "computedHash": "9a5643a93e035bc14d1a1a789e789decc70bcab6d1a968911f4b5f329f178cf5"
-    },
-    "dignified-python-tripwire": {
-      "source": "skills/dignified-python-tripwire",
-      "sourceType": "local",
-      "computedHash": "75ac551d6427ce3fbf8f1cbb6576e48192f5ee6551a3b596050b1f50dc37caf6"
     },
     "docs-retro": {
       "source": "skills/docs-retro",
@@ -378,21 +358,6 @@
       "skillPath": "skills/engineering/prototype/SKILL.md",
       "computedHash": "e70c8933d30153a4da47865829d356824b2a830367275e3b00c7b431a1544a79"
     },
-    "pytest": {
-      "source": "skills/pytest",
-      "sourceType": "local",
-      "computedHash": "42447813df7ee7c740aa4062e0a290c639e1f9608280dd89fe93beae42f7a666"
-    },
-    "python-fake-driven-test-layout": {
-      "source": "skills/python-fake-driven-test-layout",
-      "sourceType": "local",
-      "computedHash": "31eba62b47823c752f49eeccc24d45d5d44dcfe2bbeb343d05670ce48f54a8bd"
-    },
-    "python-fake-driven-testing": {
-      "source": "skills/python-fake-driven-testing",
-      "sourceType": "local",
-      "computedHash": "668da2d7e3596c8759a5521ac88b4c079a13e54ca5effcd956c6bca10ce31788"
-    },
     "readme-driven-development": {
       "source": "skills/readme-driven-development",
       "sourceType": "local",
@@ -443,16 +408,6 @@
       "source": "skills/setup-graphite",
       "sourceType": "local",
       "computedHash": "e3fca57ff87c0916e4c03264824f9d9106b96b9f26b077a0bbcd040363e950f6"
-    },
-    "setup-pypi-publish": {
-      "source": "skills/setup-pypi-publish",
-      "sourceType": "local",
-      "computedHash": "95ef01e8c5b2e8ce4913ce98be2509db7bbc19724092292408b294173fa49c6f"
-    },
-    "setup-python-gh-ci": {
-      "source": "skills/setup-python-gh-ci",
-      "sourceType": "local",
-      "computedHash": "5c036caa107e6cdc698a6de868495815021c04d360d3b8c3be6f37a16bed11e8"
     },
     "skill-audit": {
       "source": "skills/skill-audit",

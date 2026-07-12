@@ -29,15 +29,16 @@ findings against the live files before editing (line references in
       (duplication, no-op, sediment, negation deletions) per skill, honoring
       sanctioned-duplication markers.
       Guidance: land as a few family-grouped branches in one stack (objective family;
-      branch-context/handoff/brmem; code/Graphite ops; flow+ccc; python; scaffolding;
+      branch-context/handoff/brmem; code/Graphite ops; flow+ccc; scaffolding;
       TypeScript/CLI; docs/retro/setup; review/meta) so review stays tractable; record
-      per-family `wc -l` before/after.
+      per-family `wc -l` before/after. The python family moved to `nseng-ai/ns-python`
+      (2026-07-12); its T1 findings are out of scope here.
 - [ ] Tranche 2 — trigger-surface normalization: real descriptions for the legacy
       `Command:` stubs (ns-flow-cp, ns-flow-submit, code-just-fix, code-workflows,
       changelog-update); convert workflow-summary descriptions to trigger-shaped ones
       (code-fix-gh-stack, objective-retro, code-thermostack, docs-retro, branch-retro,
       context-bundle-analysis, architecture-topology-report, skill-management, skill-audit);
-      collapse synonym trigger lists (create-* family, setup-python-gh-ci, objective-create,
+      collapse synonym trigger lists (create-* family, objective-create,
       objective-autorun); fix `metadata.internal` drift (ccc-branch-triage) and the
       unexplained `model: opus` on code-gt-restack-resolve; drop internal-path citations from
       public skills (objective-runner-step, objective-autorun).
@@ -55,10 +56,10 @@ findings against the live files before editing (line references in
       just-gate map, doc-economics rules shared by docs-retro/branch-retro); disclosure moves
       (code-smush recovery/feedback sections, ccc-stack-map palette, objective-retro
       templates/maintainer notes, skill-management umbrella-families section); TOCs for
-      reference files over ~300 lines (dignified-python versions/*, python-fake-driven-testing
-      references, code-gh graphql references, architecture-topology-report HTML-REPORT.md);
+      reference files over ~300 lines (code-gh graphql references,
+      architecture-topology-report HTML-REPORT.md);
       sharpen the flagged vague completion criteria (ccc-branch-triage, code-thermostack,
-      code-gt-restack-resolve, skill-management rename, setup-python-gh-ci).
+      code-gt-restack-resolve, skill-management rename).
 - [ ] Tranche 4 — CLI push-down dispositions: for each of the 29 T4 candidates, record
       accept/graduate/reject with rationale; implement only the small, clearly-bounded
       accepted ones here.
