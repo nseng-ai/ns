@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import type { StackSnapshot } from "../../src/land/api.ts";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";

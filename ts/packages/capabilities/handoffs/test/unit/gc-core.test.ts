@@ -1,5 +1,5 @@
 import { FakeBrmemGateway } from "@nseng-ai/brmem";
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { HandoffStorageDeps } from "../../src/core/artifact-storage.ts";

@@ -1,6 +1,6 @@
 import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/capability-kit/git";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
 import { landFailure, landSuccess } from "../api.ts";
 import type { LandingFailure, LandResult } from "../api.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";

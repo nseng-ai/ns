@@ -1,5 +1,6 @@
 import { createNsCommandRunner } from "@nseng-ai/capability-kit";
-import { createNsGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
+import { createNsGitGateway } from "@nseng-ai/capability-kit";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { CommandRunner } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {

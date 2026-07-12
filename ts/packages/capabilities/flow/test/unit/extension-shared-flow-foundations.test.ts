@@ -117,7 +117,7 @@ describe("project extension shared flow foundations", () => {
 		expect(worktreeSource).not.toContain("execFlowGit");
 		expect(worktreeSource).not.toContain('ctx.exec("git"');
 		expect(worktreeSource).not.toContain("isClean");
-		expect(pushSource).toContain("@nseng-ai/capability-kit/git");
+		expect(pushSource).toContain("@nseng-ai/foundation/git");
 		expect(pushSource).toContain("readNsGitPorcelainStatus");
 		expect(pushSource).toContain("execNsGit");
 		expect(pushSource).not.toContain("../shared/git.ts");

@@ -1,6 +1,6 @@
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 
 import { RealObjectiveStorageGateway } from "./real-storage.ts";
 import { ObjectiveStorage } from "./storage.ts";

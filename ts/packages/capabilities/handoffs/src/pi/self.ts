@@ -20,7 +20,7 @@ import {
 	HANDOFF_SELF_STATUS_KEY,
 	HANDOFF_SELF_WORKFLOW_TIMEOUT_MS,
 } from "./command-constants.ts";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { HandoffCreateSkillLoader } from "./create-skill.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";

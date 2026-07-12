@@ -3,9 +3,6 @@ import path from "node:path";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import { commandSucceeded, formatCommand, formatCommandFailure } from "@nseng-ai/foundation/exec";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
-
-import { NsCommandExecApi } from "../kit/command-runner.ts";
 import { firstNonEmptyLine, nonEmptyLines } from "@nseng-ai/foundation/text-normalization";
 import type {
 	GitBranchParams,
@@ -61,6 +58,13 @@ export {
 	type GitWorktreeStateFs,
 	type GitWorktreeStateOptions,
 } from "./worktree-state.ts";
+export {
+	readLocalBranchRefs,
+	type LocalBranchRefDirent,
+	type LocalBranchRefReadResult,
+	type LocalBranchRefReaderFs,
+	type ReadLocalBranchRefsOptions,
+} from "./local-ref-reader.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 
@@ -580,10 +584,6 @@ function parseLocalBranchTips(stdout: string): GitLocalBranchTip[] {
 			},
 		];
 	});
-}
-
-export function createNsGitGateway(ctx: NsExtensionApi): GitGateway {
-	return new RealGitGateway(new NsCommandExecApi(ctx));
 }
 
 export interface GitWorktreePorcelainEntry {

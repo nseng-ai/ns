@@ -4,7 +4,7 @@ import {
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
 
 import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";

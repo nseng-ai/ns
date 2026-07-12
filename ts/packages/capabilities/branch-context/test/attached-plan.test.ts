@@ -13,7 +13,7 @@ import {
 import type { AttachedPlanEntry } from "../src/core/branch-memory.ts";
 import { BRANCH_CONTEXT_NAMESPACE, type BranchContextContext } from "@nseng-ai/branch-context";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@nseng-ai/plans";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";

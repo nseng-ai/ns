@@ -1,7 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 
 import { NsCommandExecApi } from "@nseng-ai/capability-kit/command-runner";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";

@@ -1,10 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import {
-	GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS,
-	RealGitGateway,
-} from "@nseng-ai/capability-kit/git";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS, RealGitGateway } from "@nseng-ai/foundation/git";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 
 const ROOT = "/repo";

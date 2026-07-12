@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { describe, expect, it } from "vitest";
 
 import type { RetrosCliContext } from "../../src/context.ts";

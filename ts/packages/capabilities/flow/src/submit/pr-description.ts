@@ -4,7 +4,7 @@ import { basename, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
 	DEFAULT_PR_DESCRIPTION_MODEL_REF,
 	PR_DESCRIPTION_MODEL_ENV,

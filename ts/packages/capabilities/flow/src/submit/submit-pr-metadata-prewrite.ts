@@ -5,7 +5,7 @@ import {
 	GRAPHITE_COMMAND_NAME,
 	runGraphiteCommand,
 } from "@nseng-ai/capability-kit/graphite/branch";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { commandFailure } from "./index.ts";
 import type { PrewrittenPrMetadata, PrCommitMessage } from "./index.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";

@@ -5,7 +5,7 @@ import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants
 import type { BrmemGateway } from "@nseng-ai/brmem";
 import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import { type CommandExecApi, formatCommand } from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { normalizeSummary, resolvePlanSourceFile } from "@nseng-ai/plans";
 import type { BranchContextContext } from "./context.ts";

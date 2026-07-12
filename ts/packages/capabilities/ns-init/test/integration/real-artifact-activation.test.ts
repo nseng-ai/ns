@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
 
 import { prepareNsActivation } from "../../src/activate-ns.ts";

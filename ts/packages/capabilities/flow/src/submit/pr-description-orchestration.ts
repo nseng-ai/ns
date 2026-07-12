@@ -1,4 +1,4 @@
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ErrorInfo } from "@nseng-ai/foundation/result";

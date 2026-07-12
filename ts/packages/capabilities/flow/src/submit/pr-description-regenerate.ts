@@ -1,6 +1,6 @@
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit";
-import { createNsGitGateway } from "@nseng-ai/capability-kit/git";
+import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 import { RealGithubPrGateway } from "./github-pr-gateway.ts";
 import type { PromptSource } from "./pr-description.ts";

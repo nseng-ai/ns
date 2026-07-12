@@ -15,7 +15,7 @@ import { realHandoffCreateSkillLoader, type HandoffCreateSkillLoader } from "./c
 import { checkHandoffExists } from "./handoff-existence.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type { ExpandedSkillBlock } from "@nseng-ai/pi/skills/expansion";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type {
 	CommandContext,

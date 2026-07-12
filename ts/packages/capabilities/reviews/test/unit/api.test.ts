@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
 import { describe, expect, test } from "vitest";
 

@@ -1,4 +1,4 @@
-import type { GitErrorInfo } from "@nseng-ai/capability-kit/git";
+import type { GitErrorInfo } from "@nseng-ai/foundation/git";
 import type { ErrorInfo } from "@nseng-ai/foundation/result";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 

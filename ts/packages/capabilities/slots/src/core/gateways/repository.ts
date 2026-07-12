@@ -13,7 +13,7 @@ import {
 	RealGitGateway,
 	type GitGateway,
 	type GitOperationInProgressFacts,
-} from "@nseng-ai/capability-kit/git";
+} from "@nseng-ai/foundation/git";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 import {

@@ -24,7 +24,7 @@ import {
 	PICKUP_HANDOFF_COMMAND_NAME,
 } from "./command-constants.ts";
 import { setStatus, type HandoffStartMessages } from "./ui-status.ts";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { CommandContext, ExtensionAPI, ToolDefinition } from "./runtime-types.ts";
 

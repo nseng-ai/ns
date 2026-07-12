@@ -1,5 +1,5 @@
 import { NodeCommandExecApi, runCommand } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
 import type { PrAddressGithubGateway, PrAddressGitGateway } from "./api.ts";
 

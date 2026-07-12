@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import { createTempGitRepo, type TempGitRepo } from "@nseng-ai/capability-kit/git/testing";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import { createTempGitRepo, type TempGitRepo } from "@nseng-ai/foundation/git/testing";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { errorCodeFromUnknown } from "@nseng-ai/foundation/primitives";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/testing";
 import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
 import { ok, type GithubPrGateway, type TextGenerator } from "../../src/submit/index.ts";

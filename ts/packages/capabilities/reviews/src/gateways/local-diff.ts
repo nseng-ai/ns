@@ -9,8 +9,8 @@ import {
 } from "@nseng-ai/foundation/command";
 import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 
 import { parseUnifiedDiff } from "../core/diff-parsing.ts";
 import type { LocalDiffFailure, ReviewResult } from "../core/failures.ts";

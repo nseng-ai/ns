@@ -18,7 +18,7 @@ import {
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import type { BranchContextContext } from "../src/core/context.ts";
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
 
 const PLAN_SLUG = "branch-scoped-plan";

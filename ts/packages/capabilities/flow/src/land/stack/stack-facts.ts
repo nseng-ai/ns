@@ -8,7 +8,7 @@ import {
 	type GitOperationInProgress,
 	type GitWorktreeStateFs,
 	type GitWorktreeStateOptions,
-} from "@nseng-ai/capability-kit/git";
+} from "@nseng-ai/foundation/git";
 import { reconcileTopologyToLiveBranches } from "@nseng-ai/capability-kit/graphite/metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";

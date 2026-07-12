@@ -1,6 +1,6 @@
 import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { GitWorktreeStateFs } from "@nseng-ai/capability-kit/git";
+import type { GitWorktreeStateFs } from "@nseng-ai/foundation/git";
 import { snapshotBackupRefs } from "./backup-refs.ts";
 import { formatCommandForDisplay } from "./command-stream.ts";
 import { landCompleted, landFailure, landOutcomeFailure, landSuccess } from "../api.ts";

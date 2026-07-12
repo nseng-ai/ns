@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 import { mustSnapshotRef } from "../../src/ref-layout.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
-import { createTempGitRepo } from "@nseng-ai/capability-kit/git/testing";
+import { createTempGitRepo } from "@nseng-ai/foundation/git/testing";
 
 describe("copy operation real-Git integration", () => {
 	it("wires public copy through RealGitBrmemGateway and preserves dry-run refs", async () => {

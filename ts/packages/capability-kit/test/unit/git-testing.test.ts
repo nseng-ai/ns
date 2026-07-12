@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway, type GitRefsPathCall } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway, type GitRefsPathCall } from "@nseng-ai/foundation/git/testing";
 
 const ROOT = "/repo";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";

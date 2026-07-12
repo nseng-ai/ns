@@ -43,7 +43,7 @@ import type {
 	GithubStatusCheckKind,
 	GithubStatusChecks,
 } from "@nseng-ai/capability-kit/github/pr-status";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 
 // Stable PR Address Capability API: PR feedback domain seam and payloads.
 export type {

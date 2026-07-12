@@ -27,6 +27,8 @@
 		"./xdg-path": "./src/config/xdg-path.ts",
 		"./exec": "./src/exec/index.ts",
 		"./exec/testing": "./src/exec/testing.ts",
+		"./git": "./src/git/index.ts",
+		"./git/testing": "./src/git/testing.ts",
 		"./cli-runtime": "./src/cli-runtime/index.ts",
 		"./cli-runtime/testing": "./src/cli-runtime/testing.ts",
 		"./cli-theme": "./src/cli-theme/index.ts",
@@ -52,6 +54,7 @@
 		"subpackages": [
 			"time",
 			"exec",
+			"git",
 			"cli-runtime",
 			"cli-theme",
 			"test-kit",

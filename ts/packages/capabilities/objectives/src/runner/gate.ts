@@ -1,4 +1,4 @@
-import type { GitCurrentBranchResult } from "@nseng-ai/capability-kit/git";
+import type { GitCurrentBranchResult } from "@nseng-ai/foundation/git";
 import { z } from "zod";
 
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";

@@ -7,7 +7,7 @@ import type {
 	SkillLookupRootDescriptor,
 	SkillLookupSourceType,
 } from "@nseng-ai/foundation/skill-lookup";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
 import type { PathState, TextFileState } from "@nseng-ai/harness-artifacts/api";
 

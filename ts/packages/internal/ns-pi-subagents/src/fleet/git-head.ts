@@ -1,4 +1,4 @@
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 
 import { conciseGitFailureReason } from "./git-output.ts";

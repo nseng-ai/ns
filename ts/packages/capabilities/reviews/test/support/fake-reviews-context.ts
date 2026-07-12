@@ -1,6 +1,6 @@
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import type { GitGateway } from "@nseng-ai/foundation/git";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 import type { ReviewsContext } from "../../src/core/context.ts";
 import {

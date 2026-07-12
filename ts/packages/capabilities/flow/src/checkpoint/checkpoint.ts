@@ -10,7 +10,8 @@ import type { TimeServices } from "@nseng-ai/foundation/time";
 import type { ActiveOperation, NsProgressPhaseListener } from "@nseng-ai/kernel/sdk";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
-import { createNsGitGateway, type GitGateway } from "@nseng-ai/capability-kit/git";
+import { createNsGitGateway } from "@nseng-ai/capability-kit";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { TextRepairProgressEvent } from "@nseng-ai/capability-kit/text-repair";
 import {
 	createCommitWithPreparedMessage,

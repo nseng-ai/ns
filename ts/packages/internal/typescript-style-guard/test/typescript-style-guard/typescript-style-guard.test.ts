@@ -149,14 +149,14 @@ describe("TypeScript style guard source rules", () => {
 			expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
 		},
 		{
-			name: "capability gateway backend import is allowed for capabilities",
-			code: 'import { RealGitGateway } from "@nseng-ai/capability-kit/git";',
+			name: "foundation git seam import is allowed for capabilities",
+			code: 'import { RealGitGateway } from "@nseng-ai/foundation/git";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
 			name: "capability-kit import is allowed for capabilities",
-			code: 'import { createNsGitGateway } from "@nseng-ai/capability-kit/git";',
+			code: 'import { createNsGitGateway } from "@nseng-ai/capability-kit";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},

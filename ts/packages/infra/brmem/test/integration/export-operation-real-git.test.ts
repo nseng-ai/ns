@@ -6,11 +6,11 @@ import { describe, expect, it } from "vitest";
 
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
-import { createTempGitRepo } from "@nseng-ai/capability-kit/git/testing";
+import { createTempGitRepo } from "@nseng-ai/foundation/git/testing";
 
 describe("export operation real-Git integration", () => {
 	it("wires public export through RealGitBrmemGateway", async () => {

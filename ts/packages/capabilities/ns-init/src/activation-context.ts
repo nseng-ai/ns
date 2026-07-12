@@ -1,4 +1,4 @@
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 
 import type { ActivationFilesGateway } from "./activation-files.ts";
 import type { ArtifactActivationGateway } from "./artifact-activation.ts";

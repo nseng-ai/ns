@@ -16,7 +16,7 @@ import {
 	isSupportedBranchContextPlanKey,
 } from "./constants.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { resolveSelectedSavedPlanFile } from "@nseng-ai/plans";
 import type { BranchContextContext } from "./context.ts";
 import { branchContextImplPromptTemplateUrl } from "./prompt-assets.ts";

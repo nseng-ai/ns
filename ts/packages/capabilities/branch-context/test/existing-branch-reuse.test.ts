@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 
 import {
 	BRANCH_CONTEXT_NAMESPACE,

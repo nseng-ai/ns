@@ -10,8 +10,8 @@ import {
 	formatCommand,
 	tailText,
 } from "@nseng-ai/foundation/command";
-import { RealGitGateway, resolveWorktreeGitDirs } from "@nseng-ai/capability-kit/git";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway, resolveWorktreeGitDirs } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { runGitHubCli } from "@nseng-ai/capability-kit/github/cli";
 import { resolveGithubRepositoryIdentityFromOrigin } from "@nseng-ai/capability-kit/github/identity";
 import {

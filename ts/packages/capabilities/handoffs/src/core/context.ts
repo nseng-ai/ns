@@ -6,8 +6,8 @@ import {
 } from "@nseng-ai/brmem";
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@nseng-ai/clinkr";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 
 export interface HandoffCliContext {

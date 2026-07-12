@@ -7,7 +7,7 @@ import {
 	type BrmemResult,
 } from "@nseng-ai/brmem";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 
 import {
 	HANDOFF_NAMESPACE,

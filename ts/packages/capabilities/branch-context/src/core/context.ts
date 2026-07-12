@@ -1,8 +1,8 @@
 import { RealGitBrmemGateway, type BrmemGateway } from "@nseng-ai/brmem";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi, StdinCapableCommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
 	RealGraphiteBranchGateway,
 	type GraphiteBranchGateway,

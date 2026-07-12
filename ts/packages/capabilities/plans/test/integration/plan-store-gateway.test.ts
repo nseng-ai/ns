@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, realpath, rm, utimes, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import {
 	createRealPlanStoreGateway,
 	encodeBranchForPlanPath,

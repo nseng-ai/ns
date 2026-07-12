@@ -1,12 +1,13 @@
 import { access } from "node:fs/promises";
+import { join } from "node:path";
 import process from "node:process";
 
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 
-import { resolveNsXdgPath } from "@nseng-ai/capability-kit/xdg";
+import { resolveXdgHome } from "@nseng-ai/foundation/xdg-path";
 
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 import type { BrmemEnvOption } from "./env.ts";
@@ -48,12 +49,8 @@ export class RealBrmemPromptResolver implements BrmemPromptResolver {
 
 	globalPromptRoots(): readonly string[] {
 		const roots: string[] = [];
-		const xdgRoot = resolveNsXdgPath({
-			kind: "config",
-			env: this.env,
-			segments: ["brmem", "prompts"],
-		});
-		if (xdgRoot.ok) roots.push(xdgRoot.value);
+		const configHome = resolveXdgHome("config", this.env);
+		if (configHome.ok) roots.push(join(configHome.value, "ns", "brmem", "prompts"));
 
 		return [...new Set(roots)];
 	}

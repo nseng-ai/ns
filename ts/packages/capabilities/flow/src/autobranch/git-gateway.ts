@@ -4,7 +4,7 @@ import {
 	type GitGateway,
 	type GitOptionalResult,
 	type GitResult,
-} from "@nseng-ai/capability-kit/git";
+} from "@nseng-ai/foundation/git";
 import { commandSucceeded, type CommandExecApi } from "@nseng-ai/foundation/command";
 
 import type { AutobranchExec, CommandResult } from "./shared.ts";

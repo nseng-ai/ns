@@ -1,7 +1,7 @@
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
-import type { LocalBranchRefReadResult } from "../git/local-ref-reader.ts";
+import type { LocalBranchRefReadResult } from "@nseng-ai/foundation/git";
 import type { GraphiteMetadataDbAccess } from "./metadata.ts";
 
 export const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [

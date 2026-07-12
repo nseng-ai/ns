@@ -6,7 +6,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { RawPiExecOptions, RawPiExecResult } from "../../../src/pi/host-types.ts";
 import { copyExecOptionsWithout } from "@nseng-ai/foundation/exec/testing";
-import { createTempGitRepo } from "@nseng-ai/capability-kit/git/testing";
+import { createTempGitRepo } from "@nseng-ai/foundation/git/testing";
 import { createTempDirTracker } from "@nseng-ai/foundation/test-kit";
 import registerBranchContextExtension from "../../../src/pi/extension.ts";
 import {

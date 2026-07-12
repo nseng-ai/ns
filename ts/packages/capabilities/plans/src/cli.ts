@@ -12,8 +12,8 @@ import {
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { z } from "zod";
 
 import {

@@ -1,7 +1,7 @@
 import { type BranchContextEvidence } from "@nseng-ai/branch-context/api";
 import { formatImplBranchContextCommand } from "../surfaces.ts";
 import { setRuntimeStatus } from "@nseng-ai/pi/runtime/status";
-import type { GitGateway } from "@nseng-ai/capability-kit/git";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { NewSessionOptions, NewSessionResult } from "../host-types.ts";
 
 export type BranchContextGtUpstackImplNewSessionOptions = NewSessionOptions;

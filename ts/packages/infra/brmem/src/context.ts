@@ -1,5 +1,5 @@
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/capability-kit/git";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@nseng-ai/clinkr";
 import { readStdin, readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 
