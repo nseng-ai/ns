@@ -49,13 +49,13 @@ When the engine's Driver contract asks for overrides, use:
   returns the engine's structured escalation payload to the parent, and does
   not run `gt continue`.
 
-<!-- TEMPORARY (TS toolchain rollout) — remove once the oxlint/oxfmt/tsgo
+<!-- TEMPORARY (TS toolchain rollout) — remove once the oxlint/oxfmt/native-tsc
      toolchain commits have fully landed and no longer sit unrebased under
      active stacks. -->
 
 ## TEMPORARY: TS toolchain-rollout conflicts
 
-While the TypeScript toolchain rollout (the pnpm 11 / oxlint / oxfmt / tsgo
+While the TypeScript toolchain rollout (the pnpm 11 / oxlint / oxfmt / native-tsc
 governance commits) is still propagating through stacks, restacks will hit a
 recurring conflict shape: a **formatting-only** commit (oxfmt reflow of the
 *old* code shape) replays onto a base that meanwhile gained real feature logic

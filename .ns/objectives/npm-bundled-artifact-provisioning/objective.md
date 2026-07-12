@@ -55,7 +55,7 @@ Hard non-goals inherited from the umbrella:
 - Provisioning is idempotent and clobber-aware via the manifest (refuse-to-clobber-without-`--force` holds for module-bundled installs).
 - AREG's `npx skills add` path and its three call sites are removed; `AregNpxSkillsGateway` / skillx gateway gone; the affected scenario suites updated deliberately with the feature removals called out.
 - AREG's `check`/`doctor`/`skill-kind`/`skill-find` inspection surface still runs and still examines a project's total installed artifacts; where scoped, it recognizes shared-manifest-provisioned artifacts as an inspected source.
-- Full `just` green (main suite, `typescript-style-guard`, tsgo, objective edge sweep `sweep-ok`).
+- Full `just` green (main suite, `typescript-style-guard`, native `tsc`, objective edge sweep `sweep-ok`).
 
 ## Definition of Progress
 

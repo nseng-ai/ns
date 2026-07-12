@@ -7,7 +7,7 @@ This is a throwaway, Objective-owned typed prototype. It is deliberately outside
 From the repository root:
 
 ```sh
-pnpm --dir ts exec tsgo -p ../.ns/objectives/harness-session-generation/references/prototype/tsconfig.json
+pnpm --dir ts exec tsc -p ../.ns/objectives/harness-session-generation/references/prototype/tsconfig.json
 node --test .ns/objectives/harness-session-generation/references/prototype/prototype.test.ts
 ```
 

@@ -95,7 +95,7 @@ Do not keep changes that:
 - touch code inside the boundaries listed under Non-Goals (especially the
   read-only ad-hoc callers or the `capability-kit-promotions` Parked rows).
 
-Useful evidence includes: tsgo typecheck, targeted Vitest for the touched
+Useful evidence includes: native `tsc` typecheck, targeted Vitest for the touched
 packages, `just ts-test-typescript-style-guard`, and a green `just` run.
 
 ## Runner Policy
@@ -114,7 +114,7 @@ This Objective is execution-friendly for `objective-next` and
 - How work may change files and be left: edits land as commits on Graphite
   feature branches via `gt`, one coherent row (or a clean slice of one) per
   checkpoint; the worktree is left clean; no commits on `master`.
-- Validation before keeping work: tsgo typecheck plus targeted Vitest for every
+- Validation before keeping work: native `tsc` typecheck plus targeted Vitest for every
   touched package, then `just`, all green.
 - What will not happen unless explicitly requested: PR submission or update,
   pushing, publishing, GitHub issue/PR mutation, or any external-system write.

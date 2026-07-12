@@ -24,7 +24,7 @@
 	},
 	"scripts": {
 		"build:bundle": "node scripts/build-bundle.mjs",
-		"check": "tsgo -p tsconfig.json",
+		"check": "tsc -p tsconfig.json",
 		"pack:local": "pnpm run build:bundle && node scripts/prepare-local-package.mjs && npm pack ./dist/publish --pack-destination dist",
 		"publish:dry-run": "pnpm run build:bundle && node scripts/prepare-local-package.mjs && npm publish --dry-run ./dist/publish",
 		"smoke:checkout-free": "node scripts/smoke-checkout-free.mjs",

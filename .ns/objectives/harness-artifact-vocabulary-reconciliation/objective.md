@@ -46,7 +46,7 @@ This is a **bounded execution Subobjective** under the `skill-management-subsyst
 - `rg -i "managed artifact"` under `ts/packages/tools/areg` returns nothing; the overlay concept has one new name used consistently in code, tests, and output strings.
 - `skill-conventions.md`, the `skill-management` skill, and affected CONTEXT.md files tell the additive two-channel story with the decided vocabulary and appropriate `Avoid` entries.
 - Residual `skillx` references outside deliberately-preserved historical records are gone.
-- Full `just` green (main suite, style guard, tsgo, edge sweep `sweep-ok`).
+- Full `just` green (main suite, style guard, native `tsc`, edge sweep `sweep-ok`).
 
 ## Definition of Progress
 

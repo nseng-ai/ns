@@ -15,7 +15,7 @@ catalog:
   '@earendil-works/pi-tui': 0.80.5
   '@pierre/diffs': ^1.2.10
   '@types/node': ^24.0.0
-  '@typescript/native-preview': 7.0.0-dev.20260617.2
+  '@typescript/native': npm:typescript@^7.0.2
   '@withgraphite/graphite-cli': ^1.8.6
   ansis: ^4.3.1
   commander: ^14.0.0
@@ -27,7 +27,7 @@ catalog:
   oxlint: ^1.70.0
   smol-toml: ^1.6.1
   syncpack: ^15.3.2
-  typescript: ^6.0.3
+  typescript: npm:@typescript/typescript6@^6.0.2
   vitest: ^4.1.8
   yaml: ^2.9.0
   zod: ^4.4.3

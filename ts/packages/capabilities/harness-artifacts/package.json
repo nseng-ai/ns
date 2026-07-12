@@ -15,7 +15,7 @@
 		"./ns/commands/update": "./src/ns/commands/update.ts"
 	},
 	"scripts": {
-		"check": "tsgo -p tsconfig.json",
+		"check": "tsc -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/harness-artifacts/test"
 	},
 	"dependencies": {

@@ -95,7 +95,7 @@ Do not keep changes that:
   second-wave surfaces named in Scope;
 - touch code inside the boundaries listed under Non-Goals.
 
-Useful evidence includes: tsgo typecheck, targeted vitest for the touched
+Useful evidence includes: native `tsc` typecheck, targeted vitest for the touched
 packages, and a green `just` run.
 
 ## Runner Policy
@@ -113,7 +113,7 @@ This Objective is execution-friendly for `objective-next` and
 - How work may change files and be left: edits land as commits on Graphite
   feature branches via `gt`, one coherent row (or a clean slice of one) per
   checkpoint; the worktree is left clean; no commits on `master`.
-- Validation before keeping work: tsgo typecheck plus targeted vitest for
+- Validation before keeping work: native `tsc` typecheck plus targeted vitest for
   every touched package, then `just`, all green.
 - What will not happen unless explicitly requested: PR submission or update,
   pushing, publishing, GitHub issue/PR mutation, or any external-system write.

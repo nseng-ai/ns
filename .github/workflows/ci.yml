@@ -28,7 +28,7 @@ jobs:
         run: just ts-format-check
       - name: Run TypeScript lint
         run: just ts-lint
-      - name: Run TypeScript primary typecheck
+      - name: Run native TypeScript 7 (tsc) typecheck
         run: just ts-check
       - name: Run TypeScript tests
         run: just ts-test

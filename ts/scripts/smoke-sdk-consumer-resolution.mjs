@@ -36,7 +36,7 @@ try {
 	);
 	await writeFile(join(tempRoot, "consumer.ts"), consumerSource());
 	run("npm", ["install", "--silent", resolve(publishRoot)], { cwd: tempRoot });
-	run(resolve(workspaceRoot, "node_modules", ".bin", "tsgo"), ["-p", "tsconfig.json"], { cwd: tempRoot });
+	run(resolve(workspaceRoot, "node_modules", ".bin", "tsc"), ["-p", "tsconfig.json"], { cwd: tempRoot });
 	console.log(`sdk consumer resolution smoke passed: ${tempRoot}`);
 } finally {
 	if (process.env.NS_SDK_KEEP_SMOKE_DIR !== "1") await rm(tempRoot, { recursive: true, force: true });

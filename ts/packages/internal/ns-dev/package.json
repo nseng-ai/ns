@@ -7,7 +7,7 @@
 		"ns-dev": "./src/cli.ts"
 	},
 	"scripts": {
-		"check": "tsgo -p tsconfig.json",
+		"check": "tsc -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/internal/ns-dev/test"
 	},
 	"dependencies": {
