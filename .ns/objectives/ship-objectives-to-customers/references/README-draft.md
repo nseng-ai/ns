@@ -121,7 +121,8 @@ converges. Reversible by reinstalling. Danger tier 1 — no confirmation, `--yes
 
 ### `ns extension update <source> [--dry-run|-n]`
 
-Updates exactly one declared extension; the source spec is required. Bare
+Updates exactly one declared extension; the source spec is required. npm targets must match the
+exact declared spec, while local targets match by normalized path identity. Bare
 `ns extension update` is a usage error naming the missing target. (A fleet-wide `--all`
 is deliberately deferred.)
 
