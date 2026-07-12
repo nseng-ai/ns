@@ -53,7 +53,7 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 			cleanup: postLandingCleanupRequestFromArgs(options.parsedArgs),
 			approvedConfirmationKinds: approvedLandConfirmationKinds({
 				flags: options.parsedArgs,
-				wasUpfrontPromptApproved: false,
+				hasUpfrontPromptApproval: false,
 				...optionalEntry("cleanupPreview", cleanupPreview),
 			}),
 			...optionalEntry("progressIo", observabilityChannels.progressIo),
@@ -82,7 +82,7 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 			source: { type: "prepared", shape: shape.value },
 			approvedConfirmationKinds: approvedLandConfirmationKinds({
 				flags: options.parsedArgs,
-				wasUpfrontPromptApproved: confirmationResult.wasPromptApproved,
+				hasUpfrontPromptApproval: confirmationResult.hasPromptApproval,
 				...optionalEntry("cleanupPreview", cleanupPreview),
 			}),
 		},
@@ -91,7 +91,7 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 
 interface StackModeConfirmationResult {
 	readonly outcome: LandOutcome;
-	readonly wasPromptApproved: boolean;
+	readonly hasPromptApproval: boolean;
 }
 
 async function confirmStackModeIfNeeded(
@@ -118,7 +118,7 @@ async function confirmStackModeIfNeeded(
 		defaultAnswer: "yes",
 		onFailure: (failure) => presentFailureAndReturn(ctx, failure),
 	});
-	return { outcome, wasPromptApproved: outcome.type === "completed" && shouldPrompt };
+	return { outcome, hasPromptApproval: outcome.type === "completed" && shouldPrompt };
 }
 
 export function buildUpfrontStackConfirmation(

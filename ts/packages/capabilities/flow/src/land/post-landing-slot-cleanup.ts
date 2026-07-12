@@ -21,14 +21,14 @@ export type { PostLandingSlotCleanupDecision, PostLandingSlotCleanupPreview };
 
 export function approvedLandConfirmationKinds(options: {
 	readonly flags: Pick<ParsedArgs, "isDryRun" | "shouldSkipConfirmation">;
-	readonly wasUpfrontPromptApproved: boolean;
+	readonly hasUpfrontPromptApproval: boolean;
 	readonly cleanupPreview?: PostLandingSlotCleanupPreview;
 }): ReadonlySet<LandConfirmationRequest["kind"]> {
 	if (options.flags.isDryRun) return new Set();
-	if (!options.flags.shouldSkipConfirmation && !options.wasUpfrontPromptApproved) return new Set();
+	if (!options.flags.shouldSkipConfirmation && !options.hasUpfrontPromptApproval) return new Set();
 	return new Set<LandConfirmationRequest["kind"]>([
 		"main-landing",
-		...(options.wasUpfrontPromptApproved
+		...(options.hasUpfrontPromptApproval
 			? (["free-managed-slots", "submit-required-updates"] as const)
 			: []),
 		...(options.cleanupPreview === undefined ? [] : (["post-landing-cleanup"] as const)),

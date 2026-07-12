@@ -122,7 +122,7 @@ async function resolveCleanupDecisionForArgs(options: {
 			createFlowLandConfirmationGateway(options.ctx),
 			approvedLandConfirmationKinds({
 				flags: options.args,
-				wasUpfrontPromptApproved: options.wasApprovedUpfront ?? false,
+				hasUpfrontPromptApproval: options.wasApprovedUpfront ?? false,
 				...optionalEntry("cleanupPreview", cleanupPreview),
 			}),
 		),
@@ -156,7 +156,7 @@ describe("upfront confirmation approval mapping", () => {
 		expect([
 			...approvedLandConfirmationKinds({
 				flags: expectParsed("--yes"),
-				wasUpfrontPromptApproved: false,
+				hasUpfrontPromptApproval: false,
 				...optionalEntry("cleanupPreview", cleanupPreview),
 			}),
 		]).toEqual(["main-landing", "post-landing-cleanup"]);
@@ -166,7 +166,7 @@ describe("upfront confirmation approval mapping", () => {
 		expect([
 			...approvedLandConfirmationKinds({
 				flags: expectParsed("--force"),
-				wasUpfrontPromptApproved: true,
+				hasUpfrontPromptApproval: true,
 			}),
 		]).toEqual(["main-landing", "free-managed-slots", "submit-required-updates"]);
 	});
@@ -175,13 +175,13 @@ describe("upfront confirmation approval mapping", () => {
 		expect(
 			approvedLandConfirmationKinds({
 				flags: expectParsed("--dry-run --yes"),
-				wasUpfrontPromptApproved: true,
+				hasUpfrontPromptApproval: true,
 			}),
 		).toEqual(new Set());
 		expect(
 			approvedLandConfirmationKinds({
 				flags: expectParsed("--force"),
-				wasUpfrontPromptApproved: false,
+				hasUpfrontPromptApproval: false,
 			}),
 		).toEqual(new Set());
 	});

@@ -207,9 +207,9 @@ export async function executeLandingRequest(
 	host.progress.note(formatPreparingLandingMilestone(plan.value));
 
 	let readyPlan = plan.value;
-	let didRunSubmitPreparation = false;
+	const hasSubmitPreparationWork =
+		readyPlan.managedSlotConflicts.length > 0 || readyPlan.prSubmitRequirements.length > 0;
 	if (readyPlan.managedSlotConflicts.length > 0) {
-		didRunSubmitPreparation = true;
 		const freed = await confirmAndFreeManagedSlots({ context, host, plan: readyPlan });
 		if (freed.type === "failure") {
 			return failedResult(draft, "submit-preparation", freed.failure);
@@ -217,7 +217,6 @@ export async function executeLandingRequest(
 		draft.preMergeFreedSlots = freed.value;
 	}
 	if (readyPlan.prSubmitRequirements.length > 0) {
-		didRunSubmitPreparation = true;
 		const submitted = await submitRequiredUpdatesAndRecheckPlan({
 			context,
 			host,
@@ -230,7 +229,7 @@ export async function executeLandingRequest(
 		readyPlan = submitted.value;
 		draft.plan = readyPlan;
 	}
-	if (didRunSubmitPreparation) draft.phases.push(completed("submit-preparation"));
+	if (hasSubmitPreparationWork) draft.phases.push(completed("submit-preparation"));
 
 	const mergeOutcome = await runMergeLoop({
 		context,

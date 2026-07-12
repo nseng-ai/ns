@@ -13,6 +13,7 @@ import {
 	type RetainedLocalBranchCleanup,
 } from "../types.ts";
 import type { LandExecutionProgress, LandExecutionStep } from "./host-seams.ts";
+import { isVerifiedMergedPullRequest } from "./merged-pull-request-verification.ts";
 import { performGraphiteMaintenance } from "./maintenance.ts";
 import { planGraphiteMaintenanceTargets, type MaintenanceMode } from "./maintenance-plan.ts";
 
@@ -193,12 +194,11 @@ export async function runMergeLoop(options: RunMergeLoopOptions): Promise<MergeL
 						),
 					);
 				}
-				if (
-					facts.value.state !== "MERGED" ||
-					!facts.value.mergedAt ||
-					facts.value.baseRefName !== stack.trunk ||
-					facts.value.headRefName !== branch
-				) {
+				const isVerifiedMerged = isVerifiedMergedPullRequest(facts.value, {
+					expectedTrunk: stack.trunk,
+					expectedHeadBranch: branch,
+				});
+				if (!isVerifiedMerged) {
 					return landFailure(
 						landingExecutionFailure(
 							"gh pr merge exited 0 but PR did not verify as MERGED; local Graphite cleanup skipped.",

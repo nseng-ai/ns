@@ -77,25 +77,31 @@ function landingPlan(): LandingPlan {
 	};
 }
 
-const requestTable: ReadonlyArray<{
+interface ConfirmationRequestEntry {
 	readonly name: string;
 	readonly request: LandConfirmationRequest;
 	readonly title: string;
 	readonly defaultAnswer?: "yes";
-}> = [
-	{
-		name: "main-landing",
-		request: { kind: "main-landing", plan: landingPlan() },
-		title: "Land this stack path?",
+}
+
+const mainLandingEntry: ConfirmationRequestEntry = {
+	name: "main-landing",
+	request: { kind: "main-landing", plan: landingPlan() },
+	title: "Land this stack path?",
+};
+
+const freeManagedSlotsEntry: ConfirmationRequestEntry = {
+	name: "free-managed-slots",
+	request: {
+		kind: "free-managed-slots",
+		slots: [{ type: "managed-slot", branch: "feature-a", path: SLOT_ROOT, slotName: "slot-02" }],
 	},
-	{
-		name: "free-managed-slots",
-		request: {
-			kind: "free-managed-slots",
-			slots: [{ type: "managed-slot", branch: "feature-a", path: SLOT_ROOT, slotName: "slot-02" }],
-		},
-		title: "Free landing slots?",
-	},
+	title: "Free landing slots?",
+};
+
+const requestTable: ReadonlyArray<ConfirmationRequestEntry> = [
+	mainLandingEntry,
+	freeManagedSlotsEntry,
 	{
 		name: "submit-required-updates",
 		request: {
@@ -179,11 +185,11 @@ describe("flow land confirmation gateway", () => {
 		);
 		approvedKinds.add("free-managed-slots");
 
-		await expect(gateway.confirm(requestTable[0]!.request)).resolves.toEqual({
+		await expect(gateway.confirm(mainLandingEntry.request)).resolves.toEqual({
 			type: "approved",
 			approvalSource: "approved-upfront",
 		});
-		await expect(gateway.confirm(requestTable[1]!.request)).resolves.toEqual({
+		await expect(gateway.confirm(freeManagedSlotsEntry.request)).resolves.toEqual({
 			type: "approved",
 			approvalSource: "prompted",
 		});
