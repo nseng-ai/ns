@@ -5,7 +5,6 @@ import { runAvailableBrmemCommand } from "@nseng-ai/capability-kit/brmem-cli";
 import {
 	commandSucceeded,
 	execApiToCommandRunner,
-	type ExecOptions,
 	type ExecResult,
 	formatCommand,
 	tailText,
@@ -44,16 +43,13 @@ import {
 	type LoadGraphiteMetadataStatusInWorkerOptions,
 } from "@nseng-ai/capability-kit/graphite/status";
 
+import type { CommandExecApi } from "../kit/shared/command-exec.ts";
 import type { CustomMessage, RenderComponent, RenderTheme } from "./types.ts";
 
 export const WORKTREE_STATUS_UI_KEY = "worktree-status";
 const COMMAND_TIMEOUT_MS = 5_000;
 
 export type { ExecResult } from "@nseng-ai/foundation/command";
-
-export interface WorktreeStatusExecApi {
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-}
 
 interface BrmemEntry {
 	namespace: string;
@@ -101,7 +97,7 @@ export type GraphiteMetadataLoader = (
 ) => Promise<GraphiteMetadataStatus>;
 
 export interface LoadGtStatusOptions {
-	pi: WorktreeStatusExecApi;
+	pi: CommandExecApi;
 	cwd: string;
 	signal?: AbortSignal;
 	metadataLoader?: GraphiteMetadataLoader;
@@ -166,7 +162,7 @@ interface LoadGhStatusInternalOptions {
 }
 
 export async function loadLocalWorktreeStatus(
-	pi: WorktreeStatusExecApi,
+	pi: CommandExecApi,
 	cwd: string,
 	options: LoadLocalWorktreeStatusOptions = {},
 ): Promise<LocalWorktreeStatus> {
@@ -193,7 +189,7 @@ export async function loadLocalWorktreeStatus(
 }
 
 export async function loadWorktreeGhStatus(
-	pi: WorktreeStatusExecApi,
+	pi: CommandExecApi,
 	cwd: string,
 	options: LoadWorktreeGhStatusOptions = {},
 ): Promise<WorktreeGhStatus> {
@@ -266,7 +262,7 @@ function stackCountsFromMetadata(
 }
 
 async function loadBrmemStatus(
-	pi: WorktreeStatusExecApi,
+	pi: CommandExecApi,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<string | undefined> {
@@ -386,7 +382,7 @@ function loadUpBranch(metadata: GraphiteMetadataStatus, signal?: AbortSignal): s
 }
 
 async function loadHasCommits(
-	pi: WorktreeStatusExecApi,
+	pi: CommandExecApi,
 	cwd: string,
 	down: string | undefined,
 	signal?: AbortSignal,
@@ -411,7 +407,7 @@ async function loadHasCommits(
 }
 
 async function loadDirty(
-	pi: WorktreeStatusExecApi,
+	pi: CommandExecApi,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<"yes" | "no"> {
@@ -426,7 +422,7 @@ async function loadDirty(
 }
 
 export async function loadWorktreeStatusIdentity(
-	pi: WorktreeStatusExecApi,
+	pi: CommandExecApi,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<WorktreeStatusIdentity> {
@@ -452,7 +448,7 @@ async function loadHeadOid(
 }
 
 async function loadGhStatus(
-	pi: WorktreeStatusExecApi,
+	pi: CommandExecApi,
 	cwd: string,
 	options: LoadGhStatusInternalOptions,
 ): Promise<WorktreeGhStatus> {
@@ -608,7 +604,7 @@ function execOptions(cwd: string, signal?: AbortSignal) {
 		: { cwd, signal, timeout: COMMAND_TIMEOUT_MS };
 }
 
-function gitGatewayFromExecApi(pi: WorktreeStatusExecApi): GitGateway {
+function gitGatewayFromExecApi(pi: CommandExecApi): GitGateway {
 	return new RealGitGateway(pi);
 }
 

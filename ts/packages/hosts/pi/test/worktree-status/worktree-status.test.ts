@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { githubWorktreePrStatusQuery } from "@nseng-ai/capability-kit/github/pr-status";
 import { githubCheckRun } from "@nseng-ai/capability-kit/github/testing";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import type { CommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GraphiteMetadataWorkerDiagnostic } from "@nseng-ai/capability-kit/graphite/status";
@@ -16,7 +17,6 @@ import {
 	loadWorktreeGhStatus,
 	renderWorktreeStatusMessage,
 	repoNameFromWorktreeStatusGitPaths,
-	type WorktreeStatusExecApi,
 	type ExecResult,
 	type GraphiteMetadataLoader,
 	type LoadGtStatusOptions,
@@ -189,7 +189,7 @@ function withDefaultLocalOptions(
 }
 
 async function loadLocalWorktreeStatusWithDefaultMetadata(
-	pi: WorktreeStatusExecApi,
+	pi: CommandExecApi,
 	cwd: string,
 	options: LoadLocalWorktreeStatusOptions = {},
 ): Promise<LocalWorktreeStatus> {
@@ -217,7 +217,7 @@ async function loadFormattedStatus(
 }
 
 async function loadComposedWorktreeStatus(
-	pi: WorktreeStatusExecApi,
+	pi: CommandExecApi,
 	cwd: string,
 	options: LoadLocalWorktreeStatusOptions = {},
 ): Promise<WorktreeStatus> {
