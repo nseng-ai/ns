@@ -14,6 +14,8 @@ edges:
     annotation: Subobjective — finishes the remaining post-review harness-artifacts cleanup after the API re-export / force-required naming slice, resolving home-dir ownership, provision/reconcile design, schema/source cleanup, and review-thread disposition before parked breadth graduates further.
   - objective: ship-objectives-to-customers
     annotation: Upstream provider for that downstream customer-shipping Objective; this umbrella owns the reusable `ns skills`/harness-artifact provisioning surface that Objective consumes for cross-harness skill delivery.
+  - objective: ontology-reshape
+    annotation: That Objective's layering reshape (ADR 0033) decided the command-backed-skill-registry folds into areg as a module — input to this umbrella's skill-surface design; consume the spec before reshaping registration or replacement-command machinery.
 ---
 
 # Reusable Skill Management Subsystem
