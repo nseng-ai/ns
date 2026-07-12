@@ -131,7 +131,9 @@ export function renderMatrixProgressFrame<ColumnKey extends string>(
 	}
 	if ((input.phases?.length ?? 0) > 0) lines.push("");
 	lines.push(renderHeader(input.caps, input.columns, input.labelHeader ?? "Branch / PR"));
-	for (const row of input.rows) lines.push(renderMatrixRow(input.caps, input.columns, row, tick));
+	for (const row of input.rows) {
+		lines.push(renderMatrixRow({ caps: input.caps, columns: input.columns, row, tick }));
+	}
 	if (input.activeOperations !== undefined)
 		lines.push(renderOperationsLine(input.caps, operationsLine));
 	if (input.tailLine !== undefined) {
@@ -206,20 +208,25 @@ function renderHeader<ColumnKey extends string>(
 	);
 }
 
-function renderMatrixRow<ColumnKey extends string>(
-	caps: Caps,
-	columns: readonly MatrixColumnSpec<ColumnKey>[],
-	row: MatrixRowView<ColumnKey>,
-	tick: number,
-): string {
+function renderMatrixRow<ColumnKey extends string>(options: {
+	caps: Caps;
+	columns: readonly MatrixColumnSpec<ColumnKey>[];
+	row: MatrixRowView<ColumnKey>;
+	tick: number;
+}): string {
 	const label = padPlain(
-		truncatePlain(row.label, labelWidth(caps), ellipsisFor(caps)),
-		labelWidth(caps),
+		truncatePlain(options.row.label, labelWidth(options.caps), ellipsisFor(options.caps)),
+		labelWidth(options.caps),
 	);
-	const cells = columns
+	const cells = options.columns
 		.map((column) =>
 			centerMatrixProgressText(
-				renderCell({ caps, cell: row.cells[column.key], tick, width: column.width }),
+				renderCell({
+					caps: options.caps,
+					cell: options.row.cells[column.key],
+					tick: options.tick,
+					width: column.width,
+				}),
 				column.width,
 			),
 		)

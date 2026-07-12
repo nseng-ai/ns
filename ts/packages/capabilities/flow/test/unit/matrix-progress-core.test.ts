@@ -201,8 +201,12 @@ describe("matrix progress core", () => {
 			},
 		];
 		const declared = acceptedEvent({ type: "phases-declared", title: "Workflow", phases });
-		phases[0]!.name = "mutated";
-		phases[0]!.substeps[0]!.name = "mutated";
+		const firstPhase = phases[0];
+		if (firstPhase === undefined) throw new Error("expected a declared phase fixture");
+		const firstSubstep = firstPhase.substeps[0];
+		if (firstSubstep === undefined) throw new Error("expected a declared substep fixture");
+		firstPhase.name = "mutated";
+		firstSubstep.name = "mutated";
 		expect(declared).toEqual({
 			type: "phases-declared",
 			title: "Workflow",
@@ -217,7 +221,9 @@ describe("matrix progress core", () => {
 
 		const matrixColumns = [{ key: "metadata", label: "Metadata", width: 8 }];
 		const matrixDeclared = acceptedEvent({ type: "matrix-declared", columns: matrixColumns });
-		matrixColumns[0]!.label = "mutated";
+		const firstColumn = matrixColumns[0];
+		if (firstColumn === undefined) throw new Error("expected a matrix column fixture");
+		firstColumn.label = "mutated";
 		expect(matrixDeclared).toEqual({
 			type: "matrix-declared",
 			columns: [{ key: "metadata", label: "Metadata", width: 8 }],
@@ -225,7 +231,9 @@ describe("matrix progress core", () => {
 
 		const rows = [{ rowKey: "feature/a", label: "feature/a" }];
 		const rowsDeclared = acceptedEvent({ type: "matrix-rows", rows });
-		rows[0]!.label = "mutated";
+		const firstRow = rows[0];
+		if (firstRow === undefined) throw new Error("expected a matrix row fixture");
+		firstRow.label = "mutated";
 		expect(rowsDeclared).toEqual({
 			type: "matrix-rows",
 			rows: [{ rowKey: "feature/a", label: "feature/a" }],
