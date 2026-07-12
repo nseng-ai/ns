@@ -7,6 +7,7 @@ import {
 	type MatrixCellUpdate,
 	type MatrixColumnSpec,
 } from "../phase-stream/matrix-progress-core.ts";
+import type { PhaseSpec } from "../phase-stream/phase-stream-specs.ts";
 import {
 	stackSquashNonSquashOutcome,
 	stackSquashOutcomePresentation,
@@ -15,7 +16,6 @@ import {
 } from "./stack-squash.ts";
 
 type StackSquashMatrixColumnKey = "commits" | "squash";
-type StackSquashMatrixGlobalKey = "inventory" | "restore";
 
 interface StackSquashMatrixRowSpec {
 	branch: string;
@@ -27,7 +27,8 @@ export interface StackSquashMatrixProgressController {
 	note(text: string): void;
 	setPlan(plan: readonly StackSquashPlanEntry[]): void;
 	setSquashStatus(branch: string, update: MatrixCellUpdate): void;
-	setRestore(update: MatrixCellUpdate): void;
+	restoreStarted(): void;
+	restoreCompleted(): void;
 	finish(options?: { isFailed?: boolean }): Promise<void>;
 	stop(): Promise<void>;
 }
@@ -37,27 +38,23 @@ const STACK_SQUASH_MATRIX_COLUMNS: readonly MatrixColumnSpec<StackSquashMatrixCo
 	{ key: "squash", label: "Squash", width: 7 },
 ];
 
+export const STACK_SQUASH_PHASES: readonly PhaseSpec[] = [
+	{
+		key: "inventory",
+		item: { name: "Plan", detail: "stack inventoried", label: "counting commits per branch…" },
+	},
+	{
+		key: "restore",
+		item: { name: "Restore", detail: "tip restored", label: "restoring original tip…" },
+	},
+];
+
 const stackSquashMatrixWorkflow = defineMatrixWorkflow<
 	StackSquashMatrixRowSpec,
-	StackSquashMatrixColumnKey,
-	StackSquashMatrixGlobalKey
+	StackSquashMatrixColumnKey
 >({
 	columns: STACK_SQUASH_MATRIX_COLUMNS,
-	globalRows: [
-		{
-			key: "inventory",
-			label: "Plan",
-			detail: "stack inventoried",
-			activeLabel: "counting commits per branch…",
-		},
-		{
-			key: "restore",
-			label: "Restore",
-			detail: "tip restored",
-			activeLabel: "restoring original tip…",
-		},
-	],
-	phases: [],
+	phases: STACK_SQUASH_PHASES,
 	rowKey: (row) => row.branch,
 });
 
@@ -71,7 +68,7 @@ export function createStackSquashMatrixProgressController(options: {
 		deps: options.deps,
 		title: "ns flow squash-stack",
 		rows: [],
-		...(options.forward === undefined ? {} : { forward: options.forward }),
+		...(options.forward === undefined ? {} : { progress: options.forward }),
 		begin: "lazy",
 	});
 
@@ -97,9 +94,10 @@ export function createStackSquashMatrixProgressController(options: {
 				);
 			}
 		}
-		controller.setGlobal("inventory", {
-			state: "done",
-			text: `${plan.length} ${plan.length === 1 ? "branch" : "branches"} planned`,
+		controller.phase({
+			type: "phase-done",
+			phaseKey: "inventory",
+			detail: `${plan.length} ${plan.length === 1 ? "branch" : "branches"} planned`,
 		});
 	}
 
@@ -107,7 +105,10 @@ export function createStackSquashMatrixProgressController(options: {
 		note: controller.note,
 		setPlan,
 		setSquashStatus: (branch, update) => controller.setCell(branch, "squash", update),
-		setRestore: (update) => controller.setGlobal("restore", update),
+		restoreStarted: () =>
+			controller.phase({ type: "phase-started", phaseKey: "restore", label: "checking out tip" }),
+		restoreCompleted: () =>
+			controller.phase({ type: "phase-done", phaseKey: "restore", detail: "tip restored" }),
 		finish: controller.finish,
 		stop: controller.stop,
 	};

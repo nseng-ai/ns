@@ -106,7 +106,7 @@ describe("matrix progress core", () => {
 		expect(Object.hasOwn(omitted, "tick")).toBe(false);
 	});
 
-	test("reduces mutations observably without aliasing caller collections", () => {
+	test("reduces actions to detached committed changes and snapshots", () => {
 		const columns = [{ key: "metadata" as const, label: "Metadata", width: 8 }];
 		const inputRows = [{ rowKey: "feature/a", label: "feature/a" }];
 		const state = createMatrixProgressState({
@@ -116,24 +116,41 @@ describe("matrix progress core", () => {
 		});
 		const operations: ActiveOperation[] = [{ kind: "command", display: "just" }];
 
-		expect(
-			reduceMatrixProgress({
-				state,
-				columns,
-				mutation: { kind: "active-operations-changed", operations },
-			}),
-		).toMatchObject({ type: "changed" });
+		const reduction = reduceMatrixProgress({
+			state,
+			columns,
+			action: { kind: "active-operations-changed", operations },
+		});
+		expect(reduction).toMatchObject({ type: "changed" });
+		operations[0] = { kind: "command", display: "mutated" };
 		operations.length = 0;
+		if (reduction.type !== "changed") throw new Error("expected committed change");
+		expect(reduction.change).toEqual({
+			kind: "active-operations-changed",
+			operations: [{ kind: "command", display: "just" }],
+		});
 		inputRows[0] = { rowKey: "mutated", label: "mutated" };
 		expect(snapshotMatrixProgress(state).activeOperations).toEqual([
 			{ kind: "command", display: "just" },
 		]);
 		expect(snapshotMatrixProgress(state).rows[0]?.rowKey).toBe("feature/a");
+		const retained = snapshotMatrixProgress(state);
+		reduceMatrixProgress({
+			state,
+			columns,
+			action: {
+				kind: "cell-changed",
+				rowKey: "feature/a",
+				column: "metadata",
+				update: { state: "done", text: "new" },
+			},
+		});
+		expect(retained.rows[0]?.cells.metadata).toEqual({ state: "pending" });
 
 		const repeat = reduceMatrixProgress({
 			state,
 			columns,
-			mutation: {
+			action: {
 				kind: "active-operations-changed",
 				operations: [{ kind: "command", display: "just" }],
 			},
@@ -144,11 +161,11 @@ describe("matrix progress core", () => {
 	test.each([
 		{
 			name: "missing row patch",
-			mutation: { kind: "row-patched", rowKey: "missing", patch: { label: "x" } } as const,
+			action: { kind: "row-patched", rowKey: "missing", patch: { label: "x" } } as const,
 		},
 		{
 			name: "missing cell",
-			mutation: {
+			action: {
 				kind: "cell-changed",
 				rowKey: "missing",
 				column: "metadata",
@@ -157,7 +174,7 @@ describe("matrix progress core", () => {
 		},
 		{
 			name: "empty bulk",
-			mutation: {
+			action: {
 				kind: "cells-changed",
 				scope: "selected",
 				column: "metadata",
@@ -165,14 +182,14 @@ describe("matrix progress core", () => {
 				update: { state: "done" },
 			} as const,
 		},
-	])("returns unchanged for $name", ({ mutation }) => {
+	])("returns unchanged for $name", ({ action }) => {
 		const columns = [{ key: "metadata" as const, label: "Metadata", width: 8 }];
 		const state = createMatrixProgressState({
 			title: "Workflow",
 			rows: [{ rowKey: "feature/a", label: "feature/a" }],
 			columns,
 		});
-		expect(reduceMatrixProgress({ state, columns, mutation })).toEqual({ type: "unchanged" });
+		expect(reduceMatrixProgress({ state, columns, action })).toEqual({ type: "unchanged" });
 	});
 
 	test("constructs model operations without an undefined detail", () => {
@@ -251,31 +268,10 @@ describe("matrix progress core", () => {
 		expect(frameLine(frame, "Inspect")).toContain("inspecting worktree…");
 	});
 
-	test("preserves global-row and substep updates while forwarding canonical phase events", () => {
+	test("renders controller-owned phase and substep state while forwarding canonical events", () => {
 		const capture = streamCapture({ sleep: "pending" });
 		const events: NsProgressPhaseEvent[] = [];
-		const workflow = defineMatrixWorkflow<{ label: string }, "metadata", "checkpoint">({
-			columns: TEST_COLUMNS,
-			globalRows: [
-				{
-					key: "checkpoint",
-					label: "Checkpoint",
-					detail: "checkpoint complete",
-					activeLabel: "checkpointing…",
-					substeps: [
-						{
-							key: "inspect",
-							label: "Inspect",
-							detail: "worktree inspected",
-							activeLabel: "inspecting…",
-						},
-					],
-				},
-			],
-			phases: [],
-			rowKey: (row) => row.label,
-		});
-		const controller = workflow.createController({
+		const controller = testWorkflow.createController({
 			caps: caps(),
 			deps: capture.deps,
 			title: "Workflow",
@@ -283,11 +279,8 @@ describe("matrix progress core", () => {
 			progress: { isLive: true, phase: (event) => events.push(event) },
 		});
 
-		controller.setGlobal("checkpoint", { state: "active", text: "saving changes" });
-		controller.setGlobalSubstep("checkpoint", "inspect", {
-			state: "active",
-			text: "checking worktree",
-		});
+		controller.phase({ type: "phase-started", phaseKey: "checkpoint", label: "saving changes" });
+		controller.phase({ type: "phase-started", phaseKey: "inspect", label: "checking worktree" });
 
 		const frame = lastFrame(capture);
 		expect(frameLine(frame, "Checkpoint")).toContain("saving changes");

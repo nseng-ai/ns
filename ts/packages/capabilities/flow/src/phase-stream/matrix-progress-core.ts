@@ -15,7 +15,6 @@ import type {
 	MatrixCellState,
 	MatrixCellUpdate,
 	MatrixColumnSpec,
-	MatrixGlobalRowSpec,
 	MatrixRowSpec,
 	MatrixRowView,
 } from "./matrix-progress-state.ts";
@@ -36,12 +35,8 @@ export {
 	type MatrixCellUpdate,
 	type MatrixCellView,
 	type MatrixColumnSpec,
-	type MatrixGlobalRowSpec,
-	type MatrixGlobalSubstepSpec,
-	type MatrixGlobalSubstepView,
-	type MatrixGlobalView,
+	type MatrixProgressAction,
 	type MatrixProgressChange,
-	type MatrixProgressMutation,
 	type MatrixProgressReduction,
 	type MatrixProgressSnapshot,
 	type MatrixProgressState,
@@ -57,14 +52,12 @@ export {
 interface CreateMatrixProgressControllerOptions<
 	ColumnKey extends string,
 	Row extends MatrixRowSpec,
-	GlobalKey extends string,
 > {
 	caps: Caps;
 	deps: StreamSinkDeps;
 	title: string;
 	rows: readonly Row[];
 	columns: readonly MatrixColumnSpec<ColumnKey>[];
-	globalRows: readonly MatrixGlobalRowSpec<GlobalKey>[];
 	phases: readonly PhaseSpec[];
 	progress?: NsProgress;
 	labelHeader?: string;
@@ -75,41 +68,30 @@ interface CreateMatrixProgressControllerOptions<
 interface CreateMatrixProgressEventControllerOptions<
 	ColumnKey extends string,
 	Row extends MatrixRowSpec,
-	GlobalKey extends string,
 > {
 	progress: NsProgress;
 	title: string;
 	rows: readonly Row[];
 	columns: readonly MatrixColumnSpec<ColumnKey>[];
-	globalRows: readonly MatrixGlobalRowSpec<GlobalKey>[];
 	phases: readonly PhaseSpec[];
 	labelHeader?: string;
 	begin?: "immediate" | "lazy";
 }
 
-export interface MatrixWorkflowConfig<
-	Row extends { label: string },
-	ColumnKey extends string,
-	GlobalKey extends string = never,
-> {
+export interface MatrixWorkflowConfig<Row extends { label: string }, ColumnKey extends string> {
 	columns: readonly MatrixColumnSpec<ColumnKey>[];
-	globalRows?: readonly MatrixGlobalRowSpec<GlobalKey>[];
 	phases: readonly PhaseSpec[];
 	labelHeader?: string;
 	rowKey(row: Row): string;
 }
 
-export interface MatrixWorkflow<
-	Row extends { label: string },
-	ColumnKey extends string,
-	GlobalKey extends string = never,
-> {
+export interface MatrixWorkflow<Row extends { label: string }, ColumnKey extends string> {
 	createController(
 		options: Omit<
-			CreateMatrixProgressControllerOptions<ColumnKey, Row & MatrixRowSpec, GlobalKey>,
-			"rows" | "columns" | "globalRows" | "phases"
+			CreateMatrixProgressControllerOptions<ColumnKey, Row & MatrixRowSpec>,
+			"rows" | "columns" | "phases"
 		> & { rows: readonly Row[] },
-	): Omit<MatrixProgressController<ColumnKey, Row & MatrixRowSpec, GlobalKey>, "setRows"> & {
+	): Omit<MatrixProgressController<ColumnKey, Row & MatrixRowSpec>, "setRows"> & {
 		setRows(rows: readonly Row[]): void;
 	};
 	createEventController(options: {
@@ -117,7 +99,7 @@ export interface MatrixWorkflow<
 		title: string;
 		rows: readonly Row[];
 		begin?: "immediate" | "lazy";
-	}): Omit<MatrixProgressController<ColumnKey, Row & MatrixRowSpec, GlobalKey>, "setRows"> & {
+	}): Omit<MatrixProgressController<ColumnKey, Row & MatrixRowSpec>, "setRows"> & {
 		setRows(rows: readonly Row[]): void;
 	};
 	renderFrame(
@@ -127,20 +109,15 @@ export interface MatrixWorkflow<
 	): readonly string[];
 }
 
-export function defineMatrixWorkflow<
-	Row extends { label: string },
-	ColumnKey extends string,
-	GlobalKey extends string = never,
->(
-	config: MatrixWorkflowConfig<Row, ColumnKey, GlobalKey>,
-): MatrixWorkflow<Row, ColumnKey, GlobalKey> {
+export function defineMatrixWorkflow<Row extends { label: string }, ColumnKey extends string>(
+	config: MatrixWorkflowConfig<Row, ColumnKey>,
+): MatrixWorkflow<Row, ColumnKey> {
 	return {
 		createController: (options) => {
 			const controller = createMatrixProgressController({
 				...options,
 				rows: rowsWithKey(options.rows, config.rowKey),
 				columns: config.columns,
-				globalRows: config.globalRows ?? [],
 				phases: config.phases,
 				...(config.labelHeader === undefined ? {} : { labelHeader: config.labelHeader }),
 			});
@@ -155,7 +132,6 @@ export function defineMatrixWorkflow<
 				title: options.title,
 				rows: rowsWithKey(options.rows, config.rowKey),
 				columns: config.columns,
-				globalRows: config.globalRows ?? [],
 				phases: config.phases,
 				...(config.labelHeader === undefined ? {} : { labelHeader: config.labelHeader }),
 				...(options.begin === undefined ? {} : { begin: options.begin }),
@@ -174,37 +150,30 @@ export function defineMatrixWorkflow<
 	};
 }
 
-function createMatrixProgressController<
-	ColumnKey extends string,
-	Row extends MatrixRowSpec,
-	GlobalKey extends string,
->(
-	options: CreateMatrixProgressControllerOptions<ColumnKey, Row, GlobalKey>,
-): MatrixProgressController<ColumnKey, Row, GlobalKey> {
+function createMatrixProgressController<ColumnKey extends string, Row extends MatrixRowSpec>(
+	options: CreateMatrixProgressControllerOptions<ColumnKey, Row>,
+): MatrixProgressController<ColumnKey, Row> {
 	return createMatrixProgressControllerCore({
 		title: options.title,
 		rows: options.rows,
 		columns: options.columns,
-		globalRows: options.globalRows,
+		phases: options.phases,
 		...(options.begin === undefined ? {} : { begin: options.begin }),
 		createAdapter: ({ getLifecycle }) => {
-			const terminal = createMatrixTerminalAdapter<ColumnKey, Row, GlobalKey>({
+			const terminal = createMatrixTerminalAdapter<ColumnKey, Row>({
 				caps: options.caps,
 				deps: options.deps,
 				columns: options.columns,
-				phases: options.phases,
 				getLifecycle,
 				...(options.clock === undefined ? {} : { clock: options.clock }),
 			});
 			if (options.progress === undefined) return terminal;
 			return composeMatrixProgressAdapters([
 				terminal,
-				createMatrixEventAdapter<ColumnKey, Row, GlobalKey>({
+				createMatrixEventAdapter<ColumnKey, Row>({
 					progress: options.progress,
 					columns: options.columns,
-					globalRows: options.globalRows,
 					phases: options.phases,
-					isLazy: options.begin === "lazy",
 					getLifecycle,
 					...(options.labelHeader === undefined ? {} : { labelHeader: options.labelHeader }),
 				}),
@@ -213,26 +182,20 @@ function createMatrixProgressController<
 	});
 }
 
-function createMatrixProgressEventController<
-	ColumnKey extends string,
-	Row extends MatrixRowSpec,
-	GlobalKey extends string,
->(
-	options: CreateMatrixProgressEventControllerOptions<ColumnKey, Row, GlobalKey>,
-): MatrixProgressController<ColumnKey, Row, GlobalKey> {
+function createMatrixProgressEventController<ColumnKey extends string, Row extends MatrixRowSpec>(
+	options: CreateMatrixProgressEventControllerOptions<ColumnKey, Row>,
+): MatrixProgressController<ColumnKey, Row> {
 	return createMatrixProgressControllerCore({
 		title: options.title,
 		rows: options.rows,
 		columns: options.columns,
-		globalRows: options.globalRows,
+		phases: options.phases,
 		...(options.begin === undefined ? {} : { begin: options.begin }),
 		createAdapter: ({ getLifecycle }) =>
 			createMatrixEventAdapter({
 				progress: options.progress,
 				columns: options.columns,
-				globalRows: options.globalRows,
 				phases: options.phases,
-				isLazy: options.begin === "lazy",
 				getLifecycle,
 				...(options.labelHeader === undefined ? {} : { labelHeader: options.labelHeader }),
 			}),
