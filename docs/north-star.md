@@ -50,8 +50,8 @@ this goal," because it does not model branches or goals.
 
 ## The inversion: embed, don't wrap
 
-ns goes the other way. It is a **kernel of embeddable building blocks** that you **inject
-into** the harnesses developers already use. A capability is not reached through a
+ns goes the other way. It is a **substrate of embeddable building blocks** that you
+**inject into** the harnesses developers already use. A capability is not reached through a
 wrapper — it becomes part of the harness. Because injection adds rather than abstracts,
 ns expresses the **union** of the harnesses, not their intersection: the best of each, in
 its own native idiom.
@@ -61,7 +61,7 @@ its own native idiom.
 ### Injection composes; wrapping doesn't
 
 This is the strongest structural consequence of embed-don't-wrap. Two wrappers-above
-fight over who owns the session and the surface — they collide. An injected kernel is
+fight over who owns the session and the surface — they collide. An injected substrate is
 altitude-agnostic: it rides inside whatever runs the agent, so it composes with anything
 harness-shaped, **including a wrapper**.
 
@@ -99,10 +99,10 @@ context — it is *bounding* it: knowing what is in scope now and what is not.
 
 The organizing insight of ns is that **the work already supplies the boundaries.** Every
 unit of engineering work has a natural lifetime — a repo, a goal, a branch, a session —
-and that lifetime *is* a context scope. The kernel's building blocks are not an arbitrary
+and that lifetime *is* a context scope. The core's building blocks are not an arbitrary
 toolbox; they are the work's context scopes, each with a git-native lifetime:
 
-| Scope                 | Lifetime              | Kernel mechanism                              | Storage (derived from lifetime)                    |
+| Scope                 | Lifetime              | Core mechanism                                | Storage (derived from lifetime)                    |
 | --------------------- | --------------------- | --------------------------------------------- | -------------------------------------------------- |
 | **Repo**              | permanent             | `AGENTS.md` / `CONTEXT.md` / `CONTEXT-MAP.md` | committed files                                    |
 | **Goal**              | life of the objective | objective orientation + roadmap               | `.ns/objectives/<slug>`, auto-drops on `closed.md` |
@@ -131,18 +131,18 @@ shallow without a durable, scoped memory beneath it. ns is that memory.
 > A meta-harness manages context per session. ns scopes context per unit of work —
 > because only the work knows when context is born and when it dies.
 
-## The ns kernel
+## The ns core
 
 A coherent developer workflow, decomposed into composable, git-native capabilities — each
 usable alone, stronger together, each anchored to a context scope. This is the
-**kernel**: the core part of the system that everything else is built on.
+**core**: the part of the system that everything else is built on.
 
 - **Plan** — objectives, branch-context, enriched plans: durable intent that outlives a
   session.
 - **Place** — worktree slots: a pool of isolated workspaces, native git worktrees, no
   registry.
 - **Remember** — branch memory and handoffs: branch-scoped durable context carried across
-  sessions and agents, stored as git refs. (brmem is kernel-internal plumbing, not a
+  sessions and agents, stored as git refs. (brmem is core-internal plumbing, not a
   user-facing tool.)
 - **Ship** — Graphite-backed change flow: checkpoint, branch, stack, submit, land.
 - **Gate** — policy at the durable-state boundary: what crosses into git is what becomes
@@ -150,12 +150,12 @@ usable alone, stronger together, each anchored to a context scope. This is the
 
 ## The extension ecosystem
 
-Everything that is not the kernel is an **extension** built on it. Today's slate:
+Everything that is not the core is an **extension** built on it. Today's slate:
 **retros** (retrospectives), **reviews** (code reviews), and **pr-address** (PR-feedback
-triage). Extensions get the kernel's scopes, memory, places, and gate for free; skills —
+triage). Extensions get the core's scopes, memory, places, and gate for free; skills —
 the harness-facing instructions that let agents drive a capability — ship as part of
-their extension, not as a separate surface. The kernel stays small on purpose; the
-ecosystem is where surface area grows. Extensions are the proof the kernel is a platform,
+their extension, not as a separate surface. The core stays small on purpose; the
+ecosystem is where surface area grows. Extensions are the proof the core is a platform,
 not a toolbox.
 
 ## The four commitments
@@ -223,7 +223,7 @@ The factory cannot even attempt the verb, because it has no scopes to assemble f
 ## Messaging
 
 - **The spine:** Engineers are not factory managers; they are sorcerers.
-- **One-liner:** ns is the kernel for nonslop engineering — durable intent, scoped
+- **One-liner:** ns is the substrate for nonslop engineering — durable intent, scoped
   memory, and a gate at git, so agents ship engineering instead of slop.
 - **The name:** Slop is unbounded agent output. nonslop engineering removes it by
   construction, not by review-after-the-fact.
@@ -231,7 +231,7 @@ The factory cannot even attempt the verb, because it has no scopes to assemble f
   dashboards manage the session; ns governs what becomes real.
 - **The judo:** The more agents the factory runs, the more it needs ns underneath. We
   make the factory better from beneath it — and make it unnecessary.
-- **The wedge:** A kernel you embed — not a harness you adopt.
+- **The wedge:** A substrate you embed — not a harness you adopt.
 - **The verb:** Storage is solved. ns is building the resolver — the right working set,
   assembled per scope, evicted on exit.
 
