@@ -86,8 +86,8 @@ driver may apply without escalating.
   If dirty, stop and ask the user to commit or stash first.
 - Confirm the current branch is gt-tracked with non-display plumbing such as
   `gt parent --no-interactive` or `gt children --no-interactive`; an untracked
-  branch errors with a `gt track` hint. Do not parse `gt ls`, `gt log`, or
-  `gt branch info` display output for this decision.
+  branch errors with a `gt track` hint. Display output is never a machine
+  source (see `docs/conventions/graphite-dependency-boundary.md`).
 - **If a rebase is already in progress** (`git status` shows "interactive rebase
   in progress" / "Unmerged paths"), do **not** start a new restack — jump
   straight to the **Loop** at the resolve step, following the `graphite` skill's
@@ -267,14 +267,13 @@ When the selected restack command reports there is nothing left to restack:
 
 - Run a final `git status` (clean) and `ns slot gt exec stack-branches --format json`
   for structured topology confirmation. `gt log` / `gt ls` may be shown as
-  human visual confirmation only; do not parse their display output for machine
-  decisions.
+  human visual confirmation only.
 - Regenerate any auto-generated files that were touched (per
   `code-resolve-merge-conflicts` step 7) and stage/commit them as appropriate.
 - For a **full-scope** restack, run a final scoped verification from the stack
   tip after the restack completes, at least when any conflict was resolved
   mid-stack. This covers upstack branches that replayed without conflicts but
-  now sit atop resolved code. Use the engine's step-4 check table
+  now sit atop resolved code. Use the engine's step-4 check rule
   (`code-resolve-merge-conflicts`, "Verify before continuing"), scoped by the
   file types conflicted across the whole restack.
 

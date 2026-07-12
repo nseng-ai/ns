@@ -79,15 +79,11 @@ Collect facts in this order:
 
 ## cmux badges
 
-Use compact, stable badges in branch rows:
+Badge meanings are shared across the cmux family and defined in `docs/conventions/cmux-observational-skills.md` (repo root); this skill renders them as words in branch rows, compact and stable:
 
 - `open` plus workspace refs when a branch is open in cmux.
-- `active` when the cmux active workspace is on that branch.
-- `caller` when this Pi/caller workspace is on that branch.
-- `DIRTY` when `git status --porcelain` in the workspace cwd is non-empty.
-- `dup` when multiple workspaces point at the same `(cwd, branch)` pair.
-- `↯label` when workspace title/description appears stale relative to the checked-out branch.
-- `DETACHED@<sha>` for detached workspaces; dirty detached workspaces are high risk.
+- `active` / `caller` for the shared active and caller meanings.
+- `DIRTY`, `dup`, `↯label`, `DETACHED@<sha>`: per the shared definitions; dirty detached workspaces are high risk.
 
 ## Classification model
 

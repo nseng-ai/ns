@@ -52,6 +52,7 @@ ADR 0019 gates **where** a Real gateway implementation lives (which package owns
 ## Avoid
 
 - "consumer port", "domain port", "partial gateway" — say **Consumer Gateway** (root `CONTEXT.md` bans "port" as a noun for these interfaces).
+- `ExecGateway` — retired name. Foundation's exec seam keeps its incumbent generic name `CommandExecApi`; incumbent generic names win absent confusion.
 - widening a consumer to the full `GitGateway` "for convenience" when it uses a handful of methods.
 - adding a kit barrel export with one consumer and no explicit justification + demotion trigger.
 - bypassing an established exec/telemetry channel to reuse a gateway object.

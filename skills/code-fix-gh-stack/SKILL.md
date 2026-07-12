@@ -11,9 +11,8 @@ metadata:
 
 1. **Inventory the stack**
    - Use `ns slot gt exec stack-branches --format json` for structured current-stack topology.
-   - Use `gt branch info --no-interactive` for concise current-branch PR, submission, and restack presentation, never as machine-readable topology.
    - Use `gt parent --no-interactive` or `gt children --no-interactive` for immediate-edge questions.
-   - Use `gt ls` only as optional human visual confirmation.
+   - `gt branch info --no-interactive` and `gt ls` are human presentation only, never machine-readable topology (see `docs/conventions/graphite-dependency-boundary.md`).
    - Pass the discovered branch names to `ns address exec branch-pr-checks --branches-json ... --format json` to list remote PR checks.
    - Classify each PR as:
      - green/ready;
@@ -40,12 +39,7 @@ metadata:
      - `gh run view <run-id> --job <job-id> --log-failed`
    - For review failures, download and inspect feedback:
      - `ns address exec download-feedback --pr-number <n> --format json`
-   - Reproduce locally with the narrowest matching gate:
-     - dprint: `just dprint-check`
-     - TS format: `just ts-format-check`
-     - TS type/test: `just ts-check`, `just ts-test`
-     - integration: `just ts-test-integration`
-     - style guard: `just ts-test-typescript-style-guard`
+   - Reproduce locally with the narrowest matching gate per `docs/conventions/just-gate-map.md`.
 
 5. **Fix only this branch's blocker**
    - Keep the change scoped to the branch's semantic purpose.

@@ -5,8 +5,6 @@ description: "Create a Graphite branch from dirty worktree changes by delegating
 allowed-tools:
   - "Bash(ns flow autobranch*)"
   - "Bash(git status*)"
-references:
-  - references/autobranch-family-boundaries
 metadata:
   internal: true
 ---
@@ -41,6 +39,6 @@ If `ns flow autobranch` fails, surface its output and stop; recovery only on an 
 
 ## Boundaries
 
-Shared family boundaries live in `references/autobranch-family-boundaries.md`.
+Shared family boundaries live in `docs/conventions/autobranch-family-boundaries.md` (repo root).
 
 Command-specific public boundary: this skill delegates only to `ns flow autobranch`, mirrored in Pi as `/ns:flow:autobranch`.

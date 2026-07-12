@@ -12,7 +12,7 @@ Answer: “what branches and Objectives can I continue to work on right now?” 
 
 ## Default posture
 
-This skill follows the shared cmux observational posture in `../ns-cmux-stack-map/references/cmux-read-only-posture.md`: collect evidence, rank candidates, and report availability without mutating live cmux, Git/Graphite, GitHub, local-file, or durable agent state.
+This skill follows the shared read-only posture in `docs/conventions/cmux-observational-skills.md` (repo root): collect evidence, rank candidates, and report availability without mutating live cmux, Git/Graphite, GitHub, local-file, or durable agent state.
 
 ## Mental model
 

@@ -136,14 +136,10 @@ leftover conflict markers cannot be continued accidentally.
 ### 4. Verify before continuing
 
 When any auto-resolved file is **code**, run the scoped project check before
-the continue command:
-
-| Conflicted files     | Check                                                                    |
-| -------------------- | ------------------------------------------------------------------------ |
-| `ts/**` only         | `just ts-check` (optionally `just ts-test`)                              |
-| Python only          | `just ty` + targeted `uv run pytest <affected package>` (or `just test`) |
-| Mixed / uncertain    | `just check`                                                             |
-| Docs / markdown only | no check                                                                 |
+the continue command — the narrowest `just` gate for the conflicted file types
+per `docs/conventions/just-gate-map.md` (for example `just ts-check`,
+optionally `just ts-test`, for `ts/**`-only conflicts). When mixed or
+uncertain, run `just check`. Docs/markdown-only conflicts need no check.
 
 - **Pass** → `git add` the resolved files (3c's pre-stage marker sweep must
   have run) → run the continue command.

@@ -89,8 +89,12 @@ findings against the live files before editing (line references in
       test-lane/time-seam/style-guard detail; `ns-typescript` rewritten toward
       portability, pointing at the host repo's AGENTS.md — see the
       t3-typescript-ownership-split update); shared family material to neutral homes
-      (autobranch-family-boundaries, cmux-read-only-posture, gt plumbing-not-display rule,
-      just-gate map, doc-economics rules shared by docs-retro/branch-retro); disclosure moves
+      (**executed 2026-07-12** on `skill-audit-t3-neutral-homes`:
+      autobranch-family-boundaries and cmux posture+badges moved to
+      `docs/conventions/`, gt plumbing-not-display merged into
+      graphite-dependency-boundary.md, just-gate-map.md and doc-economics.md created,
+      15 skills reduced to pointers; one --recover cycle for a staged index — see the
+      t3-neutral-homes-executed update); disclosure moves
       (code-smush recovery/feedback sections, ccc-stack-map palette, objective-retro
       templates/maintainer notes, skill-management umbrella-families section); TOCs for
       reference files over ~300 lines (code-gh graphql references,

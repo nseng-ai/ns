@@ -1,5 +1,7 @@
 # Autobranch Family Boundaries
 
+Shared boundary contract for the Flow autobranch skill family (`ns-flow-autobranch`, `ns-flow-branch-latest-commit`). Each family skill points here; command-specific boundaries stay in the individual skills.
+
 The Flow autobranch family is the cross-harness path for moving existing work onto Graphite branches through public Flow CLI commands and their Pi mirrors.
 
 - Graphite/`gt` is part of the command contract.

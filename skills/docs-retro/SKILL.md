@@ -17,15 +17,15 @@ Session-scoped; for branch-level evidence retros use `branch-retro`.
 
 ## The rubric (hard gates, in order)
 
-1. **Minimize tokens.** Standing context (`AGENTS.md`, `CLAUDE.md`, ambient skill
-   frontmatter) is paid in every session forever; lazy-loaded text (code comments,
-   skill `references/`, `CONTEXT.md`) is paid only on retrieval. Never add to
-   standing context unless the fact is needed before the agent knows what it is
-   working on.
-2. **Minimize drift risk.** Document contracts and invariants, not surfaces or
-   enumerations. Point at the source of truth ("read `index.ts` for the surface")
-   instead of copying it. Never document a negative ("no X exists") — negatives
-   self-heal into lies the moment someone adds X.
+The shared doc-cost rules — drift risk, source-of-truth pointing, code over
+prose, placement cost — live in `docs/conventions/doc-economics.md`; these
+gates apply them to a session retro:
+
+1. **Minimize tokens** (doc-economics: placement cost). Never add to standing
+   context unless the fact is needed before the agent knows what it is working
+   on.
+2. **Minimize drift risk** (doc-economics: contracts and invariants, not
+   surfaces; point at the source of truth; never document a negative).
 3. **Only document the non-recomputable.** If one file read or a cheap grep
    re-derives the fact, drop it. What earns a write: cross-module contracts that
    require tracing to establish, decision-bearing facts that changed a design, and
@@ -64,7 +64,8 @@ changed a decision.
 
 Before writing prose, check whether the discovery cost is better killed by code:
 add the missing helper (making the positive discoverable), add a round-trip test
-linking writer and parser, improve an error message, or rename. Code cannot drift.
+linking writer and parser, improve an error message, or rename (doc-economics:
+code over prose).
 
 ### 5. Write and validate
 
