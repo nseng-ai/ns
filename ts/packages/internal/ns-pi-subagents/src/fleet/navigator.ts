@@ -45,7 +45,11 @@ import {
 	type ParentFleetNavigatorEntry,
 	type SubagentFleetTaskDetail,
 } from "./detail.ts";
-import { renderFleetDetailContentLines, renderFleetDetailHeaderLines } from "./detail-render.ts";
+import {
+	renderFleetDetailContentLines,
+	renderFleetDetailHeaderLines,
+	renderFleetEntrySummaryLines,
+} from "./detail-render.ts";
 import {
 	formatSubagentFleetTaskLines,
 	latestParentSessionFile,
@@ -59,7 +63,7 @@ export { SUBAGENT_FLEET_PARENT_ENTRY_ID, loadFleetTaskDetail } from "./detail.ts
 
 const PARENT_ENTRY_TITLE = "Parent Pi session";
 
-const LIST_FOOTER = "↑/k ↓/j move · Enter/o open · q/Esc close";
+const LIST_FOOTER = "↑/k ↓/j move · Space expand · Enter/o open · q/Esc close";
 const DEFAULT_DETAIL_REFRESH_INTERVAL_MS = 1_000;
 
 /**
@@ -258,6 +262,10 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private readonly unsubscribe: () => void;
 	private mode: "list" | "detail" = "list";
 	private entries: FleetNavigatorEntry[];
+	private readonly expandedEntryIds = new Set<string>();
+	private readonly expandedDetails = new Map<string, SubagentFleetTaskDetail>();
+	private readonly expandedSessionParseCaches = new Map<string, FleetEntrySessionParseCache>();
+	private readonly expandedReadsInFlight = new Set<string>();
 	private selectedEntryId: string | undefined;
 	private detail: SubagentFleetTaskDetail | undefined;
 	private detailScroll = 0;
@@ -286,8 +294,9 @@ export class SubagentFleetNavigator implements RenderComponent {
 		this.selectedEntryId = defaultSelectionId(this.entries);
 		this.unsubscribe = this.registry.subscribe(() => {
 			this.refreshEntries();
-			this.syncDetailPolling();
+			this.syncRefreshPolling();
 			if (this.mode === "detail") this.scheduleDetailLoad();
+			this.scheduleExpandedLoads();
 			this.tui.requestRender();
 		});
 	}
@@ -333,7 +342,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	dispose(): void {
 		if (this.isDisposed) return;
 		this.isDisposed = true;
-		this.stopDetailPolling();
+		this.stopRefreshPolling();
 		this.hasQueuedRead = false;
 		this.unsubscribe();
 	}
@@ -351,7 +360,27 @@ export class SubagentFleetNavigator implements RenderComponent {
 			this.moveSelection(-1);
 			return;
 		}
+		if (isToggleExpandKey(data)) {
+			this.toggleSelectedExpansion();
+			return;
+		}
 		if (isOpenKey(data)) this.openSelectedDetail();
+	}
+
+	private toggleSelectedExpansion(): void {
+		const entry = this.selectedEntry();
+		const id = entryId(entry);
+		if (id === undefined) return;
+		if (this.expandedEntryIds.has(id)) {
+			this.expandedEntryIds.delete(id);
+			this.expandedDetails.delete(id);
+			this.expandedSessionParseCaches.delete(id);
+		} else {
+			this.expandedEntryIds.add(id);
+			this.scheduleExpandedLoad(entry);
+		}
+		this.syncRefreshPolling();
+		this.tui.requestRender();
 	}
 
 	private handleDetailInput(data: string): void {
@@ -363,7 +392,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 			this.mode = "list";
 			this.detail = undefined;
 			this.resetDetailSessionState();
-			this.stopDetailPolling();
+			this.scheduleExpandedLoads();
+			this.syncRefreshPolling();
 			this.tui.requestRender();
 			return;
 		}
@@ -414,7 +444,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 		this.isFollowing = true;
 		this.isPromptExpanded = false;
 		this.resetDetailSessionState();
-		this.syncDetailPolling();
+		this.syncRefreshPolling();
 		this.scheduleDetailLoad();
 		this.tui.requestRender();
 	}
@@ -462,7 +492,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 				} else {
 					this.detail = result.detail;
 				}
-				this.syncDetailPolling();
+				this.syncRefreshPolling();
 				this.tui.requestRender();
 			}
 		} finally {
@@ -511,27 +541,88 @@ export class SubagentFleetNavigator implements RenderComponent {
 		return Math.max(0, nowMs - this.detailObservation.lastObservedChangeMs);
 	}
 
-	private syncDetailPolling(): void {
-		if (!this.shouldPollDetail()) {
-			this.stopDetailPolling();
+	private scheduleExpandedLoads(): void {
+		if (this.mode !== "list") return;
+		for (const entry of this.entries) {
+			const id = entryId(entry);
+			if (id !== undefined && this.expandedEntryIds.has(id)) this.scheduleExpandedLoad(entry);
+		}
+	}
+
+	private scheduleExpandedLoad(entry: FleetNavigatorEntry | undefined): void {
+		const id = entryId(entry);
+		if (entry === undefined || id === undefined || this.expandedReadsInFlight.has(id)) return;
+		this.expandedReadsInFlight.add(id);
+		void this.runExpandedLoad(entry, id);
+	}
+
+	private async runExpandedLoad(entry: FleetNavigatorEntry, id: string): Promise<void> {
+		try {
+			const previous = this.expandedSessionParseCaches.get(id);
+			const loaded = await loadFleetEntryDetail({
+				entry,
+				context: this.detailContext,
+				...optionalEntry("previous", previous),
+			});
+			if (this.isDisposed || !this.expandedEntryIds.has(id)) return;
+			const detail = isRunningTaskDetailEntry(entry)
+				? {
+						...loaded.detail,
+						liveActivity: {
+							currentAction: assumeThinkingWhileRunning(loaded.detail.timeline.currentAction),
+						},
+					}
+				: loaded.detail;
+			this.expandedDetails.set(id, detail);
+			if (loaded.sessionParseCache === undefined) {
+				this.expandedSessionParseCaches.delete(id);
+			} else {
+				this.expandedSessionParseCaches.set(id, loaded.sessionParseCache);
+			}
+			this.tui.requestRender();
+		} catch (error) {
+			if (!this.isDisposed && this.expandedEntryIds.has(id)) {
+				this.expandedDetails.set(
+					id,
+					placeholderDetail(entry, `Could not load detail: ${formatErrorMessage(error)}`),
+				);
+				this.tui.requestRender();
+			}
+		} finally {
+			this.expandedReadsInFlight.delete(id);
+			const currentEntry = this.entries.find((candidate) => entryId(candidate) === id);
+			if (currentEntry !== undefined && currentEntry !== entry && this.expandedEntryIds.has(id)) {
+				this.scheduleExpandedLoad(currentEntry);
+			}
+		}
+	}
+
+	private syncRefreshPolling(): void {
+		if (!this.shouldPoll()) {
+			this.stopRefreshPolling();
 			return;
 		}
 		if (this.detailPollTimer !== undefined) return;
 		this.detailPollTimer = this.timers.setInterval(() => {
 			if (this.isDisposed) return;
-			if (!this.shouldPollDetail()) {
-				this.stopDetailPolling();
+			if (!this.shouldPoll()) {
+				this.stopRefreshPolling();
 				return;
 			}
-			this.scheduleDetailLoad();
+			if (this.mode === "detail") this.scheduleDetailLoad();
+			this.scheduleExpandedLoads();
 		}, this.detailRefreshIntervalMs);
 	}
 
-	private shouldPollDetail(): boolean {
-		return this.mode === "detail" && isRunningTaskDetailEntry(this.selectedEntry());
+	private shouldPoll(): boolean {
+		if (this.mode === "detail") return isRunningTaskDetailEntry(this.selectedEntry());
+		return this.entries.some((entry) => {
+			const id = entryId(entry);
+			return id !== undefined && this.expandedEntryIds.has(id) && isRunningTaskDetailEntry(entry);
+		});
 	}
 
-	private stopDetailPolling(): void {
+	private stopRefreshPolling(): void {
 		this.detailPollTimer?.cancel();
 		this.detailPollTimer = undefined;
 	}
@@ -539,6 +630,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private refreshEntries(): void {
 		const previousSelectedEntryId = this.selectedEntryId;
 		this.entries = this.readEntries();
+		this.pruneExpandedEntries();
 		if (
 			this.selectedEntryId !== undefined &&
 			this.entries.some((entry) => entryId(entry) === this.selectedEntryId)
@@ -584,15 +676,42 @@ export class SubagentFleetNavigator implements RenderComponent {
 			0,
 			this.entries.findIndex((entry) => entryId(entry) === this.selectedEntryId),
 		);
-		const window = windowRange(this.entries.length, selectedIndex, bodyRows);
-		const lines = this.entries
-			.slice(window.start, window.end)
-			.map((entry) => this.listEntryLine(entry, innerWidth));
-		if (window.start > 0) lines[0] = `… ${window.start} earlier`;
-		if (window.end < this.entries.length) {
-			lines[lines.length - 1] = `… ${this.entries.length - window.end} more`;
+		const blocks = this.entries.map((entry) => this.listEntryBlock(entry, innerWidth));
+		return windowEntryBlocks(blocks, selectedIndex, bodyRows);
+	}
+
+	private listEntryBlock(entry: FleetNavigatorEntry, innerWidth: number): string[] {
+		const line = this.listEntryLine(entry, innerWidth);
+		const id = entryId(entry);
+		if (id === undefined || !this.expandedEntryIds.has(id)) return [line];
+		const detail = this.expandedDetails.get(id);
+		return [
+			line,
+			...renderFleetEntrySummaryLines({
+				entry,
+				detail,
+				nowMs: this.clock.nowMs(),
+				timelineContext: {
+					...optionalEntry("sessionCwd", detail?.sessionCwd),
+					homeDir: this.homeDir,
+				},
+			}).map((detailLine) => truncatePlain(`      ${detailLine}`, innerWidth)),
+		];
+	}
+
+	private pruneExpandedEntries(): void {
+		const liveIds = new Set(
+			this.entries.flatMap((entry) => {
+				const id = entryId(entry);
+				return id === undefined ? [] : [id];
+			}),
+		);
+		for (const id of this.expandedEntryIds) {
+			if (liveIds.has(id)) continue;
+			this.expandedEntryIds.delete(id);
+			this.expandedDetails.delete(id);
+			this.expandedSessionParseCaches.delete(id);
 		}
-		return lines;
 	}
 
 	private listEntryLine(entry: FleetNavigatorEntry, innerWidth: number): string {
@@ -698,14 +817,52 @@ function defaultSelectionId(entries: readonly FleetNavigatorEntry[]): string | u
 	return entryId(entries.find((entry) => entry.kind === "task") ?? entries[0]);
 }
 
-function windowRange(
-	length: number,
+function windowEntryBlocks(
+	blocks: readonly (readonly string[])[],
 	selectedIndex: number,
-	size: number,
-): { start: number; end: number } {
-	const safeSize = Math.max(1, size);
-	const start = Math.max(0, Math.min(selectedIndex - Math.floor(safeSize / 2), length - safeSize));
-	return { start, end: Math.min(length, start + safeSize) };
+	rows: number,
+): string[] {
+	const safeRows = Math.max(1, rows);
+	let start = selectedIndex;
+	let end = selectedIndex + 1;
+
+	while (true) {
+		const left = start > 0 ? start - 1 : undefined;
+		const right = end < blocks.length ? end : undefined;
+		const candidates =
+			left === undefined
+				? right === undefined
+					? []
+					: [{ start, end: end + 1 }]
+				: right === undefined
+					? [{ start: start - 1, end }]
+					: [
+							{ start: start - 1, end },
+							{ start, end: end + 1 },
+						];
+		const next = candidates.find(
+			(candidate) => entryBlockWindowLineCount(blocks, candidate.start, candidate.end) <= safeRows,
+		);
+		if (next === undefined) break;
+		start = next.start;
+		end = next.end;
+	}
+
+	const prefix = start > 0 ? [`… ${start} earlier`] : [];
+	const suffix = end < blocks.length ? [`… ${blocks.length - end} more`] : [];
+	const availableBlockRows = safeRows - prefix.length - suffix.length;
+	if (availableBlockRows < 1) return blocks[selectedIndex]?.slice(0, safeRows) ?? [];
+	const visibleBlocks = blocks.slice(start, end).flat();
+	return [...prefix, ...visibleBlocks.slice(0, availableBlockRows), ...suffix];
+}
+
+function entryBlockWindowLineCount(
+	blocks: readonly (readonly string[])[],
+	start: number,
+	end: number,
+): number {
+	const blockRows = blocks.slice(start, end).reduce((total, block) => total + block.length, 0);
+	return blockRows + (start > 0 ? 1 : 0) + (end < blocks.length ? 1 : 0);
 }
 
 function padRows(lines: readonly string[], rows: number): string[] {
@@ -740,6 +897,10 @@ function isCloseKey(data: string): boolean {
 
 function isOpenKey(data: string): boolean {
 	return isKey(data, Key.enter, "o");
+}
+
+function isToggleExpandKey(data: string): boolean {
+	return isKey(data, Key.space, " ");
 }
 
 function hasRegisterCommand(value: object): value is CommandRegistrarHost {
