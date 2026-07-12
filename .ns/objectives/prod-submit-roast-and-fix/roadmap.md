@@ -23,7 +23,7 @@ Fog the answer makes stateable, and rewire or drop invalidated rows.
       run in parallel over representative whole-stack diffs on this repo; produce a
       short linked summary. Confirms or disproves the core latency assumption.
 - [ ] (grilling) Validation bar for surviving fixes — what must pass before an AUTO
-      fix is kept (scoped tsgo/lint on touched packages vs full `just`); defines
+      fix is kept (scoped native `tsc`/lint on touched packages vs full `just`); defines
       "safe to push a model fix".
 - [ ] (prototype) Fixer engine — standalone `ns roaster exec review-fix` (or
       equivalent) running review → classify → fix → validate offline against a real

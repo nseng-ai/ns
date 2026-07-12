@@ -50,7 +50,7 @@ This is a **bounded execution Subobjective** under the `skill-management-subsyst
 - The existing arrival paths (committed `.ns/extensions/`, XDG root, first-party catalog) keep working unchanged; shared-core changes, if any, are additive.
 - Repeat `ns update --extensions` with unchanged specs is idempotent; changing a spec reconciles to it.
 - The pi-verbatim command surface is implemented per the recorded contract, and the ns self-update mechanism (late roadmap row) lands behind bare `ns update`/`--self`.
-- Full `just` green (main suite, style guard, tsgo, edge sweep `sweep-ok`).
+- Full `just` green (main suite, style guard, native `tsc`, edge sweep `sweep-ok`).
 
 ## Definition of Progress
 

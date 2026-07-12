@@ -53,7 +53,7 @@ Do not keep changes that:
 
 Useful evidence includes:
 
-- Targeted Vitest runs for the touched packages and tsgo typecheck output.
+- Targeted Vitest runs for the touched packages and native `tsc` typecheck output.
 - Command/tool registration verified through existing extension tests.
 - Doc diffs showing canonical entrypoint and command names, and Semantic Updates recording decision rationale.
 
@@ -64,7 +64,7 @@ This Objective is an autoobjective (ADR 0022): its roadmap is shaped for repeate
 - Direct execution is allowed when: a slice implements a `[ ]` roadmap row within its stated scope — the `ns:agents:*` rename, the documentation rebaseline, the exports/test-helper ownership audit, or the distribution-readiness assessment. Decision-bearing calls inside those rows (which helper APIs are package API vs. test-local, how to word doc rebaselines) may be made directly, guided by existing conventions, with rationale recorded in a Semantic Update.
 - Steer or ask first when: a slice would rename the package or the `explore` / `forked_pi_agent` tool identifiers, change the delivered `explore` contract, reach into thermo-council or other neighboring orchestration, or otherwise exceed the row's stated scope.
 - How work may change files and be left: each runner step lands as one commit on a fresh Graphite-tracked branch stacked on the previous step, per the Objective Runner contract; landing/merging the stack is human work. Objective tracking updates are parent-session judgment, not child work.
-- Validation before keeping work: affected-package Vitest suites, tsgo typecheck, and format/lint autofixers per slice; full `just` validation is stack-final verification, not a per-step gate.
+- Validation before keeping work: affected-package Vitest suites, native `tsc` typecheck, and format/lint autofixers per slice; full `just` validation is stack-final verification, not a per-step gate.
 - What will not happen unless explicitly requested: submitting, pushing, or merging PRs; publishing or executing packaging for external distribution; mutating GitHub issues/PRs or any external system; renaming the package; adding compatibility aliases.
 
 ## Assumptions and Risks

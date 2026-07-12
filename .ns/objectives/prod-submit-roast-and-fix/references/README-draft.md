@@ -133,7 +133,7 @@ per-finding disposition field; the disposition standard is a pluggable prompt po
 whose default is shared verbatim with download-feedback's standard, which also
 de-fogs eventual fixer reuse against remote feedback.]`
 
-An applied fix survives only if validation passes: `tsgo` typecheck + lint scoped to
+An applied fix survives only if validation passes: native `tsc` typecheck + lint scoped to
 the touched packages (not the full `just` wave — the validate phase already ran that
 on the pre-fix tree, and CI backstops the rest). Fail → the fix is discarded and the
 finding lands in the report's *discarded* group. `[Row: Validation bar — position:
@@ -294,7 +294,7 @@ The structural gaps this README knowingly leaves, in one place:
 | Stack-tip review semantics     | `merge-base(trunk, tip)..tip`; stack-scoped findings                                                                                                                                                                                                       |
 | AUTO classification axis       | renamed **autofix-able**: `auto_apply` frontmatter gate + per-finding `disposition: "autofix" \| "manual"`; definition shared with download-feedback (bounded, reviewable, no product/design decision)                                                     |
 | Latency reality check          | asserted <~2 min, **unmeasured**                                                                                                                                                                                                                           |
-| Validation bar                 | scoped tsgo+lint on touched packages (full `just` lives in ship's validate phase)                                                                                                                                                                          |
+| Validation bar                 | scoped native `tsc`+lint on touched packages (full `just` lives in ship's validate phase)                                                                                                                                                                  |
 | Fixer engine                   | reviews capability keeps branch-scoped `review-fix` primitive; `ship fix` wraps it                                                                                                                                                                         |
 | Fix placement                  | single labeled autofix commit at tip                                                                                                                                                                                                                       |
 | Anti-incremental state         | **OPEN** — encoding undecided (git note vs PR machine block vs Branch-Memory-derived); diff-hash keying is the settled part                                                                                                                                |
