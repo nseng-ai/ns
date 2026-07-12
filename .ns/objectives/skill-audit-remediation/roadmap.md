@@ -69,8 +69,11 @@ findings against the live files before editing (line references in
       t2-trigger-surface-executed update). One deferral needing a human/ADR decision:
       code-resolve-merge-conflicts invocation kind vs. the skill-conventions bucket-1
       ambient example.
-- [ ] Tranche 3 — structure and single-source-of-truth consolidation: execute the T3
-      findings.
+- [x] Tranche 3 — structure and single-source-of-truth consolidation: execute the T3
+      findings. Completed 2026-07-12: final cluster (TOCs, sharpened completion
+      criteria, allowed-tools narrowing, closing sweep) on
+      `skill-audit-t3-final-cluster` — see the t3-final-cluster-executed update; all
+      T3 findings applied or dispositioned.
       Guidance: main clusters — objective family (**executed 2026-07-12** on
       `skill-audit-t3-objective-ssot`: umbrella owns Selection rules and the two
       sanctioned exceptions, picker spec disclosed to `docs/objective-system.md`,

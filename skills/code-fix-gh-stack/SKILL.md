@@ -56,15 +56,10 @@ metadata:
 7. **Amend with Graphite**
    - Stage files.
    - `gt modify -m "<clear message>"`
-   - If Graphite restacks and conflicts:
-     - resolve conflicts carefully;
-     - `gt add <file>`;
-     - `gt continue`;
-     - re-run local validation for the affected branch.
+   - If Graphite restacks and conflicts, use `code-gt-restack-resolve` from the conflicted state, then re-run local validation for the affected branch.
 
 8. **Submit**
-   - `gt submit --no-interactive`
-   - Never use raw `git push` for stack updates.
+   - Use `gt submit --no-interactive` instead of `git push` / `gh pr create` (canonical wording: the setup-graphite admonition payload).
 
 9. **Wait/re-query**
    - Re-query PR checks.
@@ -89,4 +84,4 @@ The stack is green only when:
 - every PR in the target stack has no failing required checks;
 - pending checks have completed successfully;
 - review/check-run blockers are resolved or explicitly classified non-blocking;
-- Graphite mergeability is not blocked by stack inconsistency.
+- `ns slot gt exec stack-branches --format json` succeeds with an empty `warnings` array (no stack inconsistency blocking mergeability).

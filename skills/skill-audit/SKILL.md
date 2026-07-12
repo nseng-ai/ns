@@ -92,11 +92,7 @@ Thresholds:
 
 ## CLI Push-Down Audit
 
-Look for large wins, not tiny wrappers. Push down when it removes: 20+ prompt lines; 3+ tool calls; shell pipelines or `jq`/`sed`/`awk`; loops over files/PRs/API results; deterministic validation/parsing; a workflow repeated across skills.
-
-Do not push down: semantic reading or naming; markdown parsing; one obvious command; under-30-line one-off helpers.
-
-If pushing down, target one cohesive command returning JSON in the project CLI framework's envelope (Clinkr's status-keyed envelope here; `success`/`error` shape only as a no-framework fallback), with all data the next agent decision needs.
+Look for large wins, not tiny wrappers. Load `cli-push-down` and apply its size thresholds, exclusions, and JSON-contract rules; those criteria have one home there, not here.
 
 ## Edit Rules
 

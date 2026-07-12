@@ -20,9 +20,9 @@ Use this skill for the shared model the step skills assume, and for diagnostics,
 
 ## Admin operations
 
-Beyond create/pickup/list, the deterministic `ns handoff ...` command face covers inventory and cleanup directly — these have no step skill:
+Delete and gc have no step skill; the deterministic `ns handoff ...` command face covers cleanup directly. This section is the single home for that surface. Inventory shares the same command face, but list/summarize requests route to `handoff-pickup`:
 
-- `ns handoff list [--branch <branch>|--all] [--include-deleted] --format json` — inventory.
+- `ns handoff list [--branch <branch>|--all] [--include-deleted] --format json` — inventory (routed via `handoff-pickup`; raw command shown for admin completeness).
 - `ns handoff delete [--branch <branch>] [--yes] <slug>` — remove one exact-slug handoff (pass the slug without `.md`). CLI-only; there is no `/handoff:delete` Pi command.
 - `ns handoff gc [--dry-run|--force]` — clean up handoffs whose local branch is deleted.
 

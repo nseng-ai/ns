@@ -81,6 +81,8 @@ The saved-plan slug is a local filename locator, not necessarily the later branc
 
 <!-- PLAN-VERIFICATION-WORKSTREAM:END enriched-plan-save-plan-quality -->
 
+<!-- SYNC: the slug derivation rule and slug-rejected recovery are deliberately duplicated with branch-context-from-plan (standalone step skills); edit both files together. -->
+
 3. Derive `<saved-plan-slug>` from the plan content: kebab-case, 3-7 specific
    words, no dates/random IDs/generic-only names.
 4. Pipe the plan to `enriched-plan exec save --stdin --format json`.

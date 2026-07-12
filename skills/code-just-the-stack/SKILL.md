@@ -37,6 +37,7 @@ For any `gt` navigation/restack command below: use `--no-interactive`; if this i
    - Run `git status --short`. If it is non-empty, stop and ask the user to clean, stash, or checkpoint first.
    - Record the starting branch with `git branch --show-current` for the final report.
    - Confirm Graphite tracking with plumbing such as `gt parent --no-interactive`, or by attempting `gt bottom`. If Graphite reports the branch is untracked or parentage is unknown, stop and ask the user to track or switch branches; do not run `gt track` for them.
+   - Record the expected stack path once with `ns slot gt exec stack-branches --format json`; use it to bound the step-2 branch set and to name every branch in the final report.
 
 2. **Enter the bottom of this stack path**
    - Run `gt bottom` to switch to the branch closest to trunk in the current Graphite stack path.

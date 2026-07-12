@@ -107,5 +107,5 @@ The old payload-session/classification/batch orchestration engine is retired and
 
 ## References
 
-- `references/cli-collection.md` — current command families and safety notes.
-- `references/cli-reference.md` — JSON envelope and command examples.
+- `references/cli-collection.md` — load when you need the full `ns address exec` command catalog or a command's stack-plumbing/safety notes.
+- `references/cli-reference.md` — load when you need the JSON envelope shape, exact flags, or worked command examples.

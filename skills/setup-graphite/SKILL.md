@@ -116,6 +116,8 @@ after the inserted block.
 Insert this block verbatim (adjusting the heading depth per Step 6 —
 replace `##` with `###` if needed):
 
+<!-- CANON: this payload block is the canonical wording for the gt-over-git invariants (notably "use `gt submit --no-interactive` instead of `git push` / `gh pr create`"). Sibling skills that restate an invariant converge on this wording; edit here first. -->
+
 ```markdown
 ## Branch Creation and PR Submission (Graphite)
 

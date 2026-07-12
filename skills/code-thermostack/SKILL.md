@@ -11,6 +11,9 @@ Thermostack turns a thermonuclear maintainability review of the current Graphite
 ## Safety boundaries
 
 - Require explicit user approval after the preview and before any branch, commit, or stack mutation.
+
+<!-- SYNC: the remote-safety clause ("submit PRs, push, land, close GitHub state, or mutate remotes") travels verbatim to the implementation clause below and is attested in the Final report; edit all three sites together. -->
+
 - Never submit PRs, push, land, close GitHub state, or mutate remotes.
 - Never amend the original branch. Create local child branches above the current stack tip.
 - Stop at the first non-confident implementation decision or validation failure. Preserve the completed clean prefix, leave state visible, and report the exact blocker and pending batches.
@@ -129,7 +132,7 @@ For each batch:
 4. If the harness lacks editing-subagent support, implement only the approved batch inline and label the branch in the final report as `degraded: inline implementation, no editing subagent`.
 5. Inspect the implementation result before continuing. If the harness returns machine status or session metadata, any non-final status is a stop condition until inspected. If the harness returns only final text, manually inspect the resulting diff before treating the branch as implemented.
 6. Review the diff for scope before validation. Unexpected files, scope expansion, or failed local validation is a stop condition.
-7. Run targeted validation from the batch's validation hints plus any nearby project checks needed for confidence.
+7. Run targeted validation: run every validation hint recorded for the batch, plus the narrowest scoped project check for each file type the batch touched (in this repo, pick it from `docs/conventions/just-gate-map.md`). Validation is complete when each of those commands has run green; broader checks are not required.
 8. Stage changes and amend the branch:
 
    ```bash

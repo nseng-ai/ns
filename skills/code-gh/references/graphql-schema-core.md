@@ -4,6 +4,21 @@ This document provides a focused reference for the most commonly used GraphQL ty
 
 **Load this document only when you need detailed field information for specific types.** Most use cases are covered in `graphql.md`.
 
+## Table of Contents
+
+- [Repository](#repository)
+- [Issue](#issue)
+- [PullRequest](#pullrequest)
+- [ProjectV2](#projectv2)
+- [Discussion](#discussion)
+- [User](#user)
+- [Organization](#organization)
+- [Common Enums](#common-enums)
+- [Input Types](#input-types)
+- [Connection Types](#connection-types)
+- [Introspection](#introspection)
+- [Additional Resources](#additional-resources)
+
 ---
 
 ## Repository

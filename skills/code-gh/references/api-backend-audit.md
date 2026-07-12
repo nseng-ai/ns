@@ -1,5 +1,26 @@
 # GitHub CLI API Backend Audit
 
+## Table of Contents
+
+- [Audit Metadata](#audit-metadata)
+- [Quick Reference Summary](#quick-reference-summary)
+- [Rate Limit Guidance](#rate-limit-guidance)
+- [Command Family Details](#command-family-details) —
+  [pr](#pull-request-commands-gh-pr) · [issue](#issue-commands-gh-issue) ·
+  [repo](#repository-commands-gh-repo) · [release](#release-commands-gh-release) ·
+  [run](#workflow-run-commands-gh-run) · [workflow](#workflow-commands-gh-workflow) ·
+  [project](#project-commands-gh-project) · [search](#search-commands-gh-search) ·
+  [secret](#secret-commands-gh-secret) · [variable](#variable-commands-gh-variable) ·
+  [cache](#cache-commands-gh-cache) · [label](#label-commands-gh-label) ·
+  [gist](#gist-commands-gh-gist) · [ruleset](#ruleset-commands-gh-ruleset) ·
+  [codespace](#codespace-commands-gh-codespace) · [ssh-key](#ssh-key-commands-gh-ssh-key) ·
+  [gpg-key](#gpg-key-commands-gh-gpg-key) · [org](#organization-commands-gh-org) ·
+  [status](#status-command-gh-status) · [extension](#extension-commands-gh-extension) ·
+  [auth](#auth-commands-gh-auth) · [attestation](#attestation-commands-gh-attestation)
+- [API Detection Methodology](#api-detection-methodology)
+- [Rate Limit Optimization Strategies](#rate-limit-optimization-strategies)
+- [See Also](#see-also)
+
 ## Audit Metadata
 
 | Field               | Value                                                   |

@@ -4,17 +4,22 @@ disable-model-invocation: true
 description: "Manage skills with `npx skills`: add, edit, remove, rename, update, or list skills (local or GitHub), and the `skills/<name>/` / `.agents/skills/` layout conventions."
 allowed-tools:
   - "Bash(npx skills *)"
-  - "Bash(ln *)"
+  - "Bash(ln -s *)"
   - "Bash(rm -rf .agents/skills/*)"
   - "Bash(rm -rf skills/*)"
   - "Bash(rm skills/*)"
-  - "Bash(mv *)"
-  - "Bash(mkdir *)"
+  - "Bash(rm .agents/skills/*)"
+  - "Bash(rm .claude/skills/*)"
+  - "Bash(mkdir -p skills/*)"
   - "Bash(ls *)"
   - "Bash(readlink *)"
   - "Bash(cat skills-lock.json)"
-  - "Bash(grep *)"
-  - "Bash(git *)"
+  - "Bash(cat .claude/skills/*)"
+  - "Bash(rg *)"
+  - "Bash(areg check)"
+  - "Bash(git add *)"
+  - "Bash(git mv *)"
+  - "Bash(git diff *)"
 ---
 
 # skill-management
@@ -191,6 +196,17 @@ ln -s ../../.agents/skills/<new> .claude/skills/<new>
 git add skills/<new>/ .agents/skills/<new> .claude/skills/<new> skills-lock.json
 git add -u skills/<old> .agents/skills/<old> .claude/skills/<old>
 ```
+
+The rename is complete only when both checks pass:
+
+```bash
+rg -l '<old>' skills/ .agents/ .claude/ .pi/ docs/ skills-lock.json   # expect: no matches
+areg check                                                            # expect: all OK
+```
+
+Any remaining `rg` hit is either updated to `<new>` or explicitly reported to the
+user as a deliberate historical mention; do not report the rename done while
+unexplained hits remain.
 
 ## Inspect and troubleshoot
 

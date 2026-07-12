@@ -1,6 +1,6 @@
 # Address command collection
 
-Address provides feedback report download plus shared PR feedback primitives through `ns address exec ...`. The old addressing workflow engine is retired; the current primitive commands are not retired.
+Address provides feedback report download plus shared PR feedback primitives through `ns address exec ...`. This file is a command catalog; workflow policy (engine retirement, authorization semantics) lives in `SKILL.md`.
 
 ## Download / stack plumbing
 
@@ -18,7 +18,7 @@ If the current branch has an open PR, callers may omit `--pr-number`:
 ns address exec download-feedback --format json
 ```
 
-The result includes `markdown` for editor/session viewing plus target/count metadata. The Markdown is a report: it does not start an addressing run or mutate GitHub by itself. Once the human asks the agent to address feedback, default to editing as needed and closing the review threads directly addressed by the implemented and validated change unless the human says otherwise.
+The result includes `markdown` for editor/session viewing plus target/count metadata. Authorization semantics — report vs. triage prompt, and what a human "address feedback" request licenses — live in `SKILL.md`, not here.
 
 ### `map-branch-prs`
 
