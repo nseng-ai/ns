@@ -24,7 +24,7 @@ Typical fits: renaming an identifier, parameter, or dictionary key across source
 
 ## Why over pure AST/codemod tooling
 
-If the project has a battle-tested AST/codemod toolchain wired in (libcst, jscodeshift, ts-morph, etc.), prefer it for purely syntactic refactors -- faster, deterministic, replayable. But the absence of one is not a reason to give up on a large mechanical refactor, and even alongside one, reach for the swarm when:
+If the project has a battle-tested AST/codemod toolchain wired in (libcst, jscodeshift, etc.), prefer it for purely syntactic refactors -- faster, deterministic, replayable. But the absence of one is not a reason to give up on a large mechanical refactor, and even alongside one, reach for the swarm when:
 
 - **Natural-language references must move with the code.** Docstrings, inline comments, README sections, error messages, and log lines refer -- directly or indirectly -- to the symbol or concept being refactored. A codemod only touches syntactic occurrences; an agent reads the surrounding prose and updates mentions like `"returns the issue_number of the PR"` without enumerating every phrasing in advance.
 - **Light per-file judgment is required** -- calls that don't fit a pattern-match-and-replace shape.

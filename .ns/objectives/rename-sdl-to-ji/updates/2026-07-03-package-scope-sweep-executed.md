@@ -62,10 +62,9 @@ at `tools/pkg-scope-sweep/`, throwaway, no promotion path).
 
 - Vendored mirrors `.agents/skills/{sdl-typescript,sdl-cli-design,architecture-topology-report}`
   are one refresh behind their edited `skills/` sources: `just refresh-skills`
-  currently fails on an unrelated upstream problem (the `ts-morph-refactor`
-  skill is no longer offered by its source repo) and its partial run corrupts
-  vendored state (deletes `agents/openai.yaml` files areg requires), so it was
-  fully reverted. Re-vendor once refresh-skills is fixed; `just areg-check`
+  currently fails because an installed skill is no longer offered by its source repo,
+  and its partial run corrupts vendored state (deletes `agents/openai.yaml` files areg
+  requires), so it was fully reverted. Re-vendor once refresh-skills is fixed; `just areg-check`
   passes in the committed state.
 
 ## Post-landing note
