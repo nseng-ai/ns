@@ -39,6 +39,82 @@ export type NsTomlExtensionInstallPlan =
 			readonly message: string;
 	  };
 
+export type NsTomlExtensionUninstallPlan =
+	| {
+			readonly ok: true;
+			readonly text: string;
+			readonly isRemoved: boolean;
+			readonly matchedSpec: string | undefined;
+	  }
+	| {
+			readonly ok: false;
+			readonly reason: "invalid-toml" | "invalid-extensions" | "unsupported-format";
+			readonly message: string;
+	  }
+	| {
+			readonly ok: false;
+			readonly reason: "ambiguous-identity";
+			readonly identity: ExtensionSourceIdentity;
+			readonly requestedSpec: string;
+			readonly matchingSpecs: readonly string[];
+			readonly message: string;
+	  }
+	| {
+			readonly ok: false;
+			readonly reason: "invalid-source";
+			readonly requestedSpec: string;
+			readonly message: string;
+	  };
+
+export function planDeclaredExtensionUninstallToml(options: {
+	readonly projectRoot: string;
+	readonly source: string;
+	readonly requestedSpec: string;
+}): NsTomlExtensionUninstallPlan {
+	const parsed = parseDeclaredExtensionSpecsToml(options.source);
+	if (!parsed.ok) return { ok: false, reason: parsed.reason, message: parsed.message };
+	const identity = extensionSourceIdentity(options.projectRoot, options.requestedSpec);
+	if (identity === undefined) {
+		return {
+			ok: false,
+			reason: "invalid-source",
+			requestedSpec: options.requestedSpec,
+			message: `Extension source must be an npm: spec or an unprefixed local path: ${options.requestedSpec}.`,
+		};
+	}
+	const matches = parsed.specs
+		.map((spec, index) => ({ spec, index }))
+		.filter(({ spec }) =>
+			identitiesEqual(identity, extensionSourceIdentity(options.projectRoot, spec)),
+		);
+	if (matches.length === 0) {
+		return { ok: true, text: options.source, isRemoved: false, matchedSpec: undefined };
+	}
+	if (matches.length > 1) {
+		const matchingSpecs = matches.map(({ spec }) => spec);
+		return {
+			ok: false,
+			reason: "ambiguous-identity",
+			identity,
+			requestedSpec: options.requestedSpec,
+			matchingSpecs,
+			message: `Extension identity is declared more than once and cannot be removed unambiguously: ${matchingSpecs.join(", ")}.`,
+		};
+	}
+	const match = matches[0];
+	if (match === undefined) throw new Error("Expected one matching extension declaration.");
+	const replacement = removeExtensionArrayValue(options.source, match.index, parsed.specs.length);
+	if (replacement === undefined) {
+		return {
+			ok: false,
+			reason: "unsupported-format",
+			message:
+				"Top-level ns.toml extensions assignment must be a textual array before an extension can be uninstalled.",
+		};
+	}
+	return { ok: true, text: replacement, isRemoved: true, matchedSpec: match.spec };
+}
+
 export function planDeclaredExtensionInstallToml(options: {
 	readonly projectRoot: string;
 	readonly source: string;
@@ -178,11 +254,45 @@ function appendBeforeArrayClose(options: {
 	return next;
 }
 
+interface ExtensionsArrayValueScan {
+	readonly start: number;
+	readonly end: number;
+	readonly commaBefore: number | undefined;
+	readonly commaAfter: number | undefined;
+}
+
 interface ExtensionsArrayScan {
 	readonly closeOffset: number;
+	readonly values: readonly ExtensionsArrayValueScan[];
 	readonly lastValueStart: number | undefined;
 	readonly lastValueEnd: number | undefined;
 	readonly hasTrailingComma: boolean;
+}
+
+function removeExtensionArrayValue(
+	source: string,
+	valueIndex: number,
+	expectedValueCount: number,
+): string | undefined {
+	const lines = source.split(/(?<=\n)/u);
+	const offsets = lineStartOffsets(lines);
+	const startIndex = findTopLevelExtensionsLine(lines);
+	if (startIndex === undefined) return undefined;
+	const startLine = lines[startIndex];
+	if (startLine === undefined) return undefined;
+	const equalsIndex = startLine.indexOf("=");
+	const openIndex = startLine.indexOf("[", equalsIndex);
+	if (equalsIndex === -1 || openIndex === -1) return undefined;
+	const scan = scanExtensionsArray(source, (offsets[startIndex] ?? 0) + openIndex);
+	if (scan === undefined || scan.values.length !== expectedValueCount) return undefined;
+	const value = scan.values[valueIndex];
+	if (value === undefined) return undefined;
+	const comma = value.commaAfter ?? value.commaBefore;
+	if (comma === undefined) return `${source.slice(0, value.start)}${source.slice(value.end)}`;
+	if (comma < value.start) {
+		return `${source.slice(0, comma)}${source.slice(comma + 1, value.start)}${source.slice(value.end)}`;
+	}
+	return `${source.slice(0, value.start)}${source.slice(value.end, comma)}${source.slice(comma + 1)}`;
 }
 
 function scanExtensionsArray(source: string, openOffset: number): ExtensionsArrayScan | undefined {
@@ -195,6 +305,8 @@ function scanExtensionsArray(source: string, openOffset: number): ExtensionsArra
 	let lastValueStart: number | undefined;
 	let lastValueEnd: number | undefined;
 	let hasTrailingComma = false;
+	let commaBefore: number | undefined;
+	const values: ExtensionsArrayValueScan[] = [];
 	for (let index = openOffset + 1; index < source.length; index += 1) {
 		const char = source[index];
 		if (char === "\n") {
@@ -208,9 +320,15 @@ function scanExtensionsArray(source: string, openOffset: number): ExtensionsArra
 				continue;
 			}
 			if (char === quote && !isEscaped) {
-				if (depth === 1) {
+				if (depth === 1 && valueStart !== undefined) {
 					lastValueStart = valueStart;
 					lastValueEnd = index + 1;
+					values.push({
+						start: valueStart,
+						end: index + 1,
+						commaBefore,
+						commaAfter: undefined,
+					});
 					hasTrailingComma = false;
 				}
 				quote = undefined;
@@ -237,6 +355,7 @@ function scanExtensionsArray(source: string, openOffset: number): ExtensionsArra
 			if (depth === 0) {
 				return {
 					closeOffset: index,
+					values,
 					lastValueStart,
 					lastValueEnd,
 					hasTrailingComma,
@@ -244,7 +363,14 @@ function scanExtensionsArray(source: string, openOffset: number): ExtensionsArra
 			}
 			continue;
 		}
-		if (depth === 1 && char === "," && lastValueEnd !== undefined) hasTrailingComma = true;
+		if (depth === 1 && char === "," && lastValueEnd !== undefined) {
+			hasTrailingComma = true;
+			const lastValue = values.at(-1);
+			if (lastValue !== undefined && lastValue.commaAfter === undefined) {
+				values[values.length - 1] = { ...lastValue, commaAfter: index };
+			}
+			commaBefore = index;
+		}
 	}
 	return undefined;
 }

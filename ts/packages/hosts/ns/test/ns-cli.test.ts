@@ -164,7 +164,7 @@ describe("ns CLI host", () => {
 		expect(stderr.join("")).toBe("");
 	});
 
-	test("merges extension install with kernel point commands and exposes no top-level alias", async () => {
+	test("merges extension lifecycle commands with kernel point commands and exposes no aliases", async () => {
 		const cwd = await createEmptyProject();
 		const stdout: string[] = [];
 		const stderr: string[] = [];
@@ -179,13 +179,21 @@ describe("ns CLI host", () => {
 
 		expect(exit).toBe(0);
 		expect(stdout.join("")).toContain("  install");
+		expect(stdout.join("")).toContain("  uninstall");
 		expect(stdout.join("")).toContain("  point");
 		expect(stdout.join("")).toContain("  points");
 		expect(stderr.join("")).toBe("");
 
-		const alias = await runNsCliJson(["install", "./extension"], cwd);
-		expect(alias.exit).toBe(2);
-		expect(alias.stderr).toContain("unknown command 'install'");
+		for (const args of [
+			["install", "./extension"],
+			["uninstall", "./extension"],
+			["remove", "./extension"],
+			["extension", "remove", "./extension"],
+		]) {
+			const alias = await runNsCliJson(args, cwd);
+			expect(alias.exit).toBe(2);
+			expect(alias.stderr).toContain("unknown command");
+		}
 	});
 
 	test("publishes extension install help, schema, usage, and failure contracts", async () => {
@@ -221,6 +229,47 @@ describe("ns CLI host", () => {
 		expect(parseJsonOutput(usage)).toMatchObject({
 			status: "usageError",
 			errorType: "usageError",
+		});
+	});
+
+	test("publishes extension uninstall help, schema, usage, and failure contracts", async () => {
+		const cwd = await createEmptyProject();
+		const helpStdout: string[] = [];
+		const helpExit = await runNsCli(["extension", "uninstall", "-h"], {
+			cwd,
+			stdout: (text) => helpStdout.push(text),
+			stderr: () => undefined,
+		});
+		expect(helpExit).toBe(0);
+		const help = helpStdout.join("");
+		expect(help).toContain("Usage: ns extension uninstall [options] <source>");
+		expect(help).not.toContain("--harness");
+		expect(help).not.toContain("--yes");
+		expect(help).not.toContain("--force");
+
+		const schemaStdout: string[] = [];
+		const schemaExit = await runNsCli(["extension", "uninstall", "--json-schema"], {
+			cwd,
+			stdout: (text) => schemaStdout.push(text),
+			stderr: () => undefined,
+		});
+		expect(schemaExit).toBe(0);
+		const schema = JSON.parse(schemaStdout.join("")) as Record<string, unknown>;
+		expect(schema).toHaveProperty("inputJsonSchema");
+		expect(schema).toHaveProperty("outputJsonSchema");
+		expect(schemaStdout.join("")).toContain("sourceIdentity");
+		expect(schemaStdout.join("")).toContain("cleanup");
+
+		const usage = await runNsCliJson(["extension", "uninstall"], cwd);
+		expect(usage.exit).toBe(2);
+		expect(parseJsonOutput(usage)).toMatchObject({ status: "usageError", errorType: "usageError" });
+
+		const failed = await runNsCliJson(["extension", "uninstall", "./extension"], cwd);
+		expect(failed.exit).toBe(2);
+		expect(parseJsonOutput(failed)).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-uninstall-not-a-git-repo",
+			data: { phase: "preflight", completed: {} },
 		});
 	});
 

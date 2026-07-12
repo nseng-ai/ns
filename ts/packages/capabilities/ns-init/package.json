@@ -11,6 +11,7 @@
 		"./ns-extension": "./src/ns/extension.ts",
 		"./ns/commands/init": "./src/ns/commands/init.ts",
 		"./ns/commands/extension-install": "./src/ns/commands/extension-install.ts",
+		"./ns/commands/extension-uninstall": "./src/ns/commands/extension-uninstall.ts",
 		"./testing": "./src/testing/index.ts"
 	},
 	"scripts": {

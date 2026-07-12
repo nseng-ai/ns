@@ -26,9 +26,11 @@ export {
 	appendDeclaredExtensionSpecToml,
 	extensionSourceIdentity,
 	planDeclaredExtensionInstallToml,
+	planDeclaredExtensionUninstallToml,
 } from "./ns-toml-extensions-edit.ts";
 export type {
 	ExtensionSourceIdentity,
 	NsTomlExtensionInstallPlan,
+	NsTomlExtensionUninstallPlan,
 	NsTomlExtensionsAppendResult,
 } from "./ns-toml-extensions-edit.ts";

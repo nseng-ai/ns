@@ -1,10 +1,12 @@
 import {
 	gitExtensionSourceUnsupportedMessage,
+	managedNpmProjectRoot,
 	npmPackageRoot,
 	parseExtensionSourceSpec,
 	resolveDeclaredExtensionModules,
 	type ExtensionAcquisitionDiagnostic,
 	type ExtensionAcquisitionGateway,
+	type ManagedNpmPackageRemovalResult,
 } from "@nseng-ai/kernel/extensions/acquisition";
 
 export interface EnsureExtensionSourceParams {
@@ -48,6 +50,39 @@ export class RealExtensionInstallAcquisitionGateway implements ExtensionInstallA
 			return { ok: false, diagnostics: result.diagnostics };
 		}
 		return { ok: true, sourceKind: root.sourceKind, moduleRoot: root.moduleRoot };
+	}
+}
+
+export interface RemoveManagedNpmExtensionParams {
+	readonly repoRoot: string;
+	readonly packageName: string;
+}
+
+export type RemoveManagedNpmExtensionResult =
+	| { readonly ok: true; readonly value: ManagedNpmPackageRemovalResult }
+	| { readonly ok: false; readonly error: ExtensionAcquisitionDiagnostic };
+
+/** Consumer Gateway for deleting only an extension's managed npm package project. */
+export interface ExtensionUninstallAcquisitionGateway {
+	removeManagedNpmPackage(
+		params: RemoveManagedNpmExtensionParams,
+	): Promise<RemoveManagedNpmExtensionResult>;
+}
+
+export class RealExtensionUninstallAcquisitionGateway implements ExtensionUninstallAcquisitionGateway {
+	private readonly acquisition: ExtensionAcquisitionGateway;
+
+	constructor(acquisition: ExtensionAcquisitionGateway) {
+		this.acquisition = acquisition;
+	}
+
+	async removeManagedNpmPackage(
+		params: RemoveManagedNpmExtensionParams,
+	): Promise<RemoveManagedNpmExtensionResult> {
+		return this.acquisition.removeManagedNpmPackage({
+			projectRoot: params.repoRoot,
+			packageName: params.packageName,
+		});
 	}
 }
 
@@ -98,5 +133,45 @@ export class InMemoryExtensionInstallAcquisitionGateway implements ExtensionInst
 
 	calls(): readonly EnsureExtensionSourceParams[] {
 		return this.ensureLog.map((call) => ({ ...call }));
+	}
+}
+
+export interface InMemoryExtensionUninstallAcquisitionState {
+	readonly installedPackageNames?: readonly string[];
+	readonly failureByPackageName?: Readonly<Record<string, ExtensionAcquisitionDiagnostic>>;
+}
+
+export class InMemoryExtensionUninstallAcquisitionGateway implements ExtensionUninstallAcquisitionGateway {
+	private readonly installedPackageNames: Set<string>;
+	private readonly failureByPackageName: Readonly<Record<string, ExtensionAcquisitionDiagnostic>>;
+	private readonly removalLog: RemoveManagedNpmExtensionParams[] = [];
+
+	constructor(state: InMemoryExtensionUninstallAcquisitionState = {}) {
+		this.installedPackageNames = new Set(state.installedPackageNames ?? []);
+		this.failureByPackageName = structuredClone(state.failureByPackageName ?? {});
+	}
+
+	async removeManagedNpmPackage(
+		params: RemoveManagedNpmExtensionParams,
+	): Promise<RemoveManagedNpmExtensionResult> {
+		this.removalLog.push({ ...params });
+		const failure = this.failureByPackageName[params.packageName];
+		if (failure !== undefined) return { ok: false, error: { ...failure } };
+		const wasInstalled = this.installedPackageNames.delete(params.packageName);
+		return {
+			ok: true,
+			value: {
+				status: wasInstalled ? "removed" : "already-absent",
+				path: managedNpmProjectRoot(params.repoRoot, params.packageName),
+			},
+		};
+	}
+
+	installedPackages(): ReadonlySet<string> {
+		return new Set(this.installedPackageNames);
+	}
+
+	removals(): readonly RemoveManagedNpmExtensionParams[] {
+		return this.removalLog.map((call) => ({ ...call }));
 	}
 }

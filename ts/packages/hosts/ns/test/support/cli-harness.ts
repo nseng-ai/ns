@@ -44,6 +44,10 @@ export async function writeModuleExtension(projectRoot: string): Promise<void> {
 export default defineExtension({
 	description: "ACME module.",
 	bundledArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module-skill" }],
+	activation: {
+		instructions: "## ACME module instructions\\n",
+		consumerDirs: [".ns/acme-data"],
+	},
 });
 `,
 		"utf8",

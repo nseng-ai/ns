@@ -65,9 +65,9 @@ export interface SettingsSchema<T = unknown> {
 
 export const nsTomlExtensionsSettingsSchema = {
 	path: ["extensions"] as const,
-	schema: z.array(z.string().min(1)).nonempty(),
+	schema: z.array(z.string().min(1)),
 	invalidMessage: ({ pathLabel }) =>
-		`${pathLabel} top-level extensions must be a non-empty string array.`,
+		`${pathLabel} top-level extensions must be a string array of non-empty source specs.`,
 } satisfies SettingsSchema<readonly string[]>;
 
 export function isUnsupportedNsTomlExtensionSpec(value: string): boolean {

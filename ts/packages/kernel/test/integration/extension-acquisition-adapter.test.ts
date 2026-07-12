@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -54,6 +54,78 @@ describe("RealExtensionAcquisitionGateway", () => {
 		await expect(readFile(join(projectDir, "package-lock.json"), "utf8")).rejects.toMatchObject({
 			code: "ENOENT",
 		});
+	});
+
+	test("removes unscoped and scoped package projects without removing siblings", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "ns-extension-remove-"));
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec() {
+				throw new Error("not used");
+			},
+		});
+		const unscoped = managedNpmProjectRoot(repoRoot, "plain");
+		const scoped = managedNpmProjectRoot(repoRoot, "@scope/target");
+		const sibling = managedNpmProjectRoot(repoRoot, "@scope/sibling");
+		for (const path of [unscoped, scoped, sibling]) {
+			await mkdir(path, { recursive: true });
+			await writeFile(join(path, "package.json"), "{}");
+		}
+
+		await expect(
+			gateway.removeManagedNpmPackage({ projectRoot: repoRoot, packageName: "plain" }),
+		).resolves.toEqual({ ok: true, value: { status: "removed", path: unscoped } });
+		await expect(
+			gateway.removeManagedNpmPackage({ projectRoot: repoRoot, packageName: "@scope/target" }),
+		).resolves.toEqual({ ok: true, value: { status: "removed", path: scoped } });
+		await expect(lstat(unscoped)).rejects.toMatchObject({ code: "ENOENT" });
+		await expect(lstat(scoped)).rejects.toMatchObject({ code: "ENOENT" });
+		await expect(readFile(join(sibling, "package.json"), "utf8")).resolves.toBe("{}");
+	});
+
+	test("returns already absent and prunes an empty scope below the shared npm root", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "ns-extension-remove-"));
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec() {
+				throw new Error("not used");
+			},
+		});
+		const project = managedNpmProjectRoot(repoRoot, "@scope/only");
+		await mkdir(project, { recursive: true });
+		await writeFile(join(project, "package.json"), "{}");
+
+		await expect(
+			gateway.removeManagedNpmPackage({ projectRoot: repoRoot, packageName: "@scope/only" }),
+		).resolves.toMatchObject({ ok: true, value: { status: "removed", path: project } });
+		await expect(lstat(join(repoRoot, ".ns/managed-extensions/npm/@scope"))).rejects.toMatchObject({
+			code: "ENOENT",
+		});
+		await expect(lstat(join(repoRoot, ".ns/managed-extensions/npm"))).resolves.toBeDefined();
+		await expect(
+			gateway.removeManagedNpmPackage({ projectRoot: repoRoot, packageName: "@scope/only" }),
+		).resolves.toEqual({ ok: true, value: { status: "already-absent", path: project } });
+	});
+
+	test("rejects symlinks and non-directories in the managed package chain", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "ns-extension-remove-"));
+		const gateway = createRealExtensionAcquisitionGateway({
+			async exec() {
+				throw new Error("not used");
+			},
+		});
+		const npmRoot = join(repoRoot, ".ns/managed-extensions/npm");
+		await mkdir(npmRoot, { recursive: true });
+		await symlink(repoRoot, join(npmRoot, "linked"));
+		await writeFile(join(npmRoot, "not-directory"), "keep");
+
+		for (const packageName of ["linked", "not-directory"]) {
+			await expect(
+				gateway.removeManagedNpmPackage({ projectRoot: repoRoot, packageName }),
+			).resolves.toMatchObject({
+				ok: false,
+				error: { code: "extension_acquisition_npm_remove_failed" },
+			});
+		}
+		await expect(readFile(join(npmRoot, "not-directory"), "utf8")).resolves.toBe("keep");
 	});
 
 	test("normalizes exec rejection into a diagnostic", async () => {

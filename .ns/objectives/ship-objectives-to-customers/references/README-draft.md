@@ -1,6 +1,6 @@
 # Managing ns extensions — `ns extension` (README draft)
 
-> Status: README-driven design draft for the `ns extension install` / `remove` / `update`
+> Status: README-driven design draft for the `ns extension install` / `uninstall` / `update`
 > acquisition surface (roadmap row: "Design the `ns install` / `ns remove` / `ns update`
 > surface"). The main body is written as the future customer-facing doc, as if shipped.
 > Open decisions and migration notes are at the end. Settled inputs: bare core (no
@@ -101,11 +101,23 @@ what changed.
 ### `ns extension uninstall <source>`
 
 The inverse of `install`, matched by **identity**, not literal string: npm specs match by
-package name (any version), local specs by resolved absolute path. Removes the `ns.toml`
-entry, deletes the managed install (npm sources only), and deprovisions the harness
-artifacts this extension provisioned (manifest-tracked — only files ns placed are
-touched). The extension's own consumer data (for example `.ns/objectives/`) is **never**
-deleted. Reversible by reinstalling.
+package name (any version), local specs by resolved absolute path. The command first
+preflights and applies the full prospective activation set: it removes the matching
+`ns.toml` entry, regenerates instructions, preserves consumer directories, and deprovisions
+only unchanged manifest-owned harness artifacts. Locally edited and untracked files are
+preserved rather than force-removed.
+
+Managed npm package deletion happens only after activation succeeds. Cleanup removes the
+package-specific project under `.ns/managed-extensions/npm/`, prunes only empty scope
+ancestors below the shared npm root, and never touches sibling packages. Local source
+directories and all extension consumer data (for example `.ns/objectives/`) are **never**
+deleted.
+
+An already-absent declaration is an idempotent success: activation still reconciles, and
+an npm target still cleans matching orphaned managed bytes. If cleanup fails after
+activation, the failure reports completed activation duties; rerunning the exact command
+converges. Reversible by reinstalling. Danger tier 1 — no confirmation, `--yes`, or
+`--force`.
 
 ### `ns extension update <source> [--dry-run|-n]`
 
@@ -142,7 +154,7 @@ Unchanged inspection commands over descriptor-declared extension points.
   extensions themselves, not from `init`. Initialization comes first: extension install
   consumes the harnesses already persisted by `ns init` and fails without them.
 - **`ns skills …`** remains the harness-artifact machinery (`list`/`path`/`install`);
-  `ns extension install/update/remove` drive it internally rather than duplicating it.
+  `ns extension install/update/uninstall` drive it internally rather than duplicating it.
 - **`ns update`** (top-level) narrows to ns **self-update** (reserved; owned by the
   self-update initiative). Its current `--extensions` harness-artifact mode migrates into
   `ns extension update`.
