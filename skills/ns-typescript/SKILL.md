@@ -1,14 +1,17 @@
 ---
 name: ns-typescript
-description: "TypeScript overlay for ns. Use when editing or reviewing TS in this repo: tsconfig baseline, pnpm/Vitest/oxlint/oxfmt/native tsc commands, relative .ts imports, workspace subpath exports, exactOptionalPropertyTypes spread idiom, and the `as unknown as` hard ban."
+description: "TypeScript overlay for ns-style projects. Use when editing or reviewing TS in this repo: tsconfig baseline, pnpm/Vitest/oxlint/oxfmt/native tsc commands, relative .ts imports, workspace subpath exports, and the exactOptionalPropertyTypes spread idiom. Repo-specific enforcement (test lanes, time seams, style guard) lives in the host repo's AGENTS.md."
 references:
   - references/internal-import-alternatives
 ---
 
 # ns-typescript
 
-Follow `typescript-style` for how TypeScript code reads. This skill is the ns project overlay:
-toolchain, compiler baseline, import conventions, and local bans.
+Follow `typescript-style` for how TypeScript code reads. This skill is the project overlay:
+toolchain, compiler baseline, import conventions, and construction idioms. It is written for reuse
+in other projects that adopt the same stack; repo-specific enforcement — test-lane hard gates, the
+time-seam package inventory, and the style-guard lane — is owned by the host repository's agent
+instructions (in ns: `ts/AGENTS.md`).
 
 Load this after `typescript-style` whenever the task touches TypeScript in this repository.
 
@@ -129,61 +132,28 @@ example, prefer `ctx.renderCapabilities: RenderCapabilities` over
 
 ## Time seams
 
-Production ns TypeScript should not hand-roll raw timers. Use `Clock` from `@nseng-ai/foundation/clock` for wall-clock reads, `TimerScheduler` / `ScheduledTimer` from `@nseng-ai/foundation/timers` for scheduling contracts, concrete `systemClock` / `systemTimerScheduler` from `@nseng-ai/foundation/time`, `unrefTimerScheduler` from `@nseng-ai/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` plus related harnesses from `@nseng-ai/foundation/time/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
+Production code does not hand-roll raw timers or wall-clock reads: inject clock and timer-scheduler
+seams and drive them with manual test helpers in default tests. The host repo's AGENTS.md owns the
+package-level seam inventory and the enforcement ban (in ns: `ts/AGENTS.md` "Time seams",
+`NS_TS_BAN_RAW_PRODUCTION_TIMERS`).
 
 ## Test lanes and shared-cache safety
 
-Default tests are fake-driven. Real adapter/runtime boundaries belong under `test/integration/` and run
-with `just ts-test-integration`. Tests whose subject genuinely requires ambient Vitest module state or
-process-global state belong under `test/isolated/` and run with `just ts-test-isolated`. Isolation is not
-a synonym for integration or a general slow-test lane; first prefer injected dependencies, gateways,
-manual time helpers, explicit env/cwd, `vi.stubEnv()`, or a narrow owned lifecycle seam.
+Default tests are fake-driven. Real adapter/runtime boundaries belong under `test/integration/`;
+tests whose subject genuinely requires ambient Vitest module state or process-global state belong
+under `test/isolated/`. Isolation is not a synonym for integration or a general slow-test lane;
+first prefer injected dependencies, gateways, manual time helpers, explicit env/cwd, or a narrow
+owned lifecycle seam. The shared-lane hard bans, per-ban remediation, lane commands, and CI split
+are owned by the host repo's AGENTS.md (in ns: `ts/AGENTS.md` "Test isolation hard gates") with
+placement detail in `ts/TESTING.md`.
 
-The default, integration, and TypeScript style guard lanes share the module cache. Outside
-`test/isolated/`, these guard identifiers are hard bans:
+## Style-guard enforcement
 
-- `NS_TS_BAN_SHARED_TEST_MODULE_STATE`: no `vi.mock`, `vi.doMock`, `vi.unmock`, `vi.doUnmock`, or
-  `vi.resetModules`.
-- `NS_TS_BAN_SHARED_TEST_FAKE_TIMERS`: no `vi.useFakeTimers` or `vi.useRealTimers`; inject
-  `TimerScheduler` and use `createManualTimerScheduler()`.
-- `NS_TS_BAN_SHARED_TEST_PROCESS_MUTATION`: no direct `process.env` assignment/deletion or
-  `process.chdir`; pass env/cwd or use `vi.stubEnv()`.
-- `NS_TS_BAN_SHARED_TEST_GLOBAL_LISTENERS`: no process-global listener mutation; inject an event source.
-- `NS_TS_BAN_SHARED_TEST_SINGLETON_STATE`: no module-global Graphite metadata worker lifecycle; inject an
-  owned worker seam.
-
-Shared Vitest configuration automatically restores mock functions/spies and values stubbed with
-`vi.stubEnv()` / `vi.stubGlobal()`. That does not make direct process, module-cache, fake-timer, listener,
-or singleton mutation safe. The default `just` entrypoint deliberately omits isolated tests; they run in
-a separate CI job and must be invoked explicitly when affected. See `ts/TESTING.md` for lane placement
-and the remediation hierarchy.
-
-## Hard bans enforced by TypeScript style guard tests
-
-The repository TypeScript style guard tests run adversarial self-review cases and enforce these uniquely
-greppable rules through `just ts-test-typescript-style-guard`:
-
-- `NS_TS_BAN_AS_UNKNOWN_AS`: `as unknown as T` is banned everywhere in TypeScript, including tests. It
-  launders the type instead of modeling the fixture or boundary honestly.
-- `NS_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY`: first-party import aliases are banned for relative imports,
-  `@nseng-ai/*` workspace packages, and project-local aliases such as docs-site `@/`. Preserve source names so
-  `rg SymbolName` remains reliable. Third-party import aliases are allowed when used consistently.
-- `NS_TS_BAN_EMPTY_INTERFACE_EXTENDS`: empty `interface X extends Y {}` aliases are banned. Use
-  `type X = Y` unless the interface adds real members.
-- `NS_TS_BAN_RAW_PRODUCTION_TIMERS`: raw production timers are banned outside timer adapter modules and tests. Use `Clock`, `TimerScheduler`, and `unrefTimerScheduler` seams instead.
-
-Review-only hard ban: `NS_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS` means do not work around alias bans with
-`const LocalName = ImportedName`; use the first-party source name or a third-party import alias. This is
-not enforced mechanically because legitimate constants can share the same AST shape.
-
-Preferred fixes for unsafe casts and empty aliases:
-
-- build a complete typed object;
-- add a small typed `make*` fixture helper;
-- derive the type from the source of truth;
-- add a narrow runtime assertion at the boundary;
-- isolate a single library-forced cast with a comment only when the external type truly requires it;
-- replace empty interface-extension aliases with direct `type` aliases.
+Rule semantics and preferred fixes for the mechanical hard bans — `as unknown as` laundering,
+first-party import aliases, empty interface extension, imported-binding local aliases — live in
+`typescript-style` (`core-rules.md`, `checklist.md`). The host repo's AGENTS.md owns the enforced-id
+inventory and the guard-lane command (in ns: `ts/AGENTS.md` "TypeScript style guard",
+`just ts-test-typescript-style-guard`).
 
 Run the TypeScript validation gates before declaring TypeScript work done:
 

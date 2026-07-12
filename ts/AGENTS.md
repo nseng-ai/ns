@@ -15,19 +15,23 @@ The default, integration, and TypeScript style guard lanes share the Vitest modu
 `test/isolated/`, the TypeScript style guard enforces these hard bans:
 
 - `NS_TS_BAN_SHARED_TEST_MODULE_STATE`: no `vi.mock` / `doMock` / `unmock` / `doUnmock` /
-  `resetModules`.
-- `NS_TS_BAN_SHARED_TEST_FAKE_TIMERS`: no `vi.useFakeTimers` or `vi.useRealTimers`.
+  `resetModules`; inject fakes/gateways instead.
+- `NS_TS_BAN_SHARED_TEST_FAKE_TIMERS`: no `vi.useFakeTimers` or `vi.useRealTimers`; inject
+  `TimerScheduler` and use `createManualTimerScheduler()`.
 - `NS_TS_BAN_SHARED_TEST_PROCESS_MUTATION`: no direct `process.env` assignment/deletion or
-  `process.chdir`.
-- `NS_TS_BAN_SHARED_TEST_GLOBAL_LISTENERS`: no process-global listener mutation.
-- `NS_TS_BAN_SHARED_TEST_SINGLETON_STATE`: no module-global Graphite metadata worker lifecycle.
+  `process.chdir`; pass env/cwd explicitly or use `vi.stubEnv()`.
+- `NS_TS_BAN_SHARED_TEST_GLOBAL_LISTENERS`: no process-global listener mutation; inject an event
+  source.
+- `NS_TS_BAN_SHARED_TEST_SINGLETON_STATE`: no module-global Graphite metadata worker lifecycle;
+  inject an owned worker seam.
 
-Prefer injected fakes/gateways, manual time helpers, explicit env/cwd, `vi.stubEnv()`, or an owned
-lifecycle seam. Put only tests whose subject genuinely requires ambient module/process behavior under
-`test/isolated/`; this is distinct from `test/integration/`, which is for real adapter/runtime
-boundaries. Run isolated tests with `just ts-test-isolated`. The default `just` entrypoint deliberately
-omits isolated tests; CI runs them in a separate job. See `ts/TESTING.md` for placement, automatic
-restore behavior, and the remediation hierarchy.
+Shared Vitest configuration automatically restores mock functions/spies and values stubbed with
+`vi.stubEnv()` / `vi.stubGlobal()`; that does not make direct process, module-cache, fake-timer,
+listener, or singleton mutation safe. Put only tests whose subject genuinely requires ambient
+module/process behavior under `test/isolated/`; this is distinct from `test/integration/`, which is
+for real adapter/runtime boundaries. Run isolated tests with `just ts-test-isolated`. The default
+`just` entrypoint deliberately omits isolated tests; CI runs them in a separate job. See `ts/TESTING.md`
+for placement, automatic restore behavior, and the remediation hierarchy.
 
 ## Package and subpackage structure
 
@@ -35,7 +39,17 @@ Before creating a workspace package, declaring or renaming `ns.subpackages` entr
 
 ## Time seams
 
-Do not add raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, or wall-clock reads in ji-owned TypeScript logic. Inject/use `Clock` from `@nseng-ai/foundation/clock` for wall-clock reads and `TimerScheduler` / `ScheduledTimer` from `@nseng-ai/foundation/timers` for scheduling, cancellation, and awaited delays. Concrete system adapters (`systemClock`, `systemTimerScheduler`) live in `@nseng-ai/foundation/time`; manual test fakes (`createManualClock()`, `createManualTimerScheduler()`, and related harnesses) live in `@nseng-ai/foundation/time/testing`. Use `unrefTimerScheduler` from `@nseng-ai/pi/shared/timers` for Pi host background timers that must not keep the process alive. Raw timers belong in timer adapter modules or narrowly justified tests/integration smoke.
+Do not add raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, or wall-clock reads in ji-owned TypeScript logic. Inject/use `Clock` from `@nseng-ai/foundation/clock` for wall-clock reads and `TimerScheduler` / `ScheduledTimer` from `@nseng-ai/foundation/timers` for scheduling, cancellation, and awaited delays. Concrete system adapters (`systemClock`, `systemTimerScheduler`) live in `@nseng-ai/foundation/time`; manual test fakes (`createManualClock()`, `createManualTimerScheduler()`, and related harnesses) live in `@nseng-ai/foundation/time/testing`. Use `unrefTimerScheduler` from `@nseng-ai/pi/shared/timers` for Pi host background timers that must not keep the process alive. Raw timers belong in timer adapter modules or narrowly justified tests/integration smoke; the TypeScript style guard rejects raw production timers and `node:timers/promises` imports outside those homes (`NS_TS_BAN_RAW_PRODUCTION_TIMERS`).
+
+## TypeScript style guard
+
+`just ts-test-typescript-style-guard` mechanically enforces the typescript-style hard rules; rule
+semantics and preferred fixes live in `.agents/skills/typescript-style/` (`core-rules.md`,
+`checklist.md`). Mechanically enforced ids: `NS_TS_BAN_AS_UNKNOWN_AS`,
+`NS_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY`, `NS_TS_BAN_EMPTY_INTERFACE_EXTENDS`,
+`NS_TS_BAN_RAW_PRODUCTION_TIMERS`, plus the five shared-test bans above.
+`NS_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS` is review-only — legitimate constants share the same AST
+shape, so do not work around alias bans with `const LocalName = ImportedName`.
 
 ## Formatting and validation
 

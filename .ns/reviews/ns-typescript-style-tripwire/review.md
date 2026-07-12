@@ -3,11 +3,13 @@
 # by merging the portable TypeScript style guide (`skills/typescript-style/`,
 # especially `core-rules.md`, `checklist.md`, and
 # `references/review-taste-and-process.md`) with the project overlay
-# (`skills/ns-typescript/SKILL.md`). It is intentionally not a generic
+# (`skills/ns-typescript/SKILL.md`) and the repo enforcement rules in
+# `ts/AGENTS.md` (test-lane hard gates, time seams, style-guard ids). It is
+# intentionally not a generic
 # TypeScript review; use `.ns/reviews/ns-typescript-style-tripwire/review.md` when reviewing this
 # repo's TypeScript diffs.
 #
-# Regeneration instructions: when either source skill changes, refresh this file
+# Regeneration instructions: when any of those source documents changes, refresh this file
 # by re-reading those source documents, keep only diff-grounded/mechanically
 # reviewable rules in the Active Tier A section, move higher-context design rules
 # to the NOT ACTIVE Tier B comment, preserve the frontmatter schema accepted by
