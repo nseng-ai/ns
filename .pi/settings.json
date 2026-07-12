@@ -42,11 +42,9 @@
     "-skills/ns-cmux-branch-triage",
     "-skills/code-gt-linearize-descendants",
     "-skills/code-just-the-stack",
-    "-skills/skill-audit-improved",
     "-skills/dignified-python",
     "-skills/pytest",
     "-skills/skill-management",
-    "-skills/skill-audit",
     "-skills/reinvented-abstractions-tripwire",
     "-skills/ns-typescript-style-tripwire",
     "-skills/dignified-python-tripwire",
@@ -65,6 +63,7 @@
     "-skills/objective-create-standing",
     "-skills/objective-create-umbrella",
     "-skills/objective-create-autoobjective",
-    "-skills/objective-create-readme-driven-development"
+    "-skills/objective-create-readme-driven-development",
+    "-skills/skill-audit"
   ]
 }

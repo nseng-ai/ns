@@ -452,12 +452,7 @@
     "skill-audit": {
       "source": "skills/skill-audit",
       "sourceType": "local",
-      "computedHash": "aff80b28a8eb74940c9738c27458d489d3f7df708aa2a408d06b9ec61eca2cda"
-    },
-    "skill-audit-improved": {
-      "source": "skills/skill-audit-improved",
-      "sourceType": "local",
-      "computedHash": "586db4b721b786646ede2398e4adef883a5468a2afea148506e8f7f4669fdd3a"
+      "computedHash": "23ee8d4104afc7cc9f1078e08f924cec3ae3af6b13df3621beb9f1d7623e0752"
     },
     "skill-management": {
       "source": "skills/skill-management",
