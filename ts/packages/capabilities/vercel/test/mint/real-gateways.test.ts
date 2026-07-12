@@ -1,0 +1,200 @@
+import { generateKeyPair, SignJWT } from "jose";
+import { describe, expect, it } from "vitest";
+
+import {
+	createGitHubInstallationTokenGateway,
+	createJoseVercelOidcGateway,
+	createSharedSecretLandingCredentialGateway,
+	type AppAuthFactoryOptions,
+	type InstallationAuthentication,
+	type InstallationAuthOptions,
+} from "../../src/mint/real-gateways.ts";
+import type { MintRuntimeConfig } from "../../src/mint/runtime-config.ts";
+
+type SigningKey = Awaited<ReturnType<typeof generateKeyPair>>["privateKey"];
+
+const config: MintRuntimeConfig = {
+	githubAppId: "4282120",
+	githubAppInstallationId: "146155769",
+	githubAppPrivateKey: "private-key-fixture",
+	sandboxMintSecret: "landing-secret-fixture",
+	githubRepository: "nseng-ai/ns",
+	vercelTeamId: "team_dispatch",
+	vercelProjectId: "prj_dispatch",
+	vercelOidcIssuer: "https://oidc.vercel.com/nseng-ai",
+	vercelOidcAudience: "https://vercel.com/nseng-ai",
+};
+
+class RecordingAppAuthFactory {
+	readonly #authentication: InstallationAuthentication;
+	readonly factoryCalls: AppAuthFactoryOptions[] = [];
+	readonly authCalls: InstallationAuthOptions[] = [];
+
+	constructor(authentication: InstallationAuthentication) {
+		this.#authentication = authentication;
+	}
+
+	create(options: AppAuthFactoryOptions) {
+		this.factoryCalls.push({ ...options });
+		return async (authOptions: InstallationAuthOptions): Promise<InstallationAuthentication> => {
+			this.authCalls.push({
+				...authOptions,
+				repositoryNames: [...authOptions.repositoryNames],
+				permissions: { ...authOptions.permissions },
+			});
+			return this.#authentication;
+		};
+	}
+}
+
+function successfulAuthentication(): InstallationAuthentication {
+	return { token: "installation-token", expiresAt: "2026-07-12T18:00:00Z" };
+}
+
+describe("createGitHubInstallationTokenGateway", () => {
+	it.each([
+		["clone", { contents: "read" }],
+		["landing", { contents: "write", pull_requests: "write", issues: "write" }],
+	] as const)("requests one repository with exact %s permissions", async (purpose, permissions) => {
+		const authFactory = new RecordingAppAuthFactory(successfulAuthentication());
+		const gateway = createGitHubInstallationTokenGateway(config, (options) =>
+			authFactory.create(options),
+		);
+
+		const result = await gateway.mintRepositoryToken({
+			repository: "nseng-ai/ns",
+			purpose,
+		});
+
+		expect(result).toEqual({ ok: true, value: successfulAuthentication() });
+		expect(authFactory.factoryCalls).toEqual([
+			{
+				appId: config.githubAppId,
+				installationId: config.githubAppInstallationId,
+				privateKey: config.githubAppPrivateKey,
+			},
+		]);
+		expect(authFactory.authCalls).toEqual([
+			{
+				type: "installation",
+				installationId: config.githubAppInstallationId,
+				repositoryNames: ["ns"],
+				permissions,
+				refresh: true,
+			},
+		]);
+	});
+
+	it("normalizes malformed vendor output to a safe failure", async () => {
+		const authFactory = new RecordingAppAuthFactory({
+			token: "vendor-secret",
+			expiresAt: "not-an-iso-timestamp",
+		});
+		const gateway = createGitHubInstallationTokenGateway(config, (options) =>
+			authFactory.create(options),
+		);
+
+		const result = await gateway.mintRepositoryToken({
+			repository: "nseng-ai/ns",
+			purpose: "clone",
+		});
+
+		expect(result).toEqual({ ok: false });
+		expect(JSON.stringify(result)).not.toContain("vendor-secret");
+	});
+});
+
+describe("createJoseVercelOidcGateway", () => {
+	it("verifies a locally signed token and normalizes Vercel identity claims", async () => {
+		const { publicKey, privateKey } = await generateKeyPair("ES256");
+		const gateway = createJoseVercelOidcGateway({ keyResolver: async () => publicKey });
+		const token = await signedToken(privateKey, {});
+
+		const result = await gateway.verifyDevelopmentIdentity({
+			token,
+			issuer: config.vercelOidcIssuer,
+			audience: config.vercelOidcAudience,
+		});
+
+		expect(result).toEqual({
+			ok: true,
+			value: {
+				ownerId: config.vercelTeamId,
+				projectId: config.vercelProjectId,
+				environment: "development",
+			},
+		});
+	});
+
+	it.each([
+		["issuer", { issuer: "https://oidc.vercel.com/other" }],
+		["audience", { audience: "https://vercel.com/other" }],
+		["expiration", { expiration: "-1s" }],
+	] as const)("rejects a token with the wrong %s", async (_name, overrides) => {
+		const { publicKey, privateKey } = await generateKeyPair("ES256");
+		const gateway = createJoseVercelOidcGateway({ keyResolver: async () => publicKey });
+		const token = await signedToken(privateKey, overrides);
+
+		const result = await gateway.verifyDevelopmentIdentity({
+			token,
+			issuer: config.vercelOidcIssuer,
+			audience: config.vercelOidcAudience,
+		});
+
+		expect(result).toEqual({ ok: false });
+	});
+
+	it("rejects a valid signature when required temporal claims are absent", async () => {
+		const { publicKey, privateKey } = await generateKeyPair("ES256");
+		const gateway = createJoseVercelOidcGateway({ keyResolver: async () => publicKey });
+		const token = await new SignJWT({
+			owner_id: config.vercelTeamId,
+			project_id: config.vercelProjectId,
+			environment: "development",
+		})
+			.setProtectedHeader({ alg: "ES256", kid: "fixture" })
+			.setIssuer(config.vercelOidcIssuer)
+			.setAudience(config.vercelOidcAudience)
+			.sign(privateKey);
+
+		const result = await gateway.verifyDevelopmentIdentity({
+			token,
+			issuer: config.vercelOidcIssuer,
+			audience: config.vercelOidcAudience,
+		});
+
+		expect(result).toEqual({ ok: false });
+	});
+});
+
+describe("createSharedSecretLandingCredentialGateway", () => {
+	it("accepts only the configured credential", () => {
+		const gateway = createSharedSecretLandingCredentialGateway("expected-secret");
+
+		expect(gateway.verifyLandingCredential("expected-secret")).toBe(true);
+		expect(gateway.verifyLandingCredential("other-secret")).toBe(false);
+	});
+});
+
+interface SignedTokenOverrides {
+	readonly issuer?: string;
+	readonly audience?: string;
+	readonly expiration?: string;
+}
+
+async function signedToken(
+	privateKey: SigningKey,
+	overrides: SignedTokenOverrides,
+): Promise<string> {
+	return new SignJWT({
+		owner_id: config.vercelTeamId,
+		project_id: config.vercelProjectId,
+		environment: "development",
+	})
+		.setProtectedHeader({ alg: "ES256", kid: "fixture" })
+		.setIssuer(overrides.issuer ?? config.vercelOidcIssuer)
+		.setAudience(overrides.audience ?? config.vercelOidcAudience)
+		.setIssuedAt()
+		.setExpirationTime(overrides.expiration ?? "5m")
+		.sign(privateKey);
+}
