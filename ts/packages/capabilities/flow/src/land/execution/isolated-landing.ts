@@ -7,6 +7,7 @@ import type {
 	StackSnapshot,
 } from "../types.ts";
 import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
+import { isVerifiedMergedPullRequest } from "./merged-pull-request-verification.ts";
 import {
 	resolveManagedSlotPostLandingCleanupDecision,
 	type PostLandingCleanupRequest,
@@ -141,7 +142,11 @@ export async function executeIsolatedLanding(
 		};
 	}
 
-	if (!isVerifiedMergedPullRequest(verified.value, options.target)) {
+	const isVerifiedMerged = isVerifiedMergedPullRequest(verified.value, {
+		expectedTrunk: options.target.trunk,
+		expectedHeadBranch: options.target.stack.actualCurrentBranch,
+	});
+	if (!isVerifiedMerged) {
 		return {
 			type: "failure",
 			stage: "verification",
@@ -159,15 +164,6 @@ export async function executeIsolatedLanding(
 		commandOutput: successfulCommandOutput(mergeResult.value),
 		cleanupDecision: cleanupDecision.value,
 	};
-}
-
-function isVerifiedMergedPullRequest(verified: PullRequestFacts, target: LandingShape): boolean {
-	return (
-		verified.state === "MERGED" &&
-		Boolean(verified.mergedAt) &&
-		verified.baseRefName === target.trunk &&
-		verified.headRefName === target.stack.actualCurrentBranch
-	);
 }
 
 function successfulCommandOutput(result: {

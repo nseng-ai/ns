@@ -108,7 +108,7 @@ export async function executeStackLanding(
 				source: { type: "discover" },
 				approvedConfirmationKinds: approvedLandConfirmationKinds({
 					flags: parsedArgs,
-					wasUpfrontPromptApproved: false,
+					hasUpfrontPromptApproval: false,
 				}),
 			},
 			session,

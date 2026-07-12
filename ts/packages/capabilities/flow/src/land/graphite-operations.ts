@@ -187,12 +187,19 @@ const GRAPHITE_OPERATION_SPECS = {
 	},
 } satisfies GraphiteOperationSpecs;
 
-function graphiteOperationSpecFor<TOperation extends LandGraphiteOperation>(
-	operation: TOperation,
-): GraphiteOperationSpec<TOperation> {
-	return GRAPHITE_OPERATION_SPECS[operation.kind] as GraphiteOperationSpec<TOperation>;
-}
-
 export function buildGraphiteOperationArgs(operation: LandGraphiteOperation): string[] {
-	return graphiteOperationSpecFor(operation).buildArgs(operation);
+	switch (operation.kind) {
+		case "trunk":
+			return GRAPHITE_OPERATION_SPECS.trunk.buildArgs(operation);
+		case "submit-update":
+			return GRAPHITE_OPERATION_SPECS["submit-update"].buildArgs(operation);
+		case "restack":
+			return GRAPHITE_OPERATION_SPECS.restack.buildArgs(operation);
+		case "get-downstack-no-checkout":
+			return GRAPHITE_OPERATION_SPECS["get-downstack-no-checkout"].buildArgs(operation);
+		case "delete-local-branch":
+			return GRAPHITE_OPERATION_SPECS["delete-local-branch"].buildArgs(operation);
+		case "untrack-local-branch":
+			return GRAPHITE_OPERATION_SPECS["untrack-local-branch"].buildArgs(operation);
+	}
 }
