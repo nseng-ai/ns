@@ -26,7 +26,7 @@ under `skills/<name>/`.
 - `codebase-design`: deep-module vocabulary and design guidance.
 - `improve-codebase-architecture`: architecture survey using `codebase-design`, `domain-modeling`, and `grilling`.
 - `pocock-review`: two-axis diff review against a fixed point, using upstream Standards and Spec sub-agent prompts (renamed on import; see below).
-- `writing-great-skills`: upstream skill-authoring reference; ns audit behavior is folded into first-party `skill-audit` / `skill-audit-improved`.
+- `writing-great-skills`: upstream skill-authoring reference and the single source of the audit vocabulary; first-party `skill-audit` reads it at run time by context pointer (not a meld — no sync action on refresh).
 - `tdd`: red → green loop reference (SKILL.md, `tests.md`, `mocking.md`); vendored as-shipped, no ns meld yet.
 - `wayfinder`: tracker-backed shared map of investigation tickets for work larger than one agent session (upstream `skills/engineering/wayfinder/`). Kept `invoke-only` per ADR 0016 so it does not ambiently absorb planning language owned by ns Objectives. Carries the recorded tracker-line fork (see below). Bound to a **single-document tracker** via `docs/agents/issue-tracker.md` ("Wayfinding operations"): each wayfinder effort is one committed map file under `docs/wayfinding/` holding its tickets as sections — deliberately *not* Objectives-backed, so `/wayfinder` yields a lightweight doc while `objective-create-wayfinding` remains the Objectives-backed route. The Objective system's ideation pattern is an ns-native adaptation of this skill's model; the concept mapping, deliberate drops, and LM-driven sync process live in [wayfinder-objective-adaptation.md](wayfinder-objective-adaptation.md).
 - `research`: background-agent research into a repo Markdown summary (model-invoked, per upstream).
@@ -71,22 +71,26 @@ contract. On every upstream refresh, walk this table and apply each row's sync a
 Rows never duplicate the commit hash — the pin at the top of this document is the
 single source of commit-level provenance.
 
-| Upstream skill                              | ns surface                                                                                                                                                                                                    | Nature of melding                                                                                          | Sync action                                                                        |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `grilling`                                  | `skills/pi-grill-ui/SKILL.md`                                                                                                                                                                                 | Interview loop re-expressed in Pi structured `grill_ask` vocabulary                                        | Semantic merge on refresh                                                          |
-| `grilling`                                  | `skills/pi-grill-with-docs-ui/SKILL.md`                                                                                                                                                                       | Same, composed with docs-aware behavior                                                                    | Semantic merge on refresh                                                          |
-| `grilling`                                  | `ts/packages/internal/pi-tools/src/grill/prompts.ts` (fallback blocks + `GRILL_UI_CONTRACT`), `.../grill/result.ts` (end-grill result)                                                                        | Deliberately self-contained fallback duplicates of the backend skills                                      | Semantic merge on refresh; pin new behaviors in `test/grill/grill-ui.test.ts`      |
-| `grilling`                                  | `skills/readme-driven-development/SKILL.md` (Grill step)                                                                                                                                                      | Adapted interview-loop step                                                                                | Review on upstream `grilling` change                                               |
-| `domain-modeling`                           | `skills/pi-grill-with-docs-ui/SKILL.md`                                                                                                                                                                       | Glossary challenge, `CONTEXT.md` discipline, sparing ADRs in Pi vocabulary                                 | Semantic merge on refresh                                                          |
-| `code-review` (upstream rename of `review`) | `.ns/reviews/code-smell-review/review.md`                                                                                                                                                                     | NS-local review prompt derived from the Fowler smell baseline                                              | Manually re-derive the smell baseline on refresh                                   |
-| `writing-great-skills`                      | `skills/skill-audit/references/writing-great-skills-adaptation.md`                                                                                                                                            | Adapted audit concepts                                                                                     | Update adapted concepts when upstream vocabulary changes                           |
-| `writing-great-skills`                      | `skills/skill-audit-improved/`                                                                                                                                                                                | Bundled vocabulary with inline `src: pocock` markers (permitted finer-grained supplement to this registry) | Re-derive `src: pocock`-marked content on refresh                                  |
-| `wayfinder`                                 | Objective ideation pattern: `skills/objective/references/objective-patterns.md`, root `CONTEXT.md` vocabulary, `skills/objective-create-wayfinding/`, step-skill hooks in `objective-next`/`objective-update` | LM-driven conceptual adaptation                                                                            | LM sync per [wayfinder-objective-adaptation.md](wayfinder-objective-adaptation.md) |
-| `grill-me`                                  | `skills/objective-create/SKILL.md` (interview step)                                                                                                                                                           | Inspired-by, credited inline                                                                               | None (credit only)                                                                 |
-| `wayfinder`                                 | `docs/objective-system.md` (ideation pattern mention)                                                                                                                                                         | Inspired-by via the Objective ideation pattern                                                             | None (credit only)                                                                 |
+| Upstream skill                              | ns surface                                                                                                                                                                                                    | Nature of melding                                                          | Sync action                                                                        |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `grilling`                                  | `skills/pi-grill-ui/SKILL.md`                                                                                                                                                                                 | Interview loop re-expressed in Pi structured `grill_ask` vocabulary        | Semantic merge on refresh                                                          |
+| `grilling`                                  | `skills/pi-grill-with-docs-ui/SKILL.md`                                                                                                                                                                       | Same, composed with docs-aware behavior                                    | Semantic merge on refresh                                                          |
+| `grilling`                                  | `ts/packages/internal/pi-tools/src/grill/prompts.ts` (fallback blocks + `GRILL_UI_CONTRACT`), `.../grill/result.ts` (end-grill result)                                                                        | Deliberately self-contained fallback duplicates of the backend skills      | Semantic merge on refresh; pin new behaviors in `test/grill/grill-ui.test.ts`      |
+| `grilling`                                  | `skills/readme-driven-development/SKILL.md` (Grill step)                                                                                                                                                      | Adapted interview-loop step                                                | Review on upstream `grilling` change                                               |
+| `domain-modeling`                           | `skills/pi-grill-with-docs-ui/SKILL.md`                                                                                                                                                                       | Glossary challenge, `CONTEXT.md` discipline, sparing ADRs in Pi vocabulary | Semantic merge on refresh                                                          |
+| `code-review` (upstream rename of `review`) | `.ns/reviews/code-smell-review/review.md`                                                                                                                                                                     | NS-local review prompt derived from the Fowler smell baseline              | Manually re-derive the smell baseline on refresh                                   |
+| `wayfinder`                                 | Objective ideation pattern: `skills/objective/references/objective-patterns.md`, root `CONTEXT.md` vocabulary, `skills/objective-create-wayfinding/`, step-skill hooks in `objective-next`/`objective-update` | LM-driven conceptual adaptation                                            | LM sync per [wayfinder-objective-adaptation.md](wayfinder-objective-adaptation.md) |
+| `grill-me`                                  | `skills/objective-create/SKILL.md` (interview step)                                                                                                                                                           | Inspired-by, credited inline                                               | None (credit only)                                                                 |
+| `wayfinder`                                 | `docs/objective-system.md` (ideation pattern mention)                                                                                                                                                         | Inspired-by via the Objective ideation pattern                             | None (credit only)                                                                 |
 
 Standing policy inherited by every row: wherever Pocock skills use tickets or an issue
 tracker for durable state, ns uses Objectives.
+
+De-melded (2026-07-12): the former `writing-great-skills` melds — the `skill-audit`
+adaptation reference and the bundled `skill-audit-improved` vocabulary — were
+consolidated into one first-party `skills/skill-audit/` that reaches the vendored
+`.agents/skills/writing-great-skills/` by context pointer instead of embedding its
+content. Not a meld; no registry row, no sync action on refresh.
 
 Dismissed near-misses from the last semantic sweep (v1.1 refresh) — references by name
 or independent vocabulary, not embeddings: `skills/objective-next/references/confirmed-execution.md`
@@ -111,11 +115,11 @@ skill-audit family.
   `Documentation updates:` reporting for `/pi:grill-with-docs`.
 - **Validation-scope policy is ns-owned.** It lives in repo/project instructions and
   first-party Pi prompts; do not rely on upstream Matt wrappers to carry it.
-- **Writing-great-skills and skill-audit.** `writing-great-skills` is provenance and a
-  broader reference; ns's operational audit checklist lives in `skills/skill-audit/`
-  (especially `references/writing-great-skills-adaptation.md`) and
-  `skills/skill-audit-improved/`. When upstream skill-authoring vocabulary changes,
-  update the adapted concepts rather than turning the audit skills into tutorials.
+- **Writing-great-skills and skill-audit.** The vendored `writing-great-skills` is the
+  single source of the skill-authoring vocabulary; ns's operational audit checklists
+  live in `skills/skill-audit/`, which loads that vocabulary at run time by context
+  pointer. Upstream vocabulary changes flow in automatically on refresh — do not copy
+  vocabulary back into the audit skill.
 - **Invocation semantics.** Matt Skills uses `disable-model-invocation: true` for
   user-invoked wrappers and rich descriptions for reusable model-invoked skills. ns maps
   this through `areg skill apply`; `docs/research/harness-skill-invocation.md` records
@@ -134,9 +138,7 @@ additions:
 2. If the grill/domain-modeling contract changes, semantically merge into the Pi backend
    skills and the pi-tools fallback prompts, and pin new behaviors in
    `ts/packages/internal/pi-tools/test/grill/grill-ui.test.ts`.
-3. If skill-authoring concepts change, update the `skill-audit` adaptation reference and
-   the `src: pocock` sections of `skill-audit-improved`.
-4. Re-apply the recorded forks listed above.
+3. Re-apply the recorded forks listed above.
 
 ## Deferred follow-ups
 
@@ -144,8 +146,10 @@ additions:
   no-file-paths durability rule; the prototype-snippet exception.
 - `handoff` borrows for `handoff-create`: a "suggested skills" section; an explicit
   don't-duplicate/reference-by-path rule.
-- Consolidate `skill-audit` and `skill-audit-improved` into one skill (both are
-  writing-great-skills melds; the registry then collapses to one row).
+- ~~Consolidate `skill-audit` and `skill-audit-improved` into one skill~~ — done
+  2026-07-12: consolidated into `skills/skill-audit/` and de-melded to a context
+  pointer at the vendored skill; the registry collapsed to zero rows for this pairing
+  (see "De-melded" note above).
 - Melding assessments for other upstreams when their first update lands: `graphite`
   (gt skill family), `thermo-nuclear-code-quality-review` (vs first-party
   `review-thermonuclear-review`), `fdt-refactor-mock-to-fake` (cross-repo coherence

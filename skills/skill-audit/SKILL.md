@@ -1,200 +1,143 @@
 ---
 name: skill-audit
 disable-model-invocation: true
-description: "Audit and improve agent skills. Use when reviewing or editing skills for token efficiency, clarity, concision, trigger quality, progressive disclosure, install layout, or CLI push-down opportunities."
+description: "Audit and tighten agent skills — ns's operational audit checklists applied through the vendored writing-great-skills vocabulary. Summon by name to review a SKILL.md for predictability, token cost, triggers, progressive disclosure, and CLI push-down."
 ---
 
 # skill-audit
 
-Audit or tighten `SKILL.md` files for agent execution: high signal, low token
-cost, clear routing.
+<!--
+  LINEAGE: sections tagged with an HTML comment naming their dominant source.
+    src: skill-audit = the original ns skill-audit (operational checklists)
+    src: ns          = ns overlay / authored for this skill
+  The audit vocabulary is deliberately NOT embedded here: it is read at run time
+  from the vendored writing-great-skills skill (.agents/skills/writing-great-skills/,
+  upstream mattpocock/skills; pin: docs/agents/matt-pocock-skills.md), so upstream
+  refreshes need no re-sync of this file.
+  Installed as a command-backed support skill via areg. Keep invocation artifacts
+  managed by `areg skill apply command-backed skill-audit` (see docs/conventions/skill-conventions.md).
+-->
 
-Default goal: preserve behavior while deleting prompt burden.
+Audit and tighten `SKILL.md` files: same **process** every run (see Vocabulary), high signal, low token cost, clear routing. Default goal: preserve behavior while deleting prompt burden.
+
+Run the **Audit Order** top to bottom; apply the checklists as you go; name every finding with a **failure mode** from the Vocabulary.
+
+## Vocabulary — the audit lens
+
+<!-- src: ns — pointer only; the content lives in the vendored skill and is never copied here -->
+
+Read `.agents/skills/writing-great-skills/SKILL.md` before auditing. It defines the lens this audit thinks with — **predictability**, invocation and the two loads, the description as **context pointer**, the **information hierarchy**, **progressive disclosure**, granularity, **leading words**, pruning — and the **failure modes** that label every finding: **duplication**, **sediment**, **sprawl**, **no-op**, **negation**, **premature completion**. Deep definitions (with *Avoid* lists) are in its sibling `GLOSSARY.md`; consult on demand.
 
 ## Load With
 
+<!-- src: skill-audit -->
+
 - `skill-management`: when adding/removing/renaming/installing skills.
-- `cli-push-down`: when skill has shell, parsing, data gathering, or
-  long procedural mechanics.
-- `dignified-python` + `pytest`: when touching Python or tests.
-- `docs/skill-standards.md`: when this repo has it and frontmatter/type rules
-  matter.
+- `cli-push-down`: when the skill has shell, parsing, data gathering, or long procedural mechanics.
+- `typescript-style` + `typescript-fake-driven-testing`: when the skill carries TypeScript code or tests.
+- `dignified-python` + `pytest`: when the skill carries Python code or tests.
+- `docs/conventions/skill-conventions.md`: for invocation-kind (`areg`), frontmatter, naming, and vendoring rules.
 
 ## Audit Order
 
-1. Read target `SKILL.md`.
-2. Check frontmatter and trigger surface.
-3. Audit for token waste, guardrail gaps, progressive-disclosure gaps, and
-   large CLI push-down wins.
-4. Apply the Skill Predictability Lens when invocation mode, trigger wording,
-   context load, decomposition, or upstream adaptation is in scope.
-5. Edit only when requested or clearly implied.
-6. Verify symlinks/install state if skill was added, moved, or renamed.
+<!-- src: skill-audit -->
+
+1. Load the audit lens: read the file named in **Vocabulary**.
+2. Read the target `SKILL.md`.
+3. Check **Frontmatter** and the trigger surface.
+4. Audit the body against **Token Cuts**, **Clarity**, **Progressive Disclosure**, and **CLI Push-Down**, naming each finding with a Vocabulary failure mode.
+5. Edit only when requested or clearly implied; follow **Edit Rules**.
+6. Verify install state (`areg skill show <name>`) if the skill was added, moved, or renamed.
+7. Produce the **Final Report**.
+
+Completion criterion: every section of the target accounted for — flagged with a named failure mode or explicitly judged clean. A change list with no verdict per section is premature completion.
 
 ## Frontmatter
+
+<!-- src: skill-audit -->
 
 Check:
 
 - `name` matches directory/install name.
-- `description` says when to use, not full workflow.
-- Task skill descriptions are narrow but discoverable.
-- Explicit command-backed skills are reconciled with `areg skill apply command-backed`; do not hand-edit descriptions or invocation flags.
+- `description` is a trigger (when to use), not a workflow summary.
+- Invocation kind fits the skill (see Vocabulary → Invocation): model-routable skills need a real trigger description; explicit-only skills are `invoke-only` via `areg`, not a hand-pasted `Command:` stub.
+- Model-invoked descriptions are narrow but discoverable; one trigger per **branch**.
 - No duplicate skill index in `AGENTS.md`.
-- Optional references are real and only loaded conditionally.
 
 Red flags:
 
-- Broad trigger words that make the skill load too often.
-- Description repeats body content.
-- Normal/ambient skill has no real trigger description.
-- Missing H1 matching skill identity.
+- Broad trigger words that fire the skill too often.
+- Description repeats body content (**duplication**).
 - Passive/abstract description that causes undertriggering.
+- Missing H1 matching skill identity.
 
 ## Token Cuts
 
-Move to sibling `README.md` (human-facing, agents do not load it):
+<!-- src: skill-audit -->
 
-- long philosophical paragraphs;
-- onboarding tone, introductions, conclusions;
-- decorative diagrams that duplicate a compact version already in `SKILL.md`.
+Hunt **no-ops** and **duplication** sentence by sentence (see Vocabulary); delete the whole sentence, don't trim words.
 
-Delete outright:
+Move to a sibling `README.md` (human-facing, agents don't load it): philosophical paragraphs, onboarding/intro/conclusion tone, decorative diagrams.
 
-- analogies;
-- long examples when a checklist suffices;
-- repeated rules in multiple sections;
-- obvious AI behavior;
-- reassurances;
-- tables that compact poorly;
-- before/after examples unless they prevent likely mistakes.
+Delete outright: analogies; long examples a checklist replaces; reassurances; obvious AI behavior; tables that compact poorly; before/after pairs that don't prevent a likely mistake.
 
-Prefer keeping:
+Keep: hard constraints; exact commands; file-layout contracts; trigger/coordination rules; failure handling; examples for fragile syntax only.
 
-- hard constraints;
-- exact commands;
-- file layout contracts;
-- trigger/coordination rules;
-- failure handling;
-- examples for fragile syntax only.
-
-Rewrite style:
-
-- imperative fragments over paragraphs;
-- one rule per bullet;
-- concrete thresholds over adjectives;
-- "do X when Y" over explanation.
+Rewrite style: imperative fragments over paragraphs; one rule per bullet; concrete thresholds over adjectives; "do X when Y" over explanation.
 
 ## Clarity
 
-Agent-facing clarity means:
+<!-- src: skill-audit -->
 
-- tells when to use the skill;
-- tells what to read next, conditionally;
-- defines ownership/boundaries;
-- distinguishes must/should/may;
-- names verification steps;
-- says what not to do.
+A clear skill tells: when to use it; what to read next, conditionally; ownership/boundaries; must vs should vs may; verification steps; what *not* to do.
 
-If a rule affects safety or correctness, keep it explicit even if verbose.
-
-Non-obvious or surprising rules earn a one-line rationale; wrong agent choices
-cost more than a few tokens.
-
-## Skill Predictability Lens
-
-Load `references/writing-great-skills-adaptation.md` when auditing invocation
-mode, decomposition, trigger quality, context load, completion criteria, or
-whether a Matt upstream change should be copied, forked, wrapped, or rejected.
-
-Use these concepts inline:
-
-- Predictability means same process, not same output.
-- Model-invoked vs. user-invoked maps to ns's ambient-discoverable vs.
-  explicitly-invoked behavior, with harness caveats.
-- Context load competes with human cognitive load; use routers only when they
-  reduce the combined cost.
-- Descriptions are context pointers, not summaries.
-- Single source of truth, duplication, sediment, sprawl, no-op, and premature
-  completion are concrete audit failure modes.
-- Leading words should match project vocabulary and guide model behavior.
+Sharpen vague **completion criteria** (see Vocabulary) — a fuzzy done condition invites premature completion. Keep safety/correctness rules explicit even when verbose. A non-obvious rule earns a one-line rationale; a wrong agent choice costs more than the tokens.
 
 ## Progressive Disclosure
 
-Load frequency:
+<!-- src: skill-audit -->
 
-- Frontmatter (`name` + `description`): always in context.
-- `SKILL.md` body: loaded whenever the skill triggers.
-- `references/`, `scripts/`, `assets/`, `README.md`: loaded on demand;
-  `README.md` is human-only.
+Optimize each level for its load frequency: frontmatter (always ambient) → `SKILL.md` body (loaded on trigger) → `references/`, `scripts/`, `assets/`, `README.md` (on demand; `README.md` human-only).
 
-Optimize each level for its load frequency.
+Keep in `SKILL.md`: core workflow, routing pointers, constraints needed every run. Move out: long examples, provider/framework/language variants, schemas, generated templates, rare edge cases. Split variant references by axis (e.g. `references/aws.md`, `references/gcp.md`) and route from `SKILL.md`.
 
-Keep in `SKILL.md`:
+Don't create extra docs by default — add a reference only when the main file would otherwise stay large or force irrelevant context.
 
-- core workflow;
-- routing to references/scripts/assets;
-- constraints needed every run.
+Thresholds:
 
-Move out:
-
-- long examples;
-- provider/framework variants;
-- schemas;
-- generated templates;
-- rare edge cases.
-
-When a skill spans multiple frameworks / providers / languages, split
-references by variant (e.g. `references/aws.md`, `references/gcp.md`) and
-route from `SKILL.md`. Agents read only the relevant file.
-
-Do not create extra docs by default. Add references only when the main file
-would otherwise stay large or force irrelevant context.
-
-Concrete thresholds:
-
-- `SKILL.md` target: under ~500 lines. Approaching the limit -> split a topic
-  into a reference.
-- Reference file > ~300 lines -> include a table of contents at the top.
+- `SKILL.md` target under ~500 lines. Approaching it → disclose a topic to a reference.
+- Reference file > ~300 lines → add a table of contents at the top.
 
 ## CLI Push-Down Audit
 
-Look for large wins, not tiny wrappers.
+<!-- src: skill-audit -->
 
-Push down when it removes:
+Look for large wins, not tiny wrappers. Push down when it removes: 20+ prompt lines; 3+ tool calls; shell pipelines or `jq`/`sed`/`awk`; loops over files/PRs/API results; deterministic validation/parsing; a workflow repeated across skills.
 
-- 20+ prompt lines;
-- 3+ tool calls;
-- shell pipelines or `jq`/`sed`/`awk`;
-- loops over files/PRs/API results;
-- deterministic validation/parsing;
-- repeated workflow across skills.
+Do not push down: semantic reading or naming; markdown parsing; one obvious command; under-30-line one-off helpers.
 
-Do not push down:
-
-- semantic reading or naming;
-- markdown parsing;
-- one obvious command;
-- under-30-line one-off helpers.
-
-If pushing down, target one cohesive command returning JSON with `success`,
-structured `error`, and all data needed for the next agent decision.
+If pushing down, target one cohesive command returning JSON with `success`, structured `error`, and all data the next agent decision needs.
 
 ## Edit Rules
 
-- Preserve user edits and intent.
-- Keep unrelated refactors out.
-- Do not rewrite a skill into a tutorial.
-- Avoid adding references/scripts unless the audit finds real need.
-- Prefer smaller, sharper `SKILL.md` over polished prose.
-- When editing local first-party skills, edit `skills/<name>/` directly.
+<!-- src: skill-audit -->
+
+- Preserve user edits and intent; keep unrelated refactors out.
+- Don't rewrite a skill into a tutorial; prefer smaller, sharper `SKILL.md` over polished prose.
+- Add references/scripts only when the audit finds real need.
+- Edit first-party skills at `skills/<name>/` directly (`.agents/skills/<name>` is a symlink back).
+- <!-- src: ns --> Don't replace ns-native workflows (Branch Memory, Objective, Graphite, handoff, ns) with upstream/generic workflow patterns without a separate product decision.
 - After edits, run `git diff --check`; use `wc -l` when reporting reductions.
 
 ## Final Report
 
-Report:
+<!-- src: skill-audit -->
 
-- files changed;
-- line/token reduction if meaningful;
-- main audit findings;
-- push-down opportunities accepted/rejected;
-- verification run or skipped.
+Report: files changed; line/token reduction if meaningful; main findings (each named with a failure mode); push-down opportunities accepted/rejected; verification run or skipped.
+
+## Harness & overlay notes
+
+<!-- src: ns -->
+
+- **Harness caveat.** `disable-model-invocation: true` is honored zero-ambient on Claude Code and Pi, but Codex keeps the description ambient and only blocks implicit invocation. Don't invent sidecar policy in a skill; the full per-harness mechanics live in `docs/research/harness-skill-invocation.md`. Invocation kind is managed by `areg` (`docs/conventions/skill-conventions.md`), not by hand-editing flags.
+- **Vendored skills.** When auditing a skill under a real directory in `.agents/skills/`, treat it as vendored: limit findings to integration-boundary issues unless the task is explicitly to modify the dependency (`docs/conventions/skill-conventions.md`).
