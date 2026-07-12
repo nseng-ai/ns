@@ -49,7 +49,6 @@
 		"@typescript/native-preview": "catalog:",
 		"@withgraphite/graphite-cli": "catalog:",
 		"jsonc-parser": "catalog:",
-		"nscc": "workspace:*",
 		"oxfmt": "catalog:",
 		"oxlint": "catalog:",
 		"syncpack": "catalog:",

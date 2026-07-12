@@ -512,9 +512,7 @@ function isFirstPartyModuleSpecifier(specifier: string): boolean {
 		specifier.startsWith("/") ||
 		specifier.startsWith("@/") ||
 		specifier.startsWith("@nseng-ai/") ||
-		specifier.startsWith("@internal/") ||
-		specifier === "nscc" ||
-		specifier.startsWith("nscc/")
+		specifier.startsWith("@internal/")
 	);
 }
 
