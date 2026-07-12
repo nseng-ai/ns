@@ -58,9 +58,20 @@ export interface StreamWriter {
 	done(frame: string): void;
 }
 
+/**
+ * The stream a stdout writer renders into: a writable plus the optional TTY geometry `log-update`
+ * reads (`columns`/`rows` for wrapping and height clipping, `isTTY` for synchronized output).
+ * `process.stdout` satisfies this; tests can inject an emulator-backed stream.
+ */
+export interface StreamRenderTarget extends NodeJS.WritableStream {
+	isTTY?: boolean;
+	columns?: number;
+	rows?: number;
+}
+
 /** Build the real `log-update`-backed writer. `showCursor: true` leaves the cursor to the sink. */
 export function createStdoutStreamWriter(
-	stream: NodeJS.WriteStream = process.stdout,
+	stream: StreamRenderTarget = process.stdout,
 ): StreamWriter {
 	const update = createLogUpdate(stream, { showCursor: true });
 	return {

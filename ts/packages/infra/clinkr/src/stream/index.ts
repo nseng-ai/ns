@@ -10,6 +10,7 @@ export type {
 	FrameRenderer,
 	HoldOptions,
 	StreamClock,
+	StreamRenderTarget,
 	StreamSink,
 	StreamSinkDeps,
 	StreamWriter,
