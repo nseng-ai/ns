@@ -68,6 +68,13 @@ describe("ns.toml extension spec edits", () => {
 			expected:
 				'matrix = [\n  [1, 2],\n  [3, 4],\n]\nextensions = ["./extensions/tools"]\n[points]\nfoo = "bar"\n',
 		},
+		{
+			name: "inline-table string and comment brackets",
+			nsTomlContent:
+				'settings = { marker = "[not-a-table]", nested = { value = "# ]" } } # [ignored]\n[points]\nfoo = "bar"\n',
+			expected:
+				'settings = { marker = "[not-a-table]", nested = { value = "# ]" } } # [ignored]\nextensions = ["./extensions/tools"]\n[points]\nfoo = "bar"\n',
+		},
 	])("inserts before a real top-level table after $name", ({ nsTomlContent, expected }) => {
 		expect(
 			planDeclaredExtensionInstallToml({
@@ -127,6 +134,25 @@ describe("ns.toml extension spec edits", () => {
 			ok: true,
 			text: 'extensions = ["./extensions/a", "./extensions/b"]\n[points]\n',
 			isAdded: false,
+		});
+	});
+
+	test.each([
+		{
+			name: "multiline string",
+			prefix: 'banner = """\n[not-a-table]\nkeep this text\n"""\n',
+		},
+		{
+			name: "nested arrays and inline tables",
+			prefix:
+				'matrix = [\n  ["[#]"], # ] ignored\n  { value = "[still text]", nested = [1, 2] },\n]\n',
+		},
+	])("finds an existing extensions assignment after $name", ({ prefix }) => {
+		const nsTomlContent = `${prefix}extensions = ["./extensions/a"]\n[points]\n`;
+		expect(appendDeclaredExtensionSpecToml(nsTomlContent, "./extensions/b")).toEqual({
+			ok: true,
+			text: `${prefix}extensions = ["./extensions/a", "./extensions/b"]\n[points]\n`,
+			isAdded: true,
 		});
 	});
 
