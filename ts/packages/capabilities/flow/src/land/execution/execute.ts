@@ -195,14 +195,13 @@ export async function executeLandingRequest(
 
 	// Resolve cleanup authorization before any merge mutation; the mutation itself only runs
 	// after a fully successful landing.
-	const cleanupDecision = await resolveManagedSlotPostLandingCleanupDecision({
+	const cleanupAuthorization = await resolveCleanupAuthorization({
 		confirmation: host.confirmation,
-		cleanup: cleanupRequest,
+		cleanupRequest,
 		shape,
+		draft,
 	});
-	if (cleanupDecision.type === "failure") {
-		return failedResult(draft, "confirmation", cleanupDecision.failure);
-	}
+	if (cleanupAuthorization.type === "failed") return cleanupAuthorization.result;
 
 	host.progress.note(formatPreparingLandingMilestone(plan.value));
 
@@ -260,7 +259,7 @@ export async function executeLandingRequest(
 		host,
 		shape,
 		cleanupRequest,
-		cleanupDecision: cleanupDecision.value,
+		cleanupDecision: cleanupAuthorization.decision,
 		draft,
 	});
 }
@@ -288,23 +287,46 @@ async function executeCleanupOnlyLanding(
 		),
 	);
 
-	const cleanupDecision = await resolveManagedSlotPostLandingCleanupDecision({
+	const cleanupAuthorization = await resolveCleanupAuthorization({
 		confirmation: host.confirmation,
-		cleanup: cleanupRequest,
+		cleanupRequest,
 		shape,
+		draft,
 	});
-	if (cleanupDecision.type === "failure") {
-		return failedResult(draft, "confirmation", cleanupDecision.failure);
-	}
+	if (cleanupAuthorization.type === "failed") return cleanupAuthorization.result;
 
 	return await executePostLandingCleanup({
 		context,
 		host,
 		shape,
 		cleanupRequest,
-		cleanupDecision: cleanupDecision.value,
+		cleanupDecision: cleanupAuthorization.decision,
 		draft,
 	});
+}
+
+type CleanupAuthorizationResult =
+	| { readonly type: "resolved"; readonly decision: PostLandingSlotCleanupDecision }
+	| { readonly type: "failed"; readonly result: LandingExecutionResult };
+
+async function resolveCleanupAuthorization(options: {
+	readonly confirmation: LandConfirmationGateway;
+	readonly cleanupRequest: PostLandingCleanupRequest;
+	readonly shape: StackLandingShape;
+	readonly draft: ReportDraft;
+}): Promise<CleanupAuthorizationResult> {
+	const decision = await resolveManagedSlotPostLandingCleanupDecision({
+		confirmation: options.confirmation,
+		cleanup: options.cleanupRequest,
+		shape: options.shape,
+	});
+	if (decision.type === "failure") {
+		return {
+			type: "failed",
+			result: failedResult(options.draft, "confirmation", decision.failure),
+		};
+	}
+	return { type: "resolved", decision: decision.value };
 }
 
 interface ExecutePostLandingCleanupOptions {

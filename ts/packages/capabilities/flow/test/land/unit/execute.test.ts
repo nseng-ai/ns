@@ -609,6 +609,41 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
 	});
 
+	test("cleanup authorization failure stops normal execution in the confirmation phase", async () => {
+		const memory = createInMemoryLandContext(managedSlotState());
+		const confirmation = decidingConfirmation({
+			"post-landing-cleanup": {
+				type: "refused-with-fully-worded-failure",
+				failure: {
+					type: "execution",
+					level: "error",
+					message: "Cleanup confirmation unavailable.",
+					outcome: "refusal",
+					refusalReason: "non-interactive",
+				},
+			},
+		});
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+		});
+
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failedPhase: "confirmation",
+			failure: { message: "Cleanup confirmation unavailable." },
+			report: { cleanup: { postLandingSlotCleanup: { type: "not-run" } } },
+		});
+		expect(confirmation.requests.map((request) => request.kind)).toEqual([
+			"main-landing",
+			"post-landing-cleanup",
+		]);
+		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
+	});
+
 	test("preserve policy makes no cleanup confirmation or mutation and reports preserved", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = approvingConfirmation();
@@ -912,6 +947,60 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
+	});
+
+	test("cleanup-only authorization failure records skipped merge then confirmation failure", async () => {
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: SLOT_ROOT,
+				currentBranch: "main",
+				localBranches: [{ name: "main", sha: SHA }],
+			},
+			graphite: {
+				stackShape: stackSnapshot({
+					trunk: "main",
+					current: "main",
+					actualCurrentBranch: "main",
+					landingTargetBranch: "main",
+					landingBranches: [],
+				}),
+			},
+		});
+		const confirmation = decidingConfirmation({
+			"post-landing-cleanup": {
+				type: "refused-with-fully-worded-failure",
+				failure: {
+					type: "execution",
+					level: "error",
+					message: "Cleanup confirmation unavailable.",
+					outcome: "refusal",
+					refusalReason: "non-interactive",
+				},
+			},
+		});
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+		});
+
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failedPhase: "confirmation",
+			report: {
+				completionDisposition: { type: "cleanup-only" },
+				phases: [
+					{ type: "completed", phase: "repo-discovery" },
+					{ type: "completed", phase: "stack-shape" },
+					{ type: "skipped", phase: "merge" },
+					{ type: "failed", phase: "confirmation" },
+				],
+			},
+		});
+		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
+		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
 	test("cleanup-only no-PR-path landing frees the managed slot and deletes its branch", async () => {

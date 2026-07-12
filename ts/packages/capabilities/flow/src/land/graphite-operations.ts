@@ -18,7 +18,7 @@ export type GraphiteRestackScope = "branch-only" | "upstack";
 
 export type LandGraphiteOperation =
 	| { kind: "trunk" }
-	| { kind: "submit-update"; branch: string; force?: boolean }
+	| { kind: "submit-update"; branch: string; shouldForce?: boolean }
 	| { kind: "restack"; branch: string; scope: GraphiteRestackScope }
 	| {
 			kind: "get-downstack-no-checkout";
@@ -49,12 +49,12 @@ export function trunkOperation(): Extract<LandGraphiteOperation, { kind: "trunk"
 
 export function submitUpdateOperation(input: {
 	readonly branch: string;
-	readonly force?: boolean;
+	readonly shouldForce?: boolean;
 }): Extract<LandGraphiteOperation, { kind: "submit-update" }> {
 	return {
 		kind: "submit-update",
 		branch: input.branch,
-		...(input.force === undefined ? {} : { force: input.force }),
+		...(input.shouldForce === undefined ? {} : { shouldForce: input.shouldForce }),
 	};
 }
 
@@ -152,7 +152,7 @@ const GRAPHITE_OPERATION_SPECS = {
 			"--no-edit",
 			"--no-ai",
 			"--no-interactive",
-			...(operation.force ? ["--force"] : []),
+			...(operation.shouldForce ? ["--force"] : []),
 		],
 	},
 	restack: {

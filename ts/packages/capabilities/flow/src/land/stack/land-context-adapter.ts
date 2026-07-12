@@ -127,7 +127,7 @@ export function createLandContext(
 				runGraphiteMutation({
 					graphite,
 					repoRoot,
-					operation: submitUpdateOperation({ branch, force }),
+					operation: submitUpdateOperation({ branch, shouldForce: force }),
 				}),
 			branchChildren: async ({ repoRoot, metadataDbPath, branch }) =>
 				loadBranchChildren({ pi, repoRoot, metadataDbPath, branch }),
