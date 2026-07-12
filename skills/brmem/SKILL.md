@@ -17,9 +17,10 @@ comments, or issues.
 
 This skill is a CLI reference. Prefer higher-level skills when they match the
 whole workflow — in particular, use the `branch-context` skill family for
-branch-context saved or attached plans; do not store those as generic `brmem`
-`plans/` keys. Use this skill directly when you need to inspect, write, copy,
-delete, or explain Branch Memory.
+branch-context saved or attached plans (do not store those as generic `brmem`
+`plans/` keys) and the `handoff` skill family for durable resume/continuation
+context across sessions. Use this skill directly when you need to inspect,
+write, copy, delete, or explain Branch Memory.
 
 ## Mental model
 

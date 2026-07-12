@@ -1,6 +1,6 @@
 ---
 name: branch-context
-description: "Explicit branch-context (branch context) work: enriched-plan local plan store, source branch plan file, branch-context slug, attached plan, Branch Memory attachment, change source branch, move/copy/retarget saved plan, inspect plan store, repair branch-context metadata, or Pi commands `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`. Not for generic planning, branch creation, or implementation unless branch-context intent is explicit."
+description: "Explicit branch-context (branch context) work: enriched-plan local plan store, source branch plan file, branch-context slug, attached plan, Branch Memory attachment, change/retarget a saved plan's source branch, move/copy saved plans, inspect plan store, repair branch-context metadata, or Pi commands `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`. Not for generic planning, branch creation, or implementation unless branch-context intent is explicit."
 ---
 
 # branch-context

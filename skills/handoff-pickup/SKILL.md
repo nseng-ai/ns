@@ -1,7 +1,7 @@
 ---
 name: handoff-pickup
 disable-model-invocation: true
-description: "Pick up, choose, or list handoff artifacts, present a handoff summary, and wait for user direction. Use when the user says pick up handoff, resume handoff, continue from handoff, choose a handoff, or list handoffs; use brmem only as storage/recovery machinery."
+description: "Pick up, choose, or list handoff artifacts, present a handoff summary, and wait for user direction. Use when the user says pick up handoff, resume handoff, continue from handoff, choose a handoff, or list handoffs."
 allowed-tools:
   - "Bash(git branch *)"
   - "Bash(ns handoff *)"

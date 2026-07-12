@@ -1,7 +1,7 @@
 ---
 name: objective-retro
 disable-model-invocation: true
-description: "Use when asked for an Objective retro/retrospective, post-merge or closed-Objective review of delivered scope, Objective archaeology, or reconstructing an Objective's delivered PR/commit set for downstream review (formerly objective-review-briefing). Two phases: reconstruct the delivered unit of work into a review-agnostic Branch Memory basis, then write a source-backed retrospective with findings and recommendations. Read-only on Objective records. For a branch/session retro use branch-retro."
+description: "Use when asked for an Objective retro/retrospective, post-merge or closed-Objective review of delivered scope, Objective archaeology, or reconstructing an Objective's delivered PR/commit set for downstream review (formerly objective-review-briefing). Read-only on Objective records. For a branch/session retro use branch-retro."
 metadata:
   internal: true
 ---

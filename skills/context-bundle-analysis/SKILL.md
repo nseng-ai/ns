@@ -1,7 +1,7 @@
 ---
 name: context-bundle-analysis
 disable-model-invocation: true
-description: "Analyze a frozen context-profiler bundle (a context-profiles/<sessionId>/<ordinal>/ directory) and deliver opinionated, advisory findings: a context-failure diagnosis (poisoning, distraction, confusion, clash) and a recommended action (prune, quarantine, handoff, no-action) per finding. Use when the user asks to analyze a context bundle or context profile, analyze a context window captured from another session, or run a context-rot analysis on a bundle."
+description: "Analyze a frozen context-profiler bundle and deliver advisory context-failure findings. Use when the user asks to analyze a context bundle/profile or run a context-rot analysis on a bundle."
 ---
 
 <!-- PUBLIC SKILL: Do not reference ns-internal module paths or class names in this file. Describe file contracts and CLI operations, not implementation. -->
@@ -74,7 +74,8 @@ it is analyzing.
    serve.
 3. Sample excerpts only from episodes flagged `stale`, `rot`, or `wasteful`,
    using line-targeted reads (offset/limit) keyed by each episode's
-   `turnRange`.
+   `turnRange`. Every flagged episode is either sampled or listed in "What was
+   NOT examined".
 4. Grep across episode boundaries for contradiction candidates (clash) and for
    later references to errored or disputed content (poisoning).
 5. **Hard rule: never read the full `messages.jsonl` into context.** No step of

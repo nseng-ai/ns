@@ -6,9 +6,7 @@ description: >-
   score it against a named target architecture, or (when no target is supplied) produce a raw
   topology inventory. Use when someone wants a topology report, a dependency-graph or
   package-graph audit, a layering/cycle check, or to see how close a monorepo is to a stated
-  architectural end-state (e.g. an objective's target, an ADR's layering rules). For the
-  no-target case the `scripts/topology` launcher renders the whole report instantly with no
-  agent in the loop; reach for the agent only to score against a named target.
+  architectural end-state (e.g. an objective's target, an ADR's layering rules).
 metadata:
   internal: true
 ---

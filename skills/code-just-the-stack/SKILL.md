@@ -1,7 +1,7 @@
 ---
 name: code-just-the-stack
 disable-model-invocation: true
-description: "Run `just` across the current Graphite stack from bottom to top, fixing failures with separate commits, restacking as you go, and submitting when green. Use when the user says just-the-stack, run just across this stack, make every branch pass just, or stack branches are failing tests."
+description: "Run `just` across the current Graphite stack from bottom to top, fixing failures with separate commits, restacking as you go, and submitting when green."
 allowed-tools:
   - "Bash(git status*)"
   - "Bash(git branch*)"

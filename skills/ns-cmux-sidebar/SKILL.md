@@ -1,7 +1,7 @@
 ---
 name: ns-cmux-sidebar
 disable-model-invocation: true
-description: Use when /ns:cmux:sidebar:session-summary or /ns:cmux:sidebar:branch-state-summary asks a Pi session to update the caller cmux sidebar/workspace card; generate compact title and one-line Goal/State description, then run one ns cmux exec command. /ns:cmux:sidebar:objective-summary is handled directly by deterministic extension code and should not invoke this skill.
+description: Use when /ns:cmux:sidebar:session-summary or /ns:cmux:sidebar:branch-state-summary asks a Pi session to update the caller cmux sidebar/workspace card; generate compact title and one-line Goal/State description, then run one ns cmux exec command. Not for /ns:cmux:sidebar:objective-summary (extension-owned).
 metadata:
   internal: true
 ---

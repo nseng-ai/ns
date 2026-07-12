@@ -1,7 +1,7 @@
 ---
 name: objective-autorun
 disable-model-invocation: true
-description: "Parent orchestration loop for driving one ns Objective through repeated decomposed runner steps (`runner-begin` → subagent → `runner-finish`) with a judgment checkpoint between steps. Use for \"run this objective\", \"drive the objective forward\", \"execute the autoobjective\", \"run N runner steps\", or \"implement this Objective as a stack\" (each committed step stacks on the last), including when the Pi /ns:objective:autorun picker injects an explicit slug. For a single step use objective-runner-step; for tracking edits use objective-update; for advice on what to do next use objective-next."
+description: "Parent orchestration loop for driving one ns Objective through repeated decomposed runner steps (`runner-begin` → subagent → `runner-finish`) with a judgment checkpoint between steps. Use for \"run this objective\", \"run N runner steps\", or \"implement this Objective as a stack\" (each committed step stacks on the last), including when the Pi /ns:objective:autorun picker injects an explicit slug. For a single step use objective-runner-step; for tracking edits use objective-update; for advice on what to do next use objective-next."
 ---
 
 # objective-autorun
@@ -61,7 +61,7 @@ When the run stops, read `references/run-digest.md` first, then finish with the 
 ## Hard boundaries
 
 - One judgment checkpoint per step: never begin the next step without reading the previous checkpoint and deciding.
-- Canonical forbidden-action wording (source: `ts/packages/capabilities/objectives/src/runner/prompt.ts`, `OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE`): "Do not push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR mutation may leave the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization." The run ends with local stacked branches handed back to the normal Graphite/flow workflow.
+- Canonical forbidden-action wording (deliberately duplicated verbatim from the runner prompt's forbidden-actions rule): "Do not push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR mutation may leave the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization." The run ends with local stacked branches handed back to the normal Graphite/flow workflow.
 - Never commit on trunk; never write Objective tracking silently — tracking goes through `objective-update` only, between steps.
 - Never mutate the worktree between a step's begin and finish; the gate fails the step loudly if you do.
 - Stop conditions come from the Objective's prose and the list above, not from optimism about the next step.

@@ -8,6 +8,8 @@ description: "Parallel file-local refactors across many files using a swarm of a
 
 Parallelize a refactor across many files: the orchestrator identifies the files, writes a shared brief, and launches one agent per file on the harness's cheapest fast model tier, in two waves (source first, tests second).
 
+A workflow-tool execution engine exists as `refactor-swarm-workflow` (planned-spec, adversarial-verify variant); this skill is the in-session two-wave Task procedure. Use the workflow when a pre-planned refactor spec exists.
+
 ## When to use
 
 - **5+ files** receiving the same shape of refactor. Below 5, sequential edits are simpler and have less overhead.

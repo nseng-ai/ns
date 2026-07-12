@@ -1,7 +1,7 @@
 ---
 name: ns-flow-cp
 disable-model-invocation: true
-description: "Command: ns-flow-cp"
+description: "Create a quick `[cp]` checkpoint commit for the current diff by delegating to `ns flow cp`."
 allowed-tools:
   - "Bash(ns flow cp*)"
 metadata:

@@ -1,7 +1,7 @@
 ---
 name: setup-dprint
 disable-model-invocation: true
-description: "Set up dprint formatting for Markdown and TOML files locally, with build-system integration. Use when adding dprint to a project. Does NOT add GitHub Actions CI -- use setup-dprint-gh-ci for that."
+description: "Set up dprint formatting for Markdown and TOML files locally, with build-system integration. Use when adding dprint to a project. Local setup only; the GitHub Actions CI workflow lives in setup-dprint-gh-ci."
 metadata:
   category: project-setup
 allowed-tools:

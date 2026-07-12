@@ -1,7 +1,7 @@
 ---
 name: code-workflows
 disable-model-invocation: true
-description: "Command: code-workflows"
+description: "Router for rare code workflows: delete-stack, stackify-branch, stacker-agent, parity-review, gh-ci-debug."
 metadata:
   internal: true
 allowed-tools:

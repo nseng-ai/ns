@@ -5,6 +5,8 @@ description: "TypeScript fake-driven testing architecture. Use when writing or r
 
 # typescript-fake-driven-testing
 
+When reviewing: judge every gateway, fake, and test file in the diff against each section here.
+
 ## Core model
 
 - Define semantic gateway types for external capabilities.

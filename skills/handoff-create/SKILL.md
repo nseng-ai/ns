@@ -1,7 +1,7 @@
 ---
 name: handoff-create
 disable-model-invocation: true
-description: "Create a directed handoff artifact for a future continuation. Use when the user asks to create, write, or stash a durable handoff, including future-you or future-agent resume context; use brmem only as the storage command."
+description: "Create a directed handoff artifact for a future continuation. Use when the user asks to create, write, or stash a durable handoff, including future-you or future-agent resume context."
 allowed-tools:
   - "Bash(git branch *)"
   - "Bash(git status *)"

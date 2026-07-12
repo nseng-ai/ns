@@ -1,13 +1,11 @@
 ---
 name: code-fix-gh-stack
-description: "Run a disciplined Graphite/GitHub stack repair loop: query PR checks, fix the lowest/downstack failing check first, submit with Graphite, wait/re-query, and repeat until the stack is green."
+description: "Use when the user asks to fix, green, repair, or stabilize a Graphite/GitHub PR stack."
 metadata:
   internal: true
 ---
 
 # code-fix-gh-stack
-
-Use this skill when the user asks to fix, green, repair, or stabilize a Graphite/GitHub PR stack.
 
 ## Core loop
 

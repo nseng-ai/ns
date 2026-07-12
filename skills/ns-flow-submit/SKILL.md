@@ -1,7 +1,7 @@
 ---
 name: ns-flow-submit
 disable-model-invocation: true
-description: "Command: ns-flow-submit"
+description: "Submit or update the current Graphite stack by delegating to `ns flow submit`."
 allowed-tools:
   - "Bash(ns flow submit*)"
 metadata:

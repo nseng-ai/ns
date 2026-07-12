@@ -1,7 +1,7 @@
 ---
 name: skill-audit
 disable-model-invocation: true
-description: "Audit and tighten agent skills — ns's operational audit checklists applied through the vendored writing-great-skills vocabulary. Summon by name to review a SKILL.md for predictability, token cost, triggers, progressive disclosure, and CLI push-down."
+description: "Audit and tighten agent skills. Summon by name to review a SKILL.md for predictability, token cost, triggers, progressive disclosure, and CLI push-down."
 ---
 
 # skill-audit
