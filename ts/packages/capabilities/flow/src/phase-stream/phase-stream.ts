@@ -22,31 +22,23 @@ import {
 	type StreamSinkDeps,
 } from "@nseng-ai/clinkr/stream";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type {
-	NsExtensionApi,
-	NsProgress,
-	NsProgressPhaseEvent,
-	NsProgressPhaseInfo,
-} from "@nseng-ai/sdk";
+import type { NsExtensionApi, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import { createFlowLiveOutput } from "./live-output.ts";
 import { createPhaseStreamLifecycle } from "./phase-stream-lifecycle.ts";
 import { createPhaseStreamRenderer } from "./phase-stream-renderer.ts";
-import type { PhaseSpec } from "./phase-stream-specs.ts";
+import { progressPhaseInfos, type PhaseSpec } from "./phase-stream-specs.ts";
 import { createPhaseStateStore } from "./phase-stream-state.ts";
 import { createTranscriptTail } from "./phase-stream-tail.ts";
 
-export { CP_PHASES, LAND_PHASES, SUBMIT_HOOKS_PHASE, SUBMIT_PHASES } from "./phase-stream-specs.ts";
+export {
+	CP_PHASES,
+	LAND_PHASES,
+	submitPhaseSpecs,
+	SUBMIT_HOOKS_PHASE,
+	SUBMIT_PHASES,
+} from "./phase-stream-specs.ts";
 export type { PhaseSpec } from "./phase-stream-specs.ts";
-
-function phaseInfos(specs: readonly PhaseSpec[]): readonly NsProgressPhaseInfo[] {
-	return specs.map((spec) => ({
-		key: spec.key,
-		name: spec.item.name,
-		...optionalEntry("label", spec.item.label),
-		...optionalEntry("detail", spec.item.detail),
-	}));
-}
 
 /** The driver surface a command drives: title, feed events, finalize. */
 export interface PhaseStream {
@@ -95,7 +87,7 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 			options.forward?.phase({
 				type: "phases-declared",
 				title,
-				phases: phaseInfos(options.specs),
+				phases: progressPhaseInfos(options.specs),
 			});
 		}
 		renderer.setTitle(title);

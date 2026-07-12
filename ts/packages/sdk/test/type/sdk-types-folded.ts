@@ -12,8 +12,6 @@ import type {
 	NsProgressMatrixCellState,
 	NsProgressMatrixColumnInfo,
 	NsProgressMatrixEvent,
-	NsProgressMatrixGlobalRowInfo,
-	NsProgressMatrixGlobalSubstepInfo,
 	NsProgressMatrixRowInfo,
 	NsProgressPhaseEvent,
 	NsProgressPhaseListener,
@@ -106,52 +104,17 @@ const activeOperation: ActiveOperation = {
 const matrixCellState: NsProgressMatrixCellState = "active";
 const matrixColumn: NsProgressMatrixColumnInfo = { key: "merge", label: "Merge", width: 6 };
 const matrixRow: NsProgressMatrixRowInfo = { rowKey: "feature-a", label: "feature-a (#1)" };
-const matrixGlobalSubstep: NsProgressMatrixGlobalSubstepInfo<"review" | "fix"> = {
-	key: "review",
-	label: "Review",
-	detail: "review complete",
-	activeLabel: "reviewing…",
-};
-const matrixGlobalRow: NsProgressMatrixGlobalRowInfo<"prepare" | "finalize", "review" | "fix"> = {
-	key: "prepare",
-	label: "Prepare",
-	detail: "preparation complete",
-	activeLabel: "preparing…",
-	substeps: [matrixGlobalSubstep],
-};
 const matrixEvents: NsProgressMatrixEvent[] = [
 	{
 		type: "matrix-declared",
 		columns: [matrixColumn],
 		labelHeader: "Branch / PR",
-		globalRows: [matrixGlobalRow],
 	},
 	{ type: "matrix-rows", rows: [matrixRow] },
 	{ type: "matrix-cell", rowKey: "feature-a", columnKey: "merge", state: matrixCellState },
 	{ type: "matrix-cell", rowKey: "feature-a", columnKey: "merge", state: "done", text: "ok" },
-	{ type: "matrix-global", globalKey: "prepare", state: "active" },
-	{ type: "matrix-global", globalKey: "prepare", state: "done", text: "ready" },
-	{
-		type: "matrix-global-substep",
-		globalKey: "prepare",
-		substepKey: "review",
-		state: "active",
-	},
-	{
-		type: "matrix-global-substep",
-		globalKey: "prepare",
-		substepKey: "review",
-		state: "done",
-		text: "ok",
-	},
 	{ type: "matrix-active-operations", operations: [activeOperation] },
 ];
-// @ts-expect-error optional declared global rows must be omitted rather than set to undefined
-const invalidMatrixDeclaration: NsProgressMatrixEvent = {
-	type: "matrix-declared",
-	columns: [],
-	globalRows: undefined,
-};
 const matrixEventsWiden: NsProgressPhaseEvent[] = matrixEvents;
 const progressListener: NsProgressPhaseListener = (_event) => {};
 const progress: NsProgress = { isLive: true, phase: progressListener };
@@ -175,7 +138,6 @@ void failedResult;
 void messageOptions;
 void commandIo;
 void matrixEvents;
-void invalidMatrixDeclaration;
 void matrixEventsWiden;
 void progress;
 void acceptsExtensionApi;

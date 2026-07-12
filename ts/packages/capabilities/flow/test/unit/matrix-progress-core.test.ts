@@ -3,19 +3,19 @@ import { describe, expect, test } from "vitest";
 import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
-import type { ActiveOperation } from "@nseng-ai/sdk";
+import type { ActiveOperation, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
 	commandOperations,
 	defineMatrixWorkflow,
+	createMatrixProgressState,
 	matrixFrameOptionalFields,
-	type MatrixGlobalRowSpec,
+	reduceMatrixProgress,
+	snapshotMatrixProgress,
 	modelOperation,
 	withActiveOperations,
 	withCommandOperations,
 } from "../../src/phase-stream/matrix-progress-core.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
-
-type TestGlobalKey = "hooks" | "checkpoint";
 
 function caps(parts: Partial<Caps> = {}): Caps {
 	return {
@@ -29,33 +29,28 @@ function caps(parts: Partial<Caps> = {}): Caps {
 
 const TEST_COLUMNS = [{ key: "metadata" as const, label: "Metadata", width: 8 }];
 
-const TEST_GLOBAL_ROWS: readonly MatrixGlobalRowSpec<TestGlobalKey>[] = [
-	{
-		key: "hooks",
-		label: "Hooks",
-		detail: "hooks complete",
-		activeLabel: "running pre-submit hooks…",
-	},
-	{
-		key: "checkpoint",
-		label: "Checkpoint",
-		detail: "checkpoint complete",
-		activeLabel: "checkpointing pending changes…",
-		substeps: [
-			{
-				key: "inspect",
-				label: "Inspect",
-				detail: "worktree inspected",
-				activeLabel: "inspecting worktree…",
-			},
-		],
-	},
-];
-
 const testWorkflow = defineMatrixWorkflow({
 	columns: TEST_COLUMNS,
-	globalRows: TEST_GLOBAL_ROWS,
-	phases: [],
+	phases: [
+		{
+			key: "hooks",
+			item: { name: "Hooks", detail: "hooks complete", label: "running pre-submit hooks…" },
+		},
+		{
+			key: "checkpoint",
+			item: {
+				name: "Checkpoint",
+				detail: "checkpoint complete",
+				label: "checkpointing pending changes…",
+			},
+			substeps: [
+				{
+					key: "inspect",
+					item: { name: "Inspect", detail: "worktree inspected", label: "inspecting worktree…" },
+				},
+			],
+		},
+	],
 	rowKey: (row: { label: string }) => row.label,
 });
 
@@ -111,6 +106,75 @@ describe("matrix progress core", () => {
 		expect(Object.hasOwn(omitted, "tick")).toBe(false);
 	});
 
+	test("reduces mutations observably without aliasing caller collections", () => {
+		const columns = [{ key: "metadata" as const, label: "Metadata", width: 8 }];
+		const inputRows = [{ rowKey: "feature/a", label: "feature/a" }];
+		const state = createMatrixProgressState({
+			title: "Workflow",
+			rows: inputRows,
+			columns,
+		});
+		const operations: ActiveOperation[] = [{ kind: "command", display: "just" }];
+
+		expect(
+			reduceMatrixProgress({
+				state,
+				columns,
+				mutation: { kind: "active-operations-changed", operations },
+			}),
+		).toMatchObject({ type: "changed" });
+		operations.length = 0;
+		inputRows[0] = { rowKey: "mutated", label: "mutated" };
+		expect(snapshotMatrixProgress(state).activeOperations).toEqual([
+			{ kind: "command", display: "just" },
+		]);
+		expect(snapshotMatrixProgress(state).rows[0]?.rowKey).toBe("feature/a");
+
+		const repeat = reduceMatrixProgress({
+			state,
+			columns,
+			mutation: {
+				kind: "active-operations-changed",
+				operations: [{ kind: "command", display: "just" }],
+			},
+		});
+		expect(repeat.type).toBe("changed");
+	});
+
+	test.each([
+		{
+			name: "missing row patch",
+			mutation: { kind: "row-patched", rowKey: "missing", patch: { label: "x" } } as const,
+		},
+		{
+			name: "missing cell",
+			mutation: {
+				kind: "cell-changed",
+				rowKey: "missing",
+				column: "metadata",
+				update: { state: "done" },
+			} as const,
+		},
+		{
+			name: "empty bulk",
+			mutation: {
+				kind: "cells-changed",
+				scope: "selected",
+				column: "metadata",
+				rowKeys: [],
+				update: { state: "done" },
+			} as const,
+		},
+	])("returns unchanged for $name", ({ mutation }) => {
+		const columns = [{ key: "metadata" as const, label: "Metadata", width: 8 }];
+		const state = createMatrixProgressState({
+			title: "Workflow",
+			rows: [{ rowKey: "feature/a", label: "feature/a" }],
+			columns,
+		});
+		expect(reduceMatrixProgress({ state, columns, mutation })).toEqual({ type: "unchanged" });
+	});
+
 	test("constructs model operations without an undefined detail", () => {
 		expect(modelOperation("generating metadata", "openai/gpt-test")).toEqual({
 			kind: "model",
@@ -164,18 +228,15 @@ describe("matrix progress core", () => {
 	test("renders active operations on a dedicated line while rows keep their own labels", () => {
 		const { controller, capture } = createController({});
 
-		controller.setGlobal("hooks", { state: "active", text: "running just…" });
+		controller.phase({ type: "phase-started", phaseKey: "hooks", label: "running just…" });
 		controller.setActiveOperations(commandOperations(["just"]));
 		let frame = lastFrame(capture);
 		expect(frameLine(frame, "Hooks")).toContain("running just…");
 		expect(frameLine(frame, "Running:")).toBe("Running: just");
 
-		controller.setGlobal("hooks", { state: "done", text: "hooks complete" });
-		controller.setGlobal("checkpoint", { state: "active" });
-		controller.setGlobalSubstep("checkpoint", "inspect", {
-			state: "active",
-			text: "inspecting worktree…",
-		});
+		controller.phase({ type: "phase-done", phaseKey: "hooks", detail: "hooks complete" });
+		controller.phase({ type: "phase-started", phaseKey: "checkpoint" });
+		controller.phase({ type: "phase-started", phaseKey: "inspect", label: "inspecting worktree…" });
 		controller.setActiveOperations(commandOperations(["git status --porcelain"]));
 		frame = lastFrame(capture);
 		// Active rows keep their own labels; the operation stays on the dedicated line.
@@ -190,17 +251,70 @@ describe("matrix progress core", () => {
 		expect(frameLine(frame, "Inspect")).toContain("inspecting worktree…");
 	});
 
+	test("preserves global-row and substep updates while forwarding canonical phase events", () => {
+		const capture = streamCapture({ sleep: "pending" });
+		const events: NsProgressPhaseEvent[] = [];
+		const workflow = defineMatrixWorkflow<{ label: string }, "metadata", "checkpoint">({
+			columns: TEST_COLUMNS,
+			globalRows: [
+				{
+					key: "checkpoint",
+					label: "Checkpoint",
+					detail: "checkpoint complete",
+					activeLabel: "checkpointing…",
+					substeps: [
+						{
+							key: "inspect",
+							label: "Inspect",
+							detail: "worktree inspected",
+							activeLabel: "inspecting…",
+						},
+					],
+				},
+			],
+			phases: [],
+			rowKey: (row) => row.label,
+		});
+		const controller = workflow.createController({
+			caps: caps(),
+			deps: capture.deps,
+			title: "Workflow",
+			rows: [{ label: "feature/a" }],
+			progress: { isLive: true, phase: (event) => events.push(event) },
+		});
+
+		controller.setGlobal("checkpoint", { state: "active", text: "saving changes" });
+		controller.setGlobalSubstep("checkpoint", "inspect", {
+			state: "active",
+			text: "checking worktree",
+		});
+
+		const frame = lastFrame(capture);
+		expect(frameLine(frame, "Checkpoint")).toContain("saving changes");
+		expect(frameLine(frame, "Inspect")).toContain("checking worktree");
+		expect(events).toContainEqual({
+			type: "phase-started",
+			phaseKey: "checkpoint",
+			label: "saving changes",
+		});
+		expect(events).toContainEqual({
+			type: "phase-started",
+			phaseKey: "inspect",
+			label: "checking worktree",
+		});
+	});
+
 	test("reserves a blank tail slot and counts quiet time since the last output line", () => {
 		const { controller, capture, clock } = createController({ clockNowMs: 1_000 });
 
-		controller.setGlobal("hooks", { state: "active" });
+		controller.phase({ type: "phase-started", phaseKey: "hooks" });
 		expect(lastFrame(capture).split("\n").at(-1)).toBe("");
 
 		controller.note("✓ shell-cli.test.ts (3 tests)\n");
 		expect(lastFrame(capture).split("\n").at(-1)).toBe("       ✓ shell-cli.test.ts (3 tests)");
 
 		clock.advanceMs(14_000);
-		controller.setGlobal("hooks", { state: "active", text: "still running" });
+		controller.phase({ type: "phase-progress", phaseKey: "hooks", label: "still running" });
 		expect(lastFrame(capture).split("\n").at(-1)).toBe(
 			"       ✓ shell-cli.test.ts (3 tests) · 14s ago",
 		);
@@ -214,7 +328,7 @@ describe("matrix progress core", () => {
 	test("settled frames drop the operations and tail slots", async () => {
 		const { controller, capture } = createController({ capsParts: { isTty: false } });
 
-		controller.setGlobal("hooks", { state: "active" });
+		controller.phase({ type: "phase-started", phaseKey: "hooks" });
 		controller.setActiveOperations(commandOperations(["just"]));
 		await controller.finish();
 

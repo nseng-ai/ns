@@ -1,4 +1,5 @@
 import type { StatusLineItem } from "@nseng-ai/foundation/cli-theme";
+import type { NsProgressPhaseInfo } from "@nseng-ai/sdk";
 
 /**
  * One declared phase: a stable sequencing `key` plus its presentational status-line payload.
@@ -75,8 +76,18 @@ export const SUBMIT_HOOKS_PHASE: PhaseSpec = {
 	},
 };
 
+const SUBMIT_INVENTORY_PHASE: PhaseSpec = {
+	key: "inventory",
+	item: {
+		name: "Inventory",
+		detail: "stack inventoried",
+		label: "reading submit stack topology…",
+	},
+};
+
 /** Ordered phase list for `flow submit`. Keys match what the submit driver and graphite emit. */
 export const SUBMIT_PHASES: readonly PhaseSpec[] = [
+	SUBMIT_INVENTORY_PHASE,
 	{
 		key: "checkpoint",
 		item: {
@@ -89,6 +100,10 @@ export const SUBMIT_PHASES: readonly PhaseSpec[] = [
 	{
 		key: "preflight",
 		item: { name: "Preflight", detail: "ready to submit", label: "checking submit readiness…" },
+	},
+	{
+		key: "restack",
+		item: { name: "Restack", detail: "not required", label: "running gt restack…" },
 	},
 	{
 		key: "metadata",
@@ -119,3 +134,18 @@ export const SUBMIT_PHASES: readonly PhaseSpec[] = [
 		},
 	},
 ];
+
+export function submitPhaseSpecs(hasHooks: boolean): readonly PhaseSpec[] {
+	if (!hasHooks) return SUBMIT_PHASES;
+	return [SUBMIT_INVENTORY_PHASE, SUBMIT_HOOKS_PHASE, ...SUBMIT_PHASES.slice(1)];
+}
+
+export function progressPhaseInfos(specs: readonly PhaseSpec[]): readonly NsProgressPhaseInfo[] {
+	return specs.map((spec) => ({
+		key: spec.key,
+		name: spec.item.name,
+		...(spec.item.label === undefined ? {} : { label: spec.item.label }),
+		...(spec.item.detail === undefined ? {} : { detail: spec.item.detail }),
+		...(spec.substeps === undefined ? {} : { substeps: progressPhaseInfos(spec.substeps) }),
+	}));
+}

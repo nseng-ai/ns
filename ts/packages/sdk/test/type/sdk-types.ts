@@ -7,9 +7,6 @@ import type {
 	NsCommandIo,
 	NsExtensionApi,
 	NsProgress,
-	NsProgressMatrixEvent,
-	NsProgressMatrixGlobalRowInfo,
-	NsProgressMatrixGlobalSubstepInfo,
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
@@ -94,38 +91,17 @@ const commandIo: NsCommandIo = {
 	clearPhase: () => {},
 };
 const progress: NsProgress = { isLive: true, phase: () => {} };
-const globalSubstep: NsProgressMatrixGlobalSubstepInfo<"review"> = {
-	key: "review",
-	label: "Review",
-	detail: "review complete",
-	activeLabel: "reviewing…",
-};
-const globalRow: NsProgressMatrixGlobalRowInfo<"prepare", "review"> = {
-	key: "prepare",
-	label: "Prepare",
-	detail: "preparation complete",
-	activeLabel: "preparing…",
-	substeps: [globalSubstep],
-};
-const globalEvents: NsProgressMatrixEvent[] = [
-	{ type: "matrix-declared", columns: [], globalRows: [globalRow] },
-	{ type: "matrix-global", globalKey: "prepare", state: "active" },
-	{
-		type: "matrix-global-substep",
-		globalKey: "prepare",
-		substepKey: "review",
-		state: "done",
-		text: "ok",
-	},
-];
-// @ts-expect-error optional event text must be omitted rather than set to undefined
-const invalidGlobalEvent: NsProgressMatrixEvent = {
-	type: "matrix-global",
-	globalKey: "prepare",
-	state: "done",
-	text: undefined,
-};
-
+progress.phase({
+	type: "phases-declared",
+	title: "submit",
+	phases: [
+		{
+			key: "checkpoint",
+			name: "Checkpoint",
+			substeps: [{ key: "inspect", name: "Inspect" }],
+		},
+	],
+});
 function acceptsExtensionApi(api: NsExtensionApi): string {
 	const isProviderPresent: boolean = api.hasExtension("@example/provider");
 	void isProviderPresent;
@@ -165,8 +141,6 @@ void failureExit;
 void textGenerator;
 void commandIo;
 void progress;
-void globalEvents;
-void invalidGlobalEvent;
 void acceptsExtensionApi;
 void arbitraryOperationRequest;
 void commandOk;

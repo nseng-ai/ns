@@ -14,8 +14,6 @@ import {
 	padMatrixProgressTextEnd,
 	type NsProgressMatrixCellState,
 	type NsProgressMatrixEvent,
-	type NsProgressMatrixGlobalRowInfo,
-	type NsProgressMatrixGlobalSubstepInfo,
 	type NsProgressPhaseEvent,
 } from "@nseng-ai/sdk";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
@@ -82,9 +80,8 @@ class StructuredPhaseWidget {
 		const lines: string[] = [];
 		const nameWidth = Math.max(0, ...phases.map((phase) => phase.name.length));
 		for (const phase of phases) {
-			const prefix = `${phaseGlyph(phase.state)} ${phase.name.padEnd(nameWidth)}`;
-			const text = textForWidgetPhase(phase);
-			lines.push(text === undefined ? prefix : `${prefix}  ${text}`);
+			lines.push(phaseLine(phase, nameWidth));
+			for (const substep of phase.substeps) lines.push(`    ${phaseLine(substep, nameWidth - 4)}`);
 		}
 		return lines;
 	}
@@ -100,6 +97,12 @@ class StructuredPhaseWidget {
 		const titleSuffix = title !== undefined && title !== invocationTitle ? ` — ${title}` : "";
 		return `/${input.piCommandName}${titleSuffix} (${input.elapsed} elapsed)`;
 	}
+}
+
+function phaseLine(phase: ProgressPhaseView, nameWidth: number): string {
+	const prefix = `${phaseGlyph(phase.state)} ${phase.name.padEnd(Math.max(0, nameWidth))}`;
+	const text = textForWidgetPhase(phase);
+	return text === undefined ? prefix : `${prefix}  ${text}`;
 }
 
 function textForWidgetPhase(phase: ProgressPhaseView): string | undefined {
@@ -120,17 +123,6 @@ interface MatrixWidgetCell {
 	text?: string;
 }
 
-interface MatrixWidgetGlobalSubstep extends NsProgressMatrixGlobalSubstepInfo {
-	state: NsProgressMatrixCellState;
-	text?: string;
-}
-
-interface MatrixWidgetGlobalRow extends NsProgressMatrixGlobalRowInfo {
-	state: NsProgressMatrixCellState;
-	text?: string;
-	substeps: MatrixWidgetGlobalSubstep[];
-}
-
 /**
  * Plain-text state for the matrix-* progress events: a per-row × per-column
  * grid rendered below the phase checklist. The widget seam accepts only string
@@ -141,16 +133,11 @@ export class MatrixWidgetState {
 	private labelHeader = MATRIX_DEFAULT_LABEL_HEADER;
 	private rows: { rowKey: string; label: string }[] = [];
 	private cellsByRow = new Map<string, Map<string, MatrixWidgetCell>>();
-	private globals: MatrixWidgetGlobalRow[] = [];
 	private activeOperations: readonly ActiveOperation[] = [];
 	private hasDeclared = false;
 
 	get isActive(): boolean {
 		return this.hasDeclared;
-	}
-
-	get hasGlobalRows(): boolean {
-		return this.globals.length > 0;
 	}
 
 	apply(event: NsProgressMatrixEvent): void {
@@ -163,14 +150,6 @@ export class MatrixWidgetState {
 					width: Math.max(column.width ?? 0, matrixProgressDisplayWidthChars(column.label)),
 				}));
 				if (event.labelHeader !== undefined) this.labelHeader = event.labelHeader;
-				this.globals = (event.globalRows ?? []).map((row) => ({
-					...row,
-					state: "pending",
-					substeps: (row.substeps ?? []).map((substep) => ({
-						...substep,
-						state: "pending",
-					})),
-				}));
 				return;
 			case "matrix-rows": {
 				this.rows = event.rows.map((row) => ({ rowKey: row.rowKey, label: row.label }));
@@ -189,27 +168,6 @@ export class MatrixWidgetState {
 				});
 				return;
 			}
-			case "matrix-global": {
-				const globalIndex = this.globals.findIndex((row) => row.key === event.globalKey);
-				const global = this.globals[globalIndex];
-				if (global !== undefined) {
-					this.globals[globalIndex] = this.applyGlobalUpdate(global, event);
-				}
-				return;
-			}
-			case "matrix-global-substep": {
-				const globalIndex = this.globals.findIndex((row) => row.key === event.globalKey);
-				const global = this.globals[globalIndex];
-				const substepIndex =
-					global?.substeps.findIndex((row) => row.key === event.substepKey) ?? -1;
-				const substep = global?.substeps[substepIndex];
-				if (global !== undefined && substep !== undefined) {
-					const substeps = [...global.substeps];
-					substeps[substepIndex] = this.applyGlobalUpdate(substep, event);
-					this.globals[globalIndex] = { ...global, substeps };
-				}
-				return;
-			}
 			case "matrix-active-operations":
 				this.activeOperations = [...event.operations];
 				return;
@@ -224,11 +182,6 @@ export class MatrixWidgetState {
 			.map((column) => padMatrixProgressTextEnd(column.label, column.width))
 			.join("  ");
 		const lines: string[] = [];
-		for (const global of this.globals) {
-			lines.push(this.globalLine(global));
-			for (const substep of global.substeps) lines.push(`    ${this.globalLine(substep)}`);
-		}
-		if (this.hasGlobalRows) lines.push("");
 		lines.push(`${padMatrixProgressTextEnd(this.labelHeader, labelWidth)}  ${header}`);
 		for (const row of this.rows) {
 			const label = padMatrixProgressTextEnd(
@@ -243,37 +196,6 @@ export class MatrixWidgetState {
 		const activeOperationsLine = formatActiveOperationsLine(this.activeOperations);
 		if (activeOperationsLine !== undefined) lines.push(activeOperationsLine);
 		return lines;
-	}
-
-	private applyGlobalUpdate(
-		row: MatrixWidgetGlobalRow,
-		update: { state: NsProgressMatrixCellState; text?: string },
-	): MatrixWidgetGlobalRow;
-	private applyGlobalUpdate(
-		row: MatrixWidgetGlobalSubstep,
-		update: { state: NsProgressMatrixCellState; text?: string },
-	): MatrixWidgetGlobalSubstep;
-	private applyGlobalUpdate(
-		row: MatrixWidgetGlobalRow | MatrixWidgetGlobalSubstep,
-		update: { state: NsProgressMatrixCellState; text?: string },
-	): MatrixWidgetGlobalRow | MatrixWidgetGlobalSubstep {
-		const { text: _text, ...rowWithoutText } = row;
-		return {
-			...rowWithoutText,
-			state: update.state,
-			...(update.text === undefined ? {} : { text: update.text }),
-		};
-	}
-
-	private globalLine(row: MatrixWidgetGlobalRow | MatrixWidgetGlobalSubstep): string {
-		const prefix = `${phaseGlyph(row.state)} ${row.label}`;
-		const text =
-			row.state === "active"
-				? (row.text ?? row.activeLabel)
-				: row.state === "failed"
-					? (row.text ?? row.detail)
-					: undefined;
-		return text === undefined ? prefix : `${prefix}  ${text}`;
 	}
 
 	private cellText(rowKey: string, column: MatrixWidgetColumn): string {
@@ -452,13 +374,11 @@ export class LiveCommandProgress {
 				piCommandName: this.options.piCommandName,
 				elapsed,
 			});
-			const lines = this.matrixWidget.hasGlobalRows
-				? [header, ...this.matrixWidget.lines(width)]
-				: [
-						header,
-						...this.structuredWidget.phaseLines(),
-						...(this.matrixWidget.isActive ? ["", ...this.matrixWidget.lines(width)] : []),
-					];
+			const lines = [
+				header,
+				...this.structuredWidget.phaseLines(),
+				...(this.matrixWidget.isActive ? ["", ...this.matrixWidget.lines(width)] : []),
+			];
 			const latestOutput = this.recentOutputLines().at(-1);
 			if (latestOutput !== undefined) {
 				lines.push(`  ${formatLiveOutputLine(latestOutput)}`);

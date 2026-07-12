@@ -497,6 +497,7 @@ interface NsProgressPhaseInfo {
   name: string;
   label?: string;
   detail?: string;
+  substeps?: readonly NsProgressPhaseInfo[];
 }
 
 type ActiveOperation =
@@ -512,24 +513,6 @@ interface NsProgressMatrixColumnInfo {
   width?: number;
 }
 
-interface NsProgressMatrixGlobalSubstepInfo<TSubstepKey extends string = string> {
-  key: TSubstepKey;
-  label: string;
-  detail: string;
-  activeLabel: string;
-}
-
-interface NsProgressMatrixGlobalRowInfo<
-  TGlobalKey extends string = string,
-  TSubstepKey extends string = string,
-> {
-  key: TGlobalKey;
-  label: string;
-  detail: string;
-  activeLabel: string;
-  substeps?: readonly NsProgressMatrixGlobalSubstepInfo<TSubstepKey>[];
-}
-
 interface NsProgressMatrixRowInfo {
   rowKey: string;
   label: string;
@@ -540,18 +523,9 @@ type NsProgressMatrixEvent =
       type: "matrix-declared";
       columns: readonly NsProgressMatrixColumnInfo[];
       labelHeader?: string;
-      globalRows?: readonly NsProgressMatrixGlobalRowInfo[];
     }
   | { type: "matrix-rows"; rows: readonly NsProgressMatrixRowInfo[] }
   | { type: "matrix-cell"; rowKey: string; columnKey: string; state: NsProgressMatrixCellState; text?: string }
-  | { type: "matrix-global"; globalKey: string; state: NsProgressMatrixCellState; text?: string }
-  | {
-      type: "matrix-global-substep";
-      globalKey: string;
-      substepKey: string;
-      state: NsProgressMatrixCellState;
-      text?: string;
-    }
   | { type: "matrix-active-operations"; operations: readonly ActiveOperation[] };
 
 type NsProgressPhaseEvent =
@@ -582,9 +556,9 @@ interface NsProgress {
 }
 ```
 
-`NsProgressPhaseInfo` is presentation metadata for a declared phase checklist.
+`NsProgressPhaseInfo` is presentation metadata for a declared phase checklist. A phase may declare one level of ordered `substeps`; canonical phase events update both top-level phases and substeps by key.
 
-The `NsProgressMatrixEvent` sub-union streams an optional per-row × per-column progress grid alongside the phase checklist (for example flow land's branch × Gate/Merge/Verify/Restack matrix). `matrix-declared` announces the column set, optional row-label header, and optional ordered global rows once. A global row can declare one level of ordered substeps; its generic key parameters let producers keep declaration keys narrow. `matrix-rows` replaces the full ordinary row set; `matrix-cell` updates one ordinary cell. `matrix-global` updates a declared global row, while `matrix-global-substep` updates one of its declared substeps. All three update forms carry an `NsProgressMatrixCellState` and optional compact `text`; optional fields use omission semantics and do not accept explicit `undefined`. `matrix-active-operations` carries typed transient operations that are currently blocking progress, including subprocess commands and model invocations. `formatActiveOperation` formats one operation, while `formatActiveOperationsLine` formats a non-empty operation list as a `Running: ...` line and returns `undefined` for an empty list. Hosts without matrix rendering (including `createProgressPhaseStateStore`) ignore matrix variants; listeners must tolerate them. Hosts with matrix rendering use the exported `isMatrixProgressEvent` guard to split matrix events off the phase wire, and the exported matrix text-layout helpers for shared display-width-aware label clamps, cell centering, and right padding.
+The `NsProgressMatrixEvent` sub-union streams an optional per-row × per-column progress grid alongside the phase checklist (for example flow land's branch × Gate/Merge/Verify/Restack matrix). `matrix-declared` announces only the column set and optional row-label header. `matrix-rows` replaces the full row set, and `matrix-cell` updates one cell with an `NsProgressMatrixCellState` and optional compact `text`; optional fields use omission semantics and do not accept explicit `undefined`. Workflow-wide progress belongs to canonical phase events rather than the matrix protocol. `matrix-active-operations` carries typed transient operations that are currently blocking progress, including subprocess commands and model invocations. `formatActiveOperation` formats one operation, while `formatActiveOperationsLine` formats a non-empty operation list as a `Running: ...` line and returns `undefined` for an empty list. Hosts without matrix rendering (including `createProgressPhaseStateStore`) ignore matrix variants; listeners must tolerate them. Hosts with matrix rendering use the exported `isMatrixProgressEvent` guard to split matrix events off the phase wire, and the exported matrix text-layout helpers for shared display-width-aware label clamps, cell centering, and right padding.
 
 Low-level `stdout`, `stderr`, and `onOutput` hooks remain compatibility primitives for durable stream output and transient live-output bridges. `ctx.commandIo` and `ctx.progress` are the preferred SDK services for command-authored human output and typed progress.
 

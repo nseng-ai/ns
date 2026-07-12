@@ -15,52 +15,6 @@ const LAND_COLUMNS = [
 	{ key: "restack", label: "Restack", width: 7 },
 ];
 
-const SUBMIT_GLOBAL_ROWS = (
-	[
-		["inventory", "Inventory"],
-		["hooks", "Hooks"],
-		["checkpoint", "Checkpoint"],
-		["preflight", "Preflight"],
-		["restack", "Restack"],
-		["submit", "Submit"],
-		["verify", "Verify"],
-	] as const
-).map(([key, label]) => ({
-	key,
-	label,
-	detail: `${label} complete`,
-	activeLabel: `${label} active…`,
-}));
-
-const GLOBAL_ROWS = [
-	{
-		key: "inventory",
-		label: "Inventory",
-		detail: "stack inventoried",
-		activeLabel: "reading submit stack topology…",
-	},
-	{
-		key: "checkpoint",
-		label: "Checkpoint",
-		detail: "checkpoint complete",
-		activeLabel: "checkpointing pending changes…",
-		substeps: [
-			{
-				key: "format",
-				label: "Format",
-				detail: "format failed",
-				activeLabel: "formatting…",
-			},
-			{
-				key: "lint",
-				label: "Lint",
-				detail: "lint failed",
-				activeLabel: "linting…",
-			},
-		],
-	},
-];
-
 function declaredWithRows(rowCount = 2): MatrixWidgetState {
 	const state = new MatrixWidgetState();
 	state.apply({ type: "matrix-declared", columns: LAND_COLUMNS });
@@ -188,94 +142,6 @@ describe("MatrixWidgetState", () => {
 		expect(lines[1]).not.toContain("…");
 	});
 
-	test("preserves the canonical submit global-row order", () => {
-		const state = new MatrixWidgetState();
-		state.apply({
-			type: "matrix-declared",
-			columns: LAND_COLUMNS,
-			globalRows: SUBMIT_GLOBAL_ROWS,
-		});
-
-		expect(state.lines().slice(0, 7)).toEqual([
-			"· Inventory",
-			"· Hooks",
-			"· Checkpoint",
-			"· Preflight",
-			"· Restack",
-			"· Submit",
-			"· Verify",
-		]);
-	});
-
-	test("renders declared globals and substeps in order with state-specific text", () => {
-		const state = new MatrixWidgetState();
-		state.apply({ type: "matrix-declared", columns: LAND_COLUMNS, globalRows: GLOBAL_ROWS });
-		expect(state.hasGlobalRows).toBe(true);
-		expect(state.lines().slice(0, 5)).toEqual([
-			"· Inventory",
-			"· Checkpoint",
-			"    · Format",
-			"    · Lint",
-			"",
-		]);
-
-		state.apply({
-			type: "matrix-global",
-			globalKey: "inventory",
-			state: "done",
-			text: "stack inventoried in verbose detail",
-		});
-		state.apply({ type: "matrix-global", globalKey: "checkpoint", state: "active" });
-		state.apply({
-			type: "matrix-global-substep",
-			globalKey: "checkpoint",
-			substepKey: "format",
-			state: "done",
-			text: "formatted every file",
-		});
-		state.apply({
-			type: "matrix-global-substep",
-			globalKey: "checkpoint",
-			substepKey: "lint",
-			state: "failed",
-		});
-
-		expect(state.lines().slice(0, 5)).toEqual([
-			"✓ Inventory",
-			"▸ Checkpoint  checkpointing pending changes…",
-			"    ✓ Format",
-			"    ✗ Lint  lint failed",
-			"",
-		]);
-
-		state.apply({
-			type: "matrix-global-substep",
-			globalKey: "checkpoint",
-			substepKey: "lint",
-			state: "failed",
-			text: "lint command exited 1",
-		});
-		expect(state.lines()[3]).toBe("    ✗ Lint  lint command exited 1");
-
-		state.apply({
-			type: "matrix-global-substep",
-			globalKey: "checkpoint",
-			substepKey: "lint",
-			state: "active",
-			text: "retrying lint…",
-		});
-		expect(state.lines()[3]).toBe("    ▸ Lint  retrying lint…");
-
-		state.apply({
-			type: "matrix-global-substep",
-			globalKey: "checkpoint",
-			substepKey: "lint",
-			state: "skipped",
-			text: "not needed after retry",
-		});
-		expect(state.lines()[3]).toBe("    – Lint");
-	});
-
 	test("renders a running-commands line when present", () => {
 		const state = declaredWithRows(1);
 		state.apply({
@@ -357,34 +223,6 @@ const MATRIX_EVENTS: readonly NsProgressPhaseEvent[] = [
 	{ type: "matrix-cell", rowKey: "feature-a", columnKey: "merge", state: "active" },
 ];
 
-const GLOBAL_MATRIX_EVENTS: readonly NsProgressPhaseEvent[] = [
-	{
-		type: "matrix-declared",
-		columns: LAND_COLUMNS,
-		globalRows: GLOBAL_ROWS,
-	},
-	{
-		type: "matrix-rows",
-		rows: [
-			{ rowKey: "feature-a", label: "feature-a (#1)" },
-			{ rowKey: "feature-b", label: "feature-b (#2)" },
-		],
-	},
-	{ type: "matrix-global", globalKey: "inventory", state: "done" },
-	{ type: "matrix-global", globalKey: "checkpoint", state: "active" },
-	{
-		type: "matrix-global-substep",
-		globalKey: "checkpoint",
-		substepKey: "format",
-		state: "done",
-	},
-	{ type: "matrix-cell", rowKey: "feature-a", columnKey: "merge", state: "active" },
-	{
-		type: "matrix-active-operations",
-		operations: [{ kind: "command", display: "gt submit --no-interactive" }],
-	},
-];
-
 describe("LiveCommandProgress matrix rendering", () => {
 	test("composes phase checklist, matrix block, and latest output line", () => {
 		const { progress, latestWidget } = createWidgetHarness();
@@ -401,33 +239,6 @@ describe("LiveCommandProgress matrix rendering", () => {
 			expect(lines?.[5]).toMatch(/^feature-a \(#1\)\s+·\s+▸\s+·\s+·\s*$/);
 			expect(lines?.[6]).toMatch(/^feature-b \(#2\)\s+(·\s+){3}·\s*$/);
 			expect(lines?.at(-1)).toBe("  stdout: merging feature-a");
-		} finally {
-			progress.close();
-		}
-	});
-
-	test("renders globals before branches and suppresses the duplicate phase checklist", () => {
-		const { progress, latestWidget } = createWidgetHarness();
-		try {
-			for (const event of [...PHASE_EVENTS, ...GLOBAL_MATRIX_EVENTS]) {
-				progress.applyPhaseEvent(event);
-			}
-			progress.appendOutput("stderr", "submitting stack\n");
-
-			const lines = latestWidget();
-			expect(lines?.[0]).toMatch(/^\/ns:flow:land \(.* elapsed\)$/);
-			expect(lines?.[1]).toBe("✓ Inventory");
-			expect(lines?.[2]).toBe("▸ Checkpoint  checkpointing pending changes…");
-			expect(lines?.[3]).toBe("    ✓ Format");
-			expect(lines?.[4]).toBe("    · Lint");
-			expect(lines?.[5]).toBe("");
-			expect(lines?.[6]).toMatch(/^Branch \/ PR\s+Gate/);
-			expect(lines?.[7]).toMatch(/^feature-a \(#1\)\s+·\s+▸\s+·\s+·\s*$/);
-			expect(lines?.[8]).toMatch(/^feature-b \(#2\)\s+(·\s+){3}·\s*$/);
-			expect(lines?.[9]).toBe("Running: gt submit --no-interactive");
-			expect(lines?.at(-1)).toBe("  stderr: submitting stack");
-			expect(lines?.some((line) => line.includes("Preflight"))).toBe(false);
-			expect(lines?.some((line) => line.startsWith("· Merge"))).toBe(false);
 		} finally {
 			progress.close();
 		}
@@ -455,7 +266,6 @@ describe("LiveCommandProgress matrix rendering", () => {
 			progress.applyPhaseEvent({
 				type: "matrix-declared",
 				columns: LAND_COLUMNS,
-				globalRows: GLOBAL_ROWS,
 			});
 			progress.applyPhaseEvent({
 				type: "matrix-rows",
@@ -467,7 +277,7 @@ describe("LiveCommandProgress matrix rendering", () => {
 
 			expect(typeof widgetCalls.at(-1)?.value).toBe("function");
 			const lines = latestWidget();
-			expect(lines).toHaveLength(19);
+			expect(lines).toHaveLength(17);
 			expect(lines?.some((line) => line.startsWith("feature-12 (#12)"))).toBe(true);
 			expect(lines).not.toContain("... (widget truncated)");
 		} finally {
@@ -529,7 +339,7 @@ describe("LiveCommandProgress matrix rendering", () => {
 			},
 		);
 		try {
-			for (const event of GLOBAL_MATRIX_EVENTS) progress.applyPhaseEvent(event);
+			for (const event of MATRIX_EVENTS) progress.applyPhaseEvent(event);
 			expect(statuses.at(-1)).toContain("/ns:flow:land");
 			expect(statuses.some((value) => value?.includes("Branch / PR"))).toBe(false);
 		} finally {

@@ -191,6 +191,55 @@ describe("forwarded progress", () => {
 		]);
 	});
 
+	test("live forward includes recursively declared substeps", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps } = harness();
+		const progress = recordingProgress();
+		const stream = createPhaseStream({
+			caps: c,
+			specs: SUBSTEP_SPECS,
+			deps,
+			forward: progress.sink,
+		});
+
+		stream.begin("title");
+		await stream.stop();
+
+		expect(progress.events[0]).toEqual({
+			type: "phases-declared",
+			title: "title",
+			phases: [
+				{
+					key: "checkpoint",
+					name: "Checkpoint",
+					label: "checkpointing…",
+					detail: "checkpoint complete",
+					substeps: [
+						{
+							key: "inspect",
+							name: "Inspect",
+							label: "inspecting…",
+							detail: "worktree inspected",
+						},
+						{
+							key: "generate",
+							name: "Generate",
+							label: "generating…",
+							detail: "message ready",
+						},
+						{
+							key: "commit",
+							name: "Commit",
+							label: "committing…",
+							detail: "commit created",
+						},
+					],
+				},
+				{ key: "preflight", name: "Preflight", label: "checking…", detail: "ready" },
+			],
+		});
+	});
+
 	test("live forward suppresses non-tty transient surfaces but leaves settled output unchanged", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes, redraws, outputs } = harness();

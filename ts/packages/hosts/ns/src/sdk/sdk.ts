@@ -86,8 +86,6 @@ export type {
 	NsProgressMatrixCellState,
 	NsProgressMatrixColumnInfo,
 	NsProgressMatrixEvent,
-	NsProgressMatrixGlobalRowInfo,
-	NsProgressMatrixGlobalSubstepInfo,
 	NsProgressMatrixRowInfo,
 	NsProgressPhaseEvent,
 	NsProgressPhaseInfo,

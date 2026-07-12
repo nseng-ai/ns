@@ -4,17 +4,23 @@ import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
+	applyPrLinksToRows,
 	compactSubmitMetadataCellText,
 	createSubmitMatrixEventProgressController,
-	createSubmitMatrixProgressController,
 	renderSubmitMatrixProgressFrame,
+	resolveSubmitProgress,
 	submitMatrixRowsFromTopology,
 } from "../../src/submit/submit-matrix-progress.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
 
+function recordingProgress(): { events: NsProgressPhaseEvent[]; progress: NsProgress } {
+	const events: NsProgressPhaseEvent[] = [];
+	return { events, progress: { isLive: true, phase: (event) => events.push(event) } };
+}
+
 function caps(parts: Partial<Caps> = {}): Caps {
 	return {
-		isTty: true,
+		isTty: false,
 		colorDepth: "none",
 		columns: 96,
 		canRenderUnicode: true,
@@ -22,374 +28,203 @@ function caps(parts: Partial<Caps> = {}): Caps {
 	};
 }
 
-function recordingProgress(): { events: NsProgressPhaseEvent[]; progress: NsProgress } {
-	const events: NsProgressPhaseEvent[] = [];
-	return {
-		events,
-		progress: { isLive: true, phase: (event) => events.push(event) },
-	};
-}
+describe("submit progress resolution", () => {
+	test("TTY-only owns raw output in the terminal controller", () => {
+		const capture = streamCapture({ sleep: "pending" });
+		const resolved = resolveSubmitProgress({
+			caps: caps({ isTty: true }),
+			deps: capture.deps,
+			hasHooks: false,
+		});
+		if (resolved === undefined) throw new Error("missing TTY progress");
+
+		resolved.matrix.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
+		resolved.onOutput?.("stdout", "raw transcript");
+
+		expect(stripAnsi(capture.redraws.at(-1) ?? "")).toContain("raw transcript");
+	});
+
+	test("live-only sends raw output and structured events to their live channels", () => {
+		const recording = recordingProgress();
+		const raw: string[] = [];
+		const resolved = resolveSubmitProgress({
+			caps: caps(),
+			deps: streamCapture().deps,
+			liveProgress: recording.progress,
+			liveOutput: (_stream, text) => raw.push(text),
+			hasHooks: false,
+		});
+		if (resolved === undefined) throw new Error("missing live progress");
+
+		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
+		resolved.onOutput?.("stdout", "raw transcript");
+
+		expect(recording.events.map((event) => event.type)).toEqual([
+			"phases-declared",
+			"matrix-declared",
+			"phase-started",
+		]);
+		expect(raw).toEqual(["raw transcript"]);
+	});
+
+	test("combined TTY and live fans out structure once without forwarding raw output", () => {
+		const capture = streamCapture({ sleep: "pending" });
+		const recording = recordingProgress();
+		const raw: string[] = [];
+		const resolved = resolveSubmitProgress({
+			caps: caps({ isTty: true }),
+			deps: capture.deps,
+			liveProgress: recording.progress,
+			liveOutput: (_stream, text) => raw.push(text),
+			hasHooks: false,
+		});
+		if (resolved === undefined) throw new Error("missing combined progress");
+
+		resolved.matrix.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
+		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
+		resolved.matrix.setCell("feature/a", "metadata", { state: "active", text: "gen" });
+		resolved.matrix.setActiveOperations([{ kind: "command", display: "gt submit" }]);
+		resolved.onOutput?.("stdout", "raw transcript");
+
+		const eventTypes = recording.events.map((event) => event.type);
+		for (const type of [
+			"phases-declared",
+			"matrix-declared",
+			"matrix-rows",
+			"phase-started",
+			"matrix-cell",
+			"matrix-active-operations",
+		] as const) {
+			expect(eventTypes.filter((candidate) => candidate === type)).toHaveLength(1);
+		}
+		expect(raw).toEqual([]);
+		const frame = stripAnsi(capture.redraws.at(-1) ?? "");
+		expect(frame).toContain("gen");
+		expect(frame).toContain("Running: gt submit");
+		expect(frame).toContain("raw transcript");
+	});
+
+	test("neither TTY nor live retains the ordinary settled path", () => {
+		expect(
+			resolveSubmitProgress({
+				caps: caps(),
+				deps: streamCapture().deps,
+				hasHooks: false,
+			}),
+		).toBeUndefined();
+	});
+});
 
 describe("submit matrix progress", () => {
-	test("event adapter maps submit-specific global, row, and PR-number behavior", () => {
+	test("declares canonical submit phases and forwards each phase event once", () => {
 		const recording = recordingProgress();
 		const controller = createSubmitMatrixEventProgressController({
 			progress: recording.progress,
 			title: "ns flow submit",
 			rows: [],
+			hasHooks: true,
 		});
 
-		controller.setGlobal("inventory", { state: "active" });
-		controller.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
-		controller.applyGlobalPhaseEvent("checkpoint", {
-			type: "phase-started",
-			phaseKey: "generate",
-			label: "generating",
-		});
-		controller.applyPrLinks([{ label: "#10", url: "https://github.com/acme/repo/pull/10" }]);
-		controller.setCellByPrNumber(10, "metadata", { state: "done", text: "ready" });
+		controller.phase({ type: "phase-started", phaseKey: "inventory" });
+		controller.phase({ type: "phase-done", phaseKey: "inventory", detail: "one branch" });
 
-		expect(recording.events.filter((event) => event.type === "matrix-declared")).toHaveLength(1);
-		expect(recording.events.find((event) => event.type === "matrix-declared")).toEqual(
-			expect.objectContaining({
-				labelHeader: "Branch / PR",
-				globalRows: expect.arrayContaining([
-					expect.objectContaining({ key: "inventory" }),
-					expect.objectContaining({ key: "checkpoint" }),
-				]),
-			}),
-		);
-		expect(recording.events).toEqual(
-			expect.arrayContaining([
-				{ type: "matrix-global", globalKey: "inventory", state: "active" },
-				{
-					type: "matrix-global-substep",
-					globalKey: "checkpoint",
-					substepKey: "generate",
-					state: "active",
-					text: "generating",
-				},
-				{
-					type: "matrix-rows",
-					rows: [{ rowKey: "feature/a", label: "feature/a (#10)" }],
-				},
-				{
-					type: "matrix-cell",
-					rowKey: "feature/a",
-					columnKey: "metadata",
-					state: "done",
-					text: "ready",
-				},
-			]),
-		);
+		const declaration = recording.events.find((event) => event.type === "phases-declared");
+		expect(declaration?.type).toBe("phases-declared");
+		if (declaration?.type !== "phases-declared") throw new Error("missing declaration");
+		expect(declaration.phases.map((phase) => phase.key)).toEqual([
+			"inventory",
+			"hooks",
+			"checkpoint",
+			"preflight",
+			"restack",
+			"metadata",
+			"submit",
+			"verification",
+			"descriptions",
+		]);
+		expect(
+			declaration.phases
+				.find((phase) => phase.key === "checkpoint")
+				?.substeps?.map((phase) => phase.key),
+		).toEqual(["inspect", "generate", "commit"]);
+		expect(recording.events.filter((event) => event.type === "phase-started")).toEqual([
+			{ type: "phase-started", phaseKey: "inventory" },
+		]);
 	});
-	test("updates checkpoint substeps without manufacturing active operations", () => {
-		const capture = streamCapture({ sleep: "pending" });
-		const controller = createSubmitMatrixProgressController({
-			caps: caps(),
-			deps: capture.deps,
+
+	test("keeps grid declarations to columns and rows", () => {
+		const recording = recordingProgress();
+		const controller = createSubmitMatrixEventProgressController({
+			progress: recording.progress,
 			title: "ns flow submit",
 			rows: [],
+			hasHooks: false,
 		});
-		controller.begin();
+		controller.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
+		controller.setCell("feature/a", "metadata", { state: "done", text: "ready" });
 
-		controller.applyGlobalPhaseEvent("checkpoint", {
-			type: "phase-started",
-			phaseKey: "generate",
+		expect(recording.events.find((event) => event.type === "matrix-declared")).toEqual({
+			type: "matrix-declared",
+			columns: [
+				{ key: "metadata", label: "Metadata", width: 8 },
+				{ key: "description", label: "Description", width: 11 },
+			],
+			labelHeader: "Branch / PR",
 		});
-		const activeFrame = stripAnsi(capture.redraws.at(-1) ?? "");
-		expect(activeFrame).toContain("Generate");
-		expect(activeFrame).not.toContain("Running:");
-
-		controller.applyGlobalPhaseEvent("checkpoint", {
-			type: "phase-done",
-			phaseKey: "generate",
+		expect(recording.events).toContainEqual({
+			type: "matrix-cell",
+			rowKey: "feature/a",
+			columnKey: "metadata",
+			state: "done",
+			text: "ready",
 		});
-		const doneFrame = stripAnsi(capture.redraws.at(-1) ?? "");
-		expect(doneFrame).toContain("Generate");
-		expect(doneFrame).not.toContain("Running:");
 	});
 
-	test("renders reported operations on a dedicated line when no global row is active", () => {
-		const rows = submitMatrixRowsFromTopology({
-			currentBranch: "feature/b",
-			branches: [
-				{
-					branch: "feature/a",
-					parentBranch: "main",
-					kind: "existing",
-					pr: { label: "#123", url: "https://github.com/acme/repo/pull/123" },
-				},
-				{ branch: "feature/b", parentBranch: "feature/a", kind: "new" },
-			],
-		});
-
-		// A real metadata/description phase: every global row is settled, skipped, or pending —
-		// only a branch cell is active — yet the reported model operation must stay visible.
+	test("renders row cells without matrix-owned global phase state", () => {
 		const lines = renderSubmitMatrixProgressFrame({
 			caps: caps(),
 			title: "ns flow submit",
-			activeOperations: [
-				{
-					kind: "model",
-					operation: "generating PR metadata",
-					modelRef: "openai-codex/gpt-5.4-mini",
-					detail: "branch 2/3",
-				},
-			],
-			globals: [
-				{
-					key: "preflight",
-					label: "Preflight",
-					detail: "ready to submit",
-					activeLabel: "checking submit readiness…",
-					state: "done",
-					substeps: [],
-				},
-				{
-					key: "restack",
-					label: "Restack",
-					detail: "restack complete",
-					activeLabel: "running gt restack…",
-					state: "skipped",
-					substeps: [],
-				},
-				{
-					key: "submit",
-					label: "Submit",
-					detail: "stack submitted",
-					activeLabel: "running gt submit…",
-					state: "pending",
-					substeps: [],
-				},
-				{
-					key: "verify",
-					label: "Verify",
-					detail: "current PR verified",
-					activeLabel: "checking current PR…",
-					state: "pending",
-					substeps: [],
-				},
-			],
-			rows: rows.map((row) => ({
-				branch: row.branch,
-				label: row.label,
-				kind: row.kind,
-				...(row.pr === undefined ? {} : { pr: row.pr }),
-				cells: {
-					metadata: { state: row.kind === "existing" ? "skipped" : "active" },
-					description: { state: "pending" },
-				},
-			})),
-			tailLine: "",
-		});
-
-		const plainLines = lines.map((line) => stripAnsi(line));
-		const output = plainLines.join("\n");
-		expect(output).toContain("ns flow submit");
-		// The dedicated operations line sits immediately before the tail slot.
-		expect(plainLines.at(-1)).toBe("");
-		expect(plainLines.at(-2)).toBe(
-			"Running: LM · generating PR metadata · openai-codex/gpt-5.4-mini · branch 2/3",
-		);
-		// The operation renders exactly once — no global row hosts it.
-		expect(plainLines.filter((line) => line.includes("generating PR metadata"))).toHaveLength(1);
-		expect(output).toContain("Preflight");
-		expect(output).toContain("Branch / PR");
-		expect(output).toContain("Metadata");
-		expect(output).toContain("Description");
-		expect(output).toContain("Submit");
-		expect(output).toContain("Verify");
-		const headerLine = plainLines.find((line) => line.includes("Branch / PR"));
-		expect(headerLine).toContain("Metadata");
-		expect(headerLine).toContain("Description");
-		expect(headerLine).not.toContain("Submit");
-		expect(headerLine).not.toContain("Verify");
-		expect(output).toContain("feature/a (#123)");
-		expect(output).toContain("feature/b");
-	});
-
-	test("keeps active global labels while the operation renders on the dedicated line", () => {
-		const lines = renderSubmitMatrixProgressFrame({
-			caps: caps(),
-			title: "ns flow submit",
-			activeOperations: [{ kind: "command", display: "gt submit --no-interactive" }],
-			globals: [
-				{
-					key: "submit",
-					label: "Submit",
-					detail: "stack submitted",
-					activeLabel: "running gt submit…",
-					state: "active",
-					substeps: [],
-				},
-			],
 			rows: [
 				{
 					branch: "feature/a",
 					label: "feature/a",
 					kind: "new",
-					cells: {
-						metadata: { state: "done" },
-						description: { state: "pending" },
-					},
+					cells: { metadata: { state: "done", text: "ready" }, description: { state: "pending" } },
 				},
 			],
-			tailLine: "",
 		});
-
-		const plainLines = lines.map((line) => stripAnsi(line));
-		const submitLine = plainLines.find((line) => line.includes("running gt submit…"));
-		expect(submitLine).toBeDefined();
-		expect(submitLine).not.toContain("gt submit --no-interactive");
-		expect(plainLines.at(-2)).toBe("Running: gt submit --no-interactive");
+		expect(lines.join("\n")).toContain("feature/a");
+		expect(lines.join("\n")).toContain("ready");
 	});
 
-	test("reserves one blank operations slot on live frames and omits it when settled", () => {
-		const globals = [
-			{
-				key: "submit" as const,
-				label: "Submit",
-				detail: "stack submitted",
-				activeLabel: "running gt submit…",
-				state: "done" as const,
-				substeps: [],
-			},
-		];
+	test("applies PR links only when unmatched links align with new rows", () => {
 		const rows = [
 			{
-				branch: "feature/a",
-				label: "feature/a",
-				kind: "new" as const,
-				cells: {
-					metadata: { state: "done" as const },
-					description: { state: "pending" as const },
-				},
+				branch: "existing",
+				label: "existing (#1)",
+				kind: "existing" as const,
+				pr: { label: "#1", url: "https://github.com/o/r/pull/1" },
 			},
+			{ branch: "new", label: "new", kind: "new" as const },
 		];
-
-		const live = renderSubmitMatrixProgressFrame({
-			caps: caps(),
-			title: "ns flow submit",
-			activeOperations: [],
-			globals,
-			rows,
-			tailLine: "",
-		});
-		const livePlain = live.map((line) => stripAnsi(line));
-		// Exactly one blank operations slot plus the blank tail slot: the row line is third from last.
-		expect(livePlain.slice(-2)).toEqual(["", ""]);
-		expect(livePlain.at(-3)).toContain("feature/a");
-
-		const settled = renderSubmitMatrixProgressFrame({
-			caps: caps(),
-			title: "ns flow submit",
-			globals,
-			rows,
-		});
-		const settledPlain = settled.map((line) => stripAnsi(line));
-		expect(settledPlain.at(-1)).toContain("feature/a");
-	});
-
-	test("branch cells render compact text when it fits and keep symbols otherwise", () => {
-		const cells = {
-			description: { state: "pending" },
-		} as const;
-		const lines = renderSubmitMatrixProgressFrame({
-			caps: caps(),
-			title: "ns flow submit",
-			globals: [],
-			rows: [
-				{
-					branch: "feature/active",
-					label: "feature/active",
-					kind: "new",
-					cells: { ...cells, metadata: { state: "active", text: "gen" } },
-				},
-				{
-					branch: "feature/skipped",
-					label: "feature/skipped",
-					kind: "existing",
-					cells: { ...cells, metadata: { state: "skipped", text: "exists" } },
-				},
-				{
-					branch: "feature/done",
-					label: "feature/done",
-					kind: "new",
-					cells: { ...cells, metadata: { state: "done", text: "ready" } },
-				},
-				{
-					branch: "feature/failed",
-					label: "feature/failed",
-					kind: "new",
-					cells: { ...cells, metadata: { state: "failed", text: "failed" } },
-				},
-				{
-					branch: "feature/long-text",
-					label: "feature/long-text",
-					kind: "new",
-					cells: {
-						...cells,
-						metadata: { state: "skipped", text: "metadata amendment not applicable" },
-					},
-				},
-				{
-					branch: "feature/no-text",
-					label: "feature/no-text",
-					kind: "new",
-					cells: { ...cells, metadata: { state: "done" } },
-				},
-			],
-		});
-
-		const output = stripAnsi(lines.join("\n"));
-		const rowLine = (branch: string): string => {
-			const line = output.split("\n").find((item) => item.includes(branch));
-			if (line === undefined) throw new Error(`missing row for ${branch}`);
-			return line;
-		};
-		expect(rowLine("feature/active")).toContain("gen");
-		expect(rowLine("feature/skipped")).toContain("exists");
-		expect(rowLine("feature/done")).toContain("ready");
-		expect(rowLine("feature/failed")).toContain("failed");
-		// Text wider than the 8-column Metadata cell falls back to the legacy symbol.
-		expect(rowLine("feature/long-text")).toContain("–");
-		expect(rowLine("feature/long-text")).not.toContain("amendment");
-		// Cells without text keep the legacy symbol rendering.
-		expect(rowLine("feature/no-text")).toContain("✓");
-	});
-
-	test("compactSubmitMetadataCellText maps metadata reasons to cell labels", () => {
-		expect(compactSubmitMetadataCellText("existing-pr")).toBe("exists");
-		expect(compactSubmitMetadataCellText("amendment-not-applicable")).toBe("n/a");
-		expect(compactSubmitMetadataCellText("generating-metadata")).toBe("gen");
-		expect(compactSubmitMetadataCellText("metadata-drafted")).toBe("drafted");
-		expect(compactSubmitMetadataCellText("amending-metadata-commit")).toBe("amend");
-		expect(compactSubmitMetadataCellText("metadata-prepared")).toBe("ready");
-		expect(compactSubmitMetadataCellText("metadata-amendment-failed")).toBe("failed");
-		expect(compactSubmitMetadataCellText("metadata-generation-failed")).toBe("failed");
-	});
-
-	test("topology rows are branch-first and enrich existing PRs immediately", () => {
 		expect(
-			submitMatrixRowsFromTopology({
-				currentBranch: "feature/demo",
-				branches: [
-					{
-						branch: "feature/demo",
-						parentBranch: "main",
-						kind: "existing",
-						pr: { label: "#456", url: "https://github.com/acme/repo/pull/456" },
-					},
-				],
-			}),
+			applyPrLinksToRows(rows, [{ label: "#2", url: "https://github.com/o/r/pull/2" }]),
 		).toEqual([
 			{
-				branch: "feature/demo",
-				label: "feature/demo (#456)",
-				kind: "existing",
-				pr: { label: "#456", url: "https://github.com/acme/repo/pull/456" },
+				branch: "new",
+				label: "new (#2)",
+				pr: { label: "#2", url: "https://github.com/o/r/pull/2" },
 			},
 		]);
+	});
+
+	test("compact metadata labels and topology rows remain stable", () => {
+		expect(compactSubmitMetadataCellText("metadata-prepared")).toBe("ready");
+		expect(
+			submitMatrixRowsFromTopology({
+				currentBranch: "feature/a",
+				branches: [{ branch: "feature/a", parentBranch: "main", kind: "new" }],
+			}),
+		).toEqual([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
 	});
 });
