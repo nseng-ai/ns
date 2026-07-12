@@ -1,7 +1,7 @@
 ---
 name: skill-management
 disable-model-invocation: true
-description: "Manage skills with `npx skills`: add, edit, remove, rename, update, list, or publish skills (local or GitHub). Covers `skills/<name>/` and `.agents/skills/` conventions, the `--agent codex claude-code -y` flag, and `-a`/`--copy` gotchas."
+description: "Manage skills with `npx skills`: add, edit, remove, rename, update, or list skills (local or GitHub). Covers `skills/<name>/` and `.agents/skills/` conventions, the `--agent codex claude-code -y` flag, and `-a`/`--copy` gotchas."
 allowed-tools:
   - "Bash(npx skills *)"
   - "Bash(ln *)"
@@ -20,8 +20,8 @@ allowed-tools:
 # skill-management
 
 Manage project skills with `npx skills`. This skill is the canonical reference
-for adding, editing, removing, updating, inspecting, and publishing skills in a
-repo that uses the ns local-skill layout.
+for adding, editing, removing, updating, and inspecting skills in a repo that
+uses the ns local-skill layout.
 
 `npx skills` installs agent skill packages into `.agents/skills/<name>/` (the
 universal cache) and symlinks agent-specific directories like
