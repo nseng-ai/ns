@@ -72,17 +72,17 @@ For delete or cleanup, load the `handoff` umbrella.
 
 ## Select the handoff
 
-Prefer selection by explicit identity before inference:
+Resolve the user's selector (exact key, slug, or free-text search words) deterministically through the command face instead of matching by hand:
 
-1. If the user provides an exact key like `foo.md`, pick it up.
-2. If the user provides a slug like `foo`, normalize it to `foo.md` and pick it up when present.
-3. If exactly one handoff exists in the selected branch scope, pick it up.
-4. If the user provided search words, match them against the semantic slug:
-   - split the slug on `-`, `_`, and `.`
-   - ignore the `.md` suffix
-   - prefer slugs containing all requested terms
-   - if exactly one candidate clearly matches, pick it up
-5. If several candidates remain plausible, ask the user to choose. Print branch and candidate slugs; do not require the user to know storage keys.
+```bash
+ns handoff exec match [--branch <branch>|--all] [--include-deleted] [selector words...] --format json
+```
+
+The command applies the handoff selection ladder in order: exact key, slug normalized to `<slug>.md`, the only handoff in scope when the selector is empty, then term matching (selector words matched against the slug's words split on `-`/`_`/`.`, ignoring the `.md` suffix; only slugs containing all terms match). Interpret `data.resolution`:
+
+- `unique`: pick up `data.selected.slug` on `data.selected.branch`.
+- `ambiguous`: ask the user to choose from `data.candidates`. Print branch and candidate slugs; do not require the user to know storage keys.
+- `none`: report that nothing matched the selector, naming the scope searched, and offer the handoffs listed in scope.
 
 ## Read and present summary
 

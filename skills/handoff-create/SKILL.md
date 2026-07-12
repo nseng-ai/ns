@@ -52,7 +52,7 @@ Handoff slug:
 - Otherwise compose the final directed Markdown handoff artifact first, then derive the slug from that final content.
 - Use the continuation focus/title as context inside the artifact, not as the direct slug source.
 - Make the slug summarize the future continuation action and subject apparent in the artifact body.
-- Format: lowercase; punctuation/whitespace to `-`; remove remaining non-alphanumerics except `-`; collapse repeated `-`; trim leading/trailing `-`; usually 3-8 words.
+- Do not normalize the name by hand: `ns handoff create` normalizes `--slug` deterministically (lowercase; non-alphanumeric runs become single `-`; leading/trailing `-` trimmed; a trailing `.md` is dropped) and reports the final slug in its result. Read the final slug back from the command output. Aim for roughly 3-8 words.
 - Avoid generic-only slugs like `handoff`, `session`, `work`, `task`, `follow-up`, or `continue`, and raw request preambles like `i-want-to-handoff`.
 - Prefer semantic slugs like `address-review-feedback`, `add-pickup-handoff-command`, `associate-sessions-with-branches`, or `resume-plan-implementation`.
 
@@ -95,12 +95,12 @@ Do not create hidden temp/draft files for handoff-create. If the user needs revi
 Store the final artifact directly through the portable ns command face without an intermediate file. Use a quoted here-doc delimiter that does not appear in the handoff content:
 
 ```bash
-ns handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+ns handoff create --slug <handoff name or slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
 <final Markdown handoff content>
 HANDOFF_EOF
 ```
 
-`ns handoff create` refuses an existing artifact by default. If it reports a collision, stop unless the user explicitly asked to replace it. Do not fall back to raw Branch Memory for normal creation.
+The command normalizes the passed name into the final slug and reports both (`slug` and `requestedSlug` in the JSON envelope); use the reported `slug` in follow-up commands and the user-facing report. `ns handoff create` refuses an existing artifact by default. If it reports a collision, stop unless the user explicitly asked to replace it. Do not fall back to raw Branch Memory for normal creation.
 
 Raw `brmem` is recovery-only. If `ns handoff create` is unavailable or a storage-layer diagnostic requires it, preflight with `brmem check <semantic-slug>.md --namespace handoff --branch <branch>`, then use `brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin` only after preserving the same collision safety.
 
