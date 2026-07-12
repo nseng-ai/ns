@@ -6,9 +6,7 @@ description: "Close an existing Objective without deleting its checked-in histor
 
 # objective-close
 
-Close an Objective without deleting its checked-in history.
-
-Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
+Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
 ## Resolve the Objective
 
@@ -17,18 +15,18 @@ Resolve exactly one Objective per the umbrella skill's Selection rules; the umbr
 ## Workflow
 
 1. Run `ns objective exec read-objective <slug> --format md` to load the selected record's raw Markdown and closed state.
-2. If already closed, stop unless the user explicitly asks to amend closure context.
-3. Confirm the closure outcome is clear: completed or intentionally abandoned, with concise evidence or rationale. For an Umbrella Objective (see the `objective` skill's Objective patterns reference), closure additionally requires each Subobjective closed or explicitly parked, with cross-child lessons and synthesized closure evidence recorded in the parent.
+2. If already closed, stop per Stop / ask.
+3. Confirm the closure outcome is clear: completed or intentionally abandoned, with concise evidence or rationale. For an Umbrella Objective (see the `objective` skill's Objective patterns reference), also record cross-child lessons and synthesized closure evidence in the parent; open Subobjectives gate closure per Stop / ask.
 4. Add or update `## Closure` in `objective.md` with outcome, key evidence, remaining assumptions or risks, caveats, and follow-ups if any.
 5. When material PR evidence supports the completed or abandoned outcome, summarize it in `## Closure` with PR numbers and Objective impact, using the shared Objective PR evidence convention from the `objective` umbrella skill when a list is clearer than prose. Do not turn closure PR evidence into a broad PR ledger or historical backfill.
-6. Re-judge Record Frontmatter (defined in the `objective` umbrella skill) around the closure:
-   - **Edge counterparts' Blocked Sentences.** For each entry under the closing record's `edges:`, read the counterpart record's frontmatter. You are closing the thing their annotation may say gates them: when a counterpart's `blocked:` sentence rests on this Objective, re-judge it — clear it if this closure removes the gate, or reword it if a narrower gate remains. This is skill judgment, never a machine auto-flip, and editing the counterpart's `objective.md` frontmatter block (and nothing else in that record) is the sanctioned mirrored exception.
-   - **The record's own Blocked Sentence.** Blocked is a sub-state of open, so a closing record should not keep a live `blocked:` sentence; re-judge and normally remove it as part of closure.
+6. Re-judge Record Frontmatter around the closure (mechanics — the sanctioned counterpart exception and `ns objective check` semantics — are the `objective` umbrella skill's):
+   - **Edge counterparts' Blocked Sentences.** For each entry under the closing record's `edges:`, read the counterpart record's frontmatter. You are closing the thing their annotation may say gates them: when a counterpart's `blocked:` sentence rests on this Objective, re-judge it — clear it if this closure removes the gate, or reword it if a narrower gate remains. This is skill judgment, never a machine auto-flip.
+   - **The record's own Blocked Sentence.** A closing record should not keep a live `blocked:` sentence; re-judge and normally remove it as part of closure.
    - **Leave edges in place.** Closing an endpoint does not break an edge; do not remove `edges:` entries (on either side) as part of close.
-   - After any frontmatter edit, run `ns objective check <slug>` for each touched record, or `ns objective check --all`; structural violations are errors. `check` also warns (non-failing) when a record stays blocked while an edge counterpart is closed — treat a warning naming this closure as a re-judgment you missed, not noise.
+   - After any frontmatter edit, run `ns objective check` for each touched record; treat a warning naming this closure as a re-judgment you missed, not noise.
 7. If the Objective has an `orientation.md`, consult `roadmap.md`'s completion section and the durable `Direction`/`Getting to` lines of `orientation.md`. If a durable rule should survive the initiative, note it in `## Closure` (or to the user) as a candidate to graduate into AGENTS.md "Architecture rules". Do not delete `orientation.md`: writing `closed.md` drops it from the always-load set automatically.
 8. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `objective.md`, not in `closed.md`.
-9. Leave `.ns/objectives/<slug>/` in place. Do not delete the record as part of close or implement a reopen workflow. If the user explicitly wants removal from active checkout state, delete it separately through source control.
+9. Leave `.ns/objectives/<slug>/` in place; deletion is source-controlled per the umbrella skill, never part of close, and there is no reopen workflow.
 
 ## Closure timing
 

@@ -34,15 +34,15 @@ Do not use `docs/objectives/`.
 
 Use these step skills for explicit workflow requests:
 
-- `objective-create`: create one new active Objective record. It does not update existing records, create an initial Semantic Update, or close anything.
+- `objective-create`: create one new active Objective record; it never updates or closes existing ones.
 - `objective-create-wayfinding`, `objective-create-steelthread`, `objective-create-standing`, `objective-create-umbrella`, `objective-create-autoobjective`, `objective-create-readme-driven-development`: pattern facades over `objective-create` — each owns its pattern's creation procedure; use the matching facade when the user names a pattern.
-- `objective-next`: recommend-first router for one selected open Objective. It reads and recommends by default; when stale tracking clearly blocks, it first routes into the explicit `objective-update` workflow for the same Objective, then continues; it also mutates through the confirmed execution path when durable Runner Policy allows it, or by continuing from a concrete current-session recommendation when the user explicitly says to execute it.
-- `objective-update`: update exactly one selected active Objective; when its Closure Gate is clearly ready and the outcome/rationale are clear, it may close the Objective inline without a separate confirmation.
-- `objective-refresh`: verified rebaseline for active Objective records. It may append Semantic Updates, may clear or reword a Blocked Sentence whose gate is verifiably resolved, and may close an Objective inline when the verified contract shows completion criteria clearly met with probe-backed evidence — an inline close carries `objective-close`'s counterpart Blocked-Sentence re-judgment; it never commits record edits — it leaves them in the worktree.
-- `objective-close`: explicit close only. It records `## Closure` and writes the Closure Marker without deleting checked-in history.
-- `objective-runner-step`: parent playbook for exactly one verified runner step via `ns objective exec runner-begin`, a harness subagent, and `ns objective exec runner-finish`, including `--recover` decisions and Runner Checkpoint interpretation. It runs one step only and never updates tracking.
-- `objective-autorun`: parent orchestration loop over repeated `objective-runner-step` invocations with a judgment checkpoint between steps. Each committed step stacks on the last, so it is also the path for implementing one Objective as a small Graphite stack (it absorbed the retired `objective-stack-impl`). It delegates each step to the runner, routes tracking through `objective-update`, and never submits or pushes.
-- `objective-retro`: read-only retrospective over one Objective's delivered unit of work (formerly `objective-review-briefing`). It reconstructs the delivering PR/commit/file basis into the objective-owned `objective-retro` Branch Memory namespace, then writes a source-backed retro with findings and recommendations; it never mutates Objective records.
+- `objective-next`: recommend-first router for one selected open Objective; its Tracking Gate and confirmed-execution paths live in that skill.
+- `objective-update`: update exactly one selected active Objective; may close inline when its Closure Gate is clearly met.
+- `objective-refresh`: verified rebaseline for active Objective records; may close inline on probe-backed evidence, and never commits record edits.
+- `objective-close`: explicit close only — records `## Closure` and the Closure Marker without deleting checked-in history.
+- `objective-runner-step`: parent playbook for exactly one verified runner step; it never updates tracking.
+- `objective-autorun`: parent orchestration loop over repeated `objective-runner-step` invocations; also the path for implementing one Objective as a small Graphite stack.
+- `objective-retro`: read-only retrospective over one Objective's delivered unit of work (formerly `objective-review-briefing`); it never mutates Objective records.
 
 ## Conditional references
 
@@ -98,13 +98,11 @@ Objective PR evidence is durable evidence from material Objective PRs: PRs that 
 - PR #123: <short summary/title> — <Objective impact>
 ```
 
-Optional branch names, URLs, or explicit status words may be included only when useful as evidence or breadcrumbs. Use `merged` wording only when merge state has been confirmed by PR evidence; otherwise use status-aware wording such as current PR, open PR, draft PR, or PR evidence. PR evidence is not a separate ledger, `prs.md`, machine-readable registry, schema, hidden state, or workflow driver.
+Optional branch names, URLs, or explicit status words may be included only when useful as evidence or breadcrumbs. Use `merged` wording only when merge state has been confirmed by PR evidence; otherwise use status-aware wording such as current PR, open PR, draft PR, or PR evidence.
 
 ### orientation.md
 
-Optional, agent-facing standing rule (≈8 content lines) stating where this part of the system is going vs. what an agent sees in the code now, and what to avoid. It is present only for orienting Objectives whose direction an unrelated agent must respect — presence of the file is the opt-in flag, not a list. Durable `Direction`/`Getting to` lines are positionally separate from the temporary `What you see now`/`Avoid` lines; lifecycle/graduation metadata stays in `roadmap.md`, never here.
-
-Re-deriving `orientation.md` means preserving or correcting the durable `Direction`/`Getting to` lines and shrinking or removing the temporary `What you see now`/`Avoid` lines as the migration lands, with lifecycle/graduation metadata staying in `roadmap.md` as above.
+Optional, agent-facing standing rule (≈8 content lines) stating where this part of the system is going vs. what an agent sees in the code now, and what to avoid. It is present only for orienting Objectives whose direction an unrelated agent must respect — presence of the file is the opt-in flag, not a list. Durable `Direction`/`Getting to` lines are positionally separate from the temporary `What you see now`/`Avoid` lines — re-derivation preserves or corrects the durable lines and shrinks or removes the temporary ones as the migration lands; lifecycle/graduation metadata stays in `roadmap.md`, never here.
 
 AGENTS.md always-loads the `orientation.md` of every active (non-`closed.md`) Objective through `ns objective exec load-orientations --format md`; deterministic inventory and closed-marker mechanics stay in the Objective CLI, and the file drops from the load set automatically on close.
 
@@ -120,13 +118,13 @@ A minimal Closure Marker. Its existence means closed; closure meaning belongs in
 
 Objective selection must come from an explicit slug/path or checkout-local `ns objective list` inventory. Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata — this includes branch names shown by `ns objective list`. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
-`objective-update` has one narrow exception: when the user explicitly requests an Objective update, no slug/path is explicit, and exactly one active Objective exists, it may present that Objective as the only candidate. It must ask for confirmation before continuing to repo evidence or mutation. If update intent is ambiguous or multiple active Objectives exist, ask instead.
+`objective-update` has one narrow single-candidate exception to this rule; its terms live in that skill.
 
 A picker UI may use deterministic git facts to group changed active Objectives first when direct changes under `.ns/objectives/<slug>/` are present compared with repository trunk. If exactly one active Objective is the only Objective slug changed, the picker may label it as suggested. If multiple active Objectives changed, the picker may show those changed active Objectives in the first menu and offer a separate option to view the remaining active Objectives. The user must still confirm a changed Objective or choose another Objective. If the diff is unavailable, empty, or contains no changed slugs that are active Objectives, show the normal ordering with no suggestion.
 
 ## Repository status
 
-`ns objective list` is the default checkout-local Objective status inventory: active open records in `.ns/objectives/`, showing per-record status, latest update, related local-branch count, and Objective Edge count. It does not parse Objective prose or infer status from branches, and it has no Graphite branch projection, current-branch mode, or third active status. Related-branch names and edge-annotation detail are no longer on `list`; use `ns objective show <slug>` for a single record.
+`ns objective list` is the default checkout-local Objective status inventory: active open records in `.ns/objectives/`, showing per-record status, latest update, related local-branch count, and Objective Edge count. It does not parse Objective prose or infer status from branches; for related-branch names and edge-annotation detail, use `ns objective show <slug>` for a single record.
 
 - `--status all` means all statuses in the active root only. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`.
 - `--names`: emits filtered active-root slugs, one per line; use it only for machine-readable active-slug extraction.

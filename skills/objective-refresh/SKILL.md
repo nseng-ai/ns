@@ -12,7 +12,7 @@ One absolute governs every run:
 
 - **Never commit.** No `git commit`, no staging. Edits stay uncommitted in the worktree and the report says what changed; the user decides how to land it.
 
-Closure is the default when done: when the verified contract shows the completion criteria met and no material open work, the refresh closes the Objective inline per `objective-close` semantics (`## Closure` in `objective.md` plus the minimal `closed.md` marker). Hold back and report `closure-ready` instead of closing only when the Objective itself explicitly requires a final evidence-gathering step that this refresh did not perform.
+Closure is the default when done — step 10 owns the inline-close mechanics and the single hold-back condition (`closure-ready`).
 
 ## Select targets
 
@@ -61,12 +61,12 @@ Per slug:
 4. **Verify the contract** claim by claim, per Verify claims below.
 5. **Classify**: `verified` (contract supported, or weakened into assumptions/open questions), `stale-rebaselined` (a false claim was corrected, parked, or narrowed), or `skipped-unverified` (important claims remain unverifiable and unsafe to rewrite without the user).
 6. **Rewrite `objective.md` from scratch** when the verified contract changes durable narrative, scope, criteria, assumptions/risks, or open questions, or shows existing prose stale. Never preserve old wording by inertia.
-   - **Blocked Sentence is in scope.** When the record's `blocked:` sentence gates on a condition the verified contract shows resolved — most commonly a named Objective that is verifiably closed (`ns objective check <slug>` flags this case as a warning) — clear or reword the sentence as part of the rewrite and carry the decisive evidence into the Semantic Update. Leave it verbatim only when the evidence is ambiguous, and then say so explicitly in the report instead of silently deferring. Edges stay in place either way.
+   - **Blocked Sentence is in scope** (open records; step 10 owns the closure case). When the record's `blocked:` sentence gates on a condition the verified contract shows resolved — most commonly a named Objective that is verifiably closed — clear or reword the sentence as part of the rewrite and carry the decisive evidence into the Semantic Update. Leave it verbatim only when the evidence is ambiguous, and then say so explicitly in the report instead of silently deferring. Edges stay in place either way.
 7. **Rewrite `roadmap.md` from scratch** when active work shape changes: ordered guidance, checkbox state (`[ ]`, `[~]`, `[x]` only), row notes, completion evidence, parked work.
 8. **Contract-diff.** Compare the rewrite against the extracted contract line by line: every verified purpose, boundary, progress fact, roadmap item, assumption, open question, and parked item is present or intentionally omitted with a stated reason, and the umbrella's required headings survive. Dropped or softened meaning is a bug — fix it before moving on.
 9. **Re-derive `orientation.md`** when one exists, per the umbrella's re-derivation rule; add one when the verified contract shows the Objective became orienting (its direction now binds unrelated agents). Never drop one.
-10. **Close when finished.** If the verified contract shows the completion criteria met and no material open work, close inline per `objective-close` semantics: record `## Closure` in `objective.md` (outcome, rationale, closure-relevant PR evidence) and write the minimal `closed.md` marker. The closure evidence goes in the Semantic Update below. Report `closure-ready` without closing only when the Objective explicitly requires a final evidence-gathering step this refresh has not run.
-    - **Closing inline carries `objective-close`'s frontmatter re-judgment, not just its file mechanics.** Remove the closing record's own `blocked:` sentence, and for each entry under its `edges:` read the counterpart's frontmatter: when a counterpart's `blocked:` sentence rests on the Objective being closed, clear or reword it now (editing only that counterpart's frontmatter block — the sanctioned exception above), or state in the report why it deliberately stays. Do not remove `edges:` entries on either side. After any frontmatter edit, run `ns objective check` for each touched slug; its blocked/closed-counterpart warning is the backstop for a missed re-judgment.
+10. **Close when finished.** If the verified contract shows the completion criteria met and no material open work, close inline per `objective-close` semantics. The closure evidence goes in the Semantic Update below. Report `closure-ready` without closing only when the Objective explicitly requires a final evidence-gathering step this refresh has not run.
+    - **Closing inline carries `objective-close`'s frontmatter re-judgment, not just its file mechanics.** Re-judge the closing record's own `blocked:` sentence and, for each entry under its `edges:`, the counterpart's (counterpart edits stay within the sanctioned exception above) — or state in the report why one deliberately stays. Do not remove `edges:` entries on either side. After any frontmatter edit, run `ns objective check` for each touched slug; its blocked/closed-counterpart warning is the backstop for a missed re-judgment.
 11. **Append at most one timestamped Semantic Update** when the refresh records a meaningful finding, decision, blocker, risk change, completion event, plan change, follow-up, closure, or rebaseline — carrying the decisive evidence and the provenance breadcrumb:
 
     ```text
@@ -90,7 +90,7 @@ Match each claim to a probe:
 - PR/CI/review state: `gh`/Graphite evidence;
 - ownership/deferral: git diff/log/Objective evidence that the named owner or deferred target exists.
 
-PR evidence is a material claim: verify numbers, review/CI status, and merge state before carrying it forward. Write `merged` only when merge state is confirmed; otherwise weaken to status-neutral wording. Keep PR bullets to material Objective PRs per the umbrella convention; do not normalize unrelated historical PR mentions just to satisfy it.
+PR evidence is a material claim: verify numbers, review/CI status, and merge state before carrying it forward, wording status per the umbrella skill's Objective PR evidence convention. Keep PR bullets to material Objective PRs; do not normalize unrelated historical PR mentions just to satisfy it.
 
 A claim that cannot be verified cheaply never stays as fact: convert it to an explicit assumption/open question with the missing-evidence scope, park or narrow the roadmap item, or classify the slug `skipped-unverified`. When evidence contradicts the record, correct the contract before rewriting and say so in the Semantic Update. Never let a Semantic Update vouch for unverified prose.
 

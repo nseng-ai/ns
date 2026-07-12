@@ -8,13 +8,13 @@ description: "Update tracking for exactly one existing Objective after work or b
 
 Update Objective tracking for exactly one selected Objective. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, consolidation guidance, and safety boundaries.
 
-`objective-update` owns the mutable one-Objective update workflow, including Closure Gate auto-close when clear. Use `objective-refresh` for verified rebaseline (which may also close on verified completion), `objective-close` for explicit closure, and `objective-next` for recommendation-first routing. If the user asks to combine, merge, subsume, or consolidate Objectives, stop treating the request as ordinary `objective-update` and follow the `objective` skill's consolidation guidance.
+`objective-update` owns the mutable one-Objective update workflow, including Closure Gate auto-close when clear. If the user asks to combine, merge, subsume, or consolidate Objectives, stop treating the request as ordinary `objective-update` and follow the `objective` skill's consolidation guidance.
 
 ## Invocation
 
 Run when the user explicitly asks to update Objective tracking, record progress, says branch/PR changes need an Objective update, invokes `$objective-update`, or provides a `<skill name="objective-update">` block as an action cue.
 
-Also run when `objective-next` selected a slug/path, its Tracking Gate blocks, and either the gate's clear-progress auto-update policy applies or the user otherwise confirms/preauthorizes updating that same Objective before continuing.
+Also run when `objective-next`'s Tracking Gate routes here for the same Objective; that skill owns the handoff trigger.
 
 If the user only asks about the skill or pastes it with no clear update intent, ask: `Do you want me to run objective-update for the current branch now?`
 
@@ -23,14 +23,13 @@ If the user only asks about the skill or pastes it with no clear update intent, 
 The umbrella skill owns the storage model, required headings, and status semantics — this skill does not restate them. Objective records are Markdown: read/edit them directly, using `ns objective exec` only for deterministic reads such as candidate listing, inventory, and closed-marker detection.
 
 - Edit only the selected Objective's `objective.md`, `roadmap.md`, `orientation.md` (optional; only when not closing), `closed.md` when closing, and new files under `updates/`.
-- One sanctioned exception: an Objective Edge mutation is a mirrored two-file edit, so adding, removing, or rewording an edge also edits the counterpart record's `objective.md` Record Frontmatter — and nothing else in the counterpart record (see the `objective` umbrella skill's Record Frontmatter section).
+- One sanctioned exception exists for mirrored edge mutations; the Record Frontmatter section below defines it.
 - Never move, delete, recreate, or normalize Objective slug directories during an update. The slug directory is durable identity; explicit slug migration is separate.
 - Treat existing Semantic Updates as immutable historical records per the `objective` umbrella skill; create new update files instead of changing old ones.
 
 ## Select exactly one Objective
 
-1. Resolve ambiguous invocation intent first.
-2. Select per the umbrella skill's Selection rules, including its objective-update one-candidate exception. When that exception applies, ask before evidence or mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?` When multiple active Objectives exist, present the `ns objective list --format md` output and ask for one slug/path; do not ask a generic question before showing options.
+Select per the umbrella skill's Selection rules, including its objective-update one-candidate exception. When that exception applies, ask before evidence or mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?` When multiple active Objectives exist, present the `ns objective list --format md` output and ask for one slug/path; do not ask a generic question before showing options.
 
 Never write a multi-Objective update. After selection, branch, Graphite, local-diff, and PR facts may be evidence only; they never participate in selection.
 
@@ -41,7 +40,7 @@ Write the selected Objective as if the current git changes or current-branch PR 
 - The implementation and Objective edit may land atomically in one PR; do not require merge first.
 - Do not keep a roadmap row `[~]` merely because the implementing PR is open; if evidence completes it, write the post-landing state.
 - Do not write branch changelogs or PR changelogs. Mention branch names, PR numbers, review status, or merge status only as durable evidence, useful breadcrumbs, or confidence qualifiers.
-- Current branch or current PR evidence may support post-landing Objective content, but actual merge-state wording must remain status-aware: use current PR, open PR, draft PR, or PR evidence unless explicit PR evidence confirms the PR is merged.
+- Current branch or current PR evidence may support post-landing Objective content, but merge-state wording must stay status-aware per the umbrella skill's Objective PR evidence convention.
 - Open, draft, or unmerged PR state alone is not uncertainty. If evidence is incomplete, failing, disputed, or otherwise uncertain, ask or record a risk/follow-up instead of inventing completion.
 
 ## Read and collect evidence after selection
@@ -98,17 +97,17 @@ Compare request, evidence, and selected Objective files; update durable Markdown
 
 ### Record Frontmatter: edges and the Blocked Sentence
 
-This skill owns edge mutation and Blocked Sentence judgment for the selected Objective (Record Frontmatter is defined in the `objective` umbrella skill; only `blocked` and `edges` keys, ever).
+This skill owns edge mutation and Blocked Sentence judgment for the selected Objective; Record Frontmatter definitions and semantics live in the `objective` umbrella skill.
 
-- **Edges.** When evidence shows a durable inter-objective relationship appeared, changed meaning, or dissolved, add, reword, or remove the edge as a mirrored two-file edit: the entry in the selected record's frontmatter and the mirror entry in the counterpart's frontmatter change together, with a perspective-correct annotation on each side. At most one edge per unordered slug pair. Editing the counterpart's frontmatter is the sanctioned exception in the mutation boundary above.
-- **Re-judge the record's own Blocked Sentence on every update.** Compare the current `blocked:` sentence (or its absence) against the evidence: set it when the record is now gated (by another objective or anything external), reword it when stale, and clear it when the gate no longer holds. This is always skill judgment — presence of the sentence is the state, the value says why, and no machine ever flips it. Blocked is a sub-state of open; it never implies or replaces closure.
-- **Verify.** After any frontmatter edit, run `ns objective check <slug>` (validates that record's edges including counterpart mirror lookups) or `ns objective check --all`; structural violations are errors and must be fixed before finishing.
+- **Edges.** When evidence shows a durable inter-objective relationship appeared, changed meaning, or dissolved, add, reword, or remove the edge as the umbrella skill's mirrored two-file edit with a perspective-correct annotation on each side. Editing the counterpart's frontmatter is the sanctioned exception to the mutation boundary above.
+- **Re-judge the record's own Blocked Sentence on every update.** Compare the current `blocked:` sentence (or its absence) against the evidence: set it when the record is now gated, reword it when stale, and clear it when the gate no longer holds. This is always skill judgment.
+- **Verify.** After any frontmatter edit, run `ns objective check <slug>` or `ns objective check --all`; structural violations are errors and must be fixed before finishing.
 
 ### Immutable Semantic Updates
 
 Write a new Semantic Update for a distinct finding, blocker, decision, risk change, completion event, or follow-up slice that materially changes roadmap state. For maintenance-only durable edits with no new semantic information, write no update and say so explicitly. If later evidence corrects, supersedes, or contextualizes an older update, write a new update that states the newer durable meaning and, when useful, notes older updates are historical records.
 
-Never amend an existing update for stale evidence, corrected counts, renamed concepts, same-branch/PR verification wording, duplicate shipped/progress wording, typo cleanup, formatting cleanup, closure, or any other reason.
+Existing updates are **immutable** — never amend one, for any reason; write a corrective update instead.
 
 When a material Objective PR directly advances, de-risks, or completes the selected Objective, record it in the new Semantic Update as Objective PR evidence using the shared convention from the `objective` umbrella skill when helpful.
 
@@ -118,7 +117,7 @@ PR evidence remains optional; do not require GitHub evidence when local branch e
 
 Prefer command plus pass/fail over exact aggregate counts in durable Objective files. Record exact counts only when materially meaningful.
 
-Do not add or preserve routine validation-only roadmap rows merely to keep Objective tracking open. Fold routine validation into evidence on the relevant semantic row, Semantic Update, or closure context. Validation may remain roadmap work only when validation/test/CI behavior, release qualification, or non-routine validation investigation is the Objective deliverable.
+Fold routine validation into evidence on the relevant semantic row, Semantic Update, or closure context; the umbrella skill's roadmap validation-rows rule governs when validation may be roadmap work.
 
 ## Closure Gate
 
@@ -128,7 +127,7 @@ Closure-ready means the Objective is not already closed; outcome is clear (`comp
 
 Do not close merely because roadmap checkboxes are all `[x]`, or from any selection hint.
 
-If closure-ready after an explicit `objective-update`, close automatically with `objective-close` semantics inline: add/update `## Closure` in `objective.md`, write minimal `closed.md`, keep the Objective directory in place, and put closure meaning in `objective.md`, not `closed.md`. Inline closure includes `objective-close`'s Record Frontmatter duties: re-judge each edge counterpart's Blocked Sentence and the record's own, and run `ns objective check` after any frontmatter edit. Do not ask for separate closure confirmation when outcome and rationale are clear.
+If closure-ready after an explicit `objective-update`, close automatically inline per `objective-close` semantics — including its Record Frontmatter re-judgment duties — without a separate closure confirmation when outcome and rationale are clear.
 
 If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` absent and report that closure was skipped because the Closure Gate was not clear. Do not create a duplicate Semantic Update solely for closure; create one only when closure introduces distinct semantic information beyond the normal update. Never amend an existing update for closure.
 
@@ -140,7 +139,7 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 4. Compare request, evidence, and Objective files to identify durable tracking changes.
 5. Edit `objective.md` if narrative, boundaries, criteria, assumptions, risks, open questions, or closure-adjacent context changed.
 6. Edit `roadmap.md` if ordered guidance, checkbox state, evidence, or parked work changed.
-7. Re-judge the record's own Blocked Sentence and mutate edges (mirrored two-file edits) when evidence warrants; after any Record Frontmatter edit, run `ns objective check <slug>` or `ns objective check --all`.
+7. Re-judge the record's own Blocked Sentence and mutate edges when evidence warrants, per Record Frontmatter above.
 8. Create a new Semantic Update only when semantically warranted; otherwise say no update was written.
 9. Apply the Closure Gate.
 10. If not closing and `orientation.md` exists, re-derive it against the now-current state using the umbrella `objective` skill's orientation re-derivation rule. If the Objective has become orienting (its direction now binds unrelated agents) and lacks one, add `orientation.md` using the umbrella format. Do not author or re-derive `orientation.md` when closing — `closed.md` drops it from the load set.
@@ -148,7 +147,15 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 
 ## Stop / ask
 
-Stop or ask when selection is ambiguous/absent after presenting `ns objective list --format md`; the selected path is outside `.ns/objectives/<slug>/`; update intent is still ambiguous; only-open confirmation is pending; the request would update multiple Objectives; the selected Objective is closed without amend intent; closure outcome/rationale is unclear; slug-directory mutation would occur; an existing Semantic Update would be modified; the user asks for ceremonial status ping, branch changelog, registry, UUID, hidden metadata, state-machine behavior, or YAML/frontmatter beyond Record Frontmatter's sanctioned `blocked` and `edges` keys; or information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
+Stop or ask when:
+
+- selection is ambiguous/absent after presenting `ns objective list --format md`, or the selected path is outside `.ns/objectives/<slug>/`;
+- update intent is still ambiguous, or only-open confirmation is pending;
+- the request would update multiple Objectives;
+- the selected Objective is closed without amend intent, or closure outcome/rationale is unclear;
+- slug-directory mutation would occur, or an existing Semantic Update would be modified;
+- the request asks for anything the umbrella skill's Non-goals ban;
+- information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
 
 For existing update mutation, explain that updates are immutable and offer to write a new corrective update when appropriate. For unclear closure, leave the Objective open unless the user clarifies.
 

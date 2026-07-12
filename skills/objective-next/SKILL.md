@@ -6,7 +6,7 @@ description: "Recommend the next useful work for an active Objective. Use when a
 
 # objective-next
 
-Recommend the next useful work for an active Objective. When explicit Objective policy allows it, or when the user explicitly asks to execute a concrete `objective-next` recommendation from the current conversation, route to confirmed-execution guidance. If clear stale tracking blocks the recommendation, run the explicit `objective-update` workflow for the same Objective before continuing; ask first only when evidence or update scope is ambiguous. Always include a best-effort work-left estimate as remaining semantic steps, not calendar time.
+Recommend the next useful work for an active Objective; the sections below own gating, routing, and execution behavior.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
@@ -44,7 +44,7 @@ The Tracking Gate check itself is read-only. Any file changes during this phase 
 
 ## Blocked Objectives
 
-A `blocked:` sentence in Record Frontmatter means the record is blocked — a sub-state of open, not a reason to stop. Do not treat it as closed, and do not ignore it.
+A `blocked:` sentence in Record Frontmatter means the record is blocked, not closed (semantics: the umbrella skill); it is neither a reason to stop nor something to ignore.
 
 1. Read the Blocked Sentence and the record's `edges:` entries. Edges are mirrored and kind-less; direction and causality live only in the Edge Annotation prose.
 2. Judge which edge counterpart, if any, the Blocked Sentence points at. If one plausibly does, read that counterpart's `objective.md` and `roadmap.md` enough to name the concrete work that would unblock the selected Objective.
@@ -59,8 +59,6 @@ A `blocked:` sentence in Record Frontmatter means the record is blocked — a su
 After selecting and reading the Objective, if the user asks to execute/advance/run work, gives a clear affirmative confirmation to a current-session recommendation, or if the selected Objective/roadmap row contains `## Runner Policy`, `## Definition of Progress`, row-level `Policy:`, or equivalent execution prose, read `references/confirmed-execution.md` before interpreting execution basis or offering/running execution.
 
 If the selected Objective is an ideation record — its roadmap is a Frontier of typed Question Rows rather than executable slices — read the `objective` skill's Objective patterns reference (`references/objective-patterns.md`).
-
-Normal next-work recommendations do not require loading confirmed-execution guidance.
 
 ## Recommendation-continuation execution
 
@@ -80,12 +78,12 @@ If any condition is missing or ambiguous, do not execute yet: reread the Objecti
 
 1. Exclude closed Objectives by default. If `closed.md` exists, stop and say it is closed.
 2. Read `objective.md`, `roadmap.md`, `orientation.md` (if present), and relevant `updates/` files.
-3. Apply the Tracking Gate by running `ns objective exec tracking-gate <slug> --format json`. If it finds clear unrecorded current-branch progress for the selected Objective, perform the `objective-update` workflow for this same Objective, then restart from step 2 with refreshed files/evidence and a fresh tracking-gate run. If the gate is ambiguous and the user confirms update-and-continue, do the same.
+3. Apply the Tracking Gate (section above).
 4. Load conditional references only when their routing conditions apply.
 5. If Record Frontmatter carries a `blocked:` sentence, apply the Blocked Objectives guidance: traverse the record's edges to find the counterpart Objective that would unblock it, if one exists, and let that shape the recommendation.
 6. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks. The step may be agent-alone or human-steered; when open, unblocked candidates of both kinds exist, prefer the one that requires human intervention (grilling, prototype, live decisions, steering) — resolving human-gated questions de-risks and sharpens the Objective so the remaining work can run autonomously sooner. Deviate only when a specific hazard or dependency makes an agent-alone row clearly more urgent, and say why. On an ideation Objective, recommend from the **Frontier**: one open, unblocked Question Row (rows are unordered beyond blocking; resolve one per session). If the Frontier is empty and only ordinary execution rows remain, say the record has **crystallized** and recommend ordinary execution work instead.
 7. Form a best-effort work-left estimate: if the Objective narrative and roadmap make the remaining path clear, estimate the semantic steps remaining until Objective completion; if not, estimate the work remaining until the next discovery/decision step where additional work can be identified. Express this as step count, named slices, or coarse scope, not elapsed time.
-8. Recommend only semantic Objective work; do not select generic validation-only rows such as `just`, tests, waiting for CI, or full repo validation unless validation/test/CI behavior or a non-routine validation investigation is itself the deliverable.
+8. Recommend only semantic Objective work; validation-only rows follow the umbrella skill's roadmap validation-rows rule.
 9. If only routine validation-only non-parked rows remain, say no substantive Objective work remains. Suggest running ordinary validation outside the roadmap, then using `objective-update` to record evidence and/or `objective-close` if completion criteria are satisfied.
 10. If no active or planned semantic work remains, say the Objective may be ready for `objective-close` instead of inventing work.
 
@@ -95,7 +93,7 @@ Use this path for ordinary `objective-next` recommendations, when the user only 
 
 - Recommend the next useful semantic step.
 - Explain the narrative or roadmap basis, likely files/areas, active assumption or risk exercised, and completion evidence to record afterward.
-- Include a best-effort work-left estimate: either remaining semantic steps/slices until Objective completion, or remaining work until the next discovery/decision step that will reveal additional work. Do not estimate calendar time.
+- Include the step-7 work-left estimate.
 - If execution was requested but neither durable policy nor recommendation-continuation basis makes execution safe, say what information or confirmation is missing. Mention durable `## Definition of Progress` / `## Runner Policy` only when future sessions should proactively offer execution for this Objective.
 - Do not mutate files except through an explicit `objective-update` handoff.
 

@@ -12,7 +12,7 @@ Part of the Objective skill family. Use the `objective` umbrella skill first for
 
 ## The three-phase step (ADR 0024)
 
-One step = begin → dispatch → finish. Use the harness scratchpad for the two artifacts; both MUST live outside the repository worktree, and every attempt needs a **fresh** report path (begin refuses an existing file).
+One step = begin → dispatch → finish. Use the harness scratchpad for the two artifacts (report-path constraints live in the `--report-path` flag entry below).
 
 1. **Begin** — fast, read-only, LBYL:
 
@@ -38,14 +38,14 @@ Flags on begin:
 - `<slug>` — the Objective slug (required positional on both commands).
 - `--recover` — repair the dirty tree a failed step left behind instead of starting a fresh slice. Mode travels in the facts; finish has no recover flag.
 - `--guidance <value>` — parent judgment woven into the subagent prompt. A value starting with `@` is always a file path (resolved against the current directory; unreadable file is a usage error); otherwise inline text. Valid in both modes.
-- `--report-path <path>` — where the subagent must write its JSON report. Must not already exist and must resolve outside the repository worktree.
+- `--report-path <path>` — where the subagent must write its JSON report. Must not already exist and must resolve outside the repository worktree; every attempt, including every `--recover` attempt, needs a fresh path.
 
 Model choice and timeout are yours at dispatch time — they are harness concerns, not CLI flags.
 
 ## Expectations before you run it
 
 - **Run begin from the branch you want as the step's base.** The parent owns that base-branch choice and the decision to start another step. The subagent creates and owns only its implementation branch for this one step via the Branch Context/Graphite path. The runner owns verification, staging, and the local commit handoff. Stacking is emergent: the runner holds no cross-step state, so the next step simply begins from the branch the previous step's commit left you on.
-- **Preconditions are checked up front (LBYL).** Default mode refuses unless the Objective is open, the worktree is clean, and HEAD is on a named branch. `--recover` inverts the worktree requirement: it refuses unless the tree is dirty and the branch is not trunk. A refusal exits 1 with a message only — nothing dispatched.
+- **Preconditions are checked up front (LBYL).** A refusal exits 1 with a message only — nothing dispatched; the runner-begin exit table owns the refusal causes.
 - **The facts file is the step's identity.** Save begin's stdout verbatim and replay it to finish untouched. Finish cross-checks the slug and takes mode, base branch, and dispatch-time HEAD from it.
 
 ## Reading the Runner Checkpoint
@@ -92,13 +92,13 @@ One slice per step, one attempt per dispatch. There are no loops inside the runn
 
 ## Semantic Updates: your judgment, not the runner's
 
-The runner never touches Objective tracking, and the subagent is not instructed to update it. After a checkpoint, judge whether the step had **material Objective impact** — meaningful progress, decisions, risks, blockers, assumption changes, plan changes, or completion evidence. If so, record it through the `objective-update` skill and commit that update yourself, **between steps only** — never between begin and finish, where any commit fails the gate's `head-unchanged` check. Routine step summaries are not Objective updates; most committed steps need none.
+The runner never touches Objective tracking, and the subagent is not instructed to update it. After a checkpoint, judge whether the step had **material Objective impact** — meaningful progress, decisions, risks, blockers, assumption changes, plan changes, or completion evidence. If so, record it through the `objective-update` skill and commit that update yourself, **between steps only**. Routine step summaries are not Objective updates; most committed steps need none.
 
 ## Hard boundaries
 
 The runner will never, in any mode:
 
-- Canonical forbidden-action wording (source: `ts/packages/capabilities/objectives/src/runner/prompt.ts`, `OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE`): "Do not push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR mutation may leave the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization.";
+- push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — nothing leaves the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization;
 - update Objective tracking or write Semantic Updates;
 - commit on trunk, amend, or accept a commit the subagent made itself (a subagent that committed on its own fails verification);
 - run more than one slice, retry on its own, or carry state between steps.

@@ -52,7 +52,7 @@ Require an explicit Objective slug or a path under `.ns/objectives/<slug>/`. If 
 ns objective list --format md
 ```
 
-Ask the user to choose. Never infer the Objective from branch name, PR, changed files, or hidden attachment metadata.
+Ask the user to choose, per the umbrella skill's Selection rules.
 
 ### 2. Read Objective evidence
 

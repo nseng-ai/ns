@@ -12,26 +12,14 @@ When the user names an Objective pattern — wayfinding/ideation, steelthread, s
 
 ## Required shape
 
-New records live in the active root only:
-
-```text
-.ns/objectives/<slug>/
-  objective.md
-  roadmap.md
-  orientation.md  # optional; orienting Objectives only
-  updates/
-```
+New records live in the active root only, `.ns/objectives/<slug>/`, with `objective.md`, `roadmap.md`, and `updates/` per the umbrella skill's storage model. Creation deltas: `orientation.md` is optional and orienting-only; there is no `closed.md` at creation.
 
 `objective.md` uses the umbrella skill's required headings.
 
 - `## Assumptions and Risks` must distinguish assumptions from risks, with enough context for a future `objective-update` to mark an assumption incorrect, a risk de-risked or not, or add newly discovered ones.
 - Default to planning-only: execution-policy sections are never mandatory and appear only when the user explicitly asks for execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point. When they apply, read `references/execution-friendly-create.md` before asking policy questions.
 
-`roadmap.md` uses the umbrella skill's required headings and statuses.
-
-- Every initial row is substantive semantic work, sized per the umbrella skill's roadmap rules — a broad mechanical change can be one row when it implements one clear decision; a small mixed change may need several.
-- No routine validation-only row (`run just`, `run tests`, `wait for CI`, `full repo validation`) unless validation/test/CI behavior is itself in scope. When validation surfaces as a branch point in the interview, steer it into completion evidence under a semantic row — e.g. an indented `Evidence: targeted tests and relevant repo checks passed` — never a standalone final row.
-- Rows may carry indented prose guidance when needed; it is prose, not machine state.
+`roadmap.md` uses the umbrella skill's required headings, statuses, row sizing, validation-rows-as-evidence rule, and prose-guidance rules. Creation delta: when validation surfaces as a branch point in the interview, steer it into completion evidence under a semantic row — e.g. an indented `Evidence: targeted tests and relevant repo checks passed` — never a standalone final row.
 
 ## Slug and path
 
@@ -43,11 +31,11 @@ New records live in the active root only:
 
 ## Record Frontmatter: initial edges and Blocked Sentence
 
-Record Frontmatter (defined in the `objective` umbrella skill) carries exactly `blocked` and `edges` — never any other key. It is usually absent at creation: omit the block entirely unless the interview surfaces a real fact.
+Record Frontmatter mechanics — the exact-two-keys rule, mirrored two-file edits, and `ns objective check` — are owned by the `objective` umbrella skill. Creation deltas:
 
-- **Initial edges.** When the new Objective has a durable relationship to an existing record (for example, it consumes another Objective as a hard dependency), declare the edge at creation as the umbrella skill's mirrored two-file edit: the entry in the new record's frontmatter **and** the perspective-correct mirror entry in the counterpart's — editing that counterpart block is the one sanctioned edit outside the new record.
-- **Blocked Sentence.** Set `blocked:` only when the new record is genuinely gated at creation (by another objective, an external dependency, anything); the value is a non-empty sentence saying why.
-- After writing any frontmatter, run `ns objective check <new-slug>` (validates the record's edges including counterpart mirrors) or `ns objective check --all`.
+- It is usually absent at creation: omit the block entirely unless the interview surfaces a real fact.
+- **Initial edges.** When the new Objective has a durable relationship to an existing record, declare the edge at creation — including the perspective-correct mirror entry in the counterpart's frontmatter, the one sanctioned edit outside the new record.
+- **Blocked Sentence.** Set `blocked:` only when the new record is genuinely gated at creation; the value is a non-empty sentence saying why.
 
 ## Interview
 
