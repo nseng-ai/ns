@@ -10,8 +10,8 @@ export const GT_MUTATION_TIMEOUT_MS = 600_000;
 export const SLOT_TIMEOUT_MS = 120_000;
 export const SQLITE_TIMEOUT_MS = 30_000;
 
-export const BACKUP_REF_NAMESPACE = "refs/ns/flow-land-backup";
-export const BACKUP_REF_PREV_NAMESPACE = "refs/ns/flow-land-backup-prev";
+// Transitional compatibility exports; backup vocabulary is owned by land core.
+export { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../graphite-operations.ts";
 export const PR_FIELD_NAMES = [
 	"id",
 	"number",

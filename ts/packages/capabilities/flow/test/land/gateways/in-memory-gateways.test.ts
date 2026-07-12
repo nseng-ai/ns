@@ -282,6 +282,217 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 		]);
 	});
 
+	test("injects per-branch refresh variants with default success and clone-on-read", async () => {
+		const failureResult = {
+			type: "exited" as const,
+			stdout: "partial refresh",
+			stderr: "refresh failed",
+			code: 7,
+			signal: null,
+		};
+		const graphite = new InMemoryLandGraphiteGateway({
+			refreshBranchFromRemoteResults: {
+				"feature/failure": {
+					type: "failure",
+					commandDisplay: "gt get feature/failure --force",
+					result: failureResult,
+				},
+				"feature/conflict": {
+					type: "checkout-conflict",
+					branch: "feature/conflict",
+					path: "/repo-slot",
+					commandDisplay: "gt get feature/conflict --force",
+					result: { ...failureResult, stderr: "already checked out" },
+				},
+			},
+		});
+		const request = (branch: string) => ({
+			repoRoot: REPO_ROOT,
+			branch,
+			checkedOutConflictHandling: "defer" as const,
+		});
+
+		await expect(
+			graphite.refreshBranchFromRemote(request("feature/default")),
+		).resolves.toMatchObject({
+			type: "success",
+			result: { code: 0 },
+		});
+		const firstFailure = await graphite.refreshBranchFromRemote(request("feature/failure"));
+		expect(firstFailure).toEqual({
+			type: "failure",
+			commandDisplay: "gt get feature/failure --force",
+			result: failureResult,
+		});
+		if (firstFailure.type === "failure") {
+			const mutable = firstFailure.result as { stderr: string };
+			mutable.stderr = "mutated";
+		}
+		await expect(graphite.refreshBranchFromRemote(request("feature/failure"))).resolves.toEqual({
+			type: "failure",
+			commandDisplay: "gt get feature/failure --force",
+			result: failureResult,
+		});
+		await expect(
+			graphite.refreshBranchFromRemote(request("feature/conflict")),
+		).resolves.toMatchObject({
+			type: "checkout-conflict",
+			branch: "feature/conflict",
+			path: "/repo-slot",
+			result: { code: 7, stderr: "already checked out" },
+		});
+	});
+
+	test("injects custom typed command results for Graphite operation failures", async () => {
+		const result = {
+			type: "exited" as const,
+			stdout: "partial operation",
+			stderr: "operation failed",
+			code: 9,
+			signal: null,
+		};
+		const graphite = new InMemoryLandGraphiteGateway({
+			restackResults: {
+				"upstack:feature/child": {
+					type: "failure",
+					commandDisplay: "gt restack custom display",
+					result,
+				},
+			},
+			submitUpdateResults: {
+				"feature/child": {
+					type: "failure",
+					commandDisplay: "gt submit custom display",
+					result,
+				},
+			},
+		});
+
+		await expect(
+			graphite.restack({
+				repoRoot: REPO_ROOT,
+				branch: "feature/child",
+				scope: "upstack",
+			}),
+		).resolves.toEqual({
+			type: "failure",
+			commandDisplay: "gt restack custom display",
+			result,
+		});
+		await expect(
+			graphite.submitUpdate({
+				repoRoot: REPO_ROOT,
+				branch: "feature/child",
+				force: true,
+			}),
+		).resolves.toEqual({
+			type: "failure",
+			commandDisplay: "gt submit custom display",
+			result,
+		});
+	});
+
+	test("injects typed local-branch deletion classification without parsing command prose", async () => {
+		const graphite = new InMemoryLandGraphiteGateway({
+			deleteLocalBranchResults: {
+				"feature/land-core": {
+					type: "failed",
+					commandDisplay: "gt delete feature/land-core -f -q",
+					result: {
+						type: "exited",
+						stdout: "",
+						stderr: "ordinary deletion failure",
+						code: 1,
+						signal: null,
+					},
+					isLikelyInProgressGitOperation: true,
+				},
+			},
+		});
+
+		await expect(
+			graphite.deleteLocalBranch({
+				repoRoot: REPO_ROOT,
+				branch: "feature/land-core",
+				checkedOutConflictHandling: "fail",
+			}),
+		).resolves.toEqual({
+			type: "failed",
+			commandDisplay: "gt delete feature/land-core -f -q",
+			result: {
+				type: "exited",
+				stdout: "",
+				stderr: "ordinary deletion failure",
+				code: 1,
+				signal: null,
+			},
+			isLikelyInProgressGitOperation: true,
+		});
+	});
+
+	test("auto-transitions successful squash merges to cloned MERGED facts and records requests", async () => {
+		const original = pullRequestFacts({ number: 42, headRefName: "feature/land-core" });
+		const github = new InMemoryLandGithubPrGateway({ pullRequests: [original] });
+
+		await expect(
+			github.squashMergePullRequest({ repoRoot: REPO_ROOT, pullRequest: original }),
+		).resolves.toEqual({ type: "success", value: { stdout: "", stderr: "" } });
+		const firstRead = await github.pullRequestFacts({
+			repoRoot: REPO_ROOT,
+			branchOrNumber: "42",
+		});
+		expect(firstRead).toMatchObject({
+			type: "success",
+			value: { number: 42, state: "MERGED", mergedAt: "in-memory-merge" },
+		});
+		if (firstRead.type === "success") {
+			const mutable = firstRead.value as { state: string; title: string };
+			mutable.state = "OPEN";
+			mutable.title = "mutated";
+		}
+		await expect(
+			github.pullRequestFacts({ repoRoot: REPO_ROOT, branchOrNumber: "42" }),
+		).resolves.toMatchObject({
+			type: "success",
+			value: { state: "MERGED", title: original.title },
+		});
+		expect(github.squashMergePullRequestCalls).toMatchObject([
+			{ repoRoot: REPO_ROOT, pullRequest: { number: 42 } },
+		]);
+		expect(github.pullRequestFactsCalls).toEqual([
+			{ repoRoot: REPO_ROOT, branchOrNumber: "42" },
+			{ repoRoot: REPO_ROOT, branchOrNumber: "42" },
+		]);
+	});
+
+	test("uses postMergeFacts overrides for verification mismatch and failure", async () => {
+		const original = pullRequestFacts({ number: 42, headRefName: "feature/land-core" });
+		const failure = {
+			type: "boundary" as const,
+			phase: "merge" as const,
+			source: "github" as const,
+			code: "verification_failed",
+			message: "Could not verify PR.",
+		};
+		const mismatch = new InMemoryLandGithubPrGateway({
+			pullRequests: [original],
+			postMergeFacts: { "42": { ...original, state: "OPEN", mergedAt: null } },
+		});
+		const failed = new InMemoryLandGithubPrGateway({
+			pullRequests: [original],
+			postMergeFacts: { "42": { type: "failure", failure } },
+		});
+
+		await mismatch.squashMergePullRequest({ repoRoot: REPO_ROOT, pullRequest: original });
+		await failed.squashMergePullRequest({ repoRoot: REPO_ROOT, pullRequest: original });
+		await expect(
+			mismatch.pullRequestFacts({ repoRoot: REPO_ROOT, branchOrNumber: "42" }),
+		).resolves.toMatchObject({ type: "success", value: { state: "OPEN", mergedAt: null } });
+		await expect(
+			failed.pullRequestFacts({ repoRoot: REPO_ROOT, branchOrNumber: "42" }),
+		).resolves.toEqual({ type: "failure", failure });
+	});
+
 	test("copies mutable collections on input and output", async () => {
 		const localBranches: LocalBranchTip[] = [{ name: "feature/land-core", sha: FEATURE_SHA }];
 		const worktreeEntries: WorktreeEntry[] = [{ path: "/repo-slot", branch: "feature/land-core" }];
@@ -353,7 +564,7 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 		});
 		expect(await worktrees.worktrees({ repoRoot: REPO_ROOT })).toEqual({
 			type: "success",
-			value: [{ path: "/repo-slot", branch: "feature/land-core" }],
+			value: [],
 		});
 		expect(await worktrees.freeSlots({ repoRoot: REPO_ROOT, slots: slotsToFree })).toEqual({
 			type: "success",
@@ -370,6 +581,51 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 		).toMatchObject({
 			type: "success",
 			value: { landingBranches: ["feature/land-core"] },
+		});
+	});
+
+	test("models retained deletion results and residual checkouts while preserving clone-on-read", async () => {
+		const residualPath = "/repo-slot";
+		const graphite = new InMemoryLandGraphiteGateway({
+			deleteLocalBranchResults: {
+				"feature/land-core": {
+					type: "retained",
+					branch: "feature/land-core",
+					path: residualPath,
+				},
+			},
+		});
+		const worktrees = new InMemoryLandWorktreeSlotFactsGateway({
+			worktrees: [{ path: residualPath, branch: "feature/land-core" }],
+			residualCheckoutPaths: [residualPath],
+		});
+		const slot = {
+			type: "managed-slot" as const,
+			branch: "feature/land-core",
+			path: residualPath,
+		};
+
+		await worktrees.freeSlots({ repoRoot: REPO_ROOT, slots: [slot] });
+		const firstRead = await worktrees.worktrees({ repoRoot: REPO_ROOT });
+		if (firstRead.type === "success") {
+			const mutable = firstRead.value as WorktreeEntry[];
+			mutable.push({ path: "/output-mutation" });
+		}
+
+		await expect(worktrees.worktrees({ repoRoot: REPO_ROOT })).resolves.toEqual({
+			type: "success",
+			value: [{ path: residualPath, branch: "feature/land-core" }],
+		});
+		await expect(
+			graphite.deleteLocalBranch({
+				repoRoot: REPO_ROOT,
+				branch: "feature/land-core",
+				checkedOutConflictHandling: "fail",
+			}),
+		).resolves.toEqual({
+			type: "retained",
+			branch: "feature/land-core",
+			path: residualPath,
 		});
 	});
 });

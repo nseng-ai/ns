@@ -1,21 +1,25 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { NsCommandIo } from "@nseng-ai/kernel/sdk";
 import {
-	completed,
-	failure,
-	landingExecutionFailure,
-	type LandStackOutcome,
-	type LandStackResult,
-} from "./stack/errors.ts";
-import { notifyPrintAware, presentFailureAndReturn, setStatus } from "./land-presentation.ts";
-import type { PrintAwareLandStackCommandContext } from "./stack/types.ts";
+	executeIsolatedLanding,
+	isIsolatedFastPath,
+	type IsolatedLandingOutcome,
+} from "./execution/isolated-landing.ts";
+import type { LandExecutionProgress } from "./execution/host-seams.ts";
 import type {
-	LandGithubPrGateway,
-	LandingShape,
-	LandingFailure,
-	PullRequestFacts,
-	StackSnapshot,
-} from "./types.ts";
+	PostLandingCleanupOptions,
+	PostLandingSlotCleanupDecision,
+} from "./execution/post-landing-cleanup.ts";
+import {
+	formatIsolatedDryRunNotification,
+	formatIsolatedLandingSuccessNotification,
+	notifyPrintAware,
+	presentFailureAndReturn,
+	setStatus,
+} from "./land-presentation.ts";
+import { createFlowLandConfirmationGateway } from "./post-landing-slot-cleanup.ts";
+import type { PrintAwareLandStackCommandContext } from "./stack/types.ts";
+import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
+import type { LandContext, LandingFailure, LandingShape } from "./types.ts";
 
 export interface ValidPullRequestView {
 	number: number;
@@ -26,171 +30,122 @@ export interface ValidPullRequestView {
 	headRefOid: string;
 }
 
-interface RunIsolatedFastPathLandingOptions<BeforeMergeValue> {
-	github: LandGithubPrGateway;
+interface RunIsolatedFastPathLandingOptions {
+	landContext: LandContext;
 	ctx: PrintAwareLandStackCommandContext;
 	target: LandingShape;
 	isDryRun: boolean;
-	beforeMerge?: () => Promise<LandStackResult<BeforeMergeValue>>;
+	cleanup: PostLandingCleanupOptions;
+	cleanupConfirmationAlreadyApproved?: boolean;
 	progressIo?: NsCommandIo;
 }
 
-export interface IsolatedFastPathLandingResult<BeforeMergeValue = undefined> {
-	readonly outcome: LandStackOutcome;
+export interface IsolatedFastPathLandingResult<BeforeMergeValue = PostLandingSlotCleanupDecision> {
+	readonly outcome: LandOutcome;
 	readonly beforeMergeValue: BeforeMergeValue | undefined;
 }
 
-export function isIsolatedFastPath(stack: StackSnapshot): boolean {
-	return (
-		stack.actualCurrentBranch !== stack.trunk &&
-		stack.landingBranches.length === 1 &&
-		stack.landingBranches[0] === stack.actualCurrentBranch &&
-		stack.descendantBranches.length === 0
-	);
+export { isIsolatedFastPath };
+
+export async function runIsolatedFastPathLanding(
+	options: RunIsolatedFastPathLandingOptions,
+): Promise<IsolatedFastPathLandingResult> {
+	const coreOutcome = await executeIsolatedLanding({
+		context: options.landContext,
+		host: {
+			confirmation: createFlowLandConfirmationGateway(options.ctx),
+			progress: isolatedLandingProgress(options.ctx, options.progressIo),
+		},
+		target: options.target,
+		isDryRun: options.isDryRun,
+		cleanup: options.cleanup,
+		...(options.cleanupConfirmationAlreadyApproved === undefined
+			? {}
+			: { cleanupConfirmationAlreadyApproved: options.cleanupConfirmationAlreadyApproved }),
+	});
+	return presentIsolatedLandingOutcome(options.ctx, coreOutcome);
 }
 
-export async function runIsolatedFastPathLanding<BeforeMergeValue = undefined>(
-	options: RunIsolatedFastPathLandingOptions<BeforeMergeValue>,
-): Promise<IsolatedFastPathLandingResult<BeforeMergeValue>> {
-	const prResult = await options.github.pullRequestFacts({
-		repoRoot: options.target.repoRoot,
-		branchOrNumber: options.target.stack.actualCurrentBranch,
-	});
-	if (prResult.type === "failure") {
-		return isolatedFastPathResult<BeforeMergeValue>(
-			presentLandingFailure(options.ctx, prResult.failure),
-			undefined,
-		);
+function presentIsolatedLandingOutcome(
+	ctx: PrintAwareLandStackCommandContext,
+	outcome: IsolatedLandingOutcome,
+): IsolatedFastPathLandingResult {
+	if (outcome.type === "failure") {
+		const landOutcome =
+			outcome.stage === "base-check" || outcome.stage === "verification"
+				? presentVerbatimIsolatedFailure(ctx, outcome.failure)
+				: presentIsolatedFailure(ctx, outcome.failure);
+		return {
+			outcome: landOutcome,
+			beforeMergeValue:
+				outcome.cleanupDecision.type === "not-needed" ? undefined : outcome.cleanupDecision,
+		};
 	}
-	const pr = prResult.value;
-
-	if (pr.baseRefName !== options.target.trunk) {
-		const message = `Refusing to land PR #${pr.number}: base branch is '${pr.baseRefName}', not Graphite trunk '${options.target.trunk}'. Merge not attempted.`;
-		notifyPrintAware({ ctx: options.ctx, message, level: "error", kind: "refusal" });
-		return isolatedFastPathResult<BeforeMergeValue>(
-			failure(landingExecutionFailure(message, { outcome: "refusal" })),
-			undefined,
-		);
-	}
-
-	if (options.isDryRun) {
+	if (outcome.result === "dry-run") {
 		notifyPrintAware({
-			ctx: options.ctx,
-			message: `Dry run only; would merge PR #${pr.number} into ${options.target.trunk}.`,
+			ctx,
+			message: formatIsolatedDryRunNotification(
+				outcome.pullRequest.number,
+				outcome.pullRequest.baseRefName,
+			),
 			level: "info",
 			kind: "success",
 		});
-		return isolatedFastPathResult<BeforeMergeValue>(completed(), undefined);
+		return { outcome: landCompleted(), beforeMergeValue: undefined };
 	}
 
-	const beforeMergeOutcome = await options.beforeMerge?.();
-	if (beforeMergeOutcome?.type === "failure") {
-		return isolatedFastPathResult<BeforeMergeValue>(beforeMergeOutcome, undefined);
-	}
-	const beforeMergeValue = beforeMergeOutcome?.value;
-
-	const progressOptions = optionalEntry("progressIo", options.progressIo);
-	progress(
-		options.ctx,
-		"Running gh pr merge --squash with PR title/body as commit message…",
-		progressOptions,
-	);
-
-	const result = await options.github.squashMergePullRequest({
-		repoRoot: options.target.repoRoot,
-		pullRequest: pr,
-	});
-	if (result.type === "failure") {
-		return isolatedFastPathResult(
-			presentLandingFailure(options.ctx, result.failure),
-			beforeMergeValue,
-		);
-	}
-
-	const verified = await options.github.pullRequestFacts({
-		repoRoot: options.target.repoRoot,
-		branchOrNumber: String(pr.number),
-	});
-	if (verified.type === "failure") {
-		const message = `gh pr merge exited 0, but verification could not load PR #${pr.number}; post-landing cleanup skipped.\n${verified.failure.message}`;
-		notifyPrintAware({ ctx: options.ctx, message, level: "error", kind: "failure" });
-		return isolatedFastPathResult(failure(landingExecutionFailure(message)), beforeMergeValue);
-	}
-
-	const verificationFailure = mergedVerificationFailure({
-		verified: verified.value,
-		trunk: options.target.trunk,
-		branch: options.target.stack.actualCurrentBranch,
-	});
-	if (verificationFailure !== undefined) {
-		notifyPrintAware({
-			ctx: options.ctx,
-			message: verificationFailure,
-			level: "error",
-			kind: "failure",
-		});
-		return isolatedFastPathResult(
-			failure(landingExecutionFailure(verificationFailure)),
-			beforeMergeValue,
-		);
-	}
-
-	const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
-	const output = successfulCommandOutput(result.value);
 	notifyPrintAware({
-		ctx: options.ctx,
-		message: output ? `${output}\n${message}` : message,
+		ctx,
+		message: formatIsolatedLandingSuccessNotification({
+			pullRequestNumber: outcome.pullRequest.number,
+			commandOutput: outcome.commandOutput,
+		}),
 		level: "info",
 		kind: "success",
 	});
-	return isolatedFastPathResult(completed(), beforeMergeValue);
+	return { outcome: landCompleted(), beforeMergeValue: outcome.cleanupDecision };
 }
 
-function isolatedFastPathResult<BeforeMergeValue>(
-	outcome: LandStackOutcome,
-	beforeMergeValue: BeforeMergeValue | undefined,
-): IsolatedFastPathLandingResult<BeforeMergeValue> {
-	return { outcome, beforeMergeValue };
-}
-
-function progress(
+function presentIsolatedFailure(
 	ctx: PrintAwareLandStackCommandContext,
-	message: string,
-	options: { progressIo?: NsCommandIo } = {},
-): void {
-	if (options.progressIo !== undefined) {
-		options.progressIo.phase(message);
-		return;
-	}
-	setStatus(ctx, message);
-	notifyPrintAware({ ctx, message, level: "info" });
+	failure: LandingFailure,
+): LandOutcome {
+	presentFailureAndReturn(ctx, failure);
+	return landOutcomeFailure(failure);
 }
 
-function successfulCommandOutput(result: { stdout: string; stderr: string }): string {
-	return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
-}
-
-function presentLandingFailure(
+function presentVerbatimIsolatedFailure(
 	ctx: PrintAwareLandStackCommandContext,
-	landingFailure: LandingFailure,
-): LandStackOutcome {
-	return presentFailureAndReturn(ctx, landingFailure);
+	failure: Extract<IsolatedLandingOutcome, { readonly type: "failure" }>["failure"],
+): LandOutcome {
+	notifyPrintAware({
+		ctx,
+		message: failure.message,
+		level: "error",
+		kind: failure.type === "execution" && failure.outcome === "refusal" ? "refusal" : "failure",
+	});
+	return landOutcomeFailure(failure);
 }
 
-function mergedVerificationFailure(options: {
-	readonly verified: PullRequestFacts;
-	readonly trunk: string;
-	readonly branch: string;
-}): string | undefined {
-	if (
-		options.verified.state === "MERGED" &&
-		options.verified.mergedAt &&
-		options.verified.baseRefName === options.trunk &&
-		options.verified.headRefName === options.branch
-	) {
-		return undefined;
-	}
-	return "gh pr merge exited 0 but PR did not verify as MERGED; post-landing cleanup skipped.";
+function isolatedLandingProgress(
+	ctx: PrintAwareLandStackCommandContext,
+	progressIo: NsCommandIo | undefined,
+): LandExecutionProgress {
+	return {
+		note(message): void {
+			if (progressIo === undefined) notifyPrintAware({ ctx, message, level: "info" });
+		},
+		setStatus(message): void {
+			if (progressIo !== undefined) {
+				if (message !== undefined) progressIo.phase(message);
+				return;
+			}
+			setStatus(ctx, message);
+		},
+		setStep() {},
+		recordMergedPullRequest() {},
+		planRecalculated() {},
+	};
 }
 
 export function parsePullRequestView(value: unknown): ValidPullRequestView | { error: string } {

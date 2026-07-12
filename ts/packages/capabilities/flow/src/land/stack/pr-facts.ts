@@ -3,7 +3,7 @@ import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELD_NAMES, PR_FIELDS } from "./constants.ts";
-import { failure, landingExecutionFailure, success, type LandStackResult } from "./errors.ts";
+import { landFailure, landingExecutionFailure, landSuccess, type LandResult } from "../results.ts";
 import type { PullRequestFacts } from "../types.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
@@ -52,7 +52,7 @@ export async function loadPr(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	branchOrNumber: string,
-): Promise<LandStackResult<PullRequestFacts>> {
+): Promise<LandResult<PullRequestFacts>> {
 	const args = ["pr", "view", branchOrNumber, "--json", PR_FIELDS];
 	return await execAndParseJson({
 		pi,
@@ -70,8 +70,8 @@ export async function loadPrsByBranch(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	branches: readonly string[],
-): Promise<LandStackResult<ReadonlyMap<string, PullRequestFacts>>> {
-	if (branches.length === 0) return success(new Map());
+): Promise<LandResult<ReadonlyMap<string, PullRequestFacts>>> {
+	if (branches.length === 0) return landSuccess(new Map());
 	if (branches.length < BATCHED_PULL_REQUEST_FACTS_MIN_BRANCHES) {
 		return await loadPrsByBranchSequentially(pi, repoRoot, branches);
 	}
@@ -91,13 +91,13 @@ export async function loadPrsByBranch(
 		parse: (value) => parseBatchedPullRequestFacts(value, branches),
 	});
 	if (parsed.type === "failure") return parsed;
-	return success(parsed.value.prs);
+	return landSuccess(parsed.value.prs);
 }
 
 async function loadGitHubRepositoryName(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
-): Promise<LandStackResult<GitHubRepositoryName>> {
+): Promise<LandResult<GitHubRepositoryName>> {
 	return await execAndParseJson({
 		pi,
 		repoRoot,
@@ -114,17 +114,17 @@ async function loadPrsByBranchSequentially(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	branches: readonly string[],
-): Promise<LandStackResult<ReadonlyMap<string, PullRequestFacts>>> {
+): Promise<LandResult<ReadonlyMap<string, PullRequestFacts>>> {
 	const prs = new Map<string, PullRequestFacts>();
 	for (const branch of branches) {
 		const pr = await loadPr(pi, repoRoot, branch);
 		if (pr.type === "failure") return pr;
 		prs.set(branch, pr.value);
 	}
-	return success(prs);
+	return landSuccess(prs);
 }
 
-async function execAndParseJson<T>(request: GhJsonRequest<T>): Promise<LandStackResult<T>> {
+async function execAndParseJson<T>(request: GhJsonRequest<T>): Promise<LandResult<T>> {
 	const args = [...request.args];
 	const result = await exec({
 		pi: request.pi,
@@ -134,7 +134,7 @@ async function execAndParseJson<T>(request: GhJsonRequest<T>): Promise<LandStack
 		timeoutMs: GH_TIMEOUT_MS,
 	});
 	if (!commandSucceeded(result)) {
-		return failure(
+		return landFailure(
 			landingExecutionFailure(
 				`${request.execFailureMessage}\n${formatCommandDetails(result, formatCommand("gh", args))}`,
 			),
@@ -145,13 +145,13 @@ async function execAndParseJson<T>(request: GhJsonRequest<T>): Promise<LandStack
 	try {
 		raw = JSON.parse(result.stdout);
 	} catch (error) {
-		return failure(landingExecutionFailure(request.parseFailureMessage(error)));
+		return landFailure(landingExecutionFailure(request.parseFailureMessage(error)));
 	}
 
 	const parsed = request.parse(raw);
 	if (parsed === undefined)
-		return failure(landingExecutionFailure(request.validationFailureMessage));
-	return success(parsed);
+		return landFailure(landingExecutionFailure(request.validationFailureMessage));
+	return landSuccess(parsed);
 }
 
 function batchedPullRequestFactsQuery(branchCount: number): string {

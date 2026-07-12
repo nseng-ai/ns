@@ -1,14 +1,22 @@
 import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitWorktreeStateFs } from "@nseng-ai/foundation/git";
+import { isLikelyInProgressGitOperationFailure } from "../../submit/cli-prose-heuristics.ts";
 import { snapshotBackupRefs } from "./backup-refs.ts";
 import { formatCommandForDisplay } from "./command-stream.ts";
-import { landCompleted, landFailure, landOutcomeFailure, landSuccess } from "../api.ts";
+import {
+	landCompleted,
+	landFailure,
+	landOutcomeFailure,
+	landSuccess,
+	landingExecutionFailure,
+} from "../api.ts";
 import type {
 	LandContext,
 	LandGraphiteCommandResult,
 	LandGraphiteDeleteLocalBranchResult,
 	LandGraphiteRefreshBranchResult,
+	LandingExecutionFailure,
 	LandingFailure,
 	LandingPhase,
 	LandOutcome,
@@ -25,13 +33,6 @@ import {
 	GT_MUTATION_TIMEOUT_MS,
 	SLOT_TIMEOUT_MS,
 } from "./constants.ts";
-import {
-	failure,
-	landingExecutionFailure,
-	success,
-	type LandingExecutionFailure,
-	type LandStackResult,
-} from "./errors.ts";
 import { loadGraphiteTopology, resolveMetadataDbPath } from "./graphite-topology.ts";
 import {
 	deleteLocalBranchOperation,
@@ -39,9 +40,9 @@ import {
 	getDownstackNoCheckoutOperation,
 	restackOperation,
 	submitUpdateOperation,
-	type LandGraphiteCommandChannel,
 	type LandGraphiteOperation,
-} from "./graphite-command-channel.ts";
+} from "../graphite-operations.ts";
+import type { LandGraphiteCommandChannel } from "./graphite-command-channel.ts";
 import { loadPr, loadPrsByBranch } from "./pr-facts.ts";
 import {
 	assertLocalBranchExists,
@@ -54,13 +55,8 @@ import {
 	loadTrunk,
 } from "./stack-facts.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
-import {
-	isManagedSlotPath,
-	loadWorktrees,
-	normalizeExistingPath,
-	slotFreeArgs,
-	slotNameFromPath,
-} from "./worktrees.ts";
+import { loadWorktrees, normalizeExistingPath } from "./worktrees.ts";
+import { isManagedSlotPath, slotFreeArgs, slotNameFromPath } from "../worktree-paths.ts";
 
 type LandingFailureSource = Extract<LandingFailure, { readonly type: "boundary" }>["source"];
 
@@ -72,15 +68,15 @@ export function createLandContext(
 	return {
 		git: {
 			resolveRepoRoot: async ({ cwd }) =>
-				toLandResult(await loadRepoRoot(pi, cwd), "git", "repo-discovery"),
+				normalizeAdapterResult(await loadRepoRoot(pi, cwd), "git", "repo-discovery"),
 			currentBranch: async ({ repoRoot }) =>
-				toLandResult(await loadCurrentBranch(pi, repoRoot), "git", "repo-discovery"),
+				normalizeAdapterResult(await loadCurrentBranch(pi, repoRoot), "git", "repo-discovery"),
 			workingTreeStatus: async ({ repoRoot }) =>
 				loadWorkingTreeStatus(pi, repoRoot, optionalEntry("gitStateFs", options.gitStateFs)),
 			localBranchExists: async ({ repoRoot, branch }) =>
 				loadLocalBranchExists(pi, repoRoot, branch),
 			localBranchSha: async ({ repoRoot, branch }) =>
-				toLandResult(await loadLocalSha(pi, repoRoot, branch), "git", "preflight"),
+				normalizeAdapterResult(await loadLocalSha(pi, repoRoot, branch), "git", "preflight"),
 			listLocalBranches: async ({ repoRoot }) => loadLocalBranches(pi, repoRoot),
 			branchContainsParent: async ({ repoRoot, branch, parent }) =>
 				loadBranchContainsParent({ pi, repoRoot, branch, parent }),
@@ -89,9 +85,17 @@ export function createLandContext(
 		},
 		graphite: {
 			trunk: async ({ repoRoot }) =>
-				toLandResult(await loadTrunk(pi, repoRoot, graphite), "graphite", "repo-discovery"),
+				normalizeAdapterResult(
+					await loadTrunk(pi, repoRoot, graphite),
+					"graphite",
+					"repo-discovery",
+				),
 			metadataDbPath: async ({ repoRoot }) =>
-				toLandResult(await resolveMetadataDbPath(pi, repoRoot), "graphite", "repo-discovery"),
+				normalizeAdapterResult(
+					await resolveMetadataDbPath(pi, repoRoot),
+					"graphite",
+					"repo-discovery",
+				),
 			stackShape: async (request) => {
 				const stack = await loadStackSnapshot({
 					pi,
@@ -101,7 +105,8 @@ export function createLandContext(
 					trunk: request.trunk,
 					liveLocalBranches: request.liveLocalBranches,
 				});
-				if (stack.type === "failure") return toLandResult(stack, "graphite", "stack-shape");
+				if (stack.type === "failure")
+					return normalizeAdapterResult(stack, "graphite", "stack-shape");
 				return landSuccess(stack.value);
 			},
 			prepareSubmitUpdate: async ({ repoRoot, branch }) =>
@@ -130,12 +135,12 @@ export function createLandContext(
 		github: {
 			pullRequestFacts: async ({ repoRoot, branchOrNumber }) => {
 				const pr = await loadPr(pi, repoRoot, branchOrNumber);
-				if (pr.type === "failure") return toLandResult(pr, "github", "preflight");
+				if (pr.type === "failure") return normalizeAdapterResult(pr, "github", "preflight");
 				return landSuccess(pr.value);
 			},
 			pullRequestFactsByBranch: async ({ repoRoot, branches }) => {
 				const prs = await loadPrsByBranch(pi, repoRoot, branches);
-				if (prs.type === "failure") return toLandResult(prs, "github", "preflight");
+				if (prs.type === "failure") return normalizeAdapterResult(prs, "github", "preflight");
 				return landSuccess(prs.value);
 			},
 			squashMergePullRequest: async ({ repoRoot, pullRequest }) => {
@@ -167,7 +172,7 @@ export function createLandContext(
 		},
 		worktrees: {
 			worktrees: async ({ repoRoot }) =>
-				toLandResult(await loadWorktrees(pi, repoRoot), "worktree", "preflight"),
+				normalizeAdapterResult(await loadWorktrees(pi, repoRoot), "worktree", "preflight"),
 			classifyWorktree: async ({ repoRoot, path }) => classifyWorktree(repoRoot, path),
 			freeSlots: async ({ repoRoot, slots }) => freeSlots({ pi, repoRoot, slots }),
 		},
@@ -245,6 +250,7 @@ async function deleteLocalBranch(options: {
 				type: "failed",
 				commandDisplay: formatGraphiteOperation(operation),
 				result: result.result,
+				isLikelyInProgressGitOperation: isLikelyInProgressGitOperationFailure(result.result),
 			};
 	}
 }
@@ -278,7 +284,7 @@ async function loadBranchChildren(options: {
 }): Promise<LandResult<readonly string[]>> {
 	const topology = await loadGraphiteTopology(options.pi, options.repoRoot, options.metadataDbPath);
 	if (topology.type === "failure")
-		return toLandResult(topology, "graphite", "descendant-maintenance");
+		return normalizeAdapterResult(topology, "graphite", "descendant-maintenance");
 	return landSuccess([...(topology.value.get(options.branch)?.children ?? [])]);
 }
 
@@ -395,8 +401,8 @@ async function loadLocalBranchExists(
 	branch: string,
 ): Promise<LandOutcome> {
 	const result = await assertLocalBranchExists(pi, repoRoot, branch);
-	if (result.type === "success") return landCompleted();
-	return landOutcomeFailure(toLandingFailure(result.failure, "git", "preflight"));
+	if (result.type === "completed") return result;
+	return landOutcomeFailure(normalizeAdapterFailure(result.failure, "git", "preflight"));
 }
 
 async function loadLocalBranches(
@@ -404,7 +410,7 @@ async function loadLocalBranches(
 	repoRoot: string,
 ): Promise<LandResult<readonly { readonly name: string; readonly sha: string }[]>> {
 	const branches = await loadLiveLocalBranchTips(pi, repoRoot);
-	if (branches.type === "failure") return toLandResult(branches, "git", "repo-discovery");
+	if (branches.type === "failure") return normalizeAdapterResult(branches, "git", "repo-discovery");
 	const tips: Array<{ readonly name: string; readonly sha: string }> = [];
 	for (const branch of branches.value) {
 		if (branch.headSha == null) {
@@ -431,12 +437,12 @@ interface LoadBranchContainsParentOptions {
 async function loadBranchContainsParent(
 	options: LoadBranchContainsParentOptions,
 ): Promise<LandResult<boolean>> {
-	return toLandResult(await inspectBranchContainsParent(options), "git", "preflight");
+	return normalizeAdapterResult(await inspectBranchContainsParent(options), "git", "preflight");
 }
 
 async function inspectBranchContainsParent(
 	options: LoadBranchContainsParentOptions,
-): Promise<LandStackResult<boolean>> {
+): Promise<LandResult<boolean>> {
 	const args = [
 		"rev-list",
 		"-1",
@@ -452,7 +458,7 @@ async function inspectBranchContainsParent(
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
 	if (!commandSucceeded(result)) {
-		return failure(
+		return landFailure(
 			landingExecutionFailure(
 				`Could not inspect whether ${options.branch} contains parent ${options.parent}.`,
 				{
@@ -462,7 +468,7 @@ async function inspectBranchContainsParent(
 			),
 		);
 	}
-	return success(result.stdout.trim().length === 0);
+	return landSuccess(result.stdout.trim().length === 0);
 }
 
 function classifyWorktree(
@@ -482,13 +488,13 @@ function classifyWorktree(
 	return Promise.resolve(landSuccess({ type: "manual-worktree" }));
 }
 
-function toLandResult<T>(
-	result: LandStackResult<T>,
+function normalizeAdapterResult<T>(
+	result: LandResult<T>,
 	source: LandingFailureSource,
 	phase: LandingPhase,
 ): LandResult<T> {
 	if (result.type === "success") return result;
-	return landFailure(toLandingFailure(result.failure, source, phase));
+	return landFailure(normalizeAdapterFailure(result.failure, source, phase));
 }
 
 function landBoundaryFailureResult(
@@ -505,7 +511,8 @@ function landBoundaryFailureResult(
 	});
 }
 
-function toLandingFailure(
+/** Normalize legitimate inbound legacy/adapter failure shapes into the core boundary contract. */
+function normalizeAdapterFailure(
 	landFlowFailure: LandingFailure | LandingExecutionFailure,
 	source: LandingFailureSource,
 	phase: LandingPhase,

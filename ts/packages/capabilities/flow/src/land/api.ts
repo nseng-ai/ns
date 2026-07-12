@@ -1,4 +1,6 @@
 import { calculateLandingOutcome } from "./preflight.ts";
+import { nullLandConfirmationGateway, nullLandExecutionProgress } from "./execution/host-seams.ts";
+import type { LandStackExecutionHost } from "./execution/execute.ts";
 import type { LandContext, LandingOutcome, LandingRequest, LandResult } from "./types.ts";
 
 // Public API identifiers intentionally mirror package metadata; tests guard the invariant
@@ -25,8 +27,12 @@ export const LAND_CAPABILITY_METADATA: LandCapabilityMetadata = {
 export async function executeLanding(
 	context: LandContext,
 	request: LandingRequest,
+	host: LandStackExecutionHost = {
+		confirmation: nullLandConfirmationGateway,
+		progress: nullLandExecutionProgress,
+	},
 ): Promise<LandResult<LandingOutcome>> {
-	return await calculateLandingOutcome(context, request);
+	return await calculateLandingOutcome(context, request, host);
 }
 
 export {
@@ -35,6 +41,7 @@ export {
 	calculateLandingOutcome,
 	collectPrSubmitRequirements,
 	collectSubmitRestackRequirements,
+	detectWorktreeConflicts,
 	landingParentEdges,
 	loadStackLandingShape,
 	scopeStackSnapshot,
@@ -48,9 +55,50 @@ export {
 	isLandFailure,
 	landCompleted,
 	landFailure,
+	landingExecutionFailure,
+	landingFailureFacts,
 	landOutcomeFailure,
 	landSuccess,
 } from "./results.ts";
+
+export type { LandingExecutionFailureOptions, LandingFailureFacts } from "./results.ts";
+
+export {
+	createRefusingLandConfirmationGateway,
+	nullLandConfirmationGateway,
+	nullLandExecutionProgress,
+} from "./execution/host-seams.ts";
+export { executeStackLandingPlan } from "./execution/execute.ts";
+export type {
+	ExecuteStackLandingPlanOptions,
+	LandStackExecutionHost,
+	StackLandingExecutionResult,
+	StackLandingExecutionValue,
+} from "./execution/execute.ts";
+export { executeIsolatedLanding, isIsolatedFastPath } from "./execution/isolated-landing.ts";
+export {
+	assertCleanRepoForExecution,
+	confirmAndFreeManagedSlots,
+	confirmAndSubmitRequiredPrUpdates,
+	executionOperationInProgressLabel,
+	residualPreMergeFailure,
+	submitRequiredUpdatesAndRecheckPlan,
+} from "./execution/pre-merge.ts";
+export type { PreMergeExecutionHost } from "./execution/pre-merge.ts";
+export type {
+	ExecuteIsolatedLandingOptions,
+	IsolatedLandingHost,
+	IsolatedLandingOutcome,
+} from "./execution/isolated-landing.ts";
+
+export type {
+	LandConfirmationDecision,
+	LandConfirmationGateway,
+	LandConfirmationRequest,
+	LandExecutionProgress,
+	LandExecutionStep,
+	LandExecutionStepState,
+} from "./execution/host-seams.ts";
 
 export type {
 	BranchLandingPlan,
@@ -74,6 +122,7 @@ export type {
 	LandingCleanupOutcome,
 	LandingDomainFailure,
 	LandingDomainFailureReason,
+	LandingExecutionFailure,
 	LandingFailure,
 	LandingMode,
 	LandingNotImplementedFailure,
@@ -93,6 +142,7 @@ export type {
 	LocalBranchTip,
 	ManagedSlotWorktree,
 	ManualWorktreeConflict,
+	NotifyLevel,
 	PrSubmitRequirement,
 	PullRequestFacts,
 	RestackRequirement,
@@ -106,4 +156,4 @@ export type {
 	WorktreeEntry,
 } from "./types.ts";
 
-export type { StackLandingShape } from "./preflight.ts";
+export type { DetectWorktreeConflictsOptions, StackLandingShape } from "./preflight.ts";

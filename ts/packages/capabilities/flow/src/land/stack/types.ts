@@ -1,12 +1,12 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import type { NsConfirmOptions } from "@nseng-ai/kernel/sdk";
-import type { LandingWarning } from "../types.ts";
+import type { NotifyLevel } from "../types.ts";
 
-export type NotifyLevel = "info" | "success" | "warning" | "error";
+export type { NotifyLevel } from "../types.ts";
 
 export interface LandProgressReporter {
 	readonly note: (message: string) => void;
-	readonly setStatus: (message: string) => void;
+	readonly setStatus: (message: string | undefined) => void;
 }
 
 /**
@@ -117,18 +117,6 @@ export interface ParsedArgs {
 	shouldStreamVerboseOutput: boolean;
 }
 
-export interface WorktreeEntry {
-	path: string;
-	branch?: string;
-}
-
-export interface LandedPr {
-	branch: string;
-	number: number;
-	title: string;
-	url?: string;
-}
-
 export interface CommandStreamPrLink {
 	number: number;
 	url: string;
@@ -142,22 +130,6 @@ export interface CommandInvocation {
 
 export interface CommandStreamMessageDetails {
 	prLinks: CommandStreamPrLink[];
-}
-
-export interface RetainedLocalBranchCleanup {
-	branch: string;
-	path: string;
-}
-
-export interface RemainingCleanup {
-	retainedLocalBranches: RetainedLocalBranchCleanup[];
-}
-
-export interface MergeLoopState {
-	expectedShas: Map<string, string>;
-	deletedBranches: Set<string>;
-	warnings: LandingWarning[];
-	cleanup: RemainingCleanup;
 }
 
 export interface CommandStreamFinish {

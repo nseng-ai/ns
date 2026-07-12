@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
@@ -29,6 +31,13 @@ const SQUASH_MERGE_ARGS = [
 	"--body",
 	"Merge body",
 ];
+const POST_MERGE_FACTS_ARGS = [
+	"pr",
+	"view",
+	"42",
+	"--json",
+	"id,number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt",
+];
 const BACKUP_ROTATION_ARGS = [
 	"fetch",
 	"--quiet",
@@ -47,6 +56,7 @@ const REFRESH_ARGS = [
 	"--force",
 	"--no-interactive",
 ];
+const DELETE_ARGS = ["delete", "feature-a", "-f", "-q"];
 const RESTACK_ARGS = ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"];
 const RESTACK_ONLY_ARGS = ["restack", "--branch", "feature-b", "--only", "--no-interactive"];
 const SUBMIT_FORCE_ARGS = [
@@ -133,6 +143,18 @@ function createTestLandContext(pi: LandStackExtensionAPI) {
 }
 
 describe("land context adapter facts", () => {
+	test("normalizes equivalent current-worktree paths at the adapter boundary", async () => {
+		const pi = new FakePi([]);
+		const context = createLandContext(pi, {
+			graphite: createLandGraphiteCommandChannel({ pi }),
+		});
+
+		await expect(
+			context.worktrees.classifyWorktree({ repoRoot: ".", path: resolve(".") }),
+		).resolves.toEqual({ type: "success", value: { type: "current" } });
+		pi.assertDone();
+	});
+
 	test("lists local branches with real tip SHAs", async () => {
 		const pi = new FakePi([
 			step("git", FOR_EACH_REF_ARGS, {
@@ -176,6 +198,48 @@ describe("land context adapter facts", () => {
 		).resolves.toEqual({ type: "success", value: { stdout: "merged\n", stderr: "notice\n" } });
 		expect(pi.execCalls).toEqual([
 			{ command: "gh", args: SQUASH_MERGE_ARGS, options: { cwd: ROOT, timeout: 120000 } },
+		]);
+		pi.assertDone();
+	});
+
+	test("maps representative post-merge PR facts and load failure variants", async () => {
+		const mergedFacts = {
+			id: "PR_node_42",
+			number: 42,
+			title: "Merge subject",
+			body: "Merge body",
+			state: "MERGED",
+			isDraft: false,
+			headRefName: "feature",
+			baseRefName: "main",
+			headRefOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			mergeStateStatus: "UNKNOWN",
+			url: "https://github.example/pr/42",
+			mergedAt: "2026-07-11T00:00:00Z",
+		};
+		const pi = new FakePi([
+			step("gh", POST_MERGE_FACTS_ARGS, { stdout: `${JSON.stringify(mergedFacts)}\n` }),
+			step("gh", POST_MERGE_FACTS_ARGS, { code: 1, stderr: "GitHub unavailable\n" }),
+		]);
+		const context = createTestLandContext(pi);
+
+		await expect(
+			context.github.pullRequestFacts({ repoRoot: ROOT, branchOrNumber: "42" }),
+		).resolves.toEqual({ type: "success", value: mergedFacts });
+		await expect(
+			context.github.pullRequestFacts({ repoRoot: ROOT, branchOrNumber: "42" }),
+		).resolves.toMatchObject({
+			type: "failure",
+			failure: {
+				type: "boundary",
+				source: "github",
+				code: "github-gateway-failure",
+				message: expect.stringContaining("GitHub unavailable"),
+			},
+		});
+		expect(pi.execCalls).toEqual([
+			{ command: "gh", args: POST_MERGE_FACTS_ARGS, options: { cwd: ROOT, timeout: 30000 } },
+			{ command: "gh", args: POST_MERGE_FACTS_ARGS, options: { cwd: ROOT, timeout: 30000 } },
 		]);
 		pi.assertDone();
 	});
@@ -359,6 +423,182 @@ describe("land context adapter facts", () => {
 			},
 			{ command: TOPOLOGY_COMMAND, args: TOPOLOGY_ARGS, options: { cwd: ROOT, timeout: 30_000 } },
 		]);
+		pi.assertDone();
+	});
+
+	test("maps refresh failure and checkout-conflict protocol results", async () => {
+		const pi = new FakePi([
+			step("gt", REFRESH_ARGS, {
+				code: 7,
+				stdout: "partial refresh\n",
+				stderr: "remote refresh rejected\n",
+			}),
+			step("gt", REFRESH_ARGS, {
+				code: 1,
+				stdout: "",
+				stderr: "fatal: 'feature-b' is already checked out at '/repo-slot'\n",
+			}),
+		]);
+		const context = createTestLandContext(pi);
+		const request = {
+			repoRoot: ROOT,
+			branch: "feature-b",
+			checkedOutConflictHandling: "defer" as const,
+		};
+
+		await expect(context.graphite.refreshBranchFromRemote(request)).resolves.toEqual({
+			type: "failure",
+			commandDisplay:
+				"gt get feature-b --downstack --no-restack --no-checkout --force --no-interactive",
+			result: execResult({
+				code: 7,
+				stdout: "partial refresh\n",
+				stderr: "remote refresh rejected\n",
+			}),
+		});
+		await expect(context.graphite.refreshBranchFromRemote(request)).resolves.toEqual({
+			type: "checkout-conflict",
+			branch: "feature-b",
+			path: "/repo-slot",
+			commandDisplay:
+				"gt get feature-b --downstack --no-restack --no-checkout --force --no-interactive",
+			result: execResult({
+				code: 1,
+				stderr: "fatal: 'feature-b' is already checked out at '/repo-slot'\n",
+			}),
+		});
+		pi.assertDone();
+	});
+
+	test("maps Graphite mutation failures to typed command displays and results", async () => {
+		const pi = new FakePi([
+			step("gt", RESTACK_ARGS, {
+				code: 8,
+				stdout: "partial restack\n",
+				stderr: "restack rejected\n",
+			}),
+			step("gt", SUBMIT_FORCE_ARGS, {
+				code: 9,
+				stdout: "partial submit\n",
+				stderr: "submit rejected\n",
+			}),
+		]);
+		const context = createTestLandContext(pi);
+
+		await expect(
+			context.graphite.restack({ repoRoot: ROOT, branch: "feature-b", scope: "upstack" }),
+		).resolves.toEqual({
+			type: "failure",
+			commandDisplay: "gt restack --branch feature-b --upstack --no-interactive",
+			result: execResult({
+				code: 8,
+				stdout: "partial restack\n",
+				stderr: "restack rejected\n",
+			}),
+		});
+		await expect(
+			context.graphite.submitUpdate({ repoRoot: ROOT, branch: "feature-b", force: true }),
+		).resolves.toEqual({
+			type: "failure",
+			commandDisplay:
+				"gt submit --branch feature-b --no-stack --update-only --no-edit --no-ai --no-interactive --force",
+			result: execResult({
+				code: 9,
+				stdout: "partial submit\n",
+				stderr: "submit rejected\n",
+			}),
+		});
+		pi.assertDone();
+	});
+
+	test("classifies failed local-branch deletion protocol results for in-progress Git operations", async () => {
+		const pi = new FakePi([
+			step("gt", DELETE_ARGS, {
+				code: 1,
+				stdout: "CONFLICT (content): merge conflict in file.ts\n",
+				stderr: "delete failed\n",
+			}),
+			step("gt", DELETE_ARGS, {
+				code: 2,
+				stdout: "",
+				stderr: "branch deletion rejected\n",
+			}),
+		]);
+		const context = createTestLandContext(pi);
+
+		await expect(
+			context.graphite.deleteLocalBranch({
+				repoRoot: ROOT,
+				branch: "feature-a",
+				checkedOutConflictHandling: "fail",
+			}),
+		).resolves.toMatchObject({
+			type: "failed",
+			result: {
+				type: "exited",
+				stdout: "CONFLICT (content): merge conflict in file.ts\n",
+				stderr: "delete failed\n",
+				code: 1,
+			},
+			isLikelyInProgressGitOperation: true,
+		});
+		await expect(
+			context.graphite.deleteLocalBranch({
+				repoRoot: ROOT,
+				branch: "feature-a",
+				checkedOutConflictHandling: "fail",
+			}),
+		).resolves.toMatchObject({
+			type: "failed",
+			result: {
+				type: "exited",
+				stdout: "",
+				stderr: "branch deletion rejected\n",
+				code: 2,
+			},
+			isLikelyInProgressGitOperation: false,
+		});
+		pi.assertDone();
+	});
+
+	test("maps slot-free success and failure protocol results", async () => {
+		const slotPath = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-02";
+		const args = ["slot", "free", "--wt", "slot-02"];
+		const pi = new FakePi([
+			step("ns", args, { stdout: "freed slot-02\n", code: 0 }),
+			step("ns", args, { stderr: "slot remains checked out\n", code: 3 }),
+		]);
+		const context = createTestLandContext(pi);
+		const request = {
+			repoRoot: ROOT,
+			slots: [
+				{
+					type: "managed-slot" as const,
+					branch: "feature-a",
+					path: slotPath,
+					slotName: "slot-02",
+				},
+			],
+		};
+
+		await expect(context.worktrees.freeSlots(request)).resolves.toEqual({
+			type: "success",
+			value: request.slots,
+		});
+		await expect(context.worktrees.freeSlots(request)).resolves.toMatchObject({
+			type: "failure",
+			failure: {
+				type: "boundary",
+				source: "slot",
+				code: "slot_free_failed",
+				displayCommand: "ns slot free --wt slot-02",
+				execResult: {
+					type: "exited",
+					stderr: "slot remains checked out\n",
+					code: 3,
+				},
+			},
+		});
 		pi.assertDone();
 	});
 

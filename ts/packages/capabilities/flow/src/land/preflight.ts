@@ -1,7 +1,11 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { shortSha } from "../commit-display/index.ts";
+import { executeStackLandingPlan, type LandStackExecutionHost } from "./execution/execute.ts";
+import { nullLandConfirmationGateway, nullLandExecutionProgress } from "./execution/host-seams.ts";
 import { landCompleted, landFailure, landSuccess, landOutcomeFailure } from "./results.ts";
+import { formatManualWorktreeConflict } from "./worktree-paths.ts";
+
 import type {
 	BranchLandingPlan,
 	DescendantMaintenancePlan,
@@ -146,6 +150,10 @@ export async function buildStackLandingPlan(
 export async function calculateLandingOutcome(
 	context: LandContext,
 	request: LandingRequest,
+	host: LandStackExecutionHost = {
+		confirmation: nullLandConfirmationGateway,
+		progress: nullLandExecutionProgress,
+	},
 ): Promise<LandResult<LandingOutcome>> {
 	if (request.target.type !== "stack") {
 		return landFailure({
@@ -173,18 +181,30 @@ export async function calculateLandingOutcome(
 	];
 	if (request.mode === "dry-run") {
 		phases.push({ type: "completed", phase: "dry-run" });
-	} else {
-		phases.push({ type: "skipped", phase: "merge", reason: "merge execution remains in Flow" });
+		return landSuccess({
+			repoRoot: plan.value.repoRoot,
+			target: request.target,
+			mode: request.mode,
+			phases,
+			plan: plan.value,
+			landedChunks: [],
+			cleanup: { retainedLocalBranches: [], freedSlots: [] },
+		});
 	}
 
+	const execution = await executeStackLandingPlan(context, host, plan.value, {
+		cwd: request.cwd,
+		warnings: [],
+	});
+	if (execution.type === "failure") return landFailure(execution.failure);
 	return landSuccess({
-		repoRoot: plan.value.repoRoot,
+		repoRoot: execution.value.plan.repoRoot,
 		target: request.target,
 		mode: request.mode,
-		phases,
-		plan: plan.value,
-		landedChunks: [],
-		cleanup: { retainedLocalBranches: [], freedSlots: [] },
+		phases: [...phases, ...execution.value.phases],
+		plan: execution.value.plan,
+		landedChunks: execution.value.landedChunks,
+		cleanup: execution.value.cleanup,
 	});
 }
 
@@ -547,14 +567,14 @@ export function collectPrSubmitRequirements(
 	return requirements;
 }
 
-interface DetectWorktreeConflictsOptions {
+export interface DetectWorktreeConflictsOptions {
 	readonly context: LandContext;
 	readonly repoRoot: string;
 	readonly currentBranch: string;
 	readonly relevantBranches: readonly string[];
 }
 
-async function detectWorktreeConflicts(
+export async function detectWorktreeConflicts(
 	options: DetectWorktreeConflictsOptions,
 ): Promise<LandResult<readonly WorktreeConflict[]>> {
 	const worktrees = await options.context.worktrees.worktrees({ repoRoot: options.repoRoot });
@@ -651,17 +671,6 @@ export function landingParentEdges(stack: StackSnapshot): readonly RestackRequir
 		branch,
 		parent: index === 0 ? stack.trunk : (stack.landingBranches[index - 1] ?? stack.trunk),
 	}));
-}
-
-export function formatManualWorktreeConflict(conflicts: readonly WorktreeConflict[]): string {
-	if (conflicts.length === 1) {
-		const conflict = conflicts[0];
-		return `Branch ${conflict?.branch ?? "unknown"} is checked out in non-slot worktree ${conflict?.path ?? "unknown"}; detach it manually and rerun.`;
-	}
-	return [
-		"Relevant branches are checked out in non-slot worktrees; detach them manually and rerun:",
-		...conflicts.map((conflict) => `- ${conflict.branch} ${conflict.path}`),
-	].join("\n");
 }
 
 function operationInProgressLabel(

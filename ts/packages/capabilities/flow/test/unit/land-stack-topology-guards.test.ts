@@ -4,7 +4,7 @@ import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { shortSha } from "../../src/commit-display/index.ts";
 import { BACKUP_REF_NAMESPACE, PR_FIELDS } from "../../src/land/stack/constants.ts";
-import { type LandStackResult } from "../../src/land/stack/errors.ts";
+import { type LandResult } from "../../src/land/results.ts";
 import {
 	executeStackLanding,
 	parseArgs,
@@ -183,7 +183,7 @@ function execResult(overrides: ExitedResultFields = {}): ExecResult {
 	};
 }
 
-function expectSuccess<T>(result: LandStackResult<T>): T {
+function expectSuccess<T>(result: LandResult<T>): T {
 	expect(result.type).toBe("success");
 	if (result.type !== "success") {
 		throw new Error(`Expected land-stack success, got failure: ${result.failure.message}`);

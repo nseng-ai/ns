@@ -25,13 +25,13 @@ import {
 	type FlowLandExternalCallTelemetrySink,
 } from "./external-call-telemetry.ts";
 import type { LandMatrixProgressSink } from "../land-matrix-progress.ts";
+import type { LandedPullRequest } from "../types.ts";
 import type {
 	CommandInvocation,
 	CommandStreamMessageDetails,
 	CustomMessage,
 	LandStackExtensionAPI,
 	LandStackCommandContext,
-	LandedPr,
 	RenderComponent,
 	RenderTheme,
 } from "./types.ts";
@@ -315,7 +315,7 @@ export function renderCommandStreamLine(
 }
 
 export function commandStreamDetailsForLanded(
-	landed: LandedPr[],
+	landed: LandedPullRequest[],
 ): CommandStreamMessageDetails | undefined {
 	return prLinksDetailsFor(landed);
 }

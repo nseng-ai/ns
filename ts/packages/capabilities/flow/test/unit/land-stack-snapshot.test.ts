@@ -3,7 +3,7 @@ import { formatCommand, type ExecResult } from "@nseng-ai/foundation/command";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import type { StackSnapshot } from "../../src/land/api.ts";
-import { type LandStackResult } from "../../src/land/stack/errors.ts";
+import { type LandResult } from "../../src/land/results.ts";
 import { loadStackSnapshot } from "../../src/land/stack/stack-facts.ts";
 import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
 import {
@@ -111,7 +111,7 @@ function execResult(overrides: ExitedResultFields = {}): ExecResult {
 	};
 }
 
-function expectSuccess<T>(result: LandStackResult<T>): T {
+function expectSuccess<T>(result: LandResult<T>): T {
 	expect(result.type).toBe("success");
 	if (result.type !== "success") {
 		throw new Error(`Expected land-stack success, got failure: ${result.failure.message}`);
@@ -119,7 +119,7 @@ function expectSuccess<T>(result: LandStackResult<T>): T {
 	return result.value;
 }
 
-function expectFailure<T>(result: LandStackResult<T>) {
+function expectFailure<T>(result: LandResult<T>) {
 	expect(result.type).toBe("failure");
 	if (result.type !== "failure") {
 		throw new Error("Expected land-stack failure, got success.");
@@ -138,7 +138,7 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 		dbRows: string,
 		liveBranches: string[],
 		current = CURRENT,
-	): Promise<LandStackResult<StackSnapshot>> {
+	): Promise<LandResult<StackSnapshot>> {
 		const pi = new FakePi([
 			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 			step("git", FOR_EACH_REF_ARGS, {
