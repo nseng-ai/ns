@@ -51,7 +51,7 @@ export interface BasePiSurfaceParity {
 	readonly ownerObjective: "cross-harness-parity";
 	/**
 	 * Guardrail that keeps this v1 registry scoped to Pi-owned/accounted surfaces.
-	 * Extracted capability-pi and Pi-tool packages may emit their own parity records
+	 * Extracted capability `pi` subpackages and internal Pi-tool packages may emit their own parity records
 	 * and test them package-locally; the host static registry remains host-owned to
 	 * avoid importing those packages back into @nseng-ai/pi.
 	 */

@@ -17,6 +17,6 @@
 		"zod": "catalog:"
 	},
 	"ns": {
-		"tier": "internal-pi-tool"
+		"tier": "internal-tool"
 	}
 }

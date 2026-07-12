@@ -1,6 +1,6 @@
 # @nseng-ai/pi
 
-`@nseng-ai/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability `pi` subpackages or capability-pi packages stacked above `@nseng-ai/pi`; Pi-native standalone tools may live in Internal Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. CCC (`@nseng-ai/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; the `@nseng-ai/ccc/pi` subpackage imports CCC core APIs and neutral `@nseng-ai/pi/...` helpers so there are no direct `@nseng-ai/ccc` imports from `@nseng-ai/pi/...` and no `@nseng-ai/pi` import or declaration of `@nseng-ai/ccc`.
+`@nseng-ai/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability `pi` subpackages stacked above `@nseng-ai/pi`; Pi-native standalone tools may live in Internal Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. CCC (`@nseng-ai/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; the `@nseng-ai/ccc/pi` subpackage imports CCC core APIs and neutral `@nseng-ai/pi/...` helpers so there are no direct `@nseng-ai/ccc` imports from `@nseng-ai/pi/...` and no `@nseng-ai/pi` import or declaration of `@nseng-ai/ccc`.
 
 ## Language
 
@@ -13,11 +13,11 @@ The checked-in `.pi/extensions/*.ts` files that Pi auto-discovers for this repos
 *Avoid*: global extension, npm package entry point, CLI plugin.
 
 **Discovery adapter**:
-A thin project-local extension file whose job is to register Pi commands or tools by importing implementation code from `ts/packages/hosts/pi/src/` or from another owning package when the Pi implementation has been extracted. For extracted Pi-tool and capability-pi packages, the adapter imports the owning package through its package exports so `@nseng-ai/pi` does not become the tool or capability presentation consumer.
+A thin project-local extension file whose job is to register Pi commands or tools by importing implementation code from `ts/packages/hosts/pi/src/` or from another owning package when the Pi implementation has been extracted. For extracted Pi-tool packages and capability `pi` subpackages, the adapter imports the owning package through its package exports so `@nseng-ai/pi` does not become the tool or capability presentation consumer.
 *Avoid*: package export, shim as implementation, generated extension, host-to-tool registry.
 
 **Engineered Pi implementation domain**:
-A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as PR views, worktree status, terminal presentation, host-owned runtime helpers, and command registration helpers. Flow, CCC, Handoff, and Objective Pi presentation now live in each capability's `pi` subpackage; Branch Context still lives in its capability-pi package pending conversion.
+A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as PR views, worktree status, terminal presentation, host-owned runtime helpers, and command registration helpers. Flow, CCC, Handoff, Branch Context, and Objective Pi presentation now live in each capability's `pi` subpackage.
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Internal Pi-tool package**:
@@ -25,7 +25,7 @@ A private workspace package for a Pi-native standalone tool extracted from the h
 *Avoid*: Local Pi-tool package, Capability package, host subdirectory, neutral helper subpath, host dependency.
 
 **Neutral Pi helper subpath**:
-A curated `@nseng-ai/pi/...` package export for helper code intentionally reusable by other workspace packages, capability-pi packages, or extracted Pi-tool packages, including command acknowledgement, command UI helpers, command I/O, command names, model-call and LM-JSON helpers, shared error/timer helpers, machine-envelope parsing, session replacement, skill expansion, terminal layout/presentation helpers, parity helpers, and cmux/Pi runtime/tool types. The current export map is intentionally limited to these neutral/runtime/presentation families: `commands/*`, `grill/surfaces`, `models/*`, `parity/*`, `runtime/*`, `sessions/replacement`, `skills/*`, `terminal/*`, `shared/*`, and `worktree-status` — plus `worktree-status/extension`, which is a project-local extension entrypoint carried in the export map for `.pi/extensions` loading, not a neutral helper family.
+A curated `@nseng-ai/pi/...` package export for helper code intentionally reusable by other workspace packages, capability `pi` subpackages, or extracted Pi-tool packages, including command acknowledgement, command UI helpers, command I/O, command names, model-call and LM-JSON helpers, shared error/timer helpers, machine-envelope parsing, session replacement, skill expansion, terminal layout/presentation helpers, parity helpers, and cmux/Pi runtime/tool types. The current export map is intentionally limited to these neutral/runtime/presentation families: `commands/*`, `grill/surfaces`, `models/*`, `parity/*`, `runtime/*`, `sessions/replacement`, `skills/*`, `terminal/*`, `shared/*`, and `worktree-status` — plus `worktree-status/extension`, which is a project-local extension entrypoint carried in the export map for `.pi/extensions` loading, not a neutral helper family.
 *Avoid*: project-local extension entrypoint, Pi-tool implementation, CCC orchestration, private source deep import.
 
 **Project-local extension entrypoint**:
