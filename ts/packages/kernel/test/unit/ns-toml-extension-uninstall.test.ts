@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { planDeclaredExtensionUninstallToml } from "@nseng-ai/kernel/project-config";
+import {
+	planDeclaredExtensionTarget,
+	planDeclaredExtensionUninstallToml,
+} from "@nseng-ai/kernel/project-config";
 
 function plan(source: string, requestedSpec: string) {
 	return planDeclaredExtensionUninstallToml({
@@ -9,6 +12,53 @@ function plan(source: string, requestedSpec: string) {
 		requestedSpec,
 	});
 }
+
+function planTarget(source: string, requestedSpec: string) {
+	return planDeclaredExtensionTarget({
+		projectRoot: "/repo/project",
+		source,
+		requestedSpec,
+	});
+}
+
+describe("ns.toml extension update targets", () => {
+	test("matches an exact npm declaration and returns its non-empty spec", () => {
+		expect(planTarget('extensions = ["npm:@scope/pkg@1"]\n', "npm:@scope/pkg@1")).toEqual({
+			ok: true,
+			matchedSpec: "npm:@scope/pkg@1",
+		});
+	});
+
+	test("does not target a different version of the same npm package", () => {
+		expect(planTarget('extensions = ["npm:@scope/pkg@1"]\n', "npm:@scope/pkg@2")).toMatchObject({
+			ok: false,
+			reason: "not-declared",
+			matchingSpecs: [],
+		});
+	});
+
+	test("matches equivalent normalized local paths", () => {
+		expect(
+			planTarget('extensions = ["extensions/../extensions/tools"]\n', "./extensions/tools"),
+		).toEqual({
+			ok: true,
+			matchedSpec: "extensions/../extensions/tools",
+		});
+	});
+
+	test("rejects duplicate normalized local identities as ambiguous", () => {
+		expect(
+			planTarget(
+				'extensions = ["./extensions/tools", "extensions/../extensions/tools"]\n',
+				"./extensions/tools",
+			),
+		).toMatchObject({
+			ok: false,
+			reason: "ambiguous-identity",
+			matchingSpecs: ["./extensions/tools", "extensions/../extensions/tools"],
+		});
+	});
+});
 
 describe("ns.toml extension uninstall edits", () => {
 	test.each([

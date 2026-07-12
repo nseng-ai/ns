@@ -154,11 +154,18 @@ export function planDeclaredExtensionTarget(options: {
 	if (identity === undefined) return invalidSource(options.requestedSpec);
 	const declaredSpecs = prepared.syntax.values.map((value) => value.decoded);
 	const matchingSpecs = declaredSpecs.filter((spec) =>
-		identity.kind === "npm"
-			? spec === options.requestedSpec
-			: identitiesEqual(identity, extensionSourceIdentity(options.projectRoot, spec)),
+		isUpdateTargetMatch({
+			projectRoot: options.projectRoot,
+			requestedSpec: options.requestedSpec,
+			requestedIdentity: identity,
+			declaredSpec: spec,
+		}),
 	);
-	if (matchingSpecs.length === 1) return { ok: true, matchedSpec: matchingSpecs[0] ?? "" };
+	if (matchingSpecs.length === 1) {
+		const matchedSpec = matchingSpecs[0];
+		if (matchedSpec === undefined) throw new Error("Expected one matching extension target.");
+		return { ok: true, matchedSpec };
+	}
 	const reason = matchingSpecs.length === 0 ? "not-declared" : "ambiguous-identity";
 	return {
 		ok: false,
@@ -297,6 +304,20 @@ function invalidSource(requestedSpec: string): InvalidSourcePlan {
 function indentationAt(source: string, offset: number): string {
 	const start = source.lastIndexOf("\n", offset - 1) + 1;
 	return source.slice(start, offset).match(/^\s*/u)?.[0] ?? "";
+}
+
+function isUpdateTargetMatch(options: {
+	readonly projectRoot: string;
+	readonly requestedSpec: string;
+	readonly requestedIdentity: ExtensionSourceIdentity;
+	readonly declaredSpec: string;
+}): boolean {
+	if (options.requestedIdentity.kind === "npm")
+		return options.declaredSpec === options.requestedSpec;
+	return identitiesEqual(
+		options.requestedIdentity,
+		extensionSourceIdentity(options.projectRoot, options.declaredSpec),
+	);
 }
 
 function identitiesEqual(
