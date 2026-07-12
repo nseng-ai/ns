@@ -13,9 +13,4 @@ Use this pattern when a workflow can run through `ns ...` and `/ns:...` or anoth
 - In Pi-rendered flows that already use `pi.sendMessage(...)` custom messages, do not duplicate the same progress through `NsCommandIo`; use `NsCommandIo` as the fallback when no renderer/live message path exists.
 - Treat `ctx.ui.setStatus(...)` as transient status/footer state only. It is not sufficient for user-visible progress in CLI or bridge contexts.
 
-Reference examples:
-
-- `src/autoslot.ts` for a compact CLI `NsCommandIo` adapter.
-- `src/land.ts`, `src/land-stack.ts`, and `src/land-stack/command-stream.ts` for a Pi-rendered command stream with CLI/`onOutput` fallback.
-
 See also `docs/pi/extension-command-checklist.md` for Pi-only progress helpers and the boundary between `NsCommandIo`, status, and transcript messages.
