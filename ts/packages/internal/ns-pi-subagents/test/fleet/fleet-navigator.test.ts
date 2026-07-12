@@ -1143,6 +1143,348 @@ describe("subagent fleet navigator", () => {
 		expect(manualTimers.pendingTimerCount()).toBe(0);
 	});
 
+	test("loads two expanded entries concurrently and keeps their previews independent", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Beta" }, { title: "Alpha" }]);
+		const beta = run.tasks[0]!;
+		const alpha = run.tasks[1]!;
+		registry.markRunning(alpha.id);
+		registry.markRunning(beta.id);
+		registry.markProgress(alpha.id, updateWithSessionFile("/tmp/alpha.jsonl"));
+		registry.markProgress(beta.id, updateWithSessionFile("/tmp/beta.jsonl"));
+		const pendingByPath = new Map<string, (content: string) => void>();
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: {
+				readTextFile: (path) =>
+					new Promise<string>((resolve) => {
+						pendingByPath.set(path, resolve);
+					}),
+			},
+			done: () => {},
+		});
+
+		view.handleInput(" ");
+		view.handleInput("j");
+		view.handleInput(" ");
+		await settleMicrotasks();
+		expect(pendingByPath.size).toBe(2);
+
+		pendingByPath.get("/tmp/beta.jsonl")!(
+			sessionJsonl([{ type: "message_end", message: assistantMessage("Beta latest") }]),
+		);
+		await settleMicrotasks();
+		const betaOnly = view.render(120).join("\n");
+		expect(betaOnly).toContain("latest: ● assistant: Beta latest");
+		expect(betaOnly).toContain("loading session…");
+
+		pendingByPath.get("/tmp/alpha.jsonl")!(
+			sessionJsonl([{ type: "message_end", message: assistantMessage("Alpha latest") }]),
+		);
+		await settleMicrotasks();
+		const both = view.render(120).join("\n");
+		expect(both).toContain("latest: ● assistant: Alpha latest");
+		expect(both).toContain("latest: ● assistant: Beta latest");
+		expect(both).not.toContain("loading session…");
+	});
+
+	test("opening an expanded entry in full detail starts a new read without reusing preview state", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Transition" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/transition.jsonl"));
+		const resolvers: Array<(content: string) => void> = [];
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: {
+				readTextFile: () =>
+					new Promise<string>((resolve) => {
+						resolvers.push(resolve);
+					}),
+			},
+			done: () => {},
+		});
+
+		view.handleInput(" ");
+		await settleMicrotasks();
+		resolvers[0]!(sessionJsonl());
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).toContain("latest: ● assistant: Found details");
+		expect(resolvers).toHaveLength(1);
+
+		view.handleInput("\r");
+		await settleMicrotasks();
+		// The detail surface starts a fresh read and does not reuse the preview's
+		// committed detail while it is pending.
+		expect(resolvers).toHaveLength(2);
+		expect(view.render(120).join("\n")).toContain("Reading child session…");
+
+		resolvers[1]!(sessionJsonl());
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).toContain("✓ read");
+	});
+
+	test("returning from full detail begins a fresh preview lifetime for a still-expanded entry", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Round trip" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/round-trip.jsonl"));
+		const resolvers: Array<(content: string) => void> = [];
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: {
+				readTextFile: () =>
+					new Promise<string>((resolve) => {
+						resolvers.push(resolve);
+					}),
+			},
+			done: () => {},
+		});
+
+		view.handleInput(" ");
+		await settleMicrotasks();
+		resolvers[0]!(sessionJsonl());
+		await settleMicrotasks();
+		view.handleInput("\r");
+		await settleMicrotasks();
+		resolvers[1]!(sessionJsonl());
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).toContain("✓ read");
+
+		view.handleInput("b");
+		await settleMicrotasks();
+		// The entry is still expanded but the old preview lifetime is gone: a
+		// third read is in flight and the preview shows the loading state.
+		expect(resolvers).toHaveLength(3);
+		expect(view.render(120).join("\n")).toContain("loading session…");
+
+		resolvers[2]!(sessionJsonl());
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).toContain("latest: ● assistant: Found details");
+	});
+
+	test("unchanged content keeps the preview lifetime polling with fresh reads", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Steady" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/steady.jsonl"));
+		let readCount = 0;
+		const content = sessionJsonl();
+		const manualTimers = createManualTimerScheduler();
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: testDetailContext({
+				readTextFile: async () => {
+					readCount += 1;
+					return content;
+				},
+			}),
+			done: () => {},
+			timers: manualTimers.timers,
+			detailRefreshIntervalMs: 1_000,
+		});
+
+		view.handleInput(" ");
+		await settleMicrotasks();
+		expect(readCount).toBe(1);
+		expect(view.render(120).join("\n")).toContain("latest: ● assistant: Found details");
+
+		manualTimers.advanceMs(1_000);
+		await settleMicrotasks();
+		expect(readCount).toBe(2);
+		expect(view.render(120).join("\n")).toContain("latest: ● assistant: Found details");
+	});
+
+	test("preview load failures show the placeholder and a later refresh recovers", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Flaky preview" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/flaky-preview.jsonl"));
+		let readCount = 0;
+		const manualTimers = createManualTimerScheduler();
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: testDetailContext({
+				readTextFile: () => {
+					readCount += 1;
+					if (readCount === 1) throw new Error("first preview read failed");
+					return Promise.resolve(sessionJsonl());
+				},
+			}),
+			done: () => {},
+			timers: manualTimers.timers,
+			detailRefreshIntervalMs: 1_000,
+		});
+
+		view.handleInput(" ");
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).toContain(
+			"Could not read session file: first preview read failed",
+		);
+
+		manualTimers.advanceMs(1_000);
+		await settleMicrotasks();
+		const recovered = view.render(120).join("\n");
+		expect(readCount).toBe(2);
+		expect(recovered).toContain("latest: ● assistant: Found details");
+		expect(recovered).not.toContain("first preview read failed");
+	});
+
+	test("a registry update during an in-flight read queues one follow-up using the latest snapshot", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Queued follow-up" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/queued.jsonl"));
+		const resolvers: Array<(content: string) => void> = [];
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: {
+				readTextFile: () =>
+					new Promise<string>((resolve) => {
+						resolvers.push(resolve);
+					}),
+			},
+			done: () => {},
+		});
+
+		view.handleInput(" ");
+		await settleMicrotasks();
+		expect(resolvers).toHaveLength(1);
+
+		// Two registry events while the read is in flight coalesce into one
+		// queued follow-up.
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/queued.jsonl"));
+		registry.markDone(task.id, {
+			status: "final-text",
+			finalText: "done",
+			elapsedMs: 5,
+			progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 5 },
+			sessionFile: "/tmp/queued.jsonl",
+		});
+		await settleMicrotasks();
+		expect(resolvers).toHaveLength(1);
+
+		resolvers[0]!(sessionJsonl());
+		await settleMicrotasks();
+		expect(resolvers).toHaveLength(2);
+		resolvers[1]!(sessionJsonl());
+		await settleMicrotasks();
+		// The follow-up consumed the latest snapshot: the task is done, so the
+		// preview reports the post-run status rather than the stale running one.
+		expect(view.render(120).join("\n")).toContain("final-text · commit:");
+		expect(resolvers).toHaveLength(2);
+	});
+
+	test("registry removal prunes expanded preview state and ignores its pending read", async () => {
+		const registry = new SubagentFleetRegistry({ recentTaskCap: 1 });
+		const run = registry.startRun([{ title: "Evicted" }, { title: "Survivor" }]);
+		const evicted = run.tasks[0]!;
+		const survivor = run.tasks[1]!;
+		registry.markDone(evicted.id, {
+			status: "final-text",
+			finalText: "done",
+			elapsedMs: 5,
+			progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 5 },
+			sessionFile: "/tmp/evicted.jsonl",
+		});
+		const resolvers: Array<(content: string) => void> = [];
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: {
+				readTextFile: () =>
+					new Promise<string>((resolve) => {
+						resolvers.push(resolve);
+					}),
+			},
+			done: () => {},
+		});
+
+		// The done task sorts after the queued one; select and expand it.
+		view.handleInput("j");
+		view.handleInput(" ");
+		await settleMicrotasks();
+		expect(resolvers).toHaveLength(1);
+		expect(view.render(120).join("\n")).toContain("Evicted");
+
+		// A second completion pushes the first past the recent-task cap; the
+		// follow-up head event emits the post-eviction snapshot.
+		registry.markDone(survivor.id, {
+			status: "final-text",
+			finalText: "done",
+			elapsedMs: 5,
+			progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 5 },
+			sessionFile: "/tmp/survivor.jsonl",
+		});
+		registry.markTaskFinalHead(survivor.id, { status: "available", oid: "abcdef123456" });
+		await settleMicrotasks();
+		const afterEviction = view.render(120).join("\n");
+		expect(afterEviction).not.toContain("Evicted");
+		expect(afterEviction).toContain("Survivor");
+
+		// The obsolete completion cannot repopulate the pruned entry.
+		resolvers[0]!(sessionJsonl());
+		await settleMicrotasks();
+		const afterResolve = view.render(120).join("\n");
+		expect(afterResolve).not.toContain("Evicted");
+		expect(afterResolve).not.toContain("latest:");
+		expect(resolvers).toHaveLength(1);
+	});
+
+	test("disposal during a pending read produces no render and no reschedule", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Disposed" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/disposed.jsonl"));
+		const resolvers: Array<(content: string) => void> = [];
+		let renderRequests = 0;
+		const manualTimers = createManualTimerScheduler();
+		const view = new SubagentFleetNavigator({
+			tui: {
+				requestRender: () => {
+					renderRequests += 1;
+				},
+			},
+			registry,
+			detailContext: {
+				readTextFile: () =>
+					new Promise<string>((resolve) => {
+						resolvers.push(resolve);
+					}),
+			},
+			done: () => {},
+			timers: manualTimers.timers,
+		});
+
+		view.handleInput(" ");
+		await settleMicrotasks();
+		expect(resolvers).toHaveLength(1);
+
+		view.dispose();
+		const renderRequestsAtDisposal = renderRequests;
+		expect(manualTimers.pendingTimerCount()).toBe(0);
+
+		resolvers[0]!(sessionJsonl());
+		await settleMicrotasks();
+		expect(renderRequests).toBe(renderRequestsAtDisposal);
+		expect(resolvers).toHaveLength(1);
+		manualTimers.advanceMs(5_000);
+		await settleMicrotasks();
+		expect(resolvers).toHaveLength(1);
+	});
+
 	test("registers command and falls back to notify without UI", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Scout" }]);
