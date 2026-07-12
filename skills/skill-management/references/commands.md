@@ -1,6 +1,6 @@
 # `npx skills` command reference
 
-Detailed reference for `npx skills` subcommands, flags, and known quirks. Load
+Detailed reference for `npx skills` subcommands and flags. Load
 this from `SKILL.md` only when you need deeper command detail than the workflow
 sections provide.
 
@@ -39,8 +39,6 @@ Examples:
 npx skills add ./skills/skill-management --agent codex claude-code -y
 rm -rf .agents/skills/skill-management
 ln -s ../../skills/skill-management .agents/skills/skill-management
-
-# Retired internal stack-address skills are historical only; use /pr:download-stack-feedback for stack feedback download.
 
 # Single GitHub skill
 npx skills add withgraphite/agent-skills --skill graphite --agent codex claude-code -y
@@ -111,9 +109,7 @@ npx skills check
 
 ### `update`
 
-Updates all skills with remote sources. Avoid broad updates for curated project
-lockfiles. Prefer explicit `npx skills add <source> --skill <name> --agent codex
-claude-code -y` commands for each lockfile entry that should be refreshed.
+Updates all skills with remote sources.
 
 ### `init [name]`
 
@@ -209,26 +205,6 @@ intended skill, and restore `.agents/skills/<name>` to the
 `source` is an `<owner>/<repo>` shorthand. `computedHash` is the hash of the
 fetched content and is refreshed by remote updates.
 
-## Known CLI quirks
-
-1. **`check`/`update` ignore local skills.** Local skills are edited in place and
-   never need refreshing.
-2. **`add` auto-detects agents at install time.** Always pass
-   `--agent codex claude-code -y` to avoid unwanted agent directories.
-3. **`add` is destructive on `.agents/skills/<name>`.** For local skills, it
-   replaces the `.agents` symlink with a copy. Recreate the symlink afterward:
-   `rm -rf .agents/skills/<name> && ln -s ../../skills/<name> .agents/skills/<name>`.
-4. **`remove` cleans up symlinks but not source content.** For a local skill,
-   also remove `skills/<name>/` and the lockfile entry.
-5. **Internal skills are hidden unless `INSTALL_INTERNAL_SKILLS=1` is set.** If
-   `npx skills add` reports `No skills found` for a valid local internal skill,
-   rerun the install with `INSTALL_INTERNAL_SKILLS=1`.
-6. **Local installs may capture absolute paths in `skills-lock.json`.** Normalize
-   committed local entries to `source: "skills/<name>"`.
-7. **Review `skills-lock.json` churn before committing.** If the CLI rewrites or
-   reorders unrelated entries while adding one skill, minimize the diff unless
-   those changes are intentional.
-
 ## Skill visibility (internal skills)
 
 To hide a local skill from external discovery, add `metadata.internal: true` to
@@ -250,19 +226,3 @@ Consumers must set `INSTALL_INTERNAL_SKILLS=1` to see and install them:
 INSTALL_INTERNAL_SKILLS=1 npx skills add <owner>/<repo> --list
 INSTALL_INTERNAL_SKILLS=1 npx skills add <owner>/<repo> --skill <name> --agent codex claude-code -y
 ```
-
-## Reference: install flag
-
-The canonical install flag is:
-
-```text
---agent codex claude-code -y
-```
-
-| Argument      | Purpose                                                                                                                          |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `codex`       | A universal agent. Including it causes the CLI to populate `.agents/skills/<name>`, readable by other universal agents.          |
-| `claude-code` | A dedicated-dir agent. Including it causes the CLI to create the `.claude/skills/<name> -> ../../.agents/skills/<name>` symlink. |
-| `-y`          | Skip confirmation prompts. Makes the command scriptable.                                                                         |
-
-Use exactly these flags for project installs so diffs stay predictable.

@@ -7,30 +7,23 @@ description: "Audit and tighten agent skills — ns's operational audit checklis
 # skill-audit
 
 <!--
-  LINEAGE: sections tagged with an HTML comment naming their dominant source.
-    src: skill-audit = the original ns skill-audit (operational checklists)
-    src: ns          = ns overlay / authored for this skill
   The audit vocabulary is deliberately NOT embedded here: it is read at run time
   from the vendored writing-great-skills skill (.agents/skills/writing-great-skills/,
-  upstream mattpocock/skills; pin: docs/agents/matt-pocock-skills.md), so upstream
-  refreshes need no re-sync of this file.
+  upstream mattpocock/skills; pin and de-meld history: docs/agents/matt-pocock-skills.md),
+  so upstream refreshes need no re-sync of this file.
   Installed as a command-backed support skill via areg. Keep invocation artifacts
-  managed by `areg skill apply command-backed skill-audit` (see docs/conventions/skill-conventions.md).
+  managed by `areg skill apply command-backed skill-audit`.
 -->
 
-Audit and tighten `SKILL.md` files: same **process** every run (see Vocabulary), high signal, low token cost, clear routing. Default goal: preserve behavior while deleting prompt burden.
+Audit and tighten `SKILL.md` files for **predictability** (see Vocabulary): high signal, low token cost, clear routing. Default goal: preserve behavior while deleting prompt burden.
 
-Run the **Audit Order** top to bottom; apply the checklists as you go; name every finding with a **failure mode** from the Vocabulary.
+Run the **Audit Order** top to bottom, applying the checklists as you go.
 
 ## Vocabulary — the audit lens
 
-<!-- src: ns — pointer only; the content lives in the vendored skill and is never copied here -->
-
-Read `.agents/skills/writing-great-skills/SKILL.md` before auditing. It defines the lens this audit thinks with — **predictability**, invocation and the two loads, the description as **context pointer**, the **information hierarchy**, **progressive disclosure**, granularity, **leading words**, pruning — and the **failure modes** that label every finding: **duplication**, **sediment**, **sprawl**, **no-op**, **negation**, **premature completion**. Deep definitions (with *Avoid* lists) are in its sibling `GLOSSARY.md`; consult on demand.
+Read `.agents/skills/writing-great-skills/SKILL.md` before auditing. It defines the lens this audit thinks with — **predictability**, invocation and the two loads, the description as **context pointer**, the **information hierarchy**, **progressive disclosure**, granularity, **leading words**, pruning — and the **failure modes**: **duplication**, **sediment**, **sprawl**, **no-op**, **negation**, **premature completion**. Deep definitions (with *Avoid* lists) are in its sibling `GLOSSARY.md`; consult on demand.
 
 ## Load With
-
-<!-- src: skill-audit -->
 
 - `skill-management`: when adding/removing/renaming/installing skills.
 - `cli-push-down`: when the skill has shell, parsing, data gathering, or long procedural mechanics.
@@ -38,8 +31,6 @@ Read `.agents/skills/writing-great-skills/SKILL.md` before auditing. It defines 
 - `docs/conventions/skill-conventions.md`: for invocation-kind (`areg`), frontmatter, naming, and vendoring rules.
 
 ## Audit Order
-
-<!-- src: skill-audit -->
 
 1. Load the audit lens: read the file named in **Vocabulary**.
 2. Read the target `SKILL.md`.
@@ -52,8 +43,6 @@ Read `.agents/skills/writing-great-skills/SKILL.md` before auditing. It defines 
 Completion criterion: every section of the target accounted for — flagged with a named failure mode or explicitly judged clean. A change list with no verdict per section is premature completion.
 
 ## Frontmatter
-
-<!-- src: skill-audit -->
 
 Check:
 
@@ -72,9 +61,7 @@ Red flags:
 
 ## Token Cuts
 
-<!-- src: skill-audit -->
-
-Hunt **no-ops** and **duplication** sentence by sentence (see Vocabulary); delete the whole sentence, don't trim words.
+Hunt **no-ops** and **duplication** sentence by sentence (see Vocabulary).
 
 Move to a sibling `README.md` (human-facing, agents don't load it): philosophical paragraphs, onboarding/intro/conclusion tone, decorative diagrams.
 
@@ -86,15 +73,11 @@ Rewrite style: imperative fragments over paragraphs; one rule per bullet; concre
 
 ## Clarity
 
-<!-- src: skill-audit -->
-
 A clear skill tells: when to use it; what to read next, conditionally; ownership/boundaries; must vs should vs may; verification steps; what *not* to do.
 
-Sharpen vague **completion criteria** (see Vocabulary) — a fuzzy done condition invites premature completion. Keep safety/correctness rules explicit even when verbose. A non-obvious rule earns a one-line rationale; a wrong agent choice costs more than the tokens.
+Sharpen vague **completion criteria** (see Vocabulary). Keep safety/correctness rules explicit even when verbose. A non-obvious rule earns a one-line rationale; a wrong agent choice costs more than the tokens.
 
 ## Progressive Disclosure
-
-<!-- src: skill-audit -->
 
 Optimize each level for its load frequency: frontmatter (always ambient) → `SKILL.md` body (loaded on trigger) → `references/`, `scripts/`, `assets/`, `README.md` (on demand; `README.md` human-only).
 
@@ -109,8 +92,6 @@ Thresholds:
 
 ## CLI Push-Down Audit
 
-<!-- src: skill-audit -->
-
 Look for large wins, not tiny wrappers. Push down when it removes: 20+ prompt lines; 3+ tool calls; shell pipelines or `jq`/`sed`/`awk`; loops over files/PRs/API results; deterministic validation/parsing; a workflow repeated across skills.
 
 Do not push down: semantic reading or naming; markdown parsing; one obvious command; under-30-line one-off helpers.
@@ -119,24 +100,18 @@ If pushing down, target one cohesive command returning JSON in the project CLI f
 
 ## Edit Rules
 
-<!-- src: skill-audit -->
-
 - Preserve user edits and intent; keep unrelated refactors out.
 - Don't rewrite a skill into a tutorial; prefer smaller, sharper `SKILL.md` over polished prose.
 - Add references/scripts only when the audit finds real need.
 - Edit first-party skills at `skills/<name>/` directly (`.agents/skills/<name>` is a symlink back).
-- <!-- src: ns --> Don't replace ns-native workflows (Branch Memory, Objective, Graphite, handoff, ns) with upstream/generic workflow patterns without a separate product decision.
+- Don't replace ns-native workflows (Branch Memory, Objective, Graphite, handoff, ns) with upstream/generic workflow patterns without a separate product decision.
 - After edits, run `git diff --check`; use `wc -l` when reporting reductions.
 
 ## Final Report
-
-<!-- src: skill-audit -->
 
 Report: files changed; line/token reduction if meaningful; main findings (each named with a failure mode); push-down opportunities accepted/rejected; verification run or skipped.
 
 ## Harness & overlay notes
 
-<!-- src: ns -->
-
-- **Harness caveat.** `disable-model-invocation: true` is honored zero-ambient on Claude Code and Pi, but Codex keeps the description ambient and only blocks implicit invocation. Don't invent sidecar policy in a skill; the full per-harness mechanics live in `docs/research/harness-skill-invocation.md`. Invocation kind is managed by `areg` (`docs/conventions/skill-conventions.md`), not by hand-editing flags.
-- **Vendored skills.** When auditing a skill under a real directory in `.agents/skills/`, treat it as vendored: limit findings to integration-boundary issues unless the task is explicitly to modify the dependency (`docs/conventions/skill-conventions.md`).
+- Per-harness invocation mechanics (including Codex keeping descriptions ambient) live in `docs/research/harness-skill-invocation.md`; invocation kind is managed by `areg` per the conventions doc in **Load With**.
+- Vendored skills (real directories under `.agents/skills/`): limit findings to integration-boundary issues unless the task is explicitly to modify the dependency (conventions doc in **Load With**).

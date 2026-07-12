@@ -25,30 +25,35 @@ findings against the live files before editing (line references in
       Questions.
       Evidence: each fix verified against the emitting CLI/justfile/install state; `just`
       green.
-- [~] Tranche 1 — mechanical cuts across the fleet: apply the 289 T1 findings
-  (duplication, no-op, sediment, negation deletions) per skill, honoring
-  sanctioned-duplication markers.
-  Guidance: land as a few family-grouped branches in one stack (objective family;
-  branch-context/handoff/brmem; code/Graphite ops; flow+ccc; scaffolding;
-  TypeScript/CLI; docs/retro/setup; review/meta) so review stays tractable; record
-  per-family `wc -l` before/after. The python family moved to `nseng-ai/ns-python`
-  (2026-07-12); its T1 findings are out of scope here.
-  Progress: objective family executed 2026-07-12 on `skill-audit-t1-objective-family`
-  (18 files, 1502→1487 lines, ~-1,574 words; see the t1-objective-family-cuts
-  update); branch-context/handoff/brmem executed 2026-07-12 on
-  `skill-audit-t1-branch-context-handoff` (10 files, 893→842 lines; one finding
-  rejected as test-pinned — see the t1-branch-context-handoff-brmem-cuts update);
-  code/Graphite ops executed 2026-07-12 on `skill-audit-t1-code-graphite-ops`
-  (11 files, 1816→1734 lines; see the t1-code-graphite-ops-cuts update); flow+ccc
-  executed 2026-07-12 on `skill-audit-t1-flow-ccc` (8 files, 781→731 lines; live
-  naming is `ns-cmux-*`/`ns cmux exec`, not the audit's `ccc-*` — see the
-  t1-flow-ccc-cuts update); scaffolding executed 2026-07-12 on
-  `skill-audit-t1-scaffolding` (2 live files — four batch-8 skills moved to
-  ns-python; see the t1-scaffolding-cuts update); TypeScript/CLI executed 2026-07-12
-  on `skill-audit-t1-typescript-cli` (5 files, 679→634 lines; see the
-  t1-typescript-cli-cuts update); docs/retro/setup executed 2026-07-12 on
-  `skill-audit-t1-docs-retro-setup` (10 files, 1304→1233 lines; see the
-  t1-docs-retro-setup-cuts update); one family branch remains (review/meta).
+- [x] Tranche 1 — mechanical cuts across the fleet: apply the 289 T1 findings
+      (duplication, no-op, sediment, negation deletions) per skill, honoring
+      sanctioned-duplication markers.
+      Guidance: land as a few family-grouped branches in one stack (objective family;
+      branch-context/handoff/brmem; code/Graphite ops; flow+ccc; scaffolding;
+      TypeScript/CLI; docs/retro/setup; review/meta) so review stays tractable; record
+      per-family `wc -l` before/after. The python family moved to `nseng-ai/ns-python`
+      (2026-07-12); its T1 findings are out of scope here.
+      Progress: objective family executed 2026-07-12 on `skill-audit-t1-objective-family`
+      (18 files, 1502→1487 lines, ~-1,574 words; see the t1-objective-family-cuts
+      update); branch-context/handoff/brmem executed 2026-07-12 on
+      `skill-audit-t1-branch-context-handoff` (10 files, 893→842 lines; one finding
+      rejected as test-pinned — see the t1-branch-context-handoff-brmem-cuts update);
+      code/Graphite ops executed 2026-07-12 on `skill-audit-t1-code-graphite-ops`
+      (11 files, 1816→1734 lines; see the t1-code-graphite-ops-cuts update); flow+ccc
+      executed 2026-07-12 on `skill-audit-t1-flow-ccc` (8 files, 781→731 lines; live
+      naming is `ns-cmux-*`/`ns cmux exec`, not the audit's `ccc-*` — see the
+      t1-flow-ccc-cuts update); scaffolding executed 2026-07-12 on
+      `skill-audit-t1-scaffolding` (2 live files — four batch-8 skills moved to
+      ns-python; see the t1-scaffolding-cuts update); TypeScript/CLI executed 2026-07-12
+      on `skill-audit-t1-typescript-cli` (5 files, 679→634 lines; see the
+      t1-typescript-cli-cuts update); docs/retro/setup executed 2026-07-12 on
+      `skill-audit-t1-docs-retro-setup` (10 files, 1304→1233 lines; see the
+      t1-docs-retro-setup-cuts update); review/meta executed 2026-07-12 on
+      `skill-audit-t1-review-meta` (5 skill files + skill-conventions.md, 991→855
+      lines; the four T3-re-instantiated review stubs' findings dispositioned as
+      superseded per their sanctioned-duplication markers — see the
+      t1-review-meta-cuts update). All eight family branches done; Tranche 1 is
+      complete fleet-wide.
 - [ ] Tranche 2 — trigger-surface normalization: real descriptions for the legacy
       `Command:` stubs (ns-flow-cp, ns-flow-submit, code-just-fix, code-workflows,
       changelog-update); convert workflow-summary descriptions to trigger-shaped ones
