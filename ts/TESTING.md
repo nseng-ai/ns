@@ -155,6 +155,26 @@ A test that creates a temporary Git repository by invoking real Git commands (`g
 `git worktree`, or similar) is an integration test. Keep only fake-driven Git protocol coverage, injected
 `GitGateway` behavior, or inert `.git`-shaped fixture parsing in the default lane.
 
+## CLI and terminal integration tests
+
+Use fake-driven command scenarios in the default lane for arguments, exit codes, confirmations, machine
+envelopes, stdout/stderr, and gateway behavior. Use terminal emulation in the integration lane only when
+the contract depends on how a terminal interprets emitted bytes—for example physical wrapping, cursor
+movement, live-region cleanup, settlement, scrollback, or terminal-mode restoration. Cold process startup,
+package loading, and real external adapters are separate integration boundaries and should remain narrow
+smoke tests.
+
+Terminal-emulation tests should drive the real writer or renderer into a terminal parser and assert on the
+resulting terminal buffer, including scrollback. They should not infer visual correctness from captured
+strings or fake writer calls. Keep terminal time deterministic, model actual and writer-reported geometry
+as separate values, and flush asynchronous terminal writes before asserting.
+
+See
+[`packages/infra/clinkr/docs/terminal-integration-testing.md`](packages/infra/clinkr/docs/terminal-integration-testing.md)
+for the standard harness shape, PTY newline model, scenario matrix, assertion strategy, debugging workflow,
+and limitations. The reference test is
+[`packages/infra/clinkr/test/integration/stream-terminal-emulation.test.ts`](packages/infra/clinkr/test/integration/stream-terminal-emulation.test.ts).
+
 ## Default-path test expectations
 
 Default-path tests should prefer small fake-driven seams:
