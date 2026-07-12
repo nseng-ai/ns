@@ -1,5 +1,5 @@
 // Capability API (`@nseng-ai/objectives/api`): the curated, in-process surface that
-// sibling consumers such as `ccc` and `nscc` depend on. It wraps the
+// sibling consumers such as `ccc` depend on. It wraps the
 // gateway-injected Domain Core (`ObjectiveCliContext`, which carries the git and
 // storage gateways) and never exposes command-face (`ClinkrExit`) types.
 

@@ -111,7 +111,6 @@ export const extensionGraphPackageNames = new Set([
 	"@nseng-ai/kernel",
 	"@nseng-ai/ns",
 	"@nseng-ai/pi",
-	"nscc",
 ]);
 
 export const deferredExtensionCycleComponents = [];
