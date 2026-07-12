@@ -124,7 +124,13 @@ export async function executeLandingRequest(
 	}
 	const shape = loadedShape.value;
 	draft.repoRoot = shape.repoRoot;
-	draft.phases.push(completed("repo-discovery"), completed("stack-shape"));
+	draft.phases.push(
+		options.source.type === "discover"
+			? completed("repo-discovery")
+			: skipped("repo-discovery", "shape supplied by caller"),
+		// `stack-shape` records that execution observed a usable shape, not how it was obtained.
+		completed("stack-shape"),
+	);
 
 	const cleanupRequest: PostLandingCleanupRequest = {
 		mode: request.mode,
@@ -201,7 +207,9 @@ export async function executeLandingRequest(
 	host.progress.note(formatPreparingLandingMilestone(plan.value));
 
 	let readyPlan = plan.value;
+	let didRunSubmitPreparation = false;
 	if (readyPlan.managedSlotConflicts.length > 0) {
+		didRunSubmitPreparation = true;
 		const freed = await confirmAndFreeManagedSlots({ context, host, plan: readyPlan });
 		if (freed.type === "failure") {
 			return failedResult(draft, "submit-preparation", freed.failure);
@@ -209,6 +217,7 @@ export async function executeLandingRequest(
 		draft.preMergeFreedSlots = freed.value;
 	}
 	if (readyPlan.prSubmitRequirements.length > 0) {
+		didRunSubmitPreparation = true;
 		const submitted = await submitRequiredUpdatesAndRecheckPlan({
 			context,
 			host,
@@ -221,9 +230,7 @@ export async function executeLandingRequest(
 		readyPlan = submitted.value;
 		draft.plan = readyPlan;
 	}
-	if (plan.value.managedSlotConflicts.length > 0 || plan.value.prSubmitRequirements.length > 0) {
-		draft.phases.push(completed("submit-preparation"));
-	}
+	if (didRunSubmitPreparation) draft.phases.push(completed("submit-preparation"));
 
 	const mergeOutcome = await runMergeLoop({
 		context,
@@ -397,14 +404,15 @@ function completedResult(draft: ReportDraft): LandingExecutionResult {
 
 function failedResult(
 	draft: ReportDraft,
-	phase: LandingPhase,
+	failedPhase: LandingPhase,
 	failure: LandingFailure,
 ): LandingExecutionResult {
+	const failedExecution = { type: "failed" as const, failedPhase, failure };
 	const failedDraft: ReportDraft = {
 		...draft,
-		phases: [...draft.phases, { type: "failed", phase, failure }],
+		phases: [...draft.phases, { type: "failed", phase: failedExecution.failedPhase, failure }],
 	};
-	return { type: "failed", report: reportFromDraft(failedDraft), failure };
+	return { ...failedExecution, report: reportFromDraft(failedDraft) };
 }
 
 function reportFromDraft(draft: ReportDraft): LandingExecutionReport {

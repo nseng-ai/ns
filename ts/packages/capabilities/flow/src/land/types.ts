@@ -128,7 +128,10 @@ export interface LandingNotImplementedFailure {
 
 /**
  * Outcome-rich report carried by both {@link LandingExecutionResult} variants. Early failures omit
- * discovery facts (`repoRoot`, `plan`) that were never observed; phases record only work that ran.
+ * discovery facts (`repoRoot`, `plan`) that were never observed. Phases are an observational audit
+ * trail for presentation: callers route on typed result and report facts, never phase names or order.
+ * A completed `stack-shape` entry means a usable shape was observed, whether loaded from the
+ * repository or supplied by the caller; `repo-discovery` records only repository loading work.
  */
 export type LandingCompletionDisposition =
 	| { readonly type: "stack-execution" }
@@ -153,6 +156,7 @@ export type LandingExecutionResult =
 	| { readonly type: "completed"; readonly report: LandingExecutionReport }
 	| {
 			readonly type: "failed";
+			readonly failedPhase: LandingPhase;
 			readonly report: LandingExecutionReport;
 			readonly failure: LandingFailure;
 	  };

@@ -19,6 +19,7 @@ import {
 	stackSnapshot,
 	type InMemoryLandContextState,
 } from "@nseng-ai/flow/land/testing";
+import { isPostLandingCleanupFailureAfterLanding } from "../../../src/land/landing-execution.ts";
 
 const ROOT = "/repo";
 const SLOT_ROOT = "/state/ns/slots/repos/repo/worktrees/slot-02";
@@ -88,6 +89,7 @@ describe("land execute mode over in-memory gateways", () => {
 				},
 			},
 		});
+		expect(memory.git.resolveRepoRootCalls).toEqual([{ cwd: ROOT }]);
 		// Cross-check: `land-stack-command-scenarios.test.ts`, scenario
 		// "renders final landed PR numbers as terminal hyperlinks". This compares semantic gateway
 		// requests in order; the permanent transcript remains the raw command-shape authority.
@@ -131,6 +133,23 @@ describe("land execute mode over in-memory gateways", () => {
 		]);
 	});
 
+	test("records supplied shape observation without claiming repository discovery", async () => {
+		const memory = createInMemoryLandContext(linearState());
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "prepared", shape: stackLandingShape() },
+			request: executeRequest(),
+			host: approvedHost(),
+		});
+
+		expect(outcome.report.phases.slice(0, 2)).toEqual([
+			{ type: "skipped", phase: "repo-discovery", reason: "shape supplied by caller" },
+			{ type: "completed", phase: "stack-shape" },
+		]);
+		expect(memory.git.resolveRepoRootCalls).toEqual([]);
+		expect(memory.graphite.stackShapeCalls).toEqual([]);
+	});
+
 	test("refuses safely with the default host before merge mutation", async () => {
 		const memory = createInMemoryLandContext(linearState());
 		const outcome = await executeLanding({
@@ -145,6 +164,7 @@ describe("land execute mode over in-memory gateways", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
+			failedPhase: "confirmation",
 			failure: {
 				type: "execution",
 				outcome: "refusal",
@@ -187,6 +207,7 @@ describe("land execute mode over in-memory gateways", () => {
 			},
 		});
 		if (outcome.type !== "failed") return;
+		expect(outcome.failedPhase).toBe("confirmation");
 		expect(outcome.report.phases.some((phase) => phase.phase === "merge")).toBe(false);
 		expect(outcome.report.phases.at(-1)).toMatchObject({
 			type: "failed",
@@ -222,6 +243,7 @@ describe("land execute mode over in-memory gateways", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
+			failedPhase: "submit-preparation",
 			failure: { message: expect.stringContaining("GitHub PR metadata still differs") },
 		});
 		expect(memory.graphite.prepareSubmitUpdateCalls).toEqual([{ repoRoot: ROOT, branch: BRANCH }]);
@@ -256,6 +278,7 @@ describe("land execute mode over in-memory gateways", () => {
 		expect(outcome).toMatchObject({
 			type: "completed",
 			report: {
+				phases: expect.arrayContaining([{ type: "completed", phase: "submit-preparation" }]),
 				cleanup: {
 					preMergeFreedSlots: [
 						{ type: "managed-slot", branch: BRANCH, path: slot.path, slotName: "slot-03" },
@@ -316,9 +339,10 @@ describe("land execute mode over in-memory gateways", () => {
 			},
 		});
 		if (outcome.type !== "failed") return;
+		expect(outcome.failedPhase).toBe("submit-preparation");
 		expect(outcome.report.phases.at(-1)).toMatchObject({
 			type: "failed",
-			phase: "submit-preparation",
+			phase: outcome.failedPhase,
 		});
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 	});
@@ -537,7 +561,7 @@ describe("land execute mode over in-memory gateways", () => {
 			host: approvedHost(),
 		});
 
-		expect(outcome).toMatchObject({ type: "failed" });
+		expect(outcome).toMatchObject({ type: "failed", failedPhase: "merge" });
 		if (outcome.type !== "failed") return;
 		expect(outcome.report.landedChunks).toMatchObject([
 			{ landed: [{ branch: BRANCH, number: 101 }] },
@@ -716,6 +740,14 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 				},
 			},
 		});
+		if (outcome.type !== "failed") return;
+		expect(outcome.failedPhase).toBe("post-landing-cleanup");
+		expect(
+			isPostLandingCleanupFailureAfterLanding({
+				...outcome,
+				report: { ...outcome.report, phases: [] },
+			}),
+		).toBe(true);
 		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
 	});
 
@@ -749,6 +781,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			},
 		});
 		if (outcome.type !== "failed") return;
+		expect(outcome.failedPhase).toBe("post-landing-cleanup");
 		const postCleanup = outcome.report.cleanup.postLandingSlotCleanup;
 		expect(postCleanup.type === "failed" && postCleanup.freedSlot === undefined).toBe(true);
 	});
@@ -813,6 +846,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
+			failedPhase: "request-validation",
 			failure: { type: "not-implemented", phase: "request-validation" },
 		});
 		expect(memory.git.resolveRepoRootCalls).toEqual([]);
