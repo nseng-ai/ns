@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { importTypeScriptWorkspaceModule } from "../lib/workspace-packages.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { ExtensionAPI as PiExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { z as ZodNamespace } from "zod";
 
 // Provisional consumer artifact (docs/platform-and-consumer.md): a vibecoded Pi tool for the
@@ -31,6 +32,7 @@ import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
 	SingleSubagentFleetRunTracking,
+	SubagentFleetRegistry,
 } from "@internal/ns-pi-subagents/api";
 import type { RawPiExecApi } from "@nseng-ai/pi/shared/command-exec";
 import {
@@ -69,6 +71,7 @@ type RunnerStepPhase = "begin" | "subagent" | "finish";
 
 interface RunObjectiveRunnerStepOptions {
 	readonly pi: ExtensionAPI;
+	readonly fleetRegistry: SubagentFleetRegistry;
 	readonly params: unknown;
 	readonly signal: AbortSignal | undefined;
 	readonly ctx: ToolContext;
@@ -99,6 +102,8 @@ interface DiagnosticTailSection {
 }
 
 interface ExtensionAPI extends RawPiExecApi {
+	readonly events: PiExtensionAPI["events"];
+	readonly on: PiExtensionAPI["on"];
 	registerCommand(
 		name: string,
 		options: {
@@ -157,18 +162,23 @@ const OBJECTIVE_RUNNER_STEP_PARAMETERS = z.toJSONSchema(objectiveRunnerStepInput
 const stepCountsBySlug = new Map<string, number>();
 
 export default function objectiveAutorunExtension(pi: ExtensionAPI): void {
+	const fleetRegistry = getOrCreateSubagentFleetRegistry({
+		owner: pi.events,
+		onSessionStart: (handler) => pi.on("session_start", handler),
+		onSessionShutdown: (handler) => pi.on("session_shutdown", handler),
+	});
 	pi.registerTool({
 		name: TOOL_NAME,
 		label: "Objective runner step",
 		description: `Run ONE Objective Runner step mechanically: runner-begin, dispatch the implementation subagent with the generated prompt (live progress widget), runner-finish. Returns the Runner Checkpoint markdown for the parent to judge; owns fresh report/facts scratch paths per call. The parent keeps all judgment: read the checkpoint, then decide continue / recover (call again with recover: true) / stop. Runner runs are local-only and obey the canonical forbidden-action rule: ${OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE}`,
 		parameters: OBJECTIVE_RUNNER_STEP_PARAMETERS,
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
-			runObjectiveRunnerStep({ pi, params, signal, ctx }),
+			runObjectiveRunnerStep({ pi, fleetRegistry, params, signal, ctx }),
 	});
 }
 
 async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): Promise<ToolResult> {
-	const { pi, params, signal, ctx } = options;
+	const { pi, fleetRegistry, params, signal, ctx } = options;
 	const parsedInput = objectiveRunnerStepInputSchema.safeParse(params);
 	if (!parsedInput.success) throw new Error(formatZodError(parsedInput.error));
 	const input: ObjectiveRunnerStepInput = parsedInput.data;
@@ -252,7 +262,6 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 		}
 
 		const subagentTitle = input.title ?? `objective ${slug} step ${stepNumber}`;
-		const fleetRegistry = getOrCreateSubagentFleetRegistry(pi);
 		fleetTracking = trackSingleSubagentFleetRun({
 			registry: fleetRegistry,
 			ctx,
