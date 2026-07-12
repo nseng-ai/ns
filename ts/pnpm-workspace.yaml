@@ -13,15 +13,18 @@ catalog:
   '@earendil-works/pi-ai': 0.80.5
   '@earendil-works/pi-coding-agent': 0.80.5
   '@earendil-works/pi-tui': 0.80.5
+  '@octokit/auth-app': ^8.2.0
   '@pierre/diffs': ^1.2.10
   '@types/node': ^24.0.0
   '@typescript/native': npm:typescript@^7.0.2
+  '@vercel/sandbox': ^2.5.0
   '@withgraphite/graphite-cli': ^1.8.6
   '@xterm/headless': ^6.0.0
   ansis: ^4.3.1
   commander: ^14.0.0
   esbuild: ^0.27.0
   jiti: 2.7.0
+  jose: ^6.2.3
   jsonc-parser: ^3.3.1
   log-update: ^8.0.0
   oxfmt: ^0.55.0

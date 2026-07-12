@@ -45,6 +45,7 @@
 		"@nseng-ai/review-reinvention-scanner": "workspace:*",
 		"@nseng-ai/reviews": "workspace:*",
 		"@nseng-ai/slots": "workspace:*",
+		"@nseng-ai/vercel": "workspace:*",
 		"@types/node": "catalog:",
 		"@typescript/native": "catalog:",
 		"@withgraphite/graphite-cli": "catalog:",

@@ -1,6 +1,11 @@
 [areg]
 agents = ["codex", "claude-code"]
 
+[dispatch]
+harness = "pi"
+vercel_project_id = "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06"
+vercel_team_id = "team_P6pLJeeBHKiZlpYP8elK1qYH"
+
 [reviews.diff]
 exclude = [
   ".agents/skills/**/*.py",

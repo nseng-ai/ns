@@ -87,7 +87,10 @@ code state, the handoff carries the session context.
 
 Under the hood this is the handoff machinery with a predefined continuation
 prompt: the handoff carries the context, the prompt tells the remote agent
-to pick it up and continue.
+to pick it up and continue. The kernel command is
+`ns dispatch handoff <ref>` — it takes an explicit handoff reference, so
+any handoff (including one created earlier) can be dispatched from any
+harness; capturing the *current* session is the Pi command's sugar.
 
 ### What the remote agent sees
 
@@ -110,27 +113,33 @@ A terminal UI lists every outstanding dispatch job with its status —
 running, landed, or failed — each with its anchor PR, and failed ones with
 the failure reason and access to the run's logs. This is how you answer
 "what did I send away, and is it done?" from the terminal instead of a
-browser tab. (Command name and status plumbing: see Open questions.)
+browser tab. The TUI enumerates the `dispatch/` anchor PRs and follows each
+one's run handle into Vercel's own run observability for live state and
+logs. (Command name: see Open questions.)
 
 ### Under the hood
 
-The Pi commands are thin mirrors of the `ns dispatch plan|prompt` kernel
-CLI, so the same surface is reachable from any harness — Claude Code and
-Codex get the identical commands through wrapper skills. Pi is the
+The Pi commands are thin mirrors of the `ns dispatch plan|prompt|handoff`
+kernel CLI, so the same surface is reachable from any harness — Claude Code
+and Codex get the identical commands through wrapper skills. Pi is the
 first-documented experience, not a privileged one.
 
 There is no per-dispatch backend, harness, or model choice — you dispatch
-work, not runtimes. Which execution backend runs your dispatches (and which
-agent harness runs inside it) is preconfigured in the repository; the
-backend seam is designed so new backends can be added without reshaping the
-commands.
+work, not runtimes. Cloud dispatch is Vercel-native: the `@nseng-ai/vercel`
+capability package runs dispatches on Vercel Sandbox and scheduled work on
+Vercel Workflows. Which agent harness runs inside the sandbox is
+preconfigured in the repository (see "Setup").
 
 ## The anchor PR
 
 Every dispatch opens its pull request **up front**, before the job is
-submitted: a new branch based at the commit you dispatched from is pushed,
-and a PR opens for it immediately. The PR is the job's anchor — one durable,
-linkable place where the dispatch is observable from the moment it exists.
+submitted: a new `dispatch/`-prefixed branch based at the commit you
+dispatched from is pushed, and a PR opens for it immediately. The PR is the
+job's anchor — one durable, linkable place where the dispatch is observable
+from the moment it exists. At submission the PR is stamped with the run's
+handle, so anything (you, the jobs TUI) can get from the PR to the run's
+state and logs later — the anchor PR is the durable record, not a local
+ledger or a cloud console.
 
 - **While the run executes**, the anchor PR is where a dispatch is visible
   outside your terminal.
@@ -172,35 +181,171 @@ dispatch.
 
 ## Setup
 
+Non-secret repo configuration lives in the repo-root `ns.toml`, in a typed
+`[dispatch]` table: which agent harness runs inside the sandbox (Pi first)
+and the stable Vercel project/team IDs. It's versioned with the repo, so every
+clone dispatches the same way:
+
+```toml
+[dispatch]
+harness = "pi"
+vercel_project_id = "prj_..."
+vercel_team_id = "team_..."
+```
+
 Credentials are configured once, on the Vercel project that backs cloud
 dispatch, using Vercel's own secrets infrastructure:
 
 - **Model keys** live as sensitive environment variables on the dispatch
-  project — encrypted at rest, write-only after creation.
+  project — encrypted at rest, write-only after creation. The bootstrap
+  recognizes `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`; a run receives only
+  the key required by its configured model.
 - **Git access** (clone + push) uses short-lived, repo-scoped credentials
-  the executor mints per run; no long-lived broad token sits in an env var.
+  minted per run as **GitHub App installation tokens**; no long-lived broad
+  token sits in an env var. One-time setup: register the org-owned
+  `ns-dispatch` GitHub App and install it on the repository. For an existing
+  App, GitHub generates additional private keys only through the App settings
+  UI: restrict the downloaded PEM to owner access, stream it without printing
+  into the sensitive `NS_DISPATCH_GITHUB_APP_PRIVATE_KEY` variable, verify the
+  App and installation identity, then remove the local copy after cloud
+  verification. GitHub's App Manifest flow can instead return a PEM once while
+  creating a new App; it does not rotate an existing App's key. Non-secret app
+  and installation IDs use `NS_DISPATCH_GITHUB_APP_ID` and
+  `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID`; the prototype's landing-time shared
+  secret uses the sensitive `NS_DISPATCH_SANDBOX_MINT_SECRET` variable.
+  Anchor-PR activity from remote runs attributes to `ns-dispatch[bot]`.
 - **Executor auth** is Vercel OIDC federation: Vercel-hosted compute gets a
   short-lived token injected automatically, and dispatching from your own
   machine uses the development token from `vercel link` + `vercel env pull`.
+- **Your own machine keeps using its own credentials.** The up-front anchor
+  push and PR open ride the git/gh auth already on your machine; minted
+  tokens are for the remote side, where no human credential exists.
 
 Sandboxes are secret-free by default: each run receives only the credentials
-it needs, injected at sandbox creation. Dispatch preflights credentials and
-reports exactly what is missing before any remote work starts.
+it needs, injected at sandbox creation — and the git credential is phased:
+a clone-scoped token at start, no token while the agent works, and a fresh
+short-lived token minted only when the run is ready to land its results.
+Dispatch preflights credentials and reports exactly what is missing before
+any remote work starts.
+
+### Mint endpoint configuration
+
+The dispatch deployable's `POST /api/mint` endpoint reads these variables:
+
+| Variable                                 | Sensitivity | Purpose                                                        |
+| ---------------------------------------- | ----------- | -------------------------------------------------------------- |
+| `NS_DISPATCH_GITHUB_APP_ID`              | Non-secret  | GitHub App identifier                                          |
+| `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID` | Non-secret  | Installation restricted to the configured repository           |
+| `NS_DISPATCH_GITHUB_APP_PRIVATE_KEY`     | Sensitive   | Signs GitHub App authentication; never pull to a dev machine   |
+| `NS_DISPATCH_SANDBOX_MINT_SECRET`        | Sensitive   | Prototype landing credential; replace with a per-run voucher   |
+| `NS_DISPATCH_GITHUB_REPOSITORY`          | Non-secret  | Exact authorized `owner/repo`; also needed in Development      |
+| `NS_DISPATCH_VERCEL_TEAM_ID`             | Non-secret  | Required development-token `owner_id`                          |
+| `NS_DISPATCH_VERCEL_PROJECT_ID`          | Non-secret  | Required development-token `project_id`                        |
+| `NS_DISPATCH_VERCEL_OIDC_ISSUER`         | Non-secret  | Exact trusted issuer used for signature and claim verification |
+| `NS_DISPATCH_VERCEL_OIDC_AUDIENCE`       | Non-secret  | Exact trusted audience                                         |
+
+Vercel sensitive variables are write-only and their keys cannot be renamed.
+Create replacement sensitive variables for a namespace migration, stream fresh
+secret material without printing it, and retain the old variables only until
+the replacement deployment is verified.
+
+Configure the endpoint only after confirming the linked project's actual
+Development token issuer, audience, `owner_id`, `project_id`, and
+`environment` claims without printing or recording the token. The endpoint
+accepts only `environment: development` with exact team/project matches;
+Preview or Production tokens are intentionally forbidden for the local
+clone-token path. A mismatch is a configuration failure to fix, not a reason
+to widen OIDC trust.
+
+### Controlled private-repository probe
+
+The Vercel project's Root Directory is
+`ts/packages/capabilities/vercel`, making the capability package itself the
+Vercel deployable. Link that package directory for project-local build and
+environment commands, but deploy from the repository root so Vercel applies the
+configured monorepo Root Directory exactly once. The proven setup sequence is:
+
+1. Set the Vercel project's Root Directory to
+   `ts/packages/capabilities/vercel`, retain "Include source files outside of
+   the Root Directory," and link the package directory to the dispatch project
+   with `vercel link` if `.vercel/project.json` is absent.
+2. Configure the endpoint variables above. Keep the private key and prototype
+   landing secret sensitive; make `NS_DISPATCH_GITHUB_REPOSITORY` available to
+   the Development environment so the local probe can read it.
+3. From the package directory, run `pnpm build:deployable`. This runs the repo's
+   native TypeScript check, fails on TypeScript diagnostics that Vercel's build
+   may otherwise tolerate, builds the local Vercel output, and verifies that the
+   emitted mint function contains every relative runtime module. Then deploy
+   from the repository root with the existing project selected:
+
+   ```sh
+   vercel deploy . --project ns-dispatch --scope <team-slug> --prod --yes
+   ```
+
+   Record the explicit HTTPS URL without embedding credentials in it.
+4. From the package directory, refresh the ignored local file with
+   `vercel env pull .env.local --environment=development`. This file supplies
+   `VERCEL_OIDC_TOKEN` and is ignored by git. Decode only the non-secret claims;
+   never print or record the token, and do not guess issuer/audience from URL
+   conventions. Keep the ignore rule specific to `.env.local` if the CLI tries
+   to append a broader `.env*` rule that would hide intentional env templates.
+5. Choose a 40-character commit SHA that is reachable from the GitHub remote; a
+   local-only HEAD cannot be cloned by the Sandbox. Invoke the development-only
+   fixed probe from the package directory:
+
+   ```sh
+   pnpm dev:sandbox-hello-probe https://<dispatch-host>/api/mint <40-character-commit-sha>
+   ```
+
+The probe carries the caller's Development OIDC token on the private
+`x-ns-dispatch-oidc-token` header. Do not use Vercel's reserved
+`x-vercel-oidc-token` header for this hop: Vercel replaces it with the executing
+production Function's workload identity before the handler runs.
+
+The script reads Vercel team/project IDs from the repo-root `[dispatch]`
+table and the repository from `NS_DISPATCH_GITHUB_REPOSITORY`; it does not take
+those trust inputs as user-controlled arguments. It requests a clone-only
+installation token, creates a non-persistent Node 24 Sandbox with a shallow
+private-git checkout at the exact SHA, runs only the fixed marker/HEAD
+command, compares the observed SHA, and attempts cleanup on every
+post-creation path. Successful safe output has this shape and never includes
+the OIDC or installation token:
+
+```text
+Starting fixed Sandbox hello probe for owner/repo at <sha>.
+__NS_SANDBOX_HELLO_PROBE_V1__
+HEAD <sha>
+```
+
+Common safe failure signals to preserve in the eventual setup skill:
+
+- missing or invalid `VERCEL_OIDC_TOKEN` or
+  `NS_DISPATCH_GITHUB_REPOSITORY` in the package-root `.env.local`;
+- invalid or missing repo-root `[dispatch]` project/team IDs;
+- `401 unauthorized` from missing, malformed, or failed OIDC authentication;
+- `403 forbidden` from issuer/audience-adjacent identity policy, wrong
+  team/project/environment, wrong purpose, or repository mismatch;
+- `500 mint-endpoint-misconfigured` naming only the invalid variable;
+- `502 github-token-mint-failed` when App installation, repository scope, or
+  requested permissions do not permit the narrow token;
+- safe Sandbox create, command, output, revision, or cleanup failures without
+  vendor request details or credential values.
+
+The command shape, fake-driven behavior, deployment boundary, Development-token
+trust check, and one controlled billable private-repository Sandbox probe are
+verified. The shared landing secret and sandbox self-landing remain prototype
+shortcuts; their named upgrades are the per-run landing voucher and Vercel-side
+supervisor.
 
 ## Open questions
 
 Unsettled decisions, visible here on purpose:
 
-- **Dispatch jobs TUI shape.** The TUI is committed. Run state and logs are
-  expected to come from the cloud backend's own run infrastructure (Vercel
-  Sandbox / Workflows observability), queried through the backend seam, with
-  the anchor PR carrying the durable status trace. Open: the TUI's command
-  name and whether any push-style notification exists beyond the TUI and
-  the anchor PR.
-- **Git credential minting.** The Vercel-native credentials story is
-  settled; open is the exact mechanism for minting per-run repo-scoped git
-  credentials (fine-grained PAT, GitHub App installation token, or other),
-  owned by the credentials roadmap row.
+- **Dispatch jobs TUI shape.** The TUI is committed, and its status
+  plumbing is settled: it enumerates `dispatch/` anchor PRs and follows
+  each PR's stamped run handle into Vercel's run observability for state
+  and logs. Open: the TUI's command name and whether any push-style
+  notification exists beyond the TUI and the anchor PR.
 - **Nightly advancement policy.** Which objectives qualify for autonomous
   overnight advancement, what an objective must declare (e.g. a
   `## Runner Policy` section) to opt in, and what the review loop over
