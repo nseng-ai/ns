@@ -37,7 +37,6 @@ export const firstBatchPackages = ["@nseng-ai/capability-kit", "@nseng-ai/flow"]
 
 export const excludedPackages = new Set([
 	"@nseng-ai/pi",
-	"@nseng-ai/pi-command-surfaces",
 	"nscc",
 	"@internal/pi-tools",
 	"@internal/typescript-style-guard",
