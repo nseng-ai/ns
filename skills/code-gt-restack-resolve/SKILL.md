@@ -233,10 +233,13 @@ Agent-decided work:
 
 Hard constraints:
 - Do not prompt the user.
+- Do not abort the rebase/restack.
 - Do not resolve conflicts outside the current conflict stop.
 - Run gt continue at most once. This is an audit boundary: if that continue
   reaches a new conflict stop, do not resolve it; return outcome=advanced with
   the new repository state.
+- Do not use whole-file checkout except for generated files as allowed by the
+  engine.
 
 Output contract: end with this delimited result block, filling every line for
 all outcomes:

@@ -122,6 +122,8 @@ For each batch:
    gt create <branch-name> -m "thermo: <batch>"
    ```
 
+   If `gt create` behavior appears different from creating an empty branch on a clean worktree, re-check `gt create --help` and stop rather than improvising.
+
 3. If the harness supports editing subagents, dispatch this branch's implementation subagent under the Subagent contract. The prompt must include:
    - current branch name;
    - approved finding ids;

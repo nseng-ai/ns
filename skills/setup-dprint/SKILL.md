@@ -139,7 +139,8 @@ When a `dprint.json` already exists (branched from Step 2):
    - If no `markdown` plugin: add the markdown plugin URL to `plugins` and `"**/*.md"` to `includes`.
    - If no `toml` plugin: add the toml plugin URL to `plugins` and `"**/*.toml"` to `includes`.
 4. Add any missing plugin config blocks (`"markdown": {...}`, `"toml": {...}`).
-5. Run `dprint fmt` and `dprint check` to verify.
+5. Do NOT overwrite existing config values -- only add what's missing.
+6. Run `dprint fmt` and `dprint check` to verify.
 
 ## Next steps
 

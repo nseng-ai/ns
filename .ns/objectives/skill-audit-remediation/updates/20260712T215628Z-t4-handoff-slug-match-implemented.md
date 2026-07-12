@@ -17,9 +17,13 @@ the new command.
 Compatibility was checked, not assumed: the full live inventory (71 handoffs,
 including deleted) contains only already-normalized slugs, so the one-step
 non-alphanumeric reading affects no stored handoff; term matching keeps the
-pre-existing exact-token Pi behavior. One deliberate behavior change flagged for
+pre-existing exact-token Pi behavior. Two deliberate behavior changes flagged for
 review: `ns handoff create` previously rejected un-normalized slugs and now accepts
-and normalizes them — the intended push-down, with an additive envelope change.
+and normalizes them — the intended push-down, with an additive envelope change —
+and the only-handoff-in-scope rung now applies only when the selector is empty
+(the extracted Pi semantics), where the old skill prose auto-picked a lone handoff
+even when supplied search words did not match it; the skill text states the
+empty-selector condition.
 
 Validation: `just` green (511 files / 5151 tests; one `ts-format-fix` pass),
 `areg check` OK, all three handoff skills verified. Live verification included a

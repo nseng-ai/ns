@@ -48,9 +48,9 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
    ns slot gt exec backup-refs --label linearize --branch <branch> [--branch <branch> ...] --format json
    ```
 
-   One `--branch` per affected branch. The command stamps the run, encodes `/`
-   in branch names as `__`, and refuses missing branches or backup-name
-   collisions without creating anything. Record `data.prefix`
+   One `--branch` per affected branch. The command stamps the run (UTC),
+   encodes `/` in branch names as `__`, and refuses missing branches or
+   backup-name collisions without creating anything. Record `data.prefix`
    (`backup/linearize-<stamp>/`) for the final report; on a non-zero exit, stop
    and report — do not mutate without backups.
 

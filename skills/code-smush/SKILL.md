@@ -41,10 +41,13 @@ stack "looks like it needs packaging"; run it because the user asked.
    verbs to inspect PR state; several refresh PR metadata from the remote. PR
    associations come only from Graphite's local cache (or from the user); stale or
    absent cache state is reported as *unknown*, never refreshed to improve the
-   proposal. On repackaging, the close-candidate set is deterministic — the
-   **entire old stack** — and is reported loudly (a clearly marked section in the
-   final report); every decision about closing it belongs to the user.
-2. **Propose before mutation — gate weight follows destructiveness.** Render the
+   proposal.
+2. **Never close PRs — not even indirectly.** Smush never creates, updates,
+   closes, or otherwise mutates a pull request. On repackaging, the
+   close-candidate set is deterministic — the **entire old stack** — and is
+   reported loudly (a clearly marked section in the final report); every decision
+   about closing it belongs to the user.
+3. **Propose before mutation — gate weight follows destructiveness.** Render the
    full proposed Slice Map (format below) and wait for the user's explicit
    go-ahead. Silence, ambiguity, or a partial answer is not consent. This proposal
    readback is the human's Slice Map view. Destructive operations — `gt rename`,
@@ -54,18 +57,21 @@ stack "looks like it needs packaging"; run it because the user asked.
    discarding a candidate replacement stack is a legitimate iteration loop while
    the user is actively reshaping — prefer that loop over repeated rounds of
    prose re-ratification.
-3. **Backup before mutation.** Create timestamped local backup branches for the run
+4. **Backup before mutation.** Create timestamped local backup branches for the run
    tip and every branch the operation will move, rename, or rewrite.
-4. **No durable state.** Classification and per-cut rationale live only in branch
+5. **No durable state.** Classification and per-cut rationale live only in branch
    names and commit messages. Write no state files, no map files, no markers or
    trailers. Any JSON passed between steps is transient process input; nothing of
    it survives the run. Re-derive everything from the stack every time.
-5. **Read-side discipline.** Read stack topology with `ns slot gt exec
+6. **Read-side discipline.** Read stack topology with `ns slot gt exec
    stack-branches --format json` and `ns slot gt exec stack-map-branches --format
    json`, per the display-output rule in
    `docs/conventions/graphite-dependency-boundary.md`.
-6. **No new CLI.** V1 is wholly LM-driven prose over the raw commands in this
+7. **No new CLI.** V1 is wholly LM-driven prose over the raw commands in this
    document. Do not build or reach for packaging-specific push-down commands.
+   Shared `slot gt` exec primitives that also serve other skills
+   (`stack-branches`, `stack-map-branches`, `backup-refs`) are not
+   packaging-specific and are in bounds.
 
 ## Packaging rule
 
@@ -258,9 +264,9 @@ always; every branch that will be renamed or squashed) in one call:
 ns slot gt exec backup-refs --label smush --branch <branch> [--branch <branch> ...] --format json
 ```
 
-One `--branch` per affected branch. The command stamps the run, encodes `/` in
-branch names as `__`, and refuses missing branches or backup-name collisions
-without creating anything. Record `data.prefix` (`backup/smush-<stamp>/`) for
+One `--branch` per affected branch. The command stamps the run (UTC), encodes
+`/` in branch names as `__`, and refuses missing branches or backup-name
+collisions without creating anything. Record `data.prefix` (`backup/smush-<stamp>/`) for
 the final report; on a non-zero exit, stop and report — do not mutate without
 backups.
 
