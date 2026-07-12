@@ -30,21 +30,22 @@ import type {
 import { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUTS } from "./contract.ts";
 import {
 	SUBAGENT_FLEET_PARENT_ENTRY_ID,
-	assumeThinkingWhileRunning,
 	entryId,
-	entrySessionFile,
 	entryTask,
 	isRunningTaskDetailEntry,
-	loadFleetEntryDetail,
 	loadFleetTaskDetail,
-	placeholderDetail,
 	type FleetDetailContext,
-	type FleetEntrySessionParseCache,
 	type FleetNavigatorEntry,
-	type LoadedFleetEntryDetail,
 	type ParentFleetNavigatorEntry,
 	type SubagentFleetTaskDetail,
 } from "./detail.ts";
+import {
+	entrySessionIdentityKey,
+	loadAndDecorateEntryDetail,
+	type EntryDetailState,
+	type FleetEntrySurface,
+	type LoadEntryDetailOperationResult,
+} from "./entry-detail-loader.ts";
 import {
 	renderFleetDetailContentLines,
 	renderFleetDetailHeaderLines,
@@ -71,21 +72,6 @@ const DEFAULT_DETAIL_REFRESH_INTERVAL_MS = 1_000;
  * The slice of the command/shortcut context the navigator needs. Structurally
  * satisfied both by `CommandContext` and by the host's shortcut-handler context.
  */
-interface DetailObservationState {
-	key: string;
-	contentSignature: string;
-	lastObservedChangeMs: number;
-}
-
-interface DetailSessionParseCacheState {
-	key: string;
-	cache: FleetEntrySessionParseCache;
-}
-
-type DetailLoadResult =
-	| { status: "loaded"; cacheKey: string; loaded: LoadedFleetEntryDetail }
-	| { status: "failed"; detail: SubagentFleetTaskDetail };
-
 export interface SubagentFleetNavigatorContext {
 	hasUI: boolean;
 	sessionManager?: { getSessionFile?(): string | undefined };
@@ -263,22 +249,15 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private readonly unsubscribe: () => void;
 	private mode: "list" | "detail" = "list";
 	private entries: FleetNavigatorEntry[];
-	private readonly expandedEntryIds = new Set<string>();
-	private readonly expandedDetails = new Map<string, SubagentFleetTaskDetail>();
-	private readonly expandedSessionParseCaches = new Map<string, FleetEntrySessionParseCache>();
-	private readonly expandedReadsInFlight = new Set<string>();
+	/** Per-entry loader/lifecycle state keyed by stable entry id. */
+	private readonly entryStates = new Map<string, EntryDetailState>();
 	private selectedEntryId: string | undefined;
-	private detail: SubagentFleetTaskDetail | undefined;
 	private detailScroll = 0;
 	private detailMaxScroll = 0;
 	private isFollowing = true;
 	private isPromptExpanded = false;
-	private isReadInFlight = false;
-	private hasQueuedRead = false;
 	private isDisposed = false;
 	private detailPollTimer: ScheduledTimer | undefined;
-	private detailObservation: DetailObservationState | undefined;
-	private detailSessionParseCache: DetailSessionParseCacheState | undefined;
 
 	constructor(options: SubagentFleetNavigatorOptions) {
 		this.tui = options.tui;
@@ -344,7 +323,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 		if (this.isDisposed) return;
 		this.isDisposed = true;
 		this.stopRefreshPolling();
-		this.hasQueuedRead = false;
+		for (const state of this.entryStates.values()) state.hasQueuedRead = false;
 		this.unsubscribe();
 	}
 
@@ -371,17 +350,23 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private toggleSelectedExpansion(): void {
 		const entry = this.selectedEntry();
 		const id = entryId(entry);
-		if (id === undefined) return;
-		if (this.expandedEntryIds.has(id)) {
-			this.expandedEntryIds.delete(id);
-			this.expandedDetails.delete(id);
-			this.expandedSessionParseCaches.delete(id);
+		if (entry === undefined || id === undefined) return;
+		const state = this.ensureEntryState(id);
+		if (state.isExpanded) {
+			this.collapseEntry(id, state);
 		} else {
-			this.expandedEntryIds.add(id);
-			this.scheduleExpandedLoad(entry);
+			state.isExpanded = true;
+			this.activateSurfaceLifetime(state, "preview");
+			this.scheduleEntryDetailLoad(entry, "preview");
 		}
 		this.syncRefreshPolling();
 		this.tui.requestRender();
+	}
+
+	private collapseEntry(id: string, state: EntryDetailState): void {
+		state.isExpanded = false;
+		if (state.activeSurface === "preview") this.deactivateSurfaceLifetime(state);
+		this.removeEntryStateIfIdle(id);
 	}
 
 	private handleDetailInput(data: string): void {
@@ -390,12 +375,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 			return;
 		}
 		if (data === "b") {
-			this.mode = "list";
-			this.detail = undefined;
-			this.resetDetailSessionState();
-			this.scheduleExpandedLoads();
-			this.syncRefreshPolling();
-			this.tui.requestRender();
+			this.returnToList();
 			return;
 		}
 		if (data === "r") {
@@ -437,165 +417,202 @@ export class SubagentFleetNavigator implements RenderComponent {
 	}
 
 	private openSelectedDetail(): void {
-		if (this.selectedEntry() === undefined) return;
+		const entry = this.selectedEntry();
+		const id = entryId(entry);
+		if (entry === undefined || id === undefined) return;
 		this.mode = "detail";
-		this.detail = undefined;
 		this.detailScroll = 0;
 		this.detailMaxScroll = 0;
 		this.isFollowing = true;
 		this.isPromptExpanded = false;
-		this.resetDetailSessionState();
+		this.activateDetailLifetime(entry, id);
 		this.syncRefreshPolling();
-		this.scheduleDetailLoad();
 		this.tui.requestRender();
 	}
 
-	private scheduleDetailLoad(): void {
-		if (this.isReadInFlight) {
-			this.hasQueuedRead = true;
-			return;
+	/** Leaves detail mode, restoring the selected entry's list-mode lifecycle. */
+	private returnToList(): void {
+		this.mode = "list";
+		const id = this.selectedEntryId;
+		const state = id === undefined ? undefined : this.entryStates.get(id);
+		if (id !== undefined && state !== undefined) {
+			if (state.isExpanded) {
+				// The entry stayed expanded across the surface change, so a fresh
+				// preview lifetime begins; scheduleExpandedLoads reloads it below.
+				this.activateSurfaceLifetime(state, "preview");
+			} else {
+				this.deactivateSurfaceLifetime(state);
+				this.removeEntryStateIfIdle(id);
+			}
 		}
+		this.scheduleExpandedLoads();
+		this.syncRefreshPolling();
+		this.tui.requestRender();
+	}
+
+	/** Begins a fresh detail-surface lifetime; preview state is never reused. */
+	private activateDetailLifetime(entry: FleetNavigatorEntry, id: string): void {
+		const state = this.ensureEntryState(id);
+		this.activateSurfaceLifetime(state, "detail");
+		this.scheduleEntryDetailLoad(entry, "detail");
+	}
+
+	private scheduleDetailLoad(): void {
 		const entry = this.selectedEntry();
 		if (entry === undefined) return;
-		this.isReadInFlight = true;
-		void this.runDetailLoad(entry);
-	}
-
-	private async runDetailLoad(entry: FleetNavigatorEntry): Promise<void> {
-		try {
-			let result: DetailLoadResult;
-			try {
-				const cacheKey = entrySessionIdentityKey(entry);
-				const previous =
-					this.detailSessionParseCache?.key === cacheKey
-						? this.detailSessionParseCache.cache
-						: undefined;
-				const loaded = await loadFleetEntryDetail({
-					entry,
-					context: this.detailContext,
-					...optionalEntry("previous", previous),
-				});
-				result = { status: "loaded", cacheKey, loaded };
-			} catch (error) {
-				result = {
-					status: "failed",
-					detail: placeholderDetail(entry, `Could not load detail: ${formatErrorMessage(error)}`),
-				};
-			}
-
-			if (!this.isDisposed && this.mode === "detail" && this.selectedEntryId === entryId(entry)) {
-				if (result.status === "loaded") {
-					this.detailSessionParseCache =
-						result.loaded.sessionParseCache === undefined
-							? undefined
-							: { key: result.cacheKey, cache: result.loaded.sessionParseCache };
-					this.detail = this.detailWithLiveObservation(entry, result.loaded);
-				} else {
-					this.detail = result.detail;
-				}
-				this.syncRefreshPolling();
-				this.tui.requestRender();
-			}
-		} finally {
-			this.isReadInFlight = false;
-			if (!this.isDisposed && this.hasQueuedRead) {
-				this.hasQueuedRead = false;
-				this.scheduleDetailLoad();
-			}
-		}
-	}
-
-	private detailWithLiveObservation(
-		entry: FleetNavigatorEntry,
-		loaded: LoadedFleetEntryDetail,
-	): SubagentFleetTaskDetail {
-		if (!isRunningTaskDetailEntry(entry)) {
-			this.detailObservation = undefined;
-			return loaded.detail;
-		}
-		const currentAction = assumeThinkingWhileRunning(loaded.detail.timeline.currentAction);
-		const quietMs = this.observeDetailQuietMs(entry, loaded.sessionContentSignature);
-		return {
-			...loaded.detail,
-			liveActivity: {
-				currentAction,
-				...optionalEntry("quietMs", quietMs),
-			},
-		};
-	}
-
-	private observeDetailQuietMs(
-		entry: FleetNavigatorEntry,
-		contentSignature: string | undefined,
-	): number | undefined {
-		const sessionFile = entrySessionFile(entry);
-		if (sessionFile === undefined || contentSignature === undefined) return undefined;
-		const key = entrySessionIdentityKey(entry);
-		const nowMs = this.clock.nowMs();
-		if (
-			this.detailObservation?.key !== key ||
-			this.detailObservation.contentSignature !== contentSignature
-		) {
-			this.detailObservation = { key, contentSignature, lastObservedChangeMs: nowMs };
-			return 0;
-		}
-		return Math.max(0, nowMs - this.detailObservation.lastObservedChangeMs);
+		this.scheduleEntryDetailLoad(entry, "detail");
 	}
 
 	private scheduleExpandedLoads(): void {
 		if (this.mode !== "list") return;
 		for (const entry of this.entries) {
 			const id = entryId(entry);
-			if (id !== undefined && this.expandedEntryIds.has(id)) this.scheduleExpandedLoad(entry);
+			if (id === undefined) continue;
+			if (this.entryStates.get(id)?.isExpanded === true) {
+				this.scheduleEntryDetailLoad(entry, "preview");
+			}
 		}
 	}
 
-	private scheduleExpandedLoad(entry: FleetNavigatorEntry | undefined): void {
+	/**
+	 * Schedules one load for an entry. Different entries load concurrently;
+	 * repeated requests for the same entry coalesce behind one in-flight read
+	 * plus at most one queued follow-up.
+	 */
+	private scheduleEntryDetailLoad(entry: FleetNavigatorEntry, surface: FleetEntrySurface): void {
 		const id = entryId(entry);
-		if (entry === undefined || id === undefined || this.expandedReadsInFlight.has(id)) return;
-		this.expandedReadsInFlight.add(id);
-		void this.runExpandedLoad(entry, id);
+		if (id === undefined) return;
+		const state = this.ensureEntryState(id);
+		if (state.isReadInFlight) {
+			state.hasQueuedRead = true;
+			return;
+		}
+		state.isReadInFlight = true;
+		void this.runEntryDetailLoad(entry, id, surface);
 	}
 
-	private async runExpandedLoad(entry: FleetNavigatorEntry, id: string): Promise<void> {
+	private async runEntryDetailLoad(
+		entry: FleetNavigatorEntry,
+		id: string,
+		surface: FleetEntrySurface,
+	): Promise<void> {
 		try {
-			const previous = this.expandedSessionParseCaches.get(id);
-			const loaded = await loadFleetEntryDetail({
+			const state = this.entryStates.get(id);
+			const sessionIdentityKey = entrySessionIdentityKey(entry);
+			// A session identity change resets cache and observation: prior state
+			// for another identity is never offered to the load operation.
+			const previousCache =
+				state?.cache?.sessionIdentityKey === sessionIdentityKey ? state.cache.cache : undefined;
+			const previousObservation =
+				state?.observation?.sessionIdentityKey === sessionIdentityKey
+					? state.observation
+					: undefined;
+			const result = await loadAndDecorateEntryDetail({
 				entry,
+				surface,
 				context: this.detailContext,
-				...optionalEntry("previous", previous),
+				sessionIdentityKey,
+				...optionalEntry("previousCache", previousCache),
+				...optionalEntry("previousObservation", previousObservation),
+				nowMs: this.clock.nowMs(),
 			});
-			if (this.isDisposed || !this.expandedEntryIds.has(id)) return;
-			const detail = isRunningTaskDetailEntry(entry)
-				? {
-						...loaded.detail,
-						liveActivity: {
-							currentAction: assumeThinkingWhileRunning(loaded.detail.timeline.currentAction),
-						},
-					}
-				: loaded.detail;
-			this.expandedDetails.set(id, detail);
-			if (loaded.sessionParseCache === undefined) {
-				this.expandedSessionParseCaches.delete(id);
-			} else {
-				this.expandedSessionParseCaches.set(id, loaded.sessionParseCache);
-			}
-			this.tui.requestRender();
-		} catch (error) {
-			if (!this.isDisposed && this.expandedEntryIds.has(id)) {
-				this.expandedDetails.set(
-					id,
-					placeholderDetail(entry, `Could not load detail: ${formatErrorMessage(error)}`),
-				);
-				this.tui.requestRender();
-			}
+			this.commitEntryDetailLoad({ id, surface, sessionIdentityKey, result });
 		} finally {
-			this.expandedReadsInFlight.delete(id);
-			const currentEntry = this.entries.find((candidate) => entryId(candidate) === id);
-			if (currentEntry !== undefined && currentEntry !== entry && this.expandedEntryIds.has(id)) {
-				this.scheduleExpandedLoad(currentEntry);
+			const state = this.entryStates.get(id);
+			if (state !== undefined) {
+				state.isReadInFlight = false;
+				if (!this.isDisposed && state.hasQueuedRead) {
+					state.hasQueuedRead = false;
+					// Follow-ups consume the latest registry snapshot for this id and
+					// the entry's current surface; snapshot object identity is never a
+					// revision signal.
+					const currentEntry = this.entries.find((candidate) => entryId(candidate) === id);
+					const currentSurface = state.activeSurface;
+					if (currentEntry !== undefined && currentSurface !== undefined) {
+						this.scheduleEntryDetailLoad(currentEntry, currentSurface);
+					}
+				}
 			}
 		}
+	}
+
+	/**
+	 * Commits a settled load only when its surface lifetime is still current
+	 * and visible: the state must exist, its active surface must match, a
+	 * preview target must still be expanded, and a detail target must still be
+	 * the selected entry in detail mode.
+	 */
+	private commitEntryDetailLoad(input: {
+		id: string;
+		surface: FleetEntrySurface;
+		sessionIdentityKey: string;
+		result: LoadEntryDetailOperationResult;
+	}): void {
+		if (this.isDisposed) return;
+		const state = this.entryStates.get(input.id);
+		if (state === undefined || state.activeSurface !== input.surface) return;
+		if (input.surface === "preview" && !state.isExpanded) return;
+		if (
+			input.surface === "detail" &&
+			(this.mode !== "detail" || this.selectedEntryId !== input.id)
+		) {
+			return;
+		}
+		state.committedDetail = input.result.detail;
+		if (input.result.status === "loaded") {
+			if (input.result.parseCache === undefined) delete state.cache;
+			else {
+				state.cache = {
+					sessionIdentityKey: input.sessionIdentityKey,
+					cache: input.result.parseCache,
+				};
+			}
+			if (input.result.observation === undefined) delete state.observation;
+			else state.observation = input.result.observation;
+		}
+		if (input.surface === "detail") this.syncRefreshPolling();
+		this.tui.requestRender();
+	}
+
+	private ensureEntryState(id: string): EntryDetailState {
+		const existing = this.entryStates.get(id);
+		if (existing !== undefined) return existing;
+		const created: EntryDetailState = {
+			isExpanded: false,
+			isReadInFlight: false,
+			hasQueuedRead: false,
+		};
+		this.entryStates.set(id, created);
+		return created;
+	}
+
+	/** Activates a fresh surface lifetime, clearing all committed lifetime state. */
+	private activateSurfaceLifetime(state: EntryDetailState, surface: FleetEntrySurface): void {
+		state.activeSurface = surface;
+		delete state.committedDetail;
+		delete state.cache;
+		delete state.observation;
+		state.hasQueuedRead = false;
+	}
+
+	private deactivateSurfaceLifetime(state: EntryDetailState): void {
+		delete state.activeSurface;
+		delete state.committedDetail;
+		delete state.cache;
+		delete state.observation;
+		state.hasQueuedRead = false;
+	}
+
+	/**
+	 * Drops dormant state once no read is in flight; an in-flight read keeps
+	 * its bookkeeping so the pending completion can settle safely (its commit
+	 * gate already refuses the cleared lifetime).
+	 */
+	private removeEntryStateIfIdle(id: string): void {
+		const state = this.entryStates.get(id);
+		if (state === undefined) return;
+		if (state.isReadInFlight || state.isExpanded || state.activeSurface !== undefined) return;
+		this.entryStates.delete(id);
 	}
 
 	private syncRefreshPolling(): void {
@@ -619,7 +636,11 @@ export class SubagentFleetNavigator implements RenderComponent {
 		if (this.mode === "detail") return isRunningTaskDetailEntry(this.selectedEntry());
 		return this.entries.some((entry) => {
 			const id = entryId(entry);
-			return id !== undefined && this.expandedEntryIds.has(id) && isRunningTaskDetailEntry(entry);
+			return (
+				id !== undefined &&
+				this.entryStates.get(id)?.isExpanded === true &&
+				isRunningTaskDetailEntry(entry)
+			);
 		});
 	}
 
@@ -631,7 +652,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private refreshEntries(): void {
 		const previousSelectedEntryId = this.selectedEntryId;
 		this.entries = this.readEntries();
-		this.pruneExpandedEntries();
+		this.pruneEntryStates();
 		if (
 			this.selectedEntryId !== undefined &&
 			this.entries.some((entry) => entryId(entry) === this.selectedEntryId)
@@ -639,14 +660,13 @@ export class SubagentFleetNavigator implements RenderComponent {
 			return;
 		}
 		this.selectedEntryId = defaultSelectionId(this.entries);
-		if (this.selectedEntryId !== previousSelectedEntryId) {
-			this.resetDetailSessionState();
+		if (this.selectedEntryId !== previousSelectedEntryId && this.mode === "detail") {
+			// The detail surface moved to a different entry; begin a fresh detail
+			// lifetime for the new selection.
+			const entry = this.selectedEntry();
+			const id = entryId(entry);
+			if (entry !== undefined && id !== undefined) this.activateDetailLifetime(entry, id);
 		}
-	}
-
-	private resetDetailSessionState(): void {
-		this.detailObservation = undefined;
-		this.detailSessionParseCache = undefined;
 	}
 
 	private readEntries(): FleetNavigatorEntry[] {
@@ -684,8 +704,9 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private listEntryBlock(entry: FleetNavigatorEntry, innerWidth: number): string[] {
 		const line = this.listEntryLine(entry, innerWidth);
 		const id = entryId(entry);
-		if (id === undefined || !this.expandedEntryIds.has(id)) return [line];
-		const detail = this.expandedDetails.get(id);
+		const state = id === undefined ? undefined : this.entryStates.get(id);
+		if (id === undefined || state?.isExpanded !== true) return [line];
+		const detail = state.committedDetail;
 		return [
 			line,
 			...renderFleetEntrySummaryLines({
@@ -700,18 +721,16 @@ export class SubagentFleetNavigator implements RenderComponent {
 		];
 	}
 
-	private pruneExpandedEntries(): void {
+	/** Registry removal invalidates the entry's whole loader state. */
+	private pruneEntryStates(): void {
 		const liveIds = new Set(
 			this.entries.flatMap((entry) => {
 				const id = entryId(entry);
 				return id === undefined ? [] : [id];
 			}),
 		);
-		for (const id of this.expandedEntryIds) {
-			if (liveIds.has(id)) continue;
-			this.expandedEntryIds.delete(id);
-			this.expandedDetails.delete(id);
-			this.expandedSessionParseCaches.delete(id);
+		for (const id of this.entryStates.keys()) {
+			if (!liveIds.has(id)) this.entryStates.delete(id);
 		}
 	}
 
@@ -730,16 +749,24 @@ export class SubagentFleetNavigator implements RenderComponent {
 		);
 	}
 
+	/** The committed detail of the selected entry's active detail lifetime. */
+	private currentDetail(): SubagentFleetTaskDetail | undefined {
+		const id = this.selectedEntryId;
+		if (id === undefined) return undefined;
+		const state = this.entryStates.get(id);
+		return state?.activeSurface === "detail" ? state.committedDetail : undefined;
+	}
+
 	private detailHeader(): string[] {
 		return renderFleetDetailHeaderLines({
 			entry: this.selectedEntry(),
-			detail: this.detail,
+			detail: this.currentDetail(),
 			nowMs: this.clock.nowMs(),
 		});
 	}
 
 	private detailViewport(innerWidth: number, bodyRows: number): WrappedDetailViewport {
-		const detail = this.detail;
+		const detail = this.currentDetail();
 		if (detail === undefined) return { lines: ["Reading child session…"], scroll: 0, maxScroll: 0 };
 		return sliceWrappedDetailLinesForViewport({
 			lines: this.detailContentLines(detail),
@@ -777,10 +804,6 @@ function formatDetailFooter(
 			? `↓ ${hiddenBelow} below · f follow`
 			: "f follow ○";
 	return `↑/k ↓/j scroll · ${followSegment} · p prompt · b back · q close`;
-}
-
-function entrySessionIdentityKey(entry: FleetNavigatorEntry): string {
-	return `${entryId(entry) ?? "unknown"}:${entrySessionFile(entry) ?? "no-session-file"}`;
 }
 
 function fleetCounts(entries: readonly FleetNavigatorEntry[]): {
