@@ -16,24 +16,27 @@ export function buildGrillStatusWidgetLines(state: SidequestScanState): string[]
 		const topic = truncateSingleLine(state.activeQuest.topic, TOPIC_PREVIEW_MAX_CHARS);
 		const pausedAt =
 			state.activeQuest.pendingAsk === undefined
-				? "paused between questions"
+				? "paused"
 				: `paused at Q${state.answeredCount + 1}`;
 		return [
-			`▌GRILL ⚑ side quest: ${topic} · ${pausedAt} · back: tree → ⚑ mark, or /pi:grill-return`,
+			`[grill] ⚑ side quest: ${topic} · ${pausedAt} · back: tree → ⚑ mark, or /pi:grill-return`,
 		];
 	}
 
-	const parts = [`▌GRILL`, `${state.answeredCount} answered`];
-	if (state.pendingAsk === undefined) {
-		parts.push("between questions");
-	} else {
+	const parts = [
+		"[grill]",
+		`${state.answeredCount} answered`,
+		formatRemainingEstimate(
+			state.remainingEstimate ?? state.pendingAsk?.estimatedRemaining,
+			"compact",
+		),
+	];
+	if (state.pendingAsk !== undefined) {
 		parts.push(
 			`Q${state.answeredCount + 1} pending`,
-			formatRemainingEstimate(state.pendingAsk.estimatedRemaining, "compact"),
 			`"${truncateSingleLine(state.pendingAsk.question, QUESTION_PREVIEW_MAX_CHARS)}"`,
 		);
 	}
-	parts.push("⚑ Start a side quest in grill menu");
 	return [parts.join(" · ")];
 }
 

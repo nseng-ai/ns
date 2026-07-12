@@ -657,7 +657,9 @@ describe("status widget events", () => {
 
 		expect(recording.widgets).toHaveLength(1);
 		expect(recording.widgets[0]?.placement).toBe("belowEditor");
-		expect(recording.widgets[0]?.lines?.[0]).toContain("▌GRILL · 0 answered · Q1 pending");
+		expect(recording.widgets[0]?.lines?.[0]).toContain(
+			"[grill] · 0 answered · Remaining unknown (estimate not supplied) · Q1 pending",
+		);
 	});
 
 	test("session_shutdown clears the widget", async () => {

@@ -128,6 +128,7 @@ describe("scanGrillBranch", () => {
 		expect(scanGrillBranch(activeBranch())).toEqual({
 			grill: "active",
 			answeredCount: 1,
+			remainingEstimate: { kind: "range", min: 2, max: 4, basis: "two branches" },
 			pendingAsk: {
 				question: "Second question?",
 				toolCallId: "call-2",
@@ -204,6 +205,29 @@ describe("scanGrillBranch", () => {
 		expect(state).toMatchObject({ grill: "active", answeredCount });
 		if (preserves) expect(state).toHaveProperty("pendingAsk.toolCallId", "call-2");
 		else expectNoPending(state);
+	});
+
+	test("an answer clears the pending ask but preserves its remaining estimate", () => {
+		const state = scanGrillBranch([
+			...activeBranch(),
+			grillResultEntry(
+				"answer",
+				{
+					action: "answer",
+					kind: "freeform",
+					question: "Second question?",
+					answer: "Yes",
+				},
+				"call-2",
+			),
+		]);
+
+		expect(state).toMatchObject({
+			grill: "active",
+			answeredCount: 2,
+			remainingEstimate: { kind: "range", min: 2, max: 4, basis: "two branches" },
+		});
+		expectNoPending(state);
 	});
 
 	test("end-grill clears pending state and ends the grill", () => {
