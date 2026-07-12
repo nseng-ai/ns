@@ -87,10 +87,14 @@ describe("ns.toml harnesses", () => {
 });
 
 describe("ns.toml extensions", () => {
-	it("parses top-level extensions", () => {
+	it("parses top-level extensions, including an explicitly empty declaration set", () => {
 		expect(parseNsTomlExtensions('extensions = ["../local-ext", "/opt/ext"]\n')).toEqual({
 			type: "ok",
 			extensions: ["../local-ext", "/opt/ext"],
+		});
+		expect(parseNsTomlExtensions("extensions = []\n")).toEqual({
+			type: "ok",
+			extensions: [],
 		});
 	});
 
@@ -101,7 +105,7 @@ describe("ns.toml extensions", () => {
 	});
 
 	it("rejects invalid extension declarations", () => {
-		for (const content of ["extensions = []\n", 'extensions = [""]\n', "extensions = [1]\n"]) {
+		for (const content of ['extensions = [""]\n', "extensions = [1]\n"]) {
 			const result = parseNsTomlExtensions(content);
 			expect(result.type).toBe("error");
 			if (result.type !== "error") throw new Error("expected error");

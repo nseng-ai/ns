@@ -4,21 +4,25 @@ import { createRealExtensionAcquisitionGateway } from "@nseng-ai/kernel/extensio
 import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
 
 import type { NsActivationContext } from "../activation-context.ts";
-import { RealExtensionInstallAcquisitionGateway } from "../extension-acquisition.ts";
+import {
+	RealExtensionInstallAcquisitionGateway,
+	RealExtensionUninstallAcquisitionGateway,
+} from "../extension-acquisition.ts";
 import type { ExtensionInstallContext } from "../install-extension.ts";
+import type { ExtensionUninstallContext } from "../uninstall-extension.ts";
 import { RealActivationFilesGateway } from "../real-activation-files.ts";
 import { RealArtifactActivationGateway } from "../real-artifact-activation.ts";
 import { RealDeclaredExtensionsGateway } from "../declared-extensions.ts";
 
 export function createNsInitContext(
 	ctx: NsExtensionApi,
-): NsActivationContext & ExtensionInstallContext & { cwd: string } {
+): NsActivationContext & ExtensionInstallContext & ExtensionUninstallContext & { cwd: string } {
+	const acquisition = createRealExtensionAcquisitionGateway(extensionApiCommandExecApi(ctx));
 	return {
 		cwd: ctx.cwd,
 		git: createNsGitGateway(ctx),
-		acquisition: new RealExtensionInstallAcquisitionGateway(
-			createRealExtensionAcquisitionGateway(extensionApiCommandExecApi(ctx)),
-		),
+		installAcquisition: new RealExtensionInstallAcquisitionGateway(acquisition),
+		uninstallAcquisition: new RealExtensionUninstallAcquisitionGateway(acquisition),
 		files: new RealActivationFilesGateway(),
 		declaredExtensions: new RealDeclaredExtensionsGateway(),
 		artifacts: new RealArtifactActivationGateway(),

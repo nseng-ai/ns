@@ -5,7 +5,9 @@ import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import type {
 	ExtensionAcquisitionDiagnostic,
 	ExtensionAcquisitionGateway,
+	ManagedNpmPackageRemovalResult,
 } from "../extensions/acquisition.ts";
+import { managedNpmProjectRoot } from "../project-config/managed-extension-paths.ts";
 
 export interface FakeNpmInstallCall {
 	readonly projectDir: string;
@@ -18,6 +20,12 @@ export interface FakeNpmInstallCall {
 export interface FakeExtensionAcquisitionGatewayOptions {
 	readonly installedPackageRoots?: readonly string[];
 	readonly failSpecs?: readonly string[];
+	readonly failRemovePackageNames?: readonly string[];
+}
+
+export interface FakeManagedNpmRemovalCall {
+	readonly projectRoot: string;
+	readonly packageName: string;
 }
 
 export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGateway {
@@ -26,10 +34,13 @@ export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 	private readonly ensuredProjectLog: string[] = [];
 	private readonly installLog: FakeNpmInstallCall[] = [];
 	private readonly failSpecs: ReadonlySet<string>;
+	private readonly failRemovePackageNames: ReadonlySet<string>;
+	private readonly removalLog: FakeManagedNpmRemovalCall[] = [];
 
 	constructor(options: FakeExtensionAcquisitionGatewayOptions = {}) {
 		this.installedPackageRoots = new Set(options.installedPackageRoots ?? []);
 		this.failSpecs = new Set(options.failSpecs ?? []);
+		this.failRemovePackageNames = new Set(options.failRemovePackageNames ?? []);
 	}
 
 	get installed(): ReadonlySet<string> {
@@ -48,6 +59,10 @@ export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 		return this.installLog.map((install) => ({ ...install }));
 	}
 
+	get removals(): readonly FakeManagedNpmRemovalCall[] {
+		return this.removalLog.map((removal) => ({ ...removal }));
+	}
+
 	async ensureManagedNpmProject(
 		projectDir: string,
 	): Promise<Result<void, ExtensionAcquisitionDiagnostic>> {
@@ -59,6 +74,24 @@ export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 		packageRoot: string,
 	): Promise<Result<boolean, ExtensionAcquisitionDiagnostic>> {
 		return resultOk(this.installedPackageRoots.has(packageRoot));
+	}
+
+	async removeManagedNpmPackage(request: {
+		readonly projectRoot: string;
+		readonly packageName: string;
+	}): Promise<Result<ManagedNpmPackageRemovalResult, ExtensionAcquisitionDiagnostic>> {
+		this.removalLog.push({ ...request });
+		const projectDir = managedNpmProjectRoot(request.projectRoot, request.packageName);
+		if (this.failRemovePackageNames.has(request.packageName)) {
+			return resultErr({
+				code: "extension_acquisition_npm_remove_failed",
+				message: `failed to remove ${request.packageName}`,
+				path: projectDir,
+			});
+		}
+		const packageRoot = join(projectDir, "node_modules", request.packageName);
+		const wasInstalled = this.installedPackageRoots.delete(packageRoot);
+		return resultOk({ status: wasInstalled ? "removed" : "already-absent", path: projectDir });
 	}
 
 	async installNpmPackage(request: {

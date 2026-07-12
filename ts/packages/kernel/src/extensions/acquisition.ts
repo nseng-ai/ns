@@ -1,5 +1,5 @@
-import { mkdir, rm, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { lstat, mkdir, readdir, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, sep } from "node:path";
 
 import {
 	commandSucceeded,
@@ -14,7 +14,10 @@ import {
 	gitExtensionSourceUnsupportedMessage,
 	parseExtensionSourceSpec,
 } from "../project-config/extension-source-spec.ts";
-import { managedNpmPackagePaths } from "../project-config/managed-extension-paths.ts";
+import {
+	managedNpmPackagePaths,
+	managedNpmRoot,
+} from "../project-config/managed-extension-paths.ts";
 
 export {
 	gitExtensionSourceUnsupportedMessage,
@@ -23,6 +26,7 @@ export {
 } from "../project-config/extension-source-spec.ts";
 export {
 	managedNpmProjectRoot,
+	managedNpmRoot,
 	npmPackageRoot,
 } from "../project-config/managed-extension-paths.ts";
 export type { ExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
@@ -46,6 +50,7 @@ export const EXTENSION_ACQUISITION_DIAGNOSTIC_CODES = [
 	"extension_acquisition_npm_project_failed",
 	"extension_acquisition_npm_install_failed",
 	"extension_acquisition_npm_missing_after_install",
+	"extension_acquisition_npm_remove_failed",
 	"extension_acquisition_preview_skipped",
 ] as const;
 
@@ -59,6 +64,11 @@ export const extensionAcquisitionDiagnosticSchema = z.object({
 	path: z.string().optional(),
 });
 
+export interface ManagedNpmPackageRemovalResult {
+	readonly status: "removed" | "already-absent";
+	readonly path: string;
+}
+
 export interface ExtensionAcquisitionGateway {
 	ensureManagedNpmProject(
 		projectDir: string,
@@ -66,6 +76,10 @@ export interface ExtensionAcquisitionGateway {
 	isNpmPackageInstalled(
 		packageRoot: string,
 	): Promise<Result<boolean, ExtensionAcquisitionDiagnostic>>;
+	removeManagedNpmPackage(request: {
+		readonly projectRoot: string;
+		readonly packageName: string;
+	}): Promise<Result<ManagedNpmPackageRemovalResult, ExtensionAcquisitionDiagnostic>>;
 	installNpmPackage(request: {
 		projectDir: string;
 		rawSpec: string;
@@ -134,6 +148,77 @@ export class RealExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 				message: `Could not inspect managed npm package ${packageRoot}: ${formatErrorMessage(error)}`,
 				path: packageRoot,
 			});
+		}
+	}
+
+	async removeManagedNpmPackage(request: {
+		readonly projectRoot: string;
+		readonly packageName: string;
+	}): Promise<Result<ManagedNpmPackageRemovalResult, ExtensionAcquisitionDiagnostic>> {
+		const parsedPackage = parseExtensionSourceSpec(
+			request.projectRoot,
+			`npm:${request.packageName}`,
+		);
+		if (
+			!parsedPackage.ok ||
+			parsedPackage.value.kind !== "npm" ||
+			parsedPackage.value.packageName !== request.packageName ||
+			parsedPackage.value.version !== undefined
+		) {
+			return managedNpmRemovalFailure(
+				managedNpmRoot(request.projectRoot),
+				`Invalid canonical npm package name: ${request.packageName}.`,
+			);
+		}
+		const npmRoot = managedNpmRoot(request.projectRoot);
+		const packageProject = managedNpmPackagePaths(
+			request.projectRoot,
+			request.packageName,
+		).npmProjectRoot;
+		const relativeProject = relative(npmRoot, packageProject);
+		if (
+			relativeProject === "" ||
+			relativeProject === ".." ||
+			relativeProject.startsWith(`..${sep}`) ||
+			isAbsolute(relativeProject)
+		) {
+			return managedNpmRemovalFailure(
+				packageProject,
+				`Package name does not identify a project below the managed npm root: ${request.packageName}.`,
+			);
+		}
+		const relativeRoot = relative(request.projectRoot, npmRoot);
+		const chainSegments = relativeRoot.split(/[\\/]/u).concat(relativeProject.split(/[\\/]/u));
+		let current = request.projectRoot;
+		try {
+			for (const segment of chainSegments) {
+				current = join(current, segment);
+				let entry;
+				try {
+					entry = await lstat(current);
+				} catch (error) {
+					if (isNodeErrorCode(error, "ENOENT")) {
+						return resultOk({ status: "already-absent", path: packageProject });
+					}
+					throw error;
+				}
+				if (entry.isSymbolicLink() || !entry.isDirectory()) {
+					return managedNpmRemovalFailure(
+						current,
+						`Refusing to remove managed npm package through an unsafe non-directory or symbolic-link path: ${current}.`,
+					);
+				}
+			}
+			await rm(packageProject, { recursive: true });
+			let ancestor = dirname(packageProject);
+			while (ancestor !== npmRoot) {
+				if ((await readdir(ancestor)).length > 0) break;
+				await rmdir(ancestor);
+				ancestor = dirname(ancestor);
+			}
+			return resultOk({ status: "removed", path: packageProject });
+		} catch (error) {
+			return managedNpmRemovalFailure(packageProject, formatErrorMessage(error));
 		}
 	}
 
@@ -273,6 +358,17 @@ export async function resolveDeclaredExtensionModules(
 		roots.push({ spec: raw, sourceKind: "npm", moduleRoot: packageRoot });
 	}
 	return { roots: sortRoots(roots), diagnostics: sortDiagnostics(diagnostics) };
+}
+
+function managedNpmRemovalFailure(
+	path: string,
+	detail: string,
+): Result<never, ExtensionAcquisitionDiagnostic> {
+	return resultErr({
+		code: "extension_acquisition_npm_remove_failed",
+		message: `Could not remove managed npm extension package at ${path}: ${detail}`,
+		path,
+	});
 }
 
 function npmInstallFailure(

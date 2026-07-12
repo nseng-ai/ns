@@ -215,6 +215,39 @@ describe("extension acquisition", () => {
 		expect(gateway.installs[0]?.rawSpec).toBe("npm:other");
 	});
 
+	test("fake managed removal mutates installed state and exposes ownership-safe logs", async () => {
+		const packageRoot = npmPackageRoot("/repo", "@scope/pkg");
+		const gateway = new FakeExtensionAcquisitionGateway({ installedPackageRoots: [packageRoot] });
+
+		await expect(
+			gateway.removeManagedNpmPackage({ projectRoot: "/repo", packageName: "@scope/pkg" }),
+		).resolves.toMatchObject({ ok: true, value: { status: "removed" } });
+		expect(gateway.installed).not.toContain(packageRoot);
+		const removals = gateway.removals;
+		if (removals[0] !== undefined) {
+			(removals[0] as { packageName: string }).packageName = "mutated";
+		}
+		expect(gateway.removals).toEqual([{ projectRoot: "/repo", packageName: "@scope/pkg" }]);
+		await expect(
+			gateway.removeManagedNpmPackage({ projectRoot: "/repo", packageName: "@scope/pkg" }),
+		).resolves.toMatchObject({ ok: true, value: { status: "already-absent" } });
+	});
+
+	test("fake managed removal supports constructor-configured failures", async () => {
+		const packageRoot = npmPackageRoot("/repo", "broken");
+		const gateway = new FakeExtensionAcquisitionGateway({
+			installedPackageRoots: [packageRoot],
+			failRemovePackageNames: ["broken"],
+		});
+		await expect(
+			gateway.removeManagedNpmPackage({ projectRoot: "/repo", packageName: "broken" }),
+		).resolves.toMatchObject({
+			ok: false,
+			error: { code: "extension_acquisition_npm_remove_failed" },
+		});
+		expect(gateway.installed).toContain(packageRoot);
+	});
+
 	test("preview mode does not call mutating gateway methods", async () => {
 		const gateway = new FakeExtensionAcquisitionGateway();
 		const result = await resolveDeclaredExtensionModules({

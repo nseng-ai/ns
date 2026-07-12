@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 
 import { commandSucceeded, runCommand } from "@nseng-ai/foundation/exec";
 import { nsExtensionInstallCommand } from "@nseng-ai/ns-init/ns/commands/extension-install";
+import { nsExtensionUninstallCommand } from "@nseng-ai/ns-init/ns/commands/extension-uninstall";
 
 import { runNsCli } from "../../src/cli/index.ts";
 import {
@@ -70,6 +71,73 @@ describe("extension install host integration", () => {
 			data: { diagnostics: [{ code: "artifact-local-conflict" }], completed: {} },
 		});
 		expect(await readFile(artifactPath, "utf8")).toBe("local edit\n");
+	});
+
+	test("uninstalls a local extension while preserving source and consumer data", async () => {
+		expect(nsExtensionUninstallCommand.name).toBe("uninstall");
+		const cwd = await createEmptyProject();
+		await initializeGitRepo(cwd);
+		await writeFile(join(cwd, "ns.toml"), 'harnesses = ["pi"]\n', "utf8");
+		await writeModuleExtension(cwd);
+		const source = "./extensions/acme-module";
+		const installed = await runNsCliJson(["extension", "install", source], cwd);
+		expect(installed.exit).toBe(0);
+		await writeFile(join(cwd, ".ns", "acme-data", "customer.txt"), "preserve me\n", "utf8");
+		await writeFile(join(cwd, ".pi", "skills", "module-skill", "notes.txt"), "untracked\n", "utf8");
+
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		const exit = await runNsCli(["extension", "uninstall", source], {
+			cwd,
+			homeDir: join(cwd, ".home"),
+			env: { HOME: join(cwd, ".home") },
+			stdout: (text) => stdout.push(text),
+			stderr: (text) => stderr.push(text),
+		});
+
+		expect(exit).toBe(0);
+		expect(stdout.join(" ")).toContain("Uninstalled identity local:");
+		expect(stdout.join(" ")).toContain("Local extension bytes were left untouched");
+		expect(stdout.join(" ")).toContain("consumer data was preserved");
+		expect(stderr.join(" ")).toBe("");
+		expect(await readFile(join(cwd, "ns.toml"), "utf8")).toContain("extensions = []");
+		expect(await readFile(join(cwd, ".ns", "instructions.md"), "utf8")).not.toContain(
+			"ACME module instructions",
+		);
+		await expect(
+			readFile(join(cwd, ".pi", "skills", "module-skill", "SKILL.md"), "utf8"),
+		).rejects.toMatchObject({ code: "ENOENT" });
+		expect(await readFile(join(cwd, ".pi", "skills", "module-skill", "notes.txt"), "utf8")).toBe(
+			"untracked\n",
+		);
+		expect(await readFile(join(cwd, ".ns", "acme-data", "customer.txt"), "utf8")).toBe(
+			"preserve me\n",
+		);
+		expect(
+			await readFile(join(cwd, "extensions", "acme-module", "package.json"), "utf8"),
+		).toContain("@acme/module");
+	});
+
+	test("refuses uninstall when a manifest-owned artifact was locally modified", async () => {
+		const cwd = await createEmptyProject();
+		await initializeGitRepo(cwd);
+		await writeFile(join(cwd, "ns.toml"), 'harnesses = ["pi"]\n', "utf8");
+		await writeModuleExtension(cwd);
+		const source = "./extensions/acme-module";
+		expect((await runNsCliJson(["extension", "install", source], cwd)).exit).toBe(0);
+		const artifactPath = join(cwd, ".pi", "skills", "module-skill", "SKILL.md");
+		await writeFile(artifactPath, "customer edit\n", "utf8");
+
+		const result = await runNsCliJson(["extension", "uninstall", source], cwd);
+
+		expect(result.exit).toBe(2);
+		expect(parseJsonOutput(result)).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-uninstall-preflight-failed",
+			data: { diagnostics: [{ code: "artifact-local-conflict" }], completed: {} },
+		});
+		expect(await readFile(artifactPath, "utf8")).toBe("customer edit\n");
+		expect(await readFile(join(cwd, "ns.toml"), "utf8")).toContain(source);
 	});
 });
 

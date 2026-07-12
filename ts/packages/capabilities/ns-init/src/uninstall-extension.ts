@@ -7,7 +7,10 @@ import {
 	gitExtensionSourceUnsupportedMessage,
 	parseExtensionSourceSpec,
 } from "@nseng-ai/kernel/extensions/acquisition";
-import { planDeclaredExtensionInstallToml } from "@nseng-ai/kernel/project-config";
+import {
+	extensionSourceIdentity,
+	planDeclaredExtensionUninstallToml,
+} from "@nseng-ai/kernel/project-config";
 import { z } from "zod";
 
 import {
@@ -17,45 +20,51 @@ import {
 	applyNsActivation,
 	prepareNsActivation,
 	resolveActivationRepository,
+	type ActivationDiagnostic,
 	type ResolveActivationRepositoryResult,
 } from "./activate-ns.ts";
 import type { NsActivationContext } from "./activation-context.ts";
-import type { ExtensionInstallAcquisitionGateway } from "./extension-acquisition.ts";
+import type { ExtensionUninstallAcquisitionGateway } from "./extension-acquisition.ts";
 
-export interface ExtensionInstallContext extends NsActivationContext {
-	readonly installAcquisition: ExtensionInstallAcquisitionGateway;
+export interface ExtensionUninstallContext extends NsActivationContext {
+	readonly uninstallAcquisition: ExtensionUninstallAcquisitionGateway;
 }
 
-export const installExtensionRequestSchema = z.object({
+export const uninstallExtensionRequestSchema = z.object({
 	source: z
 		.string()
 		.min(1)
 		.describe("npm: package spec or unprefixed local extension package path."),
 });
 
-export const installExtensionResultSchema = z.object({
+const uninstallCleanupSchema = z.object({
+	status: z.enum(["removed", "already-absent", "not-applicable"]),
+	path: z.string().optional(),
+});
+
+export const uninstallExtensionResultSchema = z.object({
 	sourceSpec: z.string(),
 	sourceKind: z.enum(["local", "npm"]),
-	packageName: z.string(),
-	packageVersion: z.string(),
-	moduleRoot: z.string(),
+	sourceIdentity: z.string(),
+	matchedDeclarationSpec: z.string().optional(),
+	wasDeclared: z.boolean(),
 	nsTomlPath: z.string(),
-	isRecorded: z.boolean(),
 	repoRoot: z.string(),
 	trunkBranch: z.string(),
 	harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
 	completed: activationCompletedSchema,
+	cleanup: uninstallCleanupSchema,
 });
 
-export type InstallExtensionRequest = z.infer<typeof installExtensionRequestSchema> & {
+export type UninstallExtensionRequest = z.infer<typeof uninstallExtensionRequestSchema> & {
 	readonly cwd: string;
 };
-export type InstallExtensionResult = z.infer<typeof installExtensionResultSchema>;
+export type UninstallExtensionResult = z.infer<typeof uninstallExtensionResultSchema>;
 
-export async function installExtension(
-	context: ExtensionInstallContext,
-	request: InstallExtensionRequest,
-): Promise<ClinkrExit<InstallExtensionResult>> {
+export async function uninstallExtension(
+	context: ExtensionUninstallContext,
+	request: UninstallExtensionRequest,
+): Promise<ClinkrExit<UninstallExtensionResult>> {
 	const repositoryResult = await resolveActivationRepository(context, request.cwd);
 	if (repositoryResult.type !== "resolved") return repositoryFailure(repositoryResult);
 	const { repoRoot, trunkBranch } = repositoryResult.repository;
@@ -66,16 +75,13 @@ export async function installExtension(
 	if (harnesses.type !== "ok") {
 		const diagnostic =
 			harnesses.type === "missing"
-				? {
-						code: "harnesses-missing",
-						message: "ns.toml does not configure project harnesses.",
-					}
+				? { code: "harnesses-missing", message: "ns.toml does not configure project harnesses." }
 				: harnesses.error;
 		return failure(
 			harnesses.type === "missing"
-				? "ns-extension-install-harnesses-missing"
-				: "ns-extension-install-harnesses-invalid",
-			`${diagnostic.message} Run ns init with an explicit harness before installing extensions.`,
+				? "ns-extension-uninstall-harnesses-missing"
+				: "ns-extension-uninstall-harnesses-invalid",
+			`${diagnostic.message} Run ns init with an explicit harness before uninstalling extensions.`,
 			{
 				...preflightFailureEnvelope([{ ...diagnostic, path: "ns.toml" }]),
 				nextCommand: "ns init --harness <claude-code|codex|pi>",
@@ -86,7 +92,7 @@ export async function installExtension(
 	const parsedSource = parseExtensionSourceSpec(repoRoot, request.source);
 	if (!parsedSource.ok) {
 		return failure(
-			"ns-extension-install-source-invalid",
+			"ns-extension-uninstall-source-invalid",
 			parsedSource.error.message,
 			preflightFailureEnvelope([parsedSource.error]),
 		);
@@ -94,45 +100,31 @@ export async function installExtension(
 	if (parsedSource.value.kind === "git") {
 		return unsupportedSource(request.source, gitExtensionSourceUnsupportedMessage(request.source));
 	}
+	const identity = extensionSourceIdentity(repoRoot, request.source);
+	if (identity === undefined) return unsupportedSource(request.source);
 
-	const declaration = planDeclaredExtensionInstallToml({
+	const declaration = planDeclaredExtensionUninstallToml({
 		projectRoot: repoRoot,
 		source: configRead.content,
 		requestedSpec: request.source,
 	});
 	if (!declaration.ok) {
-		if (declaration.reason === "identity-conflict") {
-			return failure("ns-extension-install-identity-conflict", declaration.message, {
+		if (declaration.reason === "ambiguous-identity") {
+			return failure("ns-extension-uninstall-ambiguous-identity", declaration.message, {
 				phase: "preflight",
 				requestedSpec: declaration.requestedSpec,
-				existingSpecs: [...declaration.existingSpecs],
+				matchingSpecs: [...declaration.matchingSpecs],
 				identity: declaration.identity,
 				completed: {},
 			});
 		}
 		if (declaration.reason === "invalid-source") return unsupportedSource(request.source);
 		return failure(
-			"ns-extension-install-config-invalid",
+			"ns-extension-uninstall-config-invalid",
 			declaration.message,
 			preflightFailureEnvelope([
 				{ code: declaration.reason, message: declaration.message, path: "ns.toml" },
 			]),
-		);
-	}
-
-	const acquired = await context.installAcquisition.ensure({
-		repoRoot,
-		sourceSpec: request.source,
-	});
-	if (!acquired.ok) {
-		return failure(
-			"ns-extension-install-acquisition-failed",
-			acquired.diagnostics[0]?.message ?? `Could not acquire extension ${request.source}.`,
-			{
-				phase: "acquisition",
-				diagnostics: normalizeDiagnostics(acquired.diagnostics),
-				completed: {},
-			},
 		);
 	}
 
@@ -141,68 +133,86 @@ export async function installExtension(
 		harnesses: harnesses.harnesses,
 		harnessSource: "ns-toml",
 		nsTomlContent: declaration.text,
-		nsTomlChange: declaration.isAdded ? "appended" : "unchanged",
+		nsTomlChange: declaration.isRemoved ? "replaced" : "unchanged",
 		nsTomlExpected: { type: "file", content: configRead.content },
 	});
 	if (prepared.type === "preflight-failed") {
 		return failure(
-			"ns-extension-install-preflight-failed",
-			"Extension activation preflight failed; no project files were written.",
+			"ns-extension-uninstall-preflight-failed",
+			"Extension uninstall preflight failed; no project files or managed packages were changed.",
 			preflightFailureEnvelope(prepared.diagnostics),
-		);
-	}
-	const selected = prepared.activation.descriptors.find(
-		(descriptor) => descriptor.spec === request.source,
-	);
-	if (selected === undefined) {
-		return failure(
-			"ns-extension-install-preflight-failed",
-			`The acquired extension descriptor was not selected for ${request.source}.`,
-			preflightFailureEnvelope([
-				{
-					code: "extension-descriptor-not-selected",
-					message: `No validated descriptor was selected for ${request.source}.`,
-				},
-			]),
 		);
 	}
 
 	const applied = await applyNsActivation(context, prepared.activation);
 	if (applied.type === "apply-failed") {
-		return failure("ns-extension-install-apply-failed", applied.error.message, {
+		return failure("ns-extension-uninstall-apply-failed", applied.error.message, {
 			phase: applied.phase,
 			error: normalizeDiagnostic(applied.error),
 			completed: applied.completed,
 		});
 	}
+
+	let cleanup: UninstallExtensionResult["cleanup"];
+	if (parsedSource.value.kind === "local") {
+		cleanup = { status: "not-applicable" };
+	} else {
+		const removed = await context.uninstallAcquisition.removeManagedNpmPackage({
+			repoRoot,
+			packageName: parsedSource.value.packageName,
+		});
+		if (!removed.ok) {
+			return failure(
+				"ns-extension-uninstall-managed-package-cleanup-failed",
+				removed.error.message,
+				{
+					phase: "managed-package-cleanup",
+					diagnostic: normalizeDiagnostic(removed.error),
+					...(removed.error.path === undefined ? {} : { path: removed.error.path }),
+					completed: applied.completed,
+				},
+			);
+		}
+		cleanup = { status: removed.value.status, path: removed.value.path };
+	}
+
 	return ok({
 		sourceSpec: request.source,
-		sourceKind: selected.sourceKind,
-		packageName: selected.packageName,
-		packageVersion: selected.version,
-		moduleRoot: selected.moduleRoot,
+		sourceKind: identity.kind,
+		sourceIdentity: identity.value,
+		...(declaration.matchedSpec === undefined
+			? {}
+			: { matchedDeclarationSpec: declaration.matchedSpec }),
+		wasDeclared: declaration.isRemoved,
 		nsTomlPath: join(repoRoot, "ns.toml"),
-		isRecorded: declaration.isAdded,
 		repoRoot,
 		trunkBranch,
 		harnesses: [...harnesses.harnesses],
 		completed: applied.completed,
+		cleanup,
 	});
 }
 
-export function renderInstallExtensionHuman(result: InstallExtensionResult): string {
-	const declaration = result.isRecorded ? "recorded in" : "already present in";
-	const artifactCount = result.completed.artifacts?.length ?? 0;
-	const outcome = result.isRecorded ? "Installed" : "Ensured already-present";
+export function renderUninstallExtensionHuman(result: UninstallExtensionResult): string {
+	const declaration = result.wasDeclared
+		? `removed ${result.matchedDeclarationSpec ?? result.sourceSpec} from ${result.nsTomlPath}`
+		: `no matching declaration was present in ${result.nsTomlPath}`;
+	const artifactCount =
+		result.completed.artifacts?.filter((item) => item.action === "removed").length ?? 0;
+	const cleanup =
+		result.cleanup.status === "not-applicable"
+			? "Local extension bytes were left untouched."
+			: `Managed npm package cleanup: ${result.cleanup.status} at ${result.cleanup.path ?? "unknown path"}.`;
 	return [
-		`${outcome} ${result.packageName}@${result.packageVersion} from ${result.sourceSpec}.`,
-		`Module root: ${result.moduleRoot}`,
-		`Declaration: ${declaration} ${result.nsTomlPath}`,
-		`Activated ${artifactCount} artifact${artifactCount === 1 ? "" : "s"} for ${result.harnesses.join(", ")}.`,
+		`Uninstalled identity ${result.sourceKind}:${result.sourceIdentity}.`,
+		`Declaration: ${declaration}.`,
+		`Deactivated ${artifactCount} artifact${artifactCount === 1 ? "" : "s"} for ${result.harnesses.join(", ")}.`,
+		cleanup,
+		"Extension consumer data was preserved.",
 	].join("\n");
 }
 
-function preflightFailureEnvelope<T extends { readonly code: string }>(diagnostics: readonly T[]) {
+function preflightFailureEnvelope(diagnostics: readonly ActivationDiagnostic[]) {
 	return {
 		phase: "preflight" as const,
 		diagnostics: normalizeDiagnostics(diagnostics),
@@ -210,24 +220,20 @@ function preflightFailureEnvelope<T extends { readonly code: string }>(diagnosti
 	};
 }
 
-function normalizeDiagnostics<T extends { readonly code: string }>(
-	diagnostics: readonly T[],
-): readonly (Omit<T, "code"> & { readonly code: string })[] {
+function normalizeDiagnostics<T extends { readonly code: string }>(diagnostics: readonly T[]) {
 	return diagnostics.map(normalizeDiagnostic);
 }
 
-function normalizeDiagnostic<T extends { readonly code: string }>(
-	diagnostic: T,
-): Omit<T, "code"> & { readonly code: string } {
+function normalizeDiagnostic<T extends { readonly code: string }>(diagnostic: T) {
 	return { ...diagnostic, code: diagnostic.code.replaceAll("_", "-") };
 }
 
 function unsupportedSource(
 	source: string,
 	canonicalMessage?: string,
-): ClinkrExit<InstallExtensionResult> {
+): ClinkrExit<UninstallExtensionResult> {
 	return failure(
-		"ns-extension-install-source-unsupported",
+		"ns-extension-uninstall-source-unsupported",
 		canonicalMessage ??
 			`Extension source must be an npm: spec or an unprefixed local path: ${source}.`,
 		{ phase: "preflight", sourceSpec: source, completed: {} },
@@ -240,19 +246,19 @@ function configReadFailure(
 		{ type: "found" }
 	>,
 	repoRoot: string,
-): ClinkrExit<InstallExtensionResult> {
+): ClinkrExit<UninstallExtensionResult> {
 	if (result.type === "error") {
 		return failure(
-			"ns-extension-install-config-invalid",
+			"ns-extension-uninstall-config-invalid",
 			result.error.message,
 			preflightFailureEnvelope([{ ...result.error, path: "ns.toml" }]),
 		);
 	}
 	const message =
 		result.type === "missing"
-			? "ns.toml is missing; initialize ns before installing extensions."
+			? "ns.toml is missing; initialize ns before uninstalling extensions."
 			: "ns.toml exists but is not a file.";
-	return failure("ns-extension-install-harnesses-missing", message, {
+	return failure("ns-extension-uninstall-harnesses-missing", message, {
 		phase: "preflight",
 		diagnostics: [{ code: `ns-toml-${result.type}`, message, path: join(repoRoot, "ns.toml") }],
 		nextCommand: "ns init --harness <claude-code|codex|pi>",
@@ -262,12 +268,12 @@ function configReadFailure(
 
 function repositoryFailure(
 	result: Exclude<ResolveActivationRepositoryResult, { type: "resolved" }>,
-): ClinkrExit<InstallExtensionResult> {
+): ClinkrExit<UninstallExtensionResult> {
 	const diagnostic = activationRepositoryFailureDiagnostic(result);
 	const errorType = activationRepositoryFailureType(result, {
-		"not-a-git-repo": "ns-extension-install-not-a-git-repo",
-		"trunk-undetectable": "ns-extension-install-trunk-undetectable",
-		error: "ns-extension-install-repository-failed",
+		"not-a-git-repo": "ns-extension-uninstall-not-a-git-repo",
+		"trunk-undetectable": "ns-extension-uninstall-trunk-undetectable",
+		error: "ns-extension-uninstall-repository-failed",
 	});
 	return failure(errorType, diagnostic.message, preflightFailureEnvelope([diagnostic]));
 }

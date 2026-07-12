@@ -8,12 +8,16 @@ export interface ManagedNpmPackagePaths {
 	readonly packageRoot: string;
 }
 
+export function managedNpmRoot(projectRoot: string): string {
+	return join(projectRoot, MANAGED_NPM_ROOT_RELATIVE_PATH);
+}
+
 export function managedNpmPackagePaths(
 	projectRoot: string,
 	packageName: string,
 ): ManagedNpmPackagePaths {
 	const packagePathSegments = packageName.split("/");
-	const npmProjectRoot = join(projectRoot, MANAGED_NPM_ROOT_RELATIVE_PATH, ...packagePathSegments);
+	const npmProjectRoot = join(managedNpmRoot(projectRoot), ...packagePathSegments);
 	return {
 		npmProjectRoot,
 		packageRoot: join(npmProjectRoot, "node_modules", ...packagePathSegments),

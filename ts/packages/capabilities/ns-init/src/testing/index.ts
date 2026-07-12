@@ -7,5 +7,11 @@ export type { InMemoryArtifactActivationState } from "../fake-artifact-activatio
 export { InMemoryArtifactActivationGateway } from "../fake-artifact-activation.ts";
 export type { InMemoryDeclaredExtensionsState } from "../fake-declared-extensions.ts";
 export { InMemoryDeclaredExtensionsGateway } from "../fake-declared-extensions.ts";
-export type { InMemoryExtensionInstallAcquisitionState } from "../extension-acquisition.ts";
-export { InMemoryExtensionInstallAcquisitionGateway } from "../extension-acquisition.ts";
+export type {
+	InMemoryExtensionInstallAcquisitionState,
+	InMemoryExtensionUninstallAcquisitionState,
+} from "../extension-acquisition.ts";
+export {
+	InMemoryExtensionInstallAcquisitionGateway,
+	InMemoryExtensionUninstallAcquisitionGateway,
+} from "../extension-acquisition.ts";
