@@ -225,6 +225,89 @@ short-lived token minted only when the run is ready to land its results.
 Dispatch preflights credentials and reports exactly what is missing before
 any remote work starts.
 
+### Mint endpoint configuration
+
+The dispatch deployable's `POST /api/mint` endpoint reads these variables:
+
+| Variable                              | Sensitivity | Purpose                                                        |
+| ------------------------------------- | ----------- | -------------------------------------------------------------- |
+| `DISPATCH_GITHUB_APP_ID`              | Non-secret  | GitHub App identifier                                          |
+| `DISPATCH_GITHUB_APP_INSTALLATION_ID` | Non-secret  | Installation restricted to the configured repository           |
+| `DISPATCH_GITHUB_APP_PRIVATE_KEY`     | Sensitive   | Signs GitHub App authentication; never pull to a dev machine   |
+| `DISPATCH_SANDBOX_MINT_SECRET`        | Sensitive   | Prototype landing credential; replace with a per-run voucher   |
+| `DISPATCH_GITHUB_REPOSITORY`          | Non-secret  | Exact authorized `owner/repo`; also needed in Development      |
+| `DISPATCH_VERCEL_TEAM_ID`             | Non-secret  | Required development-token `owner_id`                          |
+| `DISPATCH_VERCEL_PROJECT_ID`          | Non-secret  | Required development-token `project_id`                        |
+| `DISPATCH_VERCEL_OIDC_ISSUER`         | Non-secret  | Exact trusted issuer used for signature and claim verification |
+| `DISPATCH_VERCEL_OIDC_AUDIENCE`       | Non-secret  | Exact trusted audience                                         |
+
+Configure the endpoint only after confirming the linked project's actual
+Development token issuer, audience, `owner_id`, `project_id`, and
+`environment` claims without printing or recording the token. The endpoint
+accepts only `environment: development` with exact team/project matches;
+Preview or Production tokens are intentionally forbidden for the local
+clone-token path. A mismatch is a configuration failure to fix, not a reason
+to widen OIDC trust.
+
+### Controlled private-repository probe
+
+Run Vercel commands from
+`ts/packages/capabilities/vercel/deployable`; running `vercel build` at the
+repository root does not use the deployable's linked project settings. The
+local setup sequence established by the probe entrypoint is:
+
+1. Link that deployable directory to the dispatch project with `vercel link`
+   if `.vercel/project.json` is absent.
+2. Configure the endpoint variables above. Keep the private key and prototype
+   landing secret sensitive; make `DISPATCH_GITHUB_REPOSITORY` available to
+   the Development environment so the local probe can read it.
+3. Deploy the mint endpoint, then record its explicit HTTPS URL without
+   embedding credentials in it.
+4. From the deployable directory, refresh the ignored local file with
+   `vercel env pull .env.local --environment=development`. This file supplies
+   `VERCEL_OIDC_TOKEN` and is ignored by git.
+5. Invoke the development-only fixed probe from the package directory:
+
+   ```sh
+   pnpm dev:sandbox-hello-probe -- https://<dispatch-host>/api/mint <40-character-commit-sha>
+   ```
+
+The script reads Vercel team/project IDs from the repo-root `[dispatch]`
+table and the repository from `DISPATCH_GITHUB_REPOSITORY`; it does not take
+those trust inputs as user-controlled arguments. It requests a clone-only
+installation token, creates a non-persistent Node 24 Sandbox with a shallow
+private-git checkout at the exact SHA, runs only the fixed marker/HEAD
+command, compares the observed SHA, and attempts cleanup on every
+post-creation path. Successful safe output has this shape and never includes
+the OIDC or installation token:
+
+```text
+Starting fixed Sandbox hello probe for owner/repo at <sha>.
+__NS_SANDBOX_HELLO_PROBE_V1__
+HEAD <sha>
+```
+
+Common safe failure signals to preserve in the eventual setup skill:
+
+- missing or invalid `VERCEL_OIDC_TOKEN` or
+  `DISPATCH_GITHUB_REPOSITORY` in `deployable/.env.local`;
+- invalid or missing repo-root `[dispatch]` project/team IDs;
+- `401 unauthorized` from missing, malformed, or failed OIDC authentication;
+- `403 forbidden` from issuer/audience-adjacent identity policy, wrong
+  team/project/environment, wrong purpose, or repository mismatch;
+- `500 mint-endpoint-misconfigured` naming only the invalid variable;
+- `502 github-token-mint-failed` when App installation, repository scope, or
+  requested permissions do not permit the narrow token;
+- safe Sandbox create, command, output, revision, or cleanup failures without
+  vendor request details or credential values.
+
+The command shape and fake-driven local behavior are implemented. A live
+Development-token trust check, deployment, and billable Sandbox probe still
+require explicit human authorization and must be recorded separately before
+this material is distilled into the reusable setup skill. The shared landing
+secret and sandbox self-landing remain prototype shortcuts; their named
+upgrades are the per-run landing voucher and Vercel-side supervisor.
+
 ## Open questions
 
 Unsettled decisions, visible here on purpose:
