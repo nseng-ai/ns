@@ -83,6 +83,37 @@ export function landingExecutionFailure(
 	};
 }
 
+/**
+ * Shared cancellation failure for a declined main or pre-merge confirmation. One constructor keeps
+ * the refusal semantics and rendered wording identical across confirmation sites.
+ */
+export function landingCancelledBeforeMergeFailure(): LandingExecutionFailure {
+	return landingExecutionFailure("Cancelled before merge; no PRs were landed.", {
+		level: "info",
+		outcome: "refusal",
+		refusalReason: "declined",
+	});
+}
+
+/**
+ * Return the same failure variant with only the suggested action replaced. Preserves boundary
+ * source/code, display command, exec result, domain reason, failed branch/PR, and refusal
+ * classification instead of reconstructing a message-only execution failure.
+ */
+export function withSuggestedAction(
+	failure: LandingFailure,
+	suggestedAction: string,
+): LandingFailure {
+	switch (failure.type) {
+		case "boundary":
+		case "domain":
+		case "execution":
+			return { ...failure, suggestedAction };
+		case "not-implemented":
+			return failure;
+	}
+}
+
 export function landSuccess<T>(value: T): LandResult<T> {
 	return { type: "success", value };
 }

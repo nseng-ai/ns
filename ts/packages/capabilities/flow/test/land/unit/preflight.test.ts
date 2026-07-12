@@ -112,17 +112,20 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 			},
 		});
 
-		const outcome = await executeLanding(context, {
-			cwd: "/repo/subdir",
-			target: { type: "stack" },
-			mode: "dry-run",
-			preflight: { shouldAllowSubmitRequiredState: false },
-			cleanup: { shouldFreeSlot: false, shouldForceCleanup: false },
+		const outcome = await executeLanding({
+			context: context,
+			request: {
+				cwd: "/repo/subdir",
+				target: { type: "stack" },
+				mode: "dry-run",
+				preflight: { shouldAllowSubmitRequiredState: false },
+				cleanup: "free-slot",
+			},
 		});
 
 		expect(outcome).toMatchObject({
-			type: "success",
-			value: {
+			type: "completed",
+			report: {
 				repoRoot: ROOT,
 				mode: "dry-run",
 				phases: [
@@ -131,6 +134,11 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 					{ type: "completed", phase: "preflight" },
 					{ type: "completed", phase: "dry-run" },
 				],
+				cleanup: {
+					preMergeFreedSlots: [],
+					mergeMaintenanceCleanup: { deletedLocalBranches: [], retainedLocalBranches: [] },
+					postLandingSlotCleanup: { type: "not-applicable" },
+				},
 				plan: {
 					branchPlans: [
 						{ branch: "feature-a", localSha: SHA_A, pr: { number: 1 } },

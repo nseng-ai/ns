@@ -1,8 +1,6 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { shortSha } from "../commit-display/index.ts";
-import { executeStackLandingPlan, type LandStackExecutionHost } from "./execution/execute.ts";
-import { nullLandConfirmationGateway, nullLandExecutionProgress } from "./execution/host-seams.ts";
 import { landCompleted, landFailure, landSuccess, landOutcomeFailure } from "./results.ts";
 import { formatManualWorktreeConflict } from "./worktree-paths.ts";
 
@@ -13,10 +11,7 @@ import type {
 	LandOutcome,
 	LandResult,
 	LandingDomainFailure,
-	LandingOutcome,
-	LandingPhaseOutcome,
 	LandingPlan,
-	LandingRequest,
 	LandingShape,
 	LandingWarning,
 	LocalBranchTip,
@@ -144,67 +139,6 @@ export async function buildStackLandingPlan(
 			(conflict) => conflict.type === "managed-slot",
 		),
 		descendantMaintenance,
-	});
-}
-
-export async function calculateLandingOutcome(
-	context: LandContext,
-	request: LandingRequest,
-	host: LandStackExecutionHost = {
-		confirmation: nullLandConfirmationGateway,
-		progress: nullLandExecutionProgress,
-	},
-): Promise<LandResult<LandingOutcome>> {
-	if (request.target.type !== "stack") {
-		return landFailure({
-			type: "not-implemented",
-			phase: "preflight",
-			message:
-				"@nseng-ai/flow land preflight planning currently supports stack landing targets only.",
-		});
-	}
-
-	const plan = await buildStackLandingPlan(context, request.cwd, {
-		shouldAllowSubmitRequiredState: request.preflight.shouldAllowSubmitRequiredState,
-		...(request.target.landingBranchLimit === undefined
-			? {}
-			: { landingBranchLimit: request.target.landingBranchLimit }),
-	});
-	if (plan.type === "failure") {
-		return landFailure(plan.failure);
-	}
-
-	const phases: LandingPhaseOutcome[] = [
-		{ type: "completed", phase: "repo-discovery" },
-		{ type: "completed", phase: "stack-shape" },
-		{ type: "completed", phase: "preflight" },
-	];
-	if (request.mode === "dry-run") {
-		phases.push({ type: "completed", phase: "dry-run" });
-		return landSuccess({
-			repoRoot: plan.value.repoRoot,
-			target: request.target,
-			mode: request.mode,
-			phases,
-			plan: plan.value,
-			landedChunks: [],
-			cleanup: { retainedLocalBranches: [], freedSlots: [] },
-		});
-	}
-
-	const execution = await executeStackLandingPlan(context, host, plan.value, {
-		cwd: request.cwd,
-		warnings: [],
-	});
-	if (execution.type === "failure") return landFailure(execution.failure);
-	return landSuccess({
-		repoRoot: execution.value.plan.repoRoot,
-		target: request.target,
-		mode: request.mode,
-		phases: [...phases, ...execution.value.phases],
-		plan: execution.value.plan,
-		landedChunks: execution.value.landedChunks,
-		cleanup: execution.value.cleanup,
 	});
 }
 

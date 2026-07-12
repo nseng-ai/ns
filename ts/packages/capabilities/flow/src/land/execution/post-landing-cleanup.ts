@@ -1,14 +1,18 @@
 import { formatCommand } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
+import { postLandingCleanupCommands } from "../confirmation-commands.ts";
 import { deleteLocalBranchOperation, formatGraphiteOperation } from "../graphite-operations.ts";
 import { landingExecutionFailure } from "../results.ts";
 import {
 	boundaryFailureDiagnostics,
 	type LandContext,
+	type LandingCleanupPolicy,
 	type LandingFailure,
+	type LandingMode,
 	type LandingShape,
 	type ManagedSlotWorktree,
+	type PostLandingSlotCleanupReport,
 } from "../types.ts";
 import { isManagedSlotPath, slotNameFromPath } from "../worktree-paths.ts";
 import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
@@ -24,16 +28,23 @@ export type PostLandingSlotCleanupDecision =
 	| { readonly type: "approved" }
 	| { readonly type: "declined" };
 
-export interface PostLandingCleanupOptions {
-	readonly isDryRun: boolean;
-	readonly shouldPreserveSlot: boolean;
-	readonly shouldSkipConfirmation: boolean;
-	readonly shouldForceCleanup: boolean;
+/** Post-landing cleanup inputs derived from the public landing request. */
+export interface PostLandingCleanupRequest {
+	readonly mode: LandingMode;
+	readonly policy: LandingCleanupPolicy;
 }
 
 export type PostLandingCleanupResult =
-	| { readonly type: "completed"; readonly successMessage?: string }
-	| { readonly type: "failure"; readonly failure: LandingFailure };
+	| {
+			readonly type: "completed";
+			readonly outcome: PostLandingSlotCleanupReport;
+			readonly successMessage?: string;
+	  }
+	| {
+			readonly type: "failure";
+			readonly outcome: PostLandingSlotCleanupReport;
+			readonly failure: LandingFailure;
+	  };
 
 interface PostLandingSlotCleanupTarget extends PostLandingSlotCleanupPreview {
 	readonly localBranchDisposition: "delete" | "keep-trunk";
@@ -42,7 +53,7 @@ interface PostLandingSlotCleanupTarget extends PostLandingSlotCleanupPreview {
 }
 
 export function planManagedSlotPostLandingCleanup(options: {
-	readonly cleanup: PostLandingCleanupOptions;
+	readonly cleanup: PostLandingCleanupRequest;
 	readonly shape: LandingShape;
 }): PostLandingSlotCleanupPreview | undefined {
 	const target = postLandingCleanupTarget(options.cleanup, options.shape);
@@ -50,10 +61,23 @@ export function planManagedSlotPostLandingCleanup(options: {
 	return { branch: target.branch, repoRoot: target.repoRoot, slotName: target.slotName };
 }
 
+/** Observed cleanup outcome when the target is skipped before any cleanup mutation runs. */
+export function postLandingCleanupSkipReport(
+	cleanup: PostLandingCleanupRequest,
+	shape: LandingShape,
+): PostLandingSlotCleanupReport {
+	if (!isManagedSlotPath(shape.repoRoot) || slotNameFromPath(shape.repoRoot) === undefined) {
+		return { type: "not-applicable" };
+	}
+	if (cleanup.mode === "dry-run") return { type: "dry-run" };
+	if (cleanup.policy === "preserve") return { type: "preserved" };
+	return { type: "not-applicable" };
+}
+
 export async function resolveManagedSlotPostLandingCleanupDecision(options: {
 	readonly confirmation: LandConfirmationGateway;
-	readonly confirmationAlreadyApproved: boolean;
-	readonly cleanup: PostLandingCleanupOptions;
+	readonly isConfirmationAlreadyApproved: boolean;
+	readonly cleanup: PostLandingCleanupRequest;
 	readonly shape: LandingShape;
 }): Promise<
 	| { readonly type: "success"; readonly value: PostLandingSlotCleanupDecision }
@@ -61,11 +85,7 @@ export async function resolveManagedSlotPostLandingCleanupDecision(options: {
 > {
 	const target = postLandingCleanupTarget(options.cleanup, options.shape);
 	if (target === undefined) return { type: "success", value: { type: "not-needed" } };
-	if (
-		options.confirmationAlreadyApproved ||
-		options.cleanup.shouldSkipConfirmation ||
-		options.cleanup.shouldForceCleanup
-	) {
+	if (options.isConfirmationAlreadyApproved || options.cleanup.policy === "force-cleanup") {
 		return { type: "success", value: { type: "approved" } };
 	}
 
@@ -84,18 +104,22 @@ export async function resolveManagedSlotPostLandingCleanupDecision(options: {
 export async function runManagedSlotPostLandingCleanup(options: {
 	readonly landContext: LandContext;
 	readonly progress: LandExecutionProgress;
-	readonly cleanup: PostLandingCleanupOptions;
+	readonly cleanup: PostLandingCleanupRequest;
 	readonly shape: LandingShape;
 	readonly cleanupDecision: PostLandingSlotCleanupDecision;
 }): Promise<PostLandingCleanupResult> {
-	if (options.cleanupDecision.type === "not-needed") return { type: "completed" };
-
 	const target = postLandingCleanupTarget(options.cleanup, options.shape);
-	if (target === undefined) return { type: "completed" };
+	if (options.cleanupDecision.type === "not-needed" || target === undefined) {
+		return {
+			type: "completed",
+			outcome: postLandingCleanupSkipReport(options.cleanup, options.shape),
+		};
+	}
 
 	if (options.cleanupDecision.type === "declined") {
 		return {
 			type: "failure",
+			outcome: { type: "declined", slotName: target.slotName, branch: target.branch },
 			failure: landingExecutionFailure(
 				`Skipped post-landing cleanup by upfront choice; PRs were landed but ${target.slotName} and local branch ${target.branch} were kept.`,
 				{
@@ -121,19 +145,17 @@ export async function runManagedSlotPostLandingCleanup(options: {
 		});
 		if (freeResult.type === "failure") {
 			const diagnostics = boundaryFailureDiagnostics(freeResult.failure);
-			return {
-				type: "failure",
-				failure: landingExecutionFailure(
-					`PRs were landed, but freeing ${target.slotName} failed.`,
-					{
-						displayCommand:
-							diagnostics.displayCommand ??
-							formatCommand("ns", ["slot", "free", "--wt", target.slotName]),
-						...optionalEntry("execResult", diagnostics.execResult),
-						suggestedAction: target.suggestedAction,
-					},
-				),
-			};
+			const failure = landingExecutionFailure(
+				`PRs were landed, but freeing ${target.slotName} failed.`,
+				{
+					displayCommand:
+						diagnostics.displayCommand ??
+						formatCommand("ns", ["slot", "free", "--wt", target.slotName]),
+					...optionalEntry("execResult", diagnostics.execResult),
+					suggestedAction: target.suggestedAction,
+				},
+			);
+			return { type: "failure", outcome: { type: "failed", failure }, failure };
 		}
 
 		if (target.localBranchDisposition === "delete") {
@@ -149,34 +171,47 @@ export async function runManagedSlotPostLandingCleanup(options: {
 				checkedOutConflictHandling: "fail",
 			});
 			if (deletion.type !== "deleted") {
+				const failure = landingExecutionFailure(
+					`PRs were landed and ${target.slotName} was freed, but deleting local branch ${branch} failed.`,
+					{
+						displayCommand:
+							deletion.type === "failed"
+								? deletion.commandDisplay
+								: formatGraphiteOperation(deleteOperation),
+						...(deletion.type === "failed" ? { execResult: deletion.result } : {}),
+						suggestedAction: `Delete local branch ${branch} manually when safe.`,
+					},
+				);
+				// Partial success: retain the freed-slot fact alongside the deletion failure.
 				return {
 					type: "failure",
-					failure: landingExecutionFailure(
-						`PRs were landed and ${target.slotName} was freed, but deleting local branch ${branch} failed.`,
-						{
-							displayCommand:
-								deletion.type === "failed"
-									? deletion.commandDisplay
-									: formatGraphiteOperation(deleteOperation),
-							...(deletion.type === "failed" ? { execResult: deletion.result } : {}),
-							suggestedAction: `Delete local branch ${branch} manually when safe.`,
-						},
-					),
+					outcome: { type: "failed", freedSlot: managedSlot, failure },
+					failure,
 				};
 			}
 		}
+
+		return {
+			type: "completed",
+			outcome: {
+				type: "completed",
+				freedSlot: managedSlot,
+				...(target.localBranchDisposition === "keep-trunk"
+					? { keptTrunkBranch: target.branch }
+					: { deletedLocalBranch: target.branch }),
+			},
+			successMessage: target.successMessage,
+		};
 	} finally {
 		options.progress.setStatus(undefined);
 	}
-
-	return { type: "completed", successMessage: target.successMessage };
 }
 
 function postLandingCleanupTarget(
-	cleanup: PostLandingCleanupOptions,
+	cleanup: PostLandingCleanupRequest,
 	shape: LandingShape,
 ): PostLandingSlotCleanupTarget | undefined {
-	if (cleanup.shouldPreserveSlot || cleanup.isDryRun) return undefined;
+	if (cleanup.policy === "preserve" || cleanup.mode === "dry-run") return undefined;
 
 	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
 	if (slotName === undefined) return undefined;
@@ -192,22 +227,10 @@ function postLandingCleanupTarget(
 			localBranchDisposition === "keep-trunk"
 				? `Post-landing cleanup complete: freed ${slotName}; local trunk branch ${branch} was kept.`
 				: `Post-landing cleanup complete: freed ${slotName} and deleted local branch ${branch}.`,
-		suggestedAction: postLandingCleanupSuggestedAction({
+		suggestedAction: `Run ${postLandingCleanupCommands({
 			branch,
-			localBranchDisposition,
 			slotName,
-		}),
+			localBranchDisposition,
+		}).join(", then ")} when safe.`,
 	};
-}
-
-function postLandingCleanupSuggestedAction(options: {
-	readonly branch: string;
-	readonly localBranchDisposition: "delete" | "keep-trunk";
-	readonly slotName: string;
-}): string {
-	const commands = [formatCommand("ns", ["slot", "free", "--wt", options.slotName])];
-	if (options.localBranchDisposition === "delete") {
-		commands.push(formatGraphiteOperation(deleteLocalBranchOperation({ branch: options.branch })));
-	}
-	return `Run ${commands.join(", then ")} when safe.`;
 }

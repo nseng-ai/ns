@@ -41,11 +41,11 @@ import {
 import { landUsageOptionRows, landUsageTokens } from "./stack/flags.ts";
 import type { LandConfirmationRequest } from "./execution/host-seams.ts";
 import {
-	deleteLocalBranchOperation,
-	formatGraphiteOperation,
-	restackOperation,
-	restackTargetForSubmit,
-} from "./graphite-operations.ts";
+	formatPrSubmitRequirementLine,
+	postLandingCleanupCommands,
+	submitRequiredUpdatesCommands,
+} from "./confirmation-commands.ts";
+import { restackTargetForSubmit } from "./graphite-operations.ts";
 import type {
 	CommandStreamMessageDetails,
 	LandConfirmationPreview,
@@ -61,6 +61,7 @@ import type {
 	LandedPullRequest,
 	LandingPlan,
 	LandingWarning,
+	PostLandingSlotCleanupReport,
 } from "./types.ts";
 
 // --------------------------------------------------------------------------
@@ -246,14 +247,13 @@ export function formatPlan(plan: LandingPlan): string {
 		for (const requirement of prSubmitRequirements) {
 			lines.push(`  ${formatPrSubmitRequirement(requirement)}`);
 		}
-		if (restackTarget) {
-			lines.push(
-				`  Command: ${formatGraphiteOperation(restackOperation({ branch: restackTarget, scope: "upstack" }))}`,
-			);
+		const commands = submitRequiredUpdatesCommands({
+			landingTargetBranch: stack.landingTargetBranch,
+			...(restackTarget === undefined ? {} : { restackTarget }),
+		});
+		for (const command of commands) {
+			lines.push(`  Command: ${command}`);
 		}
-		lines.push(
-			`  Command: ${formatGraphiteOperation({ kind: "submit-update", branch: stack.landingTargetBranch })}`,
-		);
 	} else {
 		lines.push("No pre-merge PR submit/update is required.");
 	}
@@ -429,7 +429,12 @@ function formatFailureFields(
 	}
 	lines.push("", fields.message);
 	if (displayCommand || execResult) {
-		lines.push("", formatCommandDetails(execResult ?? emptyResult(), displayCommand));
+		// Boundary failures whose message already embeds the rendered command details (the adapters
+		// do this) keep the legacy single-render output; the structured diagnostics stay intact.
+		const commandDetails = formatCommandDetails(execResult ?? emptyResult(), displayCommand);
+		if (!fields.message.includes(commandDetails)) {
+			lines.push("", commandDetails);
+		}
 	}
 	if (suggestedAction) {
 		lines.push("", `Suggested next action: ${suggestedAction}`);
@@ -722,7 +727,7 @@ export function formatPrSubmitRequirement(
 		"branch" | "prNumber" | "reasons"
 	>,
 ): string {
-	return `- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`;
+	return formatPrSubmitRequirementLine(requirement);
 }
 
 export function submitRequiredUpdatesConfirmationTitle(
@@ -737,12 +742,7 @@ export function formatSubmitRequiredUpdatesConfirmationDetails(
 	request: Extract<LandConfirmationRequest, { readonly kind: "submit-required-updates" }>,
 ): string {
 	const restackTarget = request.restackTarget;
-	const commands = [
-		...(restackTarget === undefined
-			? []
-			: [formatGraphiteOperation(restackOperation({ branch: restackTarget, scope: "upstack" }))]),
-		formatGraphiteOperation({ kind: "submit-update", branch: request.landingTargetBranch }),
-	];
+	const commands = submitRequiredUpdatesCommands(request);
 	const lines = [
 		restackTarget === undefined
 			? "GitHub PR metadata is behind local Graphite refs. Run Graphite submit/update before merging?"
@@ -760,10 +760,7 @@ export function formatSubmitRequiredUpdatesConfirmationDetails(
 	}
 	lines.push(
 		"PR metadata to update:",
-		...request.requirements.map(
-			(requirement) =>
-				`- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`,
-		),
+		...request.requirements.map(formatPrSubmitRequirementLine),
 		"",
 		"Commands:",
 		...commands.map((command) => `$ ${command}`),
@@ -775,15 +772,10 @@ export function submitRequiredUpdatesNonInteractiveRefusalMessage(
 	request: Extract<LandConfirmationRequest, { readonly kind: "submit-required-updates" }>,
 ): string {
 	const details = formatSubmitRequiredUpdatesConfirmationDetails(request);
-	const restackTarget = request.restackTarget;
-	const commands = [
-		...(restackTarget === undefined
-			? []
-			: [formatGraphiteOperation(restackOperation({ branch: restackTarget, scope: "upstack" }))]),
-		formatGraphiteOperation({ kind: "submit-update", branch: request.landingTargetBranch }),
-	];
+	const commands = submitRequiredUpdatesCommands(request);
 	const manualCommandText = commands.map((command) => `\`${command}\``).join(" then ");
-	const actionName = restackTarget === undefined ? "submit/update" : "restack + submit/update";
+	const actionName =
+		request.restackTarget === undefined ? "submit/update" : "restack + submit/update";
 	return [
 		`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
 		details,
@@ -794,13 +786,7 @@ export function submitRequiredUpdatesNonInteractiveRefusalMessage(
 export function submitRequiredUpdatesSuggestedAction(
 	request: Extract<LandConfirmationRequest, { readonly kind: "submit-required-updates" }>,
 ): string {
-	const restackTarget = request.restackTarget;
-	const commands = [
-		...(restackTarget === undefined
-			? []
-			: [formatGraphiteOperation(restackOperation({ branch: restackTarget, scope: "upstack" }))]),
-		formatGraphiteOperation({ kind: "submit-update", branch: request.landingTargetBranch }),
-	];
+	const commands = submitRequiredUpdatesCommands(request);
 	return `Run ${commands.map((command) => `\`${command}\``).join(" then ")} manually, then rerun /ns:flow:land --yes.`;
 }
 
@@ -812,10 +798,7 @@ export function formatPostLandingCleanupConfirmationDetails(
 	request: Extract<LandConfirmationRequest, { readonly kind: "post-landing-cleanup" }>,
 ): string {
 	const keepsTrunk = request.localBranchDisposition === "keep-trunk";
-	const commands = [formatCommand("ns", ["slot", "free", "--wt", request.slotName])];
-	if (!keepsTrunk) {
-		commands.push(formatGraphiteOperation(deleteLocalBranchOperation({ branch: request.branch })));
-	}
+	const commands = postLandingCleanupCommands(request);
 	return [
 		keepsTrunk
 			? "Post-landing cleanup will detach the current managed slot to trunk. The local trunk branch is kept."
@@ -830,6 +813,16 @@ export function formatPostLandingCleanupConfirmationDetails(
 		"Commands:",
 		...commands.map((command) => `$ ${command}`),
 	].join("\n");
+}
+
+/** Success notice for a completed post-landing cleanup, derived from the observed report facts. */
+export function formatPostLandingCleanupSuccessNotice(
+	outcome: Extract<PostLandingSlotCleanupReport, { readonly type: "completed" }>,
+): string {
+	const slotName = outcome.freedSlot.slotName ?? outcome.freedSlot.path;
+	return outcome.deletedLocalBranch !== undefined
+		? `Post-landing cleanup complete: freed ${slotName} and deleted local branch ${outcome.deletedLocalBranch}.`
+		: `Post-landing cleanup complete: freed ${slotName}; local trunk branch ${outcome.keptTrunkBranch ?? outcome.freedSlot.branch} was kept.`;
 }
 
 export function postLandingCleanupNonInteractiveRefusalMessage(

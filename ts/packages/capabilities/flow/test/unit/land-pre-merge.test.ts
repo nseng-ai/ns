@@ -115,7 +115,7 @@ describe("land pre-merge execution", () => {
 			plan: plan(),
 		});
 
-		expect(result).toEqual({ type: "success", value: undefined });
+		expect(result).toEqual({ type: "success", value: [SLOT] });
 		expect(confirmation.requests).toEqual([{ kind: "free-managed-slots", slots: [SLOT] }]);
 		expect(memory.worktrees.freeSlotsCalls).toEqual([{ repoRoot: "/repo", slots: [SLOT] }]);
 		expect(memory.git.workingTreeStatusCalls).toEqual([{ repoRoot: "/repo" }]);
@@ -265,16 +265,48 @@ describe("land pre-merge execution", () => {
 		expect(memory.graphite.prepareSubmitUpdateCalls).toEqual([]);
 	});
 
-	test("restack failure prevents submit", async () => {
+	test("restack failure prevents submit and preserves rich boundary diagnostics", async () => {
+		const execResult = {
+			type: "exited" as const,
+			stdout: "restack out",
+			stderr: "restack err",
+			code: 1,
+			signal: null,
+		};
 		const memory = createInMemoryLandContext({
-			graphite: { restackForSubmitResults: { "feature/a": { type: "failure" } } },
+			graphite: {
+				restackForSubmitResults: {
+					"feature/a": {
+						type: "failure",
+						failure: {
+							type: "boundary",
+							phase: "submit-preparation",
+							source: "graphite",
+							code: "submit_restack_failed",
+							message: "gt restack failed before any PRs were landed.",
+							displayCommand: "gt restack --branch feature/a --upstack --no-interactive",
+							execResult,
+						},
+					},
+				},
+			},
 		});
 		const result = await confirmAndSubmitRequiredPrUpdates({
 			context: memory.context,
 			host: { confirmation: recordingConfirmation().gateway, progress: progress() },
 			plan: plan({ submitRestackRequirements: [{ branch: "feature/a", parent: "main" }] }),
 		});
-		expect(result.type).toBe("failure");
+		expect(result).toMatchObject({
+			type: "failure",
+			failure: {
+				type: "boundary",
+				source: "graphite",
+				code: "submit_restack_failed",
+				displayCommand: "gt restack --branch feature/a --upstack --no-interactive",
+				execResult,
+				suggestedAction: expect.stringContaining("Resolve the restack failure"),
+			},
+		});
 		expect(memory.graphite.prepareSubmitUpdateCalls).toEqual([]);
 	});
 
@@ -315,15 +347,17 @@ describe("land pre-merge execution", () => {
 		expect(memory.graphite.prepareSubmitUpdateCalls).toEqual([
 			{ repoRoot: "/repo", branch: "feature/a" },
 		]);
+		// The original boundary variant survives; only the suggested action is replaced.
 		expect(result).toEqual({
 			type: "failure",
 			failure: {
-				type: "execution",
-				level: "error",
+				type: "boundary",
+				phase: "submit-preparation",
+				source: "graphite",
+				code: "submit_failed",
 				message: "submit update failed",
 				suggestedAction:
 					"Resolve the submit failure, run gt submit --branch feature/a --no-stack --update-only --no-edit --no-ai --no-interactive manually if appropriate, then rerun /ns:flow:land.",
-				outcome: "failure",
 			},
 		});
 		expect(memory.git.resolveRepoRootCalls).toEqual([]);

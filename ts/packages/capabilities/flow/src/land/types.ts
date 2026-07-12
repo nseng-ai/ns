@@ -17,7 +17,7 @@ export interface LandingRequest {
 	readonly target: LandingTarget;
 	readonly mode: LandingMode;
 	readonly preflight: LandingPreflightMode;
-	readonly cleanup: LandingCleanupMode;
+	readonly cleanup: LandingCleanupPolicy;
 }
 
 export type LandingMode = "execute" | "dry-run";
@@ -26,9 +26,28 @@ export interface LandingPreflightMode {
 	readonly shouldAllowSubmitRequiredState: boolean;
 }
 
-export interface LandingCleanupMode {
-	readonly shouldFreeSlot: boolean;
-	readonly shouldForceCleanup: boolean;
+/**
+ * Closed post-landing cleanup policy for the current managed-slot worktree.
+ *
+ * - `preserve`: keep the current slot and local branch; never prompt or mutate.
+ * - `free-slot`: free the current managed slot after a successful landing; confirm unless already
+ *   approved through {@link LandingExecutionApprovals}.
+ * - `force-cleanup`: authorized cleanup without a new cleanup prompt.
+ *
+ * `mode: "dry-run"` always dominates cleanup policy and performs no cleanup mutation.
+ */
+export type LandingCleanupPolicy = "preserve" | "free-slot" | "force-cleanup";
+
+/**
+ * Temporary compatibility plumbing, not the future authorization model. Flow resolves some
+ * approvals through its own upfront confirmation and `--yes`/`--force` flags before calling
+ * canonical execution; each boolean marks one confirmation as already granted so canonical
+ * execution does not prompt twice.
+ */
+export interface LandingExecutionApprovals {
+	readonly isMainConfirmationAlreadyApproved?: boolean;
+	readonly isPreMergeConfirmationAlreadyApproved?: boolean;
+	readonly isPostLandingCleanupAlreadyApproved?: boolean;
 }
 
 export interface LandContext {
@@ -51,11 +70,13 @@ export type LandingPhase =
 	| "repo-discovery"
 	| "stack-shape"
 	| "preflight"
+	| "confirmation"
 	| "submit-preparation"
 	| "dry-run"
 	| "merge"
 	| "descendant-maintenance"
-	| "cleanup";
+	| "merge-maintenance-cleanup"
+	| "post-landing-cleanup";
 
 export type LandingFailure =
 	| LandingBoundaryFailure
@@ -118,25 +139,71 @@ export interface LandingNotImplementedFailure {
 	readonly message: string;
 }
 
-export interface LandingOutcome {
-	readonly repoRoot: string;
+/**
+ * Outcome-rich report carried by both {@link LandingExecutionResult} variants. Early failures omit
+ * discovery facts (`repoRoot`, `plan`) that were never observed; phases record only work that ran.
+ */
+export interface LandingExecutionReport {
 	readonly target: LandingTarget;
 	readonly mode: LandingMode;
-	readonly phases: readonly LandingPhaseOutcome[];
+	readonly repoRoot?: string;
 	readonly plan?: LandingPlan;
+	readonly phases: readonly LandingPhaseOutcome[];
 	readonly landedChunks: readonly LandedChunk[];
-	readonly cleanup: LandingCleanupOutcome;
+	readonly warnings: readonly LandingWarning[];
+	readonly cleanup: LandingCleanupReport;
 }
+
+/** Canonical result of {@link LandingRequest} execution. Both variants carry the same report. */
+export type LandingExecutionResult =
+	| { readonly type: "completed"; readonly report: LandingExecutionReport }
+	| {
+			readonly type: "failed";
+			readonly report: LandingExecutionReport;
+			readonly failure: LandingFailure;
+	  };
+
+/**
+ * Deliberate compatibility alias: the previously public `LandingOutcome` vocabulary now names the
+ * canonical execution report so there is exactly one execution report model.
+ */
+export type LandingOutcome = LandingExecutionReport;
 
 export type LandingPhaseOutcome =
 	| { readonly type: "completed"; readonly phase: LandingPhase }
 	| { readonly type: "skipped"; readonly phase: LandingPhase; readonly reason: string }
 	| { readonly type: "failed"; readonly phase: LandingPhase; readonly failure: LandingFailure };
 
-export interface LandingCleanupOutcome {
-	readonly retainedLocalBranches: readonly RetainedLocalBranchCleanup[];
-	readonly freedSlots: readonly ManagedSlotWorktree[];
+export interface LandingCleanupReport {
+	readonly preMergeFreedSlots: readonly ManagedSlotWorktree[];
+	readonly mergeMaintenanceCleanup: MergeMaintenanceCleanupReport;
+	readonly postLandingSlotCleanup: PostLandingSlotCleanupReport;
 }
+
+/** Local-branch cleanup observed during per-merge Graphite maintenance. */
+export interface MergeMaintenanceCleanupReport {
+	readonly deletedLocalBranches: readonly string[];
+	readonly retainedLocalBranches: readonly RetainedLocalBranchCleanup[];
+}
+
+/** Observed outcome of post-landing managed-slot cleanup. */
+export type PostLandingSlotCleanupReport =
+	| { readonly type: "not-applicable" }
+	| { readonly type: "preserved" }
+	| { readonly type: "dry-run" }
+	| { readonly type: "not-run"; readonly reason: string }
+	| { readonly type: "declined"; readonly slotName: string; readonly branch: string }
+	| {
+			readonly type: "completed";
+			readonly freedSlot: ManagedSlotWorktree;
+			readonly deletedLocalBranch?: string;
+			readonly keptTrunkBranch?: string;
+	  }
+	| {
+			readonly type: "failed";
+			readonly freedSlot?: ManagedSlotWorktree;
+			readonly failure: LandingFailure;
+	  };
 
 export interface StackSnapshot {
 	readonly trunk: string;

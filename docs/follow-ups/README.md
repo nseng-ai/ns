@@ -15,4 +15,5 @@ Follow-ups are historical planning inputs, not commitments, canonical system spe
 
 ## Notes
 
+- [Delegation-first parent orchestration](delegation-first-parent-orchestration.md) — keep parent orchestrator sessions inside their context budget by delegating diff/log/status inspection to subagents and injecting a compact contract into multi-subagent plans.
 - [Objective context management and compaction](objective-context-management-and-compaction.md) — reduce routine context consumption by large, long-lived Objectives while preserving provenance and routing.

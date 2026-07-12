@@ -21,16 +21,20 @@ The compatibility rule that land consumers continue to enter through **Flow Capa
 *Avoid*: direct cmux capability import from `@nseng-ai/flow/land`, direct cmux capability import from Flow land-stack internals, removing existing `@nseng-ai/flow/api` exports during migration
 
 **Flow Land Execution**:
-The Flow-owned land behavior that still includes command presentation, stack-mode orchestration, prompts, merge execution, Graphite maintenance, and cleanup behavior while land execution remains broader than the land-domain core.
-*Avoid*: fully migrated land capability, pure preflight plan, standalone land CLI behavior
+The Flow-owned adapter layer around canonical land execution: command presentation, prompt rendering, the confirmation gateway, ParsedArgs-to-request mapping, and routing (no-op, isolated fast path, stack). Merge execution, Graphite maintenance, and post-landing managed-slot cleanup are owned by **Canonical Landing Execution** in the land domain core.
+*Avoid*: direct `executeStackLandingPlan` call, Flow-side post-landing cleanup for stack landings, pure preflight plan, standalone land CLI behavior
+
+**Canonical Landing Execution**:
+The `executeLanding` entry point on **Land Capability API** that owns the full `LandingRequest` lifecycle — discovery, preflight planning, confirmation, pre-merge preparation, merge, per-merge maintenance, and post-landing managed-slot cleanup under the closed cleanup policy (`preserve` / `free-slot` / `force-cleanup`) — and returns a `LandingExecutionResult` whose completed and failed variants carry the same observed-fact `LandingExecutionReport`.
+*Avoid*: phase synthesis from plan shape, gateway-level `LandResult` widening, second execution report model, Flow-owned cleanup ordering
 
 **Land Domain Core**:
 The deterministic land logic in the `@nseng-ai/flow/land` subpackage that consumes injected Git, Graphite, GitHub PR, and worktree-slot gateways to produce land-domain results.
 *Avoid*: CLI parser, renderer, Pi command, direct subprocess script
 
 **Land Capability API**:
-The curated `@nseng-ai/flow/land/api` surface for Flow internals and land tests to consume domain types and planning entry points.
-*Avoid*: package-root import, Flow compatibility API, command export
+The curated `@nseng-ai/flow/land/api` surface: `executeLanding`, planning entry points, result/failure vocabulary, confirmation/progress host seams, and domain types. Deliberately narrowed after the execution migration — execution internals (`executeStackLandingPlan`, isolated landing internals, pre-merge phase helpers) are not public; a runtime allowlist test guards the surface, package-local tests import implementation modules directly, and the sweep found no workspace production consumers of the removed exports.
+*Avoid*: package-root import, Flow compatibility API, command export, execution-internal re-export
 
 **Land Testing Surface**:
 The `@nseng-ai/flow/land/testing` surface that provides in-memory fakes and fixture builders for land-domain tests.
