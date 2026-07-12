@@ -497,6 +497,37 @@ describe("subagent fleet navigator", () => {
 		expect(afterDone.match(/session: /g)).toHaveLength(1);
 	});
 
+	test("expanded entry preview has no stray blank line before its read resolves", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Pending" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/pending.jsonl"));
+		let resolveRead: ((content: string) => void) | undefined;
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: testDetailContext({
+				readTextFile: () =>
+					new Promise<string>((resolve) => {
+						resolveRead = resolve;
+					}),
+			}),
+			done: () => {},
+		});
+
+		view.handleInput(" ");
+		await settleMicrotasks();
+		const lines = view.render(120);
+		const loadingIndex = lines.findIndex((line) => line.includes("loading session…"));
+		expect(loadingIndex).toBeGreaterThan(-1);
+		expect(lines[loadingIndex + 1]).toContain("session: /tmp/pending.jsonl");
+
+		resolveRead?.(sessionJsonl());
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).toContain("latest: ● assistant: Found details");
+	});
+
 	test("windows expanded previews as whole entry blocks and counts omitted entries", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([
