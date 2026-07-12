@@ -16,6 +16,9 @@ import {
 	createMatrixProgressState,
 	reduceMatrixProgress,
 	snapshotMatrixProgress,
+	type MatrixProgressAction,
+	type MatrixProgressState,
+	type MatrixRowSpec,
 } from "../../src/phase-stream/matrix-progress-state.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
 
@@ -114,7 +117,7 @@ describe("matrix progress core", () => {
 	test("reduces actions to detached committed changes and snapshots", () => {
 		const columns = [{ key: "metadata" as const, label: "Metadata", width: 8 }];
 		const inputRows = [{ rowKey: "feature/a", label: "feature/a" }];
-		const state = createMatrixProgressState({
+		const initialState = createMatrixProgressState({
 			title: "Workflow",
 			rows: inputRows,
 			columns,
@@ -122,11 +125,10 @@ describe("matrix progress core", () => {
 		const operations: ActiveOperation[] = [{ kind: "command", display: "just" }];
 
 		const reduction = reduceMatrixProgress({
-			state,
+			state: initialState,
 			columns,
 			action: { kind: "active-operations-changed", operations },
 		});
-		expect(reduction).toMatchObject({ type: "changed" });
 		operations[0] = { kind: "command", display: "mutated" };
 		operations.length = 0;
 		if (reduction.type !== "changed") throw new Error("expected committed change");
@@ -134,13 +136,19 @@ describe("matrix progress core", () => {
 			kind: "active-operations-changed",
 			operations: [{ kind: "command", display: "just" }],
 		});
+		if (reduction.change.kind !== "active-operations-changed") {
+			throw new Error("expected active operations change");
+		}
+		expect(reduction.state.activeOperations[0]).not.toBe(reduction.change.operations[0]);
+		expect(initialState.activeOperations).toEqual([]);
+		let state = reduction.state;
 		inputRows[0] = { rowKey: "mutated", label: "mutated" };
 		expect(snapshotMatrixProgress(state).activeOperations).toEqual([
 			{ kind: "command", display: "just" },
 		]);
 		expect(snapshotMatrixProgress(state).rows[0]?.rowKey).toBe("feature/a");
 		const retained = snapshotMatrixProgress(state);
-		reduceMatrixProgress({
+		const cellReduction = reduceMatrixProgress({
 			state,
 			columns,
 			action: {
@@ -150,7 +158,13 @@ describe("matrix progress core", () => {
 				update: { state: "done", text: "new" },
 			},
 		});
+		if (cellReduction.type !== "changed") throw new Error("expected committed cell change");
+		state = cellReduction.state;
 		expect(retained.rows[0]?.cells.metadata).toEqual({ state: "pending" });
+		expect(snapshotMatrixProgress(state).rows[0]?.cells.metadata).toEqual({
+			state: "done",
+			text: "new",
+		});
 
 		const repeat = reduceMatrixProgress({
 			state,
@@ -161,6 +175,139 @@ describe("matrix progress core", () => {
 			},
 		});
 		expect(repeat.type).toBe("changed");
+	});
+
+	test("detaches collection-bearing phase events from action payloads", () => {
+		const columns = [{ key: "metadata" as const, label: "Metadata", width: 8 }];
+		const state = createMatrixProgressState({ title: "Workflow", rows: [], columns });
+
+		function acceptedEvent(event: NsProgressPhaseEvent): NsProgressPhaseEvent {
+			const reduction = reduceMatrixProgress({
+				state,
+				columns,
+				action: { kind: "phase-event", event },
+			});
+			if (reduction.type !== "changed" || reduction.change.kind !== "phase-event") {
+				throw new Error("expected accepted phase event");
+			}
+			return reduction.change.event;
+		}
+
+		const phases = [
+			{
+				key: "prepare",
+				name: "Prepare",
+				substeps: [{ key: "inspect", name: "Inspect" }],
+			},
+		];
+		const declared = acceptedEvent({ type: "phases-declared", title: "Workflow", phases });
+		phases[0]!.name = "mutated";
+		phases[0]!.substeps[0]!.name = "mutated";
+		expect(declared).toEqual({
+			type: "phases-declared",
+			title: "Workflow",
+			phases: [
+				{
+					key: "prepare",
+					name: "Prepare",
+					substeps: [{ key: "inspect", name: "Inspect" }],
+				},
+			],
+		});
+
+		const matrixColumns = [{ key: "metadata", label: "Metadata", width: 8 }];
+		const matrixDeclared = acceptedEvent({ type: "matrix-declared", columns: matrixColumns });
+		matrixColumns[0]!.label = "mutated";
+		expect(matrixDeclared).toEqual({
+			type: "matrix-declared",
+			columns: [{ key: "metadata", label: "Metadata", width: 8 }],
+		});
+
+		const rows = [{ rowKey: "feature/a", label: "feature/a" }];
+		const rowsDeclared = acceptedEvent({ type: "matrix-rows", rows });
+		rows[0]!.label = "mutated";
+		expect(rowsDeclared).toEqual({
+			type: "matrix-rows",
+			rows: [{ rowKey: "feature/a", label: "feature/a" }],
+		});
+
+		const operations: ActiveOperation[] = [{ kind: "command", display: "just" }];
+		const operationsDeclared = acceptedEvent({
+			type: "matrix-active-operations",
+			operations,
+		});
+		operations[0] = { kind: "command", display: "mutated" };
+		expect(operationsDeclared).toEqual({
+			type: "matrix-active-operations",
+			operations: [{ kind: "command", display: "just" }],
+		});
+	});
+
+	test("does not mutate prior state, rows, or cells across matrix reductions", () => {
+		type Row = MatrixRowSpec & { detail: string };
+		const columns = [{ key: "metadata" as const, label: "Metadata", width: 8 }];
+		const createState = (): MatrixProgressState<"metadata", Row> =>
+			createMatrixProgressState({
+				title: "Workflow",
+				rows: [
+					{ rowKey: "feature/a", label: "feature/a", detail: "a" },
+					{ rowKey: "feature/b", label: "feature/b", detail: "b" },
+				],
+				columns,
+			});
+
+		function applyPurely(
+			state: MatrixProgressState<"metadata", Row>,
+			action: MatrixProgressAction<"metadata", Row>,
+		): MatrixProgressState<"metadata", Row> {
+			const rows = state.rows;
+			const cells = rows.map((row) => row.cells);
+			const before = snapshotMatrixProgress(state);
+			const reduction = reduceMatrixProgress({ state, columns, action });
+			if (reduction.type !== "changed") throw new Error(`expected ${action.kind} to change state`);
+			expect(reduction.state).not.toBe(state);
+			expect(state.rows).toBe(rows);
+			expect(rows.map((row) => row.cells)).toEqual(cells);
+			for (const [index, row] of rows.entries()) expect(row.cells).toBe(cells[index]);
+			expect(snapshotMatrixProgress(state)).toEqual(before);
+			return reduction.state;
+		}
+
+		applyPurely(createState(), { kind: "title-changed", title: "Next" });
+		applyPurely(createState(), {
+			kind: "row-patched",
+			rowKey: "feature/a",
+			patch: { detail: "patched" },
+		});
+		applyPurely(createState(), {
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "metadata",
+			update: { state: "active" },
+		});
+		const stateWithActiveCell = applyPurely(createState(), {
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "metadata",
+			update: { state: "active" },
+		});
+		applyPurely(stateWithActiveCell, {
+			kind: "cells-in-state-changed",
+			column: "metadata",
+			fromState: "active",
+			update: { state: "done" },
+		});
+		applyPurely(createState(), {
+			kind: "all-cells-changed",
+			column: "metadata",
+			update: { state: "done" },
+		});
+		applyPurely(createState(), {
+			kind: "all-other-cells-changed",
+			column: "metadata",
+			excludedRowKey: "feature/a",
+			update: { state: "skipped" },
+		});
 	});
 
 	test.each([

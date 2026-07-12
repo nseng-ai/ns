@@ -11,10 +11,10 @@ import {
 	type MatrixProgressAdapter,
 } from "../../src/phase-stream/matrix-progress-controller.ts";
 import { defineMatrixWorkflow } from "../../src/phase-stream/matrix-progress-core.ts";
-import { createMatrixEventAdapter } from "../../src/phase-stream/matrix-progress-event-adapter.ts";
-import {
-	snapshotMatrixProgress,
-	type MatrixRowSpec,
+import type {
+	MatrixProgressChange,
+	MatrixProgressSnapshot,
+	MatrixRowSpec,
 } from "../../src/phase-stream/matrix-progress-state.ts";
 import { applyPrLinksToRows } from "../../src/submit/submit-matrix-progress.ts";
 import type { SubmitPrLink } from "../../src/submit/gt-output.ts";
@@ -430,25 +430,58 @@ describe("matrix progress controller", () => {
 		});
 	});
 
-	test("event-only cell deltas do not materialize full snapshots", () => {
-		const recording = recordingProgress();
-		let snapshotCount = 0;
+	test("reentrant finish calls share one terminal operation", async () => {
+		let reenterFinish = (): Promise<void> => Promise.resolve();
+		let reentrantPromise: Promise<void> | undefined;
+		let adapterFinishCount = 0;
+		const adapter: MatrixProgressAdapter<"build" | "test", MatrixRowSpec> = {
+			begin: () => {},
+			observe: (change) => {
+				if (change.kind === "phase-event" && change.event.type === "phase-done") {
+					reentrantPromise ??= reenterFinish();
+				}
+			},
+			beforeFinish: async () => {},
+			finish: async () => {
+				adapterFinishCount += 1;
+			},
+			stop: async () => {},
+		};
+		const controller = createMatrixProgressControllerCore({
+			title: "Workflow",
+			rows: [{ rowKey: "feature/a", label: "feature/a" }],
+			columns: COLUMNS,
+			phases: [{ key: "prepare", item: { name: "Prepare", detail: "prepared" } }],
+			adapter,
+		});
+		reenterFinish = () => controller.finish();
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "prepare" },
+		});
+
+		const finish = controller.finish();
+
+		expect(reentrantPromise).toBe(finish);
+		await finish;
+		expect(adapterFinishCount).toBe(1);
+	});
+
+	test("event-only cell deltas do not require snapshot access", () => {
+		const changes: MatrixProgressChange<"build" | "test", MatrixRowSpec>[] = [];
 		const controller = createMatrixProgressControllerCore({
 			title: "Workflow",
 			rows: ROWS.map((row) => ({ ...row, rowKey: row.branch })),
 			columns: COLUMNS,
 			phases: [],
-			createSnapshot: (state, phases) => {
-				snapshotCount += 1;
-				return snapshotMatrixProgress(state, phases);
+			adapter: {
+				begin: () => {},
+				observe: (change, _getSnapshot) => changes.push(change),
+				beforeFinish: async () => {},
+				finish: async () => {},
+				stop: async () => {},
 			},
-			adapter: createMatrixEventAdapter({
-				progress: recording.progress,
-				columns: COLUMNS,
-				phases: [],
-			}),
 		});
-		snapshotCount = 0;
 
 		controller.dispatch({
 			kind: "cell-changed",
@@ -457,22 +490,21 @@ describe("matrix progress controller", () => {
 			update: { state: "done" },
 		});
 
-		expect(snapshotCount).toBe(0);
-		expect(recording.events.at(-1)).toEqual({
-			type: "matrix-cell",
+		expect(changes.at(-1)).toEqual({
+			kind: "cell-changed",
 			rowKey: "feature/a",
-			columnKey: "build",
-			state: "done",
+			column: "build",
+			update: { state: "done" },
 		});
 	});
 
 	test("composed adapters share one memoized snapshot per committed change", () => {
-		let snapshotCount = 0;
+		const snapshots: MatrixProgressSnapshot<"build" | "test", MatrixRowSpec>[] = [];
 		function snapshotReadingAdapter(): MatrixProgressAdapter<"build" | "test", MatrixRowSpec> {
 			return {
 				begin: () => {},
 				observe: (_change, getSnapshot) => {
-					getSnapshot();
+					snapshots.push(getSnapshot());
 				},
 				beforeFinish: async () => {},
 				finish: async () => {},
@@ -484,13 +516,8 @@ describe("matrix progress controller", () => {
 			rows: [{ rowKey: "feature/a", label: "feature/a" }],
 			columns: COLUMNS,
 			phases: [],
-			createSnapshot: (state, phases) => {
-				snapshotCount += 1;
-				return snapshotMatrixProgress(state, phases);
-			},
 			adapter: composeMatrixProgressAdapters([snapshotReadingAdapter(), snapshotReadingAdapter()]),
 		});
-		snapshotCount = 0;
 
 		controller.dispatch({
 			kind: "cell-changed",
@@ -498,8 +525,25 @@ describe("matrix progress controller", () => {
 			column: "build",
 			update: { state: "done" },
 		});
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "test",
+			update: { state: "done" },
+		});
 
-		expect(snapshotCount).toBe(1);
+		expect(snapshots).toHaveLength(4);
+		expect(snapshots[0]).toBe(snapshots[1]);
+		expect(snapshots[2]).toBe(snapshots[3]);
+		expect(snapshots[0]).not.toBe(snapshots[2]);
+		expect(snapshots[0]?.rows[0]?.cells).toEqual({
+			build: { state: "done" },
+			test: { state: "pending" },
+		});
+		expect(snapshots[2]?.rows[0]?.cells).toEqual({
+			build: { state: "done" },
+			test: { state: "done" },
+		});
 	});
 
 	test("combined terminal and live adapters fan out accepted changes exactly once", () => {
