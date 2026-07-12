@@ -1,4 +1,4 @@
-import type { NsProgressPhaseEvent, NsProgressPhaseListener } from "@nseng-ai/sdk";
+import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import type {
 	SubmitMatrixProgressController,
@@ -24,8 +24,4 @@ export function bindMatrixSubmitProgress(input: {
 		},
 		matrix: input.matrix,
 	};
-}
-
-export function createStreamSubmitProgress(emit: NsProgressPhaseListener): SubmitProgress {
-	return { phase: emit, matrix: undefined };
 }

@@ -86,18 +86,20 @@ export const SUBMIT_HOOKS_PHASE: PhaseSpec = {
 	},
 };
 
-const SUBMIT_INVENTORY_PHASE: PhaseSpec = {
-	key: "inventory",
-	item: {
-		name: "Inventory",
-		detail: "stack inventoried",
-		label: "reading submit stack topology…",
+/** Submit phases that run before the optional consumer hook boundary. */
+export const SUBMIT_PRE_HOOK_PHASES: readonly PhaseSpec[] = [
+	{
+		key: "inventory",
+		item: {
+			name: "Inventory",
+			detail: "stack inventoried",
+			label: "reading submit stack topology…",
+		},
 	},
-};
+];
 
-/** Ordered phase list for `flow submit`. Keys match what the submit driver and graphite emit. */
-export const SUBMIT_PHASES: readonly PhaseSpec[] = [
-	SUBMIT_INVENTORY_PHASE,
+/** Submit phases that run after the optional consumer hook boundary. */
+export const SUBMIT_CORE_PHASES: readonly PhaseSpec[] = [
 	{
 		key: "checkpoint",
 		item: {
@@ -145,10 +147,18 @@ export const SUBMIT_PHASES: readonly PhaseSpec[] = [
 	},
 ];
 
-export function submitPhaseSpecs(hasHooks: boolean): readonly PhaseSpec[] {
-	if (!hasHooks) return SUBMIT_PHASES;
-	return [SUBMIT_INVENTORY_PHASE, SUBMIT_HOOKS_PHASE, ...SUBMIT_PHASES.slice(1)];
-}
+/** Hook-free submit phase order. */
+export const SUBMIT_PHASES: readonly PhaseSpec[] = [
+	...SUBMIT_PRE_HOOK_PHASES,
+	...SUBMIT_CORE_PHASES,
+];
+
+/** Hook-enabled submit phase order. */
+export const SUBMIT_PHASES_WITH_HOOKS: readonly PhaseSpec[] = [
+	...SUBMIT_PRE_HOOK_PHASES,
+	SUBMIT_HOOKS_PHASE,
+	...SUBMIT_CORE_PHASES,
+];
 
 export function progressPhaseInfos(specs: readonly PhaseSpec[]): readonly NsProgressPhaseInfo[] {
 	return specs.map((spec) => ({
