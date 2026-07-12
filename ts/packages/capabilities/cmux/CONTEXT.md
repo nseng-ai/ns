@@ -33,7 +33,7 @@ A checked-in Pi extension file under `.pi/extensions/` that registers stable use
 *Avoid*: CCC package, lower capability, hidden command alias.
 
 **CCC command surface**:
-The CCC-owned Pi slash commands users invoke through the `ns:ccc` extension surface, such as `/ns:ccc:workspace:*` and `/ns:ccc:sidebar:*`. These commands may create or update cmux workspaces, but the command namespace names the command-and-control layer rather than the cmux tool.
+The CCC-owned Pi slash commands users invoke through the `ns:ccc` extension surface, such as `/ns:cmux:workspace:*` and `/ns:cmux:sidebar:*`. These commands may create or update cmux workspaces, but the command namespace names the command-and-control layer rather than the cmux tool.
 *Avoid*: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command, legacy top-level CCC alias.
 
 **Stable non-CCC orchestration surface**:
@@ -42,7 +42,7 @@ A public Pi command whose user-facing namespace remains outside `ns:ccc` while C
 
 **Objective stack implementation orchestration**:
 The CCC-owned launch/orchestration path behind public `/ns:objective:stack-impl`: active Objective selection handoff, skill expansion or fallback prompt construction, and dispatching one explicit Objective selector into the portable stack-implementation skill. Objective record storage, list/current/update/next/close/delete semantics remain lower capabilities.
-*Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ns:ccc:*` alias for stack implementation.
+*Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ns:cmux:*` alias for stack implementation.
 
 **Portable command progress**:
 Human-facing intermediate progress for CCC workflows that can run through both ns CLI and Pi command mirrors. The canonical seam is SDK `NsCommandIo`, threaded through lower orchestration and adapted at the edge to CLI `onOutput`/stderr, durable notifications, or Pi-rendered messages without duplication.

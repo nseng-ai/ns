@@ -4,7 +4,7 @@ import {
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
 import {
-	CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME,
+	CMUX_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME,
 	handleCccSlotDispatchFromTrunk,
 	resolveDispatchPromptPayloadOptions,
 	type DispatchPromptPayloadOptions,
@@ -13,7 +13,7 @@ import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 import { createCccPiCommandApi } from "./pi-command-api.ts";
 import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
 
-const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME;
+const COMMAND_NAME = CMUX_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME;
 
 export interface CccSlotDispatchFromTrunkOptions extends DispatchPromptPayloadOptions {
 	metadataDbAccess?: GraphiteMetadataDbAccess;

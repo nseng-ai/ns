@@ -1,18 +1,18 @@
 ---
-name: ccc-available-work
+name: ns-cmux-available-work
 disable-model-invocation: true
 description: "Use when the user asks what branch or Objective work can be continued right now, which branches are available because no cmux workspace/tab is open, or which live Objectives/branches are not already active in cmux. Produces a read-only continuation recommendation from cmux, Git/Graphite, Objective, PR, and diff evidence."
 metadata:
   internal: true
 ---
 
-# ccc-available-work
+# ns-cmux-available-work
 
 Answer: “what branches and Objectives can I continue to work on right now?” Produce a Graphite-stack-oriented continuation map: preserve stack shape where Graphite evidence exists, then annotate each row with availability, cmux occupancy, Objective links, PR state, and recommended next work.
 
 ## Default posture
 
-This skill follows the shared ccc observational posture in `../ccc-stack-map/references/cmux-read-only-posture.md`: collect evidence, rank candidates, and report availability without mutating live cmux, Git/Graphite, GitHub, local-file, or durable agent state.
+This skill follows the shared cmux observational posture in `../ns-cmux-stack-map/references/cmux-read-only-posture.md`: collect evidence, rank candidates, and report availability without mutating live cmux, Git/Graphite, GitHub, local-file, or durable agent state.
 
 If the user asks for cleanup or continuation after the report, treat that as a separate follow-up task with the appropriate skill.
 
@@ -179,8 +179,8 @@ Column alignment matters more than separators. Keep row text compact: branch nam
 
 Do not hide candidates only because they are stale or already open. Stale and opened rows stay visible in stack order.
 
-## Future CCC exec helper boundary
+## Future cmux exec helper boundary
 
-If repeated use makes this workflow token-heavy, slow, or brittle, push deterministic evidence collection into a read-only CCC `exec` helper under the private CCC orchestration layer, for example in `ts/packages/capabilities/ccc`. That helper should return a compact manifest of cmux workspace facts, branch facts, Objective records, Graphite evidence scope, and evidence locators. The skill should then consume that manifest and perform the LLM judgment and presentation.
+If repeated use makes this workflow token-heavy, slow, or brittle, push deterministic evidence collection into a read-only `ns cmux exec` helper under the private cmux orchestration layer, for example in `ts/packages/capabilities/cmux`. That helper should return a compact manifest of cmux workspace facts, branch facts, Objective records, Graphite evidence scope, and evidence locators. The skill should then consume that manifest and perform the LLM judgment and presentation.
 
 Do not implement that helper as part of this v1 skill-only workflow.

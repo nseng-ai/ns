@@ -544,7 +544,7 @@ export async function writeTempSkillMarkdown(skillName: string, body: string): P
 }
 
 export async function writeTempSkill(body: string): Promise<string> {
-	return writeTempSkillMarkdown("ccc-sidebar", body);
+	return writeTempSkillMarkdown("ns-cmux-sidebar", body);
 }
 
 export async function writeCmuxPlanStoreFile(

@@ -41,7 +41,7 @@ The `@nseng-ai/cmux/pi` subpackage that wires CCC workflows into Pi/cmux present
 *Avoid*: Pi host dependency on CCC, non-`pi` CCC subpackages importing Pi host helpers, generic internal Pi-tool package.
 
 **Pi command namespace**:
-The colon-separated repo-owned Pi slash command surface chosen by workflow ownership rather than implementation file. First-party product and orchestration commands default to `/ns:<extension>:...`, such as `/ns:ccc:*`, `/ns:objective:*`, `/ns:handoff:*`, `/ns:flow:*`, and `/ns:branch-context:*`; `/pi:*` remains reserved for Pi-native UI/session affordances.
+The colon-separated repo-owned Pi slash command surface chosen by workflow ownership rather than implementation file. First-party product and orchestration commands default to `/ns:<extension>:...`, such as `/ns:cmux:*`, `/ns:objective:*`, `/ns:handoff:*`, `/ns:flow:*`, and `/ns:branch-context:*`; `/pi:*` remains reserved for Pi-native UI/session affordances.
 *Avoid*: package path, visibility flag, arbitrary grouping, legacy top-level aliases.
 
 **Branch Context Pi command surface**:

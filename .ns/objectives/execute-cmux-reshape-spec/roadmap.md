@@ -30,14 +30,14 @@ each branch stacks on the previous.
     five re-ratified caller locations. Root `just` passed and
     `ns cmux exec workspace-summary --help` resolved through source-dev
     discovery with no registration edit.
-- [ ] Slice 4 — `cmux-reshape/rename-surfaces-and-skills` (spec items 4+5):
+- [x] Slice 4 — `cmux-reshape/rename-surfaces-and-skills` (spec items 4+5):
       rename command surfaces (`ns:ccc:` → `ns:cmux:` exact pair), re-mint the
       handoffs extension id, `git mv` the four skills to `ns-cmux-*` with both
       symlink layers recreated, and rename the areg registry rows and
       exported registration symbol.
-  - Evidence: `just` green; `areg skill find ns-cmux-sidebar` resolves;
-    `grep -r "ns:ccc"` over live source returns nothing; no `skills/ccc-*` dir
-    or dangling symlink remains.
+  - Completed locally on `cmux-reshape/rename-surfaces-and-skills`; root `just`
+    and `areg check` passed, `areg skill find ns-cmux-sidebar` resolved, no live
+    `ns:ccc:` hits or old skill paths remain, and all eight symlinks resolve.
 - [ ] Slice 5 — `cmux-reshape/ripple-renames` (spec item 7): rename the
       `ccc-dispatch` Branch Memory namespace and tmpdir prefix and the
       `NS_CCC_SIDEBAR_MODEL` env var, with their test/fixture blast radius.

@@ -3,14 +3,14 @@ import {
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
 import {
-	CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME,
+	CMUX_WORKSPACE_OPEN_BRANCH_COMMAND_NAME,
 	handleCccSlotOpenBranch,
 	type CccSlotOpenBranchOptions,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 import { createCccPiCommandApi } from "./pi-command-api.ts";
 
-const COMMAND_NAME = CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME;
+const COMMAND_NAME = CMUX_WORKSPACE_OPEN_BRANCH_COMMAND_NAME;
 
 export function registerCccSlotOpenBranchCommand(
 	rawPi: ExtensionAPI,

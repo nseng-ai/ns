@@ -1,10 +1,10 @@
 ---
-name: ccc-branch-triage
+name: ns-cmux-branch-triage
 disable-model-invocation: true
 description: Use when the user wants to triage outstanding Graphite/GitHub branches or stacks for landing, retirement, restacking, or deferral with cmux workspace awareness; detect branches open in cmux by workspace cwd + Git branch; preserve the root checkout and prompt the user to switch to a slot for mutations.
 ---
 
-# ccc-branch-triage
+# ns-cmux-branch-triage
 
 Process outstanding Graphite/GitHub branches one at a time for landing, retirement/freeing/deletion, restacking, or deferral. The distinguishing safety gate is cmux occupancy: before recommending or mutating, join each cmux workspace's current directory to the Git branch checked out there. Workspace titles and descriptions are advisory only.
 
@@ -191,6 +191,6 @@ Reason: <landing/restack/retire requires branch-specific mutation>
 
 ## Future CLI push-down
 
-If this workflow proves stable, move the mechanical inventory into a hidden `ccc exec` command. Candidate command names: `ccc exec branch-triage` or `ccc exec branch-inventory`. It should return JSON for PR facts, Graphite facts, git worktree/slot facts, cmux workspace facts, and joined branch classifications.
+If this workflow proves stable, move the mechanical inventory into a hidden `ns cmux exec` command. Candidate command names: `ns cmux exec branch-triage` or `ns cmux exec branch-inventory`. It should return JSON for PR facts, Graphite facts, git worktree/slot facts, cmux workspace facts, and joined branch classifications.
 
 Do not implement deterministic CLI support in v1; this skill remains the procedural source of truth for now.

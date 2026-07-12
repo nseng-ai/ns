@@ -4,8 +4,8 @@ import {
 } from "@nseng-ai/pi/commands/ack";
 import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/pi";
 import {
-	CCC_SURFACE_DISPATCH_PLAN_COMMAND_NAME,
-	CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,
+	CMUX_SURFACE_DISPATCH_PLAN_COMMAND_NAME,
+	CMUX_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,
 	handleCccSlotDispatchPlan,
 	type CccSlotDispatchPlanOptions,
 	type DispatchPlanConfig,
@@ -13,8 +13,8 @@ import {
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 import { createCccPiCommandApi, type CccPiCommandApi } from "./pi-command-api.ts";
 
-const WORKSPACE_COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME;
-const SURFACE_COMMAND_NAME = CCC_SURFACE_DISPATCH_PLAN_COMMAND_NAME;
+const WORKSPACE_COMMAND_NAME = CMUX_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME;
+const SURFACE_COMMAND_NAME = CMUX_SURFACE_DISPATCH_PLAN_COMMAND_NAME;
 
 const WORKSPACE_CONFIG: DispatchPlanConfig = {
 	commandName: WORKSPACE_COMMAND_NAME,

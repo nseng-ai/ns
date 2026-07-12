@@ -1,10 +1,10 @@
 # Display and code sketch
 
-This reference expands optional display variants and a future deterministic implementation shape for `ccc-stack-map`. It is not a bundled renderer and should not be treated as runnable production code.
+This reference expands optional display variants and a future deterministic implementation shape for `ns-cmux-stack-map`. It is not a bundled renderer and should not be treated as runnable production code.
 
 ## Optional Attention section
 
-The default `ccc-stack-map` response is overlay-only. Do not include this section unless the user explicitly asks for findings, diagnostics, or an attention list.
+The default `ns-cmux-stack-map` response is overlay-only. Do not include this section unless the user explicitly asks for findings, diagnostics, or an attention list.
 
 Example shape:
 
@@ -13,7 +13,7 @@ Attention:
   DIRTY ws45 slot-12: areg-command-pi-skill-exclusion-objective-create has uncommitted changes
   ↯label ws45 slot-12: label says add-objective-create-pi-extension-typeahead but branch is areg-command-pi-skill-exclusion-objective-create
   dup ws52/ws19: both point at slot-01 trust-nothing-verification-baseline-plans
-  missing ws27 slot-08: open branch ccc-sidebar-summary-drift is not represented in the displayed stack
+  missing ws27 slot-08: open branch ns-cmux-sidebar-summary-drift is not represented in the displayed stack
 ```
 
 Use these cases sparingly:
@@ -32,7 +32,7 @@ cmux × Graphite stack map
 Legend: ● active cmux  ◎ this Pi session/caller  ○ open inactive  DIRTY dirty worktree  ↯label title/description drift  dup duplicate cwd+branch  2t multi-tab workspace
 
 │ │ │ │ ◯                  stack-feedback-single-file-fixes (slot-15)  ● ws46 slot-15 ↯label
-│ │ │ │ │ ◉                ccc-stack-map-cmux-graphite-overlay  ◎ ws57 slot-03 DIRTY
+│ │ │ │ │ ◉                ns-cmux-stack-map-cmux-graphite-overlay  ◎ ws57 slot-03 DIRTY
 │ │ │ │ │ │ │ │ │ │ ◯      trust-nothing-verification-baseline-plans (slot-01)  ○ ws19 slot-01 ↯label
 ◯─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┘  master (ns-tools)  ○ ws55/ws56 ns-tools dup ↯label
 ```
@@ -41,14 +41,14 @@ For ANSI-capable terminal output, keep color subtle and redundant with text:
 
 ```text
 \x1b[2m│ │ │ │ ◯\x1b[0m                  stack-feedback-single-file-fixes (slot-15)  \x1b[1;32m●\x1b[0m ws46 slot-15 \x1b[31m↯label\x1b[0m
-\x1b[2m│ │ │ │ │\x1b[0m \x1b[1;36m◉ ccc-stack-map-cmux-graphite-overlay\x1b[0m  \x1b[1;35m◎\x1b[0m ws57 slot-03 \x1b[33mDIRTY\x1b[0m
+\x1b[2m│ │ │ │ │\x1b[0m \x1b[1;36m◉ ns-cmux-stack-map-cmux-graphite-overlay\x1b[0m  \x1b[1;35m◎\x1b[0m ws57 slot-03 \x1b[33mDIRTY\x1b[0m
 ```
 
 Do not put raw ANSI escapes in Markdown unless the receiving UI renders them. If the output is being pasted into chat or docs, use plain text.
 
 ## Future deterministic implementation sketch
 
-This is code shape and pseudocode for a future script or explicit `ccc exec` helper after display semantics stabilize. The older root `ns exec` surface is retired and should not be used for new helpers. This sketch is not runnable production code and should not be copied into source without tests, fakes, and command-boundary design.
+This is code shape and pseudocode for a future script or explicit `ns cmux exec` helper after display semantics stabilize. The older root `ns exec` surface is retired and should not be used for new helpers. This sketch is not runnable production code and should not be copied into source without tests, fakes, and command-boundary design.
 
 Possible data models:
 

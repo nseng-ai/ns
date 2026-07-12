@@ -5,4 +5,4 @@ The Flow autobranch family is the cross-harness path for moving existing work on
 - Graphite/`gt` is part of the command contract.
 - These workflows do not submit, land, restack, or create plain git branches.
 - Pi may add notification/status UX, but the public command boundaries are the documented `ns flow ...` commands and their `/ns:flow:*` mirrors.
-- Hidden `ccc exec autobranch` remains available for internal compatibility; do not use it as the public or cross-harness path.
+- Hidden `ns flow autobranch` remains available for internal compatibility; do not use it as the public or cross-harness path.

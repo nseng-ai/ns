@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
-import { CCC_COMMAND_NAMES } from "@nseng-ai/cmux/api";
+import { CMUX_COMMAND_NAMES } from "@nseng-ai/cmux/api";
 
-import registerCccPiExtension from "../src/pi/extension.ts";
+import registerCmuxPiExtension from "../src/pi/extension.ts";
 
 function makeFakeExtensionApi(commands: Map<string, unknown>): ExtensionAPI {
 	return {
@@ -33,8 +33,8 @@ describe("CCC Pi extension", () => {
 		const commands = new Map<string, unknown>();
 		const pi = makeFakeExtensionApi(commands);
 
-		registerCccPiExtension(pi);
+		registerCmuxPiExtension(pi);
 
-		expect([...commands.keys()].sort()).toEqual(CCC_COMMAND_NAMES);
+		expect([...commands.keys()].sort()).toEqual(CMUX_COMMAND_NAMES);
 	});
 });

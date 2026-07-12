@@ -1,7 +1,7 @@
 import { nsCommandSurface } from "@nseng-ai/foundation/command";
 
 const HANDOFF_EXTENSION_ID = "handoff";
-const CCC_EXTENSION_ID = "ccc";
+const CMUX_EXTENSION_ID = "cmux";
 
 type HandoffCommandAction = "create" | "pickup" | "list" | "self";
 
@@ -12,11 +12,11 @@ function handoffCommandSurface(action: HandoffCommandAction): string {
 export const CREATE_HANDOFF_COMMAND_NAME = handoffCommandSurface("create");
 export const PICKUP_HANDOFF_COMMAND_NAME = handoffCommandSurface("pickup");
 export const LIST_HANDOFF_COMMAND_NAME = handoffCommandSurface("list");
-// Deliberately minted in the ccc namespace: the handoff-tab workflow is a
-// cmux-tab UX surface owned end-to-end by handoff, not by the CCC catalog in
-// @nseng-ai/cmux/src/cmux/command-surfaces.ts. The command-backed-skill-registry uniqueness
-// test guards against a future CCC surface colliding with this name.
-export const HANDOFF_TAB_COMMAND_NAME = nsCommandSurface(CCC_EXTENSION_ID, "handoff-tab");
+// Deliberately minted in the cmux namespace: the handoff-tab workflow is a
+// cmux-tab UX surface owned end-to-end by handoff, not by the cmux catalog in
+// @nseng-ai/cmux/src/core/command-surfaces.ts. The command-backed-skill-registry uniqueness
+// test guards against a future cmux surface colliding with this name.
+export const HANDOFF_TAB_COMMAND_NAME = nsCommandSurface(CMUX_EXTENSION_ID, "handoff-tab");
 export const HANDOFF_SELF_COMMAND_NAME = handoffCommandSurface("self");
 
 export const DERIVE_HANDOFF_SLUG_TOOL_NAME = "derive_handoff_slug_from_content";

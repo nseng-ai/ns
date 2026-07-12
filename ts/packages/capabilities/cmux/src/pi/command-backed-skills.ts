@@ -1,7 +1,7 @@
 import { specializedCommandBackedSkillsFromSpecs } from "@nseng-ai/foundation/command";
 
-import { CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "../api/handlers.ts";
+import { CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "../api/handlers.ts";
 
-export const cccCommandBackedSkillRegistrations = specializedCommandBackedSkillsFromSpecs([
-	{ skillName: "ccc-sidebar", surface: CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME },
+export const cmuxCommandBackedSkillRegistrations = specializedCommandBackedSkillsFromSpecs([
+	{ skillName: "ns-cmux-sidebar", surface: CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME },
 ]);

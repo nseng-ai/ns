@@ -1,6 +1,6 @@
 # Cmux read-only posture
 
-For observational ccc skills, collect and report evidence without mutating live session state.
+For observational cmux skills, collect and report evidence without mutating live session state.
 
 Do not, unless the user separately asks for a follow-up mutation:
 
