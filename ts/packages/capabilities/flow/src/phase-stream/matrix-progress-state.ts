@@ -67,10 +67,16 @@ export type MatrixProgressAction<ColumnKey extends string, Row extends MatrixRow
 	| { kind: "active-operations-changed"; operations: readonly ActiveOperation[] }
 	| { kind: "cell-changed"; rowKey: string; column: ColumnKey; update: MatrixCellUpdate }
 	| {
-			kind: "cells-changed";
-			scope: "selected" | "all" | "all-other";
+			kind: "cells-in-state-changed";
 			column: ColumnKey;
-			rowKeys: readonly string[];
+			fromState: MatrixCellState;
+			update: MatrixCellUpdate;
+	  }
+	| { kind: "all-cells-changed"; column: ColumnKey; update: MatrixCellUpdate }
+	| {
+			kind: "all-other-cells-changed";
+			column: ColumnKey;
+			excludedRowKey: string;
 			update: MatrixCellUpdate;
 	  }
 	| { kind: "phase-event"; event: NsProgressPhaseEvent }
@@ -169,20 +175,22 @@ export function reduceMatrixProgress<ColumnKey extends string, Row extends Matri
 				update,
 			});
 		}
-		case "cells-changed": {
-			const requested = new Set(action.rowKeys);
-			const affected = state.rows.filter((row) => requested.has(row.rowKey));
-			if (affected.length === 0) return { type: "unchanged" };
-			const update = { ...action.update };
-			for (const row of affected) row.cells[action.column] = matrixCellFromUpdate(update);
-			return changed({
-				kind: "cells-changed",
-				scope: action.scope,
-				column: action.column,
-				rowKeys: affected.map((row) => row.rowKey),
-				update,
-			});
-		}
+		case "cells-in-state-changed":
+			return changeCells(
+				state.rows.filter((row) => row.cells[action.column].state === action.fromState),
+				"selected",
+				action.column,
+				action.update,
+			);
+		case "all-cells-changed":
+			return changeCells(state.rows, "all", action.column, action.update);
+		case "all-other-cells-changed":
+			return changeCells(
+				state.rows.filter((row) => row.rowKey !== action.excludedRowKey),
+				"all-other",
+				action.column,
+				action.update,
+			);
 		case "phase-event":
 			return changed({ kind: "phase-event", event: { ...action.event } });
 		case "note":
@@ -212,6 +220,24 @@ export function collectActiveCellChanges<ColumnKey extends string, Row extends M
 			];
 		}),
 	);
+}
+
+function changeCells<ColumnKey extends string, Row extends MatrixRowSpec>(
+	rows: readonly MatrixRowView<ColumnKey, Row>[],
+	scope: "selected" | "all" | "all-other",
+	column: ColumnKey,
+	requestedUpdate: MatrixCellUpdate,
+): MatrixProgressReduction<ColumnKey, Row> {
+	if (rows.length === 0) return { type: "unchanged" };
+	const update = { ...requestedUpdate };
+	for (const row of rows) row.cells[column] = matrixCellFromUpdate(update);
+	return changed({
+		kind: "cells-changed",
+		scope,
+		column,
+		rowKeys: rows.map((row) => row.rowKey),
+		update,
+	});
 }
 
 function createMatrixRowViews<ColumnKey extends string, Row extends MatrixRowSpec>(

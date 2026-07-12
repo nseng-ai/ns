@@ -1,12 +1,10 @@
-import type { ActiveOperation, NsProgressPhaseEvent } from "@nseng-ai/sdk";
+import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import {
 	collectActiveCellChanges,
 	createMatrixProgressState,
 	reduceMatrixProgress,
 	snapshotMatrixProgress,
-	type MatrixCellState,
-	type MatrixCellUpdate,
 	type MatrixColumnSpec,
 	type MatrixProgressAction,
 	type MatrixProgressChange,
@@ -17,28 +15,13 @@ import {
 import { createPhaseStateStore, type PhaseView } from "./phase-stream-state.ts";
 import type { PhaseSpec } from "./phase-stream-specs.ts";
 
-export interface MatrixProgressSink<
-	ColumnKey extends string,
-	Row extends MatrixRowSpec = MatrixRowSpec,
-> {
-	setRows(rows: readonly Row[]): void;
-	getRows(): readonly Readonly<Row>[];
-	patchRow(rowKey: string, patch: Partial<Omit<Row, "rowKey">>): void;
-	setActiveOperations(operations: readonly ActiveOperation[]): void;
-	phase(event: NsProgressPhaseEvent): void;
-	setCell(rowKey: string, column: ColumnKey, update: MatrixCellUpdate): void;
-	setCellsInState(column: ColumnKey, fromState: MatrixCellState, update: MatrixCellUpdate): void;
-	setAllCells(column: ColumnKey, update: MatrixCellUpdate): void;
-	setAllOtherCells(column: ColumnKey, rowKey: string, update: MatrixCellUpdate): void;
-}
-
 export interface MatrixProgressController<
 	ColumnKey extends string,
 	Row extends MatrixRowSpec = MatrixRowSpec,
-> extends MatrixProgressSink<ColumnKey, Row> {
+> {
 	begin(): void;
-	setTitle(title: string): void;
-	note(text: string): void;
+	dispatch(action: MatrixProgressAction<ColumnKey, Row>): void;
+	getRows(): readonly Readonly<Row>[];
 	finish(options?: { isFailed?: boolean; finalLines?: readonly string[] }): Promise<void>;
 	stop(): Promise<void>;
 }
@@ -103,9 +86,7 @@ export interface CreateMatrixProgressControllerCoreOptions<
 		state: MatrixProgressState<ColumnKey, Row>,
 		phases: readonly PhaseView[],
 	): MatrixProgressSnapshot<ColumnKey, Row>;
-	createAdapter(options: {
-		getLifecycle(): MatrixProgressLifecycle;
-	}): MatrixProgressAdapter<ColumnKey, Row>;
+	adapter: MatrixProgressAdapter<ColumnKey, Row>;
 }
 
 export function createMatrixProgressControllerCore<
@@ -118,7 +99,7 @@ export function createMatrixProgressControllerCore<
 	const phases = createPhaseStateStore(options.phases);
 	let lifecycle: MatrixProgressLifecycle = "idle";
 	let terminalPromise: Promise<void> | undefined;
-	const adapter = options.createAdapter({ getLifecycle: () => lifecycle });
+	const adapter = options.adapter;
 
 	function snapshot(): MatrixProgressSnapshot<ColumnKey, Row> {
 		return (options.createSnapshot ?? snapshotMatrixProgress)(state, phases.views());
@@ -156,75 +137,8 @@ export function createMatrixProgressControllerCore<
 		adapter.observe(reduction.change, memoizeSnapshot(snapshot));
 	}
 
-	function setTitle(title: string): void {
-		commit({ kind: "title-changed", title });
-	}
-
-	function setRows(rows: readonly Row[]): void {
-		commit({ kind: "rows-replaced", rows: rows.map((row) => ({ ...row })) });
-	}
-
 	function getRows(): readonly Readonly<Row>[] {
 		return state.rows.map((row) => ({ ...row }));
-	}
-
-	function patchRow(rowKey: string, patch: Partial<Omit<Row, "rowKey">>): void {
-		commit({ kind: "row-patched", rowKey, patch: { ...patch } });
-	}
-
-	function setActiveOperations(operations: readonly ActiveOperation[]): void {
-		commit({
-			kind: "active-operations-changed",
-			operations: operations.map((operation) => ({ ...operation })),
-		});
-	}
-
-	function phase(event: NsProgressPhaseEvent): void {
-		commit({ kind: "phase-event", event: { ...event } });
-	}
-
-	function setCell(rowKey: string, column: ColumnKey, update: MatrixCellUpdate): void {
-		commit({ kind: "cell-changed", rowKey, column, update: { ...update } });
-	}
-
-	function setCellsInState(
-		column: ColumnKey,
-		fromState: MatrixCellState,
-		update: MatrixCellUpdate,
-	): void {
-		commit({
-			kind: "cells-changed",
-			scope: "selected",
-			column,
-			rowKeys: state.rows
-				.filter((row) => row.cells[column].state === fromState)
-				.map((row) => row.rowKey),
-			update: { ...update },
-		});
-	}
-
-	function setAllCells(column: ColumnKey, update: MatrixCellUpdate): void {
-		commit({
-			kind: "cells-changed",
-			scope: "all",
-			column,
-			rowKeys: state.rows.map((row) => row.rowKey),
-			update: { ...update },
-		});
-	}
-
-	function setAllOtherCells(column: ColumnKey, rowKey: string, update: MatrixCellUpdate): void {
-		commit({
-			kind: "cells-changed",
-			scope: "all-other",
-			column,
-			rowKeys: state.rows.filter((row) => row.rowKey !== rowKey).map((row) => row.rowKey),
-			update: { ...update },
-		});
-	}
-
-	function note(text: string): void {
-		commit({ kind: "note", text });
 	}
 
 	function finish(
@@ -277,17 +191,8 @@ export function createMatrixProgressControllerCore<
 
 	return {
 		begin: () => begin(),
-		setTitle,
-		setRows,
+		dispatch: commit,
 		getRows,
-		patchRow,
-		setActiveOperations,
-		phase,
-		setCell,
-		setCellsInState,
-		setAllCells,
-		setAllOtherCells,
-		note,
 		finish,
 		stop,
 	};

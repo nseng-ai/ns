@@ -74,8 +74,7 @@ function createController(
 ) {
 	const capture = streamCapture(options.sleep === undefined ? {} : { sleep: options.sleep });
 	const controller = workflow.createController({
-		caps: caps(parts),
-		deps: capture.deps,
+		presentation: { kind: "terminal", caps: caps(parts), deps: capture.deps },
 		title: "Workflow",
 		rows: ROWS,
 		begin: "lazy",
@@ -88,7 +87,10 @@ describe("matrix progress controller", () => {
 		const { capture, controller } = createController();
 
 		expect(capture.redraws).toEqual([]);
-		controller.phase({ type: "phase-started", phaseKey: "prepare" });
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "prepare" },
+		});
 
 		expect(capture.redraws.length).toBeGreaterThan(0);
 		expect(latestFrame(capture.redraws)).toContain("Prepare");
@@ -99,61 +101,90 @@ describe("matrix progress controller", () => {
 			name: "title",
 			starts: false,
 			act: (controller: ReturnType<typeof createController>["controller"]) =>
-				controller.setTitle("Next"),
+				controller.dispatch({ kind: "title-changed", title: "Next" }),
 		},
 		{
 			name: "row patch",
 			starts: false,
 			act: (controller: ReturnType<typeof createController>["controller"]) =>
-				controller.patchRow("feature/a", { label: "patched" }),
+				controller.dispatch({
+					kind: "row-patched",
+					rowKey: "feature/a",
+					patch: { label: "patched" },
+				}),
 		},
 		{
 			name: "active operations",
 			starts: false,
 			act: (controller: ReturnType<typeof createController>["controller"]) =>
-				controller.setActiveOperations([{ kind: "command", display: "just" }]),
+				controller.dispatch({
+					kind: "active-operations-changed",
+					operations: [{ kind: "command", display: "just" }],
+				}),
 		},
 		{
 			name: "state-selective bulk",
 			starts: false,
 			act: (controller: ReturnType<typeof createController>["controller"]) =>
-				controller.setCellsInState("build", "pending", { state: "done" }),
+				controller.dispatch({
+					kind: "cells-in-state-changed",
+					column: "build",
+					fromState: "pending",
+					update: { state: "done" },
+				}),
 		},
 		{
 			name: "note",
 			starts: false,
 			act: (controller: ReturnType<typeof createController>["controller"]) =>
-				controller.note("quiet"),
+				controller.dispatch({ kind: "note", text: "quiet" }),
 		},
 		{
 			name: "rows replacement",
 			starts: true,
 			act: (controller: ReturnType<typeof createController>["controller"]) =>
-				controller.setRows([]),
+				controller.dispatch({ kind: "rows-replaced", rows: [] }),
 		},
 		{
 			name: "phase event",
 			starts: true,
 			act: (controller: ReturnType<typeof createController>["controller"]) =>
-				controller.phase({ type: "phase-done", phaseKey: "prepare" }),
+				controller.dispatch({
+					kind: "phase-event",
+					event: { type: "phase-done", phaseKey: "prepare" },
+				}),
 		},
 		{
 			name: "single cell",
 			starts: true,
 			act: (controller: ReturnType<typeof createController>["controller"]) =>
-				controller.setCell("feature/a", "build", { state: "active" }),
+				controller.dispatch({
+					kind: "cell-changed",
+					rowKey: "feature/a",
+					column: "build",
+					update: { state: "active" },
+				}),
 		},
 		{
 			name: "all cells",
 			starts: true,
 			act: (controller: ReturnType<typeof createController>["controller"]) =>
-				controller.setAllCells("build", { state: "done" }),
+				controller.dispatch({
+					kind: "all-cells-changed",
+					column: "build",
+					update: { state: "done" },
+				}),
 		},
 		{
 			name: "all other cells",
 			starts: true,
 			act: (controller: ReturnType<typeof createController>["controller"]) =>
-				controller.setAllOtherCells("build", "feature/a", { state: "done" }),
+				controller.dispatch({
+					kind: "all-other-cells-changed",
+					column: "build",
+					excludedRowKey: "feature/a",
+					update: { state: "done" },
+				}),
 		},
 	])("applies the explicit lazy-start policy for $name", ({ starts, act }) => {
 		const { capture, controller } = createController();
@@ -166,8 +197,16 @@ describe("matrix progress controller", () => {
 		controller.begin();
 		const initialRedraws = capture.redraws.length;
 
-		controller.phase({ type: "phase-done", phaseKey: "prepare", detail: "ready" });
-		controller.setCell("feature/a", "build", { state: "done", text: "ok" });
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-done", phaseKey: "prepare", detail: "ready" },
+		});
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "build",
+			update: { state: "done", text: "ok" },
+		});
 
 		expect(capture.redraws.length).toBeGreaterThan(initialRedraws);
 		const frame = latestFrame(capture.redraws);
@@ -178,9 +217,19 @@ describe("matrix progress controller", () => {
 	test("setCellsInState updates only cells in the selected state", () => {
 		const { capture, controller } = createController();
 		controller.begin();
-		controller.setCell("feature/a", "test", { state: "done", text: "kept" });
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "test",
+			update: { state: "done", text: "kept" },
+		});
 
-		controller.setCellsInState("test", "pending", { state: "skipped", text: "skip" });
+		controller.dispatch({
+			kind: "cells-in-state-changed",
+			column: "test",
+			fromState: "pending",
+			update: { state: "skipped", text: "skip" },
+		});
 
 		const frame = latestFrame(capture.redraws);
 		expect(frame).toContain("kept");
@@ -191,7 +240,11 @@ describe("matrix progress controller", () => {
 		const { capture, controller } = createController();
 		controller.begin();
 
-		controller.patchRow("feature/a", { label: "feature/a (#10)" });
+		controller.dispatch({
+			kind: "row-patched",
+			rowKey: "feature/a",
+			patch: { label: "feature/a (#10)" },
+		});
 
 		const frame = latestFrame(capture.redraws);
 		expect(frame).toContain("feature/a (#10)");
@@ -203,7 +256,12 @@ describe("matrix progress controller", () => {
 		{ isFailed: true, symbol: "✗" },
 	])("finish settles active cells when isFailed=$isFailed", async ({ isFailed, symbol }) => {
 		const { capture, controller } = createController({ isTty: true }, { sleep: "resolve" });
-		controller.setCell("feature/a", "build", { state: "active" });
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "build",
+			update: { state: "active" },
+		});
 
 		await controller.finish({ isFailed });
 
@@ -217,16 +275,33 @@ describe("matrix progress controller", () => {
 			const capture = streamCapture({ sleep: "resolve" });
 			const recording = recordingProgress();
 			const controller = workflow.createController({
-				caps: caps({ isTty: true }),
-				deps: capture.deps,
-				progress: recording.progress,
+				presentation: {
+					kind: "terminal-and-event",
+					caps: caps({ isTty: true }),
+					deps: capture.deps,
+					progress: recording.progress,
+				},
 				title: "Workflow",
 				rows: ROWS,
 			});
-			controller.phase({ type: "phase-started", phaseKey: "prepare" });
-			controller.phase({ type: "phase-started", phaseKey: "inspect" });
-			controller.setCell("feature/a", "build", { state: "active" });
-			controller.setActiveOperations([{ kind: "command", display: "just" }]);
+			controller.dispatch({
+				kind: "phase-event",
+				event: { type: "phase-started", phaseKey: "prepare" },
+			});
+			controller.dispatch({
+				kind: "phase-event",
+				event: { type: "phase-started", phaseKey: "inspect" },
+			});
+			controller.dispatch({
+				kind: "cell-changed",
+				rowKey: "feature/a",
+				column: "build",
+				update: { state: "active" },
+			});
+			controller.dispatch({
+				kind: "active-operations-changed",
+				operations: [{ kind: "command", display: "just" }],
+			});
 			recording.events.length = 0;
 
 			await controller.finish({ isFailed: target === "failed" });
@@ -278,41 +353,74 @@ describe("matrix progress controller", () => {
 	test("notes render only for TTY controllers", () => {
 		const tty = createController({ isTty: true });
 		tty.controller.begin();
-		tty.controller.note("visible note");
+		tty.controller.dispatch({ kind: "note", text: "visible note" });
 		expect(latestFrame(tty.capture.redraws)).toContain("visible note");
 
 		const nonTty = createController({ isTty: false });
 		nonTty.controller.begin();
 		const outputCount = nonTty.capture.redraws.length + nonTty.capture.writes.length;
-		nonTty.controller.note("hidden note");
+		nonTty.controller.dispatch({ kind: "note", text: "hidden note" });
 		expect(nonTty.capture.redraws.length + nonTty.capture.writes.length).toBe(outputCount);
 	});
 
 	test("terminal operations win once and suppress every later mutation", async () => {
 		const recording = recordingProgress();
-		const controller = workflow.createEventController({
-			progress: recording.progress,
+		const controller = workflow.createController({
+			presentation: { kind: "event", progress: recording.progress },
 			title: "Workflow",
 			rows: ROWS,
 		});
-		controller.setCell("feature/a", "build", { state: "active" });
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "build",
+			update: { state: "active" },
+		});
 		const finish = controller.finish();
 		expect(controller.finish({ isFailed: true })).toBe(finish);
 		expect(controller.stop()).toBe(finish);
 		await finish;
 		const terminalEvents = [...recording.events];
 
-		controller.setTitle("ignored");
-		controller.setRows([]);
-		controller.patchRow("feature/a", { label: "ignored" });
-		controller.setActiveOperations([{ kind: "command", display: "ignored" }]);
-		controller.phase({ type: "phase-started", phaseKey: "prepare" });
-		controller.phase({ type: "phase-started", phaseKey: "inspect" });
-		controller.setCell("feature/a", "build", { state: "failed" });
-		controller.setCellsInState("build", "done", { state: "failed" });
-		controller.setAllCells("build", { state: "failed" });
-		controller.setAllOtherCells("build", "feature/a", { state: "failed" });
-		controller.note("ignored");
+		controller.dispatch({ kind: "title-changed", title: "ignored" });
+		controller.dispatch({ kind: "rows-replaced", rows: [] });
+		controller.dispatch({ kind: "row-patched", rowKey: "feature/a", patch: { label: "ignored" } });
+		controller.dispatch({
+			kind: "active-operations-changed",
+			operations: [{ kind: "command", display: "ignored" }],
+		});
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "prepare" },
+		});
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "inspect" },
+		});
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "build",
+			update: { state: "failed" },
+		});
+		controller.dispatch({
+			kind: "cells-in-state-changed",
+			column: "build",
+			fromState: "done",
+			update: { state: "failed" },
+		});
+		controller.dispatch({
+			kind: "all-cells-changed",
+			column: "build",
+			update: { state: "failed" },
+		});
+		controller.dispatch({
+			kind: "all-other-cells-changed",
+			column: "build",
+			excludedRowKey: "feature/a",
+			update: { state: "failed" },
+		});
+		controller.dispatch({ kind: "note", text: "ignored" });
 		expect(recording.events).toEqual(terminalEvents);
 		expect(recording.events.at(-1)).toEqual({
 			type: "matrix-cell",
@@ -334,17 +442,20 @@ describe("matrix progress controller", () => {
 				snapshotCount += 1;
 				return snapshotMatrixProgress(state, phases);
 			},
-			createAdapter: ({ getLifecycle }) =>
-				createMatrixEventAdapter({
-					progress: recording.progress,
-					columns: COLUMNS,
-					phases: [],
-					getLifecycle,
-				}),
+			adapter: createMatrixEventAdapter({
+				progress: recording.progress,
+				columns: COLUMNS,
+				phases: [],
+			}),
 		});
 		snapshotCount = 0;
 
-		controller.setCell("feature/a", "build", { state: "done" });
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "build",
+			update: { state: "done" },
+		});
 
 		expect(snapshotCount).toBe(0);
 		expect(recording.events.at(-1)).toEqual({
@@ -377,12 +488,16 @@ describe("matrix progress controller", () => {
 				snapshotCount += 1;
 				return snapshotMatrixProgress(state, phases);
 			},
-			createAdapter: () =>
-				composeMatrixProgressAdapters([snapshotReadingAdapter(), snapshotReadingAdapter()]),
+			adapter: composeMatrixProgressAdapters([snapshotReadingAdapter(), snapshotReadingAdapter()]),
 		});
 		snapshotCount = 0;
 
-		controller.setCell("feature/a", "build", { state: "done" });
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "build",
+			update: { state: "done" },
+		});
 
 		expect(snapshotCount).toBe(1);
 	});
@@ -391,20 +506,34 @@ describe("matrix progress controller", () => {
 		const capture = streamCapture({ sleep: "pending" });
 		const recording = recordingProgress();
 		const controller = workflow.createController({
-			caps: caps({ isTty: true }),
-			deps: capture.deps,
-			progress: recording.progress,
+			presentation: {
+				kind: "terminal-and-event",
+				caps: caps({ isTty: true }),
+				deps: capture.deps,
+				progress: recording.progress,
+			},
 			title: "Workflow",
 			rows: [],
 			begin: "lazy",
 		});
 
-		controller.setRows(ROWS);
-		controller.phase({ type: "phase-started", phaseKey: "prepare" });
-		controller.setCell("feature/a", "build", { state: "active", text: "run" });
-		controller.setActiveOperations([{ kind: "command", display: "just" }]);
+		controller.dispatch({ kind: "rows-replaced", rows: ROWS });
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "prepare" },
+		});
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "build",
+			update: { state: "active", text: "run" },
+		});
+		controller.dispatch({
+			kind: "active-operations-changed",
+			operations: [{ kind: "command", display: "just" }],
+		});
 		const eventsBeforeNote = [...recording.events];
-		controller.note("terminal transcript");
+		controller.dispatch({ kind: "note", text: "terminal transcript" });
 
 		const eventTypes = recording.events.map((event) => event.type);
 		expect(eventTypes.filter((type) => type === "phases-declared")).toHaveLength(1);
@@ -436,14 +565,14 @@ describe("matrix progress controller", () => {
 describe("matrix event progress controller", () => {
 	test("declares initial replacement rows once in declaration order", () => {
 		const recording = recordingProgress();
-		const controller = workflow.createEventController({
-			progress: recording.progress,
+		const controller = workflow.createController({
+			presentation: { kind: "event", progress: recording.progress },
 			title: "Workflow",
 			rows: [],
 			begin: "lazy",
 		});
 
-		controller.setRows(ROWS);
+		controller.dispatch({ kind: "rows-replaced", rows: ROWS });
 
 		expect(recording.events.map((event) => event.type)).toEqual([
 			"phases-declared",
@@ -454,16 +583,19 @@ describe("matrix event progress controller", () => {
 
 	test("declares metadata once before an early global update and later rows", () => {
 		const recording = recordingProgress();
-		const controller = workflow.createEventController({
-			progress: recording.progress,
+		const controller = workflow.createController({
+			presentation: { kind: "event", progress: recording.progress },
 			title: "Workflow",
 			rows: [],
 			begin: "lazy",
 		});
 
-		controller.phase({ type: "phase-started", phaseKey: "prepare" });
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "prepare" },
+		});
 		controller.begin();
-		controller.setRows(ROWS);
+		controller.dispatch({ kind: "rows-replaced", rows: ROWS });
 
 		expect(recording.events).toEqual([
 			expect.objectContaining({ type: "phases-declared", title: "Workflow" }),
@@ -487,73 +619,102 @@ describe("matrix event progress controller", () => {
 		{
 			name: "title",
 			eventTypes: ["title-changed"],
-			act: (controller: ReturnType<typeof workflow.createEventController>) =>
-				controller.setTitle("Next"),
+			act: (controller: ReturnType<typeof workflow.createController>) =>
+				controller.dispatch({ kind: "title-changed", title: "Next" }),
 		},
 		{
 			name: "rows",
 			eventTypes: ["matrix-rows"],
-			act: (controller: ReturnType<typeof workflow.createEventController>) =>
-				controller.setRows(ROWS),
+			act: (controller: ReturnType<typeof workflow.createController>) =>
+				controller.dispatch({ kind: "rows-replaced", rows: ROWS }),
 		},
 		{
 			name: "row patch",
 			eventTypes: ["matrix-rows"],
-			act: (controller: ReturnType<typeof workflow.createEventController>) =>
-				controller.patchRow("feature/a", { label: "patched" }),
+			act: (controller: ReturnType<typeof workflow.createController>) =>
+				controller.dispatch({
+					kind: "row-patched",
+					rowKey: "feature/a",
+					patch: { label: "patched" },
+				}),
 		},
 		{
 			name: "operations",
 			eventTypes: ["matrix-active-operations"],
-			act: (controller: ReturnType<typeof workflow.createEventController>) =>
-				controller.setActiveOperations([]),
+			act: (controller: ReturnType<typeof workflow.createController>) =>
+				controller.dispatch({ kind: "active-operations-changed", operations: [] }),
 		},
 		{
 			name: "global",
 			eventTypes: ["phase-started"],
-			act: (controller: ReturnType<typeof workflow.createEventController>) =>
-				controller.phase({ type: "phase-started", phaseKey: "prepare" }),
+			act: (controller: ReturnType<typeof workflow.createController>) =>
+				controller.dispatch({
+					kind: "phase-event",
+					event: { type: "phase-started", phaseKey: "prepare" },
+				}),
 		},
 		{
 			name: "substep",
 			eventTypes: ["phase-started"],
-			act: (controller: ReturnType<typeof workflow.createEventController>) =>
-				controller.phase({ type: "phase-started", phaseKey: "inspect" }),
+			act: (controller: ReturnType<typeof workflow.createController>) =>
+				controller.dispatch({
+					kind: "phase-event",
+					event: { type: "phase-started", phaseKey: "inspect" },
+				}),
 		},
 		{
 			name: "cell",
 			eventTypes: ["matrix-cell"],
-			act: (controller: ReturnType<typeof workflow.createEventController>) =>
-				controller.setCell("feature/a", "build", { state: "done" }),
+			act: (controller: ReturnType<typeof workflow.createController>) =>
+				controller.dispatch({
+					kind: "cell-changed",
+					rowKey: "feature/a",
+					column: "build",
+					update: { state: "done" },
+				}),
 		},
 		{
 			name: "selected cells",
 			eventTypes: ["matrix-cell", "matrix-cell"],
-			act: (controller: ReturnType<typeof workflow.createEventController>) =>
-				controller.setCellsInState("build", "pending", { state: "done" }),
+			act: (controller: ReturnType<typeof workflow.createController>) =>
+				controller.dispatch({
+					kind: "cells-in-state-changed",
+					column: "build",
+					fromState: "pending",
+					update: { state: "done" },
+				}),
 		},
 		{
 			name: "all cells",
 			eventTypes: ["matrix-cell", "matrix-cell"],
-			act: (controller: ReturnType<typeof workflow.createEventController>) =>
-				controller.setAllCells("build", { state: "done" }),
+			act: (controller: ReturnType<typeof workflow.createController>) =>
+				controller.dispatch({
+					kind: "all-cells-changed",
+					column: "build",
+					update: { state: "done" },
+				}),
 		},
 		{
 			name: "all other cells",
 			eventTypes: ["matrix-cell"],
-			act: (controller: ReturnType<typeof workflow.createEventController>) =>
-				controller.setAllOtherCells("build", "feature/a", { state: "done" }),
+			act: (controller: ReturnType<typeof workflow.createController>) =>
+				controller.dispatch({
+					kind: "all-other-cells-changed",
+					column: "build",
+					excludedRowKey: "feature/a",
+					update: { state: "done" },
+				}),
 		},
 		{
 			name: "note",
 			eventTypes: [],
-			act: (controller: ReturnType<typeof workflow.createEventController>) =>
-				controller.note("local only"),
+			act: (controller: ReturnType<typeof workflow.createController>) =>
+				controller.dispatch({ kind: "note", text: "local only" }),
 		},
 	])("notifies the event adapter for $name", ({ eventTypes, act }) => {
 		const recording = recordingProgress();
-		const controller = workflow.createEventController({
-			progress: recording.progress,
+		const controller = workflow.createController({
+			presentation: { kind: "event", progress: recording.progress },
 			title: "Workflow",
 			rows: ROWS,
 		});
@@ -564,17 +725,34 @@ describe("matrix event progress controller", () => {
 
 	test("emits substeps, latest full row patches, and state-selective cell deltas", () => {
 		const recording = recordingProgress();
-		const controller = workflow.createEventController({
-			progress: recording.progress,
+		const controller = workflow.createController({
+			presentation: { kind: "event", progress: recording.progress },
 			title: "Workflow",
 			rows: ROWS,
 		});
 		recording.events.length = 0;
 
-		controller.phase({ type: "phase-started", phaseKey: "inspect", label: "reading" });
-		controller.patchRow("feature/a", { label: "feature/a (#10)" });
-		controller.setCell("feature/a", "test", { state: "done", text: "kept" });
-		controller.setCellsInState("test", "pending", { state: "skipped" });
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "inspect", label: "reading" },
+		});
+		controller.dispatch({
+			kind: "row-patched",
+			rowKey: "feature/a",
+			patch: { label: "feature/a (#10)" },
+		});
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "test",
+			update: { state: "done", text: "kept" },
+		});
+		controller.dispatch({
+			kind: "cells-in-state-changed",
+			column: "test",
+			fromState: "pending",
+			update: { state: "skipped" },
+		});
 
 		expect(recording.events).toEqual([
 			{ type: "phase-started", phaseKey: "inspect", label: "reading" },
@@ -603,8 +781,8 @@ describe("matrix event progress controller", () => {
 
 	test("stop-first is idempotent and suppresses every later mutation", async () => {
 		const recording = recordingProgress();
-		const controller = workflow.createEventController({
-			progress: recording.progress,
+		const controller = workflow.createController({
+			presentation: { kind: "event", progress: recording.progress },
 			title: "Workflow",
 			rows: [],
 			begin: "lazy",
@@ -615,17 +793,38 @@ describe("matrix event progress controller", () => {
 		expect(controller.finish()).toBe(stop);
 		await stop;
 		controller.begin();
-		controller.setTitle("ignored");
-		controller.setRows(ROWS);
-		controller.patchRow("feature/a", { label: "ignored" });
-		controller.setActiveOperations([]);
-		controller.phase({ type: "phase-started", phaseKey: "prepare" });
-		controller.phase({ type: "phase-started", phaseKey: "inspect" });
-		controller.setCell("feature/a", "build", { state: "done" });
-		controller.setCellsInState("build", "pending", { state: "done" });
-		controller.setAllCells("build", { state: "done" });
-		controller.setAllOtherCells("build", "feature/a", { state: "done" });
-		controller.note("ignored");
+		controller.dispatch({ kind: "title-changed", title: "ignored" });
+		controller.dispatch({ kind: "rows-replaced", rows: ROWS });
+		controller.dispatch({ kind: "row-patched", rowKey: "feature/a", patch: { label: "ignored" } });
+		controller.dispatch({ kind: "active-operations-changed", operations: [] });
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "prepare" },
+		});
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "inspect" },
+		});
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "build",
+			update: { state: "done" },
+		});
+		controller.dispatch({
+			kind: "cells-in-state-changed",
+			column: "build",
+			fromState: "pending",
+			update: { state: "done" },
+		});
+		controller.dispatch({ kind: "all-cells-changed", column: "build", update: { state: "done" } });
+		controller.dispatch({
+			kind: "all-other-cells-changed",
+			column: "build",
+			excludedRowKey: "feature/a",
+			update: { state: "done" },
+		});
+		controller.dispatch({ kind: "note", text: "ignored" });
 
 		expect(recording.events).toEqual([]);
 	});
@@ -634,15 +833,29 @@ describe("matrix event progress controller", () => {
 		"finish settles active state to %s, clears operations, and stop stays silent",
 		async (target) => {
 			const recording = recordingProgress();
-			const controller = workflow.createEventController({
-				progress: recording.progress,
+			const controller = workflow.createController({
+				presentation: { kind: "event", progress: recording.progress },
 				title: "Workflow",
 				rows: ROWS,
 			});
-			controller.phase({ type: "phase-started", phaseKey: "prepare" });
-			controller.phase({ type: "phase-started", phaseKey: "inspect" });
-			controller.setCell("feature/a", "build", { state: "active" });
-			controller.setActiveOperations([{ kind: "command", display: "just" }]);
+			controller.dispatch({
+				kind: "phase-event",
+				event: { type: "phase-started", phaseKey: "prepare" },
+			});
+			controller.dispatch({
+				kind: "phase-event",
+				event: { type: "phase-started", phaseKey: "inspect" },
+			});
+			controller.dispatch({
+				kind: "cell-changed",
+				rowKey: "feature/a",
+				column: "build",
+				update: { state: "active" },
+			});
+			controller.dispatch({
+				kind: "active-operations-changed",
+				operations: [{ kind: "command", display: "just" }],
+			});
 			recording.events.length = 0;
 
 			await controller.finish({ isFailed: target === "failed" });

@@ -2,7 +2,6 @@ import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import type {
 	MatrixProgressAdapter,
-	MatrixProgressLifecycle,
 	MatrixProgressSnapshotAccessor,
 } from "./matrix-progress-controller.ts";
 import type {
@@ -19,7 +18,6 @@ export interface CreateMatrixEventAdapterOptions<ColumnKey extends string> {
 	columns: readonly MatrixColumnSpec<ColumnKey>[];
 	phases: readonly PhaseSpec[];
 	labelHeader?: string;
-	getLifecycle(): MatrixProgressLifecycle;
 }
 
 export function createMatrixEventAdapter<ColumnKey extends string, Row extends MatrixRowSpec>(
@@ -84,11 +82,7 @@ export function createMatrixEventAdapter<ColumnKey extends string, Row extends M
 				emitChange(initiatingChange, () => snapshot);
 			}
 		},
-		observe: (change, getSnapshot) => {
-			const lifecycle = options.getLifecycle();
-			if (lifecycle !== "active" && lifecycle !== "finishing") return;
-			emitChange(change, getSnapshot);
-		},
+		observe: emitChange,
 		beforeFinish: async () => {},
 		finish: async () => {},
 		stop: async () => {},
