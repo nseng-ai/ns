@@ -37,8 +37,10 @@ findings against the live files before editing (line references in
   (18 files, 1502→1487 lines, ~-1,574 words; see the t1-objective-family-cuts
   update); branch-context/handoff/brmem executed 2026-07-12 on
   `skill-audit-t1-branch-context-handoff` (10 files, 893→842 lines; one finding
-  rejected as test-pinned — see the t1-branch-context-handoff-brmem-cuts update); six
-  family branches remain.
+  rejected as test-pinned — see the t1-branch-context-handoff-brmem-cuts update);
+  code/Graphite ops executed 2026-07-12 on `skill-audit-t1-code-graphite-ops`
+  (11 files, 1816→1734 lines; see the t1-code-graphite-ops-cuts update); five family
+  branches remain.
 - [ ] Tranche 2 — trigger-surface normalization: real descriptions for the legacy
       `Command:` stubs (ns-flow-cp, ns-flow-submit, code-just-fix, code-workflows,
       changelog-update); convert workflow-summary descriptions to trigger-shaped ones

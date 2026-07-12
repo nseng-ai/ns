@@ -18,10 +18,8 @@ allowed-tools:
 # setup-graphite
 
 Configure the current repo for agentic use of [Graphite](https://graphite.dev)
-(`gt`). Installs the official `graphite` skill from `withgraphite/agent-skills`
-so agents know the stacked-PR workflow, then adds a short convention
-admonition to the project's agent instructions telling agents to prefer `gt`
-over raw `git` for branch creation, amending, and PR submission.
+(`gt`): install the official `graphite` skill and add a convention admonition
+to the project's agent instructions.
 
 This skill does NOT install the `gt` CLI, authenticate with Graphite, or run
 `gt init`. It assumes those are already done. If any precondition is missing,
@@ -165,11 +163,3 @@ Tell the user:
 - Which files changed and should be reviewed / committed. Typical set:
   `.agents/skills/graphite/`, `.claude/skills/graphite`, `skills-lock.json`,
   and the AGENTS.md / CLAUDE.md target.
-
-## Idempotency
-
-Re-running this skill in an already-configured repo is a no-op:
-
-- Step 2 skips the install if graphite is already present.
-- Step 5 skips the admonition insertion if the heading already exists.
-- Step 4 does not overwrite an existing AGENTS.md or CLAUDE.md.

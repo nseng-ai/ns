@@ -6,7 +6,7 @@ description: Use when the user asks to linearize, reorder, consolidate, or colla
 
 # code-gt-linearize-descendants
 
-Linearize descendant PRs above a named Graphite stack branch. This workflow is safe-by-default: inspect first, propose a compact final stack, ask once for confirmation, then perform supervised stack rewrites.
+Linearize descendant PRs above a named Graphite stack branch. This workflow is safe-by-default: inspect first, propose a compact final stack, then perform supervised stack rewrites.
 
 ## Safety contract
 

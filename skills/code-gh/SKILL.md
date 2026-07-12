@@ -15,12 +15,12 @@ live in the references, not here.
 
 Load on demand; navigate the big files with the grep patterns shown.
 
-| File                                       | Load when                                                                                                                       | Navigate with                                                                                    |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `references/gh.md` (~1480)                 | any standard task: PRs, issues, repos, releases, auth/config, output formatting, git/CI integration, scripting, troubleshooting | `gh pr` · `gh issue` · `gh repo` · `gh api` · `gh release` · `Pattern [0-9]:` · `Authentication` |
-| `references/graphql.md` (~1000)            | porcelain can't do it: Projects V2, Discussions, batch/multi-repo, deep nesting, advanced search                                | `Projects V2` · `Discussion` · `Batch` · `Pagination` · `Example [0-9]`                          |
-| `references/graphql-schema-core.md` (~500) | exact GraphQL field/type/mutation shapes                                                                                        | type name (`PullRequest`, `ProjectV2`, …)                                                        |
-| `references/api-backend-audit.md` (~850)   | rate-limit issues; REST vs GraphQL choice; per-command backend map                                                              | command name · `Rate Limit`                                                                      |
+| File                                | Load when                                                                                                                       | Navigate with                                                                                    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `references/gh.md`                  | any standard task: PRs, issues, repos, releases, auth/config, output formatting, git/CI integration, scripting, troubleshooting | `gh pr` · `gh issue` · `gh repo` · `gh api` · `gh release` · `Pattern [0-9]:` · `Authentication` |
+| `references/graphql.md`             | porcelain can't do it: Projects V2, Discussions, batch/multi-repo, deep nesting, advanced search                                | `Projects V2` · `Discussion` · `Batch` · `Pagination` · `Example [0-9]`                          |
+| `references/graphql-schema-core.md` | exact GraphQL field/type/mutation shapes                                                                                        | type name (`PullRequest`, `ProjectV2`, …)                                                        |
+| `references/api-backend-audit.md`   | rate-limit issues; REST vs GraphQL choice; per-command backend map                                                              | command name · `Rate Limit`                                                                      |
 
 ## Always-on facts
 

@@ -6,7 +6,7 @@ description: "Run Thermostack: perform a thermonuclear code-quality review of th
 
 # Thermostack
 
-Thermostack turns a thermonuclear maintainability review of the current Graphite stack changes into a **local-only Graphite child stack** of follow-up fixes. By default, review the diff from the **base of the stack** to the current `HEAD` (`STACK_BASE_REF...HEAD`), not the checked-out branch name against itself. The original checked-out branch is the target/original change and remains untouched; Thermostack creates approved children above it, ordered from most trunk-likely to most speculative unless a hard dependency requires an explicit inversion.
+Thermostack turns a thermonuclear maintainability review of the current Graphite stack changes into a **local-only Graphite child stack** of follow-up fixes. The original checked-out branch is the target/original change and remains untouched; Thermostack creates approved children above it.
 
 ## Safety boundaries
 
@@ -39,7 +39,7 @@ Capability and configuration:
 3. Confirm the branch is Graphite-tracked with non-display plumbing such as `gt parent --no-interactive` or `gt children --no-interactive`. Do not parse `gt ls`, `gt log`, or `gt branch info` for machine decisions; use them only as visual confirmation for humans.
 4. Determine and record `STACK_BASE_REF`, the base of the current Graphite stack, before dispatching the reviewer. This is the default review base. Prefer Graphite plumbing and repository trunk/base facts over display output. If the current branch is the bottom branch, `gt parent --no-interactive` is usually the stack base; if the current branch is higher in a stack, walk parent relationships until the first non-stack/trunk ancestor. If the stack base is ambiguous, stop and ask rather than reviewing the wrong diff.
 5. Sanity-check the review scope with `git diff --stat "$STACK_BASE_REF"...HEAD` and `git diff --name-only "$STACK_BASE_REF"...HEAD`. The diff must reflect the intended stack changes. Never compare `$BASE_BRANCH...HEAD` when `BASE_BRANCH` is the checked-out branch; that produces an empty review.
-6. Check for existing generated branches for this base. Stop if branches matching the exact base prefix already exist (for example `$BASE_BRANCH/thermo-*`) unless the user explicitly chooses a recovery path.
+6. Check for existing generated branches for this base. Stop if branches matching `$BASE_BRANCH/thermo-*` already exist unless the user explicitly chooses a recovery path.
 7. Confirm the thermonuclear Reviews review definition is readable at `.ns/reviews/thermonuclear-review/review.md`. This review definition is the authoritative thermonuclear review content for Thermostack; the `review-thermonuclear-review` skill is only a thin invoke-only wrapper around it.
 
 ## 2. Collect thermonuclear findings
@@ -119,7 +119,6 @@ For each batch:
    gt create <branch-name> -m "thermo: <batch>"
    ```
 
-   If `gt create` behavior appears different from creating an empty branch on a clean worktree, re-check `gt create --help` and stop rather than improvising.
 3. If the harness supports editing subagents, dispatch this branch's implementation subagent under the Subagent contract. The prompt must include:
    - current branch name;
    - approved finding ids;

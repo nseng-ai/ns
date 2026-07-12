@@ -25,11 +25,13 @@ Invocation authorizes validating, fixing, restacking, and `gt submit --no-intera
 ## Related skills
 
 - Use `graphite` for the Graphite navigation mental model.
-- For `just` failures, follow the `code-just-fix` posture: fix the root cause honestly, use formatter/autofix recipes for mechanical lint/format failures, and never skip, weaken, or suppress tests/diagnostics.
+- For `just` failures, follow the `code-just-fix` posture: fix root causes; never weaken checks.
 - For conflict-heavy or ambiguous restacks, use `code-gt-restack-resolve` or `code-resolve-merge-conflicts`; do not invent conflict policy here.
 - For separate fix commits, use `ns flow cp`; do not hand-roll checkpoint commits or amend/squash unless the user explicitly asks for a different commit mode.
 
 ## Workflow
+
+For any `gt` navigation/restack command below: use `--no-interactive`; if this installed Graphite rejects the flag, retry once without it; stop if Graphite opens or requires an interactive prompt.
 
 1. **Preflight**
    - Run `git status --short`. If it is non-empty, stop and ask the user to clean, stash, or checkpoint first.
@@ -48,13 +50,13 @@ Invocation authorizes validating, fixing, restacking, and `gt submit --no-intera
    - When a branch required edits and now passes, run `ns flow cp` on that same branch to create a separate checkpoint-style fix commit. Capture the printed commit summary. If `ns flow cp` refuses because the worktree is clean, record that no commit was needed; for any other refusal, stop and report stdout/stderr.
 
 4. **Restack after every fix commit**
-   - After a fix commit, run `gt restack --no-interactive`. If this installed Graphite rejects `--no-interactive` for `gt restack`, retry once as `gt restack`; stop if Graphite opens or requires an interactive prompt.
+   - After a fix commit, run `gt restack --no-interactive`.
    - If restack fails because an in-scope branch is checked out in another slot, ask before running `ns slot gt free-stack`. Only retry restack after the user authorizes slot freeing.
    - If restack enters a conflict/rebase state, use `code-gt-restack-resolve` from the current state.
    - After restack, verify `git status --short` is clean before continuing.
 
 5. **Move upward**
-   - Run `gt up --no-interactive`. If this installed Graphite rejects `--no-interactive` for `gt up`, retry once as `gt up`; stop if Graphite opens or requires an interactive branch-choice prompt.
+   - Run `gt up --no-interactive`.
    - If Graphite reports that you are already at the top of the stack, the loop is complete.
    - If Graphite reports ambiguous children or prompts for a choice, stop and ask the user; do not guess a sibling branch.
 
