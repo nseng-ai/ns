@@ -76,6 +76,20 @@ describe("land import direction", () => {
 		expect(violations).toEqual([]);
 	});
 
+	test("execution modules do not import the Flow-side confirmation policy", async () => {
+		const sourceFiles = (await readdir(LAND_EXECUTION_SOURCE_DIRECTORY))
+			.filter((fileName) => fileName.endsWith(".ts"))
+			.sort();
+		const violations: string[] = [];
+
+		for (const sourceFile of sourceFiles) {
+			const source = await readFile(join(LAND_EXECUTION_SOURCE_DIRECTORY, sourceFile), "utf8");
+			if (source.includes("landing-confirmation-policy")) violations.push(sourceFile);
+		}
+
+		expect(violations).toEqual([]);
+	});
+
 	test("only adapter-family land modules invoke command execution", async () => {
 		const sourceFiles = await recursivelyListTypeScriptFiles(LAND_SOURCE_DIRECTORY);
 		const violations: string[] = [];

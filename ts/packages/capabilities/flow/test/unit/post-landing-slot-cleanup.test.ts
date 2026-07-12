@@ -19,8 +19,8 @@ import {
 } from "../../src/land/flow-land-confirmation-gateway.ts";
 import { parseArgs } from "../../src/land/land-stack.ts";
 import { buildUpfrontStackConfirmation } from "../../src/land/landing-dispatch.ts";
+import { approvedLandConfirmationKinds } from "../../src/land/landing-confirmation-policy.ts";
 import {
-	approvedLandConfirmationKinds,
 	createCleanupProgress,
 	planPostLandingSlotCleanup,
 	postLandingCleanupRequestFromArgs,
@@ -145,46 +145,6 @@ describe("parsed-args to cleanup policy mapping", () => {
 		{ rawArgs: "--dry-run --force", policy: "force-cleanup", mode: "dry-run" },
 	])("maps '$rawArgs' to $policy/$mode", ({ rawArgs, policy, mode }) => {
 		expect(postLandingCleanupRequestFromArgs(expectParsed(rawArgs))).toEqual({ mode, policy });
-	});
-});
-
-describe("upfront confirmation approval mapping", () => {
-	test("--yes approves main and previewed cleanup but leaves pre-merge prompts canonical", () => {
-		const cleanupPreview = planPostLandingSlotCleanup({
-			args: expectParsed("--yes"),
-			shape: managedShape(),
-		});
-		expect([
-			...approvedLandConfirmationKinds({
-				flags: expectParsed("--yes"),
-				hasUpfrontPromptApproval: false,
-				...optionalEntry("cleanupPreview", cleanupPreview),
-			}),
-		]).toEqual(["main-landing", "post-landing-cleanup"]);
-	});
-
-	test("interactive upfront approval covers pre-merge requests and only previewed cleanup", () => {
-		expect([
-			...approvedLandConfirmationKinds({
-				flags: expectParsed("--force"),
-				hasUpfrontPromptApproval: true,
-			}),
-		]).toEqual(["main-landing", "free-managed-slots", "submit-required-updates"]);
-	});
-
-	test("dry run and unobserved approval grant no request kinds", () => {
-		expect(
-			approvedLandConfirmationKinds({
-				flags: expectParsed("--dry-run --yes"),
-				hasUpfrontPromptApproval: true,
-			}),
-		).toEqual(new Set());
-		expect(
-			approvedLandConfirmationKinds({
-				flags: expectParsed("--force"),
-				hasUpfrontPromptApproval: false,
-			}),
-		).toEqual(new Set());
 	});
 });
 

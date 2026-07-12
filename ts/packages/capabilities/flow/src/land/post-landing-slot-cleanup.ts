@@ -4,10 +4,7 @@
 // ParsedArgs -> cleanup policy mapping, the upfront-confirmation preview, and the isolated
 // fast-path glue that still runs cleanup outside canonical stack execution.
 
-import type {
-	LandConfirmationRequest,
-	LandExecutionStatusProgress,
-} from "./execution/host-seams.ts";
+import type { LandExecutionStatusProgress } from "./execution/host-seams.ts";
 import {
 	planManagedSlotPostLandingCleanup,
 	runManagedSlotPostLandingCleanup,
@@ -21,22 +18,6 @@ import type { PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/type
 import type { LandContext, LandingCleanupPolicy, LandingShape } from "./types.ts";
 
 export type { PostLandingSlotCleanupDecision, PostLandingSlotCleanupPreview };
-
-export function approvedLandConfirmationKinds(options: {
-	readonly flags: Pick<ParsedArgs, "isDryRun" | "shouldSkipConfirmation">;
-	readonly hasUpfrontPromptApproval: boolean;
-	readonly cleanupPreview?: PostLandingSlotCleanupPreview;
-}): ReadonlySet<LandConfirmationRequest["kind"]> {
-	if (options.flags.isDryRun) return new Set();
-	if (!options.flags.shouldSkipConfirmation && !options.hasUpfrontPromptApproval) return new Set();
-	return new Set<LandConfirmationRequest["kind"]>([
-		"main-landing",
-		...(options.hasUpfrontPromptApproval
-			? (["free-managed-slots", "submit-required-updates"] as const)
-			: []),
-		...(options.cleanupPreview === undefined ? [] : (["post-landing-cleanup"] as const)),
-	]);
-}
 
 /**
  * Deterministic flag-to-policy mapping: `--preserve` wins over `--force`, and ordinary execution

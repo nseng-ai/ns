@@ -15,8 +15,8 @@ import type {
 import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
 import { loadStackLandingShape, type LandingShape } from "./api.ts";
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
+import { approvedLandConfirmationKinds } from "./landing-confirmation-policy.ts";
 import {
-	approvedLandConfirmationKinds,
 	planPostLandingSlotCleanup,
 	postLandingCleanupRequestFromArgs,
 	runPostLandingSlotCleanup,
