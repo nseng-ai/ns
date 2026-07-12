@@ -1,16 +1,22 @@
 import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok } from "@nseng-ai/clinkr";
 import { ALL_HARNESS_IDS } from "@nseng-ai/harness-artifacts/api";
+import type { ExtensionAcquisitionDiagnostic } from "@nseng-ai/kernel/extensions/acquisition";
 import { planDeclaredExtensionTarget } from "@nseng-ai/kernel/project-config";
 import { z } from "zod";
 
 import {
+	type ActivationDiagnostic,
 	activationCompletedSchema,
 	applyNsActivation,
 	prepareNsActivation,
 } from "./activate-ns.ts";
 import type { NsActivationContext } from "./activation-context.ts";
-import type { ExtensionUpdateAcquisitionGateway } from "./extension-acquisition.ts";
+import type {
+	ExtensionUpdateAcquisitionGateway,
+	PreviewExtensionUpdateSourceResult,
+	ReconcileExtensionUpdateSourceResult,
+} from "./extension-acquisition.ts";
 import {
 	extensionLifecycleFailure,
 	normalizeExtensionLifecycleDiagnostic,
@@ -50,8 +56,7 @@ export async function updateExtension(
 ): Promise<ClinkrExit<UpdateExtensionResult>> {
 	const preflight = await prepareExtensionLifecycle(context, request);
 	if (preflight.type === "failed") return extensionLifecycleFailure("update", preflight.failure);
-	const { repository, repoRoot, trunkBranch, nsTomlContent, harnesses, source } =
-		preflight.prepared;
+	const { repository, repoRoot, trunkBranch, nsTomlContent, harnesses } = preflight.prepared;
 	const target = planDeclaredExtensionTarget({
 		projectRoot: repoRoot,
 		source: nsTomlContent,
@@ -64,82 +69,149 @@ export async function updateExtension(
 			completed: {},
 		});
 	}
-	const intent =
-		source.kind === "local"
-			? "local-in-place"
-			: source.isPinned
-				? "ensure-pinned"
-				: "refresh-floating";
-	const acquisition = request.dryRun
-		? await context.updateAcquisition.preview({ repoRoot, sourceSpec: target.matchedSpec })
-		: await context.updateAcquisition.reconcile({ repoRoot, sourceSpec: target.matchedSpec });
-	if (!acquisition.isOk) {
-		return failure(
-			"ns-extension-update-acquisition-failed",
-			acquisition.diagnostics[0]?.message ?? `Could not update ${target.matchedSpec}.`,
-			{
-				phase: "acquisition",
-				diagnostics: acquisition.diagnostics.map(normalizeExtensionLifecycleDiagnostic),
-				completed: {},
-			},
-		);
-	}
-	let completed: UpdateExtensionResult["completed"] = { files: {} };
-	if (acquisition.moduleRoot !== undefined) {
-		const prepared = await prepareNsActivation(context, {
-			repository,
-			harnesses,
-			harnessSource: "ns-toml",
-			nsTomlContent,
-			nsTomlChange: "unchanged",
-			nsTomlExpected: { type: "file", content: nsTomlContent },
+	if (request.dryRun) {
+		const preview = await context.updateAcquisition.preview({
+			repoRoot,
+			sourceSpec: target.matchedSpec,
 		});
-		if (prepared.type === "preflight-failed")
-			return failure(
-				"ns-extension-update-preflight-failed",
-				"Extension update activation preflight failed.",
-				{
-					phase: "preflight",
-					diagnostics: prepared.diagnostics.map(normalizeExtensionLifecycleDiagnostic),
-					sourceAcquisitionCompleted: !request.dryRun,
-					completed: {},
-				},
-			);
-		if (!request.dryRun) {
-			const applied = await applyNsActivation(context, prepared.activation);
-			if (applied.type === "apply-failed")
-				return failure("ns-extension-update-apply-failed", applied.error.message, {
-					phase: applied.phase,
-					error: normalizeExtensionLifecycleDiagnostic(applied.error),
-					completed: applied.completed,
-				});
-			completed = applied.completed;
+		if (preview.type === "failed") {
+			return acquisitionFailure(target.matchedSpec, preview.diagnostics);
 		}
+		if (preview.type === "preview-existing") {
+			const prepared = await prepareNsActivation(context, {
+				repository,
+				harnesses,
+				harnessSource: "ns-toml",
+				nsTomlContent,
+				nsTomlChange: "unchanged",
+				nsTomlExpected: { type: "file", content: nsTomlContent },
+			});
+			if (prepared.type === "preflight-failed") {
+				return activationPreflightFailure(prepared.diagnostics, false);
+			}
+		}
+		return ok({
+			sourceSpec: target.matchedSpec,
+			mode: "dry-run",
+			...classifyUpdateOutcome(preview),
+			repoRoot,
+			trunkBranch,
+			harnesses: [...harnesses],
+			completed: { files: {} },
+		});
 	}
-	const sourceKind = source.kind;
+
+	const reconciled = await context.updateAcquisition.reconcile({
+		repoRoot,
+		sourceSpec: target.matchedSpec,
+	});
+	if (reconciled.type === "failed") {
+		return acquisitionFailure(target.matchedSpec, reconciled.diagnostics);
+	}
+	const prepared = await prepareNsActivation(context, {
+		repository,
+		harnesses,
+		harnessSource: "ns-toml",
+		nsTomlContent,
+		nsTomlChange: "unchanged",
+		nsTomlExpected: { type: "file", content: nsTomlContent },
+	});
+	if (prepared.type === "preflight-failed") {
+		return activationPreflightFailure(prepared.diagnostics, true);
+	}
+	const applied = await applyNsActivation(context, prepared.activation);
+	if (applied.type === "apply-failed") {
+		return failure("ns-extension-update-apply-failed", applied.error.message, {
+			phase: applied.phase,
+			error: normalizeExtensionLifecycleDiagnostic(applied.error),
+			completed: applied.completed,
+		});
+	}
 	return ok({
 		sourceSpec: target.matchedSpec,
-		sourceKind,
-		mode: request.dryRun ? "dry-run" : "applied",
-		acquisitionIntent: intent,
-		acquisitionOutcome: request.dryRun
-			? "planned"
-			: sourceKind === "local"
-				? "not-applicable"
-				: acquisition.hasExistingSource
-					? source.kind === "npm" && source.isPinned
-						? "unchanged"
-						: "refreshed"
-					: "restored",
-		prospectiveEffects:
-			sourceKind === "npm" && (!source.isPinned || !acquisition.hasExistingSource)
-				? "unavailable"
-				: "available",
+		mode: "applied",
+		...classifyUpdateOutcome(reconciled),
 		repoRoot,
 		trunkBranch,
 		harnesses: [...harnesses],
-		completed,
+		completed: applied.completed,
 	});
+}
+
+function acquisitionFailure(
+	sourceSpec: string,
+	diagnostics: readonly ExtensionAcquisitionDiagnostic[],
+) {
+	return failure(
+		"ns-extension-update-acquisition-failed",
+		diagnostics[0]?.message ?? `Could not update ${sourceSpec}.`,
+		{
+			phase: "acquisition",
+			diagnostics: diagnostics.map(normalizeExtensionLifecycleDiagnostic),
+			completed: {},
+		},
+	);
+}
+
+function activationPreflightFailure(
+	diagnostics: readonly ActivationDiagnostic[],
+	sourceAcquisitionCompleted: boolean,
+) {
+	return failure(
+		"ns-extension-update-preflight-failed",
+		"Extension update activation preflight failed.",
+		{
+			phase: "preflight",
+			diagnostics: diagnostics.map(normalizeExtensionLifecycleDiagnostic),
+			sourceAcquisitionCompleted,
+			completed: {},
+		},
+	);
+}
+
+type SuccessfulUpdateAcquisition = Exclude<
+	PreviewExtensionUpdateSourceResult | ReconcileExtensionUpdateSourceResult,
+	{ readonly type: "failed" }
+>;
+
+type PublicAcquisitionFacts = Pick<
+	UpdateExtensionResult,
+	"sourceKind" | "acquisitionIntent" | "acquisitionOutcome" | "prospectiveEffects"
+>;
+
+export function classifyUpdateOutcome(
+	acquisition: SuccessfulUpdateAcquisition,
+): PublicAcquisitionFacts {
+	switch (acquisition.type) {
+		case "preview-existing":
+			return {
+				sourceKind: acquisition.sourceKind,
+				acquisitionIntent: acquisition.intent,
+				acquisitionOutcome: "planned",
+				prospectiveEffects: "available",
+			};
+		case "preview-apply-required":
+			return {
+				sourceKind: acquisition.sourceKind,
+				acquisitionIntent: acquisition.intent,
+				acquisitionOutcome: "planned",
+				prospectiveEffects: "unavailable",
+			};
+		case "applied":
+			return {
+				sourceKind: acquisition.sourceKind,
+				acquisitionIntent: acquisition.intent,
+				acquisitionOutcome:
+					acquisition.outcome === "local-in-place" ? "not-applicable" : acquisition.outcome,
+				prospectiveEffects: "available",
+			};
+		default:
+			return assertNever(acquisition);
+	}
+}
+
+function assertNever(value: never): never {
+	throw new Error(`Unexpected extension update acquisition state: ${JSON.stringify(value)}`);
 }
 
 export function renderUpdateExtensionHuman(result: UpdateExtensionResult): string {
