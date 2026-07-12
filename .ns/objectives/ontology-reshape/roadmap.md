@@ -127,6 +127,15 @@ live exchange with the user. Assets link from row notes and live in
     directories slated for deletion. Kernel rename parked (see Parked). Code-independent
     glossary edits landed in place; code-coupled edits ride the executing PRs per the
     spec. Semantic update: `updates/2026-07-11-layering-reshape-decisions.md`.
+- [x] Execute the layering reshape spec (task)
+  - Added retroactively 2026-07-11 when executing reshapings was incorporated into
+    the Objective (handoff-vehicle row decision); the work predates the row.
+  - Task: land ADR 0033 / `layering-reshape-spec.md` items 1–10 via the handoff
+    vehicle.
+  - Resolved 2026-07-11: all ten items landed as nine stacked local branches (item 3
+    was a user-run deletion script by design), `just` green per slice, local-only
+    pending review. Evidence and experience report:
+    `updates/2026-07-11-layering-reshape-executed.md`.
 - [ ] Reexamine foundation domain residue and the capability-kit junk drawer (grilling)
   - Graduated 2026-07-11 from the layering row's leftovers (was Fog-adjacent sweep
     material, now specifiable).
@@ -146,7 +155,7 @@ live exchange with the user. Assets link from row notes and live in
     Decide each expansion (or decide the name is opaque-by-design and record that),
     and where brand-name expansions live. `nscc` is excluded — it belongs to the
     CCC/orchestration row.
-- [ ] Decide the reshaping handoff vehicle (grilling)
+- [x] Decide the reshaping handoff vehicle (grilling)
   - Graduated 2026-07-11 from the "Reshaping handoff vehicle" Fog: the first reshaping
     spec now exists (`layering-reshape-spec.md`), which was that Fog's stated
     graduation trigger.
@@ -154,6 +163,19 @@ live exchange with the user. Assets link from row notes and live in
     objectives, branch-context plans, or direct implementation sessions — and what
     must a spec asset contain to hand off cleanly? Judge against the live example:
     the layering spec's ten execution items.
+  - Resolved 2026-07-11 in a live grilling session; procedure recorded at
+    `docs/wayfinding/ontology-reshape/reshaping-handoff-vehicle.md`. Decisions:
+    saved-plan pipeline is the default vehicle (spec → verification sweep → ratified
+    enriched plan → dedicated execution session, stacked slices, `just` green per
+    slice) with a trivial-slice direct hatch and a name-it-when-hit new-Objective
+    exception; execution never starts in the decision session on the agent's
+    initiative; two mandatory verification duties (claim fact-check at plan time,
+    volatile-fact re-enumeration at execution time); an eight-point spec content
+    contract. Scope decision ratified alongside: executing reshapings is Objective
+    work — the row's "after this Objective" premise was retired, Non-Goals and the
+    completion bar amended in `objective.md`, and decided specs now graduate into
+    execution task rows here. Semantic update:
+    `updates/2026-07-11-reshaping-handoff-vehicle-decided.md`.
   - Evidence (2026-07-11): a same-session direct-implementation pass on the layering
     spec's batch one was started (items 1, 2 validated green as stacked slices) and
     rolled back by user steer; the spec now carries the intended implementation

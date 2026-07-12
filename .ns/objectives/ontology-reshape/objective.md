@@ -37,9 +37,13 @@ renamed, merged, split, or deleted. Every actual change is a per-row HITL decisi
   residue — plus whatever further suspects the audits surface.
 - Deciding a deliberate context decision for every tracked package (authored glossary,
   deliberately thin, or out-of-scope with a revisit trigger — no silent absence).
-- Execution override for documentation only: doc edits (`CONTEXT.md`,
-  `CONTEXT-MAP.md`, ADRs) land in place as rows resolve. Product/code reshaping stays
-  planning — each decided reshaping exits as a spec; the handoff vehicle is Fog.
+- Doc edits (`CONTEXT.md`, `CONTEXT-MAP.md`, ADRs) land in place as rows resolve.
+  Executing code/product reshapings is Objective work too (decided 2026-07-11): each
+  decided reshaping exits its grilling row as a spec, then graduates into execution
+  task rows run through the reshaping handoff vehicle
+  (`docs/wayfinding/ontology-reshape/reshaping-handoff-vehicle.md`). The roadmap
+  reshapes as the work advances — exploration rows spawn the rows their answers make
+  specifiable, including execution rows.
 - Method: the `domain-modeling` skill's `CONTEXT-FORMAT.md`/`ADR-FORMAT.md` contract
   governs every doc this Objective touches; `grilling` drives the HITL rows.
   `CONTEXT.md` stays a pure glossary — no implementation detail, specs, or task state.
@@ -48,8 +52,6 @@ renamed, merged, split, or deleted. Every actual change is a per-row HITL decisi
 
 ## Non-Goals
 
-- **Executing code/product reshapings** — the destination is decided specs; landing
-  renames/refactors happens beyond this Objective's edge, via the handoff vehicle.
 - **Recreating retired identities** (inherited from `repo-ontology`'s non-goals as
   standing rules): Python `packages/*` paths, `asdl-*`/`@sdl/*`/`@ns/*` scopes,
   retired standalone packages, pre-ADR-0029 npm names
@@ -64,9 +66,10 @@ Every `CONTEXT.md` and `CONTEXT-MAP.md` claim matches checked-in reality and eve
 tracked package carries a deliberate context decision (authored glossary, deliberately
 thin, or out-of-scope with a revisit trigger — no silent absence); every
 ontology-reshaping candidate — product vocabulary, command surfaces, package topology,
-internal API language — is decided: specced for handoff or explicitly ruled out. Doc
-edits land in place as rows resolve; code/product reshaping leaves this Objective as
-decided specs, not landed changes.
+internal API language — is decided and carried through: executed via the reshaping
+handoff vehicle, deliberately parked with a revisit trigger, or explicitly ruled out
+(bar moved 2026-07-11 when execution was incorporated into the Objective). Doc edits
+land in place as rows resolve.
 
 ## Assumptions and Risks
 
