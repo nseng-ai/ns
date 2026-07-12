@@ -25,7 +25,7 @@ workspace, rendered as an editorial HTML report. It has two modes:
    deterministically synthesized spec.
 2. **Target scorecard mode** (when a target is named): measure the graph against a *stated
    target architecture* — "how well are we tracking toward the architecture we said we wanted?"
-   (not "find me refactors" — that is the sibling `improve-codebase-architecture` skill). This
+   (not "find me refactors" — that is the sibling `review-improve-codebase-architecture` skill). This
    is the only path that needs the agent, because the target invariants and editorial judgement
    are irreducible.
 
