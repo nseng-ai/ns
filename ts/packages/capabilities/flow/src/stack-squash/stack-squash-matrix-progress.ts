@@ -2,7 +2,10 @@ import type { Caps } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import type { NsProgress } from "@nseng-ai/sdk";
 
-import { defineMatrixWorkflow } from "../phase-stream/matrix-progress-core.ts";
+import {
+	bindMatrixWorkflowActions,
+	defineMatrixWorkflow,
+} from "../phase-stream/matrix-progress-core.ts";
 import type { MatrixCellUpdate, MatrixColumnSpec } from "../phase-stream/matrix-progress-state.ts";
 import type { PhaseSpec } from "../phase-stream/phase-stream-specs.ts";
 import {
@@ -74,58 +77,45 @@ export function createStackSquashMatrixProgressController(options: {
 					},
 		begin: "lazy",
 	});
+	const actions = bindMatrixWorkflowActions(controller);
 
 	function setPlan(plan: readonly StackSquashPlanEntry[]): void {
-		controller.dispatch({
-			kind: "rows-replaced",
-			rows: plan.map((entry) => ({
+		actions.setRows(
+			plan.map((entry) => ({
 				branch: entry.branch,
 				label: entry.branch,
 				commitsBefore: entry.commitsBefore,
 			})),
-		});
+		);
 		for (const entry of plan) {
-			controller.dispatch({
-				kind: "cell-changed",
-				rowKey: entry.branch,
-				column: "commits",
-				update: { state: "done", text: String(entry.commitsBefore) },
+			actions.setCell(entry.branch, "commits", {
+				state: "done",
+				text: String(entry.commitsBefore),
 			});
 			const nonSquashOutcome = stackSquashNonSquashOutcome(entry);
 			if (nonSquashOutcome !== undefined) {
-				controller.dispatch({
-					kind: "cell-changed",
-					rowKey: entry.branch,
-					column: "squash",
-					update: stackSquashOutcomePresentation(nonSquashOutcome).matrixUpdate,
-				});
+				actions.setCell(
+					entry.branch,
+					"squash",
+					stackSquashOutcomePresentation(nonSquashOutcome).matrixUpdate,
+				);
 			}
 		}
-		controller.dispatch({
-			kind: "phase-event",
-			event: {
-				type: "phase-done",
-				phaseKey: "inventory",
-				detail: `${plan.length} ${plan.length === 1 ? "branch" : "branches"} planned`,
-			},
+		actions.phase({
+			type: "phase-done",
+			phaseKey: "inventory",
+			detail: `${plan.length} ${plan.length === 1 ? "branch" : "branches"} planned`,
 		});
 	}
 
 	return {
-		note: (text) => controller.dispatch({ kind: "note", text }),
+		note: actions.note,
 		setPlan,
-		setSquashStatus: (rowKey, update) =>
-			controller.dispatch({ kind: "cell-changed", rowKey, column: "squash", update }),
+		setSquashStatus: (rowKey, update) => actions.setCell(rowKey, "squash", update),
 		restoreStarted: () =>
-			controller.dispatch({
-				kind: "phase-event",
-				event: { type: "phase-started", phaseKey: "restore", label: "checking out tip" },
-			}),
+			actions.phase({ type: "phase-started", phaseKey: "restore", label: "checking out tip" }),
 		restoreCompleted: () =>
-			controller.dispatch({
-				kind: "phase-event",
-				event: { type: "phase-done", phaseKey: "restore", detail: "tip restored" },
-			}),
+			actions.phase({ type: "phase-done", phaseKey: "restore", detail: "tip restored" }),
 		finish: controller.finish,
 		stop: controller.stop,
 	};

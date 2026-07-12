@@ -2,6 +2,7 @@ import type { Caps } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import type { ActiveOperation, NsProgress } from "@nseng-ai/sdk";
 import {
+	bindMatrixWorkflowActions,
 	defineMatrixWorkflow,
 	matrixFrameOptionalFields,
 } from "../phase-stream/matrix-progress-core.ts";
@@ -107,39 +108,31 @@ export function createLandMatrixProgressController(options: {
 					},
 		begin: "lazy",
 	});
+	const actions = bindMatrixWorkflowActions(controller);
 
 	function setRows(rows: readonly LandMatrixRowSpec[]): void {
 		liveState.totalPrs = rows.length;
-		controller.dispatch({ kind: "title-changed", title: formatLandProgressTitle(liveState) });
-		controller.dispatch({ kind: "rows-replaced", rows });
+		actions.setTitle(formatLandProgressTitle(liveState));
+		actions.setRows(rows);
 	}
 
 	function recordMergedPr(prNumber: number): void {
 		if (landedPrNumbers.has(prNumber)) return;
 		landedPrNumbers.add(prNumber);
 		liveState.landedPrs += 1;
-		controller.dispatch({ kind: "title-changed", title: formatLandProgressTitle(liveState) });
+		actions.setTitle(formatLandProgressTitle(liveState));
 	}
 
 	return {
 		begin: controller.begin,
-		setTitle: (title) => controller.dispatch({ kind: "title-changed", title }),
+		setTitle: actions.setTitle,
 		setRows,
-		setActiveOperations: (operations) =>
-			controller.dispatch({ kind: "active-operations-changed", operations }),
-		setCell: (rowKey, column, update) =>
-			controller.dispatch({ kind: "cell-changed", rowKey, column, update }),
-		setAllCells: (column, update) =>
-			controller.dispatch({ kind: "all-cells-changed", column, update }),
-		setAllOtherCells: (column, excludedRowKey, update) =>
-			controller.dispatch({
-				kind: "all-other-cells-changed",
-				column,
-				excludedRowKey,
-				update,
-			}),
+		setActiveOperations: actions.setActiveOperations,
+		setCell: actions.setCell,
+		setAllCells: actions.setAllCells,
+		setAllOtherCells: actions.setAllOtherCells,
 		recordMergedPr,
-		note: (text) => controller.dispatch({ kind: "note", text }),
+		note: actions.note,
 		finish: controller.finish,
 		stop: controller.stop,
 	};

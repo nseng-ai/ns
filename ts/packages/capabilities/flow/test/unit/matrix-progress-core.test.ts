@@ -5,12 +5,14 @@ import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import type { ActiveOperation, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
+	bindMatrixWorkflowActions,
 	commandOperations,
 	defineMatrixWorkflow,
 	matrixFrameOptionalFields,
 	modelOperation,
 	withActiveOperations,
 	withCommandOperations,
+	type MatrixWorkflowController,
 } from "../../src/phase-stream/matrix-progress-core.ts";
 import {
 	createMatrixProgressState,
@@ -112,6 +114,66 @@ describe("matrix progress core", () => {
 		expect(Object.hasOwn(omitted, "tailLine")).toBe(false);
 		expect(Object.hasOwn(omitted, "tailSinceOutputMs")).toBe(false);
 		expect(Object.hasOwn(omitted, "tick")).toBe(false);
+	});
+
+	test("binds named workflow actions to canonical dispatch actions", () => {
+		interface Row {
+			branch: string;
+			label: string;
+		}
+		type Controller = MatrixWorkflowController<Row, "metadata">;
+		type Action = Parameters<Controller["dispatch"]>[0];
+		const dispatched: Action[] = [];
+		const controller: Controller = {
+			begin: () => {},
+			dispatch: (action) => dispatched.push(action),
+			getRows: () => [],
+			finish: async () => {},
+			stop: async () => {},
+		};
+		const actions = bindMatrixWorkflowActions(controller);
+		const rows = [{ branch: "feature/a", label: "feature/a" }];
+		const operations: readonly ActiveOperation[] = [{ kind: "command", display: "just" }];
+		const phaseEvent: NsProgressPhaseEvent = { type: "phase-started", phaseKey: "prepare" };
+
+		actions.setTitle("Updated workflow");
+		actions.setRows(rows);
+		actions.patchRow("feature/a", { label: "Feature A" });
+		actions.setActiveOperations(operations);
+		actions.phase(phaseEvent);
+		actions.setCell("feature/a", "metadata", { state: "active" });
+		actions.setCellsInState("metadata", "pending", { state: "done" });
+		actions.setAllCells("metadata", { state: "failed" });
+		actions.setAllOtherCells("metadata", "feature/a", { state: "skipped" });
+		actions.note("checking stack");
+
+		expect(dispatched).toEqual([
+			{ kind: "title-changed", title: "Updated workflow" },
+			{ kind: "rows-replaced", rows },
+			{ kind: "row-patched", rowKey: "feature/a", patch: { label: "Feature A" } },
+			{ kind: "active-operations-changed", operations },
+			{ kind: "phase-event", event: phaseEvent },
+			{
+				kind: "cell-changed",
+				rowKey: "feature/a",
+				column: "metadata",
+				update: { state: "active" },
+			},
+			{
+				kind: "cells-in-state-changed",
+				column: "metadata",
+				fromState: "pending",
+				update: { state: "done" },
+			},
+			{ kind: "all-cells-changed", column: "metadata", update: { state: "failed" } },
+			{
+				kind: "all-other-cells-changed",
+				column: "metadata",
+				excludedRowKey: "feature/a",
+				update: { state: "skipped" },
+			},
+			{ kind: "note", text: "checking stack" },
+		]);
 	});
 
 	test("reduces actions to detached committed changes and snapshots", () => {

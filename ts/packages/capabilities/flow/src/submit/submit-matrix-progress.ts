@@ -3,6 +3,7 @@ import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import {
+	bindMatrixWorkflowActions,
 	defineMatrixWorkflow,
 	matrixFrameOptionalFields,
 	type MatrixProgressPresentation,
@@ -203,14 +204,12 @@ function createSubmitProgressController(options: {
 function adaptSubmitMatrixProgressController(
 	controller: SubmitWorkflowController,
 ): SubmitMatrixProgressController {
+	const actions = bindMatrixWorkflowActions(controller);
+
 	function applyPrLinks(prLinks: readonly SubmitPrLink[]): void {
 		const deltas = applyPrLinksToRows(controller.getRows(), prLinks);
 		for (const delta of deltas) {
-			controller.dispatch({
-				kind: "row-patched",
-				rowKey: delta.branch,
-				patch: { pr: delta.pr, label: delta.label },
-			});
+			actions.patchRow(delta.branch, { pr: delta.pr, label: delta.label });
 		}
 	}
 
@@ -223,27 +222,24 @@ function adaptSubmitMatrixProgressController(
 			.getRows()
 			.find((candidate) => prNumberForRow(candidate) === String(prNumber));
 		if (row === undefined) return;
-		controller.dispatch({ kind: "cell-changed", rowKey: row.branch, column, update });
+		actions.setCell(row.branch, column, update);
 	}
 
 	function setPendingCells(column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void {
-		controller.dispatch({ kind: "cells-in-state-changed", column, fromState: "pending", update });
+		actions.setCellsInState(column, "pending", update);
 	}
 
 	return {
 		begin: controller.begin,
-		setRows: (rows) => controller.dispatch({ kind: "rows-replaced", rows }),
-		setActiveOperations: (operations) =>
-			controller.dispatch({ kind: "active-operations-changed", operations }),
-		phase: (event) => controller.dispatch({ kind: "phase-event", event }),
-		setCell: (rowKey, column, update) =>
-			controller.dispatch({ kind: "cell-changed", rowKey, column, update }),
+		setRows: actions.setRows,
+		setActiveOperations: actions.setActiveOperations,
+		phase: actions.phase,
+		setCell: actions.setCell,
 		setCellByPrNumber,
-		setAllCells: (column, update) =>
-			controller.dispatch({ kind: "all-cells-changed", column, update }),
+		setAllCells: actions.setAllCells,
 		setPendingCells,
 		applyPrLinks,
-		note: (text) => controller.dispatch({ kind: "note", text }),
+		note: actions.note,
 		finish: controller.finish,
 		stop: controller.stop,
 	};
