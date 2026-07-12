@@ -17,6 +17,7 @@ catalog:
   '@types/node': ^24.0.0
   '@typescript/native': npm:typescript@^7.0.2
   '@withgraphite/graphite-cli': ^1.8.6
+  '@xterm/headless': ^6.0.0
   ansis: ^4.3.1
   commander: ^14.0.0
   esbuild: ^0.27.0

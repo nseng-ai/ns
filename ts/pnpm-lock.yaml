@@ -30,6 +30,9 @@ catalogs:
     '@withgraphite/graphite-cli':
       specifier: ^1.8.6
       version: 1.8.6
+    '@xterm/headless':
+      specifier: ^6.0.0
+      version: 6.0.0
     commander:
       specifier: ^14.0.0
       version: 14.0.3
@@ -560,6 +563,10 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+    devDependencies:
+      '@xterm/headless':
+        specifier: 'catalog:'
+        version: 6.0.0
 
   packages/infra/foundation:
     dependencies:
@@ -1845,6 +1852,9 @@ packages:
   '@withgraphite/graphite-cli@1.8.6':
     resolution: {integrity: sha512-VGYE6fGpLysi3yaHLeAJd8W59ymrBfFRrgBYx0duLBKf4iyQ7Jf/j32tXq1/HpojMf+Ffl2I3qnE/BwIYm+tIw==}
     hasBin: true
+
+  '@xterm/headless@6.0.0':
+    resolution: {integrity: sha512-5Yj1QINYCyzrZtf8OFIHi47iQtI+0qYFPHmouEfG8dHNxbZ9Tb9YGSuLcsEwj9Z+OL75GJqPyJbyoFer80a2Hw==}
 
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
@@ -3640,6 +3650,8 @@ snapshots:
       '@withgraphite/graphite-cli-linux-arm64': 1.8.6
       '@withgraphite/graphite-cli-linux-x64': 1.8.6
       '@withgraphite/graphite-cli-win32-x64': 1.8.6
+
+  '@xterm/headless@6.0.0': {}
 
   agent-base@7.1.4: {}
 

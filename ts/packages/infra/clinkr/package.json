@@ -23,6 +23,9 @@
 		"log-update": "catalog:",
 		"zod": "catalog:"
 	},
+	"devDependencies": {
+		"@xterm/headless": "catalog:"
+	},
 	"ns": {
 		"tier": "neutral-infra"
 	},
