@@ -390,13 +390,13 @@ describe("checkBrmemEntry", () => {
 });
 
 describe("putBrmemEntryFromFile", () => {
-	const locator = { namespace: "ccc-dispatch", key: "prompt.md", branch: "feature/demo" };
+	const locator = { namespace: "cmux-dispatch", key: "prompt.md", branch: "feature/demo" };
 	const sourceFile = "/tmp/prompt.md";
 	const putArgs = [
 		"put",
 		"prompt.md",
 		"--namespace",
-		"ccc-dispatch",
+		"cmux-dispatch",
 		"--branch",
 		"feature/demo",
 		"--file",
@@ -405,10 +405,10 @@ describe("putBrmemEntryFromFile", () => {
 		"json",
 	];
 	const validData = {
-		namespace: "ccc-dispatch",
+		namespace: "cmux-dispatch",
 		key: "prompt.md",
 		branch: "feature/demo",
-		refName: "refs/brmem/ns/ccc-dispatch/feature---demo:prompt.md",
+		refName: "refs/brmem/ns/cmux-dispatch/feature---demo:prompt.md",
 		commit: "0123456789abcdef",
 		sourceFile: sourceFile,
 	} satisfies Record<string, unknown>;
@@ -424,10 +424,10 @@ describe("putBrmemEntryFromFile", () => {
 		expect(result).toEqual({
 			ok: true,
 			value: {
-				namespace: "ccc-dispatch",
+				namespace: "cmux-dispatch",
 				key: "prompt.md",
 				branch: "feature/demo",
-				refName: "refs/brmem/ns/ccc-dispatch/feature---demo:prompt.md",
+				refName: "refs/brmem/ns/cmux-dispatch/feature---demo:prompt.md",
 				commit: "0123456789abcdef",
 				sourceFile,
 			},
@@ -440,7 +440,7 @@ describe("putBrmemEntryFromFile", () => {
 			"put",
 			"prompt.md",
 			"--namespace",
-			"ccc-dispatch",
+			"cmux-dispatch",
 			"--file",
 			"/tmp/prompt.md",
 			"--format",
@@ -453,7 +453,7 @@ describe("putBrmemEntryFromFile", () => {
 		const result = await putBrmemEntryFromFile({
 			gateway,
 			cwd: ROOT,
-			namespace: "ccc-dispatch",
+			namespace: "cmux-dispatch",
 			key: "prompt.md",
 			sourceFile,
 		});
@@ -530,7 +530,7 @@ describe("putBrmemEntryFromFile", () => {
 			error: {
 				code: "brmem_malformed_put",
 				displayCommand:
-					"brmem put prompt.md --namespace ccc-dispatch --branch feature/demo --file /tmp/prompt.md --format json",
+					"brmem put prompt.md --namespace cmux-dispatch --branch feature/demo --file /tmp/prompt.md --format json",
 			},
 		});
 	});
@@ -540,7 +540,7 @@ describe("putBrmemEntryFromFile", () => {
 			{
 				field: "namespace",
 				data: { ...validData, namespace: "other" },
-				message: 'namespace "other" != "ccc-dispatch"',
+				message: 'namespace "other" != "cmux-dispatch"',
 			},
 			{
 				field: "key",
@@ -576,7 +576,7 @@ describe("putBrmemEntryFromFile", () => {
 				error: {
 					code: "brmem_unexpected_put_data",
 					displayCommand:
-						"brmem put prompt.md --namespace ccc-dispatch --branch feature/demo --file /tmp/prompt.md --format json",
+						"brmem put prompt.md --namespace cmux-dispatch --branch feature/demo --file /tmp/prompt.md --format json",
 				},
 			});
 			if (result.ok) throw new Error(`expected mismatch failure for ${testCase.field}`);

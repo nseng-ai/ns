@@ -62,7 +62,7 @@ import {
 const SAVED_PLAN_FILENAME_SLUG = "saved-plan-local-locator";
 const SAVED_PLAN_FILE_NAME = `${SAVED_PLAN_FILENAME_SLUG}.md`;
 const PLAN_CONTENT = "# Plan\n";
-const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
+const DISPATCH_PROMPT_NAMESPACE = "cmux-dispatch";
 
 function graphiteMetadataDbAccessWithTrunk(trunkBranch: string): GraphiteMetadataDbAccess {
 	return {
