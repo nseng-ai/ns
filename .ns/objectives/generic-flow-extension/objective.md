@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: flow-slots-opt-in
+    annotation: "Dedicated follow-up owning the audit's slots finding: flow's hard @nseng-ai/slots dependency becomes an opt-in, presence-detected enhancement; this objective's audit only records the finding and its README documents the outcome."
+---
+
 # Generic Flow Extension
 
 ## Thesis
