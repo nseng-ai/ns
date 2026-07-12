@@ -11,12 +11,15 @@ import {
 	collectSubmitRestackRequirements,
 	detectWorktreeConflicts,
 } from "../preflight.ts";
+import { formatPrSubmitRequirementLine } from "../confirmation-commands.ts";
 import {
 	landCompleted,
 	landFailure,
+	landingCancelledBeforeMergeFailure,
 	landingExecutionFailure,
 	landOutcomeFailure,
 	landSuccess,
+	withSuggestedAction,
 } from "../results.ts";
 import type {
 	LandContext,
@@ -48,11 +51,11 @@ export async function confirmAndFreeManagedSlots(options: {
 	readonly host: PreMergeExecutionHost;
 	readonly plan: LandingPlan;
 	readonly confirmationAlreadyApproved?: boolean;
-}): Promise<LandResult<void>> {
+}): Promise<LandResult<readonly ManagedSlotWorktree[]>> {
 	const slots = options.plan.managedSlotConflicts.map(toManagedSlotWorktree);
 	if (!options.confirmationAlreadyApproved) {
 		const decision = await options.host.confirmation.confirm({ kind: "free-managed-slots", slots });
-		if (decision.type === "declined") return landFailure(cancelledPreMergeFailure());
+		if (decision.type === "declined") return landFailure(landingCancelledBeforeMergeFailure());
 		if (decision.type === "refused-with-fully-worded-failure") return landFailure(decision.failure);
 	}
 
@@ -89,7 +92,7 @@ export async function confirmAndFreeManagedSlots(options: {
 			),
 		);
 	}
-	return landSuccess(undefined);
+	return landSuccess(slots);
 }
 
 export async function confirmAndSubmitRequiredPrUpdates(options: {
@@ -108,7 +111,7 @@ export async function confirmAndSubmitRequiredPrUpdates(options: {
 			requirements: plan.prSubmitRequirements,
 			restackRequirements: plan.submitRestackRequirements,
 		});
-		if (decision.type === "declined") return landFailure(cancelledPreMergeFailure());
+		if (decision.type === "declined") return landFailure(landingCancelledBeforeMergeFailure());
 		if (decision.type === "refused-with-fully-worded-failure") return landFailure(decision.failure);
 	}
 
@@ -222,14 +225,6 @@ export function executionOperationInProgressLabel(
 	return `A ${operation}`;
 }
 
-function cancelledPreMergeFailure(): LandingFailure {
-	return landingExecutionFailure("Cancelled before merge; no PRs were landed.", {
-		level: "info",
-		outcome: "refusal",
-		refusalReason: "declined",
-	});
-}
-
 function toManagedSlotWorktree(conflict: WorktreeConflict): ManagedSlotWorktree {
 	const slotName =
 		conflict.type === "managed-slot" ? conflict.slotName : slotNameFromPath(conflict.path);
@@ -242,17 +237,17 @@ function toManagedSlotWorktree(conflict: WorktreeConflict): ManagedSlotWorktree 
 }
 
 function preMergeSlotFailure(failure: LandingFailure): LandingFailure {
-	return landingExecutionFailure(failure.message, {
-		suggestedAction:
-			"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /ns:flow:land.",
-	});
+	return withSuggestedAction(
+		failure,
+		"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /ns:flow:land.",
+	);
 }
 
 function preMergeGraphiteFailure(
 	failure: LandingFailure,
 	options: { readonly suggestedAction: string },
 ): LandingFailure {
-	return landingExecutionFailure(failure.message, options);
+	return withSuggestedAction(failure, options.suggestedAction);
 }
 
 function formatRemainingManagedSlotConflicts(conflicts: readonly WorktreeConflict[]): string {
@@ -264,18 +259,12 @@ function formatRemainingManagedSlotConflicts(conflicts: readonly WorktreeConflic
 	].join("\n");
 }
 
-function formatPrSubmitRequirement(
-	requirement: Pick<PrSubmitRequirement, "branch" | "prNumber" | "reasons">,
-): string {
-	return `- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`;
-}
-
 function formatRemainingSubmitRequirements(requirements: readonly PrSubmitRequirement[]): string {
 	return [
 		"gt submit/update completed, but GitHub PR metadata still differs from local Graphite refs.",
 		"No PRs were landed.",
 		"",
-		...requirements.map(formatPrSubmitRequirement),
+		...requirements.map(formatPrSubmitRequirementLine),
 	].join("\n");
 }
 

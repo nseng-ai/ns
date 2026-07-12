@@ -30,7 +30,42 @@ function raiseMissingBranchPlan(): never {
 	throw new Error("Expected test branch plan.");
 }
 
+// Intentional runtime surface of `@nseng-ai/flow/land/api`. Execution internals
+// (executeStackLandingPlan, isolated landing, pre-merge phase helpers) are deliberately not
+// public; this allowlist prevents future execution-internal leakage.
+const LAND_API_RUNTIME_ALLOWLIST = [
+	"LAND_CAPABILITY_ID",
+	"LAND_CAPABILITY_METADATA",
+	"LAND_PACKAGE_NAME",
+	"boundaryFailureDiagnostics",
+	"buildDescendantMaintenancePlan",
+	"buildStackLandingPlan",
+	"collectPrSubmitRequirements",
+	"collectSubmitRestackRequirements",
+	"createRefusingLandConfirmationGateway",
+	"executeLanding",
+	"isLandFailure",
+	"landCompleted",
+	"landFailure",
+	"landOutcomeFailure",
+	"landSuccess",
+	"landingExecutionFailure",
+	"landingFailureFacts",
+	"landingParentEdges",
+	"loadStackLandingShape",
+	"nullLandConfirmationGateway",
+	"nullLandExecutionProgress",
+	"scopeStackSnapshot",
+	"validateOpenPrBasics",
+	"validateStrictMergeGate",
+] as const;
+
 describe("@nseng-ai/flow/land API boundary", () => {
+	test("keeps the runtime API surface at the intentional allowlist", async () => {
+		const landApiModule = await import("@nseng-ai/flow/land/api");
+		expect(Object.keys(landApiModule).sort()).toEqual([...LAND_API_RUNTIME_ALLOWLIST]);
+	});
+
 	test("exposes land capability package identity through the API subpath", () => {
 		expect(describeLandCapability(LAND_CAPABILITY_METADATA)).toBe("@nseng-ai/flow:land:capability");
 		expect(LAND_CAPABILITY_METADATA).toEqual({

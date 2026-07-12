@@ -6,7 +6,7 @@ import {
 } from "./execution/isolated-landing.ts";
 import type { LandExecutionProgress } from "./execution/host-seams.ts";
 import type {
-	PostLandingCleanupOptions,
+	PostLandingCleanupRequest,
 	PostLandingSlotCleanupDecision,
 } from "./execution/post-landing-cleanup.ts";
 import {
@@ -16,7 +16,7 @@ import {
 	presentFailureAndReturn,
 	setStatus,
 } from "./land-presentation.ts";
-import { createFlowLandConfirmationGateway } from "./post-landing-slot-cleanup.ts";
+import { createFlowLandConfirmationGateway } from "./flow-land-confirmation-gateway.ts";
 import type { PrintAwareLandStackCommandContext } from "./stack/types.ts";
 import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
 import type { LandContext, LandingFailure, LandingShape } from "./types.ts";
@@ -35,7 +35,7 @@ interface RunIsolatedFastPathLandingOptions {
 	ctx: PrintAwareLandStackCommandContext;
 	target: LandingShape;
 	isDryRun: boolean;
-	cleanup: PostLandingCleanupOptions;
+	cleanup: PostLandingCleanupRequest;
 	cleanupConfirmationAlreadyApproved?: boolean;
 	progressIo?: NsCommandIo;
 }

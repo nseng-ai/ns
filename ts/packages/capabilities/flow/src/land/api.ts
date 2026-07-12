@@ -1,7 +1,10 @@
-import { calculateLandingOutcome } from "./preflight.ts";
+import {
+	executeLandingRequest,
+	type ExecuteLandingOptions,
+	type LandStackExecutionHost,
+} from "./execution/execute.ts";
 import { nullLandConfirmationGateway, nullLandExecutionProgress } from "./execution/host-seams.ts";
-import type { LandStackExecutionHost } from "./execution/execute.ts";
-import type { LandContext, LandingOutcome, LandingRequest, LandResult } from "./types.ts";
+import type { LandContext, LandingExecutionResult, LandingRequest } from "./types.ts";
 
 // Public API identifiers intentionally mirror package metadata; tests guard the invariant
 // instead of reading package metadata at runtime.
@@ -21,8 +24,9 @@ export const LAND_CAPABILITY_METADATA: LandCapabilityMetadata = {
 };
 
 /**
- * Stack-first land-domain entry point. This package owns renderer-independent preflight and dry-run
- * planning; Flow still owns mutation-heavy merge execution while migration continues.
+ * Canonical stack-landing execution entrypoint. Owns discovery, preflight planning, confirmation,
+ * pre-merge preparation, merge execution, and post-landing managed-slot cleanup, and returns a
+ * {@link LandingExecutionResult} whose report carries the facts observed up to every exit.
  */
 export async function executeLanding(
 	context: LandContext,
@@ -31,17 +35,18 @@ export async function executeLanding(
 		confirmation: nullLandConfirmationGateway,
 		progress: nullLandExecutionProgress,
 	},
-): Promise<LandResult<LandingOutcome>> {
-	return await calculateLandingOutcome(context, request, host);
+	options: ExecuteLandingOptions = {},
+): Promise<LandingExecutionResult> {
+	return await executeLandingRequest(context, request, host, options);
 }
+
+export type { ExecuteLandingOptions, LandStackExecutionHost } from "./execution/execute.ts";
 
 export {
 	buildDescendantMaintenancePlan,
 	buildStackLandingPlan,
-	calculateLandingOutcome,
 	collectPrSubmitRequirements,
 	collectSubmitRestackRequirements,
-	detectWorktreeConflicts,
 	landingParentEdges,
 	loadStackLandingShape,
 	scopeStackSnapshot,
@@ -68,28 +73,6 @@ export {
 	nullLandConfirmationGateway,
 	nullLandExecutionProgress,
 } from "./execution/host-seams.ts";
-export { executeStackLandingPlan } from "./execution/execute.ts";
-export type {
-	ExecuteStackLandingPlanOptions,
-	LandStackExecutionHost,
-	StackLandingExecutionResult,
-	StackLandingExecutionValue,
-} from "./execution/execute.ts";
-export { executeIsolatedLanding, isIsolatedFastPath } from "./execution/isolated-landing.ts";
-export {
-	assertCleanRepoForExecution,
-	confirmAndFreeManagedSlots,
-	confirmAndSubmitRequiredPrUpdates,
-	executionOperationInProgressLabel,
-	residualPreMergeFailure,
-	submitRequiredUpdatesAndRecheckPlan,
-} from "./execution/pre-merge.ts";
-export type { PreMergeExecutionHost } from "./execution/pre-merge.ts";
-export type {
-	ExecuteIsolatedLandingOptions,
-	IsolatedLandingHost,
-	IsolatedLandingOutcome,
-} from "./execution/isolated-landing.ts";
 
 export type {
 	LandConfirmationDecision,
@@ -118,11 +101,14 @@ export type {
 	LandGraphiteRestackScope,
 	LandingBoundaryFailure,
 	LandingBoundaryFailureDiagnostics,
-	LandingCleanupMode,
-	LandingCleanupOutcome,
+	LandingCleanupPolicy,
+	LandingCleanupReport,
 	LandingDomainFailure,
 	LandingDomainFailureReason,
+	LandingExecutionApprovals,
 	LandingExecutionFailure,
+	LandingExecutionReport,
+	LandingExecutionResult,
 	LandingFailure,
 	LandingMode,
 	LandingNotImplementedFailure,
@@ -142,7 +128,9 @@ export type {
 	LocalBranchTip,
 	ManagedSlotWorktree,
 	ManualWorktreeConflict,
+	MergeMaintenanceCleanupReport,
 	NotifyLevel,
+	PostLandingSlotCleanupReport,
 	PrSubmitRequirement,
 	PullRequestFacts,
 	RestackRequirement,
@@ -156,4 +144,4 @@ export type {
 	WorktreeEntry,
 } from "./types.ts";
 
-export type { DetectWorktreeConflictsOptions, StackLandingShape } from "./preflight.ts";
+export type { StackLandingShape } from "./preflight.ts";

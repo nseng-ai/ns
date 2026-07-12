@@ -252,10 +252,8 @@ async function run(
 		target: overrides.shape ?? isolatedShape(),
 		isDryRun: overrides.isDryRun ?? false,
 		cleanup: {
-			isDryRun: overrides.isDryRun ?? false,
-			shouldPreserveSlot: false,
-			shouldSkipConfirmation: false,
-			shouldForceCleanup: false,
+			mode: (overrides.isDryRun ?? false) ? "dry-run" : "execute",
+			policy: "free-slot",
 		},
 	});
 }

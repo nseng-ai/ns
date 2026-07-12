@@ -10,15 +10,16 @@ import type {
 import {
 	resolveManagedSlotPostLandingCleanupDecision,
 	runManagedSlotPostLandingCleanup,
-	type PostLandingCleanupOptions,
+	type PostLandingCleanupRequest,
+	type PostLandingSlotCleanupDecision,
 } from "../../src/land/execution/post-landing-cleanup.ts";
+import { createFlowLandConfirmationGateway } from "../../src/land/flow-land-confirmation-gateway.ts";
 import { parseArgs } from "../../src/land/land-stack.ts";
 import { buildUpfrontStackConfirmation } from "../../src/land/landing-dispatch.ts";
 import {
 	planPostLandingSlotCleanup,
-	resolvePostLandingSlotCleanupDecision,
+	postLandingCleanupRequestFromArgs,
 	runPostLandingSlotCleanup,
-	type PostLandingSlotCleanupDecision,
 } from "../../src/land/post-landing-slot-cleanup.ts";
 import type { LandingShape } from "../../src/land/types.ts";
 import type {
@@ -101,13 +102,48 @@ function expectParsed(argsText: string): ParsedArgs {
 	return result.value;
 }
 
+/** Flow-shaped cleanup resolution: gateway from the command context, approvals from `--yes`. */
+async function resolveCleanupDecisionForArgs(options: {
+	readonly ctx: PrintAwareLandStackCommandContext;
+	readonly args: ParsedArgs;
+	readonly shape: LandingShape;
+	readonly isConfirmationAlreadyApproved?: boolean;
+}): Promise<
+	| { readonly type: "success"; readonly value: PostLandingSlotCleanupDecision }
+	| { readonly type: "failure"; readonly failure: { readonly message: string } }
+> {
+	return await resolveManagedSlotPostLandingCleanupDecision({
+		confirmation: createFlowLandConfirmationGateway(options.ctx),
+		isConfirmationAlreadyApproved:
+			(options.isConfirmationAlreadyApproved ?? false) || options.args.shouldSkipConfirmation,
+		cleanup: postLandingCleanupRequestFromArgs(options.args),
+		shape: options.shape,
+	});
+}
+
+describe("parsed-args to cleanup policy mapping", () => {
+	test.each([
+		{ rawArgs: "", policy: "free-slot", mode: "execute" },
+		{ rawArgs: "--preserve", policy: "preserve", mode: "execute" },
+		{ rawArgs: "--force", policy: "force-cleanup", mode: "execute" },
+		// Contradictory flags resolve deterministically: --preserve dominates --force.
+		{ rawArgs: "--preserve --force", policy: "preserve", mode: "execute" },
+		// --yes is approval state, not a cleanup policy.
+		{ rawArgs: "--yes", policy: "free-slot", mode: "execute" },
+		{ rawArgs: "--dry-run", policy: "free-slot", mode: "dry-run" },
+		{ rawArgs: "--dry-run --force", policy: "force-cleanup", mode: "dry-run" },
+	])("maps '$rawArgs' to $policy/$mode", ({ rawArgs, policy, mode }) => {
+		expect(postLandingCleanupRequestFromArgs(expectParsed(rawArgs))).toEqual({ mode, policy });
+	});
+});
+
 describe("post-landing slot cleanup defaults", () => {
 	test("upfront approval prompts once, then cleanup frees the managed slot and deletes the branch", async () => {
 		const { context, worktrees, graphite } = createInMemoryLandContext();
 		const fixture = createCleanupContext({ hasUI: true });
 		const args = expectParsed("");
 
-		const decision = await resolvePostLandingSlotCleanupDecision({
+		const decision = await resolveCleanupDecisionForArgs({
 			ctx: fixture.ctx,
 			args,
 			shape: managedShape(),
@@ -163,11 +199,11 @@ describe("post-landing slot cleanup defaults", () => {
 		const fixture = createCleanupContext({ hasUI: true });
 		const args = expectParsed("");
 
-		const decision = await resolvePostLandingSlotCleanupDecision({
+		const decision = await resolveCleanupDecisionForArgs({
 			ctx: fixture.ctx,
 			args,
 			shape: managedShape(),
-			confirmation: "already-approved",
+			isConfirmationAlreadyApproved: true,
 		});
 		expect(decision).toEqual({ type: "success", value: { type: "approved" } });
 
@@ -215,7 +251,7 @@ describe("post-landing slot cleanup defaults", () => {
 		const fixture = createCleanupContext({ hasUI: true, shouldConfirm: false });
 		const args = expectParsed("");
 
-		const decision = await resolvePostLandingSlotCleanupDecision({
+		const decision = await resolveCleanupDecisionForArgs({
 			ctx: fixture.ctx,
 			args,
 			shape: managedShape(),
@@ -250,7 +286,7 @@ describe("post-landing slot cleanup defaults", () => {
 		const fixture = createCleanupContext({ hasUI: true });
 		const shape = managedShape({ current: "main", landingBranches: [] });
 
-		const decision = await resolvePostLandingSlotCleanupDecision({
+		const decision = await resolveCleanupDecisionForArgs({
 			ctx: fixture.ctx,
 			args: expectParsed(""),
 			shape,
@@ -285,7 +321,7 @@ describe("post-landing slot cleanup defaults", () => {
 			const fixture = createCleanupContext({ hasUI: true });
 			const args = expectParsed(rawArgs);
 
-			const decision = await resolvePostLandingSlotCleanupDecision({
+			const decision = await resolveCleanupDecisionForArgs({
 				ctx: fixture.ctx,
 				args,
 				shape: managedShape(),
@@ -310,7 +346,7 @@ describe("post-landing slot cleanup defaults", () => {
 	test("--yes and --force approve cleanup without prompting", async () => {
 		for (const rawArgs of ["--yes", "--force"]) {
 			const fixture = createCleanupContext({ hasUI: true });
-			const decision = await resolvePostLandingSlotCleanupDecision({
+			const decision = await resolveCleanupDecisionForArgs({
 				ctx: fixture.ctx,
 				args: expectParsed(rawArgs),
 				shape: managedShape(),
@@ -324,7 +360,7 @@ describe("post-landing slot cleanup defaults", () => {
 	test("non-interactive cleanup confirmation refusal happens before cleanup can run", async () => {
 		const fixture = createCleanupContext({ hasUI: false });
 
-		const decision = await resolvePostLandingSlotCleanupDecision({
+		const decision = await resolveCleanupDecisionForArgs({
 			ctx: fixture.ctx,
 			args: expectParsed(""),
 			shape: managedShape(),
@@ -332,17 +368,15 @@ describe("post-landing slot cleanup defaults", () => {
 
 		expect(decision.type).toBe("failure");
 		expect(fixture.confirmations).toEqual([]);
-		expect(fixture.notifications.at(-1)?.message).toContain("No PRs were landed.");
-		expect(fixture.notifications.at(-1)?.level).toBe("error");
+		if (decision.type !== "failure") return;
+		expect(decision.failure.message).toContain("No PRs were landed.");
 	});
 });
 
 describe("core post-landing cleanup", () => {
-	const cleanup: PostLandingCleanupOptions = {
-		isDryRun: false,
-		shouldPreserveSlot: false,
-		shouldSkipConfirmation: false,
-		shouldForceCleanup: false,
+	const cleanup: PostLandingCleanupRequest = {
+		mode: "execute",
+		policy: "free-slot",
 	};
 
 	test("sends the exact semantic confirmation payload", async () => {
@@ -357,7 +391,7 @@ describe("core post-landing cleanup", () => {
 		await expect(
 			resolveManagedSlotPostLandingCleanupDecision({
 				confirmation,
-				confirmationAlreadyApproved: false,
+				isConfirmationAlreadyApproved: false,
 				cleanup,
 				shape: managedShape(),
 			}),
@@ -378,7 +412,7 @@ describe("core post-landing cleanup", () => {
 			worktrees: {
 				freeSlotsFailure: {
 					type: "boundary",
-					phase: "cleanup",
+					phase: "post-landing-cleanup",
 					source: "slot",
 					code: "slot_free_failed",
 					message: "slot free failed",

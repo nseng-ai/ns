@@ -1,54 +1,53 @@
-import type {
-	LandConfirmationDecision,
-	LandConfirmationGateway,
-	LandConfirmationRequest,
-	LandExecutionProgress,
-} from "./execution/host-seams.ts";
+// Flow-side glue for post-landing managed-slot cleanup.
+//
+// Canonical stack execution owns cleanup end to end; this module keeps the deterministic
+// ParsedArgs -> cleanup policy mapping, the upfront-confirmation preview, and the isolated
+// fast-path glue that still runs cleanup outside canonical stack execution.
+
+import type { LandExecutionProgress } from "./execution/host-seams.ts";
 import {
 	planManagedSlotPostLandingCleanup,
-	resolveManagedSlotPostLandingCleanupDecision,
 	runManagedSlotPostLandingCleanup,
-	type PostLandingCleanupOptions,
+	type PostLandingCleanupRequest,
 	type PostLandingSlotCleanupDecision,
 	type PostLandingSlotCleanupPreview,
 } from "./execution/post-landing-cleanup.ts";
-import {
-	formatFreeManagedSlotsConfirmationDetails,
-	formatPlan,
-	formatPostLandingCleanupConfirmationDetails,
-	formatSubmitRequiredUpdatesConfirmationDetails,
-	freeManagedSlotsConfirmationTitle,
-	freeManagedSlotsNonInteractiveRefusalMessage,
-	notifyPrintAware,
-	postLandingCleanupConfirmationTitle,
-	postLandingCleanupNonInteractiveRefusalMessage,
-	presentFailureAndReturn,
-	setStatus,
-	submitRequiredUpdatesConfirmationTitle,
-	submitRequiredUpdatesNonInteractiveRefusalMessage,
-	submitRequiredUpdatesSuggestedAction,
-} from "./land-presentation.ts";
-import {
-	confirmLandStackAction,
-	type PreMergeConfirmation,
-} from "./stack/pre-merge-confirmation.ts";
-import {
-	landCompleted,
-	landingFailureFacts,
-	landOutcomeFailure,
-	type LandOutcome,
-	type LandResult,
-} from "./results.ts";
+import { notifyPrintAware, presentFailureAndReturn, setStatus } from "./land-presentation.ts";
+import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
 import type { PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
-import type { LandContext, LandingShape } from "./types.ts";
+import type { LandContext, LandingCleanupPolicy, LandingShape } from "./types.ts";
 
 export type { PostLandingSlotCleanupDecision, PostLandingSlotCleanupPreview };
 
-interface ResolvePostLandingSlotCleanupDecisionOptions {
-	readonly ctx: PrintAwareLandStackCommandContext;
+/**
+ * Deterministic flag-to-policy mapping: `--preserve` wins over `--force`, and ordinary execution
+ * in a managed slot lands as `free-slot`. `--yes` stays approval state, not a cleanup policy.
+ */
+export function landingCleanupPolicyFromArgs(
+	args: Pick<ParsedArgs, "shouldPreserveSlot" | "shouldForceCleanup">,
+): LandingCleanupPolicy {
+	if (args.shouldPreserveSlot) return "preserve";
+	if (args.shouldForceCleanup) return "force-cleanup";
+	return "free-slot";
+}
+
+export function postLandingCleanupRequestFromArgs(
+	args: Pick<ParsedArgs, "isDryRun" | "shouldPreserveSlot" | "shouldForceCleanup">,
+): PostLandingCleanupRequest {
+	return {
+		mode: args.isDryRun ? "dry-run" : "execute",
+		policy: landingCleanupPolicyFromArgs(args),
+	};
+}
+
+export function planPostLandingSlotCleanup(options: {
 	readonly args: ParsedArgs;
 	readonly shape: LandingShape;
-	readonly confirmation?: PreMergeConfirmation;
+}): PostLandingSlotCleanupPreview | undefined {
+	return planManagedSlotPostLandingCleanup({
+		cleanup: postLandingCleanupRequestFromArgs(options.args),
+		shape: options.shape,
+	});
 }
 
 interface RunPostLandingSlotCleanupOptions {
@@ -59,36 +58,14 @@ interface RunPostLandingSlotCleanupOptions {
 	readonly cleanupDecision: PostLandingSlotCleanupDecision;
 }
 
-export function planPostLandingSlotCleanup(options: {
-	readonly args: ParsedArgs;
-	readonly shape: LandingShape;
-}): PostLandingSlotCleanupPreview | undefined {
-	return planManagedSlotPostLandingCleanup({
-		cleanup: cleanupOptions(options.args),
-		shape: options.shape,
-	});
-}
-
-export async function resolvePostLandingSlotCleanupDecision(
-	options: ResolvePostLandingSlotCleanupDecisionOptions,
-): Promise<LandResult<PostLandingSlotCleanupDecision>> {
-	const result = await resolveManagedSlotPostLandingCleanupDecision({
-		confirmation: createFlowLandConfirmationGateway(options.ctx),
-		confirmationAlreadyApproved: options.confirmation === "already-approved",
-		cleanup: cleanupOptions(options.args),
-		shape: options.shape,
-	});
-	if (result.type === "failure") return presentFailureAndReturn(options.ctx, result.failure);
-	return result;
-}
-
+/** Isolated fast-path glue: run cleanup after landing outside canonical stack execution. */
 export async function runPostLandingSlotCleanup(
 	options: RunPostLandingSlotCleanupOptions,
 ): Promise<LandOutcome> {
 	const result = await runManagedSlotPostLandingCleanup({
 		landContext: options.landContext,
-		progress: cleanupProgress(options.ctx),
-		cleanup: cleanupOptions(options.args),
+		progress: createCleanupProgress(options.ctx),
+		cleanup: postLandingCleanupRequestFromArgs(options.args),
 		shape: options.shape,
 		cleanupDecision: options.cleanupDecision,
 	});
@@ -107,82 +84,9 @@ export async function runPostLandingSlotCleanup(
 	return landCompleted();
 }
 
-export function createFlowLandConfirmationGateway(
+export function createCleanupProgress(
 	ctx: PrintAwareLandStackCommandContext,
-): LandConfirmationGateway {
-	return {
-		confirm: async (request) => await confirmFlowLandAction(ctx, request),
-	};
-}
-
-async function confirmFlowLandAction(
-	ctx: PrintAwareLandStackCommandContext,
-	request: LandConfirmationRequest,
-): Promise<LandConfirmationDecision> {
-	const outcome = await confirmLandStackAction(
-		request.kind === "main-landing"
-			? {
-					ctx,
-					shouldPrompt: true,
-					title: "Land this stack path?",
-					details: formatPlan(request.plan),
-					nonInteractiveMessage: `Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${formatPlan(request.plan)}`,
-				}
-			: request.kind === "post-landing-cleanup"
-				? {
-						ctx,
-						shouldPrompt: true,
-						title: postLandingCleanupConfirmationTitle(),
-						details: formatPostLandingCleanupConfirmationDetails(request),
-						nonInteractiveMessage: postLandingCleanupNonInteractiveRefusalMessage(request),
-						nonInteractiveFailureOptions: {
-							suggestedAction:
-								"Pass --yes or --force to approve cleanup, or --preserve to keep the current slot and local branch.",
-						},
-						cancellationMessage: "Skipped post-landing cleanup by upfront choice.",
-						cancellationFailureOptions: {
-							level: "warning",
-							outcome: "refusal",
-							suggestedAction: cleanupSuggestedAction(request),
-						},
-						defaultAnswer: "yes",
-					}
-				: request.kind === "free-managed-slots"
-					? {
-							ctx,
-							shouldPrompt: true,
-							title: freeManagedSlotsConfirmationTitle(),
-							details: formatFreeManagedSlotsConfirmationDetails(request),
-							nonInteractiveMessage: freeManagedSlotsNonInteractiveRefusalMessage(request),
-						}
-					: {
-							ctx,
-							shouldPrompt: true,
-							title: submitRequiredUpdatesConfirmationTitle(request),
-							details: formatSubmitRequiredUpdatesConfirmationDetails(request),
-							nonInteractiveMessage: submitRequiredUpdatesNonInteractiveRefusalMessage(request),
-							nonInteractiveFailureOptions: {
-								suggestedAction: submitRequiredUpdatesSuggestedAction(request),
-							},
-						},
-	);
-	if (outcome.type === "completed") return { type: "approved" };
-	if (landingFailureFacts(outcome.failure).refusalReason === "declined") {
-		return { type: "declined" };
-	}
-	return { type: "refused-with-fully-worded-failure", failure: outcome.failure };
-}
-
-function cleanupOptions(args: ParsedArgs): PostLandingCleanupOptions {
-	return {
-		isDryRun: args.isDryRun,
-		shouldPreserveSlot: args.shouldPreserveSlot,
-		shouldSkipConfirmation: args.shouldSkipConfirmation,
-		shouldForceCleanup: args.shouldForceCleanup,
-	};
-}
-
-function cleanupProgress(ctx: PrintAwareLandStackCommandContext): LandExecutionProgress {
+): LandExecutionProgress {
 	return {
 		note() {},
 		setStatus: (message) => setStatus(ctx, message),
@@ -190,15 +94,4 @@ function cleanupProgress(ctx: PrintAwareLandStackCommandContext): LandExecutionP
 		recordMergedPullRequest() {},
 		planRecalculated() {},
 	};
-}
-
-function cleanupSuggestedAction(
-	request: Extract<LandConfirmationRequest, { readonly kind: "post-landing-cleanup" }>,
-): string {
-	const details = formatPostLandingCleanupConfirmationDetails(request);
-	const commands = details
-		.split("\n")
-		.filter((line) => line.startsWith("$ "))
-		.map((line) => line.slice(2));
-	return `Run ${commands.join(", then ")} when safe.`;
 }

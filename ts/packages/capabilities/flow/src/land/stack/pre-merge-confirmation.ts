@@ -23,7 +23,7 @@ export interface PreMergeMaintenanceOptions {
 	confirmation?: PreMergeConfirmation;
 }
 
-interface ConfirmLandStackActionOptions {
+export interface ConfirmLandStackActionOptions {
 	ctx: LandStackCommandContext;
 	shouldPrompt: boolean;
 	title: string;

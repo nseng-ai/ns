@@ -1,0 +1,210 @@
+import { describe, expect, test } from "vitest";
+
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
+import {
+	formatPrSubmitRequirementLine,
+	postLandingCleanupCommands,
+	submitRequiredUpdatesCommands,
+} from "../../src/land/confirmation-commands.ts";
+import type { LandConfirmationRequest } from "../../src/land/execution/host-seams.ts";
+import { createFlowLandConfirmationGateway } from "../../src/land/flow-land-confirmation-gateway.ts";
+import type { LandingPlan } from "../../src/land/types.ts";
+import type { NotifyLevel, PrintAwareLandStackCommandContext } from "../../src/land/stack/types.ts";
+import { pullRequestFacts, stackSnapshot } from "../../src/land/testing.ts";
+
+const SLOT_ROOT = "/state/ns/slots/repos/repo/worktrees/slot-02";
+
+interface GatewayContextFixture {
+	readonly ctx: PrintAwareLandStackCommandContext;
+	readonly confirmations: Array<{
+		readonly title: string;
+		readonly options?: { readonly defaultAnswer?: "yes" | "no" };
+	}>;
+	readonly notifications: Array<{ readonly message: string; readonly level?: NotifyLevel }>;
+}
+
+function createGatewayContext(options: {
+	readonly hasUI: boolean;
+	readonly shouldConfirm?: boolean;
+}): GatewayContextFixture {
+	const confirmations: GatewayContextFixture["confirmations"][number][] = [];
+	const notifications: Array<{ message: string; level?: NotifyLevel }> = [];
+	return {
+		ctx: {
+			cwd: SLOT_ROOT,
+			hasUI: options.hasUI,
+			ui: {
+				notify(message, level) {
+					notifications.push({ message, ...optionalEntry("level", level) });
+				},
+				async confirm(title, _message, confirmOptions) {
+					confirmations.push({
+						title,
+						...(confirmOptions === undefined ? {} : { options: confirmOptions }),
+					});
+					return options.shouldConfirm ?? true;
+				},
+				setStatus() {},
+			},
+			async waitForIdle() {},
+		},
+		confirmations,
+		notifications,
+	};
+}
+
+function landingPlan(): LandingPlan {
+	return {
+		repoRoot: SLOT_ROOT,
+		metadataDbPath: `${SLOT_ROOT}/.git/graphite.db`,
+		stack: stackSnapshot({ current: "feature-a", landingBranches: ["feature-a"] }),
+		branchPlans: [
+			{
+				branch: "feature-a",
+				localSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				pr: pullRequestFacts({ number: 7, headRefName: "feature-a" }),
+			},
+		],
+		preflight: { status: "ready", checkedBranches: ["feature-a"], warnings: [], failures: [] },
+		prSubmitRequirements: [],
+		submitRestackRequirements: [],
+		managedSlotConflicts: [],
+		descendantMaintenance: { type: "none", branches: [] },
+	};
+}
+
+const requestTable: ReadonlyArray<{
+	readonly name: string;
+	readonly request: LandConfirmationRequest;
+	readonly title: string;
+	readonly defaultAnswer?: "yes";
+}> = [
+	{
+		name: "main-landing",
+		request: { kind: "main-landing", plan: landingPlan() },
+		title: "Land this stack path?",
+	},
+	{
+		name: "free-managed-slots",
+		request: {
+			kind: "free-managed-slots",
+			slots: [{ type: "managed-slot", branch: "feature-a", path: SLOT_ROOT, slotName: "slot-02" }],
+		},
+		title: "Free landing slots?",
+	},
+	{
+		name: "submit-required-updates",
+		request: {
+			kind: "submit-required-updates",
+			landingTargetBranch: "feature-a",
+			requirements: [
+				{
+					branch: "feature-a",
+					prNumber: 7,
+					localSha: "local",
+					prHeadSha: "remote",
+					baseRefName: "main",
+					reasons: ["head remote != local"],
+				},
+			],
+			restackRequirements: [],
+		},
+		title: "Run gt submit/update?",
+	},
+	{
+		name: "post-landing-cleanup",
+		request: {
+			kind: "post-landing-cleanup",
+			branch: "feature-a",
+			repoRoot: SLOT_ROOT,
+			slotName: "slot-02",
+			localBranchDisposition: "delete",
+		},
+		title: "Free current slot and delete local branch?",
+		defaultAnswer: "yes",
+	},
+];
+
+describe("flow land confirmation gateway", () => {
+	test.each(requestTable)("$name approves through the interactive prompt", async (entry) => {
+		const fixture = createGatewayContext({ hasUI: true });
+		const gateway = createFlowLandConfirmationGateway(fixture.ctx);
+
+		await expect(gateway.confirm(entry.request)).resolves.toEqual({ type: "approved" });
+		expect(fixture.confirmations).toEqual([
+			{
+				title: entry.title,
+				...(entry.defaultAnswer === undefined
+					? {}
+					: { options: { defaultAnswer: entry.defaultAnswer } }),
+			},
+		]);
+	});
+
+	test.each(requestTable)("$name maps an interactive decline to declined", async (entry) => {
+		const fixture = createGatewayContext({ hasUI: true, shouldConfirm: false });
+		const gateway = createFlowLandConfirmationGateway(fixture.ctx);
+
+		await expect(gateway.confirm(entry.request)).resolves.toEqual({ type: "declined" });
+	});
+
+	test.each(requestTable)(
+		"$name refuses non-interactively with a fully worded failure",
+		async (entry) => {
+			const fixture = createGatewayContext({ hasUI: false });
+			const gateway = createFlowLandConfirmationGateway(fixture.ctx);
+
+			const decision = await gateway.confirm(entry.request);
+			expect(decision).toMatchObject({
+				type: "refused-with-fully-worded-failure",
+				failure: { outcome: "refusal", refusalReason: "non-interactive" },
+			});
+			expect(fixture.confirmations).toEqual([]);
+		},
+	);
+});
+
+describe("structural confirmation command builders", () => {
+	test("post-landing cleanup commands are derived structurally, never parsed from prose", () => {
+		expect(
+			postLandingCleanupCommands({
+				branch: "feature-a",
+				slotName: "slot-02",
+				localBranchDisposition: "delete",
+			}),
+		).toEqual(["ns slot free --wt slot-02", "gt delete feature-a -f -q"]);
+		expect(
+			postLandingCleanupCommands({
+				branch: "main",
+				slotName: "slot-02",
+				localBranchDisposition: "keep-trunk",
+			}),
+		).toEqual(["ns slot free --wt slot-02"]);
+	});
+
+	test("submit-required-updates commands include the restack step only with a restack target", () => {
+		expect(submitRequiredUpdatesCommands({ landingTargetBranch: "feature-b" })).toEqual([
+			"gt submit --branch feature-b --no-stack --update-only --no-edit --no-ai --no-interactive",
+		]);
+		expect(
+			submitRequiredUpdatesCommands({
+				landingTargetBranch: "feature-b",
+				restackTarget: "feature-b",
+			}),
+		).toEqual([
+			"gt restack --branch feature-b --upstack --no-interactive",
+			"gt submit --branch feature-b --no-stack --update-only --no-edit --no-ai --no-interactive",
+		]);
+	});
+
+	test("PR requirement lines share one formatter", () => {
+		expect(
+			formatPrSubmitRequirementLine({
+				branch: "feature-a",
+				prNumber: 7,
+				reasons: ["head remote != local", "base develop != main"],
+			}),
+		).toBe("- #7 feature-a: head remote != local; base develop != main");
+	});
+});

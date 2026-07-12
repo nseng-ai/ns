@@ -26,7 +26,6 @@ import {
 	type LandResult,
 } from "./results.ts";
 import { landCompletionFlags, parseLandFlagToken } from "./stack/flags.ts";
-import { buildStackLandingPlan } from "./preflight.ts";
 import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
 import { present, setStatus, usage } from "./land-presentation.ts";
 import {
@@ -49,6 +48,7 @@ export interface ExecuteStackLandingOptions {
 	io?: NsCommandIo;
 	shouldSkipMainConfirmation?: boolean;
 	preMergeConfirmation?: PreMergeConfirmation;
+	isPostLandingCleanupApproved?: boolean;
 	liveProgress?: LandLiveProgressSink;
 	graphite?: LandGraphiteCommandChannel;
 	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
@@ -104,21 +104,12 @@ export async function executeStackLanding(
 		}
 
 		progress.setStatus("preflighting...");
-		const plan = await buildStackLandingPlan(runtime.landContext, ctx.cwd, {
-			shouldAllowSubmitRequiredState: true,
-			...optionalEntry("shape", options.shape),
-		});
-		if (plan.type === "failure") {
-			presentLandStackFailure({ session, failure: plan.failure });
-			return landOutcomeFailure(plan.failure);
-		}
-		progress.planRecalculated(plan.value);
 		return await runFlowStackLanding({
 			runtime,
 			parsedArgs,
 			options,
 			session,
-			plan: plan.value,
+			...optionalEntry("shape", options.shape),
 		});
 	} catch (error) {
 		const failure = landingExecutionFailure(

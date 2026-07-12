@@ -9,7 +9,7 @@ import type {
 import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
 import {
 	resolveManagedSlotPostLandingCleanupDecision,
-	type PostLandingCleanupOptions,
+	type PostLandingCleanupRequest,
 	type PostLandingSlotCleanupDecision,
 } from "./post-landing-cleanup.ts";
 
@@ -25,7 +25,7 @@ export interface ExecuteIsolatedLandingOptions {
 	readonly host: IsolatedLandingHost;
 	readonly target: LandingShape;
 	readonly isDryRun: boolean;
-	readonly cleanup: PostLandingCleanupOptions;
+	readonly cleanup: PostLandingCleanupRequest;
 	readonly cleanupConfirmationAlreadyApproved?: boolean;
 }
 
@@ -100,7 +100,7 @@ export async function executeIsolatedLanding(
 
 	const cleanupDecision = await resolveManagedSlotPostLandingCleanupDecision({
 		confirmation: options.host.confirmation,
-		confirmationAlreadyApproved: options.cleanupConfirmationAlreadyApproved ?? false,
+		isConfirmationAlreadyApproved: options.cleanupConfirmationAlreadyApproved ?? false,
 		cleanup: options.cleanup,
 		shape: options.target,
 	});
