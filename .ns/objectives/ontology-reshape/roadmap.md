@@ -118,12 +118,23 @@ live exchange with the user. Assets link from row notes and live in
     (`updates/2026-07-11-nscc-deletion-disposition.md`) was this row's other
     disposition. Semantic update:
     `updates/2026-07-11-ccc-to-cmux-reshape-decided.md`.
-- [ ] Execute the cmux reshape spec (task)
+- [~] Execute the cmux reshape spec (task)
   - Graduated 2026-07-11 from the CCC/orchestration grilling row per the reshaping
     handoff vehicle.
   - Task: land ADR 0034 / `cmux-reshape-spec.md` items 1–8 via the saved-plan
     pipeline (read-only verification sweep → ratified enriched plan → dedicated
     execution session, stacked local slices, `just` green per slice).
+  - Planning stages complete 2026-07-12: a 7-agent read-only sweep fact-checked
+    every spec item (corrections committed to the spec on branch
+    `rename-ccc-to-cmux-capability`; headline fixes: kernel source-dev discovery
+    replaces the assumed declared-descriptors registration, and the
+    `objective-sidebar.ts` runtime bin caller joined item 3's scope). Enriched
+    plan `cmux-reshape-execution-stack` ratified by the user (six slices — spec
+    items 4+5 merged; ripple renames separate; stack based on
+    `rename-ccc-to-cmux-capability`) and attached as branch context on
+    `cmux-reshape/trim-flow-facade` for the dedicated execution session. Semantic
+    update: `updates/2026-07-12-cmux-reshape-plan-ratified.md`. Remaining: the
+    execution session itself.
 - [x] Reexamine extension, host, and kernel layering vocabulary (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,
