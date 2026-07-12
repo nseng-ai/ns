@@ -2,7 +2,6 @@ import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
-import type { Caps } from "@nseng-ai/clinkr";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
@@ -25,6 +24,7 @@ import {
 	withCommandOperations,
 } from "../../phase-stream/matrix-progress-core.ts";
 import {
+	createSubmitMatrixEventProgressController,
 	createSubmitMatrixProgressController,
 	submitMatrixRowsFromTopology,
 	type SubmitMatrixProgressController,
@@ -132,13 +132,36 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 		}
 		const caps = resolveFlowStreamCaps(ctx);
 		if (caps.isTty) {
-			return await runSubmitWithMatrix({
+			const matrix = createSubmitMatrixProgressController({
+				caps,
+				deps: flowStreamDeps(ctx, caps),
+				title: "ns flow submit",
+				rows: [],
+				...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
+			});
+			return await runSubmitWithStructuredProgress({
 				ctx,
 				request,
 				runtime,
-				caps,
 				hooksLoad,
 				checkpointContext,
+				matrix,
+				onOutput: (_stream, text) => matrix.note(text),
+			});
+		}
+		if (ctx.progress.isLive) {
+			return await runSubmitWithStructuredProgress({
+				ctx,
+				request,
+				runtime,
+				hooksLoad,
+				checkpointContext,
+				matrix: createSubmitMatrixEventProgressController({
+					progress: ctx.progress,
+					title: "ns flow submit",
+					rows: [],
+				}),
+				...optionalEntry("onOutput", createFlowLiveOutput(ctx)),
 			});
 		}
 		return await runSettledPhaseStream({
@@ -249,22 +272,16 @@ function hookProgressLabel(input: { hook: FlowSubmitHook; index: number; total: 
 		: `running ${input.hook.display} (${input.index + 1}/${input.total})…`;
 }
 
-async function runSubmitWithMatrix(input: {
+async function runSubmitWithStructuredProgress(input: {
 	ctx: NsExtensionApi;
 	request: SubmitRequest;
 	runtime: NsSubmitRuntime;
-	caps: Caps;
 	hooksLoad: Awaited<ReturnType<typeof loadFlowSubmitHooks>>;
 	checkpointContext: SubmitCheckpointContext;
+	matrix: SubmitMatrixProgressController;
+	onOutput?: FlowLiveOutput;
 }) {
-	const { ctx, request, runtime, caps, hooksLoad, checkpointContext } = input;
-	const matrix = createSubmitMatrixProgressController({
-		caps,
-		deps: flowStreamDeps(ctx, caps),
-		title: "ns flow submit",
-		rows: [],
-		...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
-	});
+	const { ctx, request, runtime, hooksLoad, checkpointContext, matrix, onOutput } = input;
 	matrix.setGlobal("inventory", { state: "active" });
 	matrix.begin();
 
@@ -290,7 +307,6 @@ async function runSubmitWithMatrix(input: {
 			state: "done",
 			text: `${topology.value.branches.length} ${topology.value.branches.length === 1 ? "branch" : "branches"} in submit stack`,
 		});
-		const onOutput: FlowLiveOutput = (_stream, text) => matrix.note(text);
 		if (hooksLoad.kind === "hooks") {
 			matrix.setGlobal("hooks", { state: "active" });
 			const hooksOutcome = await withCommandOperations(matrix, [], () =>
@@ -304,7 +320,7 @@ async function runSubmitWithMatrix(input: {
 							text: hookProgressLabel({ hook, index, total }),
 						});
 					},
-					onOutput,
+					...(onOutput === undefined ? {} : { onOutput }),
 				}),
 			);
 			if (hooksOutcome.kind === "failed") {
@@ -351,7 +367,7 @@ async function runSubmitWithMatrix(input: {
 			prDescription: runtime.prDescription,
 			shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
 			progress,
-			onOutput,
+			...(onOutput === undefined ? {} : { onOutput }),
 		});
 		const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
 		const isFailed = interpretedResult.exitCode !== 0;

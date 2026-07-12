@@ -136,6 +136,7 @@ export {
 	type SubmitProgress,
 } from "./submit-progress.ts";
 export {
+	createSubmitMatrixEventProgressController,
 	createSubmitMatrixProgressController,
 	submitMatrixRowsFromTopology,
 	type SubmitMatrixProgressSink,

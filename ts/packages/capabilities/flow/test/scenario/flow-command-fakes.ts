@@ -11,7 +11,7 @@ import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
 import { flowSquashStackCommand } from "../../src/ns/commands/squash-stack.ts";
 import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
-import type { CommandExit, NsCommand, NsExtensionApi } from "@nseng-ai/sdk";
+import type { CommandExit, NsCommand, NsExtensionApi, NsProgress } from "@nseng-ai/sdk";
 import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
 
 import {
@@ -27,6 +27,7 @@ interface RunFlowCommandWithFakesOptions {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	homeDir?: string;
+	progress?: NsProgress;
 	defaults?: RunWithFakesDefaults;
 }
 
@@ -478,6 +479,7 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 		env: { HOME: homeDir, ...(fixture.options.env ?? {}) },
 		execResponses: fixture.defaults.execResponses,
 		textGenerationResults: fixture.defaults.textGenerationResults,
+		...(fixture.options.progress === undefined ? {} : { progress: fixture.options.progress }),
 		...(fixture.defaults.missingTextGenerationResult === undefined
 			? {}
 			: { missingTextGenerationResult: fixture.defaults.missingTextGenerationResult }),

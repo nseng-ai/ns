@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
+import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
 	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
 	PR_DESCRIPTION_GENERATOR_VERSION,
@@ -171,6 +172,164 @@ async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<stri
 }
 
 describe("project-local submit extension", () => {
+	test("live non-TTY progress drives the structured submit matrix through the actual command handler", async () => {
+		const events: NsProgressPhaseEvent[] = [];
+		const progress: NsProgress = {
+			isLive: true,
+			phase: (event) => events.push(event),
+		};
+		const run = runWithFakes({
+			progress,
+			request: { verbose: true },
+			state: {
+				exec: [
+					{
+						match: "gt log --stack --reverse --no-interactive",
+						result: { stdout: "◯ main\n◉ feature/demo (current)\n" },
+					},
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+					{
+						match: "gt branch info --no-interactive --branch feature/demo",
+						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+					},
+					...successfulSubmitResponses(),
+				],
+			},
+		});
+
+		expect(await run.exit, run.stderr.join("")).toBe(0);
+		const declaration = events.find((event) => event.type === "matrix-declared");
+		expect(declaration).toEqual({
+			type: "matrix-declared",
+			labelHeader: "Branch / PR",
+			columns: [
+				{ key: "metadata", label: "Metadata", width: 8 },
+				{ key: "description", label: "Description", width: 11 },
+			],
+			globalRows: expect.any(Array),
+		});
+		if (declaration?.type !== "matrix-declared") throw new Error("matrix declaration missing");
+		expect(declaration.globalRows?.map((row) => row.key)).toEqual([
+			"inventory",
+			"hooks",
+			"checkpoint",
+			"preflight",
+			"restack",
+			"submit",
+			"verify",
+		]);
+		expect(declaration.globalRows?.find((row) => row.key === "checkpoint")?.substeps).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ key: "inspect", label: "Inspect" }),
+				expect.objectContaining({ key: "generate", label: "Generate" }),
+				expect.objectContaining({ key: "commit", label: "Commit" }),
+			]),
+		);
+		const inventoryActiveIndex = events.findIndex(
+			(event) =>
+				event.type === "matrix-global" &&
+				event.globalKey === "inventory" &&
+				event.state === "active",
+		);
+		const rowsIndex = events.findIndex((event) => event.type === "matrix-rows");
+		const inventoryDoneIndex = events.findIndex(
+			(event) =>
+				event.type === "matrix-global" && event.globalKey === "inventory" && event.state === "done",
+		);
+		expect(inventoryActiveIndex).toBeGreaterThanOrEqual(0);
+		expect(rowsIndex).toBeGreaterThan(inventoryActiveIndex);
+		expect(inventoryDoneIndex).toBeGreaterThan(rowsIndex);
+		expect(events[rowsIndex]).toEqual({
+			type: "matrix-rows",
+			rows: [{ rowKey: "feature/demo", label: "feature/demo (#123)" }],
+		});
+		expect(events).toEqual(
+			expect.arrayContaining([
+				{
+					type: "matrix-global-substep",
+					globalKey: "checkpoint",
+					substepKey: "inspect",
+					state: "active",
+				},
+				{
+					type: "matrix-cell",
+					rowKey: "feature/demo",
+					columnKey: "metadata",
+					state: "skipped",
+					text: "exists",
+				},
+				{
+					type: "matrix-cell",
+					rowKey: "feature/demo",
+					columnKey: "description",
+					state: "skipped",
+					text: "existing description",
+				},
+				{
+					type: "matrix-global",
+					globalKey: "preflight",
+					state: "done",
+					text: "ready to submit",
+				},
+				{
+					type: "matrix-global",
+					globalKey: "restack",
+					state: "skipped",
+					text: "not required",
+				},
+				{
+					type: "matrix-global",
+					globalKey: "submit",
+					state: "done",
+					text: "stack submitted",
+				},
+				{
+					type: "matrix-global",
+					globalKey: "verify",
+					state: "done",
+					text: "current PR verified (#123)",
+				},
+				{
+					type: "matrix-global-substep",
+					globalKey: "checkpoint",
+					substepKey: "inspect",
+					state: "done",
+				},
+				{ type: "matrix-active-operations", operations: [] },
+			]),
+		);
+		const commandDisplays = events.flatMap((event) =>
+			event.type === "matrix-active-operations"
+				? event.operations.flatMap((operation) =>
+						operation.kind === "command" ? [operation.display] : [],
+					)
+				: [],
+		);
+		expect(commandDisplays).toContain(
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+		);
+		expect(events.at(-1)).toEqual({ type: "matrix-active-operations", operations: [] });
+		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "ready\n" });
+		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: `Submitted ${PR_URL}\n` });
+		expect(run.liveOutput.some((entry) => entry.text.includes("ns flow submit"))).toBe(false);
+	});
+
+	test("non-live non-TTY progress stays on the settled stream without matrix events", async () => {
+		const progress: NsProgress = {
+			isLive: false,
+			phase: () => {
+				throw new Error("non-live progress must not receive matrix events");
+			},
+		};
+		const run = runWithFakes({ progress });
+
+		expect(await run.exit).toBe(0);
+		const settled = lastStderrOutput(run.liveOutput);
+		expect(settled).toContain("ns flow submit");
+		expect(settled).toContain("checkpoint complete");
+		expect(settled).not.toContain("Branch / PR");
+	});
+
 	test("clean success with --regenerate-descriptions submits, verifies current PR, prints quiet progress, and rewrites PR bodies", async () => {
 		const run = runWithFakes({
 			request: { regenerateDescriptions: true },

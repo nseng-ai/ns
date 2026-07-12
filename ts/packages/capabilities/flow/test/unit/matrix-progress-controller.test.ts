@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { Caps } from "@nseng-ai/clinkr";
+import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import {
@@ -21,12 +22,21 @@ const GLOBAL_ROWS: readonly MatrixGlobalRowSpec<"prepare">[] = [
 		label: "Prepare",
 		detail: "prepared",
 		activeLabel: "preparing…",
+		substeps: [
+			{
+				key: "inspect",
+				label: "Inspect",
+				detail: "inspected",
+				activeLabel: "inspecting…",
+			},
+		],
 	},
 ];
 const workflow = defineMatrixWorkflow({
 	columns: COLUMNS,
 	globalRows: GLOBAL_ROWS,
 	phases: [],
+	labelHeader: "Branch",
 	rowKey: (row: { branch: string; label: string }) => row.branch,
 });
 const ROWS = [
@@ -48,6 +58,14 @@ function latestFrame(redraws: readonly string[]): string {
 	const frame = redraws.at(-1);
 	if (frame === undefined) throw new Error("missing progress frame");
 	return stripAnsi(frame);
+}
+
+function recordingProgress(): { events: NsProgressPhaseEvent[]; progress: NsProgress } {
+	const events: NsProgressPhaseEvent[] = [];
+	return {
+		events,
+		progress: { isLive: true, phase: (event) => events.push(event) },
+	};
 }
 
 function createController(
@@ -149,6 +167,140 @@ describe("matrix progress controller", () => {
 
 		expect(capture.redraws).toHaveLength(redrawCount);
 	});
+});
+
+describe("matrix event progress controller", () => {
+	test("declares metadata once before an early global update and later rows", () => {
+		const recording = recordingProgress();
+		const controller = workflow.createEventController({
+			progress: recording.progress,
+			title: "Workflow",
+			rows: [],
+			begin: "lazy",
+		});
+
+		controller.setGlobal("prepare", { state: "active" });
+		controller.begin();
+		controller.setRows(ROWS);
+
+		expect(recording.events).toEqual([
+			{ type: "phases-declared", title: "Workflow", phases: [] },
+			{
+				type: "matrix-declared",
+				columns: COLUMNS,
+				labelHeader: "Branch",
+				globalRows: GLOBAL_ROWS,
+			},
+			{ type: "matrix-global", globalKey: "prepare", state: "active" },
+			{
+				type: "matrix-rows",
+				rows: [
+					{ rowKey: "feature/a", label: "feature/a" },
+					{ rowKey: "feature/b", label: "feature/b" },
+				],
+			},
+		]);
+	});
+
+	test("emits substeps, latest full row patches, and state-selective cell deltas", () => {
+		const recording = recordingProgress();
+		const controller = workflow.createEventController({
+			progress: recording.progress,
+			title: "Workflow",
+			rows: ROWS,
+		});
+		recording.events.length = 0;
+
+		controller.setGlobalSubstep("prepare", "inspect", { state: "active", text: "reading" });
+		controller.patchRow("feature/a", { label: "feature/a (#10)" });
+		controller.setCell("feature/a", "test", { state: "done", text: "kept" });
+		controller.setCellsInState("test", "pending", { state: "skipped" });
+
+		expect(recording.events).toEqual([
+			{
+				type: "matrix-global-substep",
+				globalKey: "prepare",
+				substepKey: "inspect",
+				state: "active",
+				text: "reading",
+			},
+			{
+				type: "matrix-rows",
+				rows: [
+					{ rowKey: "feature/a", label: "feature/a (#10)" },
+					{ rowKey: "feature/b", label: "feature/b" },
+				],
+			},
+			{
+				type: "matrix-cell",
+				rowKey: "feature/a",
+				columnKey: "test",
+				state: "done",
+				text: "kept",
+			},
+			{
+				type: "matrix-cell",
+				rowKey: "feature/b",
+				columnKey: "test",
+				state: "skipped",
+			},
+		]);
+	});
+
+	test("note is a no-op and stop is idempotent without beginning", async () => {
+		const recording = recordingProgress();
+		const controller = workflow.createEventController({
+			progress: recording.progress,
+			title: "Workflow",
+			rows: [],
+			begin: "lazy",
+		});
+
+		controller.note("not transported");
+		await controller.stop();
+		await controller.stop();
+
+		expect(recording.events).toEqual([]);
+	});
+
+	test.each(["done", "failed"] as const)(
+		"finish settles active state to %s, clears operations, and stop stays silent",
+		async (target) => {
+			const recording = recordingProgress();
+			const controller = workflow.createEventController({
+				progress: recording.progress,
+				title: "Workflow",
+				rows: ROWS,
+			});
+			controller.setGlobal("prepare", { state: "active" });
+			controller.setGlobalSubstep("prepare", "inspect", { state: "active" });
+			controller.setCell("feature/a", "build", { state: "active" });
+			controller.setActiveOperations([{ kind: "command", display: "just" }]);
+			recording.events.length = 0;
+
+			await controller.finish({ isFailed: target === "failed" });
+			await controller.finish({ isFailed: target === "failed" });
+			await controller.stop();
+			await controller.stop();
+
+			expect(recording.events).toEqual([
+				{ type: "matrix-global", globalKey: "prepare", state: target },
+				{
+					type: "matrix-global-substep",
+					globalKey: "prepare",
+					substepKey: "inspect",
+					state: target,
+				},
+				{
+					type: "matrix-cell",
+					rowKey: "feature/a",
+					columnKey: "build",
+					state: target,
+				},
+				{ type: "matrix-active-operations", operations: [] },
+			]);
+		},
+	);
 });
 
 describe("applyPrLinksToRows", () => {

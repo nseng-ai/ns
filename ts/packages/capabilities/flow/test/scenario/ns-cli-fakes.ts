@@ -8,6 +8,7 @@ import type {
 	ExecResult,
 	NsConfirmPrompt,
 	NsExtensionApi,
+	NsProgress,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@nseng-ai/sdk";
@@ -57,6 +58,7 @@ export interface RunWithFakesDefaults {
 interface ScriptedNsTestContextOptions extends RunWithFakesDefaults {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
+	progress?: NsProgress;
 }
 
 export class ScriptedNsTestContext implements NsExtensionApi {
@@ -69,7 +71,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 		stderr: (text) => this.stderr?.(text),
 		onOutput: (stream, text) => this.onOutput?.(stream, text),
 	});
-	readonly progress = noopNsProgress;
+	readonly progress: NsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;
 	stdout?: (text: string) => void;
@@ -83,6 +85,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 	constructor(state: TestState = {}, options: ScriptedNsTestContextOptions) {
 		this.cwd = options.cwd ?? "/work";
 		this.env = options.env ?? {};
+		this.progress = options.progress ?? noopNsProgress;
 		this.execResponses = [...(state.exec ?? options.execResponses())];
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;

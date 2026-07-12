@@ -12,6 +12,8 @@ import {
 	type MatrixFrameOptionalFields,
 	type MatrixGlobalRowSpec,
 	type MatrixGlobalView,
+	type MatrixProgressController,
+	type MatrixRowSpec,
 	type MatrixRowView,
 } from "../phase-stream/matrix-progress-core.ts";
 import { CHECKPOINT_PHASES, SUBMIT_PHASES } from "../phase-stream/phase-stream-specs.ts";
@@ -189,8 +191,18 @@ const submitMatrixWorkflow = defineMatrixWorkflow({
 	columns: SUBMIT_MATRIX_COLUMNS,
 	globalRows: SUBMIT_MATRIX_GLOBAL_ROWS,
 	phases: SUBMIT_PHASES,
+	labelHeader: "Branch / PR",
 	rowKey: (row: SubmitMatrixRowSpec) => row.branch,
 });
+
+type SubmitWorkflowController = Omit<
+	MatrixProgressController<
+		SubmitMatrixColumnKey,
+		SubmitMatrixGlobalKey,
+		SubmitMatrixRowSpec & MatrixRowSpec
+	>,
+	"setRows"
+> & { setRows(rows: readonly SubmitMatrixRowSpec[]): void };
 
 export function createSubmitMatrixProgressController(options: {
 	caps: Caps;
@@ -207,7 +219,27 @@ export function createSubmitMatrixProgressController(options: {
 		...(options.forward === undefined ? {} : { forward: options.forward }),
 		begin: "lazy",
 	});
+	return adaptSubmitMatrixProgressController(controller);
+}
 
+export function createSubmitMatrixEventProgressController(options: {
+	progress: NsProgress;
+	title: string;
+	rows: readonly SubmitMatrixRowSpec[];
+}): SubmitMatrixProgressController {
+	return adaptSubmitMatrixProgressController(
+		submitMatrixWorkflow.createEventController({
+			progress: options.progress,
+			title: options.title,
+			rows: options.rows,
+			begin: "lazy",
+		}),
+	);
+}
+
+function adaptSubmitMatrixProgressController(
+	controller: SubmitWorkflowController,
+): SubmitMatrixProgressController {
 	function applyGlobalPhaseEvent(key: SubmitMatrixGlobalKey, event: NsProgressPhaseEvent): void {
 		if (!("phaseKey" in event)) return;
 		if (event.phaseKey === key) {
