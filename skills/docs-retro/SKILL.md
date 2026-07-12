@@ -13,7 +13,7 @@ changes. Most session friction should produce **zero** docs: the default verdict
 any candidate is "drop". The output is a handful of lines placed where they will be
 read at exactly the right moment — or nothing.
 
-Standalone skill; not part of the retros family.
+Session-scoped; for branch-level evidence retros use `branch-retro`.
 
 ## The rubric (hard gates, in order)
 

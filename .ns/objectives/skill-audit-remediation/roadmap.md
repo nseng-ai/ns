@@ -46,8 +46,9 @@ findings against the live files before editing (line references in
   `skill-audit-t1-scaffolding` (2 live files — four batch-8 skills moved to
   ns-python; see the t1-scaffolding-cuts update); TypeScript/CLI executed 2026-07-12
   on `skill-audit-t1-typescript-cli` (5 files, 679→634 lines; see the
-  t1-typescript-cli-cuts update); two family branches remain (docs/retro/setup;
-  review/meta).
+  t1-typescript-cli-cuts update); docs/retro/setup executed 2026-07-12 on
+  `skill-audit-t1-docs-retro-setup` (10 files, 1304→1233 lines; see the
+  t1-docs-retro-setup-cuts update); one family branch remains (review/meta).
 - [ ] Tranche 2 — trigger-surface normalization: real descriptions for the legacy
       `Command:` stubs (ns-flow-cp, ns-flow-submit, code-just-fix, code-workflows,
       changelog-update); convert workflow-summary descriptions to trigger-shaped ones

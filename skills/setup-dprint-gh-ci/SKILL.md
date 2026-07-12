@@ -14,12 +14,6 @@ allowed-tools:
 
 # setup-dprint-gh-ci
 
-Add a GitHub Actions workflow that runs `dprint check` on pushes to the default
-branch and on non-draft pull requests.
-
-This skill only sets up CI. It assumes local dprint configuration (`dprint.json`)
-already exists. If it does not, run `setup-dprint` first.
-
 ## Step 1: Precondition -- dprint config must exist
 
 Look for `dprint.json` or `.dprint.json` in the project root:
@@ -72,12 +66,7 @@ substituting the default branch from Step 3 into the `branches:` list.
 The template ships with `branches: [master]` -- replace `master` with the
 resolved branch name.
 
-Key details:
-
-- Uses `dprint/check@v2.2` -- no manual dprint install needed in CI.
-- Triggers on push to the default branch and on non-draft PRs.
-- Cancels in-progress runs when a new push lands on the same ref
-  (via the `concurrency` block).
+The workflow uses `dprint/check@v2.2` -- no manual dprint install needed in CI.
 
 ## Step 6: Verify
 

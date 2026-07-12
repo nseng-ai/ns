@@ -4,10 +4,6 @@ disable-model-invocation: true
 # Full description commented out to save tokens (coding agents inject skill descriptions into every session):
 # "Sync CHANGELOG.md unreleased section with recent commits. Use when the user wants to update the changelog, add recent changes to the changelog, sync the changelog with commits, or prepare changelog entries. Also handles first-time changelog initialization when no CHANGELOG.md exists."
 description: "Command: changelog-update"
-references:
-  - references/changelog-format
-  - references/commit-fetching
-  - references/commit-categorization
 allowed-tools:
   - "Bash(git *)"
   - "Bash(date *)"
@@ -18,14 +14,6 @@ allowed-tools:
 Sync the CHANGELOG.md `[Unreleased]` section with commits merged since the
 last update. Uses pure git commands -- no external tools or language-specific
 dependencies.
-
-## When to use
-
-- "Update the changelog"
-- "Sync the changelog with recent commits"
-- "Add recent changes to the changelog"
-- "Prepare changelog entries"
-- Any time the user wants CHANGELOG.md to reflect recent work
 
 ## Workflow
 
@@ -126,16 +114,9 @@ Only proceed after the user confirms or provides adjustments.
 2. **Add new entries** under the appropriate category headers in the
    Unreleased section
 3. **Preserve existing entries** -- do not remove or modify them
-4. **Create category headers** only if they have new entries
-5. If a category header already exists, append new entries below existing ones
+4. If a category header already exists, append new entries below existing ones
 
-**Category order** (when present):
-
-1. Major Changes
-2. Added
-3. Changed
-4. Fixed
-5. Removed
+Category order and header rules: `references/changelog-format.md` §Category Order.
 
 ### Phase 5 Report
 
@@ -151,17 +132,8 @@ Updated CHANGELOG.md:
 
 ## Entry format
 
-Each entry in the Unreleased section includes the short commit hash:
-
-```markdown
-- Brief user-facing description (short_hash)
-```
-
-When a release is cut later, the hashes are stripped:
-
-```markdown
-- Brief user-facing description
-```
+Entry format examples (unreleased-with-hash, released-stripped, Major Changes):
+`references/changelog-format.md` §Entry Format.
 
 **Writing guidelines:**
 

@@ -18,7 +18,7 @@ allowed-tools:
 
 Produce a compact retrospective for a branch or session set. The skill collects
 factual evidence with `ns retro`, then uses model judgment to write source-backed
-findings and actionable recommendations. Default mode is read-only.
+findings and actionable recommendations.
 
 ## When to use
 
@@ -29,17 +29,9 @@ or how to interpret Retro evidence.
 If the user asks to implement recommendations, produce the retrospective first,
 then ask for confirmation and scope before editing anything.
 
-## How Retro is invoked
-
-The command boundary is `ns retro exec collect-evidence` for compact evidence and
-`ns retro exec read-evidence-detail` for targeted payload detail reads. The
-standalone `retro` command and the old skill-local `retro-run` source runner are
-retired.
-
 ## Preflight
 
-1. Verify `command -v ns` succeeds in an ns checkout with the Retro extension
-   available.
+1. Verify `command -v ns` succeeds.
 2. Resolve the repository root with `git rev-parse --show-toplevel`.
 3. Resolve the branch with `git branch --show-current`, unless the user supplied
    a branch.

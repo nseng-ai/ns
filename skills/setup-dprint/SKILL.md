@@ -17,9 +17,6 @@ allowed-tools:
 Set up [dprint](https://dprint.dev) as the formatter for Markdown and TOML files in a project, with
 build-system integration for check and fix workflows.
 
-This skill does NOT add a GitHub Actions workflow. After running this skill, run
-`setup-dprint-gh-ci` if you also want CI.
-
 ## Step 1: Check preconditions
 
 Verify dprint is installed:
@@ -71,8 +68,6 @@ Write a `dprint.json` in the project root with this structure:
   ]
 }
 ```
-
-Replace the plugin URLs with the actual URLs from `references/plugin-catalog.md`.
 
 ## Step 4: Add `.dprint/` to `.gitignore`
 
@@ -165,8 +160,7 @@ When a `dprint.json` already exists (branched from Step 2):
    - If no `markdown` plugin: add the markdown plugin URL to `plugins` and `"**/*.md"` to `includes`.
    - If no `toml` plugin: add the toml plugin URL to `plugins` and `"**/*.toml"` to `includes`.
 4. Add any missing plugin config blocks (`"markdown": {...}`, `"toml": {...}`).
-5. Do NOT overwrite existing config values -- only add what's missing.
-6. Run `dprint fmt` and `dprint check` to verify.
+5. Run `dprint fmt` and `dprint check` to verify.
 
 ## Next steps
 
