@@ -238,35 +238,23 @@ export async function executeLandingRequest(
 		plan: readyPlan,
 		warnings: [],
 	});
+	const { observations } = mergeOutcome;
+	draft.warnings = observations.warnings;
+	draft.landedChunks = landedChunks(readyPlan, observations.landed);
+	draft.mergeMaintenanceCleanup = {
+		deletedLocalBranches: observations.deletedLocalBranches,
+		retainedLocalBranches: observations.cleanup.retainedLocalBranches,
+	};
+	const maintenancePhases = observedMaintenancePhases(
+		draft.mergeMaintenanceCleanup,
+		observations.descendantMaintenance,
+	);
 	if (mergeOutcome.type === "failure") {
-		draft.warnings = mergeOutcome.warnings;
-		draft.landedChunks = landedChunks(readyPlan, mergeOutcome.landed);
-		draft.mergeMaintenanceCleanup = {
-			deletedLocalBranches: mergeOutcome.deletedLocalBranches,
-			retainedLocalBranches: mergeOutcome.cleanup.retainedLocalBranches,
-		};
-		draft.phases.push(
-			...observedMaintenancePhases(
-				draft.mergeMaintenanceCleanup,
-				mergeOutcome.descendantMaintenance,
-			),
-		);
+		draft.phases.push(...maintenancePhases);
 		return failedResult(draft, "merge", mergeOutcome.failure);
 	}
 
-	draft.warnings = mergeOutcome.value.warnings;
-	draft.landedChunks = landedChunks(readyPlan, mergeOutcome.value.landed);
-	draft.mergeMaintenanceCleanup = {
-		deletedLocalBranches: mergeOutcome.value.deletedLocalBranches,
-		retainedLocalBranches: mergeOutcome.value.cleanup.retainedLocalBranches,
-	};
-	draft.phases.push(
-		completed("merge"),
-		...observedMaintenancePhases(
-			draft.mergeMaintenanceCleanup,
-			mergeOutcome.value.descendantMaintenance,
-		),
-	);
+	draft.phases.push(completed("merge"), ...maintenancePhases);
 
 	return await executePostLandingCleanup({
 		context,
