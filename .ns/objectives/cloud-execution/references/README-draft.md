@@ -183,21 +183,34 @@ dispatch.
 
 Non-secret repo configuration lives in the repo-root `ns.toml`, in a typed
 `[dispatch]` table: which agent harness runs inside the sandbox (Pi first)
-and the Vercel project linkage. It's versioned with the repo, so every
-clone dispatches the same way.
+and the stable Vercel project/team IDs. It's versioned with the repo, so every
+clone dispatches the same way:
+
+```toml
+[dispatch]
+harness = "pi"
+vercel_project_id = "prj_..."
+vercel_team_id = "team_..."
+```
 
 Credentials are configured once, on the Vercel project that backs cloud
 dispatch, using Vercel's own secrets infrastructure:
 
 - **Model keys** live as sensitive environment variables on the dispatch
-  project — encrypted at rest, write-only after creation.
+  project — encrypted at rest, write-only after creation. The bootstrap
+  recognizes `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`; a run receives only
+  the key required by its configured model.
 - **Git access** (clone + push) uses short-lived, repo-scoped credentials
   minted per run as **GitHub App installation tokens**; no long-lived broad
   token sits in an env var. One-time setup: register the org-owned
   `ns-dispatch` GitHub App, install it on the repository, and generate its
-  private key directly into a sensitive env var on the dispatch project —
-  the key never touches a dev machine. Anchor-PR activity from remote runs
-  attributes to `ns-dispatch[bot]`.
+  private key directly into the sensitive
+  `DISPATCH_GITHUB_APP_PRIVATE_KEY` env var on the dispatch project — the
+  key never touches a dev machine. Non-secret app and installation IDs use
+  `DISPATCH_GITHUB_APP_ID` and `DISPATCH_GITHUB_APP_INSTALLATION_ID`;
+  the prototype's landing-time shared secret uses the sensitive
+  `DISPATCH_SANDBOX_MINT_SECRET` variable. Anchor-PR activity from remote
+  runs attributes to `ns-dispatch[bot]`.
 - **Executor auth** is Vercel OIDC federation: Vercel-hosted compute gets a
   short-lived token injected automatically, and dispatching from your own
   machine uses the development token from `vercel link` + `vercel env pull`.

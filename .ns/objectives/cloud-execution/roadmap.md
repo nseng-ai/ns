@@ -47,10 +47,14 @@ row's outcome folds back into the README rather than settling anywhere else.
   (installation ID `146155769`). Required permissions are present; the
   user accepted its additional Actions/Workflows write access for the
   prototype, with tightening required before wider deployment.
-  Remaining (interleaves with the steel thread, which creates the
-  package the mint endpoint lives on): create the dispatch Vercel project
-  and sensitive env vars; mint endpoint (OIDC for the CLI, shared secret for
-  sandboxes); dispatch preflight.
+  Package/project bootstrap completed 2026-07-12: the
+  `@nseng-ai/vercel` package now carries its own deployable, the existing
+  `ns-dispatch` Vercel project is linked through the typed repo-root
+  `[dispatch]` table, and required production environment variables were
+  verified by name and sensitivity without reading or recording values.
+  The local health-only deployable build passes. Remaining (interleaves
+  with the steel thread): mint endpoint (OIDC for the CLI, shared secret
+  for sandboxes) and dispatch preflight.
 - [ ] Steel thread: `ns dispatch prompt` end-to-end on Vercel Sandbox via
       the `@ai-sdk/harness-pi` adapter with ns skills injected via the
       Agent Skills standard. Makes true: "Quick start" (prompt path),

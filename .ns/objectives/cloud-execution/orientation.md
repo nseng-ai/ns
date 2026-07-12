@@ -11,9 +11,11 @@ This is a README-driven Objective: the canonical user-facing contract is
 seam contracts and rationale live in `references/seam-design.md` and never override the
 README.
 
-What you see now: dispatch exists only as Pi-only `/ccc:workspace:dispatch-*` commands
-over the `@nseng-ai/ccc` cmux cores; `docs/wayfinding/ns-cloud-capabilities/` is deleted
-(superseded here — its "Eve presumed in as chassis" stance is reversed).
+What you see now: `@nseng-ai/vercel` has a package/deployable shell, typed `[dispatch]`
+project linkage, and a linked health-only Vercel build, but no mint endpoint, preflight,
+`ns dispatch` commands, or Sandbox executor yet. The only working dispatch remains the
+Pi-only `/ccc:workspace:dispatch-*` surface over `@nseng-ai/ccc`; the retired cloud
+wayfinding map's "Eve presumed in as chassis" stance remains reversed.
 
 Avoid: inventing a backend-agnostic executor abstraction — Vercel coupling is deliberate
 and Vercel-vocabulary gateways are sanctioned (though vendor types stay inside the

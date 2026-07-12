@@ -173,8 +173,11 @@ Risks:
   dedicated roadmap row before the steel thread. Largely de-risked
   2026-07-12: the design is settled against researched primary-source
   constraints (`references/git-credential-minting-research.md`), with
-  implementation remaining. Residual, accepted deliberately (racing to an
-  e2e prototype): the v1 shared mint secret and self-landing sandbox are
+  implementation remaining. The package/deployable, typed Vercel project
+  linkage, and production environment-variable custody were verified
+  2026-07-12; the mint endpoint and dispatch preflight remain. Residual,
+  accepted deliberately (racing to an e2e prototype): the v1 shared mint
+  secret and self-landing sandbox are
   security shortcuts whose upgrades (per-run landing voucher, Vercel-side
   supervisor) are recorded in `references/credentials-design.md` and must
   land before wider deployment. The installed `ns-dispatch` GitHub App also
