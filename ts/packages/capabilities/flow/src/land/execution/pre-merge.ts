@@ -119,9 +119,10 @@ export async function confirmAndSubmitRequiredPrUpdates(options: {
 		});
 		if (restacked.type === "failure") {
 			return landFailure(
-				preMergeGraphiteFailure(restacked.failure, {
-					suggestedAction: `Resolve the restack failure, run ${formatGraphiteOperation(restackForSubmitOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ns:flow:land.`,
-				}),
+				withSuggestedAction(
+					restacked.failure,
+					`Resolve the restack failure, run ${formatGraphiteOperation(restackForSubmitOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ns:flow:land.`,
+				),
 			);
 		}
 		host.progress.setStatus("verifying restack...");
@@ -144,9 +145,10 @@ export async function confirmAndSubmitRequiredPrUpdates(options: {
 	});
 	if (submitted.type === "failure") {
 		return landFailure(
-			preMergeGraphiteFailure(submitted.failure, {
-				suggestedAction: `Resolve the submit failure, run ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ns:flow:land.`,
-			}),
+			withSuggestedAction(
+				submitted.failure,
+				`Resolve the submit failure, run ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ns:flow:land.`,
+			),
 		);
 	}
 	return landSuccess(undefined);
@@ -233,13 +235,6 @@ function preMergeSlotFailure(failure: LandingFailure): LandingFailure {
 		failure,
 		"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /ns:flow:land.",
 	);
-}
-
-function preMergeGraphiteFailure(
-	failure: LandingFailure,
-	options: { readonly suggestedAction: string },
-): LandingFailure {
-	return withSuggestedAction(failure, options.suggestedAction);
 }
 
 function formatRemainingManagedSlotConflicts(conflicts: readonly WorktreeConflict[]): string {

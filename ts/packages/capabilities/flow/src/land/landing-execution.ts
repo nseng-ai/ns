@@ -12,7 +12,12 @@ import {
 	presentFailureAndReturn,
 	presentLandingSuccess,
 } from "./land-presentation.ts";
-import type { LandedPullRequest, LandingExecutionReport, LandingRequest } from "./types.ts";
+import type {
+	LandedPullRequest,
+	LandingExecutionReport,
+	LandingExecutionResult,
+	LandingRequest,
+} from "./types.ts";
 import { LandStackCommandStream } from "./stack/command-stream.ts";
 import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
 import {
@@ -88,18 +93,7 @@ export async function runFlowStackLanding(
 	const report = outcome.report;
 
 	if (outcome.type === "failed") {
-		if (didLandBeforePostLandingCleanupFailure(report)) {
-			// PRs landed; preserve the legacy output order of success summary then cleanup failure.
-			presentStackLandingSuccess(session, report);
-			presentFailureAndReturn(ctx, outcome.failure);
-			return landOutcomeFailure(outcome.failure);
-		}
-		presentLandStackFailure({
-			session,
-			failure: outcome.failure,
-			landed: landedFromReport(report),
-		});
-		return landOutcomeFailure(outcome.failure);
+		return presentFlowStackLandingFailure({ session, outcome });
 	}
 
 	if (report.completionDisposition.type === "nothing-to-land") {
@@ -150,11 +144,33 @@ function landedFromReport(report: LandingExecutionReport): readonly LandedPullRe
 	return report.landedChunks.flatMap((chunk) => [...chunk.landed]);
 }
 
-function didLandBeforePostLandingCleanupFailure(report: LandingExecutionReport): boolean {
-	return (
-		report.phases.some((phase) => phase.type === "completed" && phase.phase === "merge") &&
-		report.phases.some((phase) => phase.type === "failed" && phase.phase === "post-landing-cleanup")
-	);
+export function isPostLandingCleanupFailureAfterLanding(
+	execution: Extract<LandingExecutionResult, { readonly type: "failed" }>,
+): boolean {
+	if (execution.failedPhase !== "post-landing-cleanup") return false;
+	if (!execution.report.landedChunks.some((chunk) => chunk.landed.length > 0)) return false;
+
+	const cleanup = execution.report.cleanup.postLandingSlotCleanup;
+	return cleanup.type === "declined" || cleanup.type === "failed";
+}
+
+export function presentFlowStackLandingFailure(options: {
+	readonly session: LandingSession;
+	readonly outcome: Extract<LandingExecutionResult, { readonly type: "failed" }>;
+}): LandOutcome {
+	const { session, outcome } = options;
+	if (isPostLandingCleanupFailureAfterLanding(outcome)) {
+		// PRs landed; preserve the legacy output order of success summary then cleanup failure.
+		presentStackLandingSuccess(session, outcome.report);
+		presentFailureAndReturn(session.ctx, outcome.failure);
+		return landOutcomeFailure(outcome.failure);
+	}
+	presentLandStackFailure({
+		session,
+		failure: outcome.failure,
+		landed: landedFromReport(outcome.report),
+	});
+	return landOutcomeFailure(outcome.failure);
 }
 
 function presentStackLandingSuccess(session: LandingSession, report: LandingExecutionReport): void {
