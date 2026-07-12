@@ -104,6 +104,12 @@ export function runFlowSquashStackCommandWithFakes(options: RunFlowCommandWithFa
 						}),
 					},
 				},
+				{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+				{ match: "git rev-list --count main..feature/bottom", result: { stdout: "2\n" } },
+				{
+					match: "git rev-list --count feature/bottom..feature/top",
+					result: { stdout: "3\n" },
+				},
 				{ match: "gt checkout feature/top --no-interactive", result: {} },
 				{ match: "gt squash --no-edit --no-interactive", result: {} },
 				{ match: "gt checkout feature/bottom --no-interactive", result: {} },

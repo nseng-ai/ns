@@ -61,6 +61,10 @@ describe("stack squash core", () => {
 		const commands = scriptedExec([
 			{},
 			stackBranches(["feature/bottom", "feature/middle", "feature/top"]),
+			{ stdout: "main\n" },
+			{ stdout: "2\n" },
+			{ stdout: "3\n" },
+			{ stdout: "4\n" },
 			{},
 			{},
 			{},
@@ -79,14 +83,26 @@ describe("stack squash core", () => {
 		expect(outcome).toEqual({
 			kind: "success",
 			processed: [
-				{ branch: "feature/top", state: "squashed" },
-				{ branch: "feature/middle", state: "squashed" },
-				{ branch: "feature/bottom", state: "squashed" },
+				{ branch: "feature/top", commitsBefore: 4, state: "squashed" },
+				{ branch: "feature/middle", commitsBefore: 3, state: "squashed" },
+				{ branch: "feature/bottom", commitsBefore: 2, state: "squashed" },
 			],
 		});
 		expect(commands.calls).toEqual([
 			{ command: "git", args: ["status", "--porcelain=v1"], cwd: TEST_CWD },
 			{ command: "ns", args: STACK_BRANCHES_ARGS, cwd: TEST_CWD },
+			{ command: "gt", args: ["trunk", "--no-interactive"], cwd: TEST_CWD },
+			{ command: "git", args: ["rev-list", "--count", "main..feature/bottom"], cwd: TEST_CWD },
+			{
+				command: "git",
+				args: ["rev-list", "--count", "feature/bottom..feature/middle"],
+				cwd: TEST_CWD,
+			},
+			{
+				command: "git",
+				args: ["rev-list", "--count", "feature/middle..feature/top"],
+				cwd: TEST_CWD,
+			},
 			{ command: "gt", args: ["checkout", "feature/top", "--no-interactive"], cwd: TEST_CWD },
 			{ command: "gt", args: ["squash", "--no-edit", "--no-interactive"], cwd: TEST_CWD },
 			{ command: "gt", args: ["checkout", "feature/middle", "--no-interactive"], cwd: TEST_CWD },
@@ -96,7 +112,7 @@ describe("stack squash core", () => {
 			{ command: "gt", args: ["checkout", "feature/top", "--no-interactive"], cwd: TEST_CWD },
 		]);
 		expect(progress).toEqual([
-			"Preparing to squash 3 Graphite stack branches from feature/top.",
+			"Preparing to squash 3 Graphite stack branches containing 9 commits from feature/top.",
 			"Squashing feature/top.",
 			"Squashing feature/middle.",
 			"Squashing feature/bottom.",
@@ -130,14 +146,14 @@ describe("stack squash core", () => {
 		const commands = scriptedExec([
 			{},
 			stackBranches(["feature/top"]),
-			{},
-			{ code: 1, stderr: "ERROR: Only one commit in branch, nothing to squash.\n" },
+			{ stdout: "main\n" },
+			{ stdout: "1\n" },
 			{},
 		]);
 
 		expect(await runStackSquashFlow(commands, { cwd: TEST_CWD })).toEqual({
 			kind: "success",
-			processed: [{ branch: "feature/top", state: "already_one_commit" }],
+			processed: [{ branch: "feature/top", commitsBefore: 1, state: "already_one_commit" }],
 		});
 		expect(commands.calls.at(-1)).toEqual({
 			command: "gt",
@@ -150,6 +166,9 @@ describe("stack squash core", () => {
 		const commands = scriptedExec([
 			{},
 			stackBranches(["feature/bottom", "feature/top"]),
+			{ stdout: "main\n" },
+			{ stdout: "2\n" },
+			{ stdout: "3\n" },
 			{},
 			{ code: 1, stderr: "cannot squash branch\n" },
 		]);
