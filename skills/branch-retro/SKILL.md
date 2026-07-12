@@ -110,15 +110,11 @@ agent efficiency (lower wall time and token spend). For each recommendation:
 
 - Weigh expected benefit against implementation and maintenance cost; call out
   high-upkeep docs, brittle process, or unclear ownership.
-- Treat drift risk as a first-class cost. Prefer changes whose stale state is
-  obvious through tests, command failures, or existing review paths.
-- Prefer executable or tested affordances over prose when evidence shows repeated
-  mechanical work: CLI operations, `just` targets, package scripts, or small
-  helpers with validation.
-- Recommend documentation only when it sits on an existing discovery path agents
-  already use, such as a relevant skill, CLI help, package README, `AGENTS.md`,
-  or command output. Avoid standalone docs unless one of those paths links to
-  them.
+- Apply the shared doc-economics rules (authoritative home:
+  `docs/conventions/doc-economics.md` in the ns repo): treat drift risk as a
+  first-class cost, prefer executable or tested affordances over prose for
+  repeated mechanical work, and recommend documentation only when it sits on an
+  existing discovery path agents already use.
 - For any doc recommendation, state the source of truth, how future agents will
   find it, and what prevents or detects drift.
 - If evidence is weak, benefits are speculative, or the cheapest durable fix is

@@ -65,7 +65,7 @@ Collect fail-soft repo evidence:
    git log --oneline --decorate -5
    ```
 
-3. Base discovery: prefer `gt parent --no-interactive`; else use `baseRefName` from `gh pr view` when current-branch PR evidence is available; else use plain-git default/trunk best effort. Do not parse human-facing `gt branch info`, `gt ls`, `gt ls --stack`, or `gt log` output for machine topology decisions; use `gt parent --no-interactive`, `ns slot gt exec stack-branches`, or JSON/plumbing surfaces for topology.
+3. Base discovery: prefer `gt parent --no-interactive`; else use `baseRefName` from `gh pr view` when current-branch PR evidence is available; else use plain-git default/trunk best effort. Human-facing Graphite display output is never a machine topology source (see `docs/conventions/graphite-dependency-boundary.md`); use `gt parent --no-interactive`, `ns slot gt exec stack-branches`, or JSON/plumbing surfaces.
 4. Local branch evidence when base is known:
 
    ```bash

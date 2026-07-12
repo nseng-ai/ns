@@ -62,7 +62,8 @@ stack "looks like it needs packaging"; run it because the user asked.
    it survives the run. Re-derive everything from the stack every time.
 5. **Read-side discipline.** Read stack topology with `ns slot gt exec
    stack-branches --format json` and `ns slot gt exec stack-map-branches --format
-   json`; never parse `gt log` output.
+   json`, per the display-output rule in
+   `docs/conventions/graphite-dependency-boundary.md`.
 6. **No new CLI.** V1 is wholly LM-driven prose over the raw commands in this
    document. Do not build or reach for packaging-specific push-down commands.
 

@@ -19,7 +19,7 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
 ## Procedure
 
 1. Identify the target branch from the user request.
-2. Gather read-only evidence with existing Git, Graphite, and GitHub tools. Prefer plumbing commands for topology and only use display commands for human confirmation:
+2. Gather read-only evidence with existing Git, Graphite, and GitHub tools, following the display-output rule in `docs/conventions/graphite-dependency-boundary.md`:
    - `git status --short --branch` to verify the current workspace state before planning;
    - `gt children --no-interactive <target-branch>` recursively to enumerate descendants;
    - `gt parent --no-interactive <branch>` for each affected branch;

@@ -12,7 +12,7 @@ Render a read-only cmux × Graphite stack map: a Graphite-stack-shaped view with
 
 ## Default posture
 
-This skill follows `references/cmux-read-only-posture.md`: collect facts and render an overlay without mutating live cmux, Git/Graphite, GitHub, local-file, or durable agent state. Do not clean anything up during the same request.
+This skill follows the shared read-only posture in `docs/conventions/cmux-observational-skills.md` (repo root): collect facts and render an overlay without mutating live cmux, Git/Graphite, GitHub, local-file, or durable agent state. Do not clean anything up during the same request.
 
 ## Data sources
 
@@ -76,15 +76,13 @@ When posting into a Markdown code fence, prefer plain text unless the receiving 
 
 ## Badge semantics
 
-Put badges in the `CMUX` column for the matching Graphite branch row. Keep badges terse and stable.
+Badge meanings are shared across the cmux family and defined in `docs/conventions/cmux-observational-skills.md` (repo root); this skill renders them as glyphs. Put badges in the `CMUX` column for the matching Graphite branch row. Keep badges terse and stable.
 
-- `●`: cmux active/focused workspace from `tree.active.workspace_ref`.
-- `◎`: caller workspace for this Pi session from `tree.caller.workspace_ref`.
-- `○`: open inactive cmux workspace.
-- `DIRTY`: `git status --porcelain` for the workspace current directory is non-empty.
-- `↯label`: neither workspace title nor workspace description contains the checked-out branch name, using simple case-sensitive substring matching. If the workspace is detached, skip label-drift unless the detached display string is obviously present or missing in labels.
-- `dup`: two or more cmux workspaces point to the same `(cwd, branch)` pair.
-- `2t`, `3t`, etc.: the workspace has multiple cmux surfaces/tabs in `cmux tree --all --json`. Count surfaces for that workspace; do not count panes for this badge.
+- `●`: the shared **active** meaning.
+- `◎`: the shared **caller** meaning (this Pi session).
+- `○`: the shared **open** (inactive) meaning.
+- `DIRTY`, `↯label`, `dup`, `DETACHED@<sha>`: per the shared definitions.
+- `2t`, `3t`, etc. (this skill only): the workspace has multiple cmux surfaces/tabs in `cmux tree --all --json`. Count surfaces for that workspace; do not count panes for this badge.
 
 If a workspace is both active and caller, prefer `◎` only when emphasizing this Pi session matters more than global focus; otherwise show both as `●◎` if the display needs to distinguish the two facts.
 

@@ -5,8 +5,6 @@ description: "Move the latest eligible commit to a new Graphite branch by delega
 allowed-tools:
   - "Bash(ns flow branch-latest-commit*)"
   - "Bash(git status*)"
-references:
-  - ../ns-flow-autobranch/references/autobranch-family-boundaries
 metadata:
   internal: true
 ---
@@ -41,6 +39,6 @@ If `ns flow branch-latest-commit` fails, surface its output and stop; recovery o
 
 ## Boundaries
 
-Shared family boundaries live in `../ns-flow-autobranch/references/autobranch-family-boundaries.md`.
+Shared family boundaries live in `docs/conventions/autobranch-family-boundaries.md` (repo root).
 
 Command-specific public boundary: this skill delegates only to `ns flow branch-latest-commit`, mirrored in Pi as `/ns:flow:branch-latest-commit`.
