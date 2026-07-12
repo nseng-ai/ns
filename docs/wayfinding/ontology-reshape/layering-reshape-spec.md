@@ -141,7 +141,9 @@ The explicit follow-up ADR 0032 anticipated, scoped to git only:
 ## Parked
 
 - **Kernel rename** — parked until `extension-descriptor-contract` closes (ADR 0033
-  §7). No new kernel-brand prose meanwhile.
+  §7). No new kernel-brand prose meanwhile. Unparked 2026-07-12: the trigger fired
+  and the rename re-entered the roadmap as the "Spec the kernel → sdk rename"
+  grilling row.
 
 ## Out of scope for this spec
 
