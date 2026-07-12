@@ -13,4 +13,5 @@ export const EXEC_OPERATION_NAMES: ReadonlySet<string> = new Set([
 	"pr-reviews",
 	"reply-review-thread",
 	"resolve-review-thread",
+	"wait-for-checks",
 ]);

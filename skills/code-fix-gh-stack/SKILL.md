@@ -24,7 +24,7 @@ metadata:
 2. **Pick the lowest actionable failure**
    - Start closest to trunk.
    - Prefer actual failing CI/checks over upstack failures likely caused by downstack red.
-   - If a lower PR is only pending, wait/re-query before fixing an upstack failure that may be derivative.
+   - If a lower PR is only pending, wait for it to settle (`ns address exec wait-for-checks` scoped to that branch, step 9) before fixing an upstack failure that may be derivative.
    - Treat unresolved review threads as blockers after checks are green, unless they are clearly obsolete and can be resolved with evidence.
 
 3. **Checkout the branch**
@@ -61,10 +61,20 @@ metadata:
 8. **Submit**
    - Use `gt submit --no-interactive` instead of `git push` / `gh pr create` (canonical wording: the setup-graphite admonition payload).
 
-9. **Wait/re-query**
-   - Re-query PR checks.
-   - Do not assume submitted means fixed.
-   - Move to the next lowest PR with failing checks.
+9. **Wait for checks to settle**
+   - Pass the stack's branch names to
+     `ns address exec wait-for-checks --branches-json ... --format json`. It polls the
+     branches' PR checks (defaults: every 15s, up to 900s; tune with
+     `--interval-seconds`/`--timeout-seconds`) and returns once with an `outcome`:
+     - `passing` (exit 0): every check concluded green;
+     - `failing` (exit 1): a check failed or was cancelled, reported as soon as observed;
+     - `timeout` (exit 1): checks still pending at the deadline;
+     - `mapping-gap` (exit 1): a branch has no or multiple open PRs.
+   - Do not assume submitted means fixed; do not hand-roll a sleep/re-query loop.
+   - On `failing`, move to the next lowest PR with failing checks (per-branch counts are
+     in the returned entries) and repeat the loop.
+   - On `timeout`, re-invoke wait-for-checks or report the still-pending checks; never
+     treat a timeout as green.
    - Repeat until all PRs are green or only pending.
 
 ## Stop conditions

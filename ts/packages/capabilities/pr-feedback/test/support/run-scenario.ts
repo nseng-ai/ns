@@ -6,6 +6,8 @@ import { fakePrAddressContext } from "./in-memory-pr-address-gateways.ts";
 export interface ScenarioRunOptions {
 	git?: PrAddressContext["git"];
 	prFeedback?: PrAddressContext["prFeedback"];
+	clock?: PrAddressContext["clock"];
+	timers?: PrAddressContext["timers"];
 	env?: NodeJS.ProcessEnv;
 	cwd?: string;
 	stdin?: string | (() => Promise<string>);
@@ -28,6 +30,8 @@ export function runScenario(
 	const overrides: Partial<PrAddressContext> = {};
 	if (options.git !== undefined) overrides.git = options.git;
 	if (options.prFeedback !== undefined) overrides.prFeedback = options.prFeedback;
+	if (options.clock !== undefined) overrides.clock = options.clock;
+	if (options.timers !== undefined) overrides.timers = options.timers;
 	const stdin = options.stdin;
 	return {
 		exit: runCli(args, {
