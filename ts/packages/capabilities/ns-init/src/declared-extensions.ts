@@ -1,7 +1,7 @@
 import {
 	loadDeclaredExtensionDescriptors,
 	type LoadDeclaredExtensionDescriptorsResult,
-} from "@nseng-ai/kernel/extensions/declared-descriptors";
+} from "@nseng-ai/sdk/extensions/declared-descriptors";
 
 export interface LoadDeclaredExtensionsParams {
 	readonly repoRoot: string;

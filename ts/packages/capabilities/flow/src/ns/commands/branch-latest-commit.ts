@@ -2,7 +2,7 @@ import type { LatestCommitAutobranchInput } from "../../autobranch/latest-commit
 import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
-import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/kernel/sdk";
+import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";

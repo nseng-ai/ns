@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { managedNpmProjectRoot, npmPackageRoot } from "@nseng-ai/kernel/extensions/acquisition";
-import { FakeExtensionAcquisitionGateway } from "@nseng-ai/kernel/testing";
+import { managedNpmProjectRoot, npmPackageRoot } from "@nseng-ai/sdk/extensions/acquisition";
+import { FakeExtensionAcquisitionGateway } from "@nseng-ai/sdk/testing";
 
 import {
 	InMemoryExtensionUninstallAcquisitionGateway,

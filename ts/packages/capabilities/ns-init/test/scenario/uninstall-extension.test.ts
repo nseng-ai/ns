@@ -3,8 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
-import { managedNpmProjectRoot } from "@nseng-ai/kernel/extensions/acquisition";
+import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
+import { managedNpmProjectRoot } from "@nseng-ai/sdk/extensions/acquisition";
 
 import type { ExtensionUninstallContext } from "../../src/uninstall-extension.ts";
 import { uninstallExtension } from "../../src/uninstall-extension.ts";

@@ -1,4 +1,4 @@
-import { validateExtensionDescriptor } from "@nseng-ai/kernel/sdk";
+import { validateExtensionDescriptor } from "@nseng-ai/sdk/sdk";
 import objectivesExtension from "@nseng-ai/objectives/ns-extension";
 import { describe, expect, test } from "vitest";
 

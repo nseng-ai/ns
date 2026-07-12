@@ -1,5 +1,5 @@
 import { NsCommandExecApi } from "@nseng-ai/capability-kit/command-runner";
-import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
 
 import {
 	createRealReviewsContext,

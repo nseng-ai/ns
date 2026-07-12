@@ -18,7 +18,7 @@ export function descriptorExtensionSource(options: {
 	description: string;
 	bundledArtifacts: readonly unknown[];
 }): string {
-	return `import { defineExtension } from "@nseng-ai/kernel/sdk";
+	return `import { defineExtension } from "@nseng-ai/sdk/sdk";
 
 export default defineExtension({
 	description: ${JSON.stringify(options.description)},

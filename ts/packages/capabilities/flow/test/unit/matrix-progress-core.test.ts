@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
-import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
+import type { ActiveOperation } from "@nseng-ai/sdk/sdk";
 import {
 	commandOperations,
 	defineMatrixWorkflow,

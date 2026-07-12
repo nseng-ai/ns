@@ -1,7 +1,7 @@
 // Slot intentionally exports a mountable command face rather than a standalone
 // `defineCli` entrypoint. The supported user-facing surface is `ns slot ...`,
 // so root CLI metadata such as `--version` and `--runtime` stays owned by
-// `@nseng-ai/kernel` instead of this capability package.
+// `@nseng-ai/sdk` instead of this capability package.
 import { ClinkrGroup, type ClinkrCommandSpec } from "@nseng-ai/clinkr";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { z } from "zod";

@@ -5,7 +5,7 @@ import {
 	projectConfigErrorFromDiagnostics,
 	type ProjectConfigDiagnostic,
 	type SettingsSchema,
-} from "@nseng-ai/kernel/project-config/points";
+} from "@nseng-ai/sdk/project-config/points";
 import { z } from "zod";
 
 import { ALL_HARNESS_IDS, type HarnessId } from "./harness-paths.ts";

@@ -1,5 +1,5 @@
 import type { ClinkrInteraction, ConfirmationRequest } from "@nseng-ai/clinkr";
-import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
 
 export interface NsClinkrInteractionOptions {
 	title: string;

@@ -5,7 +5,7 @@ platform behavior. Extension authors **define** points; repo consumers **install
 hooks or prompts at them. This guide covers both roles.
 
 Durable design rationale lives in [ADR 0031](../adr/0031-point-system.md);
-canonical vocabulary lives in [`ts/packages/kernel/CONTEXT.md`](../../ts/packages/kernel/CONTEXT.md).
+canonical vocabulary lives in [`ts/packages/sdk/CONTEXT.md`](../../ts/packages/sdk/CONTEXT.md).
 
 ## The model in one minute
 
@@ -105,7 +105,7 @@ Points are declared as static metadata in the extension descriptor module
 exported from `exports["./ns-extension"]` and created with `defineExtension()`:
 
 ```ts
-import { defineExtension } from "@nseng-ai/kernel/sdk";
+import { defineExtension } from "@nseng-ai/sdk/sdk";
 
 export default defineExtension({
 	group: "flow",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { VERSION } from "@nseng-ai/kernel/cli";
+import { VERSION } from "@nseng-ai/sdk/cli";
 
 import { runNsCli } from "../../src/cli/index.ts";
 

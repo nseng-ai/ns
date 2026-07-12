@@ -14,7 +14,7 @@ import {
 } from "./index.ts";
 import { RealCheckpointGateway, type CheckpointRunContext } from "../checkpoint/checkpoint.ts";
 
-import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
 
 export { RealGithubPrGateway, RealSubmitGateway, RealSubmitMetadataGateway, runSubmitCommand };
 export type { RunSubmitCommandOptions, SubmitCommandResult, SubmitFailureTranscript };
@@ -30,7 +30,7 @@ export interface NsSubmitRuntime {
 	git: Pick<GitGateway, "optionalRepoRoot">;
 }
 
-/** Temporary internal migration seam; not exported from `@nseng-ai/kernel/sdk`. */
+/** Temporary internal migration seam; not exported from `@nseng-ai/sdk/sdk`. */
 export function createNsSubmitRuntime(ctx: NsExtensionApi): NsSubmitRuntime {
 	const commandRunner = createNsCommandRunner(ctx);
 	const git = createNsGitGateway(ctx);

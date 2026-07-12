@@ -1,4 +1,4 @@
-import { nsExtensionExportTarget } from "@nseng-ai/kernel/project-config";
+import { nsExtensionExportTarget } from "@nseng-ai/sdk/project-config";
 import * as ts from "typescript";
 
 import {
@@ -150,7 +150,7 @@ export function collectViolations(
 					path,
 					sourceFile,
 					node.moduleSpecifier,
-					"First-party ns-extension descriptor modules may statically import only @nseng-ai/kernel/sdk; keep implementation modules behind descriptor load thunks.",
+					"First-party ns-extension descriptor modules may statically import only @nseng-ai/sdk/sdk; keep implementation modules behind descriptor load thunks.",
 				),
 			);
 		}
@@ -225,7 +225,7 @@ const GRAPHITE_METADATA_SINGLETON_METHODS = new Set([
 	"loadGraphiteMetadataStatusInWorker",
 	"shutdownGraphiteMetadataWorker",
 ]);
-const DESCRIPTOR_ALLOWED_VALUE_IMPORT = "@nseng-ai/kernel/sdk";
+const DESCRIPTOR_ALLOWED_VALUE_IMPORT = "@nseng-ai/sdk/sdk";
 const LOWER_LAYER_SURFACE_TIERS = new Set(["neutral-infra", "sdk", "capability-kit"]);
 const RAW_TIMER_ADAPTER_PATHS = new Set([
 	"ts/packages/infra/foundation/src/time/index.ts",
@@ -489,7 +489,7 @@ function isPrivateCapabilityPeerImport(
 	const importedPackageMetadata = packageMetadataByName.get(importedPackageName);
 	if (importedPackageMetadata?.nsTier === "neutral-infra") return false;
 	if (importedPackageMetadata?.nsTier === "capability-kit") return false;
-	if (importedPackageName === "@nseng-ai/kernel") return false;
+	if (importedPackageName === "@nseng-ai/sdk") return false;
 	if (importedPackageMetadata?.nsTier !== "capability") return false;
 
 	const importedSubpath = packageSubpathForSpecifier(specifier, importedPackageName);

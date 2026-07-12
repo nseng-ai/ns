@@ -4,7 +4,7 @@ Checkout-free npm package for the `ns` CLI.
 
 The published package bin points at prebuilt JavaScript (`bin/ns.js`) assembled by the package preparation step. Developer source-checkout shims remain separate from this npm package boundary.
 
-The package also owns the public kernel subpaths for checkout-free consumers, for example `@nseng-ai/ns/kernel/sdk` and `@nseng-ai/ns/kernel/*`. The standalone workspace `@nseng-ai/kernel` package remains private and is folded into these `@nseng-ai/ns` subpaths at package-preparation time.
+The package also owns the public kernel subpaths for checkout-free consumers, for example `@nseng-ai/ns/kernel/sdk` and `@nseng-ai/ns/kernel/*`. The standalone workspace `@nseng-ai/sdk` package remains private and is folded into these `@nseng-ai/ns` subpaths at package-preparation time.
 
 ## Release preparation for `0.1.1`
 

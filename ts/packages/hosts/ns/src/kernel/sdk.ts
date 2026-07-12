@@ -36,7 +36,7 @@ export {
 	validateExtensionDescriptor,
 	validateLoadedCommandName,
 	z,
-} from "@nseng-ai/kernel/sdk";
+} from "@nseng-ai/sdk/sdk";
 export type {
 	ActiveOperation,
 	BuildFailureMachineEnvelopeSchemaOptions,
@@ -100,4 +100,4 @@ export type {
 	TextGenerationUsage,
 	TextGenerator,
 	UsageErrorCommandExit,
-} from "@nseng-ai/kernel/sdk";
+} from "@nseng-ai/sdk/sdk";

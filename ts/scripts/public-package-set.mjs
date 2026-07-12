@@ -12,7 +12,7 @@ export const repoRoot = resolve(workspaceRoot, "..");
 export const intendedPublicPackages = [
 	"@nseng-ai/branch-context",
 	"@nseng-ai/handoffs",
-	"@nseng-ai/kernel",
+	"@nseng-ai/sdk",
 	"@nseng-ai/objectives",
 	"@nseng-ai/plans",
 	"@nseng-ai/pr-feedback",
@@ -43,7 +43,7 @@ export const excludedPackages = new Set([
 export const publicPublishOrder = [
 	"@nseng-ai/clinkr",
 	"@nseng-ai/foundation",
-	"@nseng-ai/kernel",
+	"@nseng-ai/sdk",
 	"@nseng-ai/capability-kit",
 	"@nseng-ai/harness-artifacts",
 	"@nseng-ai/brmem",
@@ -260,11 +260,11 @@ function assertIntendedSet(manifestByName) {
 }
 
 function assertKernelExports(manifestByName) {
-	const kernelManifest = manifestByName.get("@nseng-ai/kernel")?.manifest;
+	const kernelManifest = manifestByName.get("@nseng-ai/sdk")?.manifest;
 	const exports = kernelManifest?.exports ?? {};
 	const expectedExports = kernelPublicExports();
 	for (const subpath of kernelPublicSubpaths.map((subpath) => `./${subpath}`)) {
-		if (exports[subpath] !== expectedExports[subpath]) throw new Error(`@nseng-ai/kernel source manifest is missing ${subpath}`);
+		if (exports[subpath] !== expectedExports[subpath]) throw new Error(`@nseng-ai/sdk source manifest is missing ${subpath}`);
 	}
 	const nsManifest = manifestByName.get("@nseng-ai/ns")?.manifest;
 	const nsExports = nsManifest?.exports ?? {};

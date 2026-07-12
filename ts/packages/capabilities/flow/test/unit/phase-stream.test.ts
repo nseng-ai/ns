@@ -1,12 +1,12 @@
 import { describe, expect, test, vi } from "vitest";
 
 import { DEFAULT_COLUMNS } from "@nseng-ai/clinkr";
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk/sdk";
 import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import { spinnerFrame } from "@nseng-ai/foundation/cli-theme";
 
-import type { NsExtensionApi, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk/sdk";
 
 import {
 	createPhaseStream,

@@ -29,7 +29,7 @@ import {
 	resolvePromptPointSource,
 	type PointCatalog,
 	type PromptPointSource,
-} from "@nseng-ai/kernel/project-config/points";
+} from "@nseng-ai/sdk/project-config/points";
 
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
 

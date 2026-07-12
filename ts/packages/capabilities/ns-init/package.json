@@ -23,7 +23,7 @@
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/harness-artifacts": "workspace:*",
-		"@nseng-ai/kernel": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ns": {

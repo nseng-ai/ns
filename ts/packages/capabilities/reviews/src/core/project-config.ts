@@ -4,7 +4,7 @@ import {
 	projectConfigErrorFromDiagnostics,
 	type ProjectConfigDiagnostic,
 	type SettingsSchema,
-} from "@nseng-ai/kernel/project-config/points";
+} from "@nseng-ai/sdk/project-config/points";
 import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 

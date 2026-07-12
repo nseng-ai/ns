@@ -7,7 +7,7 @@ import {
 	type ExtensionAcquisitionDiagnostic,
 	type ExtensionAcquisitionGateway,
 	type ManagedNpmPackageRemovalResult,
-} from "@nseng-ai/kernel/extensions/acquisition";
+} from "@nseng-ai/sdk/extensions/acquisition";
 
 export interface EnsureExtensionSourceParams {
 	readonly repoRoot: string;

@@ -7,7 +7,7 @@ import {
 	extensionSourceIdentityFromParsed,
 	type ExtensionSourceIdentity,
 	type ExtensionSourceSpec,
-} from "@nseng-ai/kernel/project-config";
+} from "@nseng-ai/sdk/project-config";
 
 import {
 	activationRepositoryFailureDiagnostic,

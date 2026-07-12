@@ -1,7 +1,7 @@
 import { NsCommandExecApi } from "@nseng-ai/capability-kit";
 import { createNsDomainCommand } from "@nseng-ai/capability-kit/ns-command";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
 
 import {
 	applyCmuxWorkspaceSummaryCommand,

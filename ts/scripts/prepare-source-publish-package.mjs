@@ -71,7 +71,7 @@ function rewriteDependencies(block, options) {
 }
 
 function rewriteDependencyEntry(name, specifier, options) {
-	if (name === "@nseng-ai/kernel") {
+	if (name === "@nseng-ai/sdk") {
 		return ["@nseng-ai/ns", workspaceVersion("@nseng-ai/ns")];
 	}
 	return [name, rewriteDependencySpecifier(name, specifier, options)];
@@ -157,7 +157,7 @@ async function rewriteKernelImports(root) {
 		}
 		if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
 		const source = await readFile(path, "utf8");
-		const rewritten = source.replaceAll("@nseng-ai/kernel/", "@nseng-ai/ns/kernel/");
+		const rewritten = source.replaceAll("@nseng-ai/sdk/", "@nseng-ai/ns/kernel/");
 		if (rewritten !== source) await writeFile(path, rewritten);
 	}
 }
@@ -167,8 +167,8 @@ function assertNoWorkspaceOrCatalogSpecifiers(value) {
 	if (source.includes("workspace:") || source.includes("catalog:")) {
 		throw new Error("Generated publish manifest must not include workspace: or catalog: specifiers.");
 	}
-	if (source.includes("@nseng-ai/kernel")) {
-		throw new Error("Generated publish manifest must depend on @nseng-ai/ns/kernel/*, not private @nseng-ai/kernel.");
+	if (source.includes("@nseng-ai/sdk")) {
+		throw new Error("Generated publish manifest must depend on @nseng-ai/ns/kernel/*, not private @nseng-ai/sdk.");
 	}
 }
 

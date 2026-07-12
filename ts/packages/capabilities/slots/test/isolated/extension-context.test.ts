@@ -1,8 +1,8 @@
 import { type Caps, type RenderCapabilities } from "@nseng-ai/clinkr";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@nseng-ai/kernel/sdk";
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
+import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk/sdk";
 
 const createRealSlotContext = vi.fn(async (options: unknown) => ({
 	__contextOptions: options,
