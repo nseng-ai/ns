@@ -37,17 +37,17 @@ export interface RawArgvCommandInvocation {
 	readonly commandPath?: readonly string[];
 }
 
-export type KernelCommandCompletionRequest = ClinkrDynamicCompletionRequest;
-export type KernelCommandCompletionCandidate = ClinkrCompletionCandidate;
-export type KernelCommandCompletionResult = ClinkrCompletionResult;
+export type NsCommandCompletionRequest = ClinkrDynamicCompletionRequest;
+export type NsCommandCompletionCandidate = ClinkrCompletionCandidate;
+export type NsCommandCompletionResult = ClinkrCompletionResult;
 
-export type KernelCommandCompletionProvider = (
+export type NsCommandCompletionProvider = (
 	ctx: NsExtensionApi,
-	request: KernelCommandCompletionRequest,
+	request: NsCommandCompletionRequest,
 ) =>
-	| Promise<KernelCommandCompletionResult | readonly KernelCommandCompletionCandidate[]>
-	| KernelCommandCompletionResult
-	| readonly KernelCommandCompletionCandidate[];
+	| Promise<NsCommandCompletionResult | readonly NsCommandCompletionCandidate[]>
+	| NsCommandCompletionResult
+	| readonly NsCommandCompletionCandidate[];
 
 type ParsedSdkCommandSpec<
 	S extends NsCommandSchema = NsCommandSchema,
@@ -61,7 +61,7 @@ interface ParsedSdkCommandDefinition<S extends NsCommandSchema, T> {
 	readonly options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
 	readonly renderHuman?: (data: T, caps: RenderCapabilities) => string;
 	readonly renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
-	readonly completionProvider?: KernelCommandCompletionProvider;
+	readonly completionProvider?: NsCommandCompletionProvider;
 	run(ctx: NsExtensionApi, request: z.output<S>): Promise<CommandExit<T>> | CommandExit<T>;
 }
 
@@ -84,7 +84,7 @@ export interface RawArgvCommand<T = unknown> {
 		ctx: NsExtensionApi,
 		invocation: RawArgvCommandInvocation,
 	): Promise<CommandExit<T>> | CommandExit<T>;
-	complete?: ExplicitUndefined<"public-api-compatibility", KernelCommandCompletionProvider>;
+	complete?: ExplicitUndefined<"public-api-compatibility", NsCommandCompletionProvider>;
 	readonly nsParsedCommandSpec?: unknown;
 	readonly [parsedSdkCommandSpec]?: unknown;
 }
@@ -103,7 +103,7 @@ export interface DefineCommandSpec<S extends NsCommandSchema, T> {
 	readonly options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
 	readonly renderHuman?: (data: T, caps: RenderCapabilities) => string;
 	readonly renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
-	readonly completionProvider?: KernelCommandCompletionProvider;
+	readonly completionProvider?: NsCommandCompletionProvider;
 }
 
 export type RawArgvCommandSpec<T = unknown> = RawArgvCommand<T>;
@@ -125,12 +125,11 @@ export function defineCommand<S extends NsCommandSchema, T>(
 		async run(ctx, invocation) {
 			return await runParsedSdkCommand(ctx, invocation, commandDefinitionFromSpec(spec));
 		},
-		complete: async (ctx: NsExtensionApi, request: KernelCommandCompletionRequest) =>
+		complete: async (ctx: NsExtensionApi, request: NsCommandCompletionRequest) =>
 			await completeParsedSdkCommand(ctx, request, commandDefinitionFromSpec(spec)),
 	};
 }
 
-export type NsCommandCompletionProvider = KernelCommandCompletionProvider;
 export type NsCommand<_S extends NsCommandSchema = z.ZodObject, T = unknown> = RawArgvCommand<T>;
 
 export function defineExtension<const TDescriptor extends ExtensionDescriptor>(
@@ -193,7 +192,7 @@ export function defineInternalParsedCommand<S extends NsCommandSchema, T>(
 		...(completionProvider === undefined
 			? {}
 			: {
-					complete: async (ctx: NsExtensionApi, request: KernelCommandCompletionRequest) =>
+					complete: async (ctx: NsExtensionApi, request: NsCommandCompletionRequest) =>
 						await completeParsedSdkCommand(ctx, request, options),
 				}),
 	};
@@ -237,7 +236,7 @@ async function runParsedSdkCommand<S extends NsCommandSchema, T>(
 
 async function completeParsedSdkCommand<S extends NsCommandSchema, T>(
 	ctx: NsExtensionApi,
-	request: KernelCommandCompletionRequest,
+	request: NsCommandCompletionRequest,
 	options: NamedParsedSdkCommandDefinition<S, T>,
 ): Promise<ClinkrCompletionResult> {
 	const cli = buildParsedSdkCommandCli(
