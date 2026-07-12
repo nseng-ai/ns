@@ -1,0 +1,52 @@
+{
+	"name": "@nseng-ai/vercel",
+	"version": "0.1.2",
+	"files": [
+		"api",
+		"scripts",
+		"src",
+		"vercel.json"
+	],
+	"type": "module",
+	"exports": {
+		"./api": "./src/api/index.ts",
+		"./ns-extension": "./src/ns/extension.ts"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build:deployable": "node scripts/build-deployable.ts",
+		"check": "tsc -p tsconfig.json",
+		"dev:sandbox-hello-probe": "node --env-file=.env.local scripts/sandbox-hello-probe.ts",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/vercel/test",
+		"pack:local": "node ../../../scripts/prepare-source-publish-package.mjs . && npm pack ./dist/publish --pack-destination dist",
+		"publish:dry-run": "node ../../../scripts/prepare-source-publish-package.mjs . && npm publish --dry-run ./dist/publish"
+	},
+	"dependencies": {
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
+		"@octokit/auth-app": "catalog:",
+		"@vercel/sandbox": "catalog:",
+		"jose": "catalog:",
+		"zod": "catalog:"
+	},
+	"ns": {
+		"tier": "capability",
+		"group": "dispatch",
+		"subpackages": [
+			"api",
+			"mint",
+			"ns",
+			"sandbox"
+		],
+		"settings": [
+			{
+				"path": [
+					"dispatch"
+				],
+				"description": "Vercel-native cloud dispatch configuration."
+			}
+		]
+	}
+}
