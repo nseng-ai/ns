@@ -153,7 +153,7 @@ function compareExports({ packageName, localExports, registryExports, mismatches
 			mismatches.push(`missing export ${exportKey}`);
 			continue;
 		}
-		if (packageName === "@nseng-ai/kernel" && criticalKernelExports.includes(exportKey)) evidence.push(`export ${exportKey}`);
+		if (packageName === "@nseng-ai/sdk" && criticalKernelExports.includes(exportKey)) evidence.push(`export ${exportKey}`);
 	}
 }
 

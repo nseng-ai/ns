@@ -1,8 +1,8 @@
 import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok } from "@nseng-ai/clinkr";
 import { ALL_HARNESS_IDS } from "@nseng-ai/harness-artifacts/api";
-import type { ExtensionAcquisitionDiagnostic } from "@nseng-ai/kernel/extensions/acquisition";
-import { planDeclaredExtensionTarget } from "@nseng-ai/kernel/project-config";
+import type { ExtensionAcquisitionDiagnostic } from "@nseng-ai/sdk/extensions/acquisition";
+import { planDeclaredExtensionTarget } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
 import {

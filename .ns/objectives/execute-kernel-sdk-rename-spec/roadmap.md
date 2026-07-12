@@ -15,7 +15,7 @@ every row; row notes call out only slice-local guidance.
   - Policy: read-only against the repo; edits land only in the spec file.
   - Evidence: one commit of spec corrections (or a no-corrections note in the
     step report); dprint green for the spec.
-- [ ] Spec item 1: package identity rename — branch
+- [x] Spec item 1: package identity rename — branch
       `kernel-sdk-rename/rename-package`
   - `ts/packages/kernel/` → `ts/packages/sdk/`, name `@nseng-ai/sdk`, importer
     deps, ordered specifier pairs, `SDK_SPECIFIER` literal, style-guard

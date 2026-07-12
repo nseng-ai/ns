@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { defineExtension } from "@nseng-ai/kernel/sdk";
+import { defineExtension } from "@nseng-ai/sdk/sdk";
 
 import { discoverDeclaredExtensionModuleHarnessArtifacts } from "../src/module-artifact-discovery.ts";
 import { InMemoryHarnessFs } from "./support/in-memory-harness-fs.ts";

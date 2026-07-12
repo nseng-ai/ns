@@ -113,10 +113,10 @@ describe("subagent fleet navigator", () => {
 				kind: "tool",
 				toolName: "read",
 				state: "ok",
-				inputPreview: '{"path":"ts/packages/kernel/src/cli/index.ts","limit":100}',
+				inputPreview: '{"path":"ts/packages/sdk/src/cli/index.ts","limit":100}',
 				resultPreview: '#!/usr/bin/env node import { z } from "zod";',
 			}),
-		).toEqual(["✓ read · path: ts/packages/kernel/src/cli/index.ts · limit: 100"]);
+		).toEqual(["✓ read · path: ts/packages/sdk/src/cli/index.ts · limit: 100"]);
 	});
 
 	test("renders path-display tool rows with relative and abbreviated paths", () => {

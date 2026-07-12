@@ -2,14 +2,14 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { ExtensionAcquisitionGateway } from "@nseng-ai/kernel/extensions/acquisition";
+import type { ExtensionAcquisitionGateway } from "@nseng-ai/sdk/extensions/acquisition";
 import type {
 	DeclaredDescriptorFileResult,
 	DeclaredDescriptorImportResult,
 	DeclaredDescriptorPackageManifestResult,
 	DeclaredExtensionDescriptorGateway,
-} from "@nseng-ai/kernel/extensions/declared-descriptors";
-import { FakeExtensionAcquisitionGateway } from "@nseng-ai/kernel/testing";
+} from "@nseng-ai/sdk/extensions/declared-descriptors";
+import { FakeExtensionAcquisitionGateway } from "@nseng-ai/sdk/testing";
 import {
 	contentHashForText,
 	INSTALL_MANIFEST_FILE_NAME,

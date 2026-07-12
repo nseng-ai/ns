@@ -2,6 +2,6 @@ export {
 	createNsCliInteraction,
 	createRealNsCommandContext,
 	createTerminalConfirmPrompt,
-} from "@nseng-ai/kernel/context";
-export type { NsCliContext, RealNsCommandContextOptions } from "@nseng-ai/kernel/context";
-export type { NsExtensionApi } from "@nseng-ai/kernel/context";
+} from "@nseng-ai/sdk/context";
+export type { NsCliContext, RealNsCommandContextOptions } from "@nseng-ai/sdk/context";
+export type { NsExtensionApi } from "@nseng-ai/sdk/context";

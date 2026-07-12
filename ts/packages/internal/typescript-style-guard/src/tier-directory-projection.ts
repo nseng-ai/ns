@@ -25,7 +25,7 @@ interface TierDirectoryTarget {
 const tierDirectoryProjection = {
 	capability: { kind: "role-dir", dir: "capabilities" },
 	"capability-kit": { kind: "exact-dir", dir: "capability-kit" },
-	sdk: { kind: "exact-dir", dir: "kernel" },
+	sdk: { kind: "exact-dir", dir: "sdk" },
 	"neutral-infra": { kind: "role-dir", dir: "infra" },
 	host: { kind: "role-dir", dir: "hosts" },
 	"standalone-tool": { kind: "role-dir", dir: "tools" },

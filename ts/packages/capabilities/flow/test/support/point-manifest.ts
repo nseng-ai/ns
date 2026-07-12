@@ -29,7 +29,7 @@ export async function writeTestPointManifest(
 	);
 	await writeFile(
 		join(extensionDir, "src", "ns", "extension.ts"),
-		`import { defineExtension } from "@nseng-ai/kernel/sdk";
+		`import { defineExtension } from "@nseng-ai/sdk/sdk";
 
 export default defineExtension({
 	group: ${JSON.stringify(options.group)},

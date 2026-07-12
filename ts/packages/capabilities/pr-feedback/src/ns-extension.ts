@@ -1,4 +1,4 @@
-import { defineExtension, hiddenExecGroup } from "@nseng-ai/kernel/sdk";
+import { defineExtension, hiddenExecGroup } from "@nseng-ai/sdk/sdk";
 
 export default defineExtension({
 	group: "address",

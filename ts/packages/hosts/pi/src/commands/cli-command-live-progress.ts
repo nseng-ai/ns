@@ -2,7 +2,7 @@ import {
 	createProgressPhaseStateStore,
 	type ProgressPhaseState,
 	type ProgressPhaseView,
-} from "@nseng-ai/kernel/progress-phase-state";
+} from "@nseng-ai/sdk/progress-phase-state";
 import {
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
@@ -14,7 +14,7 @@ import {
 	type NsProgressMatrixCellState,
 	type NsProgressMatrixEvent,
 	type NsProgressPhaseEvent,
-} from "@nseng-ai/kernel/sdk";
+} from "@nseng-ai/sdk/sdk";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import type { Component } from "@earendil-works/pi-tui";

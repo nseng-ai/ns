@@ -1,0 +1,41 @@
+import { describe, expect, test } from "vitest";
+
+import { listNsCommands } from "@nseng-ai/sdk/cli";
+
+import { runCliWithFakes } from "./ns-cli-fakes.ts";
+
+function runUnavailableSubmitCli(args: readonly string[]) {
+	return runCliWithFakes(
+		{ args, state: { exec: [], textGeneration: [] } },
+		{
+			execResponses: () => [],
+			textGenerationResults: () => [],
+		},
+	);
+}
+
+describe("ns flow submit CLI availability", () => {
+	test("submit is not registered as a built-in command after the kernel reset", () => {
+		expect(listNsCommands().some((command) => command.name === "submit")).toBe(false);
+	});
+
+	test("submit help and invocation are unavailable without a project extension", async () => {
+		const help = runUnavailableSubmitCli(["flow", "submit", "--help"]);
+		expect(await help.exit).toBe(0);
+		expect(help.stdout.join("")).toContain("Usage: ns");
+		expect(help.stdout.join("")).not.toContain("Usage: ns flow submit");
+
+		for (const args of [
+			["flow", "submit"],
+			["flow", "submit", "--no-restack"],
+		] as const) {
+			const run = runUnavailableSubmitCli(args);
+
+			expect(await run.exit).not.toBe(0);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
+			expect(run.context.execCalls).toEqual([]);
+			expect(run.context.textGeneratorCalls).toEqual([]);
+		}
+	});
+});

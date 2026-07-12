@@ -4,7 +4,7 @@ import {
 	type NsDomainCommandOptions,
 } from "@nseng-ai/capability-kit/ns-command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { NsCommand, NsCommandSchema } from "@nseng-ai/kernel/sdk";
+import type { NsCommand, NsCommandSchema } from "@nseng-ai/sdk/sdk";
 
 import type { SkillsCommandContext } from "./skills-shared.ts";
 

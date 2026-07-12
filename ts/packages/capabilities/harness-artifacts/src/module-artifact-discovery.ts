@@ -1,7 +1,7 @@
 import { join, resolve } from "node:path";
 
 import { isPathInside, optionalEntry } from "@nseng-ai/foundation/primitives";
-import { type ExtensionDescriptor } from "@nseng-ai/kernel/sdk";
+import { type ExtensionDescriptor } from "@nseng-ai/sdk/sdk";
 import { z } from "zod";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";

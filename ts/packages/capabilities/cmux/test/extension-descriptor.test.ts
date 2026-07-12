@@ -1,5 +1,5 @@
 import cmuxExtension from "@nseng-ai/cmux/ns-extension";
-import { validateExtensionDescriptor } from "@nseng-ai/kernel/sdk";
+import { validateExtensionDescriptor } from "@nseng-ai/sdk/sdk";
 import { describe, expect, test } from "vitest";
 
 describe("cmux extension descriptor", () => {

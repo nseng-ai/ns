@@ -10,7 +10,7 @@ import {
 	formatErrorMessage,
 	optionalEntries,
 } from "@nseng-ai/foundation/primitives";
-import type { NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
 
 import type { ObjectiveStorage } from "../core/storage.ts";
 import type {

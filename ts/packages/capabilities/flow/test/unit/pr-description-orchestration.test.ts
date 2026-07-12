@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
+import type { ActiveOperation } from "@nseng-ai/sdk/sdk";
 import {
 	GENERATED_BODY_MARKER,
 	formatManagedGeneratedRegion,

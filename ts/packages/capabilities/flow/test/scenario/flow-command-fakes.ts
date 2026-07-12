@@ -11,7 +11,7 @@ import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
 import { flowSquashStackCommand } from "../../src/ns/commands/squash-stack.ts";
 import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
-import type { CommandExit, NsCommand, NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { CommandExit, NsCommand, NsExtensionApi } from "@nseng-ai/sdk/sdk";
 import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
 
 import {

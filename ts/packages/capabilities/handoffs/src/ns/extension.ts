@@ -1,4 +1,4 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
+import { defineExtension } from "@nseng-ai/sdk/sdk";
 
 export default defineExtension({
 	group: "handoff",

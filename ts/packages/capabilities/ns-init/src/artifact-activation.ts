@@ -5,7 +5,7 @@ import type {
 	HarnessPathErrorInfo,
 	PreparedDeclaredArtifactActivation,
 } from "@nseng-ai/harness-artifacts/api";
-import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
+import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 
 export interface PrepareArtifactActivationParams {
 	readonly repoRoot: string;

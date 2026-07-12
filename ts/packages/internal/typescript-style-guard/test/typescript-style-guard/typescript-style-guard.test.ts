@@ -202,20 +202,20 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "ns-extension descriptor implementation import is rejected",
-			code: 'import { defineExtension } from "@nseng-ai/kernel/sdk";\nimport { makeCommand } from "./command.ts";',
+			code: 'import { defineExtension } from "@nseng-ai/sdk/sdk";\nimport { makeCommand } from "./command.ts";',
 			path: "ts/packages/capabilities/pr-feedback/src/ns-extension.ts",
 			expectedRules: [BAN_EXTENSION_DESCRIPTOR_STATIC_IMPORT],
 		},
 		{
 			name: "ns extension descriptor allows sdk value imports and local type imports",
-			code: 'import { defineExtension, type ExtensionDescriptor } from "@nseng-ai/kernel/sdk";\nimport type { CommandConfig } from "./command.ts";\nimport { type LocalDescriptorFact } from "./facts.ts";',
+			code: 'import { defineExtension, type ExtensionDescriptor } from "@nseng-ai/sdk/sdk";\nimport type { CommandConfig } from "./command.ts";\nimport { type LocalDescriptorFact } from "./facts.ts";',
 			path: "ts/packages/capabilities/slots/src/ns/ns-extension.ts",
 			expectedRules: [],
 		},
 		{
 			name: "lower-layer source cannot import concrete capability packages",
 			code: 'import { listObjectives } from "@nseng-ai/objectives/api";',
-			path: "ts/packages/kernel/src/example.ts",
+			path: "ts/packages/sdk/src/example.ts",
 			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
 		},
 		{
@@ -239,19 +239,19 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "lower-layer source detects real lower-layer package paths through metadata",
 			code: 'const command = "ns flow cp";',
-			path: "ts/packages/kernel/src/example.ts",
+			path: "ts/packages/sdk/src/example.ts",
 			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
 		},
 		{
 			name: "lower-layer source cannot import reviews without treating reviews as a capability",
 			code: 'import { createReviewsClient } from "@nseng-ai/reviews/api";',
-			path: "ts/packages/kernel/src/example.ts",
+			path: "ts/packages/sdk/src/example.ts",
 			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
 		},
 		{
 			name: "capability tests may mention concrete capability command surfaces",
 			code: 'const command = "/ns:objective:list";',
-			path: "ts/packages/kernel/test/scenario/example.test.ts",
+			path: "ts/packages/sdk/test/scenario/example.test.ts",
 			expectedRules: [],
 		},
 		{
@@ -497,7 +497,7 @@ describe("TypeScript style guard source rules", () => {
 		} satisfies PackageMetadata);
 
 		const actualRules = collectViolations(
-			'import { defineExtension } from "@nseng-ai/kernel/sdk";\nimport { makeCommand } from "./command.ts";',
+			'import { defineExtension } from "@nseng-ai/sdk/sdk";\nimport { makeCommand } from "./command.ts";',
 			"ts/packages/capabilities/conditional/src/ns/extension.ts",
 			metadataByName,
 		).map((violation) => violation.rule);
@@ -724,7 +724,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@nseng-ai/handoffs",
 		"@nseng-ai/pi",
 		"@nseng-ai/ns",
-		"@nseng-ai/kernel",
+		"@nseng-ai/sdk",
 		"@nseng-ai/slots",
 	]);
 	const baseTiers = new Map<string, SyntheticTier>([
@@ -737,7 +737,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		["@nseng-ai/handoffs", "capability"],
 		["@nseng-ai/pi", "host"],
 		["@nseng-ai/ns", "host"],
-		["@nseng-ai/kernel", "sdk"],
+		["@nseng-ai/sdk", "sdk"],
 		["@nseng-ai/slots", "capability"],
 	]);
 	const cases: readonly TierLayeringCase[] = [
@@ -758,12 +758,12 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "sdk to capability is rejected",
-			edges: [{ from: "@nseng-ai/kernel", to: "@nseng-ai/handoffs" }],
+			edges: [{ from: "@nseng-ai/sdk", to: "@nseng-ai/handoffs" }],
 			expectedTextIncludes: "sdk-must-not-depend-on-capability",
 		},
 		{
 			name: "retired sdk to slot capability debt is rejected",
-			edges: [{ from: "@nseng-ai/kernel", to: "@nseng-ai/slots" }],
+			edges: [{ from: "@nseng-ai/sdk", to: "@nseng-ai/slots" }],
 			expectedTextIncludes: "sdk-must-not-depend-on-capability",
 		},
 		{
@@ -926,9 +926,9 @@ describe("TypeScript style guard tier-directory projection rule", () => {
 			shouldViolate: true,
 		},
 		{
-			name: "sdk at the kernel top-level single-package home is allowed",
+			name: "sdk at the sdk top-level single-package home is allowed",
 			tier: "sdk",
-			packageDir: "ts/packages/kernel",
+			packageDir: "ts/packages/sdk",
 			shouldViolate: false,
 		},
 		{
@@ -1617,13 +1617,13 @@ describe("TypeScript style guard extension dependency graph rules", () => {
 		"@nseng-ai/branch-context",
 		"@nseng-ai/cmux",
 		"@nseng-ai/pi",
-		"@nseng-ai/kernel",
+		"@nseng-ai/sdk",
 		"@nseng-ai/flow",
 	]);
-	const syntheticCapabilityKernelPiCycleEdges: readonly SyntheticEdge[] = [
+	const syntheticCapabilitySdkPiCycleEdges: readonly SyntheticEdge[] = [
 		{ from: "@nseng-ai/flow", to: "@nseng-ai/pi" },
-		{ from: "@nseng-ai/pi", to: "@nseng-ai/kernel" },
-		{ from: "@nseng-ai/kernel", to: "@nseng-ai/flow" },
+		{ from: "@nseng-ai/pi", to: "@nseng-ai/sdk" },
+		{ from: "@nseng-ai/sdk", to: "@nseng-ai/flow" },
 	];
 	const cases: readonly DependencyGraphCase[] = [
 		{
@@ -1642,7 +1642,7 @@ describe("TypeScript style guard extension dependency graph rules", () => {
 		},
 		{
 			name: "synthetic capability pi sdk manifest cycle is rejected",
-			edges: syntheticCapabilityKernelPiCycleEdges,
+			edges: syntheticCapabilitySdkPiCycleEdges,
 			shouldHaveCycle: true,
 			expectedTextIncludes: "dependencies.@nseng-ai/pi",
 		},

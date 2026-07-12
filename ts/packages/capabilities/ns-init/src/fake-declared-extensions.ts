@@ -1,4 +1,4 @@
-import type { LoadDeclaredExtensionDescriptorsResult } from "@nseng-ai/kernel/extensions/declared-descriptors";
+import type { LoadDeclaredExtensionDescriptorsResult } from "@nseng-ai/sdk/extensions/declared-descriptors";
 
 import type {
 	DeclaredExtensionsGateway,

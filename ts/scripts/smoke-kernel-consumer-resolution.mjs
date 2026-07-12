@@ -43,7 +43,7 @@ try {
 }
 
 function consumerSource() {
-	return kernelPublicSubpaths.map((subpath) => `import type * as ${identifierForSubpath(subpath)} from "@nseng-ai/kernel/${subpath}";`).join("\n")
+	return kernelPublicSubpaths.map((subpath) => `import type * as ${identifierForSubpath(subpath)} from "@nseng-ai/sdk/${subpath}";`).join("\n")
 		+ "\n"
 		+ kernelPublicSubpaths.map((subpath) => `type ${identifierForSubpath(subpath)}Keys = keyof typeof ${identifierForSubpath(subpath)};`).join("\n")
 		+ "\n"

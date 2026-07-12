@@ -7,7 +7,7 @@ import type {
 	TextGenerator,
 } from "@nseng-ai/capability-kit/text-generation";
 
-import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
+import type { ActiveOperation } from "@nseng-ai/sdk/sdk";
 
 import { runCpCore } from "../../src/ns/commands/cp.ts";
 import { runCheckpointWorkflow, type CheckpointGateway } from "../../src/checkpoint/checkpoint.ts";

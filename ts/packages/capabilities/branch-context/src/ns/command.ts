@@ -3,7 +3,7 @@ import {
 	type NsDomainCommandOptions,
 } from "@nseng-ai/capability-kit/ns-command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@nseng-ai/sdk/sdk";
 
 import {
 	createRealBranchContextCliContext,

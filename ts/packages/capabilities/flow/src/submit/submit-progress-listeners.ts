@@ -1,4 +1,4 @@
-import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
+import type { ActiveOperation } from "@nseng-ai/sdk/sdk";
 
 export interface SubmitProgressListeners<ItemProgressEvent> {
 	onProgress?: (message: string) => void;

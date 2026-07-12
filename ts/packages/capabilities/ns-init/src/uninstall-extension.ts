@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok } from "@nseng-ai/clinkr";
 import { ALL_HARNESS_IDS } from "@nseng-ai/harness-artifacts/api";
-import { planDeclaredExtensionUninstallToml } from "@nseng-ai/kernel/project-config";
+import { planDeclaredExtensionUninstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
 import {

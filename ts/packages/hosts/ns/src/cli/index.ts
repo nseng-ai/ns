@@ -5,8 +5,8 @@ import {
 	type NsCliDeps,
 	type PreinstalledNsCommandCatalogEntry,
 	NS_BUILT_IN_HELP_GROUP,
-} from "@nseng-ai/kernel/cli";
-import { createRealNsCommandContext } from "@nseng-ai/kernel/context";
+} from "@nseng-ai/sdk/cli";
+import { createRealNsCommandContext } from "@nseng-ai/sdk/context";
 import nsInitExtension from "@nseng-ai/ns-init/ns-extension";
 
 import { PiTextGenerator } from "./pi-text-generation.ts";

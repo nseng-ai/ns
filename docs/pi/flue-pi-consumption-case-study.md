@@ -66,7 +66,7 @@ HTTP routing (Hono), durable submissions, session persistence, skills,
 sandboxed tools (`just-bash`), MCP, and Cloudflare/Node deployment.
 
 > **sdl contrast.** sdl does **not** depend on `pi-agent-core` and never
-> constructs an `Agent`. sdl's `ts/packages/pi` and `ts/packages/kernel`
+> constructs an `Agent`. sdl's `ts/packages/pi` and `ts/packages/sdk`
 > depend on `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and
 > `@earendil-works/pi-ai` (pinned `0.79.1`). flue wraps the agent *loop*; sdl
 > plugs into the agent *host*. The loop is flue's to own; for sdl the loop
@@ -168,7 +168,7 @@ import { type Api, getModel, getModels, type KnownProvider, type Model,
   config surface.
 
 > **sdl contrast — this is the real overlap.** sdl's `sdl` package consumes the
-> same pi-ai model layer. `ts/packages/kernel/src/pi-text-generation.ts` parses the
+> same pi-ai model layer. `ts/packages/sdk/src/pi-text-generation.ts` parses the
 > identical `"provider/model-id"` specifier shape, resolves a
 > `PiAi.Model<PiAi.Api>` from a registry, and threads `Api`/`Model` types through
 > its own text-generation capability interface — see `parsePiModelRef` and

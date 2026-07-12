@@ -25,7 +25,7 @@ import {
 	nodeProjectConfigGateway,
 	type ProjectConfigDiagnostic,
 	type SettingsSchema,
-} from "@nseng-ai/kernel/project-config/points";
+} from "@nseng-ai/sdk/project-config/points";
 import { z } from "zod";
 
 /** Hooks run consumer validation suites (for example `just`), so allow far longer than a git call. */

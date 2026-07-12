@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { NsProgressPhaseEvent } from "@nseng-ai/kernel/sdk";
+import type { NsProgressPhaseEvent } from "@nseng-ai/sdk/sdk";
 
 import {
 	LiveCommandProgress,

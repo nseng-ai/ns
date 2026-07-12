@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@nseng-ai/clinkr";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import type { ExecResult } from "@nseng-ai/kernel/sdk";
+import type { ExecResult } from "@nseng-ai/sdk/sdk";
 
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";

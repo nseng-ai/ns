@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { createEmptyPreparedProjectHarnessArtifactTransitions } from "@nseng-ai/harness-artifacts/api";
-import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
+import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 
 import {
 	activationRepositoryFailureType,

@@ -95,7 +95,7 @@ describe("land matrix progress", () => {
 			title: "ns flow land",
 			activeOperations: [],
 			rows: rows.map((row) => landRowView(row)),
-			tailLine: "✓ packages/kernel (3 tests)",
+			tailLine: "✓ packages/sdk (3 tests)",
 			tailSinceOutputMs: 1_000,
 		});
 		expect(stripAnsi(fresh.join("\n"))).not.toContain("ago");
@@ -105,10 +105,10 @@ describe("land matrix progress", () => {
 			title: "ns flow land",
 			activeOperations: [],
 			rows: rows.map((row) => landRowView(row)),
-			tailLine: "✓ packages/kernel (3 tests)",
+			tailLine: "✓ packages/sdk (3 tests)",
 			tailSinceOutputMs: 14_000,
 		});
-		expect(stripAnsi(stale.at(-1) ?? "")).toBe("       ✓ packages/kernel (3 tests) · 14s ago");
+		expect(stripAnsi(stale.at(-1) ?? "")).toBe("       ✓ packages/sdk (3 tests) · 14s ago");
 	});
 
 	test("renders the first branch matrix frame with every cell pending", () => {

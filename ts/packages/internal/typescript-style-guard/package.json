@@ -19,7 +19,7 @@
 	},
 	"dependencies": {
 		"@nseng-ai/foundation": "workspace:*",
-		"@nseng-ai/kernel": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
 		"jsonc-parser": "catalog:",
 		"typescript": "catalog:"
 	},

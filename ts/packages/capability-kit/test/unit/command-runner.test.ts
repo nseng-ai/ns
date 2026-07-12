@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/kernel/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk/sdk";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
-import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/kernel/sdk";
+import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/sdk/sdk";
 
 import {
 	createNsCommandRunner,

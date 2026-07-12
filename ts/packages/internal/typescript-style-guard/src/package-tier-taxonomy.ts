@@ -105,10 +105,10 @@ function downwardTierTargets(tier: PackageTierId): readonly PackageTierId[] {
 
 export const packageTierDebtEdgeDefinitions = [
 	{
-		from: "@nseng-ai/kernel",
+		from: "@nseng-ai/sdk",
 		to: "@nseng-ai/capability-kit",
 		reason:
-			"SDK-to-capability-kit CLI shell-support debt: @nseng-ai/kernel still reuses Capability Kit shell wrappers for the ns shell operation.",
+			"SDK-to-capability-kit CLI shell-support debt: @nseng-ai/sdk still reuses Capability Kit shell wrappers for the ns shell operation.",
 	},
 ] as const satisfies readonly AllowedPackageTierDebtEdge[];
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ActiveOperation } from "@nseng-ai/kernel/sdk";
+import type { ActiveOperation } from "@nseng-ai/sdk/sdk";
 
 import { runCheckpointWorkflow } from "../../src/checkpoint/checkpoint.ts";
 import { createNsSubmitRuntime } from "../../src/submit/ns-runtime.ts";

@@ -5,14 +5,14 @@ import {
 	parseExtensionSourceSpec,
 	resolveDeclaredExtensionModules,
 	type ExtensionAcquisitionGateway,
-} from "@nseng-ai/kernel/extensions/acquisition";
+} from "@nseng-ai/sdk/extensions/acquisition";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import {
 	declaredExtensionDescriptorDiagnosticSchema,
 	loadDeclaredExtensionDescriptors,
 	type DeclaredExtensionDescriptorGateway,
-} from "@nseng-ai/kernel/extensions/declared-descriptors";
+} from "@nseng-ai/sdk/extensions/declared-descriptors";
 import { z } from "zod";
 
 import { type SkillHarnessArtifactEntry } from "./artifact-catalog.ts";

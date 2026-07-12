@@ -49,7 +49,7 @@
 		"@nseng-ai/pr-feedback": "workspace:*",
 		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
-		"@nseng-ai/kernel": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
 		"zod": "catalog:"
 	},
 	"peerDependencies": {

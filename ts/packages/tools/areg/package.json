@@ -24,7 +24,7 @@
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/handoffs": "workspace:*",
 		"@nseng-ai/harness-artifacts": "workspace:*",
-		"@nseng-ai/kernel": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
 		"@nseng-ai/objectives": "workspace:*",
 		"zod": "catalog:"
 	},

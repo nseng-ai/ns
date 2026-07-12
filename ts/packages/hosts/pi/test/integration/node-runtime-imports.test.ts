@@ -9,7 +9,7 @@ const REPO_ROOT = fileURLToPath(new URL("../../../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PI_BIN = fileURLToPath(new URL("../../node_modules/.bin/pi", import.meta.url));
 const CMUX_PACKAGE_ROOT = fileURLToPath(new URL("../../../../capabilities/cmux/", import.meta.url));
-const NS_PACKAGE_ROOT = fileURLToPath(new URL("../../../../kernel/", import.meta.url));
+const SDK_PACKAGE_ROOT = fileURLToPath(new URL("../../../../sdk/", import.meta.url));
 
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
 const NS_PROJECT_EXTENSION_ADAPTER = ".pi/extensions/ns.ts";
@@ -24,7 +24,7 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@nseng-ai/foundation/exec",
 	"@nseng-ai/branch-context",
 	"@nseng-ai/plans",
-	"@nseng-ai/kernel/cli",
+	"@nseng-ai/sdk/cli",
 ] as const;
 
 const CMUX_WORKSPACE_IMPORTS = [
@@ -34,14 +34,14 @@ const CMUX_WORKSPACE_IMPORTS = [
 	"@nseng-ai/capability-kit/checkpoint-flow",
 ] as const;
 
-const NS_EXPORT_IMPORTS = [
+const SDK_EXPORT_IMPORTS = [
 	"@nseng-ai/capability-kit/checkpoint-flow",
 	"@nseng-ai/capability-kit/checkpoint-message",
 	"@nseng-ai/foundation/exec",
-	"@nseng-ai/kernel/cli",
-	"@nseng-ai/kernel/context",
+	"@nseng-ai/sdk/cli",
+	"@nseng-ai/sdk/context",
 	"@nseng-ai/capability-kit/pending-worktree",
-	"@nseng-ai/kernel/sdk",
+	"@nseng-ai/sdk/sdk",
 	"@nseng-ai/ns/cli",
 	"@nseng-ai/capability-kit/text-generation",
 	"@nseng-ai/capability-kit/text-repair",
@@ -130,13 +130,13 @@ describe("Node runtime import smoke", () => {
 		expect(result.stdout).toContain("imported 4 package specifiers");
 	});
 
-	test("kernel package imports every declared export subpath under Node", () => {
+	test("SDK package imports every declared export subpath under Node", () => {
 		const result = runNodeEval({
-			cwd: NS_PACKAGE_ROOT,
-			source: buildPackageImportScript(NS_EXPORT_IMPORTS),
+			cwd: SDK_PACKAGE_ROOT,
+			source: buildPackageImportScript(SDK_EXPORT_IMPORTS),
 		});
 
-		expectSuccessfulNodeRun(result, { cwd: NS_PACKAGE_ROOT, label: "kernel package imports" });
+		expectSuccessfulNodeRun(result, { cwd: SDK_PACKAGE_ROOT, label: "SDK package imports" });
 		expect(result.stdout).toContain("imported 10 package specifiers");
 	});
 });

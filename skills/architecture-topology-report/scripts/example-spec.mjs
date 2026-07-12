@@ -36,7 +36,7 @@ export default {
        and the <span class="font-mono text-sm">ts-guard</span> acyclicity check can hard-fail. Most of what remains is
        <em>distance</em>: three capabilities not yet modeled, the transitional holding-pen not yet drained, and
        <span class="font-mono text-sm">cmux</span> still reaching up into the host. <strong>One</strong> item is genuine
-       <em>drift</em>, not distance — the SDK kernel imports a capability (<span class="font-mono text-sm">@nseng-ai/kernel → @nseng-ai/slots</span>),
+       <em>drift</em>, not distance — the SDK kernel imports a capability (<span class="font-mono text-sm">@nseng-ai/sdk → @nseng-ai/slots</span>),
        a layering inversion that should be isolated and cut, not waited out.`,
   },
 
@@ -54,7 +54,7 @@ export default {
       { label: "Kit", bg: "#eef2ff", labelBg: "#818cf8", noteColor: "#4338ca", chipBorder: "#c7d2fe",
         packages: ["capability-kit"], note: "above-SDK substrate — the ctx→gateway adapter + shared result/error shapes (holds no domain)" },
       { label: "SDK", bg: "#e0e7ff", labelBg: "#6366f1", noteColor: "#4338ca", chipBorder: "#c7d2fe",
-        packages: ["@nseng-ai/kernel"], note: "extension kernel/host + the thin author API of host primitives — must not import a capability" },
+        packages: ["@nseng-ai/sdk"], note: "extension kernel/host + the thin author API of host primitives — must not import a capability" },
       { label: "Holding pen", bg: "#fffbeb", labelBg: "#f59e0b", noteColor: "#b45309", chipBorder: "#f59e0b",
         packages: [{ name: "domain-primitives-transitional", dashed: true }], note: "must delete to zero — its emptiness is the endgame's completion marker" },
       { label: "Neutral infra", bg: "#f1f5f9", labelBg: "#94a3b8", noteColor: "#64748b", chipBorder: "#cbd5e1",
@@ -69,7 +69,7 @@ export default {
     `Every runtime edge, live. Node <strong>area ∝ source LOC</strong>. The graph is now <strong>acyclic</strong> — there are no red
      cycle edges left to draw. In the layered view the two <em>hard tier violations</em> read as edges pointing slightly
      <em>upward</em>: <span class="font-mono text-sm">cmux → @nseng-ai/pi</span> (a capability into the host) and
-     <span class="font-mono text-sm">@nseng-ai/kernel → @nseng-ai/slots</span> (the SDK into a capability). Drag to pin, scroll to zoom,
+     <span class="font-mono text-sm">@nseng-ai/sdk → @nseng-ai/slots</span> (the SDK into a capability). Drag to pin, scroll to zoom,
      hover to trace a node's neighbours, toggle to the tier-clustered layout to see the bands stack, toggle tiers to drop the off-axis tools.`,
   graphCaption:
     `The two heaviest nodes are the <span class="font-mono">@nseng-ai/pi</span> presentation host (11.7k LOC) and <span class="font-mono">cmux</span> (8.1k) —
@@ -91,12 +91,12 @@ export default {
     { invariant: `All nine capabilities are above-SDK Capabilities (command face + gateway-injected core), each via a completed child Objective (flow excepted)`,
       status: "6 / 9", statusKind: "partial",
       evidence: `Done: <span class="font-mono text-xs">flow</span>(ref) + closed children <span class="font-mono text-xs">slot, branch-context, plans, objective, handoff</span>. Pending: <span class="font-mono text-xs">pr-address, reviews, retros</span> — no child Objective, no kit dependency, no gateway-injected core.` },
-    { invariant: `<span class="font-mono text-xs">cmux</span> depends on providers through their Capability APIs, not <span class="font-mono text-xs">@nseng-ai/pi</span>/<span class="font-mono text-xs">@nseng-ai/kernel</span> internals; no privileged tier`,
+    { invariant: `<span class="font-mono text-xs">cmux</span> depends on providers through their Capability APIs, not <span class="font-mono text-xs">@nseng-ai/pi</span>/<span class="font-mono text-xs">@nseng-ai/sdk</span> internals; no privileged tier`,
       status: "partial", statusKind: "partial",
       evidence: `Fan-out leader (13, highest in the graph) ✓ and reaches <span class="font-mono text-xs">objective/slot/branch-context/plans</span> via <span class="font-mono text-xs">/api</span>. But still imports <span class="font-mono text-xs">@nseng-ai/pi/commands/ack</span> (×9), <span class="font-mono text-xs">@nseng-ai/pi/terminal/presentation</span>, <span class="font-mono text-xs">@nseng-ai/pi/runtime/machine-envelope</span>, and <span class="font-mono text-xs">domain-primitives-transitional</span>.` },
     { invariant: `Declared package tiers validated; <strong>no hard tier violations</strong> (SDK must not depend on a Capability; a Capability must not depend on the Host)`,
       status: "2 hard", statusKind: "open",
-      evidence: `Tier guard reports two hard edges: <span class="font-mono text-xs text-red-600">@nseng-ai/kernel → @nseng-ai/slots</span> (sdk-must-not-depend-on-capability) and <span class="font-mono text-xs text-red-600">@nseng-ai/cmux → @nseng-ai/pi</span> (capability-must-not-depend-on-host), plus 4 depends-on-transitional debt edges.` },
+      evidence: `Tier guard reports two hard edges: <span class="font-mono text-xs text-red-600">@nseng-ai/sdk → @nseng-ai/slots</span> (sdk-must-not-depend-on-capability) and <span class="font-mono text-xs text-red-600">@nseng-ai/cmux → @nseng-ai/pi</span> (capability-must-not-depend-on-host), plus 4 depends-on-transitional debt edges.` },
     { invariant: `Below the SDK is domain-free: <span class="font-mono text-xs">domain-primitives-transitional</span> deleted; no below-SDK package imports capability domain`,
       status: "open", statusKind: "open",
       evidence: `The package still exists (578 LOC) with 4 consumers: <span class="font-mono text-xs">flow, kernel, cmux, pi</span>. Roadmap step 6 is unchecked — this is the explicit completion marker.` },
@@ -108,18 +108,18 @@ export default {
       beforeAfter: {
         nowLabel: "now — SDK reaches up",
         now: `flowchart TD
-  kernel["@nseng-ai/kernel (SDK)"] -->|command-face| slot["@nseng-ai/slots (capability)"]
+  kernel["@nseng-ai/sdk (SDK)"] -->|command-face| slot["@nseng-ai/slots (capability)"]
   classDef bad fill:#fee2e2,stroke:#dc2626,color:#991b1b;
   class kernel,slot bad;`,
         afterLabel: "after — mounted via the loader",
         after: `flowchart TD
-  kernel["@nseng-ai/kernel (SDK)"] --> kit["capability-kit / loader"]
+  kernel["@nseng-ai/sdk (SDK)"] --> kit["capability-kit / loader"]
   slot["@nseng-ai/slots"] --> kit
   classDef ok fill:#dcfce7,stroke:#16a34a,color:#14532d;
   class kernel,slot,kit ok;`,
       },
-      problem: `<span class="font-mono text-sm">@nseng-ai/kernel/cli.ts</span> imports <span class="font-mono text-sm">buildSlotCommandGroup</span> from <span class="font-mono text-sm">@nseng-ai/slots/command-face</span> and <span class="font-mono text-sm">createRealSlotContext</span> from <span class="font-mono text-sm">@nseng-ai/slots</span> — the kernel depends <em>up</em> on a capability, the one true inversion in the graph.`,
-      solution: `Mount slot's command face through the same extension-discovery path every other capability uses, so <span class="font-mono text-sm">@nseng-ai/kernel</span> depends on the loader/kit, not on <span class="font-mono text-sm">@nseng-ai/slots</span>.`,
+      problem: `<span class="font-mono text-sm">@nseng-ai/sdk/cli.ts</span> imports <span class="font-mono text-sm">buildSlotCommandGroup</span> from <span class="font-mono text-sm">@nseng-ai/slots/command-face</span> and <span class="font-mono text-sm">createRealSlotContext</span> from <span class="font-mono text-sm">@nseng-ai/slots</span> — the kernel depends <em>up</em> on a capability, the one true inversion in the graph.`,
+      solution: `Mount slot's command face through the same extension-discovery path every other capability uses, so <span class="font-mono text-sm">@nseng-ai/sdk</span> depends on the loader/kit, not on <span class="font-mono text-sm">@nseng-ai/slots</span>.`,
       wins: ["removes the SDK→capability inversion", "restores capability-as-leaf shape", "clears one hard tier violation", "kernel stays capability-agnostic"] },
 
     { title: `<span class="font-mono text-base">cmux</span> still reaches up into the presentation host`,
@@ -168,7 +168,7 @@ export default {
        reach every provider through its <span class="font-mono text-sm">/api</span> seam.`,
       `It is the keystone because <span class="font-mono text-sm">cmux</span> is the only node that sits in three open invariants at once —
        clean-consumer, no-host-dependency, and transitional-drain — so clearing it is on the critical path to the completion marker (step 6,
-       deleting the transitional package). The smaller <span class="font-mono text-sm">@nseng-ai/kernel → @nseng-ai/slots</span> inversion is sharp but isolated;
+       deleting the transitional package). The smaller <span class="font-mono text-sm">@nseng-ai/sdk → @nseng-ai/slots</span> inversion is sharp but isolated;
        fix it alongside as a scoped loader-mount cut, but cmux is where the leverage is.`,
     ],
     sequence: [

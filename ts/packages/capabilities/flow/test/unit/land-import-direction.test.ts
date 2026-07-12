@@ -42,7 +42,7 @@ const FORBIDDEN_MIGRATED_MODULE_REFERENCES = [
 	"./stack/pr-facts.ts",
 	"/stack/",
 	"command-stream",
-	"@nseng-ai/kernel",
+	"@nseng-ai/sdk",
 	"@nseng-ai/pi",
 ] as const;
 

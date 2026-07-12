@@ -1,5 +1,5 @@
-import { createCommandIo } from "@nseng-ai/kernel/command-io";
-import type { ActiveOperation, NsCommandIo } from "@nseng-ai/kernel/sdk";
+import { createCommandIo } from "@nseng-ai/sdk/command-io";
+import type { ActiveOperation, NsCommandIo } from "@nseng-ai/sdk/sdk";
 import {
 	commandSucceeded,
 	type ExecResult,

@@ -1,18 +1,18 @@
 {
 	"kernel/cli": {
 		"host": "src/kernel/cli.ts",
-		"kernel": "kernel/src/cli/index.ts"
+		"kernel": "sdk/src/cli/index.ts"
 	},
 	"kernel/command-io": {
 		"host": "src/kernel/command-io.ts",
-		"kernel": "kernel/src/runtime/command-io.ts"
+		"kernel": "sdk/src/runtime/command-io.ts"
 	},
 	"kernel/context": {
 		"host": "src/kernel/context.ts",
-		"kernel": "kernel/src/cli/context.ts"
+		"kernel": "sdk/src/cli/context.ts"
 	},
 	"kernel/sdk": {
 		"host": "src/kernel/sdk.ts",
-		"kernel": "kernel/src/sdk/index.ts"
+		"kernel": "sdk/src/sdk/index.ts"
 	}
 }

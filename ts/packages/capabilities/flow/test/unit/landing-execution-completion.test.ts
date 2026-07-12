@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { noopNsCommandIo } from "@nseng-ai/kernel/sdk";
+import { noopNsCommandIo } from "@nseng-ai/sdk/sdk";
 import {
 	executeLanding,
 	nullLandExecutionProgress,

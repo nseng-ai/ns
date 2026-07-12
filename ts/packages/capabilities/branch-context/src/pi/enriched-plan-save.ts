@@ -15,7 +15,7 @@ import {
 	nodeProjectConfigGateway,
 	resolvePromptPointPath,
 	resolvePromptPointSource,
-} from "@nseng-ai/kernel/project-config/points";
+} from "@nseng-ai/sdk/project-config/points";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "./surfaces.ts";
 import { sendCommandProgressOrNotify } from "@nseng-ai/pi/commands/ack";

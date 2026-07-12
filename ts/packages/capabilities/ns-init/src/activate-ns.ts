@@ -9,7 +9,7 @@ import {
 	type NsTomlChange,
 	type PreparedDeclaredArtifactActivation,
 } from "@nseng-ai/harness-artifacts/api";
-import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
+import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 import { z } from "zod";
 
 import type { NsActivationContext } from "./activation-context.ts";

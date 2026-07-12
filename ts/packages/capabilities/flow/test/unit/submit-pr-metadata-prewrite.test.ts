@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/testing";
 import { ScriptedCommandRunner, exitedResult, step } from "@nseng-ai/foundation/exec/testing";
-import { formatActiveOperation, type ActiveOperation } from "@nseng-ai/kernel/sdk";
+import { formatActiveOperation, type ActiveOperation } from "@nseng-ai/sdk/sdk";
 import {
 	buildSubmitPlan,
 	ok,
