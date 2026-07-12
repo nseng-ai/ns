@@ -9,6 +9,7 @@ import type { PhaseState, StatusLineItem } from "@nseng-ai/foundation/cli-theme"
 import type { PhaseSpec, PhaseSubstepSpec } from "./phase-stream-specs.ts";
 
 export interface PhaseView {
+	key: string;
 	item: StatusLineItem;
 	state: PhaseState;
 	label: string | undefined;
@@ -72,6 +73,7 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 			throw new Error(`progress phase view '${view.key}' has no matching flow status item`);
 		}
 		return {
+			key: view.key,
 			item,
 			state: view.state,
 			label: view.label,

@@ -53,9 +53,8 @@ export const flowSquashStackCommand: NsCommand<typeof squashStackSchema> = defin
 							}),
 						onBranchCompleted: (entry) =>
 							matrix.setSquashStatus(entry.branch, stackSquashCompletionUpdate(entry)),
-						onRestoreStarted: () =>
-							matrix.setRestore({ state: "active", text: "checking out tip" }),
-						onRestoreCompleted: () => matrix.setRestore({ state: "done", text: "tip restored" }),
+						onRestoreStarted: matrix.restoreStarted,
+						onRestoreCompleted: matrix.restoreCompleted,
 					}),
 			});
 			await matrix.finish({ isFailed: outcome.kind !== "success" });

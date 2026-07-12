@@ -2,9 +2,20 @@ import { describe, expect, test } from "vitest";
 
 import type { Caps } from "@nseng-ai/clinkr";
 import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
+import { createProgressPhaseStateStore } from "@nseng-ai/sdk/progress-phase-state";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
+import {
+	composeMatrixProgressAdapters,
+	createMatrixProgressControllerCore,
+	type MatrixProgressAdapter,
+} from "../../src/phase-stream/matrix-progress-controller.ts";
 import { defineMatrixWorkflow } from "../../src/phase-stream/matrix-progress-core.ts";
+import { createMatrixEventAdapter } from "../../src/phase-stream/matrix-progress-event-adapter.ts";
+import {
+	snapshotMatrixProgress,
+	type MatrixRowSpec,
+} from "../../src/phase-stream/matrix-progress-state.ts";
 import { applyPrLinksToRows } from "../../src/submit/submit-matrix-progress.ts";
 import type { SubmitPrLink } from "../../src/submit/gt-output.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
@@ -23,6 +34,7 @@ const workflow = defineMatrixWorkflow({
 				{ key: "inspect", item: { name: "Inspect", detail: "inspected", label: "inspecting…" } },
 			],
 		},
+		{ key: "publish", item: { name: "Publish", detail: "published", label: "publishing…" } },
 	],
 	labelHeader: "Branch",
 	rowKey: (row: { branch: string; label: string }) => row.branch,
@@ -149,7 +161,7 @@ describe("matrix progress controller", () => {
 		expect(capture.redraws.length > 0).toBe(starts);
 	});
 
-	test("setGlobal and setCell rerender through the captured workflow", () => {
+	test("phase and cell changes rerender through the captured workflow", () => {
 		const { capture, controller } = createController();
 		controller.begin();
 		const initialRedraws = capture.redraws.length;
@@ -199,6 +211,70 @@ describe("matrix progress controller", () => {
 		expect(capture.dones).toEqual([1]);
 	});
 
+	test.each(["done", "failed"] as const)(
+		"terminal and event adapters settle phases, cells, and operations equivalently to %s",
+		async (target) => {
+			const capture = streamCapture({ sleep: "resolve" });
+			const recording = recordingProgress();
+			const controller = workflow.createController({
+				caps: caps({ isTty: true }),
+				deps: capture.deps,
+				progress: recording.progress,
+				title: "Workflow",
+				rows: ROWS,
+			});
+			controller.phase({ type: "phase-started", phaseKey: "prepare" });
+			controller.phase({ type: "phase-started", phaseKey: "inspect" });
+			controller.setCell("feature/a", "build", { state: "active" });
+			controller.setActiveOperations([{ kind: "command", display: "just" }]);
+			recording.events.length = 0;
+
+			await controller.finish({ isFailed: target === "failed" });
+
+			expect(recording.events).toEqual([
+				...(target === "done"
+					? [
+							{ type: "phase-done", phaseKey: "prepare" } as const,
+							{ type: "phase-done", phaseKey: "publish" } as const,
+						]
+					: [
+							{
+								type: "phase-failed",
+								phaseKey: "inspect",
+								detail: "inspecting…",
+							} as const,
+						]),
+				{
+					type: "matrix-cell",
+					rowKey: "feature/a",
+					columnKey: "build",
+					state: target,
+				},
+				{ type: "matrix-active-operations", operations: [] },
+			]);
+			const phaseState = createProgressPhaseStateStore({
+				phases: [
+					{
+						key: "prepare",
+						name: "Prepare",
+						detail: "prepared",
+						substeps: [{ key: "inspect", name: "Inspect", detail: "inspected" }],
+					},
+					{ key: "publish", name: "Publish", detail: "published" },
+				],
+			});
+			phaseState.apply({ type: "phase-started", phaseKey: "prepare" });
+			phaseState.apply({ type: "phase-started", phaseKey: "inspect" });
+			for (const event of recording.events) phaseState.apply(event);
+			expect(phaseState.views().map((view) => view.state)).toEqual(
+				target === "done" ? ["done", "done"] : ["failed", "pending"],
+			);
+			const frame = latestFrame(capture.redraws);
+			expect(frame).not.toContain("Running:");
+			expect(frame).toContain(target === "done" ? "✓" : "✗");
+		},
+	);
+
 	test("notes render only for TTY controllers", () => {
 		const tty = createController({ isTty: true });
 		tty.controller.begin();
@@ -244,6 +320,71 @@ describe("matrix progress controller", () => {
 			columnKey: "build",
 			state: "done",
 		});
+	});
+
+	test("event-only cell deltas do not materialize full snapshots", () => {
+		const recording = recordingProgress();
+		let snapshotCount = 0;
+		const controller = createMatrixProgressControllerCore({
+			title: "Workflow",
+			rows: ROWS.map((row) => ({ ...row, rowKey: row.branch })),
+			columns: COLUMNS,
+			phases: [],
+			createSnapshot: (state, phases) => {
+				snapshotCount += 1;
+				return snapshotMatrixProgress(state, phases);
+			},
+			createAdapter: ({ getLifecycle }) =>
+				createMatrixEventAdapter({
+					progress: recording.progress,
+					columns: COLUMNS,
+					phases: [],
+					getLifecycle,
+				}),
+		});
+		snapshotCount = 0;
+
+		controller.setCell("feature/a", "build", { state: "done" });
+
+		expect(snapshotCount).toBe(0);
+		expect(recording.events.at(-1)).toEqual({
+			type: "matrix-cell",
+			rowKey: "feature/a",
+			columnKey: "build",
+			state: "done",
+		});
+	});
+
+	test("composed adapters share one memoized snapshot per committed change", () => {
+		let snapshotCount = 0;
+		function snapshotReadingAdapter(): MatrixProgressAdapter<"build" | "test", MatrixRowSpec> {
+			return {
+				begin: () => {},
+				observe: (_change, getSnapshot) => {
+					getSnapshot();
+				},
+				beforeFinish: async () => {},
+				finish: async () => {},
+				stop: async () => {},
+			};
+		}
+		const controller = createMatrixProgressControllerCore({
+			title: "Workflow",
+			rows: [{ rowKey: "feature/a", label: "feature/a" }],
+			columns: COLUMNS,
+			phases: [],
+			createSnapshot: (state, phases) => {
+				snapshotCount += 1;
+				return snapshotMatrixProgress(state, phases);
+			},
+			createAdapter: () =>
+				composeMatrixProgressAdapters([snapshotReadingAdapter(), snapshotReadingAdapter()]),
+		});
+		snapshotCount = 0;
+
+		controller.setCell("feature/a", "build", { state: "done" });
+
+		expect(snapshotCount).toBe(1);
 	});
 
 	test("combined terminal and live adapters fan out accepted changes exactly once", () => {
@@ -510,12 +651,25 @@ describe("matrix event progress controller", () => {
 			await controller.stop();
 
 			expect(recording.events).toEqual([
+				...(target === "done"
+					? [
+							{ type: "phase-done", phaseKey: "prepare" } as const,
+							{ type: "phase-done", phaseKey: "publish" } as const,
+						]
+					: [
+							{
+								type: "phase-failed",
+								phaseKey: "inspect",
+								detail: "inspecting…",
+							} as const,
+						]),
 				{
 					type: "matrix-cell",
 					rowKey: "feature/a",
 					columnKey: "build",
 					state: target,
 				},
+				{ type: "matrix-active-operations", operations: [] },
 			]);
 		},
 	);
