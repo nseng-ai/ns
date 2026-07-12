@@ -8,23 +8,27 @@ edges:
 
 ## Thesis
 
-ns becomes cloud-native through two thin seams built on Vercel primitives,
-with git as the state plane and backends kept pluggable:
+ns becomes cloud-native through one **Vercel-native** capability package —
+`@nseng-ai/vercel` — with git as the state plane. Two legs:
 
 1. **Remote execution** — run a harness against a repo checkout in an
    isolated environment; results come back through git as a pushed branch
-   with an open PR. First backend: **Vercel Sandbox**
-   driven via the AI SDK `HarnessAgent` adapters — **`@ai-sdk/harness-pi`
-   first** (the user's daily-driver harness), `@ai-sdk/harness-claude-code`
-   second — with ns skills injected via the Agent Skills standard.
-2. **Durable jobs** — run an ns unit of work on a schedule or event. First
-   backend: **Vercel Workflows** (+ cron). A job's body only invokes seam 1;
-   the job layer schedules and supervises, it never contains agent logic.
+   with an open PR. **Vercel Sandbox**, driven via the AI SDK
+   `HarnessAgent` adapters — **`@ai-sdk/harness-pi` first** (the user's
+   daily-driver harness), `@ai-sdk/harness-claude-code` second — with ns
+   skills injected via the Agent Skills standard.
+2. **Durable jobs** — run an ns unit of work on a schedule or event.
+   **Vercel Workflows** (+ cron). A job's body only invokes the same
+   dispatch core; the job layer schedules and supervises, it never contains
+   agent logic.
 
-Because ns state travels via git — a cloud executor with a repo checkout
-inherits objectives, branch context, and branch memory with no state-sync
-layer — both seams stay thin, and a second compute backend (GitHub Actions,
-for PLG reach) stays cheap: designed for here, not built.
+The Vercel coupling is deliberate and named (seam-design grill decision,
+2026-07-12): the package is called `vercel` so it does not overpromise
+generality, gateways speak Vercel vocabulary, and there is no
+backend-pluggability seam. ns state travels via git — a cloud executor with
+a repo checkout inherits objectives, branch context, and branch memory with
+no state-sync layer — so the capability stays thin anyway; a different
+compute backend, if ever wanted, earns its own design when it is real.
 
 **Eve is a consumer of these seams, not the foundation.** This reverses the
 retired wayfinding map's "Eve is presumed in as the cloud chassis" stance
@@ -54,34 +58,40 @@ rationale, and research live in supporting records that never override it.
   result contract, setup/credentials, and scheduled cloud work — written for
   a user, with unsettled decisions visible as open questions rather than
   silently invented.
-- **Dispatch capability** (from `dispatch-extension`): a new capability
-  package exporting the `ns dispatch` repo-local command group via the typed
+- **Dispatch capability**: `@nseng-ai/vercel` at
+  `ts/packages/capabilities/vercel` (seam-design decision, 2026-07-12),
+  exporting the `ns dispatch` repo-local command group via the typed
   `exports["./ns-extension"]` descriptor module — `ns dispatch plan`,
-  `ns dispatch prompt`, and a session-continuation dispatch surface
-  (`/ns:dispatch:session`: session context captured as a handoff plus a
-  predefined continuation prompt). The execution backend is repo-configured;
-  no `--target` flag for now (grill decision, 2026-07-12). Pi as a thin
-  additive bridge; wrapper-skill coverage and typed parity metadata.
-- **The remote-execution seam**: a backend gateway whose contract is
-  *inputs: repo ref + plan/prompt + credentials; outputs: pushed branch +
-  open PR*. Nothing Vercel-, Eve-, or AI-SDK-shaped in
-  ns package APIs; vendor types stay inside the backend module.
-- **Cloud backend implementation**: Vercel Sandbox + `HarnessAgent`, pi
-  adapter first, Claude Code adapter second, ns skills injected per-session.
+  `ns dispatch prompt`, and `ns dispatch handoff` (the kernel surface under
+  `/ns:dispatch:session`: session context captured as a handoff plus a
+  predefined continuation prompt). The execution backend is repo-configured
+  via the `ns.toml` `[dispatch]` settings table; no `--target` flag (grill
+  decisions, 2026-07-12). Pi as a thin additive bridge; wrapper-skill
+  coverage and typed parity metadata. The package also carries its own
+  Vercel deployable (the Workflows/cron entrypoints).
+- **The executor implementation**: Vercel Sandbox + `HarnessAgent`, pi
+  adapter first, Claude Code adapter second, ns skills injected
+  per-session, behind package-internal gateways in Vercel vocabulary
+  (faked for tests; no backend-agnostic executor contract — see
+  `references/seam-design.md`).
 - **The dispatch jobs status surface**: a TUI showing the status of all
-  outstanding dispatch jobs (grill decision, 2026-07-12), with run state and
-  logs drawn from the backend's own observability through the seam and the
-  anchor PR as the durable status trace.
+  outstanding dispatch jobs (grill decision, 2026-07-12). It enumerates the
+  `dispatch/` anchor PRs and follows each PR's stamped run handle into
+  Vercel's own run observability for state and logs; the anchor PR is the
+  durable status trace.
 - **The credentials slice**: the minimal credentials model for remote
   execution — repo access, push scope, model keys — designed before the
-  executor runs real work.
+  executor runs real work. Design settled 2026-07-12
+  (`references/credentials-design.md`): per-run repo-scoped GitHub App
+  installation tokens (org-owned `ns-dispatch` app, key in a Vercel
+  sensitive env var), late-mint at push time, local anchor setup on the
+  user's own credentials, and a v1 self-landing sandbox with a shared mint
+  secret — each v1 shortcut recorded beside its named upgrade
+  (Vercel-side supervisor, per-run landing voucher).
 - **The durable-jobs seam and its first job**: Vercel Workflows + cron
   backend; nightly objective advancement as the proving job, including the
   policy decision of what "advance an objective autonomously overnight"
   means and its guardrails.
-- **GitHub-compute pluggability as a design obligation**: keep the seam
-  contracts honest so a GitHub Actions backend is a backend swap, and record
-  what it would require — without building it.
 - Recording load-bearing decisions (infrastructure stance, harness choice,
   credentials model, advancement policy) as Semantic Updates.
 
@@ -89,8 +99,11 @@ rationale, and research live in supporting records that never override it.
 
 - **Eve as chassis.** No Eve app, channel registration, or durable-session
   machinery here. Eve integration returns later as a consumer of the seams.
-- **Building the GitHub Actions backend.** Designed for, audited against,
-  not implemented.
+- **Backend pluggability.** Cloud dispatch is Vercel-native by decision
+  (seam-design grill, 2026-07-12): no backend abstraction, no GitHub
+  Actions design obligation, vendor vocabulary allowed in the package's
+  gateways. A second compute backend, if ever wanted, earns its own design
+  when it is real.
 - **Channels and event-driven work**: Slack sessions, GitHub-webhook triage,
   and speculative execution are enabled-later use cases (ideas preserved
   from the retired wayfinding map in Parked/Open Questions), not scope.
@@ -108,22 +121,23 @@ rationale, and research live in supporting records that never override it.
 
 - The README is settled through the readme-driven-development loop (coherent
   product documentation, no silently invented commitments) and **promoted**
-  to the dispatch capability package's README under `ts/packages/` (exact
-  home decided with the package name in the seam-design row), with this
-  Objective's reference repointed at the promoted doc. The Objective is not
-  complete while the canonical contract lives only under `references/`.
-- `ns dispatch plan|prompt` exist as repo-local kernel commands reachable
-  from every harness, with wrapper-skill coverage and typed parity metadata,
-  plus the `/ns:dispatch:session` session-continuation surface; the
-  execution backend comes from repo configuration, not a flag.
+  to `ts/packages/capabilities/vercel/README.md`, with this Objective's
+  reference repointed at the promoted doc. The Objective is not complete
+  while the canonical contract lives only under `references/`.
+- `ns dispatch plan|prompt|handoff` exist as repo-local kernel commands
+  reachable from every harness, with wrapper-skill coverage and typed
+  parity metadata, plus the `/ns:dispatch:session` session-continuation
+  surface over `handoff`; the execution backend comes from the `ns.toml`
+  `[dispatch]` settings table, not a flag.
 - A real plan dispatched with `ns dispatch plan` executes on Vercel Sandbox
   under the pi harness adapter end-to-end and lands results git-natively:
   pushed branch and open PR the dispatching side can pick up (result
   contract per the canonical README).
 - A nightly objective-advancement job runs on Vercel Workflows, invokes the
   same executor core, and lands its results git-natively.
-- The seam contracts are documented and contain no vendor types in ns
-  package APIs; the GitHub-backend design note exists.
+- The settled contracts (package identity, gateway vocabulary, anchor/run
+  handle, command shapes, repo configuration) are recorded in
+  `references/seam-design.md` with rationale against alternatives.
 - Decisions (stance, harness, credentials, advancement policy) recorded as
   Semantic Updates with rationale against alternatives.
 - Evidence: targeted `just ts-check` / `just ts-test` pass for changed
@@ -150,12 +164,26 @@ Assumptions:
 Risks:
 
 - **Experimental churn**: the AI SDK harness packages warn of breaking
-  changes; Vercel Workflows is a beta-line SDK. Mitigation: the seams stay
-  thin and vendor types stay out of ns package APIs so churn is absorbed in
-  the backend modules.
+  changes; Vercel Workflows is a beta-line SDK. Mitigation: the blast
+  radius is one package — churn is absorbed in `@nseng-ai/vercel`'s gateway
+  adapters, and the command core types against the gateway interfaces, not
+  the SDKs.
 - **Credentials may dominate cost**: repo access, push rights, and model
   keys for sandboxed execution must be designed, not assumed — hence the
-  dedicated roadmap row before the steel thread.
+  dedicated roadmap row before the steel thread. Largely de-risked
+  2026-07-12: the design is settled against researched primary-source
+  constraints (`references/git-credential-minting-research.md`), with
+  implementation remaining. The package/deployable, typed Vercel project
+  linkage, and production environment-variable custody were verified
+  2026-07-12; the mint endpoint and dispatch preflight remain. Residual,
+  accepted deliberately (racing to an e2e prototype): the v1 shared mint
+  secret and self-landing sandbox are
+  security shortcuts whose upgrades (per-run landing voucher, Vercel-side
+  supervisor) are recorded in `references/credentials-design.md` and must
+  land before wider deployment. The installed `ns-dispatch` GitHub App also
+  currently carries `actions: write` and `workflows: write` beyond the
+  runtime minimum; the user accepted that overreach for the prototype, but
+  the permissions must be tightened before wider deployment.
 - **Autonomous overnight runs need guardrails**: cost, quota, and a
   review/observability path for cloud-produced work (carried from the
   retired map's open items). The nightly job must not merge or land
@@ -175,9 +203,11 @@ Risks:
 
 - Return-path shape: the anchor branch + PR opens up front and carries
   results, decision log, and failure states; a dispatch jobs status TUI is
-  committed (grill decisions, 2026-07-12). Open: the TUI's command name and
-  whether any push-style notification exists beyond the TUI and the anchor
-  PR.
+  committed, and its plumbing is settled — `dispatch/`-prefixed anchor
+  branches, run handle stamped on the anchor PR, run state/logs from
+  Vercel observability (grill decisions, 2026-07-12). Open: the TUI's
+  command name and whether any push-style notification exists beyond the
+  TUI and the anchor PR.
 - Nightly advancement policy: which objectives qualify, what execution
   policy (`## Runner Policy`) an objective must declare to be advanced
   autonomously, and what the human review loop over the produced branches
@@ -188,7 +218,9 @@ Risks:
 - ~~Slots in cloud sandboxes~~ — resolved (grill decision, 2026-07-12):
   slots stay a local worktree concept; sandboxes are ephemeral fresh
   checkouts, and nothing slot-shaped exists in the cloud.
-- When does the GitHub Actions backend graduate from design note to build
-  (PLG pull), and does the same seam serve it unchanged?
+- ~~GitHub Actions backend graduation~~ — resolved by removal (seam-design
+  grill, 2026-07-12): cloud dispatch is Vercel-native; no pluggability
+  obligation survives, so there is nothing to graduate. A second backend
+  would be a new design effort on its own merits.
 - Eve integration timing: which future use case (channels, durable HITL)
   first justifies an Eve app consuming the seams?

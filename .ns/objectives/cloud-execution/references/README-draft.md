@@ -87,7 +87,10 @@ code state, the handoff carries the session context.
 
 Under the hood this is the handoff machinery with a predefined continuation
 prompt: the handoff carries the context, the prompt tells the remote agent
-to pick it up and continue.
+to pick it up and continue. The kernel command is
+`ns dispatch handoff <ref>` — it takes an explicit handoff reference, so
+any handoff (including one created earlier) can be dispatched from any
+harness; capturing the *current* session is the Pi command's sugar.
 
 ### What the remote agent sees
 
@@ -110,27 +113,33 @@ A terminal UI lists every outstanding dispatch job with its status —
 running, landed, or failed — each with its anchor PR, and failed ones with
 the failure reason and access to the run's logs. This is how you answer
 "what did I send away, and is it done?" from the terminal instead of a
-browser tab. (Command name and status plumbing: see Open questions.)
+browser tab. The TUI enumerates the `dispatch/` anchor PRs and follows each
+one's run handle into Vercel's own run observability for live state and
+logs. (Command name: see Open questions.)
 
 ### Under the hood
 
-The Pi commands are thin mirrors of the `ns dispatch plan|prompt` kernel
-CLI, so the same surface is reachable from any harness — Claude Code and
-Codex get the identical commands through wrapper skills. Pi is the
+The Pi commands are thin mirrors of the `ns dispatch plan|prompt|handoff`
+kernel CLI, so the same surface is reachable from any harness — Claude Code
+and Codex get the identical commands through wrapper skills. Pi is the
 first-documented experience, not a privileged one.
 
 There is no per-dispatch backend, harness, or model choice — you dispatch
-work, not runtimes. Which execution backend runs your dispatches (and which
-agent harness runs inside it) is preconfigured in the repository; the
-backend seam is designed so new backends can be added without reshaping the
-commands.
+work, not runtimes. Cloud dispatch is Vercel-native: the `@nseng-ai/vercel`
+capability package runs dispatches on Vercel Sandbox and scheduled work on
+Vercel Workflows. Which agent harness runs inside the sandbox is
+preconfigured in the repository (see "Setup").
 
 ## The anchor PR
 
 Every dispatch opens its pull request **up front**, before the job is
-submitted: a new branch based at the commit you dispatched from is pushed,
-and a PR opens for it immediately. The PR is the job's anchor — one durable,
-linkable place where the dispatch is observable from the moment it exists.
+submitted: a new `dispatch/`-prefixed branch based at the commit you
+dispatched from is pushed, and a PR opens for it immediately. The PR is the
+job's anchor — one durable, linkable place where the dispatch is observable
+from the moment it exists. At submission the PR is stamped with the run's
+handle, so anything (you, the jobs TUI) can get from the PR to the run's
+state and logs later — the anchor PR is the durable record, not a local
+ledger or a cloud console.
 
 - **While the run executes**, the anchor PR is where a dispatch is visible
   outside your terminal.
@@ -172,35 +181,59 @@ dispatch.
 
 ## Setup
 
+Non-secret repo configuration lives in the repo-root `ns.toml`, in a typed
+`[dispatch]` table: which agent harness runs inside the sandbox (Pi first)
+and the stable Vercel project/team IDs. It's versioned with the repo, so every
+clone dispatches the same way:
+
+```toml
+[dispatch]
+harness = "pi"
+vercel_project_id = "prj_..."
+vercel_team_id = "team_..."
+```
+
 Credentials are configured once, on the Vercel project that backs cloud
 dispatch, using Vercel's own secrets infrastructure:
 
 - **Model keys** live as sensitive environment variables on the dispatch
-  project — encrypted at rest, write-only after creation.
+  project — encrypted at rest, write-only after creation. The bootstrap
+  recognizes `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`; a run receives only
+  the key required by its configured model.
 - **Git access** (clone + push) uses short-lived, repo-scoped credentials
-  the executor mints per run; no long-lived broad token sits in an env var.
+  minted per run as **GitHub App installation tokens**; no long-lived broad
+  token sits in an env var. One-time setup: register the org-owned
+  `ns-dispatch` GitHub App, install it on the repository, and generate its
+  private key directly into the sensitive
+  `DISPATCH_GITHUB_APP_PRIVATE_KEY` env var on the dispatch project — the
+  key never touches a dev machine. Non-secret app and installation IDs use
+  `DISPATCH_GITHUB_APP_ID` and `DISPATCH_GITHUB_APP_INSTALLATION_ID`;
+  the prototype's landing-time shared secret uses the sensitive
+  `DISPATCH_SANDBOX_MINT_SECRET` variable. Anchor-PR activity from remote
+  runs attributes to `ns-dispatch[bot]`.
 - **Executor auth** is Vercel OIDC federation: Vercel-hosted compute gets a
   short-lived token injected automatically, and dispatching from your own
   machine uses the development token from `vercel link` + `vercel env pull`.
+- **Your own machine keeps using its own credentials.** The up-front anchor
+  push and PR open ride the git/gh auth already on your machine; minted
+  tokens are for the remote side, where no human credential exists.
 
 Sandboxes are secret-free by default: each run receives only the credentials
-it needs, injected at sandbox creation. Dispatch preflights credentials and
-reports exactly what is missing before any remote work starts.
+it needs, injected at sandbox creation — and the git credential is phased:
+a clone-scoped token at start, no token while the agent works, and a fresh
+short-lived token minted only when the run is ready to land its results.
+Dispatch preflights credentials and reports exactly what is missing before
+any remote work starts.
 
 ## Open questions
 
 Unsettled decisions, visible here on purpose:
 
-- **Dispatch jobs TUI shape.** The TUI is committed. Run state and logs are
-  expected to come from the cloud backend's own run infrastructure (Vercel
-  Sandbox / Workflows observability), queried through the backend seam, with
-  the anchor PR carrying the durable status trace. Open: the TUI's command
-  name and whether any push-style notification exists beyond the TUI and
-  the anchor PR.
-- **Git credential minting.** The Vercel-native credentials story is
-  settled; open is the exact mechanism for minting per-run repo-scoped git
-  credentials (fine-grained PAT, GitHub App installation token, or other),
-  owned by the credentials roadmap row.
+- **Dispatch jobs TUI shape.** The TUI is committed, and its status
+  plumbing is settled: it enumerates `dispatch/` anchor PRs and follows
+  each PR's stamped run handle into Vercel's run observability for state
+  and logs. Open: the TUI's command name and whether any push-style
+  notification exists beyond the TUI and the anchor PR.
 - **Nightly advancement policy.** Which objectives qualify for autonomous
   overnight advancement, what an objective must declare (e.g. a
   `## Runner Policy` section) to opt in, and what the review loop over

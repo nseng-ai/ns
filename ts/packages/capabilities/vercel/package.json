@@ -1,0 +1,43 @@
+{
+	"name": "@nseng-ai/vercel",
+	"version": "0.1.2",
+	"files": [
+		"src",
+		"deployable"
+	],
+	"type": "module",
+	"exports": {
+		"./api": "./src/api/index.ts",
+		"./ns-extension": "./src/ns/extension.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/vercel/test",
+		"pack:local": "node ../../../scripts/prepare-source-publish-package.mjs . && npm pack ./dist/publish --pack-destination dist",
+		"publish:dry-run": "node ../../../scripts/prepare-source-publish-package.mjs . && npm publish --dry-run ./dist/publish"
+	},
+	"dependencies": {
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/kernel": "workspace:*",
+		"zod": "catalog:"
+	},
+	"ns": {
+		"tier": "capability",
+		"group": "dispatch",
+		"subpackages": [
+			"api",
+			"ns"
+		],
+		"settings": [
+			{
+				"path": [
+					"dispatch"
+				],
+				"description": "Vercel-native cloud dispatch configuration."
+			}
+		]
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}
