@@ -21,6 +21,8 @@ import {
 	landSuccess,
 	withSuggestedAction,
 } from "../results.ts";
+import { operationInProgressLabel } from "../working-tree-operations.ts";
+
 import type {
 	LandContext,
 	LandingFailure,
@@ -30,7 +32,6 @@ import type {
 	ManagedSlotWorktree,
 	PrSubmitRequirement,
 	RestackRequirement,
-	WorkingTreeStatus,
 	WorktreeConflict,
 } from "../types.ts";
 import {
@@ -204,19 +205,11 @@ export async function assertCleanRepoForExecution(
 	if (status.value.inProgressOperation !== undefined) {
 		return landOutcomeFailure(
 			landingExecutionFailure(
-				`${executionOperationInProgressLabel(status.value.inProgressOperation)} is in progress; refusing to start stack landing.`,
+				`${operationInProgressLabel(status.value.inProgressOperation)} is in progress; refusing to start stack landing.`,
 			),
 		);
 	}
 	return landCompleted();
-}
-
-export function executionOperationInProgressLabel(
-	operation: NonNullable<WorkingTreeStatus["inProgressOperation"]>,
-): string {
-	if (operation === "cherry-pick") return "A cherry-pick";
-	if (operation === "bisect") return "A bisect";
-	return `A ${operation}`;
 }
 
 function toManagedSlotWorktree(conflict: WorktreeConflict): ManagedSlotWorktree {
