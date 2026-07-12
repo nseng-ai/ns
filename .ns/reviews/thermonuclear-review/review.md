@@ -1,4 +1,24 @@
 ---
+# Provenance (vendored-derived): this review is the diff-grounded adversarial
+# variant of the vendored `.agents/skills/thermo-nuclear-code-quality-review/`
+# skill (upstream `cursor/plugins`, path
+# `cursor-team-kit/skills/thermo-nuclear-code-quality-review/`). Commit-level
+# provenance is owned by the vendoring records (`skills-lock.json`; an upstream
+# instance doc under `docs/agents/` if one lands) — do not duplicate pins here.
+# `docs/agents/matt-pocock-skills.md` records a pending melding assessment
+# between that vendored skill and the first-party `review-thermonuclear-review`
+# stub for when the upstream's first update lands. NS-local adaptations to
+# preserve: `.ns/reviews` frontmatter, the diff-grounded scope (no commit
+# organization, stack shape, PR process, or VCS hygiene), and the prioritized
+# output ordering.
+#
+# Regeneration instructions: when the vendored source skill changes, re-read
+# it, keep this review a per-diff maintainability and simplification review
+# (no repo-wide survey behavior), preserve the NS-local adaptations above and
+# the frontmatter schema accepted by Reviews, and then run:
+#
+#   dprint check .ns/reviews/thermonuclear-review/review.md
+#   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
 description: |
   Run an extremely strict maintainability and implementation-quality review on
   the supplied diff. Push for structural simplification, code-judo reframings,

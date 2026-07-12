@@ -1,4 +1,23 @@
 ---
+# Provenance (vendored-derived): this review is the diff-grounded adversarial
+# variant of the vendored `.agents/skills/improve-codebase-architecture/` skill
+# (upstream `mattpocock/skills`, path
+# `skills/engineering/improve-codebase-architecture/`), an interactive
+# HTML-report architecture survey. This review inverts it into per-diff
+# findings hunting — no HTML reports, no browser artifacts, no grilling loop,
+# no repo-wide survey. The single canonical commit-level pin lives in
+# `docs/agents/matt-pocock-skills.md`; do not duplicate the hash here. NS-local
+# adaptations to preserve: `.ns/reviews` frontmatter, the codebase-design
+# vocabulary glossary, and the diff-grounded mandate/suppression rules.
+#
+# Regeneration instructions: when the vendored source skill changes, re-read
+# it, keep only diff-grounded per-change architecture guidance active here
+# (survey and interactive behaviors stay inverted out), preserve the NS-local
+# adaptations above and the frontmatter schema accepted by Reviews, and then
+# run:
+#
+#   dprint check .ns/reviews/improve-codebase-architecture/review.md
+#   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
 description: |
   Review the supplied diff for architecture deepening opportunities: modules,
   interfaces, seams, adapters, leverage, and locality problems introduced or
