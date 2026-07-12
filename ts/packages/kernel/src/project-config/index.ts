@@ -17,13 +17,17 @@ export type {
 	DescriptorExportPathResult,
 	DescriptorPackageErrorInfo,
 } from "./descriptor-package.ts";
-export { parseExtensionSourceSpec } from "./extension-source-spec.ts";
+export {
+	classifyExtensionSourceLifecycle,
+	parseExtensionSourceSpec,
+} from "./extension-source-spec.ts";
 export { parseExtensionArraySyntax } from "./ns-toml-extension-syntax.ts";
 export type {
 	ExtensionArraySyntax,
 	ExtensionArraySyntaxValue,
 } from "./ns-toml-extension-syntax.ts";
 export type {
+	ExtensionSourceLifecycleClassification,
 	ExtensionSourceSpec,
 	ExtensionSourceSpecDiagnostic,
 } from "./extension-source-spec.ts";

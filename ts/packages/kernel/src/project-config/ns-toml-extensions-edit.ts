@@ -3,7 +3,11 @@ import { resolve } from "node:path";
 import { firstLineEnding } from "@nseng-ai/foundation/markdown-frontmatter";
 
 import { parseDeclaredExtensionSpecsToml } from "./descriptor-package.ts";
-import { parseExtensionSourceSpec, type ExtensionSourceSpec } from "./extension-source-spec.ts";
+import {
+	classifyExtensionSourceLifecycle,
+	extensionSourceRequirementMessage,
+	type ExtensionSourceSpec,
+} from "./extension-source-spec.ts";
 import {
 	findFirstTopLevelTableOffset,
 	parseExtensionArraySyntax,
@@ -203,10 +207,16 @@ export function extensionSourceIdentity(
 	projectRoot: string,
 	spec: string,
 ): ExtensionSourceIdentity | undefined {
-	if (!spec.startsWith("npm:") && /^[a-z][a-z0-9+.-]*:/iu.test(spec)) return undefined;
-	const parsed = parseExtensionSourceSpec(projectRoot, spec);
-	if (!parsed.ok || parsed.value.kind === "git") return undefined;
-	return extensionSourceIdentityFromParsed(projectRoot, parsed.value);
+	const classification = classifyExtensionSourceLifecycle(projectRoot, spec);
+	switch (classification.type) {
+		case "supported-npm":
+		case "supported-local":
+			return extensionSourceIdentityFromParsed(projectRoot, classification.source);
+		case "invalid-npm":
+		case "unsupported-git":
+		case "unsupported-other":
+			return undefined;
+	}
 }
 
 export function extensionSourceIdentityFromParsed(
@@ -324,7 +334,7 @@ function invalidSource(requestedSpec: string): InvalidSourcePlan {
 		ok: false,
 		reason: "invalid-source",
 		requestedSpec,
-		message: `Extension source must be an npm: spec or an unprefixed local path: ${requestedSpec}.`,
+		message: extensionSourceRequirementMessage(requestedSpec),
 	};
 }
 

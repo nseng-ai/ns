@@ -3,13 +3,10 @@ import { join } from "node:path";
 import { failure, type ClinkrExit } from "@nseng-ai/clinkr";
 import { parseNsTomlHarnesses } from "@nseng-ai/harness-artifacts/api";
 import {
-	gitExtensionSourceUnsupportedMessage,
-	parseExtensionSourceSpec,
-	type ExtensionSourceSpec,
-} from "@nseng-ai/kernel/extensions/acquisition";
-import {
+	classifyExtensionSourceLifecycle,
 	extensionSourceIdentityFromParsed,
 	type ExtensionSourceIdentity,
+	type ExtensionSourceSpec,
 } from "@nseng-ai/kernel/project-config";
 
 import {
@@ -87,45 +84,46 @@ export async function prepareExtensionLifecycle(
 			},
 		};
 	}
-	if (
-		!request.source.startsWith("npm:") &&
-		/^[a-z][a-z0-9+.-]*:/iu.test(request.source) &&
-		!request.source.startsWith("git:")
-	) {
-		return {
-			type: "failed",
-			failure: {
-				type: "source-unsupported",
-				sourceSpec: request.source,
-				message: `Extension source must be an npm: spec or an unprefixed local path: ${request.source}.`,
-			},
-		};
+	const classification = classifyExtensionSourceLifecycle(repoRoot, request.source);
+	switch (classification.type) {
+		case "supported-npm":
+		case "supported-local":
+			return {
+				type: "prepared",
+				prepared: {
+					repository: repository.repository,
+					repoRoot,
+					trunkBranch,
+					nsTomlContent: config.content,
+					harnesses: harnesses.harnesses,
+					source: classification.source,
+					sourceIdentity: extensionSourceIdentityFromParsed(repoRoot, classification.source),
+				},
+			};
+		case "invalid-npm":
+			return {
+				type: "failed",
+				failure: { type: "source-invalid", diagnostic: classification.diagnostic },
+			};
+		case "unsupported-git":
+			return {
+				type: "failed",
+				failure: {
+					type: "source-unsupported",
+					sourceSpec: classification.source.raw,
+					message: classification.message,
+				},
+			};
+		case "unsupported-other":
+			return {
+				type: "failed",
+				failure: {
+					type: "source-unsupported",
+					sourceSpec: classification.sourceSpec,
+					message: classification.message,
+				},
+			};
 	}
-	const parsed = parseExtensionSourceSpec(repoRoot, request.source);
-	if (!parsed.ok)
-		return { type: "failed", failure: { type: "source-invalid", diagnostic: parsed.error } };
-	if (parsed.value.kind === "git") {
-		return {
-			type: "failed",
-			failure: {
-				type: "source-unsupported",
-				sourceSpec: request.source,
-				message: gitExtensionSourceUnsupportedMessage(request.source),
-			},
-		};
-	}
-	return {
-		type: "prepared",
-		prepared: {
-			repository: repository.repository,
-			repoRoot,
-			trunkBranch,
-			nsTomlContent: config.content,
-			harnesses: harnesses.harnesses,
-			source: parsed.value,
-			sourceIdentity: extensionSourceIdentityFromParsed(repoRoot, parsed.value),
-		},
-	};
 }
 
 function extensionLifecycleGerund(verb: ExtensionLifecycleVerb): string {

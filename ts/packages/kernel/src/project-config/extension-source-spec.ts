@@ -19,11 +19,66 @@ export interface ExtensionSourceSpecDiagnostic {
 	readonly spec: string;
 }
 
+export type ExtensionSourceLifecycleClassification =
+	| {
+			readonly type: "supported-npm";
+			readonly source: Extract<ExtensionSourceSpec, { kind: "npm" }>;
+	  }
+	| {
+			readonly type: "supported-local";
+			readonly source: Extract<ExtensionSourceSpec, { kind: "local" }>;
+	  }
+	| {
+			readonly type: "unsupported-git";
+			readonly source: Extract<ExtensionSourceSpec, { kind: "git" }>;
+			readonly message: string;
+	  }
+	| {
+			readonly type: "unsupported-other";
+			readonly sourceSpec: string;
+			readonly scheme: string;
+			readonly message: string;
+	  }
+	| { readonly type: "invalid-npm"; readonly diagnostic: ExtensionSourceSpecDiagnostic };
+
 export const GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON =
 	"Git extension sources are recognized but unsupported.";
 
 export function gitExtensionSourceUnsupportedMessage(spec: string): string {
 	return `${GIT_EXTENSION_SOURCE_UNSUPPORTED_REASON} Source: ${spec}.`;
+}
+
+export function extensionSourceRequirementMessage(spec: string): string {
+	return `Extension source must be an npm: spec or an unprefixed local path: ${spec}.`;
+}
+
+export function classifyExtensionSourceLifecycle(
+	projectRoot: string,
+	raw: string,
+): ExtensionSourceLifecycleClassification {
+	const parsed = parseExtensionSourceSpec(projectRoot, raw);
+	if (!parsed.ok) return { type: "invalid-npm", diagnostic: parsed.error };
+	switch (parsed.value.kind) {
+		case "npm":
+			return { type: "supported-npm", source: parsed.value };
+		case "git":
+			return {
+				type: "unsupported-git",
+				source: parsed.value,
+				message: gitExtensionSourceUnsupportedMessage(raw),
+			};
+		case "local": {
+			const schemeWithSeparator = raw.match(/^[a-z][a-z0-9+.-]*:/iu)?.[0];
+			if (schemeWithSeparator === undefined)
+				return { type: "supported-local", source: parsed.value };
+			return {
+				type: "unsupported-other",
+				sourceSpec: raw,
+				scheme: schemeWithSeparator.slice(0, -1),
+				message: extensionSourceRequirementMessage(raw),
+			};
+		}
+	}
 }
 
 export function parseExtensionSourceSpec(

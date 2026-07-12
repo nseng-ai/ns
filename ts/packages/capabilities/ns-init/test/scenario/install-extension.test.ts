@@ -7,6 +7,7 @@ import { createEmptyPreparedProjectHarnessArtifactTransitions } from "@nseng-ai/
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/kernel/extensions/declared-descriptors";
 import { npmPackageRoot } from "@nseng-ai/kernel/extensions/acquisition";
 
+import { prepareExtensionLifecycle } from "../../src/extension-lifecycle-preflight.ts";
 import type { ExtensionInstallContext } from "../../src/install-extension.ts";
 import { installExtension } from "../../src/install-extension.ts";
 import {
@@ -79,6 +80,109 @@ function fixture(options: {
 }
 
 const initializedToml = 'harnesses = ["pi"]\n';
+
+describe("extension lifecycle source classification", () => {
+	it.each([
+		{
+			label: "unscoped npm",
+			source: "npm:tools",
+			expected: {
+				type: "prepared",
+				prepared: {
+					source: { kind: "npm", packageName: "tools", version: undefined, isPinned: false },
+					sourceIdentity: { kind: "npm", value: "tools" },
+				},
+			},
+		},
+		{
+			label: "scoped npm",
+			source: "npm:@test/tools@2.0.0",
+			expected: {
+				type: "prepared",
+				prepared: {
+					source: {
+						kind: "npm",
+						packageName: "@test/tools",
+						version: "2.0.0",
+						isPinned: true,
+					},
+					sourceIdentity: { kind: "npm", value: "@test/tools" },
+				},
+			},
+		},
+		{
+			label: "malformed npm",
+			source: "npm:",
+			expected: {
+				type: "failed",
+				failure: {
+					type: "source-invalid",
+					diagnostic: {
+						code: "extension_acquisition_invalid_npm_spec",
+						message:
+							"Invalid npm extension source spec: npm:. Expected npm:pkg, npm:pkg@version, npm:@scope/name, or npm:@scope/name@version.",
+						spec: "npm:",
+					},
+				},
+			},
+		},
+		{
+			label: "local path",
+			source: "./extensions/tools",
+			expected: {
+				type: "prepared",
+				prepared: {
+					source: { kind: "local", path: "/repo/extensions/tools" },
+					sourceIdentity: { kind: "local", value: "/repo/extensions/tools" },
+				},
+			},
+		},
+		{
+			label: "git before nested URI syntax",
+			source: "git:https://github.com/acme/tools.git",
+			expected: {
+				type: "failed",
+				failure: {
+					type: "source-unsupported",
+					sourceSpec: "git:https://github.com/acme/tools.git",
+					message:
+						"Git extension sources are recognized but unsupported. Source: git:https://github.com/acme/tools.git.",
+				},
+			},
+		},
+		{
+			label: "https URI",
+			source: "https://example.test/tools.tgz",
+			expected: {
+				type: "failed",
+				failure: {
+					type: "source-unsupported",
+					sourceSpec: "https://example.test/tools.tgz",
+					message:
+						"Extension source must be an npm: spec or an unprefixed local path: https://example.test/tools.tgz.",
+				},
+			},
+		},
+		{
+			label: "another URI scheme",
+			source: "ssh://example.test/tools.git",
+			expected: {
+				type: "failed",
+				failure: {
+					type: "source-unsupported",
+					sourceSpec: "ssh://example.test/tools.git",
+					message:
+						"Extension source must be an npm: spec or an unprefixed local path: ssh://example.test/tools.git.",
+				},
+			},
+		},
+	])("preserves the $label lifecycle result", async ({ source, expected }) => {
+		const { context } = fixture({ nsToml: initializedToml });
+		await expect(
+			prepareExtensionLifecycle(context, { cwd: "/repo", source }),
+		).resolves.toMatchObject(expected);
+	});
+});
 
 describe("installExtension", () => {
 	it("records and activates a local package in place", async () => {
