@@ -37,7 +37,10 @@ export type {
 	EnsureExtensionSourceResult,
 	ExtensionInstallAcquisitionGateway,
 	ExtensionUninstallAcquisitionGateway,
+	ExtensionUpdateAcquisitionFailure,
 	ExtensionUpdateAcquisitionGateway,
+	PreviewExtensionUpdateSourceResult,
+	ReconcileExtensionUpdateSourceResult,
 	RemoveManagedNpmExtensionParams,
 	RemoveManagedNpmExtensionResult,
 } from "./extension-acquisition.ts";
@@ -74,6 +77,7 @@ export type {
 	UpdateExtensionResult,
 } from "./update-extension.ts";
 export {
+	classifyUpdateOutcome,
 	renderUpdateExtensionHuman,
 	updateExtension,
 	updateExtensionRequestSchema,

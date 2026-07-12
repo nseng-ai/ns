@@ -96,6 +96,8 @@ export interface ResolveDeclaredExtensionModulesRequest {
 	readonly mode: "preview" | "apply";
 	/** Ensure is install-idempotent; refresh-floating is reserved for explicit update behavior. */
 	readonly npmAcquisition?: "ensure" | "refresh-floating";
+	/** Optional caller-owned snapshot avoids repeating an inspection already performed for policy. */
+	readonly npmPackageInstallationSnapshot?: ReadonlyMap<string, boolean>;
 	readonly gateway?: ExtensionAcquisitionGateway;
 }
 
@@ -293,7 +295,11 @@ export async function resolveDeclaredExtensionModules(
 		const managedPaths = managedNpmPackagePaths(request.projectRoot, parsed.value.packageName);
 		const npmProjectDir = managedPaths.npmProjectRoot;
 		const packageRoot = managedPaths.packageRoot;
-		const installed = await gateway.isNpmPackageInstalled(packageRoot);
+		const snapshotInstalled = request.npmPackageInstallationSnapshot?.get(packageRoot);
+		const installed =
+			snapshotInstalled === undefined
+				? await gateway.isNpmPackageInstalled(packageRoot)
+				: resultOk(snapshotInstalled);
 		if (!installed.ok) {
 			diagnostics.push(withSpec(installed.error, raw));
 			continue;

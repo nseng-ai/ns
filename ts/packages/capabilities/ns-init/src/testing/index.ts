@@ -10,8 +10,10 @@ export { InMemoryDeclaredExtensionsGateway } from "../fake-declared-extensions.t
 export type {
 	InMemoryExtensionInstallAcquisitionState,
 	InMemoryExtensionUninstallAcquisitionState,
+	InMemoryExtensionUpdateAcquisitionState,
 } from "../extension-acquisition.ts";
 export {
 	InMemoryExtensionInstallAcquisitionGateway,
 	InMemoryExtensionUninstallAcquisitionGateway,
+	InMemoryExtensionUpdateAcquisitionGateway,
 } from "../extension-acquisition.ts";

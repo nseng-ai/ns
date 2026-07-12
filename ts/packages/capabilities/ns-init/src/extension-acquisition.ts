@@ -53,16 +53,58 @@ export class RealExtensionInstallAcquisitionGateway implements ExtensionInstallA
 	}
 }
 
-export interface UpdateExtensionSourceResult {
-	readonly isOk: boolean;
-	readonly moduleRoot?: string;
-	readonly hasExistingSource: boolean;
+export interface ExtensionUpdateAcquisitionFailure {
+	readonly type: "failed";
 	readonly diagnostics: readonly ExtensionAcquisitionDiagnostic[];
 }
 
+export type PreviewExtensionUpdateSourceResult =
+	| ExtensionUpdateAcquisitionFailure
+	| {
+			readonly type: "preview-existing";
+			readonly sourceKind: "local";
+			readonly moduleRoot: string;
+			readonly intent: "local-in-place";
+	  }
+	| {
+			readonly type: "preview-existing";
+			readonly sourceKind: "npm";
+			readonly moduleRoot: string;
+			readonly intent: "ensure-pinned";
+	  }
+	| {
+			readonly type: "preview-apply-required";
+			readonly sourceKind: "npm";
+			readonly intent: "ensure-pinned" | "refresh-floating";
+	  };
+
+export type ReconcileExtensionUpdateSourceResult =
+	| ExtensionUpdateAcquisitionFailure
+	| {
+			readonly type: "applied";
+			readonly sourceKind: "local";
+			readonly moduleRoot: string;
+			readonly intent: "local-in-place";
+			readonly outcome: "local-in-place";
+	  }
+	| {
+			readonly type: "applied";
+			readonly sourceKind: "npm";
+			readonly moduleRoot: string;
+			readonly intent: "ensure-pinned";
+			readonly outcome: "restored" | "unchanged";
+	  }
+	| {
+			readonly type: "applied";
+			readonly sourceKind: "npm";
+			readonly moduleRoot: string;
+			readonly intent: "refresh-floating";
+			readonly outcome: "refreshed" | "restored";
+	  };
+
 export interface ExtensionUpdateAcquisitionGateway {
-	preview(params: EnsureExtensionSourceParams): Promise<UpdateExtensionSourceResult>;
-	reconcile(params: EnsureExtensionSourceParams): Promise<UpdateExtensionSourceResult>;
+	preview(params: EnsureExtensionSourceParams): Promise<PreviewExtensionUpdateSourceResult>;
+	reconcile(params: EnsureExtensionSourceParams): Promise<ReconcileExtensionUpdateSourceResult>;
 }
 
 export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcquisitionGateway {
@@ -72,45 +114,115 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 		this.acquisition = acquisition;
 	}
 
-	async preview(params: EnsureExtensionSourceParams): Promise<UpdateExtensionSourceResult> {
-		return await this.resolve(params, "preview");
+	async preview(params: EnsureExtensionSourceParams): Promise<PreviewExtensionUpdateSourceResult> {
+		const result = await resolveDeclaredExtensionModules({
+			projectRoot: params.repoRoot,
+			declaredSpecs: [params.sourceSpec],
+			mode: "preview",
+			npmAcquisition: "refresh-floating",
+			gateway: this.acquisition,
+		});
+		const root = result.roots.find((candidate) => candidate.spec === params.sourceSpec);
+		const unexpectedDiagnostics = result.diagnostics.filter(
+			(diagnostic) => diagnostic.code !== "extension_acquisition_preview_skipped",
+		);
+		if (unexpectedDiagnostics.length > 0) {
+			return { type: "failed", diagnostics: unexpectedDiagnostics };
+		}
+		const parsed = parseExtensionSourceSpec(params.repoRoot, params.sourceSpec);
+		if (!parsed.ok) return { type: "failed", diagnostics: [{ ...parsed.error }] };
+		if (
+			parsed.value.kind === "npm" &&
+			(result.diagnostics.some(
+				(diagnostic) => diagnostic.code === "extension_acquisition_preview_skipped",
+			) ||
+				!parsed.value.isPinned)
+		) {
+			return {
+				type: "preview-apply-required",
+				sourceKind: "npm",
+				intent: parsed.value.isPinned ? "ensure-pinned" : "refresh-floating",
+			};
+		}
+		if (root === undefined) return { type: "failed", diagnostics: result.diagnostics };
+		if (root.sourceKind === "local") {
+			return {
+				type: "preview-existing",
+				sourceKind: "local",
+				moduleRoot: root.moduleRoot,
+				intent: "local-in-place",
+			};
+		}
+		return {
+			type: "preview-existing",
+			sourceKind: "npm",
+			moduleRoot: root.moduleRoot,
+			intent: "ensure-pinned",
+		};
 	}
 
-	async reconcile(params: EnsureExtensionSourceParams): Promise<UpdateExtensionSourceResult> {
-		const preview = await this.resolve(params, "preview");
+	async reconcile(
+		params: EnsureExtensionSourceParams,
+	): Promise<ReconcileExtensionUpdateSourceResult> {
+		const parsed = parseExtensionSourceSpec(params.repoRoot, params.sourceSpec);
+		if (!parsed.ok) return { type: "failed", diagnostics: [{ ...parsed.error }] };
+		let existedBefore = false;
+		const installationSnapshot = new Map<string, boolean>();
+		if (parsed.value.kind === "npm") {
+			const packageRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
+			const inspected = await this.acquisition.isNpmPackageInstalled(packageRoot);
+			if (!inspected.ok) return { type: "failed", diagnostics: [{ ...inspected.error }] };
+			existedBefore = inspected.value;
+			installationSnapshot.set(packageRoot, inspected.value);
+		}
 		const applied = await resolveDeclaredExtensionModules({
 			projectRoot: params.repoRoot,
 			declaredSpecs: [params.sourceSpec],
 			mode: "apply",
 			npmAcquisition: "refresh-floating",
+			npmPackageInstallationSnapshot: installationSnapshot,
 			gateway: this.acquisition,
 		});
 		const root = applied.roots.find((candidate) => candidate.spec === params.sourceSpec);
+		if (root === undefined || applied.diagnostics.length > 0) {
+			return { type: "failed", diagnostics: applied.diagnostics };
+		}
+		if (parsed.value.kind === "local") {
+			return {
+				type: "applied",
+				sourceKind: "local",
+				moduleRoot: root.moduleRoot,
+				intent: "local-in-place",
+				outcome: "local-in-place",
+			};
+		}
+		if (parsed.value.kind === "git") {
+			return {
+				type: "failed",
+				diagnostics: [
+					{
+						code: "extension_acquisition_git_unsupported",
+						message: gitExtensionSourceUnsupportedMessage(params.sourceSpec),
+						spec: params.sourceSpec,
+					},
+				],
+			};
+		}
+		if (parsed.value.isPinned) {
+			return {
+				type: "applied",
+				sourceKind: "npm",
+				moduleRoot: root.moduleRoot,
+				intent: "ensure-pinned",
+				outcome: existedBefore ? "unchanged" : "restored",
+			};
+		}
 		return {
-			isOk: root !== undefined && applied.diagnostics.length === 0,
-			...(root === undefined ? {} : { moduleRoot: root.moduleRoot }),
-			hasExistingSource: preview.moduleRoot !== undefined,
-			diagnostics: applied.diagnostics,
-		};
-	}
-
-	private async resolve(
-		params: EnsureExtensionSourceParams,
-		mode: "preview" | "apply",
-	): Promise<UpdateExtensionSourceResult> {
-		const result = await resolveDeclaredExtensionModules({
-			projectRoot: params.repoRoot,
-			declaredSpecs: [params.sourceSpec],
-			mode,
-			npmAcquisition: "refresh-floating",
-			gateway: this.acquisition,
-		});
-		const root = result.roots.find((candidate) => candidate.spec === params.sourceSpec);
-		return {
-			isOk: mode === "preview" || (root !== undefined && result.diagnostics.length === 0),
-			...(root === undefined ? {} : { moduleRoot: root.moduleRoot }),
-			hasExistingSource: root !== undefined,
-			diagnostics: result.diagnostics,
+			type: "applied",
+			sourceKind: "npm",
+			moduleRoot: root.moduleRoot,
+			intent: "refresh-floating",
+			outcome: existedBefore ? "refreshed" : "restored",
 		};
 	}
 }
@@ -195,6 +307,134 @@ export class InMemoryExtensionInstallAcquisitionGateway implements ExtensionInst
 
 	calls(): readonly EnsureExtensionSourceParams[] {
 		return this.ensureLog.map((call) => ({ ...call }));
+	}
+}
+
+export interface InMemoryExtensionUpdateAcquisitionState {
+	readonly installedPackageRoots?: readonly string[];
+	readonly previewFailureBySpec?: Readonly<Record<string, ExtensionAcquisitionDiagnostic>>;
+	readonly reconcileFailureBySpec?: Readonly<Record<string, ExtensionAcquisitionDiagnostic>>;
+}
+
+export class InMemoryExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcquisitionGateway {
+	private readonly installedPackageRoots: Set<string>;
+	private readonly previewFailureBySpec: Readonly<Record<string, ExtensionAcquisitionDiagnostic>>;
+	private readonly reconcileFailureBySpec: Readonly<Record<string, ExtensionAcquisitionDiagnostic>>;
+	private readonly operationLog: Array<{
+		readonly operation: "preview" | "reconcile";
+		readonly params: EnsureExtensionSourceParams;
+	}> = [];
+
+	constructor(state: InMemoryExtensionUpdateAcquisitionState = {}) {
+		this.installedPackageRoots = new Set(state.installedPackageRoots ?? []);
+		this.previewFailureBySpec = structuredClone(state.previewFailureBySpec ?? {});
+		this.reconcileFailureBySpec = structuredClone(state.reconcileFailureBySpec ?? {});
+	}
+
+	async preview(params: EnsureExtensionSourceParams): Promise<PreviewExtensionUpdateSourceResult> {
+		this.operationLog.push({ operation: "preview", params: { ...params } });
+		const failure = this.previewFailureBySpec[params.sourceSpec];
+		if (failure !== undefined) return { type: "failed", diagnostics: [{ ...failure }] };
+		const parsed = parseExtensionSourceSpec(params.repoRoot, params.sourceSpec);
+		if (!parsed.ok) return { type: "failed", diagnostics: [{ ...parsed.error }] };
+		if (parsed.value.kind === "git") {
+			return {
+				type: "failed",
+				diagnostics: [
+					{
+						code: "extension_acquisition_git_unsupported",
+						message: gitExtensionSourceUnsupportedMessage(params.sourceSpec),
+						spec: params.sourceSpec,
+					},
+				],
+			};
+		}
+		if (parsed.value.kind === "local") {
+			return {
+				type: "preview-existing",
+				sourceKind: "local",
+				moduleRoot: parsed.value.path,
+				intent: "local-in-place",
+			};
+		}
+		const moduleRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
+		if (!parsed.value.isPinned || !this.installedPackageRoots.has(moduleRoot)) {
+			return {
+				type: "preview-apply-required",
+				sourceKind: "npm",
+				intent: parsed.value.isPinned ? "ensure-pinned" : "refresh-floating",
+			};
+		}
+		return {
+			type: "preview-existing",
+			sourceKind: "npm",
+			moduleRoot,
+			intent: "ensure-pinned",
+		};
+	}
+
+	async reconcile(
+		params: EnsureExtensionSourceParams,
+	): Promise<ReconcileExtensionUpdateSourceResult> {
+		this.operationLog.push({ operation: "reconcile", params: { ...params } });
+		const failure = this.reconcileFailureBySpec[params.sourceSpec];
+		if (failure !== undefined) return { type: "failed", diagnostics: [{ ...failure }] };
+		const parsed = parseExtensionSourceSpec(params.repoRoot, params.sourceSpec);
+		if (!parsed.ok) return { type: "failed", diagnostics: [{ ...parsed.error }] };
+		if (parsed.value.kind === "git") {
+			return {
+				type: "failed",
+				diagnostics: [
+					{
+						code: "extension_acquisition_git_unsupported",
+						message: gitExtensionSourceUnsupportedMessage(params.sourceSpec),
+						spec: params.sourceSpec,
+					},
+				],
+			};
+		}
+		if (parsed.value.kind === "local") {
+			return {
+				type: "applied",
+				sourceKind: "local",
+				moduleRoot: parsed.value.path,
+				intent: "local-in-place",
+				outcome: "local-in-place",
+			};
+		}
+		const moduleRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
+		const existedBefore = this.installedPackageRoots.has(moduleRoot);
+		this.installedPackageRoots.add(moduleRoot);
+		if (parsed.value.isPinned) {
+			return {
+				type: "applied",
+				sourceKind: "npm",
+				moduleRoot,
+				intent: "ensure-pinned",
+				outcome: existedBefore ? "unchanged" : "restored",
+			};
+		}
+		return {
+			type: "applied",
+			sourceKind: "npm",
+			moduleRoot,
+			intent: "refresh-floating",
+			outcome: existedBefore ? "refreshed" : "restored",
+		};
+	}
+
+	installedRoots(): ReadonlySet<string> {
+		return new Set(this.installedPackageRoots);
+	}
+
+	operations(): readonly {
+		readonly operation: "preview" | "reconcile";
+		readonly params: EnsureExtensionSourceParams;
+	}[] {
+		return this.operationLog.map((entry) => ({
+			operation: entry.operation,
+			params: { ...entry.params },
+		}));
 	}
 }
 
