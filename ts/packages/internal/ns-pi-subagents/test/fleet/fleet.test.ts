@@ -17,6 +17,7 @@ import {
 	formatSubagentFleetTaskLines,
 	formatSubagentFleetWidgetLines,
 	syncSubagentFleetDisplay,
+	taskIcon,
 } from "../../src/fleet/display.ts";
 import {
 	dispatchTrackedSingleSubagentFleetRun,
@@ -253,6 +254,20 @@ describe("subagent fleet display for explorer", () => {
 			.snapshot()
 			.flatMap((fleetRun) => fleetRun.tasks.map((task) => task.title));
 		expect(titles).toEqual(["New", "Running"]);
+	});
+
+	test("uses success icons for both terminal-capture and final-text completion", () => {
+		const completedTask = {
+			id: "completed",
+			runId: "run",
+			index: 0,
+			title: "Completed",
+			state: "done",
+			finalStatus: "completed",
+		} as const;
+		expect(taskIcon(completedTask)).toBe("✓");
+		expect(taskIcon({ ...completedTask, finalStatus: "final-text" })).toBe("✓");
+		expect(taskIcon({ ...completedTask, finalStatus: "error" })).toBe("✗");
 	});
 
 	test("summarizes active fleet state in the footer status with the shortcut hint", () => {

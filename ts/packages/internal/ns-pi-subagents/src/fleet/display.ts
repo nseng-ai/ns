@@ -4,6 +4,7 @@ import {
 	type SubagentFleetRunSnapshot,
 	type SubagentFleetTaskSnapshot,
 } from "./registry.ts";
+import { isSuccessfulRunnerSubagentStatus } from "../runner-subagents/extension-api.ts";
 import { setRunnerSubagentWidget } from "../runner-subagents/widget.ts";
 import { SUBAGENT_FLEET_COMMAND_NAME, SUBAGENT_FLEET_SHORTCUT_LABEL } from "./contract.ts";
 
@@ -130,5 +131,7 @@ export function sortedFleetTasks(
 export function taskIcon(task: SubagentFleetTaskSnapshot): string {
 	if (task.state === "queued") return "·";
 	if (task.state === "running") return "▶";
-	return task.finalStatus === "final-text" ? "✓" : "✗";
+	return task.finalStatus !== undefined && isSuccessfulRunnerSubagentStatus(task.finalStatus)
+		? "✓"
+		: "✗";
 }

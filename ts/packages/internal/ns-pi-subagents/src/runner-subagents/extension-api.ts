@@ -227,6 +227,25 @@ export type RunnerSubagentResult<TInput = unknown> =
 	| RunnerSubagentErrorResult
 	| RunnerSubagentProtocolErrorResult;
 
+export function isSuccessfulRunnerSubagentStatus(status: RunnerSubagentResult["status"]): boolean {
+	switch (status) {
+		case "completed":
+		case "final-text":
+			return true;
+		case "blocked":
+		case "stopped-without-terminal":
+		case "stopped-without-useful-text":
+		case "cancelled":
+		case "error":
+		case "protocol-error":
+			return false;
+		default: {
+			const exhaustive: never = status;
+			return exhaustive;
+		}
+	}
+}
+
 export function resultDiagnostic(result: RunnerSubagentResult): string | undefined {
 	switch (result.status) {
 		case "completed":

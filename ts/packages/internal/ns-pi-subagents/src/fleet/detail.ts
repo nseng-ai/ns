@@ -1,9 +1,10 @@
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import { readRunnerSubagentUsageFromSessionFile } from "../runner-subagents/extension-usage.ts";
-import type {
-	RunnerSubagentResult,
-	RunnerSubagentUsageMetadata,
+import {
+	isSuccessfulRunnerSubagentStatus,
+	type RunnerSubagentResult,
+	type RunnerSubagentUsageMetadata,
 } from "../runner-subagents/extension-api.ts";
 import {
 	createRunnerSubagentJsonEventParser,
@@ -303,27 +304,8 @@ export function postRunDiagnostic(
 	if (snapshot.protocolError !== undefined) return snapshot.protocolError.message;
 	if (snapshot.errorMessage !== undefined) return snapshot.errorMessage;
 	if (snapshot.error !== undefined) return snapshot.error.message;
-	if (!isSuccessfulPostRunStatus(status)) return `unavailable; final status ${status}`;
+	if (!isSuccessfulRunnerSubagentStatus(status)) return `unavailable; final status ${status}`;
 	return undefined;
-}
-
-function isSuccessfulPostRunStatus(status: RunnerSubagentResult["status"]): boolean {
-	switch (status) {
-		case "completed":
-		case "final-text":
-			return true;
-		case "blocked":
-		case "stopped-without-terminal":
-		case "stopped-without-useful-text":
-		case "cancelled":
-		case "error":
-		case "protocol-error":
-			return false;
-		default: {
-			const exhaustive: never = status;
-			return exhaustive;
-		}
-	}
 }
 
 export function summarizeHeadChange(
