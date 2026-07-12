@@ -30,10 +30,9 @@ Five friction points, each a roadmap row:
    dir and lock entry), and areg has nothing to finish the job: `areg doctor` detects
    stale `.pi/settings.json` exclusions but offers no fix, and dead rows in
    `ts/packages/hosts/command-backed-skill-registry/src/index.ts` are not flagged at
-   all. (The `ts-morph-refactor` dead row observed that session was later removed by
-   hand in an unrelated vendored-skills cleanup; `doctor skills` still has no
-   registry-row ↔ installed-skill cross-check, so the next dead row is equally
-   invisible.) Add a doctor cross-check of command-backed registry rows ↔ installed
+   all. (A dead row observed during that session was later removed by hand in an
+   unrelated vendored-skills cleanup; `doctor skills` still has no registry-row ↔
+   installed-skill cross-check, so the next dead row is equally invisible.) Add a doctor cross-check of command-backed registry rows ↔ installed
    skills (both directions) and a fix path (doctor `--fix` and/or an `areg skill
    remove` owning full teardown).
 3. **`.pi/settings.json` ordering churn.** `areg skill apply` removes and re-appends the

@@ -12,8 +12,7 @@
     "build": "next build",
     "start": "next start",
     "check": "next build",
-    "postinstall": "fumadocs-mdx",
-    "translate": "npx @vercel/geistdocs translate"
+    "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
     "@vercel/analytics": "2.0.1",

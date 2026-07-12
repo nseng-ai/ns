@@ -115,9 +115,9 @@ ambient targets, now lead.
   (e.g. `writing-great-skills`, `skill-creator`, `grilling`, `grill-me`,
   `grill-with-docs`, `improve-codebase-architecture`, `codebase-design`,
   `domain-modeling`, `fdt-refactor-mock-to-fake`, `graphite`, `opentui`,
-  `thermo-nuclear-code-quality-review`, `ts-morph-analyze`) — these are upstream code.
-  (Membership shifts over time: `improve` and `ts-morph-refactor` have since been
-  removed from the vendored set.)
+  `thermo-nuclear-code-quality-review`) — these are upstream code.
+  (Membership shifts over time: `improve` has since been removed from the vendored
+  set.)
 - Not the `skill-management-subsystem` Objective's install/list/path/catalog tooling.
   This Objective is about skill *content*, that one is about the management *subsystem*.
 - No new production/remediation target skills and no change to what any existing skill

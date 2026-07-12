@@ -24,12 +24,12 @@ Supporting facts verified present at HEAD: `agents/openai.yaml` overlay handling
 throughout areg source, `docs/conventions/upstream-skill-melding.md`, `skills-lock.json`,
 `@nseng-ai/harness-artifacts`, and remote branch `pocock-upstream-refresh-melding-process`.
 
-One stale fact corrected in Scope item 2: the record cited the `ts-morph-refactor` row as
-a live "pre-existing dead row not flagged," but that row was removed in commit
-`709828e3e` (2026-07-08 12:05), two minutes before the record was authored
-(`1d3b90e35`, 12:07). The generalized friction — no mechanical dead-row detection —
-remains true, so the item stands; only the illustrative example was corrected to reflect
-that the observed row was hand-removed and nothing catches the next one.
+One stale fact corrected in Scope item 2: the record cited a specific row as a live
+"pre-existing dead row not flagged," but that row was removed in commit `709828e3e`
+(2026-07-08 12:05), two minutes before the record was authored (`1d3b90e35`, 12:07).
+The generalized friction — no mechanical dead-row detection — remains true, so the item
+stands; only the illustrative example was corrected to reflect that the observed row was
+hand-removed and nothing catches the next one.
 
 ## Objective Impact
 
