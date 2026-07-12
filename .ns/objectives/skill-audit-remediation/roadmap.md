@@ -68,23 +68,38 @@ findings against the live files before editing (line references in
       architecture-topology-report HTML-REPORT.md);
       sharpen the flagged vague completion criteria (ccc-branch-triage, code-thermostack,
       code-gt-restack-resolve, skill-management rename).
-- [ ] Tranche 4 — CLI push-down dispositions: for each of the 29 T4 candidates, record
-      accept/graduate/reject with rationale; implement only the small, clearly-bounded
-      accepted ones here.
-      Guidance: strongest candidates from the audit — shared `ccc exec` inventory/manifest
-      helper (three ccc skills hand-roll the same cmux+git+Graphite pipeline);
-      `ns slot gt exec` additions (restack-preflight, descendants-report, backup-refs shared
-      by code-smush and code-gt-linearize-descendants); extending the tracking-gate exec
-      surface to objective-update/objective-refresh; areg mutation commands
-      (add-local/remove-local/rename) collapsing skill-management's shell workflows;
-      wait-for-checks primitive beside `ns address exec branch-pr-checks`. Larger items
-      graduate to their own Objectives rather than expanding this one.
+      Neutral-home policy (decided 2026-07-12): shared family material defaults to
+      `docs/conventions/` per the adversarial-reviews precedent — merge into an existing
+      conventions doc when one fits (e.g. the gt plumbing-not-display rule near
+      `graphite-dependency-boundary.md`), create a focused new doc otherwise; the runner
+      chooses per item within this policy.
+- [ ] Tranche 4 — CLI push-down execution: dispositions for all 29 candidates were
+      decided 2026-07-12 (frontload update); this row implements the accepted ones and
+      creates the graduate records.
+      Guidance: **Accepted (implement here):** `ns slot gt exec backup-refs` (shared by
+      code-smush and code-gt-linearize-descendants); `wait-for-checks` primitive beside
+      `ns address exec branch-pr-checks`; `ns handoff create` slug normalization plus
+      `ns handoff pickup` term-matching; a bundled episode-slice script for
+      context-bundle-analysis; the routing retrofit pointing code-thermostack and
+      code-gt-linearize-descendants at the existing `stack-branches` exec (no new CLI).
+      **Graduate (runner creates minimal objective records):** `ccc exec`
+      inventory/manifest helper; objective exec surface extension (refresh-targets,
+      update/refresh evidence, retro reconstruction pipeline); `ns slot gt exec`
+      restack-preflight + descendants-report; areg mutation commands are recorded as a
+      note/edge on the existing skill-management-subsystem objective rather than a new
+      record. **Rejected (rationale in the frontload update):** changelog-update
+      commit-fetching (skill keeps pure-git portability); create-*/setup-* bundled
+      scripts (usage too low); merge-conflicts inventory command; envelope
+      field-drift check; objective-retro `--repo/--branch` flag defaults (noted for the
+      next ns retro CLI iteration, untracked here).
 
 ## Parked
 
 - [ ] Closing audit spot-check: after Tranches 0–3 land, re-run `skill-audit` on a sample
       of the most-edited skills to confirm the remediation introduced no new duplication or
       sediment (graduates into Work when the stack is up).
-- [ ] Family-shared scaffolding for the create-* trio (shared instantiate script or
-      common-scaffold reference): worth doing only if the scaffolding skills see real use;
-      re-judge at Tranche 4 time.
+
+Resolved 2026-07-12: the family-shared scaffolding row for the create-* trio is
+rejected — the scaffolding skills see too little use to justify shared instantiate
+scripts (decision in the frontload update; the T4 create-*/setup-* rejection covers the
+same ground).

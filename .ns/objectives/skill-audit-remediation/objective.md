@@ -90,11 +90,47 @@ structural work stacks on top of the safe deletions.
 
 ## Open Questions
 
-- `changelog-update` portability: keep the "pure git, no external tools" identity (reject
-  its T4 push-down) or accept ns-scoping? (audit-findings: docs/retro batch)
+None. All human-gated decisions are frontloaded so remaining tranches can run
+unattended. Resolved 2026-07-12 (decisions and rationale in
+`updates/20260712T150643Z-tranche0-correctness-fixes.md`, the T3-decisions update, and
+`updates/20260712T171838Z-decision-frontload-and-runner-policy.md`): TypeScript
+rule-fleet ownership; review-skill scaffolding; `project-setup` router promotion (stays
+invoke-only); `code-gt-linearize-descendants` submit consent (informed single
+confirmation); `changelog-update` portability (keeps its pure-git identity; T4
+push-down rejected); all 29 T4 push-down dispositions; the T3 neutral-home policy; the
+create-* shared-scaffolding park (rejected).
 
-Resolved 2026-07-12 (decisions and rationale in
-`updates/20260712T150643Z-tranche0-correctness-fixes.md` and the T3-decisions update):
-TypeScript rule-fleet ownership; review-skill scaffolding; `project-setup` router
-promotion (stays invoke-only); `code-gt-linearize-descendants` submit consent (informed
-single confirmation).
+## Definition of Progress
+
+A tranche slice (family branch or T4 item) counts as progress when: every audit finding
+in its scope is either applied or dispositioned with a one-line rationale; per-family
+`wc -l` before/after evidence is captured for cut tranches; `just` is green and
+`areg check` passes with touched skills verified via `areg skill show <name>`; and a
+Semantic Update records the outcome under this slug. The decisions recorded in the
+2026-07-12 frontload update are binding — the runner applies them and does not reopen
+them.
+
+## Runner Policy
+
+Frontloaded 2026-07-12 so remaining work can run unattended (objective-autorun or
+headless objective-next sessions).
+
+- **Scope:** the open roadmap Work rows (T1 mechanical cuts, T2 trigger surface,
+  remaining T3 clusters, T4 accepted implementations and graduate records), executed in
+  roadmap order, one family/cluster slice per stacked branch.
+- **Write scope:** the runner creates stacked branches and commits via Graphite (`gt`,
+  per the graphite skill) autonomously. `gt submit` / PR creation and any other
+  remote or external write require explicit human confirmation — end each run with the
+  stack local.
+- **Ambiguity rule:** a finding that proves stale, load-bearing, or otherwise unclear
+  against the live file is dispositioned as rejected/deferred with a one-line rationale
+  in the slice's Semantic Update; the runner keeps going and never blocks a tranche on
+  a question.
+- **Validation gate:** nothing is kept or committed without `just` green and
+  `areg check` OK; formatter failures go through `just dprint-fix`.
+- **Stop conditions:** validation cannot be brought green within the slice; an edit
+  would change a workflow's semantics beyond verified drift; work would escape
+  `skills/`, `docs/`, the objective record, or the accepted T4 code surfaces; a cut
+  conflicts with a sanctioned-duplication marker.
+- Interactive sessions still present the standard execution preview; unattended runs
+  proceed within this policy without per-session confirmation.
