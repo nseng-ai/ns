@@ -36,7 +36,7 @@ for (const packageName of packagesToQualify) {
 	console.log(`Preparing publish root for ${packageName}`);
 	const publishRoot = await preparePublishRoot(entry, context);
 	if (packageName === "@nseng-ai/sdk" && !args.shouldSkipChecks) {
-		run("node", ["ts/scripts/smoke-kernel-consumer-resolution.mjs", publishRoot], { cwd: repoRoot });
+		run("node", ["ts/scripts/smoke-sdk-consumer-resolution.mjs", publishRoot], { cwd: repoRoot });
 	}
 	if (!args.shouldSkipDryRun) run("npm", ["publish", "--dry-run", publishRoot], { cwd: repoRoot });
 }

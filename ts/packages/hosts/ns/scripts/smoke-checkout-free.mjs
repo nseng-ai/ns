@@ -33,17 +33,17 @@ try {
 	if (rootHelp.stdout.includes("Usage: ns objective list")) {
 		throw new Error("Packed ns CLI unexpectedly ships Objective commands by default.");
 	}
-	const kernelSdkImport = await run(
+	const sdkRootImport = await run(
 		"node",
 		[
 			"--input-type=module",
 			"--eval",
-			'import { defineExtension, ok, z } from "@nseng-ai/ns/kernel/sdk"; const extension = defineExtension({ name: "smoke", commands: [] }); if (extension.name !== "smoke" || ok({}).type !== "ok" || typeof z.object !== "function") throw new Error("bad kernel sdk export");',
+			'import { defineExtension, ok, z } from "@nseng-ai/ns/sdk"; const extension = defineExtension({ name: "smoke", commands: [] }); if (extension.name !== "smoke" || ok({}).type !== "ok" || typeof z.object !== "function") throw new Error("bad sdk export");',
 		],
 		{ cwd: tempRoot },
 	);
-	if (kernelSdkImport.stderr !== "") {
-		throw new Error(`Packed ns kernel SDK import wrote to stderr:\n${kernelSdkImport.stderr}`);
+	if (sdkRootImport.stderr !== "") {
+		throw new Error(`Packed ns SDK import wrote to stderr:\n${sdkRootImport.stderr}`);
 	}
 	process.stdout.write(`checkout-free smoke passed: ${tempRoot}\n`);
 } finally {

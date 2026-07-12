@@ -13,11 +13,11 @@ const bundleRoot = resolve(packageRoot, "dist", "bundle");
 const outfile = resolve(bundleRoot, "cli.js");
 const bundleEntry = resolve(packageRoot, "dist", "bundle-entry.mjs");
 const bundledPromptsDir = resolve(bundleRoot, "prompts");
-const kernelExportSpecs = JSON.parse(
-	await readFile(resolve(packageRoot, "scripts", "kernel-export-entries.json"), "utf8"),
+const sdkExportSpecs = JSON.parse(
+	await readFile(resolve(packageRoot, "scripts", "sdk-export-entries.json"), "utf8"),
 );
-const kernelExportEntries = Object.fromEntries(
-	Object.entries(kernelExportSpecs).map(([entry, spec]) => [entry, resolve(packageRoot, spec.host)]),
+const sdkExportEntries = Object.fromEntries(
+	Object.entries(sdkExportSpecs).map(([entry, spec]) => [entry, resolve(packageRoot, spec.host)]),
 );
 
 await mkdir(dirname(outfile), { recursive: true });
@@ -49,7 +49,7 @@ await build({
 });
 await build({
 	entryPoints: {
-		...kernelExportEntries,
+		...sdkExportEntries,
 		"cli/index": resolve(packageRoot, "src", "cli", "index.ts"),
 	},
 	outdir: bundleRoot,

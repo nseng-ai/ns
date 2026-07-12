@@ -3,7 +3,7 @@ import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { kernelPublicExports, kernelPublicSubpaths } from "./kernel-public-subpaths.mjs";
+import { sdkFoldEntries, sdkPublicExports } from "./sdk-public-subpaths.mjs";
 import { catalogVersion, normalizeManifestBinPaths } from "./public-package-helpers.mjs";
 
 export const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -69,7 +69,7 @@ export async function loadPublicPackageContext() {
 	const packageManifests = await readWorkspacePackageManifests();
 	const manifestByName = new Map(packageManifests.map((entry) => [entry.manifest.name, entry]));
 	assertIntendedSet(manifestByName);
-	assertKernelExports(manifestByName);
+	assertSdkExports(manifestByName);
 	return { workspaceManifest, workspaceYaml, packageManifests, manifestByName };
 }
 
@@ -259,16 +259,20 @@ function assertIntendedSet(manifestByName) {
 	}
 }
 
-function assertKernelExports(manifestByName) {
-	const kernelManifest = manifestByName.get("@nseng-ai/sdk")?.manifest;
-	const exports = kernelManifest?.exports ?? {};
-	const expectedExports = kernelPublicExports();
-	for (const subpath of kernelPublicSubpaths.map((subpath) => `./${subpath}`)) {
-		if (exports[subpath] !== expectedExports[subpath]) throw new Error(`@nseng-ai/sdk source manifest is missing ${subpath}`);
+function assertSdkExports(manifestByName) {
+	const sdkManifest = manifestByName.get("@nseng-ai/sdk")?.manifest;
+	const exports = sdkManifest?.exports ?? {};
+	const expectedExports = sdkPublicExports();
+	for (const entry of sdkFoldEntries) {
+		if (exports[entry.sourceExport] !== expectedExports[entry.sourceExport]) {
+			throw new Error(`@nseng-ai/sdk source manifest is missing ${entry.sourceExport}`);
+		}
 	}
 	const nsManifest = manifestByName.get("@nseng-ai/ns")?.manifest;
 	const nsExports = nsManifest?.exports ?? {};
-	for (const subpath of kernelPublicSubpaths.map((subpath) => `./kernel/${subpath}`)) {
-		if (nsExports[subpath] !== `./src${subpath.slice(1)}.ts`) throw new Error(`@nseng-ai/ns source manifest is missing ${subpath}`);
+	for (const entry of sdkFoldEntries) {
+		if (nsExports[entry.nsExport] !== `./src/sdk/${entry.name}.ts`) {
+			throw new Error(`@nseng-ai/ns source manifest is missing ${entry.nsExport}`);
+		}
 	}
 }

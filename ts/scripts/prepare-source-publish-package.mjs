@@ -19,7 +19,7 @@ assertPackageCanPublish(sourceManifest);
 await rm(publishRoot, { recursive: true, force: true });
 await mkdir(publishRoot, { recursive: true });
 await cp(resolve(packageRoot, "src"), resolve(publishRoot, "src"), { recursive: true });
-await rewriteKernelImports(resolve(publishRoot, "src"));
+await rewriteSdkImports(resolve(publishRoot, "src"));
 
 const manifest = buildPublishManifest(sourceManifest);
 await writeFile(resolve(publishRoot, "package.json"), `${JSON.stringify(manifest, null, "\t")}\n`);
@@ -148,16 +148,18 @@ function readCatalog(source) {
 	return versions;
 }
 
-async function rewriteKernelImports(root) {
+async function rewriteSdkImports(root) {
 	for (const entry of await readdir(root, { withFileTypes: true })) {
 		const path = resolve(root, entry.name);
 		if (entry.isDirectory()) {
-			await rewriteKernelImports(path);
+			await rewriteSdkImports(path);
 			continue;
 		}
 		if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
 		const source = await readFile(path, "utf8");
-		const rewritten = source.replaceAll("@nseng-ai/sdk/", "@nseng-ai/ns/kernel/");
+		const rewritten = source
+			.replaceAll('"@nseng-ai/sdk"', '"@nseng-ai/ns/sdk"')
+			.replaceAll("@nseng-ai/sdk/", "@nseng-ai/ns/sdk/");
 		if (rewritten !== source) await writeFile(path, rewritten);
 	}
 }
@@ -168,7 +170,7 @@ function assertNoWorkspaceOrCatalogSpecifiers(value) {
 		throw new Error("Generated publish manifest must not include workspace: or catalog: specifiers.");
 	}
 	if (source.includes("@nseng-ai/sdk")) {
-		throw new Error("Generated publish manifest must depend on @nseng-ai/ns/kernel/*, not private @nseng-ai/sdk.");
+		throw new Error("Generated publish manifest must depend on @nseng-ai/ns/sdk*, not private @nseng-ai/sdk.");
 	}
 }
 

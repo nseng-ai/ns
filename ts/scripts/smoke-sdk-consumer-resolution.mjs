@@ -6,13 +6,13 @@ import { spawnSync } from "node:child_process";
 
 import { fileURLToPath } from "node:url";
 
-import { kernelPublicSubpaths } from "./kernel-public-subpaths.mjs";
+import { sdkFoldEntries } from "./sdk-public-subpaths.mjs";
 
 const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const publishRoot = process.argv[2];
-if (publishRoot === undefined) throw new Error("Usage: node scripts/smoke-kernel-consumer-resolution.mjs <kernel-publish-root>");
+if (publishRoot === undefined) throw new Error("Usage: node scripts/smoke-sdk-consumer-resolution.mjs <sdk-publish-root>");
 
-const tempRoot = await mkdtemp(join(tmpdir(), "ns-kernel-consumer-"));
+const tempRoot = await mkdtemp(join(tmpdir(), "ns-sdk-consumer-"));
 try {
 	await writeFile(join(tempRoot, "package.json"), JSON.stringify({ private: true, type: "module" }, null, "\t") + "\n");
 	await writeFile(
@@ -37,21 +37,25 @@ try {
 	await writeFile(join(tempRoot, "consumer.ts"), consumerSource());
 	run("npm", ["install", "--silent", resolve(publishRoot)], { cwd: tempRoot });
 	run(resolve(workspaceRoot, "node_modules", ".bin", "tsgo"), ["-p", "tsconfig.json"], { cwd: tempRoot });
-	console.log(`kernel consumer resolution smoke passed: ${tempRoot}`);
+	console.log(`sdk consumer resolution smoke passed: ${tempRoot}`);
 } finally {
-	if (process.env.NS_KERNEL_KEEP_SMOKE_DIR !== "1") await rm(tempRoot, { recursive: true, force: true });
+	if (process.env.NS_SDK_KEEP_SMOKE_DIR !== "1") await rm(tempRoot, { recursive: true, force: true });
 }
 
 function consumerSource() {
-	return kernelPublicSubpaths.map((subpath) => `import type * as ${identifierForSubpath(subpath)} from "@nseng-ai/sdk/${subpath}";`).join("\n")
+	return sdkFoldEntries.map((entry) => `import type * as ${identifierForEntry(entry)} from "${consumerSpecifier(entry)}";`).join("\n")
 		+ "\n"
-		+ kernelPublicSubpaths.map((subpath) => `type ${identifierForSubpath(subpath)}Keys = keyof typeof ${identifierForSubpath(subpath)};`).join("\n")
+		+ sdkFoldEntries.map((entry) => `type ${identifierForEntry(entry)}Keys = keyof typeof ${identifierForEntry(entry)};`).join("\n")
 		+ "\n"
 		+ "export {};\n";
 }
 
-function identifierForSubpath(subpath) {
-	return subpath.replace(/[^a-zA-Z0-9]/g, "_");
+function consumerSpecifier(entry) {
+	return entry.sourceExport === "." ? "@nseng-ai/sdk" : `@nseng-ai/sdk/${entry.name}`;
+}
+
+function identifierForEntry(entry) {
+	return entry.name.replace(/[^a-zA-Z0-9]/g, "_");
 }
 
 function run(command, args, options) {

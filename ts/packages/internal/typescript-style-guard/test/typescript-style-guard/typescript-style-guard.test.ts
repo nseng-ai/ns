@@ -855,7 +855,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		if (nsMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/ns metadata");
 		metadataByName.set("@nseng-ai/ns", {
 			...nsMetadata,
-			nsSubpackages: ["kernel"],
+			nsSubpackages: ["sdk"],
 		});
 
 		const violations = collectPackageTierLayeringViolations(metadataByName);
@@ -875,7 +875,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		if (nsMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/ns metadata");
 		const manifest = {
 			...nsMetadata.manifest,
-			ns: { tier: "host", subpackages: ["kernel"], subpackageTiers: { kernel: "sdk" } },
+			ns: { tier: "host", subpackages: ["sdk"], subpackageTiers: { sdk: "sdk" } },
 		};
 		metadataByName.set("@nseng-ai/ns", {
 			...nsMetadata,

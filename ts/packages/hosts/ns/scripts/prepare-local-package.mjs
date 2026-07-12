@@ -17,10 +17,10 @@ const workspaceManifest = JSON.parse(await readFile(resolve(workspaceRoot, "pack
 const workspaceYaml = await readFile(resolve(workspaceRoot, "pnpm-workspace.yaml"), "utf8");
 const publishExports = {
 	"./cli": "./cli/index.js",
-	"./kernel/cli": "./kernel/cli.js",
-	"./kernel/command-io": "./kernel/command-io.js",
-	"./kernel/context": "./kernel/context.js",
-	"./kernel/sdk": "./kernel/sdk.js",
+	"./sdk": "./sdk/sdk.js",
+	"./sdk/cli": "./sdk/cli.js",
+	"./sdk/command-io": "./sdk/command-io.js",
+	"./sdk/context": "./sdk/context.js",
 };
 
 assertSourceManifest(sourceManifest, workspaceManifest);
@@ -33,7 +33,7 @@ await rm(publishRoot, { recursive: true, force: true });
 await mkdir(publishBinDir, { recursive: true });
 await mkdir(resolve(publishBinDir, "prompts"), { recursive: true });
 await mkdir(resolve(publishRoot, "cli"), { recursive: true });
-await mkdir(resolve(publishRoot, "kernel"), { recursive: true });
+await mkdir(resolve(publishRoot, "sdk"), { recursive: true });
 await copyFile(bundledCli, publishBin);
 await copyFile(
 	resolve(packageRoot, "dist", "bundle", "prompts", "branch-context-impl.md"),
@@ -84,10 +84,10 @@ function assertSourceManifest(manifest, workspaceManifest) {
 		!Array.isArray(manifest.files) ||
 		!manifest.files.includes("bin") ||
 		!manifest.files.includes("cli") ||
-		!manifest.files.includes("kernel") ||
+		!manifest.files.includes("sdk") ||
 		!manifest.files.includes("README.md")
 	) {
-		throw new Error("@nseng-ai/ns source manifest files must include bin, cli, kernel, and README.md.");
+		throw new Error("@nseng-ai/ns source manifest files must include bin, cli, sdk, and README.md.");
 	}
 	for (const [subpath, sourceTarget] of Object.entries(manifest.exports ?? {})) {
 		if (publishExports[subpath] === undefined) {
