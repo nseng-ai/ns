@@ -32,7 +32,6 @@ export type {
 	StatusTheme,
 	WorktreeGhStatus,
 	WorktreeStatus,
-	WorktreeStatusExecApi,
 	WorktreeStatusGitPaths,
 	WorktreeStatusIdentity,
 } from "./status.ts";

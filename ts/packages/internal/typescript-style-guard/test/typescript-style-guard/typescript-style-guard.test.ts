@@ -903,7 +903,7 @@ describe("TypeScript style guard tier-directory projection rule", () => {
 		readonly name: string;
 		readonly tier: PackageTier;
 		readonly packageDir: string;
-		readonly expectedViolation: boolean;
+		readonly shouldViolate: boolean;
 	}
 
 	const cases: readonly TierProjectionCase[] = [
@@ -911,67 +911,67 @@ describe("TypeScript style guard tier-directory projection rule", () => {
 			name: "capability in capabilities role dir is allowed",
 			tier: "capability",
 			packageDir: "ts/packages/capabilities/handoffs",
-			expectedViolation: false,
+			shouldViolate: false,
 		},
 		{
 			name: "capability outside capabilities role dir is rejected",
 			tier: "capability",
 			packageDir: "ts/packages/hosts/handoffs",
-			expectedViolation: true,
+			shouldViolate: true,
 		},
 		{
 			name: "capability nested below a role-dir child is rejected",
 			tier: "capability",
 			packageDir: "ts/packages/capabilities/handoffs/pi",
-			expectedViolation: true,
+			shouldViolate: true,
 		},
 		{
 			name: "sdk at the kernel top-level single-package home is allowed",
 			tier: "sdk",
 			packageDir: "ts/packages/kernel",
-			expectedViolation: false,
+			shouldViolate: false,
 		},
 		{
 			name: "sdk anywhere else is rejected",
 			tier: "sdk",
 			packageDir: "ts/packages/infra/kernel",
-			expectedViolation: true,
+			shouldViolate: true,
 		},
 		{
 			name: "capability-kit at its top-level single-package home is allowed",
 			tier: "capability-kit",
 			packageDir: "ts/packages/capability-kit",
-			expectedViolation: false,
+			shouldViolate: false,
 		},
 		{
 			name: "capability-kit below a role dir is rejected",
 			tier: "capability-kit",
 			packageDir: "ts/packages/capabilities/capability-kit",
-			expectedViolation: true,
+			shouldViolate: true,
 		},
 		{
 			name: "neutral-infra in infra role dir is allowed",
 			tier: "neutral-infra",
 			packageDir: "ts/packages/infra/foundation",
-			expectedViolation: false,
+			shouldViolate: false,
 		},
 		{
 			name: "host in hosts role dir is allowed",
 			tier: "host",
 			packageDir: "ts/packages/hosts/pi",
-			expectedViolation: false,
+			shouldViolate: false,
 		},
 		{
 			name: "standalone-tool outside tools role dir is rejected",
 			tier: "standalone-tool",
 			packageDir: "ts/packages/areg",
-			expectedViolation: true,
+			shouldViolate: true,
 		},
 		{
 			name: "internal-tool in internal role dir is allowed",
 			tier: "internal-tool",
 			packageDir: "ts/packages/internal/pi-tools",
-			expectedViolation: false,
+			shouldViolate: false,
 		},
 	];
 
@@ -980,7 +980,7 @@ describe("TypeScript style guard tier-directory projection rule", () => {
 			buildTierProjectionMetadata("@nseng-ai/example", testCase.tier, testCase.packageDir),
 		);
 
-		if (testCase.expectedViolation) {
+		if (testCase.shouldViolate) {
 			expect(violations).toHaveLength(1);
 			expect(violations[0]?.text).toContain(`declares ns.tier ${testCase.tier}`);
 		} else {
@@ -996,7 +996,9 @@ describe("TypeScript style guard tier-directory projection rule", () => {
 		);
 		const metadata = metadataByName.get("@nseng-ai/example");
 		if (metadata === undefined) throw new Error("Missing synthetic metadata");
-		metadataByName.set("@nseng-ai/example", { ...metadata, nsTier: undefined });
+		const { nsTier, ...metadataWithoutTier } = metadata;
+		expect(nsTier).toBe("capability");
+		metadataByName.set("@nseng-ai/example", metadataWithoutTier);
 
 		expect(formatViolations(collectTierDirectoryProjectionViolations(metadataByName))).toBe("");
 	});
@@ -1907,13 +1909,14 @@ function buildSyntheticPackageMetadata(
 			? tiersByPackage.get(packageName)
 			: "capability";
 		const manifest = buildSyntheticManifest(packageName, fields, rawNsTier);
+		const nsTier = isSyntheticPackageTier(rawNsTier) ? rawNsTier : undefined;
 		metadataByName.set(packageName, {
 			name: packageName,
 			packageDir: `synthetic/${packageName}`,
 			packageJsonPath: `synthetic/${packageName}/package.json`,
 			manifest,
 			manifestContent: JSON.stringify(manifest, null, 2),
-			nsTier: isSyntheticPackageTier(rawNsTier) ? rawNsTier : undefined,
+			...(nsTier === undefined ? {} : { nsTier }),
 			rawNsTier,
 			nsSubpackages: [],
 			nsRemainder: false,

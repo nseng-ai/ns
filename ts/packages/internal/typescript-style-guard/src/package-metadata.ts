@@ -23,7 +23,7 @@ export interface PackageMetadata {
 	readonly packageJsonPath: string;
 	manifest: PackageManifest;
 	manifestContent: string;
-	readonly nsTier: PackageTier | undefined;
+	readonly nsTier?: PackageTier;
 	readonly rawNsTier: unknown;
 	readonly nsSubpackages: readonly string[];
 	readonly nsRemainder: boolean;
@@ -45,7 +45,7 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 			packageJsonPath: relative(repoRoot, packageJsonPath),
 			manifest: parsed,
 			manifestContent,
-			nsTier,
+			...(nsTier === undefined ? {} : { nsTier }),
 			rawNsTier,
 			nsSubpackages: readNsSubpackages(parsed.ns),
 			nsRemainder: readNsRemainder(parsed.ns),
