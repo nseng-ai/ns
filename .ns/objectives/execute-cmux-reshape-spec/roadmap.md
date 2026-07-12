@@ -21,16 +21,15 @@ each branch stacks on the previous.
   - Landed locally on `cmux-reshape/rename-package`; `just` and the live-source
     stale-package-name grep passed. Re-enumeration found additional in-scope
     package-name consumers, recorded in the Slice 2 Semantic Update.
-- [ ] Slice 3 — `cmux-reshape/rehome-bin-as-extension` (spec item 3): delete
+- [x] Slice 3 — `cmux-reshape/rehome-bin-as-extension` (spec item 3): delete
       the `ccc` bin and `./cli` export, add the `./ns-extension` descriptor
       (`ns cmux exec workspace-summary` via kernel source-dev discovery, no
       registration edit anywhere), rewire the `objective-sidebar.ts` runtime
       caller, and add the CLI scenario tests the `ts/AGENTS.md` gates require.
-  - Re-ratified 2026-07-12: Slice 3 scope now includes the five caller,
-    fixture, test, and documentation locations found during pre-edit
-    re-enumeration; the attached execution plan carries the explicit inventory.
-  - Evidence: `just` green including new scenario tests;
-    `ns cmux exec workspace-summary --help` resolves from the repo root.
+  - Completed locally on `cmux-reshape/rehome-bin-as-extension`, including all
+    five re-ratified caller locations. Root `just` passed and
+    `ns cmux exec workspace-summary --help` resolved through source-dev
+    discovery with no registration edit.
 - [ ] Slice 4 — `cmux-reshape/rename-surfaces-and-skills` (spec items 4+5):
       rename command surfaces (`ns:ccc:` → `ns:cmux:` exact pair), re-mint the
       handoffs extension id, `git mv` the four skills to `ns-cmux-*` with both

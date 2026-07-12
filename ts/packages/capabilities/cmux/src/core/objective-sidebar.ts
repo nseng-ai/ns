@@ -178,10 +178,11 @@ export async function applyObjectiveSidebarFields(
 	const parsed = await runJsonExecCommand({
 		pi,
 		cwd,
-		command: "ccc",
+		command: "ns",
 		args: [
+			"cmux",
 			"exec",
-			"cmux-workspace-summary",
+			"workspace-summary",
 			"--title",
 			fields.title,
 			"--description",

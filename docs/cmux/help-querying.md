@@ -4,7 +4,7 @@ cmux is changing quickly. Treat installed cmux help output as the working source
 integrations, not this document and not a local source checkout.
 
 This guide explains how to query the live cmux command surface before writing or changing Pi extensions, skills, or
-active TypeScript-owned exec helpers such as `ccc exec` commands.
+active TypeScript-owned exec helpers such as `ns cmux exec` commands.
 
 ## What not to trust
 
@@ -101,13 +101,13 @@ cmux clear-status pi-summary --workspace "$CMUX_WORKSPACE_ID"
 
 Only rename back if the previous title was recorded.
 
-## Keep deterministic mutation behind `ccc exec`
+## Keep deterministic mutation behind `ns cmux exec`
 
-For repo-local Pi skills and agents, prefer the tested TypeScript-owned `ccc exec` boundary over raw cmux shell snippets. Do not add new root `sdl exec` helpers; that Python surface is retired.
+For repo-local Pi skills and agents, prefer the tested TypeScript-owned `ns cmux exec` boundary over raw cmux shell snippets. Do not add new root `sdl exec` helpers; that Python surface is retired.
 
 ```bash
-ccc exec cmux-workspace-summary --help
-ccc exec cmux-workspace-summary --json-schema
+ns cmux exec workspace-summary --help
+ns cmux exec workspace-summary --json-schema
 ```
 
 The current workspace-summary command contract is documented in

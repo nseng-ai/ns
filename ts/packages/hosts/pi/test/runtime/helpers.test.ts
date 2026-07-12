@@ -11,9 +11,9 @@ import { parseMachineEnvelopeData } from "../../src/runtime/machine-envelope.ts"
 
 describe("pi extension runtime helpers", () => {
 	test("formats command displays with shell quoting", () => {
-		expect(formatCommand("ccc", ["exec", "cmux-workspace-summary", "--title", "hello world"])).toBe(
-			"ccc exec cmux-workspace-summary --title 'hello world'",
-		);
+		expect(
+			formatCommand("ns", ["cmux", "exec", "workspace-summary", "--title", "hello world"]),
+		).toBe("ns cmux exec workspace-summary --title 'hello world'");
 	});
 
 	test("parses successful machine-envelope data", () => {
