@@ -56,6 +56,23 @@ objective; if it does, read that objective's `objective.md` and `roadmap.md`.
 - Keep features decoupled; do not reach into unrelated subsystems.
 - Do not give calendar-time or effort-duration estimates unless the user asks.
 
+## Search safety
+
+Bound ordinary recursive search output by both line width and result count:
+
+```bash
+rg -n \
+  --glob '!*.map' \
+  --max-columns 300 \
+  --max-columns-preview \
+  'widget truncated' PATH |
+head -n 200
+```
+
+`head -n 200` caps returned lines; `--max-columns 300 --max-columns-preview` prevents one huge matching line from consuming the context budget. Use `rg -l` when filenames are sufficient, and narrow the search path before increasing either limit.
+
+The ns Pi harness automatically excludes `*.map`, `*.min.js`, and `*.min.css` through a process-scoped ripgrep config. This does not affect ordinary terminal searches or non-Pi harnesses. Use `rg --no-config` only when intentionally searching those generated artifacts.
+
 ## Formatting and validation
 
 - `just` is the default repo validation entrypoint. If it reports a `dprint check` formatting failure, run `just dprint-fix` instead of hand-editing formatter output, then rerun validation.
