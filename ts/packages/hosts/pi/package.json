@@ -33,6 +33,7 @@
 		"./runtime/extension-types": "./src/runtime/extension-types.ts",
 		"./runtime/primitives": "./src/runtime/primitives.ts",
 		"./runtime/status": "./src/runtime/status.ts",
+		"./search/ripgrep-defaults": "./src/kit/search/ripgrep-defaults.ts",
 		"./shared/command-exec": "./src/kit/shared/command-exec.ts",
 		"./shared/message-delivery": "./src/runtime/message-delivery.ts",
 		"./worktree-status": "./src/worktree-status/index.ts",

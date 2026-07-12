@@ -107,6 +107,8 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 
 ### Repository-local ripgrep defaults
 
+The primary motivation is preventing context-destroying recursive searches: a single match in a source map can be one enormous line, causing Pi's bash tool to return roughly its full 50 KB output allowance and consume thousands of model-context tokens even when the useful result is only one ordinary source line. Result-count limits such as `head -n 200` do not protect against that case by themselves.
+
 While this repository's Pi extension runtime is active, the ripgrep-defaults adapter sets `RIPGREP_CONFIG_PATH` to the current worktree's checked-in `.pi/ripgrep.conf`. The engineered lifecycle implementation preserves any prior value and restores it on `session_shutdown`, including reload or session replacement. Subprocess task agents inherit the parent Pi process environment, and in-process task agents share it, so no subagent-runtime customization is required.
 
 The config excludes only source maps, minified JavaScript, and minified CSS by default. Use `rg --no-config` for an intentionally narrow generated-artifact search. This is repository-local Pi lifecycle behavior—not global shell or dotfile configuration, ordinary terminal behavior, or a generic command-output/context guard.

@@ -17,6 +17,8 @@ const workspacePackageFallbacks: Record<string, string> = {
 		"../../ts/packages/internal/pi-tools/src/slash-command-rerank/extension.ts",
 	"@internal/pi-tools/thermo-council/extension":
 		"../../ts/packages/internal/pi-tools/src/thermo-council/extension.ts",
+	"@nseng-ai/pi/search/ripgrep-defaults":
+		"../../ts/packages/hosts/pi/src/kit/search/ripgrep-defaults.ts",
 	"@nseng-ai/pi/shared/command-exec": "../../ts/packages/hosts/pi/src/kit/shared/command-exec.ts",
 	"@nseng-ai/pi/worktree-status/extension":
 		"../../ts/packages/hosts/pi/src/worktree-status/extension.ts",

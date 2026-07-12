@@ -4,12 +4,14 @@ export interface RipgrepDefaultsExtensionApi {
 	on(event: "session_start" | "session_shutdown", handler: () => void): void;
 }
 
-export interface MutableEnvironment {
-	[key: string]: string | undefined;
+export interface RipgrepDefaultsEnvironment {
+	get(name: string): string | undefined;
+	set(name: string, value: string): void;
+	delete(name: string): void;
 }
 
 export interface RipgrepDefaultsOptions {
-	environment: MutableEnvironment;
+	environment: RipgrepDefaultsEnvironment;
 	configPath: string;
 }
 
@@ -24,26 +26,26 @@ export function registerRipgrepDefaultsExtension(
 
 	pi.on("session_start", () => {
 		if (state.type === "active") {
-			options.environment[RIPGREP_CONFIG_PATH] = options.configPath;
+			options.environment.set(RIPGREP_CONFIG_PATH, options.configPath);
 			return;
 		}
 
-		const priorValue = options.environment[RIPGREP_CONFIG_PATH];
+		const priorValue = options.environment.get(RIPGREP_CONFIG_PATH);
 		state = {
 			type: "active",
 			priorValue:
 				priorValue === undefined ? { type: "absent" } : { type: "present", value: priorValue },
 		};
-		options.environment[RIPGREP_CONFIG_PATH] = options.configPath;
+		options.environment.set(RIPGREP_CONFIG_PATH, options.configPath);
 	});
 
 	pi.on("session_shutdown", () => {
 		if (state.type === "inactive") return;
 
 		if (state.priorValue.type === "present") {
-			options.environment[RIPGREP_CONFIG_PATH] = state.priorValue.value;
+			options.environment.set(RIPGREP_CONFIG_PATH, state.priorValue.value);
 		} else {
-			delete options.environment[RIPGREP_CONFIG_PATH];
+			options.environment.delete(RIPGREP_CONFIG_PATH);
 		}
 		state = { type: "inactive" };
 	});
