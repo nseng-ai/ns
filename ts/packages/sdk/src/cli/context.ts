@@ -22,6 +22,8 @@ export interface NsCliContext {
 	stderr: (text: string) => void;
 }
 
+export type NsCliBaseContext = Omit<NsExtensionApi, "hasExtension">;
+
 export interface RealNsCommandContextOptions {
 	textGenerator: TextGenerator;
 	cwd?: string;
@@ -29,7 +31,7 @@ export interface RealNsCommandContextOptions {
 	homeDir?: string;
 }
 
-export function createRealNsCommandContext(options: RealNsCommandContextOptions): NsExtensionApi {
+export function createRealNsCommandContext(options: RealNsCommandContextOptions): NsCliBaseContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const homeDir = resolveHomeDir(options.homeDir, env);
@@ -46,7 +48,6 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 		progress: noopNsProgress,
 		renderCapabilities: renderCapabilitiesForTerminal(resolveProcessCaps()),
 		outputFormat: "human",
-		hasExtension: () => false,
 		stdout,
 		stderr,
 		exec: async (command, args, execOptions = {}) => {

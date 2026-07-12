@@ -28,7 +28,7 @@ import {
 	renderNsCompletionScriptResult,
 	nsCompletionScriptResultSchema,
 } from "./completion.ts";
-import { createNsCliInteraction, type NsCliContext } from "./context.ts";
+import { createNsCliInteraction, type NsCliBaseContext, type NsCliContext } from "./context.ts";
 import {
 	renderNsShellInstall,
 	renderNsShellShow,
@@ -78,14 +78,18 @@ import {
 } from "../extensions/command-registry.ts";
 import { parsedSpecForCommand } from "../sdk/command.ts";
 
-export type { NsCliContext } from "./context.ts";
+export type { NsCliBaseContext, NsCliContext } from "./context.ts";
 export type { NsCommandInfo } from "../extensions/command-registry.ts";
 export type {
 	PreinstalledNsCommandCatalog,
 	PreinstalledNsCommandCatalogEntry,
 	PreinstalledNsCommandCatalogLoader,
 } from "../extensions/registry.ts";
-export { extensionDescriptorToPreinstalledCatalog } from "../extensions/descriptor-catalog.ts";
+export {
+	extensionDescriptorToPreinstalledCatalog,
+	preinstalledNsCommandCatalogFromRegistrations,
+} from "../extensions/descriptor-catalog.ts";
+export type { PreinstalledNsExtensionRegistration } from "../extensions/descriptor-catalog.ts";
 
 interface NsCliExtensionRegistryDeps {
 	loadCommandCatalog?: (options: LoadNsCommandCatalogOptions) => Promise<NsCommandCatalog>;
@@ -98,7 +102,7 @@ export interface NsCliDeps extends Pick<
 	CliEntrypointDeps,
 	"cwd" | "env" | "stdout" | "stderr" | "renderCapabilities"
 > {
-	context: NsExtensionApi;
+	context: NsCliBaseContext;
 	entryMetaUrl?: string;
 	homeDir?: string;
 	onOutput?: (stream: NsOutputStream, text: string) => void;
@@ -129,7 +133,7 @@ interface NsCliCommandContextInput {
 
 interface NsCliRawContextInputs {
 	deps: Partial<NsCliDeps>;
-	injectedContext?: NsExtensionApi;
+	injectedContext?: NsCliBaseContext;
 	cwd: string;
 	env: Record<string, string | undefined>;
 }
@@ -403,7 +407,7 @@ async function handleCompletionResolverInvocation(options: {
 	commandContext: NsCliCommandContextInput;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-	injectedContext?: NsExtensionApi;
+	injectedContext?: NsCliBaseContext;
 	onOutput?: (stream: NsOutputStream, text: string) => void;
 	onProgress?: NsProgressPhaseListener;
 	confirm?: NsConfirmPrompt;
@@ -491,7 +495,7 @@ async function buildNsCliContext(options: {
 	extensionPackageNames: ReadonlySet<string>;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-	injectedContext?: NsExtensionApi;
+	injectedContext?: NsCliBaseContext;
 	onOutput?: (stream: NsOutputStream, text: string) => void;
 	onProgress?: NsProgressPhaseListener;
 	confirm?: NsConfirmPrompt;

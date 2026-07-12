@@ -4,7 +4,10 @@ import { describe, expect, test } from "vitest";
 
 import { defineRawCommand, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/sdk";
 import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
-import { extensionDescriptorToPreinstalledCatalog } from "../../src/extensions/descriptor-catalog.ts";
+import {
+	extensionDescriptorToPreinstalledCatalog,
+	preinstalledNsCommandCatalogFromRegistrations,
+} from "../../src/extensions/descriptor-catalog.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
 	hasExtensionErrors,
@@ -112,6 +115,49 @@ describe("extension registry", () => {
 			expect.objectContaining({
 				name: "optional",
 				requiresExtension: "@example/provider",
+			}),
+		]);
+	});
+
+	test("preinstalled registrations derive package identities and presented entries together", () => {
+		const catalog = preinstalledNsCommandCatalogFromRegistrations([
+			{
+				packageName: "@example/commands",
+				descriptor: {
+					description: "Example commands.",
+					entries: [
+						{
+							name: "scan",
+							load: () => ({
+								default: defineRawCommand({
+									name: "scan",
+									summary: "Scan.",
+									description: "Scan.",
+									run: () => ok({}),
+								}),
+							}),
+						},
+					],
+				},
+				displayPath: "@example/commands/ns-extension",
+				helpGroup: "Examples:",
+			},
+			{
+				packageName: "@example/commandless-provider",
+				descriptor: { description: "Commandless provider." },
+				displayPath: "@example/commandless-provider/ns-extension",
+			},
+		]);
+
+		expect(catalog.extensionPackageNames).toEqual([
+			"@example/commands",
+			"@example/commandless-provider",
+		]);
+		expect(catalog.entries).toEqual([
+			expect.objectContaining({
+				name: "scan",
+				helpGroup: "Examples:",
+				displayPath: "@example/commands/ns-extension#scan",
 			}),
 		]);
 	});
