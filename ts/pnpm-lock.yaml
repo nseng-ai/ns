@@ -221,9 +221,6 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/flow':
-        specifier: workspace:*
-        version: link:../flow
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation

@@ -44,10 +44,6 @@ A public Pi command whose user-facing namespace remains outside `ns:ccc` while C
 The CCC-owned launch/orchestration path behind public `/ns:objective:stack-impl`: active Objective selection handoff, skill expansion or fallback prompt construction, and dispatching one explicit Objective selector into the portable stack-implementation skill. Objective record storage, list/current/update/next/close/delete semantics remain lower capabilities.
 *Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ns:ccc:*` alias for stack implementation.
 
-**Flow land consumption**:
-The CCC composition path behind public unified `/ns:flow:land`, consuming Flow-owned land behavior through `@nseng-ai/flow/api` for strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
-*Avoid*: Pi registration adapter, separate stack landing command, Flow land internals owner, general GitHub lifecycle owner, lower Graphite/GitHub gateway, old `/code:land` alias.
-
 **Portable command progress**:
 Human-facing intermediate progress for CCC workflows that can run through both ns CLI and Pi command mirrors. The canonical seam is SDK `NsCommandIo`, threaded through lower orchestration and adapted at the edge to CLI `onOutput`/stderr, durable notifications, or Pi-rendered messages without duplication.
 *Avoid*: Pi-only status as a CLI progress solution, bespoke per-command progress sink, machine-readable event protocol, final result summary.

@@ -8,10 +8,7 @@
 	"exports": {
 		".": "./src/api/index.ts",
 		"./api": "./src/api/handlers.ts",
-		"./autoslot": "./src/ns/autoslot.ts",
 		"./cli": "./src/ns/cli.ts",
-		"./land": "./src/ns/land.ts",
-		"./trunk-pull": "./src/ns/trunk-pull.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},
@@ -30,7 +27,6 @@
 		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
-		"@nseng-ai/flow": "workspace:*",
 		"@nseng-ai/kernel": "workspace:*",
 		"@nseng-ai/objectives": "workspace:*",
 		"@nseng-ai/plans": "workspace:*",
