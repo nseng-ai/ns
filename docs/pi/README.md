@@ -99,7 +99,7 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 | `ts/packages/capabilities/ccc/src/land-stack/*` | Engineered implementation | Internal Graphite stack landing engine used by `/ns:flow:land`; internals remain split under `land-stack/`. |
 | `ts/packages/capabilities/handoffs/src/pi/extension.ts` | Engineered implementation | Package-tested `/ns:handoff:create`, `/ns:handoff:pickup`, and `/ns:handoff:list` presentation adapters over the portable `ns handoff ...` command face and Handoff Capability API. |
 | `ts/packages/capabilities/branch-context/src/pi/extension.ts` | Engineered implementation | Branch-context Pi command/tool wiring over the `@nseng-ai/branch-context` package. |
-| `ts/packages/capabilities/ccc/src/autobranch/checkpoint.ts` / `autobranch*.ts` | Engineered implementation | Hidden `ccc exec autobranch` compatibility flow plus workflow evidence over pending-worktree, preparation, latest-commit extraction, and transaction helpers; public autobranch is `ns flow autobranch` / `/ns:flow:autobranch`. |
+| `ts/packages/capabilities/flow/src/autobranch/*` and `checkpoint/*` | Engineered implementation | Autobranch workflow engine over pending-worktree, preparation, latest-commit extraction, and transaction helpers; the public surface is `ns flow autobranch` / `/ns:flow:autobranch`. |
 | `ns flow submit` | ns project-local extension command | SDK-only project-local Graphite submit command mirrored into Pi as `/ns:flow:submit`; no flat or legacy submit aliases are retained. |
 | `ts/packages/internal/ns-pi-subagents/src/runner-subagents/extension-api.ts` and submodules | Internal Pi-tool package | Runner-subagent subprocess, JSON-event parsing, generated runtime extension, terminal capture, and final-text results. |
 | `ts/packages/capabilities/ccc/src/ccc.ts` and `cmux/*` | Engineered implementation | Private CCC command suite, manual caller-workspace sidebar controller, slot helpers, and workspace-opening commands that operate cmux workspaces. |
@@ -211,7 +211,7 @@ ns extension discovery is currently CLI-only. Pi does not dynamically register a
 
 ## CCC workspace/sidebar pattern
 
-Manual CCC sidebar commands should target the caller cmux workspace for sidebar updates, keep cmux mutations behind deterministic `ccc exec` commands, and avoid relying on stale local cmux source checkouts. Workspace-opening commands currently do not auto-run sidebar updates. The project command suite lives behind `.pi/extensions/ccc.ts` and `ts/packages/capabilities/ccc/src/cmux/`; `.pi/extensions/worktree-status.ts` remains the project-local adapter for the automatic worktree-status renderer backed by `@nseng-ai/pi`, which delegates operational facts and presentation to `@nseng-ai/cmux/worktree-status`.
+Manual CCC sidebar commands should target the caller cmux workspace for sidebar updates, keep cmux mutations behind deterministic `ns cmux exec` commands, and avoid relying on stale local cmux source checkouts. Workspace-opening commands currently do not auto-run sidebar updates. The project command suite lives behind `.pi/extensions/ccc.ts` and `ts/packages/capabilities/cmux/src/core/`; `.pi/extensions/worktree-status.ts` remains the project-local adapter for the automatic worktree-status renderer backed by `@nseng-ai/pi`, which delegates operational facts and presentation to the `hosts/pi` worktree-status modules (`ts/packages/hosts/pi/src/worktree-status/`).
 
 See [CCC Workspace/Sidebar Pattern for Pi](./cmux-extension-pattern.md) and [Querying cmux Help](../cmux/help-querying.md).
 

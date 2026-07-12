@@ -1,13 +1,13 @@
-# `ccc exec cmux-workspace-summary`
+# `ns cmux exec workspace-summary`
 
-`ccc exec cmux-workspace-summary` is the deterministic CCC-owned command boundary for applying compact cmux sidebar/workspace-card metadata. The former Python `sdl exec cmux-workspace-summary` command is retired.
+`ns cmux exec workspace-summary` is the deterministic cmux-capability-owned command boundary for applying compact cmux sidebar/workspace-card metadata. The former Python `sdl exec cmux-workspace-summary` command is retired.
 
 ## Command
 
 Use a direct one-line `Goal:` or `State:` description:
 
 ```bash
-ccc exec cmux-workspace-summary \
+ns cmux exec workspace-summary \
   --title "$title" \
   --description "Goal: ..." \
   --format json
@@ -79,7 +79,7 @@ For cmux command failures, `error.command_failure` records the command argv, exi
 
 ## Test surface
 
-The command is covered through CCC TypeScript CLI scenario tests in `ts/packages/capabilities/ccc/test/scenario/autobranch-cli.test.ts` and direct Objective-sidebar tests in `ts/packages/capabilities/ccc/test/cmux-objective-sidebar.test.ts`.
+The command is covered through cmux TypeScript scenario tests in `ts/packages/capabilities/cmux/test/scenario/cmux-workspace-summary.test.ts` and direct Objective-sidebar tests in `ts/packages/capabilities/cmux/test/cmux-objective-sidebar.test.ts`.
 
 When extending this command, preserve tests for:
 
@@ -88,7 +88,7 @@ When extending this command, preserve tests for:
 - missing workspace;
 - missing description;
 - cmux command failure details;
-- hidden but invocable `ccc exec` group.
+- hidden but invocable `cmux exec` group.
 
 ## Future single-command direction
 
@@ -96,7 +96,7 @@ The PR sidebar skill still asks the model to call this one command. If the goal 
 
 1. Have the extension call a fast model directly for structured JSON fields.
 2. Parse/validate the JSON in TypeScript.
-3. Invoke `ccc exec cmux-workspace-summary` via `pi.exec("ccc", [...])` with argv, not shell.
+3. Invoke `ns cmux exec workspace-summary` via `pi.exec("ns", ["cmux", ...])` with argv, not shell.
 4. Render the resulting JSON envelope in the extension.
 
 That keeps semantic summarization in a model while making quoting, cmux targeting, and command execution fully deterministic.

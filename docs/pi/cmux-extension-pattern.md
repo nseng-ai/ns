@@ -21,13 +21,13 @@ Current layers:
 | Engineered TS package  | `ts/packages/capabilities/ccc/src/ccc.ts`                    | Wires shared CCC workspace/sidebar controllers and command modules           |
 | CCC cmux modules       | `ts/packages/capabilities/ccc/src/cmux/`                     | Implements `/ns:ccc:workspace:*` and `/ns:ccc:sidebar:*` behavior with tests |
 | Local sidebar skill    | `skills/ccc-sidebar/SKILL.md`                                | Tells the model what PR sidebar fields to generate                           |
-| Deterministic CLI      | `ccc exec cmux-workspace-summary`                            | Applies title and direct description, then clears the old status pill        |
+| Deterministic CLI      | `ns cmux exec workspace-summary`                             | Applies title and direct description, then clears the old status pill        |
 | cmux command gateway   | `ts/packages/capabilities/ccc/src/cmux/workspace-summary.ts` | Runs installed cmux CLI commands through the CCC command gateway             |
 | Scenario/package tests | `ts/packages/capabilities/ccc/test/`, `ts/.../test/`         | Cover CCC exec behavior and Pi command behavior                              |
 
 Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/capabilities/ccc/src/cmux/` with pnpm/Vitest tests. Keep generic Pi lifecycle/footer/watch plumbing in `@nseng-ai/pi`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
 
-Do not put raw cmux mutation sequences in long skill bodies when a tested `ccc exec` command can own them.
+Do not put raw cmux mutation sequences in long skill bodies when a tested `ns cmux exec` command can own them.
 
 ## Command suite
 
@@ -45,7 +45,7 @@ The project-local adapter registers:
 
 There is no legacy `set-workspace-summary` alias.
 
-The old refresh-meta command was intentionally removed and not replaced. It only refreshed the current workspace name/description and did not open a new workspace; future metadata refresh behavior should be designed around `ccc exec cmux-workspace-summary`, not raw cmux mutations.
+The old refresh-meta command was intentionally removed and not replaced. It only refreshed the current workspace name/description and did not open a new workspace; future metadata refresh behavior should be designed around `ns cmux exec workspace-summary`, not raw cmux mutations.
 
 ## Duplicate command troubleshooting
 
@@ -81,7 +81,7 @@ process.env.CMUX_WORKSPACE_ID ?? process.env.CMUX_TAB_ID
 
 If no caller workspace is available, notify and return. Do not fall back to the focused workspace because a background Pi session can be running while another cmux workspace is focused.
 
-The PR sidebar skill and deterministic Objective sidebar extension do not pass `--workspace`; `ccc exec cmux-workspace-summary` resolves the same caller workspace env itself.
+The PR sidebar skill and deterministic Objective sidebar extension do not pass `--workspace`; `ns cmux exec workspace-summary` resolves the same caller workspace env itself.
 
 ## Model choice and speed
 
@@ -112,14 +112,14 @@ Prompt-only length enforcement is intentional for PR sidebar for now. Do not add
 
 `/ns:ccc:sidebar:session-summary` summarizes the current Pi session through the model-assisted `ccc-sidebar` skill. The Goal line describes what the session is trying to accomplish, not the cmux update itself. `/ns:ccc:sidebar:branch-state-summary` summarizes the current branch's implementation state versus its parent through the same skill; its State line describes what the branch changes or needs next.
 
-`/ns:ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active ns Objective deterministically. It accepts a slug or `.ns/objectives/<slug>/...` path; if no selector is supplied, it uses the same changed-Objective suggestion picker as `/ns:objective:next`, including the `View other active Objectives…` escape hatch instead of silently auto-selecting. After selection, it validates the selected Objective slug/readability through `ns objective exec read-objective` and applies fixed fields through `pi.exec("ccc", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
+`/ns:ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active ns Objective deterministically. It accepts a slug or `.ns/objectives/<slug>/...` path; if no selector is supplied, it uses the same changed-Objective suggestion picker as `/ns:objective:next`, including the `View other active Objectives…` escape hatch instead of silently auto-selecting. After selection, it validates the selected Objective slug/readability through `ns objective exec read-objective` and applies fixed fields through `pi.exec("ns", ["cmux", ...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
 
 ## Apply through exec, not raw cmux
 
 The PR sidebar skill should tell the model to call exactly one deterministic command when the source is resolved:
 
 ```bash
-ccc exec cmux-workspace-summary \
+ns cmux exec workspace-summary \
   --title 'Short title' \
   --description 'Goal: ...' \
   --format json
@@ -165,7 +165,7 @@ Objective sidebar already follows the direct extension apply path. If PR sidebar
 
 1. Use Pi model APIs or an existing fast-draft helper to generate a small JSON object for the fields.
 2. Validate and shorten fields in TypeScript.
-3. Call `pi.exec("ccc", ["exec", "cmux-workspace-summary", ...])` with argv.
+3. Call `pi.exec("ns", ["cmux", "exec", "workspace-summary", ...])` with argv.
 4. Display the resulting title directly.
 
 That design would keep semantic PR summarization in a model while making quoting, cmux targeting, and command execution fully deterministic. It would also remove the PR skill-driven bash block from the conversation. Reintroducing automatic summaries should wait until that targeting and apply path are explicit.

@@ -81,10 +81,10 @@ resolves when this record closes.
   uniqueness, package-boundary, style guard) can only go green by changing
   guard *semantics* rather than renamed literals, that is a user decision, not
   a runner fix.
-- **Assumption (verified in slice-3 planning): kernel source-dev discovery
-  auto-registers the new extension.** `ns cmux exec workspace-summary` must
-  resolve after slice 3's descriptor work with no registration edit anywhere;
-  if it does not, stop — do not improvise kernel catalog or ns.toml edits.
+- **Assumption verified by Slice 3: kernel source-dev discovery auto-registers
+  the new extension.** `ns cmux exec workspace-summary --help` resolves from
+  the repository root with no registration edit. This discovery path is now
+  completion evidence rather than an open execution risk.
 - **Risk: slice 6 authors vocabulary.** The parent Objective's rule is that
   humans choose vocabulary; ADR 0034 already ratified the term dispositions, so
   glossary drafting per the spec's enumerated lists is runner work — but the

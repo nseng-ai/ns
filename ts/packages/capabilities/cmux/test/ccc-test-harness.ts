@@ -450,10 +450,11 @@ function parseObjectiveListStdout(stdout: string): ObjectiveListParseResult {
 
 export function cmuxSummaryStep(title: string, description: string): ScriptedExec {
 	return step(
-		"ccc",
+		"ns",
 		[
+			"cmux",
 			"exec",
-			"cmux-workspace-summary",
+			"workspace-summary",
 			"--title",
 			title,
 			"--description",

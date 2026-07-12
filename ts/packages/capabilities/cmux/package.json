@@ -2,13 +2,10 @@
 	"name": "@nseng-ai/cmux",
 	"version": "0.1.2",
 	"type": "module",
-	"bin": {
-		"ccc": "./src/ns/cli.ts"
-	},
 	"exports": {
 		".": "./src/api/index.ts",
 		"./api": "./src/api/handlers.ts",
-		"./cli": "./src/ns/cli.ts",
+		"./ns-extension": "./src/ns/extension.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},

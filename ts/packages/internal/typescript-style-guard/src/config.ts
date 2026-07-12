@@ -79,7 +79,7 @@ export const concreteCapabilityCommandSurfaces = [
 		cliPrefixes: ["branch-context"],
 		slashPrefixes: ["branch-context"],
 	},
-	{ packageName: "@nseng-ai/cmux", cliPrefixes: ["ccc"], slashPrefixes: ["ccc"] },
+	{ packageName: "@nseng-ai/cmux", cliPrefixes: [], slashPrefixes: ["ccc"] },
 	{ packageName: "@nseng-ai/flow", cliPrefixes: ["flow"], slashPrefixes: ["flow"] },
 	{ packageName: "@nseng-ai/handoffs", cliPrefixes: ["handoff"], slashPrefixes: ["handoff"] },
 	{ packageName: "@nseng-ai/objectives", cliPrefixes: ["objective"], slashPrefixes: ["objective"] },

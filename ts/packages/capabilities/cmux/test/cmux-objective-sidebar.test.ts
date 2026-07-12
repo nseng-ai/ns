@@ -60,10 +60,11 @@ describe("cmux Objective sidebar", () => {
 				options: { cwd: repoRoot, signal: expect.any(AbortSignal) },
 			},
 			{
-				command: "ccc",
+				command: "ns",
 				args: [
+					"cmux",
 					"exec",
-					"cmux-workspace-summary",
+					"workspace-summary",
 					"--title",
 					expectedTitle,
 					"--description",
@@ -152,10 +153,11 @@ describe("cmux Objective sidebar", () => {
 			["ns", ["objective", "exec", "read-objective", slug, "--format", "json"]],
 			["git", ["branch", "--show-current"]],
 			[
-				"ccc",
+				"ns",
 				[
+					"cmux",
 					"exec",
-					"cmux-workspace-summary",
+					"workspace-summary",
 					"--title",
 					expectedTitle,
 					"--description",
@@ -204,10 +206,11 @@ describe("cmux Objective sidebar", () => {
 			},
 		]);
 		expect(pi.execCalls.at(-1)).toMatchObject({
-			command: "ccc",
+			command: "ns",
 			args: [
+				"cmux",
 				"exec",
-				"cmux-workspace-summary",
+				"workspace-summary",
 				"--title",
 				expectedTitle,
 				"--description",
@@ -257,7 +260,7 @@ describe("cmux Objective sidebar", () => {
 				"charlie-objective — open — latest update 2026-01-03T00:00:00Z",
 			],
 		});
-		expect(pi.execCalls.at(-1)).toMatchObject({ command: "ccc" });
+		expect(pi.execCalls.at(-1)).toMatchObject({ command: "ns" });
 		expect(notificationMessages(ctx)).toContain(`Applied cmux Objective sidebar: ${expectedTitle}`);
 	});
 
@@ -379,10 +382,11 @@ describe("cmux Objective sidebar", () => {
 				objectiveReadStep(slug),
 				gitCurrentBranchStep(),
 				step(
-					"ccc",
+					"ns",
 					[
+						"cmux",
 						"exec",
-						"cmux-workspace-summary",
+						"workspace-summary",
 						"--title",
 						`obj:${slug}`,
 						"--description",
