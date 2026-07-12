@@ -111,25 +111,29 @@ findings against the live files before editing (line references in
       conventions doc when one fits (e.g. the gt plumbing-not-display rule near
       `graphite-dependency-boundary.md`), create a focused new doc otherwise; the runner
       chooses per item within this policy.
-- [ ] Tranche 4 — CLI push-down execution: dispositions for all 29 candidates were
-      decided 2026-07-12 (frontload update); this row implements the accepted ones and
-      creates the graduate records.
-      Guidance: **Accepted (implement here):** `ns slot gt exec backup-refs` (shared by
-      code-smush and code-gt-linearize-descendants); `wait-for-checks` primitive beside
-      `ns address exec branch-pr-checks`; `ns handoff create` slug normalization plus
-      `ns handoff pickup` term-matching; a bundled episode-slice script for
-      context-bundle-analysis; the routing retrofit pointing code-thermostack and
-      code-gt-linearize-descendants at the existing `stack-branches` exec (no new CLI).
-      **Graduate (runner creates minimal objective records):** `ccc exec`
-      inventory/manifest helper; objective exec surface extension (refresh-targets,
-      update/refresh evidence, retro reconstruction pipeline); `ns slot gt exec`
-      restack-preflight + descendants-report; areg mutation commands are recorded as a
-      note/edge on the existing skill-management-subsystem objective rather than a new
-      record. **Rejected (rationale in the frontload update):** changelog-update
-      commit-fetching (skill keeps pure-git portability); create-*/setup-* bundled
-      scripts (usage too low); merge-conflicts inventory command; envelope
-      field-drift check; objective-retro `--repo/--branch` flag defaults (noted for the
-      next ns retro CLI iteration, untracked here).
+- [~] Tranche 4 — CLI push-down execution: dispositions for all 29 candidates were
+  decided 2026-07-12 (frontload update); this row implements the accepted ones and
+  creates the graduate records.
+  Progress: routing retrofit executed 2026-07-12 on
+  `skill-audit-t4-routing-retrofit` (thermostack + linearize-descendants now route
+  topology reads through the stack-branches/stack-map-branches execs — see the
+  t4-routing-retrofit-executed update).
+  Guidance: **Accepted (implement here):** `ns slot gt exec backup-refs` (shared by
+  code-smush and code-gt-linearize-descendants); `wait-for-checks` primitive beside
+  `ns address exec branch-pr-checks`; `ns handoff create` slug normalization plus
+  `ns handoff pickup` term-matching; a bundled episode-slice script for
+  context-bundle-analysis; the routing retrofit pointing code-thermostack and
+  code-gt-linearize-descendants at the existing `stack-branches` exec (no new CLI).
+  **Graduate (runner creates minimal objective records):** `ccc exec`
+  inventory/manifest helper; objective exec surface extension (refresh-targets,
+  update/refresh evidence, retro reconstruction pipeline); `ns slot gt exec`
+  restack-preflight + descendants-report; areg mutation commands are recorded as a
+  note/edge on the existing skill-management-subsystem objective rather than a new
+  record. **Rejected (rationale in the frontload update):** changelog-update
+  commit-fetching (skill keeps pure-git portability); create-*/setup-* bundled
+  scripts (usage too low); merge-conflicts inventory command; envelope
+  field-drift check; objective-retro `--repo/--branch` flag defaults (noted for the
+  next ns retro CLI iteration, untracked here).
 
 ## Parked
 
