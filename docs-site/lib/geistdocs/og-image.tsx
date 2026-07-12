@@ -48,7 +48,7 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
   }
 
   const pageMetadata = getPageMetadata(page, {
-    fallbackDescription: `The kernel for ${organizationName}.`,
+    fallbackDescription: `The substrate for ${organizationName}.`,
     fallbackTitle: title,
   });
 

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Card, CtaLink, MarketingHero, PreviewPanel } from "@/components/marketing-ui";
 import { organizationName, productName } from "@/lib/geistdocs/site-identity";
 
-const pageTitle = `${productName} — the kernel for ${organizationName}`;
+const pageTitle = `${productName} — the substrate for ${organizationName}`;
 const pageDescription = `${productName} gives agent-driven work boundaries that live in git: durable intent, scoped memory, isolated worktrees, and a gate where output becomes real.`;
 
 export const metadata: Metadata = {
@@ -31,7 +31,7 @@ const features = [
   },
   {
     title: "Extension ecosystem",
-    description: "Retrospectives, code reviews, and PR-feedback triage — built on the ns kernel.",
+    description: "Retrospectives, code reviews, and PR-feedback triage — built on the ns core.",
     href: "/extensions",
   },
 ];
@@ -64,11 +64,11 @@ export default function HomePage() {
             </CtaLink>
           </>
         }
-        description={`${pageDescription} A kernel you embed — not a harness you adopt.`}
+        description={`${pageDescription} A substrate you embed — not a harness you adopt.`}
         eyebrow="ns · nonslop engineering"
         eyebrowTone="blue"
         sidePanel={<FileTreePreview />}
-        title="The kernel for nonslop engineering."
+        title="The substrate for nonslop engineering."
       />
 
       <section className="mx-auto max-w-6xl px-6 pb-12">
