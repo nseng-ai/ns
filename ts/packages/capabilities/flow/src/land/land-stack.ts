@@ -27,7 +27,7 @@ import {
 } from "./results.ts";
 import { landCompletionFlags, parseLandFlagToken } from "./stack/flags.ts";
 import { present, setStatus, usage } from "./land-presentation.ts";
-import { approvedLandConfirmationKinds } from "./post-landing-slot-cleanup.ts";
+import { approvedLandConfirmationKinds } from "./landing-confirmation-policy.ts";
 import {
 	createFlowLandExecutionProgress,
 	runFlowStackLanding,
