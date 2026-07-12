@@ -6,6 +6,9 @@ thread widens it. Each
 implementation row names the README (`references/README-draft.md`) sections
 it makes true — the README is the contract, the row is the slice, and a
 row's outcome folds back into the README rather than settling anywhere else.
+The credentials and steel-thread slices also collect the exact setup inputs,
+ordering, failure modes, and safe verification evidence needed by the later
+setup-skill row; they never record secret values.
 
 ## Work
 
@@ -65,6 +68,19 @@ row's outcome folds back into the README rather than settling anywhere else.
       branch; decision log in the PR description; failed runs leave the
       anchor PR open and marked failed with a failure comment). Gated by
       the credentials row.
+- [ ] Reusable Vercel Sandbox + GitHub setup skill, distilled from the
+      proven credentials and steel-thread work rather than authored ahead of
+      it. Makes true: "Setup" as an executable agent-guided path for a fresh
+      repository — GitHub App registration/installation, Vercel project
+      linkage, environment-variable names and sensitivity, repo-local
+      `[dispatch]` configuration, preflight, and a controlled Sandbox dispatch
+      probe — without reading or recording secret values. During the preceding
+      rows, continuously fold real setup facts and failure modes into the
+      canonical README and Semantic Updates when materially meaningful. Before
+      authoring, settle whether the skill is a module-bundled
+      `@nseng-ai/vercel` artifact or a one-shot project-setup leaf and apply
+      `docs/conventions/skill-conventions.md`; do not create the skill during
+      the current mint-endpoint slice.
 - [ ] `ns dispatch plan`: a real plan dispatched and executed remotely to
       the same git-native landing bar (the subsumed dispatch-extension's
       completion bar). Makes true: "Commands → /ns:dispatch:plan". The

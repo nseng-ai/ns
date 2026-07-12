@@ -88,6 +88,13 @@ rationale, and research live in supporting records that never override it.
   user's own credentials, and a v1 self-landing sandbox with a shared mint
   secret — each v1 shortcut recorded beside its named upgrade
   (Vercel-side supervisor, per-run landing voucher).
+- **The reusable setup skill and its source material**: collect the actual
+  Vercel Sandbox, GitHub App, project-linkage, environment, and preflight
+  steps as the credentials and steel-thread slices land, then distill the
+  proven path into a reusable skill for setting up Vercel Sandbox dispatch
+  with git-native GitHub landing. The canonical README's Setup section stays
+  the user-facing source of truth; the skill must not preserve secret values
+  or turn prototype shortcuts into unqualified long-term guidance.
 - **The durable-jobs seam and its first job**: Vercel Workflows + cron
   backend; nightly objective advancement as the proving job, including the
   policy decision of what "advance an objective autonomously overnight"
@@ -133,6 +140,11 @@ rationale, and research live in supporting records that never override it.
   under the pi harness adapter end-to-end and lands results git-natively:
   pushed branch and open PR the dispatching side can pick up (result
   contract per the canonical README).
+- A reusable setup skill, grounded in the setup evidence collected while
+  building the steel thread, guides a fresh repository through the required
+  Vercel project, GitHub App, repo configuration, and credential/preflight
+  setup without exposing secret values; following it reaches a controlled
+  Sandbox dispatch probe against the configured GitHub repository.
 - A nightly objective-advancement job runs on Vercel Workflows, invokes the
   same executor core, and lands its results git-natively.
 - The settled contracts (package identity, gateway vocabulary, anchor/run
@@ -198,6 +210,12 @@ Risks:
 - **README drifts from implementation**: mitigation — the README settles
   first, and each implementation slice cites the README section it makes
   true.
+- **The setup skill fossilizes prototype shortcuts or leaks credential
+  material**: mitigation — collect names, ordering, failure modes, and
+  verification evidence as implementation lands, never secret values;
+  author the skill from the proven steel thread and canonical README, and
+  label the shared mint secret, self-landing sandbox, and overbroad App
+  permissions with their required upgrades before wider deployment.
 
 ## Open Questions
 
@@ -212,6 +230,11 @@ Risks:
   policy (`## Runner Policy`) an objective must declare to be advanced
   autonomously, and what the human review loop over the produced branches
   looks like.
+- Setup-skill distribution and invocation: whether the reusable setup skill
+  ships as a module-bundled artifact of `@nseng-ai/vercel` or through the
+  repo's one-shot project-setup family, and which explicit-only invocation
+  kind fits. Decide after the steel thread proves the workflow and before
+  authoring the skill; do not create the skill speculatively now.
 - ~~Multi-repo scope~~ — resolved (grill decision, 2026-07-12): dispatch is
   repo-local, operating on the repo it runs from; no cross-repo dispatch in
   this objective's scope.
