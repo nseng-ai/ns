@@ -7,6 +7,20 @@
 > supply. The raw copy-paste scaffold remains here only as the fallback for a register the
 > spec cannot express.
 
+## Table of Contents
+
+- [Spec contract (`--spec <module.mjs>`)](#spec-contract---spec-modulemjs)
+- [Scaffold](#scaffold)
+- [1. Header + legend](#1-header--legend)
+- [2. Verdict strip](#2-verdict-strip)
+- [3. North star — the target model](#3-north-star--the-target-model)
+- [4. The graph as it stands — interactive D3 force/DAG graph](#4-the-graph-as-it-stands--interactive-d3-forcedag-graph)
+- [5. Scorecard table](#5-scorecard-table)
+- [6. Finding cards](#6-finding-cards)
+- [7. Top recommendation](#7-top-recommendation)
+- [Style](#style)
+- [Tone and vocabulary](#tone-and-vocabulary)
+
 ## Spec contract (`--spec <module.mjs>`)
 
 An ESM module with a `default` export. The generator reads each package's declared

@@ -270,10 +270,12 @@ When the selected restack command reports there is nothing left to restack:
   human visual confirmation only.
 - Regenerate any auto-generated files that were touched (per
   `code-resolve-merge-conflicts` step 7) and stage/commit them as appropriate.
-- For a **full-scope** restack, run a final scoped verification from the stack
-  tip after the restack completes, at least when any conflict was resolved
-  mid-stack. This covers upstack branches that replayed without conflicts but
-  now sit atop resolved code. Use the engine's step-4 check rule
+- For a **full-scope** restack, the final-verification rule is binary: if any
+  conflict was resolved anywhere in the restack, run a final scoped
+  verification from the stack tip after the restack completes; if the whole
+  restack replayed conflict-free, skip it. This covers upstack branches that
+  replayed without conflicts but now sit atop resolved code. Use the engine's
+  step-4 check rule
   (`code-resolve-merge-conflicts`, "Verify before continuing"), scoped by the
   file types conflicted across the whole restack.
 

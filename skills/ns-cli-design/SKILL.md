@@ -25,9 +25,10 @@ discipline, not a consumption guide and not a TypeScript style guide. For code
 idioms, load `typescript-style`, then `ns-typescript` for the repo toolchain.
 Out of scope: structural/DRY cleanup of CLI code and shell completion.
 
-Decision provenance: `docs/research/agent-era-cli-design-survey.md`, the Clinkr gap audit
-(`.ns/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`),
-and ADRs `docs/adr/0010`–`0015`. Exact `@nseng-ai/clinkr` surfaces and ADR rationale
+Decision provenance: `docs/research/agent-era-cli-design-survey.md` and ADRs
+`docs/adr/0010`–`0015` (the Clinkr gap audit lives in the closed
+`agent-cli-design-discipline` objective record, historical only). Exact
+`@nseng-ai/clinkr` surfaces and ADR rationale
 live in `references/clinkr-api-map.md`. A command is **done only when every item
 in `references/checklist.md` passes**.
 
@@ -184,6 +185,6 @@ code or docs implying the framework API already exists.
 
 ## Before you ship
 
-Run `references/checklist.md` against the command. When the change alters an
-Objective-relevant CLI design contract, reflect it back with `objective-update`
-under `agent-cli-design-discipline`.
+Run `references/checklist.md` against the command. When the change alters a CLI
+design contract that an open Objective tracks, reflect it back with
+`objective-update` under that Objective.

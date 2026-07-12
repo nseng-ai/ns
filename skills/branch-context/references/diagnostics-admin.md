@@ -14,13 +14,10 @@ Use this reference for non-happy-path branch-context work. Keep diagnostics narr
 
 ## Common recovery cases
 
-- No saved plan found: ask for an explicit saved plan path or run the write-plan workflow first.
-- Target branch exists: stop and ask whether to choose another branch or inspect the existing branch.
-- Branch Memory entry exists: stop; do not overwrite the attached plan manually.
-- Graphite setup fails after branch creation: report the partial branch state; do not attach a plan manually unless the user explicitly directs recovery.
-- Missing or unexpected attached plan key: inspect the `branch-context` namespace and rerun `ns branch-context exec load <key>` only when a non-default key is explicitly intended.
-- Current branch is trunk/default/detached for implementation: stop and ask for the intended implementation branch.
+Step-skill operations carry their own Recovery sections — creation/attachment failures (no saved plan, target branch exists, Branch Memory entry exists, Graphite setup failure) live in `branch-context-from-plan`; attached-plan loading failures (missing/unexpected/ambiguous key, trunk/detached checkout) live in `branch-context-impl`. Only the orphan cases with no owning step skill live here:
+
 - Stale plan content: report the observed mismatch and ask or adjust scope before implementing beyond the plan.
+- Ambiguous admin wording (move vs copy, retarget scope): ask before changing files — see Admin examples below.
 
 ## Local plan store inspection
 

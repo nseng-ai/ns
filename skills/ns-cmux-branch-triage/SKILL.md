@@ -89,6 +89,8 @@ Badge meanings are shared across the cmux family and defined in `docs/convention
 
 Classify branches by safety/actionability, not just stack topology. For each branch row include: branch name, PR number/state, merge status/check summary, base/parent or parent-stack blocker, slot/worktree if any, cmux workspace refs/badges, and suggested next action.
 
+The triage inventory is complete only when every local branch and every open PR head branch from the inventory appears in exactly one of the categories below; a branch that fits no category cleanly goes under `Needs inspection before choosing an action` rather than being omitted. Do not present options or start mutations while any branch is unclassified.
+
 ### Ready to process now
 
 These branches are clean, have no open cmux workspace, are not blocked by obvious parent/stack state, and are candidates for the next landing/restack/retirement decision.

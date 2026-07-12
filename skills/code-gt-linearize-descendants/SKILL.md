@@ -54,7 +54,7 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
 8. Rewrite with the least-invasive strategy that works:
    - topology-only move: `gt checkout <branch>`, `gt track -p <new-parent>`, `gt restack`;
    - history rebuild: `git checkout <branch>`, `git reset --hard <new-parent>`, `git cherry-pick <old-parent>..<old-branch>`, `gt track -p <new-parent>`;
-   - duplicate drop only after the kept stack is correct: `gt delete <duplicate-branch> -f -q`.
+   - duplicate drop, only after all three checks pass — the rewritten stack matches the confirmed proposal, `gt restack` reports nothing to do, and `git status` is clean: `gt delete <duplicate-branch> -f -q`.
 9. If conflicts occur, use `code-resolve-merge-conflicts` as the conflict-resolution driver and return unresolved/product decisions to this workflow.
 10. Once the rewrite succeeds and status is clean, run, as confirmed in the proposal:
 

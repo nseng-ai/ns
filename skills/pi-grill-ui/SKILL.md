@@ -10,7 +10,7 @@ metadata:
 
 This is the Pi structured-UI complement to the portable `grilling` loop. It must remain self-contained because `/pi:grill-me` fallback prompts still need to work when skill expansion is unavailable.
 
-Lineage: semantically melded from the upstream `grilling` skill (`mattpocock/skills`, upstream path `skills/productivity/grilling/`), re-expressed in Pi's structured `grill_ask` vocabulary. The canonical upstream pin and the melded-surfaces registry live in `docs/agents/matt-pocock-skills.md`; when the vendored `grilling` skill is refreshed, semantically merge behavior changes here rather than copying text.
+Lineage: semantically melded from the upstream `grilling` skill (`mattpocock/skills`, upstream path `skills/productivity/grilling/`), re-expressed in Pi's structured `grill_ask` vocabulary. The canonical upstream pin and the melded-surfaces registry live in `docs/agents/matt-pocock-skills.md`; when the vendored `grilling` skill is refreshed, semantically merge behavior changes here rather than copying text. Sync sibling: `pi-grill-with-docs-ui` deliberately shares the interview charter, `grill_ask` protocol, `ui_unavailable` fallback, facts-vs-decisions rule, and validation-scope guardrail paragraphs with this file (both must stay self-contained); update shared paragraphs in both files together.
 
 Interview the user relentlessly about every aspect of this plan or design until you and the user reach shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. Ask exactly one user-facing question at a time, and include your recommended answer. Do not enact the plan until the user confirms shared understanding has been reached.
 

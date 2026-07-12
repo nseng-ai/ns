@@ -61,7 +61,7 @@ Create the directory if needed:
 mkdir -p .github/workflows
 ```
 
-Copy `references/dprint-ci.yml` to `.github/workflows/dprint-ci.yml`,
+Copy `assets/dprint-ci.yml` to `.github/workflows/dprint-ci.yml`,
 substituting the default branch from Step 3 into the `branches:` list.
 The template ships with `branches: [master]` -- replace `master` with the
 resolved branch name.

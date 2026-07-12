@@ -15,6 +15,8 @@ Step entrypoints carry their own command and recovery and are runnable standalon
 - `branch-context-from-plan` — create a branch and attach a named plan key as branch context from a saved plan.
 - `branch-context-impl` — load and implement an attached plan.
 
+The Pi `/ns:branch-context:upstack-impl-from-plan` command has no separate step skill: it composes `branch-context-from-plan` (create/attach) and then `branch-context-impl` (implementation) in a fresh session.
+
 Use this skill for the shared model the step skills assume, and for diagnostics, admin, and repair work the step skills do not cover.
 
 ## Do not use this skill for

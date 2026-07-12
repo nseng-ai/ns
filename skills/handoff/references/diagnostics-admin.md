@@ -88,7 +88,7 @@ Prefer the first-party ns command face, which deletes one exact-slug handoff (pa
 ns handoff delete [--branch <branch>] [--yes] <slug>
 ```
 
-There is no `/handoff:delete` Pi command in the current surface; single-handoff deletion is CLI-only. Use the storage layer directly only when no `ns handoff delete` helper is available:
+Surface ownership (including the no-Pi-delete fact) lives in the umbrella `SKILL.md` Admin operations section. Use the storage layer directly only when no `ns handoff delete` helper is available:
 
 ```bash
 brmem delete <semantic-slug>.md --namespace handoff --branch <branch> --format json

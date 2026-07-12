@@ -65,7 +65,7 @@ ns handoff gc [--dry-run|--force]
 brmem get|check|put|copy|delete ... --namespace handoff
 ```
 
-There is no `/handoff:delete` Pi command in the current surface; single-handoff deletion is CLI-only.
+Delete/gc surface ownership, including the no-Pi-delete fact, lives in the umbrella `SKILL.md` Admin operations section.
 
 `brmem` is the storage/recovery/admin layer. Do not make it the primary public UX when an `ns handoff ...` command or Pi surface exists.
 

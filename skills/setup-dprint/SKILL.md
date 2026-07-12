@@ -39,35 +39,7 @@ Look for `dprint.json` or `.dprint.json` in the project root.
 
 ## Step 3: Create `dprint.json`
 
-Load `references/plugin-catalog.md` for plugin URLs and default config blocks.
-
-Write a `dprint.json` in the project root with this structure:
-
-```json
-{
-  "markdown": {
-    "lineWidth": 100
-  },
-  "toml": {
-    "lineWidth": 100
-  },
-  "includes": [
-    "**/*.md",
-    "**/*.toml"
-  ],
-  "excludes": [
-    ".agents",
-    ".claude",
-    "node_modules",
-    ".venv",
-    ".pytest_cache"
-  ],
-  "plugins": [
-    "<markdown-plugin-url-from-catalog>",
-    "<toml-plugin-url-from-catalog>"
-  ]
-}
-```
+Copy `assets/dprint-default.json` (this skill's complete default template, plugin URLs included) to the project root as `dprint.json`. The template is the single source for the default config; load `references/plugin-catalog.md` only when you need per-plugin rationale or option notes.
 
 ## Step 4: Add `.dprint/` to `.gitignore`
 
@@ -111,10 +83,17 @@ check: lint format-check dprint-check ty
 
 ### Makefile
 
-If a `Makefile` exists:
+If a `Makefile` exists, add dedicated targets mirroring the justfile recipes (recipe lines must be tab-indented):
 
-- Add `dprint check` to a `format-check` or `lint` target.
-- Add `dprint fmt` to a `fix` or `format` target.
+```make
+dprint-check:
+	dprint check
+
+dprint-fix:
+	dprint fmt
+```
+
+Then add `dprint-check` to the prerequisites of the aggregate check target — prefer an existing `check` target, else `lint`. For example, `check: lint format-check` becomes `check: lint format-check dprint-check`.
 
 ### package.json
 
@@ -155,7 +134,7 @@ If `dprint check` reports violations after `dprint fmt`, investigate and fix.
 When a `dprint.json` already exists (branched from Step 2):
 
 1. Read the existing config.
-2. Load `references/plugin-catalog.md` for plugin URLs.
+2. Read `assets/dprint-default.json` for the plugin URLs and default config blocks.
 3. Check which plugins are missing:
    - If no `markdown` plugin: add the markdown plugin URL to `plugins` and `"**/*.md"` to `includes`.
    - If no `toml` plugin: add the toml plugin URL to `plugins` and `"**/*.toml"` to `includes`.
