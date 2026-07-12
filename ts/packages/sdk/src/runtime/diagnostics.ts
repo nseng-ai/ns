@@ -30,6 +30,6 @@ export function makeSdkDiagnostic<TExtra extends object = Record<never, never>>(
 		code: request.code,
 		message: request.message,
 		...optionalEntry("path", request.path),
-	};
-	return { ...base, ...(request.extra ?? {}) } as SdkDiagnosticBase & TExtra;
+	} satisfies SdkDiagnosticBase;
+	return Object.assign(base, request.extra);
 }
