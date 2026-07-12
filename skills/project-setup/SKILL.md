@@ -7,21 +7,11 @@ description: "Bootstrap and scaffold new projects and their tooling: create a Bu
 # project-setup
 
 User-invoked router for the one-shot project bootstrap and scaffold family —
-summon it by name. The leaf skills below are **unlisted**: they carry no harness
-registration anywhere (no harness-injected description on Claude Code, Codex, or
-Pi, and no `/skill` typeahead entry), so they are reached through this router (or
+summon it by name. The family covers two kinds of one-shot work — scaffolding a
+new project, and adding a single piece of tooling to an existing one. The leaf
+skills below are **unlisted**, so they are reached through this router (or
 `areg skill find`). Match the user's request to a route, then read that leaf's
 `SKILL.md` directly as the active playbook.
-
-## Skill family
-
-The family covers two kinds of one-shot work — scaffolding a new project, and
-adding a single piece of tooling to an existing one:
-
-- `create-bun-typescript-project` — scaffold a new Bun-centric TypeScript project.
-- `setup-dprint` — add dprint formatting locally.
-- `setup-dprint-gh-ci` — add dprint CI to an existing dprint setup.
-- `setup-graphite` — configure a repo for agentic Graphite (gt).
 
 Python-family scaffolding (package/`-dev` CLI creation, Python CI, PyPI publishing)
 lives in the `nseng-ai/ns-python` repo, not here.

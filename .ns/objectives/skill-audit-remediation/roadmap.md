@@ -42,7 +42,10 @@ findings against the live files before editing (line references in
   (11 files, 1816→1734 lines; see the t1-code-graphite-ops-cuts update); flow+ccc
   executed 2026-07-12 on `skill-audit-t1-flow-ccc` (8 files, 781→731 lines; live
   naming is `ns-cmux-*`/`ns cmux exec`, not the audit's `ccc-*` — see the
-  t1-flow-ccc-cuts update); four family branches remain.
+  t1-flow-ccc-cuts update); scaffolding executed 2026-07-12 on
+  `skill-audit-t1-scaffolding` (2 live files — four batch-8 skills moved to
+  ns-python; see the t1-scaffolding-cuts update); three family branches remain
+  (TypeScript/CLI; docs/retro/setup; review/meta).
 - [ ] Tranche 2 — trigger-surface normalization: real descriptions for the legacy
       `Command:` stubs (ns-flow-cp, ns-flow-submit, code-just-fix, code-workflows,
       changelog-update); convert workflow-summary descriptions to trigger-shaped ones

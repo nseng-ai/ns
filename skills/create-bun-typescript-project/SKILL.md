@@ -32,7 +32,7 @@ existing Node, pnpm, or Vitest workspaces, or for migrations away from Bun.
 
 | Concern                   | Tool                                                                     |
 | ------------------------- | ------------------------------------------------------------------------ |
-| Runtime + package manager | Bun (runs TypeScript directly — no build step)                           |
+| Runtime + package manager | Bun (no build step)                                                      |
 | Lint                      | oxlint                                                                   |
 | Format                    | oxfmt                                                                    |
 | Lint/format orchestration | ultracite (`check` / `fix`)                                              |
@@ -50,7 +50,6 @@ Before running this skill, the following must already be true:
 
 - The current directory is a git repo (`git init` has been run)
 - The user has `bun` installed (`bun --version` works)
-- `.agents/`, `.claude/`, and `skills/` directories may or may not exist
 
 ## Information to collect
 
@@ -120,8 +119,6 @@ tests/
 ```
 
 ## Step-by-step workflow
-
-Follow these steps in order. Create all files, then run verification at the end.
 
 ### Step 1: Collect information
 
@@ -196,9 +193,6 @@ bun install
 bun run fix
 ```
 
-One-time pass so every generated file conforms (and `package.json` is sorted).
-Resolve any non-auto-fixable lint errors by hand.
-
 ### Step 11: Verify
 
 ```bash
@@ -223,7 +217,5 @@ Tell the user:
    `bun test --sequential` all pass.
 2. Key commands: `bun run check` (lint + format check), `bun run fix` (auto-fix
    - format), `bun run typecheck`, `bun test --sequential`, `bun add <dep>` (add
-     a runtime dependency — e.g. `bun add zod` for schema validation; Zod 4's
-     `z.toJSONSchema` works out of the box).
-3. Bun runs `src/*.ts` directly — there is no build step and nothing to compile.
-4. Push to GitHub when ready.
+     a runtime dependency).
+3. Push to GitHub when ready.
