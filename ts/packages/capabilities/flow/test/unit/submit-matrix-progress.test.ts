@@ -2,8 +2,10 @@ import { describe, expect, test } from "vitest";
 
 import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
+import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
 	compactSubmitMetadataCellText,
+	createSubmitMatrixEventProgressController,
 	createSubmitMatrixProgressController,
 	renderSubmitMatrixProgressFrame,
 	submitMatrixRowsFromTopology,
@@ -20,7 +22,67 @@ function caps(parts: Partial<Caps> = {}): Caps {
 	};
 }
 
+function recordingProgress(): { events: NsProgressPhaseEvent[]; progress: NsProgress } {
+	const events: NsProgressPhaseEvent[] = [];
+	return {
+		events,
+		progress: { isLive: true, phase: (event) => events.push(event) },
+	};
+}
+
 describe("submit matrix progress", () => {
+	test("event adapter maps submit-specific global, row, and PR-number behavior", () => {
+		const recording = recordingProgress();
+		const controller = createSubmitMatrixEventProgressController({
+			progress: recording.progress,
+			title: "ns flow submit",
+			rows: [],
+		});
+
+		controller.setGlobal("inventory", { state: "active" });
+		controller.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
+		controller.applyGlobalPhaseEvent("checkpoint", {
+			type: "phase-started",
+			phaseKey: "generate",
+			label: "generating",
+		});
+		controller.applyPrLinks([{ label: "#10", url: "https://github.com/acme/repo/pull/10" }]);
+		controller.setCellByPrNumber(10, "metadata", { state: "done", text: "ready" });
+
+		expect(recording.events.filter((event) => event.type === "matrix-declared")).toHaveLength(1);
+		expect(recording.events.find((event) => event.type === "matrix-declared")).toEqual(
+			expect.objectContaining({
+				labelHeader: "Branch / PR",
+				globalRows: expect.arrayContaining([
+					expect.objectContaining({ key: "inventory" }),
+					expect.objectContaining({ key: "checkpoint" }),
+				]),
+			}),
+		);
+		expect(recording.events).toEqual(
+			expect.arrayContaining([
+				{ type: "matrix-global", globalKey: "inventory", state: "active" },
+				{
+					type: "matrix-global-substep",
+					globalKey: "checkpoint",
+					substepKey: "generate",
+					state: "active",
+					text: "generating",
+				},
+				{
+					type: "matrix-rows",
+					rows: [{ rowKey: "feature/a", label: "feature/a (#10)" }],
+				},
+				{
+					type: "matrix-cell",
+					rowKey: "feature/a",
+					columnKey: "metadata",
+					state: "done",
+					text: "ready",
+				},
+			]),
+		);
+	});
 	test("updates checkpoint substeps without manufacturing active operations", () => {
 		const capture = streamCapture({ sleep: "pending" });
 		const controller = createSubmitMatrixProgressController({

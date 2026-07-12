@@ -26,6 +26,7 @@ import {
 	matrixProgressDisplayWidthChars,
 	type ActiveOperation,
 	type NsProgress,
+	type NsProgressPhaseEvent,
 	type NsProgressPhaseInfo,
 } from "@nseng-ai/sdk";
 
@@ -166,74 +167,102 @@ interface CreateMatrixProgressControllerOptions<
 /** Quiet time before the tail line grows a "· Ns ago" counter; below this, output reads as flowing. */
 export const TAIL_QUIET_NOTICE_MS = 3_000;
 
-function createMatrixProgressController<
+interface MatrixProgressControllerContext<
 	ColumnKey extends string,
 	GlobalKey extends string,
 	Row extends MatrixRowSpec,
->(
-	options: CreateMatrixProgressControllerOptions<ColumnKey, GlobalKey, Row>,
-): MatrixProgressController<ColumnKey, GlobalKey, Row> {
-	const sink = createStreamSink(options.caps, options.deps);
-	const lifecycle = createPhaseStreamLifecycle(options.caps, sink);
-	const tail = createTranscriptTail();
-	const clock = options.clock ?? systemClock;
+> {
+	readonly state: MatrixProgressState<ColumnKey, GlobalKey, Row>;
+	getTitle(): string;
+	isBegun(): boolean;
+	isFinished(): boolean;
+}
+
+interface MatrixSettledTransitions<ColumnKey extends string, GlobalKey extends string> {
+	globals: readonly { globalKey: GlobalKey; text?: string }[];
+	substeps: readonly { globalKey: GlobalKey; substepKey: string; text?: string }[];
+	cells: readonly { rowKey: string; columnKey: ColumnKey; text?: string }[];
+}
+
+interface MatrixProgressControllerHooks<ColumnKey extends string, GlobalKey extends string> {
+	onBegin(): void;
+	onTitleChanged(title: string): void;
+	onRowsChanged(options: { isPreviouslyBegun: boolean }): void;
+	onRowPatched(options: { isPreviouslyBegun: boolean }): void;
+	onActiveOperationsChanged(operations: readonly ActiveOperation[]): void;
+	onGlobalChanged(key: GlobalKey, update: MatrixCellUpdate): void;
+	onGlobalSubstepChanged(globalKey: GlobalKey, substepKey: string, update: MatrixCellUpdate): void;
+	onCellsChanged(column: ColumnKey, rowKeys: readonly string[], update: MatrixCellUpdate): void;
+	onNote(text: string): void;
+	onBeforeFinish(): Promise<void>;
+	onFinish(options: {
+		target: "done" | "failed";
+		transitions: MatrixSettledTransitions<ColumnKey, GlobalKey>;
+		finalLines: readonly string[];
+	}): Promise<void>;
+	onStop(): Promise<void>;
+}
+
+interface MatrixProgressAutoBeginPolicy {
+	shouldBeginOnSetRows: boolean;
+	shouldBeginOnPatchRow: boolean;
+	shouldBeginOnSetActiveOperations: boolean;
+	shouldBeginOnSetGlobal: boolean;
+	shouldBeginOnSetGlobalSubstep: boolean;
+	shouldBeginOnSetCell: boolean;
+	shouldBeginOnSetCellsInState: boolean;
+	shouldBeginOnSetAllCells: boolean;
+	shouldBeginOnSetAllOtherCells: boolean;
+}
+
+function createMatrixProgressControllerCore<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(options: {
+	title: string;
+	rows: readonly Row[];
+	columns: readonly MatrixColumnSpec<ColumnKey>[];
+	globalRows: readonly MatrixGlobalRowSpec<GlobalKey>[];
+	begin?: "immediate" | "lazy";
+	autoBegin: MatrixProgressAutoBeginPolicy;
+	createHooks(
+		context: MatrixProgressControllerContext<ColumnKey, GlobalKey, Row>,
+	): MatrixProgressControllerHooks<ColumnKey, GlobalKey>;
+}): MatrixProgressController<ColumnKey, GlobalKey, Row> {
 	const state = createMatrixProgressState(options.rows, options.columns, options.globalRows);
 	let currentTitle = options.title;
 	let hasBegun = false;
-	let isSettled = false;
-	let lastNoteAtMs: number | undefined;
-	const renderer = createMatrixProgressRenderer({
-		caps: options.caps,
-		sink,
-		title: () => currentTitle,
-		columns: options.columns,
-		// The live frame reserves the operations and tail slots (blank when empty) so the region
-		// height stays stable; the settled frame drops both so scrollback carries no empty lines.
-		activeOperations: () => (isSettled ? undefined : state.activeOperations),
-		globals: () => state.globals,
-		rows: () => state.rows,
-		tailLine: () => (isSettled ? undefined : (tail.line() ?? "")),
-		tailSinceOutputMs: () =>
-			isSettled || lastNoteAtMs === undefined
-				? undefined
-				: Math.max(0, clock.nowMs() - lastNoteAtMs),
-	});
-	const isForwarding = options.forward?.isLive === true;
-
-	function render(): void {
-		if (!hasBegun) return;
-		renderer.render();
-	}
+	let isFinishing = false;
+	let isFinished = false;
+	const context: MatrixProgressControllerContext<ColumnKey, GlobalKey, Row> = {
+		state,
+		getTitle: () => currentTitle,
+		isBegun: () => hasBegun,
+		isFinished: () => isFinished,
+	};
+	const hooks = options.createHooks(context);
 
 	function begin(): void {
-		if (hasBegun) return;
+		if (hasBegun || isFinishing || isFinished) return;
 		hasBegun = true;
-		if (isForwarding) {
-			options.forward?.phase({
-				type: "phases-declared",
-				title: currentTitle,
-				phases: phaseInfos(options.phases),
-			});
-		}
-		lifecycle.startLiveRegion();
-		renderer.render();
-		lifecycle.startPump();
+		hooks.onBegin();
 	}
 
-	function ensureBegun(): void {
-		if (options.begin === "lazy") begin();
+	function beginWhen(enabled: boolean): void {
+		if (enabled) begin();
 	}
 
 	function setTitle(title: string): void {
 		currentTitle = title;
-		if (isForwarding && hasBegun) options.forward?.phase({ type: "title-changed", title });
-		render();
+		hooks.onTitleChanged(title);
 	}
 
 	function setRows(rows: readonly Row[]): void {
-		state.rows = createMatrixRowViews(rows, options.columns);
-		ensureBegun();
-		render();
+		const isPreviouslyBegun = hasBegun;
+		replaceMatrixRows(state, rows, options.columns);
+		beginWhen(options.autoBegin.shouldBeginOnSetRows);
+		hooks.onRowsChanged({ isPreviouslyBegun });
 	}
 
 	function getRows(): readonly Readonly<Row>[] {
@@ -241,25 +270,22 @@ function createMatrixProgressController<
 	}
 
 	function patchRow(rowKey: string, patch: Partial<Omit<Row, "rowKey">>): void {
-		const rowIndex = state.rows.findIndex((candidate) => candidate.rowKey === rowKey);
-		const existing = state.rows[rowIndex];
-		if (existing === undefined) return;
-		state.rows[rowIndex] = { ...existing, ...patch };
-		render();
+		if (!patchMatrixRow(state, rowKey, patch)) return;
+		const isPreviouslyBegun = hasBegun;
+		beginWhen(options.autoBegin.shouldBeginOnPatchRow);
+		hooks.onRowPatched({ isPreviouslyBegun });
 	}
 
 	function setActiveOperations(operations: readonly ActiveOperation[]): void {
 		state.activeOperations = [...operations];
-		render();
+		beginWhen(options.autoBegin.shouldBeginOnSetActiveOperations);
+		hooks.onActiveOperationsChanged(operations);
 	}
 
 	function setGlobal(key: GlobalKey, update: MatrixCellUpdate): void {
-		const rowIndex = state.globals.findIndex((global) => global.key === key);
-		const row = state.globals[rowIndex];
-		if (row === undefined) return;
-		state.globals[rowIndex] = applyCellUpdate(row, update);
-		ensureBegun();
-		render();
+		if (!updateMatrixGlobal({ state, key, update })) return;
+		beginWhen(options.autoBegin.shouldBeginOnSetGlobal);
+		hooks.onGlobalChanged(key, update);
 	}
 
 	function setGlobalSubstep(
@@ -267,21 +293,15 @@ function createMatrixProgressController<
 		substepKey: string,
 		update: MatrixCellUpdate,
 	): void {
-		const row = state.globals.find((global) => global.key === globalKey);
-		const substepIndex = row?.substeps.findIndex((item) => item.key === substepKey) ?? -1;
-		const substep = row?.substeps[substepIndex];
-		if (row === undefined || substep === undefined) return;
-		row.substeps[substepIndex] = applyCellUpdate(substep, update);
-		ensureBegun();
-		render();
+		if (!updateMatrixGlobalSubstep({ state, globalKey, substepKey, update })) return;
+		beginWhen(options.autoBegin.shouldBeginOnSetGlobalSubstep);
+		hooks.onGlobalSubstepChanged(globalKey, substepKey, update);
 	}
 
 	function setCell(rowKey: string, column: ColumnKey, update: MatrixCellUpdate): void {
-		const row = state.rows.find((item) => item.rowKey === rowKey);
-		if (row === undefined) return;
-		row.cells[column] = matrixCellFromUpdate(update);
-		ensureBegun();
-		render();
+		if (!updateMatrixCell({ state, rowKey, column, update })) return;
+		beginWhen(options.autoBegin.shouldBeginOnSetCell);
+		hooks.onCellsChanged(column, [rowKey], update);
 	}
 
 	function setCellsInState(
@@ -289,60 +309,48 @@ function createMatrixProgressController<
 		fromState: MatrixCellState,
 		update: MatrixCellUpdate,
 	): void {
-		for (const row of state.rows) {
-			if (row.cells[column].state !== fromState) continue;
-			row.cells[column] = matrixCellFromUpdate(update);
-		}
-		render();
+		const rowKeys = updateMatrixCellsInState({ state, column, fromState, update });
+		if (rowKeys.length > 0) beginWhen(options.autoBegin.shouldBeginOnSetCellsInState);
+		hooks.onCellsChanged(column, rowKeys, update);
 	}
 
 	function setAllCells(column: ColumnKey, update: MatrixCellUpdate): void {
-		for (const row of state.rows) {
-			row.cells[column] = matrixCellFromUpdate(update);
-		}
-		ensureBegun();
-		render();
+		const rowKeys = updateAllMatrixCells({ state, column, update });
+		beginWhen(options.autoBegin.shouldBeginOnSetAllCells);
+		hooks.onCellsChanged(column, rowKeys, update);
 	}
 
 	function setAllOtherCells(column: ColumnKey, rowKey: string, update: MatrixCellUpdate): void {
-		for (const row of state.rows) {
-			if (row.rowKey === rowKey) continue;
-			row.cells[column] = matrixCellFromUpdate(update);
-		}
-		ensureBegun();
-		render();
+		const rowKeys = updateAllOtherMatrixCells({ state, column, rowKey, update });
+		beginWhen(options.autoBegin.shouldBeginOnSetAllOtherCells);
+		hooks.onCellsChanged(column, rowKeys, update);
 	}
 
 	function note(text: string): void {
-		if (!options.caps.isTty) return;
-		tail.note(text);
-		lastNoteAtMs = clock.nowMs();
-		render();
-	}
-
-	function failActive(): void {
-		settleActiveCells(state, options.columns, "failed");
-		render();
+		hooks.onNote(text);
 	}
 
 	async function finish(
 		finishOptions: { isFailed?: boolean; finalLines?: readonly string[] } = {},
 	): Promise<void> {
-		if (!hasBegun) return;
-		await lifecycle.drainPump();
-		if (finishOptions.isFailed === true) failActive();
-		else settleActiveCells(state, options.columns, "done");
-		isSettled = true;
+		if (!hasBegun || isFinishing || isFinished) return;
+		isFinishing = true;
+		await hooks.onBeforeFinish();
+		const target = finishOptions.isFailed === true ? "failed" : "done";
+		const transitions = collectActiveMatrixTransitions(state, options.columns);
+		settleActiveCells(state, options.columns, target);
 		state.activeOperations = [];
-		tail.clear();
-		renderer.render();
-		sink.finish(finishOptions.finalLines ?? []);
-		await lifecycle.stop();
+		isFinished = true;
+		await hooks.onFinish({
+			target,
+			transitions,
+			finalLines: finishOptions.finalLines ?? [],
+		});
 	}
 
 	async function stop(): Promise<void> {
-		if (!hasBegun) return;
-		await lifecycle.stop();
+		if (!hasBegun || isFinishing || isFinished) return;
+		await hooks.onStop();
 	}
 
 	if (options.begin !== "lazy") begin();
@@ -366,6 +374,309 @@ function createMatrixProgressController<
 	};
 }
 
+function createMatrixProgressController<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(
+	options: CreateMatrixProgressControllerOptions<ColumnKey, GlobalKey, Row>,
+): MatrixProgressController<ColumnKey, GlobalKey, Row> {
+	return createMatrixProgressControllerCore({
+		title: options.title,
+		rows: options.rows,
+		columns: options.columns,
+		globalRows: options.globalRows,
+		...(options.begin === undefined ? {} : { begin: options.begin }),
+		autoBegin: {
+			shouldBeginOnSetRows: options.begin === "lazy",
+			shouldBeginOnPatchRow: false,
+			shouldBeginOnSetActiveOperations: false,
+			shouldBeginOnSetGlobal: options.begin === "lazy",
+			shouldBeginOnSetGlobalSubstep: options.begin === "lazy",
+			shouldBeginOnSetCell: options.begin === "lazy",
+			shouldBeginOnSetCellsInState: false,
+			shouldBeginOnSetAllCells: options.begin === "lazy",
+			shouldBeginOnSetAllOtherCells: options.begin === "lazy",
+		},
+		createHooks: (context) => createMatrixStreamControllerHooks(options, context),
+	});
+}
+
+function createMatrixStreamControllerHooks<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(
+	options: CreateMatrixProgressControllerOptions<ColumnKey, GlobalKey, Row>,
+	context: MatrixProgressControllerContext<ColumnKey, GlobalKey, Row>,
+): MatrixProgressControllerHooks<ColumnKey, GlobalKey> {
+	const sink = createStreamSink(options.caps, options.deps);
+	const lifecycle = createPhaseStreamLifecycle(options.caps, sink);
+	const tail = createTranscriptTail();
+	const clock = options.clock ?? systemClock;
+	let isSettled = false;
+	let lastNoteAtMs: number | undefined;
+	const renderer = createMatrixProgressRenderer({
+		caps: options.caps,
+		sink,
+		title: context.getTitle,
+		columns: options.columns,
+		activeOperations: () => (isSettled ? undefined : context.state.activeOperations),
+		globals: () => context.state.globals,
+		rows: () => context.state.rows,
+		tailLine: () => (isSettled ? undefined : (tail.line() ?? "")),
+		tailSinceOutputMs: () =>
+			isSettled || lastNoteAtMs === undefined
+				? undefined
+				: Math.max(0, clock.nowMs() - lastNoteAtMs),
+	});
+	const isForwarding = options.forward?.isLive === true;
+
+	function render(): void {
+		if (context.isBegun()) renderer.render();
+	}
+
+	return {
+		onBegin: () => {
+			if (isForwarding) {
+				options.forward?.phase({
+					type: "phases-declared",
+					title: context.getTitle(),
+					phases: phaseInfos(options.phases),
+				});
+			}
+			lifecycle.startLiveRegion();
+			renderer.render();
+			lifecycle.startPump();
+		},
+		onTitleChanged: (title) => {
+			if (isForwarding && context.isBegun()) {
+				options.forward?.phase({ type: "title-changed", title });
+			}
+			render();
+		},
+		onRowsChanged: render,
+		onRowPatched: render,
+		onActiveOperationsChanged: render,
+		onGlobalChanged: render,
+		onGlobalSubstepChanged: render,
+		onCellsChanged: render,
+		onNote: (text) => {
+			if (!options.caps.isTty) return;
+			tail.note(text);
+			lastNoteAtMs = clock.nowMs();
+			render();
+		},
+		onBeforeFinish: () => lifecycle.drainPump(),
+		onFinish: async (finishOptions) => {
+			isSettled = true;
+			tail.clear();
+			renderer.render();
+			sink.finish(finishOptions.finalLines);
+			await lifecycle.stop();
+		},
+		onStop: () => lifecycle.stop(),
+	};
+}
+
+interface CreateMatrixProgressEventControllerOptions<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+> {
+	progress: NsProgress;
+	title: string;
+	rows: readonly Row[];
+	columns: readonly MatrixColumnSpec<ColumnKey>[];
+	globalRows: readonly MatrixGlobalRowSpec<GlobalKey>[];
+	phases: readonly PhaseSpec[];
+	labelHeader?: string;
+	begin?: "immediate" | "lazy";
+}
+
+function createMatrixProgressEventController<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(
+	options: CreateMatrixProgressEventControllerOptions<ColumnKey, GlobalKey, Row>,
+): MatrixProgressController<ColumnKey, GlobalKey, Row> {
+	return createMatrixProgressControllerCore({
+		title: options.title,
+		rows: options.rows,
+		columns: options.columns,
+		globalRows: options.globalRows,
+		...(options.begin === undefined ? {} : { begin: options.begin }),
+		autoBegin: {
+			shouldBeginOnSetRows: true,
+			shouldBeginOnPatchRow: true,
+			shouldBeginOnSetActiveOperations: true,
+			shouldBeginOnSetGlobal: true,
+			shouldBeginOnSetGlobalSubstep: true,
+			shouldBeginOnSetCell: true,
+			shouldBeginOnSetCellsInState: true,
+			shouldBeginOnSetAllCells: true,
+			shouldBeginOnSetAllOtherCells: true,
+		},
+		createHooks: (context) => createMatrixEventControllerHooks(options, context),
+	});
+}
+
+function createMatrixEventControllerHooks<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(
+	options: CreateMatrixProgressEventControllerOptions<ColumnKey, GlobalKey, Row>,
+	context: MatrixProgressControllerContext<ColumnKey, GlobalKey, Row>,
+): MatrixProgressControllerHooks<ColumnKey, GlobalKey> {
+	function emit(event: NsProgressPhaseEvent): void {
+		options.progress.phase(event);
+	}
+
+	function emitRows(): void {
+		emit({
+			type: "matrix-rows",
+			rows: context.state.rows.map((row) => ({ rowKey: row.rowKey, label: row.label })),
+		});
+	}
+
+	function emitRowsAfterMutation(isPreviouslyBegun: boolean): void {
+		if (isPreviouslyBegun || context.state.rows.length === 0) emitRows();
+	}
+
+	return {
+		onBegin: () => {
+			emit({
+				type: "phases-declared",
+				title: context.getTitle(),
+				phases: phaseInfos(options.phases),
+			});
+			emit({
+				type: "matrix-declared",
+				columns: options.columns.map((column) => ({
+					key: column.key,
+					label: column.label,
+					width: column.width,
+				})),
+				...(options.labelHeader === undefined ? {} : { labelHeader: options.labelHeader }),
+				globalRows: options.globalRows.map((row) => ({
+					key: row.key,
+					label: row.label,
+					detail: row.detail,
+					activeLabel: row.activeLabel,
+					...(row.substeps === undefined
+						? {}
+						: { substeps: row.substeps.map((substep) => ({ ...substep })) }),
+				})),
+			});
+			if (context.state.rows.length > 0) emitRows();
+		},
+		onTitleChanged: (title) => {
+			if (context.isBegun() && !context.isFinished()) {
+				emit({ type: "title-changed", title });
+			}
+		},
+		onRowsChanged: ({ isPreviouslyBegun }) => emitRowsAfterMutation(isPreviouslyBegun),
+		onRowPatched: ({ isPreviouslyBegun }) => emitRowsAfterMutation(isPreviouslyBegun),
+		onActiveOperationsChanged: (operations) => {
+			emit({ type: "matrix-active-operations", operations: [...operations] });
+		},
+		onGlobalChanged: (key, update) => {
+			emit({
+				type: "matrix-global",
+				globalKey: key,
+				state: update.state,
+				...(update.text === undefined ? {} : { text: update.text }),
+			});
+		},
+		onGlobalSubstepChanged: (globalKey, substepKey, update) => {
+			emit({
+				type: "matrix-global-substep",
+				globalKey,
+				substepKey,
+				state: update.state,
+				...(update.text === undefined ? {} : { text: update.text }),
+			});
+		},
+		onCellsChanged: (column, rowKeys, update) => {
+			for (const rowKey of rowKeys) {
+				emitMatrixCell({ emit, rowKey, column, update });
+			}
+		},
+		onNote: () => {},
+		onBeforeFinish: async () => {},
+		onFinish: async ({ target, transitions }) => {
+			for (const global of transitions.globals) {
+				emit({ type: "matrix-global", ...global, state: target });
+			}
+			for (const substep of transitions.substeps) {
+				emit({ type: "matrix-global-substep", ...substep, state: target });
+			}
+			for (const cell of transitions.cells) {
+				emit({ type: "matrix-cell", ...cell, state: target });
+			}
+			emit({ type: "matrix-active-operations", operations: [] });
+		},
+		onStop: async () => {},
+	};
+}
+
+function collectActiveMatrixTransitions<ColumnKey extends string, GlobalKey extends string>(
+	state: MatrixProgressState<ColumnKey, GlobalKey, MatrixRowSpec>,
+	columns: readonly MatrixColumnSpec<ColumnKey>[],
+): MatrixSettledTransitions<ColumnKey, GlobalKey> {
+	return {
+		globals: state.globals.flatMap((global) =>
+			global.state === "active"
+				? [{ globalKey: global.key, ...(global.text === undefined ? {} : { text: global.text }) }]
+				: [],
+		),
+		substeps: state.globals.flatMap((global) =>
+			global.substeps.flatMap((substep) =>
+				substep.state === "active"
+					? [
+							{
+								globalKey: global.key,
+								substepKey: substep.key,
+								...(substep.text === undefined ? {} : { text: substep.text }),
+							},
+						]
+					: [],
+			),
+		),
+		cells: state.rows.flatMap((row) =>
+			columns.flatMap((column) => {
+				const cell = row.cells[column.key];
+				return cell.state === "active"
+					? [
+							{
+								rowKey: row.rowKey,
+								columnKey: column.key,
+								...(cell.text === undefined ? {} : { text: cell.text }),
+							},
+						]
+					: [];
+			}),
+		),
+	};
+}
+
+function emitMatrixCell<ColumnKey extends string>(options: {
+	emit(event: NsProgressPhaseEvent): void;
+	rowKey: string;
+	column: ColumnKey;
+	update: MatrixCellUpdate;
+}): void {
+	options.emit({
+		type: "matrix-cell",
+		rowKey: options.rowKey,
+		columnKey: options.column,
+		state: options.update.state,
+		...(options.update.text === undefined ? {} : { text: options.update.text }),
+	});
+}
+
 export interface MatrixWorkflowConfig<
 	Row extends { label: string },
 	ColumnKey extends string,
@@ -374,6 +685,7 @@ export interface MatrixWorkflowConfig<
 	columns: readonly MatrixColumnSpec<ColumnKey>[];
 	globalRows: readonly MatrixGlobalRowSpec<GlobalKey>[];
 	phases: readonly PhaseSpec[];
+	labelHeader?: string;
 	rowKey(row: Row): string;
 }
 
@@ -388,6 +700,14 @@ export interface MatrixWorkflow<
 			"rows" | "columns" | "globalRows" | "phases"
 		> & { rows: readonly Row[] },
 	): Omit<MatrixProgressController<ColumnKey, GlobalKey, Row & MatrixRowSpec>, "setRows"> & {
+		setRows(rows: readonly Row[]): void;
+	};
+	createEventController(options: {
+		progress: NsProgress;
+		title: string;
+		rows: readonly Row[];
+		begin?: "immediate" | "lazy";
+	}): Omit<MatrixProgressController<ColumnKey, GlobalKey, Row & MatrixRowSpec>, "setRows"> & {
 		setRows(rows: readonly Row[]): void;
 	};
 	renderFrame(
@@ -415,6 +735,22 @@ export function defineMatrixWorkflow<
 				columns: config.columns,
 				globalRows: config.globalRows,
 				phases: config.phases,
+			});
+			return {
+				...controller,
+				setRows: (rows) => controller.setRows(rowsWithKey(rows, config.rowKey)),
+			};
+		},
+		createEventController: (options) => {
+			const controller = createMatrixProgressEventController({
+				progress: options.progress,
+				title: options.title,
+				rows: rowsWithKey(options.rows, config.rowKey),
+				columns: config.columns,
+				globalRows: config.globalRows,
+				phases: config.phases,
+				...(config.labelHeader === undefined ? {} : { labelHeader: config.labelHeader }),
+				...(options.begin === undefined ? {} : { begin: options.begin }),
 			});
 			return {
 				...controller,
@@ -556,6 +892,177 @@ export async function runTrackedMatrixStep<Result extends { type: string }>(
 	if (result.type === "failure") options.onFailed(result);
 	else options.onDone(result);
 	return result;
+}
+
+function replaceMatrixRows<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(
+	state: MatrixProgressState<ColumnKey, GlobalKey, Row>,
+	rows: readonly Row[],
+	columns: readonly MatrixColumnSpec<ColumnKey>[],
+): void {
+	state.rows = createMatrixRowViews(rows, columns);
+}
+
+function patchMatrixRow<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(
+	state: MatrixProgressState<ColumnKey, GlobalKey, Row>,
+	rowKey: string,
+	patch: Partial<Omit<Row, "rowKey">>,
+): boolean {
+	const rowIndex = state.rows.findIndex((candidate) => candidate.rowKey === rowKey);
+	const existing = state.rows[rowIndex];
+	if (existing === undefined) return false;
+	state.rows[rowIndex] = { ...existing, ...patch };
+	return true;
+}
+
+interface UpdateMatrixGlobalOptions<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+> {
+	state: MatrixProgressState<ColumnKey, GlobalKey, Row>;
+	key: GlobalKey;
+	update: MatrixCellUpdate;
+}
+
+function updateMatrixGlobal<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(options: UpdateMatrixGlobalOptions<ColumnKey, GlobalKey, Row>): boolean {
+	const { state, key, update } = options;
+	const rowIndex = state.globals.findIndex((global) => global.key === key);
+	const row = state.globals[rowIndex];
+	if (row === undefined) return false;
+	state.globals[rowIndex] = applyCellUpdate(row, update);
+	return true;
+}
+
+interface UpdateMatrixGlobalSubstepOptions<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+> {
+	state: MatrixProgressState<ColumnKey, GlobalKey, Row>;
+	globalKey: GlobalKey;
+	substepKey: string;
+	update: MatrixCellUpdate;
+}
+
+function updateMatrixGlobalSubstep<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(options: UpdateMatrixGlobalSubstepOptions<ColumnKey, GlobalKey, Row>): boolean {
+	const { state, globalKey, substepKey, update } = options;
+	const row = state.globals.find((global) => global.key === globalKey);
+	const substepIndex = row?.substeps.findIndex((item) => item.key === substepKey) ?? -1;
+	const substep = row?.substeps[substepIndex];
+	if (row === undefined || substep === undefined) return false;
+	row.substeps[substepIndex] = applyCellUpdate(substep, update);
+	return true;
+}
+
+interface UpdateMatrixCellOptions<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+> {
+	state: MatrixProgressState<ColumnKey, GlobalKey, Row>;
+	rowKey: string;
+	column: ColumnKey;
+	update: MatrixCellUpdate;
+}
+
+function updateMatrixCell<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(options: UpdateMatrixCellOptions<ColumnKey, GlobalKey, Row>): boolean {
+	const { state, rowKey, column, update } = options;
+	const row = state.rows.find((item) => item.rowKey === rowKey);
+	if (row === undefined) return false;
+	row.cells[column] = matrixCellFromUpdate(update);
+	return true;
+}
+
+interface UpdateMatrixCellsInStateOptions<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+> {
+	state: MatrixProgressState<ColumnKey, GlobalKey, Row>;
+	column: ColumnKey;
+	fromState: MatrixCellState;
+	update: MatrixCellUpdate;
+}
+
+function updateMatrixCellsInState<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(options: UpdateMatrixCellsInStateOptions<ColumnKey, GlobalKey, Row>): readonly string[] {
+	const { state, column, fromState, update } = options;
+	const rowKeys: string[] = [];
+	for (const row of state.rows) {
+		if (row.cells[column].state !== fromState) continue;
+		row.cells[column] = matrixCellFromUpdate(update);
+		rowKeys.push(row.rowKey);
+	}
+	return rowKeys;
+}
+
+interface UpdateAllMatrixCellsOptions<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+> {
+	state: MatrixProgressState<ColumnKey, GlobalKey, Row>;
+	column: ColumnKey;
+	update: MatrixCellUpdate;
+}
+
+function updateAllMatrixCells<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(options: UpdateAllMatrixCellsOptions<ColumnKey, GlobalKey, Row>): readonly string[] {
+	const { state, column, update } = options;
+	for (const row of state.rows) row.cells[column] = matrixCellFromUpdate(update);
+	return state.rows.map((row) => row.rowKey);
+}
+
+interface UpdateAllOtherMatrixCellsOptions<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+> {
+	state: MatrixProgressState<ColumnKey, GlobalKey, Row>;
+	column: ColumnKey;
+	rowKey: string;
+	update: MatrixCellUpdate;
+}
+
+function updateAllOtherMatrixCells<
+	ColumnKey extends string,
+	GlobalKey extends string,
+	Row extends MatrixRowSpec,
+>(options: UpdateAllOtherMatrixCellsOptions<ColumnKey, GlobalKey, Row>): readonly string[] {
+	const { state, column, rowKey, update } = options;
+	const rowKeys: string[] = [];
+	for (const row of state.rows) {
+		if (row.rowKey === rowKey) continue;
+		row.cells[column] = matrixCellFromUpdate(update);
+		rowKeys.push(row.rowKey);
+	}
+	return rowKeys;
 }
 
 function settleActiveCells<ColumnKey extends string, GlobalKey extends string>(
