@@ -433,13 +433,10 @@ describe("subagent fleet navigator", () => {
 		expect(view.render(100).join("\n")).toContain("▸ ▶ First");
 	});
 
-	test("toggles a per-entry expanded info section with spacebar", () => {
+	test("toggles a per-entry header and latest-session-message preview with spacebar", async () => {
 		const manualClock = createManualClock(10_000);
 		const registry = new SubagentFleetRegistry({ clock: manualClock.clock });
-		const run = registry.startRun([
-			{ title: "Second" },
-			{ title: "First", prompt: "Map the investigator command.\nList call sites." },
-		]);
+		const run = registry.startRun([{ title: "Second" }, { title: "First" }]);
 		const second = run.tasks[0]!;
 		const first = run.tasks[1]!;
 		registry.markRunning(first.id);
@@ -456,32 +453,36 @@ describe("subagent fleet navigator", () => {
 
 		expect(view.render(120).join("\n")).not.toContain("session:");
 
-		// Space expands the selected (running) task with a per-entry info section.
 		view.handleInput(" ");
+		await settleMicrotasks();
 		const expanded = view.render(120).join("\n");
-		expect(expanded).toContain("status: running · elapsed: 1m 05s");
-		expect(expanded).toContain("prompt: Map the investigator command.");
-		expect(expanded).not.toContain("List call sites.");
+		expect(expanded).toContain(
+			"stopped · running · openai-codex/gpt-5.4 · 1 turns / 1 tools · 1m 05s",
+		);
 		expect(expanded).toContain("session: /tmp/one.jsonl");
+		expect(expanded).toContain("latest: ● assistant: Found details");
 
 		// The other entry stays collapsed until toggled independently.
 		view.handleInput("j");
 		view.handleInput(" ");
+		await settleMicrotasks();
 		const bothExpanded = view.render(120).join("\n");
-		expect(bothExpanded).toContain("status: running · elapsed: 1m 05s");
-		expect(bothExpanded).toContain("status: queued");
-		expect(bothExpanded).toContain("session: no session file yet");
+		expect(bothExpanded).toContain("latest: ● assistant: Found details");
+		expect(bothExpanded).toContain("no session file yet");
 
 		// Space toggles each entry back off without touching the other.
 		view.handleInput(" ");
-		const secondCollapsed = view.render(120).join("\n");
-		expect(secondCollapsed).not.toContain("status: queued");
-		expect(secondCollapsed).toContain("status: running · elapsed: 1m 05s");
+		expect(
+			view
+				.render(120)
+				.join("\n")
+				.match(/latest: /g),
+		).toHaveLength(1);
 		view.handleInput("k");
 		view.handleInput(" ");
-		expect(view.render(120).join("\n")).not.toContain("status:");
+		expect(view.render(120).join("\n")).not.toContain("latest:");
 
-		// Expansion state is per-task, so it survives while the other task completes.
+		// Expansion state is per-task, so registry updates do not expand another task.
 		view.handleInput(" ");
 		registry.markDone(second.id, {
 			status: "final-text",
@@ -490,9 +491,39 @@ describe("subagent fleet navigator", () => {
 			progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 42_000 },
 			sessionFile: "/tmp/two.jsonl",
 		});
+		await settleMicrotasks();
 		const afterDone = view.render(120).join("\n");
-		expect(afterDone).toContain("status: running · elapsed: 1m 05s");
-		expect(afterDone).not.toContain("status: final-text");
+		expect(afterDone).toContain("latest: ● assistant: Found details");
+		expect(afterDone.match(/session: /g)).toHaveLength(1);
+	});
+
+	test("windows expanded previews as whole entry blocks and counts omitted entries", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([
+			{ title: "Selected" },
+			{ title: "Queued 1" },
+			{ title: "Queued 2" },
+			{ title: "Queued 3" },
+			{ title: "Queued 4" },
+			{ title: "Queued 5" },
+		]);
+		const selected = run.tasks[0]!;
+		registry.markRunning(selected.id);
+		registry.markProgress(selected.id, updateWithSessionFile("/tmp/selected.jsonl"));
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {}, terminal: { rows: 16 } },
+			registry,
+			detailContext: testDetailContext(),
+			done: () => {},
+		});
+
+		view.handleInput(" ");
+		await settleMicrotasks();
+		const rendered = view.render(120).join("\n");
+		expect(rendered).toContain("▸ ▶ Selected");
+		expect(rendered).toContain("latest: ● assistant: Found details");
+		expect(rendered).toContain("… 5 more");
+		expect(rendered).not.toContain("… 9 more");
 	});
 
 	test("scrolls detail with CSI arrows while preserving vim keys", async () => {
@@ -894,6 +925,37 @@ describe("subagent fleet navigator", () => {
 		manualTimers.advanceMs(5_000);
 		await settleMicrotasks();
 		expect(readCount).toBe(3);
+	});
+
+	test("auto-refreshes the latest message while a running entry stays expanded", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Live preview" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/live-preview.jsonl"));
+		let content = sessionJsonl();
+		const manualTimers = createManualTimerScheduler();
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: testDetailContext({ readTextFile: async () => content }),
+			done: () => {},
+			timers: manualTimers.timers,
+			detailRefreshIntervalMs: 1_000,
+		});
+
+		view.handleInput(" ");
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).toContain("latest: ● assistant: Found details");
+		expect(manualTimers.pendingTimerCount()).toBe(1);
+
+		content = sessionJsonl([{ type: "message_end", message: assistantMessage("Still working") }]);
+		manualTimers.advanceMs(1_000);
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).toContain("latest: ● assistant: Still working");
+
+		view.handleInput(" ");
+		expect(manualTimers.pendingTimerCount()).toBe(0);
 	});
 
 	test("renders running duration from the lifecycle transition and advances with the clock", async () => {

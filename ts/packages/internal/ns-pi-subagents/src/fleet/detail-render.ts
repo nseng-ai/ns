@@ -135,6 +135,26 @@ function formatTimelineStamp(
 	return `${formatter.format(new Date(timestampMs))} `;
 }
 
+export function renderFleetEntrySummaryLines(input: {
+	entry: FleetNavigatorEntry;
+	detail: SubagentFleetTaskDetail | undefined;
+	nowMs: number;
+	timelineContext?: FleetTimelineRenderContext;
+}): string[] {
+	const header = renderFleetDetailHeaderLines(input).slice(1);
+	const detail = input.detail;
+	if (detail === undefined) return header;
+	if (detail.message !== undefined) return [...header, detail.message];
+	const latestEntry = detail.timeline.entries.at(-1);
+	if (latestEntry === undefined) return header;
+	return [
+		...header,
+		...renderTimelineEntryLines(latestEntry, input.timelineContext).map(
+			(line, index) => `${index === 0 ? "latest: " : "        "}${line}`,
+		),
+	];
+}
+
 export function renderFleetDetailHeaderLines(input: {
 	entry: FleetNavigatorEntry | undefined;
 	detail: SubagentFleetTaskDetail | undefined;
