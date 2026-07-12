@@ -53,6 +53,13 @@ export interface NsCommandCatalog {
 	candidates: ReadonlyMap<string, ExtensionCommandCandidate>;
 	commandInfos: readonly NsCommandCliInfo[];
 	diagnostics: readonly ExtensionDiagnostic[];
+	extensionPackageNames: ReadonlySet<string>;
+}
+
+interface LoadedCatalogFragment {
+	readonly diagnostics: readonly ExtensionDiagnostic[];
+	readonly candidates: readonly ExtensionCommandCandidate[];
+	readonly extensionPackageNames: readonly string[];
 }
 
 export type ExtensionCommandCandidate = BuiltInNsCommandCandidate | ExternalNsCommandCandidate;
@@ -61,6 +68,7 @@ export interface ExternalNsCommandCandidate extends NsCommandCandidate {
 	moduleReference: NsCommandModuleReference;
 	entryPath?: string;
 	hasStaticCommandInfo: boolean;
+	requiresExtension?: string;
 	descriptorEntry?: ExtensionCommandEntry;
 }
 
@@ -107,6 +115,7 @@ export interface PreinstalledNsCommandCatalogEntryBase {
 	readonly path?: readonly string[];
 	readonly hiddenAncestorKeys?: readonly string[];
 	readonly hasStaticCommandInfo?: boolean;
+	readonly requiresExtension?: string;
 }
 
 export interface PreinstalledNsCommandPackageCatalogEntry extends PreinstalledNsCommandCatalogEntryBase {
@@ -119,9 +128,14 @@ export interface PreinstalledNsCommandLoadedCatalogEntry extends PreinstalledNsC
 	readonly load: NsCommandModuleLoader;
 }
 
+export interface PreinstalledNsCommandCatalog {
+	readonly entries: readonly PreinstalledNsCommandCatalogEntry[];
+	readonly extensionPackageNames: readonly string[];
+}
+
 export type PreinstalledNsCommandCatalogLoader = () =>
-	| readonly PreinstalledNsCommandCatalogEntry[]
-	| Promise<readonly PreinstalledNsCommandCatalogEntry[]>;
+	| PreinstalledNsCommandCatalog
+	| Promise<PreinstalledNsCommandCatalog>;
 
 export interface LoadNsCommandCatalogOptions {
 	cwd: string;
@@ -163,10 +177,18 @@ export async function loadNsCommandCatalog(
 		label: "ns.toml descriptor extensions",
 		candidates: descriptorProjectCandidates.candidates,
 	});
+	const extensionPackageNames = new Set([
+		...preinstalledCandidates.extensionPackageNames,
+		...descriptorProjectCandidates.extensionPackageNames,
+	]);
 
 	const merged = new Map<string, ExtensionCommandCandidate>();
 	for (const source of orderedSources) {
-		const validation = validateSourceCandidates(source.level, source.label, source.candidates);
+		const eligibleCandidates = candidatesWithSatisfiedRequirements(
+			source.candidates,
+			extensionPackageNames,
+		);
+		const validation = validateSourceCandidates(source.level, source.label, eligibleCandidates);
 		diagnostics.push(...validation.diagnostics);
 		for (const candidate of validation.candidates) {
 			const key = commandKey(candidate);
@@ -195,6 +217,7 @@ export async function loadNsCommandCatalog(
 		candidates: new Map(finalCandidates.map((candidate) => [commandKey(candidate), candidate])),
 		commandInfos: finalCandidates.map(toCommandCliInfo),
 		diagnostics,
+		extensionPackageNames,
 	};
 }
 
@@ -365,12 +388,9 @@ function isFatalForSelectedCandidate(
 	return sourceLevelRank(diagnostic.sourceLevel) >= sourceLevelRank(selectedCandidate.source.level);
 }
 
-async function loadProjectDescriptorCandidates(cwd: string): Promise<{
-	diagnostics: readonly ExtensionDiagnostic[];
-	candidates: readonly ExtensionCommandCandidate[];
-}> {
+async function loadProjectDescriptorCandidates(cwd: string): Promise<LoadedCatalogFragment> {
 	const declared = readDeclaredExtensionSpecs(cwd);
-	if (!declared.ok) return { diagnostics: [declared.diagnostic], candidates: [] };
+	if (!declared.ok) return emptyLoadedCatalogFragment([declared.diagnostic]);
 	const loaded = await loadDeclaredExtensionDescriptors({ repoRoot: cwd, specs: declared.specs });
 	return {
 		diagnostics: loaded.diagnostics.map((diagnostic) =>
@@ -380,6 +400,7 @@ async function loadProjectDescriptorCandidates(cwd: string): Promise<{
 				diagnostic.path ?? join(cwd, "ns.toml"),
 			),
 		),
+		extensionPackageNames: loaded.descriptors.map((record) => record.packageName),
 		candidates: loaded.descriptors.flatMap((record) =>
 			descriptorCommandCandidates({
 				cwd,
@@ -469,6 +490,7 @@ function descriptorEntryCommandCandidates(options: {
 					const module = await commandEntry.load();
 					return module.default;
 				}),
+				...optionalEntry("requiresExtension", commandEntry.requiresExtension),
 				descriptorEntry: commandEntry,
 				hasStaticCommandInfo: false,
 				entryPath: options.descriptorPath,
@@ -518,12 +540,12 @@ function descriptorCommandInfoPath(options: {
 async function loadPreinstalledCandidates(
 	catalogLoader: PreinstalledNsCommandCatalogLoader | undefined,
 	cwd: string,
-): Promise<{
-	diagnostics: readonly ExtensionDiagnostic[];
-	candidates: readonly ExtensionCommandCandidate[];
-}> {
-	const catalogEntries = catalogLoader === undefined ? [] : await catalogLoader();
-	const catalogCandidates = catalogEntries.map(preinstalledCandidateForCatalogEntry);
+): Promise<LoadedCatalogFragment> {
+	const catalog =
+		catalogLoader === undefined
+			? { entries: [], extensionPackageNames: [] }
+			: await catalogLoader();
+	const catalogCandidates = catalog.entries.map(preinstalledCandidateForCatalogEntry);
 	const sourceDevCandidates = await loadSourceDevPreinstalledCandidates(
 		cwd,
 		new Set(catalogCandidates.map((candidate) => commandKey(candidate))),
@@ -531,39 +553,39 @@ async function loadPreinstalledCandidates(
 	return {
 		diagnostics: sourceDevCandidates.diagnostics,
 		candidates: [...catalogCandidates, ...sourceDevCandidates.candidates],
+		extensionPackageNames: [
+			...catalog.extensionPackageNames,
+			...sourceDevCandidates.extensionPackageNames,
+		],
 	};
 }
 
 async function loadSourceDevPreinstalledCandidates(
 	cwd: string,
 	catalogKeys: ReadonlySet<string>,
-): Promise<{
-	diagnostics: readonly ExtensionDiagnostic[];
-	candidates: readonly ExtensionCommandCandidate[];
-}> {
+): Promise<LoadedCatalogFragment> {
 	const packagesRoot = sourceDevWorkspacePackagesRoot(cwd);
-	if (packagesRoot === undefined) return { diagnostics: [], candidates: [] };
+	if (packagesRoot === undefined) return emptyLoadedCatalogFragment();
 	const packageDirs = discoverWorkspacePackageDirs(packagesRoot);
 	const diagnostics: ExtensionDiagnostic[] = [];
 	const candidates: ExtensionCommandCandidate[] = [];
+	const extensionPackageNames: string[] = [];
 	for (const packageDir of packageDirs) {
 		const descriptor = await loadSourceDevDescriptorCandidates({ cwd, packagesRoot, packageDir });
 		diagnostics.push(...descriptor.diagnostics);
+		extensionPackageNames.push(...descriptor.extensionPackageNames);
 		candidates.push(
 			...descriptor.candidates.filter((candidate) => !catalogKeys.has(commandKey(candidate))),
 		);
 	}
-	return { diagnostics, candidates };
+	return { diagnostics, candidates, extensionPackageNames };
 }
 
 async function loadSourceDevDescriptorCandidates(options: {
 	cwd: string;
 	packagesRoot: string;
 	packageDir: string;
-}): Promise<{
-	diagnostics: readonly ExtensionDiagnostic[];
-	candidates: readonly ExtensionCommandCandidate[];
-}> {
+}): Promise<LoadedCatalogFragment> {
 	const loaded = await loadExtensionDescriptorFromPackageRoot({ packageRoot: options.packageDir });
 	if (!loaded.ok) {
 		if (
@@ -573,27 +595,25 @@ async function loadSourceDevDescriptorCandidates(options: {
 			loaded.error.code === "extension_descriptor_export_missing"
 		) {
 			// Source-dev discovery is opportunistic; packages without usable descriptor metadata are ignored.
-			return { diagnostics: [], candidates: [] };
+			return emptyLoadedCatalogFragment();
 		}
-		return {
-			diagnostics: [
-				{
-					severity: "error",
-					code: loaded.error.code,
-					message:
-						loaded.error.type === "descriptor-import-failed"
-							? `Failed to load source-dev ns extension descriptor ${loaded.error.path}.\n${loaded.error.causeMessage ?? loaded.error.message}`
-							: loaded.error.message,
-					path: loaded.error.path,
-					sourceLevel: "preinstalled",
-				},
-			],
-			candidates: [],
-		};
+		return emptyLoadedCatalogFragment([
+			{
+				severity: "error",
+				code: loaded.error.code,
+				message:
+					loaded.error.type === "descriptor-import-failed"
+						? `Failed to load source-dev ns extension descriptor ${loaded.error.path}.\n${loaded.error.causeMessage ?? loaded.error.message}`
+						: loaded.error.message,
+				path: loaded.error.path,
+				sourceLevel: "preinstalled",
+			},
+		]);
 	}
 	const spec = relative(options.packagesRoot, options.packageDir);
 	return {
 		diagnostics: [],
+		extensionPackageNames: [loaded.value.packageName],
 		candidates: descriptorCommandCandidates({
 			cwd: options.cwd,
 			spec,
@@ -658,6 +678,7 @@ function preinstalledCandidateForCatalogEntry(
 		...preinstalledCatalogEntryCommandInfo(entry),
 		moduleReference: preinstalledCatalogEntryModuleReference(entry),
 		hasStaticCommandInfo: entry.hasStaticCommandInfo ?? true,
+		...optionalEntry("requiresExtension", entry.requiresExtension),
 		source: {
 			level: "preinstalled",
 			label: `preinstalled package ${displayPath}`,
@@ -688,6 +709,24 @@ function preinstalledCatalogEntryCommandInfo(
 			? {}
 			: { hiddenAncestorKeys: entry.hiddenAncestorKeys }),
 	});
+}
+
+function emptyLoadedCatalogFragment(
+	diagnostics: readonly ExtensionDiagnostic[] = [],
+): LoadedCatalogFragment {
+	return { diagnostics, candidates: [], extensionPackageNames: [] };
+}
+
+function candidatesWithSatisfiedRequirements(
+	candidates: readonly ExtensionCommandCandidate[],
+	extensionPackageNames: ReadonlySet<string>,
+): readonly ExtensionCommandCandidate[] {
+	return candidates.filter(
+		(candidate) =>
+			!("requiresExtension" in candidate) ||
+			candidate.requiresExtension === undefined ||
+			extensionPackageNames.has(candidate.requiresExtension),
+	);
 }
 
 function validateSourceCandidates(

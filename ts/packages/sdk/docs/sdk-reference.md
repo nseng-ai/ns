@@ -98,6 +98,36 @@ The descriptor carries no activation hook or filesystem behavior. Core lifecycle
 instruction rendering and consumer-directory creation; descriptor validation defines the author
 contract independently of that lifecycle consumption.
 
+### `ExtensionCommandEntry` / `ExtensionGroupEntry`
+
+```ts
+interface ExtensionCommandEntry {
+  readonly name: string;
+  readonly requiresExtension?: string;
+  readonly load: RawArgvCommandLoad;
+}
+
+interface ExtensionGroupEntry {
+  readonly group: string;
+  readonly description: string;
+  readonly hidden?: boolean;
+  readonly entries: readonly ExtensionEntry[];
+}
+```
+
+`requiresExtension` is an optional exact extension-package-name gate on an ns command entry. During
+extension discovery and catalog construction, the kernel compares it with the effective registry of
+successfully validated extension packages. When the package is absent, the entry is omitted silently
+from the ns command surface: it does not appear in help or completion, cannot be invoked, and does not
+participate in command collisions or override diagnostics. The command module remains lazy and is not
+loaded to evaluate the gate.
+
+Presence is direct only. The gate does not provide version constraints, transitive dependency
+resolution, installation, activation, or command/executable probing. Package identity for injected
+preinstalled extensions comes from the preinstalled descriptor catalog's explicit catalog-level
+metadata, including commandless extension packages; it is never inferred from command entries or
+module specifiers.
+
 ### `hiddenExecGroup()`
 
 Constructs the standard hidden `exec` group for agent/skill-only commands.
@@ -383,6 +413,7 @@ interface NsExtensionApi {
   env: Record<string, string | undefined>;
   /** Compatibility ingress; adapt into domain-specific contexts before use. */
   homeDir?: string;
+  hasExtension(packageName: string): boolean;
   exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult>;
   textGenerator: TextGenerator;
   commandIo: NsCommandIo;
@@ -403,6 +434,7 @@ interface NsExtensionApi {
 - `cwd` — repository working directory for the command's execution.
 - `env` — environment visible to the command and to shell execution.
 - `homeDir?` — compatibility ingress for a host-resolved user home. Command packages should convert it into their own domain contexts; it is not the owner of harness path semantics or XDG discovery policy.
+- `hasExtension(packageName)` — reports whether the exact extension package name is present in the effective registry. It reads the same registry package-name fact used by `requiresExtension`; the ns extension API deliberately provides no way to enumerate installed extensions.
 - `exec(command, args, options?)` — low-level argv execution. The command owns exactly which programs it runs. Returns an `ExecResult`.
 - `textGenerator` — the text-generation capability; see [Text generation](#text-generation). The command owns its prompts, validation, and repair policy.
 - `commandIo` — required higher-level human command-output service. Command authors can call `ctx.commandIo.phase(...)`, `ctx.commandIo.notify(...)`, `ctx.commandIo.message(...)`, and `ctx.commandIo.clearPhase()` for host-adapted progress and notifications.

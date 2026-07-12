@@ -81,6 +81,7 @@ import { parsedSpecForCommand } from "../sdk/command.ts";
 export type { NsCliContext } from "./context.ts";
 export type { NsCommandInfo } from "../extensions/command-registry.ts";
 export type {
+	PreinstalledNsCommandCatalog,
 	PreinstalledNsCommandCatalogEntry,
 	PreinstalledNsCommandCatalogLoader,
 } from "../extensions/registry.ts";
@@ -237,6 +238,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 		const contextWithIO = await buildNsCliContext({
 			args,
 			commandContext,
+			extensionPackageNames: commandCatalog.extensionPackageNames,
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
 			renderCapabilities,
@@ -424,6 +426,7 @@ async function handleCompletionResolverInvocation(options: {
 	const context = await buildNsCliContext({
 		args: options.args,
 		commandContext: options.commandContext,
+		extensionPackageNames: options.commandCatalog.extensionPackageNames,
 		stdout: options.stdout,
 		stderr: options.stderr,
 		renderCapabilities: options.renderCapabilities,
@@ -485,6 +488,7 @@ async function resolveSelectedNsCommand(options: {
 async function buildNsCliContext(options: {
 	args: readonly string[];
 	commandContext: NsCliCommandContextInput;
+	extensionPackageNames: ReadonlySet<string>;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	injectedContext?: NsExtensionApi;
@@ -519,6 +523,7 @@ async function buildNsCliContext(options: {
 		renderCapabilities: options.renderCapabilities,
 		outputFormat: clinkrFormatFromArgs(options.args),
 		exec: baseContext.exec.bind(baseContext),
+		hasExtension: (packageName) => options.extensionPackageNames.has(packageName),
 		stdout: options.stdout,
 		stderr: options.stderr,
 		stdin,

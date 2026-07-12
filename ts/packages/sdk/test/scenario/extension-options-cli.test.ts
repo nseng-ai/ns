@@ -34,6 +34,7 @@ const progressProbeSchema = z.object({});
 const progressProbeResultSchema = z.object({ isLive: z.boolean() });
 const homeDirProbeSchema = z.object({});
 const homeDirProbeResultSchema = z.object({ homeDir: z.string().optional() });
+const extensionPresenceProbeResultSchema = z.object({ present: z.boolean(), absent: z.boolean() });
 
 const colorCaps: Caps = {
 	isTty: true,
@@ -77,6 +78,19 @@ const homeDirProbeCommand = defineCommand({
 	},
 }) satisfies NsCommand<typeof homeDirProbeSchema, z.infer<typeof homeDirProbeResultSchema>>;
 
+const extensionPresenceProbeCommand = defineCommand({
+	name: "extension-presence-probe",
+	summary: "Probe extension presence.",
+	description: "Probe extension presence.",
+	schema: z.object({}),
+	resultSchema: extensionPresenceProbeResultSchema,
+	handler: async (ctx) =>
+		ok({
+			present: ctx.hasExtension("@example/present"),
+			absent: ctx.hasExtension("@example/absent"),
+		}),
+});
+
 const progressProbeCommand = defineCommand({
 	name: "progress-probe",
 	summary: "Probe progress deps.",
@@ -104,6 +118,25 @@ describe("extension command option specs", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({ status: "ok", data: { isLive: false } });
+	});
+
+	test("runCli exposes the command catalog extension-presence fact", async () => {
+		const run = runCliWithFakes(
+			{
+				args: ["extension-presence-probe", "--format", "json"],
+				extensionRegistry: commandRegistry(
+					extensionPresenceProbeCommand,
+					new Set(["@example/present"]),
+				),
+			},
+			{ execResponses: () => [], textGenerationResults: () => [] },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "ok",
+			data: { present: true, absent: false },
+		});
 	});
 
 	test("runCli passes the SDK-computed home directory to command contexts", async () => {
@@ -194,7 +227,10 @@ function runProgressProbeCli(options: { onProgress?: NsCliDeps["onProgress"] } =
 	);
 }
 
-function commandRegistry(command: NsCommand): NonNullable<NsCliDeps["extensionRegistry"]> {
+function commandRegistry(
+	command: NsCommand,
+	extensionPackageNames: ReadonlySet<string> = new Set(),
+): NonNullable<NsCliDeps["extensionRegistry"]> {
 	const candidate: ExtensionCommandCandidate = {
 		name: command.name,
 		description: command.summary,
@@ -216,6 +252,7 @@ function commandRegistry(command: NsCommand): NonNullable<NsCliDeps["extensionRe
 					},
 				],
 				diagnostics: [],
+				extensionPackageNames,
 			};
 		},
 		async loadSelectedCommand(_candidate): Promise<SelectedNsCommandLoadResult> {

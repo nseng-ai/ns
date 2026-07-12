@@ -37,6 +37,8 @@ export interface NsExtensionApi {
 	 * owner of harness path or XDG discovery semantics.
 	 */
 	homeDir?: string;
+	/** Whether an extension package is present in the effective ns extension registry. */
+	hasExtension(packageName: string): boolean;
 	/** Low-level argv execution hook. Project commands own the exact commands they run. */
 	exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult>;
 	/** Text-generation capability; ns commands own prompts, validation, and repair policy. */

@@ -26,6 +26,7 @@ const noopApi = {
 	textGenerator: { generateText: async (request) => ({ ok: true, text: request.prompt }) },
 	progress: { isLive: false, phase: () => {} },
 	renderCapabilities: { canEmitAnsi: false },
+	hasExtension: () => false,
 } satisfies NsExtensionApi;
 
 describe("extension descriptor SDK", () => {
@@ -158,6 +159,61 @@ describe("extension descriptor SDK", () => {
 		expect(parsed).toEqual({
 			ok: false,
 			message: expect.stringContaining("activation"),
+		});
+	});
+
+	test("accepts and preserves a command extension requirement", () => {
+		const load = () => ({
+			default: defineRawCommand({
+				name: "optional",
+				summary: "Optional.",
+				description: "Optional command.",
+				run: () => ok({}),
+			}),
+		});
+
+		expect(
+			validateExtensionDescriptor({
+				description: "Optional commands.",
+				entries: [{ name: "optional", requiresExtension: "@example/provider", load }],
+			}),
+		).toEqual({
+			ok: true,
+			descriptor: {
+				description: "Optional commands.",
+				entries: [{ name: "optional", requiresExtension: "@example/provider", load }],
+			},
+		});
+	});
+
+	test("rejects an empty command extension requirement at its descriptor path", () => {
+		const parsed = validateExtensionDescriptor({
+			description: "Bad requirement.",
+			entries: [{ name: "optional", requiresExtension: "", load: () => ({}) }],
+		});
+
+		expect(parsed).toEqual({
+			ok: false,
+			message: expect.stringContaining("entries.0.requiresExtension"),
+		});
+	});
+
+	test("keeps command entries strict while accepting requirements", () => {
+		const parsed = validateExtensionDescriptor({
+			description: "Unknown command metadata.",
+			entries: [
+				{
+					name: "optional",
+					requiresExtension: "@example/provider",
+					unexpected: true,
+					load: () => ({}),
+				},
+			],
+		});
+
+		expect(parsed).toEqual({
+			ok: false,
+			message: expect.stringContaining("entries.0"),
 		});
 	});
 

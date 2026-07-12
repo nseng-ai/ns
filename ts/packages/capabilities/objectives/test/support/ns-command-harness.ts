@@ -52,6 +52,7 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
+	readonly hasExtension = () => false;
 	readonly outputFormat: ClinkrFormat;
 	readonly commandIo: NsCommandIo;
 	readonly stdout: (text: string) => void;

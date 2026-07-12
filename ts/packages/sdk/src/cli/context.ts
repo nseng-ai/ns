@@ -46,6 +46,7 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 		progress: noopNsProgress,
 		renderCapabilities: renderCapabilitiesForTerminal(resolveProcessCaps()),
 		outputFormat: "human",
+		hasExtension: () => false,
 		stdout,
 		stderr,
 		exec: async (command, args, execOptions = {}) => {

@@ -3,6 +3,7 @@ import {
 	extensionDescriptorToPreinstalledCatalog,
 	runCli,
 	type NsCliDeps,
+	type PreinstalledNsCommandCatalog,
 	type PreinstalledNsCommandCatalogEntry,
 	NS_BUILT_IN_HELP_GROUP,
 } from "@nseng-ai/sdk/cli";
@@ -28,18 +29,21 @@ export async function runNsCli(args: readonly string[], deps: RunNsCliDeps = {})
 		...deps,
 		context,
 		entryMetaUrl: new URL("../cli.ts", import.meta.url).href,
-		preinstalledCommandCatalog: listPreinstalledNsCommandCatalogEntries,
+		preinstalledCommandCatalog: loadPreinstalledNsCommandCatalog,
 	});
 }
 
-function listPreinstalledNsCommandCatalogEntries(): readonly PreinstalledNsCommandCatalogEntry[] {
-	return [
-		...extensionDescriptorToPreinstalledCatalog(nsInitExtension, {
-			displayPath: "@nseng-ai/ns-init/ns-extension",
-			helpGroup: NS_BUILT_IN_HELP_GROUP,
-		}),
-		...harnessArtifactsPreinstalledEntries(),
-	];
+function loadPreinstalledNsCommandCatalog(): PreinstalledNsCommandCatalog {
+	return {
+		entries: [
+			...extensionDescriptorToPreinstalledCatalog(nsInitExtension, {
+				displayPath: "@nseng-ai/ns-init/ns-extension",
+				helpGroup: NS_BUILT_IN_HELP_GROUP,
+			}),
+			...harnessArtifactsPreinstalledEntries(),
+		],
+		extensionPackageNames: ["@nseng-ai/ns-init", "@nseng-ai/harness-artifacts"],
+	};
 }
 
 function harnessArtifactsPreinstalledEntries(): readonly PreinstalledNsCommandCatalogEntry[] {

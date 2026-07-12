@@ -57,7 +57,11 @@ const descriptor = defineExtension({
 	group: "hello",
 	description: "Hello extension.",
 	entries: [
-		{ name: "legacy", load: () => ({ default: rawCommand }) },
+		{
+			name: "legacy",
+			requiresExtension: "@example/provider",
+			load: () => ({ default: rawCommand }),
+		},
 		{
 			group: "exec",
 			hidden: true,
@@ -89,6 +93,8 @@ const commandIo: NsCommandIo = {
 const progress: NsProgress = { isLive: true, phase: () => {} };
 
 function acceptsExtensionApi(api: NsExtensionApi): string {
+	const isProviderPresent: boolean = api.hasExtension("@example/provider");
+	void isProviderPresent;
 	api.commandIo.phase("checking");
 	api.progress.phase({ type: "phase-done", phaseKey: "checking" });
 	api.progress.phase({

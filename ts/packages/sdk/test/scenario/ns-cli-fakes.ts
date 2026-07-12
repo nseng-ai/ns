@@ -67,6 +67,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 	readonly commandIo = noopNsCommandIo;
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
+	readonly hasExtension = () => false;
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;

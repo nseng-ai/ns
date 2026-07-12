@@ -169,6 +169,28 @@ describe("ns completion CLI", () => {
 		expect(registry.loadLog).toEqual(["hello"]);
 	});
 
+	test("dynamic completion receives the command catalog extension-presence fact", async () => {
+		const registry = fakeCompletionRegistry({
+			extensionPackageNames: new Set(["@example/present"]),
+			commands: [
+				helloCommand({
+					completionProvider(ctx) {
+						return ["@example/present", "@example/absent"]
+							.filter((packageName) => ctx.hasExtension(packageName))
+							.map((value) => ({ value, type: "positional-value" }));
+					},
+				}),
+			],
+		});
+		const run = runWithFakes({
+			args: ["completion", "exec", "resolve", "--", "hello", ""],
+			extensionRegistry: registry,
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("@example/present\n");
+	});
+
 	test("selected command dynamic provider returns candidates and keeps static options", async () => {
 		const registry = fakeCompletionRegistry({
 			commands: [
@@ -248,6 +270,7 @@ interface FakeCompletionPath {
 
 interface FakeCompletionRegistryOptions {
 	commands?: readonly NsCommand[];
+	extensionPackageNames?: ReadonlySet<string>;
 	loadFailures?: Readonly<Record<string, string>>;
 	paths?: Readonly<Record<string, FakeCompletionPath>>;
 }
@@ -283,6 +306,7 @@ function fakeCompletionRegistry(
 					fullDescription: candidate.fullDescription,
 				})),
 				diagnostics: [],
+				extensionPackageNames: options.extensionPackageNames ?? new Set(),
 			};
 		},
 		async loadSelectedCommand(candidate) {

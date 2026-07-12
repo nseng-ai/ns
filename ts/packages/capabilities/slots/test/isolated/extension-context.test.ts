@@ -61,6 +61,7 @@ function extensionApi(options: { renderCapabilities: RenderCapabilities }): NsEx
 		commandIo: noopNsCommandIo,
 		progress: noopNsProgress,
 		renderCapabilities: options.renderCapabilities,
+		hasExtension: () => false,
 		stdout: () => {},
 		stderr: () => {},
 	};
