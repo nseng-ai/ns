@@ -14,8 +14,6 @@ Render a read-only cmux × Graphite stack map: a Graphite-stack-shaped view with
 
 This skill follows `references/cmux-read-only-posture.md`: collect facts and render an overlay without mutating live cmux, Git/Graphite, GitHub, local-file, or durable agent state. Do not clean anything up during the same request.
 
-This is an internal local skill and should be installed with `metadata.internal: true` / `INSTALL_INTERNAL_SKILLS=1` when managed by `npx skills`.
-
 ## Data sources
 
 Use these sources in this order:
@@ -29,11 +27,9 @@ Use these sources in this order:
 4. Structured Graphite topology for branch facts. Prefer `ns slot gt exec stack-branches --format json` from relevant stack worktrees (at least one non-trunk stack worktree when available) and use its `data.edges` parent→child list as the machine tree shape and `data.branches` as the non-trunk branch inventory for the selected scope. If only trunk is available, report the clear no-stack envelope rather than treating it as a failure. Fall back to `gt parent --no-interactive` / `gt children --no-interactive` only when the exec helper is unavailable or incomplete.
 5. `gt ls` only as human visual confirmation or as a visual template. Do **not** parse `gt ls`, `gt log`, or other human-facing Graphite display output as a machine source of topology facts.
 
-For ad-hoc collection, a minimal in-session snippet is acceptable; do not add a bundled executable script for the first version of this skill.
-
 ## Default overlay output
 
-Default output is overlay-only. Do not include an `Attention:` or findings section unless the user explicitly asks for that optional variant.
+Default output is overlay-only.
 
 Preserve the Graphite tree shape in a dedicated `TOPO` column. The user should see the whole relevant stack, not just rows that have open cmux workspaces. Put branch names, Graphite notes, and cmux/worktree badges in separate same-line columns so long branch names or sparse badges do not visually detach from the topology. If the user provides pasted `gt ls` output, you may use that pasted text as the visual tree template for the `TOPO` column and extract the row text into table columns, but do not infer machine topology facts from it. If structured topology is incomplete, say so and prefer an honest partial overlay over silently collapsing the tree.
 

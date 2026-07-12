@@ -14,11 +14,9 @@ Answer: “what branches and Objectives can I continue to work on right now?” 
 
 This skill follows the shared cmux observational posture in `../ns-cmux-stack-map/references/cmux-read-only-posture.md`: collect evidence, rank candidates, and report availability without mutating live cmux, Git/Graphite, GitHub, local-file, or durable agent state.
 
-If the user asks for cleanup or continuation after the report, treat that as a separate follow-up task with the appropriate skill.
-
 ## Mental model
 
-Work in two layers:
+Work in three layers:
 
 1. **Collect and audit candidates.** Build separate branch candidates and Objective candidates from cmux, local Git branches, current-stack Graphite facts, Objective records, and selected PR/diff evidence.
 2. **Filter and present availability.** Use cmux occupancy and cited branch↔Objective links to decide what is already open, then use LLM judgment to rank the remaining work.
@@ -28,7 +26,7 @@ Branches and Objectives are separate candidate types. Link them only when you ha
 
 ## Data sources
 
-Use a quick pass first, then deepen only where relevance is ambiguous or the shortlist needs support.
+Triage first; deepen only ambiguous candidates.
 
 1. `cmux tree --all --json` for windows, workspaces, surfaces/tabs, active workspace, and caller workspace facts.
 2. For each window from the tree, `cmux workspace list --window <window-ref> --json` for workspace metadata and `current_directory`.
@@ -61,7 +59,7 @@ Use a quick pass first, then deepen only where relevance is ambiguous or the sho
    git for-each-ref --sort=-committerdate --format='%(refname:short)%09%(objectname:short)%09%(committerdate:iso8601)%09%(upstream:short)' refs/heads
    ```
 
-6. Enrich with structured Graphite facts only where available. In v1, Graphite evidence is current-stack/worktree-scoped: run this from the current checkout and from open cmux worktree directories when useful:
+6. Enrich with structured Graphite facts only where available. Graphite evidence is current-stack/worktree-scoped: run this from the current checkout and from open cmux worktree directories when useful:
 
    ```bash
    ns slot gt exec stack-branches --format json
@@ -114,11 +112,11 @@ Create Objective candidates from open Active Objective records. Annotate each Ob
 
 LLM-inferred branch↔Objective links may affect Objective availability, but each inferred link must cite evidence and confidence. Good confidence labels are `high`, `medium`, and `low`. Prefer `low` when evidence is only naming similarity.
 
-Branch-context and Branch Memory attachment inspection is future work, not required for v1. Do not read or mutate Branch Memory as part of this skill unless a future revision explicitly adds a read-only attachment source.
+Branch-context and Branch Memory attachment inspection is future work. Do not read or mutate Branch Memory as part of this skill unless a future revision explicitly adds a read-only attachment source.
 
 ## Availability rules
 
-A branch is `OPENED` when any open cmux workspace has an existing `current_directory` whose Git HEAD is that branch. Workspace title and description labels are useful hints but are not authoritative occupancy evidence.
+A branch is `OPENED` when any open cmux workspace has an existing `current_directory` whose Git HEAD is that branch.
 
 An Objective is already open when an `OPENED` branch is authoritatively linked to it. Authoritative links include deterministic `updatedBranches` matches and evidence-cited LLM-inferred links with enough confidence to affect availability.
 
@@ -177,10 +175,8 @@ Already-open workspaces not represented above
 
 Column alignment matters more than separators. Keep row text compact: branch name, state, cmux occupancy, PR number/state when known, and linked Objective slug when evidence supports it. If a complete stack shape is unavailable, still group known current/open-worktree stack branches together and clearly label the stack as partial. If Graphite evidence is entirely unavailable, fall back to the same aligned sections without topology and state that Graphite evidence was unavailable.
 
-Do not hide candidates only because they are stale or already open. Stale and opened rows stay visible in stack order.
-
 ## Future cmux exec helper boundary
 
 If repeated use makes this workflow token-heavy, slow, or brittle, push deterministic evidence collection into a read-only `ns cmux exec` helper under the private cmux orchestration layer, for example in `ts/packages/capabilities/cmux`. That helper should return a compact manifest of cmux workspace facts, branch facts, Objective records, Graphite evidence scope, and evidence locators. The skill should then consume that manifest and perform the LLM judgment and presentation.
 
-Do not implement that helper as part of this v1 skill-only workflow.
+Do not implement that helper as part of this skill-only workflow.

@@ -10,7 +10,7 @@ metadata:
 
 # ns-flow-submit
 
-Submit or update the current Graphite stack by delegating to the repo-local `ns flow submit` command. This is the cross-harness path for `/ns:flow:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
+Submit or update the current Graphite stack by delegating to the `ns flow submit` CLI. This is the cross-harness path for `/ns:flow:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
 
 ## When to use
 
@@ -29,11 +29,7 @@ The CLI owns the orchestration:
 - if the worktree is dirty, first creates a checkpoint with `ns flow cp`;
 - checks submit readiness with `gt submit -nps --no-ai --no-interactive --dry-run`;
 - runs `gt submit -nps --no-ai --no-interactive` to submit/update the current stack;
-- verifies that the current branch has a PR after submit;
-- skips PR description regeneration when the stored patch-id/prompt fingerprint is unchanged;
-- when regeneration is needed, updates PR titles and replaces only the managed generated body region, preserving human text outside it;
-- reports formatter-owned guidance for restack-required, empty-branch, and post-submit description-generation failures;
-- when model access is available, appends an `AI interpretation` section with a concise explanation and next steps for failed submit output.
+- verifies that the current branch has a PR after submit.
 
 If the CLI says a restack is required:
 
@@ -43,19 +39,6 @@ If the CLI says a restack is required:
 ```bash
 ns flow submit --restack
 ```
-
-Automatic checkpointing uses ns checkpoint environment variables:
-
-- `NS_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.6-luna`;
-- `NS_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `NS_CHECKPOINT_MODEL` is unset.
-
-PR description generation uses:
-
-- `NS_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.6-luna`;
-- `NS_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
-- `.ns/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
-
-Submit failure interpretation uses `NS_SUBMIT_FAILURE_MODEL`, defaulting to the standard ns fast model.
 
 To regenerate the current branch PR explicitly, run:
 
@@ -67,10 +50,9 @@ ns flow regenerate-pr
 
 ## Failure handling
 
-Surface CLI output directly, including any `AI interpretation` section. Do not bypass the checkpoint failure, restack guidance, Graphite submit failure, or post-submit PR verification failure. Do not fall back to raw `gt submit` unless the user explicitly asks for a manual fallback after seeing the CLI failure.
+Surface CLI output directly, including any `AI interpretation` section. Do not bypass the checkpoint failure, Graphite submit failure, or post-submit PR verification failure. Do not fall back to raw `gt submit` unless the user explicitly asks for a manual fallback after seeing the CLI failure.
 
 ## Boundaries
 
-- This skill submits/updates PRs; require explicit user intent.
 - It does not land/merge PRs.
-- It edits PR titles/bodies through `ns flow submit` or explicit `ns flow regenerate-pr`; managed generated content is machine-owned, while human PR body text outside the managed region is preserved.
+- It edits PR titles/bodies through `ns flow submit` or explicit `ns flow regenerate-pr`.
