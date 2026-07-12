@@ -59,7 +59,7 @@ export async function updateExtension(
 	const { repository, repoRoot, trunkBranch, nsTomlContent, harnesses } = preflight.prepared;
 	const target = planDeclaredExtensionTarget({
 		projectRoot: repoRoot,
-		source: nsTomlContent,
+		nsTomlContent,
 		requestedSpec: request.source,
 	});
 	if (!target.ok) {

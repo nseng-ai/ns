@@ -15,7 +15,7 @@ describe("ns.toml extension spec edits", () => {
 		expect(
 			planDeclaredExtensionInstallToml({
 				projectRoot: "/repo",
-				source: "",
+				nsTomlContent: "",
 				requestedSpec: "./extensions/tools",
 			}),
 		).toEqual({
@@ -26,11 +26,11 @@ describe("ns.toml extension spec edits", () => {
 	});
 
 	test("plans an install into an absent array without discarding whitespace or CRLF", () => {
-		const source = 'harnesses = ["pi"]\r\n  ';
+		const nsTomlContent = 'harnesses = ["pi"]\r\n  ';
 		expect(
 			planDeclaredExtensionInstallToml({
 				projectRoot: "/repo",
-				source,
+				nsTomlContent,
 				requestedSpec: "npm:@acme/tools",
 			}),
 		).toEqual({
@@ -41,11 +41,11 @@ describe("ns.toml extension spec edits", () => {
 	});
 
 	test("inserts an absent extensions assignment before the first table", () => {
-		const source = '# keep\r\n[points]\r\nfoo = "bar"\r\n';
+		const nsTomlContent = '# keep\r\n[points]\r\nfoo = "bar"\r\n';
 		expect(
 			planDeclaredExtensionInstallToml({
 				projectRoot: "/repo",
-				source,
+				nsTomlContent,
 				requestedSpec: "./extensions/tools",
 			}),
 		).toEqual({
@@ -58,21 +58,21 @@ describe("ns.toml extension spec edits", () => {
 	test.each([
 		{
 			name: "multiline string bracket content",
-			source: 'banner = """\n[not-a-table]\nkeep this text\n"""\n[points]\nfoo = "bar"\n',
+			nsTomlContent: 'banner = """\n[not-a-table]\nkeep this text\n"""\n[points]\nfoo = "bar"\n',
 			expected:
 				'banner = """\n[not-a-table]\nkeep this text\n"""\nextensions = ["./extensions/tools"]\n[points]\nfoo = "bar"\n',
 		},
 		{
 			name: "nested array rows",
-			source: 'matrix = [\n  [1, 2],\n  [3, 4],\n]\n[points]\nfoo = "bar"\n',
+			nsTomlContent: 'matrix = [\n  [1, 2],\n  [3, 4],\n]\n[points]\nfoo = "bar"\n',
 			expected:
 				'matrix = [\n  [1, 2],\n  [3, 4],\n]\nextensions = ["./extensions/tools"]\n[points]\nfoo = "bar"\n',
 		},
-	])("inserts before a real top-level table after $name", ({ source, expected }) => {
+	])("inserts before a real top-level table after $name", ({ nsTomlContent, expected }) => {
 		expect(
 			planDeclaredExtensionInstallToml({
 				projectRoot: "/repo",
-				source,
+				nsTomlContent,
 				requestedSpec: "./extensions/tools",
 			}),
 		).toEqual({ ok: true, text: expected, isAdded: true });
@@ -89,7 +89,7 @@ describe("ns.toml extension spec edits", () => {
 		const table = '[points]\nfoo = "bar"\n';
 		const result = planDeclaredExtensionInstallToml({
 			projectRoot: "/repo",
-			source: `${banner}${table}`,
+			nsTomlContent: `${banner}${table}`,
 			requestedSpec,
 		});
 
@@ -138,24 +138,24 @@ describe("ns.toml extension spec edits", () => {
 	});
 
 	test("plans exact-spec reruns without changing TOML formatting", () => {
-		const source =
+		const nsTomlContent =
 			'# project extensions\nextensions = [\n  "npm:@acme/tools", # retained\n]\n[points]\n';
 		expect(
 			planDeclaredExtensionInstallToml({
 				projectRoot: "/repo",
-				source,
+				nsTomlContent,
 				requestedSpec: "npm:@acme/tools",
 			}),
-		).toEqual({ ok: true, text: source, isAdded: false });
+		).toEqual({ ok: true, text: nsTomlContent, isAdded: false });
 	});
 
 	test("appends to multiline arrays while preserving comments and table order", () => {
-		const source =
+		const nsTomlContent =
 			'harnesses = ["pi"]\nextensions = [\n  "./extensions/a" # keep this comment\n]\n\n[points]\nfoo = "bar"\n';
 		expect(
 			planDeclaredExtensionInstallToml({
 				projectRoot: "/repo",
-				source,
+				nsTomlContent,
 				requestedSpec: "npm:@acme/tools@1.2.3",
 			}),
 		).toEqual({
@@ -168,62 +168,62 @@ describe("ns.toml extension spec edits", () => {
 	test.each([
 		{
 			name: "same-line array",
-			source: 'extensions = ["./extensions/a"]\n',
+			nsTomlContent: 'extensions = ["./extensions/a"]\n',
 			expected: 'extensions = ["./extensions/a", "./extensions/new"]\n',
 		},
 		{
 			name: "multiline array with bracket and comma in a comment",
-			source: 'extensions = [\n  "./extensions/a" # keep ], here\n]\n',
+			nsTomlContent: 'extensions = [\n  "./extensions/a" # keep ], here\n]\n',
 			expected: 'extensions = [\n  "./extensions/a", # keep ], here\n  "./extensions/new"\n]\n',
 		},
 		{
 			name: "CRLF multiline array",
-			source: 'extensions = [\r\n  "./extensions/a" # keep ]\r\n]\r\n',
+			nsTomlContent: 'extensions = [\r\n  "./extensions/a" # keep ]\r\n]\r\n',
 			expected: 'extensions = [\r\n  "./extensions/a", # keep ]\r\n  "./extensions/new"\r\n]\r\n',
 		},
 		{
 			name: "quoted bracket and hash characters",
-			source: 'extensions = ["./extensions/[a]#value"]\n',
+			nsTomlContent: 'extensions = ["./extensions/[a]#value"]\n',
 			expected: 'extensions = ["./extensions/[a]#value", "./extensions/new"]\n',
 		},
 		{
 			name: "escaped double quote",
-			source: 'extensions = ["./extensions/a\\"[#]"]\n',
+			nsTomlContent: 'extensions = ["./extensions/a\\"[#]"]\n',
 			expected: 'extensions = ["./extensions/a\\"[#]", "./extensions/new"]\n',
 		},
 		{
 			name: "single-quoted value",
-			source: "extensions = ['./extensions/[a]#value']\n",
+			nsTomlContent: "extensions = ['./extensions/[a]#value']\n",
 			expected: "extensions = ['./extensions/[a]#value', \"./extensions/new\"]\n",
 		},
 		{
 			name: "same-line close with a surrounding comment",
-			source: 'extensions = ["./extensions/a"] # keep surrounding TOML\r\n',
+			nsTomlContent: 'extensions = ["./extensions/a"] # keep surrounding TOML\r\n',
 			expected: 'extensions = ["./extensions/a", "./extensions/new"] # keep surrounding TOML\r\n',
 		},
 		{
 			name: "empty same-line array",
-			source: "extensions = []\n",
+			nsTomlContent: "extensions = []\n",
 			expected: 'extensions = [ "./extensions/new"]\n',
 		},
 		{
 			name: "empty multiline array",
-			source: "extensions = [\n]\n",
+			nsTomlContent: "extensions = [\n]\n",
 			expected: 'extensions = [\n\t"./extensions/new"\n]\n',
 		},
 		{
 			name: "same-line trailing comma",
-			source: 'extensions = ["./extensions/a",]\n',
+			nsTomlContent: 'extensions = ["./extensions/a",]\n',
 			expected: 'extensions = ["./extensions/a", "./extensions/new",]\n',
 		},
 		{
 			name: "multiline trailing comma before comment",
-			source: 'extensions = [\n  "./extensions/a", # keep trailing comma\n]\n',
+			nsTomlContent: 'extensions = [\n  "./extensions/a", # keep trailing comma\n]\n',
 			expected:
 				'extensions = [\n  "./extensions/a", # keep trailing comma\n  "./extensions/new",\n]\n',
 		},
-	])("preserves formatting for $name", ({ source, expected }) => {
-		expect(appendDeclaredExtensionSpecToml(source, "./extensions/new")).toEqual({
+	])("preserves formatting for $name", ({ nsTomlContent, expected }) => {
+		expect(appendDeclaredExtensionSpecToml(nsTomlContent, "./extensions/new")).toEqual({
 			ok: true,
 			text: expected,
 			isAdded: true,
@@ -233,20 +233,20 @@ describe("ns.toml extension spec edits", () => {
 	test.each([
 		{
 			name: "ordinary values",
-			source: 'extensions = ["./extensions/a",\n  "./extensions/b"]\n',
+			nsTomlContent: 'extensions = ["./extensions/a",\n  "./extensions/b"]\n',
 			expected: 'extensions = ["./extensions/a",\n  "./extensions/b",\n  "./extensions/new"]\n',
 			expectedSpecs: ["./extensions/a", "./extensions/b", "./extensions/new"],
 		},
 		{
 			name: "a four-quote multiline string value",
-			source: 'extensions = [\n  """./extensions/a""""]\n',
+			nsTomlContent: 'extensions = [\n  """./extensions/a""""]\n',
 			expected: 'extensions = [\n  """./extensions/a"""",\n  "./extensions/new"]\n',
 			expectedSpecs: ['./extensions/a"', "./extensions/new"],
 		},
 	])(
 		"appends when the closing bracket shares the last $name line",
-		({ source, expected, expectedSpecs }) => {
-			const result = appendDeclaredExtensionSpecToml(source, "./extensions/new");
+		({ nsTomlContent, expected, expectedSpecs }) => {
+			const result = appendDeclaredExtensionSpecToml(nsTomlContent, "./extensions/new");
 
 			expect(result).toEqual({ ok: true, text: expected, isAdded: true });
 			if (!result.ok) throw new Error("Expected extension append to succeed.");
@@ -261,7 +261,7 @@ describe("ns.toml extension spec edits", () => {
 		expect(
 			planDeclaredExtensionInstallToml({
 				projectRoot: "/repo",
-				source: 'extensions = ["npm:@acme/tools"]\n',
+				nsTomlContent: 'extensions = ["npm:@acme/tools"]\n',
 				requestedSpec: "npm:@acme/tools@1.2.3",
 			}),
 		).toEqual({
@@ -279,7 +279,7 @@ describe("ns.toml extension spec edits", () => {
 		expect(
 			planDeclaredExtensionInstallToml({
 				projectRoot: "/repo/project",
-				source: 'extensions = ["./extensions/tools"]\n',
+				nsTomlContent: 'extensions = ["./extensions/tools"]\n',
 				requestedSpec: "extensions/../extensions/tools",
 			}),
 		).toMatchObject({

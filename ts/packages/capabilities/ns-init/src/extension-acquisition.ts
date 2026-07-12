@@ -166,13 +166,13 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 	): Promise<ReconcileExtensionUpdateSourceResult> {
 		const parsed = parseExtensionSourceSpec(params.repoRoot, params.sourceSpec);
 		if (!parsed.ok) return { type: "failed", diagnostics: [{ ...parsed.error }] };
-		let existedBefore = false;
+		let hasExistingInstallation = false;
 		const installationSnapshot = new Map<string, boolean>();
 		if (parsed.value.kind === "npm") {
 			const packageRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
 			const inspected = await this.acquisition.isNpmPackageInstalled(packageRoot);
 			if (!inspected.ok) return { type: "failed", diagnostics: [{ ...inspected.error }] };
-			existedBefore = inspected.value;
+			hasExistingInstallation = inspected.value;
 			installationSnapshot.set(packageRoot, inspected.value);
 		}
 		const applied = await resolveDeclaredExtensionModules({
@@ -214,7 +214,7 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 				sourceKind: "npm",
 				moduleRoot: root.moduleRoot,
 				intent: "ensure-pinned",
-				outcome: existedBefore ? "unchanged" : "restored",
+				outcome: hasExistingInstallation ? "unchanged" : "restored",
 			};
 		}
 		return {
@@ -222,7 +222,7 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 			sourceKind: "npm",
 			moduleRoot: root.moduleRoot,
 			intent: "refresh-floating",
-			outcome: existedBefore ? "refreshed" : "restored",
+			outcome: hasExistingInstallation ? "refreshed" : "restored",
 		};
 	}
 }
@@ -403,7 +403,7 @@ export class InMemoryExtensionUpdateAcquisitionGateway implements ExtensionUpdat
 			};
 		}
 		const moduleRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
-		const existedBefore = this.installedPackageRoots.has(moduleRoot);
+		const hasExistingInstallation = this.installedPackageRoots.has(moduleRoot);
 		this.installedPackageRoots.add(moduleRoot);
 		if (parsed.value.isPinned) {
 			return {
@@ -411,7 +411,7 @@ export class InMemoryExtensionUpdateAcquisitionGateway implements ExtensionUpdat
 				sourceKind: "npm",
 				moduleRoot,
 				intent: "ensure-pinned",
-				outcome: existedBefore ? "unchanged" : "restored",
+				outcome: hasExistingInstallation ? "unchanged" : "restored",
 			};
 		}
 		return {
@@ -419,7 +419,7 @@ export class InMemoryExtensionUpdateAcquisitionGateway implements ExtensionUpdat
 			sourceKind: "npm",
 			moduleRoot,
 			intent: "refresh-floating",
-			outcome: existedBefore ? "refreshed" : "restored",
+			outcome: hasExistingInstallation ? "refreshed" : "restored",
 		};
 	}
 
@@ -459,11 +459,11 @@ export class InMemoryExtensionUninstallAcquisitionGateway implements ExtensionUn
 		this.removalLog.push({ ...params });
 		const failure = this.failureByPackageName[params.packageName];
 		if (failure !== undefined) return { ok: false, error: { ...failure } };
-		const wasInstalled = this.installedPackageNames.delete(params.packageName);
+		const isRemoved = this.installedPackageNames.delete(params.packageName);
 		return {
 			ok: true,
 			value: {
-				status: wasInstalled ? "removed" : "already-absent",
+				status: isRemoved ? "removed" : "already-absent",
 				path: managedNpmProjectRoot(params.repoRoot, params.packageName),
 			},
 		};

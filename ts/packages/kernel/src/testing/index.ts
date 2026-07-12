@@ -100,8 +100,8 @@ export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 			});
 		}
 		const packageRoot = join(projectDir, "node_modules", request.packageName);
-		const wasInstalled = this.installedPackageRoots.delete(packageRoot);
-		return resultOk({ status: wasInstalled ? "removed" : "already-absent", path: projectDir });
+		const isRemoved = this.installedPackageRoots.delete(packageRoot);
+		return resultOk({ status: isRemoved ? "removed" : "already-absent", path: projectDir });
 	}
 
 	async installNpmPackage(request: {

@@ -36,7 +36,6 @@ export type ExtensionSourceLifecycleClassification =
 	| {
 			readonly type: "unsupported-other";
 			readonly sourceSpec: string;
-			readonly scheme: string;
 			readonly message: string;
 	  }
 	| { readonly type: "invalid-npm"; readonly diagnostic: ExtensionSourceSpecDiagnostic };
@@ -74,7 +73,6 @@ export function classifyExtensionSourceLifecycle(
 			return {
 				type: "unsupported-other",
 				sourceSpec: raw,
-				scheme: schemeWithSeparator.slice(0, -1),
 				message: extensionSourceRequirementMessage(raw),
 			};
 		}

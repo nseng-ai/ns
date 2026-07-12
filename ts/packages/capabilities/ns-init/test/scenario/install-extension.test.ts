@@ -89,7 +89,7 @@ describe("extension lifecycle source classification", () => {
 			expected: {
 				type: "prepared",
 				prepared: {
-					source: { kind: "npm", packageName: "tools", version: undefined, isPinned: false },
+					source: { kind: "npm", packageName: "tools", isPinned: false },
 					sourceIdentity: { kind: "npm", value: "tools" },
 				},
 			},

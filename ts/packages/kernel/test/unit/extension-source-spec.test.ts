@@ -13,7 +13,6 @@ describe("classifyExtensionSourceLifecycle", () => {
 					kind: "npm",
 					raw: "npm:left-pad",
 					packageName: "left-pad",
-					version: undefined,
 					isPinned: false,
 				},
 			},
@@ -73,7 +72,6 @@ describe("classifyExtensionSourceLifecycle", () => {
 			expected: {
 				type: "unsupported-other",
 				sourceSpec: "https://example.test/tools.tgz",
-				scheme: "https",
 				message:
 					"Extension source must be an npm: spec or an unprefixed local path: https://example.test/tools.tgz.",
 			},
@@ -84,7 +82,6 @@ describe("classifyExtensionSourceLifecycle", () => {
 			expected: {
 				type: "unsupported-other",
 				sourceSpec: "ssh://example.test/tools.git",
-				scheme: "ssh",
 				message:
 					"Extension source must be an npm: spec or an unprefixed local path: ssh://example.test/tools.git.",
 			},
