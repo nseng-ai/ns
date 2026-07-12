@@ -98,7 +98,7 @@ function oversizedSelectedBlockRows(input: {
 	availableBlockRows: number;
 	safeRows: number;
 }): string[] {
-	if (input.availableBlockRows < 1) return [...input.selectedBlock.slice(0, input.safeRows)];
+	if (input.availableBlockRows < 1) return input.selectedBlock.slice(0, input.safeRows);
 	return [
 		...input.prefix,
 		...input.selectedBlock.slice(0, input.availableBlockRows),
