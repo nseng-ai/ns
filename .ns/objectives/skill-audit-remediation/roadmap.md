@@ -126,7 +126,11 @@ findings against the live files before editing (line references in
   the t4-wait-for-checks-implemented update); handoff slug/match implemented
   2026-07-12 on `skill-audit-t4-handoff-slug-match` (create-side normalization plus
   `ns handoff exec match` sharing the Pi pickup ladder — see the
-  t4-handoff-slug-match-implemented update).
+  t4-handoff-slug-match-implemented update); episode-slice script implemented
+  2026-07-12 on `skill-audit-t4-episode-slice` (bundled slice-episode.mjs with hard
+  output caps; no new ns CLI — see the t4-episode-slice-implemented update). All
+  five accepted implementations done; graduate records and the areg-mutations note
+  remain.
   Guidance: **Accepted (implement here):** `ns slot gt exec backup-refs` (shared by
   code-smush and code-gt-linearize-descendants); `wait-for-checks` primitive beside
   `ns address exec branch-pr-checks`; `ns handoff create` slug normalization plus

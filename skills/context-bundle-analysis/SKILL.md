@@ -65,21 +65,37 @@ an `analysis.md` already exists, confirm with the user before replacing it.
 
 Targeted reads only — a transcript this size is exactly the hazard being
 diagnosed, and this skill must not induce in its own session the failure mode
-it is analyzing.
+it is analyzing. Every excerpt of `messages.jsonl` goes through the bundled
+slicer; never hand-roll offset/limit reads of the transcript:
+
+```bash
+node <skill-dir>/scripts/slice-episode.mjs <bundle> --list
+node <skill-dir>/scripts/slice-episode.mjs <bundle> --episode "<label | N>"
+node <skill-dir>/scripts/slice-episode.mjs <bundle> --turns <start>:<end>
+```
+
+`<bundle>` is the bundle directory (or its `messages.jsonl`). The slicer
+resolves an episode's `turnRange` from `episodes.json`, emits role-tagged,
+turn-numbered excerpts, and hard-caps output per turn and in total — it
+reports when it truncated and which turns were omitted, so partial coverage is
+always explicit. `--help` documents the cap flags. It is read-only and never
+modifies the bundle.
 
 1. Read `manifest.json` and `episodes.json` fully (both small).
-2. Read the opening turns and the final user instruction(s) of
-   `messages.jsonl`. Position effects make the edges matter most: the opening
-   sets the frame, the latest instructions are what the live session must
-   serve.
+2. Slice the opening turns and the final user instruction(s) of
+   `messages.jsonl` (`--turns 1:<k>`, and a tail range computed from the
+   manifest's turn count). Position effects make the edges matter most: the
+   opening sets the frame, the latest instructions are what the live session
+   must serve.
 3. Sample excerpts only from episodes flagged `stale`, `rot`, or `wasteful`,
-   using line-targeted reads (offset/limit) keyed by each episode's
-   `turnRange`. Every flagged episode is either sampled or listed in "What was
-   NOT examined".
+   using `--episode` with the episode's label (or its `--list` index); the
+   slicer applies the episode's `turnRange` for you. Every flagged episode is
+   either sampled or listed in "What was NOT examined".
 4. Grep across episode boundaries for contradiction candidates (clash) and for
    later references to errored or disputed content (poisoning).
-5. **Hard rule: never read the full `messages.jsonl` into context.** No step of
-   this procedure requires it, and no finding justifies it.
+5. **Hard rule: never read the full `messages.jsonl` into context.** The
+   slicer's output caps enforce this for excerpts; no step of this procedure
+   requires the full file, and no finding justifies reading it whole.
 
 ## Failure-mode taxonomy and mapping
 
