@@ -5,12 +5,11 @@ description: "TypeScript fake-driven testing architecture. Use when writing or r
 
 # typescript-fake-driven-testing
 
-Use for TypeScript testing architecture when code touches external systems such as CLIs, filesystems, HTTP APIs, databases, git, package managers, or hosted services.
-
 ## Core model
 
 - Define semantic gateway types for external capabilities.
-- A gateway is the canonical interface to an external **or non-deterministic** capability: process execution, git, gh, filesystem, network, plus the system clock and timers. External-service boundaries carry the `Gateway` suffix (`GitGateway`, `GithubPrFeedbackGateway`); bare runtime primitives (`Clock`, `TimerScheduler`) are gateways by category but named without the suffix, and incumbent generic names win absent confusion (foundation's exec seam is `CommandExecApi`; the name `ExecGateway` is retired).
+- A gateway is the canonical interface to an external **or non-deterministic** capability: process execution, git, gh, filesystem, network, plus the system clock and timers.
+- Naming: external-service boundaries carry the `Gateway` suffix (`GitGateway`, `GithubPrFeedbackGateway`); bare runtime primitives (`Clock`, `TimerScheduler`) are gateways by category but named without the suffix, and incumbent generic names win absent confusion (foundation's exec seam is `CommandExecApi`; the name `ExecGateway` is retired).
 - Keep domain logic above gateways and inject a small context object manually. Name domain logic with a domain-specific verb (`load`/`read`/`resolve`/`assemble`, chosen for the action); do not mint `…Loader` noun-types or a `loaders`/`…Dependencies` injection bag, which dress stateless functions up as a stateful collaborator. Fake the gateway beneath domain logic, never the domain logic itself.
 - Implement real adapters at the edge; they own subprocess, filesystem, HTTP, env parsing, and wire-format parsing.
 - Implement in-memory fakes as true alternate implementations of the gateway types.
@@ -63,8 +62,6 @@ Fakes should:
 - expose read-only operation logs only when behavior has no durable state to inspect;
 - copy mutable input/output collections to avoid test coupling.
 
-Do not use setup mutators like `fake.addDeployment(...)` as the primary fake API for scenario tests.
-
 ## Test layers
 
 - `test/unit/`: pure helpers and policy with no gateways or I/O.
@@ -108,10 +105,7 @@ Copies of these shapes across packages are fine. Deduplicate only along dependen
 
 ## Anti-patterns
 
-- Scripted mocks as the primary scenario fake.
+- Scripted mocks or setup mutators (such as `fake.addDeployment(...)`) as the primary scenario fake.
 - Module mocks or spies for application behavior when explicit gateway injection is practical.
-- Subprocess-shaped gateway interfaces in core logic.
-- Parsing raw external wire formats outside real adapters.
 - Overbroad context objects containing `cwd`, `env`, stdout/stderr, clocks, or unrelated utilities by default.
 - DI containers, decorators, or framework-level provider overrides before simple structural typing and manual context injection prove insufficient.
-- Full call-history assertions in scenario tests; protocol details belong in gateway tests.

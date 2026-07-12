@@ -66,15 +66,11 @@ These apply to every ns CLI command regardless of audience.
    (ADR-aligned with AGENTS.md "Skill-Invoked CLI Commands"). Construct the
    subgroup `ClinkrGroup` with `isHidden: true`; do not mutate it after
    construction.
-8. **Raw exit is exceptional.** `rawCommand` / `isRawExit` opts out of the
-   envelope, `resultSchema`, and `--json-schema` only for a TUI, streaming
-   protocol, or process-control / third-party passthrough (ADR 0015). Ordinary
-   finite-result agent commands must use the Clinkr envelope.
+8. **Raw exit is exceptional** (ADR 0015). See "Raw-exit is a narrow exemption"
+   below for the sanctioned cases.
 
 ## Streams and help — the two audiences, separated at the byte level
 
-- Primary output (human *and* machine) goes to **stdout**; errors, logs, status,
-  and prompts go to **stderr**.
 - Provide concise default help plus complete `-h`/`--help`; help, examples, and
   `--json-schema` must agree with each other and with any agent-facing prose.
 - Human-facing non-`exec` command options should expose short aliases by default.
@@ -84,8 +80,6 @@ These apply to every ns CLI command regardless of audience.
   must be explicit: framework/meta flags, local conflicts, ambiguous shorthand,
   rare low-value flags, or aliases that reduce clarity. Hidden `exec` options are
   exempt unless there is a strong human-facing reason.
-- Machine formats, flags, subcommands, output formats, and config are long-lived
-  interfaces; change them additively.
 
 ## The result envelope (ADR 0010, 0011, 0013)
 
@@ -161,11 +155,10 @@ for new human-facing Tier 3 commands unless a steered exception says otherwise).
 - Top-level commands are the verbs a person would type; keep top-level `--help`
   focused on them.
 - Namespace commands so boundaries are legible (`pkg verb`, `pkg exec verb`).
-- Skill/agent-only operations live under a nested **`exec`** `ClinkrGroup`
-  constructed with `isHidden: true` (for example, `brmem exec resolve-prompt`).
-  The `exec` namespace already implies the agent actor, so name operations as
-  plain noun/verb phrases (`resolve-prompt`, `get-reviews`). Hidden affects help
-  rendering only, not invocability.
+- The `exec` namespace already implies the agent actor (placement mechanics in
+  hard gate 7), so name `exec` operations as plain noun/verb phrases
+  (`resolve-prompt`, `get-reviews`). Hidden affects help rendering only, not
+  invocability.
 - Treat command names, flags, subcommands, output formats, and config as
   long-lived interfaces; change them additively.
 
