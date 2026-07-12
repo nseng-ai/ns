@@ -155,20 +155,22 @@ function createAdapter<Row extends { label: string }, ColumnKey extends string>(
 	config: MatrixWorkflowConfig<Row, ColumnKey>,
 	presentation: MatrixProgressPresentation,
 ): MatrixProgressAdapter<ColumnKey, Row & MatrixRowSpec> {
-	const event = (progress: NsProgress) =>
-		createMatrixEventAdapter<ColumnKey, Row & MatrixRowSpec>({
+	function event(progress: NsProgress) {
+		return createMatrixEventAdapter<ColumnKey, Row & MatrixRowSpec>({
 			progress,
 			columns: config.columns,
 			phases: config.phases,
 			...(config.labelHeader === undefined ? {} : { labelHeader: config.labelHeader }),
 		});
-	const terminal = (options: { caps: Caps; deps: StreamSinkDeps; clock?: Clock }) =>
-		createMatrixTerminalAdapter<ColumnKey, Row & MatrixRowSpec>({
+	}
+	function terminal(options: { caps: Caps; deps: StreamSinkDeps; clock?: Clock }) {
+		return createMatrixTerminalAdapter<ColumnKey, Row & MatrixRowSpec>({
 			caps: options.caps,
 			deps: options.deps,
 			columns: config.columns,
 			...(options.clock === undefined ? {} : { clock: options.clock }),
 		});
+	}
 	switch (presentation.kind) {
 		case "terminal":
 			return terminal(presentation);

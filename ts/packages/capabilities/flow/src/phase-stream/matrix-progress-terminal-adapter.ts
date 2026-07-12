@@ -126,8 +126,10 @@ export function renderMatrixProgressFrame<ColumnKey extends string>(
 	const operationsLine = formatActiveOperationsLine(input.activeOperations ?? []);
 	const lines = [bold(input.title)];
 	for (const phase of input.phases ?? []) {
-		lines.push(renderPhaseLine(input.caps, phase, tick, 0));
-		for (const substep of phase.substeps) lines.push(renderPhaseLine(input.caps, substep, tick, 4));
+		lines.push(renderPhaseLine({ caps: input.caps, phase, tick, indent: 0 }));
+		for (const substep of phase.substeps) {
+			lines.push(renderPhaseLine({ caps: input.caps, phase: substep, tick, indent: 4 }));
+		}
 	}
 	if ((input.phases?.length ?? 0) > 0) lines.push("");
 	lines.push(renderHeader(input.caps, input.columns, input.labelHeader ?? "Branch / PR"));
@@ -191,11 +193,27 @@ function renderTailLine(caps: Caps, tailLine: string, sinceOutputMs: number | un
 	return `       ${dim(`${truncatePlain(tailLine, width, ellipsisFor(caps))}${suffix}`)}`;
 }
 
-function renderPhaseLine(caps: Caps, phase: PhaseView, tick: number, indent: number): string {
-	const prefix = " ".repeat(indent);
-	const phaseCaps = { ...caps, columns: Math.max(0, caps.columns - indent) };
-	const item = phase.label === undefined ? phase.item : { ...phase.item, label: phase.label };
-	return `${prefix}${statusLine({ caps: phaseCaps, item, state: phase.state, tick })}`;
+function renderPhaseLine(options: {
+	caps: Caps;
+	phase: PhaseView;
+	tick: number;
+	indent: number;
+}): string {
+	const prefix = " ".repeat(options.indent);
+	const phaseCaps = {
+		...options.caps,
+		columns: Math.max(0, options.caps.columns - options.indent),
+	};
+	const item =
+		options.phase.label === undefined
+			? options.phase.item
+			: { ...options.phase.item, label: options.phase.label };
+	return `${prefix}${statusLine({
+		caps: phaseCaps,
+		item,
+		state: options.phase.state,
+		tick: options.tick,
+	})}`;
 }
 
 function renderHeader<ColumnKey extends string>(
