@@ -79,9 +79,8 @@ export function landMatrixRowsFromPlan(
 	});
 }
 
-const landMatrixWorkflow = defineMatrixWorkflow<LandMatrixRowSpec, LandMatrixColumnKey, never>({
+const landMatrixWorkflow = defineMatrixWorkflow<LandMatrixRowSpec, LandMatrixColumnKey>({
 	columns: LAND_MATRIX_COLUMNS,
-	globalRows: [],
 	phases: LAND_PHASES,
 	rowKey: (row) => row.branch,
 });
@@ -140,7 +139,6 @@ export function renderLandMatrixProgressFrame(
 	return landMatrixWorkflow.renderFrame({
 		caps: input.caps,
 		title: input.title,
-		globals: [],
 		rows: input.rows,
 		...matrixFrameOptionalFields(input),
 	});

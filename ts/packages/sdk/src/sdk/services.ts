@@ -46,6 +46,8 @@ export interface NsProgressPhaseInfo {
 	name: string;
 	label?: string;
 	detail?: string;
+	/** Optional one-level child phases rendered beneath this phase. */
+	substeps?: readonly NsProgressPhaseInfo[];
 }
 
 /** A long-running operation currently blocking workflow progress. */
@@ -81,26 +83,6 @@ export interface NsProgressMatrixColumnInfo {
 	width?: number;
 }
 
-/** Presentation metadata for a one-level substep within a declared matrix global row. */
-export interface NsProgressMatrixGlobalSubstepInfo<TSubstepKey extends string = string> {
-	key: TSubstepKey;
-	label: string;
-	detail: string;
-	activeLabel: string;
-}
-
-/** Presentation metadata for a declared matrix global row. */
-export interface NsProgressMatrixGlobalRowInfo<
-	TGlobalKey extends string = string,
-	TSubstepKey extends string = string,
-> {
-	key: TGlobalKey;
-	label: string;
-	detail: string;
-	activeLabel: string;
-	substeps?: readonly NsProgressMatrixGlobalSubstepInfo<TSubstepKey>[];
-}
-
 /** Presentation metadata for a declared matrix row. */
 export interface NsProgressMatrixRowInfo {
 	rowKey: string;
@@ -116,7 +98,6 @@ export type NsProgressMatrixEvent =
 			type: "matrix-declared";
 			columns: readonly NsProgressMatrixColumnInfo[];
 			labelHeader?: string;
-			globalRows?: readonly NsProgressMatrixGlobalRowInfo[];
 	  }
 	| { type: "matrix-rows"; rows: readonly NsProgressMatrixRowInfo[] }
 	| {
@@ -125,19 +106,6 @@ export type NsProgressMatrixEvent =
 			columnKey: string;
 			state: NsProgressMatrixCellState;
 			/** Compact cell text; hosts render it only when it fits the column. */
-			text?: string;
-	  }
-	| {
-			type: "matrix-global";
-			globalKey: string;
-			state: NsProgressMatrixCellState;
-			text?: string;
-	  }
-	| {
-			type: "matrix-global-substep";
-			globalKey: string;
-			substepKey: string;
-			state: NsProgressMatrixCellState;
 			text?: string;
 	  }
 	| { type: "matrix-active-operations"; operations: readonly ActiveOperation[] };
@@ -183,8 +151,6 @@ const MATRIX_EVENT_TYPES = {
 	"matrix-declared": true,
 	"matrix-rows": true,
 	"matrix-cell": true,
-	"matrix-global": true,
-	"matrix-global-substep": true,
 	"matrix-active-operations": true,
 } satisfies Record<NsProgressMatrixEvent["type"], true>;
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ActiveOperation } from "@nseng-ai/sdk";
+import type { ActiveOperation, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
 	ok,
 	runSubmitCommand,
@@ -784,17 +784,26 @@ describe("runSubmitCommand", () => {
 		});
 
 		expect(result.exitCode).toBe(0);
-		expect(submitMatrix.globalEvents.filter((event) => event.key === "submit")).toEqual([
+		expect(
+			submitMatrix.phaseEvents.filter(
+				(event) => "phaseKey" in event && event.phaseKey === "submit",
+			),
+		).toEqual([
 			{
-				key: "submit",
-				state: "active",
-				text: "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+				type: "phase-started",
+				phaseKey: "submit",
+				label:
+					"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 			},
-			{ key: "submit", state: "done", text: "stack submitted" },
+			{ type: "phase-done", phaseKey: "submit", detail: "stack submitted" },
 		]);
-		expect(submitMatrix.globalEvents.filter((event) => event.key === "verify")).toEqual([
-			{ key: "verify", state: "active", text: "checking current PR" },
-			{ key: "verify", state: "done", text: "current PR verified (#456)" },
+		expect(
+			submitMatrix.phaseEvents.filter(
+				(event) => "phaseKey" in event && event.phaseKey === "verification",
+			),
+		).toEqual([
+			{ type: "phase-started", phaseKey: "verification", label: "checking current PR" },
+			{ type: "phase-done", phaseKey: "verification", detail: "current PR verified (#456)" },
 		]);
 		expect(submitMatrix.prCellEvents).toEqual([
 			{ prNumber: 123, column: "description", state: "active", text: "loading PR metadata" },
@@ -872,13 +881,7 @@ describe("runSubmitCommand", () => {
 });
 
 function testSubmitProgress(matrix?: SubmitMatrixProgressSink): SubmitProgress {
-	return { phase: () => undefined, matrix };
-}
-
-interface SubmitMatrixGlobalEvent {
-	key: Parameters<SubmitMatrixProgressSink["setGlobal"]>[0];
-	state: Parameters<SubmitMatrixProgressSink["setGlobal"]>[1]["state"];
-	text?: string;
+	return { phase: (event) => matrix?.phase(event), matrix };
 }
 
 interface SubmitMatrixPrCellEvent {
@@ -889,7 +892,7 @@ interface SubmitMatrixPrCellEvent {
 }
 
 class RecordingSubmitMatrix implements SubmitMatrixProgressSink {
-	readonly globalEvents: SubmitMatrixGlobalEvent[] = [];
+	readonly phaseEvents: NsProgressPhaseEvent[] = [];
 	readonly prCellEvents: SubmitMatrixPrCellEvent[] = [];
 	readonly operationSnapshots: ActiveOperation[][] = [];
 
@@ -899,14 +902,9 @@ class RecordingSubmitMatrix implements SubmitMatrixProgressSink {
 		this.operationSnapshots.push([...operations]);
 	}
 
-	setGlobal(
-		key: Parameters<SubmitMatrixProgressSink["setGlobal"]>[0],
-		update: Parameters<SubmitMatrixProgressSink["setGlobal"]>[1],
-	): void {
-		this.globalEvents.push({ key, state: update.state, ...optionalText(update.text) });
+	phase(event: NsProgressPhaseEvent): void {
+		this.phaseEvents.push(event);
 	}
-
-	setGlobalSubstep(): void {}
 
 	setCell(): void {}
 
@@ -921,8 +919,6 @@ class RecordingSubmitMatrix implements SubmitMatrixProgressSink {
 	setAllCells(): void {}
 
 	setPendingCells(): void {}
-
-	applyGlobalPhaseEvent(): void {}
 
 	applyPrLinks(): void {}
 }

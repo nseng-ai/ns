@@ -80,7 +80,7 @@ describe("land matrix progress", () => {
 
 		expect(capture.redraws.length).toBeGreaterThan(0);
 		const firstFrame = stripAnsi(capture.redraws[0] ?? "");
-		expect(firstFrame).not.toContain("Preflight");
+		expect(firstFrame).toContain("Preflight");
 		expect(firstFrame).toContain("ns flow land — 0/2 target PRs merged");
 		// No placeholder dash while idle: the operations and tail slots stay reserved but blank.
 		expect(firstFrame).not.toContain("Running:");

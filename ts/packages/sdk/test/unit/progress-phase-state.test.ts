@@ -50,22 +50,6 @@ describe("createProgressPhaseStateStore", () => {
 				type: "matrix-declared",
 				columns: [{ key: "merge", label: "Merge", width: 6 }],
 				labelHeader: "Branch / PR",
-				globalRows: [
-					{
-						key: "prepare",
-						label: "Prepare",
-						detail: "preparation complete",
-						activeLabel: "preparing…",
-						substeps: [
-							{
-								key: "review",
-								label: "Review",
-								detail: "review complete",
-								activeLabel: "reviewing…",
-							},
-						],
-					},
-				],
 			}),
 		).toBeUndefined();
 		expect(
@@ -77,23 +61,6 @@ describe("createProgressPhaseStateStore", () => {
 				rowKey: "feature-a",
 				columnKey: "merge",
 				state: "active",
-			}),
-		).toBeUndefined();
-		expect(
-			store.apply({
-				type: "matrix-global",
-				globalKey: "prepare",
-				state: "active",
-				text: "preparing",
-			}),
-		).toBeUndefined();
-		expect(
-			store.apply({
-				type: "matrix-global-substep",
-				globalKey: "prepare",
-				substepKey: "review",
-				state: "done",
-				text: "ok",
 			}),
 		).toBeUndefined();
 		expect(

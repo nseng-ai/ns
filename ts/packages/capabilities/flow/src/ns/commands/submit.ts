@@ -10,8 +10,7 @@ import {
 	flowStreamDeps,
 	resolveFlowStreamCaps,
 	runSettledPhaseStream,
-	SUBMIT_HOOKS_PHASE,
-	SUBMIT_PHASES,
+	submitPhaseSpecs,
 } from "../../phase-stream/phase-stream.ts";
 import {
 	createNsSubmitRuntime,
@@ -24,13 +23,11 @@ import {
 	withCommandOperations,
 } from "../../phase-stream/matrix-progress-core.ts";
 import {
-	createSubmitMatrixEventProgressController,
-	createSubmitMatrixProgressController,
+	resolveSubmitProgress,
 	submitMatrixRowsFromTopology,
 	type SubmitMatrixProgressController,
 } from "../../submit/submit-matrix-progress.ts";
 import {
-	createMatrixAwarePhaseListener,
 	bindMatrixSubmitProgress,
 	createStreamSubmitProgress,
 } from "../../submit/submit-progress.ts";
@@ -131,42 +128,26 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 			return failure(FLOW_COMMAND_FAILED, hooksLoad.error.message);
 		}
 		const caps = resolveFlowStreamCaps(ctx);
-		if (caps.isTty) {
-			const matrix = createSubmitMatrixProgressController({
-				caps,
-				deps: flowStreamDeps(ctx, caps),
-				title: "ns flow submit",
-				rows: [],
-				...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
-			});
+		const structuredProgress = resolveSubmitProgress({
+			caps,
+			deps: flowStreamDeps(ctx, caps),
+			hasHooks: hooksLoad.kind === "hooks",
+			...(ctx.progress.isLive ? { liveProgress: ctx.progress } : {}),
+			...optionalEntry("liveOutput", createFlowLiveOutput(ctx)),
+		});
+		if (structuredProgress !== undefined) {
 			return await runSubmitWithStructuredProgress({
 				ctx,
 				request,
 				runtime,
 				hooksLoad,
 				checkpointContext,
-				matrix,
-				onOutput: (_stream, text) => matrix.note(text),
-			});
-		}
-		if (ctx.progress.isLive) {
-			return await runSubmitWithStructuredProgress({
-				ctx,
-				request,
-				runtime,
-				hooksLoad,
-				checkpointContext,
-				matrix: createSubmitMatrixEventProgressController({
-					progress: ctx.progress,
-					title: "ns flow submit",
-					rows: [],
-				}),
-				...optionalEntry("onOutput", createFlowLiveOutput(ctx)),
+				...structuredProgress,
 			});
 		}
 		return await runSettledPhaseStream({
 			caps,
-			specs: hooksLoad.kind === "hooks" ? [SUBMIT_HOOKS_PHASE, ...SUBMIT_PHASES] : SUBMIT_PHASES,
+			specs: submitPhaseSpecs(hooksLoad.kind === "hooks"),
 			deps: flowStreamDeps(ctx, caps),
 			forward: ctx.progress,
 			title: "ns flow submit",
@@ -282,7 +263,7 @@ async function runSubmitWithStructuredProgress(input: {
 	onOutput?: FlowLiveOutput;
 }) {
 	const { ctx, request, runtime, hooksLoad, checkpointContext, matrix, onOutput } = input;
-	matrix.setGlobal("inventory", { state: "active" });
+	matrix.phase({ type: "phase-started", phaseKey: "inventory" });
 	matrix.begin();
 
 	try {
@@ -296,28 +277,30 @@ async function runSubmitWithStructuredProgress(input: {
 			() => runtime.metadataGateway.inspectSubmitStackTopology({ cwd: ctx.cwd }),
 		);
 		if (!topology.ok) {
-			matrix.setGlobal("inventory", { state: "failed", text: "inventory failed" });
+			matrix.phase({ type: "phase-failed", phaseKey: "inventory", detail: "inventory failed" });
 			await matrix.finish({ isFailed: true });
 			return negative(
 				`Could not inspect submit stack inventory before checkpoint. Submission was not attempted; pending work was not checkpointed.\n\n${topology.error.message}`,
 			);
 		}
 		matrix.setRows(submitMatrixRowsFromTopology(topology.value));
-		matrix.setGlobal("inventory", {
-			state: "done",
-			text: `${topology.value.branches.length} ${topology.value.branches.length === 1 ? "branch" : "branches"} in submit stack`,
+		matrix.phase({
+			type: "phase-done",
+			phaseKey: "inventory",
+			detail: `${topology.value.branches.length} ${topology.value.branches.length === 1 ? "branch" : "branches"} in submit stack`,
 		});
 		if (hooksLoad.kind === "hooks") {
-			matrix.setGlobal("hooks", { state: "active" });
+			matrix.phase({ type: "phase-started", phaseKey: "hooks" });
 			const hooksOutcome = await withCommandOperations(matrix, [], () =>
 				runFlowSubmitHooks({
 					hooks: hooksLoad.hooks,
 					runner: runtime.commandRunner,
 					onHookStarted: ({ hook, index, total }) => {
 						matrix.setActiveOperations(commandOperations([hook.display]));
-						matrix.setGlobal("hooks", {
-							state: "active",
-							text: hookProgressLabel({ hook, index, total }),
+						matrix.phase({
+							type: "phase-progress",
+							phaseKey: "hooks",
+							label: hookProgressLabel({ hook, index, total }),
 						});
 					},
 					...(onOutput === undefined ? {} : { onOutput }),
@@ -332,12 +315,11 @@ async function runSubmitWithStructuredProgress(input: {
 					failurePresentation: "deterministic",
 				});
 			}
-			matrix.setGlobal("hooks", { state: "done", text: "hooks complete" });
+			matrix.phase({ type: "phase-done", phaseKey: "hooks", detail: "hooks complete" });
 		}
-		const checkpointPhase = createMatrixPhaseForwarder(ctx, matrix);
+		const checkpointPhase = createMatrixPhaseForwarder(matrix);
 		const checkpointRunContext = runtime.createCheckpointRunContext(matrix.setActiveOperations);
 		checkpointPhase({ type: "phase-started", phaseKey: "checkpoint" });
-		matrix.setGlobal("checkpoint", { state: "active" });
 		const checkpoint = await runCheckpointIfPending({
 			cwd: ctx.cwd,
 			env: ctx.env,
@@ -354,9 +336,9 @@ async function runSubmitWithStructuredProgress(input: {
 				exitCode: checkpoint.output.exitCode,
 			});
 		}
-		matrix.setGlobal("checkpoint", { state: "done", text: "checkpoint complete" });
+		matrix.phase({ type: "phase-done", phaseKey: "checkpoint", detail: "checkpoint complete" });
 
-		const progress = bindMatrixSubmitProgress({ ctx, matrix });
+		const progress = bindMatrixSubmitProgress({ matrix });
 		const result = await runSubmitCommand({
 			cwd: ctx.cwd,
 			gateway: runtime.submitGateway,
@@ -386,13 +368,9 @@ async function runSubmitWithStructuredProgress(input: {
 }
 
 function createMatrixPhaseForwarder(
-	ctx: NsExtensionApi,
 	matrix: SubmitMatrixProgressController,
 ): (event: NsProgressPhaseEvent) => void {
-	const applyGlobalPhaseEvent = matrix.applyGlobalPhaseEvent;
-	return createMatrixAwarePhaseListener(ctx, (event) => {
-		applyGlobalPhaseEvent("checkpoint", event);
-	});
+	return matrix.phase;
 }
 
 async function matrixPhaseFailureResult(
@@ -406,7 +384,7 @@ async function matrixPhaseFailureResult(
 		failurePresentation?: SubmitCommandResult["failurePresentation"];
 	},
 ): Promise<CommandExit> {
-	matrix.setGlobal(failure.key, { state: "failed", text: failure.failedText });
+	matrix.phase({ type: "phase-failed", phaseKey: failure.key, detail: failure.failedText });
 	const interpreted = await maybeFormatSubmitFailureWithModel(
 		{
 			stdout: "",

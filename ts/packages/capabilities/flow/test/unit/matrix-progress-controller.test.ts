@@ -4,10 +4,7 @@ import type { Caps } from "@nseng-ai/clinkr";
 import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
-import {
-	defineMatrixWorkflow,
-	type MatrixGlobalRowSpec,
-} from "../../src/phase-stream/matrix-progress-core.ts";
+import { defineMatrixWorkflow } from "../../src/phase-stream/matrix-progress-core.ts";
 import { applyPrLinksToRows } from "../../src/submit/submit-matrix-progress.ts";
 import type { SubmitPrLink } from "../../src/submit/gt-output.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
@@ -16,26 +13,17 @@ const COLUMNS = [
 	{ key: "build", label: "Build", width: 5 },
 	{ key: "test", label: "Test", width: 4 },
 ] as const;
-const GLOBAL_ROWS: readonly MatrixGlobalRowSpec<"prepare">[] = [
-	{
-		key: "prepare",
-		label: "Prepare",
-		detail: "prepared",
-		activeLabel: "preparing…",
-		substeps: [
-			{
-				key: "inspect",
-				label: "Inspect",
-				detail: "inspected",
-				activeLabel: "inspecting…",
-			},
-		],
-	},
-];
 const workflow = defineMatrixWorkflow({
 	columns: COLUMNS,
-	globalRows: GLOBAL_ROWS,
-	phases: [],
+	phases: [
+		{
+			key: "prepare",
+			item: { name: "Prepare", detail: "prepared", label: "preparing…" },
+			substeps: [
+				{ key: "inspect", item: { name: "Inspect", detail: "inspected", label: "inspecting…" } },
+			],
+		},
+	],
 	labelHeader: "Branch",
 	rowKey: (row: { branch: string; label: string }) => row.branch,
 });
@@ -88,10 +76,77 @@ describe("matrix progress controller", () => {
 		const { capture, controller } = createController();
 
 		expect(capture.redraws).toEqual([]);
-		controller.setGlobal("prepare", { state: "active" });
+		controller.phase({ type: "phase-started", phaseKey: "prepare" });
 
 		expect(capture.redraws.length).toBeGreaterThan(0);
 		expect(latestFrame(capture.redraws)).toContain("Prepare");
+	});
+
+	test.each([
+		{
+			name: "title",
+			starts: false,
+			act: (controller: ReturnType<typeof createController>["controller"]) =>
+				controller.setTitle("Next"),
+		},
+		{
+			name: "row patch",
+			starts: false,
+			act: (controller: ReturnType<typeof createController>["controller"]) =>
+				controller.patchRow("feature/a", { label: "patched" }),
+		},
+		{
+			name: "active operations",
+			starts: false,
+			act: (controller: ReturnType<typeof createController>["controller"]) =>
+				controller.setActiveOperations([{ kind: "command", display: "just" }]),
+		},
+		{
+			name: "state-selective bulk",
+			starts: false,
+			act: (controller: ReturnType<typeof createController>["controller"]) =>
+				controller.setCellsInState("build", "pending", { state: "done" }),
+		},
+		{
+			name: "note",
+			starts: false,
+			act: (controller: ReturnType<typeof createController>["controller"]) =>
+				controller.note("quiet"),
+		},
+		{
+			name: "rows replacement",
+			starts: true,
+			act: (controller: ReturnType<typeof createController>["controller"]) =>
+				controller.setRows([]),
+		},
+		{
+			name: "phase event",
+			starts: true,
+			act: (controller: ReturnType<typeof createController>["controller"]) =>
+				controller.phase({ type: "phase-done", phaseKey: "prepare" }),
+		},
+		{
+			name: "single cell",
+			starts: true,
+			act: (controller: ReturnType<typeof createController>["controller"]) =>
+				controller.setCell("feature/a", "build", { state: "active" }),
+		},
+		{
+			name: "all cells",
+			starts: true,
+			act: (controller: ReturnType<typeof createController>["controller"]) =>
+				controller.setAllCells("build", { state: "done" }),
+		},
+		{
+			name: "all other cells",
+			starts: true,
+			act: (controller: ReturnType<typeof createController>["controller"]) =>
+				controller.setAllOtherCells("build", "feature/a", { state: "done" }),
+		},
+	])("applies the explicit lazy-start policy for $name", ({ starts, act }) => {
+		const { capture, controller } = createController();
+		act(controller);
+		expect(capture.redraws.length > 0).toBe(starts);
 	});
 
 	test("setGlobal and setCell rerender through the captured workflow", () => {
@@ -99,12 +154,12 @@ describe("matrix progress controller", () => {
 		controller.begin();
 		const initialRedraws = capture.redraws.length;
 
-		controller.setGlobal("prepare", { state: "done", text: "ready" });
+		controller.phase({ type: "phase-done", phaseKey: "prepare", detail: "ready" });
 		controller.setCell("feature/a", "build", { state: "done", text: "ok" });
 
 		expect(capture.redraws.length).toBeGreaterThan(initialRedraws);
 		const frame = latestFrame(capture.redraws);
-		expect(frame).toContain("ready");
+		expect(frame).toContain("prepared");
 		expect(frame).toContain("ok");
 	});
 
@@ -157,6 +212,74 @@ describe("matrix progress controller", () => {
 		expect(nonTty.capture.redraws.length + nonTty.capture.writes.length).toBe(outputCount);
 	});
 
+	test("terminal operations win once and suppress every later mutation", async () => {
+		const recording = recordingProgress();
+		const controller = workflow.createEventController({
+			progress: recording.progress,
+			title: "Workflow",
+			rows: ROWS,
+		});
+		controller.setCell("feature/a", "build", { state: "active" });
+		const finish = controller.finish();
+		expect(controller.finish({ isFailed: true })).toBe(finish);
+		expect(controller.stop()).toBe(finish);
+		await finish;
+		const terminalEvents = [...recording.events];
+
+		controller.setTitle("ignored");
+		controller.setRows([]);
+		controller.patchRow("feature/a", { label: "ignored" });
+		controller.setActiveOperations([{ kind: "command", display: "ignored" }]);
+		controller.phase({ type: "phase-started", phaseKey: "prepare" });
+		controller.phase({ type: "phase-started", phaseKey: "inspect" });
+		controller.setCell("feature/a", "build", { state: "failed" });
+		controller.setCellsInState("build", "done", { state: "failed" });
+		controller.setAllCells("build", { state: "failed" });
+		controller.setAllOtherCells("build", "feature/a", { state: "failed" });
+		controller.note("ignored");
+		expect(recording.events).toEqual(terminalEvents);
+		expect(recording.events.at(-1)).toEqual({
+			type: "matrix-cell",
+			rowKey: "feature/a",
+			columnKey: "build",
+			state: "done",
+		});
+	});
+
+	test("combined terminal and live adapters fan out accepted changes exactly once", () => {
+		const capture = streamCapture({ sleep: "pending" });
+		const recording = recordingProgress();
+		const controller = workflow.createController({
+			caps: caps({ isTty: true }),
+			deps: capture.deps,
+			progress: recording.progress,
+			title: "Workflow",
+			rows: [],
+			begin: "lazy",
+		});
+
+		controller.setRows(ROWS);
+		controller.phase({ type: "phase-started", phaseKey: "prepare" });
+		controller.setCell("feature/a", "build", { state: "active", text: "run" });
+		controller.setActiveOperations([{ kind: "command", display: "just" }]);
+		const eventsBeforeNote = [...recording.events];
+		controller.note("terminal transcript");
+
+		const eventTypes = recording.events.map((event) => event.type);
+		expect(eventTypes.filter((type) => type === "phases-declared")).toHaveLength(1);
+		expect(eventTypes.filter((type) => type === "matrix-declared")).toHaveLength(1);
+		expect(eventTypes.filter((type) => type === "matrix-rows")).toHaveLength(1);
+		expect(eventTypes.filter((type) => type === "phase-started")).toHaveLength(1);
+		expect(eventTypes.filter((type) => type === "matrix-cell")).toHaveLength(1);
+		expect(eventTypes.filter((type) => type === "matrix-active-operations")).toHaveLength(1);
+		expect(recording.events).toEqual(eventsBeforeNote);
+		const frame = latestFrame(capture.redraws);
+		expect(frame).toContain("feature/a");
+		expect(frame).toContain("run");
+		expect(frame).toContain("Running: just");
+		expect(frame).toContain("terminal transcript");
+	});
+
 	test("stop after begin closes the live region", async () => {
 		const { capture, controller } = createController({ isTty: true }, { sleep: "resolve" });
 		controller.begin();
@@ -170,6 +293,24 @@ describe("matrix progress controller", () => {
 });
 
 describe("matrix event progress controller", () => {
+	test("declares initial replacement rows once in declaration order", () => {
+		const recording = recordingProgress();
+		const controller = workflow.createEventController({
+			progress: recording.progress,
+			title: "Workflow",
+			rows: [],
+			begin: "lazy",
+		});
+
+		controller.setRows(ROWS);
+
+		expect(recording.events.map((event) => event.type)).toEqual([
+			"phases-declared",
+			"matrix-declared",
+			"matrix-rows",
+		]);
+	});
+
 	test("declares metadata once before an early global update and later rows", () => {
 		const recording = recordingProgress();
 		const controller = workflow.createEventController({
@@ -179,19 +320,18 @@ describe("matrix event progress controller", () => {
 			begin: "lazy",
 		});
 
-		controller.setGlobal("prepare", { state: "active" });
+		controller.phase({ type: "phase-started", phaseKey: "prepare" });
 		controller.begin();
 		controller.setRows(ROWS);
 
 		expect(recording.events).toEqual([
-			{ type: "phases-declared", title: "Workflow", phases: [] },
+			expect.objectContaining({ type: "phases-declared", title: "Workflow" }),
 			{
 				type: "matrix-declared",
 				columns: COLUMNS,
 				labelHeader: "Branch",
-				globalRows: GLOBAL_ROWS,
 			},
-			{ type: "matrix-global", globalKey: "prepare", state: "active" },
+			{ type: "phase-started", phaseKey: "prepare" },
 			{
 				type: "matrix-rows",
 				rows: [
@@ -200,6 +340,85 @@ describe("matrix event progress controller", () => {
 				],
 			},
 		]);
+	});
+
+	test.each([
+		{
+			name: "title",
+			eventTypes: ["title-changed"],
+			act: (controller: ReturnType<typeof workflow.createEventController>) =>
+				controller.setTitle("Next"),
+		},
+		{
+			name: "rows",
+			eventTypes: ["matrix-rows"],
+			act: (controller: ReturnType<typeof workflow.createEventController>) =>
+				controller.setRows(ROWS),
+		},
+		{
+			name: "row patch",
+			eventTypes: ["matrix-rows"],
+			act: (controller: ReturnType<typeof workflow.createEventController>) =>
+				controller.patchRow("feature/a", { label: "patched" }),
+		},
+		{
+			name: "operations",
+			eventTypes: ["matrix-active-operations"],
+			act: (controller: ReturnType<typeof workflow.createEventController>) =>
+				controller.setActiveOperations([]),
+		},
+		{
+			name: "global",
+			eventTypes: ["phase-started"],
+			act: (controller: ReturnType<typeof workflow.createEventController>) =>
+				controller.phase({ type: "phase-started", phaseKey: "prepare" }),
+		},
+		{
+			name: "substep",
+			eventTypes: ["phase-started"],
+			act: (controller: ReturnType<typeof workflow.createEventController>) =>
+				controller.phase({ type: "phase-started", phaseKey: "inspect" }),
+		},
+		{
+			name: "cell",
+			eventTypes: ["matrix-cell"],
+			act: (controller: ReturnType<typeof workflow.createEventController>) =>
+				controller.setCell("feature/a", "build", { state: "done" }),
+		},
+		{
+			name: "selected cells",
+			eventTypes: ["matrix-cell", "matrix-cell"],
+			act: (controller: ReturnType<typeof workflow.createEventController>) =>
+				controller.setCellsInState("build", "pending", { state: "done" }),
+		},
+		{
+			name: "all cells",
+			eventTypes: ["matrix-cell", "matrix-cell"],
+			act: (controller: ReturnType<typeof workflow.createEventController>) =>
+				controller.setAllCells("build", { state: "done" }),
+		},
+		{
+			name: "all other cells",
+			eventTypes: ["matrix-cell"],
+			act: (controller: ReturnType<typeof workflow.createEventController>) =>
+				controller.setAllOtherCells("build", "feature/a", { state: "done" }),
+		},
+		{
+			name: "note",
+			eventTypes: [],
+			act: (controller: ReturnType<typeof workflow.createEventController>) =>
+				controller.note("local only"),
+		},
+	])("notifies the event adapter for $name", ({ eventTypes, act }) => {
+		const recording = recordingProgress();
+		const controller = workflow.createEventController({
+			progress: recording.progress,
+			title: "Workflow",
+			rows: ROWS,
+		});
+		recording.events.length = 0;
+		act(controller);
+		expect(recording.events.map((event) => event.type)).toEqual(eventTypes);
 	});
 
 	test("emits substeps, latest full row patches, and state-selective cell deltas", () => {
@@ -211,19 +430,13 @@ describe("matrix event progress controller", () => {
 		});
 		recording.events.length = 0;
 
-		controller.setGlobalSubstep("prepare", "inspect", { state: "active", text: "reading" });
+		controller.phase({ type: "phase-started", phaseKey: "inspect", label: "reading" });
 		controller.patchRow("feature/a", { label: "feature/a (#10)" });
 		controller.setCell("feature/a", "test", { state: "done", text: "kept" });
 		controller.setCellsInState("test", "pending", { state: "skipped" });
 
 		expect(recording.events).toEqual([
-			{
-				type: "matrix-global-substep",
-				globalKey: "prepare",
-				substepKey: "inspect",
-				state: "active",
-				text: "reading",
-			},
+			{ type: "phase-started", phaseKey: "inspect", label: "reading" },
 			{
 				type: "matrix-rows",
 				rows: [
@@ -247,7 +460,7 @@ describe("matrix event progress controller", () => {
 		]);
 	});
 
-	test("note is a no-op and stop is idempotent without beginning", async () => {
+	test("stop-first is idempotent and suppresses every later mutation", async () => {
 		const recording = recordingProgress();
 		const controller = workflow.createEventController({
 			progress: recording.progress,
@@ -256,9 +469,22 @@ describe("matrix event progress controller", () => {
 			begin: "lazy",
 		});
 
-		controller.note("not transported");
-		await controller.stop();
-		await controller.stop();
+		const stop = controller.stop();
+		expect(controller.stop()).toBe(stop);
+		expect(controller.finish()).toBe(stop);
+		await stop;
+		controller.begin();
+		controller.setTitle("ignored");
+		controller.setRows(ROWS);
+		controller.patchRow("feature/a", { label: "ignored" });
+		controller.setActiveOperations([]);
+		controller.phase({ type: "phase-started", phaseKey: "prepare" });
+		controller.phase({ type: "phase-started", phaseKey: "inspect" });
+		controller.setCell("feature/a", "build", { state: "done" });
+		controller.setCellsInState("build", "pending", { state: "done" });
+		controller.setAllCells("build", { state: "done" });
+		controller.setAllOtherCells("build", "feature/a", { state: "done" });
+		controller.note("ignored");
 
 		expect(recording.events).toEqual([]);
 	});
@@ -272,8 +498,8 @@ describe("matrix event progress controller", () => {
 				title: "Workflow",
 				rows: ROWS,
 			});
-			controller.setGlobal("prepare", { state: "active" });
-			controller.setGlobalSubstep("prepare", "inspect", { state: "active" });
+			controller.phase({ type: "phase-started", phaseKey: "prepare" });
+			controller.phase({ type: "phase-started", phaseKey: "inspect" });
 			controller.setCell("feature/a", "build", { state: "active" });
 			controller.setActiveOperations([{ kind: "command", display: "just" }]);
 			recording.events.length = 0;
@@ -284,20 +510,12 @@ describe("matrix event progress controller", () => {
 			await controller.stop();
 
 			expect(recording.events).toEqual([
-				{ type: "matrix-global", globalKey: "prepare", state: target },
-				{
-					type: "matrix-global-substep",
-					globalKey: "prepare",
-					substepKey: "inspect",
-					state: target,
-				},
 				{
 					type: "matrix-cell",
 					rowKey: "feature/a",
 					columnKey: "build",
 					state: target,
 				},
-				{ type: "matrix-active-operations", operations: [] },
 			]);
 		},
 	);

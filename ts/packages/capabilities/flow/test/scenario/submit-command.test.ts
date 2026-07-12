@@ -206,35 +206,30 @@ describe("project-local submit extension", () => {
 				{ key: "metadata", label: "Metadata", width: 8 },
 				{ key: "description", label: "Description", width: 11 },
 			],
-			globalRows: expect.any(Array),
 		});
-		if (declaration?.type !== "matrix-declared") throw new Error("matrix declaration missing");
-		expect(declaration.globalRows?.map((row) => row.key)).toEqual([
+		const phaseDeclaration = events.find((event) => event.type === "phases-declared");
+		if (phaseDeclaration?.type !== "phases-declared") throw new Error("phase declaration missing");
+		expect(phaseDeclaration.phases.map((phase) => phase.key)).toEqual([
 			"inventory",
-			"hooks",
 			"checkpoint",
 			"preflight",
 			"restack",
+			"metadata",
 			"submit",
-			"verify",
+			"verification",
+			"descriptions",
 		]);
-		expect(declaration.globalRows?.find((row) => row.key === "checkpoint")?.substeps).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ key: "inspect", label: "Inspect" }),
-				expect.objectContaining({ key: "generate", label: "Generate" }),
-				expect.objectContaining({ key: "commit", label: "Commit" }),
-			]),
-		);
+		expect(
+			phaseDeclaration.phases
+				.find((phase) => phase.key === "checkpoint")
+				?.substeps?.map((phase) => phase.key),
+		).toEqual(["inspect", "generate", "commit"]);
 		const inventoryActiveIndex = events.findIndex(
-			(event) =>
-				event.type === "matrix-global" &&
-				event.globalKey === "inventory" &&
-				event.state === "active",
+			(event) => event.type === "phase-started" && event.phaseKey === "inventory",
 		);
 		const rowsIndex = events.findIndex((event) => event.type === "matrix-rows");
 		const inventoryDoneIndex = events.findIndex(
-			(event) =>
-				event.type === "matrix-global" && event.globalKey === "inventory" && event.state === "done",
+			(event) => event.type === "phase-done" && event.phaseKey === "inventory",
 		);
 		expect(inventoryActiveIndex).toBeGreaterThanOrEqual(0);
 		expect(rowsIndex).toBeGreaterThan(inventoryActiveIndex);
@@ -245,12 +240,7 @@ describe("project-local submit extension", () => {
 		});
 		expect(events).toEqual(
 			expect.arrayContaining([
-				{
-					type: "matrix-global-substep",
-					globalKey: "checkpoint",
-					substepKey: "inspect",
-					state: "active",
-				},
+				{ type: "phase-started", phaseKey: "inspect" },
 				{
 					type: "matrix-cell",
 					rowKey: "feature/demo",
@@ -265,36 +255,10 @@ describe("project-local submit extension", () => {
 					state: "skipped",
 					text: "existing description",
 				},
-				{
-					type: "matrix-global",
-					globalKey: "preflight",
-					state: "done",
-					text: "ready to submit",
-				},
-				{
-					type: "matrix-global",
-					globalKey: "restack",
-					state: "skipped",
-					text: "not required",
-				},
-				{
-					type: "matrix-global",
-					globalKey: "submit",
-					state: "done",
-					text: "stack submitted",
-				},
-				{
-					type: "matrix-global",
-					globalKey: "verify",
-					state: "done",
-					text: "current PR verified (#123)",
-				},
-				{
-					type: "matrix-global-substep",
-					globalKey: "checkpoint",
-					substepKey: "inspect",
-					state: "done",
-				},
+				{ type: "phase-done", phaseKey: "preflight", detail: "ready to submit" },
+				{ type: "phase-done", phaseKey: "restack", detail: "not required" },
+				{ type: "phase-done", phaseKey: "submit", detail: "stack submitted" },
+				{ type: "phase-done", phaseKey: "verification", detail: "current PR verified (#123)" },
 				{ type: "matrix-active-operations", operations: [] },
 			]),
 		);
@@ -308,7 +272,11 @@ describe("project-local submit extension", () => {
 		expect(commandDisplays).toContain(
 			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 		);
-		expect(events.at(-1)).toEqual({ type: "matrix-active-operations", operations: [] });
+		expect(events.at(-1)).toEqual({
+			type: "phase-done",
+			phaseKey: "descriptions",
+			detail: "descriptions ready",
+		});
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "ready\n" });
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: `Submitted ${PR_URL}\n` });
 		expect(run.liveOutput.some((entry) => entry.text.includes("ns flow submit"))).toBe(false);
@@ -365,7 +333,7 @@ describe("project-local submit extension", () => {
 				transient(
 					"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 				),
-				transient("checking submitted PRs…"),
+				transient("checking current PR"),
 				transient("checking 1 PR description for skip or regeneration"),
 				transient("preparing descriptions for 1 PR"),
 				transient("loading PR #123 metadata (1/1)"),
