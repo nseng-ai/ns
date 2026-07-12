@@ -5,14 +5,15 @@ import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-a
 import {
 	defineMatrixWorkflow,
 	matrixFrameOptionalFields,
-	type MatrixCellState,
-	type MatrixCellUpdate,
-	type MatrixColumnSpec,
-	type MatrixFrameOptionalFields,
-	type MatrixProgressController,
-	type MatrixRowSpec,
-	type MatrixRowView,
+	type MatrixWorkflowController,
 } from "../phase-stream/matrix-progress-core.ts";
+import type {
+	MatrixCellState,
+	MatrixCellUpdate,
+	MatrixColumnSpec,
+	MatrixRowView,
+} from "../phase-stream/matrix-progress-state.ts";
+import type { MatrixFrameOptionalFields } from "../phase-stream/matrix-progress-terminal-adapter.ts";
 import type { FlowLiveOutput } from "../phase-stream/live-output.ts";
 import { submitPhaseSpecs } from "../phase-stream/phase-stream-specs.ts";
 import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
@@ -127,10 +128,10 @@ function submitMatrixWorkflow(hasHooks: boolean) {
 	});
 }
 
-type SubmitWorkflowController = Omit<
-	MatrixProgressController<SubmitMatrixColumnKey, SubmitMatrixRowSpec & MatrixRowSpec>,
-	"setRows"
-> & { setRows(rows: readonly SubmitMatrixRowSpec[]): void };
+type SubmitWorkflowController = MatrixWorkflowController<
+	SubmitMatrixRowSpec,
+	SubmitMatrixColumnKey
+>;
 
 export function createSubmitMatrixProgressController(options: {
 	caps: Caps;
@@ -141,11 +142,17 @@ export function createSubmitMatrixProgressController(options: {
 	progress?: NsProgress;
 }): SubmitMatrixProgressController {
 	const controller = submitMatrixWorkflow(options.hasHooks).createController({
-		caps: options.caps,
-		deps: options.deps,
 		title: options.title,
 		rows: options.rows,
-		...(options.progress === undefined ? {} : { progress: options.progress }),
+		presentation:
+			options.progress === undefined
+				? { kind: "terminal", caps: options.caps, deps: options.deps }
+				: {
+						kind: "terminal-and-event",
+						caps: options.caps,
+						deps: options.deps,
+						progress: options.progress,
+					},
 		begin: "lazy",
 	});
 	return adaptSubmitMatrixProgressController(controller);
@@ -193,10 +200,10 @@ export function createSubmitMatrixEventProgressController(options: {
 	hasHooks: boolean;
 }): SubmitMatrixProgressController {
 	return adaptSubmitMatrixProgressController(
-		submitMatrixWorkflow(options.hasHooks).createEventController({
-			progress: options.progress,
+		submitMatrixWorkflow(options.hasHooks).createController({
 			title: options.title,
 			rows: options.rows,
+			presentation: { kind: "event", progress: options.progress },
 			begin: "lazy",
 		}),
 	);
@@ -208,7 +215,11 @@ function adaptSubmitMatrixProgressController(
 	function applyPrLinks(prLinks: readonly SubmitPrLink[]): void {
 		const deltas = applyPrLinksToRows(controller.getRows(), prLinks);
 		for (const delta of deltas) {
-			controller.patchRow(delta.branch, { pr: delta.pr, label: delta.label });
+			controller.dispatch({
+				kind: "row-patched",
+				rowKey: delta.branch,
+				patch: { pr: delta.pr, label: delta.label },
+			});
 		}
 	}
 
@@ -221,24 +232,27 @@ function adaptSubmitMatrixProgressController(
 			.getRows()
 			.find((candidate) => prNumberForRow(candidate) === String(prNumber));
 		if (row === undefined) return;
-		controller.setCell(row.branch, column, update);
+		controller.dispatch({ kind: "cell-changed", rowKey: row.branch, column, update });
 	}
 
 	function setPendingCells(column: SubmitMatrixColumnKey, update: SubmitMatrixCellUpdate): void {
-		controller.setCellsInState(column, "pending", update);
+		controller.dispatch({ kind: "cells-in-state-changed", column, fromState: "pending", update });
 	}
 
 	return {
 		begin: controller.begin,
-		setRows: controller.setRows,
-		setActiveOperations: controller.setActiveOperations,
-		phase: controller.phase,
-		setCell: controller.setCell,
+		setRows: (rows) => controller.dispatch({ kind: "rows-replaced", rows }),
+		setActiveOperations: (operations) =>
+			controller.dispatch({ kind: "active-operations-changed", operations }),
+		phase: (event) => controller.dispatch({ kind: "phase-event", event }),
+		setCell: (rowKey, column, update) =>
+			controller.dispatch({ kind: "cell-changed", rowKey, column, update }),
 		setCellByPrNumber,
-		setAllCells: controller.setAllCells,
+		setAllCells: (column, update) =>
+			controller.dispatch({ kind: "all-cells-changed", column, update }),
 		setPendingCells,
 		applyPrLinks,
-		note: controller.note,
+		note: (text) => controller.dispatch({ kind: "note", text }),
 		finish: controller.finish,
 		stop: controller.stop,
 	};

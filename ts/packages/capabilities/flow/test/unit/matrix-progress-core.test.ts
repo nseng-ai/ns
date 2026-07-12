@@ -7,14 +7,16 @@ import type { ActiveOperation, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
 	commandOperations,
 	defineMatrixWorkflow,
-	createMatrixProgressState,
 	matrixFrameOptionalFields,
-	reduceMatrixProgress,
-	snapshotMatrixProgress,
 	modelOperation,
 	withActiveOperations,
 	withCommandOperations,
 } from "../../src/phase-stream/matrix-progress-core.ts";
+import {
+	createMatrixProgressState,
+	reduceMatrixProgress,
+	snapshotMatrixProgress,
+} from "../../src/phase-stream/matrix-progress-state.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
 
 function caps(parts: Partial<Caps> = {}): Caps {
@@ -62,11 +64,14 @@ function createController(options: { capsParts?: Partial<Caps>; clockNowMs?: num
 	const capture = streamCapture({ sleep: "pending" });
 	const clock = createManualClock(options.clockNowMs ?? 0);
 	const controller = testWorkflow.createController({
-		caps: caps(options.capsParts ?? {}),
-		deps: capture.deps,
+		presentation: {
+			kind: "terminal",
+			caps: caps(options.capsParts ?? {}),
+			deps: capture.deps,
+			clock: clock.clock,
+		},
 		title: "ns flow submit",
 		rows: [{ label: "feature/a" }],
-		clock: clock.clock,
 	});
 	return { controller, capture, clock };
 }
@@ -175,10 +180,9 @@ describe("matrix progress core", () => {
 		{
 			name: "empty bulk",
 			action: {
-				kind: "cells-changed",
-				scope: "selected",
+				kind: "cells-in-state-changed",
 				column: "metadata",
-				rowKeys: [],
+				fromState: "done",
 				update: { state: "done" },
 			} as const,
 		},
@@ -245,23 +249,41 @@ describe("matrix progress core", () => {
 	test("renders active operations on a dedicated line while rows keep their own labels", () => {
 		const { controller, capture } = createController({});
 
-		controller.phase({ type: "phase-started", phaseKey: "hooks", label: "running just…" });
-		controller.setActiveOperations(commandOperations(["just"]));
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "hooks", label: "running just…" },
+		});
+		controller.dispatch({
+			kind: "active-operations-changed",
+			operations: commandOperations(["just"]),
+		});
 		let frame = lastFrame(capture);
 		expect(frameLine(frame, "Hooks")).toContain("running just…");
 		expect(frameLine(frame, "Running:")).toBe("Running: just");
 
-		controller.phase({ type: "phase-done", phaseKey: "hooks", detail: "hooks complete" });
-		controller.phase({ type: "phase-started", phaseKey: "checkpoint" });
-		controller.phase({ type: "phase-started", phaseKey: "inspect", label: "inspecting worktree…" });
-		controller.setActiveOperations(commandOperations(["git status --porcelain"]));
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-done", phaseKey: "hooks", detail: "hooks complete" },
+		});
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "checkpoint" },
+		});
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "inspect", label: "inspecting worktree…" },
+		});
+		controller.dispatch({
+			kind: "active-operations-changed",
+			operations: commandOperations(["git status --porcelain"]),
+		});
 		frame = lastFrame(capture);
 		// Active rows keep their own labels; the operation stays on the dedicated line.
 		expect(frameLine(frame, "Inspect")).toContain("inspecting worktree…");
 		expect(frameLine(frame, "Inspect")).not.toContain("git status --porcelain");
 		expect(frameLine(frame, "Running:")).toBe("Running: git status --porcelain");
 
-		controller.setActiveOperations([]);
+		controller.dispatch({ kind: "active-operations-changed", operations: [] });
 		frame = lastFrame(capture);
 		// Without an operation the slot stays reserved but blank.
 		expect(frame).not.toContain("Running:");
@@ -272,15 +294,24 @@ describe("matrix progress core", () => {
 		const capture = streamCapture({ sleep: "pending" });
 		const events: NsProgressPhaseEvent[] = [];
 		const controller = testWorkflow.createController({
-			caps: caps(),
-			deps: capture.deps,
+			presentation: {
+				kind: "terminal-and-event",
+				caps: caps(),
+				deps: capture.deps,
+				progress: { isLive: true, phase: (event) => events.push(event) },
+			},
 			title: "Workflow",
 			rows: [{ label: "feature/a" }],
-			progress: { isLive: true, phase: (event) => events.push(event) },
 		});
 
-		controller.phase({ type: "phase-started", phaseKey: "checkpoint", label: "saving changes" });
-		controller.phase({ type: "phase-started", phaseKey: "inspect", label: "checking worktree" });
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "checkpoint", label: "saving changes" },
+		});
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "inspect", label: "checking worktree" },
+		});
 
 		const frame = lastFrame(capture);
 		expect(frameLine(frame, "Checkpoint")).toContain("saving changes");
@@ -300,19 +331,25 @@ describe("matrix progress core", () => {
 	test("reserves a blank tail slot and counts quiet time since the last output line", () => {
 		const { controller, capture, clock } = createController({ clockNowMs: 1_000 });
 
-		controller.phase({ type: "phase-started", phaseKey: "hooks" });
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "hooks" },
+		});
 		expect(lastFrame(capture).split("\n").at(-1)).toBe("");
 
-		controller.note("✓ shell-cli.test.ts (3 tests)\n");
+		controller.dispatch({ kind: "note", text: "✓ shell-cli.test.ts (3 tests)\n" });
 		expect(lastFrame(capture).split("\n").at(-1)).toBe("       ✓ shell-cli.test.ts (3 tests)");
 
 		clock.advanceMs(14_000);
-		controller.phase({ type: "phase-progress", phaseKey: "hooks", label: "still running" });
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-progress", phaseKey: "hooks", label: "still running" },
+		});
 		expect(lastFrame(capture).split("\n").at(-1)).toBe(
 			"       ✓ shell-cli.test.ts (3 tests) · 14s ago",
 		);
 
-		controller.note("✓ sdk.test.ts (9 tests)\n");
+		controller.dispatch({ kind: "note", text: "✓ sdk.test.ts (9 tests)\n" });
 		const tailLine = lastFrame(capture).split("\n").at(-1);
 		expect(tailLine).toContain("✓ sdk.test.ts (9 tests)");
 		expect(tailLine).not.toContain("ago");
@@ -321,13 +358,63 @@ describe("matrix progress core", () => {
 	test("settled frames drop the operations and tail slots", async () => {
 		const { controller, capture } = createController({ capsParts: { isTty: false } });
 
-		controller.phase({ type: "phase-started", phaseKey: "hooks" });
-		controller.setActiveOperations(commandOperations(["just"]));
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "hooks" },
+		});
+		controller.dispatch({
+			kind: "active-operations-changed",
+			operations: commandOperations(["just"]),
+		});
 		await controller.finish();
 
 		const settled = stripAnsi(capture.writes.join(""));
 		expect(settled).toContain("hooks complete");
 		expect(settled).not.toContain("Running:");
 		expect(settled.trimEnd().split("\n").at(-1)).toContain("feature/a");
+	});
+
+	test("settled-transcript presentation surfaces phase progress and renders only canonical phases", async () => {
+		const capture = streamCapture({ sleep: "resolve" });
+		const controller = testWorkflow.createController({
+			presentation: {
+				kind: "settled-transcript",
+				caps: caps({ isTty: false }),
+				deps: capture.deps,
+			},
+			title: "Workflow",
+			rows: [{ label: "feature/a" }],
+		});
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-started", phaseKey: "hooks" },
+		});
+		controller.dispatch({
+			kind: "phase-event",
+			event: { type: "phase-progress", phaseKey: "hooks", label: "hook 1/2 complete" },
+		});
+		controller.dispatch({ kind: "title-changed", title: "Updated workflow" });
+		controller.dispatch({
+			kind: "cell-changed",
+			rowKey: "feature/a",
+			column: "metadata",
+			update: { state: "active" },
+		});
+
+		expect(capture.outputs).toEqual(["running pre-submit hooks…", "hook 1/2 complete"]);
+		expect(capture.writes).toEqual([]);
+		expect(capture.redraws).toEqual([]);
+
+		await controller.finish({ isFailed: true, finalLines: ["submit failed"] });
+
+		const settled = stripAnsi(capture.writes.join(""));
+		expect(settled).toContain("Updated workflow");
+		expect(settled).toContain("✗");
+		expect(settled).toContain("hook 1/2 complete");
+		expect(settled).toContain("submit failed");
+		expect(settled).not.toContain("hooks complete");
+		expect(settled).not.toContain("Branch / PR");
+		expect(settled).not.toContain("feature/a");
+		expect(settled).not.toContain("\u001B[");
 	});
 });

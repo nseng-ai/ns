@@ -16,6 +16,16 @@ export interface PhaseSpec {
 	substeps?: readonly PhaseSubstepSpec[];
 }
 
+export function phaseInfos(specs: readonly PhaseSpec[]): readonly NsProgressPhaseInfo[] {
+	return specs.map((spec) => ({
+		key: spec.key,
+		name: spec.item.name,
+		...(spec.item.label === undefined ? {} : { label: spec.item.label }),
+		...(spec.item.detail === undefined ? {} : { detail: spec.item.detail }),
+		...(spec.substeps === undefined ? {} : { substeps: phaseInfos(spec.substeps) }),
+	}));
+}
+
 /** Checkpoint workflow phases, shared by `flow cp` and submit's folded checkpoint progress. */
 export const CHECKPOINT_PHASES: readonly PhaseSpec[] = [
 	{

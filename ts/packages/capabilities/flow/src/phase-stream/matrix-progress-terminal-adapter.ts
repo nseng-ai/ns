@@ -27,10 +27,7 @@ import {
 	type ActiveOperation,
 } from "@nseng-ai/sdk";
 
-import type {
-	MatrixProgressAdapter,
-	MatrixProgressLifecycle,
-} from "./matrix-progress-controller.ts";
+import type { MatrixProgressAdapter } from "./matrix-progress-controller.ts";
 import type {
 	MatrixCellView,
 	MatrixColumnSpec,
@@ -50,7 +47,6 @@ export interface CreateMatrixTerminalAdapterOptions<ColumnKey extends string> {
 	deps: StreamSinkDeps;
 	columns: readonly MatrixColumnSpec<ColumnKey>[];
 	clock?: Clock;
-	getLifecycle(): MatrixProgressLifecycle;
 }
 
 export function createMatrixTerminalAdapter<ColumnKey extends string, Row extends MatrixRowSpec>(
@@ -77,12 +73,6 @@ export function createMatrixTerminalAdapter<ColumnKey extends string, Row extend
 				: Math.max(0, clock.nowMs() - lastNoteAtMs),
 	});
 
-	function render(): void {
-		if (options.getLifecycle() === "active" || options.getLifecycle() === "finishing") {
-			renderer.render();
-		}
-	}
-
 	return {
 		begin: ({ snapshot }) => {
 			latest = snapshot;
@@ -98,7 +88,7 @@ export function createMatrixTerminalAdapter<ColumnKey extends string, Row extend
 			} else {
 				latest = getSnapshot();
 			}
-			render();
+			renderer.render();
 		},
 		beforeFinish: () => lifecycle.drainPump(),
 		finish: async (finishOptions) => {

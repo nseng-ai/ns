@@ -1,15 +1,16 @@
 import type { Caps } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ActiveOperation, NsProgress } from "@nseng-ai/sdk";
 import {
 	defineMatrixWorkflow,
 	matrixFrameOptionalFields,
-	type MatrixCellUpdate,
-	type MatrixColumnSpec,
-	type MatrixFrameOptionalFields,
-	type MatrixRowView,
 } from "../phase-stream/matrix-progress-core.ts";
+import type {
+	MatrixCellUpdate,
+	MatrixColumnSpec,
+	MatrixRowView,
+} from "../phase-stream/matrix-progress-state.ts";
+import type { MatrixFrameOptionalFields } from "../phase-stream/matrix-progress-terminal-adapter.ts";
 import { LAND_PHASES } from "../phase-stream/phase-stream-specs.ts";
 import type { LandingPlan } from "./types.ts";
 
@@ -93,37 +94,52 @@ export function createLandMatrixProgressController(options: {
 	const liveState: LandLiveProgressState = { landedPrs: 0 };
 	const landedPrNumbers = new Set<number>();
 	const controller = landMatrixWorkflow.createController({
-		caps: options.caps,
-		deps: options.deps,
 		title: formatLandProgressTitle(liveState),
 		rows: [],
-		...optionalEntry("forward", options.forward),
+		presentation:
+			options.forward === undefined
+				? { kind: "terminal", caps: options.caps, deps: options.deps }
+				: {
+						kind: "terminal-and-event",
+						caps: options.caps,
+						deps: options.deps,
+						progress: options.forward,
+					},
 		begin: "lazy",
 	});
 
 	function setRows(rows: readonly LandMatrixRowSpec[]): void {
 		liveState.totalPrs = rows.length;
-		controller.setTitle(formatLandProgressTitle(liveState));
-		controller.setRows(rows);
+		controller.dispatch({ kind: "title-changed", title: formatLandProgressTitle(liveState) });
+		controller.dispatch({ kind: "rows-replaced", rows });
 	}
 
 	function recordMergedPr(prNumber: number): void {
 		if (landedPrNumbers.has(prNumber)) return;
 		landedPrNumbers.add(prNumber);
 		liveState.landedPrs += 1;
-		controller.setTitle(formatLandProgressTitle(liveState));
+		controller.dispatch({ kind: "title-changed", title: formatLandProgressTitle(liveState) });
 	}
 
 	return {
 		begin: controller.begin,
-		setTitle: controller.setTitle,
+		setTitle: (title) => controller.dispatch({ kind: "title-changed", title }),
 		setRows,
-		setActiveOperations: controller.setActiveOperations,
-		setCell: controller.setCell,
-		setAllCells: controller.setAllCells,
-		setAllOtherCells: controller.setAllOtherCells,
+		setActiveOperations: (operations) =>
+			controller.dispatch({ kind: "active-operations-changed", operations }),
+		setCell: (rowKey, column, update) =>
+			controller.dispatch({ kind: "cell-changed", rowKey, column, update }),
+		setAllCells: (column, update) =>
+			controller.dispatch({ kind: "all-cells-changed", column, update }),
+		setAllOtherCells: (column, excludedRowKey, update) =>
+			controller.dispatch({
+				kind: "all-other-cells-changed",
+				column,
+				excludedRowKey,
+				update,
+			}),
 		recordMergedPr,
-		note: controller.note,
+		note: (text) => controller.dispatch({ kind: "note", text }),
 		finish: controller.finish,
 		stop: controller.stop,
 	};

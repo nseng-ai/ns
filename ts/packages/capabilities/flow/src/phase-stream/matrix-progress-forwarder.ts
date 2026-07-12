@@ -6,7 +6,7 @@
 
 import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
-import type { MatrixCellUpdate, MatrixColumnSpec, MatrixRowSpec } from "./matrix-progress-core.ts";
+import type { MatrixCellUpdate, MatrixColumnSpec, MatrixRowSpec } from "./matrix-progress-state.ts";
 
 export interface MatrixProgressForwarderOptions<ColumnKey extends string> {
 	/** Live host progress sink; construct the forwarder only when `progress.isLive`. */
