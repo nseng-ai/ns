@@ -111,42 +111,46 @@ findings against the live files before editing (line references in
       conventions doc when one fits (e.g. the gt plumbing-not-display rule near
       `graphite-dependency-boundary.md`), create a focused new doc otherwise; the runner
       chooses per item within this policy.
-- [~] Tranche 4 — CLI push-down execution: dispositions for all 29 candidates were
-  decided 2026-07-12 (frontload update); this row implements the accepted ones and
-  creates the graduate records.
-  Progress: routing retrofit executed 2026-07-12 on
-  `skill-audit-t4-routing-retrofit` (thermostack + linearize-descendants now route
-  topology reads through the stack-branches/stack-map-branches execs — see the
-  t4-routing-retrofit-executed update); backup-refs implemented 2026-07-12 on
-  `skill-audit-t4-backup-refs` (`ns slot gt exec backup-refs` with unit+scenario
-  tests, both consumer skills retrofitted — see the t4-backup-refs-implemented
-  update); wait-for-checks implemented 2026-07-12 on
-  `skill-audit-t4-wait-for-checks` (`ns address exec wait-for-checks` with
-  Clock/TimerScheduler seams; code-fix-gh-stack's polling loop is now one call — see
-  the t4-wait-for-checks-implemented update); handoff slug/match implemented
-  2026-07-12 on `skill-audit-t4-handoff-slug-match` (create-side normalization plus
-  `ns handoff exec match` sharing the Pi pickup ladder — see the
-  t4-handoff-slug-match-implemented update); episode-slice script implemented
-  2026-07-12 on `skill-audit-t4-episode-slice` (bundled slice-episode.mjs with hard
-  output caps; no new ns CLI — see the t4-episode-slice-implemented update). All
-  five accepted implementations done; graduate records and the areg-mutations note
-  remain.
-  Guidance: **Accepted (implement here):** `ns slot gt exec backup-refs` (shared by
-  code-smush and code-gt-linearize-descendants); `wait-for-checks` primitive beside
-  `ns address exec branch-pr-checks`; `ns handoff create` slug normalization plus
-  `ns handoff pickup` term-matching; a bundled episode-slice script for
-  context-bundle-analysis; the routing retrofit pointing code-thermostack and
-  code-gt-linearize-descendants at the existing `stack-branches` exec (no new CLI).
-  **Graduate (runner creates minimal objective records):** `ccc exec`
-  inventory/manifest helper; objective exec surface extension (refresh-targets,
-  update/refresh evidence, retro reconstruction pipeline); `ns slot gt exec`
-  restack-preflight + descendants-report; areg mutation commands are recorded as a
-  note/edge on the existing skill-management-subsystem objective rather than a new
-  record. **Rejected (rationale in the frontload update):** changelog-update
-  commit-fetching (skill keeps pure-git portability); create-*/setup-* bundled
-  scripts (usage too low); merge-conflicts inventory command; envelope
-  field-drift check; objective-retro `--repo/--branch` flag defaults (noted for the
-  next ns retro CLI iteration, untracked here).
+- [x] Tranche 4 — CLI push-down execution: dispositions for all 29 candidates were
+      decided 2026-07-12 (frontload update); this row implements the accepted ones and
+      creates the graduate records. Completed 2026-07-12: graduate records
+      `cmux-exec-occupancy-inventory`, `objective-exec-surface-extension`, and
+      `slot-gt-restack-preflight` created with mirrored edges on
+      `skill-audit-t4-graduate-records`, and the areg-mutations note recorded on
+      skill-management-subsystem — see the t4-graduate-records-created update.
+      Progress: routing retrofit executed 2026-07-12 on
+      `skill-audit-t4-routing-retrofit` (thermostack + linearize-descendants now route
+      topology reads through the stack-branches/stack-map-branches execs — see the
+      t4-routing-retrofit-executed update); backup-refs implemented 2026-07-12 on
+      `skill-audit-t4-backup-refs` (`ns slot gt exec backup-refs` with unit+scenario
+      tests, both consumer skills retrofitted — see the t4-backup-refs-implemented
+      update); wait-for-checks implemented 2026-07-12 on
+      `skill-audit-t4-wait-for-checks` (`ns address exec wait-for-checks` with
+      Clock/TimerScheduler seams; code-fix-gh-stack's polling loop is now one call — see
+      the t4-wait-for-checks-implemented update); handoff slug/match implemented
+      2026-07-12 on `skill-audit-t4-handoff-slug-match` (create-side normalization plus
+      `ns handoff exec match` sharing the Pi pickup ladder — see the
+      t4-handoff-slug-match-implemented update); episode-slice script implemented
+      2026-07-12 on `skill-audit-t4-episode-slice` (bundled slice-episode.mjs with hard
+      output caps; no new ns CLI — see the t4-episode-slice-implemented update). All
+      five accepted implementations done; graduate records and the areg-mutations note
+      remain.
+      Guidance: **Accepted (implement here):** `ns slot gt exec backup-refs` (shared by
+      code-smush and code-gt-linearize-descendants); `wait-for-checks` primitive beside
+      `ns address exec branch-pr-checks`; `ns handoff create` slug normalization plus
+      `ns handoff pickup` term-matching; a bundled episode-slice script for
+      context-bundle-analysis; the routing retrofit pointing code-thermostack and
+      code-gt-linearize-descendants at the existing `stack-branches` exec (no new CLI).
+      **Graduate (runner creates minimal objective records):** `ccc exec`
+      inventory/manifest helper; objective exec surface extension (refresh-targets,
+      update/refresh evidence, retro reconstruction pipeline); `ns slot gt exec`
+      restack-preflight + descendants-report; areg mutation commands are recorded as a
+      note/edge on the existing skill-management-subsystem objective rather than a new
+      record. **Rejected (rationale in the frontload update):** changelog-update
+      commit-fetching (skill keeps pure-git portability); create-*/setup-* bundled
+      scripts (usage too low); merge-conflicts inventory command; envelope
+      field-drift check; objective-retro `--repo/--branch` flag defaults (noted for the
+      next ns retro CLI iteration, untracked here).
 
 ## Parked
 
