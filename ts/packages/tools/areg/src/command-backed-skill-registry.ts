@@ -80,12 +80,6 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		surface: "context:bundle-analysis",
 		kind: "generic-backing-skill",
 	},
-	{ skillName: "dignified-python", surface: "dignified:python", kind: "generic-backing-skill" },
-	{
-		skillName: "dignified-python-tripwire",
-		surface: "dignified:python-tripwire",
-		kind: "generic-backing-skill",
-	},
 	{
 		skillName: "enriched-plan-save",
 		surface: WRITE_PLAN_COMMAND_NAME,
@@ -118,17 +112,6 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		skillName: "pi-grill-with-docs-ui",
 		surface: "pi:grill-with-docs",
 		kind: "specialized-command",
-	},
-	{ skillName: "pytest", surface: "python:pytest", kind: "generic-backing-skill" },
-	{
-		skillName: "python-fake-driven-test-layout",
-		surface: "python:fake-driven-test-layout",
-		kind: "generic-backing-skill",
-	},
-	{
-		skillName: "python-fake-driven-testing",
-		surface: "python:fake-driven-testing",
-		kind: "generic-backing-skill",
 	},
 	{ skillName: "refactor-swarm", surface: "refactor:swarm", kind: "generic-backing-skill" },
 	{

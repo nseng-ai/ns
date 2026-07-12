@@ -232,9 +232,8 @@ describe("buildWritePlanPrompt", () => {
 			"exclusively for review-only subagents after implementation is complete",
 		);
 		expect(checkedInContent).toContain("single in-session `typescript-style` review subagent");
-		expect(checkedInContent).toContain("single in-session `dignified-python` review subagent");
 		expect(checkedInContent).toContain(
-			"Do not tell the implementation agent to repeat TypeScript/Python style review subagents",
+			"Do not tell the implementation agent to repeat TypeScript style review subagents",
 		);
 		expect(checkedInContent).toContain("the final PR review is the final style/quality checkstep");
 		expect(checkedInContent).not.toContain(

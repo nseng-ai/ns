@@ -35,7 +35,6 @@ Read `.agents/skills/writing-great-skills/SKILL.md` before auditing. It defines 
 - `skill-management`: when adding/removing/renaming/installing skills.
 - `cli-push-down`: when the skill has shell, parsing, data gathering, or long procedural mechanics.
 - `typescript-style` + `typescript-fake-driven-testing`: when the skill carries TypeScript code or tests.
-- `dignified-python` + `pytest`: when the skill carries Python code or tests.
 - `docs/conventions/skill-conventions.md`: for invocation-kind (`areg`), frontmatter, naming, and vendoring rules.
 
 ## Audit Order

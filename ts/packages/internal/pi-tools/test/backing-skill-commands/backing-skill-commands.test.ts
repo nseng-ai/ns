@@ -82,7 +82,6 @@ describe("command-backed skill registry", () => {
 		expect(commandBackedSkillSurface("ns-typescript-style-tripwire")).toBe(
 			"ns:typescript:style-tripwire",
 		);
-		expect(commandBackedSkillSurface("pytest")).toBe("python:pytest");
 		expect(commandBackedSkillSurface("unregistered-skill-name")).toBeUndefined();
 		expect(commandBackedSkillSurface("foo-bar-baz")).toBeUndefined();
 		expect(commandBackedSkillSurface("plain")).toBeUndefined();
@@ -120,7 +119,6 @@ describe("command-backed skill registry", () => {
 		expect(skillNames).toContain("code-workflows");
 		expect(skillNames).toContain("objective-refresh");
 		expect(skillNames).toContain("objective-retro");
-		expect(skillNames).toContain("pytest");
 		expect(skillNames).not.toContain("unregistered-skill-name");
 		expect(skillNames).not.toContain("objective-close");
 		expect(skillNames).not.toContain("objective-create");
@@ -173,8 +171,6 @@ describe("command-backed skill registry", () => {
 		expect(surfaces).toContain("ns:cmux:available-work");
 		expect(surfaces).toContain("pi:grill-me");
 		expect(surfaces).toContain("pi:grill-with-docs");
-		expect(surfaces).toContain("dignified:python");
-		expect(surfaces).toContain("python:pytest");
 		expect(surfaces).not.toContain("skill:x");
 		expect(surfaces).not.toContain("foo:bar-baz");
 		expect(surfaces).not.toContain("pr:address");
@@ -193,7 +189,6 @@ describe("derivePiReplacementCommand", () => {
 		["objective-retro", "ns:objective:retro"],
 		["branch-retro", "branch:retro"],
 		["code-workflows", "code:workflows"],
-		["pytest", "python:pytest"],
 		["ns-cli-design", "ns:cli:design"],
 		["ns-typescript-style-tripwire", "ns:typescript:style-tripwire"],
 	])("derives generic backing skill %s as /%s", (skillName, surface) => {
@@ -233,7 +228,6 @@ describe("genericBackingSkillCommandSpecs", () => {
 		expect(surfaces).toContain("code:workflows");
 		expect(surfaces).toContain("ns:cmux:available-work");
 		expect(surfaces).toContain("ns:objective:refresh");
-		expect(surfaces).toContain("python:pytest");
 		expect(surfaces).not.toContain("skill:x");
 		expect(surfaces).not.toContain("pr:address");
 		expect(surfaces).not.toContain("cli:push-down");

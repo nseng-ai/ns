@@ -45,13 +45,6 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		expectedLocalOnly: true,
 	},
 	{
-		path: "../../../../../../.ns/reviews/dignified-python-tripwire/review.md",
-		name: "dignified-python-tripwire",
-		expectedModelProfile: "quick",
-		expectedApplicability: { include: ["**/*.py"], exclude: ["**/tests/**/*.py"] },
-		expectedLocalOnly: false,
-	},
-	{
 		path: "../../../../../../.ns/reviews/ns-typescript-style-tripwire/review.md",
 		name: "ns-typescript-style-tripwire",
 		expectedModelProfile: "quick",
