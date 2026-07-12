@@ -6,6 +6,7 @@ import {
 } from "@nseng-ai/clinkr";
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@nseng-ai/clinkr/testing";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { createManualClock } from "@nseng-ai/foundation/time/testing";
 
 import { buildSlotCommandGroup } from "../../src/ns/command-face.ts";
 import type { SlotCliContext } from "../../src/core/context.ts";
@@ -44,7 +45,11 @@ export interface ScenarioRunOptions {
 	clipboardResult?: ClipboardCopyResult;
 	command?: FakeSlotCommandGatewayOptions;
 	renderCapabilities?: RenderCapabilities;
+	nowMs?: number;
 }
+
+/** Deterministic scenario wall clock: 2026-07-12T12:00:00.000Z. */
+export const SCENARIO_NOW_MS = Date.UTC(2026, 6, 12, 12, 0, 0);
 
 export interface ScenarioRun {
 	exit: Promise<number>;
@@ -157,6 +162,7 @@ function buildScenarioFixture(
 		storage,
 		clipboard: new FakeClipboardGateway(options.clipboardResult),
 		command,
+		clock: createManualClock(options.nowMs ?? SCENARIO_NOW_MS).clock,
 		cwd,
 		renderCapabilities,
 		interaction,

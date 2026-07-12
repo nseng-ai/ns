@@ -686,6 +686,215 @@ describe("slot gt exec stack-map-branches CLI", () => {
 	});
 });
 
+describe("slot gt exec backup-refs CLI", () => {
+	// SCENARIO_NOW_MS (2026-07-12T12:00:00Z) renders as this compact UTC stamp.
+	const stamp = "20260712120000";
+
+	it("shows help for the hidden backup-refs operation", async () => {
+		const run = runScenario(["gt", "exec", "backup-refs", "-h"]);
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("--label");
+		expect(run.stdout.join("")).toContain("--branch");
+	});
+
+	it("is hidden but invocable and emits compact backup JSON in human mode", async () => {
+		const run = runScenario(
+			["gt", "exec", "backup-refs", "--label", "smush", "--branch", "feature/current"],
+			{ git: { localBranches: ["master", "feature/current"] } },
+		);
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(
+			`{"prefix":"backup/smush-${stamp}/","refs":[{"branch":"feature/current","backupBranch":"backup/smush-${stamp}/feature__current"}]}\n`,
+		);
+	});
+
+	it("creates one non-force backup branch per branch and returns the JSON envelope", async () => {
+		const run = runScenario(
+			[
+				"gt",
+				"exec",
+				"backup-refs",
+				"--label",
+				"linearize",
+				"--branch",
+				"feature/a",
+				"--branch",
+				"tip",
+				"--format",
+				"json",
+			],
+			{ git: { localBranches: ["master", "feature/a", "tip"] } },
+		);
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "ok",
+			data: {
+				prefix: `backup/linearize-${stamp}/`,
+				label: "linearize",
+				stamp,
+				refs: [
+					{ branch: "feature/a", backupBranch: `backup/linearize-${stamp}/feature__a` },
+					{ branch: "tip", backupBranch: `backup/linearize-${stamp}/tip` },
+				],
+			},
+		});
+		expect(run.git.operations()).toEqual([
+			{
+				type: "create-branch",
+				branch: `backup/linearize-${stamp}/feature__a`,
+				startPoint: "feature/a",
+				shouldForce: false,
+			},
+			{
+				type: "create-branch",
+				branch: `backup/linearize-${stamp}/tip`,
+				startPoint: "tip",
+				shouldForce: false,
+			},
+		]);
+	});
+
+	it("rejects a missing branch list and an invalid label as usage errors", async () => {
+		const noBranches = runScenario(
+			["gt", "exec", "backup-refs", "--label", "smush", "--format", "json"],
+			{ git: { localBranches: ["master"] } },
+		);
+		expect(await noBranches.exit).toBe(2);
+		expect(parseJsonOutput(noBranches)).toMatchObject({
+			status: "usageError",
+			data: { argument: "--branch" },
+		});
+
+		const badLabel = runScenario(
+			[
+				"gt",
+				"exec",
+				"backup-refs",
+				"--label",
+				"Bad_Label",
+				"--branch",
+				"master",
+				"--format",
+				"json",
+			],
+			{ git: { localBranches: ["master"] } },
+		);
+		expect(await badLabel.exit).toBe(2);
+		expect(parseJsonOutput(badLabel)).toMatchObject({
+			status: "usageError",
+			data: { argument: "--label" },
+		});
+	});
+
+	it("fails with branch-not-found before creating anything", async () => {
+		const run = runScenario(
+			[
+				"gt",
+				"exec",
+				"backup-refs",
+				"--label",
+				"smush",
+				"--branch",
+				"feature/a",
+				"--branch",
+				"missing",
+				"--format",
+				"json",
+			],
+			{ git: { localBranches: ["master", "feature/a"] } },
+		);
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			errorType: "branch-not-found",
+			data: { missing: ["missing"] },
+		});
+		expect(run.git.operations()).toEqual([]);
+	});
+
+	it("fails with backup-ref-exists on a name collision before creating anything", async () => {
+		const run = runScenario(
+			[
+				"gt",
+				"exec",
+				"backup-refs",
+				"--label",
+				"smush",
+				"--branch",
+				"feature/a",
+				"--format",
+				"json",
+			],
+			{
+				git: {
+					localBranches: ["master", "feature/a", `backup/smush-${stamp}/feature__a`],
+				},
+			},
+		);
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			errorType: "backup-ref-exists",
+			data: { existing: [`backup/smush-${stamp}/feature__a`] },
+		});
+		expect(run.git.operations()).toEqual([]);
+	});
+
+	it("reports a create failure with the branches already backed up", async () => {
+		const run = runScenario(
+			[
+				"gt",
+				"exec",
+				"backup-refs",
+				"--label",
+				"smush",
+				"--branch",
+				"feature/a",
+				"--branch",
+				"tip",
+				"--format",
+				"json",
+			],
+			{
+				git: {
+					localBranches: ["master", "feature/a", "tip"],
+					createBranchFailures: {
+						[`backup/smush-${stamp}/tip`]: { message: "ref lock held" },
+					},
+				},
+			},
+		);
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			errorType: "backup-create-failed",
+			data: {
+				branch: "tip",
+				backupBranch: `backup/smush-${stamp}/tip`,
+				created: [{ branch: "feature/a", backupBranch: `backup/smush-${stamp}/feature__a` }],
+			},
+		});
+	});
+
+	it("dedupes repeated branch flags", async () => {
+		const run = runScenario(
+			[
+				"gt",
+				"exec",
+				"backup-refs",
+				"--label",
+				"smush",
+				"--branch",
+				"tip",
+				"--branch",
+				"tip",
+				"--format",
+				"json",
+			],
+			{ git: { localBranches: ["master", "tip"] } },
+		);
+		expect(await run.exit).toBe(0);
+		expect(run.git.operations()).toHaveLength(1);
+	});
+});
+
 interface QuiescenceScenarioOptions {
 	readonly stack?: ReturnType<typeof fakeStackInfo>;
 	readonly git?: ScenarioRunOptions["git"];

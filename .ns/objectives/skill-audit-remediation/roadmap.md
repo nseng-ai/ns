@@ -117,7 +117,10 @@ findings against the live files before editing (line references in
   Progress: routing retrofit executed 2026-07-12 on
   `skill-audit-t4-routing-retrofit` (thermostack + linearize-descendants now route
   topology reads through the stack-branches/stack-map-branches execs — see the
-  t4-routing-retrofit-executed update).
+  t4-routing-retrofit-executed update); backup-refs implemented 2026-07-12 on
+  `skill-audit-t4-backup-refs` (`ns slot gt exec backup-refs` with unit+scenario
+  tests, both consumer skills retrofitted — see the t4-backup-refs-implemented
+  update).
   Guidance: **Accepted (implement here):** `ns slot gt exec backup-refs` (shared by
   code-smush and code-gt-linearize-descendants); `wait-for-checks` primitive beside
   `ns address exec branch-pr-checks`; `ns handoff create` slug normalization plus

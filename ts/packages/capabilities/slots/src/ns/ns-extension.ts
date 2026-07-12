@@ -40,6 +40,7 @@ export default defineExtension({
 					slotCommandEntry("stack-branches"),
 					slotCommandEntry("stack-map-branches"),
 					slotCommandEntry("quiescence"),
+					slotCommandEntry("backup-refs"),
 				]),
 			],
 		},

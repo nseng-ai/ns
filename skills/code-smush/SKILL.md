@@ -237,7 +237,7 @@ and the mapping from existing branches/PRs to proposed slices:
 - rationale excerpt for the cut and classification;
 - planned Span Squash targets (every span slice) and what each squash message will
   preserve;
-- backup branch names to be created;
+- branches to be backed up (backup ref names are stamped at creation);
 - on repackaging: the replacement run name (with its `st<num>` generation token)
   and the complete old-stack close-candidate list — every old branch, with PR
   numbers where known;
@@ -251,16 +251,18 @@ already-packaged stack (repackaging re-run), so treat "move the cut below X",
 
 ### Phase 3 — Backup refs
 
-After go-ahead, with a clean status:
+After go-ahead, with a clean status, back up every affected branch (run tip
+always; every branch that will be renamed or squashed) in one call:
 
 ```bash
-stamp=$(date +%Y%m%d%H%M%S)
-git branch "backup/smush-$stamp/<safe-branch-name>" "<branch>"
+ns slot gt exec backup-refs --label smush --branch <branch> [--branch <branch> ...] --format json
 ```
 
-Create one backup per affected branch (run tip always; every branch that will be
-renamed or squashed). Encode `/` in branch names as `__`. Record the backup
-prefix for the final report.
+One `--branch` per affected branch. The command stamps the run, encodes `/` in
+branch names as `__`, and refuses missing branches or backup-name collisions
+without creating anything. Record `data.prefix` (`backup/smush-<stamp>/`) for
+the final report; on a non-zero exit, stop and report — do not mutate without
+backups.
 
 ### Phase 4 — Slice
 

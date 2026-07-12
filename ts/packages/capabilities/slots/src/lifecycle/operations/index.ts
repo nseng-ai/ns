@@ -15,6 +15,12 @@ export {
 	runGtDown,
 } from "./gt/down.ts";
 export {
+	gtBackupRefsRequestSchema,
+	gtBackupRefsResultSchema,
+	renderBackupRefs,
+	runGtBackupRefs,
+} from "./gt/exec/backup-refs.ts";
+export {
 	gtStackBranchesRequestSchema,
 	gtStackBranchesResultSchema,
 	renderStackBranches,
