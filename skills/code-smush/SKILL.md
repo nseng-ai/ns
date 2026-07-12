@@ -9,13 +9,9 @@ description: Use when the user explicitly asks to smush, package, or repackage a
 Packaging — colloquially **smush** — is the opt-in, LM-driven, local operation that
 classifies and slices an existing Graphite stack into **Decision PR** and **Span PR**
 form, then explicitly performs **Span Squash**. It produces a self-describing local
-stack for the user to submit; smush itself never submits. Repackaging is
-**replacement-stack construction**: build the new shape alongside the old stack
-from the same underlying commits, verify it, and hand it to the user to submit —
-the old stack stays untouched and is reported, in its entirety, as the
-close-candidate set. Which construction path applies is a deterministic rule, not
-a user choice: a fresh, single-branch, PR-free run is packaged in place;
-everything else gets a replacement stack — see Packaging rule below.
+stack for the user to submit; smush itself never submits. Which construction path
+applies — in-place reshaping or replacement-stack construction — is a
+deterministic rule, not a user choice; see the Packaging rule below.
 
 Smush is **experimental** and **manually invoked only**. No other workflow — Flow,
 CCC, the default agent workflow — may invoke it implicitly. Do not run it because a
@@ -31,8 +27,6 @@ stack "looks like it needs packaging"; run it because the user asked.
 - **Span PR** — a slice holding a maximal stretch of consequence-executing commits
   between decisions.
 - **Slice Map** — the derived view of cut points, classification, and rationale.
-  Never stored; re-derived from branch structure, branch names, and commit messages
-  on every run.
 - **Span Squash** — the explicit post-slicing step that collapses a Span PR's
   interior commits into one, preserving rationale and a narration digest.
 
@@ -47,32 +41,29 @@ stack "looks like it needs packaging"; run it because the user asked.
    verbs to inspect PR state; several refresh PR metadata from the remote. PR
    associations come only from Graphite's local cache (or from the user); stale or
    absent cache state is reported as *unknown*, never refreshed to improve the
-   proposal.
-2. **Never close PRs — not even indirectly.** Smush never creates, updates,
-   closes, or otherwise mutates a pull request. On repackaging, the
-   close-candidate set is deterministic — the **entire old stack** — and is
-   reported loudly (a clearly marked section in the final report); every decision
-   about closing it belongs to the user.
-3. **Propose before mutation — gate weight follows destructiveness.** Render the
+   proposal. On repackaging, the close-candidate set is deterministic — the
+   **entire old stack** — and is reported loudly (a clearly marked section in the
+   final report); every decision about closing it belongs to the user.
+2. **Propose before mutation — gate weight follows destructiveness.** Render the
    full proposed Slice Map (format below) and wait for the user's explicit
    go-ahead. Silence, ambiguity, or a partial answer is not consent. This proposal
    readback is the human's Slice Map view. Destructive operations — `gt rename`,
    squash/modify/delete of pre-existing branches — always require ratification of
    the exact map they mutate. Replacement construction (new refs plus `gt track`
-   on new branches only) still needs a go-ahead, but is cheap and fully
-   reversible: building a candidate replacement stack, inspecting it, and
-   discarding it is a legitimate iteration loop while the user is actively
-   reshaping — prefer that loop over repeated rounds of prose re-ratification.
-4. **Backup before mutation.** Create timestamped local backup branches for the run
+   on new branches only) still needs a go-ahead, but building, inspecting, and
+   discarding a candidate replacement stack is a legitimate iteration loop while
+   the user is actively reshaping — prefer that loop over repeated rounds of
+   prose re-ratification.
+3. **Backup before mutation.** Create timestamped local backup branches for the run
    tip and every branch the operation will move, rename, or rewrite.
-5. **No durable state.** Classification and per-cut rationale live only in branch
+4. **No durable state.** Classification and per-cut rationale live only in branch
    names and commit messages. Write no state files, no map files, no markers or
    trailers. Any JSON passed between steps is transient process input; nothing of
    it survives the run. Re-derive everything from the stack every time.
-6. **Read-side discipline.** Read stack topology with `ns slot gt exec
+5. **Read-side discipline.** Read stack topology with `ns slot gt exec
    stack-branches --format json` and `ns slot gt exec stack-map-branches --format
    json`; never parse `gt log` output.
-7. **No new CLI.** V1 is wholly LM-driven prose over the raw commands in this
+6. **No new CLI.** V1 is wholly LM-driven prose over the raw commands in this
    document. Do not build or reach for packaging-specific push-down commands.
 
 ## Packaging rule
@@ -83,8 +74,8 @@ never chosen by the user:
 - **Initial packaging (in place).** A fresh run — one linear branch off trunk,
   never previously packaged, with no PR association (known or possible) anywhere
   in scope — is reshaped in place: slice refs at boundary SHAs, reparent the run
-  tip, `gt rename` the tip to its grammar name. This is the only path where
-  `gt rename` is used.
+  tip, rename the tip to its grammar name. This is the only path where
+  `gt rename` is used (mechanics in the Branch-name grammar Rules).
 - **Replacement construction (everything else).** Input that was previously
   packaged, has been submitted, has any PR-associated or unknown-PR-state branch,
   or is an accreted multi-branch stack gets its packaged stack built alongside it:
@@ -92,22 +83,18 @@ never chosen by the user:
   on the new branches only, Span Squash only on new branches. The input stack —
   its branches, Graphite metadata, and PR associations — is untouched, and the
   entire old stack becomes the deterministic close-candidate set for the final
-  report. A discarded candidate costs nothing: delete the new branches and
-  re-propose.
+  report.
 
 Replacement stacks coexist with their input, so their branch names carry a
 **generation token**: a `-st<num>` suffix on the `<run>` segment, starting at
 `st2` for the first replacement (initial packaging is implicitly generation 1 and
 carries no token). Choose the lowest number not already used by a local branch —
-LBYL against existing local branches before proposing. The greedy `<run>` segment
-absorbs the token, so the grammar and parse regex are unchanged and generations
-sort adjacent to the original run:
+LBYL against existing local branches before proposing (token mechanics: see
+Branch-name grammar):
 
 ```
 retry-budgets-st2--01s-gateway-scaffolding
 ```
-
-State the chosen replacement run name in the proposal.
 
 ## Input contract
 
@@ -119,10 +106,7 @@ Smush accepts **any existing stack**:
 - **Valid degraded input** — accreted multi-branch stacks (e.g. autobranch
   checkpoints), feedback-laden stacks, and previously packaged stacks. Degraded
   input lowers classification quality, not eligibility. Multi-branch and
-  previously packaged input is packaged by replacement construction: new slices
-  are cut from the underlying `trunk..tip` commit sequence directly, and the
-  input's existing branch boundaries are classification signal, not constraints
-  (see Repackaging).
+  previously packaged input is routed by the Packaging rule (see Repackaging).
 
 Classification signal is narrative prose only. There are no structured markers, and
 producers do not self-classify; packaging judges from the commit messages and holds
@@ -294,7 +278,7 @@ git branch <slice-02-name> <boundary-sha-2>
 gt track <slice-01-name> --parent <trunk>         --no-interactive
 gt track <slice-02-name> --parent <slice-01-name> --no-interactive
 gt track <run>           --parent <slice-02-name> --no-interactive   # reparent tip
-gt rename <tip-slice-name> --no-interactive                          # from the run branch; initial packaging only
+gt rename <tip-slice-name> --no-interactive                          # from the run branch
 ```
 
 Track bottom-up. Re-running `gt track` on a tracked branch reparents it in place;
@@ -394,25 +378,15 @@ squash.
 ## Repackaging and multi-branch input
 
 Repackaging a previously packaged or submitted stack — and packaging any accreted
-multi-branch stack — is **replacement-stack construction**: the same
-classify/slice/squash operation, targeting new branches built alongside the input
-from the same underlying commits.
+multi-branch stack — is **replacement-stack construction** per the Packaging rule
+and Phase 4. Two deltas, then run Phases 2–7 on the new branches:
 
 1. Derive the current Slice Map first (topology from `ns slot gt exec
    stack-branches`, classification from grammar branch names, rationale from
    boundary/squash commit messages) and include it in the Phase 2 proposal next to
    the proposed new map.
 2. Slice the underlying `trunk..tip` commit sequence directly — the input's
-   existing branch boundaries are classification signal, not constraints. Name the
-   new branches with the next `-st<num>` generation token (see Packaging rule) and
-   state the chosen run name in the proposal.
-3. Build the replacement per Phase 4's replacement recipe: new refs at boundary
-   SHAs, `gt track` bottom-up, input stack untouched.
-4. Validate boundaries (Phase 5) and Span Squash (Phase 6) on the new branches
-   only.
-5. Report per Phase 7: the entire old stack is the close-candidate set, closing it
-   belongs to the user, and review-feedback carry-forward is handed to the
-   companion post-submit step.
+   existing branch boundaries are classification signal, not constraints.
 
 Costs to state in the proposal so the user reshapes with open eyes: re-slicing a
 previously squashed span cannot recover its interior commits (only the narration
@@ -445,8 +419,8 @@ Both are local mutations: propose-first and backup rules apply.
   re-run `gt track --parent` to restore metadata), then re-propose.
 - A conflicted `gt` operation (should not happen — smush never reorders history):
   abort with `git rebase --abort`, report, and stop.
-- A failed `gt squash` (e.g. a stale `index.lock` mid-batch): after confirming no
-  live git process owns the lock, remove the stale lock and retry. If the tool
+- A failed `gt squash` (e.g. a stale `index.lock` mid-batch): handle the lock per
+  the Phase 6 check, then retry. If the tool
   keeps failing, the guarded equivalent — with a backup present, a clean tree, and
   the parent verified — is `git reset --soft <parent> && git commit -m "<squash
   message>"`, then `gt restack --no-interactive` and re-verification of

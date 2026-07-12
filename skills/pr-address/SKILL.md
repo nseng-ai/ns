@@ -5,7 +5,7 @@ description: "Use when downloading GitHub PR feedback or using ns address exec P
 
 # pr-address
 
-Address is the repo-owned PR feedback surface: feedback report download plus shared `ns address exec` primitives for PR lookup, review inspection, and confirmed review-thread mutations. The skill slug remains `pr-address` for discoverability.
+Address is the repo-owned PR feedback surface: feedback report download plus shared `ns address exec` primitives for PR lookup, review inspection, and confirmed review-thread mutations.
 
 ## Initial feedback download
 
@@ -93,27 +93,17 @@ Read primitives:
 - `pr-review-threads [--include-resolved]`
 - `pr-discussion-comments`
 
-Mutation primitives:
+Mutation primitives — prefer these over raw `gh api graphql`/GraphQL/REST; full envelopes and flags in `references/cli-reference.md`:
 
-- `reply-review-thread --thread-id <id> --body <body>`
-- `resolve-review-thread --thread-id <id>`
-- `close-review-threads --thread-ids-json '{"threadIds":["<id>"]}' [--body <body>]`
+- `reply-review-thread --thread-id <id> --body <body>` — one-off reply.
+- `resolve-review-thread --thread-id <id>` — one-off resolution.
+- `close-review-threads --thread-ids-json '{"threadIds":["<id>"]}' [--body <body>]` — bulk closure; omit `--body` for resolve-only; the JSON payload can also be provided on stdin.
 
-After current repo state has been inspected, a fix is implemented or verified, and appropriate validation has passed, default to closing the addressed or confidently stale review threads with `ns address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "<BODY>" --format json`. Omit `--body` for resolve-only bulk closure. The same JSON payload can be provided on stdin.
-
-For one-off mutations, use `ns address exec resolve-review-thread --thread-id <THREAD_ID> --format json` rather than raw `gh api graphql` to resolve review threads. Use `ns address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw GraphQL/REST to reply to review threads.
+After current repo state has been inspected, a fix is implemented or verified, and appropriate validation has passed, default to closing the addressed or confidently stale review threads with `close-review-threads`.
 
 ## Retired workflow
 
-The retired workflow is the old payload-session/classification/planning/batch/checkpoint/finalization orchestration engine. Do not run or teach agents to run these old workflow families:
-
-- payload/session setup: `prepare-run`, payload paths, harness-session payload chaining;
-- classification/planning: `classification-template`, `validate-feedback-classification`, `plan-feedback`;
-- detail lookup: `read-feedback-detail`, `read-feedback-details`;
-- batch mutation orchestration: `build-resolve-thread-batch-payload`, `resolve-thread-batch`, `resolve-thread-with-reply`, `reply-to-review`, `reply-to-discussion`;
-- checkpoint/finalization: `record-batch-checkpoint`, `finalize-run`.
-
-Do not describe the current primitive commands as retired.
+The old payload-session/classification/batch orchestration engine is retired and its commands removed; the primitives above are the current surface.
 
 ## References
 

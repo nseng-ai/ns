@@ -76,8 +76,7 @@ A driver skill may override exactly four things:
 
 Everything else — classification, region-only edits, the verification gate,
 escalation format, abort policy, and the payload content — is engine policy and
-not overridable. The escalation destination/channel is the only escalation
-behavior a driver may override.
+not overridable.
 
 ## The decisive technique: intent-diff
 
@@ -146,12 +145,12 @@ the continue command:
 | Mixed / uncertain    | `just check`                                                             |
 | Docs / markdown only | no check                                                                 |
 
-- **Pass** → run the conflict-marker sweep from step 3c → `git add` the
-  resolved files → run the continue command.
+- **Pass** → `git add` the resolved files (3c's pre-stage marker sweep must
+  have run) → run the continue command.
 - **Fail** → `git restore --merge <file>` to bring back the conflict markers,
   then **escalate** that file. Do not dismiss a failure as pre-existing unless
   you reproduced it against the relevant base SHA and can report the SHA,
-  command, and output. If reproduction is blocked, call the claim `unverified`;
+  command, and output. If reproduction is blocked, label the claim per step 5;
   absent proof, treat the failure as caused by the current resolution.
 
 ### 5. Escalate

@@ -36,18 +36,17 @@ and the "Recovering from Interrupted Rebase" section.
 
 ## Engine parameters
 
-When the engine's Driver contract asks for overrides, use:
+The driver facts the engine consumes — continue command, extra bail-out
+condition (any conflict in a branch **outside the selected scope**, e.g. an
+upstack branch during downstack scope or a sibling/unrelated stack during any
+scope), escalation channel (`return-to-parent`; an escalating subagent leaves
+the rebase stopped, returns the engine's structured payload, and does not run
+`gt continue`) — travel in the **Agent prompt template** below, which is their
+single source. Model selection lives in **Subagent model routing**.
 
-- **Continue command:** `gt continue`
-- **Extra bail-out condition:** a conflict surfaces in a branch **outside the
-  selected scope** (an upstack branch during downstack scope, or a
-  sibling/unrelated stack during any scope)
-- **Post-completion checks:** `git status` is clean; `ns slot gt exec stack-branches --format json` answers structured topology; `gt log` / `gt ls` may be used only as visual confirmation
-- **Subagent model tier:** Claude Code uses Opus; other harnesses use their strong/smart implementation tier; never the cheap/fast review tier
-- **Escalation channel:** `return-to-parent`. A driven conflict subagent must
-  not prompt the user. If escalation is required, it leaves the rebase stopped,
-  returns the engine's structured escalation payload to the parent, and does
-  not run `gt continue`.
+Parent-facing post-completion checks: `git status` is clean;
+`ns slot gt exec stack-branches --format json` answers structured topology;
+`gt log` / `gt ls` may be used only as visual confirmation.
 
 <!-- TEMPORARY (TS toolchain rollout) — remove once the oxlint/oxfmt/native-tsc
      toolchain commits have fully landed and no longer sit unrebased under
@@ -55,39 +54,21 @@ When the engine's Driver contract asks for overrides, use:
 
 ## TEMPORARY: TS toolchain-rollout conflicts
 
-While the TypeScript toolchain rollout (the pnpm 11 / oxlint / oxfmt / native-tsc
-governance commits) is still propagating through stacks, restacks will hit a
-recurring conflict shape: a **formatting-only** commit (oxfmt reflow of the
-*old* code shape) replays onto a base that meanwhile gained real feature logic
-touching the same statements. Taking the incoming side silently **reverts the
-feature**; taking the base side **drops the formatting**.
-
-For this specific shape only, the resolution is deterministic — **keep the
-changes, then reformat**. The operative rule text lives in the TEMPORARY block
-of the **Agent prompt template** below and travels verbatim in every conflict
-subagent's prompt: keep the base (HEAD) logic verbatim, discard the reverted
-incoming code, re-apply formatting by running `just ts-format-fix` (never by
-hand-wrapping), verify via the engine gate (`just ts-check` for `ts/**`). It
-is the only auto-resolution the driver may apply without escalating; a
-conflict mixing genuine incoming logic with the toolchain reflow falls outside
-it and escalates per the normal engine policy.
-
-## When to use
-
-- "restack and resolve conflicts", "intelligent restack", "auto restack"
-- "full restack", "whole-stack restack", "include upstack", "not just downstack"
-- "downstack restack", "ancestors only", "rebase up to where I am"
-- A `gt restack` (full stack or downstack) that is expected to hit conflicts
-- Resuming a restack that was already interrupted mid-rebase
+While the TypeScript toolchain rollout (pnpm 11 / oxlint / oxfmt / native-tsc)
+is still propagating through stacks, restacks hit a recurring conflict shape: a
+**formatting-only** oxfmt reflow of the *old* code replays onto a base that
+gained real feature logic on the same statements. The operative resolution rule
+lives in the TEMPORARY block of the **Agent prompt template** below and travels
+verbatim in every conflict subagent's prompt; it is the only auto-resolution the
+driver may apply without escalating.
 
 ## Scope and non-goals
 
 - **Scope must be explicit.** Default to **full** for generic restack requests,
   matching plain `gt restack`; use **downstack** only when the user asks for the
   narrower ancestors/current scope or confirms a prompt.
-- **A single-PR (or tip) stack has no scope decision** — full and downstack
-  differ only by upstack descendants. See the single-PR rule in **Choose
-  scope**.
+- **A single-PR (or tip) stack has no scope decision** — see the single-PR rule
+  in **Choose scope**.
 - **Full scope:** operate on the current Graphite stack as `gt restack` does
   (ancestors + current + descendants) — not every stack in the repo. This may
   rewrite upstack descendants, but that is the expected default for this skill.
@@ -145,9 +126,8 @@ In this repo a stack's branches can be checked out across multiple worktree
 slot has a branch in the selected scope checked out, so run the slot
 consolidation command from the **Choose scope** table before looping.
 
-If the current branch has no upstack descendants (the single-PR / tip case from
-**Choose scope**), skip this step entirely unless an in-scope **ancestor**
-branch is itself checked out in another slot.
+In the single-PR / tip case, skip this step per the single-PR rule in
+**Choose scope**.
 
 The `ns slot gt free-stack` command is **mutating**: it releases matching slots by
 detaching them at trunk — `--format json` is a machine-readable record of what
@@ -212,9 +192,7 @@ for these restack conflict subagents. Concrete examples:
   the current `claude-opus` model (or the local equivalent Opus model pattern).
 
 If per-dispatch model selection is unavailable, continue with the session's
-current model but mention that no explicit smart model could be requested. Never
-copy cheap-model guidance such as `openai-codex/gpt-5.6-luna:medium` into this
-workflow.
+current model but mention that no explicit smart model could be requested.
 
 ### Agent prompt template
 
@@ -256,13 +234,10 @@ Agent-decided work:
 
 Hard constraints:
 - Do not prompt the user.
-- Do not abort the rebase/restack.
 - Do not resolve conflicts outside the current conflict stop.
 - Run gt continue at most once. This is an audit boundary: if that continue
   reaches a new conflict stop, do not resolve it; return outcome=advanced with
   the new repository state.
-- Do not use whole-file checkout except for generated files as allowed by the
-  engine.
 
 Output contract: end with this delimited result block, filling every line for
 all outcomes:

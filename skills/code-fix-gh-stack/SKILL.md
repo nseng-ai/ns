@@ -9,11 +9,6 @@ metadata:
 
 Use this skill when the user asks to fix, green, repair, or stabilize a Graphite/GitHub PR stack.
 
-## Purpose
-
-Turn the current Graphite/GitHub stack green by repairing the lowest failing PR first, submitting,
-waiting for checks, then walking upward until the stack is green.
-
 ## Core loop
 
 1. **Inventory the stack**
@@ -21,7 +16,7 @@ waiting for checks, then walking upward until the stack is green.
    - Use `gt branch info --no-interactive` for concise current-branch PR, submission, and restack presentation, never as machine-readable topology.
    - Use `gt parent --no-interactive` or `gt children --no-interactive` for immediate-edge questions.
    - Use `gt ls` only as optional human visual confirmation.
-   - Pass the discovered branch names to `ns address exec branch-pr-checks --branches-json ... --format json` or equivalent stack-check tooling to list remote PR checks.
+   - Pass the discovered branch names to `ns address exec branch-pr-checks --branches-json ... --format json` to list remote PR checks.
    - Classify each PR as:
      - green/ready;
      - failing checks;
