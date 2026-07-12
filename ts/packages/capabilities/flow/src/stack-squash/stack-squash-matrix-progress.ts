@@ -1,25 +1,30 @@
 import type { Caps } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
-import type { NsProgress } from "@nseng-ai/kernel/sdk";
+import type { NsProgress } from "@nseng-ai/sdk";
 
 import {
 	defineMatrixWorkflow,
 	type MatrixCellUpdate,
 	type MatrixColumnSpec,
 } from "../phase-stream/matrix-progress-core.ts";
-import type { ProcessedStackBranch, StackSquashPlanEntry } from "./stack-squash.ts";
+import {
+	stackSquashNonSquashOutcome,
+	stackSquashOutcomePresentation,
+	type ProcessedStackBranch,
+	type StackSquashPlanEntry,
+} from "./stack-squash.ts";
 
-export type StackSquashMatrixColumnKey = "commits" | "squash";
-export type StackSquashMatrixGlobalKey = "inventory" | "restore";
+type StackSquashMatrixColumnKey = "commits" | "squash";
+type StackSquashMatrixGlobalKey = "inventory" | "restore";
 
-export interface StackSquashMatrixRowSpec {
+interface StackSquashMatrixRowSpec {
 	branch: string;
 	label: string;
 	commitsBefore: number;
 }
 
 export interface StackSquashMatrixProgressController {
-	begin(): void;
+	note(text: string): void;
 	setPlan(plan: readonly StackSquashPlanEntry[]): void;
 	setSquashStatus(branch: string, update: MatrixCellUpdate): void;
 	setRestore(update: MatrixCellUpdate): void;
@@ -27,11 +32,10 @@ export interface StackSquashMatrixProgressController {
 	stop(): Promise<void>;
 }
 
-export const STACK_SQUASH_MATRIX_COLUMNS: readonly MatrixColumnSpec<StackSquashMatrixColumnKey>[] =
-	[
-		{ key: "commits", label: "Commits", width: 7 },
-		{ key: "squash", label: "Squash", width: 7 },
-	];
+const STACK_SQUASH_MATRIX_COLUMNS: readonly MatrixColumnSpec<StackSquashMatrixColumnKey>[] = [
+	{ key: "commits", label: "Commits", width: 7 },
+	{ key: "squash", label: "Squash", width: 7 },
+];
 
 const stackSquashMatrixWorkflow = defineMatrixWorkflow<
 	StackSquashMatrixRowSpec,
@@ -84,8 +88,13 @@ export function createStackSquashMatrixProgressController(options: {
 				state: "done",
 				text: String(entry.commitsBefore),
 			});
-			if (entry.commitsBefore === 1) {
-				controller.setCell(entry.branch, "squash", { state: "skipped", text: "no-op" });
+			const nonSquashOutcome = stackSquashNonSquashOutcome(entry);
+			if (nonSquashOutcome !== undefined) {
+				controller.setCell(
+					entry.branch,
+					"squash",
+					stackSquashOutcomePresentation(nonSquashOutcome).matrixUpdate,
+				);
 			}
 		}
 		controller.setGlobal("inventory", {
@@ -95,7 +104,7 @@ export function createStackSquashMatrixProgressController(options: {
 	}
 
 	return {
-		begin: controller.begin,
+		note: controller.note,
 		setPlan,
 		setSquashStatus: (branch, update) => controller.setCell(branch, "squash", update),
 		setRestore: (update) => controller.setGlobal("restore", update),
@@ -105,7 +114,5 @@ export function createStackSquashMatrixProgressController(options: {
 }
 
 export function stackSquashCompletionUpdate(entry: ProcessedStackBranch): MatrixCellUpdate {
-	return entry.state === "already_one_commit"
-		? { state: "skipped", text: "no-op" }
-		: { state: "done", text: `${entry.commitsBefore}→1` };
+	return stackSquashOutcomePresentation(entry).matrixUpdate;
 }

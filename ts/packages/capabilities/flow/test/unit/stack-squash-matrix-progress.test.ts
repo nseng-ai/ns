@@ -19,7 +19,8 @@ describe("stack squash matrix progress", () => {
 
 		controller.setPlan([
 			{ branch: "feature/top", parent: "feature/bottom", commitsBefore: 4 },
-			{ branch: "feature/bottom", parent: "main", commitsBefore: 1 },
+			{ branch: "feature/bottom", parent: "feature/empty", commitsBefore: 1 },
+			{ branch: "feature/empty", parent: "main", commitsBefore: 0 },
 		]);
 
 		const planFrame = stripAnsi(capture.redraws.at(-1) ?? "");
@@ -29,6 +30,11 @@ describe("stack squash matrix progress", () => {
 		expect(planFrame).toContain("4");
 		expect(planFrame).toContain("feature/bottom");
 		expect(planFrame).toContain("no-op");
+		expect(planFrame).toContain("feature/empty");
+		expect(planFrame).toContain("empty");
+
+		controller.note("Preparing stack");
+		expect(stripAnsi(capture.redraws.at(-1) ?? "")).toContain("Preparing stack");
 
 		controller.setSquashStatus("feature/top", { state: "active", text: "4→1" });
 		expect(stripAnsi(capture.redraws.at(-1) ?? "")).toContain("4→1");
