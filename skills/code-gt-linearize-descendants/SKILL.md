@@ -15,7 +15,6 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
 - Require a clean worktree before mutation.
 - Create timestamped local backup refs for all affected branches before mutation.
 - Never close GitHub PRs automatically; only report close candidates.
-- After a successful local rewrite and clean status, run `gt submit --no-interactive`.
 
 ## Procedure
 
@@ -39,8 +38,9 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
    - proposed final stack shape;
    - action per descendant branch: keep in stack, move to trunk, reorder under another branch, drop duplicate, or manual consolidation;
    - essential evidence and risk notes;
-   - duplicate/superseded PR close candidates, clearly marked as report-only.
-5. Ask for one explicit confirmation before mutating.
+   - duplicate/superseded PR close candidates, clearly marked as report-only;
+   - submit consequences: after the local rewrite, `gt submit --no-interactive` will force-push the rewritten branches and update their PRs; list the affected PR numbers/URLs explicitly.
+5. Ask for one explicit confirmation before mutating; the confirmation covers both the local rewrite and the submit/force-push listed in the proposal.
 6. If confirmed, verify `git status --short` is clean. If dirty, stop and ask the user to checkpoint/stash/use another worktree.
 7. Create local backup refs for every affected branch:
 
@@ -56,7 +56,7 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
    - history rebuild: `git checkout <branch>`, `git reset --hard <new-parent>`, `git cherry-pick <old-parent>..<old-branch>`, `gt track -p <new-parent>`;
    - duplicate drop only after the kept stack is correct: `gt delete <duplicate-branch> -f -q`.
 9. If conflicts occur, use `code-resolve-merge-conflicts` as the conflict-resolution driver and return unresolved/product decisions to this workflow.
-10. Once the rewrite succeeds and status is clean, run:
+10. Once the rewrite succeeds and status is clean, run, as confirmed in the proposal:
 
 ```bash
 gt submit --no-interactive

@@ -37,9 +37,12 @@ Check whether a `justfile` exists. If it does not, create one.
 
 ### Single-package project
 
-Add `build` and `publish` recipes:
+Add `clean`, `build`, and `publish` recipes:
 
 ```just
+clean:
+    rm -rf dist
+
 build: clean
     uv build
 
@@ -52,6 +55,9 @@ publish: build
 Add one `uv build --package <name>` line per member package:
 
 ```just
+clean:
+    rm -rf dist
+
 build: clean
     uv build --package pkg1
     uv build --package pkg2
@@ -62,6 +68,10 @@ publish: build
 
 **Important:** `uv build` does not accept `--package` multiple times in a single invocation — each
 package needs its own line.
+
+If the justfile already defines a `clean` recipe, keep it; only add the minimal `clean` above when
+missing. (Cleaning before build matters: `uvx uv-publish` publishes everything in `dist/`, so stale
+wheels would republish.)
 
 ### Updating existing recipes
 
