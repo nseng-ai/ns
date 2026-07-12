@@ -93,7 +93,7 @@ live exchange with the user. Assets link from row notes and live in
     jotted in `ideas.md`. This was the last research row: all four grilling rows are
     now unblocked. Semantic update:
     `updates/2026-07-10-infra-kit-tools-sweep-completes-research-phase.md`.
-- [ ] Reexamine CCC and the orchestration layer (grilling)
+- [x] Reexamine CCC and the orchestration layer (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,
     capability-kit, tools.
@@ -103,6 +103,38 @@ live exchange with the user. Assets link from row notes and live in
     whose boundary took paragraphs to describe in the old `CONTEXT-MAP.md`. Decide
     what the orchestration layer *is*, what it should be named, what belongs in it
     versus in the capabilities it composes, and spec any resulting renames/moves.
+  - Resolved 2026-07-11: CCC is an accretion; the package becomes the cmux
+    capability. Nine ratified decisions recorded as ADR 0034 and the execution spec
+    `docs/wayfinding/ontology-reshape/cmux-reshape-spec.md`. Headliners: strong-form
+    rename `@nseng-ai/ccc` → `@nseng-ai/cmux` with CCC retired as anti-vocabulary
+    (no aliases); flow-facade residue deleted (`./land`/`./trunk-pull`/`./autoslot`
+    shims); standalone `ccc` bin deleted with its one command re-homed as
+    `ns cmux exec workspace-summary` via kernel extension descriptor; Pi surfaces
+    `/ns:ccc:*` → `/ns:cmux:*`; skills renamed `ns-cmux-*`; handoffs re-mints
+    `ns:cmux:handoff-tab`; `capability-kit/cmux` stays as the neutral substrate;
+    worktree-status vocabulary re-homed to `hosts/pi`. No dispatch CLI parity built
+    here — `cross-harness-parity` closed by decision alongside, its remaining goals
+    released to the future e2e-docs effort. The earlier `nscc` deletion
+    (`updates/2026-07-11-nscc-deletion-disposition.md`) was this row's other
+    disposition. Semantic update:
+    `updates/2026-07-11-ccc-to-cmux-reshape-decided.md`.
+- [~] Execute the cmux reshape spec (task)
+  - Graduated 2026-07-11 from the CCC/orchestration grilling row per the reshaping
+    handoff vehicle.
+  - Task: land ADR 0034 / `cmux-reshape-spec.md` items 1–8 via the saved-plan
+    pipeline (read-only verification sweep → ratified enriched plan → dedicated
+    execution session, stacked local slices, `just` green per slice).
+  - Planning stages complete 2026-07-12: a 7-agent read-only sweep fact-checked
+    every spec item (corrections committed to the spec on branch
+    `rename-ccc-to-cmux-capability`; headline fixes: kernel source-dev discovery
+    replaces the assumed declared-descriptors registration, and the
+    `objective-sidebar.ts` runtime bin caller joined item 3's scope). Enriched
+    plan `cmux-reshape-execution-stack` ratified by the user (six slices — spec
+    items 4+5 merged; ripple renames separate; stack based on
+    `rename-ccc-to-cmux-capability`) and attached as branch context on
+    `cmux-reshape/trim-flow-facade` for the dedicated execution session. Semantic
+    update: `updates/2026-07-12-cmux-reshape-plan-ratified.md`. Remaining: the
+    execution session itself.
 - [x] Reexamine extension, host, and kernel layering vocabulary (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,

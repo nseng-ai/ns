@@ -81,3 +81,34 @@ Risks:
 - For the summarized-command primitive, what final command name/package should own the shared helper, how directly should it reuse the shipped payload artifact store, which concrete output formats should the first profiles parse, should Pi integration be a custom tool or command wrapper, and what hard caps should apply to transcript-visible tails/excerpts?
 - The eighth parity-table-rot materialization again raises table-maintenance hardening: with per-package typed gates now shipped, should the remaining parked work (covering `@nseng-ai/ccc` and ad hoc `.pi/extensions/*.ts` adapters, and/or generating the human table from typed metadata) be promoted to active work?
 - Did the former `dev-preview-url` and `objective-current` skill workflows get renamed/folded or regress across the renames? (`sdl-submit`'s workflow is re-covered by `ns flow submit` + the `ns-flow-submit` skill.) Re-verify reachability in the next full sweep before trusting the corresponding rows.
+
+## Closure
+
+Closed 2026-07-11 by explicit user decision during the `ontology-reshape`
+CCC/orchestration grilling session — intentionally concluded, not completed. The
+record was judged current enough that keeping it open added tracking cost without
+steering work; its remaining goals will be re-addressed as the end-to-end docs effort
+builds up, which becomes the successor home for the parity doctrine.
+
+What the Objective delivered (evidence in the roadmap rows): the living parity table
+and the parity-review workflow (`code-workflows` parity-review route); the distributed
+typed parity gate (`definePiSurfaceParity` metadata + per-package fake-host parity
+tests); the `ns-flow-*` wrapper-skill family; the `/handoff:list` dedup; autobranch
+and land CLI legs (`ns flow autobranch`, `ns flow land`) with Pi as thin CLI bridges;
+and the provider-default consolidation behind the model-slug seam. The thesis
+architecture held every time: adding a CLI entry + skill made a Pi surface additive
+with no rewrite.
+
+Released, not finished — carried to the future e2e-docs effort rather than left as
+live rows here: cmux dispatch CLI parity (its target surfaces were renamed by ADR
+0034 the same day: `@nseng-ai/ccc` → `@nseng-ai/cmux`, `/ns:ccc:*` → `/ns:cmux:*`,
+the `ccc` bin deleted in favor of `ns cmux exec workspace-summary`, so this record's
+dispatch-row file citations are historical); the FULL-requires-a-skill doctrine
+question; command-output summaries (never implemented); and the parity-table full
+sweep (per-row names remain three renames stale).
+
+Durable-rule graduation candidate: the orientation's "workflows get CLI + skill
+parity; Pi is additive, never canonical" direction leaves the always-load set with
+this closure. It should be re-asserted by the e2e-docs effort (or graduated into
+AGENTS.md architecture rules) if Pi-first drift reappears; the distributed typed
+parity gate remains live in the test suite regardless of this closure.
