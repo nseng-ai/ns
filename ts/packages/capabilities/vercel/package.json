@@ -22,7 +22,7 @@
 	},
 	"dependencies": {
 		"@nseng-ai/foundation": "workspace:*",
-		"@nseng-ai/kernel": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
 		"@octokit/auth-app": "catalog:",
 		"@vercel/sandbox": "catalog:",
 		"jose": "catalog:",

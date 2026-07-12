@@ -1,4 +1,4 @@
-import { defineExtension } from "@nseng-ai/kernel/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "dispatch",

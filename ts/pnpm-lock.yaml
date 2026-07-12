@@ -477,9 +477,9 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
-      '@nseng-ai/kernel':
+      '@nseng-ai/sdk':
         specifier: workspace:*
-        version: link:../../kernel
+        version: link:../../sdk
       '@octokit/auth-app':
         specifier: 'catalog:'
         version: 8.2.0
