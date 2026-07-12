@@ -59,7 +59,8 @@ ns command face:
 ```text
 ns handoff list [--branch <branch>|--all] [--include-deleted] --format json
 ns handoff pickup [--branch <branch>] <slug>
-ns handoff create --slug <slug> [--branch <branch>] [--file <path>]
+ns handoff create --slug <name or slug> [--branch <branch>] [--file <path>]
+ns handoff exec match [--branch <branch>|--all] [--include-deleted] [selector words...]
 ns handoff delete [--branch <branch>] [--yes] <slug>
 ns handoff gc [--dry-run|--force]
 brmem get|check|put|copy|delete ... --namespace handoff

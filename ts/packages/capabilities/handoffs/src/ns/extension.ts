@@ -1,4 +1,4 @@
-import { defineExtension } from "@nseng-ai/sdk";
+import { defineExtension, hiddenExecGroup } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "handoff",
@@ -30,5 +30,13 @@ export default defineExtension({
 				default: (await import("./commands/pickup.ts")).handoffPickupNsCommand,
 			}),
 		},
+		hiddenExecGroup("Agent-only handoff operations.", [
+			{
+				name: "match",
+				load: async () => ({
+					default: (await import("./commands/exec-match.ts")).handoffExecMatchNsCommand,
+				}),
+			},
+		]),
 	],
 });

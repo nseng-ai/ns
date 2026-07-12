@@ -7,9 +7,20 @@ export {
 	handoffSlugFromKey,
 	handoffSlugToKey,
 	isHandoffKey,
+	normalizeHandoffSlugInput,
 	parseFlatHandoffSlug,
 } from "../core/identity.ts";
-export type { FlatHandoffSlugParseResult } from "../core/identity.ts";
+export type {
+	FlatHandoffSlugParseResult,
+	HandoffSlugNormalizationResult,
+} from "../core/identity.ts";
+
+export {
+	normalizeHandoffSelectorToKey,
+	resolveHandoffSelection,
+	splitHandoffSelectorTerms,
+} from "../core/selection.ts";
+export type { HandoffSelectionMatchedBy, HandoffSelectionResult } from "../core/selection.ts";
 
 export { branchStateSchema, handoffSummarySchema } from "../core/inventory.ts";
 export type { BranchState, HandoffSummary } from "../core/inventory.ts";

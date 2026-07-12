@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 
 import { handoffCreateNsCommand } from "@nseng-ai/handoffs/ns/commands/create";
 import { handoffDeleteNsCommand } from "@nseng-ai/handoffs/ns/commands/delete";
+import { handoffExecMatchNsCommand } from "@nseng-ai/handoffs/ns/commands/exec-match";
 import { handoffGcNsCommand } from "@nseng-ai/handoffs/ns/commands/gc";
 import { handoffListNsCommand } from "@nseng-ai/handoffs/ns/commands/list";
 import { handoffPickupNsCommand } from "@nseng-ai/handoffs/ns/commands/pickup";
@@ -144,7 +145,7 @@ describe("handoff ns command objects", () => {
 		);
 	});
 
-	test("create requires a valid slug and refuses an existing key", async () => {
+	test("create requires a normalizable slug and refuses an existing key", async () => {
 		const brmem = new FakeBrmemGateway();
 		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "old" });
 		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
@@ -154,11 +155,7 @@ describe("handoff ns command objects", () => {
 		const missingSlug = await runHandoffCommand(handoffCreateNsCommand, {}, { api });
 		expect(missingSlug).toMatchObject({ type: "usageError" });
 
-		const invalidSlug = await runHandoffCommand(
-			handoffCreateNsCommand,
-			{ slug: "bad/slug" },
-			{ api },
-		);
+		const invalidSlug = await runHandoffCommand(handoffCreateNsCommand, { slug: "!!!" }, { api });
 		expect(invalidSlug).toMatchObject({
 			type: "failure",
 			errorType: "invalid-handoff-slug",
@@ -170,6 +167,41 @@ describe("handoff ns command objects", () => {
 			errorType: "handoff-already-exists",
 		});
 		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("old");
+	});
+
+	test("create normalizes a raw handoff name into the stored slug", async () => {
+		const brmem = new FakeBrmemGateway();
+		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
+		const sourceReader = new FakeHandoffSourceReader({ stdin: "# Review\n" });
+
+		const exit = await runHandoffCommand(
+			handoffCreateNsCommand,
+			{ slug: "Address Review: Feedback!" },
+			{ api: createFakeHandoffNsApi({ brmem, git, sourceReader }) },
+		);
+
+		expect(exit).toMatchObject({
+			type: "ok",
+			data: {
+				slug: "address-review-feedback",
+				requestedSlug: "Address Review: Feedback!",
+				key: "address-review-feedback.md",
+				branch: "feat/x",
+			},
+		});
+		expect(
+			await getHandoffContent(brmem, { key: "address-review-feedback.md", branch: "feat/x" }),
+		).toBe("# Review\n");
+
+		const collision = await runHandoffCommand(
+			handoffCreateNsCommand,
+			{ slug: "address review   feedback" },
+			{ api: createFakeHandoffNsApi({ brmem, git, sourceReader }) },
+		);
+		expect(collision).toMatchObject({
+			type: "failure",
+			errorType: "handoff-already-exists",
+		});
 	});
 
 	test("create reports detached head and source read failures without writing", async () => {
@@ -289,6 +321,120 @@ describe("handoff ns command objects", () => {
 		expect(detached).toMatchObject({
 			type: "failure",
 			errorType: "detached-head",
+		});
+	});
+
+	test("exec match resolves term selectors with the selection ladder", async () => {
+		const brmem = new FakeBrmemGateway();
+		await putHandoffEntry(brmem, {
+			key: "address-review-feedback.md",
+			branch: "feat/x",
+			content: "a",
+		});
+		await putHandoffEntry(brmem, {
+			key: "add-pickup-handoff-command.md",
+			branch: "feat/x",
+			content: "b",
+		});
+		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
+		const api = createFakeHandoffNsApi({ brmem, git });
+
+		const uniqueTerms = await runHandoffCommand(
+			handoffExecMatchNsCommand,
+			{ selector: ["review", "feedback"] },
+			{ api },
+		);
+		expect(uniqueTerms).toMatchObject({
+			type: "ok",
+			data: {
+				scope: "branch",
+				branch: "feat/x",
+				resolution: "unique",
+				matchedBy: "terms",
+				terms: ["review", "feedback"],
+				selected: expect.objectContaining({ slug: "address-review-feedback" }),
+			},
+		});
+
+		const exactSlug = await runHandoffCommand(
+			handoffExecMatchNsCommand,
+			{ selector: ["add-pickup-handoff-command"] },
+			{ api },
+		);
+		expect(exactSlug).toMatchObject({
+			type: "ok",
+			data: {
+				resolution: "unique",
+				matchedBy: "normalized-slug",
+				selected: expect.objectContaining({ slug: "add-pickup-handoff-command" }),
+			},
+		});
+
+		const noMatch = await runHandoffCommand(
+			handoffExecMatchNsCommand,
+			{ selector: ["add", "review"] },
+			{ api },
+		);
+		expect(noMatch).toMatchObject({
+			type: "ok",
+			data: { resolution: "none", selected: null, candidates: [] },
+		});
+
+		const emptySelector = await runHandoffCommand(
+			handoffExecMatchNsCommand,
+			{ selector: [] },
+			{ api },
+		);
+		expect(emptySelector).toMatchObject({
+			type: "ok",
+			data: { resolution: "ambiguous", selected: null, matchedBy: null },
+		});
+		expect(emptySelector.type === "ok" ? emptySelector.data.candidates : []).toHaveLength(2);
+	});
+
+	test("exec match spans branches with --all and rejects --branch with --all", async () => {
+		const brmem = new FakeBrmemGateway();
+		await putHandoffEntry(brmem, { key: "resume-plan.md", branch: "feat/x", content: "x" });
+		await putHandoffEntry(brmem, { key: "resume-plan.md", branch: "feat/y", content: "y" });
+		const git = new InMemoryGitGateway({
+			currentBranch: "feat/x",
+			existingBranches: ["feat/x", "feat/y"],
+		});
+		const api = createFakeHandoffNsApi({ brmem, git });
+
+		const crossBranch = await runHandoffCommand(
+			handoffExecMatchNsCommand,
+			{ selector: ["resume-plan"], all: true },
+			{ api },
+		);
+		expect(crossBranch).toMatchObject({
+			type: "ok",
+			data: { scope: "all-branches", branch: null, resolution: "ambiguous" },
+		});
+		expect(crossBranch.type === "ok" ? crossBranch.data.candidates : []).toHaveLength(2);
+
+		const scoped = await runHandoffCommand(
+			handoffExecMatchNsCommand,
+			{ selector: ["resume-plan"], branch: "feat/y" },
+			{ api },
+		);
+		expect(scoped).toMatchObject({
+			type: "ok",
+			data: {
+				resolution: "unique",
+				matchedBy: "normalized-slug",
+				selected: expect.objectContaining({ branch: "feat/y", slug: "resume-plan" }),
+			},
+		});
+
+		const conflict = await runHandoffCommand(
+			handoffExecMatchNsCommand,
+			{ selector: [], branch: "feat/x", all: true },
+			{ api },
+		);
+		expect(conflict).toMatchObject({
+			type: "failure",
+			errorType: "branch-and-all-conflict",
 		});
 	});
 

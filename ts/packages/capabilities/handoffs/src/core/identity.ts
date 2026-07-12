@@ -9,16 +9,49 @@ export type FlatHandoffSlugParseResult =
 	| { type: "valid"; slug: string }
 	| { type: "invalid"; message: string };
 
-export function deriveSemanticHandoffSlug(focus: string): string | undefined {
-	const slug = focus
+export type HandoffSlugNormalizationResult =
+	| { type: "valid"; slug: string; requestedSlug: string; changed: boolean }
+	| { type: "invalid"; message: string };
+
+function kebabNormalizeSlugText(value: string): string {
+	return value
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/-+/g, "-")
 		.replace(/^-|-$/g, "");
+}
+
+export function deriveSemanticHandoffSlug(focus: string): string | undefined {
+	const slug = kebabNormalizeSlugText(focus);
 	if (slug.length === 0) {
 		return undefined;
 	}
 	return slug.split("-").slice(0, 8).join("-");
+}
+
+/**
+ * Normalize a human-given handoff name into a valid flat handoff slug using the
+ * deterministic scheme the handoff-create skill documents: lowercase, runs of
+ * non-alphanumerics become single dashes, leading/trailing dashes are trimmed,
+ * and a trailing `.md` key suffix is dropped before normalizing. Idempotent on
+ * already-valid slugs.
+ */
+export function normalizeHandoffSlugInput(value: string): HandoffSlugNormalizationResult {
+	const requestedSlug = value.trim();
+	if (requestedSlug.length === 0) {
+		return { type: "invalid", message: "handoff slug must be non-empty." };
+	}
+	const withoutKeySuffix = requestedSlug.toLowerCase().endsWith(HANDOFF_KEY_SUFFIX)
+		? requestedSlug.slice(0, -HANDOFF_KEY_SUFFIX.length)
+		: requestedSlug;
+	const slug = kebabNormalizeSlugText(withoutKeySuffix);
+	if (slug.length === 0) {
+		return {
+			type: "invalid",
+			message: `handoff slug ${JSON.stringify(value)} normalizes to an empty slug; include at least one letter or number.`,
+		};
+	}
+	return { type: "valid", slug, requestedSlug, changed: slug !== requestedSlug };
 }
 
 export function parseFlatHandoffSlug(

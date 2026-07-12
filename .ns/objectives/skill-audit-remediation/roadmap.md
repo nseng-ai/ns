@@ -123,7 +123,10 @@ findings against the live files before editing (line references in
   update); wait-for-checks implemented 2026-07-12 on
   `skill-audit-t4-wait-for-checks` (`ns address exec wait-for-checks` with
   Clock/TimerScheduler seams; code-fix-gh-stack's polling loop is now one call — see
-  the t4-wait-for-checks-implemented update).
+  the t4-wait-for-checks-implemented update); handoff slug/match implemented
+  2026-07-12 on `skill-audit-t4-handoff-slug-match` (create-side normalization plus
+  `ns handoff exec match` sharing the Pi pickup ladder — see the
+  t4-handoff-slug-match-implemented update).
   Guidance: **Accepted (implement here):** `ns slot gt exec backup-refs` (shared by
   code-smush and code-gt-linearize-descendants); `wait-for-checks` primitive beside
   `ns address exec branch-pr-checks`; `ns handoff create` slug normalization plus

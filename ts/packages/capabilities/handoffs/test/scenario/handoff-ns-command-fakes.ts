@@ -99,6 +99,7 @@ export async function runHandoffCommand<S extends NsCommandSchema, T>(
 }
 
 function positionalRequestKeysForCommand(commandName: string): readonly string[] {
+	if (commandName === "match") return ["selector"];
 	return ["delete", "pickup"].includes(commandName) ? ["slug"] : [];
 }
 

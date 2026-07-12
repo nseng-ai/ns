@@ -8,6 +8,7 @@ import {
 	handoffKeyToSlug,
 	handoffSlugToKey,
 	isHandoffKey,
+	normalizeHandoffSlugInput,
 	parseFlatHandoffSlug,
 } from "@nseng-ai/handoffs/identity";
 
@@ -31,6 +32,55 @@ describe("handoff identity", () => {
 		expect(isHandoffKey("alpha--beta.md")).toBe(false);
 		expect(isHandoffKey("nested/alpha.md")).toBe(false);
 		expect(isHandoffKey("not-md.txt")).toBe(false);
+	});
+
+	test("normalizes raw handoff names into valid slugs", () => {
+		expect(normalizeHandoffSlugInput("Address Review: Feedback!")).toEqual({
+			type: "valid",
+			slug: "address-review-feedback",
+			requestedSlug: "Address Review: Feedback!",
+			changed: true,
+		});
+		expect(normalizeHandoffSlugInput("already-valid-slug")).toEqual({
+			type: "valid",
+			slug: "already-valid-slug",
+			requestedSlug: "already-valid-slug",
+			changed: false,
+		});
+		expect(normalizeHandoffSlugInput("  padded name  ")).toEqual({
+			type: "valid",
+			slug: "padded-name",
+			requestedSlug: "padded name",
+			changed: true,
+		});
+		expect(normalizeHandoffSlugInput("alpha.md")).toEqual({
+			type: "valid",
+			slug: "alpha",
+			requestedSlug: "alpha.md",
+			changed: true,
+		});
+		expect(normalizeHandoffSlugInput("nested/alpha")).toEqual({
+			type: "valid",
+			slug: "nested-alpha",
+			requestedSlug: "nested/alpha",
+			changed: true,
+		});
+	});
+
+	test("does not truncate long normalized slugs", () => {
+		expect(normalizeHandoffSlugInput("one two three four five six seven eight nine ten")).toEqual({
+			type: "valid",
+			slug: "one-two-three-four-five-six-seven-eight-nine-ten",
+			requestedSlug: "one two three four five six seven eight nine ten",
+			changed: true,
+		});
+	});
+
+	test("rejects names that normalize to an empty slug", () => {
+		expect(normalizeHandoffSlugInput("")).toMatchObject({ type: "invalid" });
+		expect(normalizeHandoffSlugInput("   ")).toMatchObject({ type: "invalid" });
+		expect(normalizeHandoffSlugInput("!!!")).toMatchObject({ type: "invalid" });
+		expect(normalizeHandoffSlugInput(".md")).toMatchObject({ type: "invalid" });
 	});
 
 	test("derives semantic slugs with the shared rule", () => {

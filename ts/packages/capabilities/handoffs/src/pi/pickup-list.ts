@@ -1,11 +1,10 @@
 import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
-	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
 	handoffKeyToSlug,
-	isHandoffKey,
 	listHandoffSummaries,
 	readHandoffArtifact,
+	resolveHandoffSelection,
 	type HandoffSummary,
 } from "../api/index.ts";
 import { currentBranch } from "./branch-resolution.ts";
@@ -161,47 +160,13 @@ export function resolveHandoffKey(
 	selector: string[],
 	handoffKeys: string[],
 ): { key?: string; ambiguousKeys?: string[] } {
-	if (handoffKeys.length === 0) {
-		return {};
+	const selection = resolveHandoffSelection(selector, handoffKeys, (key) => key);
+	if (selection.resolution === "unique") {
+		return { key: selection.selected };
 	}
-
-	if (selector.length === 0) {
-		if (handoffKeys.length === 1) {
-			const onlyKey = handoffKeys[0];
-			return onlyKey === undefined ? {} : { key: onlyKey };
-		}
-		return { ambiguousKeys: handoffKeys };
+	if (selection.resolution === "ambiguous") {
+		return { ambiguousKeys: [...selection.candidates] };
 	}
-
-	if (selector.length === 1) {
-		const exactKey = selector[0] ?? "";
-		if (isHandoffKey(exactKey) && handoffKeys.includes(exactKey)) {
-			return { key: exactKey };
-		}
-
-		const normalizedKey = normalizeSelectorToKey(exactKey);
-		if (normalizedKey !== undefined && handoffKeys.includes(normalizedKey)) {
-			return { key: normalizedKey };
-		}
-	}
-
-	const terms = splitSelectorTerms(selector);
-	if (terms.length === 0) {
-		return {};
-	}
-
-	const matches = handoffKeys.filter((key) => {
-		const tokens = handoffKeyTokens(key);
-		return terms.every((term) => tokens.includes(term));
-	});
-	if (matches.length === 1) {
-		const onlyMatch = matches[0];
-		return onlyMatch === undefined ? {} : { key: onlyMatch };
-	}
-	if (matches.length > 1) {
-		return { ambiguousKeys: matches };
-	}
-
 	return {};
 }
 
@@ -251,27 +216,6 @@ function tokenizeArgs(rawArgs: string): string[] {
 		.trim()
 		.split(/\s+/)
 		.filter((token) => token.length > 0);
-}
-
-function normalizeSelectorToKey(selector: string): string | undefined {
-	const trimmed = selector.trim();
-	if (trimmed.length === 0 || trimmed.includes("/")) {
-		return undefined;
-	}
-	if (trimmed.endsWith(HANDOFF_KEY_SUFFIX)) {
-		return isHandoffKey(trimmed) ? trimmed : undefined;
-	}
-	return `${trimmed}${HANDOFF_KEY_SUFFIX}`;
-}
-
-function splitSelectorTerms(selector: string[]): string[] {
-	return selector
-		.flatMap((part) => part.toLowerCase().split(/[-_.]+/))
-		.filter((term) => term.length > 0);
-}
-
-function handoffKeyTokens(key: string): string[] {
-	return splitSelectorTerms([handoffKeyToSlug(key)]);
 }
 
 export async function handlePickupHandoffCommand(options: HandoffCommandInvocation): Promise<void> {
