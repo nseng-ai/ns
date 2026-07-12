@@ -12,6 +12,7 @@ const MIGRATED_MODULES = [
 	"results.ts",
 	"graphite-operations.ts",
 	"worktree-paths.ts",
+	"working-tree-operations.ts",
 	"execution/host-seams.ts",
 	"execution/execute.ts",
 	"execution/isolated-landing.ts",

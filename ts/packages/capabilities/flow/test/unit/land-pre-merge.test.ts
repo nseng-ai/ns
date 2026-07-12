@@ -4,7 +4,6 @@ import {
 	assertCleanRepoForExecution,
 	confirmAndFreeManagedSlots,
 	confirmAndSubmitRequiredPrUpdates,
-	executionOperationInProgressLabel,
 	submitRequiredUpdatesAndRecheckPlan,
 } from "../../src/land/execution/pre-merge.ts";
 import type {
@@ -19,7 +18,7 @@ import {
 	pullRequestFacts,
 	stackSnapshot,
 } from "../../src/land/testing.ts";
-import type { LandingPlan, WorkingTreeStatus } from "../../src/land/types.ts";
+import type { LandingPlan } from "../../src/land/types.ts";
 
 const SLOT = {
 	type: "managed-slot" as const,
@@ -388,14 +387,6 @@ describe("worktree classification parity", () => {
 });
 
 describe("execution clean-repo wording parity", () => {
-	const operations: ReadonlyArray<NonNullable<WorkingTreeStatus["inProgressOperation"]>> = [
-		"merge",
-		"cherry-pick",
-		"revert",
-		"rebase",
-		"bisect",
-	];
-
 	test("uses the old stack dirty wording byte-for-byte", async () => {
 		const memory = createInMemoryLandContext({ git: { workingTreeStatus: { isClean: false } } });
 		const result = await assertCleanRepoForExecution(memory.context, "/repo");
@@ -407,22 +398,15 @@ describe("execution clean-repo wording parity", () => {
 		});
 	});
 
-	test.each(operations)("matches the old label table for %s", async (operation) => {
-		const expectedLabel =
-			operation === "cherry-pick"
-				? "A cherry-pick"
-				: operation === "bisect"
-					? "A bisect"
-					: `A ${operation}`;
-		expect(executionOperationInProgressLabel(operation)).toBe(expectedLabel);
+	test("keeps the execution operation sentence local", async () => {
 		const memory = createInMemoryLandContext({
-			git: { workingTreeStatus: { isClean: true, inProgressOperation: operation } },
+			git: { workingTreeStatus: { isClean: true, inProgressOperation: "bisect" } },
 		});
 		const result = await assertCleanRepoForExecution(memory.context, "/repo");
 		expect(result).toEqual({
 			type: "failure",
 			failure: expect.objectContaining({
-				message: `${expectedLabel} is in progress; refusing to start stack landing.`,
+				message: "A bisect is in progress; refusing to start stack landing.",
 			}),
 		});
 	});

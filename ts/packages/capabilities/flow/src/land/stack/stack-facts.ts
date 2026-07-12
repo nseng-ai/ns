@@ -39,6 +39,7 @@ import {
 	type GraphiteTopology,
 } from "./graphite-topology.ts";
 import { landingWarning, type LandingWarning, type StackSnapshot } from "../types.ts";
+import { operationInProgressLabel } from "../working-tree-operations.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
 export async function loadRepoRoot(
@@ -289,7 +290,7 @@ export async function assertCleanRepo(
 	if (operation) {
 		return landOutcomeFailure(
 			landingExecutionFailure(
-				`${formatInProgressOperationLabel(operation)} is in progress; refusing to start stack landing.`,
+				`${operationInProgressLabel(operation)} is in progress; refusing to start stack landing.`,
 			),
 		);
 	}
@@ -303,12 +304,6 @@ export function detectInProgressOperation(
 	// REBASE_HEAD can be left behind as a stale pseudo-ref after Git reports a clean, normal worktree.
 	// The kit detector treats only Git's active rebase state directories as authoritative for rebase.
 	return detectGitOperationInProgressAt(repoRoot, options)?.operation;
-}
-
-export function formatInProgressOperationLabel(operation: InProgressGitOperation): string {
-	if (operation === "cherry-pick") return "A cherry-pick";
-	if (operation === "bisect") return "A bisect";
-	return `A ${operation}`;
 }
 
 export async function assertLocalBranchExists(

@@ -3,6 +3,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { shortSha } from "../commit-display/index.ts";
 import { landCompleted, landFailure, landSuccess, landOutcomeFailure } from "./results.ts";
 import { formatManualWorktreeConflict } from "./worktree-paths.ts";
+import { operationInProgressLabel } from "./working-tree-operations.ts";
 
 import type {
 	BranchLandingPlan,
@@ -19,7 +20,6 @@ import type {
 	PullRequestFacts,
 	RestackRequirement,
 	StackSnapshot,
-	WorkingTreeStatus,
 	WorktreeConflict,
 	WorktreeEntry,
 } from "./types.ts";
@@ -605,14 +605,6 @@ export function landingParentEdges(stack: StackSnapshot): readonly RestackRequir
 		branch,
 		parent: index === 0 ? stack.trunk : (stack.landingBranches[index - 1] ?? stack.trunk),
 	}));
-}
-
-function operationInProgressLabel(
-	operation: NonNullable<WorkingTreeStatus["inProgressOperation"]>,
-): string {
-	if (operation === "cherry-pick") return "A cherry-pick";
-	if (operation === "bisect") return "A bisect";
-	return `A ${operation}`;
 }
 
 function copyWarning(warning: LandingWarning): LandingWarning {

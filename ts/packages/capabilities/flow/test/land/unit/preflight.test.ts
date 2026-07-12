@@ -184,6 +184,30 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 		expect(github.pullRequestFactsCalls).toEqual([]);
 	});
 
+	test("keeps the preflight operation sentence local", async () => {
+		const { context } = createInMemoryLandContext({
+			git: {
+				workingTreeStatus: { isClean: true, inProgressOperation: "bisect" },
+				localBranches: [{ name: "feature-a", sha: SHA_A }],
+			},
+			graphite: {
+				stackShape: stackSnapshot({ current: "feature-a", landingBranches: ["feature-a"] }),
+			},
+		});
+
+		const plan = await buildStackLandingPlan(context, "/repo");
+
+		expect(plan).toMatchObject({
+			type: "failure",
+			failure: {
+				type: "domain",
+				reason: "operation-in-progress",
+				phase: "preflight",
+				message: "A bisect is in progress; refusing to start stack landing.",
+			},
+		});
+	});
+
 	test("reports submit and restack requirements when allowed", async () => {
 		const { context, git } = createInMemoryLandContext({
 			git: {
