@@ -4,6 +4,8 @@ edges:
     annotation: Supersedes this closed standing record; its remaining reconciliation scope and standing non-goals carry over here, and its mined facts live in the effort folder's ideas.md.
   - objective: skill-management-subsystem
     annotation: The layering reshape (ADR 0033, layering-reshape-spec.md item 7) folds the command-backed-skill-registry into areg — recorded input that Objective must consume before reshaping skill surfaces further.
+  - objective: execute-cmux-reshape-spec
+    annotation: Execution of the cmux reshape spec (ADR 0034, slices 2–6 plus closeout) was extracted 2026-07-12 to that autoobjective via the handoff vehicle's New-Objective hatch; this roadmap's "Execute the cmux reshape spec" task row resolves when it closes.
 ---
 
 # Ontology Reshape
