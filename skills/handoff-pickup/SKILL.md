@@ -10,16 +10,12 @@ allowed-tools:
 
 # handoff-pickup
 
-Use this skill to pick up, choose, or list Markdown handoff artifacts, present the selected handoff's summary, and wait for user direction before continuing work. A handoff is directed durable work context; it is not in-session compaction and not a generic session summary.
-
-This is the pickup/list/review step in the `handoff` skill family. Use the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and branch-to-branch admin flows; keep this skill focused on selecting and reading artifacts.
-
-Normal pickup/list intent uses pick up / choose / list / continue from / resume from a handoff. Treat resume-from wording as pickup intent, not a separate lifecycle action. Branch Memory is the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
+Pick up, choose, or list Markdown handoff artifacts, present the selected handoff's summary, and wait for user direction before continuing work. This is the pickup/list/review step in the `handoff` skill family; load the `handoff` umbrella for shared terminology, lifecycle, storage contract, diagnostics, cleanup, and admin flows. Treat resume-from wording as pickup intent, not a separate lifecycle action.
 
 ## Storage contract
 
 - Namespace: `handoff`
-- Entry key shape: `<semantic-slug>.md`
+- Entry key shape: flat `<semantic-slug>.md`; do not accept `/`-containing selectors in the normal handoff UX
 
 The semantic slug is the chooser metadata. Do not expect a separate index, summary entry, or machine-readable manifest.
 
@@ -66,25 +62,9 @@ Use `--include-deleted` for recovery, cleanup, or when the user explicitly asks 
 
 The JSON payload's `data.handoffs` list contains handoff records with `branch`, `branchState`, `slug`, `key`, `entryLocator`, and `updatedAt`; `data.includeDeleted` records whether deleted local branches were included. Show normal results as handoff choices grouped by branch when listing across branches, including branch state. Call out `deleted` branches when relevant because those handoffs may be cleanup candidates. For each choice, show the slug, recency or a short continuation focus/preview when available, and a copyable pickup command such as `/ns:handoff:pickup <slug>` or `/ns:handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
 
-If no handoffs exist, say so in public vocabulary:
+If no handoffs exist, report that none were found, naming the scope searched, in handoff vocabulary.
 
-```text
-No handoffs found on branch `<branch>`.
-```
-
-or:
-
-```text
-No handoffs found across active branches.
-```
-
-or, when using `--include-deleted`:
-
-```text
-No handoffs found across branches.
-```
-
-For explicit removal of one stale or unneeded handoff, use `ns handoff delete [--branch <branch>] [--yes] <slug>` with the user-facing slug (no `.md`). Use `ns handoff gc` for bulk cleanup of handoffs on deleted local branches. Use raw `brmem delete` only for storage diagnostics/recovery.
+For delete or cleanup, load the `handoff` umbrella.
 
 ## Select the handoff
 
@@ -99,20 +79,6 @@ Prefer selection by explicit identity before inference:
    - prefer slugs containing all requested terms
    - if exactly one candidate clearly matches, pick it up
 5. If several candidates remain plausible, ask the user to choose. Print branch and candidate slugs; do not require the user to know storage keys.
-
-Do not accept `/`-containing handoff selectors for the normal handoff UX. Flat `<semantic-slug>.md` keys are the handoff contract.
-
-Example ambiguity prompt:
-
-```text
-Found multiple handoffs on <branch>:
-
-1. address-review-feedback
-2. add-pickup-handoff-command
-3. refactor-brmem-cli-docs
-
-Which handoff should I pick up?
-```
 
 ## Read and present summary
 

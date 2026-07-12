@@ -13,15 +13,12 @@ Step entrypoints carry their own command and recovery and are runnable standalon
 
 - `enriched-plan-save` — save a source-branch plan.
 - `branch-context-from-plan` — create a branch and attach a named plan key as branch context from a saved plan.
-- `branch-context-impl` — load and implement an attached plan; its implementation workflow includes the contract protocol for new-format Attached plans.
+- `branch-context-impl` — load and implement an attached plan.
 
 Use this skill for the shared model the step skills assume, and for diagnostics, admin, and repair work the step skills do not cover.
 
-Admin and repair requests include changing or retargeting a saved plan's source branch, moving or copying saved plans between Local plan store branch directories, inspecting the plan store, and repairing obvious branch-context metadata.
-
 ## Do not use this skill for
 
-- Generic planning, branch creation, or implementation with no branch-context intent.
 - Generic Branch Memory work unless it concerns the branch-context namespace/attached-plan contract.
 - Replacing the step skills for a specific write/create/implement request; it is their shared reference, not a substitute.
 
@@ -31,7 +28,6 @@ Admin and repair requests include changing or retargeting a saved plan's source 
 - Refuse collisions, existing files, existing branches, and existing Branch Memory entries unless the user gives explicit replacement/destructive intent.
 - Prefer deterministic `enriched-plan exec` commands for Saved plans and `ns branch-context exec` commands for branch/attachment operations when available.
 - Use read-only Branch Memory inspection only for diagnostics.
-- If plan content appears stale relative to repository state, explain the discrepancy before changing scope.
 
 ## References
 

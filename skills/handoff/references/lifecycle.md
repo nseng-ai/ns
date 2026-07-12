@@ -71,7 +71,7 @@ There is no `/handoff:delete` Pi command in the current surface; single-handoff 
 
 ## Branch and list scope
 
-- Use the current branch when no branch is provided and the repo is not detached.
-- Use explicit `--branch <branch>` when the user names a branch.
+Branch resolution lives in the step skills.
+
 - Use `--all` for inventory across active local branches.
 - Use `--all --include-deleted` for recovery or cleanup that includes deleted local branches.

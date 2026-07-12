@@ -15,7 +15,7 @@ Create one concise, directed Markdown handoff artifact for a future continuation
 
 ## Create contract
 
-A handoff is durable work context for future-you, a future agent, a future worktree, or a teammate. It is not in-session compaction, a generic transcript/session summary, a temp-file note, or a task database.
+A handoff is directed durable work context for a specific future continuation — future-you, a future agent, a future worktree, or a teammate; the `handoff` umbrella owns the full definition.
 
 A handoff must answer:
 
@@ -86,7 +86,7 @@ Continuation focus: <What the future session should continue, decide, verify, or
 <Commands, files, PRs, issues, docs, or technical locators that help resume.>
 ```
 
-Keep the artifact brief and factual. Avoid owners, due dates, task databases, hidden metadata, or workflow-state machinery.
+Keep the artifact terse. Avoid owners, due dates, task databases, hidden metadata, or workflow-state machinery.
 
 Do not create hidden temp/draft files for handoff-create. If the user needs review or editing before creation, present the proposed Markdown in chat or a structured UI and iterate there; then create the final artifact through the canonical storage command below. If the user explicitly asks for a real file or path, treat that as a separate file-writing request. If durable review state is needed, use a clearly named Branch Memory draft only with explicit user intent.
 
@@ -118,6 +118,6 @@ Then include a compact technical locator when useful:
 - Entry: `<semantic-slug>.md`
 - Locator/ref and commit printed by `brmem`
 
-When a user asks to resume from an existing handoff, prefer `handoff-pickup`. Picking up relies on the semantic slug rather than a separate summary or index.
+When a user asks to resume from an existing handoff, prefer `handoff-pickup`.
 
 For handoff lifecycle vocabulary and non-create admin flows such as copy, move, delete, or garbage collection, load the `handoff` umbrella and its references rather than duplicating those recipes here.
