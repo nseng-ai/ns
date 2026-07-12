@@ -84,6 +84,9 @@ importers:
       '@internal/ns-dev':
         specifier: workspace:*
         version: link:packages/internal/ns-dev
+      '@internal/ns-pi-subagents':
+        specifier: workspace:*
+        version: link:packages/internal/ns-pi-subagents
       '@internal/pi-tools':
         specifier: workspace:*
         version: link:packages/internal/pi-tools
@@ -111,9 +114,6 @@ importers:
       '@nseng-ai/ns':
         specifier: workspace:*
         version: link:packages/hosts/ns
-      '@nseng-ai/ns-pi-subagents':
-        specifier: workspace:*
-        version: link:packages/extensions/ns-pi-subagents
       '@nseng-ai/objectives':
         specifier: workspace:*
         version: link:packages/capabilities/objectives
@@ -481,31 +481,6 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/extensions/ns-pi-subagents:
-    dependencies:
-      '@earendil-works/pi-ai':
-        specifier: 'catalog:'
-        version: 0.80.5(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 0.80.5(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-tui':
-        specifier: 'catalog:'
-        version: 0.80.5
-      '@nseng-ai/foundation':
-        specifier: workspace:*
-        version: link:../../infra/foundation
-      '@nseng-ai/pi':
-        specifier: workspace:*
-        version: link:../../hosts/pi
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-    devDependencies:
-      '@internal/pi-tools':
-        specifier: workspace:*
-        version: link:../../internal/pi-tools
-
   packages/hosts/command-backed-skill-registry:
     dependencies:
       '@nseng-ai/branch-context':
@@ -667,6 +642,31 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
+  packages/internal/ns-pi-subagents:
+    dependencies:
+      '@earendil-works/pi-ai':
+        specifier: 'catalog:'
+        version: 0.80.5(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
+        specifier: 'catalog:'
+        version: 0.80.5(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
+        specifier: 'catalog:'
+        version: 0.80.5
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../infra/foundation
+      '@nseng-ai/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@internal/pi-tools':
+        specifier: workspace:*
+        version: link:../pi-tools
+
   packages/internal/pi-tools:
     dependencies:
       '@earendil-works/pi-ai':
@@ -678,6 +678,9 @@ importers:
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
         version: 0.80.5
+      '@internal/ns-pi-subagents':
+        specifier: workspace:*
+        version: link:../ns-pi-subagents
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
@@ -687,9 +690,6 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
-      '@nseng-ai/ns-pi-subagents':
-        specifier: workspace:*
-        version: link:../../extensions/ns-pi-subagents
       '@nseng-ai/pi':
         specifier: workspace:*
         version: link:../../hosts/pi

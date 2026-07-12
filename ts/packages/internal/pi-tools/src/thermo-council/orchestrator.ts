@@ -18,7 +18,7 @@ import {
 	type SubagentFleetRunTracking,
 	type SubagentFleetTaskInput,
 	type SubagentRuntime,
-} from "@nseng-ai/ns-pi-subagents/api";
+} from "@internal/ns-pi-subagents/api";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";

@@ -4,7 +4,7 @@ import { THERMO_COUNCIL_COMMAND_NAME } from "./contract.ts";
 import {
 	getOrCreateSubagentFleetRegistry,
 	type SubagentRuntime,
-} from "@nseng-ai/ns-pi-subagents/api";
+} from "@internal/ns-pi-subagents/api";
 
 import type { ThermoCouncilExtensionAPI } from "./host-api.ts";
 import { runThermoCouncilCommand } from "./orchestrator.ts";

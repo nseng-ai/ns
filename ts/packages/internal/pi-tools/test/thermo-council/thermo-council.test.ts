@@ -9,8 +9,8 @@ import type {
 import {
 	createFunctionSubagentRuntime,
 	getOrCreateSubagentFleetRegistry,
-} from "@nseng-ai/ns-pi-subagents/api";
-import { RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES } from "@nseng-ai/ns-pi-subagents/runner-subagents";
+} from "@internal/ns-pi-subagents/api";
+import { RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES } from "@internal/ns-pi-subagents/runner-subagents";
 import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/command-exec";
 import thermoCouncilExtension, {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
@@ -35,7 +35,7 @@ import {
 	type RunnerSubagentDispatcherDependencies,
 	type RuntimeResultV1,
 	type SpawnCall,
-} from "@nseng-ai/ns-pi-subagents/runner-subagents/testing";
+} from "@internal/ns-pi-subagents/runner-subagents/testing";
 
 interface RegisteredCommand {
 	readonly description?: string;

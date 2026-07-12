@@ -28,7 +28,7 @@
 	"devDependencies": {
 		"@internal/ns-dev": "workspace:*",
 		"@internal/pi-tools": "workspace:*",
-		"@nseng-ai/ns-pi-subagents": "workspace:*",
+		"@internal/ns-pi-subagents": "workspace:*",
 		"@nseng-ai/pr-feedback": "workspace:*",
 		"@nseng-ai/retros": "workspace:*",
 		"@nseng-ai/branch-context": "workspace:*",

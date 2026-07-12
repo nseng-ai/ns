@@ -8,7 +8,7 @@ import {
 	createSubagentAgentRegistry,
 	createSubagentRuntimeRegistry,
 	createSubprocessSubagentRuntime,
-} from "@nseng-ai/ns-pi-subagents/api";
+} from "@internal/ns-pi-subagents/api";
 
 describe("ns-pi-subagents /api surface", () => {
 	test("exports runner widget helpers and subprocess runtime", () => {

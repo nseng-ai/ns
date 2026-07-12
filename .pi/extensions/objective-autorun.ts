@@ -31,7 +31,7 @@ import type {
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
 	SingleSubagentFleetRunTracking,
-} from "@nseng-ai/ns-pi-subagents/api";
+} from "@internal/ns-pi-subagents/api";
 import type { RawPiExecApi } from "@nseng-ai/pi/shared/command-exec";
 import {
 	formatZodError,
@@ -44,7 +44,7 @@ import { tailText, type ExecResult } from "../../ts/packages/infra/foundation/sr
 // Bare "zod" is not resolvable from .pi/extensions (no node_modules ancestry at the repo root);
 // resolve it through the ts workspace package that declares it, matching .pi/lib/workspace-packages.ts.
 const requireFromPiTools = createRequire(
-	new URL("../../ts/packages/extensions/ns-pi-subagents/package.json", import.meta.url),
+	new URL("../../ts/packages/internal/ns-pi-subagents/package.json", import.meta.url),
 );
 const { z } = requireFromPiTools("zod") as typeof import("zod");
 const {
@@ -53,8 +53,8 @@ const {
 	getOrCreateSubagentFleetRegistry,
 	setRunnerSubagentWidget,
 	trackSingleSubagentFleetRun,
-} = await importTypeScriptWorkspaceModule<typeof import("@nseng-ai/ns-pi-subagents/api")>(
-	"@nseng-ai/ns-pi-subagents/api",
+} = await importTypeScriptWorkspaceModule<typeof import("@internal/ns-pi-subagents/api")>(
+	"@internal/ns-pi-subagents/api",
 );
 const { createPiCommandExecApi } = await importTypeScriptWorkspaceModule<
 	typeof import("@nseng-ai/pi/shared/command-exec")

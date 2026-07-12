@@ -28,7 +28,7 @@
 		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/command-backed-skill-registry": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
-		"@nseng-ai/ns-pi-subagents": "workspace:*",
+		"@internal/ns-pi-subagents": "workspace:*",
 		"@nseng-ai/pi": "workspace:*",
 		"zod": "catalog:"
 	},
