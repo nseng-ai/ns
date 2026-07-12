@@ -1485,6 +1485,223 @@ describe("subagent fleet navigator", () => {
 		expect(resolvers).toHaveLength(1);
 	});
 
+	test("collapse and re-expand starts a fresh read and rejects the obsolete completion", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Racer" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/racer.jsonl"));
+		const reads: Array<{ resolve(content: string): void; reject(error: unknown): void }> = [];
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: {
+				readTextFile: () =>
+					new Promise<string>((resolve, reject) => {
+						reads.push({ resolve, reject });
+					}),
+			},
+			done: () => {},
+		});
+
+		// Request A starts for the first preview lifetime.
+		view.handleInput(" ");
+		await settleMicrotasks();
+		expect(reads).toHaveLength(1);
+
+		// Collapse, then re-expand before A resolves: request B must start
+		// immediately despite A being unresolved.
+		view.handleInput(" ");
+		view.handleInput(" ");
+		await settleMicrotasks();
+		expect(reads).toHaveLength(2);
+
+		// A resolves with old content, which must never reach the new lifetime.
+		reads[0]!.resolve(
+			sessionJsonl([{ type: "message_end", message: assistantMessage("Stale content") }]),
+		);
+		await settleMicrotasks();
+		const afterStale = view.render(120).join("\n");
+		expect(afterStale).not.toContain("Stale content");
+		expect(afterStale).toContain("loading session…");
+
+		// B resolves with new content and only that content is committed.
+		reads[1]!.resolve(
+			sessionJsonl([{ type: "message_end", message: assistantMessage("Fresh content") }]),
+		);
+		await settleMicrotasks();
+		const afterFresh = view.render(120).join("\n");
+		expect(afterFresh).toContain("latest: ● assistant: Fresh content");
+		expect(afterFresh).not.toContain("Stale content");
+		expect(reads).toHaveLength(2);
+	});
+
+	test("an obsolete request failure cannot overwrite the current lifetime", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Failure race" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/failure-race.jsonl"));
+		const reads: Array<{ resolve(content: string): void; reject(error: unknown): void }> = [];
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: {
+				readTextFile: () =>
+					new Promise<string>((resolve, reject) => {
+						reads.push({ resolve, reject });
+					}),
+			},
+			done: () => {},
+		});
+
+		view.handleInput(" ");
+		await settleMicrotasks();
+		view.handleInput(" ");
+		view.handleInput(" ");
+		await settleMicrotasks();
+		expect(reads).toHaveLength(2);
+
+		reads[0]!.reject(new Error("stale read failed"));
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).not.toContain("stale read failed");
+
+		reads[1]!.resolve(sessionJsonl());
+		await settleMicrotasks();
+		const recovered = view.render(120).join("\n");
+		expect(recovered).toContain("latest: ● assistant: Found details");
+		expect(recovered).not.toContain("stale read failed");
+	});
+
+	test("collapse without re-expand ignores the completion and does not render", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Collapsed" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/collapsed.jsonl"));
+		const resolvers: Array<(content: string) => void> = [];
+		let renderRequests = 0;
+		const view = new SubagentFleetNavigator({
+			tui: {
+				requestRender: () => {
+					renderRequests += 1;
+				},
+			},
+			registry,
+			detailContext: {
+				readTextFile: () =>
+					new Promise<string>((resolve) => {
+						resolvers.push(resolve);
+					}),
+			},
+			done: () => {},
+		});
+
+		view.handleInput(" ");
+		await settleMicrotasks();
+		view.handleInput(" ");
+		const renderRequestsAfterCollapse = renderRequests;
+
+		resolvers[0]!(sessionJsonl());
+		await settleMicrotasks();
+		expect(renderRequests).toBe(renderRequestsAfterCollapse);
+		expect(resolvers).toHaveLength(1);
+		expect(view.render(120).join("\n")).not.toContain("latest:");
+	});
+
+	test("preview-to-detail transition rejects the preview completion and starts a detail request", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Promote" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/promote.jsonl"));
+		const resolvers: Array<(content: string) => void> = [];
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: {
+				readTextFile: () =>
+					new Promise<string>((resolve) => {
+						resolvers.push(resolve);
+					}),
+			},
+			done: () => {},
+		});
+
+		// Preview request A starts, then full detail opens before it resolves:
+		// detail request B must start immediately.
+		view.handleInput(" ");
+		await settleMicrotasks();
+		view.handleInput("\r");
+		await settleMicrotasks();
+		expect(resolvers).toHaveLength(2);
+
+		// The obsolete preview completion cannot populate the detail lifetime.
+		resolvers[0]!(
+			sessionJsonl([{ type: "message_end", message: assistantMessage("Preview only") }]),
+		);
+		await settleMicrotasks();
+		const pendingDetail = view.render(120).join("\n");
+		expect(pendingDetail).toContain("Reading child session…");
+		expect(pendingDetail).not.toContain("Preview only");
+
+		resolvers[1]!(
+			sessionJsonl([{ type: "message_end", message: assistantMessage("Detail content") }]),
+		);
+		await settleMicrotasks();
+		const detail = view.render(120).join("\n");
+		expect(detail).toContain("Detail content");
+		expect(detail).not.toContain("Preview only");
+	});
+
+	test("rapid lifecycle changes keep the current generation's bookkeeping intact", async () => {
+		const registry = new SubagentFleetRegistry();
+		const run = registry.startRun([{ title: "Churn" }]);
+		const task = run.tasks[0]!;
+		registry.markRunning(task.id);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/churn.jsonl"));
+		const resolvers: Array<(content: string) => void> = [];
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: {
+				readTextFile: () =>
+					new Promise<string>((resolve) => {
+						resolvers.push(resolve);
+					}),
+			},
+			done: () => {},
+		});
+
+		// Request A (first lifetime), then collapse/re-expand to start request B.
+		view.handleInput(" ");
+		await settleMicrotasks();
+		view.handleInput(" ");
+		view.handleInput(" ");
+		await settleMicrotasks();
+		expect(resolvers).toHaveLength(2);
+
+		// A's settlement must not clear B's in-flight marker: a registry event
+		// after A settles must queue behind B rather than starting a new read.
+		resolvers[0]!(sessionJsonl());
+		await settleMicrotasks();
+		expect(resolvers).toHaveLength(2);
+		registry.markProgress(task.id, updateWithSessionFile("/tmp/churn.jsonl"));
+		await settleMicrotasks();
+		expect(resolvers).toHaveLength(2);
+
+		// When B settles, exactly one queued follow-up C starts and commits.
+		resolvers[1]!(sessionJsonl());
+		await settleMicrotasks();
+		expect(resolvers).toHaveLength(3);
+		resolvers[2]!(
+			sessionJsonl([{ type: "message_end", message: assistantMessage("Follow-up content") }]),
+		);
+		await settleMicrotasks();
+		expect(view.render(120).join("\n")).toContain("latest: ● assistant: Follow-up content");
+		expect(resolvers).toHaveLength(3);
+	});
+
 	test("registers command and falls back to notify without UI", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Scout" }]);
