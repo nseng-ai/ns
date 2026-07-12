@@ -71,7 +71,7 @@ describe("project extension shared flow foundations", () => {
 		}
 	});
 
-	test("flow CLI commands own their orchestration instead of importing CCC", async () => {
+	test("flow CLI commands own their orchestration instead of importing the retired package", async () => {
 		const autoslotSource = await readFile(AUTOSLOT_COMMAND_PATH, "utf8");
 		const landSource = await readFile(LAND_COMMAND_PATH, "utf8");
 		const pullTrunkSource = await readFile(PULL_TRUNK_COMMAND_PATH, "utf8");

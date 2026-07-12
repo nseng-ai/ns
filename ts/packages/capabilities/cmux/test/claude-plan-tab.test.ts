@@ -15,7 +15,7 @@ import {
 	notificationMessages,
 	resetCmuxTestEnvironment,
 	step,
-} from "./ccc-test-harness.ts";
+} from "./cmux-test-harness.ts";
 
 const SEED = "# Plan\n\nImplement the thing exactly.";
 const PROMPT_FILE = "/tmp/seed plan's.md";

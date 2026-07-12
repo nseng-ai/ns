@@ -45,26 +45,26 @@ each branch stacks on the previous.
     no live `ccc-dispatch` or `NS_CCC_` hits remain. This is intentionally
     breaking: pre-rename staged prompts may be orphaned, and the environment
     variable has no old-name alias or migration.
-- [ ] Slice 6 — `cmux-reshape/glossary-and-docs` (spec items 6+8): rewrite
+- [x] Slice 6 — `cmux-reshape/glossary-and-docs` (spec items 6+8): rewrite
       `capabilities/cmux/CONTEXT.md` from scratch per the spec's term list,
       re-home the worktree-status entries to `hosts/pi/CONTEXT.md`, rewrite the
       root `CONTEXT.md` CCC entry (Avoid gains "CCC" / "Cmux Command and
       Control"), replace the cmux `AGENTS.md` essay with a checklist pointer,
       and apply the kit comment ride-along.
-  - Policy: direct execution. The user resolved the final vocabulary gate on
-    2026-07-12: retire `Project-local adapter` from the cmux glossary; every
-    other term disposition remains as ratified by ADR 0034.
-  - Evidence: `just` green (includes `dprint check` and the objective sweep);
-    final stack-wide word-boundary `ccc`/`CCC` grep over live source shows only
-    deliberate immutable history.
-- [ ] Closeout — run the plan's trust-nothing checklist on the top slice:
+  - Completed locally on `cmux-reshape/glossary-and-docs` under the re-ratified
+    cleanup scope. Root `just` and the integration suite passed. The final
+    sweep leaves 15 deliberate lines in 10 files, all accounted as Avoid terms,
+    guards, fixtures, historical research, or explicit `code-smush` exclusion;
+    no stale live claim remains.
+- [x] Closeout — run the plan's trust-nothing checklist on the top slice:
       rerun `just`; diff each slice's changed files against its plan scope list
       and justify every extra; re-read changed tests for behavior (not just
       renamed strings); account for every hit of the final `ccc` grep; confirm
       no submit happened and no `[cp]` commits exist.
-  - Policy: direct execution for the checks; steer on any discrepancy found.
-    Parent-row handoff and this record's closure are parent-session judgment,
-    not a runner row.
+  - Completed read-only on the top slice: root `just` passed; all per-slice path
+    extras were justified; changed tests retain behavioral assertions; all 15
+    remaining live sweep hits were accounted; slices 2–6 each contain one
+    commit; and no submit, remote ref, PR metadata, or `[cp]` subject exists.
 
 ## Parked
 

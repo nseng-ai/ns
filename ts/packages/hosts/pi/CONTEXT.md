@@ -1,6 +1,6 @@
 # @nseng-ai/pi
 
-`@nseng-ai/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability `pi` subpackages stacked above `@nseng-ai/pi`; Pi-native standalone tools may live in Internal Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. CCC (`@nseng-ai/cmux`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; the `@nseng-ai/cmux/pi` subpackage imports CCC core APIs and neutral `@nseng-ai/pi/...` helpers so there are no direct `@nseng-ai/cmux` imports from `@nseng-ai/pi/...` and no `@nseng-ai/pi` import or declaration of `@nseng-ai/cmux`.
+`@nseng-ai/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability `pi` subpackages stacked above `@nseng-ai/pi`; Pi-native standalone tools may live in Internal Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. The cmux capability (`@nseng-ai/cmux`) separately drives cmux workspaces; its `pi` subpackage imports cmux core APIs and neutral `@nseng-ai/pi/...` helpers, while `@nseng-ai/pi` neither imports nor declares `@nseng-ai/cmux`.
 
 ## Language
 
@@ -17,7 +17,7 @@ A thin project-local extension file whose job is to register Pi commands or tool
 *Avoid*: package export, shim as implementation, generated extension, host-to-tool registry.
 
 **Engineered Pi implementation domain**:
-A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as PR views, worktree status, terminal presentation, host-owned runtime helpers, and command registration helpers. Flow, CCC, Handoff, Branch Context, and Objective Pi presentation now live in each capability's `pi` subpackage.
+A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as PR views, worktree status, terminal presentation, host-owned runtime helpers, and command registration helpers. Flow, cmux, Handoff, Branch Context, and Objective Pi presentation now live in each capability's `pi` subpackage.
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Internal Pi-tool package**:
@@ -26,26 +26,26 @@ A private workspace package for a Pi-native standalone tool extracted from the h
 
 **Neutral Pi helper subpath**:
 A curated `@nseng-ai/pi/...` package export for helper code intentionally reusable by other workspace packages, capability `pi` subpackages, or extracted Pi-tool packages, including command acknowledgement, command UI helpers, command I/O, command names, model-call and LM-JSON helpers, shared error/timer helpers, machine-envelope parsing, session replacement, skill expansion, terminal layout/presentation helpers, parity helpers, and cmux/Pi runtime/tool types. The current export map is intentionally limited to these neutral/runtime/presentation families: `commands/*`, `grill/surfaces`, `models/*`, `parity/*`, `runtime/*`, `sessions/replacement`, `skills/*`, `terminal/*`, `shared/*`, and `worktree-status` — plus `worktree-status/extension`, which is a project-local extension entrypoint carried in the export map for `.pi/extensions` loading, not a neutral helper family.
-*Avoid*: project-local extension entrypoint, Pi-tool implementation, CCC orchestration, private source deep import.
+*Avoid*: project-local extension entrypoint, Pi-tool implementation, cmux capability workflow, private source deep import.
 
 **Project-local extension entrypoint**:
 An implementation module under `ts/packages/hosts/pi/src/` or another owning package that registers a Pi command family or model-visible tool through the Pi host. Lower packages should not import these entrypoints as helpers; use neutral helper subpaths or a lower package API instead.
 *Avoid*: neutral helper, package facade, public npm API.
 
-**CCC orchestration layer**:
-The private TypeScript workspace package at `ts/packages/capabilities/ccc/` for repo-opinionated workflows spanning Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, source-control flows, and worktree-status observability. CCC owns orchestration policy; Pi owns neutral host helpers and runtime primitives; the **CCC Pi subpackage** owns CCC-specific Pi registration and presentation.
-*Avoid*: Pi discovery adapter, lower capability package, public npm API.
+**cmux capability**:
+The private first-party capability at `@nseng-ai/cmux` that drives cmux workspaces for dispatch, sidebar, workspace-summary, and planning flows. Pi owns neutral host helpers and runtime primitives rather than the cmux workflow domain.
+*Avoid*: Pi discovery adapter, generic orchestration layer, public npm API.
 
-**CCC Pi subpackage**:
-The `@nseng-ai/cmux/pi` subpackage that wires CCC workflows into Pi/cmux presentation by importing CCC core APIs and neutral `@nseng-ai/pi/...` helper subpaths. It is the home for CCC-specific Pi command registration, acknowledgement/progress wiring, prompt/session formatting, machine-envelope parsing, and slash-command formatting; `@nseng-ai/pi` itself still must not import or declare `@nseng-ai/cmux`.
-*Avoid*: Pi host dependency on CCC, non-`pi` CCC subpackages importing Pi host helpers, generic internal Pi-tool package.
+**cmux Pi subpackage**:
+The `@nseng-ai/cmux/pi` subpackage that presents cmux capability workflows by importing cmux core APIs and neutral `@nseng-ai/pi/...` helper subpaths. It owns cmux-specific Pi command registration and presentation while `@nseng-ai/pi` neither imports nor declares `@nseng-ai/cmux`.
+*Avoid*: Pi host dependency on cmux, non-`pi` cmux subpackages importing Pi host helpers, generic Internal Pi-tool package.
 
 **Pi command namespace**:
 The colon-separated repo-owned Pi slash command surface chosen by workflow ownership rather than implementation file. First-party product and orchestration commands default to `/ns:<extension>:...`, such as `/ns:cmux:*`, `/ns:objective:*`, `/ns:handoff:*`, `/ns:flow:*`, and `/ns:branch-context:*`; `/pi:*` remains reserved for Pi-native UI/session affordances.
 *Avoid*: package path, visibility flag, arbitrary grouping, legacy top-level aliases.
 
 **Branch Context Pi command surface**:
-The Pi-owned slash-command presentation for Branch Context workflows, including `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`, and formatting an implementation launch command as `/ns:branch-context:impl-attached-plan <attached-key>` for Pi sessions or CCC Pi launch commands. Branch Context domain/API behavior stays in `@nseng-ai/branch-context/api`; saved-plan selection behavior stays in `@nseng-ai/plans/api`.
+The Pi-owned slash-command presentation for Branch Context workflows, including `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`, and formatting an implementation launch command as `/ns:branch-context:impl-attached-plan <attached-key>` for Pi sessions or cmux capability launch commands. Branch Context domain/API behavior stays in `@nseng-ai/branch-context/api`; saved-plan selection behavior stays in `@nseng-ai/plans/api`.
 *Avoid*: Branch Context domain owner, attached-plan storage semantics, Saved Plan domain owner, Capability API replacement.
 
 **Thin capability mirror**:
@@ -80,6 +80,14 @@ A runner-subagent return mode where a generated runtime extension registers capt
 A runner-subagent return mode where the parent accepts the child assistant's final useful text as the result.
 *Avoid*: terminal capture, transcript import, custom message.
 
+**Worktree status observability**:
+The host-owned operational status model and presentation that combines worktree identity, Branch Memory scope, Graphite stack facts, local commit and dirty markers, metadata diagnostics, and GitHub PR state for Pi's footer.
+*Avoid*: cmux capability workflow, Git status replacement, Branch Memory storage
+
+**Graphite metadata status**:
+A passive **Worktree status observability** fact derived from Graphite's local metadata to identify the current branch's parent, children, trunk relationship, and stack counts without invoking `gt` for presentation.
+*Avoid*: Graphite mutation, full stack lifecycle, shell-command status
+
 **Worktree status adapter**:
-The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: registers the `worktree-status` renderer, reacts to session/tool/agent/shutdown events, manages active-session cancellation, watches Git/Branch Memory/worktree paths, installs the custom footer, and renders generic cwd/session/model/context/token/cost footer lines, while the repo-operational status facts and their presentation are owned by CCC's worktree-status observability model and consumed through neutral seams, not by `@nseng-ai/pi` importing `@nseng-ai/cmux`.
-*Avoid*: CCC observability fact owner, Graphite metadata parser owner, Branch Memory storage owner.
+The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: it registers the renderer and refresh command, manages session cancellation and watched paths, and installs the custom footer over host-owned **Worktree status observability**.
+*Avoid*: Graphite metadata parser owner, Branch Memory storage owner, cmux capability adapter

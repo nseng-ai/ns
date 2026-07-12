@@ -136,8 +136,8 @@ simplification:
   them; term defined in no glossary despite being the machine-output contract.
 - **Checkpoint vocabulary spans kit and flow** — `CheckpointMessage` limits in
   capability-kit, checkpoint workflow vocabulary in flow; no recorded seam.
-- **cmux move-out promise in a comment** — "Neutral cmux substrate ... can move to
-  a dedicated cmux package" recorded only in source; graduate or delete.
+- **cmux move-out promise in a comment — resolved: delete.** The stale "Neutral
+  cmux substrate ... can move to a dedicated cmux package" promise is deleted.
 - **Nine untracked husks under `ts/packages/infra/`** — node_modules leftovers of
   the absorbed standalone-infra split (cli-theme, cli-runtime, exec, time,
   typescript-analysis, domain-primitives-transitional, git, github, graphite);
