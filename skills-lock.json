@@ -345,6 +345,11 @@
       "sourceType": "local",
       "computedHash": "7b15d37ad8eb54b314d1c3716dd858c069278dcbd9aaf76c28bbf5c5888e806f"
     },
+    "plan-stack-from-findings": {
+      "source": "skills/plan-stack-from-findings",
+      "sourceType": "local",
+      "computedHash": "0aa0021ac06c2aa41acc5555de3866a80ea3377a0c069aa9f3694c94fa3e7590"
+    },
     "pocock-resolving-merge-conflicts": {
       "source": "mattpocock/skills",
       "sourceType": "github",
