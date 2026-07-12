@@ -1,6 +1,6 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import {
-	CCC_CLAUDE_PLAN_TAB_COMMAND_NAME,
+	CMUX_CLAUDE_PLAN_TAB_COMMAND_NAME,
 	handleCccClaudePlanTab,
 	type PromptFileOptions,
 	resolvePromptFileOptions,
@@ -10,7 +10,7 @@ import { homedir } from "node:os";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 import { createCccPiCommandApi } from "./pi-command-api.ts";
 
-const COMMAND_NAME = CCC_CLAUDE_PLAN_TAB_COMMAND_NAME;
+const COMMAND_NAME = CMUX_CLAUDE_PLAN_TAB_COMMAND_NAME;
 const PROMPT_DIR = join(homedir(), ".pi", "agent", "ccc-claude-plan-tab-prompts");
 
 export function registerCccClaudePlanTabCommand(

@@ -1,4 +1,4 @@
-import { cccCommandBackedSkillRegistrations } from "@nseng-ai/cmux/pi";
+import { cmuxCommandBackedSkillRegistrations } from "@nseng-ai/cmux/pi";
 import { flowCommandBackedSkillRegistrations } from "@nseng-ai/flow/pi";
 import { handoffCommandBackedSkillRegistrations } from "@nseng-ai/handoffs/pi";
 import { objectiveCommandBackedSkillRegistrations } from "@nseng-ai/objectives/pi";
@@ -37,20 +37,20 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		kind: "specialized-command",
 	},
 	{ skillName: "branch-retro", surface: "branch:retro", kind: "generic-backing-skill" },
-	// These ns:ccc:* rows are generic backing-skill aliases, not CCC provider-owned
-	// Pi commands; real CCC command registrations come from @nseng-ai/cmux/pi below.
+	// These ns:cmux:* rows are generic backing-skill aliases, not cmux provider-owned
+	// Pi commands; real cmux command registrations come from @nseng-ai/cmux/pi below.
 	{
-		skillName: "ccc-available-work",
-		surface: "ns:ccc:available-work",
+		skillName: "ns-cmux-available-work",
+		surface: "ns:cmux:available-work",
 		kind: "generic-backing-skill",
 	},
 	{
-		skillName: "ccc-branch-triage",
-		surface: "ns:ccc:branch-triage",
+		skillName: "ns-cmux-branch-triage",
+		surface: "ns:cmux:branch-triage",
 		kind: "generic-backing-skill",
 	},
-	...cccCommandBackedSkillRegistrations,
-	{ skillName: "ccc-stack-map", surface: "ns:ccc:stack-map", kind: "generic-backing-skill" },
+	...cmuxCommandBackedSkillRegistrations,
+	{ skillName: "ns-cmux-stack-map", surface: "ns:cmux:stack-map", kind: "generic-backing-skill" },
 	{ skillName: "changelog-update", surface: "changelog:update", kind: "generic-backing-skill" },
 	{
 		skillName: "code-gt-linearize-descendants",

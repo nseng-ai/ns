@@ -9,7 +9,7 @@ import {
 } from "./slot-dispatch-plan.ts";
 import { registerCccSlotOpenBranchCommand } from "./slot-open-branch.ts";
 
-export default function registerCccPiExtension(pi: ExtensionAPI): void {
+export default function registerCmuxPiExtension(pi: ExtensionAPI): void {
 	const sidebarController = createCccSidebarControllerWithPiWiring(pi);
 	registerCccSidebarCommands(pi, sidebarController);
 	registerCccSlotDispatchPlanCommand(pi);
@@ -20,4 +20,4 @@ export default function registerCccPiExtension(pi: ExtensionAPI): void {
 	registerCccClaudePlanTabCommand(pi);
 }
 
-export { registerCccPiExtension };
+export { registerCmuxPiExtension };

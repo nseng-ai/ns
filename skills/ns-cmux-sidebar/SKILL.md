@@ -1,12 +1,12 @@
 ---
-name: ccc-sidebar
+name: ns-cmux-sidebar
 disable-model-invocation: true
-description: Use when /ns:ccc:sidebar:session-summary or /ns:ccc:sidebar:branch-state-summary asks a Pi session to update the caller cmux sidebar/workspace card; generate compact title and one-line Goal/State description, then run one ns cmux exec command. /ns:ccc:sidebar:objective-summary is handled directly by deterministic extension code and should not invoke this skill.
+description: Use when /ns:cmux:sidebar:session-summary or /ns:cmux:sidebar:branch-state-summary asks a Pi session to update the caller cmux sidebar/workspace card; generate compact title and one-line Goal/State description, then run one ns cmux exec command. /ns:cmux:sidebar:objective-summary is handled directly by deterministic extension code and should not invoke this skill.
 metadata:
   internal: true
 ---
 
-# ccc-sidebar
+# ns-cmux-sidebar
 
 Update the caller cmux workspace entry so the sidebar distinguishes this Pi session from other workspaces.
 
@@ -18,11 +18,11 @@ Do not target the focused workspace unless it is the same environment-provided c
 
 ## Choose the source to summarize
 
-For `/ns:ccc:sidebar:session-summary`, summarize this Pi session's current task, progress, and likely next action from the active Pi conversation context. The goal should describe what this session is trying to accomplish, not the cmux update itself.
+For `/ns:cmux:sidebar:session-summary`, summarize this Pi session's current task, progress, and likely next action from the active Pi conversation context. The goal should describe what this session is trying to accomplish, not the cmux update itself.
 
-For `/ns:ccc:sidebar:branch-state-summary`, summarize the current Git branch's implementation state relative to its parent branch. Use read-only repository evidence: current branch, parent branch, porcelain status, branch-local commits, and a compact diffstat or short diff summary versus the parent. Prefer Graphite parent evidence such as `gt parent --no-interactive`; if unavailable, use the best Git merge-base/upstream evidence you can resolve and make the fallback basis terse.
+For `/ns:cmux:sidebar:branch-state-summary`, summarize the current Git branch's implementation state relative to its parent branch. Use read-only repository evidence: current branch, parent branch, porcelain status, branch-local commits, and a compact diffstat or short diff summary versus the parent. Prefer Graphite parent evidence such as `gt parent --no-interactive`; if unavailable, use the best Git merge-base/upstream evidence you can resolve and make the fallback basis terse.
 
-`/ns:ccc:sidebar:objective-summary` is not skill-driven. It is handled directly by deterministic extension code from an Objective slug/path or UI picker selection; do not use this skill for Objective sidebar work.
+`/ns:cmux:sidebar:objective-summary` is not skill-driven. It is handled directly by deterministic extension code from an Objective slug/path or UI picker selection; do not use this skill for Objective sidebar work.
 
 ## Summarize from current Pi context
 
@@ -34,8 +34,8 @@ Do not summarize this control prompt as the subject of the session. Summarize th
 
 Produce these two fields and self-check the character limits before running commands:
 
-- For `/ns:ccc:sidebar:session-summary`, `title`: exactly `summary:<slug>`, where `<slug>` is a concise lowercase hyphen slug for the session topic. `description`: exactly one short line with the `Goal:` prefix.
-- For `/ns:ccc:sidebar:branch-state-summary`, `title`: exactly `state:<slug>`, where `<slug>` is a concise lowercase hyphen slug for the branch topic. `description`: exactly one short line with the `State:` prefix.
+- For `/ns:cmux:sidebar:session-summary`, `title`: exactly `summary:<slug>`, where `<slug>` is a concise lowercase hyphen slug for the session topic. `description`: exactly one short line with the `Goal:` prefix.
+- For `/ns:cmux:sidebar:branch-state-summary`, `title`: exactly `state:<slug>`, where `<slug>` is a concise lowercase hyphen slug for the branch topic. `description`: exactly one short line with the `State:` prefix.
 
 Keep the full title at max 45 chars. If any field is too long, rewrite it shorter before running `ns cmux exec`. If possible, avoid apostrophes in generated fields so single-quote shell quoting stays simple; rewrite contractions rather than escaping them.
 

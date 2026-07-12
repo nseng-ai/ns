@@ -170,7 +170,7 @@ describe("command-backed skill registry", () => {
 		}
 		expect(surfaces).toContain("ns:objective:refresh");
 		expect(surfaces).toContain("ns:handoff:create");
-		expect(surfaces).toContain("ns:ccc:available-work");
+		expect(surfaces).toContain("ns:cmux:available-work");
 		expect(surfaces).toContain("pi:grill-me");
 		expect(surfaces).toContain("pi:grill-with-docs");
 		expect(surfaces).toContain("dignified:python");
@@ -231,7 +231,7 @@ describe("genericBackingSkillCommandSpecs", () => {
 		);
 
 		expect(surfaces).toContain("code:workflows");
-		expect(surfaces).toContain("ns:ccc:available-work");
+		expect(surfaces).toContain("ns:cmux:available-work");
 		expect(surfaces).toContain("ns:objective:refresh");
 		expect(surfaces).toContain("python:pytest");
 		expect(surfaces).not.toContain("skill:x");

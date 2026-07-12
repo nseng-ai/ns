@@ -27,7 +27,7 @@ import {
 } from "./branch-slug.ts";
 import { getPiLaunchOptions, type PiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
-import { CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME } from "./command-surfaces.ts";
+import { CMUX_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME } from "./command-surfaces.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
 import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
@@ -36,7 +36,7 @@ import type { CccPiCommandApi } from "./pi-command-api.ts";
 
 type DispatchPromptRuntime = CommandExecApi & Pick<CccPiCommandApi, "getThinkingLevel">;
 
-const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
+const COMMAND_NAME = CMUX_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
 const DISPATCH_PROMPT_KEY = "prompt.md";
 

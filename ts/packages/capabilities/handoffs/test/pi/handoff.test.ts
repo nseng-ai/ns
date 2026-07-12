@@ -82,7 +82,7 @@ describe("handoff extension", () => {
 			"ns:handoff:list",
 			"ns:handoff:pickup",
 		]);
-		expect(pi.commands.has("ns:ccc:handoff-tab")).toBe(false);
+		expect(pi.commands.has("ns:cmux:handoff-tab")).toBe(false);
 		expect(pi.commands.has("handoff:load")).toBe(false);
 		expect(pi.commands.has("brmem-handoff")).toBe(false);
 		expect(pi.commands.has("brmem-pickup-handoff")).toBe(false);

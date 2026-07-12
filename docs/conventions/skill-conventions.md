@@ -87,4 +87,4 @@ Use `/code:*` as the Pi slash-command namespace for codebase/source-control mana
 
 Use `code-*` for code/source-control workflow skills, whether published or repo-private. The code-skill family does not use an `internal-` name prefix: visibility is controlled by frontmatter, and internal/prototype skills must carry `metadata.internal: true`. The `internal-` prefix remains available for repo-private skills in other domains.
 
-`dev-` no longer means "codebase-related." Do not introduce new `dev-*` skills for codebase/source-control work. Prefer the domain namespace (`ns-*`, `code-*`, `ccc-*`, etc.) for new workflow skills; any future `dev-*` skill needs an explicit product decision.
+`dev-` no longer means "codebase-related." Do not introduce new `dev-*` skills for codebase/source-control work. Prefer the domain namespace (`ns-*`, `code-*`, `ns-cmux-*`, etc.) for new workflow skills; any future `dev-*` skill needs an explicit product decision.

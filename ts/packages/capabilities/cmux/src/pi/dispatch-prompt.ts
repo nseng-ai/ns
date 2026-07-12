@@ -4,7 +4,7 @@ import {
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
 import {
-	CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME,
+	CMUX_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME,
 	handleCccSlotDispatchPrompt,
 	type DispatchPromptPayloadOptions,
 	resolveDispatchPromptPayloadOptions,
@@ -12,7 +12,7 @@ import {
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 import { createCccPiCommandApi } from "./pi-command-api.ts";
 
-const COMMAND_NAME = CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
+const COMMAND_NAME = CMUX_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
 
 export function registerCccSlotDispatchPromptCommand(
 	rawPi: ExtensionAPI,

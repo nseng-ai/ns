@@ -4,7 +4,7 @@ import {
 } from "@nseng-ai/branch-context/api";
 
 import { commandSucceeded, type CommandExecApi } from "@nseng-ai/foundation/command";
-import { CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME } from "./command-surfaces.ts";
+import { CMUX_WORKSPACE_OPEN_BRANCH_COMMAND_NAME } from "./command-surfaces.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
 import type { SlotClient } from "@nseng-ai/slots/api";
@@ -32,7 +32,7 @@ export interface HandleCccSlotOpenBranchOptions {
 	notifyProgress: (message: string) => void;
 }
 
-const COMMAND_NAME = CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME;
+const COMMAND_NAME = CMUX_WORKSPACE_OPEN_BRANCH_COMMAND_NAME;
 const MAX_COMPLETIONS = 30;
 const BRANCH_FORMAT = "%(refname:short)\t%(refname)";
 

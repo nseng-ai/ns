@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "@nseng-ai/cmux/api";
+import { CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "@nseng-ai/cmux/api";
 import {
 	CREATE_HANDOFF_COMMAND_NAME,
 	HANDOFF_TAB_COMMAND_NAME,
@@ -51,8 +51,8 @@ describe("command-backed skill registry", () => {
 	test("has unique skill names and surfaces", () => {
 		const registrations = commandBackedSkillRegistrations();
 		const skillNames = registrations.map((registration) => registration.skillName);
-		// Handoff registers /ns:ccc:handoff-tab in the ccc namespace without a
-		// skill row; include it so a future CCC surface cannot collide silently.
+		// Handoff registers /ns:cmux:handoff-tab in the cmux namespace without a
+		// skill row; include it so a future cmux surface cannot collide silently.
 		const surfaces = [
 			...registrations.map((registration) => registration.surface),
 			HANDOFF_TAB_COMMAND_NAME,
@@ -75,9 +75,9 @@ describe("command-backed skill registry", () => {
 		expect(commandBackedSkillSurface("enriched-plan-save")).toBe(WRITE_PLAN_COMMAND_NAME);
 	});
 
-	test("uses CCC and Flow provider-owned registrations", () => {
-		expect(commandBackedSkillSurface("ccc-sidebar")).toBe(
-			CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
+	test("uses cmux and Flow provider-owned registrations", () => {
+		expect(commandBackedSkillSurface("ns-cmux-sidebar")).toBe(
+			CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
 		);
 		expect(commandBackedSkillSurface("ns-flow-autobranch")).toBe("ns:flow:autobranch");
 		expect(commandBackedSkillSurface("ns-flow-branch-latest-commit")).toBe(
@@ -117,7 +117,7 @@ describe("command-backed skill registry", () => {
 
 		expect(surfaces).toContain(CREATE_HANDOFF_COMMAND_NAME);
 		expect(surfaces).toContain(objectiveCreateCommandSpec.commandName);
-		expect(surfaces).toContain(CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME);
+		expect(surfaces).toContain(CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME);
 		expect(surfaces).toContain("code:workflows");
 		expect(surfaces).not.toContain("foo:bar-baz");
 	});

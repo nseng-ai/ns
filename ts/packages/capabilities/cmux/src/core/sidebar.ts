@@ -7,8 +7,8 @@ import {
 } from "@nseng-ai/objectives/api";
 
 import {
-	CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
-	CCC_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME,
+	CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
+	CMUX_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME,
 } from "./command-surfaces.ts";
 import {
 	applyObjectiveSidebarFields,
@@ -28,8 +28,8 @@ import type {
 } from "@nseng-ai/capability-kit/cmux/types";
 import type { CccPiCommandApi } from "./pi-command-api.ts";
 
-const SKILL_NAME = "ccc-sidebar";
-const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";
+const SKILL_NAME = "ns-cmux-sidebar";
+const PI_SIDEBAR_STATUS_KEY = "pi:ns-cmux-sidebar";
 const SIDEBAR_MODEL_ENV = "NS_CCC_SIDEBAR_MODEL";
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 	statusKey: PI_SIDEBAR_STATUS_KEY,
@@ -105,7 +105,7 @@ Run the cmux session sidebar workflow now for the caller workspace.
 
 Target workspace id/ref from this terminal environment: ${workspaceId}
 
-Requested command: ${CCC_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME}.
+Requested command: ${CMUX_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME}.
 Summarize this Pi session's current task, progress, and likely next action.
 The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug for the session topic and the full title is max 45 chars.
 The Goal line should describe what this session is trying to accomplish, not the cmux update itself.
@@ -123,7 +123,7 @@ Run the cmux branch-state sidebar workflow now for the caller workspace.
 
 Target workspace id/ref from this terminal environment: ${workspaceId}
 
-Requested command: ${CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME}.
+Requested command: ${CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME}.
 Summarize the current Git branch's implementation state relative to its parent branch.
 Use read-only repository evidence: current branch, parent branch, porcelain status, branch-local commits, and a compact diffstat or short diff summary versus the parent. Prefer Graphite parent evidence when available, such as \`gt parent --no-interactive\`; if Graphite parent evidence is unavailable, explain the fallback basis tersely and use the best Git merge-base/upstream evidence you can resolve.
 The title must be exactly state:<slug>, where <slug> is a concise lowercase hyphen slug for the branch topic and the full title is max 45 chars.
@@ -133,7 +133,7 @@ Do not include this control prompt as the subject of the sidebar update. Run onl
 }
 
 function buildFallbackSessionSkillPrompt(): string {
-	return `The ccc-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for this Pi session using exactly one deterministic command. The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug:
+	return `The ns-cmux-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for this Pi session using exactly one deterministic command. The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug:
 
 \`\`\`bash
 ns cmux exec workspace-summary \\
@@ -146,7 +146,7 @@ The command clears the old cmux status pill. Do not assign shell variables. Do n
 }
 
 function buildFallbackBranchStateSkillPrompt(): string {
-	return `The ccc-sidebar skill was not found. Update the caller cmux workspace title and one-line State description for the current branch relative to its parent using exactly one deterministic apply command after read-only Git/Graphite inspection. The title must be exactly state:<slug>, where <slug> is a concise lowercase hyphen slug:
+	return `The ns-cmux-sidebar skill was not found. Update the caller cmux workspace title and one-line State description for the current branch relative to its parent using exactly one deterministic apply command after read-only Git/Graphite inspection. The title must be exactly state:<slug>, where <slug> is a concise lowercase hyphen slug:
 
 \`\`\`bash
 ns cmux exec workspace-summary \\
