@@ -98,6 +98,13 @@ describe("ns.toml extensions", () => {
 		});
 	});
 
+	it.each(["", 'harnesses = ["pi"]\r\n'])(
+		"reports missing extensions for absent empty and non-empty TOML",
+		(content) => {
+			expect(parseNsTomlExtensions(content)).toEqual({ type: "missing" });
+		},
+	);
+
 	it("ignores table-local extensions", () => {
 		expect(parseNsTomlExtensions('[areg]\nextensions = ["../local-ext"]\n')).toEqual({
 			type: "missing",

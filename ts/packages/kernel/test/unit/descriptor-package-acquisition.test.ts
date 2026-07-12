@@ -5,6 +5,7 @@ import {
 	appendDeclaredExtensionSpecToml,
 	descriptorExportTarget,
 	nsExtensionExportTarget,
+	parseDeclaredExtensionSpecsToml,
 	planDeclaredExtensionInstallToml,
 	resolveAcquiredDescriptorPackageRoot,
 } from "@nseng-ai/kernel/project-config";
@@ -21,6 +22,86 @@ describe("ns.toml extension spec edits", () => {
 			ok: true,
 			text: 'extensions = ["./extensions/tools"]\n',
 			isAdded: true,
+		});
+	});
+
+	test("plans an install into an absent array without discarding whitespace or CRLF", () => {
+		const source = 'harnesses = ["pi"]\r\n  ';
+		expect(
+			planDeclaredExtensionInstallToml({
+				projectRoot: "/repo",
+				source,
+				requestedSpec: "npm:@acme/tools",
+			}),
+		).toEqual({
+			ok: true,
+			text: 'harnesses = ["pi"]\r\n  \r\nextensions = ["npm:@acme/tools"]\r\n',
+			isAdded: true,
+		});
+	});
+
+	test("inserts an absent extensions assignment before the first table", () => {
+		const source = '# keep\r\n[points]\r\nfoo = "bar"\r\n';
+		expect(
+			planDeclaredExtensionInstallToml({
+				projectRoot: "/repo",
+				source,
+				requestedSpec: "./extensions/tools",
+			}),
+		).toEqual({
+			ok: true,
+			text: '# keep\r\nextensions = ["./extensions/tools"]\r\n[points]\r\nfoo = "bar"\r\n',
+			isAdded: true,
+		});
+	});
+
+	test.each([
+		{
+			name: "multiline string bracket content",
+			source: 'banner = """\n[not-a-table]\nkeep this text\n"""\n[points]\nfoo = "bar"\n',
+			expected:
+				'banner = """\n[not-a-table]\nkeep this text\n"""\nextensions = ["./extensions/tools"]\n[points]\nfoo = "bar"\n',
+		},
+		{
+			name: "nested array rows",
+			source: 'matrix = [\n  [1, 2],\n  [3, 4],\n]\n[points]\nfoo = "bar"\n',
+			expected:
+				'matrix = [\n  [1, 2],\n  [3, 4],\n]\nextensions = ["./extensions/tools"]\n[points]\nfoo = "bar"\n',
+		},
+	])("inserts before a real top-level table after $name", ({ source, expected }) => {
+		expect(
+			planDeclaredExtensionInstallToml({
+				projectRoot: "/repo",
+				source,
+				requestedSpec: "./extensions/tools",
+			}),
+		).toEqual({ ok: true, text: expected, isAdded: true });
+	});
+
+	test.each([
+		{ name: "four-quote basic multiline terminator", quote: '"', closingLength: 4 },
+		{ name: "five-quote basic multiline terminator", quote: '"', closingLength: 5 },
+		{ name: "four-quote literal multiline terminator", quote: "'", closingLength: 4 },
+		{ name: "five-quote literal multiline terminator", quote: "'", closingLength: 5 },
+	])("inserts before a real table after a $name", ({ quote, closingLength }) => {
+		const requestedSpec = "./extensions/tools";
+		const banner = `banner = ${quote.repeat(3)}abc${quote.repeat(closingLength)}\n`;
+		const table = '[points]\nfoo = "bar"\n';
+		const result = planDeclaredExtensionInstallToml({
+			projectRoot: "/repo",
+			source: `${banner}${table}`,
+			requestedSpec,
+		});
+
+		expect(result).toEqual({
+			ok: true,
+			text: `${banner}extensions = ["${requestedSpec}"]\n${table}`,
+			isAdded: true,
+		});
+		if (!result.ok) throw new Error("Expected extension install planning to succeed.");
+		expect(parseDeclaredExtensionSpecsToml(result.text)).toEqual({
+			ok: true,
+			specs: [requestedSpec],
 		});
 	});
 
@@ -148,6 +229,33 @@ describe("ns.toml extension spec edits", () => {
 			isAdded: true,
 		});
 	});
+
+	test.each([
+		{
+			name: "ordinary values",
+			source: 'extensions = ["./extensions/a",\n  "./extensions/b"]\n',
+			expected: 'extensions = ["./extensions/a",\n  "./extensions/b",\n  "./extensions/new"]\n',
+			expectedSpecs: ["./extensions/a", "./extensions/b", "./extensions/new"],
+		},
+		{
+			name: "a four-quote multiline string value",
+			source: 'extensions = [\n  """./extensions/a""""]\n',
+			expected: 'extensions = [\n  """./extensions/a"""",\n  "./extensions/new"]\n',
+			expectedSpecs: ['./extensions/a"', "./extensions/new"],
+		},
+	])(
+		"appends when the closing bracket shares the last $name line",
+		({ source, expected, expectedSpecs }) => {
+			const result = appendDeclaredExtensionSpecToml(source, "./extensions/new");
+
+			expect(result).toEqual({ ok: true, text: expected, isAdded: true });
+			if (!result.ok) throw new Error("Expected extension append to succeed.");
+			expect(parseDeclaredExtensionSpecsToml(result.text)).toEqual({
+				ok: true,
+				specs: expectedSpecs,
+			});
+		},
+	);
 
 	test("rejects the same npm identity under a different exact spec", () => {
 		expect(

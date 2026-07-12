@@ -16,6 +16,54 @@ export interface ExtensionArraySyntax {
 	readonly hasTrailingComma: boolean;
 }
 
+/** Finds the first table header while ignoring brackets inside top-level values. */
+export function findFirstTopLevelTableOffset(source: string): number | undefined {
+	let index = 0;
+	let lineOffset = 0;
+	let isLinePrefix = true;
+	let arrayDepth = 0;
+	let inlineTableDepth = 0;
+	while (index < source.length) {
+		const char = source[index];
+		if (char === "\n") {
+			index += 1;
+			lineOffset = index;
+			isLinePrefix = true;
+			continue;
+		}
+		if (isLinePrefix && (char === " " || char === "\t" || char === "\r")) {
+			index += 1;
+			continue;
+		}
+		if (char === "#") {
+			const newline = source.indexOf("\n", index + 1);
+			if (newline === -1) return undefined;
+			index = newline;
+			continue;
+		}
+		if (char === '"' || char === "'") {
+			const tokenEnd = scanStringToken(source, index, char);
+			if (tokenEnd === undefined) return undefined;
+			const lastNewline = source.lastIndexOf("\n", tokenEnd - 1);
+			if (lastNewline >= index) {
+				lineOffset = lastNewline + 1;
+				isLinePrefix = false;
+			}
+			index = tokenEnd;
+			continue;
+		}
+		if (isLinePrefix && arrayDepth === 0 && inlineTableDepth === 0 && char === "[")
+			return lineOffset;
+		isLinePrefix = false;
+		if (char === "[") arrayDepth += 1;
+		if (char === "]") arrayDepth -= 1;
+		if (char === "{") inlineTableDepth += 1;
+		if (char === "}") inlineTableDepth -= 1;
+		index += 1;
+	}
+	return undefined;
+}
+
 /** Finds the bare, top-level extensions assignment and couples every decoded value to its token span. */
 export function parseExtensionArraySyntax(source: string): ExtensionArraySyntax | undefined {
 	const assignment = findAssignment(source);
@@ -111,7 +159,9 @@ function scanStringToken(source: string, start: number, quote: '"' | "'"): numbe
 	let isEscaped = false;
 	while (index < source.length) {
 		if (isMultiline && source.slice(index, index + 3) === quote.repeat(3) && !isEscaped) {
-			return index + 3;
+			let tokenEnd = index + 3;
+			while (source[tokenEnd] === quote) tokenEnd += 1;
+			return tokenEnd;
 		}
 		const char = source[index];
 		if (!isMultiline && char === quote && !isEscaped) return index + 1;
