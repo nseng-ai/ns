@@ -20,8 +20,7 @@ Load this after `typescript-style` whenever the task touches TypeScript in this 
 - Package manager: pnpm 11 in `ts/`.
 - Runtime: Node 24.12 or newer.
 - Dependency governance: pnpm catalog plus Syncpack via `just ts-deps-check`.
-- Default tests: Vitest 4 via `pnpm --dir ts run test` or `just ts-test`; specialized integration,
-  isolated, and TypeScript style guard lanes are explicit commands.
+- Default tests: Vitest 4 via `pnpm --dir ts run test` or `just ts-test`.
 - Development typecheck: stable native TypeScript 7 / `tsc`, via `pnpm --dir ts run check` or `just ts-check`.
 - Formatting: oxfmt via `pnpm --dir ts run fmt:check` / `just ts-format-check`; autofix with `pnpm --dir ts run fmt` / `just ts-format-fix`.
 - Linting: oxlint via `pnpm --dir ts run lint` / `just ts-lint`; autofix with `pnpm --dir ts run lint:fix` / `just ts-lint-fix`.
@@ -29,29 +28,15 @@ Load this after `typescript-style` whenever the task touches TypeScript in this 
 
 ## Compiler baseline
 
-`ts/tsconfig.json` is intentionally strict and strip-only. Treat these settings as the project contract:
+`ts/tsconfig.json` is intentionally strict and strip-only; treat it as the project contract. The
+flags this skill gives behavioral guidance about:
 
-- `target: "ES2024"`
-- `lib: ["ES2024"]`
-- `strict: true`
-- `noUncheckedIndexedAccess: true`
 - `exactOptionalPropertyTypes: true`
-- `allowImportingTsExtensions: true`
-- `verbatimModuleSyntax: true`
-- `isolatedModules: true`
+- `noUncheckedIndexedAccess: true`
 - `erasableSyntaxOnly: true`
-- `noEmit: true`
-- `skipLibCheck: true`
-- `moduleDetection: "force"`
-- `noFallthroughCasesInSwitch: true`
-- `noImplicitOverride: true`
-- `noUncheckedSideEffectImports: true`
-- `noUnusedLocals: true`
-- `noUnusedParameters: true`
-- `forceConsistentCasingInFileNames: true`
+- `noUnusedLocals: true` / `noUnusedParameters: true`
 
-The unused-local and unused-parameter flags are deliberately stricter than many WIP workflows. Prefer
-small, complete changes that leave no dead scaffolding.
+Prefer small, complete changes that leave no dead scaffolding.
 
 ## Import convention
 
@@ -84,14 +69,8 @@ ns `exactOptionalPropertyTypes` contract. Under this setting, `{ env: undefined 
 to omitting `env`.
 
 Preferred review fix: when a finding is caused by `prop: maybeUndefined`, rewrite construction to omit
-the key instead of widening the field type just to make the object literal type-check or silence review:
-
-```ts
-const item = {
-  name,
-  ...(description === undefined ? {} : { description }),
-};
-```
+the key with the conditional spread above instead of widening the field type just to make the object
+literal type-check or silence review.
 
 Use these type shapes deliberately:
 
@@ -111,20 +90,14 @@ Review guidance:
 - For domain, context, result, command metadata, registry/catalog entry, and durable record objects,
   prefer `foo?: T` plus omission on construction; question raw `?: T | undefined` unless explicit
   `undefined` is a meaningful present-key state.
-- If construction code can omit the field with object spread, do that rather than widening the field type.
-- Treat `?: T | undefined` as an API contract, not a convenience escape hatch.
 - If every consumer expects the property to exist and checks the value, prefer `foo: T | undefined`.
-- Do not turn this into a blanket ban: option/input/override/compatibility bags can legitimately accept
-  explicit `undefined`, but do not widen `foo?: T` to raw `foo?: T | undefined`; if explicit `undefined`
-  is truly permanent, use `ExplicitUndefined<Reason, T>`.
-- Construction code should still omit optional keys via conditional spread unless present-key
-  `undefined` is part of the contract.
+- Option/input/override/compatibility bags may legitimately accept explicit `undefined`; permanent
+  explicit-`undefined` support uses `ExplicitUndefined<Reason, T>`.
 
 ## Encoded contracts over ambient bags
 
-Follow the portable `typescript-style` rule: first-party dependencies must be encoded as typed
-fields, parameters, gateway methods, or curated APIs instead of implicit string-keyed bags.
-In ns, extension API dynamic data remains available only for genuinely project-local or
+Per the `typescript-style` ambient-bags rule (`core-rules.md`):
+in ns, extension API dynamic data remains available only for genuinely project-local or
 extension-owned dynamic data. Do not use it to transport first-party SDK/capability values between
 packages; promote those values to typed SDK fields, Capability API parameters, or gateway seams. For
 example, prefer `ctx.renderCapabilities: RenderCapabilities` over

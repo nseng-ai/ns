@@ -22,12 +22,10 @@ An opinionated TypeScript style guide for strict, maintainable projects. It sets
 and compiler-level defaults: erasable TypeScript, Zod-first boundary validation, honest types, strict
 indexed access, errors-as-values, and small architecture. Project-specific choices such as package
 managers, formatters, CI wiring, test runners, and import suffixes belong in the local repository or a
-project overlay skill. Follow the local repository's runtime and public API constraints first; use this
-guide for design defaults that are not already settled.
+project overlay skill.
 
-The examples are motivating patterns, not dependencies on a particular codebase. Adapt names, import
-suffixes, formatter settings, and package layout to the project in front of you; keep Zod as the default
-runtime validation library for new external boundaries unless the project has already chosen otherwise.
+Keep Zod as the default runtime validation library for new external boundaries unless the project has
+already chosen otherwise.
 
 ## Scope
 
@@ -83,7 +81,7 @@ Top-level files (`core-rules.md`, `idioms.md`, `checklist.md`) are optimized for
 
 ## How to apply this skill
 
-1. Load `core-rules.md` and check for project-local exceptions before changing code.
+1. Load `core-rules.md` before changing code.
 2. If the project has an established convention that conflicts with this guide, follow the project and
    mention the deviation only if it matters.
 3. When a domain matches, load the matching reference before designing the abstraction.

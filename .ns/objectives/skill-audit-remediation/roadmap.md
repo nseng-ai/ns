@@ -44,8 +44,10 @@ findings against the live files before editing (line references in
   naming is `ns-cmux-*`/`ns cmux exec`, not the audit's `ccc-*` — see the
   t1-flow-ccc-cuts update); scaffolding executed 2026-07-12 on
   `skill-audit-t1-scaffolding` (2 live files — four batch-8 skills moved to
-  ns-python; see the t1-scaffolding-cuts update); three family branches remain
-  (TypeScript/CLI; docs/retro/setup; review/meta).
+  ns-python; see the t1-scaffolding-cuts update); TypeScript/CLI executed 2026-07-12
+  on `skill-audit-t1-typescript-cli` (5 files, 679→634 lines; see the
+  t1-typescript-cli-cuts update); two family branches remain (docs/retro/setup;
+  review/meta).
 - [ ] Tranche 2 — trigger-surface normalization: real descriptions for the legacy
       `Command:` stubs (ns-flow-cp, ns-flow-submit, code-just-fix, code-workflows,
       changelog-update); convert workflow-summary descriptions to trigger-shaped ones

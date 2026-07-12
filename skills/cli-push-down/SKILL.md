@@ -16,7 +16,6 @@ Good targets:
 - Extract/filter/sort/group/join data from APIs, git, files, configs.
 - Normalize environment/state: repo, branch, PR, CI, install metadata.
 - Handle retries, pagination, auth checks, subprocess errors.
-- Collapse repeated command sequences into one tested call.
 - Pre-compute compact JSON so agent decides from facts, not logs.
 
 Keep in prompt:
@@ -37,8 +36,6 @@ Avoid small wins:
 
 - Wrapper around one obvious command.
 - Under 30 lines of logic and called once.
-- Returns too little, forcing follow-up calls.
-- Splits one workflow into many tiny commands with intermediate JSON.
 
 Prefer one cohesive workflow command over staged micro-commands. The best
 command returns everything needed for the agent's next decision.
@@ -69,7 +66,7 @@ Command shape:
   includes `success: bool`; failure includes `error.message` (+ `error.code`
   when useful).
 - Success includes all needed payload, plus a compact `summary` when helpful.
-- Output should be stable enough for agents/tests. No prose-only output.
+- No prose-only output.
 
 Fallback example shapes (no framework envelope):
 
