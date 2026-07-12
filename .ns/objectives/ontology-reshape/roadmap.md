@@ -200,6 +200,49 @@ live exchange with the user. Assets link from row notes and live in
     Decide each expansion (or decide the name is opaque-by-design and record that),
     and where brand-name expansions live. `nscc` is excluded — it belongs to the
     CCC/orchestration row.
+- [~] Spec the kernel → sdk rename (grilling)
+  - Unparked 2026-07-12 from the Parked row "Decide the `@nseng-ai/kernel` name":
+    the revisit trigger fired (`extension-descriptor-contract` closed 2026-07-11)
+    and the user decided the direction — the kernel brand retires and the concept
+    renames to sdk throughout the ontology: package identity, import subpaths,
+    folded `@nseng-ai/ns` re-exports, glossaries, author docs, and prose surfaces.
+    Direction is settled; this row grills the mechanics only.
+  - Question: What exact shape does the rename take? Open mechanics as of
+    2026-07-12 (re-enumerate at spec/execution time): the target name collides
+    three ways — `sdk` is already the package's own `ns.tier`, the public author
+    subpath (`@nseng-ai/kernel/sdk`, ~176 imports across 17 packages), and the
+    root glossary's "SDK boundary" term — so decide the package name form and the
+    author-entry-point treatment (accept the `@nseng-ai/sdk/sdk` stutter, or
+    reshape the subpath); the `@nseng-ai/ns` folded re-exports (`./kernel/*`
+    subpaths, `kernel-export-entries.json`, bundle/prepare scripts); rewording of
+    the ~20 "kernel-" glossary terms (root `CONTEXT.md`, `CONTEXT-MAP.md` subpath-
+    folding section, `kernel/CONTEXT.md`); the author-facing docs
+    (`writing-an-ns-extension.md`, `sdk-reference.md`, README); and word-boundary
+    safety for every rename pair. Exit per the reshaping handoff vehicle:
+    spec + ADR, then graduate an execution task row. The vehicle's verification
+    sweep and the execution-time residue inventory are natural multi-agent
+    workflow fan-outs (per-claim fact-check; loop-until-dry stale-term sweep).
+  - Evidence: ADR 0033 §7 (parked decision and its trigger), ideas.md "kernel
+    name/analogy under user skepticism" (tier already `sdk`), ADR 0016 (SDL-era
+    `@sdl/kernel` vs `sdl-sdk` precedent), ADR 0029 (kernel unpublished, ships
+    folded into `@nseng-ai/ns`).
+  - Resolved 2026-07-12 in a live creation-session grilling: ratified decisions
+    recorded as ADR 0035 and the execution spec
+    `docs/wayfinding/ontology-reshape/kernel-sdk-rename-spec.md`. Headliners:
+    `@nseng-ai/kernel` → `@nseng-ai/sdk` (dir `ts/packages/sdk/`, brand now
+    matching the `ns.tier`); the author API moves from the `./sdk` subpath to
+    the package root — no `@nseng-ai/sdk/sdk` stutter, `publicPluginApi` becomes
+    `["."]`; folded surfaces become `@nseng-ai/ns/sdk` +
+    `@nseng-ai/ns/sdk/{cli,command-io,context}`; prose goes sdk-throughout —
+    "the SDK" absorbs the runtime-machinery concept with no separate runtime
+    noun, and kernel becomes anti-vocabulary in live prose; npm registry
+    actions (claiming `@nseng-ai/sdk`, deprecating the published
+    `@nseng-ai/kernel@0.1.2`) stay operator-run. Instead of graduating an
+    in-record execution task row, execution was extracted at creation to the
+    `execute-kernel-sdk-rename-spec` autoobjective (Objective Edge) via the
+    vehicle's New-Objective hatch; this row resolves fully when that record
+    closes. Semantic update:
+    `updates/2026-07-12-kernel-sdk-rename-spec-ratified.md`.
 - [x] Decide the reshaping handoff vehicle (grilling)
   - Graduated 2026-07-11 from the "Reshaping handoff vehicle" Fog: the first reshaping
     spec now exists (`layering-reshape-spec.md`), which was that Fog's stated
@@ -266,12 +309,4 @@ live exchange with the user. Assets link from row notes and live in
 
 ## Parked
 
-- [ ] Decide the `@nseng-ai/kernel` name: commit to the kernel brand or rename to
-      SDK/host/loader language (grilling)
-  - Parked 2026-07-11 by user decision during the layering grilling row. Revisit
-    trigger: the `extension-descriptor-contract` Objective closes (the name anchors
-    its public author contract — `@nseng-ai/kernel/sdk` imports, folded
-    `@nseng-ai/ns/kernel/*` subpaths, `kernel/docs/writing-an-ns-extension.md`).
-    Until then, no new kernel-brand prose (no glossary entry committing to the OS
-    analogy) so the decision stays cheap in both directions. Evidence for the session:
-    ideas.md "kernel name/analogy under user skepticism" plus ADR 0033 §7.
+(none)
