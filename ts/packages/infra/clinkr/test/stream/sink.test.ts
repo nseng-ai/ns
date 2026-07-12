@@ -82,13 +82,13 @@ interface CapturedWriter {
 	writer: StreamWriter;
 	writes: string[];
 	redraws: string[];
-	dones: number[];
+	dones: string[];
 }
 
 function fakeWriter(): CapturedWriter {
 	const writes: string[] = [];
 	const redraws: string[] = [];
-	const dones: number[] = [];
+	const dones: string[] = [];
 	const writer: StreamWriter = {
 		write: (text) => {
 			writes.push(text);
@@ -96,8 +96,8 @@ function fakeWriter(): CapturedWriter {
 		redraw: (frame) => {
 			redraws.push(frame);
 		},
-		done: () => {
-			dones.push(1);
+		done: (frame) => {
+			dones.push(frame);
 		},
 	};
 	return { writer, writes, redraws, dones };
@@ -108,7 +108,7 @@ interface Harness {
 	clock: RecordingClock;
 	writes: string[];
 	redraws: string[];
-	dones: number[];
+	dones: string[];
 	outputs: string[];
 }
 
@@ -229,19 +229,20 @@ describe("tty live region", () => {
 		expect(clock.sleeps.every((ms) => ms === SPINNER_FRAME_MS)).toBe(true);
 	});
 
-	test("finish persists the live region once and writes the settled block", async () => {
+	test("finish atomically persists the exact settled frame and writes the final block", async () => {
 		const c = caps();
 		const { deps, writes, dones } = harness();
 		const sink = createStreamSink(c, deps);
 
 		sink.start();
-		sink.render((tick: number) => [phaseLine("active", tick)]);
+		sink.render((tick: number) => [phaseLine("active", tick), "transient tail"]);
 		await sink.hold({ tickMs: 90, transient: "Validating locally" });
-		sink.render(() => [phaseLine("done")]);
+		const settledFrame = [phaseLine("done")];
+		sink.render(() => settledFrame);
 		sink.finish(["", fixtureBold("Submitted")]);
 		sink.stop();
 
-		expect(dones).toHaveLength(1);
+		expect(dones).toEqual([settledFrame.join("\n")]);
 		expect(writes.some((w) => w.includes("Submitted"))).toBe(true);
 	});
 });
