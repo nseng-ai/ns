@@ -7,7 +7,7 @@ findings against the live files before editing (line references in
 
 ## Work
 
-- [ ] Tranche 0 — correctness fixes: repair the verified skill-text-vs-reality bugs.
+- [x] Tranche 0 — correctness fixes: repair the verified skill-text-vs-reality bugs.
       Guidance: objective-retro writes to the retired `objective-review` brmem namespace its
       own contract forbids; branch-context-impl names a nonexistent
       `data.implementation_prompt_file` field and enriched-plan-save reports snake_case

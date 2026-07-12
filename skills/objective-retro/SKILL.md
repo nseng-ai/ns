@@ -193,7 +193,7 @@ Alternates and caveats:
 ## Structural Digest
 
 - <none; below cutoff>
-- or: `objective-review:digest/<slug>/<timestamp>.md`
+- or: `objective-retro:digest/<slug>/<timestamp>.md`
 
 ## How to Review From This Basis
 
@@ -203,8 +203,8 @@ Materialize the per-PR diffs above, then apply any review lens. Treat this basis
 Write with explicit branch and namespace:
 
 ```bash
-brmem check "basis/<slug>/<timestamp>.md" --namespace objective-review --branch <branch> --format json
-brmem put "basis/<slug>/<timestamp>.md" --namespace objective-review --branch <branch> --file <briefing.md> --format json
+brmem check "basis/<slug>/<timestamp>.md" --namespace objective-retro --branch <branch> --format json
+brmem put "basis/<slug>/<timestamp>.md" --namespace objective-retro --branch <branch> --file <briefing.md> --format json
 ```
 
 If a digest exists, check and put the digest key the same way.

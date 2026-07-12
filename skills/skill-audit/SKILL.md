@@ -116,7 +116,7 @@ Look for large wins, not tiny wrappers. Push down when it removes: 20+ prompt li
 
 Do not push down: semantic reading or naming; markdown parsing; one obvious command; under-30-line one-off helpers.
 
-If pushing down, target one cohesive command returning JSON with `success`, structured `error`, and all data the next agent decision needs.
+If pushing down, target one cohesive command returning JSON in the project CLI framework's envelope (Clinkr's status-keyed envelope here; `success`/`error` shape only as a no-framework fallback), with all data the next agent decision needs.
 
 ## Edit Rules
 

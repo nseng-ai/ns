@@ -23,32 +23,10 @@ references:
 Production-quality Python coding standards for writing clean, maintainable, modern Python code
 (versions 3.10-3.13).
 
-## When to Use This Skill
+## Core Knowledge
 
-Auto-invoke when users ask about:
-
-- "make this pythonic" / "is this good python"
-- "type hints" / "type annotations" / "typing"
-- "LBYL vs EAFP" / "exception handling"
-- "pathlib vs os.path" / "path operations"
-- "CLI patterns" / "click usage"
-- "code review" / "improve this code"
-- Any Python code quality or standards question
-
-## When to Use This Skill vs. Others
-
-| User Need              | Use This Skill              |
-| ---------------------- | --------------------------- |
-| "make this pythonic"   | ✅ Yes - Python standards   |
-| "is this good python"  | ✅ Yes - code quality       |
-| "type hints"           | ✅ Yes - typing guidance    |
-| "LBYL vs EAFP"         | ✅ Yes - exception patterns |
-| "pathlib vs os.path"   | ✅ Yes - path handling      |
-| "CLI argument parsing" | ✅ Yes - CLI patterns       |
-
-## Core Knowledge (ALWAYS Loaded)
-
-@dignified-python-core.md
+Read `dignified-python-core.md` (in this skill's directory) first, before writing or reviewing
+any Python — it carries the core standards covering the 80% case.
 
 ## Version Detection
 

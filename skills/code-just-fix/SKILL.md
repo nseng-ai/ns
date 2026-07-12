@@ -21,10 +21,10 @@ Run `just` (the project's default check suite) and fix every failure.
 ## Invocation
 
 1. **Run `just`** in the project root and capture full output.
-2. **Categorize failures** into: lint (`ruff check`), format (`ruff format --check`, `dprint check`), type errors (`ty check`), and test failures (`pytest`).
+2. **Categorize failures by failing `just` recipe** — from the ``error: Recipe `<name>` failed`` lines and each recipe's output — into: formatting, lint, type/compile errors, test failures, and project-metadata checks.
 3. **Fix the underlying code**, not the checks:
-   - Lint/format: run `just fix` and `just dprint-fix`, then re-run `just` to confirm.
-   - Type errors: fix the source code so `ty check` passes.
+   - Formatting/lint: run `just fix` (plus any recipe-specific fixer the justfile provides), then re-run `just` to confirm.
+   - Type/compile errors: fix the source code until the failing check recipe passes.
    - Test failures: **read the failing test AND the code under test**. Fix the production code or the test depending on where the real bug is. Never delete, skip, or weaken a test to make it pass — fix the root cause.
 4. **Re-run `just`** after all fixes. Repeat until green, you hit an iteration limit (see below), or you need user input.
 5. If a failure is ambiguous (e.g., a test asserts behavior you're unsure is correct), **ask the user directly** before changing anything.
@@ -43,7 +43,7 @@ If the current harness has a planning or read-only mode and it is active:
 ## Rules
 
 - Always fix the root cause. If a test is failing because production code changed, fix the production code (or update the test if the new behavior is intentionally correct — but ask first if unsure).
-- Never use `# noqa`, `# type: ignore`, `@pytest.mark.skip`, or similar suppressions to silence failures.
+- Never suppress failures with lint/type-ignore comments, test skips, or similar mechanisms.
 - After all fixes, run `just` one final time and confirm the full suite is green.
 
 ## Iteration Limits
@@ -56,9 +56,9 @@ If the current harness has a planning or read-only mode and it is active:
 Print a numbered log line to the user after each iteration so they can follow along:
 
 ```
-Iteration 1: Running `just` — found 3 lint errors, 2 format issues
-Iteration 2: Ran `just fix` + `just dprint-fix` — lint/format clean, 1 ty error remains
-Iteration 3: Fixed type error in src/ns/cli/main.py — all checks pass
+Iteration 1: Running `just` — 2 recipes failing (dprint-check, ts-check)
+Iteration 2: Ran `just fix` — format/lint clean, 1 type error remains (ts-check)
+Iteration 3: Fixed type error in the failing module — all checks pass
 ```
 
 ## Reporting Formats
@@ -68,13 +68,10 @@ Iteration 3: Fixed type error in src/ns/cli/main.py — all checks pass
 ```
 ## code-just-fix: SUCCESS
 
-All checks passed after N iteration(s):
+All checks passed after N iteration(s), one line per recipe the justfile ran:
 
-- **Lint (ruff check)**: PASSED
-- **Format (ruff format)**: PASSED
-- **Format (dprint)**: PASSED
-- **Type check (ty)**: PASSED
-- **Tests (pytest)**: PASSED
+- **<recipe>**: PASSED
+- **<recipe>**: PASSED
 ```
 
 ### Stuck
@@ -84,7 +81,7 @@ All checks passed after N iteration(s):
 
 Unable to resolve the following after N attempts:
 
-**Check**: [lint / format / ty / test]
+**Check**: [failing just recipe]
 **Error**: [exact error message]
 **File**: [path if applicable]
 

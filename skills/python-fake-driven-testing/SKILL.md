@@ -86,8 +86,8 @@ and examples.
   `references/mock-to-fake-conversion.md`.
 - Implementing CliRunner, constructor injection, builders, mutation tracking,
   dry-run behavior, or error injection: read `references/patterns.md`.
-- Working with framework-specific pytest or web-app details: read
-  `references/python-specific.md`.
+- Testing web frameworks (Flask/FastAPI/Django) or Click apps, or typing test
+  doubles: read `references/python-specific.md`.
 - Extending the gateway system, such as dry-run preview behavior: read
   `references/advanced-extensions.md`.
 - Unsure whether an approach is valid: read `references/anti-patterns.md`.

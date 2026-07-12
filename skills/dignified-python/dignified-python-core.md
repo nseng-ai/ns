@@ -4,8 +4,8 @@
 
 # Dignified Python - Core Standards
 
-This document contains the core Python coding standards that apply to 80%+ of Python code. These
-principles are loaded with every skill invocation.
+This document contains the core Python coding standards that apply to 80%+ of Python code. Read
+this file first on every dignified-python invocation, before any conditional reference.
 
 For conditional loading of specialized patterns:
 

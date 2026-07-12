@@ -6,11 +6,12 @@ description: "Bootstrap and scaffold new projects and their tooling: create a Py
 
 # project-setup
 
-Ambient router for the one-shot project bootstrap and scaffold family. The leaf
-skills below are **unlisted**: they carry no harness registration anywhere (no
-ambient description on Claude Code, Codex, or Pi, and no `/skill` typeahead
-entry), so this router is their only ambient surface. Match the user's request to
-a route, then read that leaf's `SKILL.md` directly as the active playbook.
+User-invoked router for the one-shot project bootstrap and scaffold family —
+summon it by name. The leaf skills below are **unlisted**: they carry no harness
+registration anywhere (no harness-injected description on Claude Code, Codex, or
+Pi, and no `/skill` typeahead entry), so they are reached through this router (or
+`areg skill find`). Match the user's request to a route, then read that leaf's
+`SKILL.md` directly as the active playbook.
 
 ## Skill family
 

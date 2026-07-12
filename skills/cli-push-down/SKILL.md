@@ -62,12 +62,16 @@ Command shape:
 
 - Accept explicit args/flags. Avoid hidden prompt assumptions.
 - Emit JSON to stdout. Logs go stderr.
-- Top level includes `success: bool`.
-- Failure includes `error.message`; include `error.code` when useful.
+- Use the project CLI framework's result envelope when one exists — in this
+  repo, the Clinkr status-keyed envelope (see `ns-cli-design` hard gates /
+  ADR 0011) — including its error and exit-code semantics.
+- Fallback shape only when the project has no framework envelope: top level
+  includes `success: bool`; failure includes `error.message` (+ `error.code`
+  when useful).
 - Success includes all needed payload, plus a compact `summary` when helpful.
 - Output should be stable enough for agents/tests. No prose-only output.
 
-Example shapes:
+Fallback example shapes (no framework envelope):
 
 ```json
 {"success": true, "summary": "...", "items": []}
@@ -83,7 +87,9 @@ Example shapes:
 2. Pick the biggest win, not every small smell.
 3. Define JSON contract before code.
 4. Implement in project CLI framework.
-5. Test happy path, failures, edge cases. Mock APIs/subprocess/filesystem.
+5. Test happy path, failures, edge cases. Use the project testing skill's
+   doubles — in this repo, gateway fakes per `typescript-fake-driven-testing`
+   (module mocks like `vi.mock` are banned).
 6. Register command in CLI group.
 7. Replace prompt block with one invocation and JSON interpretation rules.
 8. Compare before/after line count; target 50%+ reduction for that block.

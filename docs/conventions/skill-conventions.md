@@ -13,7 +13,7 @@ Skill management in this repo is layered. The channels are additive and compleme
 
 Externally sourced skills overlay onto this management rather than escaping it: skill content is upstream's, invocation policy is ours, and the harness overlays are the seam where the two meet.
 
-Procedures for channels 2–3 — adding, editing, removing, updating, listing, and publishing skills with `npx skills` — are documented in the `skill-management` skill. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand; if it is not already loaded or available, resolve it with `areg skill find skill-management --format json` and read the returned preferred `SKILL.md` path. The canonical ns install flag is `--agent codex claude-code -y`. **Exception:** `unlisted` skills have no mirrors at all — `areg skill apply unlisted` removes both `.agents/skills/<name>` and `.claude/skills/<name>`, leaving only the canonical `skills/<name>/` source.
+Procedures for channels 2–3 — adding, editing, removing, updating, and listing skills with `npx skills` — are documented in the `skill-management` skill. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand; if it is not already loaded or available, resolve it with `areg skill find skill-management --format json` and read the returned preferred `SKILL.md` path. The canonical ns install flag is `--agent codex claude-code -y`. **Exception:** `unlisted` skills have no mirrors at all — `areg skill apply unlisted` removes both `.agents/skills/<name>` and `.claude/skills/<name>`, leaving only the canonical `skills/<name>/` source.
 
 ### Auditing and Tightening Skills
 

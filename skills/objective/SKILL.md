@@ -135,7 +135,7 @@ A picker UI may use deterministic git facts to group changed active Objectives f
 
 ## Tracking Gate
 
-Before `objective-next` recommends work or offers confirmed execution, check read-only whether material progress appears present in repo changes but absent from the selected Objective. If current-branch or worktree evidence clearly shows material unrecorded progress for that same selected Objective, treat the `objective-next` request as update-and-continue preauthorization: perform the explicit Objective Update workflow, reread the Objective and repo evidence, and then continue `objective-next`. Ask first when evidence, Objective fit, or update scope is ambiguous. Changed-path evidence collection and materiality judgment both remain skill/agent responsibilities in v1.
+Before `objective-next` recommends work or offers confirmed execution, it checks whether material progress is present in repo changes but unrecorded in the selected Objective. Mechanics live in `objective-next`'s Tracking Gate: evidence comes from `ns objective exec tracking-gate <slug> --format json` (never hand-rolled pipelines); materiality judgment stays with the agent. Clear unrecorded progress for the selected Objective is update-and-continue preauthorization (run the Objective Update workflow, reread, continue); ask first when evidence, fit, or update scope is ambiguous.
 
 ## Objective consolidation
 
