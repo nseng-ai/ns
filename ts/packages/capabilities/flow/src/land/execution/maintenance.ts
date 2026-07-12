@@ -11,7 +11,7 @@ import type {
 	PullRequestFacts,
 } from "../types.ts";
 import { landingWarning } from "../types.ts";
-import type { LandExecutionProgress } from "./host-seams.ts";
+import type { LandExecutionMessageProgress } from "./host-seams.ts";
 import type { MergeLoopState } from "./merge-loop.ts";
 import {
 	aggregateOptionalDescendantMaintenanceWarnings,
@@ -29,7 +29,7 @@ import {
 	type MaintenanceTargetPlan,
 } from "./maintenance-plan.ts";
 
-export type GraphiteMaintenanceProgress = LandExecutionProgress;
+export type GraphiteMaintenanceProgress = LandExecutionMessageProgress;
 
 interface GraphiteMaintenanceStep {
 	readonly index: number;

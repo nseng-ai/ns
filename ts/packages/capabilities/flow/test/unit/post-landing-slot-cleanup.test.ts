@@ -5,7 +5,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type {
 	LandConfirmationGateway,
 	LandConfirmationRequest,
-	LandExecutionProgress,
+	LandExecutionStatusProgress,
 } from "../../src/land/execution/host-seams.ts";
 import {
 	resolveManagedSlotPostLandingCleanupDecision,
@@ -21,6 +21,7 @@ import { parseArgs } from "../../src/land/land-stack.ts";
 import { buildUpfrontStackConfirmation } from "../../src/land/landing-dispatch.ts";
 import {
 	approvedLandConfirmationKinds,
+	createCleanupProgress,
 	planPostLandingSlotCleanup,
 	postLandingCleanupRequestFromArgs,
 	runPostLandingSlotCleanup,
@@ -541,6 +542,11 @@ describe("core post-landing cleanup", () => {
 		});
 	});
 
+	test("cleanup progress adapter exposes only the status capability", () => {
+		const fixture = createCleanupContext({ hasUI: true });
+		expect(Object.keys(createCleanupProgress(fixture.ctx))).toEqual(["setStatus"]);
+	});
+
 	test("clears status after successful cleanup", async () => {
 		const { context } = createInMemoryLandContext();
 		const statuses: Array<string | undefined> = [];
@@ -557,15 +563,11 @@ describe("core post-landing cleanup", () => {
 	});
 });
 
-function recordingProgress(statuses: Array<string | undefined>): LandExecutionProgress {
+function recordingProgress(statuses: Array<string | undefined>): LandExecutionStatusProgress {
 	return {
-		note() {},
 		setStatus(message) {
 			statuses.push(message);
 		},
-		setStep() {},
-		recordMergedPullRequest() {},
-		planRecalculated() {},
 	};
 }
 

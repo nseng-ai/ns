@@ -4,7 +4,10 @@
 // ParsedArgs -> cleanup policy mapping, the upfront-confirmation preview, and the isolated
 // fast-path glue that still runs cleanup outside canonical stack execution.
 
-import type { LandConfirmationRequest, LandExecutionProgress } from "./execution/host-seams.ts";
+import type {
+	LandConfirmationRequest,
+	LandExecutionStatusProgress,
+} from "./execution/host-seams.ts";
 import {
 	planManagedSlotPostLandingCleanup,
 	runManagedSlotPostLandingCleanup,
@@ -102,12 +105,8 @@ export async function runPostLandingSlotCleanup(
 
 export function createCleanupProgress(
 	ctx: PrintAwareLandStackCommandContext,
-): LandExecutionProgress {
+): LandExecutionStatusProgress {
 	return {
-		note() {},
 		setStatus: (message) => setStatus(ctx, message),
-		setStep() {},
-		recordMergedPullRequest() {},
-		planRecalculated() {},
 	};
 }

@@ -6,7 +6,7 @@ import type {
 	PullRequestFacts,
 	StackSnapshot,
 } from "../types.ts";
-import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
+import type { LandConfirmationGateway, LandExecutionMessageProgress } from "./host-seams.ts";
 import { isVerifiedMergedPullRequest } from "./merged-pull-request-verification.ts";
 import {
 	resolveManagedSlotPostLandingCleanupDecision,
@@ -18,7 +18,7 @@ const SQUASH_MERGE_PROGRESS = "Running gh pr merge --squash with PR title/body a
 
 export interface IsolatedLandingHost {
 	readonly confirmation: LandConfirmationGateway;
-	readonly progress: LandExecutionProgress;
+	readonly progress: LandExecutionMessageProgress;
 }
 
 export interface ExecuteIsolatedLandingOptions {
