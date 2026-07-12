@@ -145,60 +145,8 @@ Below the cutoff, the basis can point reviewers directly at the per-PR materiali
 
 ### 6. Write the basis artifact
 
-Create a Markdown briefing with this shape:
-
-````markdown
-# Objective Retro Basis: <slug>
-
-## Objective
-
-- Slug: <slug>
-- Title: <title>
-- Closure state: <open|closed|deleted|unknown>
-- Source record: <path>
-- Storage branch: <branch>
-
-## Delivering PRs
-
-- PR #<n>: <title> — <url> — Confidence: <high|medium|low>; Evidence: <why included>
-
-## Commit Set
-
-- <sha> <subject> — PR #<n or unknown> — Evidence: <objective-dir touch|recorded PR|other>
-
-## File Union
-
-- `<path>`
-
-## Materialization Strategy
-
-Default: per-PR diffs.
-
-Reproduce:
-
-```bash
-gh pr diff <n> --patch > /tmp/objective-<slug>-pr-<n>.patch
-```
-
-Alternates and caveats:
-
-- live-file-state: fast but drift-contaminated; do not use as primary post-merge evidence.
-- commit-set-union: faithful to selected commits but fragile around checkpoint/noise commits and attribution gaps.
-
-## Confidence / Gaps
-
-- Overall confidence: <high|medium|low>
-- <explicit gap or caveat>
-
-## Structural Digest
-
-- <none; below cutoff>
-- or: `objective-retro:digest/<slug>/<timestamp>.md`
-
-## How to Review From This Basis
-
-Materialize the per-PR diffs above, then apply any review lens. Treat this basis as the delivered-scope evidence, not as findings or approval.
-````
+Create a Markdown briefing using the basis artifact template — read
+`references/templates.md` ("Basis artifact template") before writing.
 
 Write with explicit branch and namespace:
 
@@ -213,32 +161,7 @@ If a digest exists, check and put the digest key the same way.
 
 Skip this phase only when the user explicitly asked for the basis alone.
 
-Materialize the per-PR diffs from the basis and read them alongside the Objective record (thesis, scope, completion criteria, roadmap, Semantic Updates). Then write the retro artifact — source-backed judgment over the delivered unit:
-
-```markdown
-# Objective Retro: <slug>
-
-## Basis
-
-- `objective-retro:basis/<slug>/<timestamp>.md` — confidence: <high|medium|low>
-
-## Findings
-
-- <finding> — Evidence: <PR/commit/file/update citation>
-
-## Scope vs thesis
-
-- Delivered scope vs the Objective's thesis and completion criteria: what shipped, what drifted, what was dropped — with citations.
-- Roadmap-vs-delivered gaps: rows claimed done without evidence, or delivered work no row covers.
-
-## What went well / what dragged
-
-- <observation tied to evidence: PR shape, slice sizing, rework, review friction, tracking hygiene>
-
-## Recommendations
-
-- <actionable recommendation, smallest useful change first>
-```
+Materialize the per-PR diffs from the basis and read them alongside the Objective record (thesis, scope, completion criteria, roadmap, Semantic Updates). Then write the retro artifact — source-backed judgment over the delivered unit — using the retro artifact template: read `references/templates.md` ("Retro artifact template") before writing.
 
 Every finding and recommendation cites something read in the diffs, the Objective record, or PR evidence — a claim that could have been written without reading the basis does not count. No approval verdicts, no merge gates. Store it at the `retro/<slug>/<timestamp>.md` key with the same `brmem check` / `brmem put` discipline.
 
@@ -253,7 +176,3 @@ Summarize:
 - Top findings and recommendations, or that the run was basis-only.
 - Overall confidence and explicit gaps.
 - Confirmation that Objective records were read-only.
-
-## Manual sanity check
-
-When changing this skill, dry-run the reconstruction against `branch-context-plans-extension`. A healthy run should reconstruct PRs #2112, #2114, #2119, #2120, #2136, and #2138, and explicitly mention known gaps such as a non-objective `checkBranchRefFormat` drift commit and `[cp]` checkpoint noise.

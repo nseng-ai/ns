@@ -37,6 +37,18 @@ Legend: ● active cmux  ◎ this Pi session/caller  ○ open inactive  DIRTY di
 ◯─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┘  master (ns-tools)  ○ ws55/ws56 ns-tools dup ↯label
 ```
 
+### Suggested ANSI palette
+
+- tree guide glyphs (`│`, `└`, `─`, `┴`) and branches with no cmux workspace: dim gray;
+- current Graphite branch marker / branch name: bold cyan;
+- `●` active cmux badge: bold green;
+- `◎` caller / this Pi session badge: bold magenta;
+- `○` open inactive badge: white or default foreground;
+- `DIRTY`: yellow;
+- `↯label`: red;
+- `dup`: blue;
+- `2t`, `3t`, etc.: cyan.
+
 For ANSI-capable terminal output, keep color subtle and redundant with text:
 
 ```text
