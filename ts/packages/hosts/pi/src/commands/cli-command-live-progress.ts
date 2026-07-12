@@ -18,9 +18,16 @@ import {
 } from "@nseng-ai/sdk";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
-import type { Component } from "@earendil-works/pi-tui";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 
+import type {
+	WidgetContent,
+	WidgetTheme,
+	WidgetThemeColor,
+	WidgetTuiHandle,
+} from "../runtime/tool-types.ts";
 import { withSafePiUi, withSafePiUiValue } from "../kit/shared/safe-ui.ts";
+import { spinnerFrameAt } from "../kit/shared/spinner-frames.ts";
 import { unrefTimerScheduler } from "../kit/shared/timers.ts";
 import { truncateDisplayLine } from "../kit/terminal/presentation.ts";
 import { traceCliCommand } from "./cli-command-trace.ts";
@@ -30,12 +37,33 @@ const LIVE_PROGRESS_WIDGET_ID = "ns-cli-command-output";
 const LIVE_PROGRESS_INTERVAL_MS = 1_000;
 const LIVE_PROGRESS_MAX_LINES = 8;
 const LIVE_PROGRESS_WIDGET_OUTPUT_LINES = 1;
+const SPINNER_INTERVAL_MS = 120;
 
 type OutputStreamName = "stdout" | "stderr";
 type LiveProgressTarget = "none" | "status" | "widget";
 type CommandWidgetPlacement = "aboveEditor" | "belowEditor";
 
-export type LiveProgressWidgetContent = string[] | (() => Component & { dispose?(): void });
+export type LiveProgressWidgetContent = WidgetContent;
+
+/** One styled span of a widget line; layout math runs on `text` before styling. */
+export interface WidgetSegment {
+	text: string;
+	style?: WidgetThemeColor;
+	isBold?: boolean;
+}
+
+export type WidgetLine = readonly WidgetSegment[];
+
+function paintWidgetLine(line: WidgetLine, theme: WidgetTheme, width: number): string {
+	const painted = line
+		.map((segment) => {
+			const styled =
+				segment.style === undefined ? segment.text : theme.fg(segment.style, segment.text);
+			return segment.isBold === true ? (theme.bold?.(styled) ?? styled) : styled;
+		})
+		.join("");
+	return truncateToWidth(painted, Math.max(1, width), "…");
+}
 
 interface LiveCommandProgressContext {
 	hasUI?: boolean;
@@ -75,13 +103,22 @@ class StructuredPhaseWidget {
 		this.store.apply(event);
 	}
 
-	phaseLines(): string[] {
+	phaseLines(activeGlyph: string): WidgetLine[] {
 		const phases = this.store.views();
-		const lines: string[] = [];
 		const nameWidth = Math.max(0, ...phases.map((phase) => phase.name.length));
+		const lines: WidgetLine[] = [];
 		for (const phase of phases) {
-			lines.push(phaseLine(phase, nameWidth));
-			for (const substep of phase.substeps) lines.push(`    ${phaseLine(substep, nameWidth - 4)}`);
+			lines.push(styledPhaseLine({ phase, nameWidth, activeGlyph }));
+			for (const substep of phase.substeps) {
+				lines.push(
+					styledPhaseLine({
+						phase: substep,
+						nameWidth: nameWidth - 4,
+						activeGlyph,
+						indent: "    ",
+					}),
+				);
+			}
 		}
 		return lines;
 	}
@@ -91,23 +128,64 @@ class StructuredPhaseWidget {
 		argv: readonly string[];
 		piCommandName: string;
 		elapsed: string;
-	}): string {
+	}): WidgetLine {
 		const invocationTitle = `${input.cliName} ${input.argv.join(" ")}`;
 		const title = this.store.title();
 		const titleSuffix = title !== undefined && title !== invocationTitle ? ` — ${title}` : "";
-		return `/${input.piCommandName}${titleSuffix} (${input.elapsed} elapsed)`;
+		const line: WidgetSegment[] = [
+			{ text: `/${input.piCommandName}`, style: "accent", isBold: true },
+		];
+		if (titleSuffix !== "") line.push({ text: titleSuffix, style: "text" });
+		line.push({ text: ` (${input.elapsed} elapsed)`, style: "dim" });
+		return line;
 	}
 }
 
-function phaseLine(phase: ProgressPhaseView, nameWidth: number): string {
-	const prefix = `${phaseGlyph(phase.state)} ${phase.name.padEnd(Math.max(0, nameWidth))}`;
+interface StyledPhaseLineOptions {
+	phase: ProgressPhaseView;
+	nameWidth: number;
+	activeGlyph: string;
+	indent?: string;
+}
+
+function styledPhaseLine(options: StyledPhaseLineOptions): WidgetLine {
+	const { phase, nameWidth, activeGlyph, indent = "" } = options;
+	const style = phaseRowStyle(phase.state);
+	const glyph = phase.state === "active" ? activeGlyph : phaseGlyph(phase.state);
+	const line: WidgetSegment[] = [
+		{ text: `${indent}${glyph}`, style: style.glyph },
+		{ text: ` ${phase.name.padEnd(Math.max(0, nameWidth))}`, style: style.name },
+	];
 	const text = textForWidgetPhase(phase);
-	return text === undefined ? prefix : `${prefix}  ${text}`;
+	if (text !== undefined) line.push({ text: `  ${text}`, style: style.detail });
+	return line;
 }
 
 function textForWidgetPhase(phase: ProgressPhaseView): string | undefined {
 	if (phase.state === "done" || phase.state === "skipped") return phase.detail ?? phase.label;
 	return phase.label;
+}
+
+interface PhaseRowStyle {
+	glyph: WidgetThemeColor;
+	name: WidgetThemeColor;
+	detail: WidgetThemeColor;
+}
+
+function phaseRowStyle(state: ProgressPhaseState): PhaseRowStyle {
+	const glyph = phaseStateColor(state);
+	switch (state) {
+		case "active":
+			return { glyph, name: "text", detail: "text" };
+		case "done":
+			return { glyph, name: "muted", detail: "muted" };
+		case "pending":
+			return { glyph, name: "dim", detail: "dim" };
+		case "skipped":
+			return { glyph, name: "muted", detail: "muted" };
+		case "failed":
+			return { glyph, name: "error", detail: "text" };
+	}
 }
 
 const MATRIX_DEFAULT_LABEL_HEADER = "Branch / PR";
@@ -124,9 +202,9 @@ interface MatrixWidgetCell {
 }
 
 /**
- * Plain-text state for the matrix-* progress events: a per-row × per-column
- * grid rendered below the phase checklist. The widget seam accepts only string
- * lines, so cells render with the same glyph set as the checklist.
+ * State for the matrix-* progress events: a per-row × per-column grid rendered
+ * below the phase checklist as styled widget lines. Cells share the checklist
+ * glyph set; the caller supplies the current spinner frame for active cells.
  */
 export class MatrixWidgetState {
 	private columns: MatrixWidgetColumn[] = [];
@@ -175,37 +253,55 @@ export class MatrixWidgetState {
 	}
 
 	/** Rendered matrix block; empty until declared. */
-	lines(maxLineWidth?: number): string[] {
+	lines(activeGlyph: string, maxLineWidth?: number): WidgetLine[] {
 		if (!this.hasDeclared) return [];
 		const labelWidth = this.labelWidth(maxLineWidth);
 		const header = this.columns
 			.map((column) => padMatrixProgressTextEnd(column.label, column.width))
 			.join("  ");
-		const lines: string[] = [];
-		lines.push(`${padMatrixProgressTextEnd(this.labelHeader, labelWidth)}  ${header}`);
+		const lines: WidgetLine[] = [
+			[
+				{
+					text: `${padMatrixProgressTextEnd(this.labelHeader, labelWidth)}  ${header}`,
+					style: "muted",
+				},
+			],
+		];
 		for (const row of this.rows) {
 			const label = padMatrixProgressTextEnd(
 				truncateDisplayLine(row.label, labelWidth),
 				labelWidth,
 			);
-			const cells = this.columns
-				.map((column) => centerMatrixProgressText(this.cellText(row.rowKey, column), column.width))
-				.join("  ");
-			lines.push(`${label}  ${cells}`);
+			const line: WidgetSegment[] = [{ text: label, style: "text" }];
+			for (const column of this.columns) {
+				line.push({ text: "  " });
+				line.push(this.cellSegment(row.rowKey, column, activeGlyph));
+			}
+			lines.push(line);
 		}
 		const activeOperationsLine = formatActiveOperationsLine(this.activeOperations);
-		if (activeOperationsLine !== undefined) lines.push(activeOperationsLine);
+		if (activeOperationsLine !== undefined) {
+			lines.push([{ text: activeOperationsLine, style: "muted" }]);
+		}
 		return lines;
 	}
 
-	private cellText(rowKey: string, column: MatrixWidgetColumn): string {
+	private cellSegment(
+		rowKey: string,
+		column: MatrixWidgetColumn,
+		activeGlyph: string,
+	): WidgetSegment {
 		const cell = this.cellsByRow.get(rowKey)?.get(column.key);
+		const state = cell?.state ?? "pending";
 		// Compact text renders only when it fits the column (mirrors the CLI matrix);
 		// otherwise the state glyph keeps narrow columns scannable.
-		if (cell?.text !== undefined && matrixProgressDisplayWidthChars(cell.text) <= column.width) {
-			return cell.text;
-		}
-		return phaseGlyph(cell?.state ?? "pending");
+		const text =
+			cell?.text !== undefined && matrixProgressDisplayWidthChars(cell.text) <= column.width
+				? cell.text
+				: state === "active"
+					? activeGlyph
+					: phaseGlyph(state);
+		return { text: centerMatrixProgressText(text, column.width), style: phaseStateColor(state) };
 	}
 
 	private labelWidth(maxLineWidth?: number): number {
@@ -219,6 +315,21 @@ export class MatrixWidgetState {
 		const columnSeparatorsWidth = Math.max(0, this.columns.length - 1) * 2;
 		const availableLabelWidth = maxLineWidth - columnWidth - columnSeparatorsWidth - 2;
 		return Math.max(MATRIX_PROGRESS_MIN_LABEL_WIDTH_CHARS, Math.min(longest, availableLabelWidth));
+	}
+}
+
+function phaseStateColor(state: ProgressPhaseState): WidgetThemeColor {
+	switch (state) {
+		case "active":
+			return "accent";
+		case "done":
+			return "success";
+		case "pending":
+			return "dim";
+		case "skipped":
+			return "muted";
+		case "failed":
+			return "error";
 	}
 }
 
@@ -238,6 +349,8 @@ export class LiveCommandProgress {
 	private lastStatusValue: string | undefined;
 	private timer: ScheduledTimer | undefined;
 	private isClosed = false;
+	private spinnerTick = 0;
+	private readonly widgetRenderRequests = new Set<() => void>();
 
 	constructor(ctx: LiveCommandProgressContext, options: LiveCommandProgressOptions) {
 		this.ctx = ctx;
@@ -252,15 +365,26 @@ export class LiveCommandProgress {
 
 		if (this.target === "none") return;
 
-		this.render();
+		if (this.target === "widget") {
+			this.installWidget();
+			if (this.isClosed) return;
+			this.timer = (options.timers ?? unrefTimerScheduler).setInterval(() => {
+				this.spinnerTick += 1;
+				this.requestWidgetRender();
+			}, SPINNER_INTERVAL_MS);
+			return;
+		}
+
+		this.refresh();
+		if (this.isClosed) return;
 		this.timer = (options.timers ?? unrefTimerScheduler).setInterval(() => {
-			this.render();
+			this.refresh();
 		}, LIVE_PROGRESS_INTERVAL_MS);
 	}
 
 	setPhase(phase: string): void {
 		this.phase = phase;
-		this.render();
+		this.refresh();
 	}
 
 	appendOutput(stream: OutputStreamName, text: string): void {
@@ -282,7 +406,7 @@ export class LiveCommandProgress {
 			stream,
 			target: this.target,
 		});
-		this.render();
+		this.refresh();
 	}
 
 	applyPhaseEvent(event: NsProgressPhaseEvent): void {
@@ -292,7 +416,7 @@ export class LiveCommandProgress {
 		} else {
 			this.structuredWidget.applyPhaseEvent(event);
 		}
-		this.render();
+		this.refresh();
 	}
 
 	close(): void {
@@ -316,21 +440,58 @@ export class LiveCommandProgress {
 		});
 	}
 
-	private render(): void {
+	private refresh(): void {
 		if (this.target === "none" || this.isClosed) return;
+
+		if (this.target === "widget") {
+			this.requestWidgetRender();
+			return;
+		}
 
 		const elapsed = formatElapsedMs(Date.now() - this.startedAt);
 		this.runLiveUiUpdate(() => {
 			this.renderStatus(elapsed);
+		});
+	}
+
+	private installWidget(): void {
+		this.runLiveUiUpdate(() => {
 			this.ctx.ui.setWidget?.(
 				LIVE_PROGRESS_WIDGET_ID,
-				() => ({
-					render: (width) => this.widgetLines(elapsed, width),
-					invalidate() {},
-				}),
+				(tui: WidgetTuiHandle, theme: WidgetTheme) => {
+					const requestRender = (): void => {
+						tui.requestRender();
+					};
+					this.widgetRenderRequests.add(requestRender);
+					return {
+						render: (width: number): string[] => {
+							if (this.isClosed || width <= 0) return [];
+							const elapsed = formatElapsedMs(Date.now() - this.startedAt);
+							return this.buildWidgetLines(elapsed, width).map((line) =>
+								paintWidgetLine(line, theme, width),
+							);
+						},
+						invalidate(): void {},
+						dispose: (): void => {
+							this.widgetRenderRequests.delete(requestRender);
+						},
+					};
+				},
 				{ placement: "aboveEditor" },
 			);
 		});
+	}
+
+	private requestWidgetRender(): void {
+		if (this.isClosed) return;
+		for (const requestRender of this.widgetRenderRequests) {
+			try {
+				requestRender();
+			} catch {
+				// A callback from a disposed TUI must not break later progress updates.
+				this.widgetRenderRequests.delete(requestRender);
+			}
+		}
 	}
 
 	private renderStatus(elapsed: string): void {
@@ -366,47 +527,62 @@ export class LiveCommandProgress {
 		return `/${this.options.piCommandName} ${this.phase} (${elapsed})`;
 	}
 
-	private widgetLines(elapsed: string, width: number): string[] {
+	private buildWidgetLines(elapsed: string, width: number): WidgetLine[] {
+		const activeGlyph = spinnerFrameAt(this.spinnerTick);
 		if (this.structuredWidget.isActive || this.matrixWidget.isActive) {
-			const header = this.structuredWidget.headerLine({
-				cliName: this.options.cliName,
-				argv: this.options.argv,
-				piCommandName: this.options.piCommandName,
-				elapsed,
-			});
-			const lines = [
-				header,
-				...this.structuredWidget.phaseLines(),
-				...(this.matrixWidget.isActive ? ["", ...this.matrixWidget.lines(width)] : []),
+			const lines: WidgetLine[] = [
+				this.structuredWidget.headerLine({
+					cliName: this.options.cliName,
+					argv: this.options.argv,
+					piCommandName: this.options.piCommandName,
+					elapsed,
+				}),
+				...this.structuredWidget.phaseLines(activeGlyph),
 			];
+			if (this.matrixWidget.isActive) {
+				lines.push([]);
+				lines.push(...this.matrixWidget.lines(activeGlyph, width));
+			}
 			const latestOutput = this.recentOutputLines().at(-1);
 			if (latestOutput !== undefined) {
-				lines.push(`  ${formatLiveOutputLine(latestOutput)}`);
+				lines.push([{ text: `  ${formatLiveOutputLine(latestOutput)}`, style: "dim" }]);
 			}
-			return lines.map((line) => truncateDisplayLine(line, width));
+			return lines;
 		}
 
-		const lines = [
-			`/${this.options.piCommandName} ${this.phase} (${elapsed} elapsed)`,
-			`$ ${formatCommandForDisplay(this.options.cliName, this.options.argv)} · stdout ${this.stdoutChars}, stderr ${this.stderrChars}`,
+		const lines: WidgetLine[] = [
+			[
+				{ text: `/${this.options.piCommandName}`, style: "accent", isBold: true },
+				{ text: ` ${this.phase}`, style: "text" },
+				{ text: ` (${elapsed} elapsed)`, style: "dim" },
+			],
+			[
+				{
+					text: `$ ${formatCommandForDisplay(this.options.cliName, this.options.argv)} · stdout ${this.stdoutChars}, stderr ${this.stderrChars}`,
+					style: "muted",
+				},
+			],
 		];
 		const recentLines = this.recentOutputLines();
 		if (recentLines.length === 0) {
-			lines.push("No CLI output yet.");
-			return lines.map((line) => truncateDisplayLine(line, width));
+			lines.push([{ text: "No CLI output yet.", style: "dim" }]);
+			return lines;
 		}
 
 		const shownLines = recentLines.slice(-LIVE_PROGRESS_WIDGET_OUTPUT_LINES);
 		const hiddenLineCount = recentLines.length - shownLines.length;
 		if (hiddenLineCount > 0) {
-			lines.push(
-				`… ${hiddenLineCount} earlier recent CLI line${hiddenLineCount === 1 ? "" : "s"} hidden`,
-			);
+			lines.push([
+				{
+					text: `… ${hiddenLineCount} earlier recent CLI line${hiddenLineCount === 1 ? "" : "s"} hidden`,
+					style: "dim",
+				},
+			]);
 		}
 		for (const line of shownLines) {
-			lines.push(formatLiveOutputLine(line));
+			lines.push([{ text: formatLiveOutputLine(line), style: "dim" }]);
 		}
-		return lines.map((line) => truncateDisplayLine(line, width));
+		return lines;
 	}
 
 	private recordOutput(stream: OutputStreamName, text: string): void {
@@ -463,12 +639,10 @@ function formatLiveOutputLine(line: LiveOutputLine): string {
 	return `${line.stream}: ${line.text}`;
 }
 
-function phaseGlyph(state: ProgressPhaseState): string {
+function phaseGlyph(state: Exclude<ProgressPhaseState, "active">): string {
 	switch (state) {
 		case "done":
 			return "✓";
-		case "active":
-			return "▸";
 		case "pending":
 			return "·";
 		case "skipped":

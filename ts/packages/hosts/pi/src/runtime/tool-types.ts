@@ -13,9 +13,42 @@ export type ExtensionMode = "tui" | "rpc" | "json" | "print";
 
 export type WidgetPlacement = "aboveEditor" | "belowEditor";
 
+/** Subset of Pi's ThemeColor used by ns widgets; the real Theme accepts a superset. */
+export type WidgetThemeColor =
+	| "accent"
+	| "success"
+	| "error"
+	| "warning"
+	| "muted"
+	| "dim"
+	| "text";
+
+/**
+ * Structural view of Pi's Theme. The real Theme is a class with private
+ * members, so widget code and test fakes depend on this minimal contract
+ * instead; contravariance keeps factories assignable to Pi's
+ * `(tui: TUI, theme: Theme) => Component` overload.
+ */
+export interface WidgetTheme {
+	fg(color: WidgetThemeColor, text: string): string;
+	bold?(text: string): string;
+}
+
+/** Structural view of Pi's TUI limited to what widget factories need. */
+export interface WidgetTuiHandle {
+	requestRender(): void;
+}
+
+export type WidgetComponentFactory = (
+	tui: WidgetTuiHandle,
+	theme: WidgetTheme,
+) => ToolRenderComponent & { dispose?(): void };
+
+export type WidgetContent = string[] | WidgetComponentFactory;
+
 export type SetWidgetFunction = (
 	key: string,
-	content: string[] | undefined,
+	content: WidgetContent | undefined,
 	options?: { placement?: WidgetPlacement },
 ) => void;
 

@@ -28,8 +28,13 @@ export type {
 	ToolContext,
 	ToolDefinition,
 	ToolResult,
+	WidgetComponentFactory,
+	WidgetContent,
 	WidgetPlacement,
 	WidgetRuntimeContext,
+	WidgetTheme,
+	WidgetThemeColor,
+	WidgetTuiHandle,
 } from "./tool-types.ts";
 
 export interface AutocompleteItem {

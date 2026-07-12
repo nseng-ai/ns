@@ -5,6 +5,7 @@ import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
 import type { RawPiExecResult } from "../src/kit/shared/command-exec.ts";
 import type { LiveProgressWidgetContent } from "../src/commands/cli-command-live-progress.ts";
+import { captureComponentWidgetRenders } from "./support/component-widget-snapshots.ts";
 
 const ROOT = "/repo";
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
@@ -149,13 +150,15 @@ function createContext(cwd = ROOT): {
 				content: LiveProgressWidgetContent | undefined,
 				options?: { placement?: "aboveEditor" | "belowEditor" },
 			): void {
-				const value =
-					content === undefined
-						? undefined
-						: typeof content === "function"
-							? content().render(100)
-							: content;
-				widgets.push({ key, value, options });
+				if (content === undefined || Array.isArray(content)) {
+					widgets.push({ key, value: content === undefined ? undefined : [...content], options });
+					return;
+				}
+				captureComponentWidgetRenders(content, {
+					onRender: (lines) => {
+						widgets.push({ key, value: lines, options });
+					},
+				});
 			},
 		},
 		async waitForIdle(): Promise<void> {
