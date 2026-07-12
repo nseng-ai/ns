@@ -21,8 +21,8 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
 1. Identify the target branch from the user request.
 2. Gather read-only evidence with existing Git, Graphite, and GitHub tools, following the display-output rule in `docs/conventions/graphite-dependency-boundary.md`:
    - `git status --short --branch` to verify the current workspace state before planning;
-   - `gt children --no-interactive <target-branch>` recursively to enumerate descendants;
-   - `gt parent --no-interactive <branch>` for each affected branch;
+   - `ns slot gt exec stack-branches --format json` to read the tracked stack topology in one call: when `<target-branch>` appears in `branches` (listed bottom-to-top), the descendants are the entries after it, and `edges` carries every parent→child relationship;
+   - `ns slot gt exec stack-map-branches --format json` when the target branch is missing from that stack or the command fails with `forked-stack` (the accidental-fork case this skill cleans up): find the `<target-branch>` row and follow `children` transitively to enumerate descendants; each row also carries its `parent`. If the target branch is absent from the emitted graph, rerun with a larger `--recent-limit`;
    - `git log --oneline --decorate --graph <target-branch>..HEAD` or branch-specific ranges to inspect commit shape;
    - `git diff --stat <parent>...<branch>` and focused `git diff <parent>...<branch> -- <paths>` to compare branch content;
    - `gt ls` only as a display cross-check for the human-readable stack;
