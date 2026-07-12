@@ -24,6 +24,7 @@ export function scanGrillBranch(entries: readonly unknown[]): SidequestScanState
 
 	let answeredCount = 0;
 	let hasEnded = false;
+	let remainingEstimate: GrillAskRemainingEstimate | undefined;
 	let pendingAsk: PendingGrillAsk | undefined;
 	let openQuests: ActiveSideQuest[] = [];
 
@@ -49,6 +50,7 @@ export function scanGrillBranch(entries: readonly unknown[]): SidequestScanState
 
 		const ask = grillAskCallFromEntry(entry);
 		if (ask !== undefined) {
+			remainingEstimate = ask.estimatedRemaining;
 			pendingAsk = ask;
 			continue;
 		}
@@ -82,6 +84,7 @@ export function scanGrillBranch(entries: readonly unknown[]): SidequestScanState
 	return {
 		grill: "active",
 		answeredCount,
+		...(remainingEstimate === undefined ? {} : { remainingEstimate }),
 		...(pendingAsk === undefined ? {} : { pendingAsk }),
 		...(activeQuest === undefined ? {} : { activeQuest }),
 	};

@@ -147,6 +147,7 @@ export type SidequestScanState =
 	| {
 			grill: "active";
 			answeredCount: number;
+			remainingEstimate?: GrillAskRemainingEstimate;
 			pendingAsk?: PendingGrillAsk;
 			activeQuest?: ActiveSideQuest;
 	  };

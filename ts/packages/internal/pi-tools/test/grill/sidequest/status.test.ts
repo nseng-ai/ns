@@ -14,7 +14,7 @@ describe("buildGrillStatusWidgetLines", () => {
 		expect(buildGrillStatusWidgetLines({ grill: "ended", answeredCount: 4 })).toBeUndefined();
 	});
 
-	test("grilling state shows progress, estimate, question preview, and the sq: hint", () => {
+	test("grilling state shows progress, estimate, and question preview", () => {
 		const lines = buildGrillStatusWidgetLines({
 			grill: "active",
 			answeredCount: 2,
@@ -28,17 +28,25 @@ describe("buildGrillStatusWidgetLines", () => {
 		expect(lines).toHaveLength(1);
 		const line = lines?.[0];
 		if (line === undefined) throw new Error("Expected one Grill status line");
-		expect(line).toContain("▌GRILL · 2 answered · Q3 pending");
-		expect(line).toContain("Remaining 2–4");
+		expect(line).toContain("[grill] · 2 answered · Remaining 2–4");
+		expect(line).toContain("Q3 pending");
 		expect(line).toContain('"How should the cache invalidate entries across worktrees?"');
-		expect(line).toContain("⚑ Start a side quest in grill menu");
+		expect(line).not.toContain("Start a side quest in grill menu");
 	});
 
-	test("grilling state without a pending ask truthfully reports being between questions", () => {
-		const lines = buildGrillStatusWidgetLines({ grill: "active", answeredCount: 0 });
+	test("grilling state without a pending ask shows the remaining estimate", () => {
+		const lines = buildGrillStatusWidgetLines({
+			grill: "active",
+			answeredCount: 10,
+			remainingEstimate: { kind: "range", min: 2, max: 4, basis: "two open branches" },
+		});
 
-		expect(lines).toEqual([
-			"▌GRILL · 0 answered · between questions · ⚑ Start a side quest in grill menu",
+		expect(lines).toEqual(["[grill] · 10 answered · Remaining 2–4 (rough: two open branches)"]);
+	});
+
+	test("grilling state without an available estimate reports that it is unknown", () => {
+		expect(buildGrillStatusWidgetLines({ grill: "active", answeredCount: 0 })).toEqual([
+			"[grill] · 0 answered · Remaining unknown (estimate not supplied)",
 		]);
 	});
 
@@ -69,7 +77,7 @@ describe("buildGrillStatusWidgetLines", () => {
 		});
 
 		expect(lines).toEqual([
-			"▌GRILL ⚑ side quest: cache layout · paused at Q3 · back: tree → ⚑ mark, or /pi:grill-return",
+			"[grill] ⚑ side quest: cache layout · paused at Q3 · back: tree → ⚑ mark, or /pi:grill-return",
 		]);
 	});
 });
@@ -114,7 +122,7 @@ describe("refreshGrillStatusWidget", () => {
 		refreshGrillStatusWidget(active.ctx);
 		expect(active.calls).toEqual([
 			{
-				lines: ["▌GRILL · 0 answered · between questions · ⚑ Start a side quest in grill menu"],
+				lines: ["[grill] · 0 answered · Remaining unknown (estimate not supplied)"],
 				placement: "belowEditor",
 			},
 		]);
