@@ -15,6 +15,8 @@ never by forking flow.
   Graphite-native by design; it does not abstract the stacking tool.
 - GitHub as the PR backend.
 - The `ns` CLI with the flow extension enabled.
+- The `gt` and `gh` CLIs available on `PATH`; commands that read or mutate pull
+  requests require an authenticated GitHub session.
 
 ## Commands
 
@@ -30,9 +32,44 @@ never by forking flow.
 | `ns flow push`                 | Push the current branch.                                                                       |
 | `ns flow land`                 | Land the current PR or Graphite stack into trunk.                                              |
 | `ns flow pull-trunk`           | Pull the configured Graphite trunk branch without running full `gt sync`.                      |
+| `ns flow squash-stack`         | Squash every branch in the current Graphite stack to one commit, then restore the tip branch.  |
 
 Every command is also available in the Pi harness as `/ns:flow:<command>`, delegating
-to the CLI.
+to the CLI. Pi is optional; the CLI commands do not require the Pi host.
+
+### Command-scoped integrations
+
+- `autoslot` composes the ns Slots capability to move the new branch into a
+  managed slot. Other branch and submit commands do not require using managed
+  slots. When `land` runs from or encounters a managed-slot worktree, it can
+  perform targeted slot cleanup; ordinary worktrees remain ordinary Git
+  worktrees.
+- `land` uses GitHub squash merge and requires `gh` authentication with permission
+  to merge the target PRs. The repository must allow squash merges. Other merge
+  strategies are not part of the current land contract.
+
+## Model-backed workflows
+
+The ns runtime supplies Flow's text-generation service; Flow does not configure a
+provider client of its own. The selected provider/model must therefore be available
+to the ns runtime. Model-backed commands select model refs with these environment
+variables:
+
+| Environment variable          | Used by                                                              |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `NS_CHANGES_MODEL`            | `changes` summaries                                                  |
+| `NS_CHECKPOINT_MODEL`         | `cp`, `autobranch`, and submit checkpoint messages                   |
+| `NS_SLUG_MODEL`               | `autobranch` and `branch-latest-commit` generated branch slugs       |
+| `NS_DEV_PR_DESCRIPTION_MODEL` | `submit` and `regenerate-pr` PR titles and descriptions              |
+| `NS_SUBMIT_FAILURE_MODEL`     | Interpretation of submit failures without deterministic presentation |
+
+Unset selectors currently default to `openai-codex/gpt-5.6-luna`. Set the relevant
+variable when that model is unavailable or a repository wants a different model.
+`NS_CHECKPOINT_MODEL` retains `NS_DEV_CHECKPOINT_MODEL` as a legacy fallback, and
+`NS_CHANGES_MODEL` retains `PI_DRAFT_MODEL` as a legacy fallback.
+
+Prompt content is configured separately from model identity through the prompt
+points documented below.
 
 ## Pre-submit checks
 
@@ -107,12 +144,3 @@ to inspect, `.ns/prompts/` conventional paths, resolution precedence).
 | `flow.submit.pre`            | hook   | Commands the pre-submit checks run.                                   |
 | `flow.submit.pre.recovery`   | prompt | Agent guidance after a pre-submit check failure.                      |
 | `flow.submit.pr-description` | prompt | The prompt used to generate PR titles and descriptions during submit. |
-
-## Open questions
-
-- What must an adopting repository provide for LLM-backed behavior (PR-description
-  generation, submit-failure interpretation) — is the model seam injectable today, and
-  what should this README promise?
-- Do `autobranch`, `autoslot`, `land`, and `pull-trunk` carry undocumented assumptions
-  about this repository's conventions (slots, trunk naming, remotes)? Pending the
-  repo-specificity audit.

@@ -83,10 +83,17 @@ of the operation it guards.
   prompt after pre-submit check failures without opting in. If that proves surprising or
   adopters, flip to opt-in (the design isolates the default-prompt fallback so this is a
   small change).
-- **Risk — genericization scope creep.** "Less specific to this repo" can swallow the pr
-  -description model dependency, trunk assumptions, and Pi-host coupling. Mitigation: the
-  audit produces an explicit list; each item is resolved, documented as a requirement, or
-  parked — no silent expansion.
+- **Assumption — the ns model service is the adopter seam.** The audit verified that Flow
+  receives text generation through the ns command context and selects model refs through
+  documented environment variables. Adopters must provide a working ns model provider and
+  select alternatives when the built-in model ref is unavailable; Flow does not need a
+  second model gateway or model point.
+- **Risk — genericization scope creep, bounded by audit evidence.** The completed audit in
+  `references/repo-specificity-audit.md` separates four resolve clusters (repository
+  identity, Graphite machine facts, Pi ownership, and point-default fidelity) from intrinsic
+  documented requirements and explicitly parked compatibility debt. Do not silently expand
+  those clusters into Graphite abstraction, merge-strategy configuration, or a general CLI
+  failure protocol.
 - **Risk — point-definition duplication.** First-party point definitions live in both
   kernel `builtInPointDefinitions` and flow's descriptor; the recovery point deepens that
   duplication by one more point. Pre-existing debt owned by the descriptor-contract
@@ -97,8 +104,6 @@ of the operation it guards.
 
 ## Open Questions
 
-- What does the repo-specificity audit actually find in `autobranch`, `autoslot`, `land`,
-  `pull-trunk`, and the pr-description model path — and which findings are adopter
-  requirements vs. genericization work?
-- How does an adopter provide the LLM used for PR-description generation (and submit
-  failure interpretation) — is that already injectable, and what does the README promise?
+No product question remains from the repo-specificity audit. New steering is required only
+if implementation evidence invalidates a recorded disposition or an adopter demonstrates a
+workflow for one of the parked concerns.

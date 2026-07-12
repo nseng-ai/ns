@@ -1,83 +1,201 @@
-# Validation gates + recovery — implementation plan
+# Submit pre-check marker + recovery — implementation plan
 
-Working plan for the roadmap's validation-gates, `flow validate`, and recovery slices.
-The README (`README-draft.md`) is the contract; this file is execution detail and loses
-any conflict with it. Verified against the codebase 2026-07-09.
+Implementation plan for the roadmap's submit pre-check contract and recovery slices. The
+canonical contract is `README-draft.md`; this file is execution detail and loses any
+conflict with that README. Reverified against the codebase on 2026-07-12.
 
-## Verified mechanics
+## Settled boundary
 
-- Point definitions are duplicated: kernel `builtInPointDefinitions`
-  (`ts/packages/kernel/src/project-config/points.ts:37-57`) AND flow's descriptor
-  (`ts/packages/capabilities/flow/src/ns/extension.ts:6-19`). Runtime consumption uses
-  the sync `loadPointCatalog` (built-ins only); descriptor points surface only through
-  `loadPointCatalogWithDescriptors` (the `ns extension points` commands) and only for
-  ns.toml-declared extensions. **Every point change edits both places.**
-- Migration-diagnostic precedent: `LEGACY_FLOW_HOOKS_SETTING_SCHEMA` +
-  `formatCatalogDiagnostic` (`flow/src/submit/submit-hooks.ts:41-45,167-172`). The old
-  point id will surface as `point_installation_undefined` (error, `path:
-  "points.<id>"`); special-case its message flow-side, keyed on code + path.
-- Default-prompt fallback precedent: `resolvePrDescriptionPrompt`
-  (`flow/src/submit/pr-description.ts:263-300`) — default `.md` loaded via
-  `import.meta.url`.
-- Submit runs hooks on two paths: non-TTY phase-stream
-  (`flow/src/ns/commands/submit.ts:154-174`) and TTY matrix (`:283-306`). Marker
-  survives because gate failures use `failurePresentation: "deterministic"`
-  (stderr verbatim, `submit.ts:490-492`) — guard with a test.
-- Pi bridge sees only `CliCommandOutputDetails` (exit code + text); `cwd` is present.
-  Repo-root discovery needs a walk-up (pattern: `resolveSkillLookupProjectRoot`,
-  `pi/src/kit/skills/lookup.ts:100+`).
-- Command runner seam: `createNsCommandRunner(ctx)` (`flow/src/submit/ns-runtime.ts:31`).
-- Pi parity is derived from `NS_FLOW_COMMANDS` (`flow/src/pi/ns-extension.ts:35-76`);
-  only the hand-written list in `test/pi/ns-extension.test.ts` needs a manual edit.
-- Scenario tests use `runFlowCommandWithFakes` (`test/scenario/flow-command-fakes.ts`)
-  with scripted exec fakes; help coverage is host-level, not per-command.
+- Retain the existing `flow.submit.pre` hook point and submit-specific implementation.
+- Use the user-facing term **pre-submit checks**. Rename `--no-hooks` to `--no-checks`;
+  ns is unreleased, so do not preserve a compatibility alias.
+- Export `FLOW_SUBMIT_CHECK_FAILURE_MARKER` as the stable public harness contract. A
+  harness detects an exact marker line, never surrounding error prose.
+- Add the override prompt point `flow.submit.pre.recovery`, default-on with a generic
+  built-in prompt and overridable through `.ns/prompts/flow.submit.pre.recovery.md` or
+  `ns.toml`.
+- Recovery is Pi submit-only: only a failed `/ns:flow:submit` whose stderr contains the
+  marker triggers it.
+- Do not add `ns flow validate`/`check`, a `flow.validation.*` taxonomy, a general gates
+  registry/module, wildcard point definitions, or a structured CLI failure envelope.
 
-## Steps
+## Reverified current mechanics
 
-1. **Point rename + recovery point** (kernel built-ins + flow descriptor + repo
-   `ns.toml`): `flow.submit.pre` → `flow.validation.pre-submit`; add
-   `flow.validation.recovery` (prompt, override). Migration message for the old id.
-   Update `ts/packages/kernel/test/scenario/extension-points-cli.test.ts`,
-   `ts/packages/capabilities/harness-artifacts/test/ns-toml.test.ts:19` (inert
-   fixture), user-facing strings (`submit.ts:73,83-97`, `phase-stream-specs.ts:69-76`,
-   `submit-matrix-progress.ts:112-115` — keep phase key `"hooks"`), and
-   `docs/guides/points.md` examples.
-2. **Gates module**: `flow/src/validation/gates.ts` supersedes `submit-hooks.ts`
-   (delete old; no dual paths). Fixed registry `VALIDATION_GATES = { "pre-submit": ... }`;
-   ports of load/run/parse/exit-code helpers; exported
-   `FLOW_VALIDATION_FAILURE_MARKER` as the failure heading prefix (built via
-   `formatCommandResultFailure` title, includes gate name); submit-specific trailer
-   lines ("Submission was not attempted.", `--no-hooks` hint) appended by the caller.
-   Rewire both submit paths. Tests: port `test/unit/submit-hooks.test.ts` →
-   `validation-gates.test.ts`; update `test/scenario/submit-command.test.ts` fixtures
-   and failure assertions.
-3. **Recovery resolution**: `flow/src/validation/recovery.ts` —
-   `resolveValidationRecoveryPrompt({cwd})`: walk up to repo root, `loadPointCatalog` +
-   `resolvePromptPointSource`/`resolvePromptPointPath`, read file, fall back to the
-   built-in default prompt (`flow/src/validation/prompts/validation-recovery-default.md`).
-   Keep the default fallback an isolated branch (opt-in flip = two lines). New unit
-   test: conventional path, ns.toml path, default fallback, subdirectory walk-up.
-4. **`ns flow validate [gate]`**: new `flow/src/ns/commands/validate.ts` (read
-   `skills/ns-cli-design/SKILL.md` first); positional optional `gate`; no-arg → list
-   gates + installed commands; unknown gate → negative with available gates; run →
-   stream output, fail via `exitCodeToFlowCommandExit` with marker-formatted stderr.
-   Register in descriptor entries + package.json export; add to `NS_FLOW_COMMANDS`.
-   New `test/scenario/validate-command.test.ts`.
-5. **Pi bridge rework** (`flow/src/pi/ns-extension.ts`): drop `expandRepoSkillBlock`,
-   the `code-just-fix` constant, and prose sniffing. Detect
-   `exitCode !== 0 && stderr.includes(FLOW_VALIDATION_FAILURE_MARKER)`; resolve recovery
-   prompt; `sendUserMessage(prompt + context block)` (command, cwd, exit code,
-   24k tail-truncated output — keep `truncateOutputTail`). Rewrite bridge tests:
-   default prompt, conventional override, non-marker negative, exit-0 negative.
-6. **Consumer artifact**: `.ns/prompts/flow.validation.recovery.md` in this repo —
-   points the agent at `code-just-fix`, forbids `--no-hooks`, rerun the failed command.
-7. **Docs**: points-guide implementer section + `cardinality`↔`semantics` mapping;
-   root `AGENTS.md` routing line to the guide.
+- Pre-submit check mechanics are still in
+  `ts/packages/capabilities/flow/src/submit/submit-hooks.ts`:
+  `loadFlowSubmitHooks`, `runFlowSubmitHooks`, `flowSubmitHookFailureExitCode`, and
+  `formatFlowSubmitHookFailure`. The point mechanism may keep its internal hook-oriented
+  symbols; user-facing CLI/help/progress/failure text changes to checks.
+- `ts/packages/capabilities/flow/src/ns/commands/submit.ts` runs the same check loader and
+  runner on two presentation paths: the non-TTY settled phase stream and the TTY matrix.
+  Both return deterministic failure presentation, so marker-bearing stderr bypasses model
+  interpretation and survives verbatim. Preserve the internal phase key `"hooks"` unless
+  a typed progress-contract migration is separately justified.
+- The current schema property is `hooks`, producing `--no-hooks`; the implementation
+  rename is the schema/request property `checks`, producing `--no-checks` and gating repo
+  root/check loading in the same place.
+- Point definitions are duplicated in
+  `ts/packages/capabilities/flow/src/ns/extension.ts` (descriptor vocabulary:
+  `cardinality`) and `ts/packages/sdk/src/project-config/points.ts` (catalog vocabulary:
+  `semantics`). The recovery point must be added to both in one slice. Consolidating that
+  duplication remains parked.
+- The generic Pi mirror at `ts/packages/capabilities/flow/src/pi/ns-extension.ts` has no
+  recovery behavior, skill expansion, `code-just-fix` reference, or stderr prose
+  heuristic today. `registerCliCommandExtension` already provides an awaited
+  `afterCommandComplete(details)` seam after output emission; details include the Pi
+  command name, argv, cwd, exit code, stdout, and stderr.
+- Prompt resolution is already centralized in
+  `@nseng-ai/sdk/project-config/points`: `loadPointCatalog`,
+  `resolvePromptPointSource`, and `resolvePromptPointPath` implement `ns.toml`,
+  conventional-file, and descriptor-default sources. Because the synchronous built-in
+  catalog cannot derive another package's descriptor path, keep the generic built-in
+  recovery prompt as an isolated Flow fallback after normal repo point resolution. Do
+  not broaden this slice into first-party descriptor consolidation.
+- This repo currently installs only `[points]."flow.submit.pre" = ["just"]` in
+  `ns.toml`. Its recovery policy belongs in the consumer artifact
+  `.ns/prompts/flow.submit.pre.recovery.md`, not in Flow package code.
 
-## Validation
+## Slice 1 — submit pre-check contract
 
-`pnpm --dir ts run check` / `run lint`, targeted vitest (flow, kernel,
-harness-artifacts), full `just`. Smoke: `ns flow validate`, `ns flow validate
-pre-submit`, `ns extension points`, `ns extension point flow.validation.recovery`,
-old-id migration message in a scratch config. End-to-end: `ns flow submit` exercises
-the renamed gate itself.
+1. **Marker and public API**
+   - Define `FLOW_SUBMIT_CHECK_FAILURE_MARKER` beside the submit-check failure formatter
+     in `submit-hooks.ts`.
+   - Make the marker the exact first non-empty stderr line. Keep the existing bounded
+     command failure details and exit-code mapping after it.
+   - Re-export the constant through the deliberate cross-package public door,
+     `@nseng-ai/flow/api`; do not expose the whole private submit barrel.
+2. **Checks vocabulary and skip flag**
+   - Rename the submit schema/request property from `hooks` to `checks`, yielding
+     `--no-checks`.
+   - Update command help, description, progress labels, failure headings/trailers, and
+     tests from “hooks” to “checks” where user-visible. Keep `flow.submit.pre`'s point
+     kind as `hook` and retain internal hook symbols/phase key where they avoid churn.
+   - Update the existing points-guide execution-control example from `--no-hooks` to
+     `--no-checks`; the broader implementer-guide expansion remains the separate docs
+     roadmap slice.
+3. **Preserve both submit paths**
+   - Keep check execution before checkpoint mutation on the non-TTY phase-stream and TTY
+     matrix paths.
+   - Both failure branches must use the same marker-bearing formatter and
+     `failurePresentation: "deterministic"`. Do not route these failures through
+     `maybeFormatSubmitFailureWithModel`.
+4. **Tests**
+   - Extend `test/unit/submit-hooks.test.ts` to assert exact first-line marker identity,
+     bounded failure output, check vocabulary, and existing exit-code behavior.
+   - Update `test/scenario/submit-command.test.ts` for `checks: false`/`--no-checks`,
+     marker-bearing deterministic stderr, no checkpoint/submit after failure, and check
+     ordering. Cover both presentation paths at the command boundary or add the narrowest
+     handler-level test needed to prove both branches preserve the marker.
+   - Add/adjust a small public-surface assertion for the `@nseng-ai/flow/api` marker
+     export if no existing API allowlist test covers it.
+
+## Slice 2 — submit-check recovery
+
+1. **Define the recovery prompt point**
+   - Add `flow.submit.pre.recovery` to both the Flow descriptor and SDK built-in point
+     definitions as prompt/one (descriptor) and prompt/override (catalog).
+   - In the Flow descriptor, declare the package-relative default prompt path. Add the
+     generic Markdown default under `src/submit/prompts/`; it instructs the agent to fix
+     the root cause, never bypass checks, rerun the failing check, then rerun
+     `ns flow submit`.
+   - Update SDK point catalog/introspection tests so the point appears with matching kind,
+     semantics, description, and descriptor default source.
+2. **Resolve prompt content without Pi policy**
+   - Add a small Flow-owned resolver (for example
+     `src/submit/submit-check-recovery.ts`) that accepts an explicit repo root plus
+     injected/readable file dependencies, resolves `ns.toml` and conventional prompt
+     sources through the point catalog, and otherwise returns the built-in generic
+     prompt.
+   - Keep the built-in fallback isolated so default-on recovery can later become opt-in
+     without changing marker detection or Pi registration.
+   - An unreadable/empty repo override must not strand recovery: fall back to the generic
+     prompt and include a concise warning in the generated recovery message. Do not
+     execute prompt content or invoke a model here.
+3. **Wire the Pi completion hook**
+   - Extend the Flow-specific Pi API type only with the `sendUserMessage` capability it
+     needs; keep `@nseng-ai/pi` an optional peer and the CLI implementation Pi-free.
+   - Supply `afterCommandComplete` from `src/pi/ns-extension.ts`. Trigger only when all
+     are true: the registered command is `ns:flow:submit`, exit code is nonzero, and
+     stderr contains a line exactly equal to `FLOW_SUBMIT_CHECK_FAILURE_MARKER`.
+   - Resolve the repository root from `details.cwd` with an injected/testable filesystem
+     walk-up that accepts both `.git` directories and worktree `.git` files. This is
+     repository discovery only; do not import skill lookup policy or shell out.
+   - Send the resolved prompt followed by a bounded context block containing the
+     `ns flow submit` invocation, cwd, exit code, and tail of deterministic failure
+     stderr. The failure report already names the failing check command. Recovery sends
+     guidance only; it runs no command itself.
+   - Non-submit commands, successful submit, failed submit without the exact marker, and
+     a marker-like prose substring must not trigger recovery.
+4. **Consumer policy**
+   - Add `.ns/prompts/flow.submit.pre.recovery.md` in this repository. It may direct the
+     agent to the repo-owned `code-just-fix` skill, must forbid bypassing checks, and must
+     require rerunning the failed check followed by `ns flow submit`.
+   - Do not mention `code-just-fix`, repo-relative skill paths, or this repo's `just`
+     policy anywhere under `ts/packages/capabilities/flow`.
+5. **Tests**
+   - Add resolver tests for explicit `ns.toml`, conventional prompt, generic fallback,
+     unreadable/empty override fallback, and nested-cwd repository discovery using
+     injected fakes rather than ambient cwd/process mutation.
+   - Extend `test/pi/ns-extension.test.ts` with default prompt, repo override, exact
+     marker positive, non-marker negative, success negative, non-submit negative, and
+     bounded context assertions.
+   - Update descriptor/catalog tests in `ts/packages/sdk` and Flow parity tests as needed;
+     no new Flow command is added.
+
+## Files expected to change
+
+Submit contract:
+
+- `ts/packages/capabilities/flow/src/submit/submit-hooks.ts`
+- `ts/packages/capabilities/flow/src/ns/commands/submit.ts`
+- `ts/packages/capabilities/flow/src/api/index.ts`
+- `ts/packages/capabilities/flow/src/phase-stream/phase-stream-specs.ts`
+- `ts/packages/capabilities/flow/src/submit/submit-matrix-progress.ts`
+- `ts/packages/capabilities/flow/test/unit/submit-hooks.test.ts`
+- `ts/packages/capabilities/flow/test/scenario/submit-command.test.ts`
+- `docs/guides/points.md` (only the flag/vocabulary alignment in this slice)
+
+Recovery:
+
+- `ts/packages/capabilities/flow/src/ns/extension.ts`
+- `ts/packages/sdk/src/project-config/points.ts`
+- `ts/packages/capabilities/flow/src/submit/submit-check-recovery.ts` (new)
+- `ts/packages/capabilities/flow/src/submit/prompts/submit-check-recovery-default.md` (new)
+- `ts/packages/capabilities/flow/src/pi/ns-extension.ts`
+- `ts/packages/capabilities/flow/test/pi/ns-extension.test.ts`
+- focused Flow resolver tests and SDK point catalog/scenario tests
+- `.ns/prompts/flow.submit.pre.recovery.md` (new consumer override)
+
+Treat this as a likely-area map, not permission to touch unrelated genericization clusters.
+Implementation evidence may simplify filenames, but it must not change the settled public
+contract without steering.
+
+## Validation and completion evidence
+
+Run targeted tests while iterating, then the repository defaults:
+
+```sh
+pnpm --dir ts exec vitest run --config vitest.config.ts \
+  packages/capabilities/flow/test/unit/submit-hooks.test.ts \
+  packages/capabilities/flow/test/scenario/submit-command.test.ts \
+  packages/capabilities/flow/test/pi/ns-extension.test.ts \
+  packages/sdk/test/unit/project-config-points.test.ts \
+  packages/sdk/test/scenario/extension-points-cli.test.ts
+pnpm --dir ts run check
+pnpm --dir ts run lint
+just
+```
+
+Completion evidence for the two slices:
+
+- `ns flow submit --help` exposes `--no-checks` and no `--no-hooks`.
+- `ns extension point flow.submit.pre` still reports the installed checks.
+- `ns extension point flow.submit.pre.recovery` reports the prompt point and active
+  default/override source.
+- A failing configured check exits with its mapped exit code, emits the exact marker as
+  the first stderr line, and performs no checkpoint or submit mutation on either
+  presentation path.
+- Pi sends recovery only for marker-bearing `ns flow submit` check failures and uses the
+  generic default unless consumer prompt config overrides it.
+- `rg` confirms no planned `ns flow validate`, `flow.validation.*`, general gates module,
+  or Flow-package `code-just-fix` reference was introduced.
