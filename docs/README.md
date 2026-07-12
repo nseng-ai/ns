@@ -11,6 +11,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - `.ns/objectives/<slug>/`: durable Objective narrative, roadmap, updates, and closure.
 - `.ns/prompts/`: checked-in reusable prompt assets consumed by repo tooling or skills; this is distinct from Pi `.pi/prompts` slash prompt templates.
 - `docs/adr/`: durable architecture decision records. Accepted ADRs are historical records; update mutable guidance for tooling drift, or add a superseding/refining ADR for a new architectural decision.
+- `docs/follow-ups/`: point-in-time opportunity notes that preserve promising reasoning before the work is coherent enough to become an Objective; these are not commitments or a parallel roadmap.
 
 ## Index
 
@@ -18,6 +19,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Points guide](guides/points.md): user-facing guide to the point system — installing hooks and prompts via `ns.toml`/`.ns/prompts/`, and defining points in extension descriptors.
 - [Writing an ns extension](../ts/packages/kernel/docs/writing-an-ns-extension.md): extension-author package layout, typed descriptor modules, command modules, points, bundled artifacts, activation, and initialized-project installation from explicit `npm:` or local source specs with `ns extension install`.
 - [Objective system](objective-system.md): how checked-in Objectives structure durable project work.
+- [Follow-ups](follow-ups/README.md): point-in-time candidate ideas that need revalidation and further formation before becoming Objectives.
 - [Branch retrospective evidence](retro.md): deterministic session evidence aggregation and the tool-vs-LM boundary.
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
 - [Skill/extension router pattern](patterns/skill-extension-router-pattern.md): consolidate rare workflow skills behind one router with lazy-loaded playbooks and optional selector commands.
