@@ -2,7 +2,10 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import type { ExtensionDescriptor, ExtensionEntry } from "../sdk/descriptor.ts";
 import { nextDescriptorTraversalState } from "./descriptor-traversal.ts";
-import type { PreinstalledNsCommandCatalogEntry } from "./registry.ts";
+import type {
+	PreinstalledNsCommandCatalog,
+	PreinstalledNsCommandCatalogEntry,
+} from "./registry.ts";
 
 export interface ExtensionDescriptorToPreinstalledCatalogOptions {
 	readonly displayPath: string;
@@ -11,6 +14,22 @@ export interface ExtensionDescriptorToPreinstalledCatalogOptions {
 		entry: ExtensionEntry,
 		segments: readonly string[],
 	) => string | undefined;
+}
+
+export interface PreinstalledNsExtensionRegistration extends ExtensionDescriptorToPreinstalledCatalogOptions {
+	readonly packageName: string;
+	readonly descriptor: ExtensionDescriptor;
+}
+
+export function preinstalledNsCommandCatalogFromRegistrations(
+	registrations: readonly PreinstalledNsExtensionRegistration[],
+): PreinstalledNsCommandCatalog {
+	return {
+		entries: registrations.flatMap((registration) =>
+			extensionDescriptorToPreinstalledCatalog(registration.descriptor, registration),
+		),
+		extensionPackageNames: registrations.map((registration) => registration.packageName),
+	};
 }
 
 export function extensionDescriptorToPreinstalledCatalog(

@@ -1,13 +1,12 @@
 import { join } from "node:path";
 
 import { resolveHomeDir } from "@nseng-ai/foundation/primitives";
-import { runCli, type NsCliDeps } from "@nseng-ai/sdk/cli";
+import { runCli, type NsCliBaseContext, type NsCliDeps } from "@nseng-ai/sdk/cli";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	NsExecOptions,
 	ExecResult,
 	NsConfirmPrompt,
-	NsExtensionApi,
 	RenderCapabilities,
 	TextGenerationRequest,
 	TextGenerationResult,
@@ -58,7 +57,7 @@ interface ScriptedNsTestContextOptions extends RunWithFakesDefaults {
 	homeDir?: string;
 }
 
-export class ScriptedNsTestContext implements NsExtensionApi {
+export class ScriptedNsTestContext implements NsCliBaseContext {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
 	readonly homeDir?: string;
@@ -67,7 +66,6 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 	readonly commandIo = noopNsCommandIo;
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
-	readonly hasExtension = () => false;
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;

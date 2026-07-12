@@ -1,10 +1,10 @@
 import harnessArtifactsExtension from "@nseng-ai/harness-artifacts/ns-extension";
 import {
-	extensionDescriptorToPreinstalledCatalog,
+	preinstalledNsCommandCatalogFromRegistrations,
 	runCli,
 	type NsCliDeps,
 	type PreinstalledNsCommandCatalog,
-	type PreinstalledNsCommandCatalogEntry,
+	type PreinstalledNsExtensionRegistration,
 	NS_BUILT_IN_HELP_GROUP,
 } from "@nseng-ai/sdk/cli";
 import { createRealNsCommandContext } from "@nseng-ai/sdk/context";
@@ -33,25 +33,24 @@ export async function runNsCli(args: readonly string[], deps: RunNsCliDeps = {})
 	});
 }
 
-function loadPreinstalledNsCommandCatalog(): PreinstalledNsCommandCatalog {
-	return {
-		entries: [
-			...extensionDescriptorToPreinstalledCatalog(nsInitExtension, {
-				displayPath: "@nseng-ai/ns-init/ns-extension",
-				helpGroup: NS_BUILT_IN_HELP_GROUP,
-			}),
-			...harnessArtifactsPreinstalledEntries(),
-		],
-		extensionPackageNames: ["@nseng-ai/ns-init", "@nseng-ai/harness-artifacts"],
-	};
-}
-
-function harnessArtifactsPreinstalledEntries(): readonly PreinstalledNsCommandCatalogEntry[] {
-	return extensionDescriptorToPreinstalledCatalog(harnessArtifactsExtension, {
+const preinstalledExtensionRegistrations = [
+	{
+		packageName: "@nseng-ai/ns-init",
+		descriptor: nsInitExtension,
+		displayPath: "@nseng-ai/ns-init/ns-extension",
+		helpGroup: NS_BUILT_IN_HELP_GROUP,
+	},
+	{
+		packageName: "@nseng-ai/harness-artifacts",
+		descriptor: harnessArtifactsExtension,
 		displayPath: "@nseng-ai/harness-artifacts/ns-extension",
 		entryHelpGroup: (entry, segments) =>
 			"load" in entry && entry.name === "update" && segments.length === 1
 				? NS_BUILT_IN_HELP_GROUP
 				: undefined,
-	});
+	},
+] as const satisfies readonly PreinstalledNsExtensionRegistration[];
+
+function loadPreinstalledNsCommandCatalog(): PreinstalledNsCommandCatalog {
+	return preinstalledNsCommandCatalogFromRegistrations(preinstalledExtensionRegistrations);
 }
