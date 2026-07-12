@@ -42,14 +42,17 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
    - submit consequences: after the local rewrite, `gt submit --no-interactive` will force-push the rewritten branches and update their PRs; list the affected PR numbers/URLs explicitly.
 5. Ask for one explicit confirmation before mutating; the confirmation covers both the local rewrite and the submit/force-push listed in the proposal.
 6. If confirmed, verify `git status --short` is clean. If dirty, stop and ask the user to checkpoint/stash/use another worktree.
-7. Create local backup refs for every affected branch:
+7. Create local backup refs for every affected branch in one call:
 
    ```bash
-   stamp=$(date +%Y%m%d%H%M%S)
-   git branch "backup/linearize-$stamp/<safe-branch-name>" "<branch>"
+   ns slot gt exec backup-refs --label linearize --branch <branch> [--branch <branch> ...] --format json
    ```
 
-   Use a collision-safe branch-name encoding such as replacing `/` with `__`.
+   One `--branch` per affected branch. The command stamps the run, encodes `/`
+   in branch names as `__`, and refuses missing branches or backup-name
+   collisions without creating anything. Record `data.prefix`
+   (`backup/linearize-<stamp>/`) for the final report; on a non-zero exit, stop
+   and report — do not mutate without backups.
 
 8. Rewrite with the least-invasive strategy that works:
    - topology-only move: `gt checkout <branch>`, `gt track -p <new-parent>`, `gt restack`;

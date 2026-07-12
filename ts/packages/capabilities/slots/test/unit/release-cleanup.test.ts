@@ -1,4 +1,5 @@
 import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
+import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import { describe, expect, it } from "vitest";
 
 import { executeReleaseCleanup, planReleaseCleanup } from "../../src/lifecycle/release-cleanup.ts";
@@ -69,6 +70,7 @@ function context(options: {
 		storage: new FakeSlotStorageGateway(),
 		clipboard: new FakeClipboardGateway(),
 		command: new FakeSlotCommandGateway(),
+		clock: createManualClock(0).clock,
 		cwd: "/repo",
 		renderCapabilities: { canEmitAnsi: false },
 		interaction: createFakeClinkrInteraction().interaction,

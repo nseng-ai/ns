@@ -10,7 +10,9 @@ import {
 } from "@nseng-ai/clinkr";
 import { paint } from "@nseng-ai/foundation/cli-theme";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
+import type { Clock } from "@nseng-ai/foundation/clock";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { systemClock } from "@nseng-ai/foundation/time";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotCommandGateway, type SlotCommandGateway } from "./gateways/command.ts";
@@ -35,6 +37,7 @@ export interface SlotCliContext {
 	storage: SlotStorageGateway;
 	clipboard: ClipboardGateway;
 	command: SlotCommandGateway;
+	clock: Clock;
 	cwd: string;
 	renderCapabilities: RenderCapabilities;
 	extensions?: Readonly<Record<string, unknown>>;
@@ -70,6 +73,7 @@ export async function createRealSlotContext(options: {
 		storage: new RealSlotStorageGateway(),
 		clipboard: new RealClipboardGateway({ env }),
 		command: new RealSlotCommandGateway(),
+		clock: systemClock,
 		cwd: options.cwd,
 		renderCapabilities: options.renderCapabilities,
 		...(options.extensions === undefined ? {} : { extensions: options.extensions }),
