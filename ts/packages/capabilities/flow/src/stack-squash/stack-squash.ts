@@ -48,7 +48,16 @@ export interface StackSquashPlanEntry {
 export interface ProcessedStackBranch {
 	branch: string;
 	commitsBefore: number;
-	state: "squashed" | "already_one_commit";
+	state: "squashed" | "already_one_commit" | "no_commits";
+}
+
+export interface StackSquashOutcomePresentation {
+	resultingCommits: 0 | 1;
+	matrixUpdate: {
+		state: "done" | "skipped";
+		text: string;
+	};
+	summaryText: string;
 }
 
 export interface StackSquashCommandFailure {
@@ -120,8 +129,7 @@ export async function runStackSquashFlow(
 	const { branches } = stackDiscovery;
 	if (branches.length === 0) return { kind: "empty-stack", cwd: options.cwd };
 
-	const branchesFromTip = [...branches].reverse();
-	const tipBranch = branchesFromTip[0];
+	const tipBranch = branches.at(-1);
 	if (tipBranch === undefined) return { kind: "empty-stack", cwd: options.cwd };
 
 	const trunkArgs = ["trunk", "--no-interactive"];
@@ -136,9 +144,8 @@ export async function runStackSquashFlow(
 	}
 	const trunk = trunkResult.stdout.trim();
 	const plan: StackSquashPlanEntry[] = [];
-	for (const [index, branch] of branches.entries()) {
-		const parent = index === 0 ? trunk : branches[index - 1];
-		if (parent === undefined) continue;
+	let parent = trunk;
+	for (const branch of branches) {
 		const countArgs = ["rev-list", "--count", `${parent}..${branch}`];
 		const countResult = await commands.exec("git", countArgs, {
 			cwd: options.cwd,
@@ -158,21 +165,26 @@ export async function runStackSquashFlow(
 			};
 		}
 		plan.push({ branch, parent, commitsBefore });
+		parent = branch;
 	}
 	const planFromTip = [...plan].reverse();
 	options.onPlan?.(planFromTip);
 	const totalCommits = plan.reduce((sum, entry) => sum + entry.commitsBefore, 0);
 	options.onProgress?.(
-		`Preparing to squash ${branchesFromTip.length} Graphite stack branch${branchesFromTip.length === 1 ? "" : "es"} containing ${totalCommits} commit${totalCommits === 1 ? "" : "s"} from ${tipBranch}.`,
+		`Preparing to squash ${branches.length} Graphite stack branch${branches.length === 1 ? "" : "es"} containing ${totalCommits} commit${totalCommits === 1 ? "" : "s"} from ${tipBranch}.`,
 	);
 
 	const processed: ProcessedStackBranch[] = [];
+	function completeBranch(completed: ProcessedStackBranch): void {
+		processed.push(completed);
+		options.onBranchCompleted?.(completed);
+	}
+
 	for (const entry of planFromTip) {
 		const { branch, commitsBefore } = entry;
-		if (commitsBefore === 1) {
-			const completed = { branch, commitsBefore, state: "already_one_commit" as const };
-			processed.push(completed);
-			options.onBranchCompleted?.(completed);
+		const nonSquashOutcome = stackSquashNonSquashOutcome(entry);
+		if (nonSquashOutcome !== undefined) {
+			completeBranch(nonSquashOutcome);
 			continue;
 		}
 		options.onBranchStarted?.(entry);
@@ -199,9 +211,7 @@ export async function runStackSquashFlow(
 				squash.signal === null &&
 				isAlreadyOneCommitSquashResult(squash)
 			) {
-				const completed = { branch, commitsBefore, state: "already_one_commit" as const };
-				processed.push(completed);
-				options.onBranchCompleted?.(completed);
+				completeBranch({ branch, commitsBefore, state: "already_one_commit" });
 				continue;
 			}
 			return {
@@ -214,9 +224,7 @@ export async function runStackSquashFlow(
 				branch,
 			};
 		}
-		const completed = { branch, commitsBefore, state: "squashed" as const };
-		processed.push(completed);
-		options.onBranchCompleted?.(completed);
+		completeBranch({ branch, commitsBefore, state: "squashed" });
 	}
 
 	options.onRestoreStarted?.();
@@ -282,16 +290,60 @@ export function describeStackSquashOutcome(
 	}
 }
 
+export function stackSquashNonSquashOutcome(
+	entry: Pick<StackSquashPlanEntry, "branch" | "commitsBefore">,
+): ProcessedStackBranch | undefined {
+	const { branch, commitsBefore } = entry;
+	if (commitsBefore === 0) return { branch, commitsBefore, state: "no_commits" };
+	if (commitsBefore === 1) return { branch, commitsBefore, state: "already_one_commit" };
+	return undefined;
+}
+
+export function formatStackSquashCellText(commitsBefore: number): string {
+	return `${commitsBefore}→1`;
+}
+
+export function stackSquashOutcomePresentation(
+	entry: ProcessedStackBranch,
+): StackSquashOutcomePresentation {
+	switch (entry.state) {
+		case "no_commits":
+			return {
+				resultingCommits: 0,
+				matrixUpdate: { state: "skipped", text: "empty" },
+				summaryText: "0 commits (no squash needed)",
+			};
+		case "already_one_commit":
+			return {
+				resultingCommits: 1,
+				matrixUpdate: { state: "skipped", text: "no-op" },
+				summaryText: "1 commit (no squash needed)",
+			};
+		case "squashed":
+			return {
+				resultingCommits: 1,
+				matrixUpdate: { state: "done", text: formatStackSquashCellText(entry.commitsBefore) },
+				summaryText: `${entry.commitsBefore} → 1 commit`,
+			};
+	}
+}
+
 export function formatStackSquashSummary(processed: readonly ProcessedStackBranch[]): string {
+	const presentations = processed.map((entry) => ({
+		entry,
+		presentation: stackSquashOutcomePresentation(entry),
+	}));
 	const commitsBefore = processed.reduce((sum, entry) => sum + entry.commitsBefore, 0);
-	const commitsRemoved = commitsBefore - processed.length;
+	const resultingCommits = presentations.reduce(
+		(sum, { presentation }) => sum + presentation.resultingCommits,
+		0,
+	);
+	const commitsRemoved = commitsBefore - resultingCommits;
 	return [
-		`Processed ${processed.length} Graphite stack branch${processed.length === 1 ? "" : "es"}; ${commitsBefore} commit${commitsBefore === 1 ? "" : "s"} became ${processed.length} (${commitsRemoved} removed).`,
+		`Processed ${processed.length} Graphite stack branch${processed.length === 1 ? "" : "es"}; ${commitsBefore} commit${commitsBefore === 1 ? "" : "s"} became ${resultingCommits} (${commitsRemoved} removed).`,
 		"",
-		...processed.map((entry) =>
-			entry.state === "already_one_commit"
-				? `- ${entry.branch}: 1 commit (no squash needed)`
-				: `- ${entry.branch}: ${entry.commitsBefore} → 1 commit`,
+		...presentations.map(
+			({ entry, presentation }) => `- ${entry.branch}: ${presentation.summaryText}`,
 		),
 	].join("\n");
 }
@@ -347,8 +399,10 @@ async function runGt(
 
 function parseCommitCount(result: ExecResult): number | undefined {
 	if (!commandSucceeded(result)) return undefined;
-	const value = Number(result.stdout.trim());
-	return Number.isSafeInteger(value) && value >= 1 ? value : undefined;
+	const text = result.stdout.trim();
+	if (text === "") return undefined;
+	const value = Number(text);
+	return Number.isSafeInteger(value) && value >= 0 ? value : undefined;
 }
 
 function isAlreadyOneCommitSquashResult(result: ExecResult): boolean {

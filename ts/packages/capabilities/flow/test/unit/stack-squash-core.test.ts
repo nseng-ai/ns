@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 import type { ExecResult } from "@nseng-ai/foundation/command";
 
-import { runStackSquashFlow } from "../../src/stack-squash/stack-squash.ts";
+import {
+	formatStackSquashSummary,
+	runStackSquashFlow,
+} from "../../src/stack-squash/stack-squash.ts";
 
 const TEST_CWD = "/work";
 const STACK_BRANCHES_ARGS = [
@@ -160,6 +163,62 @@ describe("stack squash core", () => {
 			args: ["checkout", "feature/top", "--no-interactive"],
 			cwd: TEST_CWD,
 		});
+	});
+
+	test("skips a zero-commit branch and still restores the tip", async () => {
+		const commands = scriptedExec([
+			{},
+			stackBranches(["feature/top"]),
+			{ stdout: "main\n" },
+			{ stdout: "0\n" },
+			{},
+		]);
+		const completed: string[] = [];
+
+		const outcome = await runStackSquashFlow(commands, {
+			cwd: TEST_CWD,
+			onBranchCompleted: (entry) => completed.push(`${entry.branch}:${entry.state}`),
+		});
+
+		expect(outcome).toEqual({
+			kind: "success",
+			processed: [{ branch: "feature/top", commitsBefore: 0, state: "no_commits" }],
+		});
+		expect(completed).toEqual(["feature/top:no_commits"]);
+		expect(commands.calls).toEqual([
+			{ command: "git", args: ["status", "--porcelain=v1"], cwd: TEST_CWD },
+			{ command: "ns", args: STACK_BRANCHES_ARGS, cwd: TEST_CWD },
+			{ command: "gt", args: ["trunk", "--no-interactive"], cwd: TEST_CWD },
+			{ command: "git", args: ["rev-list", "--count", "main..feature/top"], cwd: TEST_CWD },
+			{ command: "gt", args: ["checkout", "feature/top", "--no-interactive"], cwd: TEST_CWD },
+		]);
+	});
+
+	test("still rejects an empty commit count", async () => {
+		const commands = scriptedExec([
+			{},
+			stackBranches(["feature/top"]),
+			{ stdout: "main\n" },
+			{ stdout: "\n" },
+		]);
+
+		expect(await runStackSquashFlow(commands, { cwd: TEST_CWD })).toMatchObject({
+			kind: "commit-count-failed",
+			branch: "feature/top",
+			parent: "main",
+		});
+	});
+
+	test("summarizes mixed zero, one, and squashed branch outcomes", () => {
+		expect(
+			formatStackSquashSummary([
+				{ branch: "feature/empty", commitsBefore: 0, state: "no_commits" },
+				{ branch: "feature/one", commitsBefore: 1, state: "already_one_commit" },
+				{ branch: "feature/two", commitsBefore: 2, state: "squashed" },
+			]),
+		).toBe(
+			"Processed 3 Graphite stack branches; 3 commits became 2 (1 removed).\n\n- feature/empty: 0 commits (no squash needed)\n- feature/one: 1 commit (no squash needed)\n- feature/two: 2 → 1 commit",
+		);
 	});
 
 	test("stops on the first squash failure", async () => {

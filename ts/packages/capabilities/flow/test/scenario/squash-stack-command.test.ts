@@ -40,6 +40,36 @@ describe("flow squash-stack command outcomes", () => {
 		]);
 	});
 
+	test("treats a zero-commit branch as a successful skipped entry", async () => {
+		const exec: ScriptedExecResponse[] = [
+			{ match: "git status --porcelain=v1", result: {} },
+			{
+				match: STACK_DISCOVERY,
+				result: { stdout: stackBranches(["feature/empty"]) },
+			},
+			{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+			{ match: "git rev-list --count main..feature/empty", result: { stdout: "0\n" } },
+			{ match: "gt checkout feature/empty --no-interactive", result: {} },
+		];
+		const run = runFlowSquashStackCommandWithFakes({ state: { exec } });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		expect(stripAnsi(run.stdout.join("")).trimEnd()).toBe(
+			"Processed 1 Graphite stack branch; 0 commits became 0 (0 removed).\n\n- feature/empty: 0 commits (no squash needed)",
+		);
+		const progress = stripAnsi(run.liveOutput.map((entry) => entry.text).join(""));
+		expect(progress).toContain("feature/empty");
+		expect(progress).toContain("empty");
+		expect(formattedExecCalls(run.context)).toEqual([
+			"git status --porcelain=v1",
+			STACK_DISCOVERY,
+			"gt trunk --no-interactive",
+			"git rev-list --count main..feature/empty",
+			"gt checkout feature/empty --no-interactive",
+		]);
+	});
+
 	test("dirty worktree exits 1 with a refusal block", async () => {
 		const exec: ScriptedExecResponse[] = [
 			{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },

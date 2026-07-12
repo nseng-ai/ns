@@ -1,10 +1,10 @@
 import { formatCommand } from "@nseng-ai/foundation/command";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
-import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 
 import {
 	describeStackSquashOutcome,
+	formatStackSquashCellText,
 	formatStackSquashSummary,
 	runStackSquashFlow,
 	stackSquashCommandFailureDetail,
@@ -33,37 +33,34 @@ export const flowSquashStackCommand: NsCommand<typeof squashStackSchema> = defin
 	resultSchema: z.string(),
 	handler: async (ctx) => {
 		const caps = resolveFlowStreamCaps(ctx);
-		const commandIo = commandIoFromNsExtensionApi(ctx);
 		const matrix = createStackSquashMatrixProgressController({
 			caps,
 			deps: flowStreamDeps(ctx, caps),
 			...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
 		});
 		try {
-			return await runWithNsCommandIo(commandIo, async (io) => {
-				const outcome = await runFlowCliOperation({
-					ctx,
-					run: async (commands) =>
-						await runStackSquashFlow(commands, {
-							cwd: ctx.cwd,
-							onProgress: (message) => io.phase(message),
-							onPlan: matrix.setPlan,
-							onBranchStarted: (entry) =>
-								matrix.setSquashStatus(entry.branch, {
-									state: "active",
-									text: `${entry.commitsBefore}→1`,
-								}),
-							onBranchCompleted: (entry) =>
-								matrix.setSquashStatus(entry.branch, stackSquashCompletionUpdate(entry)),
-							onRestoreStarted: () =>
-								matrix.setRestore({ state: "active", text: "checking out tip" }),
-							onRestoreCompleted: () => matrix.setRestore({ state: "done", text: "tip restored" }),
-						}),
-				});
-				await matrix.finish({ isFailed: outcome.kind !== "success" });
-				if (outcome.kind === "success") return ok(formatStackSquashSummary(outcome.processed));
-				return negative(renderStackSquashNegative(caps, outcome));
+			const outcome = await runFlowCliOperation({
+				ctx,
+				run: async (commands) =>
+					await runStackSquashFlow(commands, {
+						cwd: ctx.cwd,
+						onProgress: matrix.note,
+						onPlan: matrix.setPlan,
+						onBranchStarted: (entry) =>
+							matrix.setSquashStatus(entry.branch, {
+								state: "active",
+								text: formatStackSquashCellText(entry.commitsBefore),
+							}),
+						onBranchCompleted: (entry) =>
+							matrix.setSquashStatus(entry.branch, stackSquashCompletionUpdate(entry)),
+						onRestoreStarted: () =>
+							matrix.setRestore({ state: "active", text: "checking out tip" }),
+						onRestoreCompleted: () => matrix.setRestore({ state: "done", text: "tip restored" }),
+					}),
 			});
+			await matrix.finish({ isFailed: outcome.kind !== "success" });
+			if (outcome.kind === "success") return ok(formatStackSquashSummary(outcome.processed));
+			return negative(renderStackSquashNegative(caps, outcome));
 		} finally {
 			await matrix.stop();
 		}
