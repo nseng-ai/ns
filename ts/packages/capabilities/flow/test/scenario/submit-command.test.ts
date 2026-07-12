@@ -364,9 +364,13 @@ describe("project-local submit extension", () => {
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: `Submitted ${PR_URL}\n` });
 		// Preflight dry-run output stays quiet unless --verbose is passed.
 		expect(run.liveOutput).not.toContainEqual({ stream: "stdout", text: "ready\n" });
-		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
-		expect(formattedExecCalls(run.context)).not.toContain(
-			"gt branch info --no-interactive --branch main",
+		const calls = formattedExecCalls(run.context);
+		expect(calls).toContain("gt branch info --no-interactive");
+		expect(calls).not.toContain("gt branch info --no-interactive --branch main");
+		expect(calls.indexOf("gt log --stack --reverse --no-interactive")).toBeGreaterThan(
+			calls.indexOf(
+				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+			),
 		);
 		expect(formattedExecCalls(run.context)).toContain("gh pr diff 123");
 		expect(formattedExecCalls(run.context)).toContainEqual(
@@ -441,6 +445,7 @@ describe("project-local submit extension", () => {
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "hooks ok\n" });
 		const settled = lastStderrOutput(run.liveOutput);
 		expect(settled).toContain("pre-submit hooks passed");
+		expect(settled).toContain("checkpoint complete");
 		const calls = formattedExecCalls(run.context);
 		expect(calls.indexOf("just")).toBeGreaterThanOrEqual(0);
 		expect(
@@ -478,6 +483,9 @@ describe("project-local submit extension", () => {
 		expect(error).toContain("Raw log:");
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "hook stdout\n" });
 		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "hook stderr\n" });
+		const settled = lastStderrOutput(run.liveOutput);
+		expect(settled).toContain("✗ Hooks");
+		expect(settled).toContain("hooks failed");
 		expect(formattedExecCalls(run.context)).not.toContain("git symbolic-ref --short HEAD");
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(
 			false,
@@ -1007,6 +1015,9 @@ describe("project-local submit extension", () => {
 			"ns flow submit failed, and the failure could not be interpreted automatically.",
 		);
 		expect(error).not.toContain("submit failure interpretation unavailable");
+		const settled = lastStderrOutput(run.liveOutput);
+		expect(settled).toContain("✗ Checkpoint");
+		expect(settled).toContain("checkpoint failed");
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(
 			false,
 		);

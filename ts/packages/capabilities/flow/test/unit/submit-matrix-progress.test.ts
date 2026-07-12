@@ -6,11 +6,16 @@ import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
 	applyPrLinksToRows,
 	compactSubmitMetadataCellText,
-	createSubmitMatrixEventProgressController,
 	renderSubmitMatrixProgressFrame,
 	resolveSubmitProgress,
 	submitMatrixRowsFromTopology,
 } from "../../src/submit/submit-matrix-progress.ts";
+import {
+	SUBMIT_CORE_PHASES,
+	SUBMIT_PHASES,
+	SUBMIT_PHASES_WITH_HOOKS,
+	SUBMIT_PRE_HOOK_PHASES,
+} from "../../src/phase-stream/phase-stream-specs.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
 
 function recordingProgress(): { events: NsProgressPhaseEvent[]; progress: NsProgress } {
@@ -36,8 +41,6 @@ describe("submit progress resolution", () => {
 			deps: capture.deps,
 			hasHooks: false,
 		});
-		if (resolved === undefined) throw new Error("missing TTY progress");
-
 		resolved.matrix.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
 		resolved.onOutput?.("stdout", "raw transcript");
 
@@ -54,8 +57,6 @@ describe("submit progress resolution", () => {
 			liveOutput: (_stream, text) => raw.push(text),
 			hasHooks: false,
 		});
-		if (resolved === undefined) throw new Error("missing live progress");
-
 		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
 		resolved.onOutput?.("stdout", "raw transcript");
 
@@ -78,8 +79,6 @@ describe("submit progress resolution", () => {
 			liveOutput: (_stream, text) => raw.push(text),
 			hasHooks: false,
 		});
-		if (resolved === undefined) throw new Error("missing combined progress");
-
 		resolved.matrix.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
 		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
 		resolved.matrix.setCell("feature/a", "metadata", { state: "active", text: "gen" });
@@ -104,26 +103,34 @@ describe("submit progress resolution", () => {
 		expect(frame).toContain("raw transcript");
 	});
 
-	test("neither TTY nor live retains the ordinary settled path", () => {
-		expect(
-			resolveSubmitProgress({
-				caps: caps(),
-				deps: streamCapture().deps,
-				hasHooks: false,
-			}),
-		).toBeUndefined();
+	test("neither TTY nor live resolves a settled transcript controller", async () => {
+		const capture = streamCapture();
+		const resolved = resolveSubmitProgress({
+			caps: caps(),
+			deps: capture.deps,
+			hasHooks: false,
+		});
+
+		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
+		resolved.matrix.phase({ type: "phase-done", phaseKey: "inventory", detail: "one branch" });
+		await resolved.matrix.finish();
+
+		const transcript = stripAnsi(capture.writes.join(""));
+		expect(transcript).toContain("ns flow submit");
+		expect(transcript).toContain("stack inventoried");
+		expect(transcript).not.toContain("Branch / PR");
 	});
 });
 
 describe("submit matrix progress", () => {
 	test("declares canonical submit phases and forwards each phase event once", () => {
 		const recording = recordingProgress();
-		const controller = createSubmitMatrixEventProgressController({
-			progress: recording.progress,
-			title: "ns flow submit",
-			rows: [],
+		const controller = resolveSubmitProgress({
+			caps: caps(),
+			deps: streamCapture().deps,
+			liveProgress: recording.progress,
 			hasHooks: true,
-		});
+		}).matrix;
 
 		controller.phase({ type: "phase-started", phaseKey: "inventory" });
 		controller.phase({ type: "phase-done", phaseKey: "inventory", detail: "one branch" });
@@ -154,12 +161,12 @@ describe("submit matrix progress", () => {
 
 	test("keeps grid declarations to columns and rows", () => {
 		const recording = recordingProgress();
-		const controller = createSubmitMatrixEventProgressController({
-			progress: recording.progress,
-			title: "ns flow submit",
-			rows: [],
+		const controller = resolveSubmitProgress({
+			caps: caps(),
+			deps: streamCapture().deps,
+			liveProgress: recording.progress,
 			hasHooks: false,
-		});
+		}).matrix;
 		controller.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
 		controller.setCell("feature/a", "metadata", { state: "done", text: "ready" });
 
@@ -178,6 +185,20 @@ describe("submit matrix progress", () => {
 			state: "done",
 			text: "ready",
 		});
+	});
+
+	test("composes the optional hook at the named semantic boundary", () => {
+		expect(SUBMIT_PRE_HOOK_PHASES.map((phase) => phase.key)).toEqual(["inventory"]);
+		expect(SUBMIT_CORE_PHASES[0]?.key).toBe("checkpoint");
+		expect(SUBMIT_PHASES.map((phase) => phase.key)).toEqual([
+			...SUBMIT_PRE_HOOK_PHASES.map((phase) => phase.key),
+			...SUBMIT_CORE_PHASES.map((phase) => phase.key),
+		]);
+		expect(SUBMIT_PHASES_WITH_HOOKS.map((phase) => phase.key)).toEqual([
+			...SUBMIT_PRE_HOOK_PHASES.map((phase) => phase.key),
+			"hooks",
+			...SUBMIT_CORE_PHASES.map((phase) => phase.key),
+		]);
 	});
 
 	test("renders row cells without matrix-owned global phase state", () => {

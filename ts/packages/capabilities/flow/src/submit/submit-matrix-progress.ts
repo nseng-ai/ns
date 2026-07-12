@@ -5,6 +5,7 @@ import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-a
 import {
 	defineMatrixWorkflow,
 	matrixFrameOptionalFields,
+	type MatrixProgressPresentation,
 	type MatrixWorkflowController,
 } from "../phase-stream/matrix-progress-core.ts";
 import type {
@@ -15,7 +16,7 @@ import type {
 } from "../phase-stream/matrix-progress-state.ts";
 import type { MatrixFrameOptionalFields } from "../phase-stream/matrix-progress-terminal-adapter.ts";
 import type { FlowLiveOutput } from "../phase-stream/live-output.ts";
-import { submitPhaseSpecs } from "../phase-stream/phase-stream-specs.ts";
+import { SUBMIT_PHASES, SUBMIT_PHASES_WITH_HOOKS } from "../phase-stream/phase-stream-specs.ts";
 import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 
 export type SubmitMatrixCellState = MatrixCellState;
@@ -119,44 +120,24 @@ export function submitMatrixRowsFromTopology(
 	}));
 }
 
-function submitMatrixWorkflow(hasHooks: boolean) {
-	return defineMatrixWorkflow({
-		columns: SUBMIT_MATRIX_COLUMNS,
-		phases: submitPhaseSpecs(hasHooks),
-		labelHeader: "Branch / PR",
-		rowKey: (row: SubmitMatrixRowSpec) => row.branch,
-	});
-}
+const SUBMIT_MATRIX_WORKFLOW = defineMatrixWorkflow({
+	columns: SUBMIT_MATRIX_COLUMNS,
+	phases: SUBMIT_PHASES,
+	labelHeader: "Branch / PR",
+	rowKey: (row: SubmitMatrixRowSpec) => row.branch,
+});
+
+const SUBMIT_MATRIX_WORKFLOW_WITH_HOOKS = defineMatrixWorkflow({
+	columns: SUBMIT_MATRIX_COLUMNS,
+	phases: SUBMIT_PHASES_WITH_HOOKS,
+	labelHeader: "Branch / PR",
+	rowKey: (row: SubmitMatrixRowSpec) => row.branch,
+});
 
 type SubmitWorkflowController = MatrixWorkflowController<
 	SubmitMatrixRowSpec,
 	SubmitMatrixColumnKey
 >;
-
-export function createSubmitMatrixProgressController(options: {
-	caps: Caps;
-	deps: StreamSinkDeps;
-	title: string;
-	rows: readonly SubmitMatrixRowSpec[];
-	hasHooks: boolean;
-	progress?: NsProgress;
-}): SubmitMatrixProgressController {
-	const controller = submitMatrixWorkflow(options.hasHooks).createController({
-		title: options.title,
-		rows: options.rows,
-		presentation:
-			options.progress === undefined
-				? { kind: "terminal", caps: options.caps, deps: options.deps }
-				: {
-						kind: "terminal-and-event",
-						caps: options.caps,
-						deps: options.deps,
-						progress: options.progress,
-					},
-		begin: "lazy",
-	});
-	return adaptSubmitMatrixProgressController(controller);
-}
 
 export interface SubmitProgressResolution {
 	matrix: SubmitMatrixProgressController;
@@ -169,41 +150,48 @@ export function resolveSubmitProgress(options: {
 	liveProgress?: NsProgress;
 	liveOutput?: FlowLiveOutput;
 	hasHooks: boolean;
-}): SubmitProgressResolution | undefined {
+}): SubmitProgressResolution {
+	let presentation: MatrixProgressPresentation;
 	if (options.caps.isTty) {
-		const matrix = createSubmitMatrixProgressController({
-			caps: options.caps,
-			deps: options.deps,
-			title: "ns flow submit",
-			rows: [],
-			hasHooks: options.hasHooks,
-			...(options.liveProgress === undefined ? {} : { progress: options.liveProgress }),
-		});
-		return { matrix, onOutput: (_stream, text) => matrix.note(text) };
+		presentation =
+			options.liveProgress === undefined
+				? { kind: "terminal", caps: options.caps, deps: options.deps }
+				: {
+						kind: "terminal-and-event",
+						caps: options.caps,
+						deps: options.deps,
+						progress: options.liveProgress,
+					};
+	} else if (options.liveProgress !== undefined) {
+		presentation = { kind: "event", progress: options.liveProgress };
+	} else {
+		presentation = { kind: "settled-transcript", caps: options.caps, deps: options.deps };
 	}
-	if (options.liveProgress === undefined) return undefined;
+
+	const matrix = createSubmitProgressController({
+		presentation,
+		hasHooks: options.hasHooks,
+	});
 	return {
-		matrix: createSubmitMatrixEventProgressController({
-			progress: options.liveProgress,
-			title: "ns flow submit",
-			rows: [],
-			hasHooks: options.hasHooks,
-		}),
-		...(options.liveOutput === undefined ? {} : { onOutput: options.liveOutput }),
+		matrix,
+		...(options.caps.isTty
+			? { onOutput: (_stream: "stdout" | "stderr", text: string) => matrix.note(text) }
+			: options.liveOutput === undefined
+				? {}
+				: { onOutput: options.liveOutput }),
 	};
 }
 
-export function createSubmitMatrixEventProgressController(options: {
-	progress: NsProgress;
-	title: string;
-	rows: readonly SubmitMatrixRowSpec[];
+function createSubmitProgressController(options: {
+	presentation: MatrixProgressPresentation;
 	hasHooks: boolean;
 }): SubmitMatrixProgressController {
+	const workflow = options.hasHooks ? SUBMIT_MATRIX_WORKFLOW_WITH_HOOKS : SUBMIT_MATRIX_WORKFLOW;
 	return adaptSubmitMatrixProgressController(
-		submitMatrixWorkflow(options.hasHooks).createController({
-			title: options.title,
-			rows: options.rows,
-			presentation: { kind: "event", progress: options.progress },
+		workflow.createController({
+			title: "ns flow submit",
+			rows: [],
+			presentation: options.presentation,
 			begin: "lazy",
 		}),
 	);
@@ -294,7 +282,7 @@ export function renderSubmitMatrixProgressFrame(
 		rows: readonly SubmitMatrixRowView[];
 	} & MatrixFrameOptionalFields,
 ): readonly string[] {
-	return submitMatrixWorkflow(false).renderFrame({
+	return SUBMIT_MATRIX_WORKFLOW.renderFrame({
 		caps: input.caps,
 		title: input.title,
 		rows: input.rows,

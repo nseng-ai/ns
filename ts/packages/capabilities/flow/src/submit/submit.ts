@@ -17,6 +17,7 @@ import type {
 import type { SubmitPrLink } from "./gt-output.ts";
 import {
 	compactSubmitMetadataCellText,
+	submitMatrixRowsFromTopology,
 	type SubmitMatrixProgressSink,
 } from "./submit-matrix-progress.ts";
 import {
@@ -343,17 +344,15 @@ export async function runSubmitCommand(
 		return undefined;
 	}
 
-	emitPhase(options, { type: "phase-started", phaseKey: "metadata" });
-	// The metadata workflow reports its own operations (model generation and each `gt modify`
-	// amendment) at their true source, so no broad command snapshot wraps this phase.
+	emitPhase(options, { type: "phase-started", phaseKey: "inventory" });
 	const planned = await buildSubmitPlan({
 		cwd: options.cwd,
 		gateway: options.metadataGateway,
 		onProgress: (message) =>
-			emitPhase(options, { type: "phase-progress", phaseKey: "metadata", label: message }),
+			emitPhase(options, { type: "phase-progress", phaseKey: "inventory", label: message }),
 	});
 	if (planned.kind === "failed") {
-		emitPhase(options, { type: "phase-failed", phaseKey: "metadata", detail: "metadata failed" });
+		emitPhase(options, { type: "phase-failed", phaseKey: "inventory", detail: "inventory failed" });
 		const stderr = formatPrewriteFailureOutput({ error: planned.error, amendedBranches: [] });
 		return failure(1, stderr, {
 			failurePresentation: "unknown",
@@ -361,6 +360,16 @@ export async function runSubmitCommand(
 		});
 	}
 	const plan = planned.plan;
+	options.progress.matrix?.setRows(submitMatrixRowsFromTopology(plan));
+	emitPhase(options, {
+		type: "phase-done",
+		phaseKey: "inventory",
+		detail: `${plan.branches.length} ${plan.branches.length === 1 ? "branch" : "branches"} in submit stack`,
+	});
+
+	emitPhase(options, { type: "phase-started", phaseKey: "metadata" });
+	// The metadata workflow reports its own operations (model generation and each `gt modify`
+	// amendment) at their true source, so no broad command snapshot wraps this phase.
 	const prewrite = await prewriteSubmitMetadata(plan, {
 		cwd: options.cwd,
 		env: options.prDescription.env,
