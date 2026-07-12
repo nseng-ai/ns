@@ -9,8 +9,11 @@ conflict with that README. Reverified against the codebase on 2026-07-12.
 - Retain the existing `flow.submit.pre` hook point and submit-specific implementation.
 - Use the user-facing term **pre-submit checks**. Rename `--no-hooks` to `--no-checks`;
   ns is unreleased, so do not preserve a compatibility alias.
-- Export `FLOW_SUBMIT_CHECK_FAILURE_MARKER` as the stable public harness contract. A
-  harness detects an exact marker line, never surrounding error prose.
+- Export `FLOW_SUBMIT_CHECK_FAILURE_MARKER` as the stable public harness contract. Its
+  raw value is `NS_FLOW_SUBMIT_CHECK_FAILURE`. Clinkr's exact first human stderr line is
+  the raw marker for a negative result and `error: NS_FLOW_SUBMIT_CHECK_FAILURE` for a
+  failure result. A harness detects either complete rendered line, never surrounding error
+  prose.
 - Add the override prompt point `flow.submit.pre.recovery`, default-on with a generic
   built-in prompt and overridable through `.ns/prompts/flow.submit.pre.recovery.md` or
   `ns.toml`.
@@ -31,9 +34,9 @@ conflict with that README. Reverified against the codebase on 2026-07-12.
   Both return deterministic failure presentation, so marker-bearing stderr bypasses model
   interpretation and survives verbatim. Preserve the internal phase key `"hooks"` unless
   a typed progress-contract migration is separately justified.
-- The current schema property is `hooks`, producing `--no-hooks`; the implementation
-  rename is the schema/request property `checks`, producing `--no-checks` and gating repo
-  root/check loading in the same place.
+- Before this slice, the schema property was `hooks`, producing `--no-hooks`; the
+  implementation rename is the schema/request property `checks`, producing `--no-checks`
+  and gating repo root/check loading in the same place.
 - Point definitions are duplicated in
   `ts/packages/capabilities/flow/src/ns/extension.ts` (descriptor vocabulary:
   `cardinality`) and `ts/packages/sdk/src/project-config/points.ts` (catalog vocabulary:
@@ -60,8 +63,11 @@ conflict with that README. Reverified against the codebase on 2026-07-12.
 1. **Marker and public API**
    - Define `FLOW_SUBMIT_CHECK_FAILURE_MARKER` beside the submit-check failure formatter
      in `submit-hooks.ts`.
-   - Make the marker the exact first non-empty stderr line. Keep the existing bounded
-     command failure details and exit-code mapping after it.
+   - Make the marker the exact first non-empty line of the deterministic failure message.
+     Clinkr renders a check-exit-`1` negative result with that raw first line and adds its
+     framework-owned `error:` prefix for other nonzero check exits, making their exact
+     first process-stderr line `error: NS_FLOW_SUBMIT_CHECK_FAILURE`. Keep the existing
+     bounded command failure details and exit-code mapping after it.
    - Re-export the constant through the deliberate cross-package public door,
      `@nseng-ai/flow/api`; do not expose the whole private submit barrel.
 2. **Checks vocabulary and skip flag**
@@ -80,12 +86,13 @@ conflict with that README. Reverified against the codebase on 2026-07-12.
      `failurePresentation: "deterministic"`. Do not route these failures through
      `maybeFormatSubmitFailureWithModel`.
 4. **Tests**
-   - Extend `test/unit/submit-hooks.test.ts` to assert exact first-line marker identity,
-     bounded failure output, check vocabulary, and existing exit-code behavior.
-   - Update `test/scenario/submit-command.test.ts` for `checks: false`/`--no-checks`,
-     marker-bearing deterministic stderr, no checkpoint/submit after failure, and check
-     ordering. Cover both presentation paths at the command boundary or add the narrowest
-     handler-level test needed to prove both branches preserve the marker.
+   - Extend `test/unit/submit-hooks.test.ts` to assert exact first-line raw marker
+     identity, bounded failure output, check vocabulary, and existing exit-code behavior.
+   - Update `test/scenario/submit-command.test.ts` for `checks: false`/`--no-checks`, the
+     exact Clinkr-rendered first stderr line, marker-bearing deterministic output, no
+     checkpoint/submit after failure, and check ordering. Cover both presentation paths at
+     the command boundary or add the narrowest handler-level test needed to prove both
+     branches preserve the marker.
    - Add/adjust a small public-surface assertion for the `@nseng-ai/flow/api` marker
      export if no existing API allowlist test covers it.
 
@@ -116,7 +123,8 @@ conflict with that README. Reverified against the codebase on 2026-07-12.
      needs; keep `@nseng-ai/pi` an optional peer and the CLI implementation Pi-free.
    - Supply `afterCommandComplete` from `src/pi/ns-extension.ts`. Trigger only when all
      are true: the registered command is `ns:flow:submit`, exit code is nonzero, and
-     stderr contains a line exactly equal to `FLOW_SUBMIT_CHECK_FAILURE_MARKER`.
+     stderr contains a line exactly equal to either `FLOW_SUBMIT_CHECK_FAILURE_MARKER` or
+     `` `error: ${FLOW_SUBMIT_CHECK_FAILURE_MARKER}` ``.
    - Resolve the repository root from `details.cwd` with an injected/testable filesystem
      walk-up that accepts both `.git` directories and worktree `.git` files. This is
      repository discovery only; do not import skill lookup policy or shell out.
@@ -192,9 +200,10 @@ Completion evidence for the two slices:
 - `ns extension point flow.submit.pre` still reports the installed checks.
 - `ns extension point flow.submit.pre.recovery` reports the prompt point and active
   default/override source.
-- A failing configured check exits with its mapped exit code, emits the exact marker as
-  the first stderr line, and performs no checkpoint or submit mutation on either
-  presentation path.
+- A failing configured check follows Clinkr's coarse process-exit mapping, retains the
+  check code in structured `data.exitCode`, emits the raw marker as the exact first human
+  stderr line for a negative result or `error: NS_FLOW_SUBMIT_CHECK_FAILURE` for a failure
+  result, and performs no checkpoint or submit mutation on either presentation path.
 - Pi sends recovery only for marker-bearing `ns flow submit` check failures and uses the
   generic default unless consumer prompt config overrides it.
 - `rg` confirms no planned `ns flow validate`, `flow.validation.*`, general gates module,

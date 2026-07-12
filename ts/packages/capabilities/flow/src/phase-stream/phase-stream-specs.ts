@@ -64,20 +64,20 @@ export const LAND_PHASES: readonly PhaseSpec[] = [
 ];
 
 /**
- * Leading `flow submit` phase for consumer-configured pre-submit hooks. Included only when the
- * repo's ns.toml configures hooks, so hook-free repos keep their existing settled frame.
+ * Leading `flow submit` phase for consumer-configured pre-submit checks. Included only when the
+ * repo's ns.toml configures checks, so check-free repos keep their existing settled frame.
  */
-export const SUBMIT_HOOKS_PHASE: PhaseSpec = {
-	key: "hooks",
+export const SUBMIT_CHECKS_PHASE: PhaseSpec = {
+	key: "checks",
 	item: {
-		name: "Hooks",
-		detail: "pre-submit hooks passed",
-		label: "running pre-submit hooks…",
+		name: "Checks",
+		detail: "pre-submit checks passed",
+		label: "running pre-submit checks…",
 	},
 };
 
-/** Submit phases that run before the optional consumer hook boundary. */
-export const SUBMIT_PRE_HOOK_PHASES: readonly PhaseSpec[] = [
+/** Submit phases that run before the optional consumer check boundary. */
+export const SUBMIT_PRE_CHECK_PHASES: readonly PhaseSpec[] = [
 	{
 		key: "inventory",
 		item: {
@@ -88,7 +88,7 @@ export const SUBMIT_PRE_HOOK_PHASES: readonly PhaseSpec[] = [
 	},
 ];
 
-/** Submit phases that run after the optional consumer hook boundary. */
+/** Submit phases that run after the optional consumer check boundary. */
 export const SUBMIT_CORE_PHASES: readonly PhaseSpec[] = [
 	{
 		key: "checkpoint",
@@ -137,16 +137,16 @@ export const SUBMIT_CORE_PHASES: readonly PhaseSpec[] = [
 	},
 ];
 
-/** Hook-free submit phase order. */
+/** Check-free submit phase order. */
 export const SUBMIT_PHASES: readonly PhaseSpec[] = [
-	...SUBMIT_PRE_HOOK_PHASES,
+	...SUBMIT_PRE_CHECK_PHASES,
 	...SUBMIT_CORE_PHASES,
 ];
 
-/** Hook-enabled submit phase order. */
-export const SUBMIT_PHASES_WITH_HOOKS: readonly PhaseSpec[] = [
-	...SUBMIT_PRE_HOOK_PHASES,
-	SUBMIT_HOOKS_PHASE,
+/** Check-enabled submit phase order. */
+export const SUBMIT_PHASES_WITH_CHECKS: readonly PhaseSpec[] = [
+	...SUBMIT_PRE_CHECK_PHASES,
+	SUBMIT_CHECKS_PHASE,
 	...SUBMIT_CORE_PHASES,
 ];
 

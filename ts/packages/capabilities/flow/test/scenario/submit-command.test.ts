@@ -13,6 +13,7 @@ import {
 	formatManagedGeneratedRegion,
 	hashPrDescriptionPrompt,
 } from "../../src/submit/index.ts";
+import { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../../src/submit/submit-hooks.ts";
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
 import { writeTestPointManifest } from "../support/point-manifest.ts";
@@ -428,7 +429,7 @@ describe("project-local submit extension", () => {
 		);
 	});
 
-	test("configured pre-submit hook runs before checkpoint and submit", async () => {
+	test("configured pre-submit check runs before checkpoint and submit", async () => {
 		const repoRoot = await createSubmitHooksRepo(["just"]);
 		const run = runWithFakes({
 			state: {
@@ -444,7 +445,7 @@ describe("project-local submit extension", () => {
 		expect(run.liveOutput).toContainEqual(transient("running just…"));
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "hooks ok\n" });
 		const settled = lastStderrOutput(run.liveOutput);
-		expect(settled).toContain("pre-submit hooks passed");
+		expect(settled).toContain("pre-submit checks passed");
 		expect(settled).toContain("checkpoint complete");
 		const calls = formattedExecCalls(run.context);
 		expect(calls.indexOf("just")).toBeGreaterThanOrEqual(0);
@@ -455,7 +456,7 @@ describe("project-local submit extension", () => {
 		).toBeGreaterThan(calls.indexOf("just"));
 	});
 
-	test("failing pre-submit hook aborts submit with deterministic failure output", async () => {
+	test("failing pre-submit check aborts submit with deterministic failure output", async () => {
 		const repoRoot = await createSubmitHooksRepo(["just"]);
 		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-hook-failure-"));
 		tempDirs.push(logRoot);
@@ -473,33 +474,75 @@ describe("project-local submit extension", () => {
 		});
 
 		expect(await run.exit).toBe(2);
+		const result = await run.result;
+		expect(result.type).toBe("failure");
+		if (result.type === "failure") {
+			expect(result.data).toEqual({ exitCode: 7 });
+			expect(result.message.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
+		}
 		const error = run.stderr.join("");
-		expect(error).toContain("Pre-submit hook failed (exit code 7).");
+		expect(error.split("\n")[0]).toBe(`error: ${FLOW_SUBMIT_CHECK_FAILURE_MARKER}`);
+		expect(error.split(FLOW_SUBMIT_CHECK_FAILURE_MARKER)).toHaveLength(2);
+		expect(error).toContain("Pre-submit check failed (exit code 7).");
 		expect(error).toContain("Command: just");
 		expect(error).toContain("Submission was not attempted.");
 		expect(error).toContain("hook stdout");
 		expect(error).toContain("hook stderr");
-		expect(error).toContain("Fix the failure, or rerun with --no-hooks to skip pre-submit hooks.");
+		expect(error).toContain(
+			"Fix the failure, or rerun with --no-checks to skip pre-submit checks.",
+		);
 		expect(error).toContain("Raw log:");
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "hook stdout\n" });
 		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "hook stderr\n" });
 		const settled = lastStderrOutput(run.liveOutput);
-		expect(settled).toContain("✗ Hooks");
-		expect(settled).toContain("hooks failed");
+		expect(settled).toContain("✗ Checks");
+		expect(settled).toContain("checks failed");
 		expect(formattedExecCalls(run.context)).not.toContain("git symbolic-ref --short HEAD");
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(
 			false,
 		);
 	});
 
-	test("hooks: false skips configured pre-submit hooks", async () => {
+	test("pre-submit check exit 1 remains a negative result with the raw marker line", async () => {
 		const repoRoot = await createSubmitHooksRepo(["just"]);
-		const run = runWithFakes({ cwd: repoRoot, request: { hooks: false } });
+		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-check-negative-"));
+		tempDirs.push(logRoot);
+		const run = runWithFakes({
+			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: `${repoRoot}\n` } },
+					{ match: "just", result: { code: 1, stderr: "check failed\n" } },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const result = await run.result;
+		expect(result.type).toBe("negative");
+		if (result.type === "negative") {
+			expect(result.data).toEqual({ exitCode: 1 });
+			expect(result.message.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
+		}
+		const error = run.stderr.join("");
+		expect(error.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
+		expect(error.split(FLOW_SUBMIT_CHECK_FAILURE_MARKER)).toHaveLength(2);
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
+		expect(formattedExecCalls(run.context)).not.toContain("git symbolic-ref --short HEAD");
+		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(
+			false,
+		);
+	});
+
+	test("checks: false skips configured pre-submit checks", async () => {
+		const repoRoot = await createSubmitHooksRepo(["just"]);
+		const run = runWithFakes({ cwd: repoRoot, request: { checks: false } });
 
 		expect(await run.exit).toBe(0);
 		expect(formattedExecCalls(run.context)).not.toContain("just");
 		expect(run.liveOutput).not.toContainEqual(transient("running just…"));
-		expect(lastStderrOutput(run.liveOutput)).not.toContain("pre-submit hooks passed");
+		expect(lastStderrOutput(run.liveOutput)).not.toContain("pre-submit checks passed");
 	});
 
 	test("--force passes --force to Graphite submit readiness and submit", async () => {

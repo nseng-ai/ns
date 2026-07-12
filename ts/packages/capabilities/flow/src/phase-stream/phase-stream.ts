@@ -34,11 +34,11 @@ import { createTranscriptTail } from "./phase-stream-tail.ts";
 export {
 	CP_PHASES,
 	LAND_PHASES,
+	SUBMIT_CHECKS_PHASE,
 	SUBMIT_CORE_PHASES,
-	SUBMIT_HOOKS_PHASE,
 	SUBMIT_PHASES,
-	SUBMIT_PHASES_WITH_HOOKS,
-	SUBMIT_PRE_HOOK_PHASES,
+	SUBMIT_PHASES_WITH_CHECKS,
+	SUBMIT_PRE_CHECK_PHASES,
 } from "./phase-stream-specs.ts";
 export type { PhaseSpec } from "./phase-stream-specs.ts";
 

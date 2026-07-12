@@ -37,13 +37,17 @@
     folded into the README draft; resolve work is grouped into repository identity,
     Graphite machine facts, Pi ownership, and point-default fidelity; broader CLI-prose
     and point-definition consolidation concerns are explicitly parked.
-- [ ] Submit pre-check contract slice: retain `flow.submit.pre` and the submit-specific
+- [x] Submit pre-check contract slice: retain `flow.submit.pre` and the submit-specific
       implementation, add an exported stable failure marker, and preserve both submit
       execution paths. Do not introduce a validation-gates module or standalone command.
-  - `references/validation-gates-plan.md` was revised on 2026-07-12 against the current
-    submit and Pi seams. It now preserves `flow.submit.pre`, scopes the work to the
-    marker/`--no-checks` contract plus submit-only recovery, and explicitly excludes a
-    general gates module, `flow.validation.*` taxonomy, and standalone command.
+  - Evidence: `FLOW_SUBMIT_CHECK_FAILURE_MARKER` is exported from `@nseng-ai/flow/api`
+    with raw value `NS_FLOW_SUBMIT_CHECK_FAILURE`; `--no-checks` replaces `--no-hooks`;
+    both submit paths retain deterministic presentation and abort before checkpoint or
+    Graphite submission. Clinkr process exits remain coarse (`1` for a negative check exit
+    `1`, otherwise failure exit `2`) while structured `data.exitCode` retains the check
+    code; tests cover both rendered marker-line forms. Focused Flow tests, full TypeScript
+    tests, and `just` pass; help and point inspection confirm `--no-checks` and unchanged
+    `flow.submit.pre`.
 - [ ] Recovery slice: implement the settled `flow.submit.pre.recovery` prompt point, add
       its built-in generic default and `.ns/prompts`/`ns.toml` override, and rework the Pi
       bridge to detect the stable submit-check failure marker and resolve that prompt.

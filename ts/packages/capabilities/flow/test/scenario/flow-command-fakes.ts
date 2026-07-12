@@ -518,7 +518,7 @@ async function runFlowCommand(input: {
 	stderr: (text: string) => void;
 }): Promise<{ exitCode: number; result: CommandExit }> {
 	const result = await input.command.run(input.context, {
-		argv: requestObjectToArgv(input.request, { negatedBooleanKeys: ["restack"] }),
+		argv: requestObjectToArgv(input.request, { negatedBooleanKeys: ["checks", "restack"] }),
 	});
 	writeCommandExitOutput(result, input);
 	return { exitCode: exitCodeForCommandExit(result), result };
