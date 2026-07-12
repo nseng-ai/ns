@@ -50,11 +50,16 @@ export function createMatrixEventAdapter<ColumnKey extends string, Row extends M
 				emit({ type: "matrix-active-operations", operations: [...change.operations] });
 				return;
 			case "cell-changed":
-				emitMatrixCell(emit, change.rowKey, change.column, change.update);
+				emitMatrixCell({
+					emit,
+					rowKey: change.rowKey,
+					columnKey: change.column,
+					update: change.update,
+				});
 				return;
 			case "cells-changed":
 				for (const rowKey of change.rowKeys) {
-					emitMatrixCell(emit, rowKey, change.column, change.update);
+					emitMatrixCell({ emit, rowKey, columnKey: change.column, update: change.update });
 				}
 				return;
 			case "phase-event":
@@ -89,17 +94,17 @@ export function createMatrixEventAdapter<ColumnKey extends string, Row extends M
 	};
 }
 
-function emitMatrixCell(
-	emit: (event: NsProgressPhaseEvent) => void,
-	rowKey: string,
-	columnKey: string,
-	update: MatrixCellUpdate,
-): void {
-	emit({
+function emitMatrixCell(options: {
+	emit(event: NsProgressPhaseEvent): void;
+	rowKey: string;
+	columnKey: string;
+	update: MatrixCellUpdate;
+}): void {
+	options.emit({
 		type: "matrix-cell",
-		rowKey,
-		columnKey,
-		state: update.state,
-		...(update.text === undefined ? {} : { text: update.text }),
+		rowKey: options.rowKey,
+		columnKey: options.columnKey,
+		state: options.update.state,
+		...(options.update.text === undefined ? {} : { text: options.update.text }),
 	});
 }

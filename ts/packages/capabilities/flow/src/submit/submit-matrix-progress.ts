@@ -16,7 +16,11 @@ import type {
 } from "../phase-stream/matrix-progress-state.ts";
 import type { MatrixFrameOptionalFields } from "../phase-stream/matrix-progress-terminal-adapter.ts";
 import type { FlowLiveOutput } from "../phase-stream/live-output.ts";
-import { SUBMIT_PHASES, SUBMIT_PHASES_WITH_HOOKS } from "../phase-stream/phase-stream-specs.ts";
+import {
+	SUBMIT_PHASES,
+	SUBMIT_PHASES_WITH_HOOKS,
+	type PhaseSpec,
+} from "../phase-stream/phase-stream-specs.ts";
 import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 
 export type SubmitMatrixCellState = MatrixCellState;
@@ -120,19 +124,18 @@ export function submitMatrixRowsFromTopology(
 	}));
 }
 
-const SUBMIT_MATRIX_WORKFLOW = defineMatrixWorkflow({
-	columns: SUBMIT_MATRIX_COLUMNS,
-	phases: SUBMIT_PHASES,
-	labelHeader: "Branch / PR",
-	rowKey: (row: SubmitMatrixRowSpec) => row.branch,
-});
+function createSubmitMatrixWorkflow(phases: readonly PhaseSpec[]) {
+	return defineMatrixWorkflow<SubmitMatrixRowSpec, SubmitMatrixColumnKey>({
+		columns: SUBMIT_MATRIX_COLUMNS,
+		phases,
+		labelHeader: "Branch / PR",
+		rowKey: (row) => row.branch,
+	});
+}
 
-const SUBMIT_MATRIX_WORKFLOW_WITH_HOOKS = defineMatrixWorkflow({
-	columns: SUBMIT_MATRIX_COLUMNS,
-	phases: SUBMIT_PHASES_WITH_HOOKS,
-	labelHeader: "Branch / PR",
-	rowKey: (row: SubmitMatrixRowSpec) => row.branch,
-});
+const SUBMIT_MATRIX_WORKFLOW = createSubmitMatrixWorkflow(SUBMIT_PHASES);
+
+const SUBMIT_MATRIX_WORKFLOW_WITH_HOOKS = createSubmitMatrixWorkflow(SUBMIT_PHASES_WITH_HOOKS);
 
 type SubmitWorkflowController = MatrixWorkflowController<
 	SubmitMatrixRowSpec,
