@@ -13,18 +13,22 @@ each branch stacks on the previous.
   - Landed pre-extraction as commit `206832e28`; evidence in the parent record's
     `updates/2026-07-12-cmux-reshape-slice-1-executed.md`. Kept here for stack
     continuity.
-- [ ] Slice 2 — `cmux-reshape/rename-package` (spec item 2): `git mv` the
+- [x] Slice 2 — `cmux-reshape/rename-package` (spec item 2): `git mv` the
       package to `capabilities/cmux` and `src/cmux` to `src/core`, rename to
       `@nseng-ai/cmux` with `CMUX_PACKAGE_IDENTITY`, and run the
       `@nseng-ai/ccc` → `@nseng-ai/cmux` exact-pair substitution over the
       enumerated live-source set.
-  - Evidence: `just` green; `grep -r "@nseng-ai/ccc"` over live source hits
-    only immutable-history dirs.
+  - Landed locally on `cmux-reshape/rename-package`; `just` and the live-source
+    stale-package-name grep passed. Re-enumeration found additional in-scope
+    package-name consumers, recorded in the Slice 2 Semantic Update.
 - [ ] Slice 3 — `cmux-reshape/rehome-bin-as-extension` (spec item 3): delete
       the `ccc` bin and `./cli` export, add the `./ns-extension` descriptor
       (`ns cmux exec workspace-summary` via kernel source-dev discovery, no
       registration edit anywhere), rewire the `objective-sidebar.ts` runtime
       caller, and add the CLI scenario tests the `ts/AGENTS.md` gates require.
+  - Re-ratified 2026-07-12: Slice 3 scope now includes the five caller,
+    fixture, test, and documentation locations found during pre-edit
+    re-enumeration; the attached execution plan carries the explicit inventory.
   - Evidence: `just` green including new scenario tests;
     `ns cmux exec workspace-summary --help` resolves from the repo root.
 - [ ] Slice 4 — `cmux-reshape/rename-surfaces-and-skills` (spec items 4+5):

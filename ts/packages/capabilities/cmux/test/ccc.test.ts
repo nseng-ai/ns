@@ -15,7 +15,7 @@ function expectedImplBranchContextCommand(key: string): string {
 }
 import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/command";
 import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
-import { CCC_COMMAND_NAMES, type CccSlotDispatchPlanOptions } from "@nseng-ai/ccc/api";
+import { CCC_COMMAND_NAMES, type CccSlotDispatchPlanOptions } from "@nseng-ai/cmux/api";
 import registerCccExtension, {
 	createCccSidebarControllerWithPiWiring,
 	registerCccSidebarCommands,
@@ -24,11 +24,11 @@ import registerCccExtension, {
 	registerCccSlotDispatchPromptCommand,
 	registerCccSlotOpenBranchCommand,
 	registerCccSurfaceDispatchPlanCommand,
-} from "@nseng-ai/ccc/pi";
+} from "@nseng-ai/cmux/pi";
 import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
-import { buildSlugPrompt } from "../src/cmux/branch-slug.ts";
-import { buildLaunchPrompt } from "../src/cmux/dispatch-prompt.ts";
+import { buildSlugPrompt } from "../src/core/branch-slug.ts";
+import { buildLaunchPrompt } from "../src/core/dispatch-prompt.ts";
 import {
 	BRANCH,
 	FAST_MODEL,

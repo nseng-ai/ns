@@ -1,5 +1,5 @@
 {
-	"name": "@nseng-ai/ccc",
+	"name": "@nseng-ai/cmux",
 	"version": "0.1.2",
 	"type": "module",
 	"bin": {
@@ -20,7 +20,7 @@
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
-		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/ccc/test"
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/cmux/test"
 	},
 	"dependencies": {
 		"@nseng-ai/branch-context": "workspace:*",
@@ -48,7 +48,7 @@
 		"tier": "capability",
 		"subpackages": [
 			"api",
-			"cmux",
+			"core",
 			"ns",
 			"pi"
 		]

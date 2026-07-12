@@ -1,6 +1,6 @@
-# @nseng-ai/ccc
+# @nseng-ai/cmux
 
-`@nseng-ai/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC is a container package: `core` and `cmux` compose lower-level capabilities through Pi-free orchestration interfaces, while the `pi` subpackage owns CCC-specific Pi registration and presentation wiring and is the only CCC unit that may import neutral `@nseng-ai/pi/...` helpers.
+`@nseng-ai/cmux` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC is a container package: `core` and `cmux` compose lower-level capabilities through Pi-free orchestration interfaces, while the `pi` subpackage owns CCC-specific Pi registration and presentation wiring and is the only CCC unit that may import neutral `@nseng-ai/pi/...` helpers.
 
 ## Language
 
@@ -17,11 +17,11 @@ The package-level implementation home for workflows that must compose multiple l
 *Avoid*: primitive gateway, storage backend, UI adapter, one-off script.
 
 **CCC boundary**:
-The dependency direction rule: CCC may depend on lower-level packages, CLIs, and provider **Capability APIs**, but only the CCC `pi` subpackage may depend on the Pi host. Pi-specific CCC command registration, acknowledgement/progress presentation, prompt/session formatting, machine-envelope parsing, and slash-command formatting belongs in the **CCC Pi subpackage**. Checked-in `.pi/extensions/*.ts` project-local adapters at the repo root may still register CCC-owned commands by importing `@nseng-ai/ccc/pi`, since they are not part of the `@nseng-ai/pi` package. CCC-owned Pi command surfaces use the `ns:ccc` extension surface; cmux wording is reserved for the external tool/workspace domain.
+The dependency direction rule: CCC may depend on lower-level packages, CLIs, and provider **Capability APIs**, but only the CCC `pi` subpackage may depend on the Pi host. Pi-specific CCC command registration, acknowledgement/progress presentation, prompt/session formatting, machine-envelope parsing, and slash-command formatting belongs in the **CCC Pi subpackage**. Checked-in `.pi/extensions/*.ts` project-local adapters at the repo root may still register CCC-owned commands by importing `@nseng-ai/cmux/pi`, since they are not part of the `@nseng-ai/pi` package. CCC-owned Pi command surfaces use the `ns:ccc` extension surface; cmux wording is reserved for the external tool/workspace domain.
 *Avoid*: circular helper import, direct `@nseng-ai/pi/...` imports from non-`pi` CCC subpackages, public API promise, compatibility alias.
 
 **CCC Pi subpackage**:
-The `@nseng-ai/ccc/pi` subpackage that presents CCC workflows inside Pi/cmux by importing CCC core APIs and neutral `@nseng-ai/pi/...` helper subpaths. It owns CCC-specific Pi-facing code while the rest of `@nseng-ai/ccc` exposes small Pi-free orchestration interfaces, preferably through `@nseng-ai/ccc/api`.
+The `@nseng-ai/cmux/pi` subpackage that presents CCC workflows inside Pi/cmux by importing CCC core APIs and neutral `@nseng-ai/pi/...` helper subpaths. It owns CCC-specific Pi-facing code while the rest of `@nseng-ai/cmux` exposes small Pi-free orchestration interfaces, preferably through `@nseng-ai/cmux/api`.
 *Avoid*: CCC domain owner, Pi host internals package, pass-through shim, place for non-Pi orchestration logic.
 
 **Lower capability**:

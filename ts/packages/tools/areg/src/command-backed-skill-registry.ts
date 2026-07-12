@@ -1,4 +1,4 @@
-import { cccCommandBackedSkillRegistrations } from "@nseng-ai/ccc/pi";
+import { cccCommandBackedSkillRegistrations } from "@nseng-ai/cmux/pi";
 import { flowCommandBackedSkillRegistrations } from "@nseng-ai/flow/pi";
 import { handoffCommandBackedSkillRegistrations } from "@nseng-ai/handoffs/pi";
 import { objectiveCommandBackedSkillRegistrations } from "@nseng-ai/objectives/pi";
@@ -38,7 +38,7 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 	},
 	{ skillName: "branch-retro", surface: "branch:retro", kind: "generic-backing-skill" },
 	// These ns:ccc:* rows are generic backing-skill aliases, not CCC provider-owned
-	// Pi commands; real CCC command registrations come from @nseng-ai/ccc/pi below.
+	// Pi commands; real CCC command registrations come from @nseng-ai/cmux/pi below.
 	{
 		skillName: "ccc-available-work",
 		surface: "ns:ccc:available-work",

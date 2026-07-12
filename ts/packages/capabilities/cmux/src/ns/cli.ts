@@ -11,7 +11,7 @@ import {
 	cmuxWorkspaceSummaryRequestSchema,
 	cmuxWorkspaceSummaryResultSchema,
 	renderCmuxWorkspaceSummaryHuman,
-} from "../cmux/workspace-summary.ts";
+} from "../core/workspace-summary.ts";
 
 export interface CccCliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout" | "stderr"> {
 	commands?: CommandExecApi;

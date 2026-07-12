@@ -3,11 +3,11 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import {
 	createCccSidebarControllerWithPiWiring,
 	registerCccSidebarCommands,
-} from "@nseng-ai/ccc/pi";
+} from "@nseng-ai/cmux/pi";
 import {
 	formatObjectiveSidebarFields,
 	resolveObjectiveSelector,
-} from "../src/cmux/objective-sidebar.ts";
+} from "../src/core/objective-sidebar.ts";
 import {
 	FakeCommandContext,
 	FakePi,

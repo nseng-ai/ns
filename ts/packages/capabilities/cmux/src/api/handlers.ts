@@ -1,4 +1,4 @@
-export { CCC_PACKAGE_IDENTITY } from "./index.ts";
+export { CMUX_PACKAGE_IDENTITY } from "./index.ts";
 
 // Canonical ns:ccc:* command surface names
 export {
@@ -12,7 +12,7 @@ export {
 	CCC_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,
 	CCC_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME,
 	CCC_WORKSPACE_OPEN_BRANCH_COMMAND_NAME,
-} from "../cmux/command-surfaces.ts";
+} from "../core/command-surfaces.ts";
 
 // Dispatch prompt
 export {
@@ -20,7 +20,7 @@ export {
 	resolveDispatchPromptPayloadOptions,
 	type DispatchPromptPayloadOptions,
 	type HandleCccSlotDispatchPromptOptions,
-} from "../cmux/dispatch-prompt.ts";
+} from "../core/dispatch-prompt.ts";
 
 // Claude plan tab
 export {
@@ -28,7 +28,7 @@ export {
 	extractLastAssistantText,
 	buildClaudePlanTabTitle,
 	buildClaudePlanLaunchCommand,
-} from "../cmux/claude-plan-tab.ts";
+} from "../core/claude-plan-tab.ts";
 
 // Prompt file utilities
 export {
@@ -36,13 +36,13 @@ export {
 	writeTimestampedPromptFile,
 	type PromptFileOptions,
 	type ResolvedPromptFileOptions,
-} from "../cmux/prompt-file.ts";
+} from "../core/prompt-file.ts";
 
 // Dispatch from trunk
 export {
 	handleCccSlotDispatchFromTrunk,
 	createTrackedBranchFromTrunkForPrompt,
-} from "../cmux/dispatch-from-trunk.ts";
+} from "../core/dispatch-from-trunk.ts";
 
 // Slot open branch
 export {
@@ -51,7 +51,7 @@ export {
 	extractCommandArgumentPrefix,
 	type HandleCccSlotOpenBranchOptions,
 	type CccSlotOpenBranchOptions,
-} from "../cmux/slot-open-branch.ts";
+} from "../core/slot-open-branch.ts";
 
 // Slot dispatch plan
 export {
@@ -59,7 +59,7 @@ export {
 	type CccSlotDispatchPlanOptions,
 	type DispatchPlanConfig,
 	type DispatchDestination,
-} from "../cmux/slot-dispatch-plan.ts";
+} from "../core/slot-dispatch-plan.ts";
 
 // Sidebar
 export {
@@ -69,7 +69,7 @@ export {
 	buildCmuxBranchStateSidebarPrompt,
 	type CccSidebarController,
 	type ObjectiveSidebarHandlerOptions,
-} from "../cmux/sidebar.ts";
+} from "../core/sidebar.ts";
 
 // Slot client
 export type { SlotClient } from "@nseng-ai/slots/api";

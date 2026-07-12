@@ -29,7 +29,7 @@ export const intendedPublicPackages = [
 	"@nseng-ai/capability-kit",
 	"@nseng-ai/harness-artifacts",
 	"@nseng-ai/flow",
-	"@nseng-ai/ccc",
+	"@nseng-ai/cmux",
 ];
 
 export const firstBatchPackages = ["@nseng-ai/capability-kit", "@nseng-ai/flow"];
@@ -59,7 +59,7 @@ export const publicPublishOrder = [
 	"@nseng-ai/packagechk",
 	"@nseng-ai/vibechk",
 	"@nseng-ai/flow",
-	"@nseng-ai/ccc",
+	"@nseng-ai/cmux",
 	"@nseng-ai/areg",
 ];
 
