@@ -3,7 +3,7 @@ import { describeNodeRuntimeCliEntrypoint } from "@nseng-ai/foundation/cli-runti
 describeNodeRuntimeCliEntrypoint({
 	name: "ns Node runtime CLI entrypoint",
 	workspaceRoot: new URL("../../../../../", import.meta.url),
-	cliSourcePathFromWorkspace: "packages/hosts/ns-cli/src/cli.ts",
+	cliSourcePathFromWorkspace: "packages/hosts/ns/src/cli.ts",
 	cliSourceUrl: new URL("../../src/cli.ts", import.meta.url),
 	helpAssertions: [
 		{ type: "contains", text: "Usage: ns" },
@@ -11,5 +11,5 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "not_contains", text: "cp" },
 	],
 	runtimeDiagnostics:
-		"runtime: typescript\nentry_point: @nseng-ai/ns bin ns -> ts/packages/hosts/ns-cli/bin/ns.js\n",
+		"runtime: typescript\nentry_point: @nseng-ai/ns bin ns -> ts/packages/hosts/ns/bin/ns.js\n",
 });

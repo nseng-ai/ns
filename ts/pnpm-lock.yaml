@@ -110,7 +110,7 @@ importers:
         version: link:packages/kernel
       '@nseng-ai/ns':
         specifier: workspace:*
-        version: link:packages/hosts/ns-cli
+        version: link:packages/hosts/ns
       '@nseng-ai/ns-pi-subagents':
         specifier: workspace:*
         version: link:packages/extensions/ns-pi-subagents
@@ -527,7 +527,7 @@ importers:
         specifier: workspace:*
         version: link:../../capabilities/objectives
 
-  packages/hosts/ns-cli:
+  packages/hosts/ns:
     dependencies:
       '@earendil-works/pi-agent-core':
         specifier: 'catalog:'
