@@ -4,6 +4,8 @@ import {
 	buildStackLandingPlan,
 	executeLanding,
 	loadStackLandingShape,
+	nullLandConfirmationGateway,
+	nullLandExecutionProgress,
 	type StackLandingShape,
 } from "@nseng-ai/flow/land/api";
 import {
@@ -113,7 +115,12 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 		});
 
 		const outcome = await executeLanding({
-			context: context,
+			context,
+			source: { type: "discover" },
+			host: {
+				confirmation: nullLandConfirmationGateway,
+				progress: nullLandExecutionProgress,
+			},
 			request: {
 				cwd: "/repo/subdir",
 				target: { type: "stack" },

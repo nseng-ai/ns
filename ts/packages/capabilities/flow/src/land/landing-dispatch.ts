@@ -15,10 +15,7 @@ import type {
 	ParsedArgs,
 	PrintAwareLandStackCommandContext,
 } from "./stack/types.ts";
-import {
-	confirmLandStackAction,
-	type PreMergeConfirmation,
-} from "./stack/pre-merge-confirmation.ts";
+import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
 import {
 	executeLanding,
 	loadStackLandingShape,
@@ -26,9 +23,13 @@ import {
 	type LandingShape,
 } from "./api.ts";
 import type { StackLandingShape } from "./preflight.ts";
-import { createFlowLandConfirmationGateway } from "./flow-land-confirmation-gateway.ts";
+import {
+	createFlowLandConfirmationGateway,
+	createUpfrontApprovedLandConfirmationGateway,
+} from "./flow-land-confirmation-gateway.ts";
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
 import {
+	approvedLandConfirmationKinds,
 	createCleanupProgress,
 	landingCleanupPolicyFromArgs,
 	planPostLandingSlotCleanup,
@@ -88,7 +89,11 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 			target: shape.value,
 			isDryRun: options.parsedArgs.isDryRun,
 			cleanup: postLandingCleanupRequestFromArgs(options.parsedArgs),
-			cleanupConfirmationAlreadyApproved: options.parsedArgs.shouldSkipConfirmation,
+			approvedConfirmationKinds: approvedLandConfirmationKinds({
+				flags: options.parsedArgs,
+				wasUpfrontPromptApproved: false,
+				...optionalEntry("cleanupPreview", cleanupPreview),
+			}),
 			...optionalEntry("progressIo", observabilityChannels.progressIo),
 		});
 		if (result.outcome.type === "failure") return result.outcome;
@@ -109,16 +114,16 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 	if (confirmationResult.outcome.type === "failure") return confirmationResult.outcome;
 
 	return await executeStackLanding(runtime.source, options.ctx, options.parsedArgs, {
-		shouldSkipMainConfirmation: true,
 		graphite: runtime.graphite,
-		...(options.parsedArgs.shouldSkipConfirmation
-			? {}
-			: { preMergeConfirmation: "already-approved" }),
-		...(confirmationResult.cleanupConfirmation === "already-approved"
-			? { isPostLandingCleanupApproved: true }
-			: {}),
 		observabilityChannels,
-		shape: shape.value,
+		execution: {
+			source: { type: "prepared", shape: shape.value },
+			approvedConfirmationKinds: approvedLandConfirmationKinds({
+				flags: options.parsedArgs,
+				wasUpfrontPromptApproved: confirmationResult.wasPromptApproved,
+				...optionalEntry("cleanupPreview", cleanupPreview),
+			}),
+		},
 	});
 }
 
@@ -142,13 +147,20 @@ async function runCleanupOnlyLanding(options: RunCleanupOnlyLandingOptions): Pro
 		context: options.runtime.landContext,
 		request,
 		host: {
-			confirmation: createFlowLandConfirmationGateway(options.ctx),
+			confirmation: createUpfrontApprovedLandConfirmationGateway(
+				createFlowLandConfirmationGateway(options.ctx),
+				approvedLandConfirmationKinds({
+					flags: options.args,
+					wasUpfrontPromptApproved: false,
+					...optionalEntry(
+						"cleanupPreview",
+						planPostLandingSlotCleanup({ args: options.args, shape: options.shape }),
+					),
+				}),
+			),
 			progress: createCleanupProgress(options.ctx),
 		},
-		approvals: {
-			isPostLandingCleanupAlreadyApproved: options.args.shouldSkipConfirmation,
-		},
-		preparedShape: options.shape,
+		source: { type: "prepared", shape: options.shape },
 	});
 	if (execution.type === "failed") {
 		presentFailureAndReturn(options.ctx, execution.failure);
@@ -167,8 +179,8 @@ async function runCleanupOnlyLanding(options: RunCleanupOnlyLandingOptions): Pro
 }
 
 interface StackModeConfirmationResult {
-	outcome: LandOutcome;
-	cleanupConfirmation?: PreMergeConfirmation;
+	readonly outcome: LandOutcome;
+	readonly wasPromptApproved: boolean;
 }
 
 async function confirmStackModeIfNeeded(
@@ -194,11 +206,7 @@ async function confirmStackModeIfNeeded(
 		defaultAnswer: "yes",
 		onFailure: (failure) => presentFailureAndReturn(ctx, failure),
 	});
-	const cleanupConfirmation: PreMergeConfirmation | undefined =
-		outcome.type === "completed" && options.cleanupPreview !== undefined && shouldPrompt
-			? "already-approved"
-			: undefined;
-	return { outcome, ...optionalEntry("cleanupConfirmation", cleanupConfirmation) };
+	return { outcome, wasPromptApproved: outcome.type === "completed" && shouldPrompt };
 }
 
 export function buildUpfrontStackConfirmation(

@@ -50,14 +50,11 @@ export async function confirmAndFreeManagedSlots(options: {
 	readonly context: LandContext;
 	readonly host: PreMergeExecutionHost;
 	readonly plan: LandingPlan;
-	readonly confirmationAlreadyApproved?: boolean;
 }): Promise<LandResult<readonly ManagedSlotWorktree[]>> {
 	const slots = options.plan.managedSlotConflicts.map(toManagedSlotWorktree);
-	if (!options.confirmationAlreadyApproved) {
-		const decision = await options.host.confirmation.confirm({ kind: "free-managed-slots", slots });
-		if (decision.type === "declined") return landFailure(landingCancelledBeforeMergeFailure());
-		if (decision.type === "refused-with-fully-worded-failure") return landFailure(decision.failure);
-	}
+	const decision = await options.host.confirmation.confirm({ kind: "free-managed-slots", slots });
+	if (decision.type === "declined") return landFailure(landingCancelledBeforeMergeFailure());
+	if (decision.type === "refused-with-fully-worded-failure") return landFailure(decision.failure);
 
 	options.host.progress.setStatus("freeing landing slots...");
 	const result = await options.context.worktrees.freeSlots({
@@ -99,24 +96,20 @@ export async function confirmAndSubmitRequiredPrUpdates(options: {
 	readonly context: LandContext;
 	readonly host: PreMergeExecutionHost;
 	readonly plan: LandingPlan;
-	readonly confirmationAlreadyApproved?: boolean;
 }): Promise<LandResult<void>> {
 	const { context, host, plan } = options;
-	if (!options.confirmationAlreadyApproved) {
-		const restackTarget = restackTargetForSubmit(plan);
-		const decision = await host.confirmation.confirm({
-			kind: "submit-required-updates",
-			landingTargetBranch: plan.stack.landingTargetBranch,
-			...(restackTarget === undefined ? {} : { restackTarget }),
-			requirements: plan.prSubmitRequirements,
-			restackRequirements: plan.submitRestackRequirements,
-		});
-		if (decision.type === "declined") return landFailure(landingCancelledBeforeMergeFailure());
-		if (decision.type === "refused-with-fully-worded-failure") return landFailure(decision.failure);
-	}
+	const restackTarget = restackTargetForSubmit(plan);
+	const decision = await host.confirmation.confirm({
+		kind: "submit-required-updates",
+		landingTargetBranch: plan.stack.landingTargetBranch,
+		...(restackTarget === undefined ? {} : { restackTarget }),
+		requirements: plan.prSubmitRequirements,
+		restackRequirements: plan.submitRestackRequirements,
+	});
+	if (decision.type === "declined") return landFailure(landingCancelledBeforeMergeFailure());
+	if (decision.type === "refused-with-fully-worded-failure") return landFailure(decision.failure);
 
 	const submitOperation = submitUpdateOperation({ branch: plan.stack.landingTargetBranch });
-	const restackTarget = restackTargetForSubmit(plan);
 	if (restackTarget !== undefined) {
 		const restackForSubmitOperation = restackOperation({ branch: restackTarget, scope: "upstack" });
 		host.progress.setStatus(`restacking ${restackTarget}...`);
@@ -164,7 +157,6 @@ export async function submitRequiredUpdatesAndRecheckPlan(options: {
 	readonly host: PreMergeExecutionHost;
 	readonly cwd: string;
 	readonly plan: LandingPlan;
-	readonly confirmationAlreadyApproved?: boolean;
 }): Promise<LandResult<LandingPlan>> {
 	const submitted = await confirmAndSubmitRequiredPrUpdates(options);
 	if (submitted.type === "failure") return submitted;

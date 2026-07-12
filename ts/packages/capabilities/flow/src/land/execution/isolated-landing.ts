@@ -26,7 +26,6 @@ export interface ExecuteIsolatedLandingOptions {
 	readonly target: LandingShape;
 	readonly isDryRun: boolean;
 	readonly cleanup: PostLandingCleanupRequest;
-	readonly cleanupConfirmationAlreadyApproved?: boolean;
 }
 
 export type IsolatedLandingOutcome =
@@ -100,7 +99,6 @@ export async function executeIsolatedLanding(
 
 	const cleanupDecision = await resolveManagedSlotPostLandingCleanupDecision({
 		confirmation: options.host.confirmation,
-		isConfirmationAlreadyApproved: options.cleanupConfirmationAlreadyApproved ?? false,
 		cleanup: options.cleanup,
 		shape: options.target,
 	});

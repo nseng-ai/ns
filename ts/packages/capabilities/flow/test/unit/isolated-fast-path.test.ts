@@ -32,7 +32,7 @@ const FEATURE = "feature-a";
 const SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 const approvedConfirmation: LandConfirmationGateway = {
-	confirm: async () => ({ type: "approved" }),
+	confirm: async () => ({ type: "approved", approvalSource: "prompted" }),
 };
 const nullProgress: LandExecutionProgress = {
 	note() {},
@@ -61,7 +61,7 @@ describe("isolated landing core", () => {
 			confirmation: {
 				confirm: async () => {
 					confirmationCount += 1;
-					return { type: "approved" };
+					return { type: "approved", approvalSource: "prompted" };
 				},
 			},
 		});

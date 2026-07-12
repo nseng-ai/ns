@@ -13,10 +13,14 @@ import {
 	type PostLandingCleanupRequest,
 	type PostLandingSlotCleanupDecision,
 } from "../../src/land/execution/post-landing-cleanup.ts";
-import { createFlowLandConfirmationGateway } from "../../src/land/flow-land-confirmation-gateway.ts";
+import {
+	createFlowLandConfirmationGateway,
+	createUpfrontApprovedLandConfirmationGateway,
+} from "../../src/land/flow-land-confirmation-gateway.ts";
 import { parseArgs } from "../../src/land/land-stack.ts";
 import { buildUpfrontStackConfirmation } from "../../src/land/landing-dispatch.ts";
 import {
+	approvedLandConfirmationKinds,
 	planPostLandingSlotCleanup,
 	postLandingCleanupRequestFromArgs,
 	runPostLandingSlotCleanup,
@@ -102,20 +106,26 @@ function expectParsed(argsText: string): ParsedArgs {
 	return result.value;
 }
 
-/** Flow-shaped cleanup resolution: gateway from the command context, approvals from `--yes`. */
+/** Flow-shaped cleanup resolution through the upfront-approval gateway decorator. */
 async function resolveCleanupDecisionForArgs(options: {
 	readonly ctx: PrintAwareLandStackCommandContext;
 	readonly args: ParsedArgs;
 	readonly shape: LandingShape;
-	readonly isConfirmationAlreadyApproved?: boolean;
+	readonly wasApprovedUpfront?: boolean;
 }): Promise<
 	| { readonly type: "success"; readonly value: PostLandingSlotCleanupDecision }
 	| { readonly type: "failure"; readonly failure: { readonly message: string } }
 > {
+	const cleanupPreview = planPostLandingSlotCleanup({ args: options.args, shape: options.shape });
 	return await resolveManagedSlotPostLandingCleanupDecision({
-		confirmation: createFlowLandConfirmationGateway(options.ctx),
-		isConfirmationAlreadyApproved:
-			(options.isConfirmationAlreadyApproved ?? false) || options.args.shouldSkipConfirmation,
+		confirmation: createUpfrontApprovedLandConfirmationGateway(
+			createFlowLandConfirmationGateway(options.ctx),
+			approvedLandConfirmationKinds({
+				flags: options.args,
+				wasUpfrontPromptApproved: options.wasApprovedUpfront ?? false,
+				...optionalEntry("cleanupPreview", cleanupPreview),
+			}),
+		),
 		cleanup: postLandingCleanupRequestFromArgs(options.args),
 		shape: options.shape,
 	});
@@ -134,6 +144,46 @@ describe("parsed-args to cleanup policy mapping", () => {
 		{ rawArgs: "--dry-run --force", policy: "force-cleanup", mode: "dry-run" },
 	])("maps '$rawArgs' to $policy/$mode", ({ rawArgs, policy, mode }) => {
 		expect(postLandingCleanupRequestFromArgs(expectParsed(rawArgs))).toEqual({ mode, policy });
+	});
+});
+
+describe("upfront confirmation approval mapping", () => {
+	test("--yes approves main and previewed cleanup but leaves pre-merge prompts canonical", () => {
+		const cleanupPreview = planPostLandingSlotCleanup({
+			args: expectParsed("--yes"),
+			shape: managedShape(),
+		});
+		expect([
+			...approvedLandConfirmationKinds({
+				flags: expectParsed("--yes"),
+				wasUpfrontPromptApproved: false,
+				...optionalEntry("cleanupPreview", cleanupPreview),
+			}),
+		]).toEqual(["main-landing", "post-landing-cleanup"]);
+	});
+
+	test("interactive upfront approval covers pre-merge requests and only previewed cleanup", () => {
+		expect([
+			...approvedLandConfirmationKinds({
+				flags: expectParsed("--force"),
+				wasUpfrontPromptApproved: true,
+			}),
+		]).toEqual(["main-landing", "free-managed-slots", "submit-required-updates"]);
+	});
+
+	test("dry run and unobserved approval grant no request kinds", () => {
+		expect(
+			approvedLandConfirmationKinds({
+				flags: expectParsed("--dry-run --yes"),
+				wasUpfrontPromptApproved: true,
+			}),
+		).toEqual(new Set());
+		expect(
+			approvedLandConfirmationKinds({
+				flags: expectParsed("--force"),
+				wasUpfrontPromptApproved: false,
+			}),
+		).toEqual(new Set());
 	});
 });
 
@@ -203,7 +253,7 @@ describe("post-landing slot cleanup defaults", () => {
 			ctx: fixture.ctx,
 			args,
 			shape: managedShape(),
-			isConfirmationAlreadyApproved: true,
+			wasApprovedUpfront: true,
 		});
 		expect(decision).toEqual({ type: "success", value: { type: "approved" } });
 
@@ -384,14 +434,13 @@ describe("core post-landing cleanup", () => {
 		const confirmation: LandConfirmationGateway = {
 			confirm: async (request) => {
 				requests.push(request);
-				return { type: "approved" };
+				return { type: "approved", approvalSource: "prompted" };
 			},
 		};
 
 		await expect(
 			resolveManagedSlotPostLandingCleanupDecision({
 				confirmation,
-				isConfirmationAlreadyApproved: false,
 				cleanup,
 				shape: managedShape(),
 			}),

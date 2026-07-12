@@ -29,18 +29,18 @@ This is the successor to the closed `flow-land-architecture-deepening` Objective
 - Changing subprocess command shape or ordering, prompt count or evaluation point, safety gates, telemetry semantics, user-visible text, exit-code/failure-level behavior, or the serial landing model.
 - Migrating pi-based fact loaders in `stack-facts.ts`, `worktrees.ts`, or `pr-facts.ts`; those are real-adapter internals.
 - Splitting the consolidated presentation module, restructuring the two command faces, renaming `stack/` to `adapters/`, generalizing telemetry, or extracting phase streaming.
-- Typed-variant branching for `graphiteRefreshFailure`, isolated-target support in core `LandingRequest`, or moving the upfront dispatch confirmation onto the new gateway type.
+- Typed-variant branching for `graphiteRefreshFailure` or implementing isolated-target execution in the canonical stack executor. Slice 10 supersedes the earlier deferral of upfront approvals: Flow now represents observed upfront approval through a confirmation-gateway decorator, while dispatch still owns the upfront prompt and routing.
 - Reopening or completing the closed incremental performance rollout. Its historical measurement relationship is retained, but performance work needs its own future Objective.
 - Pruning transcript scenarios or fixtures. Duplication between transcript and fake-driven tests is deliberate until later measurement work confirms which scenarios remain necessary.
 
 ## Completion Criteria
 
-- Slices 1–9 in `roadmap.md` are complete, including the two-sub-PR high-risk Slice 7 and end-to-end execute-mode ownership in Slice 9.
-- Execution phases run over `LandContext` plus narrow host seams; core execution imports no adapter, pi, command-stream, or kernel UI implementation, and only adapter-family code invokes subprocess execution.
+- Slices 1–14 in `roadmap.md` are complete, including the two-sub-PR high-risk Slice 7, end-to-end execute-mode ownership in Slice 9, and confirmation/API remediation in Slice 10.
+- Execution phases run over `LandContext` plus a required narrow execution host; core execution imports no adapter, pi, command-stream, or kernel UI implementation, and only adapter-family code invokes subprocess execution. Upfront approvals are explicit approved request kinds intercepted by the Flow confirmation adapter, never transport booleans.
 - Duplicate stack failure/result/concept vocabularies and completed migration shims are removed; legitimate inbound adapter normalization remains explicitly named and documented.
 - Fake-driven tests cover decision matrices, guard refusals, typed failure breadth, warning aggregation, and gateway request order/shape. Every added fake knob has paired real-adapter protocol coverage.
 - The transcript scenario suite and all listed fixtures remain byte-for-byte unchanged across every slice. Their telemetry assertions remain linear-11 = 140 and linear-25 = 308; no performance claim is sourced from fake-driven tests.
-- Every slice passes `just` and `pnpm --dir ts --filter @nseng-ai/flow test`; Slices 7 and 9 also pass `just ts-test-integration`. Each slice records green validation and an empty scenario/fixture diff as Objective evidence.
+- Every original migration slice passes its recorded gates; remediation slices record the validation required by their authoritative branch contracts. Slices 7 and 9 also pass `just ts-test-integration`. Each slice records green validation and permanent transcript/fixture invariant evidence.
 - Execute mode no longer reports `skipped: "merge execution remains in Flow"`; `executeLanding` owns the real phase, landed-chunk, and cleanup outcomes while dispatch confirmation, routing, and cleanup-decision ordering remain unchanged.
 
 ## Definition of Progress
@@ -73,7 +73,7 @@ Do not keep a slice that reconstructs command strings in fake tests, weakens a s
 - Confirmation refusals embed flow-owned prompt text. Returning a fully worded refusal failure from the confirmation gateway avoids moving presentation policy into core, but requires exact parity tests for interactive and non-interactive paths.
 - Slice 7 moves the highest-risk orchestration and can subtly reorder gateway calls, merge accumulation, verification, or maintenance. It is split into pre-merge and merge-loop sub-PRs and requires focused call-order tests plus the integration lane.
 - Fake models can drift from real adapters. Paired adapter protocol tests are mandatory for each new fake knob, and protocol/telemetry claims continue to come only from transcript coverage.
-- Rewiring execute mode in Slice 9 can disturb dispatch ordering or default absent-host behavior. The default must use null progress and a refusing confirmation gateway, never implicit approval.
+- Rewiring execute mode can disturb dispatch ordering or host safety. Slice 10 supersedes the absent-host default: `ExecuteLandingOptions` requires a host and source; callers that must refuse explicitly use the exported refusing confirmation gateway, never implicit approval.
 
 ## Open Questions
 
