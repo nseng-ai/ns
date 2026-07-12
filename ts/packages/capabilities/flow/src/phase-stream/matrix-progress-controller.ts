@@ -1,5 +1,3 @@
-import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
-
 import {
 	collectActiveCellChanges,
 	createMatrixProgressState,
@@ -12,7 +10,7 @@ import {
 	type MatrixProgressState,
 	type MatrixRowSpec,
 } from "./matrix-progress-state.ts";
-import { createPhaseStateStore, type PhaseView } from "./phase-stream-state.ts";
+import { createPhaseStateStore } from "./phase-stream-state.ts";
 import type { PhaseSpec } from "./phase-stream-specs.ts";
 
 export interface MatrixProgressController<
@@ -82,10 +80,6 @@ export interface CreateMatrixProgressControllerCoreOptions<
 	columns: readonly MatrixColumnSpec<ColumnKey>[];
 	phases: readonly PhaseSpec[];
 	begin?: "immediate" | "lazy";
-	createSnapshot?(
-		state: MatrixProgressState<ColumnKey, Row>,
-		phases: readonly PhaseView[],
-	): MatrixProgressSnapshot<ColumnKey, Row>;
 	adapter: MatrixProgressAdapter<ColumnKey, Row>;
 }
 
@@ -95,14 +89,14 @@ export function createMatrixProgressControllerCore<
 >(
 	options: CreateMatrixProgressControllerCoreOptions<ColumnKey, Row>,
 ): MatrixProgressController<ColumnKey, Row> {
-	const state = createMatrixProgressState(options);
+	let state = createMatrixProgressState(options);
 	const phases = createPhaseStateStore(options.phases);
 	let lifecycle: MatrixProgressLifecycle = "idle";
 	let terminalPromise: Promise<void> | undefined;
 	const adapter = options.adapter;
 
 	function snapshot(): MatrixProgressSnapshot<ColumnKey, Row> {
-		return (options.createSnapshot ?? snapshotMatrixProgress)(state, phases.views());
+		return snapshotMatrixProgress(state, phases.views());
 	}
 
 	function begin(initiatingChange?: MatrixProgressChange<ColumnKey, Row>): void {
@@ -124,17 +118,18 @@ export function createMatrixProgressControllerCore<
 		}
 		const reduction = reduceMatrixProgress({ state, columns: options.columns, action });
 		if (reduction.type === "unchanged") return;
+		state = reduction.state;
 		if (reduction.change.kind === "phase-event") phases.apply(reduction.change.event);
-		if (
-			lifecycle === "idle" &&
-			options.begin === "lazy" &&
-			shouldStartMatrixProgress(reduction.change)
-		) {
-			begin(reduction.change);
+		deliver(reduction.change);
+	}
+
+	function deliver(change: MatrixProgressChange<ColumnKey, Row>): void {
+		if (lifecycle === "idle" && options.begin === "lazy" && shouldStartMatrixProgress(change)) {
+			begin(change);
 			return;
 		}
 		if (lifecycle === "idle") return;
-		adapter.observe(reduction.change, memoizeSnapshot(snapshot));
+		adapter.observe(change, memoizeSnapshot(snapshot));
 	}
 
 	function getRows(): readonly Readonly<Row>[] {
@@ -147,35 +142,50 @@ export function createMatrixProgressControllerCore<
 		if (terminalPromise !== undefined) return terminalPromise;
 		if (lifecycle === "idle" || lifecycle === "stopped") return Promise.resolve();
 		lifecycle = "finishing";
-		const target = finishOptions.isFailed === true ? "failed" : "done";
-		for (const event of phaseSettlementEvents(phases.views(), target)) {
-			commit({ kind: "phase-event", event }, true);
-		}
-		for (const action of collectActiveCellChanges(state, options.columns, target)) {
-			commit(action, true);
-		}
-		if (state.activeOperations.length > 0) {
-			commit({ kind: "active-operations-changed", operations: [] }, true);
-		}
-		terminalPromise = Promise.resolve().then(async () => {
-			let beforeFinishError: unknown;
-			try {
-				await adapter.beforeFinish();
-			} catch (error) {
-				beforeFinishError = error;
-			}
-			try {
-				await adapter.finish({
-					target,
-					finalLines: [...(finishOptions.finalLines ?? [])],
-					snapshot: snapshot(),
-				});
-				if (beforeFinishError !== undefined) throw beforeFinishError;
-			} finally {
-				lifecycle = "finished";
-			}
+		let resolveTerminal: () => void = () => {};
+		let rejectTerminal: (error: unknown) => void = () => {};
+		const promise = new Promise<void>((resolve, reject) => {
+			resolveTerminal = resolve;
+			rejectTerminal = reject;
 		});
-		return terminalPromise;
+		terminalPromise = promise;
+		const target = finishOptions.isFailed === true ? "failed" : "done";
+		try {
+			const settlementEvents =
+				target === "failed" ? phases.failActive() : phases.settleOpenPhases();
+			for (const event of settlementEvents) deliver({ kind: "phase-event", event });
+			for (const action of collectActiveCellChanges(state, options.columns, target)) {
+				commit(action, true);
+			}
+			if (state.activeOperations.length > 0) {
+				commit({ kind: "active-operations-changed", operations: [] }, true);
+			}
+		} catch (error) {
+			lifecycle = "finished";
+			rejectTerminal(error);
+			return promise;
+		}
+		void Promise.resolve()
+			.then(async () => {
+				let beforeFinishError: unknown;
+				try {
+					await adapter.beforeFinish();
+				} catch (error) {
+					beforeFinishError = error;
+				}
+				try {
+					await adapter.finish({
+						target,
+						finalLines: [...(finishOptions.finalLines ?? [])],
+						snapshot: snapshot(),
+					});
+					if (beforeFinishError !== undefined) throw beforeFinishError;
+				} finally {
+					lifecycle = "finished";
+				}
+			})
+			.then(resolveTerminal, rejectTerminal);
+		return promise;
 	}
 
 	function stop(): Promise<void> {
@@ -223,47 +233,13 @@ export function shouldStartMatrixProgress<ColumnKey extends string, Row extends 
 }
 
 function memoizeSnapshot<ColumnKey extends string, Row extends MatrixRowSpec>(
-	createSnapshot: MatrixProgressSnapshotAccessor<ColumnKey, Row>,
+	getFreshSnapshot: MatrixProgressSnapshotAccessor<ColumnKey, Row>,
 ): MatrixProgressSnapshotAccessor<ColumnKey, Row> {
 	let cached: MatrixProgressSnapshot<ColumnKey, Row> | undefined;
 	return () => {
-		cached ??= createSnapshot();
+		cached ??= getFreshSnapshot();
 		return cached;
 	};
-}
-
-function phaseSettlementEvents(
-	views: readonly PhaseView[],
-	target: "done" | "failed",
-): readonly NsProgressPhaseEvent[] {
-	if (target === "done") {
-		if (views.some(hasFailedPhase)) return [];
-		return views.flatMap((view) =>
-			view.state === "pending" || view.state === "active"
-				? [{ type: "phase-done" as const, phaseKey: view.key }]
-				: [],
-		);
-	}
-	for (const view of views) {
-		const activeSubstep = view.substeps.find((substep) => substep.state === "active");
-		if (activeSubstep !== undefined) {
-			return [
-				{
-					type: "phase-failed",
-					phaseKey: activeSubstep.key,
-					detail: activeSubstep.label ?? "failed",
-				},
-			];
-		}
-		if (view.state === "active") {
-			return [{ type: "phase-failed", phaseKey: view.key, detail: view.label ?? "failed" }];
-		}
-	}
-	return [];
-}
-
-function hasFailedPhase(view: PhaseView): boolean {
-	return view.state === "failed" || view.substeps.some(hasFailedPhase);
 }
 
 export type { MatrixProgressState };

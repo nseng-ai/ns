@@ -25,8 +25,8 @@ export type PhaseTransition =
 export interface PhaseStateStore {
 	views(): readonly PhaseView[];
 	apply(event: NsProgressPhaseEvent): PhaseTransition;
-	failActive(): void;
-	settleOpenPhases(): void;
+	failActive(): readonly NsProgressPhaseEvent[];
+	settleOpenPhases(): readonly NsProgressPhaseEvent[];
 }
 
 export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateStore {
@@ -59,12 +59,12 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 		}
 	}
 
-	function failActive(): void {
-		store.failActive();
+	function failActive(): readonly NsProgressPhaseEvent[] {
+		return store.failActive();
 	}
 
-	function settleOpenPhases(): void {
-		store.settleOpenPhases();
+	function settleOpenPhases(): readonly NsProgressPhaseEvent[] {
+		return store.settleOpenPhases();
 	}
 
 	function viewForProgressView(view: ProgressPhaseView): PhaseView {

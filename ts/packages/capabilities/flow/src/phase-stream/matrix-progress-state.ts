@@ -1,4 +1,4 @@
-import type { ActiveOperation, NsProgressPhaseEvent } from "@nseng-ai/sdk";
+import type { ActiveOperation, NsProgressPhaseEvent, NsProgressPhaseInfo } from "@nseng-ai/sdk";
 
 import type { PhaseView } from "./phase-stream-state.ts";
 
@@ -25,7 +25,9 @@ export interface MatrixCellView {
 	text?: string;
 }
 
-export type MatrixCellRecord<ColumnKey extends string> = Record<ColumnKey, MatrixCellView>;
+export type MatrixCellRecord<ColumnKey extends string> = Readonly<
+	Record<ColumnKey, Readonly<MatrixCellView>>
+>;
 
 export type MatrixCellSnapshotRecord<ColumnKey extends string> = Readonly<
 	Record<ColumnKey, Readonly<MatrixCellView>>
@@ -34,7 +36,7 @@ export type MatrixCellSnapshotRecord<ColumnKey extends string> = Readonly<
 export type MatrixRowView<
 	ColumnKey extends string,
 	Row extends MatrixRowSpec = MatrixRowSpec,
-> = Row & { cells: MatrixCellRecord<ColumnKey> };
+> = Readonly<Row> & { readonly cells: MatrixCellRecord<ColumnKey> };
 
 export type MatrixRowSnapshot<
 	ColumnKey extends string,
@@ -42,9 +44,9 @@ export type MatrixRowSnapshot<
 > = Readonly<Row> & { readonly cells: MatrixCellSnapshotRecord<ColumnKey> };
 
 export interface MatrixProgressState<ColumnKey extends string, Row extends MatrixRowSpec> {
-	title: string;
-	activeOperations: ActiveOperation[];
-	rows: MatrixRowView<ColumnKey, Row>[];
+	readonly title: string;
+	readonly activeOperations: readonly Readonly<ActiveOperation>[];
+	readonly rows: readonly MatrixRowView<ColumnKey, Row>[];
 }
 
 /**
@@ -64,7 +66,7 @@ export type MatrixProgressAction<ColumnKey extends string, Row extends MatrixRow
 	| { kind: "title-changed"; title: string }
 	| { kind: "rows-replaced"; rows: readonly Row[] }
 	| { kind: "row-patched"; rowKey: string; patch: Partial<Omit<Row, "rowKey">> }
-	| { kind: "active-operations-changed"; operations: readonly ActiveOperation[] }
+	| { kind: "active-operations-changed"; operations: readonly Readonly<ActiveOperation>[] }
 	| { kind: "cell-changed"; rowKey: string; column: ColumnKey; update: MatrixCellUpdate }
 	| {
 			kind: "cells-in-state-changed";
@@ -87,7 +89,7 @@ export type MatrixProgressChange<ColumnKey extends string, Row extends MatrixRow
 	| { kind: "title-changed"; title: string }
 	| { kind: "rows-replaced"; rows: readonly Row[] }
 	| { kind: "row-patched"; rowKey: string; patch: Partial<Omit<Row, "rowKey">> }
-	| { kind: "active-operations-changed"; operations: readonly ActiveOperation[] }
+	| { kind: "active-operations-changed"; operations: readonly Readonly<ActiveOperation>[] }
 	| { kind: "cell-changed"; rowKey: string; column: ColumnKey; update: MatrixCellUpdate }
 	| {
 			kind: "cells-changed";
@@ -101,7 +103,11 @@ export type MatrixProgressChange<ColumnKey extends string, Row extends MatrixRow
 
 export type MatrixProgressReduction<ColumnKey extends string, Row extends MatrixRowSpec> =
 	| { type: "unchanged" }
-	| { type: "changed"; change: MatrixProgressChange<ColumnKey, Row> };
+	| {
+			type: "changed";
+			state: MatrixProgressState<ColumnKey, Row>;
+			change: MatrixProgressChange<ColumnKey, Row>;
+	  };
 
 export function createMatrixProgressState<
 	ColumnKey extends string,
@@ -143,58 +149,81 @@ export function reduceMatrixProgress<ColumnKey extends string, Row extends Matri
 	const { state, action } = options;
 	switch (action.kind) {
 		case "title-changed":
-			state.title = action.title;
-			return changed({ kind: "title-changed", title: action.title });
+			return changed(
+				{ ...state, title: action.title },
+				{ kind: "title-changed", title: action.title },
+			);
 		case "rows-replaced": {
 			const rows = action.rows.map((row) => ({ ...row }));
-			state.rows = createMatrixRowViews(rows, options.columns);
-			return changed({ kind: "rows-replaced", rows });
+			return changed(
+				{ ...state, rows: createMatrixRowViews(rows, options.columns) },
+				{ kind: "rows-replaced", rows },
+			);
 		}
 		case "row-patched": {
 			const index = state.rows.findIndex((row) => row.rowKey === action.rowKey);
 			const row = state.rows[index];
 			if (row === undefined) return { type: "unchanged" };
 			const patch = { ...action.patch };
-			state.rows[index] = { ...row, ...patch };
-			return changed({ kind: "row-patched", rowKey: action.rowKey, patch });
+			return changed(
+				{ ...state, rows: replaceAt(state.rows, index, { ...row, ...patch }) },
+				{ kind: "row-patched", rowKey: action.rowKey, patch },
+			);
 		}
 		case "active-operations-changed": {
 			const operations = action.operations.map((operation) => ({ ...operation }));
-			state.activeOperations = operations;
-			return changed({ kind: "active-operations-changed", operations });
+			return changed(
+				{
+					...state,
+					activeOperations: operations.map((operation) => ({ ...operation })),
+				},
+				{ kind: "active-operations-changed", operations },
+			);
 		}
 		case "cell-changed": {
-			const row = state.rows.find((item) => item.rowKey === action.rowKey);
+			const index = state.rows.findIndex((row) => row.rowKey === action.rowKey);
+			const row = state.rows[index];
 			if (row === undefined) return { type: "unchanged" };
 			const update = { ...action.update };
-			row.cells[action.column] = matrixCellFromUpdate(update);
-			return changed({
-				kind: "cell-changed",
-				rowKey: action.rowKey,
-				column: action.column,
-				update,
-			});
+			const nextRow = {
+				...row,
+				cells: { ...row.cells, [action.column]: matrixCellFromUpdate(update) },
+			};
+			return changed(
+				{ ...state, rows: replaceAt(state.rows, index, nextRow) },
+				{
+					kind: "cell-changed",
+					rowKey: action.rowKey,
+					column: action.column,
+					update,
+				},
+			);
 		}
 		case "cells-in-state-changed":
-			return changeCells(
-				state.rows.filter((row) => row.cells[action.column].state === action.fromState),
-				"selected",
-				action.column,
-				action.update,
-			);
+			return changeCells({
+				state,
+				selection: { scope: "selected", fromState: action.fromState },
+				column: action.column,
+				requestedUpdate: action.update,
+			});
 		case "all-cells-changed":
-			return changeCells(state.rows, "all", action.column, action.update);
+			return changeCells({
+				state,
+				selection: { scope: "all" },
+				column: action.column,
+				requestedUpdate: action.update,
+			});
 		case "all-other-cells-changed":
-			return changeCells(
-				state.rows.filter((row) => row.rowKey !== action.excludedRowKey),
-				"all-other",
-				action.column,
-				action.update,
-			);
+			return changeCells({
+				state,
+				selection: { scope: "all-other", excludedRowKey: action.excludedRowKey },
+				column: action.column,
+				requestedUpdate: action.update,
+			});
 		case "phase-event":
-			return changed({ kind: "phase-event", event: { ...action.event } });
+			return changed(state, { kind: "phase-event", event: copyPhaseEvent(action.event) });
 		case "note":
-			return changed({ kind: "note", text: action.text });
+			return changed(state, { kind: "note", text: action.text });
 	}
 }
 
@@ -222,22 +251,56 @@ export function collectActiveCellChanges<ColumnKey extends string, Row extends M
 	);
 }
 
-function changeCells<ColumnKey extends string, Row extends MatrixRowSpec>(
-	rows: readonly MatrixRowView<ColumnKey, Row>[],
-	scope: "selected" | "all" | "all-other",
+type CellSelection =
+	| { scope: "selected"; fromState: MatrixCellState }
+	| { scope: "all" }
+	| { scope: "all-other"; excludedRowKey: string };
+
+function changeCells<ColumnKey extends string, Row extends MatrixRowSpec>(options: {
+	state: MatrixProgressState<ColumnKey, Row>;
+	selection: CellSelection;
+	column: ColumnKey;
+	requestedUpdate: MatrixCellUpdate;
+}): MatrixProgressReduction<ColumnKey, Row> {
+	const rowKeys = options.state.rows
+		.filter((row) => isSelectedCellRow(row, options.selection, options.column))
+		.map((row) => row.rowKey);
+	if (rowKeys.length === 0) return { type: "unchanged" };
+	const selectedRowKeys = new Set(rowKeys);
+	const update = { ...options.requestedUpdate };
+	const rows = options.state.rows.map((row) =>
+		selectedRowKeys.has(row.rowKey)
+			? {
+					...row,
+					cells: { ...row.cells, [options.column]: matrixCellFromUpdate(update) },
+				}
+			: row,
+	);
+	return changed(
+		{ ...options.state, rows },
+		{
+			kind: "cells-changed",
+			scope: options.selection.scope,
+			column: options.column,
+			rowKeys,
+			update,
+		},
+	);
+}
+
+function isSelectedCellRow<ColumnKey extends string, Row extends MatrixRowSpec>(
+	row: MatrixRowView<ColumnKey, Row>,
+	selection: CellSelection,
 	column: ColumnKey,
-	requestedUpdate: MatrixCellUpdate,
-): MatrixProgressReduction<ColumnKey, Row> {
-	if (rows.length === 0) return { type: "unchanged" };
-	const update = { ...requestedUpdate };
-	for (const row of rows) row.cells[column] = matrixCellFromUpdate(update);
-	return changed({
-		kind: "cells-changed",
-		scope,
-		column,
-		rowKeys: rows.map((row) => row.rowKey),
-		update,
-	});
+): boolean {
+	switch (selection.scope) {
+		case "selected":
+			return row.cells[column].state === selection.fromState;
+		case "all":
+			return true;
+		case "all-other":
+			return row.rowKey !== selection.excludedRowKey;
+	}
 }
 
 function createMatrixRowViews<ColumnKey extends string, Row extends MatrixRowSpec>(
@@ -252,10 +315,42 @@ function createMatrixRowViews<ColumnKey extends string, Row extends MatrixRowSpe
 	}));
 }
 
+function replaceAt<T>(items: readonly T[], index: number, item: T): T[] {
+	return items.map((current, currentIndex) => (currentIndex === index ? item : current));
+}
+
 function changed<ColumnKey extends string, Row extends MatrixRowSpec>(
+	state: MatrixProgressState<ColumnKey, Row>,
 	change: MatrixProgressChange<ColumnKey, Row>,
 ): MatrixProgressReduction<ColumnKey, Row> {
-	return { type: "changed", change };
+	return { type: "changed", state, change };
+}
+
+function copyPhaseEvent(event: NsProgressPhaseEvent): NsProgressPhaseEvent {
+	switch (event.type) {
+		case "phases-declared":
+			return { ...event, phases: event.phases.map(copyPhaseInfo) };
+		case "matrix-declared":
+			return { ...event, columns: event.columns.map((column) => ({ ...column })) };
+		case "matrix-rows":
+			return { ...event, rows: event.rows.map((row) => ({ ...row })) };
+		case "matrix-active-operations":
+			return { ...event, operations: event.operations.map((operation) => ({ ...operation })) };
+		case "title-changed":
+		case "phase-started":
+		case "phase-progress":
+		case "phase-done":
+		case "phase-failed":
+		case "matrix-cell":
+			return { ...event };
+	}
+}
+
+function copyPhaseInfo(info: NsProgressPhaseInfo): NsProgressPhaseInfo {
+	return {
+		...info,
+		...(info.substeps === undefined ? {} : { substeps: info.substeps.map(copyPhaseInfo) }),
+	};
 }
 
 function matrixCellFromUpdate(update: MatrixCellUpdate): MatrixCellView {

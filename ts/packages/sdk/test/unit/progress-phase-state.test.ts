@@ -184,12 +184,15 @@ describe("createProgressPhaseStateStore", () => {
 		expect(store.views()[0]?.detail).toBe("explicit done");
 	});
 
-	test("failActive marks the active phase failed and failures prevent open-phase settling", () => {
+	test("failActive returns and applies the active phase failure", () => {
 		const store = createProgressPhaseStateStore({ phases: PHASES });
 
 		store.apply({ type: "phase-started", phaseKey: "b" });
-		store.failActive();
-		store.settleOpenPhases();
+		expect(store.failActive()).toEqual([
+			{ type: "phase-failed", phaseKey: "b", detail: "beta working…" },
+		]);
+		expect(store.failActive()).toEqual([]);
+		expect(store.settleOpenPhases()).toEqual([]);
 
 		expect(store.views().map((view) => [view.key, view.state])).toEqual([
 			["a", "done"],
@@ -198,11 +201,32 @@ describe("createProgressPhaseStateStore", () => {
 		]);
 	});
 
-	test("settleOpenPhases completes open phases when no failure is present", () => {
+	test("failActive returns no events without an active phase and falls back to failed detail", () => {
+		const idle = createProgressPhaseStateStore({ phases: PHASES });
+		expect(idle.failActive()).toEqual([]);
+
+		const completed = createProgressPhaseStateStore({ phases: PHASES });
+		completed.apply({ type: "phase-started", phaseKey: "a" });
+		completed.apply({ type: "phase-done", phaseKey: "a" });
+		expect(completed.failActive()).toEqual([]);
+		expect(completed.views()[0]?.state).toBe("done");
+
+		const unlabeled = createProgressPhaseStateStore({ phases: [{ key: "a", name: "Alpha" }] });
+		unlabeled.apply({ type: "phase-started", phaseKey: "a" });
+		expect(unlabeled.failActive()).toEqual([
+			{ type: "phase-failed", phaseKey: "a", detail: "failed" },
+		]);
+	});
+
+	test("settleOpenPhases returns and applies ordered top-level done events", () => {
 		const store = createProgressPhaseStateStore({ phases: PHASES });
 
 		store.apply({ type: "phase-started", phaseKey: "a" });
-		store.settleOpenPhases();
+		expect(store.settleOpenPhases()).toEqual([
+			{ type: "phase-done", phaseKey: "a" },
+			{ type: "phase-done", phaseKey: "b" },
+			{ type: "phase-done", phaseKey: "c" },
+		]);
 
 		expect(store.views().map((view) => [view.key, view.state])).toEqual([
 			["a", "done"],
@@ -240,12 +264,14 @@ describe("createProgressPhaseStateStore", () => {
 		});
 	});
 
-	test("failActive marks an active substep and its parent failed", () => {
+	test("failActive returns the active substep event and fails its parent", () => {
 		const store = createProgressPhaseStateStore({ phases: SUBSTEP_PHASES });
 
 		store.apply({ type: "phase-started", phaseKey: "generate" });
-		store.failActive();
-		store.settleOpenPhases();
+		expect(store.failActive()).toEqual([
+			{ type: "phase-failed", phaseKey: "generate", detail: "generating…" },
+		]);
+		expect(store.settleOpenPhases()).toEqual([]);
 
 		const [checkpoint, preflight] = store.views();
 		expect(checkpoint).toMatchObject({ key: "checkpoint", state: "failed" });
@@ -254,6 +280,18 @@ describe("createProgressPhaseStateStore", () => {
 			["generate", "failed"],
 		]);
 		expect(preflight?.state).toBe("pending");
+	});
+
+	test("failActive falls back to an active parent after its substep completes", () => {
+		const store = createProgressPhaseStateStore({ phases: SUBSTEP_PHASES });
+
+		store.apply({ type: "phase-started", phaseKey: "generate" });
+		store.apply({ type: "phase-done", phaseKey: "generate" });
+
+		expect(store.failActive()).toEqual([
+			{ type: "phase-failed", phaseKey: "checkpoint", detail: "checkpointing…" },
+		]);
+		expect(store.views()[0]).toMatchObject({ state: "failed" });
 	});
 
 	test("completing a parent marks active substeps done and pending substeps skipped", () => {
