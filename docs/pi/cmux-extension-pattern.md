@@ -1,6 +1,6 @@
-# CCC Workspace/Sidebar Pattern for Pi
+# Cmux Workspace/Sidebar Pattern for Pi
 
-This guide captures the repo-local pattern for Pi commands that open cmux workspaces or update cmux sidebar/workspace-card metadata. The current project command surface is the CCC workspace/sidebar suite; `cmux` remains the external workspace tool that CCC operates.
+This guide captures the repo-local pattern for Pi commands that open cmux workspaces or update cmux sidebar/workspace-card metadata. The current project command surface is the cmux capability workspace/sidebar suite; `cmux` remains the external workspace tool that the capability operates.
 
 ## Use this pattern when
 
@@ -15,17 +15,17 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 
 Current layers:
 
-| Layer                  | Path / command                                               | Responsibility                                                                 |
-| ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| Pi discovery adapter   | `.pi/extensions/cmux.ts`                                     | Thin adapter that registers the repo CCC command suite                         |
-| Engineered TS package  | `ts/packages/capabilities/ccc/src/ccc.ts`                    | Wires shared CCC workspace/sidebar controllers and command modules             |
-| CCC cmux modules       | `ts/packages/capabilities/ccc/src/cmux/`                     | Implements `/ns:cmux:workspace:*` and `/ns:cmux:sidebar:*` behavior with tests |
-| Local sidebar skill    | `skills/ns-cmux-sidebar/SKILL.md`                            | Tells the model what PR sidebar fields to generate                             |
-| Deterministic CLI      | `ns cmux exec workspace-summary`                             | Applies title and direct description, then clears the old status pill          |
-| cmux command gateway   | `ts/packages/capabilities/ccc/src/cmux/workspace-summary.ts` | Runs installed cmux CLI commands through the CCC command gateway               |
-| Scenario/package tests | `ts/packages/capabilities/ccc/test/`, `ts/.../test/`         | Cover CCC exec behavior and Pi command behavior                                |
+| Layer                  | Path / command                                                | Responsibility                                                                 |
+| ---------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Pi discovery adapter   | `.pi/extensions/cmux.ts`                                      | Registers the repo's cmux capability command suite                             |
+| Pi subpackage          | `ts/packages/capabilities/cmux/src/pi/extension.ts`           | Wires workspace/sidebar controllers and Pi command modules                     |
+| Cmux core modules      | `ts/packages/capabilities/cmux/src/core/`                     | Implements `/ns:cmux:workspace:*` and `/ns:cmux:sidebar:*` behavior with tests |
+| Local sidebar skill    | `skills/ns-cmux-sidebar/SKILL.md`                             | Tells the model what PR sidebar fields to generate                             |
+| Deterministic CLI      | `ns cmux exec workspace-summary`                              | Applies title and direct description, then clears the old status pill          |
+| Cmux command gateway   | `ts/packages/capabilities/cmux/src/core/workspace-summary.ts` | Runs installed cmux CLI commands through the capability's command gateway      |
+| Scenario/package tests | `ts/packages/capabilities/cmux/test/`, `ts/.../test/`         | Cover CLI and Pi command behavior                                              |
 
-Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/capabilities/ccc/src/cmux/` with pnpm/Vitest tests. Keep generic Pi lifecycle/footer/watch plumbing in `@nseng-ai/pi`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
+Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable cmux workspace/sidebar behavior under `ts/packages/capabilities/cmux/src/core/` with pnpm/Vitest tests. Keep generic Pi lifecycle, footer, watch plumbing, and worktree-status facts/presentation in `@nseng-ai/pi`.
 
 Do not put raw cmux mutation sequences in long skill bodies when a tested `ns cmux exec` command can own them.
 
@@ -49,7 +49,7 @@ The old refresh-meta command was intentionally removed and not replaced. It only
 
 ## Duplicate command troubleshooting
 
-If `/reload` shows duplicate CCC workspace/sidebar commands with numeric suffixes, the canonical project source should still be `.pi/extensions/cmux.ts` plus `ts/packages/capabilities/ccc/src/cmux/`. Check only the known user-local extension directory for stale migrated files:
+If `/reload` shows duplicate cmux capability workspace/sidebar commands with numeric suffixes, the canonical project source should still be `.pi/extensions/cmux.ts` plus `ts/packages/capabilities/cmux/src/core/`. Check only the known user-local extension directory for stale migrated files:
 
 ```bash
 find /Users/schrockn/.pi/agent/extensions -maxdepth 2 \
@@ -67,7 +67,7 @@ Workspace-opening commands currently do not auto-run sidebar updates after succe
 - `/ns:cmux:workspace:open-branch`
 - `/ns:cmux:workspace:dispatch-prompt`
 
-The previous automatic flow targeted the workspace running the command via `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, not the newly opened workspace. New-workspace targeting should be designed during a future CCC/cmux targeting pass rather than inferred from `cmux workspace list` in this slice.
+The previous automatic flow targeted the workspace running the command via `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, not the newly opened workspace. New-workspace targeting should be designed during a future cmux workspace-targeting pass rather than inferred from `cmux workspace list` in this slice.
 
 The new workspace still receives initial `cmux new-workspace --name ... --description ... --cwd ...` fields from the launching command. The new-surface variant checks out the same slot worktree, creates an unfocused terminal surface in the caller workspace, renames the tab to the branch, and sends the child Pi launch command from the slot worktree. Commands that launch a child Pi session must pass the caller's current `--provider`, `--model`, and non-off `--thinking` explicitly instead of relying on Pi's mutable default model settings.
 
@@ -172,7 +172,7 @@ That design would keep semantic PR summarization in a model while making quoting
 
 ## Validation checklist
 
-After changing CCC workspace/sidebar Pi resources:
+After changing cmux workspace/sidebar Pi resources:
 
 ```bash
 just ts-check

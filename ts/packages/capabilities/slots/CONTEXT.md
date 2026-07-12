@@ -26,7 +26,7 @@ The resolved repository facts that let Slot relate the current checkout, the mai
 
 **Slot Checkout Target**:
 The canonical result shape describing where a branch was placed or already lives, including branch name, slot/worktree path, parent-shell `cd` command, and checkout-state notes.
-*Avoid*: CCC checkout DTO, parsed CLI JSON, display text
+*Avoid*: cmux-capability checkout DTO, parsed CLI JSON, display text
 
 The `ns slot ...` command surface — the user- and agent-facing commands mounted as `ns slot ...`, including lifecycle commands, human output, machine-readable output, and command-only Graphite helpers — is an ordinary architectural layer, not a defined term.
 
@@ -51,7 +51,7 @@ The compatibility `ns slot shell ...` command group that exposes the same ns-own
 *Avoid*: Slot-owned shell installer, separate `slot()` wrapper, `@nseng-ai/slots/shell-support`
 **Slot Graphite Command Group**:
 The `ns slot gt ...` command surface for Graphite-aware Slot navigation, stack release, and hidden skill/agent helpers.
-*Avoid*: Graphite support package, Slot Capability API by default, CCC landing policy
+*Avoid*: Graphite support package, Slot Capability API by default, cmux-capability landing policy
 
 **Slot Graphite Exec Helper**:
 A hidden command-face helper under `ns slot gt exec ...` that emits structured Graphite/Slot facts for skills or agents while staying outside the **Slot Capability API** until an in-process consumer proves the need.

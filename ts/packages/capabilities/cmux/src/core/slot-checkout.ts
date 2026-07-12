@@ -15,7 +15,7 @@ export type {
 export type SlotCheckoutRef = { kind: "branch"; branchName: string } | { kind: "current" };
 
 /**
- * Composition-root factory for CCC's in-process slot checkouts. Construction is
+ * Composition-root factory for the cmux capability's in-process slot checkouts. Construction is
  * centralized here so command handlers (the composition roots) build one client
  * per invocation instead of scattering the side-effect defaults across leaf
  * helpers.

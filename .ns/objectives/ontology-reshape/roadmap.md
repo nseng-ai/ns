@@ -118,7 +118,7 @@ live exchange with the user. Assets link from row notes and live in
     (`updates/2026-07-11-nscc-deletion-disposition.md`) was this row's other
     disposition. Semantic update:
     `updates/2026-07-11-ccc-to-cmux-reshape-decided.md`.
-- [~] Execute the cmux reshape spec (task)
+- [x] Execute the cmux reshape spec (task)
   - Graduated 2026-07-11 from the CCC/orchestration grilling row per the reshaping
     handoff vehicle.
   - Task: land ADR 0034 / `cmux-reshape-spec.md` items 1–8 via the saved-plan
@@ -142,7 +142,12 @@ live exchange with the user. Assets link from row notes and live in
     to the `execute-cmux-reshape-spec` autoobjective (Objective Edge), invoking
     the reshaping handoff vehicle's New-Objective escape hatch for autonomous
     runner pursuit; this row resolves when that record closes. Semantic update:
-    `updates/2026-07-12-cmux-reshape-execution-extracted.md`.
+    `updates/2026-07-12-cmux-reshape-execution-extracted.md`. Completed
+    2026-07-12 when `execute-cmux-reshape-spec` closed: slices 2–6 landed as the
+    five planned local branches, per-slice and closeout validation passed, the
+    final stale-term inventory was fully accounted, and no submit occurred.
+    Semantic update:
+    `updates/2026-07-12-cmux-reshape-execution-completed.md`.
 - [x] Reexamine extension, host, and kernel layering vocabulary (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,

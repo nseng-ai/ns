@@ -6,7 +6,7 @@ It combines the Pi runtime extension API with this repo's command-registration p
 ## Ground rules
 
 - Pi extension commands are registered with `pi.registerCommand(name, { description, handler, ... })`; `name` is the command without the leading `/`.
-- Project-local discovery adapters live under `.pi/extensions/`; durable tested implementation lives under `ts/packages/pi/` or, for CCC-owned orchestration, `ts/packages/capabilities/ccc/`.
+- Project-local discovery adapters live under `.pi/extensions/`; durable tested implementation lives under `ts/packages/pi/` or, for cmux capability workflows, `ts/packages/capabilities/cmux/`.
 - Command handlers receive Pi's `ExtensionCommandContext`. Use command-only methods such as `ctx.waitForIdle()` only inside command handlers.
 - `ctx.ui.setStatus(...)` is footer/status UI. It is not transcript progress.
 - Above-fold transcript progress is explicit: use `sendCommandProgressOrNotify(...)` or `sendCommandProgressMessage(...)` at selected milestones.
@@ -72,7 +72,7 @@ If the same workflow is reachable from both an ns CLI command and a Pi slash-com
 - in CLI adapters, route phases to `ctx.onOutput?.("stderr", text)` when available, otherwise to `stderr`;
 - in Pi rendered flows, avoid duplicating a custom `pi.sendMessage(...)` stream through `NsCommandIo`; use `NsCommandIo` as the fallback when no rendered/live message path exists.
 
-For CCC-owned orchestration, read `ts/packages/capabilities/ccc/AGENTS.md` before changing progress behavior. `sendCommandProgressOrNotify(...)` remains the right primitive for Pi-only adapter milestones; `NsCommandIo` is the portable seam for shared CLI/Pi execution.
+For cmux capability workflows, read `ts/packages/capabilities/cmux/AGENTS.md` before changing progress behavior. `sendCommandProgressOrNotify(...)` remains the right primitive for Pi-only adapter milestones; `NsCommandIo` is the portable seam for shared CLI/Pi execution.
 
 ## Checklist for adding or changing a command
 

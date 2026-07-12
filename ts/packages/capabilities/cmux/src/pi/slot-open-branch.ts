@@ -36,6 +36,6 @@ export function registerCccSlotOpenBranchCommand(
 		},
 	});
 
-	// Note: Autocomplete provider setup moved here from CCC handler
+	// Note: Autocomplete provider setup moved here from the former command handler
 	// to preserve Pi-specific wiring in the adapter
 }

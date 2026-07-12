@@ -22,7 +22,7 @@ import {
 	objectiveStatusStep,
 	resetCmuxTestEnvironment,
 	step,
-} from "./ccc-test-harness.ts";
+} from "./cmux-test-harness.ts";
 
 afterEach(resetCmuxTestEnvironment);
 

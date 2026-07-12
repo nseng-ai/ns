@@ -2,8 +2,6 @@ import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { isRecord, stringField } from "@nseng-ai/foundation/primitives";
 import { formatCmuxCommandFailure, runCmuxCommand, type CmuxCommandFailure } from "./command.ts";
 
-// Neutral cmux substrate: keep this file free of Pi host/runtime dependencies so it can move
-// to a dedicated cmux package without changing its implementation.
 export const DEFAULT_CMUX_OPERATION_TIMEOUT_MS = 10_000;
 
 export type CmuxOperation =

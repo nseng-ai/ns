@@ -6,7 +6,7 @@
 //
 // `land` reports typed settled outcomes at the Flow CLI edge. The generic finite block layout
 // lives in `@nseng-ai/foundation/cli-theme` because the repeated shape was proven across Flow and
-// CCC; land keeps this local facade because the Pi command-stream path must remain ANSI-free and
+// The cmux capability consumes this; land keeps this local facade because the Pi command-stream path must remain ANSI-free and
 // domain-specific land facts stay in Flow/Land-owned code.
 
 import type { Caps } from "@nseng-ai/clinkr";

@@ -52,7 +52,7 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = def
 	options: { force: { short: "-f" } },
 	handler: async (ctx: NsExtensionApi, request: RegeneratePrRequest) => {
 		return await runWithNsCommandIo(commandIoFromNsExtensionApi(ctx), async (io) => {
-			// `regenerate-pr` is flow-local (no CCC, no streaming): it reads PR metadata, generates new
+			// `regenerate-pr` is flow-local (no cmux-capability dependency, no streaming): it reads PR metadata, generates new
 			// metadata, and reports one settled outcome whose body is domain-authored prose rather than a
 			// single git/Graphite `ExecResult` transcript. So it renders through the shared finite
 			// result block (success / failure / refusal), the same house-style block

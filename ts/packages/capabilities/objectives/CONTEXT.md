@@ -33,7 +33,7 @@ The rule that the `ns objective` CLI reads Objective records only as checked-in 
 *Avoid*: hidden database, Branch Memory storage, deleted-record store, Graphite-derived record set, tombstone registry
 
 **Objective Capability API**:
-The curated `@nseng-ai/objectives/api` surface for in-process sibling consumers (`ccc` and Pi's objective adapters): the `createObjectiveClient(...)` facade returning ok/failure results, plus the relocated Objective-selection, picker, and CLI-args/candidates helpers, used to reuse Objective behavior without invoking the CLI or importing private modules.
+The curated `@nseng-ai/objectives/api` surface for in-process sibling consumers (the cmux capability and Pi's objective adapters): the `createObjectiveClient(...)` facade returning ok/failure results, plus the relocated Objective-selection, picker, and CLI-args/candidates helpers, used to reuse Objective behavior without invoking the CLI or importing private modules.
 *Avoid*: CLI JSON parsing, `@nseng-ai/objectives/src/...` deep import, package-root convenience import, `ctx`-passing API
 
 **Objective Client**:

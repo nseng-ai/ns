@@ -34,7 +34,10 @@ execution authority; this record is the runner-facing tracking shell around it.
   action before editing.
 - The plan's closeout checklist on the top slice (scope-diff justification per
   slice, final word-boundary `ccc` grep with every hit accounted for,
-  confirmation that no submit happened and no `[cp]` commits exist).
+  confirmation that no submit happened and no `[cp]` commits exist). The final
+  sweep classifies every remaining `ccc`/`CCC` hit: stale live claims are
+  migrated, while deliberate Avoid terms, guards, fixtures, historical
+  research, immutable history, and explicit out-of-scope hits are accounted.
 
 ## Non-Goals
 
@@ -57,8 +60,9 @@ execution authority; this record is the runner-facing tracking shell around it.
 Slices 2–6 are committed as the five named stacked branches with `just` green
 per slice and on the top slice; the closeout checklist is satisfied (every
 slice's diff justified against its plan scope list, the final word-boundary
-`ccc`/`CCC` grep over live source shows only deliberate immutable history, no
-submit or `[cp]` commit happened); and the extraction handoff is recorded back
+`ccc`/`CCC` grep over live source leaves no stale live claims and accounts for
+all deliberate guard/fixture/Avoid/history/out-of-scope hits, no submit or
+`[cp]` commit happened); and the extraction handoff is recorded back
 on the parent — the `ontology-reshape` "Execute the cmux reshape spec" row
 resolves when this record closes.
 
@@ -153,4 +157,24 @@ below.
 - What will not happen unless explicitly requested: `gt submit`, pushing,
   merging, PR creation or mutation, publishing, `[cp]` checkpoint commits,
   mutating GitHub or any external system, editing immutable-history dirs, or
-  deciding the `Project-local adapter` disposition.
+  overriding the ratified `Project-local adapter` retirement.
+
+## Closure
+
+Completed 2026-07-12. Slices 2–6 landed as five local Graphite branches, each
+with one implementation commit over its parent, following the pre-extraction
+Slice 1 branch. Root `just` passed per slice and again during trust-nothing
+closeout; the integration lane also passed on the top implementation slice.
+
+The closeout audited each slice's changed paths against the ratified plan,
+re-read changed tests for retained behavioral assertions, and confirmed the
+final live-source `ccc`/`CCC` inventory contains exactly 15 deliberate lines in
+10 files: required Avoid terms, legacy/migration guards, synthetic fixtures,
+historical research, and the explicit `skills/code-smush` exclusion. No stale
+live claim remains.
+
+No Slice 2–6 branch has PR metadata or a matching remote ref, no submit or push
+occurred, and no execution-stack commit subject uses `[cp]`. The pre-existing
+Slice 1 PR predates this extracted Objective. Remaining parked work stays with
+its named owners; this closure resolves the linked execution row in
+`ontology-reshape`.

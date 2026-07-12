@@ -57,7 +57,7 @@ import {
 	skillCommand,
 	step,
 	writeCmuxPlanStoreFile,
-} from "./ccc-test-harness.ts";
+} from "./cmux-test-harness.ts";
 
 const SAVED_PLAN_FILENAME_SLUG = "saved-plan-local-locator";
 const SAVED_PLAN_FILE_NAME = `${SAVED_PLAN_FILENAME_SLUG}.md`;
@@ -170,8 +170,8 @@ function dispatchPromptPutJson(sourceFile: string): string {
 
 afterEach(resetCmuxTestEnvironment);
 
-describe("CCC cmux command suite", () => {
-	test("registers the project CCC command suite", () => {
+describe("cmux command suite", () => {
+	test("registers the project cmux command suite", () => {
 		const pi = new FakePi();
 
 		registerCccExtension(pi);

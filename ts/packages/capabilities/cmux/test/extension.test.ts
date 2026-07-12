@@ -28,8 +28,8 @@ function makeFakeExtensionApi(commands: Map<string, unknown>): ExtensionAPI {
 	};
 }
 
-describe("CCC Pi extension", () => {
-	test("registers CCC command surface", () => {
+describe("cmux Pi extension", () => {
+	test("registers cmux command surface", () => {
 		const commands = new Map<string, unknown>();
 		const pi = makeFakeExtensionApi(commands);
 

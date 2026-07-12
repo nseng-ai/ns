@@ -122,15 +122,15 @@ export const extensionCatalogEntries: readonly ExtensionCatalogEntry[] = [
     isFeatured: true,
   },
   {
-    slug: "ccc-workspaces",
-    name: "CCC workspace controls",
+    slug: "cmux-workspaces",
+    name: "cmux workspace controls",
     summary: "Coordinate cmux workspaces, Graphite branches, and focused continuation tabs.",
     details:
-      "Repo-local command-and-control glue for multi-branch agent work where workspace state matters.",
+      "Repo-local cmux workspace controls for multi-branch agent work where workspace state matters.",
     category: "branch-pr",
     status: "built-in",
-    commandHint: "/ccc:stack-map",
-    sourcePath: ".pi/extensions/ccc.ts",
+    commandHint: "/ns:cmux:stack-map",
+    sourcePath: ".pi/extensions/cmux.ts",
   },
   {
     slug: "pr-feedback",

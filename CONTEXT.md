@@ -248,7 +248,7 @@ A first-party ns feature area (objectives, handoff, slot, flow, …) — a set o
 *Avoid*: plugin, built-in, the bare construct "extension" (the extension is the mechanism; the capability is the feature area)
 
 **First-party extension**:
-An ns-shipped, ns-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, address, reviews, retro, and **CCC**), as opposed to a third-party extension.
+An ns-shipped, ns-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, address, reviews, retro, and the **cmux capability**), as opposed to a third-party extension.
 *Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
 
 **Capability Kit**:
@@ -256,16 +256,16 @@ The shared substrate (`@nseng-ai/capability-kit`) that first-party **Capabilitie
 *Avoid*: Extension Kit (reserved name), extension framework, product capability home, neutral-infra gateway, capability-kit core
 
 **Capability API**:
-A **Capability**'s curated, typed in-process export at the required `@nseng-ai/<cap>/api` subpath, imported by a **consumer** (downstream) extension (chiefly **CCC**) — never package roots or internals. Added only where a consumer needs it.
+A **Capability**'s curated, typed in-process export at the required `@nseng-ai/<cap>/api` subpath, imported by a **consumer** (downstream) extension (chiefly the **cmux capability**) — never package roots or internals. Added only where a consumer needs it.
 *Avoid*: Peer API, sibling API, public API, package-root export, internal subpath, "extension API" (bare)
 
 **Consumer / Provider**:
 The directed edge of the **Extension Dependency Graph**: a **consumer** (downstream) extension depends on a **provider** (upstream) extension by importing its **Capability API**. The graph is acyclic — a cycle is debt, not design.
 *Avoid*: sibling, peer, peer dependency
 
-**CCC**:
-A **first-party extension** (the cmux command-and-control surface) that composes cmux, Graphite, and other first-party extensions through their **Capability APIs**; it is the highest-fan-out **consumer** in the **Extension Dependency Graph** but holds no privileged tier or status.
-*Avoid*: orchestrator extension, apex extension, kernel orchestrator
+**cmux capability**:
+The **first-party extension** that drives cmux workspaces for repo-local dispatch, sidebar, workspace-summary, and planning flows by composing narrower **Capability APIs** and infrastructure.
+*Avoid*: CCC, Cmux Command and Control, orchestrator extension, apex extension, kernel orchestrator
 
 **Package Tier**:
 The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ns.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `standalone-tool`, and `internal-tool`. A package lives in a single tier: `ns.tier` is the tier for the package and every declared **Subpackage**, `ns.subpackageTiers` overrides are rejected by the guard, and cross-package layering is enforced against the owning package's tier for every **Topology circle** (ADR 0032). Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted, `capability-pi` is deleted (capability Pi presentation lives in capability `pi` subpackages), and `internal-pi-tool` is merged into `internal-tool`; do not reintroduce a live transitional/backend tier as a debt label, and do not add a `platform` tier for I/O-performing Neutral Infra.
