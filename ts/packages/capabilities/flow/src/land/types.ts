@@ -130,9 +130,16 @@ export interface LandingNotImplementedFailure {
  * Outcome-rich report carried by both {@link LandingExecutionResult} variants. Early failures omit
  * discovery facts (`repoRoot`, `plan`) that were never observed; phases record only work that ran.
  */
+export type LandingCompletionDisposition =
+	| { readonly type: "stack-execution" }
+	| { readonly type: "cleanup-only" }
+	| { readonly type: "nothing-to-land"; readonly currentBranch: string };
+
 export interface LandingExecutionReport {
 	readonly target: LandingTarget;
 	readonly mode: LandingMode;
+	/** Canonical classification of how this request completed or was being executed when it failed. */
+	readonly completionDisposition: LandingCompletionDisposition;
 	readonly repoRoot?: string;
 	readonly plan?: LandingPlan;
 	readonly phases: readonly LandingPhaseOutcome[];

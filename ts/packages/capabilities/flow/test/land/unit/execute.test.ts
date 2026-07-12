@@ -52,6 +52,7 @@ describe("land execute mode over in-memory gateways", () => {
 			type: "completed",
 			report: {
 				repoRoot: ROOT,
+				completionDisposition: { type: "stack-execution" },
 				phases: [
 					{ type: "completed", phase: "repo-discovery" },
 					{ type: "completed", phase: "stack-shape" },
@@ -678,6 +679,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			expect(outcome).toMatchObject({
 				type: "completed",
 				report: {
+					completionDisposition: { type: "stack-execution" },
 					cleanup: {
 						// Dry run dominates every cleanup policy.
 						postLandingSlotCleanup: { type: "dry-run" },
@@ -861,6 +863,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(outcome).toMatchObject({
 			type: "completed",
 			report: {
+				completionDisposition: { type: "cleanup-only" },
 				landedChunks: [],
 				cleanup: {
 					postLandingSlotCleanup: {
@@ -873,6 +876,92 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		if (outcome.type !== "completed") return;
 		expect(phaseByName(outcome.report, "merge")).toMatchObject({ type: "skipped" });
 		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
+		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
+	});
+
+	test("cleanup-only no-PR-path landing frees the managed slot and deletes its branch", async () => {
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: SLOT_ROOT,
+				currentBranch: BRANCH,
+				localBranches: [{ name: BRANCH, sha: SHA }],
+			},
+			graphite: {
+				stackShape: stackSnapshot({
+					current: BRANCH,
+					actualCurrentBranch: BRANCH,
+					landingTargetBranch: BRANCH,
+					landingBranches: [],
+				}),
+			},
+		});
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "completed",
+			report: {
+				completionDisposition: { type: "cleanup-only" },
+				cleanup: {
+					postLandingSlotCleanup: {
+						type: "completed",
+						deletedLocalBranch: BRANCH,
+					},
+				},
+			},
+		});
+		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
+		expect(memory.graphite.deleteLocalBranchCalls).toHaveLength(1);
+		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
+	});
+
+	test.each([
+		{ name: "preserve", cwd: SLOT_ROOT, mode: "execute", cleanup: "preserve" },
+		{ name: "dry run", cwd: SLOT_ROOT, mode: "dry-run", cleanup: "free-slot" },
+		{ name: "unmanaged checkout", cwd: ROOT, mode: "execute", cleanup: "free-slot" },
+	] as const)("completes trunk $name as informational nothing-to-land", async (scenario) => {
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: scenario.cwd,
+				currentBranch: "main",
+				localBranches: [{ name: "main", sha: SHA }],
+			},
+			graphite: {
+				stackShape: stackSnapshot({
+					trunk: "main",
+					current: "main",
+					actualCurrentBranch: "main",
+					landingTargetBranch: "main",
+					landingBranches: [],
+				}),
+			},
+		});
+		const confirmation = approvingConfirmation();
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({
+				cwd: scenario.cwd,
+				mode: scenario.mode,
+				cleanup: scenario.cleanup,
+			}),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+		});
+
+		expect(outcome).toMatchObject({
+			type: "completed",
+			report: {
+				completionDisposition: { type: "nothing-to-land", currentBranch: "main" },
+				landedChunks: [],
+			},
+		});
+		expect(confirmation.requests).toEqual([]);
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 	});

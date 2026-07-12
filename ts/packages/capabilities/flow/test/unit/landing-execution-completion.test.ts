@@ -1,0 +1,141 @@
+import { describe, expect, test } from "vitest";
+
+import { noopNsCommandIo } from "@nseng-ai/kernel/sdk";
+import { nullLandExecutionProgress, type StackLandingShape } from "@nseng-ai/flow/land/api";
+import { createInMemoryLandContext, stackSnapshot } from "@nseng-ai/flow/land/testing";
+import { runFlowStackLanding } from "../../src/land/landing-execution.ts";
+import { LandStackCommandStream } from "../../src/land/stack/command-stream.ts";
+import type { LandResultKind } from "../../src/land/land-presentation.ts";
+import type { LandStackCommandContext, ParsedArgs } from "../../src/land/stack/types.ts";
+
+const ROOT = "/repo";
+const SLOT_ROOT = "/state/ns/slots/repos/repo/worktrees/slot-02";
+const SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+interface PresentedNotification {
+	readonly message: string;
+	readonly level: string | undefined;
+	readonly kind: LandResultKind | undefined;
+}
+
+function contextFixture(cwd: string): {
+	readonly ctx: LandStackCommandContext;
+	readonly notifications: PresentedNotification[];
+} {
+	const notifications: PresentedNotification[] = [];
+	let renderedKind: LandResultKind | undefined;
+	return {
+		ctx: {
+			cwd,
+			hasUI: true,
+			ui: {
+				notify: (message, level) => {
+					notifications.push({ message, level, kind: renderedKind });
+					renderedKind = undefined;
+				},
+				confirm: async () => true,
+				setStatus() {},
+			},
+			waitForIdle: async () => {},
+			renderResultBlock: (kind, message) => {
+				renderedKind = kind;
+				return message;
+			},
+		},
+		notifications,
+	};
+}
+
+function args(overrides: Partial<ParsedArgs> = {}): ParsedArgs {
+	return {
+		shouldSkipConfirmation: false,
+		isDryRun: false,
+		shouldPreserveSlot: false,
+		shouldForceCleanup: false,
+		shouldShowHelp: false,
+		shouldStreamVerboseOutput: false,
+		...overrides,
+	};
+}
+
+function trunkShape(repoRoot: string): StackLandingShape {
+	return {
+		repoRoot,
+		current: "main",
+		trunk: "main",
+		metadataDbPath: `${repoRoot}/metadata.sqlite`,
+		localBranches: [{ name: "main", sha: SHA }],
+		stack: stackSnapshot({
+			trunk: "main",
+			current: "main",
+			actualCurrentBranch: "main",
+			landingTargetBranch: "main",
+			landingBranches: [],
+		}),
+	};
+}
+
+describe("Flow presentation of canonical completion dispositions", () => {
+	test("nothing-to-land is an informational completed outcome with exact refusal-kind text", async () => {
+		const memory = createInMemoryLandContext();
+		const fixture = contextFixture(ROOT);
+		const outcome = await runFlowStackLanding({
+			runtime: { landContext: memory.context },
+			parsedArgs: args({ shouldPreserveSlot: true }),
+			execution: {
+				source: { type: "prepared", shape: trunkShape(ROOT) },
+				approvedConfirmationKinds: new Set(),
+			},
+			session: {
+				ctx: fixture.ctx,
+				commandStream: new LandStackCommandStream(noopNsCommandIo),
+				progress: nullLandExecutionProgress,
+			},
+		});
+
+		expect(outcome).toEqual({ type: "completed" });
+		expect(fixture.notifications).toEqual([
+			{
+				message: "Current branch is main, which is trunk or has no PR path to land. Nothing to do.",
+				level: "info",
+				kind: "refusal",
+			},
+		]);
+		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
+	});
+
+	test("cleanup-only presents only the existing post-cleanup success notice", async () => {
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: SLOT_ROOT,
+				currentBranch: "main",
+				localBranches: [{ name: "main", sha: SHA }],
+			},
+			graphite: { stackShape: trunkShape(SLOT_ROOT).stack },
+		});
+		const fixture = contextFixture(SLOT_ROOT);
+		const outcome = await runFlowStackLanding({
+			runtime: { landContext: memory.context },
+			parsedArgs: args({ shouldForceCleanup: true }),
+			execution: {
+				source: { type: "prepared", shape: trunkShape(SLOT_ROOT) },
+				approvedConfirmationKinds: new Set(),
+			},
+			session: {
+				ctx: fixture.ctx,
+				commandStream: new LandStackCommandStream(noopNsCommandIo),
+				progress: nullLandExecutionProgress,
+			},
+		});
+
+		expect(outcome).toEqual({ type: "completed" });
+		expect(fixture.notifications).toEqual([
+			{
+				message: "Post-landing cleanup complete: freed slot-02; local trunk branch main was kept.",
+				level: "success",
+				kind: "success",
+			},
+		]);
+		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
+	});
+});

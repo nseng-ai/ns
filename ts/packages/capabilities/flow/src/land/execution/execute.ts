@@ -17,6 +17,7 @@ import type {
 	LandedChunk,
 	LandedPullRequest,
 	LandingCleanupReport,
+	LandingCompletionDisposition,
 	LandingExecutionReport,
 	LandingExecutionResult,
 	LandingFailure,
@@ -65,6 +66,7 @@ const CLEANUP_NOT_RUN: PostLandingSlotCleanupReport = {
 interface ReportDraft {
 	readonly target: LandingRequest["target"];
 	readonly mode: LandingRequest["mode"];
+	completionDisposition: LandingCompletionDisposition;
 	repoRoot?: string;
 	plan?: LandingPlan;
 	phases: LandingPhaseOutcome[];
@@ -82,6 +84,7 @@ export async function executeLandingRequest(
 	const draft: ReportDraft = {
 		target: request.target,
 		mode: request.mode,
+		completionDisposition: { type: "stack-execution" },
 		phases: [],
 		landedChunks: [],
 		warnings: [],
@@ -134,6 +137,7 @@ export async function executeLandingRequest(
 	) {
 		const preview = planManagedSlotPostLandingCleanup({ cleanup: cleanupRequest, shape });
 		if (preview !== undefined) {
+			draft.completionDisposition = { type: "cleanup-only" };
 			return await executeCleanupOnlyLanding({
 				context,
 				host,
@@ -142,8 +146,11 @@ export async function executeLandingRequest(
 				draft,
 			});
 		}
-		// No applicable cleanup: fall through so preflight reports the canonical
-		// nothing-to-land failure.
+		draft.completionDisposition = {
+			type: "nothing-to-land",
+			currentBranch: shape.stack.actualCurrentBranch,
+		};
+		return completedResult(draft);
 	}
 
 	const plan = await buildStackLandingPlan(context, request.cwd, {
@@ -409,6 +416,7 @@ function reportFromDraft(draft: ReportDraft): LandingExecutionReport {
 	return {
 		target: draft.target,
 		mode: draft.mode,
+		completionDisposition: draft.completionDisposition,
 		...(draft.repoRoot === undefined ? {} : { repoRoot: draft.repoRoot }),
 		...(draft.plan === undefined ? {} : { plan: draft.plan }),
 		phases: [...draft.phases],

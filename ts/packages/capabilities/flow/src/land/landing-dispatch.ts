@@ -2,11 +2,8 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { executeStackLanding } from "./land-stack.ts";
 import type { FlowLandObservabilityChannels } from "./stack/command-stream.ts";
 import type { StackLandingRuntime } from "./stack/stack-landing-runtime.ts";
-import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
+import { landOutcomeFailure, type LandOutcome } from "./results.ts";
 import {
-	formatPostLandingCleanupSuccessNotice,
-	notifyPrintAware,
-	presentBrief,
 	presentFailureAndReturn,
 	renderPlainLandConfirmationDetails,
 } from "./land-presentation.ts";
@@ -16,22 +13,10 @@ import type {
 	PrintAwareLandStackCommandContext,
 } from "./stack/types.ts";
 import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
-import {
-	executeLanding,
-	loadStackLandingShape,
-	type LandingRequest,
-	type LandingShape,
-} from "./api.ts";
-import type { StackLandingShape } from "./preflight.ts";
-import {
-	createFlowLandConfirmationGateway,
-	createUpfrontApprovedLandConfirmationGateway,
-} from "./flow-land-confirmation-gateway.ts";
+import { loadStackLandingShape, type LandingShape } from "./api.ts";
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
 import {
 	approvedLandConfirmationKinds,
-	createCleanupProgress,
-	landingCleanupPolicyFromArgs,
 	planPostLandingSlotCleanup,
 	postLandingCleanupRequestFromArgs,
 	runPostLandingSlotCleanup,
@@ -59,29 +44,6 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 		args: options.parsedArgs,
 		shape: shape.value,
 	});
-	if (
-		shape.value.stack.actualCurrentBranch === shape.value.stack.trunk ||
-		shape.value.stack.landingBranches.length === 0
-	) {
-		if (cleanupPreview !== undefined) {
-			return await runCleanupOnlyLanding({
-				runtime,
-				ctx: options.ctx,
-				args: options.parsedArgs,
-				shape: shape.value,
-			});
-		}
-		const message = `Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`;
-		presentBrief({
-			ctx: options.ctx,
-			fullMessage: message,
-			level: "info",
-			uiMessage: message,
-			kind: "refusal",
-		});
-		return landCompleted();
-	}
-
 	if (isIsolatedFastPath(shape.value.stack)) {
 		const result = await runIsolatedFastPathLanding({
 			landContext,
@@ -127,57 +89,6 @@ export async function runLandingDispatch(options: RunLandingDispatchOptions): Pr
 	});
 }
 
-interface RunCleanupOnlyLandingOptions {
-	readonly runtime: StackLandingRuntime;
-	readonly ctx: PrintAwareLandStackCommandContext;
-	readonly args: ParsedArgs;
-	readonly shape: StackLandingShape;
-}
-
-/** Trunk/no-PR-path managed-slot checkout: canonical execution runs cleanup-only landing. */
-async function runCleanupOnlyLanding(options: RunCleanupOnlyLandingOptions): Promise<LandOutcome> {
-	const request: LandingRequest = {
-		cwd: options.ctx.cwd,
-		target: { type: "stack" },
-		mode: options.args.isDryRun ? "dry-run" : "execute",
-		preflight: { shouldAllowSubmitRequiredState: true },
-		cleanup: landingCleanupPolicyFromArgs(options.args),
-	};
-	const execution = await executeLanding({
-		context: options.runtime.landContext,
-		request,
-		host: {
-			confirmation: createUpfrontApprovedLandConfirmationGateway(
-				createFlowLandConfirmationGateway(options.ctx),
-				approvedLandConfirmationKinds({
-					flags: options.args,
-					wasUpfrontPromptApproved: false,
-					...optionalEntry(
-						"cleanupPreview",
-						planPostLandingSlotCleanup({ args: options.args, shape: options.shape }),
-					),
-				}),
-			),
-			progress: createCleanupProgress(options.ctx),
-		},
-		source: { type: "prepared", shape: options.shape },
-	});
-	if (execution.type === "failed") {
-		presentFailureAndReturn(options.ctx, execution.failure);
-		return landOutcomeFailure(execution.failure);
-	}
-	const postCleanup = execution.report.cleanup.postLandingSlotCleanup;
-	if (postCleanup.type === "completed") {
-		notifyPrintAware({
-			ctx: options.ctx,
-			message: formatPostLandingCleanupSuccessNotice(postCleanup),
-			level: "success",
-			kind: "success",
-		});
-	}
-	return landCompleted();
-}
-
 interface StackModeConfirmationResult {
 	readonly outcome: LandOutcome;
 	readonly wasPromptApproved: boolean;
@@ -193,7 +104,8 @@ async function confirmStackModeIfNeeded(
 	},
 ): Promise<StackModeConfirmationResult> {
 	const confirmationDetails = buildUpfrontStackConfirmation(shape, options.cleanupPreview);
-	const shouldPrompt = !options.isDryRun && !options.shouldSkipConfirmation;
+	const shouldPrompt =
+		shape.stack.landingBranches.length > 0 && !options.isDryRun && !options.shouldSkipConfirmation;
 	const outcome = await confirmLandStackAction({
 		ctx,
 		shouldPrompt,

@@ -54,7 +54,7 @@ export interface FlowLandingExecutionInput {
 }
 
 export interface RunFlowStackLandingOptions {
-	readonly runtime: StackLandingRuntime;
+	readonly runtime: Pick<StackLandingRuntime, "landContext">;
 	readonly parsedArgs: ParsedArgs;
 	readonly execution: FlowLandingExecutionInput;
 	readonly session: LandingSession;
@@ -100,6 +100,31 @@ export async function runFlowStackLanding(
 			landed: landedFromReport(report),
 		});
 		return landOutcomeFailure(outcome.failure);
+	}
+
+	if (report.completionDisposition.type === "nothing-to-land") {
+		const message = `Current branch is ${report.completionDisposition.currentBranch}, which is trunk or has no PR path to land. Nothing to do.`;
+		presentBrief({
+			ctx,
+			fullMessage: message,
+			level: "info",
+			uiMessage: message,
+			kind: "refusal",
+		});
+		return landCompleted();
+	}
+
+	if (report.completionDisposition.type === "cleanup-only") {
+		const postCleanup = report.cleanup.postLandingSlotCleanup;
+		if (postCleanup.type === "completed") {
+			notifyPrintAware({
+				ctx,
+				message: formatPostLandingCleanupSuccessNotice(postCleanup),
+				level: "success",
+				kind: "success",
+			});
+		}
+		return landCompleted();
 	}
 
 	if (parsedArgs.isDryRun) {
