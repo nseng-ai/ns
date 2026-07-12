@@ -6,7 +6,7 @@ description: "Parallel file-local refactors across many files using a swarm of a
 
 # refactor-swarm
 
-Parallelize a refactor across many files: the orchestrator identifies the files, writes a shared brief, and launches one agent per file on the harness's cheapest fast model tier, in two waves (source first, tests second). A 28-file rename lands in about a minute of wall time versus 10+ minutes of sequential edits.
+Parallelize a refactor across many files: the orchestrator identifies the files, writes a shared brief, and launches one agent per file on the harness's cheapest fast model tier, in two waves (source first, tests second).
 
 ## When to use
 
@@ -24,7 +24,7 @@ Typical fits: renaming an identifier, parameter, or dictionary key across source
 
 ## Why over pure AST/codemod tooling
 
-If the project has a battle-tested AST/codemod toolchain wired in (libcst, jscodeshift, etc.), prefer it for purely syntactic refactors -- faster, deterministic, replayable. But the absence of one is not a reason to give up on a large mechanical refactor, and even alongside one, reach for the swarm when:
+If the project has a battle-tested AST/codemod toolchain wired in (libcst, jscodeshift, etc.), prefer it for purely syntactic refactors -- faster, deterministic, replayable. Even alongside one, reach for the swarm when:
 
 - **Natural-language references must move with the code.** Docstrings, inline comments, README sections, error messages, and log lines refer -- directly or indirectly -- to the symbol or concept being refactored. A codemod only touches syntactic occurrences; an agent reads the surrounding prose and updates mentions like `"returns the issue_number of the PR"` without enumerating every phrasing in advance.
 - **Light per-file judgment is required** -- calls that don't fit a pattern-match-and-replace shape.
@@ -118,21 +118,14 @@ What the agent is allowed to decide on its own. Example:
 
 > If the file already imports from `pathlib`, use `Path` for the new code; otherwise use `os.path`.
 
-Keeping these two lists separate makes the boundary between "orchestrator decides" and "agent decides" explicit, and makes the prompt easier to debug when an agent goes off the rails -- you can see which bucket the misstep fell into.
+Keeping these two lists separate makes the boundary between "orchestrator decides" and "agent decides" explicit.
 
 ## Batching strategy
 
-| Wave | Files                 | Rationale                                             |
-| ---- | --------------------- | ----------------------------------------------------- |
-| 1    | Source files (`src/`) | Refactor lands first so you have a failure checkpoint |
-| 2    | Test files (`tests/`) | Launch only after source-wave results look clean      |
-
-Within each wave, all agents run in parallel; between waves, wait for completion and review results. The waves are causally independent -- both apply the same refactor to their own files -- so the split exists purely to give the orchestrator a checkpoint before touching the second half.
+The waves are causally independent -- both apply the same refactor to their own files -- so the source/test split exists purely to give the orchestrator a checkpoint before touching the second half.
 
 For very large refactors (30+ files), sub-batch into groups of ~10-15 agents per message to avoid overwhelming the system.
 
 ## Example: judgment-light migration, f-string logging → structured logger
 
 Brief the agents to replace each `logging.info(f"...")` call with a `logger.info("event_name", **fields)` call. Boundary constraint: do not touch `logging.debug` or `logging.warning`. Authorized judgment: pick the `event_name` from nearby context (function name, nearest comment, or the dominant noun in the original f-string). Agents report any call they could not confidently rewrite.
-
-This case sits exactly on the boundary of what the swarm handles well: the event-name choice is per-file-local (each call site gets its own answer), so trust-independence is fine. If you wanted all "user signed up" events across the codebase to land on the same canonical event name, that would require unified judgment and the swarm would not be the right tool.

@@ -23,30 +23,19 @@ Manage project skills with `npx skills`. This skill is the canonical reference
 for adding, editing, removing, updating, and inspecting skills in a repo that
 uses the ns local-skill layout.
 
-`npx skills` installs agent skill packages into `.agents/skills/<name>/` (the
-universal cache) and symlinks agent-specific directories like
-`.claude/skills/<name>` back to that cache.
-
-For first-party local skills, **the canonical source is `skills/<name>/`**.
-The installed `.agents/skills/<name>` entry is a symlink back to that source,
-so all agents can discover the skill without duplicating content.
+`npx skills` installs skill packages into `.agents/skills/<name>/` and symlinks
+agent-specific directories back to it; for first-party local skills the
+canonical source is `skills/<name>/` (see **Mental model**).
 
 ## Positioning: which tool manages what
 
 This skill covers the `npx skills` channels: repo-local first-party skills
 (`skills/<name>/` + the symlink layout + `skills-lock.json`) and third-party
-GitHub-sourced vendored skills. Two adjacent surfaces are out of scope here:
-
-- **First-party npm-module-bundled provisioning** is `ns skills` / `ns update`
-  territory: harness artifacts declared by npm modules are reconciled into the
-  harness roots and recorded in `.ns-harness-artifacts-manifest.json`, with no
-  `npx skills` involvement.
-- **Invocation kinds and harness overlays** (whether a skill is ambient or
-  explicit-only per harness) are managed by `areg skill apply`; `areg` also
-  inspects both records as the whole-project registry.
-
-The channels are additive, and the two records (`skills-lock.json` and the
-install manifest) are complementary by decision — do not try to converge them.
+GitHub-sourced vendored skills. Out of scope: first-party npm-module-bundled
+provisioning (`ns skills` / `ns update` territory), and invocation kinds /
+harness overlays, which are managed by `areg skill apply` — not by `npx skills`
+or by hand-editing `disable-model-invocation`, `agents/openai.yaml`, or Pi
+skill exclusions.
 
 ## Goal
 
@@ -61,8 +50,7 @@ For every skill-management operation, produce an end state with:
 ## Core rules
 
 - **Canonical source for local skills is `skills/<name>/`.** Edit files there
-  directly. The `.agents/skills/<name>` and `.claude/skills/<name>` symlink
-  chain resolves to the same content.
+  directly (see **Mental model** for the symlink chain).
 - **Committed local `skills-lock.json` entries must use**
   `"source": "skills/<name>"`. If `npx skills add` captures an absolute local
   path, rewrite it to the repo-relative form before committing.
@@ -77,13 +65,9 @@ For every skill-management operation, produce an end state with:
   to `../../skills/<name>`.
 - **Never use `--copy`.** It forces copy-only mode and defeats the symlink
   layout.
-- **Do not maintain a duplicate skill index in `AGENTS.md`.** Installed skills
-  are discovered from the on-disk install and `SKILL.md` frontmatter.
 - **Skill bodies that name model tiers must give concrete examples for both
-  OpenAI and Anthropic** (e.g. `openai-codex/gpt-5.6-luna`,
-  `claude-haiku-4-5`), each labeled with its harness, while keeping the default
-  guidance harness-neutral. See `docs/conventions/skill-conventions.md` "Skill Model
-  Examples".
+  OpenAI and Anthropic harnesses**, each labeled, while keeping the default
+  guidance harness-neutral.
 
 ## Mental model
 
@@ -110,8 +94,6 @@ For **GitHub-sourced** skills:
      |
 .claude/skills/<name>           <- Claude Code's dedicated dir
 ```
-
-GitHub-sourced skills do NOT get a `skills/<name>` entry.
 
 ## Umbrella skill families
 
@@ -173,8 +155,6 @@ Avoid:
 
 ### 1. Add a new local skill
 
-For a public local skill, use the standard bootstrap flow:
-
 ```bash
 # 1. Create the skill in its permanent home
 mkdir -p skills/<name>/references
@@ -194,28 +174,13 @@ npx skills list
 git add skills/<name>/ .agents/skills/<name> .claude/skills/<name> skills-lock.json
 ```
 
-For an internal local skill, add `metadata.internal: true` to `SKILL.md` and enable internal discovery during install and verification. Without it, `npx skills add` can misleadingly report `No skills found`.
-
-```bash
-# 1. Create the skill in its permanent home
-mkdir -p skills/<name>/references
-# 2. Author skills/<name>/SKILL.md with metadata.internal: true
-# 3. Bootstrap the install with internal discovery enabled
-INSTALL_INTERNAL_SKILLS=1 npx skills add ./skills/<name> --agent codex claude-code -y
-# 4. Replace the CLI's copy with symlinks back to the canonical source
-rm -rf .agents/skills/<name>
-ln -s ../../skills/<name> .agents/skills/<name>
-rm -rf .claude/skills/<name>
-ln -s ../../.agents/skills/<name> .claude/skills/<name>
-# 5. Normalize skills-lock.json if needed: source -> "skills/<name>"
-# 6. Verify
-readlink .agents/skills/<name>    # expect: ../../skills/<name>
-readlink .claude/skills/<name>    # expect: ../../.agents/skills/<name>
-INSTALL_INTERNAL_SKILLS=1 npx skills list | rg "<name>"
-cat .claude/skills/<name>/SKILL.md
-# 7. Stage and commit
-git add skills/<name>/ .agents/skills/<name> .claude/skills/<name> skills-lock.json
-```
+For an internal local skill (`metadata.internal: true` in `SKILL.md`), the same
+flow with three deltas: prefix the `npx skills add` and `npx skills list`
+commands with `INSTALL_INTERNAL_SKILLS=1` (without it the CLI misleadingly
+reports `No skills found`); in step 4 also replace `.claude/skills/<name>` with
+the `../../.agents/skills/<name>` symlink; verify with
+`readlink .agents/skills/<name>` and `readlink .claude/skills/<name>` plus
+`INSTALL_INTERNAL_SKILLS=1 npx skills list | rg "<name>"`.
 
 After `npx skills add`, inspect `git diff -- skills-lock.json` and minimize unrelated churn before committing. If the CLI wrote an absolute local path, rewrite the entry to `"source": "skills/<name>"`.
 
@@ -249,16 +214,6 @@ Before updating, read `skills-lock.json` and identify the exact GitHub-sourced
 entries to refresh. Do not run a broad source update that installs every skill
 from a repository unless that is the intended lockfile state. Local skills
 (`sourceType: "local"`) are edited in place and do not need an update command.
-
-Invocation-kind metadata is a local overlay managed by `areg skill apply`, not by
-`npx skills`. `areg` manages first-party skills under `skills/<name>/` and
-GitHub-sourced vendored skills under `.agents/skills/<name>/`; use it for
-`disable-model-invocation`, `agents/openai.yaml`, and Pi `-skills/<name>`
-exclusions instead of hand-editing those files.
-
-`npx skills update` may refresh more than the curated lockfile entries. Prefer
-explicit `npx skills add <source> --skill <name>` commands so the resulting
-diff contains only skills the project intentionally tracks.
 
 ### 5. Remove a skill
 
@@ -298,29 +253,10 @@ ls -la .agents/skills/
 ls -la skills/
 ```
 
-See `references/commands.md` for command details and known CLI quirks.
+See `references/commands.md` for command details.
 
 - `No skills found` for a valid `SKILL.md` with `metadata.internal: true`: rerun with `INSTALL_INTERNAL_SKILLS=1 npx skills add ...`.
 - `skills-lock.json` contains `/Users/.../skills/<name>`: normalize the entry to `source: "skills/<name>"` before committing.
 - Large unrelated `skills-lock.json` diff: minimize the diff to the intended skill entry unless those changes are deliberate.
 - `.agents/skills/<name>` is a real directory after bootstrap: replace it with `ln -s ../../skills/<name> .agents/skills/<name>`.
 - Internal skill does not appear in a plain list check: verify with `INSTALL_INTERNAL_SKILLS=1 npx skills list | rg "<name>"`.
-
-## Skill visibility
-
-To hide a local skill from external discovery, add `metadata.internal: true` to
-its `SKILL.md` frontmatter. See `references/commands.md` for the frontmatter
-shape and the `INSTALL_INTERNAL_SKILLS=1` consumer flow.
-
-## Anti-patterns
-
-- Leaving `.agents/skills/<name>` as a real directory for a local skill after
-  bootstrap.
-- Committing an absolute machine-specific local path in `skills-lock.json` for
-  a local skill.
-- Assuming `npx skills check` will catch stale local-skill state; it only checks
-  remote sources.
-- Deleting `skills/<name>/` without also removing `.agents/skills/<name>`,
-  `.claude/skills/<name>`, and the lockfile entry.
-- Renaming a local skill without fixing the symlink chain, `skills-lock.json`,
-  and cross-references.
