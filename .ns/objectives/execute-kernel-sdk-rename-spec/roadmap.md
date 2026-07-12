@@ -29,7 +29,7 @@ every row; row notes call out only slice-local guidance.
     mechanical import-snippet ride-alongs in author docs.
   - Evidence: `just` green; no `@nseng-ai/sdk/sdk` hits; descriptor loading
     exercised (`ns --help` plus a descriptor-loading test).
-- [ ] Spec item 3: checkout-free fold rename — branch
+- [x] Spec item 3: checkout-free fold rename — branch
       `kernel-sdk-rename/rename-ns-fold`
   - `hosts/ns` folded exports → `./sdk*`, `src/kernel/` → `src/sdk/`,
     `sdk-export-entries.json` rekey, bundle/prepare/smoke and

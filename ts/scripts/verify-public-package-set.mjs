@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { kernelPublicSubpaths } from "./kernel-public-subpaths.mjs";
+import { sdkFoldEntries } from "./sdk-public-subpaths.mjs";
 import { intendedPublicPackages, readWorkspacePackageManifests, repoRoot } from "./public-package-set.mjs";
 import { isMissingPackageResult, normalizeBinPaths, snippet } from "./public-package-helpers.mjs";
 
-const criticalKernelExports = kernelPublicSubpaths.map((subpath) => `./${subpath}`);
+const criticalSdkExports = sdkFoldEntries.map((entry) => entry.sourceExport);
 
 const args = parseArgs(process.argv.slice(2));
 if (args.shouldShowHelp) {
@@ -153,7 +153,7 @@ function compareExports({ packageName, localExports, registryExports, mismatches
 			mismatches.push(`missing export ${exportKey}`);
 			continue;
 		}
-		if (packageName === "@nseng-ai/sdk" && criticalKernelExports.includes(exportKey)) evidence.push(`export ${exportKey}`);
+		if (packageName === "@nseng-ai/sdk" && criticalSdkExports.includes(exportKey)) evidence.push(`export ${exportKey}`);
 	}
 }
 

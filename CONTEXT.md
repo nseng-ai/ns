@@ -312,7 +312,7 @@ The npm distribution of the `ns` CLI as `@nseng-ai/ns`: a prebuilt bin assembled
 *Avoid*: checkout-free SDL distribution, ns-cli (as the package name), second product
 
 **Package preparation**:
-The assembly step that produces `@nseng-ai/ns`'s publishable form: prebuilt bin, rewritten manifest, and kernel subpath folding — `@nseng-ai/sdk` (private) folded into `@nseng-ai/ns/kernel/*` so checkout-free consumers reach the public kernel subpaths through the published package.
+The assembly step that produces `@nseng-ai/ns`'s publishable form: prebuilt bin, rewritten manifest, and kernel subpath folding — `@nseng-ai/sdk` (private) folded into `@nseng-ai/ns/sdk/*` so checkout-free consumers reach the public kernel subpaths through the published package.
 *Avoid*: build step (bare), publish (the separate authorized step), bundling
 
 **Internal space**:

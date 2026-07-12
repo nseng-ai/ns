@@ -8,16 +8,16 @@
 	"files": [
 		"bin",
 		"cli",
-		"kernel",
+		"sdk",
 		"README.md"
 	],
 	"type": "module",
 	"exports": {
 		"./cli": "./src/cli/index.ts",
-		"./kernel/cli": "./src/kernel/cli.ts",
-		"./kernel/command-io": "./src/kernel/command-io.ts",
-		"./kernel/context": "./src/kernel/context.ts",
-		"./kernel/sdk": "./src/kernel/sdk.ts"
+		"./sdk": "./src/sdk/sdk.ts",
+		"./sdk/cli": "./src/sdk/cli.ts",
+		"./sdk/command-io": "./src/sdk/command-io.ts",
+		"./sdk/context": "./src/sdk/context.ts"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -52,7 +52,7 @@
 		"tier": "host",
 		"subpackages": [
 			"cli",
-			"kernel"
+			"sdk"
 		],
 		"remainder": true
 	}

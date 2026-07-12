@@ -24,30 +24,27 @@ async function pathExists(path: string): Promise<boolean> {
 	}
 }
 
-interface KernelExportSurface {
+interface SdkExportSurface {
 	readonly name: string;
 	readonly host: string;
-	readonly kernel: string;
+	readonly sdk: string;
 }
 
-async function kernelExportSurfaces(): Promise<readonly KernelExportSurface[]> {
-	const content = await readFile(
-		resolve(packageRoot, "scripts/kernel-export-entries.json"),
-		"utf8",
-	);
+async function sdkExportSurfaces(): Promise<readonly SdkExportSurface[]> {
+	const content = await readFile(resolve(packageRoot, "scripts/sdk-export-entries.json"), "utf8");
 	const parsed: unknown = JSON.parse(content);
 	if (!isRecord(parsed)) {
-		throw new Error("Expected kernel export entries to be an object.");
+		throw new Error("Expected sdk export entries to be an object.");
 	}
 	return Object.entries(parsed).map(([entry, spec]) => {
 		if (!isRecord(spec)) {
-			throw new Error(`Expected kernel export entry ${entry} to be an object.`);
+			throw new Error(`Expected sdk export entry ${entry} to be an object.`);
 		}
-		const { host, kernel } = spec;
-		if (typeof host !== "string" || typeof kernel !== "string") {
-			throw new Error(`Expected kernel export entry ${entry} to declare host and kernel paths.`);
+		const { host, sdk } = spec;
+		if (typeof host !== "string" || typeof sdk !== "string") {
+			throw new Error(`Expected sdk export entry ${entry} to declare host and sdk paths.`);
 		}
-		return { name: entry.replace(/^kernel\//, ""), host, kernel };
+		return { name: entry.replace(/^sdk\//, ""), host, sdk };
 	});
 }
 
@@ -84,11 +81,11 @@ function exportListNames(list: string): string[] {
 }
 
 describe("ns CLI host", () => {
-	test("keeps checkout-free kernel barrels exhaustive with kernel export surfaces", async () => {
-		for (const surface of await kernelExportSurfaces()) {
+	test("keeps checkout-free sdk barrels exhaustive with sdk export surfaces", async () => {
+		for (const surface of await sdkExportSurfaces()) {
 			const hostExports = await exportedNames(resolve(packageRoot, surface.host));
-			const kernelExports = await exportedNames(resolve(tsRoot, "packages", surface.kernel));
-			expect(hostExports, `${surface.name} host exports`).toEqual(kernelExports);
+			const sdkExports = await exportedNames(resolve(tsRoot, "packages", surface.sdk));
+			expect(hostExports, `${surface.name} host exports`).toEqual(sdkExports);
 		}
 	});
 
