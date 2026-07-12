@@ -78,7 +78,7 @@ For CCC-owned orchestration, read `ts/packages/capabilities/ccc/AGENTS.md` befor
 
 Before editing:
 
-- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@nseng-ai/pi` engineered behavior, or `@nseng-ai/ccc` orchestration.
+- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@nseng-ai/pi` engineered behavior, or `@nseng-ai/cmux` orchestration.
 - [ ] Read the relevant package `AGENTS.md` and `CONTEXT.md` before naming new concepts.
 - [ ] Pick a command namespace by workflow ownership, not file location. First-party product/orchestration commands default to `/ns:<extension>:...`; keep `/pi:*` for Pi-native UI/session affordances.
 - [ ] Check for existing command names with `rg` or Pi RPC inventory; avoid duplicate public slash commands unless intentionally documented.

@@ -64,7 +64,7 @@ describe("ccc CLI", () => {
 		const runtime = run(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(output(runtime).stdout).toBe(
-			"runtime: typescript\nentry_point: @nseng-ai/ccc bin ccc -> ts/packages/capabilities/ccc/src/ns/cli.ts\n",
+			"runtime: typescript\nentry_point: @nseng-ai/cmux bin ccc -> ts/packages/capabilities/cmux/src/ns/cli.ts\n",
 		);
 
 		const execHelp = run(["exec", "--help"]);

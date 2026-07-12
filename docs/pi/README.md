@@ -211,7 +211,7 @@ ns extension discovery is currently CLI-only. Pi does not dynamically register a
 
 ## CCC workspace/sidebar pattern
 
-Manual CCC sidebar commands should target the caller cmux workspace for sidebar updates, keep cmux mutations behind deterministic `ccc exec` commands, and avoid relying on stale local cmux source checkouts. Workspace-opening commands currently do not auto-run sidebar updates. The project command suite lives behind `.pi/extensions/ccc.ts` and `ts/packages/capabilities/ccc/src/cmux/`; `.pi/extensions/worktree-status.ts` remains the project-local adapter for the automatic worktree-status renderer backed by `@nseng-ai/pi`, which delegates operational facts and presentation to `@nseng-ai/ccc/worktree-status`.
+Manual CCC sidebar commands should target the caller cmux workspace for sidebar updates, keep cmux mutations behind deterministic `ccc exec` commands, and avoid relying on stale local cmux source checkouts. Workspace-opening commands currently do not auto-run sidebar updates. The project command suite lives behind `.pi/extensions/ccc.ts` and `ts/packages/capabilities/ccc/src/cmux/`; `.pi/extensions/worktree-status.ts` remains the project-local adapter for the automatic worktree-status renderer backed by `@nseng-ai/pi`, which delegates operational facts and presentation to `@nseng-ai/cmux/worktree-status`.
 
 See [CCC Workspace/Sidebar Pattern for Pi](./cmux-extension-pattern.md) and [Querying cmux Help](../cmux/help-querying.md).
 

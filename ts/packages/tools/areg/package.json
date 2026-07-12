@@ -18,7 +18,7 @@
 	"dependencies": {
 		"@nseng-ai/branch-context": "workspace:*",
 		"@nseng-ai/capability-kit": "workspace:*",
-		"@nseng-ai/ccc": "workspace:*",
+		"@nseng-ai/cmux": "workspace:*",
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/flow": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",

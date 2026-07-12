@@ -1,6 +1,6 @@
 # @nseng-ai/pi
 
-`@nseng-ai/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability `pi` subpackages stacked above `@nseng-ai/pi`; Pi-native standalone tools may live in Internal Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. CCC (`@nseng-ai/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; the `@nseng-ai/ccc/pi` subpackage imports CCC core APIs and neutral `@nseng-ai/pi/...` helpers so there are no direct `@nseng-ai/ccc` imports from `@nseng-ai/pi/...` and no `@nseng-ai/pi` import or declaration of `@nseng-ai/ccc`.
+`@nseng-ai/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability `pi` subpackages stacked above `@nseng-ai/pi`; Pi-native standalone tools may live in Internal Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. CCC (`@nseng-ai/cmux`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; the `@nseng-ai/cmux/pi` subpackage imports CCC core APIs and neutral `@nseng-ai/pi/...` helpers so there are no direct `@nseng-ai/cmux` imports from `@nseng-ai/pi/...` and no `@nseng-ai/pi` import or declaration of `@nseng-ai/cmux`.
 
 ## Language
 
@@ -37,7 +37,7 @@ The private TypeScript workspace package at `ts/packages/capabilities/ccc/` for 
 *Avoid*: Pi discovery adapter, lower capability package, public npm API.
 
 **CCC Pi subpackage**:
-The `@nseng-ai/ccc/pi` subpackage that wires CCC workflows into Pi/cmux presentation by importing CCC core APIs and neutral `@nseng-ai/pi/...` helper subpaths. It is the home for CCC-specific Pi command registration, acknowledgement/progress wiring, prompt/session formatting, machine-envelope parsing, and slash-command formatting; `@nseng-ai/pi` itself still must not import or declare `@nseng-ai/ccc`.
+The `@nseng-ai/cmux/pi` subpackage that wires CCC workflows into Pi/cmux presentation by importing CCC core APIs and neutral `@nseng-ai/pi/...` helper subpaths. It is the home for CCC-specific Pi command registration, acknowledgement/progress wiring, prompt/session formatting, machine-envelope parsing, and slash-command formatting; `@nseng-ai/pi` itself still must not import or declare `@nseng-ai/cmux`.
 *Avoid*: Pi host dependency on CCC, non-`pi` CCC subpackages importing Pi host helpers, generic internal Pi-tool package.
 
 **Pi command namespace**:
@@ -81,5 +81,5 @@ A runner-subagent return mode where the parent accepts the child assistant's fin
 *Avoid*: terminal capture, transcript import, custom message.
 
 **Worktree status adapter**:
-The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: registers the `worktree-status` renderer, reacts to session/tool/agent/shutdown events, manages active-session cancellation, watches Git/Branch Memory/worktree paths, installs the custom footer, and renders generic cwd/session/model/context/token/cost footer lines, while the repo-operational status facts and their presentation are owned by CCC's worktree-status observability model and consumed through neutral seams, not by `@nseng-ai/pi` importing `@nseng-ai/ccc`.
+The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: registers the `worktree-status` renderer, reacts to session/tool/agent/shutdown events, manages active-session cancellation, watches Git/Branch Memory/worktree paths, installs the custom footer, and renders generic cwd/session/model/context/token/cost footer lines, while the repo-operational status facts and their presentation are owned by CCC's worktree-status observability model and consumed through neutral seams, not by `@nseng-ai/pi` importing `@nseng-ai/cmux`.
 *Avoid*: CCC observability fact owner, Graphite metadata parser owner, Branch Memory storage owner.

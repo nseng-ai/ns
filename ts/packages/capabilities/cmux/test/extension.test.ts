@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
-import { CCC_COMMAND_NAMES } from "@nseng-ai/ccc/api";
+import { CCC_COMMAND_NAMES } from "@nseng-ai/cmux/api";
 
 import registerCccPiExtension from "../src/pi/extension.ts";
 

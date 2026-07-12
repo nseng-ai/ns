@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "@nseng-ai/ccc/api";
+import { CCC_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME } from "@nseng-ai/cmux/api";
 import {
 	CREATE_HANDOFF_COMMAND_NAME,
 	HANDOFF_TAB_COMMAND_NAME,

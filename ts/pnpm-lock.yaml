@@ -96,9 +96,9 @@ importers:
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:packages/capability-kit
-      '@nseng-ai/ccc':
+      '@nseng-ai/cmux':
         specifier: workspace:*
-        version: link:packages/capabilities/ccc
+        version: link:packages/capabilities/cmux
       '@nseng-ai/flow':
         specifier: workspace:*
         version: link:packages/capabilities/flow
@@ -210,7 +210,7 @@ importers:
         specifier: workspace:*
         version: link:../../hosts/pi
 
-  packages/capabilities/ccc:
+  packages/capabilities/cmux:
     dependencies:
       '@nseng-ai/branch-context':
         specifier: workspace:*
@@ -684,12 +684,12 @@ importers:
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
-      '@nseng-ai/ccc':
-        specifier: workspace:*
-        version: link:../../capabilities/ccc
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
+      '@nseng-ai/cmux':
+        specifier: workspace:*
+        version: link:../../capabilities/cmux
       '@nseng-ai/flow':
         specifier: workspace:*
         version: link:../../capabilities/flow
