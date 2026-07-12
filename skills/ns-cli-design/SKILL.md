@@ -1,10 +1,13 @@
 ---
 name: ns-cli-design
 disable-model-invocation: true
-description: "Authoring discipline for ns CLIs, grounded in Clinkr. Invoke when designing, authoring, or reviewing an ns CLI command, command group, `exec` subgroup, machine output shape, exit/error behavior, raw-exit exemption, or destructive/confirmation flow. Covers hard gates, the human tier, the agent/`exec` tier, danger tiers, naming, and a pre-ship checklist mapped to ADRs 0010-0015 and the Clinkr API."
+description: "Authoring discipline for ns CLIs, grounded in Clinkr. Invoke when designing, authoring, or reviewing an ns CLI command, command group, `exec` subgroup, machine output shape, exit/error behavior, raw-exit exemption, or destructive/confirmation flow."
 references:
   - references/clinkr-api-map
   - references/checklist
+  - references/human-tier
+  - references/agent-exec-tier
+  - references/danger-tiers
 metadata:
   internal: true
 ---

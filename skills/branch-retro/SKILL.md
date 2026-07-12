@@ -1,7 +1,7 @@
 ---
 name: branch-retro
 disable-model-invocation: true
-description: "Use when the user asks for a branch/session retrospective, wants to know what would have made branch work faster/smaller/higher quality, or asks to run/interpret Retro evidence. Collects deterministic evidence with `ns retro exec collect-evidence` and turns it into semantic recommendations without editing files unless requested."
+description: "Branch/session retrospective: collect deterministic Retro evidence with `ns retro exec collect-evidence` and turn it into semantic recommendations without editing files unless requested."
 allowed-tools:
   - "Bash(ns retro exec collect-evidence*)"
   - "Bash(ns retro exec read-evidence-detail*)"
@@ -21,10 +21,6 @@ factual evidence with `ns retro`, then uses model judgment to write source-backe
 findings and actionable recommendations.
 
 ## When to use
-
-Use this skill when the user asks for a branch retro, branch/session
-retrospective, what slowed a branch down, what should improve after branch work,
-or how to interpret Retro evidence.
 
 If the user asks to implement recommendations, produce the retrospective first,
 then ask for confirmation and scope before editing anything.

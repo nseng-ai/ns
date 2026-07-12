@@ -1,7 +1,7 @@
 ---
 name: code-smush
 disable-model-invocation: true
-description: Use when the user explicitly asks to smush, package, or repackage a stack — slicing a commit run into Decision PRs and Span PRs with explicit span squash. Opt-in and experimental; local-only (never submits, never contacts a remote, never mutates PRs). Proposes the full Slice Map and waits for go-ahead before any mutation.
+description: Use when the user explicitly asks to smush, package, or repackage a stack into Decision PRs and Span PRs. Opt-in, experimental, local-only.
 ---
 
 # code-smush

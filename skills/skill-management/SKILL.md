@@ -1,7 +1,7 @@
 ---
 name: skill-management
 disable-model-invocation: true
-description: "Manage skills with `npx skills`: add, edit, remove, rename, update, or list skills (local or GitHub). Covers `skills/<name>/` and `.agents/skills/` conventions, the `--agent codex claude-code -y` flag, and `-a`/`--copy` gotchas."
+description: "Manage skills with `npx skills`: add, edit, remove, rename, update, or list skills (local or GitHub), and the `skills/<name>/` / `.agents/skills/` layout conventions."
 allowed-tools:
   - "Bash(npx skills *)"
   - "Bash(ln *)"

@@ -1,7 +1,7 @@
 ---
 name: branch-context-from-plan
 disable-model-invocation: true
-description: Use when a user explicitly wants to create an implementation branch from a saved plan and attach its branch context as a named Markdown key — "from plan", "create a branch and attach branch context", "branch this saved plan", "attach this plan to a branch" — or to continue a Pi `/ns:branch-context:from-plan` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
+description: Use when a user explicitly wants to create an implementation branch from a saved plan and attach its branch context as a named Markdown key — "from plan", "branch this saved plan" — or to continue a Pi `/ns:branch-context:from-plan` handoff.
 ---
 
 # branch-context-from-plan

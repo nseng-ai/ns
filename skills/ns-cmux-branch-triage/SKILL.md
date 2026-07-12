@@ -1,7 +1,9 @@
 ---
 name: ns-cmux-branch-triage
 disable-model-invocation: true
-description: Use when the user wants to triage outstanding Graphite/GitHub branches or stacks for landing, retirement, restacking, or deferral with cmux workspace awareness; detect branches open in cmux by workspace cwd + Git branch; preserve the root checkout and prompt the user to switch to a slot for mutations.
+description: Use when the user wants to triage outstanding Graphite/GitHub branches or stacks for landing, retirement, restacking, or deferral with cmux workspace awareness; preserve the root checkout and prompt the user to switch to a slot for mutations.
+metadata:
+  internal: true
 ---
 
 # ns-cmux-branch-triage

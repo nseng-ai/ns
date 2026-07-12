@@ -54,7 +54,7 @@ findings against the live files before editing (line references in
       superseded per their sanctioned-duplication markers — see the
       t1-review-meta-cuts update). All eight family branches done; Tranche 1 is
       complete fleet-wide.
-- [ ] Tranche 2 — trigger-surface normalization: real descriptions for the legacy
+- [x] Tranche 2 — trigger-surface normalization: real descriptions for the legacy
       `Command:` stubs (ns-flow-cp, ns-flow-submit, code-just-fix, code-workflows,
       changelog-update); convert workflow-summary descriptions to trigger-shaped ones
       (code-fix-gh-stack, objective-retro, code-thermostack, docs-retro, branch-retro,
@@ -65,6 +65,10 @@ findings against the live files before editing (line references in
       public skills (objective-runner-step, objective-autorun).
       Guidance: every change through `areg`-sanctioned paths; verify each with
       `areg skill show <name>`.
+      Executed 2026-07-12 on `skill-audit-t2-trigger-surface` (35 files; see the
+      t2-trigger-surface-executed update). One deferral needing a human/ADR decision:
+      code-resolve-merge-conflicts invocation kind vs. the skill-conventions bucket-1
+      ambient example.
 - [ ] Tranche 3 — structure and single-source-of-truth consolidation: execute the T3
       findings.
       Guidance: main clusters — objective family (umbrella owns Selection/Record

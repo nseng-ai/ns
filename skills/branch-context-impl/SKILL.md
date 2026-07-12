@@ -1,7 +1,7 @@
 ---
 name: branch-context-impl
 disable-model-invocation: true
-description: Use when a user explicitly wants to implement from an attached branch-context plan on the current branch — "implement the branch context", "load the attached branch-context plan", "continue from the branch context plan" — or to continue a Pi `/ns:branch-context:impl-attached-plan` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
+description: Use when a user explicitly wants to implement from an attached branch-context plan on the current branch — "implement the branch context", "load the attached branch-context plan", "continue from the branch context plan" — or to continue a Pi `/ns:branch-context:impl-attached-plan` handoff.
 ---
 
 # branch-context-impl

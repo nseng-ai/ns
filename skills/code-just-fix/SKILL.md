@@ -1,7 +1,7 @@
 ---
 name: code-just-fix
 disable-model-invocation: true
-description: "Command: code-just-fix"
+description: "Run the project `just` suite and fix every failure at the root cause."
 allowed-tools:
   - "Bash(just *)"
   - "Bash(uv run *)"

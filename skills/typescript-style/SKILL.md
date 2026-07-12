@@ -1,6 +1,6 @@
 ---
 name: typescript-style
-description: "TypeScript style guide for strict TS: erasable syntax, Zod boundary schemas, function declarations for module logic, discriminated unions, errors-as-values, minimal-core architecture, backend neutrality, terse review."
+description: "Opinionated style guide for strict, portable TypeScript. Use when writing, designing, or reviewing TypeScript: type design, boundary validation, error handling, module architecture, and review discipline."
 references:
   - core-rules
   - idioms
@@ -19,10 +19,8 @@ references:
 # typescript-style
 
 An opinionated TypeScript style guide for strict, maintainable projects. It sets portable code-level
-and compiler-level defaults: erasable TypeScript, Zod-first boundary validation, honest types, strict
-indexed access, errors-as-values, and small architecture. Project-specific choices such as package
-managers, formatters, CI wiring, test runners, and import suffixes belong in the local repository or a
-project overlay skill.
+and compiler-level defaults. Project-specific choices such as package managers, formatters, CI
+wiring, test runners, and import suffixes belong in the local repository or a project overlay skill.
 
 Keep Zod as the default runtime validation library for new external boundaries unless the project has
 already chosen otherwise.

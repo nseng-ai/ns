@@ -1,7 +1,7 @@
 ---
 name: code-thermostack
 disable-model-invocation: true
-description: "Run Thermostack: perform a thermonuclear code-quality review of the current Graphite stack changes against the stack base, rank findings by likelihood their fixes will make it to trunk, propose independently reviewable Graphite follow-up branches, and only after explicit approval create a local child fix stack. Use for Thermostack, thermo stack, thermonuclear follow-up stack, or turning harsh code-quality review findings into a Graphite stack."
+description: "Turn a thermonuclear code-quality review of the current Graphite stack into an approved local child fix stack. Use for Thermostack, thermo stack, thermonuclear follow-up stack, or turning harsh code-quality review findings into a Graphite stack."
 ---
 
 # Thermostack

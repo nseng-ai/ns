@@ -1,7 +1,7 @@
 ---
 name: docs-retro
 disable-model-invocation: true
-description: "Documentation retrospective on the current session: inventory what had to be discovered, filter through the cost/benefit rubric (tokens, drift, recomputability, co-location), and write only the surviving doc or comment changes. Use for a 'docs retro', 'what docs would have made this faster', or turning session friction into documentation."
+description: "Documentation retrospective on the current session: turn discovery friction into the minimum set of doc/comment changes (default verdict: drop). Use for a 'docs retro' or 'what docs would have made this faster'."
 metadata:
   internal: true
 ---
