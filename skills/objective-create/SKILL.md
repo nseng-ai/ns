@@ -6,7 +6,7 @@ description: "Create a new Objective record under .ns/objectives/<slug>/. Use wh
 
 # objective-create
 
-Create exactly one new Objective record under `.ns/objectives/<slug>/`. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this skill stays self-contained for its own happy path.
+Create exactly one new Objective record under `.ns/objectives/<slug>/`. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, safety boundaries, and family policy.
 
 When the user names an Objective pattern — wayfinding/ideation, steelthread, standing, umbrella, autoobjective, or readme-driven-development — use the matching `objective-create-<pattern>` facade skill instead; it owns that pattern's creation procedure and composes this skill for record mechanics (if it is absent from available skills, resolve it with `areg skill find objective-create-<pattern> --format json` and read the returned preferred `SKILL.md`).
 
@@ -25,8 +25,8 @@ New records live in the active root only, `.ns/objectives/<slug>/`, with `object
 
 - Require an explicit slug, or propose a normalized slug and get explicit confirmation before writing any file.
 - Write only under `.ns/objectives/<slug>/`; never `docs/objectives/` or anywhere else.
-- Slug identity is the umbrella skill's rule: renames never mint a new slug. Before creating a slug that looks like a rename or replacement of existing work, run `ns objective list --status all --format md`; if a likely existing Objective appears, stop and ask whether the user meant `objective-update`, a direct read, or an explicit slug migration.
-- Check the active root before writing. `ns objective exec read-objective <slug> --format md` returns a `not_found` envelope when the slug has no active record and otherwise emits it. If `.ns/objectives/<slug>/` exists, stop and ask whether the user meant `objective-update` or a direct read — never overwrite. If the slug was previously deleted, source control history is the only historical link; recreate it only when the user wants that identity again.
+- Slug identity is the umbrella skill's rule: renames never mint a new slug. Before creating a slug that looks like a rename or replacement of existing work, run `ns objective list --status all --format md`; if a likely existing Objective appears, stop per Stop / ask.
+- Check the active root before writing. `ns objective exec read-objective <slug> --format md` returns a `not_found` envelope when the slug has no active record and otherwise emits it. If `.ns/objectives/<slug>/` exists, stop per Stop / ask — never overwrite. If the slug was previously deleted, source control history is the only historical link; recreate it only when the user wants that identity again.
 - Records are Markdown: write them directly, using `ns objective exec` only for deterministic reads; the only sanctioned YAML is Record Frontmatter below.
 
 ## Record Frontmatter: initial edges and Blocked Sentence
@@ -58,8 +58,8 @@ Interview the user relentlessly before writing (inspired by [Matt Pocock's `gril
 ## Stop / ask
 
 - The slug is missing, unconfirmed, invalid-looking, or points outside `.ns/objectives/`.
-- The target Objective directory already exists.
-- The request looks like a rename/replacement of existing Objective work and the user has not explicitly chosen create vs update vs slug migration.
+- The target Objective directory already exists — ask whether the user meant `objective-update` or a direct read.
+- The request looks like a rename/replacement of existing Objective work and the user has not explicitly chosen create vs update vs slug migration — ask whether they meant `objective-update`, a direct read, or an explicit slug migration.
 - Durable context is too thin to write thesis, scope, completion criteria, assumptions, risks, or requested execution policy without inventing them.
 - The request needs multiple Objectives: create only one and ask the user to run the command again for the others.
 

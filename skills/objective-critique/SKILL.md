@@ -12,7 +12,7 @@ Use the `objective` umbrella skill for shared vocabulary and selection rules whe
 
 ## 1. Select exactly one Objective
 
-Use the explicit slug or path if the user gave one. Otherwise, if the current branch adds or modifies exactly one Objective record, use that one. Otherwise run `ns objective list --format md` and ask the user to choose.
+Select per the `objective` umbrella skill's Selection rules, which sanction this skill's one narrow exception: use the explicit slug or path if the user gave one; otherwise, if the current branch adds or modifies exactly one Objective record, use that one (the branch-changed-record exception). Otherwise run `ns objective list --format md` and ask the user to choose.
 
 Read the full record: `objective.md`, plus `roadmap.md` and recent `updates/*.md` if present.
 

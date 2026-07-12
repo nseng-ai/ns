@@ -71,9 +71,13 @@ findings against the live files before editing (line references in
       ambient example.
 - [ ] Tranche 3 — structure and single-source-of-truth consolidation: execute the T3
       findings.
-      Guidance: main clusters — objective family (umbrella owns Selection/Record
-      Frontmatter/validation-row/PR-wording rules, leaves point; patterns catalog owns
-      composition/identity, facades keep deltas); review family (**executed 2026-07-12** on
+      Guidance: main clusters — objective family (**executed 2026-07-12** on
+      `skill-audit-t3-objective-ssot`: umbrella owns Selection rules and the two
+      sanctioned exceptions, picker spec disclosed to `docs/objective-system.md`,
+      family self-contained/delta-only policy stated once, create Stop/ask owns stop
+      conditions, Horizon/Drive axes single-homed in the patterns catalog, RDD facade
+      gained its Verify-and-stop binding — see the t3-objective-family-ssot-executed
+      update); review family (**executed 2026-07-12** on
       `skill-audit-t3-adversarial-reviews`: `docs/conventions/adversarial-reviews.md`
       landed generalizing the ns-typescript-style-tripwire provenance/regeneration
       pattern, provenance backfilled on the five reviews lacking it
