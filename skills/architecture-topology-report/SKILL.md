@@ -18,7 +18,7 @@ metadata:
 Produce an **architecture topology report**: the actual runtime package dependency graph of a
 workspace, rendered as an editorial HTML report. It has two modes:
 
-1. **Raw inventory mode** (no target named — the default, and now a *standing application*):
+1. **Raw inventory mode** (no target named — the default):
    render and summarize the graph as-is — cycles, declared-tier violations, fan-in/out, `/api`
    seams, kit consumers, orphans, and other manifest-derived facts. This path needs **no agent
    reasoning at all**: `scripts/topology` extracts the graph and renders a complete report from a
@@ -42,8 +42,7 @@ skills/architecture-topology-report/scripts/topology --no-open # render only; pr
 
 It extracts the graph and renders a full report — verdict, declared-tier stack, interactive D3
 graph, factual scorecard, finding cards, and a "first deeper-read" keystone — from a spec
-synthesized straight from the JSON (`scripts/synthesize-spec.mjs`). No skill load, no spec
-authoring, sub-second to launch. Pass through any `extract-graph` flag for a different workspace
+synthesized straight from the JSON (`scripts/synthesize-spec.mjs`). Pass through any `extract-graph` flag for a different workspace
 (`--root`, `--kit`, `--api-needle`, `--src-dir`) or `--repo <name>` to override the header
 title. Relay the printed HTML path to the user.
 
@@ -80,12 +79,7 @@ exposes a command face", "package X must delete to zero". These become the repor
 scorecard rows. Use the project's own vocabulary (from `CONTEXT.md` and the target doc)
 for layer and seam names — don't invent your own.
 
-If no target is supplied, do **not** author a spec and do **not** ask a blocking clarification
-just to get one — run the launcher (the *Instant path* above). The synthesizer already applies
-the neutral conventions a raw report needs: `targetName: "raw topology inventory"`, an intro
-that says there is no target architecture, and no normative language ("drift", "on track",
-"violates the architecture") except where the fact is directly encoded by package metadata
-(declared-tier `tierViolations`). The rest of this section is the target-mode authoring detail.
+If no target is supplied, run the launcher (the *Instant path* above).
 
 ### 2. Extract the real topology
 
@@ -115,11 +109,8 @@ Defaults are tuned for ns (`--root ts/packages`, `--kit @nseng-ai/capability-kit
 - `packages[name].loc` — approximate source size (meaningful TypeScript lines under the
   package's `src`, tests/blank/`//` excluded).
 - `topologyCircles` / `circleGraph` — source topology circles discovered from root
-  `src/*.ts` files plus one circle per `src/<component>/` directory. The report's graph
-  defaults to package granularity; an in-report toggle drills down to these circles
-  (nodes sized by circle LOC, placed in tier lanes, tier-hue shades per enclosing package),
-  and clicking a package node zooms into that single package's internal circle graph.
-  Override the source folder with `--src-dir`.
+  `src/*.ts` files plus one circle per `src/<component>/` directory. Override the
+  source folder with `--src-dir`.
 
 The script reads each workspace package's declared `ns.tier`, validates it against the
 canonical tier taxonomy derived from the style-guard package tier data, emits `packages[name].tier`, and
@@ -192,15 +183,10 @@ To author the spec, work from `scripts/example-spec.mjs` (a complete, validated 
 plus the "Spec contract" table in
 [references/HTML-REPORT.md](references/HTML-REPORT.md) — the rest of that reference is the
 generator-owned D3 scaffold and design rationale, which you don't need to read to write a spec.
-The full field list and section sequence live there if you need them. The report mixes three visual
-registers so it reads as editorial, not as a generic dashboard: the interactive **D3 graph**
-(package view by default — runtime edges, node fill = tier — with a subpackage-circle drill-down
-toggle — static import edges, tier-hue fills shaded per enclosing package — and click-to-zoom on a
-package node to isolate that package's internal circle graph; node area ∝ LOC, tier lanes/filters,
-layered-DAG / tier-clustered / force layout toggle, drag/zoom/hover-trace), **Mermaid** before/after cycle diagrams
-in finding cards, and **hand-built Tailwind** for the tier stack, verdict strip, and scorecard. Tier
-presentation comes from declared `ns.tier`; package color is separate from tier. The generator marks
-an edge `cycle: true` when both endpoints sit in a circle/package SCC.
+The full field list and section sequence live there if you need them. The generator mixes an
+interactive D3 graph, Mermaid cycle diagrams, and hand-built Tailwind sections; presentation
+detail is generator-owned — see `references/HTML-REPORT.md`. Tier presentation comes from
+declared `ns.tier`.
 
 Only drop to a hand-built page (the raw scaffold is still in the reference) if a report needs
 a register the spec does not express — and prefer extending `build-report.mjs` over a one-off.

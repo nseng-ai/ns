@@ -1,7 +1,6 @@
 # Commit Fetching Procedure
 
-Fetch commits since the last changelog sync using pure git commands.
-No external tools or language-specific dependencies required.
+Fetch commits since the last changelog sync.
 
 ## Step 1: Get Current HEAD
 

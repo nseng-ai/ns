@@ -9,12 +9,9 @@ description: "Analyze a frozen context-profiler bundle (a context-profiles/<sess
 # context-bundle-analysis
 
 Interpret a frozen context window captured by the `/context-profiler` Pi
-extension and deliver opinionated, advisory findings. The profiler is
-diagnostic-only by design; this skill is the advisory layer on top of it: it
-takes the profiler's per-episode verdicts as evidence, diagnoses session-level
-context-failure modes, and recommends an action per finding. It never mutates
-the profiled session — its only side effect is writing one new `analysis.md`
-file into the bundle directory.
+extension and deliver opinionated, advisory findings. It takes the profiler's
+per-episode verdicts as evidence, diagnoses session-level context-failure
+modes, and recommends an action per finding.
 
 ## Contract
 
