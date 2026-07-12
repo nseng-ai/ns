@@ -16,52 +16,20 @@ export interface ExtensionArraySyntax {
 	readonly hasTrailingComma: boolean;
 }
 
+type TopLevelStatement =
+	| {
+			readonly type: "bare-assignment";
+			readonly key: string;
+			readonly assignmentStart: number;
+			readonly valueOffset: number;
+	  }
+	| { readonly type: "table-header"; readonly offset: number };
+
 /** Finds the first table header while ignoring brackets inside top-level values. */
 export function findFirstTopLevelTableOffset(source: string): number | undefined {
-	let index = 0;
-	let lineOffset = 0;
-	let isLinePrefix = true;
-	let arrayDepth = 0;
-	let inlineTableDepth = 0;
-	while (index < source.length) {
-		const char = source[index];
-		if (char === "\n") {
-			index += 1;
-			lineOffset = index;
-			isLinePrefix = true;
-			continue;
-		}
-		if (isLinePrefix && (char === " " || char === "\t" || char === "\r")) {
-			index += 1;
-			continue;
-		}
-		if (char === "#") {
-			const newline = source.indexOf("\n", index + 1);
-			if (newline === -1) return undefined;
-			index = newline;
-			continue;
-		}
-		if (char === '"' || char === "'") {
-			const tokenEnd = scanStringToken(source, index, char);
-			if (tokenEnd === undefined) return undefined;
-			const lastNewline = source.lastIndexOf("\n", tokenEnd - 1);
-			if (lastNewline >= index) {
-				lineOffset = lastNewline + 1;
-				isLinePrefix = false;
-			}
-			index = tokenEnd;
-			continue;
-		}
-		if (isLinePrefix && arrayDepth === 0 && inlineTableDepth === 0 && char === "[")
-			return lineOffset;
-		isLinePrefix = false;
-		if (char === "[") arrayDepth += 1;
-		if (char === "]") arrayDepth -= 1;
-		if (char === "{") inlineTableDepth += 1;
-		if (char === "}") inlineTableDepth -= 1;
-		index += 1;
-	}
-	return undefined;
+	const statements = scanTopLevelPreamble(source);
+	if (statements === undefined) return undefined;
+	return statements.find((statement) => statement.type === "table-header")?.offset;
 }
 
 /** Finds the bare, top-level extensions assignment and couples every decoded value to its token span. */
@@ -116,23 +84,89 @@ export function parseExtensionArraySyntax(source: string): ExtensionArraySyntax 
 function findAssignment(
 	source: string,
 ): { assignmentStart: number; openOffset: number } | undefined {
-	let offset = 0;
-	let isInTable = false;
-	for (const line of source.split(/(?<=\n)/u)) {
-		const trimmed = line.trimStart();
-		if (trimmed !== "" && !trimmed.startsWith("#")) {
-			if (trimmed.startsWith("[")) isInTable = true;
-			if (!isInTable) {
-				const match = /^extensions\s*=\s*\[/u.exec(trimmed);
-				if (match !== null) {
-					const assignmentStart = offset + line.length - trimmed.length;
-					return { assignmentStart, openOffset: assignmentStart + match[0].lastIndexOf("[") };
-				}
-			}
+	const statements = scanTopLevelPreamble(source);
+	if (statements === undefined) return undefined;
+	const assignment = statements.find(
+		(statement) =>
+			statement.type === "bare-assignment" &&
+			statement.key === "extensions" &&
+			source[statement.valueOffset] === "[",
+	);
+	if (assignment?.type !== "bare-assignment") return undefined;
+	return { assignmentStart: assignment.assignmentStart, openOffset: assignment.valueOffset };
+}
+
+function scanTopLevelPreamble(source: string): readonly TopLevelStatement[] | undefined {
+	const statements: TopLevelStatement[] = [];
+	let index = 0;
+	let lineOffset = 0;
+	let isLinePrefix = true;
+	let arrayDepth = 0;
+	let inlineTableDepth = 0;
+	while (index < source.length) {
+		const char = source[index];
+		if (char === "\n") {
+			index += 1;
+			lineOffset = index;
+			isLinePrefix = true;
+			continue;
 		}
-		offset += line.length;
+		if (isLinePrefix && (char === " " || char === "\t" || char === "\r")) {
+			index += 1;
+			continue;
+		}
+		if (char === "#") {
+			const newline = source.indexOf("\n", index + 1);
+			if (newline === -1) return statements;
+			index = newline;
+			continue;
+		}
+		if (char === '"' || char === "'") {
+			const tokenEnd = scanStringToken(source, index, char);
+			if (tokenEnd === undefined) return undefined;
+			const lastNewline = source.lastIndexOf("\n", tokenEnd - 1);
+			if (lastNewline >= index) {
+				lineOffset = lastNewline + 1;
+				isLinePrefix = false;
+			}
+			index = tokenEnd;
+			continue;
+		}
+		if (isLinePrefix && arrayDepth === 0 && inlineTableDepth === 0) {
+			if (char === "[") {
+				statements.push({ type: "table-header", offset: lineOffset });
+				return statements;
+			}
+			const assignment = scanBareAssignment(source, index);
+			if (assignment !== undefined) statements.push(assignment);
+		}
+		isLinePrefix = false;
+		if (char === "[") arrayDepth += 1;
+		if (char === "]") arrayDepth -= 1;
+		if (char === "{") inlineTableDepth += 1;
+		if (char === "}") inlineTableDepth -= 1;
+		index += 1;
 	}
-	return undefined;
+	return statements;
+}
+
+function scanBareAssignment(
+	source: string,
+	assignmentStart: number,
+): Extract<TopLevelStatement, { type: "bare-assignment" }> | undefined {
+	let index = assignmentStart;
+	while (isBareKeyCharacter(source[index])) index += 1;
+	if (index === assignmentStart) return undefined;
+	const key = source.slice(assignmentStart, index);
+	while (source[index] === " " || source[index] === "\t") index += 1;
+	if (source[index] !== "=") return undefined;
+	index += 1;
+	while (source[index] === " " || source[index] === "\t") index += 1;
+	return { type: "bare-assignment", key, assignmentStart, valueOffset: index };
+}
+
+function isBareKeyCharacter(char: string | undefined): boolean {
+	return char !== undefined && /[A-Za-z0-9_-]/u.test(char);
 }
 
 function skipTrivia(source: string, start: number): number {
