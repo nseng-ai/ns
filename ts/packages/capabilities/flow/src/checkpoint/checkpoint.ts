@@ -7,7 +7,7 @@ import {
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
 import type { TimeServices } from "@nseng-ai/foundation/time";
-import type { ActiveOperation, NsProgressPhaseListener } from "@nseng-ai/sdk/sdk";
+import type { ActiveOperation, NsProgressPhaseListener } from "@nseng-ai/sdk";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
@@ -18,7 +18,7 @@ import {
 	prepareCheckpointMessage,
 	type CommandResult,
 } from "@nseng-ai/capability-kit/checkpoint-flow";
-import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk";
 import {
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeError,

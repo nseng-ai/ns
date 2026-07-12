@@ -12,7 +12,7 @@ import {
 	type CommandExit,
 	type ExecResult,
 	type NsExtensionApi,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 export const FLOW_COMMAND_FAILED = "flow-command-failed";
 

@@ -41,7 +41,7 @@ besides being an ns extension can nest its ns integration wherever it likes (for
 **src/extension.ts** — the descriptor:
 
 ```ts
-import { defineExtension } from "@nseng-ai/sdk/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "hello",
@@ -58,7 +58,7 @@ export default defineExtension({
 **src/commands/hello.ts** — the command implementation:
 
 ```ts
-import { defineCommand, ok, z } from "@nseng-ai/sdk/sdk";
+import { defineCommand, ok, z } from "@nseng-ai/sdk";
 
 export default defineCommand({
 	name: "world",
@@ -102,7 +102,7 @@ for your project.
 The descriptor is the single source of truth for what your extension provides. `ns` executes it
 on every invocation to build the command catalog, so it must stay **cheap**:
 
-- It may import only `@nseng-ai/sdk/sdk` (type-only imports are fine).
+- It may import only `@nseng-ai/sdk` (type-only imports are fine).
 - It contains metadata and lazy `load` thunks — never command implementations, schemas built
   from heavy modules, gateways, or I/O.
 
@@ -190,7 +190,7 @@ time — the kernel never sees clinkr. For full control, construct the kernel co
 directly (below).
 
 Command modules run in the target project via ns's TypeScript loader — you ship `src/` directly
-(`files: ["src"]`); no build step is required. `@nseng-ai/sdk/sdk` is provided by the host at
+(`files: ["src"]`); no build step is required. `@nseng-ai/sdk` is provided by the host at
 load time, so command and schema types share identity with the running `ns`.
 
 ## The command contract (low-level)
@@ -216,7 +216,7 @@ This is how you bring an existing CLI into ns wholesale — mount it as one pass
 and let its own parser handle everything after the command name:
 
 ```ts
-import { defineRawCommand, failure, ok } from "@nseng-ai/sdk/sdk";
+import { defineRawCommand, failure, ok } from "@nseng-ai/sdk";
 import { runLegacyCli } from "../legacy/main.ts";
 
 export default defineRawCommand({
@@ -384,7 +384,7 @@ activation files, although acquired npm bytes may remain in ignored managed stor
   load-time diagnostic naming both values.
 
 For the complete SDK surface behind these examples, see the
-[`@nseng-ai/sdk/sdk` reference](./sdk-reference.md).
+[`@nseng-ai/sdk` reference](./sdk-reference.md).
 
 > Provenance: this guide was promoted from the extension-descriptor-contract Objective's
 > README-driven draft. Its contract decisions were settled by structured grilling on 2026-07-07

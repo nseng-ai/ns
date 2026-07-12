@@ -14,8 +14,8 @@ import {
 	createLandCliProgress,
 	createLandMatrixEventForwarder,
 } from "../../src/ns/commands/land.ts";
-import { noopNsCommandIo } from "@nseng-ai/sdk/sdk";
-import type { NsExtensionApi, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk/sdk";
+import { noopNsCommandIo } from "@nseng-ai/sdk";
+import type { NsExtensionApi, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 import type { LandLiveProgressEvent } from "../../src/land/stack/command-stream.ts";
 import type {

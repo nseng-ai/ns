@@ -33,7 +33,7 @@ import {
 	type NsNotifyLevel,
 	type NsProgress,
 	type NsProgressPhaseEvent,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 import { systemClock } from "@nseng-ai/foundation/time";
 

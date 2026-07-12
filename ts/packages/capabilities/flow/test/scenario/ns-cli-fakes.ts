@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { runCli } from "@nseng-ai/sdk/cli";
 import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
-import { noopNsProgress } from "@nseng-ai/sdk/sdk";
+import { noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	NsExecOptions,
 	ExecResult,
@@ -10,7 +10,7 @@ import type {
 	NsExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
 

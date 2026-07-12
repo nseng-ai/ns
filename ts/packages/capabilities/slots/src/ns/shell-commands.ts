@@ -9,7 +9,7 @@ import {
 	renderCommandCdWrapperScript,
 	resolveRequestedShell,
 } from "@nseng-ai/capability-kit/shell-support";
-import { defineCommand, type NsCommand, type NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import { defineCommand, type NsCommand, type NsExtensionApi } from "@nseng-ai/sdk";
 import { z } from "zod";
 
 import { shellInstallOptionSpecs, shellShowOptionSpecs } from "../core/command-options.ts";

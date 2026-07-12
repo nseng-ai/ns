@@ -10,7 +10,7 @@ import type {
 	TextGenerationResult,
 	TextGenerationUsage,
 	TextGenerator,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 const DEFAULT_MAX_TOKENS = 512;
 const DEFAULT_REASONING = "low";

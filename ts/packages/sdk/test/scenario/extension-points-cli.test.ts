@@ -206,7 +206,7 @@ async function createDescriptorPointProject(): Promise<string> {
 	writeText(
 		join(cwd, "extensions", "tools", "src", "ns", "extension.ts"),
 		`
-import { defineExtension } from "@nseng-ai/sdk/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "tools",

@@ -1,5 +1,5 @@
 import { createNsCwdEnvStdinContext } from "@nseng-ai/capability-kit/ns-context";
-import type { NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import { createRealPrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";

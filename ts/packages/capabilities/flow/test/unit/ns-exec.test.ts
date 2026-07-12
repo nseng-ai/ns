@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@nseng-ai/foundation/command";
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk/sdk";
-import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/sdk";
 
 import { execNsGit, readNsGitPorcelainStatus } from "../../src/ns/exec.ts";
 

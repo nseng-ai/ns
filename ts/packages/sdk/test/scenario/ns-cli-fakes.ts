@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { resolveHomeDir } from "@nseng-ai/foundation/primitives";
 import { runCli, type NsCliDeps } from "@nseng-ai/sdk/cli";
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	NsExecOptions,
 	ExecResult,
@@ -11,7 +11,7 @@ import type {
 	RenderCapabilities,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
 

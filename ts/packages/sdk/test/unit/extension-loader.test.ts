@@ -8,7 +8,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { validateDescriptorCommandContribution } from "../../src/extensions/command-registry.ts";
 import { loadNsExtensionContribution } from "../../src/extensions/loader.ts";
 import { parsedSpecForCommand } from "../../src/sdk/command.ts";
-import { z } from "@nseng-ai/sdk/sdk";
+import { z } from "@nseng-ai/sdk";
 
 const tempDirs: string[] = [];
 
@@ -30,7 +30,7 @@ afterEach(() => {
 describe("extension loader", () => {
 	test("loads a TypeScript command entry with SDK identity", async () => {
 		const modulePath = await createModule(`
-import { ok, z } from "@nseng-ai/sdk/sdk";
+import { ok, z } from "@nseng-ai/sdk";
 
 const schema = z.object({ loud: z.boolean().default(false) });
 export default {
@@ -78,7 +78,7 @@ export default {
 
 	test("validates nested-path manifest entries against the loaded command leaf", async () => {
 		const modulePath = await createModule(`
-import { ok } from "@nseng-ai/sdk/sdk";
+import { ok } from "@nseng-ai/sdk";
 
 export default {
 	name: "list",

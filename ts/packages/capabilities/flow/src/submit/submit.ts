@@ -59,7 +59,7 @@ import {
 	formatSubmitCommandDisplays,
 } from "./submit-command-spec.ts";
 import { mergePrLinks, partitionPrLinksByExisting, prNumberFromLink } from "./submit-pr-link.ts";
-import type { NsProgressPhaseEvent } from "@nseng-ai/sdk/sdk";
+import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import type { SubmitProgress } from "./submit-progress.ts";
 
 export { RealSubmitGateway } from "./submit-gateway.ts";

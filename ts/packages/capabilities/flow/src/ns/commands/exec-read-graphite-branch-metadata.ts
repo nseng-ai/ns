@@ -15,7 +15,7 @@ import {
 	type CommandExit,
 	type NsCommand,
 	type NsExtensionApi,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 
 const execReadGraphiteBranchMetadataSchema = z.object({

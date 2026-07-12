@@ -1,4 +1,4 @@
-import { defineExtension } from "@nseng-ai/sdk/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	description: "List and provision ns-owned skills into assistant harnesses.",

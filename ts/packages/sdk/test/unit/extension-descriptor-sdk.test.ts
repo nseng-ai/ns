@@ -11,7 +11,7 @@ import {
 	validateLoadedCommandName,
 	z,
 	type NsExtensionApi,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 const noopApi = {
 	cwd: "/repo",

@@ -10,7 +10,7 @@ import {
 
 function descriptorCommandModule(name: string, message: string): string {
 	return `
-import { defineRawCommand, ok } from "@nseng-ai/sdk/sdk";
+import { defineRawCommand, ok } from "@nseng-ai/sdk";
 
 export default defineRawCommand({
 	name: ${JSON.stringify(name)},
@@ -36,7 +36,7 @@ describe("descriptor extension CLI routing", () => {
 		writeWorkspaceFile(
 			join(workspace.cwd, "extensions", "tools", "src", "ns", "extension.ts"),
 			`
-import { defineExtension } from "@nseng-ai/sdk/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "tools",
@@ -81,7 +81,7 @@ export default defineExtension({
 		writeWorkspaceFile(
 			join(workspace.cwd, "extensions", "tools", "src", "ns", "extension.ts"),
 			`
-import { defineExtension } from "@nseng-ai/sdk/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "tools",
@@ -126,7 +126,7 @@ export default defineExtension({
 		writeWorkspaceFile(
 			join(workspace.cwd, "extensions", "tools", "src", "ns", "extension.ts"),
 			`
-import { defineExtension } from "@nseng-ai/sdk/sdk";
+import { defineExtension } from "@nseng-ai/sdk";
 
 export default defineExtension({
 	group: "tools",

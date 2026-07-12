@@ -1,4 +1,4 @@
-import type { NsCommandIo } from "@nseng-ai/sdk/sdk";
+import type { NsCommandIo } from "@nseng-ai/sdk";
 import {
 	executeIsolatedLanding,
 	isIsolatedFastPath,

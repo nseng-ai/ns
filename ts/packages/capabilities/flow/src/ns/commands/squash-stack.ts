@@ -1,7 +1,7 @@
 import { formatCommand } from "@nseng-ai/foundation/command";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
-import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk/sdk";
+import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 
 import {
 	describeStackSquashOutcome,

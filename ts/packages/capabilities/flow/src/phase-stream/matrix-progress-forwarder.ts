@@ -4,7 +4,7 @@
 // bulk mutators (`setAllCells` / `setAllOtherCells`) are not wire events — they expand into
 // per-row `matrix-cell` events over the last declared row set.
 
-import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk/sdk";
+import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import type { MatrixCellUpdate, MatrixColumnSpec, MatrixRowSpec } from "./matrix-progress-core.ts";
 

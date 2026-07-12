@@ -4,7 +4,7 @@ import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
 import { commandIoFromNsExtensionApi } from "@nseng-ai/sdk/command-io";
-import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk/sdk";
+import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { prepareFlowCheckpointMessage } from "../model-generation.ts";

@@ -1,5 +1,5 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
-import type { NsConfirmOptions } from "@nseng-ai/sdk/sdk";
+import type { NsConfirmOptions } from "@nseng-ai/sdk";
 import type { NotifyLevel } from "../types.ts";
 
 export type { NotifyLevel } from "../types.ts";

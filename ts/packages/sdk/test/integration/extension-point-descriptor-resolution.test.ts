@@ -148,7 +148,7 @@ async function writeDescriptorPackage(
 	);
 	await writeFile(
 		descriptorPath,
-		`import { defineExtension } from "@nseng-ai/sdk/sdk";
+		`import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
   description: "point fixture",
   points: [{ id: ${JSON.stringify(pointId)}, accepts: "hook", cardinality: "many" }],

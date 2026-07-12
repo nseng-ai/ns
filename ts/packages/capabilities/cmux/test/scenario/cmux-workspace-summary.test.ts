@@ -1,11 +1,11 @@
-import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk/sdk";
+import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
 	NsExecOptions,
 	NsExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 import { describe, expect, test } from "vitest";
 
 import { cmuxWorkspaceSummaryNsCommand } from "../../src/ns/commands/workspace-summary.ts";

@@ -27,7 +27,7 @@ import {
 	type ActiveOperation,
 	type NsProgress,
 	type NsProgressPhaseInfo,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 import { createPhaseStreamLifecycle } from "./phase-stream-lifecycle.ts";
 import type { PhaseSpec } from "./phase-stream-specs.ts";

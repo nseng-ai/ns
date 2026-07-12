@@ -8,7 +8,7 @@ import {
 	type ClinkrHandler,
 } from "@nseng-ai/clinkr";
 import { createNsDomainCommand } from "@nseng-ai/capability-kit/ns-command";
-import type { NsCommand, NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import type { NsCommand, NsExtensionApi } from "@nseng-ai/sdk";
 import type { GitResult } from "@nseng-ai/foundation/git";
 import type { GithubPrFeedbackFailure } from "./api.ts";
 import { errorDetailText } from "@nseng-ai/foundation/result";

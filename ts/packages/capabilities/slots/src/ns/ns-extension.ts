@@ -3,7 +3,7 @@ import {
 	hiddenExecGroup,
 	type ExtensionEntry,
 	type NsCommand,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 function slotCommandEntry(commandName: string): ExtensionEntry {
 	return { name: commandName, load: () => loadSlotCommand(commandName) };

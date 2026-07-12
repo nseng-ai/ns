@@ -8,7 +8,7 @@ import type {
 	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
-import { defineCommand, type NsCommand, type NsExtensionApi } from "@nseng-ai/sdk/sdk";
+import { defineCommand, type NsCommand, type NsExtensionApi } from "@nseng-ai/sdk";
 
 function runWithFakeReviewsExtension(options: RunWithFakesOptions) {
 	const registry = fakeReviewsRegistry();

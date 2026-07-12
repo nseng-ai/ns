@@ -1,7 +1,7 @@
 import type { ClinkrExit, ClinkrFormat } from "@nseng-ai/clinkr";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
-import { noopNsProgress } from "@nseng-ai/sdk/sdk";
+import { noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
 	NsCommand,
@@ -11,7 +11,7 @@ import type {
 	NsExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;

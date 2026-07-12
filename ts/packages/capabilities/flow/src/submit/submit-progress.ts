@@ -1,8 +1,4 @@
-import type {
-	NsExtensionApi,
-	NsProgressPhaseEvent,
-	NsProgressPhaseListener,
-} from "@nseng-ai/sdk/sdk";
+import type { NsExtensionApi, NsProgressPhaseEvent, NsProgressPhaseListener } from "@nseng-ai/sdk";
 
 import type {
 	SubmitMatrixProgressController,

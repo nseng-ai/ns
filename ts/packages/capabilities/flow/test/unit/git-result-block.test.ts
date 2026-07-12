@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { Caps, ColorDepth } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
-import type { ExecResult } from "@nseng-ai/sdk/sdk";
+import type { ExecResult } from "@nseng-ai/sdk";
 
 import { renderGitResultBlock } from "../../src/ns/presentation/git-result-block.ts";
 

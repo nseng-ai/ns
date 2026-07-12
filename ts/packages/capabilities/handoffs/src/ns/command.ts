@@ -2,7 +2,7 @@ import {
 	createNsDomainCommand,
 	type NsDomainCommandOptions,
 } from "@nseng-ai/capability-kit/ns-command";
-import type { NsCommand, NsCommandSchema } from "@nseng-ai/sdk/sdk";
+import type { NsCommand, NsCommandSchema } from "@nseng-ai/sdk";
 
 import type { HandoffCliContext } from "../core/context.ts";
 import { createNsHandoffContext } from "./context.ts";

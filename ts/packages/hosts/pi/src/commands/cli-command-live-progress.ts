@@ -14,7 +14,7 @@ import {
 	type NsProgressMatrixCellState,
 	type NsProgressMatrixEvent,
 	type NsProgressPhaseEvent,
-} from "@nseng-ai/sdk/sdk";
+} from "@nseng-ai/sdk";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import type { Component } from "@earendil-works/pi-tui";

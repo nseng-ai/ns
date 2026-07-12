@@ -9,7 +9,7 @@ import type {
 	SelectedNsCommandLoadResult,
 } from "../../src/extensions/registry.ts";
 import { runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
-import { defineCommand, ok, type DefineCommandSpec, type NsCommand } from "@nseng-ai/sdk/sdk";
+import { defineCommand, ok, type DefineCommandSpec, type NsCommand } from "@nseng-ai/sdk";
 
 function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(options, {

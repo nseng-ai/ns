@@ -41,7 +41,7 @@ const SDK_EXPORT_IMPORTS = [
 	"@nseng-ai/sdk/cli",
 	"@nseng-ai/sdk/context",
 	"@nseng-ai/capability-kit/pending-worktree",
-	"@nseng-ai/sdk/sdk",
+	"@nseng-ai/sdk",
 	"@nseng-ai/ns/cli",
 	"@nseng-ai/capability-kit/text-generation",
 	"@nseng-ai/capability-kit/text-repair",
