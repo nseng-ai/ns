@@ -29,10 +29,11 @@ structural work stacks on top of the safe deletions.
   triggers, collapse synonym trigger lists, and fix `metadata.internal` drift — all
   through `areg`-sanctioned paths per `docs/conventions/skill-conventions.md`.
 - Execute the T3 structural consolidations where the audit identified multi-site
-  sources of truth: objective-family umbrella/leaf ownership, the six-way review-skill
-  scaffolding, TypeScript rule ownership (`typescript-style` vs `ns-typescript` vs
-  `ts/AGENTS.md`), shared family references homed in neutral locations, disclosure moves,
-  and TOCs for oversized reference files.
+  sources of truth: objective-family umbrella/leaf ownership, the review-skill
+  adversarial-review convention (decided 2026-07-12 — see roadmap T3), TypeScript rule
+  ownership (decided 2026-07-12: `ts/AGENTS.md` owns repo-specific detail;
+  `ns-typescript` is rewritten toward portability), shared family references homed in
+  neutral locations, disclosure moves, and TOCs for oversized reference files.
 - Decide (accept or reject with rationale) each T4 CLI push-down candidate; implementing
   accepted ones may graduate to follow-on rows or separate Objectives.
 
@@ -89,18 +90,11 @@ structural work stacks on top of the safe deletions.
 
 ## Open Questions
 
-- Ownership split for the TypeScript rule fleet: does `ts/AGENTS.md` or the
-  `ns-typescript` skill hold the detailed test-lane/time-seam material (the other becomes
-  a pointer)? (audit-findings: TypeScript batch, cross-skill 1–2)
-- Review-skill scaffolding: generate the six identical SKILL.md bodies from the reviews
-  capability (`reviewSkillEntryFromDefinition`), or shrink each to a pointer plus one
-  shared reference? Generation fits the platform-and-consumer convention better but
-  touches code. (audit-findings: review batch, cross-skill 1)
 - `changelog-update` portability: keep the "pure git, no external tools" identity (reject
   its T4 push-down) or accept ns-scoping? (audit-findings: docs/retro batch)
-- Does the `project-setup` router get promoted to ambient (`areg skill apply normal`) or
-  does its body drop the stale "ambient router" claim? The whole scaffolding family's
-  discoverability hangs on this. (audit-findings: scaffolding batch, project-setup 1)
-- `code-gt-linearize-descendants` submit consent: move `gt submit` behind an explicit
-  second confirmation, or keep single-confirmation with the proposal listing remote
-  effects? (audit-findings: heavy-graphite batch)
+
+Resolved 2026-07-12 (decisions and rationale in
+`updates/20260712T150643Z-tranche0-correctness-fixes.md` and the T3-decisions update):
+TypeScript rule-fleet ownership; review-skill scaffolding; `project-setup` router
+promotion (stays invoke-only); `code-gt-linearize-descendants` submit consent (informed
+single confirmation).

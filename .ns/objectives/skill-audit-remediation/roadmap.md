@@ -48,10 +48,16 @@ findings against the live files before editing (line references in
       findings.
       Guidance: main clusters — objective family (umbrella owns Selection/Record
       Frontmatter/validation-row/PR-wording rules, leaves point; patterns catalog owns
-      composition/identity, facades keep deltas); review family (six-way identical
-      scaffolding → generated or shared-reference, decide the open question first); TypeScript
-      ownership split (typescript-style owns rule semantics, ns-typescript owns ns
-      enforcement, ts/AGENTS.md ownership decision); shared family material to neutral homes
+      composition/identity, facades keep deltas); review family (decided 2026-07-12: no
+      codegen — reviews are HITL-authored adversarial variants of their source skills;
+      write `docs/conventions/adversarial-reviews.md` generalizing the
+      ns-typescript-style-tripwire provenance/regeneration pattern, backfill provenance
+      blocks on the five reviews lacking them, put the SKILL.md stub template in the doc,
+      mark the five identical stubs sanctioned duplication, point to the doc from
+      `.ns/reviews/README.md`); TypeScript ownership split (decided 2026-07-12:
+      `ts/AGENTS.md` owns repo-specific test-lane/time-seam detail; `ns-typescript` is
+      rewritten toward portability for reuse in other projects and points at the host
+      repo's AGENTS.md for repo enforcement); shared family material to neutral homes
       (autobranch-family-boundaries, cmux-read-only-posture, gt plumbing-not-display rule,
       just-gate map, doc-economics rules shared by docs-retro/branch-retro); disclosure moves
       (code-smush recovery/feedback sections, ccc-stack-map palette, objective-retro
