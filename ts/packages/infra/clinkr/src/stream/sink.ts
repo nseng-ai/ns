@@ -49,13 +49,13 @@ export const systemStreamClock: StreamClock = {
 
 /**
  * Output seam. `write` is a raw stream write (cursor toggles + the settled/non-tty block); `redraw`
- * repaints the tty live region in place; `done` persists the live region's current contents and ends
+ * repaints the tty live region in place; `done` atomically persists the supplied final frame and ends
  * in-place updates. The default is backed by `log-update`.
  */
 export interface StreamWriter {
 	write(text: string): void;
 	redraw(frame: string): void;
-	done(): void;
+	done(frame: string): void;
 }
 
 /** Build the real `log-update`-backed writer. `showCursor: true` leaves the cursor to the sink. */
@@ -70,8 +70,8 @@ export function createStdoutStreamWriter(
 		redraw: (frame) => {
 			update(frame);
 		},
-		done: () => {
-			update.done();
+		done: (frame) => {
+			update.persist(frame);
 		},
 	};
 }
@@ -186,8 +186,9 @@ export function createStreamSink(caps: Caps, deps: StreamSinkDeps): StreamSink {
 		if (isFinished) return;
 		isFinished = true;
 		if (canAnimate) {
-			// Persist the settled live region, then write the final block beneath it as scrollback.
-			writer.done();
+			// Persist the settled live region with one full erase-and-write. Passing the frame to the
+			// writer avoids leaving stale rows when the final frame is shorter than the live frame.
+			writer.done(currentFrame(tick).join("\n"));
 			if (finalLines.length > 0) writer.write(`${finalLines.join("\n")}\n`);
 			return;
 		}
