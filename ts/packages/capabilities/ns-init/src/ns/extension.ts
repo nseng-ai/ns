@@ -18,6 +18,12 @@ export default defineExtension({
 					}),
 				},
 				{
+					name: "update",
+					load: async () => ({
+						default: (await import("./commands/extension-update.ts")).nsExtensionUpdateCommand,
+					}),
+				},
+				{
 					name: "uninstall",
 					load: async () => ({
 						default: (await import("./commands/extension-uninstall.ts"))

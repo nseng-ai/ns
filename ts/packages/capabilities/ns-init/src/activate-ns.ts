@@ -582,7 +582,7 @@ export async function resolveActivationRepository(
 			cwd,
 		};
 	}
-	const trunkResult = await context.git.trunkBranch({ cwd: repoRootResult.value });
+	const trunkResult = await context.git.trunkBranch({ cwd });
 	if (trunkResult.type === "error") return { type: "error", error: trunkResult.error };
 	if (trunkResult.type === "missing") {
 		return {

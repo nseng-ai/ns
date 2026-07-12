@@ -7,22 +7,28 @@ import type { NsActivationContext } from "../activation-context.ts";
 import {
 	RealExtensionInstallAcquisitionGateway,
 	RealExtensionUninstallAcquisitionGateway,
+	RealExtensionUpdateAcquisitionGateway,
 } from "../extension-acquisition.ts";
 import type { ExtensionInstallContext } from "../install-extension.ts";
 import type { ExtensionUninstallContext } from "../uninstall-extension.ts";
+import type { ExtensionUpdateContext } from "../update-extension.ts";
 import { RealActivationFilesGateway } from "../real-activation-files.ts";
 import { RealArtifactActivationGateway } from "../real-artifact-activation.ts";
 import { RealDeclaredExtensionsGateway } from "../declared-extensions.ts";
 
 export function createNsInitContext(
 	ctx: NsExtensionApi,
-): NsActivationContext & ExtensionInstallContext & ExtensionUninstallContext & { cwd: string } {
+): NsActivationContext &
+	ExtensionInstallContext &
+	ExtensionUninstallContext &
+	ExtensionUpdateContext & { cwd: string } {
 	const acquisition = createRealExtensionAcquisitionGateway(extensionApiCommandExecApi(ctx));
 	return {
 		cwd: ctx.cwd,
 		git: createNsGitGateway(ctx),
 		installAcquisition: new RealExtensionInstallAcquisitionGateway(acquisition),
 		uninstallAcquisition: new RealExtensionUninstallAcquisitionGateway(acquisition),
+		updateAcquisition: new RealExtensionUpdateAcquisitionGateway(acquisition),
 		files: new RealActivationFilesGateway(),
 		declaredExtensions: new RealDeclaredExtensionsGateway(),
 		artifacts: new RealArtifactActivationGateway(),

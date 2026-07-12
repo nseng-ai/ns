@@ -37,12 +37,14 @@ export type {
 	EnsureExtensionSourceResult,
 	ExtensionInstallAcquisitionGateway,
 	ExtensionUninstallAcquisitionGateway,
+	ExtensionUpdateAcquisitionGateway,
 	RemoveManagedNpmExtensionParams,
 	RemoveManagedNpmExtensionResult,
 } from "./extension-acquisition.ts";
 export {
 	RealExtensionInstallAcquisitionGateway,
 	RealExtensionUninstallAcquisitionGateway,
+	RealExtensionUpdateAcquisitionGateway,
 } from "./extension-acquisition.ts";
 export type {
 	ExtensionInstallContext,
@@ -66,6 +68,17 @@ export {
 	uninstallExtensionRequestSchema,
 	uninstallExtensionResultSchema,
 } from "./uninstall-extension.ts";
+export type {
+	ExtensionUpdateContext,
+	UpdateExtensionRequest,
+	UpdateExtensionResult,
+} from "./update-extension.ts";
+export {
+	renderUpdateExtensionHuman,
+	updateExtension,
+	updateExtensionRequestSchema,
+	updateExtensionResultSchema,
+} from "./update-extension.ts";
 export { RealActivationFilesGateway } from "./real-activation-files.ts";
 export { RealArtifactActivationGateway } from "./real-artifact-activation.ts";
 export type {

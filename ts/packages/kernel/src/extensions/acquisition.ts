@@ -1,5 +1,5 @@
 import { lstat, mkdir, readdir, rm, rmdir, stat, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, sep } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 
 import {
 	commandSucceeded,
@@ -170,11 +170,9 @@ export class RealExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 				`Invalid canonical npm package name: ${request.packageName}.`,
 			);
 		}
-		const npmRoot = managedNpmRoot(request.projectRoot);
-		const packageProject = managedNpmPackagePaths(
-			request.projectRoot,
-			request.packageName,
-		).npmProjectRoot;
+		const paths = managedNpmPackagePaths(request.projectRoot, request.packageName);
+		const npmRoot = paths.npmRoot;
+		const packageProject = paths.npmProjectRoot;
 		const relativeProject = relative(npmRoot, packageProject);
 		if (
 			relativeProject === "" ||
@@ -187,15 +185,11 @@ export class RealExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 				`Package name does not identify a project below the managed npm root: ${request.packageName}.`,
 			);
 		}
-		const relativeRoot = relative(request.projectRoot, npmRoot);
-		const chainSegments = relativeRoot.split(/[\\/]/u).concat(relativeProject.split(/[\\/]/u));
-		let current = request.projectRoot;
 		try {
-			for (const segment of chainSegments) {
-				current = join(current, segment);
+			for (const ancestor of paths.trustedAncestors) {
 				let entry;
 				try {
-					entry = await lstat(current);
+					entry = await lstat(ancestor);
 				} catch (error) {
 					if (isNodeErrorCode(error, "ENOENT")) {
 						return resultOk({ status: "already-absent", path: packageProject });
@@ -204,17 +198,15 @@ export class RealExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 				}
 				if (entry.isSymbolicLink() || !entry.isDirectory()) {
 					return managedNpmRemovalFailure(
-						current,
-						`Refusing to remove managed npm package through an unsafe non-directory or symbolic-link path: ${current}.`,
+						ancestor,
+						`Refusing to remove managed npm package through an unsafe non-directory or symbolic-link path: ${ancestor}.`,
 					);
 				}
 			}
 			await rm(packageProject, { recursive: true });
-			let ancestor = dirname(packageProject);
-			while (ancestor !== npmRoot) {
+			for (const ancestor of paths.pruningAncestors) {
 				if ((await readdir(ancestor)).length > 0) break;
 				await rmdir(ancestor);
-				ancestor = dirname(ancestor);
 			}
 			return resultOk({ status: "removed", path: packageProject });
 		} catch (error) {
