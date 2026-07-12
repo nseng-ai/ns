@@ -195,14 +195,7 @@ describe("stream sink through a headless terminal", () => {
 		expect(occurrences(lines, "Processed 2 Graphite stack branches")).toBe(1);
 	});
 
-	// KNOWN GAP (test.fails = documented-bug characterization): when the writer's believed width
-	// exceeds the terminal's real width, live-frame lines physically wrap, log-update's line
-	// accounting desyncs, and settlement leaves stale rows behind — the duplicated-row artifact
-	// observed in `ns flow squash-stack` under cmux/Ghostty. Atomic final-frame persistence does
-	// not repair the desync because the erase distance is still counted in believed lines. When
-	// the sink learns to settle correctly under width desync, this test will start passing and
-	// vitest will flag it so the marker can be flipped to a regular test.
-	test.fails("width desync between writer and terminal settles without stale rows", async () => {
+	test("width desync between writer and terminal settles without stale rows", async () => {
 		const emulated = createEmulatedTerminal({ columns: 40, rows: 30, reportedColumns: 100 });
 
 		emulated.sink.start();
@@ -220,6 +213,9 @@ describe("stream sink through a headless terminal", () => {
 		expect(occurrences(lines, "ns flow squash-stack")).toBe(1);
 		expect(occurrences(lines, "2 branches planned")).toBe(1);
 		expect(occurrences(lines, "tip restored")).toBe(1);
+		// Settlement is permanent output: content beyond the real terminal width must wrap rather
+		// than being truncated by the live region's width-desync protection.
+		expect(occurrences(lines, "2->1")).toBe(2);
 		expect(occurrences(lines, "Squashing")).toBe(0);
 	});
 

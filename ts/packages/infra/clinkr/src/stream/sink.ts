@@ -4,7 +4,8 @@
 //
 // Two behaviors keyed on `caps.isTty`:
 //   - isTty (motion): redraw a `log-update` live region, hide/restore the cursor, and spin held
-//     frames on a fixed ~90ms cadence so long network steps read as working.
+//     frames on a fixed ~90ms cadence so long network steps read as working. Live writes suspend
+//     terminal autowrap so stale reported widths cannot create untracked physical rows.
 //   - non-tty: NO animation, NO cursor codes, NO redraw escapes. Per-phase transient lines route to
 //     `onOutput` (Pi's widget path); the settled final frame is written exactly once. This non-tty
 //     contract is load-bearing for Pi correctness.
@@ -23,6 +24,8 @@ export const SPINNER_FRAME_MS = 90;
 
 const CURSOR_HIDE = "\x1b[?25l";
 const CURSOR_SHOW = "\x1b[?25h";
+const AUTOWRAP_DISABLE = "\x1b[?7l";
+const AUTOWRAP_ENABLE = "\x1b[?7h";
 
 /**
  * Realistic dwell for a single subprocess line. Network round-trips (push / create / update / fetch /
@@ -69,20 +72,42 @@ export interface StreamRenderTarget extends NodeJS.WritableStream {
 	rows?: number;
 }
 
-/** Build the real `log-update`-backed writer. `showCursor: true` leaves the cursor to the sink. */
+/**
+ * Build the real `log-update`-backed writer. `showCursor: true` leaves the cursor to the sink.
+ *
+ * `log-update` derives cursor movement from `stream.columns`. A terminal narrower than that reported
+ * width would normally wrap extra physical rows that the writer cannot count or later erase. Suspend
+ * terminal autowrap for each live redraw so one computed row always remains one physical row. On
+ * settlement, clear that safely tracked region before writing the final frame with normal autowrap,
+ * preserving permanent content beyond the terminal's real width.
+ */
 export function createStdoutStreamWriter(
 	stream: StreamRenderTarget = process.stdout,
 ): StreamWriter {
 	const update = createLogUpdate(stream, { showCursor: true });
+
+	function withoutTerminalAutowrap(action: () => void): void {
+		stream.write(AUTOWRAP_DISABLE);
+		try {
+			action();
+		} finally {
+			stream.write(AUTOWRAP_ENABLE);
+		}
+	}
+
 	return {
 		write: (text) => {
 			stream.write(text);
 		},
 		redraw: (frame) => {
-			update(frame);
+			withoutTerminalAutowrap(() => update(frame));
 		},
 		done: (frame) => {
-			update.persist(frame);
+			// Live rows cannot have physically wrapped, so log-update's believed line count is safe for
+			// clearing. Reset its state, then let the permanent frame wrap at the terminal's real width.
+			withoutTerminalAutowrap(() => update.clear());
+			update.done();
+			stream.write(frame.endsWith("\n") ? frame : `${frame}\n`);
 		},
 	};
 }
