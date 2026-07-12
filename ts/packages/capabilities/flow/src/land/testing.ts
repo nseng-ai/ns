@@ -27,7 +27,45 @@ interface FailureState {
 	readonly failure?: LandingBoundaryFailure;
 }
 type ValueState<T> = T | FailureState;
-type OperationState = { readonly type: "success" } | FailureState;
+type OperationState =
+	| { readonly type: "success" }
+	| {
+			readonly type: "failure";
+			readonly failure?: LandingBoundaryFailure;
+			readonly commandDisplay?: string;
+			readonly result?: ExecResult;
+	  };
+export type InMemoryLandDeleteLocalBranchResult = Exclude<
+	LandGraphiteDeleteLocalBranchResult,
+	{ readonly type: "deleted" }
+>;
+
+/** Testing-only cross-gateway semantic call log; events never expose adapter command strings. */
+export type InMemoryLandCallEvent =
+	| { readonly operation: "git.localBranchSha"; readonly request: LandBranchCall }
+	| { readonly operation: "git.snapshotBackupRefs"; readonly request: LandSnapshotBackupRefsCall }
+	| {
+			readonly operation: "github.pullRequestFacts";
+			readonly request: LandPullRequestFactsCall;
+	  }
+	| {
+			readonly operation: "github.squashMergePullRequest";
+			readonly request: LandSquashMergePullRequestCall;
+	  }
+	| {
+			readonly operation: "graphite.refreshBranchFromRemote";
+			readonly request: LandRefreshBranchFromRemoteCall;
+	  }
+	| {
+			readonly operation: "graphite.deleteLocalBranch";
+			readonly request: LandDeleteLocalBranchCall;
+	  }
+	| { readonly operation: "graphite.restack"; readonly request: LandRestackCall }
+	| { readonly operation: "graphite.submitUpdate"; readonly request: LandSubmitUpdateCall }
+	| { readonly operation: "graphite.branchChildren"; readonly request: LandBranchChildrenCall };
+
+type RecordInMemoryLandCall = (event: InMemoryLandCallEvent) => void;
+const ignoreInMemoryLandCall: RecordInMemoryLandCall = () => {};
 
 export interface InMemoryLandGitGatewayState {
 	readonly repoRoot?: ValueState<string>;
@@ -81,8 +119,13 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly listLocalBranchesLog: LandRepoCall[] = [];
 	private readonly branchContainsParentLog: LandBranchContainsParentCall[] = [];
 	private readonly snapshotBackupRefsLog: LandSnapshotBackupRefsCall[] = [];
+	private readonly recordCall: RecordInMemoryLandCall;
 
-	constructor(state: InMemoryLandGitGatewayState = {}) {
+	constructor(
+		state: InMemoryLandGitGatewayState = {},
+		recordCall: RecordInMemoryLandCall = ignoreInMemoryLandCall,
+	) {
+		this.recordCall = recordCall;
 		this.repoRootState = state.repoRoot ?? "/repo";
 		this.currentBranchState = state.currentBranch ?? "feature/current";
 		this.workingTreeStatusState = state.workingTreeStatus ?? { isClean: true };
@@ -199,7 +242,9 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 		readonly repoRoot: string;
 		readonly branch: string;
 	}): Promise<LandResult<string>> {
-		this.localBranchShaLog.push({ repoRoot: request.repoRoot, branch: request.branch });
+		const call = { repoRoot: request.repoRoot, branch: request.branch };
+		this.localBranchShaLog.push(call);
+		this.recordCall({ operation: "git.localBranchSha", request: call });
 		const failure = this.localBranchShaFailures.get(request.branch);
 		if (failure !== undefined) return { type: "failure", failure: cloneData(failure) };
 		const sha = this.branches.get(request.branch);
@@ -252,10 +297,12 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 		readonly repoRoot: string;
 		readonly branches: readonly string[];
 	}): Promise<LandResult<ReadonlyMap<string, string>>> {
-		this.snapshotBackupRefsLog.push({
+		const call = {
 			repoRoot: request.repoRoot,
 			branches: [...request.branches],
-		});
+		};
+		this.snapshotBackupRefsLog.push(call);
+		this.recordCall({ operation: "git.snapshotBackupRefs", request: call });
 		if (this.snapshotBackupRefsFailure !== undefined) {
 			return { type: "failure", failure: cloneData(this.snapshotBackupRefsFailure) };
 		}
@@ -287,6 +334,10 @@ export interface InMemoryLandGraphiteGatewayState {
 	readonly submitUpdateResults?: Readonly<Record<string, OperationState>>;
 	readonly restackForSubmitResults?: Readonly<Record<string, OperationState>>;
 	readonly restackResults?: Readonly<Record<string, OperationState>>;
+	readonly refreshBranchFromRemoteResults?: Readonly<
+		Record<string, LandGraphiteRefreshBranchResult>
+	>;
+	readonly deleteLocalBranchResults?: Readonly<Record<string, InMemoryLandDeleteLocalBranchResult>>;
 	readonly branchChildren?: Readonly<Record<string, readonly string[]>>;
 	readonly branchChildrenFailure?: LandingBoundaryFailure;
 }
@@ -325,6 +376,14 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	private readonly submitUpdateResults: ReadonlyMap<string, OperationState>;
 	private readonly restackForSubmitResults: ReadonlyMap<string, OperationState>;
 	private readonly restackResults: ReadonlyMap<string, OperationState>;
+	private readonly refreshBranchFromRemoteResults: ReadonlyMap<
+		string,
+		LandGraphiteRefreshBranchResult
+	>;
+	private readonly deleteLocalBranchResults: ReadonlyMap<
+		string,
+		InMemoryLandDeleteLocalBranchResult
+	>;
 	private readonly branchChildrenByBranch: ReadonlyMap<string, readonly string[]>;
 	private readonly branchChildrenFailure: LandingBoundaryFailure | undefined;
 	private readonly trunkLog: LandRepoCall[] = [];
@@ -337,8 +396,13 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	private readonly restackLog: LandRestackCall[] = [];
 	private readonly submitUpdateLog: LandSubmitUpdateCall[] = [];
 	private readonly branchChildrenLog: LandBranchChildrenCall[] = [];
+	private readonly recordCall: RecordInMemoryLandCall;
 
-	constructor(state: InMemoryLandGraphiteGatewayState = {}) {
+	constructor(
+		state: InMemoryLandGraphiteGatewayState = {},
+		recordCall: RecordInMemoryLandCall = ignoreInMemoryLandCall,
+	) {
+		this.recordCall = recordCall;
 		this.trunkState = state.trunk ?? "main";
 		this.metadataDbPathState = state.metadataDbPath ?? "/repo/.git/graphite.db";
 		this.stackShapeState = copyValueState(state.stackShape ?? stackSnapshot(), cloneData);
@@ -356,6 +420,18 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 		);
 		this.restackResults = new Map(
 			Object.entries(state.restackResults ?? {}).map(([key, result]) => [key, cloneData(result)]),
+		);
+		this.refreshBranchFromRemoteResults = new Map(
+			Object.entries(state.refreshBranchFromRemoteResults ?? {}).map(([branch, result]) => [
+				branch,
+				cloneData(result),
+			]),
+		);
+		this.deleteLocalBranchResults = new Map(
+			Object.entries(state.deleteLocalBranchResults ?? {}).map(([branch, result]) => [
+				branch,
+				cloneData(result),
+			]),
 		);
 		this.branchChildrenByBranch = new Map(
 			Object.entries(state.branchChildren ?? {}).map(([branch, children]) => [
@@ -473,12 +549,19 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 		readonly branch: string;
 		readonly checkedOutConflictHandling: "fail" | "defer";
 	}): Promise<LandGraphiteRefreshBranchResult> {
-		this.refreshBranchFromRemoteLog.push({
+		const call = {
 			repoRoot: request.repoRoot,
 			branch: request.branch,
 			checkedOutConflictHandling: request.checkedOutConflictHandling,
-		});
-		return { type: "success", result: emptyExecResult() };
+		};
+		this.refreshBranchFromRemoteLog.push(call);
+		this.recordCall({ operation: "graphite.refreshBranchFromRemote", request: call });
+		return cloneData(
+			this.refreshBranchFromRemoteResults.get(request.branch) ?? {
+				type: "success",
+				result: emptyExecResult(),
+			},
+		);
 	}
 
 	async deleteLocalBranch(request: {
@@ -486,12 +569,15 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 		readonly branch: string;
 		readonly checkedOutConflictHandling: "fail" | "retain";
 	}): Promise<LandGraphiteDeleteLocalBranchResult> {
-		this.deleteLocalBranchLog.push({
+		const call = {
 			repoRoot: request.repoRoot,
 			branch: request.branch,
 			checkedOutConflictHandling: request.checkedOutConflictHandling,
-		});
-		return { type: "deleted" };
+		};
+		this.deleteLocalBranchLog.push(call);
+		this.recordCall({ operation: "graphite.deleteLocalBranch", request: call });
+		const result = this.deleteLocalBranchResults.get(request.branch);
+		return result === undefined ? { type: "deleted" } : cloneData(result);
 	}
 
 	async restack(request: {
@@ -499,11 +585,13 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 		readonly branch: string;
 		readonly scope: LandGraphiteRestackScope;
 	}): Promise<LandGraphiteCommandResult> {
-		this.restackLog.push({
+		const call = {
 			repoRoot: request.repoRoot,
 			branch: request.branch,
 			scope: request.scope,
-		});
+		};
+		this.restackLog.push(call);
+		this.recordCall({ operation: "graphite.restack", request: call });
 		return commandResult(this.restackResults.get(restackResultKey(request.branch, request.scope)));
 	}
 
@@ -512,11 +600,13 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 		readonly branch: string;
 		readonly force: boolean;
 	}): Promise<LandGraphiteCommandResult> {
-		this.submitUpdateLog.push({
+		const call = {
 			repoRoot: request.repoRoot,
 			branch: request.branch,
 			force: request.force,
-		});
+		};
+		this.submitUpdateLog.push(call);
+		this.recordCall({ operation: "graphite.submitUpdate", request: call });
 		return commandResult(this.submitUpdateResults.get(request.branch));
 	}
 
@@ -525,11 +615,13 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 		readonly metadataDbPath: string;
 		readonly branch: string;
 	}): Promise<LandResult<readonly string[]>> {
-		this.branchChildrenLog.push({
+		const call = {
 			repoRoot: request.repoRoot,
 			metadataDbPath: request.metadataDbPath,
 			branch: request.branch,
-		});
+		};
+		this.branchChildrenLog.push(call);
+		this.recordCall({ operation: "graphite.branchChildren", request: call });
 		if (this.branchChildrenFailure !== undefined) {
 			return { type: "failure", failure: cloneData(this.branchChildrenFailure) };
 		}
@@ -541,6 +633,8 @@ export interface InMemoryLandGithubPrGatewayState {
 	readonly pullRequests?: readonly PullRequestFacts[];
 	readonly failures?: Readonly<Record<string, LandingBoundaryFailure>>;
 	readonly squashMergeResults?: Readonly<Record<string, ValueState<SquashMergePullRequestResult>>>;
+	/** Facts (or load failure) returned after a successful merge, keyed by PR number. */
+	readonly postMergeFacts?: Readonly<Record<string, ValueState<PullRequestFacts>>>;
 }
 
 export interface LandPullRequestFactsCall extends LandRepoCall {
@@ -558,10 +652,17 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 		string,
 		ValueState<SquashMergePullRequestResult>
 	>;
+	private readonly postMergeFacts: ReadonlyMap<string, ValueState<PullRequestFacts>>;
+	private readonly mergedPullRequestNumbers = new Set<string>();
 	private readonly pullRequestFactsLog: LandPullRequestFactsCall[] = [];
 	private readonly squashMergePullRequestLog: LandSquashMergePullRequestCall[] = [];
+	private readonly recordCall: RecordInMemoryLandCall;
 
-	constructor(state: InMemoryLandGithubPrGatewayState = {}) {
+	constructor(
+		state: InMemoryLandGithubPrGatewayState = {},
+		recordCall: RecordInMemoryLandCall = ignoreInMemoryLandCall,
+	) {
+		this.recordCall = recordCall;
 		const entries: [string, PullRequestFacts][] = [];
 		for (const pr of state.pullRequests ?? []) {
 			const copied = cloneData(pr);
@@ -575,6 +676,12 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 			Object.entries(state.squashMergeResults ?? {}).map(([key, result]) => [
 				key,
 				copyValueState(result, cloneData),
+			]),
+		);
+		this.postMergeFacts = new Map(
+			Object.entries(state.postMergeFacts ?? {}).map(([key, facts]) => [
+				key,
+				copyValueState(facts, cloneData),
 			]),
 		);
 	}
@@ -591,12 +698,27 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 		readonly repoRoot: string;
 		readonly branchOrNumber: string;
 	}): Promise<LandResult<PullRequestFacts>> {
-		this.pullRequestFactsLog.push({
+		const call = {
 			repoRoot: request.repoRoot,
 			branchOrNumber: request.branchOrNumber,
-		});
+		};
+		this.pullRequestFactsLog.push(call);
+		this.recordCall({ operation: "github.pullRequestFacts", request: call });
 		const failure = this.failures.get(request.branchOrNumber);
 		if (failure !== undefined) return { type: "failure", failure: cloneData(failure) };
+		if (this.mergedPullRequestNumbers.has(request.branchOrNumber)) {
+			const postMergeFacts = this.postMergeFacts.get(request.branchOrNumber);
+			if (postMergeFacts !== undefined) {
+				return valueResult({
+					state: postMergeFacts,
+					source: "github",
+					phase: "merge",
+					code: "post_merge_facts_failed",
+					message: `Could not load post-merge facts for PR #${request.branchOrNumber}.`,
+					copyValue: cloneData,
+				});
+			}
+		}
 		const pr = this.pullRequests.get(request.branchOrNumber);
 		if (pr === undefined) {
 			return {
@@ -609,19 +731,27 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 				}),
 			};
 		}
-		return { type: "success", value: cloneData(pr) };
+		const returned =
+			this.mergedPullRequestNumbers.has(String(pr.number)) &&
+			this.postMergeFacts.get(String(pr.number)) === undefined
+				? { ...pr, state: "MERGED", mergedAt: pr.mergedAt ?? "in-memory-merge" }
+				: pr;
+		return { type: "success", value: cloneData(returned) };
 	}
 
 	async squashMergePullRequest(request: {
 		readonly repoRoot: string;
 		readonly pullRequest: PullRequestFacts;
 	}): Promise<LandResult<SquashMergePullRequestResult>> {
-		this.squashMergePullRequestLog.push({
+		const call = {
 			repoRoot: request.repoRoot,
 			pullRequest: cloneData(request.pullRequest),
-		});
-		return valueResult({
-			state: this.squashMergeResults.get(String(request.pullRequest.number)) ?? {
+		};
+		this.squashMergePullRequestLog.push(call);
+		this.recordCall({ operation: "github.squashMergePullRequest", request: call });
+		const pullRequestNumber = String(request.pullRequest.number);
+		const result = valueResult({
+			state: this.squashMergeResults.get(pullRequestNumber) ?? {
 				stdout: "",
 				stderr: "",
 			},
@@ -631,6 +761,8 @@ export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 			message: "Squash merge failed.",
 			copyValue: cloneData,
 		});
+		if (result.type === "success") this.mergedPullRequestNumbers.add(pullRequestNumber);
+		return result;
 	}
 }
 
@@ -640,6 +772,8 @@ export interface InMemoryLandWorktreeSlotFactsGatewayState {
 	readonly worktreesFailure?: LandingBoundaryFailure;
 	readonly classifyFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
 	readonly freeSlotsFailure?: LandingBoundaryFailure;
+	/** Paths that remain in the worktree list after a successful slot-free operation. */
+	readonly residualCheckoutPaths?: readonly string[];
 }
 
 export interface LandClassifyWorktreeCall extends LandRepoCall {
@@ -652,17 +786,18 @@ export interface LandFreeSlotsCall extends LandRepoCall {
 }
 
 export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFactsGateway {
-	private readonly worktreeEntries: readonly WorktreeEntry[];
+	private worktreeEntries: WorktreeEntry[];
 	private readonly classifications: ReadonlyMap<string, WorktreeClassification>;
 	private readonly worktreesFailure: LandingBoundaryFailure | undefined;
 	private readonly classifyFailures: ReadonlyMap<string, LandingBoundaryFailure>;
 	private readonly freeSlotsFailure: LandingBoundaryFailure | undefined;
+	private readonly residualCheckoutPaths: ReadonlySet<string>;
 	private readonly worktreesLog: LandRepoCall[] = [];
 	private readonly classifyWorktreeLog: LandClassifyWorktreeCall[] = [];
 	private readonly freeSlotsLog: LandFreeSlotsCall[] = [];
 
 	constructor(state: InMemoryLandWorktreeSlotFactsGatewayState = {}) {
-		this.worktreeEntries = cloneData(state.worktrees ?? []);
+		this.worktreeEntries = cloneData([...(state.worktrees ?? [])]);
 		this.classifications = new Map(
 			Object.entries(state.classifications ?? {}).map(([path, classification]) => [
 				path,
@@ -671,6 +806,7 @@ export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFac
 		);
 		this.worktreesFailure = cloneOptionalData(state.worktreesFailure);
 		this.freeSlotsFailure = cloneOptionalData(state.freeSlotsFailure);
+		this.residualCheckoutPaths = new Set(state.residualCheckoutPaths ?? []);
 		this.classifyFailures = new Map(
 			Object.entries(state.classifyFailures ?? {}).map(([path, failure]) => [
 				path,
@@ -728,6 +864,10 @@ export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFac
 		});
 		if (this.freeSlotsFailure !== undefined)
 			return { type: "failure", failure: cloneData(this.freeSlotsFailure) };
+		const freedPaths = new Set(request.slots.map((slot) => slot.path));
+		this.worktreeEntries = this.worktreeEntries.filter(
+			(worktree) => !freedPaths.has(worktree.path) || this.residualCheckoutPaths.has(worktree.path),
+		);
 		return { type: "success", value: cloneData(request.slots) };
 	}
 }
@@ -745,14 +885,18 @@ export interface InMemoryLandContext {
 	readonly graphite: InMemoryLandGraphiteGateway;
 	readonly github: InMemoryLandGithubPrGateway;
 	readonly worktrees: InMemoryLandWorktreeSlotFactsGateway;
+	/** Testing-only, clone-on-read ordering view across semantic gateway calls. */
+	readonly callEvents: readonly InMemoryLandCallEvent[];
 }
 
 export function createInMemoryLandContext(
 	state: InMemoryLandContextState = {},
 ): InMemoryLandContext {
-	const git = new InMemoryLandGitGateway(state.git);
-	const graphite = new InMemoryLandGraphiteGateway(state.graphite);
-	const github = new InMemoryLandGithubPrGateway(state.github);
+	const callEvents: InMemoryLandCallEvent[] = [];
+	const recordCall: RecordInMemoryLandCall = (event) => callEvents.push(cloneData(event));
+	const git = new InMemoryLandGitGateway(state.git, recordCall);
+	const graphite = new InMemoryLandGraphiteGateway(state.graphite, recordCall);
+	const github = new InMemoryLandGithubPrGateway(state.github, recordCall);
 	const worktrees = new InMemoryLandWorktreeSlotFactsGateway(state.worktrees);
 	return {
 		context: { git, graphite, github, worktrees },
@@ -760,6 +904,9 @@ export function createInMemoryLandContext(
 		graphite,
 		github,
 		worktrees,
+		get callEvents() {
+			return cloneData(callEvents);
+		},
 	};
 }
 
@@ -839,8 +986,8 @@ function commandResult(state: OperationState | undefined): LandGraphiteCommandRe
 	}
 	return {
 		type: "failure",
-		commandDisplay: "gt operation",
-		result: emptyExecResult(1),
+		commandDisplay: state.commandDisplay ?? "gt operation",
+		result: cloneOptionalData(state.result) ?? emptyExecResult(1),
 	};
 }
 

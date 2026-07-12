@@ -10,6 +10,7 @@
 // domain-specific land facts stay in Flow/Land-owned code.
 
 import type { Caps } from "@nseng-ai/clinkr";
+import { formatCommand } from "@nseng-ai/foundation/command";
 import {
 	bold,
 	paint,
@@ -31,31 +32,36 @@ import {
 import { COMMAND_NAME, STATUS_KEY } from "./stack/constants.ts";
 import {
 	emptyResult,
-	failure,
-	landFlowFailureFacts,
-	type LandFlowFailure,
-	type LandFlowFailureFacts,
-	type LandStackResult,
-} from "./stack/errors.ts";
+	landFailure,
+	landingFailureFacts,
+	type LandingFailure,
+	type LandingFailureFacts,
+	type LandResult,
+} from "./results.ts";
 import { landUsageOptionRows, landUsageTokens } from "./stack/flags.ts";
+import type { LandConfirmationRequest } from "./execution/host-seams.ts";
 import {
+	deleteLocalBranchOperation,
 	formatGraphiteOperation,
 	restackOperation,
 	restackTargetForSubmit,
-} from "./stack/graphite-command-channel.ts";
-import { formatPrSubmitRequirement } from "./stack/pre-merge-submit.ts";
+} from "./graphite-operations.ts";
 import type {
 	CommandStreamMessageDetails,
 	LandConfirmationPreview,
-	LandedPr,
 	LandResultKind,
 	LandStackCommandContext,
 	NotifyLevel,
 	PrintAwareLandStackCommandContext,
-	RemainingCleanup,
 } from "./stack/types.ts";
-import { formatConflict, formatSlotConflict } from "./stack/worktrees.ts";
-import type { DescendantMaintenancePlan, LandingPlan, LandingWarning } from "./types.ts";
+import type { RemainingCleanup } from "./execution/merge-loop.ts";
+import { formatConflict, formatSlotConflict, slotFreeArgs } from "./worktree-paths.ts";
+import type {
+	DescendantMaintenancePlan,
+	LandedPullRequest,
+	LandingPlan,
+	LandingWarning,
+} from "./types.ts";
 
 // --------------------------------------------------------------------------
 // Result blocks and confirmation rendering
@@ -305,7 +311,7 @@ function formatUsageOptionRow(row: { aliases: readonly string[]; description: st
 }
 
 export function formatSuccessSummary(
-	landed: LandedPr[],
+	landed: LandedPullRequest[],
 	descendantMaintenance: DescendantMaintenancePlan,
 	warnings: LandingWarning[],
 	cleanup: RemainingCleanup,
@@ -395,11 +401,17 @@ export function indentLines(text: string, prefix: string): string[] {
 	return text.split("\n").map((line) => `${prefix}${line}`);
 }
 
-export function formatFailure(failure: LandFlowFailure, landed: readonly LandedPr[]): string {
+export function formatFailure(
+	failure: LandingFailure,
+	landed: readonly LandedPullRequest[],
+): string {
 	return formatFailureFields(failurePresentationFields(failure), landed);
 }
 
-function formatFailureFields(fields: LandFlowFailureFacts, landed: readonly LandedPr[]): string {
+function formatFailureFields(
+	fields: LandingFailureFacts,
+	landed: readonly LandedPullRequest[],
+): string {
 	const { displayCommand, execResult, failedBranch, failedPrNumber, suggestedAction } = fields;
 	const simple =
 		landed.length === 0 && !displayCommand && !failedBranch && !failedPrNumber && !suggestedAction;
@@ -425,11 +437,11 @@ function formatFailureFields(fields: LandFlowFailureFacts, landed: readonly Land
 	return lines.join("\n");
 }
 
-export function formatFailedTarget(failure: LandFlowFailure): string {
+export function formatFailedTarget(failure: LandingFailure): string {
 	return formatFailedTargetFields(failurePresentationFields(failure));
 }
 
-function formatFailedTargetFields(fields: LandFlowFailureFacts): string {
+function formatFailedTargetFields(fields: LandingFailureFacts): string {
 	const parts: string[] = [];
 	if (fields.failedPrNumber) parts.push(`#${fields.failedPrNumber}`);
 	if (fields.failedBranch) parts.push(fields.failedBranch);
@@ -482,11 +494,11 @@ function nonBlank(value: string | undefined): string | undefined {
 	return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function formatFailureNotification(failure: LandFlowFailure): string {
+export function formatFailureNotification(failure: LandingFailure): string {
 	return formatFailureNotificationFields(failurePresentationFields(failure));
 }
 
-function formatFailureNotificationFields(fields: LandFlowFailureFacts): string {
+function formatFailureNotificationFields(fields: LandingFailureFacts): string {
 	const detail = firstNonEmptyLine(fields.message) ?? "unknown error";
 	if (fields.failedBranch || fields.failedPrNumber) {
 		return `land stopped at ${formatFailedTargetFields(fields)}: ${detail}`;
@@ -503,10 +515,10 @@ export interface LandFailurePresentation {
 }
 
 export function buildLandFailurePresentation(
-	landFailure: LandFlowFailure,
-	landed: readonly LandedPr[],
+	failure: LandingFailure,
+	landed: readonly LandedPullRequest[],
 ): LandFailurePresentation {
-	const fields = failurePresentationFields(landFailure);
+	const fields = failurePresentationFields(failure);
 	return {
 		fullMessage: formatFailureFields(fields, landed),
 		level: fields.level,
@@ -517,25 +529,25 @@ export function buildLandFailurePresentation(
 
 export function presentFailureAndReturn(
 	ctx: PrintAwareLandStackCommandContext,
-	landFailure: LandFlowFailure,
-): LandStackResult<never> {
-	presentBrief({ ctx, ...buildLandFailurePresentation(landFailure, []) });
-	return failure(landFailure);
+	failure: LandingFailure,
+): LandResult<never> {
+	presentBrief({ ctx, ...buildLandFailurePresentation(failure, []) });
+	return landFailure(failure);
 }
 
-export function failureLevel(failure: LandFlowFailure): NotifyLevel {
-	return landFlowFailureFacts(failure).level;
+export function failureLevel(failure: LandingFailure): NotifyLevel {
+	return landingFailureFacts(failure).level;
 }
 
-function failurePresentationFields(failure: LandFlowFailure): LandFlowFailureFacts {
-	const facts = landFlowFailureFacts(failure);
+function failurePresentationFields(failure: LandingFailure): LandingFailureFacts {
+	const facts = landingFailureFacts(failure);
 	if (failure.type !== "domain" || failure.reason !== "dirty-worktree") return facts;
 	return { ...facts, message: "Working tree is dirty; refusing to start stack landing." };
 }
 
 /** Map a typed failure onto its house-style visual intent without changing exit-code routing. */
-export function landFailureKind(failure: LandFlowFailure): LandResultKind {
-	return landFlowFailureFacts(failure).outcome === "refusal" ? "refusal" : "failure";
+export function failureKind(failure: LandingFailure): LandResultKind {
+	return landingFailureFacts(failure).outcome === "refusal" ? "refusal" : "failure";
 }
 
 interface PresentOptions {
@@ -635,7 +647,7 @@ export function notifyPrintAware(options: NotifyPrintAwareOptions): void {
 interface PresentLandingSuccessOptions {
 	ctx: LandStackCommandContext;
 	commandStream: LandStackCommandStream;
-	landed: readonly LandedPr[];
+	landed: readonly LandedPullRequest[];
 	warnings: readonly LandingWarning[];
 	successSummary: string;
 }
@@ -658,6 +670,176 @@ export function presentLandingSuccess(options: PresentLandingSuccessOptions): vo
 		}),
 		kind: "success",
 	});
+}
+
+export function formatIsolatedDryRunNotification(pullRequestNumber: number, trunk: string): string {
+	return `Dry run only; would merge PR #${pullRequestNumber} into ${trunk}.`;
+}
+
+export function formatIsolatedLandingSuccessNotification(options: {
+	readonly pullRequestNumber: number;
+	readonly commandOutput: string;
+}): string {
+	const message = `Merged PR #${options.pullRequestNumber}; squash commit used PR title/body.`;
+	return options.commandOutput ? `${options.commandOutput}\n${message}` : message;
+}
+
+export function freeManagedSlotsConfirmationTitle(): string {
+	return "Free landing slots?";
+}
+
+export function formatFreeManagedSlotsConfirmationDetails(
+	request: Extract<LandConfirmationRequest, { readonly kind: "free-managed-slots" }>,
+): string {
+	const commandDisplay = formatCommand("ns", ["slot", ...slotFreeArgs(request.slots)]);
+	return [
+		"Run targeted slot cleanup? This detaches/frees managed slots for landing branches only.",
+		"",
+		...request.slots.map((slot) => `- ${formatSlotConflict(slot)}`),
+		"",
+		`Command: ${commandDisplay}`,
+	].join("\n");
+}
+
+export function freeManagedSlotsNonInteractiveRefusalMessage(
+	request: Extract<LandConfirmationRequest, { readonly kind: "free-managed-slots" }>,
+): string {
+	const details = formatFreeManagedSlotsConfirmationDetails(request);
+	const commandDisplay = formatCommand("ns", ["slot", ...slotFreeArgs(request.slots)]);
+	return [
+		"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
+		details,
+		`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /ns:flow:land --yes.`,
+	].join("\n");
+}
+
+export function formatPrSubmitRequirement(
+	requirement: Pick<
+		Extract<
+			LandConfirmationRequest,
+			{ readonly kind: "submit-required-updates" }
+		>["requirements"][number],
+		"branch" | "prNumber" | "reasons"
+	>,
+): string {
+	return `- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`;
+}
+
+export function submitRequiredUpdatesConfirmationTitle(
+	request: Extract<LandConfirmationRequest, { readonly kind: "submit-required-updates" }>,
+): string {
+	return request.restackRequirements.length > 0
+		? "Run gt restack + submit/update?"
+		: "Run gt submit/update?";
+}
+
+export function formatSubmitRequiredUpdatesConfirmationDetails(
+	request: Extract<LandConfirmationRequest, { readonly kind: "submit-required-updates" }>,
+): string {
+	const restackTarget = request.restackTarget;
+	const commands = [
+		...(restackTarget === undefined
+			? []
+			: [formatGraphiteOperation(restackOperation({ branch: restackTarget, scope: "upstack" }))]),
+		formatGraphiteOperation({ kind: "submit-update", branch: request.landingTargetBranch }),
+	];
+	const lines = [
+		restackTarget === undefined
+			? "GitHub PR metadata is behind local Graphite refs. Run Graphite submit/update before merging?"
+			: "Local branch reachability shows this stack needs restack before submit/update, and GitHub PR metadata is behind local refs. Run restack then submit/update before merging?",
+		"",
+	];
+	if (restackTarget !== undefined) {
+		lines.push(
+			"Landing branches needing restack:",
+			...request.restackRequirements.map(
+				(requirement) => `- ${requirement.branch} on ${requirement.parent}`,
+			),
+			"",
+		);
+	}
+	lines.push(
+		"PR metadata to update:",
+		...request.requirements.map(
+			(requirement) =>
+				`- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`,
+		),
+		"",
+		"Commands:",
+		...commands.map((command) => `$ ${command}`),
+	);
+	return lines.join("\n");
+}
+
+export function submitRequiredUpdatesNonInteractiveRefusalMessage(
+	request: Extract<LandConfirmationRequest, { readonly kind: "submit-required-updates" }>,
+): string {
+	const details = formatSubmitRequiredUpdatesConfirmationDetails(request);
+	const restackTarget = request.restackTarget;
+	const commands = [
+		...(restackTarget === undefined
+			? []
+			: [formatGraphiteOperation(restackOperation({ branch: restackTarget, scope: "upstack" }))]),
+		formatGraphiteOperation({ kind: "submit-update", branch: request.landingTargetBranch }),
+	];
+	const manualCommandText = commands.map((command) => `\`${command}\``).join(" then ");
+	const actionName = restackTarget === undefined ? "submit/update" : "restack + submit/update";
+	return [
+		`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
+		details,
+		`No PRs were landed. Run ${manualCommandText} manually, then rerun /ns:flow:land --yes.`,
+	].join("\n");
+}
+
+export function submitRequiredUpdatesSuggestedAction(
+	request: Extract<LandConfirmationRequest, { readonly kind: "submit-required-updates" }>,
+): string {
+	const restackTarget = request.restackTarget;
+	const commands = [
+		...(restackTarget === undefined
+			? []
+			: [formatGraphiteOperation(restackOperation({ branch: restackTarget, scope: "upstack" }))]),
+		formatGraphiteOperation({ kind: "submit-update", branch: request.landingTargetBranch }),
+	];
+	return `Run ${commands.map((command) => `\`${command}\``).join(" then ")} manually, then rerun /ns:flow:land --yes.`;
+}
+
+export function postLandingCleanupConfirmationTitle(): string {
+	return "Free current slot and delete local branch?";
+}
+
+export function formatPostLandingCleanupConfirmationDetails(
+	request: Extract<LandConfirmationRequest, { readonly kind: "post-landing-cleanup" }>,
+): string {
+	const keepsTrunk = request.localBranchDisposition === "keep-trunk";
+	const commands = [formatCommand("ns", ["slot", "free", "--wt", request.slotName])];
+	if (!keepsTrunk) {
+		commands.push(formatGraphiteOperation(deleteLocalBranchOperation({ branch: request.branch })));
+	}
+	return [
+		keepsTrunk
+			? "Post-landing cleanup will detach the current managed slot to trunk. The local trunk branch is kept."
+			: "Post-landing cleanup will detach the current managed slot to trunk, then delete the landed local Graphite branch.",
+		"",
+		`Slot: ${request.slotName}`,
+		`Worktree: ${request.repoRoot}`,
+		keepsTrunk
+			? `Local branch: ${request.branch} (trunk; will not be deleted)`
+			: `Local branch: ${request.branch}`,
+		"",
+		"Commands:",
+		...commands.map((command) => `$ ${command}`),
+	].join("\n");
+}
+
+export function postLandingCleanupNonInteractiveRefusalMessage(
+	request: Extract<LandConfirmationRequest, { readonly kind: "post-landing-cleanup" }>,
+): string {
+	return [
+		"Refusing to land before merge: post-landing slot cleanup requires confirmation in non-interactive mode. No PRs were landed.",
+		formatPostLandingCleanupConfirmationDetails(request),
+		"Re-run with --yes or --force to approve cleanup, or --preserve to land while keeping the current managed slot and local branch.",
+	].join("\n\n");
 }
 
 export function setStatus(ctx: LandStackCommandContext, message: string | undefined): void {

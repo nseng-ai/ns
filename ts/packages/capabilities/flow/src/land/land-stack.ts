@@ -17,20 +17,21 @@ import {
 	type StackLandingRuntime,
 } from "./stack/stack-landing-runtime.ts";
 import {
-	completed,
-	failure,
+	landCompleted,
+	landFailure,
+	landOutcomeFailure,
 	landingExecutionFailure,
-	success,
-	type LandStackOutcome,
-	type LandStackResult,
-} from "./stack/errors.ts";
+	landSuccess,
+	type LandOutcome,
+	type LandResult,
+} from "./results.ts";
 import { landCompletionFlags, parseLandFlagToken } from "./stack/flags.ts";
 import { buildStackLandingPlan } from "./preflight.ts";
 import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
-import { landMatrixRowsFromPlan } from "./land-matrix-progress.ts";
 import { present, setStatus, usage } from "./land-presentation.ts";
 import {
-	executeLandingPlan,
+	createFlowLandExecutionProgress,
+	runFlowStackLanding,
 	presentLandStackFailure,
 	type LandingSession,
 } from "./landing-execution.ts";
@@ -38,10 +39,8 @@ import type {
 	LandProgressReporter,
 	LandStackCommandContext,
 	LandStackExtensionAPI,
-	LandedPr,
 	ParsedArgs,
 } from "./stack/types.ts";
-import type { LandingWarning } from "./types.ts";
 import type { StackLandingShape } from "./preflight.ts";
 
 export type { LandStackExtensionAPI } from "./stack/types.ts";
@@ -77,20 +76,23 @@ export async function executeStackLanding(
 	ctx: LandStackCommandContext,
 	parsedArgs: ParsedArgs,
 	options: ExecuteStackLandingOptions = {},
-): Promise<LandStackOutcome> {
-	const landed: LandedPr[] = [];
-	const warnings: LandingWarning[] = [];
+): Promise<LandOutcome> {
 	const observabilityChannels = executeStackLandingObservabilityChannels(options);
 	const io = observabilityChannels.progressIo ?? createLandUiCommandIo(pi, ctx);
 	const commandStream = new LandStackCommandStream(io, {
 		shouldShowRunningCommandStatus: ctx.hasUI,
 		...landCommandStreamObservabilityOptions(observabilityChannels),
 	});
-	const progress: LandProgressReporter = {
+	const progressReporter: LandProgressReporter = {
 		note: (message) => commandStream.note(message),
 		setStatus: (message) => setStatus(ctx, message),
 	};
-	const session: LandingSession = { ctx, commandStream, progress, landed };
+	const progress = createFlowLandExecutionProgress({
+		commandStream,
+		progress: progressReporter,
+		...optionalEntry("matrix", commandStream.matrix),
+	});
+	const session: LandingSession = { ctx, commandStream, progress };
 	const runtime: StackLandingRuntime = createStackLandingRuntime(pi, commandStream, {
 		...optionalEntry("gitStateFs", options.gitStateFs),
 		...optionalEntry("graphite", options.graphite),
@@ -98,7 +100,7 @@ export async function executeStackLanding(
 	try {
 		if (parsedArgs.shouldShowHelp) {
 			present({ ctx, message: usage(), level: "info" });
-			return completed();
+			return landCompleted();
 		}
 
 		progress.setStatus("preflighting...");
@@ -108,26 +110,25 @@ export async function executeStackLanding(
 		});
 		if (plan.type === "failure") {
 			presentLandStackFailure({ session, failure: plan.failure });
-			return failure(plan.failure);
+			return landOutcomeFailure(plan.failure);
 		}
-		commandStream.matrix?.setRows(landMatrixRowsFromPlan(plan.value));
-		return await executeLandingPlan({
+		progress.planRecalculated(plan.value);
+		return await runFlowStackLanding({
 			runtime,
 			parsedArgs,
 			options,
 			session,
 			plan: plan.value,
-			warnings,
 		});
 	} catch (error) {
-		const landFailure = landingExecutionFailure(
+		const failure = landingExecutionFailure(
 			`land failed unexpectedly: ${formatErrorMessage(error)}`,
 		);
 		presentLandStackFailure({
 			session,
-			failure: landFailure,
+			failure: failure,
 		});
-		return failure(landFailure);
+		return landOutcomeFailure(failure);
 	} finally {
 		setStatus(ctx, undefined);
 	}
@@ -145,7 +146,7 @@ function executeStackLandingObservabilityChannels(
 	);
 }
 
-export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
+export function parseArgs(argsText: string): LandResult<ParsedArgs> {
 	const parsed: ParsedArgs = {
 		shouldSkipConfirmation: false,
 		isDryRun: false,
@@ -159,12 +160,12 @@ export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
 	for (const part of parts) {
 		const parsedFlag = parseLandFlagToken(part);
 		if (parsedFlag === undefined) {
-			return failure(
+			return landFailure(
 				landingExecutionFailure(`Unknown /${COMMAND_NAME} argument: ${part}\n\n${usage()}`),
 			);
 		}
 		parsed[parsedFlag] = true;
 	}
 
-	return success(parsed);
+	return landSuccess(parsed);
 }

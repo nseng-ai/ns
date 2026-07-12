@@ -2,6 +2,16 @@ import { describe, expect, test } from "vitest";
 
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
+import type {
+	LandConfirmationGateway,
+	LandConfirmationRequest,
+	LandExecutionProgress,
+} from "../../src/land/execution/host-seams.ts";
+import {
+	resolveManagedSlotPostLandingCleanupDecision,
+	runManagedSlotPostLandingCleanup,
+	type PostLandingCleanupOptions,
+} from "../../src/land/execution/post-landing-cleanup.ts";
 import { parseArgs } from "../../src/land/land-stack.ts";
 import { buildUpfrontStackConfirmation } from "../../src/land/landing-dispatch.ts";
 import {
@@ -112,7 +122,7 @@ describe("post-landing slot cleanup defaults", () => {
 			cleanupDecision: expectDecision(decision),
 		});
 
-		expect(outcome).toEqual({ type: "success", value: undefined });
+		expect(outcome).toEqual({ type: "completed" });
 		expect(fixture.confirmations).toEqual([
 			{
 				title: "Free current slot and delete local branch?",
@@ -142,7 +152,7 @@ describe("post-landing slot cleanup defaults", () => {
 			cleanupDecision: { type: "approved" },
 		});
 
-		expect(outcome).toEqual({ type: "success", value: undefined });
+		expect(outcome).toEqual({ type: "completed" });
 		expect(fixture.confirmations).toEqual([]);
 		expect(worktrees.freeSlotsCalls).toHaveLength(1);
 		expect(graphite.deleteLocalBranchCalls).toHaveLength(1);
@@ -169,7 +179,7 @@ describe("post-landing slot cleanup defaults", () => {
 			cleanupDecision: expectDecision(decision),
 		});
 
-		expect(outcome).toEqual({ type: "success", value: undefined });
+		expect(outcome).toEqual({ type: "completed" });
 		expect(fixture.confirmations).toEqual([]);
 		expect(worktrees.freeSlotsCalls).toHaveLength(1);
 		expect(graphite.deleteLocalBranchCalls).toHaveLength(1);
@@ -255,7 +265,7 @@ describe("post-landing slot cleanup defaults", () => {
 			cleanupDecision: expectDecision(decision),
 		});
 
-		expect(outcome).toEqual({ type: "success", value: undefined });
+		expect(outcome).toEqual({ type: "completed" });
 		expect(worktrees.freeSlotsCalls).toEqual([
 			{
 				repoRoot: SLOT_ROOT,
@@ -290,7 +300,7 @@ describe("post-landing slot cleanup defaults", () => {
 				cleanupDecision: expectDecision(decision),
 			});
 
-			expect(outcome).toEqual({ type: "success", value: undefined });
+			expect(outcome).toEqual({ type: "completed" });
 			expect(fixture.confirmations).toEqual([]);
 			expect(worktrees.freeSlotsCalls).toEqual([]);
 			expect(graphite.deleteLocalBranchCalls).toEqual([]);
@@ -326,6 +336,155 @@ describe("post-landing slot cleanup defaults", () => {
 		expect(fixture.notifications.at(-1)?.level).toBe("error");
 	});
 });
+
+describe("core post-landing cleanup", () => {
+	const cleanup: PostLandingCleanupOptions = {
+		isDryRun: false,
+		shouldPreserveSlot: false,
+		shouldSkipConfirmation: false,
+		shouldForceCleanup: false,
+	};
+
+	test("sends the exact semantic confirmation payload", async () => {
+		const requests: LandConfirmationRequest[] = [];
+		const confirmation: LandConfirmationGateway = {
+			confirm: async (request) => {
+				requests.push(request);
+				return { type: "approved" };
+			},
+		};
+
+		await expect(
+			resolveManagedSlotPostLandingCleanupDecision({
+				confirmation,
+				confirmationAlreadyApproved: false,
+				cleanup,
+				shape: managedShape(),
+			}),
+		).resolves.toEqual({ type: "success", value: { type: "approved" } });
+		expect(requests).toEqual([
+			{
+				kind: "post-landing-cleanup",
+				branch: BRANCH,
+				repoRoot: SLOT_ROOT,
+				slotName: "slot-02",
+				localBranchDisposition: "delete",
+			},
+		]);
+	});
+
+	test("reports slot-free failures and clears status", async () => {
+		const { context } = createInMemoryLandContext({
+			worktrees: {
+				freeSlotsFailure: {
+					type: "boundary",
+					phase: "cleanup",
+					source: "slot",
+					code: "slot_free_failed",
+					message: "slot free failed",
+					displayCommand: "ns slot free --wt slot-02",
+				},
+			},
+		});
+		const statuses: Array<string | undefined> = [];
+		const result = await runManagedSlotPostLandingCleanup({
+			landContext: context,
+			progress: recordingProgress(statuses),
+			cleanup,
+			shape: managedShape(),
+			cleanupDecision: { type: "approved" },
+		});
+
+		expect(result).toMatchObject({
+			type: "failure",
+			failure: {
+				message: "PRs were landed, but freeing slot-02 failed.",
+				displayCommand: "ns slot free --wt slot-02",
+			},
+		});
+		expect(statuses).toEqual(["freeing slot-02...", undefined]);
+	});
+
+	test.each([
+		{
+			name: "retained",
+			deletion: { type: "retained" as const, branch: BRANCH, path: SLOT_ROOT },
+			displayCommand: `gt delete ${BRANCH} -f -q`,
+		},
+		{
+			name: "failed",
+			deletion: {
+				type: "failed" as const,
+				commandDisplay: `gt delete ${BRANCH} -f -q`,
+				result: {
+					type: "exited" as const,
+					stdout: "",
+					stderr: "delete rejected",
+					code: 1,
+					signal: null,
+				},
+				isLikelyInProgressGitOperation: false,
+			},
+			displayCommand: `gt delete ${BRANCH} -f -q`,
+		},
+	])("reports $name branch deletion with the typed branch and clears status", async (testCase) => {
+		const { context, worktrees } = createInMemoryLandContext({
+			graphite: { deleteLocalBranchResults: { [BRANCH]: testCase.deletion } },
+			worktrees: {
+				worktrees: [{ path: SLOT_ROOT, branch: BRANCH }],
+				residualCheckoutPaths: [SLOT_ROOT],
+			},
+		});
+		const statuses: Array<string | undefined> = [];
+		const result = await runManagedSlotPostLandingCleanup({
+			landContext: context,
+			progress: recordingProgress(statuses),
+			cleanup,
+			shape: managedShape(),
+			cleanupDecision: { type: "approved" },
+		});
+
+		expect(result).toMatchObject({
+			type: "failure",
+			failure: {
+				message: `PRs were landed and slot-02 was freed, but deleting local branch ${BRANCH} failed.`,
+				displayCommand: testCase.displayCommand,
+			},
+		});
+		expect(statuses).toEqual(["freeing slot-02...", `deleting ${BRANCH}...`, undefined]);
+		await expect(worktrees.worktrees({ repoRoot: SLOT_ROOT })).resolves.toEqual({
+			type: "success",
+			value: [{ path: SLOT_ROOT, branch: BRANCH }],
+		});
+	});
+
+	test("clears status after successful cleanup", async () => {
+		const { context } = createInMemoryLandContext();
+		const statuses: Array<string | undefined> = [];
+		await expect(
+			runManagedSlotPostLandingCleanup({
+				landContext: context,
+				progress: recordingProgress(statuses),
+				cleanup,
+				shape: managedShape(),
+				cleanupDecision: { type: "approved" },
+			}),
+		).resolves.toMatchObject({ type: "completed" });
+		expect(statuses.at(-1)).toBeUndefined();
+	});
+});
+
+function recordingProgress(statuses: Array<string | undefined>): LandExecutionProgress {
+	return {
+		note() {},
+		setStatus(message) {
+			statuses.push(message);
+		},
+		setStep() {},
+		recordMergedPullRequest() {},
+		planRecalculated() {},
+	};
+}
 
 function expectDecision(
 	result:

@@ -60,6 +60,7 @@ export type LandingPhase =
 export type LandingFailure =
 	| LandingBoundaryFailure
 	| LandingDomainFailure
+	| LandingExecutionFailure
 	| LandingNotImplementedFailure;
 
 export interface LandingBoundaryFailure {
@@ -95,6 +96,21 @@ export type LandingDomainFailureReason =
 	| "pull-request-base-mismatch"
 	| "manual-worktree-conflict"
 	| "descendant-maintenance-blocked";
+
+export type NotifyLevel = "info" | "success" | "warning" | "error";
+
+export interface LandingExecutionFailure {
+	type: "execution";
+	level: NotifyLevel;
+	message: string;
+	displayCommand?: string;
+	execResult?: ExecResult;
+	failedBranch?: string;
+	failedPrNumber?: number;
+	suggestedAction?: string;
+	outcome: "refusal" | "failure";
+	refusalReason?: "declined" | "non-interactive";
+}
 
 export interface LandingNotImplementedFailure {
 	readonly type: "not-implemented";
@@ -390,7 +406,10 @@ export type LandGraphiteRefreshBranchResult =
 export type LandGraphiteDeleteLocalBranchResult =
 	| { readonly type: "deleted" }
 	| { readonly type: "retained"; readonly branch: string; readonly path: string }
-	| ({ readonly type: "failed" } & LandGraphiteRanCommand);
+	| ({
+			readonly type: "failed";
+			readonly isLikelyInProgressGitOperation: boolean;
+	  } & LandGraphiteRanCommand);
 
 export interface SquashMergePullRequestResult {
 	readonly stdout: string;

@@ -8,7 +8,7 @@ import {
 	GH_REPO_VIEW_NAME_WITH_OWNER_ARGS,
 	batchedPullRequestFactsGraphqlArgs,
 } from "../../src/land/stack/pr-facts.ts";
-import { type LandStackResult } from "../../src/land/stack/errors.ts";
+import { type LandResult } from "../../src/land/results.ts";
 import { formatLandProgressTitle } from "../../src/land/land-matrix-progress.ts";
 import {
 	createLandCliProgress,
@@ -369,7 +369,7 @@ function execResult(overrides: ExitedResultFields = {}): ExecResult {
 	};
 }
 
-function expectSuccess<T>(result: LandStackResult<T>): T {
+function expectSuccess<T>(result: LandResult<T>): T {
 	expect(result.type).toBe("success");
 	if (result.type !== "success") {
 		throw new Error(`Expected land-stack success, got failure: ${result.failure.message}`);

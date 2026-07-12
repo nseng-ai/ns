@@ -13,20 +13,23 @@ import { reconcileTopologyToLiveBranches } from "@nseng-ai/capability-kit/graphi
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import {
-	createLandGraphiteCommandChannel,
 	formatGraphiteOperation,
 	trunkOperation,
 	untrackLocalBranchOperation,
+} from "../graphite-operations.ts";
+import {
+	createLandGraphiteCommandChannel,
 	type LandGraphiteCommandChannel,
 } from "./graphite-command-channel.ts";
 import {
-	completed,
-	failure,
+	landCompleted,
+	landFailure,
+	landOutcomeFailure,
 	landingExecutionFailure,
-	success,
-	type LandStackOutcome,
-	type LandStackResult,
-} from "./errors.ts";
+	landSuccess,
+	type LandOutcome,
+	type LandResult,
+} from "../results.ts";
 import {
 	derivePathToTrunk,
 	deriveDescendantSubtree,
@@ -41,7 +44,7 @@ import type { LandStackExtensionAPI } from "./types.ts";
 export async function loadRepoRoot(
 	pi: LandStackExtensionAPI,
 	cwd: string,
-): Promise<LandStackResult<string>> {
+): Promise<LandResult<string>> {
 	const result = await exec({
 		pi,
 		command: "git",
@@ -50,7 +53,7 @@ export async function loadRepoRoot(
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
 	if (!commandSucceeded(result)) {
-		return failure(
+		return landFailure(
 			landingExecutionFailure(
 				`Not inside a git repository.\n${formatCommandDetails(result, formatCommand("git", ["rev-parse", "--show-toplevel"]))}`,
 			),
@@ -58,17 +61,17 @@ export async function loadRepoRoot(
 	}
 	const root = result.stdout.trim();
 	if (!root) {
-		return failure(
+		return landFailure(
 			landingExecutionFailure("git rev-parse --show-toplevel returned no repository root."),
 		);
 	}
-	return success(root);
+	return landSuccess(root);
 }
 
 export async function loadCurrentBranch(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
-): Promise<LandStackResult<string>> {
+): Promise<LandResult<string>> {
 	const result = await exec({
 		pi,
 		command: "git",
@@ -77,7 +80,7 @@ export async function loadCurrentBranch(
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
 	if (!commandSucceeded(result)) {
-		return failure(
+		return landFailure(
 			landingExecutionFailure(
 				`Detached HEAD; check out a branch before running /ns:flow:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
 			),
@@ -85,18 +88,18 @@ export async function loadCurrentBranch(
 	}
 	const branch = result.stdout.trim();
 	if (!branch) {
-		return failure(
+		return landFailure(
 			landingExecutionFailure("Could not resolve current branch before running /ns:flow:land."),
 		);
 	}
-	return success(branch);
+	return landSuccess(branch);
 }
 
 export async function loadTrunk(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	graphite: LandGraphiteCommandChannel = createLandGraphiteCommandChannel({ pi }),
-): Promise<LandStackResult<string>> {
+): Promise<LandResult<string>> {
 	const operation = trunkOperation();
 	const result = await graphite.run({
 		operation,
@@ -104,7 +107,7 @@ export async function loadTrunk(
 		timeoutMs: GT_TIMEOUT_MS,
 	});
 	if (!commandSucceeded(result)) {
-		return failure(
+		return landFailure(
 			landingExecutionFailure(
 				`Could not resolve Graphite trunk.\n${formatCommandDetails(result, formatGraphiteOperation(operation))}`,
 			),
@@ -112,9 +115,9 @@ export async function loadTrunk(
 	}
 	const trunk = firstNonEmptyLine(result.stdout);
 	if (!trunk) {
-		return failure(landingExecutionFailure("gt trunk --no-interactive returned no branch."));
+		return landFailure(landingExecutionFailure("gt trunk --no-interactive returned no branch."));
 	}
-	return success(trunk);
+	return landSuccess(trunk);
 }
 
 export interface LoadStackSnapshotOptions {
@@ -128,7 +131,7 @@ export interface LoadStackSnapshotOptions {
 
 export async function loadStackSnapshot(
 	options: LoadStackSnapshotOptions,
-): Promise<LandStackResult<StackSnapshot>> {
+): Promise<LandResult<StackSnapshot>> {
 	const { pi, repoRoot, metadataDbPath, current, trunk } = options;
 	const topology = await loadGraphiteTopology(pi, repoRoot, metadataDbPath);
 	if (topology.type === "failure") return topology;
@@ -159,14 +162,14 @@ export async function loadStackSnapshot(
 
 	const violations = detectForkViolations(reconciled, landingBranches.value);
 	if (violations.length > 0) {
-		return failure(formatForkViolations(violations, trunk));
+		return landFailure(formatForkViolations(violations, trunk));
 	}
 
 	const descendantBranches = deriveDescendantSubtree(reconciled, current);
 	if (descendantBranches.type === "failure") return descendantBranches;
 	const descendantRootBranches = [...(reconciled.get(current)?.children ?? [])];
 
-	return success({
+	return landSuccess({
 		trunk,
 		current,
 		actualCurrentBranch: current,
@@ -185,35 +188,35 @@ export async function loadStackSnapshot(
 export async function loadLiveLocalBranchTips(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
-): Promise<LandStackResult<readonly GitLocalBranchTip[]>> {
+): Promise<LandResult<readonly GitLocalBranchTip[]>> {
 	const git = new RealGitGateway(pi);
 	const tips = await git.listLocalBranchTips({ cwd: repoRoot });
 	if (!tips.ok) {
-		return failure(
+		return landFailure(
 			landingExecutionFailure(
 				`Could not enumerate local branches to reconcile Graphite metadata.\n${tips.error.message}`,
 			),
 		);
 	}
-	return success(tips.value);
+	return landSuccess(tips.value);
 }
 
 export async function loadLiveLocalBranches(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
-): Promise<LandStackResult<ReadonlySet<string>>> {
+): Promise<LandResult<ReadonlySet<string>>> {
 	const tips = await loadLiveLocalBranchTips(pi, repoRoot);
 	if (tips.type === "failure") return tips;
-	return success(new Set(tips.value.map((tip) => tip.name)));
+	return landSuccess(new Set(tips.value.map((tip) => tip.name)));
 }
 
 function loadLiveLocalBranchNames(options: {
 	readonly pi: LandStackExtensionAPI;
 	readonly repoRoot: string;
 	readonly liveLocalBranches?: readonly string[];
-}): Promise<LandStackResult<ReadonlySet<string>>> {
+}): Promise<LandResult<ReadonlySet<string>>> {
 	if (options.liveLocalBranches !== undefined) {
-		return Promise.resolve(success(new Set(options.liveLocalBranches)));
+		return Promise.resolve(landSuccess(new Set(options.liveLocalBranches)));
 	}
 	return loadLiveLocalBranches(options.pi, options.repoRoot);
 }
@@ -261,7 +264,7 @@ export async function assertCleanRepo(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	options: { gitStateFs?: GitWorktreeStateFs } = {},
-): Promise<LandStackOutcome> {
+): Promise<LandOutcome> {
 	const status = await exec({
 		pi,
 		command: "git",
@@ -270,27 +273,27 @@ export async function assertCleanRepo(
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
 	if (!commandSucceeded(status)) {
-		return failure(
+		return landOutcomeFailure(
 			landingExecutionFailure(
 				`Could not inspect working tree status.\n${formatCommandDetails(status, formatCommand("git", ["status", "--porcelain=v1"]))}`,
 			),
 		);
 	}
 	if (status.stdout.trim().length > 0) {
-		return failure(
+		return landOutcomeFailure(
 			landingExecutionFailure("Working tree is dirty; refusing to start stack landing."),
 		);
 	}
 
 	const operation = detectInProgressOperation(repoRoot, optionalEntry("fs", options.gitStateFs));
 	if (operation) {
-		return failure(
+		return landOutcomeFailure(
 			landingExecutionFailure(
 				`${formatInProgressOperationLabel(operation)} is in progress; refusing to start stack landing.`,
 			),
 		);
 	}
-	return completed();
+	return landCompleted();
 }
 
 export function detectInProgressOperation(
@@ -312,7 +315,7 @@ export async function assertLocalBranchExists(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	branch: string,
-): Promise<LandStackOutcome> {
+): Promise<LandOutcome> {
 	const result = await exec({
 		pi,
 		command: "git",
@@ -321,20 +324,20 @@ export async function assertLocalBranchExists(
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
 	if (!commandSucceeded(result)) {
-		return failure(
+		return landOutcomeFailure(
 			landingExecutionFailure(
 				`Local branch ${branch} does not exist; refusing to start stack landing.\n${formatCommandDetails(result)}`,
 			),
 		);
 	}
-	return completed();
+	return landCompleted();
 }
 
 export async function loadLocalSha(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	branch: string,
-): Promise<LandStackResult<string>> {
+): Promise<LandResult<string>> {
 	const ref = `refs/heads/${branch}^{commit}`;
 	const result = await exec({
 		pi,
@@ -344,7 +347,7 @@ export async function loadLocalSha(
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
 	if (!commandSucceeded(result)) {
-		return failure(
+		return landFailure(
 			landingExecutionFailure(
 				`Could not resolve local branch ${branch}.\n${formatCommandDetails(result, formatCommand("git", ["rev-parse", "--verify", ref]))}`,
 			),
@@ -352,7 +355,7 @@ export async function loadLocalSha(
 	}
 	const sha = result.stdout.trim();
 	if (!sha) {
-		return failure(landingExecutionFailure(`git rev-parse returned no SHA for ${branch}.`));
+		return landFailure(landingExecutionFailure(`git rev-parse returned no SHA for ${branch}.`));
 	}
-	return success(sha);
+	return landSuccess(sha);
 }

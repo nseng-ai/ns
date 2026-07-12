@@ -146,7 +146,7 @@ describe("land stack sandbox integration", () => {
 			await withSandbox({ currentBranch: FEATURE_B }, async (sandbox) => {
 				const result = await executeSandboxLanding(sandbox);
 
-				expect(result.outcome.type).toBe("success");
+				expect(result.outcome.type).toBe("completed");
 				const log = await readCommandLog(sandbox);
 				expect(commandArgs(log, "gh", "pr", "merge")).toEqual([
 					[
@@ -221,7 +221,7 @@ describe("land stack sandbox integration", () => {
 				async (sandbox) => {
 					const result = await executeSandboxLanding(sandbox);
 
-					expect(result.outcome.type).toBe("success");
+					expect(result.outcome.type).toBe("completed");
 					const log = await readCommandLog(sandbox);
 					expect(commandIndex(log, "gt", ["get", FEATURE_C])).toBeGreaterThanOrEqual(0);
 					expect(commandIndex(log, "gt", ["get", FEATURE_D])).toBeGreaterThan(
@@ -260,7 +260,7 @@ describe("land stack sandbox integration", () => {
 				async (sandbox) => {
 					const result = await executeSandboxLanding(sandbox);
 
-					expect(result.outcome.type).toBe("success");
+					expect(result.outcome.type).toBe("completed");
 					const log = await readCommandLog(sandbox);
 					const featureCRestack = commandIndex(log, "gt", ["restack", "--branch", FEATURE_C]);
 					const featureDRestack = commandIndex(log, "gt", ["restack", "--branch", FEATURE_D]);
@@ -348,7 +348,7 @@ describe("land stack sandbox integration", () => {
 				async (sandbox) => {
 					const result = await executeSandboxLanding(sandbox);
 
-					expect(result.outcome.type).toBe("success");
+					expect(result.outcome.type).toBe("completed");
 					const log = await readCommandLog(sandbox);
 					expect(commandArgs(log, "gt", "delete")).toEqual([]);
 					const branches = await localBranches(sandbox);

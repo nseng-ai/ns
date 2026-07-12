@@ -2,7 +2,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { executeStackLanding } from "./land-stack.ts";
 import type { FlowLandObservabilityChannels } from "./stack/command-stream.ts";
 import type { StackLandingRuntime } from "./stack/stack-landing-runtime.ts";
-import { completed, type LandStackOutcome } from "./stack/errors.ts";
+import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
 import {
 	presentBrief,
 	presentFailureAndReturn,
@@ -34,14 +34,13 @@ interface RunLandingDispatchOptions {
 	observabilityChannels: FlowLandObservabilityChannels;
 }
 
-export async function runLandingDispatch(
-	options: RunLandingDispatchOptions,
-): Promise<LandStackOutcome> {
+export async function runLandingDispatch(options: RunLandingDispatchOptions): Promise<LandOutcome> {
 	const { runtime } = options;
 	const { observabilityChannels } = options;
 	const shape = await loadStackLandingShape(runtime.landContext, options.ctx.cwd);
 	if (shape.type === "failure") {
-		return presentFailureAndReturn(options.ctx, shape.failure);
+		presentFailureAndReturn(options.ctx, shape.failure);
+		return landOutcomeFailure(shape.failure);
 	}
 
 	const landContext = runtime.landContext;
@@ -69,21 +68,21 @@ export async function runLandingDispatch(
 			uiMessage: message,
 			kind: "refusal",
 		});
-		return completed();
+		return landCompleted();
 	}
 
 	if (isIsolatedFastPath(shape.value.stack)) {
-		const result = await runIsolatedFastPathLanding<PostLandingSlotCleanupDecision>({
-			github: landContext.github,
+		const result = await runIsolatedFastPathLanding({
+			landContext,
 			ctx: options.ctx,
 			target: shape.value,
 			isDryRun: options.parsedArgs.isDryRun,
-			beforeMerge: () =>
-				resolvePostLandingSlotCleanupDecision({
-					ctx: options.ctx,
-					args: options.parsedArgs,
-					shape: shape.value,
-				}),
+			cleanup: {
+				isDryRun: options.parsedArgs.isDryRun,
+				shouldPreserveSlot: options.parsedArgs.shouldPreserveSlot,
+				shouldSkipConfirmation: options.parsedArgs.shouldSkipConfirmation,
+				shouldForceCleanup: options.parsedArgs.shouldForceCleanup,
+			},
 			...optionalEntry("progressIo", observabilityChannels.progressIo),
 		});
 		return await finishAfterLanding(result.outcome, {
@@ -137,9 +136,9 @@ interface FinishAfterLandingOptions {
 }
 
 async function finishAfterLanding(
-	outcome: LandStackOutcome,
+	outcome: LandOutcome,
 	options: FinishAfterLandingOptions,
-): Promise<LandStackOutcome> {
+): Promise<LandOutcome> {
 	if (outcome.type === "failure") return outcome;
 	return await runPostLandingSlotCleanup(options);
 }
@@ -148,7 +147,7 @@ async function resolveAndFinishPostLandingCleanup(
 	options: Omit<FinishAfterLandingOptions, "cleanupDecision"> & {
 		confirmation?: PreMergeConfirmation;
 	},
-): Promise<LandStackOutcome> {
+): Promise<LandOutcome> {
 	const cleanupDecision = await resolvePostLandingCleanupForDispatch(options);
 	if (cleanupDecision.type === "outcome") return cleanupDecision.outcome;
 	return await runPostLandingSlotCleanup({
@@ -159,7 +158,7 @@ async function resolveAndFinishPostLandingCleanup(
 
 type DispatchCleanupDecision =
 	| { readonly type: "decision"; readonly value: PostLandingSlotCleanupDecision }
-	| { readonly type: "outcome"; readonly outcome: LandStackOutcome };
+	| { readonly type: "outcome"; readonly outcome: LandOutcome };
 
 async function resolvePostLandingCleanupForDispatch(options: {
 	ctx: PrintAwareLandStackCommandContext;
@@ -168,12 +167,14 @@ async function resolvePostLandingCleanupForDispatch(options: {
 	confirmation?: PreMergeConfirmation;
 }): Promise<DispatchCleanupDecision> {
 	const cleanupDecision = await resolvePostLandingSlotCleanupDecision(options);
-	if (cleanupDecision.type === "failure") return { type: "outcome", outcome: cleanupDecision };
+	if (cleanupDecision.type === "failure") {
+		return { type: "outcome", outcome: landOutcomeFailure(cleanupDecision.failure) };
+	}
 	return { type: "decision", value: cleanupDecision.value };
 }
 
 interface StackModeConfirmationResult {
-	outcome: LandStackOutcome;
+	outcome: LandOutcome;
 	cleanupConfirmation?: PreMergeConfirmation;
 }
 
@@ -198,10 +199,10 @@ async function confirmStackModeIfNeeded(
 		nonInteractiveMessage:
 			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
 		defaultAnswer: "yes",
-		onFailure: (landFailure) => presentFailureAndReturn(ctx, landFailure),
+		onFailure: (failure) => presentFailureAndReturn(ctx, failure),
 	});
 	const cleanupConfirmation: PreMergeConfirmation | undefined =
-		outcome.type === "success" && options.cleanupPreview !== undefined && shouldPrompt
+		outcome.type === "completed" && options.cleanupPreview !== undefined && shouldPrompt
 			? "already-approved"
 			: undefined;
 	return { outcome, ...optionalEntry("cleanupConfirmation", cleanupConfirmation) };

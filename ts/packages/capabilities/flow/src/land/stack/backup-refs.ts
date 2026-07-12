@@ -4,11 +4,10 @@ import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/gi
 import { landFailure, landSuccess } from "../api.ts";
 import type { LandingFailure, LandResult } from "../api.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
-import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE, GIT_TIMEOUT_MS } from "./constants.ts";
+import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../graphite-operations.ts";
+import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { loadLiveLocalBranchTips } from "./stack-facts.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
-
-export const LAND_BACKUP_RECOVERY_HINT = `Pre-land branch SHAs are saved under ${BACKUP_REF_NAMESPACE}/<branch>; one previous generation is kept under ${BACKUP_REF_PREV_NAMESPACE}/<branch> (restore with git update-ref refs/heads/<branch> ${BACKUP_REF_NAMESPACE}/<branch>).`;
 
 interface SnapshotBackupRefsOptions {
 	readonly pi: LandStackExtensionAPI;

@@ -9,16 +9,16 @@ import {
 	formatFailedTarget,
 	formatFailure,
 	formatFailureNotification,
-	landFailureKind,
+	failureKind,
 	renderLandConfirmationDetails,
 	renderLandResultBlock,
 	renderPlainLandConfirmationDetails,
 } from "../../src/land/land-presentation.ts";
 import {
-	landFlowFailureFacts,
+	landingFailureFacts,
 	landingExecutionFailure,
-	type LandFlowFailure,
-} from "../../src/land/stack/errors.ts";
+	type LandingFailure,
+} from "../../src/land/results.ts";
 import type { LandConfirmationPreview } from "../../src/land/stack/types.ts";
 
 const DIM = "\x1b[2m";
@@ -135,21 +135,21 @@ const failures = [
 		phase: "request-validation",
 		message: "Not implemented.",
 	},
-] satisfies readonly LandFlowFailure[];
+] satisfies readonly LandingFailure[];
 
 describe("land failure presentation", () => {
 	test("formats and classifies every flow failure variant", () => {
 		for (const failure of failures) {
-			const facts = landFlowFailureFacts(failure);
+			const facts = landingFailureFacts(failure);
 			const presentation = buildLandFailurePresentation(failure, []);
 			expect(formatFailure(failure, [])).toContain(facts.message);
 			expect(formatFailureNotification(failure)).toBeTruthy();
-			expect(landFailureKind(failure)).toBe(facts.outcome === "refusal" ? "refusal" : "failure");
+			expect(failureKind(failure)).toBe(facts.outcome === "refusal" ? "refusal" : "failure");
 			expect(presentation).toEqual({
 				fullMessage: formatFailure(failure, []),
 				level: facts.level,
 				uiMessage: formatFailureNotification(failure),
-				kind: landFailureKind(failure),
+				kind: failureKind(failure),
 			});
 		}
 	});
@@ -157,12 +157,12 @@ describe("land failure presentation", () => {
 	test("preserves execution metadata and failure defaults", () => {
 		const defaultExecution = landingExecutionFailure("Default execution failure.");
 		expect(failureLevel(defaultExecution)).toBe("error");
-		expect(landFlowFailureFacts(defaultExecution).outcome).toBe("failure");
+		expect(landingFailureFacts(defaultExecution).outcome).toBe("failure");
 
 		const [execution, boundary, domain, notImplemented] = failures;
 		if (!execution || !boundary || !domain || !notImplemented) return;
 
-		const executionFacts = landFlowFailureFacts(execution);
+		const executionFacts = landingFailureFacts(execution);
 		expect(failureLevel(execution)).toBe("warning");
 		expect(executionFacts.outcome).toBe("refusal");
 		expect(executionFacts.displayCommand).toBe("gt restack");
@@ -172,21 +172,21 @@ describe("land failure presentation", () => {
 		expect(formatFailedTarget(execution)).toBe("#42 feature-a");
 
 		for (const failure of [boundary, domain, notImplemented]) {
-			const facts = landFlowFailureFacts(failure);
+			const facts = landingFailureFacts(failure);
 			expect(facts.level).toBe("error");
 			expect(facts.outcome).toBe("failure");
 		}
-		const boundaryFacts = landFlowFailureFacts(boundary);
+		const boundaryFacts = landingFailureFacts(boundary);
 		expect(boundaryFacts.displayCommand).toBe("git status");
 		expect(boundaryFacts.execResult).toEqual(execResult);
-		const domainFacts = landFlowFailureFacts(domain);
+		const domainFacts = landingFailureFacts(domain);
 		expect(domainFacts.failedBranch).toBe("feature-b");
 		expect(domainFacts.failedPrNumber).toBe(43);
 		expect(formatFailedTarget(notImplemented)).toBe("unknown");
 	});
 
 	test("rewords dirty-worktree only at the presentation boundary", () => {
-		const failure: LandFlowFailure = {
+		const failure: LandingFailure = {
 			type: "domain",
 			phase: "preflight",
 			reason: "dirty-worktree",

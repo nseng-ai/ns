@@ -1,12 +1,12 @@
-import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
-import type { DescendantMaintenancePlan, LandingPlan, LandGraphiteRestackScope } from "../api.ts";
+import { LAND_BACKUP_RECOVERY_HINT } from "../graphite-operations.ts";
+import type { DescendantMaintenancePlan, LandingPlan, LandGraphiteRestackScope } from "../types.ts";
 import { landingWarning, type LandingWarning } from "../types.ts";
 import {
 	formatGraphiteOperation,
 	restackOperation,
 	type CheckedOutElsewhere,
-} from "./graphite-command-channel.ts";
-import { formatConflict, slotNameFromPath } from "./worktrees.ts";
+} from "../graphite-operations.ts";
+import { formatConflict, slotNameFromPath } from "../worktree-paths.ts";
 
 export type MaintenanceMode =
 	| "required-next-landing"

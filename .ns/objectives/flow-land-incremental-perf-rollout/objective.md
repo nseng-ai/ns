@@ -2,6 +2,8 @@
 edges:
   - objective: flow-land-large-stack-performance
     annotation: Successor by consolidation; this rollout inherits its unfinished reconcile row, wall-time baseline question, and parked follow-ups, and replaces its steer-first primitive questions with an incremental dogfooded-slice strategy.
+  - objective: flow-land-execution-migration
+    annotation: "Closed rollout retained as historical measurement context for its execution-migration successor; the unchanged transcript suite remains authoritative at corrected baselines linear-11 = 140 and linear-25 = 308."
 ---
 
 # Flow Land Incremental Perf Rollout

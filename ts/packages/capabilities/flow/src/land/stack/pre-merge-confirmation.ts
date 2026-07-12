@@ -1,12 +1,12 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
-	completed,
-	failure,
+	landCompleted,
+	landOutcomeFailure,
 	landingExecutionFailure,
-	type LandFlowFailure,
+	type LandingFailure,
 	type LandingExecutionFailureOptions,
-	type LandStackOutcome,
-} from "./errors.ts";
+	type LandOutcome,
+} from "../results.ts";
 import type { LandingPlan } from "../types.ts";
 import type { StackLandingRuntime } from "./stack-landing-runtime.ts";
 import type { LandProgressReporter, LandStackCommandContext } from "./types.ts";
@@ -34,22 +34,22 @@ interface ConfirmLandStackActionOptions {
 	cancellationFailureOptions?: LandingExecutionFailureOptions;
 	renderDetails?: (details: string) => string;
 	defaultAnswer?: "yes" | "no";
-	onFailure?: (landFailure: LandFlowFailure) => void;
+	onFailure?: (failure: LandingFailure) => void;
 }
 
 export async function confirmLandStackAction(
 	options: ConfirmLandStackActionOptions,
-): Promise<LandStackOutcome> {
-	if (!options.shouldPrompt) return completed();
+): Promise<LandOutcome> {
+	if (!options.shouldPrompt) return landCompleted();
 
 	if (!options.ctx.hasUI) {
-		const landFailure = landingExecutionFailure(options.nonInteractiveMessage, {
+		const failure = landingExecutionFailure(options.nonInteractiveMessage, {
 			...options.nonInteractiveFailureOptions,
 			outcome: "refusal",
 			refusalReason: "non-interactive",
 		});
-		options.onFailure?.(landFailure);
-		return failure(landFailure);
+		options.onFailure?.(failure);
+		return landOutcomeFailure(failure);
 	}
 
 	const details = options.renderDetails?.(options.details) ?? options.details;
@@ -58,7 +58,7 @@ export async function confirmLandStackAction(
 			? undefined
 			: optionalEntry("defaultAnswer", options.defaultAnswer);
 	const confirmed = await options.ctx.ui.confirm(options.title, details, confirmOptions);
-	if (confirmed) return completed();
+	if (confirmed) return landCompleted();
 
 	const cancellationFailureOptions = {
 		...(options.cancellationFailureOptions ?? {
@@ -67,12 +67,12 @@ export async function confirmLandStackAction(
 		}),
 		refusalReason: "declined" as const,
 	};
-	const landFailure = landingExecutionFailure(
+	const failure = landingExecutionFailure(
 		options.cancellationMessage ?? LANDING_CANCELLED_MESSAGE,
 		cancellationFailureOptions,
 	);
-	options.onFailure?.(landFailure);
-	return failure(landFailure);
+	options.onFailure?.(failure);
+	return landOutcomeFailure(failure);
 }
 
 interface ConfirmPreMergeMaintenanceOptions {
@@ -86,7 +86,7 @@ interface ConfirmPreMergeMaintenanceOptions {
 
 export async function confirmPreMergeMaintenance(
 	options: ConfirmPreMergeMaintenanceOptions,
-): Promise<LandStackOutcome> {
+): Promise<LandOutcome> {
 	return await confirmLandStackAction({
 		ctx: options.ctx,
 		shouldPrompt: (options.confirmation ?? "prompt") === "prompt",

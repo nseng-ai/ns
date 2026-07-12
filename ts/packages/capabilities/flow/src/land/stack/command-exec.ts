@@ -9,7 +9,8 @@ import {
 	MAX_OUTPUT_TAIL_CHARS,
 	MAX_OUTPUT_TAIL_LINES,
 } from "./constants.ts";
-import { normalizeLandCommandFinish, stripAnsi } from "./graphite-command-channel.ts";
+import { stripAnsi } from "../graphite-operations.ts";
+import { normalizeLandCommandFinish } from "./graphite-command-channel.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
 export interface ExecOptions {

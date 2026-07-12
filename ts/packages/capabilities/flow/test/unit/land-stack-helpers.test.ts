@@ -5,13 +5,15 @@ import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { shortSha } from "../../src/commit-display/index.ts";
 import { outputTail } from "../../src/land/stack/command-exec.ts";
 import {
-	createLandGraphiteCommandChannel,
 	formatGraphiteOperation,
-	isGtDeleteMissingBranch,
 	parseGitCheckedOutElsewhere,
 	stripAnsi,
+} from "../../src/land/graphite-operations.ts";
+import {
+	createLandGraphiteCommandChannel,
+	isGtDeleteMissingBranch,
 } from "../../src/land/stack/graphite-command-channel.ts";
-import { landingExecutionFailure, type LandStackResult } from "../../src/land/stack/errors.ts";
+import { landingExecutionFailure, type LandResult } from "../../src/land/results.ts";
 import {
 	createLandUiCommandIo,
 	LandStackCommandStream,
@@ -41,15 +43,11 @@ import { detectInProgressOperation } from "../../src/land/stack/stack-facts.ts";
 import type {
 	LandStackExtensionAPI,
 	LandStackCommandContext,
-	LandedPr,
 	NotifyLevel,
 } from "../../src/land/stack/types.ts";
-import {
-	detectWorktreeConflicts,
-	isManagedSlotPath,
-	parseWorktreeList,
-	slotNameFromPath,
-} from "../../src/land/stack/worktrees.ts";
+import type { LandedPullRequest } from "../../src/land/types.ts";
+import { parseWorktreeList } from "../../src/land/stack/worktrees.ts";
+import { isManagedSlotPath, slotNameFromPath } from "../../src/land/worktree-paths.ts";
 import { TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
 import { fakeGitStateFs } from "./git-state-fs-support.ts";
 
@@ -178,7 +176,7 @@ function execResult(overrides: ExitedResultFields = {}): ExecResult {
 	};
 }
 
-function expectSuccess<T>(result: LandStackResult<T>): T {
+function expectSuccess<T>(result: LandResult<T>): T {
 	expect(result.type).toBe("success");
 	if (result.type !== "success") {
 		throw new Error(`Expected land-stack success, got failure: ${result.failure.message}`);
@@ -186,7 +184,7 @@ function expectSuccess<T>(result: LandStackResult<T>): T {
 	return result.value;
 }
 
-function expectFailure<T>(result: LandStackResult<T>) {
+function expectFailure<T>(result: LandResult<T>) {
 	expect(result.type).toBe("failure");
 	if (result.type !== "failure") {
 		throw new Error("Expected land-stack failure, got success.");
@@ -288,18 +286,6 @@ function prSnapshot(overrides: {
 		url: `https://github.example/pull/${overrides.number}`,
 		mergedAt: overrides.mergedAt ?? null,
 	};
-}
-
-function worktreeOutput(entries: Array<{ path: string; branch?: string }>): string {
-	return entries
-		.map((entry) => {
-			const lines = [`worktree ${entry.path}`, "HEAD 0000000000000000000000000000000000000000"];
-			if (entry.branch) {
-				lines.push(`branch refs/heads/${entry.branch}`);
-			}
-			return lines.join("\n");
-		})
-		.join("\n\n");
 }
 
 function topologyOf(
@@ -536,53 +522,6 @@ describe("land-stack pure helpers", () => {
 		expect(operation).toBeUndefined();
 	});
 
-	test("detects worktree conflicts with injected path normalization", async () => {
-		const slotPath = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
-		const pi = new FakePi([
-			step("git", ["worktree", "list", "--porcelain"], {
-				stdout: worktreeOutput([
-					{ path: "/symlink/repo", branch: CURRENT },
-					{ path: slotPath, branch: "feature-a" },
-				]),
-			}),
-		]);
-
-		const conflicts = expectSuccess(
-			await detectWorktreeConflicts(pi, ROOT, CURRENT, ["feature-a", CURRENT], {
-				normalizePath: (path) =>
-					path === ROOT || path === "/symlink/repo" ? "/real/repo" : `/real${path}`,
-			}),
-		);
-
-		pi.assertDone();
-		expect(conflicts).toEqual([
-			{ branch: CURRENT, path: "/symlink/repo", type: "current" },
-			{ branch: "feature-a", path: slotPath, type: "managed-slot" },
-		]);
-	});
-
-	test("treats legacy .slots worktrees as manual worktree conflicts", async () => {
-		const legacySlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-01";
-		const pi = new FakePi([
-			step("git", ["worktree", "list", "--porcelain"], {
-				stdout: worktreeOutput([
-					{ path: ROOT, branch: CURRENT },
-					{ path: legacySlotPath, branch: "feature-a" },
-				]),
-			}),
-		]);
-
-		const conflicts = expectSuccess(
-			await detectWorktreeConflicts(pi, ROOT, CURRENT, ["feature-a", CURRENT]),
-		);
-
-		pi.assertDone();
-		expect(conflicts).toEqual([
-			{ branch: CURRENT, path: ROOT, type: "current" },
-			{ branch: "feature-a", path: legacySlotPath, type: "manual-worktree" },
-		]);
-	});
-
 	test("detects managed slot paths and extracts slot names", () => {
 		const legacySlotPath = "/Users/me/.slots/repos/sdl-tools/worktrees/slot-04";
 		const xdgSlotPath = "/Users/me/.local/state/ns/slots/repos/sdl-tools/worktrees/slot-04";
@@ -728,7 +667,7 @@ describe("land-stack pure helpers", () => {
 			formattedWithSubmit.indexOf("gt submit/update"),
 		);
 
-		const landed: LandedPr[] = [{ branch: "feature-a", number: 101, title: "PR 101" }];
+		const landed: LandedPullRequest[] = [{ branch: "feature-a", number: 101, title: "PR 101" }];
 		const failure = formatFailure(
 			landingExecutionFailure("Restack failed.", {
 				failedBranch: CURRENT,

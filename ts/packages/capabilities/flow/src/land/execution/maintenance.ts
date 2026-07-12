@@ -1,13 +1,18 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { shortSha } from "../../commit-display/index.ts";
-import { isLikelyInProgressGitOperationFailure } from "../../submit/cli-prose-heuristics.ts";
-import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
-import { parseGitCheckedOutElsewhere } from "./graphite-command-channel.ts";
-import { landingExecutionFailure, type LandFlowFailure } from "./errors.ts";
-import { validateOpenPrBasics } from "../api.ts";
-import type { LandContext, LandingPlan, PullRequestFacts } from "../api.ts";
-import { landingWarning, type LandingWarning } from "../types.ts";
-import type { LandProgressReporter, MergeLoopState } from "./types.ts";
+import { LAND_BACKUP_RECOVERY_HINT, parseGitCheckedOutElsewhere } from "../graphite-operations.ts";
+import { validateOpenPrBasics } from "../preflight.ts";
+import { landingExecutionFailure } from "../results.ts";
+import type {
+	LandContext,
+	LandingExecutionFailure,
+	LandingPlan,
+	LandingWarning,
+	PullRequestFacts,
+} from "../types.ts";
+import { landingWarning } from "../types.ts";
+import type { LandExecutionProgress } from "./host-seams.ts";
+import type { MergeLoopState } from "./merge-loop.ts";
 import {
 	aggregateOptionalDescendantMaintenanceWarnings,
 	formatCheckedOutElsewhere,
@@ -22,9 +27,9 @@ import {
 	type BranchMaintenanceWarning,
 	type MaintenanceSeverity,
 	type MaintenanceTargetPlan,
-} from "./graphite-maintenance-plan.ts";
+} from "./maintenance-plan.ts";
 
-export type GraphiteMaintenanceProgress = LandProgressReporter;
+export type GraphiteMaintenanceProgress = LandExecutionProgress;
 
 interface GraphiteMaintenanceStep {
 	readonly index: number;
@@ -36,7 +41,7 @@ interface GraphiteMaintenanceStep {
 type GraphiteMaintenanceOutcome =
 	| { kind: "proceed" }
 	| { kind: "skip"; warning?: LandingWarning }
-	| { kind: "halt"; failure: LandFlowFailure };
+	| { kind: "halt"; failure: LandingExecutionFailure };
 
 type GraphiteMaintenanceStop = Extract<GraphiteMaintenanceOutcome, { kind: "halt" | "skip" }>;
 type GraphiteMaintenanceHalt = Extract<GraphiteMaintenanceOutcome, { kind: "halt" }>;
@@ -54,7 +59,7 @@ interface MaintenanceStepRecorder {
 
 function failOrWarn(
 	severity: MaintenanceSeverity,
-	pair: { failure: LandFlowFailure; warning: LandingWarning },
+	pair: { failure: LandingExecutionFailure; warning: LandingWarning },
 ): GraphiteMaintenanceStop {
 	if (severity === "fail") return { kind: "halt", failure: pair.failure };
 	return { kind: "skip", warning: pair.warning };
@@ -67,7 +72,9 @@ interface GraphiteRefreshFailureOptions {
 	got: ExecResult;
 }
 
-function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): LandFlowFailure {
+function graphiteRefreshFailure(
+	failureOptions: GraphiteRefreshFailureOptions,
+): LandingExecutionFailure {
 	const { prNumber, maintenanceBranch, getCommandDisplay, got } = failureOptions;
 	const checkoutConflict = parseGitCheckedOutElsewhere(got);
 	if (checkoutConflict) {
@@ -585,6 +592,7 @@ async function deleteLocalGraphiteBranchAfterLanding(
 					prNumber,
 					commandDisplay: deletion.commandDisplay,
 					result: deletion.result,
+					isLikelyInProgressGitOperation: deletion.isLikelyInProgressGitOperation,
 					isOptionalDescendant: maintenance.isOptionalDescendant,
 				}),
 			);
@@ -629,11 +637,12 @@ interface LocalBranchDeletionFailurePairOptions {
 	prNumber: number;
 	commandDisplay: string;
 	result: ExecResult;
+	isLikelyInProgressGitOperation: boolean;
 	isOptionalDescendant: boolean;
 }
 
 function localBranchDeletionFailurePair(options: LocalBranchDeletionFailurePairOptions): {
-	failure: LandFlowFailure;
+	failure: LandingExecutionFailure;
 	warning: LandingWarning;
 } {
 	const details = localBranchDeletionFailureDetails(options);
@@ -660,7 +669,7 @@ function localBranchDeletionFailureDetails(options: LocalBranchDeletionFailurePa
 	warningMessage: string;
 	warningSuggestedAction: string;
 } {
-	if (!isLikelyInProgressGitOperationFailure(options.result)) {
+	if (!options.isLikelyInProgressGitOperation) {
 		return {
 			failureMessage: `PR #${options.prNumber} merged, but deleting the local Graphite branch ${options.branch} failed.`,
 			failureSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack before rerunning /ns:flow:land.`,
