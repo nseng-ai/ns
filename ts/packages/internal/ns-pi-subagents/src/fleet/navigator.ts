@@ -50,6 +50,7 @@ import {
 	renderFleetDetailHeaderLines,
 	renderFleetEntrySummaryLines,
 } from "./detail-render.ts";
+import { windowEntryBlocks } from "./entry-block-window.ts";
 import {
 	formatSubagentFleetTaskLines,
 	latestParentSessionFile,
@@ -815,54 +816,6 @@ function parentSessionEntry(
 
 function defaultSelectionId(entries: readonly FleetNavigatorEntry[]): string | undefined {
 	return entryId(entries.find((entry) => entry.kind === "task") ?? entries[0]);
-}
-
-function windowEntryBlocks(
-	blocks: readonly (readonly string[])[],
-	selectedIndex: number,
-	rows: number,
-): string[] {
-	const safeRows = Math.max(1, rows);
-	let start = selectedIndex;
-	let end = selectedIndex + 1;
-
-	while (true) {
-		const left = start > 0 ? start - 1 : undefined;
-		const right = end < blocks.length ? end : undefined;
-		const candidates =
-			left === undefined
-				? right === undefined
-					? []
-					: [{ start, end: end + 1 }]
-				: right === undefined
-					? [{ start: start - 1, end }]
-					: [
-							{ start: start - 1, end },
-							{ start, end: end + 1 },
-						];
-		const next = candidates.find(
-			(candidate) => entryBlockWindowLineCount(blocks, candidate.start, candidate.end) <= safeRows,
-		);
-		if (next === undefined) break;
-		start = next.start;
-		end = next.end;
-	}
-
-	const prefix = start > 0 ? [`… ${start} earlier`] : [];
-	const suffix = end < blocks.length ? [`… ${blocks.length - end} more`] : [];
-	const availableBlockRows = safeRows - prefix.length - suffix.length;
-	if (availableBlockRows < 1) return blocks[selectedIndex]?.slice(0, safeRows) ?? [];
-	const visibleBlocks = blocks.slice(start, end).flat();
-	return [...prefix, ...visibleBlocks.slice(0, availableBlockRows), ...suffix];
-}
-
-function entryBlockWindowLineCount(
-	blocks: readonly (readonly string[])[],
-	start: number,
-	end: number,
-): number {
-	const blockRows = blocks.slice(start, end).reduce((total, block) => total + block.length, 0);
-	return blockRows + (start > 0 ? 1 : 0) + (end < blocks.length ? 1 : 0);
 }
 
 function padRows(lines: readonly string[], rows: number): string[] {
