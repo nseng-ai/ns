@@ -138,7 +138,7 @@ interface RawArgvCommand<T = unknown> {
   summary: string;
   description: string;
   run(ctx: NsExtensionApi, invocation: { readonly argv: readonly string[] }): Promise<CommandExit<T>> | CommandExit<T>;
-  complete?: KernelCommandCompletionProvider | undefined;
+  complete?: NsCommandCompletionProvider | undefined;
 }
 ```
 
@@ -159,10 +159,10 @@ export default defineCommand({
 });
 ```
 
-### `KernelCommandCompletionProvider` / `NsCommandCompletionProvider`
+### `NsCommandCompletionProvider`
 
 ```ts
-type KernelCommandCompletionProvider = (
+type NsCommandCompletionProvider = (
   ctx: NsExtensionApi,
   request: ClinkrDynamicCompletionRequest,
 ) =>
@@ -171,7 +171,7 @@ type KernelCommandCompletionProvider = (
   | readonly ClinkrCompletionCandidate[];
 ```
 
-Provides dynamic completion candidates for the selected command without invoking `run`. `NsCommandCompletionProvider` is a compatibility alias. Use it for cheap, read-only lookups such as branch names. Return either a candidate array or `{ candidates }`; candidate values are newline-rendered by the shell resolver, while descriptions are currently ignored by the newline renderer.
+Provides dynamic completion candidates for the selected command without invoking `run`. Use it for cheap, read-only lookups such as branch names. Return either a candidate array or `{ candidates }`; candidate values are newline-rendered by the shell resolver, while descriptions are currently ignored by the newline renderer.
 
 **Boundaries.**
 
