@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 
 import {
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,

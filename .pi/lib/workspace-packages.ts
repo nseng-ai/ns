@@ -17,7 +17,7 @@ const workspacePackageFallbacks: Record<string, string> = {
 	"@nseng-ai/ns-pi-subagents/api": "../../ts/packages/extensions/ns-pi-subagents/src/api/index.ts",
 	"@nseng-ai/ns-pi-subagents/extension":
 		"../../ts/packages/extensions/ns-pi-subagents/src/extension.ts",
-	"@nseng-ai/pi/shared/exec-gateway": "../../ts/packages/hosts/pi/src/kit/shared/exec-gateway.ts",
+	"@nseng-ai/pi/shared/command-exec": "../../ts/packages/hosts/pi/src/kit/shared/command-exec.ts",
 	"@nseng-ai/pi/worktree-status/extension":
 		"../../ts/packages/hosts/pi/src/worktree-status/extension.ts",
 };

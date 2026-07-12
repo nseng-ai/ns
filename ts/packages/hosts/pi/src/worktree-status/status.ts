@@ -51,7 +51,7 @@ const COMMAND_TIMEOUT_MS = 5_000;
 
 export type { ExecResult } from "@nseng-ai/foundation/command";
 
-export interface ExecGateway {
+export interface WorktreeStatusExecApi {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 }
 
@@ -101,7 +101,7 @@ export type GraphiteMetadataLoader = (
 ) => Promise<GraphiteMetadataStatus>;
 
 export interface LoadGtStatusOptions {
-	pi: ExecGateway;
+	pi: WorktreeStatusExecApi;
 	cwd: string;
 	signal?: AbortSignal;
 	metadataLoader?: GraphiteMetadataLoader;
@@ -166,7 +166,7 @@ interface LoadGhStatusInternalOptions {
 }
 
 export async function loadLocalWorktreeStatus(
-	pi: ExecGateway,
+	pi: WorktreeStatusExecApi,
 	cwd: string,
 	options: LoadLocalWorktreeStatusOptions = {},
 ): Promise<LocalWorktreeStatus> {
@@ -193,7 +193,7 @@ export async function loadLocalWorktreeStatus(
 }
 
 export async function loadWorktreeGhStatus(
-	pi: ExecGateway,
+	pi: WorktreeStatusExecApi,
 	cwd: string,
 	options: LoadWorktreeGhStatusOptions = {},
 ): Promise<WorktreeGhStatus> {
@@ -266,7 +266,7 @@ function stackCountsFromMetadata(
 }
 
 async function loadBrmemStatus(
-	pi: ExecGateway,
+	pi: WorktreeStatusExecApi,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<string | undefined> {
@@ -386,7 +386,7 @@ function loadUpBranch(metadata: GraphiteMetadataStatus, signal?: AbortSignal): s
 }
 
 async function loadHasCommits(
-	pi: ExecGateway,
+	pi: WorktreeStatusExecApi,
 	cwd: string,
 	down: string | undefined,
 	signal?: AbortSignal,
@@ -411,7 +411,7 @@ async function loadHasCommits(
 }
 
 async function loadDirty(
-	pi: ExecGateway,
+	pi: WorktreeStatusExecApi,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<"yes" | "no"> {
@@ -426,14 +426,14 @@ async function loadDirty(
 }
 
 export async function loadWorktreeStatusIdentity(
-	pi: ExecGateway,
+	pi: WorktreeStatusExecApi,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<WorktreeStatusIdentity> {
 	const gitPaths = findWorktreeStatusGitPaths(cwd);
 	const head =
 		gitPaths === undefined ? { type: "unknown" as const } : currentHeadIdentity(gitPaths);
-	const git = gitGatewayFromExecGateway(pi);
+	const git = gitGatewayFromExecApi(pi);
 	const headOid = await loadHeadOid(git, cwd, signal);
 	const identity: WorktreeStatusIdentity = { cwd: resolve(cwd), head };
 	return headOid === undefined ? identity : { ...identity, headOid };
@@ -452,7 +452,7 @@ async function loadHeadOid(
 }
 
 async function loadGhStatus(
-	pi: ExecGateway,
+	pi: WorktreeStatusExecApi,
 	cwd: string,
 	options: LoadGhStatusInternalOptions,
 ): Promise<WorktreeGhStatus> {
@@ -460,7 +460,7 @@ async function loadGhStatus(
 	if (signal?.aborted) return { type: "unavailable", message: "request aborted" };
 	if (identity.head.type !== "branch") return { type: "unavailable", message: "not on a branch" };
 
-	const git = gitGatewayFromExecGateway(pi);
+	const git = gitGatewayFromExecApi(pi);
 	const repository = await loadGitHubRepositoryIdentity(git, cwd, signal);
 	if (repository === undefined)
 		return {
@@ -608,7 +608,7 @@ function execOptions(cwd: string, signal?: AbortSignal) {
 		: { cwd, signal, timeout: COMMAND_TIMEOUT_MS };
 }
 
-function gitGatewayFromExecGateway(pi: ExecGateway): GitGateway {
+function gitGatewayFromExecApi(pi: WorktreeStatusExecApi): GitGateway {
 	return new RealGitGateway(pi);
 }
 

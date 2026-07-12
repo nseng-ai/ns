@@ -27,7 +27,7 @@ import {
 	type RunnerSubagentDispatcherDependencies,
 	type SpawnCall,
 } from "@nseng-ai/ns-pi-subagents/runner-subagents/testing";
-import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/command-exec";
 import {
 	SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
 	reviewerOutcomeFromRunnerResult,

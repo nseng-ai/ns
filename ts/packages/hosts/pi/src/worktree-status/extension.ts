@@ -13,9 +13,9 @@ import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import { shutdownGraphiteMetadataWorker } from "@nseng-ai/capability-kit/graphite/status";
 import {
 	createPiCommandExecApi,
-	type ExecGateway,
+	type CommandExecApi,
 	type RawPiExecApi,
-} from "../kit/shared/exec-gateway.ts";
+} from "../kit/shared/command-exec.ts";
 
 import {
 	combineWorktreeStatus,
@@ -200,19 +200,19 @@ interface GhStatusSnapshot {
 }
 
 export type WorktreeStatusIdentityLoader = (
-	pi: ExecGateway,
+	pi: CommandExecApi,
 	cwd: string,
 	signal?: AbortSignal,
 ) => Promise<WorktreeStatusIdentity>;
 
 export type LocalWorktreeStatusLoader = (
-	pi: ExecGateway,
+	pi: CommandExecApi,
 	cwd: string,
 	options?: LoadLocalWorktreeStatusOptions,
 ) => Promise<LocalWorktreeStatus>;
 
 export type WorktreeGhStatusLoader = (
-	pi: ExecGateway,
+	pi: CommandExecApi,
 	cwd: string,
 	options?: LoadWorktreeGhStatusOptions,
 ) => Promise<WorktreeGhStatus>;

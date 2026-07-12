@@ -171,7 +171,7 @@ The subset of **DI Seams** that abstracts a stateful or heavyweight external ser
 *Avoid*: port, generic service locator, dependency-injection bag, pure filesystem gateway, shared `FileSystemGateway`, substrate-shaped capability gateway, `ExecGateway` (retired name), gateway as a synonym for every DI seam
 
 **Domain logic**:
-Deterministic code that consumes one or more **Gateways** to produce or transform domain values, such as assembling a worktree's status from several `ExecGateway` calls. It is not a seam to the outside world: substituting domain logic in a test fakes logic you own, so prefer faking the **Gateway** beneath it. Name domain logic with a domain-specific verb (`load`, `read`, `resolve`, `assemble`, …, chosen for the domain action, not a mandated prefix); do not mint `…Loader` noun-types or a `loaders`/`…Dependencies` collection that dresses stateless functions up as a stateful collaborator.
+Deterministic code that consumes one or more **Gateways** to produce or transform domain values, such as assembling a worktree's status from several command-exec seam calls. It is not a seam to the outside world: substituting domain logic in a test fakes logic you own, so prefer faking the **Gateway** beneath it. Name domain logic with a domain-specific verb (`load`, `read`, `resolve`, `assemble`, …, chosen for the domain action, not a mandated prefix); do not mint `…Loader` noun-types or a `loaders`/`…Dependencies` collection that dresses stateless functions up as a stateful collaborator.
 *Avoid*: business logic, application logic, loader, `…Loader` type, `…Dependencies` injection bag
 
 ### Extension Layering

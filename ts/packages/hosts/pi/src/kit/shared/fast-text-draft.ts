@@ -11,7 +11,7 @@ import { callPiModelText, type PiModelRegistryLike } from "../models/call.ts";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import { truncateDisplayLine } from "../terminal/presentation.ts";
 import { withSafePiUi } from "./safe-ui.ts";
-import { createPiCommandExecApi, type RawPiExecApi } from "./exec-gateway.ts";
+import { createPiCommandExecApi, type RawPiExecApi } from "./command-exec.ts";
 import { unrefTimerScheduler } from "./timers.ts";
 
 export const HARNESS_ENV = "PI_DRAFT_HARNESS";

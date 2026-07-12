@@ -9,7 +9,7 @@ import { parseCliCommandArgs } from "../../commands/cli-extension.ts";
 import { parseMachineEnvelopeDataWithFailureData } from "../../runtime/machine-envelope.ts";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import { definePiSurfaceParity } from "../../runtime/parity-extension.ts";
-import { createPiCommandExecApi, type RawPiExecApi } from "../../kit/shared/exec-gateway.ts";
+import { createPiCommandExecApi, type RawPiExecApi } from "../../kit/shared/command-exec.ts";
 import {
 	downloadPrFeedback,
 	type ExecResult,

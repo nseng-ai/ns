@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { launchHandoffTab, type HandoffTabLaunchHost } from "../../src/pi/tab-launch.ts";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import {
 	cmuxCreateSurfaceRefStep,
 	cmuxCreateSurfaceStep,

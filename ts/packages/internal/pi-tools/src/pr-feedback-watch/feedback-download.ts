@@ -1,13 +1,13 @@
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 import { formatZodError } from "@nseng-ai/foundation/primitives";
-import type { ExecResult } from "@nseng-ai/pi/shared/exec-gateway";
-import type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
+import type { ExecResult } from "@nseng-ai/pi/shared/command-exec";
+import type { CommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { z } from "zod";
 
 import { parseMachineEnvelopeDataWithFailureData } from "@nseng-ai/pi/runtime/machine-envelope";
 
-export type { ExecOptions, ExecResult } from "@nseng-ai/pi/shared/exec-gateway";
-export type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
+export type { ExecOptions, ExecResult } from "@nseng-ai/pi/shared/command-exec";
+export type { CommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 
 export interface PrAddressRunner {
 	command: string;
@@ -55,7 +55,7 @@ export type DownloadPrFeedbackResult =
 	| { type: "error"; message: string };
 
 export interface DownloadPrFeedbackOptions {
-	pi: ExecGateway;
+	pi: CommandExecApi;
 	cwd: string;
 	prNumber?: number;
 	timeoutMs: number;

@@ -17,7 +17,6 @@ export {
 	sameWorktreeStatusIdentity,
 } from "./status.ts";
 export type {
-	ExecGateway,
 	ExecResult,
 	FormatWorktreeStatusOptions,
 	GhHeadMismatchStatus,
@@ -33,6 +32,7 @@ export type {
 	StatusTheme,
 	WorktreeGhStatus,
 	WorktreeStatus,
+	WorktreeStatusExecApi,
 	WorktreeStatusGitPaths,
 	WorktreeStatusIdentity,
 } from "./status.ts";

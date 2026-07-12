@@ -16,7 +16,7 @@ import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { truncateDisplayLine } from "@nseng-ai/pi/terminal/presentation";
 import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
-import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { loadStackView, type LoadStackViewResult } from "./data.ts";
 import { createEnrichmentStore, type EnrichmentStore } from "./enrichment-store.ts";
 import {

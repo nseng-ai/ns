@@ -1,5 +1,5 @@
 import { execApiToCommandRunner, type ExecResult } from "@nseng-ai/foundation/command";
-import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
 
 export type FlowGraphiteCommandHost = RawPiExecApi;

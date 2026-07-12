@@ -1,5 +1,5 @@
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import type { ExtensionAPI } from "./host-types.ts";
 
 export type BranchContextPiCommandApi = Omit<ExtensionAPI, "exec"> &

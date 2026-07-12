@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import { createManualTimerHarness } from "@nseng-ai/foundation/time/testing";
-import type { RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+import type { RawPiExecResult } from "@nseng-ai/pi/shared/command-exec";
 import {
 	parseDownloadFeedbackData,
 	type PrAddressRunner,

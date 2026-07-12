@@ -11,7 +11,7 @@ import {
 	getOrCreateSubagentFleetRegistry,
 } from "@nseng-ai/ns-pi-subagents/api";
 import { RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES } from "@nseng-ai/ns-pi-subagents/runner-subagents";
-import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/exec-gateway";
+import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi/shared/command-exec";
 import thermoCouncilExtension, {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
 	SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,

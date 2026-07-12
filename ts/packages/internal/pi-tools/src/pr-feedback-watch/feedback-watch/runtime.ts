@@ -3,10 +3,10 @@ import { accessSync, constants } from "node:fs";
 import { commandSucceeded, type ExecOptions } from "@nseng-ai/foundation/exec";
 
 import { GIT_TIMEOUT_MS } from "./constants.ts";
-import type { ExecGateway, ExtensionContext } from "./types.ts";
+import type { CommandExecApi, ExtensionContext } from "./types.ts";
 
 export async function resolveRepoRoot(
-	pi: ExecGateway,
+	pi: CommandExecApi,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<string | undefined> {
@@ -20,7 +20,7 @@ export async function resolveRepoRoot(
 }
 
 export async function isWorkingTreeDirty(
-	pi: ExecGateway,
+	pi: CommandExecApi,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<boolean> {

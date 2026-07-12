@@ -1,6 +1,6 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { createPiHandoffContext } from "./api-context.ts";
 import {
 	buildDeriveHandoffSlugTool,

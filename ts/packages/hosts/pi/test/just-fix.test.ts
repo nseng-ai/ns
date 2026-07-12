@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 
 import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
-import type { RawPiExecResult } from "../src/kit/shared/exec-gateway.ts";
+import type { RawPiExecResult } from "../src/kit/shared/command-exec.ts";
 import type { LiveProgressWidgetContent } from "../src/commands/cli-command-live-progress.ts";
 
 const ROOT = "/repo";

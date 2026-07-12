@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import type { CccPiCommandApi } from "../cmux/pi-command-api.ts";
 
 export type { CccPiCommandApi } from "../cmux/pi-command-api.ts";

@@ -3,7 +3,7 @@ import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 import { formatZodError } from "@nseng-ai/foundation/primitives";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
-import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { parseCliCommandArgs } from "@nseng-ai/pi/commands/args";
 import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";

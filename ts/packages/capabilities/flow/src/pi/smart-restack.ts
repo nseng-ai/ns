@@ -14,7 +14,7 @@ import {
 
 import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 import { formatCommandOutput, notifyCommandUi } from "@nseng-ai/pi/commands/helpers";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import { expandRepoSkillBlock } from "@nseng-ai/pi/skills/expansion";
 

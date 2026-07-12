@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/capability-kit/git/testing";
 import { createPiHandoffGitGateway } from "../../src/pi/api-context.ts";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/exec-gateway";
+import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import {
 	buildHandoffLaunchRequest,
 	runHandoffCreateCommand,

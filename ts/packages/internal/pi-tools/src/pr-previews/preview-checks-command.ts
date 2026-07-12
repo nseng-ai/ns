@@ -1,4 +1,4 @@
-import type { ExecGateway } from "@nseng-ai/pi/shared/exec-gateway";
+import type { CommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { z } from "zod";
 
 import { PrPreviewChecksView, type PrPreviewCheckLogLoadOptions } from "./preview-checks-view.ts";
@@ -116,7 +116,7 @@ interface PrPreviewChecksCommandOptions {
 }
 
 interface PrPreviewChecksCommandRuntime extends PrPreviewChecksCommandOptions {
-	pi: ExecGateway;
+	pi: CommandExecApi;
 }
 
 interface PrPreviewChecksExecContext {
@@ -125,7 +125,7 @@ interface PrPreviewChecksExecContext {
 }
 
 export function createPrPreviewChecksCommand(
-	pi: ExecGateway,
+	pi: CommandExecApi,
 	options: PrPreviewChecksCommandOptions,
 ): { description: string; handler(args: string, ctx: ExtensionContext): Promise<void> } {
 	const runtime = { ...options, pi } satisfies PrPreviewChecksCommandRuntime;
