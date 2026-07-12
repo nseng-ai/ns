@@ -81,6 +81,16 @@ export function scanGrillBranch(entries: readonly unknown[]): SidequestScanState
 	if (hasEnded) return { grill: "ended", answeredCount };
 
 	const activeQuest = openQuests[openQuests.length - 1];
+	if (
+		pendingAsk === undefined &&
+		activeQuest === undefined &&
+		isRemainingEstimateExhausted(remainingEstimate)
+	) {
+		// The final question was answered with an honest "0 remaining" estimate
+		// and no new ask followed: the interview is complete even without an
+		// explicit end-grill action, so downstream UI (status widget) can clear.
+		return { grill: "ended", answeredCount };
+	}
 	return {
 		grill: "active",
 		answeredCount,
@@ -271,6 +281,14 @@ function narrowRemainingEstimate(value: unknown): GrillAskRemainingEstimate | un
 		return { kind: "unknown", basis: value.basis };
 	}
 	return undefined;
+}
+
+/** True when the latest honest estimate says no questions remain. */
+function isRemainingEstimateExhausted(estimate: GrillAskRemainingEstimate | undefined): boolean {
+	if (estimate === undefined) return false;
+	if (estimate.kind === "exact") return estimate.count === 0;
+	if (estimate.kind === "range") return estimate.max === 0;
+	return false;
 }
 
 function isNonNegativeInteger(value: unknown): value is number {
