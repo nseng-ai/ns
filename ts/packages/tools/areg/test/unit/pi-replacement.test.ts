@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { commandBackedSkillSurface } from "@nseng-ai/command-backed-skill-registry";
+import { commandBackedSkillSurface } from "../../src/command-backed-skill-registry.ts";
 
 import {
 	formatReplacementLabel,

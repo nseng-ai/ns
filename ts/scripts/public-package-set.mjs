@@ -19,7 +19,6 @@ export const intendedPublicPackages = [
 	"@nseng-ai/retros",
 	"@nseng-ai/reviews",
 	"@nseng-ai/slots",
-	"@nseng-ai/command-backed-skill-registry",
 	"@nseng-ai/ns",
 	"@nseng-ai/brmem",
 	"@nseng-ai/clinkr",
@@ -62,7 +61,6 @@ export const publicPublishOrder = [
 	"@nseng-ai/vibechk",
 	"@nseng-ai/flow",
 	"@nseng-ai/ccc",
-	"@nseng-ai/command-backed-skill-registry",
 	"@nseng-ai/areg",
 ];
 

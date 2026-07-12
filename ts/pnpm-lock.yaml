@@ -481,27 +481,6 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/hosts/command-backed-skill-registry:
-    dependencies:
-      '@nseng-ai/branch-context':
-        specifier: workspace:*
-        version: link:../../capabilities/branch-context
-      '@nseng-ai/ccc':
-        specifier: workspace:*
-        version: link:../../capabilities/ccc
-      '@nseng-ai/flow':
-        specifier: workspace:*
-        version: link:../../capabilities/flow
-      '@nseng-ai/foundation':
-        specifier: workspace:*
-        version: link:../../infra/foundation
-      '@nseng-ai/handoffs':
-        specifier: workspace:*
-        version: link:../../capabilities/handoffs
-      '@nseng-ai/objectives':
-        specifier: workspace:*
-        version: link:../../capabilities/objectives
-
   packages/hosts/ns:
     dependencies:
       '@earendil-works/pi-agent-core':
@@ -681,12 +660,12 @@ importers:
       '@internal/ns-pi-subagents':
         specifier: workspace:*
         version: link:../ns-pi-subagents
+      '@nseng-ai/areg':
+        specifier: workspace:*
+        version: link:../../tools/areg
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
-      '@nseng-ai/command-backed-skill-registry':
-        specifier: workspace:*
-        version: link:../../hosts/command-backed-skill-registry
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
@@ -732,24 +711,36 @@ importers:
 
   packages/tools/areg:
     dependencies:
+      '@nseng-ai/branch-context':
+        specifier: workspace:*
+        version: link:../../capabilities/branch-context
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
+      '@nseng-ai/ccc':
+        specifier: workspace:*
+        version: link:../../capabilities/ccc
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
-      '@nseng-ai/command-backed-skill-registry':
+      '@nseng-ai/flow':
         specifier: workspace:*
-        version: link:../../hosts/command-backed-skill-registry
+        version: link:../../capabilities/flow
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
+      '@nseng-ai/handoffs':
+        specifier: workspace:*
+        version: link:../../capabilities/handoffs
       '@nseng-ai/harness-artifacts':
         specifier: workspace:*
         version: link:../../capabilities/harness-artifacts
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
+      '@nseng-ai/objectives':
+        specifier: workspace:*
+        version: link:../../capabilities/objectives
       zod:
         specifier: 'catalog:'
         version: 4.4.3
