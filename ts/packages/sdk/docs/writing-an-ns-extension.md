@@ -171,14 +171,14 @@ literal is opaque to bundlers and will not survive bundling.
 
 ## Command modules
 
-A command module default-exports exactly one command object satisfying the **kernel command
+A command module default-exports exactly one command object satisfying the **SDK command
 contract**: a neutral interface carrying the command's `name`, help metadata (`summary`,
 `description`), an optional completion hook, and a run function that returns the standard ns
-command exit / machine-envelope shape (`ok` / `negative` / `failure` / `usageError`). The kernel
+command exit / machine-envelope shape (`ok` / `negative` / `failure` / `usageError`). The SDK
 knows only this interface; how you build the object is up to you.
 
 The convenient way — and the one this guide teaches — is `defineCommand({...})`, which adapts a
-[Clinkr](../../infra/clinkr) command spec into the kernel contract: `name`, `summary` (one-line
+[Clinkr](../../infra/clinkr) command spec into the SDK contract: `name`, `summary` (one-line
 help text), `description` (full help text), a Zod `schema` for arguments, optional
 `positionals`/`options` (short flags), a `resultSchema` for the stable machine envelope,
 `handler`, optional `renderHuman`/`renderMarkdown`, and optional `completionProvider`. Handlers
@@ -186,7 +186,7 @@ return the SDK's command-exit constructors (`ok`, `negative`, `failure`, `usageE
 parsing, help rendering, `--format json`, and `--json-schema` come for free.
 
 Clinkr is convenient, not required. The adaptation happens inside `defineCommand`, at authoring
-time — the kernel never sees clinkr. For full control, construct the kernel command object
+time — the SDK never sees clinkr. For full control, construct the SDK command object
 directly (below).
 
 Command modules run in the target project via ns's TypeScript loader — you ship `src/` directly
@@ -195,7 +195,7 @@ load time, so command and schema types share identity with the running `ns`.
 
 ## The command contract (low-level)
 
-The kernel's actual per-command contract is a small neutral object, constructed directly with
+The SDK's actual per-command contract is a small neutral object, constructed directly with
 `defineRawCommand` when `defineCommand`'s clinkr conveniences don't fit — for example, when
 adopting an existing CLI with its own argument parser:
 

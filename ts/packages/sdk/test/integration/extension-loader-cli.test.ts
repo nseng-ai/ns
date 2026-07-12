@@ -55,7 +55,7 @@ afterEach(() => {
 });
 
 describe("ns extension loader CLI integration", () => {
-	test("kernel CLI has no preinstalled commands without host injection", async () => {
+	test("SDK CLI has no preinstalled commands without host injection", async () => {
 		const cwd = await createEmptyProject();
 		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 

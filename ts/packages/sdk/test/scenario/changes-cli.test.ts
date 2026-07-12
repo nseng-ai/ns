@@ -15,7 +15,7 @@ function runUnavailableChangesCli(args: readonly string[]) {
 }
 
 describe("ns flow changes CLI availability", () => {
-	test("static ns command metadata only includes kernel-owned built-ins", async () => {
+	test("static ns command metadata only includes SDK-owned built-ins", async () => {
 		expect(listNsCommands()).toEqual([
 			{
 				name: "point",

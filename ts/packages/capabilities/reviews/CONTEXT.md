@@ -14,7 +14,7 @@ Avoid: describing Reviews runs as remediation workflows or as agents that edit c
 
 Reviews-owned gateway-injected logic for the review catalog, local-diff review execution, review-log storage, finding schemas, and publication behavior.
 
-Avoid: putting Reviews domain behavior in the ns kernel, Pi host, or generic infrastructure packages.
+Avoid: putting Reviews domain behavior in the ns SDK, Pi host, or generic infrastructure packages.
 
 ### ns Command Face
 

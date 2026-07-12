@@ -49,12 +49,12 @@ export type KernelCommandCompletionProvider = (
 	| KernelCommandCompletionResult
 	| readonly KernelCommandCompletionCandidate[];
 
-type ParsedKernelCommandSpec<
+type ParsedSdkCommandSpec<
 	S extends NsCommandSchema = NsCommandSchema,
 	T = unknown,
-> = ParsedKernelCommandDefinition<S, T>;
+> = ParsedSdkCommandDefinition<S, T>;
 
-interface ParsedKernelCommandDefinition<S extends NsCommandSchema, T> {
+interface ParsedSdkCommandDefinition<S extends NsCommandSchema, T> {
 	readonly schema: S;
 	readonly resultSchema?: z.ZodType<T>;
 	readonly positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
@@ -65,16 +65,16 @@ interface ParsedKernelCommandDefinition<S extends NsCommandSchema, T> {
 	run(ctx: NsExtensionApi, request: z.output<S>): Promise<CommandExit<T>> | CommandExit<T>;
 }
 
-interface NamedParsedKernelCommandDefinition<
+interface NamedParsedSdkCommandDefinition<
 	S extends NsCommandSchema,
 	T,
-> extends ParsedKernelCommandDefinition<S, T> {
+> extends ParsedSdkCommandDefinition<S, T> {
 	readonly name: string;
 	readonly summary: string;
 	readonly description: string;
 }
 
-const parsedKernelCommandSpec = Symbol("ns.parsed-kernel-command-spec");
+const parsedSdkCommandSpec = Symbol("ns.parsed-sdk-command-spec");
 
 export interface RawArgvCommand<T = unknown> {
 	readonly name: string;
@@ -86,7 +86,7 @@ export interface RawArgvCommand<T = unknown> {
 	): Promise<CommandExit<T>> | CommandExit<T>;
 	complete?: ExplicitUndefined<"public-api-compatibility", KernelCommandCompletionProvider>;
 	readonly nsParsedCommandSpec?: unknown;
-	readonly [parsedKernelCommandSpec]?: unknown;
+	readonly [parsedSdkCommandSpec]?: unknown;
 }
 
 export interface DefineCommandSpec<S extends NsCommandSchema, T> {
@@ -121,12 +121,12 @@ export function defineCommand<S extends NsCommandSchema, T>(
 		summary: spec.summary,
 		description: spec.description,
 		nsParsedCommandSpec: parsedSpec,
-		[parsedKernelCommandSpec]: parsedSpec,
+		[parsedSdkCommandSpec]: parsedSpec,
 		async run(ctx, invocation) {
-			return await runParsedKernelCommand(ctx, invocation, commandDefinitionFromSpec(spec));
+			return await runParsedSdkCommand(ctx, invocation, commandDefinitionFromSpec(spec));
 		},
 		complete: async (ctx: NsExtensionApi, request: KernelCommandCompletionRequest) =>
-			await completeParsedKernelCommand(ctx, request, commandDefinitionFromSpec(spec)),
+			await completeParsedSdkCommand(ctx, request, commandDefinitionFromSpec(spec)),
 	};
 }
 
@@ -141,7 +141,7 @@ export function defineExtension<const TDescriptor extends ExtensionDescriptor>(
 
 function commandDefinitionFromSpec<S extends NsCommandSchema, T>(
 	spec: DefineCommandSpec<S, T>,
-): NamedParsedKernelCommandDefinition<S, T> {
+): NamedParsedSdkCommandDefinition<S, T> {
 	return {
 		name: spec.name,
 		summary: spec.summary,
@@ -161,21 +161,21 @@ function commandDefinitionFromSpec<S extends NsCommandSchema, T>(
 
 export function parsedSpecForCommand(
 	command: RawArgvCommand,
-): ParsedKernelCommandSpec<NsCommandSchema, unknown> | undefined {
-	const spec = command[parsedKernelCommandSpec];
+): ParsedSdkCommandSpec<NsCommandSchema, unknown> | undefined {
+	const spec = command[parsedSdkCommandSpec];
 	if (spec === undefined) return undefined;
-	return spec as ParsedKernelCommandSpec<NsCommandSchema, unknown>;
+	return spec as ParsedSdkCommandSpec<NsCommandSchema, unknown>;
 }
 
 export function defineInternalParsedCommand<S extends NsCommandSchema, T>(
-	options: NamedParsedKernelCommandDefinition<S, T>,
+	options: NamedParsedSdkCommandDefinition<S, T>,
 ): RawArgvCommand<T> {
 	const completionProvider = options.completionProvider;
 	const command: RawArgvCommand<T> = {
 		name: options.name,
 		summary: options.summary,
 		description: options.description,
-		[parsedKernelCommandSpec]: {
+		[parsedSdkCommandSpec]: {
 			schema: options.schema,
 			...(options.resultSchema === undefined ? {} : { resultSchema: options.resultSchema }),
 			...(options.positionals === undefined ? {} : { positionals: options.positionals }),
@@ -188,13 +188,13 @@ export function defineInternalParsedCommand<S extends NsCommandSchema, T>(
 			run: options.run,
 		},
 		async run(ctx, invocation) {
-			return await runParsedKernelCommand(ctx, invocation, options);
+			return await runParsedSdkCommand(ctx, invocation, options);
 		},
 		...(completionProvider === undefined
 			? {}
 			: {
 					complete: async (ctx: NsExtensionApi, request: KernelCommandCompletionRequest) =>
-						await completeParsedKernelCommand(ctx, request, options),
+						await completeParsedSdkCommand(ctx, request, options),
 				}),
 	};
 	return command;
@@ -202,19 +202,19 @@ export function defineInternalParsedCommand<S extends NsCommandSchema, T>(
 
 function parsedSpecForDefinedCommand<S extends NsCommandSchema, T>(
 	spec: DefineCommandSpec<S, T>,
-): ParsedKernelCommandSpec<NsCommandSchema, T> {
+): ParsedSdkCommandSpec<NsCommandSchema, T> {
 	return commandDefinitionFromSpec(spec);
 }
 
-async function runParsedKernelCommand<S extends NsCommandSchema, T>(
+async function runParsedSdkCommand<S extends NsCommandSchema, T>(
 	ctx: NsExtensionApi,
 	invocation: RawArgvCommandInvocation,
-	options: NamedParsedKernelCommandDefinition<S, T>,
+	options: NamedParsedSdkCommandDefinition<S, T>,
 ): Promise<CommandExit<T>> {
 	let capturedExit: CommandExit<T> | undefined;
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const cli = buildParsedKernelCommandCli(invocation, options, (exit) => {
+	const cli = buildParsedSdkCommandCli(invocation, options, (exit) => {
 		capturedExit = withRenderOverrides(exit, options, ctx.renderCapabilities);
 		return capturedExit;
 	});
@@ -235,12 +235,12 @@ async function runParsedKernelCommand<S extends NsCommandSchema, T>(
 	);
 }
 
-async function completeParsedKernelCommand<S extends NsCommandSchema, T>(
+async function completeParsedSdkCommand<S extends NsCommandSchema, T>(
 	ctx: NsExtensionApi,
 	request: KernelCommandCompletionRequest,
-	options: NamedParsedKernelCommandDefinition<S, T>,
+	options: NamedParsedSdkCommandDefinition<S, T>,
 ): Promise<ClinkrCompletionResult> {
-	const cli = buildParsedKernelCommandCli(
+	const cli = buildParsedSdkCommandCli(
 		{ argv: [], commandPath: [options.name] },
 		options,
 		(exit) => exit,
@@ -254,9 +254,9 @@ async function completeParsedKernelCommand<S extends NsCommandSchema, T>(
 	);
 }
 
-function buildParsedKernelCommandCli<S extends NsCommandSchema, T>(
+function buildParsedSdkCommandCli<S extends NsCommandSchema, T>(
 	invocation: RawArgvCommandInvocation,
-	options: NamedParsedKernelCommandDefinition<S, T>,
+	options: NamedParsedSdkCommandDefinition<S, T>,
 	onExit: (exit: CommandExit<T>) => CommandExit<T>,
 ): ClinkrGroup<NsExtensionApi> {
 	const commandPath = invocation.commandPath ?? [options.name];

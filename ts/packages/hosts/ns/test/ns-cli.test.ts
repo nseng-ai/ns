@@ -151,7 +151,7 @@ describe("ns CLI host", () => {
 		expect(stderr.join("")).toBe("");
 	});
 
-	test("merges extension lifecycle commands with kernel point commands and exposes no aliases", async () => {
+	test("merges extension lifecycle commands with SDK point commands and exposes no aliases", async () => {
 		const cwd = await createEmptyProject();
 		const stdout: string[] = [];
 		const stderr: string[] = [];

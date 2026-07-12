@@ -176,7 +176,7 @@ Deterministic code that consumes one or more **Gateways** to produce or transfor
 
 ### Extension Layering
 
-The ns extension stack, bottom to top: **Neutral Infra** below the SDK (`@nseng-ai/foundation` as the generic infrastructure library plus other non-domain infra such as `@nseng-ai/clinkr`), the SDK (`@nseng-ai/sdk` plus its `sdk` subpackage), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. ns-shaped external-tool gateways live as **Capability Kit** subpackages such as `@nseng-ai/capability-kit/github`, `@nseng-ai/capability-kit/graphite`, and `@nseng-ai/capability-kit/cmux`; the former standalone **Capability Gateway Backend** tier is retired. A gateway whose public contract is ns-independent with a credible external-consumer scenario may instead be **Neutral Infra** owned by foundation (ADR 0032) — `@nseng-ai/foundation/exec` and `@nseng-ai/foundation/git` are the live examples, with Capability Kit keeping the ctx→gateway adapter (`createNsGitGateway`); remaining Kit Gateways stay put absent explicit follow-up work. Intrinsic host services expose author-facing interfaces through `@nseng-ai/sdk` / `ctx`, with implementations hidden in the kernel. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@nseng-ai/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate (which concrete package owns a large real gateway implementation, and whether it folds into Capability Kit or stays standalone/deferred) and by ADR 0032's external-applicability admission test. The SDK boundary is permeable downward only to concepts that prove general worth. ADR 0031 holds the point-system decision. These terms name its parts.
+The ns extension stack, bottom to top: **Neutral Infra** below the SDK (`@nseng-ai/foundation` as the generic infrastructure library plus other non-domain infra such as `@nseng-ai/clinkr`), the SDK (`@nseng-ai/sdk` plus its `sdk` subpackage), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. ns-shaped external-tool gateways live as **Capability Kit** subpackages such as `@nseng-ai/capability-kit/github`, `@nseng-ai/capability-kit/graphite`, and `@nseng-ai/capability-kit/cmux`; the former standalone **Capability Gateway Backend** tier is retired. A gateway whose public contract is ns-independent with a credible external-consumer scenario may instead be **Neutral Infra** owned by foundation (ADR 0032) — `@nseng-ai/foundation/exec` and `@nseng-ai/foundation/git` are the live examples, with Capability Kit keeping the ctx→gateway adapter (`createNsGitGateway`); remaining Kit Gateways stay put absent explicit follow-up work. Intrinsic host services expose author-facing interfaces through `@nseng-ai/sdk` / `ctx`, with implementations hidden in the SDK. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@nseng-ai/pi` runtime host or the SDK; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate (which concrete package owns a large real gateway implementation, and whether it folds into Capability Kit or stays standalone/deferred) and by ADR 0032's external-applicability admission test. The SDK boundary is permeable downward only to concepts that prove general worth. ADR 0031 holds the point-system decision. These terms name its parts.
 
 **Point**:
 A named place an **Extension** defines where consumer config alters platform behavior. A point may be used at an SDLC lifecycle moment, but the mechanism is lifecycle-agnostic; "lifecycle point" is prose framing, not a separate concept.
@@ -199,7 +199,7 @@ The consumer action of configuring a **Hook** or **Prompt** at a **Point**.
 *Avoid*: define, register, enable extension code
 
 **Point catalog**:
-The kernel-computed view that joins point definitions with consumer installations and diagnostics. Catalog is the point-system word; **Registry** remains areg vocabulary.
+The SDK-computed view that joins point definitions with consumer installations and diagnostics. Catalog is the point-system word; **Registry** remains areg vocabulary.
 *Avoid*: registry, hook registry, prompt registry
 **Neutral Infra**:
 The floor below the SDK — packages/subpackages that depend only on other Neutral Infra (`@nseng-ai/foundation`, `@nseng-ai/foundation/exec`, `@nseng-ai/foundation/git`, `@nseng-ai/foundation/cli-theme`, `@nseng-ai/clinkr`). Neutral means independent of ns, not effect-free: a surface qualifies when its public contract is ns-independent and its design states a credible external-consumer scenario (ADR 0032); it may perform real-world I/O. **Pure Utility** is the narrower term for its deterministic, I/O-free members. ns-shaped gateways remain **Kit Gateway** material; a gateway passing the external-applicability test may be Neutral Infra owned by foundation.
@@ -222,12 +222,12 @@ A retired transitional term for the standalone packages that used to own heavy r
 *Avoid*: live tier, new backend package, gateway-adapter, neutral-infra gateway
 
 **SDK-provided service**:
-An intrinsic host service reached by extension authors through `ctx` / the vended API object. Its author-facing interface lives in `@nseng-ai/sdk`; its implementation is hidden in the kernel. If the author reaches it through the vended API object, classify it as SDK-provided.
-*Avoid*: kit gateway, raw process/global import, capability-owned host primitive
+An intrinsic host service reached by extension authors through `ctx` / the vended API object. Its author-facing interface lives in `@nseng-ai/sdk`; its implementation is hidden in the SDK. If the author reaches it through the vended API object, classify it as SDK-provided.
+*Avoid*: kernel service, kit gateway, raw process/global import, capability-owned host primitive
 
 **Runtime Harness**:
-Program boot code that creates or wires the vended API object and is never reached through `ctx`. Runtime harness code belongs in the kernel or a named neutral CLI-runtime infra home, not in `@nseng-ai/foundation` long term.
-*Avoid*: SDK service, capability API, imported utility
+Program boot code that creates or wires the vended API object and is never reached through `ctx`. Runtime harness code belongs in the SDK or a named neutral CLI-runtime infra home, not in `@nseng-ai/foundation` long term.
+*Avoid*: kernel, SDK service, capability API, imported utility
 
 The two leading nouns are orthogonal, not synonyms: an **Extension** is the technical construct; a **Capability** is a feature area implemented as one.
 
@@ -244,7 +244,7 @@ A **Capability**'s user-facing `ns <noun> ...` CLI presentation surface — role
 *Avoid*: command-face, command face (lowercase), ns Host-surface subpackage as a synonym, bare command group
 
 **Capability**:
-A first-party ns feature area (objectives, handoff, slot, flow, …) — a set of domain capabilities packaged as an **Extension** built on the **Capability Kit**. It exposes kernel-loaded CLI/Pi commands, and adds a **Capability API** only when a **consumer** extension depends on it in-process.
+A first-party ns feature area (objectives, handoff, slot, flow, …) — a set of domain capabilities packaged as an **Extension** built on the **Capability Kit**. It exposes SDK-loaded CLI/Pi commands, and adds a **Capability API** only when a **consumer** extension depends on it in-process.
 *Avoid*: plugin, built-in, the bare construct "extension" (the extension is the mechanism; the capability is the feature area)
 
 **First-party extension**:
@@ -252,7 +252,7 @@ An ns-shipped, ns-owned **Extension** that implements a **Capability** (flow, ob
 *Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
 
 **Capability Kit**:
-The shared substrate (`@nseng-ai/capability-kit`) that first-party **Capabilities** are built on — the `ctx`→**Gateway** adapter, shared result/error shapes, first-party per-domain gateway seams/adapters/fakes (`exec`, `git`, `github`, shell, temp-file, and similar precise domains), and small first-party capability-building primitives such as checkpoint/worktree/text helpers when SDK/kernel are the wrong home and transitional debt is the only alternative. It is agnostic about *which* product capability owns domain behavior, not public `@nseng-ai/sdk` author API by default, and not a product capability home. The name **"Extension Kit"** is reserved for a future general substrate for building *all* extensions, third-party included; do not apply it to this first-party kit.
+The shared substrate (`@nseng-ai/capability-kit`) that first-party **Capabilities** are built on — the `ctx`→**Gateway** adapter, shared result/error shapes, first-party per-domain gateway seams/adapters/fakes (`exec`, `git`, `github`, shell, temp-file, and similar precise domains), and small first-party capability-building primitives such as checkpoint/worktree/text helpers when the SDK is the wrong home and transitional debt is the only alternative. It is agnostic about *which* product capability owns domain behavior, not public `@nseng-ai/sdk` author API by default, and not a product capability home. The name **"Extension Kit"** is reserved for a future general substrate for building *all* extensions, third-party included; do not apply it to this first-party kit.
 *Avoid*: Extension Kit (reserved name), extension framework, product capability home, neutral-infra gateway, capability-kit core
 
 **Capability API**:
@@ -265,7 +265,7 @@ The directed edge of the **Extension Dependency Graph**: a **consumer** (downstr
 
 **cmux capability**:
 The **first-party extension** that drives cmux workspaces for repo-local dispatch, sidebar, workspace-summary, and planning flows by composing narrower **Capability APIs** and infrastructure.
-*Avoid*: CCC, Cmux Command and Control, orchestrator extension, apex extension, kernel orchestrator
+*Avoid*: CCC, Cmux Command and Control, orchestrator extension, apex extension, kernel orchestrator, sdk orchestrator
 
 **Package Tier**:
 The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ns.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `standalone-tool`, and `internal-tool`. A package lives in a single tier: `ns.tier` is the tier for the package and every declared **Subpackage**, `ns.subpackageTiers` overrides are rejected by the guard, and cross-package layering is enforced against the owning package's tier for every **Topology circle** (ADR 0032). Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted, `capability-pi` is deleted (capability Pi presentation lives in capability `pi` subpackages), and `internal-pi-tool` is merged into `internal-tool`; do not reintroduce a live transitional/backend tier as a debt label, and do not add a `platform` tier for I/O-performing Neutral Infra.
@@ -296,7 +296,7 @@ The `testing` **Subpackage**: the cross-package test-time contract exporting fak
 *Avoid*: test folder, test utils, mocks folder
 
 **Host-surface subpackage**:
-A **Subpackage** that exists because exactly one host consumes it as an entry surface — `ns` (the ns **Command Face**), `pi` (Pi mirrors), `ns-extension` (kernel extension descriptor loading) — and that only its host may import, with one sanctioned exception: areg's command-backed-skill-registry module imports capability `pi` subpackages to enumerate command-backed skill surfaces. It holds thin per-feature adapters, not domain logic.
+A **Subpackage** that exists because exactly one host consumes it as an entry surface — `ns` (the ns **Command Face**), `pi` (Pi mirrors), `ns-extension` (SDK extension descriptor loading) — and that only its host may import, with one sanctioned exception: areg's command-backed-skill-registry module imports capability `pi` subpackages to enumerate command-backed skill surfaces. It holds thin per-feature adapters, not domain logic.
 *Avoid*: context subpackage, commands, shell, presentation layer
 
 **Feature subpackage**:
@@ -312,7 +312,7 @@ The npm distribution of the `ns` CLI as `@nseng-ai/ns`: a prebuilt bin assembled
 *Avoid*: checkout-free SDL distribution, ns-cli (as the package name), second product
 
 **Package preparation**:
-The assembly step that produces `@nseng-ai/ns`'s publishable form: prebuilt bin, rewritten manifest, and kernel subpath folding — `@nseng-ai/sdk` (private) folded into `@nseng-ai/ns/sdk/*` so checkout-free consumers reach the public kernel subpaths through the published package.
+The assembly step that produces `@nseng-ai/ns`'s publishable form: prebuilt bin, rewritten manifest, and SDK subpath folding — `@nseng-ai/sdk` (private) folded into `@nseng-ai/ns/sdk` and `@nseng-ai/ns/sdk/*` so checkout-free consumers reach the public SDK surface through the published package.
 *Avoid*: build step (bare), publish (the separate authorized step), bundling
 
 **Internal space**:

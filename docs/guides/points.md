@@ -18,7 +18,7 @@ canonical vocabulary lives in [`ts/packages/sdk/CONTEXT.md`](../../ts/packages/s
   - **override** — an installation replaces the default content.
 - The full point id is `<group>.<path segments>`, e.g. `flow.submit.pre`,
   where the group is the owning extension's namespace root.
-- The kernel joins definitions with installations into a **point catalog**,
+- The SDK joins definitions with installations into a **point catalog**,
   inspectable via CLI (below).
 
 ## For consumers: installing at points

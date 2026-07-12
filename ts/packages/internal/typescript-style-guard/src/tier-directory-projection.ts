@@ -10,7 +10,7 @@ interface TierDirectoryTarget {
 	/**
 	 * "role-dir": the tier projects to a role directory holding one package per child
 	 * directory. "exact-dir": the tier's single package lives at the directory itself —
-	 * kernel/ and capability-kit/ are top-level single-package homes by design, not role
+	 * sdk/ and capability-kit/ are top-level single-package homes by design, not role
 	 * directories.
 	 */
 	readonly kind: "role-dir" | "exact-dir";

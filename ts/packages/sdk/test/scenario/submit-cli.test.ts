@@ -15,7 +15,7 @@ function runUnavailableSubmitCli(args: readonly string[]) {
 }
 
 describe("ns flow submit CLI availability", () => {
-	test("submit is not registered as a built-in command after the kernel reset", () => {
+	test("submit is not registered as a built-in command after the SDK reset", () => {
 		expect(listNsCommands().some((command) => command.name === "submit")).toBe(false);
 	});
 

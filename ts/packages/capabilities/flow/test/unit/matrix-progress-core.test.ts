@@ -205,9 +205,9 @@ describe("matrix progress core", () => {
 			"       ✓ shell-cli.test.ts (3 tests) · 14s ago",
 		);
 
-		controller.note("✓ kernel.test.ts (9 tests)\n");
+		controller.note("✓ sdk.test.ts (9 tests)\n");
 		const tailLine = lastFrame(capture).split("\n").at(-1);
-		expect(tailLine).toContain("✓ kernel.test.ts (9 tests)");
+		expect(tailLine).toContain("✓ sdk.test.ts (9 tests)");
 		expect(tailLine).not.toContain("ago");
 	});
 

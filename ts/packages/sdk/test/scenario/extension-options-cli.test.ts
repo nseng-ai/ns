@@ -106,11 +106,11 @@ describe("extension command option specs", () => {
 		expect(parseJsonOutput(run)).toMatchObject({ status: "ok", data: { isLive: false } });
 	});
 
-	test("runCli passes the kernel-computed home directory to command contexts", async () => {
+	test("runCli passes the SDK-computed home directory to command contexts", async () => {
 		const run = runCliWithFakes(
 			{
 				args: ["home-dir-probe", "--format", "json"],
-				homeDir: "/kernel/home",
+				homeDir: "/sdk/home",
 				env: { HOME: undefined },
 				extensionRegistry: commandRegistry(homeDirProbeCommand),
 			},
@@ -120,7 +120,7 @@ describe("extension command option specs", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "ok",
-			data: { homeDir: "/kernel/home" },
+			data: { homeDir: "/sdk/home" },
 		});
 	});
 

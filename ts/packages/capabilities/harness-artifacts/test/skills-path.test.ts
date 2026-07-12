@@ -25,7 +25,7 @@ describe("skills path command", () => {
 		});
 	});
 
-	test("uses the kernel-provided home directory for user-scope paths", () => {
+	test("uses the SDK-provided home directory for user-scope paths", () => {
 		const result = runSkillsPath(
 			{ ...baseContext, homeDir: "/home/alice" },
 			{ skill: "objective", harness: "pi", scope: "user" },

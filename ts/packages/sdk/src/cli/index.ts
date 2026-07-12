@@ -687,7 +687,7 @@ type ShellCommandSpec<T> = Omit<
 	"name" | "description"
 >;
 
-// Keep this shell command face kernel-owned instead of delegating parent-shell integration
+// Keep this shell command face SDK-owned instead of delegating parent-shell integration
 // to one extension. The reusable abstraction we expect here is future typed shell
 // contributions rendered inside one managed shell integration, not extension-owned rc-file
 // mutation or command helpers that each install their own wrapper.

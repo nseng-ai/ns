@@ -3,7 +3,7 @@
 // dependency graph is acyclic — the old branch-slug cycle was retired — so the live measure
 // is the declared-tier guard (two hard violations) plus the migration tail. This is ALL the
 // agent authors per run: optional tier overrides + the editorial judgement. It exercises every
-// finding-card register — beforeAfter (the kernel→slot inversion), chipRows (cmux), and fanin
+// finding-card register — beforeAfter (the sdk→slot inversion), chipRows (cmux), and fanin
 // (the transitional holding-pen) — so copy its shape and replace the content.
 export default {
   repo: "ns",
@@ -24,7 +24,7 @@ export default {
     drift: false,
     stats: [
       { value: "0", label: "cycles in the graph", sub: "fully acyclic — the old keystone landed", health: "green" },
-      { value: "2", label: "hard tier violations", sub: `<span class="font-mono">kernel→slot</span> · <span class="font-mono">cmux→pi</span>`, health: "red" },
+      { value: "2", label: "hard tier violations", sub: `<span class="font-mono">sdk→slot</span> · <span class="font-mono">cmux→pi</span>`, health: "red" },
       { value: "6", total: "9", label: "capabilities migrated", sub: "flow ref + 5 closed children", health: "amber" },
       { value: "4", label: "transitional consumers", sub: "completion marker → must hit 0", health: "red" },
     ],
@@ -32,11 +32,11 @@ export default {
       `The layering is <em>right</em> and now provably so: neutral infra sits at the bottom, capabilities sit above the
        Capability Kit, <span class="font-mono text-sm">cmux</span> is the highest-fan-out consumer (13) with no privileged tier,
        the <span class="font-mono text-sm">/api</span> seam convention is in place and guarded — and the once-headline
-       <span class="font-mono text-sm">autobranch → pi → kernel</span> cycle is <strong>broken</strong>, so the graph is fully acyclic
+       <span class="font-mono text-sm">autobranch → pi → sdk</span> cycle is <strong>broken</strong>, so the graph is fully acyclic
        and the <span class="font-mono text-sm">ts-guard</span> acyclicity check can hard-fail. Most of what remains is
        <em>distance</em>: three capabilities not yet modeled, the transitional holding-pen not yet drained, and
        <span class="font-mono text-sm">cmux</span> still reaching up into the host. <strong>One</strong> item is genuine
-       <em>drift</em>, not distance — the SDK kernel imports a capability (<span class="font-mono text-sm">@nseng-ai/sdk → @nseng-ai/slots</span>),
+       <em>drift</em>, not distance — the SDK imports a capability (<span class="font-mono text-sm">@nseng-ai/sdk → @nseng-ai/slots</span>),
        a layering inversion that should be isolated and cut, not waited out.`,
   },
 
@@ -54,7 +54,7 @@ export default {
       { label: "Kit", bg: "#eef2ff", labelBg: "#818cf8", noteColor: "#4338ca", chipBorder: "#c7d2fe",
         packages: ["capability-kit"], note: "above-SDK substrate — the ctx→gateway adapter + shared result/error shapes (holds no domain)" },
       { label: "SDK", bg: "#e0e7ff", labelBg: "#6366f1", noteColor: "#4338ca", chipBorder: "#c7d2fe",
-        packages: ["@nseng-ai/sdk"], note: "extension kernel/host + the thin author API of host primitives — must not import a capability" },
+        packages: ["@nseng-ai/sdk"], note: "extension host + the thin author API of host primitives — must not import a capability" },
       { label: "Holding pen", bg: "#fffbeb", labelBg: "#f59e0b", noteColor: "#b45309", chipBorder: "#f59e0b",
         packages: [{ name: "domain-primitives-transitional", dashed: true }], note: "must delete to zero — its emptiness is the endgame's completion marker" },
       { label: "Neutral infra", bg: "#f1f5f9", labelBg: "#94a3b8", noteColor: "#64748b", chipBorder: "#cbd5e1",
@@ -81,7 +81,7 @@ export default {
   scorecard: [
     { invariant: `Extension Dependency Graph is acyclic and enforced by the <span class="font-mono text-xs">ts-guard</span> topological check`,
       status: "holds", statusKind: "holds",
-      evidence: `<span class="font-mono text-xs">cycles = []</span> — fully acyclic. The headline <span class="font-mono text-xs">pi ↔ cmux</span> and the last deferred <span class="font-mono text-xs">autobranch → pi → kernel</span> SCCs are both broken (branch-slug relocated to <span class="font-mono text-xs">@nseng-ai/foundation/branch-slug</span>); the acyclicity guard can now hard-fail.` },
+      evidence: `<span class="font-mono text-xs">cycles = []</span> — fully acyclic. The headline <span class="font-mono text-xs">pi ↔ cmux</span> and the last deferred <span class="font-mono text-xs">autobranch → pi → sdk</span> SCCs are both broken (branch-slug relocated to <span class="font-mono text-xs">@nseng-ai/foundation/branch-slug</span>); the acyclicity guard can now hard-fail.` },
     { invariant: `Capability Kit owns the <span class="font-mono text-xs">ctx</span>→gateway adapter + result/error shapes; flow domain tested against <span class="font-mono text-xs">InMemoryGitGateway</span>`,
       status: "holds", statusKind: "holds",
       evidence: `<span class="font-mono text-xs">@nseng-ai/capability-kit</span> exists (180 LOC); consumed by <span class="font-mono text-xs">flow, handoff, objective</span>. <span class="font-mono text-xs">runPushCore</span>/<span class="font-mono text-xs">runCpCore</span> are gateway-injected with fake-gateway unit coverage.` },
@@ -99,28 +99,28 @@ export default {
       evidence: `Tier guard reports two hard edges: <span class="font-mono text-xs text-red-600">@nseng-ai/sdk → @nseng-ai/slots</span> (sdk-must-not-depend-on-capability) and <span class="font-mono text-xs text-red-600">@nseng-ai/cmux → @nseng-ai/pi</span> (capability-must-not-depend-on-host), plus 4 depends-on-transitional debt edges.` },
     { invariant: `Below the SDK is domain-free: <span class="font-mono text-xs">domain-primitives-transitional</span> deleted; no below-SDK package imports capability domain`,
       status: "open", statusKind: "open",
-      evidence: `The package still exists (578 LOC) with 4 consumers: <span class="font-mono text-xs">flow, kernel, cmux, pi</span>. Roadmap step 6 is unchecked — this is the explicit completion marker.` },
+      evidence: `The package still exists (578 LOC) with 4 consumers: <span class="font-mono text-xs">flow, sdk, cmux, pi</span>. Roadmap step 6 is unchecked — this is the explicit completion marker.` },
   ],
 
   findings: [
-    { title: "The SDK kernel imports the slot capability directly",
+    { title: "The SDK imports the slot capability directly",
       strength: "Strong", tag: "tier inversion · hard",
       beforeAfter: {
         nowLabel: "now — SDK reaches up",
         now: `flowchart TD
-  kernel["@nseng-ai/sdk (SDK)"] -->|command-face| slot["@nseng-ai/slots (capability)"]
+  sdk["@nseng-ai/sdk (SDK)"] -->|command-face| slot["@nseng-ai/slots (capability)"]
   classDef bad fill:#fee2e2,stroke:#dc2626,color:#991b1b;
-  class kernel,slot bad;`,
+  class sdk,slot bad;`,
         afterLabel: "after — mounted via the loader",
         after: `flowchart TD
-  kernel["@nseng-ai/sdk (SDK)"] --> kit["capability-kit / loader"]
+  sdk["@nseng-ai/sdk (SDK)"] --> kit["capability-kit / loader"]
   slot["@nseng-ai/slots"] --> kit
   classDef ok fill:#dcfce7,stroke:#16a34a,color:#14532d;
-  class kernel,slot,kit ok;`,
+  class sdk,slot,kit ok;`,
       },
-      problem: `<span class="font-mono text-sm">@nseng-ai/sdk/cli.ts</span> imports <span class="font-mono text-sm">buildSlotCommandGroup</span> from <span class="font-mono text-sm">@nseng-ai/slots/command-face</span> and <span class="font-mono text-sm">createRealSlotContext</span> from <span class="font-mono text-sm">@nseng-ai/slots</span> — the kernel depends <em>up</em> on a capability, the one true inversion in the graph.`,
+      problem: `<span class="font-mono text-sm">@nseng-ai/sdk/cli.ts</span> imports <span class="font-mono text-sm">buildSlotCommandGroup</span> from <span class="font-mono text-sm">@nseng-ai/slots/command-face</span> and <span class="font-mono text-sm">createRealSlotContext</span> from <span class="font-mono text-sm">@nseng-ai/slots</span> — the SDK depends <em>up</em> on a capability, the one true inversion in the graph.`,
       solution: `Mount slot's command face through the same extension-discovery path every other capability uses, so <span class="font-mono text-sm">@nseng-ai/sdk</span> depends on the loader/kit, not on <span class="font-mono text-sm">@nseng-ai/slots</span>.`,
-      wins: ["removes the SDK→capability inversion", "restores capability-as-leaf shape", "clears one hard tier violation", "kernel stays capability-agnostic"] },
+      wins: ["removes the SDK→capability inversion", "restores capability-as-leaf shape", "clears one hard tier violation", "the SDK stays capability-agnostic"] },
 
     { title: `<span class="font-mono text-base">cmux</span> still reaches up into the presentation host`,
       strength: "Strong", tag: "tier inversion · hard",
@@ -140,7 +140,7 @@ export default {
       strength: "Strong", tag: "completion marker",
       fanin: `flowchart LR
   flow --> T["domain-primitives-transitional"]
-  kernel --> T
+  sdk --> T
   cmux --> T
   pi --> T
   classDef pen fill:#fef3c7,stroke:#d97706,color:#92400e,stroke-dasharray:4 3;
@@ -173,7 +173,7 @@ export default {
     ],
     sequence: [
       `1 · cmux off <span class="font-mono">@nseng-ai/pi</span> host internals`,
-      `2 · isolate-and-cut <span class="font-mono">kernel → slot</span> via loader mount`,
+      `2 · isolate-and-cut <span class="font-mono">sdk → slot</span> via loader mount`,
       `3 · migrate pr-address / reviews / retros`,
       `4 · delete transitional`,
     ],

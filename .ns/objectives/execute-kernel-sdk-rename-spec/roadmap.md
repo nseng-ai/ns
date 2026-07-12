@@ -37,14 +37,14 @@ every row; row notes call out only slice-local guidance.
     `CONTEXT.md` folded-path claims ride along.
   - Evidence: `just` green; no live `ns/kernel` hits;
     `smoke-checkout-free.mjs` passes (failure is a STOP).
-- [ ] Spec item 4: vocabulary and docs rewrite — branch
+- [x] Spec item 4: vocabulary and docs rewrite — branch
       `kernel-sdk-rename/glossary-and-docs`
   - Sdk-throughout prose per ADR 0035: root `CONTEXT.md`, `CONTEXT-MAP.md`,
     package `CONTEXT.md`/`README.md`, author docs, `hosts/ns/README.md`,
     live-source comments; `kernel` added to Avoid lists as anti-vocabulary.
   - Evidence: `just` green; word-boundary `kernel` grep over live docs/source
     returns only classified deliberate hits.
-- [ ] Spec item 5: closeout — on the top slice, no new branch
+- [x] Spec item 5: closeout — on the top slice, no new branch
   - Trust-nothing sweep: final word-boundary `kernel`/`Kernel` grep with every
     live hit accounted; per-slice scope-diff justification; confirmation no
     submit/push happened and no `[cp]` commits exist. Accounting fixes may
