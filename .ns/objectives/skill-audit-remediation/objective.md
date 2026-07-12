@@ -1,3 +1,13 @@
+---
+edges:
+  - objective: cmux-exec-occupancy-inventory
+    annotation: Graduate record created during this audit's Tranche 4 (frontload item 6); it owns implementing the cmux occupancy inventory exec helper that this remediation chartered but did not build.
+  - objective: objective-exec-surface-extension
+    annotation: Graduate record created during this audit's Tranche 4 (frontload item 7); it owns the refresh-targets, update/refresh evidence, and retro-reconstruction exec work sized too large for this remediation.
+  - objective: slot-gt-restack-preflight
+    annotation: Graduate record created during this audit's Tranche 4 (frontload item 8); it owns the restack-preflight and descendants-report exec commands, including the linearize evidence loop the routing retrofit left hand-rolled.
+---
+
 # Skill Audit Remediation
 
 ## Thesis
