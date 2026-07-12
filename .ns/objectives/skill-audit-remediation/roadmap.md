@@ -94,9 +94,11 @@ findings against the live files before editing (line references in
       `docs/conventions/`, gt plumbing-not-display merged into
       graphite-dependency-boundary.md, just-gate-map.md and doc-economics.md created,
       15 skills reduced to pointers; one --recover cycle for a staged index — see the
-      t3-neutral-homes-executed update); disclosure moves
-      (code-smush recovery/feedback sections, ccc-stack-map palette, objective-retro
-      templates/maintainer notes, skill-management umbrella-families section); TOCs for
+      t3-neutral-homes-executed update); disclosure moves (**executed 2026-07-12** on
+      `skill-audit-t3-disclosure-moves`: code-smush recovery/feedback, stack-map
+      palette, objective-retro templates/maintainer notes, skill-management
+      umbrella-families all moved to same-skill references; always-loaded surface
+      1062→887 lines — see the t3-disclosure-moves-executed update); TOCs for
       reference files over ~300 lines (code-gh graphql references,
       architecture-topology-report HTML-REPORT.md);
       sharpen the flagged vague completion criteria (ccc-branch-triage, code-thermostack,

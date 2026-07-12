@@ -60,19 +60,7 @@ Open workspaces not represented in this displayed stack:
 
 Colorize when the output medium supports ANSI color and the user has not disabled it with `NO_COLOR` or `TERM=dumb`. If color support is uncertain, provide plain text. Never make color the only carrier of meaning; badges and labels must remain readable when copied without ANSI.
 
-Suggested ANSI palette:
-
-- tree guide glyphs (`│`, `└`, `─`, `┴`) and branches with no cmux workspace: dim gray;
-- current Graphite branch marker / branch name: bold cyan;
-- `●` active cmux badge: bold green;
-- `◎` caller / this Pi session badge: bold magenta;
-- `○` open inactive badge: white or default foreground;
-- `DIRTY`: yellow;
-- `↯label`: red;
-- `dup`: blue;
-- `2t`, `3t`, etc.: cyan.
-
-When posting into a Markdown code fence, prefer plain text unless the receiving UI is known to render ANSI escape sequences. In an ANSI-capable terminal, emitting the colored tree directly is acceptable.
+When posting into a Markdown code fence, prefer plain text unless the receiving UI is known to render ANSI escape sequences. In an ANSI-capable terminal, emitting the colored tree directly is acceptable — read `references/display-and-code-sketch.md` ("Suggested ANSI palette") for the per-glyph palette before rendering colored output.
 
 ## Badge semantics
 
