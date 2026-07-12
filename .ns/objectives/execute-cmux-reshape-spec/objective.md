@@ -85,11 +85,10 @@ resolves when this record closes.
   the new extension.** `ns cmux exec workspace-summary --help` resolves from
   the repository root with no registration edit. This discovery path is now
   completion evidence rather than an open execution risk.
-- **Risk: slice 6 authors vocabulary.** The parent Objective's rule is that
-  humans choose vocabulary; ADR 0034 already ratified the term dispositions, so
-  glossary drafting per the spec's enumerated lists is runner work — but the
-  one explicitly undecided disposition (`Project-local adapter` keep/retire)
-  escalates rather than being decided by the runner.
+- **Slice 6 vocabulary gate resolved.** The parent Objective's rule is that
+  humans choose vocabulary; ADR 0034 ratified the term dispositions, and on
+  2026-07-12 the user chose to retire `Project-local adapter` from the rewritten
+  cmux glossary. Glossary drafting now has no remaining vocabulary decision.
 - Validation evidence per slice: `just` at repo root plus the slice's own
   verify-line greps from the attached plan.
 
@@ -142,9 +141,8 @@ below.
 - Steer or ask first when: any plan STOP condition trips (an unenumerated live
   importer, `ns cmux exec workspace-summary` failing to resolve after slice 3,
   a substitution diffing outside the enumerated set, a guard test needing
-  semantic change); the `Project-local adapter` keep/retire disposition in
-  slice 6 (the one human gate); or a change would exceed the slice's scope
-  list.
+  semantic change) or a change would exceed the slice's scope list. The Slice 6
+  `Project-local adapter` gate is resolved: retire it from the cmux glossary.
 - How work may change files and be left: each runner step lands as one commit
   on the row's named fresh Graphite-tracked branch stacked on the previous
   slice, per the Objective Runner contract; the stack stays local. Objective

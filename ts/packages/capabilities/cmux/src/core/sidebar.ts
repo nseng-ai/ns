@@ -30,7 +30,7 @@ import type { CccPiCommandApi } from "./pi-command-api.ts";
 
 const SKILL_NAME = "ns-cmux-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ns-cmux-sidebar";
-const SIDEBAR_MODEL_ENV = "NS_CCC_SIDEBAR_MODEL";
+const SIDEBAR_MODEL_ENV = "NS_CMUX_SIDEBAR_MODEL";
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 	statusKey: PI_SIDEBAR_STATUS_KEY,
 	selectionTitle: "Select an active Objective for cmux sidebar",

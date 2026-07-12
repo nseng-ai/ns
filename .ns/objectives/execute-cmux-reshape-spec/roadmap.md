@@ -38,24 +38,22 @@ each branch stacks on the previous.
   - Completed locally on `cmux-reshape/rename-surfaces-and-skills`; root `just`
     and `areg check` passed, `areg skill find ns-cmux-sidebar` resolved, no live
     `ns:ccc:` hits or old skill paths remain, and all eight symlinks resolve.
-- [ ] Slice 5 — `cmux-reshape/ripple-renames` (spec item 7): rename the
+- [x] Slice 5 — `cmux-reshape/ripple-renames` (spec item 7): rename the
       `ccc-dispatch` Branch Memory namespace and tmpdir prefix and the
       `NS_CCC_SIDEBAR_MODEL` env var, with their test/fixture blast radius.
-  - Policy: direct execution; these are breaking runtime-config renames with no
-    aliases and no migration — the step report must carry the PR-description
-    callouts (orphaned pre-rename staged dispatch prompts are acceptable; env
-    var renamed without alias).
-  - Evidence: `just` green; grep for `ccc-dispatch` and `NS_CCC_` over live
-    source returns nothing.
+  - Completed locally on `cmux-reshape/ripple-renames`; root `just` passed and
+    no live `ccc-dispatch` or `NS_CCC_` hits remain. This is intentionally
+    breaking: pre-rename staged prompts may be orphaned, and the environment
+    variable has no old-name alias or migration.
 - [ ] Slice 6 — `cmux-reshape/glossary-and-docs` (spec items 6+8): rewrite
       `capabilities/cmux/CONTEXT.md` from scratch per the spec's term list,
       re-home the worktree-status entries to `hosts/pi/CONTEXT.md`, rewrite the
       root `CONTEXT.md` CCC entry (Avoid gains "CCC" / "Cmux Command and
       Control"), replace the cmux `AGENTS.md` essay with a checklist pointer,
       and apply the kit comment ride-along.
-  - Policy: direct execution; escalate the `Project-local adapter` keep/retire
-    disposition before committing — every other term disposition is already
-    ratified by ADR 0034.
+  - Policy: direct execution. The user resolved the final vocabulary gate on
+    2026-07-12: retire `Project-local adapter` from the cmux glossary; every
+    other term disposition remains as ratified by ADR 0034.
   - Evidence: `just` green (includes `dprint check` and the objective sweep);
     final stack-wide word-boundary `ccc`/`CCC` grep over live source shows only
     deliberate immutable history.

@@ -37,7 +37,7 @@ import type { CccPiCommandApi } from "./pi-command-api.ts";
 type DispatchPromptRuntime = CommandExecApi & Pick<CccPiCommandApi, "getThinkingLevel">;
 
 const COMMAND_NAME = CMUX_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
-const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
+const DISPATCH_PROMPT_NAMESPACE = "cmux-dispatch";
 const DISPATCH_PROMPT_KEY = "prompt.md";
 
 export interface BranchCreateResult {
@@ -352,7 +352,7 @@ async function stageDispatchPromptPayload(
 	branchName: string,
 	content: string,
 ): Promise<StagedPayloadFile> {
-	const directory = options.stagingDir ?? (await mkdtemp(join(tmpdir(), "ccc-dispatch-prompt-")));
+	const directory = options.stagingDir ?? (await mkdtemp(join(tmpdir(), "cmux-dispatch-prompt-")));
 	await mkdir(directory, { recursive: true });
 	const filePath = join(directory, `${options.now()}-${dispatchPromptFileStem(branchName)}.md`);
 	await writeFile(filePath, content, "utf8");
