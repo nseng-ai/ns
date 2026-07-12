@@ -239,6 +239,40 @@ describe("scanGrillBranch", () => {
 		).toEqual({ grill: "ended", answeredCount: 1 });
 	});
 
+	test("answering the final question with an exhausted remaining estimate ends the grill", () => {
+		const answeredFinal = (estimatedRemaining: unknown): unknown[] => [
+			userEntry("kickoff", KICKOFF_TEXT),
+			askEntry("ask-1", "call-1", "Final question?", estimatedRemaining),
+			grillResultEntry(
+				"res-1",
+				{ action: "answer", kind: "freeform", question: "Final question?", answer: "Yes" },
+				"call-1",
+			),
+		];
+
+		expect(scanGrillBranch(answeredFinal({ kind: "exact", count: 0 }))).toEqual({
+			grill: "ended",
+			answeredCount: 1,
+		});
+		expect(
+			scanGrillBranch(answeredFinal({ kind: "range", min: 0, max: 0, basis: "all resolved" })),
+		).toEqual({ grill: "ended", answeredCount: 1 });
+
+		// Non-zero or missing estimates keep the grill active.
+		expect(scanGrillBranch(answeredFinal({ kind: "exact", count: 1 }))).toMatchObject({
+			grill: "active",
+		});
+		expect(scanGrillBranch(answeredFinal(undefined))).toMatchObject({ grill: "active" });
+
+		// A follow-up ask after an exhausted estimate re-activates the grill.
+		expect(
+			scanGrillBranch([
+				...answeredFinal({ kind: "exact", count: 0 }),
+				askEntry("ask-2", "call-2", "One more question?"),
+			]),
+		).toMatchObject({ grill: "active", pendingAsk: { toolCallId: "call-2" } });
+	});
+
 	test("correlates results by toolCallId and treats an id-less result as the normal fallback", () => {
 		const mismatch = scanGrillBranch([
 			...activeBranch(),
