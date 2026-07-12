@@ -54,10 +54,11 @@ findings against the live files before editing (line references in
       ns-typescript-style-tripwire provenance/regeneration pattern, backfill provenance
       blocks on the five reviews lacking them, put the SKILL.md stub template in the doc,
       mark the five identical stubs sanctioned duplication, point to the doc from
-      `.ns/reviews/README.md`); TypeScript ownership split (decided 2026-07-12:
-      `ts/AGENTS.md` owns repo-specific test-lane/time-seam detail; `ns-typescript` is
-      rewritten toward portability for reuse in other projects and points at the host
-      repo's AGENTS.md for repo enforcement); shared family material to neutral homes
+      `.ns/reviews/README.md`); TypeScript ownership split (**executed 2026-07-12** on
+      `skill-audit-t3-ts-ownership-split`: `ts/AGENTS.md` owns repo-specific
+      test-lane/time-seam/style-guard detail; `ns-typescript` rewritten toward
+      portability, pointing at the host repo's AGENTS.md — see the
+      t3-typescript-ownership-split update); shared family material to neutral homes
       (autobranch-family-boundaries, cmux-read-only-posture, gt plumbing-not-display rule,
       just-gate map, doc-economics rules shared by docs-retro/branch-retro); disclosure moves
       (code-smush recovery/feedback sections, ccc-stack-map palette, objective-retro
