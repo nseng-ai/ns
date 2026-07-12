@@ -53,6 +53,68 @@ export class RealExtensionInstallAcquisitionGateway implements ExtensionInstallA
 	}
 }
 
+export interface UpdateExtensionSourceResult {
+	readonly isOk: boolean;
+	readonly moduleRoot?: string;
+	readonly hasExistingSource: boolean;
+	readonly diagnostics: readonly ExtensionAcquisitionDiagnostic[];
+}
+
+export interface ExtensionUpdateAcquisitionGateway {
+	preview(params: EnsureExtensionSourceParams): Promise<UpdateExtensionSourceResult>;
+	reconcile(params: EnsureExtensionSourceParams): Promise<UpdateExtensionSourceResult>;
+}
+
+export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcquisitionGateway {
+	private readonly acquisition: ExtensionAcquisitionGateway;
+
+	constructor(acquisition: ExtensionAcquisitionGateway) {
+		this.acquisition = acquisition;
+	}
+
+	async preview(params: EnsureExtensionSourceParams): Promise<UpdateExtensionSourceResult> {
+		return await this.resolve(params, "preview");
+	}
+
+	async reconcile(params: EnsureExtensionSourceParams): Promise<UpdateExtensionSourceResult> {
+		const preview = await this.resolve(params, "preview");
+		const applied = await resolveDeclaredExtensionModules({
+			projectRoot: params.repoRoot,
+			declaredSpecs: [params.sourceSpec],
+			mode: "apply",
+			npmAcquisition: "refresh-floating",
+			gateway: this.acquisition,
+		});
+		const root = applied.roots.find((candidate) => candidate.spec === params.sourceSpec);
+		return {
+			isOk: root !== undefined && applied.diagnostics.length === 0,
+			...(root === undefined ? {} : { moduleRoot: root.moduleRoot }),
+			hasExistingSource: preview.moduleRoot !== undefined,
+			diagnostics: applied.diagnostics,
+		};
+	}
+
+	private async resolve(
+		params: EnsureExtensionSourceParams,
+		mode: "preview" | "apply",
+	): Promise<UpdateExtensionSourceResult> {
+		const result = await resolveDeclaredExtensionModules({
+			projectRoot: params.repoRoot,
+			declaredSpecs: [params.sourceSpec],
+			mode,
+			npmAcquisition: "refresh-floating",
+			gateway: this.acquisition,
+		});
+		const root = result.roots.find((candidate) => candidate.spec === params.sourceSpec);
+		return {
+			isOk: mode === "preview" || (root !== undefined && result.diagnostics.length === 0),
+			...(root === undefined ? {} : { moduleRoot: root.moduleRoot }),
+			hasExistingSource: root !== undefined,
+			diagnostics: result.diagnostics,
+		};
+	}
+}
+
 export interface RemoveManagedNpmExtensionParams {
 	readonly repoRoot: string;
 	readonly packageName: string;

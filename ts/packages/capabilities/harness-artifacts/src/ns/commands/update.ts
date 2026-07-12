@@ -8,18 +8,10 @@ import {
 
 export const nsUpdateCommand = harnessArtifactsNsCommand({
 	name: "update",
-	summary: "Update ns self or extension artifacts by explicit mode.",
+	summary: "Update ns itself.",
 	description:
-		"Run ns self-update or update extension harness artifacts. Self-update is reserved but not implemented yet; use --extensions to provision artifacts from declared extensions.",
+		"Reserved ns self-update surface. Use ns extension update <source> to update one declared extension.",
 	schema: nsUpdateCliRequestSchema,
-	options: {
-		extensions: {},
-		self: {},
-		all: {},
-		dryRun: { short: "-n" },
-		force: { short: "-f" },
-	},
-	positionals: { target: { position: 0 } },
 	resultSchema: nsUpdateResultSchema,
 	handler: runNsUpdateCli,
 	renderHuman: renderNsUpdateHuman,

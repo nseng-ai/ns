@@ -2,25 +2,24 @@ import { join } from "node:path";
 
 import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok } from "@nseng-ai/clinkr";
-import { ALL_HARNESS_IDS, parseNsTomlHarnesses } from "@nseng-ai/harness-artifacts/api";
-import {
-	gitExtensionSourceUnsupportedMessage,
-	parseExtensionSourceSpec,
-} from "@nseng-ai/kernel/extensions/acquisition";
+import { ALL_HARNESS_IDS } from "@nseng-ai/harness-artifacts/api";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/kernel/project-config";
 import { z } from "zod";
 
 import {
 	activationCompletedSchema,
-	activationRepositoryFailureDiagnostic,
-	activationRepositoryFailureType,
 	applyNsActivation,
 	prepareNsActivation,
-	resolveActivationRepository,
-	type ResolveActivationRepositoryResult,
 } from "./activate-ns.ts";
 import type { NsActivationContext } from "./activation-context.ts";
 import type { ExtensionInstallAcquisitionGateway } from "./extension-acquisition.ts";
+import {
+	extensionLifecycleFailure,
+	extensionLifecyclePreflightEnvelope,
+	normalizeExtensionLifecycleDiagnostic,
+	normalizeExtensionLifecycleDiagnostics,
+	prepareExtensionLifecycle,
+} from "./extension-lifecycle-preflight.ts";
 
 export interface ExtensionInstallContext extends NsActivationContext {
 	readonly installAcquisition: ExtensionInstallAcquisitionGateway;
@@ -56,48 +55,13 @@ export async function installExtension(
 	context: ExtensionInstallContext,
 	request: InstallExtensionRequest,
 ): Promise<ClinkrExit<InstallExtensionResult>> {
-	const repositoryResult = await resolveActivationRepository(context, request.cwd);
-	if (repositoryResult.type !== "resolved") return repositoryFailure(repositoryResult);
-	const { repoRoot, trunkBranch } = repositoryResult.repository;
-	const configRead = await context.files.readActivationFile({ repoRoot, file: "ns-toml" });
-	if (configRead.type !== "found") return configReadFailure(configRead, repoRoot);
-
-	const harnesses = parseNsTomlHarnesses(configRead.content);
-	if (harnesses.type !== "ok") {
-		const diagnostic =
-			harnesses.type === "missing"
-				? {
-						code: "harnesses-missing",
-						message: "ns.toml does not configure project harnesses.",
-					}
-				: harnesses.error;
-		return failure(
-			harnesses.type === "missing"
-				? "ns-extension-install-harnesses-missing"
-				: "ns-extension-install-harnesses-invalid",
-			`${diagnostic.message} Run ns init with an explicit harness before installing extensions.`,
-			{
-				...preflightFailureEnvelope([{ ...diagnostic, path: "ns.toml" }]),
-				nextCommand: "ns init --harness <claude-code|codex|pi>",
-			},
-		);
-	}
-
-	const parsedSource = parseExtensionSourceSpec(repoRoot, request.source);
-	if (!parsedSource.ok) {
-		return failure(
-			"ns-extension-install-source-invalid",
-			parsedSource.error.message,
-			preflightFailureEnvelope([parsedSource.error]),
-		);
-	}
-	if (parsedSource.value.kind === "git") {
-		return unsupportedSource(request.source, gitExtensionSourceUnsupportedMessage(request.source));
-	}
+	const preflight = await prepareExtensionLifecycle(context, request);
+	if (preflight.type === "failed") return extensionLifecycleFailure("install", preflight.failure);
+	const { repository, repoRoot, trunkBranch, nsTomlContent, harnesses } = preflight.prepared;
 
 	const declaration = planDeclaredExtensionInstallToml({
 		projectRoot: repoRoot,
-		source: configRead.content,
+		source: nsTomlContent,
 		requestedSpec: request.source,
 	});
 	if (!declaration.ok) {
@@ -110,11 +74,10 @@ export async function installExtension(
 				completed: {},
 			});
 		}
-		if (declaration.reason === "invalid-source") return unsupportedSource(request.source);
 		return failure(
 			"ns-extension-install-config-invalid",
 			declaration.message,
-			preflightFailureEnvelope([
+			extensionLifecyclePreflightEnvelope([
 				{ code: declaration.reason, message: declaration.message, path: "ns.toml" },
 			]),
 		);
@@ -130,25 +93,25 @@ export async function installExtension(
 			acquired.diagnostics[0]?.message ?? `Could not acquire extension ${request.source}.`,
 			{
 				phase: "acquisition",
-				diagnostics: normalizeDiagnostics(acquired.diagnostics),
+				diagnostics: normalizeExtensionLifecycleDiagnostics(acquired.diagnostics),
 				completed: {},
 			},
 		);
 	}
 
 	const prepared = await prepareNsActivation(context, {
-		repository: repositoryResult.repository,
-		harnesses: harnesses.harnesses,
+		repository,
+		harnesses,
 		harnessSource: "ns-toml",
 		nsTomlContent: declaration.text,
 		nsTomlChange: declaration.isAdded ? "appended" : "unchanged",
-		nsTomlExpected: { type: "file", content: configRead.content },
+		nsTomlExpected: { type: "file", content: nsTomlContent },
 	});
 	if (prepared.type === "preflight-failed") {
 		return failure(
 			"ns-extension-install-preflight-failed",
 			"Extension activation preflight failed; no project files were written.",
-			preflightFailureEnvelope(prepared.diagnostics),
+			extensionLifecyclePreflightEnvelope(prepared.diagnostics),
 		);
 	}
 	const selected = prepared.activation.descriptors.find(
@@ -158,7 +121,7 @@ export async function installExtension(
 		return failure(
 			"ns-extension-install-preflight-failed",
 			`The acquired extension descriptor was not selected for ${request.source}.`,
-			preflightFailureEnvelope([
+			extensionLifecyclePreflightEnvelope([
 				{
 					code: "extension-descriptor-not-selected",
 					message: `No validated descriptor was selected for ${request.source}.`,
@@ -171,7 +134,7 @@ export async function installExtension(
 	if (applied.type === "apply-failed") {
 		return failure("ns-extension-install-apply-failed", applied.error.message, {
 			phase: applied.phase,
-			error: normalizeDiagnostic(applied.error),
+			error: normalizeExtensionLifecycleDiagnostic(applied.error),
 			completed: applied.completed,
 		});
 	}
@@ -185,7 +148,7 @@ export async function installExtension(
 		isRecorded: declaration.isAdded,
 		repoRoot,
 		trunkBranch,
-		harnesses: [...harnesses.harnesses],
+		harnesses: [...harnesses],
 		completed: applied.completed,
 	});
 }
@@ -200,74 +163,4 @@ export function renderInstallExtensionHuman(result: InstallExtensionResult): str
 		`Declaration: ${declaration} ${result.nsTomlPath}`,
 		`Activated ${artifactCount} artifact${artifactCount === 1 ? "" : "s"} for ${result.harnesses.join(", ")}.`,
 	].join("\n");
-}
-
-function preflightFailureEnvelope<T extends { readonly code: string }>(diagnostics: readonly T[]) {
-	return {
-		phase: "preflight" as const,
-		diagnostics: normalizeDiagnostics(diagnostics),
-		completed: {},
-	};
-}
-
-function normalizeDiagnostics<T extends { readonly code: string }>(
-	diagnostics: readonly T[],
-): readonly (Omit<T, "code"> & { readonly code: string })[] {
-	return diagnostics.map(normalizeDiagnostic);
-}
-
-function normalizeDiagnostic<T extends { readonly code: string }>(
-	diagnostic: T,
-): Omit<T, "code"> & { readonly code: string } {
-	return { ...diagnostic, code: diagnostic.code.replaceAll("_", "-") };
-}
-
-function unsupportedSource(
-	source: string,
-	canonicalMessage?: string,
-): ClinkrExit<InstallExtensionResult> {
-	return failure(
-		"ns-extension-install-source-unsupported",
-		canonicalMessage ??
-			`Extension source must be an npm: spec or an unprefixed local path: ${source}.`,
-		{ phase: "preflight", sourceSpec: source, completed: {} },
-	);
-}
-
-function configReadFailure(
-	result: Exclude<
-		Awaited<ReturnType<NsActivationContext["files"]["readActivationFile"]>>,
-		{ type: "found" }
-	>,
-	repoRoot: string,
-): ClinkrExit<InstallExtensionResult> {
-	if (result.type === "error") {
-		return failure(
-			"ns-extension-install-config-invalid",
-			result.error.message,
-			preflightFailureEnvelope([{ ...result.error, path: "ns.toml" }]),
-		);
-	}
-	const message =
-		result.type === "missing"
-			? "ns.toml is missing; initialize ns before installing extensions."
-			: "ns.toml exists but is not a file.";
-	return failure("ns-extension-install-harnesses-missing", message, {
-		phase: "preflight",
-		diagnostics: [{ code: `ns-toml-${result.type}`, message, path: join(repoRoot, "ns.toml") }],
-		nextCommand: "ns init --harness <claude-code|codex|pi>",
-		completed: {},
-	});
-}
-
-function repositoryFailure(
-	result: Exclude<ResolveActivationRepositoryResult, { type: "resolved" }>,
-): ClinkrExit<InstallExtensionResult> {
-	const diagnostic = activationRepositoryFailureDiagnostic(result);
-	const errorType = activationRepositoryFailureType(result, {
-		"not-a-git-repo": "ns-extension-install-not-a-git-repo",
-		"trunk-undetectable": "ns-extension-install-trunk-undetectable",
-		error: "ns-extension-install-repository-failed",
-	});
-	return failure(errorType, diagnostic.message, preflightFailureEnvelope([diagnostic]));
 }
