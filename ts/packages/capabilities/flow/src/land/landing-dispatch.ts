@@ -138,20 +138,18 @@ async function runCleanupOnlyLanding(options: RunCleanupOnlyLandingOptions): Pro
 		preflight: { shouldAllowSubmitRequiredState: true },
 		cleanup: landingCleanupPolicyFromArgs(options.args),
 	};
-	const execution = await executeLanding(
-		options.runtime.landContext,
+	const execution = await executeLanding({
+		context: options.runtime.landContext,
 		request,
-		{
+		host: {
 			confirmation: createFlowLandConfirmationGateway(options.ctx),
 			progress: createCleanupProgress(options.ctx),
 		},
-		{
-			approvals: {
-				isPostLandingCleanupAlreadyApproved: options.args.shouldSkipConfirmation,
-			},
-			preparedShape: options.shape,
+		approvals: {
+			isPostLandingCleanupAlreadyApproved: options.args.shouldSkipConfirmation,
 		},
-	);
+		preparedShape: options.shape,
+	});
 	if (execution.type === "failed") {
 		presentFailureAndReturn(options.ctx, execution.failure);
 		return landOutcomeFailure(execution.failure);

@@ -39,7 +39,11 @@ function executeRequest(
 describe("land execute mode over in-memory gateways", () => {
 	test("lands a linear stack and mirrors the semantic sequence of the permanent single-PR transcript", async () => {
 		const memory = createInMemoryLandContext(linearState());
-		const outcome = await executeLanding(memory.context, executeRequest(), approvedHost());
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest(),
+			host: approvedHost(),
+		});
 
 		expect(outcome).toMatchObject({
 			type: "completed",
@@ -125,7 +129,10 @@ describe("land execute mode over in-memory gateways", () => {
 
 	test("refuses safely with the default host before merge mutation", async () => {
 		const memory = createInMemoryLandContext(linearState());
-		const outcome = await executeLanding(memory.context, executeRequest());
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest(),
+		});
 
 		expect(outcome).toMatchObject({
 			type: "failed",
@@ -151,9 +158,13 @@ describe("land execute mode over in-memory gateways", () => {
 	test("a declined main confirmation fails the confirmation phase with zero merge facts", async () => {
 		const memory = createInMemoryLandContext(linearState());
 		const confirmation = decidingConfirmation({ "main-landing": { type: "declined" } });
-		const outcome = await executeLanding(memory.context, executeRequest(), {
-			confirmation: confirmation.gateway,
-			progress: nullLandExecutionProgress,
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest(),
+			host: {
+				confirmation: confirmation.gateway,
+				progress: nullLandExecutionProgress,
+			},
 		});
 
 		expect(outcome).toMatchObject({
@@ -189,9 +200,13 @@ describe("land execute mode over in-memory gateways", () => {
 			}),
 		);
 		const confirmation = approvingConfirmation();
-		const outcome = await executeLanding(memory.context, executeRequest(), {
-			confirmation: confirmation.gateway,
-			progress: nullLandExecutionProgress,
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest(),
+			host: {
+				confirmation: confirmation.gateway,
+				progress: nullLandExecutionProgress,
+			},
 		});
 
 		expect(outcome).toMatchObject({
@@ -217,9 +232,13 @@ describe("land execute mode over in-memory gateways", () => {
 			}),
 		);
 		const confirmation = approvingConfirmation();
-		const outcome = await executeLanding(memory.context, executeRequest(), {
-			confirmation: confirmation.gateway,
-			progress: nullLandExecutionProgress,
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest(),
+			host: {
+				confirmation: confirmation.gateway,
+				progress: nullLandExecutionProgress,
+			},
 		});
 
 		expect(outcome).toMatchObject({
@@ -265,7 +284,11 @@ describe("land execute mode over in-memory gateways", () => {
 				},
 			}),
 		);
-		const outcome = await executeLanding(memory.context, executeRequest(), approvedHost());
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest(),
+			host: approvedHost(),
+		});
 
 		expect(outcome).toMatchObject({
 			type: "failed",
@@ -321,7 +344,11 @@ describe("land execute mode over in-memory gateways", () => {
 				},
 			}),
 		);
-		const outcome = await executeLanding(memory.context, executeRequest(), approvedHost());
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest(),
+			host: approvedHost(),
+		});
 
 		expect(outcome).toMatchObject({
 			type: "failed",
@@ -362,7 +389,11 @@ describe("land execute mode over in-memory gateways", () => {
 				},
 			}),
 		);
-		const outcome = await executeLanding(memory.context, executeRequest(), approvedHost());
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest(),
+			host: approvedHost(),
+		});
 
 		expect(outcome).toMatchObject({ type: "completed" });
 		if (outcome.type !== "completed") return;
@@ -407,7 +438,11 @@ describe("land execute mode over in-memory gateways", () => {
 				},
 			}),
 		);
-		const outcome = await executeLanding(memory.context, executeRequest(), approvedHost());
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest(),
+			host: approvedHost(),
+		});
 
 		expect(outcome).toMatchObject({ type: "completed" });
 		if (outcome.type !== "completed") return;
@@ -427,7 +462,11 @@ describe("land execute mode over in-memory gateways", () => {
 				},
 			}),
 		);
-		const outcome = await executeLanding(memory.context, executeRequest(), approvedHost());
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest(),
+			host: approvedHost(),
+		});
 
 		expect(outcome).toMatchObject({
 			type: "completed",
@@ -474,7 +513,11 @@ describe("land execute mode over in-memory gateways", () => {
 				squashMergeResults: { "102": { type: "failure" } },
 			},
 		});
-		const outcome = await executeLanding(memory.context, executeRequest(), approvedHost());
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest(),
+			host: approvedHost(),
+		});
 
 		expect(outcome).toMatchObject({ type: "failed" });
 		if (outcome.type !== "failed") return;
@@ -494,11 +537,11 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 	test("free-slot policy confirms cleanup before merge and mutates only after landing", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = approvingConfirmation();
-		const outcome = await executeLanding(
-			memory.context,
-			executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
-			{ confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
-		);
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+		});
 
 		expect(confirmation.requests.map((request) => request.kind)).toEqual([
 			"main-landing",
@@ -526,11 +569,11 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 	test("preserve policy makes no cleanup confirmation or mutation and reports preserved", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = approvingConfirmation();
-		const outcome = await executeLanding(
-			memory.context,
-			executeRequest({ cwd: SLOT_ROOT, cleanup: "preserve" }),
-			{ confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
-		);
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "preserve" }),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+		});
 
 		expect(confirmation.requests.map((request) => request.kind)).toEqual(["main-landing"]);
 		expect(outcome).toMatchObject({
@@ -547,11 +590,11 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 	test("force-cleanup policy skips the cleanup confirmation and performs the same mutations", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = approvingConfirmation();
-		const outcome = await executeLanding(
-			memory.context,
-			executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
-			{ confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
-		);
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+		});
 
 		expect(confirmation.requests.map((request) => request.kind)).toEqual(["main-landing"]);
 		expect(outcome).toMatchObject({
@@ -568,17 +611,15 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 	test("upfront-approved cleanup does not prompt a second time", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
 		const confirmation = approvingConfirmation();
-		const outcome = await executeLanding(
-			memory.context,
-			executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
-			{ confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
-			{
-				approvals: {
-					isMainConfirmationAlreadyApproved: true,
-					isPostLandingCleanupAlreadyApproved: true,
-				},
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+			approvals: {
+				isMainConfirmationAlreadyApproved: true,
+				isPostLandingCleanupAlreadyApproved: true,
 			},
-		);
+		});
 
 		expect(confirmation.requests).toEqual([]);
 		expect(outcome).toMatchObject({
@@ -592,11 +633,11 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		async (policy) => {
 			const memory = createInMemoryLandContext(managedSlotState());
 			const confirmation = approvingConfirmation();
-			const outcome = await executeLanding(
-				memory.context,
-				executeRequest({ cwd: SLOT_ROOT, mode: "dry-run", cleanup: policy }),
-				{ confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
-			);
+			const outcome = await executeLanding({
+				context: memory.context,
+				request: executeRequest({ cwd: SLOT_ROOT, mode: "dry-run", cleanup: policy }),
+				host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+			});
 
 			expect(confirmation.requests).toEqual([]);
 			expect(memory.worktrees.freeSlotsCalls).toEqual([]);
@@ -618,11 +659,11 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const confirmation = decidingConfirmation({
 			"post-landing-cleanup": { type: "declined" },
 		});
-		const outcome = await executeLanding(
-			memory.context,
-			executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
-			{ confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
-		);
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+		});
 
 		expect(outcome).toMatchObject({
 			type: "failed",
@@ -656,11 +697,11 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 				},
 			}),
 		);
-		const outcome = await executeLanding(
-			memory.context,
-			executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
-			approvedHost(),
-		);
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
+			host: approvedHost(),
+		});
 
 		expect(outcome).toMatchObject({
 			type: "failed",
@@ -697,11 +738,11 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 				},
 			}),
 		);
-		const outcome = await executeLanding(
-			memory.context,
-			executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
-			approvedHost(),
-		);
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
+			host: approvedHost(),
+		});
 
 		expect(outcome).toMatchObject({
 			type: "failed",
@@ -738,11 +779,11 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			},
 		});
 		const confirmation = approvingConfirmation();
-		const outcome = await executeLanding(
-			memory.context,
-			executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
-			{ confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
-		);
+		const outcome = await executeLanding({
+			context: memory.context,
+			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
+			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
+		});
 
 		expect(confirmation.requests.map((request) => request.kind)).toEqual(["post-landing-cleanup"]);
 		expect(outcome).toMatchObject({

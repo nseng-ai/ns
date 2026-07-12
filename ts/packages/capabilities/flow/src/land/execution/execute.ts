@@ -38,6 +38,7 @@ import {
 	resolveManagedSlotPostLandingCleanupDecision,
 	runManagedSlotPostLandingCleanup,
 	type PostLandingCleanupRequest,
+	type PostLandingSlotCleanupDecision,
 } from "./post-landing-cleanup.ts";
 import { confirmAndFreeManagedSlots, submitRequiredUpdatesAndRecheckPlan } from "./pre-merge.ts";
 
@@ -46,13 +47,11 @@ export interface LandStackExecutionHost {
 	readonly progress: LandExecutionProgress;
 }
 
-export interface ExecuteLandingOptions {
-	/** Temporary compatibility seam for confirmations already granted by the calling host. */
+export interface ExecuteLandingRequestOptions {
+	readonly context: LandContext;
+	readonly request: LandingRequest;
+	readonly host: LandStackExecutionHost;
 	readonly approvals?: LandingExecutionApprovals;
-	/**
-	 * Already-loaded landing shape from the calling host's routing/presentation pass. Avoids
-	 * re-running discovery commands; strict pre-merge rechecks still run during execution.
-	 */
 	readonly preparedShape?: StackLandingShape;
 }
 
@@ -75,11 +74,9 @@ interface ReportDraft {
 }
 
 export async function executeLandingRequest(
-	context: LandContext,
-	request: LandingRequest,
-	host: LandStackExecutionHost,
-	options: ExecuteLandingOptions = {},
+	options: ExecuteLandingRequestOptions,
 ): Promise<LandingExecutionResult> {
+	const { context, request, host } = options;
 	const approvals = options.approvals ?? {};
 	const draft: ReportDraft = {
 		target: request.target,
@@ -230,7 +227,12 @@ export async function executeLandingRequest(
 			deletedLocalBranches: mergeOutcome.deletedLocalBranches,
 			retainedLocalBranches: mergeOutcome.cleanup.retainedLocalBranches,
 		};
-		pushObservedMaintenancePhases(draft, mergeOutcome.descendantMaintenance);
+		draft.phases.push(
+			...observedMaintenancePhases(
+				draft.mergeMaintenanceCleanup,
+				mergeOutcome.descendantMaintenance,
+			),
+		);
 		return failedResult(draft, "merge", mergeOutcome.failure);
 	}
 
@@ -240,22 +242,22 @@ export async function executeLandingRequest(
 		deletedLocalBranches: mergeOutcome.value.deletedLocalBranches,
 		retainedLocalBranches: mergeOutcome.value.cleanup.retainedLocalBranches,
 	};
-	draft.phases.push(completed("merge"));
-	pushObservedMaintenancePhases(draft, mergeOutcome.value.descendantMaintenance);
+	draft.phases.push(
+		completed("merge"),
+		...observedMaintenancePhases(
+			draft.mergeMaintenanceCleanup,
+			mergeOutcome.value.descendantMaintenance,
+		),
+	);
 
-	const cleanupRun = await runManagedSlotPostLandingCleanup({
-		landContext: context,
-		progress: host.progress,
-		cleanup: cleanupRequest,
+	return await executePostLandingCleanup({
+		context,
+		host,
 		shape,
+		cleanupRequest,
 		cleanupDecision: cleanupDecision.value,
+		draft,
 	});
-	draft.postLandingSlotCleanup = cleanupRun.outcome;
-	if (cleanupRun.type === "failure") {
-		return failedResult(draft, "post-landing-cleanup", cleanupRun.failure);
-	}
-	draft.phases.push(postLandingCleanupPhase(cleanupRun.outcome));
-	return completedResult(draft);
 }
 
 interface ExecuteCleanupOnlyLandingOptions {
@@ -292,40 +294,62 @@ async function executeCleanupOnlyLanding(
 		return failedResult(draft, "confirmation", cleanupDecision.failure);
 	}
 
-	const cleanupRun = await runManagedSlotPostLandingCleanup({
-		landContext: context,
-		progress: host.progress,
-		cleanup: cleanupRequest,
+	return await executePostLandingCleanup({
+		context,
+		host,
 		shape,
+		cleanupRequest,
 		cleanupDecision: cleanupDecision.value,
+		draft,
 	});
-	draft.postLandingSlotCleanup = cleanupRun.outcome;
+}
+
+interface ExecutePostLandingCleanupOptions {
+	readonly context: LandContext;
+	readonly host: LandStackExecutionHost;
+	readonly shape: StackLandingShape;
+	readonly cleanupRequest: PostLandingCleanupRequest;
+	readonly cleanupDecision: PostLandingSlotCleanupDecision;
+	readonly draft: ReportDraft;
+}
+
+async function executePostLandingCleanup(
+	options: ExecutePostLandingCleanupOptions,
+): Promise<LandingExecutionResult> {
+	const cleanupRun = await runManagedSlotPostLandingCleanup({
+		landContext: options.context,
+		progress: options.host.progress,
+		cleanup: options.cleanupRequest,
+		shape: options.shape,
+		cleanupDecision: options.cleanupDecision,
+	});
+	const draft = { ...options.draft, postLandingSlotCleanup: cleanupRun.outcome };
 	if (cleanupRun.type === "failure") {
 		return failedResult(draft, "post-landing-cleanup", cleanupRun.failure);
 	}
-	draft.phases.push(postLandingCleanupPhase(cleanupRun.outcome));
-	return completedResult(draft);
+	return completedResult({
+		...draft,
+		phases: [...draft.phases, postLandingCleanupPhase(cleanupRun.outcome)],
+	});
 }
 
-function pushObservedMaintenancePhases(
-	draft: ReportDraft,
+function observedMaintenancePhases(
+	cleanup: MergeMaintenanceCleanupReport,
 	descendantMaintenance: ObservedDescendantMaintenance,
-): void {
+): readonly LandingPhaseOutcome[] {
+	const phases: LandingPhaseOutcome[] = [];
 	if (descendantMaintenance.type === "completed") {
-		draft.phases.push(completed("descendant-maintenance"));
+		phases.push(completed("descendant-maintenance"));
 	} else if (descendantMaintenance.type === "skipped") {
-		draft.phases.push(skipped("descendant-maintenance", descendantMaintenance.reason));
+		phases.push(skipped("descendant-maintenance", descendantMaintenance.reason));
 	}
-	const cleanupFacts =
-		draft.mergeMaintenanceCleanup.deletedLocalBranches.length +
-		draft.mergeMaintenanceCleanup.retainedLocalBranches.length;
+	const cleanupFacts = cleanup.deletedLocalBranches.length + cleanup.retainedLocalBranches.length;
 	if (cleanupFacts > 0) {
-		draft.phases.push(completed("merge-maintenance-cleanup"));
+		phases.push(completed("merge-maintenance-cleanup"));
 	} else if (descendantMaintenance.type !== "not-attempted") {
-		draft.phases.push(
-			skipped("merge-maintenance-cleanup", "no local branch cleanup was performed"),
-		);
+		phases.push(skipped("merge-maintenance-cleanup", "no local branch cleanup was performed"));
 	}
+	return phases;
 }
 
 function postLandingCleanupPhase(outcome: PostLandingSlotCleanupReport): LandingPhaseOutcome {
@@ -367,8 +391,11 @@ function failedResult(
 	phase: LandingPhase,
 	failure: LandingFailure,
 ): LandingExecutionResult {
-	draft.phases.push({ type: "failed", phase, failure });
-	return { type: "failed", report: reportFromDraft(draft), failure };
+	const failedDraft: ReportDraft = {
+		...draft,
+		phases: [...draft.phases, { type: "failed", phase, failure }],
+	};
+	return { type: "failed", report: reportFromDraft(failedDraft), failure };
 }
 
 function reportFromDraft(draft: ReportDraft): LandingExecutionReport {

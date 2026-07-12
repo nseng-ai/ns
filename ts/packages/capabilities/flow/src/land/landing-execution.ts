@@ -85,15 +85,13 @@ export async function runFlowStackLanding(
 			parsedArgs.shouldSkipConfirmation || Boolean(options.isPostLandingCleanupApproved),
 	};
 
-	const execution = await executeLanding(
-		runtime.landContext,
+	const execution = await executeLanding({
+		context: runtime.landContext,
 		request,
-		{ confirmation: createFlowLandConfirmationGateway(ctx), progress: session.progress },
-		{
-			approvals,
-			...(executionOptions.shape === undefined ? {} : { preparedShape: executionOptions.shape }),
-		},
-	);
+		host: { confirmation: createFlowLandConfirmationGateway(ctx), progress: session.progress },
+		approvals,
+		...(executionOptions.shape === undefined ? {} : { preparedShape: executionOptions.shape }),
+	});
 	const report = execution.report;
 
 	if (execution.type === "failed") {

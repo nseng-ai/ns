@@ -112,12 +112,15 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 			},
 		});
 
-		const outcome = await executeLanding(context, {
-			cwd: "/repo/subdir",
-			target: { type: "stack" },
-			mode: "dry-run",
-			preflight: { shouldAllowSubmitRequiredState: false },
-			cleanup: "free-slot",
+		const outcome = await executeLanding({
+			context: context,
+			request: {
+				cwd: "/repo/subdir",
+				target: { type: "stack" },
+				mode: "dry-run",
+				preflight: { shouldAllowSubmitRequiredState: false },
+				cleanup: "free-slot",
+			},
 		});
 
 		expect(outcome).toMatchObject({
