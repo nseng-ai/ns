@@ -15,9 +15,13 @@ visual and structural fidelity to eve's docs — its geistdocs chrome, AI-native
 machine routes, marketing home, and integrations gallery — adapted to ns's
 product surface: the `ns` CLI (the ns kernel) plus its extension ecosystem.
 
-The site is written for the product's future name: the CLI is `ji` today and
-becomes `ns` (== nonslop; `nseng` == nonslop engineering) soon. Production site
-is `nseng.ai`. Launch stays gated behind the actual CLI rename.
+The site documents `ns` (== nonslop; `nseng` == nonslop engineering) — a name
+the site adopted ahead of the CLI. That bet has since resolved: the
+`rename-ji-to-ns` Objective is closed and the hard cutover from `ji` to `ns`
+landed (the CLI is `ns`, the publish target is `@nseng-ai/ns`). Production site
+is `nseng.ai`. Launch is no longer rename-gated; it is gated on the launch-bar
+decision and the Claude Code stranger verification owned by
+`ship-objectives-to-customers`.
 
 The current `docs-site/` (Astro + Starlight) is deleted and rebuilt. Its prior
 content and assets remain recoverable from git history and the Objective notes,
@@ -68,8 +72,9 @@ not from a staged preservation artifact.
 - **md-tracking telemetry: LEFT ON** (phones home to `geistdocs.com/md-tracking`
   keyed by `siteId`). Per explicit decision to maximize eve parity.
 - **i18n scaffolding: KEPT** — eve's `app/[lang]` route structure and
-  `translations = { en: { displayName: "English" } }`, English-only for now,
-  with the `npx @vercel/geistdocs translate` script available but unused.
+  `translations = { en: { displayName: "English" } }`, English-only for now.
+  (The unused `npx @vercel/geistdocs translate` package script was later removed
+  in an obsolete-docs-tooling cleanup; the `[lang]` scaffolding itself stays.)
 - **Marketing home page**: eve-style hero, file-tree, feature grid, installer +
   CTA, OG/Twitter metadata — adapted to SDL positioning. Skips eve's
   per-feature animated visuals (`components/visuals/*`).
@@ -106,8 +111,9 @@ not from a staged preservation artifact.
   copy source (owner decision). Everything else in `docs/` stays out of scope;
   this Objective may use the former published site from git history as reference
   material, but does not stage or preserve the old site as a migration artifact.
-  A ns successor to `docs/ji-naming-brief.md` is needed but belongs to the rename
-  initiative, not this Objective.
+  The ns successor to `docs/ji-naming-brief.md` now exists
+  (`docs/ns-naming-brief.md`) and was owned by the rename initiative, not this
+  Objective.
 - **No new shared content catalog package** (no SDL analogue of
   `@vercel/eve-catalog`) unless the extensions gallery implementation proves a
   shared source of truth is necessary.
@@ -152,10 +158,16 @@ not from a staged preservation artifact.
   pages with Fumadocs `meta.json` IA; no staged preservation artifact was needed.
   The happy-path slice pages — Get started (`installation`, `quickstart`), the
   Objectives concept, and the objective CLI reference — now carry real
-  customer-facing prose aligned with the shipped `ns` surface (npm install
-  truthfully gated until `@nseng-ai/ns` publishes). The remaining pages are still
-  intentionally stubbed with TODO/Lorum ipsum placeholders so incomplete launch
-  content is obvious.
+  customer-facing prose aligned with the shipped `ns` surface, and they have
+  tracked product changes since (the `ns objective archive` removal, extension
+  renames). One prose fact has gone stale the other way: `@nseng-ai/ns` is now
+  published (registry-verified; `0.1.2` at this refresh), but
+  `installation.mdx` still carries the "not yet published to npm" callout.
+  Dropping that callout is owned by `ship-objectives-to-customers`, whose
+  content row keeps the gate until a real global/`npx` install is verified and
+  whose bare-core unbundle/republish row is still open. The remaining pages are
+  still intentionally stubbed with TODO/Lorum ipsum placeholders so incomplete
+  launch content is obvious.
 - A standalone (non-workspace) Next.js app coexists fine alongside the `ts/`
   pnpm workspace, as the prior standalone Astro app did.
 - Keeping md-tracking on (an external call to `geistdocs.com`) is acceptable
@@ -187,11 +199,14 @@ not from a staged preservation artifact.
   identity/positioning copy and actual launch readiness.
 - **md-tracking telemetry** sends page-fetch events off-repo to a third party.
   Owner-approved, but record it as a known external dependency.
-- **Future-name docs.** The site documents `ns` commands while the shipped
-  binary is `ji` (itself mid-cutover from `sdl`). Docs are deliberately
-  aspirational until the ns rename lands; the deploy gate is the mitigation, and
-  launch is sequenced behind the CLI rename. No future session should open the
-  launch gate while the documented command name does not exist.
+- **Future-name docs: resolved.** The site documented `ns` commands while the
+  shipped binary was `ji`; the deploy gate was the mitigation. The
+  `rename-ji-to-ns` cutover has since landed and that Objective is closed — the
+  documented command name now exists (`ns`, published as `@nseng-ai/ns`). What
+  remains of this risk is ordinary content accuracy: keep the happy-path pages
+  tracking the live `ns` surface (as they have through the archive-verb removal
+  and extension renames), and open the launch gate only through the launch-bar
+  decision and stranger verification, not unilaterally.
 
 ## Open Questions
 
@@ -230,10 +245,11 @@ not from a staged preservation artifact.
   that path guaranteed real. Undecided: what the rest of the site must look like at that
   launch — hide non-real sections from nav, rewrite a few anchor pages (home hero,
   objectives concept), or tolerate marked-immature pages; whether any pages must stay
-  non-public (internal tooling like slot/flow that the happy path deliberately excludes);
-  and whether launch waits on the `docs/north-star.md` rewrite or proceeds with current
-  copy. Also: does the launch need the full kernel+extensions IA restructure, or a
-  minimal Get-Started slice of it?
+  non-public (internal tooling like slot/flow that the happy path deliberately excludes).
+  (The north-star-rewrite sub-question is resolved: `docs/north-star.md` was
+  rewritten with the chrome rebrand, so launch copy has its source.) Also: does
+  the launch need the full kernel+extensions IA restructure, or a minimal
+  Get-Started slice of it?
 
 ## Background & Decision Log
 

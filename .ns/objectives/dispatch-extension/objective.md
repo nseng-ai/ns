@@ -4,29 +4,33 @@
 
 Dispatch is the ns workflow that hands a unit of planned work — a plan doc or a
 raw prompt — to an executor. Today it exists only as Pi-only
-`/ccc:workspace:dispatch-plan` / `/ccc:workspace:dispatch-prompt` commands over
-the `@nseng-ai/ccc` cmux cores, dispatching into local cmux workspaces. This
-objective makes dispatch a first-class ns capability: a new capability package
-exporting a repo-local `ns dispatch` command group (the proven flow pattern)
-with an **execution-target seam** — `--target cmux` preserving today's local
-workspace behavior, and `--target cloud` executing on Vercel infrastructure —
-with Pi as a thin additive bridge and wrapper-skill coverage for Claude/Codex.
-Which Vercel infrastructure backs the cloud target (an Eve app, Vercel Sandbox
-plus the AI SDK `HarnessAgent` adapters, or another composition) is a decision
-this objective owns.
+`/ns:cmux:workspace:dispatch-plan` / `dispatch-prompt` / `dispatch-from-trunk`
+(plus `/ns:cmux:surface:dispatch-plan`) commands over the `@nseng-ai/cmux`
+dispatch cores, dispatching into local cmux workspaces. This objective makes
+dispatch a first-class ns capability: a new capability package exporting a
+repo-local `ns dispatch` command group (the proven flow pattern) with an
+**execution-target seam** — `--target cmux` preserving today's local workspace
+behavior, and `--target cloud` executing on Vercel infrastructure — with Pi as
+a thin additive bridge and wrapper-skill coverage for Claude/Codex. Which
+Vercel infrastructure backs the cloud target (an Eve app, Vercel Sandbox plus
+the AI SDK `HarnessAgent` adapters, or another composition) is a decision this
+objective owns.
 
 ## Scope
 
 - A new capability package exporting the `ns dispatch` repo-local command
-  group via the standard typed `exports["./ns-extension"]` descriptor module
-  (the substrate the `extension-descriptor-contract` Objective is
-  standardizing; the legacy `.ns/extensions/*` shim directories are already
-  gone from this checkout and must not be reintroduced), with the Pi mirror
-  via `registerCliCommandExtension`.
+  group via the typed `exports["./ns-extension"]` descriptor module — the
+  substrate the `extension-descriptor-contract` Objective completed and closed
+  (2026-07-11): descriptors are now the sole declaration source, registered
+  through `defineExtension` from `@nseng-ai/kernel/sdk` (see
+  `ts/packages/capabilities/cmux/src/ns/extension.ts` for a live example), and
+  the legacy `.ns/extensions/*` shims are gone and must not be reintroduced.
+  Pi mirror via `registerCliCommandExtension`.
 - `ns dispatch plan` and `ns dispatch prompt`, both honoring `--target`. The
-  local/cmux target reuses the `@nseng-ai/ccc` cmux cores
-  (`dispatch-from-trunk.ts`, `dispatch-prompt.ts`, `slot-dispatch-plan.ts`) as
-  its backend; ccc becomes a target backend, not the owner of dispatch.
+  local/cmux target reuses the `@nseng-ai/cmux` dispatch cores
+  (`ts/packages/capabilities/cmux/src/core/dispatch-from-trunk.ts`,
+  `dispatch-prompt.ts`, `slot-dispatch-plan.ts`) as its backend; cmux becomes
+  a target backend, not the owner of dispatch.
 - The target-seam design itself: targets as explicit backends behind one
   command surface, so later targets do not reshape the CLI.
 - The cloud-target infrastructure decision — Eve vs Vercel Sandbox +
@@ -37,19 +41,23 @@ this objective owns.
   `--target cloud` executes remotely and lands results git-natively — pushed
   branch plus a handoff/branch-memory record.
 - Wrapper skill(s) and typed parity metadata for the new surfaces; the Pi
-  `/ccc:workspace:dispatch-*` commands become thin bridges over the same
-  cores, keeping only Pi-native session-history "latest plan" resolution.
+  `/ns:cmux:*:dispatch-*` commands become thin bridges over the same cores,
+  keeping only Pi-native session-history "latest plan" resolution.
 
 ## Non-Goals
 
 - `open-branch` and other cmux workspace navigation: not dispatch; stays a
-  ccc/Pi concern.
+  cmux/Pi concern.
 - Completion notification/channel loops (Slack etc.), scheduling, event-driven
   triage, and speculative execution: vision-doc territory tracked in
   `docs/wayfinding/ns-cloud-capabilities/`, not this objective.
-- Reviving cross-harness-parity's table/doctrine machinery; the CLI-first
-  doctrine graduates to a convention doc as part of that objective's close,
-  and this objective simply complies with it.
+- Reviving cross-harness-parity's table/doctrine machinery. That Objective
+  closed 2026-07-11 as intentionally concluded (not completed): the CLI-first
+  doctrine did not graduate into a convention doc, and the parity doctrine's
+  successor home is the future end-to-end docs effort. This objective complies
+  with the surviving distributed mechanisms (typed `definePiSurfaceParity`
+  metadata, per-package fake-host parity tests, wrapper skills) rather than
+  reviving the table.
 - No runtime Graphite dependency in dispatch runtime code beyond the
   sanctioned boundaries (`docs/conventions/graphite-dependency-boundary.md`).
 
@@ -73,14 +81,15 @@ this objective owns.
 
 Assumptions:
 
-- The `@nseng-ai/ccc` cmux cores are extraction-ready (validated by the
-  2026-06-03 parity audit): the local target is CLI-entry + skill work, not
-  logic extraction.
+- The cmux dispatch cores are extraction-ready (validated by the 2026-06-03
+  parity audit, and reinforced by surviving the 2026-07-11 CCC→cmux reshape
+  — ADR 0034 — as intact `src/core/` modules): the local target is CLI-entry
+  - skill work, not logic extraction.
 - The durable registration substrate is the typed `exports["./ns-extension"]`
-  descriptor module standardized by `extension-descriptor-contract`, not the
-  legacy `.ns/extensions/*` shim directories (which no longer exist in this
-  checkout); the flow capability proved the repo-local `ns`-command pattern at
-  scale.
+  descriptor module delivered by the completed `extension-descriptor-contract`
+  Objective (closed 2026-07-11); the flow capability proved the repo-local
+  `ns`-command pattern at scale, and the cmux capability already registers
+  `ns cmux exec workspace-summary` through the same substrate.
 - ns state travels via git: a cloud executor with a repo checkout inherits
   objectives, branch context, and branch memory with no state-sync layer.
 - The AI SDK harness adapters (`@ai-sdk/harness-claude-code`,
@@ -101,19 +110,16 @@ Risks:
   the cloud leg's cost; Eve's sandbox is deliberately secret-free while
   HarnessAgent uses a bridge model — the credentials slice must be designed,
   not assumed.
-- Closing cross-harness-parity removes the standing orientation that policed
-  CLI-first discipline; new dispatch surfaces must carry parity metadata and
-  skill coverage without the umbrella watching. The graduated convention doc
-  is the mitigation.
+- cross-harness-parity closed without the predicted convention-doc
+  graduation, so no standing orientation or doctrine doc polices CLI-first
+  discipline for new dispatch surfaces. The current cmux Pi dispatch surfaces
+  carry no parity metadata. Mitigation: this objective's own completion
+  criteria require typed parity metadata and wrapper-skill coverage, and the
+  distributed parity gate (`definePiSurfaceParity` + fake-host parity tests)
+  remains live in flow/objectives/hosts-pi as the pattern to follow.
 - Local-target regression: retargeting daily-driver cmux dispatch behind a new
   CLI could break existing muscle memory and flows; Pi bridge behavior must
   stay equivalent.
-- Substrate dependency: the `extension-descriptor-contract` migration is in
-  flight, so the exact descriptor shape `ns dispatch` registers against is
-  still settling. Mitigation: build on the `exports["./ns-extension"]`
-  convention and honor the extension-descriptor-contract orientation rather
-  than any legacy `.ns/extensions` shim; treat that Objective as a soft
-  dependency (candidate Objective Edge, not yet recorded).
 
 ## Open Questions
 
@@ -122,8 +128,5 @@ Risks:
   decision row; inputs from `docs/wayfinding/ns-cloud-capabilities/`.
 - Return-path shape beyond the pushed branch + handoff: does the dispatching
   session poll, or is completion discovered purely via git/handoff inspection?
-- ccc bin repair-or-retire (inherited from cross-harness-parity's open
-  question): likely retire in favor of `ns dispatch`; decide during the
-  local-target slice.
 - Package identity and home for the new capability under `ts/packages/`
   (platform capability per `docs/conventions/platform-and-consumer.md`).

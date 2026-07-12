@@ -136,18 +136,23 @@ live exchange with the user. Assets link from row notes and live in
     update: `updates/2026-07-12-cmux-reshape-plan-ratified.md`. Execution
     underway 2026-07-12: slice 1/6 `trim-flow-facade` committed (spec item 1 —
     flow-facade subpaths/modules/tests and the `@nseng-ai/flow` dependency
-    deleted; reference grep clean; local-only pending review; semantic update:
+    deleted; reference grep clean; semantic update:
     `updates/2026-07-12-cmux-reshape-slice-1-executed.md`). Extracted
     2026-07-12: the remaining work — slices 2–6 plus the stack closeout — moved
     to the `execute-cmux-reshape-spec` autoobjective (Objective Edge), invoking
     the reshaping handoff vehicle's New-Objective escape hatch for autonomous
-    runner pursuit; this row resolves when that record closes. Semantic update:
+    runner pursuit. Semantic update:
     `updates/2026-07-12-cmux-reshape-execution-extracted.md`. Completed
     2026-07-12 when `execute-cmux-reshape-spec` closed: slices 2–6 landed as the
     five planned local branches, per-slice and closeout validation passed, the
-    final stale-term inventory was fully accounted, and no submit occurred.
-    Semantic update:
-    `updates/2026-07-12-cmux-reshape-execution-completed.md`.
+    final stale-term inventory was fully accounted. Semantic update:
+    `updates/2026-07-12-cmux-reshape-execution-completed.md`. Landed on trunk
+    (verified 2026-07-12): the full six-slice stack is merged to `master` —
+    83c489d72 (trim flow facades), 9d2e87f53 (package rename to cmux), a26e46966
+    (workspace-summary re-home), 188594fbe (command surfaces and skills),
+    e2f95f37d (ripple renames), 61307d581 (vocabulary and documentation cleanup);
+    `capabilities/ccc` and `hosts/nscc` are untracked at HEAD and
+    `capabilities/cmux` is tracked.
 - [x] Reexamine extension, host, and kernel layering vocabulary (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,
@@ -169,37 +174,46 @@ live exchange with the user. Assets link from row notes and live in
     relocation to foundation (debt edge deleted); command-backed-skill-registry folded
     into areg (Objective Edge to `skill-management-subsystem` records the input);
     `hosts/ns-cli` → `hosts/ns` with the checkout-free pair glossaried; 45 residue
-    directories slated for deletion. Kernel rename parked (see Parked). Code-independent
-    glossary edits landed in place; code-coupled edits ride the executing PRs per the
-    spec. Semantic update: `updates/2026-07-11-layering-reshape-decisions.md`.
+    directories slated for deletion (52 at execution-time re-enumeration). Kernel
+    rename parked (see Parked). Code-independent glossary edits landed in place;
+    code-coupled edits rode the executing PRs per the spec. Semantic update:
+    `updates/2026-07-11-layering-reshape-decisions.md`.
 - [x] Execute the layering reshape spec (task)
   - Added retroactively 2026-07-11 when executing reshapings was incorporated into
     the Objective (handoff-vehicle row decision); the work predates the row.
   - Task: land ADR 0033 / `layering-reshape-spec.md` items 1–10 via the handoff
     vehicle.
   - Resolved 2026-07-11: all ten items landed as nine stacked local branches (item 3
-    was a user-run deletion script by design), `just` green per slice, local-only
-    pending review. Evidence and experience report:
-    `updates/2026-07-11-layering-reshape-executed.md`.
+    was a user-run deletion script by design), `just` green per slice. Evidence and
+    experience report: `updates/2026-07-11-layering-reshape-executed.md`. Landed on
+    trunk (verified 2026-07-12): the stack is merged to `master` — 9865275cf
+    (pi-command-surfaces removed), 07dc1d0be (reviews retiered), bcbd592a6
+    (ns-pi-subagents into internal), 16ea42059 (skill registry into areg), 7d51e6877
+    (tier taxonomy trimmed to seven), ae5de5712 (tier-to-directory projection guard),
+    f93bec99a (git seam to foundation, brmem decoupled); `hosts/ns` is tracked and
+    `hosts/ns-cli`, `hosts/pi-command-surfaces`, and
+    `hosts/command-backed-skill-registry` are untracked at HEAD.
 - [ ] Reexamine foundation domain residue and the capability-kit junk drawer (grilling)
   - Graduated 2026-07-11 from the layering row's leftovers (was Fog-adjacent sweep
     material, now specifiable).
   - Question: Foundation carries domain-smelling vocabulary below the SDK
     (`terminal/runner-usage`, `terminal/terminal-presentation`,
     `primitives/skill-lookup`) and a one-module `config` subpackage; capability-kit's
-    `kit` subpackage is a ~19-subpath junk drawer of checkpoint/slug/text-gen/shell/
+    `kit` subpackage is a ~20-subpath junk drawer of checkpoint/slug/text-gen/shell/
     xdg/brmem concerns; Machine Envelope is constructed in clinkr and parsed in
-    foundation with no recorded seam; checkpoint vocabulary spans kit and flow. What
-    moves up, what collapses, what is `kit`, and who owns Machine Envelope? Spec
-    resulting changes.
+    foundation (`primitives/machine-envelope.ts`) with no recorded seam; checkpoint
+    vocabulary spans kit and flow. What moves up, what collapses, what is `kit`, and
+    who owns Machine Envelope? Spec resulting changes. (Premises re-verified
+    2026-07-12 against trunk post-layering-reshape: all still present.)
 - [ ] Batch-name the unglossaried brands (grilling)
   - Graduated 2026-07-11 from the layering row (sweep pattern: deferred-to vocabulary
     that does not exist).
   - Question: `clinkr` and `areg` are bins/packages whose name expansions are recorded
-    nowhere — the root glossary even defers to "areg vocabulary" that does not exist.
-    Decide each expansion (or decide the name is opaque-by-design and record that),
-    and where brand-name expansions live. `nscc` is excluded — it belongs to the
-    CCC/orchestration row.
+    nowhere — the root glossary even defers to "areg vocabulary" that does not exist
+    (still true 2026-07-12: "**Registry** remains areg vocabulary" with no areg
+    context file). Decide each expansion (or decide the name is opaque-by-design and
+    record that), and where brand-name expansions live. `nscc` is excluded — it was
+    dispositioned (deleted) by the CCC/orchestration row.
 - [x] Spec the kernel → sdk rename (grilling)
   - Unparked 2026-07-12 from the Parked row "Decide the `@nseng-ai/kernel` name":
     the revisit trigger fired (`extension-descriptor-contract` closed 2026-07-11)
@@ -280,26 +294,42 @@ live exchange with the user. Assets link from row notes and live in
     residue deletion. Experience report (what the spec got right, where ground truth
     moved, one mechanical hazard) in
     `updates/2026-07-11-layering-reshape-executed.md`.
+  - Evidence (2026-07-12, third): the New-Objective escape hatch invoked for the
+    first time — cmux reshape slices 2–6 extracted to the `execute-cmux-reshape-spec`
+    autoobjective for autonomous runner pursuit, which completed and closed the same
+    day. Both reshape stacks are now merged to trunk.
 - [ ] Reexamine the source-control lifecycle spread (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,
     capability-kit, tools.
   - Question: The source-control lifecycle vocabulary — Flow, land, autobranch,
-    submit, changes/cp, slot gt, Graphite mechanics — is spread across flow, ccc,
-    slots, and capability-kit/graphite with boundaries the old `CONTEXT-MAP.md`
-    needed paragraphs to state. What is the clear ontology of the branch/PR lifecycle
-    (what are the real nouns and verbs, and who owns each), and what renames/moves
-    would let one sentence describe each boundary? Spec resulting changes.
+    submit, changes/cp, slot gt, Graphite mechanics — is spread across flow, cmux
+    (formerly ccc), slots, and capability-kit/graphite with boundaries the old
+    `CONTEXT-MAP.md` needed paragraphs to state. What is the clear ontology of the
+    branch/PR lifecycle (what are the real nouns and verbs, and who owns each), and
+    what renames/moves would let one sentence describe each boundary? Spec resulting
+    changes.
+  - Ground truth moved 2026-07-12 (input, not resolution): the
+    `flow-land-execution-migration` Objective closed — land execution is Flow-owned
+    and cmux consumes it only through the curated `@nseng-ai/flow/api` Capability
+    API (per the rewritten `CONTEXT-MAP.md` relationship edge). Re-enumerate
+    ownership facts at grilling time.
 - [ ] Reexamine review and feedback naming residue (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,
     capability-kit, tools.
-  - Question: The review/feedback domain carries rename residue: package `reviews`
-    but engine name Roaster; package `pr-feedback` but command face `ns address exec`
-    and "Address" vocabulary; Tripwires, deep reviews, findings, findings comments
-    versus GitHub review threads. What are the canonical names for the review engine,
-    the PR-feedback surface, and their artifacts — and should the residue names be
-    retired outright? Spec resulting changes.
+  - Question: The review/feedback domain carries rename residue: package
+    `pr-feedback` but command face `ns address exec` and "Address" vocabulary
+    (verified live 2026-07-12: extension `group: "address"` in
+    `pr-feedback/src/ns-extension.ts`); Tripwires, deep reviews, findings, findings
+    comments versus GitHub review threads. What are the canonical names for the
+    review engine, the PR-feedback surface, and their artifacts — and should the
+    residue names be retired outright? Spec resulting changes.
+  - Ground truth moved (verified 2026-07-12): the sweep-era "package `reviews` but
+    engine name Roaster" premise has narrowed — no live source, skill, or glossary
+    reference to Roaster remains (only historical ADRs 0007/0027 and the retired-name
+    Non-Goal); the reviews context speaks of Tripwires/deep reviews/findings. The row
+    scopes to the Address/pr-feedback residue and artifact naming.
 - [ ] Triage remaining ambiguity clusters (grilling)
   - Blocked by: Reexamine CCC and the orchestration layer; Reexamine extension, host,
     and kernel layering vocabulary; Reexamine the source-control lifecycle spread;

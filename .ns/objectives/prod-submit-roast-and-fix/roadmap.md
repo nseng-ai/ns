@@ -47,6 +47,10 @@ Fog the answer makes stateable, and rewire or drop invalidated rows.
       incomplete prose may degrade to a plain push, but the result is "submitted, not
       shipped" and no ship attestation is recorded. Add an incident-regression scenario
       for a three-branch new stack so partial metadata cannot report ship success.
+      Note: PR title/description generation currently lives inside `ns flow submit`
+      (default for new PRs and, since trunk commit 5636cb792, for existing PRs with
+      empty bodies); this row also owns moving that prose work to `ship` so `submit`
+      can honor its decided no-prose contract.
       Blocked by: Fixer engine.
 - [ ] (grilling) Remote roaster's residual role — whether the remote review workflow
       (`.github/workflows/reviews.yml`) keeps running tripwires as a backstop, shrinks

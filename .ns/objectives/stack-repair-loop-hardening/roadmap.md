@@ -3,14 +3,18 @@
 ## Work
 
 - [ ] Interim rewrite of `skills/code-fix-gh-stack/SKILL.md` against current tooling.
-      Reviewed draft exists from the 2026-07-08 planning session: triggers into the
-      description, `## Purpose` deleted, negations rephrased, single done definition
-      (checks-only; threads inventoried and routed to pr-address, not owned), conflict canon
-      (downstack shape canonical, skip duplicates, route to `code-gt-restack-resolve`),
-      stale/fresh triage, amend verification, mergeability-as-trailing, delegation guidance.
-      Branches from trunk: the skill file has landed on trunk (PR #3283 merged, commit
-      4c30d67fa) and still carries the target defects at HEAD (`## Purpose` present,
-      "resolve conflicts carefully" no-op, negations un-rephrased).
+      Requirements (from the 2026-07-08 planning session; the reviewed draft from that
+      session is not preserved in the repo, Branch Memory, or handoffs, so this list is
+      the surviving spec): triggers into the description, `## Purpose` deleted, negations
+      rephrased, single done definition (checks-only; threads inventoried and routed to
+      pr-address, not owned), conflict canon (downstack shape canonical, skip duplicates,
+      route to `code-gt-restack-resolve`), stale/fresh triage, amend verification,
+      mergeability-as-trailing, delegation guidance. Branches from trunk: the skill file
+      landed via PR #3283 (commit 4c30d67fa) and still carries the target defects at HEAD
+      (`## Purpose` present, "resolve conflicts carefully" no-op, negations un-rephrased);
+      the inventory step has since been edited on trunk (commit 1a059cd04 clarified
+      structured `ns slot gt exec stack-branches` topology guidance), so start the rewrite
+      from the current trunk file.
 - [ ] Define the enriched `branch-pr-checks` JSON field contract before code: per-check
       timestamps, head-commit push time, stale/fresh, unresolved-thread counts, per-PR
       status, mergeability flagged trailing. Resolve the status-vocabulary open question
