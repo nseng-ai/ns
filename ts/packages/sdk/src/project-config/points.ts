@@ -9,7 +9,7 @@ import {
 	loadExtensionDescriptorFromPackageRoot,
 	presentExtensionDescriptorPackageError,
 } from "./extension-package-descriptor.ts";
-import { makeKernelDiagnostic } from "../runtime/diagnostics.ts";
+import { makeSdkDiagnostic } from "../runtime/diagnostics.ts";
 import { extensionPointAcceptsValues, type ExtensionDescriptor } from "../sdk/descriptor.ts";
 import {
 	declaredExtensionSpecsErrorInfo,
@@ -870,7 +870,7 @@ function diagnostic(
 		severity?: ProjectConfigDiagnostic["severity"];
 	} = {},
 ): ProjectConfigDiagnostic {
-	return makeKernelDiagnostic({
+	return makeSdkDiagnostic({
 		code,
 		message,
 		...optionalEntry("path", options.path),

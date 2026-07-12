@@ -130,7 +130,7 @@ export function createFakeObjectiveNsApi(
 
 /**
  * Runs one objective ns command against a fake API: the request goes through
- * the command's own kernel adapter (mirroring kernel argv decoding).
+ * the command's own SDK adapter (mirroring SDK argv decoding).
  */
 export async function runObjectiveCommand<S extends NsCommandSchema, T>(
 	command: NsCommand<S, T>,

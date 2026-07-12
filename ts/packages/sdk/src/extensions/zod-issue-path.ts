@@ -1,7 +1,7 @@
 import type { ZodIssueLike } from "@nseng-ai/foundation/primitives";
 
 /**
- * Kernel-local classifier for routing Zod issues by structural path shape.
+ * SDK-local classifier for routing Zod issues by structural path shape.
  *
  * This intentionally stays private to `@nseng-ai/sdk`: it is a small, policy-free
  * path-matching utility shared by `extension-discovery.ts` and

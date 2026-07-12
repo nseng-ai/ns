@@ -75,7 +75,7 @@ export const extensionCatalogEntries: readonly ExtensionCatalogEntry[] = [
     name: "ns command mirrors",
     summary: "Run checkpoint, changes, submit, and PR regeneration workflows from Pi slash commands.",
     details:
-      "Thin Pi adapters expose ns kernel commands without making agents leave the current session.",
+      "Thin Pi adapters expose ns SDK commands without making agents leave the current session.",
     category: "branch-pr",
     status: "built-in",
     commandHint: "/ns:flow:cp",

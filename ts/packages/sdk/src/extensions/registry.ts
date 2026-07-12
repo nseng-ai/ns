@@ -609,8 +609,8 @@ async function loadSourceDevDescriptorCandidates(options: {
 function sourceDevWorkspacePackagesRoot(cwd: string): string | undefined {
 	const packagesRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 	const checkoutRoot = resolve(packagesRoot, "..", "..");
-	const kernelSourceDir = join(packagesRoot, "sdk", "src");
-	if (!existsSync(kernelSourceDir)) return undefined;
+	const sdkSourceDir = join(packagesRoot, "sdk", "src");
+	if (!existsSync(sdkSourceDir)) return undefined;
 	return isPathInside(checkoutRoot, cwd) ? packagesRoot : undefined;
 }
 

@@ -41,7 +41,7 @@ export function createGraphiteSqliteJsonRunner(
 
 /**
  * Backend-neutral classification of a `sqlite3 -json` result. Callers map each
- * variant to their own domain failure type; the spawn + branching kernel is
+ * variant to their own domain failure type; the spawn + branching core is
  * shared so it cannot drift between consumers.
  */
 export type SqliteJsonError =

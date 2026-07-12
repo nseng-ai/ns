@@ -19,7 +19,7 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 
 - **API-kind** subpackages are the package's deliberate cross-package programmatic doors: any declared subpackage with supported cross-package runtime exports is API-kind, regardless of name, and a container may have several (`@nseng-ai/foundation/exec` and `@nseng-ai/foundation/time` are both API-kind). A capability's Capability API must still be the literally named `api` subpackage (`@nseng-ai/<cap>/api`), a thin contract/facade; logic lives in features, not here. Do not consolidate precise API-kind doors into one façade barrel.
 - **Testing** exports fakes and test kits for other packages' tests. Never imported by runtime code.
-- **Host surfaces** are thin adapters consumed by exactly one host: `ns` by the ns CLI kernel wiring and `pi` by the Pi host stack. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
+- **Host surfaces** are thin adapters consumed by exactly one host: `ns` by the ns CLI SDK wiring and `pi` by the Pi host stack. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
 - **Features** are the package's real domain verticals — the entries that make the topology report say something package-specific. They never import host surfaces, and their edges stay intra-package. Private implementation layers of an API-kind subpackage are folders inside it, not sibling feature subpackages.
 
 ## Naming rules

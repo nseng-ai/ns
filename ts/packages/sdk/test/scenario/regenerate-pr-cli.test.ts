@@ -15,7 +15,7 @@ function runUnavailableRegeneratePrCli(args: readonly string[]) {
 }
 
 describe("ns flow regenerate-pr CLI availability", () => {
-	test("regenerate-pr is not registered as a built-in command after the kernel reset", () => {
+	test("regenerate-pr is not registered as a built-in command after the SDK reset", () => {
 		expect(listNsCommands().some((command) => command.name === "regenerate-pr")).toBe(false);
 	});
 

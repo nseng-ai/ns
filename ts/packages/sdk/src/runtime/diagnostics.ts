@@ -1,35 +1,35 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
-export type KernelDiagnosticSeverity = "error" | "info";
+export type SdkDiagnosticSeverity = "error" | "info";
 
-export interface KernelDiagnosticBase {
-	severity: KernelDiagnosticSeverity;
+export interface SdkDiagnosticBase {
+	severity: SdkDiagnosticSeverity;
 	code: string;
 	message: string;
 	path?: string;
 }
 
-interface KernelDiagnosticRequest<TExtra extends object> {
+interface SdkDiagnosticRequest<TExtra extends object> {
 	code: string;
 	message: string;
 	path?: string;
 	extra?: TExtra;
 }
 
-export function makeKernelDiagnostic<TExtra extends object = Record<never, never>>(
-	request: KernelDiagnosticRequest<TExtra>,
-): (KernelDiagnosticBase & { severity: "error" }) & TExtra;
-export function makeKernelDiagnostic<TExtra extends object = Record<never, never>>(
-	request: KernelDiagnosticRequest<TExtra> & { severity: "info" },
-): (KernelDiagnosticBase & { severity: "info" }) & TExtra;
-export function makeKernelDiagnostic<TExtra extends object = Record<never, never>>(
-	request: KernelDiagnosticRequest<TExtra> & { severity?: KernelDiagnosticSeverity },
-): KernelDiagnosticBase & TExtra {
+export function makeSdkDiagnostic<TExtra extends object = Record<never, never>>(
+	request: SdkDiagnosticRequest<TExtra>,
+): (SdkDiagnosticBase & { severity: "error" }) & TExtra;
+export function makeSdkDiagnostic<TExtra extends object = Record<never, never>>(
+	request: SdkDiagnosticRequest<TExtra> & { severity: "info" },
+): (SdkDiagnosticBase & { severity: "info" }) & TExtra;
+export function makeSdkDiagnostic<TExtra extends object = Record<never, never>>(
+	request: SdkDiagnosticRequest<TExtra> & { severity?: SdkDiagnosticSeverity },
+): SdkDiagnosticBase & TExtra {
 	const base = {
 		severity: request.severity ?? "error",
 		code: request.code,
 		message: request.message,
 		...optionalEntry("path", request.path),
 	};
-	return { ...base, ...(request.extra ?? {}) } as KernelDiagnosticBase & TExtra;
+	return { ...base, ...(request.extra ?? {}) } as SdkDiagnosticBase & TExtra;
 }

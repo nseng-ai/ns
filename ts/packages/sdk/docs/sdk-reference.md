@@ -1,6 +1,6 @@
 # `@nseng-ai/sdk` — Reference
 
-`@nseng-ai/sdk` is the public author API for ns extensions — the one package you import from to write an ns extension; this document is the complete reference for its exports. `@nseng-ai/sdk` is the SDK layer; `@nseng-ai/sdk` is the host/kernel that loads extensions.
+`@nseng-ai/sdk` is the public author API for ns extensions — the one package you import from to write an ns extension; this document is the complete reference for its exports. The same package is also the host that loads extensions; the loading machinery is implementation hidden in the SDK.
 
 For an end-to-end package layout and extension authoring walkthrough, start with [Writing an ns extension](./writing-an-ns-extension.md).
 Import the SDK's own surface from the package itself:
@@ -17,7 +17,7 @@ Do not import ns implementation modules (`@nseng-ai/sdk/*`, `@nseng-ai/foundatio
 Capability APIs such as `@nseng-ai/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `@nseng-ai/sdk` and not general ns extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
 For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/capabilities/flow/src/shared/` in `@nseng-ai/flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/sdk/package.json` and capability-building primitive subpaths under `@nseng-ai/capability-kit/*` exist for package/internal workspace sharing, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
 
-The SDK is intentionally small. A command should own its workflow policy — prompts, validation, repair, external commands, GitHub/Graphite choreography, and confirmation boundaries — unless repeated command migrations prove a deeper kernel helper belongs in this author API. When a helper is promoted, this reference becomes the source of truth for the new public surface.
+The SDK is intentionally small. A command should own its workflow policy — prompts, validation, repair, external commands, GitHub/Graphite choreography, and confirmation boundaries — unless repeated command migrations prove a deeper SDK helper belongs in this author API. When a helper is promoted, this reference becomes the source of truth for the new public surface.
 
 The exports are grouped by the role they play when authoring a command: you **declare** an extension and its commands, your command **receives** an execution context, and it **returns** a result. Each entry carries a minimal worked example; the examples share a running `git`-driven command so they compose into a realistic extension.
 
@@ -130,7 +130,7 @@ export default defineExtension({
 
 ### `RawArgvCommand`
 
-`RawArgvCommand` is the one command object contract loaded by the kernel. `defineRawCommand()` constructs it directly. Commands have `name`, `summary`, `description`, `run(ctx, { argv })`, and an optional neutral `complete(ctx, request)` hook. `argv` is the post-route argument tail.
+`RawArgvCommand` is the one command object contract loaded by the SDK. `defineRawCommand()` constructs it directly. Commands have `name`, `summary`, `description`, `run(ctx, { argv })`, and an optional neutral `complete(ctx, request)` hook. `argv` is the post-route argument tail.
 
 ```ts
 interface RawArgvCommand<T = unknown> {

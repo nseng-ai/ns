@@ -41,9 +41,9 @@ export interface NsExtensionApi {
 	exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult>;
 	/** Text-generation capability; ns commands own prompts, validation, and repair policy. */
 	textGenerator: TextGenerator;
-	/** Higher-level human command-output service provided by the host/kernel. */
+	/** Higher-level human command-output service provided by the SDK host. */
 	commandIo: NsCommandIo;
-	/** Structured phase progress sink provided by the host/kernel. */
+	/** Structured phase progress sink provided by the SDK host. */
 	progress: NsProgress;
 	/** Host terminal rendering capabilities for human output and previews. */
 	renderCapabilities: RenderCapabilities;

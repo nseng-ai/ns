@@ -57,8 +57,8 @@ afterEach(() => {
 	}
 });
 
-describe("empty ns kernel CLI help and parsing", () => {
-	test("static command metadata only includes kernel-owned built-ins", () => {
+describe("empty ns SDK CLI help and parsing", () => {
+	test("static command metadata only includes SDK-owned built-ins", () => {
 		expect(listNsCommands()).toEqual([
 			{
 				name: "point",

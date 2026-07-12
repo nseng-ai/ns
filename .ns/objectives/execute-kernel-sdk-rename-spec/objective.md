@@ -157,3 +157,27 @@ below.
   merging, PR creation or mutation, publishing or any npm registry mutation,
   `[cp]` checkpoint commits, mutating GitHub or any external system, editing
   immutable-history dirs, or adding compatibility aliases for kernel names.
+
+## Closure
+
+Completed 2026-07-12. The sweep and spec items 1–4 landed as the five named
+local Graphite branches stacked on `unpark-kernel-sdk-rename-row`, one
+implementation commit per slice, with the item 5 closeout committed on the
+top slice. Root `just` passed per slice and again after closeout fixes; the
+integration lane passed on the top slice; `smoke-checkout-free.mjs` and
+descriptor loading (`ns --help`, extension-loader integration test) were
+exercised after each jiti-key change.
+
+The spec verification sweep re-derived every volatile inventory claim before
+execution and committed the corrections to the spec only. The trust-nothing
+closeout audited each slice's changed files against its spec enumeration
+(zero unexplained extras) and produced a fully accounted 162-hit
+word-boundary + camelCase `kernel` inventory: 61 historical, 43 out-of-scope
+(parked `KernelCommandCompletion*` aliases, north-star/docs-site
+product-vision usage), 5 avoid-term, 6 guard-fixture, and 47 live-claims all
+fixed in the closeout commit. No stale live kernel claim remains.
+
+No execution-stack commit subject contains `[cp]`, and no submit, push, or
+PR mutation occurred. npm registry work stays operator-run per ADR 0035.
+Evidence: `updates/2026-07-12-execution-completed.md`. This closure resolves
+the `ontology-reshape` "Spec the kernel → sdk rename" row.

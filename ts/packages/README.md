@@ -6,7 +6,7 @@ Structure *inside* a container package — which units earn `ns.subpackages` ran
 
 ## Top-level packages
 
-- `kernel/` is the ns kernel and CLI package (`@nseng-ai/sdk`, tier `sdk`). It stays top-level by design.
+- `sdk/` is the ns SDK and CLI package (`@nseng-ai/sdk`, tier `sdk`). It stays top-level by design.
 - `capability-kit/` is the first-party Capability Kit substrate (`@nseng-ai/capability-kit`, tier `capability-kit`). It stays top-level by design and does not need a category wrapper.
 
 ## Category directories

@@ -200,7 +200,7 @@ live exchange with the user. Assets link from row notes and live in
     Decide each expansion (or decide the name is opaque-by-design and record that),
     and where brand-name expansions live. `nscc` is excluded — it belongs to the
     CCC/orchestration row.
-- [~] Spec the kernel → sdk rename (grilling)
+- [x] Spec the kernel → sdk rename (grilling)
   - Unparked 2026-07-12 from the Parked row "Decide the `@nseng-ai/kernel` name":
     the revisit trigger fired (`extension-descriptor-contract` closed 2026-07-11)
     and the user decided the direction — the kernel brand retires and the concept
@@ -242,7 +242,12 @@ live exchange with the user. Assets link from row notes and live in
     `execute-kernel-sdk-rename-spec` autoobjective (Objective Edge) via the
     vehicle's New-Objective hatch; this row resolves fully when that record
     closes. Semantic update:
-    `updates/2026-07-12-kernel-sdk-rename-spec-ratified.md`.
+    `updates/2026-07-12-kernel-sdk-rename-spec-ratified.md`. Completed
+    2026-07-12 when `execute-kernel-sdk-rename-spec` closed: the sweep and
+    the four rename slices landed as five local branches, per-slice and
+    closeout validation passed, the final kernel inventory was fully
+    accounted, and no submit occurred. Semantic update:
+    `updates/2026-07-12-kernel-sdk-rename-executed.md`.
 - [x] Decide the reshaping handoff vehicle (grilling)
   - Graduated 2026-07-11 from the "Reshaping handoff vehicle" Fog: the first reshaping
     spec now exists (`layering-reshape-spec.md`), which was that Fog's stated
