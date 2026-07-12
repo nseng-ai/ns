@@ -45,7 +45,7 @@ export type NsTomlExtensionUninstallPlan =
 			readonly ok: true;
 			readonly text: string;
 			readonly isRemoved: boolean;
-			readonly matchedSpec: string | undefined;
+			readonly matchedSpec?: string;
 	  }
 	| NsTomlSyntaxFailure
 	| {
@@ -91,20 +91,20 @@ type PreparedSyntax =
 
 export function planDeclaredExtensionUninstallToml(options: {
 	readonly projectRoot: string;
-	readonly source: string;
+	readonly nsTomlContent: string;
 	readonly requestedSpec: string;
 }): NsTomlExtensionUninstallPlan {
-	const prepared = prepareSyntax(options.source);
+	const prepared = prepareSyntax(options.nsTomlContent);
 	if (!prepared.ok) return prepared;
 	const identity = extensionSourceIdentity(options.projectRoot, options.requestedSpec);
 	if (identity === undefined) return invalidSource(options.requestedSpec);
 	if (prepared.type === "absent")
-		return { ok: true, text: options.source, isRemoved: false, matchedSpec: undefined };
+		return { ok: true, text: options.nsTomlContent, isRemoved: false };
 	const matches = prepared.syntax.values.filter((value) =>
 		identitiesEqual(identity, extensionSourceIdentity(options.projectRoot, value.decoded)),
 	);
 	if (matches.length === 0) {
-		return { ok: true, text: options.source, isRemoved: false, matchedSpec: undefined };
+		return { ok: true, text: options.nsTomlContent, isRemoved: false };
 	}
 	if (matches.length > 1) {
 		const matchingSpecs = matches.map((value) => value.decoded);
@@ -121,7 +121,7 @@ export function planDeclaredExtensionUninstallToml(options: {
 	if (match === undefined) throw new Error("Expected one matching extension declaration.");
 	return {
 		ok: true,
-		text: removeValue(options.source, match),
+		text: removeValue(options.nsTomlContent, match),
 		isRemoved: true,
 		matchedSpec: match.decoded,
 	};
@@ -129,18 +129,18 @@ export function planDeclaredExtensionUninstallToml(options: {
 
 export function planDeclaredExtensionInstallToml(options: {
 	readonly projectRoot: string;
-	readonly source: string;
+	readonly nsTomlContent: string;
 	readonly requestedSpec: string;
 }): NsTomlExtensionInstallPlan {
-	const prepared = prepareSyntax(options.source);
+	const prepared = prepareSyntax(options.nsTomlContent);
 	if (!prepared.ok) return prepared;
 	const identity = extensionSourceIdentity(options.projectRoot, options.requestedSpec);
 	if (identity === undefined) return invalidSource(options.requestedSpec);
 	if (prepared.type === "absent")
-		return appendAbsentAssignment(options.source, options.requestedSpec);
+		return appendAbsentAssignment(options.nsTomlContent, options.requestedSpec);
 	const specs = prepared.syntax.values.map((value) => value.decoded);
 	if (specs.includes(options.requestedSpec))
-		return { ok: true, text: options.source, isAdded: false };
+		return { ok: true, text: options.nsTomlContent, isAdded: false };
 	const existingSpecs = specs.filter((spec) =>
 		identitiesEqual(identity, extensionSourceIdentity(options.projectRoot, spec)),
 	);
@@ -154,15 +154,15 @@ export function planDeclaredExtensionInstallToml(options: {
 			message: extensionIdentityConflictMessage(identity, existingSpecs),
 		};
 	}
-	return appendWithSyntax(options.source, options.requestedSpec, prepared.syntax);
+	return appendWithSyntax(options.nsTomlContent, options.requestedSpec, prepared.syntax);
 }
 
 export function planDeclaredExtensionTarget(options: {
 	readonly projectRoot: string;
-	readonly source: string;
+	readonly nsTomlContent: string;
 	readonly requestedSpec: string;
 }): NsTomlExtensionTargetPlan {
-	const prepared = prepareSyntax(options.source);
+	const prepared = prepareSyntax(options.nsTomlContent);
 	if (!prepared.ok) return prepared;
 	const identity = extensionSourceIdentity(options.projectRoot, options.requestedSpec);
 	if (identity === undefined) return invalidSource(options.requestedSpec);
@@ -228,71 +228,72 @@ export function extensionSourceIdentityFromParsed(
 }
 
 export function appendDeclaredExtensionSpecToml(
-	source: string,
+	nsTomlContent: string,
 	spec: string,
 ): NsTomlExtensionsAppendResult {
-	const parsed = parseDeclaredExtensionSpecsToml(source);
+	const parsed = parseDeclaredExtensionSpecsToml(nsTomlContent);
 	if (!parsed.ok) return { ok: false, reason: parsed.reason, message: parsed.message };
-	if (parsed.specs.includes(spec)) return { ok: true, text: source, isAdded: false };
-	const syntax = parseExtensionArraySyntax(source);
+	if (parsed.specs.includes(spec)) return { ok: true, text: nsTomlContent, isAdded: false };
+	const syntax = parseExtensionArraySyntax(nsTomlContent);
 	if (syntax === undefined) {
-		if (parsed.specs.length > 0 || hasBareAssignment(source)) return unsupportedFormat("installed");
-		return appendAbsentAssignment(source, spec);
+		if (parsed.specs.length > 0 || hasBareAssignment(nsTomlContent))
+			return unsupportedFormat("installed");
+		return appendAbsentAssignment(nsTomlContent, spec);
 	}
-	return appendWithSyntax(source, spec, syntax);
+	return appendWithSyntax(nsTomlContent, spec, syntax);
 }
 
-function prepareSyntax(source: string): PreparedSyntax {
-	const parsed = parseDeclaredExtensionSpecsToml(source);
+function prepareSyntax(nsTomlContent: string): PreparedSyntax {
+	const parsed = parseDeclaredExtensionSpecsToml(nsTomlContent);
 	if (!parsed.ok) return { ok: false, reason: parsed.reason, message: parsed.message };
-	const syntax = parseExtensionArraySyntax(source);
+	const syntax = parseExtensionArraySyntax(nsTomlContent);
 	if (syntax === undefined) {
-		if (parsed.specs.length === 0 && !hasBareAssignment(source))
+		if (parsed.specs.length === 0 && !hasBareAssignment(nsTomlContent))
 			return { ok: true, type: "absent" };
 		return unsupportedFormat("changed");
 	}
 	return { ok: true, type: "present", syntax };
 }
 
-function appendAbsentAssignment(source: string, spec: string): NsTomlExtensionsAppendResult {
-	const ending = firstLineEnding(source) ?? "\n";
+function appendAbsentAssignment(nsTomlContent: string, spec: string): NsTomlExtensionsAppendResult {
+	const ending = firstLineEnding(nsTomlContent) ?? "\n";
 	const assignment = `extensions = [${JSON.stringify(spec)}]${ending}`;
-	const tableOffset = findFirstTopLevelTableOffset(source);
+	const tableOffset = findFirstTopLevelTableOffset(nsTomlContent);
 	if (tableOffset !== undefined) {
-		const beforeTable = source.slice(0, tableOffset);
+		const beforeTable = nsTomlContent.slice(0, tableOffset);
 		const separator = beforeTable === "" || beforeTable.endsWith("\n") ? "" : ending;
 		return {
 			ok: true,
-			text: `${beforeTable}${separator}${assignment}${source.slice(tableOffset)}`,
+			text: `${beforeTable}${separator}${assignment}${nsTomlContent.slice(tableOffset)}`,
 			isAdded: true,
 		};
 	}
-	const separator = source === "" || source.endsWith("\n") ? "" : ending;
-	return { ok: true, text: `${source}${separator}${assignment}`, isAdded: true };
+	const separator = nsTomlContent === "" || nsTomlContent.endsWith("\n") ? "" : ending;
+	return { ok: true, text: `${nsTomlContent}${separator}${assignment}`, isAdded: true };
 }
 
 function appendWithSyntax(
-	source: string,
+	nsTomlContent: string,
 	spec: string,
 	syntax: ExtensionArraySyntax,
 ): NsTomlExtensionsAppendResult {
 	const encoded = JSON.stringify(spec);
-	const openLine = source.lastIndexOf("\n", syntax.openOffset) + 1;
-	const closeLine = source.lastIndexOf("\n", syntax.closeOffset) + 1;
+	const openLine = nsTomlContent.lastIndexOf("\n", syntax.openOffset) + 1;
+	const closeLine = nsTomlContent.lastIndexOf("\n", syntax.closeOffset) + 1;
 	if (openLine === closeLine) {
 		const separator = syntax.values.length === 0 || syntax.hasTrailingComma ? "" : ",";
 		const trailing = syntax.hasTrailingComma ? "," : "";
 		return {
 			ok: true,
-			text: `${source.slice(0, syntax.closeOffset)}${separator} ${encoded}${trailing}${source.slice(syntax.closeOffset)}`,
+			text: `${nsTomlContent.slice(0, syntax.closeOffset)}${separator} ${encoded}${trailing}${nsTomlContent.slice(syntax.closeOffset)}`,
 			isAdded: true,
 		};
 	}
 	const last = syntax.values.at(-1);
-	const closeIndent = source.slice(closeLine, syntax.closeOffset).match(/^\s*/u)?.[0] ?? "";
+	const closeIndent = nsTomlContent.slice(closeLine, syntax.closeOffset).match(/^\s*/u)?.[0] ?? "";
 	const itemIndent =
-		last === undefined ? `${closeIndent}\t` : indentationAt(source, last.tokenStart);
-	const ending = firstLineEnding(source) ?? "\n";
+		last === undefined ? `${closeIndent}\t` : indentationAt(nsTomlContent, last.tokenStart);
+	const ending = firstLineEnding(nsTomlContent) ?? "\n";
 	const sharesCloseLine = last !== undefined && last.tokenEnd > closeLine;
 	const itemOffset = sharesCloseLine ? syntax.closeOffset : closeLine;
 	const itemText = sharesCloseLine
@@ -302,23 +303,25 @@ function appendWithSyntax(
 	if (last !== undefined && !syntax.hasTrailingComma)
 		insertions.push({ offset: last.tokenEnd, text: "," });
 	insertions.sort((left, right) => right.offset - left.offset);
-	let text = source;
+	let text = nsTomlContent;
 	for (const insertion of insertions)
 		text = `${text.slice(0, insertion.offset)}${insertion.text}${text.slice(insertion.offset)}`;
 	return { ok: true, text, isAdded: true };
 }
 
-function removeValue(source: string, value: ExtensionArraySyntaxValue): string {
+function removeValue(nsTomlContent: string, value: ExtensionArraySyntaxValue): string {
 	const comma = value.commaAfter ?? value.commaBefore;
 	if (comma === undefined)
-		return `${source.slice(0, value.tokenStart)}${source.slice(value.tokenEnd)}`;
+		return `${nsTomlContent.slice(0, value.tokenStart)}${nsTomlContent.slice(value.tokenEnd)}`;
 	if (comma < value.tokenStart)
-		return `${source.slice(0, comma)}${source.slice(comma + 1, value.tokenStart)}${source.slice(value.tokenEnd)}`;
-	return `${source.slice(0, value.tokenStart)}${source.slice(value.tokenEnd, comma)}${source.slice(comma + 1)}`;
+		return `${nsTomlContent.slice(0, comma)}${nsTomlContent.slice(comma + 1, value.tokenStart)}${nsTomlContent.slice(value.tokenEnd)}`;
+	return `${nsTomlContent.slice(0, value.tokenStart)}${nsTomlContent.slice(value.tokenEnd, comma)}${nsTomlContent.slice(comma + 1)}`;
 }
 
-function hasBareAssignment(source: string): boolean {
-	return source.split(/(?<=\n)/u).some((line) => /^extensions\s*=\s*\[/u.test(line.trimStart()));
+function hasBareAssignment(nsTomlContent: string): boolean {
+	return nsTomlContent
+		.split(/(?<=\n)/u)
+		.some((line) => /^extensions\s*=\s*\[/u.test(line.trimStart()));
 }
 
 function unsupportedFormat(verb: string): NsTomlSyntaxFailure {
@@ -338,9 +341,9 @@ function invalidSource(requestedSpec: string): InvalidSourcePlan {
 	};
 }
 
-function indentationAt(source: string, offset: number): string {
-	const start = source.lastIndexOf("\n", offset - 1) + 1;
-	return source.slice(start, offset).match(/^\s*/u)?.[0] ?? "";
+function indentationAt(nsTomlContent: string, offset: number): string {
+	const start = nsTomlContent.lastIndexOf("\n", offset - 1) + 1;
+	return nsTomlContent.slice(start, offset).match(/^\s*/u)?.[0] ?? "";
 }
 
 function isUpdateTargetMatch(options: {

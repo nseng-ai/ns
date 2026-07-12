@@ -61,7 +61,7 @@ export async function installExtension(
 
 	const declaration = planDeclaredExtensionInstallToml({
 		projectRoot: repoRoot,
-		source: nsTomlContent,
+		nsTomlContent,
 		requestedSpec: request.source,
 	});
 	if (!declaration.ok) {

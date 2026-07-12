@@ -125,7 +125,7 @@ describe("uninstallExtension", () => {
 				sourceKind: "npm",
 				sourceIdentity: "@test/tools",
 				matchedDeclarationSpec: "npm:@test/tools@1.0.0",
-				wasDeclared: true,
+				hasRemovedDeclaration: true,
 				cleanup: {
 					status: "removed",
 					path: managedNpmProjectRoot("/repo", "@test/tools"),
@@ -196,7 +196,7 @@ describe("uninstallExtension", () => {
 
 		expect(result).toMatchObject({
 			type: "ok",
-			data: { wasDeclared: false, cleanup: { status: "removed" } },
+			data: { hasRemovedDeclaration: false, cleanup: { status: "removed" } },
 		});
 		expect(result).not.toHaveProperty("data.matchedDeclarationSpec");
 		expect(files.fileContent("ns.toml")).toBe(original);
@@ -320,7 +320,7 @@ describe("uninstallExtension", () => {
 		});
 		expect(rerun).toMatchObject({
 			type: "ok",
-			data: { wasDeclared: false, cleanup: { status: "removed" } },
+			data: { hasRemovedDeclaration: false, cleanup: { status: "removed" } },
 		});
 	});
 

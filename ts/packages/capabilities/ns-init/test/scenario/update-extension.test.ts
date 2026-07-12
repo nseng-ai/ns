@@ -34,7 +34,7 @@ function descriptor(source: string): DeclaredExtensionDescriptor {
 
 function fixture(options: {
 	source: string;
-	installed?: boolean;
+	isInstalled?: boolean;
 	acquisition?: InMemoryExtensionUpdateAcquisitionGateway;
 	descriptors?: readonly DeclaredExtensionDescriptor[];
 	diagnostics?: readonly { severity: "error"; code: string; message: string; spec: string }[];
@@ -49,7 +49,7 @@ function fixture(options: {
 	const acquisition =
 		options.acquisition ??
 		new InMemoryExtensionUpdateAcquisitionGateway({
-			installedPackageRoots: options.installed ? [packageRoot] : [],
+			installedPackageRoots: options.isInstalled ? [packageRoot] : [],
 		});
 	const declaredExtensions = new InMemoryDeclaredExtensionsGateway({
 		result: {
@@ -81,7 +81,7 @@ describe("updateExtension acquisition scenarios", () => {
 		{
 			label: "local preview",
 			source: "./extensions/tools",
-			installed: false,
+			isInstalled: false,
 			dryRun: true,
 			intent: "local-in-place",
 			outcome: "planned",
@@ -90,7 +90,7 @@ describe("updateExtension acquisition scenarios", () => {
 		{
 			label: "local apply",
 			source: "./extensions/tools",
-			installed: false,
+			isInstalled: false,
 			dryRun: false,
 			intent: "local-in-place",
 			outcome: "not-applicable",
@@ -99,7 +99,7 @@ describe("updateExtension acquisition scenarios", () => {
 		{
 			label: "present pinned preview",
 			source: "npm:@test/tools@1.0.0",
-			installed: true,
+			isInstalled: true,
 			dryRun: true,
 			intent: "ensure-pinned",
 			outcome: "planned",
@@ -108,7 +108,7 @@ describe("updateExtension acquisition scenarios", () => {
 		{
 			label: "present pinned apply",
 			source: "npm:@test/tools@1.0.0",
-			installed: true,
+			isInstalled: true,
 			dryRun: false,
 			intent: "ensure-pinned",
 			outcome: "unchanged",
@@ -117,7 +117,7 @@ describe("updateExtension acquisition scenarios", () => {
 		{
 			label: "missing pinned preview",
 			source: "npm:@test/tools@1.0.0",
-			installed: false,
+			isInstalled: false,
 			dryRun: true,
 			intent: "ensure-pinned",
 			outcome: "planned",
@@ -126,7 +126,7 @@ describe("updateExtension acquisition scenarios", () => {
 		{
 			label: "missing pinned apply",
 			source: "npm:@test/tools@1.0.0",
-			installed: false,
+			isInstalled: false,
 			dryRun: false,
 			intent: "ensure-pinned",
 			outcome: "restored",
@@ -135,7 +135,7 @@ describe("updateExtension acquisition scenarios", () => {
 		{
 			label: "present floating preview",
 			source: "npm:@test/tools",
-			installed: true,
+			isInstalled: true,
 			dryRun: true,
 			intent: "refresh-floating",
 			outcome: "planned",
@@ -144,7 +144,7 @@ describe("updateExtension acquisition scenarios", () => {
 		{
 			label: "present floating apply",
 			source: "npm:@test/tools",
-			installed: true,
+			isInstalled: true,
 			dryRun: false,
 			intent: "refresh-floating",
 			outcome: "refreshed",
@@ -153,7 +153,7 @@ describe("updateExtension acquisition scenarios", () => {
 		{
 			label: "missing floating preview",
 			source: "npm:@test/tools",
-			installed: false,
+			isInstalled: false,
 			dryRun: true,
 			intent: "refresh-floating",
 			outcome: "planned",
@@ -162,14 +162,14 @@ describe("updateExtension acquisition scenarios", () => {
 		{
 			label: "missing floating apply",
 			source: "npm:@test/tools",
-			installed: false,
+			isInstalled: false,
 			dryRun: false,
 			intent: "refresh-floating",
 			outcome: "restored",
 			effects: "available",
 		},
-	])("reports $label", async ({ source, installed, dryRun, intent, outcome, effects }) => {
-		const { context, acquisition, artifacts } = fixture({ source, installed });
+	])("reports $label", async ({ source, isInstalled, dryRun, intent, outcome, effects }) => {
+		const { context, acquisition, artifacts } = fixture({ source, isInstalled });
 
 		const result = await updateExtension(context, { cwd: "/repo", source, dryRun });
 
@@ -237,7 +237,7 @@ describe("updateExtension acquisition scenarios", () => {
 
 	it("runs activation preflight and apply after successful acquisition", async () => {
 		const source = "npm:@test/tools";
-		const { context, declaredExtensions } = fixture({ source, installed: true });
+		const { context, declaredExtensions } = fixture({ source, isInstalled: true });
 
 		const result = await updateExtension(context, { cwd: "/repo", source, dryRun: false });
 
@@ -259,7 +259,7 @@ describe("updateExtension acquisition scenarios", () => {
 				completed: [],
 			},
 		});
-		const { context } = fixture({ source, installed: true, artifacts });
+		const { context } = fixture({ source, isInstalled: true, artifacts });
 
 		const result = await updateExtension(context, { cwd: "/repo", source, dryRun: false });
 
@@ -274,7 +274,7 @@ describe("updateExtension acquisition scenarios", () => {
 		const source = "npm:@test/tools";
 		const { context } = fixture({
 			source,
-			installed: true,
+			isInstalled: true,
 			descriptors: [],
 			diagnostics: [
 				{ severity: "error", code: "descriptor-invalid", message: "bad", spec: source },

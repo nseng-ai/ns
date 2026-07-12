@@ -41,7 +41,7 @@ export const uninstallExtensionResultSchema = z.object({
 	sourceKind: z.enum(["local", "npm"]),
 	sourceIdentity: z.string(),
 	matchedDeclarationSpec: z.string().optional(),
-	wasDeclared: z.boolean(),
+	hasRemovedDeclaration: z.boolean(),
 	nsTomlPath: z.string(),
 	repoRoot: z.string(),
 	trunkBranch: z.string(),
@@ -66,7 +66,7 @@ export async function uninstallExtension(
 
 	const declaration = planDeclaredExtensionUninstallToml({
 		projectRoot: repoRoot,
-		source: nsTomlContent,
+		nsTomlContent,
 		requestedSpec: request.source,
 	});
 	if (!declaration.ok) {
@@ -143,7 +143,7 @@ export async function uninstallExtension(
 		...(declaration.matchedSpec === undefined
 			? {}
 			: { matchedDeclarationSpec: declaration.matchedSpec }),
-		wasDeclared: declaration.isRemoved,
+		hasRemovedDeclaration: declaration.isRemoved,
 		nsTomlPath: join(repoRoot, "ns.toml"),
 		repoRoot,
 		trunkBranch,
@@ -154,7 +154,7 @@ export async function uninstallExtension(
 }
 
 export function renderUninstallExtensionHuman(result: UninstallExtensionResult): string {
-	const declaration = result.wasDeclared
+	const declaration = result.hasRemovedDeclaration
 		? `removed ${result.matchedDeclarationSpec ?? result.sourceSpec} from ${result.nsTomlPath}`
 		: `no matching declaration was present in ${result.nsTomlPath}`;
 	const artifactCount =
