@@ -1,6 +1,5 @@
-import type { LandExecutionProgress } from "./execution/host-seams.ts";
-import { executeLanding } from "./api.ts";
-import type { StackLandingShape } from "./preflight.ts";
+import type { LandConfirmationRequest, LandExecutionProgress } from "./execution/host-seams.ts";
+import { executeLanding, type LandingExecutionSource } from "./api.ts";
 import { landMatrixRowsFromPlan, type LandMatrixProgressSink } from "./land-matrix-progress.ts";
 import {
 	buildLandFailurePresentation,
@@ -13,16 +12,13 @@ import {
 	presentFailureAndReturn,
 	presentLandingSuccess,
 } from "./land-presentation.ts";
-import type {
-	LandedPullRequest,
-	LandingExecutionApprovals,
-	LandingExecutionReport,
-	LandingRequest,
-} from "./types.ts";
+import type { LandedPullRequest, LandingExecutionReport, LandingRequest } from "./types.ts";
 import { LandStackCommandStream } from "./stack/command-stream.ts";
 import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
-import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
-import { createFlowLandConfirmationGateway } from "./flow-land-confirmation-gateway.ts";
+import {
+	createFlowLandConfirmationGateway,
+	createUpfrontApprovedLandConfirmationGateway,
+} from "./flow-land-confirmation-gateway.ts";
 import { landingCleanupPolicyFromArgs } from "./post-landing-slot-cleanup.ts";
 import type { StackLandingRuntime } from "./stack/stack-landing-runtime.ts";
 import type { LandProgressReporter, LandStackCommandContext, ParsedArgs } from "./stack/types.ts";
@@ -52,22 +48,22 @@ export interface LandingSession {
 	readonly progress: LandExecutionProgress;
 }
 
+export interface FlowLandingExecutionInput {
+	readonly source: LandingExecutionSource;
+	readonly approvedConfirmationKinds: ReadonlySet<LandConfirmationRequest["kind"]>;
+}
+
 export interface RunFlowStackLandingOptions {
 	readonly runtime: StackLandingRuntime;
 	readonly parsedArgs: ParsedArgs;
-	readonly options: {
-		readonly shouldSkipMainConfirmation?: boolean;
-		readonly preMergeConfirmation?: PreMergeConfirmation;
-		readonly isPostLandingCleanupApproved?: boolean;
-	};
+	readonly execution: FlowLandingExecutionInput;
 	readonly session: LandingSession;
-	readonly shape?: StackLandingShape;
 }
 
 export async function runFlowStackLanding(
 	executionOptions: RunFlowStackLandingOptions,
 ): Promise<LandOutcome> {
-	const { runtime, parsedArgs, options, session } = executionOptions;
+	const { runtime, parsedArgs, execution, session } = executionOptions;
 	const { ctx, commandStream } = session;
 
 	const request: LandingRequest = {
@@ -77,36 +73,33 @@ export async function runFlowStackLanding(
 		preflight: { shouldAllowSubmitRequiredState: true },
 		cleanup: landingCleanupPolicyFromArgs(parsedArgs),
 	};
-	const approvals: LandingExecutionApprovals = {
-		isMainConfirmationAlreadyApproved:
-			parsedArgs.shouldSkipConfirmation || Boolean(options.shouldSkipMainConfirmation),
-		isPreMergeConfirmationAlreadyApproved: options.preMergeConfirmation === "already-approved",
-		isPostLandingCleanupAlreadyApproved:
-			parsedArgs.shouldSkipConfirmation || Boolean(options.isPostLandingCleanupApproved),
-	};
-
-	const execution = await executeLanding({
+	const outcome = await executeLanding({
 		context: runtime.landContext,
 		request,
-		host: { confirmation: createFlowLandConfirmationGateway(ctx), progress: session.progress },
-		approvals,
-		...(executionOptions.shape === undefined ? {} : { preparedShape: executionOptions.shape }),
+		host: {
+			confirmation: createUpfrontApprovedLandConfirmationGateway(
+				createFlowLandConfirmationGateway(ctx),
+				execution.approvedConfirmationKinds,
+			),
+			progress: session.progress,
+		},
+		source: execution.source,
 	});
-	const report = execution.report;
+	const report = outcome.report;
 
-	if (execution.type === "failed") {
+	if (outcome.type === "failed") {
 		if (didLandBeforePostLandingCleanupFailure(report)) {
 			// PRs landed; preserve the legacy output order of success summary then cleanup failure.
 			presentStackLandingSuccess(session, report);
-			presentFailureAndReturn(ctx, execution.failure);
-			return landOutcomeFailure(execution.failure);
+			presentFailureAndReturn(ctx, outcome.failure);
+			return landOutcomeFailure(outcome.failure);
 		}
 		presentLandStackFailure({
 			session,
-			failure: execution.failure,
+			failure: outcome.failure,
 			landed: landedFromReport(report),
 		});
-		return landOutcomeFailure(execution.failure);
+		return landOutcomeFailure(outcome.failure);
 	}
 
 	if (parsedArgs.isDryRun) {

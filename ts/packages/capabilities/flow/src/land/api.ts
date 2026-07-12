@@ -1,12 +1,5 @@
-import { executeLandingRequest, type LandStackExecutionHost } from "./execution/execute.ts";
-import { nullLandConfirmationGateway, nullLandExecutionProgress } from "./execution/host-seams.ts";
-import type { StackLandingShape } from "./preflight.ts";
-import type {
-	LandContext,
-	LandingExecutionApprovals,
-	LandingExecutionResult,
-	LandingRequest,
-} from "./types.ts";
+import { executeLandingRequest, type ExecuteLandingRequestOptions } from "./execution/execute.ts";
+import type { LandingExecutionResult } from "./types.ts";
 
 // Public API identifiers intentionally mirror package metadata; tests guard the invariant
 // instead of reading package metadata at runtime.
@@ -25,18 +18,7 @@ export const LAND_CAPABILITY_METADATA: LandCapabilityMetadata = {
 	tier: "capability",
 };
 
-export interface ExecuteLandingOptions {
-	readonly context: LandContext;
-	readonly request: LandingRequest;
-	readonly host?: LandStackExecutionHost;
-	/** Temporary compatibility seam for confirmations already granted by the calling host. */
-	readonly approvals?: LandingExecutionApprovals;
-	/**
-	 * Already-loaded landing shape from the calling host's routing/presentation pass. Avoids
-	 * re-running discovery commands; strict pre-merge rechecks still run during execution.
-	 */
-	readonly preparedShape?: StackLandingShape;
-}
+export type ExecuteLandingOptions = ExecuteLandingRequestOptions;
 
 /**
  * Canonical stack-landing execution entrypoint. Owns discovery, preflight planning, confirmation,
@@ -46,19 +28,10 @@ export interface ExecuteLandingOptions {
 export async function executeLanding(
 	options: ExecuteLandingOptions,
 ): Promise<LandingExecutionResult> {
-	return await executeLandingRequest({
-		context: options.context,
-		request: options.request,
-		host: options.host ?? {
-			confirmation: nullLandConfirmationGateway,
-			progress: nullLandExecutionProgress,
-		},
-		...(options.approvals === undefined ? {} : { approvals: options.approvals }),
-		...(options.preparedShape === undefined ? {} : { preparedShape: options.preparedShape }),
-	});
+	return await executeLandingRequest(options);
 }
 
-export type { LandStackExecutionHost } from "./execution/execute.ts";
+export type { LandingExecutionSource, LandStackExecutionHost } from "./execution/execute.ts";
 
 export {
 	buildDescendantMaintenancePlan,
@@ -123,7 +96,6 @@ export type {
 	LandingCleanupReport,
 	LandingDomainFailure,
 	LandingDomainFailureReason,
-	LandingExecutionApprovals,
 	LandingExecutionFailure,
 	LandingExecutionReport,
 	LandingExecutionResult,

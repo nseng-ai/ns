@@ -26,12 +26,13 @@ import {
 	type LandResult,
 } from "./results.ts";
 import { landCompletionFlags, parseLandFlagToken } from "./stack/flags.ts";
-import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
 import { present, setStatus, usage } from "./land-presentation.ts";
+import { approvedLandConfirmationKinds } from "./post-landing-slot-cleanup.ts";
 import {
 	createFlowLandExecutionProgress,
 	runFlowStackLanding,
 	presentLandStackFailure,
+	type FlowLandingExecutionInput,
 	type LandingSession,
 } from "./landing-execution.ts";
 import type {
@@ -40,21 +41,17 @@ import type {
 	LandStackExtensionAPI,
 	ParsedArgs,
 } from "./stack/types.ts";
-import type { StackLandingShape } from "./preflight.ts";
 
 export type { LandStackExtensionAPI } from "./stack/types.ts";
 
 export interface ExecuteStackLandingOptions {
 	io?: NsCommandIo;
-	shouldSkipMainConfirmation?: boolean;
-	preMergeConfirmation?: PreMergeConfirmation;
-	isPostLandingCleanupApproved?: boolean;
+	execution?: FlowLandingExecutionInput;
 	liveProgress?: LandLiveProgressSink;
 	graphite?: LandGraphiteCommandChannel;
 	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
 	observabilityChannels?: FlowLandObservabilityChannels;
 	gitStateFs?: GitWorktreeStateFs;
-	shape?: StackLandingShape;
 }
 
 export function registerLandStackRenderer(
@@ -107,9 +104,14 @@ export async function executeStackLanding(
 		return await runFlowStackLanding({
 			runtime,
 			parsedArgs,
-			options,
+			execution: options.execution ?? {
+				source: { type: "discover" },
+				approvedConfirmationKinds: approvedLandConfirmationKinds({
+					flags: parsedArgs,
+					wasUpfrontPromptApproved: false,
+				}),
+			},
 			session,
-			...optionalEntry("shape", options.shape),
 		});
 	} catch (error) {
 		const failure = landingExecutionFailure(

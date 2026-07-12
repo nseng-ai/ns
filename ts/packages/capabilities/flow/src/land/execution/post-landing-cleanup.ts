@@ -76,7 +76,6 @@ export function postLandingCleanupSkipReport(
 
 export async function resolveManagedSlotPostLandingCleanupDecision(options: {
 	readonly confirmation: LandConfirmationGateway;
-	readonly isConfirmationAlreadyApproved: boolean;
 	readonly cleanup: PostLandingCleanupRequest;
 	readonly shape: LandingShape;
 }): Promise<
@@ -85,7 +84,7 @@ export async function resolveManagedSlotPostLandingCleanupDecision(options: {
 > {
 	const target = postLandingCleanupTarget(options.cleanup, options.shape);
 	if (target === undefined) return { type: "success", value: { type: "not-needed" } };
-	if (options.isConfirmationAlreadyApproved || options.cleanup.policy === "force-cleanup") {
+	if (options.cleanup.policy === "force-cleanup") {
 		return { type: "success", value: { type: "approved" } };
 	}
 

@@ -30,25 +30,12 @@ export interface LandingPreflightMode {
  * Closed post-landing cleanup policy for the current managed-slot worktree.
  *
  * - `preserve`: keep the current slot and local branch; never prompt or mutate.
- * - `free-slot`: free the current managed slot after a successful landing; confirm unless already
- *   approved through {@link LandingExecutionApprovals}.
+ * - `free-slot`: free the current managed slot after a successful landing after confirmation.
  * - `force-cleanup`: authorized cleanup without a new cleanup prompt.
  *
  * `mode: "dry-run"` always dominates cleanup policy and performs no cleanup mutation.
  */
 export type LandingCleanupPolicy = "preserve" | "free-slot" | "force-cleanup";
-
-/**
- * Temporary compatibility plumbing, not the future authorization model. Flow resolves some
- * approvals through its own upfront confirmation and `--yes`/`--force` flags before calling
- * canonical execution; each boolean marks one confirmation as already granted so canonical
- * execution does not prompt twice.
- */
-export interface LandingExecutionApprovals {
-	readonly isMainConfirmationAlreadyApproved?: boolean;
-	readonly isPreMergeConfirmationAlreadyApproved?: boolean;
-	readonly isPostLandingCleanupAlreadyApproved?: boolean;
-}
 
 export interface LandContext {
 	readonly git: LandGitGateway;

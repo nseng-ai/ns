@@ -17,7 +17,6 @@ import type {
 	LandedChunk,
 	LandedPullRequest,
 	LandingCleanupReport,
-	LandingExecutionApprovals,
 	LandingExecutionReport,
 	LandingExecutionResult,
 	LandingFailure,
@@ -47,12 +46,15 @@ export interface LandStackExecutionHost {
 	readonly progress: LandExecutionProgress;
 }
 
+export type LandingExecutionSource =
+	| { readonly type: "discover" }
+	| { readonly type: "prepared"; readonly shape: StackLandingShape };
+
 export interface ExecuteLandingRequestOptions {
 	readonly context: LandContext;
 	readonly request: LandingRequest;
 	readonly host: LandStackExecutionHost;
-	readonly approvals?: LandingExecutionApprovals;
-	readonly preparedShape?: StackLandingShape;
+	readonly source: LandingExecutionSource;
 }
 
 const CLEANUP_NOT_RUN: PostLandingSlotCleanupReport = {
@@ -77,7 +79,6 @@ export async function executeLandingRequest(
 	options: ExecuteLandingRequestOptions,
 ): Promise<LandingExecutionResult> {
 	const { context, request, host } = options;
-	const approvals = options.approvals ?? {};
 	const draft: ReportDraft = {
 		target: request.target,
 		mode: request.mode,
@@ -94,14 +95,27 @@ export async function executeLandingRequest(
 			type: "not-implemented",
 			phase: "request-validation",
 			message:
-				"@nseng-ai/flow land preflight planning currently supports stack landing targets only.",
+				options.source.type === "prepared"
+					? "A prepared stack landing shape cannot execute an isolated pull-request target."
+					: "@nseng-ai/flow land preflight planning currently supports stack landing targets only.",
+		});
+	}
+	if (
+		options.source.type === "prepared" &&
+		request.target.landingBranchLimit !== undefined &&
+		request.target.landingBranchLimit > options.source.shape.stack.landingBranches.length
+	) {
+		return failedResult(draft, "request-validation", {
+			type: "not-implemented",
+			phase: "request-validation",
+			message: `Prepared landing shape contains ${options.source.shape.stack.landingBranches.length} landing branches and cannot represent the requested scope of ${request.target.landingBranchLimit}.`,
 		});
 	}
 
 	const loadedShape =
-		options.preparedShape === undefined
+		options.source.type === "discover"
 			? await loadStackLandingShape(context, request.cwd)
-			: landSuccess(options.preparedShape);
+			: landSuccess(options.source.shape);
 	if (loadedShape.type === "failure") {
 		return failedResult(draft, "repo-discovery", loadedShape.failure);
 	}
@@ -125,7 +139,6 @@ export async function executeLandingRequest(
 				host,
 				shape,
 				cleanupRequest,
-				approvals,
 				draft,
 			});
 		}
@@ -153,23 +166,24 @@ export async function executeLandingRequest(
 		return completedResult(draft);
 	}
 
-	if (!approvals.isMainConfirmationAlreadyApproved) {
-		const decision = await host.confirmation.confirm({ kind: "main-landing", plan: plan.value });
-		if (decision.type !== "approved") {
-			const failure =
-				decision.type === "declined" ? landingCancelledBeforeMergeFailure() : decision.failure;
-			return failedResult(draft, "confirmation", failure);
-		}
-		draft.phases.push(completed("confirmation"));
-	} else {
-		draft.phases.push(skipped("confirmation", "approved upfront before canonical execution"));
+	const mainDecision = await host.confirmation.confirm({ kind: "main-landing", plan: plan.value });
+	if (mainDecision.type !== "approved") {
+		const failure =
+			mainDecision.type === "declined"
+				? landingCancelledBeforeMergeFailure()
+				: mainDecision.failure;
+		return failedResult(draft, "confirmation", failure);
 	}
+	draft.phases.push(
+		mainDecision.approvalSource === "prompted"
+			? completed("confirmation")
+			: skipped("confirmation", "approved upfront before canonical execution"),
+	);
 
 	// Resolve cleanup authorization before any merge mutation; the mutation itself only runs
 	// after a fully successful landing.
 	const cleanupDecision = await resolveManagedSlotPostLandingCleanupDecision({
 		confirmation: host.confirmation,
-		isConfirmationAlreadyApproved: approvals.isPostLandingCleanupAlreadyApproved ?? false,
 		cleanup: cleanupRequest,
 		shape,
 	});
@@ -181,14 +195,7 @@ export async function executeLandingRequest(
 
 	let readyPlan = plan.value;
 	if (readyPlan.managedSlotConflicts.length > 0) {
-		const freed = await confirmAndFreeManagedSlots({
-			context,
-			host,
-			plan: readyPlan,
-			...(approvals.isPreMergeConfirmationAlreadyApproved === undefined
-				? {}
-				: { confirmationAlreadyApproved: approvals.isPreMergeConfirmationAlreadyApproved }),
-		});
+		const freed = await confirmAndFreeManagedSlots({ context, host, plan: readyPlan });
 		if (freed.type === "failure") {
 			return failedResult(draft, "submit-preparation", freed.failure);
 		}
@@ -200,9 +207,6 @@ export async function executeLandingRequest(
 			host,
 			cwd: request.cwd,
 			plan: readyPlan,
-			...(approvals.isPreMergeConfirmationAlreadyApproved === undefined
-				? {}
-				: { confirmationAlreadyApproved: approvals.isPreMergeConfirmationAlreadyApproved }),
 		});
 		if (submitted.type === "failure") {
 			return failedResult(draft, "submit-preparation", submitted.failure);
@@ -265,7 +269,6 @@ interface ExecuteCleanupOnlyLandingOptions {
 	readonly host: LandStackExecutionHost;
 	readonly shape: StackLandingShape;
 	readonly cleanupRequest: PostLandingCleanupRequest;
-	readonly approvals: LandingExecutionApprovals;
 	readonly draft: ReportDraft;
 }
 
@@ -276,7 +279,7 @@ interface ExecuteCleanupOnlyLandingOptions {
 async function executeCleanupOnlyLanding(
 	options: ExecuteCleanupOnlyLandingOptions,
 ): Promise<LandingExecutionResult> {
-	const { context, host, shape, cleanupRequest, approvals, draft } = options;
+	const { context, host, shape, cleanupRequest, draft } = options;
 	draft.phases.push(
 		skipped(
 			"merge",
@@ -286,7 +289,6 @@ async function executeCleanupOnlyLanding(
 
 	const cleanupDecision = await resolveManagedSlotPostLandingCleanupDecision({
 		confirmation: host.confirmation,
-		isConfirmationAlreadyApproved: approvals.isPostLandingCleanupAlreadyApproved ?? false,
 		cleanup: cleanupRequest,
 		shape,
 	});

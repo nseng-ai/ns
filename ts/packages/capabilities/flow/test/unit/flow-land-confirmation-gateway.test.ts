@@ -8,7 +8,10 @@ import {
 	submitRequiredUpdatesCommands,
 } from "../../src/land/confirmation-commands.ts";
 import type { LandConfirmationRequest } from "../../src/land/execution/host-seams.ts";
-import { createFlowLandConfirmationGateway } from "../../src/land/flow-land-confirmation-gateway.ts";
+import {
+	createFlowLandConfirmationGateway,
+	createUpfrontApprovedLandConfirmationGateway,
+} from "../../src/land/flow-land-confirmation-gateway.ts";
 import type { LandingPlan } from "../../src/land/types.ts";
 import type { NotifyLevel, PrintAwareLandStackCommandContext } from "../../src/land/stack/types.ts";
 import { pullRequestFacts, stackSnapshot } from "../../src/land/testing.ts";
@@ -131,7 +134,10 @@ describe("flow land confirmation gateway", () => {
 		const fixture = createGatewayContext({ hasUI: true });
 		const gateway = createFlowLandConfirmationGateway(fixture.ctx);
 
-		await expect(gateway.confirm(entry.request)).resolves.toEqual({ type: "approved" });
+		await expect(gateway.confirm(entry.request)).resolves.toEqual({
+			type: "approved",
+			approvalSource: "prompted",
+		});
 		expect(fixture.confirmations).toEqual([
 			{
 				title: entry.title,
@@ -163,6 +169,26 @@ describe("flow land confirmation gateway", () => {
 			expect(fixture.confirmations).toEqual([]);
 		},
 	);
+
+	test("upfront approvals intercept only selected request kinds and snapshot the set", async () => {
+		const fixture = createGatewayContext({ hasUI: true });
+		const approvedKinds = new Set<LandConfirmationRequest["kind"]>(["main-landing"]);
+		const gateway = createUpfrontApprovedLandConfirmationGateway(
+			createFlowLandConfirmationGateway(fixture.ctx),
+			approvedKinds,
+		);
+		approvedKinds.add("free-managed-slots");
+
+		await expect(gateway.confirm(requestTable[0]!.request)).resolves.toEqual({
+			type: "approved",
+			approvalSource: "approved-upfront",
+		});
+		await expect(gateway.confirm(requestTable[1]!.request)).resolves.toEqual({
+			type: "approved",
+			approvalSource: "prompted",
+		});
+		expect(fixture.confirmations).toHaveLength(1);
+	});
 });
 
 describe("structural confirmation command builders", () => {

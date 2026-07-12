@@ -4,7 +4,7 @@ import {
 	isIsolatedFastPath,
 	type IsolatedLandingOutcome,
 } from "./execution/isolated-landing.ts";
-import type { LandExecutionProgress } from "./execution/host-seams.ts";
+import type { LandConfirmationRequest, LandExecutionProgress } from "./execution/host-seams.ts";
 import type {
 	PostLandingCleanupRequest,
 	PostLandingSlotCleanupDecision,
@@ -16,7 +16,10 @@ import {
 	presentFailureAndReturn,
 	setStatus,
 } from "./land-presentation.ts";
-import { createFlowLandConfirmationGateway } from "./flow-land-confirmation-gateway.ts";
+import {
+	createFlowLandConfirmationGateway,
+	createUpfrontApprovedLandConfirmationGateway,
+} from "./flow-land-confirmation-gateway.ts";
 import type { PrintAwareLandStackCommandContext } from "./stack/types.ts";
 import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
 import type { LandContext, LandingFailure, LandingShape } from "./types.ts";
@@ -36,7 +39,7 @@ interface RunIsolatedFastPathLandingOptions {
 	target: LandingShape;
 	isDryRun: boolean;
 	cleanup: PostLandingCleanupRequest;
-	cleanupConfirmationAlreadyApproved?: boolean;
+	approvedConfirmationKinds: ReadonlySet<LandConfirmationRequest["kind"]>;
 	progressIo?: NsCommandIo;
 }
 
@@ -53,15 +56,15 @@ export async function runIsolatedFastPathLanding(
 	const coreOutcome = await executeIsolatedLanding({
 		context: options.landContext,
 		host: {
-			confirmation: createFlowLandConfirmationGateway(options.ctx),
+			confirmation: createUpfrontApprovedLandConfirmationGateway(
+				createFlowLandConfirmationGateway(options.ctx),
+				options.approvedConfirmationKinds,
+			),
 			progress: isolatedLandingProgress(options.ctx, options.progressIo),
 		},
 		target: options.target,
 		isDryRun: options.isDryRun,
 		cleanup: options.cleanup,
-		...(options.cleanupConfirmationAlreadyApproved === undefined
-			? {}
-			: { cleanupConfirmationAlreadyApproved: options.cleanupConfirmationAlreadyApproved }),
 	});
 	return presentIsolatedLandingOutcome(options.ctx, coreOutcome);
 }

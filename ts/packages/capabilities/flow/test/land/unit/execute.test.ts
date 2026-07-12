@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	executeLanding,
+	nullLandConfirmationGateway,
 	nullLandExecutionProgress,
 	type LandConfirmationDecision,
 	type LandConfirmationGateway,
@@ -10,6 +11,7 @@ import {
 	type LandingCleanupPolicy,
 	type LandingExecutionReport,
 	type LandingRequest,
+	type StackLandingShape,
 } from "@nseng-ai/flow/land/api";
 import {
 	createInMemoryLandContext,
@@ -41,6 +43,7 @@ describe("land execute mode over in-memory gateways", () => {
 		const memory = createInMemoryLandContext(linearState());
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest(),
 			host: approvedHost(),
 		});
@@ -131,7 +134,12 @@ describe("land execute mode over in-memory gateways", () => {
 		const memory = createInMemoryLandContext(linearState());
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest(),
+			host: {
+				confirmation: nullLandConfirmationGateway,
+				progress: nullLandExecutionProgress,
+			},
 		});
 
 		expect(outcome).toMatchObject({
@@ -160,6 +168,7 @@ describe("land execute mode over in-memory gateways", () => {
 		const confirmation = decidingConfirmation({ "main-landing": { type: "declined" } });
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest(),
 			host: {
 				confirmation: confirmation.gateway,
@@ -202,6 +211,7 @@ describe("land execute mode over in-memory gateways", () => {
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest(),
 			host: {
 				confirmation: confirmation.gateway,
@@ -234,6 +244,7 @@ describe("land execute mode over in-memory gateways", () => {
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest(),
 			host: {
 				confirmation: confirmation.gateway,
@@ -286,6 +297,7 @@ describe("land execute mode over in-memory gateways", () => {
 		);
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest(),
 			host: approvedHost(),
 		});
@@ -346,6 +358,7 @@ describe("land execute mode over in-memory gateways", () => {
 		);
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest(),
 			host: approvedHost(),
 		});
@@ -391,6 +404,7 @@ describe("land execute mode over in-memory gateways", () => {
 		);
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest(),
 			host: approvedHost(),
 		});
@@ -440,6 +454,7 @@ describe("land execute mode over in-memory gateways", () => {
 		);
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest(),
 			host: approvedHost(),
 		});
@@ -464,6 +479,7 @@ describe("land execute mode over in-memory gateways", () => {
 		);
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest(),
 			host: approvedHost(),
 		});
@@ -515,6 +531,7 @@ describe("land execute mode over in-memory gateways", () => {
 		});
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest(),
 			host: approvedHost(),
 		});
@@ -539,6 +556,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
 			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
 		});
@@ -571,6 +589,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "preserve" }),
 			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
 		});
@@ -592,6 +611,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
 			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
 		});
@@ -610,21 +630,33 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 
 	test("upfront-approved cleanup does not prompt a second time", async () => {
 		const memory = createInMemoryLandContext(managedSlotState());
-		const confirmation = approvingConfirmation();
+		const upfrontConfirmation = decidingConfirmation({
+			"main-landing": { type: "approved", approvalSource: "approved-upfront" },
+			"post-landing-cleanup": { type: "approved", approvalSource: "approved-upfront" },
+		});
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
-			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
-			approvals: {
-				isMainConfirmationAlreadyApproved: true,
-				isPostLandingCleanupAlreadyApproved: true,
+			host: {
+				confirmation: upfrontConfirmation.gateway,
+				progress: nullLandExecutionProgress,
 			},
 		});
 
-		expect(confirmation.requests).toEqual([]);
+		expect(upfrontConfirmation.requests.map((request) => request.kind)).toEqual([
+			"main-landing",
+			"post-landing-cleanup",
+		]);
 		expect(outcome).toMatchObject({
 			type: "completed",
 			report: { cleanup: { postLandingSlotCleanup: { type: "completed" } } },
+		});
+		if (outcome.type !== "completed") return;
+		expect(phaseByName(outcome.report, "confirmation")).toEqual({
+			type: "skipped",
+			phase: "confirmation",
+			reason: "approved upfront before canonical execution",
 		});
 	});
 
@@ -635,6 +667,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			const confirmation = approvingConfirmation();
 			const outcome = await executeLanding({
 				context: memory.context,
+				source: { type: "discover" },
 				request: executeRequest({ cwd: SLOT_ROOT, mode: "dry-run", cleanup: policy }),
 				host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
 			});
@@ -661,6 +694,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		});
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
 			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
 		});
@@ -699,6 +733,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		);
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
 			host: approvedHost(),
 		});
@@ -740,6 +775,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		);
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "force-cleanup" }),
 			host: approvedHost(),
 		});
@@ -759,6 +795,41 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 				},
 			},
 		});
+	});
+
+	test("rejects a prepared stack shape for an isolated target before discovery", async () => {
+		const memory = createInMemoryLandContext();
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "prepared", shape: stackLandingShape() },
+			request: {
+				...executeRequest(),
+				target: { type: "isolated-pull-request", branchOrNumber: "feature-a" },
+			},
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failure: { type: "not-implemented", phase: "request-validation" },
+		});
+		expect(memory.git.resolveRepoRootCalls).toEqual([]);
+	});
+
+	test("rejects a prepared shape that cannot represent the requested branch scope", async () => {
+		const memory = createInMemoryLandContext();
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "prepared", shape: stackLandingShape() },
+			request: { ...executeRequest(), target: { type: "stack", landingBranchLimit: 2 } },
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failure: { type: "not-implemented", phase: "request-validation" },
+		});
+		expect(memory.git.resolveRepoRootCalls).toEqual([]);
 	});
 
 	test("cleanup-only trunk landing frees the slot and keeps the trunk branch", async () => {
@@ -781,6 +852,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		const confirmation = approvingConfirmation();
 		const outcome = await executeLanding({
 			context: memory.context,
+			source: { type: "discover" },
 			request: executeRequest({ cwd: SLOT_ROOT, cleanup: "free-slot" }),
 			host: { confirmation: confirmation.gateway, progress: nullLandExecutionProgress },
 		});
@@ -833,6 +905,17 @@ function linearState(overrides: InMemoryLandContextState = {}): InMemoryLandCont
 	};
 }
 
+function stackLandingShape(): StackLandingShape {
+	return {
+		repoRoot: ROOT,
+		current: BRANCH,
+		trunk: "main",
+		metadataDbPath: `${ROOT}/.git/graphite.db`,
+		stack: stackSnapshot({ current: BRANCH, landingBranches: [BRANCH] }),
+		localBranches: [{ name: BRANCH, sha: SHA }],
+	};
+}
+
 function managedSlotState(overrides: InMemoryLandContextState = {}): InMemoryLandContextState {
 	return linearState({
 		git: {
@@ -860,7 +943,7 @@ function approvingConfirmation(): {
 		gateway: {
 			confirm: async (request) => {
 				requests.push(request);
-				return { type: "approved" };
+				return { type: "approved", approvalSource: "prompted" };
 			},
 		},
 		requests,
@@ -878,7 +961,7 @@ function decidingConfirmation(
 		gateway: {
 			confirm: async (request) => {
 				requests.push(request);
-				return decisions[request.kind] ?? { type: "approved" };
+				return decisions[request.kind] ?? { type: "approved", approvalSource: "prompted" };
 			},
 		},
 		requests,

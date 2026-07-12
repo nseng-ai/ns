@@ -26,7 +26,10 @@ export type LandConfirmationRequest =
 	  };
 
 export type LandConfirmationDecision =
-	| { readonly type: "approved" }
+	| {
+			readonly type: "approved";
+			readonly approvalSource: "prompted" | "approved-upfront";
+	  }
 	| { readonly type: "declined" }
 	| { readonly type: "refused-with-fully-worded-failure"; readonly failure: LandingFailure };
 

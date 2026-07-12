@@ -38,12 +38,34 @@ export function createFlowLandConfirmationGateway(
 	};
 }
 
+export function createUpfrontApprovedLandConfirmationGateway(
+	base: LandConfirmationGateway,
+	approvedRequestKinds: ReadonlySet<LandConfirmationRequest["kind"]>,
+): LandConfirmationGateway {
+	const approvedKinds = new Set(approvedRequestKinds);
+	return {
+		confirm: async (request) => {
+			switch (request.kind) {
+				case "main-landing":
+				case "free-managed-slots":
+				case "submit-required-updates":
+				case "post-landing-cleanup":
+					return approvedKinds.has(request.kind)
+						? { type: "approved", approvalSource: "approved-upfront" }
+						: await base.confirm(request);
+				default:
+					return assertNever(request);
+			}
+		},
+	};
+}
+
 async function confirmFlowLandAction(
 	ctx: PrintAwareLandStackCommandContext,
 	request: LandConfirmationRequest,
 ): Promise<LandConfirmationDecision> {
 	const outcome = await confirmLandStackAction(confirmationOptions(ctx, request));
-	if (outcome.type === "completed") return { type: "approved" };
+	if (outcome.type === "completed") return { type: "approved", approvalSource: "prompted" };
 	if (landingFailureFacts(outcome.failure).refusalReason === "declined") {
 		return { type: "declined" };
 	}

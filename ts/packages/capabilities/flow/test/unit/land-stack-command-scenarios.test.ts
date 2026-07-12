@@ -2557,7 +2557,12 @@ describe("land-stack command scenarios", () => {
 		];
 		const { pi, notifications, confirmations } = await runLandStack("", script, {
 			confirms: [true],
-			executeOptions: { preMergeConfirmation: "already-approved" },
+			executeOptions: {
+				execution: {
+					source: { type: "discover" },
+					approvedConfirmationKinds: new Set(["submit-required-updates"]),
+				},
+			},
 		});
 
 		pi.assertDone();

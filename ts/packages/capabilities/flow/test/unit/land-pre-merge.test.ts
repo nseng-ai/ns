@@ -73,7 +73,9 @@ function plan(overrides: Partial<LandingPlan> = {}): LandingPlan {
 	};
 }
 
-function recordingConfirmation(decision: LandConfirmationDecision = { type: "approved" }): {
+function recordingConfirmation(
+	decision: LandConfirmationDecision = { type: "approved", approvalSource: "prompted" },
+): {
 	gateway: LandConfirmationGateway;
 	requests: LandConfirmationRequest[];
 } {
