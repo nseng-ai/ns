@@ -29,6 +29,17 @@ describe("ns.toml extension update targets", () => {
 		});
 	});
 
+	test("reports an absent declaration with empty declared and matching sets", () => {
+		expect(planTarget('harnesses = ["pi"]\n', "npm:@scope/pkg@1")).toEqual({
+			ok: false,
+			reason: "not-declared",
+			requestedSpec: "npm:@scope/pkg@1",
+			declaredSpecs: [],
+			matchingSpecs: [],
+			message: "Extension target is not declared in ns.toml: npm:@scope/pkg@1.",
+		});
+	});
+
 	test("does not target a different version of the same npm package", () => {
 		expect(planTarget('extensions = ["npm:@scope/pkg@1"]\n', "npm:@scope/pkg@2")).toMatchObject({
 			ok: false,
@@ -145,6 +156,18 @@ describe("ns.toml extension uninstall edits", () => {
 		});
 	});
 
+	test.each(["", 'harnesses = ["pi"]\r\n'])(
+		"returns unchanged when the extensions assignment is absent",
+		(source) => {
+			expect(plan(source, "npm:absent")).toEqual({
+				ok: true,
+				text: source,
+				isRemoved: false,
+				matchedSpec: undefined,
+			});
+		},
+	);
+
 	test("returns unchanged when the canonical identity is absent", () => {
 		const source = 'extensions = ["npm:present@1"]\n';
 		expect(plan(source, "npm:absent")).toEqual({
@@ -173,6 +196,10 @@ describe("ns.toml extension uninstall edits", () => {
 			reason: "invalid-extensions",
 		});
 		expect(plan('extensions = ["npm:a"]\n', "git:github/acme/a@main")).toMatchObject({
+			ok: false,
+			reason: "invalid-source",
+		});
+		expect(plan("", "git:github/acme/a@main")).toMatchObject({
 			ok: false,
 			reason: "invalid-source",
 		});

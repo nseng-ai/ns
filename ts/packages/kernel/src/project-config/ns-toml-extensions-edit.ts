@@ -5,6 +5,7 @@ import { firstLineEnding } from "@nseng-ai/foundation/markdown-frontmatter";
 import { parseDeclaredExtensionSpecsToml } from "./descriptor-package.ts";
 import { parseExtensionSourceSpec, type ExtensionSourceSpec } from "./extension-source-spec.ts";
 import {
+	findFirstTopLevelTableOffset,
 	parseExtensionArraySyntax,
 	type ExtensionArraySyntax,
 	type ExtensionArraySyntaxValue,
@@ -79,6 +80,11 @@ interface NsTomlSyntaxFailure {
 	readonly message: string;
 }
 
+type PreparedSyntax =
+	| { readonly ok: true; readonly type: "present"; readonly syntax: ExtensionArraySyntax }
+	| { readonly ok: true; readonly type: "absent" }
+	| NsTomlSyntaxFailure;
+
 export function planDeclaredExtensionUninstallToml(options: {
 	readonly projectRoot: string;
 	readonly source: string;
@@ -88,6 +94,8 @@ export function planDeclaredExtensionUninstallToml(options: {
 	if (!prepared.ok) return prepared;
 	const identity = extensionSourceIdentity(options.projectRoot, options.requestedSpec);
 	if (identity === undefined) return invalidSource(options.requestedSpec);
+	if (prepared.type === "absent")
+		return { ok: true, text: options.source, isRemoved: false, matchedSpec: undefined };
 	const matches = prepared.syntax.values.filter((value) =>
 		identitiesEqual(identity, extensionSourceIdentity(options.projectRoot, value.decoded)),
 	);
@@ -124,6 +132,8 @@ export function planDeclaredExtensionInstallToml(options: {
 	if (!prepared.ok) return prepared;
 	const identity = extensionSourceIdentity(options.projectRoot, options.requestedSpec);
 	if (identity === undefined) return invalidSource(options.requestedSpec);
+	if (prepared.type === "absent")
+		return appendAbsentAssignment(options.source, options.requestedSpec);
 	const specs = prepared.syntax.values.map((value) => value.decoded);
 	if (specs.includes(options.requestedSpec))
 		return { ok: true, text: options.source, isAdded: false };
@@ -152,6 +162,15 @@ export function planDeclaredExtensionTarget(options: {
 	if (!prepared.ok) return prepared;
 	const identity = extensionSourceIdentity(options.projectRoot, options.requestedSpec);
 	if (identity === undefined) return invalidSource(options.requestedSpec);
+	if (prepared.type === "absent")
+		return {
+			ok: false,
+			reason: "not-declared",
+			requestedSpec: options.requestedSpec,
+			declaredSpecs: [],
+			matchingSpecs: [],
+			message: `Extension target is not declared in ns.toml: ${options.requestedSpec}.`,
+		};
 	const declaredSpecs = prepared.syntax.values.map((value) => value.decoded);
 	const matchingSpecs = declaredSpecs.filter((spec) =>
 		isUpdateTargetMatch({
@@ -208,38 +227,38 @@ export function appendDeclaredExtensionSpecToml(
 	const syntax = parseExtensionArraySyntax(source);
 	if (syntax === undefined) {
 		if (parsed.specs.length > 0 || hasBareAssignment(source)) return unsupportedFormat("installed");
-		const prefix = source.trimEnd();
-		return {
-			ok: true,
-			text: `${prefix}${prefix === "" ? "" : "\n"}extensions = [${JSON.stringify(spec)}]\n`,
-			isAdded: true,
-		};
+		return appendAbsentAssignment(source, spec);
 	}
 	return appendWithSyntax(source, spec, syntax);
 }
 
-function prepareSyntax(
-	source: string,
-): { ok: true; syntax: ExtensionArraySyntax } | NsTomlSyntaxFailure {
+function prepareSyntax(source: string): PreparedSyntax {
 	const parsed = parseDeclaredExtensionSpecsToml(source);
 	if (!parsed.ok) return { ok: false, reason: parsed.reason, message: parsed.message };
 	const syntax = parseExtensionArraySyntax(source);
 	if (syntax === undefined) {
-		if (parsed.specs.length === 0 && !hasBareAssignment(source)) {
-			return {
-				ok: true,
-				syntax: {
-					assignmentStart: source.length,
-					openOffset: source.length,
-					closeOffset: source.length,
-					values: [],
-					hasTrailingComma: false,
-				},
-			};
-		}
+		if (parsed.specs.length === 0 && !hasBareAssignment(source))
+			return { ok: true, type: "absent" };
 		return unsupportedFormat("changed");
 	}
-	return { ok: true, syntax };
+	return { ok: true, type: "present", syntax };
+}
+
+function appendAbsentAssignment(source: string, spec: string): NsTomlExtensionsAppendResult {
+	const ending = firstLineEnding(source) ?? "\n";
+	const assignment = `extensions = [${JSON.stringify(spec)}]${ending}`;
+	const tableOffset = findFirstTopLevelTableOffset(source);
+	if (tableOffset !== undefined) {
+		const beforeTable = source.slice(0, tableOffset);
+		const separator = beforeTable === "" || beforeTable.endsWith("\n") ? "" : ending;
+		return {
+			ok: true,
+			text: `${beforeTable}${separator}${assignment}${source.slice(tableOffset)}`,
+			isAdded: true,
+		};
+	}
+	const separator = source === "" || source.endsWith("\n") ? "" : ending;
+	return { ok: true, text: `${source}${separator}${assignment}`, isAdded: true };
 }
 
 function appendWithSyntax(
@@ -247,7 +266,6 @@ function appendWithSyntax(
 	spec: string,
 	syntax: ExtensionArraySyntax,
 ): NsTomlExtensionsAppendResult {
-	if (syntax.openOffset === source.length) return appendDeclaredExtensionSpecToml(source, spec);
 	const encoded = JSON.stringify(spec);
 	const openLine = source.lastIndexOf("\n", syntax.openOffset) + 1;
 	const closeLine = source.lastIndexOf("\n", syntax.closeOffset) + 1;
@@ -265,9 +283,18 @@ function appendWithSyntax(
 	const itemIndent =
 		last === undefined ? `${closeIndent}\t` : indentationAt(source, last.tokenStart);
 	const ending = firstLineEnding(source) ?? "\n";
-	let text = `${source.slice(0, closeLine)}${itemIndent}${encoded}${syntax.hasTrailingComma ? "," : ""}${ending}${source.slice(closeLine)}`;
+	const sharesCloseLine = last !== undefined && last.tokenEnd > closeLine;
+	const itemOffset = sharesCloseLine ? syntax.closeOffset : closeLine;
+	const itemText = sharesCloseLine
+		? `${ending}${itemIndent}${encoded}${syntax.hasTrailingComma ? "," : ""}`
+		: `${itemIndent}${encoded}${syntax.hasTrailingComma ? "," : ""}${ending}`;
+	const insertions = [{ offset: itemOffset, text: itemText }];
 	if (last !== undefined && !syntax.hasTrailingComma)
-		text = `${text.slice(0, last.tokenEnd)},${text.slice(last.tokenEnd)}`;
+		insertions.push({ offset: last.tokenEnd, text: "," });
+	insertions.sort((left, right) => right.offset - left.offset);
+	let text = source;
+	for (const insertion of insertions)
+		text = `${text.slice(0, insertion.offset)}${insertion.text}${text.slice(insertion.offset)}`;
 	return { ok: true, text, isAdded: true };
 }
 
