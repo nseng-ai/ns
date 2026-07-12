@@ -1,4 +1,20 @@
 ---
+# Provenance (standalone): first-party tripwire owned end to end by ns. Its
+# sources are this review's own assets — the canonical inventory under
+# `references/canonicals/` and the scanner in `tools/scan-reinvention` — and
+# the `reinvented-abstractions-tripwire` skill stub is a first-party symlink.
+# Its final-judgment sibling is `dry-but-not-too-dry`: this tripwire is the
+# cheap scout that emits investigation leads; that review makes consolidation
+# calls.
+#
+# Regeneration instructions: no upstream to refresh from. Refresh when the
+# canonical reference files or scanner detectors change: re-read
+# `references/canonicals/`, keep the mandate confined to named, openable
+# canonicals with silence as a valid outcome, preserve the frontmatter schema
+# accepted by Reviews, and then run:
+#
+#   dprint check .ns/reviews/reinvented-abstractions-tripwire/review.md
+#   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
 description: |
   Reinvented Abstractions Tripwire: scan the diff for code that reinvents a
   non-trivial abstraction the repo already provides. Start with the local

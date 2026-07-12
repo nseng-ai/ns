@@ -48,13 +48,14 @@ findings against the live files before editing (line references in
       findings.
       Guidance: main clusters — objective family (umbrella owns Selection/Record
       Frontmatter/validation-row/PR-wording rules, leaves point; patterns catalog owns
-      composition/identity, facades keep deltas); review family (decided 2026-07-12: no
-      codegen — reviews are HITL-authored adversarial variants of their source skills;
-      write `docs/conventions/adversarial-reviews.md` generalizing the
-      ns-typescript-style-tripwire provenance/regeneration pattern, backfill provenance
-      blocks on the five reviews lacking them, put the SKILL.md stub template in the doc,
-      mark the five identical stubs sanctioned duplication, point to the doc from
-      `.ns/reviews/README.md`); TypeScript ownership split (**executed 2026-07-12** on
+      composition/identity, facades keep deltas); review family (**executed 2026-07-12** on
+      `skill-audit-t3-adversarial-reviews`: `docs/conventions/adversarial-reviews.md`
+      landed generalizing the ns-typescript-style-tripwire provenance/regeneration
+      pattern, provenance backfilled on the five reviews lacking it
+      (dry-but-not-too-dry verified standalone), the five stubs re-instantiated from
+      the doc's lean template as sanctioned duplication, code-smell-review recorded
+      runner-only, `.ns/reviews/README.md` points at the doc — see the
+      t3-adversarial-reviews update); TypeScript ownership split (**executed 2026-07-12** on
       `skill-audit-t3-ts-ownership-split`: `ts/AGENTS.md` owns repo-specific
       test-lane/time-seam/style-guard detail; `ns-typescript` rewritten toward
       portability, pointing at the host repo's AGENTS.md — see the

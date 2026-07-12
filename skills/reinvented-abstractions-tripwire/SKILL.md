@@ -4,24 +4,20 @@ disable-model-invocation: true
 description: Invoke the Reinvented Abstractions Tripwire against a supplied diff or current branch.
 ---
 
-# Tripwire: Reinvented abstractions
+# Review: Reinvented Abstractions Tripwire
 
-Use `.ns/reviews/reinvented-abstractions-tripwire/review.md` as the authoritative review definition. Do not duplicate or reinterpret the review rules from memory.
+Use `.ns/reviews/reinvented-abstractions-tripwire/review.md` as the authoritative review definition. Do not
+duplicate or reinterpret the review rules from memory.
 
-First read `.ns/reviews/reinvented-abstractions-tripwire/review.md`, then apply that review definition exactly to the supplied diff or current branch changes in this same session. Stay read-only and keep findings grounded in the diff.
+If running inside this repository and the ns command face is available, prefer:
 
-Use explicit automation only when the user asks for isolated runner execution or automatic review logs:
+    ns reviews review run reinvented-abstractions-tripwire
 
-```bash
-ns reviews review run reinvented-abstractions-tripwire
-```
+If reviewing inline, first read `.ns/reviews/reinvented-abstractions-tripwire/review.md`, then apply that review
+definition exactly to the supplied diff or current branch changes. Stay read-only and
+keep findings grounded in the diff.
 
-In Pi-hosted sessions, use this skill's same review instructions or the same ns command face above; no separate reviews runner alias is required.
+For durable logging or publication, see `.ns/reviews/README.md`.
 
-For durable logging or publication after a same-session review, convert findings to `{ "findings": [...] }` and run:
-
-```bash
-ns reviews exec record-findings --review-key reinvented-abstractions-tripwire --format json < findings.json
-```
-
-Pipe that JSON envelope to `ns reviews exec publish-findings` when publishing to GitHub.
+<!-- Sanctioned duplication: instantiated from the stub template in
+docs/conventions/adversarial-reviews.md; edit the template, then re-instantiate. -->

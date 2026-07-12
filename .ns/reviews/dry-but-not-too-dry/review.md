@@ -1,4 +1,22 @@
 ---
+# Provenance (standalone): first-party review definition with no source skill
+# or AGENTS.md document. A 2026-07-12 decision-update note suggested it traced
+# to the Matt Pocock melded set, but verification found no vendored source and
+# `docs/agents/matt-pocock-skills.md` dismisses the `.ns/reviews/` definitions
+# other than `code-smell-review` as structurally independent. Inspired-by
+# credit: the Fowler "Duplicated Code" smell territory that `code-smell-review`
+# covers. Its recorded sibling is `reinvented-abstractions-tripwire` (the cheap
+# reinvented-abstraction scout; see the relationship section in the body) —
+# this review is the final-judgment end of that pair.
+#
+# Regeneration instructions: no upstream to refresh from. Revise when ns DRY
+# doctrine or the sibling tripwire's scope changes; keep the full core rubric
+# (semantic duplication, change-coupling, abstraction cost, locality, canonical
+# abstraction, net complexity) and the empty-result rule, preserve the
+# frontmatter schema accepted by Reviews, and then run:
+#
+#   dprint check .ns/reviews/dry-but-not-too-dry/review.md
+#   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
 description: |
   High-bar DRY reviewer: assess whether duplicated code or structure represents
   shared semantics or change-coupling worth consolidating, while rejecting

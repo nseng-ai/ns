@@ -1,4 +1,22 @@
 ---
+# Provenance (vendored-derived): this is an NS-local review prompt derived from
+# the code-smell baseline in the vendored Matt Pocock `pocock-review` skill
+# (`.agents/skills/pocock-review/SKILL.md`). Upstream source of truth for that
+# vendored skill is `mattpocock/skills`, where the skill is named `code-review`
+# (renamed upstream from `review`; path `skills/engineering/code-review/`). The
+# single canonical commit-level pin lives in `docs/agents/matt-pocock-skills.md`;
+# do not duplicate the hash here. NS-local adaptations to preserve:
+# code-smell-only scope, review tone, `.ns/reviews` frontmatter, explicit
+# exclusions for spec/standards/tests/formatting, and the NS-coined
+# "Confusable Siblings" smell.
+#
+# Regeneration instructions: when refreshing Matt-sourced skills, compare the
+# upstream smell baseline and apply relevant changes here manually, preserving
+# the NS-local adaptations above and the frontmatter schema accepted by
+# Reviews, and then run:
+#
+#   dprint check .ns/reviews/code-smell-review/review.md
+#   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
 description: |
   Code-smell-only review: inspect the supplied diff for Fowler-style
   code smells, with blunt but evidence-based feedback and small refactor fixes.
@@ -14,21 +32,6 @@ applies_to:
     - ".claude/skills/**"
     - "skills/**"
 ---
-
-## Lineage and update source
-
-This review is an NS-local review prompt derived from the **code-smell baseline**
-in the vendored Matt Pocock `pocock-review` skill:
-`.agents/skills/pocock-review/SKILL.md`.
-
-Upstream source of truth for that vendored skill is `mattpocock/skills`, where
-the skill is named `code-review` (renamed upstream from `review`; path
-`skills/engineering/code-review/`). The single canonical commit-level pin lives
-in `docs/agents/matt-pocock-skills.md`; do not duplicate the hash here. When
-refreshing Matt-sourced skills, compare the upstream smell baseline and apply
-relevant changes here manually. Preserve this review's
-NS-local adaptations: code-smell-only scope, review tone, `.ns/reviews`
-frontmatter, and explicit exclusions for spec/standards/tests/formatting.
 
 Review only the supplied diff/current branch changes plus the minimum nearby
 context needed to judge design smell. This is intentionally narrow: do not review
