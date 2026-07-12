@@ -13,6 +13,7 @@
 		"./package-metadata": "./src/package-metadata.ts",
 		"./source-rules": "./src/source-rules.ts",
 		"./subpackage-conformance": "./src/subpackage-conformance.ts",
+		"./tier-directory-projection": "./src/tier-directory-projection.ts",
 		"./tier-layering": "./src/tier-layering.ts",
 		"./topology-circles": "./src/topology-circles.ts"
 	},

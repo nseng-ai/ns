@@ -52,6 +52,7 @@ import {
 	collectViolations,
 	type SourceRuleViolation,
 } from "@internal/typescript-style-guard/source-rules";
+import { collectTierDirectoryProjectionViolations } from "@internal/typescript-style-guard/tier-directory-projection";
 import { collectPackageTierLayeringViolations } from "@internal/typescript-style-guard/tier-layering";
 import { collectSubpackageDeclarationConformanceViolations } from "@internal/typescript-style-guard/subpackage-conformance";
 import {
@@ -895,6 +896,144 @@ describe("TypeScript style guard package tier layering rules", () => {
 
 		expect(formatViolations(violations)).toBe("");
 	});
+});
+
+describe("TypeScript style guard tier-directory projection rule", () => {
+	interface TierProjectionCase {
+		readonly name: string;
+		readonly tier: PackageTier;
+		readonly packageDir: string;
+		readonly expectedViolation: boolean;
+	}
+
+	const cases: readonly TierProjectionCase[] = [
+		{
+			name: "capability in capabilities role dir is allowed",
+			tier: "capability",
+			packageDir: "ts/packages/capabilities/handoffs",
+			expectedViolation: false,
+		},
+		{
+			name: "capability outside capabilities role dir is rejected",
+			tier: "capability",
+			packageDir: "ts/packages/hosts/handoffs",
+			expectedViolation: true,
+		},
+		{
+			name: "capability nested below a role-dir child is rejected",
+			tier: "capability",
+			packageDir: "ts/packages/capabilities/handoffs/pi",
+			expectedViolation: true,
+		},
+		{
+			name: "sdk at the kernel top-level single-package home is allowed",
+			tier: "sdk",
+			packageDir: "ts/packages/kernel",
+			expectedViolation: false,
+		},
+		{
+			name: "sdk anywhere else is rejected",
+			tier: "sdk",
+			packageDir: "ts/packages/infra/kernel",
+			expectedViolation: true,
+		},
+		{
+			name: "capability-kit at its top-level single-package home is allowed",
+			tier: "capability-kit",
+			packageDir: "ts/packages/capability-kit",
+			expectedViolation: false,
+		},
+		{
+			name: "capability-kit below a role dir is rejected",
+			tier: "capability-kit",
+			packageDir: "ts/packages/capabilities/capability-kit",
+			expectedViolation: true,
+		},
+		{
+			name: "neutral-infra in infra role dir is allowed",
+			tier: "neutral-infra",
+			packageDir: "ts/packages/infra/foundation",
+			expectedViolation: false,
+		},
+		{
+			name: "host in hosts role dir is allowed",
+			tier: "host",
+			packageDir: "ts/packages/hosts/pi",
+			expectedViolation: false,
+		},
+		{
+			name: "standalone-tool outside tools role dir is rejected",
+			tier: "standalone-tool",
+			packageDir: "ts/packages/areg",
+			expectedViolation: true,
+		},
+		{
+			name: "internal-tool in internal role dir is allowed",
+			tier: "internal-tool",
+			packageDir: "ts/packages/internal/pi-tools",
+			expectedViolation: false,
+		},
+	];
+
+	test.each(cases)("$name", (testCase) => {
+		const violations = collectTierDirectoryProjectionViolations(
+			buildTierProjectionMetadata("@nseng-ai/example", testCase.tier, testCase.packageDir),
+		);
+
+		if (testCase.expectedViolation) {
+			expect(violations).toHaveLength(1);
+			expect(violations[0]?.text).toContain(`declares ns.tier ${testCase.tier}`);
+		} else {
+			expect(formatViolations(violations)).toBe("");
+		}
+	});
+
+	test("packages without a recognized tier are left to the tier layering rule", () => {
+		const metadataByName = buildTierProjectionMetadata(
+			"@nseng-ai/example",
+			"capability",
+			"ts/packages/hosts/example",
+		);
+		const metadata = metadataByName.get("@nseng-ai/example");
+		if (metadata === undefined) throw new Error("Missing synthetic metadata");
+		metadataByName.set("@nseng-ai/example", { ...metadata, nsTier: undefined });
+
+		expect(formatViolations(collectTierDirectoryProjectionViolations(metadataByName))).toBe("");
+	});
+
+	test("real repo package directories satisfy the tier-directory projection", () => {
+		const violations = collectTierDirectoryProjectionViolations(loadPackageMetadata(REPO_ROOT));
+
+		expect(formatViolations(violations)).toBe("");
+	});
+
+	function buildTierProjectionMetadata(
+		packageName: string,
+		tier: PackageTier,
+		packageDir: string,
+	): Map<string, PackageMetadata> {
+		const manifest: PackageManifest = {
+			name: packageName,
+			ns: { tier },
+		};
+		return new Map([
+			[
+				packageName,
+				{
+					name: packageName,
+					packageDir,
+					packageJsonPath: `${packageDir}/package.json`,
+					manifest,
+					manifestContent: JSON.stringify(manifest, null, 2),
+					nsTier: tier,
+					rawNsTier: tier,
+					nsSubpackages: [],
+					nsRemainder: false,
+					exportSubpaths: new Set(["."]),
+				},
+			],
+		]);
+	}
 });
 
 describe("TypeScript style guard topology-circle layering rules", () => {
