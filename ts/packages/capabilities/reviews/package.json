@@ -33,7 +33,7 @@
 		"zod": "catalog:"
 	},
 	"ns": {
-		"tier": "standalone-tool",
+		"tier": "capability",
 		"group": "reviews",
 		"settings": [
 			{
