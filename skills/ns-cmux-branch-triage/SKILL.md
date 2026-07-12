@@ -6,7 +6,7 @@ description: Use when the user wants to triage outstanding Graphite/GitHub branc
 
 # ns-cmux-branch-triage
 
-Process outstanding Graphite/GitHub branches one at a time for landing, retirement/freeing/deletion, restacking, or deferral. The distinguishing safety gate is cmux occupancy: before recommending or mutating, join each cmux workspace's current directory to the Git branch checked out there. Workspace titles and descriptions are advisory only.
+Process outstanding Graphite/GitHub branches one at a time for landing, retirement/freeing/deletion, restacking, or deferral. The distinguishing safety gate is cmux occupancy: before recommending or mutating, join each cmux workspace's current directory to the Git branch checked out there.
 
 ## Safety contract
 
@@ -14,7 +14,7 @@ Process outstanding Graphite/GitHub branches one at a time for landing, retireme
 - Never change the root repository checkout's branch. Read-only inventory may run from root, but branch-changing mutations from root are refused.
 - Before any mutation, refresh PR, Graphite, Git, slot/worktree, and cmux facts.
 - Ask for explicit user confirmation before every mutation.
-- If this session is in the root checkout and a mutation would require branch-specific state, stop and tell the user which slot/worktree to switch to, then rerun this workflow there. If no suitable slot exists, report that a slot/worktree is needed; do not allocate one automatically in v1.
+- If this session is in the root checkout and a mutation would require branch-specific state, stop and tell the user which slot/worktree to switch to, then rerun this workflow there. If no suitable slot exists, report that a slot/worktree is needed; do not allocate one automatically.
 - Dirty or active cmux workspaces are `Do not touch automatically` unless the user explicitly chooses to inspect from that workspace.
 - Dirty detached workspaces are high risk; never free, delete, overwrite, or retarget them automatically.
 - Do not parse `gt ls`, `gt log`, or other human-facing Graphite display output for machine topology. Use plumbing/structured sources where possible; use display commands only as human visual confirmation.
@@ -73,7 +73,7 @@ Collect facts in this order:
    ns slot gt exec stack-branches --format json
    ```
 
-   Run structured stack inventory from a relevant non-trunk worktree when useful. Use `gt ls` only as a human visual cross-check.
+   Run structured stack inventory from a relevant non-trunk worktree when useful.
 
 ## cmux badges
 
@@ -163,7 +163,7 @@ Mutations are supervised. Always perform the final freshness check first, presen
   gt delete <branch> -f -q
   ```
 
-- Never close GitHub PRs automatically in v1 unless the user explicitly asks and PR state has been refreshed.
+- Never close GitHub PRs automatically unless the user explicitly asks and PR state has been refreshed.
 
 ### Restack
 
@@ -193,4 +193,4 @@ Reason: <landing/restack/retire requires branch-specific mutation>
 
 If this workflow proves stable, move the mechanical inventory into a hidden `ns cmux exec` command. Candidate command names: `ns cmux exec branch-triage` or `ns cmux exec branch-inventory`. It should return JSON for PR facts, Graphite facts, git worktree/slot facts, cmux workspace facts, and joined branch classifications.
 
-Do not implement deterministic CLI support in v1; this skill remains the procedural source of truth for now.
+Do not implement deterministic CLI support; this skill remains the procedural source of truth for now.

@@ -10,7 +10,7 @@ metadata:
 
 # ns-flow-cp
 
-Create a quick checkpoint commit for the current git diff by delegating to the shared `ns flow cp` CLI. This is the cross-harness path for `/ns:flow:cp`; do not reimplement checkpointing with ad-hoc `git add` / `git commit` logic in the skill.
+Create a quick checkpoint commit for the current git diff by delegating to the `ns flow cp` CLI. This is the cross-harness path for `/ns:flow:cp`.
 
 ## When to use
 
@@ -28,22 +28,14 @@ ns flow cp
 
 The CLI owns the deterministic behavior:
 
-- captures the pending worktree snapshot, including untracked files;
 - refuses to create a checkpoint on `main` or `master`;
 - refuses when the worktree is clean;
 - drafts and validates a `[cp]` commit message with 1-3 bullets;
-- stages tracked and untracked changes;
-- creates one new commit without `--amend` or `--no-verify`;
-- prints `git log -1 --oneline` plus the full checkpoint message.
-
-Text generation is controlled by the CLI environment:
-
-- `NS_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.6-luna`;
-- `NS_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `NS_CHECKPOINT_MODEL` is unset.
+- stages tracked and untracked changes.
 
 ## Failure handling
 
-If `ns flow cp` fails, surface its stderr/stdout and stop. Do not retry by hand, do not amend, and do not bypass hooks.
+If `ns flow cp` fails, surface its stderr/stdout and stop; recovery only on an explicit user choice after seeing the failure.
 
 ## Rules
 

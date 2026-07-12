@@ -26,7 +26,7 @@ For `/ns:cmux:sidebar:branch-state-summary`, summarize the current Git branch's 
 
 ## Summarize from current Pi context
 
-Use the active Pi conversation context already available to you. Do not serialize, request, or inspect the full session file. Do not use local cmux source under `~/code/githubs/manaflow-ai/cmux`; if cmux command behavior is unclear, inspect the installed CLI help.
+Use the active Pi conversation context already available to you. Do not serialize, request, or inspect the full session file. If cmux command behavior is unclear, inspect the installed CLI's help; never read cmux source.
 
 Do not summarize this control prompt as the subject of the session. Summarize the requested session work.
 
@@ -41,7 +41,7 @@ Keep the full title at max 45 chars. If any field is too long, rewrite it shorte
 
 ## Apply immediately when the source is resolved
 
-Run exactly one deterministic `ns cmux exec workspace-summary` command with careful quoting. Do not assign shell variables. Do not write an env prelude. Do not pass `--workspace`; the CLI resolves `CMUX_WORKSPACE_ID` / `CMUX_TAB_ID` itself. Do not run raw `cmux` commands. If command execution fails, report the exact failure and stop rather than trying unrelated workarounds.
+Run exactly one deterministic `ns cmux exec workspace-summary` command with plain, careful quoting and no flags beyond the three shown — no shell variables, no env prelude, no `--workspace` (the CLI resolves `CMUX_WORKSPACE_ID` / `CMUX_TAB_ID` itself). Do not run raw `cmux` commands. If command execution fails, report the exact failure and stop rather than trying unrelated workarounds.
 
 Use this command shape:
 
