@@ -39,14 +39,8 @@ private tokens, binary assets, generated build output, or large datasets.
 
 ## Install and runtime
 
-Public `brmem` invocation should come from an ns checkout with
-`just install-brmem` (or `just install-tools`). The installed command is a
-TypeScript-backed source shim: it uses the enclosing ns checkout when run
-inside one, and otherwise the checkout that installed it. The shim requires
-the workspace Node version and `ts/node_modules`; the install recipes run
-`just ts-install`, and a broken checkout can be repaired by running
-`just ts-install` there. If `brmem` is missing, install the shim instead of
-invoking the old uv-based Python fallback.
+If `brmem` is missing, run `just install-brmem` (or `just install-tools`) from
+an ns checkout; repair a broken checkout with `just ts-install`.
 
 ## Choosing a command
 
@@ -63,9 +57,6 @@ invoking the old uv-based Python fallback.
 | Copy Base Entries between branches            | `brmem copy --base --from-branch <a> --to-branch <b>`           | Yes     |
 | Copy named Namespace Entries between branches | `brmem copy --namespace <ns> --from-branch <a> --to-branch <b>` | Yes     |
 | Resolve a repo/global prompt plugin           | `brmem exec resolve-prompt <name>`                              | No      |
-
-Each command's own semantics live in its section below; the rules that follow
-apply across commands.
 
 ## Cross-command rules
 
@@ -95,8 +86,7 @@ apply across commands.
 with `brmem check <key> ...` (see `check` below for result interpretation).
 
 Agents should prefer `--file <path>` for prepared content; use `--stdin` for
-piped content. Add `--format json` when the caller needs a machine-readable
-success or failure envelope.
+piped content.
 
 ```text
 brmem put notes/add-cache.md --branch feature/add-cache --file /tmp/note.md

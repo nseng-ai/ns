@@ -28,14 +28,12 @@ ns branch-context exec from-plan \
   --format json
 ```
 
-The plan is attached under Branch Memory namespace `branch-context`, key `<branch-context-slug>.md`, on the target branch.
-
 ## Workflow
 
 1. Resolve the saved plan first if a path is given or none is known.
 2. Derive `<branch-context-slug>` from plan content: kebab-case, 3-7 specific words, no dates/random IDs/generic-only names. This drives the default target branch and the attached-plan key `<branch-context-slug>.md`.
 3. Choose the branch creation method before invoking `ns branch-context exec from-plan`. In this repo, include `--branch-creation graphite` unless the user explicitly requested plain Git. For precedence and Graphite method details, see the `branch-context` umbrella's `references/lifecycle.md` (`## Branch creation policy`).
-4. Pass `--branch` only when the user requested a specific target branch; the attached-plan key still comes from `<branch-context-slug>.md`, not the target branch name.
+4. Pass `--branch` only when the user requested a specific target branch.
 5. Parse the standard Clinkr JSON envelope and report `data.branch`, `data.branchCreation`, `data.namespace`, `data.key`, `data.refName`, `data.commit`, `data.sourceFile`, and `data.slug`.
 
 ## Recovery

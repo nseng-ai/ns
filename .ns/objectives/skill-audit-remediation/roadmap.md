@@ -26,16 +26,19 @@ findings against the live files before editing (line references in
       Evidence: each fix verified against the emitting CLI/justfile/install state; `just`
       green.
 - [~] Tranche 1 — mechanical cuts across the fleet: apply the 289 T1 findings
-      (duplication, no-op, sediment, negation deletions) per skill, honoring
-      sanctioned-duplication markers.
-      Guidance: land as a few family-grouped branches in one stack (objective family;
-      branch-context/handoff/brmem; code/Graphite ops; flow+ccc; scaffolding;
-      TypeScript/CLI; docs/retro/setup; review/meta) so review stays tractable; record
-      per-family `wc -l` before/after. The python family moved to `nseng-ai/ns-python`
-      (2026-07-12); its T1 findings are out of scope here.
-      Progress: objective family executed 2026-07-12 on `skill-audit-t1-objective-family`
-      (18 files, 1502→1487 lines, ~-1,574 words; see the t1-objective-family-cuts
-      update); seven family branches remain.
+  (duplication, no-op, sediment, negation deletions) per skill, honoring
+  sanctioned-duplication markers.
+  Guidance: land as a few family-grouped branches in one stack (objective family;
+  branch-context/handoff/brmem; code/Graphite ops; flow+ccc; scaffolding;
+  TypeScript/CLI; docs/retro/setup; review/meta) so review stays tractable; record
+  per-family `wc -l` before/after. The python family moved to `nseng-ai/ns-python`
+  (2026-07-12); its T1 findings are out of scope here.
+  Progress: objective family executed 2026-07-12 on `skill-audit-t1-objective-family`
+  (18 files, 1502→1487 lines, ~-1,574 words; see the t1-objective-family-cuts
+  update); branch-context/handoff/brmem executed 2026-07-12 on
+  `skill-audit-t1-branch-context-handoff` (10 files, 893→842 lines; one finding
+  rejected as test-pinned — see the t1-branch-context-handoff-brmem-cuts update); six
+  family branches remain.
 - [ ] Tranche 2 — trigger-surface normalization: real descriptions for the legacy
       `Command:` stubs (ns-flow-cp, ns-flow-submit, code-just-fix, code-workflows,
       changelog-update); convert workflow-summary descriptions to trigger-shaped ones

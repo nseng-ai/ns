@@ -38,7 +38,7 @@ See `references/diagnostics-admin.md` for copy/move, collision handling, and sto
 ## Default safety posture
 
 - Inspect before mutating.
-- Use handoff vocabulary first; mention Branch Memory locators only as technical evidence, diagnostics, or recovery detail.
+- Use handoff vocabulary first; the full vocabulary rule lives in the step skills.
 - Refuse collisions, overwrites, and destructive changes unless the user gives explicit replacement/destructive intent.
 - Prefer deterministic `ns handoff ...` commands and Pi surfaces when they exist; use direct `brmem --namespace handoff` only as the storage/recovery/admin layer.
 - Verify stale artifacts against current repo state only after the user asks to proceed from the pickup summary.

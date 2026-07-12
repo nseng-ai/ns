@@ -18,7 +18,7 @@ enriched-plan exec save \
   --format json
 ```
 
-The saved-plan slug is a local filename locator, not necessarily the later branch slug or Branch Memory key. For Pi/tool wrappers that derive the slug themselves, do not invent one.
+The saved-plan slug is a local filename locator, not necessarily the later branch slug or Branch Memory key. When invoked by a wrapper that already supplies `--slug`, use it as-is.
 
 ## Workflow
 
@@ -59,8 +59,7 @@ The saved-plan slug is a local filename locator, not necessarily the later branc
    <!-- PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance -->
    - If implementation includes same-shape edits across multiple files, choose
      the execution mode explicitly. Apply
-     `references/refactor-execution-strategy.md`, including the final
-     stale-term grep/equivalent check for name or concept changes.
+     `references/refactor-execution-strategy.md`.
    <!-- PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance -->
 2. Apply the freshness/staleness gate before dispatching any review.
    - Skip cold-read review for fresh same-session plans when the planner just
