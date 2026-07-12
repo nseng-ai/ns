@@ -11,14 +11,7 @@ Load this reference only when the user says standing, ongoing, continuous, no-na
 
 ## Horizon vs drive
 
-Keep these axes separate:
-
-- **Bounded vs standing** describes the Objective horizon.
-- **Human-driven vs autonomous** describes the runner/drive.
-- A standing Objective can be human-driven.
-- A bounded Objective can be autonomous or execution-friendly.
-- Standing does not imply autonomous; autonomous does not imply standing.
-- **Autoobjective** is colloquial shorthand for an Objective designed for autonomous pursuit. Do not formalize it as schema, type, lifecycle state, or required wording.
+The Horizon (bounded ↔ standing) and Drive (human ↔ autonomous) axes — and the **Autoobjective** shorthand for autonomous-pursuit design — are defined in the `objective` skill's patterns catalog (`references/objective-patterns.md`); keep the axes separate. Standing fixes only the Horizon value: a standing Objective can be human-driven, and a bounded Objective can be autonomous or execution-friendly.
 
 ## Objective record guidance
 

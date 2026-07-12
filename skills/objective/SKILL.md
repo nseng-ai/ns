@@ -30,7 +30,7 @@ Do not use `docs/objectives/`.
 
 ## Objective skill family
 
-`objective` is the umbrella/reference skill; per-operation procedures stay in the step skills. When a step skill triggers, use this `objective` skill first for shared model and safety rules, then follow the self-contained step workflow.
+`objective` is the umbrella/reference skill; per-operation procedures stay in the step skills. Family policy, stated once here: when a step skill triggers, load this `objective` skill first for shared model and safety rules; each step skill is then self-contained for its own happy path. The `objective-create-<pattern>` facades are the exception — they are delta-only, composing `objective` and `objective-create` for all record mechanics and owning only their pattern's creation procedure.
 
 Use these step skills for explicit workflow requests:
 
@@ -118,9 +118,9 @@ A minimal Closure Marker. Its existence means closed; closure meaning belongs in
 
 Objective selection must come from an explicit slug/path or checkout-local `ns objective list` inventory. Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata — this includes branch names shown by `ns objective list`. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
-`objective-update` has one narrow single-candidate exception to this rule; its terms live in that skill.
+Two narrow sanctioned exceptions exist: `objective-update` (single active candidate, confirmed before proceeding) and `objective-critique` (single branch-changed record); each exception's terms live in its skill.
 
-A picker UI may use deterministic git facts to group changed active Objectives first when direct changes under `.ns/objectives/<slug>/` are present compared with repository trunk. If exactly one active Objective is the only Objective slug changed, the picker may label it as suggested. If multiple active Objectives changed, the picker may show those changed active Objectives in the first menu and offer a separate option to view the remaining active Objectives. The user must still confirm a changed Objective or choose another Objective. If the diff is unavailable, empty, or contains no changed slugs that are active Objectives, show the normal ordering with no suggestion.
+A picker UI may group changed active Objectives first and label a single changed record as suggested; the user must still confirm a changed Objective or choose another. The full non-binding picker grouping spec lives in `docs/objective-system.md` under Objective Selection.
 
 ## Repository status
 

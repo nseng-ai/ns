@@ -32,3 +32,7 @@ Run the readme-driven-development loop with these bindings:
 - **Grilling** uses `grill_ask` when available; otherwise the grilling loop's numbered-prose fallback.
 - **Execution state** goes to `roadmap.md`, never into the README.
 - **Pass report** additionally names the created Objective slug and the roadmap rows added.
+
+## Verify and stop
+
+Run objective-create's Verify, plus: the README promotion roadmap row exists, and `## Completion Criteria` names the promotion to a durable user-facing home.

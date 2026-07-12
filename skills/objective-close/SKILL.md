@@ -6,7 +6,7 @@ description: "Close an existing Objective without deleting its checked-in histor
 
 # objective-close
 
-Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
+Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, safety boundaries, and family policy.
 
 ## Resolve the Objective
 

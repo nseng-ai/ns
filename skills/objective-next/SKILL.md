@@ -8,7 +8,7 @@ description: "Recommend the next useful work for an active Objective. Use when a
 
 Recommend the next useful work for an active Objective; the sections below own gating, routing, and execution behavior.
 
-Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
+Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, safety boundaries, and family policy.
 
 ## Resolve the Objective
 
