@@ -82,14 +82,15 @@ session on 2026-07-10 (see
       rename-under-PR-association observations this row was chartered for are dead
       paths and no longer owned here. Remaining: one deliberate full replacement
       cycle on a live, reviewed stack — carry relevant review feedback forward from
-      the old PRs into the new shape, exercise coexistence naming (`s<num>`
-      generation token), hand the user the old-stack close list, and observe CI cost
-      across the replacement. Partial evidence (2026-07-10, first real run — see
+      the old PRs into the new shape, exercise coexistence naming (the `st<num>`
+      run-segment generation token settled on 2026-07-11), hand the user the
+      old-stack close list, and observe CI cost across the replacement. Partial
+      evidence (2026-07-10, first real run — see
       `updates/20260710T223421Z-first-real-run-parallel-packaging-and-decision-first-revision.md`):
       the 18-branch stack was repackaged in parallel mode with zero orphaned PRs
-      (user submitted the new shape as PRs #3364–#3371), but that run predated the
-      feedback-carry-forward and naming decisions and did not include a reviewed
-      decision PR.
+      (user submitted the new shape as PRs #3364–#3371, since all merged), but that
+      run predated the feedback-carry-forward and naming decisions and did not
+      include a reviewed decision PR.
 - [x] **Vocabulary and placement** (grilling) — Resolved early (formally blocked by
       mechanics design; the placement and vocabulary decisions did not depend on
       it). Placement: packaging lives as a **skill** — an LM-driven mutation of an
@@ -153,14 +154,20 @@ session on 2026-07-10 (see
       and feedback absorption via `gt absorb` / `gt modify --into`. Picks the
       mechanically parseable branch-name grammar `<run>--<NN><c>-<slug>`
       (`c` ∈ {`d`,`s`}, index from trunk) that the slice-map ratification proposal
-      required of this row.
+      required of this row. Superseded in part (2026-07-11): the fold-based
+      repackaging and orphaned-PR reporting this row shipped were later pruned to
+      zero by the replacement-stack rewrite row below; the skill's current
+      repackaging process is replacement-stack construction.
 - [ ] **Classification-aware PR titling in flow submit** (task) — Derive
       `[decision]`/`[span]` title prefixes from the `<run>--<NN><c>-<slug>` branch
       grammar at submit time and preserve them across title regeneration (today flow
       regenerates the whole title and would strip them). No labels — see the
       review-policy revision above. Consumer-neutral flow-side work: nothing beyond
       grammar parsing enters the flow package. Proven manually on PRs #3364–#3371 and
-      #3377–#3381 (2026-07-10/11).
+      #3377–#3381 (2026-07-10/11; all thirteen since merged with prefixes intact).
+      Verified still unbuilt (2026-07-12): no `[decision]`/`[span]` handling exists
+      anywhere in `ts/`, and flow's description generation explicitly regenerates
+      titles from the diff (`ts/packages/capabilities/flow/src/submit/pr-description.ts`).
 - [ ] **Decisions-log convention** (task) — Canonize the isolated PR-body decisions-log
       block proven on both live stacks: `<!-- ns-decisions-log:begin -->` /
       `<!-- ns-decisions-log:end -->` markers outside flow's managed generated region,
@@ -169,16 +176,23 @@ session on 2026-07-10 (see
       the decision record committed on the decision branch is **canonical**; the PR
       block is a subordinate mirror that flow treats as opaque human-owned text
       (**preserve-opaque**). Deliverables: convention prose plus a flow guard test that
-      non-managed body text survives description regeneration. Render-from-record is
-      Parked.
+      non-managed body text survives description regeneration. Narrowed (2026-07-12
+      refresh): a generic guard already exists — `regenerate-pr-command.test.ts`
+      ("preserves human body text outside the managed generated region", predating
+      this row) — so the remaining test work is extending/confirming that guard for
+      the decisions-log marker block specifically; the convention prose is still
+      entirely unwritten (no `ns-decisions-log` text exists in the repo).
+      Render-from-record is Parked.
 - [ ] **Decide-skill authoring** (task) — Author the post-submit decision-loop skill:
       walk each decision PR bottom-up; present the decision, trade-off, and a
       recommendation to the human; on their answer, commit a decision record as a
       Semantic Update on the decision branch (via `gt modify -c`, descendants
       restacked), and flip the PR mirror from Pending to Accepted/Rejected. The owning
       Objective is discovered from the smush-time packaging-event update (next row).
-      Loop proven manually across seven decision PRs on 2026-07-10/11 (see update). A
-      deterministic CLI push-down is Parked.
+      Loop proven manually across seven decision PRs on 2026-07-10/11 (see
+      `updates/2026-07-11T073927Z-decision-lifecycle-first-runs-and-grilling-resolutions.md`);
+      all seven mirrors verified flipped to Accepted and all seven PRs merged
+      (2026-07-12 refresh). A deterministic CLI push-down is Parked.
 - [ ] **Smush-time objective binding** (task) — Amend the smush skill to take the owning
       Objective as invocation input (inferred from context, else asked) and to record
       the packaging event — run, resulting stack branches, classification — as a

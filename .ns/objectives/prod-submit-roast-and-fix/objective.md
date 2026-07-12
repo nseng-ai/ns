@@ -46,10 +46,12 @@ cleaned up after the fact.
 
 ## Completion Criteria
 
-- Both submission verbs exist and are used on this repo: cheap `submit` retains its
-  fast no-review/no-prose contract, while completion-oriented agent workflows route
-  through `ship`; raw `gt submit` is an explicit recovery fallback rather than a
-  normal agent path.
+- Both submission verbs exist and are used on this repo: cheap `submit` has a fast
+  no-review/no-prose contract (today's single `ns flow submit` still generates PR
+  titles and managed descriptions by default, so the split must move that prose work
+  to `ship`, not merely preserve the status quo), while completion-oriented agent
+  workflows route through `ship`; raw `gt submit` is an explicit recovery fallback
+  rather than a normal agent path.
 - A `ship` on a real stack runs tripwire reviews at the tip over the whole-stack
   diff, applies at least the validated AUTO subset of findings before push, and never
   blocks or dirties the push when the fixer fails (fixes are discarded; findings
@@ -75,13 +77,20 @@ cleaned up after the fact.
 - **Risk:** pushing model-written fixes the human never saw. Mitigations to be decided
   on the frontier (fix placement/visibility row, TTY confirmation question in the
   integration row).
-- **Risk materialized — intent-routing bypass:** a 2026-07-11 feedback-remediation
-  stack created PRs #3395–#3397 through raw non-interactive `gt submit`; Graphite
-  pushed successfully, but the completion workflow skipped Flow's title/description
-  generation and left default commit-subject metadata. Command capability alone is
-  insufficient: agent-facing submission policy must route WIP synchronization to
-  `submit`, completion/review-readiness to `ship`, and raw `gt submit` only to an
-  explicit recovery path.
+- **Risk materialized — intent-routing bypass (partially mitigated):** a 2026-07-11
+  feedback-remediation stack created PRs #3395–#3397 through raw non-interactive
+  `gt submit`; Graphite pushed successfully, but the completion workflow skipped
+  Flow's title/description generation and left default commit-subject metadata
+  (#3395/#3396 later merged, #3397 closed). The symptom is partially mitigated on
+  trunk: commit 5636cb792 ("Generate descriptions for empty existing PRs",
+  2026-07-11) makes `ns flow submit` backfill titles and managed descriptions for
+  existing PRs with empty bodies by default, so bare PRs left by raw `gt submit` are
+  repaired on the next submit. The routing gap itself remains open: command
+  capability alone is insufficient — agent-facing submission policy must route WIP
+  synchronization to `submit`, completion/review-readiness to `ship`, and raw
+  `gt submit` only to an explicit recovery path. As of this refresh,
+  `skills/code-gh/SKILL.md` still presents `ns flow submit` and
+  `gt submit --no-interactive` as equivalent publish paths.
 - **Risk:** whole-stack tip review decouples findings from owning branches; if fixes
   must land per-branch, restack cost and complexity rise sharply. The fix-placement
   row owns this trade.

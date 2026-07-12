@@ -28,15 +28,19 @@ Five friction points, each a roadmap row:
    (e.g. `areg skill reconcile [--after-refresh]`) that re-applies recorded kinds.
 2. **Removal/cleanup story.** `npx skills remove` under-delivers (leaves the universal
    dir and lock entry), and areg has nothing to finish the job: `areg doctor` detects
-   stale `.pi/settings.json` exclusions but offers no fix, and dead rows in
-   `ts/packages/hosts/command-backed-skill-registry/src/index.ts` are not flagged at
-   all. (A dead row observed during that session was later removed by hand in an
-   unrelated vendored-skills cleanup; `doctor skills` still has no registry-row ↔
-   installed-skill cross-check, so the next dead row is equally invisible.) Add a doctor cross-check of command-backed registry rows ↔ installed
-   skills (both directions) and a fix path (doctor `--fix` and/or an `areg skill
-   remove` owning full teardown).
+   stale `.pi/settings.json` exclusions but offers no fix, and dead rows in the
+   command-backed skill registry — now areg-owned at
+   `ts/packages/tools/areg/src/command-backed-skill-registry.ts` (moved into areg from
+   the retired `ts/packages/hosts/command-backed-skill-registry` package by commit
+   `16ea42059`) — are not flagged at all. (A dead row observed during that session was
+   later removed by hand in an unrelated vendored-skills cleanup; `doctor skills` still
+   has no registry-row ↔ installed-skill cross-check — it only does per-skill surface
+   lookups — so the next dead row is equally invisible.) Add a doctor cross-check of
+   command-backed registry rows ↔ installed skills (both directions) and a fix path
+   (doctor `--fix` and/or an `areg skill remove` owning full teardown).
 3. **`.pi/settings.json` ordering churn.** `areg skill apply` removes and re-appends the
-   exclusion entry, producing a semantically-no-op two-hunk diff. Preserve position or
+   exclusion entry across kind toggles (toggle-off filters in place, toggle-on appends
+   at the end), producing a semantically-no-op two-hunk diff. Preserve position or
    keep the list sorted.
 4. **Hash semantics.** `areg check` does not verify `computedHash` against vendored dir
    content — a forked `wayfinder` passed cleanly. Decide: either document install-time
@@ -81,9 +85,12 @@ Five friction points, each a roadmap row:
 
 Assumptions:
 
-- areg remains a standalone whole-project inspector in `tools/` with zero inbound
-  dependents (umbrella decision, 2026-07-07); this record's changes stay within that
-  positioning.
+- areg's whole-project-inspector positioning in `tools/` holds, but the original
+  "zero inbound dependents" framing (umbrella decision, 2026-07-07) is no longer
+  literally true: commit `16ea42059` moved the command-backed skill registry into
+  `@nseng-ai/areg`, and `@nseng-ai/pi-tools` now consumes its registry exports. This
+  record's changes stay within areg and its now-owned registry; they do not grow the
+  inbound surface further.
 - `npx skills` CLI behavior (partial removal, overlay-destroying refresh) is external
   and will not be fixed upstream on our schedule; areg must be robust around it.
 - The observed session is representative: refresh/removal are the high-frequency
@@ -96,9 +103,11 @@ Risks:
   it solves. Mitigation: reconcile semantics decided first (row 1 is decision-bearing).
 - Hash verification with fork support could conflict with how `npx skills` recomputes
   hashes on refresh; a fork marker must survive refresh or be trivially re-applied.
-- Doctor `--fix` mutating `.pi/settings.json` and a hand-maintained TS registry file
-  crosses from inspection into mutation of first-party source; the registry cross-check
-  may need to stay report-only.
+- Doctor `--fix` mutating `.pi/settings.json` and the hand-maintained TS registry
+  module (now inside areg's own package) crosses from inspection into mutation of
+  first-party source; the registry cross-check may need to stay report-only. The
+  registry being areg-owned softens the package-boundary concern but not the
+  source-mutation one.
 
 ## Open Questions
 
@@ -106,3 +115,5 @@ Risks:
   extension of an existing record? (Must honor the no-hidden-database rule.)
 - Is `areg skill remove` worth owning end-to-end teardown, or is doctor `--fix` plus the
   existing `npx skills remove` sufficient?
+- Does pi-tools' new consumption of the areg-owned registry change where the
+  removal-story fix path should live (areg CLI vs registry module contract)?

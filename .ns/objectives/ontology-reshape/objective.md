@@ -3,9 +3,9 @@ edges:
   - objective: repo-ontology
     annotation: Supersedes this closed standing record; its remaining reconciliation scope and standing non-goals carry over here, and its mined facts live in the effort folder's ideas.md.
   - objective: skill-management-subsystem
-    annotation: The layering reshape (ADR 0033, layering-reshape-spec.md item 7) folds the command-backed-skill-registry into areg — recorded input that Objective must consume before reshaping skill surfaces further.
+    annotation: The layering reshape (ADR 0033, layering-reshape-spec.md item 7) folds the command-backed-skill-registry into areg — recorded input that Objective must consume before reshaping skill surfaces further; the fold landed on trunk (commit 16ea42059).
   - objective: execute-cmux-reshape-spec
-    annotation: Execution of the cmux reshape spec (ADR 0034, slices 2–6 plus closeout) was extracted 2026-07-12 to that autoobjective via the handoff vehicle's New-Objective hatch; this roadmap's "Execute the cmux reshape spec" task row resolves when it closes.
+    annotation: Execution of the cmux reshape spec (ADR 0034, slices 2–6 plus closeout) was extracted 2026-07-12 to that autoobjective via the handoff vehicle's New-Objective hatch; it closed 2026-07-12, the "Execute the cmux reshape spec" task row is resolved, and the full stack has since merged to trunk.
   - objective: execute-kernel-sdk-rename-spec
     annotation: Owns executing the kernel → sdk rename (ADR 0035, kernel-sdk-rename-spec.md) whose mechanics this record's "Spec the kernel → sdk rename" grilling row ratified 2026-07-12; that row resolves when it closes.
 ---
@@ -28,7 +28,7 @@ finds the way — audit → reshape → document — to a deliberately decided o
 glossaries are written once, against the reshaped ontology.
 
 Everything is on the table: product terms (Objective, Slot, Handoff, Branch Memory,
-Flow, CCC, ...), command surfaces (`ns ...`, `/ns:*`), package identity/topology, and
+Flow, cmux, ...), command surfaces (`ns ...`, `/ns:*`), package identity/topology, and
 internal meta-vocabulary (Capability API, Command Face, Domain Core, ...) may all be
 renamed, merged, split, or deleted. Every actual change is a per-row HITL decision.
 
@@ -36,9 +36,10 @@ renamed, merged, split, or deleted. Every actual change is a per-row HITL decisi
 
 - Auditing every `CONTEXT.md`, `CONTEXT-MAP.md`, and related domain-doc claim against
   source, and sweeping the workspace for unrecorded domain language.
-- Reexamining the four suspect clusters — CCC/orchestration, extension/host/kernel
-  layering vocabulary, the source-control lifecycle spread, and review/feedback naming
-  residue — plus whatever further suspects the audits surface.
+- Reexamining the four suspect clusters — CCC/orchestration (resolved: cmux),
+  extension/host/kernel layering vocabulary (resolved), the source-control lifecycle
+  spread, and review/feedback naming residue — plus whatever further suspects the
+  audits surface.
 - Deciding a deliberate context decision for every tracked package (authored glossary,
   deliberately thin, or out-of-scope with a revisit trigger — no silent absence).
 - Doc edits (`CONTEXT.md`, `CONTEXT-MAP.md`, ADRs) land in place as rows resolve.
@@ -77,24 +78,30 @@ land in place as rows resolve.
 
 ## Assumptions and Risks
 
-- **Assumption (verified 2026-07-10 by the drift audit):** the workspace baseline is
-  29 tracked packages under `ts/packages/` role directories and 13 context files (root
-  `CONTEXT.md` + 12 package contexts). `CONTEXT-MAP.md`'s Inventory Baseline still
-  claims 26 packages — known drift, cataloged in the audit report.
+- **Assumption (re-verified 2026-07-12 against trunk):** the workspace baseline is now
+  26 tracked packages under `ts/packages/` role directories and 15 context files (root
+  `CONTEXT.md` + 14 package/subpackage contexts). The shrink from the original
+  29-package baseline is this Objective's own landed reshaping (pi-command-surfaces
+  deleted, command-backed-skill-registry folded into areg, nscc deleted); the original
+  `CONTEXT-MAP.md` 26-count drift is resolved — its rewritten Inventory Baseline now
+  states 26 with the probe command, matching `git ls-files`.
 - **Assumption:** the four chosen suspect clusters cover the worst accretion; the
-  vocabulary sweeps may disprove this by surfacing further suspects (jotted in the
-  effort folder's `ideas.md`), which would widen the reexamination phase.
-- **Risk (hunch from charting):** the ontology's biggest impurity is the
-  describing-language — the meta-vocabulary — not the domain nouns. If true, the
-  layering reexamination carries the most reshaping weight and may need to be split.
-- **Risk (cross-initiative constraint):** `cross-harness-parity` ("Pi is additive,
-  never canonical") and `extension-descriptor-contract` (typed descriptor modules) are
-  live initiatives whose direction constrains the layering reexamination; read their
-  orientations before that grilling row, and treat conflicts as decisions to surface,
-  not silently resolve.
-- **Risk:** four of the remaining rows are HITL grilling sessions; progress gates on
-  live user availability, and an agent answering its own grill questions has broken
-  the row.
+  vocabulary sweeps partially disproved this by surfacing further suspects (jotted in
+  the effort folder's `ideas.md`), which the triage row turns into rows or one-line
+  resolutions.
+- **Risk (hunch from charting, since confirmed):** the ontology's biggest impurity was
+  the describing-language — the meta-vocabulary. The layering reexamination confirmed
+  this and carried the most reshaping weight; its decisions (ADR 0033) executed and
+  landed on trunk, with the remaining meta-vocabulary residue split into the
+  foundation/capability-kit junk-drawer grilling row.
+- **Constraint discharged (verified 2026-07-12):** the two cross-initiative
+  constraints on the layering reexamination are gone — `cross-harness-parity` closed
+  by decision during the CCC/orchestration row, and `extension-descriptor-contract`
+  is closed (its `closed.md` is at trunk), which also fires the parked kernel-name
+  row's revisit trigger.
+- **Risk:** the five remaining open rows are all HITL grilling sessions; progress
+  gates on live user availability, and an agent answering its own grill questions has
+  broken the row.
 - Validation evidence for any row: `dprint` check passes for touched Markdown, and
   source evidence is cited for every inventory/relationship claim.
 
@@ -104,14 +111,17 @@ Fog — in-scope questions not yet stateable precisely; each graduates into Ques
 Rows as the Frontier advances, and none is pre-sliced before then:
 
 - **Documentation phase** — the post-reshape doc work: per-package context decisions
-  for all 29 packages (the 17 currently without contexts, plus the partial
-  capability-kit and pi-tools decisions), glossary authoring/rewrites, and the final
-  `CONTEXT-MAP.md` rewrite and unfamiliar-contributor readback. Specifiable once the
-  reexamination clusters settle; will graduate into per-cluster or per-package rows.
-- **Doc-structure changes** — whether the context-doc system itself changes shape: the
-  `@nseng-ai/foundation` single-file-with-anchors question, whether this record should
-  index `docs/adr/` (36 ADRs, five duplicated numbers — treatment undecided), and how
-  ADRs relate to reshaping specs.
+  for all 26 packages (the 12 currently without any context, plus the partial
+  capability-kit decision — only its graphite subpackage has one — and the pi-tools
+  decision), glossary authoring/rewrites, and the final `CONTEXT-MAP.md` rewrite and
+  unfamiliar-contributor readback. The landed reshapes already added contexts for
+  foundation, ns-pi-subagents, and cmux. Specifiable once the reexamination clusters
+  settle; will graduate into per-cluster or per-package rows.
+- **Doc-structure changes** — whether the context-doc system itself changes shape:
+  whether this record should index `docs/adr/` (41 ADRs, six duplicated numbers —
+  treatment undecided), and how ADRs relate to reshaping specs. The
+  `@nseng-ai/foundation` single-file-with-anchors question was overtaken by events —
+  foundation gained a conventional `CONTEXT.md` when the layering reshape landed.
 - **Post-Objective maintenance ownership** — `repo-ontology` was a standing objective;
   this record is bounded. Who or what keeps domain docs synced after this closes
   (successor objective, PR-time habit, periodic re-grill) must be decided near the

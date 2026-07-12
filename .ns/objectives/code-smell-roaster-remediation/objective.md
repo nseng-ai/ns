@@ -3,8 +3,9 @@
 ## Thesis
 
 A full-codebase, multi-agent run of the Fowler-style code-smell-only roaster
-review (now `.ns/reviews/code-smell-roaster/review.md`; located at
-`.sdl/reviews/code-smell-roaster.md` when the sweep ran) against all 849
+review (now `.ns/reviews/code-smell-review/review.md` after the
+roaster-to-reviews rename; located at `.sdl/reviews/code-smell-roaster.md`
+when the sweep ran) against all 849
 production TypeScript/TSX source files in this repo found 162
 adversarially-verified code smells: 92 Duplicated Code, 16 Repeated Switches,
 15 Data Clumps, 13 Divergent Change, 10 Speculative Generality, 5 Primitive
@@ -130,13 +131,15 @@ that justified the disposition.
 This Objective is execution-friendly for `objective-next`, including
 autonomous branch creation and PR submission per slice — but never landing.
 
-The supported autonomous runner is `/objective:autopilot <slug> [--submit]`:
-each iteration spawns a fresh child Pi that runs `objective-next` for *this*
-Objective, implements one coherent slice, and leaves it **uncommitted**; the
-parent session then re-checks live repo state and owns commit and submit
-(`--submit` opens the PR via `ns flow submit --no-restack`, never restacking
-and never landing). A human working the loop by hand follows the same steps
-below.
+The supported autonomous runner is the `objective-autorun` skill (Pi
+`/ns:objective:autorun`), which retired the former `/objective:autopilot`
+extension: the parent session loops verified `objective-runner-step` cycles
+(`ns objective exec runner-begin` → implementation subagent →
+`ns objective exec runner-finish`), each producing one locally verified
+commit, with a judgment checkpoint between steps. The autorun loop itself
+never pushes or submits; PR submission happens afterward from the parent
+session via the normal Graphite/`ns flow submit` workflow — never landing. A
+human working the loop by hand follows the same steps below.
 
 - **Direct execution is allowed when:** the runner selects one
   `references/<area>.md` cluster (or a sub-package slice of a large cluster),
@@ -182,9 +185,9 @@ Default runner loop:
    finding that turned out stale, or an overlap with another Objective), or
    policy refinements — not a per-commit changelog.
 7. Create the branch-context implementation branch, commit the slice, and
-   submit the cluster's PR (`ns flow submit --no-restack`); do not land it.
-   Under `/objective:autopilot` the parent owns commit and submit while the
-   child leaves the slice uncommitted.
+   submit the cluster's PR via `ns flow submit`; do not land it. Under
+   `objective-autorun` each runner step commits its own verified slice and
+   the parent session owns any submit after the loop.
 
 ## Assumptions and Risks
 
@@ -196,22 +199,29 @@ Assumptions:
   inaccurate evidence, so re-verification at pickup is required, not optional.
 - Cluster-to-package mapping in `references/` is pre-reorg and must be
   re-mapped, not merely double-checked. The July 2026 workspace consolidation
-  regrouped `ts/packages/` into `infra/{brmem,clinkr,foundation}`,
-  `capabilities/*`, `capability-kit`, `hosts/{pi,nscc}`, `kernel`,
-  `internal/pi-tools`, and `tools/*`: the former standalone `exec`,
-  `cli-runtime`, `cli-theme`, `time`, and `test-kit` packages now live under
-  `infra/foundation/src/*`; `git`, `github`, `graphite`, and `cmux` now live under
-  `capability-kit/src/*`; the `@local-pi-tools/*` sub-packages were
-  consolidated into one `@internal/pi-tools` package at
-  `ts/packages/internal/pi-tools` (with `runner-subagents` later extracted
-  again into its own `@nseng-ai/ns-pi-subagents` extension package at
-  `ts/packages/extensions/ns-pi-subagents`); the `sdlcc` host was renamed `nscc`;
-  `worktree-status` moved into `hosts/pi/src/worktree-status`; and
-  `capabilities/land` was absorbed into `capabilities/flow/src/land`. The
-  first-party CLI was also renamed `sdl` → `ns` and the repo state root
-  `.sdl` → `.ns`. Landed fixes from this Objective survived the reorg (their
-  helpers re-verified present on 2026-07-03, a few under new names — see
-  `roadmap.md`), but every remaining reference path needs the same re-mapping.
+  and the subsequent tier reshape (ADR 0033) regrouped `ts/packages/` into
+  `infra/{brmem,clinkr,foundation}`, `capabilities/*`, `capability-kit`,
+  `hosts/{pi,ns}`, `kernel`, `internal/*`, and `tools/*`: the former
+  standalone `exec`, `cli-runtime`, `cli-theme`, `time`, `test-kit`, and (as
+  of the tier reshape) `git` packages now live under
+  `infra/foundation/src/*`; `github`, `graphite`, and `cmux` now live under
+  `capability-kit/src/*`; capability packages carry plural names
+  (`capabilities/{slots,handoffs,objectives,plans,retros,reviews,...}`) and
+  the former `ccc` capability was renamed `capabilities/cmux`; the
+  `@local-pi-tools/*` sub-packages were consolidated into one
+  `@internal/pi-tools` package at `ts/packages/internal/pi-tools` (with
+  `runner-subagents` later extracted into its own `@internal/ns-pi-subagents`
+  package, now at `ts/packages/internal/ns-pi-subagents`); the `sdlcc` host
+  was renamed `nscc` and then removed outright (commit `555ab7438`), leaving
+  `hosts/pi` and the `hosts/ns` CLI host; `worktree-status` moved into
+  `hosts/pi/src/worktree-status`; and `capabilities/land` was absorbed into
+  `capabilities/flow/src/land`. The first-party CLI was also renamed
+  `sdl` → `ns` and the repo state root `.sdl` → `.ns`. Landed fixes from this
+  Objective survived both reshapes (helpers re-verified present on trunk on
+  2026-07-12, a few under new names and the removed-nscc helpers retired with
+  their host — see `roadmap.md`), but every remaining reference path needs
+  the same re-mapping. Top-level `ts/packages/<name>` directories that shadow
+  old package names are untracked pnpm artifacts, not tracked code.
 - Existing or focused tests per touched package are a sufficient behavior-
   parity net for refactors of this shape (extract-helper, collapse-switch,
   bundle-data-clump), consistent with the precedent Objectives.
@@ -242,11 +252,11 @@ Risks:
   than folding into a larger cluster PR. Five have already been split this way
   (`backing-skill-commands` `extension.ts`, `hosts/pi`
   `commands/cli-extension.ts`, `capability-kit/src/graphite/status.ts`,
-  `internal/pi-tools/src/thermo-council/orchestrator.ts` (now ~275 lines), and
-  `internal/pi-tools/src/grill/extension.ts` (now ~120 lines) — see
+  `internal/pi-tools/src/thermo-council/orchestrator.ts` (now ~276 lines), and
+  `internal/pi-tools/src/grill/extension.ts` (now ~160 lines) — see
   `roadmap.md`). One large god-file remains only partially reduced:
   `internal/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts` (still
-  ~790 lines after the event-journal seam was extracted), whose remaining
+  ~820 lines after the event-journal seam was extracted), whose remaining
   polling-strategy / status-presenter / runner-discovery seams are the open
   local-pi-tools follow-up.
 - **Mechanical extraction risk:** "extract a shared helper" fixes can

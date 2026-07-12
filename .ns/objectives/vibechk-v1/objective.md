@@ -98,3 +98,13 @@ Risks:
 ## Open Questions
 
 - After v1 ships, should the original issue #434 be updated or closed with a pointer to the checked-in Objective, or should GitHub issue state remain independent bookkeeping? (Complicated by the `asdl` -> `sdl` repository namespace rename, which may have moved or retired the original issue location.)
+
+## Closure
+
+Closed 2026-07-12 as intentionally abandoned, by explicit user decision, short of the full issue-#434 v1 contract.
+
+What shipped and remains usable: the TypeScript `@nseng-ai/vibechk` package at `ts/packages/tools/vibechk/` with the `run`, `show`, `diff`, and `runs` commands, the `claude` runner adapter, the local bundle store (schema version 1, snake_case `bundle.json`), single-run and comparison Markdown reports, git workdir preconditions with `vibechk/<run-id>` result branches, and fake-driven unit/scenario coverage over the `FakeRunner` seam. A same-day objective-refresh (2026-07-12, basis `c1cb8d5d3`) verified this entire surface against trunk immediately before closure.
+
+Abandoned rather than completed: the remaining v1 rows — `publish` through `gh` with idempotent fence replacement, the `codex` and `pi` runner adapters with per-runner metric normalization, the real GitHub PR publish smoke, and the final validation pass — are not being pursued. The roadmap's checkbox state is left as recorded as the durable statement of where work stopped.
+
+Follow-ups: none owned by this record. If agent-context evaluation tooling is revived, a successor Objective should re-derive scope against the shipped package rather than reopening this record. The parked GitHub issue #434 bookkeeping decision remains independent.

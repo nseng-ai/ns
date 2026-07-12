@@ -78,3 +78,17 @@ Do not keep a slice that reconstructs command strings in fake tests, weakens a s
 ## Open Questions
 
 - None block the approved slice sequence. Typed branching for `graphiteRefreshFailure`, adapter-directory renaming, isolated-target core support, upfront-dispatch confirmation migration, scenario pruning, and telemetry/phase-stream generalization remain explicit follow-ups outside this Objective.
+
+## Closure
+
+Closed 2026-07-12 as completed. All fourteen roadmap slices, five remediation branches, and four feedback follow-ups are landed on trunk; every completion criterion is met.
+
+Execution phases now run over `LandContext` plus required narrow host seams under `src/land/execution/`; `executeLanding` owns execute mode end-to-end with typed completion dispositions, execution facts, and unified merge-loop observations, and the `skipped: "merge execution remains in Flow"` report is gone. Duplicate failure/result/concept vocabularies and migration shims are removed, upfront approvals are confirmation-gateway provenance rather than transport booleans, and canonical execution is the sole trunk/no-PR routing authority. Fake-driven tests cover decision matrices, guard refusals, typed failure breadth, warning aggregation, and gateway request order/shape, with paired real-adapter protocol coverage for every fake knob.
+
+Key evidence, recorded in detail across the twenty Semantic Updates:
+
+- The six permanent transcript scenario/fixture/support paths remained byte-for-byte unchanged through every slice, with telemetry assertions holding at linear-11 = 140 and linear-25 = 308.
+- Final validation on the closing remediation branch: full `@nseng-ai/flow` suite (81 files, 743 tests), `just` including the integration lane, style guards, and `ns objective check` all green.
+- PR #3478: Centralize Landing Cleanup Authorization and Completion Notifications — final review-feedback remediation, merged 2026-07-12; the slice and remediation PR trail is recorded per-update in `updates/`.
+
+Follow-ups deliberately left outside this Objective remain in `roadmap.md` `## Parked`: typed `graphiteRefreshFailure` branching, the `stack/` → `adapters/` rename, isolated-target core support, transcript-scenario pruning (gated on future performance measurement work per the closed `flow-land-incremental-perf-rollout` record), and telemetry/phase-stream generalization. No open Objective is blocked on this record; both edge counterparts are closed and carry no Blocked Sentences.
