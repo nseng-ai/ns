@@ -133,8 +133,16 @@ live exchange with the user. Assets link from row notes and live in
     items 4+5 merged; ripple renames separate; stack based on
     `rename-ccc-to-cmux-capability`) and attached as branch context on
     `cmux-reshape/trim-flow-facade` for the dedicated execution session. Semantic
-    update: `updates/2026-07-12-cmux-reshape-plan-ratified.md`. Remaining: the
-    execution session itself.
+    update: `updates/2026-07-12-cmux-reshape-plan-ratified.md`. Execution
+    underway 2026-07-12: slice 1/6 `trim-flow-facade` committed (spec item 1 —
+    flow-facade subpaths/modules/tests and the `@nseng-ai/flow` dependency
+    deleted; reference grep clean; local-only pending review; semantic update:
+    `updates/2026-07-12-cmux-reshape-slice-1-executed.md`). Extracted
+    2026-07-12: the remaining work — slices 2–6 plus the stack closeout — moved
+    to the `execute-cmux-reshape-spec` autoobjective (Objective Edge), invoking
+    the reshaping handoff vehicle's New-Objective escape hatch for autonomous
+    runner pursuit; this row resolves when that record closes. Semantic update:
+    `updates/2026-07-12-cmux-reshape-execution-extracted.md`.
 - [x] Reexamine extension, host, and kernel layering vocabulary (grilling)
   - Blocked by: Drift audit of existing context files; Vocabulary sweep: capabilities;
     Vocabulary sweep: hosts, kernel, extensions, internal; Vocabulary sweep: infra,
