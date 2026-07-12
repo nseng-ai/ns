@@ -25,6 +25,16 @@ import { renderTimelineEntryLines } from "../../src/fleet/detail-render.ts";
 import type { ReadTextFile } from "../../src/fleet/read-text-dependencies.ts";
 import { settleMicrotasks } from "../helpers/fleet-testing.ts";
 
+function itemAt<T>(items: readonly T[], index: number): T {
+	const item = items[index];
+	if (item === undefined) throw new Error(`Expected item at index ${index}`);
+	return item;
+}
+
+function taskAt<T>(run: { readonly tasks: readonly T[] }, index: number): T {
+	return itemAt(run.tasks, index);
+}
+
 function jsonl(events: readonly unknown[]): string {
 	return events.map((event) => JSON.stringify(event)).join("\n");
 }
@@ -437,8 +447,8 @@ describe("subagent fleet navigator", () => {
 		const manualClock = createManualClock(10_000);
 		const registry = new SubagentFleetRegistry({ clock: manualClock.clock });
 		const run = registry.startRun([{ title: "Second" }, { title: "First" }]);
-		const second = run.tasks[0]!;
-		const first = run.tasks[1]!;
+		const second = taskAt(run, 0);
+		const first = taskAt(run, 1);
 		registry.markRunning(first.id);
 		registry.markProgress(first.id, updateWithSessionFile("/tmp/one.jsonl"));
 		manualClock.advanceMs(65_000);
@@ -500,7 +510,7 @@ describe("subagent fleet navigator", () => {
 	test("expanded entry preview has no stray blank line before its read resolves", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Pending" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/pending.jsonl"));
 		let resolveRead: ((content: string) => void) | undefined;
@@ -538,7 +548,7 @@ describe("subagent fleet navigator", () => {
 			{ title: "Queued 4" },
 			{ title: "Queued 5" },
 		]);
-		const selected = run.tasks[0]!;
+		const selected = taskAt(run, 0);
 		registry.markRunning(selected.id);
 		registry.markProgress(selected.id, updateWithSessionFile("/tmp/selected.jsonl"));
 		const view = new SubagentFleetNavigator({
@@ -640,8 +650,8 @@ describe("subagent fleet navigator", () => {
 			{ title: "Second" },
 			{ title: "First", prompt: "Map the investigator command.\nList call sites." },
 		]);
-		const second = run.tasks[0]!;
-		const first = run.tasks[1]!;
+		const second = taskAt(run, 0);
+		const first = taskAt(run, 1);
 		registry.markRunning(first.id);
 		registry.markProgress(first.id, updateWithSessionFile("/tmp/one.jsonl"));
 		registry.markProgress(second.id, updateWithSessionFile("/tmp/two.jsonl"));
@@ -961,7 +971,7 @@ describe("subagent fleet navigator", () => {
 	test("auto-refreshes the latest message while a running entry stays expanded", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Live preview" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/live-preview.jsonl"));
 		let content = sessionJsonl();
@@ -1146,8 +1156,8 @@ describe("subagent fleet navigator", () => {
 	test("loads two expanded entries concurrently and keeps their previews independent", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Beta" }, { title: "Alpha" }]);
-		const beta = run.tasks[0]!;
-		const alpha = run.tasks[1]!;
+		const beta = taskAt(run, 0);
+		const alpha = taskAt(run, 1);
 		registry.markRunning(alpha.id);
 		registry.markRunning(beta.id);
 		registry.markProgress(alpha.id, updateWithSessionFile("/tmp/alpha.jsonl"));
@@ -1192,7 +1202,7 @@ describe("subagent fleet navigator", () => {
 	test("opening an expanded entry in full detail starts a new read without reusing preview state", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Transition" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/transition.jsonl"));
 		const resolvers: Array<(content: string) => void> = [];
@@ -1210,7 +1220,7 @@ describe("subagent fleet navigator", () => {
 
 		view.handleInput(" ");
 		await settleMicrotasks();
-		resolvers[0]!(sessionJsonl());
+		itemAt(resolvers, 0)(sessionJsonl());
 		await settleMicrotasks();
 		expect(view.render(120).join("\n")).toContain("latest: ● assistant: Found details");
 		expect(resolvers).toHaveLength(1);
@@ -1222,7 +1232,7 @@ describe("subagent fleet navigator", () => {
 		expect(resolvers).toHaveLength(2);
 		expect(view.render(120).join("\n")).toContain("Reading child session…");
 
-		resolvers[1]!(sessionJsonl());
+		itemAt(resolvers, 1)(sessionJsonl());
 		await settleMicrotasks();
 		expect(view.render(120).join("\n")).toContain("✓ read");
 	});
@@ -1230,7 +1240,7 @@ describe("subagent fleet navigator", () => {
 	test("returning from full detail begins a fresh preview lifetime for a still-expanded entry", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Round trip" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/round-trip.jsonl"));
 		const resolvers: Array<(content: string) => void> = [];
@@ -1248,11 +1258,11 @@ describe("subagent fleet navigator", () => {
 
 		view.handleInput(" ");
 		await settleMicrotasks();
-		resolvers[0]!(sessionJsonl());
+		itemAt(resolvers, 0)(sessionJsonl());
 		await settleMicrotasks();
 		view.handleInput("\r");
 		await settleMicrotasks();
-		resolvers[1]!(sessionJsonl());
+		itemAt(resolvers, 1)(sessionJsonl());
 		await settleMicrotasks();
 		expect(view.render(120).join("\n")).toContain("✓ read");
 
@@ -1263,7 +1273,7 @@ describe("subagent fleet navigator", () => {
 		expect(resolvers).toHaveLength(3);
 		expect(view.render(120).join("\n")).toContain("loading session…");
 
-		resolvers[2]!(sessionJsonl());
+		itemAt(resolvers, 2)(sessionJsonl());
 		await settleMicrotasks();
 		expect(view.render(120).join("\n")).toContain("latest: ● assistant: Found details");
 	});
@@ -1271,7 +1281,7 @@ describe("subagent fleet navigator", () => {
 	test("unchanged content keeps the preview lifetime polling with fresh reads", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Steady" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/steady.jsonl"));
 		let readCount = 0;
@@ -1305,7 +1315,7 @@ describe("subagent fleet navigator", () => {
 	test("preview load failures show the placeholder and a later refresh recovers", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Flaky preview" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/flaky-preview.jsonl"));
 		let readCount = 0;
@@ -1342,7 +1352,7 @@ describe("subagent fleet navigator", () => {
 	test("a registry update during an in-flight read queues one follow-up using the latest snapshot", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Queued follow-up" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/queued.jsonl"));
 		const resolvers: Array<(content: string) => void> = [];
@@ -1375,10 +1385,10 @@ describe("subagent fleet navigator", () => {
 		await settleMicrotasks();
 		expect(resolvers).toHaveLength(1);
 
-		resolvers[0]!(sessionJsonl());
+		itemAt(resolvers, 0)(sessionJsonl());
 		await settleMicrotasks();
 		expect(resolvers).toHaveLength(2);
-		resolvers[1]!(sessionJsonl());
+		itemAt(resolvers, 1)(sessionJsonl());
 		await settleMicrotasks();
 		// The follow-up consumed the latest snapshot: the task is done, so the
 		// preview reports the post-run status rather than the stale running one.
@@ -1389,8 +1399,8 @@ describe("subagent fleet navigator", () => {
 	test("registry removal prunes expanded preview state and ignores its pending read", async () => {
 		const registry = new SubagentFleetRegistry({ recentTaskCap: 1 });
 		const run = registry.startRun([{ title: "Evicted" }, { title: "Survivor" }]);
-		const evicted = run.tasks[0]!;
-		const survivor = run.tasks[1]!;
+		const evicted = taskAt(run, 0);
+		const survivor = taskAt(run, 1);
 		registry.markDone(evicted.id, {
 			status: "final-text",
 			finalText: "done",
@@ -1434,7 +1444,7 @@ describe("subagent fleet navigator", () => {
 		expect(afterEviction).toContain("Survivor");
 
 		// The obsolete completion cannot repopulate the pruned entry.
-		resolvers[0]!(sessionJsonl());
+		itemAt(resolvers, 0)(sessionJsonl());
 		await settleMicrotasks();
 		const afterResolve = view.render(120).join("\n");
 		expect(afterResolve).not.toContain("Evicted");
@@ -1445,7 +1455,7 @@ describe("subagent fleet navigator", () => {
 	test("disposal during a pending read produces no render and no reschedule", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Disposed" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/disposed.jsonl"));
 		const resolvers: Array<(content: string) => void> = [];
@@ -1476,7 +1486,7 @@ describe("subagent fleet navigator", () => {
 		const renderRequestsAtDisposal = renderRequests;
 		expect(manualTimers.pendingTimerCount()).toBe(0);
 
-		resolvers[0]!(sessionJsonl());
+		itemAt(resolvers, 0)(sessionJsonl());
 		await settleMicrotasks();
 		expect(renderRequests).toBe(renderRequestsAtDisposal);
 		expect(resolvers).toHaveLength(1);
@@ -1488,7 +1498,7 @@ describe("subagent fleet navigator", () => {
 	test("collapse and re-expand starts a fresh read and rejects the obsolete completion", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Racer" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/racer.jsonl"));
 		const reads: Array<{ resolve(content: string): void; reject(error: unknown): void }> = [];
@@ -1517,7 +1527,7 @@ describe("subagent fleet navigator", () => {
 		expect(reads).toHaveLength(2);
 
 		// A resolves with old content, which must never reach the new lifetime.
-		reads[0]!.resolve(
+		itemAt(reads, 0).resolve(
 			sessionJsonl([{ type: "message_end", message: assistantMessage("Stale content") }]),
 		);
 		await settleMicrotasks();
@@ -1526,7 +1536,7 @@ describe("subagent fleet navigator", () => {
 		expect(afterStale).toContain("loading session…");
 
 		// B resolves with new content and only that content is committed.
-		reads[1]!.resolve(
+		itemAt(reads, 1).resolve(
 			sessionJsonl([{ type: "message_end", message: assistantMessage("Fresh content") }]),
 		);
 		await settleMicrotasks();
@@ -1539,7 +1549,7 @@ describe("subagent fleet navigator", () => {
 	test("an obsolete request failure cannot overwrite the current lifetime", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Failure race" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/failure-race.jsonl"));
 		const reads: Array<{ resolve(content: string): void; reject(error: unknown): void }> = [];
@@ -1562,11 +1572,11 @@ describe("subagent fleet navigator", () => {
 		await settleMicrotasks();
 		expect(reads).toHaveLength(2);
 
-		reads[0]!.reject(new Error("stale read failed"));
+		itemAt(reads, 0).reject(new Error("stale read failed"));
 		await settleMicrotasks();
 		expect(view.render(120).join("\n")).not.toContain("stale read failed");
 
-		reads[1]!.resolve(sessionJsonl());
+		itemAt(reads, 1).resolve(sessionJsonl());
 		await settleMicrotasks();
 		const recovered = view.render(120).join("\n");
 		expect(recovered).toContain("latest: ● assistant: Found details");
@@ -1576,7 +1586,7 @@ describe("subagent fleet navigator", () => {
 	test("collapse without re-expand ignores the completion and does not render", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Collapsed" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/collapsed.jsonl"));
 		const resolvers: Array<(content: string) => void> = [];
@@ -1602,7 +1612,7 @@ describe("subagent fleet navigator", () => {
 		view.handleInput(" ");
 		const renderRequestsAfterCollapse = renderRequests;
 
-		resolvers[0]!(sessionJsonl());
+		itemAt(resolvers, 0)(sessionJsonl());
 		await settleMicrotasks();
 		expect(renderRequests).toBe(renderRequestsAfterCollapse);
 		expect(resolvers).toHaveLength(1);
@@ -1612,7 +1622,7 @@ describe("subagent fleet navigator", () => {
 	test("preview-to-detail transition rejects the preview completion and starts a detail request", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Promote" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/promote.jsonl"));
 		const resolvers: Array<(content: string) => void> = [];
@@ -1637,17 +1647,19 @@ describe("subagent fleet navigator", () => {
 		expect(resolvers).toHaveLength(2);
 
 		// The obsolete preview completion cannot populate the detail lifetime.
-		resolvers[0]!(
-			sessionJsonl([{ type: "message_end", message: assistantMessage("Preview only") }]),
-		);
+		itemAt(
+			resolvers,
+			0,
+		)(sessionJsonl([{ type: "message_end", message: assistantMessage("Preview only") }]));
 		await settleMicrotasks();
 		const pendingDetail = view.render(120).join("\n");
 		expect(pendingDetail).toContain("Reading child session…");
 		expect(pendingDetail).not.toContain("Preview only");
 
-		resolvers[1]!(
-			sessionJsonl([{ type: "message_end", message: assistantMessage("Detail content") }]),
-		);
+		itemAt(
+			resolvers,
+			1,
+		)(sessionJsonl([{ type: "message_end", message: assistantMessage("Detail content") }]));
 		await settleMicrotasks();
 		const detail = view.render(120).join("\n");
 		expect(detail).toContain("Detail content");
@@ -1657,7 +1669,7 @@ describe("subagent fleet navigator", () => {
 	test("rapid lifecycle changes keep the current generation's bookkeeping intact", async () => {
 		const registry = new SubagentFleetRegistry();
 		const run = registry.startRun([{ title: "Churn" }]);
-		const task = run.tasks[0]!;
+		const task = taskAt(run, 0);
 		registry.markRunning(task.id);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/churn.jsonl"));
 		const resolvers: Array<(content: string) => void> = [];
@@ -1683,7 +1695,7 @@ describe("subagent fleet navigator", () => {
 
 		// A's settlement must not clear B's in-flight marker: a registry event
 		// after A settles must queue behind B rather than starting a new read.
-		resolvers[0]!(sessionJsonl());
+		itemAt(resolvers, 0)(sessionJsonl());
 		await settleMicrotasks();
 		expect(resolvers).toHaveLength(2);
 		registry.markProgress(task.id, updateWithSessionFile("/tmp/churn.jsonl"));
@@ -1691,12 +1703,13 @@ describe("subagent fleet navigator", () => {
 		expect(resolvers).toHaveLength(2);
 
 		// When B settles, exactly one queued follow-up C starts and commits.
-		resolvers[1]!(sessionJsonl());
+		itemAt(resolvers, 1)(sessionJsonl());
 		await settleMicrotasks();
 		expect(resolvers).toHaveLength(3);
-		resolvers[2]!(
-			sessionJsonl([{ type: "message_end", message: assistantMessage("Follow-up content") }]),
-		);
+		itemAt(
+			resolvers,
+			2,
+		)(sessionJsonl([{ type: "message_end", message: assistantMessage("Follow-up content") }]));
 		await settleMicrotasks();
 		expect(view.render(120).join("\n")).toContain("latest: ● assistant: Follow-up content");
 		expect(resolvers).toHaveLength(3);

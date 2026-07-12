@@ -257,7 +257,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private isFollowing = true;
 	private isPromptExpanded = false;
 	private isDisposed = false;
-	private detailPollTimer: ScheduledTimer | undefined;
+	private refreshPollTimer: ScheduledTimer | undefined;
 	/** Navigator-wide monotonic source for surface lifetime generations. */
 	private nextLifetimeGeneration = 1;
 
@@ -629,17 +629,16 @@ export class SubagentFleetNavigator implements RenderComponent {
 	 * even while an obsolete request is still unresolved.
 	 */
 	private activateSurfaceLifetime(state: EntryDetailState, surface: FleetEntrySurface): void {
+		this.resetSurfaceLifetime(state);
 		state.activeSurface = surface;
-		state.generation = this.nextLifetimeGeneration++;
-		delete state.sessionIdentityKey;
-		delete state.committedDetail;
-		delete state.cache;
-		delete state.observation;
-		delete state.queuedGeneration;
 	}
 
 	private deactivateSurfaceLifetime(state: EntryDetailState): void {
+		this.resetSurfaceLifetime(state);
 		delete state.activeSurface;
+	}
+
+	private resetSurfaceLifetime(state: EntryDetailState): void {
 		state.generation = this.nextLifetimeGeneration++;
 		delete state.sessionIdentityKey;
 		delete state.committedDetail;
@@ -671,8 +670,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 			this.stopRefreshPolling();
 			return;
 		}
-		if (this.detailPollTimer !== undefined) return;
-		this.detailPollTimer = this.timers.setInterval(() => {
+		if (this.refreshPollTimer !== undefined) return;
+		this.refreshPollTimer = this.timers.setInterval(() => {
 			if (this.isDisposed) return;
 			if (!this.shouldPoll()) {
 				this.stopRefreshPolling();
@@ -696,8 +695,8 @@ export class SubagentFleetNavigator implements RenderComponent {
 	}
 
 	private stopRefreshPolling(): void {
-		this.detailPollTimer?.cancel();
-		this.detailPollTimer = undefined;
+		this.refreshPollTimer?.cancel();
+		this.refreshPollTimer = undefined;
 	}
 
 	private refreshEntries(): void {
