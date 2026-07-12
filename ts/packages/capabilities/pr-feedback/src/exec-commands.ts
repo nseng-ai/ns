@@ -4,11 +4,13 @@ import { branchPrChecksOperation } from "./branch-pr-checks.ts";
 import { downloadFeedbackOperation } from "./download-feedback.ts";
 import { mapBranchPrsOperation } from "./map-branch-prs.ts";
 import { primitiveOperations } from "./primitive-commands.ts";
+import { waitForChecksOperation } from "./wait-for-checks.ts";
 
 /** Exec operation table for downloader workflows and shared PR feedback primitives. */
 export const EXEC_OPERATIONS: readonly ExecOperation[] = [
 	downloadFeedbackOperation,
 	mapBranchPrsOperation,
 	branchPrChecksOperation,
+	waitForChecksOperation,
 	...primitiveOperations,
 ];

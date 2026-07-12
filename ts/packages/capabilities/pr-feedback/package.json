@@ -9,6 +9,7 @@
 		"./ns/commands/exec-download-feedback": "./src/ns/commands/exec-download-feedback.ts",
 		"./ns/commands/exec-map-branch-prs": "./src/ns/commands/exec-map-branch-prs.ts",
 		"./ns/commands/exec-branch-pr-checks": "./src/ns/commands/exec-branch-pr-checks.ts",
+		"./ns/commands/exec-wait-for-checks": "./src/ns/commands/exec-wait-for-checks.ts",
 		"./ns/commands/exec-pr-details": "./src/ns/commands/exec-pr-details.ts",
 		"./ns/commands/exec-branch-pr": "./src/ns/commands/exec-branch-pr.ts",
 		"./ns/commands/exec-open-prs": "./src/ns/commands/exec-open-prs.ts",

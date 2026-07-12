@@ -29,6 +29,14 @@ export default defineExtension({
 					),
 				}),
 			},
+			{
+				name: "wait-for-checks",
+				load: async () => ({
+					default: (await import("./ns-command.ts")).prAddressOperationNsCommand(
+						(await import("./wait-for-checks.ts")).waitForChecksOperation,
+					),
+				}),
+			},
 			{ name: "pr-details", load: () => loadPrimitiveOperationCommand("pr-details") },
 			{ name: "branch-pr", load: () => loadPrimitiveOperationCommand("branch-pr") },
 			{ name: "open-prs", load: () => loadPrimitiveOperationCommand("open-prs") },

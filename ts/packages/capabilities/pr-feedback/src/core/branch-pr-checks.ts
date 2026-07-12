@@ -8,6 +8,7 @@ import {
 	branchPrEntry,
 	branchPrMappingSummary,
 	type BranchPrMappingEntry,
+	type BranchPrMappingGaps,
 	type BranchPrMappingSummary,
 } from "./branch-pr-mapping.ts";
 import type { GatewayOptions } from "./gateways.ts";
@@ -83,6 +84,19 @@ export async function collectBranchPrChecks(
 				ambiguous: entries.filter((entry) => entry.status === "ambiguous").length,
 			}),
 		},
+	};
+}
+
+export function branchPrChecksMappingGaps(
+	collection: BranchPrChecksCollection,
+): BranchPrMappingGaps {
+	return {
+		missingBranches: collection.entries
+			.filter((entry) => entry.status === "missing")
+			.map((entry) => entry.branch),
+		ambiguousBranchNames: collection.entries
+			.filter((entry) => entry.status === "ambiguous")
+			.map((entry) => entry.branch),
 	};
 }
 

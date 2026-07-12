@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr";
-import { collectBranchPrChecks, type BranchPrChecksCollection } from "./core/branch-pr-checks.ts";
+import {
+	branchPrChecksMappingGaps,
+	collectBranchPrChecks,
+	type BranchPrChecksCollection,
+} from "./core/branch-pr-checks.ts";
 import { branchPrMappingGapsMessage, hasBranchPrMappingGaps } from "./core/branch-pr-mapping.ts";
 import {
 	defineExecOperation,
@@ -65,15 +69,4 @@ async function runBranchPrChecksOperation(
 	const gaps = branchPrChecksMappingGaps(collection);
 	if (!hasBranchPrMappingGaps(gaps)) return ok(collection);
 	return negative(branchPrMappingGapsMessage(gaps), { data: collection });
-}
-
-function branchPrChecksMappingGaps(collection: BranchPrChecksCollection) {
-	return {
-		missingBranches: collection.entries
-			.filter((entry) => entry.status === "missing")
-			.map((entry) => entry.branch),
-		ambiguousBranchNames: collection.entries
-			.filter((entry) => entry.status === "ambiguous")
-			.map((entry) => entry.branch),
-	};
 }

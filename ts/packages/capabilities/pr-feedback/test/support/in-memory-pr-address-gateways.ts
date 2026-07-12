@@ -18,13 +18,22 @@ import type {
 import type { Result } from "@nseng-ai/foundation/result";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { createManualTimerHarness } from "@nseng-ai/foundation/time/testing";
 
 import type { PrAddressContext } from "../../src/context.ts";
 
+/** Deterministic fake wall clock: 2026-07-12T12:00:00.000Z. */
+export const FAKE_NOW_MS = Date.UTC(2026, 6, 12, 12, 0, 0);
+
 export function fakePrAddressContext(overrides: Partial<PrAddressContext> = {}): PrAddressContext {
+	// Manual harness by default: any unexpected production sleep hangs the test
+	// (vitest timeout) instead of silently waiting real time.
+	const timeHarness = createManualTimerHarness(FAKE_NOW_MS);
 	return {
 		git: new InMemoryGitGateway({ currentBranch: "main" }),
 		prFeedback: new InMemoryGithubPrFeedbackGateway(),
+		clock: timeHarness.clock,
+		timers: timeHarness.timers,
 		...overrides,
 	};
 }
@@ -335,6 +344,36 @@ export class InMemoryGithubPrFeedbackGateway implements PrAddressGithubGateway {
 			states.push({ threadId, isResolved: true });
 		}
 		return { ok: true, value: states };
+	}
+}
+
+/**
+ * Delegates successive `getBranchPrChecks` polls to a sequence of in-memory
+ * states; the last state repeats once the sequence is exhausted. Every other
+ * gateway method serves the final state.
+ */
+export class SequencedBranchPrChecksGateway extends InMemoryGithubPrFeedbackGateway {
+	private readonly sequence: readonly InMemoryGithubPrFeedbackGateway[];
+	private pollCount = 0;
+
+	constructor(states: readonly [InMemoryPrFeedbackState, ...InMemoryPrFeedbackState[]]) {
+		super(states[states.length - 1]);
+		this.sequence = states.map((state) => new InMemoryGithubPrFeedbackGateway(state));
+	}
+
+	get polls(): number {
+		return this.pollCount;
+	}
+
+	override async getBranchPrChecks(
+		params: GithubPrFeedbackOptions & { readonly branches: readonly string[] },
+	): Promise<Result<readonly GithubBranchPrChecksOutcome[], GithubPrFeedbackFailure>> {
+		const index = Math.min(this.pollCount, this.sequence.length - 1);
+		this.pollCount += 1;
+		const gateway = this.sequence[index];
+		if (gateway === undefined)
+			throw new Error("SequencedBranchPrChecksGateway requires at least one state.");
+		return gateway.getBranchPrChecks(params);
 	}
 }
 

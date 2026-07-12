@@ -94,14 +94,32 @@ const branchPrChecksAmbiguousEntrySchema = z.object({
 	candidates: z.array(mapBranchPrsEntrySchema),
 });
 
+const branchPrChecksEntriesSchema = z.array(
+	z.discriminatedUnion("status", [
+		branchPrChecksFoundEntrySchema,
+		branchPrChecksMissingEntrySchema,
+		branchPrChecksAmbiguousEntrySchema,
+	]),
+);
+
 export const branchPrChecksResultSchema = z.object({
-	entries: z.array(
-		z.discriminatedUnion("status", [
-			branchPrChecksFoundEntrySchema,
-			branchPrChecksMissingEntrySchema,
-			branchPrChecksAmbiguousEntrySchema,
-		]),
-	),
+	entries: branchPrChecksEntriesSchema,
+	summary: mapBranchPrsSummarySchema,
+});
+
+const waitForChecksOutcomeSchema = z.union([
+	z.literal("passing"),
+	z.literal("failing"),
+	z.literal("timeout"),
+	z.literal("mapping-gap"),
+]);
+
+export const waitForChecksResultSchema = z.object({
+	outcome: waitForChecksOutcomeSchema,
+	polls: z.int(),
+	waitedMs: z.int(),
+	counts: prChecksCountsSchema,
+	entries: branchPrChecksEntriesSchema,
 	summary: mapBranchPrsSummarySchema,
 });
 
