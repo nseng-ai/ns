@@ -637,9 +637,6 @@ function createProgressRecorder(): {
 		progress: {
 			note: (message) => notes.push(message),
 			setStatus: (message) => statuses.push(message),
-			setStep: () => {},
-			recordMergedPullRequest: () => {},
-			planRecalculated: () => {},
 		},
 		notes,
 		statuses,

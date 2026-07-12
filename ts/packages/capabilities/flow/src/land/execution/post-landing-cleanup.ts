@@ -15,7 +15,7 @@ import {
 	type PostLandingSlotCleanupReport,
 } from "../types.ts";
 import { isManagedSlotPath, slotNameFromPath } from "../worktree-paths.ts";
-import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
+import type { LandConfirmationGateway, LandExecutionStatusProgress } from "./host-seams.ts";
 
 export interface PostLandingSlotCleanupPreview {
 	readonly branch: string;
@@ -102,7 +102,7 @@ export async function resolveManagedSlotPostLandingCleanupDecision(options: {
 
 export async function runManagedSlotPostLandingCleanup(options: {
 	readonly landContext: LandContext;
-	readonly progress: LandExecutionProgress;
+	readonly progress: LandExecutionStatusProgress;
 	readonly cleanup: PostLandingCleanupRequest;
 	readonly shape: LandingShape;
 	readonly cleanupDecision: PostLandingSlotCleanupDecision;

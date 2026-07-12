@@ -59,9 +59,18 @@ export type LandExecutionStep = "gate" | "merge" | "verify" | "restack";
 /** States execution can assign after a matrix row has been initialized as pending. */
 export type LandExecutionStepState = "active" | "done" | "skipped" | "failed";
 
-export interface LandExecutionProgress {
-	readonly note: (message: string) => void;
+/** Status-only progress for executors that surface a single transient status line. */
+export interface LandExecutionStatusProgress {
 	readonly setStatus: (message: string | undefined) => void;
+}
+
+/** Message/status progress for executors that report milestones and a status line. */
+export interface LandExecutionMessageProgress extends LandExecutionStatusProgress {
+	readonly note: (message: string) => void;
+}
+
+/** Stack-observation events owned by canonical stack execution: per-branch step matrix, merged-PR records, and plan recalculation. */
+export interface LandExecutionStackObservationProgress {
 	readonly setStep: (
 		branch: string,
 		step: LandExecutionStep,
@@ -70,6 +79,10 @@ export interface LandExecutionProgress {
 	readonly recordMergedPullRequest: (pullRequest: LandedPullRequest) => void;
 	readonly planRecalculated: (plan: LandingPlan) => void;
 }
+
+/** Full canonical stack execution progress: the composition of message/status and stack observation. */
+export type LandExecutionProgress = LandExecutionMessageProgress &
+	LandExecutionStackObservationProgress;
 
 function ignoreProgress(): void {}
 

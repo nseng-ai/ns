@@ -4,7 +4,10 @@ import {
 	isIsolatedFastPath,
 	type IsolatedLandingOutcome,
 } from "./execution/isolated-landing.ts";
-import type { LandConfirmationRequest, LandExecutionProgress } from "./execution/host-seams.ts";
+import type {
+	LandConfirmationRequest,
+	LandExecutionMessageProgress,
+} from "./execution/host-seams.ts";
 import type {
 	PostLandingCleanupRequest,
 	PostLandingSlotCleanupDecision,
@@ -133,7 +136,7 @@ function presentVerbatimIsolatedFailure(
 function isolatedLandingProgress(
 	ctx: PrintAwareLandStackCommandContext,
 	progressIo: NsCommandIo | undefined,
-): LandExecutionProgress {
+): LandExecutionMessageProgress {
 	return {
 		note(message): void {
 			if (progressIo === undefined) notifyPrintAware({ ctx, message, level: "info" });
@@ -145,9 +148,6 @@ function isolatedLandingProgress(
 			}
 			setStatus(ctx, message);
 		},
-		setStep() {},
-		recordMergedPullRequest() {},
-		planRecalculated() {},
 	};
 }
 

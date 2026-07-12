@@ -7,7 +7,7 @@ import {
 } from "../../src/land/execution/isolated-landing.ts";
 import type {
 	LandConfirmationGateway,
-	LandExecutionProgress,
+	LandExecutionMessageProgress,
 } from "../../src/land/execution/host-seams.ts";
 import {
 	failureLevel,
@@ -34,12 +34,9 @@ const SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const approvedConfirmation: LandConfirmationGateway = {
 	confirm: async () => ({ type: "approved", approvalSource: "prompted" }),
 };
-const nullProgress: LandExecutionProgress = {
+const nullProgress: LandExecutionMessageProgress = {
 	note() {},
 	setStatus() {},
-	setStep() {},
-	recordMergedPullRequest() {},
-	planRecalculated() {},
 };
 
 describe("isolated landing core", () => {
