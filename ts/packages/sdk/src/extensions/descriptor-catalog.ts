@@ -45,6 +45,7 @@ function descriptorEntryToPreinstalledCatalog(options: {
 		return [
 			{
 				name: commandEntry.name,
+				...optionalEntry("requiresExtension", commandEntry.requiresExtension),
 				description: `Load ns descriptor command ${segments.join(" ")}.`,
 				fullDescription: `Load ns descriptor command ${segments.join(" ")}.`,
 				...(options.segments.length === 1

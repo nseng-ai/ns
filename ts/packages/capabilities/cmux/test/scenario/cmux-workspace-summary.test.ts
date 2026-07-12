@@ -29,6 +29,7 @@ class FakeCmuxNsApi implements NsExtensionApi {
 	readonly commandIo = noopNsCommandIo;
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
+	readonly hasExtension = () => false;
 	private readonly failedCommand: string | undefined;
 
 	constructor(options: FakeCmuxNsApiOptions = {}) {

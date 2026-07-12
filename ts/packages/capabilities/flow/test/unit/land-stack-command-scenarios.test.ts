@@ -97,6 +97,7 @@ describe("flow land matrix progress forwarding", () => {
 			commandIo: noopNsCommandIo,
 			progress,
 			renderCapabilities: { canEmitAnsi: false },
+			hasExtension: () => false,
 			exec: async () => ({ code: 0, stdout: "", stderr: "", type: "exited", signal: null }),
 			textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		};

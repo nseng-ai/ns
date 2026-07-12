@@ -24,6 +24,7 @@ function createCtx(overrides: Partial<NsExtensionApi>): NsExtensionApi {
 		commandIo,
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
+		hasExtension: () => false,
 		exec: async () => ({ type: "exited", code: 0, signal: null, stdout: "", stderr: "" }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		...overrides,

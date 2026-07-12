@@ -79,6 +79,7 @@ function createFakeApi(results: readonly ExecResult[]): {
 			commandIo: noopNsCommandIo,
 			progress: noopNsProgress,
 			renderCapabilities: { canEmitAnsi: false },
+			hasExtension: () => false,
 			textGenerator: {
 				async generateText() {
 					return { ok: false, error: "unexpected model call" };

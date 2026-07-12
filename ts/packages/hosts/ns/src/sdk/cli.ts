@@ -10,6 +10,7 @@ export type {
 	BuildNsCliOptions,
 	NsCliDeps,
 	NsCommandInfo,
+	PreinstalledNsCommandCatalog,
 	PreinstalledNsCommandCatalogEntry,
 	PreinstalledNsCommandCatalogLoader,
 } from "@nseng-ai/sdk/cli";

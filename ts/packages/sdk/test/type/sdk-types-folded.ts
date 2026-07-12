@@ -65,7 +65,13 @@ const greetCommand = defineCommand({
 
 const extension = defineExtension({
 	description: "Greet extension.",
-	entries: [{ name: "greet", load: () => ({ default: greetCommand }) }],
+	entries: [
+		{
+			name: "greet",
+			requiresExtension: "@example/provider",
+			load: () => ({ default: greetCommand }),
+		},
+	],
 });
 
 const commandlessExtension = defineExtension({ description: "Commandless descriptor." });
@@ -110,6 +116,8 @@ const progressListener: NsProgressPhaseListener = (_event) => {};
 const progress: NsProgress = { isLive: true, phase: progressListener };
 
 function acceptsExtensionApi(api: NsExtensionApi): string {
+	const isProviderPresent: boolean = api.hasExtension("@example/provider");
+	void isProviderPresent;
 	api.commandIo.notify("checked");
 	api.progress.phase(progressEvent);
 	return api.cwd;

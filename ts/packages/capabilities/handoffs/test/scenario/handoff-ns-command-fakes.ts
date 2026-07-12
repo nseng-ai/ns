@@ -39,6 +39,7 @@ export class FakeHandoffNsApi implements NsExtensionApi {
 	readonly commandIo = noopNsCommandIo;
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
+	readonly hasExtension = () => false;
 	readonly stderr: (text: string) => void;
 
 	constructor(options: FakeHandoffNsApiOptions = {}) {

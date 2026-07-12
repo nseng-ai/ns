@@ -84,6 +84,7 @@ function fakeApi(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 		commandIo: noopNsCommandIo,
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
+		hasExtension: () => false,
 		textGenerator: {
 			async generateText() {
 				return { ok: false, error: "unexpected model call" };

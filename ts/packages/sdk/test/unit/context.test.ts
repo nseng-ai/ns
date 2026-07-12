@@ -14,6 +14,8 @@ describe("real ns command context", () => {
 			},
 		});
 
+		expect(ctx.hasExtension("@example/not-discovered-yet")).toBe(false);
+
 		const result = await ctx.exec(process.execPath, ["-e", "process.stdin.pipe(process.stdout)"], {
 			stdin: "hello from stdin",
 		});

@@ -266,6 +266,7 @@ function fakeReviewsRegistry(): FakeReviewsRegistry {
 					}),
 				),
 				diagnostics: [],
+				extensionPackageNames: new Set(),
 			};
 		},
 		async loadSelectedCommand(candidate) {

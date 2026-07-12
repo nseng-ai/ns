@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 
 import { defineRawCommand, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/sdk";
 import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
+import { extensionDescriptorToPreinstalledCatalog } from "../../src/extensions/descriptor-catalog.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
 	hasExtensionErrors,
@@ -59,7 +60,62 @@ function preinstalledEntry(group: string, name: string, moduleSpecifier: string)
 	};
 }
 
+function preinstalledCatalog<T>(
+	entries: readonly T[],
+	extensionPackageNames: readonly string[] = [],
+) {
+	return { entries, extensionPackageNames };
+}
+
+function writeDescriptorPackage(options: {
+	cwd: string;
+	directoryName: string;
+	packageName: string;
+	descriptorSource: string;
+}): void {
+	const packageRoot = join(options.cwd, "extensions", options.directoryName);
+	writeWorkspaceFile(
+		join(packageRoot, "package.json"),
+		JSON.stringify({
+			name: options.packageName,
+			version: "1.0.0",
+			exports: { "./ns-extension": "./src/ns-extension.ts" },
+		}),
+	);
+	writeWorkspaceFile(join(packageRoot, "src", "ns-extension.ts"), options.descriptorSource);
+}
+
 describe("extension registry", () => {
+	test("preinstalled descriptor flattening preserves command requirements", () => {
+		const entries = extensionDescriptorToPreinstalledCatalog(
+			{
+				description: "Optional commands.",
+				entries: [
+					{
+						name: "optional",
+						requiresExtension: "@example/provider",
+						load: () => ({
+							default: defineRawCommand({
+								name: "optional",
+								summary: "Optional.",
+								description: "Optional.",
+								run: () => ok({}),
+							}),
+						}),
+					},
+				],
+			},
+			{ displayPath: "@example/consumer/ns-extension" },
+		);
+
+		expect(entries).toEqual([
+			expect.objectContaining({
+				name: "optional",
+				requiresExtension: "@example/provider",
+			}),
+		]);
+	});
+
 	test("catalog contains only built-ins without external extensions", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 
@@ -147,6 +203,101 @@ export default defineExtension({
 		);
 	});
 
+	test("project requirements use all successfully declared package identities regardless of order", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		writeWorkspaceFile(
+			join(workspace.cwd, "ns.toml"),
+			'extensions = ["./extensions/consumer", "./extensions/provider"]\n',
+		);
+		writeDescriptorPackage({
+			cwd: workspace.cwd,
+			directoryName: "provider",
+			packageName: "@example/provider",
+			descriptorSource: `
+import { defineExtension } from "@nseng-ai/sdk";
+export default defineExtension({ description: "Provider extension." });
+`,
+		});
+		writeDescriptorPackage({
+			cwd: workspace.cwd,
+			directoryName: "consumer",
+			packageName: "@example/consumer",
+			descriptorSource: `
+import { defineExtension } from "@nseng-ai/sdk";
+const command = { name: "optional", summary: "Optional.", description: "Optional.", run: () => ({ type: "ok", data: {} }) };
+export default defineExtension({
+  group: "consumer",
+  description: "Consumer commands.",
+  entries: [
+    { name: "always", load: () => ({ default: { ...command, name: "always" } }) },
+    { name: "optional", requiresExtension: "@example/provider", load: () => ({ default: command }) },
+  ],
+});
+`,
+		});
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(loaded.candidates.has("consumer/always")).toBe(true);
+		expect(loaded.candidates.has("consumer/optional")).toBe(true);
+		expect([...loaded.extensionPackageNames]).toEqual(
+			expect.arrayContaining(["@example/provider", "@example/consumer"]),
+		);
+	});
+
+	test("missing or invalid project packages do not satisfy command requirements", async () => {
+		for (const providerState of ["missing", "invalid"] as const) {
+			const workspace = await createExtensionRegistryWorkspace();
+			writeWorkspaceFile(
+				join(workspace.cwd, "ns.toml"),
+				providerState === "missing"
+					? 'extensions = ["./extensions/consumer"]\n'
+					: 'extensions = ["./extensions/consumer", "./extensions/provider"]\n',
+			);
+			writeDescriptorPackage({
+				cwd: workspace.cwd,
+				directoryName: "consumer",
+				packageName: "@example/consumer",
+				descriptorSource: `
+import { defineExtension } from "@nseng-ai/sdk";
+const command = { name: "optional", summary: "Optional.", description: "Optional.", run: () => ({ type: "ok", data: {} }) };
+export default defineExtension({
+  group: "consumer",
+  description: "Consumer commands.",
+  entries: [
+    { name: "always", load: () => ({ default: { ...command, name: "always" } }) },
+    { name: "optional", requiresExtension: "@example/provider", load: () => ({ default: command }) },
+  ],
+});
+`,
+			});
+			if (providerState === "invalid") {
+				writeDescriptorPackage({
+					cwd: workspace.cwd,
+					directoryName: "provider",
+					packageName: "@example/provider",
+					descriptorSource: "export default { entries: [] };\n",
+				});
+			}
+
+			const loaded = await loadNsCommandCatalog({
+				cwd: workspace.cwd,
+				homeDir: workspace.homeDir,
+			});
+
+			expect(loaded.candidates.has("consumer/always")).toBe(true);
+			expect(loaded.candidates.has("consumer/optional")).toBe(false);
+			expect(loaded.extensionPackageNames.has("@example/provider")).toBe(false);
+			if (providerState === "invalid") {
+				expect(loaded.diagnostics).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({ code: "extension_descriptor_invalid" }),
+					]),
+				);
+			}
+		}
+	});
+
 	test("listing loads non-static loaded entries serially", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		let activeLoads = 0;
@@ -178,7 +329,8 @@ export default defineExtension({
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
-			preinstalledCommandCatalog: () => [loadedEntry("one"), loadedEntry("two")],
+			preinstalledCommandCatalog: () =>
+				preinstalledCatalog([loadedEntry("one"), loadedEntry("two")]),
 		});
 
 		const listing = await loadListingCommandInfos(loaded);
@@ -290,13 +442,14 @@ export default defineExtension({
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
-			preinstalledCommandCatalog: () => [
-				preinstalledEntry(
-					"extension",
-					"install",
-					"@nseng-ai/ns-init/ns/commands/extension-install",
-				),
-			],
+			preinstalledCommandCatalog: () =>
+				preinstalledCatalog([
+					preinstalledEntry(
+						"extension",
+						"install",
+						"@nseng-ai/ns-init/ns/commands/extension-install",
+					),
+				]),
 		});
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
@@ -318,10 +471,11 @@ export default defineExtension({
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
-			preinstalledCommandCatalog: () => [
-				preinstalledEntry("tools", "scan", "@example/tools/ns/commands/scan"),
-				preinstalledEntry("tools", "doctor", "@example/tools/ns/commands/doctor"),
-			],
+			preinstalledCommandCatalog: () =>
+				preinstalledCatalog([
+					preinstalledEntry("tools", "scan", "@example/tools/ns/commands/scan"),
+					preinstalledEntry("tools", "doctor", "@example/tools/ns/commands/doctor"),
+				]),
 		});
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
@@ -338,28 +492,89 @@ export default defineExtension({
 		});
 	});
 
+	test("preinstalled requirements use explicit catalog identity and omit ineligible side effects", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		let loadCount = 0;
+		const gatedEntry = {
+			group: "extension",
+			groupDescription: "extension commands.",
+			name: "points",
+			description: "points command.",
+			fullDescription: "points command.",
+			requiresExtension: "@example/provider",
+			displayPath: "@example/consumer/points",
+			load: () => {
+				loadCount += 1;
+				return defineRawCommand({
+					name: "points",
+					summary: "Override points.",
+					description: "Override points.",
+					run: () => ok({}),
+				});
+			},
+		};
+
+		const absent = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () => preinstalledCatalog([gatedEntry], ["@example/consumer"]),
+		});
+		expect(absent.candidates.get("extension/points")?.source.level).toBe("built-in");
+		expect(absent.diagnostics).toEqual([]);
+		expect(loadCount).toBe(0);
+
+		const present = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () =>
+				preinstalledCatalog([gatedEntry], ["@example/consumer", "@example/provider"]),
+		});
+		expect(present.candidates.get("extension/points")?.source.level).toBe("preinstalled");
+		expect(present.extensionPackageNames.has("@example/provider")).toBe(true);
+		expect(loadCount).toBe(0);
+	});
+
+	test("commandless preinstalled catalog identity satisfies another package requirement", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		const gatedEntry = {
+			...preinstalledEntry("tools", "optional", "@example/consumer/optional"),
+			requiresExtension: "@example/commandless-provider",
+		};
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () =>
+				preinstalledCatalog([gatedEntry], ["@example/consumer", "@example/commandless-provider"]),
+		});
+
+		expect(loaded.candidates.has("tools/optional")).toBe(true);
+		expect(loaded.extensionPackageNames.has("@example/commandless-provider")).toBe(true);
+	});
+
 	test("thunk-backed preinstalled entries load without package resolution", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		const loaded = await loadNsCommandCatalog({
 			cwd: workspace.cwd,
 			homeDir: workspace.homeDir,
-			preinstalledCommandCatalog: () => [
-				{
-					group: "tools",
-					groupDescription: "tools commands.",
-					name: "scan",
-					description: "scan command.",
-					fullDescription: "scan command.",
-					displayPath: "@example/tools/ns/commands/scan",
-					load: () =>
-						defineRawCommand({
-							name: "scan",
-							summary: "Scan from a thunk.",
-							description: "Scan from a thunk.",
-							run: () => ok("thunk scan"),
-						}),
-				},
-			],
+			preinstalledCommandCatalog: () =>
+				preinstalledCatalog([
+					{
+						group: "tools",
+						groupDescription: "tools commands.",
+						name: "scan",
+						description: "scan command.",
+						fullDescription: "scan command.",
+						displayPath: "@example/tools/ns/commands/scan",
+						load: () =>
+							defineRawCommand({
+								name: "scan",
+								summary: "Scan from a thunk.",
+								description: "Scan from a thunk.",
+								run: () => ok("thunk scan"),
+							}),
+					},
+				]),
 		});
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
@@ -379,6 +594,7 @@ export default defineExtension({
 				commandIo: noopNsCommandIo,
 				progress: noopNsProgress,
 				renderCapabilities: { canEmitAnsi: false },
+				hasExtension: () => false,
 				async exec() {
 					return { type: "exited", code: 0, signal: null, stdout: "", stderr: "" };
 				},

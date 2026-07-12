@@ -1,4 +1,5 @@
 import { rmSync } from "node:fs";
+import process from "node:process";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,6 +19,13 @@ afterEach(() => {
 });
 
 describe("checked-in flow ns extension registry loading", () => {
+	test("source-development discovery retains manifest-validated package identity", async () => {
+		const catalog = await loadNsCommandCatalog({ cwd: process.cwd() });
+
+		expect(catalog.extensionPackageNames.has("@nseng-ai/flow")).toBe(true);
+		expect(catalog.extensionPackageNames.has("@nseng-ai/slots")).toBe(true);
+	});
+
 	test("real loader discovers and imports every checked-in flow command entry", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "ns-flow-extension-registry-"));
 		tempDirs.push(directory);

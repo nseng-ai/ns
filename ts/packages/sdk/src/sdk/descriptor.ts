@@ -15,6 +15,8 @@ export type RawArgvCommandLoad<TCommand extends DescriptorCommand = DescriptorCo
 
 export interface ExtensionCommandEntry<TCommand extends DescriptorCommand = DescriptorCommand> {
 	readonly name: string;
+	/** Omit this command when the named extension package is absent from the effective registry. */
+	readonly requiresExtension?: string;
 	/**
 	 * Lazy command-module thunk. Keep this as a literal dynamic import, for example
 	 * `() => import("./commands/list.ts")`: bundlers discover `import("literal")`
@@ -93,10 +95,19 @@ export type LoadedCommandNameValidationResult =
 	| { readonly ok: true }
 	| { readonly ok: false; readonly message: string };
 
-const commandEntrySchema: z.ZodType<ExtensionCommandEntry> = z.strictObject({
-	name: z.string().min(1),
-	load: z.custom<RawArgvCommandLoad>((value) => typeof value === "function"),
-});
+const commandEntrySchema: z.ZodType<ExtensionCommandEntry> = z
+	.strictObject({
+		name: z.string().min(1),
+		requiresExtension: z.string().min(1).optional(),
+		load: z.custom<RawArgvCommandLoad>((value) => typeof value === "function"),
+	})
+	.transform(
+		(entry): ExtensionCommandEntry => ({
+			name: entry.name,
+			...optionalEntries({ requiresExtension: entry.requiresExtension }),
+			load: entry.load,
+		}),
+	);
 
 const groupEntrySchema: z.ZodType<ExtensionGroupEntry> = z.lazy(() =>
 	z
@@ -255,7 +266,27 @@ export function validateLoadedCommandName(
 
 function formatExtensionDescriptorIssue(issue: z.core.$ZodIssue | undefined): string {
 	if (issue === undefined) return "descriptor did not match the expected shape.";
-	const path = issue.path.join(".");
+	const specificIssue = mostSpecificDescriptorIssue(issue);
+	const path = specificIssue.path.join(".");
 	const field = path.length === 0 ? "default export" : path;
-	return `${field} ${issue.message}`;
+	return `${field} ${specificIssue.message}`;
+}
+
+interface FormattedDescriptorIssue {
+	readonly path: readonly PropertyKey[];
+	readonly message: string;
+}
+
+function mostSpecificDescriptorIssue(
+	issue: z.core.$ZodIssue,
+	prefix: readonly PropertyKey[] = [],
+): FormattedDescriptorIssue {
+	const path = [...prefix, ...issue.path];
+	if (issue.code !== "invalid_union") return { path, message: issue.message };
+	const nestedIssues = issue.errors
+		.flat()
+		.map((nestedIssue) => mostSpecificDescriptorIssue(nestedIssue, path));
+	return nestedIssues.reduce((mostSpecific, candidate) =>
+		candidate.path.length > mostSpecific.path.length ? candidate : mostSpecific,
+	);
 }
