@@ -27,5 +27,5 @@ The curated `@nseng-ai/branch-context/api` surface used by downstream consumer p
 *Avoid*: private source import, command shell, root barrel contract, Pi slash-command registry
 
 **Branch Context Presentation Boundary**:
-Concrete Pi slash-command registration, command names such as `/ns:branch-context:impl-attached-plan`, and launch-command formatting are owned by Pi/CCC presentation code, not by `@nseng-ai/branch-context`. Branch Context must not depend on the Pi package because Pi is a Presentation Host above capabilities; importing Pi would pull host-specific command surfaces into the Branch Context provider boundary.
-*Avoid*: Capability API command-name export, duplicated Pi command string in Branch Context, host-specific launch formatter
+Concrete Pi slash-command registration and command names such as `/ns:branch-context:impl-attached-plan` are owned by the capability's own `pi` subpackage — `src/pi/surfaces.ts` defines the command-name constants and `registerBranchContextCommands` performs registration — with `hosts/pi` merely delegating via `@nseng-ai/branch-context/pi`. Branch Context core (non-`pi` code) must not depend on the Pi package because Pi is a Presentation Host above capabilities; importing Pi outside the `pi` subpackage would pull host-specific command surfaces into the Branch Context provider boundary.
+*Avoid*: Capability API command-name export, duplicated Pi command string outside the `pi` subpackage, host-specific launch formatter in core

@@ -599,9 +599,6 @@ importers:
       '@nseng-ai/kernel':
         specifier: workspace:*
         version: link:../../kernel
-      '@nseng-ai/pi-command-surfaces':
-        specifier: workspace:*
-        version: link:../pi-command-surfaces
       '@nseng-ai/pr-feedback':
         specifier: workspace:*
         version: link:../../capabilities/pr-feedback
