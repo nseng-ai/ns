@@ -17,6 +17,7 @@ import type {
 	LandingExecutionReport,
 	LandingExecutionResult,
 	LandingRequest,
+	PostLandingSlotCleanupReport,
 } from "./types.ts";
 import { LandStackCommandStream } from "./stack/command-stream.ts";
 import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
@@ -109,15 +110,7 @@ export async function runFlowStackLanding(
 	}
 
 	if (report.completionDisposition.type === "cleanup-only") {
-		const postCleanup = report.cleanup.postLandingSlotCleanup;
-		if (postCleanup.type === "completed") {
-			notifyPrintAware({
-				ctx,
-				message: formatPostLandingCleanupSuccessNotice(postCleanup),
-				level: "success",
-				kind: "success",
-			});
-		}
+		presentCompletedPostLandingCleanup(ctx, report.cleanup.postLandingSlotCleanup);
 		return landCompleted();
 	}
 
@@ -128,16 +121,21 @@ export async function runFlowStackLanding(
 	}
 
 	presentStackLandingSuccess(session, report);
-	const postCleanup = report.cleanup.postLandingSlotCleanup;
-	if (postCleanup.type === "completed") {
-		notifyPrintAware({
-			ctx,
-			message: formatPostLandingCleanupSuccessNotice(postCleanup),
-			level: "success",
-			kind: "success",
-		});
-	}
+	presentCompletedPostLandingCleanup(ctx, report.cleanup.postLandingSlotCleanup);
 	return landCompleted();
+}
+
+function presentCompletedPostLandingCleanup(
+	ctx: LandStackCommandContext,
+	report: PostLandingSlotCleanupReport,
+): void {
+	if (report.type !== "completed") return;
+	notifyPrintAware({
+		ctx,
+		message: formatPostLandingCleanupSuccessNotice(report),
+		level: "success",
+		kind: "success",
+	});
 }
 
 function landedFromReport(report: LandingExecutionReport): readonly LandedPullRequest[] {

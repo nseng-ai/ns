@@ -151,6 +151,57 @@ describe("Flow presentation of canonical completion dispositions", () => {
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 	});
 
+	test("ordinary completion presents landed success then exactly one cleanup notice", async () => {
+		const branch = "feature-a";
+		const shape: StackLandingShape = {
+			repoRoot: SLOT_ROOT,
+			current: branch,
+			trunk: "main",
+			metadataDbPath: `${SLOT_ROOT}/.git/graphite.db`,
+			localBranches: [{ name: branch, sha: SHA }],
+			stack: stackSnapshot({ current: branch, landingBranches: [branch] }),
+		};
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: SLOT_ROOT,
+				currentBranch: branch,
+				localBranches: [{ name: branch, sha: SHA }],
+			},
+			graphite: { stackShape: shape.stack },
+			github: {
+				pullRequests: [pullRequestFacts({ number: 101, headRefName: branch, headRefOid: SHA })],
+			},
+		});
+		const fixture = contextFixture(SLOT_ROOT);
+		const outcome = await runFlowStackLanding({
+			runtime: { landContext: memory.context },
+			parsedArgs: args({ shouldForceCleanup: true }),
+			execution: {
+				source: { type: "prepared", shape },
+				approvedConfirmationKinds: new Set(["main-landing"]),
+			},
+			session: {
+				ctx: fixture.ctx,
+				commandStream: new LandStackCommandStream(noopNsCommandIo),
+				progress: nullLandExecutionProgress,
+			},
+		});
+
+		expect(outcome).toEqual({ type: "completed" });
+		expect(fixture.notifications).toEqual([
+			{
+				message: "Landed 1 PR: #101 feature-a.",
+				level: "success",
+				kind: "success",
+			},
+			{
+				message: "Post-landing cleanup complete: freed slot-02 and deleted local branch feature-a.",
+				level: "success",
+				kind: "success",
+			},
+		]);
+	});
+
 	test("presents landed success before a declined post-landing cleanup failure", async () => {
 		const branch = "feature-a";
 		const memory = createInMemoryLandContext({

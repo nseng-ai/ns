@@ -19,7 +19,7 @@ describe("land Graphite operations", () => {
 		const cases: readonly [LandGraphiteOperation, readonly string[], string][] = [
 			[{ kind: "trunk" }, ["trunk", "--no-interactive"], "gt trunk --no-interactive"],
 			[
-				{ kind: "submit-update", branch: "feature/a", force: true },
+				{ kind: "submit-update", branch: "feature/a", shouldForce: true },
 				[
 					"submit",
 					"--branch",
