@@ -8,7 +8,9 @@ single-sources the backup-ref recipe previously duplicated in code-smush and
 code-gt-linearize-descendants: required `--label`, repeatable `--branch`, standard
 envelope/`--format json`/`--json-schema`, refs created as
 `backup/<label>-<stamp>/<safe-branch-name>` matching the skills' existing scheme
-(pre-existing `backup/smush-*` refs in the repo confirmed it). Implementation is pure
+(pre-existing `backup/smush-*` refs in the repo confirmed it), with one drift from
+the replaced recipe: stamps are UTC where the old `date +%Y%m%d%H%M%S` used local
+time — cosmetic since refs are stamped, never parsed. Implementation is pure
 git via the existing SlotRepositoryGateway — no Graphite dependency — and sits under
 the sanctioned `slot gt` group. Wall-clock stamps go through a new required
 `clock: Clock` seam on SlotCliContext (systemClock real, manual clock in tests); all

@@ -82,7 +82,7 @@ The command applies the handoff selection ladder in order: exact key, slug norma
 
 - `unique`: pick up `data.selected.slug` on `data.selected.branch`.
 - `ambiguous`: ask the user to choose from `data.candidates`. Print branch and candidate slugs; do not require the user to know storage keys.
-- `none`: report that nothing matched the selector, naming the scope searched, and offer the handoffs listed in scope.
+- `none`: report that nothing matched the selector, naming the scope searched. `data.candidates` is empty for this resolution, so run `ns handoff list` for the same scope and offer those handoffs as choices. Note that a non-empty selector never auto-selects: even when exactly one handoff exists in scope, selector words that do not match it resolve to `none` rather than picking it up.
 
 ## Read and present summary
 
