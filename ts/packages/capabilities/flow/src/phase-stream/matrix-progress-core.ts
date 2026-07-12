@@ -2,7 +2,7 @@ import type { Caps } from "@nseng-ai/clinkr";
 import type { StreamSinkDeps } from "@nseng-ai/clinkr/stream";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { ActiveOperation, NsProgress } from "@nseng-ai/sdk";
+import type { ActiveOperation, NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import {
 	composeMatrixProgressAdapters,
@@ -67,6 +67,41 @@ export interface MatrixWorkflowController<Row extends { label: string }, ColumnK
 	getRows(): readonly Readonly<Row & MatrixRowSpec>[];
 	finish(options?: { isFailed?: boolean; finalLines?: readonly string[] }): Promise<void>;
 	stop(): Promise<void>;
+}
+
+export interface MatrixWorkflowActions<Row extends { label: string }, ColumnKey extends string> {
+	setTitle(title: string): void;
+	setRows(rows: readonly Row[]): void;
+	patchRow(rowKey: string, patch: Partial<Omit<Row & MatrixRowSpec, "rowKey">>): void;
+	setActiveOperations(operations: readonly Readonly<ActiveOperation>[]): void;
+	phase(event: NsProgressPhaseEvent): void;
+	setCell(rowKey: string, column: ColumnKey, update: MatrixCellUpdate): void;
+	setCellsInState(column: ColumnKey, fromState: MatrixCellState, update: MatrixCellUpdate): void;
+	setAllCells(column: ColumnKey, update: MatrixCellUpdate): void;
+	setAllOtherCells(column: ColumnKey, excludedRowKey: string, update: MatrixCellUpdate): void;
+	note(text: string): void;
+}
+
+export function bindMatrixWorkflowActions<Row extends { label: string }, ColumnKey extends string>(
+	controller: MatrixWorkflowController<Row, ColumnKey>,
+): MatrixWorkflowActions<Row, ColumnKey> {
+	return {
+		setTitle: (title) => controller.dispatch({ kind: "title-changed", title }),
+		setRows: (rows) => controller.dispatch({ kind: "rows-replaced", rows }),
+		patchRow: (rowKey, patch) => controller.dispatch({ kind: "row-patched", rowKey, patch }),
+		setActiveOperations: (operations) =>
+			controller.dispatch({ kind: "active-operations-changed", operations }),
+		phase: (event) => controller.dispatch({ kind: "phase-event", event }),
+		setCell: (rowKey, column, update) =>
+			controller.dispatch({ kind: "cell-changed", rowKey, column, update }),
+		setCellsInState: (column, fromState, update) =>
+			controller.dispatch({ kind: "cells-in-state-changed", column, fromState, update }),
+		setAllCells: (column, update) =>
+			controller.dispatch({ kind: "all-cells-changed", column, update }),
+		setAllOtherCells: (column, excludedRowKey, update) =>
+			controller.dispatch({ kind: "all-other-cells-changed", column, excludedRowKey, update }),
+		note: (text) => controller.dispatch({ kind: "note", text }),
+	};
 }
 
 export interface MatrixWorkflow<Row extends { label: string }, ColumnKey extends string> {
