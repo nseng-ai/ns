@@ -94,6 +94,7 @@ export type {
 	LandingBoundaryFailureDiagnostics,
 	LandingCleanupPolicy,
 	LandingCleanupReport,
+	LandingCompletionDisposition,
 	LandingDomainFailure,
 	LandingDomainFailureReason,
 	LandingExecutionFailure,
