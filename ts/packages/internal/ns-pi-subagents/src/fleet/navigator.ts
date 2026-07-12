@@ -38,6 +38,7 @@ import {
 	loadFleetEntryDetail,
 	loadFleetTaskDetail,
 	placeholderDetail,
+	summarizeHeadChange,
 	type FleetDetailContext,
 	type FleetEntrySessionParseCache,
 	type FleetNavigatorEntry,
@@ -45,7 +46,13 @@ import {
 	type ParentFleetNavigatorEntry,
 	type SubagentFleetTaskDetail,
 } from "./detail.ts";
-import { renderFleetDetailContentLines, renderFleetDetailHeaderLines } from "./detail-render.ts";
+import {
+	formatCommitSummary,
+	formatFleetDisplayPath,
+	renderFleetDetailContentLines,
+	renderFleetDetailHeaderLines,
+} from "./detail-render.ts";
+import { formatRunnerSubagentElapsed } from "../runner-subagents/presentation.ts";
 import {
 	formatSubagentFleetTaskLines,
 	latestParentSessionFile,
@@ -59,7 +66,7 @@ export { SUBAGENT_FLEET_PARENT_ENTRY_ID, loadFleetTaskDetail } from "./detail.ts
 
 const PARENT_ENTRY_TITLE = "Parent Pi session";
 
-const LIST_FOOTER = "↑/k ↓/j move · Enter/o open · q/Esc close";
+const LIST_FOOTER = "↑/k ↓/j move · Space expand · Enter/o open · q/Esc close";
 const DEFAULT_DETAIL_REFRESH_INTERVAL_MS = 1_000;
 
 /**
@@ -258,6 +265,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private readonly unsubscribe: () => void;
 	private mode: "list" | "detail" = "list";
 	private entries: FleetNavigatorEntry[];
+	private readonly expandedEntryIds = new Set<string>();
 	private selectedEntryId: string | undefined;
 	private detail: SubagentFleetTaskDetail | undefined;
 	private detailScroll = 0;
@@ -351,7 +359,22 @@ export class SubagentFleetNavigator implements RenderComponent {
 			this.moveSelection(-1);
 			return;
 		}
+		if (isToggleExpandKey(data)) {
+			this.toggleSelectedExpansion();
+			return;
+		}
 		if (isOpenKey(data)) this.openSelectedDetail();
+	}
+
+	private toggleSelectedExpansion(): void {
+		const id = entryId(this.selectedEntry());
+		if (id === undefined) return;
+		if (this.expandedEntryIds.has(id)) {
+			this.expandedEntryIds.delete(id);
+		} else {
+			this.expandedEntryIds.add(id);
+		}
+		this.tui.requestRender();
 	}
 
 	private handleDetailInput(data: string): void {
@@ -539,6 +562,7 @@ export class SubagentFleetNavigator implements RenderComponent {
 	private refreshEntries(): void {
 		const previousSelectedEntryId = this.selectedEntryId;
 		this.entries = this.readEntries();
+		this.pruneExpandedEntries();
 		if (
 			this.selectedEntryId !== undefined &&
 			this.entries.some((entry) => entryId(entry) === this.selectedEntryId)
@@ -584,15 +608,72 @@ export class SubagentFleetNavigator implements RenderComponent {
 			0,
 			this.entries.findIndex((entry) => entryId(entry) === this.selectedEntryId),
 		);
-		const window = windowRange(this.entries.length, selectedIndex, bodyRows);
-		const lines = this.entries
-			.slice(window.start, window.end)
-			.map((entry) => this.listEntryLine(entry, innerWidth));
+		const blocks = this.entries.map((entry) => this.listEntryBlock(entry, innerWidth));
+		const allLines = blocks.flat();
+		const selectedLineIndex = blocks
+			.slice(0, selectedIndex)
+			.reduce((total, block) => total + block.length, 0);
+		const window = windowRange(allLines.length, selectedLineIndex, bodyRows);
+		const lines = allLines.slice(window.start, window.end);
 		if (window.start > 0) lines[0] = `… ${window.start} earlier`;
-		if (window.end < this.entries.length) {
-			lines[lines.length - 1] = `… ${this.entries.length - window.end} more`;
+		if (window.end < allLines.length) {
+			lines[lines.length - 1] = `… ${allLines.length - window.end} more`;
 		}
 		return lines;
+	}
+
+	private listEntryBlock(entry: FleetNavigatorEntry, innerWidth: number): string[] {
+		const line = this.listEntryLine(entry, innerWidth);
+		const id = entryId(entry);
+		if (id === undefined || !this.expandedEntryIds.has(id)) return [line];
+		return [
+			line,
+			...this.expandedEntryLines(entry).map((detailLine) =>
+				truncatePlain(`      ${detailLine}`, innerWidth),
+			),
+		];
+	}
+
+	private expandedEntryLines(entry: FleetNavigatorEntry): string[] {
+		if (entry.kind === "parent") {
+			return [`session: ${this.displayPath(entry.sessionFile)}`];
+		}
+		const task = entry.task;
+		const lines: string[] = [];
+		const elapsed = taskElapsedText(task, this.clock.nowMs());
+		lines.push(
+			`status: ${task.finalStatus ?? task.state}${elapsed === undefined ? "" : ` · elapsed: ${elapsed}`}`,
+		);
+		if (task.latestActivity !== undefined) lines.push(`activity: ${task.latestActivity}`);
+		if (task.prompt !== undefined) {
+			const firstLine = task.prompt.split("\n", 1)[0] ?? "";
+			lines.push(`prompt: ${firstLine}`);
+		}
+		lines.push(
+			`session: ${task.sessionFile === undefined ? "no session file yet" : this.displayPath(task.sessionFile)}`,
+		);
+		if (task.state === "done" && task.headBaseline !== undefined) {
+			lines.push(
+				`commit: ${formatCommitSummary(summarizeHeadChange(task.headBaseline, task.finalHead))}`,
+			);
+		}
+		return lines;
+	}
+
+	private displayPath(path: string): string {
+		return formatFleetDisplayPath(path, { homeDir: this.homeDir });
+	}
+
+	private pruneExpandedEntries(): void {
+		const liveIds = new Set(
+			this.entries.flatMap((entry) => {
+				const id = entryId(entry);
+				return id === undefined ? [] : [id];
+			}),
+		);
+		for (const id of this.expandedEntryIds) {
+			if (!liveIds.has(id)) this.expandedEntryIds.delete(id);
+		}
 	}
 
 	private listEntryLine(entry: FleetNavigatorEntry, innerWidth: number): string {
@@ -740,6 +821,20 @@ function isCloseKey(data: string): boolean {
 
 function isOpenKey(data: string): boolean {
 	return isKey(data, Key.enter, "o");
+}
+
+function isToggleExpandKey(data: string): boolean {
+	return isKey(data, Key.space, " ");
+}
+
+function taskElapsedText(task: SubagentFleetTaskSnapshot, nowMs: number): string | undefined {
+	if (task.state === "running" && task.startedAtMs !== undefined) {
+		return formatRunnerSubagentElapsed(Math.max(0, nowMs - task.startedAtMs));
+	}
+	if (task.state === "done" && task.finalElapsedMs !== undefined) {
+		return formatRunnerSubagentElapsed(task.finalElapsedMs);
+	}
+	return undefined;
 }
 
 function hasRegisterCommand(value: object): value is CommandRegistrarHost {

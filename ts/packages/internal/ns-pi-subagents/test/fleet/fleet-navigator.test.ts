@@ -433,6 +433,68 @@ describe("subagent fleet navigator", () => {
 		expect(view.render(100).join("\n")).toContain("▸ ▶ First");
 	});
 
+	test("toggles a per-entry expanded info section with spacebar", () => {
+		const manualClock = createManualClock(10_000);
+		const registry = new SubagentFleetRegistry({ clock: manualClock.clock });
+		const run = registry.startRun([
+			{ title: "Second" },
+			{ title: "First", prompt: "Map the investigator command.\nList call sites." },
+		]);
+		const second = run.tasks[0]!;
+		const first = run.tasks[1]!;
+		registry.markRunning(first.id);
+		registry.markProgress(first.id, updateWithSessionFile("/tmp/one.jsonl"));
+		manualClock.advanceMs(65_000);
+		const view = new SubagentFleetNavigator({
+			tui: { requestRender: () => {} },
+			registry,
+			detailContext: testDetailContext(),
+			done: () => {},
+			clock: manualClock.clock,
+			homeDir: "/home/dev",
+		});
+
+		expect(view.render(120).join("\n")).not.toContain("session:");
+
+		// Space expands the selected (running) task with a per-entry info section.
+		view.handleInput(" ");
+		const expanded = view.render(120).join("\n");
+		expect(expanded).toContain("status: running · elapsed: 1m 05s");
+		expect(expanded).toContain("prompt: Map the investigator command.");
+		expect(expanded).not.toContain("List call sites.");
+		expect(expanded).toContain("session: /tmp/one.jsonl");
+
+		// The other entry stays collapsed until toggled independently.
+		view.handleInput("j");
+		view.handleInput(" ");
+		const bothExpanded = view.render(120).join("\n");
+		expect(bothExpanded).toContain("status: running · elapsed: 1m 05s");
+		expect(bothExpanded).toContain("status: queued");
+		expect(bothExpanded).toContain("session: no session file yet");
+
+		// Space toggles each entry back off without touching the other.
+		view.handleInput(" ");
+		const secondCollapsed = view.render(120).join("\n");
+		expect(secondCollapsed).not.toContain("status: queued");
+		expect(secondCollapsed).toContain("status: running · elapsed: 1m 05s");
+		view.handleInput("k");
+		view.handleInput(" ");
+		expect(view.render(120).join("\n")).not.toContain("status:");
+
+		// Expansion state is per-task, so it survives while the other task completes.
+		view.handleInput(" ");
+		registry.markDone(second.id, {
+			status: "final-text",
+			finalText: "done",
+			elapsedMs: 42_000,
+			progress: { state: "stopped", toolCount: 1, turnCount: 1, elapsedMs: 42_000 },
+			sessionFile: "/tmp/two.jsonl",
+		});
+		const afterDone = view.render(120).join("\n");
+		expect(afterDone).toContain("status: running · elapsed: 1m 05s");
+		expect(afterDone).not.toContain("status: final-text");
+	});
+
 	test("scrolls detail with CSI arrows while preserving vim keys", async () => {
 		const manualClock = createManualClock(0);
 		const registry = new SubagentFleetRegistry({ clock: manualClock.clock });
