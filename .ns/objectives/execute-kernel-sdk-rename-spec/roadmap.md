@@ -8,7 +8,7 @@ every row; row notes call out only slice-local guidance.
 
 ## Work
 
-- [ ] Spec verification sweep — branch `kernel-sdk-rename/spec-sweep`
+- [x] Spec verification sweep — branch `kernel-sdk-rename/spec-sweep`
   - Re-derive every volatile inventory claim in the spec (import counts,
     importer lists, file hit counts, paths, npm state) against the repo; commit
     corrections to `kernel-sdk-rename-spec.md` only.
