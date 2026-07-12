@@ -9,6 +9,7 @@ import { z } from "zod";
 const GIT_STATUS_TIMEOUT_MS = 60_000;
 const SLOT_STACK_BRANCHES_TIMEOUT_MS = 60_000;
 const GT_COMMAND_TIMEOUT_MS = 5 * 60 * 1_000;
+const COMMIT_COUNT_TIMEOUT_MS = 60_000;
 
 const STACK_BRANCHES_ARGS = [
 	"slot",
@@ -31,10 +32,22 @@ interface StackSquashCommands {
 export interface StackSquashOptions {
 	cwd: string;
 	onProgress?: (message: string) => void;
+	onPlan?: (plan: readonly StackSquashPlanEntry[]) => void;
+	onBranchStarted?: (entry: StackSquashPlanEntry) => void;
+	onBranchCompleted?: (entry: ProcessedStackBranch) => void;
+	onRestoreStarted?: () => void;
+	onRestoreCompleted?: () => void;
+}
+
+export interface StackSquashPlanEntry {
+	branch: string;
+	parent: string;
+	commitsBefore: number;
 }
 
 export interface ProcessedStackBranch {
 	branch: string;
+	commitsBefore: number;
 	state: "squashed" | "already_one_commit";
 }
 
@@ -51,6 +64,8 @@ export type StackSquashOutcome =
 	| { kind: "worktree-dirty"; status: string; cwd: string }
 	| ({ kind: "stack-discovery-failed"; message: string } & StackSquashCommandFailure)
 	| { kind: "empty-stack"; cwd: string }
+	| ({ kind: "trunk-discovery-failed" } & StackSquashCommandFailure)
+	| ({ kind: "commit-count-failed"; branch: string; parent: string } & StackSquashCommandFailure)
 	| ({ kind: "checkout-failed"; branch: string } & StackSquashCommandFailure)
 	| ({ kind: "squash-failed"; branch: string } & StackSquashCommandFailure)
 	| ({ kind: "tip-restore-failed"; branch: string } & StackSquashCommandFailure);
@@ -108,12 +123,59 @@ export async function runStackSquashFlow(
 	const branchesFromTip = [...branches].reverse();
 	const tipBranch = branchesFromTip[0];
 	if (tipBranch === undefined) return { kind: "empty-stack", cwd: options.cwd };
+
+	const trunkArgs = ["trunk", "--no-interactive"];
+	const trunkResult = await runGt(commands, options.cwd, trunkArgs);
+	if (!commandSucceeded(trunkResult) || trunkResult.stdout.trim() === "") {
+		return commandFailure("trunk-discovery-failed", {
+			command: "gt",
+			args: trunkArgs,
+			cwd: options.cwd,
+			execResult: trunkResult,
+		});
+	}
+	const trunk = trunkResult.stdout.trim();
+	const plan: StackSquashPlanEntry[] = [];
+	for (const [index, branch] of branches.entries()) {
+		const parent = index === 0 ? trunk : branches[index - 1];
+		if (parent === undefined) continue;
+		const countArgs = ["rev-list", "--count", `${parent}..${branch}`];
+		const countResult = await commands.exec("git", countArgs, {
+			cwd: options.cwd,
+			timeout: COMMIT_COUNT_TIMEOUT_MS,
+		});
+		const commitsBefore = parseCommitCount(countResult);
+		if (commitsBefore === undefined) {
+			return {
+				...commandFailure("commit-count-failed", {
+					command: "git",
+					args: countArgs,
+					cwd: options.cwd,
+					execResult: countResult,
+				}),
+				branch,
+				parent,
+			};
+		}
+		plan.push({ branch, parent, commitsBefore });
+	}
+	const planFromTip = [...plan].reverse();
+	options.onPlan?.(planFromTip);
+	const totalCommits = plan.reduce((sum, entry) => sum + entry.commitsBefore, 0);
 	options.onProgress?.(
-		`Preparing to squash ${branchesFromTip.length} Graphite stack branch${branchesFromTip.length === 1 ? "" : "es"} from ${tipBranch}.`,
+		`Preparing to squash ${branchesFromTip.length} Graphite stack branch${branchesFromTip.length === 1 ? "" : "es"} containing ${totalCommits} commit${totalCommits === 1 ? "" : "s"} from ${tipBranch}.`,
 	);
 
 	const processed: ProcessedStackBranch[] = [];
-	for (const branch of branchesFromTip) {
+	for (const entry of planFromTip) {
+		const { branch, commitsBefore } = entry;
+		if (commitsBefore === 1) {
+			const completed = { branch, commitsBefore, state: "already_one_commit" as const };
+			processed.push(completed);
+			options.onBranchCompleted?.(completed);
+			continue;
+		}
+		options.onBranchStarted?.(entry);
 		const checkoutArgs = ["checkout", branch, "--no-interactive"];
 		const checkout = await runGt(commands, options.cwd, checkoutArgs);
 		if (!commandSucceeded(checkout)) {
@@ -137,7 +199,9 @@ export async function runStackSquashFlow(
 				squash.signal === null &&
 				isAlreadyOneCommitSquashResult(squash)
 			) {
-				processed.push({ branch, state: "already_one_commit" });
+				const completed = { branch, commitsBefore, state: "already_one_commit" as const };
+				processed.push(completed);
+				options.onBranchCompleted?.(completed);
 				continue;
 			}
 			return {
@@ -150,9 +214,12 @@ export async function runStackSquashFlow(
 				branch,
 			};
 		}
-		processed.push({ branch, state: "squashed" });
+		const completed = { branch, commitsBefore, state: "squashed" as const };
+		processed.push(completed);
+		options.onBranchCompleted?.(completed);
 	}
 
+	options.onRestoreStarted?.();
 	const restoreArgs = ["checkout", tipBranch, "--no-interactive"];
 	const restore = await runGt(commands, options.cwd, restoreArgs);
 	if (!commandSucceeded(restore)) {
@@ -167,6 +234,7 @@ export async function runStackSquashFlow(
 		};
 	}
 
+	options.onRestoreCompleted?.();
 	return { kind: "success", processed };
 }
 
@@ -175,6 +243,8 @@ export function stackSquashCommandFailureDetail(
 ): StackSquashCommandFailure | undefined {
 	switch (outcome.kind) {
 		case "worktree-probe-failed":
+		case "trunk-discovery-failed":
+		case "commit-count-failed":
 		case "checkout-failed":
 		case "squash-failed":
 		case "tip-restore-failed":
@@ -199,6 +269,10 @@ export function describeStackSquashOutcome(
 			return outcome.message;
 		case "empty-stack":
 			return "No Graphite stack branches to squash.";
+		case "trunk-discovery-failed":
+			return "Could not identify the Graphite trunk; stack squash did not run.";
+		case "commit-count-failed":
+			return `Could not count commits for Graphite branch \`${outcome.branch}\` relative to \`${outcome.parent}\`; stack squash did not run.`;
 		case "checkout-failed":
 			return `Could not check out Graphite branch \`${outcome.branch}\`; stack squash stopped.`;
 		case "squash-failed":
@@ -209,13 +283,15 @@ export function describeStackSquashOutcome(
 }
 
 export function formatStackSquashSummary(processed: readonly ProcessedStackBranch[]): string {
+	const commitsBefore = processed.reduce((sum, entry) => sum + entry.commitsBefore, 0);
+	const commitsRemoved = commitsBefore - processed.length;
 	return [
-		`Processed ${processed.length} Graphite stack branch${processed.length === 1 ? "" : "es"}; each now has one commit.`,
+		`Processed ${processed.length} Graphite stack branch${processed.length === 1 ? "" : "es"}; ${commitsBefore} commit${commitsBefore === 1 ? "" : "s"} became ${processed.length} (${commitsRemoved} removed).`,
 		"",
 		...processed.map((entry) =>
 			entry.state === "already_one_commit"
-				? `- ${entry.branch} (already one commit)`
-				: `- ${entry.branch} (squashed)`,
+				? `- ${entry.branch}: 1 commit (no squash needed)`
+				: `- ${entry.branch}: ${entry.commitsBefore} → 1 commit`,
 		),
 	].join("\n");
 }
@@ -267,6 +343,12 @@ async function runGt(
 		args,
 		timeoutMs: GT_COMMAND_TIMEOUT_MS,
 	});
+}
+
+function parseCommitCount(result: ExecResult): number | undefined {
+	if (!commandSucceeded(result)) return undefined;
+	const value = Number(result.stdout.trim());
+	return Number.isSafeInteger(value) && value >= 1 ? value : undefined;
 }
 
 function isAlreadyOneCommitSquashResult(result: ExecResult): boolean {

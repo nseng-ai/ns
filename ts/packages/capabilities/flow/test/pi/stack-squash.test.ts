@@ -74,6 +74,8 @@ describe("stack squash Pi bridge", () => {
 					data: { branches: ["feature/top"] },
 				}),
 			},
+			{ stdout: "main\n" },
+			{ stdout: "3\n" },
 			{},
 			{},
 			{},
@@ -85,7 +87,7 @@ describe("stack squash Pi bridge", () => {
 		expect(ctx.ui.notifications.at(-1)).toEqual({
 			level: "info",
 			message:
-				"Processed 1 Graphite stack branch; each now has one commit.\n\n- feature/top (squashed)",
+				"Processed 1 Graphite stack branch; 3 commits became 1 (2 removed).\n\n- feature/top: 3 → 1 commit",
 		});
 	});
 

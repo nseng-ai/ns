@@ -17,11 +17,21 @@ describe("flow squash-stack command outcomes", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
 		expect(stripAnsi(run.stdout.join("")).trimEnd()).toBe(
-			"Processed 2 Graphite stack branches; each now has one commit.\n\n- feature/top (squashed)\n- feature/bottom (squashed)",
+			"Processed 2 Graphite stack branches; 5 commits became 2 (3 removed).\n\n- feature/top: 3 → 1 commit\n- feature/bottom: 2 → 1 commit",
 		);
+		const progress = stripAnsi(run.liveOutput.map((entry) => entry.text).join(""));
+		expect(progress).toContain("Commits");
+		expect(progress).toContain("Squash");
+		expect(progress).toContain("feature/top");
+		expect(progress).toContain("3→1");
+		expect(progress).toContain("feature/bottom");
+		expect(progress).toContain("2→1");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git status --porcelain=v1",
 			STACK_DISCOVERY,
+			"gt trunk --no-interactive",
+			"git rev-list --count main..feature/bottom",
+			"git rev-list --count feature/bottom..feature/top",
 			"gt checkout feature/top --no-interactive",
 			"gt squash --no-edit --no-interactive",
 			"gt checkout feature/bottom --no-interactive",
@@ -83,6 +93,12 @@ describe("flow squash-stack command outcomes", () => {
 			{
 				match: STACK_DISCOVERY,
 				result: { stdout: stackBranches(["feature/bottom", "feature/top"]) },
+			},
+			{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+			{ match: "git rev-list --count main..feature/bottom", result: { stdout: "2\n" } },
+			{
+				match: "git rev-list --count feature/bottom..feature/top",
+				result: { stdout: "3\n" },
 			},
 			{ match: "gt checkout feature/top --no-interactive", result: {} },
 			{ match: "gt squash --no-edit --no-interactive", result: {} },

@@ -11,7 +11,11 @@ import {
 	type StackSquashCommandFailure,
 	type StackSquashOutcome,
 } from "../../stack-squash/stack-squash.ts";
-import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
+import {
+	createStackSquashMatrixProgressController,
+	stackSquashCompletionUpdate,
+} from "../../stack-squash/stack-squash-matrix-progress.ts";
+import { flowStreamDeps, resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { runFlowCliOperation } from "../flow-cli-runner.ts";
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";
 
@@ -30,18 +34,39 @@ export const flowSquashStackCommand: NsCommand<typeof squashStackSchema> = defin
 	handler: async (ctx) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const commandIo = commandIoFromNsExtensionApi(ctx);
-		return await runWithNsCommandIo(commandIo, async (io) => {
-			const outcome = await runFlowCliOperation({
-				ctx,
-				run: async (commands) =>
-					await runStackSquashFlow(commands, {
-						cwd: ctx.cwd,
-						onProgress: (message) => io.phase(message),
-					}),
-			});
-			if (outcome.kind === "success") return ok(formatStackSquashSummary(outcome.processed));
-			return negative(renderStackSquashNegative(caps, outcome));
+		const matrix = createStackSquashMatrixProgressController({
+			caps,
+			deps: flowStreamDeps(ctx, caps),
+			...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
 		});
+		try {
+			return await runWithNsCommandIo(commandIo, async (io) => {
+				const outcome = await runFlowCliOperation({
+					ctx,
+					run: async (commands) =>
+						await runStackSquashFlow(commands, {
+							cwd: ctx.cwd,
+							onProgress: (message) => io.phase(message),
+							onPlan: matrix.setPlan,
+							onBranchStarted: (entry) =>
+								matrix.setSquashStatus(entry.branch, {
+									state: "active",
+									text: `${entry.commitsBefore}→1`,
+								}),
+							onBranchCompleted: (entry) =>
+								matrix.setSquashStatus(entry.branch, stackSquashCompletionUpdate(entry)),
+							onRestoreStarted: () =>
+								matrix.setRestore({ state: "active", text: "checking out tip" }),
+							onRestoreCompleted: () => matrix.setRestore({ state: "done", text: "tip restored" }),
+						}),
+				});
+				await matrix.finish({ isFailed: outcome.kind !== "success" });
+				if (outcome.kind === "success") return ok(formatStackSquashSummary(outcome.processed));
+				return negative(renderStackSquashNegative(caps, outcome));
+			});
+		} finally {
+			await matrix.stop();
+		}
 	},
 });
 
@@ -68,6 +93,8 @@ function renderStackSquashNegative(
 			});
 		case "worktree-probe-failed":
 		case "stack-discovery-failed":
+		case "trunk-discovery-failed":
+		case "commit-count-failed":
 		case "checkout-failed":
 		case "squash-failed":
 		case "tip-restore-failed": {
