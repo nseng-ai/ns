@@ -1,13 +1,17 @@
 # Roadmap
 
-Row order is dependency order: the credentials row gates the steel thread
-(the seam-design row settled 2026-07-12), and every row after the steel
-thread widens it. Each
-implementation row names the README (`references/README-draft.md`) sections
-it makes true — the README is the contract, the row is the slice, and a
-row's outcome folds back into the README rather than settling anywhere else.
-The credentials and steel-thread slices also collect the exact setup inputs,
-ordering, failure modes, and safe verification evidence needed by the later
+Row order is dependency order: the credentials row gates the workflow-spine
+probes, the probes gate the steel thread, and every row after the steel
+thread widens it. The execution architecture was revised 2026-07-13
+(workflow-supervisor-architecture-adopted Semantic Update): completed rows
+below stand as history, and where their recorded decisions were amended the
+amendments live in `references/seam-design.md` §9 and the revision notes in
+`references/credentials-design.md`. Each implementation row names the
+README (`references/README-draft.md`) sections it makes true — the README
+is the contract, the row is the slice, and a row's outcome folds back into
+the README rather than settling anywhere else. The credentials, spine-probe,
+and steel-thread slices also collect the exact setup inputs, ordering,
+failure modes, and safe verification evidence needed by the later
 setup-skill row; they never record secret values.
 
 ## Work
@@ -21,30 +25,34 @@ setup-skill row; they never record secret values.
       owned by a row below — TUI command name / push notification → jobs-TUI
       row; git-credential minting mechanism → credentials row; nightly
       advancement policy → durable-jobs row.
-- [x] Seam and capability design — the decision row that unblocks all
+- [x] Seam and capability design — the decision row that unblocked
       implementation. Settled 2026-07-12 in a grill session; decisions with
       rationale in `references/seam-design.md` plus the
       vercel-native-seam-design-settled Semantic Update. Headline reversal:
       **Vercel-native, deliberately** — the package is `@nseng-ai/vercel`
-      at `ts/packages/capabilities/vercel` (one package: commands, Sandbox
-      executor, Workflows jobs leg, and its own Vercel deployable; flow's
-      export shape as precedent), gateways speak Vercel vocabulary (faked
-      for tests; no backend-agnostic executor contract), and GitHub-compute
-      pluggability is dropped entirely. Kernel commands are
+      at `ts/packages/capabilities/vercel` (one package: commands, executor,
+      jobs, and its own Vercel deployable; flow's export shape as
+      precedent), gateways speak Vercel vocabulary (faked for tests; no
+      backend-agnostic executor contract), and GitHub-compute pluggability
+      is dropped entirely. Kernel commands are
       `ns dispatch plan|prompt|handoff`; anchor branches are
       `dispatch/`-prefixed; the run handle is stamped on the anchor PR;
       repo configuration is the typed `ns.toml` `[dispatch]` table.
-- [~] Credentials slice — gates the steel thread running real work. Makes
-  true: "Setup". **Design settled 2026-07-12** (research note
-  `references/git-credential-minting-research.md`, decisions in
-  `references/credentials-design.md` + the credentials-design-settled
-  Semantic Update): GitHub App installation tokens (per-run PAT minting
-  is impossible — web-UI only), late-mint at push time (clone token /
-  tokenless work / fresh landing token), local anchor setup on the
-  user's own credentials, v1 sandbox self-landing with a shared mint
-  secret (upgrades recorded: Vercel-side supervisor, per-run landing
-  voucher), org-owned `ns-dispatch` app with its key in a sensitive env
-  var. Posture: racing to e2e; shortcuts carry named upgrades.
+      Amended 2026-07-13: the execution architecture is the workflow
+      supervisor with in-sandbox harness runners (`seam-design.md` §9); the
+      package, anchor, command, and configuration decisions stand.
+- [~] Credentials slice — gates the workflow spine running real work. Makes
+  true: "Setup". **Design settled 2026-07-12, revised 2026-07-13** (research
+  note `references/git-credential-minting-research.md`, decisions in
+  `references/credentials-design.md` + the credentials-design-settled and
+  workflow-supervisor-architecture-adopted Semantic Updates): GitHub App
+  installation tokens (per-run PAT minting is impossible — web-UI only),
+  late-mint at push time (clone token / tokenless work / fresh landing
+  token), local anchor setup on the user's own credentials, org-owned
+  `ns-dispatch` app with its key in a sensitive env var. The 2026-07-13
+  revision promoted the Vercel-side supervisor from named upgrade to the
+  v1 architecture and retired the shared mint secret and self-landing
+  sandbox before implementation.
   Human setup completed 2026-07-12: the org-owned `ns-dispatch` App
   (App ID `4282120`) is actively installed only on `nseng-ai/ns`
   (installation ID `146155769`). Required permissions are present; the
@@ -58,14 +66,13 @@ setup-skill row; they never record secret values.
   The local health-only deployable build passes. Mint and controlled-probe
   implementation completed locally 2026-07-12: `POST /api/mint` enforces
   exact repository and purpose constraints behind Development Vercel OIDC
-  for clone credentials or the prototype shared landing secret, then mints
-  narrow GitHub App installation tokens. A fixed private-repository Sandbox
-  hello probe checks out an exact SHA, verifies a safe marker/HEAD result,
-  and attempts cleanup; the canonical README records the proven local setup
-  order and safe failure signals. The runtime, probe, tests, and README now
-  use one `NS_DISPATCH_*` namespace for all nine dispatch-owned environment
-  variables; generic model keys and Vercel's `VERCEL_OIDC_TOKEN` remain
-  unchanged. Targeted package tests and workspace typecheck pass. Linked-project
+  for clone credentials, then mints narrow GitHub App installation tokens.
+  A fixed private-repository Sandbox hello probe checks out an exact SHA,
+  verifies a safe marker/HEAD result, and attempts cleanup; the canonical
+  README records the proven local setup order and safe failure signals.
+  The runtime, probe, tests, and README use one `NS_DISPATCH_*` namespace
+  for the dispatch-owned environment variables. Targeted package tests and
+  workspace typecheck pass. Linked-project
   configuration completed 2026-07-13: all nine `NS_DISPATCH_*` production
   variables are present with secrets kept sensitive, the repository input is
   also present in Development, and actual Development-token claims supplied the
@@ -87,48 +94,79 @@ setup-skill row; they never record secret values.
   deployment, env-pull, and probe commands. Post-verification credential cleanup completed
   2026-07-13: the four old-prefix Production variables were removed, the user confirmed
   revocation of the superseded GitHub App key and local PEM cleanup, and a safe authenticated
-  clone-purpose mint passed without exposing its token. Remaining (interleaves with the steel
-  thread): add dispatch preflight.
-- [ ] Steel thread: `ns dispatch prompt` end-to-end on Vercel Sandbox via
-      the `@ai-sdk/harness-pi` adapter with ns skills injected via the
-      Agent Skills standard. Makes true: "Quick start" (prompt path),
-      "What the remote agent sees" (dirty-tree refusal listing dirty files;
-      push-first when the remote is missing/behind), and "The anchor PR"
-      (`dispatch/` branch + PR opened up front before job submission with
-      the run handle stamped on the PR; produced commits land on the anchor
-      branch; decision log in the PR description; failed runs leave the
-      anchor PR open and marked failed with a failure comment). Gated by
-      the credentials row.
-- [ ] Reusable Vercel Sandbox + GitHub setup skill, distilled from the
-      proven credentials and steel-thread work rather than authored ahead of
-      it. Makes true: "Setup" as an executable agent-guided path for a fresh
-      repository — GitHub App registration/installation, Vercel project
-      linkage, environment-variable names and sensitivity, repo-local
-      `[dispatch]` configuration, preflight, and a controlled Sandbox dispatch
-      probe — without reading or recording secret values. Proven facts to
-      preserve include existing-App key generation through GitHub's UI versus
-      initial creation through the App Manifest flow; Vercel sensitive-variable
-      replacement rather than rename/readback; OIDC trust values derived from
-      actual non-secret claims; read-only App/installation/repository checks;
-      precise `.env.local` ignore hygiene; and the requirement that probe SHAs
-      be remotely reachable. Treat
+  clone-purpose mint passed without exposing its token. Remaining (reshaped
+  by the 2026-07-13 architecture revision, interleaves with the spine):
+  dispatch preflight; expose the mint core for in-process use by the
+  workflow; remove the retired `NS_DISPATCH_SANDBOX_MINT_SECRET`
+  production variable once the workflow spine lands.
+- [ ] Workflow spine probes — three staged probes on the existing
+      deployable, in order, each folding proven facts into the README and
+      extending the `build:deployable` gate before anything depends on it.
+      Makes true: "Under the hood" (the workflow-supervised execution
+      story). (1) **workflow-hello-probe**: a trivial workflow + step
+      deployed and triggered end-to-end through an authenticated trigger
+      route (Development OIDC on the dispatch-owned header, reusing the
+      verified mint-route trust machinery) calling the Workflow SDK's
+      `start()`, returning the run id, observed to completion via
+      `getRun` — de-risks `"use workflow"`/`"use step"` packaging through
+      Vercel's workflow builder and Queues wiring, the proven
+      escape-local-validation risk class, and surfaces Queues availability
+      as a setup precondition. (2) **sandbox-in-workflow probe**: the
+      verified private-repository Sandbox hello probe lifted into workflow
+      steps with the clone token minted in-process. (3) **long-run
+      supervision probe**: a detached command in the sandbox exceeding a
+      single function invocation ceiling (>13 minutes), supervised by
+      short poll steps and zero-compute `sleep()`s, with a clean `getRun`
+      status trail and cleanup on every path — retires the run-length
+      concern structurally. Gated by the credentials row's mint core;
+      gates the steel thread.
+- [ ] Steel thread: `ns dispatch prompt` end-to-end under the dispatch
+      workflow. Local CLI: preflight, dirty-tree refusal listing dirty
+      files, push-first when the remote is missing/behind, anchor
+      `dispatch/` branch + PR opened up front on the user's own
+      credentials, trigger-route call, workflow run id stamped on the
+      anchor PR. Workflow: in-process clone-token mint, sandbox creation
+      over the exact dispatched SHA, provisioning and detached launch of
+      the ns-owned pi runner (over `@earendil-works/pi-coding-agent`,
+      headless, repo skills from the checkout), poll/sleep supervision,
+      in-process landing mint injected into the single landing command,
+      produced commits landed on the anchor branch, decision log in the PR
+      description, failure comment path leaving the anchor PR open and
+      marked failed. Launch step `maxRetries 0`; landing and reporting
+      steps idempotent. Makes true: "Quick start" (prompt path), "What the
+      remote agent sees", and "The anchor PR". Gated by the spine probes.
+- [ ] Reusable workflow-supervised dispatch setup skill, distilled from the
+      proven credentials, spine-probe, and steel-thread work rather than
+      authored ahead of it. Makes true: "Setup" as an executable
+      agent-guided path for a fresh repository — GitHub App
+      registration/installation, Vercel project linkage, workflow
+      deployment and Queues availability, environment-variable names and
+      sensitivity, repo-local `[dispatch]` configuration, preflight, and a
+      controlled workflow-supervised dispatch probe — without reading or
+      recording secret values. Proven facts to preserve include
+      existing-App key generation through GitHub's UI versus initial
+      creation through the App Manifest flow; Vercel sensitive-variable
+      replacement rather than rename/readback; OIDC trust values derived
+      from actual non-secret claims; read-only App/installation/repository
+      checks; precise `.env.local` ignore hygiene; and the requirement that
+      probe SHAs be remotely reachable. Treat
       `references/vercel-sandbox-github-integration-field-guide.md` as the
       setup tool's acceptance checklist: package-root tracing and
-      emitted-artifact verification;
-      package-directory link/build/env-pull versus repository-root deployment;
-      reserved versus caller-owned OIDC headers; phased clone/work/landing
-      credentials; safe status-only probes; explicit consent before billable
-      Sandbox creation; mandatory cleanup; retry-after-inspect behavior for
-      ambiguous deployment transport failures; and prototype security debt with
-      named upgrades. The tool must expose actionable safe failure categories
-      without reading, echoing, persisting, or accepting secrets on argv. During
-      the preceding rows, continuously fold real setup facts and failure modes
-      into the canonical README and Semantic Updates when materially meaningful.
-      Before authoring, settle whether the
-      skill is a module-bundled
+      emitted-artifact verification; package-directory link/build/env-pull
+      versus repository-root deployment; reserved versus caller-owned OIDC
+      headers; phased clone/work/landing credentials; safe status-only
+      probes; explicit consent before billable Sandbox creation; mandatory
+      cleanup; retry-after-inspect behavior for ambiguous deployment
+      transport failures; and prototype debt with named cleanup (overbroad
+      App permissions, pending mint-secret variable removal). The tool must
+      expose actionable safe failure categories without reading, echoing,
+      persisting, or accepting secrets on argv. During the preceding rows,
+      continuously fold real setup facts and failure modes into the
+      canonical README and Semantic Updates when materially meaningful.
+      Before authoring, settle whether the skill is a module-bundled
       `@nseng-ai/vercel` artifact or a one-shot project-setup leaf and apply
-      `docs/conventions/skill-conventions.md`; do not create the skill during
-      the current mint-endpoint slice.
+      `docs/conventions/skill-conventions.md`; do not create the skill
+      before the steel thread proves the workflow.
 - [ ] `ns dispatch plan`: a real plan dispatched and executed remotely to
       the same git-native landing bar (the subsumed dispatch-extension's
       completion bar). Makes true: "Commands → /ns:dispatch:plan". The
@@ -136,7 +174,9 @@ setup-skill row; they never record secret values.
       `ts/packages/capabilities/plans`); `/ns:dispatch:plan` no-arg
       latest-plan resolution is Pi session sugar. Wrapper-skill coverage
       lands with the commands so the same surface is reachable from Claude
-      Code and Codex.
+      Code and Codex. Includes the long-run completion evidence: at least
+      one verified dispatch whose wall-clock exceeds a single function
+      invocation ceiling.
 - [ ] `/ns:dispatch:session`: continue the current session remotely. Makes
       true: "Commands → /ns:dispatch:session". The kernel command is
       `ns dispatch handoff <ref>` (explicit handoff reference, continuation
@@ -148,24 +188,26 @@ setup-skill row; they never record secret values.
 - [ ] Dispatch jobs TUI: view the status of all outstanding dispatch jobs
       (running / landed / failed, each with its anchor PR; failed ones with
       reason and access to run logs). Makes true: "The dispatch jobs TUI".
-      Plumbing per the seam-design row: enumerate `dispatch/` anchor PRs,
-      read each PR's stamped run handle, query Vercel's own observability
-      (Sandbox / Workflows) for run state and logs. Owns the README open
-      question: the TUI's command name and whether any push-style
-      notification exists beyond the TUI and the anchor PR.
-- [ ] Claude Code adapter (`@ai-sdk/harness-claude-code`) as the second
-      in-sandbox harness behind the same gateways, proving the in-sandbox
-      harness is repo configuration rather than code shape. Makes true:
-      "Under the hood" (harness/model is preconfigured; no per-dispatch
-      flag).
-- [ ] Durable jobs leg: nightly objective advancement on Vercel Workflows
-      (+ cron) whose body invokes the executor core and lands the identical
-      per-unit contract (anchor PR per advanced objective; never merge or
-      land without human review). Makes true: "Scheduled cloud work". Owns
-      the README open question — the advancement policy: which objectives
-      qualify, what an objective must declare (e.g. `## Runner Policy`) to
-      opt in, what ref scheduled runs dispatch from (a job has no "current
-      branch"), and the human review loop — recorded as a Semantic Update.
+      Plumbing per the seam-design row, concretized 2026-07-13: enumerate
+      `dispatch/` anchor PRs, read each PR's stamped workflow run id, query
+      Vercel's run observability (`getRun` — status, event/log stream) for
+      run state and logs. Owns the README open question: the TUI's command
+      name and whether any push-style notification exists beyond the TUI
+      and the anchor PR.
+- [ ] Claude Code as the second in-sandbox harness, running through its
+      headless CLI behind the same supervisor, proving the in-sandbox
+      harness is repo configuration — a provisioning recipe plus an
+      invocation command — rather than code shape. Makes true: "Under the
+      hood" (harness/model is preconfigured; no per-dispatch flag).
+- [ ] Durable jobs trigger: nightly objective advancement as a Vercel cron
+      entry on the deployable that starts the same dispatch workflow per
+      advanced objective, landing the identical per-unit contract (anchor
+      PR per advanced objective; never merge or land without human
+      review). Makes true: "Scheduled cloud work". Owns the README open
+      question — the advancement policy: which objectives qualify, what an
+      objective must declare (e.g. `## Runner Policy`) to opt in, what ref
+      scheduled runs dispatch from (a job has no "current branch"), and
+      the human review loop — recorded as a Semantic Update.
 - [ ] Promote the settled README to
       `ts/packages/capabilities/vercel/README.md`, repoint this Objective's
       canonical reference at the promoted doc, and re-derive or retire
@@ -176,6 +218,10 @@ setup-skill row; they never record secret values.
 - Automatic handoff generation for dispatched results (cut from the initial
   happy path, user decision 2026-07-12): the anchor PR is the pickup
   surface; a result handoff may return later as an add-on.
+- Snapshot-based sandbox rotation for runs beyond the 5-hour sandbox cap
+  (workflow SDK sandbox cookbook pattern); v1 caps run duration under it.
+- Warm harness sandbox templates/snapshots to amortize per-run harness
+  provisioning cold-start; v1 installs per run.
 - Additional scheduled jobs beyond the proving one — e.g. automated smart
   rebases of outstanding branches so merge conflicts are dealt with
   automatically (named in the README as an example).
@@ -186,7 +232,8 @@ setup-skill row; they never record secret values.
   doesn't need it and the retarget carries daily-driver regression risk;
   existing dispatch flows keep working unchanged meanwhile.
 - Eve integration (channels, Slack sessions, durable HITL park/resume) as a
-  consumer of the seams.
+  consumer of the seams; also the recorded revisit trigger for
+  driver-in-workflow harness hosting (see seam-design §9).
 - Event-driven issue→triage→fix loops and speculative execution of
   objectives (ideas preserved from the retired
   `docs/wayfinding/ns-cloud-capabilities/` map; recover detail from git

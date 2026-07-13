@@ -1,7 +1,7 @@
 ---
 edges:
   - objective: harness-session-generation
-    annotation: Boundary agreement — cloud-execution drives harnesses in remote sandboxes only behind its own cloud backend seam (AI SDK harness adapters) and must not push sandbox or vendor coupling into that objective's local harness-session contract.
+    annotation: Boundary agreement — cloud-execution drives harnesses in remote sandboxes only behind its own cloud backend seam (workflow-supervised in-sandbox harness runners) and must not push sandbox or vendor coupling into that objective's local harness-session contract.
 ---
 
 # Cloud Execution
@@ -9,18 +9,33 @@ edges:
 ## Thesis
 
 ns becomes cloud-native through one **Vercel-native** capability package —
-`@nseng-ai/vercel` — with git as the state plane. Two legs:
+`@nseng-ai/vercel` — with git as the state plane, on one execution spine
+(workflow-supervisor architecture, adopted 2026-07-13):
 
-1. **Remote execution** — run a harness against a repo checkout in an
-   isolated environment; results come back through git as a pushed branch
-   with an open PR. **Vercel Sandbox**, driven via the AI SDK
-   `HarnessAgent` adapters — **`@ai-sdk/harness-pi` first** (the user's
-   daily-driver harness), `@ai-sdk/harness-claude-code` second — with ns
-   skills injected via the Agent Skills standard.
-2. **Durable jobs** — run an ns unit of work on a schedule or event.
-   **Vercel Workflows** (+ cron). A job's body only invokes the same
-   dispatch core; the job layer schedules and supervises, it never contains
-   agent logic.
+Every unit of cloud work — an interactive dispatch or a scheduled job — is
+a **Vercel Workflow run** acting as a durable supervisor over a **Vercel
+Sandbox** that holds a real repo checkout. The configured harness runs as a
+long-lived process *inside* the sandbox — pi first through a thin ns-owned
+runner over the pi library API, Claude Code second through its headless
+CLI — with ns skills present because the checkout carries them. The
+workflow mints credentials, creates the sandbox, launches the harness,
+supervises through short poll steps and zero-compute sleeps, lands results
+through git — pushed branch, open PR — and posts failure state on the
+anchor PR. The supervisor outlives the sandbox, so a hard crash can never
+leave the anchor PR silent.
+
+Two triggers, one spine: `ns dispatch` starts a workflow run from a
+session; cron starts the identical workflow on a schedule. The job layer
+schedules and supervises — workflow steps are orchestration only; the
+agent loop never runs in workflow steps.
+
+This supersedes the earlier "two legs" framing (Sandbox for remote
+execution, Workflows only for scheduled jobs) and the AI SDK
+`HarnessAgent` adapter stance: the harness driver process needed a durable
+host, and sandboxes alone provided none. Decision trail and rejected
+alternatives (driver-in-workflow slicing, workflow-only execution) are in
+the workflow-supervisor-architecture-adopted Semantic Update; contracts in
+`references/seam-design.md` §9.
 
 The Vercel coupling is deliberate and named (seam-design grill decision,
 2026-07-12): the package is called `vercel` so it does not overpromise
@@ -40,9 +55,9 @@ This objective is the single consolidated cloud workstream: it subsumes the
 `dispatch-extension` Objective (closed by subsumption) and absorbs and
 retires the `docs/wayfinding/ns-cloud-capabilities/` wayfinding map. The
 demo bar: a real plan dispatched with `ns dispatch plan` executes remotely
-on the repo-configured cloud backend and lands git-natively, and a nightly
-objective-advancement job runs on Vercel Workflows through the same
-executor core.
+under a workflow-supervised sandbox and lands git-natively, and a nightly
+objective-advancement job triggers the same dispatch workflow on Vercel
+cron.
 
 This is a README-driven-development Objective: `references/README-draft.md`
 is the canonical user-facing contract for cloud dispatch — what a user runs,
@@ -68,37 +83,44 @@ rationale, and research live in supporting records that never override it.
   via the `ns.toml` `[dispatch]` settings table; no `--target` flag (grill
   decisions, 2026-07-12). Pi as a thin additive bridge; wrapper-skill
   coverage and typed parity metadata. The package also carries its own
-  Vercel deployable (the Workflows/cron entrypoints).
-- **The executor implementation**: Vercel Sandbox + `HarnessAgent`, pi
-  adapter first, Claude Code adapter second, ns skills injected
-  per-session, behind package-internal gateways in Vercel vocabulary
-  (faked for tests; no backend-agnostic executor contract — see
-  `references/seam-design.md`).
+  Vercel deployable: the dispatch workflow, its authenticated trigger
+  route, the mint core, and the cron entrypoints.
+- **The execution spine**: the dispatch workflow — in-process credential
+  minting, sandbox creation over the repo checkout, in-sandbox harness
+  provisioning and detached launch, poll/sleep supervision, git landing,
+  anchor-PR reporting — behind package-internal gateways in Vercel
+  vocabulary (faked for tests; no backend-agnostic executor contract — see
+  `references/seam-design.md`). Harnesses run headless inside the sandbox:
+  the ns-owned pi runner first, the Claude Code headless CLI second;
+  harness choice is repo configuration (a provisioning recipe plus an
+  invocation command), not code shape.
 - **The dispatch jobs status surface**: a TUI showing the status of all
   outstanding dispatch jobs (grill decision, 2026-07-12). It enumerates the
-  `dispatch/` anchor PRs and follows each PR's stamped run handle into
-  Vercel's own run observability for state and logs; the anchor PR is the
-  durable status trace.
+  `dispatch/` anchor PRs and follows each PR's stamped workflow run id into
+  Vercel's run observability (`getRun`) for state and logs; the anchor PR
+  is the durable status trace.
 - **The credentials slice**: the minimal credentials model for remote
   execution — repo access, push scope, model keys — designed before the
   executor runs real work. Design settled 2026-07-12
-  (`references/credentials-design.md`): per-run repo-scoped GitHub App
-  installation tokens (org-owned `ns-dispatch` app, key in a Vercel
-  sensitive env var), late-mint at push time, local anchor setup on the
-  user's own credentials, and a v1 self-landing sandbox with a shared mint
-  secret — each v1 shortcut recorded beside its named upgrade
-  (Vercel-side supervisor, per-run landing voucher).
+  (`references/credentials-design.md`), revised 2026-07-13: per-run
+  repo-scoped GitHub App installation tokens (org-owned `ns-dispatch` app,
+  key in a Vercel sensitive env var), late-mint at push time, local anchor
+  setup on the user's own credentials, and the dispatch workflow as the
+  minting supervisor — tokens are minted in-process and the landing token
+  is injected into the single landing command, so no push-capable
+  credential ever sits in the sandbox environment.
 - **The reusable setup skill and its source material**: collect the actual
-  Vercel Sandbox, GitHub App, project-linkage, environment, and preflight
-  steps as the credentials and steel-thread slices land, then distill the
-  proven path into a reusable skill for setting up Vercel Sandbox dispatch
-  with git-native GitHub landing. The canonical README's Setup section stays
-  the user-facing source of truth; the skill must not preserve secret values
-  or turn prototype shortcuts into unqualified long-term guidance.
-- **The durable-jobs seam and its first job**: Vercel Workflows + cron
-  backend; nightly objective advancement as the proving job, including the
-  policy decision of what "advance an objective autonomously overnight"
-  means and its guardrails.
+  Vercel Sandbox, Workflows, GitHub App, project-linkage, environment, and
+  preflight steps as the credentials, spine-probe, and steel-thread slices
+  land, then distill the proven path into a reusable skill for setting up
+  workflow-supervised dispatch with git-native GitHub landing. The
+  canonical README's Setup section stays the user-facing source of truth;
+  the skill must not preserve secret values or turn prototype shortcuts
+  into unqualified long-term guidance.
+- **The durable-jobs trigger and its first job**: Vercel cron starting the
+  same dispatch workflow; nightly objective advancement as the proving job,
+  including the policy decision of what "advance an objective autonomously
+  overnight" means and its guardrails.
 - Recording load-bearing decisions (infrastructure stance, harness choice,
   credentials model, advancement policy) as Semantic Updates.
 
@@ -111,6 +133,12 @@ rationale, and research live in supporting records that never override it.
   Actions design obligation, vendor vocabulary allowed in the package's
   gateways. A second compute backend, if ever wanted, earns its own design
   when it is real.
+- **Driver-in-workflow harness hosting.** The AI SDK
+  `HarnessAgent`/`@ai-sdk/workflow-harness` sliced-driver pattern is the
+  recorded alternative, not the architecture (decision 2026-07-13).
+  Revisit only if mid-run interactivity — durable HITL, Eve channels —
+  becomes a requirement; bridge-style attachment composes on top of the
+  supervisor without reversing it.
 - **Channels and event-driven work**: Slack sessions, GitHub-webhook triage,
   and speculative execution are enabled-later use cases (ideas preserved
   from the retired wayfinding map in Parked/Open Questions), not scope.
@@ -136,22 +164,27 @@ rationale, and research live in supporting records that never override it.
   parity metadata, plus the `/ns:dispatch:session` session-continuation
   surface over `handoff`; the execution backend comes from the `ns.toml`
   `[dispatch]` settings table, not a flag.
-- A real plan dispatched with `ns dispatch plan` executes on Vercel Sandbox
-  under the pi harness adapter end-to-end and lands results git-natively:
-  pushed branch and open PR the dispatching side can pick up (result
-  contract per the canonical README).
+- A real plan dispatched with `ns dispatch plan` executes end-to-end under
+  a workflow-supervised Vercel Sandbox running the in-sandbox pi runner
+  and lands results git-natively: pushed branch and open PR the
+  dispatching side can pick up (result contract per the canonical README).
+  At least one verified run's wall-clock exceeds a single Vercel Function
+  invocation ceiling, proving supervision — not slicing — carries long
+  runs.
 - A reusable setup skill, grounded in the setup evidence collected while
-  building the steel thread, guides a fresh repository through the required
-  Vercel project, GitHub App, repo configuration, and credential/preflight
-  setup without exposing secret values; following it reaches a controlled
-  Sandbox dispatch probe against the configured GitHub repository.
-- A nightly objective-advancement job runs on Vercel Workflows, invokes the
-  same executor core, and lands its results git-natively.
-- The settled contracts (package identity, gateway vocabulary, anchor/run
-  handle, command shapes, repo configuration) are recorded in
-  `references/seam-design.md` with rationale against alternatives.
-- Decisions (stance, harness, credentials, advancement policy) recorded as
-  Semantic Updates with rationale against alternatives.
+  building the spine probes and steel thread, guides a fresh repository
+  through the required Vercel project, workflow deployment, GitHub App,
+  repo configuration, and credential/preflight setup without exposing
+  secret values; following it reaches a controlled workflow-supervised
+  dispatch probe against the configured GitHub repository.
+- A nightly objective-advancement job triggers the same dispatch workflow
+  via Vercel cron and lands its results git-natively.
+- The settled contracts (package identity, gateway vocabulary, execution
+  architecture, anchor/run handle, command shapes, repo configuration) are
+  recorded in `references/seam-design.md` with rationale against
+  alternatives.
+- Decisions (stance, architecture, harness, credentials, advancement
+  policy) recorded as Semantic Updates with rationale against alternatives.
 - Evidence: targeted `just ts-check` / `just ts-test` pass for changed
   areas; CLI scenario tests cover the new commands' operations, help, and
   version.
@@ -162,24 +195,35 @@ Assumptions:
 
 - ns state travels via git: a cloud executor with a repo checkout inherits
   objectives, branch context, and branch memory with no state-sync layer.
-- The AI SDK harness adapters (`@ai-sdk/harness-pi`,
-  `@ai-sdk/harness-claude-code`) can run ns's existing harnesses in
-  sandboxes with ns skills injected via the Agent Skills standard (verified
-  in source 2026-07-08; APIs explicitly experimental).
-- Eve and `HarnessAgent` are separate Vercel surfaces today — Eve does not
-  consume `HarnessAgent` (verified 2026-07-08) — which supports treating Eve
-  as a seam consumer rather than the chassis.
+- Harnesses can run headless inside a Vercel Sandbox: Claude Code ships a
+  headless CLI mode, and pi is embeddable as a Node library — proven by
+  `@ai-sdk/harness-pi`, which drives `@earendil-works/pi-coding-agent`
+  programmatically and headless (verified in source 2026-07-13). The
+  checkout carries the repo's skills, so in-sandbox sessions inherit them
+  with no injection layer.
+- Sandbox processes keep executing between workflow step invocations; a
+  sandbox lives up to 5 hours; `@vercel/sandbox` operations are
+  workflow-integrated implicit steps; `sleep()` suspends a workflow at
+  zero compute (verified in workflow SDK source and its sandbox cookbook,
+  2026-07-13).
+- Eve remains a separate Vercel surface (beta, on the same Workflow SDK
+  line), which supports treating Eve as a seam consumer rather than the
+  chassis.
 - The durable registration substrate is the typed
   `exports["./ns-extension"]` descriptor module; the flow capability proved
   the repo-local `ns`-command pattern at scale.
 
 Risks:
 
-- **Experimental churn**: the AI SDK harness packages warn of breaking
-  changes; Vercel Workflows is a beta-line SDK. Mitigation: the blast
-  radius is one package — churn is absorbed in `@nseng-ai/vercel`'s gateway
-  adapters, and the command core types against the gateway interfaces, not
-  the SDKs.
+- **Experimental churn**: the Workflow SDK is a v5 beta line with dense
+  release cadence, Queues-based invocation, and single-region Vercel World
+  (iad1); `@vercel/sandbox` is 2.x; and the ns-owned pi runner rides
+  `@earendil-works/pi-coding-agent`'s pre-1.0 library API — third-party
+  software ns does not control. Mitigation: the blast radius is one
+  package — churn is absorbed in `@nseng-ai/vercel`'s gateway adapters and
+  the pi runner, and the command core types against the gateway
+  interfaces, not the SDKs. If the pi library API stalls the runner, the
+  Claude Code headless CLI is the steel-thread fallback with pi following.
 - **Credentials may dominate cost**: repo access, push rights, and model
   keys for sandboxed execution must be designed, not assumed — hence the
   dedicated roadmap row before the steel thread. Largely de-risked
@@ -204,23 +248,30 @@ Risks:
   cleanup. Post-verification cleanup removed the four old-prefix Production variables,
   revoked the superseded GitHub App key, and removed the downloaded local PEM; a subsequent
   authenticated clone-purpose mint confirmed the active replacement key. Dispatch preflight
-  remains. Residual, accepted deliberately
-  (racing to an e2e prototype): the v1 shared mint
-  secret and self-landing sandbox are
-  security shortcuts whose upgrades (per-run landing voucher, Vercel-side
-  supervisor) are recorded in `references/credentials-design.md` and must
-  land before wider deployment. The installed `ns-dispatch` GitHub App also
-  currently carries `actions: write` and `workflows: write` beyond the
-  runtime minimum; the user accepted that overreach for the prototype, but
-  the permissions must be tightened before wider deployment.
+  remains. The workflow-supervisor architecture (2026-07-13) retired the
+  two recorded v1 security shortcuts before implementation: the shared
+  mint secret and the self-landing sandbox are removed from the design —
+  the supervisor mints in-process and injects the landing token into the
+  single landing command. Residuals: remove the now-purposeless
+  `NS_DISPATCH_SANDBOX_MINT_SECRET` production variable once the workflow
+  spine lands, and tighten the installed `ns-dispatch` App's extra
+  `actions: write` / `workflows: write` permissions (accepted for the
+  prototype) before wider deployment.
+- **At-least-once step semantics**: workflow steps retry silently on
+  crash/kill, and a step's ceiling is the function `maxDuration` (~800s on
+  the current plan). The launch step must never re-bill an agent run
+  (`maxRetries 0`); landing and reporting steps must be idempotent
+  (force-push to the anchor branch, marker-comment overwrite); and no
+  long-running work may live in a step — the agent runs in the sandbox,
+  steps only poll.
+- **Sandbox lifetime cap**: sandboxes cap at 5 hours. v1 caps run duration
+  under it; snapshot-based rotation (workflow SDK sandbox cookbook) is the
+  recorded extension for longer runs.
 - **Autonomous overnight runs need guardrails**: cost, quota, and a
   review/observability path for cloud-produced work (carried from the
   retired map's open items). The nightly job must not merge or land
   anything a human hasn't reviewed (opening PRs for review is part of the
   result contract, not a violation of it).
-- **pi adapter maturity**: `@ai-sdk/harness-pi` is the least-exercised
-  adapter; if it stalls, the Claude Code adapter is the fallback for the
-  steel thread with pi following.
 - **Descriptor substrate settling**: the extension-descriptor-contract
   migration is in flight; build against `exports["./ns-extension"]` and its
   orientation, never legacy `.ns/extensions/*` shims.
@@ -230,6 +281,10 @@ Risks:
   The package is now the project root; `build:deployable` runs the native typecheck,
   rejects Vercel TypeScript diagnostics, and verifies every emitted relative module before
   deployment. A corrected production route and controlled Sandbox probe exercised the gate.
+  The workflow spine reopens this risk class: `"use workflow"` /
+  `"use step"` entrypoints compile through Vercel's workflow builder and
+  Queues wiring, a packaging surface the local gate does not yet see — the
+  workflow-hello-probe row extends the gate before anything depends on it.
 - **README drifts from implementation**: mitigation — the README settles
   first, and each implementation slice cites the README section it makes
   true.
@@ -237,8 +292,8 @@ Risks:
   material**: mitigation — collect names, ordering, failure modes, and
   verification evidence as implementation lands, never secret values;
   author the skill from the proven steel thread and canonical README, and
-  label the shared mint secret, self-landing sandbox, and overbroad App
-  permissions with their required upgrades before wider deployment. The
+  label remaining prototype debt (the overbroad App permissions, the
+  pending mint-secret variable removal) with its required cleanup. The
   `references/vercel-sandbox-github-integration-field-guide.md` is the
   acceptance checklist for developer mechanics, safe
   automation, billable-action consent, failure handling, and prototype-vs-
@@ -249,14 +304,18 @@ Risks:
 - Return-path shape: the anchor branch + PR opens up front and carries
   results, decision log, and failure states; a dispatch jobs status TUI is
   committed, and its plumbing is settled — `dispatch/`-prefixed anchor
-  branches, run handle stamped on the anchor PR, run state/logs from
-  Vercel observability (grill decisions, 2026-07-12). Open: the TUI's
-  command name and whether any push-style notification exists beyond the
-  TUI and the anchor PR.
+  branches, the workflow run id stamped on the anchor PR, run state/logs
+  from Vercel observability (grill decisions, 2026-07-12; run handle
+  concretized 2026-07-13). Open: the TUI's command name and whether any
+  push-style notification exists beyond the TUI and the anchor PR.
 - Nightly advancement policy: which objectives qualify, what execution
   policy (`## Runner Policy`) an objective must declare to be advanced
   autonomously, and what the human review loop over the produced branches
   looks like.
+- Harness provisioning strategy: per-run installation of the harness into
+  the sandbox is v1; snapshot/template-based warm sandboxes are the
+  recorded optimization. Decide when run volume makes cold-start cost
+  material.
 - Setup-skill distribution and invocation: whether the reusable setup skill
   ships as a module-bundled artifact of `@nseng-ai/vercel` or through the
   repo's one-shot project-setup family, and which explicit-only invocation
@@ -272,5 +331,9 @@ Risks:
   grill, 2026-07-12): cloud dispatch is Vercel-native; no pluggability
   obligation survives, so there is nothing to graduate. A second backend
   would be a new design effort on its own merits.
+- ~~Where the harness driver process runs~~ — resolved (2026-07-13,
+  workflow-supervisor Semantic Update): the harness runs inside the
+  sandbox; the workflow supervises. Driver-in-workflow slicing is the
+  recorded alternative with mid-run interactivity as its revisit trigger.
 - Eve integration timing: which future use case (channels, durable HITL)
   first justifies an Eve app consuming the seams?
