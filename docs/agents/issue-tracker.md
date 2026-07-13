@@ -20,7 +20,8 @@ and no tracker UI.
 
 This is a deliberate divergence from upstream wayfinder's multi-issue bias.
 The Objectives-backed way to run wayfinding-shaped work is the Objective
-ideation pattern (`objective-create-wayfinding`); choose between the two at
+ideation pattern (`objective-create` with `references/wayfinding-create.md`); choose
+between the two at
 invocation time. This tracker never creates Objectives.
 
 ### The map

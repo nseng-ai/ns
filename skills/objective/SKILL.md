@@ -30,12 +30,11 @@ Do not use `docs/objectives/`.
 
 ## Objective skill family
 
-`objective` is the umbrella/reference skill; per-operation procedures stay in the step skills. Family policy, stated once here: when a step skill triggers, load this `objective` skill first for shared model and safety rules; each step skill is then self-contained for its own happy path. The `objective-create-<pattern>` facades are the exception — they are delta-only, composing `objective` and `objective-create` for all record mechanics and owning only their pattern's creation procedure.
+`objective` is the umbrella/reference skill; per-operation procedures stay in the step skills. Family policy, stated once here: when a step skill triggers, load this `objective` skill first for shared model and safety rules; each step skill is then self-contained for its own happy path. Pattern creation procedures are delta-only conditional references owned by `objective-create` (`references/<pattern>-create.md`), loaded when the interview settles on a pattern.
 
 Use these step skills for explicit workflow requests:
 
-- `objective-create`: create one new active Objective record; it never updates or closes existing ones.
-- `objective-create-wayfinding`, `objective-create-steelthread`, `objective-create-standing`, `objective-create-umbrella`, `objective-create-autoobjective`, `objective-create-readme-driven-development`: pattern facades over `objective-create` — each owns its pattern's creation procedure; use the matching facade when the user names a pattern.
+- `objective-create`: create one new active Objective record; it never updates or closes existing ones. Its interview offers the Objective patterns (wayfinding, steelthread, standing, umbrella, autoobjective, readme-driven-development); each pattern's creation procedure lives in its `references/<pattern>-create.md`.
 - `objective-next`: recommend-first router for one selected open Objective; its Tracking Gate and confirmed-execution paths live in that skill.
 - `objective-update`: update exactly one selected active Objective; may close inline when its Closure Gate is clearly met.
 - `objective-refresh`: verified rebaseline for active Objective records; may close inline on probe-backed evidence, and never commits record edits.

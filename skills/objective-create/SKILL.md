@@ -8,7 +8,7 @@ description: "Create a new Objective record under .ns/objectives/<slug>/. Use wh
 
 Create exactly one new Objective record under `.ns/objectives/<slug>/`. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, safety boundaries, and family policy.
 
-When the user names an Objective pattern — wayfinding/ideation, steelthread, standing, umbrella, autoobjective, or readme-driven-development — use the matching `objective-create-<pattern>` facade skill instead; it owns that pattern's creation procedure and composes this skill for record mechanics (if it is absent from available skills, resolve it with `areg skill find objective-create-<pattern> --format json` and read the returned preferred `SKILL.md`).
+The Objective pattern set — wayfinding/ideation, steelthread, standing, umbrella, autoobjective, and readme-driven-development — lives in `references/<pattern>-create.md`; each reference owns that pattern's creation procedure on top of this skill's record mechanics. The pattern is chosen in the interview (see the Pattern beat below). When the user names a pattern upfront, read the matching reference immediately and skip the menu. Recognition prose and composition facts stay in the `objective` skill's patterns catalog (`references/objective-patterns.md`).
 
 ## Required shape
 
@@ -41,6 +41,7 @@ Record Frontmatter mechanics — the exact-two-keys rule, mirrored two-file edit
 
 Interview the user relentlessly before writing (inspired by [Matt Pocock's `grill-me` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md)) until shared understanding covers title, thesis, scope, non-goals, completion criteria, assumptions, risks, open questions, and a semantic initial roadmap — or the user chooses to stop questioning and write.
 
+- **Pattern.** Early — once the thesis and work shape are roughly understood but before deep branch-walking — present a numbered menu of Objective shapes: a vanilla/plain Objective (recommended, first), then the six patterns, each with a one-line recognition cue sourced from the patterns catalog entries (do not restate deep prose). Skip the menu when the pattern is already named or unambiguous. Single-select the primary shaping; on opt-in, read `references/<pattern>-create.md` before asking that pattern's questions. Ask layering/composition questions only when the catalog says the chosen pattern composes.
 - Walk each branch of the design tree, resolving dependencies between decisions one by one; focus on branch points that affect scope, completion criteria, assumptions, risks, sequencing, closure evidence, or — when relevant — execution policy.
 - Explore the codebase or existing docs instead of asking questions whose answers are discoverable locally.
 - Ask one unresolved question at a time, including your recommended answer so the user can confirm or correct it, as a compact numbered menu with domain-specific labels — never an open-ended continuation prompt. Tell the user they can answer with a number or a custom correction.
@@ -49,7 +50,7 @@ Interview the user relentlessly before writing (inspired by [Matt Pocock's `gril
 
 ## Workflow
 
-1. Run the interview; confirm the slug and clear the active root per Slug and path, loading any conditional reference before its questions.
+1. Run the interview; confirm the slug and clear the active root per Slug and path, loading any conditional reference — a pattern's `references/<pattern>-create.md` or `references/execution-friendly-create.md` — before its questions.
 2. Create `.ns/objectives/<slug>/` with `updates/`, `objective.md`, and `roadmap.md` per Required shape, in concise human-readable narrative.
 3. If the interview surfaced initial edges or a genuine blocked gate, write Record Frontmatter per its section — including the counterpart mirrors — and run `ns objective check <slug>`; otherwise write no frontmatter.
 4. If the Objective is orienting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 content lines, agent-facing) using the umbrella skill's format: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Lifecycle/graduation metadata stays in `roadmap.md`, never in `orientation.md`.
@@ -68,6 +69,7 @@ Interview the user relentlessly before writing (inspired by [Matt Pocock's `gril
 - The directory contains `objective.md`, `roadmap.md`, and `updates/`, and `objective.md` contains `## Assumptions and Risks`.
 - If orienting, `orientation.md` exists and follows the format; otherwise it is absent. It is optional, never required.
 - If execution-friendly, verify against `references/execution-friendly-create.md`; if planning-only, execution policy sections are absent unless explicitly requested.
+- If a pattern was chosen, verify against that pattern reference's verification items.
 - If Record Frontmatter was written, it carries only `blocked` and/or `edges`, every declared edge has its mirror entry in the counterpart record, and `ns objective check <slug>` passes; if not written, `objective.md` starts with `# <Title>` and no frontmatter fence.
 - No files outside the new Objective's directory changed, except counterpart `objective.md` frontmatter blocks touched by mirrored edge entries.
 - There is no initial file under `updates/` and no `closed.md`.

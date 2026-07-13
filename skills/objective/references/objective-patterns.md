@@ -7,9 +7,10 @@ readme-driven-development Objective, or asks which shape an Objective should tak
 standing / no-natural-finish-line Objectives, `references/standing-objectives.md`
 remains the deeper reference.)
 
-This catalog is recognition-level. Each pattern's creation procedure lives in its
-`objective-create-<pattern>` facade skill, named per entry below — orienting is the one
-exception: a layerable property with no facade, owned by `objective-create` itself.
+This catalog is recognition-level. Each pattern's creation procedure lives in the
+`objective-create` skill's `references/<pattern>-create.md`, named per entry below —
+orienting is the one exception: a layerable property with no creation reference, owned
+by `objective-create`'s own workflow.
 
 ## What a pattern is
 
@@ -43,7 +44,8 @@ synthesized closure evidence. The synthesis duty is part of the pattern (renamed
 Synthesis Objective; ADR 0001 substance, ADR 0030 name). Recognize it by: a thread too
 big for one record, children owning their slices, and completion criteria that include
 synthesizing child outcomes. Composes with orienting and standing; a steelthread child
-split is a natural first Subobjective. Creation: `objective-create-umbrella`.
+split is a natural first Subobjective. Creation: `objective-create`
+`references/umbrella-create.md`.
 
 ### Standing Objective
 
@@ -51,7 +53,7 @@ An Objective whose horizon has no natural goal-met finish line; `## Completion C
 describes retirement/closure criteria instead. Standing is the horizon-axis value, not a
 status — `active`/`closed` remains enough. Composes with orienting and autoobjective;
 never with steelthread. Deep guidance: `references/standing-objectives.md`. Creation:
-`objective-create-standing`.
+`objective-create` `references/standing-create.md`.
 
 ### Autoobjective
 
@@ -60,8 +62,8 @@ Objective Runner steps with parent-LM checkpoints between committed slices (ADR 
 Colloquial shorthand for autonomous-pursuit design — do not formalize as schema, type,
 or required wording. Product hook: `ns objective exec runner-step <slug>`, which refuses
 records that do not satisfy its preconditions. Composes with either horizon; a
-steelthread autoobjective is a common combination. Creation:
-`objective-create-autoobjective`.
+steelthread autoobjective is a common combination. Creation: `objective-create`
+`references/autoobjective-create.md`.
 
 ### Orienting Objective
 
@@ -102,7 +104,8 @@ Skill support: `objective-next` recommends from the Frontier and recognizes
 Crystallization; `objective-update` resolves Question Rows and graduates Fog. Composes
 with orienting and autoobjective (wayfinding dominant until Crystallization); its
 natural first execution shape after Crystallization is a steelthread. Creation:
-`objective-create-wayfinding` (the facade takes the vendored method skill's name).
+`objective-create` `references/wayfinding-create.md` (the reference takes the vendored
+method skill's name).
 
 ### Steelthread Objective
 
@@ -117,7 +120,8 @@ inside a broader Objective is a milestone, not a Steelthread Objective. Composes
 with autoobjective (a bounded, slice-shaped thread is a natural autorun target) and
 often becomes the first Subobjective under an Umbrella; never composes with standing — a
 steelthread is always bounded. It is the natural first execution shape after an Ideation
-Objective's Crystallization. Creation: `objective-create-steelthread`.
+Objective's Crystallization. Creation: `objective-create`
+`references/steelthread-create.md`.
 
 ### Readme-Driven-Development Objective (experimental)
 
@@ -125,5 +129,5 @@ Objective's Crystallization. Creation: `objective-create-steelthread`.
 README draft at `references/README-draft.md`, developed via the readme-driven-development
 loop: the README is the design contract where decisions settle, `roadmap.md` carries
 execution state, and other `references/` files support the README without overriding it.
-Method: the portable `readme-driven-development` skill. Creation:
-`objective-create-readme-driven-development`.
+Method: the portable `readme-driven-development` skill. Creation: `objective-create`
+`references/readme-driven-development-create.md`.
