@@ -8,7 +8,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { commandSucceeded, type CommandExecApi, type ExecResult } from "@nseng-ai/foundation/exec";
 import { callPiModelText, type PiModelRegistryLike } from "../models/call.ts";
-import type { NotifyLevel } from "../../runtime/tool-types.ts";
+import type {
+	NotifyLevel,
+	SetWidgetFunction,
+	WidgetComponentFactory,
+	WidgetTheme,
+} from "../../runtime/tool-types.ts";
 import { truncateDisplayLine } from "../terminal/presentation.ts";
 import { withSafePiUi } from "./safe-ui.ts";
 import { createPiCommandExecApi, type RawPiExecApi } from "./command-exec.ts";
@@ -25,27 +30,14 @@ const DEFAULT_MAX_TOKENS = 512;
 
 export type DraftHarness = "codex-pi" | "claude-cli";
 
-type WidgetPlacement = "aboveEditor" | "belowEditor";
-
-interface Theme {
-	fg(color: string, text: string): string;
-}
-
-interface Component {
-	render(width: number): string[];
-	invalidate(): void;
-}
-
-type WidgetContent = string[] | ((tui: unknown, theme: Theme) => Component) | undefined;
-
 export interface ExtensionCommandContext {
 	cwd: string;
 	modelRegistry: PiModelRegistryLike;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
-		setWidget?(key: string, value: WidgetContent, options?: { placement?: WidgetPlacement }): void;
-		theme?: Theme;
+		setWidget?: SetWidgetFunction;
+		theme?: WidgetTheme;
 	};
 	waitForIdle(): Promise<void>;
 }
@@ -287,7 +279,7 @@ function setProgress(ctx: ExtensionCommandContext, spinnerKey: string, status: s
 	ctx.ui.setStatus(spinnerKey, ctx.ui.theme?.fg("accent", status) ?? status);
 }
 
-function makeProgressWidget(text: string): (tui: unknown, theme: Theme) => Component {
+function makeProgressWidget(text: string): WidgetComponentFactory {
 	return (_tui, theme) => ({
 		render(width: number): string[] {
 			if (width <= 0) return [""];

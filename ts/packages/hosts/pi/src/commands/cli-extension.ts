@@ -3,11 +3,8 @@ import process from "node:process";
 import { registerCommandWithImmediateAck } from "./ack.ts";
 import { parseCliCommandArgs, type ParsedCliCommandArgs } from "./args.ts";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import type { NotifyLevel } from "../runtime/tool-types.ts";
-import {
-	LiveCommandProgress,
-	type LiveProgressWidgetContent,
-} from "./cli-command-live-progress.ts";
+import type { NotifyLevel, SetWidgetFunction } from "../runtime/tool-types.ts";
+import { LiveCommandProgress } from "./cli-command-live-progress.ts";
 import { outputTraceFields, traceCliCommand } from "./cli-command-trace.ts";
 import { emitPiExtensionCommandFinished, type PiExtensionCommandEventEmitter } from "./events.ts";
 import { withSafePiUi, withSafePiUiAsync } from "../kit/shared/safe-ui.ts";
@@ -24,8 +21,6 @@ export { cliCommandTracePath } from "./cli-command-trace.ts";
 export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "ns-cli-command-output";
 
 type OutputStreamName = "stdout" | "stderr";
-type CommandWidgetPlacement = "aboveEditor" | "belowEditor";
-
 interface CustomMessage {
 	customType: string;
 	content: CustomMessageContent;
@@ -124,11 +119,7 @@ export interface CommandContext {
 		): Promise<boolean> | boolean;
 		setEditorText?(text: string): void;
 		setStatus?(key: string, value: string | undefined): void;
-		setWidget?(
-			key: string,
-			value: LiveProgressWidgetContent | undefined,
-			options?: { placement?: CommandWidgetPlacement },
-		): void;
+		setWidget?: SetWidgetFunction;
 	};
 	waitForIdle(): Promise<void>;
 }

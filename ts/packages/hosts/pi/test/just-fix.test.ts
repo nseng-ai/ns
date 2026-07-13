@@ -4,8 +4,8 @@ import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 
 import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
 import type { RawPiExecResult } from "../src/kit/shared/command-exec.ts";
-import type { LiveProgressWidgetContent } from "../src/commands/cli-command-live-progress.ts";
-import { captureComponentWidgetRenders } from "./support/component-widget-snapshots.ts";
+import type { SetWidgetFunction } from "../src/runtime/tool-types.ts";
+import { ComponentWidgetFake } from "./support/widget-fakes.ts";
 
 const ROOT = "/repo";
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
@@ -24,11 +24,7 @@ interface CommandContext {
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
-		setWidget?(
-			key: string,
-			value: LiveProgressWidgetContent | undefined,
-			options?: { placement?: "aboveEditor" | "belowEditor" },
-		): void;
+		setWidget?: SetWidgetFunction;
 	};
 	waitForIdle(): Promise<void>;
 }
@@ -134,6 +130,15 @@ function createContext(cwd = ROOT): {
 	const notifications: Notification[] = [];
 	const statuses: StatusUpdate[] = [];
 	const widgets: WidgetUpdate[] = [];
+	const widgetFake = new ComponentWidgetFake({
+		onSnapshot: (snapshot) => {
+			widgets.push({
+				key: snapshot.key,
+				value: snapshot.lines,
+				options: snapshot.placement === undefined ? undefined : { placement: snapshot.placement },
+			});
+		},
+	});
 	let waits = 0;
 	const ctx: CommandContext = {
 		cwd,
@@ -145,21 +150,7 @@ function createContext(cwd = ROOT): {
 			setStatus(key: string, value: string | undefined): void {
 				statuses.push({ key, value });
 			},
-			setWidget(
-				key: string,
-				content: LiveProgressWidgetContent | undefined,
-				options?: { placement?: "aboveEditor" | "belowEditor" },
-			): void {
-				if (content === undefined || Array.isArray(content)) {
-					widgets.push({ key, value: content === undefined ? undefined : [...content], options });
-					return;
-				}
-				captureComponentWidgetRenders(content, {
-					onRender: (lines) => {
-						widgets.push({ key, value: lines, options });
-					},
-				});
-			},
+			setWidget: widgetFake.setWidget,
 		},
 		async waitForIdle(): Promise<void> {
 			waits += 1;

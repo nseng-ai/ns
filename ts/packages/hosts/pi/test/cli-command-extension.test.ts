@@ -24,7 +24,7 @@ import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
 	type PiExtensionCommandFinishedEvent,
 } from "../src/commands/events.ts";
-import { captureComponentWidgetRenders } from "./support/component-widget-snapshots.ts";
+import { ComponentWidgetFake } from "./support/widget-fakes.ts";
 
 type RegisteredCommand = Parameters<CliCommandExtensionAPI["registerCommand"]>[1];
 type MessageRenderer = Parameters<
@@ -138,6 +138,15 @@ function createContext(
 	const editorTexts: string[] = [];
 	const statuses: StatusUpdate[] = [];
 	const widgets: WidgetUpdate[] = [];
+	const widgetFake = new ComponentWidgetFake({
+		onSnapshot: (snapshot) => {
+			widgets.push({
+				key: snapshot.key,
+				lines: snapshot.lines,
+				...(snapshot.placement === undefined ? {} : { placement: snapshot.placement }),
+			});
+		},
+	});
 	const confirmations: ConfirmationPrompt[] = [];
 	const ui: CommandContext["ui"] = {
 		notify(message, level) {
@@ -155,27 +164,7 @@ function createContext(
 		};
 	}
 	if (options.setWidget ?? true) {
-		ui.setWidget = (key, content, widgetOptions): void => {
-			if (content === undefined || Array.isArray(content)) {
-				widgets.push({
-					key,
-					lines: content === undefined ? undefined : [...content],
-					...(widgetOptions?.placement === undefined ? {} : { placement: widgetOptions.placement }),
-				});
-				return;
-			}
-			captureComponentWidgetRenders(content, {
-				onRender: (lines) => {
-					widgets.push({
-						key,
-						lines,
-						...(widgetOptions?.placement === undefined
-							? {}
-							: { placement: widgetOptions.placement }),
-					});
-				},
-			});
-		};
+		ui.setWidget = widgetFake.setWidget;
 	}
 	if (options.confirm !== undefined) {
 		const confirm = options.confirm;

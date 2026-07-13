@@ -6,7 +6,7 @@ import type {
 	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
-import type { ToolContext, WidgetContent } from "@nseng-ai/pi/runtime/tool-types";
+import type { ToolContext } from "@nseng-ai/pi/runtime/tool-types";
 
 import { getOrCreateSubagentFleetRegistry } from "../../src/fleet/provider.ts";
 import { SUBAGENT_FLEET_RECENT_TASK_CAP, SubagentFleetRegistry } from "../../src/fleet/registry.ts";
@@ -18,6 +18,7 @@ import {
 	formatSubagentFleetWidgetLines,
 	syncSubagentFleetDisplay,
 	taskIcon,
+	type SubagentFleetDisplayContext,
 } from "../../src/fleet/display.ts";
 import {
 	dispatchTrackedSingleSubagentFleetRun,
@@ -533,14 +534,11 @@ describe("subagent fleet display for explorer", () => {
 	});
 
 	test("syncs widget lines and footer status through the tool context", () => {
-		const widgetCalls: { key: string; content: WidgetContent | undefined }[] = [];
+		const widgetCalls: { key: string; content: string[] | undefined }[] = [];
 		const statusCalls: { key: string; value: string | undefined }[] = [];
-		const ctx: ToolContext = {
-			cwd: "/repo",
+		const ctx: SubagentFleetDisplayContext = {
 			hasUI: true,
-			mode: "tui",
 			ui: {
-				notify: () => {},
 				setWidget: (key, content) => widgetCalls.push({ key, content }),
 				setStatus: (key, value) => statusCalls.push({ key, value }),
 			},

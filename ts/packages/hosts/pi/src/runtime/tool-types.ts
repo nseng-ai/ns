@@ -34,23 +34,30 @@ export interface WidgetTheme {
 	bold?(text: string): string;
 }
 
-/** Structural view of Pi's TUI limited to what widget factories need. */
-export interface WidgetTuiHandle {
+/** Structural view of Pi's TUI limited to widget render invalidation. */
+export interface WidgetTuiRenderHandle {
 	requestRender(): void;
 }
 
+export interface WidgetComponent extends ToolRenderComponent {
+	dispose?(): void;
+}
+
 export type WidgetComponentFactory = (
-	tui: WidgetTuiHandle,
+	tui: WidgetTuiRenderHandle,
 	theme: WidgetTheme,
-) => ToolRenderComponent & { dispose?(): void };
+) => WidgetComponent;
 
 export type WidgetContent = string[] | WidgetComponentFactory;
 
-export type SetWidgetFunction = (
-	key: string,
-	content: WidgetContent | undefined,
-	options?: { placement?: WidgetPlacement },
-) => void;
+export interface SetWidgetFunction {
+	(key: string, content: string[] | undefined, options?: { placement?: WidgetPlacement }): void;
+	(
+		key: string,
+		content: WidgetComponentFactory | undefined,
+		options?: { placement?: WidgetPlacement },
+	): void;
+}
 
 export interface WidgetRuntimeContext {
 	hasUI: boolean;
