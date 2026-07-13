@@ -52,7 +52,7 @@ async function createSubmitHooksRepo(nsToml: string): Promise<string> {
 			{
 				path: ["submit", "pre"],
 				accepts: "hook",
-				semantics: "additive",
+				cardinality: "many",
 				description: "Runs before submit.",
 			},
 		],

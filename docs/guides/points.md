@@ -13,9 +13,9 @@ canonical vocabulary lives in [`ts/packages/sdk/CONTEXT.md`](../../ts/packages/s
   - **hook** — a list of script commands the workflow runs at that moment.
   - **prompt** — pure LM content the workflow resolves and consumes. The point
     system never executes prompts.
-- A point has one of two semantics:
-  - **additive** — installations add behavior (e.g. pre-submit checks).
-  - **override** — an installation replaces the default content.
+- A point has one of two cardinalities:
+  - **many** — installations add behavior (e.g. pre-submit checks).
+  - **one** — a single installation replaces the default content.
 - The full point id is `<group>.<path segments>`, e.g. `flow.submit.pre`,
   where the group is the owning extension's namespace root.
 - The SDK joins definitions with installations into a **point catalog**,
@@ -34,13 +34,14 @@ Example output:
 
 ```text
 ns points:
-- branch-context.plans-write (prompt, override) — conventional .ns/prompts/branch-context.plans-write.md
-- flow.submit.pr-description (prompt, override) — default ./prompts/pr-description-default.md
-- flow.submit.pre (hook, additive) — repo ns.toml commands: just
+- branch-context.plans-write (prompt, one) — conventional .ns/prompts/branch-context.plans-write.md
+- flow.submit.pr-description (prompt, one) — default ./prompts/pr-description-default.md
+- flow.submit.pre (hook, many) — repo ns.toml commands: just
 ```
 
 The diagnostics section reports useful states: points defined but not installed,
-overrides in effect, and installations that reference undefined points (an error).
+cardinality-one points with an installation in effect, and installations that
+reference undefined points (an error).
 
 ### Install a hook
 
@@ -129,13 +130,13 @@ export default defineExtension({
 
 Field reference:
 
-| Field         | Required | Meaning                                                                                                                                      |
-| ------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`          | yes      | Full point id. First-party convention: `<group>.<workflow>.<leaf>`.                                                                          |
-| `accepts`     | yes      | `"hook"` or `"prompt"`.                                                                                                                      |
-| `cardinality` | yes      | `"many"` for additive hook-style points or `"one"` for override prompt-style points.                                                         |
-| `default`     | no       | Override prompt points only: a package-relative POSIX `.md` path that must not escape the package directory. Used when nothing is installed. |
-| `description` | no       | Shown in `ns extension points` output.                                                                                                       |
+| Field         | Required | Meaning                                                                                                                                             |
+| ------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`          | yes      | Full point id. First-party convention: `<group>.<workflow>.<leaf>`.                                                                                 |
+| `accepts`     | yes      | `"hook"` or `"prompt"`.                                                                                                                             |
+| `cardinality` | yes      | `"many"` — installations add behavior; `"one"` — a single installation replaces the default.                                                        |
+| `default`     | no       | Cardinality-one prompt points only: a package-relative POSIX `.md` path that must not escape the package directory. Used when nothing is installed. |
+| `description` | no       | Shown in `ns extension points` output.                                                                                                              |
 
 Author-side guidance:
 

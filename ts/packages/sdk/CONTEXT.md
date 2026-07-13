@@ -81,11 +81,11 @@ The single parse/validation path for repo-root `ns.toml`, including the `[points
 *Avoid*: kernel project-config loader, per-capability TOML parser, prompt-resolution ladder, settings-as-points
 
 **Point catalog**:
-The SDK-computed view of point definitions, installations, active prompt sources, and diagnostics such as installed-but-undefined, override-in-effect, and defined-but-uninstalled.
+The SDK-computed view of point definitions, installations, active prompt sources, and diagnostics such as installed-but-undefined, installation-in-effect, and defined-but-uninstalled.
 *Avoid*: registry, command catalog, extension discovery catalog
 
 **Prompt default**:
-A package-relative markdown file declared by an override prompt point and used when no higher-precedence project or development source is active.
+A package-relative markdown file declared by a cardinality-one prompt point and used when no higher-precedence project or development source is active.
 *Avoid*: TypeScript prompt constant, hook fallback, global default
 
 **Active prompt source**:

@@ -34,7 +34,7 @@ describe("extension point descriptor resolution", () => {
 		);
 		expect(entry?.definition).toMatchObject({
 			accepts: "prompt",
-			semantics: "override",
+			cardinality: "one",
 			defaultPath: "../submit/prompts/submit-check-recovery-default.md",
 			manifestPath: join(flowPackageRoot, "src", "ns", "extension.ts"),
 		});

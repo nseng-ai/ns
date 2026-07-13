@@ -4,9 +4,9 @@ import { z } from "zod";
 
 import {
 	extensionPointAcceptsValues,
+	extensionPointCardinalityValues,
 	loadPointCatalogWithDescriptors,
 	nodeProjectConfigGateway,
-	pointSemanticsValues,
 	resolvePromptPointSource,
 	type PointCatalog,
 	type PointCatalogEntry,
@@ -40,7 +40,7 @@ type PointSourceView = z.infer<typeof pointSourceSchema>;
 const pointSummarySchema = z.object({
 	id: z.string(),
 	accepts: z.enum(extensionPointAcceptsValues),
-	semantics: z.enum(pointSemanticsValues),
+	cardinality: z.enum(extensionPointCardinalityValues),
 	description: z.string().optional(),
 	manifestPath: z.string().optional(),
 	defaultPath: z.string().optional(),
@@ -154,7 +154,7 @@ function toPointSummary(
 	return {
 		id: entry.definition.id,
 		accepts: entry.definition.accepts,
-		semantics: entry.definition.semantics,
+		cardinality: entry.definition.cardinality,
 		...optionalEntries({
 			description: entry.definition.description,
 			manifestPath: entry.definition.manifestPath,
@@ -247,7 +247,7 @@ function renderPointsHuman(result: z.infer<typeof extensionPointsResultSchema>):
 	const lines = ["ns points:"];
 	for (const point of result.points) {
 		lines.push(
-			`- ${point.id} (${point.accepts}, ${point.semantics}) — ${renderSource(point.activeSource)}`,
+			`- ${point.id} (${point.accepts}, ${point.cardinality}) — ${renderSource(point.activeSource)}`,
 		);
 	}
 	appendDiagnosticsSection(lines, result.diagnostics, { leadingBlank: true });
@@ -259,7 +259,7 @@ function renderPointDetailHuman(result: z.infer<typeof extensionPointDetailResul
 	const lines = [
 		`${point.id}`,
 		`accepts: ${point.accepts}`,
-		`semantics: ${point.semantics}`,
+		`cardinality: ${point.cardinality}`,
 		`active source: ${renderSource(point.activeSource)}`,
 	];
 	if (point.description !== undefined) lines.push(`description: ${point.description}`);

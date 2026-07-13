@@ -320,7 +320,7 @@ describe("PR description helpers", () => {
 				{
 					path: ["submit", "pr-description"],
 					accepts: "prompt",
-					semantics: "override",
+					cardinality: "one",
 				},
 			],
 		});
