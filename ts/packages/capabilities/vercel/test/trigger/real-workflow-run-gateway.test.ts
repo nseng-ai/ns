@@ -10,6 +10,8 @@ import { helloWorkflowId } from "../../workflows/hello.ts";
 import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
 import { supervisionProbeWorkflowId } from "../../workflows/supervision-probe-id.ts";
 
+const mixedCaseRevision = "0123456789abcdef0123456789ABCDEF01234567";
+
 interface InMemorySdkState {
 	readonly nextRunId?: string;
 	readonly startError?: Error;
@@ -51,7 +53,7 @@ describe("createWorkflowSdkRunGateway", () => {
 		const sdk = new InMemoryWorkflowRunSdk({ nextRunId: "wrun_123" });
 		const gateway = createWorkflowSdkRunGateway(sdk);
 
-		const result = await gateway.startHelloWorkflow({ name: "world" });
+		const result = await gateway.startWorkflow({ workflow: "hello", input: { name: "world" } });
 
 		expect(result).toEqual({ ok: true, value: { runId: "wrun_123" } });
 		expect(sdk.startCalls).toEqual([{ workflowId: helloWorkflowId, args: ["world"] }]);
@@ -61,20 +63,24 @@ describe("createWorkflowSdkRunGateway", () => {
 		const sdk = new InMemoryWorkflowRunSdk({ nextRunId: "wrun_probe" });
 		const gateway = createWorkflowSdkRunGateway(sdk);
 
-		const revision = "0123456789abcdef0123456789abcdef01234567";
-		const result = await gateway.startSandboxProbeWorkflow({ revision });
+		const result = await gateway.startWorkflow({
+			workflow: "sandbox-probe",
+			input: { revision: mixedCaseRevision },
+		});
 
 		expect(result).toEqual({ ok: true, value: { runId: "wrun_probe" } });
-		expect(sdk.startCalls).toEqual([{ workflowId: sandboxProbeWorkflowId, args: [revision] }]);
+		expect(sdk.startCalls).toEqual([
+			{ workflowId: sandboxProbeWorkflowId, args: [mixedCaseRevision] },
+		]);
 	});
 
 	it("starts the supervision-probe workflow with a single serializable params argument", async () => {
 		const sdk = new InMemoryWorkflowRunSdk({ nextRunId: "wrun_supervision" });
 		const gateway = createWorkflowSdkRunGateway(sdk);
 
-		const result = await gateway.startSupervisionProbeWorkflow({
-			runSeconds: 840,
-			pollSeconds: 30,
+		const result = await gateway.startWorkflow({
+			workflow: "supervision-probe",
+			input: { runSeconds: 840, pollSeconds: 30 },
 		});
 
 		expect(result).toEqual({ ok: true, value: { runId: "wrun_supervision" } });
@@ -90,12 +96,14 @@ describe("createWorkflowSdkRunGateway", () => {
 		const sdk = new InMemoryWorkflowRunSdk({ nextRunId: "wrun_dispatch" });
 		const gateway = createWorkflowSdkRunGateway(sdk);
 
-		const revision = "0123456789abcdef0123456789abcdef01234567";
-		const result = await gateway.startDispatchWorkflow({
-			revision,
-			anchorBranch: "dispatch/widget-refactor-a1b2c3",
-			anchorPrNumber: 421,
-			prompt: "Rename the widget gateway methods.",
+		const result = await gateway.startWorkflow({
+			workflow: "dispatch",
+			input: {
+				revision: mixedCaseRevision,
+				anchorBranch: "dispatch/widget-refactor-a1b2c3",
+				anchorPrNumber: 421,
+				prompt: "Rename the widget gateway methods.",
+			},
 		});
 
 		expect(result).toEqual({ ok: true, value: { runId: "wrun_dispatch" } });
@@ -104,7 +112,7 @@ describe("createWorkflowSdkRunGateway", () => {
 				workflowId: dispatchWorkflowId,
 				args: [
 					{
-						revision,
+						revision: mixedCaseRevision,
 						anchorBranch: "dispatch/widget-refactor-a1b2c3",
 						anchorPrNumber: 421,
 						prompt: "Rename the widget gateway methods.",
@@ -117,7 +125,9 @@ describe("createWorkflowSdkRunGateway", () => {
 	it("normalizes an empty vendor run id to a safe failure", async () => {
 		const gateway = createWorkflowSdkRunGateway(new InMemoryWorkflowRunSdk({ nextRunId: "" }));
 
-		expect(await gateway.startHelloWorkflow({ name: "world" })).toEqual({ ok: false });
+		expect(await gateway.startWorkflow({ workflow: "hello", input: { name: "world" } })).toEqual({
+			ok: false,
+		});
 	});
 
 	it("normalizes a start throw to a safe failure", async () => {
@@ -125,7 +135,9 @@ describe("createWorkflowSdkRunGateway", () => {
 			new InMemoryWorkflowRunSdk({ startError: new Error("queue unavailable") }),
 		);
 
-		expect(await gateway.startHelloWorkflow({ name: "world" })).toEqual({ ok: false });
+		expect(await gateway.startWorkflow({ workflow: "hello", input: { name: "world" } })).toEqual({
+			ok: false,
+		});
 	});
 
 	it("reads a known run status", async () => {

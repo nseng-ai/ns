@@ -33,19 +33,7 @@ class InMemoryRunStatusGateway implements WorkflowRunGateway {
 		this.#runs = { ...runs };
 	}
 
-	async startHelloWorkflow(): Promise<StartWorkflowRunResult> {
-		return { ok: false };
-	}
-
-	async startSandboxProbeWorkflow(): Promise<StartWorkflowRunResult> {
-		return { ok: false };
-	}
-
-	async startSupervisionProbeWorkflow(): Promise<StartWorkflowRunResult> {
-		return { ok: false };
-	}
-
-	async startDispatchWorkflow(): Promise<StartWorkflowRunResult> {
+	async startWorkflow(): Promise<StartWorkflowRunResult> {
 		return { ok: false };
 	}
 
