@@ -68,3 +68,19 @@ sized too large for the skill-audit-remediation Objective that identified it.
 - Exact operation name and manifest schema (settled at design time within this record).
 - Whether per-workspace git probing reuses an existing git gateway or stays local to the
   cmux capability.
+
+## Closure
+
+Intentionally abandoned on 2026-07-12 after re-evaluating the feature following the
+`nscc` host deletion. The three intended consumers — `ns-cmux-available-work`,
+`ns-cmux-branch-triage`, and `ns-cmux-stack-map` — were removed along with their Pi
+backing-skill registrations and consumer-only observational convention instead of being
+retrofitted. With no remaining consumer, implementing a new cmux occupancy manifest,
+gateway surface, and test suite would recreate infrastructure without live demand.
+
+No inventory command or gateway was implemented. The existing `@nseng-ai/cmux`
+capability, its sidebar/dispatch/workspace-summary behavior, and the structured
+`ns slot gt exec stack-branches` / `stack-map-branches` operations remain because they
+have independent consumers. The unchecked roadmap rows are intentionally canceled. If
+a future concrete workflow again needs repeated cmux occupancy collection, it should be
+justified from that consumer's current requirements rather than reopening this record.

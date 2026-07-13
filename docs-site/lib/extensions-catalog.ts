@@ -129,7 +129,7 @@ export const extensionCatalogEntries: readonly ExtensionCatalogEntry[] = [
       "Repo-local cmux workspace controls for multi-branch agent work where workspace state matters.",
     category: "branch-pr",
     status: "built-in",
-    commandHint: "/ns:cmux:stack-map",
+    commandHint: "/ns:cmux:workspace:open-branch",
     sourcePath: ".pi/extensions/cmux.ts",
   },
   {
