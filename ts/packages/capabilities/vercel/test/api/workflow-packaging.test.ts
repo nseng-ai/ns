@@ -9,6 +9,7 @@ import {
 	REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS,
 	ROUTE_TRIGGERED_WORKFLOW_IDS,
 } from "../../scripts/build-deployable.ts";
+import { dispatchWorkflowId } from "../../workflows/dispatch-id.ts";
 import { helloWorkflowId } from "../../workflows/hello.ts";
 import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
 import { supervisionProbeWorkflowId } from "../../workflows/supervision-probe-id.ts";
@@ -196,6 +197,7 @@ describe("findMissingWorkflowManifestIds", () => {
 		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(helloWorkflowId);
 		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(sandboxProbeWorkflowId);
 		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(supervisionProbeWorkflowId);
+		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(dispatchWorkflowId);
 	});
 });
 

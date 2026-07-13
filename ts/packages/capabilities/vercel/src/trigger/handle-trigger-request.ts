@@ -124,6 +124,13 @@ async function startRequestedWorkflow(
 				runSeconds: request.runSeconds,
 				pollSeconds: request.pollSeconds,
 			});
+		case "dispatch":
+			return await workflowRuns.startDispatchWorkflow({
+				revision: request.revision,
+				anchorBranch: request.anchorBranch,
+				anchorPrNumber: request.anchorPrNumber,
+				prompt: request.prompt,
+			});
 	}
 }
 

@@ -38,6 +38,7 @@
 		"group": "dispatch",
 		"subpackages": [
 			"api",
+			"dispatch",
 			"mint",
 			"ns",
 			"sandbox",

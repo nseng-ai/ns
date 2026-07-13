@@ -29,6 +29,12 @@ class RecordingWorkflowRunGateway implements WorkflowRunGateway {
 	readonly startCalls: Array<{ name: string }> = [];
 	readonly startProbeCalls: Array<{ revision: string }> = [];
 	readonly startSupervisionCalls: Array<{ runSeconds: number; pollSeconds: number }> = [];
+	readonly startDispatchCalls: Array<{
+		revision: string;
+		anchorBranch: string;
+		anchorPrNumber: number;
+		prompt: string;
+	}> = [];
 
 	constructor(runId: string) {
 		this.#runId = runId;
@@ -51,6 +57,16 @@ class RecordingWorkflowRunGateway implements WorkflowRunGateway {
 		readonly pollSeconds: number;
 	}): Promise<StartWorkflowRunResult> {
 		this.startSupervisionCalls.push({ ...options });
+		return { ok: true, value: { runId: this.#runId } };
+	}
+
+	async startDispatchWorkflow(options: {
+		readonly revision: string;
+		readonly anchorBranch: string;
+		readonly anchorPrNumber: number;
+		readonly prompt: string;
+	}): Promise<StartWorkflowRunResult> {
+		this.startDispatchCalls.push({ ...options });
 		return { ok: true, value: { runId: this.#runId } };
 	}
 

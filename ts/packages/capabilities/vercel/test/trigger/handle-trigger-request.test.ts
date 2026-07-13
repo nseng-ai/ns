@@ -56,6 +56,12 @@ class InMemoryWorkflowRunGateway implements WorkflowRunGateway {
 	readonly startCalls: Array<{ name: string }> = [];
 	readonly startProbeCalls: Array<{ revision: string }> = [];
 	readonly startSupervisionCalls: Array<{ runSeconds: number; pollSeconds: number }> = [];
+	readonly startDispatchCalls: Array<{
+		revision: string;
+		anchorBranch: string;
+		anchorPrNumber: number;
+		prompt: string;
+	}> = [];
 	readonly statusCalls: Array<{ runId: string }> = [];
 
 	constructor(state: InMemoryWorkflowRunsState = {}) {
@@ -81,6 +87,17 @@ class InMemoryWorkflowRunGateway implements WorkflowRunGateway {
 		readonly pollSeconds: number;
 	}): Promise<StartWorkflowRunResult> {
 		this.startSupervisionCalls.push({ ...options });
+		if (this.#state.startFails === true) return { ok: false };
+		return { ok: true, value: { runId: this.#state.nextRunId ?? "wrun_fixture" } };
+	}
+
+	async startDispatchWorkflow(options: {
+		readonly revision: string;
+		readonly anchorBranch: string;
+		readonly anchorPrNumber: number;
+		readonly prompt: string;
+	}): Promise<StartWorkflowRunResult> {
+		this.startDispatchCalls.push({ ...options });
 		if (this.#state.startFails === true) return { ok: false };
 		return { ok: true, value: { runId: this.#state.nextRunId ?? "wrun_fixture" } };
 	}
@@ -170,8 +187,40 @@ describe("handleTriggerRequest", () => {
 		expect(workflowRuns.startProbeCalls).toEqual([]);
 	});
 
+	it("starts the dispatch workflow with the validated run input", async () => {
+		const workflowRuns = new InMemoryWorkflowRunGateway({ nextRunId: "wrun_dispatch" });
+
+		const response = await handleTriggerRequest(
+			{
+				body: {
+					workflow: "dispatch",
+					revision: probeRevision,
+					anchorBranch: "dispatch/widget-refactor-a1b2c3",
+					anchorPrNumber: 421,
+					prompt: "Rename the widget gateway methods.",
+				},
+				oidcToken: "oidc-token",
+			},
+			context({ workflowRuns }),
+		);
+
+		expect(response).toEqual({
+			status: 200,
+			body: { runId: "wrun_dispatch", workflow: "dispatch" },
+		});
+		expect(workflowRuns.startDispatchCalls).toEqual([
+			{
+				revision: probeRevision,
+				anchorBranch: "dispatch/widget-refactor-a1b2c3",
+				anchorPrNumber: 421,
+				prompt: "Rename the widget gateway methods.",
+			},
+		]);
+		expect(workflowRuns.startCalls).toEqual([]);
+	});
+
 	it.each([
-		["unknown workflow", { workflow: "dispatch", name: "world" }],
+		["unknown workflow", { workflow: "nightly", name: "world" }],
 		["missing name", { workflow: "hello" }],
 		["empty name", { workflow: "hello", name: "" }],
 		["extra key", { workflow: "hello", name: "world", extra: true }],
@@ -207,6 +256,61 @@ describe("handleTriggerRequest", () => {
 			"supervision request with an extra key",
 			{ workflow: "supervision-probe", runSeconds: 840, pollSeconds: 30, extra: true },
 		],
+		[
+			"dispatch request missing its anchor",
+			{ workflow: "dispatch", revision: probeRevision, prompt: "p" },
+		],
+		[
+			"dispatch anchor branch without the dispatch/ prefix",
+			{
+				workflow: "dispatch",
+				revision: probeRevision,
+				anchorBranch: "feature/widget",
+				anchorPrNumber: 421,
+				prompt: "p",
+			},
+		],
+		[
+			"dispatch anchor branch with an unsafe character",
+			{
+				workflow: "dispatch",
+				revision: probeRevision,
+				anchorBranch: "dispatch/widget refactor",
+				anchorPrNumber: 421,
+				prompt: "p",
+			},
+		],
+		[
+			"non-integer dispatch anchor PR number",
+			{
+				workflow: "dispatch",
+				revision: probeRevision,
+				anchorBranch: "dispatch/widget",
+				anchorPrNumber: 4.2,
+				prompt: "p",
+			},
+		],
+		[
+			"empty dispatch prompt",
+			{
+				workflow: "dispatch",
+				revision: probeRevision,
+				anchorBranch: "dispatch/widget",
+				anchorPrNumber: 421,
+				prompt: "",
+			},
+		],
+		[
+			"dispatch request with an extra key",
+			{
+				workflow: "dispatch",
+				revision: probeRevision,
+				anchorBranch: "dispatch/widget",
+				anchorPrNumber: 421,
+				prompt: "p",
+				extra: true,
+			},
+		],
 	])("rejects a request with %s before starting anything", async (_label, body) => {
 		const workflowRuns = new InMemoryWorkflowRunGateway();
 
@@ -222,6 +326,7 @@ describe("handleTriggerRequest", () => {
 		expect(workflowRuns.startCalls).toEqual([]);
 		expect(workflowRuns.startProbeCalls).toEqual([]);
 		expect(workflowRuns.startSupervisionCalls).toEqual([]);
+		expect(workflowRuns.startDispatchCalls).toEqual([]);
 	});
 
 	it("returns a safe 401 without a caller token", async () => {
