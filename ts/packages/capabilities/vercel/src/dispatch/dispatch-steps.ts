@@ -38,6 +38,7 @@ import {
 	DISPATCH_LANDING_TOKEN_ENV_NAME,
 	DISPATCH_PROMPT_PATH,
 	DISPATCH_RESULT_PATH,
+	DISPATCH_SETTINGS_PATH,
 	isValidDispatchAnchorBranch,
 	parseDispatchHarnessResult,
 	planDispatchSupervision,
@@ -86,10 +87,12 @@ export function defaultDispatchStepDeps(): DispatchStepDeps {
 /**
  * Create the dispatch sandbox over the exact dispatched SHA and launch the
  * configured harness detached inside it. Everything that can be checked
- * before the billable sandbox exists is checked first (LBYL: input,
- * runtime configuration, harness invocation, launch environment); every
- * post-creation failure stops the sandbox before returning, with the
- * sandbox timeout as the backstop.
+ * before the billable sandbox exists is checked first (LBYL: input, runtime
+ * configuration). Harness configuration lives in the checkout's own root
+ * `ns.toml` at the dispatched SHA, so the harness invocation and its launch
+ * environment can only be resolved once the sandbox exists; those checks —
+ * and every other post-creation failure — stop the sandbox before
+ * returning, with the sandbox timeout as the backstop.
  */
 export async function launchDispatchRun(
 	input: DispatchRunInput,
@@ -113,26 +116,6 @@ export async function launchDispatchRun(
 		};
 	}
 	const config = configResult.value;
-
-	const harnessResult = deps.resolveHarnessInvocation();
-	if (harnessResult.ok === false) {
-		return {
-			ok: false,
-			code: "dispatch-misconfigured",
-			message: "No in-sandbox harness invocation is configured.",
-		};
-	}
-	const harness = harnessResult.value;
-
-	const launchEnvResult = resolveLaunchEnvironment(harness, deps.environment);
-	if (launchEnvResult.ok === false) {
-		return {
-			ok: false,
-			code: "dispatch-misconfigured",
-			// Variable name only — never an environment value.
-			message: `Dispatch configuration is invalid: ${launchEnvResult.variable}.`,
-		};
-	}
 
 	const minter = deps.createDispatchTokenMinter(config);
 	const mintResult = await minter.mintDispatchToken({
@@ -172,6 +155,48 @@ export async function launchDispatchRun(
 	}
 	const sandboxName = createResult.sandboxName;
 
+	// Harness choice is repo configuration at the dispatched SHA: the
+	// checkout's root ns.toml is only readable once the sandbox exists, so
+	// the remaining configuration checks run post-creation and stop the
+	// sandbox on failure rather than leak it until the sandbox timeout.
+	let settingsRead: ReadDispatchSandboxFileResult;
+	try {
+		settingsRead = await sandboxes.readSandboxFile({
+			sandboxName,
+			path: DISPATCH_SETTINGS_PATH,
+		});
+	} catch {
+		settingsRead = { ok: false };
+	}
+	if (settingsRead.ok === false) {
+		await stopSandboxBestEffort(sandboxes, sandboxName);
+		return {
+			ok: false,
+			code: "launch-failed",
+			message: "Reading the checkout's dispatch settings failed.",
+		};
+	}
+
+	const harnessResult = deps.resolveHarnessInvocation(settingsRead.content);
+	if (harnessResult.ok === false) {
+		await stopSandboxBestEffort(sandboxes, sandboxName);
+		// Non-secret by contract: the resolver's message describes versioned
+		// ns.toml configuration, never an environment value.
+		return { ok: false, code: "dispatch-misconfigured", message: harnessResult.message };
+	}
+	const harness = harnessResult.value;
+
+	const launchEnvResult = resolveLaunchEnvironment(harness, deps.environment);
+	if (launchEnvResult.ok === false) {
+		await stopSandboxBestEffort(sandboxes, sandboxName);
+		return {
+			ok: false,
+			code: "dispatch-misconfigured",
+			// Variable name only — never an environment value.
+			message: `Dispatch configuration is invalid: ${launchEnvResult.variable}.`,
+		};
+	}
+
 	const prepared = await provisionAndLaunchHarness({
 		sandboxName,
 		sandboxes,
@@ -182,15 +207,22 @@ export async function launchDispatchRun(
 	if (prepared.ok === false) {
 		// The sandbox exists but the harness never started: stop it now rather
 		// than leak it until the sandbox timeout.
-		try {
-			await sandboxes.stopSandbox({ sandboxName });
-		} catch {
-			// Best effort; the sandbox timeout is the cleanup backstop.
-		}
+		await stopSandboxBestEffort(sandboxes, sandboxName);
 		return { ok: false, code: "launch-failed", message: prepared.message };
 	}
 
 	return { ok: true, sandboxName };
+}
+
+async function stopSandboxBestEffort(
+	sandboxes: DispatchSandboxGateway,
+	sandboxName: string,
+): Promise<void> {
+	try {
+		await sandboxes.stopSandbox({ sandboxName });
+	} catch {
+		// Best effort; the sandbox timeout is the cleanup backstop.
+	}
 }
 
 type LaunchEnvironmentResolution =
