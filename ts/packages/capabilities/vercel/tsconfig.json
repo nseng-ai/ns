@@ -4,5 +4,11 @@
 		"lib": ["ES2024", "DOM"],
 		"rewriteRelativeImportExtensions": true
 	},
-	"include": ["api/**/*.ts", "scripts/**/*.ts", "src/**/*.ts", "test/**/*.ts"]
+	"include": [
+		"api/**/*.ts",
+		"scripts/**/*.ts",
+		"src/**/*.ts",
+		"test/**/*.ts",
+		"workflows/**/*.ts"
+	]
 }
