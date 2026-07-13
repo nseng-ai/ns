@@ -2,15 +2,20 @@
 
 Settled 2026-07-12 in a grill session over the research note
 (`references/git-credential-minting-research.md`; decision trail in the
-`credentials-design-settled` Semantic Update). This note records the
-credentials roadmap row's decisions with rationale, and pairs every v1
-shortcut with its named upgrade. The canonical user-facing contract remains
-`references/README-draft.md` ("Setup"); this note never overrides it.
+`credentials-design-settled` Semantic Update). Revised 2026-07-13 by the
+workflow-supervisor architecture (`workflow-supervisor-architecture-adopted`
+Semantic Update): §4 and §5 are rewritten in place — the supervisor is the
+v1 architecture, and the shared-secret and self-landing shortcuts were
+retired before implementation. §§1–3 and 6–7 stand unchanged. The
+canonical user-facing contract remains `references/README-draft.md`
+("Setup"); this note never overrides it.
 
 **Standing posture: racing to e2e prototype.** Short-term security
 sacrifices are acceptable wherever the better solution stays
-straightforward to swap in later. Each shortcut below is recorded next to
-its upgrade so the swap is a slice, not a redesign.
+straightforward to swap in later; as of the 2026-07-13 revision the
+credential path carries no such sacrifice — the remaining prototype debt
+is the App's overbroad Actions/Workflows permissions and the pending
+removal of the retired mint-secret variable.
 
 ## 1. Mechanism: GitHub App installation tokens
 
@@ -67,48 +72,52 @@ executor and for scheduled jobs, where no human credential exists.
 Rejected: app-minting for local anchor setup too (uniform bot attribution
 was not worth adding a network mint dependency to every local dispatch).
 
-## 4. Run supervision — v1: sandbox self-lands; upgrade: Vercel-side supervisor
+## 4. Run supervision: the dispatch workflow is the supervisor (revised 2026-07-13)
 
-**v1 (this slice / steel thread):** the sandbox runs an in-sandbox wrapper
-that executes the agent and then performs the landing phase itself —
-mint, push, PR update; on agent failure it posts the failure comment
-instead of results. The local CLI does preflight, anchor push + PR open,
-sandbox creation, and returns (fire-and-forget preserved).
+The formerly named upgrade is the v1 architecture: a per-dispatch **Vercel
+Workflow run** on the deployable mints the clone token, creates the
+sandbox, launches the harness inside it, supervises through poll steps and
+zero-compute sleeps, late-mints, lands results, and posts failure
+comments. The local CLI does preflight, anchor push + PR open, and the
+trigger call, then returns (fire-and-forget preserved). The workflow run
+id is the run handle stamped on the anchor PR, and the scheduled-jobs leg
+"invoking the same dispatch core" is literal: cron starts the same
+workflow.
 
-Known v1 gap, accepted: a hard sandbox crash (wrapper never reaches
-landing) leaves the anchor PR silent until the jobs TUI surfaces the run
-as stale/failed from Vercel observability.
+The original v1 — an in-sandbox wrapper that executes the agent and
+self-lands — was retired before implementation. It was never implementable
+for the pi-first steel thread (the AI SDK pi adapter runs the model loop
+in the driver process, not in the sandbox), and it carried an accepted
+hard-crash gap: a sandbox that died before landing left the anchor PR
+silent. The supervisor closes that gap by construction — it outlives the
+sandbox.
 
-**Upgrade (adopt when deploying more widely):** a Vercel-side supervisor —
-a per-dispatch function/workflow run on the deployable that mints the clone
-token, creates the sandbox, supervises, late-mints, lands results, and
-posts failure comments. It closes the hard-crash gap (the supervisor
-outlives the sandbox) and its run id becomes the natural run handle stamped
-on the anchor PR. The scheduled-jobs leg "invoking the same dispatch core"
-becomes literal.
+## 5. Mint access: in-process for the workflow; OIDC endpoint for development (revised 2026-07-13)
 
-## 5. Mint-endpoint auth — v1: shared sandbox secret; upgrade: landing voucher
+The app private key lives only on the Vercel project. Minting callers:
 
-The app private key lives only on the Vercel project, so per-run minting
-happens in a **mint endpoint on the package's deployable**. Its callers:
+- **The dispatch workflow** (clone token at sandbox creation, landing
+  token at landing time): mints **in-process** through the mint core — it
+  runs on the deployable where the key lives, so no HTTP hop and no
+  caller credential exist to protect. The landing token is injected into
+  the single landing command; no push-capable credential ever sits in the
+  sandbox environment.
+- **Development tooling** (probes, preflight): the existing
+  `POST /api/mint` endpoint, authenticated with the Vercel Development
+  OIDC token (`vercel link` + `vercel env pull`) on the dispatch-owned
+  header. The endpoint is no longer on the dispatch path.
 
-- **Local CLI** (dispatch time, clone token): authenticates with the Vercel
-  OIDC dev token (`vercel link` + `vercel env pull`). Same in v1 and after
-  the upgrade.
-- **Sandbox** (landing time, fresh token) — **v1:** a long-lived shared
-  secret injected into every sandbox authenticates the mint call. This is a
-  deliberate race-to-prototype shortcut: it is a standing credential in the
-  agent environment that can mint push tokens for the repo.
-- **Upgrade:** a per-run **landing voucher** — a JWT signed by the
-  deployable, claims: run id, repo, expiry ≈ max run duration — issued at
-  dispatch time alongside the clone token and exchangeable exactly once for
-  a 1-hour installation token. Stateless, per-run scoped; the voucher
-  itself cannot push. Implement by swapping the endpoint's auth check and
-  the injected credential; run orchestration is otherwise unchanged.
+Retired before implementation (2026-07-13): the v1 **shared sandbox mint
+secret** (a standing credential in the agent environment that could mint
+push tokens) and its named upgrade, the per-run **landing voucher** — with
+no sandbox-initiated minting in the architecture, there is nothing for a
+voucher to authenticate. The deployed `NS_DISPATCH_SANDBOX_MINT_SECRET`
+production variable is purposeless; remove it once the workflow spine
+lands (tracked on the credentials roadmap row).
 
-Rejected: the (possibly expired) clone token as proof-of-run — an expired
-token proves nothing and an unexpired one makes the endpoint accept any
-holder of any repo token.
+Rejected (2026-07-12, still instructive): the (possibly expired) clone
+token as proof-of-run — an expired token proves nothing and an unexpired
+one makes the endpoint accept any holder of any repo token.
 
 ## 6. GitHub App identity: org-owned
 
@@ -139,18 +148,17 @@ human account; owes a re-registration later).
   reachable; required model keys present on the project (names only, via
   the deployable); clean tree; anchor push feasibility.
 
-## What remains to implement (interleaves with the steel thread)
+## What remains to implement (interleaves with the workflow spine)
 
-The decisions above are settled; the implementation is code and one-time
-setup that lands with or just before the steel thread, since the mint
-endpoint lives on the package's deployable and the package is created by
-the steel-thread row:
+Items 1–3 of the original list landed 2026-07-12/13 (App registration and
+installation; the linked package-root Vercel project with production
+variables; the OIDC-authenticated mint endpoint, verified by a billable
+private-repository probe). Remaining after the 2026-07-13 revision:
 
-1. Register the `ns-dispatch` GitHub App under nseng-ai; install on the
-   repo; key into a sensitive env var (one-time, human).
-2. Create the dispatch Vercel project rooted at the
-   `ts/packages/capabilities/vercel` package; add model keys and the v1 shared
-   sandbox secret (one-time).
-3. Mint endpoint on the deployable (v1 auth: OIDC for the CLI, shared
-   secret for sandboxes), with the voucher upgrade noted in code.
-4. Dispatch preflight per §7.
+1. Expose the mint core for in-process use by the dispatch workflow
+   (clone and landing phases), keeping the HTTP endpoint for the
+   Development probe/preflight path.
+2. Dispatch preflight per §7 (plus workflow deployment health).
+3. Remove the retired `NS_DISPATCH_SANDBOX_MINT_SECRET` production
+   variable once the workflow spine lands; tighten the App's extra
+   Actions/Workflows write permissions before wider deployment.

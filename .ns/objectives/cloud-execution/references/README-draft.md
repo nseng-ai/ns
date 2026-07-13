@@ -114,8 +114,8 @@ running, landed, or failed — each with its anchor PR, and failed ones with
 the failure reason and access to the run's logs. This is how you answer
 "what did I send away, and is it done?" from the terminal instead of a
 browser tab. The TUI enumerates the `dispatch/` anchor PRs and follows each
-one's run handle into Vercel's own run observability for live state and
-logs. (Command name: see Open questions.)
+one's stamped workflow run id into Vercel's own run observability for live
+state and logs. (Command name: see Open questions.)
 
 ### Under the hood
 
@@ -125,10 +125,15 @@ and Codex get the identical commands through wrapper skills. Pi is the
 first-documented experience, not a privileged one.
 
 There is no per-dispatch backend, harness, or model choice — you dispatch
-work, not runtimes. Cloud dispatch is Vercel-native: the `@nseng-ai/vercel`
-capability package runs dispatches on Vercel Sandbox and scheduled work on
-Vercel Workflows. Which agent harness runs inside the sandbox is
-preconfigured in the repository (see "Setup").
+work, not runtimes. Cloud dispatch is Vercel-native: every dispatch —
+interactive or scheduled — is a **Vercel Workflow run** that durably
+supervises the job from start to finish. The workflow creates an isolated
+Vercel Sandbox with a fresh checkout of your repository, launches the
+configured agent harness as a process inside it, watches the run while
+your session gets on with other things, and lands the results through git
+when it finishes — so a run can take hours, and a crash anywhere still
+gets reported on the anchor PR. Which agent harness runs inside the
+sandbox is preconfigured in the repository (see "Setup").
 
 ## The anchor PR
 
@@ -137,9 +142,9 @@ submitted: a new `dispatch/`-prefixed branch based at the commit you
 dispatched from is pushed, and a PR opens for it immediately. The PR is the
 job's anchor — one durable, linkable place where the dispatch is observable
 from the moment it exists. At submission the PR is stamped with the run's
-handle, so anything (you, the jobs TUI) can get from the PR to the run's
-state and logs later — the anchor PR is the durable record, not a local
-ledger or a cloud console.
+handle — the supervising workflow's run id — so anything (you, the jobs
+TUI) can get from the PR to the run's state and logs later — the anchor PR
+is the durable record, not a local ledger or a cloud console.
 
 - **While the run executes**, the anchor PR is where a dispatch is visible
   outside your terminal.
@@ -163,7 +168,7 @@ place.
 
 ## Scheduled cloud work
 
-The same executor powers durable, scheduled jobs: recurring ns work that
+Scheduled jobs trigger the same dispatch workflow: recurring ns work that
 dispatches on a schedule instead of from a session, landing exactly what an
 interactive dispatch lands — an anchor PR per unit of work. Examples:
 
@@ -175,9 +180,9 @@ interactive dispatch lands — an anchor PR per unit of work. Examples:
   appear instead of letting branches rot.
 
 Scheduled jobs never merge or land anything on their own: every PR a job
-opens waits for human review. The job layer only schedules and supervises
-dispatches — all agent work happens inside the same executor that serves
-dispatch.
+opens waits for human review. A schedule only decides *when* a dispatch
+starts — every scheduled unit runs through the identical
+workflow-supervised execution as an interactive dispatch.
 
 ## Setup
 
@@ -211,9 +216,10 @@ dispatch, using Vercel's own secrets infrastructure:
   verification. GitHub's App Manifest flow can instead return a PEM once while
   creating a new App; it does not rotate an existing App's key. Non-secret app
   and installation IDs use `NS_DISPATCH_GITHUB_APP_ID` and
-  `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID`; the prototype's landing-time shared
-  secret uses the sensitive `NS_DISPATCH_SANDBOX_MINT_SECRET` variable.
-  Anchor-PR activity from remote runs attributes to `ns-dispatch[bot]`.
+  `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID`. Tokens are minted by the
+  supervising dispatch workflow itself, in-process on the deployable where
+  the key lives — no minting credential exists outside it. Anchor-PR
+  activity from remote runs attributes to `ns-dispatch[bot]`.
 - **Executor auth** is Vercel OIDC federation: Vercel-hosted compute gets a
   short-lived token injected automatically, and dispatching from your own
   machine uses the development token from `vercel link` + `vercel env pull`.
@@ -224,25 +230,28 @@ dispatch, using Vercel's own secrets infrastructure:
 Sandboxes are secret-free by default: each run receives only the credentials
 it needs, injected at sandbox creation — and the git credential is phased:
 a clone-scoped token at start, no token while the agent works, and a fresh
-short-lived token minted only when the run is ready to land its results.
-Dispatch preflights credentials and reports exactly what is missing before
-any remote work starts.
+short-lived landing token minted by the supervising workflow only when the
+run is ready to land — injected into the single landing command, never
+into the sandbox environment. Dispatch preflights credentials and reports
+exactly what is missing before any remote work starts.
 
 ### Mint endpoint configuration
 
-The dispatch deployable's `POST /api/mint` endpoint reads these variables:
+The dispatch deployable's `POST /api/mint` endpoint serves the Development
+probe and preflight path; the dispatch workflow mints in-process through
+the same core and reads the same variables. The endpoint reads:
 
-| Variable                                 | Sensitivity | Purpose                                                        |
-| ---------------------------------------- | ----------- | -------------------------------------------------------------- |
-| `NS_DISPATCH_GITHUB_APP_ID`              | Non-secret  | GitHub App identifier                                          |
-| `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID` | Non-secret  | Installation restricted to the configured repository           |
-| `NS_DISPATCH_GITHUB_APP_PRIVATE_KEY`     | Sensitive   | Signs GitHub App authentication; never pull to a dev machine   |
-| `NS_DISPATCH_SANDBOX_MINT_SECRET`        | Sensitive   | Prototype landing credential; replace with a per-run voucher   |
-| `NS_DISPATCH_GITHUB_REPOSITORY`          | Non-secret  | Exact authorized `owner/repo`; also needed in Development      |
-| `NS_DISPATCH_VERCEL_TEAM_ID`             | Non-secret  | Required development-token `owner_id`                          |
-| `NS_DISPATCH_VERCEL_PROJECT_ID`          | Non-secret  | Required development-token `project_id`                        |
-| `NS_DISPATCH_VERCEL_OIDC_ISSUER`         | Non-secret  | Exact trusted issuer used for signature and claim verification |
-| `NS_DISPATCH_VERCEL_OIDC_AUDIENCE`       | Non-secret  | Exact trusted audience                                         |
+| Variable                                 | Sensitivity | Purpose                                                                               |
+| ---------------------------------------- | ----------- | ------------------------------------------------------------------------------------- |
+| `NS_DISPATCH_GITHUB_APP_ID`              | Non-secret  | GitHub App identifier                                                                 |
+| `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID` | Non-secret  | Installation restricted to the configured repository                                  |
+| `NS_DISPATCH_GITHUB_APP_PRIVATE_KEY`     | Sensitive   | Signs GitHub App authentication; never pull to a dev machine                          |
+| `NS_DISPATCH_SANDBOX_MINT_SECRET`        | Sensitive   | Retired 2026-07-13 (workflow mints in-process); remove after the workflow spine lands |
+| `NS_DISPATCH_GITHUB_REPOSITORY`          | Non-secret  | Exact authorized `owner/repo`; also needed in Development                             |
+| `NS_DISPATCH_VERCEL_TEAM_ID`             | Non-secret  | Required development-token `owner_id`                                                 |
+| `NS_DISPATCH_VERCEL_PROJECT_ID`          | Non-secret  | Required development-token `project_id`                                               |
+| `NS_DISPATCH_VERCEL_OIDC_ISSUER`         | Non-secret  | Exact trusted issuer used for signature and claim verification                        |
+| `NS_DISPATCH_VERCEL_OIDC_AUDIENCE`       | Non-secret  | Exact trusted audience                                                                |
 
 Vercel sensitive variables are write-only and their keys cannot be renamed.
 Create replacement sensitive variables for a namespace migration, stream fresh
@@ -333,9 +342,11 @@ Common safe failure signals to preserve in the eventual setup skill:
 
 The command shape, fake-driven behavior, deployment boundary, Development-token
 trust check, and one controlled billable private-repository Sandbox probe are
-verified. The shared landing secret and sandbox self-landing remain prototype
-shortcuts; their named upgrades are the per-run landing voucher and Vercel-side
-supervisor.
+verified. The formerly recorded prototype shortcuts — the shared landing
+secret and the self-landing sandbox — were retired 2026-07-13 by the
+workflow-supervisor architecture before implementation: the supervising
+workflow mints in-process and no push-capable credential enters the
+sandbox environment.
 
 ## Open questions
 
