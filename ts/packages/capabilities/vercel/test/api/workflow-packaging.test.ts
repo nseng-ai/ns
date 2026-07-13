@@ -10,6 +10,7 @@ import {
 	ROUTE_TRIGGERED_WORKFLOW_IDS,
 } from "../../scripts/build-deployable.ts";
 import { helloWorkflowId } from "../../workflows/hello.ts";
+import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
 
 const flowVcConfig = {
 	runtime: "nodejs22.x",
@@ -190,8 +191,9 @@ describe("findMissingWorkflowManifestIds", () => {
 		).toEqual(["workflow//./workflows/hello//helloWorkflow"]);
 	});
 
-	it("covers the hello workflow id the trigger route starts by metadata", () => {
+	it("covers every workflow id the trigger route starts by metadata", () => {
 		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(helloWorkflowId);
+		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(sandboxProbeWorkflowId);
 	});
 });
 

@@ -21,9 +21,16 @@ export interface VercelSandboxSdkCreateOptions {
 		readonly depth: 1;
 		readonly revision: string;
 	};
-	readonly token: string;
-	readonly projectId: string;
-	readonly teamId: string;
+	/**
+	 * Explicit Sandbox API credentials. Omitted for the
+	 * `function-workload-identity` source, where `Sandbox.create` resolves the
+	 * deployed Function's own OIDC identity ambiently.
+	 */
+	readonly credentials?: {
+		readonly token: string;
+		readonly projectId: string;
+		readonly teamId: string;
+	};
 }
 
 export interface VercelSandboxSdkCommand {
@@ -58,9 +65,13 @@ const vercelSandboxSdk: VercelSandboxSdk = {
 				depth: options.source.depth,
 				revision: options.source.revision,
 			},
-			token: options.token,
-			projectId: options.projectId,
-			teamId: options.teamId,
+			...(options.credentials === undefined
+				? {}
+				: {
+						token: options.credentials.token,
+						projectId: options.credentials.projectId,
+						teamId: options.credentials.teamId,
+					}),
 		});
 		return {
 			name: sandbox.name,
@@ -85,14 +96,21 @@ export function createRealVercelSandboxGateway(
 			options: CreateVercelGitSandboxOptions,
 		): Promise<CreateVercelSandboxResult> {
 			try {
+				const credentials = options.credentials;
 				const sandbox = await sdk.create({
 					runtime: options.runtime,
 					persistent: options.persistent,
 					timeout: options.timeoutMs,
 					source: { ...options.source },
-					token: options.credentials.oidcToken,
-					projectId: options.credentials.projectId,
-					teamId: options.credentials.teamId,
+					...(credentials.type === "explicit-oidc-token"
+						? {
+								credentials: {
+									token: credentials.oidcToken,
+									projectId: credentials.projectId,
+									teamId: credentials.teamId,
+								},
+							}
+						: {}),
 				});
 				return { ok: true, sandbox: new RealVercelSandboxSession(sandbox) };
 			} catch {

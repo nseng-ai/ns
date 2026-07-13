@@ -40,9 +40,12 @@ async function main(): Promise<boolean> {
 		{
 			repository: inputs.repository,
 			revision: inputs.revision,
-			vercelOidcToken: inputs.oidcToken,
-			vercelProjectId: configResult.value.vercelProjectId,
-			vercelTeamId: configResult.value.vercelTeamId,
+			credentials: {
+				type: "explicit-oidc-token",
+				oidcToken: inputs.oidcToken,
+				projectId: configResult.value.vercelProjectId,
+				teamId: configResult.value.vercelTeamId,
+			},
 		},
 		{
 			cloneTokens: createHttpsCloneTokenMintGateway({

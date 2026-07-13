@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 import { helloWorkflowId } from "../workflows/hello.ts";
+import { sandboxProbeWorkflowId } from "../workflows/sandbox-probe.ts";
 
 export interface MissingRelativeModuleTarget {
 	readonly sourcePath: string;
@@ -130,7 +131,10 @@ const workflowManifestEntrySchema = z.looseObject({
  * present in the emitted manifest or the deployed route would fail at
  * runtime.
  */
-export const ROUTE_TRIGGERED_WORKFLOW_IDS: readonly string[] = [helloWorkflowId];
+export const ROUTE_TRIGGERED_WORKFLOW_IDS: readonly string[] = [
+	helloWorkflowId,
+	sandboxProbeWorkflowId,
+];
 
 export function findMissingWorkflowManifestIds(
 	manifest: unknown,

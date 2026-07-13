@@ -10,9 +10,7 @@ export const SANDBOX_HELLO_COMMAND = {
 export interface SandboxHelloProbeOptions {
 	readonly repository: string;
 	readonly revision: string;
-	readonly vercelOidcToken: string;
-	readonly vercelProjectId: string;
-	readonly vercelTeamId: string;
+	readonly credentials: VercelSandboxCredentialSource;
 }
 
 export interface CloneTokenMintGateway {
@@ -38,12 +36,25 @@ export interface VercelSandboxCredentials {
 	readonly teamId: string;
 }
 
+/**
+ * Where the Sandbox API credentials come from:
+ *
+ * - `explicit-oidc-token` — the caller supplies a Vercel OIDC token plus the
+ *   project/team scope (the local development probe path: `vercel env pull`).
+ * - `function-workload-identity` — no credentials are passed and the Sandbox
+ *   SDK resolves the deployed Function's own OIDC workload identity ambiently
+ *   (the workflow-step path; live behavior pending verification).
+ */
+export type VercelSandboxCredentialSource =
+	| ({ readonly type: "explicit-oidc-token" } & VercelSandboxCredentials)
+	| { readonly type: "function-workload-identity" };
+
 export interface CreateVercelGitSandboxOptions {
 	readonly runtime: "node24";
 	readonly persistent: false;
 	readonly timeoutMs: number;
 	readonly source: VercelSandboxGitSource;
-	readonly credentials: VercelSandboxCredentials;
+	readonly credentials: VercelSandboxCredentialSource;
 }
 
 export type VercelSandboxCommandResult =
@@ -138,11 +149,7 @@ export async function runSandboxHelloProbe(
 				depth: 1,
 				revision: requestedRevision,
 			},
-			credentials: {
-				oidcToken: options.vercelOidcToken,
-				projectId: options.vercelProjectId,
-				teamId: options.vercelTeamId,
-			},
+			credentials: options.credentials,
 		});
 	} catch {
 		return failure("sandbox-create-failed", "Sandbox creation failed.");

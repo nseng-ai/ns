@@ -19,5 +19,8 @@ export type ReadWorkflowRunStatusResult =
 
 export interface WorkflowRunGateway {
 	startHelloWorkflow(options: { readonly name: string }): Promise<StartWorkflowRunResult>;
+	startSandboxProbeWorkflow(options: {
+		readonly revision: string;
+	}): Promise<StartWorkflowRunResult>;
 	readWorkflowRunStatus(options: { readonly runId: string }): Promise<ReadWorkflowRunStatusResult>;
 }

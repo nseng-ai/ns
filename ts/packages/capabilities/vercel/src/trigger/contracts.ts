@@ -4,14 +4,25 @@
 // stable codes only; nothing here has been live-verified on Vercel yet.
 import { z } from "zod";
 
-export const triggerWorkflowValues = ["hello"] as const;
+export const triggerWorkflowValues = ["hello", "sandbox-probe"] as const;
 
 export type TriggerWorkflowName = (typeof triggerWorkflowValues)[number];
 
-export const triggerRequestSchema = z.strictObject({
-	workflow: z.enum(triggerWorkflowValues),
-	name: z.string().min(1).max(200),
-});
+const commitShaSchema = z.string().regex(/^[0-9a-fA-F]{40}$/);
+
+export const triggerRequestSchema = z.discriminatedUnion("workflow", [
+	z.strictObject({
+		workflow: z.literal("hello"),
+		name: z.string().min(1).max(200),
+	}),
+	// Probe-2: the sandbox-in-workflow probe takes only the exact commit SHA
+	// to check out; the repository is the deployable's configured exact
+	// repository, never caller input.
+	z.strictObject({
+		workflow: z.literal("sandbox-probe"),
+		revision: commitShaSchema,
+	}),
+]);
 
 export type TriggerRequest = z.infer<typeof triggerRequestSchema>;
 
