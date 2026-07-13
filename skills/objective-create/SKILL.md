@@ -17,6 +17,7 @@ New records live in the active root only, `.ns/objectives/<slug>/`, with `object
 `objective.md` uses the umbrella skill's required headings.
 
 - `## Assumptions and Risks` must distinguish assumptions from risks, with enough context for a future `objective-update` to mark an assumption incorrect, a risk de-risked or not, or add newly discovered ones.
+- When the record accepts a deliberate shortcut — a prototype-race sacrifice of security, scope, or quality — never record the shortcut alone: name its upgrade beside it, so the later swap is a slice rather than a redesign and a future `objective-update` can retire the pair together.
 - Default to planning-only: execution-policy sections are never mandatory and appear only when the user explicitly asks for execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point. When they apply, read `references/execution-friendly-create.md` before asking policy questions.
 
 `roadmap.md` uses the umbrella skill's required headings, statuses, row sizing, validation-rows-as-evidence rule, and prose-guidance rules. Creation delta: when validation surfaces as a branch point in the interview, steer it into completion evidence under a semantic row — e.g. an indented `Evidence: targeted tests and relevant repo checks passed` — never a standalone final row.
