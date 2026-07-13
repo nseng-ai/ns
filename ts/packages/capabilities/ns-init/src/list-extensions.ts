@@ -83,17 +83,90 @@ export interface ExtensionListContext {
 	readonly artifactProvisioningStatus: ArtifactProvisioningStatusGateway;
 }
 
-interface MutableExtensionListRow {
-	sourceSpec: string;
-	sourceKind: ExtensionListRow["sourceKind"];
-	packageName?: string;
-	packageVersion?: string;
-	moduleRoot?: string;
-	acquisitionStatus: ExtensionListRow["acquisitionStatus"];
-	artifactStatus: ExtensionListRow["artifactStatus"];
-	artifactCount: number;
-	affectedArtifactCount: number;
-	diagnostics: readonly ExtensionListDiagnostic[];
+class ExtensionListRowAccumulator {
+	private row: ExtensionListRow;
+
+	constructor(row: ExtensionListRow) {
+		this.row = {
+			...row,
+			diagnostics: row.diagnostics.map((diagnostic) => ({ ...diagnostic })),
+		};
+	}
+
+	get sourceSpec(): string {
+		return this.row.sourceSpec;
+	}
+
+	get sourceKind(): ExtensionListRow["sourceKind"] {
+		return this.row.sourceKind;
+	}
+
+	get moduleRoot(): string | undefined {
+		return this.row.moduleRoot;
+	}
+
+	get acquisitionStatus(): ExtensionListRow["acquisitionStatus"] {
+		return this.row.acquisitionStatus;
+	}
+
+	get hasDiagnostics(): boolean {
+		return this.row.diagnostics.length > 0;
+	}
+
+	addDiagnostic(diagnostic: ExtensionListDiagnostic): void {
+		this.row = {
+			...this.row,
+			diagnostics: [...appendDiagnosticToCollection(this.row.diagnostics, diagnostic)],
+		};
+	}
+
+	recordDescriptorDiagnostic(options: {
+		readonly acquisitionStatus: "missing" | "invalid";
+		readonly diagnostic: ExtensionListDiagnostic;
+	}): void {
+		this.row = {
+			...this.row,
+			acquisitionStatus: options.acquisitionStatus,
+			artifactStatus: "unavailable",
+		};
+		this.addDiagnostic(options.diagnostic);
+	}
+
+	recordLoadedDescriptor(descriptor: DeclaredExtensionDescriptor): void {
+		this.row = {
+			...this.row,
+			acquisitionStatus: "installed",
+			sourceKind: descriptor.sourceKind,
+			packageName: descriptor.packageName,
+			packageVersion: descriptor.version,
+			moduleRoot: descriptor.moduleRoot,
+			artifactStatus: "none",
+		};
+	}
+
+	markArtifactUnavailable(diagnostic: ExtensionListDiagnostic): void {
+		this.row = { ...this.row, artifactStatus: "unavailable" };
+		this.addDiagnostic(diagnostic);
+	}
+
+	recordArtifactSummary(summary: ArtifactProvisioningStatusSummary): void {
+		this.row = {
+			...this.row,
+			artifactStatus: summary.artifactStatus,
+			artifactCount: summary.artifactCount,
+			affectedArtifactCount: summary.affectedArtifactCount,
+		};
+		for (const diagnostic of summary.diagnostics) {
+			this.addDiagnostic(normalizeExtensionListDiagnostic(diagnostic));
+		}
+	}
+
+	finalize(): ExtensionListRow {
+		return {
+			...this.row,
+			diagnostics: this.row.diagnostics.map((diagnostic) => ({ ...diagnostic })),
+		};
+	}
 }
 
 export async function listExtensions(
@@ -160,8 +233,7 @@ export async function listExtensions(
 	if (parsedHarnesses.type === "missing") {
 		for (const row of rows) {
 			if (row.acquisitionStatus !== "installed") continue;
-			row.artifactStatus = "unavailable";
-			appendDiagnostic(row, {
+			row.markArtifactUnavailable({
 				code: "harnesses-missing",
 				message: "ns.toml does not configure project harnesses, so artifact status is unavailable.",
 				path: configPath,
@@ -176,10 +248,14 @@ export async function listExtensions(
 		attachArtifactSummaries(rows, installedDescriptors, summaries);
 	}
 
-	return ok({ repoRoot, configPath, extensions: rows.map(finalizeRow) });
+	return ok({
+		repoRoot,
+		configPath,
+		extensions: rows.map((row) => row.finalize()),
+	});
 }
 
-function createRowSkeleton(repoRoot: string, sourceSpec: string): MutableExtensionListRow {
+function createRowSkeleton(repoRoot: string, sourceSpec: string): ExtensionListRowAccumulator {
 	const classification = classifyExtensionSourceLifecycle(repoRoot, sourceSpec);
 	const base = {
 		sourceSpec,
@@ -191,13 +267,21 @@ function createRowSkeleton(repoRoot: string, sourceSpec: string): MutableExtensi
 	};
 	switch (classification.type) {
 		case "supported-npm":
-			return { ...base, sourceKind: "npm", packageName: classification.source.packageName };
+			return new ExtensionListRowAccumulator({
+				...base,
+				sourceKind: "npm",
+				packageName: classification.source.packageName,
+			});
 		case "supported-local":
-			return { ...base, sourceKind: "local", moduleRoot: classification.source.path };
+			return new ExtensionListRowAccumulator({
+				...base,
+				sourceKind: "local",
+				moduleRoot: classification.source.path,
+			});
 		case "unsupported-git":
-			return { ...base, sourceKind: "git" };
+			return new ExtensionListRowAccumulator({ ...base, sourceKind: "git" });
 		case "unsupported-other":
-			return {
+			return new ExtensionListRowAccumulator({
 				...base,
 				sourceKind: "unsupported",
 				diagnostics: [
@@ -206,14 +290,14 @@ function createRowSkeleton(repoRoot: string, sourceSpec: string): MutableExtensi
 						message: classification.message,
 					},
 				],
-			};
+			});
 		case "invalid-npm":
-			return { ...base, sourceKind: "npm" };
+			return new ExtensionListRowAccumulator({ ...base, sourceKind: "npm" });
 	}
 }
 
 function attachDescriptorDiagnostics(
-	rows: readonly MutableExtensionListRow[],
+	rows: readonly ExtensionListRowAccumulator[],
 	diagnostics: readonly DeclaredExtensionDescriptorDiagnostic[],
 ): void {
 	for (const diagnostic of diagnostics) {
@@ -221,24 +305,25 @@ function attachDescriptorDiagnostics(
 		const outward = normalizeExtensionListDiagnostic(diagnostic);
 		for (const row of rows) {
 			if (!affectedSpecs.has(row.sourceSpec)) continue;
-			if (row.sourceKind === "unsupported" && row.diagnostics.length > 0) continue;
-			row.acquisitionStatus =
-				diagnostic.code === "extension_descriptor_package_missing" ? "missing" : "invalid";
-			row.artifactStatus = "unavailable";
-			appendDiagnostic(row, outward);
+			if (row.sourceKind === "unsupported" && row.hasDiagnostics) continue;
+			row.recordDescriptorDiagnostic({
+				acquisitionStatus:
+					diagnostic.code === "extension_descriptor_package_missing" ? "missing" : "invalid",
+				diagnostic: outward,
+			});
 		}
 	}
 }
 
 function attachLoadedDescriptors(
-	rows: readonly MutableExtensionListRow[],
+	rows: readonly ExtensionListRowAccumulator[],
 	descriptors: readonly DeclaredExtensionDescriptor[],
 ): void {
 	for (const descriptor of descriptors) {
 		const matchingRows = rows.filter((row) => row.sourceSpec === descriptor.spec);
 		if (matchingRows.length !== 1) {
 			for (const row of matchingRows) {
-				appendDiagnostic(row, {
+				row.addDiagnostic({
 					code: "extension-descriptor-attribution-ambiguous",
 					message: `Loaded descriptor facts for ${descriptor.spec} cannot be attributed to one declaration row.`,
 				});
@@ -246,20 +331,15 @@ function attachLoadedDescriptors(
 			continue;
 		}
 		const row = matchingRows[0];
-		if (row === undefined || row.diagnostics.length > 0) continue;
-		row.acquisitionStatus = "installed";
-		row.sourceKind = descriptor.sourceKind;
-		row.packageName = descriptor.packageName;
-		row.packageVersion = descriptor.version;
-		row.moduleRoot = descriptor.moduleRoot;
-		row.artifactStatus = "none";
+		if (row === undefined || row.hasDiagnostics) continue;
+		row.recordLoadedDescriptor(descriptor);
 	}
 }
 
-function markRowsWithoutDescriptorEvidence(rows: readonly MutableExtensionListRow[]): void {
+function markRowsWithoutDescriptorEvidence(rows: readonly ExtensionListRowAccumulator[]): void {
 	for (const row of rows) {
-		if (row.acquisitionStatus !== "invalid" || row.diagnostics.length > 0) continue;
-		appendDiagnostic(row, {
+		if (row.acquisitionStatus !== "invalid" || row.hasDiagnostics) continue;
+		row.addDiagnostic({
 			code: "extension-descriptor-status-unavailable",
 			message: `No descriptor or diagnostic was returned for declared extension ${row.sourceSpec}.`,
 		});
@@ -267,7 +347,7 @@ function markRowsWithoutDescriptorEvidence(rows: readonly MutableExtensionListRo
 }
 
 function attachArtifactSummaries(
-	rows: readonly MutableExtensionListRow[],
+	rows: readonly ExtensionListRowAccumulator[],
 	descriptors: readonly DeclaredExtensionDescriptor[],
 	summaries: readonly ArtifactProvisioningStatusSummary[],
 ): void {
@@ -283,8 +363,7 @@ function attachArtifactSummaries(
 		);
 		if (descriptorRows.length !== 1 || matchingSummaries.length !== 1) {
 			for (const row of descriptorRows) {
-				row.artifactStatus = "unavailable";
-				appendDiagnostic(row, {
+				row.markArtifactUnavailable({
 					code: "artifact-status-attribution-failed",
 					message: `Expected exactly one artifact status summary for ${descriptor.moduleRoot}.`,
 				});
@@ -294,12 +373,7 @@ function attachArtifactSummaries(
 		const row = descriptorRows[0];
 		const summary = matchingSummaries[0];
 		if (row === undefined || summary === undefined) continue;
-		row.artifactStatus = summary.artifactStatus;
-		row.artifactCount = summary.artifactCount;
-		row.affectedArtifactCount = summary.affectedArtifactCount;
-		for (const diagnostic of summary.diagnostics) {
-			appendDiagnostic(row, normalizeExtensionListDiagnostic(diagnostic));
-		}
+		row.recordArtifactSummary(summary);
 	}
 }
 
@@ -316,10 +390,6 @@ function normalizeExtensionListDiagnostic(diagnostic: {
 	};
 }
 
-function appendDiagnostic(row: MutableExtensionListRow, diagnostic: ExtensionListDiagnostic): void {
-	row.diagnostics = appendDiagnosticToCollection(row.diagnostics, diagnostic);
-}
-
 function extensionListConfigFailure(diagnostic: {
 	readonly code: string;
 	readonly message: string;
@@ -329,21 +399,6 @@ function extensionListConfigFailure(diagnostic: {
 	return failure("ns-extension-list-config-invalid", normalized.message, {
 		diagnostics: [normalized],
 	});
-}
-
-function finalizeRow(row: MutableExtensionListRow): ExtensionListRow {
-	return {
-		sourceSpec: row.sourceSpec,
-		sourceKind: row.sourceKind,
-		...(row.packageName === undefined ? {} : { packageName: row.packageName }),
-		...(row.packageVersion === undefined ? {} : { packageVersion: row.packageVersion }),
-		...(row.moduleRoot === undefined ? {} : { moduleRoot: row.moduleRoot }),
-		acquisitionStatus: row.acquisitionStatus,
-		artifactStatus: row.artifactStatus,
-		artifactCount: row.artifactCount,
-		affectedArtifactCount: row.affectedArtifactCount,
-		diagnostics: row.diagnostics.map((diagnostic) => ({ ...diagnostic })),
-	};
 }
 
 export function renderListExtensionsHuman(result: ListExtensionsResult): string {

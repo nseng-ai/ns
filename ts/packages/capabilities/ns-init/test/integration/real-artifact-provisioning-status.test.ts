@@ -169,7 +169,7 @@ describe("RealArtifactProvisioningStatusGateway", () => {
 	});
 
 	test("reports discovery and whole-inspection failures as unavailable data", async () => {
-		const fixture = await artifactFixture({ writeSkill: false });
+		const fixture = await artifactFixture({ shouldWriteSkill: false });
 		const gateway = new RealArtifactProvisioningStatusGateway();
 		const discovery = await gateway.inspect({
 			repoRoot: fixture.repoRoot,
@@ -211,7 +211,7 @@ describe("RealArtifactProvisioningStatusGateway", () => {
 	});
 
 	test("reports ambiguous discovery attribution explicitly for duplicate package names", async () => {
-		const fixture = await artifactFixture({ writeSkill: false });
+		const fixture = await artifactFixture({ shouldWriteSkill: false });
 		const healthyRoot = join(fixture.root, "healthy-extension");
 		await mkdir(healthyRoot, { recursive: true });
 		const healthyDescriptor = descriptor({
@@ -354,7 +354,7 @@ describe("RealArtifactProvisioningStatusGateway", () => {
 	});
 });
 
-async function artifactFixture(options: { writeSkill?: boolean } = {}): Promise<{
+async function artifactFixture(options: { shouldWriteSkill?: boolean } = {}): Promise<{
 	root: string;
 	repoRoot: string;
 	descriptor: DeclaredExtensionDescriptor;
@@ -365,7 +365,7 @@ async function artifactFixture(options: { writeSkill?: boolean } = {}): Promise<
 	const moduleRoot = join(root, "extension");
 	await mkdir(join(moduleRoot, "skills/demo"), { recursive: true });
 	await mkdir(repoRoot, { recursive: true });
-	if (options.writeSkill !== false) {
+	if (options.shouldWriteSkill !== false) {
 		await writeFile(join(moduleRoot, "skills/demo/SKILL.md"), "# Demo\n");
 	}
 	return {
