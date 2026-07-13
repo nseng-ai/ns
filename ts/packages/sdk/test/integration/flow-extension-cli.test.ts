@@ -104,12 +104,21 @@ describe("checked-in flow ns extension loading", () => {
 			cwd,
 		});
 		expect(await help.exit).toBe(0);
-		const output = help.stdout.join("");
+		const output = help.stdout.join("").replace(/\s+/g, " ");
 		expect(output).toContain("Usage: ns flow branch-latest-commit");
 		expect(output).toContain("--slug");
 		expect(output).toContain("clean worktree");
-		expect(output).toContain("latest eligible unpushed single-parent commit");
-		expect(output).toContain("does not push, publish, submit, or update PRs");
+		expect(output).toContain("latest eligible single-parent commit");
+		expect(output).toContain("has no upstream");
+		expect(output).toContain("locally ahead of its locally known upstream");
+		expect(output).toContain("exactly synchronized on a non-trunk branch");
+		expect(output).toContain(
+			"Remote-ahead, diverged, and exactly synchronized configured Graphite trunk states are refused",
+		);
+		expect(output).toContain("only local tracking refs and do not fetch");
+		expect(output).toContain("local-only Graphite branch");
+		expect(output).toContain("does not fetch, push, publish, submit, or update PRs");
+		expect(output).toContain("explicitly run `ns flow submit` from the new child");
 		expect(output).toContain("ns flow autobranch");
 		expect(output).not.toContain("stashes pending changes");
 		expect(help.stderr.join("")).toBe("");
@@ -129,13 +138,14 @@ describe("checked-in flow ns extension loading", () => {
 
 		const help = runWithRealFlowExtension({ args: ["flow", "autobranch", "--help"], cwd });
 		expect(await help.exit).toBe(0);
-		const output = help.stdout.join("");
+		const output = help.stdout.join("").replace(/\s+/g, " ");
 		expect(output).toContain("Usage: ns flow autobranch");
 		expect(output).toContain("--slug");
 		expect(output).toContain("gt create");
 		expect(output).toContain("dirty worktree changes");
 		expect(output).toContain("ns flow branch-latest-commit");
-		expect(output).not.toContain(["eligible unpushed", "non-merge commit"].join(" "));
+		expect(output).toContain("latest eligible commit");
+		expect(output).not.toContain("eligible unpushed");
 		expect(output).toContain("NS_SLUG_MODEL");
 		expect(output).toContain("NS_CHECKPOINT_MODEL");
 		expect(output).toContain("NS_DEV_CHECKPOINT_MODEL");

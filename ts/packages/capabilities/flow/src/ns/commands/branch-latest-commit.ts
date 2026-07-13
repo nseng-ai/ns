@@ -10,9 +10,11 @@ import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-r
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { createAutobranchDispatchEnv } from "../worktree.ts";
 
-const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible unpushed single-parent commit to a new Graphite child branch.
+const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible single-parent commit to a new Graphite child branch.
 
-This command requires a clean worktree. It creates a local-only Graphite branch with \`gt create\`, resets the source branch to the commit parent, hard-resets the new child branch to the original commit SHA, verifies HEAD, and cleans up recovery evidence. It does not push, publish, submit, or update PRs.
+This command requires a clean worktree. The latest commit is eligible when the source has no upstream, is locally ahead of its locally known upstream, or is exactly synchronized on a non-trunk branch. Remote-ahead, diverged, and exactly synchronized configured Graphite trunk states are refused. Upstream checks use only local tracking refs and do not fetch.
+
+It creates a local-only Graphite branch with \`gt create\`, resets the source branch to the commit parent, hard-resets the new child branch to the original commit SHA, verifies HEAD, and cleans up recovery evidence. The mutation does not fetch, push, publish, submit, or update PRs. After a synchronized success, the upstream remains unchanged; explicitly run \`ns flow submit\` from the new child to publish the reshaped stack.
 
 Use \`ns flow autobranch\` instead when pending dirty worktree changes should be moved to a new branch.
 
@@ -70,7 +72,7 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 				case "flow": {
 					const result = dispatched.flow;
 					if (!result.ok) {
-						// A declined eligibility guardrail (already-pushed HEAD, Graphite children, root/merge commit)
+						// A declined eligibility guardrail (unsafe upstream relationship, synchronized trunk, Graphite children, root/merge commit)
 						// is a first-class warn refusal, not a red failure (house-style §7.3).
 						return negative(
 							renderAutobranchFailureResultBlock({

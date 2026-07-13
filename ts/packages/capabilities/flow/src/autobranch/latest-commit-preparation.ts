@@ -11,7 +11,7 @@ import {
 	prepareRequestedBranchSlug,
 } from "./slug.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
-import { inspectUpstreamHeadState } from "./upstream.ts";
+import { inspectLatestCommitUpstreamEligibility } from "./upstream.ts";
 import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
 
 const GT_TIMEOUT_MS = 120_000;
@@ -31,7 +31,6 @@ interface LatestCommitFacts {
 	commitMessage: string;
 	commitDiff: string;
 	commitSummary: string;
-	upstream?: string;
 }
 
 export interface LatestCommitAutobranchPlan extends LatestCommitFacts {
@@ -44,7 +43,16 @@ export interface LatestCommitAutobranchPlan extends LatestCommitFacts {
 export type LatestCommitPreparationResult =
 	| { ok: true; plan: LatestCommitAutobranchPlan }
 	| { ok: false; kind: "upstream_check_failed"; error: string }
-	| { ok: false; kind: "pushed_head_refusal"; upstream: string }
+	| { ok: false; kind: "graphite_trunk_check_failed"; error: string }
+	| { ok: false; kind: "remote_ahead_refusal"; upstream: string }
+	| { ok: false; kind: "diverged_upstream_refusal"; upstream: string }
+	| {
+			ok: false;
+			kind: "synchronized_trunk_refusal";
+			branch: string;
+			upstream: string;
+			trunk: string;
+	  }
 	| { ok: false; kind: "child_branch_check_failed"; error: string }
 	| { ok: false; kind: "child_branch_refusal"; children: string[] }
 	| { ok: false; kind: "commit_parent_lookup_failed"; error: string }
@@ -60,7 +68,10 @@ type LatestCommitFactsFailure = Extract<
 	{
 		kind:
 			| "upstream_check_failed"
-			| "pushed_head_refusal"
+			| "graphite_trunk_check_failed"
+			| "remote_ahead_refusal"
+			| "diverged_upstream_refusal"
+			| "synchronized_trunk_refusal"
 			| "child_branch_check_failed"
 			| "child_branch_refusal"
 			| "commit_parent_lookup_failed"
@@ -121,12 +132,27 @@ export async function prepareLatestCommitAutobranchPlan(
 export async function loadLatestCommitFacts(
 	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "git" | "snapshot">,
 ): Promise<LatestCommitFactsResult> {
-	const upstream = await inspectUpstreamHeadState(input);
-	if (upstream.type === "failed") {
-		return { ok: false, kind: "upstream_check_failed", error: upstream.error };
-	}
-	if (upstream.type === "upstream_contains_head") {
-		return { ok: false, kind: "pushed_head_refusal", upstream: upstream.upstream };
+	const upstream = await inspectLatestCommitUpstreamEligibility(input);
+	switch (upstream.type) {
+		case "upstream_check_failed":
+			return { ok: false, kind: upstream.type, error: upstream.error };
+		case "graphite_trunk_check_failed":
+			return { ok: false, kind: upstream.type, error: upstream.error };
+		case "remote_ahead_refusal":
+			return { ok: false, kind: upstream.type, upstream: upstream.upstream };
+		case "diverged_upstream_refusal":
+			return { ok: false, kind: upstream.type, upstream: upstream.upstream };
+		case "synchronized_trunk_refusal":
+			return {
+				ok: false,
+				kind: upstream.type,
+				branch: upstream.branch,
+				upstream: upstream.upstream,
+				trunk: upstream.trunk,
+			};
+		case "eligible":
+		case "synchronized":
+			break;
 	}
 
 	const children = await inspectGraphiteChildBranches(input);
@@ -183,7 +209,6 @@ export async function loadLatestCommitFacts(
 			commitMessage: message.value,
 			commitDiff: diff.value,
 			commitSummary,
-			...(upstream.type === "head_not_in_upstream" ? { upstream: upstream.upstream } : {}),
 		},
 	};
 }
@@ -246,20 +271,23 @@ function buildLatestCommitSlugPrompt(facts: LatestCommitFacts): string {
 
 /**
  * Classify a latest-commit preparation failure as a declined guardrail (`refusal`) vs. a real
- * `failure`. The four eligibility guardrails — already-pushed HEAD, existing Graphite children, and
- * root/merge commits — decline before any mutation and render warn (house-style §7.3); everything
+ * `failure`. Unsafe upstream relationships, synchronized trunk, existing Graphite children, and
+ * root/merge commits decline before any mutation and render warn (house-style §7.3); everything
  * else (probe failures, bad slug, unavailable branch name) is a real failure.
  */
 export function classifyLatestCommitPreparationFailure(
 	result: LatestCommitPreparationFailure,
 ): AutobranchFlowOutcome {
 	switch (result.kind) {
-		case "pushed_head_refusal":
+		case "remote_ahead_refusal":
+		case "diverged_upstream_refusal":
+		case "synchronized_trunk_refusal":
 		case "child_branch_refusal":
 		case "root_commit_refusal":
 		case "merge_commit_refusal":
 			return "refusal";
 		case "upstream_check_failed":
+		case "graphite_trunk_check_failed":
 		case "child_branch_check_failed":
 		case "commit_parent_lookup_failed":
 		case "commit_evidence_failed":
@@ -275,9 +303,15 @@ export function formatLatestCommitPreparationFailure(
 ): string {
 	switch (result.kind) {
 		case "upstream_check_failed":
-			return `Could not determine whether HEAD is already in the current branch upstream.\n${result.error}`;
-		case "pushed_head_refusal":
-			return `Refusing to move latest commit because upstream ${result.upstream} already contains HEAD.`;
+			return `Could not determine the local relationship between HEAD and the current branch upstream.\n${result.error}`;
+		case "graphite_trunk_check_failed":
+			return `Could not determine the configured Graphite trunk for the synchronized source branch.\n${result.error}`;
+		case "remote_ahead_refusal":
+			return `Refusing to move latest commit because locally known upstream ${result.upstream} is ahead of HEAD.`;
+		case "diverged_upstream_refusal":
+			return `Refusing to move latest commit because HEAD and locally known upstream ${result.upstream} have diverged.`;
+		case "synchronized_trunk_refusal":
+			return `Refusing to move latest commit because source branch ${result.branch} is synchronized with configured Graphite trunk ${result.trunk} (upstream ${result.upstream}).`;
 		case "child_branch_check_failed":
 			return `Could not inspect Graphite child branches before moving the latest commit.\n${result.error}`;
 		case "child_branch_refusal":

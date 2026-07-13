@@ -45,6 +45,27 @@ Each command depends on a distinct slice of the underlying technology stack:
 Every command is also available in the Pi harness as `/ns:flow:<command>`, delegating
 to the CLI. Pi is optional; the CLI commands do not require the Pi host.
 
+### Latest-commit extraction policy
+
+`ns flow branch-latest-commit` and clean-worktree `ns flow autoslot` share this
+policy: the worktree must be clean, and `HEAD` must be a latest single-parent
+commit. Relationship checks use only local tracking refs; they never implicitly
+fetch.
+
+| Relationship to the locally known upstream         | Result   |
+| -------------------------------------------------- | -------- |
+| No upstream                                        | Eligible |
+| Locally ahead                                      | Eligible |
+| Exactly synchronized, on a non-trunk source branch | Eligible |
+| Remote-ahead or diverged                           | Refused  |
+| Exactly synchronized, on configured Graphite trunk | Refused  |
+
+Existing Graphite children, root commits, and merge commits are also refused.
+The split mutates local refs only: it never fetches, pushes, submits, or updates
+PRs. On synchronized success, the upstream remains at the original commit until
+the user explicitly runs `ns flow submit` from the new child to publish the
+reshaped stack.
+
 ### What each column means
 
 - **git** — plain `git` subprocess calls for status, commit, push, fetch, and merge

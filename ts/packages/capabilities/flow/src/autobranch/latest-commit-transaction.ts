@@ -8,7 +8,7 @@ import {
 } from "../phase-stream/failure-catalog.ts";
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
-import { inspectUpstreamHeadState } from "./upstream.ts";
+import { inspectLatestCommitUpstreamEligibility } from "./upstream.ts";
 import { normalizeBranchSlugText } from "@nseng-ai/foundation/branch-slug";
 import type { LatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
 
@@ -30,15 +30,26 @@ export type SourceResetFailureRecovery =
 	| { backupCleanup: "delete_failed"; backupDeleteError: string }
 	| { backupCleanup: "recovery_required"; recoveryCommand: string };
 
-export type LatestCommitTransactionResult =
-	| { ok: true; commitSummary: string; backupDeleted: true }
+export interface SynchronizedUpstreamContext {
+	name: string;
+	originalHeadSha: string;
+}
+
+type LatestCommitTransactionSuccess = {
+	ok: true;
+	commitSummary: string;
+	synchronizedUpstream?: SynchronizedUpstreamContext;
+} & (
+	| { backupDeleted: true }
 	| {
-			ok: true;
-			commitSummary: string;
 			backupDeleted: false;
 			backupBranch: string;
 			backupDeleteError: string;
 	  }
+);
+
+export type LatestCommitTransactionResult =
+	| LatestCommitTransactionSuccess
 	| { ok: false; kind: "backup_branch_name_unavailable"; sourceBranch: string }
 	| { ok: false; kind: "backup_create_failed"; error: string }
 	| ({
@@ -55,7 +66,16 @@ export type LatestCommitTransactionResult =
 			createError: string;
 	  } & CreatedBranchRecovery)
 	| { ok: false; kind: "transaction_upstream_check_failed"; error: string }
-	| { ok: false; kind: "pushed_head_refusal"; upstream: string }
+	| { ok: false; kind: "transaction_graphite_trunk_check_failed"; error: string }
+	| { ok: false; kind: "remote_ahead_refusal"; upstream: string }
+	| { ok: false; kind: "diverged_upstream_refusal"; upstream: string }
+	| {
+			ok: false;
+			kind: "synchronized_trunk_refusal";
+			branch: string;
+			upstream: string;
+			trunk: string;
+	  }
 	| ({
 			ok: false;
 			kind: "branch_reset_failed";
@@ -84,12 +104,41 @@ type LatestCommitTransactionFailure = Extract<LatestCommitTransactionResult, { o
 export async function runLatestCommitAutobranchTransaction(
 	input: LatestCommitTransactionInput,
 ): Promise<LatestCommitTransactionResult> {
-	const upstream = await inspectUpstreamHeadState(input);
-	if (upstream.type === "failed") {
-		return { ok: false, kind: "transaction_upstream_check_failed", error: upstream.error };
-	}
-	if (upstream.type === "upstream_contains_head") {
-		return { ok: false, kind: "pushed_head_refusal", upstream: upstream.upstream };
+	const upstream = await inspectLatestCommitUpstreamEligibility(input);
+	let synchronizedUpstream: SynchronizedUpstreamContext | undefined;
+	switch (upstream.type) {
+		case "upstream_check_failed":
+			return {
+				ok: false,
+				kind: "transaction_upstream_check_failed",
+				error: upstream.error,
+			};
+		case "graphite_trunk_check_failed":
+			return {
+				ok: false,
+				kind: "transaction_graphite_trunk_check_failed",
+				error: upstream.error,
+			};
+		case "remote_ahead_refusal":
+			return { ok: false, kind: upstream.type, upstream: upstream.upstream };
+		case "diverged_upstream_refusal":
+			return { ok: false, kind: upstream.type, upstream: upstream.upstream };
+		case "synchronized_trunk_refusal":
+			return {
+				ok: false,
+				kind: upstream.type,
+				branch: upstream.branch,
+				upstream: upstream.upstream,
+				trunk: upstream.trunk,
+			};
+		case "synchronized":
+			synchronizedUpstream = {
+				name: upstream.upstream,
+				originalHeadSha: input.plan.originalHeadSha,
+			};
+			break;
+		case "eligible":
+			break;
 	}
 
 	const backupBranch = await chooseAvailableBackupBranchName(
@@ -166,6 +215,7 @@ export async function runLatestCommitAutobranchTransaction(
 		return await headVerifyFailed(input, backupBranch.name, verified.value);
 	}
 
+	const successContext = synchronizedUpstream === undefined ? {} : { synchronizedUpstream };
 	const deleted = await input.git.deleteBranch(backupBranch.name);
 	if (!deleted.ok) {
 		return {
@@ -174,9 +224,15 @@ export async function runLatestCommitAutobranchTransaction(
 			backupDeleted: false,
 			backupBranch: backupBranch.name,
 			backupDeleteError: deleted.details,
+			...successContext,
 		};
 	}
-	return { ok: true, commitSummary: input.plan.commitSummary, backupDeleted: true };
+	return {
+		ok: true,
+		commitSummary: input.plan.commitSummary,
+		backupDeleted: true,
+		...successContext,
+	};
 }
 
 async function resetSourceBranchToParent(
@@ -328,8 +384,8 @@ function sanitizeBackupBranchSegment(value: string): string {
 }
 
 /**
- * Only the pre-mutation pushed-HEAD re-check is a declined guardrail; every other transaction
- * failure happened while (or after) mutating refs and is a real failure carrying recovery guidance.
+ * Unsafe relationships discovered by the pre-mutation upstream/trunk recheck are declined
+ * guardrails; every other transaction failure is a real failure carrying recovery guidance.
  */
 const latestCommitTransactionFailureCatalog = defineFailureCatalog<
 	LatestCommitTransactionFailure,
@@ -372,12 +428,27 @@ const latestCommitTransactionFailureCatalog = defineFailureCatalog<
 	transaction_upstream_check_failed: {
 		verdict: "failure",
 		message: (failure) =>
-			`Could not re-check whether HEAD is already in the current branch upstream before moving the latest commit.\n${failure.error}`,
+			`Could not re-check the local relationship between HEAD and the current branch upstream before moving the latest commit.\n${failure.error}`,
 	},
-	pushed_head_refusal: {
+	transaction_graphite_trunk_check_failed: {
+		verdict: "failure",
+		message: (failure) =>
+			`Could not re-check the configured Graphite trunk for the synchronized source branch before moving the latest commit.\n${failure.error}`,
+	},
+	remote_ahead_refusal: {
 		verdict: "refusal",
 		message: (failure) =>
-			`Refusing to move latest commit because upstream ${failure.upstream} now contains HEAD.`,
+			`Refusing to move latest commit because locally known upstream ${failure.upstream} is now ahead of HEAD.`,
+	},
+	diverged_upstream_refusal: {
+		verdict: "refusal",
+		message: (failure) =>
+			`Refusing to move latest commit because HEAD and locally known upstream ${failure.upstream} have now diverged.`,
+	},
+	synchronized_trunk_refusal: {
+		verdict: "refusal",
+		message: (failure) =>
+			`Refusing to move latest commit because source branch ${failure.branch} is synchronized with configured Graphite trunk ${failure.trunk} (upstream ${failure.upstream}).`,
 	},
 	branch_reset_failed: {
 		verdict: "failure",

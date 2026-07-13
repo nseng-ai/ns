@@ -179,6 +179,7 @@ interface BranchLatestCommitExecOptions {
 	targetAvailability?: readonly ScriptedExecResponse[];
 	backupCreateResult?: ScriptedExecResponse["result"];
 	backupDeleteResult?: ScriptedExecResponse["result"];
+	upstreamMode?: "none" | "synchronized";
 }
 
 function availableBranchResponses(branchName: string): ScriptedExecResponse[] {
@@ -202,6 +203,21 @@ function exactExistingBranchResponse(branchName: string): ScriptedExecResponse[]
 	];
 }
 
+function branchLatestCommitUpstreamResponses(
+	mode: BranchLatestCommitExecOptions["upstreamMode"],
+): ScriptedExecResponse[] {
+	const upstreamQuery = "git for-each-ref --format=%(upstream:short) refs/heads/feature";
+	if (mode !== "synchronized") {
+		return [{ match: upstreamQuery, result: { stdout: "" } }];
+	}
+	return [
+		{ match: upstreamQuery, result: { stdout: "origin/feature\n" } },
+		{ match: "git merge-base --is-ancestor HEAD origin/feature", result: {} },
+		{ match: "git merge-base --is-ancestor origin/feature HEAD", result: {} },
+		{ match: "gt trunk --no-interactive", result: { stdout: "master\n" } },
+	];
+}
+
 // Subprocess script for `ns flow branch-latest-commit` with an explicit `slug: "demo-branch"` (which
 // skips model slug generation) on source branch `feature`, up to and including the source-branch reset
 // — the prefix shared by the success and Graphite-create-failure paths. The scripted fake consumes
@@ -216,12 +232,9 @@ function branchLatestCommitExecThroughSourceReset(
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-		// Preparation: upstream HEAD check (no upstream → eligible).
+		// Preparation: inspect the local upstream relationship and, only when synchronized, trunk.
 		{ match: "git branch --show-current", result: { stdout: "feature\n" } },
-		{
-			match: "git for-each-ref --format=%(upstream:short) refs/heads/feature",
-			result: { stdout: "" },
-		},
+		...branchLatestCommitUpstreamResponses(options.upstreamMode),
 		// Preparation: no Graphite children, single-parent commit, commit evidence.
 		{ match: "gt children --no-interactive", result: { stdout: "" } },
 		{ match: "git rev-list --parents -n 1 HEAD", result: { stdout: "abc123 parent456\n" } },
@@ -229,12 +242,9 @@ function branchLatestCommitExecThroughSourceReset(
 		{ match: "git diff HEAD^ HEAD --no-ext-diff", result: { stdout: "diff --git a/x b/x\n" } },
 		// Preparation: branch name availability for the requested slug.
 		...(options.targetAvailability ?? availableBranchResponses("demo-branch")),
-		// Transaction: upstream recheck before mutation.
+		// Transaction: repeat the local upstream relationship and conditional trunk checks.
 		{ match: "git branch --show-current", result: { stdout: "feature\n" } },
-		{
-			match: "git for-each-ref --format=%(upstream:short) refs/heads/feature",
-			result: { stdout: "" },
-		},
+		...branchLatestCommitUpstreamResponses(options.upstreamMode),
 		// Transaction: recovery (backup) branch availability.
 		{ match: /^git check-ref-format --branch autobranch-backup\/feature\/\d+$/, result: {} },
 		{
@@ -301,8 +311,13 @@ export function branchLatestCommitBackupCreateFailExec(): ScriptedExecResponse[]
 	});
 }
 
-export function branchLatestCommitBackupCleanupWarningExec(): ScriptedExecResponse[] {
+export function branchLatestCommitSynchronizedExec(): ScriptedExecResponse[] {
+	return branchLatestCommitHappyExec({ upstreamMode: "synchronized" });
+}
+
+export function branchLatestCommitSynchronizedBackupCleanupWarningExec(): ScriptedExecResponse[] {
 	return branchLatestCommitHappyExec({
+		upstreamMode: "synchronized",
 		backupDeleteResult: { code: 1, stderr: "delete failed\n" },
 	});
 }
