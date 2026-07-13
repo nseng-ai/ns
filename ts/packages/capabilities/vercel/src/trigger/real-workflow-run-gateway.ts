@@ -10,6 +10,7 @@ import { getRun, start } from "workflow/api";
 import { WorkflowRunNotFoundError } from "workflow/errors";
 import { z } from "zod";
 
+import { dispatchWorkflowId } from "../../workflows/dispatch-id.ts";
 import { helloWorkflowId } from "../../workflows/hello.ts";
 import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
 import { supervisionProbeWorkflowId } from "../../workflows/supervision-probe-id.ts";
@@ -52,6 +53,16 @@ export function createWorkflowSdkRunGateway(
 		async startSupervisionProbeWorkflow(options) {
 			return await startWorkflowRun(supervisionProbeWorkflowId, [
 				{ runSeconds: options.runSeconds, pollSeconds: options.pollSeconds },
+			]);
+		},
+		async startDispatchWorkflow(options) {
+			return await startWorkflowRun(dispatchWorkflowId, [
+				{
+					revision: options.revision,
+					anchorBranch: options.anchorBranch,
+					anchorPrNumber: options.anchorPrNumber,
+					prompt: options.prompt,
+				},
 			]);
 		},
 		async readWorkflowRunStatus(options) {

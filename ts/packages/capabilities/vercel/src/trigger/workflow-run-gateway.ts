@@ -26,5 +26,11 @@ export interface WorkflowRunGateway {
 		readonly runSeconds: number;
 		readonly pollSeconds: number;
 	}): Promise<StartWorkflowRunResult>;
+	startDispatchWorkflow(options: {
+		readonly revision: string;
+		readonly anchorBranch: string;
+		readonly anchorPrNumber: number;
+		readonly prompt: string;
+	}): Promise<StartWorkflowRunResult>;
 	readWorkflowRunStatus(options: { readonly runId: string }): Promise<ReadWorkflowRunStatusResult>;
 }

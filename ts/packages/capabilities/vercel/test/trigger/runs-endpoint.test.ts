@@ -45,6 +45,10 @@ class InMemoryRunStatusGateway implements WorkflowRunGateway {
 		return { ok: false };
 	}
 
+	async startDispatchWorkflow(): Promise<StartWorkflowRunResult> {
+		return { ok: false };
+	}
+
 	async readWorkflowRunStatus(options: {
 		readonly runId: string;
 	}): Promise<ReadWorkflowRunStatusResult> {

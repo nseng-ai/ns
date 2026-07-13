@@ -5,13 +5,24 @@
 import { z } from "zod";
 
 import {
+	DISPATCH_ANCHOR_BRANCH_MAX_LENGTH,
+	DISPATCH_ANCHOR_PR_NUMBER_MAX,
+	DISPATCH_PROMPT_MAX_LENGTH,
+	isValidDispatchAnchorBranch,
+} from "../dispatch/dispatch-run.ts";
+import {
 	SUPERVISION_POLL_SECONDS_MAX,
 	SUPERVISION_POLL_SECONDS_MIN,
 	SUPERVISION_RUN_SECONDS_MAX,
 	SUPERVISION_RUN_SECONDS_MIN,
 } from "../sandbox/supervision-probe.ts";
 
-export const triggerWorkflowValues = ["hello", "sandbox-probe", "supervision-probe"] as const;
+export const triggerWorkflowValues = [
+	"hello",
+	"sandbox-probe",
+	"supervision-probe",
+	"dispatch",
+] as const;
 
 export type TriggerWorkflowName = (typeof triggerWorkflowValues)[number];
 
@@ -40,6 +51,23 @@ export const triggerRequestSchema = z.discriminatedUnion("workflow", [
 			.int()
 			.min(SUPERVISION_POLL_SECONDS_MIN)
 			.max(SUPERVISION_POLL_SECONDS_MAX),
+	}),
+	// The dispatch workflow's run-input contract (steel thread): the exact
+	// dispatched SHA, the `dispatch/`-prefixed anchor branch, the anchor PR
+	// opened up front by the CLI, and the prompt/work reference. The
+	// repository, harness invocation, and credentials are deployable-side
+	// configuration, never caller input. The workflow re-validates the same
+	// bounds with plain checks.
+	z.strictObject({
+		workflow: z.literal("dispatch"),
+		revision: commitShaSchema,
+		anchorBranch: z
+			.string()
+			.min(1)
+			.max(DISPATCH_ANCHOR_BRANCH_MAX_LENGTH)
+			.refine(isValidDispatchAnchorBranch),
+		anchorPrNumber: z.number().int().min(1).max(DISPATCH_ANCHOR_PR_NUMBER_MAX),
+		prompt: z.string().min(1).max(DISPATCH_PROMPT_MAX_LENGTH),
 	}),
 ]);
 

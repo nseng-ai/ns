@@ -5,6 +5,7 @@ import {
 	createWorkflowSdkRunGateway,
 	type WorkflowRunSdk,
 } from "../../src/trigger/real-workflow-run-gateway.ts";
+import { dispatchWorkflowId } from "../../workflows/dispatch-id.ts";
 import { helloWorkflowId } from "../../workflows/hello.ts";
 import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
 import { supervisionProbeWorkflowId } from "../../workflows/supervision-probe-id.ts";
@@ -81,6 +82,34 @@ describe("createWorkflowSdkRunGateway", () => {
 			{
 				workflowId: supervisionProbeWorkflowId,
 				args: [{ runSeconds: 840, pollSeconds: 30 }],
+			},
+		]);
+	});
+
+	it("starts the dispatch workflow with a single serializable run-input argument", async () => {
+		const sdk = new InMemoryWorkflowRunSdk({ nextRunId: "wrun_dispatch" });
+		const gateway = createWorkflowSdkRunGateway(sdk);
+
+		const revision = "0123456789abcdef0123456789abcdef01234567";
+		const result = await gateway.startDispatchWorkflow({
+			revision,
+			anchorBranch: "dispatch/widget-refactor-a1b2c3",
+			anchorPrNumber: 421,
+			prompt: "Rename the widget gateway methods.",
+		});
+
+		expect(result).toEqual({ ok: true, value: { runId: "wrun_dispatch" } });
+		expect(sdk.startCalls).toEqual([
+			{
+				workflowId: dispatchWorkflowId,
+				args: [
+					{
+						revision,
+						anchorBranch: "dispatch/widget-refactor-a1b2c3",
+						anchorPrNumber: 421,
+						prompt: "Rename the widget gateway methods.",
+					},
+				],
 			},
 		]);
 	});

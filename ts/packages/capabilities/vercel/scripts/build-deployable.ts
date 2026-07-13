@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
+import { dispatchWorkflowId } from "../workflows/dispatch-id.ts";
 import { helloWorkflowId } from "../workflows/hello.ts";
 import { sandboxProbeWorkflowId } from "../workflows/sandbox-probe.ts";
 import { supervisionProbeWorkflowId } from "../workflows/supervision-probe-id.ts";
@@ -136,6 +137,7 @@ export const ROUTE_TRIGGERED_WORKFLOW_IDS: readonly string[] = [
 	helloWorkflowId,
 	sandboxProbeWorkflowId,
 	supervisionProbeWorkflowId,
+	dispatchWorkflowId,
 ];
 
 export function findMissingWorkflowManifestIds(
