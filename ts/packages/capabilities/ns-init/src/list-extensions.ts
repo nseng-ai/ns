@@ -18,6 +18,7 @@ import type {
 	ArtifactProvisioningStatusSummary,
 } from "./artifact-provisioning-status.ts";
 import type { DeclaredExtensionsGateway } from "./declared-extensions.ts";
+import { appendDiagnosticToCollection } from "./diagnostic-collection.ts";
 import { normalizeExtensionLifecycleDiagnostic } from "./extension-lifecycle-preflight.ts";
 
 const extensionSourceKindSchema = z.enum(["npm", "local", "git", "unsupported"]);
@@ -92,7 +93,7 @@ interface MutableExtensionListRow {
 	artifactStatus: ExtensionListRow["artifactStatus"];
 	artifactCount: number;
 	affectedArtifactCount: number;
-	diagnostics: ExtensionListDiagnostic[];
+	diagnostics: readonly ExtensionListDiagnostic[];
 }
 
 export async function listExtensions(
@@ -316,13 +317,7 @@ function normalizeExtensionListDiagnostic(diagnostic: {
 }
 
 function appendDiagnostic(row: MutableExtensionListRow, diagnostic: ExtensionListDiagnostic): void {
-	const isDuplicate = row.diagnostics.some(
-		(existing) =>
-			existing.code === diagnostic.code &&
-			existing.message === diagnostic.message &&
-			existing.path === diagnostic.path,
-	);
-	if (!isDuplicate) row.diagnostics.push({ ...diagnostic });
+	row.diagnostics = appendDiagnosticToCollection(row.diagnostics, diagnostic);
 }
 
 function extensionListConfigFailure(diagnostic: {

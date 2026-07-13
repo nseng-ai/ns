@@ -13,6 +13,7 @@ import type {
 	ArtifactProvisioningStatusSummary,
 	InspectArtifactProvisioningStatusParams,
 } from "./artifact-provisioning-status.ts";
+import { appendDiagnosticToCollection } from "./diagnostic-collection.ts";
 
 interface MutableArtifactProvisioningStatusSummary {
 	readonly moduleRoot: string;
@@ -20,7 +21,7 @@ interface MutableArtifactProvisioningStatusSummary {
 	artifactStatus: ArtifactProvisioningStatus;
 	artifactCount: number;
 	affectedArtifactCount: number;
-	readonly diagnostics: ArtifactProvisioningDiagnostic[];
+	diagnostics: readonly ArtifactProvisioningDiagnostic[];
 }
 
 const STATUS_PRECEDENCE: Readonly<Record<ArtifactProvisioningStatus, number>> = {
@@ -321,13 +322,7 @@ function appendDiagnostic(
 	summary: MutableArtifactProvisioningStatusSummary,
 	diagnostic: ArtifactProvisioningDiagnostic,
 ): void {
-	const isDuplicate = summary.diagnostics.some(
-		(existing) =>
-			existing.code === diagnostic.code &&
-			existing.message === diagnostic.message &&
-			existing.path === diagnostic.path,
-	);
-	if (!isDuplicate) summary.diagnostics.push({ ...diagnostic });
+	summary.diagnostics = appendDiagnosticToCollection(summary.diagnostics, diagnostic);
 }
 
 function setStatus(
