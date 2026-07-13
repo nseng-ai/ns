@@ -17,15 +17,18 @@ user-facing contract is `references/README-draft.md` (promoting to
 
 What you see now: `@nseng-ai/vercel` is itself the linked Vercel deployable and carries the
 `NS_DISPATCH_*` production contract, a verified Development OIDC identity, a working mint
-endpoint, and a fixed private-repository Sandbox hello probe. One billable probe has cloned
-`nseng-ai/ns` at an exact remote SHA and verified marker, HEAD, and cleanup. No workflow
-entrypoints, trigger route, `ns dispatch` command, harness runner, or setup skill has
-landed; the deployed `NS_DISPATCH_SANDBOX_MINT_SECRET` variable is retired by the
-2026-07-13 architecture revision and awaits removal once the workflow spine lands.
-Collect proven setup facts while implementing; do not author the skill ahead of the steel
-thread. The only working dispatch remains the Pi-only `/ccc:workspace:dispatch-*` surface
-over `@nseng-ai/ccc`; the retired cloud wayfinding map's "Eve presumed in as chassis"
-stance remains reversed.
+endpoint (now a thin adapter over an in-process mint core), and a fixed private-repository
+Sandbox hello probe that one billable run verified live. The whole spine now exists as
+locally-green code pending live verification (code-first autorun run, 2026-07-13): three
+workflow probes, the nine-step dispatch workflow, the ns-owned pi runner, an authenticated
+trigger route, and the `ns dispatch prompt` kernel command — none of it live-proven; the
+batched deploy/trigger/observe pass is the remaining gate, and only that pass may fold
+verification claims. No setup skill has landed; do not author it ahead of the proven steel
+thread. The deployed `NS_DISPATCH_SANDBOX_MINT_SECRET` variable is retired by the
+2026-07-13 architecture revision and awaits removal (the mint runtime config still
+requires it). The only working dispatch remains the Pi-only `/ccc:workspace:dispatch-*`
+surface over `@nseng-ai/ccc`; the retired cloud wayfinding map's "Eve presumed in as
+chassis" stance remains reversed.
 
 Avoid: inventing a backend-agnostic executor abstraction — Vercel coupling is deliberate
 and Vercel-vocabulary gateways are sanctioned (though vendor types stay inside the

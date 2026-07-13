@@ -141,10 +141,14 @@ Every dispatch opens its pull request **up front**, before the job is
 submitted: a new `dispatch/`-prefixed branch based at the commit you
 dispatched from is pushed, and a PR opens for it immediately. The PR is the
 job's anchor — one durable, linkable place where the dispatch is observable
-from the moment it exists. At submission the PR is stamped with the run's
-handle — the supervising workflow's run id — so anything (you, the jobs
-TUI) can get from the PR to the run's state and logs later — the anchor PR
-is the durable record, not a local ledger or a cloud console.
+from the moment it exists. The anchor branch is named
+`dispatch/<source-branch>-<short-id>` and is pushed at the exact commit you
+dispatched from, with the PR based on your source branch so it shows only
+what the run produces. At submission the PR is stamped with the run's
+handle — the supervising workflow's run id, written as a marked line in the
+PR description — so anything (you, the jobs TUI) can get from the PR to the
+run's state and logs later — the anchor PR is the durable record, not a
+local ledger or a cloud console.
 
 - **While the run executes**, the anchor PR is where a dispatch is visible
   outside your terminal.
@@ -187,8 +191,10 @@ workflow-supervised execution as an interactive dispatch.
 ## Setup
 
 Non-secret repo configuration lives in the repo-root `ns.toml`, in a typed
-`[dispatch]` table: which agent harness runs inside the sandbox (Pi first)
-and the stable Vercel project/team IDs. It's versioned with the repo, so every
+`[dispatch]` table: which agent harness runs inside the sandbox (Pi first),
+the stable Vercel project/team IDs, and the dispatch deployable's stable
+HTTPS URL (the deployment recorded in step 3 below) that the CLI's
+trigger/observe calls target. It's versioned with the repo, so every
 clone dispatches the same way:
 
 ```toml
@@ -196,6 +202,7 @@ clone dispatches the same way:
 harness = "pi"
 vercel_project_id = "prj_..."
 vercel_team_id = "team_..."
+deployment_url = "https://<dispatch-host>"
 ```
 
 Credentials are configured once, on the Vercel project that backs cloud
@@ -233,7 +240,14 @@ a clone-scoped token at start, no token while the agent works, and a fresh
 short-lived landing token minted by the supervising workflow only when the
 run is ready to land — injected into the single landing command, never
 into the sandbox environment. Dispatch preflights credentials and reports
-exactly what is missing before any remote work starts.
+exactly what is missing before any remote work starts: the `[dispatch]`
+table is present and valid (including `deployment_url`), the Development
+OIDC token is available by name (`VERCEL_OIDC_TOKEN` from the package's
+pulled `.env.local`), and a read-only authenticated run-status probe
+against the deployment confirms the caller's identity is accepted —
+each failure is a named, actionable category, and no secret value is ever
+read into output. (Live preflight behavior against the deployed routes is
+pending verification.)
 
 ### Mint endpoint configuration
 
