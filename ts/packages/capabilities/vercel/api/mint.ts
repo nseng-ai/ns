@@ -1,9 +1,12 @@
+import type { VercelOidcGateway } from "../src/mint/development-oidc.ts";
 import {
 	handleMintRequest,
-	type GitHubInstallationTokenGateway,
 	type LandingCredentialGateway,
-	type VercelOidcGateway,
 } from "../src/mint/handle-mint-request.ts";
+import {
+	createDispatchTokenMinter,
+	type GitHubInstallationTokenGateway,
+} from "../src/mint/mint-core.ts";
 import {
 	createGitHubInstallationTokenGateway,
 	createJoseVercelOidcGateway,
@@ -47,6 +50,7 @@ export function createMintPostHandler(options: MintPostHandlerOptions): MintPost
 		createSharedSecretLandingCredentialGateway(config.sandboxMintSecret);
 	const github =
 		options.createGitHubGateway?.(config) ?? createGitHubInstallationTokenGateway(config);
+	const minter = createDispatchTokenMinter({ config, github });
 
 	return async function mintPostHandler(request) {
 		const bodyResult = await readJsonBody(request);
@@ -63,7 +67,7 @@ export function createMintPostHandler(options: MintPostHandlerOptions): MintPost
 				oidcToken: request.headers.get("x-ns-dispatch-oidc-token"),
 				authorization: request.headers.get("authorization"),
 			},
-			{ config, oidc, landingCredential, github },
+			{ config, oidc, landingCredential, minter },
 		);
 		return jsonResponse(result.body, result.status);
 	};
