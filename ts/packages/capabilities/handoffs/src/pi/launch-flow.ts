@@ -13,6 +13,11 @@ import { resolveCreateFocus } from "./create-focus.ts";
 import { CREATE_HANDOFF_FALLBACK } from "./create-prompt.ts";
 import { realHandoffCreateSkillLoader, type HandoffCreateSkillLoader } from "./create-skill.ts";
 import { checkHandoffExists } from "./handoff-existence.ts";
+import {
+	buildHandoffInvestigationSourcesPrompt,
+	deriveHandoffInvestigationSources,
+	type HandoffInvestigationSourceOptions,
+} from "./investigation-sources.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type { ExpandedSkillBlock } from "@nseng-ai/pi/skills/expansion";
 import type { GitGateway } from "@nseng-ai/foundation/git";
@@ -39,6 +44,7 @@ export interface PreparedHandoffCreateLaunch {
 export interface HandoffLaunchPromptOptions {
 	skillBlock: string | undefined;
 	request: HandoffLaunchRequest;
+	investigationSources: HandoffInvestigationSourceOptions;
 	extraTargetSections?: string[];
 	toolCallInstruction?: string;
 	extraRequirements?: string[];
@@ -157,6 +163,8 @@ Continuation focus:
 
 ${buildFencedTextBlock(request.focus)}
 
+${buildHandoffInvestigationSourcesPrompt(options.investigationSources)}
+
 ${targetSections.join("\n\n")}
 
 Hard requirements:
@@ -236,6 +244,7 @@ export async function runHandoffCreateCommand(
 		buildHandoffLaunchPrompt(spec.promptCopy, {
 			skillBlock: prepared.skill?.block,
 			request: prepared.request,
+			investigationSources: deriveHandoffInvestigationSources(ctx),
 		}),
 		{ deliverAs: "followUp" },
 	);

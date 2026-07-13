@@ -22,6 +22,14 @@ import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
+import {
+	deriveHandoffInvestigationSources,
+	deriveSourcePiSessionId,
+	resolveSourcePiSessionId,
+	type HandoffInvestigationSourceOptions,
+} from "./investigation-sources.ts";
+
+export { deriveSourcePiSessionId };
 
 export type {
 	InteractiveClaudeInvocation,
@@ -112,29 +120,12 @@ export function scrubClaudeEnv(
 export function buildClaudeHandoffPrompt(options: {
 	skillBlock: string | undefined;
 	request: ClaudeHandoffRequest;
+	investigationSources: HandoffInvestigationSourceOptions;
 }): string {
 	return buildHandoffLaunchPrompt(CLAUDE_HANDOFF_PROMPT_COPY, options);
 }
 
 const CLAUDE_HANDOFF_SESSION_NAME_PREFIX = "[from-pi]";
-
-/**
- * Derive a compact source Pi session id from a session file path. Pi names
- * session files `<timestamp>_<id>` (e.g.
- * `2026-06-12T06-03-30-136Z_019eba6d-abd8-7fa8-bb1f-1888f3b09a56.jsonl`), so we
- * keep only the id segment after the timestamp prefix. Returns undefined when no
- * usable id can be extracted (missing, blank, or directory-only paths). Names
- * without an underscore are returned unchanged.
- */
-export function deriveSourcePiSessionId(sessionFile: string | undefined): string | undefined {
-	if (sessionFile === undefined) {
-		return undefined;
-	}
-	const basename = sessionFile.trim().split(/[/\\]/).pop() ?? "";
-	const stem = basename.replace(/\.[^.]+$/, "");
-	const id = stem.slice(stem.lastIndexOf("_") + 1);
-	return id === "" ? undefined : id;
-}
 
 /**
  * Build the visually distinctive Claude Code session name for a handoff pickup.
@@ -143,10 +134,10 @@ export function deriveSourcePiSessionId(sessionFile: string | undefined): string
  */
 export function buildClaudeHandoffSessionName(
 	slug: string,
-	sessionFile: string | undefined,
+	investigationSources: HandoffInvestigationSourceOptions,
 ): string {
 	const handoff = `handoff: ${slug}`;
-	const sessionId = deriveSourcePiSessionId(sessionFile);
+	const sessionId = resolveSourcePiSessionId(investigationSources);
 	return sessionId === undefined
 		? `${CLAUDE_HANDOFF_SESSION_NAME_PREFIX} ${handoff}`
 		: `${CLAUDE_HANDOFF_SESSION_NAME_PREFIX} session-id:${sessionId} ${handoff}`;
@@ -230,7 +221,7 @@ export function buildClaudeHandoffLaunchTool(
 			const prompt = buildClaudePickupPrompt(params.branch, params.slug);
 			const name = buildClaudeHandoffSessionName(
 				params.slug,
-				ctx.sessionManager?.getSessionFile?.(),
+				deriveHandoffInvestigationSources(ctx),
 			);
 			const outcome = await runInteractiveClaudeInStoppedTui(
 				interactiveCtx.ctx,

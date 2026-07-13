@@ -52,8 +52,11 @@ A useful handoff normally includes:
 - current state: what is done and not done
 - decisions, findings, constraints, and gotchas
 - concrete next steps
+- an `## Investigation Sources` section with the source session id/log and paths to other relevant session logs, plans, reports, saved output, or key implementation files
 - useful commands, files, PRs, issues, docs, or technical locators
 - staleness warnings when the artifact depends on branch state
+
+The investigation-source section is an audit and recovery trail, not a substitute for self-contained context. Pi create flows pass the authoritative current session ID and the current persisted session file into the authoring prompt. If the runtime is ephemeral or does not expose a session file, the artifact keeps the session ID when available and records the log's unavailability explicitly rather than inventing a path. Related paths should say why they are useful; handoffs point to logs and large outputs instead of embedding them.
 
 ## Handoff vs. compaction vs. generic summary
 
@@ -71,7 +74,7 @@ A generic session summary can be useful, but it is usually organized around what
 
 Requests to write or stash durable handoff context route to the create flow, but normal success copy and glossary language should still say create a handoff.
 
-A create flow should make the continuation focus first-class. If the user says only "create a handoff" without enough focus, ask a cheap clarifying question rather than producing an undirected summary.
+A create flow should make the continuation focus first-class. If the user says only "create a handoff" without enough focus, ask a cheap clarifying question rather than producing an undirected summary. It should also provide the source session id/log to the authoring workflow and require the resulting artifact to preserve those values plus any other useful investigation paths.
 
 Good create copy:
 
@@ -95,7 +98,7 @@ Entry: address-review-feedback.md
 
 ## Pickup and list flow implications
 
-A pickup flow should let the user choose by slug, picker, or search words without knowing storage keys. Normal pickup copy should say what handoff was picked up and from which branch. After reading the selected artifact, pickup should present a concise summary of the continuation focus, proposed next steps, and verification risks, then wait for the user's next instruction rather than automatically executing the artifact's next step.
+A pickup flow should let the user choose by slug, picker, or search words without knowing storage keys. Normal pickup copy should say what handoff was picked up and from which branch. After reading the selected artifact, pickup should present a concise summary of the continuation focus, proposed next steps, verification risks, and recorded investigation sources, then wait for the user's next instruction rather than automatically reading those sources or executing the artifact's next step.
 
 Good pickup copy:
 

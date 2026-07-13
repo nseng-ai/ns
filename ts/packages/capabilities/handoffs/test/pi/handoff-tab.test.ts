@@ -75,7 +75,11 @@ describe("handoff-tab extension", () => {
 				"ns:cmux:handoff-tab",
 				"finish handoff tab implementation",
 				[branchStep(), cmuxIdentifyStep()],
-				{ cwd: repoDir },
+				{
+					cwd: repoDir,
+					sessionFile: "/sessions/tab-filename.jsonl",
+					sessionId: "tab-source-id",
+				},
 				[skillCommandInfo(skillPath)],
 			);
 
@@ -100,6 +104,8 @@ describe("handoff-tab extension", () => {
 			const prompt = result.pi.sentUserMessages[0] ?? "";
 			expect(prompt).toContain(`<skill name="handoff-create" location="${skillPath}">`);
 			expect(prompt).toContain("finish handoff tab implementation");
+			expect(prompt).toContain("Source Pi session ID: tab-source-id");
+			expect(prompt).toContain("Source Pi session log: /sessions/tab-filename.jsonl");
 			expect(prompt).toContain(`- Branch: ${BRANCH}`);
 			expect(prompt).toContain("- Namespace: handoff");
 			expect(prompt).toContain("derive_handoff_slug_from_content");
@@ -650,10 +656,14 @@ describe("handoff-tab pure helpers", () => {
 		const prompt = buildHandoffTabPrompt({
 			skillBlock: "# handoff-create skill",
 			request: { focus: "finish the launch tool", branch: BRANCH },
+			investigationSources: {},
 		});
 
 		expect(prompt).toContain("# handoff-create skill");
 		expect(prompt).toContain("This is a /ns:cmux:handoff-tab request.");
+		expect(prompt).toContain(
+			"Source Pi session log: unavailable (no persisted Pi session log was exposed)",
+		);
 		expect(prompt).toContain(`- Branch: ${BRANCH}`);
 		expect(prompt).toContain(
 			"- Entry: derive from the final Markdown handoff content with derive_handoff_slug_from_content",

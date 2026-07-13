@@ -51,7 +51,11 @@ describe("handoff launch flow helpers", () => {
 	test("runHandoffCreateCommand prepares and sends the standard launch prompt", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
 			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
-			const context = createContext({ cwd: repoDir });
+			const context = createContext({
+				cwd: repoDir,
+				sessionFile: "/sessions/launch-filename.jsonl",
+				sessionId: "launch-source-id",
+			});
 
 			await runHandoffCreateCommand(pi, "  finish the widget  ", context.ctx, {
 				git: createPiHandoffGitGateway(createPiCommandExecApi(pi)),
@@ -70,6 +74,8 @@ describe("handoff launch flow helpers", () => {
 			expect(prompt).toContain(`<skill name="handoff-create" location="${skillPath}">`);
 			expect(prompt).toContain("This is a /handoff:test request.");
 			expect(prompt).toContain("finish the widget");
+			expect(prompt).toContain("Source Pi session ID: launch-source-id");
+			expect(prompt).toContain("Source Pi session log: /sessions/launch-filename.jsonl");
 			expect(prompt).toContain(`- Branch: ${BRANCH}`);
 			expect(prompt).toContain("After `ns handoff create` succeeds, call handoff_test_launch");
 			expect(prompt).toContain(`test launch ${BRANCH}`);

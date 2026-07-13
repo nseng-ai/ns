@@ -6,12 +6,15 @@ import {
 	buildClaudeHandoffPrompt,
 	buildClaudeHandoffSessionName,
 	buildClaudePickupPrompt,
-	deriveSourcePiSessionId,
 	registerClaudeHandoffCommand,
 	scrubClaudeEnv,
 	type InteractiveClaudeInvocation,
 	type InteractiveClaudeRunResult,
 } from "../../src/pi/claude-command.ts";
+import {
+	deriveSourcePiSessionId,
+	resolveSourcePiSessionId,
+} from "../../src/pi/investigation-sources.ts";
 import {
 	BRANCH,
 	FakePi,
@@ -93,7 +96,13 @@ describe("claude handoff command", () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
 			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
 			registerTestCommand(pi);
-			const context = createContext({ mode: "tui", hasCustomUi: true, cwd: repoDir });
+			const context = createContext({
+				mode: "tui",
+				hasCustomUi: true,
+				cwd: repoDir,
+				sessionFile: "/sessions/claude-filename.jsonl",
+				sessionId: "claude-source-id",
+			});
 			const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
 			await command.handler("handoff the auth work", context.ctx);
@@ -112,6 +121,10 @@ describe("claude handoff command", () => {
 				"Create a directed handoff artifact for the current Pi session before launching Claude Code",
 			);
 			expect(pi.sentUserMessages[0]).toContain("```text\nhandoff the auth work\n```");
+			expect(pi.sentUserMessages[0]).toContain("Source Pi session ID: claude-source-id");
+			expect(pi.sentUserMessages[0]).toContain(
+				"Source Pi session log: /sessions/claude-filename.jsonl",
+			);
 			expect(pi.sentUserMessages[0]).toContain(`--branch ${BRANCH}`);
 			expect(pi.sentUserMessages[0]).toContain(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 			expect(pi.sentUserMessages[0]).toContain(
@@ -242,7 +255,8 @@ describe("claude handoff command", () => {
 		const context = createContext({
 			mode: "tui",
 			hasCustomUi: true,
-			sessionFile: "/home/me/.pi/sessions/sess-9f3c.jsonl",
+			sessionFile: "/home/me/.pi/sessions/filename-id.jsonl",
+			sessionId: "actual-session-id",
 		});
 		const tool = getRegisteredTool(pi, CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 
@@ -258,7 +272,7 @@ describe("claude handoff command", () => {
 		expect(result.isError).toBeUndefined();
 		expect(runClaude.invocations).toHaveLength(1);
 		expect(runClaude.invocations[0]?.name).toBe(
-			"[from-pi] session-id:sess-9f3c handoff: fix-auth-flow",
+			"[from-pi] session-id:actual-session-id handoff: fix-auth-flow",
 		);
 	});
 
@@ -364,10 +378,16 @@ describe("claude handoff command", () => {
 		const createPrompt = buildClaudeHandoffPrompt({
 			skillBlock: undefined,
 			request: { branch: BRANCH, focus: "continue work" },
+			investigationSources: {
+				sourceSessionFile: "/sessions/claude-helper.jsonl",
+				sourceSessionId: "claude-helper-id",
+			},
 		});
 		expect(createPrompt).toContain("handoff-create workflow");
 		expect(createPrompt).toContain("before launching Claude Code");
 		expect(createPrompt).toContain("```text\ncontinue work\n```");
+		expect(createPrompt).toContain("Source Pi session ID: claude-helper-id");
+		expect(createPrompt).toContain("Source Pi session log: /sessions/claude-helper.jsonl");
 		expect(createPrompt).toContain(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 		expect(createPrompt).toContain(
 			`\`\`\`text\n/ns:handoff:pickup --branch ${BRANCH} <returned-slug>\n\`\`\``,
@@ -440,21 +460,49 @@ describe("claude handoff command", () => {
 		expect(deriveSourcePiSessionId(input)).toBe(expected);
 	});
 
+	test("resolveSourcePiSessionId trims an explicit id before falling back to the session file", () => {
+		expect(
+			resolveSourcePiSessionId({
+				sourceSessionFile: "/sessions/filename-id.jsonl",
+				sourceSessionId: "  actual-session-id  ",
+			}),
+		).toBe("actual-session-id");
+		expect(
+			resolveSourcePiSessionId({
+				sourceSessionFile: "/sessions/filename-id.jsonl",
+				sourceSessionId: "   ",
+			}),
+		).toBe("filename-id");
+		expect(resolveSourcePiSessionId({ sourceSessionId: "in-memory-id" })).toBe("in-memory-id");
+		expect(resolveSourcePiSessionId({})).toBeUndefined();
+	});
+
 	test("buildClaudeHandoffSessionName includes the session id when derivable and falls back otherwise", () => {
-		expect(buildClaudeHandoffSessionName("fix-auth-flow", "/sessions/sess-9f3c.jsonl")).toBe(
-			"[from-pi] session-id:sess-9f3c handoff: fix-auth-flow",
+		expect(
+			buildClaudeHandoffSessionName("fix-auth-flow", {
+				sourceSessionFile: "/sessions/sess-9f3c.jsonl",
+			}),
+		).toBe("[from-pi] session-id:sess-9f3c handoff: fix-auth-flow");
+		expect(
+			buildClaudeHandoffSessionName("fix-auth-flow", {
+				sourceSessionFile: "/sessions/filename-id.jsonl",
+				sourceSessionId: "actual-session-id",
+			}),
+		).toBe("[from-pi] session-id:actual-session-id handoff: fix-auth-flow");
+		expect(
+			buildClaudeHandoffSessionName("fix-auth-flow", { sourceSessionId: "in-memory-id" }),
+		).toBe("[from-pi] session-id:in-memory-id handoff: fix-auth-flow");
+		expect(
+			buildClaudeHandoffSessionName("fix-auth-flow", {
+				sourceSessionFile:
+					"/home/me/.pi/sessions/2026-06-12T06-03-30-136Z_019eba6d-abd8-7fa8-bb1f-1888f3b09a56.jsonl",
+			}),
+		).toBe("[from-pi] session-id:019eba6d-abd8-7fa8-bb1f-1888f3b09a56 handoff: fix-auth-flow");
+		expect(buildClaudeHandoffSessionName("fix-auth-flow", {})).toBe(
+			"[from-pi] handoff: fix-auth-flow",
 		);
 		expect(
-			buildClaudeHandoffSessionName(
-				"fix-auth-flow",
-				"/home/me/.pi/sessions/2026-06-12T06-03-30-136Z_019eba6d-abd8-7fa8-bb1f-1888f3b09a56.jsonl",
-			),
-		).toBe("[from-pi] session-id:019eba6d-abd8-7fa8-bb1f-1888f3b09a56 handoff: fix-auth-flow");
-		expect(buildClaudeHandoffSessionName("fix-auth-flow", undefined)).toBe(
-			"[from-pi] handoff: fix-auth-flow",
-		);
-		expect(buildClaudeHandoffSessionName("fix-auth-flow", "/sessions/")).toBe(
-			"[from-pi] handoff: fix-auth-flow",
-		);
+			buildClaudeHandoffSessionName("fix-auth-flow", { sourceSessionFile: "/sessions/" }),
+		).toBe("[from-pi] handoff: fix-auth-flow");
 	});
 });

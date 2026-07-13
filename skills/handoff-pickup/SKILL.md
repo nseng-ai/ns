@@ -101,6 +101,7 @@ Report in handoff vocabulary first:
 - Continuation focus or current state, if the artifact identifies one
 - Proposed immediate next step(s) from the artifact, phrased as proposed work rather than work you will now take
 - Risks, stale assumptions, missing context, or verification needed before continuing
+- Source session ID, source session log, and related investigation file paths recorded in the artifact, without reading those sources automatically
 
 Include a compact technical locator when useful:
 

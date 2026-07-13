@@ -3,6 +3,11 @@ import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 import { resolveCreateFocus } from "./create-focus.ts";
 import { CREATE_HANDOFF_FALLBACK } from "./create-prompt.ts";
 import { realHandoffCreateSkillLoader } from "./create-skill.ts";
+import {
+	buildHandoffInvestigationSourcesPrompt,
+	deriveHandoffInvestigationSources,
+	type HandoffInvestigationSourceOptions,
+} from "./investigation-sources.ts";
 import { createHandoffStartMessage, type HandoffStartMessages } from "./ui-status.ts";
 import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
 
@@ -11,7 +16,11 @@ const CREATE_HANDOFF_START_MESSAGES = {
 	fallbackLabel: "handoff-create workflow prompt",
 } satisfies HandoffStartMessages;
 
-export function buildCreateHandoffPrompt(skillBlock: string | undefined, focus: string): string {
+export function buildCreateHandoffPrompt(
+	skillBlock: string | undefined,
+	focus: string,
+	investigationSources: HandoffInvestigationSourceOptions = {},
+): string {
 	const focusText = focus.trim();
 	return `${skillBlock ?? CREATE_HANDOFF_FALLBACK}
 
@@ -20,6 +29,8 @@ Create a directed handoff artifact for this session.
 Continuation focus:
 
 ${buildFencedTextBlock(focusText)}
+
+${buildHandoffInvestigationSourcesPrompt(investigationSources)}
 
 Treat this as an explicit request to run the handoff create workflow. The handoff must be directed toward the supplied continuation focus. Compose the final Markdown handoff artifact first, then derive a semantic slug from that final content unless the user explicitly supplied one. Avoid overwriting an existing artifact unless replacement was explicitly requested, and keep normal copy focused on creating/picking up a handoff.
 
@@ -56,5 +67,7 @@ export async function handleCreateHandoffCommand(
 			skill ? "info" : "warning",
 		);
 	}
-	pi.sendUserMessage(buildCreateHandoffPrompt(skill?.block, focus));
+	pi.sendUserMessage(
+		buildCreateHandoffPrompt(skill?.block, focus, deriveHandoffInvestigationSources(ctx)),
+	);
 }

@@ -308,6 +308,7 @@ export function createContext(
 		inputResponse?: string;
 		inputUnavailable?: boolean;
 		sessionFile?: string;
+		sessionId?: string;
 		cwd?: string;
 		isNewSessionCancelled?: boolean;
 		newSessionError?: Error;
@@ -433,8 +434,13 @@ export function createContext(
 		},
 	};
 
-	if (options.sessionFile !== undefined) {
-		ctx.sessionManager = { getSessionFile: () => options.sessionFile };
+	const sessionFile = options.sessionFile;
+	const sessionId = options.sessionId;
+	if (sessionFile !== undefined || sessionId !== undefined) {
+		ctx.sessionManager = {
+			...(sessionFile === undefined ? {} : { getSessionFile: () => sessionFile }),
+			...(sessionId === undefined ? {} : { getSessionId: () => sessionId }),
+		};
 	}
 
 	return {
@@ -466,6 +472,7 @@ interface RunExtensionCommandOptions {
 		inputUnavailable?: boolean;
 		cwd?: string;
 		sessionFile?: string;
+		sessionId?: string;
 		isNewSessionCancelled?: boolean;
 		newSessionError?: Error;
 	};
