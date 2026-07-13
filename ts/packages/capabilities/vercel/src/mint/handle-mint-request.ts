@@ -68,7 +68,7 @@ export async function handleMintRequest(
 	const authentication = hasOidc
 		? await authenticateOidc(input.oidcToken, context)
 		: authenticateLanding(input.authorization, context);
-	if (!authentication.ok) {
+	if (authentication.ok === false) {
 		return authentication.status === 401
 			? failure(401, "unauthorized", "Authentication failed.")
 			: failure(403, "forbidden", "Mint request is not authorized.");

@@ -259,19 +259,31 @@ to widen OIDC trust.
 
 ### Controlled private-repository probe
 
-Run Vercel commands from
-`ts/packages/capabilities/vercel/deployable`; running `vercel build` at the
-repository root does not use the deployable's linked project settings. The
-local setup sequence established by the probe entrypoint is:
+The Vercel project's Root Directory is
+`ts/packages/capabilities/vercel`, making the capability package itself the
+Vercel deployable. Link that package directory for project-local build and
+environment commands, but deploy from the repository root so Vercel applies the
+configured monorepo Root Directory exactly once. The proven setup sequence is:
 
-1. Link that deployable directory to the dispatch project with `vercel link`
-   if `.vercel/project.json` is absent.
+1. Set the Vercel project's Root Directory to
+   `ts/packages/capabilities/vercel`, retain "Include source files outside of
+   the Root Directory," and link the package directory to the dispatch project
+   with `vercel link` if `.vercel/project.json` is absent.
 2. Configure the endpoint variables above. Keep the private key and prototype
    landing secret sensitive; make `NS_DISPATCH_GITHUB_REPOSITORY` available to
    the Development environment so the local probe can read it.
-3. Deploy the mint endpoint, then record its explicit HTTPS URL without
-   embedding credentials in it.
-4. From the deployable directory, refresh the ignored local file with
+3. From the package directory, run `pnpm build:deployable`. This runs the repo's
+   native TypeScript check, fails on TypeScript diagnostics that Vercel's build
+   may otherwise tolerate, builds the local Vercel output, and verifies that the
+   emitted mint function contains every relative runtime module. Then deploy
+   from the repository root with the existing project selected:
+
+   ```sh
+   vercel deploy . --project ns-dispatch --scope <team-slug> --prod --yes
+   ```
+
+   Record the explicit HTTPS URL without embedding credentials in it.
+4. From the package directory, refresh the ignored local file with
    `vercel env pull .env.local --environment=development`. This file supplies
    `VERCEL_OIDC_TOKEN` and is ignored by git. Decode only the non-secret claims;
    never print or record the token, and do not guess issuer/audience from URL
@@ -282,8 +294,13 @@ local setup sequence established by the probe entrypoint is:
    fixed probe from the package directory:
 
    ```sh
-   pnpm dev:sandbox-hello-probe -- https://<dispatch-host>/api/mint <40-character-commit-sha>
+   pnpm dev:sandbox-hello-probe https://<dispatch-host>/api/mint <40-character-commit-sha>
    ```
+
+The probe carries the caller's Development OIDC token on the private
+`x-ns-dispatch-oidc-token` header. Do not use Vercel's reserved
+`x-vercel-oidc-token` header for this hop: Vercel replaces it with the executing
+production Function's workload identity before the handler runs.
 
 The script reads Vercel team/project IDs from the repo-root `[dispatch]`
 table and the repository from `NS_DISPATCH_GITHUB_REPOSITORY`; it does not take
@@ -303,7 +320,7 @@ HEAD <sha>
 Common safe failure signals to preserve in the eventual setup skill:
 
 - missing or invalid `VERCEL_OIDC_TOKEN` or
-  `NS_DISPATCH_GITHUB_REPOSITORY` in `deployable/.env.local`;
+  `NS_DISPATCH_GITHUB_REPOSITORY` in the package-root `.env.local`;
 - invalid or missing repo-root `[dispatch]` project/team IDs;
 - `401 unauthorized` from missing, malformed, or failed OIDC authentication;
 - `403 forbidden` from issuer/audience-adjacent identity policy, wrong
@@ -314,12 +331,11 @@ Common safe failure signals to preserve in the eventual setup skill:
 - safe Sandbox create, command, output, revision, or cleanup failures without
   vendor request details or credential values.
 
-The command shape and fake-driven local behavior are implemented. A live
-Development-token trust check, deployment, and billable Sandbox probe still
-require explicit human authorization and must be recorded separately before
-this material is distilled into the reusable setup skill. The shared landing
-secret and sandbox self-landing remain prototype shortcuts; their named
-upgrades are the per-run landing voucher and Vercel-side supervisor.
+The command shape, fake-driven behavior, deployment boundary, Development-token
+trust check, and one controlled billable private-repository Sandbox probe are
+verified. The shared landing secret and sandbox self-landing remain prototype
+shortcuts; their named upgrades are the per-run landing voucher and Vercel-side
+supervisor.
 
 ## Open questions
 

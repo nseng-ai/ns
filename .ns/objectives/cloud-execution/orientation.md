@@ -12,11 +12,12 @@ This is a README-driven Objective: the canonical user-facing contract is
 seam contracts and rationale live in `references/seam-design.md` and never override the
 README.
 
-What you see now: `@nseng-ai/vercel` has a package/deployable shell, typed `[dispatch]`
-project linkage, a local mint endpoint, and a fixed private-repository Sandbox hello probe.
-The linked Vercel project now carries the `NS_DISPATCH_*` production contract and a verified
-Development OIDC identity, but the endpoint has not been deployed and no billable Sandbox
-probe, dispatch preflight, `ns dispatch` command, harness executor, or setup skill has landed.
+What you see now: `@nseng-ai/vercel` is itself the linked Vercel deployable and carries the
+`NS_DISPATCH_*` production contract, a verified Development OIDC identity, a working mint
+endpoint, and a fixed private-repository Sandbox hello probe. One billable probe has cloned
+`nseng-ai/ns` at an exact remote SHA and verified marker, HEAD, and cleanup. Old-prefix
+credential cleanup and dispatch preflight remain; no `ns dispatch` command, harness executor,
+or setup skill has landed.
 Collect proven setup facts while implementing; do not author the skill ahead of the steel
 thread.
 The only working dispatch remains the Pi-only `/ccc:workspace:dispatch-*` surface over

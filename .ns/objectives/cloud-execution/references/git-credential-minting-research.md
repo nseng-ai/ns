@@ -189,10 +189,14 @@ noted where the docs carry them.
 
 - Vercel's IdP issues short-lived tokens; issuer mode is team
   (`https://oidc.vercel.com/acme`) or global ([Vercel OIDC][vercel-oidc]).
-- **In builds:** fresh token in `VERCEL_OIDC_TOKEN`. **In functions:** token
-  arrives on the `x-vercel-oidc-token` request header; TTL is 60 minutes,
-  cached at most 45 minutes so it outlives a function's max execution
-  ([Vercel OIDC][vercel-oidc]).
+- **In builds:** fresh token in `VERCEL_OIDC_TOKEN`. **In functions:** the
+  executing workload's token arrives on the reserved `x-vercel-oidc-token`
+  request header; TTL is 60 minutes, cached at most 45 minutes so it outlives a
+  function's max execution ([Vercel OIDC][vercel-oidc]). Live deployment
+  evidence on 2026-07-13 confirmed that Vercel replaces a caller-supplied value
+  on that reserved header with the callee Function's production identity. A
+  local Development token sent to the mint endpoint therefore uses the private
+  `x-ns-dispatch-oidc-token` header instead.
 - **Local development:** `vercel link` + `vercel env pull` writes
   `VERCEL_OIDC_TOKEN` into `.env.local`; the development token **expires
   after 12 hours** — re-run `vercel env pull` to refresh

@@ -148,8 +148,9 @@ the steel-thread row:
 
 1. Register the `ns-dispatch` GitHub App under nseng-ai; install on the
    repo; key into a sensitive env var (one-time, human).
-2. Create the dispatch Vercel project rooted at the package's deployable
-   subdir; add model keys and the v1 shared sandbox secret (one-time).
+2. Create the dispatch Vercel project rooted at the
+   `ts/packages/capabilities/vercel` package; add model keys and the v1 shared
+   sandbox secret (one-time).
 3. Mint endpoint on the deployable (v1 auth: OIDC for the CLI, shared
    secret for sandboxes), with the voucher upgrade noted in code.
 4. Dispatch preflight per §7.

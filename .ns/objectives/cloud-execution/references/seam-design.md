@@ -96,10 +96,14 @@ git); PR-body-marker-only enumeration (scan-and-false-match).
 
 ## 6. The deployable lives inside the package
 
-Vercel Workflows are deployed code, so the package carries its own
-deployable: the workflow/cron entrypoints and Vercel project config live in
-a subdirectory of `ts/packages/capabilities/vercel`, and the dispatch
-Vercel project roots there. One home for the whole Vercel story.
+Vercel Workflows are deployed code, so the package is its own deployable:
+the API/workflow/cron entrypoints and Vercel project config live directly in
+`ts/packages/capabilities/vercel`, and the dispatch Vercel project roots at
+that package. One home for the whole Vercel story. The original nested
+`deployable/` root was retired after the first production deployment proved
+that Vercel's Node function builder omitted package sources imported from
+above that root; package-root deployment keeps the function boundary and its
+owned sources inside one traceable project root.
 
 The durable-jobs contract is unchanged: the job layer schedules and
 supervises; a job's body invokes the same dispatch core that serves

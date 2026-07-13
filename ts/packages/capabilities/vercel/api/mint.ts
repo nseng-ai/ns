@@ -3,17 +3,17 @@ import {
 	type GitHubInstallationTokenGateway,
 	type LandingCredentialGateway,
 	type VercelOidcGateway,
-} from "../../src/mint/handle-mint-request.ts";
+} from "../src/mint/handle-mint-request.ts";
 import {
 	createGitHubInstallationTokenGateway,
 	createJoseVercelOidcGateway,
 	createSharedSecretLandingCredentialGateway,
-} from "../../src/mint/real-gateways.ts";
+} from "../src/mint/real-gateways.ts";
 import {
 	parseMintRuntimeConfig,
 	type MintEnvironment,
 	type MintRuntimeConfig,
-} from "../../src/mint/runtime-config.ts";
+} from "../src/mint/runtime-config.ts";
 
 export type MintPostHandler = (request: Request) => Promise<Response>;
 
@@ -60,7 +60,7 @@ export function createMintPostHandler(options: MintPostHandlerOptions): MintPost
 		const result = await handleMintRequest(
 			{
 				body: bodyResult.value,
-				oidcToken: request.headers.get("x-vercel-oidc-token"),
+				oidcToken: request.headers.get("x-ns-dispatch-oidc-token"),
 				authorization: request.headers.get("authorization"),
 			},
 			{ config, oidc, landingCredential, github },
