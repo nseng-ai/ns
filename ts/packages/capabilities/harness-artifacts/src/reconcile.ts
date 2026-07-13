@@ -685,7 +685,7 @@ function invalidTargetResult(input: {
 	const normalizedTarget = normalizeExtensionPath(input.projectRoot, input.target);
 	return resultErr({
 		code: "invalid_extension_target",
-		message: `Extension target is not declared in ns.toml: ${input.target}. Add it to top-level extensions = [...] before running ns update --extensions ${input.target}.`,
+		message: `Extension target is not declared in ns.toml: ${input.target}. Run ns extension install ${input.target} to declare and provision it before updating it.`,
 		details: {
 			target: input.target,
 			normalizedTarget,

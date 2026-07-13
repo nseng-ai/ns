@@ -2,11 +2,11 @@
 
 ## Work
 
-- [ ] Implement the read-only extension-status query and `ns extension list` command across the ns-init capability and host catalog.
-  - Evidence: focused operation and command tests show deterministic human and canonical JSON output for empty, npm, local, installed, missing, provisioned, and malformed-config scenarios; schema support is exercised.
-  - Policy: keep status computation separate from acquisition and activation writes; listing must never reconcile project state.
-- [ ] Reconcile stale acquisition-surface references with the landed nested command contract.
-  - Evidence: kernel extension-authoring docs and harness-artifact reconciliation errors no longer mention `ns update --extensions`; focused documentation or string assertions pass where present.
+- [x] Implement the read-only extension-status query and `ns extension list` command across the ns-init capability and host catalog.
+  - Evidence: fake-driven operation tests, real-adapter integration tests, and host CLI tests cover ordered npm/local/broken rows, all status values and precedence, missing and malformed configuration, help/schema/JSON contracts, conflict detection, and repeated-list byte idempotence. The dedicated inspection gateway has no acquisition, apply, or write operation.
+  - Validation: package-focused checks/tests, the TypeScript style guard, the bounded stale-term grep, and `just` pass.
+- [x] Reconcile stale acquisition-surface references with the landed nested command contract.
+  - Evidence: extension-authoring docs now describe lifecycle reconciliation through `ns init` and nested `ns extension` commands; undeclared-target recovery directs users to `ns extension install <source>`, with a focused assertion. `rg -n 'ns update --extensions' ts/packages` returns no matches.
 - [ ] Record the completed customer-surface contract and any status-model findings back into the umbrella synthesis evidence.
   - Evidence: this Subobjective's closure names the shipped list semantics and any caveats the release and onboarding Subobjectives must exercise.
 

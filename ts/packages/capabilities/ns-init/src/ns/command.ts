@@ -5,11 +5,13 @@ import {
 import type { NsCommand, NsCommandSchema } from "@nseng-ai/sdk";
 
 import type { ExtensionInstallContext } from "../install-extension.ts";
+import type { ExtensionListContext } from "../list-extensions.ts";
 import type { ExtensionUninstallContext } from "../uninstall-extension.ts";
 import type { ExtensionUpdateContext } from "../update-extension.ts";
 import { createNsInitContext } from "./context.ts";
 
 type NsInitCommandContext = ExtensionInstallContext &
+	ExtensionListContext &
 	ExtensionUninstallContext &
 	ExtensionUpdateContext & { cwd: string };
 

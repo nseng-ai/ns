@@ -10,16 +10,19 @@ import {
 	RealExtensionUpdateAcquisitionGateway,
 } from "../extension-acquisition.ts";
 import type { ExtensionInstallContext } from "../install-extension.ts";
+import type { ExtensionListContext } from "../list-extensions.ts";
 import type { ExtensionUninstallContext } from "../uninstall-extension.ts";
 import type { ExtensionUpdateContext } from "../update-extension.ts";
 import { RealActivationFilesGateway } from "../real-activation-files.ts";
 import { RealArtifactActivationGateway } from "../real-artifact-activation.ts";
+import { RealArtifactProvisioningStatusGateway } from "../real-artifact-provisioning-status.ts";
 import { RealDeclaredExtensionsGateway } from "../declared-extensions.ts";
 
 export function createNsInitContext(
 	ctx: NsExtensionApi,
 ): NsActivationContext &
 	ExtensionInstallContext &
+	ExtensionListContext &
 	ExtensionUninstallContext &
 	ExtensionUpdateContext & { cwd: string } {
 	const acquisition = createRealExtensionAcquisitionGateway(extensionApiCommandExecApi(ctx));
@@ -32,6 +35,7 @@ export function createNsInitContext(
 		files: new RealActivationFilesGateway(),
 		declaredExtensions: new RealDeclaredExtensionsGateway(),
 		artifacts: new RealArtifactActivationGateway(),
+		artifactProvisioningStatus: new RealArtifactProvisioningStatusGateway(),
 	};
 }
 

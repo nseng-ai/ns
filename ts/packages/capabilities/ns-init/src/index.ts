@@ -27,6 +27,13 @@ export type {
 	PrepareArtifactActivationResult,
 } from "./artifact-activation.ts";
 export type {
+	ArtifactProvisioningDiagnostic,
+	ArtifactProvisioningStatus,
+	ArtifactProvisioningStatusGateway,
+	ArtifactProvisioningStatusSummary,
+	InspectArtifactProvisioningStatusParams,
+} from "./artifact-provisioning-status.ts";
+export type {
 	DeclaredExtensionsGateway,
 	LoadDeclaredExtensionsParams,
 } from "./declared-extensions.ts";
@@ -61,6 +68,21 @@ export {
 	renderInstallExtensionHuman,
 } from "./install-extension.ts";
 export type {
+	ExtensionListContext,
+	ExtensionListDiagnostic,
+	ExtensionListRow,
+	ListExtensionsRequest,
+	ListExtensionsResult,
+} from "./list-extensions.ts";
+export {
+	extensionListDiagnosticSchema,
+	extensionListRowSchema,
+	listExtensions,
+	listExtensionsRequestSchema,
+	listExtensionsResultSchema,
+	renderListExtensionsHuman,
+} from "./list-extensions.ts";
+export type {
 	ExtensionUninstallContext,
 	UninstallExtensionRequest,
 	UninstallExtensionResult,
@@ -85,6 +107,7 @@ export {
 } from "./update-extension.ts";
 export { RealActivationFilesGateway } from "./real-activation-files.ts";
 export { RealArtifactActivationGateway } from "./real-artifact-activation.ts";
+export { RealArtifactProvisioningStatusGateway } from "./real-artifact-provisioning-status.ts";
 export type {
 	ApplyNsPointerStanzaResult,
 	EnsureClaudeAgentsImportResult,

@@ -266,8 +266,9 @@ Inspect them with `ns extension points` / `ns extension point <id>`.
 
 ## Bundled artifacts
 
-Bundled artifacts declare files shipped with the extension (currently skills) that
-`ns update --extensions` provisions into harness roots (Claude Code, Pi, Codex):
+Bundled artifacts declare files shipped with the extension (currently skills). Repository
+lifecycle reconciliation provisions them into harness roots (Claude Code, Pi, Codex) when you run
+`ns init` or `ns extension install`, `ns extension update`, or `ns extension uninstall`:
 
 ```ts
 bundledArtifacts: [
