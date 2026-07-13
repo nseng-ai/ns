@@ -11,6 +11,7 @@ import {
 } from "../../scripts/build-deployable.ts";
 import { helloWorkflowId } from "../../workflows/hello.ts";
 import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
+import { supervisionProbeWorkflowId } from "../../workflows/supervision-probe-id.ts";
 
 const flowVcConfig = {
 	runtime: "nodejs22.x",
@@ -194,6 +195,7 @@ describe("findMissingWorkflowManifestIds", () => {
 	it("covers every workflow id the trigger route starts by metadata", () => {
 		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(helloWorkflowId);
 		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(sandboxProbeWorkflowId);
+		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(supervisionProbeWorkflowId);
 	});
 });
 

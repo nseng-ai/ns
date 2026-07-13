@@ -15,10 +15,11 @@ import {
 	type RunStatusErrorCode,
 	type RunStatusResponse,
 	type TriggerErrorCode,
+	type TriggerRequest,
 	type TriggerResponse,
 } from "./contracts.ts";
 import type { TriggerRuntimeConfig } from "./runtime-config.ts";
-import type { WorkflowRunGateway } from "./workflow-run-gateway.ts";
+import type { StartWorkflowRunResult, WorkflowRunGateway } from "./workflow-run-gateway.ts";
 
 export interface TriggerRequestContext {
 	readonly config: TriggerRuntimeConfig;
@@ -54,10 +55,7 @@ export async function handleTriggerRequest(
 	}
 
 	const request = requestResult.data;
-	const startResult =
-		request.workflow === "hello"
-			? await context.workflowRuns.startHelloWorkflow({ name: request.name })
-			: await context.workflowRuns.startSandboxProbeWorkflow({ revision: request.revision });
+	const startResult = await startRequestedWorkflow(request, context.workflowRuns);
 	if (startResult.ok === false) {
 		return triggerFailure(502, "workflow-start-failed", "Workflow start failed.");
 	}
@@ -110,6 +108,23 @@ export async function handleRunStatusRequest(
 		status: 200,
 		body: { runId: runIdResult.data, status: statusResult.value.status },
 	};
+}
+
+async function startRequestedWorkflow(
+	request: TriggerRequest,
+	workflowRuns: WorkflowRunGateway,
+): Promise<StartWorkflowRunResult> {
+	switch (request.workflow) {
+		case "hello":
+			return await workflowRuns.startHelloWorkflow({ name: request.name });
+		case "sandbox-probe":
+			return await workflowRuns.startSandboxProbeWorkflow({ revision: request.revision });
+		case "supervision-probe":
+			return await workflowRuns.startSupervisionProbeWorkflow({
+				runSeconds: request.runSeconds,
+				pollSeconds: request.pollSeconds,
+			});
+	}
 }
 
 function callerExpectation(config: TriggerRuntimeConfig): DevelopmentCallerExpectation {

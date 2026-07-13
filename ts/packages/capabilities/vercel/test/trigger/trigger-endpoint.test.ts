@@ -28,6 +28,7 @@ class RecordingWorkflowRunGateway implements WorkflowRunGateway {
 	readonly #runId: string;
 	readonly startCalls: Array<{ name: string }> = [];
 	readonly startProbeCalls: Array<{ revision: string }> = [];
+	readonly startSupervisionCalls: Array<{ runSeconds: number; pollSeconds: number }> = [];
 
 	constructor(runId: string) {
 		this.#runId = runId;
@@ -42,6 +43,14 @@ class RecordingWorkflowRunGateway implements WorkflowRunGateway {
 		readonly revision: string;
 	}): Promise<StartWorkflowRunResult> {
 		this.startProbeCalls.push({ ...options });
+		return { ok: true, value: { runId: this.#runId } };
+	}
+
+	async startSupervisionProbeWorkflow(options: {
+		readonly runSeconds: number;
+		readonly pollSeconds: number;
+	}): Promise<StartWorkflowRunResult> {
+		this.startSupervisionCalls.push({ ...options });
 		return { ok: true, value: { runId: this.#runId } };
 	}
 
@@ -119,6 +128,33 @@ describe("createTriggerPostHandler", () => {
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ runId: "wrun_probe", workflow: "sandbox-probe" });
 		expect(workflowRuns.startProbeCalls).toEqual([{ revision }]);
+	});
+
+	it("starts the supervision-probe workflow through the same authenticated route", async () => {
+		const workflowRuns = new RecordingWorkflowRunGateway("wrun_supervision");
+		const handler = createTriggerPostHandler({
+			environment: validEnvironment(),
+			createOidcGateway: () => validOidcGateway(),
+			createWorkflowRunGateway: () => workflowRuns,
+		});
+
+		const response = await handler(
+			new Request("https://dispatch.example/api/trigger", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"x-ns-dispatch-oidc-token": "oidc-token",
+				},
+				body: JSON.stringify({ workflow: "supervision-probe", runSeconds: 840, pollSeconds: 30 }),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({
+			runId: "wrun_supervision",
+			workflow: "supervision-probe",
+		});
+		expect(workflowRuns.startSupervisionCalls).toEqual([{ runSeconds: 840, pollSeconds: 30 }]);
 	});
 
 	it("ignores Vercel's reserved workload-identity header", async () => {

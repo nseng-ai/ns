@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { helloWorkflowId } from "../../workflows/hello.ts";
 import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
+import { supervisionProbeWorkflowId } from "../../workflows/supervision-probe-id.ts";
 import { workflowRunStatusValues } from "./contracts.ts";
 import type { StartWorkflowRunResult, WorkflowRunGateway } from "./workflow-run-gateway.ts";
 
@@ -47,6 +48,11 @@ export function createWorkflowSdkRunGateway(
 		},
 		async startSandboxProbeWorkflow(options) {
 			return await startWorkflowRun(sandboxProbeWorkflowId, [options.revision]);
+		},
+		async startSupervisionProbeWorkflow(options) {
+			return await startWorkflowRun(supervisionProbeWorkflowId, [
+				{ runSeconds: options.runSeconds, pollSeconds: options.pollSeconds },
+			]);
 		},
 		async readWorkflowRunStatus(options) {
 			try {

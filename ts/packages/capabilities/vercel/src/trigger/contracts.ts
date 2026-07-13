@@ -4,7 +4,14 @@
 // stable codes only; nothing here has been live-verified on Vercel yet.
 import { z } from "zod";
 
-export const triggerWorkflowValues = ["hello", "sandbox-probe"] as const;
+import {
+	SUPERVISION_POLL_SECONDS_MAX,
+	SUPERVISION_POLL_SECONDS_MIN,
+	SUPERVISION_RUN_SECONDS_MAX,
+	SUPERVISION_RUN_SECONDS_MIN,
+} from "../sandbox/supervision-probe.ts";
+
+export const triggerWorkflowValues = ["hello", "sandbox-probe", "supervision-probe"] as const;
 
 export type TriggerWorkflowName = (typeof triggerWorkflowValues)[number];
 
@@ -21,6 +28,18 @@ export const triggerRequestSchema = z.discriminatedUnion("workflow", [
 	z.strictObject({
 		workflow: z.literal("sandbox-probe"),
 		revision: commitShaSchema,
+	}),
+	// Probe-3: the long-run supervision probe takes the detached run's length
+	// and the supervision poll cadence, both bounded, so quick smoke runs and
+	// the >13-minute live supervision proof share this code.
+	z.strictObject({
+		workflow: z.literal("supervision-probe"),
+		runSeconds: z.number().int().min(SUPERVISION_RUN_SECONDS_MIN).max(SUPERVISION_RUN_SECONDS_MAX),
+		pollSeconds: z
+			.number()
+			.int()
+			.min(SUPERVISION_POLL_SECONDS_MIN)
+			.max(SUPERVISION_POLL_SECONDS_MAX),
 	}),
 ]);
 

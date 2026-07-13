@@ -7,6 +7,7 @@ import {
 } from "../../src/trigger/real-workflow-run-gateway.ts";
 import { helloWorkflowId } from "../../workflows/hello.ts";
 import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
+import { supervisionProbeWorkflowId } from "../../workflows/supervision-probe-id.ts";
 
 interface InMemorySdkState {
 	readonly nextRunId?: string;
@@ -64,6 +65,24 @@ describe("createWorkflowSdkRunGateway", () => {
 
 		expect(result).toEqual({ ok: true, value: { runId: "wrun_probe" } });
 		expect(sdk.startCalls).toEqual([{ workflowId: sandboxProbeWorkflowId, args: [revision] }]);
+	});
+
+	it("starts the supervision-probe workflow with a single serializable params argument", async () => {
+		const sdk = new InMemoryWorkflowRunSdk({ nextRunId: "wrun_supervision" });
+		const gateway = createWorkflowSdkRunGateway(sdk);
+
+		const result = await gateway.startSupervisionProbeWorkflow({
+			runSeconds: 840,
+			pollSeconds: 30,
+		});
+
+		expect(result).toEqual({ ok: true, value: { runId: "wrun_supervision" } });
+		expect(sdk.startCalls).toEqual([
+			{
+				workflowId: supervisionProbeWorkflowId,
+				args: [{ runSeconds: 840, pollSeconds: 30 }],
+			},
+		]);
 	});
 
 	it("normalizes an empty vendor run id to a safe failure", async () => {

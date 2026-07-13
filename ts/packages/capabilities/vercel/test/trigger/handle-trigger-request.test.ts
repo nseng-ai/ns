@@ -55,6 +55,7 @@ class InMemoryWorkflowRunGateway implements WorkflowRunGateway {
 	readonly #state: InMemoryWorkflowRunsState;
 	readonly startCalls: Array<{ name: string }> = [];
 	readonly startProbeCalls: Array<{ revision: string }> = [];
+	readonly startSupervisionCalls: Array<{ runSeconds: number; pollSeconds: number }> = [];
 	readonly statusCalls: Array<{ runId: string }> = [];
 
 	constructor(state: InMemoryWorkflowRunsState = {}) {
@@ -71,6 +72,15 @@ class InMemoryWorkflowRunGateway implements WorkflowRunGateway {
 		readonly revision: string;
 	}): Promise<StartWorkflowRunResult> {
 		this.startProbeCalls.push({ ...options });
+		if (this.#state.startFails === true) return { ok: false };
+		return { ok: true, value: { runId: this.#state.nextRunId ?? "wrun_fixture" } };
+	}
+
+	async startSupervisionProbeWorkflow(options: {
+		readonly runSeconds: number;
+		readonly pollSeconds: number;
+	}): Promise<StartWorkflowRunResult> {
+		this.startSupervisionCalls.push({ ...options });
 		if (this.#state.startFails === true) return { ok: false };
 		return { ok: true, value: { runId: this.#state.nextRunId ?? "wrun_fixture" } };
 	}
@@ -140,6 +150,26 @@ describe("handleTriggerRequest", () => {
 		expect(workflowRuns.startCalls).toEqual([]);
 	});
 
+	it("starts the supervision-probe workflow with the validated run length and poll cadence", async () => {
+		const workflowRuns = new InMemoryWorkflowRunGateway({ nextRunId: "wrun_supervision" });
+
+		const response = await handleTriggerRequest(
+			{
+				body: { workflow: "supervision-probe", runSeconds: 840, pollSeconds: 30 },
+				oidcToken: "oidc-token",
+			},
+			context({ workflowRuns }),
+		);
+
+		expect(response).toEqual({
+			status: 200,
+			body: { runId: "wrun_supervision", workflow: "supervision-probe" },
+		});
+		expect(workflowRuns.startSupervisionCalls).toEqual([{ runSeconds: 840, pollSeconds: 30 }]);
+		expect(workflowRuns.startCalls).toEqual([]);
+		expect(workflowRuns.startProbeCalls).toEqual([]);
+	});
+
 	it.each([
 		["unknown workflow", { workflow: "dispatch", name: "world" }],
 		["missing name", { workflow: "hello" }],
@@ -151,6 +181,31 @@ describe("handleTriggerRequest", () => {
 		[
 			"probe request with an extra key",
 			{ workflow: "sandbox-probe", revision: probeRevision, extra: true },
+		],
+		["missing supervision parameters", { workflow: "supervision-probe" }],
+		[
+			"non-integer supervision run length",
+			{ workflow: "supervision-probe", runSeconds: 60.5, pollSeconds: 30 },
+		],
+		[
+			"supervision run length below the minimum",
+			{ workflow: "supervision-probe", runSeconds: 9, pollSeconds: 30 },
+		],
+		[
+			"supervision run length above the maximum",
+			{ workflow: "supervision-probe", runSeconds: 3601, pollSeconds: 30 },
+		],
+		[
+			"supervision poll cadence below the minimum",
+			{ workflow: "supervision-probe", runSeconds: 840, pollSeconds: 4 },
+		],
+		[
+			"supervision poll cadence above the maximum",
+			{ workflow: "supervision-probe", runSeconds: 840, pollSeconds: 301 },
+		],
+		[
+			"supervision request with an extra key",
+			{ workflow: "supervision-probe", runSeconds: 840, pollSeconds: 30, extra: true },
 		],
 	])("rejects a request with %s before starting anything", async (_label, body) => {
 		const workflowRuns = new InMemoryWorkflowRunGateway();
@@ -166,6 +221,7 @@ describe("handleTriggerRequest", () => {
 		});
 		expect(workflowRuns.startCalls).toEqual([]);
 		expect(workflowRuns.startProbeCalls).toEqual([]);
+		expect(workflowRuns.startSupervisionCalls).toEqual([]);
 	});
 
 	it("returns a safe 401 without a caller token", async () => {
