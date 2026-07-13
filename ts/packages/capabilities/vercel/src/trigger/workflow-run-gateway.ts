@@ -2,6 +2,8 @@
 // trigger/observe route handlers and their tests run against in-memory fakes
 // with no network. Vercel vocabulary is deliberate (no backend-agnostic
 // executor contract); vendor types stay inside the real adapter.
+import type { DispatchRunInput } from "../dispatch/dispatch-run.ts";
+import type { SupervisionProbeParams } from "../sandbox/supervision-probe.ts";
 import type { WorkflowRunStatus } from "./contracts.ts";
 
 export interface StartedWorkflowRun {
@@ -17,20 +19,16 @@ export type ReadWorkflowRunStatusResult =
 	| { readonly type: "missing" }
 	| { readonly type: "error" };
 
+export type WorkflowStartRequest =
+	| { readonly workflow: "hello"; readonly input: { readonly name: string } }
+	| {
+			readonly workflow: "sandbox-probe";
+			readonly input: { readonly revision: string };
+	  }
+	| { readonly workflow: "supervision-probe"; readonly input: SupervisionProbeParams }
+	| { readonly workflow: "dispatch"; readonly input: DispatchRunInput };
+
 export interface WorkflowRunGateway {
-	startHelloWorkflow(options: { readonly name: string }): Promise<StartWorkflowRunResult>;
-	startSandboxProbeWorkflow(options: {
-		readonly revision: string;
-	}): Promise<StartWorkflowRunResult>;
-	startSupervisionProbeWorkflow(options: {
-		readonly runSeconds: number;
-		readonly pollSeconds: number;
-	}): Promise<StartWorkflowRunResult>;
-	startDispatchWorkflow(options: {
-		readonly revision: string;
-		readonly anchorBranch: string;
-		readonly anchorPrNumber: number;
-		readonly prompt: string;
-	}): Promise<StartWorkflowRunResult>;
+	startWorkflow(request: WorkflowStartRequest): Promise<StartWorkflowRunResult>;
 	readWorkflowRunStatus(options: { readonly runId: string }): Promise<ReadWorkflowRunStatusResult>;
 }
