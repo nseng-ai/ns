@@ -1,7 +1,8 @@
-// Route-agnostic handling for the workflow trigger/observe surface (probe-1):
-// authenticate the Development caller with the same trust machinery the mint
-// route proved, then start the hello workflow or read a run's status through
-// the WorkflowRunGateway seam. Unauthenticated callers get the same safe
+// Route-agnostic handling for the workflow trigger/observe surface (the
+// workflow spine probes): authenticate the Development caller with the same
+// trust machinery the mint route proved, then start the requested probe
+// workflow (hello or sandbox-probe) or read a run's status through the
+// WorkflowRunGateway seam. Unauthenticated callers get the same safe
 // 401-shaped response as `/api/mint` — no information leak.
 import {
 	authenticateDevelopmentCaller,
@@ -52,9 +53,11 @@ export async function handleTriggerRequest(
 			: triggerFailure(403, "forbidden", "Trigger request is not authorized.");
 	}
 
-	const startResult = await context.workflowRuns.startHelloWorkflow({
-		name: requestResult.data.name,
-	});
+	const request = requestResult.data;
+	const startResult =
+		request.workflow === "hello"
+			? await context.workflowRuns.startHelloWorkflow({ name: request.name })
+			: await context.workflowRuns.startSandboxProbeWorkflow({ revision: request.revision });
 	if (startResult.ok === false) {
 		return triggerFailure(502, "workflow-start-failed", "Workflow start failed.");
 	}
@@ -63,7 +66,7 @@ export async function handleTriggerRequest(
 		status: 200,
 		body: {
 			runId: startResult.value.runId,
-			workflow: requestResult.data.workflow,
+			workflow: request.workflow,
 		},
 	};
 }

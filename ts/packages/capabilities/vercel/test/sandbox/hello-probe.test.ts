@@ -118,9 +118,12 @@ function probeOptions() {
 	return {
 		repository: "NSENG-AI/NS",
 		revision,
-		vercelOidcToken: "development-oidc-token",
-		vercelProjectId: "prj_dispatch",
-		vercelTeamId: "team_dispatch",
+		credentials: {
+			type: "explicit-oidc-token",
+			oidcToken: "development-oidc-token",
+			projectId: "prj_dispatch",
+			teamId: "team_dispatch",
+		},
 	} as const;
 }
 
@@ -153,6 +156,7 @@ describe("runSandboxHelloProbe", () => {
 					revision,
 				},
 				credentials: {
+					type: "explicit-oidc-token",
 					oidcToken: "development-oidc-token",
 					projectId: "prj_dispatch",
 					teamId: "team_dispatch",

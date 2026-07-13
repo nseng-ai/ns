@@ -24,6 +24,8 @@ const config: TriggerRuntimeConfig = {
 	vercelOidcAudience: "https://vercel.com/nseng-ai",
 };
 
+const probeRevision = "0123456789abcdef0123456789abcdef01234567";
+
 class InMemoryVercelOidcGateway implements VercelOidcGateway {
 	readonly #result: VercelOidcVerificationResult;
 	readonly calls: Array<{ token: string; issuer: string; audience: string }> = [];
@@ -52,6 +54,7 @@ interface InMemoryWorkflowRunsState {
 class InMemoryWorkflowRunGateway implements WorkflowRunGateway {
 	readonly #state: InMemoryWorkflowRunsState;
 	readonly startCalls: Array<{ name: string }> = [];
+	readonly startProbeCalls: Array<{ revision: string }> = [];
 	readonly statusCalls: Array<{ runId: string }> = [];
 
 	constructor(state: InMemoryWorkflowRunsState = {}) {
@@ -60,6 +63,14 @@ class InMemoryWorkflowRunGateway implements WorkflowRunGateway {
 
 	async startHelloWorkflow(options: { readonly name: string }): Promise<StartWorkflowRunResult> {
 		this.startCalls.push({ ...options });
+		if (this.#state.startFails === true) return { ok: false };
+		return { ok: true, value: { runId: this.#state.nextRunId ?? "wrun_fixture" } };
+	}
+
+	async startSandboxProbeWorkflow(options: {
+		readonly revision: string;
+	}): Promise<StartWorkflowRunResult> {
+		this.startProbeCalls.push({ ...options });
 		if (this.#state.startFails === true) return { ok: false };
 		return { ok: true, value: { runId: this.#state.nextRunId ?? "wrun_fixture" } };
 	}
@@ -113,11 +124,34 @@ describe("handleTriggerRequest", () => {
 		expect(workflowRuns.startCalls).toEqual([{ name: "world" }]);
 	});
 
+	it("starts the sandbox-probe workflow with the requested exact revision", async () => {
+		const workflowRuns = new InMemoryWorkflowRunGateway({ nextRunId: "wrun_probe" });
+
+		const response = await handleTriggerRequest(
+			{ body: { workflow: "sandbox-probe", revision: probeRevision }, oidcToken: "oidc-token" },
+			context({ workflowRuns }),
+		);
+
+		expect(response).toEqual({
+			status: 200,
+			body: { runId: "wrun_probe", workflow: "sandbox-probe" },
+		});
+		expect(workflowRuns.startProbeCalls).toEqual([{ revision: probeRevision }]);
+		expect(workflowRuns.startCalls).toEqual([]);
+	});
+
 	it.each([
 		["unknown workflow", { workflow: "dispatch", name: "world" }],
 		["missing name", { workflow: "hello" }],
 		["empty name", { workflow: "hello", name: "" }],
 		["extra key", { workflow: "hello", name: "world", extra: true }],
+		["missing probe revision", { workflow: "sandbox-probe" }],
+		["non-SHA probe revision", { workflow: "sandbox-probe", revision: "main" }],
+		["probe request with hello's field", { workflow: "sandbox-probe", name: "world" }],
+		[
+			"probe request with an extra key",
+			{ workflow: "sandbox-probe", revision: probeRevision, extra: true },
+		],
 	])("rejects a request with %s before starting anything", async (_label, body) => {
 		const workflowRuns = new InMemoryWorkflowRunGateway();
 
@@ -131,6 +165,7 @@ describe("handleTriggerRequest", () => {
 			body: { error: { code: "invalid-request", message: "Invalid trigger request." } },
 		});
 		expect(workflowRuns.startCalls).toEqual([]);
+		expect(workflowRuns.startProbeCalls).toEqual([]);
 	});
 
 	it("returns a safe 401 without a caller token", async () => {

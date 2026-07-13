@@ -27,6 +27,7 @@ class InMemoryOidcGateway implements VercelOidcGateway {
 class RecordingWorkflowRunGateway implements WorkflowRunGateway {
 	readonly #runId: string;
 	readonly startCalls: Array<{ name: string }> = [];
+	readonly startProbeCalls: Array<{ revision: string }> = [];
 
 	constructor(runId: string) {
 		this.#runId = runId;
@@ -34,6 +35,13 @@ class RecordingWorkflowRunGateway implements WorkflowRunGateway {
 
 	async startHelloWorkflow(options: { readonly name: string }): Promise<StartWorkflowRunResult> {
 		this.startCalls.push({ ...options });
+		return { ok: true, value: { runId: this.#runId } };
+	}
+
+	async startSandboxProbeWorkflow(options: {
+		readonly revision: string;
+	}): Promise<StartWorkflowRunResult> {
+		this.startProbeCalls.push({ ...options });
 		return { ok: true, value: { runId: this.#runId } };
 	}
 
@@ -86,6 +94,31 @@ describe("createTriggerPostHandler", () => {
 		expect(response.headers.get("cache-control")).toBe("no-store");
 		expect(await response.json()).toEqual({ runId: "wrun_123", workflow: "hello" });
 		expect(workflowRuns.startCalls).toEqual([{ name: "world" }]);
+	});
+
+	it("starts the sandbox-probe workflow through the same authenticated route", async () => {
+		const workflowRuns = new RecordingWorkflowRunGateway("wrun_probe");
+		const handler = createTriggerPostHandler({
+			environment: validEnvironment(),
+			createOidcGateway: () => validOidcGateway(),
+			createWorkflowRunGateway: () => workflowRuns,
+		});
+		const revision = "0123456789abcdef0123456789abcdef01234567";
+
+		const response = await handler(
+			new Request("https://dispatch.example/api/trigger", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"x-ns-dispatch-oidc-token": "oidc-token",
+				},
+				body: JSON.stringify({ workflow: "sandbox-probe", revision }),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ runId: "wrun_probe", workflow: "sandbox-probe" });
+		expect(workflowRuns.startProbeCalls).toEqual([{ revision }]);
 	});
 
 	it("ignores Vercel's reserved workload-identity header", async () => {
