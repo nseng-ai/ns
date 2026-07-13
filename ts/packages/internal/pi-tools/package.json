@@ -5,6 +5,9 @@
 	"exports": {
 		"./backing-skill-commands": "./src/backing-skill-commands/index.ts",
 		"./backing-skill-commands/extension": "./src/backing-skill-commands/extension.ts",
+		"./code-workflows": "./src/code-workflows/index.ts",
+		"./code-workflows/extension": "./src/code-workflows/extension.ts",
+		"./code-workflows/smart-restack": "./src/code-workflows/smart-restack.ts",
 		"./context-profiler": "./src/context-profiler/index.ts",
 		"./context-profiler/extension": "./src/context-profiler/extension.ts",
 		"./grill": "./src/grill/index.ts",
@@ -38,6 +41,7 @@
 		"tier": "internal-tool",
 		"subpackages": [
 			"backing-skill-commands",
+			"code-workflows",
 			"context-profiler",
 			"grill",
 			"overlay-kit",

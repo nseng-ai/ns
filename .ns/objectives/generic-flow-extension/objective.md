@@ -93,9 +93,9 @@ of the operation it guards.
 - **Risk — genericization scope creep, bounded by audit evidence.** The completed audit in
   `references/repo-specificity-audit.md` separates four resolve clusters from intrinsic
   documented requirements and explicitly parked compatibility debt. Repository identity,
-  Graphite machine facts, and point-default fidelity are now resolved; Pi ownership remains.
-  Do not silently expand those clusters into Graphite abstraction, merge-strategy
-  configuration, or a general CLI failure protocol.
+  Graphite machine facts, point-default fidelity, and Pi ownership are resolved; the audit's
+  genericization resolve work is complete. Do not silently expand those clusters into Graphite
+  abstraction, merge-strategy configuration, or a general CLI failure protocol.
 - **Risk — point-definition duplication remains fallback debt.** First-party point
   definitions still live in both kernel `builtInPointDefinitions` and Flow's descriptor.
   Production prompt resolution overlays the preloaded Flow descriptor so packaged default

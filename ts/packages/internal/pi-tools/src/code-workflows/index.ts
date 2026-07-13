@@ -1,0 +1,31 @@
+export {
+	CODE_WORKFLOWS_COMMAND_NAME,
+	CODE_WORKFLOWS_MESSAGE_TYPE,
+	CODE_WORKFLOW_ROUTES,
+	GH_CI_DEBUG_COMMAND_NAME,
+	buildGhCiDebugPrompt,
+	codeWorkflowsParity,
+	completeWorkflowRoute,
+	default as codeWorkflowsExtension,
+	formatWorkflowMenu,
+	formatWorkflowSelection,
+	invokeGhCiDebugWorkflow,
+	renderCodeWorkflowMessage,
+	resolveWorkflowRoute,
+	showCodeWorkflowSelector,
+	type CodeWorkflowsExtensionAPI,
+	type CodeWorkflowsExtensionOptions,
+	type InvokeCodeWorkflowPromptTurn,
+	type WorkflowRoute,
+} from "./extension.ts";
+export {
+	SMART_RESTACK_COMMAND_NAME,
+	buildResolverPrompt,
+	default as smartRestackExtension,
+	runSmartRestack,
+	smartRestackParity,
+	type LoadRestackSkillBlock,
+	type SmartRestackExtensionAPI,
+	type SmartRestackExtensionOptions,
+} from "./smart-restack.ts";
+export type { RunSmartRestackPreflight, SmartRestackPreflightResult } from "./restack-preflight.ts";

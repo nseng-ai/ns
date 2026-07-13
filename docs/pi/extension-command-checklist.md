@@ -6,7 +6,7 @@ It combines the Pi runtime extension API with this repo's command-registration p
 ## Ground rules
 
 - Pi extension commands are registered with `pi.registerCommand(name, { description, handler, ... })`; `name` is the command without the leading `/`.
-- Project-local discovery adapters live under `.pi/extensions/`; durable tested implementation lives under `ts/packages/pi/` or, for cmux capability workflows, `ts/packages/capabilities/cmux/`.
+- Project-local discovery adapters live under `.pi/extensions/`; durable tested implementation belongs in its owning engineered destination: `@nseng-ai/pi`, a capability `pi` subpackage, or an Internal Pi-tool package under `ts/packages/internal/pi-tools/`.
 - Command handlers receive Pi's `ExtensionCommandContext`. Use command-only methods such as `ctx.waitForIdle()` only inside command handlers.
 - `ctx.ui.setStatus(...)` is footer/status UI. It is not transcript progress.
 - Above-fold transcript progress is explicit: use `sendCommandProgressOrNotify(...)` or `sendCommandProgressMessage(...)` at selected milestones.
@@ -31,6 +31,7 @@ export function registerExampleCommand(pi: ExampleExtensionAPI): void {
 				await runExample({ pi, args, ctx });
 			},
 		},
+		options: { delivery: "message" },
 	});
 }
 ```
@@ -78,14 +79,14 @@ For cmux capability workflows, read `ts/packages/capabilities/cmux/AGENTS.md` be
 
 Before editing:
 
-- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@nseng-ai/pi` engineered behavior, or `@nseng-ai/cmux` orchestration.
+- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@nseng-ai/pi` host behavior, a capability `pi` subpackage, or an Internal Pi-tool package.
 - [ ] Read the relevant package `AGENTS.md` and `CONTEXT.md` before naming new concepts.
 - [ ] Pick a command namespace by workflow ownership, not file location. First-party product/orchestration commands default to `/ns:<extension>:...`; keep `/pi:*` for Pi-native UI/session affordances.
 - [ ] Check for existing command names with `rg` or Pi RPC inventory; avoid duplicate public slash commands unless intentionally documented.
 
 While editing:
 
-- [ ] Register every repo-owned command with `registerCommandWithImmediateAck(...)` at the exact `registerCommand` call site.
+- [ ] Register every repo-owned command with `registerCommandWithImmediateAck(...)` at the exact `registerCommand` call site and choose explicit acknowledgement delivery. Use `options: { delivery: "message" }` normally; use `status` only with a stated reason that transcript output is inappropriate.
 - [ ] Do not add `withImmediateCommandAck`, `Proxy`, wrapped command hosts, hidden command-context state, or `ctx.ui.setStatus` interception.
 - [ ] Preserve command-definition fields such as `description`, `argumentHint`, and `getArgumentCompletions`.
 - [ ] Keep host interfaces narrow: declare only the Pi capabilities the module uses.
@@ -99,7 +100,7 @@ While editing:
 Tests and review:
 
 - [ ] Add or update package tests for durable/risky command behavior. Use fakes instead of real `git`, `gt`, `gh`, shell, or network calls.
-- [ ] Assert immediate acknowledgement where command output order matters. Minimal hosts may receive `ns-command-ack` through `ctx.ui.setStatus`; rendered hosts receive a custom message.
+- [ ] Assert immediate acknowledgement ordering before idle waits or command I/O. For the normal `delivery: "message"` policy, a rendered host receives an `ns-command-ack` custom message; test any deliberate `status` exception separately.
 - [ ] Assert that ordinary `ctx.ui.setStatus` calls remain status calls and do not create `ns-command-progress` messages.
 - [ ] Assert explicit progress helper behavior when transcript progress is part of the user-visible contract.
 - [ ] Keep tests that filter `ns-command-ack` / `ns-command-progress` deliberate; do not delete meaningful assertions just to quiet output drift.

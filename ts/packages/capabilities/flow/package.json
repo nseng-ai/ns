@@ -23,8 +23,6 @@
 		"./land/api": "./src/land/api.ts",
 		"./land/testing": "./src/land/testing.ts",
 		"./pi": "./src/pi/index.ts",
-		"./pi/code-workflows-extension": "./src/pi/code-workflows.ts",
-		"./pi/code-extension": "./src/pi/code-extension.ts",
 		"./pi/ns-extension": "./src/pi/ns-extension.ts"
 	},
 	"scripts": {
