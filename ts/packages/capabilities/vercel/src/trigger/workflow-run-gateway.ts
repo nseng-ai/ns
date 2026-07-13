@@ -22,5 +22,9 @@ export interface WorkflowRunGateway {
 	startSandboxProbeWorkflow(options: {
 		readonly revision: string;
 	}): Promise<StartWorkflowRunResult>;
+	startSupervisionProbeWorkflow(options: {
+		readonly runSeconds: number;
+		readonly pollSeconds: number;
+	}): Promise<StartWorkflowRunResult>;
 	readWorkflowRunStatus(options: { readonly runId: string }): Promise<ReadWorkflowRunStatusResult>;
 }
