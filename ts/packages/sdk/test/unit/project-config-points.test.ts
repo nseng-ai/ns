@@ -317,7 +317,7 @@ context_lines = "wide"
 		).toEqual(["branch-context.plans-write", "flow.submit.pr-description", "flow.submit.pre"]);
 	});
 
-	test("prefers descriptor metadata over the built-in PR-description mirror", () => {
+	test("uses descriptor-owned PR-description default metadata", () => {
 		const descriptorPath = "/flow/src/ns/extension.ts";
 		const descriptor = {
 			description: "Flow extension",
@@ -361,7 +361,7 @@ context_lines = "wide"
 		).toEqual(["branch-context.plans-write", "flow.submit.pre", "flow.submit.pre.recovery"]);
 	});
 
-	test("keeps the mirrored PR-description default unresolved without descriptor provenance", () => {
+	test("keeps fallback PR-description metadata unresolved without descriptor provenance", () => {
 		const catalog = loadPointCatalog({
 			repoRoot: "/repo",
 			gateway: new InMemoryProjectConfigGateway({}),
@@ -375,8 +375,8 @@ context_lines = "wide"
 			accepts: "prompt",
 			cardinality: "one",
 			description: "Prompt for generating pull request descriptions during flow submit.",
-			defaultPath: "../submit/prompts/pr-description-default.md",
 		});
+		expect(definition).not.toHaveProperty("defaultPath");
 		expect(definition).not.toHaveProperty("manifestPath");
 		expect(resolvePromptPointSource(catalog, "flow.submit.pr-description")).toEqual({
 			type: "missing",

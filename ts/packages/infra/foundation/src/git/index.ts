@@ -596,7 +596,7 @@ function parseBranchUpstream(
 ): GitOptionalResult<GitBranchUpstream> {
 	const exactRecords: GitBranchUpstream[] = [];
 	let exactRecordCount = 0;
-	let exactRecordWithoutUpstream = false;
+	let hasExactRecordWithoutUpstream = false;
 	for (const record of stdout.split(/\r?\n/u).filter((line) => line.length > 0)) {
 		const fields = record.split("\0");
 		const [refName, remoteName, remoteRef] = fields;
@@ -616,7 +616,7 @@ function parseBranchUpstream(
 		if (refName !== localRef) continue;
 		exactRecordCount += 1;
 		if (remoteName.length === 0 && remoteRef.length === 0) {
-			exactRecordWithoutUpstream = true;
+			hasExactRecordWithoutUpstream = true;
 			continue;
 		}
 		if (remoteName.length === 0 || remoteRef.length === 0) {
@@ -637,7 +637,7 @@ function parseBranchUpstream(
 			"Git returned duplicate records for the local branch.",
 		);
 	}
-	if (exactRecordWithoutUpstream) return { type: "missing" };
+	if (hasExactRecordWithoutUpstream) return { type: "missing" };
 	const upstream = exactRecords[0];
 	if (upstream === undefined) {
 		throw new Error(`Expected parsed upstream for ${localRef}.`);
