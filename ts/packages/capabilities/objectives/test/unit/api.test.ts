@@ -13,7 +13,12 @@ function buildContext(): ObjectiveCliContext {
 	const storage = new ObjectiveStorage(
 		new FakeObjectiveStorageGateway({
 			records: [
-				{ slug: "alpha", objectiveMd: OBJECTIVE_MD, roadmapMd: ROADMAP_MD },
+				{
+					slug: "alpha",
+					objectiveMd: OBJECTIVE_MD,
+					roadmapMd: ROADMAP_MD,
+					updates: { "20260712T120000Z-update.md": "# Update\n" },
+				},
 				{ slug: "bravo", objectiveMd: OBJECTIVE_MD, roadmapMd: ROADMAP_MD, isClosed: true },
 			],
 		}),
@@ -58,12 +63,20 @@ describe("createObjectiveClient", () => {
 		expect(result.result.records.map((record) => record.slug).sort()).toEqual(["alpha", "bravo"]);
 	});
 
-	test("readObjective returns an ok record for a known slug", async () => {
-		const result = await buildClient().readObjective("alpha");
-		expect(result.ok).toBe(true);
-		if (!result.ok) return;
-		expect(result.result.status).toBe("ok");
-		expect(result.result.slug).toBe("alpha");
+	test("readObjective defaults to inventory-only and can opt in to update contents", async () => {
+		const inventoryResult = await buildClient().readObjective("alpha");
+		expect(inventoryResult.ok).toBe(true);
+		if (!inventoryResult.ok || inventoryResult.result.status !== "ok") return;
+		expect(inventoryResult.result.slug).toBe("alpha");
+		expect(inventoryResult.result.updateCount).toBe(1);
+		expect(Object.hasOwn(inventoryResult.result.markdownFiles, "updates")).toBe(false);
+
+		const contentsResult = await buildClient().readObjective("alpha", { includeUpdates: true });
+		expect(contentsResult.ok).toBe(true);
+		if (!contentsResult.ok || contentsResult.result.status !== "ok") return;
+		expect(contentsResult.result.markdownFiles.updates).toEqual([
+			expect.objectContaining({ content: { type: "ok", content: "# Update\n" } }),
+		]);
 	});
 
 	test("readObjective reports not_found for an unknown slug without throwing", async () => {
