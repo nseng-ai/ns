@@ -10,9 +10,6 @@ import {
 	buildLiveRegions,
 	buildTurnsFromEntries,
 	buildTurnsFromMessages,
-	CAP_FIRST_TURNS,
-	CAP_LAST_TURNS,
-	capTurns,
 	delegationsInSpan,
 	deriveLiveTurns,
 	estimateTokensFromChars,
@@ -23,7 +20,6 @@ import {
 	type LiveTurn,
 	type NormalizedMessage,
 } from "../../src/context-profiler/model.ts";
-import { makeTurnsAtIndices } from "./context-profiler-fakes.ts";
 
 // Minimal but fully-typed SessionEntry message fixture: the derivation reads only
 // `type` and the message role/content, but the literal still satisfies SessionEntry.
@@ -292,6 +288,20 @@ describe("buildTurnsFromMessages", () => {
 		expect(excerpt).toHaveLength(120);
 		expect(excerpt.endsWith("…")).toBe(true);
 	});
+
+	test("keeps more than 80 messages in their original 1-based order", () => {
+		const messages = Array.from({ length: 101 }, (_unused, position) => ({
+			role: position % 2 === 0 ? "user" : "assistant",
+			content: `unique message ${position + 1}`,
+		}));
+		const turns = buildTurnsFromMessages(messages);
+
+		expect(turns).toHaveLength(messages.length);
+		expect(turns.map((turn) => turn.index)).toEqual(
+			Array.from({ length: messages.length }, (_unused, position) => position + 1),
+		);
+		expect(turns.map((turn) => turn.excerpt)).toEqual(messages.map((message) => message.content));
+	});
 });
 
 describe("normalizeMessage", () => {
@@ -385,25 +395,6 @@ describe("buildTurnsFromEntries", () => {
 		expect(turns.map((turn) => turn.index)).toEqual([1, 2, 3, 4]);
 		expect(turns[2]?.excerpt).toBe("squashed");
 		expect(turns[3]?.excerpt).toBe("branched");
-	});
-});
-
-describe("capTurns", () => {
-	test("keeps everything at exactly the cap", () => {
-		const turns = makeTurns(CAP_FIRST_TURNS + CAP_LAST_TURNS);
-		const capped = capTurns(turns);
-		expect(capped.turns).toHaveLength(80);
-		expect(capped.cap).toEqual({ originalCount: 80, includedCount: 80, elidedMiddleTurns: 0 });
-	});
-
-	test("keeps first 16 and last 64 above the cap and reports the elided middle", () => {
-		const turns = makeTurns(81);
-		const capped = capTurns(turns);
-		expect(capped.turns).toHaveLength(80);
-		expect(capped.cap).toEqual({ originalCount: 81, includedCount: 80, elidedMiddleTurns: 1 });
-		expect(capped.turns[CAP_FIRST_TURNS - 1]?.index).toBe(16);
-		expect(capped.turns[CAP_FIRST_TURNS]?.index).toBe(18);
-		expect(capped.turns[capped.turns.length - 1]?.index).toBe(81);
 	});
 });
 
@@ -560,21 +551,6 @@ describe("buildLiveRegions", () => {
 			tokens: { value: 16 },
 			isCurrent: true,
 		});
-	});
-
-	test("skips the elision-seam gap between episodes instead of emitting a ghost region", () => {
-		// Capped-shape list: indices 1..16 then 137..200; 17..136 are elided.
-		const turns = makeTurnsAtIndices([
-			...Array.from({ length: 16 }, (_unused, position) => position + 1),
-			...Array.from({ length: 64 }, (_unused, position) => position + 137),
-		]);
-		const regions = buildLiveRegions(turns, [
-			{ label: "early", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 16 } },
-			{ label: "late", kind: "edit", outcome: "active", turnRange: { start: 137, end: 200 } },
-		]);
-		// No zero-turn "unannotated turns" row for the 17..136 hole.
-		expect(regions.map((region) => region.label)).toEqual(["early", "late"]);
-		expect(regions.every((region) => region.tokens.value > 0)).toBe(true);
 	});
 
 	test("clamps annotation ranges to real turn indices", () => {

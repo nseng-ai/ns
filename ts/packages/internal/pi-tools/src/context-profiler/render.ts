@@ -18,7 +18,6 @@ import type {
 	LiveTurn,
 	RelevanceVerdict,
 	TokenCount,
-	TurnCapInfo,
 } from "./model.ts";
 import type { BundlePersistenceState } from "./bundle.ts";
 import type { SegmentationState } from "./segmentation.ts";
@@ -255,16 +254,12 @@ export function buildUsageBarSegments(
 
 export const BASE_SECTION_HEADER = "BASE · system prompt";
 
-export function liveSectionHeader(cap: TurnCapInfo, segmentationStatus?: string | null): string {
-	const elided =
-		cap.elidedMiddleTurns > 0
-			? ` · ${cap.elidedMiddleTurns.toLocaleString()} middle turns elided`
-			: "";
+export function liveSectionHeader(turnCount: number, segmentationStatus?: string | null): string {
 	const status =
 		segmentationStatus === undefined || segmentationStatus === null
 			? ""
 			: ` · ${segmentationStatus}`;
-	return `LIVE · ${cap.includedCount.toLocaleString()}/${cap.originalCount.toLocaleString()} turns${elided}${status}`;
+	return `LIVE · ${turnCount.toLocaleString()} turns${status}`;
 }
 
 /** Header status for the LM layer; null when there is nothing to surface. */

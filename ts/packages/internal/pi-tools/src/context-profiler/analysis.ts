@@ -97,10 +97,8 @@ export function buildEpisodeAnalysisPayload(
 		throw new Error(`episode index ${options.episodeIndex} is out of range`);
 	const targetTurns = turnsInRange(options.profile.liveTurns, episode.turnRange);
 	const targetDelegations = delegationsInSpan(options.delegations, episode.turnRange);
-	// No per-turn clamp by design: per-episode requests keep the dominant path
-	// well below the fixed analysis model context window. A provider that
-	// silently truncates overlong prompts could still judge unseen content; this
-	// accepted residual risk is surfaced by the plan, not engineered around here.
+	// Complete episode input is intentional: provider failures remain visible
+	// and non-blocking rather than triggering hidden per-turn elision.
 	return {
 		json: JSON.stringify(
 			{
@@ -109,9 +107,7 @@ export function buildEpisodeAnalysisPayload(
 					model: options.profile.model,
 					usage: options.profile.usage ?? null,
 					liveSource: options.profile.liveSource,
-					turnCount: options.profile.cap.originalCount,
-					includedTurnCount: options.profile.cap.includedCount,
-					elidedMiddleTurns: options.profile.cap.elidedMiddleTurns,
+					turnCount: options.profile.liveTurns.length,
 				},
 				summary: options.summary,
 				episodeMap: options.episodes.map((candidate, index) => ({

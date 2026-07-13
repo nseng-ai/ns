@@ -39,20 +39,14 @@ export function makeTurn(index: number, overrides: Partial<LiveTurn> = {}): Live
 	};
 }
 
-/** Turns at exactly these indices — gaps model an elided (capped-out) middle. */
-export function makeTurnsAtIndices(indices: readonly number[]): LiveTurn[] {
-	return indices.map((index) => makeTurn(index));
-}
-
 export function sequentialTurns(count: number): LiveTurn[] {
-	return makeTurnsAtIndices(Array.from({ length: count }, (_unused, position) => position + 1));
+	return Array.from({ length: count }, (_unused, position) => makeTurn(position + 1));
 }
 
 export function makeProfile(
 	turns: readonly LiveTurn[],
 	overrides: Partial<ProfileSnapshot> = {},
 ): ProfileSnapshot {
-	const originalCount = overrides.cap?.originalCount ?? turns.length;
 	return {
 		cwd: "/repo",
 		model: "anthropic/claude-fable-5",
@@ -61,11 +55,6 @@ export function makeProfile(
 		liveTurns: [...turns],
 		liveRegions: [],
 		liveSource: "context-event",
-		cap: {
-			originalCount,
-			includedCount: turns.length,
-			elidedMiddleTurns: originalCount - turns.length,
-		},
 		openedAt: "12:00:00",
 		...overrides,
 	};

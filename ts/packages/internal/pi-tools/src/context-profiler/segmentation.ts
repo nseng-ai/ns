@@ -4,15 +4,12 @@
  * No TUI or extension-runtime imports — the gateway and controller live
  * elsewhere; everything here is data in, data out.
  *
- * Truncation/windowing policy (explicit, not inherited by accident):
- * 1. The LM payload sees exactly the snapshot's deterministically capped turn
- *    list (CAP_FIRST_TURNS + CAP_LAST_TURNS from model.ts), never the
- *    uncapped session.
- * 2. Per-turn text is the existing ≤120-char excerpt only, never verbatim
+ * Complete-input policy (explicit, not inherited by accident):
+ * 1. Every item in profile.liveTurns is serialized exactly once.
+ * 2. Per-turn text remains the existing ≤120-char excerpt, never verbatim
  *    message content.
- * 3. A hard total cap (SEGMENTATION_PAYLOAD_MAX_CHARS) bounds the serialized
- *    request; when exceeded, turns are dropped from the middle (first/last
- *    preserved) and the reduced includedTurnCount is reported to the model.
+ * 3. Gateway or provider rejection is the visible graceful-degradation path;
+ *    this layer does not silently elide turns.
  */
 
 import { z } from "zod";
@@ -24,7 +21,6 @@ import {
 	type EpisodeAnnotation,
 	type LiveTurn,
 	type ProfileSnapshot,
-	type TurnRange,
 } from "./model.ts";
 import { parseLmJson } from "@nseng-ai/pi/models/lm-json";
 
@@ -33,7 +29,6 @@ export const SEGMENTATION_PROVIDER = "openai-codex";
 export const SEGMENTATION_MODEL = "gpt-5.6-luna";
 export const MAX_EPISODES = 12;
 export const MIN_TURNS_FOR_SEGMENTATION = 3;
-export const SEGMENTATION_PAYLOAD_MAX_CHARS = 60_000;
 
 const LABEL_MAX_CHARS = 80;
 const DELEGATION_LABEL_MAX_CHARS = 60;
@@ -189,17 +184,11 @@ function truncateChars(text: string, max: number): string {
 }
 
 /**
- * Repair LM episode starts against the real (capped) turn list: the LM claims
- * where episodes start, code owns the indices. Start turns are clamped to the
- * list's range and snapped forward to the next real turn (which skips the
- * elided middle), deduped by turn, the first turn is forced to be a start,
- * starts are sorted and capped, and end turns derive from the next start's
- * position in the capped list. An episode whose position run crosses an
- * elision seam (consecutive capped turns with non-adjacent indices) is split
- * into one annotation per contiguous run of included turns, so every
- * turnRange contains only included turns and its displayed claim, token sum,
- * and drill-down agree. Splitting may push the annotation count past
- * MAX_EPISODES — the cap bounds LM output, not repaired regions. Finally,
+ * Repair LM episode starts against the complete contiguous turn list: the LM
+ * claims where episodes start, while code owns the indices. Starts are clamped
+ * to the list's range, snapped forward to a captured turn, deduped, sorted, and
+ * capped after forcing the first turn to be a start. Each start produces one
+ * contiguous annotation whose end derives from the next start. Finally,
  * "active" is demoted to "unknown" on every non-final annotation.
  */
 export function repairEpisodes(
@@ -228,55 +217,25 @@ export function repairEpisodes(
 		}))
 		// Guard only: snapStartTurn returns indices present in turns.
 		.filter((entry) => entry.position !== -1);
-	const episodes = sortedStarts.flatMap(
-		({ start, position }, episodeNumber): EpisodeAnnotation[] => {
-			const endPosition = (sortedStarts[episodeNumber + 1]?.position ?? turns.length) - 1;
-			return splitRunAtSeams(turns, position, endPosition).map(
-				(turnRange): EpisodeAnnotation => ({
-					label: start.label,
-					kind: start.kind,
-					outcome: start.outcome,
-					turnRange,
-				}),
-			);
-		},
-	);
+	const episodes = sortedStarts.map(({ start }, episodeNumber): EpisodeAnnotation => {
+		const endPosition = (sortedStarts[episodeNumber + 1]?.position ?? turns.length) - 1;
+		return {
+			label: start.label,
+			kind: start.kind,
+			outcome: start.outcome,
+			turnRange: {
+				start: start.startTurn,
+				end: turns[endPosition]?.index ?? start.startTurn,
+			},
+		};
+	});
 	return episodes.map((episode, position): EpisodeAnnotation => {
 		const isFinal = position === episodes.length - 1;
 		return episode.outcome === "active" && !isFinal ? { ...episode, outcome: "unknown" } : episode;
 	});
 }
 
-/**
- * Split the position run [startPosition..endPosition] of the capped turn list
- * into turn-index ranges containing only included turns, breaking wherever two
- * consecutive capped turns have non-adjacent indices (an elision seam). Seams
- * are detected from the turn list itself, not cap metadata.
- */
-function splitRunAtSeams(
-	turns: readonly LiveTurn[],
-	startPosition: number,
-	endPosition: number,
-): TurnRange[] {
-	const ranges: TurnRange[] = [];
-	let runStartPosition = startPosition;
-	for (let position = startPosition; position < endPosition; position += 1) {
-		const current = turns[position];
-		const next = turns[position + 1];
-		if (current === undefined || next === undefined) break;
-		if (next.index !== current.index + 1) {
-			ranges.push({ start: turns[runStartPosition]?.index ?? current.index, end: current.index });
-			runStartPosition = position + 1;
-		}
-	}
-	const runEnd = turns[endPosition];
-	if (runEnd !== undefined) {
-		ranges.push({ start: turns[runStartPosition]?.index ?? runEnd.index, end: runEnd.index });
-	}
-	return ranges;
-}
-
-/** Clamp to the list's range, then snap forward to the next real turn index. */
+/** Clamp to the list's range, then snap forward to the next captured turn index. */
 function snapStartTurn(startTurn: number, turns: readonly LiveTurn[]): number {
 	const first = turns[0]?.index ?? 1;
 	const last = turns[turns.length - 1]?.index ?? first;
@@ -327,7 +286,7 @@ function dedupeAndCapBySnappedTurn<TInput, TValue>(
  * Deliberately NOT part of the key: middle-turn content. A conversation with
  * the same turn count and same last turn but altered middle content would
  * serve the cached episodes as "ready" even though buildSegmentationPayload
- * serializes every capped turn. This is a cheap heuristic, accepted on
+ * serializes every complete turn. This is a cheap heuristic, accepted on
  * purpose: in this harness realistic drift always changes the turn count or
  * the last turn, and the `r` force-refresh keybinding is the escape hatch
  * when it does not.
@@ -336,7 +295,7 @@ export function computeSegmentationFingerprint(profile: ProfileSnapshot): string
 	const last = profile.liveTurns[profile.liveTurns.length - 1];
 	return JSON.stringify({
 		liveSource: profile.liveSource,
-		turnCount: profile.cap.originalCount,
+		turnCount: profile.liveTurns.length,
 		lastTurn:
 			last === undefined ? null : { index: last.index, role: last.role, excerpt: last.excerpt },
 	});
@@ -345,40 +304,20 @@ export function computeSegmentationFingerprint(profile: ProfileSnapshot): string
 export interface SegmentationPayload {
 	/** Serialized request body sent verbatim as the LM user message. */
 	json: string;
-	/** Turns actually included after the payload-size cap. */
-	includedTurnCount: number;
-	/** True when the 60k-char cap forced dropping turns beyond the deterministic cap. */
-	wasTruncatedForPayload: boolean;
 }
 
 export function buildSegmentationPayload(profile: ProfileSnapshot): SegmentationPayload {
-	const turns = [...profile.liveTurns];
-	let json = serializeSegmentationRequest(profile, turns);
-	let dropped = 0;
-	// Policy rule 3: drop from the middle, preserving first/last turns.
-	while (json.length > SEGMENTATION_PAYLOAD_MAX_CHARS && turns.length > 2) {
-		turns.splice(Math.floor(turns.length / 2), 1);
-		dropped += 1;
-		json = serializeSegmentationRequest(profile, turns);
-	}
-	return { json, includedTurnCount: turns.length, wasTruncatedForPayload: dropped > 0 };
+	return { json: serializeSegmentationRequest(profile) };
 }
 
-function serializeSegmentationRequest(
-	profile: ProfileSnapshot,
-	turns: readonly LiveTurn[],
-): string {
+function serializeSegmentationRequest(profile: ProfileSnapshot): string {
 	return JSON.stringify(
 		{
 			cwd: profile.cwd,
 			model: profile.model,
 			usage: profile.usage ?? null,
-			turnCount: profile.cap.originalCount,
-			capped: {
-				includedTurnCount: turns.length,
-				elidedMiddleTurns: profile.cap.originalCount - turns.length,
-			},
-			turns: turns.map((turn) => ({
+			turnCount: profile.liveTurns.length,
+			turns: profile.liveTurns.map((turn) => ({
 				turn: turn.index,
 				role: turn.role,
 				tokens: turn.tokens.value,

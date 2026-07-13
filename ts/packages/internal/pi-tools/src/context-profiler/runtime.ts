@@ -32,7 +32,6 @@ import { errorMessage } from "@nseng-ai/pi/shared/errors";
 import {
 	buildBaseRegions,
 	buildLiveRegions,
-	capTurns,
 	deriveLiveTurns,
 	type CapturedContext,
 	type DelegationClaim,
@@ -140,16 +139,14 @@ export function buildProfile(ctx: ExtensionCommandContext, state: ProfilerState)
 		context: state.latestContext,
 		branchEntries: ctx.sessionManager.getBranch(),
 	});
-	const capped = capTurns(live.turns);
 	return {
 		cwd: ctx.cwd,
 		model: ctx.model === undefined ? "model unknown" : `${ctx.model.provider}/${ctx.model.id}`,
 		usage: ctx.getContextUsage(),
 		baseRegions: buildBaseRegions(state.lastPromptOptions, state.lastSystemPrompt),
-		liveTurns: capped.turns,
-		liveRegions: buildLiveRegions(capped.turns),
+		liveTurns: live.turns,
+		liveRegions: buildLiveRegions(live.turns),
 		liveSource: live.source,
-		cap: capped.cap,
 		openedAt: new Date().toLocaleTimeString(),
 	};
 }
