@@ -61,11 +61,21 @@
     canonical Git gateway on the Pi exec channel; no command, marker, point id, override
     precedence, or recovery-turn behavior changed. Focused recovery/Pi/catalog tests,
     descriptor integration tests, TypeScript checks, style guard, and `just` pass.
-- [ ] Extension-point docs for adopters: routing line in root `AGENTS.md` to
+- [x] Extension-point docs for adopters: routing line in root `AGENTS.md` to
       `docs/guides/points.md`; "For workflow implementers: consuming the catalog"
-      section in that guide; document the `cardinality` ↔ `semantics` vocabulary
-      mapping; keep the guide's worked example aligned with the retained
+      section in that guide; keep the guide's worked example aligned with the retained
       `flow.submit.pre` point and the new submit-scoped recovery point.
+  - Reshaped by the 2026-07-13 grilling session: instead of documenting the
+    `cardinality` ↔ `semantics` vocabulary mapping, the vocabulary was unified in code —
+    the catalog, `ns extension points` CLI, and diagnostics now report descriptor
+    `cardinality: one|many` directly and the derived `semantics: additive|override`
+    axis is gone (full replacement; `point_override_in_effect` became
+    `point_installation_in_effect`).
+  - Evidence: two stacked slices — the vocabulary unification (sdk catalog/CLI/tests,
+    flow fallback and test manifests, points guide, ADR 0031, sdk CONTEXT.md) and the
+    adopter docs (root `AGENTS.md` routing bullet, workflow-implementer catalog
+    consumption section, worked example covering `flow.submit.pre` and this repo's
+    conventional `flow.submit.pre.recovery` override). Full `just` passes on both.
 - [ ] Genericization slices from the audit: implement the resolve-disposition findings
       recorded in `references/repo-specificity-audit.md`.
   - Repository identity: replace `main`/`master` checkpoint protection and `origin`

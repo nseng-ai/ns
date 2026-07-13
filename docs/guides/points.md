@@ -153,6 +153,54 @@ Author-side guidance:
   settings) through the shared loader rather than parsing `ns.toml` directly or
   inventing a bespoke prompt ladder.
 
+## For workflow implementers: consuming the catalog
+
+This section is for code that *acts on* installations — the workflow inside an
+extension package that runs hooks or consumes prompt content at its own points.
+
+The consumption API lives at `@nseng-ai/sdk/project-config/points`. It is an
+internal workspace export: a first-party seam shared across workspace packages,
+not part of the public author API at the `@nseng-ai/sdk` package root.
+
+Build a catalog, then read installations from it:
+
+- `loadPointCatalog({ repoRoot, gateway: nodeProjectConfigGateway, preferredDescriptors })`
+  builds the catalog synchronously from known definitions. Pass your extension's
+  preloaded descriptor through `preferredDescriptors` so your package's point
+  definitions — including prompt `default` paths and manifest provenance — stay
+  canonical instead of falling back to the SDK's built-in mirror.
+- `loadPointCatalogWithDescriptors({ … })` additionally discovers point
+  definitions from the repo's `ns.toml`-declared extension descriptors
+  (asynchronous).
+
+Consume hook points:
+
+- `hookCommandsForPoint(catalog, "flow.submit.pre")` returns the installed
+  command strings. The workflow owns execution: whitespace-split each entry into
+  an argv, run sequentially with no shell, abort the surrounding step on first
+  failure. `ns flow submit` pre-checks are the production example
+  (`ts/packages/capabilities/flow/src/submit/submit-hooks.ts`).
+
+Consume prompt points:
+
+- `resolvePromptPointSource(catalog, id)` walks the resolution ladder and
+  returns the active source: env override, `ns.toml`, conventional file,
+  descriptor default, or missing.
+- `resolvePromptPointPath(repoRoot, source)` converts a non-env source into a
+  readable path plus a human-facing label.
+- The workflow reads the file and performs any LM interaction itself; the
+  platform never executes prompt content. Flow's submit-check recovery
+  (`flow.submit.pre.recovery`) and PR description (`flow.submit.pr-description`)
+  are the production examples.
+
+Diagnostics ride along with the catalog; the workflow decides fatality. Treat
+diagnostics that gate the specific point you are consuming as failures and
+surface unrelated ones as warnings — the policy Flow's submit-check recovery
+follows.
+
+Do not parse `ns.toml` directly or hand-roll a prompt ladder in workflow code;
+the catalog is the single resolution path.
+
 ## Worked example: this repo
 
 `ns.toml` installs one hook:
@@ -163,6 +211,12 @@ Author-side guidance:
 ```
 
 So `ns flow submit` runs `just` (full repo validation) before checkpointing and
-submitting the stack. Meanwhile `.ns/prompts/branch-context.plans-write.md`
-installs a prompt at `branch-context.plans-write` via the conventional path —
-no TOML line needed — overriding that extension's default prompt.
+submitting the stack — an installation at the cardinality-many
+`flow.submit.pre` point. Two conventional prompt files install prompt content
+with no TOML line:
+
+- `.ns/prompts/flow.submit.pre.recovery.md` installs this repo's submit-check
+  recovery guidance at `flow.submit.pre.recovery` — it routes agents to the
+  repo's `code-just-fix` workflow — replacing Flow's packaged generic default.
+- `.ns/prompts/branch-context.plans-write.md` replaces the
+  `branch-context.plans-write` default plan-authoring prompt.
