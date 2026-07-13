@@ -201,7 +201,10 @@ Risks:
   now accepts the local Development token on a dispatch-owned header (Vercel replaces its
   reserved workload-identity header), mints a clone-only token, and completed one billable
   private-repository Sandbox probe at an exact remote SHA with verified marker/HEAD and
-  cleanup. Old-prefix cleanup and dispatch preflight remain. Residual, accepted deliberately
+  cleanup. Post-verification cleanup removed the four old-prefix Production variables,
+  revoked the superseded GitHub App key, and removed the downloaded local PEM; a subsequent
+  authenticated clone-purpose mint confirmed the active replacement key. Dispatch preflight
+  remains. Residual, accepted deliberately
   (racing to an e2e prototype): the v1 shared mint
   secret and self-landing sandbox are
   security shortcuts whose upgrades (per-run landing voucher, Vercel-side

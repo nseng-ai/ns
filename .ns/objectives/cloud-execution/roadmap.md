@@ -84,8 +84,11 @@ setup-skill row; they never record secret values.
   identity, and completed one billable private-repository Sandbox probe at exact remote
   SHA `5308b3d45ba520fd530d5a288e3de4ab32914b05`; marker, HEAD, and cleanup all passed.
   The canonical setup procedure records the proven package-root build/link, repo-root
-  deployment, env-pull, and probe commands. Remaining (interleaves with the steel thread):
-  remove old-prefix configuration and superseded key material, then add dispatch preflight.
+  deployment, env-pull, and probe commands. Post-verification credential cleanup completed
+  2026-07-13: the four old-prefix Production variables were removed, the user confirmed
+  revocation of the superseded GitHub App key and local PEM cleanup, and a safe authenticated
+  clone-purpose mint passed without exposing its token. Remaining (interleaves with the steel
+  thread): add dispatch preflight.
 - [ ] Steel thread: `ns dispatch prompt` end-to-end on Vercel Sandbox via
       the `@ai-sdk/harness-pi` adapter with ns skills injected via the
       Agent Skills standard. Makes true: "Quick start" (prompt path),

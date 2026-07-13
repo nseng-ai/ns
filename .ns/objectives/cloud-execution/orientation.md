@@ -16,7 +16,8 @@ What you see now: `@nseng-ai/vercel` is itself the linked Vercel deployable and 
 `NS_DISPATCH_*` production contract, a verified Development OIDC identity, a working mint
 endpoint, and a fixed private-repository Sandbox hello probe. One billable probe has cloned
 `nseng-ai/ns` at an exact remote SHA and verified marker, HEAD, and cleanup. Old-prefix
-credential cleanup and dispatch preflight remain; no `ns dispatch` command, harness executor,
+credential and superseded-key cleanup are complete; dispatch preflight remains. No `ns dispatch`
+command, harness executor,
 or setup skill has landed.
 Collect proven setup facts while implementing; do not author the skill ahead of the steel
 thread.
