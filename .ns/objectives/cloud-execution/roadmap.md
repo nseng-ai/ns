@@ -138,7 +138,11 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
       predicts deployability; (2) mint-core in-process exposure (from the
       credentials row); (3) probe-1 code; then interlude 1 deploys,
       triggers, observes via `getRun`, and folds facts. Probe-2/3 code
-      waits for probe-1's proven facts.
+      waits for probe-1's proven facts. Amended 2026-07-13
+      (code-first-autorun-restructure Semantic Update): the autorun run
+      builds probe-2/3 and steel-thread code ahead of live probe facts;
+      all deploy/trigger/observe work batches into one live pass after
+      the code run, which alone may fold verification claims.
 - [ ] Steel thread: `ns dispatch prompt` end-to-end under the dispatch
       workflow. Local CLI: preflight, dirty-tree refusal listing dirty
       files, push-first when the remote is missing/behind, anchor
@@ -153,8 +157,11 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
       description, failure comment path leaving the anchor PR open and
       marked failed. Launch step `maxRetries 0`; landing and reporting
       steps idempotent. Makes true: "Quick start" (prompt path), "What the
-      remote agent sees", and "The anchor PR". Gated by the spine probes.
-      Ordered sub-slices (deploy-before-verify dependency structure,
+      remote agent sees", and "The anchor PR". Gated by the spine probes
+      (amended 2026-07-13, code-first-autorun-restructure Semantic Update:
+      the gate applies to live verification and fact-folding; the code
+      sub-slices below proceed ahead of live probe facts in the code-first
+      autorun run). Ordered sub-slices (deploy-before-verify dependency structure,
       recorded 2026-07-13 — what must be deployed before what can be
       verified):
       1. Workflow-side code: the dispatch workflow (in-process mint,
