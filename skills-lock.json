@@ -185,25 +185,10 @@
       "sourceType": "local",
       "computedHash": "13b3ffd32ea15883c5c8dc50bde8790232ae3f3b1a0c6acc535f35154b74816d"
     },
-    "ns-cmux-available-work": {
-      "source": "skills/ns-cmux-available-work",
-      "sourceType": "local",
-      "computedHash": "79394b837be2d2807b8254d10b1b75a440158a9274e0178e5e5870b7bbb24a64"
-    },
-    "ns-cmux-branch-triage": {
-      "source": "skills/ns-cmux-branch-triage",
-      "sourceType": "local",
-      "computedHash": "bfd1e56d59039cf7c58ca0b4dc3250ffaa224be6c52b242670cdc5706633b990"
-    },
     "ns-cmux-sidebar": {
       "source": "skills/ns-cmux-sidebar",
       "sourceType": "local",
       "computedHash": "418a209dbcf3f49db9212c3d753407bd8817de8e9dea8c03930701f013e4f6f7"
-    },
-    "ns-cmux-stack-map": {
-      "source": "skills/ns-cmux-stack-map",
-      "sourceType": "local",
-      "computedHash": "28127458b669edabdaf7d9cef342f6dd6baab50fb70ac2e81f9545fada53df4d"
     },
     "ns-flow-autobranch": {
       "source": "skills/ns-flow-autobranch",
