@@ -9,8 +9,8 @@ and ADR 0031.
 What you see now: the repo-specificity audit is complete at this Objective's
 `references/repo-specificity-audit.md`; its resolve work is grouped into repository
 identity, Graphite machine facts, Pi ownership, and point-default fidelity. Submit checks
-remain installed at `flow.submit.pre`; the public marker and `--no-checks` contract have
-landed, while submit-check recovery has not.
+remain installed at `flow.submit.pre`; the public marker, `--no-checks`, and submit-scoped
+`flow.submit.pre.recovery` prompt contract have landed.
 
 Avoid: baking ns-repo assumptions (command names, skill names, prompt text, consumer
 paths) into `ts/packages/capabilities/flow`; detecting CLI failures by matching human-

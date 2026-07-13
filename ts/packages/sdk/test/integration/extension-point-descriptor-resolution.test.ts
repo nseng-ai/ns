@@ -1,12 +1,15 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
 import {
 	loadPointCatalogWithDescriptors,
 	nodeProjectConfigGateway,
+	resolvePromptPointPath,
+	resolvePromptPointSource,
 } from "../../src/project-config/points.ts";
 
 const roots: string[] = [];
@@ -16,6 +19,34 @@ afterEach(async () => {
 });
 
 describe("extension point descriptor resolution", () => {
+	test("resolves the checked-in Flow recovery default relative to its descriptor", async () => {
+		const root = await projectRoot();
+		const flowPackageRoot = fileURLToPath(new URL("../../../capabilities/flow/", import.meta.url));
+		await writeFile(join(root, "ns.toml"), `extensions = [${JSON.stringify(flowPackageRoot)}]\n`);
+
+		const catalog = await loadPointCatalogWithDescriptors({
+			repoRoot: root,
+			gateway: nodeProjectConfigGateway,
+			env: {},
+		});
+		const entry = catalog.entries.find(
+			(candidate) => candidate.definition.id === "flow.submit.pre.recovery",
+		);
+		expect(entry?.definition).toMatchObject({
+			accepts: "prompt",
+			semantics: "override",
+			defaultPath: "../submit/prompts/submit-check-recovery-default.md",
+			manifestPath: join(flowPackageRoot, "src", "ns", "extension.ts"),
+		});
+		const source = resolvePromptPointSource(catalog, "flow.submit.pre.recovery");
+		expect(source.type).toBe("default");
+		if (source.type === "env") throw new Error("Unexpected environment prompt source");
+		expect(resolvePromptPointPath(root, source)).toEqual({
+			path: join(flowPackageRoot, "src", "submit", "prompts", "submit-check-recovery-default.md"),
+			label: "manifest default ../submit/prompts/submit-check-recovery-default.md",
+		});
+	});
+
 	test("loads npm descriptor points from managed npm storage", async () => {
 		const root = await projectRoot();
 		await writeDescriptorPackage(

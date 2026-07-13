@@ -27,6 +27,9 @@ describe("ns extension point introspection", () => {
 				"flow.submit.pr-description (prompt, override) — env NS_DEV_PR_DESCRIPTION_PROMPT -> dev-prompt.md",
 			);
 			expect(run.stdout.join("")).toContain(
+				"flow.submit.pre.recovery (prompt, override) — conventional .ns/prompts/flow.submit.pre.recovery.md",
+			);
+			expect(run.stdout.join("")).toContain(
 				"branch-context.plans-write (prompt, override) — conventional .ns/prompts/branch-context.plans-write.md",
 			);
 			expect(run.stdout.join("")).toContain("point_installation_undefined");
@@ -53,6 +56,7 @@ describe("ns extension point introspection", () => {
 				"branch-context.plans-write",
 				"flow.submit.pr-description",
 				"flow.submit.pre",
+				"flow.submit.pre.recovery",
 			]);
 			expect(
 				data.points.find((point) => point.id === "flow.submit.pr-description")?.activeSource,
@@ -93,6 +97,7 @@ describe("ns extension point introspection", () => {
 				"descriptor.scan.pre",
 				"flow.submit.pr-description",
 				"flow.submit.pre",
+				"flow.submit.pre.recovery",
 			]);
 			expect(data.points).toEqual(
 				expect.arrayContaining([
@@ -136,6 +141,36 @@ describe("ns extension point introspection", () => {
 			expect(data.point.id).toBe("flow.submit.pre");
 			expect(data.point.activeSource).toEqual({ source: "repo-hook", commands: ["just check"] });
 			expect(data.point.installations).toEqual([{ source: "repo-hook", commands: ["just check"] }]);
+			expect(run.stderr.join("")).toBe("");
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	});
+
+	test("shows the active conventional flow submit recovery prompt", async () => {
+		const cwd = await createPointProject();
+		try {
+			const run = runCli(
+				["extension", "point", "flow.submit.pre.recovery", "--format", "json"],
+				cwd,
+			);
+
+			expect(await run.exit).toBe(0);
+			const envelope = parseJsonOutput(run);
+			const data = envelope.data as {
+				point: { id: string; activeSource: unknown; installations: unknown[] };
+			};
+			expect(data.point.id).toBe("flow.submit.pre.recovery");
+			expect(data.point.activeSource).toEqual({
+				source: "conventional",
+				path: ".ns/prompts/flow.submit.pre.recovery.md",
+			});
+			expect(data.point.installations).toEqual([
+				{
+					source: "conventional",
+					path: ".ns/prompts/flow.submit.pre.recovery.md",
+				},
+			]);
 			expect(run.stderr.join("")).toBe("");
 		} finally {
 			rmSync(cwd, { recursive: true, force: true });
@@ -296,6 +331,7 @@ async function createPointProject(): Promise<string> {
 		},
 	});
 	writeText(join(cwd, ".ns", "prompts", "branch-context.plans-write.md"), "Prompt\n");
+	writeText(join(cwd, ".ns", "prompts", "flow.submit.pre.recovery.md"), "Recovery prompt\n");
 	writeText(
 		join(cwd, "ns.toml"),
 		'[points]\n"flow.submit.pre" = ["just check"]\n"missing.point" = "ghost.md"\n',
