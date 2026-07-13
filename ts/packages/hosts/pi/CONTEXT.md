@@ -4,6 +4,10 @@
 
 ## Language
 
+**Pi (the harness)**:
+The third-party coding-agent harness this repository integrates with, built by Earendil and shipped as `@earendil-works/pi-coding-agent`. ns consumes Pi's extension, command, and library surfaces but does not own or control Pi itself: upstream API or behavior changes can only be absorbed, never made, and designs must not assume ns can fix or extend Pi upstream.
+*Avoid*: ns-owned harness, first-party Pi, our Pi.
+
 **Unified Pi package**:
 The private workspace package at `ts/packages/hosts/pi/` named `@nseng-ai/pi`. It replaces the former split between Pi command constants, neutral runtime helpers, and engineered project-local extension modules.
 *Avoid*: compatibility shim, old package facade, published npm API.

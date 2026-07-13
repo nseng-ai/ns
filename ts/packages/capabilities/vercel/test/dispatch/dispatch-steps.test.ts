@@ -8,6 +8,7 @@ import {
 	DISPATCH_LANDING_TOKEN_ENV_NAME,
 	DISPATCH_PROMPT_PATH,
 	DISPATCH_RESULT_PATH,
+	DISPATCH_SETTINGS_PATH,
 	planDispatchSupervision,
 	type DispatchRunFailureCode,
 	type DispatchRunInput,
@@ -215,6 +216,7 @@ interface DepsFixture {
 	readonly sandboxes: FakeDispatchSandboxGateway;
 	readonly minter: RecordingDispatchTokenMinter;
 	readonly reports: RecordingDispatchReportGateway;
+	readonly resolverCalls: Array<string | null>;
 }
 
 function createDeps(
@@ -229,19 +231,25 @@ function createDeps(
 	const sandboxes = new FakeDispatchSandboxGateway(options.sandboxBehavior);
 	const minter = new RecordingDispatchTokenMinter(options.mintFailPurposes ?? []);
 	const reports = new RecordingDispatchReportGateway({ fails: options.reportFails ?? false });
+	const resolverCalls: Array<string | null> = [];
 	const deps: DispatchStepDeps = {
 		environment: options.environment ?? validEnvironment(),
 		createDispatchTokenMinter: () => minter,
 		createSandboxGateway: () => sandboxes,
 		createReportGateway: () => reports,
-		resolveHarnessInvocation: () => options.harness ?? { ok: true, value: harnessInvocation() },
+		resolveHarnessInvocation: (dispatchSettingsSource) => {
+			resolverCalls.push(dispatchSettingsSource);
+			return options.harness ?? { ok: true, value: harnessInvocation() };
+		},
 	};
-	return { deps, sandboxes, minter, reports };
+	return { deps, sandboxes, minter, reports, resolverCalls };
 }
 
 describe("launchDispatchRun", () => {
-	it("mints a clone token, creates the sandbox over the exact SHA, provisions, and launches detached", async () => {
-		const { deps, sandboxes, minter } = createDeps();
+	it("mints a clone token, creates the sandbox over the exact SHA, resolves the checkout's harness, provisions, and launches detached", async () => {
+		const { deps, sandboxes, minter, resolverCalls } = createDeps({
+			sandboxBehavior: { files: { [DISPATCH_SETTINGS_PATH]: '[dispatch]\nharness = "pi"\n' } },
+		});
 
 		const result = await launchDispatchRun(runInput(), deps);
 
@@ -249,6 +257,7 @@ describe("launchDispatchRun", () => {
 		expect(minter.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "clone" }]);
 		expect(sandboxes.calls.map((call) => call.method)).toEqual([
 			"create",
+			"read",
 			"write",
 			"run",
 			"runDetached",
@@ -262,16 +271,23 @@ describe("launchDispatchRun", () => {
 				cloneToken: "token-clone-fixture",
 			},
 		});
+		// Harness choice is read from the checkout's own ns.toml at the
+		// dispatched SHA, then handed to the configuration seam.
 		expect(sandboxes.calls[1]?.options).toEqual({
+			sandboxName: "sbx_dispatch",
+			path: DISPATCH_SETTINGS_PATH,
+		});
+		expect(resolverCalls).toEqual(['[dispatch]\nharness = "pi"\n']);
+		expect(sandboxes.calls[2]?.options).toEqual({
 			sandboxName: "sbx_dispatch",
 			path: DISPATCH_PROMPT_PATH,
 			content: "Rename the widget gateway methods.",
 		});
-		expect(sandboxes.calls[2]?.options).toEqual({
+		expect(sandboxes.calls[3]?.options).toEqual({
 			sandboxName: "sbx_dispatch",
 			command: { cmd: "npm", args: ["install", "-g", "fake-harness"] },
 		});
-		expect(sandboxes.calls[3]?.options).toEqual({
+		expect(sandboxes.calls[4]?.options).toEqual({
 			sandboxName: "sbx_dispatch",
 			command: { cmd: "fake-harness", args: ["--headless"] },
 			env: { ANTHROPIC_API_KEY: "model-key-fixture" },
@@ -313,9 +329,13 @@ describe("launchDispatchRun", () => {
 		expect(sandboxes.calls).toEqual([]);
 	});
 
-	it("fails as misconfigured when no harness invocation is configured", async () => {
+	it("stops the created sandbox and fails as misconfigured when the checkout configures no harness", async () => {
 		const { deps, sandboxes } = createDeps({
-			harness: { ok: false, code: "harness-not-configured" },
+			harness: {
+				ok: false,
+				code: "harness-not-configured",
+				message: "The dispatched checkout declares no [dispatch] harness.",
+			},
 		});
 
 		const result = await launchDispatchRun(runInput(), deps);
@@ -323,12 +343,28 @@ describe("launchDispatchRun", () => {
 		expect(result).toEqual({
 			ok: false,
 			code: "dispatch-misconfigured",
-			message: "No in-sandbox harness invocation is configured.",
+			message: "The dispatched checkout declares no [dispatch] harness.",
 		});
-		expect(sandboxes.calls).toEqual([]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "stop"]);
 	});
 
-	it("fails before creating a billable sandbox when a declared launch variable is missing", async () => {
+	it("stops the created sandbox when the dispatch settings read fails", async () => {
+		const { deps, sandboxes, resolverCalls } = createDeps({
+			sandboxBehavior: { readFails: true },
+		});
+
+		const result = await launchDispatchRun(runInput(), deps);
+
+		expect(result).toEqual({
+			ok: false,
+			code: "launch-failed",
+			message: "Reading the checkout's dispatch settings failed.",
+		});
+		expect(resolverCalls).toEqual([]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "stop"]);
+	});
+
+	it("stops the created sandbox when a declared launch variable is missing", async () => {
 		const environment: MintEnvironment = { ...validEnvironment(), ANTHROPIC_API_KEY: undefined };
 		const { deps, sandboxes } = createDeps({ environment });
 
@@ -339,7 +375,7 @@ describe("launchDispatchRun", () => {
 			code: "dispatch-misconfigured",
 			message: "Dispatch configuration is invalid: ANTHROPIC_API_KEY.",
 		});
-		expect(sandboxes.calls).toEqual([]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "stop"]);
 	});
 
 	it("maps a clone mint failure to launch-failed without creating a sandbox", async () => {
@@ -365,7 +401,13 @@ describe("launchDispatchRun", () => {
 			code: "launch-failed",
 			message: "Harness provisioning failed.",
 		});
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "write", "run", "stop"]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual([
+			"create",
+			"read",
+			"write",
+			"run",
+			"stop",
+		]);
 	});
 
 	it("stops the created sandbox when the prompt write fails", async () => {
@@ -374,7 +416,7 @@ describe("launchDispatchRun", () => {
 		const result = await launchDispatchRun(runInput(), deps);
 
 		expect(result.ok).toBe(false);
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "write", "stop"]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "write", "stop"]);
 	});
 
 	it("stops the created sandbox when the detached launch fails", async () => {
@@ -389,6 +431,7 @@ describe("launchDispatchRun", () => {
 		});
 		expect(sandboxes.calls.map((call) => call.method)).toEqual([
 			"create",
+			"read",
 			"write",
 			"run",
 			"runDetached",

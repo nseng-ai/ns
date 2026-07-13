@@ -58,6 +58,17 @@ export const DISPATCH_RESULT_PATH = "/tmp/ns-dispatch/result.json";
 export const DISPATCH_DECISION_LOG_PATH = "/tmp/ns-dispatch/decision-log.md";
 
 /**
+ * Where the dispatched repository's dispatch settings live, relative to the
+ * checkout (the sandbox's working directory, so sandbox file reads resolve
+ * it against the checkout root — pending live verification). The launch
+ * step reads this file after sandbox creation and resolves the configured
+ * harness invocation from its `[dispatch]` table: harness choice is
+ * versioned repo configuration at the exact dispatched SHA, never caller
+ * input or deployable code shape.
+ */
+export const DISPATCH_SETTINGS_PATH = "ns.toml";
+
+/**
  * v1 run budget: how long the detached harness run may take before the
  * workflow declares it timed out. Fixed, not caller input; together with
  * the sandbox timeout margin it stays well under the 5-hour sandbox cap

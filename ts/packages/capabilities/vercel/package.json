@@ -25,11 +25,13 @@
 		"publish:dry-run": "node ../../../scripts/prepare-source-publish-package.mjs . && npm publish --dry-run ./dist/publish"
 	},
 	"dependencies": {
+		"@earendil-works/pi-coding-agent": "catalog:",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
 		"@octokit/auth-app": "catalog:",
 		"@vercel/sandbox": "catalog:",
 		"jose": "catalog:",
+		"smol-toml": "catalog:",
 		"workflow": "catalog:",
 		"zod": "catalog:"
 	},
@@ -41,6 +43,7 @@
 			"dispatch",
 			"mint",
 			"ns",
+			"pi-runner",
 			"sandbox",
 			"trigger"
 		],
