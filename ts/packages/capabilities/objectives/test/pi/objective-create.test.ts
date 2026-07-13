@@ -1,7 +1,6 @@
 import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 import { describe, expect, test } from "vitest";
 
-import { objectiveCreatePatternCommandSpecs } from "../../src/api/index.ts";
 import objectiveExtension, {
 	type CommandContext,
 	type RawPiExecResult,
@@ -97,14 +96,12 @@ interface RunObjectiveCreateOptions {
 	args: string;
 	commandInfos?: CommandInfo[];
 	cwd?: string;
-	commandName?: string;
 }
 
 async function runObjectiveCreate({
 	args,
 	commandInfos = [],
 	cwd = ROOT,
-	commandName = "ns:objective:create",
 }: RunObjectiveCreateOptions): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
@@ -112,10 +109,10 @@ async function runObjectiveCreate({
 }> {
 	const pi = new FakePi(commandInfos);
 	objectiveExtension(pi);
-	const command = pi.commands.get(commandName);
+	const command = pi.commands.get("ns:objective:create");
 	expect(command).toBeDefined();
 	if (!command) {
-		throw new Error(`${commandName} was not registered`);
+		throw new Error("ns:objective:create was not registered");
 	}
 
 	const context = createContext(cwd);
@@ -225,85 +222,3 @@ describe("ns:objective:create command", () => {
 		);
 	});
 });
-
-function patternSkillMarkdown(skillName: string): string {
-	return `---
-name: ${skillName}
----
-
-# Test ${skillName} Skill
-
-Create one patterned Objective.
-`;
-}
-
-describe.each(objectiveCreatePatternCommandSpecs)(
-	"$commandName command",
-	({ commandName, skillName, actionPrompt }) => {
-		test(`registers a typeahead-friendly wrapper for ${skillName}`, () => {
-			const pi = new FakePi();
-
-			objectiveExtension(pi);
-
-			const command = pi.commands.get(commandName);
-			expect(command).toBeDefined();
-			expect(command?.argumentHint).toBe("[objective-slug-title-or-context]");
-			expect(command?.description).toContain(skillName);
-		});
-
-		test(`reads ${skillName} backing skill and preserves initial user request`, async () => {
-			await withTempRepoSkill(
-				{ skillName, markdown: patternSkillMarkdown(skillName) },
-				async ({ repoDir, skillPath }) => {
-					const result = await runObjectiveCreate({
-						args: "chart the payments migration",
-						cwd: repoDir,
-						commandName,
-					});
-
-					expect(result.waitForIdleCalls()).toBe(1);
-					expect(result.pi.sentUserMessages).toHaveLength(1);
-					expect(result.pi.sentUserMessages[0]).toContain(
-						`<skill name="${skillName}" location="${skillPath}">`,
-					);
-					expect(result.pi.sentUserMessages[0]).toContain(actionPrompt);
-					expect(result.pi.sentUserMessages[0]).toContain(
-						"```text\nchart the payments migration\n```",
-					);
-					expect(result.pi.sentUserMessages[0]).toContain(
-						`still follow ${skillName}'s interview and slug-confirmation workflow`,
-					);
-					expect(result.notifications).toContainEqual({
-						message: `Invoking ${skillName} with initial context.`,
-						level: "info",
-					});
-				},
-			);
-		});
-
-		test(`empty args still invokes the ${skillName} interview`, async () => {
-			await withTempRepoSkill(
-				{ skillName, markdown: patternSkillMarkdown(skillName) },
-				async ({ repoDir }) => {
-					const result = await runObjectiveCreate({ args: "", cwd: repoDir, commandName });
-
-					expect(result.pi.sentUserMessages).toHaveLength(1);
-					expect(result.pi.sentUserMessages[0]).toContain(`Start the ${skillName} interview`);
-				},
-			);
-		});
-
-		test(`missing ${skillName} backing skill notifies an error`, async () => {
-			await withTempGitRepo({ prefix: `${skillName}-repo-` }, async ({ repoDir }) => {
-				const result = await runObjectiveCreate({ args: "chart alpha", cwd: repoDir, commandName });
-
-				expect(result.pi.sentUserMessages).toEqual([]);
-				expect(result.notifications).toHaveLength(1);
-				expect(result.notifications[0]?.level).toBe("error");
-				expect(result.notifications[0]?.message).toContain(
-					`Failed to read ${skillName} backing skill`,
-				);
-			});
-		});
-	},
-);

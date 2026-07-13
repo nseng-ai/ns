@@ -27,45 +27,12 @@ export type ObjectiveCreateCommandSpec = ObjectiveCreateSkillSpec & {
 	skillName: ObjectiveCreateSkillName;
 };
 
-export type ObjectiveCreatePattern =
-	| "wayfinding"
-	| "steelthread"
-	| "standing"
-	| "umbrella"
-	| "autoobjective"
-	| "readme-driven-development";
-export type ObjectiveCreatePatternCommandName = `ns:objective:create:${ObjectiveCreatePattern}`;
-export type ObjectiveCreatePatternSkillName = `objective-create-${ObjectiveCreatePattern}`;
-
-export type ObjectiveCreatePatternCommandSpec = ObjectiveCreateSkillSpec & {
-	commandName: ObjectiveCreatePatternCommandName;
-	skillName: ObjectiveCreatePatternSkillName;
-	pattern: ObjectiveCreatePattern;
-};
-
-/** Any Pi command spec that expands an Objective-creation backing skill. */
-export type AnyObjectiveCreateCommandSpec =
-	| ObjectiveCreateCommandSpec
-	| ObjectiveCreatePatternCommandSpec;
-
 type ObjectiveCommandSpecInput = Omit<ObjectiveCommandSpec, "commandName" | "statusKey">;
 
 export const OBJECTIVE_CREATE_COMMAND_NAME: ObjectiveCreateCommandName = "ns:objective:create";
 
 function objectiveCommandName(cliSubcommand: ObjectiveCliSubcommand): ObjectiveCommandName {
 	return `ns:objective:${cliSubcommand}`;
-}
-
-function objectiveCreatePatternCommandName(
-	pattern: ObjectiveCreatePattern,
-): ObjectiveCreatePatternCommandName {
-	return `ns:objective:create:${pattern}`;
-}
-
-function objectiveCreatePatternSkillName(
-	pattern: ObjectiveCreatePattern,
-): ObjectiveCreatePatternSkillName {
-	return `objective-create-${pattern}`;
 }
 
 function deriveSpec<TInput extends object, TDerived extends object>(
@@ -92,62 +59,13 @@ export const objectiveCreateCommandSpec: ObjectiveCreateCommandSpec = {
 	commandName: OBJECTIVE_CREATE_COMMAND_NAME,
 	skillName: "objective-create",
 	description:
-		"Read objective-create backing Markdown to interview for and create a new Objective. Pattern-specific ns:objective:create:<pattern> commands exist for named patterns.",
+		"Read objective-create backing Markdown to interview for and create a new Objective. Objective patterns are offered during the interview.",
 	actionPrompt: "Run objective-create with this initial user request:",
 };
 
-type ObjectiveCreatePatternCommandSpecInput = Omit<
-	ObjectiveCreatePatternCommandSpec,
-	"commandName" | "skillName" | "actionPrompt"
->;
-
-function defineObjectiveCreatePatternCommandSpec(
-	spec: ObjectiveCreatePatternCommandSpecInput,
-): ObjectiveCreatePatternCommandSpec {
-	return deriveSpec(spec, ({ pattern }) => ({
-		commandName: objectiveCreatePatternCommandName(pattern),
-		skillName: objectiveCreatePatternSkillName(pattern),
-		actionPrompt: `Run objective-create-${pattern} with this initial user request:`,
-	}));
-}
-
-export const objectiveCreatePatternCommandSpecs: ObjectiveCreatePatternCommandSpec[] = [
-	defineObjectiveCreatePatternCommandSpec({
-		pattern: "wayfinding",
-		description:
-			"Read objective-create-wayfinding backing Markdown to interview for and create a wayfinding (ideation) Objective charted as Question Rows.",
-	}),
-	defineObjectiveCreatePatternCommandSpec({
-		pattern: "steelthread",
-		description:
-			"Read objective-create-steelthread backing Markdown to interview for and create a steelthread Objective scoped to the thinnest end-to-end slice.",
-	}),
-	defineObjectiveCreatePatternCommandSpec({
-		pattern: "standing",
-		description:
-			"Read objective-create-standing backing Markdown to interview for and create a standing Objective with retirement-shaped completion criteria.",
-	}),
-	defineObjectiveCreatePatternCommandSpec({
-		pattern: "umbrella",
-		description:
-			"Read objective-create-umbrella backing Markdown to interview for and create an umbrella Objective coordinating Subobjectives via mirrored edges.",
-	}),
-	defineObjectiveCreatePatternCommandSpec({
-		pattern: "autoobjective",
-		description:
-			"Read objective-create-autoobjective backing Markdown to interview for and create an autoobjective shaped for autonomous Objective Runner steps.",
-	}),
-	defineObjectiveCreatePatternCommandSpec({
-		pattern: "readme-driven-development",
-		description:
-			"Read objective-create-readme-driven-development backing Markdown to create a fresh Objective whose canonical reference is a user-facing README draft (references/README-draft.md), then run the experimental readme-driven-development loop against it.",
-	}),
-];
-
 /** Every Pi command spec that expands an Objective-creation backing skill. */
-export const allObjectiveCreateCommandSpecs: AnyObjectiveCreateCommandSpec[] = [
+export const allObjectiveCreateCommandSpecs: ObjectiveCreateCommandSpec[] = [
 	objectiveCreateCommandSpec,
-	...objectiveCreatePatternCommandSpecs,
 ];
 
 const OBJECTIVE_AUTORUN_PI_TOOL_REMINDER = `

@@ -32,14 +32,16 @@ Canonical semantics live in exactly one place, with thin hooks elsewhere:
   "Ideation Objective" section.
 - **Canonical vocabulary**: root `CONTEXT.md` entries — Ideation Objective, Destination,
   Question Row, Frontier, Fog, Crystallization.
-- **Creation facade**: `skills/objective-create-wayfinding/SKILL.md` owns the charting
-  rules (Destination-first, typed Question Rows, Fog held back).
+- **Creation reference**: `skills/objective-create/references/wayfinding-create.md`
+  owns the charting rules (Destination-first, typed Question Rows, Fog held back);
+  maintainers edit it during upstream syncs.
 - **Step-skill hooks** (behavioral one-liners that defer to the pattern spec):
   `objective-next` recommends from the Frontier and recognizes Crystallization;
   `objective-update` resolves Question Rows and graduates Fog.
 
-When flowing upstream changes, edit the canonical spec, vocabulary, and creation facade;
-touch step-skill hooks only if the behavioral consequence for that step changed.
+When flowing upstream changes, edit the canonical spec, vocabulary, and creation
+reference; touch step-skill hooks only if the behavioral consequence for that step
+changed.
 
 ## What was kept
 
@@ -55,7 +57,7 @@ touch step-skill hooks only if the behavioral consequence for that step changed.
 | Fog vs **Out of scope** split — fog gathers only toward the destination; out-of-scope work never graduates                                   | Fog is in-scope only; out-of-scope work lives in the record's non-goals prose, and a mis-scoped Question Row is dropped with a recorded decision     |
 | **Plan, don't do** — tickets resolve decisions, not deliverables; the pull to do the work signals the map is done                            | Question Rows resolve decisions; only `task` rows do rather than decide; the pull to execute signals Crystallization                                 |
 | **HITL/AFK** ticket attribute — human-in-the-loop vs agent-alone                                                                             | Prose guidance on Question Row types (grilling/prototype resolve only through live exchange; research agent-alone; task either), never machine state |
-| No-map escape hatch — if breadth-first charting surfaces no fog, don't build the map                                                         | `objective-create-wayfinding` declines to create an ideation Objective when charting surfaces no Fog                                                 |
+| No-map escape hatch — if breadth-first charting surfaces no fog, don't build the map                                                         | `objective-create`'s wayfinding reference declines to create an ideation Objective when charting surfaces no Fog                                     |
 | Breadth-first charting — fan out, don't go deep on one thread                                                                                | Breadth-first initial roadmap                                                                                                                        |
 | Resolve one ticket per session                                                                                                               | Resolve one Question Row per session                                                                                                                 |
 | Resolution graduates fog into new tickets, may invalidate others                                                                             | Resolution graduates Fog into new rows, may invalidate other rows                                                                                    |
@@ -123,9 +125,9 @@ noticed):
      `edges`). Record notable rejections here so the next sync doesn't relitigate them.
 3. Update this document — the kept/dropped/added tables must describe the *current*
    upstream, or the next sync starts from a stale map.
-4. Re-check the creation facade (`objective-create-wayfinding`) and the step-skill hooks
-   (`objective-next`, `objective-update`) only if a flowed change alters what that step
-   does.
+4. Re-check the creation reference (`skills/objective-create/references/wayfinding-create.md`)
+   and the step-skill hooks (`objective-next`, `objective-update`) only if a flowed
+   change alters what that step does.
 5. Never let a dropped concept re-enter as machine state; the promotion path for any
    machine-verified property remains the tag-plus-checkers system named in
    `objective-patterns.md`.

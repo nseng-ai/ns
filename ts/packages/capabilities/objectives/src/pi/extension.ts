@@ -24,15 +24,14 @@ import {
 	objectiveCommandSpecs,
 	objectiveCompletionItem,
 	objectiveCreateCommandSpec,
-	objectiveCreatePatternCommandSpecs,
 	objectiveSelectionContextFromCommandContext,
 	objectiveSelectionHostFromExec,
 	parseObjectiveCandidatesData,
 	parseObjectiveListArgTokens,
 	renderObjectiveListMarkdown,
-	type AnyObjectiveCreateCommandSpec,
 	type ObjectiveCandidatesParseResult,
 	type ObjectiveCommandSpec,
+	type ObjectiveCreateCommandSpec,
 	type ObjectiveListParsedArgs,
 	type ObjectiveSelectionHost,
 	type ObjectiveStatusFilter,
@@ -94,7 +93,7 @@ interface ObjectiveInvocationContext<TSpec = ObjectiveCommandSpec> {
 	spec: TSpec;
 }
 
-interface InvokeObjectiveCreateSkillOptions extends ObjectiveInvocationContext<AnyObjectiveCreateCommandSpec> {
+interface InvokeObjectiveCreateSkillOptions extends ObjectiveInvocationContext<ObjectiveCreateCommandSpec> {
 	rawArgs: string;
 }
 
@@ -162,7 +161,7 @@ async function invokeObjectiveCreateSkill(
 }
 
 function buildObjectiveCreateSkillPrompt(
-	spec: AnyObjectiveCreateCommandSpec,
+	spec: ObjectiveCreateCommandSpec,
 	skillBlock: string,
 	initialRequest: string,
 ): string {
@@ -429,13 +428,6 @@ export const objectiveParity = definePiSurfaceParity([
 		notes:
 			"Pi command is a light typeahead-friendly wrapper that expands the portable objective-create skill and preserves any initial user request as context.",
 	}),
-	...objectiveCreatePatternCommandSpecs.map((spec) =>
-		objectiveParityEntry(spec, {
-			cli: `${spec.skillName} skill (portable)`,
-			notes:
-				"Pi command expands the portable pattern-facade creation skill and preserves any initial user request as context.",
-		}),
-	),
 	...objectiveCommandSpecs.map((spec) =>
 		objectiveParityEntry(spec, {
 			cli: `ns objective ${spec.cliSubcommand}`,

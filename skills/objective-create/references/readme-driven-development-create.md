@@ -1,18 +1,14 @@
----
-name: objective-create-readme-driven-development
-disable-model-invocation: true
-description: Objective-backed README-driven development — create a fresh ns Objective whose canonical reference is a user-facing README, then run the readme-driven-development loop against it.
----
+# Readme-Driven-Development Objective Creation
 
-# objective-create-readme-driven-development
+Load this reference only when the interview settles on the readme-driven-development pattern (experimental): a fresh Objective whose canonical reference is a user-facing README draft, developed via the readme-driven-development loop. Read the `readme-driven-development` skill first; this reference adds only the Objective mechanics.
 
-Composes the portable `readme-driven-development` loop with ns Objectives. Read the `readme-driven-development` skill first; this skill adds only the Objective mechanics.
+This reference covers the **first pass only** — creating the Objective, seeding the README, and running the loop. Later passes do not create a new Objective: run the base `readme-driven-development` skill against the existing Objective's `references/README-draft.md`, with `objective-update` recording progress.
 
-## Objective per pass
+## Record bundle
 
-Every run creates a new Objective — never reuse or attach to an existing one. Create it through the `objective-create` step skill (grounded by the `objective` umbrella skill), then fill the full bundle under `.ns/objectives/<slug>/`:
+Create the Objective through the normal objective-create workflow, then fill the full bundle under `.ns/objectives/<slug>/`:
 
-- `objective.md` — thesis, scope, non-goals, completion criteria (required headings per the objective skill)
+- `objective.md` — thesis, scope, non-goals, completion criteria (required headings per the `objective` skill)
 - `roadmap.md` — execution tracking: slices, status, follow-ups
 - `references/README-draft.md` — the canonical user-facing README; the readme-driven-development contract
 - `references/` — supporting documents (decision log, open questions, research); they support the README and never override it
@@ -33,6 +29,9 @@ Run the readme-driven-development loop with these bindings:
 - **Execution state** goes to `roadmap.md`, never into the README.
 - **Pass report** additionally names the created Objective slug and the roadmap rows added.
 
-## Verify and stop
+## Verification
 
-Run objective-create's Verify, plus: the README promotion roadmap row exists, and `## Completion Criteria` names the promotion to a durable user-facing home.
+In addition to objective-create's own Verify:
+
+- the README promotion roadmap row exists;
+- `## Completion Criteria` names the promotion to a durable user-facing home.
