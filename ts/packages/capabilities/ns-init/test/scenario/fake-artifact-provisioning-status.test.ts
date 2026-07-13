@@ -25,7 +25,9 @@ describe("InMemoryArtifactProvisioningStatusGateway", () => {
 			},
 		];
 		const gateway = new InMemoryArtifactProvisioningStatusGateway({ summaries });
-		diagnostics[0]!.message = "mutated after construction";
+		const [diagnostic] = diagnostics;
+		if (diagnostic === undefined) throw new Error("expected fixture diagnostic");
+		diagnostic.message = "mutated after construction";
 		const descriptors = [descriptor];
 		const harnesses: ("pi" | "codex")[] = ["pi"];
 

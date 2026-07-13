@@ -242,7 +242,16 @@ describe("listExtensions", () => {
 			"npm:",
 			"./duplicate",
 			"./duplicate/../duplicate",
-		];
+		] as const;
+		const [
+			missingNpmSpec,
+			brokenLocalSpec,
+			unsupportedGitSpec,
+			unsupportedArchiveSpec,
+			invalidNpmSpec,
+			duplicateLocalSpec,
+			equivalentDuplicateLocalSpec,
+		] = specs;
 		const { context, artifacts } = fixture({
 			nsToml: `harnesses = ["pi"]\nextensions = ${JSON.stringify(specs)}\n`,
 			diagnostics: [
@@ -250,39 +259,39 @@ describe("listExtensions", () => {
 					severity: "error",
 					code: "extension_descriptor_package_missing",
 					message: "package missing",
-					spec: specs[0]!,
+					spec: missingNpmSpec,
 				},
 				{
 					severity: "error",
 					code: "extension_descriptor_invalid",
 					message: "descriptor invalid",
-					spec: specs[1]!,
+					spec: brokenLocalSpec,
 					path: "/repo/broken/extension.ts",
 				},
 				{
 					severity: "error",
 					code: "extension_descriptor_source_unsupported",
 					message: "git unsupported",
-					spec: specs[2]!,
+					spec: unsupportedGitSpec,
 				},
 				{
 					severity: "error",
 					code: "extension_descriptor_package_missing",
 					message: "URI was parsed as a missing local package by descriptor loading",
-					spec: specs[3]!,
+					spec: unsupportedArchiveSpec,
 				},
 				{
 					severity: "error",
 					code: "extension_acquisition_invalid_npm_spec",
 					message: "npm invalid",
-					spec: specs[4]!,
+					spec: invalidNpmSpec,
 				},
 				{
 					severity: "error",
 					code: "extension_descriptor_duplicate_identity",
 					message: "duplicate",
-					spec: specs[5]!,
-					relatedSpecs: [specs[6]!],
+					spec: duplicateLocalSpec,
+					relatedSpecs: [equivalentDuplicateLocalSpec],
 				},
 			],
 		});

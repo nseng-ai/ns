@@ -15,15 +15,6 @@ import type {
 } from "./artifact-provisioning-status.ts";
 import { appendDiagnosticToCollection } from "./diagnostic-collection.ts";
 
-interface MutableArtifactProvisioningStatusSummary {
-	readonly moduleRoot: string;
-	readonly packageName: string;
-	artifactStatus: ArtifactProvisioningStatus;
-	artifactCount: number;
-	affectedArtifactCount: number;
-	diagnostics: readonly ArtifactProvisioningDiagnostic[];
-}
-
 const STATUS_PRECEDENCE: Readonly<Record<ArtifactProvisioningStatus, number>> = {
 	none: 0,
 	provisioned: 1,
@@ -32,19 +23,65 @@ const STATUS_PRECEDENCE: Readonly<Record<ArtifactProvisioningStatus, number>> = 
 	unavailable: 4,
 };
 
+class ArtifactProvisioningStatusAccumulator {
+	readonly moduleRoot: string;
+	readonly packageName: string;
+	private artifactStatus: ArtifactProvisioningStatus = "none";
+	private artifactCount = 0;
+	private affectedArtifactCount = 0;
+	private diagnostics: readonly ArtifactProvisioningDiagnostic[] = [];
+
+	constructor(options: { readonly moduleRoot: string; readonly packageName: string }) {
+		this.moduleRoot = options.moduleRoot;
+		this.packageName = options.packageName;
+	}
+
+	addKnownInstances(options: {
+		readonly status: ArtifactProvisioningStatus;
+		readonly artifactCount: number;
+		readonly affectedArtifactCount: number;
+	}): void {
+		this.artifactCount += options.artifactCount;
+		this.affectedArtifactCount += options.affectedArtifactCount;
+		this.setStatus(options.status);
+	}
+
+	addDiagnostic(diagnostic: ArtifactProvisioningDiagnostic): void {
+		this.diagnostics = appendDiagnosticToCollection(this.diagnostics, diagnostic);
+	}
+
+	markUnavailable(diagnostic: ArtifactProvisioningDiagnostic): void {
+		this.setStatus("unavailable");
+		this.addDiagnostic(diagnostic);
+	}
+
+	setStatus(status: ArtifactProvisioningStatus): void {
+		if (STATUS_PRECEDENCE[status] > STATUS_PRECEDENCE[this.artifactStatus]) {
+			this.artifactStatus = status;
+		}
+	}
+
+	finalize(): ArtifactProvisioningStatusSummary {
+		return {
+			moduleRoot: this.moduleRoot,
+			artifactStatus: this.artifactStatus,
+			artifactCount: this.artifactCount,
+			affectedArtifactCount: this.affectedArtifactCount,
+			diagnostics: this.diagnostics.map((diagnostic) => ({ ...diagnostic })),
+		};
+	}
+}
+
 export class RealArtifactProvisioningStatusGateway implements ArtifactProvisioningStatusGateway {
 	async inspect(
 		params: InspectArtifactProvisioningStatusParams,
 	): Promise<readonly ArtifactProvisioningStatusSummary[]> {
 		const summaries = params.descriptors.map(
-			(descriptor): MutableArtifactProvisioningStatusSummary => ({
-				moduleRoot: descriptor.moduleRoot,
-				packageName: descriptor.packageName,
-				artifactStatus: "none",
-				artifactCount: 0,
-				affectedArtifactCount: 0,
-				diagnostics: [],
-			}),
+			(descriptor) =>
+				new ArtifactProvisioningStatusAccumulator({
+					moduleRoot: descriptor.moduleRoot,
+					packageName: descriptor.packageName,
+				}),
 		);
 		try {
 			const prepared = await prepareDeclaredArtifactActivation({
@@ -74,7 +111,7 @@ export class RealArtifactProvisioningStatusGateway implements ArtifactProvisioni
 }
 
 function summarizePreparedActivation(
-	summaries: readonly MutableArtifactProvisioningStatusSummary[],
+	summaries: readonly ArtifactProvisioningStatusAccumulator[],
 	prepared: PreparedDeclaredArtifactActivation,
 ): void {
 	const byModuleRoot = groupBy(summaries, (summary) => summary.moduleRoot);
@@ -82,13 +119,14 @@ function summarizePreparedActivation(
 
 	for (const item of prepared.reconciliation.items) {
 		if (item.type === "provision") {
-			addTransition(
-				byModuleRoot.get(item.pair.desired.sourceRoot) ?? [],
-				item.action,
-				item.pair.desired.artifact.id,
-				item.pair.harness,
-				item.conflictingFiles[0],
-			);
+			const conflictPath = item.conflictingFiles[0];
+			addTransition({
+				summaries: byModuleRoot.get(item.pair.desired.sourceRoot) ?? [],
+				action: item.action,
+				artifactId: item.pair.desired.artifact.id,
+				harness: item.pair.harness,
+				...(conflictPath === undefined ? {} : { conflictPath }),
+			});
 			continue;
 		}
 		const replacementRoots =
@@ -126,18 +164,23 @@ function summarizePreparedActivation(
 			);
 			continue;
 		}
-		addTransition(
-			packageSummaries,
-			item.action,
-			item.removal.entry.artifactId,
-			item.removal.entry.harness,
-			item.conflictingFiles[0],
-		);
+		const conflictPath = item.conflictingFiles[0];
+		addTransition({
+			summaries: packageSummaries,
+			action: item.action,
+			artifactId: item.removal.entry.artifactId,
+			harness: item.removal.entry.harness,
+			...(conflictPath === undefined ? {} : { conflictPath }),
+		});
 	}
 
 	for (const desired of prepared.reconciliation.skippedDesired) {
 		const targetSummaries = byModuleRoot.get(desired.sourceRoot) ?? [];
-		addKnownInstances(targetSummaries, "conflicted", prepared.selectedHarnesses.length);
+		addKnownInstances({
+			summaries: targetSummaries,
+			status: "conflicted",
+			artifactCount: prepared.selectedHarnesses.length,
+		});
 		for (const collision of prepared.skippedCollisions) {
 			const matches =
 				collision.kind === "id"
@@ -145,7 +188,7 @@ function summarizePreparedActivation(
 					: collision.value === desired.artifact.skillName;
 			if (!matches) continue;
 			for (const summary of targetSummaries) {
-				appendDiagnostic(summary, {
+				summary.addDiagnostic({
 					code: "artifact-collision",
 					message: `Artifact ${collision.kind} collision for ${collision.value}: ${collision.packages.join(", ")}.`,
 				});
@@ -163,7 +206,7 @@ function summarizePreparedActivation(
 			byModuleRoot,
 			byPackageName,
 			prepared,
-			allowMultiple: isCollisionDiagnostic,
+			canAttributeMultipleSummaries: isCollisionDiagnostic,
 		});
 		if (attribution.type === "ambiguous") {
 			markUnavailable(attribution.summaries, {
@@ -180,8 +223,8 @@ function summarizePreparedActivation(
 		};
 		if (isCollisionDiagnostic) {
 			for (const summary of attribution.summaries) {
-				setStatus(summary, "conflicted");
-				appendDiagnostic(summary, outwardDiagnostic);
+				summary.setStatus("conflicted");
+				summary.addDiagnostic(outwardDiagnostic);
 			}
 			continue;
 		}
@@ -192,20 +235,20 @@ function summarizePreparedActivation(
 type DiagnosticAttribution =
 	| {
 			type: "attributed";
-			readonly summaries: readonly MutableArtifactProvisioningStatusSummary[];
+			readonly summaries: readonly ArtifactProvisioningStatusAccumulator[];
 	  }
 	| {
 			type: "ambiguous";
-			readonly summaries: readonly MutableArtifactProvisioningStatusSummary[];
+			readonly summaries: readonly ArtifactProvisioningStatusAccumulator[];
 	  };
 
 function summariesForDiagnostic(options: {
 	diagnostic: PreparedDeclaredArtifactActivation["diagnostics"][number];
-	summaries: readonly MutableArtifactProvisioningStatusSummary[];
-	byModuleRoot: ReadonlyMap<string, readonly MutableArtifactProvisioningStatusSummary[]>;
-	byPackageName: ReadonlyMap<string, readonly MutableArtifactProvisioningStatusSummary[]>;
+	summaries: readonly ArtifactProvisioningStatusAccumulator[];
+	byModuleRoot: ReadonlyMap<string, readonly ArtifactProvisioningStatusAccumulator[]>;
+	byPackageName: ReadonlyMap<string, readonly ArtifactProvisioningStatusAccumulator[]>;
 	prepared: PreparedDeclaredArtifactActivation;
-	allowMultiple: boolean;
+	canAttributeMultipleSummaries: boolean;
 }): DiagnosticAttribution {
 	const { diagnostic } = options;
 	const diagnosticPath = diagnostic.path;
@@ -218,7 +261,7 @@ function summariesForDiagnostic(options: {
 		if (matchingRoots.size > 0) {
 			return diagnosticAttribution(
 				[...matchingRoots].flatMap((moduleRoot) => options.byModuleRoot.get(moduleRoot) ?? []),
-				options.allowMultiple,
+				options.canAttributeMultipleSummaries,
 			);
 		}
 	}
@@ -236,43 +279,49 @@ function summariesForDiagnostic(options: {
 		if (matchingRoots.size > 0) {
 			return diagnosticAttribution(
 				[...matchingRoots].flatMap((moduleRoot) => options.byModuleRoot.get(moduleRoot) ?? []),
-				options.allowMultiple,
+				options.canAttributeMultipleSummaries,
 			);
 		}
 	}
 	if (diagnostic.packageName !== undefined) {
 		const packageSummaries = options.byPackageName.get(diagnostic.packageName) ?? [];
 		if (packageSummaries.length > 0) {
-			return diagnosticAttribution(packageSummaries, options.allowMultiple);
+			return diagnosticAttribution(packageSummaries, options.canAttributeMultipleSummaries);
 		}
 	}
-	return diagnosticAttribution(options.summaries, options.allowMultiple);
+	return diagnosticAttribution(options.summaries, options.canAttributeMultipleSummaries);
 }
 
 function diagnosticAttribution(
-	summaries: readonly MutableArtifactProvisioningStatusSummary[],
-	allowMultiple: boolean,
+	summaries: readonly ArtifactProvisioningStatusAccumulator[],
+	canAttributeMultipleSummaries: boolean,
 ): DiagnosticAttribution {
-	return summaries.length <= 1 || allowMultiple
+	return summaries.length <= 1 || canAttributeMultipleSummaries
 		? { type: "attributed", summaries }
 		: { type: "ambiguous", summaries };
 }
 
-function addTransition(
-	summaries: readonly MutableArtifactProvisioningStatusSummary[],
-	action: PreparedDeclaredArtifactActivation["reconciliation"]["items"][number]["action"],
-	artifactId: string,
-	harness: string,
-	conflictPath: string | undefined,
-): void {
+function addTransition(options: {
+	readonly summaries: readonly ArtifactProvisioningStatusAccumulator[];
+	readonly action: PreparedDeclaredArtifactActivation["reconciliation"]["items"][number]["action"];
+	readonly artifactId: string;
+	readonly harness: string;
+	readonly conflictPath?: string;
+}): void {
+	const { summaries, action, artifactId, harness, conflictPath } = options;
 	if (action === "unchanged") {
-		addKnownInstances(summaries, "provisioned", 1, 0);
+		addKnownInstances({
+			summaries,
+			status: "provisioned",
+			artifactCount: 1,
+			affectedArtifactCount: 0,
+		});
 		return;
 	}
 	if (action === "conflicted") {
-		addKnownInstances(summaries, "conflicted", 1);
+		addKnownInstances({ summaries, status: "conflicted", artifactCount: 1 });
 		for (const summary of summaries) {
-			appendDiagnostic(summary, {
+			summary.addDiagnostic({
 				code: "artifact-local-conflict",
 				message: `Artifact ${artifactId} conflicts with local files for ${harness}.`,
 				...(conflictPath === undefined ? {} : { path: conflictPath }),
@@ -280,24 +329,27 @@ function addTransition(
 		}
 		return;
 	}
-	addKnownInstances(summaries, "needs-reconcile", 1);
+	addKnownInstances({ summaries, status: "needs-reconcile", artifactCount: 1 });
 }
 
-function addKnownInstances(
-	summaries: readonly MutableArtifactProvisioningStatusSummary[],
-	status: ArtifactProvisioningStatus,
-	artifactCount: number,
-	affectedArtifactCount: number = artifactCount,
-): void {
-	for (const summary of summaries) {
-		summary.artifactCount += artifactCount;
-		summary.affectedArtifactCount += affectedArtifactCount;
-		setStatus(summary, status);
+function addKnownInstances(options: {
+	readonly summaries: readonly ArtifactProvisioningStatusAccumulator[];
+	readonly status: ArtifactProvisioningStatus;
+	readonly artifactCount: number;
+	readonly affectedArtifactCount?: number;
+}): void {
+	const affectedArtifactCount = options.affectedArtifactCount ?? options.artifactCount;
+	for (const summary of options.summaries) {
+		summary.addKnownInstances({
+			status: options.status,
+			artifactCount: options.artifactCount,
+			affectedArtifactCount,
+		});
 	}
 }
 
 function markAmbiguousAttribution(
-	summaries: readonly MutableArtifactProvisioningStatusSummary[],
+	summaries: readonly ArtifactProvisioningStatusAccumulator[],
 	packageName: string,
 	path: string,
 ): void {
@@ -309,28 +361,11 @@ function markAmbiguousAttribution(
 }
 
 function markUnavailable(
-	summaries: readonly MutableArtifactProvisioningStatusSummary[],
+	summaries: readonly ArtifactProvisioningStatusAccumulator[],
 	diagnostic: ArtifactProvisioningDiagnostic,
 ): void {
 	for (const summary of summaries) {
-		setStatus(summary, "unavailable");
-		appendDiagnostic(summary, diagnostic);
-	}
-}
-
-function appendDiagnostic(
-	summary: MutableArtifactProvisioningStatusSummary,
-	diagnostic: ArtifactProvisioningDiagnostic,
-): void {
-	summary.diagnostics = appendDiagnosticToCollection(summary.diagnostics, diagnostic);
-}
-
-function setStatus(
-	summary: MutableArtifactProvisioningStatusSummary,
-	status: ArtifactProvisioningStatus,
-): void {
-	if (STATUS_PRECEDENCE[status] > STATUS_PRECEDENCE[summary.artifactStatus]) {
-		summary.artifactStatus = status;
+		summary.markUnavailable(diagnostic);
 	}
 }
 
@@ -374,13 +409,7 @@ function preparationFailureDiagnostic(error: {
 }
 
 function finalizedSummaries(
-	summaries: readonly MutableArtifactProvisioningStatusSummary[],
+	summaries: readonly ArtifactProvisioningStatusAccumulator[],
 ): readonly ArtifactProvisioningStatusSummary[] {
-	return summaries.map((summary) => ({
-		moduleRoot: summary.moduleRoot,
-		artifactStatus: summary.artifactStatus,
-		artifactCount: summary.artifactCount,
-		affectedArtifactCount: summary.affectedArtifactCount,
-		diagnostics: summary.diagnostics.map((diagnostic) => ({ ...diagnostic })),
-	}));
+	return summaries.map((summary) => summary.finalize());
 }
