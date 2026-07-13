@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { MintPurpose } from "../../src/mint/contracts.ts";
+import type {
+	VercelOidcGateway,
+	VercelOidcVerificationResult,
+} from "../../src/mint/development-oidc.ts";
 import {
 	handleMintRequest,
 	type LandingCredentialGateway,
-	type VercelOidcGateway,
-	type VercelOidcVerificationResult,
 } from "../../src/mint/handle-mint-request.ts";
 import {
 	createDispatchTokenMinter,

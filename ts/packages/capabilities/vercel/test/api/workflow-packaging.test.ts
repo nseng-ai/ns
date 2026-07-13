@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
 	findMissingWorkflowFunctionArtifacts,
+	findMissingWorkflowManifestIds,
 	findWorkflowQueueTriggerProblems,
 	findWorkflowSourcesMissingFromManifest,
 	mergeBuildOutputConfig,
 	REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS,
+	ROUTE_TRIGGERED_WORKFLOW_IDS,
 } from "../../scripts/build-deployable.ts";
+import { helloWorkflowId } from "../../workflows/hello.ts";
 
 const flowVcConfig = {
 	runtime: "nodejs22.x",
@@ -154,6 +157,41 @@ describe("findWorkflowSourcesMissingFromManifest", () => {
 		expect(findWorkflowSourcesMissingFromManifest(sources, { workflows: "bogus" })).toEqual([
 			"workflows/hello.ts",
 		]);
+	});
+});
+
+describe("findMissingWorkflowManifestIds", () => {
+	const manifest = {
+		version: "1.0.0",
+		workflows: {
+			"workflows/hello.ts": {
+				helloWorkflow: { workflowId: "workflow//./workflows/hello//helloWorkflow" },
+			},
+		},
+	};
+
+	it("accepts a manifest containing every route-triggered workflow id", () => {
+		expect(
+			findMissingWorkflowManifestIds(manifest, ["workflow//./workflows/hello//helloWorkflow"]),
+		).toEqual([]);
+	});
+
+	it("reports a required id the manifest does not contain", () => {
+		expect(
+			findMissingWorkflowManifestIds(manifest, ["workflow//./workflows/other//otherWorkflow"]),
+		).toEqual(["workflow//./workflows/other//otherWorkflow"]);
+	});
+
+	it("treats a malformed manifest as missing every required id", () => {
+		expect(
+			findMissingWorkflowManifestIds({ workflows: "bogus" }, [
+				"workflow//./workflows/hello//helloWorkflow",
+			]),
+		).toEqual(["workflow//./workflows/hello//helloWorkflow"]);
+	});
+
+	it("covers the hello workflow id the trigger route starts by metadata", () => {
+		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(helloWorkflowId);
 	});
 });
 

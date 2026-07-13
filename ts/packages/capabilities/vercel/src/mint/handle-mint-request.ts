@@ -1,24 +1,7 @@
 import { mintRequestSchema, type MintPurpose, type MintResponse } from "./contracts.ts";
+import { authenticateDevelopmentCaller, type VercelOidcGateway } from "./development-oidc.ts";
 import type { DispatchTokenMinter } from "./mint-core.ts";
 import type { MintRuntimeConfig } from "./runtime-config.ts";
-
-export interface VercelOidcIdentity {
-	readonly ownerId: string;
-	readonly projectId: string;
-	readonly environment: string;
-}
-
-export type VercelOidcVerificationResult =
-	| { readonly ok: true; readonly value: VercelOidcIdentity }
-	| { readonly ok: false };
-
-export interface VercelOidcGateway {
-	verifyDevelopmentIdentity(options: {
-		readonly token: string;
-		readonly issuer: string;
-		readonly audience: string;
-	}): Promise<VercelOidcVerificationResult>;
-}
 
 export interface LandingCredentialGateway {
 	verifyLandingCredential(credential: string): boolean;
@@ -93,20 +76,19 @@ async function authenticateOidc(
 	token: string | null,
 	context: MintRequestContext,
 ): Promise<AuthenticationResult> {
-	if (token === null || token.length === 0) return { ok: false, status: 401 };
-	const result = await context.oidc.verifyDevelopmentIdentity({
+	const result = await authenticateDevelopmentCaller(
 		token,
-		issuer: context.config.vercelOidcIssuer,
-		audience: context.config.vercelOidcAudience,
-	});
-	if (!result.ok) return { ok: false, status: 401 };
-	if (
-		result.value.ownerId !== context.config.vercelTeamId ||
-		result.value.projectId !== context.config.vercelProjectId ||
-		result.value.environment !== "development"
-	) {
-		return { ok: false, status: 403 };
-	}
+		{
+			issuer: context.config.vercelOidcIssuer,
+			audience: context.config.vercelOidcAudience,
+			teamId: context.config.vercelTeamId,
+			projectId: context.config.vercelProjectId,
+		},
+		context.oidc,
+	);
+	// `=== false` rather than `!`: the Vercel builder typechecks without
+	// strictNullChecks, where truthiness checks do not narrow the union.
+	if (result.ok === false) return result;
 	return { ok: true, purpose: "clone" };
 }
 

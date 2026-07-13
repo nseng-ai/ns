@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
+import { helloWorkflowId } from "../workflows/hello.ts";
+
 export interface MissingRelativeModuleTarget {
 	readonly sourcePath: string;
 	readonly specifier: string;
@@ -117,6 +119,37 @@ export function findWorkflowSourcesMissingFromManifest(
 	return missing;
 }
 
+const workflowManifestEntrySchema = z.looseObject({
+	workflowId: z.string().optional(),
+});
+
+/**
+ * Workflow ids the deployable's routes reference by explicit metadata
+ * (`start({ workflowId })` — the route bundles never receive the workflow
+ * transform, so nothing checks these strings at compile time). Each must be
+ * present in the emitted manifest or the deployed route would fail at
+ * runtime.
+ */
+export const ROUTE_TRIGGERED_WORKFLOW_IDS: readonly string[] = [helloWorkflowId];
+
+export function findMissingWorkflowManifestIds(
+	manifest: unknown,
+	requiredIds: readonly string[],
+): readonly string[] {
+	const parsed = workflowManifestSchema.safeParse(manifest);
+	if (!parsed.success) return [...requiredIds];
+	const emittedIds = new Set<string>();
+	for (const entries of Object.values(parsed.data.workflows)) {
+		for (const entry of Object.values(entries)) {
+			const entryResult = workflowManifestEntrySchema.safeParse(entry);
+			if (entryResult.success && entryResult.data.workflowId !== undefined) {
+				emittedIds.add(entryResult.data.workflowId);
+			}
+		}
+	}
+	return requiredIds.filter((id) => !emittedIds.has(id));
+}
+
 const buildOutputConfigSchema = z.looseObject({
 	version: z.number(),
 	routes: z.array(z.unknown()).optional(),
@@ -176,23 +209,70 @@ async function main(): Promise<boolean> {
 		return false;
 	}
 
-	const functionRoot = fileURLToPath(
-		new URL("../.vercel/output/functions/api/mint.func/", import.meta.url),
-	);
-	const modules = await readJavaScriptModules(functionRoot);
-	const missing = findMissingRelativeModuleTargets(modules);
-	if (missing.length > 0) {
-		for (const item of missing) {
-			console.error(
-				`Vercel function artifact is missing ${item.targetPath} imported by ${item.sourcePath}.`,
-			);
-		}
-		return false;
-	}
-	console.log(`Verified ${modules.size} emitted mint-function modules and their relative imports.`);
+	if (!(await verifyApiFunctionBundles())) return false;
 
 	if (!(await verifyWorkflowPackaging(packageRoot))) return false;
 
+	return true;
+}
+
+/**
+ * API function directories the Node builder must emit for every deployable
+ * route to be servable. A route source that silently fails to package is the
+ * proven escape-local-validation failure class, so the required list is
+ * explicit rather than derived from `api/`.
+ */
+const REQUIRED_API_FUNCTION_DIRECTORIES: readonly string[] = [
+	"health.func",
+	"mint.func",
+	"runs.func",
+	"trigger.func",
+];
+
+/**
+ * Verify every emitted `api/*.func` bundle: each required route function must
+ * exist, and each emitted bundle's relative-import graph must be closed (the
+ * unbundled Node-builder emit omitted package sources on the first
+ * deployment, so closure is checked per function).
+ */
+async function verifyApiFunctionBundles(): Promise<boolean> {
+	const apiFunctionsRoot = fileURLToPath(
+		new URL("../.vercel/output/functions/api/", import.meta.url),
+	);
+	const entries = await readdir(apiFunctionsRoot, { withFileTypes: true });
+	const emittedDirectories = entries
+		.filter((entry) => entry.isDirectory() && entry.name.endsWith(".func"))
+		.map((entry) => entry.name)
+		.sort();
+
+	const missingDirectories = REQUIRED_API_FUNCTION_DIRECTORIES.filter(
+		(name) => !emittedDirectories.includes(name),
+	);
+	if (missingDirectories.length > 0) {
+		for (const name of missingDirectories) {
+			console.error(`Vercel build did not emit required API function api/${name}.`);
+		}
+		return false;
+	}
+
+	let moduleCount = 0;
+	for (const name of emittedDirectories) {
+		const modules = await readJavaScriptModules(join(apiFunctionsRoot, name));
+		moduleCount += modules.size;
+		const missing = findMissingRelativeModuleTargets(modules);
+		if (missing.length > 0) {
+			for (const item of missing) {
+				console.error(
+					`Vercel function artifact api/${name} is missing ${item.targetPath} imported by ${item.sourcePath}.`,
+				);
+			}
+			return false;
+		}
+	}
+	console.log(
+		`Verified ${moduleCount} emitted modules and their relative imports across ` +
+			`${emittedDirectories.length} API function bundles.`,
+	);
 	return true;
 }
 
@@ -269,6 +349,16 @@ async function verifyWorkflowPackaging(packageRoot: string): Promise<boolean> {
 		return false;
 	}
 
+	const missingWorkflowIds = findMissingWorkflowManifestIds(manifest, ROUTE_TRIGGERED_WORKFLOW_IDS);
+	if (missingWorkflowIds.length > 0) {
+		for (const id of missingWorkflowIds) {
+			console.error(
+				`Workflow manifest does not contain ${id}, which a route starts by metadata id.`,
+			);
+		}
+		return false;
+	}
+
 	// No relative-import closure scan here: unlike the unbundled @vercel/node
 	// emit, the workflow functions are esbuild bundles, so unresolved imports
 	// already fail `workflow build` itself.
@@ -279,6 +369,7 @@ async function verifyWorkflowPackaging(packageRoot: string): Promise<boolean> {
 	console.log(
 		`Verified workflow packaging: ${workflowSources.size} workflow source(s), ` +
 			`${REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS.length} required function artifacts, Queues wiring, ` +
+			`${ROUTE_TRIGGERED_WORKFLOW_IDS.length} route-triggered workflow id(s) in the manifest, ` +
 			"and merged Build Output routes. Deployability is predicted locally; live behavior is pending verification.",
 	);
 	return true;
