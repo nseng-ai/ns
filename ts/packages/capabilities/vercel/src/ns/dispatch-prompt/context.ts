@@ -9,14 +9,12 @@ import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import type { DispatchPromptGateways } from "./contracts.ts";
-import {
-	createRealDispatchAnchorPrGateway,
-	createRealDispatchConfigGateway,
-	createRealDispatchLocalTokenGateway,
-	createRealDispatchTriggerGateway,
-	createRealDispatchWorkspaceGitGateway,
-	generateRealAnchorId,
-} from "./real-gateways.ts";
+import { createRealDispatchAnchorPrGateway } from "./real-anchor-pr-gateway.ts";
+import { generateRealAnchorId } from "./real-anchor-id.ts";
+import { createRealDispatchConfigGateway } from "./real-config-gateway.ts";
+import { createRealDispatchLocalTokenGateway } from "./real-local-token-gateway.ts";
+import { createRealDispatchTriggerGateway } from "./real-trigger-gateway.ts";
+import { createRealDispatchWorkspaceGitGateway } from "./real-workspace-git-gateway.ts";
 
 export interface DispatchPromptCliContext {
 	readonly cwd: string;
