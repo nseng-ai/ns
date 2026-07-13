@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import type { MintPurpose } from "../../src/mint/contracts.ts";
+import type {
+	VercelOidcGateway,
+	VercelOidcVerificationResult,
+} from "../../src/mint/development-oidc.ts";
 import {
 	handleMintRequest,
+	type LandingCredentialGateway,
+} from "../../src/mint/handle-mint-request.ts";
+import {
+	createDispatchTokenMinter,
 	type GitHubInstallationTokenGateway,
 	type GitHubInstallationTokenResult,
-	type LandingCredentialGateway,
-	type VercelOidcGateway,
-	type VercelOidcVerificationResult,
-} from "../../src/mint/handle-mint-request.ts";
+} from "../../src/mint/mint-core.ts";
 import type { MintRuntimeConfig } from "../../src/mint/runtime-config.ts";
 
 const config: MintRuntimeConfig = {
@@ -102,7 +107,8 @@ function createContext(
 	const landing = options.landing ?? new InMemoryLandingCredentialGateway("landing-secret");
 	const github =
 		options.github ?? new InMemoryGitHubInstallationTokenGateway(successfulGitHubResult());
-	return { context: { config, oidc, landingCredential: landing, github }, oidc, github };
+	const minter = createDispatchTokenMinter({ config, github });
+	return { context: { config, oidc, landingCredential: landing, minter }, oidc, github };
 }
 
 describe("handleMintRequest", () => {

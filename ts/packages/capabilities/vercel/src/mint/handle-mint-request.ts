@@ -1,49 +1,17 @@
 import { mintRequestSchema, type MintPurpose, type MintResponse } from "./contracts.ts";
+import { authenticateDevelopmentCaller, type VercelOidcGateway } from "./development-oidc.ts";
+import type { DispatchTokenMinter } from "./mint-core.ts";
 import type { MintRuntimeConfig } from "./runtime-config.ts";
-
-export interface VercelOidcIdentity {
-	readonly ownerId: string;
-	readonly projectId: string;
-	readonly environment: string;
-}
-
-export type VercelOidcVerificationResult =
-	| { readonly ok: true; readonly value: VercelOidcIdentity }
-	| { readonly ok: false };
-
-export interface VercelOidcGateway {
-	verifyDevelopmentIdentity(options: {
-		readonly token: string;
-		readonly issuer: string;
-		readonly audience: string;
-	}): Promise<VercelOidcVerificationResult>;
-}
 
 export interface LandingCredentialGateway {
 	verifyLandingCredential(credential: string): boolean;
-}
-
-export interface GitHubInstallationToken {
-	readonly token: string;
-	readonly expiresAt: string;
-}
-
-export type GitHubInstallationTokenResult =
-	| { readonly ok: true; readonly value: GitHubInstallationToken }
-	| { readonly ok: false };
-
-export interface GitHubInstallationTokenGateway {
-	mintRepositoryToken(options: {
-		readonly repository: string;
-		readonly purpose: MintPurpose;
-	}): Promise<GitHubInstallationTokenResult>;
 }
 
 export interface MintRequestContext {
 	readonly config: MintRuntimeConfig;
 	readonly oidc: VercelOidcGateway;
 	readonly landingCredential: LandingCredentialGateway;
-	readonly github: GitHubInstallationTokenGateway;
+	readonly minter: DispatchTokenMinter;
 }
 
 export interface MintRequestInput {
@@ -76,16 +44,17 @@ export async function handleMintRequest(
 	if (requestResult.data.purpose !== authentication.purpose) {
 		return failure(403, "forbidden", "Mint request is not authorized.");
 	}
-	if (requestResult.data.repository !== context.config.githubRepository) {
-		return failure(403, "forbidden", "Mint request is not authorized.");
-	}
 
-	const mintResult = await context.github.mintRepositoryToken({
+	const mintResult = await context.minter.mintDispatchToken({
 		repository: requestResult.data.repository,
 		purpose: requestResult.data.purpose,
 	});
-	if (!mintResult.ok) {
-		return failure(502, "github-token-mint-failed", "GitHub token mint failed.");
+	// `=== false` rather than `!`: the Vercel builder typechecks without
+	// strictNullChecks, where truthiness checks do not narrow the union.
+	if (mintResult.ok === false) {
+		return mintResult.error.code === "repository-not-allowed"
+			? failure(403, "forbidden", "Mint request is not authorized.")
+			: failure(502, "github-token-mint-failed", "GitHub token mint failed.");
 	}
 
 	return {
@@ -93,8 +62,8 @@ export async function handleMintRequest(
 		body: {
 			token: mintResult.value.token,
 			expiresAt: mintResult.value.expiresAt,
-			repository: requestResult.data.repository,
-			purpose: requestResult.data.purpose,
+			repository: mintResult.value.repository,
+			purpose: mintResult.value.purpose,
 		},
 	};
 }
@@ -107,20 +76,19 @@ async function authenticateOidc(
 	token: string | null,
 	context: MintRequestContext,
 ): Promise<AuthenticationResult> {
-	if (token === null || token.length === 0) return { ok: false, status: 401 };
-	const result = await context.oidc.verifyDevelopmentIdentity({
+	const result = await authenticateDevelopmentCaller(
 		token,
-		issuer: context.config.vercelOidcIssuer,
-		audience: context.config.vercelOidcAudience,
-	});
-	if (!result.ok) return { ok: false, status: 401 };
-	if (
-		result.value.ownerId !== context.config.vercelTeamId ||
-		result.value.projectId !== context.config.vercelProjectId ||
-		result.value.environment !== "development"
-	) {
-		return { ok: false, status: 403 };
-	}
+		{
+			issuer: context.config.vercelOidcIssuer,
+			audience: context.config.vercelOidcAudience,
+			teamId: context.config.vercelTeamId,
+			projectId: context.config.vercelProjectId,
+		},
+		context.oidc,
+	);
+	// `=== false` rather than `!`: the Vercel builder typechecks without
+	// strictNullChecks, where truthiness checks do not narrow the union.
+	if (result.ok === false) return result;
 	return { ok: true, purpose: "clone" };
 }
 

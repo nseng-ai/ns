@@ -2,6 +2,7 @@ import { generateKeyPair, SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 
 import {
+	createGitHubAppDispatchTokenMinter,
 	createGitHubInstallationTokenGateway,
 	createJoseVercelOidcGateway,
 	createSharedSecretLandingCredentialGateway,
@@ -101,6 +102,55 @@ describe("createGitHubInstallationTokenGateway", () => {
 
 		expect(result).toEqual({ ok: false });
 		expect(JSON.stringify(result)).not.toContain("vendor-secret");
+	});
+});
+
+describe("createGitHubAppDispatchTokenMinter", () => {
+	it("mints an in-process landing token through the App-key auth path", async () => {
+		const authFactory = new RecordingAppAuthFactory(successfulAuthentication());
+		const minter = createGitHubAppDispatchTokenMinter(config, (options) =>
+			authFactory.create(options),
+		);
+
+		const result = await minter.mintDispatchToken({
+			repository: "nseng-ai/ns",
+			purpose: "landing",
+		});
+
+		expect(result).toEqual({
+			ok: true,
+			value: {
+				token: "installation-token",
+				expiresAt: "2026-07-12T18:00:00Z",
+				repository: "nseng-ai/ns",
+				purpose: "landing",
+			},
+		});
+		expect(authFactory.authCalls).toEqual([
+			{
+				type: "installation",
+				installationId: config.githubAppInstallationId,
+				repositoryNames: ["ns"],
+				permissions: { contents: "write", pull_requests: "write", issues: "write" },
+				refresh: true,
+			},
+		]);
+	});
+
+	it("enforces the configured-repository constraint before touching App auth", async () => {
+		const authFactory = new RecordingAppAuthFactory(successfulAuthentication());
+		const minter = createGitHubAppDispatchTokenMinter(config, (options) =>
+			authFactory.create(options),
+		);
+
+		const result = await minter.mintDispatchToken({
+			repository: "nseng-ai/other",
+			purpose: "clone",
+		});
+
+		expect(result).toEqual({ ok: false, error: { code: "repository-not-allowed" } });
+		expect(authFactory.factoryCalls).toEqual([]);
+		expect(authFactory.authCalls).toEqual([]);
 	});
 });
 

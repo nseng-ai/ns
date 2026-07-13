@@ -122,6 +122,10 @@ An ns-owned resource materialized into an assistant **Harness**; current kinds a
 A target assistant environment for a **Harness artifact**, currently `claude-code`, `codex`, or `pi`. This is distinct from **Runtime Harness**, which names program boot code that wires the vended API object.
 *Avoid*: platform
 
+**Pi (the harness)**:
+The third-party coding-agent **Harness** built by Earendil and shipped as `@earendil-works/pi-coding-agent`; ns integrates with it deeply but does not own or control it — upstream API or behavior changes can only be absorbed, never made. Canonical Pi-domain vocabulary lives in `ts/packages/hosts/pi/CONTEXT.md`.
+*Avoid*: ns-owned harness, first-party Pi
+
 **Provision**:
 The action that materializes a **Harness artifact** into a **Harness** root.
 *Avoid*: install where it means provisioning, deploy

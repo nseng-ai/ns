@@ -59,6 +59,7 @@ function createOptions(): CreateVercelGitSandboxOptions {
 			revision,
 		},
 		credentials: {
+			type: "explicit-oidc-token",
 			oidcToken: "development-oidc-token",
 			projectId: "prj_dispatch",
 			teamId: "team_dispatch",
@@ -87,9 +88,11 @@ describe("createRealVercelSandboxGateway", () => {
 					depth: 1,
 					revision,
 				},
-				token: "development-oidc-token",
-				projectId: "prj_dispatch",
-				teamId: "team_dispatch",
+				credentials: {
+					token: "development-oidc-token",
+					projectId: "prj_dispatch",
+					teamId: "team_dispatch",
+				},
 			},
 		]);
 		expect(createResult.ok).toBe(true);
@@ -104,5 +107,19 @@ describe("createRealVercelSandboxGateway", () => {
 		]);
 		expect(cleanupResult).toEqual({ ok: true });
 		expect(sdkSession.stopCalls).toBe(1);
+	});
+
+	it("omits explicit credentials for the function-workload-identity source", async () => {
+		const sdk = new RecordingVercelSandboxSdk(new RecordingVercelSandboxSdkSession());
+		const gateway = createRealVercelSandboxGateway(sdk);
+
+		const createResult = await gateway.createGitSandbox({
+			...createOptions(),
+			credentials: { type: "function-workload-identity" },
+		});
+
+		expect(createResult.ok).toBe(true);
+		expect(sdk.createCalls).toHaveLength(1);
+		expect(sdk.createCalls[0]).not.toHaveProperty("credentials");
 	});
 });
