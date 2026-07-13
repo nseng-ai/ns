@@ -194,8 +194,18 @@ Risks:
   A newly generated App key authenticated as `nseng-ai/ns-dispatch`; its
   installation token reached private repo `nseng-ai/ns` with `contents: read`.
   Development OIDC claims matched the configured team, project, and environment.
-  Endpoint deployment, a billable Sandbox probe, and dispatch preflight remain.
-  Residual, accepted deliberately (racing to an e2e prototype): the v1 shared mint
+  The first production deployment exposed a missing-module artifact and a tolerated
+  TypeScript diagnostic. The repair made the capability package itself the Vercel project
+  root, rewrites emitted relative imports to `.js`, and gates local deployment builds on
+  both TypeScript diagnostics and a closed relative-import graph. The deployed mint route
+  now accepts the local Development token on a dispatch-owned header (Vercel replaces its
+  reserved workload-identity header), mints a clone-only token, and completed one billable
+  private-repository Sandbox probe at an exact remote SHA with verified marker/HEAD and
+  cleanup. Post-verification cleanup removed the four old-prefix Production variables,
+  revoked the superseded GitHub App key, and removed the downloaded local PEM; a subsequent
+  authenticated clone-purpose mint confirmed the active replacement key. Dispatch preflight
+  remains. Residual, accepted deliberately
+  (racing to an e2e prototype): the v1 shared mint
   secret and self-landing sandbox are
   security shortcuts whose upgrades (per-run landing voucher, Vercel-side
   supervisor) are recorded in `references/credentials-design.md` and must
@@ -214,6 +224,12 @@ Risks:
 - **Descriptor substrate settling**: the extension-descriptor-contract
   migration is in flight; build against `exports["./ns-extension"]` and its
   orientation, never legacy `.ns/extensions/*` shims.
+- **Deployable packaging can escape local validation**: materialized and de-risked
+  2026-07-13. The first remote build emitted a TypeScript error but still deployed, and
+  the mint function omitted package sources imported from above its nested project root.
+  The package is now the project root; `build:deployable` runs the native typecheck,
+  rejects Vercel TypeScript diagnostics, and verifies every emitted relative module before
+  deployment. A corrected production route and controlled Sandbox probe exercised the gate.
 - **README drifts from implementation**: mitigation — the README settles
   first, and each implementation slice cites the README section it makes
   true.
@@ -222,7 +238,11 @@ Risks:
   verification evidence as implementation lands, never secret values;
   author the skill from the proven steel thread and canonical README, and
   label the shared mint secret, self-landing sandbox, and overbroad App
-  permissions with their required upgrades before wider deployment.
+  permissions with their required upgrades before wider deployment. The
+  `references/vercel-sandbox-github-integration-field-guide.md` is the
+  acceptance checklist for developer mechanics, safe
+  automation, billable-action consent, failure handling, and prototype-vs-
+  production boundaries that the future setup tooling must preserve.
 
 ## Open Questions
 

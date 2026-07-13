@@ -2,8 +2,10 @@
 	"name": "@nseng-ai/vercel",
 	"version": "0.1.2",
 	"files": [
+		"api",
+		"scripts",
 		"src",
-		"deployable"
+		"vercel.json"
 	],
 	"type": "module",
 	"exports": {
@@ -14,8 +16,9 @@
 		"access": "public"
 	},
 	"scripts": {
-		"check": "tsgo -p tsconfig.json",
-		"dev:sandbox-hello-probe": "node --env-file=deployable/.env.local deployable/scripts/sandbox-hello-probe.ts",
+		"build:deployable": "node scripts/build-deployable.ts",
+		"check": "tsc -p tsconfig.json",
+		"dev:sandbox-hello-probe": "node --env-file=.env.local scripts/sandbox-hello-probe.ts",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/vercel/test",
 		"pack:local": "node ../../../scripts/prepare-source-publish-package.mjs . && npm pack ./dist/publish --pack-destination dist",
 		"publish:dry-run": "node ../../../scripts/prepare-source-publish-package.mjs . && npm publish --dry-run ./dist/publish"

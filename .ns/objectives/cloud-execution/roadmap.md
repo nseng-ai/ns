@@ -72,10 +72,23 @@ setup-skill row; they never record secret values.
   exact issuer/audience while matching the configured team, project, and
   environment. The new App key authenticated as `nseng-ai/ns-dispatch`, and a
   clone-purpose installation token reached private repo `nseng-ai/ns` with
-  `contents: read`. Old-prefix variables remain temporarily for rollback until
-  the new endpoint succeeds. Remaining (interleaves with the steel thread):
-  endpoint deployment and billable Sandbox probe, old-prefix cleanup after
-  success, and dispatch preflight.
+  `contents: read`. Live boundary verification completed 2026-07-13. The first
+  deployment exposed three independent integration facts: a nested project root omitted
+  package-owned runtime sources; Vercel tolerated a TypeScript diagnostic while promoting
+  the build; and its reserved `x-vercel-oidc-token` header carried the production
+  Function's identity rather than the caller's Development token. The repair makes the
+  capability package the Vercel project root, rewrites emitted relative imports to `.js`,
+  gates `build:deployable` on native typecheck/Vercel diagnostics/artifact closure, and
+  uses `x-ns-dispatch-oidc-token` for the local caller. The stable mint route now returns
+  a safe unauthorized response without caller auth, accepts the verified Development
+  identity, and completed one billable private-repository Sandbox probe at exact remote
+  SHA `5308b3d45ba520fd530d5a288e3de4ab32914b05`; marker, HEAD, and cleanup all passed.
+  The canonical setup procedure records the proven package-root build/link, repo-root
+  deployment, env-pull, and probe commands. Post-verification credential cleanup completed
+  2026-07-13: the four old-prefix Production variables were removed, the user confirmed
+  revocation of the superseded GitHub App key and local PEM cleanup, and a safe authenticated
+  clone-purpose mint passed without exposing its token. Remaining (interleaves with the steel
+  thread): add dispatch preflight.
 - [ ] Steel thread: `ns dispatch prompt` end-to-end on Vercel Sandbox via
       the `@ai-sdk/harness-pi` adapter with ns skills injected via the
       Agent Skills standard. Makes true: "Quick start" (prompt path),
@@ -98,9 +111,20 @@ setup-skill row; they never record secret values.
       replacement rather than rename/readback; OIDC trust values derived from
       actual non-secret claims; read-only App/installation/repository checks;
       precise `.env.local` ignore hygiene; and the requirement that probe SHAs
-      be remotely reachable. During the preceding rows, continuously fold real
-      setup facts and failure modes into the canonical README and Semantic
-      Updates when materially meaningful. Before authoring, settle whether the
+      be remotely reachable. Treat
+      `references/vercel-sandbox-github-integration-field-guide.md` as the
+      setup tool's acceptance checklist: package-root tracing and
+      emitted-artifact verification;
+      package-directory link/build/env-pull versus repository-root deployment;
+      reserved versus caller-owned OIDC headers; phased clone/work/landing
+      credentials; safe status-only probes; explicit consent before billable
+      Sandbox creation; mandatory cleanup; retry-after-inspect behavior for
+      ambiguous deployment transport failures; and prototype security debt with
+      named upgrades. The tool must expose actionable safe failure categories
+      without reading, echoing, persisting, or accepting secrets on argv. During
+      the preceding rows, continuously fold real setup facts and failure modes
+      into the canonical README and Semantic Updates when materially meaningful.
+      Before authoring, settle whether the
       skill is a module-bundled
       `@nseng-ai/vercel` artifact or a one-shot project-setup leaf and apply
       `docs/conventions/skill-conventions.md`; do not create the skill during

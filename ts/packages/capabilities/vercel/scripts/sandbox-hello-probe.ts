@@ -2,11 +2,11 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 
-import { parseDispatchProjectConfigToml } from "../../src/api/project-config.ts";
-import { parseGitHubRepository } from "../../src/mint/contracts.ts";
-import type { CloneTokenMintGateway } from "../../src/sandbox/hello-probe.ts";
-import { runSandboxHelloProbe } from "../../src/sandbox/hello-probe.ts";
-import { createRealVercelSandboxGateway } from "../../src/sandbox/real-sandbox-gateway.ts";
+import { parseDispatchProjectConfigToml } from "../src/api/project-config.ts";
+import { parseGitHubRepository } from "../src/mint/contracts.ts";
+import type { CloneTokenMintGateway } from "../src/sandbox/hello-probe.ts";
+import { runSandboxHelloProbe } from "../src/sandbox/hello-probe.ts";
+import { createRealVercelSandboxGateway } from "../src/sandbox/real-sandbox-gateway.ts";
 
 const cloneMintResponseSchema = z.strictObject({
 	token: z.string().min(1),
@@ -24,7 +24,7 @@ async function main(): Promise<boolean> {
 
 	let configSource: string;
 	try {
-		configSource = await readFile(new URL("../../../../../../ns.toml", import.meta.url), "utf8");
+		configSource = await readFile(new URL("../../../../../ns.toml", import.meta.url), "utf8");
 	} catch {
 		console.error("Could not read the repo-root ns.toml.");
 		return false;
@@ -77,7 +77,7 @@ function readInputs(
 	if (args.length !== 2 || mintUrl === undefined || revision === undefined) {
 		return {
 			ok: false,
-			message: "Usage: pnpm dev:sandbox-hello-probe -- <https-mint-url> <40-character-commit-sha>",
+			message: "Usage: pnpm dev:sandbox-hello-probe <https-mint-url> <40-character-commit-sha>",
 		};
 	}
 	if (!isSafeHttpsUrl(mintUrl)) {
@@ -96,7 +96,7 @@ function readInputs(
 	}
 	const oidcToken = environment.VERCEL_OIDC_TOKEN;
 	if (oidcToken === undefined || oidcToken.length === 0) {
-		return { ok: false, message: "VERCEL_OIDC_TOKEN is missing from deployable/.env.local." };
+		return { ok: false, message: "VERCEL_OIDC_TOKEN is missing from package-root .env.local." };
 	}
 	return { ok: true, mintUrl, revision, repository: repositoryResult.value, oidcToken };
 }
@@ -121,7 +121,7 @@ function createHttpsCloneTokenMintGateway(options: {
 					method: "POST",
 					headers: {
 						"content-type": "application/json",
-						"x-vercel-oidc-token": options.oidcToken,
+						"x-ns-dispatch-oidc-token": options.oidcToken,
 					},
 					body: JSON.stringify({ repository, purpose: "clone" }),
 				});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createMintPostHandler } from "../../deployable/api/mint.ts";
+import { createMintPostHandler } from "../../api/mint.ts";
 import type { MintPurpose } from "../../src/mint/contracts.ts";
 import type {
 	GitHubInstallationTokenGateway,
@@ -90,7 +90,7 @@ describe("createMintPostHandler", () => {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					"x-vercel-oidc-token": "oidc-token",
+					"x-ns-dispatch-oidc-token": "oidc-token",
 				},
 				body: JSON.stringify({ repository: "NSENG-AI/NS", purpose: "clone" }),
 			}),
@@ -105,6 +105,29 @@ describe("createMintPostHandler", () => {
 			purpose: "clone",
 		});
 		expect(github.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "clone" }]);
+	});
+
+	it("ignores Vercel's reserved workload-identity header", async () => {
+		const github = successfulGitHubGateway();
+		const handler = createMintPostHandler({
+			environment: validEnvironment(),
+			createOidcGateway: () => validOidcGateway(),
+			createGitHubGateway: () => github,
+		});
+
+		const response = await handler(
+			new Request("https://dispatch.example/api/mint", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"x-vercel-oidc-token": "production-workload-token",
+				},
+				body: JSON.stringify({ repository: "nseng-ai/ns", purpose: "clone" }),
+			}),
+		);
+
+		expect(response.status).toBe(401);
+		expect(github.calls).toEqual([]);
 	});
 
 	it("supports the landing Bearer channel without replacing ambient environment", async () => {
@@ -140,7 +163,7 @@ describe("createMintPostHandler", () => {
 		const response = await handler(
 			new Request("https://dispatch.example/api/mint", {
 				method: "POST",
-				headers: { "x-vercel-oidc-token": "oidc-token" },
+				headers: { "x-ns-dispatch-oidc-token": "oidc-token" },
 				body: "{",
 			}),
 		);
