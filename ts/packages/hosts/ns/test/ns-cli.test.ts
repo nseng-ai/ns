@@ -166,6 +166,7 @@ describe("ns CLI host", () => {
 
 		expect(exit).toBe(0);
 		expect(stdout.join("")).toContain("  install");
+		expect(stdout.join("")).toContain("  list");
 		expect(stdout.join("")).toContain("  uninstall");
 		expect(stdout.join("")).toContain("  point");
 		expect(stdout.join("")).toContain("  points");
@@ -212,6 +213,51 @@ describe("ns CLI host", () => {
 		expect(schemaStdout.join("")).toContain("completed");
 
 		const usage = await runNsCliJson(["extension", "install"], cwd);
+		expect(usage.exit).toBe(2);
+		expect(parseJsonOutput(usage)).toMatchObject({
+			status: "usageError",
+			errorType: "usageError",
+		});
+	});
+
+	test("publishes extension list help, schema, and failure contracts", async () => {
+		const cwd = await createEmptyProject();
+		const helpStdout: string[] = [];
+		const helpExit = await runNsCli(["extension", "list", "-h"], {
+			cwd,
+			stdout: (text) => helpStdout.push(text),
+			stderr: () => undefined,
+		});
+		expect(helpExit).toBe(0);
+		const help = helpStdout.join("");
+		expect(help).toContain("Usage: ns extension list|ls [options]");
+		expect(help).toContain("without\nacquiring packages or changing files");
+		expect(help).not.toContain("--yes");
+		expect(help).not.toContain("--force");
+
+		const schemaStdout: string[] = [];
+		const schemaExit = await runNsCli(["extension", "list", "--json-schema"], {
+			cwd,
+			stdout: (text) => schemaStdout.push(text),
+			stderr: () => undefined,
+		});
+		expect(schemaExit).toBe(0);
+		const schema = JSON.parse(schemaStdout.join("")) as Record<string, unknown>;
+		expect(schema).toHaveProperty("inputJsonSchema");
+		expect(schema).toHaveProperty("outputJsonSchema");
+		expect(schemaStdout.join("")).toContain("sourceSpec");
+		expect(schemaStdout.join("")).toContain("acquisitionStatus");
+		expect(schemaStdout.join("")).toContain("affectedArtifactCount");
+
+		const failed = await runNsCliJson(["extension", "list"], cwd);
+		expect(failed.exit).toBe(2);
+		expect(parseJsonOutput(failed)).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-list-not-a-git-repo",
+			data: { diagnostics: [{ code: "not-a-git-repo" }] },
+		});
+
+		const usage = await runNsCliJson(["extension", "list", "unexpected"], cwd);
 		expect(usage.exit).toBe(2);
 		expect(parseJsonOutput(usage)).toMatchObject({
 			status: "usageError",

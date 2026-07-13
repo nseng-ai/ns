@@ -149,7 +149,14 @@ describe("harness artifact reconcile driver", () => {
 		const undeclared = await runHarnessArtifactReconcile(
 			fixture.request({ extensionTarget: "./undeclared-ext" }),
 		);
-		expect(undeclared).toMatchObject({ ok: false, error: { code: "invalid_extension_target" } });
+		expect(undeclared).toMatchObject({
+			ok: false,
+			error: {
+				code: "invalid_extension_target",
+				message:
+					"Extension target is not declared in ns.toml: ./undeclared-ext. Run ns extension install ./undeclared-ext to declare and provision it before updating it.",
+			},
+		});
 	});
 
 	test("declared npm extensions acquire managed package roots and provision static artifacts", async () => {

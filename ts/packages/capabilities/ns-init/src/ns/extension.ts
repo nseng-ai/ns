@@ -18,6 +18,12 @@ export default defineExtension({
 					}),
 				},
 				{
+					name: "list",
+					load: async () => ({
+						default: (await import("./commands/extension-list.ts")).nsExtensionListCommand,
+					}),
+				},
+				{
 					name: "update",
 					load: async () => ({
 						default: (await import("./commands/extension-update.ts")).nsExtensionUpdateCommand,

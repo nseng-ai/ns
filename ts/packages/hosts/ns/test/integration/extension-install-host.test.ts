@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
@@ -71,6 +71,86 @@ describe("extension install host integration", () => {
 			data: { diagnostics: [{ code: "artifact-local-conflict" }], completed: {} },
 		});
 		expect(await readFile(artifactPath, "utf8")).toBe("local edit\n");
+	});
+
+	test("lists installed, conflicted, and missing extension state without changing bytes", async () => {
+		const cwd = await createEmptyProject();
+		await initializeGitRepo(cwd);
+		await writeFile(join(cwd, "ns.toml"), 'harnesses = ["pi"]\n', "utf8");
+		await writeModuleExtension(cwd);
+		const source = "./extensions/acme-module";
+		expect((await runNsCliJson(["extension", "install", source], cwd)).exit).toBe(0);
+		const artifactPath = join(cwd, ".pi", "skills", "module-skill", "SKILL.md");
+		const manifestPath = join(cwd, ".pi", "skills", ".ns-harness-artifacts-manifest.json");
+		const before = {
+			nsToml: await readFile(join(cwd, "ns.toml"), "utf8"),
+			artifact: await readFile(artifactPath, "utf8"),
+			manifest: await readFile(manifestPath, "utf8"),
+		};
+
+		const listed = await runNsCliJson(["extension", "list"], cwd);
+		expect(listed.exit).toBe(0);
+		expect(parseJsonOutput(listed)).toMatchObject({
+			status: "ok",
+			exitCode: 0,
+			data: {
+				repoRoot: cwd,
+				configPath: join(cwd, "ns.toml"),
+				extensions: [
+					{
+						sourceSpec: source,
+						sourceKind: "local",
+						packageName: "@acme/module",
+						packageVersion: "1.0.0",
+						acquisitionStatus: "installed",
+						artifactStatus: "provisioned",
+						artifactCount: 1,
+						affectedArtifactCount: 0,
+						diagnostics: [],
+					},
+				],
+			},
+		});
+		expect(await runNsCliJson(["extension", "list"], cwd)).toEqual(listed);
+		expect(await readFile(join(cwd, "ns.toml"), "utf8")).toBe(before.nsToml);
+		expect(await readFile(artifactPath, "utf8")).toBe(before.artifact);
+		expect(await readFile(manifestPath, "utf8")).toBe(before.manifest);
+
+		await writeFile(artifactPath, "customer edit\n", "utf8");
+		const conflicted = await runNsCliJson(["extension", "list"], cwd);
+		expect(conflicted.exit).toBe(0);
+		expect(parseJsonOutput(conflicted)).toMatchObject({
+			status: "ok",
+			data: {
+				extensions: [
+					{
+						acquisitionStatus: "installed",
+						artifactStatus: "conflicted",
+						artifactCount: 1,
+						affectedArtifactCount: 1,
+						diagnostics: [{ code: "artifact-local-conflict", path: artifactPath }],
+					},
+				],
+			},
+		});
+		expect(await readFile(artifactPath, "utf8")).toBe("customer edit\n");
+
+		await rm(join(cwd, "extensions", "acme-module"), { recursive: true });
+		const missing = await runNsCliJson(["extension", "list"], cwd);
+		expect(missing.exit).toBe(0);
+		expect(parseJsonOutput(missing)).toMatchObject({
+			status: "ok",
+			data: {
+				extensions: [
+					{
+						sourceSpec: source,
+						acquisitionStatus: "missing",
+						artifactStatus: "unavailable",
+						diagnostics: [{ code: "extension-descriptor-package-missing" }],
+					},
+				],
+			},
+		});
 	});
 
 	test("uninstalls a local extension while preserving source and consumer data", async () => {

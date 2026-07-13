@@ -43,14 +43,14 @@ The command contract is already defined by the parent Objective's `references/RE
 Assumptions:
 
 - `ns.toml` extension declarations remain the source of truth for list cardinality and source-spec identity.
-- Existing acquisition and harness-artifact manifests contain enough evidence to compute the decided v1 status without performing reconciliation.
-- The parent README's list fields are settled product behavior; this Subobjective implements that contract rather than reopening acquisition UX design.
+- Confirmed: existing descriptor, manifest, and artifact-preparation facts are sufficient for the v1 read model without acquisition or apply. When inspection is incomplete, `unavailable` explicitly makes observed counts non-comprehensive.
+- The parent README's list fields remain settled product behavior; this Subobjective implemented that contract without reopening acquisition UX design.
 
 Risks:
 
-- Artifact-provisioning state may not yet have a clean read-model seam, creating pressure to couple a read-only command to activation internals. Prefer a small explicit query boundary over invoking prepare/apply behavior.
-- Installed package metadata may be incomplete or corrupt. The command must report missing or degraded state deterministically rather than throwing away the row or repairing it implicitly.
-- Local and npm declarations have different acquisition evidence; a single status vocabulary must not falsely imply local sources are copied into managed npm storage.
+- De-risked: artifact status now crosses a dedicated read-only Consumer Gateway. The real adapter may reuse deterministic preparation internally, but exposes no apply operation to list callers.
+- Mitigated: missing, corrupt, unsupported, duplicate, identity-mismatched, and otherwise unloadable packages remain declaration rows with structured diagnostics rather than aborting or repairing the inventory.
+- Mitigated: local and npm declarations retain distinct source kinds and resolved module facts; listing does not imply that local sources are copied into managed npm storage.
 
 ## Open Questions
 
