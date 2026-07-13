@@ -7,18 +7,12 @@ import {
 	parseSegmentationResponseText,
 	repairDelegations,
 	repairEpisodes,
-	SEGMENTATION_PAYLOAD_MAX_CHARS,
 	SEGMENTATION_SYSTEM_PROMPT,
 	type LmDelegationClaim,
 	type LmEpisodeStart,
 } from "../../src/context-profiler/segmentation.ts";
 import { MAX_DELEGATIONS } from "../../src/context-profiler/model.ts";
-import {
-	makeProfile,
-	makeTurn,
-	makeTurnsAtIndices,
-	sequentialTurns,
-} from "./context-profiler-fakes.ts";
+import { makeProfile, makeTurn, sequentialTurns } from "./context-profiler-fakes.ts";
 
 function makeStart(startTurn: number, overrides: Partial<LmEpisodeStart> = {}): LmEpisodeStart {
 	return {
@@ -35,13 +29,6 @@ function makeDelegation(
 	overrides: Partial<LmDelegationClaim> = {},
 ): LmDelegationClaim {
 	return { turn, label: `delegation ${turn}`, confidence: "high", ...overrides };
-}
-
-/** Capped-shape turn list: first 16 turns plus last 64, middle elided. */
-function cappedSeamIndices(): number[] {
-	const first = Array.from({ length: 16 }, (_unused, position) => position + 1);
-	const last = Array.from({ length: 64 }, (_unused, position) => position + 137);
-	return [...first, ...last];
 }
 
 const VALID_RESPONSE = JSON.stringify({
@@ -183,12 +170,11 @@ describe("repairEpisodes", () => {
 		expect(episodes[1]?.kind).toBe("edit");
 	});
 
-	test("clamps out-of-range starts and snaps into the elided middle gap", () => {
-		// Capped list with an elided middle: indices 1–4 then 90–93.
-		const turns = makeTurnsAtIndices([1, 2, 3, 4, 90, 91, 92, 93]);
-		const episodes = repairEpisodes([makeStart(1), makeStart(40), makeStart(999)], turns);
-		expect(episodes.map((episode) => episode.turnRange.start)).toEqual([1, 90, 93]);
-		expect(episodes.map((episode) => episode.turnRange.end)).toEqual([4, 92, 93]);
+	test("clamps out-of-range starts and snaps fractional starts to contiguous turns", () => {
+		const turns = sequentialTurns(8);
+		const episodes = repairEpisodes([makeStart(-100), makeStart(3.6), makeStart(999)], turns);
+		expect(episodes.map((episode) => episode.turnRange.start)).toEqual([1, 4, 8]);
+		expect(episodes.map((episode) => episode.turnRange.end)).toEqual([3, 7, 8]);
 	});
 
 	test("dedups starts that snap to the same turn, first claim wins", () => {
@@ -231,48 +217,6 @@ describe("repairEpisodes", () => {
 		);
 		expect(episodes.map((episode) => episode.outcome)).toEqual(["unknown", "completed", "active"]);
 	});
-
-	test("splits an episode crossing the elision seam into included-turn runs", () => {
-		const turns = makeTurnsAtIndices(cappedSeamIndices());
-		const episodes = repairEpisodes(
-			[makeStart(1, { label: "the work", kind: "edit", outcome: "active" })],
-			turns,
-		);
-		expect(episodes).toEqual([
-			// Label and kind carry over to both pieces; "active" survives only on the truly last piece.
-			{ label: "the work", kind: "edit", outcome: "unknown", turnRange: { start: 1, end: 16 } },
-			{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 137, end: 200 } },
-		]);
-		const included = new Set(turns.map((turn) => turn.index));
-		for (const episode of episodes) {
-			for (let index = episode.turnRange.start; index <= episode.turnRange.end; index += 1) {
-				expect(included.has(index)).toBe(true);
-			}
-		}
-	});
-
-	test("seam-splitting only affects the episode whose run crosses the seam", () => {
-		const turns = makeTurnsAtIndices(cappedSeamIndices());
-		const episodes = repairEpisodes(
-			[
-				makeStart(1, { label: "early", kind: "explore", outcome: "completed" }),
-				makeStart(150, { label: "late", kind: "edit", outcome: "active" }),
-			],
-			turns,
-		);
-		expect(episodes.map((episode) => episode.turnRange)).toEqual([
-			{ start: 1, end: 16 },
-			{ start: 137, end: 149 },
-			{ start: 150, end: 200 },
-		]);
-		expect(episodes.map((episode) => episode.label)).toEqual(["early", "early", "late"]);
-		expect(episodes.map((episode) => episode.kind)).toEqual(["explore", "explore", "edit"]);
-		expect(episodes.map((episode) => episode.outcome)).toEqual([
-			"completed",
-			"completed",
-			"active",
-		]);
-	});
 });
 
 describe("repairDelegations", () => {
@@ -280,18 +224,18 @@ describe("repairDelegations", () => {
 		expect(repairDelegations([makeDelegation(1)], [])).toEqual([]);
 	});
 
-	test("snaps out-of-range and elided turns to real capped turns, dedupes, and sorts", () => {
-		const turns = makeTurnsAtIndices([1, 2, 3, 4, 90, 91, 92, 93]);
+	test("clamps, snaps, dedupes, and sorts delegation turns", () => {
+		const turns = sequentialTurns(6);
 		const claims = [
 			makeDelegation(999, { label: "late" }),
-			makeDelegation(40, { label: "middle winner", confidence: "low" }),
-			makeDelegation(40.2, { label: "middle loser" }),
+			makeDelegation(3.6, { label: "middle winner", confidence: "low" }),
+			makeDelegation(4.2, { label: "middle loser" }),
 			makeDelegation(0, { label: "early" }),
 		];
 		expect(repairDelegations(claims, turns)).toEqual([
 			{ turn: 1, label: "early", confidence: "high" },
-			{ turn: 90, label: "middle winner", confidence: "low" },
-			{ turn: 93, label: "late", confidence: "high" },
+			{ turn: 4, label: "middle winner", confidence: "low" },
+			{ turn: 6, label: "late", confidence: "high" },
 		]);
 	});
 
@@ -331,24 +275,21 @@ describe("computeSegmentationFingerprint", () => {
 });
 
 describe("buildSegmentationPayload", () => {
-	test("serializes exactly the capped turn list with the documented field shape", () => {
+	test("serializes every turn with the documented request shape", () => {
 		const turns = [
 			makeTurn(1, { role: "assistant", toolNames: ["bash"], excerpt: "ran a command" }),
 			makeTurn(2),
 			makeTurn(3),
 		];
-		const profile = makeProfile(turns, {
-			cap: { originalCount: 120, includedCount: 3, elidedMiddleTurns: 117 },
-		});
-		const payload = buildSegmentationPayload(profile);
-		expect(payload.includedTurnCount).toBe(3);
-		expect(payload.wasTruncatedForPayload).toBe(false);
+		const payload = buildSegmentationPayload(makeProfile(turns));
+		expect(Object.keys(payload)).toEqual(["json"]);
 		const request = JSON.parse(payload.json) as Record<string, unknown>;
+		expect(Object.keys(request)).toEqual(["cwd", "model", "usage", "turnCount", "turns"]);
 		expect(request.cwd).toBe("/repo");
 		expect(request.model).toBe("anthropic/claude-fable-5");
 		expect(request.usage).toBeNull();
-		expect(request.turnCount).toBe(120);
-		expect(request.capped).toEqual({ includedTurnCount: 3, elidedMiddleTurns: 117 });
+		expect(request.turnCount).toBe(3);
+		expect(request.turns).toHaveLength(3);
 		expect((request.turns as unknown[])[0]).toEqual({
 			turn: 1,
 			role: "assistant",
@@ -358,28 +299,27 @@ describe("buildSegmentationPayload", () => {
 		});
 	});
 
-	test("drops middle turns to honor the payload char cap and flags truncation", () => {
-		const longExcerpt = "x".repeat(110);
-		// 500 turns × >110-char excerpts serialize well past the 60k cap.
-		const oversized = Array.from({ length: 500 }, (_unused, position) =>
-			makeTurn(position + 1, { excerpt: `${longExcerpt} ${position + 1}` }),
-		);
-		const profile = makeProfile(oversized);
-		const payload = buildSegmentationPayload(profile);
-		expect(payload.json.length).toBeLessThanOrEqual(SEGMENTATION_PAYLOAD_MAX_CHARS);
-		expect(payload.wasTruncatedForPayload).toBe(true);
-		expect(payload.includedTurnCount).toBeLessThan(oversized.length);
+	test("keeps the complete turn list when serialized JSON exceeds the former limit", () => {
+		const formerPayloadLimit = 60_000;
+		const turns = Array.from({ length: 500 }, (_unused, position) => {
+			const uniqueExcerpt = `${String(position + 1).padStart(4, "0")}:${"x".repeat(110)}`;
+			return makeTurn(position + 1, { excerpt: uniqueExcerpt });
+		});
+		const payload = buildSegmentationPayload(makeProfile(turns));
 		const request = JSON.parse(payload.json) as {
-			capped: { includedTurnCount: number; elidedMiddleTurns: number };
-			turns: { turn: number }[];
+			turnCount: number;
+			turns: Array<{ turn: number; excerpt: string }>;
 		};
-		expect(request.capped.includedTurnCount).toBe(payload.includedTurnCount);
-		expect(request.capped.elidedMiddleTurns).toBe(oversized.length - payload.includedTurnCount);
-		// First and last turns are preserved; the middle is dropped.
-		expect(request.turns[0]?.turn).toBe(1);
-		expect(request.turns[request.turns.length - 1]?.turn).toBe(500);
+		const middlePosition = Math.floor(turns.length / 2);
 
-		const smallPayload = buildSegmentationPayload(makeProfile(oversized.slice(0, 3)));
-		expect(smallPayload.wasTruncatedForPayload).toBe(false);
+		expect(payload.json.length).toBeGreaterThan(formerPayloadLimit);
+		expect(Object.keys(payload)).toEqual(["json"]);
+		expect(Object.keys(request)).toEqual(["cwd", "model", "usage", "turnCount", "turns"]);
+		expect(request.turnCount).toBe(turns.length);
+		expect(request.turns).toHaveLength(turns.length);
+		expect(request.turns[0]?.turn).toBe(1);
+		expect(request.turns[middlePosition]?.turn).toBe(middlePosition + 1);
+		expect(request.turns[middlePosition]?.excerpt).toBe(turns[middlePosition]?.excerpt);
+		expect(request.turns[request.turns.length - 1]?.turn).toBe(turns.length);
 	});
 });

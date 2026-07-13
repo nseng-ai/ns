@@ -88,39 +88,36 @@ describe("EPISODE_ANALYSIS_SYSTEM_PROMPT", () => {
 
 describe("buildEpisodeAnalysisPayload", () => {
 	test("serializes one target episode with full normalized turn text and compact episode map", () => {
-		const profile = makeProfile(
-			[
-				makeTurn(1, {
+		const profile = makeProfile([
+			makeTurn(1, {
+				role: "user",
+				message: {
 					role: "user",
-					message: {
-						role: "user",
-						toolName: null,
-						parts: [{ kind: "text", text: "setup text" }],
-						detailsJson: null,
-					},
-				}),
-				makeTurn(2, {
+					toolName: null,
+					parts: [{ kind: "text", text: "setup text" }],
+					detailsJson: null,
+				},
+			}),
+			makeTurn(2, {
+				role: "assistant",
+				toolNames: ["bash"],
+				message: {
 					role: "assistant",
-					toolNames: ["bash"],
-					message: {
-						role: "assistant",
-						toolName: null,
-						parts: [{ kind: "toolCall", name: "bash", argsJson: '{\n  "cmd": "test"\n}' }],
-						detailsJson: null,
-					},
-				}),
-				makeTurn(3, {
+					toolName: null,
+					parts: [{ kind: "toolCall", name: "bash", argsJson: '{\n  "cmd": "test"\n}' }],
+					detailsJson: null,
+				},
+			}),
+			makeTurn(3, {
+				role: "toolResult",
+				message: {
 					role: "toolResult",
-					message: {
-						role: "toolResult",
-						toolName: "bash",
-						parts: [{ kind: "text", text: "passed" }],
-						detailsJson: '{\n  "exitCode": 0\n}',
-					},
-				}),
-			],
-			{ cap: { originalCount: 20, includedCount: 3, elidedMiddleTurns: 17 } },
-		);
+					toolName: "bash",
+					parts: [{ kind: "text", text: "passed" }],
+					detailsJson: '{\n  "exitCode": 0\n}',
+				},
+			}),
+		]);
 		const payload = buildEpisodeAnalysisPayload({
 			profile,
 			episodes: EPISODES,
@@ -133,10 +130,11 @@ describe("buildEpisodeAnalysisPayload", () => {
 		});
 		const request = JSON.parse(payload.json) as {
 			metadata: {
+				cwd: string;
 				model: string;
+				usage: unknown;
+				liveSource: string;
 				turnCount: number;
-				includedTurnCount: number;
-				elidedMiddleTurns: number;
 			};
 			summary: string;
 			episodeMap: unknown[];
@@ -148,11 +146,12 @@ describe("buildEpisodeAnalysisPayload", () => {
 			};
 		};
 
-		expect(request.metadata.model).toBe("anthropic/claude-fable-5");
-		expect(request.metadata).toMatchObject({
-			turnCount: 20,
-			includedTurnCount: 3,
-			elidedMiddleTurns: 17,
+		expect(request.metadata).toEqual({
+			cwd: "/repo",
+			model: "anthropic/claude-fable-5",
+			usage: null,
+			liveSource: "context-event",
+			turnCount: 3,
 		});
 		expect(request.summary).toBe("A short session.");
 		expect(request.episodeMap).toEqual([
@@ -177,6 +176,9 @@ describe("buildEpisodeAnalysisPayload", () => {
 			{ turn: 2, label: "delegate fix", confidence: "low" },
 		]);
 		expect(request.targetEpisode.turns.map((turn) => turn.turn)).toEqual([2, 3]);
+		expect(request.targetEpisode.turns.every((turn) => turn.turn >= 2 && turn.turn <= 3)).toBe(
+			true,
+		);
 		expect(request.targetEpisode.turns[0]?.text).toContain("⏺ bash");
 		expect(request.targetEpisode.turns[1]?.text).toContain("⏺ tool result · bash");
 		expect(request.targetEpisode.turns[1]?.text).toContain("[details]");

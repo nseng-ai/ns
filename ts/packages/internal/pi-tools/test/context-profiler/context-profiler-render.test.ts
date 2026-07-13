@@ -378,19 +378,14 @@ describe("buildUsageBarSegments", () => {
 });
 
 describe("section headers and claims", () => {
-	test("liveSectionHeader includes counts and the elided middle", () => {
-		expect(liveSectionHeader({ originalCount: 10, includedCount: 10, elidedMiddleTurns: 0 })).toBe(
-			"LIVE · 10/10 turns",
-		);
-		expect(liveSectionHeader({ originalCount: 92, includedCount: 80, elidedMiddleTurns: 12 })).toBe(
-			"LIVE · 80/92 turns · 12 middle turns elided",
-		);
+	test("liveSectionHeader shows the complete turn count", () => {
+		expect(liveSectionHeader(10)).toBe("LIVE · 10 turns");
+		expect(liveSectionHeader(1_200)).toBe("LIVE · 1,200 turns");
 	});
 
 	test("liveSectionHeader appends the segmentation status only when present", () => {
-		const cap = { originalCount: 10, includedCount: 10, elidedMiddleTurns: 0 };
-		expect(liveSectionHeader(cap, null)).toBe("LIVE · 10/10 turns");
-		expect(liveSectionHeader(cap, "symbolizing…")).toBe("LIVE · 10/10 turns · symbolizing…");
+		expect(liveSectionHeader(10, null)).toBe("LIVE · 10 turns");
+		expect(liveSectionHeader(10, "symbolizing…")).toBe("LIVE · 10 turns · symbolizing…");
 	});
 
 	test("segmentationStatusText surfaces loading and error states only", () => {

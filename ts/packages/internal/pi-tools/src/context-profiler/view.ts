@@ -531,7 +531,7 @@ export class ProfilerView implements Component {
 		lines.push("");
 		lines.push(
 			this.sectionHeader(
-				liveSectionHeader(this.profile.cap, segmentationStatusText(this.segmentation)),
+				liveSectionHeader(this.profile.liveTurns.length, segmentationStatusText(this.segmentation)),
 				innerWidth,
 			),
 		);

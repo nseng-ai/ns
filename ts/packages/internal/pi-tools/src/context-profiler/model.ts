@@ -1,8 +1,8 @@
 /**
  * Pure derivation for the context profiler: captured prompt options, system
- * prompt, and live messages/entries in; base regions, flat turn list, and
- * capping metadata out. No TUI or extension-runtime imports — type-only
- * imports from pi-coding-agent are the boundary.
+ * prompt, and live messages/entries in; base regions and the complete flat
+ * turn list out. No TUI or extension-runtime imports — type-only imports from
+ * pi-coding-agent are the boundary.
  */
 
 import type {
@@ -176,12 +176,6 @@ export interface CapturedContext {
 	source: CapturedContextSource;
 }
 
-export interface TurnCapInfo {
-	originalCount: number;
-	includedCount: number;
-	elidedMiddleTurns: number;
-}
-
 export interface ProfileSnapshot {
 	cwd: string;
 	model: string;
@@ -190,12 +184,9 @@ export interface ProfileSnapshot {
 	liveTurns: LiveTurn[];
 	liveRegions: LiveRegion[];
 	liveSource: LiveSource;
-	cap: TurnCapInfo;
 	openedAt: string;
 }
 
-export const CAP_FIRST_TURNS = 16;
-export const CAP_LAST_TURNS = 64;
 const EXCERPT_MAX_CHARS = 120;
 
 /** The single token estimation function. All estimated counts go through here. */
@@ -402,36 +393,11 @@ export function buildTurnsFromEntries(entries: readonly SessionEntry[]): LiveTur
 	return buildTurnsFromMessages(messages);
 }
 
-export function capTurns(turns: readonly LiveTurn[]): { turns: LiveTurn[]; cap: TurnCapInfo } {
-	const maxTurns = CAP_FIRST_TURNS + CAP_LAST_TURNS;
-	if (turns.length <= maxTurns) {
-		return {
-			turns: [...turns],
-			cap: { originalCount: turns.length, includedCount: turns.length, elidedMiddleTurns: 0 },
-		};
-	}
-	const capped = [
-		...turns.slice(0, CAP_FIRST_TURNS),
-		...turns.slice(turns.length - CAP_LAST_TURNS),
-	];
-	return {
-		turns: capped,
-		cap: {
-			originalCount: turns.length,
-			includedCount: capped.length,
-			elidedMiddleTurns: turns.length - maxTurns,
-		},
-	};
-}
-
 /**
  * Derive LIVE-section overview rows. Without annotations this is one
  * deterministic span over all turns; with annotations each becomes a row,
  * with uncovered spans kept as "unannotated turns" rows so every turn stays
- * reachable (annotations are claims over the list, never structure). A gap
- * that covers only elided (capped-out) turns — the index-space hole at an
- * elision seam — contains no real turns and is skipped, never rendered as a
- * ghost zero-token row.
+ * reachable (annotations are claims over the complete list, never structure).
  */
 export function buildLiveRegions(
 	turns: readonly LiveTurn[],
@@ -472,8 +438,6 @@ export function buildLiveRegions(
 	const regions: LiveRegion[] = [];
 	const pushUnannotated = (range: TurnRange): void => {
 		const gapTurns = turnsInRange(turns, range);
-		// An index-space gap with no included turns is an elision seam, not a region.
-		if (gapTurns.length === 0) return;
 		regions.push({
 			id: `unannotated-${range.start}`,
 			label: "unannotated turns",
