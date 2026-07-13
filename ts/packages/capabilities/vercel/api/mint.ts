@@ -1,7 +1,7 @@
+import type { VercelOidcGateway } from "../src/mint/development-oidc.ts";
 import {
 	handleMintRequest,
 	type LandingCredentialGateway,
-	type VercelOidcGateway,
 } from "../src/mint/handle-mint-request.ts";
 import {
 	createDispatchTokenMinter,

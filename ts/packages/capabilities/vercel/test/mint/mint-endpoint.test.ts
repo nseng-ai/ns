@@ -5,7 +5,7 @@ import type { MintPurpose } from "../../src/mint/contracts.ts";
 import type {
 	VercelOidcGateway,
 	VercelOidcVerificationResult,
-} from "../../src/mint/handle-mint-request.ts";
+} from "../../src/mint/development-oidc.ts";
 import type { GitHubInstallationTokenGateway } from "../../src/mint/mint-core.ts";
 import type { MintEnvironment } from "../../src/mint/runtime-config.ts";
 

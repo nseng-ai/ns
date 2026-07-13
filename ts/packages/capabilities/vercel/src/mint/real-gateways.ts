@@ -5,7 +5,8 @@ import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { z } from "zod";
 
 import { githubPermissionsForPurpose, type GitHubRepositoryPermissions } from "./contracts.ts";
-import type { LandingCredentialGateway, VercelOidcGateway } from "./handle-mint-request.ts";
+import type { VercelOidcGateway } from "./development-oidc.ts";
+import type { LandingCredentialGateway } from "./handle-mint-request.ts";
 import {
 	createDispatchTokenMinter,
 	type DispatchTokenMinter,

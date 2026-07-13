@@ -40,7 +40,8 @@
 			"api",
 			"mint",
 			"ns",
-			"sandbox"
+			"sandbox",
+			"trigger"
 		],
 		"settings": [
 			{
