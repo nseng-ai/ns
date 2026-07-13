@@ -44,26 +44,17 @@ export function createWorkflowSdkRunGateway(
 	}
 
 	return {
-		async startHelloWorkflow(options) {
-			return await startWorkflowRun(helloWorkflowId, [options.name]);
-		},
-		async startSandboxProbeWorkflow(options) {
-			return await startWorkflowRun(sandboxProbeWorkflowId, [options.revision]);
-		},
-		async startSupervisionProbeWorkflow(options) {
-			return await startWorkflowRun(supervisionProbeWorkflowId, [
-				{ runSeconds: options.runSeconds, pollSeconds: options.pollSeconds },
-			]);
-		},
-		async startDispatchWorkflow(options) {
-			return await startWorkflowRun(dispatchWorkflowId, [
-				{
-					revision: options.revision,
-					anchorBranch: options.anchorBranch,
-					anchorPrNumber: options.anchorPrNumber,
-					prompt: options.prompt,
-				},
-			]);
+		async startWorkflow(request) {
+			switch (request.workflow) {
+				case "hello":
+					return await startWorkflowRun(helloWorkflowId, [request.input.name]);
+				case "sandbox-probe":
+					return await startWorkflowRun(sandboxProbeWorkflowId, [request.input.revision]);
+				case "supervision-probe":
+					return await startWorkflowRun(supervisionProbeWorkflowId, [request.input]);
+				case "dispatch":
+					return await startWorkflowRun(dispatchWorkflowId, [request.input]);
+			}
 		},
 		async readWorkflowRunStatus(options) {
 			try {

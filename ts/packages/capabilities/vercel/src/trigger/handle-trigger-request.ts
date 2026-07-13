@@ -19,7 +19,7 @@ import {
 	type TriggerResponse,
 } from "./contracts.ts";
 import type { TriggerRuntimeConfig } from "./runtime-config.ts";
-import type { StartWorkflowRunResult, WorkflowRunGateway } from "./workflow-run-gateway.ts";
+import type { WorkflowRunGateway, WorkflowStartRequest } from "./workflow-run-gateway.ts";
 
 export interface TriggerRequestContext {
 	readonly config: TriggerRuntimeConfig;
@@ -55,7 +55,7 @@ export async function handleTriggerRequest(
 	}
 
 	const request = requestResult.data;
-	const startResult = await startRequestedWorkflow(request, context.workflowRuns);
+	const startResult = await context.workflowRuns.startWorkflow(toWorkflowStartRequest(request));
 	if (startResult.ok === false) {
 		return triggerFailure(502, "workflow-start-failed", "Workflow start failed.");
 	}
@@ -110,27 +110,30 @@ export async function handleRunStatusRequest(
 	};
 }
 
-async function startRequestedWorkflow(
-	request: TriggerRequest,
-	workflowRuns: WorkflowRunGateway,
-): Promise<StartWorkflowRunResult> {
+function toWorkflowStartRequest(request: TriggerRequest): WorkflowStartRequest {
 	switch (request.workflow) {
 		case "hello":
-			return await workflowRuns.startHelloWorkflow({ name: request.name });
+			return { workflow: "hello", input: { name: request.name } };
 		case "sandbox-probe":
-			return await workflowRuns.startSandboxProbeWorkflow({ revision: request.revision });
+			return { workflow: "sandbox-probe", input: { revision: request.revision } };
 		case "supervision-probe":
-			return await workflowRuns.startSupervisionProbeWorkflow({
-				runSeconds: request.runSeconds,
-				pollSeconds: request.pollSeconds,
-			});
+			return {
+				workflow: "supervision-probe",
+				input: {
+					runSeconds: request.runSeconds,
+					pollSeconds: request.pollSeconds,
+				},
+			};
 		case "dispatch":
-			return await workflowRuns.startDispatchWorkflow({
-				revision: request.revision,
-				anchorBranch: request.anchorBranch,
-				anchorPrNumber: request.anchorPrNumber,
-				prompt: request.prompt,
-			});
+			return {
+				workflow: "dispatch",
+				input: {
+					revision: request.revision,
+					anchorBranch: request.anchorBranch,
+					anchorPrNumber: request.anchorPrNumber,
+					prompt: request.prompt,
+				},
+			};
 	}
 }
 
