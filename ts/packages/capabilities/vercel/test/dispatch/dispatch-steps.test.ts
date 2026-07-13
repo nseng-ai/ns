@@ -187,9 +187,11 @@ class RecordingDispatchReportGateway implements DispatchReportGateway {
 		message: string;
 	}> = [];
 	readonly #fails: boolean;
+	readonly #throws: boolean;
 
-	constructor(options: { readonly fails?: boolean } = {}) {
+	constructor(options: { readonly fails?: boolean; readonly throws?: boolean } = {}) {
 		this.#fails = options.fails ?? false;
+		this.#throws = options.throws ?? false;
 	}
 
 	async publishAnchorPrDecisionLog(options: {
@@ -197,6 +199,7 @@ class RecordingDispatchReportGateway implements DispatchReportGateway {
 		readonly decisionLog: string | null;
 	}) {
 		this.publishCalls.push({ ...options });
+		if (this.#throws) throw new Error("report operation exploded");
 		return this.#fails ? ({ ok: false } as const) : ({ ok: true } as const);
 	}
 
@@ -207,6 +210,7 @@ class RecordingDispatchReportGateway implements DispatchReportGateway {
 		readonly message: string;
 	}) {
 		this.failureCalls.push({ ...options });
+		if (this.#throws) throw new Error("report operation exploded");
 		return this.#fails ? ({ ok: false } as const) : ({ ok: true } as const);
 	}
 }
@@ -225,18 +229,34 @@ function createDeps(
 		readonly sandboxBehavior?: FakeSandboxBehavior;
 		readonly mintFailPurposes?: readonly string[];
 		readonly reportFails?: boolean;
+		readonly reportThrows?: boolean;
+		readonly tokenMinterFactoryThrows?: boolean;
+		readonly reportGatewayFactoryThrows?: boolean;
 		readonly harness?: HarnessInvocationResolution;
 	} = {},
 ): DepsFixture {
 	const sandboxes = new FakeDispatchSandboxGateway(options.sandboxBehavior);
 	const minter = new RecordingDispatchTokenMinter(options.mintFailPurposes ?? []);
-	const reports = new RecordingDispatchReportGateway({ fails: options.reportFails ?? false });
+	const reports = new RecordingDispatchReportGateway({
+		fails: options.reportFails ?? false,
+		throws: options.reportThrows ?? false,
+	});
 	const resolverCalls: Array<string | null> = [];
 	const deps: DispatchStepDeps = {
 		environment: options.environment ?? validEnvironment(),
-		createDispatchTokenMinter: () => minter,
+		createDispatchTokenMinter: () => {
+			if (options.tokenMinterFactoryThrows === true) {
+				throw new Error("token minter factory exploded");
+			}
+			return minter;
+		},
 		createSandboxGateway: () => sandboxes,
-		createReportGateway: () => reports,
+		createReportGateway: () => {
+			if (options.reportGatewayFactoryThrows === true) {
+				throw new Error("report gateway factory exploded");
+			}
+			return reports;
+		},
 		resolveHarnessInvocation: (dispatchSettingsSource) => {
 			resolverCalls.push(dispatchSettingsSource);
 			return options.harness ?? { ok: true, value: harnessInvocation() };
@@ -647,6 +667,25 @@ describe("reportDispatchLanded", () => {
 
 		expect(result).toEqual({ ok: false });
 		expect(reports.publishCalls).toEqual([]);
+	});
+
+	it("normalizes a report operation throw to a safe failure", async () => {
+		const { deps } = createDeps({ reportThrows: true });
+
+		const result = await reportDispatchLanded({ anchorPrNumber: 421, decisionLog: null }, deps);
+
+		expect(result).toEqual({ ok: false });
+	});
+
+	it.each([
+		["token minter", { tokenMinterFactoryThrows: true }, "token minter factory exploded"],
+		["report gateway", { reportGatewayFactoryThrows: true }, "report gateway factory exploded"],
+	] as const)("does not catch a %s factory throw", async (_label, options, message) => {
+		const { deps } = createDeps(options);
+
+		await expect(
+			reportDispatchLanded({ anchorPrNumber: 421, decisionLog: null }, deps),
+		).rejects.toThrow(message);
 	});
 });
 

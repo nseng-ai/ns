@@ -147,12 +147,12 @@ export function parseSupervisionProgress(content: string | null): SupervisionPro
 	if (content === null) return { phase: "running", ticks: 0 };
 	const lines = content.split(/\r?\n/);
 	let ticks = 0;
-	let done = false;
+	let hasDoneMarker = false;
 	for (const line of lines) {
 		if (/^tick \d+$/.test(line)) ticks += 1;
-		if (line === SUPERVISION_DONE_MARKER) done = true;
+		if (line === SUPERVISION_DONE_MARKER) hasDoneMarker = true;
 	}
-	return { phase: done ? "done" : "running", ticks };
+	return { phase: hasDoneMarker ? "done" : "running", ticks };
 }
 
 export type SupervisionPollResult =

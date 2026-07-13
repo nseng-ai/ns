@@ -11,7 +11,8 @@ export function dispatchCommandError(
 }
 
 export function firstErrorLine(result: ExecResult): string {
-	const text = (result.stderr.trim() || result.stdout.trim()).split("\n")[0] ?? "";
+	const stderr = result.stderr.trim();
+	const text = (stderr.length > 0 ? stderr : result.stdout.trim()).split("\n")[0] ?? "";
 	if (text.length > 0) return text;
 	if (result.type === "exited") return `exit code ${result.code ?? "unknown"}`;
 	return result.type;

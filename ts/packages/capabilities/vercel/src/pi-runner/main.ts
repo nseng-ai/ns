@@ -18,7 +18,7 @@ async function main(): Promise<number> {
 		agent: createRealPiCodingAgentGateway({ cwd: checkoutDirectory }),
 	});
 	console.log(
-		`ns pi runner: outcome=${report.outcome} resultWritten=${report.resultWritten} — ${report.detail}`,
+		`ns pi runner: outcome=${report.outcome} resultWritten=${report.hasWrittenCompletionResult} — ${report.detail}`,
 	);
 	return report.exitCode;
 }

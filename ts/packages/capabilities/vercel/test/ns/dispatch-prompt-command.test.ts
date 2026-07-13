@@ -123,7 +123,7 @@ describe("ns dispatch prompt", () => {
 	});
 
 	test("refuses a detached HEAD with an actionable failure", async () => {
-		const { exit } = await runPromptCommand([PROMPT], { git: { detachedHead: true } });
+		const { exit } = await runPromptCommand([PROMPT], { git: { isDetachedHead: true } });
 
 		expect(exit.type).toBe("failure");
 		if (exit.type !== "failure") return;

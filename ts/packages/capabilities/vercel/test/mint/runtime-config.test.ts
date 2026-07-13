@@ -67,7 +67,7 @@ describe("parseMintRuntimeConfig", () => {
 	});
 
 	it("names a missing variable without exposing other environment values", () => {
-		const environment = { ...validEnvironment(), NS_DISPATCH_GITHUB_APP_ID: undefined };
+		const { NS_DISPATCH_GITHUB_APP_ID: _omitted, ...environment } = validEnvironment();
 
 		const result = parseMintRuntimeConfig(environment);
 

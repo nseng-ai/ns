@@ -206,12 +206,14 @@ export function mergeBuildOutputConfig(
 
 async function main(): Promise<boolean> {
 	const packageRoot = fileURLToPath(new URL("../", import.meta.url));
-	if (!(await runCommand("pnpm", ["exec", "tsc", "-p", "tsconfig.json"], packageRoot)).ok) {
+	if (
+		!(await runCommand("pnpm", ["exec", "tsc", "-p", "tsconfig.json"], packageRoot)).isSuccessful
+	) {
 		return false;
 	}
 
 	const build = await runCommand("vercel", ["build", "--prod"], packageRoot);
-	if (!build.ok) return false;
+	if (!build.isSuccessful) return false;
 	if (/\berror TS\d+:/u.test(build.output)) {
 		console.error("Vercel build emitted TypeScript diagnostics despite exiting successfully.");
 		return false;
@@ -297,7 +299,7 @@ async function verifyWorkflowPackaging(packageRoot: string): Promise<boolean> {
 		["exec", "workflow", "validate", "--strict"],
 		packageRoot,
 	);
-	if (!validate.ok) {
+	if (!validate.isSuccessful) {
 		console.error("Workflow validation reported issues; the workflow sources are not deployable.");
 		return false;
 	}
@@ -313,7 +315,7 @@ async function verifyWorkflowPackaging(packageRoot: string): Promise<boolean> {
 		["exec", "workflow", "build", "--target", "vercel-build-output-api"],
 		packageRoot,
 	);
-	if (!workflowBuild.ok) {
+	if (!workflowBuild.isSuccessful) {
 		console.error('Workflow build failed; `"use workflow"` packaging is broken.');
 		return false;
 	}
@@ -447,7 +449,7 @@ async function runCommand(
 	command: string,
 	args: readonly string[],
 	cwd: string,
-): Promise<{ readonly ok: boolean; readonly output: string }> {
+): Promise<{ readonly isSuccessful: boolean; readonly output: string }> {
 	return new Promise((resolve) => {
 		const child = spawn(command, [...args], {
 			cwd,
@@ -467,9 +469,9 @@ async function runCommand(
 		});
 		child.on("error", (error) => {
 			console.error(`${command} failed to start: ${error.message}`);
-			resolve({ ok: false, output });
+			resolve({ isSuccessful: false, output });
 		});
-		child.on("close", (code) => resolve({ ok: code === 0, output }));
+		child.on("close", (code) => resolve({ isSuccessful: code === 0, output }));
 	});
 }
 

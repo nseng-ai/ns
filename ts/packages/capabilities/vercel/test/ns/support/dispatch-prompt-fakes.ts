@@ -44,8 +44,8 @@ export interface FakeWorkspaceGitState {
 	readonly repoRoot?: string;
 	readonly branch?: string;
 	readonly headSha?: string;
-	readonly detachedHead?: boolean;
-	readonly notARepository?: boolean;
+	readonly isDetachedHead?: boolean;
+	readonly isNotARepository?: boolean;
 	readonly dirtyPaths?: readonly string[];
 	/** Remote tip for the source branch; defaults to fresh (same as head). */
 	readonly remoteTip?: DispatchRemoteBranchTipResult;
@@ -67,13 +67,13 @@ export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGate
 	}
 
 	async resolveSourceRef(): ReturnType<DispatchWorkspaceGitGateway["resolveSourceRef"]> {
-		if (this.state.notARepository === true) {
+		if (this.state.isNotARepository === true) {
 			return {
 				ok: false,
 				error: { code: "not-a-repository", message: "Not inside a git repository." },
 			};
 		}
-		if (this.state.detachedHead === true) {
+		if (this.state.isDetachedHead === true) {
 			return {
 				ok: false,
 				error: { code: "detached-head", message: "HEAD is detached; check out a branch first." },

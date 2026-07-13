@@ -15,22 +15,22 @@ import {
 	type NsCommand,
 } from "@nseng-ai/sdk";
 
-import { DISPATCH_PROMPT_MAX_LENGTH } from "../../dispatch/dispatch-run.ts";
+import { DISPATCH_PROMPT_MAX_CHARS } from "../../dispatch/dispatch-run.ts";
 import { executeDispatchPrompt, type DispatchPreflightCheck } from "../dispatch-prompt/core.ts";
 import {
 	createDispatchPromptContext,
 	type DispatchPromptCliContext,
 } from "../dispatch-prompt/context.ts";
 
-const DIRTY_PATHS_RENDER_LIMIT = 20;
+const DIRTY_PATHS_RENDER_MAX_PATHS = 20;
 /** Machine-envelope bound on the dirty-path list (ADR 0012: command-local). */
-const DIRTY_PATHS_DATA_LIMIT = 100;
+const DIRTY_PATHS_DATA_MAX_PATHS = 100;
 
 const dispatchPromptRequestSchema = z.object({
 	prompt: z
 		.string()
 		.min(1)
-		.max(DISPATCH_PROMPT_MAX_LENGTH)
+		.max(DISPATCH_PROMPT_MAX_CHARS)
 		.describe("The prompt the remote agent executes against your branch head."),
 });
 
@@ -99,7 +99,7 @@ async function runDispatchPromptCommand(
 			return negative(renderDirtyTreeRefusal(outcome.dirtyPaths), {
 				data: {
 					status: "dirty-tree",
-					dirtyPaths: outcome.dirtyPaths.slice(0, DIRTY_PATHS_DATA_LIMIT),
+					dirtyPaths: outcome.dirtyPaths.slice(0, DIRTY_PATHS_DATA_MAX_PATHS),
 					totalDirtyPaths: outcome.dirtyPaths.length,
 				},
 			});
@@ -172,7 +172,7 @@ function renderDispatchPromptResult(data: DispatchPromptCommandResult): string {
 }
 
 function renderDirtyTreeRefusal(dirtyPaths: readonly string[]): string {
-	const shown = dirtyPaths.slice(0, DIRTY_PATHS_RENDER_LIMIT);
+	const shown = dirtyPaths.slice(0, DIRTY_PATHS_RENDER_MAX_PATHS);
 	const rest = dirtyPaths.length - shown.length;
 	return [
 		"Dispatch refused: the worktree has uncommitted changes, so what runs remotely would not match what you see.",

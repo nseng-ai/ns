@@ -438,16 +438,14 @@ export async function reportDispatchLanded(
 	options: { readonly anchorPrNumber: number; readonly decisionLog: string | null },
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
 ): Promise<DispatchReportResult> {
-	const gateway = createReportGateway(deps);
-	if (gateway === null) return { ok: false };
-	try {
-		return await gateway.publishAnchorPrDecisionLog({
-			anchorPrNumber: options.anchorPrNumber,
-			decisionLog: options.decisionLog,
-		});
-	} catch {
-		return { ok: false };
-	}
+	return await withReportGateway(
+		deps,
+		async (gateway) =>
+			await gateway.publishAnchorPrDecisionLog({
+				anchorPrNumber: options.anchorPrNumber,
+				decisionLog: options.decisionLog,
+			}),
+	);
 }
 
 /**
@@ -464,15 +462,26 @@ export async function reportDispatchFailure(
 	},
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
 ): Promise<DispatchReportResult> {
+	return await withReportGateway(
+		deps,
+		async (gateway) =>
+			await gateway.ensureAnchorPrFailureComment({
+				anchorPrNumber: options.anchorPrNumber,
+				anchorBranch: options.anchorBranch,
+				code: options.code,
+				message: options.message,
+			}),
+	);
+}
+
+async function withReportGateway(
+	deps: DispatchStepDeps,
+	operation: (gateway: DispatchReportGateway) => Promise<DispatchReportResult>,
+): Promise<DispatchReportResult> {
 	const gateway = createReportGateway(deps);
 	if (gateway === null) return { ok: false };
 	try {
-		return await gateway.ensureAnchorPrFailureComment({
-			anchorPrNumber: options.anchorPrNumber,
-			anchorBranch: options.anchorBranch,
-			code: options.code,
-			message: options.message,
-		});
+		return await operation(gateway);
 	} catch {
 		return { ok: false };
 	}

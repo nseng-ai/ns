@@ -11,7 +11,7 @@ export const DISPATCH_RUN_ID_STAMP_MARKER_PREFIX = "<!-- ns-dispatch:run-id:";
 const DISPATCH_RUN_ID_STAMP_MARKER_SUFFIX = " -->";
 
 /** Bound applied to stamped run ids (matches the trigger route's schema). */
-export const DISPATCH_RUN_ID_MAX_LENGTH = 256;
+export const DISPATCH_RUN_ID_MAX_CHARS = 256;
 
 /**
  * Run ids safe to embed in the HTML-comment marker and inline code span.
@@ -20,7 +20,7 @@ export const DISPATCH_RUN_ID_MAX_LENGTH = 256;
  * comment early.
  */
 export function isValidDispatchRunId(runId: string): boolean {
-	if (runId.length < 1 || runId.length > DISPATCH_RUN_ID_MAX_LENGTH) return false;
+	if (runId.length < 1 || runId.length > DISPATCH_RUN_ID_MAX_CHARS) return false;
 	return /^[A-Za-z0-9._:-]+$/.test(runId);
 }
 

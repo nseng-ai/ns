@@ -5,16 +5,16 @@
 // describes a submitted-not-finished run, and the workflow's own
 // reporting later lands the decision log or the failure comment.
 import {
-	DISPATCH_ANCHOR_BRANCH_MAX_LENGTH,
+	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
 	DISPATCH_ANCHOR_BRANCH_PREFIX,
 	isValidDispatchAnchorBranch,
 } from "../../dispatch/dispatch-run.ts";
 
 /** Cap on the sanitized source-branch portion of an anchor branch name. */
-const ANCHOR_SOURCE_SEGMENT_MAX_LENGTH = 120;
+const ANCHOR_SOURCE_SEGMENT_MAX_CHARS = 120;
 
 /** Cap on the PR title's prompt excerpt. */
-const ANCHOR_PR_TITLE_PROMPT_MAX_LENGTH = 72;
+const ANCHOR_PR_TITLE_PROMPT_MAX_CHARS = 72;
 
 export const DISPATCH_ANCHOR_PR_TITLE_PREFIX = "[dispatch] ";
 
@@ -30,7 +30,7 @@ export function buildAnchorBranchName(sourceBranch: string, anchorId: string): s
 	const sanitizedSource = sanitizeAnchorSegment(sourceBranch);
 	const sanitizedId = sanitizeAnchorSegment(anchorId);
 	const name = `${DISPATCH_ANCHOR_BRANCH_PREFIX}${sanitizedSource}-${sanitizedId}`;
-	if (!isValidDispatchAnchorBranch(name) || name.length > DISPATCH_ANCHOR_BRANCH_MAX_LENGTH) {
+	if (!isValidDispatchAnchorBranch(name) || name.length > DISPATCH_ANCHOR_BRANCH_MAX_CHARS) {
 		throw new Error(`Built an invalid dispatch anchor branch name: ${JSON.stringify(name)}`);
 	}
 	return name;
@@ -50,7 +50,7 @@ function sanitizeAnchorSegment(value: string): string {
 		.replace(/-{2,}/g, "-")
 		.replace(/^[-.]+/, "")
 		.replace(/[-.]+$/, "")
-		.slice(0, ANCHOR_SOURCE_SEGMENT_MAX_LENGTH)
+		.slice(0, ANCHOR_SOURCE_SEGMENT_MAX_CHARS)
 		.replace(/[-.]+$/, "");
 	if (sanitized.length === 0) return "work";
 	if (sanitized.toLowerCase().endsWith(".lock"))
@@ -66,9 +66,9 @@ export function buildAnchorPrTitle(prompt: string): string {
 			.find((line) => line.trim().length > 0)
 			?.trim() ?? "";
 	const excerpt =
-		firstLine.length <= ANCHOR_PR_TITLE_PROMPT_MAX_LENGTH
+		firstLine.length <= ANCHOR_PR_TITLE_PROMPT_MAX_CHARS
 			? firstLine
-			: `${firstLine.slice(0, ANCHOR_PR_TITLE_PROMPT_MAX_LENGTH - 1).trimEnd()}…`;
+			: `${firstLine.slice(0, ANCHOR_PR_TITLE_PROMPT_MAX_CHARS - 1).trimEnd()}…`;
 	return `${DISPATCH_ANCHOR_PR_TITLE_PREFIX}${excerpt.length === 0 ? "dispatched prompt" : excerpt}`;
 }
 

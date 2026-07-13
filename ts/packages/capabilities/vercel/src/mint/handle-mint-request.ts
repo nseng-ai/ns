@@ -1,4 +1,9 @@
-import { mintRequestSchema, type MintPurpose, type MintResponse } from "./contracts.ts";
+import {
+	mintRequestSchema,
+	type MintErrorCode,
+	type MintPurpose,
+	type MintResponse,
+} from "./contracts.ts";
 import { authenticateDevelopmentCaller, type VercelOidcGateway } from "./development-oidc.ts";
 import type { DispatchTokenMinter } from "./mint-core.ts";
 import type { MintRuntimeConfig } from "./runtime-config.ts";
@@ -108,12 +113,7 @@ function authenticateLanding(
 
 function failure(
 	status: 400 | 401 | 403 | 500 | 502,
-	code:
-		| "invalid-request"
-		| "unauthorized"
-		| "forbidden"
-		| "mint-endpoint-misconfigured"
-		| "github-token-mint-failed",
+	code: MintErrorCode,
 	message: string,
 ): MintResponse {
 	return { status, body: { error: { code, message } } };

@@ -83,6 +83,8 @@ async function readJsonBody(
 	try {
 		return { ok: true, value: await request.json() };
 	} catch {
+		// Malformed and unreadable JSON intentionally share the public 400
+		// response; parser details are neither logged nor exposed to callers.
 		return { ok: false };
 	}
 }

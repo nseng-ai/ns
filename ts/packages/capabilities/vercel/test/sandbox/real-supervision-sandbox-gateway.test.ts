@@ -10,8 +10,8 @@ interface RecordingSandboxState {
 	readonly name?: string;
 	readonly status?: string;
 	readonly fileContent?: string | null;
-	readonly detachedThrows?: boolean;
-	readonly stopThrows?: boolean;
+	readonly shouldThrowOnDetachedCommand?: boolean;
+	readonly shouldThrowOnStop?: boolean;
 }
 
 class RecordingSdkSandbox implements SupervisionSandboxSdkSandbox {
@@ -33,7 +33,8 @@ class RecordingSdkSandbox implements SupervisionSandboxSdkSandbox {
 		readonly args: readonly string[];
 	}): Promise<unknown> {
 		this.detachedCalls.push({ cmd: options.cmd, args: [...options.args] });
-		if (this.#state.detachedThrows === true) throw new Error("detached launch exploded");
+		if (this.#state.shouldThrowOnDetachedCommand === true)
+			throw new Error("detached launch exploded");
 		return {};
 	}
 
@@ -45,25 +46,28 @@ class RecordingSdkSandbox implements SupervisionSandboxSdkSandbox {
 
 	async stop(): Promise<unknown> {
 		this.stopCalls += 1;
-		if (this.#state.stopThrows === true) throw new Error("stop exploded");
+		if (this.#state.shouldThrowOnStop === true) throw new Error("stop exploded");
 		return {};
 	}
 }
 
 class RecordingSupervisionSandboxSdk implements SupervisionSandboxSdk {
 	readonly #sandbox: RecordingSdkSandbox;
-	readonly #createThrows: boolean;
-	readonly #getThrows: boolean;
+	readonly #shouldThrowOnCreate: boolean;
+	readonly #shouldThrowOnGet: boolean;
 	readonly createCalls: Array<{ runtime: string; timeout: number }> = [];
 	readonly getCalls: Array<{ name: string; resume: false }> = [];
 
 	constructor(
 		sandbox: RecordingSdkSandbox,
-		options: { readonly createThrows?: boolean; readonly getThrows?: boolean } = {},
+		options: {
+			readonly shouldThrowOnCreate?: boolean;
+			readonly shouldThrowOnGet?: boolean;
+		} = {},
 	) {
 		this.#sandbox = sandbox;
-		this.#createThrows = options.createThrows ?? false;
-		this.#getThrows = options.getThrows ?? false;
+		this.#shouldThrowOnCreate = options.shouldThrowOnCreate ?? false;
+		this.#shouldThrowOnGet = options.shouldThrowOnGet ?? false;
 	}
 
 	async create(options: {
@@ -71,7 +75,7 @@ class RecordingSupervisionSandboxSdk implements SupervisionSandboxSdk {
 		readonly timeout: number;
 	}): Promise<SupervisionSandboxSdkSandbox> {
 		this.createCalls.push({ ...options });
-		if (this.#createThrows) throw new Error("create exploded");
+		if (this.#shouldThrowOnCreate) throw new Error("create exploded");
 		return this.#sandbox;
 	}
 
@@ -80,7 +84,7 @@ class RecordingSupervisionSandboxSdk implements SupervisionSandboxSdk {
 		readonly resume: false;
 	}): Promise<SupervisionSandboxSdkSandbox> {
 		this.getCalls.push({ ...options });
-		if (this.#getThrows) throw new Error("get exploded");
+		if (this.#shouldThrowOnGet) throw new Error("get exploded");
 		return this.#sandbox;
 	}
 }
@@ -107,7 +111,7 @@ describe("createRealSupervisionSandboxGateway", () => {
 
 	it("normalizes a creation throw to a safe failure", async () => {
 		const sdk = new RecordingSupervisionSandboxSdk(new RecordingSdkSandbox(), {
-			createThrows: true,
+			shouldThrowOnCreate: true,
 		});
 		const gateway = createRealSupervisionSandboxGateway(sdk);
 
@@ -121,7 +125,7 @@ describe("createRealSupervisionSandboxGateway", () => {
 	});
 
 	it("stops the created sandbox when the detached launch fails, rather than leaking it", async () => {
-		const sandbox = new RecordingSdkSandbox({ detachedThrows: true });
+		const sandbox = new RecordingSdkSandbox({ shouldThrowOnDetachedCommand: true });
 		const gateway = createRealSupervisionSandboxGateway(
 			new RecordingSupervisionSandboxSdk(sandbox),
 		);
@@ -163,7 +167,7 @@ describe("createRealSupervisionSandboxGateway", () => {
 
 	it("normalizes a reattach throw during a read to a safe failure", async () => {
 		const gateway = createRealSupervisionSandboxGateway(
-			new RecordingSupervisionSandboxSdk(new RecordingSdkSandbox(), { getThrows: true }),
+			new RecordingSupervisionSandboxSdk(new RecordingSdkSandbox(), { shouldThrowOnGet: true }),
 		);
 
 		expect(
@@ -196,7 +200,7 @@ describe("createRealSupervisionSandboxGateway", () => {
 
 	it("normalizes a stop throw to a safe failure", async () => {
 		const gateway = createRealSupervisionSandboxGateway(
-			new RecordingSupervisionSandboxSdk(new RecordingSdkSandbox({ stopThrows: true })),
+			new RecordingSupervisionSandboxSdk(new RecordingSdkSandbox({ shouldThrowOnStop: true })),
 		);
 
 		expect(await gateway.stopSandbox({ sandboxName: "sbx-supervision" })).toEqual({ ok: false });
