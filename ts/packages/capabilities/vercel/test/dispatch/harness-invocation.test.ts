@@ -1,15 +1,19 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
 import {
-	PI_HARNESS_INVOCATION,
+	dispatchHarnessValues,
+	DISPATCH_PACKAGE_MANAGER_FIELD,
+	isDispatchHarness,
+	parseDispatchPackageManagerSource,
 	PI_RUNNER_ENTRY_PATH,
-	resolveConfiguredHarnessInvocation,
-} from "../../src/dispatch/harness-invocation.ts";
+	type HarnessInvocation,
+} from "../../src/dispatch/harness-registry.ts";
+import { resolveConfiguredHarnessInvocation } from "../../src/dispatch/harness-invocation.ts";
 
-// Mirrors the shape of this repo's actual root ns.toml: other extension
-// groups' tables around a [dispatch] table carrying non-harness keys.
+// Mirrors this repo's ns.toml shape: unrelated tables surround [dispatch],
+// which carries project-linkage keys beyond the harness selector.
 const repoLikeSettings = `
 [areg]
 agents = ["codex", "claude-code"]
@@ -23,15 +27,79 @@ vercel_team_id = "team_fixture"
 "flow.submit.pre" = ["just"]
 `;
 
-describe("resolveConfiguredHarnessInvocation", () => {
-	it('resolves harness = "pi" to the ns-owned pi runner recipe', () => {
-		const result = resolveConfiguredHarnessInvocation(repoLikeSettings);
+function packageManagerSource(value = "pnpm@11.8.1"): string {
+	return JSON.stringify({ name: "fixture", packageManager: value });
+}
 
-		expect(result).toEqual({ ok: true, value: PI_HARNESS_INVOCATION });
+function resolvedInvocation(
+	settingsSource = repoLikeSettings,
+	manifestSource = packageManagerSource(),
+): HarnessInvocation {
+	const result = resolveConfiguredHarnessInvocation(settingsSource, manifestSource);
+	if (result.ok === false) throw new Error(`Expected an invocation: ${result.message}`);
+	return result.value;
+}
+
+describe("dispatch harness registry", () => {
+	it("implements only Pi and derives its runtime guard from the registry", () => {
+		expect(dispatchHarnessValues).toEqual(["pi"]);
+		expect(isDispatchHarness("pi")).toBe(true);
+		expect(isDispatchHarness("claude-code")).toBe(false);
+		expect(isDispatchHarness("arbitrary")).toBe(false);
+	});
+});
+
+describe("parseDispatchPackageManagerSource", () => {
+	it("returns the exact stable pnpm version separately", () => {
+		const result = parseDispatchPackageManagerSource(packageManagerSource("pnpm@11.8.1"));
+
+		expect(result).toEqual({ ok: true, value: { pnpmVersion: "11.8.1" } });
+	});
+
+	it.each([
+		["missing manifest", null],
+		["malformed JSON", "{"],
+		["non-object manifest", "[]"],
+		["missing packageManager", "{}"],
+		["non-string packageManager", '{"packageManager":11}'],
+		["another manager", packageManagerSource("npm@11.8.1")],
+		["missing version", packageManagerSource("pnpm")],
+		["empty version", packageManagerSource("pnpm@")],
+		["major-only range", packageManagerSource("pnpm@11")],
+		["caret range", packageManagerSource("pnpm@^11.8.1")],
+		["comparison range", packageManagerSource("pnpm@>=11.8.1")],
+		["tag", packageManagerSource("pnpm@latest")],
+		["prerelease", packageManagerSource("pnpm@11.8.1-rc.1")],
+		["integrity suffix", packageManagerSource("pnpm@11.8.1+sha512.deadbeef")],
+		["leading whitespace", packageManagerSource(" pnpm@11.8.1")],
+		["trailing whitespace", packageManagerSource("pnpm@11.8.1 ")],
+		["internal whitespace", packageManagerSource("pnpm@ 11.8.1")],
+		["shell separator", packageManagerSource("pnpm@11.8.1;touch-pwned")],
+		["shell substitution", packageManagerSource("pnpm@11.8.$(touch-pwned)")],
+		["leading-zero semver", packageManagerSource("pnpm@011.8.1")],
+	] as const)("rejects %s with a structured value-free failure", (_label, source) => {
+		const result = parseDispatchPackageManagerSource(source);
+
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error("Expected a package-manager failure.");
+		expect(result.error.field).toBe(DISPATCH_PACKAGE_MANAGER_FIELD);
+		expect(result.error.message).toContain("ts/package.json#packageManager");
+		expect(result.error.message).not.toContain("touch-pwned");
+	});
+});
+
+describe("resolveConfiguredHarnessInvocation", () => {
+	it('resolves harness = "pi" with pnpm as one exact argv element', () => {
+		const invocation = resolvedInvocation(repoLikeSettings, packageManagerSource("pnpm@11.8.1"));
+
+		expect(invocation.provisionCommands).toContainEqual({
+			cmd: "npm",
+			args: ["install", "--global", "pnpm@11.8.1"],
+		});
 	});
 
 	it("reports harness-not-configured when the checkout has no ns.toml", () => {
-		const result = resolveConfiguredHarnessInvocation(null);
+		const result = resolveConfiguredHarnessInvocation(null, packageManagerSource());
 
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
@@ -39,16 +107,20 @@ describe("resolveConfiguredHarnessInvocation", () => {
 	});
 
 	it("reports harness-not-configured when ns.toml has no [dispatch] table", () => {
-		const result = resolveConfiguredHarnessInvocation('[areg]\nagents = ["codex"]\n');
+		const result = resolveConfiguredHarnessInvocation(
+			'[areg]\nagents = ["codex"]\n',
+			packageManagerSource(),
+		);
 
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
 		expect(result.code).toBe("harness-not-configured");
 	});
 
-	it("reports harness-not-configured when the [dispatch] table declares no harness", () => {
+	it("reports harness-not-configured when [dispatch] declares no harness", () => {
 		const result = resolveConfiguredHarnessInvocation(
 			'[dispatch]\nvercel_project_id = "prj_fixture"\n',
+			packageManagerSource(),
 		);
 
 		expect(result.ok).toBe(false);
@@ -57,7 +129,10 @@ describe("resolveConfiguredHarnessInvocation", () => {
 	});
 
 	it("reports dispatch-settings-invalid for unparseable TOML", () => {
-		const result = resolveConfiguredHarnessInvocation("[dispatch\nharness =");
+		const result = resolveConfiguredHarnessInvocation(
+			"[dispatch\nharness =",
+			packageManagerSource(),
+		);
 
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
@@ -65,46 +140,63 @@ describe("resolveConfiguredHarnessInvocation", () => {
 	});
 
 	it("reports dispatch-settings-invalid when harness is not a string", () => {
-		const result = resolveConfiguredHarnessInvocation("[dispatch]\nharness = 42\n");
+		const result = resolveConfiguredHarnessInvocation(
+			"[dispatch]\nharness = 42\n",
+			packageManagerSource(),
+		);
 
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
 		expect(result.code).toBe("dispatch-settings-invalid");
 	});
 
-	it("reports unsupported-harness for a harness with no recipe, naming it", () => {
-		const result = resolveConfiguredHarnessInvocation('[dispatch]\nharness = "claude-code"\n');
+	it("reports unsupported-harness for a name absent from the registry", () => {
+		const result = resolveConfiguredHarnessInvocation(
+			'[dispatch]\nharness = "claude-code"\n',
+			packageManagerSource(),
+		);
 
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
 		expect(result.code).toBe("unsupported-harness");
-		expect(result.message).toContain("claude-code");
+		expect(result.message).not.toContain("claude-code");
+	});
+
+	it("propagates a value-free package-manager failure", () => {
+		const invalidValue = "pnpm@11.8.1;do-not-expose";
+		const result = resolveConfiguredHarnessInvocation(
+			repoLikeSettings,
+			packageManagerSource(invalidValue),
+		);
+
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error("Expected a failure.");
+		expect(result.code).toBe("package-manager-invalid");
+		expect(result.message).toContain(DISPATCH_PACKAGE_MANAGER_FIELD);
+		expect(result.message).not.toContain(invalidValue);
 	});
 });
 
-describe("PI_HARNESS_INVOCATION", () => {
+describe("Pi invocation recipe", () => {
 	it("launches the runner entry from the checkout with node", () => {
-		expect(PI_HARNESS_INVOCATION.launchCommand).toEqual({
+		expect(resolvedInvocation().launchCommand).toEqual({
 			cmd: "node",
 			args: [PI_RUNNER_ENTRY_PATH],
 		});
 	});
 
 	it("names a runner entry module that actually exists in this checkout", () => {
-		// The recipe references the runner by checkout-relative path string
-		// (imports must flow one way between the dispatch and pi-runner
-		// subpackages), so this guards the path against drift.
 		const repoRoot = new URL("../../../../../../", import.meta.url);
 		expect(existsSync(new URL(PI_RUNNER_ENTRY_PATH, repoRoot))).toBe(true);
 	});
 
 	it("provisions git identity and the pinned workspace install before launch", () => {
-		const commands = PI_HARNESS_INVOCATION.provisionCommands.map(
+		const commands = resolvedInvocation().provisionCommands.map(
 			(command) => `${command.cmd} ${command.args.join(" ")}`,
 		);
 		expect(commands.some((line) => line.includes("git config --global user.name"))).toBe(true);
 		expect(commands.some((line) => line.includes("git config --global user.email"))).toBe(true);
-		expect(commands.some((line) => line.includes("npm install --global pnpm@"))).toBe(true);
+		expect(commands.some((line) => line.includes("npm install --global pnpm@11.8.1"))).toBe(true);
 		expect(
 			commands.some((line) =>
 				line.includes("pnpm --dir ts install --frozen-lockfile --filter @nseng-ai/vercel..."),
@@ -112,8 +204,26 @@ describe("PI_HARNESS_INVOCATION", () => {
 		).toBe(true);
 	});
 
+	it("resolves the checked-in ts/package.json to its matching install command", () => {
+		const repoRoot = new URL("../../../../../../", import.meta.url);
+		const manifestSource = readFileSync(new URL("ts/package.json", repoRoot), "utf8");
+		const packageManager = parseDispatchPackageManagerSource(manifestSource);
+		if (packageManager.ok === false) {
+			throw new Error(
+				`Checked-in package-manager contract is invalid: ${packageManager.error.message}`,
+			);
+		}
+
+		const invocation = resolvedInvocation(repoLikeSettings, manifestSource);
+		expect(invocation.provisionCommands).toContainEqual({
+			cmd: "npm",
+			args: ["install", "--global", `pnpm@${packageManager.value.pnpmVersion}`],
+		});
+	});
+
 	it("names the model key by name only — never a value", () => {
-		expect(PI_HARNESS_INVOCATION.launchEnvironmentVariableNames).toEqual(["ANTHROPIC_API_KEY"]);
-		expect(JSON.stringify(PI_HARNESS_INVOCATION)).not.toContain("sk-");
+		const invocation = resolvedInvocation();
+		expect(invocation.launchEnvironmentVariableNames).toEqual(["ANTHROPIC_API_KEY"]);
+		expect(JSON.stringify(invocation)).not.toContain("sk-");
 	});
 });

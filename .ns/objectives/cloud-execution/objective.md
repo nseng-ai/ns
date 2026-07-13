@@ -322,16 +322,18 @@ Risks:
   private-repository Sandbox probe at an exact remote SHA with verified marker/HEAD and
   cleanup. Post-verification cleanup removed the four old-prefix Production variables,
   revoked the superseded GitHub App key, and removed the downloaded local PEM; a subsequent
-  authenticated clone-purpose mint confirmed the active replacement key. Dispatch preflight
-  remains. The workflow-supervisor architecture (2026-07-13) retired the
-  two recorded v1 security shortcuts before implementation: the shared
-  mint secret and the self-landing sandbox are removed from the design —
-  the supervisor mints in-process and injects the landing token into the
-  single landing command. Residuals: remove the now-purposeless
-  `NS_DISPATCH_SANDBOX_MINT_SECRET` production variable once the workflow
-  spine lands, and tighten the installed `ns-dispatch` App's extra
-  `actions: write` / `workflows: write` permissions (accepted for the
-  prototype) before wider deployment.
+  authenticated clone-purpose mint confirmed the active replacement key. Dispatch preflight,
+  the Pi-only implemented-harness registry, and exact checkout package-manager validation are
+  now locally complete; their deployed behavior remains part of the pending batched live pass.
+  The workflow-supervisor architecture (2026-07-13) retired the two recorded v1 security
+  shortcuts from the design, and the code now matches it: the HTTP shared-secret landing path
+  is gone, `POST /api/mint` is OIDC-only and clone-only, and workflow landing mints in-process
+  for the single landing command. The linked project still carries the inert
+  `NS_DISPATCH_SANDBOX_MINT_SECRET` production variable, but no source or runtime parser
+  consumes it. Residuals: after the pending live pass, remove that deployed variable through
+  the human-only environment process, and tighten the installed `ns-dispatch` App's extra
+  `actions: write` / `workflows: write` permissions (accepted for the prototype) before wider
+  deployment.
 - **At-least-once step semantics**: workflow steps retry silently on
   crash/kill, and a step's ceiling is the function `maxDuration` (~800s on
   the current plan). The launch step must never re-bill an agent run

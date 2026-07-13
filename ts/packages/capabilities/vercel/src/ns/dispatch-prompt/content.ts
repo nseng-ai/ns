@@ -5,7 +5,7 @@
 // describes a submitted-not-finished run, and the workflow's own
 // reporting later lands the decision log or the failure comment.
 import {
-	DISPATCH_ANCHOR_BRANCH_MAX_LENGTH,
+	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
 	DISPATCH_ANCHOR_BRANCH_PREFIX,
 	isValidDispatchAnchorBranch,
 } from "../../dispatch/dispatch-run.ts";
@@ -30,7 +30,7 @@ export function buildAnchorBranchName(sourceBranch: string, anchorId: string): s
 	const sanitizedSource = sanitizeAnchorSegment(sourceBranch);
 	const sanitizedId = sanitizeAnchorSegment(anchorId);
 	const name = `${DISPATCH_ANCHOR_BRANCH_PREFIX}${sanitizedSource}-${sanitizedId}`;
-	if (!isValidDispatchAnchorBranch(name) || name.length > DISPATCH_ANCHOR_BRANCH_MAX_LENGTH) {
+	if (!isValidDispatchAnchorBranch(name) || name.length > DISPATCH_ANCHOR_BRANCH_MAX_CHARS) {
 		throw new Error(`Built an invalid dispatch anchor branch name: ${JSON.stringify(name)}`);
 	}
 	return name;

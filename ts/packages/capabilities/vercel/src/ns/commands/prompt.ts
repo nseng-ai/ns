@@ -15,7 +15,7 @@ import {
 	type NsCommand,
 } from "@nseng-ai/sdk";
 
-import { DISPATCH_PROMPT_MAX_LENGTH } from "../../dispatch/dispatch-run.ts";
+import { DISPATCH_PROMPT_MAX_CHARS } from "../../dispatch/dispatch-run.ts";
 import { executeDispatchPrompt, type DispatchPreflightCheck } from "../dispatch-prompt/core.ts";
 import {
 	createDispatchPromptContext,
@@ -30,7 +30,7 @@ const dispatchPromptRequestSchema = z.object({
 	prompt: z
 		.string()
 		.min(1)
-		.max(DISPATCH_PROMPT_MAX_LENGTH)
+		.max(DISPATCH_PROMPT_MAX_CHARS)
 		.describe("The prompt the remote agent executes against your branch head."),
 });
 

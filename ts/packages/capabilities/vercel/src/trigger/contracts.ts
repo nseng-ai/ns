@@ -5,9 +5,9 @@
 import { z } from "zod";
 
 import {
-	DISPATCH_ANCHOR_BRANCH_MAX_LENGTH,
+	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
 	DISPATCH_ANCHOR_PR_NUMBER_MAX,
-	DISPATCH_PROMPT_MAX_LENGTH,
+	DISPATCH_PROMPT_MAX_CHARS,
 	isValidDispatchAnchorBranch,
 } from "../dispatch/dispatch-run.ts";
 import {
@@ -64,10 +64,10 @@ export const triggerRequestSchema = z.discriminatedUnion("workflow", [
 		anchorBranch: z
 			.string()
 			.min(1)
-			.max(DISPATCH_ANCHOR_BRANCH_MAX_LENGTH)
+			.max(DISPATCH_ANCHOR_BRANCH_MAX_CHARS)
 			.refine(isValidDispatchAnchorBranch),
 		anchorPrNumber: z.number().int().min(1).max(DISPATCH_ANCHOR_PR_NUMBER_MAX),
-		prompt: z.string().min(1).max(DISPATCH_PROMPT_MAX_LENGTH),
+		prompt: z.string().min(1).max(DISPATCH_PROMPT_MAX_CHARS),
 	}),
 ]);
 

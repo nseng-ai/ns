@@ -17,7 +17,7 @@ export const DISPATCH_DECISION_LOG_SECTION_END = "<!-- ns-dispatch:decision-log:
  * 65536 characters, and the description also carries the CLI-authored
  * content outside the marked section.
  */
-export const DISPATCH_DECISION_LOG_MAX_LENGTH = 30_000;
+export const DISPATCH_DECISION_LOG_MAX_CHARS = 30_000;
 
 const DECISION_LOG_TRUNCATION_NOTICE =
 	"\n\n_Decision log truncated; see the run logs for the rest._";
@@ -41,8 +41,8 @@ export function buildDecisionLogSection(decisionLog: string | null): string {
 }
 
 function truncateDecisionLog(decisionLog: string): string {
-	if (decisionLog.length <= DISPATCH_DECISION_LOG_MAX_LENGTH) return decisionLog;
-	return decisionLog.slice(0, DISPATCH_DECISION_LOG_MAX_LENGTH) + DECISION_LOG_TRUNCATION_NOTICE;
+	if (decisionLog.length <= DISPATCH_DECISION_LOG_MAX_CHARS) return decisionLog;
+	return decisionLog.slice(0, DISPATCH_DECISION_LOG_MAX_CHARS) + DECISION_LOG_TRUNCATION_NOTICE;
 }
 
 /**

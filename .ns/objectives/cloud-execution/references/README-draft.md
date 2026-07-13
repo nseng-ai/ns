@@ -120,9 +120,13 @@ state and logs. (Command name: see Open questions.)
 ### Under the hood
 
 The Pi commands are thin mirrors of the `ns dispatch plan|prompt|handoff`
-kernel CLI, so the same surface is reachable from any harness — Claude Code
-and Codex get the identical commands through wrapper skills. Pi is the
-first-documented experience, not a privileged one.
+kernel CLI, so the same command face is reachable from any harness — Claude
+Code and Codex get the identical commands through wrapper skills. That
+command portability is separate from the harness running remotely: the
+implemented in-sandbox registry currently contains only `pi`, and
+`harness = "claude-code"` is rejected until the planned Claude Code row has a
+complete provisioning and launch recipe. Pi is the first-documented and
+currently implemented cloud harness, not a privileged command surface.
 
 There is no per-dispatch backend, harness, or model choice — you dispatch
 work, not runtimes. Cloud dispatch is Vercel-native: every dispatch —
@@ -191,11 +195,11 @@ workflow-supervised execution as an interactive dispatch.
 ## Setup
 
 Non-secret repo configuration lives in the repo-root `ns.toml`, in a typed
-`[dispatch]` table: which agent harness runs inside the sandbox (Pi first),
-the stable Vercel project/team IDs, and the dispatch deployable's stable
-HTTPS URL (the deployment recorded in step 3 below) that the CLI's
-trigger/observe calls target. It's versioned with the repo, so every
-clone dispatches the same way:
+`[dispatch]` table: which implemented agent harness runs inside the sandbox
+(currently only `pi`), the stable Vercel project/team IDs, and the dispatch
+deployable's stable HTTPS URL (the deployment recorded in step 3 below) that
+the CLI's trigger/observe calls target. It's versioned with the repo, so
+every clone dispatches the same way:
 
 ```toml
 [dispatch]
@@ -205,13 +209,22 @@ vercel_team_id = "team_..."
 deployment_url = "https://<dispatch-host>"
 ```
 
+The checkout must also declare an exact stable pnpm version at
+`ts/package.json#packageManager`, for example `"packageManager": "pnpm@11.8.0"`.
+Ranges, tags, prereleases, integrity suffixes, other package managers, and
+whitespace variants are invalid. Local preflight validates this declaration
+before any push or PR, while remote launch independently re-reads it from the
+exact sandbox checkout and provisions that version with
+`npm install --global pnpm@<version>`.
+
 Credentials are configured once, on the Vercel project that backs cloud
 dispatch, using Vercel's own secrets infrastructure:
 
 - **Model keys** live as sensitive environment variables on the dispatch
-  project — encrypted at rest, write-only after creation. The bootstrap
-  recognizes `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`; a run receives only
-  the key required by its configured model.
+  project — encrypted at rest, write-only after creation. Each complete
+  harness registry entry declares the names it needs; the current Pi recipe
+  receives `ANTHROPIC_API_KEY`. A run receives only the key required by its
+  configured harness.
 - **Git access** (clone + push) uses short-lived, repo-scoped credentials
   minted per run as **GitHub App installation tokens**; no long-lived broad
   token sits in an env var. One-time setup: register the org-owned
@@ -241,31 +254,40 @@ short-lived landing token minted by the supervising workflow only when the
 run is ready to land — injected into the single landing command, never
 into the sandbox environment. Dispatch preflights credentials and reports
 exactly what is missing before any remote work starts: the `[dispatch]`
-table is present and valid (including `deployment_url`), the Development
-OIDC token is available by name (`VERCEL_OIDC_TOKEN` from the package's
-pulled `.env.local`), and a read-only authenticated run-status probe
-against the deployment confirms the caller's identity is accepted —
-each failure is a named, actionable category, and no secret value is ever
-read into output. (Live preflight behavior against the deployed routes is
-pending verification.)
+table is present and valid with a registry-supported harness (currently
+`pi`) and `deployment_url`; `ts/package.json#packageManager` is an exact
+supported pnpm declaration; the Development OIDC token is available by name
+(`VERCEL_OIDC_TOKEN` from the package's pulled `.env.local`); and a read-only
+authenticated run-status probe against the deployment confirms the caller's
+identity is accepted. Each failure is a named, actionable category, and no
+secret value is ever read into output. (Live preflight behavior against the
+deployed routes is pending verification.)
 
 ### Mint endpoint configuration
 
 The dispatch deployable's `POST /api/mint` endpoint serves the Development
-probe and preflight path; the dispatch workflow mints in-process through
-the same core and reads the same variables. The endpoint reads:
+clone probe. It authenticates only the dispatch-owned Development OIDC
+header and can mint only clone credentials. The endpoint composes the GitHub
+App/repository variables with the OIDC trust variables below. The dispatch
+workflow calls the same mint core in-process but reads only the GitHub App
+and repository slice; trigger and run-status routes read only the OIDC trust
+slice.
 
-| Variable                                 | Sensitivity | Purpose                                                                               |
-| ---------------------------------------- | ----------- | ------------------------------------------------------------------------------------- |
-| `NS_DISPATCH_GITHUB_APP_ID`              | Non-secret  | GitHub App identifier                                                                 |
-| `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID` | Non-secret  | Installation restricted to the configured repository                                  |
-| `NS_DISPATCH_GITHUB_APP_PRIVATE_KEY`     | Sensitive   | Signs GitHub App authentication; never pull to a dev machine                          |
-| `NS_DISPATCH_SANDBOX_MINT_SECRET`        | Sensitive   | Retired 2026-07-13 (workflow mints in-process); remove after the workflow spine lands |
-| `NS_DISPATCH_GITHUB_REPOSITORY`          | Non-secret  | Exact authorized `owner/repo`; also needed in Development                             |
-| `NS_DISPATCH_VERCEL_TEAM_ID`             | Non-secret  | Required development-token `owner_id`                                                 |
-| `NS_DISPATCH_VERCEL_PROJECT_ID`          | Non-secret  | Required development-token `project_id`                                               |
-| `NS_DISPATCH_VERCEL_OIDC_ISSUER`         | Non-secret  | Exact trusted issuer used for signature and claim verification                        |
-| `NS_DISPATCH_VERCEL_OIDC_AUDIENCE`       | Non-secret  | Exact trusted audience                                                                |
+| Variable                                 | Sensitivity | Purpose                                                        |
+| ---------------------------------------- | ----------- | -------------------------------------------------------------- |
+| `NS_DISPATCH_GITHUB_APP_ID`              | Non-secret  | GitHub App identifier                                          |
+| `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID` | Non-secret  | Installation restricted to the configured repository           |
+| `NS_DISPATCH_GITHUB_APP_PRIVATE_KEY`     | Sensitive   | Signs GitHub App authentication; never pull to a dev machine   |
+| `NS_DISPATCH_GITHUB_REPOSITORY`          | Non-secret  | Exact authorized `owner/repo`; also needed in Development      |
+| `NS_DISPATCH_VERCEL_TEAM_ID`             | Non-secret  | Required development-token `owner_id`                          |
+| `NS_DISPATCH_VERCEL_PROJECT_ID`          | Non-secret  | Required development-token `project_id`                        |
+| `NS_DISPATCH_VERCEL_OIDC_ISSUER`         | Non-secret  | Exact trusted issuer used for signature and claim verification |
+| `NS_DISPATCH_VERCEL_OIDC_AUDIENCE`       | Non-secret  | Exact trusted audience                                         |
+
+The legacy deployed `NS_DISPATCH_SANDBOX_MINT_SECRET` variable is deliberately
+absent from this required table: no source or runtime parser consumes it. It
+remains inert in production through the pending live dispatch pass and is
+removed afterward through the human-only environment cleanup.
 
 Vercel sensitive variables are write-only and their keys cannot be renamed.
 Create replacement sensitive variables for a namespace migration, stream fresh
@@ -292,9 +314,11 @@ configured monorepo Root Directory exactly once. The proven setup sequence is:
    `ts/packages/capabilities/vercel`, retain "Include source files outside of
    the Root Directory," and link the package directory to the dispatch project
    with `vercel link` if `.vercel/project.json` is absent.
-2. Configure the endpoint variables above. Keep the private key and prototype
-   landing secret sensitive; make `NS_DISPATCH_GITHUB_REPOSITORY` available to
-   the Development environment so the local probe can read it.
+2. Configure the endpoint variables above. Keep the private key sensitive;
+   make `NS_DISPATCH_GITHUB_REPOSITORY` available to the Development
+   environment so the local probe can read it. Do not add a landing mint
+   secret for new setup. If the legacy variable is already deployed, leave it
+   untouched through the pending live pass; the current code ignores it.
 3. From the package directory, run `pnpm build:deployable`. This runs the repo's
    native TypeScript check, fails on TypeScript diagnostics that Vercel's build
    may otherwise tolerate, builds the local Vercel output, and verifies that the
@@ -356,11 +380,13 @@ Common safe failure signals to preserve in the eventual setup skill:
 
 The command shape, fake-driven behavior, deployment boundary, Development-token
 trust check, and one controlled billable private-repository Sandbox probe are
-verified. The formerly recorded prototype shortcuts — the shared landing
-secret and the self-landing sandbox — were retired 2026-07-13 by the
-workflow-supervisor architecture before implementation: the supervising
-workflow mints in-process and no push-capable credential enters the
-sandbox environment.
+verified. The workflow-supervisor architecture retired the formerly recorded
+shared landing secret and self-landing sandbox shortcuts on 2026-07-13, and
+the implementation now matches that design: the HTTP shared-secret landing
+path is removed, the endpoint is OIDC-only and clone-only, the supervising
+workflow mints landing credentials in-process, and no push-capable credential
+enters the sandbox environment. The workflow dispatch path itself remains
+pending live verification.
 
 ## Open questions
 

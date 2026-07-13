@@ -37,7 +37,7 @@ function createMinter(
 	const github =
 		options.github ?? new InMemoryGitHubInstallationTokenGateway(successfulGitHubResult());
 	const minter = createDispatchTokenMinter({
-		config: { githubRepository: options.configuredRepository ?? "nseng-ai/ns" },
+		repository: options.configuredRepository ?? "nseng-ai/ns",
 		github,
 	});
 	return { minter, github };

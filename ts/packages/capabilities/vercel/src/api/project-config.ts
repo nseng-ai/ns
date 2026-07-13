@@ -8,9 +8,7 @@ import {
 } from "@nseng-ai/sdk/project-config/points";
 import { z } from "zod";
 
-export const dispatchHarnessValues = ["pi", "claude-code"] as const;
-
-export type DispatchHarness = (typeof dispatchHarnessValues)[number];
+import { isDispatchHarness, type DispatchHarness } from "../dispatch/harness-registry.ts";
 
 export interface DispatchProjectConfig {
 	readonly harness: DispatchHarness;
@@ -65,7 +63,7 @@ const dispatchSettingsSchema = {
 	path: ["dispatch"] as const,
 	schema: z
 		.strictObject({
-			harness: z.enum(dispatchHarnessValues),
+			harness: z.custom<DispatchHarness>(isDispatchHarness),
 			vercel_project_id: vercelProjectIdSchema,
 			vercel_team_id: vercelTeamIdSchema,
 			deployment_url: deploymentUrlSchema.optional(),
@@ -96,7 +94,9 @@ export function parseDispatchProjectConfigToml(
 		pointsTable: { mode: "skip" },
 		settingsSchemas: [dispatchSettingsSchema],
 	});
-	if (!result.ok) return projectConfigParseErrorFromDiagnostics(result.diagnostics, pathLabel);
+	if (result.ok === false) {
+		return projectConfigParseErrorFromDiagnostics(result.diagnostics, pathLabel);
+	}
 
 	const dispatchSettings = getProjectConfigSetting(result.config, dispatchSettingsSchema);
 	if (dispatchSettings === undefined) {

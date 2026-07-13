@@ -5,10 +5,10 @@ import {
 	DISPATCH_GRACE_SECONDS,
 	DISPATCH_LANDING_TOKEN_ENV_NAME,
 	DISPATCH_POLL_SECONDS,
-	DISPATCH_PROMPT_MAX_LENGTH,
+	DISPATCH_PROMPT_MAX_CHARS,
 	DISPATCH_RUN_BUDGET_SECONDS,
 	DISPATCH_SANDBOX_TIMEOUT_MARGIN_SECONDS,
-	DISPATCH_SUMMARY_MAX_LENGTH,
+	DISPATCH_SUMMARY_MAX_CHARS,
 	executeDispatchRun,
 	isValidDispatchAnchorBranch,
 	parseDispatchHarnessResult,
@@ -57,7 +57,7 @@ describe("validateDispatchRunInput", () => {
 		["negative PR number", { anchorPrNumber: -1 }],
 		["fractional PR number", { anchorPrNumber: 4.2 }],
 		["empty prompt", { prompt: "" }],
-		["oversized prompt", { prompt: "x".repeat(DISPATCH_PROMPT_MAX_LENGTH + 1) }],
+		["oversized prompt", { prompt: "x".repeat(DISPATCH_PROMPT_MAX_CHARS + 1) }],
 	])("rejects a run input with a %s", (_label, overrides) => {
 		const result = validateDispatchRunInput(input(overrides));
 
@@ -136,13 +136,13 @@ describe("parseDispatchHarnessResult", () => {
 	});
 
 	it("caps an oversized summary", () => {
-		const summary = "x".repeat(DISPATCH_SUMMARY_MAX_LENGTH + 100);
+		const summary = "x".repeat(DISPATCH_SUMMARY_MAX_CHARS + 100);
 		const parsed = parseDispatchHarnessResult(JSON.stringify({ outcome: "completed", summary }));
 
 		expect(parsed).toEqual({
 			phase: "finished",
 			outcome: "completed",
-			summary: "x".repeat(DISPATCH_SUMMARY_MAX_LENGTH),
+			summary: "x".repeat(DISPATCH_SUMMARY_MAX_CHARS),
 		});
 	});
 

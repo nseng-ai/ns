@@ -114,7 +114,7 @@ export function createRealDispatchWorkspaceGateway(options: {
 		},
 		async decisionLogExists(): Promise<DecisionLogExistsResult> {
 			try {
-				return { ok: true, exists: await io.pathExists(DISPATCH_DECISION_LOG_PATH) };
+				return { ok: true, hasDecisionLog: await io.pathExists(DISPATCH_DECISION_LOG_PATH) };
 			} catch {
 				return { ok: false };
 			}
@@ -144,7 +144,7 @@ export function createRealDispatchWorkspaceGateway(options: {
 			try {
 				const status = await io.runGitCommand(["status", "--porcelain"]);
 				if (status.exitCode !== 0) return { ok: false };
-				return { ok: true, dirty: status.stdout.trim().length > 0 };
+				return { ok: true, hasUncommittedChanges: status.stdout.trim().length > 0 };
 			} catch {
 				return { ok: false };
 			}
