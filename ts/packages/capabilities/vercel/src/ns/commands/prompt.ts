@@ -85,7 +85,16 @@ async function runDispatchPromptCommand(
 	);
 	switch (outcome.status) {
 		case "dispatched":
-			return ok(outcome);
+			return ok({
+				status: outcome.status,
+				revision: outcome.revision,
+				sourceBranch: outcome.sourceBranch,
+				sourcePushed: outcome.sourcePushed,
+				anchorBranch: outcome.anchorPr.branch,
+				anchorPrNumber: outcome.anchorPr.number,
+				anchorPrUrl: outcome.anchorPr.url,
+				runId: outcome.runId,
+			});
 		case "dirty-tree":
 			return negative(renderDirtyTreeRefusal(outcome.dirtyPaths), {
 				data: {
@@ -121,22 +130,22 @@ async function runDispatchPromptCommand(
 		case "trigger-failed":
 			return failure(
 				"trigger-failed",
-				`${outcome.message}\nThe anchor PR ${outcome.anchorPrUrl} is open but no run was started; re-dispatch or close it.`,
+				`${outcome.message}\nThe anchor PR ${outcome.anchorPr.url} is open but no run was started; re-dispatch or close it.`,
 				{
 					code: outcome.code,
-					anchorBranch: outcome.anchorBranch,
-					anchorPrNumber: outcome.anchorPrNumber,
-					anchorPrUrl: outcome.anchorPrUrl,
+					anchorBranch: outcome.anchorPr.branch,
+					anchorPrNumber: outcome.anchorPr.number,
+					anchorPrUrl: outcome.anchorPr.url,
 				},
 			);
 		case "run-id-stamp-failed":
 			return failure(
 				"run-id-stamp-failed",
-				`${outcome.message}\nThe run was started${outcome.runId === undefined ? "" : ` (run id ${outcome.runId})`} but the anchor PR ${outcome.anchorPrUrl} carries no run-id stamp; record the run id on the PR manually.`,
+				`${outcome.message}\nThe run was started${outcome.runId === undefined ? "" : ` (run id ${outcome.runId})`} but the anchor PR ${outcome.anchorPr.url} carries no run-id stamp; record the run id on the PR manually.`,
 				{
-					anchorBranch: outcome.anchorBranch,
-					anchorPrNumber: outcome.anchorPrNumber,
-					anchorPrUrl: outcome.anchorPrUrl,
+					anchorBranch: outcome.anchorPr.branch,
+					anchorPrNumber: outcome.anchorPr.number,
+					anchorPrUrl: outcome.anchorPr.url,
 					...(outcome.runId === undefined ? {} : { runId: outcome.runId }),
 				},
 			);

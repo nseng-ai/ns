@@ -211,10 +211,11 @@ describe("ns dispatch prompt", () => {
 		if (exit.type !== "failure") return;
 		expect(exit.errorType).toBe("trigger-failed");
 		expect(exit.message).toContain("https://github.com/nseng-ai/ns/pull/41");
-		expect(exit.data).toMatchObject({
+		expect(exit.data).toEqual({
 			code: "workflow-start-failed",
 			anchorBranch: EXPECTED_ANCHOR_BRANCH,
 			anchorPrNumber: 41,
+			anchorPrUrl: "https://github.com/nseng-ai/ns/pull/41",
 		});
 		expect(gateways.anchorPrs.stamps).toEqual([]);
 	});
@@ -236,7 +237,28 @@ describe("ns dispatch prompt", () => {
 		if (exit.type !== "failure") return;
 		expect(exit.errorType).toBe("run-id-stamp-failed");
 		expect(exit.message).toContain(FAKE_RUN_ID);
-		expect(exit.data).toMatchObject({ runId: FAKE_RUN_ID, anchorPrNumber: 41 });
+		expect(exit.data).toEqual({
+			anchorBranch: EXPECTED_ANCHOR_BRANCH,
+			anchorPrNumber: 41,
+			anchorPrUrl: "https://github.com/nseng-ai/ns/pull/41",
+			runId: FAKE_RUN_ID,
+		});
+	});
+
+	test("omits an unusable returned run id from stamp-failure data", async () => {
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
+			trigger: { startResult: { ok: true, value: { runId: "unsafe run id" } } },
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("run-id-stamp-failed");
+		expect(exit.data).toEqual({
+			anchorBranch: EXPECTED_ANCHOR_BRANCH,
+			anchorPrNumber: 41,
+			anchorPrUrl: "https://github.com/nseng-ai/ns/pull/41",
+		});
+		expect(gateways.anchorPrs.stamps).toEqual([]);
 	});
 
 	test("rejects a blank prompt as a usage error", async () => {
@@ -270,6 +292,8 @@ describe("ns dispatch prompt", () => {
 		const schemaText = JSON.stringify(exit.data);
 		expect(schemaText).toContain("dispatched");
 		expect(schemaText).toContain("dirty-tree");
+		expect(schemaText).toContain("anchorBranch");
 		expect(schemaText).toContain("anchorPrNumber");
+		expect(schemaText).toContain("anchorPrUrl");
 	});
 });

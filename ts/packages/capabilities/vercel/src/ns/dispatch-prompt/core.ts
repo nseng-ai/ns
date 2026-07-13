@@ -207,6 +207,12 @@ export interface DispatchPromptRequest {
 	readonly prompt: string;
 }
 
+interface DispatchAnchorPr {
+	readonly branch: string;
+	readonly number: number;
+	readonly url: string;
+}
+
 /** The core's outcome union; the command handler maps it to exit shapes. */
 export type DispatchPromptOutcome =
 	| {
@@ -214,9 +220,7 @@ export type DispatchPromptOutcome =
 			readonly revision: string;
 			readonly sourceBranch: string;
 			readonly sourcePushed: boolean;
-			readonly anchorBranch: string;
-			readonly anchorPrNumber: number;
-			readonly anchorPrUrl: string;
+			readonly anchorPr: DispatchAnchorPr;
 			readonly runId: string;
 	  }
 	| { readonly status: "dirty-tree"; readonly dirtyPaths: readonly string[] }
@@ -245,16 +249,12 @@ export type DispatchPromptOutcome =
 			readonly status: "trigger-failed";
 			readonly code: string;
 			readonly message: string;
-			readonly anchorBranch: string;
-			readonly anchorPrNumber: number;
-			readonly anchorPrUrl: string;
+			readonly anchorPr: DispatchAnchorPr;
 	  }
 	| {
 			readonly status: "run-id-stamp-failed";
 			readonly message: string;
-			readonly anchorBranch: string;
-			readonly anchorPrNumber: number;
-			readonly anchorPrUrl: string;
+			readonly anchorPr: DispatchAnchorPr;
 			/** Absent only when the returned run id itself was unusable. */
 			readonly runId?: string;
 	  };
@@ -329,10 +329,10 @@ export async function executeDispatchPrompt(
 	if (!pr.ok) {
 		return { status: "anchor-pr-failed", anchorBranch, message: pr.error.message };
 	}
-	const anchor = {
-		anchorBranch,
-		anchorPrNumber: pr.value.number,
-		anchorPrUrl: pr.value.url,
+	const anchorPr: DispatchAnchorPr = {
+		branch: anchorBranch,
+		number: pr.value.number,
+		url: pr.value.url,
 	};
 
 	// Defensive re-check of the run-input contract the trigger route
@@ -340,8 +340,8 @@ export async function executeDispatchPrompt(
 	// anchor rather than sent to be rejected remotely.
 	const runInput = validateDispatchRunInput({
 		revision: headSha,
-		anchorBranch,
-		anchorPrNumber: pr.value.number,
+		anchorBranch: anchorPr.branch,
+		anchorPrNumber: anchorPr.number,
 		prompt: request.prompt,
 	});
 	if (!runInput.ok) {
@@ -349,7 +349,7 @@ export async function executeDispatchPrompt(
 			status: "trigger-failed",
 			code: "invalid-request",
 			message: runInput.message,
-			...anchor,
+			anchorPr,
 		};
 	}
 
@@ -363,7 +363,7 @@ export async function executeDispatchPrompt(
 			status: "trigger-failed",
 			code: started.error.code,
 			message: started.error.message,
-			...anchor,
+			anchorPr,
 		};
 	}
 	const runId = started.value.runId;
@@ -372,16 +372,16 @@ export async function executeDispatchPrompt(
 		return {
 			status: "run-id-stamp-failed",
 			message: "The trigger route returned a run id that cannot be stamped safely.",
-			...anchor,
+			anchorPr,
 		};
 	}
 	const stamp = await gateways.anchorPrs.stampAnchorPrRunId({
 		cwd: request.cwd,
-		prNumber: pr.value.number,
+		prNumber: anchorPr.number,
 		runId,
 	});
 	if (!stamp.ok) {
-		return { status: "run-id-stamp-failed", message: stamp.error.message, ...anchor, runId };
+		return { status: "run-id-stamp-failed", message: stamp.error.message, anchorPr, runId };
 	}
 
 	return {
@@ -389,7 +389,7 @@ export async function executeDispatchPrompt(
 		revision: runInput.value.revision,
 		sourceBranch: branch,
 		sourcePushed,
-		...anchor,
+		anchorPr,
 		runId,
 	};
 }
