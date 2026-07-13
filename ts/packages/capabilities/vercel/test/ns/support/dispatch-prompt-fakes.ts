@@ -13,6 +13,7 @@ import type {
 import type {
 	DispatchAnchorPrGateway,
 	DispatchConfigGateway,
+	DispatchConfigSourceResult,
 	DispatchGitOperationResult,
 	DispatchLocalTokenGateway,
 	DispatchLocalTokenResult,
@@ -41,6 +42,10 @@ export const FAKE_DISPATCH_SETTINGS_SOURCE = [
 	"",
 ].join("\n");
 
+export const FAKE_PACKAGE_MANAGER_SOURCE = JSON.stringify({
+	packageManager: "pnpm@11.8.1",
+});
+
 export interface FakeWorkspaceGitState {
 	readonly repoRoot?: string;
 	readonly branch?: string;
@@ -55,6 +60,7 @@ export interface FakeWorkspaceGitState {
 }
 
 export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGateway {
+	readonly remoteTipReads: Array<{ cwd: string; branch: string }> = [];
 	readonly sourcePushes: string[] = [];
 	readonly anchorPushes: { revision: string; anchorBranch: string }[] = [];
 	private readonly state: FakeWorkspaceGitState;
@@ -94,7 +100,11 @@ export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGate
 		return { ok: true, value: [...(this.state.dirtyPaths ?? [])] };
 	}
 
-	async readRemoteBranchTip(): Promise<DispatchRemoteBranchTipResult> {
+	async readRemoteBranchTip(options: {
+		readonly cwd: string;
+		readonly branch: string;
+	}): Promise<DispatchRemoteBranchTipResult> {
+		this.remoteTipReads.push({ ...options });
 		return this.state.remoteTip ?? { type: "found", sha: this.headSha() };
 	}
 
@@ -221,18 +231,42 @@ export class FakeDispatchLocalTokenGateway implements DispatchLocalTokenGateway 
 	}
 }
 
-export class FakeDispatchConfigGateway implements DispatchConfigGateway {
-	private readonly source: string | null;
+export interface FakeDispatchConfigState {
+	readonly dispatchSettings?: DispatchConfigSourceResult;
+	readonly packageManager?: DispatchConfigSourceResult;
+}
 
-	constructor(source: string | null = FAKE_DISPATCH_SETTINGS_SOURCE) {
-		this.source = source;
+export class FakeDispatchConfigGateway implements DispatchConfigGateway {
+	readonly reads: Array<{
+		source: "dispatch-settings" | "package-manager";
+		repoRoot: string;
+	}> = [];
+	private readonly dispatchSettings: DispatchConfigSourceResult;
+	private readonly packageManager: DispatchConfigSourceResult;
+
+	constructor(state: FakeDispatchConfigState = {}) {
+		this.dispatchSettings = state.dispatchSettings ?? {
+			type: "found",
+			source: FAKE_DISPATCH_SETTINGS_SOURCE,
+		};
+		this.packageManager = state.packageManager ?? {
+			type: "found",
+			source: FAKE_PACKAGE_MANAGER_SOURCE,
+		};
 	}
 
-	async readDispatchSettingsSource(): ReturnType<
-		DispatchConfigGateway["readDispatchSettingsSource"]
-	> {
-		if (this.source === null) return { type: "missing" };
-		return { type: "found", source: this.source };
+	async readDispatchSettingsSource(options: {
+		readonly repoRoot: string;
+	}): ReturnType<DispatchConfigGateway["readDispatchSettingsSource"]> {
+		this.reads.push({ source: "dispatch-settings", repoRoot: options.repoRoot });
+		return this.dispatchSettings;
+	}
+
+	async readPackageManagerSource(options: {
+		readonly repoRoot: string;
+	}): ReturnType<DispatchConfigGateway["readPackageManagerSource"]> {
+		this.reads.push({ source: "package-manager", repoRoot: options.repoRoot });
+		return this.packageManager;
 	}
 }
 
@@ -241,13 +275,14 @@ export interface FakeDispatchGatewaysOptions {
 	readonly anchorPrs?: FakeAnchorPrState;
 	readonly trigger?: FakeTriggerState;
 	readonly token?: DispatchLocalTokenResult;
-	readonly configSource?: string | null;
+	readonly config?: FakeDispatchConfigState;
 }
 
 export interface FakeDispatchGatewayBundle extends DispatchPromptGateways {
 	readonly git: FakeDispatchWorkspaceGitGateway;
 	readonly anchorPrs: FakeDispatchAnchorPrGateway;
 	readonly trigger: FakeDispatchTriggerGateway;
+	readonly config: FakeDispatchConfigGateway;
 }
 
 export function createFakeDispatchGateways(
@@ -258,9 +293,7 @@ export function createFakeDispatchGateways(
 		anchorPrs: new FakeDispatchAnchorPrGateway(options.anchorPrs),
 		trigger: new FakeDispatchTriggerGateway(options.trigger),
 		tokens: new FakeDispatchLocalTokenGateway(options.token),
-		config: new FakeDispatchConfigGateway(
-			options.configSource === undefined ? FAKE_DISPATCH_SETTINGS_SOURCE : options.configSource,
-		),
+		config: new FakeDispatchConfigGateway(options.config),
 		generateAnchorId: () => FAKE_ANCHOR_ID,
 	};
 }

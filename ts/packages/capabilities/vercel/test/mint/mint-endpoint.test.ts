@@ -6,7 +6,12 @@ import type {
 	VercelOidcGateway,
 	VercelOidcVerificationResult,
 } from "../../src/mint/development-oidc.ts";
-import type { GitHubInstallationTokenGateway } from "../../src/mint/mint-core.ts";
+import type {
+	GitHubInstallationTokenGateway,
+	GitHubInstallationTokenResult,
+} from "../../src/mint/mint-core.ts";
+import type { OidcTrustConfig } from "../../src/mint/oidc-trust-config.ts";
+import type { GitHubAppAuthenticationConfig } from "../../src/mint/real-gateways.ts";
 import type { MintEnvironment } from "../../src/mint/runtime-config.ts";
 
 class InMemoryOidcGateway implements VercelOidcGateway {
@@ -22,31 +27,29 @@ class InMemoryOidcGateway implements VercelOidcGateway {
 }
 
 class RecordingGitHubGateway implements GitHubInstallationTokenGateway {
-	readonly #token: string;
-	readonly #expiresAt: string;
+	readonly #result: GitHubInstallationTokenResult;
 	readonly calls: Array<{ repository: string; purpose: MintPurpose }> = [];
 
-	constructor(options: { readonly token: string; readonly expiresAt: string }) {
-		this.#token = options.token;
-		this.#expiresAt = options.expiresAt;
+	constructor(result: GitHubInstallationTokenResult) {
+		this.#result = result;
 	}
 
 	async mintRepositoryToken(options: {
 		readonly repository: string;
 		readonly purpose: MintPurpose;
-	}) {
+	}): Promise<GitHubInstallationTokenResult> {
 		this.calls.push({ ...options });
-		return {
-			ok: true as const,
-			value: { token: this.#token, expiresAt: this.#expiresAt },
-		};
+		return this.#result;
 	}
 }
 
 function successfulGitHubGateway(): RecordingGitHubGateway {
 	return new RecordingGitHubGateway({
-		token: "installation-token",
-		expiresAt: "2026-07-12T18:00:00Z",
+		ok: true,
+		value: {
+			token: "installation-token",
+			expiresAt: "2026-07-12T18:00:00Z",
+		},
 	});
 }
 
@@ -56,7 +59,6 @@ function validEnvironment(): MintEnvironment {
 		NS_DISPATCH_GITHUB_APP_INSTALLATION_ID: "146155769",
 		NS_DISPATCH_GITHUB_APP_PRIVATE_KEY:
 			"-----BEGIN PRIVATE KEY-----\\nprivate-key-fixture\\n-----END PRIVATE KEY-----\\n",
-		NS_DISPATCH_SANDBOX_MINT_SECRET: "landing-secret",
 		NS_DISPATCH_GITHUB_REPOSITORY: "nseng-ai/ns",
 		NS_DISPATCH_VERCEL_TEAM_ID: "team_dispatch",
 		NS_DISPATCH_VERCEL_PROJECT_ID: "prj_dispatch",
@@ -76,25 +78,48 @@ function validOidcGateway(): InMemoryOidcGateway {
 	});
 }
 
+function mintRequest(
+	options: {
+		readonly purpose?: MintPurpose;
+		readonly oidcToken?: string;
+		readonly bearerToken?: string;
+	} = {},
+): Request {
+	const headers = new Headers({ "Content-Type": "application/json" });
+	if (options.oidcToken !== undefined) {
+		headers.set("x-ns-dispatch-oidc-token", options.oidcToken);
+	}
+	if (options.bearerToken !== undefined) {
+		headers.set("Authorization", `Bearer ${options.bearerToken}`);
+	}
+	return new Request("https://dispatch.example/api/mint", {
+		method: "POST",
+		headers,
+		body: JSON.stringify({
+			repository: "NSENG-AI/NS",
+			purpose: options.purpose ?? "clone",
+		}),
+	});
+}
+
 describe("createMintPostHandler", () => {
-	it("returns a strict successful response with cache prevention", async () => {
+	it("composes exact GitHub App and OIDC slices for a no-store clone response", async () => {
 		const github = successfulGitHubGateway();
+		const oidcConfigs: OidcTrustConfig[] = [];
+		const githubConfigs: GitHubAppAuthenticationConfig[] = [];
 		const handler = createMintPostHandler({
 			environment: validEnvironment(),
-			createOidcGateway: () => validOidcGateway(),
-			createGitHubGateway: () => github,
+			createOidcGateway: (config) => {
+				oidcConfigs.push({ ...config });
+				return validOidcGateway();
+			},
+			createGitHubGateway: (config) => {
+				githubConfigs.push({ ...config });
+				return github;
+			},
 		});
 
-		const response = await handler(
-			new Request("https://dispatch.example/api/mint", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"x-ns-dispatch-oidc-token": "oidc-token",
-				},
-				body: JSON.stringify({ repository: "NSENG-AI/NS", purpose: "clone" }),
-			}),
-		);
+		const response = await handler(mintRequest({ oidcToken: "oidc-token" }));
 
 		expect(response.status).toBe(200);
 		expect(response.headers.get("cache-control")).toBe("no-store");
@@ -104,6 +129,22 @@ describe("createMintPostHandler", () => {
 			repository: "nseng-ai/ns",
 			purpose: "clone",
 		});
+		expect(oidcConfigs).toEqual([
+			{
+				vercelTeamId: "team_dispatch",
+				vercelProjectId: "prj_dispatch",
+				vercelOidcIssuer: "https://oidc.vercel.com/nseng-ai",
+				vercelOidcAudience: "https://vercel.com/nseng-ai",
+			},
+		]);
+		expect(githubConfigs).toEqual([
+			{
+				githubAppId: "4282120",
+				githubAppInstallationId: "146155769",
+				githubAppPrivateKey:
+					"-----BEGIN PRIVATE KEY-----\nprivate-key-fixture\n-----END PRIVATE KEY-----\n",
+			},
+		]);
 		expect(github.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "clone" }]);
 	});
 
@@ -114,23 +155,34 @@ describe("createMintPostHandler", () => {
 			createOidcGateway: () => validOidcGateway(),
 			createGitHubGateway: () => github,
 		});
+		const request = mintRequest();
+		request.headers.set("x-vercel-oidc-token", "production-workload-token");
 
-		const response = await handler(
-			new Request("https://dispatch.example/api/mint", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"x-vercel-oidc-token": "production-workload-token",
-				},
-				body: JSON.stringify({ repository: "nseng-ai/ns", purpose: "clone" }),
-			}),
-		);
+		const response = await handler(request);
 
 		expect(response.status).toBe(401);
+		expect(response.headers.get("cache-control")).toBe("no-store");
 		expect(github.calls).toEqual([]);
 	});
 
-	it("supports the landing Bearer channel without replacing ambient environment", async () => {
+	it("does not treat a Bearer credential as clone authentication", async () => {
+		const github = successfulGitHubGateway();
+		const handler = createMintPostHandler({
+			environment: validEnvironment(),
+			createOidcGateway: () => validOidcGateway(),
+			createGitHubGateway: () => github,
+		});
+
+		const response = await handler(mintRequest({ bearerToken: "retired-channel-credential" }));
+		const body = await response.text();
+
+		expect(response.status).toBe(401);
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		expect(body).not.toContain("retired-channel-credential");
+		expect(github.calls).toEqual([]);
+	});
+
+	it("does not let a Bearer credential enable landing minting", async () => {
 		const github = successfulGitHubGateway();
 		const handler = createMintPostHandler({
 			environment: validEnvironment(),
@@ -139,18 +191,56 @@ describe("createMintPostHandler", () => {
 		});
 
 		const response = await handler(
-			new Request("https://dispatch.example/api/mint", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: "Bearer landing-secret",
-				},
-				body: JSON.stringify({ repository: "nseng-ai/ns", purpose: "landing" }),
-			}),
+			mintRequest({ purpose: "landing", bearerToken: "retired-channel-credential" }),
+		);
+		const body = await response.text();
+
+		expect(response.status).toBe(401);
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		expect(body).not.toContain("retired-channel-credential");
+		expect(github.calls).toEqual([]);
+	});
+
+	it("ignores a Bearer credential when the dispatch-owned OIDC header is valid", async () => {
+		const github = successfulGitHubGateway();
+		const handler = createMintPostHandler({
+			environment: validEnvironment(),
+			createOidcGateway: () => validOidcGateway(),
+			createGitHubGateway: () => github,
+		});
+
+		const response = await handler(
+			mintRequest({ oidcToken: "oidc-token", bearerToken: "must-be-ignored" }),
 		);
 
 		expect(response.status).toBe(200);
-		expect(github.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "landing" }]);
+		expect(github.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "clone" }]);
+	});
+
+	it("forbids a landing purpose even when both legacy and OIDC headers are present", async () => {
+		const github = successfulGitHubGateway();
+		const handler = createMintPostHandler({
+			environment: validEnvironment(),
+			createOidcGateway: () => validOidcGateway(),
+			createGitHubGateway: () => github,
+		});
+
+		const response = await handler(
+			mintRequest({
+				purpose: "landing",
+				oidcToken: "oidc-token-must-not-leak",
+				bearerToken: "retired-channel-must-not-enable-landing",
+			}),
+		);
+		const body = await response.text();
+
+		expect(response.status).toBe(403);
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		expect(body).toBe('{"error":{"code":"forbidden","message":"Mint request is not authorized."}}');
+		expect(body).not.toContain("oidc-token-must-not-leak");
+		expect(body).not.toContain("retired-channel-must-not-enable-landing");
+		expect(body).not.toContain("installation-token");
+		expect(github.calls).toEqual([]);
 	});
 
 	it("returns a safe no-store 400 for malformed JSON", async () => {
@@ -175,24 +265,59 @@ describe("createMintPostHandler", () => {
 		});
 	});
 
-	it("returns a variable-name-only no-store 500 for invalid runtime configuration", async () => {
+	it("returns a variable-name-only no-store 500 for invalid GitHub App configuration", async () => {
 		const environment = {
 			...validEnvironment(),
 			NS_DISPATCH_GITHUB_APP_PRIVATE_KEY: "private-value-must-not-leak",
 		};
 		const handler = createMintPostHandler({ environment });
 
-		const response = await handler(
-			new Request("https://dispatch.example/api/mint", {
-				method: "POST",
-				body: "{}",
-			}),
-		);
+		const response = await handler(mintRequest());
 		const body = await response.text();
 
 		expect(response.status).toBe(500);
 		expect(response.headers.get("cache-control")).toBe("no-store");
 		expect(body).toContain("NS_DISPATCH_GITHUB_APP_PRIVATE_KEY");
 		expect(body).not.toContain("private-value-must-not-leak");
+	});
+
+	it("requires the OIDC trust slice and does not expose an invalid value", async () => {
+		const invalidIssuer = "oidc-issuer-value-must-not-leak";
+		const handler = createMintPostHandler({
+			environment: {
+				...validEnvironment(),
+				NS_DISPATCH_VERCEL_OIDC_ISSUER: invalidIssuer,
+			},
+		});
+
+		const response = await handler(mintRequest());
+		const body = await response.text();
+
+		expect(response.status).toBe(500);
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		expect(body).toContain("NS_DISPATCH_VERCEL_OIDC_ISSUER");
+		expect(body).not.toContain(invalidIssuer);
+	});
+
+	it("returns a safe no-store 502 without key, OIDC, or token material", async () => {
+		const github = new RecordingGitHubGateway({ ok: false });
+		const environment = validEnvironment();
+		const handler = createMintPostHandler({
+			environment,
+			createOidcGateway: () => validOidcGateway(),
+			createGitHubGateway: () => github,
+		});
+
+		const response = await handler(mintRequest({ oidcToken: "oidc-token-must-not-leak" }));
+		const body = await response.text();
+
+		expect(response.status).toBe(502);
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		expect(body).toBe(
+			'{"error":{"code":"github-token-mint-failed","message":"GitHub token mint failed."}}',
+		);
+		expect(body).not.toContain("private-key-fixture");
+		expect(body).not.toContain("oidc-token-must-not-leak");
+		expect(body).not.toContain("installation-token");
 	});
 });

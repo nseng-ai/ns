@@ -5,21 +5,23 @@ import {
 	createGitHubAppDispatchTokenMinter,
 	createGitHubInstallationTokenGateway,
 	createJoseVercelOidcGateway,
-	createSharedSecretLandingCredentialGateway,
 	type AppAuthFactoryOptions,
 	type InstallationAuthentication,
 	type InstallationAuthOptions,
 } from "../../src/mint/real-gateways.ts";
-import type { MintRuntimeConfig } from "../../src/mint/runtime-config.ts";
+import type { OidcTrustConfig } from "../../src/mint/oidc-trust-config.ts";
+import type { GitHubAppMintConfig } from "../../src/mint/runtime-config.ts";
 
 type SigningKey = Awaited<ReturnType<typeof generateKeyPair>>["privateKey"];
 
-const config: MintRuntimeConfig = {
+const config: GitHubAppMintConfig = {
 	githubAppId: "4282120",
 	githubAppInstallationId: "146155769",
 	githubAppPrivateKey: "private-key-fixture",
-	sandboxMintSecret: "landing-secret-fixture",
 	githubRepository: "nseng-ai/ns",
+};
+
+const oidcTrust: OidcTrustConfig = {
 	vercelTeamId: "team_dispatch",
 	vercelProjectId: "prj_dispatch",
 	vercelOidcIssuer: "https://oidc.vercel.com/nseng-ai",
@@ -162,15 +164,15 @@ describe("createJoseVercelOidcGateway", () => {
 
 		const result = await gateway.verifyDevelopmentIdentity({
 			token,
-			issuer: config.vercelOidcIssuer,
-			audience: config.vercelOidcAudience,
+			issuer: oidcTrust.vercelOidcIssuer,
+			audience: oidcTrust.vercelOidcAudience,
 		});
 
 		expect(result).toEqual({
 			ok: true,
 			value: {
-				ownerId: config.vercelTeamId,
-				projectId: config.vercelProjectId,
+				ownerId: oidcTrust.vercelTeamId,
+				projectId: oidcTrust.vercelProjectId,
 				environment: "development",
 			},
 		});
@@ -187,8 +189,8 @@ describe("createJoseVercelOidcGateway", () => {
 
 		const result = await gateway.verifyDevelopmentIdentity({
 			token,
-			issuer: config.vercelOidcIssuer,
-			audience: config.vercelOidcAudience,
+			issuer: oidcTrust.vercelOidcIssuer,
+			audience: oidcTrust.vercelOidcAudience,
 		});
 
 		expect(result).toEqual({ ok: false });
@@ -198,31 +200,22 @@ describe("createJoseVercelOidcGateway", () => {
 		const { publicKey, privateKey } = await generateKeyPair("ES256");
 		const gateway = createJoseVercelOidcGateway({ keyResolver: async () => publicKey });
 		const token = await new SignJWT({
-			owner_id: config.vercelTeamId,
-			project_id: config.vercelProjectId,
+			owner_id: oidcTrust.vercelTeamId,
+			project_id: oidcTrust.vercelProjectId,
 			environment: "development",
 		})
 			.setProtectedHeader({ alg: "ES256", kid: "fixture" })
-			.setIssuer(config.vercelOidcIssuer)
-			.setAudience(config.vercelOidcAudience)
+			.setIssuer(oidcTrust.vercelOidcIssuer)
+			.setAudience(oidcTrust.vercelOidcAudience)
 			.sign(privateKey);
 
 		const result = await gateway.verifyDevelopmentIdentity({
 			token,
-			issuer: config.vercelOidcIssuer,
-			audience: config.vercelOidcAudience,
+			issuer: oidcTrust.vercelOidcIssuer,
+			audience: oidcTrust.vercelOidcAudience,
 		});
 
 		expect(result).toEqual({ ok: false });
-	});
-});
-
-describe("createSharedSecretLandingCredentialGateway", () => {
-	it("accepts only the configured credential", () => {
-		const gateway = createSharedSecretLandingCredentialGateway("expected-secret");
-
-		expect(gateway.verifyLandingCredential("expected-secret")).toBe(true);
-		expect(gateway.verifyLandingCredential("other-secret")).toBe(false);
 	});
 });
 
@@ -237,13 +230,13 @@ async function signedToken(
 	overrides: SignedTokenOverrides,
 ): Promise<string> {
 	return new SignJWT({
-		owner_id: config.vercelTeamId,
-		project_id: config.vercelProjectId,
+		owner_id: oidcTrust.vercelTeamId,
+		project_id: oidcTrust.vercelProjectId,
 		environment: "development",
 	})
 		.setProtectedHeader({ alg: "ES256", kid: "fixture" })
-		.setIssuer(overrides.issuer ?? config.vercelOidcIssuer)
-		.setAudience(overrides.audience ?? config.vercelOidcAudience)
+		.setIssuer(overrides.issuer ?? oidcTrust.vercelOidcIssuer)
+		.setAudience(overrides.audience ?? oidcTrust.vercelOidcAudience)
 		.setIssuedAt()
 		.setExpirationTime(overrides.expiration ?? "5m")
 		.sign(privateKey);

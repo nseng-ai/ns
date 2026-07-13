@@ -8,7 +8,6 @@
 // Token material must never be logged, echoed, or persisted; failures carry
 // stable codes only.
 import { normalizeGitHubRepository, parseGitHubRepository, type MintPurpose } from "./contracts.ts";
-import type { MintRuntimeConfig } from "./runtime-config.ts";
 
 export interface GitHubInstallationToken {
 	readonly token: string;
@@ -47,14 +46,14 @@ export interface DispatchTokenMinter {
 }
 
 export interface DispatchTokenMinterOptions {
-	readonly config: Pick<MintRuntimeConfig, "githubRepository">;
+	readonly repository: string;
 	readonly github: GitHubInstallationTokenGateway;
 }
 
 export function createDispatchTokenMinter(
 	options: DispatchTokenMinterOptions,
 ): DispatchTokenMinter {
-	const allowedRepository = normalizeGitHubRepository(options.config.githubRepository);
+	const allowedRepository = normalizeGitHubRepository(options.repository);
 	return {
 		async mintDispatchToken(request) {
 			// `=== false` rather than `!`: the Vercel builder typechecks without

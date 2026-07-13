@@ -23,9 +23,9 @@
 import type { DispatchTokenMinter } from "../mint/mint-core.ts";
 import { createGitHubAppDispatchTokenMinter } from "../mint/real-gateways.ts";
 import {
-	parseMintRuntimeConfig,
+	parseGitHubAppMintConfig,
+	type GitHubAppMintConfig,
 	type MintEnvironment,
-	type MintRuntimeConfig,
 } from "../mint/runtime-config.ts";
 import type {
 	SupervisionCleanupResult,
@@ -38,7 +38,6 @@ import {
 	DISPATCH_LANDING_TOKEN_ENV_NAME,
 	DISPATCH_PROMPT_PATH,
 	DISPATCH_RESULT_PATH,
-	DISPATCH_SETTINGS_PATH,
 	isValidDispatchAnchorBranch,
 	parseDispatchHarnessResult,
 	planDispatchSupervision,
@@ -55,8 +54,13 @@ import {
 	type StopDispatchSandboxResult,
 } from "./dispatch-run.ts";
 import {
-	resolveConfiguredHarnessInvocation,
+	DISPATCH_PACKAGE_MANAGER_FIELD,
+	DISPATCH_PACKAGE_MANIFEST_PATH,
+	DISPATCH_SETTINGS_PATH,
 	type HarnessInvocation,
+} from "./harness-registry.ts";
+import {
+	resolveConfiguredHarnessInvocation,
 	type HarnessInvocationResolver,
 } from "./harness-invocation.ts";
 import { createGitHubDispatchReportGateway } from "./real-dispatch-report-gateway.ts";
@@ -64,10 +68,10 @@ import { createRealDispatchSandboxGateway } from "./real-dispatch-sandbox-gatewa
 
 export interface DispatchStepDeps {
 	readonly environment: MintEnvironment;
-	readonly createDispatchTokenMinter: (config: MintRuntimeConfig) => DispatchTokenMinter;
+	readonly createDispatchTokenMinter: (config: GitHubAppMintConfig) => DispatchTokenMinter;
 	readonly createSandboxGateway: () => DispatchSandboxGateway;
 	readonly createReportGateway: (options: {
-		readonly config: MintRuntimeConfig;
+		readonly repository: string;
 		readonly minter: DispatchTokenMinter;
 	}) => DispatchReportGateway;
 	readonly resolveHarnessInvocation: HarnessInvocationResolver;
@@ -78,8 +82,8 @@ export function defaultDispatchStepDeps(): DispatchStepDeps {
 		environment: process.env,
 		createDispatchTokenMinter: (config) => createGitHubAppDispatchTokenMinter(config),
 		createSandboxGateway: () => createRealDispatchSandboxGateway(),
-		createReportGateway: ({ config, minter }) =>
-			createGitHubDispatchReportGateway({ repository: config.githubRepository, minter }),
+		createReportGateway: ({ repository, minter }) =>
+			createGitHubDispatchReportGateway({ repository, minter }),
 		resolveHarnessInvocation: resolveConfiguredHarnessInvocation,
 	};
 }
@@ -88,11 +92,11 @@ export function defaultDispatchStepDeps(): DispatchStepDeps {
  * Create the dispatch sandbox over the exact dispatched SHA and launch the
  * configured harness detached inside it. Everything that can be checked
  * before the billable sandbox exists is checked first (LBYL: input, runtime
- * configuration). Harness configuration lives in the checkout's own root
- * `ns.toml` at the dispatched SHA, so the harness invocation and its launch
- * environment can only be resolved once the sandbox exists; those checks —
- * and every other post-creation failure — stop the sandbox before
- * returning, with the sandbox timeout as the backstop.
+ * configuration). Harness and package-manager configuration live in the
+ * checkout's own `ns.toml` and `ts/package.json` at the dispatched SHA, so
+ * the invocation and launch environment can only be resolved once the
+ * sandbox exists; those checks — and every other post-creation failure —
+ * stop the sandbox before returning, with the sandbox timeout as the backstop.
  */
 export async function launchDispatchRun(
 	input: DispatchRunInput,
@@ -106,20 +110,20 @@ export async function launchDispatchRun(
 	}
 	const run = validated.value;
 
-	const configResult = parseMintRuntimeConfig(deps.environment);
-	if (configResult.ok === false) {
+	const appConfigResult = parseGitHubAppMintConfig(deps.environment);
+	if (appConfigResult.ok === false) {
 		return {
 			ok: false,
 			code: "dispatch-misconfigured",
 			// Variable name only — never an environment value.
-			message: `Dispatch configuration is invalid: ${configResult.error.variable}.`,
+			message: `Dispatch configuration is invalid: ${appConfigResult.error.variable}.`,
 		};
 	}
-	const config = configResult.value;
+	const appConfig = appConfigResult.value;
 
-	const minter = deps.createDispatchTokenMinter(config);
+	const minter = deps.createDispatchTokenMinter(appConfig);
 	const mintResult = await minter.mintDispatchToken({
-		repository: config.githubRepository,
+		repository: appConfig.githubRepository,
 		purpose: "clone",
 	});
 	if (mintResult.ok === false) {
@@ -133,7 +137,7 @@ export async function launchDispatchRun(
 			runtime: "node24",
 			timeoutMs: planDispatchSupervision().sandboxTimeoutMs,
 			source: {
-				repository: config.githubRepository,
+				repository: appConfig.githubRepository,
 				revision: run.revision,
 				cloneToken: mintResult.value.token,
 			},
@@ -155,10 +159,9 @@ export async function launchDispatchRun(
 	}
 	const sandboxName = createResult.sandboxName;
 
-	// Harness choice is repo configuration at the dispatched SHA: the
-	// checkout's root ns.toml is only readable once the sandbox exists, so
-	// the remaining configuration checks run post-creation and stop the
-	// sandbox on failure rather than leak it until the sandbox timeout.
+	// Invocation inputs are repo configuration at the dispatched SHA. Read
+	// settings first and the package manifest second, then resolve only from
+	// those checkout-owned sources; every failure stops the sandbox.
 	let settingsRead: ReadDispatchSandboxFileResult;
 	try {
 		settingsRead = await sandboxes.readSandboxFile({
@@ -172,16 +175,37 @@ export async function launchDispatchRun(
 		await stopSandboxBestEffort(sandboxes, sandboxName);
 		return {
 			ok: false,
-			code: "launch-failed",
-			message: "Reading the checkout's dispatch settings failed.",
+			code: "dispatch-misconfigured",
+			message: `Dispatch configuration is invalid: ${DISPATCH_SETTINGS_PATH} could not be read from the dispatched checkout.`,
 		};
 	}
 
-	const harnessResult = deps.resolveHarnessInvocation(settingsRead.content);
+	let packageManagerRead: ReadDispatchSandboxFileResult;
+	try {
+		packageManagerRead = await sandboxes.readSandboxFile({
+			sandboxName,
+			path: DISPATCH_PACKAGE_MANIFEST_PATH,
+		});
+	} catch {
+		packageManagerRead = { ok: false };
+	}
+	if (packageManagerRead.ok === false) {
+		await stopSandboxBestEffort(sandboxes, sandboxName);
+		return {
+			ok: false,
+			code: "dispatch-misconfigured",
+			message: `Dispatch configuration is invalid: ${DISPATCH_PACKAGE_MANAGER_FIELD} could not be read from the dispatched checkout.`,
+		};
+	}
+
+	const harnessResult = deps.resolveHarnessInvocation(
+		settingsRead.content,
+		packageManagerRead.content,
+	);
 	if (harnessResult.ok === false) {
 		await stopSandboxBestEffort(sandboxes, sandboxName);
-		// Non-secret by contract: the resolver's message describes versioned
-		// ns.toml configuration, never an environment value.
+		// Non-secret by contract: the resolver's message describes checkout-owned
+		// configuration, never a source value or environment value.
 		return { ok: false, code: "dispatch-misconfigured", message: harnessResult.message };
 	}
 	const harness = harnessResult.value;
@@ -368,22 +392,22 @@ export async function landDispatchRun(
 	if (!isValidDispatchAnchorBranch(options.anchorBranch)) {
 		return { ok: false, code: "landing-failed", message: "Anchor branch name is invalid." };
 	}
-	const configResult = parseMintRuntimeConfig(deps.environment);
+	const appConfigResult = parseGitHubAppMintConfig(deps.environment);
 	// `=== false` rather than `!`: the Vercel builder typechecks without
 	// strictNullChecks, where truthiness checks do not narrow the union.
-	if (configResult.ok === false) {
+	if (appConfigResult.ok === false) {
 		return {
 			ok: false,
 			code: "dispatch-misconfigured",
 			// Variable name only — never an environment value.
-			message: `Dispatch configuration is invalid: ${configResult.error.variable}.`,
+			message: `Dispatch configuration is invalid: ${appConfigResult.error.variable}.`,
 		};
 	}
-	const config = configResult.value;
+	const appConfig = appConfigResult.value;
 
-	const minter = deps.createDispatchTokenMinter(config);
+	const minter = deps.createDispatchTokenMinter(appConfig);
 	const mintResult = await minter.mintDispatchToken({
-		repository: config.githubRepository,
+		repository: appConfig.githubRepository,
 		purpose: "landing",
 	});
 	if (mintResult.ok === false) {
@@ -394,7 +418,7 @@ export async function landDispatchRun(
 		const commandResult = await deps.createSandboxGateway().runSandboxCommand({
 			sandboxName: options.sandboxName,
 			command: buildDispatchLandingCommand({
-				repository: config.githubRepository,
+				repository: appConfig.githubRepository,
 				anchorBranch: options.anchorBranch,
 			}),
 			env: { [DISPATCH_LANDING_TOKEN_ENV_NAME]: mintResult.value.token },
@@ -438,16 +462,14 @@ export async function reportDispatchLanded(
 	options: { readonly anchorPrNumber: number; readonly decisionLog: string | null },
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
 ): Promise<DispatchReportResult> {
-	const gateway = createReportGateway(deps);
-	if (gateway === null) return { ok: false };
-	try {
-		return await gateway.publishAnchorPrDecisionLog({
-			anchorPrNumber: options.anchorPrNumber,
-			decisionLog: options.decisionLog,
-		});
-	} catch {
-		return { ok: false };
-	}
+	return await withReportGateway(
+		deps,
+		async (gateway) =>
+			await gateway.publishAnchorPrDecisionLog({
+				anchorPrNumber: options.anchorPrNumber,
+				decisionLog: options.decisionLog,
+			}),
+	);
 }
 
 /**
@@ -464,29 +486,40 @@ export async function reportDispatchFailure(
 	},
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
 ): Promise<DispatchReportResult> {
+	return await withReportGateway(
+		deps,
+		async (gateway) =>
+			await gateway.ensureAnchorPrFailureComment({
+				anchorPrNumber: options.anchorPrNumber,
+				anchorBranch: options.anchorBranch,
+				code: options.code,
+				message: options.message,
+			}),
+	);
+}
+
+async function withReportGateway(
+	deps: DispatchStepDeps,
+	operation: (gateway: DispatchReportGateway) => Promise<DispatchReportResult>,
+): Promise<DispatchReportResult> {
 	const gateway = createReportGateway(deps);
 	if (gateway === null) return { ok: false };
 	try {
-		return await gateway.ensureAnchorPrFailureComment({
-			anchorPrNumber: options.anchorPrNumber,
-			anchorBranch: options.anchorBranch,
-			code: options.code,
-			message: options.message,
-		});
+		return await operation(gateway);
 	} catch {
 		return { ok: false };
 	}
 }
 
 function createReportGateway(deps: DispatchStepDeps): DispatchReportGateway | null {
-	const configResult = parseMintRuntimeConfig(deps.environment);
+	const appConfigResult = parseGitHubAppMintConfig(deps.environment);
 	// `=== false` rather than `!`: the Vercel builder typechecks without
 	// strictNullChecks, where truthiness checks do not narrow the union.
-	if (configResult.ok === false) return null;
-	const config = configResult.value;
+	if (appConfigResult.ok === false) return null;
+	const appConfig = appConfigResult.value;
 	return deps.createReportGateway({
-		config,
-		minter: deps.createDispatchTokenMinter(config),
+		repository: appConfig.githubRepository,
+		minter: deps.createDispatchTokenMinter(appConfig),
 	});
 }
 

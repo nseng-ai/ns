@@ -14,8 +14,9 @@ canonical user-facing contract remains `references/README-draft.md`
 sacrifices are acceptable wherever the better solution stays
 straightforward to swap in later; as of the 2026-07-13 revision the
 credential path carries no such sacrifice — the remaining prototype debt
-is the App's overbroad Actions/Workflows permissions and the pending
-removal of the retired mint-secret variable.
+is the App's overbroad Actions/Workflows permissions and the pending human
+removal of the inert deployed mint-secret variable, which no current code
+or runtime parser consumes.
 
 ## 1. Mechanism: GitHub App installation tokens
 
@@ -107,13 +108,16 @@ The app private key lives only on the Vercel project. Minting callers:
   OIDC token (`vercel link` + `vercel env pull`) on the dispatch-owned
   header. The endpoint is no longer on the dispatch path.
 
-Retired before implementation (2026-07-13): the v1 **shared sandbox mint
-secret** (a standing credential in the agent environment that could mint
-push tokens) and its named upgrade, the per-run **landing voucher** — with
-no sandbox-initiated minting in the architecture, there is nothing for a
-voucher to authenticate. The deployed `NS_DISPATCH_SANDBOX_MINT_SECRET`
-production variable is purposeless; remove it once the workflow spine
-lands (tracked on the credentials roadmap row).
+Retired by the 2026-07-13 architecture revision: the v1 **shared sandbox
+mint secret** (a standing credential in the agent environment that could
+mint push tokens) and its named upgrade, the per-run **landing voucher** —
+with no sandbox-initiated minting in the architecture, there is nothing for
+a voucher to authenticate. The code-side retirement is now complete: the
+HTTP shared-secret adapter and landing path are gone, and `POST /api/mint`
+authenticates only Development OIDC and permits only clone minting. The
+deployed `NS_DISPATCH_SANDBOX_MINT_SECRET` production variable is inert but
+remains through the pending live pass; remove it afterward through the
+human-only environment process (tracked on the credentials roadmap row).
 
 Rejected (2026-07-12, still instructive): the (possibly expired) clone
 token as proof-of-run — an expired token proves nothing and an unexpired
@@ -143,22 +147,30 @@ human account; owes a re-registration later).
   stay secret-free by default: each run receives only the keys its
   configured harness requires plus its phase-appropriate git credential.
 - **Preflight** makes the README's promise true — "reports exactly what is
-  missing before any remote work starts": `ns.toml` `[dispatch]` present
-  and well-formed; Vercel OIDC dev token available; mint endpoint
-  reachable; required model keys present on the project (names only, via
-  the deployable); clean tree; anchor push feasibility.
+  missing before any remote work starts": repo-root `ns.toml` has a valid
+  `[dispatch]` table with a currently implemented harness and deployment
+  URL; `ts/package.json#packageManager` is an exact stable pnpm declaration;
+  the Vercel Development OIDC token is available; and a read-only
+  authenticated run-status call confirms the trigger deployment accepts the
+  caller. The command refuses a dirty tree before preflight. Remote launch
+  independently re-reads the exact checkout's harness and package-manager
+  configuration and checks the selected recipe's model-key names before
+  provisioning.
 
-## What remains to implement (interleaves with the workflow spine)
+## Implementation status and remaining cleanup
 
-Items 1–3 of the original list landed 2026-07-12/13 (App registration and
-installation; the linked package-root Vercel project with production
-variables; the OIDC-authenticated mint endpoint, verified by a billable
-private-repository probe). Remaining after the 2026-07-13 revision:
+The original App registration/installation, linked package-root Vercel
+project, and OIDC-authenticated clone probe landed and were live-verified on
+2026-07-12/13. The in-process `DispatchTokenMinter`, local dispatch preflight,
+OIDC-only/clone-only HTTP adapter, consumer-specific runtime configuration,
+and removal of the shared-secret landing code are locally complete. The
+workflow-side minting and full dispatch path remain pending the batched live
+pass.
 
-1. Expose the mint core for in-process use by the dispatch workflow
-   (clone and landing phases), keeping the HTTP endpoint for the
-   Development probe/preflight path.
-2. Dispatch preflight per §7 (plus workflow deployment health).
-3. Remove the retired `NS_DISPATCH_SANDBOX_MINT_SECRET` production
-   variable once the workflow spine lands; tighten the App's extra
-   Actions/Workflows write permissions before wider deployment.
+Operational cleanup remains deliberately separate from code:
+
+1. After the pending live pass, remove the inert deployed
+   `NS_DISPATCH_SANDBOX_MINT_SECRET` variable through the human-only Vercel
+   environment process.
+2. Tighten the App's extra Actions/Workflows write permissions before wider
+   deployment.

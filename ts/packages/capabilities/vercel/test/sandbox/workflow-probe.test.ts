@@ -28,12 +28,7 @@ function validEnvironment(): MintEnvironment {
 		NS_DISPATCH_GITHUB_APP_ID: "4282120",
 		NS_DISPATCH_GITHUB_APP_INSTALLATION_ID: "146155769",
 		NS_DISPATCH_GITHUB_APP_PRIVATE_KEY: privateKey,
-		NS_DISPATCH_SANDBOX_MINT_SECRET: "retired-but-still-deployed",
 		NS_DISPATCH_GITHUB_REPOSITORY: "NSENG-AI/NS",
-		NS_DISPATCH_VERCEL_TEAM_ID: "team_dispatch",
-		NS_DISPATCH_VERCEL_PROJECT_ID: "prj_dispatch",
-		NS_DISPATCH_VERCEL_OIDC_ISSUER: "https://oidc.vercel.com/nseng-ai",
-		NS_DISPATCH_VERCEL_OIDC_AUDIENCE: "https://vercel.com/nseng-ai",
 	};
 }
 
@@ -125,7 +120,7 @@ function createGateways(options: { readonly mintResult?: DispatchTokenMintResult
 }
 
 describe("runWorkflowSandboxProbe", () => {
-	it("mints in-process, injects the token into the clone only, and cleans up", async () => {
+	it("mints and cleans up without OIDC-only environment variables", async () => {
 		const { gateways, minter, sandboxes, session, minterConfigs } = createGateways();
 
 		const result = await runWorkflowSandboxProbe(

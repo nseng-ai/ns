@@ -4,11 +4,7 @@
 // workflow (hello or sandbox-probe) or read a run's status through the
 // WorkflowRunGateway seam. Unauthenticated callers get the same safe
 // 401-shaped response as `/api/mint` — no information leak.
-import {
-	authenticateDevelopmentCaller,
-	type DevelopmentCallerExpectation,
-	type VercelOidcGateway,
-} from "../mint/development-oidc.ts";
+import { authenticateDevelopmentCaller, type VercelOidcGateway } from "../mint/development-oidc.ts";
 import {
 	runIdSchema,
 	triggerRequestSchema,
@@ -43,7 +39,7 @@ export async function handleTriggerRequest(
 
 	const authentication = await authenticateDevelopmentCaller(
 		input.oidcToken,
-		callerExpectation(context.config),
+		context.config,
 		context.oidc,
 	);
 	// `=== false` rather than `!`: the Vercel builder typechecks without
@@ -85,7 +81,7 @@ export async function handleRunStatusRequest(
 
 	const authentication = await authenticateDevelopmentCaller(
 		input.oidcToken,
-		callerExpectation(context.config),
+		context.config,
 		context.oidc,
 	);
 	if (authentication.ok === false) {
@@ -135,15 +131,6 @@ function toWorkflowStartRequest(request: TriggerRequest): WorkflowStartRequest {
 				},
 			};
 	}
-}
-
-function callerExpectation(config: TriggerRuntimeConfig): DevelopmentCallerExpectation {
-	return {
-		issuer: config.vercelOidcIssuer,
-		audience: config.vercelOidcAudience,
-		teamId: config.vercelTeamId,
-		projectId: config.vercelProjectId,
-	};
 }
 
 function triggerFailure(

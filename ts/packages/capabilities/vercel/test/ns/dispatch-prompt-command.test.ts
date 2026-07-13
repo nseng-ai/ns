@@ -134,12 +134,17 @@ describe("ns dispatch prompt", () => {
 
 	test("fails preflight before any mutation when deployment_url is missing", async () => {
 		const { exit, gateways } = await runPromptCommand([PROMPT], {
-			configSource: [
-				"[dispatch]",
-				'harness = "pi"',
-				'vercel_project_id = "prj_F1"',
-				'vercel_team_id = "team_F1"',
-			].join("\n"),
+			config: {
+				dispatchSettings: {
+					type: "found",
+					source: [
+						"[dispatch]",
+						'harness = "pi"',
+						'vercel_project_id = "prj_F1"',
+						'vercel_team_id = "team_F1"',
+					].join("\n"),
+				},
+			},
 		});
 
 		expect(exit.type).toBe("failure");
@@ -149,6 +154,57 @@ describe("ns dispatch prompt", () => {
 		expect(gateways.git.sourcePushes).toEqual([]);
 		expect(gateways.git.anchorPushes).toEqual([]);
 		expect(gateways.anchorPrs.opened).toEqual([]);
+	});
+
+	test("rejects local claude-code config before remote-tip reads or mutations", async () => {
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
+			config: {
+				dispatchSettings: {
+					type: "found",
+					source: [
+						"[dispatch]",
+						'harness = "claude-code"',
+						'vercel_project_id = "prj_F1"',
+						'vercel_team_id = "team_F1"',
+						`deployment_url = "${FAKE_DEPLOYMENT_URL}"`,
+					].join("\n"),
+				},
+			},
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("preflight-failed");
+		expect(gateways.git.remoteTipReads).toEqual([]);
+		expect(gateways.git.sourcePushes).toEqual([]);
+		expect(gateways.git.anchorPushes).toEqual([]);
+		expect(gateways.anchorPrs.opened).toEqual([]);
+		expect(gateways.trigger.identityCalls).toEqual([]);
+		expect(gateways.trigger.startCalls).toEqual([]);
+	});
+
+	test("rejects an invalid packageManager before remote-tip reads or mutations", async () => {
+		const invalidValue = "pnpm@latest;do-not-expose";
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
+			config: {
+				packageManager: {
+					type: "found",
+					source: JSON.stringify({ packageManager: invalidValue }),
+				},
+			},
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("preflight-failed");
+		expect(exit.message).toContain("ts/package.json#packageManager");
+		expect(exit.message).not.toContain(invalidValue);
+		expect(gateways.git.remoteTipReads).toEqual([]);
+		expect(gateways.git.sourcePushes).toEqual([]);
+		expect(gateways.git.anchorPushes).toEqual([]);
+		expect(gateways.anchorPrs.opened).toEqual([]);
+		expect(gateways.trigger.identityCalls).toEqual([]);
+		expect(gateways.trigger.startCalls).toEqual([]);
 	});
 
 	test("fails preflight when the Development OIDC token is absent, naming it without a value", async () => {

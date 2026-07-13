@@ -1,7 +1,6 @@
+export { dispatchHarnessValues, type DispatchHarness } from "../dispatch/harness-registry.ts";
 export {
-	dispatchHarnessValues,
 	parseDispatchProjectConfigToml,
-	type DispatchHarness,
 	type DispatchProjectConfig,
 	type DispatchProjectConfigError,
 	type DispatchProjectConfigErrorCode,

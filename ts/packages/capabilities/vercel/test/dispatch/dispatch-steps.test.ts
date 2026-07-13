@@ -8,7 +8,6 @@ import {
 	DISPATCH_LANDING_TOKEN_ENV_NAME,
 	DISPATCH_PROMPT_PATH,
 	DISPATCH_RESULT_PATH,
-	DISPATCH_SETTINGS_PATH,
 	planDispatchSupervision,
 	type DispatchRunFailureCode,
 	type DispatchRunInput,
@@ -25,9 +24,15 @@ import {
 	reportDispatchLanded,
 	type DispatchStepDeps,
 } from "../../src/dispatch/dispatch-steps.ts";
-import type {
-	HarnessInvocation,
-	HarnessInvocationResolution,
+import {
+	DISPATCH_PACKAGE_MANIFEST_PATH,
+	DISPATCH_SETTINGS_PATH,
+	type HarnessInvocation,
+} from "../../src/dispatch/harness-registry.ts";
+import {
+	resolveConfiguredHarnessInvocation,
+	type HarnessInvocationResolution,
+	type HarnessInvocationResolver,
 } from "../../src/dispatch/harness-invocation.ts";
 
 const revision = "0123456789abcdef0123456789abcdef01234567";
@@ -48,12 +53,7 @@ function validEnvironment(): MintEnvironment {
 		NS_DISPATCH_GITHUB_APP_INSTALLATION_ID: "146155769",
 		NS_DISPATCH_GITHUB_APP_PRIVATE_KEY:
 			"-----BEGIN PRIVATE KEY-----\\nprivate-key-fixture\\n-----END PRIVATE KEY-----\\n",
-		NS_DISPATCH_SANDBOX_MINT_SECRET: "landing-secret",
 		NS_DISPATCH_GITHUB_REPOSITORY: "nseng-ai/ns",
-		NS_DISPATCH_VERCEL_TEAM_ID: "team_dispatch",
-		NS_DISPATCH_VERCEL_PROJECT_ID: "prj_dispatch",
-		NS_DISPATCH_VERCEL_OIDC_ISSUER: "https://oidc.vercel.com/nseng-ai",
-		NS_DISPATCH_VERCEL_OIDC_AUDIENCE: "https://vercel.com/nseng-ai",
 		ANTHROPIC_API_KEY: "model-key-fixture",
 	};
 }
@@ -80,6 +80,7 @@ interface FakeSandboxBehavior {
 	readonly commandFails?: boolean;
 	readonly detachedFails?: boolean;
 	readonly readFails?: boolean;
+	readonly readFailurePaths?: readonly string[];
 	readonly files?: Readonly<Record<string, string>>;
 	readonly stopFails?: boolean;
 }
@@ -138,7 +139,12 @@ class FakeDispatchSandboxGateway implements DispatchSandboxGateway {
 
 	async readSandboxFile(options: { readonly sandboxName: string; readonly path: string }) {
 		this.calls.push({ method: "read", options: { ...options } });
-		if (this.#behavior.readFails === true) return { ok: false } as const;
+		if (
+			this.#behavior.readFails === true ||
+			this.#behavior.readFailurePaths?.includes(options.path) === true
+		) {
+			return { ok: false } as const;
+		}
 		const content = this.#behavior.files?.[options.path];
 		return { ok: true, content: content ?? null } as const;
 	}
@@ -187,9 +193,11 @@ class RecordingDispatchReportGateway implements DispatchReportGateway {
 		message: string;
 	}> = [];
 	readonly #fails: boolean;
+	readonly #throws: boolean;
 
-	constructor(options: { readonly fails?: boolean } = {}) {
+	constructor(options: { readonly fails?: boolean; readonly throws?: boolean } = {}) {
 		this.#fails = options.fails ?? false;
+		this.#throws = options.throws ?? false;
 	}
 
 	async publishAnchorPrDecisionLog(options: {
@@ -197,6 +205,7 @@ class RecordingDispatchReportGateway implements DispatchReportGateway {
 		readonly decisionLog: string | null;
 	}) {
 		this.publishCalls.push({ ...options });
+		if (this.#throws) throw new Error("report operation exploded");
 		return this.#fails ? ({ ok: false } as const) : ({ ok: true } as const);
 	}
 
@@ -207,6 +216,7 @@ class RecordingDispatchReportGateway implements DispatchReportGateway {
 		readonly message: string;
 	}) {
 		this.failureCalls.push({ ...options });
+		if (this.#throws) throw new Error("report operation exploded");
 		return this.#fails ? ({ ok: false } as const) : ({ ok: true } as const);
 	}
 }
@@ -216,7 +226,10 @@ interface DepsFixture {
 	readonly sandboxes: FakeDispatchSandboxGateway;
 	readonly minter: RecordingDispatchTokenMinter;
 	readonly reports: RecordingDispatchReportGateway;
-	readonly resolverCalls: Array<string | null>;
+	readonly resolverCalls: Array<{
+		dispatchSettingsSource: string | null;
+		packageManagerSource: string | null;
+	}>;
 }
 
 function createDeps(
@@ -225,30 +238,59 @@ function createDeps(
 		readonly sandboxBehavior?: FakeSandboxBehavior;
 		readonly mintFailPurposes?: readonly string[];
 		readonly reportFails?: boolean;
+		readonly reportThrows?: boolean;
+		readonly tokenMinterFactoryThrows?: boolean;
+		readonly reportGatewayFactoryThrows?: boolean;
 		readonly harness?: HarnessInvocationResolution;
+		readonly resolveHarnessInvocation?: HarnessInvocationResolver;
 	} = {},
 ): DepsFixture {
 	const sandboxes = new FakeDispatchSandboxGateway(options.sandboxBehavior);
 	const minter = new RecordingDispatchTokenMinter(options.mintFailPurposes ?? []);
-	const reports = new RecordingDispatchReportGateway({ fails: options.reportFails ?? false });
-	const resolverCalls: Array<string | null> = [];
+	const reports = new RecordingDispatchReportGateway({
+		fails: options.reportFails ?? false,
+		throws: options.reportThrows ?? false,
+	});
+	const resolverCalls: Array<{
+		dispatchSettingsSource: string | null;
+		packageManagerSource: string | null;
+	}> = [];
 	const deps: DispatchStepDeps = {
 		environment: options.environment ?? validEnvironment(),
-		createDispatchTokenMinter: () => minter,
+		createDispatchTokenMinter: () => {
+			if (options.tokenMinterFactoryThrows === true) {
+				throw new Error("token minter factory exploded");
+			}
+			return minter;
+		},
 		createSandboxGateway: () => sandboxes,
-		createReportGateway: () => reports,
-		resolveHarnessInvocation: (dispatchSettingsSource) => {
-			resolverCalls.push(dispatchSettingsSource);
-			return options.harness ?? { ok: true, value: harnessInvocation() };
+		createReportGateway: () => {
+			if (options.reportGatewayFactoryThrows === true) {
+				throw new Error("report gateway factory exploded");
+			}
+			return reports;
+		},
+		resolveHarnessInvocation: (dispatchSettingsSource, packageManagerSource) => {
+			resolverCalls.push({ dispatchSettingsSource, packageManagerSource });
+			return (
+				options.resolveHarnessInvocation?.(dispatchSettingsSource, packageManagerSource) ??
+				options.harness ?? { ok: true, value: harnessInvocation() }
+			);
 		},
 	};
 	return { deps, sandboxes, minter, reports, resolverCalls };
 }
 
 describe("launchDispatchRun", () => {
-	it("mints a clone token, creates the sandbox over the exact SHA, resolves the checkout's harness, provisions, and launches detached", async () => {
+	it("launches from GitHub App config without OIDC-only variables", async () => {
+		const packageManagerSource = '{"packageManager":"pnpm@11.8.1"}';
 		const { deps, sandboxes, minter, resolverCalls } = createDeps({
-			sandboxBehavior: { files: { [DISPATCH_SETTINGS_PATH]: '[dispatch]\nharness = "pi"\n' } },
+			sandboxBehavior: {
+				files: {
+					[DISPATCH_SETTINGS_PATH]: '[dispatch]\nharness = "pi"\n',
+					[DISPATCH_PACKAGE_MANIFEST_PATH]: packageManagerSource,
+				},
+			},
 		});
 
 		const result = await launchDispatchRun(runInput(), deps);
@@ -257,6 +299,7 @@ describe("launchDispatchRun", () => {
 		expect(minter.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "clone" }]);
 		expect(sandboxes.calls.map((call) => call.method)).toEqual([
 			"create",
+			"read",
 			"read",
 			"write",
 			"run",
@@ -271,23 +314,32 @@ describe("launchDispatchRun", () => {
 				cloneToken: "token-clone-fixture",
 			},
 		});
-		// Harness choice is read from the checkout's own ns.toml at the
-		// dispatched SHA, then handed to the configuration seam.
+		// Both checkout-owned sources are read in contract order before the
+		// prompt is written or any provisioning begins.
 		expect(sandboxes.calls[1]?.options).toEqual({
 			sandboxName: "sbx_dispatch",
 			path: DISPATCH_SETTINGS_PATH,
 		});
-		expect(resolverCalls).toEqual(['[dispatch]\nharness = "pi"\n']);
 		expect(sandboxes.calls[2]?.options).toEqual({
+			sandboxName: "sbx_dispatch",
+			path: DISPATCH_PACKAGE_MANIFEST_PATH,
+		});
+		expect(resolverCalls).toEqual([
+			{
+				dispatchSettingsSource: '[dispatch]\nharness = "pi"\n',
+				packageManagerSource,
+			},
+		]);
+		expect(sandboxes.calls[3]?.options).toEqual({
 			sandboxName: "sbx_dispatch",
 			path: DISPATCH_PROMPT_PATH,
 			content: "Rename the widget gateway methods.",
 		});
-		expect(sandboxes.calls[3]?.options).toEqual({
+		expect(sandboxes.calls[4]?.options).toEqual({
 			sandboxName: "sbx_dispatch",
 			command: { cmd: "npm", args: ["install", "-g", "fake-harness"] },
 		});
-		expect(sandboxes.calls[4]?.options).toEqual({
+		expect(sandboxes.calls[5]?.options).toEqual({
 			sandboxName: "sbx_dispatch",
 			command: { cmd: "fake-harness", args: ["--headless"] },
 			env: { ANTHROPIC_API_KEY: "model-key-fixture" },
@@ -345,7 +397,27 @@ describe("launchDispatchRun", () => {
 			code: "dispatch-misconfigured",
 			message: "The dispatched checkout declares no [dispatch] harness.",
 		});
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "stop"]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "stop"]);
+	});
+
+	it("stops before prompt write or provisioning for a registry-unsupported harness", async () => {
+		const { deps, sandboxes } = createDeps({
+			resolveHarnessInvocation: resolveConfiguredHarnessInvocation,
+			sandboxBehavior: {
+				files: {
+					[DISPATCH_SETTINGS_PATH]: '[dispatch]\nharness = "claude-code"\n',
+					[DISPATCH_PACKAGE_MANIFEST_PATH]: '{"packageManager":"pnpm@11.8.1"}',
+				},
+			},
+		});
+
+		const result = await launchDispatchRun(runInput(), deps);
+
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error("Expected a failure.");
+		expect(result.code).toBe("dispatch-misconfigured");
+		expect(result.message).not.toContain("claude-code");
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "stop"]);
 	});
 
 	it("stops the created sandbox when the dispatch settings read fails", async () => {
@@ -357,11 +429,53 @@ describe("launchDispatchRun", () => {
 
 		expect(result).toEqual({
 			ok: false,
-			code: "launch-failed",
-			message: "Reading the checkout's dispatch settings failed.",
+			code: "dispatch-misconfigured",
+			message:
+				"Dispatch configuration is invalid: ns.toml could not be read from the dispatched checkout.",
 		});
 		expect(resolverCalls).toEqual([]);
 		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "stop"]);
+	});
+
+	it("stops the created sandbox when the package manifest read fails", async () => {
+		const { deps, sandboxes, resolverCalls } = createDeps({
+			sandboxBehavior: { readFailurePaths: [DISPATCH_PACKAGE_MANIFEST_PATH] },
+		});
+
+		const result = await launchDispatchRun(runInput(), deps);
+
+		expect(result).toEqual({
+			ok: false,
+			code: "dispatch-misconfigured",
+			message:
+				"Dispatch configuration is invalid: ts/package.json#packageManager could not be read from the dispatched checkout.",
+		});
+		expect(resolverCalls).toEqual([]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "stop"]);
+	});
+
+	it("stops before prompt write, provisioning, or launch when packageManager is invalid", async () => {
+		const invalidValue = "pnpm@11.8.1;echo-do-not-expose";
+		const { deps, sandboxes } = createDeps({
+			resolveHarnessInvocation: resolveConfiguredHarnessInvocation,
+			sandboxBehavior: {
+				files: {
+					[DISPATCH_SETTINGS_PATH]: '[dispatch]\nharness = "pi"\n',
+					[DISPATCH_PACKAGE_MANIFEST_PATH]: JSON.stringify({
+						packageManager: invalidValue,
+					}),
+				},
+			},
+		});
+
+		const result = await launchDispatchRun(runInput(), deps);
+
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error("Expected a failure.");
+		expect(result.code).toBe("dispatch-misconfigured");
+		expect(result.message).toContain("ts/package.json#packageManager");
+		expect(result.message).not.toContain(invalidValue);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "stop"]);
 	});
 
 	it("stops the created sandbox when a declared launch variable is missing", async () => {
@@ -375,7 +489,7 @@ describe("launchDispatchRun", () => {
 			code: "dispatch-misconfigured",
 			message: "Dispatch configuration is invalid: ANTHROPIC_API_KEY.",
 		});
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "stop"]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "stop"]);
 	});
 
 	it("maps a clone mint failure to launch-failed without creating a sandbox", async () => {
@@ -404,6 +518,7 @@ describe("launchDispatchRun", () => {
 		expect(sandboxes.calls.map((call) => call.method)).toEqual([
 			"create",
 			"read",
+			"read",
 			"write",
 			"run",
 			"stop",
@@ -416,7 +531,13 @@ describe("launchDispatchRun", () => {
 		const result = await launchDispatchRun(runInput(), deps);
 
 		expect(result.ok).toBe(false);
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "write", "stop"]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual([
+			"create",
+			"read",
+			"read",
+			"write",
+			"stop",
+		]);
 	});
 
 	it("stops the created sandbox when the detached launch fails", async () => {
@@ -431,6 +552,7 @@ describe("launchDispatchRun", () => {
 		});
 		expect(sandboxes.calls.map((call) => call.method)).toEqual([
 			"create",
+			"read",
 			"read",
 			"write",
 			"run",
@@ -647,6 +769,25 @@ describe("reportDispatchLanded", () => {
 
 		expect(result).toEqual({ ok: false });
 		expect(reports.publishCalls).toEqual([]);
+	});
+
+	it("normalizes a report operation throw to a safe failure", async () => {
+		const { deps } = createDeps({ reportThrows: true });
+
+		const result = await reportDispatchLanded({ anchorPrNumber: 421, decisionLog: null }, deps);
+
+		expect(result).toEqual({ ok: false });
+	});
+
+	it.each([
+		["token minter", { tokenMinterFactoryThrows: true }, "token minter factory exploded"],
+		["report gateway", { reportGatewayFactoryThrows: true }, "report gateway factory exploded"],
+	] as const)("does not catch a %s factory throw", async (_label, options, message) => {
+		const { deps } = createDeps(options);
+
+		await expect(
+			reportDispatchLanded({ anchorPrNumber: 421, decisionLog: null }, deps),
+		).rejects.toThrow(message);
 	});
 });
 

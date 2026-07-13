@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	DISPATCH_DECISION_LOG_PATH,
 	DISPATCH_RESULT_PATH,
-	DISPATCH_SUMMARY_MAX_LENGTH,
+	DISPATCH_SUMMARY_MAX_CHARS,
 } from "../../src/dispatch/dispatch-run.ts";
 import {
 	composeAgentPrompt,
@@ -19,11 +19,11 @@ import {
 interface FakeWorkspaceBehavior {
 	readonly prompt?: string | null;
 	readonly readPromptFails?: boolean;
-	readonly decisionLogExists?: boolean;
+	readonly hasDecisionLog?: boolean;
 	readonly decisionLogCheckFails?: boolean;
 	readonly fallbackWriteFails?: boolean;
 	readonly resultWriteFails?: boolean;
-	readonly dirty?: boolean;
+	readonly hasUncommittedChanges?: boolean;
 	readonly dirtyCheckFails?: boolean;
 	readonly commitFails?: boolean;
 }
@@ -49,7 +49,7 @@ class FakeDispatchWorkspaceGateway implements DispatchWorkspaceGateway {
 	async decisionLogExists() {
 		this.#operations.push("decisionLogExists");
 		if (this.#behavior.decisionLogCheckFails === true) return { ok: false } as const;
-		return { ok: true, exists: this.#behavior.decisionLogExists ?? false } as const;
+		return { ok: true, hasDecisionLog: this.#behavior.hasDecisionLog ?? false } as const;
 	}
 
 	async writeFallbackDecisionLog(content: string) {
@@ -69,7 +69,10 @@ class FakeDispatchWorkspaceGateway implements DispatchWorkspaceGateway {
 	async hasUncommittedChanges() {
 		this.#operations.push("hasUncommittedChanges");
 		if (this.#behavior.dirtyCheckFails === true) return { ok: false } as const;
-		return { ok: true, dirty: this.#behavior.dirty ?? false } as const;
+		return {
+			ok: true,
+			hasUncommittedChanges: this.#behavior.hasUncommittedChanges ?? false,
+		} as const;
 	}
 
 	async commitAllChanges(message: string) {
@@ -127,7 +130,7 @@ function fixture(
 describe("runDispatchedPiAgent", () => {
 	it("runs the composed prompt to completion and writes the completed result last", async () => {
 		const { workspace, agent, operations } = fixture({
-			workspace: { decisionLogExists: true },
+			workspace: { hasDecisionLog: true },
 		});
 
 		const report = await runDispatchedPiAgent({ workspace, agent });
@@ -135,7 +138,7 @@ describe("runDispatchedPiAgent", () => {
 		expect(report).toEqual({
 			exitCode: 0,
 			outcome: "completed",
-			resultWritten: true,
+			hasWrittenCompletionResult: true,
 			detail: "Done.",
 		});
 		expect(workspace.writtenCompletion).toEqual({ outcome: "completed", summary: "Done." });
@@ -152,7 +155,7 @@ describe("runDispatchedPiAgent", () => {
 	});
 
 	it("hands the agent the dispatched prompt wrapped in the headless ground rules", async () => {
-		const { workspace, agent } = fixture({ workspace: { decisionLogExists: true } });
+		const { workspace, agent } = fixture({ workspace: { hasDecisionLog: true } });
 
 		await runDispatchedPiAgent({ workspace, agent });
 
@@ -166,7 +169,7 @@ describe("runDispatchedPiAgent", () => {
 
 	it("writes the fallback decision log when the agent recorded none", async () => {
 		const { workspace, agent, operations } = fixture({
-			workspace: { decisionLogExists: false },
+			workspace: { hasDecisionLog: false },
 		});
 
 		const report = await runDispatchedPiAgent({ workspace, agent });
@@ -194,7 +197,7 @@ describe("runDispatchedPiAgent", () => {
 		const report = await runDispatchedPiAgent({ workspace, agent });
 
 		expect(report.exitCode).toBe(0);
-		expect(report.resultWritten).toBe(true);
+		expect(report.hasWrittenCompletionResult).toBe(true);
 	});
 
 	it("reports failure without invoking the agent when the prompt is missing", async () => {
@@ -244,7 +247,7 @@ describe("runDispatchedPiAgent", () => {
 	});
 
 	it("commits uncommitted produced work so the landing push carries it", async () => {
-		const { workspace, agent } = fixture({ workspace: { dirty: true } });
+		const { workspace, agent } = fixture({ workspace: { hasUncommittedChanges: true } });
 
 		const report = await runDispatchedPiAgent({ workspace, agent });
 
@@ -253,7 +256,9 @@ describe("runDispatchedPiAgent", () => {
 	});
 
 	it("does not commit when the checkout is clean", async () => {
-		const { workspace, agent, operations } = fixture({ workspace: { dirty: false } });
+		const { workspace, agent, operations } = fixture({
+			workspace: { hasUncommittedChanges: false },
+		});
 
 		await runDispatchedPiAgent({ workspace, agent });
 
@@ -261,7 +266,9 @@ describe("runDispatchedPiAgent", () => {
 	});
 
 	it("fails the run when uncommitted work cannot be committed", async () => {
-		const { workspace, agent } = fixture({ workspace: { dirty: true, commitFails: true } });
+		const { workspace, agent } = fixture({
+			workspace: { hasUncommittedChanges: true, commitFails: true },
+		});
 
 		const report = await runDispatchedPiAgent({ workspace, agent });
 
@@ -284,18 +291,18 @@ describe("runDispatchedPiAgent", () => {
 		const report = await runDispatchedPiAgent({ workspace, agent });
 
 		expect(report.exitCode).toBe(2);
-		expect(report.resultWritten).toBe(false);
+		expect(report.hasWrittenCompletionResult).toBe(false);
 		expect(workspace.writtenCompletion).toBeNull();
 	});
 
 	it("caps the summary to the workflow contract's bound", async () => {
 		const { workspace, agent } = fixture({
-			agentResult: { ok: true, finalAssistantText: "x".repeat(DISPATCH_SUMMARY_MAX_LENGTH + 500) },
+			agentResult: { ok: true, finalAssistantText: "x".repeat(DISPATCH_SUMMARY_MAX_CHARS + 500) },
 		});
 
 		await runDispatchedPiAgent({ workspace, agent });
 
-		expect(workspace.writtenCompletion?.summary).toHaveLength(DISPATCH_SUMMARY_MAX_LENGTH);
+		expect(workspace.writtenCompletion?.summary).toHaveLength(DISPATCH_SUMMARY_MAX_CHARS);
 	});
 
 	it("omits the summary when the agent produced no final text", async () => {

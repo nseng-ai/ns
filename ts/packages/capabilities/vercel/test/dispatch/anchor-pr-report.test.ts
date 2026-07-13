@@ -5,7 +5,7 @@ import {
 	buildDispatchFailureComment,
 	buildDispatchFailureMarker,
 	composeAnchorPrDescription,
-	DISPATCH_DECISION_LOG_MAX_LENGTH,
+	DISPATCH_DECISION_LOG_MAX_CHARS,
 	DISPATCH_DECISION_LOG_SECTION_END,
 	DISPATCH_DECISION_LOG_SECTION_START,
 } from "../../src/dispatch/anchor-pr-report.ts";
@@ -29,10 +29,10 @@ describe("buildDecisionLogSection", () => {
 	});
 
 	it("truncates an oversized decision log with a notice", () => {
-		const section = buildDecisionLogSection("x".repeat(DISPATCH_DECISION_LOG_MAX_LENGTH + 500));
+		const section = buildDecisionLogSection("x".repeat(DISPATCH_DECISION_LOG_MAX_CHARS + 500));
 
 		expect(section).toContain("Decision log truncated");
-		expect(section.length).toBeLessThan(DISPATCH_DECISION_LOG_MAX_LENGTH + 500);
+		expect(section.length).toBeLessThan(DISPATCH_DECISION_LOG_MAX_CHARS + 500);
 	});
 });
 

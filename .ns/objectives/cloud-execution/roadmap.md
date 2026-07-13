@@ -111,11 +111,13 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
       (code-first-run-spine-and-steel-thread-coded Semantic Update): the mint
       core is an in-process seam (`DispatchTokenMinter`) with the HTTP route a
       thin adapter over it, and `ns dispatch prompt` carries the credentials
-      preflight (named, value-free failure categories). In-process minting
-      from deployed workflow-step compute is pending the batched live pass.
-      Note: the mint runtime config still requires the retired
-      `NS_DISPATCH_SANDBOX_MINT_SECRET` variable until the deferred cleanup
-      (or a prior code change dropping the requirement).
+      preflight (named, value-free failure categories). A follow-on local
+      hardening pass completed the code-side retirement: `POST /api/mint` is
+      OIDC-only and clone-only, workflow consumers parse only GitHub App
+      configuration, and no source or runtime parser consumes the retired
+      secret. The legacy variable remains deployed, inert, and intentionally
+      untouched until the post-live human cleanup. In-process minting from
+      deployed workflow-step compute is still pending the batched live pass.
 - [~] Workflow spine probes — three staged probes on the existing
   deployable, in order, each folding proven facts into the README and
   extending the `build:deployable` gate before anything depends on it.
@@ -201,8 +203,11 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
      dispatch workflow, the ns-owned pi runner with the `ns.toml`
      `[dispatch]` harness recipe, and the `ns dispatch prompt` kernel
      command (with `deployment_url` in the `[dispatch]` table) are
-     locally green on the run's stack. Remaining: sub-slice 4, the live
-     end-to-end interlude.
+     locally green on the run's stack. A follow-on local hardening pass made
+     the complete harness registry Pi-only, rejects unsupported harnesses in
+     preflight, and derives Pi's pnpm provisioning version from the exact
+     checkout's `ts/package.json#packageManager` both locally and remotely.
+     Remaining: sub-slice 4, the live end-to-end interlude.
 - [ ] Reusable workflow-supervised dispatch setup skill, distilled from the
       proven credentials, spine-probe, and steel-thread work rather than
       authored ahead of it. Makes true: "Setup" as an executable
@@ -273,10 +278,14 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
 - [ ] Claude Code as the second in-sandbox harness, running through its
       headless CLI behind the same supervisor, proving the in-sandbox
       harness is repo configuration — a provisioning recipe plus an
-      invocation command — rather than code shape. Makes true: "Under the
-      hood" (harness/model is preconfigured; no per-dispatch flag).
-      Policy: the provisioning recipe and configuration are runner steps;
-      proving the second harness is a dispatch interlude.
+      invocation command — rather than code shape. The implemented registry
+      currently contains only `pi`, so `harness = "claude-code"` is rejected
+      locally before mutation and remotely before provisioning; this row
+      reactivates acceptance only when one complete Claude Code registry entry
+      supplies provisioning, launch, required environment-variable names, and
+      tests. Makes true: "Under the hood" (harness/model is preconfigured; no
+      per-dispatch flag). Policy: the provisioning recipe and configuration
+      are runner steps; proving the second harness is a dispatch interlude.
 - [ ] Durable jobs trigger: nightly objective advancement as a Vercel cron
       entry on the deployable that starts the same dispatch workflow per
       advanced objective, landing the identical per-unit contract (anchor
