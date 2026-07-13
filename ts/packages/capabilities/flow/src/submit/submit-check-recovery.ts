@@ -1,14 +1,15 @@
-import { readFileSync, statSync } from "node:fs";
-import { dirname, join, parse, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { formatCommand, tailText } from "@nseng-ai/foundation/command";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	loadPointCatalog,
 	nodeProjectConfigGateway,
 	resolvePromptPointPath,
 	resolvePromptPointSource,
-	type PointDefinition,
+	type PreloadedPointDescriptor,
 	type ProjectConfigDiagnostic,
 	type ProjectConfigGateway,
 } from "@nseng-ai/sdk/project-config/points";
@@ -22,45 +23,26 @@ const RECOVERY_STDERR_MAX_LINES = 40;
 const RECOVERY_STDERR_MAX_CHARS = 4_000;
 const RECOVERY_MARKER_EXCERPT_MAX_LINES = 8;
 const RECOVERY_MARKER_EXCERPT_MAX_CHARS = 1_000;
-const DEFAULT_RECOVERY_PROMPT_URL = new URL(
-	"./prompts/submit-check-recovery-default.md",
-	import.meta.url,
-);
-
-export const DEFAULT_FLOW_SUBMIT_CHECK_RECOVERY_PROMPT = readFileSync(
-	DEFAULT_RECOVERY_PROMPT_URL,
-	"utf8",
-).trimEnd();
-
-type RepositoryMarkerProbeResult =
-	| { type: "file" | "directory" }
-	| { type: "missing" }
-	| { type: "error"; message: string };
 
 type RecoveryPromptReadResult =
 	| { type: "found"; text: string }
 	| { type: "missing" }
 	| { type: "error"; message: string };
 
-export interface SubmitCheckRecoveryGateway extends ProjectConfigGateway {
-	probeRepositoryGitMarker(request: { path: string }): RepositoryMarkerProbeResult;
+export type FlowSubmitRecoveryGitGateway = Pick<GitGateway, "optionalRepoRoot">;
+
+export interface SubmitCheckRecoveryPromptGateway extends ProjectConfigGateway {
 	readRecoveryPrompt(request: { path: string }): RecoveryPromptReadResult;
 }
 
-export const nodeSubmitCheckRecoveryGateway: SubmitCheckRecoveryGateway = {
+export interface FlowSubmitRecoveryDescriptorSource {
+	descriptor: PreloadedPointDescriptor["descriptor"];
+	descriptorUrl: string;
+}
+
+export const nodeSubmitCheckRecoveryPromptGateway: SubmitCheckRecoveryPromptGateway = {
 	readTextFile: (request) => nodeProjectConfigGateway.readTextFile(request),
 	pathExists: (request) => nodeProjectConfigGateway.pathExists(request),
-	probeRepositoryGitMarker(request) {
-		try {
-			const stats = statSync(request.path);
-			if (stats.isFile()) return { type: "file" };
-			if (stats.isDirectory()) return { type: "directory" };
-			return { type: "missing" };
-		} catch (error) {
-			if (isNodeFileNotFound(error)) return { type: "missing" };
-			return { type: "error", message: formatErrorMessage(error) };
-		}
-	},
 	readRecoveryPrompt(request) {
 		try {
 			return { type: "found", text: readFileSync(request.path, "utf8") };
@@ -75,9 +57,11 @@ export type FlowSubmitRecoveryRepositoryRootResult =
 	| { ok: true; repoRoot: string }
 	| { ok: false; error: string };
 
-export type FlowSubmitRecoveryPromptSource =
-	| { type: "builtin" }
-	| { type: "ns.toml" | "conventional" | "default"; path: string; label: string };
+export interface FlowSubmitRecoveryPromptSource {
+	type: "ns.toml" | "conventional" | "default";
+	path: string;
+	label: string;
+}
 
 export type FlowSubmitRecoveryPromptResult =
 	| { ok: true; prompt: string; source: FlowSubmitRecoveryPromptSource }
@@ -95,47 +79,38 @@ export function hasFlowSubmitCheckFailureMarker(stderr: string): boolean {
 	return normalizeLineEndings(stderr).split("\n").some(isFlowSubmitCheckFailureMarkerLine);
 }
 
-export function resolveFlowSubmitRecoveryRepositoryRoot(request: {
+export async function resolveFlowSubmitRecoveryRepositoryRoot(request: {
 	cwd: string;
-	gateway: SubmitCheckRecoveryGateway;
-}): FlowSubmitRecoveryRepositoryRootResult {
-	const originalCwd = request.cwd;
-	let current = resolve(originalCwd);
-	const filesystemRoot = parse(current).root;
-
-	while (true) {
-		const markerPath = join(current, ".git");
-		const marker = request.gateway.probeRepositoryGitMarker({ path: markerPath });
-		if (marker.type === "file" || marker.type === "directory") {
-			return { ok: true, repoRoot: current };
-		}
-		if (marker.type === "error") {
-			return {
-				ok: false,
-				error: `Could not inspect Git repository marker ${markerPath} while searching from ${originalCwd}: ${marker.message}`,
-			};
-		}
-		if (current === filesystemRoot) break;
-		current = dirname(current);
+	git: FlowSubmitRecoveryGitGateway;
+}): Promise<FlowSubmitRecoveryRepositoryRootResult> {
+	const repoRoot = await request.git.optionalRepoRoot({ cwd: request.cwd });
+	if (repoRoot.type === "found") return { ok: true, repoRoot: repoRoot.value };
+	if (repoRoot.type === "error") {
+		return {
+			ok: false,
+			error: `Could not resolve the Git repository root from cwd ${request.cwd}: ${repoRoot.error.message}`,
+		};
 	}
-
 	return {
 		ok: false,
-		error: `Could not find a Git repository root from cwd ${originalCwd}; no .git file or directory was found in that directory or any parent.`,
+		error: `Could not find a Git repository root from cwd ${request.cwd}.`,
 	};
 }
 
 export function resolveFlowSubmitRecoveryPrompt(request: {
 	repoRoot: string;
-	gateway: SubmitCheckRecoveryGateway;
-	pointDefinitions?: readonly PointDefinition[];
+	gateway: SubmitCheckRecoveryPromptGateway;
+	descriptorSource: FlowSubmitRecoveryDescriptorSource;
 }): FlowSubmitRecoveryPromptResult {
 	const catalog = loadPointCatalog({
 		repoRoot: request.repoRoot,
 		gateway: request.gateway,
-		...(request.pointDefinitions === undefined
-			? {}
-			: { pointDefinitions: request.pointDefinitions }),
+		preferredDescriptors: [
+			{
+				descriptor: request.descriptorSource.descriptor,
+				descriptorPath: fileURLToPath(request.descriptorSource.descriptorUrl),
+			},
+		],
 	});
 	const blockingDiagnostics = catalog.diagnostics.filter(isRecoveryBlockingDiagnostic);
 	if (blockingDiagnostics.length > 0) {
@@ -150,9 +125,8 @@ export function resolveFlowSubmitRecoveryPrompt(request: {
 	const source = resolvePromptPointSource(catalog, FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID);
 	if (source.type === "missing") {
 		return {
-			ok: true,
-			prompt: DEFAULT_FLOW_SUBMIT_CHECK_RECOVERY_PROMPT,
-			source: { type: "builtin" },
+			ok: false,
+			error: `Could not resolve ${FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID}: the Flow extension descriptor does not provide a readable default.`,
 		};
 	}
 	if (source.type === "env") {

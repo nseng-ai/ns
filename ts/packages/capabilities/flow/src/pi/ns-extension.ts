@@ -1,13 +1,17 @@
 import { nsCommandSurface } from "@nseng-ai/foundation/command";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import {
 	buildFlowSubmitCheckRecoveryMessage,
 	hasFlowSubmitCheckFailureMarker,
-	nodeSubmitCheckRecoveryGateway,
+	nodeSubmitCheckRecoveryPromptGateway,
 	resolveFlowSubmitRecoveryPrompt,
 	resolveFlowSubmitRecoveryRepositoryRoot,
-	type SubmitCheckRecoveryGateway,
+	type FlowSubmitRecoveryGitGateway,
+	type SubmitCheckRecoveryPromptGateway,
 } from "../submit/submit-check-recovery.ts";
 import { SQUASH_STACK_COMMAND_SUMMARY } from "../ns/commands/squash-stack.ts";
+import { flowExtensionDescriptorSource } from "../ns/extension.ts";
 
 import {
 	registerCliCommandExtension,
@@ -16,7 +20,7 @@ import {
 } from "@nseng-ai/pi/commands/cli-extension";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
-export interface NsExtensionAPI extends CliCommandExtensionAPI {
+export interface NsExtensionAPI extends CliCommandExtensionAPI, CommandExecApi {
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
@@ -85,12 +89,16 @@ export const nsExtensionParity = definePiSurfaceParity(
 export interface NsExtensionOptions {
 	/** Explicit host-composed ns CLI runner. */
 	runCli: CliCommandExtensionSpec["runCli"];
-	/** Host-composed recovery boundary; defaults to the real Node filesystem adapter. */
-	recoveryGateway?: SubmitCheckRecoveryGateway;
+	/** Host-composed recovery prompt boundary; defaults to the real Node filesystem adapter. */
+	recoveryPromptGateway?: SubmitCheckRecoveryPromptGateway;
+	/** Host-composed recovery Git consumer; defaults to Git over the Pi exec channel. */
+	recoveryGit?: FlowSubmitRecoveryGitGateway;
 }
 
 export default function nsExtension(pi: NsExtensionAPI, options: NsExtensionOptions): void {
-	const recoveryGateway = options.recoveryGateway ?? nodeSubmitCheckRecoveryGateway;
+	const recoveryPromptGateway =
+		options.recoveryPromptGateway ?? nodeSubmitCheckRecoveryPromptGateway;
+	const recoveryGit = options.recoveryGit ?? new RealGitGateway(pi);
 	registerCliCommandExtension(pi, {
 		cliName: "ns",
 		piNamespace: "ns:flow",
@@ -101,15 +109,16 @@ export default function nsExtension(pi: NsExtensionAPI, options: NsExtensionOpti
 			if (details.exitCode === 0) return;
 			if (!hasFlowSubmitCheckFailureMarker(details.stderr)) return;
 
-			const repoRoot = resolveFlowSubmitRecoveryRepositoryRoot({
+			const repoRoot = await resolveFlowSubmitRecoveryRepositoryRoot({
 				cwd: details.cwd,
-				gateway: recoveryGateway,
+				git: recoveryGit,
 			});
 			if (!repoRoot.ok) throw flowSubmitRecoveryError(repoRoot.error);
 
 			const prompt = resolveFlowSubmitRecoveryPrompt({
 				repoRoot: repoRoot.repoRoot,
-				gateway: recoveryGateway,
+				gateway: recoveryPromptGateway,
+				descriptorSource: flowExtensionDescriptorSource,
 			});
 			if (!prompt.ok) throw flowSubmitRecoveryError(prompt.error);
 

@@ -35,6 +35,11 @@ export interface PointDefinition {
 	manifestPath?: string;
 }
 
+export interface PreloadedPointDescriptor {
+	descriptor: ExtensionDescriptor;
+	descriptorPath: string;
+}
+
 const builtInPointDefinitions = [
 	{
 		id: "branch-context.plans-write",
@@ -464,26 +469,31 @@ export function loadPointCatalog(request: {
 	repoRoot: string;
 	gateway: ProjectConfigGateway;
 	pointDefinitions?: readonly PointDefinition[];
+	preferredDescriptors?: readonly PreloadedPointDescriptor[];
 	settingsSchemas?: readonly SettingsSchema[];
 	promptEnvOverride?: PromptPointEnvOverride;
 	env?: Record<string, string | undefined>;
 }): PointCatalog {
-	const definitionResult =
-		request.pointDefinitions === undefined
-			? { pointDefinitions: builtInPointDefinitions, diagnostics: [] }
-			: { pointDefinitions: request.pointDefinitions, diagnostics: [] };
+	const fallbackDefinitions = request.pointDefinitions ?? builtInPointDefinitions;
+	const preferredDefinitions = (request.preferredDescriptors ?? []).flatMap((preloaded) =>
+		pointDefinitionsForDescriptor(preloaded.descriptor, preloaded.descriptorPath),
+	);
+	const pointDefinitions =
+		preferredDefinitions.length === 0
+			? fallbackDefinitions
+			: mergePointDefinitions({ fallbackDefinitions, preferredDefinitions });
 	const configResult = loadProjectConfig({
 		repoRoot: request.repoRoot,
 		gateway: request.gateway,
-		pointDefinitions: definitionResult.pointDefinitions,
+		pointDefinitions,
 		settingsSchemas: request.settingsSchemas ?? [],
 	});
 	return buildPointCatalog({
 		repoRoot: request.repoRoot,
 		gateway: request.gateway,
-		pointDefinitions: definitionResult.pointDefinitions,
+		pointDefinitions,
 		config: configResult.config ?? emptyLoadedProjectConfig,
-		diagnostics: [...definitionResult.diagnostics, ...configResult.diagnostics],
+		diagnostics: configResult.diagnostics,
 		...optionalEntry("promptEnvOverride", request.promptEnvOverride),
 		env: request.env ?? {},
 	});
