@@ -52,16 +52,16 @@ function successfulGitHubGateway(): RecordingGitHubGateway {
 
 function validEnvironment(): MintEnvironment {
 	return {
-		DISPATCH_GITHUB_APP_ID: "4282120",
-		DISPATCH_GITHUB_APP_INSTALLATION_ID: "146155769",
-		DISPATCH_GITHUB_APP_PRIVATE_KEY:
+		NS_DISPATCH_GITHUB_APP_ID: "4282120",
+		NS_DISPATCH_GITHUB_APP_INSTALLATION_ID: "146155769",
+		NS_DISPATCH_GITHUB_APP_PRIVATE_KEY:
 			"-----BEGIN PRIVATE KEY-----\\nprivate-key-fixture\\n-----END PRIVATE KEY-----\\n",
-		DISPATCH_SANDBOX_MINT_SECRET: "landing-secret",
-		DISPATCH_GITHUB_REPOSITORY: "nseng-ai/ns",
-		DISPATCH_VERCEL_TEAM_ID: "team_dispatch",
-		DISPATCH_VERCEL_PROJECT_ID: "prj_dispatch",
-		DISPATCH_VERCEL_OIDC_ISSUER: "https://oidc.vercel.com/nseng-ai",
-		DISPATCH_VERCEL_OIDC_AUDIENCE: "https://vercel.com/nseng-ai",
+		NS_DISPATCH_SANDBOX_MINT_SECRET: "landing-secret",
+		NS_DISPATCH_GITHUB_REPOSITORY: "nseng-ai/ns",
+		NS_DISPATCH_VERCEL_TEAM_ID: "team_dispatch",
+		NS_DISPATCH_VERCEL_PROJECT_ID: "prj_dispatch",
+		NS_DISPATCH_VERCEL_OIDC_ISSUER: "https://oidc.vercel.com/nseng-ai",
+		NS_DISPATCH_VERCEL_OIDC_AUDIENCE: "https://vercel.com/nseng-ai",
 	};
 }
 
@@ -155,7 +155,7 @@ describe("createMintPostHandler", () => {
 	it("returns a variable-name-only no-store 500 for invalid runtime configuration", async () => {
 		const environment = {
 			...validEnvironment(),
-			DISPATCH_GITHUB_APP_PRIVATE_KEY: "private-value-must-not-leak",
+			NS_DISPATCH_GITHUB_APP_PRIVATE_KEY: "private-value-must-not-leak",
 		};
 		const handler = createMintPostHandler({ environment });
 
@@ -169,7 +169,7 @@ describe("createMintPostHandler", () => {
 
 		expect(response.status).toBe(500);
 		expect(response.headers.get("cache-control")).toBe("no-store");
-		expect(body).toContain("DISPATCH_GITHUB_APP_PRIVATE_KEY");
+		expect(body).toContain("NS_DISPATCH_GITHUB_APP_PRIVATE_KEY");
 		expect(body).not.toContain("private-value-must-not-leak");
 	});
 });

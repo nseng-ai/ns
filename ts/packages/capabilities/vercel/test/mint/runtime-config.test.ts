@@ -8,16 +8,16 @@ import {
 
 function validEnvironment(): MintEnvironment {
 	return {
-		DISPATCH_GITHUB_APP_ID: "4282120",
-		DISPATCH_GITHUB_APP_INSTALLATION_ID: "146155769",
-		DISPATCH_GITHUB_APP_PRIVATE_KEY:
+		NS_DISPATCH_GITHUB_APP_ID: "4282120",
+		NS_DISPATCH_GITHUB_APP_INSTALLATION_ID: "146155769",
+		NS_DISPATCH_GITHUB_APP_PRIVATE_KEY:
 			"-----BEGIN PRIVATE KEY-----\\nprivate-key-fixture\\n-----END PRIVATE KEY-----\\n",
-		DISPATCH_SANDBOX_MINT_SECRET: "shared-secret-fixture",
-		DISPATCH_GITHUB_REPOSITORY: "NSENG-AI/NS",
-		DISPATCH_VERCEL_TEAM_ID: "team_example123",
-		DISPATCH_VERCEL_PROJECT_ID: "prj_example123",
-		DISPATCH_VERCEL_OIDC_ISSUER: "https://oidc.vercel.com/example",
-		DISPATCH_VERCEL_OIDC_AUDIENCE: "https://vercel.com/example",
+		NS_DISPATCH_SANDBOX_MINT_SECRET: "shared-secret-fixture",
+		NS_DISPATCH_GITHUB_REPOSITORY: "NSENG-AI/NS",
+		NS_DISPATCH_VERCEL_TEAM_ID: "team_example123",
+		NS_DISPATCH_VERCEL_PROJECT_ID: "prj_example123",
+		NS_DISPATCH_VERCEL_OIDC_ISSUER: "https://oidc.vercel.com/example",
+		NS_DISPATCH_VERCEL_OIDC_AUDIENCE: "https://vercel.com/example",
 	};
 }
 
@@ -43,15 +43,15 @@ describe("parseMintRuntimeConfig", () => {
 	});
 
 	it.each([
-		["DISPATCH_GITHUB_APP_ID", "not-an-id"],
-		["DISPATCH_GITHUB_APP_INSTALLATION_ID", "0"],
-		["DISPATCH_GITHUB_APP_PRIVATE_KEY", "not-a-private-key"],
-		["DISPATCH_SANDBOX_MINT_SECRET", ""],
-		["DISPATCH_GITHUB_REPOSITORY", "https://github.com/nseng-ai/ns"],
-		["DISPATCH_VERCEL_TEAM_ID", "example-team"],
-		["DISPATCH_VERCEL_PROJECT_ID", "example-project"],
-		["DISPATCH_VERCEL_OIDC_ISSUER", "not-a-url"],
-		["DISPATCH_VERCEL_OIDC_AUDIENCE", "not-an-audience-url"],
+		["NS_DISPATCH_GITHUB_APP_ID", "not-an-id"],
+		["NS_DISPATCH_GITHUB_APP_INSTALLATION_ID", "0"],
+		["NS_DISPATCH_GITHUB_APP_PRIVATE_KEY", "not-a-private-key"],
+		["NS_DISPATCH_SANDBOX_MINT_SECRET", ""],
+		["NS_DISPATCH_GITHUB_REPOSITORY", "https://github.com/nseng-ai/ns"],
+		["NS_DISPATCH_VERCEL_TEAM_ID", "example-team"],
+		["NS_DISPATCH_VERCEL_PROJECT_ID", "example-project"],
+		["NS_DISPATCH_VERCEL_OIDC_ISSUER", "not-a-url"],
+		["NS_DISPATCH_VERCEL_OIDC_AUDIENCE", "not-an-audience-url"],
 	] as const)("names only %s when its value is invalid", (variable, invalidValue) => {
 		const result = parseMintRuntimeConfig({ ...validEnvironment(), [variable]: invalidValue });
 
@@ -67,14 +67,14 @@ describe("parseMintRuntimeConfig", () => {
 	});
 
 	it("names a missing variable without exposing other environment values", () => {
-		const environment = { ...validEnvironment(), DISPATCH_GITHUB_APP_ID: undefined };
+		const environment = { ...validEnvironment(), NS_DISPATCH_GITHUB_APP_ID: undefined };
 
 		const result = parseMintRuntimeConfig(environment);
 
 		expect(result).toMatchObject({
 			ok: false,
 			error: {
-				variable: "DISPATCH_GITHUB_APP_ID",
+				variable: "NS_DISPATCH_GITHUB_APP_ID",
 			},
 		});
 		expect(JSON.stringify(result)).not.toContain("shared-secret-fixture");
