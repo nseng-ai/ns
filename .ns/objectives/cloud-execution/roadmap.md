@@ -55,9 +55,21 @@ setup-skill row; they never record secret values.
   `ns-dispatch` Vercel project is linked through the typed repo-root
   `[dispatch]` table, and required production environment variables were
   verified by name and sensitivity without reading or recording values.
-  The local health-only deployable build passes. Remaining (interleaves
-  with the steel thread): mint endpoint (OIDC for the CLI, shared secret
-  for sandboxes) and dispatch preflight.
+  The local health-only deployable build passes. Mint and controlled-probe
+  implementation completed locally 2026-07-12: `POST /api/mint` enforces
+  exact repository and purpose constraints behind Development Vercel OIDC
+  for clone credentials or the prototype shared landing secret, then mints
+  narrow GitHub App installation tokens. A fixed private-repository Sandbox
+  hello probe checks out an exact SHA, verifies a safe marker/HEAD result,
+  and attempts cleanup; the canonical README records the proven local setup
+  order and safe failure signals. The runtime, probe, tests, and README now
+  use one `NS_DISPATCH_*` namespace for all nine dispatch-owned environment
+  variables; generic model keys and Vercel's `VERCEL_OIDC_TOKEN` remain
+  unchanged. Targeted package tests and workspace typecheck pass. Remaining
+  (interleaves with the steel thread): migrate the linked Vercel project's
+  existing variables to `NS_DISPATCH_*`; explicitly authorized live OIDC
+  trust verification, endpoint deployment and billable Sandbox probe; and
+  dispatch preflight.
 - [ ] Steel thread: `ns dispatch prompt` end-to-end on Vercel Sandbox via
       the `@ai-sdk/harness-pi` adapter with ns skills injected via the
       Agent Skills standard. Makes true: "Quick start" (prompt path),

@@ -87,11 +87,11 @@ function readInputs(
 		return { ok: false, message: "The revision must be a 40-character commit SHA." };
 	}
 
-	const repositoryResult = parseGitHubRepository(environment.DISPATCH_GITHUB_REPOSITORY);
+	const repositoryResult = parseGitHubRepository(environment.NS_DISPATCH_GITHUB_REPOSITORY);
 	if (!repositoryResult.ok) {
 		return {
 			ok: false,
-			message: "DISPATCH_GITHUB_REPOSITORY is missing or invalid in pulled env.",
+			message: "NS_DISPATCH_GITHUB_REPOSITORY is missing or invalid in pulled env.",
 		};
 	}
 	const oidcToken = environment.VERCEL_OIDC_TOKEN;

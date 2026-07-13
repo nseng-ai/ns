@@ -186,9 +186,14 @@ Risks:
   2026-07-12: the design is settled against researched primary-source
   constraints (`references/git-credential-minting-research.md`), with
   implementation remaining. The package/deployable, typed Vercel project
-  linkage, and production environment-variable custody were verified
-  2026-07-12; the mint endpoint and dispatch preflight remain. Residual,
-  accepted deliberately (racing to an e2e prototype): the v1 shared mint
+  linkage, production environment-variable custody, local mint endpoint,
+  and fixed private-repository Sandbox hello probe were implemented or
+  verified 2026-07-12. The local endpoint contract now consistently uses the
+  `NS_DISPATCH_*` environment namespace; the linked Vercel project's existing
+  variables still require migration to that contract. Live Development-token
+  trust verification, endpoint deployment, a billable Sandbox probe, and
+  dispatch preflight remain.
+  Residual, accepted deliberately (racing to an e2e prototype): the v1 shared mint
   secret and self-landing sandbox are
   security shortcuts whose upgrades (per-run landing voucher, Vercel-side
   supervisor) are recorded in `references/credentials-design.md` and must

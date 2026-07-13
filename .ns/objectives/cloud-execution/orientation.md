@@ -13,11 +13,15 @@ seam contracts and rationale live in `references/seam-design.md` and never overr
 README.
 
 What you see now: `@nseng-ai/vercel` has a package/deployable shell, typed `[dispatch]`
-project linkage, and a linked health-only Vercel build, but no mint endpoint, preflight,
-`ns dispatch` commands, Sandbox executor, or setup skill yet. Collect proven setup facts
-while implementing; do not author the skill ahead of the steel thread. The only working
-dispatch remains the Pi-only `/ccc:workspace:dispatch-*` surface over `@nseng-ai/ccc`;
-the retired cloud wayfinding map's "Eve presumed in as chassis" stance remains reversed.
+project linkage, a local mint endpoint, and a fixed private-repository Sandbox hello probe.
+The local environment contract uses `NS_DISPATCH_*`; the linked Vercel project still needs
+its existing variables migrated before the live Development-token trust check, deployment,
+billable probe, dispatch preflight, `ns dispatch` commands, harness executor, or setup skill.
+Collect
+proven setup facts while implementing; do not author the skill ahead of the steel thread.
+The only working dispatch remains the Pi-only `/ccc:workspace:dispatch-*` surface over
+`@nseng-ai/ccc`; the retired cloud wayfinding map's "Eve presumed in as chassis" stance
+remains reversed.
 
 Avoid: inventing a backend-agnostic executor abstraction — Vercel coupling is deliberate
 and Vercel-vocabulary gateways are sanctioned (though vendor types stay inside the

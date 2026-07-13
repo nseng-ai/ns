@@ -205,11 +205,11 @@ dispatch, using Vercel's own secrets infrastructure:
   token sits in an env var. One-time setup: register the org-owned
   `ns-dispatch` GitHub App, install it on the repository, and generate its
   private key directly into the sensitive
-  `DISPATCH_GITHUB_APP_PRIVATE_KEY` env var on the dispatch project — the
+  `NS_DISPATCH_GITHUB_APP_PRIVATE_KEY` env var on the dispatch project — the
   key never touches a dev machine. Non-secret app and installation IDs use
-  `DISPATCH_GITHUB_APP_ID` and `DISPATCH_GITHUB_APP_INSTALLATION_ID`;
+  `NS_DISPATCH_GITHUB_APP_ID` and `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID`;
   the prototype's landing-time shared secret uses the sensitive
-  `DISPATCH_SANDBOX_MINT_SECRET` variable. Anchor-PR activity from remote
+  `NS_DISPATCH_SANDBOX_MINT_SECRET` variable. Anchor-PR activity from remote
   runs attributes to `ns-dispatch[bot]`.
 - **Executor auth** is Vercel OIDC federation: Vercel-hosted compute gets a
   short-lived token injected automatically, and dispatching from your own
@@ -229,17 +229,17 @@ any remote work starts.
 
 The dispatch deployable's `POST /api/mint` endpoint reads these variables:
 
-| Variable                              | Sensitivity | Purpose                                                        |
-| ------------------------------------- | ----------- | -------------------------------------------------------------- |
-| `DISPATCH_GITHUB_APP_ID`              | Non-secret  | GitHub App identifier                                          |
-| `DISPATCH_GITHUB_APP_INSTALLATION_ID` | Non-secret  | Installation restricted to the configured repository           |
-| `DISPATCH_GITHUB_APP_PRIVATE_KEY`     | Sensitive   | Signs GitHub App authentication; never pull to a dev machine   |
-| `DISPATCH_SANDBOX_MINT_SECRET`        | Sensitive   | Prototype landing credential; replace with a per-run voucher   |
-| `DISPATCH_GITHUB_REPOSITORY`          | Non-secret  | Exact authorized `owner/repo`; also needed in Development      |
-| `DISPATCH_VERCEL_TEAM_ID`             | Non-secret  | Required development-token `owner_id`                          |
-| `DISPATCH_VERCEL_PROJECT_ID`          | Non-secret  | Required development-token `project_id`                        |
-| `DISPATCH_VERCEL_OIDC_ISSUER`         | Non-secret  | Exact trusted issuer used for signature and claim verification |
-| `DISPATCH_VERCEL_OIDC_AUDIENCE`       | Non-secret  | Exact trusted audience                                         |
+| Variable                                 | Sensitivity | Purpose                                                        |
+| ---------------------------------------- | ----------- | -------------------------------------------------------------- |
+| `NS_DISPATCH_GITHUB_APP_ID`              | Non-secret  | GitHub App identifier                                          |
+| `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID` | Non-secret  | Installation restricted to the configured repository           |
+| `NS_DISPATCH_GITHUB_APP_PRIVATE_KEY`     | Sensitive   | Signs GitHub App authentication; never pull to a dev machine   |
+| `NS_DISPATCH_SANDBOX_MINT_SECRET`        | Sensitive   | Prototype landing credential; replace with a per-run voucher   |
+| `NS_DISPATCH_GITHUB_REPOSITORY`          | Non-secret  | Exact authorized `owner/repo`; also needed in Development      |
+| `NS_DISPATCH_VERCEL_TEAM_ID`             | Non-secret  | Required development-token `owner_id`                          |
+| `NS_DISPATCH_VERCEL_PROJECT_ID`          | Non-secret  | Required development-token `project_id`                        |
+| `NS_DISPATCH_VERCEL_OIDC_ISSUER`         | Non-secret  | Exact trusted issuer used for signature and claim verification |
+| `NS_DISPATCH_VERCEL_OIDC_AUDIENCE`       | Non-secret  | Exact trusted audience                                         |
 
 Configure the endpoint only after confirming the linked project's actual
 Development token issuer, audience, `owner_id`, `project_id`, and
@@ -259,7 +259,7 @@ local setup sequence established by the probe entrypoint is:
 1. Link that deployable directory to the dispatch project with `vercel link`
    if `.vercel/project.json` is absent.
 2. Configure the endpoint variables above. Keep the private key and prototype
-   landing secret sensitive; make `DISPATCH_GITHUB_REPOSITORY` available to
+   landing secret sensitive; make `NS_DISPATCH_GITHUB_REPOSITORY` available to
    the Development environment so the local probe can read it.
 3. Deploy the mint endpoint, then record its explicit HTTPS URL without
    embedding credentials in it.
@@ -273,7 +273,7 @@ local setup sequence established by the probe entrypoint is:
    ```
 
 The script reads Vercel team/project IDs from the repo-root `[dispatch]`
-table and the repository from `DISPATCH_GITHUB_REPOSITORY`; it does not take
+table and the repository from `NS_DISPATCH_GITHUB_REPOSITORY`; it does not take
 those trust inputs as user-controlled arguments. It requests a clone-only
 installation token, creates a non-persistent Node 24 Sandbox with a shallow
 private-git checkout at the exact SHA, runs only the fixed marker/HEAD
@@ -290,7 +290,7 @@ HEAD <sha>
 Common safe failure signals to preserve in the eventual setup skill:
 
 - missing or invalid `VERCEL_OIDC_TOKEN` or
-  `DISPATCH_GITHUB_REPOSITORY` in `deployable/.env.local`;
+  `NS_DISPATCH_GITHUB_REPOSITORY` in `deployable/.env.local`;
 - invalid or missing repo-root `[dispatch]` project/team IDs;
 - `401 unauthorized` from missing, malformed, or failed OIDC authentication;
 - `403 forbidden` from issuer/audience-adjacent identity policy, wrong
