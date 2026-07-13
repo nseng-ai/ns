@@ -60,7 +60,9 @@ describe("flow branch-latest-commit command outcomes", () => {
 
 		const calls = formattedExecCalls(run.context);
 		expect(calls.filter((call) => call === "gt trunk --no-interactive")).toHaveLength(2);
-		expect(calls.filter((call) => call.startsWith("git merge-base --is-ancestor"))).toHaveLength(4);
+		expect(
+			calls.filter((call) => call === "git rev-list --left-right --count HEAD...origin/feature"),
+		).toHaveLength(2);
 		expect(calls).toEqual(
 			expect.arrayContaining([
 				"git reset --hard parent456",

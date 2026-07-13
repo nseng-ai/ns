@@ -16,7 +16,8 @@ export type UpstreamMode =
 	| "synchronized"
 	| "remote-ahead"
 	| "diverged"
-	| "failed";
+	| "failed"
+	| "malformed";
 
 export function ok(stdout = "", stderr = ""): CommandResult & ExecResult {
 	return { type: "exited", code: 0, signal: null, stdout, stderr };
@@ -26,28 +27,23 @@ export function fail(stderr: string, code = 1): CommandResult & ExecResult {
 	return { type: "exited", code, signal: null, stdout: "", stderr };
 }
 
-export interface UpstreamAncestryResultOptions {
-	mode: UpstreamMode;
-	ancestor: string;
-	descendant: string;
-	upstream: string;
-}
-
-export function upstreamAncestryResult(options: UpstreamAncestryResultOptions): CommandResult {
-	const { mode, ancestor, descendant, upstream } = options;
-	if (mode === "none") {
-		throw new Error("Ancestry must not be inspected when the branch has no upstream.");
+export function upstreamRelationshipResult(mode: UpstreamMode): CommandResult {
+	switch (mode) {
+		case "none":
+			throw new Error("The HEAD/upstream relationship must not be inspected without an upstream.");
+		case "synchronized":
+			return ok("0\t0\n");
+		case "local-ahead":
+			return ok("2\t0\n");
+		case "remote-ahead":
+			return ok("0\t3\n");
+		case "diverged":
+			return ok("2\t3\n");
+		case "failed":
+			return fail("bad upstream relationship", 128);
+		case "malformed":
+			return ok("0\t0\textra\n");
 	}
-	if (mode === "failed") {
-		return fail("bad upstream relationship", 128);
-	}
-	if (ancestor === "HEAD" && descendant === upstream) {
-		return mode === "synchronized" || mode === "remote-ahead" ? ok() : fail("");
-	}
-	if (ancestor === upstream && descendant === "HEAD") {
-		return mode === "synchronized" || mode === "local-ahead" ? ok() : fail("");
-	}
-	throw new Error(`Unexpected ancestry probe: ${ancestor} -> ${descendant}`);
 }
 
 export function eventIndex(events: readonly string[], prefix: string): number {

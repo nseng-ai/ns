@@ -212,8 +212,10 @@ function branchLatestCommitUpstreamResponses(
 	}
 	return [
 		{ match: upstreamQuery, result: { stdout: "origin/feature\n" } },
-		{ match: "git merge-base --is-ancestor HEAD origin/feature", result: {} },
-		{ match: "git merge-base --is-ancestor origin/feature HEAD", result: {} },
+		{
+			match: "git rev-list --left-right --count HEAD...origin/feature",
+			result: { stdout: "0\t0\n" },
+		},
 		{ match: "gt trunk --no-interactive", result: { stdout: "master\n" } },
 	];
 }
