@@ -2,6 +2,8 @@
 edges:
   - objective: ship-objectives-to-customers
     annotation: Provides the published docs-site shell that customer Objective onboarding content lands on; that objective gates its publication on this site being publishable.
+  - objective: objectives-claude-onboarding-steelthread
+    annotation: Provides the publishable site shell and launch-bar decisions consumed by the Objective-specific Claude Code onboarding thread.
 ---
 
 # eve-parity docs site
