@@ -37,6 +37,7 @@ function dirtyCpExecResponses(): ScriptedExecResponse[] {
 			match: "git diff HEAD --no-ext-diff",
 			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 		},
+		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 		{ match: "git add -A", result: {} },
 		{ match: /^git commit -F /, result: {} },
 		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint\n" } },
@@ -49,6 +50,7 @@ function cleanCpExecResponses(): ScriptedExecResponse[] {
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 	];
 }
 
@@ -68,6 +70,7 @@ describe("project-local cp extension behavior", () => {
 						match: "git diff HEAD --no-ext-diff",
 						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 					},
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{ match: "git add -A", result: {} },
 					{ match: /^git commit -F /, result: {} },
 					{
@@ -86,6 +89,7 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
+			"gt trunk --no-interactive",
 			"git add -A",
 			expect.stringMatching(/^git commit -F /),
 			"git log -1 --oneline",
@@ -141,6 +145,7 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
+			"gt trunk --no-interactive",
 		]);
 		expect(formattedExecCalls(run.context)).not.toContain("git add -A");
 		expect(formattedExecCalls(run.context)).not.toContain("git log -1 --oneline");
@@ -178,6 +183,7 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
+			"gt trunk --no-interactive",
 		]);
 	});
 
@@ -206,6 +212,7 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
+			"gt trunk --no-interactive",
 			"git add -A",
 			expect.stringMatching(/^git commit -F /),
 			"git log -1 --oneline",
@@ -234,6 +241,7 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
+			"gt trunk --no-interactive",
 		]);
 	});
 
@@ -251,24 +259,26 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
+			"gt trunk --no-interactive",
 		]);
 	});
 
-	test("trunk branch exits before clean-worktree rejection or model generation", async () => {
+	test("configured trunk branch exits before clean-worktree rejection or model generation", async () => {
 		const run = runCpWithFakes({
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-					{ match: "git symbolic-ref --short HEAD", result: { stdout: "main\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "release\n" } },
 					{ match: "git status --porcelain=v1", result: { stdout: "" } },
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+					{ match: "gt trunk --no-interactive", result: { stdout: "release\n" } },
 				],
 			},
 		});
 
 		expect(await run.exit).toBe(1);
 		expect(run.stderr.join("")).toBe(
-			"Refusing to create checkpoint commit on trunk branch: main\n",
+			"Refusing to create checkpoint commit on trunk branch: release\n",
 		);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([
@@ -276,6 +286,38 @@ describe("project-local cp extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
+			"gt trunk --no-interactive",
+		]);
+	});
+
+	test("Graphite trunk resolution failure stops before clean refusal or model generation", async () => {
+		const run = runCpWithFakes({
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+					{ match: "git status --porcelain=v1", result: { stdout: "" } },
+					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+					{
+						match: "gt trunk --no-interactive",
+						result: { code: 1, stderr: "Graphite configuration unavailable" },
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain(
+			"Could not resolve configured Graphite trunk; checkpoint was not created.",
+		);
+		expect(run.stderr.join("")).toContain("Graphite configuration unavailable");
+		expect(run.context.textGeneratorCalls).toEqual([]);
+		expect(formattedExecCalls(run.context)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+			"gt trunk --no-interactive",
 		]);
 	});
 
@@ -354,6 +396,7 @@ describe("project-local cp extension behavior", () => {
 						match: "git diff HEAD --no-ext-diff",
 						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 					},
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{ match: "git add -A", result: { code: 1, stderr: "index locked" } },
 				],
 			},
@@ -368,7 +411,7 @@ describe("project-local cp extension behavior", () => {
 		const commitFailed = runCpWithFakes({
 			state: {
 				exec: [
-					...dirtyCpExecResponses().slice(0, 5),
+					...dirtyCpExecResponses().slice(0, 6),
 					{ match: /^git commit -F /, result: { code: 1, stderr: "nothing to commit" } },
 				],
 			},
@@ -381,7 +424,7 @@ describe("project-local cp extension behavior", () => {
 		const logFailed = runCpWithFakes({
 			state: {
 				exec: [
-					...dirtyCpExecResponses().slice(0, 6),
+					...dirtyCpExecResponses().slice(0, 7),
 					{ match: "git log -1 --oneline", result: { code: 1, stderr: "log failed" } },
 				],
 			},

@@ -2,6 +2,7 @@ import {
 	rejectEmptyStagePaths,
 	type GitBranchParams,
 	type GitBranchPresenceResult,
+	type GitBranchUpstream,
 	type GitCommitParams,
 	type GitCurrentBranchResult,
 	type GitCwdParams,
@@ -34,6 +35,7 @@ export interface InMemoryGitGatewayState {
 	currentBranch?: CurrentBranchState;
 	isInsideWorkTree?: ValueState<boolean>;
 	trunkBranch?: OptionalValueState<string>;
+	branchUpstream?: OptionalValueState<GitBranchUpstream>;
 	originUrl?: OptionalValueState<string>;
 	headCommit?: ValueState<string>;
 	gitCommonDir?: ValueState<string>;
@@ -100,6 +102,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private currentBranchState: CurrentBranchState;
 	private readonly isInsideWorkTreeState: ValueState<boolean>;
 	private readonly trunkBranchState: OptionalValueState<string>;
+	private readonly branchUpstreamState: OptionalValueState<GitBranchUpstream>;
 	private readonly originUrlState: OptionalValueState<string>;
 	private readonly headCommitState: ValueState<string>;
 	private readonly gitCommonDirState: ValueState<string>;
@@ -132,6 +135,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly currentBranchLog: GitCall[] = [];
 	private readonly isInsideWorkTreeLog: GitCall[] = [];
 	private readonly trunkBranchLog: GitCall[] = [];
+	private readonly branchUpstreamLog: GitBranchCall[] = [];
 	private readonly originUrlLog: GitCall[] = [];
 	private readonly headCommitLog: GitCall[] = [];
 	private readonly gitCommonDirLog: GitCall[] = [];
@@ -158,6 +162,12 @@ export class InMemoryGitGateway implements GitGateway {
 		this.currentBranchState = state.currentBranch ?? "feature/source-plan";
 		this.isInsideWorkTreeState = state.isInsideWorkTree ?? true;
 		this.trunkBranchState = state.trunkBranch ?? "main";
+		this.branchUpstreamState = cloneBranchUpstreamState(
+			state.branchUpstream ?? {
+				remoteName: "origin",
+				remoteRef: "refs/heads/main",
+			},
+		);
 		this.originUrlState = state.originUrl ?? "git@github.com:Owner/Repo.git\n";
 		this.headCommitState = state.headCommit ?? "0123456789abcdef0123456789abcdef01234567";
 		this.gitCommonDirState = state.gitCommonDir ?? "/repo/.git";
@@ -218,6 +228,10 @@ export class InMemoryGitGateway implements GitGateway {
 
 	get trunkBranchCalls(): readonly GitCall[] {
 		return copyCalls(this.trunkBranchLog);
+	}
+
+	get branchUpstreamCalls(): readonly GitBranchCall[] {
+		return copyBranchCalls(this.branchUpstreamLog);
 	}
 
 	get originUrlCalls(): readonly GitCall[] {
@@ -352,6 +366,18 @@ export class InMemoryGitGateway implements GitGateway {
 			"trunk_branch_failed",
 			"Could not resolve trunk branch.",
 		);
+	}
+
+	async branchUpstream(params: GitBranchParams): Promise<GitOptionalResult<GitBranchUpstream>> {
+		this.branchUpstreamLog.push(branchCallFromParams(params));
+		const result = optionalValueResult(
+			this.branchUpstreamState,
+			"branch-upstream-failed",
+			"Could not resolve branch upstream.",
+		);
+		if (result.type === "found") return { type: "found", value: { ...result.value } };
+		if (result.type === "error") return { type: "error", error: { ...result.error } };
+		return result;
 	}
 
 	async originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>> {
@@ -656,6 +682,16 @@ function normalizeBranchTip(value: string | GitLocalBranchTip): GitLocalBranchTi
 		...(value.headSha === undefined ? {} : { headSha: value.headSha }),
 		headIso: value.headIso,
 	};
+}
+
+function cloneBranchUpstreamState(
+	state: OptionalValueState<GitBranchUpstream>,
+): OptionalValueState<GitBranchUpstream> {
+	if (isFailureState(state)) {
+		return { type: "failure", ...(state.error === undefined ? {} : { error: { ...state.error } }) };
+	}
+	if (isMissingState(state)) return { type: "missing" };
+	return { ...state };
 }
 
 function cloneTreeOidValue(value: string | null | GitErrorInfo): string | null | GitErrorInfo {

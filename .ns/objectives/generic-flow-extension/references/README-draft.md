@@ -17,6 +17,12 @@ never by forking flow.
 - The `ns` CLI with the flow extension enabled.
 - The `gt` and `gh` CLIs available on `PATH`; commands that read or mutate pull
   requests require an authenticated GitHub session.
+- A configured Graphite trunk that `gt trunk --no-interactive` can resolve.
+  Checkpoint safety fails closed when that lookup fails, including on clean
+  worktrees and checkpoint dry runs.
+- For `pull-trunk`, the local configured-trunk branch must have a Git upstream.
+  flow uses that upstream's exact remote and remote ref; it does not assume
+  `origin` or a same-named remote branch.
 
 ## Commands
 
@@ -31,7 +37,7 @@ never by forking flow.
 | `ns flow regenerate-pr`        | Regenerate the current branch PR title and description.                                        |
 | `ns flow push`                 | Push the current branch.                                                                       |
 | `ns flow land`                 | Land the current PR or Graphite stack into trunk.                                              |
-| `ns flow pull-trunk`           | Pull the configured Graphite trunk branch without running full `gt sync`.                      |
+| `ns flow pull-trunk`           | Refresh the configured Graphite trunk from its configured Git upstream.                        |
 | `ns flow squash-stack`         | Squash every branch in the current Graphite stack to one commit, then restore the tip branch.  |
 
 Every command is also available in the Pi harness as `/ns:flow:<command>`, delegating
@@ -39,6 +45,13 @@ to the CLI. Pi is optional; the CLI commands do not require the Pi host.
 
 ### Command-scoped integrations
 
+- `cp` and submit's checkpoint step compare the current branch with Graphite's
+  configured trunk. If Graphite cannot resolve that identity, they stop before
+  checkpoint-message generation or Git mutation; branch names such as `main`
+  and `master` receive no special treatment unless one is the configured trunk.
+- `pull-trunk` inspects the configured trunk's Git upstream before worktrees and
+  refresh mutation. A missing or unreadable upstream is a non-mutating refusal;
+  flow never creates or rewrites upstream configuration automatically.
 - `autoslot` composes the ns Slots capability to move the new branch into a
   managed slot. Other branch and submit commands do not require using managed
   slots. When `land` runs from or encounters a managed-slot worktree, it can

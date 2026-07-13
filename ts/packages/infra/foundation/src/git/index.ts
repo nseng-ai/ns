@@ -7,6 +7,7 @@ import { firstNonEmptyLine, nonEmptyLines } from "@nseng-ai/foundation/text-norm
 import type {
 	GitBranchParams,
 	GitBranchPresenceResult,
+	GitBranchUpstream,
 	GitCommitParams,
 	GitCurrentBranchResult,
 	GitCwdParams,
@@ -30,6 +31,7 @@ import { parseGitNameStatusPaths, parseGitStatusPaths } from "./status-paths.ts"
 export type {
 	GitBranchParams,
 	GitBranchPresenceResult,
+	GitBranchUpstream,
 	GitCommitParams,
 	GitCurrentBranchResult,
 	GitCwdParams,
@@ -70,6 +72,8 @@ const GIT_TIMEOUT_MS = 10_000;
 
 const GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_FORMAT =
 	"%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)";
+const GIT_BRANCH_UPSTREAM_FOR_EACH_REF_FORMAT =
+	"%(refname)%00%(upstream:remotename)%00%(upstream:remoteref)";
 
 export const GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS = [
 	"for-each-ref",
@@ -184,6 +188,20 @@ export class RealGitGateway implements GitGateway {
 			if (presence.type === "present") return { type: "found", value: branch };
 		}
 		return { type: "missing" };
+	}
+
+	async branchUpstream(params: GitBranchParams): Promise<GitOptionalResult<GitBranchUpstream>> {
+		const localRef = `refs/heads/${params.branch}`;
+		const args = ["for-each-ref", `--format=${GIT_BRANCH_UPSTREAM_FOR_EACH_REF_FORMAT}`, localRef];
+		const run = await this.runGit(params, args);
+		if (!run.ok) return { type: "error", error: run.error };
+		if (!commandSucceeded(run.value.result)) {
+			return {
+				type: "error",
+				error: failure("branch-upstream-failed", "git branch upstream lookup failed", run.value),
+			};
+		}
+		return parseBranchUpstream(run.value.result.stdout, localRef, run.value.displayCommand);
 	}
 
 	async originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>> {
@@ -571,6 +589,77 @@ function combinedOutput(result: ExecResult): string {
 	return `${result.stdout}\n${result.stderr}`;
 }
 
+function parseBranchUpstream(
+	stdout: string,
+	localRef: string,
+	displayCommand: string,
+): GitOptionalResult<GitBranchUpstream> {
+	const exactRecords: GitBranchUpstream[] = [];
+	let exactRecordCount = 0;
+	let exactRecordWithoutUpstream = false;
+	for (const record of stdout.split(/\r?\n/u).filter((line) => line.length > 0)) {
+		const fields = record.split("\0");
+		const [refName, remoteName, remoteRef] = fields;
+		if (
+			fields.length !== 3 ||
+			refName === undefined ||
+			refName.length === 0 ||
+			remoteName === undefined ||
+			remoteRef === undefined
+		) {
+			return malformedBranchUpstream(
+				localRef,
+				displayCommand,
+				"Git returned a malformed ref record.",
+			);
+		}
+		if (refName !== localRef) continue;
+		exactRecordCount += 1;
+		if (remoteName.length === 0 && remoteRef.length === 0) {
+			exactRecordWithoutUpstream = true;
+			continue;
+		}
+		if (remoteName.length === 0 || remoteRef.length === 0) {
+			return malformedBranchUpstream(
+				localRef,
+				displayCommand,
+				"Git returned only part of the configured upstream.",
+			);
+		}
+		exactRecords.push({ remoteName, remoteRef });
+	}
+
+	if (exactRecordCount === 0) return { type: "missing" };
+	if (exactRecordCount > 1) {
+		return malformedBranchUpstream(
+			localRef,
+			displayCommand,
+			"Git returned duplicate records for the local branch.",
+		);
+	}
+	if (exactRecordWithoutUpstream) return { type: "missing" };
+	const upstream = exactRecords[0];
+	if (upstream === undefined) {
+		throw new Error(`Expected parsed upstream for ${localRef}.`);
+	}
+	return { type: "found", value: upstream };
+}
+
+function malformedBranchUpstream(
+	localRef: string,
+	displayCommand: string,
+	detail: string,
+): Extract<GitOptionalResult<GitBranchUpstream>, { type: "error" }> {
+	return {
+		type: "error",
+		error: error(
+			"branch-upstream-malformed",
+			`Could not parse the configured upstream for ${localRef}. ${detail}\nCommand: ${displayCommand}`,
+			displayCommand,
+		).error,
+	};
+}
+
 function parseLocalBranchTips(stdout: string): GitLocalBranchTip[] {
 	return stdout.split(/\r?\n/u).flatMap((line) => {
 		if (line.trim().length === 0) return [];
@@ -606,6 +695,7 @@ export type LocalBranchRefreshPlan =
 export interface LocalBranchRefreshPlanOptions {
 	branch: string;
 	cwd: string;
+	upstream: GitBranchUpstream;
 	worktreePorcelain: string;
 }
 
@@ -619,14 +709,18 @@ export function planLocalBranchRefreshFromWorktrees(
 		return {
 			type: "pull-checked-out-branch",
 			cwd: checkedOutPath,
-			args: ["pull", "--ff-only", "origin", options.branch],
+			args: ["pull", "--ff-only", options.upstream.remoteName, options.upstream.remoteRef],
 		};
 	}
 
 	return {
 		type: "fetch-local-branch",
 		cwd: options.cwd,
-		args: ["fetch", "origin", `refs/heads/${options.branch}:refs/heads/${options.branch}`],
+		args: [
+			"fetch",
+			options.upstream.remoteName,
+			`${options.upstream.remoteRef}:refs/heads/${options.branch}`,
+		],
 	};
 }
 

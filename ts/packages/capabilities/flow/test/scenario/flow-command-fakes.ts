@@ -74,11 +74,16 @@ export function runFlowPullTrunkCommandWithFakes(options: RunFlowCommandWithFake
 			execResponses: () => [
 				{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 				{
+					match:
+						"git for-each-ref --format=%(refname)%00%(upstream:remotename)%00%(upstream:remoteref) refs/heads/main",
+					result: { stdout: "refs/heads/main\0company\0refs/heads/stable\n" },
+				},
+				{
 					match: "git worktree list --porcelain",
 					result: { stdout: "worktree /work\nHEAD abc123\nbranch refs/heads/feature\n" },
 				},
 				{
-					match: "git fetch origin refs/heads/main:refs/heads/main",
+					match: "git fetch company refs/heads/stable:refs/heads/main",
 					result: { stdout: "updated\n" },
 				},
 			],
@@ -566,6 +571,7 @@ function dirtyCpExecResponses(): ScriptedExecResponse[] {
 			match: "git diff HEAD --no-ext-diff",
 			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 		},
+		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 		{ match: "git add -A", result: {} },
 		{ match: /^git commit -F /, result: {} },
 		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint\n" } },

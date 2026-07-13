@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { formatCommand } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS, RealGitGateway } from "@nseng-ai/foundation/git";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
@@ -7,6 +8,11 @@ import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 const ROOT = "/repo";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const BRANCH = "planned-branches/branch-scoped-plan";
+const BRANCH_UPSTREAM_FORMAT = "%(refname)%00%(upstream:remotename)%00%(upstream:remoteref)";
+
+function branchUpstreamArgs(branch: string): string[] {
+	return ["for-each-ref", `--format=${BRANCH_UPSTREAM_FORMAT}`, `refs/heads/${branch}`];
+}
 
 interface ExecCall {
 	command: string;
@@ -151,6 +157,97 @@ describe("real git gateway", () => {
 			env: { PATH: "/fake/bin" },
 		});
 		expect(commands.execCalls.every((call) => call.options?.timeout === 10_000)).toBe(true);
+	});
+
+	test("resolves an exact non-origin branch upstream without accepting a prefix child", async () => {
+		const commands = new ScriptedCommands([
+			step("git", branchUpstreamArgs("release"), {
+				stdout: [
+					"refs/heads/release/candidate\0wrong\0refs/heads/wrong",
+					"refs/heads/release\0.\0refs/heads/stable",
+					"",
+				].join("\n"),
+			}),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.branchUpstream({ cwd: ROOT, branch: "release" })).toEqual({
+			type: "found",
+			value: { remoteName: ".", remoteRef: "refs/heads/stable" },
+		});
+		commands.assertDone();
+		expect(commands.execCalls).toEqual([
+			{
+				command: "git",
+				args: branchUpstreamArgs("release"),
+				options: { cwd: ROOT, timeout: 10_000 },
+			},
+		]);
+	});
+
+	test("reports missing upstream for absent exact refs and exact refs without tracking", async () => {
+		const commands = new ScriptedCommands([
+			step("git", branchUpstreamArgs("release"), {
+				stdout: "refs/heads/release/candidate\0company\0refs/heads/candidate\n",
+			}),
+			step("git", branchUpstreamArgs("release"), {
+				stdout: "refs/heads/release\0\0\n",
+			}),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.branchUpstream({ cwd: ROOT, branch: "release" })).toEqual({
+			type: "missing",
+		});
+		expect(await git.branchUpstream({ cwd: ROOT, branch: "release" })).toEqual({
+			type: "missing",
+		});
+		commands.assertDone();
+	});
+
+	test("preserves branch-upstream command failure evidence", async () => {
+		const commands = new ScriptedCommands([
+			step("git", branchUpstreamArgs("release"), {
+				code: 128,
+				stderr: "fatal: not a git repository",
+			}),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.branchUpstream({ cwd: ROOT, branch: "release" })).toMatchObject({
+			type: "error",
+			error: {
+				code: "branch-upstream-failed",
+				displayCommand: formatCommand("git", branchUpstreamArgs("release")),
+			},
+		});
+		commands.assertDone();
+	});
+
+	test("rejects partial and duplicate exact branch-upstream records", async () => {
+		const commands = new ScriptedCommands([
+			step("git", branchUpstreamArgs("release"), {
+				stdout: "refs/heads/release\0company\0\n",
+			}),
+			step("git", branchUpstreamArgs("release"), {
+				stdout: [
+					"refs/heads/release\0company\0refs/heads/stable",
+					"refs/heads/release\0backup\0refs/heads/release",
+					"",
+				].join("\n"),
+			}),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.branchUpstream({ cwd: ROOT, branch: "release" })).toMatchObject({
+			type: "error",
+			error: { code: "branch-upstream-malformed" },
+		});
+		expect(await git.branchUpstream({ cwd: ROOT, branch: "release" })).toMatchObject({
+			type: "error",
+			error: { code: "branch-upstream-malformed" },
+		});
+		commands.assertDone();
 	});
 
 	test("resolves git common dir with command protocol", async () => {

@@ -67,6 +67,7 @@ function cleanCheckpointResponses(): ScriptedExecResponse[] {
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 	];
 }
 
@@ -79,6 +80,7 @@ function dirtyCheckpointResponses(): ScriptedExecResponse[] {
 			match: "git diff HEAD --no-ext-diff",
 			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 		},
+		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 		{ match: "git add -A", result: {} },
 		{ match: /^git commit -F /, result: {} },
 		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Submit checkpoint\n" } },
@@ -1028,6 +1030,61 @@ describe("project-local submit extension", () => {
 		);
 	});
 
+	test("configured trunk checkpoint refusal aborts submit without model interpretation", async () => {
+		const run = runWithFakes({
+			request: { checks: false },
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "release\n" } },
+					{ match: "git status --porcelain=v1", result: { stdout: "" } },
+					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+					{ match: "gt trunk --no-interactive", result: { stdout: "release\n" } },
+				],
+				textGeneration: [],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain(
+			"Refusing to create checkpoint commit on trunk branch: release",
+		);
+		expect(run.context.textGeneratorCalls).toEqual([]);
+		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(
+			false,
+		);
+		expect(formattedExecCalls(run.context)).not.toContain("git add -A");
+	});
+
+	test("unresolved configured trunk aborts submit deterministically before model or mutation", async () => {
+		const run = runWithFakes({
+			request: { checks: false },
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+					{ match: "git status --porcelain=v1", result: { stdout: "" } },
+					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+					{
+						match: "gt trunk --no-interactive",
+						result: { code: 1, stderr: "Graphite configuration unavailable\n" },
+					},
+				],
+				textGeneration: [],
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain(
+			"Could not resolve configured Graphite trunk; checkpoint was not created.",
+		);
+		expect(run.context.textGeneratorCalls).toEqual([]);
+		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(
+			false,
+		);
+		expect(formattedExecCalls(run.context)).not.toContain("git add -A");
+	});
+
 	test("checkpoint failure aborts before Graphite submit", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
 		const run = runWithFakes({
@@ -1042,6 +1099,7 @@ describe("project-local submit extension", () => {
 						match: "git diff HEAD --no-ext-diff",
 						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 					},
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 				],
 				textGeneration: [
 					{ ok: false, error: "model unavailable" },

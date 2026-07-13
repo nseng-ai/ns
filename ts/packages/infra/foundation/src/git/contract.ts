@@ -11,6 +11,8 @@ export type KnownGitErrorCode =
 	| "branch-presence-failed"
 	| "branch-presence-killed"
 	| "branch-ref-invalid"
+	| "branch-upstream-failed"
+	| "branch-upstream-malformed"
 	| "current-branch-failed"
 	| "git_branch_tips_failed"
 	| "git_changed_paths_failed"
@@ -94,6 +96,11 @@ export interface GitLocalBranchTip {
 	headIso: string | null;
 }
 
+export interface GitBranchUpstream {
+	remoteName: string;
+	remoteRef: string;
+}
+
 export type GitOperationResult = { ok: true } | { ok: false; error: GitErrorInfo };
 
 export function rejectEmptyStagePaths(paths: readonly string[]): GitOperationResult | undefined {
@@ -117,6 +124,7 @@ export interface GitGateway {
 	currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult>;
 	isInsideWorkTree(params: GitCwdParams): Promise<GitResult<boolean>>;
 	trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>>;
+	branchUpstream(params: GitBranchParams): Promise<GitOptionalResult<GitBranchUpstream>>;
 	originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	headCommit(params: GitCwdParams): Promise<GitResult<string>>;
 	gitCommonDir(params: GitCwdParams): Promise<GitResult<string>>;

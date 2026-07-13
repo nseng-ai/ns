@@ -1,9 +1,21 @@
-import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
-import { planLocalBranchRefreshFromWorktrees } from "@nseng-ai/foundation/git";
-import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
+import {
+	commandSucceeded,
+	type CommandExecApi,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
+import {
+	planLocalBranchRefreshFromWorktrees,
+	RealGitGateway,
+	type GitErrorInfo,
+	type GitGateway,
+} from "@nseng-ai/foundation/git";
+import {
+	RealGraphiteBranchGateway,
+	type GraphiteBranchGateway,
+	type GraphiteErrorInfo,
+	type GraphiteTrunkBranchFailureReason,
+} from "@nseng-ai/capability-kit/graphite/branch";
 
-const GT_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 2 * 60 * 1000;
 
 interface TrunkPullCommands {
@@ -14,52 +26,86 @@ interface TrunkPullCommands {
 	): Promise<ExecResult>;
 }
 
-export type TrunkPullOutcome =
+type CommandBackedTrunkPullOutcome =
 	| { kind: "success"; trunk: string }
-	| { kind: "trunk-command-failed" }
-	| { kind: "trunk-empty" }
 	| { kind: "worktree-list-failed"; trunk: string }
 	| { kind: "update-failed"; trunk: string };
 
-export interface TrunkPullResult {
-	outcome: TrunkPullOutcome;
-	command: "gt" | "git";
+type GatewayBackedTrunkPullOutcome =
+	| {
+			kind: "trunk-command-failed";
+			reason: Exclude<GraphiteTrunkBranchFailureReason, "empty">;
+			error: GraphiteErrorInfo;
+	  }
+	| { kind: "trunk-empty"; error: GraphiteErrorInfo }
+	| { kind: "upstream-missing"; trunk: string }
+	| { kind: "upstream-inspection-failed"; trunk: string; error: GitErrorInfo };
+
+export type TrunkPullOutcome = CommandBackedTrunkPullOutcome | GatewayBackedTrunkPullOutcome;
+
+interface CommandBackedTrunkPullResult {
+	outcome: CommandBackedTrunkPullOutcome;
+	command: "git";
 	args: readonly string[];
 	cwd: string;
 	execResult: ExecResult;
+}
+
+interface GatewayBackedTrunkPullResult {
+	outcome: GatewayBackedTrunkPullOutcome;
+	cwd: string;
+}
+
+export type TrunkPullResult = CommandBackedTrunkPullResult | GatewayBackedTrunkPullResult;
+
+interface TrunkPullGateways {
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git: Pick<GitGateway, "branchUpstream">;
 }
 
 export async function runTrunkPullDetailed(
 	commands: TrunkPullCommands,
 	cwd: string,
 ): Promise<TrunkPullResult> {
-	const trunkArgs = ["trunk", "--no-interactive"];
-	const trunkResult = await runGraphiteCommand(
-		(command, args, options) => commands.exec(command, [...args], options),
-		{
-			cwd,
-			args: trunkArgs,
-			timeoutMs: GT_TIMEOUT_MS,
-		},
-	);
-	if (!commandSucceeded(trunkResult)) {
+	const execApi: CommandExecApi = {
+		exec: async (command, args, options) => await commands.exec(command, [...args], options),
+	};
+	return await runTrunkPullWithGateways({
+		commands,
+		cwd,
+		graphite: new RealGraphiteBranchGateway(execApi),
+		git: new RealGitGateway(execApi),
+	});
+}
+
+async function runTrunkPullWithGateways(
+	options: TrunkPullGateways & { commands: TrunkPullCommands; cwd: string },
+): Promise<TrunkPullResult> {
+	const { commands, cwd, graphite, git } = options;
+	const trunkResult = await graphite.trunkBranch({ cwd });
+	if (!trunkResult.ok) {
+		if (trunkResult.reason === "empty") {
+			return { outcome: { kind: "trunk-empty", error: trunkResult.error }, cwd };
+		}
 		return {
-			outcome: { kind: "trunk-command-failed" },
-			command: "gt",
-			args: trunkArgs,
+			outcome: {
+				kind: "trunk-command-failed",
+				reason: trunkResult.reason,
+				error: trunkResult.error,
+			},
 			cwd,
-			execResult: trunkResult,
 		};
 	}
+	const trunk = trunkResult.branch;
 
-	const trunk = firstNonEmptyLine(trunkResult.stdout);
-	if (trunk === undefined) {
+	const upstream = await git.branchUpstream({ cwd, branch: trunk });
+	if (upstream.type === "missing") {
+		return { outcome: { kind: "upstream-missing", trunk }, cwd };
+	}
+	if (upstream.type === "error") {
 		return {
-			outcome: { kind: "trunk-empty" },
-			command: "gt",
-			args: trunkArgs,
+			outcome: { kind: "upstream-inspection-failed", trunk, error: upstream.error },
 			cwd,
-			execResult: trunkResult,
 		};
 	}
 
@@ -81,6 +127,7 @@ export async function runTrunkPullDetailed(
 	const plan = planLocalBranchRefreshFromWorktrees({
 		branch: trunk,
 		cwd,
+		upstream: upstream.value,
 		worktreePorcelain: worktreeResult.stdout,
 	});
 	const updateResult = await commands.exec("git", plan.args, {
