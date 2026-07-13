@@ -5,7 +5,8 @@
 		"api",
 		"scripts",
 		"src",
-		"vercel.json"
+		"vercel.json",
+		"workflows"
 	],
 	"type": "module",
 	"exports": {
@@ -29,6 +30,7 @@
 		"@octokit/auth-app": "catalog:",
 		"@vercel/sandbox": "catalog:",
 		"jose": "catalog:",
+		"workflow": "catalog:",
 		"zod": "catalog:"
 	},
 	"ns": {
