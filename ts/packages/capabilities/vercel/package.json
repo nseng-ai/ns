@@ -26,6 +26,7 @@
 	},
 	"dependencies": {
 		"@earendil-works/pi-coding-agent": "catalog:",
+		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
 		"@octokit/auth-app": "catalog:",

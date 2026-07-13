@@ -16,6 +16,14 @@ export interface DispatchProjectConfig {
 	readonly harness: DispatchHarness;
 	readonly vercelProjectId: string;
 	readonly vercelTeamId: string;
+	/**
+	 * The dispatch deployable's stable HTTPS URL (the deployment recorded by
+	 * the README's Setup section). The local CLI calls the authenticated
+	 * trigger/observe routes on it. Optional in the schema so preflight can
+	 * report its absence as an actionable named failure rather than a generic
+	 * invalid-table parse error.
+	 */
+	readonly deploymentUrl?: string;
 }
 
 export interface DispatchProjectConfigError {
@@ -39,6 +47,19 @@ const vercelProjectIdSchema = z
 const vercelTeamIdSchema = z
 	.string()
 	.regex(/^team_[A-Za-z0-9]+$/, "must be a Vercel team ID beginning with 'team_'");
+const deploymentUrlSchema = z
+	.url()
+	.refine(isCredentialFreeHttpsUrl, "must be an explicit HTTPS URL without embedded credentials");
+
+function isCredentialFreeHttpsUrl(value: string): boolean {
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		return false;
+	}
+	return url.protocol === "https:" && url.username === "" && url.password === "";
+}
 
 const dispatchSettingsSchema = {
 	path: ["dispatch"] as const,
@@ -47,12 +68,16 @@ const dispatchSettingsSchema = {
 			harness: z.enum(dispatchHarnessValues),
 			vercel_project_id: vercelProjectIdSchema,
 			vercel_team_id: vercelTeamIdSchema,
+			deployment_url: deploymentUrlSchema.optional(),
 		})
 		.transform(
 			(settings): DispatchProjectConfig => ({
 				harness: settings.harness,
 				vercelProjectId: settings.vercel_project_id,
 				vercelTeamId: settings.vercel_team_id,
+				...(settings.deployment_url === undefined
+					? {}
+					: { deploymentUrl: settings.deployment_url }),
 			}),
 		),
 	invalidMessage: ({ pathLabel }) => `${pathLabel}: [dispatch] is invalid.`,
