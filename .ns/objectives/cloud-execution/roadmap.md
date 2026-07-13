@@ -45,7 +45,7 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
       Amended 2026-07-13: the execution architecture is the workflow
       supervisor with in-sandbox harness runners (`seam-design.md` §9); the
       package, anchor, command, and configuration decisions stand.
-- [~] Credentials slice — gates the workflow spine running real work. Makes
+- [x] Credentials slice — gates the workflow spine running real work. Makes
   true: "Setup". **Design settled 2026-07-12, revised 2026-07-13** (research
   note `references/git-credential-minting-research.md`, decisions in
   `references/credentials-design.md` + the credentials-design-settled and
@@ -107,7 +107,16 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
   prototype, and the autorun loop neither performs nor stops for them.
   Policy: mint-core exposure and preflight are runner steps (pure code,
   fake-driven tests); nothing in this row needs a live interlude.
-- [ ] Workflow spine probes — three staged probes on the existing
+  Both remaining items completed 2026-07-13 in the code-first autorun run
+  (code-first-run-spine-and-steel-thread-coded Semantic Update): the mint
+  core is an in-process seam (`DispatchTokenMinter`) with the HTTP route a
+  thin adapter over it, and `ns dispatch prompt` carries the credentials
+  preflight (named, value-free failure categories). In-process minting
+  from deployed workflow-step compute is pending the batched live pass.
+  Note: the mint runtime config still requires the retired
+  `NS_DISPATCH_SANDBOX_MINT_SECRET` variable until the deferred cleanup
+  (or a prior code change dropping the requirement).
+- [~] Workflow spine probes — three staged probes on the existing
       deployable, in order, each folding proven facts into the README and
       extending the `build:deployable` gate before anything depends on it.
       Makes true: "Under the hood" (the workflow-supervised execution
@@ -143,7 +152,12 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
       builds probe-2/3 and steel-thread code ahead of live probe facts;
       all deploy/trigger/observe work batches into one live pass after
       the code run, which alone may fold verification claims.
-- [ ] Steel thread: `ns dispatch prompt` end-to-end under the dispatch
+      Code complete 2026-07-13
+      (code-first-run-spine-and-steel-thread-coded Semantic Update): all
+      three probe code slices plus the gate extension are locally green
+      on the run's stack; remaining is the batched live
+      deploy/trigger/observe pass.
+- [~] Steel thread: `ns dispatch prompt` end-to-end under the dispatch
       workflow. Local CLI: preflight, dirty-tree refusal listing dirty
       files, push-first when the remote is missing/behind, anchor
       `dispatch/` branch + PR opened up front on the user's own
@@ -182,6 +196,13 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
       cycle is a parent interlude; the anchor-branch push and PR
       creation/mutation in 3–4 are the Runner Policy's per-action consent
       gate.
+      Sub-slices 1–3 code complete 2026-07-13
+      (code-first-run-spine-and-steel-thread-coded Semantic Update): the
+      dispatch workflow, the ns-owned pi runner with the `ns.toml`
+      `[dispatch]` harness recipe, and the `ns dispatch prompt` kernel
+      command (with `deployment_url` in the `[dispatch]` table) are
+      locally green on the run's stack. Remaining: sub-slice 4, the live
+      end-to-end interlude.
 - [ ] Reusable workflow-supervised dispatch setup skill, distilled from the
       proven credentials, spine-probe, and steel-thread work rather than
       authored ahead of it. Makes true: "Setup" as an executable
