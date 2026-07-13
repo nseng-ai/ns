@@ -203,14 +203,17 @@ dispatch, using Vercel's own secrets infrastructure:
 - **Git access** (clone + push) uses short-lived, repo-scoped credentials
   minted per run as **GitHub App installation tokens**; no long-lived broad
   token sits in an env var. One-time setup: register the org-owned
-  `ns-dispatch` GitHub App, install it on the repository, and generate its
-  private key directly into the sensitive
-  `NS_DISPATCH_GITHUB_APP_PRIVATE_KEY` env var on the dispatch project — the
-  key never touches a dev machine. Non-secret app and installation IDs use
-  `NS_DISPATCH_GITHUB_APP_ID` and `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID`;
-  the prototype's landing-time shared secret uses the sensitive
-  `NS_DISPATCH_SANDBOX_MINT_SECRET` variable. Anchor-PR activity from remote
-  runs attributes to `ns-dispatch[bot]`.
+  `ns-dispatch` GitHub App and install it on the repository. For an existing
+  App, GitHub generates additional private keys only through the App settings
+  UI: restrict the downloaded PEM to owner access, stream it without printing
+  into the sensitive `NS_DISPATCH_GITHUB_APP_PRIVATE_KEY` variable, verify the
+  App and installation identity, then remove the local copy after cloud
+  verification. GitHub's App Manifest flow can instead return a PEM once while
+  creating a new App; it does not rotate an existing App's key. Non-secret app
+  and installation IDs use `NS_DISPATCH_GITHUB_APP_ID` and
+  `NS_DISPATCH_GITHUB_APP_INSTALLATION_ID`; the prototype's landing-time shared
+  secret uses the sensitive `NS_DISPATCH_SANDBOX_MINT_SECRET` variable.
+  Anchor-PR activity from remote runs attributes to `ns-dispatch[bot]`.
 - **Executor auth** is Vercel OIDC federation: Vercel-hosted compute gets a
   short-lived token injected automatically, and dispatching from your own
   machine uses the development token from `vercel link` + `vercel env pull`.
@@ -241,6 +244,11 @@ The dispatch deployable's `POST /api/mint` endpoint reads these variables:
 | `NS_DISPATCH_VERCEL_OIDC_ISSUER`         | Non-secret  | Exact trusted issuer used for signature and claim verification |
 | `NS_DISPATCH_VERCEL_OIDC_AUDIENCE`       | Non-secret  | Exact trusted audience                                         |
 
+Vercel sensitive variables are write-only and their keys cannot be renamed.
+Create replacement sensitive variables for a namespace migration, stream fresh
+secret material without printing it, and retain the old variables only until
+the replacement deployment is verified.
+
 Configure the endpoint only after confirming the linked project's actual
 Development token issuer, audience, `owner_id`, `project_id`, and
 `environment` claims without printing or recording the token. The endpoint
@@ -265,8 +273,13 @@ local setup sequence established by the probe entrypoint is:
    embedding credentials in it.
 4. From the deployable directory, refresh the ignored local file with
    `vercel env pull .env.local --environment=development`. This file supplies
-   `VERCEL_OIDC_TOKEN` and is ignored by git.
-5. Invoke the development-only fixed probe from the package directory:
+   `VERCEL_OIDC_TOKEN` and is ignored by git. Decode only the non-secret claims;
+   never print or record the token, and do not guess issuer/audience from URL
+   conventions. Keep the ignore rule specific to `.env.local` if the CLI tries
+   to append a broader `.env*` rule that would hide intentional env templates.
+5. Choose a 40-character commit SHA that is reachable from the GitHub remote; a
+   local-only HEAD cannot be cloned by the Sandbox. Invoke the development-only
+   fixed probe from the package directory:
 
    ```sh
    pnpm dev:sandbox-hello-probe -- https://<dispatch-host>/api/mint <40-character-commit-sha>

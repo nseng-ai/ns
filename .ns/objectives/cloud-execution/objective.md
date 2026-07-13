@@ -188,11 +188,13 @@ Risks:
   implementation remaining. The package/deployable, typed Vercel project
   linkage, production environment-variable custody, local mint endpoint,
   and fixed private-repository Sandbox hello probe were implemented or
-  verified 2026-07-12. The local endpoint contract now consistently uses the
-  `NS_DISPATCH_*` environment namespace; the linked Vercel project's existing
-  variables still require migration to that contract. Live Development-token
-  trust verification, endpoint deployment, a billable Sandbox probe, and
-  dispatch preflight remain.
+  verified 2026-07-12. The local endpoint contract consistently uses the
+  `NS_DISPATCH_*` environment namespace, and the linked Vercel project now
+  carries all nine production variables plus the Development repository input.
+  A newly generated App key authenticated as `nseng-ai/ns-dispatch`; its
+  installation token reached private repo `nseng-ai/ns` with `contents: read`.
+  Development OIDC claims matched the configured team, project, and environment.
+  Endpoint deployment, a billable Sandbox probe, and dispatch preflight remain.
   Residual, accepted deliberately (racing to an e2e prototype): the v1 shared mint
   secret and self-landing sandbox are
   security shortcuts whose upgrades (per-run landing voucher, Vercel-side

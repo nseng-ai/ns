@@ -14,11 +14,11 @@ README.
 
 What you see now: `@nseng-ai/vercel` has a package/deployable shell, typed `[dispatch]`
 project linkage, a local mint endpoint, and a fixed private-repository Sandbox hello probe.
-The local environment contract uses `NS_DISPATCH_*`; the linked Vercel project still needs
-its existing variables migrated before the live Development-token trust check, deployment,
-billable probe, dispatch preflight, `ns dispatch` commands, harness executor, or setup skill.
-Collect
-proven setup facts while implementing; do not author the skill ahead of the steel thread.
+The linked Vercel project now carries the `NS_DISPATCH_*` production contract and a verified
+Development OIDC identity, but the endpoint has not been deployed and no billable Sandbox
+probe, dispatch preflight, `ns dispatch` command, harness executor, or setup skill has landed.
+Collect proven setup facts while implementing; do not author the skill ahead of the steel
+thread.
 The only working dispatch remains the Pi-only `/ccc:workspace:dispatch-*` surface over
 `@nseng-ai/ccc`; the retired cloud wayfinding map's "Eve presumed in as chassis" stance
 remains reversed.

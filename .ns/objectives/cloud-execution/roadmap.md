@@ -65,11 +65,17 @@ setup-skill row; they never record secret values.
   order and safe failure signals. The runtime, probe, tests, and README now
   use one `NS_DISPATCH_*` namespace for all nine dispatch-owned environment
   variables; generic model keys and Vercel's `VERCEL_OIDC_TOKEN` remain
-  unchanged. Targeted package tests and workspace typecheck pass. Remaining
-  (interleaves with the steel thread): migrate the linked Vercel project's
-  existing variables to `NS_DISPATCH_*`; explicitly authorized live OIDC
-  trust verification, endpoint deployment and billable Sandbox probe; and
-  dispatch preflight.
+  unchanged. Targeted package tests and workspace typecheck pass. Linked-project
+  configuration completed 2026-07-13: all nine `NS_DISPATCH_*` production
+  variables are present with secrets kept sensitive, the repository input is
+  also present in Development, and actual Development-token claims supplied the
+  exact issuer/audience while matching the configured team, project, and
+  environment. The new App key authenticated as `nseng-ai/ns-dispatch`, and a
+  clone-purpose installation token reached private repo `nseng-ai/ns` with
+  `contents: read`. Old-prefix variables remain temporarily for rollback until
+  the new endpoint succeeds. Remaining (interleaves with the steel thread):
+  endpoint deployment and billable Sandbox probe, old-prefix cleanup after
+  success, and dispatch preflight.
 - [ ] Steel thread: `ns dispatch prompt` end-to-end on Vercel Sandbox via
       the `@ai-sdk/harness-pi` adapter with ns skills injected via the
       Agent Skills standard. Makes true: "Quick start" (prompt path),
@@ -86,10 +92,16 @@ setup-skill row; they never record secret values.
       repository — GitHub App registration/installation, Vercel project
       linkage, environment-variable names and sensitivity, repo-local
       `[dispatch]` configuration, preflight, and a controlled Sandbox dispatch
-      probe — without reading or recording secret values. During the preceding
-      rows, continuously fold real setup facts and failure modes into the
-      canonical README and Semantic Updates when materially meaningful. Before
-      authoring, settle whether the skill is a module-bundled
+      probe — without reading or recording secret values. Proven facts to
+      preserve include existing-App key generation through GitHub's UI versus
+      initial creation through the App Manifest flow; Vercel sensitive-variable
+      replacement rather than rename/readback; OIDC trust values derived from
+      actual non-secret claims; read-only App/installation/repository checks;
+      precise `.env.local` ignore hygiene; and the requirement that probe SHAs
+      be remotely reachable. During the preceding rows, continuously fold real
+      setup facts and failure modes into the canonical README and Semantic
+      Updates when materially meaningful. Before authoring, settle whether the
+      skill is a module-bundled
       `@nseng-ai/vercel` artifact or a one-shot project-setup leaf and apply
       `docs/conventions/skill-conventions.md`; do not create the skill during
       the current mint-endpoint slice.
