@@ -5,11 +5,12 @@ import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { z } from "zod";
 
 import { githubPermissionsForPurpose, type GitHubRepositoryPermissions } from "./contracts.ts";
-import type {
-	GitHubInstallationTokenGateway,
-	LandingCredentialGateway,
-	VercelOidcGateway,
-} from "./handle-mint-request.ts";
+import type { LandingCredentialGateway, VercelOidcGateway } from "./handle-mint-request.ts";
+import {
+	createDispatchTokenMinter,
+	type DispatchTokenMinter,
+	type GitHubInstallationTokenGateway,
+} from "./mint-core.ts";
 import type { MintRuntimeConfig } from "./runtime-config.ts";
 
 export interface AppAuthFactoryOptions {
@@ -111,6 +112,20 @@ export function createGitHubInstallationTokenGateway(
 			}
 		},
 	};
+}
+
+// The in-process minting entry for the dispatch workflow (clone token at
+// sandbox creation, landing token at landing time): the mint core over the
+// real GitHub App installation-token gateway, no HTTP hop. `authFactory` is
+// the test seam; production callers pass only the parsed runtime config.
+export function createGitHubAppDispatchTokenMinter(
+	config: MintRuntimeConfig,
+	authFactory: AppAuthFactory = defaultAppAuthFactory,
+): DispatchTokenMinter {
+	return createDispatchTokenMinter({
+		config,
+		github: createGitHubInstallationTokenGateway(config, authFactory),
+	});
 }
 
 export function createSharedSecretLandingCredentialGateway(
