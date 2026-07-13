@@ -24,6 +24,10 @@ import { resolveObjectiveRecordTarget, targetToEmptyResultFields } from "./objec
 
 export const readObjectiveRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to read."),
+	includeUpdates: z
+		.boolean()
+		.default(false)
+		.describe("Include full update file contents in the output."),
 });
 
 export const readObjectiveBaseResultSchema = z.object({
@@ -54,12 +58,14 @@ export const readObjectiveOkResultSchema = readObjectiveBaseResultSchema.extend(
 	markdownFiles: z.object({
 		objectiveMd: objectiveMarkdownReadResultSchema,
 		roadmapMd: objectiveMarkdownReadResultSchema,
-		updates: z.array(
-			z.object({
-				update: objectiveUpdateFileSchema,
-				content: objectiveMarkdownReadResultSchema,
-			}),
-		),
+		updates: z
+			.array(
+				z.object({
+					update: objectiveUpdateFileSchema,
+					content: objectiveMarkdownReadResultSchema,
+				}),
+			)
+			.optional(),
 	}),
 });
 
@@ -74,10 +80,14 @@ export type ReadObjectiveRequest = z.infer<typeof readObjectiveRequestSchema>;
 export type ReadObjectiveStatus = "ok" | "missing-slug" | "invalid-slug" | "not-found";
 export type ReadObjectiveResult = z.infer<typeof readObjectiveResultSchema>;
 
+export interface ReadObjectiveOptions {
+	includeUpdates?: boolean;
+}
+
 interface ReadObjectiveMarkdownFiles {
 	objectiveMd: ObjectiveMarkdownReadResult;
 	roadmapMd: ObjectiveMarkdownReadResult;
-	updates: readonly { update: ObjectiveUpdateFile; content: ObjectiveMarkdownReadResult }[];
+	updates?: readonly { update: ObjectiveUpdateFile; content: ObjectiveMarkdownReadResult }[];
 }
 
 export interface ReadObjectiveOkResult extends ReadObjectiveBaseResult {
@@ -109,7 +119,9 @@ export async function runReadObjective(
 	ctx: ObjectiveCliContext,
 	request: ReadObjectiveRequest,
 ): Promise<ClinkrExit<ReadObjectiveResult>> {
-	const result = await readObjectiveRecord(ctx.storage, request.slug);
+	const result = await readObjectiveRecord(ctx.storage, request.slug, {
+		includeUpdates: request.includeUpdates,
+	});
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	const slugValidationError = handleObjectiveSlugValidationErrors(result.value, request.slug);
 	if (slugValidationError !== null) return slugValidationError;
@@ -140,8 +152,10 @@ export function renderReadObjective(result: ReadObjectiveResult): string {
 	appendMarkdownFile(parts, "roadmap.md", result.markdownFiles.roadmapMd);
 	if (!result.files.updatesDir) {
 		parts.push("## updates/\n\n_Missing `updates/` directory._\n\n");
-	} else if (result.markdownFiles.updates.length === 0) {
+	} else if (result.updates.length === 0) {
 		parts.push("## updates/\n\n_No direct update Markdown files found._\n\n");
+	} else if (result.markdownFiles.updates === undefined) {
+		parts.push(renderUpdateInventory(result.updates));
 	} else {
 		for (const update of result.markdownFiles.updates) {
 			appendMarkdownFile(parts, `updates/${update.update.name}`, update.content);
@@ -153,6 +167,7 @@ export function renderReadObjective(result: ReadObjectiveResult): string {
 export async function readObjectiveRecord(
 	storage: ObjectiveStorage,
 	slug: string | undefined,
+	options: ReadObjectiveOptions = {},
 ): Promise<
 	| { type: "ok"; value: ReadObjectiveResult }
 	| { type: "storage-error"; error: { code: string; message: string } }
@@ -200,6 +215,15 @@ export async function readObjectiveRecord(
 			: objectiveDocument;
 	const recordFrontmatter =
 		objectiveDocument.type === "ok" ? objectiveDocument.document.frontmatter : undefined;
+	const updateContents =
+		options.includeUpdates === true
+			? await Promise.all(
+					updates.value.map(async (update) => ({
+						update,
+						content: await storage.readMarkdownFile(`${relativePath}/updates/${update.name}`),
+					})),
+				)
+			: undefined;
 	return {
 		type: "ok",
 		value: {
@@ -208,12 +232,7 @@ export async function readObjectiveRecord(
 			markdownFiles: {
 				objectiveMd,
 				roadmapMd: await storage.readMarkdownFile(`${relativePath}/roadmap.md`),
-				updates: await Promise.all(
-					updates.value.map(async (update) => ({
-						update,
-						content: await storage.readMarkdownFile(`${relativePath}/updates/${update.name}`),
-					})),
-				),
+				...optionalEntry("updates", updateContents),
 			},
 		},
 	};
@@ -240,6 +259,17 @@ function emptyResult(options: {
 		updates: [],
 		updateCount: 0,
 	};
+}
+
+function renderUpdateInventory(updates: readonly ObjectiveUpdateFile[]): string {
+	const fileWord = updates.length === 1 ? "file" : "files";
+	const pronoun = updates.length === 1 ? "it" : "them";
+	return [
+		"## updates/\n\n",
+		`${updates.length} update ${fileWord} (contents omitted; pass \`--include-updates\` to include ${pronoun}):\n\n`,
+		...updates.map((update) => `- \`${update.name}\`\n`),
+		"\n",
+	].join("");
 }
 
 function appendMarkdownFile(

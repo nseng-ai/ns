@@ -93,7 +93,10 @@ export type {
 	ObjectiveListResult,
 	ObjectiveStatusFilter,
 } from "../core/operations/list-objectives.ts";
-export type { ReadObjectiveResult } from "../core/operations/read-objective.ts";
+export type {
+	ReadObjectiveOptions,
+	ReadObjectiveResult,
+} from "../core/operations/read-objective.ts";
 export type { ObjectiveCliContext } from "../core/context.ts";
 
 export type ObjectiveList = ObjectiveListResult;

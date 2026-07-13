@@ -6,7 +6,11 @@ import {
 	type ListObjectivesRequest,
 	type ObjectiveListResult,
 } from "./operations/list-objectives.ts";
-import { readObjectiveRecord, type ReadObjectiveResult } from "./operations/read-objective.ts";
+import {
+	readObjectiveRecord,
+	type ReadObjectiveOptions,
+	type ReadObjectiveResult,
+} from "./operations/read-objective.ts";
 import type { ObjectiveRecordStatus } from "./storage.ts";
 
 export interface ObjectiveApiFailure {
@@ -46,8 +50,8 @@ export interface ObjectiveClientOptions {
 export interface ObjectiveClient {
 	/** List checkout-local Objective records (defaults to active status). */
 	listObjectives(request?: Partial<ListObjectivesRequest>): Promise<ObjectiveListing>;
-	/** Read one Objective record by slug. */
-	readObjective(slug: string): Promise<ObjectiveRead>;
+	/** Read one Objective record by slug, optionally including full update contents. */
+	readObjective(slug: string, options?: ReadObjectiveOptions): Promise<ObjectiveRead>;
 	/** List active (open) Objective slugs for selection menus. */
 	listActiveCandidates(): Promise<ObjectiveCandidates>;
 }
@@ -68,9 +72,9 @@ export function createObjectiveClient(options: ObjectiveClientOptions): Objectiv
 			if (result.type === "ok") return { ok: true, result: result.value };
 			return { ok: false, failure: toFailure(result.error) };
 		},
-		async readObjective(slug) {
+		async readObjective(slug, readOptions) {
 			const ctx = await resolveContext(options);
-			const result = await readObjectiveRecord(ctx.storage, slug);
+			const result = await readObjectiveRecord(ctx.storage, slug, readOptions);
 			if (result.type === "ok") return { ok: true, result: result.value };
 			return { ok: false, failure: toFailure(result.error) };
 		},
