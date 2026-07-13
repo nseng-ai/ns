@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { createMintPostHandler } from "../../api/mint.ts";
 import type { MintPurpose } from "../../src/mint/contracts.ts";
 import type {
-	GitHubInstallationTokenGateway,
 	VercelOidcGateway,
 	VercelOidcVerificationResult,
 } from "../../src/mint/handle-mint-request.ts";
+import type { GitHubInstallationTokenGateway } from "../../src/mint/mint-core.ts";
 import type { MintEnvironment } from "../../src/mint/runtime-config.ts";
 
 class InMemoryOidcGateway implements VercelOidcGateway {
