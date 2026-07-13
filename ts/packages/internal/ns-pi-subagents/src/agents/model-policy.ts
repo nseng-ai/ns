@@ -1,20 +1,26 @@
-import { providerMatchesModelProviderFamily } from "@nseng-ai/foundation/model-slug";
+import {
+	type ModelProviderFamily,
+	providerMatchesModelProviderFamily,
+} from "@nseng-ai/foundation/model-slug";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
 
 import type { SubagentAgentDescriptor } from "./registry.ts";
 
 export const ANTHROPIC_PROVIDER_ID = "anthropic";
-export const EXPLORER_CHEAP_MODEL_ID = "claude-haiku-4-5";
-export const EXPLORER_CHEAP_MODEL_SHORTHAND = "haiku";
-export const EXPLORER_CHEAP_QUALIFIED_MODEL = `${ANTHROPIC_PROVIDER_ID}/${EXPLORER_CHEAP_MODEL_ID}`;
+export const EXPLORER_CHEAP_MODEL_IDS = {
+	anthropic: "claude-haiku-4-5",
+	google: "gemini-3.5-flash",
+	openai: "gpt-5.6-luna",
+} as const satisfies Record<ModelProviderFamily, string>;
+export const EXPLORER_CHEAP_QUALIFIED_MODEL = `${ANTHROPIC_PROVIDER_ID}/${EXPLORER_CHEAP_MODEL_IDS.anthropic}`;
 
 export type IsProviderAuthConfigured = (providerId: string) => boolean;
 
 /**
  * How an explorer child should be launched. "cheap" carries a Pi --model
- * pattern; "inherit" omits the model so the child inherits the parent
- * session's provider and model (no cheap option was safely available).
+ * pattern from the parent's provider when one is known; "inherit" omits the
+ * model when no same-provider cheap option is safely available.
  */
 export type ExplorerLaunchPlan = { kind: "cheap"; model: string } | { kind: "inherit" };
 
@@ -28,16 +34,23 @@ export type ResolveExplorerLaunchPlanInput = ModelSelectionAuthContext;
 export function resolveExplorerLaunchPlan(
 	input: ResolveExplorerLaunchPlanInput,
 ): ExplorerLaunchPlan {
-	if (
-		input.parentModel !== undefined &&
-		providerMatchesModelProviderFamily(input.parentModel.provider, ANTHROPIC_PROVIDER_ID)
-	) {
-		return { kind: "cheap", model: EXPLORER_CHEAP_MODEL_SHORTHAND };
+	if (input.parentModel !== undefined) {
+		const model = sameProviderCheapModel(input.parentModel);
+		return model === undefined ? { kind: "inherit" } : { kind: "cheap", model };
 	}
 	if (input.isProviderAuthConfigured(ANTHROPIC_PROVIDER_ID)) {
 		return { kind: "cheap", model: EXPLORER_CHEAP_QUALIFIED_MODEL };
 	}
 	return { kind: "inherit" };
+}
+
+function sameProviderCheapModel(parentModel: ModelInfo): string | undefined {
+	for (const family of ["anthropic", "google", "openai"] as const) {
+		if (providerMatchesModelProviderFamily(parentModel.provider, family)) {
+			return `${parentModel.provider}/${EXPLORER_CHEAP_MODEL_IDS[family]}`;
+		}
+	}
+	return undefined;
 }
 
 export interface ResolveDescriptorModelInput extends ModelSelectionAuthContext {

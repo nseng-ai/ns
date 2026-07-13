@@ -19,7 +19,7 @@ There are no `explore` or `forked_pi_agent` compatibility tools. The task count 
 
 ### Built-in agents
 
-- **`explorer`** — 1–8 read-only reconnaissance tasks, at most four concurrent, with one 300-second whole-call budget. It always receives `read`, `grep`, `find`, and `ls`; runtime choice cannot add permissions. Model selection chooses an automatic cheap model, the inherited parent model, or an explicit override, and each task dispatches exactly once.
+- **`explorer`** — 1–8 read-only reconnaissance tasks, at most four concurrent, with one 300-second whole-call budget. It always receives `read`, `grep`, `find`, and `ls`; runtime choice cannot add permissions. Automatic model selection keeps the parent's provider and chooses its cheap model (Haiku for Anthropic, Flash for Google, or Luna for OpenAI), inheriting the parent model when no same-provider cheap model is known. An explicit override still wins, and each task dispatches exactly once.
 - **`task`** — exactly one focused task, sequential in the shared worktree. It receives the normal read/bash/edit/write set, a curated worktree context packet, and inherits parent model/thinking policy unless `model` is explicit. Task agents remain single-attempt.
 
 Every result reports agent, resolved execution architecture, status, title, session file when available, diagnostics, and bounded final text. The child session transcript is the source of truth.
