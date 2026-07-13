@@ -12,6 +12,12 @@ edges:
     annotation: Downstream consumer of the reusable skill-management subsystem; customer Objectives rely on its `ns skills`/harness-artifact provisioning surface for skill delivery into Claude Code, Codex, and Pi.
   - objective: extension-descriptor-contract
     annotation: Consumes its landed descriptor contract and managed `ns install`/acquisition machinery; the `ns extension install`/`uninstall`/`update` customer acquisition surface designed here (references/README-draft.md) extends that slice to npm sources and admin verbs.
+  - objective: objectives-extension-customer-surface
+    annotation: Coordinates this Subobjective, which owns completion of the v1 Objectives extension command surface before release.
+  - objective: objectives-bare-core-release
+    annotation: Coordinates this Subobjective, which owns publication and checkout-free verification of the bare-core Objectives acquisition path.
+  - objective: objectives-claude-onboarding-steelthread
+    annotation: Coordinates this Subobjective, which owns the first real customer onboarding journey through Claude Code and synthesizes defects across the shipped seams.
 ---
 
 # Ship Objectives to Customers
