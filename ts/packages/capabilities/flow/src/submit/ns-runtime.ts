@@ -8,6 +8,7 @@ import {
 	RealSubmitGateway,
 	RealSubmitMetadataGateway,
 	runSubmitCommand,
+	type FlowPrDescriptionDescriptorSource,
 	type RunSubmitCommandOptions,
 	type SubmitCommandResult,
 	type SubmitFailureTranscript,
@@ -31,7 +32,10 @@ export interface NsSubmitRuntime {
 }
 
 /** Temporary internal migration seam; not exported from `@nseng-ai/sdk`. */
-export function createNsSubmitRuntime(ctx: NsExtensionApi): NsSubmitRuntime {
+export function createNsSubmitRuntime(
+	ctx: NsExtensionApi,
+	descriptorSource: FlowPrDescriptionDescriptorSource,
+): NsSubmitRuntime {
 	const commandRunner = createNsCommandRunner(ctx);
 	const git = createNsGitGateway(ctx);
 	return {
@@ -51,6 +55,7 @@ export function createNsSubmitRuntime(ctx: NsExtensionApi): NsSubmitRuntime {
 			githubPr: new RealGithubPrGateway(commandRunner),
 			textGenerator: ctx.textGenerator,
 			git,
+			descriptorSource,
 			env: ctx.env,
 		},
 	};

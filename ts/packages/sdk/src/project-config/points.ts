@@ -56,6 +56,7 @@ const builtInPointDefinitions = [
 		accepts: "prompt",
 		cardinality: "one",
 		description: "Prompt for generating pull request descriptions during flow submit.",
+		defaultPath: "../submit/prompts/pr-description-default.md",
 	},
 	{
 		id: "flow.submit.pre",

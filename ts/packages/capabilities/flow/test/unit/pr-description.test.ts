@@ -1,12 +1,12 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 
 import { createManualClock, createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 import type { TextGenerationResult } from "@nseng-ai/capability-kit/text-generation";
+import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import {
 	buildPrDescriptionUserPrompt,
 	filterLockfileSections,
@@ -22,10 +22,19 @@ import {
 	preparePrDescription,
 	PR_DESCRIPTION_PROMPT_ENV,
 	prewrittenFallbackBody,
+	REPO_PR_DESCRIPTION_PROMPT_PATH,
 	resolvePrDescriptionPrompt,
 	truncateDiff,
 } from "../../src/submit/index.ts";
-import { writeTestPointManifest } from "../support/point-manifest.ts";
+import { readFlowPrDescriptionDefault } from "../support/pr-description.ts";
+
+const temporaryRoots: string[] = [];
+
+afterEach(async () => {
+	await Promise.all(
+		temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
+	);
+});
 
 function validDraft(): string {
 	return `Add pluggable PR descriptions
@@ -309,48 +318,166 @@ describe("PR description helpers", () => {
 		expect(prompt).not.toContain("Co-Authored-By");
 	});
 
-	test("resolves prompts env path before repo override before builtin", async () => {
-		const root = join(tmpdir(), `ns-dev-pr-prompt-${randomUUID()}`);
-		const repo = join(root, "repo");
-		const repoPromptDir = join(repo, ".ns", "prompts");
-		await mkdir(repoPromptDir, { recursive: true });
-		await writeTestPointManifest(repo, {
-			group: "flow",
-			points: [
-				{
-					path: ["submit", "pr-description"],
-					accepts: "prompt",
-					cardinality: "one",
-				},
-			],
-		});
-		await writeFile(join(repoPromptDir, "flow.submit.pr-description.md"), "repo prompt", "utf8");
-		const envPath = join(root, "env.md");
-		await writeFile(envPath, "env prompt", "utf8");
+	test("resolves the full env, ns.toml, conventional, and descriptor-default ladder", async () => {
+		const repo = await createTemporaryRoot();
+		const configuredRelativePath = "policy/pr-description.md";
+		const configuredPath = join(repo, configuredRelativePath);
+		const conventionalPath = join(repo, ".ns", "prompts", "flow.submit.pr-description.md");
+		const envPath = join(repo, "env.md");
+		await mkdir(join(repo, "policy"), { recursive: true });
+		await mkdir(join(repo, ".ns", "prompts"), { recursive: true });
+		await writeFile(
+			join(repo, "ns.toml"),
+			`[points]\n"flow.submit.pr-description" = "${configuredRelativePath}"\n`,
+			"utf8",
+		);
+		await writeFile(configuredPath, "configured prompt\n", "utf8");
+		await writeFile(conventionalPath, "conventional prompt\n", "utf8");
+		await writeFile(envPath, "environment prompt\n", "utf8");
 
 		await expect(
 			resolvePrDescriptionPrompt({
 				env: { [PR_DESCRIPTION_PROMPT_ENV]: envPath },
+				descriptorSource: flowExtensionDescriptorSource,
 				repoRoot: repo,
 			}),
-		).resolves.toMatchObject({
+		).resolves.toEqual({
 			ok: true,
-			text: "env prompt",
-			source: { type: "env" },
-		});
-		await expect(resolvePrDescriptionPrompt({ env: {}, repoRoot: repo })).resolves.toMatchObject({
-			ok: true,
-			text: "repo prompt",
-			source: { type: "repo" },
+			text: "environment prompt\n",
+			source: { type: "env", path: envPath },
 		});
 		await expect(
 			resolvePrDescriptionPrompt({
-				env: { [PR_DESCRIPTION_PROMPT_ENV]: envPath },
-				cwd: root,
+				env: {},
+				descriptorSource: flowExtensionDescriptorSource,
+				repoRoot: repo,
 			}),
-		).resolves.toMatchObject({
+		).resolves.toEqual({
 			ok: true,
+			text: "configured prompt\n",
+			source: { type: "repo", path: configuredPath },
+		});
+
+		await writeFile(join(repo, "ns.toml"), "", "utf8");
+		await expect(
+			resolvePrDescriptionPrompt({
+				env: {},
+				descriptorSource: flowExtensionDescriptorSource,
+				repoRoot: repo,
+			}),
+		).resolves.toEqual({
+			ok: true,
+			text: "conventional prompt\n",
+			source: { type: "repo", path: conventionalPath },
+		});
+
+		await rm(conventionalPath);
+		const checkedInPackagedPrompt = readFlowPrDescriptionDefault();
+		await expect(
+			resolvePrDescriptionPrompt({
+				env: {},
+				descriptorSource: flowExtensionDescriptorSource,
+				repoRoot: repo,
+			}),
+		).resolves.toEqual({
+			ok: true,
+			text: checkedInPackagedPrompt,
 			source: { type: "builtin" },
 		});
 	});
+
+	test("uses cwd as the catalog root so an env override wins without repoRoot evidence", async () => {
+		const cwd = await createTemporaryRoot();
+		const envPath = join(cwd, "env.md");
+		await writeFile(envPath, "environment prompt", "utf8");
+
+		await expect(
+			resolvePrDescriptionPrompt({
+				env: { [PR_DESCRIPTION_PROMPT_ENV]: "env.md" },
+				descriptorSource: flowExtensionDescriptorSource,
+				cwd,
+			}),
+		).resolves.toEqual({
+			ok: true,
+			text: "environment prompt",
+			source: { type: "env", path: envPath },
+		});
+	});
+
+	test("fails on a missing selected repository prompt without using the packaged default", async () => {
+		const repo = await createTemporaryRoot();
+		const relativePath = "policy/missing.md";
+		const selectedPath = join(repo, relativePath);
+		await installExplicitPromptWithConventionalFallback(repo, relativePath);
+
+		await expect(
+			resolvePrDescriptionPrompt({
+				env: {},
+				descriptorSource: flowExtensionDescriptorSource,
+				repoRoot: repo,
+			}),
+		).resolves.toEqual({
+			ok: false,
+			error: `Selected ns.toml prompt ${relativePath} is missing at ${selectedPath}.`,
+			source: { type: "repo", path: selectedPath },
+		});
+	});
+
+	test("fails on an unreadable selected conventional prompt without using the packaged default", async () => {
+		const repo = await createTemporaryRoot();
+		const selectedPath = join(repo, REPO_PR_DESCRIPTION_PROMPT_PATH);
+		await mkdir(selectedPath, { recursive: true });
+
+		const result = await resolvePrDescriptionPrompt({
+			env: {},
+			descriptorSource: flowExtensionDescriptorSource,
+			repoRoot: repo,
+		});
+		expect(result).toMatchObject({
+			ok: false,
+			source: { type: "repo", path: selectedPath },
+		});
+		expect(result.ok ? "" : result.error).toContain(
+			`Could not read selected ${REPO_PR_DESCRIPTION_PROMPT_PATH} at ${selectedPath}`,
+		);
+	});
+
+	test("fails on an empty selected conventional prompt without using the packaged default", async () => {
+		const repo = await createTemporaryRoot();
+		const selectedPath = join(repo, REPO_PR_DESCRIPTION_PROMPT_PATH);
+		await mkdir(join(repo, ".ns", "prompts"), { recursive: true });
+		await writeFile(selectedPath, " \n\t", "utf8");
+
+		await expect(
+			resolvePrDescriptionPrompt({
+				env: {},
+				descriptorSource: flowExtensionDescriptorSource,
+				repoRoot: repo,
+			}),
+		).resolves.toEqual({
+			ok: false,
+			error: `Selected ${REPO_PR_DESCRIPTION_PROMPT_PATH} at ${selectedPath} is empty.`,
+			source: { type: "repo", path: selectedPath },
+		});
+	});
 });
+
+async function createTemporaryRoot(): Promise<string> {
+	const root = await mkdtemp(join(tmpdir(), "ns-flow-pr-description-"));
+	temporaryRoots.push(root);
+	return root;
+}
+
+async function installExplicitPromptWithConventionalFallback(
+	repo: string,
+	relativePath: string,
+): Promise<void> {
+	const conventionalPath = join(repo, ".ns", "prompts", "flow.submit.pr-description.md");
+	await mkdir(join(repo, ".ns", "prompts"), { recursive: true });
+	await writeFile(
+		join(repo, "ns.toml"),
+		`[points]\n"flow.submit.pr-description" = "${relativePath}"\n`,
+		"utf8",
+	);
+	await writeFile(conventionalPath, "must not fall through to this prompt", "utf8");
+}

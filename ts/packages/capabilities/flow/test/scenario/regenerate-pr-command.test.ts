@@ -7,12 +7,12 @@ import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import {
-	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
 	formatManagedGeneratedRegion,
 	GENERATED_BODY_MARKER,
 	hashPrDescriptionPrompt,
 } from "../../src/submit/index.ts";
 
+import { readFlowPrDescriptionDefault } from "../support/pr-description.ts";
 import { runFlowRegeneratePrCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ExecCall, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
@@ -102,7 +102,7 @@ function currentManagedBody(): string {
 	return formatManagedGeneratedRegion("Existing generated body", {
 		version: "2",
 		patchId: "default-patch-id",
-		promptHash: hashPrDescriptionPrompt(DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT),
+		promptHash: hashPrDescriptionPrompt(readFlowPrDescriptionDefault()),
 		generator: "ns-pr-description-v2",
 	});
 }

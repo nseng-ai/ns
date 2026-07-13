@@ -39,6 +39,7 @@ import {
 	type NsCommand,
 	type NsExtensionApi,
 } from "@nseng-ai/sdk";
+import { flowExtensionDescriptorSource } from "../extension.ts";
 import { FLOW_COMMAND_FAILED, exitCodeToFlowCommandExit } from "../flow-cli-runner.ts";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
@@ -104,7 +105,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 		verbose: { short: "-v" },
 	},
 	handler: async (ctx: NsExtensionApi, request: SubmitRequest) => {
-		const runtime = createNsSubmitRuntime(ctx);
+		const runtime = createNsSubmitRuntime(ctx, flowExtensionDescriptorSource);
 		const repoRoot = request.checks
 			? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
 			: undefined;

@@ -18,6 +18,7 @@ import {
 	type PrDescriptionUpdateResult,
 } from "../../submit/index.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
+import { flowExtensionDescriptorSource } from "../extension.ts";
 
 const REGENERATE_PR_DESCRIPTION = `Regenerate the current branch PR title and ns-managed generated body region.
 
@@ -59,6 +60,7 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = def
 				env: ctx.env,
 				githubPr: runtime.githubPr,
 				git: runtime.git,
+				descriptorSource: flowExtensionDescriptorSource,
 				textGenerator: ctx.textGenerator,
 				fingerprintPolicy: prDescriptionFingerprintPolicyForForce(request.force),
 				progress: { onProgress: (message) => io.phase(message) },

@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { ActiveOperation } from "@nseng-ai/sdk";
+import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import {
 	GENERATED_BODY_MARKER,
 	formatManagedGeneratedRegion,
@@ -107,6 +108,7 @@ describe("orchestratePrDescription", () => {
 			cwd: "/repo",
 			env: {},
 			git: UNUSED_GIT,
+			descriptorSource: flowExtensionDescriptorSource,
 			githubPr,
 			textGenerator: textGeneration,
 			pr: prDetails({ title: "Prepared title", body: "Prepared body" }),
@@ -127,6 +129,7 @@ describe("orchestratePrDescription", () => {
 			cwd: "/repo",
 			env: {},
 			git: UNUSED_GIT,
+			descriptorSource: flowExtensionDescriptorSource,
 			githubPr,
 			textGenerator: new ScriptedTextGenerator([]),
 			pr: DEFAULT_PR,
@@ -157,6 +160,7 @@ describe("orchestratePrDescription", () => {
 			cwd: "/repo",
 			env: {},
 			git: UNUSED_GIT,
+			descriptorSource: flowExtensionDescriptorSource,
 			githubPr,
 			textGenerator: textGeneration,
 			pr: prDetails({ body }),
@@ -191,6 +195,7 @@ describe("orchestratePrDescription", () => {
 			cwd: "/repo",
 			env: {},
 			git: UNUSED_GIT,
+			descriptorSource: flowExtensionDescriptorSource,
 			githubPr,
 			textGenerator: textGeneration,
 			pr: DEFAULT_PR,
@@ -237,6 +242,7 @@ describe("orchestratePrDescription", () => {
 				cwd: "/repo",
 				env: {},
 				git: UNUSED_GIT,
+				descriptorSource: flowExtensionDescriptorSource,
 				githubPr,
 				textGenerator: throwingGenerator,
 				pr: DEFAULT_PR,
@@ -277,6 +283,7 @@ describe("orchestratePrDescription", () => {
 			cwd: "/repo",
 			env: {},
 			git: UNUSED_GIT,
+			descriptorSource: flowExtensionDescriptorSource,
 			githubPr,
 			textGenerator: textGeneration,
 			pr: prDetails({ body }),

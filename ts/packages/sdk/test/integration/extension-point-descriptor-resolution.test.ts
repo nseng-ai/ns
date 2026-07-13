@@ -14,41 +14,67 @@ import {
 
 const roots: string[] = [];
 
+const flowPackagedPromptDefaults = [
+	{
+		pointId: "flow.submit.pre.recovery",
+		defaultPath: "../submit/prompts/submit-check-recovery-default.md",
+		promptFileName: "submit-check-recovery-default.md",
+	},
+	{
+		pointId: "flow.submit.pr-description",
+		defaultPath: "../submit/prompts/pr-description-default.md",
+		promptFileName: "pr-description-default.md",
+	},
+] as const;
+
 afterEach(async () => {
 	await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
 describe("extension point descriptor resolution", () => {
-	test("resolves the checked-in Flow recovery default relative to its descriptor", async () => {
-		const root = await projectRoot();
-		const flowPackageRoot = fileURLToPath(new URL("../../../capabilities/flow/", import.meta.url));
-		await writeFile(join(root, "ns.toml"), `extensions = [${JSON.stringify(flowPackageRoot)}]\n`);
+	test.each(flowPackagedPromptDefaults)(
+		"resolves the checked-in Flow $pointId default relative to its descriptor",
+		async ({ pointId, defaultPath, promptFileName }) => {
+			const root = await projectRoot();
+			const flowPackageRoot = fileURLToPath(
+				new URL("../../../capabilities/flow/", import.meta.url),
+			);
+			await writeFile(join(root, "ns.toml"), `extensions = [${JSON.stringify(flowPackageRoot)}]\n`);
 
-		const catalog = await loadPointCatalogWithDescriptors({
-			repoRoot: root,
-			gateway: nodeProjectConfigGateway,
-			env: {},
-		});
-		const entry = catalog.entries.find(
-			(candidate) => candidate.definition.id === "flow.submit.pre.recovery",
-		);
-		expect(entry?.definition).toMatchObject({
-			accepts: "prompt",
-			cardinality: "one",
-			defaultPath: "../submit/prompts/submit-check-recovery-default.md",
-			manifestPath: join(flowPackageRoot, "src", "ns", "extension.ts"),
-		});
-		const source = resolvePromptPointSource(catalog, "flow.submit.pre.recovery");
-		expect(source.type).toBe("default");
-		if (source.type !== "default") throw new Error("Expected the Flow recovery default source");
-		const resolved = resolvePromptPointPath(root, source);
-		expect(resolved).toEqual({
-			path: join(flowPackageRoot, "src", "submit", "prompts", "submit-check-recovery-default.md"),
-			label: "manifest default ../submit/prompts/submit-check-recovery-default.md",
-		});
-		if (resolved === undefined) throw new Error("Expected the Flow recovery default to resolve");
-		expect((await readFile(resolved.path, "utf8")).trim()).not.toBe("");
-	});
+			const catalog = await loadPointCatalogWithDescriptors({
+				repoRoot: root,
+				gateway: nodeProjectConfigGateway,
+				env: {},
+			});
+			const manifestPath = join(flowPackageRoot, "src", "ns", "extension.ts");
+			const entry = catalog.entries.find((candidate) => candidate.definition.id === pointId);
+			expect(entry?.definition).toMatchObject({
+				id: pointId,
+				accepts: "prompt",
+				cardinality: "one",
+				defaultPath,
+				manifestPath,
+			});
+			const source = resolvePromptPointSource(catalog, pointId);
+			expect(source).toEqual({
+				type: "default",
+				pointId,
+				path: defaultPath,
+				manifestPath,
+			});
+			if (source.type !== "default") {
+				throw new Error(`Expected the Flow ${pointId} default source`);
+			}
+			const resolved = resolvePromptPointPath(root, source);
+			expect(resolved).toEqual({
+				path: join(flowPackageRoot, "src", "submit", "prompts", promptFileName),
+				label: `manifest default ${defaultPath}`,
+			});
+			if (resolved === undefined)
+				throw new Error(`Expected the Flow ${pointId} default to resolve`);
+			expect((await readFile(resolved.path, "utf8")).trim()).not.toBe("");
+		},
+	);
 
 	test("loads npm descriptor points from managed npm storage", async () => {
 		const root = await projectRoot();

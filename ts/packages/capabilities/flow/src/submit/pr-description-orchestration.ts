@@ -17,6 +17,7 @@ import {
 import {
 	preparePrDescription,
 	resolvePrDescriptionGeneration,
+	type FlowPrDescriptionDescriptorSource,
 	type PrDescriptionGenerationResolution,
 	type PromptSource,
 	type TimeServices,
@@ -46,6 +47,7 @@ export interface PrDescriptionUpdateOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	git: GitGateway;
+	descriptorSource: FlowPrDescriptionDescriptorSource;
 	githubPr: GithubPrGateway;
 	textGenerator: TextGenerator;
 	pr: GithubPrDetails;
@@ -243,6 +245,7 @@ export async function orchestratePrDescription(
 		cwd: options.cwd,
 		env: options.env,
 		git: options.git,
+		descriptorSource: options.descriptorSource,
 		githubPr: options.githubPr,
 		textGenerator: options.textGenerator,
 		pr,

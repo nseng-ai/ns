@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
-import { access, readFile } from "node:fs/promises";
-import { basename, isAbsolute, resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
@@ -22,15 +21,13 @@ import type { TimeServices } from "@nseng-ai/foundation/time";
 export type { TimeServices } from "@nseng-ai/foundation/time";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import {
-	buildPointCatalog,
 	loadPointCatalog,
 	nodeProjectConfigGateway,
 	resolvePromptPointPath,
 	resolvePromptPointSource,
-	type PointCatalog,
+	type PreloadedPointDescriptor,
 	type PromptPointSource,
 } from "@nseng-ai/sdk/project-config/points";
-
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
 
 export { DEFAULT_PR_DESCRIPTION_MODEL_REF, PR_DESCRIPTION_MODEL_ENV, selectPrDescriptionModelRef };
@@ -53,17 +50,10 @@ const LOCKFILE_BASENAMES = new Set([
 	"Cargo.lock",
 ]);
 
-const DEFAULT_PR_DESCRIPTION_PROMPT_PATH = "./prompts/pr-description-default.md";
-const DEFAULT_PR_DESCRIPTION_PROMPT_URL = new URL(
-	DEFAULT_PR_DESCRIPTION_PROMPT_PATH,
-	import.meta.url,
-);
-const DEFAULT_PR_DESCRIPTION_PROMPT_MANIFEST_PATH = fileURLToPath(import.meta.url);
-
-export const DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT = readFileSync(
-	DEFAULT_PR_DESCRIPTION_PROMPT_URL,
-	"utf8",
-).trimEnd();
+export interface FlowPrDescriptionDescriptorSource {
+	descriptor: PreloadedPointDescriptor["descriptor"];
+	descriptorUrl: string;
+}
 
 export type PromptSource =
 	| { type: "env"; path: string }
@@ -125,11 +115,13 @@ export async function resolvePrDescriptionGeneration(input: {
 	env: Record<string, string | undefined>;
 	cwd: string;
 	git: GitGateway;
+	descriptorSource: FlowPrDescriptionDescriptorSource;
 }): Promise<PrDescriptionGenerationResolution> {
 	const repoRoot = await input.git.repoRoot({ cwd: input.cwd });
 	const prompt = await resolvePrDescriptionPrompt({
 		env: input.env,
 		cwd: input.cwd,
+		descriptorSource: input.descriptorSource,
 		...(repoRoot.ok ? { repoRoot: repoRoot.value } : {}),
 	});
 	if (!prompt.ok) {
@@ -146,6 +138,7 @@ export async function resolvePrDescriptionGeneration(input: {
 
 interface PrDescriptionPointContext {
 	env: Record<string, string | undefined>;
+	descriptorSource: FlowPrDescriptionDescriptorSource;
 	repoRoot?: string;
 	cwd?: string;
 }
@@ -153,81 +146,88 @@ interface PrDescriptionPointContext {
 export async function resolvePrDescriptionPrompt(
 	input: PrDescriptionPointContext,
 ): Promise<PromptResolutionResult> {
-	const catalog = loadPrDescriptionPointCatalog(input);
-	const pointSource = resolvePromptPointSource(catalog, FLOW_PR_DESCRIPTION_POINT_ID);
-	const prompt = await readPrDescriptionPointSource({ ...input, pointSource });
-	if (prompt !== undefined) return prompt;
-
-	return { ok: true, text: DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT, source: { type: "builtin" } };
-}
-
-function loadPrDescriptionPointCatalog(request: PrDescriptionPointContext): PointCatalog {
-	if (request.repoRoot !== undefined) {
-		const catalog = loadPointCatalog({
-			repoRoot: request.repoRoot,
-			gateway: nodeProjectConfigGateway,
-			promptEnvOverride: prDescriptionPromptEnvOverride,
-			env: request.env,
-		});
-		if (resolvePromptPointSource(catalog, FLOW_PR_DESCRIPTION_POINT_ID).type !== "missing") {
-			return catalog;
-		}
-	}
-	return buildPointCatalog({
-		repoRoot: request.repoRoot ?? process.cwd(),
-		gateway: { pathExists: () => ({ type: "missing" }) },
-		pointDefinitions: [
+	const catalogRoot = input.repoRoot ?? input.cwd ?? process.cwd();
+	const catalog = loadPointCatalog({
+		repoRoot: catalogRoot,
+		gateway: nodeProjectConfigGateway,
+		preferredDescriptors: [
 			{
-				id: FLOW_PR_DESCRIPTION_POINT_ID,
-				accepts: "prompt",
-				cardinality: "one",
-				defaultPath: DEFAULT_PR_DESCRIPTION_PROMPT_PATH,
-				manifestPath: DEFAULT_PR_DESCRIPTION_PROMPT_MANIFEST_PATH,
+				descriptor: input.descriptorSource.descriptor,
+				descriptorPath: fileURLToPath(input.descriptorSource.descriptorUrl),
 			},
 		],
-		config: { points: [], settings: new Map() },
+		promptEnvOverride: prDescriptionPromptEnvOverride,
+		env: input.env,
 	});
+	const pointSource = resolvePromptPointSource(catalog, FLOW_PR_DESCRIPTION_POINT_ID);
+	return await readPrDescriptionPointSource({ catalogRoot, pointSource });
 }
 
-async function readPrDescriptionPointSource(
-	request: PrDescriptionPointContext & { pointSource: PromptPointSource },
-): Promise<PromptResolutionResult | undefined> {
-	switch (request.pointSource.type) {
-		case "env": {
-			const path = resolvePromptPath(request.pointSource.path, request.repoRoot, request.cwd);
-			try {
-				return { ok: true, text: await readFile(path, "utf8"), source: { type: "env", path } };
-			} catch (error) {
-				return {
-					ok: false,
-					error: `Could not read ${request.pointSource.envVar} prompt file at ${path}: ${formatErrorMessage(error)}`,
-					source: { type: "env", path },
-				};
-			}
-		}
-		case "ns.toml":
-		case "conventional": {
-			if (request.repoRoot === undefined) return undefined;
-			const resolved = resolvePromptPointPath(request.repoRoot, request.pointSource);
-			if (resolved === undefined || !(await isReadableFile(resolved.path))) return undefined;
+async function readPrDescriptionPointSource(request: {
+	catalogRoot: string;
+	pointSource: PromptPointSource;
+}): Promise<PromptResolutionResult> {
+	if (request.pointSource.type === "env") {
+		const path = resolve(request.catalogRoot, request.pointSource.path);
+		try {
+			return { ok: true, text: await readFile(path, "utf8"), source: { type: "env", path } };
+		} catch (error) {
 			return {
-				ok: true,
-				text: await readFile(resolved.path, "utf8"),
-				source: { type: "repo", path: resolved.path },
+				ok: false,
+				error: `Could not read ${request.pointSource.envVar} prompt file at ${path}: ${formatErrorMessage(error)}`,
+				source: { type: "env", path },
 			};
 		}
-		case "default": {
-			const resolved = resolvePromptPointPath(
-				request.repoRoot ?? process.cwd(),
-				request.pointSource,
-			);
-			if (resolved === undefined) return undefined;
-			const text = await readFile(resolved.path, "utf8");
-			return { ok: true, text: text.trimEnd(), source: { type: "builtin" } };
-		}
-		case "missing":
-			return undefined;
 	}
+	if (request.pointSource.type === "missing") {
+		return {
+			ok: false,
+			error: `Could not resolve ${FLOW_PR_DESCRIPTION_POINT_ID}: the point catalog has no installed prompt or descriptor default.`,
+			source: { type: "builtin" },
+		};
+	}
+
+	const resolved = resolvePromptPointPath(request.catalogRoot, request.pointSource);
+	const source: PromptSource =
+		request.pointSource.type === "default"
+			? { type: "builtin" }
+			: {
+					type: "repo",
+					path: resolved?.path ?? resolve(request.catalogRoot, request.pointSource.path),
+				};
+	if (resolved === undefined) {
+		return {
+			ok: false,
+			error: `Could not resolve selected ${request.pointSource.type} prompt path ${request.pointSource.path} for ${FLOW_PR_DESCRIPTION_POINT_ID} from catalog root ${request.catalogRoot}.`,
+			source,
+		};
+	}
+
+	let text: string;
+	try {
+		text = await readFile(resolved.path, "utf8");
+	} catch (error) {
+		return {
+			ok: false,
+			error: isNodeFileNotFound(error)
+				? `Selected ${resolved.label} is missing at ${resolved.path}.`
+				: `Could not read selected ${resolved.label} at ${resolved.path}: ${formatErrorMessage(error)}`,
+			source,
+		};
+	}
+	if (text.trim() === "") {
+		return {
+			ok: false,
+			error: `Selected ${resolved.label} at ${resolved.path} is empty.`,
+			source,
+		};
+	}
+
+	return {
+		ok: true,
+		text: request.pointSource.type === "default" ? text.trimEnd() : text,
+		source,
+	};
 }
 
 export function buildPrDescriptionUserPrompt(input: PrDescriptionPromptContext): string {
@@ -403,23 +403,13 @@ function isLockfileDiffSection(section: string): boolean {
 	return false;
 }
 
-function resolvePromptPath(
-	path: string,
-	repoRoot: string | undefined,
-	cwd: string | undefined,
-): string {
-	if (isAbsolute(path)) return path;
-	return resolve(repoRoot ?? cwd ?? process.cwd(), path);
-}
-
-async function isReadableFile(path: string): Promise<boolean> {
-	try {
-		await access(path);
-		return true;
-	} catch {
-		// Missing repo-local prompt files are expected; fall back to the built-in prompt.
-		return false;
-	}
+function isNodeFileNotFound(error: unknown): boolean {
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"code" in error &&
+		(error as { code?: unknown }).code === "ENOENT"
+	);
 }
 
 async function generatePrDescriptionText(
