@@ -10,6 +10,7 @@ import {
 	gotoOptionSpecs,
 	gtFreeStackOptionSpecs,
 	gtNavigationOptionSpecs,
+	provisionApplyOptionSpecs,
 	sizeOptionSpecs,
 } from "../core/command-options.ts";
 import type { SlotCliContext } from "../core/context.ts";
@@ -44,6 +45,10 @@ import {
 	initResultSchema,
 	listRequestSchema,
 	listResultSchema,
+	provisionApplyRequestSchema,
+	provisionApplyResultSchema,
+	provisionImportRequestSchema,
+	provisionImportResultSchema,
 	renderCheckout,
 	renderClaim,
 	renderForeach,
@@ -56,6 +61,8 @@ import {
 	renderGtUpNavigation,
 	renderInit,
 	renderList,
+	renderProvisionApply,
+	renderProvisionImport,
 	renderBackupRefs,
 	renderResize,
 	renderStackBranches,
@@ -77,10 +84,12 @@ import {
 	runGtUp,
 	runInit,
 	runList,
+	runProvisionApply,
+	runProvisionImport,
 	runResize,
 } from "../lifecycle/operations/index.ts";
 
-export type SlotCommandGroup = "root" | "gt" | "gt-exec";
+export type SlotCommandGroup = "root" | "provision" | "gt" | "gt-exec";
 export type SlotCompletionKind = "checkout-branches";
 
 export interface SlotCommandSpec extends Omit<
@@ -276,6 +285,30 @@ export const slotCommandSpecs = [
 		resultSchema: resizeResultSchema,
 		handler: runResize,
 		renderHuman: renderResize,
+	}),
+	slotCommandSpec({
+		group: "provision",
+		name: "apply",
+		summary: "Fill missing provisioned files in all managed slots from the store.",
+		description:
+			"Copy declared [slots] provision files from the per-repo store into every managed slot worktree where they are missing. Reports copies that differ from the store; --force overwrites them.",
+		schema: provisionApplyRequestSchema,
+		options: provisionApplyOptionSpecs,
+		resultSchema: provisionApplyResultSchema,
+		handler: runProvisionApply,
+		renderHuman: renderProvisionApply,
+	}),
+	slotCommandSpec({
+		group: "provision",
+		name: "import",
+		summary: "Copy declared provisioned files from the current worktree into the store.",
+		description:
+			"Copy declared [slots] provision files from the current worktree into the per-repo provision store. With no PATHS, imports every declared file present in the worktree.",
+		schema: provisionImportRequestSchema,
+		positionals: { paths: { position: 0 } },
+		resultSchema: provisionImportResultSchema,
+		handler: runProvisionImport,
+		renderHuman: renderProvisionImport,
 	}),
 	slotCommandSpec({
 		group: "gt",

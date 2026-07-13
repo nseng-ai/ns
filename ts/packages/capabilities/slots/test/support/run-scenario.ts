@@ -30,6 +30,10 @@ import {
 	FakeSlotPrGateway,
 	type FakeSlotPrGatewayOptions,
 } from "../../src/core/gateways/fakes/pr.ts";
+import {
+	FakeSlotProvisionFilesGateway,
+	type FakeSlotProvisionFilesGatewayOptions,
+} from "../../src/core/gateways/fakes/provision-files.ts";
 import { FakeSlotStorageGateway } from "../../src/core/gateways/fakes/storage.ts";
 import type { RepoContext } from "../../src/core/repo-context.ts";
 
@@ -37,6 +41,7 @@ export interface ScenarioRunOptions {
 	git?: FakeSlotRepositoryGatewayOptions;
 	gt?: FakeGraphiteStackGatewayOptions;
 	pr?: FakeSlotPrGatewayOptions;
+	provisionFiles?: FakeSlotProvisionFilesGatewayOptions;
 	cwd?: string;
 	stdin?: string | (() => Promise<string | null>);
 	confirmations?: readonly ConfirmationResult[];
@@ -59,6 +64,7 @@ export interface ScenarioRun {
 	gt: FakeGraphiteStackGateway;
 	pr: FakeSlotPrGateway;
 	storage: FakeSlotStorageGateway;
+	provisionFiles: FakeSlotProvisionFilesGateway;
 	command: FakeSlotCommandGateway;
 	context: SlotCliContext;
 }
@@ -71,6 +77,7 @@ export interface CompletionScenarioRun {
 	gt: FakeGraphiteStackGateway;
 	pr: FakeSlotPrGateway;
 	storage: FakeSlotStorageGateway;
+	provisionFiles: FakeSlotProvisionFilesGateway;
 	command: FakeSlotCommandGateway;
 	context: SlotCliContext;
 }
@@ -121,6 +128,7 @@ function completionScenarioRunFields(
 		gt: fixture.gt,
 		pr: fixture.pr,
 		storage: fixture.storage,
+		provisionFiles: fixture.provisionFiles,
 		command: fixture.command,
 		context: fixture.context,
 	};
@@ -137,6 +145,7 @@ function buildScenarioFixture(
 	const gt = new FakeGraphiteStackGateway(options.gt ?? {});
 	const pr = new FakeSlotPrGateway(options.pr);
 	const storage = new FakeSlotStorageGateway();
+	const provisionFiles = new FakeSlotProvisionFilesGateway(options.provisionFiles);
 	const command = new FakeSlotCommandGateway(options.command);
 	const stdin = createOneShotStdinAdapter(options.stdin);
 	const fakeInteraction =
@@ -160,6 +169,7 @@ function buildScenarioFixture(
 		gt,
 		pr,
 		storage,
+		provisionFiles,
 		clipboard: new FakeClipboardGateway(options.clipboardResult),
 		command,
 		clock: createManualClock(options.nowMs ?? SCENARIO_NOW_MS).clock,
@@ -178,6 +188,7 @@ function buildScenarioFixture(
 		gt,
 		pr,
 		storage,
+		provisionFiles,
 		command,
 		context,
 		assertComplete: () => fakeInteraction?.assertComplete(),

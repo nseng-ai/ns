@@ -19,6 +19,7 @@ import {
 	type SlotLifecycleFailure,
 } from "./common.ts";
 import { executeCurrentWorktreeRedirect } from "./current-worktree-redirect.ts";
+import { fillProvisionGapsForPlacement, type ProvisionPlacementReport } from "./provision.ts";
 
 export interface SlotClaimOutcome {
 	slotName: string;
@@ -33,6 +34,7 @@ export interface SlotClaimOutcome {
 	mainRedirectAction: "checkout-branch" | "detach-head" | null;
 	mainRedirectRef: string | null;
 	mainRedirectNote: string | null;
+	provision: ProvisionPlacementReport | null;
 }
 
 export type SlotClaimResult = LifecycleResult<SlotClaimOutcome>;
@@ -68,7 +70,9 @@ export async function claimBranch(
 	const planResult = await planClaim(repoCtx, branchName);
 	if (planResult.type === "failure") return planResult;
 	const plan = planResult.outcome;
-	if (plan.isAlreadyCurrent) return ok(outcomeFromPlan(repoCtx, plan));
+	if (plan.isAlreadyCurrent) {
+		return ok(outcomeFromPlan(repoCtx, plan, await provisionClaimTarget(repoCtx, plan)));
+	}
 
 	const trunkBranch = await repoCtx.git.getTrunkBranch();
 	if (plan.source !== null) {
@@ -92,7 +96,16 @@ export async function claimBranch(
 			"checkout-failed",
 			`Failed to check out '${plan.slotCheckoutBranch}' into ${plan.target.slotName}: ${checkoutFailure.message}`,
 		);
-	return ok(outcomeFromPlan(repoCtx, plan));
+	return ok(outcomeFromPlan(repoCtx, plan, await provisionClaimTarget(repoCtx, plan)));
+}
+
+async function provisionClaimTarget(
+	ctx: RepoSlotContext,
+	plan: ClaimPlan,
+): Promise<ProvisionPlacementReport | null> {
+	return await fillProvisionGapsForPlacement(ctx, [
+		{ slotName: plan.target.slotName, path: plan.target.path },
+	]);
 }
 
 async function planClaim(
@@ -375,7 +388,11 @@ async function detachSourceSlot(
 	};
 }
 
-function outcomeFromPlan(ctx: RepoSlotContext, plan: ClaimPlan): SlotClaimOutcome {
+function outcomeFromPlan(
+	ctx: RepoSlotContext,
+	plan: ClaimPlan,
+	provision: ProvisionPlacementReport | null,
+): SlotClaimOutcome {
 	const replacedBranchName =
 		plan.target.branch === plan.slotCheckoutBranch ? null : plan.target.branch;
 	const mainRedirect = mainRedirectOf(plan);
@@ -392,6 +409,7 @@ function outcomeFromPlan(ctx: RepoSlotContext, plan: ClaimPlan): SlotClaimOutcom
 		mainRedirectAction: mainRedirect?.action.type ?? null,
 		mainRedirectRef: mainRedirectRefOf(mainRedirect),
 		mainRedirectNote: mainRedirect?.note ?? null,
+		provision,
 	};
 }
 

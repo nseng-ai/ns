@@ -6,6 +6,8 @@ import { checkoutBranch, checkoutCurrent } from "../checkout.ts";
 import { prepareNavigation } from "../../core/navigation-result.ts";
 import { renderSlotNavigationSuccess } from "../../core/navigation-presentation.ts";
 import { extractSlotNumber } from "../../core/naming.ts";
+import { renderPlacementProvisionLines } from "./provision-rendering.ts";
+import { placementProvisionSchema } from "./result-schemas.ts";
 
 export const checkoutRequestSchema = z.object({
 	branchName: z.string().optional().describe("Branch to check out."),
@@ -23,6 +25,7 @@ export const checkoutResultSchema = z.object({
 	alreadyAssigned: z.boolean(),
 	createdBranch: z.boolean(),
 	currentWtNote: z.string().nullable(),
+	provision: placementProvisionSchema.nullable(),
 	clipboardCopied: z.boolean(),
 	clipboardSkipped: z.boolean(),
 	clipboardFailureReason: z
@@ -64,11 +67,15 @@ export function renderCheckout(
 	result: CheckoutResult,
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
+	const details = [
+		...(result.currentWtNote === null ? [] : [result.currentWtNote]),
+		...renderPlacementProvisionLines(result.provision),
+	];
 	return renderSlotNavigationSuccess(
 		{
 			...result,
 			headline: renderCheckoutHeadline(result),
-			...(result.currentWtNote === null ? {} : { details: [result.currentWtNote] }),
+			...(details.length === 0 ? {} : { details }),
 		},
 		caps,
 	);

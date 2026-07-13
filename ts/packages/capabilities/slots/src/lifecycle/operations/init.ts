@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../../core/context.ts";
 import { initializePool } from "../pool.ts";
+import { renderPlacementProvisionLines } from "./provision-rendering.ts";
+import { placementProvisionSchema } from "./result-schemas.ts";
 
 export const initRequestSchema = z.object({
 	size: z.coerce.number().int().optional().describe("Number of slots to create (1..99)."),
@@ -13,6 +15,7 @@ export const initResultSchema = z.object({
 	poolSize: z.number().int().nonnegative(),
 	created: z.array(z.string()),
 	worktreesDir: z.string(),
+	provision: placementProvisionSchema.nullable(),
 });
 
 export type InitRequest = z.infer<typeof initRequestSchema>;
@@ -32,7 +35,12 @@ export function renderInit(
 ): string {
 	const renderCaps = resolveRenderCapabilities(caps);
 	const created = result.created.map((name) => `  + ${name}`).join("\n");
-	const body = [`Pool size: ${result.poolSize}`, `Worktrees: ${result.worktreesDir}`, created]
+	const body = [
+		`Pool size: ${result.poolSize}`,
+		`Worktrees: ${result.worktreesDir}`,
+		created,
+		...renderPlacementProvisionLines(result.provision),
+	]
 		.filter((line) => line.length > 0)
 		.join("\n");
 	return renderResultBlock(renderCaps, {

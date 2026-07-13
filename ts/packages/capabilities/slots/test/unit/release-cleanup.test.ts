@@ -10,6 +10,7 @@ import { FakeSlotCommandGateway } from "../../src/core/gateways/fakes/command.ts
 import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 import { FakeGraphiteStackGateway } from "@nseng-ai/capability-kit/graphite/testing";
 import { FakeSlotPrGateway } from "../../src/core/gateways/fakes/pr.ts";
+import { FakeSlotProvisionFilesGateway } from "../../src/core/gateways/fakes/provision-files.ts";
 import { FakeSlotStorageGateway } from "../../src/core/gateways/fakes/storage.ts";
 import type { RepoSlotContext } from "../../src/core/context.ts";
 
@@ -68,6 +69,7 @@ function context(options: {
 		gt: new FakeGraphiteStackGateway(),
 		pr: options.pr,
 		storage: new FakeSlotStorageGateway(),
+		provisionFiles: new FakeSlotProvisionFilesGateway(),
 		clipboard: new FakeClipboardGateway(),
 		command: new FakeSlotCommandGateway(),
 		clock: createManualClock(0).clock,

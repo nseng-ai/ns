@@ -38,6 +38,10 @@ export const sizeOptionSpecs = {
 	size: { short: "-s" },
 } satisfies CommandOptionSpecs;
 
+export const provisionApplyOptionSpecs = {
+	force: { short: "-f" },
+} satisfies CommandOptionSpecs;
+
 export const gtNavigationOptionSpecs = {
 	clipboard: { short: "-C" },
 } satisfies CommandOptionSpecs;

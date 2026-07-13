@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../../core/context.ts";
 import { claimBranch } from "../claim.ts";
+import { renderPlacementProvisionLines } from "./provision-rendering.ts";
+import { placementProvisionSchema } from "./result-schemas.ts";
 
 export const claimRequestSchema = z.object({
 	branchName: z.string().describe("Local branch to claim."),
@@ -22,6 +24,7 @@ export const claimResultSchema = z.object({
 	mainRedirectAction: z.union([z.literal("checkout-branch"), z.literal("detach-head")]).nullable(),
 	mainRedirectRef: z.string().nullable(),
 	mainRedirectNote: z.string().nullable(),
+	provision: placementProvisionSchema.nullable(),
 });
 
 export type ClaimRequest = z.infer<typeof claimRequestSchema>;
@@ -42,7 +45,10 @@ export function renderClaim(
 		return renderResultBlock(renderCaps, {
 			kind: "success",
 			headline: `${result.slotName} already has ${result.branchName}.`,
-			body: `Worktree: ${result.worktreePath}`,
+			body: [
+				`Worktree: ${result.worktreePath}`,
+				...renderPlacementProvisionLines(result.provision),
+			].join("\n"),
 		});
 	}
 	const body = [
@@ -56,6 +62,7 @@ export function renderClaim(
 			? []
 			: [`Replaced: ${result.replacedBranchName}`]),
 		...mainRedirectLines(result),
+		...renderPlacementProvisionLines(result.provision),
 	].join("\n");
 	return renderResultBlock(renderCaps, {
 		kind: "success",

@@ -9,6 +9,7 @@ import {
 import { generateSlotName } from "../core/naming.ts";
 import { ensureSlotsMetadataDir } from "../core/repo-context.ts";
 import type { SlotCliContext } from "../core/context.ts";
+import { fillProvisionGapsForPlacement, type ProvisionPlacementReport } from "./provision.ts";
 
 export const MIN_POOL_SIZE = 1;
 export const MAX_POOL_SIZE = 99;
@@ -26,6 +27,7 @@ export interface SlotInitOutcome {
 	created: string[];
 	poolSize: number;
 	worktreesDir: string;
+	provision: ProvisionPlacementReport | null;
 }
 
 export interface SlotResizeOutcome {
@@ -34,6 +36,7 @@ export interface SlotResizeOutcome {
 	created: string[];
 	removed: string[];
 	worktreesDir: string;
+	provision: ProvisionPlacementReport | null;
 }
 
 export interface SlotLifecycleFailure {
@@ -101,9 +104,13 @@ export async function initializePool(
 		await ctx.git.addDetachedWorktree(join(ctx.repo.worktreesDir, name), trunk);
 		created.push(name);
 	}
+	const provision = await fillProvisionGapsForPlacement(
+		{ ...ctx, repo: ctx.repo },
+		createdWorktreeTargets(ctx.repo.worktreesDir, created),
+	);
 	return {
 		type: "ok",
-		outcome: { created, poolSize: created.length, worktreesDir: ctx.repo.worktreesDir },
+		outcome: { created, poolSize: created.length, worktreesDir: ctx.repo.worktreesDir, provision },
 	};
 }
 
@@ -130,6 +137,7 @@ export async function resizePool(
 				created: [],
 				removed: [],
 				worktreesDir: ctx.repo.worktreesDir,
+				provision: null,
 			},
 		};
 	}
@@ -154,6 +162,13 @@ export async function resizePool(
 		await ctx.git.removeWorktree(record.path);
 		removed.push(record.slotName);
 	}
+	const provision =
+		created.length === 0
+			? null
+			: await fillProvisionGapsForPlacement(
+					{ ...ctx, repo: ctx.repo },
+					createdWorktreeTargets(ctx.repo.worktreesDir, created),
+				);
 	return {
 		type: "ok",
 		outcome: {
@@ -162,8 +177,13 @@ export async function resizePool(
 			created,
 			removed,
 			worktreesDir: ctx.repo.worktreesDir,
+			provision,
 		},
 	};
+}
+
+function createdWorktreeTargets(worktreesDir: string, created: readonly string[]) {
+	return created.map((slotName) => ({ slotName, path: join(worktreesDir, slotName) }));
 }
 
 async function validateRemovals(
