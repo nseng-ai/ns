@@ -85,9 +85,14 @@
         and CLI integration coverage exercises custom trunks, composed submit checkpoints,
         non-`origin` remotes, checked-out and non-checked-out refreshes, and missing or
         malformed configuration.
-  - Graphite machine facts: remove the Slot Command Face dependency from `squash-stack`
-    and replace submit's `gt log` / `gt branch info` display parsing with structured
-    Graphite facts.
+  - [x] Graphite machine facts (F4/F8): `squash-stack` and submit consume the existing
+        structured `GraphiteStackGateway.stack()` seam. Squash planning no longer calls the
+        Slot Command Face; submit derives its downstack scope and upstack-presence fact from
+        typed Graphite metadata and resolves branch PR identity through validated GitHub JSON
+        rather than `gt log` / `gt branch info` display text. Provider, topology-integrity,
+        PR-lookup, ordering, progress, and failure paths have fake-driven unit/scenario/Pi
+        coverage; Flow/package, default/integration, TypeScript/style, and full `just`
+        validation pass. F9's bounded failure-prose fallback remains parked.
   - Pi ownership: move repo-owned `code-workflows` and `code-gt-restack-resolve` skill
     policy out of the Flow package while retaining generic Flow command mirrors.
   - [x] Point-default fidelity (F10): the PR-description packaged prompt is declared by

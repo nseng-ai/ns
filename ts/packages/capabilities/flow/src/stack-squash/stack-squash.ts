@@ -4,22 +4,15 @@ import {
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
-import { z } from "zod";
+import type {
+	GraphiteStackGateway,
+	StackInfo,
+	StackResult,
+} from "@nseng-ai/capability-kit/graphite/stack";
 
 const GIT_STATUS_TIMEOUT_MS = 60_000;
-const SLOT_STACK_BRANCHES_TIMEOUT_MS = 60_000;
 const GT_COMMAND_TIMEOUT_MS = 5 * 60 * 1_000;
 const COMMIT_COUNT_TIMEOUT_MS = 60_000;
-
-const STACK_BRANCHES_ARGS = [
-	"slot",
-	"gt",
-	"exec",
-	"stack-branches",
-	"--downstack",
-	"--format",
-	"json",
-] as const;
 
 interface StackSquashCommands {
 	exec(
@@ -28,6 +21,8 @@ interface StackSquashCommands {
 		options?: { cwd?: string; timeout?: number },
 	): Promise<ExecResult>;
 }
+
+export type StackSquashGraphiteGateway = Pick<GraphiteStackGateway, "stack">;
 
 export interface StackSquashOptions {
 	cwd: string;
@@ -61,37 +56,39 @@ export interface StackSquashOutcomePresentation {
 }
 
 export interface StackSquashCommandFailure {
-	command: "git" | "ns" | "gt";
+	command: "git" | "gt";
 	args: readonly string[];
 	cwd: string;
 	execResult: ExecResult;
 }
 
+export type StackSquashDiscoveryFailureReason =
+	| "untracked-branch"
+	| "provider-failure"
+	| "ancestor-cycle"
+	| "ancestor-row-missing"
+	| "inconsistent-trunk-marker"
+	| "inconsistent-ancestor-metadata";
+
 export type StackSquashOutcome =
 	| { kind: "success"; processed: readonly ProcessedStackBranch[] }
 	| ({ kind: "worktree-probe-failed" } & StackSquashCommandFailure)
 	| { kind: "worktree-dirty"; status: string; cwd: string }
-	| ({ kind: "stack-discovery-failed"; message: string } & StackSquashCommandFailure)
+	| {
+			kind: "stack-discovery-failed";
+			reason: StackSquashDiscoveryFailureReason;
+			message: string;
+			cwd: string;
+	  }
 	| { kind: "empty-stack"; cwd: string }
-	| ({ kind: "trunk-discovery-failed" } & StackSquashCommandFailure)
 	| ({ kind: "commit-count-failed"; branch: string; parent: string } & StackSquashCommandFailure)
 	| ({ kind: "checkout-failed"; branch: string } & StackSquashCommandFailure)
 	| ({ kind: "squash-failed"; branch: string } & StackSquashCommandFailure)
 	| ({ kind: "tip-restore-failed"; branch: string } & StackSquashCommandFailure);
 
-const stackBranchesEnvelopeSchema = z.object({
-	status: z.string(),
-	exitCode: z.number().optional(),
-	message: z.string().optional(),
-	data: z
-		.object({
-			branches: z.array(z.string()),
-		})
-		.optional(),
-});
-
 export async function runStackSquashFlow(
 	commands: StackSquashCommands,
+	graphite: StackSquashGraphiteGateway,
 	options: StackSquashOptions,
 ): Promise<StackSquashOutcome> {
 	const statusArgs = ["status", "--porcelain=v1"];
@@ -111,38 +108,20 @@ export async function runStackSquashFlow(
 		return { kind: "worktree-dirty", status: status.stdout.trim(), cwd: options.cwd };
 	}
 
-	const stackResult = await commands.exec("ns", [...STACK_BRANCHES_ARGS], {
-		cwd: options.cwd,
-		timeout: SLOT_STACK_BRANCHES_TIMEOUT_MS,
-	});
-	const stackDiscovery = parseStackDiscovery(stackResult);
-	if (stackDiscovery.kind === "failure") {
+	const stackDiscovery = discoverStackSquashPath(await graphite.stack(options.cwd));
+	if (stackDiscovery.type === "failure") {
 		return {
 			kind: "stack-discovery-failed",
+			reason: stackDiscovery.reason,
 			message: stackDiscovery.message,
-			command: "ns",
-			args: STACK_BRANCHES_ARGS,
 			cwd: options.cwd,
-			execResult: stackResult,
 		};
 	}
-	const { branches } = stackDiscovery;
+	const { branches, trunk } = stackDiscovery;
 	if (branches.length === 0) return { kind: "empty-stack", cwd: options.cwd };
 
 	const tipBranch = branches.at(-1);
 	if (tipBranch === undefined) return { kind: "empty-stack", cwd: options.cwd };
-
-	const trunkArgs = ["trunk", "--no-interactive"];
-	const trunkResult = await runGt(commands, options.cwd, trunkArgs);
-	if (!commandSucceeded(trunkResult) || trunkResult.stdout.trim() === "") {
-		return commandFailure("trunk-discovery-failed", {
-			command: "gt",
-			args: trunkArgs,
-			cwd: options.cwd,
-			execResult: trunkResult,
-		});
-	}
-	const trunk = trunkResult.stdout.trim();
 	const plan: StackSquashPlanEntry[] = [];
 	let parent = trunk;
 	for (const branch of branches) {
@@ -251,14 +230,12 @@ export function stackSquashCommandFailureDetail(
 ): StackSquashCommandFailure | undefined {
 	switch (outcome.kind) {
 		case "worktree-probe-failed":
-		case "trunk-discovery-failed":
 		case "commit-count-failed":
 		case "checkout-failed":
 		case "squash-failed":
 		case "tip-restore-failed":
 			return outcome;
 		case "stack-discovery-failed":
-			return commandSucceeded(outcome.execResult) ? undefined : outcome;
 		case "worktree-dirty":
 		case "empty-stack":
 			return undefined;
@@ -277,8 +254,6 @@ export function describeStackSquashOutcome(
 			return outcome.message;
 		case "empty-stack":
 			return "No Graphite stack branches to squash.";
-		case "trunk-discovery-failed":
-			return "Could not identify the Graphite trunk; stack squash did not run.";
 		case "commit-count-failed":
 			return `Could not count commits for Graphite branch \`${outcome.branch}\` relative to \`${outcome.parent}\`; stack squash did not run.`;
 		case "checkout-failed":
@@ -348,41 +323,90 @@ export function formatStackSquashSummary(processed: readonly ProcessedStackBranc
 	].join("\n");
 }
 
-function parseStackDiscovery(
-	result: ExecResult,
-): { kind: "success"; branches: string[] } | { kind: "failure"; message: string } {
-	if (!commandSucceeded(result)) {
+type StackSquashPathDiscovery =
+	| { type: "success"; trunk: string; branches: readonly string[] }
+	| {
+			type: "failure";
+			reason: StackSquashDiscoveryFailureReason;
+			message: string;
+	  };
+
+function discoverStackSquashPath(result: StackResult): StackSquashPathDiscovery {
+	if (result.type === "untracked_branch") {
 		return {
-			kind: "failure",
-			message: "Could not read Graphite stack branches; not starting stack squash.",
+			type: "failure",
+			reason: "untracked-branch",
+			message: `${result.message} Stack squash did not run; track the branch with \`gt track\` first.`,
 		};
 	}
-	let value: unknown;
-	try {
-		value = JSON.parse(result.stdout);
-	} catch (caught) {
-		const message = caught instanceof Error ? caught.message : String(caught);
+	if (result.type === "failure") {
 		return {
-			kind: "failure",
-			message: `Could not parse ns slot gt exec stack-branches JSON: ${message}`,
+			type: "failure",
+			reason: "provider-failure",
+			message: `Could not read Graphite stack metadata: ${result.failure.message}. Stack squash did not run.`,
 		};
 	}
-	const envelope = stackBranchesEnvelopeSchema.safeParse(value);
-	if (!envelope.success) {
+
+	const { stack } = result;
+	if (stack.ancestorTermination.type === "cycle") {
 		return {
-			kind: "failure",
-			message: `Unexpected ns slot gt exec stack-branches JSON shape: ${envelope.error.message}`,
+			type: "failure",
+			reason: "ancestor-cycle",
+			message: `Graphite ancestor metadata contains a cycle at \`${stack.ancestorTermination.branch}\`; stack squash did not run.`,
 		};
 	}
-	if (envelope.data.status !== "ok" || envelope.data.data === undefined) {
+	if (stack.ancestorTermination.type === "row_missing") {
 		return {
-			kind: "failure",
-			message:
-				envelope.data.message ??
-				`ns slot gt exec stack-branches failed with status ${envelope.data.status}`,
+			type: "failure",
+			reason: "ancestor-row-missing",
+			message: `Graphite ancestor metadata is missing branch \`${stack.ancestorTermination.branch}\`; stack squash did not run.`,
 		};
 	}
-	return { kind: "success", branches: envelope.data.data.branches };
+	if (stack.trunkMarker.type === "problem") {
+		return {
+			type: "failure",
+			reason: "inconsistent-trunk-marker",
+			message: describeInconsistentTrunkMarker(stack),
+		};
+	}
+	if (stack.current === stack.trunk) {
+		return { type: "success", trunk: stack.trunk, branches: [] };
+	}
+	if (!hasConsistentAncestors(stack)) {
+		return {
+			type: "failure",
+			reason: "inconsistent-ancestor-metadata",
+			message: `Graphite ancestor metadata does not form a unique path from trunk \`${stack.trunk}\` to current branch \`${stack.current}\`; stack squash did not run.`,
+		};
+	}
+
+	return {
+		type: "success",
+		trunk: stack.trunk,
+		branches: [...stack.ancestors.filter((branch) => branch !== stack.trunk), stack.current],
+	};
+}
+
+function hasConsistentAncestors(stack: StackInfo): boolean {
+	const path = [...stack.ancestors, stack.current];
+	return (
+		stack.trunk.trim() !== "" &&
+		stack.current.trim() !== "" &&
+		stack.ancestors[0] === stack.trunk &&
+		path.every((branch) => branch.trim() !== "") &&
+		new Set(path).size === path.length
+	);
+}
+
+function describeInconsistentTrunkMarker(stack: StackInfo): string {
+	if (stack.trunkMarker.type === "clean") {
+		throw new Error("Expected inconsistent Graphite trunk marker metadata.");
+	}
+	const markedTrunks =
+		stack.trunkMarker.markedTrunks.length === 0
+			? "none"
+			: stack.trunkMarker.markedTrunks.map((branch) => `\`${branch}\``).join(", ");
+	return `Graphite trunk metadata is inconsistent at \`${stack.trunkMarker.terminus}\` (${stack.trunkMarker.terminusState}); marked trunks: ${markedTrunks}. Stack squash did not run.`;
 }
 
 async function runGt(

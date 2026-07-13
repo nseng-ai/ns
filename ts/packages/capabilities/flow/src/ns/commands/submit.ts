@@ -93,47 +93,61 @@ The command owns its output and exit code. It does not support --format.`;
 
 type SubmitRequest = z.output<typeof submitSchema>;
 
-export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
-	name: "submit",
-	summary: "Checkpoint pending changes, then submit the Graphite stack with gt submit.",
-	description: SUBMIT_COMMAND_DESCRIPTION,
-	schema: submitSchema,
-	resultSchema: z.string(),
-	options: {
-		restack: { short: "-R" },
-		force: { short: "-f" },
-		verbose: { short: "-v" },
-	},
-	handler: async (ctx: NsExtensionApi, request: SubmitRequest) => {
-		const runtime = createNsSubmitRuntime(ctx, flowExtensionDescriptorSource);
-		const repoRoot = request.checks
-			? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
-			: undefined;
-		const checkpointContext: SubmitCheckpointContext = {
-			...optionalEntry("repoRoot", repoRoot),
-		};
-		const checksLoad =
-			repoRoot === undefined ? { kind: "none" as const } : await loadFlowSubmitHooks({ repoRoot });
-		if (checksLoad.kind === "invalid") {
-			return failure(FLOW_COMMAND_FAILED, checksLoad.error.message);
-		}
-		const caps = resolveFlowStreamCaps(ctx);
-		const structuredProgress = resolveSubmitProgress({
-			caps,
-			deps: flowStreamDeps(ctx, caps),
-			hasChecks: checksLoad.kind === "hooks",
-			...(ctx.progress.isLive ? { liveProgress: ctx.progress } : {}),
-			...optionalEntry("liveOutput", createFlowLiveOutput(ctx)),
-		});
-		return await runSubmitWithProgress({
-			ctx,
-			request,
-			runtime,
-			checksLoad,
-			checkpointContext,
-			...structuredProgress,
-		});
-	},
+export interface FlowSubmitCommandDependencies {
+	createRuntime(ctx: NsExtensionApi): NsSubmitRuntime;
+}
+
+export function createFlowSubmitCommand(
+	dependencies: FlowSubmitCommandDependencies,
+): NsCommand<typeof submitSchema> {
+	return defineCommand({
+		name: "submit",
+		summary: "Checkpoint pending changes, then submit the Graphite stack with gt submit.",
+		description: SUBMIT_COMMAND_DESCRIPTION,
+		schema: submitSchema,
+		resultSchema: z.string(),
+		options: {
+			restack: { short: "-R" },
+			force: { short: "-f" },
+			verbose: { short: "-v" },
+		},
+		handler: async (ctx: NsExtensionApi, request: SubmitRequest) => {
+			const runtime = dependencies.createRuntime(ctx);
+			const repoRoot = request.checks
+				? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
+				: undefined;
+			const checkpointContext: SubmitCheckpointContext = {
+				...optionalEntry("repoRoot", repoRoot),
+			};
+			const checksLoad =
+				repoRoot === undefined
+					? { kind: "none" as const }
+					: await loadFlowSubmitHooks({ repoRoot });
+			if (checksLoad.kind === "invalid") {
+				return failure(FLOW_COMMAND_FAILED, checksLoad.error.message);
+			}
+			const caps = resolveFlowStreamCaps(ctx);
+			const structuredProgress = resolveSubmitProgress({
+				caps,
+				deps: flowStreamDeps(ctx, caps),
+				hasChecks: checksLoad.kind === "hooks",
+				...(ctx.progress.isLive ? { liveProgress: ctx.progress } : {}),
+				...optionalEntry("liveOutput", createFlowLiveOutput(ctx)),
+			});
+			return await runSubmitWithProgress({
+				ctx,
+				request,
+				runtime,
+				checksLoad,
+				checkpointContext,
+				...structuredProgress,
+			});
+		},
+	});
+}
+
+export const flowSubmitCommand = createFlowSubmitCommand({
+	createRuntime: (ctx) => createNsSubmitRuntime(ctx, flowExtensionDescriptorSource),
 });
 
 export default flowSubmitCommand;

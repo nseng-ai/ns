@@ -626,10 +626,11 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 		runner.assertDone();
 	});
 
-	test("verifyCurrentPr maps branch info without a PR link", async () => {
+	test("verifyCurrentPr maps GitHub's no-current-PR failure", async () => {
 		const runner = new ScriptedCommandRunner([
-			execStep("gt", ["branch", "info", "--no-interactive"], {
-				stdout: "feature/demo\n\nParent: master\n",
+			execStep("gh", ["pr", "view", "--json", "number,url"], {
+				exitCode: 1,
+				stderr: 'no pull requests found for branch "feature/demo"\n',
 			}),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
@@ -640,11 +641,13 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 		runner.assertDone();
 	});
 
-	test("verifyCurrentPr reads PR links from branch info without opening the PR page", async () => {
+	test("verifyCurrentPr reads identity from structured GitHub JSON", async () => {
 		const runner = new ScriptedCommandRunner([
-			execStep("gt", ["branch", "info", "--no-interactive"], {
-				stdout:
-					"feature/demo\n\nPR #456 (Open) Demo PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
+			execStep("gh", ["pr", "view", "--json", "number,url"], {
+				stdout: JSON.stringify({
+					number: 456,
+					url: "https://github.com/acme/project/pull/456",
+				}),
 			}),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
@@ -654,13 +657,14 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 		expect(result).toMatchObject({
 			kind: "present",
 			prLinks: [{ label: "#456", url: "https://github.com/acme/project/pull/456" }],
+			output: { stdout: '{"number":456,"url":"https://github.com/acme/project/pull/456"}' },
 		});
 		runner.assertDone();
 	});
 
 	test("verifyCurrentPr maps startup errors", async () => {
 		const runner = new ScriptedCommandRunner([
-			spawnFailedStep("gt", ["branch", "info", "--no-interactive"], "spawn gt ENOENT"),
+			spawnFailedStep("gh", ["pr", "view", "--json", "number,url"], "spawn gh ENOENT"),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
 
@@ -672,8 +676,8 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 			output: {
 				type: "spawn-failed",
 				stdout: "",
-				stderr: "spawn gt ENOENT",
-				error: "spawn gt ENOENT",
+				stderr: "spawn gh ENOENT",
+				error: "spawn gh ENOENT",
 			},
 		});
 		runner.assertDone();
@@ -682,8 +686,8 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 	test("verifyCurrentPr maps timeouts", async () => {
 		const runner = new ScriptedCommandRunner([
 			{
-				command: "gt",
-				args: ["branch", "info", "--no-interactive"],
+				command: "gh",
+				args: ["pr", "view", "--json", "number,url"],
 				result: {
 					type: "timed-out",
 					stdout: "",
@@ -701,11 +705,29 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 		runner.assertDone();
 	});
 
+	test("verifyCurrentPr maps malformed success JSON honestly", async () => {
+		const runner = new ScriptedCommandRunner([
+			execStep("gh", ["pr", "view", "--json", "number,url"], {
+				stdout: '{"number":"456","url":null}',
+			}),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.verifyCurrentPr({ cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: "malformed_output",
+			output: { stdout: '{"number":"456","url":null}' },
+		});
+		runner.assertDone();
+	});
+
 	test("verifyCurrentPr maps generic command failures", async () => {
 		const runner = new ScriptedCommandRunner([
-			execStep("gt", ["branch", "info", "--no-interactive"], {
+			execStep("gh", ["pr", "view", "--json", "number,url"], {
 				exitCode: 2,
-				stderr: "Graphite failed\n",
+				stderr: "GitHub failed\n",
 			}),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
@@ -826,6 +848,9 @@ describe("runSubmitCommand", () => {
 				),
 			),
 		).toBe(false);
+		expect(submitMatrix.operationSnapshots).toContainEqual([
+			{ kind: "command", display: "gh pr view --json number,url" },
+		]);
 		expect(submitMatrix.operationSnapshots).toContainEqual([
 			{
 				kind: "model",

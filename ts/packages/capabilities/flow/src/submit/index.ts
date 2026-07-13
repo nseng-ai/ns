@@ -107,10 +107,7 @@ export {
 export {
 	RealSubmitMetadataGateway,
 	parseCommitMessages,
-	parseGtLogStack,
-	parseParentBranch,
 	prewriteSubmitMetadata,
-	type ParsedGtLogStack,
 	type SubmitBranchMetadataProgressEvent,
 	type SubmitBranchMetadataProgressListener,
 	type SubmitMetadataCommandParams,

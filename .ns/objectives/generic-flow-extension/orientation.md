@@ -7,10 +7,10 @@ is the flow README (draft: this objective's `references/README-draft.md`, promot
 and ADR 0031.
 
 What you see now: submit checks and recovery, adopter point docs, repository identity,
-and PR-description point-default fidelity are implemented. Checkpoints fail closed against
-Graphite's configured trunk before model or Git mutation, and trunk refresh uses that
-branch's exact Git upstream. The remaining audit resolve work is Graphite machine facts
-and Pi ownership.
+Graphite machine facts, and PR-description point-default fidelity are implemented.
+`squash-stack` and submit use structured Graphite stack facts; submit PR identity comes
+from validated GitHub JSON rather than Graphite display text. The remaining audit resolve
+work is Pi ownership.
 
 Avoid: baking ns-repo assumptions (command names, skill names, prompt text, consumer
 paths) into `ts/packages/capabilities/flow`; detecting CLI failures by matching human-

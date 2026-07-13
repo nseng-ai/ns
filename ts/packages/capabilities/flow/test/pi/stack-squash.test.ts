@@ -1,3 +1,4 @@
+import { FakeGraphiteStackGateway, fakeStackInfo } from "@nseng-ai/capability-kit/graphite/testing";
 import { describe, expect, test } from "vitest";
 
 import stackSquashExtension, {
@@ -55,6 +56,15 @@ function fakeCtx(): FakeCommandContext {
 	};
 }
 
+function trackedStack(): FakeGraphiteStackGateway {
+	return new FakeGraphiteStackGateway({
+		stack: {
+			type: "stack",
+			stack: fakeStackInfo({ trunk: "main", current: "feature/top", ancestors: ["main"] }),
+		},
+	});
+}
+
 describe("stack squash Pi bridge", () => {
 	test("registers gt:squash-stack", () => {
 		const pi = new FakePi();
@@ -65,24 +75,10 @@ describe("stack squash Pi bridge", () => {
 	});
 
 	test("emits the shared happy-path summary", async () => {
-		const pi = new FakePi([
-			{},
-			{
-				stdout: JSON.stringify({
-					status: "ok",
-					exitCode: 0,
-					data: { branches: ["feature/top"] },
-				}),
-			},
-			{ stdout: "main\n" },
-			{ stdout: "3\n" },
-			{},
-			{},
-			{},
-		]);
+		const pi = new FakePi([{}, { stdout: "3\n" }, {}, {}, {}]);
 		const ctx = fakeCtx();
 
-		await runStackSquash(pi, ctx);
+		await runStackSquash(pi, ctx, trackedStack());
 
 		expect(ctx.ui.notifications.at(-1)).toEqual({
 			level: "info",
@@ -95,7 +91,7 @@ describe("stack squash Pi bridge", () => {
 		const pi = new FakePi([{ stdout: " M file.ts\n" }]);
 		const ctx = fakeCtx();
 
-		await runStackSquash(pi, ctx);
+		await runStackSquash(pi, ctx, trackedStack());
 
 		expect(ctx.ui.notifications.at(-1)).toEqual({
 			level: "error",
@@ -103,18 +99,22 @@ describe("stack squash Pi bridge", () => {
 		});
 	});
 
-	test("suppresses command detail when successful discovery reports a failure envelope", async () => {
-		const pi = new FakePi([
-			{},
-			{ stdout: JSON.stringify({ status: "failure", message: "stack unavailable" }) },
-		]);
+	test("renders a structured discovery failure without command output", async () => {
+		const pi = new FakePi([{}]);
 		const ctx = fakeCtx();
+		const graphite = new FakeGraphiteStackGateway({
+			stack: {
+				type: "failure",
+				failure: { message: "stack unavailable", returnCode: null },
+			},
+		});
 
-		await runStackSquash(pi, ctx);
+		await runStackSquash(pi, ctx, graphite);
 
 		expect(ctx.ui.notifications.at(-1)).toEqual({
 			level: "error",
-			message: "stack unavailable",
+			message:
+				"Could not read Graphite stack metadata: stack unavailable. Stack squash did not run.",
 		});
 	});
 });

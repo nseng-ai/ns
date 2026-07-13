@@ -1,14 +1,9 @@
+import { fakeStackInfo } from "@nseng-ai/capability-kit/graphite/testing";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { describe, expect, test } from "vitest";
 
 import { runFlowSquashStackCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
-
-const STACK_DISCOVERY = "ns slot gt exec stack-branches --downstack --format json";
-
-function stackBranches(branches: readonly string[]): string {
-	return JSON.stringify({ status: "ok", exitCode: 0, data: { branches } });
-}
 
 describe("flow squash-stack command outcomes", () => {
 	test("squashes tip-first, restores the tip, and emits the shared summary", async () => {
@@ -26,10 +21,9 @@ describe("flow squash-stack command outcomes", () => {
 		expect(progress).toContain("3→1");
 		expect(progress).toContain("feature/bottom");
 		expect(progress).toContain("2→1");
+		expect(run.stackGateway.operations()).toEqual([{ type: "stack", cwd: "/work" }]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git status --porcelain=v1",
-			STACK_DISCOVERY,
-			"gt trunk --no-interactive",
 			"git rev-list --count main..feature/bottom",
 			"git rev-list --count feature/bottom..feature/top",
 			"gt checkout feature/top --no-interactive",
@@ -43,15 +37,22 @@ describe("flow squash-stack command outcomes", () => {
 	test("treats a zero-commit branch as a successful skipped entry", async () => {
 		const exec: ScriptedExecResponse[] = [
 			{ match: "git status --porcelain=v1", result: {} },
-			{
-				match: STACK_DISCOVERY,
-				result: { stdout: stackBranches(["feature/empty"]) },
-			},
-			{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 			{ match: "git rev-list --count main..feature/empty", result: { stdout: "0\n" } },
 			{ match: "gt checkout feature/empty --no-interactive", result: {} },
 		];
-		const run = runFlowSquashStackCommandWithFakes({ state: { exec } });
+		const run = runFlowSquashStackCommandWithFakes({
+			state: { exec },
+			graphiteStack: {
+				stack: {
+					type: "stack",
+					stack: fakeStackInfo({
+						trunk: "main",
+						current: "feature/empty",
+						ancestors: ["main"],
+					}),
+				},
+			},
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
@@ -63,14 +64,12 @@ describe("flow squash-stack command outcomes", () => {
 		expect(progress).toContain("empty");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git status --porcelain=v1",
-			STACK_DISCOVERY,
-			"gt trunk --no-interactive",
 			"git rev-list --count main..feature/empty",
 			"gt checkout feature/empty --no-interactive",
 		]);
 	});
 
-	test("dirty worktree exits 1 with a refusal block", async () => {
+	test("dirty worktree exits 1 with a refusal block before reading Graphite metadata", async () => {
 		const exec: ScriptedExecResponse[] = [
 			{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
 		];
@@ -83,48 +82,73 @@ describe("flow squash-stack command outcomes", () => {
 		expect(stderr).toContain("stdout:\nM src/app.ts");
 		expect(stderr).toContain("Command: git status --porcelain=v1");
 		expect(stderr).toContain("Cwd: /work");
+		expect(run.stackGateway.operations()).toEqual([]);
 	});
 
-	test("stack discovery failure exits 1 with command, cwd, and transcript", async () => {
-		const exec: ScriptedExecResponse[] = [
-			{ match: "git status --porcelain=v1", result: {} },
-			{ match: STACK_DISCOVERY, result: { code: 2, stderr: "forked stack\n" } },
-		];
-		const run = runFlowSquashStackCommandWithFakes({ state: { exec } });
-
-		expect(await run.exit).toBe(1);
-		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("Could not read Graphite stack branches; not starting stack squash.");
-		expect(stderr).toContain(`Command: ${STACK_DISCOVERY}`);
-		expect(stderr).toContain("Cwd: /work");
-		expect(stderr).toContain("forked stack");
-	});
-
-	test("successful discovery command with a failure envelope omits command transcript", async () => {
-		const exec: ScriptedExecResponse[] = [
-			{ match: "git status --porcelain=v1", result: {} },
-			{
-				match: STACK_DISCOVERY,
-				result: { stdout: JSON.stringify({ status: "failure", message: "stack unavailable" }) },
+	test("treats the configured trunk as an empty stack", async () => {
+		const exec: ScriptedExecResponse[] = [{ match: "git status --porcelain=v1", result: {} }];
+		const run = runFlowSquashStackCommandWithFakes({
+			state: { exec },
+			graphiteStack: {
+				stack: {
+					type: "stack",
+					stack: fakeStackInfo({ trunk: "main", current: "main", ancestors: [] }),
+				},
 			},
-		];
-		const run = runFlowSquashStackCommandWithFakes({ state: { exec } });
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(stripAnsi(run.stderr.join(""))).toContain("No Graphite stack branches to squash.");
+		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain=v1"]);
+	});
+
+	test("renders a provider discovery failure without a fabricated command transcript", async () => {
+		const exec: ScriptedExecResponse[] = [{ match: "git status --porcelain=v1", result: {} }];
+		const run = runFlowSquashStackCommandWithFakes({
+			state: { exec },
+			graphiteStack: {
+				stack: {
+					type: "failure",
+					failure: { message: "Graphite metadata is unavailable", returnCode: null },
+				},
+			},
+		});
 
 		expect(await run.exit).toBe(1);
 		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("stack unavailable");
-		expect(stderr).not.toContain(`Command: ${STACK_DISCOVERY}`);
-		expect(stderr).not.toContain('"status":"failure"');
+		expect(stderr).toContain("Could not read Graphite stack metadata");
+		expect(stderr).toContain("Graphite metadata is unavailable");
+		expect(stderr).toContain("Cwd: /work");
+		expect(stderr).not.toContain("Command:");
+		expect(stderr).not.toContain("ns slot gt exec");
+	});
+
+	test("fails closed on inconsistent ancestor metadata before planning commits", async () => {
+		const exec: ScriptedExecResponse[] = [{ match: "git status --porcelain=v1", result: {} }];
+		const run = runFlowSquashStackCommandWithFakes({
+			state: { exec },
+			graphiteStack: {
+				stack: {
+					type: "stack",
+					stack: fakeStackInfo({
+						trunk: "main",
+						current: "feature/top",
+						ancestors: ["not-main", "feature/bottom"],
+					}),
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const stderr = stripAnsi(run.stderr.join(""));
+		expect(stderr).toContain("does not form a unique path from trunk `main`");
+		expect(stderr).not.toContain("Command:");
+		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain=v1"]);
 	});
 
 	test("mid-stack squash failure stops immediately with failed command details", async () => {
 		const exec: ScriptedExecResponse[] = [
 			{ match: "git status --porcelain=v1", result: {} },
-			{
-				match: STACK_DISCOVERY,
-				result: { stdout: stackBranches(["feature/bottom", "feature/top"]) },
-			},
-			{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 			{ match: "git rev-list --count main..feature/bottom", result: { stdout: "2\n" } },
 			{
 				match: "git rev-list --count feature/bottom..feature/top",

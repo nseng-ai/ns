@@ -1,14 +1,23 @@
 import { formatCommand, runCommand } from "@nseng-ai/foundation/exec";
 import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import {
 	GRAPHITE_COMMAND_NAME,
 	runGraphiteCommand,
 } from "@nseng-ai/capability-kit/graphite/branch";
+import type {
+	GraphiteStackGateway,
+	StackInfo,
+	StackResult,
+} from "@nseng-ai/capability-kit/graphite/stack";
+import {
+	GITHUB_CLI_TIMEOUT_MS,
+	runGitHubCliAsExecResult,
+} from "@nseng-ai/capability-kit/github/cli";
 import type { GitGateway } from "@nseng-ai/foundation/git";
+import { z } from "zod";
 import { commandFailure } from "./index.ts";
 import type { PrewrittenPrMetadata, PrCommitMessage } from "./index.ts";
-import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
+import type { SubmitPrLink } from "./gt-output.ts";
 import {
 	preparePrDescription,
 	resolvePrDescriptionGeneration,
@@ -25,7 +34,6 @@ import {
 } from "../phase-stream/matrix-progress-core.ts";
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import type { SubmitPlan } from "./submit-plan.ts";
-import { walkParentBranchChain } from "./parent-branch-chain.ts";
 import type {
 	SubmitMatrixCellState,
 	SubmitMetadataProgressReason,
@@ -33,13 +41,17 @@ import type {
 	SubmitStackTopologyBranch,
 } from "./submit-matrix-progress.ts";
 
-const GT_LOG_STACK_ARGS = ["log", "--stack", "--reverse", "--no-interactive"] as const;
-const GT_TRUNK_ARGS = ["trunk", "--no-interactive"] as const;
-const GT_BRANCH_INFO_BASE_ARGS = ["branch", "info", "--no-interactive", "--branch"] as const;
 const GT_MODIFY_BASE_ARGS = ["modify", "--no-interactive"] as const;
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
+const GITHUB_PR_LIST_JSON_FIELDS = "number,url";
 const COMMAND_TIMEOUT_MS = 60_000;
 const MODIFY_TIMEOUT_MS = 600_000;
+
+const githubPrIdentitySchema = z.object({
+	number: z.number().int().positive(),
+	url: z.url(),
+});
+const githubPrIdentityListSchema = z.array(githubPrIdentitySchema);
 
 export type SubmitMetadataProgressListener = (message: string) => void;
 export interface SubmitBranchMetadataProgressEvent {
@@ -82,7 +94,12 @@ export interface SubmitStackNewBranch {
 interface SubmitStackBranchInfo {
 	branch: string;
 	parentBranch: string;
-	output: string;
+}
+
+interface SubmitStackTopologyFacts {
+	currentBranch: string;
+	branches: readonly SubmitStackBranchInfo[];
+	hasUpstackBranches: boolean;
 }
 
 export interface SubmitMetadataGateway {
@@ -140,21 +157,29 @@ export type SubmitMetadataPrewriteResult =
 			diagnostic?: ErrorInfo;
 	  };
 
+interface RealSubmitMetadataGatewayOptions {
+	graphite: Pick<GraphiteStackGateway, "stack">;
+	runner?: CommandRunner;
+}
+
 export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
+	private readonly graphite: Pick<GraphiteStackGateway, "stack">;
 	private readonly runner: CommandRunner;
 
-	constructor(runner: CommandRunner = runCommand) {
-		this.runner = runner;
+	constructor(options: RealSubmitMetadataGatewayOptions) {
+		this.graphite = options.graphite;
+		this.runner = options.runner ?? runCommand;
 	}
 
 	async inspectSubmitStackTopology(
 		params: SubmitMetadataCommandParams,
 	): Promise<GatewayResult<SubmitStackTopology>> {
-		const topology = await this.inspectSubmitStackTopologyFacts(params);
-		if (!topology.ok) return topology;
+		const facts = await this.inspectSubmitStackTopologyFacts(params);
+		if (!facts.ok) return facts;
+
 		const branches: SubmitStackTopologyBranch[] = [];
-		for (const info of topology.value.branches) {
-			const existingPr = parseExistingPrFromBranchInfo(info.output, info.branch);
+		for (const info of facts.value.branches) {
+			const existingPr = await this.readOpenPrForBranch(params.cwd, info.branch);
 			if (!existingPr.ok) return existingPr;
 			branches.push({
 				branch: info.branch,
@@ -163,15 +188,15 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 				...(existingPr.value === undefined ? {} : { pr: existingPr.value }),
 			});
 		}
-		return ok({ currentBranch: topology.value.currentBranch, branches });
+		return ok({ currentBranch: facts.value.currentBranch, branches });
 	}
 
 	async inspectSubmitStack(
 		params: SubmitMetadataCommandParams,
 	): Promise<GatewayResult<SubmitStackInspection>> {
-		const topology = await this.inspectSubmitStackTopologyFacts(params);
-		if (!topology.ok) return topology;
-		const submitBranchInfos = topology.value.branches;
+		const facts = await this.inspectSubmitStackTopologyFacts(params);
+		if (!facts.ok) return facts;
+		const submitBranchInfos = facts.value.branches;
 
 		params.onProgress?.(formatStackBranchMetadataProgress(submitBranchInfos.length));
 		const branches: SubmitStackBranch[] = [];
@@ -180,7 +205,7 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 				`inspecting PR metadata for ${info.branch} (${index + 1}/${submitBranchInfos.length})`,
 			);
 
-			const existingPr = parseExistingPrFromBranchInfo(info.output, info.branch);
+			const existingPr = await this.readOpenPrForBranch(params.cwd, info.branch);
 			if (!existingPr.ok) return existingPr;
 			if (existingPr.value !== undefined) {
 				branches.push({
@@ -212,9 +237,9 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 		}
 
 		return ok({
-			currentBranch: topology.value.currentBranch,
+			currentBranch: facts.value.currentBranch,
 			branches,
-			hasUpstackBranches: topology.value.hasUpstackBranches,
+			hasUpstackBranches: facts.value.hasUpstackBranches,
 		});
 	}
 
@@ -258,122 +283,60 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 		return ok(undefined);
 	}
 
-	private async inspectSubmitStackTopologyFacts(params: SubmitMetadataCommandParams): Promise<
-		GatewayResult<{
-			currentBranch: string;
-			branches: SubmitStackBranchInfo[];
-			hasUpstackBranches: boolean;
-		}>
-	> {
-		const log = await this.runGt([...GT_LOG_STACK_ARGS], params.cwd, COMMAND_TIMEOUT_MS);
-		const logError = commandError(
-			GRAPHITE_COMMAND_NAME,
-			GT_LOG_STACK_ARGS,
-			log,
-			"submit_stack_inspection_failed",
-			"Could not inspect the Graphite submit scope.",
-		);
-		if (logError !== undefined) return err(logError);
-
-		const parsedLog = parseGtLogStack(log.stdout);
-		if (parsedLog.branches.length === 0) {
-			return err({
-				code: "submit_stack_empty",
-				message: "Graphite submit-scope inspection did not return any branches.",
-			});
-		}
-		if (parsedLog.currentBranch === undefined) {
-			return err({
-				code: "submit_stack_current_unknown",
-				message: "Graphite submit-scope inspection did not identify the current branch.",
-			});
-		}
-
-		const trunk = await this.readGraphiteTrunk(params.cwd);
-		if (!trunk.ok) return trunk;
-
-		const submitBranchInfos = await this.readSubmitBranchInfos(
-			params.cwd,
-			parsedLog.currentBranch,
-			trunk.value,
-		);
-		if (!submitBranchInfos.ok) return submitBranchInfos;
-		return ok({
-			currentBranch: parsedLog.currentBranch,
-			branches: submitBranchInfos.value,
-			hasUpstackBranches: hasBranchesAfterCurrent(parsedLog),
-		});
+	private async inspectSubmitStackTopologyFacts(
+		params: SubmitMetadataCommandParams,
+	): Promise<GatewayResult<SubmitStackTopologyFacts>> {
+		return deriveSubmitStackTopologyFacts(await this.graphite.stack(params.cwd));
 	}
 
-	// Submit metadata walks parent branches lazily through `gt branch info` so it can stop at
-	// trunk without loading or trusting a full Graphite topology.
-	private async readSubmitBranchInfos(
+	private async readOpenPrForBranch(
 		cwd: string,
-		currentBranch: string,
-		trunk: string,
-	): Promise<GatewayResult<SubmitStackBranchInfo[]>> {
-		const branchInfos = await walkParentBranchChain<SubmitStackBranchInfo>({
-			startBranch: currentBranch,
-			stopBranch: trunk,
-			cycleError: (branch) => ({
-				code: "submit_branch_parent_cycle",
-				message: `Graphite branch parent traversal looped at ${branch}.`,
-			}),
-			readStep: async (branch) => {
-				const info = await this.runGt(
-					[...GT_BRANCH_INFO_BASE_ARGS, branch],
-					cwd,
-					COMMAND_TIMEOUT_MS,
-				);
-				const infoError = commandError(
-					GRAPHITE_COMMAND_NAME,
-					[...GT_BRANCH_INFO_BASE_ARGS, branch],
-					info,
-					"submit_branch_info_failed",
-					`Could not inspect Graphite branch ${branch}.`,
-				);
-				if (infoError !== undefined) return err(infoError);
-
-				const parentBranch = parseParentBranch(info.stdout);
-				if (parentBranch === undefined) return ok({ type: "stop" });
-
-				return ok({
-					type: "visit",
-					parentBranch,
-					item: {
-						branch,
-						parentBranch,
-						output: `${info.stdout}\n${info.stderr}`,
-					},
-				});
-			},
+		branch: string,
+	): Promise<GatewayResult<SubmitPrLink | undefined>> {
+		const args = [
+			"pr",
+			"list",
+			"--head",
+			branch,
+			"--state",
+			"open",
+			"--limit",
+			"2",
+			"--json",
+			GITHUB_PR_LIST_JSON_FIELDS,
+		];
+		const result = await runGitHubCliAsExecResult({
+			runner: this.runner,
+			args,
+			cwd,
+			timeoutMs: GITHUB_CLI_TIMEOUT_MS,
 		});
-		if (!branchInfos.ok) return branchInfos;
-		return ok(branchInfos.value.reverse());
-	}
-
-	private async readGraphiteTrunk(cwd: string): Promise<GatewayResult<string>> {
-		const result = await this.runGt([...GT_TRUNK_ARGS], cwd, COMMAND_TIMEOUT_MS);
 		const resultError = commandError(
-			GRAPHITE_COMMAND_NAME,
-			GT_TRUNK_ARGS,
+			"gh",
+			args,
 			result,
-			"submit_trunk_inspection_failed",
-			"Could not inspect the Graphite trunk branch.",
+			"submit_branch_pr_lookup_failed",
+			`Could not query open GitHub PRs for branch ${branch}.`,
 		);
 		if (resultError !== undefined) return err(resultError);
 
-		const branch = result.stdout
-			.split(/\r?\n/u)
-			.map((line) => line.trim())
-			.find((line) => line.length > 0);
-		if (branch === undefined) {
+		const parsed = githubPrIdentityListSchema.safeParse(parseExternalJson(result.stdout));
+		if (!parsed.success) {
 			return err({
-				code: "submit_trunk_empty",
-				message: "Graphite trunk inspection did not return a branch.",
+				code: "submit_branch_pr_lookup_parse_failed",
+				message: `GitHub PR lookup for branch ${branch} returned malformed JSON.`,
 			});
 		}
-		return ok(branch);
+		if (parsed.data.length > 1) {
+			return err({
+				code: "submit_branch_pr_lookup_ambiguous",
+				message: `GitHub reported more than one open PR for branch ${branch}; close the duplicate PR or repair its head branch before submitting.`,
+				details: { branch, pr_numbers: parsed.data.map((pr) => pr.number) },
+			});
+		}
+
+		const pr = parsed.data[0];
+		return ok(pr === undefined ? undefined : { label: `#${pr.number}`, url: pr.url });
 	}
 
 	private async readBranchCommitMessages(
@@ -418,6 +381,138 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 
 	private async runGit(args: string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
 		return this.runner("git", args, { cwd, timeout: timeoutMs });
+	}
+}
+
+function deriveSubmitStackTopologyFacts(
+	result: StackResult,
+): GatewayResult<SubmitStackTopologyFacts> {
+	if (result.type === "untracked_branch") {
+		return err({
+			code: "submit_stack_untracked_branch",
+			message: `${result.message} Track the branch with \`gt track\` before submitting.`,
+		});
+	}
+	if (result.type === "failure") {
+		return err({
+			code: "submit_stack_inspection_failed",
+			message: `Could not read structured Graphite stack metadata: ${result.failure.message}`,
+			details: { return_code: result.failure.returnCode },
+		});
+	}
+
+	const { stack } = result;
+	if (stack.ancestorTermination.type === "cycle") {
+		return err({
+			code: "submit_stack_ancestor_cycle",
+			message: `Graphite ancestor metadata contains a cycle at ${stack.ancestorTermination.branch}; submission was not attempted.`,
+		});
+	}
+	if (stack.ancestorTermination.type === "row_missing") {
+		return err({
+			code: "submit_stack_ancestor_row_missing",
+			message: `Graphite ancestor metadata is missing branch ${stack.ancestorTermination.branch}; submission was not attempted.`,
+		});
+	}
+	if (stack.trunkMarker.type === "problem") {
+		return err({
+			code: "submit_stack_trunk_marker_inconsistent",
+			message: describeSubmitTrunkMarkerProblem(stack),
+		});
+	}
+
+	const path = [...stack.ancestors, stack.current];
+	if (
+		path.length <= 1 ||
+		stack.trunk.trim() === "" ||
+		stack.current.trim() === "" ||
+		path[0] !== stack.trunk ||
+		path.some((branch) => branch.trim() === "") ||
+		new Set(path).size !== path.length
+	) {
+		return err({
+			code: "submit_stack_path_inconsistent",
+			message: `Graphite ancestor metadata does not form a non-empty unique path from trunk ${stack.trunk} to current branch ${stack.current}; submission was not attempted.`,
+		});
+	}
+
+	const hasUpstackBranches = deriveHasUpstackBranches(stack);
+	if (!hasUpstackBranches.ok) return hasUpstackBranches;
+
+	const branches: SubmitStackBranchInfo[] = [];
+	for (let index = 1; index < path.length; index += 1) {
+		const branch = path[index];
+		const parentBranch = path[index - 1];
+		if (branch === undefined || parentBranch === undefined) {
+			return err({
+				code: "submit_stack_path_inconsistent",
+				message: "Graphite submit path was incomplete; submission was not attempted.",
+			});
+		}
+		branches.push({ branch, parentBranch });
+	}
+
+	return ok({
+		currentBranch: stack.current,
+		branches,
+		hasUpstackBranches: hasUpstackBranches.value,
+	});
+}
+
+function deriveHasUpstackBranches(stack: StackInfo): GatewayResult<boolean> {
+	const firstDescendant = stack.descendants[0];
+	if (firstDescendant !== undefined) {
+		if (firstDescendant.trim() !== "") return ok(true);
+		return descendantMetadataFailure(stack, "the first child branch name is empty");
+	}
+
+	const currentFork = stack.descendantWalk.forks.find((fork) => fork.branch === stack.current);
+	if (currentFork !== undefined) {
+		if (currentFork.children.some((branch) => branch.trim() !== "")) return ok(true);
+		return descendantMetadataFailure(stack, "the current branch has an invalid child list");
+	}
+
+	const currentCorruption = stack.descendantWalk.childrenCorruptions.find(
+		(corruption) => corruption.branch === stack.current,
+	);
+	if (currentCorruption !== undefined) {
+		return descendantMetadataFailure(
+			stack,
+			`the current branch child list is ${currentCorruption.kind}`,
+		);
+	}
+	if (stack.descendantWalk.termination.type !== "completed") {
+		return descendantMetadataFailure(
+			stack,
+			`the descendant walk ended with ${stack.descendantWalk.termination.type} at ${stack.descendantWalk.termination.branch}`,
+		);
+	}
+	return ok(false);
+}
+
+function descendantMetadataFailure(stack: StackInfo, detail: string): GatewayResult<boolean> {
+	return err({
+		code: "submit_stack_descendant_metadata_inconsistent",
+		message: `Could not determine whether ${stack.current} has upstack branches because ${detail}; submission was not attempted.`,
+	});
+}
+
+function describeSubmitTrunkMarkerProblem(stack: StackInfo): string {
+	if (stack.trunkMarker.type === "clean") {
+		throw new Error("Expected inconsistent Graphite trunk marker metadata.");
+	}
+	const markedTrunks =
+		stack.trunkMarker.markedTrunks.length === 0
+			? "none"
+			: stack.trunkMarker.markedTrunks.join(", ");
+	return `Graphite trunk metadata is inconsistent at ${stack.trunkMarker.terminus} (${stack.trunkMarker.terminusState}); marked trunks: ${markedTrunks}. Submission was not attempted.`;
+}
+
+function parseExternalJson(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return undefined;
 	}
 }
 
@@ -638,56 +733,6 @@ function formatMetadataPreparationDiscoveryProgress(
 
 function formatPreparedMetadataProgress(branchCount: number): string {
 	return `prepared pre-submit PR metadata for ${formatItemCount(branchCount, "branch", "branches")}`;
-}
-
-function parseExistingPrFromBranchInfo(
-	output: string,
-	branch: string,
-): GatewayResult<SubmitPrLink | undefined> {
-	const link = extractPrLinks(output)[0];
-	if (link !== undefined) return ok(link);
-
-	if (/^\s*PR\s+#\d+\b/im.test(stripTerminalEscapes(output))) {
-		return err({
-			code: "submit_existing_pr_link_missing",
-			message: `Graphite reported an existing PR for ${branch}, but no PR URL was detected.`,
-		});
-	}
-
-	return ok(undefined);
-}
-
-export interface ParsedGtLogStack {
-	branches: string[];
-	currentBranch?: string;
-}
-
-export function parseGtLogStack(output: string): ParsedGtLogStack {
-	const branches: string[] = [];
-	let currentBranch: string | undefined;
-	for (const line of stripTerminalEscapes(output).replace(/\r/g, "\n").split("\n")) {
-		const match = line.match(/^[│\s]*[◉◯]\s+([^\s(]+)(?:\s+\(current\))?/);
-		const branch = match?.[1];
-		if (branch === undefined) continue;
-		branches.push(branch);
-		if (/\(current\)/.test(line)) {
-			currentBranch = branch;
-		}
-	}
-	return currentBranch === undefined ? { branches } : { branches, currentBranch };
-}
-
-function hasBranchesAfterCurrent(stack: ParsedGtLogStack): boolean {
-	if (stack.currentBranch === undefined) return false;
-	const currentIndex = stack.branches.indexOf(stack.currentBranch);
-	return currentIndex >= 0 && currentIndex < stack.branches.length - 1;
-}
-
-export function parseParentBranch(output: string): string | undefined {
-	const match = stripTerminalEscapes(output)
-		.replace(/\r/g, "\n")
-		.match(/^Parent:\s*(\S+)\s*$/m);
-	return match?.[1];
 }
 
 export function parseCommitMessages(output: string): PrCommitMessage[] {

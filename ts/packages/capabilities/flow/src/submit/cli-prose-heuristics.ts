@@ -125,8 +125,8 @@ export function isGitConflictWithConflictedFilesProse(
 	return conflictedFiles.length > 0 || isGitConflictProse(output);
 }
 
-export function isNoCurrentPrProse(output: string): boolean {
-	return /No PR found/i.test(stripTerminalEscapes(output));
+export function isNoCurrentGithubPrProse(output: string): boolean {
+	return /no pull requests? found for branch/i.test(stripTerminalEscapes(output));
 }
 
 export function isGithubDiffTooLargeProse(output: string): boolean {
