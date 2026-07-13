@@ -29,7 +29,7 @@ What should the future session continue from this handoff?
 
 Use handoff vocabulary first: handoff artifact, continuation focus, create a handoff, handoff slug. Branch Memory is only the storage command behind this skill; mention namespace, key, ref, or commit only as technical locator evidence, recovery detail, or error context.
 
-Do not store secrets, credentials, binary data, generated build output, or large logs.
+Do not store secrets, credentials, binary data, generated build output, or large logs. Store paths to useful logs and files instead of copying their contents.
 
 ## Resolve branch and slug
 
@@ -81,10 +81,19 @@ Continuation focus: <What the future session should continue, decide, verify, or
 
 <Concrete next actions for a future session.>
 
+## Investigation Sources
+
+- Source session ID: <exact id supplied by the invoking surface, or an explicit unavailable value>
+- Source session log: <exact path supplied by the invoking surface, or an explicit unavailable value>
+- Related files:
+  - <path> — <why inspecting it would help>
+
 ## Useful Commands / Files
 
 <Commands, files, PRs, issues, docs, or technical locators that help resume.>
 ```
+
+Every handoff must include `## Investigation Sources`. When the invoking surface supplies a source session id or log path, copy it exactly; when the harness exposes no persisted session log, record that unavailability explicitly instead of inventing a path. List concrete paths to other relevant child/subagent session logs, plans, reports, saved command output, and key source or test files, with a short reason each is useful. If no additional investigation files were identified, say so. These pointers are an audit and recovery trail; the handoff must remain self-contained without reading them.
 
 Keep the artifact terse. Avoid owners, due dates, task databases, hidden metadata, or workflow-state machinery.
 

@@ -180,7 +180,7 @@ Technical locator:
 - Namespace: ${HANDOFF_NAMESPACE}
 - Entry: ${key}
 
-Report the branch and handoff slug picked up, summarize the continuation focus or current state, list proposed immediate next steps from the artifact, and call out any risks, stale assumptions, or verification needed. Then stop and wait for the user's instruction before running commands, editing files, or continuing implementation. If the artifact is stale or incomplete, do not proceed automatically; summarize what should be verified before work continues.
+Report the branch and handoff slug picked up, summarize the continuation focus or current state, list proposed immediate next steps from the artifact, and call out any risks, stale assumptions, or verification needed. Surface the source session ID, source session log, and related investigation file paths recorded by the artifact, but do not inspect those sources automatically. Then stop and wait for the user's instruction before running commands, reading investigation sources, editing files, or continuing implementation. If the artifact is stale or incomplete, do not proceed automatically; summarize what should be verified before work continues.
 
 ${buildFencedTextBlock(artifact, "markdown")}`;
 }

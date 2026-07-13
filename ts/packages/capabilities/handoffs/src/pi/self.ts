@@ -14,6 +14,10 @@ import {
 	type HandoffLaunchRequest,
 } from "./launch-flow.ts";
 import {
+	deriveHandoffInvestigationSources,
+	type HandoffInvestigationSourceOptions,
+} from "./investigation-sources.ts";
+import {
 	DERIVE_HANDOFF_SLUG_TOOL_NAME,
 	HANDOFF_SELF_COMMAND_NAME,
 	HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME,
@@ -41,6 +45,7 @@ export interface HandoffSelfReadyResult {
 interface HandoffSelfPromptOptions {
 	skillBlock: string | undefined;
 	request: HandoffLaunchRequest;
+	investigationSources: HandoffInvestigationSourceOptions;
 	workflowId?: string;
 }
 
@@ -206,6 +211,7 @@ export function createHandoffSelfWorkflow(
 					buildHandoffSelfPrompt({
 						skillBlock: prepared.skill?.block,
 						request: prepared.request,
+						investigationSources: deriveHandoffInvestigationSources(ctx),
 						workflowId,
 					}),
 				);
@@ -333,6 +339,7 @@ export function buildHandoffSelfPrompt(options: HandoffSelfPromptOptions): strin
 	return buildHandoffLaunchPrompt(HANDOFF_SELF_PROMPT_COPY, {
 		skillBlock: options.skillBlock,
 		request,
+		investigationSources: options.investigationSources,
 		extraTargetSections: [
 			`Session replacement rendezvous:\n\n- Tool: ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME}\n- workflow_id: ${workflowId}`,
 		],

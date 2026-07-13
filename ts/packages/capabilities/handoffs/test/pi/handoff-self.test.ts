@@ -35,7 +35,10 @@ describe("ns:handoff:self extension", () => {
 		registerSelfOnly(pi, 30_000);
 		const command = getRegisteredCommand(pi, "ns:handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
-		const context = createContext();
+		const context = createContext({
+			sessionFile: "/sessions/self-filename.jsonl",
+			sessionId: "self-source-id",
+		});
 
 		const commandPromise = Promise.resolve(
 			command.handler("finish the self handoff workflow", context.ctx),
@@ -55,6 +58,8 @@ describe("ns:handoff:self extension", () => {
 		expect(prompt).toContain(`<skill name="handoff-create" location="${FAKE_SKILL_PATH}">`);
 		expect(prompt).toContain("This is a /ns:handoff:self request.");
 		expect(prompt).toContain("finish the self handoff workflow");
+		expect(prompt).toContain("Source Pi session ID: self-source-id");
+		expect(prompt).toContain("Source Pi session log: /sessions/self-filename.jsonl");
 		expect(prompt).toContain(`- Branch: ${BRANCH}`);
 		expect(prompt).toContain("derive_handoff_slug_from_content");
 		expect(prompt).toContain(`workflow_id: ${workflowId}`);
@@ -424,11 +429,15 @@ describe("ns:handoff:self pure helpers", () => {
 		const prompt = buildHandoffSelfPrompt({
 			skillBlock: "# handoff-create skill",
 			request: { focus: "make a fresh session", branch: BRANCH },
+			investigationSources: {},
 		});
 
 		expect(prompt).toContain("# handoff-create skill");
 		expect(prompt).toContain("This is a /ns:handoff:self request.");
 		expect(prompt).toContain("workflow_id: <workflow-id>");
+		expect(prompt).toContain(
+			"Source Pi session log: unavailable (no persisted Pi session log was exposed)",
+		);
 		expect(prompt).toContain(
 			"If `ns handoff create` reports an existing artifact, stop; do not overwrite and do not clear context or pick up the handoff.",
 		);

@@ -105,7 +105,11 @@ describe("handoff extension", () => {
 				"ns:handoff:create",
 				"resume extension frontend work",
 				[],
-				{ cwd: repoDir },
+				{
+					cwd: repoDir,
+					sessionFile: "/sessions/filename-id.jsonl",
+					sessionId: "authoritative-id",
+				},
 				[skillCommandInfo(skillPath)],
 			);
 
@@ -117,6 +121,12 @@ describe("handoff extension", () => {
 			);
 			expect(result.pi.sentUserMessages[0]).toContain("Create a handoff from the skill body.");
 			expect(result.pi.sentUserMessages[0]).toContain("resume extension frontend work");
+			expect(result.pi.sentUserMessages[0]).toContain("## Investigation Sources");
+			expect(result.pi.sentUserMessages[0]).toContain("Source Pi session ID: authoritative-id");
+			expect(result.pi.sentUserMessages[0]).not.toContain("Source Pi session ID: filename-id");
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"Source Pi session log: /sessions/filename-id.jsonl",
+			);
 			expect(result.notifications).toEqual([
 				{ message: "Starting handoff create workflow…", level: "info" },
 			]);
@@ -136,6 +146,9 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("do not create a temporary artifact file");
 		expect(result.pi.sentUserMessages[0]).toContain("HANDOFF_EOF");
 		expect(result.pi.sentUserMessages[0]).toContain("handoff focus");
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"Source Pi session log: unavailable (no persisted Pi session log was exposed)",
+		);
 		expect(result.pi.sentUserMessages[0]).not.toContain("--file <artifact.md>");
 		expect(result.pi.sentUserMessages[0]).not.toContain("Create a temporary Markdown file");
 		expect(result.pi.sentUserMessages[0]).not.toContain("session-artifacts");
@@ -147,6 +160,18 @@ describe("handoff extension", () => {
 				level: "warning",
 			},
 		]);
+	});
+
+	test("create records an in-memory session id when no persisted log exists", async () => {
+		const result = await runCommand("ns:handoff:create", "handoff focus", [], {
+			sessionId: "in-memory-session-id",
+		});
+
+		result.pi.assertDone();
+		expect(result.pi.sentUserMessages[0]).toContain("Source Pi session ID: in-memory-session-id");
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"Source Pi session log: unavailable (no persisted Pi session log was exposed)",
+		);
 	});
 
 	test("create with no args prompts for focus and continues when supplied", async () => {
@@ -222,6 +247,9 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("Namespace: handoff");
 		expect(result.pi.sentUserMessages[0]).toContain("Entry: continue-tests.md");
 		expect(result.pi.sentUserMessages[0]).toContain("present a concise handoff summary");
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"Surface the source session ID, source session log, and related investigation file paths",
+		);
 		expect(result.pi.sentUserMessages[0]).toContain("wait for the user's instruction");
 		expect(result.pi.sentUserMessages[0]).toContain(artifact);
 		expect(result.pi.sentUserMessages[0]).not.toContain("continue with the concrete next step");
@@ -537,7 +565,9 @@ describe("handoff pure helpers", () => {
 	});
 
 	test("create prompt includes fallback and focus", () => {
-		const prompt = buildCreateHandoffPrompt(undefined, "ship the frontend command");
+		const prompt = buildCreateHandoffPrompt(undefined, "ship the frontend command", {
+			sourceSessionFile: "/sessions/2026-07-12T10-00-00-000Z_source-session.jsonl",
+		});
 
 		expect(prompt).toContain("Storage contract:");
 		expect(prompt).toContain("ship the frontend command");
@@ -545,6 +575,12 @@ describe("handoff pure helpers", () => {
 			"ns handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin",
 		);
 		expect(prompt).toContain("refuses existing artifacts by default");
+		expect(prompt).toContain("## Investigation Sources");
+		expect(prompt).toContain("Source Pi session ID: source-session");
+		expect(prompt).toContain(
+			"Source Pi session log: /sessions/2026-07-12T10-00-00-000Z_source-session.jsonl",
+		);
+		expect(prompt).toContain("child/subagent session logs");
 		expect(prompt).toContain("HANDOFF_EOF");
 		expect(prompt).not.toContain("--file <artifact.md>");
 		expect(prompt).not.toContain("Create a temporary Markdown file");

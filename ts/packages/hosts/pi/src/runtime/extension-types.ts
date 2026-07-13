@@ -23,6 +23,7 @@ export type { ModelInfo, ThinkingLevel } from "./types.ts";
 export type {
 	ExtensionMode,
 	NotifyLevel,
+	SessionManagerLike,
 	SetWidgetFunction,
 	ToolContext,
 	ToolDefinition,
@@ -88,14 +89,8 @@ export type MessageRenderer = (
 	theme: RenderTheme,
 ) => RenderComponent;
 
-export interface SessionManagerLike {
-	/** Path to the current Pi session file, when one is available. */
-	getSessionFile?(): string | undefined;
-}
-
 export interface BaseRuntimeContext extends ToolContext {
 	mode: ExtensionMode;
-	sessionManager?: SessionManagerLike;
 	ui: ToolContext["ui"] & {
 		setEditorText?(value: string): void;
 		custom?<T>(
