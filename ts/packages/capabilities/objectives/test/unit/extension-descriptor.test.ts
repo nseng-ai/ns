@@ -2,6 +2,19 @@ import { validateExtensionDescriptor } from "@nseng-ai/sdk";
 import objectivesExtension from "@nseng-ai/objectives/ns-extension";
 import { describe, expect, test } from "vitest";
 
+const EXPECTED_OBJECTIVE_SKILLS = [
+	"objective",
+	"objective-autorun",
+	"objective-close",
+	"objective-create",
+	"objective-critique",
+	"objective-next",
+	"objective-refresh",
+	"objective-retro",
+	"objective-runner-step",
+	"objective-update",
+];
+
 const EXPECTED_OBJECTIVES_INSTRUCTIONS = [
 	"## Objectives",
 	"",
@@ -26,5 +39,12 @@ describe("Objectives extension descriptor", () => {
 			instructions: EXPECTED_OBJECTIVES_INSTRUCTIONS,
 			consumerDirs: [".ns/objectives"],
 		});
+		expect(result.descriptor.bundledArtifacts).toEqual(
+			EXPECTED_OBJECTIVE_SKILLS.map((skillName) => ({
+				kind: "skill",
+				name: skillName,
+				path: `skills/${skillName}`,
+			})),
+		);
 	});
 });

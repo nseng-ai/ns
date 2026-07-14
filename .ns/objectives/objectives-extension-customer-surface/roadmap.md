@@ -7,8 +7,8 @@
   - Validation: package-focused checks/tests, the TypeScript style guard, the bounded stale-term grep, and `just` pass.
 - [x] Reconcile stale acquisition-surface references with the landed nested command contract.
   - Evidence: extension-authoring docs now describe lifecycle reconciliation through `ns init` and nested `ns extension` commands; undeclared-target recovery directs users to `ns extension install <source>`, with a focused assertion. `rg -n 'ns update --extensions' ts/packages` returns no matches.
-- [ ] Record the completed customer-surface contract and any status-model findings back into the umbrella synthesis evidence.
-  - Evidence: this Subobjective's closure names the shipped list semantics and any caveats the release and onboarding Subobjectives must exercise.
+- [x] Record the completed customer-surface contract and any status-model findings back into the umbrella synthesis evidence.
+  - Evidence: the umbrella update `ship-objectives-to-customers/updates/20260714T091638Z-extension-list-contract-synthesized.md` records the complete v1 surface, read-only list semantics, distinct acquisition and artifact states, and the `unavailable` partial-count caveat for release and onboarding checks.
 
 ## Parked
 

@@ -55,3 +55,7 @@ Risks:
 ## Open Questions
 
 None at creation. Implementation findings may require clarifying degraded artifact-provisioning states, but must not broaden the v1 acquisition surface without an explicit Objective update.
+
+## Closure
+
+Completed the v1 Objectives extension customer surface, including a deterministic, read-only `ns extension list` row for every declared source with distinct acquisition and artifact states and canonical structured diagnostics. `unavailable` artifact counts remain explicitly observed and potentially incomplete. Detailed implementation evidence stays in the 2026-07-12 Semantic Update, and the umbrella synthesis records the downstream contract; fleet update, broader source and settings scope, and self-update behavior remain parked expansion.

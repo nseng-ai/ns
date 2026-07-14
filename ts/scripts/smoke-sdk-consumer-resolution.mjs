@@ -1,14 +1,17 @@
 #!/usr/bin/env node
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { fileURLToPath } from "node:url";
 
+import { catalogVersion } from "./public-package-helpers.mjs";
 import { sdkFoldEntries } from "./sdk-public-subpaths.mjs";
 
 const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const workspaceYaml = await readFile(resolve(workspaceRoot, "pnpm-workspace.yaml"), "utf8");
+const nodeTypesSpecifier = `@types/node@${catalogVersion(workspaceYaml, "@types/node")}`;
 const publishRoot = process.argv[2];
 if (publishRoot === undefined) throw new Error("Usage: node scripts/smoke-sdk-consumer-resolution.mjs <sdk-publish-root>");
 
@@ -27,6 +30,7 @@ try {
 					allowImportingTsExtensions: true,
 					noEmit: true,
 					skipLibCheck: true,
+					types: ["node"],
 				},
 				include: ["consumer.ts"],
 			},
@@ -35,7 +39,7 @@ try {
 		) + "\n",
 	);
 	await writeFile(join(tempRoot, "consumer.ts"), consumerSource());
-	run("npm", ["install", "--silent", resolve(publishRoot)], { cwd: tempRoot });
+	run("npm", ["install", "--silent", resolve(publishRoot), nodeTypesSpecifier], { cwd: tempRoot });
 	run(resolve(workspaceRoot, "node_modules", ".bin", "tsc"), ["-p", "tsconfig.json"], { cwd: tempRoot });
 	console.log(`sdk consumer resolution smoke passed: ${tempRoot}`);
 } finally {

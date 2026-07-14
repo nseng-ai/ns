@@ -3,6 +3,7 @@ import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { copyObjectivesPublishSkills } from "./objectives-publish-skills.mjs";
 import { sdkFoldEntries, sdkPublicExports } from "./sdk-public-subpaths.mjs";
 import { catalogVersion, normalizeManifestBinPaths } from "./public-package-helpers.mjs";
 
@@ -155,6 +156,9 @@ export async function preparePublishRoot(entry, context) {
 	for (const fileEntry of entry.manifest.files ?? []) {
 		await cp(resolve(entry.root, fileEntry), resolve(publishRoot, fileEntry), { recursive: true });
 	}
+	if (entry.manifest.name === "@nseng-ai/objectives") {
+		await copyObjectivesPublishSkills({ repoRoot, publishRoot });
+	}
 	const manifest = buildPublishManifest(entry.manifest, context);
 	assertPublishManifest(manifest);
 	await writeFile(resolve(publishRoot, "package.json"), `${JSON.stringify(manifest, null, "\t")}\n`);
@@ -170,7 +174,7 @@ export function buildPublishManifest(sourceManifest, context) {
 		name: sourceManifest.name,
 		version: sourceManifest.version,
 		type: sourceManifest.type,
-		files: sourceManifest.files,
+		files: publishFiles(sourceManifest),
 		engines: context.workspaceManifest.engines,
 		publishConfig: { access: "public" },
 		...(sourceManifest.bin === undefined ? {} : { bin: normalizeManifestBinPaths(sourceManifest.bin) }),
@@ -201,6 +205,11 @@ function assertPublishOrder() {
 	if (missing.length > 0 || extra.length > 0) {
 		throw new Error(`Explicit publish order does not match intended public set. Missing: ${missing.join(", ")}; extra: ${extra.join(", ")}`);
 	}
+}
+
+function publishFiles(sourceManifest) {
+	if (sourceManifest.name !== "@nseng-ai/objectives") return sourceManifest.files;
+	return [...sourceManifest.files, "skills"];
 }
 
 function rewriteDependencyBlock(dependencies, context) {

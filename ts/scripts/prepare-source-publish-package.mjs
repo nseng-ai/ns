@@ -3,8 +3,11 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { copyObjectivesPublishSkills } from "./objectives-publish-skills.mjs";
+
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(scriptDir, "..");
+const repoRoot = resolve(workspaceRoot, "..");
 const packageRoot = resolve(process.argv[2] ?? process.cwd());
 const publishRoot = resolve(packageRoot, "dist", "publish");
 
@@ -20,6 +23,9 @@ await rm(publishRoot, { recursive: true, force: true });
 await mkdir(publishRoot, { recursive: true });
 await cp(resolve(packageRoot, "src"), resolve(publishRoot, "src"), { recursive: true });
 await rewriteSdkImports(resolve(publishRoot, "src"));
+if (sourceManifest.name === "@nseng-ai/objectives") {
+	await copyObjectivesPublishSkills({ repoRoot, publishRoot });
+}
 
 const manifest = buildPublishManifest(sourceManifest);
 await writeFile(resolve(publishRoot, "package.json"), `${JSON.stringify(manifest, null, "\t")}\n`);
@@ -47,7 +53,7 @@ function buildPublishManifest(manifest) {
 		name: manifest.name,
 		version: manifest.version,
 		type: manifest.type,
-		files: manifest.files,
+		files: publishFiles(manifest),
 		engines: workspaceManifest.engines,
 		publishConfig: { access: "public" },
 		...(manifest.exports === undefined ? {} : { exports: manifest.exports }),
@@ -57,6 +63,11 @@ function buildPublishManifest(manifest) {
 	};
 	assertNoWorkspaceOrCatalogSpecifiers(output);
 	return output;
+}
+
+function publishFiles(manifest) {
+	if (manifest.name !== "@nseng-ai/objectives") return manifest.files;
+	return [...manifest.files, "skills"];
 }
 
 function rewriteDependencyBlock(key, block) {
