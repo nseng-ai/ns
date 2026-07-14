@@ -6,19 +6,18 @@ import { ALL_HARNESS_IDS } from "@nseng-ai/harness-artifacts/api";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
-import {
-	activationCompletedSchema,
-	applyNsActivation,
-	prepareNsActivation,
-} from "./activate-ns.ts";
+import { applyNsActivation, prepareNsActivation } from "./activate-ns.ts";
+import { activationCompletedSchema } from "./activation-outcomes.ts";
 import type { NsActivationContext } from "./activation-context.ts";
 import type { ExtensionInstallAcquisitionGateway } from "./extension-acquisition.ts";
 import {
 	extensionLifecycleFailure,
-	normalizeExtensionLifecycleDiagnostic,
-	normalizeExtensionLifecycleDiagnostics,
 	prepareExtensionLifecycle,
 } from "./extension-lifecycle-preflight.ts";
+import {
+	normalizeExtensionDiagnostic,
+	normalizeExtensionDiagnostics,
+} from "./diagnostic-collection.ts";
 import {
 	createLifecycleRecorder,
 	lifecycleStepSchema,
@@ -111,7 +110,7 @@ export async function installExtension(
 			message: declaration.message,
 			data: {
 				phase: "preflight",
-				diagnostics: normalizeExtensionLifecycleDiagnostics([diagnostic]),
+				diagnostics: normalizeExtensionDiagnostics([diagnostic]),
 				completed: {},
 			},
 		});
@@ -134,12 +133,12 @@ export async function installExtension(
 			message: `Could not acquire extension ${request.source}.`,
 		};
 		return tracedFailure({
-			diagnostic: normalizeExtensionLifecycleDiagnostic(diagnostic),
+			diagnostic: normalizeExtensionDiagnostic(diagnostic),
 			errorType: "ns-extension-install-acquisition-failed",
 			message: diagnostic.message,
 			data: {
 				phase: "acquisition",
-				diagnostics: normalizeExtensionLifecycleDiagnostics(acquired.diagnostics),
+				diagnostics: normalizeExtensionDiagnostics(acquired.diagnostics),
 				completed: {},
 			},
 		});
@@ -177,7 +176,7 @@ export async function installExtension(
 			message: "Extension activation preflight failed; no project files were written.",
 			data: {
 				phase: "preflight",
-				diagnostics: normalizeExtensionLifecycleDiagnostics(prepared.diagnostics),
+				diagnostics: normalizeExtensionDiagnostics(prepared.diagnostics),
 				completed: {},
 			},
 		});
@@ -196,7 +195,7 @@ export async function installExtension(
 			message: `The acquired extension descriptor was not selected for ${request.source}.`,
 			data: {
 				phase: "preflight",
-				diagnostics: normalizeExtensionLifecycleDiagnostics([diagnostic]),
+				diagnostics: normalizeExtensionDiagnostics([diagnostic]),
 				completed: {},
 			},
 		});
@@ -210,7 +209,7 @@ export async function installExtension(
 			message: applied.error.message,
 			data: {
 				phase: applied.phase,
-				error: normalizeExtensionLifecycleDiagnostic(applied.error),
+				error: normalizeExtensionDiagnostic(applied.error),
 				completed: applied.completed,
 			},
 		});

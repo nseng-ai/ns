@@ -50,6 +50,24 @@ describe("lifecycle recorder", () => {
 		expect(() => recorder.complete()).toThrow(/terminal/);
 	});
 
+	it("normalizes failure diagnostic codes before storing and rendering them", () => {
+		const lines: string[] = [];
+		const recorder = createLifecycleRecorder({ emit: (line) => lines.push(line) });
+
+		recorder.beginPhase("declaration-planning");
+		recorder.fail({
+			code: "extension_acquisition_invalid_npm_spec",
+			message: "Invalid npm extension source spec.",
+		});
+
+		expect(recorder.steps().at(-1)).toMatchObject({
+			type: "failure",
+			code: "extension-acquisition-invalid-npm-spec",
+		});
+		expect(lines.at(-1)).toContain("extension-acquisition-invalid-npm-spec");
+		expect(lines.at(-1)).not.toContain("extension_acquisition_invalid_npm_spec");
+	});
+
 	it("enforces phase ownership while permitting details between phases", () => {
 		const recorder = createLifecycleRecorder();
 
@@ -137,6 +155,21 @@ describe("lifecycle recorder", () => {
 				manifestPath: "/tmp/manifest.json",
 				writtenFiles: [],
 				conflictingFiles: [],
+			}),
+		).toThrow();
+		expect(() =>
+			lifecycleStepSchema.parse({
+				type: "artifact-completed",
+				key: "pi:demo",
+				action: "removed",
+				artifactId: "@test/demo:demo",
+				skillName: "demo",
+				harness: "pi",
+				targetArtifactPath: "/tmp/demo",
+				manifestPath: "/tmp/manifest.json",
+				writtenFiles: [],
+				conflictingFiles: [],
+				removalReason: "arbitrary-reason",
 			}),
 		).toThrow();
 	});

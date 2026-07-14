@@ -2,8 +2,14 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { ALL_HARNESS_IDS } from "@nseng-ai/harness-artifacts/api";
 import { z } from "zod";
 
+import {
+	consumerDirectoryOutcomeSchema,
+	declaredArtifactActivationOutcomeShape,
+	fileActivationOutcomeSchema,
+} from "./activation-outcomes.ts";
 import { activationFileSchema } from "./activation-files.ts";
 import type { PreparedNsActivation } from "./activate-ns.ts";
+import { normalizeExtensionDiagnostic } from "./diagnostic-collection.ts";
 
 const lifecyclePhaseSchema = z.enum([
 	"repository-preflight",
@@ -16,11 +22,11 @@ const lifecyclePhaseSchema = z.enum([
 	"completion",
 ]);
 
-const lifecycleDiagnosticFields = {
+const lifecycleDiagnosticSchema = z.object({
 	code: z.string(),
 	message: z.string(),
 	path: z.string().optional(),
-};
+});
 
 export const lifecycleStepSchema = z.discriminatedUnion("type", [
 	z.object({
@@ -76,30 +82,17 @@ export const lifecycleStepSchema = z.discriminatedUnion("type", [
 		consumerDirectoryCount: z.number().int().nonnegative(),
 		artifactCount: z.number().int().nonnegative(),
 	}),
-	z.object({
+	fileActivationOutcomeSchema.extend({
 		type: z.literal("activation-file-completed"),
 		file: activationFileSchema,
 		path: z.string(),
-		change: z.enum(["created", "appended", "replaced", "unchanged"]),
 	}),
-	z.object({
+	consumerDirectoryOutcomeSchema.extend({
 		type: z.literal("consumer-directory-completed"),
-		path: z.string(),
-		change: z.enum(["created", "updated", "unchanged"]),
 	}),
 	z.object({
 		type: z.literal("artifact-completed"),
-		key: z.string(),
-		action: z.enum(["installed", "refreshed", "unchanged", "conflicted", "removed"]),
-		artifactId: z.string(),
-		skillName: z.string(),
-		harness: z.enum(ALL_HARNESS_IDS),
-		targetArtifactPath: z.string(),
-		manifestPath: z.string(),
-		writtenFiles: z.array(z.string()).readonly(),
-		conflictingFiles: z.array(z.string()).readonly(),
-		removedFiles: z.array(z.string()).readonly().optional(),
-		removalReason: z.string().optional(),
+		...declaredArtifactActivationOutcomeShape,
 	}),
 	z.object({
 		type: z.literal("preservation"),
@@ -114,21 +107,16 @@ export const lifecycleStepSchema = z.discriminatedUnion("type", [
 			"prospective-effects-unavailable",
 		]),
 	}),
-	z.object({
+	lifecycleDiagnosticSchema.extend({
 		type: z.literal("failure"),
 		phase: lifecyclePhaseSchema,
-		...lifecycleDiagnosticFields,
 	}),
 ]);
 
 export type LifecycleStep = z.infer<typeof lifecycleStepSchema>;
 export type LifecyclePhase = z.infer<typeof lifecyclePhaseSchema>;
 export type LifecycleDetail = Exclude<LifecycleStep, { readonly type: "phase" | "failure" }>;
-export type LifecycleDiagnostic = {
-	readonly code: string;
-	readonly message: string;
-	readonly path?: string;
-};
+export type LifecycleDiagnostic = z.infer<typeof lifecycleDiagnosticSchema>;
 
 export interface LifecycleTraceSink {
 	emit(line: string): void;
@@ -189,13 +177,14 @@ export function createLifecycleRecorder(sink?: LifecycleTraceSink): LifecycleRec
 			assertNotTerminal("fail");
 			if (activePhase === undefined)
 				throw new Error("Cannot fail a lifecycle without an active phase.");
+			const normalizedDiagnostic = normalizeExtensionDiagnostic(diagnostic);
 			append({ type: "phase", phase: activePhase, status: "failed" });
 			append({
 				type: "failure",
 				phase: activePhase,
-				code: diagnostic.code,
-				message: diagnostic.message,
-				...optionalEntry("path", diagnostic.path),
+				code: normalizedDiagnostic.code,
+				message: normalizedDiagnostic.message,
+				...optionalEntry("path", normalizedDiagnostic.path),
 			});
 			activePhase = undefined;
 			isTerminal = true;

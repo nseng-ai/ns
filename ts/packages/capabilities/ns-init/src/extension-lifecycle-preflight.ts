@@ -18,6 +18,7 @@ import {
 	type ResolveActivationRepositoryResult,
 } from "./activate-ns.ts";
 import type { NsActivationContext } from "./activation-context.ts";
+import { normalizeExtensionDiagnostics } from "./diagnostic-collection.ts";
 import type { LifecycleRecorder } from "./lifecycle-observability.ts";
 
 export type ExtensionLifecycleVerb = "install" | "uninstall" | "update";
@@ -215,25 +216,13 @@ export function extensionLifecycleFailure<TResult>(
 	});
 }
 
-export function normalizeExtensionLifecycleDiagnostic<T extends { readonly code: string }>(
-	diagnostic: T,
-): Omit<T, "code"> & { readonly code: string } {
-	return { ...diagnostic, code: diagnostic.code.replaceAll("_", "-") };
-}
-
-export function normalizeExtensionLifecycleDiagnostics<T extends { readonly code: string }>(
-	diagnostics: readonly T[],
-): readonly (Omit<T, "code"> & { readonly code: string })[] {
-	return diagnostics.map(normalizeExtensionLifecycleDiagnostic);
-}
-
 export function extensionLifecyclePreflightEnvelope<T extends { readonly code: string }>(
 	diagnostics: readonly T[],
 	recorder: LifecycleRecorder,
 ) {
 	return {
 		phase: "preflight" as const,
-		diagnostics: normalizeExtensionLifecycleDiagnostics(diagnostics),
+		diagnostics: normalizeExtensionDiagnostics(diagnostics),
 		completed: {},
 		steps: recorder.steps(),
 	};

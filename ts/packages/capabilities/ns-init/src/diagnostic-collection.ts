@@ -6,6 +6,18 @@ interface DiagnosticIdentity {
 	readonly path?: ExplicitUndefined<"public-api-compatibility", string>;
 }
 
+export function normalizeExtensionDiagnostic<TDiagnostic extends { readonly code: string }>(
+	diagnostic: TDiagnostic,
+): Omit<TDiagnostic, "code"> & { readonly code: string } {
+	return { ...diagnostic, code: diagnostic.code.replaceAll("_", "-") };
+}
+
+export function normalizeExtensionDiagnostics<TDiagnostic extends { readonly code: string }>(
+	diagnostics: readonly TDiagnostic[],
+): readonly (Omit<TDiagnostic, "code"> & { readonly code: string })[] {
+	return diagnostics.map(normalizeExtensionDiagnostic);
+}
+
 export function appendDiagnosticToCollection<TDiagnostic extends DiagnosticIdentity>(
 	diagnostics: readonly TDiagnostic[],
 	diagnostic: TDiagnostic,

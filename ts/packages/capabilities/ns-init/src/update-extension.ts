@@ -7,10 +7,10 @@ import { z } from "zod";
 
 import {
 	type ActivationDiagnostic,
-	activationCompletedSchema,
 	applyNsActivation,
 	prepareNsActivation,
 } from "./activate-ns.ts";
+import { activationCompletedSchema } from "./activation-outcomes.ts";
 import type { NsActivationContext } from "./activation-context.ts";
 import type {
 	ExtensionUpdateAcquisitionGateway,
@@ -19,9 +19,12 @@ import type {
 } from "./extension-acquisition.ts";
 import {
 	extensionLifecycleFailure,
-	normalizeExtensionLifecycleDiagnostic,
 	prepareExtensionLifecycle,
 } from "./extension-lifecycle-preflight.ts";
+import {
+	normalizeExtensionDiagnostic,
+	normalizeExtensionDiagnostics,
+} from "./diagnostic-collection.ts";
 import {
 	createLifecycleRecorder,
 	lifecycleStepSchema,
@@ -193,7 +196,7 @@ export async function updateExtension(
 			message: applied.error.message,
 			data: {
 				phase: applied.phase,
-				error: normalizeExtensionLifecycleDiagnostic(applied.error),
+				error: normalizeExtensionDiagnostic(applied.error),
 				completed: applied.completed,
 			},
 		});
@@ -230,7 +233,7 @@ function acquisitionFailure(
 	sourceSpec: string,
 	diagnostics: readonly ExtensionAcquisitionDiagnostic[],
 ) {
-	const diagnostic = normalizeExtensionLifecycleDiagnostic(
+	const diagnostic = normalizeExtensionDiagnostic(
 		diagnostics[0] ?? { code: "acquisition-failed", message: `Could not update ${sourceSpec}.` },
 	);
 	return {
@@ -239,7 +242,7 @@ function acquisitionFailure(
 		message: diagnostic.message,
 		data: {
 			phase: "acquisition" as const,
-			diagnostics: diagnostics.map(normalizeExtensionLifecycleDiagnostic),
+			diagnostics: normalizeExtensionDiagnostics(diagnostics),
 			completed: {},
 		},
 	};
@@ -258,7 +261,7 @@ function activationPreflightFailure(
 		message: "Extension update activation preflight failed.",
 		data: {
 			phase: "preflight" as const,
-			diagnostics: diagnostics.map(normalizeExtensionLifecycleDiagnostic),
+			diagnostics: normalizeExtensionDiagnostics(diagnostics),
 			sourceAcquisitionCompleted,
 			completed: {},
 		},

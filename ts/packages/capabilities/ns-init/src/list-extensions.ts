@@ -18,8 +18,10 @@ import type {
 	ArtifactProvisioningStatusSummary,
 } from "./artifact-provisioning-status.ts";
 import type { DeclaredExtensionsGateway } from "./declared-extensions.ts";
-import { appendDiagnosticToCollection } from "./diagnostic-collection.ts";
-import { normalizeExtensionLifecycleDiagnostic } from "./extension-lifecycle-preflight.ts";
+import {
+	appendDiagnosticToCollection,
+	normalizeExtensionDiagnostic,
+} from "./diagnostic-collection.ts";
 
 const extensionSourceKindSchema = z.enum(["npm", "local", "git", "unsupported"]);
 const extensionAcquisitionStatusSchema = z.enum(["installed", "missing", "invalid"]);
@@ -382,7 +384,7 @@ function normalizeExtensionListDiagnostic(diagnostic: {
 	readonly message: string;
 	readonly path?: string;
 }): ExtensionListDiagnostic {
-	const normalized = normalizeExtensionLifecycleDiagnostic(diagnostic);
+	const normalized = normalizeExtensionDiagnostic(diagnostic);
 	return {
 		code: normalized.code,
 		message: normalized.message,

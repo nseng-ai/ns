@@ -4,7 +4,7 @@ import { z } from "zod";
 import {
 	activationCompletedSchema,
 	declaredArtifactActivationOutcomeSchema,
-} from "../src/activate-ns.ts";
+} from "../src/activation-outcomes.ts";
 import { initNsResultSchema } from "../src/init-ns.ts";
 import { installExtensionResultSchema } from "../src/install-extension.ts";
 import { lifecycleStepSchema } from "../src/lifecycle-observability.ts";
@@ -58,5 +58,38 @@ describe("activation completion schema", () => {
 			writtenFiles: [],
 			conflictingFiles: [],
 		});
+	});
+
+	it("shares the canonical artifact removal-reason domain with lifecycle events", () => {
+		const artifact = {
+			key: "pi:demo",
+			action: "removed",
+			artifactId: "@test/demo:demo",
+			skillName: "demo",
+			harness: "pi",
+			targetArtifactPath: "/repo/.pi/skills/demo",
+			manifestPath: "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
+			writtenFiles: [],
+			conflictingFiles: [],
+			removalReason: "removed-source",
+		} as const;
+
+		expect(() => declaredArtifactActivationOutcomeSchema.parse(artifact)).not.toThrow();
+		expect(() =>
+			lifecycleStepSchema.parse({ type: "artifact-completed", ...artifact }),
+		).not.toThrow();
+		expect(() =>
+			declaredArtifactActivationOutcomeSchema.parse({
+				...artifact,
+				removalReason: "arbitrary-reason",
+			}),
+		).toThrow();
+		expect(() =>
+			lifecycleStepSchema.parse({
+				type: "artifact-completed",
+				...artifact,
+				removalReason: "arbitrary-reason",
+			}),
+		).toThrow();
 	});
 });

@@ -12,15 +12,14 @@ import { renderTextTable } from "@nseng-ai/foundation/text-table";
 import { z } from "zod";
 
 import {
-	activationCompletedSchema,
 	activationRepositoryFailureDiagnostic,
 	activationRepositoryFailureType,
 	applyNsActivation,
 	prepareNsActivation,
 	resolveActivationRepository,
-	type FileActivationOutcome,
 	type ResolveActivationRepositoryResult,
 } from "./activate-ns.ts";
+import { activationCompletedSchema, type FileActivationOutcome } from "./activation-outcomes.ts";
 import type { NsActivationContext } from "./activation-context.ts";
 import { ACTIVATION_FILE_PATHS, ACTIVATION_FILES } from "./activation-files.ts";
 import {
