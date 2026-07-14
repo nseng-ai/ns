@@ -13,6 +13,7 @@ import {
 import { validateLoadedCommandName, type ExtensionCommandEntry } from "../sdk/descriptor.ts";
 
 import { extensionPointCommand, extensionPointsCommand } from "./built-in-extension-commands.ts";
+import { NS_BUILT_IN_HELP_GROUP } from "./help-presentation.ts";
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
 export type NsCommandSourceLevel = "built-in" | "preinstalled" | "project";
@@ -61,12 +62,14 @@ export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDe
 		name: "point",
 		segments: ["extension", "point"],
 		groupDescription: "Inspect ns extension metadata.",
+		helpGroup: NS_BUILT_IN_HELP_GROUP,
 		command: extensionPointCommand,
 	},
 	"extension/points": {
 		name: "points",
 		segments: ["extension", "points"],
 		groupDescription: "Inspect ns extension metadata.",
+		helpGroup: NS_BUILT_IN_HELP_GROUP,
 		command: extensionPointsCommand,
 	},
 };
@@ -164,7 +167,7 @@ export function toCommandCliInfo(
 export function commandInfoForLoadedCommand(
 	command: DescriptorCommand,
 	sourceLevel: NsCommandSourceLevel,
-	path: NsCommandPath,
+	path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup">,
 ): NsCommandCliInfo {
 	const definition = path.group === undefined ? builtInCommandDefinitions[command.name] : undefined;
 	if (sourceLevel === "built-in" && definition !== undefined) {
@@ -172,6 +175,7 @@ export function commandInfoForLoadedCommand(
 			name: command.name,
 			description: definition.command.summary,
 			fullDescription: definition.command.description,
+			...optionalEntries({ helpGroup: definition.helpGroup }),
 		};
 	}
 	return toCommandCliInfo({
