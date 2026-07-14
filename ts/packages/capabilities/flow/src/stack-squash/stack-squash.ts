@@ -4,10 +4,11 @@ import {
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
-import type {
-	GraphiteStackGateway,
-	StackInfo,
-	StackResult,
+import {
+	deriveValidatedGraphiteStackPath,
+	type GraphiteStackGateway,
+	type StackResult,
+	type TrunkMarkerStatus,
 } from "@nseng-ai/capability-kit/graphite/stack";
 
 const GIT_STATUS_TIMEOUT_MS = 60_000;
@@ -332,81 +333,64 @@ type StackSquashPathDiscovery =
 	  };
 
 function discoverStackSquashPath(result: StackResult): StackSquashPathDiscovery {
-	if (result.type === "untracked_branch") {
+	const validated = deriveValidatedGraphiteStackPath(result);
+	if (validated.type === "success") {
 		return {
-			type: "failure",
-			reason: "untracked-branch",
-			message: `${result.message} Stack squash did not run; track the branch with \`gt track\` first.`,
-		};
-	}
-	if (result.type === "failure") {
-		return {
-			type: "failure",
-			reason: "provider-failure",
-			message: `Could not read Graphite stack metadata: ${result.failure.message}. Stack squash did not run.`,
+			type: "success",
+			trunk: validated.stack.trunk,
+			branches: validated.path.slice(1),
 		};
 	}
 
-	const { stack } = result;
-	if (stack.ancestorTermination.type === "cycle") {
-		return {
-			type: "failure",
-			reason: "ancestor-cycle",
-			message: `Graphite ancestor metadata contains a cycle at \`${stack.ancestorTermination.branch}\`; stack squash did not run.`,
-		};
+	const { failure } = validated;
+	switch (failure.type) {
+		case "untracked_branch":
+			return {
+				type: "failure",
+				reason: "untracked-branch",
+				message: `${failure.message} Stack squash did not run; track the branch with \`gt track\` first.`,
+			};
+		case "provider_failure":
+			return {
+				type: "failure",
+				reason: "provider-failure",
+				message: `Could not read Graphite stack metadata: ${failure.failure.message}. Stack squash did not run.`,
+			};
+		case "ancestor_cycle":
+			return {
+				type: "failure",
+				reason: "ancestor-cycle",
+				message: `Graphite ancestor metadata contains a cycle at \`${failure.branch}\`; stack squash did not run.`,
+			};
+		case "ancestor_row_missing":
+			return {
+				type: "failure",
+				reason: "ancestor-row-missing",
+				message: `Graphite ancestor metadata is missing branch \`${failure.branch}\`; stack squash did not run.`,
+			};
+		case "trunk_marker_problem":
+			return {
+				type: "failure",
+				reason: "inconsistent-trunk-marker",
+				message: describeInconsistentTrunkMarker(failure.marker),
+			};
+		case "path_inconsistent":
+			return {
+				type: "failure",
+				reason: "inconsistent-ancestor-metadata",
+				message: `Graphite ancestor metadata does not form a unique path from trunk \`${failure.trunk}\` to current branch \`${failure.current}\`; stack squash did not run.`,
+			};
 	}
-	if (stack.ancestorTermination.type === "row_missing") {
-		return {
-			type: "failure",
-			reason: "ancestor-row-missing",
-			message: `Graphite ancestor metadata is missing branch \`${stack.ancestorTermination.branch}\`; stack squash did not run.`,
-		};
-	}
-	if (stack.trunkMarker.type === "problem") {
-		return {
-			type: "failure",
-			reason: "inconsistent-trunk-marker",
-			message: describeInconsistentTrunkMarker(stack),
-		};
-	}
-	if (stack.current === stack.trunk) {
-		return { type: "success", trunk: stack.trunk, branches: [] };
-	}
-	if (!hasConsistentAncestors(stack)) {
-		return {
-			type: "failure",
-			reason: "inconsistent-ancestor-metadata",
-			message: `Graphite ancestor metadata does not form a unique path from trunk \`${stack.trunk}\` to current branch \`${stack.current}\`; stack squash did not run.`,
-		};
-	}
-
-	return {
-		type: "success",
-		trunk: stack.trunk,
-		branches: [...stack.ancestors.filter((branch) => branch !== stack.trunk), stack.current],
-	};
 }
 
-function hasConsistentAncestors(stack: StackInfo): boolean {
-	const path = [...stack.ancestors, stack.current];
-	return (
-		stack.trunk.trim() !== "" &&
-		stack.current.trim() !== "" &&
-		stack.ancestors[0] === stack.trunk &&
-		path.every((branch) => branch.trim() !== "") &&
-		new Set(path).size === path.length
-	);
-}
-
-function describeInconsistentTrunkMarker(stack: StackInfo): string {
-	if (stack.trunkMarker.type === "clean") {
-		throw new Error("Expected inconsistent Graphite trunk marker metadata.");
-	}
+function describeInconsistentTrunkMarker(
+	marker: Extract<TrunkMarkerStatus, { type: "problem" }>,
+): string {
 	const markedTrunks =
-		stack.trunkMarker.markedTrunks.length === 0
+		marker.markedTrunks.length === 0
 			? "none"
-			: stack.trunkMarker.markedTrunks.map((branch) => `\`${branch}\``).join(", ");
-	return `Graphite trunk metadata is inconsistent at \`${stack.trunkMarker.terminus}\` (${stack.trunkMarker.terminusState}); marked trunks: ${markedTrunks}. Stack squash did not run.`;
+			: marker.markedTrunks.map((branch) => `\`${branch}\``).join(", ");
+	return `Graphite trunk metadata is inconsistent at \`${marker.terminus}\` (${marker.terminusState}); marked trunks: ${markedTrunks}. Stack squash did not run.`;
 }
 
 async function runGt(

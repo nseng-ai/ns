@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
-import { execGitCommonDir } from "@nseng-ai/capability-kit/graphite/stack";
+import {
+	deriveValidatedGraphiteStackPath,
+	execGitCommonDir,
+	type GraphiteStackPathFailure,
+	type StackResult,
+} from "@nseng-ai/capability-kit/graphite/stack";
+import { fakeStackInfo } from "@nseng-ai/capability-kit/graphite/testing";
 
 interface RecordedCall {
 	command: string;
@@ -28,6 +34,157 @@ function fakeExec(result: Partial<Extract<ExecResult, { type: "exited" }>>): {
 	};
 	return { api, calls };
 }
+
+describe("deriveValidatedGraphiteStackPath", () => {
+	test("returns a newly allocated trunk-to-current path with the original stack", () => {
+		const stack = fakeStackInfo({
+			trunk: "main",
+			current: "feature/top",
+			ancestors: ["main", "feature/base"],
+		});
+
+		const result = deriveValidatedGraphiteStackPath({ type: "stack", stack });
+
+		expect(result).toEqual({
+			type: "success",
+			stack,
+			path: ["main", "feature/base", "feature/top"],
+		});
+		if (result.type !== "success") throw new Error("expected validated stack path");
+		expect(result.path).not.toBe(stack.ancestors);
+	});
+
+	test("accepts a one-node current-at-trunk path", () => {
+		const stack = fakeStackInfo({ trunk: "main", current: "main", ancestors: [] });
+
+		expect(deriveValidatedGraphiteStackPath({ type: "stack", stack })).toEqual({
+			type: "success",
+			stack,
+			path: ["main"],
+		});
+	});
+
+	const failures: readonly {
+		name: string;
+		result: StackResult;
+		failure: GraphiteStackPathFailure;
+	}[] = [
+		{
+			name: "untracked branch",
+			result: { type: "untracked_branch", message: "feature/local is not tracked" },
+			failure: { type: "untracked_branch", message: "feature/local is not tracked" },
+		},
+		{
+			name: "provider failure",
+			result: {
+				type: "failure",
+				failure: { message: "metadata unavailable", returnCode: 17 },
+			},
+			failure: {
+				type: "provider_failure",
+				failure: { message: "metadata unavailable", returnCode: 17 },
+			},
+		},
+		{
+			name: "ancestor cycle",
+			result: {
+				type: "stack",
+				stack: fakeStackInfo({
+					ancestorTermination: { type: "cycle", branch: "feature/base" },
+				}),
+			},
+			failure: { type: "ancestor_cycle", branch: "feature/base" },
+		},
+		{
+			name: "missing ancestor row",
+			result: {
+				type: "stack",
+				stack: fakeStackInfo({
+					ancestorTermination: { type: "row_missing", branch: "feature/missing" },
+				}),
+			},
+			failure: { type: "ancestor_row_missing", branch: "feature/missing" },
+		},
+		{
+			name: "trunk marker problem",
+			result: {
+				type: "stack",
+				stack: fakeStackInfo({
+					trunkMarker: {
+						type: "problem",
+						terminus: "main",
+						terminusState: "unmarked",
+						markedTrunks: ["legacy"],
+					},
+				}),
+			},
+			failure: {
+				type: "trunk_marker_problem",
+				marker: {
+					type: "problem",
+					terminus: "main",
+					terminusState: "unmarked",
+					markedTrunks: ["legacy"],
+				},
+			},
+		},
+		{
+			name: "blank trunk",
+			result: {
+				type: "stack",
+				stack: fakeStackInfo({ trunk: " ", ancestors: [" "] }),
+			},
+			failure: { type: "path_inconsistent", trunk: " ", current: "feature/current" },
+		},
+		{
+			name: "blank current branch",
+			result: {
+				type: "stack",
+				stack: fakeStackInfo({ current: " " }),
+			},
+			failure: { type: "path_inconsistent", trunk: "master", current: " " },
+		},
+		{
+			name: "first ancestor does not match trunk",
+			result: {
+				type: "stack",
+				stack: fakeStackInfo({ trunk: "main", ancestors: ["legacy"] }),
+			},
+			failure: { type: "path_inconsistent", trunk: "main", current: "feature/current" },
+		},
+		{
+			name: "blank path member",
+			result: {
+				type: "stack",
+				stack: fakeStackInfo({ trunk: "main", ancestors: ["main", " "] }),
+			},
+			failure: { type: "path_inconsistent", trunk: "main", current: "feature/current" },
+		},
+		{
+			name: "duplicate path member",
+			result: {
+				type: "stack",
+				stack: fakeStackInfo({
+					trunk: "main",
+					ancestors: ["main", "feature/base", "feature/base"],
+				}),
+			},
+			failure: { type: "path_inconsistent", trunk: "main", current: "feature/current" },
+		},
+		{
+			name: "malformed current-at-trunk ancestry",
+			result: {
+				type: "stack",
+				stack: fakeStackInfo({ trunk: "main", current: "main", ancestors: ["main"] }),
+			},
+			failure: { type: "path_inconsistent", trunk: "main", current: "main" },
+		},
+	];
+
+	test.each(failures)("preserves neutral facts for $name", ({ result, failure }) => {
+		expect(deriveValidatedGraphiteStackPath(result)).toEqual({ type: "failure", failure });
+	});
+});
 
 describe("execGitCommonDir", () => {
 	test("returns an absolute common dir unchanged and runs git rev-parse", async () => {

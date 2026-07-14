@@ -476,6 +476,7 @@ describe("RealSubmitMetadataGateway", () => {
 		name: string;
 		stack: StackResult;
 		code: string;
+		details?: Record<string, unknown>;
 	}[] = [
 		{
 			name: "untracked current branch",
@@ -486,9 +487,10 @@ describe("RealSubmitMetadataGateway", () => {
 			name: "provider failure",
 			stack: {
 				type: "failure",
-				failure: { message: "metadata store unavailable", returnCode: null },
+				failure: { message: "metadata store unavailable", returnCode: 17 },
 			},
 			code: "submit_stack_inspection_failed",
+			details: { return_code: 17 },
 		},
 		{
 			name: "ancestor cycle",
@@ -575,13 +577,16 @@ describe("RealSubmitMetadataGateway", () => {
 		},
 	];
 
-	test.each(discoveryFailures)("fails safely for $name", async ({ stack, code }) => {
+	test.each(discoveryFailures)("fails safely for $name", async ({ stack, code, details }) => {
 		const graphite = new FakeGraphiteStackGateway({ stack });
 		const runner = new ScriptedCommandRunner([]);
 
 		const result = await createGateway(graphite, runner).inspectSubmitStack({ cwd: "/repo" });
 
-		expect(result).toMatchObject({ ok: false, error: { code } });
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code, ...(details === undefined ? {} : { details }) },
+		});
 		expect(graphite.operations()).toEqual([{ type: "stack", cwd: "/repo" }]);
 		expect(runner.calls).toEqual([]);
 	});

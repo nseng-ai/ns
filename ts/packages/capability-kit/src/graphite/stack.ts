@@ -100,6 +100,70 @@ export interface StackInfo {
 	trunkMarker: TrunkMarkerStatus;
 }
 
+export type GraphiteStackPathFailure =
+	| { type: "untracked_branch"; message: string }
+	| { type: "provider_failure"; failure: GtCommandFailure }
+	| { type: "ancestor_cycle"; branch: string }
+	| { type: "ancestor_row_missing"; branch: string }
+	| {
+			type: "trunk_marker_problem";
+			marker: Extract<TrunkMarkerStatus, { type: "problem" }>;
+	  }
+	| { type: "path_inconsistent"; trunk: string; current: string };
+
+export type ValidatedGraphiteStackPathResult =
+	| { type: "success"; stack: StackInfo; path: readonly string[] }
+	| { type: "failure"; failure: GraphiteStackPathFailure };
+
+/** Validate neutral Graphite ancestry facts and derive the inclusive trunk-to-current path. */
+export function deriveValidatedGraphiteStackPath(
+	result: StackResult,
+): ValidatedGraphiteStackPathResult {
+	if (result.type === "untracked_branch") {
+		return { type: "failure", failure: { type: "untracked_branch", message: result.message } };
+	}
+	if (result.type === "failure") {
+		return { type: "failure", failure: { type: "provider_failure", failure: result.failure } };
+	}
+
+	const { stack } = result;
+	if (stack.ancestorTermination.type === "cycle") {
+		return {
+			type: "failure",
+			failure: { type: "ancestor_cycle", branch: stack.ancestorTermination.branch },
+		};
+	}
+	if (stack.ancestorTermination.type === "row_missing") {
+		return {
+			type: "failure",
+			failure: { type: "ancestor_row_missing", branch: stack.ancestorTermination.branch },
+		};
+	}
+	if (stack.trunkMarker.type === "problem") {
+		return {
+			type: "failure",
+			failure: { type: "trunk_marker_problem", marker: stack.trunkMarker },
+		};
+	}
+
+	const path = [...stack.ancestors, stack.current];
+	if (
+		stack.trunk.trim() === "" ||
+		stack.current.trim() === "" ||
+		path.length === 0 ||
+		path[0] !== stack.trunk ||
+		path.some((branch) => branch.trim() === "") ||
+		new Set(path).size !== path.length
+	) {
+		return {
+			type: "failure",
+			failure: { type: "path_inconsistent", trunk: stack.trunk, current: stack.current },
+		};
+	}
+
+	return { type: "success", stack, path };
+}
+
 export interface StackGraphInfo {
 	topology: GraphiteTopology;
 	diagnostics: GraphiteTopologyParseDiagnostics;
