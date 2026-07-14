@@ -167,11 +167,14 @@ export type DispatchLocalTokenResult =
 	| { readonly type: "error"; readonly message: string };
 
 /**
- * The repo's dispatch settings source (`ns.toml` `[dispatch]`), read from
- * the repo root; parsing stays pure in the core.
+ * Checkout-owned configuration sources, read from the repo root. Parsing
+ * and support policy stay pure in the core.
  */
 export interface DispatchConfigGateway {
 	readDispatchSettingsSource(options: {
+		readonly repoRoot: string;
+	}): Promise<DispatchConfigSourceResult>;
+	readPackageManagerSource(options: {
 		readonly repoRoot: string;
 	}): Promise<DispatchConfigSourceResult>;
 }

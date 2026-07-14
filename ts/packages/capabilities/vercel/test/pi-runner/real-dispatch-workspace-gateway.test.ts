@@ -102,7 +102,7 @@ describe("createRealDispatchWorkspaceGateway", () => {
 	it("checks the decision log at the contract path", async () => {
 		const { gateway: workspace } = gateway({ existingPaths: [DISPATCH_DECISION_LOG_PATH] });
 
-		expect(await workspace.decisionLogExists()).toEqual({ ok: true, exists: true });
+		expect(await workspace.decisionLogExists()).toEqual({ ok: true, hasDecisionLog: true });
 	});
 
 	it("writes the completion result atomically: scratch write, then rename onto the contract path", async () => {
@@ -147,10 +147,16 @@ describe("createRealDispatchWorkspaceGateway", () => {
 
 	it("reads dirtiness from git status --porcelain", async () => {
 		const clean = gateway({ gitResults: [{ exitCode: 0, stdout: "\n" }] });
-		expect(await clean.gateway.hasUncommittedChanges()).toEqual({ ok: true, dirty: false });
+		expect(await clean.gateway.hasUncommittedChanges()).toEqual({
+			ok: true,
+			hasUncommittedChanges: false,
+		});
 
 		const dirty = gateway({ gitResults: [{ exitCode: 0, stdout: " M src/widget.ts\n" }] });
-		expect(await dirty.gateway.hasUncommittedChanges()).toEqual({ ok: true, dirty: true });
+		expect(await dirty.gateway.hasUncommittedChanges()).toEqual({
+			ok: true,
+			hasUncommittedChanges: true,
+		});
 		expect(dirty.calls[0]).toEqual({
 			method: "runGitCommand",
 			args: [["status", "--porcelain"]],

@@ -10,9 +10,9 @@
 import type { DispatchTokenMinter } from "../mint/mint-core.ts";
 import { createGitHubAppDispatchTokenMinter } from "../mint/real-gateways.ts";
 import {
-	parseMintRuntimeConfig,
+	parseGitHubAppMintConfig,
+	type GitHubAppMintConfig,
 	type MintEnvironment,
-	type MintRuntimeConfig,
 } from "../mint/runtime-config.ts";
 import {
 	runSandboxHelloProbe,
@@ -36,7 +36,7 @@ export type WorkflowSandboxProbeResult =
 	  };
 
 export interface WorkflowSandboxProbeGateways {
-	readonly createDispatchTokenMinter: (config: MintRuntimeConfig) => DispatchTokenMinter;
+	readonly createDispatchTokenMinter: (config: GitHubAppMintConfig) => DispatchTokenMinter;
 	readonly createSandboxGateway: () => VercelSandboxGateway;
 }
 
@@ -44,7 +44,7 @@ export async function runWorkflowSandboxProbe(
 	options: WorkflowSandboxProbeOptions,
 	gateways: WorkflowSandboxProbeGateways = defaultWorkflowSandboxProbeGateways(),
 ): Promise<WorkflowSandboxProbeResult> {
-	const configResult = parseMintRuntimeConfig(options.environment);
+	const configResult = parseGitHubAppMintConfig(options.environment);
 	// `=== false` rather than `!`: the Vercel builder typechecks without
 	// strictNullChecks, where truthiness checks do not narrow the union.
 	if (configResult.ok === false) {

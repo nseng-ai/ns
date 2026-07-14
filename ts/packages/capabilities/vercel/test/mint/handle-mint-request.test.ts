@@ -5,23 +5,15 @@ import type {
 	VercelOidcGateway,
 	VercelOidcVerificationResult,
 } from "../../src/mint/development-oidc.ts";
-import {
-	handleMintRequest,
-	type LandingCredentialGateway,
-} from "../../src/mint/handle-mint-request.ts";
+import { handleMintRequest } from "../../src/mint/handle-mint-request.ts";
 import {
 	createDispatchTokenMinter,
 	type GitHubInstallationTokenGateway,
 	type GitHubInstallationTokenResult,
 } from "../../src/mint/mint-core.ts";
-import type { MintRuntimeConfig } from "../../src/mint/runtime-config.ts";
+import type { OidcTrustConfig } from "../../src/mint/oidc-trust-config.ts";
 
-const config: MintRuntimeConfig = {
-	githubAppId: "123",
-	githubAppInstallationId: "456",
-	githubAppPrivateKey: "private-key-must-not-leak",
-	sandboxMintSecret: "landing-secret-must-not-leak",
-	githubRepository: "nseng-ai/ns",
+const oidcTrust: OidcTrustConfig = {
 	vercelTeamId: "team_dispatch",
 	vercelProjectId: "prj_dispatch",
 	vercelOidcIssuer: "https://oidc.vercel.com/nseng-ai",
@@ -43,18 +35,6 @@ class InMemoryVercelOidcGateway implements VercelOidcGateway {
 	}): Promise<VercelOidcVerificationResult> {
 		this.calls.push({ ...options });
 		return this.#result;
-	}
-}
-
-class InMemoryLandingCredentialGateway implements LandingCredentialGateway {
-	readonly #acceptedCredential: string;
-
-	constructor(acceptedCredential: string) {
-		this.#acceptedCredential = acceptedCredential;
-	}
-
-	verifyLandingCredential(credential: string): boolean {
-		return credential === this.#acceptedCredential;
 	}
 }
 
@@ -99,16 +79,14 @@ function successfulGitHubResult(): GitHubInstallationTokenResult {
 function createContext(
 	options: {
 		oidc?: InMemoryVercelOidcGateway;
-		landing?: InMemoryLandingCredentialGateway;
 		github?: InMemoryGitHubInstallationTokenGateway;
 	} = {},
 ) {
 	const oidc = options.oidc ?? new InMemoryVercelOidcGateway(oidcIdentity());
-	const landing = options.landing ?? new InMemoryLandingCredentialGateway("landing-secret");
 	const github =
 		options.github ?? new InMemoryGitHubInstallationTokenGateway(successfulGitHubResult());
-	const minter = createDispatchTokenMinter({ config, github });
-	return { context: { config, oidc, landingCredential: landing, minter }, oidc, github };
+	const minter = createDispatchTokenMinter({ repository: "nseng-ai/ns", github });
+	return { context: { oidcTrust, oidc, minter }, oidc, github };
 }
 
 describe("handleMintRequest", () => {
@@ -119,7 +97,6 @@ describe("handleMintRequest", () => {
 			{
 				body: { repository: "NSENG-AI/NS", purpose: "clone" },
 				oidcToken: "vercel-token",
-				authorization: null,
 			},
 			context,
 		);
@@ -136,45 +113,21 @@ describe("handleMintRequest", () => {
 		expect(oidc.calls).toEqual([
 			{
 				token: "vercel-token",
-				issuer: config.vercelOidcIssuer,
-				audience: config.vercelOidcAudience,
+				issuer: oidcTrust.vercelOidcIssuer,
+				audience: oidcTrust.vercelOidcAudience,
 			},
 		]);
 		expect(github.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "clone" }]);
 	});
 
-	it("authorizes the shared-secret caller to mint a landing token", async () => {
-		const { context, github } = createContext();
-
-		const result = await handleMintRequest(
-			{
-				body: { repository: "nseng-ai/ns", purpose: "landing" },
-				oidcToken: null,
-				authorization: "Bearer landing-secret",
-			},
-			context,
-		);
-
-		expect(result.status).toBe(200);
-		expect(github.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "landing" }]);
-	});
-
 	it.each([
-		{
-			name: "both auth channels",
-			oidcToken: "oidc",
-			authorization: "Bearer landing-secret",
-		},
-		{ name: "neither auth channel", oidcToken: null, authorization: null },
-		{ name: "empty OIDC token", oidcToken: "", authorization: null },
-		{ name: "malformed Bearer", oidcToken: null, authorization: "Basic abc" },
-		{ name: "empty Bearer", oidcToken: null, authorization: "Bearer " },
-		{ name: "wrong shared secret", oidcToken: null, authorization: "Bearer wrong" },
-	])("rejects $name as unauthorized", async ({ oidcToken, authorization }) => {
+		["missing token", null],
+		["empty token", ""],
+	] as const)("rejects a %s as unauthorized", async (_name, oidcToken) => {
 		const { context, github } = createContext();
 
 		const result = await handleMintRequest(
-			{ body: { repository: "nseng-ai/ns", purpose: "clone" }, oidcToken, authorization },
+			{ body: { repository: "nseng-ai/ns", purpose: "clone" }, oidcToken },
 			context,
 		);
 
@@ -183,22 +136,24 @@ describe("handleMintRequest", () => {
 			body: { error: { code: "unauthorized", message: "Authentication failed." } },
 		});
 		expect(github.calls).toEqual([]);
+		expect(JSON.stringify(result)).not.toContain("installation-token");
 	});
 
 	it("rejects failed OIDC verification as unauthorized", async () => {
 		const oidc = new InMemoryVercelOidcGateway({ ok: false });
-		const { context } = createContext({ oidc });
+		const { context, github } = createContext({ oidc });
 
 		const result = await handleMintRequest(
 			{
 				body: { repository: "nseng-ai/ns", purpose: "clone" },
-				oidcToken: "invalid-token",
-				authorization: null,
+				oidcToken: "invalid-token-must-not-leak",
 			},
 			context,
 		);
 
 		expect(result.status).toBe(401);
+		expect(github.calls).toEqual([]);
+		expect(JSON.stringify(result)).not.toContain("invalid-token-must-not-leak");
 	});
 
 	it.each([
@@ -214,7 +169,6 @@ describe("handleMintRequest", () => {
 			{
 				body: { repository: "nseng-ai/ns", purpose: "clone" },
 				oidcToken: "valid-token",
-				authorization: null,
 			},
 			context,
 		);
@@ -223,23 +177,50 @@ describe("handleMintRequest", () => {
 		expect(github.calls).toEqual([]);
 	});
 
-	it.each([
-		["OIDC", "landing", "oidc", null],
-		["shared secret", "clone", null, "Bearer landing-secret"],
-	] as const)(
-		"forbids %s authentication for the %s purpose",
-		async (_auth, purpose, oidcToken, authorization) => {
-			const { context, github } = createContext();
+	it("forbids authenticated landing-purpose HTTP minting without GitHub access", async () => {
+		const { context, oidc, github } = createContext();
 
-			const result = await handleMintRequest(
-				{ body: { repository: "nseng-ai/ns", purpose }, oidcToken, authorization },
-				context,
-			);
+		const result = await handleMintRequest(
+			{
+				body: { repository: "nseng-ai/ns", purpose: "landing" },
+				oidcToken: "valid-token",
+			},
+			context,
+		);
 
-			expect(result.status).toBe(403);
-			expect(github.calls).toEqual([]);
-		},
-	);
+		expect(result).toEqual({
+			status: 403,
+			body: { error: { code: "forbidden", message: "Mint request is not authorized." } },
+		});
+		expect(oidc.calls).toEqual([
+			{
+				token: "valid-token",
+				issuer: oidcTrust.vercelOidcIssuer,
+				audience: oidcTrust.vercelOidcAudience,
+			},
+		]);
+		expect(github.calls).toEqual([]);
+		expect(JSON.stringify(result)).not.toContain("installation-token");
+	});
+
+	it("rejects an unauthenticated landing-purpose request as unauthorized", async () => {
+		const { context, oidc, github } = createContext();
+
+		const result = await handleMintRequest(
+			{
+				body: { repository: "nseng-ai/ns", purpose: "landing" },
+				oidcToken: null,
+			},
+			context,
+		);
+
+		expect(result).toEqual({
+			status: 401,
+			body: { error: { code: "unauthorized", message: "Authentication failed." } },
+		});
+		expect(oidc.calls).toEqual([]);
+		expect(github.calls).toEqual([]);
+	});
 
 	it.each([
 		["unknown field", { repository: "nseng-ai/ns", purpose: "clone", extra: true }],
@@ -251,10 +232,7 @@ describe("handleMintRequest", () => {
 	] as const)("rejects an invalid request with %s", async (_name, body) => {
 		const { context, github } = createContext();
 
-		const result = await handleMintRequest(
-			{ body, oidcToken: "valid-token", authorization: null },
-			context,
-		);
+		const result = await handleMintRequest({ body, oidcToken: "valid-token" }, context);
 
 		expect(result).toEqual({
 			status: 400,
@@ -270,7 +248,6 @@ describe("handleMintRequest", () => {
 			{
 				body: { repository: "nseng-ai/other", purpose: "clone" },
 				oidcToken: "valid-token",
-				authorization: null,
 			},
 			context,
 		);
@@ -286,8 +263,7 @@ describe("handleMintRequest", () => {
 		const result = await handleMintRequest(
 			{
 				body: { repository: "nseng-ai/ns", purpose: "clone" },
-				oidcToken: "authorization-must-not-leak",
-				authorization: null,
+				oidcToken: "oidc-token-must-not-leak",
 			},
 			context,
 		);
@@ -301,9 +277,6 @@ describe("handleMintRequest", () => {
 				},
 			},
 		});
-		const serialized = JSON.stringify(result);
-		expect(serialized).not.toContain(config.githubAppPrivateKey);
-		expect(serialized).not.toContain(config.sandboxMintSecret);
-		expect(serialized).not.toContain("authorization-must-not-leak");
+		expect(JSON.stringify(result)).not.toContain("oidc-token-must-not-leak");
 	});
 });

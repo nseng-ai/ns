@@ -18,7 +18,7 @@
 import {
 	DISPATCH_DECISION_LOG_PATH,
 	DISPATCH_RESULT_PATH,
-	DISPATCH_SUMMARY_MAX_LENGTH,
+	DISPATCH_SUMMARY_MAX_CHARS,
 } from "../dispatch/dispatch-run.ts";
 
 /**
@@ -35,11 +35,11 @@ export type ReadDispatchedPromptResult =
 	| { readonly ok: false };
 
 export type DecisionLogExistsResult =
-	| { readonly ok: true; readonly exists: boolean }
+	| { readonly ok: true; readonly hasDecisionLog: boolean }
 	| { readonly ok: false };
 
 export type HasUncommittedChangesResult =
-	| { readonly ok: true; readonly dirty: boolean }
+	| { readonly ok: true; readonly hasUncommittedChanges: boolean }
 	| { readonly ok: false };
 
 export type WorkspaceWriteResult = { readonly ok: true } | { readonly ok: false };
@@ -98,7 +98,7 @@ export type PiRunnerExitCode =
 export interface PiRunnerReport {
 	readonly exitCode: PiRunnerExitCode;
 	readonly outcome: "completed" | "failed";
-	readonly resultWritten: boolean;
+	readonly hasWrittenCompletionResult: boolean;
 	readonly detail: string;
 }
 
@@ -168,14 +168,14 @@ export async function runDispatchedPiAgent(options: {
 		return {
 			exitCode: PI_RUNNER_EXIT_RESULT_UNWRITTEN,
 			outcome: completion.outcome,
-			resultWritten: false,
+			hasWrittenCompletionResult: false,
 			detail: `Writing the completion result failed; the supervisor will time the run out. (${detail})`,
 		};
 	}
 	return {
 		exitCode: completion.outcome === "completed" ? PI_RUNNER_EXIT_COMPLETED : PI_RUNNER_EXIT_FAILED,
 		outcome: completion.outcome,
-		resultWritten: true,
+		hasWrittenCompletionResult: true,
 		detail,
 	};
 }
@@ -210,7 +210,7 @@ async function produceCompletion(
 	if (!dirtyRead.ok) {
 		return failedCompletion("Inspecting the checkout for uncommitted work failed.");
 	}
-	if (dirtyRead.dirty) {
+	if (dirtyRead.hasUncommittedChanges) {
 		const committed = await workspace.commitAllChanges(PI_RUNNER_FINALIZE_COMMIT_MESSAGE);
 		if (!committed.ok) {
 			return failedCompletion("Committing the agent's uncommitted work failed.");
@@ -223,7 +223,7 @@ async function produceCompletion(
 
 async function ensureDecisionLog(workspace: DispatchWorkspaceGateway): Promise<void> {
 	const existsRead = await workspace.decisionLogExists();
-	if (existsRead.ok && existsRead.exists) return;
+	if (existsRead.ok && existsRead.hasDecisionLog) return;
 	// Best effort, including when the existence check itself failed: the
 	// workflow degrades a missing decision log to `null` rather than failing
 	// the run, so a fallback-write failure must not block the result write.
@@ -239,7 +239,7 @@ function capSummary(text: string | null): string | null {
 	if (text === null) return null;
 	const trimmed = text.trim();
 	if (trimmed.length === 0) return null;
-	return trimmed.slice(0, DISPATCH_SUMMARY_MAX_LENGTH);
+	return trimmed.slice(0, DISPATCH_SUMMARY_MAX_CHARS);
 }
 
 function formatError(error: unknown): string {

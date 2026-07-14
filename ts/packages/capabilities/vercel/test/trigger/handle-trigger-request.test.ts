@@ -46,8 +46,8 @@ class InMemoryVercelOidcGateway implements VercelOidcGateway {
 }
 
 interface InMemoryWorkflowRunsState {
-	readonly startFails?: boolean;
-	readonly statusReadFails?: boolean;
+	readonly shouldStartFail?: boolean;
+	readonly shouldStatusReadFail?: boolean;
 	readonly nextRunId?: string;
 	readonly runs?: Readonly<Record<string, WorkflowRunStatus>>;
 }
@@ -63,7 +63,7 @@ class InMemoryWorkflowRunGateway implements WorkflowRunGateway {
 
 	async startWorkflow(request: WorkflowStartRequest): Promise<StartWorkflowRunResult> {
 		this.startCalls.push(request);
-		if (this.#state.startFails === true) return { ok: false };
+		if (this.#state.shouldStartFail === true) return { ok: false };
 		return { ok: true, value: { runId: this.#state.nextRunId ?? "wrun_fixture" } };
 	}
 
@@ -71,7 +71,7 @@ class InMemoryWorkflowRunGateway implements WorkflowRunGateway {
 		readonly runId: string;
 	}): Promise<ReadWorkflowRunStatusResult> {
 		this.statusCalls.push({ ...options });
-		if (this.#state.statusReadFails === true) return { type: "error" };
+		if (this.#state.shouldStatusReadFail === true) return { type: "error" };
 		const status = this.#state.runs?.[options.runId];
 		if (status === undefined) return { type: "missing" };
 		return { type: "found", value: { status } };
@@ -346,7 +346,7 @@ describe("handleTriggerRequest", () => {
 	it("maps a workflow start failure to a stable 502", async () => {
 		const response = await handleTriggerRequest(
 			{ body: { workflow: "hello", name: "world" }, oidcToken: "oidc-token" },
-			context({ workflowRuns: new InMemoryWorkflowRunGateway({ startFails: true }) }),
+			context({ workflowRuns: new InMemoryWorkflowRunGateway({ shouldStartFail: true }) }),
 		);
 
 		expect(response).toEqual({
@@ -419,7 +419,7 @@ describe("handleRunStatusRequest", () => {
 	it("maps a status read failure to a stable 502", async () => {
 		const response = await handleRunStatusRequest(
 			{ runId: "wrun_123", oidcToken: "oidc-token" },
-			context({ workflowRuns: new InMemoryWorkflowRunGateway({ statusReadFails: true }) }),
+			context({ workflowRuns: new InMemoryWorkflowRunGateway({ shouldStatusReadFail: true }) }),
 		);
 
 		expect(response).toEqual({

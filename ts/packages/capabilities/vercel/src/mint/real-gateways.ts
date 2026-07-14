@@ -1,24 +1,26 @@
-import { createHash, timingSafeEqual } from "node:crypto";
-
 import { createAppAuth } from "@octokit/auth-app";
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { z } from "zod";
 
 import { githubPermissionsForPurpose, type GitHubRepositoryPermissions } from "./contracts.ts";
 import type { VercelOidcGateway } from "./development-oidc.ts";
-import type { LandingCredentialGateway } from "./handle-mint-request.ts";
 import {
 	createDispatchTokenMinter,
 	type DispatchTokenMinter,
 	type GitHubInstallationTokenGateway,
 } from "./mint-core.ts";
-import type { MintRuntimeConfig } from "./runtime-config.ts";
+import type { GitHubAppMintConfig } from "./runtime-config.ts";
 
 export interface AppAuthFactoryOptions {
 	readonly appId: string;
 	readonly installationId: string;
 	readonly privateKey: string;
 }
+
+export type GitHubAppAuthenticationConfig = Pick<
+	GitHubAppMintConfig,
+	"githubAppId" | "githubAppInstallationId" | "githubAppPrivateKey"
+>;
 
 export interface InstallationAuthOptions {
 	readonly type: "installation";
@@ -81,7 +83,7 @@ export function createJoseVercelOidcGateway(
 }
 
 export function createGitHubInstallationTokenGateway(
-	config: MintRuntimeConfig,
+	config: GitHubAppAuthenticationConfig,
 	authFactory: AppAuthFactory = defaultAppAuthFactory,
 ): GitHubInstallationTokenGateway {
 	return {
@@ -118,27 +120,15 @@ export function createGitHubInstallationTokenGateway(
 // The in-process minting entry for the dispatch workflow (clone token at
 // sandbox creation, landing token at landing time): the mint core over the
 // real GitHub App installation-token gateway, no HTTP hop. `authFactory` is
-// the test seam; production callers pass only the parsed runtime config.
+// the test seam; production callers pass only the parsed GitHub App config.
 export function createGitHubAppDispatchTokenMinter(
-	config: MintRuntimeConfig,
+	config: GitHubAppMintConfig,
 	authFactory: AppAuthFactory = defaultAppAuthFactory,
 ): DispatchTokenMinter {
 	return createDispatchTokenMinter({
-		config,
+		repository: config.githubRepository,
 		github: createGitHubInstallationTokenGateway(config, authFactory),
 	});
-}
-
-export function createSharedSecretLandingCredentialGateway(
-	sharedSecret: string,
-): LandingCredentialGateway {
-	const expectedDigest = createHash("sha256").update(sharedSecret).digest();
-	return {
-		verifyLandingCredential(credential) {
-			const actualDigest = createHash("sha256").update(credential).digest();
-			return timingSafeEqual(actualDigest, expectedDigest);
-		},
-	};
 }
 
 function defaultAppAuthFactory(options: AppAuthFactoryOptions): AppAuthFunction {

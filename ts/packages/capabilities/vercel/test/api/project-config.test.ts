@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDispatchProjectConfigToml } from "../../src/api/project-config.ts";
+import { dispatchHarnessValues, parseDispatchProjectConfigToml } from "../../src/api/index.ts";
 
 describe("parseDispatchProjectConfigToml", () => {
+	it("publishes only registry-implemented harness values", () => {
+		expect(dispatchHarnessValues).toEqual(["pi"]);
+	});
+
 	it("parses the typed dispatch project linkage", () => {
 		const result = parseDispatchProjectConfigToml(`
 [dispatch]
@@ -62,16 +66,19 @@ deployment_url = "${url}"
 		});
 	});
 
-	it("rejects unsupported harnesses", () => {
-		const result = parseDispatchProjectConfigToml(`
+	it.each(["claude-code", "codex", "arbitrary"])(
+		"rejects registry-unsupported harness %s",
+		(harness) => {
+			const result = parseDispatchProjectConfigToml(`
 [dispatch]
-harness = "codex"
+harness = "${harness}"
 vercel_project_id = "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06"
 vercel_team_id = "team_example123"
 `);
 
-		expect(result).toMatchObject({ ok: false, error: { code: "invalid-dispatch" } });
-	});
+			expect(result).toMatchObject({ ok: false, error: { code: "invalid-dispatch" } });
+		},
+	);
 
 	it("rejects secrets in the repository configuration", () => {
 		const result = parseDispatchProjectConfigToml(`

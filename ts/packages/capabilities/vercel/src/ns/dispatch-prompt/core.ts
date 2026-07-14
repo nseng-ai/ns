@@ -13,15 +13,23 @@ import {
 	type DispatchProjectConfig,
 } from "../../api/project-config.ts";
 import { validateDispatchRunInput } from "../../dispatch/dispatch-run.ts";
+import {
+	DISPATCH_PACKAGE_MANAGER_FIELD,
+	DISPATCH_PACKAGE_MANIFEST_PATH,
+	DISPATCH_SETTINGS_PATH,
+	parseDispatchPackageManagerSource,
+} from "../../dispatch/harness-registry.ts";
 import { isValidDispatchRunId } from "../../dispatch/run-id-stamp.ts";
 import { buildAnchorBranchName, buildAnchorPrBody, buildAnchorPrTitle } from "./content.ts";
 import type { DispatchPromptGateways, DispatchTriggerConnection } from "./contracts.ts";
 
-export const DISPATCH_SETTINGS_FILE_NAME = "ns.toml";
-
 /** One credentials-preflight check: named, actionable, value-free. */
 export interface DispatchPreflightCheck {
-	readonly id: "dispatch-config" | "development-oidc-token" | "trigger-identity";
+	readonly id:
+		| "dispatch-config"
+		| "package-manager"
+		| "development-oidc-token"
+		| "trigger-identity";
 	readonly status: "ok" | "failed";
 	readonly detail: string;
 }
@@ -41,9 +49,10 @@ export type DispatchPreflightResult = DispatchPreflightSuccess | DispatchPreflig
 
 /**
  * The credentials preflight (closes the credentials row's remaining
- * item): required `[dispatch]` configuration present and valid, the
- * Development OIDC token present by name, and a read-only authenticated
- * reachability check against the deployable's run-status route. Failures
+ * item): required `[dispatch]` configuration and exact pnpm contract
+ * present and supported, the Development OIDC token present by name, and a
+ * read-only authenticated reachability check against the deployable's
+ * run-status route. Failures
  * are actionable categories; no secret value is read into any detail.
  */
 export async function runDispatchPreflight(
@@ -54,6 +63,9 @@ export async function runDispatchPreflight(
 
 	const configCheck = await readDispatchConfig(options.repoRoot, gateways);
 	checks.push(configCheck.check);
+
+	const packageManagerCheck = await readPackageManagerConfig(options.repoRoot, gateways);
+	checks.push(packageManagerCheck);
 
 	const tokenResult = await gateways.tokens.readDevelopmentOidcToken();
 	const tokenCheck: DispatchPreflightCheck =
@@ -73,11 +85,16 @@ export async function runDispatchPreflight(
 				};
 	checks.push(tokenCheck);
 
-	if (configCheck.config === undefined || tokenResult.type !== "found") {
+	if (
+		configCheck.config === undefined ||
+		packageManagerCheck.status === "failed" ||
+		tokenResult.type !== "found"
+	) {
 		checks.push({
 			id: "trigger-identity",
 			status: "failed",
-			detail: "Skipped: requires the [dispatch] configuration and the Development OIDC token.",
+			detail:
+				"Skipped: requires supported repository configuration and the Development OIDC token.",
 		});
 		return { ok: false, checks };
 	}
@@ -111,7 +128,7 @@ async function readDispatchConfig(
 			check: {
 				id: "dispatch-config",
 				status: "failed",
-				detail: `No ${DISPATCH_SETTINGS_FILE_NAME} at the repository root; dispatch needs its [dispatch] table (see the dispatch README's Setup section).`,
+				detail: `No ${DISPATCH_SETTINGS_PATH} at the repository root; dispatch needs its [dispatch] table (see the dispatch README's Setup section).`,
 			},
 		};
 	}
@@ -120,12 +137,12 @@ async function readDispatchConfig(
 			check: {
 				id: "dispatch-config",
 				status: "failed",
-				detail: `Reading ${DISPATCH_SETTINGS_FILE_NAME} failed: ${source.message}`,
+				detail: `Reading ${DISPATCH_SETTINGS_PATH} failed: ${source.message}`,
 			},
 		};
 	}
-	const parsed = parseDispatchProjectConfigToml(source.source, DISPATCH_SETTINGS_FILE_NAME);
-	if (!parsed.ok) {
+	const parsed = parseDispatchProjectConfigToml(source.source, DISPATCH_SETTINGS_PATH);
+	if (parsed.ok === false) {
 		return {
 			check: { id: "dispatch-config", status: "failed", detail: parsed.error.message },
 		};
@@ -135,7 +152,7 @@ async function readDispatchConfig(
 			check: {
 				id: "dispatch-config",
 				status: "failed",
-				detail: `${DISPATCH_SETTINGS_FILE_NAME}: [dispatch] has no deployment_url; set it to the dispatch deployable's stable HTTPS URL (see the dispatch README's Setup section).`,
+				detail: `${DISPATCH_SETTINGS_PATH}: [dispatch] has no deployment_url; set it to the dispatch deployable's stable HTTPS URL (see the dispatch README's Setup section).`,
 			},
 		};
 	}
@@ -146,6 +163,36 @@ async function readDispatchConfig(
 			detail: "[dispatch] configuration is present and valid.",
 		},
 		config: parsed.value,
+	};
+}
+
+async function readPackageManagerConfig(
+	repoRoot: string,
+	gateways: Pick<DispatchPromptGateways, "config">,
+): Promise<DispatchPreflightCheck> {
+	const source = await gateways.config.readPackageManagerSource({ repoRoot });
+	if (source.type === "error") {
+		return {
+			id: "package-manager",
+			status: "failed",
+			detail: `Reading ${DISPATCH_PACKAGE_MANIFEST_PATH} for ${DISPATCH_PACKAGE_MANAGER_FIELD} failed: ${source.message}`,
+		};
+	}
+
+	const parsed = parseDispatchPackageManagerSource(
+		source.type === "missing" ? null : source.source,
+	);
+	if (parsed.ok === false) {
+		return {
+			id: "package-manager",
+			status: "failed",
+			detail: parsed.error.message,
+		};
+	}
+	return {
+		id: "package-manager",
+		status: "ok",
+		detail: `${DISPATCH_PACKAGE_MANAGER_FIELD} declares a supported exact pnpm version.`,
 	};
 }
 
@@ -263,7 +310,7 @@ export async function executeDispatchPrompt(
 	gateways: DispatchPromptGateways,
 ): Promise<DispatchPromptOutcome> {
 	const sourceRef = await gateways.git.resolveSourceRef({ cwd: request.cwd });
-	if (!sourceRef.ok) {
+	if (sourceRef.ok === false) {
 		return {
 			status: "source-unusable",
 			code: sourceRef.error.code,
@@ -273,7 +320,7 @@ export async function executeDispatchPrompt(
 	const { repoRoot, branch, headSha } = sourceRef.value;
 
 	const dirty = await gateways.git.listDirtyPaths({ cwd: request.cwd });
-	if (!dirty.ok) {
+	if (dirty.ok === false) {
 		return { status: "source-unusable", code: "git-read-failed", message: dirty.error.message };
 	}
 	if (dirty.value.length > 0) {
@@ -281,7 +328,7 @@ export async function executeDispatchPrompt(
 	}
 
 	const preflight = await runDispatchPreflight({ repoRoot }, gateways);
-	if (!preflight.ok) {
+	if (preflight.ok === false) {
 		return { status: "preflight-failed", checks: preflight.checks };
 	}
 
@@ -295,7 +342,7 @@ export async function executeDispatchPrompt(
 	let sourcePushed = false;
 	if (remoteTip.type === "missing" || remoteTip.sha !== headSha) {
 		const push = await gateways.git.pushSourceBranch({ cwd: request.cwd, branch });
-		if (!push.ok) {
+		if (push.ok === false) {
 			return { status: "source-push-failed", sourceBranch: branch, message: push.error.message };
 		}
 		sourcePushed = true;
@@ -308,7 +355,7 @@ export async function executeDispatchPrompt(
 		revision: headSha,
 		anchorBranch,
 	});
-	if (!anchorPush.ok) {
+	if (anchorPush.ok === false) {
 		return { status: "anchor-push-failed", anchorBranch, message: anchorPush.error.message };
 	}
 
@@ -319,7 +366,7 @@ export async function executeDispatchPrompt(
 		title: buildAnchorPrTitle(request.prompt),
 		body: buildAnchorPrBody({ prompt: request.prompt, revision: headSha, sourceBranch: branch }),
 	});
-	if (!pr.ok) {
+	if (pr.ok === false) {
 		return { status: "anchor-pr-failed", anchorBranch, message: pr.error.message };
 	}
 	const anchorPr: DispatchAnchorPr = {
@@ -337,7 +384,7 @@ export async function executeDispatchPrompt(
 		anchorPrNumber: anchorPr.number,
 		prompt: request.prompt,
 	});
-	if (!runInput.ok) {
+	if (runInput.ok === false) {
 		return {
 			status: "trigger-failed",
 			code: "invalid-request",
@@ -350,7 +397,7 @@ export async function executeDispatchPrompt(
 		connection: preflight.triggerConnection,
 		input: runInput.value,
 	});
-	if (!started.ok) {
+	if (started.ok === false) {
 		return {
 			status: "trigger-failed",
 			code: started.error.code,
@@ -372,7 +419,7 @@ export async function executeDispatchPrompt(
 		prNumber: anchorPr.number,
 		runId,
 	});
-	if (!stamp.ok) {
+	if (stamp.ok === false) {
 		return { status: "run-id-stamp-failed", message: stamp.error.message, anchorPr, runId };
 	}
 

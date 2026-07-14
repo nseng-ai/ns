@@ -27,13 +27,13 @@ import {
 export const DISPATCH_ANCHOR_BRANCH_PREFIX = "dispatch/";
 
 /** Validated bounds for the run input's anchor branch name. */
-export const DISPATCH_ANCHOR_BRANCH_MAX_LENGTH = 200;
+export const DISPATCH_ANCHOR_BRANCH_MAX_CHARS = 200;
 
 /** Validated bound for the run input's anchor PR number. */
 export const DISPATCH_ANCHOR_PR_NUMBER_MAX = 1_000_000_000;
 
 /** Validated bounds for the run input's prompt / work reference. */
-export const DISPATCH_PROMPT_MAX_LENGTH = 20_000;
+export const DISPATCH_PROMPT_MAX_CHARS = 20_000;
 
 /**
  * Where the workflow writes the dispatched prompt inside the sandbox before
@@ -56,17 +56,6 @@ export const DISPATCH_RESULT_PATH = "/tmp/ns-dispatch/result.json";
  * completion and published into the anchor PR description.
  */
 export const DISPATCH_DECISION_LOG_PATH = "/tmp/ns-dispatch/decision-log.md";
-
-/**
- * Where the dispatched repository's dispatch settings live, relative to the
- * checkout (the sandbox's working directory, so sandbox file reads resolve
- * it against the checkout root — pending live verification). The launch
- * step reads this file after sandbox creation and resolves the configured
- * harness invocation from its `[dispatch]` table: harness choice is
- * versioned repo configuration at the exact dispatched SHA, never caller
- * input or deployable code shape.
- */
-export const DISPATCH_SETTINGS_PATH = "ns.toml";
 
 /**
  * v1 run budget: how long the detached harness run may take before the
@@ -94,7 +83,7 @@ export const DISPATCH_GRACE_SECONDS = 120;
 export const DISPATCH_SANDBOX_TIMEOUT_MARGIN_SECONDS = 1_800;
 
 /** Cap applied to the harness result's optional summary when parsing. */
-export const DISPATCH_SUMMARY_MAX_LENGTH = 2_000;
+export const DISPATCH_SUMMARY_MAX_CHARS = 2_000;
 
 /**
  * The run-input contract (roadmap steel-thread row): the CLI (sub-slice 3,
@@ -134,7 +123,7 @@ export function validateDispatchRunInput(input: DispatchRunInput): DispatchRunIn
 			ok: false,
 			message:
 				`anchorBranch must be a ${DISPATCH_ANCHOR_BRANCH_PREFIX}-prefixed git branch name ` +
-				`of at most ${DISPATCH_ANCHOR_BRANCH_MAX_LENGTH} characters.`,
+				`of at most ${DISPATCH_ANCHOR_BRANCH_MAX_CHARS} characters.`,
 		};
 	}
 	if (
@@ -144,10 +133,10 @@ export function validateDispatchRunInput(input: DispatchRunInput): DispatchRunIn
 	) {
 		return { ok: false, message: "anchorPrNumber must be a positive integer." };
 	}
-	if (input.prompt.length < 1 || input.prompt.length > DISPATCH_PROMPT_MAX_LENGTH) {
+	if (input.prompt.length < 1 || input.prompt.length > DISPATCH_PROMPT_MAX_CHARS) {
 		return {
 			ok: false,
-			message: `prompt must be between 1 and ${DISPATCH_PROMPT_MAX_LENGTH} characters.`,
+			message: `prompt must be between 1 and ${DISPATCH_PROMPT_MAX_CHARS} characters.`,
 		};
 	}
 	return {
@@ -171,7 +160,7 @@ export function validateDispatchRunInput(input: DispatchRunInput): DispatchRunIn
  */
 export function isValidDispatchAnchorBranch(name: string): boolean {
 	if (!name.startsWith(DISPATCH_ANCHOR_BRANCH_PREFIX)) return false;
-	if (name.length > DISPATCH_ANCHOR_BRANCH_MAX_LENGTH) return false;
+	if (name.length > DISPATCH_ANCHOR_BRANCH_MAX_CHARS) return false;
 	if (!/^[A-Za-z0-9._/-]+$/.test(name)) return false;
 	if (name.includes("..")) return false;
 	if (name.endsWith("/") || name.endsWith(".")) return false;
@@ -236,7 +225,7 @@ export function parseDispatchHarnessResult(content: string | null): DispatchHarn
 	// strictNullChecks, where negated cross-statement narrowing does not hold.
 	if (summary === undefined) return { phase: "finished", outcome };
 	if (typeof summary === "string") {
-		return { phase: "finished", outcome, summary: summary.slice(0, DISPATCH_SUMMARY_MAX_LENGTH) };
+		return { phase: "finished", outcome, summary: summary.slice(0, DISPATCH_SUMMARY_MAX_CHARS) };
 	}
 	return { phase: "invalid" };
 }

@@ -7,6 +7,8 @@
 // replaces its reserved `x-vercel-oidc-token` request header with the
 // Function's own workload identity.
 
+import type { OidcTrustConfig } from "./oidc-trust-config.ts";
+
 export interface VercelOidcIdentity {
 	readonly ownerId: string;
 	readonly projectId: string;
@@ -25,34 +27,27 @@ export interface VercelOidcGateway {
 	}): Promise<VercelOidcVerificationResult>;
 }
 
-export interface DevelopmentCallerExpectation {
-	readonly issuer: string;
-	readonly audience: string;
-	readonly teamId: string;
-	readonly projectId: string;
-}
-
 export type DevelopmentCallerAuthentication =
 	| { readonly ok: true }
 	| { readonly ok: false; readonly status: 401 | 403 };
 
 export async function authenticateDevelopmentCaller(
 	token: string | null,
-	expectation: DevelopmentCallerExpectation,
+	trust: OidcTrustConfig,
 	oidc: VercelOidcGateway,
 ): Promise<DevelopmentCallerAuthentication> {
 	if (token === null || token.length === 0) return { ok: false, status: 401 };
 	const result = await oidc.verifyDevelopmentIdentity({
 		token,
-		issuer: expectation.issuer,
-		audience: expectation.audience,
+		issuer: trust.vercelOidcIssuer,
+		audience: trust.vercelOidcAudience,
 	});
 	// `=== false` rather than `!`: the Vercel builder typechecks without
 	// strictNullChecks, where truthiness checks do not narrow the union.
 	if (result.ok === false) return { ok: false, status: 401 };
 	if (
-		result.value.ownerId !== expectation.teamId ||
-		result.value.projectId !== expectation.projectId ||
+		result.value.ownerId !== trust.vercelTeamId ||
+		result.value.projectId !== trust.vercelProjectId ||
 		result.value.environment !== "development"
 	) {
 		return { ok: false, status: 403 };
