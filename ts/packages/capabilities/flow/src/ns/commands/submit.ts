@@ -213,6 +213,7 @@ async function runSubmitWithProgress(input: {
 				failedText: "checkpoint failed",
 				stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr),
 				exitCode: checkpoint.output.exitCode,
+				...optionalEntry("failurePresentation", checkpoint.failurePresentation),
 			});
 		}
 		matrix.phase({ type: "phase-done", phaseKey: "checkpoint", detail: "checkpoint complete" });

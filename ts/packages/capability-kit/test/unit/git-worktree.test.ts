@@ -32,6 +32,7 @@ describe("planLocalBranchRefreshFromWorktrees", () => {
 			planLocalBranchRefreshFromWorktrees({
 				branch: "master",
 				cwd: "/repo",
+				upstream: { remoteName: "company", remoteRef: "refs/heads/release" },
 				worktreePorcelain: [
 					"worktree /repo",
 					"HEAD 1111111111111111111111111111111111111111",
@@ -45,7 +46,7 @@ describe("planLocalBranchRefreshFromWorktrees", () => {
 		).toEqual({
 			type: "pull-checked-out-branch",
 			cwd: "/trunk",
-			args: ["pull", "--ff-only", "origin", "master"],
+			args: ["pull", "--ff-only", "company", "refs/heads/release"],
 		});
 	});
 
@@ -54,13 +55,14 @@ describe("planLocalBranchRefreshFromWorktrees", () => {
 			planLocalBranchRefreshFromWorktrees({
 				branch: "main",
 				cwd: "/repo",
+				upstream: { remoteName: "upstream", remoteRef: "refs/heads/stable" },
 				worktreePorcelain:
 					"worktree /repo\nHEAD 1111111111111111111111111111111111111111\nbranch refs/heads/feature-a\n",
 			}),
 		).toEqual({
 			type: "fetch-local-branch",
 			cwd: "/repo",
-			args: ["fetch", "origin", "refs/heads/main:refs/heads/main"],
+			args: ["fetch", "upstream", "refs/heads/stable:refs/heads/main"],
 		});
 	});
 });

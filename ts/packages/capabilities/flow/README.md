@@ -14,7 +14,7 @@ Each command depends on a distinct slice of the underlying technology stack:
 | Command                        | What it does                                                                           | git | Graphite (`gt`) | GitHub (`gh`) | slots | LLM |
 | ------------------------------ | -------------------------------------------------------------------------------------- | :-: | :-------------: | :-----------: | :---: | :-: |
 | `ns flow changes`              | Summarize outstanding worktree changes without committing.                             |  ✓  |                 |               |       |  ✓  |
-| `ns flow cp`                   | Create a checkpoint commit for the current diff.                                       |  ✓  |                 |               |       |  ✓  |
+| `ns flow cp`                   | Create a checkpoint commit for the current diff.                                       |  ✓  |        ✓        |               |       |  ✓  |
 | `ns flow autobranch`           | Create a Graphite branch from dirty worktree changes.                                  |  ✓  |        ✓        |               |       |  ✓  |
 | `ns flow branch-latest-commit` | Move the latest eligible commit to a new Graphite branch.                              |  ✓  |        ✓        |               |       |  ✓  |
 | `ns flow autoslot`             | Create a Graphite branch from current work, then move it into a managed slot worktree. |  ✓  |        ✓        |               |   ✓   |  ✓  |
@@ -22,7 +22,7 @@ Each command depends on a distinct slice of the underlying technology stack:
 | `ns flow regenerate-pr`        | Regenerate the PR title and ns-managed body region.                                    |  ✓  |                 |       ✓       |       |  ✓  |
 | `ns flow push`                 | Push committed non-Graphite branch work with `git push`.                               |  ✓  |                 |               |       |     |
 | `ns flow land`                 | Land the current PR or Graphite stack into trunk.                                      |  ✓  |        ✓        |       ✓       |   ✓   |     |
-| `ns flow pull-trunk`           | Pull the configured Graphite trunk branch without running full `gt sync`.              |  ✓  |        ✓        |               |       |     |
+| `ns flow pull-trunk`           | Refresh the configured Graphite trunk from its configured Git upstream.                |  ✓  |        ✓        |               |       |     |
 | `ns flow squash-stack`         | Squash every branch in the current Graphite stack to one commit.                       |  ✓  |        ✓        |               |       |     |
 
 ### What each column means
@@ -44,6 +44,12 @@ Each command depends on a distinct slice of the underlying technology stack:
 
 ### Additional dependencies
 
+- Checkpoint safety in `ns flow cp` and submit's checkpoint step resolves the
+  configured trunk with `gt trunk --no-interactive`. If Graphite cannot return a
+  trunk, checkpointing stops before model generation, staging, or committing.
+- `ns flow pull-trunk` requires the configured Graphite trunk's local Git branch
+  to have an upstream. It refreshes from that upstream's exact remote and remote
+  ref; it does not fall back to `origin` or a same-named remote branch.
 - `ns flow submit` also runs repo-configured pre-submit hook commands installed
   at the `flow.submit.pre` extension point in the repo-root `ns.toml` (for
   example `just`); the first failing hook aborts the submit.

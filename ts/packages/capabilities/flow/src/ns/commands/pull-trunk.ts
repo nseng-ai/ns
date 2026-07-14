@@ -1,5 +1,6 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
 import { formatCommand } from "@nseng-ai/foundation/command";
+import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
 
@@ -12,7 +13,8 @@ const pullTrunkSchema = z.object({});
 export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = defineCommand({
 	name: "pull-trunk",
 	summary: "Pull the configured Graphite trunk branch without running full gt sync.",
-	description: "Pull the configured Graphite trunk branch without running full gt sync.",
+	description:
+		"Pull the configured Graphite trunk branch from its configured Git upstream without running full gt sync.",
 	schema: pullTrunkSchema,
 	resultSchema: z.string(),
 	handler: async (ctx) => {
@@ -29,6 +31,39 @@ export const flowPullTrunkCommand: NsCommand<typeof pullTrunkSchema> = defineCom
 export default flowPullTrunkCommand;
 
 function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
+	if (!isCommandBackedResult(result)) {
+		switch (result.outcome.kind) {
+			case "trunk-command-failed":
+				return renderResultBlock(caps, {
+					kind: "failure",
+					headline: "Could not resolve Graphite trunk. Local trunk was not updated.",
+					body: result.outcome.error.message,
+					cwd: result.cwd,
+				});
+			case "trunk-empty":
+				return renderResultBlock(caps, {
+					kind: "failure",
+					headline: "gt trunk --no-interactive returned no branch. Local trunk was not updated.",
+					body: result.outcome.error.message,
+					cwd: result.cwd,
+				});
+			case "upstream-missing":
+				return renderResultBlock(caps, {
+					kind: "refusal",
+					headline: `Graphite trunk \`${result.outcome.trunk}\` has no configured Git upstream. Local trunk was not updated.`,
+					guidance: `Configure one with \`git branch --set-upstream-to=<remote>/<remote-branch> ${result.outcome.trunk}\`, then retry.`,
+					cwd: result.cwd,
+				});
+			case "upstream-inspection-failed":
+				return renderResultBlock(caps, {
+					kind: "failure",
+					headline: `Could not inspect the configured Git upstream for Graphite trunk \`${result.outcome.trunk}\`. Local trunk was not updated.`,
+					body: result.outcome.error.message,
+					cwd: result.cwd,
+				});
+		}
+	}
+
 	const command = formatCommand(result.command, result.args);
 	switch (result.outcome.kind) {
 		case "success":
@@ -39,22 +74,6 @@ function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 				cwd: result.cwd,
 				result: result.execResult,
 				guidance: "No full `gt sync` was run.",
-			});
-		case "trunk-command-failed":
-			return renderGitResultBlock(caps, {
-				kind: "failure",
-				headline: "Could not resolve Graphite trunk. Local trunk was not updated.",
-				command,
-				cwd: result.cwd,
-				result: result.execResult,
-			});
-		case "trunk-empty":
-			return renderGitResultBlock(caps, {
-				kind: "failure",
-				headline: "gt trunk --no-interactive returned no branch. Local trunk was not updated.",
-				command,
-				cwd: result.cwd,
-				result: result.execResult,
 			});
 		case "worktree-list-failed":
 			return renderGitResultBlock(caps, {
@@ -73,4 +92,10 @@ function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 				result: result.execResult,
 			});
 	}
+}
+
+function isCommandBackedResult(
+	result: TrunkPullResult,
+): result is Extract<TrunkPullResult, { execResult: unknown }> {
+	return "execResult" in result;
 }

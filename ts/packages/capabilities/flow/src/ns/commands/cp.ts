@@ -1,5 +1,6 @@
 import type { TimeServices } from "@nseng-ai/foundation/time";
 import type { NsProgressPhaseListener } from "@nseng-ai/sdk";
+import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import {
@@ -16,6 +17,7 @@ import {
 import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
 import {
 	createNsCheckpointRuntime,
+	formatGraphiteTrunkResolutionError,
 	runCheckpointWorkflow,
 	type CheckpointGateway,
 	type CheckpointWorkflowResult,
@@ -24,7 +26,7 @@ import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 
-The command captures the pending worktree, refuses main/master, refuses clean worktrees, asks the configured text-generation model for a validated [cp] commit message, stages all changes, commits with that message, and prints the resulting commit summary plus checkpoint message.
+The command captures the pending worktree, refuses Graphite's configured trunk branch, refuses clean worktrees, asks the configured text-generation model for a validated [cp] commit message, stages all changes, commits with that message, and prints the resulting commit summary plus checkpoint message. Checkpoint safety requires a successful configured-trunk lookup from Graphite.
 
 Use --dry-run to preview the model-authored checkpoint message without running git add, git commit, or git log.
 
@@ -57,6 +59,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 				textGenerator: ctx.textGenerator,
 				isDryRun: true,
 				checkpointGateway: runtime.checkpointGateway,
+				graphite: runtime.graphite,
 			});
 			return toCommandResult(result);
 		}
@@ -75,6 +78,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 					textGenerator: ctx.textGenerator,
 					isDryRun: false,
 					checkpointGateway: runtime.checkpointGateway,
+					graphite: runtime.graphite,
 					onPhase: stream.emit,
 				});
 				const command = toCommandResult(result);
@@ -94,6 +98,7 @@ export interface RunCpCoreOptions {
 	textGenerator: TextGenerator;
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
 	onPhase?: NsProgressPhaseListener;
 	time?: TimeServices;
 }
@@ -103,6 +108,7 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 		cwd: options.cwd,
 		env: options.env,
 		gateway: options.checkpointGateway,
+		graphite: options.graphite,
 		textGenerator: options.textGenerator,
 		dryRun: options.isDryRun,
 		...(options.onPhase === undefined ? {} : { onPhase: options.onPhase }),
@@ -114,6 +120,8 @@ function toCommandResult(result: RunCpCoreResult) {
 	switch (result.type) {
 		case "snapshot-failed":
 			return failure(FLOW_COMMAND_FAILED, formatPendingWorktreeError(result.error));
+		case "trunk-resolution-failed":
+			return failure(FLOW_COMMAND_FAILED, formatGraphiteTrunkResolutionError(result.error));
 		case "trunk":
 			return negative(`Refusing to create checkpoint commit on trunk branch: ${result.branch}`);
 		case "clean":

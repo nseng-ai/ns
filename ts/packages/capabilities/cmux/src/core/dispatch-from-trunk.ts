@@ -1,18 +1,18 @@
 import {
 	commandSucceeded,
-	execApiToCommandRunner,
 	type CommandExecApi,
 	formatCommand,
 	formatCommandFailure,
 } from "@nseng-ai/foundation/command";
-import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import { isAbsolute, resolve } from "node:path";
 
 import {
 	planLocalBranchRefreshFromWorktrees,
+	type GitBranchUpstream,
+	type GitGateway,
 	type LocalBranchRefreshPlan,
 } from "@nseng-ai/foundation/git";
-import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
+import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import {
 	createGraphiteMetadataDbAccess,
 	GRAPHITE_BRANCH_METADATA_QUERY,
@@ -48,6 +48,7 @@ const TRUNK_DISPATCH_CONTEXT_NOTE =
 interface GraphiteTrunkResolutionContext {
 	pi: CommandExecApi;
 	cwd: string;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
 	metadataDbAccess: GraphiteMetadataDbAccess;
 }
 
@@ -56,6 +57,8 @@ export async function handleCccSlotDispatchFromTrunk(options: {
 	payloadOptions: ReturnType<typeof resolveDispatchPromptPayloadOptions>;
 	args: string;
 	ctx: CommandContext;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git: Pick<GitGateway, "branchUpstream">;
 	slotClient?: SlotClient;
 	metadataDbAccess?: GraphiteMetadataDbAccess;
 	notifyProgress: (message: string) => void;
@@ -72,6 +75,8 @@ export async function handleCccSlotDispatchFromTrunk(options: {
 		pi,
 		cwd: ctx.cwd,
 		prompt,
+		graphite: options.graphite,
+		git: options.git,
 		notify: options.notifyProgress,
 		...optionalEntry("metadataDbAccess", options.metadataDbAccess),
 	});
@@ -96,6 +101,8 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 	pi: CommandExecApi;
 	cwd: string;
 	prompt: string;
+	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
+	git: Pick<GitGateway, "branchUpstream">;
 	notify?: (message: string) => void;
 	metadataDbAccess?: GraphiteMetadataDbAccess;
 }): Promise<BranchCreateResult | { error: string }> {
@@ -104,13 +111,38 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 	const trunk = await resolveGraphiteTrunkBranch({
 		pi,
 		cwd,
+		graphite: options.graphite,
 		metadataDbAccess: options.metadataDbAccess ?? createGraphiteMetadataDbAccess(),
 	});
 	if ("error" in trunk) return trunk;
 	const trunkBranch = trunk.branch;
 
+	notify?.("Resolving configured Git upstream…");
+	const upstream = await options.git.branchUpstream({ cwd, branch: trunkBranch });
+	if (upstream.type === "missing") {
+		return {
+			error: [
+				`Graphite trunk ${trunkBranch} has no configured Git upstream; no branch was created.`,
+				`Configure one with git branch --set-upstream-to=<remote>/<remote-branch> ${trunkBranch}, then retry.`,
+			].join("\n"),
+		};
+	}
+	if (upstream.type === "error") {
+		return {
+			error: [
+				`Could not inspect the configured Git upstream for Graphite trunk ${trunkBranch}; no branch was created.`,
+				upstream.error.message,
+			].join("\n"),
+		};
+	}
+
 	notify?.("Refreshing Graphite trunk…");
-	const refresh = await refreshLocalTrunkBranch({ pi, cwd, trunkBranch });
+	const refresh = await refreshLocalTrunkBranch({
+		pi,
+		cwd,
+		trunkBranch,
+		upstream: upstream.value,
+	});
 	if (!refresh.ok) {
 		return {
 			error: [
@@ -140,34 +172,15 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 async function resolveGraphiteTrunkBranch(
 	context: GraphiteTrunkResolutionContext,
 ): Promise<{ branch: string } | { error: string }> {
-	const { pi, cwd } = context;
-	const trunk = await runGraphiteCommand(execApiToCommandRunner(pi), {
-		cwd,
-		args: ["trunk", "--no-interactive"],
-	});
-	if (commandSucceeded(trunk)) {
-		const trunkBranch = firstNonEmptyLine(trunk.stdout);
-		if (trunkBranch === undefined) {
-			return { error: "gt trunk --no-interactive returned no branch." };
-		}
-		return { branch: trunkBranch };
-	}
-	const trunkFailureMessage = formatCommandFailure(
-		"Could not resolve Graphite trunk.",
-		"gt trunk --no-interactive",
-		trunk,
-	);
-	if (!isDetachedHeadGraphiteTrunkFailure(trunk)) {
-		return { error: trunkFailureMessage };
+	const trunk = await context.graphite.trunkBranch({ cwd: context.cwd });
+	if (trunk.ok) return { branch: trunk.branch };
+	if (trunk.reason !== "detached-head") {
+		return { error: `Could not resolve Graphite trunk.\n${trunk.error.message}` };
 	}
 
 	const metadataTrunk = await resolveGraphiteTrunkBranchFromMetadata(context);
 	if ("branch" in metadataTrunk) return metadataTrunk;
-	return { error: [trunkFailureMessage, metadataTrunk.error].join("\n\n") };
-}
-
-function isDetachedHeadGraphiteTrunkFailure(result: { stdout: string; stderr: string }): boolean {
-	return `${result.stdout}\n${result.stderr}`.toLowerCase().includes("no current branch");
+	return { error: [trunk.error.message, metadataTrunk.error].join("\n\n") };
 }
 
 async function resolveGraphiteTrunkBranchFromMetadata(
@@ -221,6 +234,7 @@ async function refreshLocalTrunkBranch(options: {
 	pi: CommandExecApi;
 	cwd: string;
 	trunkBranch: string;
+	upstream: GitBranchUpstream;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
 	const { pi, cwd, trunkBranch } = options;
 	const worktrees = await pi.exec("git", ["worktree", "list", "--porcelain"], {
@@ -241,6 +255,7 @@ async function refreshLocalTrunkBranch(options: {
 	const plan = planLocalBranchRefreshFromWorktrees({
 		branch: trunkBranch,
 		cwd,
+		upstream: options.upstream,
 		worktreePorcelain: worktrees.stdout,
 	});
 	const refresh = await pi.exec("git", plan.args, {

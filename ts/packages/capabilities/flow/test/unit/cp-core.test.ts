@@ -6,6 +6,8 @@ import type {
 	TextGenerationResult,
 	TextGenerator,
 } from "@nseng-ai/capability-kit/text-generation";
+import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
 
 import type { ActiveOperation } from "@nseng-ai/sdk";
 
@@ -103,15 +105,79 @@ describe("flow cp core", () => {
 		expect(gateway.commits).toEqual([]);
 	});
 
-	test("trunk branch refusal does not call text generation or commit", async () => {
+	test("configured trunk branch refusal does not call text generation or commit", async () => {
 		const textGenerator = new FakeTextGenerator();
 		const gateway = new FakeCheckpointGateway({
-			loaded: { ok: true, snapshot: dirtySnapshot({ branch: "main" }) },
+			loaded: { ok: true, snapshot: dirtySnapshot({ branch: "release" }) },
 		});
+		const graphite = new InMemoryGraphiteBranchGateway({ trunk: "release" });
 
-		const result = await runCpCore(defaultOptions({ checkpointGateway: gateway, textGenerator }));
+		const result = await runCpCore(
+			defaultOptions({ checkpointGateway: gateway, graphite, textGenerator }),
+		);
 
-		expect(result).toEqual({ type: "trunk", branch: "main" });
+		expect(result).toEqual({ type: "trunk", branch: "release" });
+		expect(textGenerator.calls).toEqual([]);
+		expect(gateway.commits).toEqual([]);
+	});
+
+	test.each(["main", "master"])(
+		"allows feature branch named %s when configured trunk differs",
+		async (branch) => {
+			const textGenerator = new FakeTextGenerator();
+			const gateway = new FakeCheckpointGateway({
+				loaded: { ok: true, snapshot: dirtySnapshot({ branch }) },
+			});
+			const graphite = new InMemoryGraphiteBranchGateway({ trunk: "release" });
+
+			const result = await runCpCore(
+				defaultOptions({
+					checkpointGateway: gateway,
+					graphite,
+					textGenerator,
+					isDryRun: true,
+				}),
+			);
+
+			expect(result).toMatchObject({ type: "dry-run", branch });
+			expect(textGenerator.calls).toHaveLength(1);
+			expect(gateway.commits).toEqual([]);
+		},
+	);
+
+	test.each([
+		{
+			name: "command failure",
+			trunk: {
+				ok: false as const,
+				reason: "command-failed" as const,
+				error: { code: "graphite-trunk-failed", message: "gt trunk failed" },
+			},
+		},
+		{
+			name: "empty output",
+			trunk: {
+				ok: false as const,
+				reason: "empty" as const,
+				error: { code: "graphite-trunk-empty", message: "gt trunk returned no branch" },
+			},
+		},
+	])("fails closed on Graphite trunk $name before clean/model/commit", async ({ trunk }) => {
+		const textGenerator = new FakeTextGenerator();
+		const gateway = new FakeCheckpointGateway({
+			loaded: { ok: true, snapshot: dirtySnapshot({ clean: true }) },
+		});
+		const graphite = new InMemoryGraphiteBranchGateway({ trunk });
+
+		const result = await runCpCore(
+			defaultOptions({ checkpointGateway: gateway, graphite, textGenerator }),
+		);
+
+		expect(result).toEqual({
+			type: "trunk-resolution-failed",
+			reason: trunk.reason,
+			error: trunk.error,
+		});
 		expect(textGenerator.calls).toEqual([]);
 		expect(gateway.commits).toEqual([]);
 	});
@@ -201,6 +267,7 @@ describe("flow cp core", () => {
 			cwd: "/repo",
 			env: { NS_CHECKPOINT_MODEL: "openai-codex/gpt-test" },
 			gateway,
+			graphite: new InMemoryGraphiteBranchGateway(),
 			textGenerator,
 			dryRun: true,
 			onActiveOperations: (operations) => snapshots.push([...operations]),
@@ -229,6 +296,7 @@ describe("flow cp core", () => {
 			cwd: "/repo",
 			env: { NS_CHECKPOINT_MODEL: "openai-codex/gpt-test" },
 			gateway,
+			graphite: new InMemoryGraphiteBranchGateway(),
 			textGenerator,
 			dryRun: false,
 			onActiveOperations: (operations) => snapshots.push([...operations]),
@@ -280,12 +348,14 @@ describe("flow cp core", () => {
 function defaultOptions(overrides: {
 	checkpointGateway: CheckpointGateway;
 	textGenerator: TextGenerator;
+	graphite?: Pick<GraphiteBranchGateway, "trunkBranch">;
 	isDryRun?: boolean;
 }) {
 	return {
 		cwd: "/repo",
 		env: {},
 		checkpointGateway: overrides.checkpointGateway,
+		graphite: overrides.graphite ?? new InMemoryGraphiteBranchGateway(),
 		textGenerator: overrides.textGenerator,
 		isDryRun: overrides.isDryRun ?? false,
 	};

@@ -1,7 +1,11 @@
 import { createNsCommandRunner } from "@nseng-ai/capability-kit";
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import type { GitGateway } from "@nseng-ai/foundation/git";
-import type { CommandRunner } from "@nseng-ai/foundation/command";
+import {
+	formatCommand,
+	type CommandExecApi,
+	type CommandRunner,
+} from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	RealGithubPrGateway,
@@ -14,6 +18,8 @@ import {
 	type SubmitFailureTranscript,
 } from "./index.ts";
 import { RealCheckpointGateway, type CheckpointRunContext } from "../checkpoint/checkpoint.ts";
+import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import { commandOperations, withActiveOperations } from "../phase-stream/matrix-progress-core.ts";
 
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
@@ -40,14 +46,25 @@ export function createNsSubmitRuntime(
 	const git = createNsGitGateway(ctx);
 	return {
 		commandRunner,
-		createCheckpointRunContext: (onActiveOperations) => ({
-			gateway: new RealCheckpointGateway({
-				runner: commandRunner,
-				git,
-				...optionalEntry("onActiveOperations", onActiveOperations),
-			}),
-			...(onActiveOperations === undefined ? {} : { onActiveOperations }),
-		}),
+		createCheckpointRunContext: (onActiveOperations) => {
+			const commands: CommandExecApi = {
+				exec: async (command, args, options) =>
+					await withActiveOperations(
+						onActiveOperations,
+						commandOperations([formatCommand(command, args)]),
+						async () => await commandRunner(command, args, options),
+					),
+			};
+			return {
+				gateway: new RealCheckpointGateway({
+					runner: commandRunner,
+					git,
+					...optionalEntry("onActiveOperations", onActiveOperations),
+				}),
+				graphite: new RealGraphiteBranchGateway(commands),
+				...(onActiveOperations === undefined ? {} : { onActiveOperations }),
+			};
+		},
 		submitGateway: new RealSubmitGateway(commandRunner),
 		metadataGateway: new RealSubmitMetadataGateway(commandRunner),
 		git,

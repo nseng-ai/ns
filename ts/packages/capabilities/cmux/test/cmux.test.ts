@@ -63,6 +63,22 @@ const SAVED_PLAN_FILENAME_SLUG = "saved-plan-local-locator";
 const SAVED_PLAN_FILE_NAME = `${SAVED_PLAN_FILENAME_SLUG}.md`;
 const PLAN_CONTENT = "# Plan\n";
 const DISPATCH_PROMPT_NAMESPACE = "cmux-dispatch";
+const TRUNK_UPSTREAM = { remoteName: "company", remoteRef: "refs/heads/stable" };
+
+function branchUpstreamArgs(branch: string): string[] {
+	return [
+		"for-each-ref",
+		"--format=%(refname)%00%(upstream:remotename)%00%(upstream:remoteref)",
+		`refs/heads/${branch}`,
+	];
+}
+
+function branchUpstreamRecord(
+	branch: string,
+	upstream: { remoteName: string; remoteRef: string } | null = TRUNK_UPSTREAM,
+): string {
+	return `refs/heads/${branch}\0${upstream?.remoteName ?? ""}\0${upstream?.remoteRef ?? ""}\n`;
+}
 
 function graphiteMetadataDbAccessWithTrunk(trunkBranch: string): GraphiteMetadataDbAccess {
 	return {
@@ -863,12 +879,19 @@ describe("cmux command suite", () => {
 		const pi = new FakePi({
 			script: [
 				step("gt", ["trunk", "--no-interactive"], { stdout: `${TRUNK_BRANCH}\n` }),
+				step("git", branchUpstreamArgs(TRUNK_BRANCH), {
+					stdout: branchUpstreamRecord(TRUNK_BRANCH),
+				}),
 				step("git", ["worktree", "list", "--porcelain"], {
 					stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n",
 				}),
 				step(
 					"git",
-					["fetch", "origin", `refs/heads/${TRUNK_BRANCH}:refs/heads/${TRUNK_BRANCH}`],
+					[
+						"fetch",
+						TRUNK_UPSTREAM.remoteName,
+						`${TRUNK_UPSTREAM.remoteRef}:refs/heads/${TRUNK_BRANCH}`,
+					],
 					{},
 				),
 				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
@@ -974,12 +997,19 @@ describe("cmux command suite", () => {
 					stderr: "ERROR: No current branch\n",
 				}),
 				step("git", ["rev-parse", "--git-common-dir"], { stdout: "/repo/.git\n" }),
+				step("git", branchUpstreamArgs(TRUNK_BRANCH), {
+					stdout: branchUpstreamRecord(TRUNK_BRANCH),
+				}),
 				step("git", ["worktree", "list", "--porcelain"], {
 					stdout: "worktree /repo\nHEAD abc123\n",
 				}),
 				step(
 					"git",
-					["fetch", "origin", `refs/heads/${TRUNK_BRANCH}:refs/heads/${TRUNK_BRANCH}`],
+					[
+						"fetch",
+						TRUNK_UPSTREAM.remoteName,
+						`${TRUNK_UPSTREAM.remoteRef}:refs/heads/${TRUNK_BRANCH}`,
+					],
 					{},
 				),
 				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
@@ -1118,6 +1148,63 @@ describe("cmux command suite", () => {
 		expect(pi.execCalls.some((call) => call.command === "cmux")).toBe(false);
 	});
 
+	test("ns:cmux:workspace:dispatch-from-trunk stops when trunk has no configured upstream", async () => {
+		const pi = new FakePi({
+			script: [
+				step("gt", ["trunk", "--no-interactive"], { stdout: `${TRUNK_BRANCH}\n` }),
+				step("git", branchUpstreamArgs(TRUNK_BRANCH), {
+					stdout: branchUpstreamRecord(TRUNK_BRANCH, null),
+				}),
+			],
+		});
+		registerCccSlotDispatchFromTrunkCommand(pi);
+		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+
+		await pi.commands
+			.get("ns:cmux:workspace:dispatch-from-trunk")
+			?.handler("Implement the cmux dispatch flow", ctx);
+
+		pi.assertDone();
+		const messages = notificationMessages(ctx).join("\n");
+		expect(messages).toContain(`Graphite trunk ${TRUNK_BRANCH} has no configured Git upstream`);
+		expect(messages).toContain("git branch --set-upstream-to=<remote>/<remote-branch>");
+		expect(pi.execCalls.some((call) => call.args[0] === "worktree")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch")).toBe(
+			false,
+		);
+		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "cmux")).toBe(false);
+	});
+
+	test("ns:cmux:workspace:dispatch-from-trunk stops when upstream inspection fails", async () => {
+		const pi = new FakePi({
+			script: [
+				step("gt", ["trunk", "--no-interactive"], { stdout: `${TRUNK_BRANCH}\n` }),
+				step("git", branchUpstreamArgs(TRUNK_BRANCH), {
+					code: 128,
+					stderr: "fatal: cannot inspect upstream\n",
+				}),
+			],
+		});
+		registerCccSlotDispatchFromTrunkCommand(pi);
+		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+
+		await pi.commands
+			.get("ns:cmux:workspace:dispatch-from-trunk")
+			?.handler("Implement the cmux dispatch flow", ctx);
+
+		pi.assertDone();
+		const messages = notificationMessages(ctx).join("\n");
+		expect(messages).toContain("Could not inspect the configured Git upstream");
+		expect(messages).toContain("fatal: cannot inspect upstream");
+		expect(pi.execCalls.some((call) => call.args[0] === "worktree")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch")).toBe(
+			false,
+		);
+		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "cmux")).toBe(false);
+	});
+
 	test("ns:cmux:workspace:dispatch-from-trunk pulls trunk when it is checked out elsewhere", async () => {
 		const stagingDir = await makeTempDir();
 		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
@@ -1126,6 +1213,9 @@ describe("cmux command suite", () => {
 		const pi = new FakePi({
 			script: [
 				step("gt", ["trunk", "--no-interactive"], { stdout: `${TRUNK_BRANCH}\n` }),
+				step("git", branchUpstreamArgs(TRUNK_BRANCH), {
+					stdout: branchUpstreamRecord(TRUNK_BRANCH),
+				}),
 				step("git", ["worktree", "list", "--porcelain"], {
 					stdout: [
 						`worktree ${trunkWorktree}`,
@@ -1134,7 +1224,7 @@ describe("cmux command suite", () => {
 						"",
 					].join("\n"),
 				}),
-				step("git", ["pull", "--ff-only", "origin", TRUNK_BRANCH], {}),
+				step("git", ["pull", "--ff-only", TRUNK_UPSTREAM.remoteName, TRUNK_UPSTREAM.remoteRef], {}),
 				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
@@ -1222,13 +1312,21 @@ describe("cmux command suite", () => {
 		const pi = new FakePi({
 			script: [
 				step("gt", ["trunk", "--no-interactive"], { stdout: `${TRUNK_BRANCH}\n` }),
+				step("git", branchUpstreamArgs(TRUNK_BRANCH), {
+					stdout: branchUpstreamRecord(TRUNK_BRANCH),
+				}),
 				step("git", ["worktree", "list", "--porcelain"], {
 					stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n",
 				}),
-				step("git", ["fetch", "origin", `refs/heads/${TRUNK_BRANCH}:refs/heads/${TRUNK_BRANCH}`], {
-					code: 1,
-					stderr: "fetch failed\n",
-				}),
+				step(
+					"git",
+					[
+						"fetch",
+						TRUNK_UPSTREAM.remoteName,
+						`${TRUNK_UPSTREAM.remoteRef}:refs/heads/${TRUNK_BRANCH}`,
+					],
+					{ code: 1, stderr: "fetch failed\n" },
+				),
 			],
 		});
 		registerCccSlotDispatchFromTrunkCommand(pi);

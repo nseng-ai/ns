@@ -19,6 +19,7 @@ describe("checkpoint run context", () => {
 						match: "git diff HEAD --no-ext-diff",
 						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 					},
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 				],
 				textGeneration: [
 					{ ok: true, text: "[cp] Add checkpoint context\n\n- Share active operation feedback" },
@@ -52,6 +53,8 @@ describe("checkpoint run context", () => {
 			[{ kind: "command", display: "git status --porcelain=v1" }],
 			[],
 			[{ kind: "command", display: "git diff HEAD --no-ext-diff" }],
+			[],
+			[{ kind: "command", display: "gt trunk --no-interactive" }],
 			[],
 			[
 				{

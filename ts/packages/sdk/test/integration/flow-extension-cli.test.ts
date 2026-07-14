@@ -55,6 +55,7 @@ describe("checked-in flow ns extension loading", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("abc123 [cp] Update checkpoint");
+		expect(formattedExecCalls(run.context)).toContain("gt trunk --no-interactive");
 		expect(formattedExecCalls(run.context)).toContain("git add -A");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
 	});
@@ -218,7 +219,9 @@ describe("checked-in flow ns extension loading", () => {
 					entry.text.includes("Descriptions"),
 			),
 		).toBe(true);
-		expect(formattedExecCalls(run.context)).toContain(
+		const execCalls = formattedExecCalls(run.context);
+		expect(execCalls.filter((call) => call === "gt trunk --no-interactive")).toHaveLength(2);
+		expect(execCalls).toContain(
 			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 		);
 	});
@@ -259,6 +262,7 @@ function dirtyCpExecResponses(): ScriptedExecResponse[] {
 			match: "git diff HEAD --no-ext-diff",
 			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 		},
+		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 		{ match: "git add -A", result: {} },
 		{ match: /^git commit -F /, result: {} },
 		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint\n" } },
@@ -308,6 +312,7 @@ function cleanCheckpointResponses(): ScriptedExecResponse[] {
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 	];
 }
 
