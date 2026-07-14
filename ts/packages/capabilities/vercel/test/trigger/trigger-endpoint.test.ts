@@ -10,6 +10,7 @@ import type {
 	ReadWorkflowRunStatusResult,
 	StartWorkflowRunResult,
 	WorkflowRunGateway,
+	WorkflowStartRequest,
 } from "../../src/trigger/workflow-run-gateway.ts";
 
 class InMemoryOidcGateway implements VercelOidcGateway {
@@ -26,47 +27,14 @@ class InMemoryOidcGateway implements VercelOidcGateway {
 
 class RecordingWorkflowRunGateway implements WorkflowRunGateway {
 	readonly #runId: string;
-	readonly startCalls: Array<{ name: string }> = [];
-	readonly startProbeCalls: Array<{ revision: string }> = [];
-	readonly startSupervisionCalls: Array<{ runSeconds: number; pollSeconds: number }> = [];
-	readonly startDispatchCalls: Array<{
-		revision: string;
-		anchorBranch: string;
-		anchorPrNumber: number;
-		prompt: string;
-	}> = [];
+	readonly startCalls: WorkflowStartRequest[] = [];
 
 	constructor(runId: string) {
 		this.#runId = runId;
 	}
 
-	async startHelloWorkflow(options: { readonly name: string }): Promise<StartWorkflowRunResult> {
-		this.startCalls.push({ ...options });
-		return { ok: true, value: { runId: this.#runId } };
-	}
-
-	async startSandboxProbeWorkflow(options: {
-		readonly revision: string;
-	}): Promise<StartWorkflowRunResult> {
-		this.startProbeCalls.push({ ...options });
-		return { ok: true, value: { runId: this.#runId } };
-	}
-
-	async startSupervisionProbeWorkflow(options: {
-		readonly runSeconds: number;
-		readonly pollSeconds: number;
-	}): Promise<StartWorkflowRunResult> {
-		this.startSupervisionCalls.push({ ...options });
-		return { ok: true, value: { runId: this.#runId } };
-	}
-
-	async startDispatchWorkflow(options: {
-		readonly revision: string;
-		readonly anchorBranch: string;
-		readonly anchorPrNumber: number;
-		readonly prompt: string;
-	}): Promise<StartWorkflowRunResult> {
-		this.startDispatchCalls.push({ ...options });
+	async startWorkflow(request: WorkflowStartRequest): Promise<StartWorkflowRunResult> {
+		this.startCalls.push(request);
 		return { ok: true, value: { runId: this.#runId } };
 	}
 
@@ -118,7 +86,7 @@ describe("createTriggerPostHandler", () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get("cache-control")).toBe("no-store");
 		expect(await response.json()).toEqual({ runId: "wrun_123", workflow: "hello" });
-		expect(workflowRuns.startCalls).toEqual([{ name: "world" }]);
+		expect(workflowRuns.startCalls).toEqual([{ workflow: "hello", input: { name: "world" } }]);
 	});
 
 	it("starts the sandbox-probe workflow through the same authenticated route", async () => {
@@ -128,7 +96,7 @@ describe("createTriggerPostHandler", () => {
 			createOidcGateway: () => validOidcGateway(),
 			createWorkflowRunGateway: () => workflowRuns,
 		});
-		const revision = "0123456789abcdef0123456789abcdef01234567";
+		const revision = "0123456789abcdef0123456789ABCDEF01234567";
 
 		const response = await handler(
 			new Request("https://dispatch.example/api/trigger", {
@@ -143,7 +111,7 @@ describe("createTriggerPostHandler", () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ runId: "wrun_probe", workflow: "sandbox-probe" });
-		expect(workflowRuns.startProbeCalls).toEqual([{ revision }]);
+		expect(workflowRuns.startCalls).toEqual([{ workflow: "sandbox-probe", input: { revision } }]);
 	});
 
 	it("starts the supervision-probe workflow through the same authenticated route", async () => {
@@ -170,7 +138,53 @@ describe("createTriggerPostHandler", () => {
 			runId: "wrun_supervision",
 			workflow: "supervision-probe",
 		});
-		expect(workflowRuns.startSupervisionCalls).toEqual([{ runSeconds: 840, pollSeconds: 30 }]);
+		expect(workflowRuns.startCalls).toEqual([
+			{
+				workflow: "supervision-probe",
+				input: { runSeconds: 840, pollSeconds: 30 },
+			},
+		]);
+	});
+
+	it("starts the dispatch workflow through the same authenticated route", async () => {
+		const workflowRuns = new RecordingWorkflowRunGateway("wrun_dispatch");
+		const handler = createTriggerPostHandler({
+			environment: validEnvironment(),
+			createOidcGateway: () => validOidcGateway(),
+			createWorkflowRunGateway: () => workflowRuns,
+		});
+		const revision = "ABCDEF0123456789abcdef0123456789ABCDEF01";
+
+		const response = await handler(
+			new Request("https://dispatch.example/api/trigger", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"x-ns-dispatch-oidc-token": "oidc-token",
+				},
+				body: JSON.stringify({
+					workflow: "dispatch",
+					revision,
+					anchorBranch: "dispatch/widget-refactor-a1b2c3",
+					anchorPrNumber: 421,
+					prompt: "Rename the widget gateway methods.",
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ runId: "wrun_dispatch", workflow: "dispatch" });
+		expect(workflowRuns.startCalls).toEqual([
+			{
+				workflow: "dispatch",
+				input: {
+					revision,
+					anchorBranch: "dispatch/widget-refactor-a1b2c3",
+					anchorPrNumber: 421,
+					prompt: "Rename the widget gateway methods.",
+				},
+			},
+		]);
 	});
 
 	it("ignores Vercel's reserved workload-identity header", async () => {
@@ -218,24 +232,29 @@ describe("createTriggerPostHandler", () => {
 		});
 	});
 
-	it("returns a variable-name-only no-store 500 for invalid runtime configuration", async () => {
+	it("returns a fresh variable-name-only no-store 500 for every misconfigured request", async () => {
 		const environment = {
 			...validEnvironment(),
 			NS_DISPATCH_VERCEL_OIDC_ISSUER: "issuer-value-must-not-leak",
 		};
 		const handler = createTriggerPostHandler({ environment });
-
-		const response = await handler(
+		const request = () =>
 			new Request("https://dispatch.example/api/trigger", {
 				method: "POST",
 				body: "{}",
-			}),
-		);
-		const body = await response.text();
+			});
 
-		expect(response.status).toBe(500);
-		expect(response.headers.get("cache-control")).toBe("no-store");
-		expect(body).toContain("NS_DISPATCH_VERCEL_OIDC_ISSUER");
-		expect(body).not.toContain("issuer-value-must-not-leak");
+		const firstResponse = await handler(request());
+		const secondResponse = await handler(request());
+		const firstBody = await firstResponse.text();
+		const secondBody = await secondResponse.text();
+
+		for (const response of [firstResponse, secondResponse]) {
+			expect(response.status).toBe(500);
+			expect(response.headers.get("cache-control")).toBe("no-store");
+		}
+		expect(firstBody).toBe(secondBody);
+		expect(firstBody).toContain("NS_DISPATCH_VERCEL_OIDC_ISSUER");
+		expect(firstBody).not.toContain("issuer-value-must-not-leak");
 	});
 });

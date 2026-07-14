@@ -15,6 +15,7 @@ import type {
 	ReadWorkflowRunStatusResult,
 	StartWorkflowRunResult,
 	WorkflowRunGateway,
+	WorkflowStartRequest,
 } from "../../src/trigger/workflow-run-gateway.ts";
 
 const config: TriggerRuntimeConfig = {
@@ -24,7 +25,7 @@ const config: TriggerRuntimeConfig = {
 	vercelOidcAudience: "https://vercel.com/nseng-ai",
 };
 
-const probeRevision = "0123456789abcdef0123456789abcdef01234567";
+const probeRevision = "0123456789abcdef0123456789ABCDEF01234567";
 
 class InMemoryVercelOidcGateway implements VercelOidcGateway {
 	readonly #result: VercelOidcVerificationResult;
@@ -53,51 +54,15 @@ interface InMemoryWorkflowRunsState {
 
 class InMemoryWorkflowRunGateway implements WorkflowRunGateway {
 	readonly #state: InMemoryWorkflowRunsState;
-	readonly startCalls: Array<{ name: string }> = [];
-	readonly startProbeCalls: Array<{ revision: string }> = [];
-	readonly startSupervisionCalls: Array<{ runSeconds: number; pollSeconds: number }> = [];
-	readonly startDispatchCalls: Array<{
-		revision: string;
-		anchorBranch: string;
-		anchorPrNumber: number;
-		prompt: string;
-	}> = [];
+	readonly startCalls: WorkflowStartRequest[] = [];
 	readonly statusCalls: Array<{ runId: string }> = [];
 
 	constructor(state: InMemoryWorkflowRunsState = {}) {
 		this.#state = { ...state, runs: { ...state.runs } };
 	}
 
-	async startHelloWorkflow(options: { readonly name: string }): Promise<StartWorkflowRunResult> {
-		this.startCalls.push({ ...options });
-		if (this.#state.startFails === true) return { ok: false };
-		return { ok: true, value: { runId: this.#state.nextRunId ?? "wrun_fixture" } };
-	}
-
-	async startSandboxProbeWorkflow(options: {
-		readonly revision: string;
-	}): Promise<StartWorkflowRunResult> {
-		this.startProbeCalls.push({ ...options });
-		if (this.#state.startFails === true) return { ok: false };
-		return { ok: true, value: { runId: this.#state.nextRunId ?? "wrun_fixture" } };
-	}
-
-	async startSupervisionProbeWorkflow(options: {
-		readonly runSeconds: number;
-		readonly pollSeconds: number;
-	}): Promise<StartWorkflowRunResult> {
-		this.startSupervisionCalls.push({ ...options });
-		if (this.#state.startFails === true) return { ok: false };
-		return { ok: true, value: { runId: this.#state.nextRunId ?? "wrun_fixture" } };
-	}
-
-	async startDispatchWorkflow(options: {
-		readonly revision: string;
-		readonly anchorBranch: string;
-		readonly anchorPrNumber: number;
-		readonly prompt: string;
-	}): Promise<StartWorkflowRunResult> {
-		this.startDispatchCalls.push({ ...options });
+	async startWorkflow(request: WorkflowStartRequest): Promise<StartWorkflowRunResult> {
+		this.startCalls.push(request);
 		if (this.#state.startFails === true) return { ok: false };
 		return { ok: true, value: { runId: this.#state.nextRunId ?? "wrun_fixture" } };
 	}
@@ -148,7 +113,7 @@ describe("handleTriggerRequest", () => {
 			status: 200,
 			body: { runId: "wrun_123", workflow: "hello" },
 		});
-		expect(workflowRuns.startCalls).toEqual([{ name: "world" }]);
+		expect(workflowRuns.startCalls).toEqual([{ workflow: "hello", input: { name: "world" } }]);
 	});
 
 	it("starts the sandbox-probe workflow with the requested exact revision", async () => {
@@ -163,8 +128,9 @@ describe("handleTriggerRequest", () => {
 			status: 200,
 			body: { runId: "wrun_probe", workflow: "sandbox-probe" },
 		});
-		expect(workflowRuns.startProbeCalls).toEqual([{ revision: probeRevision }]);
-		expect(workflowRuns.startCalls).toEqual([]);
+		expect(workflowRuns.startCalls).toEqual([
+			{ workflow: "sandbox-probe", input: { revision: probeRevision } },
+		]);
 	});
 
 	it("starts the supervision-probe workflow with the validated run length and poll cadence", async () => {
@@ -182,9 +148,12 @@ describe("handleTriggerRequest", () => {
 			status: 200,
 			body: { runId: "wrun_supervision", workflow: "supervision-probe" },
 		});
-		expect(workflowRuns.startSupervisionCalls).toEqual([{ runSeconds: 840, pollSeconds: 30 }]);
-		expect(workflowRuns.startCalls).toEqual([]);
-		expect(workflowRuns.startProbeCalls).toEqual([]);
+		expect(workflowRuns.startCalls).toEqual([
+			{
+				workflow: "supervision-probe",
+				input: { runSeconds: 840, pollSeconds: 30 },
+			},
+		]);
 	});
 
 	it("starts the dispatch workflow with the validated run input", async () => {
@@ -208,15 +177,17 @@ describe("handleTriggerRequest", () => {
 			status: 200,
 			body: { runId: "wrun_dispatch", workflow: "dispatch" },
 		});
-		expect(workflowRuns.startDispatchCalls).toEqual([
+		expect(workflowRuns.startCalls).toEqual([
 			{
-				revision: probeRevision,
-				anchorBranch: "dispatch/widget-refactor-a1b2c3",
-				anchorPrNumber: 421,
-				prompt: "Rename the widget gateway methods.",
+				workflow: "dispatch",
+				input: {
+					revision: probeRevision,
+					anchorBranch: "dispatch/widget-refactor-a1b2c3",
+					anchorPrNumber: 421,
+					prompt: "Rename the widget gateway methods.",
+				},
 			},
 		]);
-		expect(workflowRuns.startCalls).toEqual([]);
 	});
 
 	it.each([
@@ -324,9 +295,6 @@ describe("handleTriggerRequest", () => {
 			body: { error: { code: "invalid-request", message: "Invalid trigger request." } },
 		});
 		expect(workflowRuns.startCalls).toEqual([]);
-		expect(workflowRuns.startProbeCalls).toEqual([]);
-		expect(workflowRuns.startSupervisionCalls).toEqual([]);
-		expect(workflowRuns.startDispatchCalls).toEqual([]);
 	});
 
 	it("returns a safe 401 without a caller token", async () => {
