@@ -8,7 +8,11 @@
   Flow yours → reference below the fold — and grill the open content questions
   (pillar presentation, primary reader), settling answers into the draft. The
   everyday-loop section gets a worked example with realistic command output and
-  the `ns address` boundary reference.
+  the `ns address` boundary reference. Strengthen the existing "also available in
+  the Pi harness" line into a sentence presenting Flow's Pi surface as the
+  turn-saving UI tier over the same portable commands and workflows (per the
+  2026-07-14 Pi-layer survey; `flow-pi-tier` owns the underlying work) — a
+  sentence in the restructure, not a new section.
 - [ ] Implement `[flow.models]`: manifest-declared settings schema, resolution
   ladder (env var → repo setting → built-in default), explicit disposition for
   the legacy env names, active-source inspectability.
