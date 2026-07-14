@@ -59,6 +59,20 @@ export default defineExtension({
 				}),
 			},
 			{
+				name: "publication-bind",
+				load: async () => ({
+					default: (await import("./commands/exec-publication-bind.ts"))
+						.objectiveExecPublicationBindNsCommand,
+				}),
+			},
+			{
+				name: "publication-publish",
+				load: async () => ({
+					default: (await import("./commands/exec-publication-publish.ts"))
+						.objectiveExecPublicationPublishNsCommand,
+				}),
+			},
+			{
 				name: "runner-begin",
 				load: async () => ({
 					default: (await import("./commands/exec-runner-begin.ts"))

@@ -10,6 +10,8 @@
 		"./ns/commands/exec-list-candidates": "./src/ns/commands/exec-list-candidates.ts",
 		"./ns/commands/exec-load-orientations": "./src/ns/commands/exec-load-orientations.ts",
 		"./ns/commands/exec-read-objective": "./src/ns/commands/exec-read-objective.ts",
+		"./ns/commands/exec-publication-bind": "./src/ns/commands/exec-publication-bind.ts",
+		"./ns/commands/exec-publication-publish": "./src/ns/commands/exec-publication-publish.ts",
 		"./ns/commands/exec-runner-begin": "./src/ns/commands/exec-runner-begin.ts",
 		"./ns/commands/exec-runner-finish": "./src/ns/commands/exec-runner-finish.ts",
 		"./ns/commands/exec-runner-subagent-usage": "./src/ns/commands/exec-runner-subagent-usage.ts",
