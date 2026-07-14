@@ -2,10 +2,10 @@
 
 ## Work
 
-- [~] Settle the canonical README (`references/README-draft.md`) through the
-  readme-driven-development loop: draft as finished product documentation for an
-  external Graphite-repo adopter, grill every unsettled decision it exposes, fold
-  answers back until coherent.
+- [x] Settle the canonical README (`references/README-draft.md`) through the
+      readme-driven-development loop: draft as finished product documentation for an
+      external Graphite-repo adopter, grill every unsettled decision it exposes, fold
+      answers back until coherent.
   - Settled at creation: recovery is default-on with a repo override; promotion target
     `ts/packages/capabilities/flow/README.md`; flow stays Graphite-native.
   - Settled by the 2026-07-12 steering decision: no standalone `ns flow validate`
@@ -22,6 +22,9 @@
     seam; command-specific environment variables select model refs; Slots and GitHub
     squash-merge behavior are documented command-scoped requirements; the complete command
     inventory includes `squash-stack`. No audit question remains in the draft.
+  - Evidence: the settled adopter contract was reconciled with the existing package
+    dependency matrix and hidden exec-surface documentation, then promoted to
+    `ts/packages/capabilities/flow/README.md`; the former draft is now a provenance pointer.
 - [x] Strip the hardcoded auto-fix bridge from PR #3291 so it lands as the pure
       `hiddenExecGroup` sdk export fix; the real recovery design lands under this
       Objective.
@@ -108,9 +111,13 @@
         definition-only and intentionally unresolved without descriptor provenance; selected
         broken repository policy fails actionably. Focused Flow/SDK tests, package suites,
         TypeScript/style gates, and full `just` pass; F11 remains parked.
-- [ ] Promote the settled README to `ts/packages/capabilities/flow/README.md`, repoint
-      this Objective's canonical reference at the promoted doc, and re-derive or retire
-      `orientation.md`.
+- [x] Promote the settled README to `ts/packages/capabilities/flow/README.md`, repoint
+      this Objective's canonical reference at the promoted doc, and retire the orientation
+      from the active load set through Objective closure.
+  - Evidence: package-relative points-guide links resolve, live `ns flow --help` and point
+    inspection corroborate the documented commands and customization points, and full
+    repository `just` validation passes. `closed.md` makes the retained historical
+    `orientation.md` ineligible for automatic loading.
 
 ## Parked
 
