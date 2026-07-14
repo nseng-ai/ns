@@ -6,12 +6,24 @@
 // core stays pure and fake-driven in tests. Consumer-gateway rule: methods
 // name what dispatch needs, not the underlying tool mechanics. Live
 // behavior against the deployed trigger route is pending verification.
+import type { GitGateway } from "@nseng-ai/foundation/git";
+
 import type { DispatchRunInput } from "../../dispatch/dispatch-run.ts";
 
+/**
+ * Provider-owned codes intentionally remain open across this seam: Foundation Git
+ * and git/gh subprocesses both contribute actionable codes.
+ */
 export interface DispatchGatewayError {
 	readonly code: string;
 	readonly message: string;
 }
+
+/** Canonical local Git facts consumed by the dispatch-owned Git adapter. */
+export type DispatchLocalGitFactsGateway = Pick<
+	GitGateway,
+	"repoRoot" | "currentBranch" | "headCommit" | "statusPaths"
+>;
 
 /**
  * Git facts and pushes for the dispatch source: the current branch, its

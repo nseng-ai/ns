@@ -42,12 +42,17 @@ export interface DispatchPreflightFailure {
 interface DispatchPreflightSuccess {
 	readonly ok: true;
 	readonly checks: readonly DispatchPreflightCheck[];
+	readonly deploymentUrl: string;
 	readonly triggerConnection: DispatchTriggerConnection;
 }
 
 export type DispatchPreflightResult = DispatchPreflightSuccess | DispatchPreflightFailure;
 
 /**
+ * This remains in the command core: its parsing helpers and result feed only
+ * this orchestration, so extraction would add ownership indirection rather
+ * than create a deeper module.
+ *
  * The credentials preflight (closes the credentials row's remaining
  * item): required `[dispatch]` configuration and exact pnpm contract
  * present and supported, the Development OIDC token present by name, and a
@@ -99,13 +104,7 @@ export async function runDispatchPreflight(
 		return { ok: false, checks };
 	}
 
-	const deploymentUrl = configCheck.config.deploymentUrl;
-	if (deploymentUrl === undefined) {
-		// Unreachable when configCheck succeeded (the config check requires
-		// deployment_url), but keeps the narrowing honest.
-		return { ok: false, checks };
-	}
-
+	const { deploymentUrl } = configCheck.config;
 	const triggerConnection: DispatchTriggerConnection = {
 		deploymentUrl,
 		oidcToken: tokenResult.token,
@@ -115,13 +114,20 @@ export async function runDispatchPreflight(
 	checks.push(identityCheck);
 	if (identityCheck.status === "failed") return { ok: false, checks };
 
-	return { ok: true, checks, triggerConnection };
+	return { ok: true, checks, deploymentUrl, triggerConnection };
 }
+
+type ValidDispatchProjectConfig = Omit<DispatchProjectConfig, "deploymentUrl"> & {
+	readonly deploymentUrl: string;
+};
 
 async function readDispatchConfig(
 	repoRoot: string,
 	gateways: Pick<DispatchPromptGateways, "config">,
-): Promise<{ readonly check: DispatchPreflightCheck; readonly config?: DispatchProjectConfig }> {
+): Promise<{
+	readonly check: DispatchPreflightCheck;
+	readonly config?: ValidDispatchProjectConfig;
+}> {
 	const source = await gateways.config.readDispatchSettingsSource({ repoRoot });
 	if (source.type === "missing") {
 		return {
@@ -162,7 +168,7 @@ async function readDispatchConfig(
 			status: "ok",
 			detail: "[dispatch] configuration is present and valid.",
 		},
-		config: parsed.value,
+		config: { ...parsed.value, deploymentUrl: parsed.value.deploymentUrl },
 	};
 }
 

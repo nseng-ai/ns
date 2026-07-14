@@ -1,38 +1,19 @@
-import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { describe, expect, test } from "vitest";
 
 import {
 	createRealDispatchWorkspaceGitGateway,
 	parseGitLsRemoteSha,
-	parseGitPorcelainStatusPaths,
 } from "../../src/ns/dispatch-prompt/real-workspace-git-gateway.ts";
+import { exited, ScriptedCommandRunner } from "./support/scripted-command-runner.ts";
 
 const SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
 
-function exited(overrides: Partial<Extract<ExecResult, { type: "exited" }>> = {}): ExecResult {
-	return { type: "exited", stdout: "", stderr: "", code: 0, signal: null, ...overrides };
+function createGateway(commands: ScriptedCommandRunner) {
+	return createRealDispatchWorkspaceGitGateway(new RealGitGateway(commands), commands.run);
 }
 
-function scriptedRunner(responses: readonly ExecResult[]) {
-	const calls: { command: string; args: readonly string[] }[] = [];
-	let index = 0;
-	const runner: CommandRunner = async (command, args) => {
-		calls.push({ command, args: [...args] });
-		const response = responses[index] ?? responses[responses.length - 1];
-		index += 1;
-		return response ?? exited();
-	};
-	return { runner, calls };
-}
-
-describe("workspace git wire parsers", () => {
-	test("parses porcelain status paths including renames", () => {
-		const paths = parseGitPorcelainStatusPaths(
-			" M src/widget.ts\n?? notes.md\nR  old.ts -> new.ts\n",
-		);
-		expect(paths).toEqual(["src/widget.ts", "notes.md", "old.ts -> new.ts"]);
-	});
-
+describe("workspace git wire parser", () => {
 	test("parses ls-remote output to a lowercase sha or null", () => {
 		expect(parseGitLsRemoteSha(`${SHA.toUpperCase()}\trefs/heads/feature\n`)).toBe(SHA);
 		expect(parseGitLsRemoteSha("")).toBeNull();
@@ -41,62 +22,101 @@ describe("workspace git wire parsers", () => {
 });
 
 describe("real workspace git gateway", () => {
-	test("resolves the source ref from rev-parse calls", async () => {
-		const { runner, calls } = scriptedRunner([
+	test("delegates source facts to Foundation Git", async () => {
+		const commands = new ScriptedCommandRunner([
 			exited({ stdout: "/repo\n" }),
 			exited({ stdout: "feature/widgets\n" }),
 			exited({ stdout: `${SHA.toUpperCase()}\n` }),
 		]);
-		const gateway = createRealDispatchWorkspaceGitGateway(runner);
-		const result = await gateway.resolveSourceRef({ cwd: "/repo/sub" });
+		const result = await createGateway(commands).resolveSourceRef({ cwd: "/repo/sub" });
 
 		expect(result).toEqual({
 			ok: true,
 			value: { repoRoot: "/repo", branch: "feature/widgets", headSha: SHA },
 		});
-		expect(calls.map((call) => call.args.join(" "))).toEqual([
+		expect(commands.calls.map((call) => call.args.join(" "))).toEqual([
 			"rev-parse --show-toplevel",
-			"rev-parse --abbrev-ref HEAD",
+			"branch --show-current",
 			"rev-parse HEAD",
 		]);
 	});
 
 	test("classifies a detached HEAD", async () => {
-		const { runner } = scriptedRunner([
+		const commands = new ScriptedCommandRunner([
 			exited({ stdout: "/repo\n" }),
-			exited({ stdout: "HEAD\n" }),
+			exited({ stdout: "" }),
 		]);
-		const gateway = createRealDispatchWorkspaceGitGateway(runner);
-		const result = await gateway.resolveSourceRef({ cwd: "/repo" });
+		const result = await createGateway(commands).resolveSourceRef({ cwd: "/repo" });
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.code).toBe("detached-head");
 	});
 
 	test("pushes the source ref as branch:refs/heads/branch", async () => {
-		const { runner, calls } = scriptedRunner([exited()]);
-		const gateway = createRealDispatchWorkspaceGitGateway(runner);
-		const result = await gateway.pushSourceBranch({ cwd: "/repo", branch: "feature/widgets" });
+		const commands = new ScriptedCommandRunner([exited()]);
+		const result = await createGateway(commands).pushSourceBranch({
+			cwd: "/repo",
+			branch: "feature/widgets",
+		});
 
 		expect(result.ok).toBe(true);
-		expect(calls[0]?.args).toEqual([
+		expect(commands.calls[0]?.args).toEqual([
 			"push",
 			"origin",
 			"feature/widgets:refs/heads/feature/widgets",
 		]);
 	});
 
+	test("uses Foundation NUL parsing for literal paths and rename/copy destinations", async () => {
+		const commands = new ScriptedCommandRunner([
+			exited({
+				stdout: [
+					" M literal path.ts",
+					"?? résumé notes.md",
+					'?? quote"file.txt',
+					"R  renamed destination.ts",
+					"old source.ts",
+					"C  copied destination.ts",
+					"copy source.ts",
+					"",
+				].join("\0"),
+			}),
+		]);
+		const result = await createGateway(commands).listDirtyPaths({ cwd: "/repo" });
+
+		expect(result).toEqual({
+			ok: true,
+			value: [
+				"literal path.ts",
+				"résumé notes.md",
+				'quote"file.txt',
+				"renamed destination.ts",
+				"copied destination.ts",
+			],
+		});
+		expect(commands.calls[0]?.args).toEqual(["status", "--porcelain=v1", "-z"]);
+	});
+
+	test("maps Foundation status errors into dispatch gateway errors", async () => {
+		const commands = new ScriptedCommandRunner([exited({ code: 1, stderr: "bad status" })]);
+		const result = await createGateway(commands).listDirtyPaths({ cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code: "git_status_paths_failed" },
+		});
+	});
+
 	test("pushes the anchor ref as revision:refs/heads/branch", async () => {
-		const { runner, calls } = scriptedRunner([exited()]);
-		const gateway = createRealDispatchWorkspaceGitGateway(runner);
-		const result = await gateway.pushAnchorBranch({
+		const commands = new ScriptedCommandRunner([exited()]);
+		const result = await createGateway(commands).pushAnchorBranch({
 			cwd: "/repo",
 			revision: SHA,
 			anchorBranch: "dispatch/feature-widgets-ab12cd34",
 		});
 
 		expect(result.ok).toBe(true);
-		expect(calls[0]?.args).toEqual([
+		expect(commands.calls[0]?.args).toEqual([
 			"push",
 			"origin",
 			`${SHA}:refs/heads/dispatch/feature-widgets-ab12cd34`,
@@ -104,11 +124,13 @@ describe("real workspace git gateway", () => {
 	});
 
 	test("surfaces source push failures with their prefix and first stderr line", async () => {
-		const { runner } = scriptedRunner([
+		const commands = new ScriptedCommandRunner([
 			exited({ code: 1, stderr: "error: failed to push source refs\nhint: source hint" }),
 		]);
-		const gateway = createRealDispatchWorkspaceGitGateway(runner);
-		const result = await gateway.pushSourceBranch({ cwd: "/repo", branch: "feature/widgets" });
+		const result = await createGateway(commands).pushSourceBranch({
+			cwd: "/repo",
+			branch: "feature/widgets",
+		});
 
 		expect(result).toEqual({
 			ok: false,
@@ -120,11 +142,10 @@ describe("real workspace git gateway", () => {
 	});
 
 	test("surfaces anchor push failures with their prefix and first stderr line", async () => {
-		const { runner } = scriptedRunner([
+		const commands = new ScriptedCommandRunner([
 			exited({ code: 1, stderr: "error: failed to push anchor ref\nhint: anchor hint" }),
 		]);
-		const gateway = createRealDispatchWorkspaceGitGateway(runner);
-		const result = await gateway.pushAnchorBranch({
+		const result = await createGateway(commands).pushAnchorBranch({
 			cwd: "/repo",
 			revision: SHA,
 			anchorBranch: "dispatch/feature-widgets-ab12cd34",
