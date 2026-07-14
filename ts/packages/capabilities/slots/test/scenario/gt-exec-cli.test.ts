@@ -600,12 +600,13 @@ describe("slot gt exec restack-preflight CLI", () => {
 	it("returns backend inspection failures as failures", async () => {
 		const gitFailure = runRestackPreflightScenario(
 			["gt", "exec", "restack-preflight", "--format", "json"],
-			{ git: { inspectionFailure: { message: "status unavailable" } } },
+			{ git: { uncommittedChangesFailure: { message: "status unavailable" } } },
 		);
 		expect(await gitFailure.exit).toBe(2);
 		expect(parseJsonOutput(gitFailure)).toMatchObject({
 			status: "failure",
 			errorType: "git-inspection-failed",
+			message: "status unavailable",
 			data: { operation: "inspect-worktree-and-slot-inventory" },
 		});
 
@@ -1397,6 +1398,7 @@ describe("slot gt exec descendants-report CLI", () => {
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "failure",
 			errorType: "local-branches-read-failed",
+			message: "Cannot list local branches: refs unavailable",
 			data: { branch: "root", parent: "root", stage: "local-branches" },
 		});
 	});

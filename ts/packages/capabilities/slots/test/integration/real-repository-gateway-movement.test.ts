@@ -20,9 +20,15 @@ describe("RealSlotRepositoryGateway movement methods", () => {
 		const root = await makeRepo();
 		const gateway = new RealSlotRepositoryGateway({ cwd: root, env: process.env });
 
-		expect(await gateway.hasUncommittedChanges(root)).toBe(false);
+		expect(await gateway.hasUncommittedChanges(root)).toEqual({
+			type: "ok",
+			hasUncommittedChanges: false,
+		});
 		await writeFile(join(root, "dirty.txt"), "dirty\n", "utf8");
-		expect(await gateway.hasUncommittedChanges(root)).toBe(true);
+		expect(await gateway.hasUncommittedChanges(root)).toEqual({
+			type: "ok",
+			hasUncommittedChanges: true,
+		});
 	});
 
 	it("checks branch presence, creates branches, checks out, and detaches in a throwaway repo", async () => {

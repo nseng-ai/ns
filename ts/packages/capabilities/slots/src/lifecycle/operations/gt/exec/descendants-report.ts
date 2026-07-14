@@ -1,6 +1,5 @@
 import { failure, negative, ok } from "@nseng-ai/clinkr";
 import type { GraphiteTopology } from "@nseng-ai/capability-kit/graphite/metadata";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../../core/context.ts";
@@ -89,20 +88,18 @@ export async function runGtDescendantsReport(
 	request: GtDescendantsReportRequest,
 ) {
 	if (ctx.repo.type === "no_repo") return failure(ctx.repo.errorType, ctx.repo.message);
-	let localBranches: ReadonlySet<string>;
-	try {
-		localBranches = new Set(await ctx.git.listLocalBranches());
-	} catch (error) {
+	const localBranchesResult = await ctx.git.listLocalBranches();
+	if (localBranchesResult.type === "failure")
 		return failure(
 			"local-branches-read-failed",
-			`Cannot list local branches: ${formatErrorMessage(error)}`,
+			`Cannot list local branches: ${localBranchesResult.failure.message}`,
 			{
 				branch: request.branch,
 				parent: request.branch,
 				stage: "local-branches",
 			},
 		);
-	}
+	const localBranches: ReadonlySet<string> = new Set(localBranchesResult.branches);
 	if (!localBranches.has(request.branch))
 		return negative(`Local branch '${request.branch}' was not found.`, {
 			data: { target: request.branch },

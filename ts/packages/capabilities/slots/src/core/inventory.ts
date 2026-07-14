@@ -1,9 +1,10 @@
 import { basename } from "node:path";
 
-import type {
-	SlotRepositoryGateway,
-	WorktreeInfo,
-	WorktreeOccupancy,
+import {
+	unwrapIncumbentRepositoryResult,
+	type SlotRepositoryGateway,
+	type WorktreeInfo,
+	type WorktreeOccupancy,
 } from "./gateways/repository.ts";
 import { extractSlotNumber } from "./naming.ts";
 
@@ -63,7 +64,11 @@ export async function lowestAvailable(
 	git: SlotRepositoryGateway,
 ): Promise<SlotRecord | null> {
 	for (const record of inventory.records) {
-		if (isSlotAvailable(record) && !(await git.hasUncommittedChanges(record.path))) return record;
+		if (
+			isSlotAvailable(record) &&
+			!unwrapIncumbentRepositoryResult(await git.hasUncommittedChanges(record.path))
+		)
+			return record;
 	}
 	return null;
 }

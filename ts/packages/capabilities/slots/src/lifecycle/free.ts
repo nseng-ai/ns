@@ -1,4 +1,5 @@
 import type { RepoSlotContext } from "../core/context.ts";
+import { unwrapIncumbentRepositoryResult } from "../core/gateways/repository.ts";
 import { buildSlotInventory, findBySlot, type SlotInventory } from "../core/inventory.ts";
 import { slotOperationMessage, type LifecycleResult } from "./common.ts";
 import {
@@ -99,7 +100,7 @@ async function validatedFreeTargets(
 			errors.push(`${slotName} is not currently assigned. Run \`slot list\` to see the pool.`);
 			continue;
 		}
-		if (await ctx.git.hasUncommittedChanges(record.path)) {
+		if (unwrapIncumbentRepositoryResult(await ctx.git.hasUncommittedChanges(record.path))) {
 			errors.push(
 				`${slotName} has uncommitted changes at ${record.path}. Commit or stash before freeing.`,
 			);

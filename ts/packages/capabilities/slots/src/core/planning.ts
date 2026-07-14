@@ -1,7 +1,11 @@
 import { basename } from "node:path";
 
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { SlotRepositoryGateway, WorktreeOccupancy } from "./gateways/repository.ts";
+import {
+	unwrapIncumbentRepositoryResult,
+	type SlotRepositoryGateway,
+	type WorktreeOccupancy,
+} from "./gateways/repository.ts";
 import {
 	buildSlotInventory,
 	findByBranch,
@@ -153,7 +157,7 @@ export async function planCurrentCheckout(
 		};
 	}
 
-	if (await git.hasUncommittedChanges(options.cwd))
+	if (unwrapIncumbentRepositoryResult(await git.hasUncommittedChanges(options.cwd)))
 		return { type: "dirty_worktree", cwd: options.cwd };
 	const redirect = await planCurrentWtRedirect(git, {
 		cwd: options.cwd,

@@ -98,14 +98,45 @@ describe("RealSlotRepositoryGateway", () => {
 		).rejects.toThrow("trunk failed");
 	});
 
-	it("delegates uncommitted-change checks to the core git path contract", async () => {
+	it("maps uncommitted-change success and failure results from the core git path contract", async () => {
 		const coreGit = new InMemoryGitGateway({ dirtyPaths: ["."] });
-		const gateway = new RealSlotRepositoryGateway({ cwd: "/repo", coreGit });
+		const failingCoreGit = new InMemoryGitGateway({
+			dirtyPathFailures: {
+				".": { code: "status-failed", message: "status unavailable" },
+			},
+		});
 
-		await expect(gateway.hasUncommittedChanges("/repo/worktree")).resolves.toBe(true);
+		await expect(
+			new RealSlotRepositoryGateway({ cwd: "/repo", coreGit }).hasUncommittedChanges(
+				"/repo/worktree",
+			),
+		).resolves.toEqual({ type: "ok", hasUncommittedChanges: true });
+		await expect(
+			new RealSlotRepositoryGateway({
+				cwd: "/repo",
+				coreGit: failingCoreGit,
+			}).hasUncommittedChanges("/repo/worktree"),
+		).resolves.toEqual({ type: "failure", failure: { message: "status unavailable" } });
 		expect(coreGit.hasUncommittedChangesUnderCalls).toEqual([
 			{ cwd: "/repo/worktree", relativePath: "." },
 		]);
+	});
+
+	it("maps local branch listing success and failure results from the core git gateway", async () => {
+		const coreGit = new InMemoryGitGateway({
+			localBranchTips: [{ name: "feature/a", headIso: "2026-06-21T00:00:00.000Z" }],
+		});
+		const failingCoreGit = new InMemoryGitGateway({
+			localBranchTipsFailure: { code: "refs-failed", message: "refs unavailable" },
+		});
+
+		await expect(
+			new RealSlotRepositoryGateway({ cwd: "/repo", coreGit }).listLocalBranches(),
+		).resolves.toEqual({ type: "ok", branches: ["feature/a"] });
+		await expect(
+			new RealSlotRepositoryGateway({ cwd: "/repo", coreGit: failingCoreGit }).listLocalBranches(),
+		).resolves.toEqual({ type: "failure", failure: { message: "refs unavailable" } });
+		expect(coreGit.listLocalBranchTipsCalls).toEqual([{ cwd: "/repo" }]);
 	});
 
 	it("delegates local branch tip listing to the core git gateway", async () => {

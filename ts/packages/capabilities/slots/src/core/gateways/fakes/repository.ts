@@ -7,8 +7,10 @@ import type {
 	BranchDeleteOptions,
 	CurrentBranchResult,
 	GitCommandFailure,
+	LocalBranchesResult,
 	LocalBranchTip,
 	SlotRepositoryGateway,
+	UncommittedChangesResult,
 	WorktreeInfo,
 	WorktreeOccupancy,
 } from "../repository.ts";
@@ -41,7 +43,7 @@ export interface FakeSlotRepositoryGatewayOptions {
 	worktrees?: readonly WorktreeInfo[];
 	branchOccupancies?: readonly WorktreeOccupancy[];
 	dirtyPaths?: readonly string[];
-	inspectionFailure?: GitCommandFailure;
+	uncommittedChangesFailure?: GitCommandFailure;
 	trunkBranch?: string;
 	localBranches?: readonly string[];
 	localBranchesFailure?: GitCommandFailure;
@@ -63,7 +65,7 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 	private readonly worktrees: WorktreeInfo[];
 	private readonly branchOccupancies: WorktreeOccupancy[];
 	private readonly dirtyPaths: ReadonlySet<string>;
-	private readonly inspectionFailure: GitCommandFailure | undefined;
+	private readonly uncommittedChangesFailure: GitCommandFailure | undefined;
 	private readonly trunkBranch: string;
 	private readonly localBranches: Set<string>;
 	private readonly localBranchesFailure: GitCommandFailure | undefined;
@@ -93,7 +95,7 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 			)
 		).map(copyOccupancy);
 		this.dirtyPaths = new Set(options.dirtyPaths ?? []);
-		this.inspectionFailure = options.inspectionFailure;
+		this.uncommittedChangesFailure = options.uncommittedChangesFailure;
 		this.trunkBranch = options.trunkBranch ?? "master";
 		this.localBranches = new Set(
 			options.localBranches ?? deriveLocalBranches(this.worktrees, this.trunkBranch),
@@ -147,18 +149,20 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 		return this.branchOccupancies.map(copyOccupancy);
 	}
 
-	async listLocalBranches(): Promise<readonly string[]> {
-		if (this.localBranchesFailure !== undefined) throw new Error(this.localBranchesFailure.message);
-		return [...this.localBranches];
+	async listLocalBranches(): Promise<LocalBranchesResult> {
+		if (this.localBranchesFailure !== undefined)
+			return { type: "failure", failure: { ...this.localBranchesFailure } };
+		return { type: "ok", branches: [...this.localBranches] };
 	}
 
 	async listLocalBranchTips(): Promise<readonly LocalBranchTip[]> {
 		return this.localBranchTips.map(copyLocalBranchTip);
 	}
 
-	async hasUncommittedChanges(path: string): Promise<boolean> {
-		if (this.inspectionFailure !== undefined) throw new Error(this.inspectionFailure.message);
-		return this.dirtyPaths.has(path);
+	async hasUncommittedChanges(path: string): Promise<UncommittedChangesResult> {
+		if (this.uncommittedChangesFailure !== undefined)
+			return { type: "failure", failure: { ...this.uncommittedChangesFailure } };
+		return { type: "ok", hasUncommittedChanges: this.dirtyPaths.has(path) };
 	}
 
 	async getTrunkBranch(): Promise<string> {
@@ -190,6 +194,14 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 		const comparisonFailure = this.branchComparisonFailures.get(key);
 		if (comparisonFailure !== undefined)
 			return { type: "failure", failure: { ...comparisonFailure } };
+		const missingRefs = [options.parent, options.branch].filter(
+			(ref) => !this.localBranches.has(ref),
+		);
+		if (missingRefs.length > 0)
+			return {
+				type: "failure",
+				failure: { message: `Local branch ref(s) not found: ${missingRefs.join(", ")}` },
+			};
 		const comparison = this.branchComparisons.get(key) ?? emptyBranchComparison();
 		return { type: "ok", comparison: copyBranchComparison(comparison) };
 	}

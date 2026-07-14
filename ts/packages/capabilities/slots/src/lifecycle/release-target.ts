@@ -1,4 +1,7 @@
-import type { SlotRepositoryGateway } from "../core/gateways/repository.ts";
+import {
+	unwrapIncumbentRepositoryResult,
+	type SlotRepositoryGateway,
+} from "../core/gateways/repository.ts";
 import { findBySlot, type SlotInventory, type SlotRecord } from "../core/inventory.ts";
 
 export interface FreedSlot {
@@ -51,7 +54,7 @@ export async function releaseAssignedSlotTarget(
 			worktreePath: record.path,
 			operation: record.operation,
 		});
-	if (await options.git.hasUncommittedChanges(record.path))
+	if (unwrapIncumbentRepositoryResult(await options.git.hasUncommittedChanges(record.path)))
 		return failure("dirty-worktree", options.target, { worktreePath: record.path });
 	const detachFailure = await options.git.detachHead(record.path, options.trunkBranch);
 	if (detachFailure !== null)
