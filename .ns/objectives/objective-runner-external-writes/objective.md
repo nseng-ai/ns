@@ -86,7 +86,7 @@ Risks:
 - **Authorization confusion:** a launch flag could be copied to the wrong branch or PR. Mitigation: resolve and bind slug, branch, PR number/head, and launch baseline before mutation; re-check them at publication.
 - **Partial publication:** Git push and GitHub PR edit cannot be atomic. Accepted shortcut: continue after a precisely reported PR-edit failure and treat the summary as best-effort. Upgrade: durable reconciliation/retry state or a required final coherence gate if dogfooding shows stale summaries are common; retire the pair together.
 - **Credential blast radius:** existing host credentials may exceed the branch/PR scope. Mitigation: only trusted orchestration invokes narrow operations after verification. Upgrade: short-lived branch/PR-scoped credentials if a practical provider exists or dogfooding shows host credentials are unacceptable.
-- **Package-boundary leakage:** reusing Flow internals directly would couple Objectives to private submit implementation. Mitigation: add or narrow a Capability API around the required mutation mechanics, preserving execution-channel semantics.
+- **Package-boundary leakage:** de-risked for the Flow seam. The guarded push and managed PR-body mechanics are exposed through `@nseng-ai/flow/api` with narrow Consumer Gateways; Objectives can compose that curated API without reaching into private submit implementation.
 - **Audit drift:** the PR summary could diverge from durable Objective rationale. Mitigation: parent judgment writes the Objective first and regenerates a cumulative managed section rather than appending opaque step logs.
 
 ## Open Questions
