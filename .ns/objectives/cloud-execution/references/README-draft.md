@@ -1,8 +1,8 @@
 # Cloud dispatch
 
-Hand work to the cloud without leaving your session. From inside your harness
-— Pi first — you dispatch a plan, a prompt, or the session itself; an agent
-runs it against a fresh checkout of your repository in an isolated sandbox,
+Hand work to the cloud without leaving your session. The implemented Pi-first
+path dispatches a raw prompt; plan and session dispatch remain planned. A remote
+agent runs the work against a fresh checkout in an isolated sandbox,
 with the repo's ns skills available. Every dispatch opens a pull request up front as its
 anchor, and the results land on it through git. Your session never blocks
 on the remote work.
@@ -13,14 +13,16 @@ on the remote work.
 > settled are listed under [Open questions](#open-questions) rather than
 > silently invented.
 
-## Quick start (Pi)
+## Quick start
 
-You're mid-session and a well-scoped piece of work doesn't need you. Send it
-away:
+From the repository, send a well-scoped raw prompt through the implemented
+kernel CLI:
 
+```sh
+ns dispatch prompt "Rename the widget gateway methods to match the command-shape convention"
 ```
-/ns:dispatch:prompt Rename the widget gateway methods to match the command-shape convention
-```
+
+A thin Pi slash-command mirror remains planned.
 
 Or dispatch a plan:
 
@@ -28,8 +30,10 @@ Or dispatch a plan:
 /ns:dispatch:plan
 ```
 
-The moment you dispatch, a new branch is pushed and a pull request opens
-for it — that PR is the job's anchor from before the work starts. Then keep
+The CLI reports each local setup phase while it checks, pushes, opens the anchor,
+and starts the workflow, then prints clickable links to both the anchor PR and the
+Vercel Workflow run. A new branch is pushed and a pull request opens for it — that
+PR is the job's anchor from before the work starts. Then keep
 working: the run executes remotely, and when it finishes the produced
 commits land on the anchor PR, ready to review like any other PR — check
 out the branch, continue it, stack on it, or discard it.
@@ -49,32 +53,31 @@ out the branch, continue it, stack on it, or discard it.
 - **No questions mid-flight.** Dispatched runs are strictly non-interactive:
   the remote agent never blocks on you. Where it would normally ask, it
   makes the call and records it in a decision log you review afterward.
-- **Watch everything in flight from one place.** A dispatch jobs TUI shows
-  the status of all outstanding dispatch jobs — what's running, what's
-  landed, what failed — across your sessions.
+- **Watch everything in flight from one place (planned).** The committed
+  product direction is a dispatch jobs TUI showing what's running, landed,
+  or failed across sessions; implementation remains roadmap work.
 
 ## Commands
 
-### `/ns:dispatch:prompt`
+### `ns dispatch prompt`
 
 Dispatches a raw prompt as the unit of work. The remote agent receives the
 prompt and the repository at your branch head (see "What the remote agent
 sees").
 
-### `/ns:dispatch:plan`
+### `/ns:dispatch:plan` (planned)
 
-Dispatches a plan doc as the unit of work. The remote agent executes the
+This command remains roadmap work. It will dispatch a plan doc as the unit of work. The remote agent executes the
 plan the way a local implementing session would.
 
-With no argument, Pi dispatches the most recent plan from your session —
-you plan, then send the plan away, in one motion. Pass an explicit plan
-reference to dispatch something else. Latest-plan resolution is Pi session
-sugar; the underlying `ns dispatch plan` CLI always takes an explicit plan
-reference.
+The planned no-argument Pi surface will dispatch the most recent plan from
+your session; an explicit plan reference will select something else.
+Latest-plan resolution will remain Pi session sugar, while the underlying
+`ns dispatch plan` CLI will require an explicit plan reference.
 
-### `/ns:dispatch:session`
+### `/ns:dispatch:session` (planned)
 
-Continues your current session remotely. Where `prompt` and `plan` send a
+This command remains roadmap work. It will continue your current session remotely. Where `prompt` and `plan` send a
 discrete unit of work, `session` sends *the work you're in the middle of*:
 it captures the session's working context as a handoff and dispatches a
 remote agent to pick it up and keep going — as if the session itself moved
@@ -85,12 +88,10 @@ The same clean-tree rule applies as for any dispatch: check in a checkpoint
 commit of where you are (`/ns:flow:cp`) and push — the branch carries the
 code state, the handoff carries the session context.
 
-Under the hood this is the handoff machinery with a predefined continuation
-prompt: the handoff carries the context, the prompt tells the remote agent
-to pick it up and continue. The kernel command is
-`ns dispatch handoff <ref>` — it takes an explicit handoff reference, so
-any handoff (including one created earlier) can be dispatched from any
-harness; capturing the *current* session is the Pi command's sugar.
+The planned implementation uses handoff machinery with a predefined
+continuation prompt. Its kernel command will be
+`ns dispatch handoff <ref>` with an explicit handoff reference; capturing
+the *current* session will be Pi sugar.
 
 ### What the remote agent sees
 
@@ -107,9 +108,9 @@ Dispatch operates on the repository you run it from: results land on this
 repo's remote. There is no cross-repo dispatch — like every other ns
 capability, dispatch is repo-local.
 
-### The dispatch jobs TUI
+### The dispatch jobs TUI (planned)
 
-A terminal UI lists every outstanding dispatch job with its status —
+The committed product direction is a terminal UI listing every outstanding dispatch job —
 running, landed, or failed — each with its anchor PR, and failed ones with
 the failure reason and access to the run's logs. This is how you answer
 "what did I send away, and is it done?" from the terminal instead of a
@@ -119,9 +120,9 @@ state and logs. (Command name: see Open questions.)
 
 ### Under the hood
 
-The Pi commands are thin mirrors of the `ns dispatch plan|prompt|handoff`
-kernel CLI, so the same command face is reachable from any harness — Claude
-Code and Codex get the identical commands through wrapper skills. That
+The implemented `ns dispatch prompt` kernel CLI is the first command in the
+planned `ns dispatch plan|prompt|handoff` family. Pi sugar and portable wrapper
+skills for the remaining commands are roadmap work. That
 command portability is separate from the harness running remotely: the
 implemented in-sandbox registry currently contains only `pi`, and
 `harness = "claude-code"` is rejected until the planned Claude Code row has a
@@ -197,8 +198,8 @@ workflow-supervised execution as an interactive dispatch.
 
 Non-secret repo configuration lives in the repo-root `ns.toml`, in a typed
 `[dispatch]` table: which implemented agent harness runs inside the sandbox
-(currently only `pi`), the stable Vercel project/team IDs, and the dispatch
-deployable's stable HTTPS URL (the deployment recorded in step 3 below) that
+(currently only `pi`), the stable Vercel project/team IDs, the project's Vercel
+Workflows dashboard URL, and the dispatch deployable's stable HTTPS URL (the deployment recorded in step 3 below) that
 the CLI's trigger/observe calls target. It's versioned with the repo, so
 every clone dispatches the same way:
 
@@ -207,6 +208,7 @@ every clone dispatches the same way:
 harness = "pi"
 vercel_project_id = "prj_..."
 vercel_team_id = "team_..."
+workflow_dashboard_url = "https://vercel.com/<team>/<project>/workflows"
 deployment_url = "https://<dispatch-host>"
 ```
 
@@ -256,13 +258,14 @@ run is ready to land — injected into the single landing command, never
 into the sandbox environment. Dispatch preflights credentials and reports
 exactly what is missing before any remote work starts: the `[dispatch]`
 table is present and valid with a registry-supported harness (currently
-`pi`) and `deployment_url`; `ts/package.json#packageManager` is an exact
+`pi`), `workflow_dashboard_url`, and `deployment_url`; `ts/package.json#packageManager` is an exact
 supported pnpm declaration; the Development OIDC token is available by name
 (`VERCEL_OIDC_TOKEN` from the package's pulled `.env.local`); and a read-only
 authenticated run-status probe against the deployment confirms the caller's
 identity is accepted. Each failure is a named, actionable category, and no
-secret value is ever read into output. (Live preflight behavior against the
-deployed routes is pending verification.)
+secret value is ever read into output. This preflight passed against production
+deployment `dpl_He9jnMkZmH7fTYg9K3DcHp1mKbds` before the first completed prompt
+dispatch on 2026-07-14.
 
 ### Mint endpoint configuration
 
@@ -287,8 +290,8 @@ slice.
 
 The legacy deployed `NS_DISPATCH_SANDBOX_MINT_SECRET` variable is deliberately
 absent from this required table: no source or runtime parser consumes it. It
-remains inert in production through the pending live dispatch pass and is
-removed afterward through the human-only environment cleanup.
+remained inert through the first completed live dispatch and awaits removal
+through the human-only environment cleanup.
 
 Vercel sensitive variables are write-only and their keys cannot be renamed.
 Create replacement sensitive variables for a namespace migration, stream fresh
@@ -319,15 +322,18 @@ configured monorepo Root Directory exactly once. The proven setup sequence is:
    make `NS_DISPATCH_GITHUB_REPOSITORY` available to the Development
    environment so the local probe can read it. Do not add a landing mint
    secret for new setup. If the legacy variable is already deployed, leave it
-   untouched through the pending live pass; the current code ignores it.
+   untouched pending human cleanup; the current code and first live dispatch
+   ignore it.
 3. From the package directory, run `pnpm build:deployable`. This runs the repo's
    native TypeScript check, fails on TypeScript diagnostics that Vercel's build
-   may otherwise tolerate, builds the local Vercel output, and verifies that the
-   emitted mint function contains every relative runtime module. Then deploy
-   from the repository root with the existing project selected:
+   may otherwise tolerate, bundles each API handler as runtime-closed CommonJS,
+   removes non-portable `filePathMap` entries, verifies every API handler and
+   Workflow consumer, and merges the final routes. Relocate that complete
+   package-local `.vercel/output` to the repository deployment boundary, retain
+   the linked project metadata, and deploy from the repository root:
 
    ```sh
-   vercel deploy . --project ns-dispatch --scope <team-slug> --prod --yes
+   vercel deploy --prebuilt --scope <team-slug> --prod --yes
    ```
 
    Record the explicit HTTPS URL without embedding credentials in it.
@@ -386,15 +392,21 @@ shared landing secret and self-landing sandbox shortcuts on 2026-07-13, and
 the implementation now matches that design: the HTTP shared-secret landing
 path is removed, the endpoint is OIDC-only and clone-only, the supervising
 workflow mints landing credentials in-process, and no push-capable credential
-enters the sandbox environment. The workflow dispatch path itself remains
-pending live verification.
+enters the sandbox environment. Dispatch run
+`wrun_01KXFZ14SBRCGTSPP5PEH19C3T` completed and landed one proof file plus its
+decision log on <https://github.com/nseng-ai/ns/pull/3612>. The supervisor's
+fallback commit path was required because the first live Pi host had not bound
+extension session lifecycle and could not execute Bash; normal agent-side
+command, commit, and subagent behavior remains pending one controlled rerun.
+See `dispatch-live-evidence.md` for the exact evidence and
+`dispatch-pi-runner.md` for the remaining harness verification.
 
 ## Open questions
 
 Unsettled decisions, visible here on purpose:
 
-- **Dispatch jobs TUI shape.** The TUI is committed, and its status
-  plumbing is settled: it enumerates `dispatch/` anchor PRs and follows
+- **Dispatch jobs TUI shape.** The TUI is committed as product direction but
+  not implemented; its status plumbing is settled: it enumerates `dispatch/` anchor PRs and follows
   each PR's stamped run handle into Vercel's run observability for state
   and logs. Open: the TUI's command name and whether any push-style
   notification exists beyond the TUI and the anchor PR.

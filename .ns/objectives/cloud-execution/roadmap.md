@@ -77,9 +77,10 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
       The runtime, probe, tests, and README use one `NS_DISPATCH_*` namespace
       for the dispatch-owned environment variables. Targeted package tests and
       workspace typecheck pass. Linked-project
-      configuration completed 2026-07-13: all nine `NS_DISPATCH_*` production
-      variables are present with secrets kept sensitive, the repository input is
-      also present in Development, and actual Development-token claims supplied the
+      configuration completed 2026-07-13: all nine then-required `NS_DISPATCH_*`
+      production variables were present with secrets kept sensitive. The current
+      contract requires eight; the ninth is the inert legacy mint-secret variable
+      awaiting human cleanup. The repository input is also present in Development, and actual Development-token claims supplied the
       exact issuer/audience while matching the configured team, project, and
       environment. The new App key authenticated as `nseng-ai/ns-dispatch`, and a
       clone-purpose installation token reached private repo `nseng-ai/ns` with
@@ -118,50 +119,52 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
       secret. The legacy variable remains deployed, inert, and intentionally
       untouched until the post-live human cleanup. In-process minting from
       deployed workflow-step compute is still pending the batched live pass.
-- [~] Workflow spine probes — three staged probes on the existing
-  deployable, in order, each folding proven facts into the README and
-  extending the `build:deployable` gate before anything depends on it.
-  Makes true: "Under the hood" (the workflow-supervised execution
-  story). (1) **workflow-hello-probe**: a trivial workflow + step
-  deployed and triggered end-to-end through an authenticated trigger
-  route (Development OIDC on the dispatch-owned header, reusing the
-  verified mint-route trust machinery) calling the Workflow SDK's
-  `start()`, returning the run id, observed to completion via
-  `getRun` — de-risks `"use workflow"`/`"use step"` packaging through
-  Vercel's workflow builder and Queues wiring, the proven
-  escape-local-validation risk class, and surfaces Queues availability
-  as a setup precondition. (2) **sandbox-in-workflow probe**: the
-  verified private-repository Sandbox hello probe lifted into workflow
-  steps with the clone token minted in-process. (3) **long-run
-  supervision probe**: a detached command in the sandbox exceeding a
-  single function invocation ceiling (>13 minutes), supervised by
-  short poll steps and zero-compute `sleep()`s, with a clean `getRun`
-  status trail and cleanup on every path — retires the run-length
-  concern structurally. Gated by the credentials row's mint core;
-  gates the steel thread.
-  Policy: each probe's *code* (entrypoints, trigger route, gate
-  extension) is runner-step work; the deploy → trigger → observe →
-  cleanup cycle is a parent interlude under the Runner Policy's
-  pre-authorized actions, with proven facts hand-committed by the
-  parent. Autorun phase 1 (decision 2026-07-13) is, in order: (1) the
-  `build:deployable` gate extension for `"use workflow"`/`"use step"`
-  packaging — before any workflow code lands, so step validation
-  predicts deployability; (2) mint-core in-process exposure (from the
-  credentials row); (3) probe-1 code; then interlude 1 deploys,
-  triggers, observes via `getRun`, and folds facts. Probe-2/3 code
-  waits for probe-1's proven facts. Amended 2026-07-13
-  (code-first-autorun-restructure Semantic Update): the autorun run
-  builds probe-2/3 and steel-thread code ahead of live probe facts;
-  all deploy/trigger/observe work batches into one live pass after
-  the code run, which alone may fold verification claims.
-  Code complete 2026-07-13
-  (code-first-run-spine-and-steel-thread-coded Semantic Update): all
-  three probe code slices plus the gate extension are locally green
-  on the run's stack; remaining is the batched live
-  deploy/trigger/observe pass. Probe-specific supervision modules remain
-  until the long-run live pass is proven and folded; the probe-neutral
-  supervision core survives their retirement. This does not mark the live
-  gate complete.
+- [x] Workflow spine probes — three staged probes on the existing
+      deployable, in order, each folding proven facts into the README and
+      extending the `build:deployable` gate before anything depends on it.
+      Makes true: "Under the hood" (the workflow-supervised execution
+      story). (1) **workflow-hello-probe**: a trivial workflow + step
+      deployed and triggered end-to-end through an authenticated trigger
+      route (Development OIDC on the dispatch-owned header, reusing the
+      verified mint-route trust machinery) calling the Workflow SDK's
+      `start()`, returning the run id, observed to completion via
+      `getRun` — de-risks `"use workflow"`/`"use step"` packaging through
+      Vercel's workflow builder and Queues wiring, the proven
+      escape-local-validation risk class, and surfaces Queues availability
+      as a setup precondition. (2) **sandbox-in-workflow probe**: the
+      verified private-repository Sandbox hello probe lifted into workflow
+      steps with the clone token minted in-process. (3) **long-run
+      supervision probe**: a detached command in the sandbox exceeding a
+      single function invocation ceiling (>13 minutes), supervised by
+      short poll steps and zero-compute `sleep()`s, with a clean `getRun`
+      status trail and cleanup on every path — retires the run-length
+      concern structurally. Gated by the credentials row's mint core;
+      gates the steel thread.
+      Policy: each probe's *code* (entrypoints, trigger route, gate
+      extension) is runner-step work; the deploy → trigger → observe →
+      cleanup cycle is a parent interlude under the Runner Policy's
+      pre-authorized actions, with proven facts hand-committed by the
+      parent. Autorun phase 1 (decision 2026-07-13) is, in order: (1) the
+      `build:deployable` gate extension for `"use workflow"`/`"use step"`
+      packaging — before any workflow code lands, so step validation
+      predicts deployability; (2) mint-core in-process exposure (from the
+      credentials row); (3) probe-1 code; then interlude 1 deploys,
+      triggers, observes via `getRun`, and folds facts. Probe-2/3 code
+      waits for probe-1's proven facts. Amended 2026-07-13
+      (code-first-autorun-restructure Semantic Update): the autorun run
+      builds probe-2/3 and steel-thread code ahead of live probe facts;
+      all deploy/trigger/observe work batches into one live pass after
+      the code run, which alone may fold verification claims.
+      Code complete 2026-07-13
+      (code-first-run-spine-and-steel-thread-coded Semantic Update): all
+      three probe code slices plus the gate extension are locally green
+      on the run's stack. Live pass completed 2026-07-14: hello
+      `wrun_01KXFVZ9QJ5M8NHJB034YNS3JP`, private checkout
+      `wrun_01KXFVZYEFN23G79G38DGW7YRG`, 15-second smoke
+      `wrun_01KXFW0NCR93B316X0NERCNBPY`, and 840-second supervision
+      `wrun_01KXFW232K09QFBPSP82HTF6NX` all completed once the deployment
+      carried hermetic API handlers and the complete Workflow inventory.
+      Exact bounded claims live in `references/dispatch-live-evidence.md`.
 - [~] Steel thread: `ns dispatch prompt` end-to-end under the dispatch
   workflow. Local CLI: preflight, dirty-tree refusal listing dirty
   files, push-first when the remote is missing/behind, anchor
@@ -210,7 +213,15 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
      the complete harness registry Pi-only, rejects unsupported harnesses in
      preflight, and derives Pi's pnpm provisioning version from the exact
      checkout's `ts/package.json#packageManager` both locally and remotely.
-     Remaining: sub-slice 4, the live end-to-end interlude.
+     Live sub-slice 4 ran 2026-07-14 as
+     `wrun_01KXFZ14SBRCGTSPP5PEH19C3T` and landed one proof file plus
+     decision log on PR #3612 through the supervisor's fallback commit.
+     It exposed missing Pi extension lifecycle binding and checkout-local
+     `pi` child PATH; local repairs are green, but one controlled rerun must
+     prove first-call Bash, agent-created commit, subagent spawn, and normal
+     landing before this row closes. See
+     `references/dispatch-live-evidence.md` and
+     `references/dispatch-pi-runner.md`.
 - [ ] Reusable workflow-supervised dispatch setup skill, distilled from the
       proven credentials, spine-probe, and steel-thread work rather than
       authored ahead of it. Makes true: "Setup" as an executable
@@ -226,15 +237,11 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
       from actual non-secret claims; read-only App/installation/repository
       checks; precise `.env.local` ignore hygiene; and the requirement that
       probe SHAs be remotely reachable. Treat
-      `references/vercel-sandbox-github-integration-field-guide.md` as the
-      setup tool's acceptance checklist: package-root tracing and
-      emitted-artifact verification; package-directory link/build/env-pull
-      versus repository-root deployment; reserved versus caller-owned OIDC
-      headers; phased clone/work/landing credentials; safe status-only
-      probes; explicit consent before billable Sandbox creation; mandatory
-      cleanup; retry-after-inspect behavior for ambiguous deployment
-      transport failures; and prototype debt with named cleanup (overbroad
-      App permissions, pending mint-secret variable removal). The tool must
+      `references/dispatch-setup-and-preflight.md` as the setup tool's
+      acceptance procedure and follow its topic links for package-root tracing,
+      emitted-artifact verification, package-directory versus repository-root
+      commands, OIDC headers, phased credentials, safe probes, explicit consent,
+      cleanup, retry-after-inspect behavior, and named prototype debt. The tool must
       expose actionable safe failure categories without reading, echoing,
       persisting, or accepting secrets on argv. During the preceding rows,
       continuously fold real setup facts and failure modes into the

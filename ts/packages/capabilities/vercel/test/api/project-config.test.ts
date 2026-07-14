@@ -25,19 +25,41 @@ vercel_team_id = "team_example123"
 		});
 	});
 
-	it("parses the optional deployment_url", () => {
+	it("parses the optional deployment and workflow dashboard URLs", () => {
 		const result = parseDispatchProjectConfigToml(`
 [dispatch]
 harness = "pi"
 vercel_project_id = "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06"
 vercel_team_id = "team_example123"
+workflow_dashboard_url = "https://vercel.com/example-team/ns-dispatch/workflows"
 deployment_url = "https://ns-dispatch.vercel.app"
 `);
 
 		expect(result).toMatchObject({
 			ok: true,
-			value: { deploymentUrl: "https://ns-dispatch.vercel.app" },
+			value: {
+				deploymentUrl: "https://ns-dispatch.vercel.app",
+				workflowDashboardUrl: "https://vercel.com/example-team/ns-dispatch/workflows",
+			},
 		});
+	});
+
+	it("rejects invalid workflow dashboard URLs", () => {
+		for (const url of [
+			"http://vercel.com/example-team/ns-dispatch/workflows",
+			"https://vercel.com/example-team/ns-dispatch",
+			"https://vercel.com/example-team/ns-dispatch/workflows?environment=preview",
+		]) {
+			const result = parseDispatchProjectConfigToml(`
+[dispatch]
+harness = "pi"
+vercel_project_id = "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06"
+vercel_team_id = "team_example123"
+workflow_dashboard_url = "${url}"
+`);
+
+			expect(result).toMatchObject({ ok: false, error: { code: "invalid-dispatch" } });
+		}
 	});
 
 	it("rejects non-HTTPS or credentialed deployment URLs", () => {

@@ -20,6 +20,8 @@ export interface DispatchProjectConfig {
 	readonly harness: DispatchHarness;
 	readonly vercelProjectId: string;
 	readonly vercelTeamId: string;
+	/** Vercel dashboard Workflows URL used to deep-link started runs. */
+	readonly workflowDashboardUrl?: string;
 	/**
 	 * The dispatch deployable's stable HTTPS URL (the deployment recorded by
 	 * the README's Setup section). The local CLI calls the authenticated
@@ -49,6 +51,13 @@ const deploymentUrlSchema = z
 	.url()
 	.refine(isCredentialFreeHttpsUrl, "must be an explicit HTTPS URL without embedded credentials");
 
+const workflowDashboardUrlSchema = z
+	.url()
+	.refine(
+		isVercelWorkflowDashboardUrl,
+		"must be an HTTPS vercel.com project Workflows URL without credentials, query, or fragment",
+	);
+
 function isCredentialFreeHttpsUrl(value: string): boolean {
 	let url: URL;
 	try {
@@ -59,6 +68,17 @@ function isCredentialFreeHttpsUrl(value: string): boolean {
 	return url.protocol === "https:" && url.username === "" && url.password === "";
 }
 
+function isVercelWorkflowDashboardUrl(value: string): boolean {
+	if (!isCredentialFreeHttpsUrl(value)) return false;
+	const url = new URL(value);
+	return (
+		url.hostname === "vercel.com" &&
+		/^\/[^/]+\/[^/]+\/workflows\/?$/.test(url.pathname) &&
+		url.search === "" &&
+		url.hash === ""
+	);
+}
+
 const dispatchSettingsSchema = {
 	path: ["dispatch"] as const,
 	schema: z
@@ -66,6 +86,7 @@ const dispatchSettingsSchema = {
 			harness: z.custom<DispatchHarness>(isDispatchHarness),
 			vercel_project_id: vercelProjectIdSchema,
 			vercel_team_id: vercelTeamIdSchema,
+			workflow_dashboard_url: workflowDashboardUrlSchema.optional(),
 			deployment_url: deploymentUrlSchema.optional(),
 		})
 		.transform(
@@ -73,6 +94,9 @@ const dispatchSettingsSchema = {
 				harness: settings.harness,
 				vercelProjectId: settings.vercel_project_id,
 				vercelTeamId: settings.vercel_team_id,
+				...(settings.workflow_dashboard_url === undefined
+					? {}
+					: { workflowDashboardUrl: settings.workflow_dashboard_url }),
 				...(settings.deployment_url === undefined
 					? {}
 					: { deploymentUrl: settings.deployment_url }),
