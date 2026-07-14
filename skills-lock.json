@@ -334,6 +334,11 @@
       "skillPath": "skills/engineering/research/SKILL.md",
       "computedHash": "87d17f5103899fbe179b552a85485d50f2316ca5b3128f5716af7d88817533e1"
     },
+    "review-code-quality-subagents": {
+      "source": "skills/review-code-quality-subagents",
+      "sourceType": "local",
+      "computedHash": "159d6458ac48d6f367f5521e7e0cee96d0106784980d17d9a264b9219221ee12"
+    },
     "review-dry-but-not-too-dry": {
       "source": "skills/review-dry-but-not-too-dry",
       "sourceType": "local",
