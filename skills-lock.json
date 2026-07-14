@@ -210,6 +210,11 @@
       "sourceType": "local",
       "computedHash": "a9dbe016512d76a0e161586be6d3fd35b00d7955dfc296b29b411d375e80a1d9"
     },
+    "ns-release": {
+      "source": "skills/ns-release",
+      "sourceType": "local",
+      "computedHash": "da8185ac1923c7c42031c6abcd3858097979c42c634b59444f38e3cfc0f3cec6"
+    },
     "ns-typescript": {
       "source": "skills/ns-typescript",
       "sourceType": "local",
