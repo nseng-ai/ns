@@ -10,6 +10,8 @@ import {
 	DISPATCH_PROMPT_MAX_CHARS,
 	isValidDispatchAnchorBranch,
 } from "../dispatch/dispatch-run.ts";
+import { DISPATCH_RUN_ID_MAX_CHARS } from "../dispatch/validation.ts";
+import { COMMIT_SHA_PATTERN } from "../sandbox/validation.ts";
 import {
 	SUPERVISION_POLL_SECONDS_MAX,
 	SUPERVISION_POLL_SECONDS_MIN,
@@ -26,7 +28,7 @@ export const triggerWorkflowValues = [
 
 export type TriggerWorkflowName = (typeof triggerWorkflowValues)[number];
 
-const commitShaSchema = z.string().regex(/^[0-9a-fA-F]{40}$/);
+const commitShaSchema = z.string().regex(COMMIT_SHA_PATTERN);
 
 export const triggerRequestSchema = z.discriminatedUnion("workflow", [
 	z.strictObject({
@@ -107,7 +109,7 @@ export const workflowRunStatusValues = [
 
 export type WorkflowRunStatus = (typeof workflowRunStatusValues)[number];
 
-export const runIdSchema = z.string().min(1).max(256);
+export const runIdSchema = z.string().min(1).max(DISPATCH_RUN_ID_MAX_CHARS);
 
 export interface RunStatusSuccess {
 	readonly runId: string;

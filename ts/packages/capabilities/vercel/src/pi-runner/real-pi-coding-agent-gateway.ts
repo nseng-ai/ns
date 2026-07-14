@@ -11,6 +11,8 @@
 // state is in-memory: the decision log and the landed commits are the
 // run's durable record, not a session file. `sdk` is the test seam;
 // production uses the lazy library-backed default.
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+
 import type { PiCodingAgentGateway, PiCodingAgentRunResult } from "./runner.ts";
 
 export interface PiAgentSdkSession {
@@ -58,14 +60,14 @@ export function createRealPiCodingAgentGateway(options: {
 			} catch (error) {
 				return {
 					ok: false,
-					message: `Starting the pi agent session failed: ${formatError(error)}`,
+					message: `Starting the pi agent session failed: ${formatErrorMessage(error)}`,
 				};
 			}
 			try {
 				await session.prompt(run.prompt);
 				return extractPiAgentRunResult(session.messages());
 			} catch (error) {
-				return { ok: false, message: `The pi agent run failed: ${formatError(error)}` };
+				return { ok: false, message: `The pi agent run failed: ${formatErrorMessage(error)}` };
 			} finally {
 				try {
 					session.dispose();
@@ -126,8 +128,4 @@ function extractAssistantText(message: Record<string, unknown>): string | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function formatError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

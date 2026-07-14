@@ -105,17 +105,17 @@ describe("createRealDispatchSandboxGateway", () => {
 		]);
 	});
 
-	it("normalizes a create throw to a safe failure", async () => {
+	it("lets a create throw reach the owning step boundary", async () => {
 		const { sdk } = createFakeSdk({ createError: new Error("quota") });
 		const gateway = createRealDispatchSandboxGateway(sdk);
 
-		const result = await gateway.createDispatchSandbox({
-			runtime: "node24",
-			timeoutMs: 1000,
-			source: { repository: "nseng-ai/ns", revision: "a".repeat(40), cloneToken: "t" },
-		});
-
-		expect(result).toEqual({ ok: false });
+		await expect(
+			gateway.createDispatchSandbox({
+				runtime: "node24",
+				timeoutMs: 1000,
+				source: { repository: "nseng-ai/ns", revision: "a".repeat(40), cloneToken: "t" },
+			}),
+		).rejects.toThrow("quota");
 	});
 
 	it("reattaches by name without resuming to write files", async () => {
@@ -203,7 +203,7 @@ describe("createRealDispatchSandboxGateway", () => {
 		expect(calls.map((call) => call.method)).toEqual(["get"]);
 	});
 
-	it("stops a running sandbox and normalizes reattach failures", async () => {
+	it("stops a running sandbox and lets reattach failures reach the owning step", async () => {
 		const running = createFakeSdk();
 		const gateway = createRealDispatchSandboxGateway(running.sdk);
 
@@ -213,6 +213,6 @@ describe("createRealDispatchSandboxGateway", () => {
 		const broken = createRealDispatchSandboxGateway(
 			createFakeSdk({ getError: new Error("gone") }).sdk,
 		);
-		expect(await broken.stopSandbox({ sandboxName: "sbx_real" })).toEqual({ ok: false });
+		await expect(broken.stopSandbox({ sandboxName: "sbx_real" })).rejects.toThrow("gone");
 	});
 });

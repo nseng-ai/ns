@@ -9,19 +9,20 @@
 // Sandbox SDK resolves the deployed Function's own workload identity
 // ambiently. Cleanup runs on every path that has a sandbox, with the
 // sandbox timeout as the backstop. Live workflow execution is pending
-// verification: nothing here has run on Vercel yet.
+// verification: nothing here has run on Vercel yet. This probe-specific
+// workflow retires only after the long-run live pass is proven and folded;
+// the neutral supervision core remains reusable.
 import { sleep } from "workflow";
 
 import {
 	combineSupervisionProbeResult,
 	planSupervisionProbe,
-	superviseDetachedRun,
-	type SupervisionCleanupResult,
 	type SupervisionLaunchResult,
-	type SupervisionPollResult,
 	type SupervisionProbeParams,
+	type SupervisionProbePollResult,
 	type WorkflowSupervisionProbeResult,
 } from "../src/sandbox/supervision-probe.ts";
+import { superviseDetachedRun, type SupervisionCleanupResult } from "../src/sandbox/supervision.ts";
 import {
 	cleanupSupervisionProbe,
 	launchSupervisionProbe,
@@ -47,7 +48,23 @@ export async function supervisionProbeWorkflow(
 
 	const launch = await launchSupervisionStep(params);
 	if (launch.ok === false) {
-		return { ok: false, code: launch.code, message: launch.message };
+		if (launch.sandboxName === undefined) {
+			return { ok: false, code: launch.code, message: launch.message };
+		}
+		const cleanup = await cleanupSupervisionStep(launch.sandboxName);
+		return cleanup.ok === false
+			? {
+					ok: false,
+					code: cleanup.code,
+					message: cleanup.message,
+					sandboxName: launch.sandboxName,
+				}
+			: {
+					ok: false,
+					code: launch.code,
+					message: launch.message,
+					sandboxName: launch.sandboxName,
+				};
 	}
 	const sandboxName = launch.sandboxName;
 
@@ -55,15 +72,20 @@ export async function supervisionProbeWorkflow(
 	// the run at zero compute while the detached command keeps executing in
 	// the sandbox, and each poll is a short step well under the function
 	// ceiling. The loop is deterministic given its deps, as replay requires.
+	let ticks = 0;
 	const outcome = await superviseDetachedRun(plan.value, {
 		sleep: async (durationMs: number) => {
 			await sleep(durationMs);
 		},
-		poll: async () => await pollSupervisionStep(sandboxName),
+		poll: async () => {
+			const poll = await pollSupervisionStep(sandboxName);
+			if (poll.ok) ticks = poll.ticks;
+			return poll.ok ? { ok: true, phase: poll.phase } : poll;
+		},
 	});
 
 	const cleanup = await cleanupSupervisionStep(sandboxName);
-	return combineSupervisionProbeResult({ params, sandboxName, outcome, cleanup });
+	return combineSupervisionProbeResult({ params, sandboxName, outcome, cleanup, ticks });
 }
 
 export async function launchSupervisionStep(
@@ -77,7 +99,9 @@ export async function launchSupervisionStep(
 // It must run at most once; a launch failure fails the workflow instead.
 launchSupervisionStep.maxRetries = 0;
 
-export async function pollSupervisionStep(sandboxName: string): Promise<SupervisionPollResult> {
+export async function pollSupervisionStep(
+	sandboxName: string,
+): Promise<SupervisionProbePollResult> {
 	"use step";
 	return await pollSupervisionProbe({ sandboxName });
 }

@@ -6,8 +6,8 @@
 // `workflows/dispatch.ts`, which replays inside the Workflow SDK's
 // deterministic sandbox, so it must stay dependency-free (no Node builtins,
 // no zod, no vendor SDKs) and every function here must be deterministic.
-// The supervision loop is probe-3's `superviseDetachedRun`, reused rather
-// than re-derived. Step-side I/O lives in `dispatch-steps.ts`; the real
+// The supervision loop is the probe-neutral `superviseDetachedRun`, reused
+// by dispatch and probe-3. Step-side I/O lives in `dispatch-steps.ts`; the real
 // adapters live in `real-dispatch-sandbox-gateway.ts` and
 // `real-dispatch-report-gateway.ts`. Live workflow execution is pending
 // verification: nothing here has run on Vercel yet.
@@ -17,7 +17,10 @@ import {
 	type SupervisionOutcome,
 	type SupervisionPlan,
 	type SupervisionPollResult,
-} from "../sandbox/supervision-probe.ts";
+} from "../sandbox/supervision.ts";
+import type { SandboxCommand } from "../sandbox/contracts.ts";
+import type { DispatchHarnessCompletion } from "./completion-contract.ts";
+import { isCommitSha } from "../sandbox/validation.ts";
 
 /**
  * Every dispatch anchor branch carries this prefix (seam-design §5): it is
@@ -115,7 +118,7 @@ export type DispatchRunInputValidation =
  * validated name is later embedded in the landing command.
  */
 export function validateDispatchRunInput(input: DispatchRunInput): DispatchRunInputValidation {
-	if (!/^[0-9a-fA-F]{40}$/.test(input.revision)) {
+	if (!isCommitSha(input.revision)) {
 		return { ok: false, message: "revision must be a 40-character commit SHA." };
 	}
 	if (!isValidDispatchAnchorBranch(input.anchorBranch)) {
@@ -191,11 +194,7 @@ export function planDispatchSupervision(): SupervisionPlan {
 
 export type DispatchHarnessResult =
 	| { readonly phase: "running" }
-	| {
-			readonly phase: "finished";
-			readonly outcome: "completed" | "failed";
-			readonly summary?: string;
-	  }
+	| ({ readonly phase: "finished" } & DispatchHarnessCompletion)
 	| { readonly phase: "invalid" };
 
 /**
@@ -245,17 +244,11 @@ export const DISPATCH_LANDING_TOKEN_ENV_NAME = "NS_DISPATCH_LANDING_TOKEN";
 export function buildDispatchLandingCommand(options: {
 	readonly repository: string;
 	readonly anchorBranch: string;
-}): DispatchSandboxCommand {
+}): SandboxCommand {
 	const script =
 		`git push --force "https://x-access-token:$${DISPATCH_LANDING_TOKEN_ENV_NAME}@github.com/` +
 		`${options.repository}.git" "HEAD:refs/heads/${options.anchorBranch}"`;
 	return { cmd: "sh", args: ["-c", script] };
-}
-
-/** A command run inside the dispatch sandbox (no shell unless `sh -c`). */
-export interface DispatchSandboxCommand {
-	readonly cmd: string;
-	readonly args: readonly string[];
 }
 
 /**
@@ -286,12 +279,12 @@ export interface DispatchSandboxGateway {
 	}): Promise<WriteDispatchSandboxFileResult>;
 	runSandboxCommand(options: {
 		readonly sandboxName: string;
-		readonly command: DispatchSandboxCommand;
+		readonly command: SandboxCommand;
 		readonly env?: Readonly<Record<string, string>>;
 	}): Promise<RunDispatchSandboxCommandResult>;
 	runDetachedSandboxCommand(options: {
 		readonly sandboxName: string;
-		readonly command: DispatchSandboxCommand;
+		readonly command: SandboxCommand;
 		readonly env?: Readonly<Record<string, string>>;
 	}): Promise<RunDetachedDispatchSandboxCommandResult>;
 	readSandboxFile(options: {
@@ -339,6 +332,8 @@ export type DispatchLaunchResult =
 			readonly ok: false;
 			readonly code: "invalid-input" | "dispatch-misconfigured" | "launch-failed";
 			readonly message: string;
+			/** Present only when a safely reattachable sandbox was created. */
+			readonly sandboxName?: string;
 	  };
 
 export type DispatchOutcomeReadResult =
@@ -519,16 +514,22 @@ export async function executeDispatchRun(
 
 	const launch = await steps.launch(run);
 	if (launch.ok === false) {
-		const reported = await steps.reportFailure({
-			...anchor,
-			code: launch.code,
-			message: launch.message,
-		});
+		let code: DispatchRunFailureCode = launch.code;
+		let message = launch.message;
+		if (launch.sandboxName !== undefined) {
+			const cleanup = await steps.cleanup(launch.sandboxName);
+			if (cleanup.ok === false) {
+				code = cleanup.code;
+				message = cleanup.message;
+			}
+		}
+		const reported = await steps.reportFailure({ ...anchor, code, message });
 		return {
 			ok: false,
-			code: launch.code,
-			message: launch.message,
+			code,
+			message,
 			...anchor,
+			...(launch.sandboxName === undefined ? {} : { sandboxName: launch.sandboxName }),
 			failureReported: reported.ok,
 		};
 	}

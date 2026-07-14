@@ -97,13 +97,14 @@ describe("createRealSupervisionSandboxGateway", () => {
 		const sdk = new RecordingSupervisionSandboxSdk(sandbox);
 		const gateway = createRealSupervisionSandboxGateway(sdk);
 
-		const result = await gateway.createSandboxWithDetachedCommand({
-			runtime: "node24",
-			timeoutMs: 1_440_000,
+		const result = await gateway.createSandbox({ runtime: "node24", timeoutMs: 1_440_000 });
+		const detached = await gateway.runDetachedSandboxCommand({
+			sandboxName: "sbx-supervision",
 			command,
 		});
 
 		expect(result).toEqual({ ok: true, sandboxName: "sbx-supervision" });
+		expect(detached).toEqual({ ok: true });
 		expect(sdk.createCalls).toEqual([{ runtime: "node24", timeout: 1_440_000 }]);
 		expect(sandbox.detachedCalls).toEqual([{ cmd: "sh", args: ["-c", "echo tick"] }]);
 		expect(sandbox.stopCalls).toBe(0);
@@ -115,13 +116,9 @@ describe("createRealSupervisionSandboxGateway", () => {
 		});
 		const gateway = createRealSupervisionSandboxGateway(sdk);
 
-		expect(
-			await gateway.createSandboxWithDetachedCommand({
-				runtime: "node24",
-				timeoutMs: 1_440_000,
-				command,
-			}),
-		).toEqual({ ok: false });
+		await expect(
+			gateway.createSandbox({ runtime: "node24", timeoutMs: 1_440_000 }),
+		).rejects.toThrow("create exploded");
 	});
 
 	it("stops the created sandbox when the detached launch fails, rather than leaking it", async () => {
@@ -130,14 +127,10 @@ describe("createRealSupervisionSandboxGateway", () => {
 			new RecordingSupervisionSandboxSdk(sandbox),
 		);
 
-		const result = await gateway.createSandboxWithDetachedCommand({
-			runtime: "node24",
-			timeoutMs: 1_440_000,
-			command,
-		});
-
-		expect(result).toEqual({ ok: false });
-		expect(sandbox.stopCalls).toBe(1);
+		await expect(
+			gateway.runDetachedSandboxCommand({ sandboxName: "sbx-supervision", command }),
+		).rejects.toThrow("detached launch exploded");
+		expect(sandbox.stopCalls).toBe(0);
 	});
 
 	it("reattaches by name without resuming and reads the progress file", async () => {
@@ -165,14 +158,14 @@ describe("createRealSupervisionSandboxGateway", () => {
 		).toEqual({ ok: true, content: null });
 	});
 
-	it("normalizes a reattach throw during a read to a safe failure", async () => {
+	it("lets a read throw reach the owning poll step", async () => {
 		const gateway = createRealSupervisionSandboxGateway(
 			new RecordingSupervisionSandboxSdk(new RecordingSdkSandbox(), { shouldThrowOnGet: true }),
 		);
 
-		expect(
-			await gateway.readSandboxFile({ sandboxName: "sbx-supervision", path: "/tmp/progress.log" }),
-		).toEqual({ ok: false });
+		await expect(
+			gateway.readSandboxFile({ sandboxName: "sbx-supervision", path: "/tmp/progress.log" }),
+		).rejects.toThrow("get exploded");
 	});
 
 	it("stops a running sandbox on cleanup", async () => {
@@ -198,11 +191,13 @@ describe("createRealSupervisionSandboxGateway", () => {
 		},
 	);
 
-	it("normalizes a stop throw to a safe failure", async () => {
+	it("lets a stop throw reach the owning cleanup step", async () => {
 		const gateway = createRealSupervisionSandboxGateway(
 			new RecordingSupervisionSandboxSdk(new RecordingSdkSandbox({ shouldThrowOnStop: true })),
 		);
 
-		expect(await gateway.stopSandbox({ sandboxName: "sbx-supervision" })).toEqual({ ok: false });
+		await expect(gateway.stopSandbox({ sandboxName: "sbx-supervision" })).rejects.toThrow(
+			"stop exploded",
+		);
 	});
 });
