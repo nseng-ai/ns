@@ -202,6 +202,7 @@ function validateTarget(
 	if (
 		facts.repository !== binding.target.repository ||
 		facts.pullRequest.number !== binding.target.pullRequestNumber ||
+		facts.pullRequest.url !== binding.target.pullRequestUrl ||
 		facts.pullRequest.headBranch !== binding.target.headBranch ||
 		facts.pullRequest.headBranch !== facts.branch
 	) {

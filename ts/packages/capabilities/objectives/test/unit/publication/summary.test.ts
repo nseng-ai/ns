@@ -20,6 +20,7 @@ describe("publication contracts", () => {
 			target: {
 				repository: "nseng-ai/ns",
 				pullRequestNumber: 42,
+				pullRequestUrl: "https://github.com/nseng-ai/ns/pull/42",
 				branch: "feature/publication",
 				headBranch: "feature/publication",
 			},
