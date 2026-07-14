@@ -31,11 +31,19 @@ export {
 } from "../project-config/managed-extension-paths.ts";
 export type { ExtensionSourceSpec } from "../project-config/extension-source-spec.ts";
 
-export interface ResolvedExtensionModuleRoot {
-	readonly spec: string;
-	readonly sourceKind: "local" | "npm";
-	readonly moduleRoot: string;
-}
+export type ResolvedExtensionModuleRoot =
+	| {
+			readonly spec: string;
+			readonly sourceKind: "local";
+			readonly moduleRoot: string;
+	  }
+	| {
+			readonly spec: string;
+			readonly sourceKind: "npm";
+			readonly moduleRoot: string;
+			/** Whether the package was installed before this resolution began. */
+			readonly wasInstalled: boolean;
+	  };
 
 export interface ExtensionAcquisitionDiagnostic {
 	readonly code: ExtensionAcquisitionDiagnosticCode;
@@ -96,8 +104,6 @@ export interface ResolveDeclaredExtensionModulesRequest {
 	readonly mode: "preview" | "apply";
 	/** Ensure is install-idempotent; refresh-floating is reserved for explicit update behavior. */
 	readonly npmAcquisition?: "ensure" | "refresh-floating";
-	/** Optional caller-owned snapshot avoids repeating an inspection already performed for policy. */
-	readonly npmPackageInstallationSnapshot?: ReadonlyMap<string, boolean>;
 	readonly gateway?: ExtensionAcquisitionGateway;
 }
 
@@ -295,18 +301,19 @@ export async function resolveDeclaredExtensionModules(
 		const managedPaths = managedNpmPackagePaths(request.projectRoot, parsed.value.packageName);
 		const npmProjectDir = managedPaths.npmProjectRoot;
 		const packageRoot = managedPaths.packageRoot;
-		const snapshotInstalled = request.npmPackageInstallationSnapshot?.get(packageRoot);
-		const installed =
-			snapshotInstalled === undefined
-				? await gateway.isNpmPackageInstalled(packageRoot)
-				: resultOk(snapshotInstalled);
+		const installed = await gateway.isNpmPackageInstalled(packageRoot);
 		if (!installed.ok) {
 			diagnostics.push(withSpec(installed.error, raw));
 			continue;
 		}
 		if (request.mode === "preview") {
 			if (installed.value) {
-				roots.push({ spec: raw, sourceKind: "npm", moduleRoot: packageRoot });
+				roots.push({
+					spec: raw,
+					sourceKind: "npm",
+					moduleRoot: packageRoot,
+					wasInstalled: installed.value,
+				});
 			} else {
 				diagnostics.push({
 					code: "extension_acquisition_preview_skipped",
@@ -353,7 +360,12 @@ export async function resolveDeclaredExtensionModules(
 			});
 			continue;
 		}
-		roots.push({ spec: raw, sourceKind: "npm", moduleRoot: packageRoot });
+		roots.push({
+			spec: raw,
+			sourceKind: "npm",
+			moduleRoot: packageRoot,
+			wasInstalled: installed.value,
+		});
 	}
 	return { roots: sortRoots(roots), diagnostics: sortDiagnostics(diagnostics) };
 }

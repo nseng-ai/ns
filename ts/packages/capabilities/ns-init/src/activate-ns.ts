@@ -145,7 +145,7 @@ export interface PrepareNsActivationOptions {
 export async function prepareNsActivation(
 	context: NsActivationContext,
 	options: PrepareNsActivationOptions,
-	recorder?: LifecycleRecorder,
+	recorder: LifecycleRecorder,
 ): Promise<PrepareNsActivationResult> {
 	const diagnostics: ActivationDiagnostic[] = [];
 	const appendDiagnostic = (diagnostic: ActivationDiagnostic | undefined): void => {
@@ -315,14 +315,14 @@ export async function prepareNsActivation(
 		artifacts: artifactPreparation.prepared,
 		descriptors: loaded.descriptors,
 	};
-	if (recorder !== undefined) recordActivationPlan(recorder, activation);
+	recordActivationPlan(recorder, activation);
 	return { type: "prepared", activation };
 }
 
 export async function applyNsActivation(
 	context: NsActivationContext,
 	prepared: PreparedNsActivation,
-	recorder?: LifecycleRecorder,
+	recorder: LifecycleRecorder,
 ): Promise<ApplyNsActivationResult> {
 	const completed: MutableActivationCompleted = { files: {} };
 	for (const file of ACTIVATION_FILES) {
@@ -344,7 +344,7 @@ export async function applyNsActivation(
 			}
 		}
 		completed.files[file] = { change: write.change };
-		recorder?.record({
+		recorder.record({
 			type: "activation-file-completed",
 			file,
 			path: ACTIVATION_FILE_PATHS[file],
@@ -373,14 +373,31 @@ export async function applyNsActivation(
 			}
 		}
 		consumerOutcomes.push({ ...directory });
-		recorder?.record({ type: "consumer-directory-completed", ...directory });
+		recorder.record({
+			type: "consumer-directory-completed",
+			path: directory.path,
+			change: directory.change,
+		});
 	}
 	completed.consumerDirectories = consumerOutcomes;
 
 	const artifacts = await context.artifacts.apply(prepared.artifacts);
 	completed.artifacts = structuredClone(artifacts.completed);
 	for (const outcome of artifacts.completed) {
-		recorder?.record({ type: "artifact-completed", ...outcome });
+		recorder.record({
+			type: "artifact-completed",
+			key: outcome.key,
+			action: outcome.action,
+			artifactId: outcome.artifactId,
+			skillName: outcome.skillName,
+			harness: outcome.harness,
+			targetArtifactPath: outcome.targetArtifactPath,
+			manifestPath: outcome.manifestPath,
+			writtenFiles: outcome.writtenFiles,
+			conflictingFiles: outcome.conflictingFiles,
+			...optionalEntry("removedFiles", outcome.removedFiles),
+			...optionalEntry("removalReason", outcome.removalReason),
+		});
 	}
 	if (!artifacts.ok) {
 		return { type: "apply-failed", phase: "artifacts", error: artifacts.error, completed };

@@ -39,23 +39,11 @@ export class RealExtensionInstallAcquisitionGateway implements ExtensionInstallA
 	}
 
 	async ensure(params: EnsureExtensionSourceParams): Promise<EnsureExtensionSourceResult> {
-		const parsed = parseExtensionSourceSpec(params.repoRoot, params.sourceSpec);
-		if (!parsed.ok) return { ok: false, diagnostics: [{ ...parsed.error }] };
-		let wasInstalled = false;
-		const installationSnapshot = new Map<string, boolean>();
-		if (parsed.value.kind === "npm") {
-			const packageRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
-			const inspected = await this.acquisition.isNpmPackageInstalled(packageRoot);
-			if (!inspected.ok) return { ok: false, diagnostics: [{ ...inspected.error }] };
-			wasInstalled = inspected.value;
-			installationSnapshot.set(packageRoot, inspected.value);
-		}
 		const result = await resolveDeclaredExtensionModules({
 			projectRoot: params.repoRoot,
 			declaredSpecs: [params.sourceSpec],
 			mode: "apply",
 			npmAcquisition: "ensure",
-			npmPackageInstallationSnapshot: installationSnapshot,
 			gateway: this.acquisition,
 		});
 		const root = result.roots.find((candidate) => candidate.spec === params.sourceSpec);
@@ -67,7 +55,11 @@ export class RealExtensionInstallAcquisitionGateway implements ExtensionInstallA
 			sourceKind: root.sourceKind,
 			moduleRoot: root.moduleRoot,
 			outcome:
-				root.sourceKind === "local" ? "local-in-place" : wasInstalled ? "unchanged" : "installed",
+				root.sourceKind === "local"
+					? "local-in-place"
+					: root.wasInstalled
+						? "unchanged"
+						: "installed",
 		};
 	}
 }
@@ -185,28 +177,18 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 	): Promise<ReconcileExtensionUpdateSourceResult> {
 		const parsed = parseExtensionSourceSpec(params.repoRoot, params.sourceSpec);
 		if (!parsed.ok) return { type: "failed", diagnostics: [{ ...parsed.error }] };
-		let hasExistingInstallation = false;
-		const installationSnapshot = new Map<string, boolean>();
-		if (parsed.value.kind === "npm") {
-			const packageRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
-			const inspected = await this.acquisition.isNpmPackageInstalled(packageRoot);
-			if (!inspected.ok) return { type: "failed", diagnostics: [{ ...inspected.error }] };
-			hasExistingInstallation = inspected.value;
-			installationSnapshot.set(packageRoot, inspected.value);
-		}
 		const applied = await resolveDeclaredExtensionModules({
 			projectRoot: params.repoRoot,
 			declaredSpecs: [params.sourceSpec],
 			mode: "apply",
 			npmAcquisition: "refresh-floating",
-			npmPackageInstallationSnapshot: installationSnapshot,
 			gateway: this.acquisition,
 		});
 		const root = applied.roots.find((candidate) => candidate.spec === params.sourceSpec);
 		if (root === undefined || applied.diagnostics.length > 0) {
 			return { type: "failed", diagnostics: applied.diagnostics };
 		}
-		if (parsed.value.kind === "local") {
+		if (root.sourceKind === "local") {
 			return {
 				type: "applied",
 				sourceKind: "local",
@@ -215,17 +197,8 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 				outcome: "local-in-place",
 			};
 		}
-		if (parsed.value.kind === "git") {
-			return {
-				type: "failed",
-				diagnostics: [
-					{
-						code: "extension_acquisition_git_unsupported",
-						message: gitExtensionSourceUnsupportedMessage(params.sourceSpec),
-						spec: params.sourceSpec,
-					},
-				],
-			};
+		if (parsed.value.kind !== "npm") {
+			throw new Error(`Resolved npm root has non-npm source spec: ${params.sourceSpec}.`);
 		}
 		if (parsed.value.isPinned) {
 			return {
@@ -233,7 +206,7 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 				sourceKind: "npm",
 				moduleRoot: root.moduleRoot,
 				intent: "ensure-pinned",
-				outcome: hasExistingInstallation ? "unchanged" : "restored",
+				outcome: root.wasInstalled ? "unchanged" : "restored",
 			};
 		}
 		return {
@@ -241,7 +214,7 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 			sourceKind: "npm",
 			moduleRoot: root.moduleRoot,
 			intent: "refresh-floating",
-			outcome: hasExistingInstallation ? "refreshed" : "restored",
+			outcome: root.wasInstalled ? "refreshed" : "restored",
 		};
 	}
 }

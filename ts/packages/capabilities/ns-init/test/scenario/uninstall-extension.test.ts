@@ -1,11 +1,13 @@
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 import { managedNpmProjectRoot } from "@nseng-ai/sdk/extensions/acquisition";
 
+import { lifecycleStepSchema, type LifecycleStep } from "../../src/lifecycle-observability.ts";
 import type { ExtensionUninstallContext } from "../../src/uninstall-extension.ts";
 import { uninstallExtension } from "../../src/uninstall-extension.ts";
 import {
@@ -81,6 +83,18 @@ function fixture(options: {
 }
 
 const initializedToml = 'harnesses = ["pi"]\n';
+const tracedFailureSchema = z.object({
+	type: z.literal("failure"),
+	data: z.object({ steps: z.array(lifecycleStepSchema).readonly() }),
+});
+
+function failureSteps(result: unknown): readonly LifecycleStep[] {
+	return tracedFailureSchema.parse(result).data.steps;
+}
+
+function phaseHistory(steps: readonly LifecycleStep[]) {
+	return steps.filter((step) => step.type === "phase");
+}
 
 describe("uninstallExtension", () => {
 	it("matches npm identity across versions, reports removed-source artifacts, then removes bytes", async () => {
@@ -147,6 +161,41 @@ describe("uninstallExtension", () => {
 				},
 			},
 		});
+		if (result.type !== "ok") throw new Error("Expected uninstall to succeed.");
+		expect(phaseHistory(result.data.steps)).toEqual([
+			{ type: "phase", phase: "repository-preflight", status: "started" },
+			{ type: "phase", phase: "repository-preflight", status: "completed" },
+			{ type: "phase", phase: "configuration-preflight", status: "started" },
+			{ type: "phase", phase: "configuration-preflight", status: "completed" },
+			{ type: "phase", phase: "declaration-planning", status: "started" },
+			{ type: "phase", phase: "declaration-planning", status: "completed" },
+			{ type: "phase", phase: "activation-preflight", status: "started" },
+			{ type: "phase", phase: "activation-preflight", status: "completed" },
+			{ type: "phase", phase: "activation-apply", status: "started" },
+			{ type: "phase", phase: "activation-apply", status: "completed" },
+			{ type: "phase", phase: "managed-package-cleanup", status: "started" },
+			{ type: "phase", phase: "managed-package-cleanup", status: "completed" },
+			{ type: "phase", phase: "completion", status: "completed" },
+		]);
+		const activationApplyCompleted = result.data.steps.findIndex(
+			(step) =>
+				step.type === "phase" && step.phase === "activation-apply" && step.status === "completed",
+		);
+		const preservation = result.data.steps.findIndex(
+			(step) => step.type === "preservation" && step.subject === "consumer-data",
+		);
+		const cleanupStarted = result.data.steps.findIndex(
+			(step) =>
+				step.type === "phase" &&
+				step.phase === "managed-package-cleanup" &&
+				step.status === "started",
+		);
+		const acquisitionDecided = result.data.steps.findIndex(
+			(step) => step.type === "acquisition-decided" && step.intent === "remove-managed",
+		);
+		expect(activationApplyCompleted).toBeLessThan(preservation);
+		expect(preservation).toBeLessThan(cleanupStarted);
+		expect(cleanupStarted).toBeLessThan(acquisitionDecided);
 		expect(files.fileContent("ns.toml")).toBe(`${initializedToml}extensions = [ "./remaining"]\n`);
 		expect(files.fileContent(".ns/instructions.md")).toContain("Remaining");
 		expect(declaredExtensions.calls()).toEqual([{ repoRoot: "/repo", specs: ["./remaining"] }]);
@@ -228,6 +277,17 @@ describe("uninstallExtension", () => {
 			const { context, files, cleanup } = fixture({ nsToml: initializedToml });
 			const result = await uninstallExtension(context, { cwd: "/repo", source });
 			expect(result).toMatchObject({ type: "failure", errorType, data: { completed: {} } });
+			const steps = failureSteps(result);
+			expect(steps.filter((step) => step.type === "failure")).toHaveLength(1);
+			expect(phaseHistory(steps)).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						type: "phase",
+						phase: "declaration-planning",
+						status: "failed",
+					}),
+				]),
+			);
 			expect(files.operations()).toEqual([]);
 			expect(cleanup.removals()).toEqual([]);
 		},
@@ -269,6 +329,16 @@ describe("uninstallExtension", () => {
 			errorType: "ns-extension-uninstall-preflight-failed",
 			data: { diagnostics: [{ code: "extension-descriptor-invalid" }], completed: {} },
 		});
+		const steps = failureSteps(result);
+		expect(steps.slice(-2)).toEqual([
+			{ type: "phase", phase: "activation-preflight", status: "failed" },
+			{
+				type: "failure",
+				phase: "activation-preflight",
+				code: "extension_descriptor_invalid",
+				message: "remaining descriptor invalid",
+			},
+		]);
 		expect(files.operations()).toEqual([]);
 		expect(cleanup.removals()).toEqual([]);
 	});
@@ -276,7 +346,12 @@ describe("uninstallExtension", () => {
 	it("does not clean managed bytes when activation apply fails", async () => {
 		const files = new InMemoryActivationFilesGateway({
 			files: { "ns.toml": `${initializedToml}extensions = ["npm:@test/tools"]\n` },
-			writeFailures: { "ns.toml": { code: "write_failed", message: "cannot write ns.toml" } },
+			writeFailures: {
+				".ns/instructions.md": {
+					code: "write_failed",
+					message: "cannot write generated instructions",
+				},
+			},
 		});
 		const cleanup = new InMemoryExtensionUninstallAcquisitionGateway({
 			installedPackageNames: ["@test/tools"],
@@ -289,8 +364,29 @@ describe("uninstallExtension", () => {
 		expect(result).toMatchObject({
 			type: "failure",
 			errorType: "ns-extension-uninstall-apply-failed",
-			data: { completed: {} },
+			data: {
+				phase: "generated-instructions",
+				completed: {
+					files: {
+						"ns-toml": { change: "replaced" },
+						"managed-extensions-ignore": { change: "created" },
+					},
+				},
+			},
 		});
+		const steps = failureSteps(result);
+		expect(steps).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ type: "activation-file-completed", file: "ns-toml" }),
+				expect.objectContaining({
+					type: "activation-file-completed",
+					file: "managed-extensions-ignore",
+				}),
+				{ type: "phase", phase: "activation-apply", status: "failed" },
+				expect.objectContaining({ type: "failure", phase: "activation-apply" }),
+			]),
+		);
+		expect(steps.filter((step) => step.type === "failure")).toHaveLength(1);
 		expect(cleanup.installedPackages()).toContain("@test/tools");
 		expect(cleanup.removals()).toEqual([]);
 	});
@@ -323,6 +419,21 @@ describe("uninstallExtension", () => {
 				completed: { files: { "ns-toml": { change: "replaced" } } },
 			},
 		});
+		const cleanupFailureSteps = failureSteps(first);
+		expect(cleanupFailureSteps).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ type: "activation-file-completed", file: "ns-toml" }),
+				{ type: "preservation", subject: "consumer-data" },
+				{ type: "phase", phase: "managed-package-cleanup", status: "started" },
+				{ type: "phase", phase: "managed-package-cleanup", status: "failed" },
+				expect.objectContaining({
+					type: "failure",
+					phase: "managed-package-cleanup",
+					code: "extension-acquisition-npm-remove-failed",
+				}),
+			]),
+		);
+		expect(cleanupFailureSteps.filter((step) => step.type === "failure")).toHaveLength(1);
 		expect(files.fileContent("ns.toml")).toBe(`${initializedToml}extensions = []\n`);
 
 		const succeedingCleanup = new InMemoryExtensionUninstallAcquisitionGateway({

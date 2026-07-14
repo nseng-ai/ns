@@ -37,6 +37,7 @@ export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 	private readonly failSpecs: ReadonlySet<string>;
 	private readonly failRemovePackageNames: ReadonlySet<string>;
 	private readonly failInspectPackageRoots: ReadonlySet<string>;
+	private readonly inspectionLog: string[] = [];
 	private readonly removalLog: FakeManagedNpmRemovalCall[] = [];
 
 	constructor(options: FakeExtensionAcquisitionGatewayOptions = {}) {
@@ -62,6 +63,10 @@ export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 		return this.installLog.map((install) => ({ ...install }));
 	}
 
+	get inspections(): readonly string[] {
+		return [...this.inspectionLog];
+	}
+
 	get removals(): readonly FakeManagedNpmRemovalCall[] {
 		return this.removalLog.map((removal) => ({ ...removal }));
 	}
@@ -76,6 +81,7 @@ export class FakeExtensionAcquisitionGateway implements ExtensionAcquisitionGate
 	async isNpmPackageInstalled(
 		packageRoot: string,
 	): Promise<Result<boolean, ExtensionAcquisitionDiagnostic>> {
+		this.inspectionLog.push(packageRoot);
 		if (this.failInspectPackageRoots.has(packageRoot)) {
 			return resultErr({
 				code: "extension_acquisition_npm_project_failed",

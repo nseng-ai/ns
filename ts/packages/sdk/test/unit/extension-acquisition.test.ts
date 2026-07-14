@@ -91,6 +91,7 @@ describe("extension acquisition", () => {
 				spec: "npm:@scope/pkg@1.2.3",
 				sourceKind: "npm",
 				moduleRoot: "/repo/.ns/managed-extensions/npm/@scope/pkg/node_modules/@scope/pkg",
+				wasInstalled: false,
 			},
 		]);
 		expect(gateway.installs).toEqual([
@@ -103,12 +104,20 @@ describe("extension acquisition", () => {
 			},
 		]);
 
-		await resolveDeclaredExtensionModules({
+		const second = await resolveDeclaredExtensionModules({
 			projectRoot: "/repo",
 			declaredSpecs: ["npm:@scope/pkg@1.2.3"],
 			mode: "apply",
 			gateway,
 		});
+		expect(second.roots).toEqual([
+			{
+				spec: "npm:@scope/pkg@1.2.3",
+				sourceKind: "npm",
+				moduleRoot: "/repo/.ns/managed-extensions/npm/@scope/pkg/node_modules/@scope/pkg",
+				wasInstalled: true,
+			},
+		]);
 		expect(gateway.installs).toHaveLength(1);
 	});
 
@@ -125,35 +134,61 @@ describe("extension acquisition", () => {
 			gateway,
 		});
 		expect(result.roots).toEqual([
-			{ spec: "npm:left-pad", sourceKind: "npm", moduleRoot: packageRoot },
+			{
+				spec: "npm:left-pad",
+				sourceKind: "npm",
+				moduleRoot: packageRoot,
+				wasInstalled: true,
+			},
 		]);
 		expect(gateway.installs).toEqual([]);
+		expect(gateway.inspections).toEqual([packageRoot]);
 	});
 
 	test("ensure restores a missing floating npm package", async () => {
+		const packageRoot = npmPackageRoot("/repo", "left-pad");
 		const gateway = new FakeExtensionAcquisitionGateway();
-		await resolveDeclaredExtensionModules({
+		const result = await resolveDeclaredExtensionModules({
 			projectRoot: "/repo",
 			declaredSpecs: ["npm:left-pad"],
 			mode: "apply",
 			npmAcquisition: "ensure",
 			gateway,
 		});
+		expect(result.roots).toEqual([
+			{
+				spec: "npm:left-pad",
+				sourceKind: "npm",
+				moduleRoot: packageRoot,
+				wasInstalled: false,
+			},
+		]);
 		expect(gateway.installs.map((install) => install.rawSpec)).toEqual(["npm:left-pad"]);
+		expect(gateway.inspections).toEqual([packageRoot, packageRoot]);
 	});
 
 	test("explicit floating refresh reinstalls an already-present package", async () => {
+		const packageRoot = npmPackageRoot("/repo", "left-pad");
 		const gateway = new FakeExtensionAcquisitionGateway({
-			installedPackageRoots: [npmPackageRoot("/repo", "left-pad")],
+			installedPackageRoots: [packageRoot],
 		});
-		await resolveDeclaredExtensionModules({
+		const result = await resolveDeclaredExtensionModules({
 			projectRoot: "/repo",
 			declaredSpecs: ["npm:left-pad"],
 			mode: "apply",
 			npmAcquisition: "refresh-floating",
 			gateway,
 		});
+		expect(result.roots).toEqual([
+			{
+				spec: "npm:left-pad",
+				sourceKind: "npm",
+				moduleRoot: packageRoot,
+				wasInstalled: true,
+			},
+		]);
 		expect(gateway.installs.map((install) => install.rawSpec)).toEqual(["npm:left-pad"]);
+		expect(gateway.inspections).toEqual([packageRoot, packageRoot]);
 	});
 
 	test("two installs use distinct roots and failed B leaves A resolvable", async () => {
@@ -176,9 +211,17 @@ describe("extension acquisition", () => {
 				spec: "npm:good",
 				sourceKind: "npm",
 				moduleRoot: "/repo/.ns/managed-extensions/npm/good/node_modules/good",
+				wasInstalled: false,
 			},
 		]);
-		expect(second.roots).toEqual(first.roots);
+		expect(second.roots).toEqual([
+			{
+				spec: "npm:good",
+				sourceKind: "npm",
+				moduleRoot: "/repo/.ns/managed-extensions/npm/good/node_modules/good",
+				wasInstalled: true,
+			},
+		]);
 		expect(second.diagnostics).toMatchObject([
 			{ code: "extension_acquisition_npm_install_failed", spec: "npm:bad" },
 		]);
@@ -246,6 +289,28 @@ describe("extension acquisition", () => {
 			error: { code: "extension_acquisition_npm_remove_failed" },
 		});
 		expect(gateway.installed).toContain(packageRoot);
+	});
+
+	test("preview returns the pre-resolution installation state for a present package", async () => {
+		const packageRoot = npmPackageRoot("/repo", "present");
+		const gateway = new FakeExtensionAcquisitionGateway({
+			installedPackageRoots: [packageRoot],
+		});
+		const result = await resolveDeclaredExtensionModules({
+			projectRoot: "/repo",
+			declaredSpecs: ["npm:present@1.0.0"],
+			mode: "preview",
+			gateway,
+		});
+		expect(result.roots).toEqual([
+			{
+				spec: "npm:present@1.0.0",
+				sourceKind: "npm",
+				moduleRoot: packageRoot,
+				wasInstalled: true,
+			},
+		]);
+		expect(gateway.inspections).toEqual([packageRoot]);
 	});
 
 	test("preview mode does not call mutating gateway methods", async () => {

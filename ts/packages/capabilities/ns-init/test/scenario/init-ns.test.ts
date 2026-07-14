@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 
 import { initNs, initNsResultSchema, renderInitNsHuman } from "../../src/init-ns.ts";
-import { renderLifecycleStepHuman } from "../../src/lifecycle-observability.ts";
+import {
+	lifecycleStepSchema,
+	renderLifecycleStepHuman,
+} from "../../src/lifecycle-observability.ts";
 import type { NsActivationContext } from "../../src/activation-context.ts";
 import {
 	InMemoryActivationFilesGateway,
@@ -11,6 +15,10 @@ import {
 	CollectingLifecycleTraceSink,
 	InMemoryDeclaredExtensionsGateway,
 } from "../../src/testing/index.ts";
+
+const tracedFailureDataSchema = z.object({
+	steps: z.array(lifecycleStepSchema).readonly(),
+});
 
 function fixture(
 	nsToml?: string,
@@ -34,10 +42,27 @@ function fixture(
 }
 
 describe("initNs", () => {
-	it("requires --harness on first activation", async () => {
+	it("requires --harness on first activation and traces the usage failure", async () => {
 		const { context } = fixture();
 		const result = await initNs(context, { cwd: "/repo", harness: [] });
-		expect(result).toMatchObject({ type: "usageError", data: { argument: "harness" } });
+		expect(result).toMatchObject({
+			type: "usageError",
+			data: {
+				argument: "harness",
+				steps: [
+					{ type: "phase", phase: "repository-preflight", status: "started" },
+					expect.objectContaining({ type: "repository-resolved" }),
+					{ type: "phase", phase: "repository-preflight", status: "completed" },
+					{ type: "phase", phase: "configuration-preflight", status: "started" },
+					{ type: "phase", phase: "configuration-preflight", status: "failed" },
+					expect.objectContaining({
+						type: "failure",
+						phase: "configuration-preflight",
+						code: "harness-required",
+					}),
+				],
+			},
+		});
 	});
 
 	it("computes config before writing and activates with generic structured outcomes", async () => {
@@ -97,7 +122,11 @@ describe("initNs", () => {
 
 	it("ends configuration failures with the correct accumulated phase", async () => {
 		const { context, files } = fixture('harnesses = ["unknown"]\n');
-		const result = await initNs(context, { cwd: "/repo", harness: [] });
+		const trace = new CollectingLifecycleTraceSink();
+		const result = await initNs(
+			{ ...context, lifecycleTrace: trace },
+			{ cwd: "/repo", harness: [] },
+		);
 		expect(result).toMatchObject({
 			type: "failure",
 			data: {
@@ -111,7 +140,55 @@ describe("initNs", () => {
 				],
 			},
 		});
+		if (result.type !== "failure") return;
+		const data = tracedFailureDataSchema.parse(result.data);
+		expect(trace.collectedLines()).toEqual(data.steps.map(renderLifecycleStepHuman));
 		expect(files.operations()).toEqual([]);
+	});
+
+	it("traces apply failures after completed work and preserves recovery data", async () => {
+		const { context } = fixture();
+		const files = new InMemoryActivationFilesGateway({
+			writeFailures: {
+				".gitignore": { code: "write-denied", message: "Cannot write .gitignore." },
+			},
+		});
+		const trace = new CollectingLifecycleTraceSink();
+		const result = await initNs(
+			{ ...context, files, lifecycleTrace: trace },
+			{ cwd: "/repo", harness: ["pi"] },
+		);
+
+		expect(result).toMatchObject({
+			type: "failure",
+			errorType: "ns-init-apply-failed",
+			data: {
+				phase: "managed-extensions-ignore",
+				error: { code: "write-denied", message: "Cannot write .gitignore." },
+				completed: { files: { "ns-toml": { change: "created" } } },
+				steps: expect.arrayContaining([
+					{ type: "phase", phase: "activation-apply", status: "failed" },
+					expect.objectContaining({
+						type: "failure",
+						phase: "activation-apply",
+						code: "write-denied",
+					}),
+				]),
+			},
+		});
+		if (result.type !== "failure") return;
+		const data = tracedFailureDataSchema.parse(result.data);
+		expect(data.steps.at(-2)).toEqual({
+			type: "phase",
+			phase: "activation-apply",
+			status: "failed",
+		});
+		expect(data.steps.at(-1)).toMatchObject({
+			type: "failure",
+			phase: "activation-apply",
+			code: "write-denied",
+		});
+		expect(trace.collectedLines()).toEqual(data.steps.map(renderLifecycleStepHuman));
 	});
 
 	it("uses persisted harnesses and reports an idempotent rerun", async () => {
