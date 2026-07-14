@@ -5,6 +5,11 @@
 import { z } from "zod";
 
 import {
+	runStatusSuccessResponseSchema,
+	triggerSuccessResponseSchema,
+	triggerWorkflowValues,
+} from "../http/wire.ts";
+import {
 	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
 	DISPATCH_ANCHOR_PR_NUMBER_MAX,
 	DISPATCH_PROMPT_MAX_CHARS,
@@ -18,13 +23,6 @@ import {
 	SUPERVISION_RUN_SECONDS_MAX,
 	SUPERVISION_RUN_SECONDS_MIN,
 } from "../sandbox/supervision-probe.ts";
-
-export const triggerWorkflowValues = [
-	"hello",
-	"sandbox-probe",
-	"supervision-probe",
-	"dispatch",
-] as const;
 
 export type TriggerWorkflowName = (typeof triggerWorkflowValues)[number];
 
@@ -75,10 +73,7 @@ export const triggerRequestSchema = z.discriminatedUnion("workflow", [
 
 export type TriggerRequest = z.infer<typeof triggerRequestSchema>;
 
-export interface TriggerSuccess {
-	readonly runId: string;
-	readonly workflow: TriggerWorkflowName;
-}
+export type TriggerSuccess = z.infer<typeof triggerSuccessResponseSchema>;
 
 export type TriggerErrorCode =
 	| "invalid-request"
@@ -99,22 +94,13 @@ export type TriggerResponse =
 			readonly body: { readonly error: TriggerError };
 	  };
 
-export const workflowRunStatusValues = [
-	"pending",
-	"running",
-	"completed",
-	"failed",
-	"cancelled",
-] as const;
+export const workflowRunStatusValues = runStatusSuccessResponseSchema.shape.status.options;
 
-export type WorkflowRunStatus = (typeof workflowRunStatusValues)[number];
+export type WorkflowRunStatus = z.infer<typeof runStatusSuccessResponseSchema>["status"];
 
 export const runIdSchema = z.string().min(1).max(DISPATCH_RUN_ID_MAX_CHARS);
 
-export interface RunStatusSuccess {
-	readonly runId: string;
-	readonly status: WorkflowRunStatus;
-}
+export type RunStatusSuccess = z.infer<typeof runStatusSuccessResponseSchema>;
 
 export type RunStatusErrorCode =
 	| "invalid-request"

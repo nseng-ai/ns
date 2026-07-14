@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { vercelProjectIdSchema, vercelTeamIdSchema } from "./contracts.ts";
+
 export interface OidcTrustConfig {
 	readonly vercelTeamId: string;
 	readonly vercelProjectId: string;
@@ -8,7 +10,7 @@ export interface OidcTrustConfig {
 }
 
 export interface OidcTrustConfigError {
-	readonly variable: string | null;
+	readonly variable: string;
 }
 
 export type OidcTrustConfigParseResult =
@@ -18,8 +20,8 @@ export type OidcTrustConfigParseResult =
 export type OidcTrustEnvironment = Readonly<Record<string, string | undefined>>;
 
 const oidcTrustEnvironmentSchema = z.strictObject({
-	NS_DISPATCH_VERCEL_TEAM_ID: z.string().regex(/^team_[A-Za-z0-9]+$/),
-	NS_DISPATCH_VERCEL_PROJECT_ID: z.string().regex(/^prj_[A-Za-z0-9]+$/),
+	NS_DISPATCH_VERCEL_TEAM_ID: vercelTeamIdSchema,
+	NS_DISPATCH_VERCEL_PROJECT_ID: vercelProjectIdSchema,
 	NS_DISPATCH_VERCEL_OIDC_ISSUER: z.url(),
 	NS_DISPATCH_VERCEL_OIDC_AUDIENCE: z.url(),
 });
@@ -30,6 +32,8 @@ const oidcTrustEnvironmentNames = [
 	"NS_DISPATCH_VERCEL_OIDC_ISSUER",
 	"NS_DISPATCH_VERCEL_OIDC_AUDIENCE",
 ] as const;
+
+type OidcTrustEnvironmentName = (typeof oidcTrustEnvironmentNames)[number];
 
 export function parseOidcTrustConfig(
 	environment: OidcTrustEnvironment,
@@ -45,7 +49,7 @@ export function parseOidcTrustConfig(
 		return {
 			ok: false,
 			error: {
-				variable: isOidcTrustEnvironmentName(issuePath) ? issuePath : null,
+				variable: isOidcTrustEnvironmentName(issuePath) ? issuePath : "OIDC trust environment",
 			},
 		};
 	}
@@ -63,6 +67,6 @@ export function parseOidcTrustConfig(
 
 function isOidcTrustEnvironmentName(
 	value: PropertyKey | undefined,
-): value is (typeof oidcTrustEnvironmentNames)[number] {
+): value is OidcTrustEnvironmentName {
 	return typeof value === "string" && oidcTrustEnvironmentNames.some((name) => name === value);
 }

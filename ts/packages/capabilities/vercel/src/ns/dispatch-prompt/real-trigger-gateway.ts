@@ -1,22 +1,19 @@
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { z } from "zod";
-
+import {
+	DISPATCH_OIDC_HEADER_NAME,
+	httpErrorSchema,
+	RUNS_ROUTE_PATH,
+	TRIGGER_ROUTE_PATH,
+	triggerSuccessResponseSchema,
+} from "../../http/wire.ts";
 import type {
 	DispatchStartRunResult,
 	DispatchTriggerGateway,
 	DispatchTriggerIdentityResult,
 } from "./contracts.ts";
 
-/** The caller-owned auth header the deployable's routes verify. */
-export const DISPATCH_OIDC_HEADER_NAME = "x-ns-dispatch-oidc-token";
-
 /** Run id used by the read-only identity preflight; can never exist. */
 const IDENTITY_PREFLIGHT_RUN_ID = "ns-dispatch-identity-preflight";
-
-const triggerSuccessSchema = z.object({ runId: z.string().min(1) });
-const triggerErrorSchema = z.object({
-	error: z.object({ code: z.string(), message: z.string() }),
-});
 
 export function createRealDispatchTriggerGateway(
 	fetchFn: typeof fetch = fetch,
@@ -25,7 +22,7 @@ export function createRealDispatchTriggerGateway(
 		async checkTriggerIdentity({ connection }) {
 			let response: Response;
 			try {
-				const url = new URL("/api/runs", connection.deploymentUrl);
+				const url = new URL(RUNS_ROUTE_PATH, connection.deploymentUrl);
 				url.searchParams.set("runId", IDENTITY_PREFLIGHT_RUN_ID);
 				response = await fetchFn(url, {
 					method: "GET",
@@ -39,7 +36,7 @@ export function createRealDispatchTriggerGateway(
 		async startDispatchRun({ connection, input }) {
 			let response: Response;
 			try {
-				response = await fetchFn(new URL("/api/trigger", connection.deploymentUrl), {
+				response = await fetchFn(new URL(TRIGGER_ROUTE_PATH, connection.deploymentUrl), {
 					method: "POST",
 					headers: {
 						"content-type": "application/json",
@@ -76,7 +73,7 @@ async function startRunResultFromResponse(response: Response): Promise<DispatchS
 		payload = undefined;
 	}
 	if (response.status === 200) {
-		const parsed = triggerSuccessSchema.safeParse(payload);
+		const parsed = triggerSuccessResponseSchema.safeParse(payload);
 		if (!parsed.success) {
 			return {
 				ok: false,
@@ -88,7 +85,7 @@ async function startRunResultFromResponse(response: Response): Promise<DispatchS
 		}
 		return { ok: true, value: { runId: parsed.data.runId } };
 	}
-	const parsedError = triggerErrorSchema.safeParse(payload);
+	const parsedError = httpErrorSchema.safeParse(payload);
 	const remoteMessage = parsedError.success
 		? `${parsedError.data.error.code}: ${parsedError.data.error.message}`
 		: `status ${response.status}`;

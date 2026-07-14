@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-	VercelOidcGateway,
-	VercelOidcVerificationResult,
-} from "../../src/mint/development-oidc.ts";
+import {
+	createDevelopmentCallerAuthenticator,
+	type VercelOidcGateway,
+	type VercelOidcVerificationResult,
+} from "../../src/auth/development-oidc.ts";
 import type { WorkflowRunStatus } from "../../src/trigger/contracts.ts";
 import {
 	handleRunStatusRequest,
@@ -29,18 +30,14 @@ const probeRevision = "0123456789abcdef0123456789ABCDEF01234567";
 
 class InMemoryVercelOidcGateway implements VercelOidcGateway {
 	readonly #result: VercelOidcVerificationResult;
-	readonly calls: Array<{ token: string; issuer: string; audience: string }> = [];
+	readonly calls: string[] = [];
 
 	constructor(result: VercelOidcVerificationResult) {
 		this.#result = result;
 	}
 
-	async verifyDevelopmentIdentity(options: {
-		readonly token: string;
-		readonly issuer: string;
-		readonly audience: string;
-	}): Promise<VercelOidcVerificationResult> {
-		this.calls.push({ ...options });
+	async verifyDevelopmentIdentity(token: string): Promise<VercelOidcVerificationResult> {
+		this.calls.push(token);
 		return this.#result;
 	}
 }
@@ -93,9 +90,9 @@ function context(options: {
 	readonly oidcResult?: VercelOidcVerificationResult;
 	readonly workflowRuns?: InMemoryWorkflowRunGateway;
 }): TriggerRequestContext {
+	const oidc = new InMemoryVercelOidcGateway(options.oidcResult ?? developmentIdentity());
 	return {
-		config,
-		oidc: new InMemoryVercelOidcGateway(options.oidcResult ?? developmentIdentity()),
+		developmentCaller: createDevelopmentCallerAuthenticator(config, oidc),
 		workflowRuns: options.workflowRuns ?? new InMemoryWorkflowRunGateway(),
 	};
 }
@@ -380,7 +377,10 @@ describe("handleRunStatusRequest", () => {
 
 		const response = await handleRunStatusRequest(
 			{ runId, oidcToken: "oidc-token" },
-			{ config, oidc, workflowRuns: new InMemoryWorkflowRunGateway() },
+			{
+				developmentCaller: createDevelopmentCallerAuthenticator(config, oidc),
+				workflowRuns: new InMemoryWorkflowRunGateway(),
+			},
 		);
 
 		expect(response).toEqual({

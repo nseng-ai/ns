@@ -41,7 +41,9 @@
 		"group": "dispatch",
 		"subpackages": [
 			"api",
+			"auth",
 			"dispatch",
+			"http",
 			"mint",
 			"ns",
 			"pi-runner",

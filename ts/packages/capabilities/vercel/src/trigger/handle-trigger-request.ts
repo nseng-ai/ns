@@ -4,7 +4,8 @@
 // workflow (hello or sandbox-probe) or read a run's status through the
 // WorkflowRunGateway seam. Unauthenticated callers get the same safe
 // 401-shaped response as `/api/mint` — no information leak.
-import { authenticateDevelopmentCaller, type VercelOidcGateway } from "../mint/development-oidc.ts";
+import type { DevelopmentCallerAuthenticator } from "../auth/development-oidc.ts";
+import { httpErrorBody } from "../http/wire.ts";
 import {
 	runIdSchema,
 	triggerRequestSchema,
@@ -14,12 +15,10 @@ import {
 	type TriggerRequest,
 	type TriggerResponse,
 } from "./contracts.ts";
-import type { TriggerRuntimeConfig } from "./runtime-config.ts";
 import type { WorkflowRunGateway, WorkflowStartRequest } from "./workflow-run-gateway.ts";
 
 export interface TriggerRequestContext {
-	readonly config: TriggerRuntimeConfig;
-	readonly oidc: VercelOidcGateway;
+	readonly developmentCaller: DevelopmentCallerAuthenticator;
 	readonly workflowRuns: WorkflowRunGateway;
 }
 
@@ -37,11 +36,7 @@ export async function handleTriggerRequest(
 		return triggerFailure(400, "invalid-request", "Invalid trigger request.");
 	}
 
-	const authentication = await authenticateDevelopmentCaller(
-		input.oidcToken,
-		context.config,
-		context.oidc,
-	);
+	const authentication = await context.developmentCaller.authenticate(input.oidcToken);
 	// `=== false` rather than `!`: the Vercel builder typechecks without
 	// strictNullChecks, where truthiness checks do not narrow the union.
 	if (authentication.ok === false) {
@@ -79,11 +74,7 @@ export async function handleRunStatusRequest(
 		return runStatusFailure(400, "invalid-request", "Invalid run-status request.");
 	}
 
-	const authentication = await authenticateDevelopmentCaller(
-		input.oidcToken,
-		context.config,
-		context.oidc,
-	);
+	const authentication = await context.developmentCaller.authenticate(input.oidcToken);
 	if (authentication.ok === false) {
 		return authentication.status === 401
 			? runStatusFailure(401, "unauthorized", "Authentication failed.")
@@ -138,7 +129,7 @@ function triggerFailure(
 	code: TriggerErrorCode,
 	message: string,
 ): TriggerResponse {
-	return { status, body: { error: { code, message } } };
+	return { status, body: httpErrorBody(code, message) };
 }
 
 function runStatusFailure(
@@ -146,5 +137,5 @@ function runStatusFailure(
 	code: RunStatusErrorCode,
 	message: string,
 ): RunStatusResponse {
-	return { status, body: { error: { code, message } } };
+	return { status, body: httpErrorBody(code, message) };
 }

@@ -1,9 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import {
-	createRealDispatchTriggerGateway,
-	DISPATCH_OIDC_HEADER_NAME,
-} from "../../src/ns/dispatch-prompt/real-trigger-gateway.ts";
+import { DISPATCH_OIDC_HEADER_NAME } from "../../src/http/wire.ts";
+import { createRealDispatchTriggerGateway } from "../../src/ns/dispatch-prompt/real-trigger-gateway.ts";
 
 const SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
 const TRIGGER_CONNECTION = {

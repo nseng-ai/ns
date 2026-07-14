@@ -1,17 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import type { MintPurpose } from "../../src/mint/contracts.ts";
-import type {
-	VercelOidcGateway,
-	VercelOidcVerificationResult,
-} from "../../src/mint/development-oidc.ts";
+import {
+	createDevelopmentCallerAuthenticator,
+	type VercelOidcGateway,
+	type VercelOidcVerificationResult,
+} from "../../src/auth/development-oidc.ts";
 import { handleMintRequest } from "../../src/mint/handle-mint-request.ts";
 import {
 	createDispatchTokenMinter,
 	type GitHubInstallationTokenGateway,
 	type GitHubInstallationTokenResult,
 } from "../../src/mint/mint-core.ts";
-import type { OidcTrustConfig } from "../../src/mint/oidc-trust-config.ts";
+import type { OidcTrustConfig } from "../../src/auth/oidc-trust-config.ts";
 
 const oidcTrust: OidcTrustConfig = {
 	vercelTeamId: "team_dispatch",
@@ -22,18 +23,14 @@ const oidcTrust: OidcTrustConfig = {
 
 class InMemoryVercelOidcGateway implements VercelOidcGateway {
 	readonly #result: VercelOidcVerificationResult;
-	readonly calls: Array<{ token: string; issuer: string; audience: string }> = [];
+	readonly calls: string[] = [];
 
 	constructor(result: VercelOidcVerificationResult) {
 		this.#result = result;
 	}
 
-	async verifyDevelopmentIdentity(options: {
-		readonly token: string;
-		readonly issuer: string;
-		readonly audience: string;
-	}): Promise<VercelOidcVerificationResult> {
-		this.calls.push({ ...options });
+	async verifyDevelopmentIdentity(token: string): Promise<VercelOidcVerificationResult> {
+		this.calls.push(token);
 		return this.#result;
 	}
 }
@@ -86,7 +83,11 @@ function createContext(
 	const github =
 		options.github ?? new InMemoryGitHubInstallationTokenGateway(successfulGitHubResult());
 	const minter = createDispatchTokenMinter({ repository: "nseng-ai/ns", github });
-	return { context: { oidcTrust, oidc, minter }, oidc, github };
+	return {
+		context: { developmentCaller: createDevelopmentCallerAuthenticator(oidcTrust, oidc), minter },
+		oidc,
+		github,
+	};
 }
 
 describe("handleMintRequest", () => {
@@ -110,13 +111,7 @@ describe("handleMintRequest", () => {
 				purpose: "clone",
 			},
 		});
-		expect(oidc.calls).toEqual([
-			{
-				token: "vercel-token",
-				issuer: oidcTrust.vercelOidcIssuer,
-				audience: oidcTrust.vercelOidcAudience,
-			},
-		]);
+		expect(oidc.calls).toEqual(["vercel-token"]);
 		expect(github.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "clone" }]);
 	});
 
@@ -192,13 +187,7 @@ describe("handleMintRequest", () => {
 			status: 403,
 			body: { error: { code: "forbidden", message: "Mint request is not authorized." } },
 		});
-		expect(oidc.calls).toEqual([
-			{
-				token: "valid-token",
-				issuer: oidcTrust.vercelOidcIssuer,
-				audience: oidcTrust.vercelOidcAudience,
-			},
-		]);
+		expect(oidc.calls).toEqual(["valid-token"]);
 		expect(github.calls).toEqual([]);
 		expect(JSON.stringify(result)).not.toContain("installation-token");
 	});
