@@ -248,7 +248,7 @@ export async function launchDispatchRun(
 		};
 	}
 
-	return { ok: true, sandboxName };
+	return { ok: true, sandboxName, harness: harness.harness };
 }
 
 type LaunchEnvironmentResolution =
