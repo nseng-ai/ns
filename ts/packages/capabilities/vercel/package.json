@@ -31,6 +31,7 @@
 		"@nseng-ai/sdk": "workspace:*",
 		"@octokit/auth-app": "catalog:",
 		"@vercel/sandbox": "catalog:",
+		"esbuild": "catalog:",
 		"jose": "catalog:",
 		"smol-toml": "catalog:",
 		"workflow": "catalog:",

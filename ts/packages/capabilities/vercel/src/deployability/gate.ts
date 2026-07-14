@@ -15,6 +15,58 @@ export interface ApiFunctionDirectoryComparison {
 	readonly unexpected: readonly string[];
 }
 
+export interface HermeticApiFunctionPlan {
+	readonly sourceHandler: string;
+	readonly bundledHandler: string;
+	readonly config: Readonly<Record<string, unknown>>;
+}
+
+const apiFunctionConfigSchema = z.looseObject({
+	handler: z.string(),
+	runtime: z.string(),
+});
+
+export function planHermeticApiFunction(config: unknown): HermeticApiFunctionPlan {
+	const parsed = apiFunctionConfigSchema.safeParse(config);
+	if (!parsed.success) {
+		throw new Error("Vercel emitted an API function config without a handler and runtime.");
+	}
+	if (!parsed.data.handler.endsWith(".js")) {
+		throw new Error("Vercel emitted an API function config without a JavaScript handler.");
+	}
+	const bundledHandler = `${parsed.data.handler.slice(0, -3)}.cjs`;
+	const hermeticConfig: Record<string, unknown> = {
+		...parsed.data,
+		handler: bundledHandler,
+		shouldAddSourcemapSupport: false,
+	};
+	delete hermeticConfig.filePathMap;
+	return {
+		sourceHandler: parsed.data.handler,
+		bundledHandler,
+		config: hermeticConfig,
+	};
+}
+
+export function findHermeticApiFunctionProblems(
+	config: unknown,
+	emittedPaths: ReadonlySet<string>,
+): readonly string[] {
+	const parsed = apiFunctionConfigSchema.safeParse(config);
+	if (!parsed.success) return ["API function config has no handler and runtime."];
+	const problems: string[] = [];
+	if (!parsed.data.handler.endsWith(".cjs")) {
+		problems.push("API function handler is not a CommonJS bundle.");
+	}
+	if (Object.hasOwn(parsed.data, "filePathMap")) {
+		problems.push("API function config still depends on filePathMap.");
+	}
+	if (!emittedPaths.has(parsed.data.handler)) {
+		problems.push(`API function bundle is missing handler ${parsed.data.handler}.`);
+	}
+	return problems;
+}
+
 export function expectedApiFunctionDirectories(
 	apiSourceFileNames: readonly string[],
 ): readonly string[] {

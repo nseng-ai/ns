@@ -3,16 +3,20 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { runCommand } from "@nseng-ai/foundation/exec";
+import { build } from "esbuild";
 
 import {
 	compareApiFunctionDirectories,
 	expectedApiFunctionDirectories,
+	findHermeticApiFunctionProblems,
 	findMissingRelativeModuleTargets,
 	findMissingTriggerWorkflowManifestIds,
 	findMissingWorkflowFunctionArtifacts,
 	findWorkflowQueueTriggerProblems,
 	findWorkflowSourcesMissingFromManifest,
+	type HermeticApiFunctionPlan,
 	mergeBuildOutputConfig,
+	planHermeticApiFunction,
 	REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS,
 } from "../src/deployability/gate.ts";
 import { triggerWorkflowIds } from "../src/trigger/workflow-ids.ts";
@@ -77,6 +81,39 @@ async function runVercelBuildAndDiagnostics(paths: BuildPaths): Promise<boolean>
 	return true;
 }
 
+async function makeApiFunctionBundlesHermetic(paths: BuildPaths): Promise<boolean> {
+	const entries = await readdir(paths.apiFunctionsRoot, { withFileTypes: true });
+	const functionDirectories = entries
+		.filter((entry) => entry.isDirectory() && entry.name.endsWith(".func"))
+		.map((entry) => entry.name)
+		.sort();
+	for (const name of functionDirectories) {
+		const functionRoot = join(paths.apiFunctionsRoot, name);
+		const configPath = join(functionRoot, ".vc-config.json");
+		let plan: HermeticApiFunctionPlan;
+		try {
+			plan = planHermeticApiFunction(await readJson(configPath));
+		} catch (error) {
+			console.error(`Cannot make API function api/${name} hermetic: ${String(error)}`);
+			return false;
+		}
+		await build({
+			entryPoints: [join(functionRoot, plan.sourceHandler)],
+			outfile: join(functionRoot, plan.bundledHandler),
+			bundle: true,
+			platform: "node",
+			format: "cjs",
+			target: "node24",
+			packages: "bundle",
+			sourcemap: false,
+			legalComments: "none",
+			logLevel: "silent",
+		});
+		await writeFile(configPath, `${JSON.stringify(plan.config, null, 2)}\n`);
+	}
+	return true;
+}
+
 async function verifyApiFunctionBundles(
 	paths: BuildPaths,
 ): Promise<ApiVerificationSummary | undefined> {
@@ -105,7 +142,19 @@ async function verifyApiFunctionBundles(
 
 	let moduleCount = 0;
 	for (const name of emittedDirectories) {
-		const modules = await readJavaScriptModules(join(paths.apiFunctionsRoot, name));
+		const functionRoot = join(paths.apiFunctionsRoot, name);
+		const emittedPaths = new Set(await walkFiles(functionRoot));
+		const configProblems = findHermeticApiFunctionProblems(
+			await readJson(join(functionRoot, ".vc-config.json")),
+			emittedPaths,
+		);
+		if (configProblems.length > 0) {
+			for (const problem of configProblems) {
+				console.error(`Vercel function artifact api/${name} is not hermetic: ${problem}`);
+			}
+			return undefined;
+		}
+		const modules = await readJavaScriptModules(functionRoot);
 		moduleCount += modules.size;
 		const missing = findMissingRelativeModuleTargets(modules);
 		if (missing.length === 0) continue;
@@ -229,6 +278,7 @@ async function main(): Promise<boolean> {
 	const paths = resolveBuildPaths();
 	if (!(await runTypeScriptGate(paths))) return false;
 	if (!(await runVercelBuildAndDiagnostics(paths))) return false;
+	if (!(await makeApiFunctionBundlesHermetic(paths))) return false;
 	const api = await verifyApiFunctionBundles(paths);
 	if (api === undefined) return false;
 	const workflowBuild = await validateAndBuildWorkflows(paths);
