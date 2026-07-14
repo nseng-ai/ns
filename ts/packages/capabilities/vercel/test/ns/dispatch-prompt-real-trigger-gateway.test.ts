@@ -45,7 +45,7 @@ describe("real trigger gateway", () => {
 
 		expect(result).toEqual({ type: "authorized" });
 		expect(requests[0]?.url).toBe(
-			"https://ns-dispatch.example.vercel.app/api/runs?runId=ns-dispatch-identity-preflight",
+			"https://ns-dispatch.example.vercel.app/api/runs?runId=wrun_00000000000000000000000000",
 		);
 		expect(requests[0]?.headers[DISPATCH_OIDC_HEADER_NAME]).toBe("fake-token");
 	});
