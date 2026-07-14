@@ -1,7 +1,7 @@
 /**
- * Interactive bordered overlay for the `/stack:view` panel. Modeled line-for-line
- * on {@link PrPreviewFeedbackView}: a master/detail modal with a header rollup, a
- * scrolling list of stack rows, and a scrollable detail pane for the selection.
+ * Interactive bordered overlay for the `/stack:view` panel: a master/detail modal
+ * with a header rollup, a scrolling list of stack rows, and a scrollable detail
+ * pane for the selection.
  *
  * The component is pure presentation over an immutable {@link StackViewModel} and
  * performs no I/O. Every terminal side effect (open a URL, summarize, refresh,

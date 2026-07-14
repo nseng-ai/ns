@@ -1,7 +1,7 @@
 /**
- * Pure, theme-free presentation model for the `/stack:view` overlay. Mirrors the
- * shape of `preview-feedback-model.ts`: plain-data row/segment structures plus
- * pure transformations that a view component colorizes and lays out. This module
+ * Pure, theme-free presentation model for the `/stack:view` overlay: plain-data
+ * row/segment structures plus pure transformations that a view component colorizes
+ * and lays out. This module
  * performs no I/O, reads no clock, and never touches the Pi TUI runtime.
  *
  * The overlay renders a master/detail layout: a compact list of stack rows

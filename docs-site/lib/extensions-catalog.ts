@@ -135,13 +135,13 @@ export const extensionCatalogEntries: readonly ExtensionCatalogEntry[] = [
   {
     slug: "pr-feedback",
     name: "PR feedback tools",
-    summary: "Download, preview, classify, and address GitHub PR review feedback inside Pi.",
+    summary: "Inspect stack-wide review feedback and address GitHub PR review threads inside Pi.",
     details:
-      "Surfaces review threads and feedback context so follow-up work can stay tied to the active branch.",
+      "Surfaces review threads and merge readiness across the current Graphite stack so follow-up work stays tied to the active branch.",
     category: "review-quality",
     status: "workflow",
-    commandHint: "/pr:preview-feedback",
-    sourcePath: ".pi/extensions/pr.ts",
+    commandHint: "/stack:view",
+    sourcePath: ".pi/extensions/stack-view.ts",
     docsHref: "/docs/guides/addressing-pr-feedback",
   },
   {

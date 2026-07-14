@@ -1,11 +1,8 @@
 import { Theme, type ThemeColor } from "@earendil-works/pi-coding-agent";
 
 /**
- * Stack-view-local copy of the pr-previews test themes. The test directories stay
- * decoupled just like the `src/` subpackages, so this duplicates the
- * identity/tagging `Theme` subclasses rather than importing from
- * `test/pr-previews`. The tagging theme additionally tags background colors so
- * the selected-row `selectedBg` highlight is observable in assertions.
+ * Stack-view test themes. The tagging theme additionally tags background colors
+ * so the selected-row `selectedBg` highlight is observable in assertions.
  */
 export function identityTheme(): Theme {
 	return new TestTheme("identity");

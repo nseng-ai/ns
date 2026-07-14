@@ -1,6 +1,6 @@
 /**
- * Generic detail-pane viewport math shared by the bordered overlay modals
- * (`stack-view`, `pr-previews`). Wrapping and scroll-slicing are pure string
+ * Generic detail-pane viewport math for bordered overlay modals such as
+ * `stack-view`. Wrapping and scroll-slicing are pure string
  * transformations with no feature or theme knowledge; the per-feature detail
  * models feed already-colored lines through these helpers.
  */

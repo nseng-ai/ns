@@ -84,8 +84,8 @@ simplification:
   landed.
 - **One concept, two homes** — grill (pi host `grill/surfaces` vs
   `@internal/pi-tools/grill`); PR feedback (pi host residue + `pr-feedback-watch` +
-  `pr-previews` + Address capability — pi CONTEXT.md's residue entry likely
-  undersells the watch subpackage); progress five-state union is shared correctly
+  stack-view + Address capability — pi CONTEXT.md's residue entry should preserve
+  those ownership seams); progress five-state union is shared correctly
   (kernel SDK store, flow consumer) but documented as if flow-local.
 - **"Kernel" name/analogy under user skepticism (2026-07-10)** — reconsider in the
   layering grilling row. Supporting evidence: the package's own enforced tier is
