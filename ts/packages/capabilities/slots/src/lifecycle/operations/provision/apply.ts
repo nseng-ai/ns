@@ -85,7 +85,7 @@ export async function runProvisionApply(ctx: SlotCliContext, request: ProvisionA
 	if (applied.type === "failure")
 		return failure(applied.failure.errorType, applied.failure.message);
 	const result = toApplyResult(applied.outcome);
-	if (result.differsCount > 0 || result.errorCount > 0) {
+	if (applyHasProblems(result)) {
 		return negative("Provisioned file copies differ or failed; see entries.", {
 			data: result,
 			human: renderProvisionApply(result),
@@ -133,8 +133,12 @@ export function renderProvisionApply(
 	});
 }
 
+function applyHasProblems(result: ProvisionApplyResult): boolean {
+	return result.differsCount > 0 || result.errorCount > 0;
+}
+
 function applyResultKind(result: ProvisionApplyResult): "success" | "failure" {
-	return result.differsCount > 0 || result.errorCount > 0 ? "failure" : "success";
+	return applyHasProblems(result) ? "failure" : "success";
 }
 
 function applyHeadline(result: ProvisionApplyResult): string {

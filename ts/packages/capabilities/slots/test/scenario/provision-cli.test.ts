@@ -303,6 +303,40 @@ describe("placement provisioning", () => {
 		});
 	});
 
+	it("keeps claim successful when reading project config fails", async () => {
+		const run = runScenario(["claim", "feature/a", "--format", "json"], {
+			cwd: SLOT_01,
+			git: {
+				localBranches: ["master", "feature/a"],
+				repositoryRoot: SLOT_01,
+				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
+			},
+			provisionFiles: { projectConfigReadFailures: { "/repo": "config unavailable" } },
+		});
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				slotName: "slot-01",
+				provision: {
+					copied: [],
+					notices: [
+						{
+							kind: "config-error",
+							path: null,
+							slotName: null,
+							message: "config unavailable",
+						},
+					],
+				},
+			},
+		});
+		expect(run.git.operations()).toContainEqual({
+			type: "checkout-branch",
+			path: SLOT_01,
+			branch: "feature/a",
+		});
+	});
+
 	it("keeps human placement output stable when nothing is declared", async () => {
 		const run = runScenario(["checkout", "feature/a"], {
 			git: {
