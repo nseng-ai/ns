@@ -495,6 +495,9 @@ importers:
       '@vercel/sandbox':
         specifier: 'catalog:'
         version: 2.5.0
+      esbuild:
+        specifier: 'catalog:'
+        version: 0.27.7
       jose:
         specifier: 'catalog:'
         version: 6.2.3
