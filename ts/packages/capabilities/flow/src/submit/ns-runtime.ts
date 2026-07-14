@@ -22,9 +22,9 @@ import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/bra
 import {
 	RealGraphiteStackGateway,
 	type GraphiteStackGateway,
-	type GraphiteStackGitGateway,
 } from "@nseng-ai/capability-kit/graphite/stack";
 import { commandOperations, withActiveOperations } from "../phase-stream/matrix-progress-core.ts";
+import { createFlowGraphiteStackGitGateway } from "../stack-squash/graphite-stack-gateway.ts";
 
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
@@ -62,7 +62,7 @@ export function createNsSubmitRuntime(
 		new RealGraphiteStackGateway({
 			env: ctx.env,
 			execApi: graphiteExecApi,
-			git: createSubmitGraphiteStackGitGateway(git),
+			git: createFlowGraphiteStackGitGateway(git),
 		});
 	return {
 		commandRunner,
@@ -94,23 +94,6 @@ export function createNsSubmitRuntime(
 			git,
 			descriptorSource,
 			env: ctx.env,
-		},
-	};
-}
-
-function createSubmitGraphiteStackGitGateway(
-	git: Pick<GitGateway, "currentBranch" | "gitCommonDir">,
-): GraphiteStackGitGateway {
-	return {
-		async getGitCommonDir(cwd: string): Promise<string | null> {
-			const result = await git.gitCommonDir({ cwd });
-			return result.ok ? result.value : null;
-		},
-		async getCurrentBranch(cwd: string) {
-			const result = await git.currentBranch({ cwd });
-			if (result.type === "branch") return result;
-			if (result.type === "detached") return result;
-			return { type: "failure", failure: { message: result.error.message } };
 		},
 	};
 }
