@@ -25,6 +25,9 @@
 		"./pi": "./src/pi/index.ts",
 		"./pi/ns-extension": "./src/pi/ns-extension.ts"
 	},
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/flow/test",
@@ -39,6 +42,17 @@
 		"@nseng-ai/slots": "workspace:*",
 		"zod": "catalog:"
 	},
+	"devDependencies": {
+		"@nseng-ai/pi": "workspace:*"
+	},
+	"peerDependencies": {
+		"@nseng-ai/pi": "*"
+	},
+	"peerDependenciesMeta": {
+		"@nseng-ai/pi": {
+			"optional": true
+		}
+	},
 	"ns": {
 		"tier": "capability",
 		"subpackages": [
@@ -50,25 +64,12 @@
 			"commit-display",
 			"land",
 			"phase-stream",
+			"publication",
 			"pi",
 			"ns",
 			"submit",
 			"trunk-pull",
 			"stack-squash"
 		]
-	},
-	"peerDependencies": {
-		"@nseng-ai/pi": "*"
-	},
-	"peerDependenciesMeta": {
-		"@nseng-ai/pi": {
-			"optional": true
-		}
-	},
-	"devDependencies": {
-		"@nseng-ai/pi": "workspace:*"
-	},
-	"publishConfig": {
-		"access": "public"
 	}
 }

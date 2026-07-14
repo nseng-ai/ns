@@ -31,3 +31,13 @@ export { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../submit/submit-hooks.ts";
 
 export type { TrunkPullOutcome, TrunkPullResult } from "../trunk-pull/trunk-pull.ts";
 export { runTrunkPullDetailed } from "../trunk-pull/trunk-pull.ts";
+
+export type {
+	FlowBoundBranchPublicationTarget,
+	FlowBranchPublicationClient,
+	FlowPublicationError,
+	PublishFlowBranchResult,
+	ResolveFlowBranchPublicationTargetResult,
+} from "../publication/branch-publication.ts";
+export type { CreateFlowBranchPublicationClientOptions } from "../publication/real-publication-gateways.ts";
+export { createFlowBranchPublicationClient } from "../publication/real-publication-gateways.ts";
