@@ -71,9 +71,7 @@ export async function verifyDispatchBuildOutput(
 			problems.push(`${name}/${missing.sourcePath} imports missing ${missing.targetPath}.`);
 		}
 		for (const path of findWorkflowTargetWorldProblems(modules)) {
-			problems.push(
-				`${name}/${path} contains Workflow's uninjected target-world fallback.`,
-			);
+			problems.push(`${name}/${path} contains Workflow's uninjected target-world fallback.`);
 		}
 	}
 

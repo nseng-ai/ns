@@ -112,6 +112,7 @@ async function makeApiFunctionBundlesHermetic(paths: BuildPaths): Promise<boolea
 			sourcemap: false,
 			legalComments: "none",
 			logLevel: "silent",
+			minifyWhitespace: true,
 		});
 		await writeFile(configPath, `${JSON.stringify(plan.config, null, 2)}\n`);
 	}
