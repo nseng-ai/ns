@@ -72,6 +72,14 @@ export type BranchComparisonResult =
 	| { type: "ok"; comparison: BranchComparison }
 	| { type: "failure"; failure: GitCommandFailure };
 
+export type LocalBranchesResult =
+	| { type: "ok"; branches: readonly string[] }
+	| { type: "failure"; failure: GitCommandFailure };
+
+export type UncommittedChangesResult =
+	| { type: "ok"; hasUncommittedChanges: boolean }
+	| { type: "failure"; failure: GitCommandFailure };
+
 export type CurrentBranchResult =
 	| { type: "branch"; branch: string }
 	| { type: "detached" }
@@ -91,9 +99,9 @@ export interface SlotRepositoryGateway {
 	getRepositoryRoot(cwd: string): Promise<string>;
 	listWorktrees(): Promise<readonly WorktreeInfo[]>;
 	listBranchOccupancies(): Promise<readonly WorktreeOccupancy[]>;
-	listLocalBranches(): Promise<readonly string[]>;
+	listLocalBranches(): Promise<LocalBranchesResult>;
 	listLocalBranchTips(): Promise<readonly LocalBranchTip[]>;
-	hasUncommittedChanges(path: string): Promise<boolean>;
+	hasUncommittedChanges(path: string): Promise<UncommittedChangesResult>;
 	getTrunkBranch(): Promise<string>;
 	getCurrentBranch(cwd: string): Promise<CurrentBranchResult>;
 	getPreviousBranch(cwd: string): Promise<string | null>;
@@ -182,8 +190,10 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 		return occupancies.filter((occupancy) => occupancy !== null);
 	}
 
-	async listLocalBranches(): Promise<readonly string[]> {
-		return (await this.listLocalBranchTips()).map((tip) => tip.name);
+	async listLocalBranches(): Promise<LocalBranchesResult> {
+		const result = await this.coreGit.listLocalBranchTips({ cwd: this.cwd, env: this.env });
+		if (result.ok) return { type: "ok", branches: result.value.map((tip) => tip.name) };
+		return { type: "failure", failure: { message: result.error.message } };
 	}
 
 	async listLocalBranchTips(): Promise<readonly LocalBranchTip[]> {
@@ -192,14 +202,14 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 		throw new Error(result.error.message);
 	}
 
-	async hasUncommittedChanges(path: string): Promise<boolean> {
+	async hasUncommittedChanges(path: string): Promise<UncommittedChangesResult> {
 		const result = await this.coreGit.hasUncommittedChangesUnder({
 			cwd: path,
 			env: this.env,
 			relativePath: ".",
 		});
-		if (result.ok) return result.value;
-		throw new Error(result.error.message);
+		if (result.ok) return { type: "ok", hasUncommittedChanges: result.value };
+		return { type: "failure", failure: { message: result.error.message } };
 	}
 
 	async getTrunkBranch(): Promise<string> {
@@ -346,6 +356,16 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 		if (commandResult.isOk || options.allowFailure) return commandResult;
 		throw new Error(`git ${args.join(" ")} failed: ${gitFailureMessage(result)}`);
 	}
+}
+
+/** Compatibility bridge for incumbent callers that still propagate repository failures by throwing. */
+export function unwrapIncumbentRepositoryResult(result: LocalBranchesResult): readonly string[];
+export function unwrapIncumbentRepositoryResult(result: UncommittedChangesResult): boolean;
+export function unwrapIncumbentRepositoryResult(
+	result: LocalBranchesResult | UncommittedChangesResult,
+): readonly string[] | boolean {
+	if (result.type === "failure") throw new Error(result.failure.message);
+	return "branches" in result ? result.branches : result.hasUncommittedChanges;
 }
 
 type ParsedValue<T> = { type: "ok"; value: T } | { type: "failure"; failure: GitCommandFailure };

@@ -9,7 +9,10 @@ import { z } from "zod";
 
 import { deduplicateOrderedStrings } from "../../../../core/collections.ts";
 import type { SlotCliContext } from "../../../../core/context.ts";
-import type { LocalBranchTip } from "../../../../core/gateways/repository.ts";
+import {
+	unwrapIncumbentRepositoryResult,
+	type LocalBranchTip,
+} from "../../../../core/gateways/repository.ts";
 import type { StackInfo } from "@nseng-ai/capability-kit/graphite/stack";
 import { buildSlotInventory, type SlotRecord } from "../../../../core/inventory.ts";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
@@ -105,7 +108,7 @@ export async function runGtStackMapBranches(
 		await ctx.git.listLocalBranchTips(),
 		request.recentLimit,
 	);
-	const localBranches = new Set(await ctx.git.listLocalBranches());
+	const localBranches = new Set(unwrapIncumbentRepositoryResult(await ctx.git.listLocalBranches()));
 	const selection = selectVisibleBranches({
 		topology: graphResult.graph.topology,
 		stack: stackResult.stack,

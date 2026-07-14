@@ -1,5 +1,6 @@
 import type { RepoSlotContext, SlotCliContext } from "../core/context.ts";
 import type { CurrentWorktreeRedirect } from "../core/planning.ts";
+import { unwrapIncumbentRepositoryResult } from "../core/gateways/repository.ts";
 import {
 	findByBranch,
 	findOccupancyByBranch,
@@ -341,7 +342,8 @@ async function currentSlotDirtyFailure(
 	ctx: RepoSlotContext,
 	current: SlotRecord,
 ): Promise<SlotLifecycleFailure | null> {
-	if (!(await ctx.git.hasUncommittedChanges(current.path))) return null;
+	if (!unwrapIncumbentRepositoryResult(await ctx.git.hasUncommittedChanges(current.path)))
+		return null;
 	return {
 		errorType: "dirty-current-slot",
 		message: `Current slot ${current.slotName} has uncommitted changes at ${current.path}. Commit or stash before claiming a branch.`,
@@ -351,7 +353,8 @@ async function currentSlotDirtyFailure(
 async function currentWorktreeDirtyFailure(
 	ctx: RepoSlotContext,
 ): Promise<SlotLifecycleFailure | null> {
-	if (!(await ctx.git.hasUncommittedChanges(ctx.repo.root))) return null;
+	if (!unwrapIncumbentRepositoryResult(await ctx.git.hasUncommittedChanges(ctx.repo.root)))
+		return null;
 	return {
 		errorType: "dirty-current-worktree",
 		message: `Current worktree at ${ctx.repo.root} has uncommitted changes. Commit or stash before claiming its branch into a slot.`,
@@ -367,7 +370,8 @@ async function sourceSlotFailure(
 			errorType: "branch-in-use",
 			message: slotOperationMessage(source, { action: "claiming" }),
 		};
-	if (!(await ctx.git.hasUncommittedChanges(source.path))) return null;
+	if (!unwrapIncumbentRepositoryResult(await ctx.git.hasUncommittedChanges(source.path)))
+		return null;
 	return {
 		errorType: "dirty-source-slot",
 		message: `Source slot ${source.slotName} has uncommitted changes at ${source.path}. Commit or stash there before claiming its branch.`,

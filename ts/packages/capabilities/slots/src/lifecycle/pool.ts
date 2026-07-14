@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { unwrapIncumbentRepositoryResult } from "../core/gateways/repository.ts";
 import {
 	buildSlotInventory,
 	poolSize,
@@ -202,7 +203,7 @@ async function validateRemovals(
 			);
 			continue;
 		}
-		if (await ctx.git.hasUncommittedChanges(record.path)) {
+		if (unwrapIncumbentRepositoryResult(await ctx.git.hasUncommittedChanges(record.path))) {
 			errors.push(
 				`${record.slotName} at ${record.path} has uncommitted changes; commit or discard before shrinking the pool.`,
 			);

@@ -139,10 +139,16 @@ async function inspectRepository(
 	| { type: "ok"; clean: boolean; inventory: SlotInventory }
 	| { type: "failure"; operation: string; message: string }
 > {
+	const uncommittedChanges = await ctx.git.hasUncommittedChanges(ctx.cwd);
+	if (uncommittedChanges.type === "failure")
+		return {
+			type: "failure",
+			operation: "inspect-worktree-and-slot-inventory",
+			message: uncommittedChanges.failure.message,
+		};
 	try {
-		const clean = !(await ctx.git.hasUncommittedChanges(ctx.cwd));
 		const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot });
-		return { type: "ok", clean, inventory };
+		return { type: "ok", clean: !uncommittedChanges.hasUncommittedChanges, inventory };
 	} catch (error) {
 		return {
 			type: "failure",

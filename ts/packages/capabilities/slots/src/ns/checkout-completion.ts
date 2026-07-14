@@ -1,7 +1,12 @@
 import type { ClinkrDynamicCompletionRequest } from "@nseng-ai/clinkr";
 
+import {
+	unwrapIncumbentRepositoryResult,
+	type LocalBranchesResult,
+} from "../core/gateways/repository.ts";
+
 export interface CheckoutBranchCompletionContext {
-	listLocalBranches(): Promise<readonly string[]>;
+	listLocalBranches(): Promise<LocalBranchesResult>;
 }
 
 export type CheckoutBranchesCompletionProvider<TContext> = (
@@ -26,7 +31,7 @@ export async function completeCheckoutBranchesFromGit(
 ): Promise<{ candidates: { value: string; type: "positional-value" }[] }> {
 	if (request.current.startsWith("-")) return { candidates: [] };
 	if (request.positionalIndex !== 0 && request.positionalIndex !== 1) return { candidates: [] };
-	const branches = await git.listLocalBranches();
+	const branches = unwrapIncumbentRepositoryResult(await git.listLocalBranches());
 	return {
 		candidates: branches
 			.filter((branch) => branch.startsWith(request.current))
