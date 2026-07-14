@@ -2,14 +2,17 @@
 
 ## Work
 
-- [ ] Implement `ns slot gt exec restack-preflight [--downstack] --format json` with
-      tests, resolving its overlap with the existing `quiescence` preflight; retrofit
-      `objective-runner-step` and its Pi wrapper.
-- [ ] Implement `ns slot gt exec descendants-report <branch> --format json` with tests;
-      retrofit `code-thermostack` step 2 and `code-gt-linearize-descendants`' per-branch
-      evidence gathering (the waiting consumer recorded by the T4 routing retrofit).
-      Evidence: `just` green, `areg check` OK, retrofitted skills verified via
-      `areg skill show <name>`.
+- [x] Implement `ns slot gt exec restack-preflight [--scope downstack|full] --format
+      json` with a downstack default and tests, resolving its overlap with existing
+      quiescence fact mechanics without changing quiescence behavior; retrofit
+      `code-gt-restack-resolve` and the Pi smart-restack wrapper with explicit full scope
+      where plain `gt restack` semantics are required. Evidence: focused Slot and Pi
+      tests plus `just` pass.
+- [x] Implement `ns slot gt exec descendants-report <branch> --format json` with
+      complete-subtree, fixed-concurrency local evidence and one best-effort PR batch;
+      retrofit `code-gt-linearize-descendants`' matching evidence loop. Evidence: `just`
+      green, `areg check` OK, both retrofitted skills pass `areg skill show`, and both
+      commands publish their schemas through `--json-schema`.
 
 ## Parked
 

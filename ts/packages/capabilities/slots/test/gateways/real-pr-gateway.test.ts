@@ -16,9 +16,11 @@ describe("RealSlotPrGateway", () => {
 								nodes: [
 									{
 										number: 1,
+										title: "Finish feature",
 										state: "MERGED",
 										url: "https://github.example/pr/1",
 										headRefName: "feature/done",
+										baseRefName: "master",
 									},
 								],
 							},
@@ -41,9 +43,11 @@ describe("RealSlotPrGateway", () => {
 					type: "found",
 					pr: {
 						number: 1,
+						title: "Finish feature",
 						state: "MERGED",
 						url: "https://github.example/pr/1",
 						headRefName: "feature/done",
+						baseRefName: "master",
 					},
 				},
 			],
@@ -57,6 +61,7 @@ describe("RealSlotPrGateway", () => {
 		expect(calls[1]?.args[3]).toContain('repository(owner: "dagster-io", name: "sdl-tools")');
 		expect(calls[1]?.args[3]).toContain('b0: pullRequests(headRefName: "feature/done"');
 		expect(calls[1]?.args[3]).toContain('b1: pullRequests(headRefName: "feature/no-pr"');
+		expect(calls[1]?.args[3]).toContain("number title state url headRefName baseRefName");
 	});
 
 	it("emits labeled gh diagnostics for batch lookup", async () => {

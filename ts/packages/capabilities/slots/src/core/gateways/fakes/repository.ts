@@ -1,6 +1,8 @@
 import { resolve } from "node:path";
 
 import type {
+	BranchComparison,
+	BranchComparisonResult,
 	BranchCreateOptions,
 	BranchDeleteOptions,
 	CurrentBranchResult,
@@ -12,12 +14,25 @@ import type {
 } from "../repository.ts";
 
 export type FakeSlotGitOperation =
+	| { type: "read-branch-comparison"; parent: string; branch: string }
 	| { type: "add-detached-worktree"; path: string; ref: string }
 	| { type: "remove-worktree"; path: string }
 	| { type: "create-branch"; branch: string; startPoint: string; shouldForce: boolean }
 	| { type: "delete-local-branch"; branch: string; shouldForce: boolean }
 	| { type: "checkout-branch"; path: string; branch: string }
 	| { type: "detach-head"; path: string; ref: string };
+
+export interface FakeBranchComparisonFixture {
+	parent: string;
+	branch: string;
+	comparison: BranchComparison;
+}
+
+export interface FakeBranchComparisonFailureFixture {
+	parent: string;
+	branch: string;
+	message: string;
+}
 
 export interface FakeSlotRepositoryGatewayOptions {
 	existingPaths?: readonly string[];
@@ -26,8 +41,10 @@ export interface FakeSlotRepositoryGatewayOptions {
 	worktrees?: readonly WorktreeInfo[];
 	branchOccupancies?: readonly WorktreeOccupancy[];
 	dirtyPaths?: readonly string[];
+	inspectionFailure?: GitCommandFailure;
 	trunkBranch?: string;
 	localBranches?: readonly string[];
+	localBranchesFailure?: GitCommandFailure;
 	localBranchTips?: readonly LocalBranchTip[];
 	previousBranches?: Readonly<Record<string, string | null>>;
 	currentBranchFailures?: Readonly<Record<string, GitCommandFailure>>;
@@ -35,6 +52,8 @@ export interface FakeSlotRepositoryGatewayOptions {
 	detachFailures?: Readonly<Record<string, GitCommandFailure>>;
 	createBranchFailures?: Readonly<Record<string, GitCommandFailure>>;
 	deleteBranchFailures?: Readonly<Record<string, GitCommandFailure>>;
+	branchComparisons?: readonly FakeBranchComparisonFixture[];
+	branchComparisonFailures?: readonly FakeBranchComparisonFailureFixture[];
 }
 
 export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
@@ -44,8 +63,10 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 	private readonly worktrees: WorktreeInfo[];
 	private readonly branchOccupancies: WorktreeOccupancy[];
 	private readonly dirtyPaths: ReadonlySet<string>;
+	private readonly inspectionFailure: GitCommandFailure | undefined;
 	private readonly trunkBranch: string;
 	private readonly localBranches: Set<string>;
+	private readonly localBranchesFailure: GitCommandFailure | undefined;
 	private readonly localBranchTips: LocalBranchTip[];
 	private readonly previousBranches: Map<string, string | null>;
 	private readonly currentBranchFailures: Readonly<Record<string, GitCommandFailure>>;
@@ -53,6 +74,8 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 	private readonly detachFailures: Readonly<Record<string, GitCommandFailure>>;
 	private readonly createBranchFailures: Readonly<Record<string, GitCommandFailure>>;
 	private readonly deleteBranchFailures: Readonly<Record<string, GitCommandFailure>>;
+	private readonly branchComparisons: ReadonlyMap<string, BranchComparison>;
+	private readonly branchComparisonFailures: ReadonlyMap<string, GitCommandFailure>;
 	private readonly log: FakeSlotGitOperation[] = [];
 
 	constructor(options: FakeSlotRepositoryGatewayOptions = {}) {
@@ -70,10 +93,12 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 			)
 		).map(copyOccupancy);
 		this.dirtyPaths = new Set(options.dirtyPaths ?? []);
+		this.inspectionFailure = options.inspectionFailure;
 		this.trunkBranch = options.trunkBranch ?? "master";
 		this.localBranches = new Set(
 			options.localBranches ?? deriveLocalBranches(this.worktrees, this.trunkBranch),
 		);
+		this.localBranchesFailure = options.localBranchesFailure;
 		this.localBranchTips = (
 			options.localBranchTips ?? [...this.localBranches].map((name) => ({ name, headIso: null }))
 		).map(copyLocalBranchTip);
@@ -83,6 +108,18 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 		this.detachFailures = options.detachFailures ?? {};
 		this.createBranchFailures = options.createBranchFailures ?? {};
 		this.deleteBranchFailures = options.deleteBranchFailures ?? {};
+		this.branchComparisons = new Map(
+			(options.branchComparisons ?? []).map((fixture) => [
+				branchComparisonKey(fixture.parent, fixture.branch),
+				copyBranchComparison(fixture.comparison),
+			]),
+		);
+		this.branchComparisonFailures = new Map(
+			(options.branchComparisonFailures ?? []).map((fixture) => [
+				branchComparisonKey(fixture.parent, fixture.branch),
+				{ message: fixture.message },
+			]),
+		);
 	}
 
 	async pathExists(path: string): Promise<boolean> {
@@ -111,6 +148,7 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async listLocalBranches(): Promise<readonly string[]> {
+		if (this.localBranchesFailure !== undefined) throw new Error(this.localBranchesFailure.message);
 		return [...this.localBranches];
 	}
 
@@ -119,6 +157,7 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async hasUncommittedChanges(path: string): Promise<boolean> {
+		if (this.inspectionFailure !== undefined) throw new Error(this.inspectionFailure.message);
 		return this.dirtyPaths.has(path);
 	}
 
@@ -140,6 +179,19 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 
 	async branchExists(branch: string): Promise<boolean> {
 		return this.localBranches.has(branch);
+	}
+
+	async readBranchComparison(options: {
+		parent: string;
+		branch: string;
+	}): Promise<BranchComparisonResult> {
+		this.log.push({ type: "read-branch-comparison", ...options });
+		const key = branchComparisonKey(options.parent, options.branch);
+		const comparisonFailure = this.branchComparisonFailures.get(key);
+		if (comparisonFailure !== undefined)
+			return { type: "failure", failure: { ...comparisonFailure } };
+		const comparison = this.branchComparisons.get(key) ?? emptyBranchComparison();
+		return { type: "ok", comparison: copyBranchComparison(comparison) };
 	}
 
 	async createBranch(
@@ -223,6 +275,24 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 		this.removeOccupancyAt(path);
 		this.branchOccupancies.push({ path, branch, operation: "checked-out" });
 	}
+}
+
+function branchComparisonKey(parent: string, branch: string): string {
+	return `${parent}\0${branch}`;
+}
+
+function emptyBranchComparison(): BranchComparison {
+	return {
+		commits: [],
+		diff: { filesChanged: 0, insertions: 0, deletions: 0, files: [] },
+	};
+}
+
+function copyBranchComparison(comparison: BranchComparison): BranchComparison {
+	return {
+		commits: comparison.commits.map((commit) => ({ ...commit })),
+		diff: { ...comparison.diff, files: comparison.diff.files.map((file) => ({ ...file })) },
+	};
 }
 
 function copyWorktree(worktree: WorktreeInfo): WorktreeInfo {

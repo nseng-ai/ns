@@ -44,6 +44,34 @@ export interface GitCommandFailure {
 	message: string;
 }
 
+export interface BranchCommitSummary {
+	sha: string;
+	subject: string;
+}
+
+export interface BranchDiffFile {
+	path: string;
+	additions: number | null;
+	deletions: number | null;
+	binary: boolean;
+}
+
+export interface BranchDiffSummary {
+	filesChanged: number;
+	insertions: number;
+	deletions: number;
+	files: readonly BranchDiffFile[];
+}
+
+export interface BranchComparison {
+	commits: readonly BranchCommitSummary[];
+	diff: BranchDiffSummary;
+}
+
+export type BranchComparisonResult =
+	| { type: "ok"; comparison: BranchComparison }
+	| { type: "failure"; failure: GitCommandFailure };
+
 export type CurrentBranchResult =
 	| { type: "branch"; branch: string }
 	| { type: "detached" }
@@ -70,6 +98,10 @@ export interface SlotRepositoryGateway {
 	getCurrentBranch(cwd: string): Promise<CurrentBranchResult>;
 	getPreviousBranch(cwd: string): Promise<string | null>;
 	branchExists(branch: string): Promise<boolean>;
+	readBranchComparison(options: {
+		parent: string;
+		branch: string;
+	}): Promise<BranchComparisonResult>;
 	createBranch(
 		branch: string,
 		startPoint: string,
@@ -200,6 +232,30 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 		throw new Error(result.error.message);
 	}
 
+	async readBranchComparison(options: {
+		parent: string;
+		branch: string;
+	}): Promise<BranchComparisonResult> {
+		const commitsResult = await this.git(
+			["log", "--format=%H%x00%s%x00", `${options.parent}..${options.branch}`],
+			this.cwd,
+			{ allowFailure: true, operation: "slot.git.read_branch_commits" },
+		);
+		if (!commitsResult.isOk) return { type: "failure", failure: failureFromResult(commitsResult) };
+		const commits = parseBranchCommitSummaries(commitsResult.result.stdout);
+		if (commits.type === "failure") return commits;
+
+		const diffResult = await this.git(
+			["diff", "--numstat", "--no-renames", "-z", `${options.parent}...${options.branch}`],
+			this.cwd,
+			{ allowFailure: true, operation: "slot.git.read_branch_diff" },
+		);
+		if (!diffResult.isOk) return { type: "failure", failure: failureFromResult(diffResult) };
+		const diff = parseBranchDiffNumstat(diffResult.result.stdout);
+		if (diff.type === "failure") return diff;
+		return { type: "ok", comparison: { commits: commits.value, diff: diff.value } };
+	}
+
 	async createBranch(
 		branch: string,
 		startPoint: string,
@@ -274,6 +330,80 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 		if (commandResult.isOk || options.allowFailure) return commandResult;
 		throw new Error(`git ${args.join(" ")} failed: ${gitFailureMessage(result)}`);
 	}
+}
+
+type ParsedValue<T> = { type: "ok"; value: T } | { type: "failure"; failure: GitCommandFailure };
+
+export function parseBranchCommitSummaries(
+	stdout: string,
+): ParsedValue<readonly BranchCommitSummary[]> {
+	if (stdout === "") return { type: "ok", value: [] };
+	const fields = stdout.split("\0");
+	if (fields.at(-1) === "" || fields.at(-1) === "\n") fields.pop();
+	if (fields.length % 2 !== 0)
+		return {
+			type: "failure",
+			failure: { message: "git log returned malformed NUL-delimited commit records" },
+		};
+	const commits: BranchCommitSummary[] = [];
+	for (let index = 0; index < fields.length; index += 2) {
+		const rawSha = fields[index];
+		const subject = fields[index + 1];
+		if (rawSha === undefined || subject === undefined)
+			return {
+				type: "failure",
+				failure: { message: "git log returned an incomplete commit record" },
+			};
+		const sha = rawSha.startsWith("\n") ? rawSha.slice(1) : rawSha;
+		if (sha === "" || sha.includes("\n"))
+			return {
+				type: "failure",
+				failure: { message: "git log returned an invalid commit SHA record" },
+			};
+		commits.push({ sha, subject });
+	}
+	return { type: "ok", value: commits };
+}
+
+export function parseBranchDiffNumstat(stdout: string): ParsedValue<BranchDiffSummary> {
+	if (stdout === "")
+		return { type: "ok", value: { filesChanged: 0, insertions: 0, deletions: 0, files: [] } };
+	const records = stdout.split("\0");
+	if (records.at(-1) === "") records.pop();
+	const files: BranchDiffFile[] = [];
+	let insertions = 0;
+	let deletions = 0;
+	for (const record of records) {
+		const firstTab = record.indexOf("\t");
+		const secondTab = record.indexOf("\t", firstTab + 1);
+		if (firstTab <= 0 || secondTab <= firstTab + 1)
+			return {
+				type: "failure",
+				failure: { message: "git diff returned malformed NUL-delimited numstat records" },
+			};
+		const additionsText = record.slice(0, firstTab);
+		const deletionsText = record.slice(firstTab + 1, secondTab);
+		const path = record.slice(secondTab + 1);
+		const isBinary = additionsText === "-" && deletionsText === "-";
+		if (
+			path === "" ||
+			(!isBinary && (!isUnsignedInteger(additionsText) || !isUnsignedInteger(deletionsText)))
+		)
+			return {
+				type: "failure",
+				failure: { message: "git diff returned an invalid numstat record" },
+			};
+		const additions = isBinary ? null : Number(additionsText);
+		const fileDeletions = isBinary ? null : Number(deletionsText);
+		insertions += additions ?? 0;
+		deletions += fileDeletions ?? 0;
+		files.push({ path, additions, deletions: fileDeletions, binary: isBinary });
+	}
+	return { type: "ok", value: { filesChanged: files.length, insertions, deletions, files } };
+}
+
+function isUnsignedInteger(value: string): boolean {
+	return /^(?:0|[1-9]\d*)$/.test(value);
 }
 
 interface CommandResult {

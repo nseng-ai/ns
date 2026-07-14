@@ -117,6 +117,80 @@ describe("RealSlotRepositoryGateway", () => {
 		expect(coreGit.listLocalBranchTipsCalls).toEqual([{ cwd: "/repo" }]);
 	});
 
+	it("reads commit and NUL-delimited numstat evidence for a branch comparison", async () => {
+		const execApi = scriptedExecApi([
+			{
+				stdout: "aaaaaaaa\0first subject\0\nbbbbbbbb\0second subject\0\n",
+				stderr: "",
+				code: 0,
+			},
+			{
+				stdout: "3\t1\tsrc/a.ts\0-\t-\tassets/image.png\0",
+				stderr: "",
+				code: 0,
+			},
+		]);
+		const gateway = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			execApi,
+		});
+
+		await expect(
+			gateway.readBranchComparison({ parent: "feature/parent", branch: "feature/child" }),
+		).resolves.toEqual({
+			type: "ok",
+			comparison: {
+				commits: [
+					{ sha: "aaaaaaaa", subject: "first subject" },
+					{ sha: "bbbbbbbb", subject: "second subject" },
+				],
+				diff: {
+					filesChanged: 2,
+					insertions: 3,
+					deletions: 1,
+					files: [
+						{ path: "src/a.ts", additions: 3, deletions: 1, binary: false },
+						{
+							path: "assets/image.png",
+							additions: null,
+							deletions: null,
+							binary: true,
+						},
+					],
+				},
+			},
+		});
+		expect(execApi.calls()).toEqual([
+			gitCall(["log", "--format=%H%x00%s%x00", "feature/parent..feature/child"], "/repo"),
+			gitCall(
+				["diff", "--numstat", "--no-renames", "-z", "feature/parent...feature/child"],
+				"/repo",
+			),
+		]);
+	});
+
+	it("returns comparison command and parser failures as structured gateway failures", async () => {
+		const commandFailure = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			execApi: scriptedExecApi({ stdout: "", stderr: "bad revision", code: 128 }),
+		});
+		await expect(
+			commandFailure.readBranchComparison({ parent: "missing", branch: "feature/a" }),
+		).resolves.toEqual({ type: "failure", failure: { message: "bad revision" } });
+
+		const parserFailure = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			execApi: scriptedExecApi({ stdout: "sha-only", stderr: "", code: 0 }),
+		});
+		await expect(
+			parserFailure.readBranchComparison({ parent: "master", branch: "feature/a" }),
+		).resolves.toMatchObject({
+			type: "failure",
+			failure: { message: expect.stringContaining("malformed") },
+		});
+	});
+
 	it("creates branches with normal and force command arguments", async () => {
 		const execApi = scriptedExecApi([
 			{ stdout: "", stderr: "", code: 0 },

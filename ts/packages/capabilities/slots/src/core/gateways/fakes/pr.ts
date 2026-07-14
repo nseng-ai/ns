@@ -15,15 +15,18 @@ export type FakeSlotPrOperation =
 
 export interface FakePrSummaryOptions {
 	number: number;
+	title?: string;
 	state?: PrState;
 	url?: string;
 	headRefName?: string;
+	baseRefName?: string;
 }
 
 export interface FakeSlotPrGatewayOptions {
 	prsByBranch?: Readonly<Record<string, FakePrSummaryOptions>>;
 	lookupFailures?: Readonly<Record<string, string>>;
 	batchLookupFailure?: string;
+	batchOmittedBranches?: readonly string[];
 	closeFailures?: Readonly<Record<number, string>>;
 }
 
@@ -31,6 +34,7 @@ export class FakeSlotPrGateway implements SlotPrGateway {
 	private readonly prsByBranch: Map<string, PrSummary>;
 	private readonly lookupFailures: Readonly<Record<string, string>>;
 	private readonly batchLookupFailure: string | undefined;
+	private readonly batchOmittedBranches: ReadonlySet<string>;
 	private readonly closeFailures: Readonly<Record<number, string>>;
 	private readonly log: FakeSlotPrOperation[] = [];
 
@@ -43,6 +47,7 @@ export class FakeSlotPrGateway implements SlotPrGateway {
 		);
 		this.lookupFailures = options.lookupFailures ?? {};
 		this.batchLookupFailure = options.batchLookupFailure;
+		this.batchOmittedBranches = new Set(options.batchOmittedBranches ?? []);
 		this.closeFailures = options.closeFailures ?? {};
 	}
 
@@ -57,7 +62,7 @@ export class FakeSlotPrGateway implements SlotPrGateway {
 			return { type: "failure", failure: failure(this.batchLookupFailure) };
 		const results = new Map<string, PrLookupResult>();
 		for (const branch of branches) {
-			results.set(branch, this.lookupBranch(branch));
+			if (!this.batchOmittedBranches.has(branch)) results.set(branch, this.lookupBranch(branch));
 		}
 		return { type: "ok", resultsByBranch: results };
 	}
@@ -92,9 +97,11 @@ export class FakeSlotPrGateway implements SlotPrGateway {
 function prSummary(branch: string, options: FakePrSummaryOptions): PrSummary {
 	return {
 		number: options.number,
+		title: options.title ?? `PR for ${branch}`,
 		state: options.state ?? "OPEN",
 		url: options.url ?? `https://github.example/pr/${options.number}`,
 		headRefName: options.headRefName ?? branch,
+		baseRefName: options.baseRefName ?? "master",
 	};
 }
 

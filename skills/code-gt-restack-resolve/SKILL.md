@@ -80,22 +80,56 @@ driver may apply without escalating.
 
 ## Workflow
 
-### 1. Preflight
+### 1. Preflight and scope facts
 
-- `git status` must show a **clean working tree** — a rebase cannot start dirty.
-  If dirty, stop and ask the user to commit or stash first.
-- Confirm the current branch is gt-tracked with non-display plumbing such as
-  `gt parent --no-interactive` or `gt children --no-interactive`; an untracked
-  branch errors with a `gt track` hint. Display output is never a machine
-  source (see `docs/conventions/graphite-dependency-boundary.md`).
-- **If a rebase is already in progress** (`git status` shows "interactive rebase
-  in progress" / "Unmerged paths"), do **not** start a new restack — jump
-  straight to the **Loop** at the resolve step, following the `graphite` skill's
-  "Recovering from Interrupted Rebase (Context Reset)" section.
+First map the request to `REQUESTED_SCOPE`: generic or ambiguous restack intent
+is `full`; explicit ancestors/current-only intent is `downstack`. Gather all
+cleanliness, tracking, interrupted-rebase, topology, and Slot occupancy facts in
+one call:
+
+```bash
+ns slot gt exec restack-preflight --scope <full|downstack> --format json
+```
+
+Always replace the placeholder explicitly: generic requests pass `--scope full`;
+explicit downstack requests pass `--scope downstack`. Do not rely on the
+command's downstack default when this skill means plain `gt restack` semantics.
+
+Interpret the Clinkr envelope before acting:
+
+- `status: "ok"` carries usable preflight `data`.
+- A nonzero `status: "negative"` is an expected blocked/precondition result and
+  still carries usable `data`; inspect it rather than treating the exit code
+  alone as a command failure. An untracked branch is one such negative.
+- `status: "failure"`, missing/unparseable JSON, or malformed/missing required
+  fields is not usable preflight evidence. Stop and report the envelope/error;
+  do not restack or free slots.
+
+The stable `data` fields are:
+
+- `clean`: whether the current worktree has no uncommitted changes;
+- `tracked`: whether the current branch is present in Graphite metadata;
+- `rebaseInProgress`: whether the current worktree is already in a rebase;
+- `hasUpstackChildren`: whether full scope differs from downstack scope;
+- `requestedScope` and `effectiveScope`: the explicit request and the scope the
+  helper could inspect (`full` collapses to `downstack` at a tip);
+- `branches`: all in-scope branches, bottom-to-top, including current;
+- `slotConflicts`: in-scope occupancy/rebase conflicts; each entry identifies
+  its branch and type and gives the conflicting path in `worktreePath` (plus
+  operation/Slot details when applicable);
+- `warnings`: non-fatal topology/metadata warnings to surface and account for.
+
+If `rebaseInProgress` is true, do **not** start a new restack or free stack
+slots. Jump straight to the **Loop** at the resolve step, following the
+`graphite` skill's "Recovering from Interrupted Rebase (Context Reset)"
+section. Otherwise, if `tracked` is false, stop with the helper's `gt track`
+guidance. If `clean` is false, stop and ask the user to commit or stash first.
+Review all warnings before continuing.
 
 ### 2. Choose scope
 
-Set `RESTACK_SCOPE` before running any restack command.
+Set `RESTACK_SCOPE` from the explicit request and the returned scope facts before
+running any restack command.
 
 | User intent                                                                                    | Scope            | Slot consolidation command          | Restack command          |
 | ---------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- | ------------------------ |
@@ -104,15 +138,12 @@ Set `RESTACK_SCOPE` before running any restack command.
 
 Rules:
 
-- **Single-PR / tip stacks: never ask about scope.** *Before* choosing scope or
-  prompting, run `gt children --no-interactive` for the current branch. If it
-  succeeds with empty stdout, no branch is stacked directly above the current
-  branch, so full and downstack are the **same** operation: skip the scope
-  question entirely and run plain `gt restack` (no `--downstack` needed — the
-  result is identical). There are no upstack slots to free either, so skip the
-  consolidation prompt too unless an in-scope **ancestor** is checked out in
-  another slot. If richer topology is needed, use
-  `ns slot gt exec stack-branches --format json` instead of reading display output.
+- **Single-PR / tip stacks: never ask about scope.** When
+  `hasUpstackChildren` is false, full and downstack are the **same** operation:
+  skip the scope question entirely and run plain `gt restack` (no `--downstack`
+  needed — the result is identical). There are no upstack slots to free either,
+  so skip the consolidation prompt too unless `slotConflicts` reports an
+  in-scope **ancestor** in another worktree.
 - When in doubt, ask — **but only when scope actually changes the outcome**
   (i.e., the current branch has upstack descendants).
 - Do not auto-checkout to the tip. Run the command from the user's current
@@ -125,8 +156,9 @@ In this repo a stack's branches can be checked out across multiple worktree
 slot has a branch in the selected scope checked out, so run the slot
 consolidation command from the **Choose scope** table before looping.
 
-In the single-PR / tip case, skip this step per the single-PR rule in
-**Choose scope**.
+Use `slotConflicts` from preflight to identify the worktree path and branch that
+must be released. In the single-PR / tip case, skip this step per the single-PR
+rule in **Choose scope**, unless an in-scope ancestor conflict is reported.
 
 The `ns slot gt free-stack` command is **mutating**: it releases matching slots by
 detaching them at trunk — `--format json` is a machine-readable record of what

@@ -45,6 +45,8 @@ export default defineExtension({
 					slotCommandEntry("stack-branches"),
 					slotCommandEntry("stack-map-branches"),
 					slotCommandEntry("quiescence"),
+					slotCommandEntry("restack-preflight"),
+					slotCommandEntry("descendants-report"),
 					slotCommandEntry("backup-refs"),
 				]),
 			],

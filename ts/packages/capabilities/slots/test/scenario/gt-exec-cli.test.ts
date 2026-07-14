@@ -366,6 +366,259 @@ describe("slot gt exec quiescence CLI", () => {
 	});
 });
 
+describe("slot gt exec restack-preflight CLI", () => {
+	it("is hidden, registered, and publishes its machine schema", async () => {
+		const help = runScenario(["gt", "-h"]);
+		expect(await help.exit).toBe(0);
+		expect(help.stdout.join("")).not.toContain("restack-preflight");
+
+		const schema = runScenario(["gt", "exec", "restack-preflight", "--json-schema"]);
+		expect(await schema.exit).toBe(0);
+		expect(schema.stdout.join("")).toContain("requestedScope");
+		expect(schema.stdout.join("")).toContain("slotConflicts");
+	});
+
+	it("defaults to a ready downstack preflight and has a compact renderer", async () => {
+		const run = runRestackPreflightScenario(["gt", "exec", "restack-preflight"]);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(
+			'{"clean":true,"tracked":true,"effectiveScope":"downstack","slotConflicts":[]}\n',
+		);
+
+		const json = runRestackPreflightScenario([
+			"gt",
+			"exec",
+			"restack-preflight",
+			"--format",
+			"json",
+		]);
+		expect(await json.exit).toBe(0);
+		expect(parseJsonOutput(json)).toMatchObject({
+			status: "ok",
+			data: {
+				clean: true,
+				tracked: true,
+				rebaseInProgress: false,
+				hasUpstackChildren: true,
+				requestedScope: "downstack",
+				effectiveScope: "downstack",
+				branches: ["feature/a", "feature/current"],
+				slotConflicts: [],
+				warnings: [],
+			},
+		});
+	});
+
+	it("uses full scope only when requested and upstack children exist", async () => {
+		const full = runRestackPreflightScenario([
+			"gt",
+			"exec",
+			"restack-preflight",
+			"--scope",
+			"full",
+			"--format",
+			"json",
+		]);
+		expect(await full.exit).toBe(0);
+		expect(parseJsonOutput(full)).toMatchObject({
+			data: {
+				requestedScope: "full",
+				effectiveScope: "full",
+				branches: ["feature/a", "feature/current", "feature/child"],
+			},
+		});
+
+		const noChildren = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+			{
+				stack: fakeStackInfo({
+					trunk: "master",
+					current: "feature/current",
+					ancestors: ["master", "feature/a"],
+					descendants: [],
+				}),
+			},
+		);
+		expect(await noChildren.exit).toBe(0);
+		expect(parseJsonOutput(noChildren)).toMatchObject({
+			data: { requestedScope: "full", effectiveScope: "downstack" },
+		});
+	});
+
+	it("returns expected dirty, rebase, and Slot occupancy blocks as negative data", async () => {
+		const dirty = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--format", "json"],
+			{ git: { dirtyPaths: ["/repo"] } },
+		);
+		expect(await dirty.exit).toBe(1);
+		expect(parseJsonOutput(dirty)).toMatchObject({
+			status: "negative",
+			data: { clean: false },
+		});
+
+		const rebase = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--format", "json"],
+			{
+				git: {
+					branchOccupancies: [{ path: "/repo", branch: "feature/current", operation: "rebase" }],
+				},
+			},
+		);
+		expect(await rebase.exit).toBe(1);
+		expect(parseJsonOutput(rebase)).toMatchObject({
+			data: {
+				rebaseInProgress: true,
+				slotConflicts: [
+					{
+						type: "rebase-in-progress",
+						branch: "feature/current",
+						worktreePath: "/repo",
+						operation: "rebase",
+					},
+				],
+			},
+		});
+
+		const occupied = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--format", "json"],
+			{
+				git: {
+					worktrees: [
+						{ path: "/repo", branch: "feature/current" },
+						slotWorktree("slot-03", "feature/a"),
+					],
+				},
+			},
+		);
+		expect(await occupied.exit).toBe(1);
+		expect(parseJsonOutput(occupied)).toMatchObject({
+			data: {
+				slotConflicts: [
+					{
+						type: "checked-out-elsewhere",
+						branch: "feature/a",
+						worktreePath: "/slots/repos/repo/worktrees/slot-03",
+					},
+				],
+			},
+		});
+
+		const slotRebase = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--format", "json"],
+			{
+				git: {
+					worktrees: [
+						{ path: "/repo", branch: "feature/current" },
+						slotWorktree("slot-03", "feature/a"),
+					],
+					branchOccupancies: [
+						{ path: "/repo", branch: "feature/current", operation: "checked-out" },
+						{
+							path: "/slots/repos/repo/worktrees/slot-03",
+							branch: "feature/a",
+							operation: "rebase",
+						},
+					],
+				},
+			},
+		);
+		expect(await slotRebase.exit).toBe(1);
+		expect(
+			restackPreflightJsonData(parseJsonOutput(slotRebase)).slotConflicts.map(
+				(conflict) => conflict.type,
+			),
+		).toEqual(["rebase-in-progress", "slot-rebase-in-progress"]);
+	});
+
+	it("returns untracked as a negative result with documented topology defaults", async () => {
+		const run = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+			{
+				gt: {
+					stack: {
+						type: "untracked_branch",
+						message: "current branch is not tracked by Graphite: feature/current",
+					},
+				},
+			},
+		);
+
+		expect(await run.exit).toBe(1);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "negative",
+			data: {
+				tracked: false,
+				hasUpstackChildren: false,
+				requestedScope: "full",
+				effectiveScope: "downstack",
+				branches: ["feature/current"],
+				warnings: [],
+			},
+		});
+	});
+
+	it("returns trunk and detached states without claiming readiness", async () => {
+		const trunk = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+			{
+				stack: fakeStackInfo({
+					trunk: "master",
+					current: "master",
+					ancestors: [],
+					descendants: [],
+				}),
+			},
+		);
+		expect(await trunk.exit).toBe(1);
+		expect(parseJsonOutput(trunk)).toMatchObject({
+			status: "negative",
+			message: "On trunk 'master'; no stack is checked out.",
+			data: { effectiveScope: "downstack", branches: [] },
+		});
+
+		const detached = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--format", "json"],
+			{ git: { worktrees: [{ path: "/repo", branch: null }] } },
+		);
+		expect(await detached.exit).toBe(2);
+		expect(parseJsonOutput(detached)).toMatchObject({
+			status: "failure",
+			errorType: "detached-head",
+		});
+	});
+
+	it("returns backend inspection failures as failures", async () => {
+		const gitFailure = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--format", "json"],
+			{ git: { inspectionFailure: { message: "status unavailable" } } },
+		);
+		expect(await gitFailure.exit).toBe(2);
+		expect(parseJsonOutput(gitFailure)).toMatchObject({
+			status: "failure",
+			errorType: "git-inspection-failed",
+			data: { operation: "inspect-worktree-and-slot-inventory" },
+		});
+
+		const graphiteFailure = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--format", "json"],
+			{
+				gt: {
+					stack: {
+						type: "failure",
+						failure: { message: "metadata unavailable", returnCode: null },
+					},
+				},
+			},
+		);
+		expect(await graphiteFailure.exit).toBe(2);
+		expect(parseJsonOutput(graphiteFailure)).toMatchObject({
+			status: "failure",
+			errorType: "gt-stack-read-failed",
+		});
+	});
+});
+
 describe("slot gt exec stack-map-branches CLI", () => {
 	it("shows help for the hidden stack-map operation", async () => {
 		const run = runScenario(["gt", "exec", "stack-map-branches", "-h"]);
@@ -941,6 +1194,341 @@ function quiescenceJsonData(output: unknown): QuiescenceJsonData {
 
 function jsonBlockerTypes(output: unknown): readonly string[] {
 	return quiescenceJsonData(output).blockers.map((blocker) => blocker.type);
+}
+
+interface RestackPreflightJsonData {
+	readonly slotConflicts: readonly { readonly type: string }[];
+}
+
+function restackPreflightJsonData(output: unknown): RestackPreflightJsonData {
+	expect(output).toMatchObject({ data: expect.any(Object) });
+	return (output as { data: RestackPreflightJsonData }).data;
+}
+
+interface RestackPreflightScenarioOptions {
+	readonly stack?: ReturnType<typeof fakeStackInfo>;
+	readonly git?: ScenarioRunOptions["git"];
+	readonly gt?: ScenarioRunOptions["gt"];
+}
+
+function runRestackPreflightScenario(
+	args: readonly string[],
+	options: RestackPreflightScenarioOptions = {},
+) {
+	return runScenario(args, {
+		git: {
+			worktrees: [{ path: "/repo", branch: "feature/current" }],
+			...options.git,
+		},
+		gt: {
+			stack: {
+				type: "stack",
+				stack:
+					options.stack ??
+					fakeStackInfo({
+						trunk: "master",
+						current: "feature/current",
+						ancestors: ["master", "feature/a"],
+						descendants: ["feature/child"],
+					}),
+			},
+			...options.gt,
+		},
+	});
+}
+
+describe("slot gt exec descendants-report CLI", () => {
+	it("is hidden, publishes JSON schema, and returns a valid leaf as a complete empty report", async () => {
+		const help = runScenario(["gt", "--help"]);
+		expect(await help.exit).toBe(0);
+		expect(help.stdout.join("")).not.toContain("descendants-report");
+
+		const schema = runDescendantsScenario(
+			["gt", "exec", "descendants-report", "leaf", "--json-schema"],
+			[row("leaf", "master")],
+		);
+		expect(await schema.exit).toBe(0);
+		expect(schema.stdout.join("")).toContain("descendantCount");
+		expect(schema.stdout.join("")).toContain("baseRefName");
+
+		const leaf = runDescendantsScenario(
+			["gt", "exec", "descendants-report", "leaf", "--format", "json"],
+			[row("leaf", "master")],
+		);
+		expect(await leaf.exit).toBe(0);
+		expect(parseJsonOutput(leaf)).toMatchObject({
+			status: "ok",
+			data: {
+				root: "leaf",
+				scope: "descendants",
+				complete: true,
+				descendantCount: 0,
+				edges: [],
+				descendants: [],
+				warnings: [],
+			},
+		});
+		expect(leaf.pr.operations()).toEqual([{ type: "get-prs-for-branches", branches: [] }]);
+	});
+
+	it("reports forked descendants parent-before-child with commits, numstat, binary, and PR states", async () => {
+		const rows = [
+			row("root", "master", ["z-child", "a-child"]),
+			row("a-child", "root", ["grandchild"]),
+			row("grandchild", "a-child"),
+			row("z-child", "root"),
+		];
+		const run = runDescendantsScenario(
+			["gt", "exec", "descendants-report", "root", "--format", "json"],
+			rows,
+			{
+				git: {
+					branchComparisons: [
+						comparison("root", "a-child", "a1", [
+							{ path: "src/a.ts", additions: 4, deletions: 1, binary: false },
+							{
+								path: "image.png",
+								additions: null,
+								deletions: null,
+								binary: true,
+							},
+						]),
+						comparison("a-child", "grandchild", "g1"),
+						comparison("root", "z-child", "z1"),
+					],
+				},
+				pr: {
+					prsByBranch: {
+						"a-child": {
+							number: 12,
+							title: "A PR",
+							state: "OPEN",
+							baseRefName: "root",
+						},
+					},
+					lookupFailures: { "z-child": "GitHub unavailable" },
+				},
+			},
+		);
+
+		expect(await run.exit).toBe(0);
+		const output = parseJsonOutput(run);
+		expect(output).toMatchObject({
+			status: "ok",
+			data: {
+				complete: true,
+				descendantCount: 3,
+				edges: [
+					{ parent: "root", child: "a-child" },
+					{ parent: "a-child", child: "grandchild" },
+					{ parent: "root", child: "z-child" },
+				],
+				descendants: [
+					{
+						branch: "a-child",
+						parent: "root",
+						children: ["grandchild"],
+						commits: [{ sha: "a1", subject: "Commit a1" }],
+						diff: {
+							filesChanged: 2,
+							insertions: 4,
+							deletions: 1,
+							files: [
+								{ path: "src/a.ts", additions: 4, deletions: 1, binary: false },
+								{ path: "image.png", additions: null, deletions: null, binary: true },
+							],
+						},
+						pr: {
+							type: "found",
+							number: 12,
+							title: "A PR",
+							state: "OPEN",
+							baseRefName: "root",
+						},
+					},
+					{ branch: "grandchild", pr: { type: "none" } },
+					{ branch: "z-child", pr: { type: "unavailable", message: "GitHub unavailable" } },
+				],
+				warnings: [expect.stringContaining("z-child")],
+			},
+		});
+		expect(run.pr.operations()).toEqual([
+			{
+				type: "get-prs-for-branches",
+				branches: ["a-child", "grandchild", "z-child"],
+			},
+		]);
+	});
+
+	it("returns expected negatives for missing local targets and absent Graphite metadata", async () => {
+		const missing = runDescendantsScenario(
+			["gt", "exec", "descendants-report", "missing", "--format", "json"],
+			[row("root", "master")],
+		);
+		expect(await missing.exit).toBe(1);
+		expect(parseJsonOutput(missing)).toMatchObject({
+			status: "negative",
+			data: { target: "missing" },
+		});
+
+		const absent = runScenario(
+			["gt", "exec", "descendants-report", "local-only", "--format", "json"],
+			{
+				git: { localBranches: ["local-only"] },
+				gt: { stackGraph: { type: "graph", graph: fakeStackGraphInfo() } },
+			},
+		);
+		expect(await absent.exit).toBe(1);
+		expect(parseJsonOutput(absent)).toMatchObject({ data: { target: "local-only" } });
+	});
+
+	it("fails with branch, parent, and stage when local branch discovery fails", async () => {
+		const run = runDescendantsScenario(
+			["gt", "exec", "descendants-report", "root", "--format", "json"],
+			[row("root", "master")],
+			{ git: { localBranchesFailure: { message: "refs unavailable" } } },
+		);
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
+			errorType: "local-branches-read-failed",
+			data: { branch: "root", parent: "root", stage: "local-branches" },
+		});
+	});
+
+	it("fails with branch, parent, and stage when required local comparison evidence fails", async () => {
+		const run = runDescendantsScenario(
+			["gt", "exec", "descendants-report", "root", "--format", "json"],
+			[row("root", "master", ["child"]), row("child", "root")],
+			{
+				git: {
+					branchComparisonFailures: [{ parent: "root", branch: "child", message: "bad revision" }],
+				},
+			},
+		);
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
+			errorType: "branch-comparison-failed",
+			data: { branch: "child", parent: "root", stage: "git-comparison" },
+		});
+		expect(run.pr.operations()).toEqual([]);
+	});
+
+	it("preserves a complete report with unavailable PRs after one failed batch", async () => {
+		const rows = [row("root", "master", ["a"]), row("a", "root", ["b"]), row("b", "a")];
+		const run = runDescendantsScenario(
+			["gt", "exec", "descendants-report", "root", "--format", "json"],
+			rows,
+			{ pr: { batchLookupFailure: "rate limited" } },
+		);
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				complete: true,
+				descendants: [
+					{ branch: "a", pr: { type: "unavailable", message: "rate limited" } },
+					{ branch: "b", pr: { type: "unavailable", message: "rate limited" } },
+				],
+				warnings: [expect.stringContaining("rate limited")],
+			},
+		});
+	});
+
+	it("treats an omitted PR batch entry as unavailable rather than none", async () => {
+		const run = runDescendantsScenario(
+			["gt", "exec", "descendants-report", "root", "--format", "json"],
+			[row("root", "master", ["child"]), row("child", "root")],
+			{ pr: { batchOmittedBranches: ["child"] } },
+		);
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				complete: true,
+				descendants: [
+					{
+						branch: "child",
+						pr: { type: "unavailable", message: "GitHub PR batch omitted this branch" },
+					},
+				],
+				warnings: [expect.stringContaining("child")],
+			},
+		});
+	});
+
+	it("completes more than four descendants and requests every comparison exactly once", async () => {
+		const names = ["a", "b", "c", "d", "e", "f"];
+		const rows = [
+			row("root", "master", ["a"]),
+			...names.map((name, index) =>
+				row(name, ["root", ...names][index] ?? "root", names.slice(index + 1, index + 2)),
+			),
+		];
+		const run = runDescendantsScenario(
+			["gt", "exec", "descendants-report", "root", "--format", "json"],
+			rows,
+		);
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: { complete: true, descendantCount: 6 },
+		});
+		expect(
+			run.git.operations().filter((operation) => operation.type === "read-branch-comparison"),
+		).toHaveLength(6);
+	});
+});
+
+interface DescendantsScenarioOverrides {
+	git?: ScenarioRunOptions["git"];
+	pr?: ScenarioRunOptions["pr"];
+}
+
+function runDescendantsScenario(
+	args: readonly string[],
+	rows: readonly GraphiteBranchTopology[],
+	overrides: DescendantsScenarioOverrides = {},
+) {
+	return runScenario(args, {
+		git: {
+			localBranches: rows.map((candidate) => candidate.branch),
+			...overrides.git,
+		},
+		gt: {
+			stackGraph: {
+				type: "graph",
+				graph: fakeStackGraphInfo({
+					topology: new Map(rows.map((candidate) => [candidate.branch, candidate])),
+				}),
+			},
+		},
+		...(overrides.pr === undefined ? {} : { pr: overrides.pr }),
+	});
+}
+
+function comparison(
+	parent: string,
+	branch: string,
+	sha: string,
+	files: readonly {
+		path: string;
+		additions: number | null;
+		deletions: number | null;
+		binary: boolean;
+	}[] = [],
+) {
+	return {
+		parent,
+		branch,
+		comparison: {
+			commits: [{ sha, subject: `Commit ${sha}` }],
+			diff: {
+				filesChanged: files.length,
+				insertions: files.reduce((total, file) => total + (file.additions ?? 0), 0),
+				deletions: files.reduce((total, file) => total + (file.deletions ?? 0), 0),
+				files,
+			},
+		},
+	};
 }
 
 interface StackMapScenarioOptions {
