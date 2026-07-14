@@ -52,20 +52,17 @@ export interface ProductionRepositoryGateway {
 	>;
 }
 
-export interface DeployableBuildGateway {
+export interface PreparedProductionSourceWorkspace {
 	buildPackageDeployable(): Promise<
 		{ readonly ok: true } | { readonly ok: false; readonly message: string }
 	>;
-}
-
-export interface DispatchProductionConfigurationGateway {
-	readProductionConfiguration(): Promise<
-		| { readonly ok: true; readonly value: DispatchProductionConfiguration }
+	verifySourceAfterBuild(): Promise<
+		{ readonly ok: true } | { readonly ok: false; readonly message: string }
+	>;
+	readPackageProjectIdentity(): Promise<
+		| { readonly ok: true; readonly value: DispatchProjectIdentity }
 		| { readonly ok: false; readonly message: string }
 	>;
-}
-
-export interface DispatchBuildOutputGateway {
 	promoteVerifiedBuildOutput(): Promise<
 		| { readonly ok: true; readonly artifactDigest: string }
 		| {
@@ -73,6 +70,26 @@ export interface DispatchBuildOutputGateway {
 				readonly phase: "verification" | "promotion";
 				readonly message: string;
 		  }
+	>;
+	dispose(): Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
+}
+
+export interface ProductionSourceWorkspaceGateway {
+	prepareSourceWorkspace(
+		commitSha: string,
+	): Promise<
+		| { readonly ok: true; readonly workspace: PreparedProductionSourceWorkspace }
+		| { readonly ok: false; readonly message: string }
+	>;
+}
+
+export interface DispatchProductionConfigurationGateway {
+	readProductionConfiguration(
+		commitSha: string,
+		packageProject: DispatchProjectIdentity,
+	): Promise<
+		| { readonly ok: true; readonly value: DispatchProductionConfiguration }
+		| { readonly ok: false; readonly message: string }
 	>;
 }
 
@@ -106,9 +123,8 @@ export interface VercelProductionDeploymentGateway {
 
 export interface ProductionDeploymentContext {
 	readonly repository: ProductionRepositoryGateway;
-	readonly build: DeployableBuildGateway;
+	readonly sourceWorkspaces: ProductionSourceWorkspaceGateway;
 	readonly configuration: DispatchProductionConfigurationGateway;
-	readonly artifacts: DispatchBuildOutputGateway;
 	readonly deployments: VercelProductionDeploymentGateway;
 	readonly progress: (message: string) => void;
 }
@@ -118,30 +134,63 @@ export async function deployDispatchProduction(
 ): Promise<ProductionDeploymentOutcome> {
 	context.progress("Checking production source state.");
 	const source = await context.repository.inspectProductionSource();
-	if (source.ok === false) {
-		return failure("dirty-repository", source.message);
+	if (source.ok === false) return failure("dirty-repository", source.message);
+
+	context.progress("Preparing detached production source workspace.");
+	const prepared = await context.sourceWorkspaces.prepareSourceWorkspace(source.commitSha);
+	if (prepared.ok === false) return failure("source-build-failed", prepared.message);
+	const workspace = prepared.workspace;
+
+	context.progress("Building package deployable from captured source.");
+	const build = await workspace.buildPackageDeployable();
+	if (build.ok === false) {
+		return await failAndDispose(workspace, failure("source-build-failed", build.message));
 	}
 
-	context.progress("Building package-local deployable.");
-	const build = await context.build.buildPackageDeployable();
-	if (build.ok === false) return failure("source-build-failed", build.message);
+	context.progress("Revalidating detached production source.");
+	const revalidated = await workspace.verifySourceAfterBuild();
+	if (revalidated.ok === false) {
+		return await failAndDispose(workspace, failure("source-build-failed", revalidated.message));
+	}
 
 	context.progress("Validating dispatch project identity.");
-	const configuration = await context.configuration.readProductionConfiguration();
-	if (configuration.ok === false) {
-		return failure("project-identity-mismatch", configuration.message);
-	}
-	const identityProblem = findIdentityProblem(configuration.value);
-	if (identityProblem !== undefined) return failure("project-identity-mismatch", identityProblem);
-
-	context.progress("Transactionally promoting verified Build Output.");
-	const promotion = await context.artifacts.promoteVerifiedBuildOutput();
-	if (promotion.ok === false) {
-		return failure(
-			promotion.phase === "verification" ? "invalid-artifact" : "promotion-failed",
-			promotion.message,
+	const packageProject = await workspace.readPackageProjectIdentity();
+	if (packageProject.ok === false) {
+		return await failAndDispose(
+			workspace,
+			failure("project-identity-mismatch", packageProject.message),
 		);
 	}
+	const configuration = await context.configuration.readProductionConfiguration(
+		source.commitSha,
+		packageProject.value,
+	);
+	if (configuration.ok === false) {
+		return await failAndDispose(
+			workspace,
+			failure("project-identity-mismatch", configuration.message),
+		);
+	}
+	const identityProblem = findIdentityProblem(configuration.value);
+	if (identityProblem !== undefined) {
+		return await failAndDispose(workspace, failure("project-identity-mismatch", identityProblem));
+	}
+
+	context.progress("Transactionally promoting verified Build Output.");
+	const promotion = await workspace.promoteVerifiedBuildOutput();
+	if (promotion.ok === false) {
+		return await failAndDispose(
+			workspace,
+			failure(
+				promotion.phase === "verification" ? "invalid-artifact" : "promotion-failed",
+				promotion.message,
+			),
+		);
+	}
+
+	context.progress("Cleaning detached production source workspace.");
+	const disposed = await workspace.dispose();
+	if (disposed.ok === false) return failure("source-build-failed", disposed.message);
 
 	context.progress("Deploying prebuilt output to Vercel production.");
 	const deployed = await context.deployments.deployPrebuiltProduction();
@@ -175,13 +224,22 @@ export async function deployDispatchProduction(
 		value: productionDeploymentResultSchema.parse({
 			status: "ok",
 			deploymentId: immutable.value.deploymentId,
-			deploymentUrl: normalizeHttpsUrl(immutable.value.deploymentUrl),
+			deploymentUrl: immutable.value.deploymentUrl,
 			productionAlias: configuration.value.productionAlias,
 			gitCommitSha: source.commitSha,
 			projectId: configuration.value.configuredProjectId,
 			artifactDigest: promotion.artifactDigest,
 		}),
 	};
+}
+
+async function failAndDispose(
+	workspace: PreparedProductionSourceWorkspace,
+	outcome: ProductionDeploymentOutcome,
+): Promise<ProductionDeploymentOutcome> {
+	const disposed = await workspace.dispose();
+	if (disposed.ok || outcome.ok) return outcome;
+	return failure(outcome.code, `${outcome.message} Cleanup also failed: ${disposed.message}`);
 }
 
 function findIdentityProblem(configuration: DispatchProductionConfiguration): string | undefined {
@@ -200,10 +258,6 @@ function findIdentityProblem(configuration: DispatchProductionConfiguration): st
 		return "Vercel project metadata and ns.toml dispatch identity disagree.";
 	}
 	return undefined;
-}
-
-function normalizeHttpsUrl(value: string): string {
-	return value.startsWith("https://") ? value : `https://${value}`;
 }
 
 function failure(
