@@ -3,6 +3,7 @@ import {
 	installExtensionRequestSchema,
 	installExtensionResultSchema,
 	renderInstallExtensionHuman,
+	renderInstallExtensionMarkdown,
 } from "../../install-extension.ts";
 import { nsInitCommand } from "../command.ts";
 
@@ -16,6 +17,7 @@ export const nsExtensionInstallCommand = nsInitCommand({
 	resultSchema: installExtensionResultSchema,
 	handler: (context, request) => installExtension(context, { ...request, cwd: context.cwd }),
 	renderHuman: renderInstallExtensionHuman,
+	renderMarkdown: renderInstallExtensionMarkdown,
 });
 
 export default nsExtensionInstallCommand;

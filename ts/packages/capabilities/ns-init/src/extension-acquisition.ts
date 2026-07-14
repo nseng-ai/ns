@@ -19,6 +19,7 @@ export type EnsureExtensionSourceResult =
 			readonly ok: true;
 			readonly sourceKind: "local" | "npm";
 			readonly moduleRoot: string;
+			readonly outcome: "installed" | "unchanged" | "local-in-place";
 	  }
 	| {
 			readonly ok: false;
@@ -38,18 +39,36 @@ export class RealExtensionInstallAcquisitionGateway implements ExtensionInstallA
 	}
 
 	async ensure(params: EnsureExtensionSourceParams): Promise<EnsureExtensionSourceResult> {
+		const parsed = parseExtensionSourceSpec(params.repoRoot, params.sourceSpec);
+		if (!parsed.ok) return { ok: false, diagnostics: [{ ...parsed.error }] };
+		let wasInstalled = false;
+		const installationSnapshot = new Map<string, boolean>();
+		if (parsed.value.kind === "npm") {
+			const packageRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
+			const inspected = await this.acquisition.isNpmPackageInstalled(packageRoot);
+			if (!inspected.ok) return { ok: false, diagnostics: [{ ...inspected.error }] };
+			wasInstalled = inspected.value;
+			installationSnapshot.set(packageRoot, inspected.value);
+		}
 		const result = await resolveDeclaredExtensionModules({
 			projectRoot: params.repoRoot,
 			declaredSpecs: [params.sourceSpec],
 			mode: "apply",
 			npmAcquisition: "ensure",
+			npmPackageInstallationSnapshot: installationSnapshot,
 			gateway: this.acquisition,
 		});
 		const root = result.roots.find((candidate) => candidate.spec === params.sourceSpec);
 		if (root === undefined || result.diagnostics.length > 0) {
 			return { ok: false, diagnostics: result.diagnostics };
 		}
-		return { ok: true, sourceKind: root.sourceKind, moduleRoot: root.moduleRoot };
+		return {
+			ok: true,
+			sourceKind: root.sourceKind,
+			moduleRoot: root.moduleRoot,
+			outcome:
+				root.sourceKind === "local" ? "local-in-place" : wasInstalled ? "unchanged" : "installed",
+		};
 	}
 }
 
@@ -294,11 +313,22 @@ export class InMemoryExtensionInstallAcquisitionGateway implements ExtensionInst
 			};
 		}
 		if (parsed.value.kind === "local") {
-			return { ok: true, sourceKind: "local", moduleRoot: parsed.value.path };
+			return {
+				ok: true,
+				sourceKind: "local",
+				moduleRoot: parsed.value.path,
+				outcome: "local-in-place",
+			};
 		}
 		const moduleRoot = npmPackageRoot(params.repoRoot, parsed.value.packageName);
+		const wasInstalled = this.installedPackageRoots.has(moduleRoot);
 		this.installedPackageRoots.add(moduleRoot);
-		return { ok: true, sourceKind: "npm", moduleRoot };
+		return {
+			ok: true,
+			sourceKind: "npm",
+			moduleRoot,
+			outcome: wasInstalled ? "unchanged" : "installed",
+		};
 	}
 
 	installedRoots(): ReadonlySet<string> {

@@ -3,6 +3,7 @@ import {
 	initNsRequestSchema,
 	initNsResultSchema,
 	renderInitNsHuman,
+	renderInitNsMarkdown,
 } from "../../init-ns.ts";
 import { nsInitCommand } from "../command.ts";
 
@@ -16,6 +17,7 @@ export const nsInitNsCommand = nsInitCommand({
 	resultSchema: initNsResultSchema,
 	handler: (context, request) => initNs(context, { ...request, cwd: context.cwd }),
 	renderHuman: renderInitNsHuman,
+	renderMarkdown: renderInitNsMarkdown,
 });
 
 export default nsInitNsCommand;

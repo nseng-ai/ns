@@ -1,5 +1,6 @@
 import {
 	renderUninstallExtensionHuman,
+	renderUninstallExtensionMarkdown,
 	uninstallExtension,
 	uninstallExtensionRequestSchema,
 	uninstallExtensionResultSchema,
@@ -16,6 +17,7 @@ export const nsExtensionUninstallCommand = nsInitCommand({
 	resultSchema: uninstallExtensionResultSchema,
 	handler: (context, request) => uninstallExtension(context, { ...request, cwd: context.cwd }),
 	renderHuman: renderUninstallExtensionHuman,
+	renderMarkdown: renderUninstallExtensionMarkdown,
 });
 
 export default nsExtensionUninstallCommand;

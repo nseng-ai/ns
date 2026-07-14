@@ -66,6 +66,7 @@ export {
 	installExtensionRequestSchema,
 	installExtensionResultSchema,
 	renderInstallExtensionHuman,
+	renderInstallExtensionMarkdown,
 } from "./install-extension.ts";
 export type {
 	ExtensionListContext,
@@ -89,6 +90,7 @@ export type {
 } from "./uninstall-extension.ts";
 export {
 	renderUninstallExtensionHuman,
+	renderUninstallExtensionMarkdown,
 	uninstallExtension,
 	uninstallExtensionRequestSchema,
 	uninstallExtensionResultSchema,
@@ -101,6 +103,7 @@ export type {
 export {
 	classifyUpdateOutcome,
 	renderUpdateExtensionHuman,
+	renderUpdateExtensionMarkdown,
 	updateExtension,
 	updateExtensionRequestSchema,
 	updateExtensionResultSchema,
@@ -138,4 +141,22 @@ export {
 	resolveActivationRepository,
 } from "./activate-ns.ts";
 export type { InitNsRequest, InitNsResult } from "./init-ns.ts";
-export { initNs, initNsRequestSchema, initNsResultSchema, renderInitNsHuman } from "./init-ns.ts";
+export {
+	initNs,
+	initNsRequestSchema,
+	initNsResultSchema,
+	renderInitNsHuman,
+	renderInitNsMarkdown,
+} from "./init-ns.ts";
+export type {
+	LifecyclePhase,
+	LifecycleRecorder,
+	LifecycleStep,
+	LifecycleTraceSink,
+} from "./lifecycle-observability.ts";
+export {
+	createLifecycleRecorder,
+	lifecycleStepSchema,
+	renderLifecycleMarkdown,
+	renderLifecycleStepHuman,
+} from "./lifecycle-observability.ts";

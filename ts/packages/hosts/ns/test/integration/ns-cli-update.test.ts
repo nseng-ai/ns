@@ -96,11 +96,18 @@ describe("ns CLI host integration", () => {
 		const manifestPath = join(projectRoot, ".pi", "skills", ".ns-harness-artifacts-manifest.json");
 
 		expect(installed.exit).toBe(0);
+		expect(installed.stderr).toBe("");
 		expect(installedData).toMatchObject({
 			mode: "applied",
 			acquisitionIntent: "local-in-place",
 			acquisitionOutcome: "not-applicable",
 		});
+		expect(installedData.steps).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ type: "acquisition-decided", outcome: "not-applicable" }),
+				expect.objectContaining({ type: "artifact-completed", action: "installed" }),
+			]),
+		);
 		const installedCompleted = installedData.completed as Record<string, unknown>;
 		expect(installedCompleted.artifacts).toEqual([
 			expect.objectContaining({ skillName: "module-skill", action: "installed" }),
@@ -125,6 +132,39 @@ describe("ns CLI host integration", () => {
 			expect.objectContaining({ skillName: "module-skill", action: "unchanged" }),
 		]);
 
+		const humanStdout: string[] = [];
+		const humanStderr: string[] = [];
+		const humanExit = await runNsCli(
+			["extension", "update", "./extensions/acme-module", "--dry-run"],
+			{
+				cwd,
+				homeDir: join(projectRoot, ".home"),
+				env: { HOME: join(projectRoot, ".home") },
+				stdout: (text) => humanStdout.push(text),
+				stderr: (text) => humanStderr.push(text),
+			},
+		);
+		expect(humanExit).toBe(0);
+		expect(humanStdout.join("")).toContain("Planned local-in-place");
+		expect(humanStderr.join("")).toContain("Effect: dry run; no writes performed");
+
+		const markdownStdout: string[] = [];
+		const markdownStderr: string[] = [];
+		const markdownExit = await runNsCli(
+			["extension", "update", "./extensions/acme-module", "--dry-run", "--format", "markdown"],
+			{
+				cwd,
+				homeDir: join(projectRoot, ".home"),
+				env: { HOME: join(projectRoot, ".home") },
+				stdout: (text) => markdownStdout.push(text),
+				stderr: (text) => markdownStderr.push(text),
+			},
+		);
+		expect(markdownExit).toBe(0);
+		expect(markdownStderr.join("")).toBe("");
+		expect(markdownStdout.join("")).toContain("# ns extension update");
+		expect(markdownStdout.join("")).toContain("no writes were performed");
+
 		await writeFile(moduleTarget, "local edit\n", "utf8");
 		await writeFile(
 			join(projectRoot, "extensions", "acme-module", "skills", "module-skill", "SKILL.md"),
@@ -138,6 +178,11 @@ describe("ns CLI host integration", () => {
 			status: "failure",
 			errorType: "ns-extension-update-preflight-failed",
 			exitCode: 2,
+			data: {
+				steps: expect.arrayContaining([
+					expect.objectContaining({ type: "failure", phase: "activation-preflight" }),
+				]),
+			},
 		});
 		expect(await readFile(moduleTarget, "utf8")).toBe("local edit\n");
 

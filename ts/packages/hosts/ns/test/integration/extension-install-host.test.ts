@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { commandSucceeded, runCommand } from "@nseng-ai/foundation/exec";
+import { installExtensionResultSchema } from "@nseng-ai/ns-init";
 import { nsExtensionInstallCommand } from "@nseng-ai/ns-init/ns/commands/extension-install";
 import { nsExtensionUninstallCommand } from "@nseng-ai/ns-init/ns/commands/extension-uninstall";
 
@@ -16,6 +17,46 @@ import {
 } from "../support/cli-harness.ts";
 
 describe("extension install host integration", () => {
+	test("streams ns init lifecycle trace separately from its final human result", async () => {
+		const cwd = await createEmptyProject();
+		await initializeGitRepo(cwd);
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		const exit = await runNsCli(["init", "--harness", "pi"], {
+			cwd,
+			homeDir: join(cwd, ".home"),
+			env: { HOME: join(cwd, ".home") },
+			stdout: (text) => stdout.push(text),
+			stderr: (text) => stderr.push(text),
+		});
+		expect(exit).toBe(0);
+		expect(stderr.join("")).toContain("[repository-preflight] started");
+		expect(stderr.join("")).toContain("File: ns.toml created");
+		expect(stdout.join("")).toContain("Activated ns in");
+
+		const json = await runNsCliJson(["init"], cwd);
+		expect(json.exit).toBe(0);
+		expect(json.stderr).toBe("");
+		expect(parseJsonOutput(json)).toMatchObject({
+			status: "ok",
+			data: { steps: expect.arrayContaining([expect.objectContaining({ type: "phase" })]) },
+		});
+
+		const markdownStdout: string[] = [];
+		const markdownStderr: string[] = [];
+		const markdownExit = await runNsCli(["init", "--format", "markdown"], {
+			cwd,
+			homeDir: join(cwd, ".home"),
+			env: { HOME: join(cwd, ".home") },
+			stdout: (text) => markdownStdout.push(text),
+			stderr: (text) => markdownStderr.push(text),
+		});
+		expect(markdownExit).toBe(0);
+		expect(markdownStderr.join("")).toBe("");
+		expect(markdownStdout.join("")).toContain("# ns init");
+		expect(markdownStdout.join("")).toContain("## Lifecycle history");
+	});
+
 	test("imports a full local descriptor, reconciles artifacts, and reports idempotence", async () => {
 		expect(nsExtensionInstallCommand.name).toBe("install");
 		const cwd = await createEmptyProject();
@@ -25,7 +66,8 @@ describe("extension install host integration", () => {
 
 		const installed = await runNsCliJson(["extension", "install", "./extensions/acme-module"], cwd);
 		expect(installed.exit).toBe(0);
-		expect(parseJsonOutput(installed)).toMatchObject({
+		const installedJson = parseJsonOutput(installed);
+		expect(installedJson).toMatchObject({
 			status: "ok",
 			exitCode: 0,
 			data: {
@@ -37,6 +79,12 @@ describe("extension install host integration", () => {
 				harnesses: ["pi"],
 			},
 		});
+		expect(installed.stderr).toBe("");
+		const installedData = installExtensionResultSchema.parse(installedJson.data);
+		expect(installedData.steps.slice(0, 2)).toEqual([
+			{ type: "phase", phase: "repository-preflight", status: "started" },
+			expect.objectContaining({ type: "repository-resolved", repoRoot: cwd }),
+		]);
 		expect(await readFile(join(cwd, "ns.toml"), "utf8")).toContain(
 			'extensions = ["./extensions/acme-module"]',
 		);
@@ -56,7 +104,25 @@ describe("extension install host integration", () => {
 		expect(rerunExit).toBe(0);
 		expect(stdout.join("")).toContain("Ensured already-present @acme/module@1.0.0");
 		expect(stdout.join("")).toContain("already present in");
-		expect(stderr.join("")).toBe("");
+		expect(stderr.join("")).toContain("[repository-preflight] started");
+		expect(stderr.join("")).toContain("File: ns.toml unchanged");
+
+		const markdownStdout: string[] = [];
+		const markdownStderr: string[] = [];
+		const markdownExit = await runNsCli(
+			["extension", "install", "./extensions/acme-module", "--format", "markdown"],
+			{
+				cwd,
+				homeDir: join(cwd, ".home"),
+				env: { HOME: join(cwd, ".home") },
+				stdout: (text) => markdownStdout.push(text),
+				stderr: (text) => markdownStderr.push(text),
+			},
+		);
+		expect(markdownExit).toBe(0);
+		expect(markdownStderr.join("")).toBe("");
+		expect(markdownStdout.join("")).toContain("# ns extension install");
+		expect(markdownStdout.join("")).toContain("## Lifecycle history");
 
 		const artifactPath = join(cwd, ".pi", "skills", "module-skill", "SKILL.md");
 		await writeFile(artifactPath, "local edit\n");
@@ -179,7 +245,8 @@ describe("extension install host integration", () => {
 		expect(stdout.join(" ")).toContain("Uninstalled identity local:");
 		expect(stdout.join(" ")).toContain("Local extension bytes were left untouched");
 		expect(stdout.join(" ")).toContain("consumer data was preserved");
-		expect(stderr.join(" ")).toBe("");
+		expect(stderr.join(" ")).toContain("[repository-preflight] started");
+		expect(stderr.join(" ")).toContain("Preserved local-source");
 		expect(await readFile(join(cwd, "ns.toml"), "utf8")).toContain("extensions = []");
 		expect(await readFile(join(cwd, ".ns", "instructions.md"), "utf8")).not.toContain(
 			"ACME module instructions",
@@ -196,6 +263,35 @@ describe("extension install host integration", () => {
 		expect(
 			await readFile(join(cwd, "extensions", "acme-module", "package.json"), "utf8"),
 		).toContain("@acme/module");
+
+		const json = await runNsCliJson(["extension", "uninstall", source], cwd);
+		expect(json.exit).toBe(0);
+		expect(json.stderr).toBe("");
+		expect(parseJsonOutput(json)).toMatchObject({
+			status: "ok",
+			data: {
+				steps: expect.arrayContaining([
+					expect.objectContaining({ type: "declaration-decided", action: "absent" }),
+				]),
+			},
+		});
+
+		const markdownStdout: string[] = [];
+		const markdownStderr: string[] = [];
+		const markdownExit = await runNsCli(
+			["extension", "uninstall", source, "--format", "markdown"],
+			{
+				cwd,
+				homeDir: join(cwd, ".home"),
+				env: { HOME: join(cwd, ".home") },
+				stdout: (text) => markdownStdout.push(text),
+				stderr: (text) => markdownStderr.push(text),
+			},
+		);
+		expect(markdownExit).toBe(0);
+		expect(markdownStderr.join("")).toBe("");
+		expect(markdownStdout.join("")).toContain("# ns extension uninstall");
+		expect(markdownStdout.join("")).toContain("Local source and consumer data were preserved");
 	});
 
 	test("refuses uninstall when a manifest-owned artifact was locally modified", async () => {

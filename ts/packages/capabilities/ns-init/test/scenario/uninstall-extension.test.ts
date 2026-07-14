@@ -130,6 +130,12 @@ describe("uninstallExtension", () => {
 					status: "removed",
 					path: managedNpmProjectRoot("/repo", "@test/tools"),
 				},
+				steps: expect.arrayContaining([
+					expect.objectContaining({
+						type: "declaration-decided",
+						action: "removed",
+					}),
+				]),
 				completed: {
 					artifacts: [
 						{
@@ -196,7 +202,16 @@ describe("uninstallExtension", () => {
 
 		expect(result).toMatchObject({
 			type: "ok",
-			data: { hasRemovedDeclaration: false, cleanup: { status: "removed" } },
+			data: {
+				hasRemovedDeclaration: false,
+				cleanup: { status: "removed" },
+				steps: expect.arrayContaining([
+					expect.objectContaining({
+						type: "declaration-decided",
+						action: "absent",
+					}),
+				]),
+			},
 		});
 		expect(result).not.toHaveProperty("data.matchedDeclarationSpec");
 		expect(files.fileContent("ns.toml")).toBe(original);

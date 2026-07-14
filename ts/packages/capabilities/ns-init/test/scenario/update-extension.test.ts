@@ -180,6 +180,17 @@ describe("updateExtension acquisition scenarios", () => {
 				acquisitionIntent: intent,
 				acquisitionOutcome: outcome,
 				prospectiveEffects: effects,
+				...(dryRun
+					? {
+							steps: expect.arrayContaining([
+								{ type: "effect", effect: "dry-run-no-writes" },
+								{
+									type: "effect",
+									effect: `prospective-effects-${effects}`,
+								},
+							]),
+						}
+					: {}),
 			},
 		});
 		expect(acquisition.operations()).toEqual([

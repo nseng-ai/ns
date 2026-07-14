@@ -276,7 +276,21 @@ describe("installExtension", () => {
 		async (nsToml, errorType) => {
 			const { context, files, acquisition } = fixture(nsToml === undefined ? {} : { nsToml });
 			const result = await installExtension(context, { cwd: "/repo", source: "npm:@test/tools" });
-			expect(result).toMatchObject({ type: "failure", errorType, data: { completed: {} } });
+			expect(result).toMatchObject({
+				type: "failure",
+				errorType,
+				data: {
+					completed: {},
+					steps: [
+						{ type: "phase", phase: "repository-preflight", status: "started" },
+						expect.objectContaining({ type: "repository-resolved" }),
+						{ type: "phase", phase: "repository-preflight", status: "completed" },
+						{ type: "phase", phase: "configuration-preflight", status: "started" },
+						{ type: "phase", phase: "configuration-preflight", status: "failed" },
+						expect.objectContaining({ type: "failure", phase: "configuration-preflight" }),
+					],
+				},
+			});
 			expect(acquisition.calls()).toEqual([]);
 			expect(files.operations()).toEqual([]);
 		},

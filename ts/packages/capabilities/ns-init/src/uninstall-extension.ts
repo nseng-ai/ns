@@ -19,23 +19,26 @@ import {
 	normalizeExtensionLifecycleDiagnostic,
 	prepareExtensionLifecycle,
 } from "./extension-lifecycle-preflight.ts";
+import {
+	createLifecycleRecorder,
+	lifecycleStepSchema,
+	recordLifecycleFailure,
+	renderLifecycleMarkdown,
+} from "./lifecycle-observability.ts";
 
 export interface ExtensionUninstallContext extends NsActivationContext {
 	readonly uninstallAcquisition: ExtensionUninstallAcquisitionGateway;
 }
-
 export const uninstallExtensionRequestSchema = z.object({
 	source: z
 		.string()
 		.min(1)
 		.describe("npm: package spec or unprefixed local extension package path."),
 });
-
 const uninstallCleanupSchema = z.object({
 	status: z.enum(["removed", "already-absent", "not-applicable"]),
 	path: z.string().optional(),
 });
-
 export const uninstallExtensionResultSchema = z.object({
 	sourceSpec: z.string(),
 	sourceKind: z.enum(["local", "npm"]),
@@ -48,8 +51,8 @@ export const uninstallExtensionResultSchema = z.object({
 	harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
 	completed: activationCompletedSchema,
 	cleanup: uninstallCleanupSchema,
+	steps: z.array(lifecycleStepSchema).readonly(),
 });
-
 export type UninstallExtensionRequest = z.infer<typeof uninstallExtensionRequestSchema> & {
 	readonly cwd: string;
 };
@@ -59,69 +62,114 @@ export async function uninstallExtension(
 	context: ExtensionUninstallContext,
 	request: UninstallExtensionRequest,
 ): Promise<ClinkrExit<UninstallExtensionResult>> {
-	const preflight = await prepareExtensionLifecycle(context, request);
-	if (preflight.type === "failed") return extensionLifecycleFailure("uninstall", preflight.failure);
+	const recorder = createLifecycleRecorder(context.lifecycleTrace);
+	recorder.record({ type: "phase", phase: "repository-preflight", status: "started" });
+	const preflight = await prepareExtensionLifecycle(context, request, recorder);
+	if (preflight.type === "failed")
+		return extensionLifecycleFailure("uninstall", preflight.failure, recorder);
 	const { repository, repoRoot, trunkBranch, nsTomlContent, harnesses, source, sourceIdentity } =
 		preflight.prepared;
-
 	const declaration = planDeclaredExtensionUninstallToml({
 		projectRoot: repoRoot,
 		nsTomlContent,
 		requestedSpec: request.source,
 	});
 	if (!declaration.ok) {
-		if (declaration.reason === "ambiguous-identity") {
+		recordLifecycleFailure(recorder, "declaration-planning", {
+			code: declaration.reason,
+			message: declaration.message,
+			path: "ns.toml",
+		});
+		if (declaration.reason === "ambiguous-identity")
 			return failure("ns-extension-uninstall-ambiguous-identity", declaration.message, {
 				phase: "preflight",
 				requestedSpec: declaration.requestedSpec,
 				matchingSpecs: [...declaration.matchingSpecs],
 				identity: declaration.identity,
 				completed: {},
+				steps: recorder.steps(),
 			});
-		}
 		return failure(
 			"ns-extension-uninstall-config-invalid",
 			declaration.message,
-			extensionLifecyclePreflightEnvelope([
-				{ code: declaration.reason, message: declaration.message, path: "ns.toml" },
-			]),
+			extensionLifecyclePreflightEnvelope(
+				[{ code: declaration.reason, message: declaration.message, path: "ns.toml" }],
+				recorder,
+			),
 		);
 	}
-
-	const prepared = await prepareNsActivation(context, {
-		repository,
-		harnesses,
-		harnessSource: "ns-toml",
-		nsTomlContent: declaration.text,
-		nsTomlChange: declaration.isRemoved ? "replaced" : "unchanged",
-		nsTomlExpected: { type: "file", content: nsTomlContent },
+	recorder.record({
+		type: "declaration-decided",
+		sourceSpec: request.source,
+		nsTomlPath: join(repoRoot, "ns.toml"),
+		action: declaration.isRemoved ? "removed" : "absent",
 	});
+	recorder.record({ type: "phase", phase: "declaration-planning", status: "completed" });
+	recorder.record({ type: "phase", phase: "activation-preflight", status: "started" });
+	const prepared = await prepareNsActivation(
+		context,
+		{
+			repository,
+			harnesses,
+			harnessSource: "ns-toml",
+			nsTomlContent: declaration.text,
+			nsTomlChange: declaration.isRemoved ? "replaced" : "unchanged",
+			nsTomlExpected: { type: "file", content: nsTomlContent },
+		},
+		recorder,
+	);
 	if (prepared.type === "preflight-failed") {
+		const diagnostic = prepared.diagnostics[0] ?? {
+			code: "activation-preflight-failed",
+			message: "Extension uninstall preflight failed.",
+		};
+		recordLifecycleFailure(recorder, "activation-preflight", diagnostic);
 		return failure(
 			"ns-extension-uninstall-preflight-failed",
 			"Extension uninstall preflight failed; no project files or managed packages were changed.",
-			extensionLifecyclePreflightEnvelope(prepared.diagnostics),
+			extensionLifecyclePreflightEnvelope(prepared.diagnostics, recorder),
 		);
 	}
-
-	const applied = await applyNsActivation(context, prepared.activation);
+	recorder.record({ type: "phase", phase: "activation-preflight", status: "completed" });
+	recorder.record({ type: "phase", phase: "activation-apply", status: "started" });
+	const applied = await applyNsActivation(context, prepared.activation, recorder);
 	if (applied.type === "apply-failed") {
+		recordLifecycleFailure(recorder, "activation-apply", applied.error);
 		return failure("ns-extension-uninstall-apply-failed", applied.error.message, {
 			phase: applied.phase,
 			error: normalizeExtensionLifecycleDiagnostic(applied.error),
 			completed: applied.completed,
+			steps: recorder.steps(),
 		});
 	}
+	recorder.record({ type: "phase", phase: "activation-apply", status: "completed" });
+	recorder.record({ type: "preservation", subject: "consumer-data" });
 
 	let cleanup: UninstallExtensionResult["cleanup"];
 	if (source.kind === "local") {
 		cleanup = { status: "not-applicable" };
+		recorder.record({ type: "preservation", subject: "local-source", path: source.path });
+		recorder.record({ type: "phase", phase: "managed-package-cleanup", status: "skipped" });
+		recorder.record({
+			type: "acquisition-decided",
+			sourceSpec: request.source,
+			sourceKind: "local",
+			intent: "local-in-place",
+			outcome: "not-applicable",
+			moduleRoot: source.path,
+		});
 	} else {
+		recorder.record({ type: "phase", phase: "managed-package-cleanup", status: "started" });
 		const removed = await context.uninstallAcquisition.removeManagedNpmPackage({
 			repoRoot,
 			packageName: source.packageName,
 		});
 		if (!removed.ok) {
+			recordLifecycleFailure(
+				recorder,
+				"managed-package-cleanup",
+				normalizeExtensionLifecycleDiagnostic(removed.error),
+			);
 			return failure(
 				"ns-extension-uninstall-managed-package-cleanup-failed",
 				removed.error.message,
@@ -130,12 +178,22 @@ export async function uninstallExtension(
 					diagnostic: normalizeExtensionLifecycleDiagnostic(removed.error),
 					...(removed.error.path === undefined ? {} : { path: removed.error.path }),
 					completed: applied.completed,
+					steps: recorder.steps(),
 				},
 			);
 		}
 		cleanup = { status: removed.value.status, path: removed.value.path };
+		recorder.record({
+			type: "acquisition-decided",
+			sourceSpec: request.source,
+			sourceKind: "npm",
+			intent: "remove-managed",
+			outcome: removed.value.status,
+			managedPath: removed.value.path,
+		});
+		recorder.record({ type: "phase", phase: "managed-package-cleanup", status: "completed" });
 	}
-
+	recorder.record({ type: "phase", phase: "completion", status: "completed" });
 	return ok({
 		sourceSpec: request.source,
 		sourceKind: sourceIdentity.kind,
@@ -150,9 +208,22 @@ export async function uninstallExtension(
 		harnesses: [...harnesses],
 		completed: applied.completed,
 		cleanup,
+		steps: recorder.steps(),
 	});
 }
 
+export function renderUninstallExtensionMarkdown(result: UninstallExtensionResult): string {
+	const declaration = result.hasRemovedDeclaration ? "removed" : "already absent";
+	const preservation =
+		result.sourceKind === "local"
+			? "Local source and consumer data were preserved."
+			: "Consumer data was preserved.";
+	return renderLifecycleMarkdown(
+		"ns extension uninstall",
+		`Uninstalled ${result.sourceKind}:${result.sourceIdentity}; declaration ${declaration}; managed cleanup ${result.cleanup.status}. ${preservation}`,
+		result.steps,
+	);
+}
 export function renderUninstallExtensionHuman(result: UninstallExtensionResult): string {
 	const declaration = result.hasRemovedDeclaration
 		? `removed ${result.matchedDeclarationSpec ?? result.sourceSpec} from ${result.nsTomlPath}`

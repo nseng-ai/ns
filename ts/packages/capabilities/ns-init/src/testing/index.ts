@@ -1,3 +1,5 @@
+import type { LifecycleTraceSink } from "../lifecycle-observability.ts";
+
 export type {
 	ActivationFileOperation,
 	InMemoryActivationFilesState,
@@ -19,3 +21,16 @@ export {
 	InMemoryExtensionUninstallAcquisitionGateway,
 	InMemoryExtensionUpdateAcquisitionGateway,
 } from "../extension-acquisition.ts";
+export type { LifecycleTraceSink } from "../lifecycle-observability.ts";
+
+export class CollectingLifecycleTraceSink implements LifecycleTraceSink {
+	private readonly lines: string[] = [];
+
+	emit(line: string): void {
+		this.lines.push(line);
+	}
+
+	collectedLines(): readonly string[] {
+		return [...this.lines];
+	}
+}

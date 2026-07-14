@@ -7,14 +7,25 @@ import {
 } from "../src/activate-ns.ts";
 import { initNsResultSchema } from "../src/init-ns.ts";
 import { installExtensionResultSchema } from "../src/install-extension.ts";
+import { lifecycleStepSchema } from "../src/lifecycle-observability.ts";
+import { uninstallExtensionResultSchema } from "../src/uninstall-extension.ts";
+import { updateExtensionResultSchema } from "../src/update-extension.ts";
 
 describe("activation completion schema", () => {
 	it("is the shared command-result schema and remains JSON-schema compatible", () => {
 		expect(initNsResultSchema.shape.completed).toBe(activationCompletedSchema);
 		expect(installExtensionResultSchema.shape.completed).toBe(activationCompletedSchema);
-
-		expect(() => z.toJSONSchema(initNsResultSchema, { io: "output" })).not.toThrow();
-		expect(() => z.toJSONSchema(installExtensionResultSchema, { io: "output" })).not.toThrow();
+		expect(updateExtensionResultSchema.shape.completed).toBe(activationCompletedSchema);
+		expect(uninstallExtensionResultSchema.shape.completed).toBe(activationCompletedSchema);
+		for (const schema of [
+			initNsResultSchema,
+			installExtensionResultSchema,
+			updateExtensionResultSchema,
+			uninstallExtensionResultSchema,
+		]) {
+			expect(schema.shape.steps.unwrap().element).toBe(lifecycleStepSchema);
+			expect(() => z.toJSONSchema(schema, { io: "output" })).not.toThrow();
+		}
 	});
 
 	it("omits unattempted file outcomes and absent artifact keys", () => {
