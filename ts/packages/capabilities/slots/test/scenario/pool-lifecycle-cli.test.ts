@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
 
+const STORE_ROOT = "/slots/repos/repo/provision/default";
+const DECLARED_ENV = '[slots]\nprovision = [".env.local"]\n';
+
 describe("slot init CLI", () => {
 	it("creates metadata dirs and detached worktrees from trunk", async () => {
 		const run = runScenario(["init", "--size", "2", "--format", "json"], {
@@ -41,13 +44,50 @@ describe("slot init CLI", () => {
 });
 
 describe("slot resize CLI", () => {
-	it("grows sparse pools by filling absent slot numbers first", async () => {
+	it("grows sparse pools by filling absent slot numbers first and provisions only new slots", async () => {
+		const slot01Path = slotWorktree("slot-01").path;
+		const slot02Path = slotWorktree("slot-02").path;
+		const slot04Path = slotWorktree("slot-04").path;
 		const run = runScenario(["resize", "--size", "4", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", null), slotWorktree("slot-03", null)] },
+			provisionFiles: {
+				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				files: {
+					[`${STORE_ROOT}/.env.local`]: "SECRET=1\n",
+					[`${slot01Path}/.env.local`]: "LOCAL=EDIT\n",
+				},
+			},
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { previousPoolSize: 2, poolSize: 4, created: ["slot-02", "slot-04"], removed: [] },
+			data: {
+				previousPoolSize: 2,
+				poolSize: 4,
+				created: ["slot-02", "slot-04"],
+				removed: [],
+				provision: {
+					copied: [
+						{ slotName: "slot-02", path: ".env.local" },
+						{ slotName: "slot-04", path: ".env.local" },
+					],
+					notices: [],
+				},
+			},
+		});
+		expect(run.provisionFiles.operations()).toEqual([
+			{
+				type: "copy-into-worktree",
+				from: `${STORE_ROOT}/.env.local`,
+				to: `${slot02Path}/.env.local`,
+			},
+			{
+				type: "copy-into-worktree",
+				from: `${STORE_ROOT}/.env.local`,
+				to: `${slot04Path}/.env.local`,
+			},
+		]);
+		expect(run.provisionFiles.fileAt(`${slot01Path}/.env.local`)).toEqual({
+			content: "LOCAL=EDIT\n",
 		});
 	});
 
@@ -63,7 +103,7 @@ describe("slot resize CLI", () => {
 		expect(output).toContain("Worktrees: /slots/repos/repo/worktrees");
 	});
 
-	it("shrinks by removing the highest records after the target prefix", async () => {
+	it("shrinks by removing the highest records without provisioning", async () => {
 		const run = runScenario(["resize", "--size", "2", "--format", "json"], {
 			git: {
 				worktrees: [
@@ -73,15 +113,26 @@ describe("slot resize CLI", () => {
 					slotWorktree("slot-04", null),
 				],
 			},
+			provisionFiles: {
+				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
+			},
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { previousPoolSize: 4, poolSize: 2, created: [], removed: ["slot-03", "slot-04"] },
+			data: {
+				previousPoolSize: 4,
+				poolSize: 2,
+				created: [],
+				removed: ["slot-03", "slot-04"],
+				provision: null,
+			},
 		});
 		expect(run.git.operations()).toEqual([
 			{ type: "remove-worktree", path: "/slots/repos/repo/worktrees/slot-03" },
 			{ type: "remove-worktree", path: "/slots/repos/repo/worktrees/slot-04" },
 		]);
+		expect(run.provisionFiles.operations()).toEqual([]);
 	});
 
 	it("renders human shrink output", async () => {
@@ -102,15 +153,20 @@ describe("slot resize CLI", () => {
 		expect(output).toContain("Removed slot-04");
 	});
 
-	it("returns no-op when already at the requested size", async () => {
+	it("returns no-op without provisioning when already at the requested size", async () => {
 		const run = runScenario(["resize", "--size", "1", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", null)] },
+			provisionFiles: {
+				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
+			},
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { previousPoolSize: 1, poolSize: 1, created: [], removed: [] },
+			data: { previousPoolSize: 1, poolSize: 1, created: [], removed: [], provision: null },
 		});
 		expect(run.git.operations()).toEqual([]);
+		expect(run.provisionFiles.operations()).toEqual([]);
 	});
 
 	it("renders human no-op output", async () => {

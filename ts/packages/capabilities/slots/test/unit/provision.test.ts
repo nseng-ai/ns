@@ -86,6 +86,24 @@ describe("fillProvisionGapsForPlacement", () => {
 		expect(report?.notices).toMatchObject([{ kind: "config-error", path: null, slotName: null }]);
 	});
 
+	it("reports a project config read failure as a notice instead of failing", async () => {
+		const ctx = context({
+			provisionFiles: { projectConfigReadFailures: { "/repo": "config unavailable" } },
+		});
+		expect(await fillProvisionGapsForPlacement(ctx, [TARGET])).toEqual({
+			copied: [],
+			notices: [
+				{
+					kind: "config-error",
+					path: null,
+					slotName: null,
+					message: "config unavailable",
+				},
+			],
+		});
+		expect(ctx.provisionFiles.operations()).toEqual([]);
+	});
+
 	it("reports missing store files, non-file targets, non-file store entries, and copy failures", async () => {
 		const ctx = context({
 			provisionFiles: {

@@ -106,7 +106,22 @@ export async function fillProvisionGapsForPlacement(
 	ctx: RepoSlotContext,
 	worktrees: readonly ProvisionWorktreeTarget[],
 ): Promise<ProvisionPlacementReport | null> {
-	const declaration = await loadProvisionDeclaration(ctx);
+	let declaration: ProvisionDeclarationResult;
+	try {
+		declaration = await loadProvisionDeclaration(ctx);
+	} catch (error) {
+		return {
+			copied: [],
+			notices: [
+				{
+					kind: "config-error",
+					path: null,
+					slotName: null,
+					message: errorMessage(error),
+				},
+			],
+		};
+	}
 	if (declaration.type === "config-error") {
 		return {
 			copied: [],

@@ -11,6 +11,8 @@ export interface FakeSlotProvisionFilesGatewayOptions {
 	files?: Record<string, string | FakeProvisionFileEntry>;
 	/** Main repo root -> ns.toml source. Missing root means no ns.toml. */
 	projectConfigByRoot?: Record<string, string>;
+	/** Main repo root -> error message thrown when reading ns.toml. */
+	projectConfigReadFailures?: Record<string, string>;
 	/** Destination absolute path -> error message thrown on copy. */
 	copyFailures?: Record<string, string>;
 }
@@ -24,6 +26,7 @@ export interface FakeProvisionFilesOperation {
 export class FakeSlotProvisionFilesGateway implements SlotProvisionFilesGateway {
 	private readonly entries: Map<string, FakeProvisionFileEntry>;
 	private readonly projectConfigByRoot: Map<string, string>;
+	private readonly projectConfigReadFailures: Map<string, string>;
 	private readonly copyFailures: Map<string, string>;
 	private readonly log: FakeProvisionFilesOperation[] = [];
 
@@ -35,10 +38,15 @@ export class FakeSlotProvisionFilesGateway implements SlotProvisionFilesGateway 
 			]),
 		);
 		this.projectConfigByRoot = new Map(Object.entries(options.projectConfigByRoot ?? {}));
+		this.projectConfigReadFailures = new Map(
+			Object.entries(options.projectConfigReadFailures ?? {}),
+		);
 		this.copyFailures = new Map(Object.entries(options.copyFailures ?? {}));
 	}
 
 	async readProjectConfigSource(mainRepoRoot: string): Promise<string | null> {
+		const failureMessage = this.projectConfigReadFailures.get(mainRepoRoot);
+		if (failureMessage !== undefined) throw new Error(failureMessage);
 		return this.projectConfigByRoot.get(mainRepoRoot) ?? null;
 	}
 
