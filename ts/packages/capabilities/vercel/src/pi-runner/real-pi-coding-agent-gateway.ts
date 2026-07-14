@@ -11,11 +11,15 @@
 // state is in-memory: the decision log and the landed commits are the
 // run's durable record, not a session file. `sdk` is the test seam;
 // production uses the lazy library-backed default.
+import { delimiter, join } from "node:path";
+
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 import type { PiCodingAgentGateway, PiCodingAgentRunResult } from "./runner.ts";
 
 export interface PiAgentSdkSession {
+	/** Bind extensions and emit their session-start lifecycle before the first prompt. */
+	initialize(): Promise<void>;
 	prompt(text: string): Promise<void>;
 	/** The session's message history, opaque to the seam. */
 	messages(): readonly unknown[];
@@ -28,6 +32,7 @@ export interface PiAgentSessionSdk {
 
 const piCodingAgentSdk: PiAgentSessionSdk = {
 	async createSession(options) {
+		prependWorkspacePiBinToPath({ cwd: options.cwd, env: process.env });
 		// Lazy import: the pi library is loaded only when a real session
 		// starts, never when this module is merely imported.
 		const { createAgentSession, SessionManager } = await import("@earendil-works/pi-coding-agent");
@@ -36,6 +41,9 @@ const piCodingAgentSdk: PiAgentSessionSdk = {
 			sessionManager: SessionManager.inMemory(),
 		});
 		return {
+			initialize: async () => {
+				await session.bindExtensions({ mode: "print" });
+			},
 			prompt: async (text) => {
 				await session.prompt(text);
 			},
@@ -54,10 +62,16 @@ export function createRealPiCodingAgentGateway(options: {
 	const sdk = options.sdk ?? piCodingAgentSdk;
 	return {
 		async runPromptToCompletion(run): Promise<PiCodingAgentRunResult> {
-			let session: PiAgentSdkSession;
+			let session: PiAgentSdkSession | undefined;
 			try {
 				session = await sdk.createSession({ cwd: options.cwd });
+				await session.initialize();
 			} catch (error) {
+				try {
+					session?.dispose();
+				} catch {
+					// Disposal problems must not mask the initialization failure.
+				}
 				return {
 					ok: false,
 					message: `Starting the pi agent session failed: ${formatErrorMessage(error)}`,
@@ -77,6 +91,27 @@ export function createRealPiCodingAgentGateway(options: {
 			}
 		},
 	};
+}
+
+export function prependWorkspacePiBinToPath(options: {
+	readonly cwd: string;
+	readonly env: Record<string, string | undefined>;
+	readonly pathDelimiter?: string;
+}): void {
+	const workspaceBin = join(
+		options.cwd,
+		"ts",
+		"packages",
+		"capabilities",
+		"vercel",
+		"node_modules",
+		".bin",
+	);
+	const currentPath = options.env["PATH"];
+	options.env["PATH"] =
+		currentPath === undefined || currentPath.length === 0
+			? workspaceBin
+			: `${workspaceBin}${options.pathDelimiter ?? delimiter}${currentPath}`;
 }
 
 /**
