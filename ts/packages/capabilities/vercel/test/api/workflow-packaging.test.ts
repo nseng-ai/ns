@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	findDispatchStepInventoryProblems,
 	findMissingTriggerWorkflowManifestIds,
 	findMissingWorkflowFunctionArtifacts,
 	findMissingWorkflowManifestIds,
 	findWorkflowQueueTriggerProblems,
 	findWorkflowSourcesMissingFromManifest,
+	findWorkflowTargetWorldProblems,
+	findNonVercelWorkflowHostModules,
 	mergeBuildOutputConfig,
 	REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS,
 } from "../../src/deployability/gate.ts";
@@ -22,6 +25,53 @@ const flowVcConfig = {
 		},
 	],
 };
+
+describe("findWorkflowTargetWorldProblems", () => {
+	it("rejects an API bundle containing Workflow's uninjected target-world fallback", () => {
+		const modules = new Map([
+			["api/runs.cjs", 'Throw new Error("Workflow target world was not statically injected.");'],
+		]);
+
+		expect(findWorkflowTargetWorldProblems(modules)).toEqual(["api/runs.cjs"]);
+	});
+
+	it("accepts API bundles without Workflow's uninjected target-world fallback", () => {
+		expect(
+			findWorkflowTargetWorldProblems(new Map([["api/runs.cjs", "createVercelWorld();"]])),
+		).toEqual([]);
+	});
+});
+
+describe("findNonVercelWorkflowHostModules", () => {
+	it("rejects a Workflow host bundle built against the local world", () => {
+		expect(
+			findNonVercelWorkflowHostModules(
+				new Map([["flow.func/index.mjs", "// @workflow/world-local\ncreateLocalWorld();"]]),
+			),
+		).toEqual(["flow.func/index.mjs"]);
+	});
+
+	it("rejects a Workflow host bundle without an injected world", () => {
+		expect(
+			findNonVercelWorkflowHostModules(
+				new Map([
+					[
+						"flow.func/index.mjs",
+						'Throw new Error("Workflow target world was not statically injected.");',
+					],
+				]),
+			),
+		).toEqual(["flow.func/index.mjs"]);
+	});
+
+	it("accepts a Workflow host bundle built against the Vercel world", () => {
+		expect(
+			findNonVercelWorkflowHostModules(
+				new Map([["flow.func/index.mjs", "// @workflow/world-vercel\ncreateVercelWorld();"]]),
+			),
+		).toEqual([]);
+	});
+});
 
 describe("findMissingWorkflowFunctionArtifacts", () => {
 	it("accepts the v5 unified flow and webhook function artifacts", () => {
@@ -195,6 +245,44 @@ describe("findMissingWorkflowManifestIds", () => {
 		expect(findMissingTriggerWorkflowManifestIds(sharedRecordManifest)).toEqual([
 			triggerWorkflowIds.hello,
 		]);
+	});
+});
+
+describe("dispatch step inventory", () => {
+	const currentSteps = {
+		checkHarnessCompletion: { stepId: "step//dispatch//checkHarnessCompletion" },
+		createSandboxAndLaunchHarness: { stepId: "step//dispatch//createSandboxAndLaunchHarness" },
+		failDispatchRun: { stepId: "step//dispatch//failDispatchRun" },
+		pushAnchorBranch: { stepId: "step//dispatch//pushAnchorBranch" },
+		readHarnessResult: { stepId: "step//dispatch//readHarnessResult" },
+		stopSandbox: { stepId: "step//dispatch//stopSandbox" },
+		updateAnchorPrFailed: { stepId: "step//dispatch//updateAnchorPrFailed" },
+		updateAnchorPrLanded: { stepId: "step//dispatch//updateAnchorPrLanded" },
+	};
+
+	it("accepts the exact current dispatch inventory", () => {
+		expect(
+			findDispatchStepInventoryProblems({ steps: { "workflows/dispatch.ts": currentSteps } }),
+		).toEqual({
+			missing: [],
+			retired: [],
+		});
+	});
+
+	it("reports missing current and present retired dispatch names", () => {
+		const incomplete = Object.fromEntries(
+			Object.entries(currentSteps).filter(([name]) => name !== "checkHarnessCompletion"),
+		);
+		expect(
+			findDispatchStepInventoryProblems({
+				steps: {
+					"workflows/dispatch.ts": {
+						...incomplete,
+						launchDispatchStep: { stepId: "step//dispatch//launchDispatchStep" },
+					},
+				},
+			}),
+		).toEqual({ missing: ["checkHarnessCompletion"], retired: ["launchDispatchStep"] });
 	});
 });
 

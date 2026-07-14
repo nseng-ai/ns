@@ -97,9 +97,9 @@ describe("planDispatchSupervision", () => {
 	it("derives the fixed plan from the run budget and poll cadence", () => {
 		expect(planDispatchSupervision()).toEqual({
 			pollIntervalMs: DISPATCH_POLL_SECONDS * 1000,
-			maxPolls: Math.ceil(
-				(DISPATCH_RUN_BUDGET_SECONDS + DISPATCH_GRACE_SECONDS) / DISPATCH_POLL_SECONDS,
-			),
+			maxPolls:
+				Math.ceil((DISPATCH_RUN_BUDGET_SECONDS + DISPATCH_GRACE_SECONDS) / DISPATCH_POLL_SECONDS) +
+				1,
 			sandboxTimeoutMs:
 				(DISPATCH_RUN_BUDGET_SECONDS + DISPATCH_SANDBOX_TIMEOUT_MARGIN_SECONDS) * 1000,
 		});
@@ -275,7 +275,6 @@ describe("executeDispatchRun", () => {
 		});
 		expect(stepNames(calls)).toEqual([
 			"launch",
-			"sleep",
 			"poll",
 			"sleep",
 			"poll",
@@ -285,13 +284,13 @@ describe("executeDispatchRun", () => {
 			"reportLanded",
 		]);
 		expect(calls[0]?.args).toEqual({ ...input(), revision: revision.toLowerCase() });
-		expect(calls[2]?.args).toEqual({ sandboxName: "sbx_dispatch", pollOrdinal: 1 });
-		expect(calls[4]?.args).toEqual({ sandboxName: "sbx_dispatch", pollOrdinal: 2 });
-		expect(calls[6]?.args).toEqual({
+		expect(calls[1]?.args).toEqual({ sandboxName: "sbx_dispatch", pollOrdinal: 1 });
+		expect(calls[3]?.args).toEqual({ sandboxName: "sbx_dispatch", pollOrdinal: 2 });
+		expect(calls[5]?.args).toEqual({
 			sandboxName: "sbx_dispatch",
 			anchorBranch: "dispatch/widget-refactor-a1b2c3",
 		});
-		expect(calls[8]?.args).toEqual({ anchorPrNumber: 421, decisionLog: "- chose A" });
+		expect(calls[7]?.args).toEqual({ anchorPrNumber: 421, decisionLog: "- chose A" });
 	});
 
 	it("reports a launch failure on the anchor PR without polling or cleanup", async () => {
@@ -371,14 +370,7 @@ describe("executeDispatchRun", () => {
 		expect(result.code).toBe("harness-failed");
 		expect(result.message).toContain("tests failed");
 		expect(result.failureReported).toBe(true);
-		expect(stepNames(calls)).toEqual([
-			"launch",
-			"sleep",
-			"poll",
-			"readOutcome",
-			"cleanup",
-			"reportFailure",
-		]);
+		expect(stepNames(calls)).toEqual(["launch", "poll", "readOutcome", "cleanup", "reportFailure"]);
 	});
 
 	it("cleans up and reports when a poll fails", async () => {
@@ -393,7 +385,6 @@ describe("executeDispatchRun", () => {
 		expect(result.code).toBe("poll-failed");
 		expect(stepNames(calls)).toEqual([
 			"launch",
-			"sleep",
 			"poll",
 			"sleep",
 			"poll",
@@ -431,7 +422,6 @@ describe("executeDispatchRun", () => {
 		expect(result.code).toBe("landing-failed");
 		expect(stepNames(calls)).toEqual([
 			"launch",
-			"sleep",
 			"poll",
 			"readOutcome",
 			"land",

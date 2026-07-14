@@ -19,8 +19,10 @@
 	"scripts": {
 		"build:deployable": "node scripts/build-deployable.ts",
 		"check": "tsc -p tsconfig.json",
+		"deploy:production": "node scripts/deploy-production.ts",
 		"dev:sandbox-hello-probe": "node --env-file=.env.local scripts/sandbox-hello-probe.ts",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/vercel/test",
+		"verify:production-health": "node scripts/verify-production-health.ts",
 		"pack:local": "node ../../../scripts/prepare-source-publish-package.mjs . && npm pack ./dist/publish --pack-destination dist",
 		"publish:dry-run": "node ../../../scripts/prepare-source-publish-package.mjs . && npm publish --dry-run ./dist/publish"
 	},
@@ -31,6 +33,7 @@
 		"@nseng-ai/sdk": "workspace:*",
 		"@octokit/auth-app": "catalog:",
 		"@vercel/sandbox": "catalog:",
+		"@workflow/world-vercel": "catalog:",
 		"esbuild": "catalog:",
 		"jose": "catalog:",
 		"smol-toml": "catalog:",

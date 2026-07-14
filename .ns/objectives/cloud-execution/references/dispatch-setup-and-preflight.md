@@ -89,7 +89,8 @@ The gate must prove:
 - hermetic CommonJS API handlers;
 - no API `filePathMap`;
 - emitted relative-module closure;
-- Workflow flow, step, webhook, and manifest artifacts;
+- Workflow v5 unified ESM flow, webhook, and manifest artifacts;
+- exact current dispatch step inventory with known retired names rejected;
 - Queue triggers;
 - every `"use workflow"` source discovered;
 - every route-started Workflow ID present;
@@ -97,21 +98,28 @@ The gate must prove:
 
 Do not proceed from a local source-only or partial Workflow build.
 
-## Phase 5: promote from the correct boundary
+## Phase 5: deploy from the correct boundary
 
-Materialize the complete package-local `.vercel/output` at the repository deployment
-boundary with the linked project metadata. From the repository root:
+From a clean repository root, run the canonical production write explicitly:
 
 ```sh
-vercel deploy --prebuilt --scope <team-slug> --prod --yes
+just dispatch-deploy-prod
 ```
 
-After upload, inspect the exact deployment before retrying any ambiguous transport failure.
-Verify the production alias points to the intended deployment inventory.
+It refuses tracked and untracked changes, builds the package deployable, compares
+package/root/`ns.toml` project identities, stages and verifies a complete clean output
+inventory, fingerprints it, transactionally replaces the root output with rollback for
+promotion failures, deploys prebuilt production, and verifies that the stable alias identifies
+the returned Ready deployment. Its only success stdout is one JSON object. A deploy or alias
+failure retains the promoted output for inspection and retry; only a local promotion failure
+restores the previous root output. Inspect any returned locator before retrying an ambiguous
+upload. Preserve fixed staging/backup residue when the command calls it ambiguous; it is crash
+or concurrency evidence, not disposable scratch state. The complete incident-derived rules
+and Vercel CLI/build foibles are maintained in `dispatch-deployment-contract.md`.
 
 ## Phase 6: verify in increasing-cost order
 
-1. Production health route.
+1. Optional public health route: `just dispatch-verify-prod-health` (read-only).
 2. Safe unauthenticated rejection.
 3. Authenticated read-only dispatch identity preflight.
 4. Hello Workflow and Queue delivery.

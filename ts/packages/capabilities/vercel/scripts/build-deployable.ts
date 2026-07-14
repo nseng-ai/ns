@@ -20,6 +20,7 @@ import {
 	REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS,
 } from "../src/deployability/gate.ts";
 import { triggerWorkflowIds } from "../src/trigger/workflow-ids.ts";
+import { verifyDispatchBuildOutput } from "../src/deployability/output-verifier.ts";
 
 interface BuildPaths {
 	readonly packageRoot: string;
@@ -101,6 +102,9 @@ async function makeApiFunctionBundlesHermetic(paths: BuildPaths): Promise<boolea
 			entryPoints: [join(functionRoot, plan.sourceHandler)],
 			outfile: join(functionRoot, plan.bundledHandler),
 			bundle: true,
+			alias: {
+				"@workflow/core/runtime/world-target": "@workflow/world-vercel",
+			},
 			platform: "node",
 			format: "cjs",
 			target: "node24",
@@ -108,6 +112,7 @@ async function makeApiFunctionBundlesHermetic(paths: BuildPaths): Promise<boolea
 			sourcemap: false,
 			legalComments: "none",
 			logLevel: "silent",
+			minifyWhitespace: true,
 		});
 		await writeFile(configPath, `${JSON.stringify(plan.config, null, 2)}\n`);
 	}
@@ -171,10 +176,12 @@ async function verifyApiFunctionBundles(
 async function validateAndBuildWorkflows(
 	paths: BuildPaths,
 ): Promise<WorkflowBuildState | undefined> {
+	const workflowBuildEnv = { ...process.env, WORKFLOW_TARGET_WORLD: "vercel" };
 	const validate = await executeCommand(
 		"pnpm",
 		["exec", "workflow", "validate", "--strict"],
 		paths.packageRoot,
+		workflowBuildEnv,
 	);
 	if (!validate.isSuccessful) {
 		console.error("Workflow validation reported issues; the workflow sources are not deployable.");
@@ -186,6 +193,7 @@ async function validateAndBuildWorkflows(
 		"pnpm",
 		["exec", "workflow", "build", "--target", "vercel-build-output-api"],
 		paths.packageRoot,
+		workflowBuildEnv,
 	);
 	if (!workflowBuild.isSuccessful) {
 		console.error('Workflow build failed; `"use workflow"` packaging is broken.');
@@ -289,7 +297,19 @@ async function main(): Promise<boolean> {
 		workflowBuild.vercelBuildConfig,
 		workflow.workflowBuildConfig,
 	);
+	const finalVerification = await verifyDispatchBuildOutput({
+		outputRoot: join(paths.packageRoot, ".vercel/output"),
+		apiSourceRoot: paths.apiSourceRoot,
+		workflowsSourceRoot: paths.workflowsSourceRoot,
+	});
+	if (finalVerification.ok === false) {
+		for (const problem of finalVerification.problems) console.error(problem);
+		return false;
+	}
 	printFinalSummary(api, workflow);
+	console.log(
+		`Verified final Build Output inventory (${finalVerification.fileCount} files, ${finalVerification.digest}).`,
+	);
 	return true;
 }
 
@@ -297,10 +317,11 @@ async function executeCommand(
 	command: string,
 	args: readonly string[],
 	cwd: string,
+	env: NodeJS.ProcessEnv = process.env,
 ): Promise<CommandResult> {
 	const result = await runCommand(command, args, {
 		cwd,
-		env: process.env,
+		env,
 		onStdout: (text) => process.stdout.write(text),
 		onStderr: (text) => process.stderr.write(text),
 	});
