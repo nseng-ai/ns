@@ -33,6 +33,7 @@
 		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/clinkr": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/flow": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
 		"yaml": "catalog:",
 		"zod": "catalog:"

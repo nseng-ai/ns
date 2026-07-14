@@ -175,6 +175,7 @@ function launchAttestation() {
 		target: {
 			repository: "nseng-ai/ns",
 			pullRequestNumber: 42,
+			pullRequestUrl: "https://github.com/nseng-ai/ns/pull/42",
 			branch: "feature/publication",
 			headBranch: "feature/publication",
 		},
@@ -198,6 +199,7 @@ function targetFacts(
 	override: {
 		branch?: string;
 		pullRequestNumber?: number;
+		pullRequestUrl?: string;
 		localHead?: string;
 		remoteHead?: string;
 		isWorktreeClean?: boolean;
@@ -213,6 +215,7 @@ function targetFacts(
 		isWorktreeClean: override.isWorktreeClean ?? true,
 		pullRequest: {
 			number: override.pullRequestNumber ?? 42,
+			url: override.pullRequestUrl ?? "https://github.com/nseng-ai/ns/pull/42",
 			headBranch: branch,
 			headSha: override.remoteHead ?? LAUNCH_SHA,
 		},

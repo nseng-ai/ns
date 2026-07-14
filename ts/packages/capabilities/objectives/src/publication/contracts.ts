@@ -10,6 +10,7 @@ export const objectiveRunnerPublicationTargetSchema = z
 	.object({
 		repository: nonEmptyStringSchema,
 		pullRequestNumber: z.number().int().positive(),
+		pullRequestUrl: z.url(),
 		branch: nonEmptyStringSchema,
 		headBranch: nonEmptyStringSchema,
 	})
@@ -89,6 +90,7 @@ export const publicationTargetFactsSchema = z
 		pullRequest: z
 			.object({
 				number: z.number().int().positive(),
+				url: z.url(),
 				headBranch: nonEmptyStringSchema,
 				headSha: gitShaSchema,
 			})
