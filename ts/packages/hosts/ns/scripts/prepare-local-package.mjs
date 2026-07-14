@@ -3,7 +3,7 @@ import { chmod, copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promise
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { catalogVersion } from "../../../../scripts/public-package-helpers.mjs";
+import { catalogVersion } from "@internal/ns-dev/public-packages/catalog-version";
 import { publicRuntimeDependencies } from "./public-runtime-dependencies.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");

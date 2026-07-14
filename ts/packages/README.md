@@ -54,10 +54,12 @@ After a publication or verification failure, leave the report and candidates unt
 
 ### Lower-level diagnosis commands
 
-The older commands remain available for diagnosis, but they do not replace the transactional flow:
+The compatibility wrappers below delegate to the corresponding flat `ns-dev` commands. They remain available for diagnosis, but they do not replace the transactional flow:
 
 - `just bump-version VERSION` coordinates source manifests and the lockfile without registry writes.
 - `just publish-dry-run VERSION` runs the legacy full-set dry run without registry writes.
 - `just publish VERSION` is the legacy direct publisher.
 - `pnpm --dir ts run release:qualify-public -- --all --version VERSION` prepares and checks generated publish roots. `--skip-checks` and `--skip-dry-run` are diagnosis-only and are not release evidence.
 - `pnpm --dir ts run release:verify-public -- --version VERSION --strict --candidate-report ts/dist/releases/VERSION/report.json` performs candidate-aware, read-only strict registry verification. Without `--strict`, missing or mismatched packages are reported without a failing exit.
+
+Package-local `pack:local` and `publish:dry-run` wrappers use `ns-dev prepare-source-publish-package` as the canonical publish-root preparation command.

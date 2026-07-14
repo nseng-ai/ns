@@ -1,18 +1,29 @@
-import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 
+import {
+	formatCommand,
+	formatCommandResultFailure,
+	runCommand,
+	tailText,
+	type CommandRunner,
+	type ExecResult,
+} from "@nseng-ai/foundation/exec";
+import { isNodeErrorCode, isRecord } from "@nseng-ai/foundation/primitives";
+import { resultErr, resultOk } from "@nseng-ai/foundation/result";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
-import { isMissingPackageResult } from "../../../../../scripts/public-package-helpers.mjs";
+import { isMissingPackageResult } from "../public-packages/helpers.ts";
 import {
 	intendedPublicPackages,
 	loadPublicPackageContext,
 	publishRootForEntry,
 	repoRoot,
-} from "../../../../../scripts/public-package-set.mjs";
+	type PublicPackageContext,
+} from "../public-packages/package-set.ts";
 
 import { releaseTransactionReportSchema } from "./contracts.ts";
 import type {
@@ -34,27 +45,56 @@ import type {
 	ValueResult,
 } from "./contracts.ts";
 
-export function createSystemFreshReleaseGateway(): FreshReleaseGateway {
+interface ReleaseCommandOptions {
+	readonly runCommand?: CommandRunner;
+}
+
+interface FreshReleaseGatewayOptions extends ReleaseCommandOptions {
+	readonly loadPackageContext?: () => Promise<PublicPackageContext>;
+}
+
+export function createSystemFreshReleaseGateway(
+	options: FreshReleaseGatewayOptions = {},
+): FreshReleaseGateway {
+	const commandRunner = options.runCommand ?? runCommand;
+	const packageContextLoader = options.loadPackageContext ?? loadPublicPackageContext;
 	return {
 		async inspectFreshState(releaseBranch) {
 			const [branch, commit, trunk, status, branchRef, tracking] = await Promise.all([
-				execute("git", ["branch", "--show-current"], repoRoot),
-				execute("git", ["rev-parse", "HEAD"], repoRoot),
-				execute("gt", ["trunk", "--no-interactive"], repoRoot),
-				execute("git", ["status", "--porcelain=v1", "--untracked-files=all"], repoRoot),
-				executeAllowFailure(
+				execute(commandRunner, "git", ["branch", "--show-current"], repoRoot),
+				execute(commandRunner, "git", ["rev-parse", "HEAD"], repoRoot),
+				execute(commandRunner, "gt", ["trunk", "--no-interactive"], repoRoot),
+				execute(
+					commandRunner,
+					"git",
+					["status", "--porcelain=v1", "--untracked-files=all"],
+					repoRoot,
+				),
+				executeCommand(
+					commandRunner,
 					"git",
 					["show-ref", "--verify", "--quiet", `refs/heads/${releaseBranch}`],
 					repoRoot,
 				),
-				executeAllowFailure("gt", ["parent", "--no-interactive"], repoRoot),
+				executeCommand(commandRunner, "gt", ["parent", "--no-interactive"], repoRoot),
 			]);
 			if (!branch.ok) return branch;
 			if (!commit.ok) return commit;
 			if (!trunk.ok) return trunk;
 			if (!status.ok) return status;
-			if (branchRef.status !== 0 && branchRef.status !== 1) return commandFailure(branchRef);
-			const packageContextResult = await loadPublicPackageContextResult();
+			if (
+				branchRef.type !== "exited" ||
+				branchRef.signal !== null ||
+				(branchRef.code !== 0 && branchRef.code !== 1)
+			)
+				return commandFailure(
+					"git",
+					["show-ref", "--verify", "--quiet", `refs/heads/${releaseBranch}`],
+					branchRef,
+				);
+			if (tracking.type !== "exited" || tracking.code === null || tracking.signal !== null)
+				return commandFailure("gt", ["parent", "--no-interactive"], tracking);
+			const packageContextResult = await loadPublicPackageContextResult(packageContextLoader);
 			if (!packageContextResult.ok) return packageContextResult;
 			const packageContext = packageContextResult.value;
 			const sourceManifestPaths: string[] = [];
@@ -77,9 +117,9 @@ export function createSystemFreshReleaseGateway(): FreshReleaseGateway {
 					currentBranch: branch.value.trim(),
 					headCommit: commit.value.trim(),
 					trunkBranch: trunk.value.trim(),
-					isGraphiteTracked: tracking.status === 0,
+					isGraphiteTracked: tracking.code === 0,
 					isWorktreeClean: status.value.length === 0,
-					releaseBranchExists: branchRef.status === 0,
+					releaseBranchExists: branchRef.code === 0,
 					sourceManifestPaths,
 				},
 			};
@@ -87,6 +127,7 @@ export function createSystemFreshReleaseGateway(): FreshReleaseGateway {
 		async bumpCoordinatedVersion(version) {
 			return operationFromCommand(
 				await execute(
+					commandRunner,
 					"pnpm",
 					["--dir", "ts", "run", "release:bump-version", "--", version],
 					repoRoot,
@@ -95,12 +136,13 @@ export function createSystemFreshReleaseGateway(): FreshReleaseGateway {
 		},
 		async qualifyPublicPackages(version) {
 			const qualified = await execute(
+				commandRunner,
 				"pnpm",
 				["--dir", "ts", "run", "release:qualify-public", "--", "--all", "--version", version],
 				repoRoot,
 			);
 			if (!qualified.ok) return qualified;
-			const packageContextResult = await loadPublicPackageContextResult();
+			const packageContextResult = await loadPublicPackageContextResult(packageContextLoader);
 			if (!packageContextResult.ok) return packageContextResult;
 			const packageContext = packageContextResult.value;
 			return {
@@ -114,7 +156,12 @@ export function createSystemFreshReleaseGateway(): FreshReleaseGateway {
 			};
 		},
 		async listTrackedChanges() {
-			const changed = await execute("git", ["diff", "--name-only", "HEAD", "--"], repoRoot);
+			const changed = await execute(
+				commandRunner,
+				"git",
+				["diff", "--name-only", "HEAD", "--"],
+				repoRoot,
+			);
 			if (!changed.ok) return changed;
 			return {
 				ok: true,
@@ -122,30 +169,37 @@ export function createSystemFreshReleaseGateway(): FreshReleaseGateway {
 			};
 		},
 		async stageReleaseFiles(paths) {
-			return operationFromCommand(await execute("git", ["add", "--", ...paths], repoRoot));
+			return operationFromCommand(
+				await execute(commandRunner, "git", ["add", "--", ...paths], repoRoot),
+			);
 		},
 		async createReleaseCheckpoint(options) {
 			const created = await execute(
+				commandRunner,
 				"gt",
 				["create", options.branch, "-m", options.message, "--no-interactive"],
 				repoRoot,
 			);
 			if (!created.ok) return created;
-			return await inspectSystemCheckpoint();
+			return await inspectSystemCheckpoint(commandRunner);
 		},
 		async inspectCheckpoint() {
-			return await inspectSystemCheckpoint();
+			return await inspectSystemCheckpoint(commandRunner);
 		},
 	};
 }
 
-export function createSystemResumeReleaseGateway(): ResumeReleaseGateway {
+export function createSystemResumeReleaseGateway(
+	options: FreshReleaseGatewayOptions = {},
+): ResumeReleaseGateway {
+	const commandRunner = options.runCommand ?? runCommand;
+	const packageContextLoader = options.loadPackageContext ?? loadPublicPackageContext;
 	return {
 		async inspectResumeState() {
 			const [checkpoint, parent, packageContextResult] = await Promise.all([
-				inspectSystemCheckpoint(),
-				execute("git", ["rev-parse", "HEAD^"], repoRoot),
-				loadPublicPackageContextResult(),
+				inspectSystemCheckpoint(commandRunner),
+				execute(commandRunner, "git", ["rev-parse", "HEAD^"], repoRoot),
+				loadPublicPackageContextResult(packageContextLoader),
 			]);
 			if (!checkpoint.ok) return checkpoint;
 			if (!parent.ok) return parent;
@@ -192,7 +246,9 @@ export function createSystemResumeReleaseGateway(): ResumeReleaseGateway {
 
 export function createSystemNpmCandidateGateway(options: {
 	readonly cwd: string;
+	readonly runCommand?: CommandRunner;
 }): NpmCandidateGateway {
+	const commandRunner = options.runCommand ?? runCommand;
 	return {
 		async pack(request): Promise<ValueResult<Omit<ReleaseCandidate, "order">>> {
 			try {
@@ -201,6 +257,7 @@ export function createSystemNpmCandidateGateway(options: {
 				return { ok: false, error: failure("candidate-directory-create-failed", error) };
 			}
 			const executed = await executeNpmPack(
+				commandRunner,
 				options.cwd,
 				request.publishRoot,
 				request.packDestination,
@@ -219,14 +276,44 @@ export function createSystemNpmCandidateGateway(options: {
 	};
 }
 
-export function createNodeReleaseReportStore(): ReleaseReportStore {
+export interface ReleaseReportFileHandle {
+	writeFile(contents: string): Promise<void>;
+	sync(): Promise<void>;
+	close(): Promise<void>;
+}
+
+export interface ReleaseReportFileOperations {
+	mkdirp(path: string): Promise<void>;
+	open(path: string, flags: "r" | "wx"): Promise<ReleaseReportFileHandle>;
+	rename(source: string, destination: string): Promise<void>;
+	remove(path: string): Promise<void>;
+}
+
+const nodeReleaseReportFileOperations: ReleaseReportFileOperations = {
+	async mkdirp(path) {
+		await mkdir(path, { recursive: true });
+	},
+	async open(path, flags) {
+		return await open(path, flags);
+	},
+	async rename(source, destination) {
+		await rename(source, destination);
+	},
+	async remove(path) {
+		await rm(path, { force: true });
+	},
+};
+
+export function createNodeReleaseReportStore(
+	fileOperations: ReleaseReportFileOperations = nodeReleaseReportFileOperations,
+): ReleaseReportStore {
 	return {
 		async read(reportPath): Promise<OptionalResult<ReleaseTransactionReport>> {
 			let contents: string;
 			try {
 				contents = await readFile(reportPath, "utf8");
 			} catch (error: unknown) {
-				if (isNodeError(error) && error.code === "ENOENT") return { type: "missing" };
+				if (isNodeErrorCode(error, "ENOENT")) return { type: "missing" };
 				return { type: "error", error: failure("report-read-failed", error) };
 			}
 			try {
@@ -253,17 +340,36 @@ export function createNodeReleaseReportStore(): ReleaseReportStore {
 			}
 		},
 		async writeAtomic(reportPath, report): Promise<OperationResult> {
+			const parentDirectory = dirname(reportPath);
 			const temporaryPath = `${reportPath}.${randomUUID()}.tmp`;
+			let temporaryHandle: ReleaseReportFileHandle | undefined;
+			let isTemporaryHandleClosed = false;
+			let directoryHandle: ReleaseReportFileHandle | undefined;
+			let isDirectoryHandleClosed = false;
 			try {
-				await mkdir(dirname(reportPath), { recursive: true });
-				await writeFile(temporaryPath, `${JSON.stringify(report, null, "\t")}\n`, { flag: "wx" });
-				await rename(temporaryPath, reportPath);
-				return { ok: true };
+				await fileOperations.mkdirp(parentDirectory);
+				temporaryHandle = await fileOperations.open(temporaryPath, "wx");
+				await temporaryHandle.writeFile(`${JSON.stringify(report, null, "\t")}\n`);
+				await temporaryHandle.sync();
+				await temporaryHandle.close();
+				isTemporaryHandleClosed = true;
+				await fileOperations.rename(temporaryPath, reportPath);
+				directoryHandle = await fileOperations.open(parentDirectory, "r");
+				await directoryHandle.sync();
+				await directoryHandle.close();
+				isDirectoryHandleClosed = true;
+				return resultOk(undefined);
 			} catch (error: unknown) {
-				await rm(temporaryPath, { force: true }).catch(() => {
+				if (directoryHandle !== undefined && !isDirectoryHandleClosed) {
+					await closeBestEffort(directoryHandle);
+				}
+				if (temporaryHandle !== undefined && !isTemporaryHandleClosed) {
+					await closeBestEffort(temporaryHandle);
+				}
+				await fileOperations.remove(temporaryPath).catch(() => {
 					// Best-effort cleanup must not replace the report-write failure.
 				});
-				return { ok: false, error: failure("report-write-failed", error) };
+				return resultErr(failure("report-write-failed", error));
 			}
 		},
 	};
@@ -276,7 +382,7 @@ export function createNodeCandidateFileGateway(): CandidateFileGateway {
 			try {
 				bytes = await readFile(candidate.tarballPath);
 			} catch (error: unknown) {
-				if (isNodeError(error) && error.code === "ENOENT") return { type: "missing" };
+				if (isNodeErrorCode(error, "ENOENT")) return { type: "missing" };
 				return { type: "error", error: failure("candidate-read-failed", error) };
 			}
 			const actualIntegrity = `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
@@ -288,17 +394,31 @@ export function createNodeCandidateFileGateway(): CandidateFileGateway {
 	};
 }
 
-export function createSystemNpmRegistryGateway(): NpmRegistryGateway {
+export function createSystemNpmRegistryGateway(
+	options: ReleaseCommandOptions = {},
+): NpmRegistryGateway {
+	const commandRunner = options.runCommand ?? runCommand;
 	return {
 		async readPackageMetadata(name, version) {
-			const outcome = await executeAllowFailure(
-				"npm",
-				["view", `${name}@${version}`, "dist.integrity", "dist.shasum", "--json"],
-				repoRoot,
-			);
-			if (outcome.status !== 0) {
-				if (isMissingPackageResult(outcome.stderr, outcome.stdout)) return { type: "missing" };
-				return { type: "error", error: commandFailure(outcome).error };
+			const args = [
+				"view",
+				`${name}@${version}`,
+				"dist.integrity",
+				"dist.shasum",
+				"--json",
+			] as const;
+			const outcome = await executeCommand(commandRunner, "npm", args, repoRoot);
+			if (outcome.type !== "exited") {
+				return { type: "error", error: commandFailure("npm", args, outcome).error };
+			}
+			if (outcome.code !== 0 || outcome.signal !== null) {
+				if (
+					outcome.code !== null &&
+					outcome.signal === null &&
+					isMissingPackageResult(outcome.stderr, outcome.stdout)
+				)
+					return { type: "missing" };
+				return { type: "error", error: commandFailure("npm", args, outcome).error };
 			}
 			try {
 				const parsed: unknown = JSON.parse(outcome.stdout);
@@ -346,7 +466,10 @@ export function createTtyReleaseConfirmationGateway(): ReleaseConfirmationGatewa
 	};
 }
 
-export function createSystemReleaseCommandGateway(): ReleaseCommandGateway {
+export function createSystemReleaseCommandGateway(
+	options: ReleaseCommandOptions = {},
+): ReleaseCommandGateway {
+	const commandRunner = options.runCommand ?? runCommand;
 	return {
 		async publishTarball(tarballPath) {
 			if (!tarballPath.endsWith(".tgz")) {
@@ -359,12 +482,18 @@ export function createSystemReleaseCommandGateway(): ReleaseCommandGateway {
 				};
 			}
 			return operationFromCommand(
-				await execute("npm", ["publish", tarballPath, "--access", "public"], repoRoot),
+				await execute(
+					commandRunner,
+					"npm",
+					["publish", tarballPath, "--access", "public"],
+					repoRoot,
+				),
 			);
 		},
 		async verify(options) {
 			return operationFromCommand(
 				await execute(
+					commandRunner,
 					"pnpm",
 					[
 						"--dir",
@@ -385,21 +514,23 @@ export function createSystemReleaseCommandGateway(): ReleaseCommandGateway {
 	};
 }
 
-export function createSystemReleaseDelay(): ReleaseDelay {
+export function createSystemReleaseDelay(
+	timers: TimerScheduler = systemTimerScheduler,
+): ReleaseDelay {
 	return {
 		async wait(delayMs) {
-			await systemTimerScheduler.delay(delayMs);
+			await timers.delay(delayMs);
 		},
 	};
 }
 
-async function loadPublicPackageContextResult(): Promise<
-	ValueResult<Awaited<ReturnType<typeof loadPublicPackageContext>>>
-> {
+async function loadPublicPackageContextResult(
+	loadPackageContext: () => Promise<PublicPackageContext>,
+): Promise<ValueResult<PublicPackageContext>> {
 	try {
-		return { ok: true, value: await loadPublicPackageContext() };
+		return resultOk(await loadPackageContext());
 	} catch (error: unknown) {
-		return { ok: false, error: failure("public-package-context-failed", error) };
+		return resultErr(failure("public-package-context-failed", error));
 	}
 }
 
@@ -409,23 +540,16 @@ function nestedDistValue(record: Record<string, unknown>, key: string): unknown 
 }
 
 async function executeNpmPack(
+	commandRunner: CommandRunner,
 	cwd: string,
 	publishRoot: string,
 	packDestination: string,
 ): Promise<ValueResult<string>> {
-	const outcome = await executeAllowFailure(
-		"npm",
-		["pack", publishRoot, "--json", "--pack-destination", packDestination],
-		cwd,
-	);
-	if (outcome.status === 0) return { ok: true, value: outcome.stdout };
-	return {
-		ok: false,
-		error: {
-			code: "npm-pack-failed",
-			message: `npm pack exited ${outcome.status ?? "without status"}: ${outcome.stderr.trim()}`,
-		},
-	};
+	const args = ["pack", publishRoot, "--json", "--pack-destination", packDestination] as const;
+	const outcome = await executeCommand(commandRunner, "npm", args, cwd);
+	if (outcome.type === "exited" && outcome.code === 0) return resultOk(outcome.stdout);
+	const commandResult = commandFailure("npm", args, outcome);
+	return resultErr({ ...commandResult.error, code: "npm-pack-failed" });
 }
 
 interface NpmPackRecord {
@@ -461,26 +585,11 @@ function isNpmPackRecord(value: unknown): value is NpmPackRecord {
 	);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-	return error instanceof Error && "code" in error;
-}
-
-interface CommandOutcome {
-	readonly status: number | null;
-	readonly stdout: string;
-	readonly stderr: string;
-	readonly displayCommand: string;
-}
-
-async function inspectSystemCheckpoint() {
+async function inspectSystemCheckpoint(commandRunner: CommandRunner) {
 	const [branch, commit, status] = await Promise.all([
-		execute("git", ["branch", "--show-current"], repoRoot),
-		execute("git", ["rev-parse", "HEAD"], repoRoot),
-		execute("git", ["status", "--porcelain=v1", "--untracked-files=all"], repoRoot),
+		execute(commandRunner, "git", ["branch", "--show-current"], repoRoot),
+		execute(commandRunner, "git", ["rev-parse", "HEAD"], repoRoot),
+		execute(commandRunner, "git", ["status", "--porcelain=v1", "--untracked-files=all"], repoRoot),
 	]);
 	if (!branch.ok) return branch;
 	if (!commit.ok) return commit;
@@ -496,71 +605,69 @@ async function inspectSystemCheckpoint() {
 }
 
 async function execute(
+	commandRunner: CommandRunner,
 	command: string,
 	args: readonly string[],
 	cwd: string,
 ): Promise<ValueResult<string>> {
-	const outcome = await executeAllowFailure(command, args, cwd);
-	if (outcome.status === 0) return { ok: true, value: outcome.stdout.trim() };
-	return commandFailure(outcome);
+	const outcome = await executeCommand(commandRunner, command, args, cwd);
+	if (outcome.type === "exited" && outcome.code === 0) return resultOk(outcome.stdout.trim());
+	return commandFailure(command, args, outcome);
 }
 
-async function executeAllowFailure(
+async function executeCommand(
+	commandRunner: CommandRunner,
 	command: string,
 	args: readonly string[],
 	cwd: string,
-): Promise<CommandOutcome> {
-	return await new Promise((resolveResult) => {
-		const child = spawn(command, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
-		let stdout = "";
-		let stderr = "";
-		let didResolve = false;
-		child.stdout.setEncoding("utf8");
-		child.stderr.setEncoding("utf8");
-		child.stdout.on("data", (chunk: string) => {
-			stdout += chunk;
-		});
-		child.stderr.on("data", (chunk: string) => {
-			stderr += chunk;
-		});
-		child.on("error", (error) => {
-			if (didResolve) return;
-			didResolve = true;
-			resolveResult({
-				status: null,
-				stdout,
-				stderr: error.message,
-				displayCommand: `${command} ${args.join(" ")}`,
-			});
-		});
-		child.on("close", (status) => {
-			if (didResolve) return;
-			didResolve = true;
-			resolveResult({
-				status,
-				stdout,
-				stderr,
-				displayCommand: `${command} ${args.join(" ")}`,
-			});
-		});
+): Promise<ExecResult> {
+	return await commandRunner(command, args, { cwd });
+}
+
+function commandFailure(
+	command: string,
+	args: readonly string[],
+	outcome: ExecResult,
+): { readonly ok: false; readonly error: ReleaseFailure } {
+	const displayCommand = formatCommand(command, args);
+	return resultErr({
+		code: "release-command-failed",
+		message: formatCommandResultFailure("Release command failed", command, args, outcome),
+		displayCommand,
+		details: commandFailureDetails(command, args, outcome),
 	});
 }
 
-function commandFailure(outcome: CommandOutcome): {
-	readonly ok: false;
-	readonly error: ReleaseFailure;
-} {
-	return {
-		ok: false,
-		error: {
-			code: "release-command-failed",
-			message: `${outcome.displayCommand} exited ${outcome.status ?? "without status"}: ${outcome.stderr.trim()}`,
-		},
+function commandFailureDetails(
+	command: string,
+	args: readonly string[],
+	outcome: ExecResult,
+): Record<string, unknown> {
+	const output = {
+		command,
+		args: [...args],
+		resultType: outcome.type,
+		stdout: tailText(outcome.stdout, { maxChars: 2_000, maxLines: 40 }),
+		stderr: tailText(outcome.stderr, { maxChars: 2_000, maxLines: 40 }),
 	};
+	switch (outcome.type) {
+		case "spawn-failed":
+			return { ...output, spawnError: outcome.error };
+		case "exited":
+		case "cancelled":
+		case "timed-out":
+			return { ...output, exitCode: outcome.code, signal: outcome.signal };
+	}
 }
 
 function operationFromCommand(result: ValueResult<string>): OperationResult {
-	return result.ok ? { ok: true } : result;
+	return result.ok ? resultOk(undefined) : result;
+}
+
+async function closeBestEffort(handle: ReleaseReportFileHandle): Promise<void> {
+	await handle.close().catch(() => {
+		// A prior durable-write failure remains the primary diagnostic.
+	});
 }
 
 function failure(code: string, error: unknown): ReleaseFailure {

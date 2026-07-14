@@ -71,17 +71,12 @@ spec, and the roadmap/tracking edits around them. Every item is an unexecuted de
   identifier (`:1623,:1645`). Do-not-rename: `:937` (`ts/packages/infra/kernel`, a
   deliberate negative case) and `:1128-1163` (generic `kernel` subpackage-name
   fixtures, e.g. `@nseng-ai/base/kernel`).
-- Release scripts (`ts/scripts/`, six kernel-bearing files):
-  `public-package-set.mjs:6,15,46,72,262-267,271` (`assertKernelExports`, `./kernel/`
-  export prefix); `prepare-source-publish-package.mjs:22,74,151,155,160,170-171`
-  (`rewriteKernelImports`, dep swap to `@nseng-ai/ns`, `@nseng-ai/kernel/` →
-  `@nseng-ai/ns/kernel/` source rewrite, guard throw);
-  `verify-public-package-set.mjs:3,7,156` (`criticalKernelExports`);
-  `qualify-public-package-set.mjs:38-39`; `smoke-kernel-consumer-resolution.mjs`
-  (filename plus `:9,13,15,40,42,46,48`, including the `NS_KERNEL_KEEP_SMOKE_DIR` env
-  var at `:42`); `kernel-public-subpaths.mjs` (whole module: `kernelPublicSubpaths`,
-  `kernelPublicExportSubpath`, `kernelPublicExports`, `kernelSourcePathForSubpath`;
-  its only importers are the public/verify/smoke scripts above).
+- The then-current release tooling had six kernel-bearing files covering public-package
+  inventory, source-package preparation, verification, qualification, consumer smoke,
+  and public-subpath definitions. The rename changed `assertKernelExports`,
+  `criticalKernelExports`, `rewriteKernelImports`, the `./kernel/` export prefix,
+  `@nseng-ai/kernel/` source rewrites, and the `NS_KERNEL_KEEP_SMOKE_DIR` environment
+  variable together with the four public-subpath identifiers.
 - Live surfaces outside `ts/packages/`:
   `skills/architecture-topology-report/scripts/example-spec.mjs` (21 kernel-bearing
   label/comment lines, zero imports); `docs/guides/points.md:8` (path link to
@@ -184,15 +179,11 @@ order-dependent; 4 depends on 1–3; 5 is the closeout.
   `scripts/sdk-export-entries.json` with rekeyed entries; `build-bundle.mjs`,
   `prepare-local-package.mjs`, `smoke-checkout-free.mjs`, and the hosts/ns test
   surfaces tied to the fold (`test/ns-cli.test.ts` `KernelExportSurface` /
-  `kernelExportSurfaces()` / barrel-exhaustiveness test); release scripts' fold side:
-  `ts/scripts/prepare-source-publish-package.mjs` (incl. the `rewriteKernelImports`
-  function name), `public-package-set.mjs` (`assertKernelExports`, `./kernel/`
-  prefix), `verify-public-package-set.mjs` (`criticalKernelExports`),
-  `qualify-public-package-set.mjs`, `kernel-public-subpaths.mjs` →
-  `sdk-public-subpaths.mjs` (filename, all four exported identifiers, and its three
-  importers), `smoke-kernel-consumer-resolution.mjs` →
-  `smoke-sdk-consumer-resolution.mjs` (filename, strings, and the
-  `NS_KERNEL_KEEP_SMOKE_DIR` → `NS_SDK_KEEP_SMOKE_DIR` env var).
+  `kernelExportSurfaces()` / barrel-exhaustiveness test); the release tooling's fold
+  side, including `rewriteKernelImports`, `assertKernelExports`, the `./kernel/`
+  prefix, `criticalKernelExports`, all four public-subpath identifiers and their
+  importers, plus the consumer-smoke strings and the `NS_KERNEL_KEEP_SMOKE_DIR` →
+  `NS_SDK_KEEP_SMOKE_DIR` environment variable.
 - **Scope facts:** 4 folded entries; script hit counts as dated above.
 - **Ride-alongs:** the root `CONTEXT.md` "Checkout-free distribution" and "Package
   preparation" entries' folded-path claims (`@nseng-ai/ns/kernel/*` →

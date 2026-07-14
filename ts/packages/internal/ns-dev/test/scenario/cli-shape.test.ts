@@ -21,6 +21,17 @@ describe("ns-dev CLI shape", () => {
 		const stdout = help.stdout.join("");
 		expect(stdout).toContain("create-local-ns-project");
 		expect(stdout).toContain("install-local-ns-extension");
+		for (const command of [
+			"bump-public-package-version",
+			"prepare-source-publish-package",
+			"publish-public-package-set",
+			"qualify-public-package-set",
+			"release-public-package-set",
+			"render-cli-shim",
+			"smoke-sdk-consumer-resolution",
+			"verify-public-package-set",
+		])
+			expect(stdout).toContain(command);
 
 		const shortHelp = runScenario(["-h"]);
 		expect(await shortHelp.exit).toBe(0);
@@ -35,5 +46,20 @@ describe("ns-dev CLI shape", () => {
 		const installHelp = runScenario(["install-local-ns-extension", "--help"]);
 		expect(await installHelp.exit).toBe(0);
 		expect(installHelp.stdout.join("")).toContain("--target");
+
+		const releaseHelp = runScenario(["release-public-package-set", "--help"]);
+		expect(await releaseHelp.exit).toBe(0);
+		expect(releaseHelp.stdout.join("")).toContain("--plan");
+
+		const publishHelp = runScenario(["publish-public-package-set", "--help"]);
+		expect(await publishHelp.exit).toBe(0);
+		expect(publishHelp.stdout.join("")).toContain("--verify-delay-ms");
+		expect(publishHelp.stdout.join("")).toContain("--verify-delay-seconds");
+
+		const schema = runScenario(["verify-public-package-set", "--json-schema"]);
+		expect(await schema.exit).toBe(0);
+		expect(JSON.parse(schema.stdout.join(""))).toMatchObject({
+			machineEnvelopeJsonSchema: { oneOf: expect.any(Array) },
+		});
 	});
 });

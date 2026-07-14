@@ -3,9 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
 	assertPlausibleNpmVersion,
 	isConcreteNpmVersion,
-} from "../../../../scripts/public-package-set.mjs";
+} from "../src/public-packages/package-set.ts";
 import {
 	releaseCandidateSchema,
+	releaseFailureSchema,
 	releaseTransactionReportSchema,
 } from "../src/release/contracts.ts";
 import { buildReleaseCandidate, buildReleaseReport } from "./release-transaction-builders.ts";
@@ -42,6 +43,16 @@ describe("canonical release contracts", () => {
 		["unknown report field", { extra: true }],
 	] as const)("rejects %s", (_label, patch) => {
 		expect(releaseTransactionReportSchema.safeParse({ ...report, ...patch }).success).toBe(false);
+	});
+
+	it("retains full structured ErrorInfo data", () => {
+		const error = {
+			code: "release-command-failed",
+			message: "command failed",
+			details: { resultType: "spawn-failed", spawnError: "ENOENT" },
+			displayCommand: "gt trunk --no-interactive",
+		};
+		expect(releaseFailureSchema.parse(JSON.parse(JSON.stringify(error)))).toEqual(error);
 	});
 
 	it.each([

@@ -33,7 +33,7 @@ describe("node release report store", () => {
 		});
 		const store = createNodeReleaseReportStore();
 
-		expect(await store.writeAtomic(reportPath, report)).toEqual({ ok: true });
+		expect(await store.writeAtomic(reportPath, report)).toEqual({ ok: true, value: undefined });
 		expect(await store.read(reportPath)).toEqual({ type: "found", value: report });
 
 		await writeFile(reportPath, JSON.stringify({ ...report, pendingWrite: "" }));

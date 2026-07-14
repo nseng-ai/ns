@@ -43,6 +43,7 @@
 		"zod": "catalog:"
 	},
 	"devDependencies": {
+		"@internal/ns-dev": "workspace:*",
 		"esbuild": "catalog:"
 	},
 	"engines": {

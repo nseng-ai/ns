@@ -1,9 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
+import { renderCliShim } from "@internal/ns-dev/public-packages/render-cli-shim";
 import { describe, expect, test } from "vitest";
-
-import { renderCliShim } from "../../../../../scripts/render-cli-shim-core.ts";
 
 import { CLI_REL_PATH } from "../support/cli-rel-path.ts";
 

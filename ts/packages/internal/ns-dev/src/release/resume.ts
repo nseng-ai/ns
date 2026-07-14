@@ -1,7 +1,4 @@
-import {
-	intendedPublicPackages,
-	publicPublishOrder,
-} from "../../../../../scripts/public-package-set.mjs";
+import { intendedPublicPackages, publicPublishOrder } from "../public-packages/package-set.ts";
 
 import type {
 	CandidateFileGateway,

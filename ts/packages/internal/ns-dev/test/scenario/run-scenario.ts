@@ -33,6 +33,7 @@ export function exitedResult(overrides: ExitedResultOverrides = {}): ExitedExecR
 export interface ScenarioRunOptions {
 	readonly cwd?: string;
 	readonly homeDir?: string;
+	readonly env?: NodeJS.ProcessEnv;
 	readonly files?: Record<string, string>;
 	readonly directories?: readonly string[];
 	readonly existingPaths?: readonly string[];
@@ -61,7 +62,7 @@ export function runScenario(
 	const commandResults = [...(options.commandResults ?? [])];
 	const deps: CliDeps = {
 		cwd,
-		env: { PATH: "/fake/bin" },
+		env: options.env ?? { PATH: "/fake/bin" },
 		homeDir,
 		fs,
 		clock: { nowMs: () => Date.UTC(2026, 0, 2, 3, 4, 5) },
@@ -162,6 +163,7 @@ export class FakeFileSystemGateway implements FileSystemGateway {
 					name: directoryName(directory),
 					isDirectory: true,
 					isFile: false,
+					isSymbolicLink: false,
 				});
 			}
 		}
@@ -171,10 +173,27 @@ export class FakeFileSystemGateway implements FileSystemGateway {
 					name: directoryName(file),
 					isDirectory: false,
 					isFile: true,
+					isSymbolicLink: false,
 				});
 			}
 		}
 		return [...names.values()].sort((left, right) => left.name.localeCompare(right.name));
+	}
+
+	async realpath(path: string): Promise<string> {
+		const normalized = this.normalize(path);
+		if (!(await this.exists(normalized))) throw new Error(`missing path: ${normalized}`);
+		return normalized;
+	}
+
+	async isDirectory(path: string): Promise<boolean> {
+		return this.directories.has(this.normalize(path));
+	}
+
+	async mkdtemp(prefix: string): Promise<string> {
+		const path = `${prefix}fake`;
+		this.addDirectory(path);
+		return this.normalize(path);
 	}
 
 	async mtimeMs(path: string): Promise<number> {

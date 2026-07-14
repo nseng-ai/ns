@@ -1,6 +1,7 @@
+import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
-import { isConcreteNpmVersion } from "../../../../../scripts/public-package-set.mjs";
+import { isConcreteNpmVersion } from "../public-packages/package-set.ts";
 
 const nonemptyStringSchema = z.string().min(1);
 export const concreteNpmVersionSchema = z
@@ -49,6 +50,8 @@ export const releaseFailureSchema = z
 	.strictObject({
 		code: nonemptyStringSchema,
 		message: nonemptyStringSchema,
+		details: z.record(z.string(), z.unknown()).optional(),
+		displayCommand: nonemptyStringSchema.optional(),
 	})
 	.readonly();
 export const registryPackageMetadataSchema = z
@@ -72,19 +75,15 @@ export type ReleaseTransactionStage = z.infer<typeof releaseTransactionStageSche
 export type ReleaseIdentity = z.infer<typeof releaseIdentitySchema>;
 export type ReleaseCandidate = z.infer<typeof releaseCandidateSchema>;
 export type ReleaseTransactionReport = z.infer<typeof releaseTransactionReportSchema>;
-export type ReleaseFailure = z.infer<typeof releaseFailureSchema>;
+export type ReleaseFailure = ErrorInfo;
 
 export interface QualifiedPublishRoot {
 	readonly name: string;
 	readonly path: string;
 }
 
-export type OperationResult =
-	| { readonly ok: true }
-	| { readonly ok: false; readonly error: ReleaseFailure };
-export type ValueResult<T> =
-	| { readonly ok: true; readonly value: T }
-	| { readonly ok: false; readonly error: ReleaseFailure };
+export type OperationResult = Result<void, ReleaseFailure>;
+export type ValueResult<T> = Result<T, ReleaseFailure>;
 export type OptionalResult<T> =
 	| { readonly type: "found"; readonly value: T }
 	| { readonly type: "missing" }
