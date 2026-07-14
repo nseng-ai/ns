@@ -16,20 +16,6 @@ import {
 	type WorkflowSandboxProbeResult,
 } from "../src/sandbox/workflow-probe.ts";
 
-/**
- * The manifest identity `start()` must reference for
- * {@link sandboxProbeWorkflow}.
- *
- * The trigger route's function bundle is emitted by Vercel's Node builder
- * without the Workflow SDK transform, so a directly imported workflow
- * function carries no transform-injected `workflowId`; callers pass this
- * metadata id explicitly instead. The id is derived from this file's path and
- * export name (`workflow//./workflows/<file>//<export>`), and the
- * `build:deployable` gate fails when the emitted workflow manifest does not
- * contain it.
- */
-export const sandboxProbeWorkflowId = "workflow//./workflows/sandbox-probe//sandboxProbeWorkflow";
-
 export async function sandboxProbeWorkflow(revision: string): Promise<WorkflowSandboxProbeResult> {
 	"use workflow";
 	const result = await runSandboxProbeStep(revision);

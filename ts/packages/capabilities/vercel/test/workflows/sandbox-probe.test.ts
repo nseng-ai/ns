@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { sandboxProbeWorkflow, sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
+import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe-id.ts";
+import { sandboxProbeWorkflow } from "../../workflows/sandbox-probe.ts";
 
 const revision = "0123456789abcdef0123456789abcdef01234567";
 

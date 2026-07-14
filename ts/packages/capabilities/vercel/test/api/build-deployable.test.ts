@@ -1,6 +1,34 @@
 import { describe, expect, it } from "vitest";
 
-import { findMissingRelativeModuleTargets } from "../../scripts/build-deployable.ts";
+import {
+	compareApiFunctionDirectories,
+	expectedApiFunctionDirectories,
+	findMissingRelativeModuleTargets,
+} from "../../src/deployability/gate.ts";
+
+describe("API function discovery", () => {
+	it("derives function directories from synthetic immediate API source entries", () => {
+		const expected = expectedApiFunctionDirectories([
+			"trigger.ts",
+			"README.md",
+			"health.ts",
+			"mint.ts",
+		]);
+
+		expect(expected).toEqual(["health.func", "mint.func", "trigger.func"]);
+		expect(compareApiFunctionDirectories(expected, ["health.func", "trigger.func"])).toEqual({
+			missing: ["mint.func"],
+			unexpected: [],
+		});
+	});
+
+	it("reports an emitted function without a corresponding immediate API source", () => {
+		expect(compareApiFunctionDirectories(["health.func"], ["health.func", "stale.func"])).toEqual({
+			missing: [],
+			unexpected: ["stale.func"],
+		});
+	});
+});
 
 describe("findMissingRelativeModuleTargets", () => {
 	it("reports a relative module omitted from the function artifact", () => {
