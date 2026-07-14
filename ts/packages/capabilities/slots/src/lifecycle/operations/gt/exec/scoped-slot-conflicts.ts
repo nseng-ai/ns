@@ -1,40 +1,43 @@
+import { z } from "zod";
+
 import type { WorktreeOccupancy } from "../../../../core/gateways/repository.ts";
 import type { SlotRecord } from "../../../../core/inventory.ts";
 
-export type ScopedSlotConflict =
-	| {
-			type: "checked-out-elsewhere";
-			branch: string;
-			worktreePath: string;
-	  }
-	| {
-			type: "rebase-in-progress";
-			branch: string;
-			worktreePath: string;
-			operation: string;
-	  }
-	| {
-			type: "slot-rebase-in-progress";
-			branch: string;
-			worktreePath: string;
-			operation: string;
-			slotName: string;
-	  };
+const checkedOutElsewhereSchema = z.object({
+	type: z.literal("checked-out-elsewhere"),
+	branch: z.string(),
+	worktreePath: z.string(),
+});
+
+const rebaseInProgressSchema = z.object({
+	type: z.literal("rebase-in-progress"),
+	branch: z.string(),
+	worktreePath: z.string(),
+	operation: z.string(),
+});
+
+const slotRebaseInProgressSchema = z.object({
+	type: z.literal("slot-rebase-in-progress"),
+	branch: z.string(),
+	worktreePath: z.string(),
+	operation: z.string(),
+	slotName: z.string(),
+});
+
+export const scopedSlotConflictVariantSchemas = [
+	checkedOutElsewhereSchema,
+	rebaseInProgressSchema,
+	slotRebaseInProgressSchema,
+] as const;
+
+export const scopedSlotConflictSchema = z.discriminatedUnion(
+	"type",
+	scopedSlotConflictVariantSchemas,
+);
+
+export type ScopedSlotConflict = z.infer<typeof scopedSlotConflictSchema>;
 
 export function collectScopedSlotConflicts(options: {
-	readonly occupancies: readonly WorktreeOccupancy[];
-	readonly records: readonly SlotRecord[];
-	readonly branches: readonly string[];
-	readonly currentPath: string;
-}): ScopedSlotConflict[] {
-	return collectOccupancyConflicts(options);
-}
-
-export function isRebaseOperation(operation: string): boolean {
-	return operation.includes("rebase");
-}
-
-function collectOccupancyConflicts(options: {
 	readonly occupancies: readonly WorktreeOccupancy[];
 	readonly records: readonly SlotRecord[];
 	readonly branches: readonly string[];
@@ -75,4 +78,8 @@ function collectOccupancyConflicts(options: {
 		);
 	}
 	return conflicts;
+}
+
+export function isRebaseOperation(operation: string): boolean {
+	return operation.includes("rebase");
 }

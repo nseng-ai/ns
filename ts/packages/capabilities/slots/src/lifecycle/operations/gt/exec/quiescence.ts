@@ -9,7 +9,10 @@ import type { LocalBranchTip } from "../../../../core/gateways/repository.ts";
 import { buildSlotInventory } from "../../../../core/inventory.ts";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches } from "../stack-walk.ts";
-import { collectScopedSlotConflicts, type ScopedSlotConflict } from "./scoped-slot-conflicts.ts";
+import {
+	collectScopedSlotConflicts,
+	scopedSlotConflictVariantSchemas,
+} from "./scoped-slot-conflicts.ts";
 import { validateStackIntegrity } from "./stack-integrity.ts";
 
 const gtQuiescenceScopeSchema = z.enum(["downstack", "full"]);
@@ -26,31 +29,16 @@ const quiescenceSnapshotSchema = z.object({
 	branches: z.array(quiescenceSnapshotBranchSchema),
 });
 
+const refDriftSchema = z.object({
+	type: z.literal("ref-drift"),
+	branch: z.string(),
+	expectedHead: z.string().nullable(),
+	actualHead: z.string().nullable(),
+});
+
 const quiescenceBlockerSchema = z.discriminatedUnion("type", [
-	z.object({
-		type: z.literal("checked-out-elsewhere"),
-		branch: z.string(),
-		worktreePath: z.string(),
-	}),
-	z.object({
-		type: z.literal("rebase-in-progress"),
-		branch: z.string(),
-		worktreePath: z.string(),
-		operation: z.string(),
-	}),
-	z.object({
-		type: z.literal("slot-rebase-in-progress"),
-		branch: z.string(),
-		slotName: z.string(),
-		worktreePath: z.string(),
-		operation: z.string(),
-	}),
-	z.object({
-		type: z.literal("ref-drift"),
-		branch: z.string(),
-		expectedHead: z.string().nullable(),
-		actualHead: z.string().nullable(),
-	}),
+	...scopedSlotConflictVariantSchemas,
+	refDriftSchema,
 ]);
 
 export const gtQuiescenceRequestSchema = z.object({
@@ -141,7 +129,7 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 			records: inventory.records,
 			branches,
 			currentPath: ctx.cwd,
-		}).map(toQuiescenceBlocker),
+		}),
 		...snapshotCheck.blockers,
 	];
 	const result = buildResult({
@@ -224,32 +212,6 @@ function parseExpectedSnapshot(
 		};
 	}
 	return { type: "ok", snapshot: validation.data };
-}
-
-function toQuiescenceBlocker(conflict: ScopedSlotConflict): QuiescenceBlocker {
-	switch (conflict.type) {
-		case "checked-out-elsewhere":
-			return {
-				type: conflict.type,
-				branch: conflict.branch,
-				worktreePath: conflict.worktreePath,
-			};
-		case "rebase-in-progress":
-			return {
-				type: conflict.type,
-				branch: conflict.branch,
-				worktreePath: conflict.worktreePath,
-				operation: conflict.operation,
-			};
-		case "slot-rebase-in-progress":
-			return {
-				type: conflict.type,
-				branch: conflict.branch,
-				slotName: conflict.slotName,
-				worktreePath: conflict.worktreePath,
-				operation: conflict.operation,
-			};
-	}
 }
 
 function compareSnapshots(options: {

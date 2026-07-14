@@ -9,32 +9,12 @@ import { collectStackBranches } from "../stack-walk.ts";
 import {
 	collectScopedSlotConflicts,
 	isRebaseOperation,
+	scopedSlotConflictSchema,
 	type ScopedSlotConflict,
 } from "./scoped-slot-conflicts.ts";
 import { validateStackIntegrity } from "./stack-integrity.ts";
 
 const gtRestackPreflightScopeSchema = z.enum(["downstack", "full"]);
-
-const gtRestackPreflightSlotConflictSchema = z.discriminatedUnion("type", [
-	z.object({
-		type: z.literal("checked-out-elsewhere"),
-		branch: z.string(),
-		worktreePath: z.string(),
-	}),
-	z.object({
-		type: z.literal("rebase-in-progress"),
-		branch: z.string(),
-		worktreePath: z.string(),
-		operation: z.string(),
-	}),
-	z.object({
-		type: z.literal("slot-rebase-in-progress"),
-		branch: z.string(),
-		worktreePath: z.string(),
-		operation: z.string(),
-		slotName: z.string().optional(),
-	}),
-]);
 
 export const gtRestackPreflightRequestSchema = z.object({
 	scope: gtRestackPreflightScopeSchema
@@ -54,7 +34,7 @@ export const gtRestackPreflightResultSchema = z.object({
 	requestedScope: gtRestackPreflightScopeSchema,
 	effectiveScope: gtRestackPreflightScopeSchema,
 	branches: z.array(z.string()).describe("In-scope branches, bottom-to-top, including current."),
-	slotConflicts: z.array(gtRestackPreflightSlotConflictSchema),
+	slotConflicts: z.array(scopedSlotConflictSchema),
 	warnings: z.array(z.string()),
 });
 

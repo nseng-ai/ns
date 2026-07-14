@@ -260,7 +260,15 @@ describe("slot gt exec quiescence CLI", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(jsonBlockerTypes(parseJsonOutput(run))).toEqual(["slot-rebase-in-progress"]);
+		expect(quiescenceJsonData(parseJsonOutput(run)).blockers).toEqual([
+			{
+				type: "slot-rebase-in-progress",
+				branch: "feature/a",
+				slotName: "slot-03",
+				worktreePath: "/slots/repos/repo/worktrees/slot-03",
+				operation: "rebase",
+			},
+		]);
 	});
 
 	it("emits snapshots and blocks on expected snapshot ref drift", async () => {
@@ -521,11 +529,15 @@ describe("slot gt exec restack-preflight CLI", () => {
 			},
 		);
 		expect(await slotRebase.exit).toBe(1);
-		expect(
-			restackPreflightJsonData(parseJsonOutput(slotRebase)).slotConflicts.map(
-				(conflict) => conflict.type,
-			),
-		).toEqual(["slot-rebase-in-progress"]);
+		expect(restackPreflightJsonData(parseJsonOutput(slotRebase)).slotConflicts).toEqual([
+			{
+				type: "slot-rebase-in-progress",
+				branch: "feature/a",
+				slotName: "slot-03",
+				worktreePath: "/slots/repos/repo/worktrees/slot-03",
+				operation: "rebase",
+			},
+		]);
 	});
 
 	it("returns untracked as a negative result with documented topology defaults", async () => {
@@ -1187,10 +1199,6 @@ interface QuiescenceJsonData {
 function quiescenceJsonData(output: unknown): QuiescenceJsonData {
 	expect(output).toMatchObject({ data: expect.any(Object) });
 	return (output as { data: QuiescenceJsonData }).data;
-}
-
-function jsonBlockerTypes(output: unknown): readonly string[] {
-	return quiescenceJsonData(output).blockers.map((blocker) => blocker.type);
 }
 
 interface RestackPreflightJsonData {
