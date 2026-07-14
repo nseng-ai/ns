@@ -9,6 +9,9 @@ import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/core/diagnostics.ts";
 import { RealSlotRepositoryGateway } from "../../src/core/gateways/repository.ts";
 
+const PARENT_OID = "1111111111111111111111111111111111111111";
+const BRANCH_OID = "2222222222222222222222222222222222222222";
+
 describe("RealSlotRepositoryGateway", () => {
 	it("delegates repository root lookup to the injected core git gateway", async () => {
 		const coreGit = new InMemoryGitGateway({ repoRoot: "/repo" });
@@ -117,8 +120,9 @@ describe("RealSlotRepositoryGateway", () => {
 		expect(coreGit.listLocalBranchTipsCalls).toEqual([{ cwd: "/repo" }]);
 	});
 
-	it("reads commit and NUL-delimited numstat evidence for a branch comparison", async () => {
+	it("reads commit and NUL-delimited numstat evidence from pinned branch OIDs", async () => {
 		const execApi = scriptedExecApi([
+			{ stdout: `${PARENT_OID}\n${BRANCH_OID}\n`, stderr: "", code: 0 },
 			{
 				stdout: "aaaaaaaa\0first subject\0\nbbbbbbbb\0second subject\0\n",
 				stderr: "",
@@ -162,15 +166,19 @@ describe("RealSlotRepositoryGateway", () => {
 			},
 		});
 		expect(execApi.calls()).toEqual([
-			gitCall(["log", "--format=%H%x00%s%x00", "feature/parent..feature/child"], "/repo"),
 			gitCall(
-				["diff", "--numstat", "--no-renames", "-z", "feature/parent...feature/child"],
+				["show-ref", "--verify", "--hash", "refs/heads/feature/parent", "refs/heads/feature/child"],
+				"/repo",
+			),
+			gitCall(["log", "--format=%H%x00%s%x00", `${PARENT_OID}..${BRANCH_OID}`], "/repo"),
+			gitCall(
+				["diff", "--numstat", "--no-renames", "-z", `${PARENT_OID}...${BRANCH_OID}`],
 				"/repo",
 			),
 		]);
 	});
 
-	it("returns comparison command and parser failures as structured gateway failures", async () => {
+	it("returns ref-resolution command and output failures as structured gateway failures", async () => {
 		const commandFailure = new RealSlotRepositoryGateway({
 			cwd: "/repo",
 			execApi: scriptedExecApi({ stdout: "", stderr: "bad revision", code: 128 }),
@@ -179,9 +187,26 @@ describe("RealSlotRepositoryGateway", () => {
 			commandFailure.readBranchComparison({ parent: "missing", branch: "feature/a" }),
 		).resolves.toEqual({ type: "failure", failure: { message: "bad revision" } });
 
+		const malformedOutput = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			execApi: scriptedExecApi({ stdout: `${PARENT_OID}\n`, stderr: "", code: 0 }),
+		});
+		await expect(
+			malformedOutput.readBranchComparison({ parent: "master", branch: "feature/a" }),
+		).resolves.toMatchObject({
+			type: "failure",
+			failure: { message: expect.stringContaining("malformed") },
+		});
+	});
+
+	it("preserves commit parser failures after resolving valid branch OIDs", async () => {
 		const parserFailure = new RealSlotRepositoryGateway({
 			cwd: "/repo",
-			execApi: scriptedExecApi({ stdout: "sha-only", stderr: "", code: 0 }),
+			execApi: scriptedExecApi([
+				{ stdout: `${PARENT_OID}\n${BRANCH_OID}\n`, stderr: "", code: 0 },
+				{ stdout: "sha-only", stderr: "", code: 0 },
+				{ stdout: "", stderr: "", code: 0 },
+			]),
 		});
 		await expect(
 			parserFailure.readBranchComparison({ parent: "master", branch: "feature/a" }),
@@ -189,6 +214,21 @@ describe("RealSlotRepositoryGateway", () => {
 			type: "failure",
 			failure: { message: expect.stringContaining("malformed") },
 		});
+	});
+
+	it("reports commit evidence failure first when both pinned evidence commands fail", async () => {
+		const gateway = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			execApi: scriptedExecApi([
+				{ stdout: `${PARENT_OID}\n${BRANCH_OID}\n`, stderr: "", code: 0 },
+				{ stdout: "", stderr: "commit evidence failed", code: 128 },
+				{ stdout: "", stderr: "diff evidence failed", code: 128 },
+			]),
+		});
+
+		await expect(
+			gateway.readBranchComparison({ parent: "master", branch: "feature/a" }),
+		).resolves.toEqual({ type: "failure", failure: { message: "commit evidence failed" } });
 	});
 
 	it("creates branches with normal and force command arguments", async () => {

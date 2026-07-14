@@ -233,6 +233,40 @@ describe("smart restack default preflight wiring", () => {
 			{ command: "gt", args: ["restack"], cwd: "/repo" },
 		]);
 	});
+
+	test("refuses failure-envelope rebase data without starting restack or the resolver", async () => {
+		const pi = new FakePi([
+			rawResult({
+				code: 2,
+				stdout: JSON.stringify({
+					status: "failure",
+					exitCode: 2,
+					errorType: "inspection-failed",
+					message: "preflight inspection failed",
+					data: { rebaseInProgress: true },
+				}),
+			}),
+		]);
+		smartRestackExtension(pi, { loadSkillBlock });
+		const command = pi.commands.get(SMART_RESTACK_COMMAND_NAME);
+		if (command === undefined) throw new Error("missing command");
+		const ctx = new FakeCommandContext();
+
+		await command.handler("", ctx);
+
+		expect(pi.execCalls).toEqual([
+			{
+				command: "ns",
+				args: ["slot", "gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+				cwd: "/repo",
+			},
+		]);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: expect.stringContaining("preflight inspection failed"),
+			level: "error",
+		});
+	});
 });
 
 describe("smart restack workflow", () => {

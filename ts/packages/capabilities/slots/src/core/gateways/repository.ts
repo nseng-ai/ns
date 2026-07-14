@@ -236,21 +236,37 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 		parent: string;
 		branch: string;
 	}): Promise<BranchComparisonResult> {
-		const commitsResult = await this.git(
-			["log", "--format=%H%x00%s%x00", `${options.parent}..${options.branch}`],
+		const refsResult = await this.git(
+			[
+				"show-ref",
+				"--verify",
+				"--hash",
+				`refs/heads/${options.parent}`,
+				`refs/heads/${options.branch}`,
+			],
 			this.cwd,
-			{ allowFailure: true, operation: "slot.git.read_branch_commits" },
+			{ allowFailure: true, operation: "slot.git.resolve_branch_comparison_refs" },
 		);
+		if (!refsResult.isOk) return { type: "failure", failure: failureFromResult(refsResult) };
+		const refs = parseBranchComparisonOids(refsResult.result.stdout);
+		if (refs.type === "failure") return refs;
+
+		const [commitsResult, diffResult] = await Promise.all([
+			this.git(
+				["log", "--format=%H%x00%s%x00", `${refs.value.parent}..${refs.value.branch}`],
+				this.cwd,
+				{ allowFailure: true, operation: "slot.git.read_branch_commits" },
+			),
+			this.git(
+				["diff", "--numstat", "--no-renames", "-z", `${refs.value.parent}...${refs.value.branch}`],
+				this.cwd,
+				{ allowFailure: true, operation: "slot.git.read_branch_diff" },
+			),
+		]);
 		if (!commitsResult.isOk) return { type: "failure", failure: failureFromResult(commitsResult) };
+		if (!diffResult.isOk) return { type: "failure", failure: failureFromResult(diffResult) };
 		const commits = parseBranchCommitSummaries(commitsResult.result.stdout);
 		if (commits.type === "failure") return commits;
-
-		const diffResult = await this.git(
-			["diff", "--numstat", "--no-renames", "-z", `${options.parent}...${options.branch}`],
-			this.cwd,
-			{ allowFailure: true, operation: "slot.git.read_branch_diff" },
-		);
-		if (!diffResult.isOk) return { type: "failure", failure: failureFromResult(diffResult) };
 		const diff = parseBranchDiffNumstat(diffResult.result.stdout);
 		if (diff.type === "failure") return diff;
 		return { type: "ok", comparison: { commits: commits.value, diff: diff.value } };
@@ -333,6 +349,25 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 }
 
 type ParsedValue<T> = { type: "ok"; value: T } | { type: "failure"; failure: GitCommandFailure };
+
+function parseBranchComparisonOids(
+	stdout: string,
+): ParsedValue<{ parent: string; branch: string }> {
+	const lines = stdout.endsWith("\n") ? stdout.slice(0, -1).split("\n") : stdout.split("\n");
+	if (lines.length !== 2 || lines.some((line) => !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(line)))
+		return {
+			type: "failure",
+			failure: { message: "git show-ref returned malformed branch comparison OIDs" },
+		};
+	const parent = lines[0];
+	const branch = lines[1];
+	if (parent === undefined || branch === undefined)
+		return {
+			type: "failure",
+			failure: { message: "git show-ref returned incomplete branch comparison OIDs" },
+		};
+	return { type: "ok", value: { parent, branch } };
+}
 
 export function parseBranchCommitSummaries(
 	stdout: string,
