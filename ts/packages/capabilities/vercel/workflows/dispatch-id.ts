@@ -1,3 +1,5 @@
+import { workflowManifestId } from "./workflow-manifest-id.ts";
+
 // The dispatch workflow's manifest metadata id, split from `dispatch.ts` on
 // purpose: that workflow module imports the Workflow SDK runtime (`sleep`
 // from "workflow"), whose root types the Vercel Node builder cannot resolve
@@ -18,4 +20,4 @@
  * and the `build:deployable` gate fails when the emitted workflow manifest
  * does not contain it.
  */
-export const dispatchWorkflowId = "workflow//./workflows/dispatch//dispatchWorkflow";
+export const dispatchWorkflowId = workflowManifestId("workflows/dispatch.ts", "dispatchWorkflow");

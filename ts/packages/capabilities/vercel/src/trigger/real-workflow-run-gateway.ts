@@ -1,8 +1,8 @@
 // The real Workflow SDK adapter behind WorkflowRunGateway. `start()` resolves
 // the workflow through a transform-injected `workflowId`, which the trigger
 // route's Node-builder bundle never receives, so this adapter passes the
-// manifest-derived metadata id explicitly (see `workflows/hello.ts` and
-// `workflows/sandbox-probe.ts`; the `build:deployable` gate verifies the ids
+// manifest-derived metadata id explicitly (see `workflow-ids.ts`; the
+// `build:deployable` gate verifies the ids
 // against the emitted manifest).
 // Live start/getRun behavior on Vercel is pending verification. `sdk` is the
 // test seam; production callers use the default binding.
@@ -10,11 +10,8 @@ import { getRun, start } from "workflow/api";
 import { WorkflowRunNotFoundError } from "workflow/errors";
 import { z } from "zod";
 
-import { dispatchWorkflowId } from "../../workflows/dispatch-id.ts";
-import { helloWorkflowId } from "../../workflows/hello.ts";
-import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
-import { supervisionProbeWorkflowId } from "../../workflows/supervision-probe-id.ts";
 import { workflowRunStatusValues } from "./contracts.ts";
+import { triggerWorkflowIds } from "./workflow-ids.ts";
 import type { StartWorkflowRunResult, WorkflowRunGateway } from "./workflow-run-gateway.ts";
 
 export interface WorkflowRunSdk {
@@ -47,13 +44,15 @@ export function createWorkflowSdkRunGateway(
 		async startWorkflow(request) {
 			switch (request.workflow) {
 				case "hello":
-					return await startWorkflowRun(helloWorkflowId, [request.input.name]);
+					return await startWorkflowRun(triggerWorkflowIds.hello, [request.input.name]);
 				case "sandbox-probe":
-					return await startWorkflowRun(sandboxProbeWorkflowId, [request.input.revision]);
+					return await startWorkflowRun(triggerWorkflowIds["sandbox-probe"], [
+						request.input.revision,
+					]);
 				case "supervision-probe":
-					return await startWorkflowRun(supervisionProbeWorkflowId, [request.input]);
+					return await startWorkflowRun(triggerWorkflowIds["supervision-probe"], [request.input]);
 				case "dispatch":
-					return await startWorkflowRun(dispatchWorkflowId, [request.input]);
+					return await startWorkflowRun(triggerWorkflowIds.dispatch, [request.input]);
 			}
 		},
 		async readWorkflowRunStatus(options) {

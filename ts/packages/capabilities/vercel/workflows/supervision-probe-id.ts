@@ -1,3 +1,5 @@
+import { workflowManifestId } from "./workflow-manifest-id.ts";
+
 // The supervision-probe workflow's manifest metadata id, split from
 // `supervision-probe.ts` on purpose: unlike the earlier probes, that
 // workflow module imports the Workflow SDK runtime (`sleep` from
@@ -19,5 +21,7 @@
  * and the `build:deployable` gate fails when the emitted workflow manifest
  * does not contain it.
  */
-export const supervisionProbeWorkflowId =
-	"workflow//./workflows/supervision-probe//supervisionProbeWorkflow";
+export const supervisionProbeWorkflowId = workflowManifestId(
+	"workflows/supervision-probe.ts",
+	"supervisionProbeWorkflow",
+);
