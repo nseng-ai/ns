@@ -174,6 +174,10 @@ class FakeGraphiteStackGateway implements GraphiteStackGateway {
 		return this.result;
 	}
 
+	async stackForBranch(_cwd: string, _branch: string): Promise<StackResult> {
+		return { type: "failure", failure: unscripted("stackForBranch") };
+	}
+
 	async parentOf(_cwd: string): Promise<ParentOfResult> {
 		return { type: "failure", failure: unscripted("parentOf") };
 	}

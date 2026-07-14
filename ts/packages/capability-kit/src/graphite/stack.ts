@@ -174,6 +174,7 @@ export interface GraphiteStackGateway {
 	childrenOf(cwd: string): Promise<ChildrenOfResult>;
 	trunk(cwd: string): Promise<TrunkResult>;
 	stack(cwd: string): Promise<StackResult>;
+	stackForBranch(cwd: string, branch: string): Promise<StackResult>;
 	stackGraph(cwd: string): Promise<StackGraphResult>;
 }
 
@@ -243,14 +244,7 @@ export class RealGraphiteStackGateway implements GraphiteStackGateway {
 
 	async stack(cwd: string): Promise<StackResult> {
 		const commonDir = await this.git.getGitCommonDir(cwd);
-		if (commonDir === null)
-			return {
-				type: "failure",
-				failure: {
-					message: "Failed to resolve git common dir for Graphite metadata",
-					returnCode: null,
-				},
-			};
+		if (commonDir === null) return gitCommonDirFailure();
 		const current = await this.resolveCurrentBranch(cwd);
 		if (current.type === "failure") return { type: "failure", failure: current.failure };
 		if (current.type === "detached")
@@ -261,11 +255,13 @@ export class RealGraphiteStackGateway implements GraphiteStackGateway {
 					returnCode: null,
 				},
 			};
-		return readStackFromMetadataDb(
-			graphiteMetadataDbPath(commonDir),
-			current.branch,
-			this.metadataDbAccess,
-		);
+		return this.readStackForBranch(commonDir, current.branch);
+	}
+
+	async stackForBranch(cwd: string, branch: string): Promise<StackResult> {
+		const commonDir = await this.git.getGitCommonDir(cwd);
+		if (commonDir === null) return gitCommonDirFailure();
+		return this.readStackForBranch(commonDir, branch);
 	}
 
 	async stackGraph(cwd: string): Promise<StackGraphResult> {
@@ -284,6 +280,14 @@ export class RealGraphiteStackGateway implements GraphiteStackGateway {
 		const loaded = loadBranchMetadata(dbPath, this.metadataDbAccess);
 		if (loaded.type === "failure") return loaded;
 		return { type: "graph", graph: { topology: loaded.topology, diagnostics: loaded.diagnostics } };
+	}
+
+	private readStackForBranch(commonDir: string, branch: string): StackResult {
+		return readStackFromMetadataDb(
+			graphiteMetadataDbPath(commonDir),
+			branch,
+			this.metadataDbAccess,
+		);
 	}
 
 	private async resolveCurrentBranch(
@@ -307,6 +311,16 @@ export class RealGraphiteStackGateway implements GraphiteStackGateway {
 		});
 		return { isOk: commandSucceeded(result), result };
 	}
+}
+
+function gitCommonDirFailure(): StackResult {
+	return {
+		type: "failure",
+		failure: {
+			message: "Failed to resolve git common dir for Graphite metadata",
+			returnCode: null,
+		},
+	};
 }
 
 interface CommandResult {

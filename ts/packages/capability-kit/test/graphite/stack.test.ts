@@ -7,7 +7,7 @@ import {
 	type GraphiteStackPathFailure,
 	type StackResult,
 } from "@nseng-ai/capability-kit/graphite/stack";
-import { fakeStackInfo } from "@nseng-ai/capability-kit/graphite/testing";
+import { FakeGraphiteStackGateway, fakeStackInfo } from "@nseng-ai/capability-kit/graphite/testing";
 
 interface RecordedCall {
 	command: string;
@@ -34,6 +34,18 @@ function fakeExec(result: Partial<Extract<ExecResult, { type: "exited" }>>): {
 	};
 	return { api, calls };
 }
+
+describe("FakeGraphiteStackGateway", () => {
+	test("records explicit-branch stack lookups separately", async () => {
+		const gateway = new FakeGraphiteStackGateway();
+
+		await gateway.stackForBranch("/repo", "feature/current");
+
+		expect(gateway.operations()).toEqual([
+			{ type: "stack-for-branch", cwd: "/repo", branch: "feature/current" },
+		]);
+	});
+});
 
 describe("deriveValidatedGraphiteStackPath", () => {
 	test("returns a newly allocated trunk-to-current path with the original stack", () => {

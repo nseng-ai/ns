@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../../../../core/context.ts";
 import { buildSlotInventory, type SlotInventory } from "../../../../core/inventory.ts";
-import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches } from "../stack-walk.ts";
 import {
 	collectScopedSlotConflicts,
@@ -45,22 +44,36 @@ export async function runGtRestackPreflight(
 	ctx: SlotCliContext,
 	request: GtRestackPreflightRequest,
 ) {
-	const resolved = await resolveRepoAndCurrentBranch(ctx);
-	if (resolved.type !== "ok") return resolved;
+	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
 
-	const inspection = await inspectRepository(ctx, resolved.mainRepoRoot);
+	const inspection = await inspectRepository(ctx, ctx.repo.mainRepoRoot);
 	if (inspection.type === "failure")
 		return failure("git-inspection-failed", inspection.message, {
 			operation: inspection.operation,
 		});
 
-	const stackResult = await ctx.gt.stack(resolved.repoRoot);
+	const currentResult = await ctx.git.getCurrentBranch(ctx.repo.root);
+	if (currentResult.type === "failure")
+		return failure("git-current-branch-failed", currentResult.failure.message);
+	const currentBranch =
+		currentResult.type === "branch"
+			? currentResult.branch
+			: findCurrentRebaseBranch(inspection.inventory, ctx.cwd);
+	if (currentBranch === null)
+		return failure(
+			"detached-head",
+			`HEAD at ${ctx.repo.root} is detached. Check out a branch first.`,
+		);
+	const stackResult =
+		currentResult.type === "branch"
+			? await ctx.gt.stack(ctx.repo.root)
+			: await ctx.gt.stackForBranch(ctx.repo.root, currentBranch);
 	if (stackResult.type === "failure")
 		return failure("gt-stack-read-failed", stackResult.failure.message);
 	if (stackResult.type === "untracked_branch") {
 		const result = buildUntrackedResult({
 			request,
-			currentBranch: resolved.currentBranch,
+			currentBranch,
 			clean: inspection.clean,
 			inventory: inspection.inventory,
 			currentPath: ctx.cwd,
@@ -156,6 +169,18 @@ async function inspectRepository(
 			message: formatErrorMessage(error),
 		};
 	}
+}
+
+function findCurrentRebaseBranch(inventory: SlotInventory, currentPath: string): string | null {
+	for (const occupancy of inventory.branchOccupancies) {
+		if (
+			occupancy.path === currentPath &&
+			occupancy.branch !== null &&
+			isRebaseOperation(occupancy.operation)
+		)
+			return occupancy.branch;
+	}
+	return null;
 }
 
 function buildUntrackedResult(options: {

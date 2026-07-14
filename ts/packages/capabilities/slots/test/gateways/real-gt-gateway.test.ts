@@ -30,6 +30,29 @@ const expectedSchemaRows = [
 ] as const;
 
 describe("RealGraphiteStackGateway stack metadata adapter", () => {
+	it("reads an explicit branch while ambient HEAD is detached", async () => {
+		const { gateway } = gatewayWithMetadata({
+			currentBranch: null,
+			rows: [
+				trunk("master", { children: '["feature/a"]' }),
+				row("feature/a", { parent_branch_name: "master" }),
+			],
+		});
+
+		await expect(gateway.stackForBranch("/repo", "feature/a")).resolves.toMatchObject({
+			type: "stack",
+			stack: {
+				trunk: "master",
+				current: "feature/a",
+				ancestors: ["master"],
+			},
+		});
+		await expect(gateway.stack("/repo")).resolves.toMatchObject({
+			type: "failure",
+			failure: { message: "HEAD at /repo is detached. Check out a branch first." },
+		});
+	});
+
 	it("reads a happy linear stack with a clean trunk marker", async () => {
 		const { gateway } = gatewayWithMetadata({
 			currentBranch: "feature/a",
@@ -356,7 +379,7 @@ function trunk(
 }
 
 function gatewayWithMetadata(options: {
-	currentBranch: string;
+	currentBranch: string | null;
 	rows: readonly MetadataRow[] | SqliteJsonOutcome;
 	exists?: boolean;
 	schema?: SqliteJsonOutcome;

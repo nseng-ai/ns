@@ -324,7 +324,14 @@ describe("smart restack workflow", () => {
 
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toContain("A Graphite restack/rebase is already in progress");
+		expect(pi.sentUserMessages[0]).toContain(
+			"structured full-scope preflight already reported rebaseInProgress=true",
+		);
+		expect(pi.sentUserMessages[0]).toContain("Run a fresh `git status`");
+		expect(pi.sentUserMessages[0]).toContain(
+			"set RESTACK_SCOPE=full and jump directly to the skill's Loop without running preflight again",
+		);
+		expect(pi.sentUserMessages[0]).toContain("fall back to normal preflight");
 		expect(pi.sentUserMessages[0]).toContain("continue carefully");
 	});
 
@@ -368,8 +375,13 @@ describe("smart restack workflow", () => {
 		]);
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain(
-			"A deterministic /code:gt-restack-resolve fast path already ran `gt restack`",
+			"full-scope preflight passed, then the deterministic /code:gt-restack-resolve fast path ran `gt restack`",
 		);
+		expect(pi.sentUserMessages[0]).toContain("Run a fresh `git status`");
+		expect(pi.sentUserMessages[0]).toContain(
+			"set RESTACK_SCOPE=full and jump directly to the skill's Loop without running preflight again",
+		);
+		expect(pi.sentUserMessages[0]).toContain("fall back to normal preflight");
 		expect(pi.sentUserMessages[0]).toContain("prefer parent stack");
 	});
 
