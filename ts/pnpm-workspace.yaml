@@ -5,6 +5,8 @@ packages:
 
 allowBuilds:
   '@google/genai': true
+  '@swc/core': true
+  cbor-extract: false
   esbuild: true
   protobufjs: true
 
@@ -33,6 +35,7 @@ catalog:
   syncpack: ^15.3.2
   typescript: npm:@typescript/typescript6@^6.0.2
   vitest: ^4.1.8
+  workflow: ^4.6.0
   yaml: ^2.9.0
   zod: ^4.4.3
 
