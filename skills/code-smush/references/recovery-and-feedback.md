@@ -43,7 +43,8 @@ reset, delete the event, restore either backup, or continue unbound automaticall
 The failure report identifies the selected Objective, command and output summary,
 current branch/status, event state (untracked, staged, committed, or span-squashed),
 safely readable topology/restack state, the original packaging backup prefix, and the
-`backup/smush-bind-<stamp>/` tip backup.
+`backup/smush-bind-<stamp>/` tip backup — explicitly noting any backup not yet
+created — and closes with precise manual recovery/retry options.
 
 After inspecting that evidence, the user chooses one manual path:
 

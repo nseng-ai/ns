@@ -1,21 +1,21 @@
 ---
 name: code-smush
 disable-model-invocation: true
-description: Use when the user explicitly asks to smush, package, or repackage a stack into Decision PRs and Span PRs. Opt-in, experimental, local-only.
+description: Smush — locally repackage a Graphite stack into Decision PRs and Span PRs. Opt-in, experimental, local-only.
 ---
 
 # code-smush
 
-Packaging — colloquially **smush** — is the opt-in, LM-driven, local operation that
-classifies and slices an existing Graphite stack into **Decision PR** and **Span PR**
-form, then explicitly performs **Span Squash**. It produces a self-describing local
-stack for the user to submit; smush itself never submits. Which construction path
-applies — in-place reshaping or replacement-stack construction — is a
-deterministic rule, not a user choice; see the Packaging rule below.
+Packaging — colloquially **smush** — classifies and slices an existing Graphite
+stack into **Decision PR** and **Span PR** form, then explicitly performs **Span
+Squash**. It produces a self-describing local stack; submission is user-owned,
+afterward, outside this skill. Which construction path applies — in-place
+reshaping or replacement-stack construction — is a deterministic rule (see
+Packaging rule), never a user choice.
 
-Smush is **experimental** and **manually invoked only**. No other workflow — Flow,
-CCC, the default agent workflow — may invoke it implicitly. Do not run it because a
-stack "looks like it needs packaging"; run it because the user asked.
+Smush is **experimental** and runs only on explicit user invocation. No other
+workflow — Flow, CCC, the default agent workflow — may fire it implicitly, and a
+stack "looking like it needs packaging" is not an invocation.
 
 ## Vocabulary
 
@@ -30,58 +30,53 @@ stack "looks like it needs packaging"; run it because the user asked.
 - **Span Squash** — the explicit post-slicing step that collapses a Span PR's
   interior commits into one, preserving rationale and a narration digest.
 - **Packaging event** — an immutable Objective Semantic Update recording the stack
-  produced by one packaging generation. It is historical evidence, never the source
-  of current topology.
+  produced by one packaging generation: historical evidence, never the source of
+  current topology.
 
 ## Safety contract (hard rules)
 
-1. **Local-only, always — by allowlist, not denylist.** Never run `gt submit`,
-   `git push`, `git fetch`, `gh` commands, or anything that contacts GitHub or any
-   remote. Never create, update, close, or otherwise mutate a pull request.
-   Submission belongs to the user, afterward, outside this skill. Treat every `gt`
-   verb outside the commands this document names as remote-capable until proven
-   otherwise — in particular, do **not** run `gt branch info` or other `gt` PR/read
-   verbs to inspect PR state; several refresh PR metadata from the remote. PR
-   associations come only from Graphite's local cache (or from the user); stale or
-   absent cache state is reported as *unknown*, never refreshed to improve the
-   proposal.
-2. **Never close PRs — not even indirectly.** Smush never creates, updates,
-   closes, or otherwise mutates a pull request. On repackaging, the
-   close-candidate set is deterministic — the **entire old stack** — and is
-   reported loudly (a clearly marked section in the final report); every decision
-   about closing it belongs to the user.
-3. **Propose before mutation — gate weight follows destructiveness.** Render the
-   full proposed Slice Map (format below) and wait for the user's explicit
-   go-ahead. Silence, ambiguity, or a partial answer is not consent. This proposal
-   readback is the human's Slice Map view. Destructive operations — `gt rename`,
-   squash/modify/delete of pre-existing branches — always require ratification of
-   the exact map they mutate. Replacement construction (new refs plus `gt track`
-   on new branches only) still needs a go-ahead, but building, inspecting, and
-   discarding a candidate replacement stack is a legitimate iteration loop while
-   the user is actively reshaping — prefer that loop over repeated rounds of
-   prose re-ratification.
-4. **Backup before mutation.** Create timestamped local backup branches for the run
-   tip and every branch the operation will move, rename, or rewrite.
+1. **Local-only, by allowlist.** Smush never contacts GitHub or any remote: no
+   `gt submit`, no `git push`/`git fetch`, no `gh`. Its `gt` surface is exactly
+   the verbs this skill names — `track`, `rename`, `restack`, `modify`,
+   `squash`, plus recovery's `absorb` and `untrack` — because several unlisted
+   `gt` read verbs (`gt branch info` among them) refresh PR metadata from the
+   remote. Read stack topology with `ns slot gt exec stack-branches --format
+   json` and `ns slot gt exec stack-map-branches --format json`, per the
+   display-output rule in `docs/conventions/graphite-dependency-boundary.md`.
+   PR associations come only from Graphite's local cache or from the user;
+   stale or absent cache state is reported as *unknown*, never refreshed.
+2. **PRs stay the user's.** Smush never creates, updates, closes, or otherwise
+   mutates a pull request. On repackaging the close-candidate set is
+   deterministic — the **entire old stack** — and is reported loudly in its own
+   clearly marked section of the final report; every closure decision belongs
+   to the user.
+3. **Propose before mutation — gate weight follows destructiveness.** Render
+   the full proposed Slice Map (Phase 2 format) and wait for explicit
+   ratification; silence, ambiguity, or a partial answer is not consent.
+   Destructive operations — `gt rename`, squash/modify/delete of pre-existing
+   branches — always require ratification of the exact map they mutate.
+   Replacement construction (new refs plus `gt track` on new branches only)
+   still needs a go-ahead, but building, inspecting, and discarding a candidate
+   replacement stack is a legitimate iteration loop while the user is actively
+   reshaping — prefer that loop over repeated rounds of prose re-ratification.
+4. **Backup before mutation.** Create timestamped local backup branches for the
+   run tip and every branch the operation will move, rename, or rewrite
+   (Phase 3).
 5. **No durable packaging state.** Classification, current topology, and per-cut
-   rationale live only in branch names and commit messages. Write no Slice Map files,
-   hidden databases, mutable manifests, markers, or trailers, and never use a prior
-   packaging event instead of re-deriving the current stack. The one allowed durable
-   artifact is an immutable historical packaging-event Semantic Update under the
-   owning Objective. Repackaging appends a distinct event for every generation; it
-   never edits or supersedes an earlier event as mutable state. Any JSON passed
-   between steps is transient process input.
+   rationale live only in branch names and commit messages; any JSON passed
+   between steps is transient process input. The one durable artifact is the
+   immutable packaging-event Semantic Update under the owning Objective —
+   repackaging appends a distinct event for every generation, and the current
+   stack is always re-derived from Git/Graphite, never from a prior event.
 6. **Objective-bound by default.** Every successful run records and commits one
-   packaging event unless the user explicitly confirms an unbound override before
-   mutation. Missing context or a binding failure never implies bypass.
-7. **Read-side discipline.** Read stack topology with `ns slot gt exec
-   stack-branches --format json` and `ns slot gt exec stack-map-branches --format
-   json`, per the display-output rule in
-   `docs/conventions/graphite-dependency-boundary.md`.
-8. **No new CLI.** V1 is wholly LM-driven prose over the raw commands in this
-   document. Do not build or reach for packaging-specific push-down commands.
-   Shared `slot gt` exec primitives that also serve other skills
-   (`stack-branches`, `stack-map-branches`, `backup-refs`) are not
-   packaging-specific and are in bounds.
+   packaging event (Phase 7). The only alternative is an unbound override the
+   user explicitly confirms before mutation; missing context or a binding
+   failure never implies bypass.
+7. **No new CLI.** V1 is wholly LM-driven prose over the raw commands in this
+   skill. Shared `slot gt` exec primitives that also serve other skills
+   (`stack-branches`, `stack-map-branches`, `backup-refs`) are in bounds;
+   packaging-specific push-down commands are deliberately parked (see Known
+   limits in `references/recovery-and-feedback.md`).
 
 ## Packaging rule
 
@@ -91,23 +86,21 @@ never chosen by the user:
 - **Initial packaging (in place).** A fresh run — one linear branch off trunk,
   never previously packaged, with no PR association (known or possible) anywhere
   in scope — is reshaped in place: slice refs at boundary SHAs, reparent the run
-  tip, rename the tip to its grammar name. This is the only path where
-  `gt rename` is used (mechanics in the Branch-name grammar Rules).
+  tip, rename the tip to its grammar name. This is the only path that uses
+  `gt rename` (mechanics in Phase 4).
 - **Replacement construction (everything else).** Input that was previously
   packaged, has been submitted, has any PR-associated or unknown-PR-state branch,
   or is an accreted multi-branch stack gets its packaged stack built alongside it:
   new refs at boundary SHAs from the same underlying commits, `gt track --parent`
   on the new branches only, Span Squash only on new branches. The input stack —
   its branches, Graphite metadata, and PR associations — is untouched, and the
-  entire old stack becomes the deterministic close-candidate set for the final
-  report.
+  entire old stack becomes the close-candidate set (Safety rule 2).
 
 Replacement stacks coexist with their input, so their branch names carry a
 **generation token**: a `-st<num>` suffix on the `<run>` segment, starting at
 `st2` for the first replacement (initial packaging is implicitly generation 1 and
 carries no token). Choose the lowest number not already used by a local branch —
-LBYL against existing local branches before proposing (token mechanics: see
-Branch-name grammar):
+LBYL against existing local branches before proposing:
 
 ```
 retry-budgets-st2--01s-gateway-scaffolding
@@ -115,20 +108,17 @@ retry-budgets-st2--01s-gateway-scaffolding
 
 ## Input contract
 
-Smush accepts **any existing stack**:
+Smush accepts any existing stack. Best case is a contract-conforming Commit Run:
+one linear, merge-free branch off trunk, narrated commit messages (choices written
+as "chose X over Y because Z"), tip green. Accreted multi-branch stacks (e.g.
+autobranch checkpoints), feedback-laden stacks, and previously packaged stacks are
+valid degraded input — degradation lowers classification quality, not eligibility —
+and are routed by the Packaging rule (see Repackaging).
 
-- **Best case** — a contract-conforming Commit Run: one linear, merge-free branch
-  off trunk, narrated commit messages (choices written as "chose X over Y because
-  Z"), tip green.
-- **Valid degraded input** — accreted multi-branch stacks (e.g. autobranch
-  checkpoints), feedback-laden stacks, and previously packaged stacks. Degraded
-  input lowers classification quality, not eligibility. Multi-branch and
-  previously packaged input is routed by the Packaging rule (see Repackaging).
-
-Classification signal is narrative prose only. There are no structured markers, and
-producers do not self-classify; packaging judges from the commit messages and holds
-override authority — it may promote a commit the author treated as minor into a
-Decision PR, or demote one into a span.
+Classification signal is narrative prose only: there are no structured markers,
+and producers do not self-classify. Packaging judges from the commit messages and
+holds override authority — it may promote a commit the author treated as minor
+into a Decision PR, or demote one into a span.
 
 ## Branch-name grammar
 
@@ -166,17 +156,14 @@ retry-budgets--03s-callsite-propagation
 
 Rules:
 
-- The tip slice carries a grammar name too. At initial packaging of a fresh run —
-  the only place smush renames anything — reparent the run branch, then rename it
-  with `gt rename <new-name> --no-interactive` (`gt rename` removes any open-PR
-  association, which is safe only because this path requires a PR-free run; never
-  pass `-f`). Replacement stacks never rename: every branch, including the tip, is
-  a new ref that takes its grammar name at creation.
+- Every slice branch, including the tip slice, carries a grammar name. How the
+  tip gets it differs by construction path (Phase 4): replacement tips are new
+  refs named at creation; a fresh run's tip is renamed in place.
 - LBYL: before mutating, check every proposed name against existing local branches
   and refuse collisions.
 - A branch matching the grammar declares its classification and order; a
-  non-matching branch in a packaged stack is a parse gap to report, not to guess
-  silently.
+  non-matching branch in a packaged stack is a parse gap to report, never to
+  guess silently.
 
 ## Procedure
 
@@ -185,22 +172,22 @@ Rules:
 1. Confirm explicit user invocation and identify the run branch (default: current
    branch) and trunk.
 2. Resolve exactly one owning Objective before classification or proposal work:
-   - If the invocation or current live exchange explicitly identifies a slug or
-     `.ns/objectives/<slug>/` path as the owning Objective for this smush run, use it.
-     A merely mentioned Objective is not a selection.
+   - Use a slug or `.ns/objectives/<slug>/` path only when the invocation or
+     current live exchange explicitly selects it as this run's owner — a merely
+     mentioned Objective is not a selection. Ownership is never inferred from
+     branch, stack, PR, changed-path, or package names, nor from hidden
+     attachments or metadata.
    - Otherwise run `ns objective list --format md` and ask the user to select one
-     active Objective. Do not auto-select even when only one candidate exists.
-   - Never infer ownership from branch, stack, PR, changed-path, or package names,
-     nor from hidden attachments or metadata.
+     active Objective, even when only one candidate exists.
    - Verify the selection with
      `ns objective exec read-objective <slug> --format md`. If it is missing or
      closed, stop and ask for another active Objective.
-   - Keep the selected slug/path fixed for the run. Changing it requires a refreshed
-     proposal and readback.
+   - Keep the selected slug/path fixed for the run. Changing it requires a
+     refreshed proposal and readback.
 3. The only alternative is an **unbound override** explicitly confirmed by the user
    before mutation. Failure or refusal to select is not confirmation, and bypass
-   creates no hidden deferred-binding record. Carry the override through the proposal
-   and final report.
+   creates no hidden deferred-binding record. Carry the override through the
+   proposal and final report.
 4. `git status --porcelain` must be empty. If dirty, stop and ask the user to
    checkpoint, stash, or use another worktree.
 5. `ns slot gt exec quiescence --scope downstack --format json` — the stack scope
@@ -212,10 +199,9 @@ Rules:
    packaging scope must be a single linear chain (no forks branching off in-scope
    commits per the stack graph). A non-linear scope is not packageable; report it.
 8. Note pre-existing PR associations of in-scope branches from Graphite metadata or
-   from the user — without contacting the remote. These drive the Packaging rule
-   (any PR-associated or unknown-PR-state branch forces replacement construction)
-   and the old-stack close-candidate list; when unknowable offline, say so in the
-   proposal.
+   from the user — sourced per Safety rule 1. These drive the Packaging rule (any
+   PR-associated or unknown-PR-state branch forces replacement construction) and
+   the close-candidate list; when unknowable offline, say so in the proposal.
 
 ### Phase 1 — Decisions first, then commits (read-only)
 
@@ -239,8 +225,7 @@ Classify **outside-in from decisions**, never inside-out from commit subjects.
    — correlated-but-separable decisions are independently rejectable.
 5. Apply the **demotion rule**: a commit with a decision-sounding subject whose
    substantive choice was already ratified by an earlier decision group is a
-   consequence — it belongs in a span. Packaging holds override authority in both
-   directions (promote minor-looking commits, demote decision-sounding ones).
+   consequence — it belongs in a span.
 6. Only then map the decision groups onto the commit order as an **ordered
    partition**: each Decision PR is one decision group's minimal evidence plus the
    commits needed to judge it in isolation; Span PRs are the maximal stretches
@@ -248,6 +233,9 @@ Classify **outside-in from decisions**, never inside-out from commit subjects.
    (`gt split` is unusable non-interactively; cuts land on commit boundaries only).
 7. Draft per-cut rationale: why each boundary is where it is, and why each slice is
    classified as it is. This prose will live in commit messages, nowhere else.
+
+The phase is complete when every commit in `trunk..tip` belongs to exactly one
+slice and every cut and classification has drafted rationale.
 
 **Feasibility invariant.** Any grouping that respects commit order is expressible
 with pure branch pointers. Infeasibility arises only when a desired decision
@@ -261,15 +249,14 @@ and report it as commit-narration feedback — packaging cannot fix coarse commi
 
 Render the full proposal, slices bottom-up (trunk-adjacent first). Lead with the
 Decision Inventory and coupling conclusions, then the construction path the
-Packaging rule selects (initial in-place packaging or replacement construction)
-and the mapping from existing branches/PRs to proposed slices:
+Packaging rule selects and the mapping from existing branches/PRs to proposed
+slices:
 
 - exactly one binding line: `Owning Objective: <slug> (<path>)`, or
   `UNBOUND OVERRIDE: explicitly confirmed`;
 - for a bound run, notice that the packaging event will be committed into the
-  resulting stack tip; on a Decision tip it remains a supporting commit, while on a
-  Span tip it is absorbed by the final Span Squash and included in its narration
-  digest;
+  resulting stack tip (kept as a supporting commit on a Decision tip; absorbed
+  into the final Span Squash and its narration digest on a Span tip);
 - proposed branch name (grammar above) and classification;
 - boundary SHA and parent;
 - the commits inside the slice (count plus subjects);
@@ -278,20 +265,21 @@ and the mapping from existing branches/PRs to proposed slices:
   preserve;
 - branches to be backed up (backup ref names are stamped at creation);
 - on repackaging: the replacement run name (with its `st<num>` generation token)
-  and the complete old-stack close-candidate list — every old branch, with PR
-  numbers where known;
+  and the complete close-candidate list — every old branch, with PR numbers where
+  known;
 - any preconditions found in Phase 0 worth the user's eyes (unknown PR state, parse
   gaps, red tip).
 
-Then **stop and wait for explicit go-ahead**. Ratification covers the displayed
-Objective or unbound override as well as the Slice Map. Rework the proposal on any
-disagreement or later Objective change — this conversation is also how the user
-reshapes an already-packaged stack (repackaging re-run), so treat "move the cut below
-X", "promote that span", "merge spans 2 and 3" as ordinary proposal inputs.
+Then **stop and wait for explicit ratification**. Ratification covers the
+displayed Objective or unbound override as well as the Slice Map. Rework the
+proposal on any disagreement or later Objective change — this conversation is also
+how the user reshapes an already-packaged stack (repackaging re-run), so treat
+"move the cut below X", "promote that span", "merge spans 2 and 3" as ordinary
+proposal inputs.
 
 ### Phase 3 — Backup refs
 
-After go-ahead, with a clean status, back up every affected branch (run tip
+After ratification, with a clean status, back up every affected branch (run tip
 always; every branch that will be renamed or squashed) in one call:
 
 ```bash
@@ -300,18 +288,18 @@ ns slot gt exec backup-refs --label smush --branch <branch> [--branch <branch> .
 
 One `--branch` per affected branch. The command stamps the run (UTC), encodes
 `/` in branch names as `__`, and refuses missing branches or backup-name
-collisions without creating anything. Record `data.prefix` (`backup/smush-<stamp>/`) for
-the final report; on a non-zero exit, stop and report — do not mutate without
+collisions without creating anything. Record `data.prefix` (`backup/smush-<stamp>/`)
+for the final report; on a non-zero exit, stop and report — mutation waits for
 backups.
 
 ### Phase 4 — Slice
 
 Slicing is pure branch metadata — no rebase, no SHA changes.
 
-**Replacement construction** never reparents or renames the input stack: create
-every slice branch (including the tip slice, which freely takes its grammar name)
-as a new ref at its boundary SHA in the same underlying commit history, `gt track`
-them bottom-up, and leave the input stack's branches and metadata untouched.
+**Replacement construction** leaves the input stack's branches and metadata
+untouched: create every slice branch (including the tip slice, which freely takes
+its grammar name) as a new ref at its boundary SHA in the same underlying commit
+history, then `gt track` them bottom-up.
 
 **Initial packaging of a fresh run** reshapes in place:
 
@@ -325,10 +313,12 @@ gt rename <tip-slice-name> --no-interactive                          # from the 
 ```
 
 Track bottom-up. Re-running `gt track` on a tracked branch reparents it in place;
-that is how the run tip moves onto the last interior slice. Verify: every slice
-non-empty (`git rev-list --count <parent>..<slice>` > 0 — submit silently skips
-empty branches, so an empty slice is a defect), boundaries in order, `gt restack
---no-interactive` reports nothing to restack.
+that is how the run tip moves onto the last interior slice. `gt rename` removes
+any open-PR association — safe only because this path requires a PR-free run;
+never pass `-f`. Verify: every slice non-empty (`git rev-list --count
+<parent>..<slice>` > 0 — submit silently skips empty branches, so an empty slice
+is a defect), boundaries in order, `gt restack --no-interactive` reports nothing
+to restack.
 
 ### Phase 5 — Boundary validation
 
@@ -391,8 +381,8 @@ Decision slices are never squashed: the decision boundary commit keeps its
 why-paragraph, and its supporting commits stay judgeable in isolation. If a
 decision slice's tip message lacks its why-paragraph (degraded input), amend it on
 that slice with `gt modify -m "<enriched message>" --no-interactive` so
-classification rationale is durable — do not invent a decision that the prose does
-not support; quote and condense what is there.
+classification rationale is durable — quote and condense the prose that is there,
+rather than inventing a decision it does not support.
 
 Squashing changes commit SHAs but not slice-tip trees, so Phase 5 greenness carries
 over; spot-check the stack tip with the validation entrypoint after the last
@@ -400,109 +390,59 @@ squash.
 
 ### Phase 7 — Bind the packaged tip to its Objective
 
-Skip this phase only for a ratified unbound override. A bound run creates exactly one
-immutable packaging-event Semantic Update and commits it into the packaged stack tip.
+Skip this phase only for a ratified unbound override. A bound run creates exactly
+one immutable packaging-event Semantic Update and commits it into the packaged
+stack tip.
 
-First re-derive the final bottom-up branch/classification map from live topology and
-branch grammar; do not copy a stale proposal object. Re-read the selected Objective
-with `ns objective exec read-objective <slug> --format md` and stop if it is no longer
-active or its path is missing. Require a clean worktree, then create a dedicated tip
-backup before binding:
+1. Re-derive the final bottom-up branch/classification map from live topology and
+   branch grammar — never from a stale proposal object — and re-read the selected
+   Objective with `ns objective exec read-objective <slug> --format md`; stop if
+   it is no longer active or its path is missing.
+2. With a clean worktree, create a dedicated tip backup and check out the tip:
 
-```bash
-ns slot gt exec backup-refs --label smush-bind --branch <packaged-tip> --format json
-git checkout <packaged-tip>
-```
+   ```bash
+   ns slot gt exec backup-refs --label smush-bind --branch <packaged-tip> --format json
+   git checkout <packaged-tip>
+   ```
 
-Record the returned binding-backup prefix separately from the Phase 3 packaging
-backup. Use a timestamped, human-readable, collision-checked filename; never overwrite
-or amend an existing event:
+   Record the returned binding-backup prefix separately from the Phase 3
+   packaging prefix.
+3. Write the event file — filename convention, manifest template, and content
+   rules live in `references/packaging-event.md`. LBYL-check the path and create
+   only the new event; an existing event is immutable, so a collision means a new
+   filename, never an overwrite or amend.
+4. Stage only that path; inspect `git diff --cached --name-only` and
+   `git diff --cached --check`. Run the repository validation entrypoint (`just`
+   here) against this exact candidate tree; also enforce Markdown formatting and
+   Objective structure when the repository gate does not already do so. Capture
+   the validated tree with `git write-tree`, then commit locally with Graphite:
 
-```text
-.ns/objectives/<slug>/updates/YYYY-MM-DDTHHMMSSZ-packaging-event-<safe-run>.md
-```
+   ```bash
+   git add -- <event-path>
+   gt modify -c -m "Record <run> packaging event" --no-interactive
+   ```
 
-The event uses the Objective Semantic Update headings and this focused manifest:
+5. Restore the tip-slice contract:
+   - **Decision tip:** retain the event as a supporting commit; a Decision slice
+     is never squashed.
+   - **Span tip:** run Span Squash again so the event is absorbed into the
+     one-commit span. Preserve the existing span rationale and prior narration
+     digest, and append the event commit subject to that digest.
+6. Verify: the packaged tip's tree (`git rev-parse <tip>^{tree}`) equals the
+   validated `git write-tree` value; then re-run topology, restack,
+   non-empty-slice, and clean-status checks.
 
-```markdown
-# Packaging event: <run>
-
-## Summary
-
-Owning Objective: `<slug>`
-Source run: `<branch>`
-Trunk: `<trunk>`
-Construction: <initial in-place | replacement>
-Generation: <initial | st2 | st3 | ...>
-
-| Order | Branch     | Classification |
-| ----- | ---------- | -------------- |
-| 01    | `<branch>` | Decision       |
-| 02    | `<branch>` | Span           |
-
-Validation: <candidate-tree repository gate and final topology/restack checks>
-
-## Objective Impact
-
-The packaged stack is bound to this Objective. Later Decision-PR decision records
-belong in this Objective's update stream. This event is historical evidence; current
-topology must be re-derived from Git/Graphite and branch grammar.
-
-## Follow-Ups
-
-- Submission remains user-owned.
-- Decision branches, bottom-up: `<ordered Decision branches>`.
-- Replacement close candidates: `<complete old-stack branch list, or not applicable>`.
-- Previous packaging event: `<path, or unavailable without guessing>`.
-- PR closure and feedback carry-forward remain outside local-only smush.
-```
-
-Do not include final tip SHAs (the event commit/squash would invalidate them), the full
-command transcript, backup inventory, cut-analysis conversation, mutable status fields,
-or claims about remote CI/PR state. For replacement runs, inspect immutable updates
-under the selected Objective for a confidently identifiable previous packaging event;
-otherwise write `unavailable` rather than guessing.
-
-LBYL-check the path, create only the new event, stage only that path, and inspect
-`git diff --cached --name-only` plus `git diff --cached --check`. Run the repository
-validation entrypoint (`just` here) against this exact candidate tree; also enforce
-Markdown formatting and Objective structure when the repository gate does not already
-do so. Capture the validated tree with `git write-tree`, then commit locally with
-Graphite, for example:
-
-```bash
-git add -- <event-path>
-gt modify -c -m "Record <run> packaging event" --no-interactive
-```
-
-Restore the tip-slice contract:
-
-- **Decision tip:** retain the event as a supporting commit; never squash the Decision
-  slice.
-- **Span tip:** run Span Squash again so the event is absorbed into the one-commit
-  span. Preserve the existing span rationale and prior narration digest, and append
-  the event commit subject to that digest.
-
-After any squash, require the packaged tip's tree (`git rev-parse <tip>^{tree}`) to
-equal the validated `git write-tree` value. Then re-run topology, restack,
-non-empty-slice, and clean-status checks.
-
-Any selection, creation, validation, commit, re-squash, tree-equality, or final binding
-failure is a hard stop. Do **not** reset, delete branches, restore a backup, roll back,
-or reinterpret the failure as bypass. Leave the exact dirty, committed, or
-partially-squashed state for user-directed recovery and report: selected Objective;
-failing phase/command and output summary; current branch/status; whether the event is
-untracked, staged, committed, or span-squashed; safely readable topology/restack state;
-the Phase 3 and binding-specific backup prefixes that were created, explicitly noting
-any backup not yet created; and precise manual recovery/retry options. The stack is not
-submission-ready. Proceeding unbound afterward requires a
-new explicit decision only after the user inspects or recovers this state.
+Any selection, creation, validation, commit, re-squash, tree-equality, or final
+binding failure is a hard stop: leave the exact dirty, committed, or
+partially-squashed state in place for user-directed recovery and report it per
+"Objective-binding failure" in `references/recovery-and-feedback.md`. The stack is
+not submission-ready until that protocol completes.
 
 ### Phase 8 — Final verification and report
 
 1. `ns slot gt exec stack-branches --format json` — confirm the final topology
-   matches the ratified Slice Map; `gt restack --no-interactive` reports nothing to
-   restack.
+   matches the ratified Slice Map; `gt restack --no-interactive` reports nothing
+   to restack.
 2. `git status --porcelain` clean.
 3. For bound success, report the owning Objective, packaging-event path,
    confirmation that the event is part of the packaged tip, final Slice Map, both
@@ -515,32 +455,32 @@ new explicit decision only after the user inspects or recovers this state.
    The later decide workflow cannot discover a canonical Objective for decision records.
    ```
 
-5. On repackaging, **loudly, in its own clearly-marked section**, report the complete
-   old-stack close-candidate list (every old branch, with PR numbers where known),
-   with the explicit note that smush did not and will not touch those PRs.
-6. On repackaging, hand off review-feedback carry-forward: point the user at the
-   companion post-submit step (decide-skill family) that moves relevant feedback
-   from the old PRs into the new shape — smush stays local-only and does not inspect
-   PR threads. For commit-content feedback that does not move slice boundaries,
-   `gt absorb` / `gt modify --into` (see
-   `references/recovery-and-feedback.md`) remains the local path.
-7. Remind the user that submission (and everything PR-shaped: titles, bodies,
-   review policy) is theirs, outside this skill.
+5. On repackaging, render the close-candidate section per Safety rule 2 — every
+   old branch, with PR numbers where known, and the explicit note that smush did
+   not and will not touch those PRs.
+6. On repackaging, hand off review-feedback carry-forward to the companion
+   post-submit step (decide-skill family) that moves relevant feedback from the
+   old PRs into the new shape — smush stays local-only and does not inspect PR
+   threads. For commit-content feedback that does not move slice boundaries,
+   `gt absorb` / `gt modify --into` (see `references/recovery-and-feedback.md`)
+   remains the local path.
+7. Close by restating that submission — and everything PR-shaped: titles, bodies,
+   review policy — is the user's, outside this skill.
 
 ## Repackaging and multi-branch input
 
-Repackaging a previously packaged or submitted stack — and packaging any accreted
-multi-branch stack — is **replacement-stack construction** per the Packaging rule
-and Phase 4. Two deltas, then run Phases 2–8 on the new branches:
+A previously packaged or submitted stack — and any accreted multi-branch stack —
+takes replacement-stack construction per the Packaging rule and Phase 4. Two
+deltas, then Phases 2–8 run on the new branches:
 
 1. Derive the current Slice Map first (topology from `ns slot gt exec
    stack-branches`, classification from grammar branch names, rationale from
-   boundary/squash commit messages) and include it in the Phase 2 proposal next to
+   boundary/squash commit messages) and show it in the Phase 2 proposal beside
    the proposed new map.
 2. Slice the underlying `trunk..tip` commit sequence directly — the input's
    existing branch boundaries are classification signal, not constraints.
 
-Costs to state in the proposal so the user reshapes with open eyes: re-slicing a
+State the costs in the proposal so the user reshapes with open eyes: re-slicing a
 previously squashed span cannot recover its interior commits (only the narration
 digest survives) — an accepted cost of Span Squash; and once the user submits, a
 replacement stack re-runs CI across the full new stack, so repackaging frequency
