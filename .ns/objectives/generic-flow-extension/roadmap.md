@@ -56,8 +56,11 @@
     exact marker-line matching starts one bounded Pi recovery turn only for failed submits;
     missing Git roots and broken explicit prompt policy fail fast. Flow's packaged default
     is repository-neutral, while this repo's conventional prompt owns `code-just-fix`.
-    Focused recovery/Pi/catalog/scenario tests, descriptor integration tests, point
-    introspection, TypeScript checks, and `just` pass.
+    Review remediation now makes production default resolution prefer the preloaded Flow
+    descriptor over its incomplete SDK mirror and resolves repository roots through the
+    canonical Git gateway on the Pi exec channel; no command, marker, point id, override
+    precedence, or recovery-turn behavior changed. Focused recovery/Pi/catalog tests,
+    descriptor integration tests, TypeScript checks, style guard, and `just` pass.
 - [ ] Extension-point docs for adopters: routing line in root `AGENTS.md` to
       `docs/guides/points.md`; "For workflow implementers: consuming the catalog"
       section in that guide; document the `cardinality` ↔ `semantics` vocabulary

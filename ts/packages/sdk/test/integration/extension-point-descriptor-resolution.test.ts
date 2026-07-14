@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,11 +40,14 @@ describe("extension point descriptor resolution", () => {
 		});
 		const source = resolvePromptPointSource(catalog, "flow.submit.pre.recovery");
 		expect(source.type).toBe("default");
-		if (source.type === "env") throw new Error("Unexpected environment prompt source");
-		expect(resolvePromptPointPath(root, source)).toEqual({
+		if (source.type !== "default") throw new Error("Expected the Flow recovery default source");
+		const resolved = resolvePromptPointPath(root, source);
+		expect(resolved).toEqual({
 			path: join(flowPackageRoot, "src", "submit", "prompts", "submit-check-recovery-default.md"),
 			label: "manifest default ../submit/prompts/submit-check-recovery-default.md",
 		});
+		if (resolved === undefined) throw new Error("Expected the Flow recovery default to resolve");
+		expect((await readFile(resolved.path, "utf8")).trim()).not.toBe("");
 	});
 
 	test("loads npm descriptor points from managed npm storage", async () => {

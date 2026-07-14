@@ -1,5 +1,7 @@
 import { join } from "node:path";
 
+import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -10,13 +12,16 @@ import type {
 	ProjectConfigPathExistsResult,
 	ProjectConfigReadResult,
 } from "@nseng-ai/sdk/project-config/points";
-import nsExtension, { type NsExtensionAPI } from "../../src/pi/ns-extension.ts";
+import nsExtension, {
+	type NsExtensionAPI,
+	type NsExtensionOptions,
+} from "../../src/pi/ns-extension.ts";
 import { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../../src/submit/submit-hooks.ts";
 import {
-	DEFAULT_FLOW_SUBMIT_CHECK_RECOVERY_PROMPT,
 	FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID,
-	type SubmitCheckRecoveryGateway,
+	type SubmitCheckRecoveryPromptGateway,
 } from "../../src/submit/submit-check-recovery.ts";
+import { resolveFlowSubmitRecoveryDefault } from "../support/submit-check-recovery.ts";
 
 type RegisteredCommand = Parameters<NsExtensionAPI["registerCommand"]>[1];
 type CustomMessage = Parameters<NonNullable<NsExtensionAPI["sendMessage"]>>[0];
@@ -46,6 +51,8 @@ const FLOW_COMMANDS = [
 	"pull-trunk",
 	"squash-stack",
 ] as const satisfies readonly FlowCommandName[];
+const PACKAGED_RECOVERY_PROMPT = "Packaged recovery prompt\n";
+const DEFAULT_PROMPT_PATH = resolveFlowSubmitRecoveryDefault().absolutePath;
 
 class FakePi implements NsExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
@@ -78,10 +85,21 @@ class FakePi implements NsExtensionAPI {
 		this.deliveryEvents.push("command-output");
 	};
 
+	async exec(_command: string, _args: string[], _options?: ExecOptions): Promise<ExecResult> {
+		return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
+	}
+
 	sendUserMessage(content: string): void {
 		this.userMessages.push(content);
 		this.deliveryEvents.push("user-message");
 	}
+}
+
+function registerNsExtension(pi: FakePi, options: NsExtensionOptions): void {
+	nsExtension(pi, {
+		recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
+		...options,
+	});
 }
 
 function commandFor(pi: FakePi, name: string): RegisteredCommand {
@@ -115,7 +133,7 @@ describe("ns Pi extension", () => {
 	test("exposes only nested flow ns lifecycle mirrors", () => {
 		const pi = new FakePi();
 
-		nsExtension(pi, { runCli: async () => 0 });
+		registerNsExtension(pi, { runCli: async () => 0 });
 
 		expect([...pi.commands.keys()]).toEqual(FLOW_COMMANDS.map((name) => `ns:flow:${name}`));
 		for (const legacyAlias of [
@@ -149,7 +167,7 @@ describe("ns Pi extension", () => {
 		test(`routes ns flow ${commandName} to the ns CLI with flow argv`, async () => {
 			const pi = new FakePi();
 			const runCliCalls: string[][] = [];
-			nsExtension(pi, {
+			registerNsExtension(pi, {
 				runCli: async (args, deps) => {
 					runCliCalls.push([...args]);
 					deps.stdout(`pi-custom-${commandName}`);
@@ -165,11 +183,11 @@ describe("ns Pi extension", () => {
 	}
 
 	test.each([FLOW_SUBMIT_CHECK_FAILURE_MARKER, `error: ${FLOW_SUBMIT_CHECK_FAILURE_MARKER}`])(
-		"sends one built-in recovery turn after marker-bearing submit output: %s",
+		"sends one descriptor-default recovery turn after marker-bearing submit output: %s",
 		async (marker) => {
 			const pi = new FakePi();
-			nsExtension(pi, {
-				recoveryGateway: createRecoveryGateway(),
+			registerNsExtension(pi, {
+				recoveryPromptGateway: createRecoveryPromptGateway(),
 				runCli: async (_args, deps) => {
 					deps.stderr(`${marker}\ncheck failed\n`);
 					return 1;
@@ -180,15 +198,17 @@ describe("ns Pi extension", () => {
 
 			expectSingleCommandOutput(pi.sentMessages, marker);
 			expect(pi.userMessages).toHaveLength(1);
-			expect(pi.userMessages[0]).toContain(DEFAULT_FLOW_SUBMIT_CHECK_RECOVERY_PROMPT);
+			expect(pi.userMessages[0]).toContain(PACKAGED_RECOVERY_PROMPT.trim());
 			expect(pi.deliveryEvents).toEqual(["command-output", "user-message"]);
 		},
 	);
 
-	test("uses repository recovery policy instead of the generic prompt", async () => {
+	test("uses repository recovery policy instead of the descriptor default", async () => {
 		const pi = new FakePi();
-		nsExtension(pi, {
-			recoveryGateway: createRecoveryGateway({ prompt: "Repository recovery policy\n" }),
+		registerNsExtension(pi, {
+			recoveryPromptGateway: createRecoveryPromptGateway({
+				prompt: "Repository recovery policy\n",
+			}),
 			runCli: async (_args, deps) => {
 				deps.stderr(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\nfailed\n`);
 				return 2;
@@ -199,13 +219,13 @@ describe("ns Pi extension", () => {
 
 		expect(pi.userMessages).toHaveLength(1);
 		expect(pi.userMessages[0]).toContain("Repository recovery policy");
-		expect(pi.userMessages[0]).not.toContain(DEFAULT_FLOW_SUBMIT_CHECK_RECOVERY_PROMPT);
+		expect(pi.userMessages[0]).not.toContain(PACKAGED_RECOVERY_PROMPT.trim());
 	});
 
 	test("ignores successes, non-exact markers, and marker-bearing non-submit commands", async () => {
 		const successPi = new FakePi();
-		nsExtension(successPi, {
-			recoveryGateway: createRecoveryGateway(),
+		registerNsExtension(successPi, {
+			recoveryPromptGateway: createRecoveryPromptGateway(),
 			runCli: async (_args, deps) => {
 				deps.stderr(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 				return 0;
@@ -215,8 +235,8 @@ describe("ns Pi extension", () => {
 		expect(successPi.userMessages).toEqual([]);
 
 		const prosePi = new FakePi();
-		nsExtension(prosePi, {
-			recoveryGateway: createRecoveryGateway(),
+		registerNsExtension(prosePi, {
+			recoveryPromptGateway: createRecoveryPromptGateway(),
 			runCli: async (_args, deps) => {
 				deps.stderr(`prefix ${FLOW_SUBMIT_CHECK_FAILURE_MARKER}`);
 				return 1;
@@ -226,8 +246,8 @@ describe("ns Pi extension", () => {
 		expect(prosePi.userMessages).toEqual([]);
 
 		const otherPi = new FakePi();
-		nsExtension(otherPi, {
-			recoveryGateway: createRecoveryGateway(),
+		registerNsExtension(otherPi, {
+			recoveryPromptGateway: createRecoveryPromptGateway(),
 			runCli: async (_args, deps) => {
 				deps.stderr(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 				return 1;
@@ -239,8 +259,9 @@ describe("ns Pi extension", () => {
 
 	test("hard-fails recovery when the command cwd has no Git root", async () => {
 		const pi = new FakePi();
-		nsExtension(pi, {
-			recoveryGateway: createRecoveryGateway({ hasGitRoot: false }),
+		registerNsExtension(pi, {
+			recoveryPromptGateway: createRecoveryPromptGateway(),
+			recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } }),
 			runCli: async (_args, deps) => {
 				deps.stderr(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 				return 1;
@@ -261,8 +282,8 @@ describe("ns Pi extension", () => {
 		["unreadable", { promptReadError: "permission denied" }],
 	] as const)("hard-fails recovery when the selected prompt is %s", async (_name, state) => {
 		const pi = new FakePi();
-		nsExtension(pi, {
-			recoveryGateway: createRecoveryGateway(state),
+		registerNsExtension(pi, {
+			recoveryPromptGateway: createRecoveryPromptGateway(state),
 			runCli: async (_args, deps) => {
 				deps.stderr(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 				return 1;
@@ -286,8 +307,8 @@ describe("ns Pi extension", () => {
 			"",
 			...Array.from({ length: 60 }, (_, index) => `line-${index} ${"x".repeat(100)}`),
 		].join("\n");
-		nsExtension(pi, {
-			recoveryGateway: createRecoveryGateway(),
+		registerNsExtension(pi, {
+			recoveryPromptGateway: createRecoveryPromptGateway(),
 			runCli: async (_args, deps) => {
 				deps.stderr(noisyStderr);
 				return 9;
@@ -307,40 +328,37 @@ describe("ns Pi extension", () => {
 	});
 });
 
-interface RecoveryGatewayState {
+interface RecoveryPromptGatewayState {
 	prompt?: string;
 	promptReadError?: string;
-	hasGitRoot?: boolean;
 }
 
-function createRecoveryGateway(state: RecoveryGatewayState = {}): SubmitCheckRecoveryGateway {
-	const promptPath = join("/repo", `.ns/prompts/${FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID}.md`);
-	const files = new Map<string, string>();
-	if (state.prompt !== undefined) files.set(promptPath, state.prompt);
+function createRecoveryPromptGateway(
+	state: RecoveryPromptGatewayState = {},
+): SubmitCheckRecoveryPromptGateway {
+	const conventionalPromptPath = join(
+		"/repo",
+		`.ns/prompts/${FLOW_SUBMIT_CHECK_RECOVERY_POINT_ID}.md`,
+	);
+	const files = new Map<string, string>([[DEFAULT_PROMPT_PATH, PACKAGED_RECOVERY_PROMPT]]);
+	if (state.prompt !== undefined) files.set(conventionalPromptPath, state.prompt);
 	const promptReadErrors = new Map<string, string>();
 	if (state.promptReadError !== undefined) {
-		promptReadErrors.set(promptPath, state.promptReadError);
+		promptReadErrors.set(conventionalPromptPath, state.promptReadError);
 	}
-	return new InMemoryRecoveryGateway({
-		files,
-		promptReadErrors,
-		hasGitRoot: state.hasGitRoot ?? true,
-	});
+	return new InMemoryRecoveryPromptGateway({ files, promptReadErrors });
 }
 
-class InMemoryRecoveryGateway implements SubmitCheckRecoveryGateway {
+class InMemoryRecoveryPromptGateway implements SubmitCheckRecoveryPromptGateway {
 	readonly #files: ReadonlyMap<string, string>;
 	readonly #promptReadErrors: ReadonlyMap<string, string>;
-	readonly #hasGitRoot: boolean;
 
 	constructor(state: {
 		files: ReadonlyMap<string, string>;
 		promptReadErrors: ReadonlyMap<string, string>;
-		hasGitRoot: boolean;
 	}) {
 		this.#files = new Map(state.files);
 		this.#promptReadErrors = new Map(state.promptReadErrors);
-		this.#hasGitRoot = state.hasGitRoot;
 	}
 
 	readTextFile(request: { repoRoot: string; relativePath: string }): ProjectConfigReadResult {
@@ -354,17 +372,9 @@ class InMemoryRecoveryGateway implements SubmitCheckRecoveryGateway {
 			: { type: "missing" };
 	}
 
-	probeRepositoryGitMarker(request: {
-		path: string;
-	}): ReturnType<SubmitCheckRecoveryGateway["probeRepositoryGitMarker"]> {
-		return this.#hasGitRoot && request.path === join("/repo", ".git")
-			? { type: "directory" }
-			: { type: "missing" };
-	}
-
 	readRecoveryPrompt(request: {
 		path: string;
-	}): ReturnType<SubmitCheckRecoveryGateway["readRecoveryPrompt"]> {
+	}): ReturnType<SubmitCheckRecoveryPromptGateway["readRecoveryPrompt"]> {
 		const error = this.#promptReadErrors.get(request.path);
 		if (error !== undefined) return { type: "error", message: error };
 		return this.readPath(request.path);

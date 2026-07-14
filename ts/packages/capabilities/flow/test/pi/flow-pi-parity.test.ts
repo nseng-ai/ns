@@ -1,3 +1,4 @@
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -17,7 +18,10 @@ async function collectFlowPiSurfaces(): Promise<LivePiSurface[]> {
 	await registerWithFakeHost(pi, codeWorkflowsExtension);
 	await registerWithFakeHost(pi, codeExtension);
 	await registerWithFakeHost(pi, (host: NsExtensionAPI) =>
-		nsExtension(host, { runCli: async () => 0 }),
+		nsExtension(host, {
+			recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
+			runCli: async () => 0,
+		}),
 	);
 	return pi.surfaces();
 }

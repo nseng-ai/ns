@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
+import type { ExtensionDescriptor } from "../../src/sdk/descriptor.ts";
 import {
 	buildPointCatalog,
 	loadPointCatalog,
@@ -272,11 +273,24 @@ context_lines = "wide"
 		]);
 	});
 
-	test("defines and resolves the built-in flow submit recovery prompt point", () => {
-		const recoveryPath = ".ns/prompts/flow.submit.pre.recovery.md";
+	test("prefers descriptor metadata over the built-in recovery mirror", () => {
+		const descriptorPath = "/flow/src/ns/extension.ts";
+		const descriptor = {
+			description: "Flow extension",
+			points: [
+				{
+					id: "flow.submit.pre.recovery",
+					accepts: "prompt",
+					cardinality: "one",
+					default: "../submit/prompts/submit-check-recovery-default.md",
+					description: "Canonical Flow recovery guidance.",
+				},
+			],
+		} as const satisfies ExtensionDescriptor;
 		const catalog = loadPointCatalog({
 			repoRoot: "/repo",
-			gateway: new InMemoryProjectConfigGateway({ [recoveryPath]: "Recovery prompt" }),
+			gateway: new InMemoryProjectConfigGateway({}),
+			preferredDescriptors: [{ descriptor, descriptorPath }],
 		});
 
 		expect(
@@ -286,13 +300,21 @@ context_lines = "wide"
 			id: "flow.submit.pre.recovery",
 			accepts: "prompt",
 			semantics: "override",
-			description: "Agent guidance after a flow submit pre-check failure.",
+			description: "Canonical Flow recovery guidance.",
+			defaultPath: "../submit/prompts/submit-check-recovery-default.md",
+			manifestPath: descriptorPath,
 		});
 		expect(resolvePromptPointSource(catalog, "flow.submit.pre.recovery")).toEqual({
-			type: "conventional",
+			type: "default",
 			pointId: "flow.submit.pre.recovery",
-			path: recoveryPath,
+			path: "../submit/prompts/submit-check-recovery-default.md",
+			manifestPath: descriptorPath,
 		});
+		expect(
+			catalog.entries
+				.filter((entry) => entry.definition.id !== "flow.submit.pre.recovery")
+				.map((entry) => entry.definition.id),
+		).toEqual(["branch-context.plans-write", "flow.submit.pr-description", "flow.submit.pre"]);
 	});
 
 	test("catalog reports prompt env overrides as source info and diagnostics", () => {

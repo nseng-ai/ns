@@ -96,11 +96,12 @@ of the operation it guards.
   documented requirements and explicitly parked compatibility debt. Do not silently expand
   those clusters into Graphite abstraction, merge-strategy configuration, or a general CLI
   failure protocol.
-- **Risk — point-definition duplication.** First-party point definitions live in both
-  kernel `builtInPointDefinitions` and flow's descriptor; the recovery point deepens that
-  duplication by one more point. Pre-existing debt owned by the descriptor-contract
-  direction, not this Objective — but the new point must land in both places in the same
-  slice.
+- **Risk — point-definition duplication remains fallback debt.** First-party point
+  definitions still live in both kernel `builtInPointDefinitions` and Flow's descriptor.
+  Production submit recovery now overlays the preloaded Flow descriptor so its default
+  path and manifest provenance remain canonical; the SDK mirror remains fallback metadata
+  for callers without descriptor evidence. Consolidating the broader preinstalled catalog
+  remains separate descriptor-contract work.
 - **Risk — README drifts from implementation.** Mitigation: README settles first; each
   implementation slice cites the README section it makes true.
 

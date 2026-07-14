@@ -1,6 +1,6 @@
 import { defineExtension, hiddenExecGroup } from "@nseng-ai/sdk";
 
-export default defineExtension({
+export const flowExtensionDescriptor = defineExtension({
 	group: "flow",
 	description: "Checkpoint, branch, submit, and land Graphite-backed work.",
 	points: [
@@ -90,3 +90,10 @@ export default defineExtension({
 		]),
 	],
 });
+
+export const flowExtensionDescriptorSource = {
+	descriptor: flowExtensionDescriptor,
+	descriptorUrl: import.meta.url,
+};
+
+export default flowExtensionDescriptor;
