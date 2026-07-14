@@ -28,14 +28,15 @@ The Objective capability is the first SDL feature we ship to external customers.
 
 Shipping Objectives externally means a customer with no SDL checkout and no dev toolchain can: install the `ns` CLI from npm, get the objective skills into whichever harness they use (Claude Code, Codex, or Pi), bootstrap their own repo so their agents actually reach for objectives, and follow real documentation — with no standalone objective binary.
 
-**Naming (ADR 0026 `rename-ji-to-ns`, amended by ADR 0028):** the shipped customer surface is the `ns` CLI, and the core cutover has landed — the repo's binary is now `ns`, consumer dirs live under `.ns/` (`.ns/objectives/`, plus managed extension storage under `.ns/managed-extensions/`), config is `ns.toml`. The workspace package scope is bare `@nseng-ai/*` (ADR 0028 chose bare `@nseng-ai/*`, superseding ADR 0026's interim `@ns/*` workspace-scope plan), so the packages this Objective touches are `@nseng-ai/kernel` (`ts/packages/kernel`), `@nseng-ai/objectives` (`ts/packages/capabilities/objectives`), and `@nseng-ai/foundation` (`ts/packages/infra/foundation`, with a `./managed-region` export). The published customer CLI target is `@nseng-ai/ns` (`ts/packages/hosts/ns`; relocated from `ts/packages/hosts/ns-cli`, with CLI text generation and composition since moved into this host — the kernel package no longer carries a `bin`). All new surface this Objective builds stays ns-named — `ns init`, `ns skills`, `ns extension …`, `ns objective …`, the `<!-- ns:begin -->` pointer stanza, the `@nseng-ai/ns-init` package. Run-from-source is no longer the only path: `checkout-free-sdl-distribution` (closed 2026-07-06) delivered the bundled `@nseng-ai/ns` package, and the full public `@nseng-ai/*` set — including `@nseng-ai/ns`, `@nseng-ai/objectives`, `@nseng-ai/harness-artifacts`, and (since `0.1.2`) a standalone `@nseng-ai/kernel` — is published to npm, registry latest `0.1.2` (2026-07-07). The registry-backed checkout-free smoke (`npx @nseng-ai/ns objective list` run from a foreign repo with no ns checkout) passed against the batteries-included shape; the published `0.1.2` predates the same-day bare-core unbundle commit (see Risks).
+**Naming (ADR 0026 `rename-ji-to-ns`, amended by ADR 0028):** the shipped customer surface is the `ns` CLI, and the core cutover has landed — the repo's binary is now `ns`, consumer dirs live under `.ns/` (`.ns/objectives/`, plus managed extension storage under `.ns/managed-extensions/`), config is `ns.toml`. The workspace package scope is bare `@nseng-ai/*` (ADR 0028 chose bare `@nseng-ai/*`, superseding ADR 0026's interim `@ns/*` workspace-scope plan), so the packages this Objective touches are `@nseng-ai/kernel` (`ts/packages/kernel`), `@nseng-ai/objectives` (`ts/packages/capabilities/objectives`), and `@nseng-ai/foundation` (`ts/packages/infra/foundation`, with a `./managed-region` export). The published customer CLI target is `@nseng-ai/ns` (`ts/packages/hosts/ns`; relocated from `ts/packages/hosts/ns-cli`, with CLI text generation and composition since moved into this host — the kernel package no longer carries a `bin`). All new surface this Objective builds stays ns-named — `ns init`, `ns skills`, `ns extension …`, `ns objective …`, the `<!-- ns:begin -->` pointer stanza, the `@nseng-ai/ns-init` package. Run-from-source is no longer the only path: `checkout-free-sdl-distribution` (closed 2026-07-06) delivered the first bundled `@nseng-ai/ns` package, and `objectives-bare-core-release` subsequently published and verified the coordinated bare-core `0.1.3` set. In a vanilla foreign repository, registry-served `@nseng-ai/ns@0.1.3` initially lacked `ns objective`; after initialization and `npm:@nseng-ai/objectives@0.1.3` acquisition, all ten Objective skills provisioned into Claude Code and `ns objective list` succeeded without this checkout or `ts/node_modules`.
 
 This Objective owns the end-to-end customer onboarding thread. Treat it as the parent/umbrella Objective for the customer Objective shipment: its formal Objective Edges identify subobjectives whose delivered scope is consumed here. The sequencing order is:
 
 1. `checkout-free-sdl-distribution` — landed and closed (2026-07-06): `@nseng-ai/ns` and `@nseng-ai/objectives` were published to npm (initially `0.1.1`) and a checkout-free `npx @nseng-ai/ns@0.1.1 objective list` smoke passed, so an installable `ns` now exists.
 2. `ns-skills-steelthread` — landed and closed: a first-party `ns skills` list/path/install surface (in `@nseng-ai/harness-artifacts`) now provisions the objective skill into harness roots. The broader `skill-management-subsystem` umbrella remains open for the rest of skill provisioning.
 3. `cross-harness-parity` — closed 2026-07-11, intentionally concluded rather than completed: it delivered the parity doctrine and reachability contract (deterministic logic in a shared CLI, a skill driving it, Pi additive); its remaining verification goals fold into the end-to-end docs/onboarding effort this Objective drives.
-4. `eve-parity-docs-site` — final launch substrate; publishable docs can progress in parallel, but final customer docs should reflect the stabilized install/init/skill surfaces.
+4. `objectives-bare-core-release` — closed 2026-07-14 after publishing coordinated `0.1.3`, verifying registry tarballs, and passing the foreign-repository bare-core acquisition smoke.
+5. `eve-parity-docs-site` — final launch substrate; publishable docs can progress in parallel, but final customer docs should reflect the now-verified install/init/skill surfaces.
 
 This ordering is guidance in parent prose, not an edge taxonomy: Objective Edges remain kind-less, and this record carries no `blocked` sentence while no subobjective actively blocks the next useful parent slice.
 
@@ -73,14 +74,14 @@ Assumptions:
 - npm is the customer install vector for the `ns` CLI. (User-confirmed.)
 - The supported surface is the `ns` CLI, not a standalone objective binary. (User-confirmed.)
 - Skill/artifact delivery is consumed from `@nseng-ai/harness-artifacts`, not rebuilt: the first-party `ns skills` list/path/install surface (from the closed `ns-skills-steelthread`) remains for first-party skills, and `ns init`/`ns extension` activation provisions extension-declared bundled artifacts through the descriptor activation surface (`prepareDeclaredArtifactActivation`/`applyPreparedDeclaredArtifactActivation` behind ns-init's `ArtifactActivationGateway`). This replaced the interim `SkillMaterializer` seam, which no longer exists in `@nseng-ai/ns-init`. *(The 2026-07-05 open question about shipping skills inside `@nseng-ai/objectives` resolved toward first-party provisioning; the objectives extension now declares its activation contribution — instructions section plus `consumerDirs: [".ns/objectives"]` — in its descriptor.)*
-- `ns objective` is effectively zero-config for a customer — trunk is auto-detected and `objective list` is explicitly Graphite-free — so portability is expected, though not yet verified end-to-end outside this checkout.
+- `ns objective` is effectively zero-config for a customer — trunk is auto-detected and `objective list` is explicitly Graphite-free. The `0.1.3` foreign-repository acquisition smoke verified this CLI portability outside the checkout; the full agent-driven lifecycle remains for onboarding verification.
 - `AGENTS.md` is the portable cross-harness instruction carrier: Codex and Pi read it natively, and Claude Code reaches it via the `CLAUDE.md → @AGENTS.md` import.
 
 Risks:
 
 - The checkout-free npm bundle was the long pole; its owner (`checkout-free-sdl-distribution`) closed 2026-07-06. The full public `@nseng-ai/*` set is published, registry latest `0.1.2` (2026-07-07), `@nseng-ai/ns` exposes `bin.ns` and the expected kernel subpath exports, and a registry-backed checkout-free smoke (`npx @nseng-ai/ns@0.1.1 objective list` from a foreign repo with no ns checkout) passed. This long-pole risk is retired.
-- Objective may carry hidden checkout / `ts/node_modules` assumptions: the CLI loads the objective capability and hidden `exec` surface through kernel extension discovery. The registry-backed smoke confirmed first-party Objective discovery works from a published artifact in a foreign repo with no checkout — but only for the batteries-included shape. What remains unverified end-to-end is the acquisition-path flow (`ns extension install npm:@nseng-ai/objectives`) plus the `ns init` activation path in a throwaway repo (the Claude-Code verification row).
-- The registry shape still bundles objectives: npm latest `0.1.2` (published 2026-07-07T19:18Z) predates the same-day commit that removed Objective commands from the default `@nseng-ai/ns` host. The source-side unbundle has landed (the host no longer depends on `@nseng-ai/objectives`, and the checkout-free smoke now asserts Objective commands are absent from default help); the remaining exposure is the bare-core republish and re-verification through the `ns extension install npm:@nseng-ai/objectives` path before the docs/verification rows can complete.
+- De-risked for the CLI acquisition path: the registry-backed `0.1.3` smoke proved bare core, `ns init`, `ns extension install npm:@nseng-ai/objectives@0.1.3`, all ten Claude Code skill artifacts, and `ns objective list` in a foreign repository without checkout dependencies. What remains unverified is the fresh Claude Code agent following published docs through create → next → update → close without improvisation.
+- De-risked: coordinated `0.1.3` replaced the stale batteries-included `0.1.2` registry shape. Strict tarball verification confirmed bare core and standalone Objectives artifacts before the acquisition smoke passed.
 - Writing into a customer's `AGENTS.md` risks clobbering their content; mitigated by the landed pointer-stanza managed-region design (one minimal permanent stanza; all regenerated content lives in `.ns/instructions.md`).
 - Codex cannot make explicit-only skills zero-ambient, so objective skills always cost context on Codex. Acceptable, but must be documented.
 - Dependency-Objective coordination risk has largely retired: four of the six edge counterparts are closed (`checkout-free-sdl-distribution`, `ns-skills-steelthread`, `extension-descriptor-contract`, and `cross-harness-parity` — the last intentionally concluded, its residual verification folding into this Objective's docs/onboarding thread). The open dependencies are `eve-parity-docs-site` (docs un-gating still depends on the rest of the docs corpus it owns) and the `skill-management-subsystem` umbrella.
@@ -201,21 +202,21 @@ Resolved 2026-07-10 for the first customer-complete install slice:
 Reopened 2026-07-05 by the Pi-style extension-install decision; resolved 2026-07-09 in
 the README-driven design session (see Resolved Decisions above):
 
-- **`ns install` surface design** — RESOLVED and now largely implemented: acquisition
-  verbs live under the `ns extension` group with the explicit `npm:`/local-path
-  source-spec grammar; settings home is repo-level `ns.toml` only; `ns extension update`
-  is single-target; self-update stays reserved at top-level `ns update` (the retired
-  top-level extension-update flags are rejected with a usage error). Canonical design:
-  `references/README-draft.md`. `ns extension install`, identity-matched `uninstall`,
-  and single-target `update` have all landed with full activation reconciliation; the
-  remaining verb is `ns extension list`.
+- **`ns install` surface design** — RESOLVED and implemented: acquisition verbs live
+  under the `ns extension` group with the explicit `npm:`/local-path source-spec grammar;
+  settings home is repo-level `ns.toml` only; `ns extension update` is single-target;
+  self-update stays reserved at top-level `ns update` (the retired top-level
+  extension-update flags are rejected with a usage error). Canonical design:
+  `references/README-draft.md`. Install, identity-matched uninstall, single-target update,
+  and deterministic read-only list have all landed.
 - **Where objective skills ship** — RESOLVED: the objectives extension declares its
   activation contribution (instructions section + `.ns/objectives` consumer dir) in its
   descriptor, and bundled artifacts are provisioned into selected harness roots by the
   generic activation machinery consumed from `@nseng-ai/harness-artifacts`; the
   first-party `ns skills` surface remains for checkout-side first-party skills.
-  End-to-end provisioning from the published tarball into a customer repo is still to be
-  verified (Claude-Code verification row).
+  Published `0.1.3` provisioning is now verified for Claude Code: all ten declared
+  Objective skills landed under `.claude/skills/` in a foreign repository. Codex and Pi
+  breadth remains parked after the first shipped slice.
 - **Where `ns init` lives** — RESOLVED and implemented as a split: core owns a generic
   `init` orchestrator (git posture, harness persistence, pointer-stanza +
   `.ns/instructions.md` mechanics, declared-artifact provisioning); extensions own their

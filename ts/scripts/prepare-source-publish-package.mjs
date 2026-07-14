@@ -23,12 +23,21 @@ await rm(publishRoot, { recursive: true, force: true });
 await mkdir(publishRoot, { recursive: true });
 await cp(resolve(packageRoot, "src"), resolve(publishRoot, "src"), { recursive: true });
 await rewriteSdkImports(resolve(publishRoot, "src"));
+await copyReadmeIfPresent(packageRoot, publishRoot);
 if (sourceManifest.name === "@nseng-ai/objectives") {
 	await copyObjectivesPublishSkills({ repoRoot, publishRoot });
 }
 
 const manifest = buildPublishManifest(sourceManifest);
 await writeFile(resolve(publishRoot, "package.json"), `${JSON.stringify(manifest, null, "\t")}\n`);
+
+async function copyReadmeIfPresent(sourceRoot, targetRoot) {
+	try {
+		await cp(resolve(sourceRoot, "README.md"), resolve(targetRoot, "README.md"));
+	} catch (error) {
+		if (error?.code !== "ENOENT") throw error;
+	}
+}
 
 function assertPackageCanPublish(manifest) {
 	if (typeof manifest.name !== "string" || !manifest.name.startsWith("@nseng-ai/")) {

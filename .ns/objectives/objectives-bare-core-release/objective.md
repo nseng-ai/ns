@@ -1,5 +1,4 @@
 ---
-blocked: Publication and registry-backed verification are intentionally deferred until the release is reprioritized.
 edges:
   - objective: ship-objectives-to-customers
     annotation: Subobjective of the customer-Objectives umbrella; owns publication and checkout-free verification of the bare-core Objectives acquisition path.
@@ -11,7 +10,7 @@ edges:
 
 ## Thesis
 
-Publish and verify the first registry release in which `@nseng-ai/ns` is genuinely bare core and Objectives arrive through the customer extension-acquisition path. Source has already removed the bundled Objectives capability, but npm latest remains `0.1.2`, which predates that unbundle. This Subobjective closes the gap between landed source and the irreversible customer artifact.
+Publish and verify the first registry release in which `@nseng-ai/ns` is genuinely bare core and Objectives arrive through the customer extension-acquisition path. At creation, source had removed the bundled Objectives capability but npm latest remained `0.1.2`, predating that unbundle. Coordinated release `0.1.3` closed the gap between landed source and the irreversible customer artifact.
 
 The release is successful only when a foreign repository with no ns checkout or development toolchain can install the published core, observe that Objective commands are initially absent, install `npm:@nseng-ai/objectives`, and then run `ns objective list` through the acquired extension.
 
@@ -50,13 +49,19 @@ Assumptions:
 
 Risks:
 
-- npm publication is an irreversible external write. Execution must stop for explicit human authorization immediately before publishing and must report the exact package/version set.
+- npm publication was completed under explicit human authorization for the exact coordinated `0.1.3` set; the irreversible-write boundary was honored.
 - Workspace packages may require coordinated version or dependency publication; publishing only the two visible packages could leave registry dependency ranges unsatisfied.
-- Local pack and workspace tests may conceal undeclared checkout dependencies. The foreign-repository smoke is the release gate. Packed-artifact inspection surfaced and the candidate repaired one such blocker: package checks and dry-run publication had succeeded while the standalone Objectives tarball omitted its promised harness artifacts. Preparation now asserts the exact canonical skill set and every copied `SKILL.md`; registry-backed acquisition remains the decisive runtime proof.
+- De-risked: local pack and workspace tests could conceal undeclared checkout dependencies. Packed-artifact inspection surfaced and the candidate repaired one such blocker: package checks and dry-run publication had succeeded while the standalone Objectives tarball omitted its promised harness artifacts. Preparation now asserts the exact canonical skill set and every copied `SKILL.md`; the registry-backed foreign-repository smoke subsequently proved acquisition and runtime behavior without this checkout.
 - Global installs can contaminate verification. Use isolated prefixes or equivalent bounded environments and prove the invoked binary and packages come from the intended registry versions.
-- The registry may partially accept a coordinated release. Recovery must publish forward with clear evidence rather than overwrite immutable versions.
-- The qualified `0.1.3` candidate may become stale while publication is deferred. Before resuming, recheck registry availability, coordinated package versions, intervening source changes, and the full dry-run qualification rather than publishing the current candidate on historical evidence.
+- The registry may partially accept a coordinated release. This did not materialize for `0.1.3`: all 20 packages published successfully and strict registry verification passed after propagation retries.
+- The risk of publishing stale qualification evidence was de-risked by freshly confirming all 20 versions absent and rerunning the complete dry-run qualification immediately before publication.
 
 ## Open Questions
 
-Publication is intentionally deferred. When the release is reprioritized, determine whether `0.1.3` remains the correct coordinated version and present the refreshed package set for authorization before the external write.
+None. The coordinated `0.1.3` set was freshly qualified, explicitly authorized, published, and strictly verified.
+
+## Closure
+
+Completed with coordinated registry release `0.1.3`. Strict registry verification confirmed all 20 packages and independently inspected the bare-core and standalone Objectives tarballs. A subsequent smoke in a vanilla foreign git repository installed `@nseng-ai/ns@0.1.3`, confirmed `ns objective` was absent before acquisition, initialized Claude Code, installed `npm:@nseng-ai/objectives@0.1.3`, provisioned all ten declared Objective skills under `.claude/skills/`, and ran `ns objective list` successfully without this checkout or `ts/node_modules`.
+
+This clears the registry-artifact and acquisition-path dependency for `ship-objectives-to-customers` and `objectives-claude-onboarding-steelthread`. The latter still owns the documented, fresh-session Claude Code lifecycle journey and remains gated on its docs-site launch slice. General release automation, self-update, extension fleet updates, and non-npm channels remain parked follow-ups.
