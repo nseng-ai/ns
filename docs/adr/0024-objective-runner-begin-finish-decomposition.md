@@ -4,6 +4,8 @@
 
 Accepted
 
+Refined by ADR 0037 only for explicitly authorized parent-only publication after a committed Runner Checkpoint; the decomposed step itself remains local-only.
+
 Supersedes ADR 0022 in part: the invocation surface, the child report medium, and child-dispatch ownership. Every other ADR 0022 decision — the verification gate, runner-owned commits with provenance trailers, the two-zone Runner Checkpoint trust model, parent-initiated recovery, and parental Semantic Update judgment — stands unchanged and is restated below only where the new surface touches it.
 
 ## Context

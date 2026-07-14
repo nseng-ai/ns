@@ -70,8 +70,16 @@ Include every attempt, including `--recover` attempts, with its checkpoint statu
 - Semantic Updates recorded: yes/no, with file names if known.
 - Updates still needed: yes/no, with reason.
 
+### Parent publication
+
+- Publication mode: off / bound / unavailable.
+- Bound target when enabled: Objective slug, branch, existing PR number/URL/head branch, without credentials or authorization payload content.
+- Per committed step: local Runner commit, optional parent tracking commits, branch-push outcome, and managed PR-summary outcome (`updated`, `pushed-pr-update-failed`, or not attempted).
+- Keep runner-attested facts, child-reported validation claims, and parent judgments visibly distinct. Never present a child claim as publication evidence.
+- Authorization scratch cleanup: completed / failed / not applicable. A PR-summary failure does not erase a successful push and must be reported as a successful-partial outcome.
+
 ### Recommended next action
 
 - Continue with another run / inspect the branch stack / run objective-update / close Objective / ask for product decision.
-- State that HEAD is on the last step's branch and that push/submit/PR actions were intentionally not performed.
+- State that HEAD is on the last step's branch. If publication was off or unavailable, state that push/submit/PR actions were intentionally not performed. If parent publication ran, state its exact bounded outcome and confirm that no submit, PR creation, force-push, merge/land, deployment, or other external action occurred.
 ```

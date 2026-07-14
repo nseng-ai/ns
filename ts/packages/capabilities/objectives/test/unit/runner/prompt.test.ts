@@ -25,8 +25,10 @@ describe("buildRunnerChildPrompt", () => {
 		expect(prompt).toContain("Do not run `gt create`, `gt checkout`, `gt restack`");
 		expect(prompt).toContain("use plain `git switch` instead of `gt checkout`");
 		expect(prompt).toContain("Leave ALL changes uncommitted.");
-		expect(prompt).toContain("the runner owns staging and the local commit");
-		expect(prompt).toContain("the parent owns any later push/submit/handoff decision");
+		expect(prompt).toContain("may be run by the implementation child");
+		expect(prompt).toContain("The child has no publication authority");
+		expect(prompt).toContain("`runner-finish` owns only the verified local commit");
+		expect(prompt).toContain("distinct parent-only action after the Runner Checkpoint");
 		expect(prompt).toContain("`gt submit`");
 		expect(prompt).toContain("per the repo's prose validation policy");
 		expect(prompt).toContain("`validation` section of your report");

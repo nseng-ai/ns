@@ -1,4 +1,4 @@
-import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "./objective-runner-rules.ts";
+import { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "./objective-runner-rules.ts";
 import type { ObjectiveSelectionSpec } from "./objective-selection.ts";
 
 export type ObjectiveCliSubcommand = "next" | "update" | "close" | "autorun";
@@ -70,7 +70,7 @@ export const allObjectiveCreateCommandSpecs: ObjectiveCreateCommandSpec[] = [
 
 const OBJECTIVE_AUTORUN_PI_TOOL_REMINDER = `
 
-Pi session note: use the \`objective_runner_step\` tool for each runner step instead of hand-running \`ns objective exec runner-begin\`, dispatching a subagent yourself, and \`ns objective exec runner-finish\`. The tool owns the mechanical step, live progress widget, and fresh report/facts scratch paths for every call, including recovery attempts. The parent session still owns every judgment checkpoint: derive thin guidance, read each returned Runner Checkpoint, decide continue/recover/stop, route Semantic Updates through objective-update between steps, and honor this canonical forbidden-action rule: "${OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE}". To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance. Never mutate the worktree while a tool call is running.`;
+Pi session note: use the \`objective_runner_step\` tool for each runner step instead of hand-running \`ns objective exec runner-begin\`, dispatching a subagent yourself, and \`ns objective exec runner-finish\`. The tool owns the mechanical step, live progress widget, and fresh report/facts scratch paths for every call, including recovery attempts. The parent session still owns every judgment checkpoint: derive thin guidance, read each returned Runner Checkpoint, decide continue/recover/stop, route Semantic Updates through objective-update between steps, and honor this canonical forbidden-action rule: "${OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE}". To recover a failed step, call the tool again with \`recover: true\` and sharpened guidance. Never mutate the worktree while a tool call is running.`;
 
 export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 	defineObjectiveCommandSpec({
@@ -115,7 +115,7 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 			"Pick an active Objective, then invoke objective-autorun to drive it through repeated verified runner steps.",
 		selectionTitle: "Select an active Objective to autorun",
 		fallbackPrompt:
-			"The objective-autorun skill was not found among loaded Pi skills. Follow the repository's Objective Runner workflow anyway for the explicit Objective below: drive it through repeated decomposed runner steps (ns objective exec runner-begin, one dispatched subagent, ns objective exec runner-finish), reading each Runner Checkpoint and making an explicit continue, recover, or stop decision between steps. Route tracking through objective-update between steps only. Do not push, submit, publish, merge, or perform any other write-capable external action; the run ends with local stacked branches handed back to the normal workflow.",
+			"The objective-autorun skill was not found among loaded Pi skills. Follow the repository's Objective Runner workflow anyway for the explicit Objective below: drive it through repeated decomposed runner steps (ns objective exec runner-begin, one dispatched subagent, ns objective exec runner-finish), reading each Runner Checkpoint and making an explicit continue, recover, or stop decision between steps. Route tracking through objective-update between steps only. Every implementation child and Runner step is local-only and external-write-forbidden. Parent publication is off by default; use it only through an implemented parent-only publisher after a committed checkpoint and tracking judgment, when durable Runner Policy plus exact human-confirmed Objective/branch/existing-PR/head binding authorize this invocation. Never substitute raw push or PR mutation, and never create a PR, submit/restack, force-push, merge, land, or deploy.",
 		actionPrompt:
 			"Run objective-autorun with this Objective selection and launch scope (slug/path plus optional scope, step budget, and standing guidance):",
 		postSelectionReminder: OBJECTIVE_AUTORUN_PI_TOOL_REMINDER,

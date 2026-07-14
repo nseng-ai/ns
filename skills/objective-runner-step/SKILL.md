@@ -77,7 +77,7 @@ The checkpoint title carries the typed status: `committed`, `stop`, `blocked`, `
 
 ## Post-checkpoint playbook
 
-After every finish, read the checkpoint and make an explicit decision:
+After every finish, read the checkpoint and make an explicit decision. Finishing the step never publishes it; any conditionally authorized publication is a later parent-only action after the decisions and tracking judgment below.
 
 - **`committed`** — review the verified facts (branch, commit, changed paths) and the claimed narrative. If the work should continue, begin the next step from the branch the step produced. Apply the Semantic Update judgment below first.
 - **`verification-failed` or `blocked`** — the worktree is left exactly as the subagent left it. Choose one:
@@ -94,15 +94,20 @@ One slice per step, one attempt per dispatch. There are no loops inside the runn
 
 The runner never touches Objective tracking, and the subagent is not instructed to update it. After a checkpoint, judge whether the step had **material Objective impact** — meaningful progress, decisions, risks, blockers, assumption changes, plan changes, or completion evidence. If so, record it through the `objective-update` skill and commit that update yourself, **between steps only**. Routine step summaries are not Objective updates; most committed steps need none.
 
+## Conditional parent-only publication
+
+ADR 0037 does not change this step's authority. The implementation child and every action from `runner-begin` through `runner-finish` remain local-only. The child receives no publication attestation, bound target, summary artifact, scratch path, or credential; `runner-finish` owns only the verified local commit and Runner Checkpoint.
+
+A trusted parent may publish afterward only when the selected Objective's durable Runner Policy permits it, a human confirms an exact launch preview, and the implemented parent publisher binds that one invocation to the Objective slug, current non-trunk branch, already-existing PR, and launch/last-published heads. Before publication, the parent must read the committed checkpoint, complete its continue/recover/stop and Semantic Update judgments, commit any material Objective tracking, and supply the cumulative PR-ready summary. If the parent publication capability is unavailable, the run remains local-only; never substitute raw `git push`, `gt submit`, or `gh` mutation.
+
 ## Hard boundaries
+
+Canonical child/Runner-step forbidden-action wording: "Do not push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — no `git push`, `gt submit`, `gh pr create`, `ns flow submit`, or PR mutation may be run by the implementation child or from inside an Objective Runner step. The child has no publication authority; `runner-finish` owns only the verified local commit. Any authorized publication is a distinct parent-only action after the Runner Checkpoint, parent judgment, and completion of any material Objective tracking."
 
 The runner will never, in any mode:
 
-- push, submit, publish, merge, land, create or update pull requests, or perform any other write-capable external action — nothing leaves the machine from an Objective Runner step; the runner owns staging and the local commit, and the parent owns any later push/submit/handoff decision after separate human authorization;
 - update Objective tracking or write Semantic Updates;
 - commit on trunk, amend, or accept a commit the subagent made itself (a subagent that committed on its own fails verification);
 - run more than one slice, retry on its own, or carry state between steps.
 
 And you, the parent, never mutate the worktree between begin and finish — the gate makes violations loud, not silent.
-
-If you need any of those, do them yourself as the parent after the checkpoint, through the normal workflows and only when separately authorized.
