@@ -36,7 +36,7 @@ import {
 import type {
 	SupervisionCleanupResult,
 	SupervisionPollResult,
-} from "../src/sandbox/supervision-probe.ts";
+} from "../src/sandbox/supervision.ts";
 
 // This workflow's manifest metadata id lives in `dispatch-id.ts`
 // (runtime-free) so the trigger route's Node-builder bundle never imports

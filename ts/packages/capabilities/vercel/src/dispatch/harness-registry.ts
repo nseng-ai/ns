@@ -2,6 +2,8 @@
 // repo-local config boundary and the remote invocation resolver derive from
 // this registry, so a harness is accepted only when it has a complete recipe.
 
+import type { SandboxCommand } from "../sandbox/contracts.ts";
+
 export const DISPATCH_SETTINGS_PATH = "ns.toml";
 export const DISPATCH_PACKAGE_MANIFEST_PATH = "ts/package.json";
 export const DISPATCH_PACKAGE_MANAGER_FIELD =
@@ -10,16 +12,11 @@ export const DISPATCH_PACKAGE_MANAGER_FIELD =
 /** Checkout-relative entry module for the ns-owned Pi runner. */
 export const PI_RUNNER_ENTRY_PATH = "ts/packages/capabilities/vercel/src/pi-runner/main.ts";
 
-export interface HarnessCommand {
-	readonly cmd: string;
-	readonly args: readonly string[];
-}
-
 export interface HarnessInvocation {
 	/** Sequential provisioning commands; each must exit 0. */
-	readonly provisionCommands: readonly HarnessCommand[];
+	readonly provisionCommands: readonly SandboxCommand[];
 	/** The detached, headless harness launch command. */
-	readonly launchCommand: HarnessCommand;
+	readonly launchCommand: SandboxCommand;
 	/** Deployable environment-variable names copied into the launch command. */
 	readonly launchEnvironmentVariableNames: readonly string[];
 }

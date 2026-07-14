@@ -5,8 +5,17 @@
 // `workflows/supervision-probe.ts`, which replays inside the Workflow SDK's
 // deterministic sandbox, so it must stay dependency-free (no Node builtins,
 // no zod, no vendor SDKs) and every function here must be deterministic.
-// Step-side I/O lives in `supervision-probe-steps.ts`; the real Sandbox
-// adapter lives in `real-supervision-sandbox-gateway.ts`.
+// Step-side I/O lives in `supervision-probe-steps.ts`; reusable poll/sleep
+// supervision lives in `supervision.ts`; the real Sandbox adapter lives in
+// `real-supervision-sandbox-gateway.ts`. Probe-specific modules remain until
+// the long-run live pass is proven and folded; neutral `supervision.ts`
+// survives that retirement.
+import type { SandboxCommand } from "./contracts.ts";
+import type {
+	SupervisionCleanupResult,
+	SupervisionOutcome,
+	SupervisionPlan,
+} from "./supervision.ts";
 
 /**
  * Validated bounds for the trigger's `runSeconds` parameter. The run length
@@ -49,12 +58,6 @@ export const SUPERVISION_DONE_MARKER = "__NS_SUPERVISION_PROBE_DONE_V1__";
 export interface SupervisionProbeParams {
 	readonly runSeconds: number;
 	readonly pollSeconds: number;
-}
-
-export interface SupervisionPlan {
-	readonly pollIntervalMs: number;
-	readonly maxPolls: number;
-	readonly sandboxTimeoutMs: number;
 }
 
 export type SupervisionPlanResult =
@@ -116,10 +119,7 @@ function isBoundedInteger(value: number, min: number, max: number): boolean {
  * poll step reads. `runSeconds` must already be validated (an integer within
  * bounds), so interpolating it into the script is injection-safe.
  */
-export function buildSupervisionProbeCommand(runSeconds: number): {
-	readonly cmd: "sh";
-	readonly args: readonly string[];
-} {
+export function buildSupervisionProbeCommand(runSeconds: number): SandboxCommand {
 	const script = [
 		`deadline=$(( $(date +%s) + ${runSeconds} ))`,
 		`: > '${SUPERVISION_PROGRESS_PATH}'`,
@@ -155,53 +155,9 @@ export function parseSupervisionProgress(content: string | null): SupervisionPro
 	return { phase: hasDoneMarker ? "done" : "running", ticks };
 }
 
-export type SupervisionPollResult =
+export type SupervisionProbePollResult =
 	| { readonly ok: true; readonly phase: "running" | "done"; readonly ticks: number }
 	| { readonly ok: false; readonly code: "poll-failed"; readonly message: string };
-
-export type SupervisionOutcome =
-	| { readonly completed: true; readonly polls: number; readonly ticks: number }
-	| {
-			readonly completed: false;
-			readonly code: "poll-failed" | "run-timed-out";
-			readonly polls: number;
-			readonly ticks: number;
-	  };
-
-export interface SuperviseDetachedRunDeps {
-	/**
-	 * Awaited delay between polls. The workflow body passes the Workflow
-	 * SDK's `sleep()`, which suspends the run at zero compute; tests pass a
-	 * manual fake.
-	 */
-	sleep(durationMs: number): Promise<void>;
-	poll(): Promise<SupervisionPollResult>;
-}
-
-/**
- * The supervision loop: sleep one poll interval, poll once, repeat until the
- * detached run reports done, a poll fails, or the plan's poll budget (run
- * length plus grace) is exhausted. Deterministic given its deps, so the
- * workflow body can execute it directly under replay.
- */
-export async function superviseDetachedRun(
-	plan: SupervisionPlan,
-	deps: SuperviseDetachedRunDeps,
-): Promise<SupervisionOutcome> {
-	let ticks = 0;
-	for (let polls = 1; polls <= plan.maxPolls; polls++) {
-		await deps.sleep(plan.pollIntervalMs);
-		const poll = await deps.poll();
-		// `=== false` rather than `!`: the Vercel builder typechecks without
-		// strictNullChecks, where truthiness checks do not narrow the union.
-		if (poll.ok === false) {
-			return { completed: false, code: "poll-failed", polls, ticks };
-		}
-		ticks = poll.ticks;
-		if (poll.phase === "done") return { completed: true, polls, ticks };
-	}
-	return { completed: false, code: "run-timed-out", polls: plan.maxPolls, ticks };
-}
 
 export type SupervisionLaunchResult =
 	| { readonly ok: true; readonly sandboxName: string }
@@ -209,11 +165,8 @@ export type SupervisionLaunchResult =
 			readonly ok: false;
 			readonly code: "invalid-parameters" | "launch-failed";
 			readonly message: string;
+			readonly sandboxName?: string;
 	  };
-
-export type SupervisionCleanupResult =
-	| { readonly ok: true }
-	| { readonly ok: false; readonly code: "sandbox-cleanup-failed"; readonly message: string };
 
 export type SupervisionProbeFailureCode =
 	| "invalid-parameters"
@@ -256,10 +209,9 @@ export function combineSupervisionProbeResult(options: {
 	readonly sandboxName: string;
 	readonly outcome: SupervisionOutcome;
 	readonly cleanup: SupervisionCleanupResult;
+	readonly ticks: number;
 }): WorkflowSupervisionProbeResult {
-	const { params, sandboxName, outcome, cleanup } = options;
-	// `=== false` rather than `!`: the Vercel builder typechecks without
-	// strictNullChecks, where truthiness checks do not narrow the union.
+	const { params, sandboxName, outcome, cleanup, ticks } = options;
 	if (cleanup.ok === false) {
 		return {
 			ok: false,
@@ -267,7 +219,7 @@ export function combineSupervisionProbeResult(options: {
 			message: cleanup.message,
 			sandboxName,
 			polls: outcome.polls,
-			ticks: outcome.ticks,
+			ticks,
 		};
 	}
 	if (outcome.completed === false) {
@@ -280,7 +232,7 @@ export function combineSupervisionProbeResult(options: {
 					: "Supervision poll failed.",
 			sandboxName,
 			polls: outcome.polls,
-			ticks: outcome.ticks,
+			ticks,
 		};
 	}
 	return {
@@ -289,7 +241,7 @@ export function combineSupervisionProbeResult(options: {
 		runSeconds: params.runSeconds,
 		pollSeconds: params.pollSeconds,
 		polls: outcome.polls,
-		ticks: outcome.ticks,
+		ticks,
 	};
 }
 
@@ -303,11 +255,14 @@ export function combineSupervisionProbeResult(options: {
  * vendor types stay inside the real adapter.
  */
 export interface SupervisionSandboxGateway {
-	createSandboxWithDetachedCommand(options: {
+	createSandbox(options: {
 		readonly runtime: "node24";
 		readonly timeoutMs: number;
-		readonly command: { readonly cmd: string; readonly args: readonly string[] };
 	}): Promise<CreateSupervisionSandboxResult>;
+	runDetachedSandboxCommand(options: {
+		readonly sandboxName: string;
+		readonly command: SandboxCommand;
+	}): Promise<RunDetachedSupervisionSandboxCommandResult>;
 	readSandboxFile(options: {
 		readonly sandboxName: string;
 		readonly path: string;
@@ -317,6 +272,10 @@ export interface SupervisionSandboxGateway {
 
 export type CreateSupervisionSandboxResult =
 	| { readonly ok: true; readonly sandboxName: string }
+	| { readonly ok: false };
+
+export type RunDetachedSupervisionSandboxCommandResult =
+	| { readonly ok: true }
 	| { readonly ok: false };
 
 export type ReadSupervisionSandboxFileResult =

@@ -5,24 +5,13 @@
 // this stamp to reach Vercel's run observability. Pure and
 // dependency-free so both the CLI and any workflow-side reader can import
 // it without pulling in Node builtins or vendor SDKs.
+import { isValidDispatchRunId } from "./validation.ts";
+
+export { DISPATCH_RUN_ID_MAX_CHARS, isValidDispatchRunId } from "./validation.ts";
 
 /** Marker prefix identifying the run-id stamp line in a PR description. */
 export const DISPATCH_RUN_ID_STAMP_MARKER_PREFIX = "<!-- ns-dispatch:run-id:";
 const DISPATCH_RUN_ID_STAMP_MARKER_SUFFIX = " -->";
-
-/** Bound applied to stamped run ids (matches the trigger route's schema). */
-export const DISPATCH_RUN_ID_MAX_CHARS = 256;
-
-/**
- * Run ids safe to embed in the HTML-comment marker and inline code span.
- * Deliberately tighter than the trigger route's schema: the charset
- * excludes whitespace, backticks, and anything that could close the
- * comment early.
- */
-export function isValidDispatchRunId(runId: string): boolean {
-	if (runId.length < 1 || runId.length > DISPATCH_RUN_ID_MAX_CHARS) return false;
-	return /^[A-Za-z0-9._:-]+$/.test(runId);
-}
 
 /**
  * Build the single-line stamp: human-visible run id plus the machine

@@ -158,7 +158,10 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
   (code-first-run-spine-and-steel-thread-coded Semantic Update): all
   three probe code slices plus the gate extension are locally green
   on the run's stack; remaining is the batched live
-  deploy/trigger/observe pass.
+  deploy/trigger/observe pass. Probe-specific supervision modules remain
+  until the long-run live pass is proven and folded; the probe-neutral
+  supervision core survives their retirement. This does not mark the live
+  gate complete.
 - [~] Steel thread: `ns dispatch prompt` end-to-end under the dispatch
   workflow. Local CLI: preflight, dirty-tree refusal listing dirty
   files, push-first when the remote is missing/behind, anchor

@@ -10,6 +10,7 @@ import { execFile } from "node:child_process";
 import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import type { DispatchHarnessCompletion } from "../dispatch/completion-contract.ts";
 import {
 	DISPATCH_DECISION_LOG_PATH,
 	DISPATCH_PROMPT_PATH,
@@ -19,7 +20,6 @@ import type {
 	DecisionLogExistsResult,
 	DispatchWorkspaceGateway,
 	HasUncommittedChangesResult,
-	PiRunnerCompletion,
 	ReadDispatchedPromptResult,
 	WorkspaceWriteResult,
 } from "./runner.ts";
@@ -128,7 +128,9 @@ export function createRealDispatchWorkspaceGateway(options: {
 				return { ok: false };
 			}
 		},
-		async writeCompletionResult(completion: PiRunnerCompletion): Promise<WorkspaceWriteResult> {
+		async writeCompletionResult(
+			completion: DispatchHarnessCompletion,
+		): Promise<WorkspaceWriteResult> {
 			try {
 				await io.makeDirectory(dirname(DISPATCH_RESULT_PATH));
 				await io.writeTextFile(DISPATCH_RESULT_PARTIAL_PATH, `${JSON.stringify(completion)}\n`);

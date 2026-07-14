@@ -15,20 +15,14 @@
 // reached only through `PiCodingAgentGateway` (the churn-absorbing adapter
 // in `real-pi-coding-agent-gateway.ts`); this module is pure orchestration
 // over the gateway seams and is driven by fakes in tests.
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+
+import type { DispatchHarnessCompletion } from "../dispatch/completion-contract.ts";
 import {
 	DISPATCH_DECISION_LOG_PATH,
 	DISPATCH_RESULT_PATH,
 	DISPATCH_SUMMARY_MAX_CHARS,
 } from "../dispatch/dispatch-run.ts";
-
-/**
- * The completion the runner reports through the result file — the exact
- * object shape `parseDispatchHarnessResult` on the workflow side accepts.
- */
-export interface PiRunnerCompletion {
-	readonly outcome: "completed" | "failed";
-	readonly summary?: string;
-}
 
 export type ReadDispatchedPromptResult =
 	| { readonly ok: true; readonly prompt: string | null }
@@ -59,7 +53,7 @@ export interface DispatchWorkspaceGateway {
 	 * adapter must make the file appear atomically (never half-written), and
 	 * the runner calls it exactly once, last.
 	 */
-	writeCompletionResult(completion: PiRunnerCompletion): Promise<WorkspaceWriteResult>;
+	writeCompletionResult(completion: DispatchHarnessCompletion): Promise<WorkspaceWriteResult>;
 	hasUncommittedChanges(): Promise<HasUncommittedChangesResult>;
 	commitAllChanges(message: string): Promise<WorkspaceWriteResult>;
 }
@@ -183,7 +177,7 @@ export async function runDispatchedPiAgent(options: {
 async function produceCompletion(
 	workspace: DispatchWorkspaceGateway,
 	agent: PiCodingAgentGateway,
-): Promise<PiRunnerCompletion> {
+): Promise<DispatchHarnessCompletion> {
 	const promptRead = await workspace.readDispatchedPrompt();
 	if (!promptRead.ok) {
 		return failedCompletion("Reading the dispatched prompt failed.");
@@ -198,7 +192,7 @@ async function produceCompletion(
 	} catch (error) {
 		// The gateway contract returns failures as values; a throw is a broken
 		// invariant, but the supervisor still deserves a written outcome.
-		run = { ok: false, message: `The pi agent session threw: ${formatError(error)}` };
+		run = { ok: false, message: `The pi agent session threw: ${formatErrorMessage(error)}` };
 	}
 	if (!run.ok) {
 		return failedCompletion(run.message);
@@ -230,7 +224,7 @@ async function ensureDecisionLog(workspace: DispatchWorkspaceGateway): Promise<v
 	await workspace.writeFallbackDecisionLog(PI_RUNNER_FALLBACK_DECISION_LOG);
 }
 
-function failedCompletion(message: string): PiRunnerCompletion {
+function failedCompletion(message: string): DispatchHarnessCompletion {
 	const summary = capSummary(message);
 	return { outcome: "failed", ...(summary === null ? {} : { summary }) };
 }
@@ -240,8 +234,4 @@ function capSummary(text: string | null): string | null {
 	const trimmed = text.trim();
 	if (trimmed.length === 0) return null;
 	return trimmed.slice(0, DISPATCH_SUMMARY_MAX_CHARS);
-}
-
-function formatError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

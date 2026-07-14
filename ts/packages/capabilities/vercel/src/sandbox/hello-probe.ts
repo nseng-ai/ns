@@ -1,3 +1,5 @@
+import { isCommitSha } from "./validation.ts";
+import { isSafeSandboxName } from "./contracts.ts";
 import { parseGitHubRepository } from "../mint/contracts.ts";
 
 export const SANDBOX_HELLO_MARKER = "__NS_SANDBOX_HELLO_PROBE_V1__";
@@ -198,7 +200,10 @@ async function runCreatedSandboxProbe(options: {
 		return failure("revision-mismatch", "Sandbox checkout revision did not match.");
 	}
 
-	const sandboxName = safeSandboxName(options.sandbox.name);
+	const sandboxName =
+		options.sandbox.name !== undefined && isSafeSandboxName(options.sandbox.name)
+			? options.sandbox.name
+			: undefined;
 	return {
 		ok: true,
 		repository: options.repository,
@@ -219,15 +224,6 @@ function parseProbeOutput(
 	const observedSha = lines[1];
 	if (observedSha === undefined || !isCommitSha(observedSha)) return { ok: false };
 	return { ok: true, observedSha: observedSha.toLowerCase() };
-}
-
-function isCommitSha(value: string): boolean {
-	return /^[0-9a-fA-F]{40}$/.test(value);
-}
-
-function safeSandboxName(name: string | undefined): string | undefined {
-	if (name === undefined || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name)) return undefined;
-	return name;
 }
 
 function failure(code: SandboxHelloProbeFailureCode, message: string): SandboxHelloProbeResult {

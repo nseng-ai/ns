@@ -27,11 +27,8 @@ import {
 	type GitHubAppMintConfig,
 	type MintEnvironment,
 } from "../mint/runtime-config.ts";
-import { isSafeSandboxName } from "../sandbox/sandbox-name.ts";
-import type {
-	SupervisionCleanupResult,
-	SupervisionPollResult,
-} from "../sandbox/supervision-probe.ts";
+import type { SupervisionCleanupResult, SupervisionPollResult } from "../sandbox/supervision.ts";
+import { isSafeSandboxName } from "../sandbox/contracts.ts";
 import type { DispatchReportGateway } from "./anchor-pr-report.ts";
 import {
 	buildDispatchLandingCommand,
@@ -96,8 +93,8 @@ export function defaultDispatchStepDeps(): DispatchStepDeps {
  * configuration). Harness and package-manager configuration live in the
  * checkout's own `ns.toml` and `ts/package.json` at the dispatched SHA, so
  * the invocation and launch environment can only be resolved once the
- * sandbox exists; those checks — and every other post-creation failure —
- * stop the sandbox before returning, with the sandbox timeout as the backstop.
+ * sandbox exists. Every post-creation failure returns the safe sandbox name;
+ * workflow orchestration owns cleanup and cleanup-failure precedence.
  */
 export async function launchDispatchRun(
 	input: DispatchRunInput,
@@ -122,18 +119,27 @@ export async function launchDispatchRun(
 	}
 	const appConfig = appConfigResult.value;
 
-	const minter = deps.createDispatchTokenMinter(appConfig);
-	const mintResult = await minter.mintDispatchToken({
-		repository: appConfig.githubRepository,
-		purpose: "clone",
-	});
+	const mintContext = createDispatchMintContext(deps, appConfig);
+	if (mintContext === null) {
+		return { ok: false, code: "launch-failed", message: "Clone token mint failed." };
+	}
+	let mintResult;
+	try {
+		mintResult = await mintContext.minter.mintDispatchToken({
+			repository: mintContext.repository,
+			purpose: "clone",
+		});
+	} catch {
+		return { ok: false, code: "launch-failed", message: "Clone token mint failed." };
+	}
 	if (mintResult.ok === false) {
 		return { ok: false, code: "launch-failed", message: "Clone token mint failed." };
 	}
 
-	const sandboxes = deps.createSandboxGateway();
+	let sandboxes: DispatchSandboxGateway;
 	let createResult: CreateDispatchSandboxResult;
 	try {
+		sandboxes = deps.createSandboxGateway();
 		createResult = await sandboxes.createDispatchSandbox({
 			runtime: "node24",
 			timeoutMs: planDispatchSupervision().sandboxTimeoutMs,
@@ -173,11 +179,11 @@ export async function launchDispatchRun(
 		settingsRead = { ok: false };
 	}
 	if (settingsRead.ok === false) {
-		await stopSandboxBestEffort(sandboxes, sandboxName);
 		return {
 			ok: false,
 			code: "dispatch-misconfigured",
 			message: `Dispatch configuration is invalid: ${DISPATCH_SETTINGS_PATH} could not be read from the dispatched checkout.`,
+			sandboxName,
 		};
 	}
 
@@ -191,11 +197,11 @@ export async function launchDispatchRun(
 		packageManagerRead = { ok: false };
 	}
 	if (packageManagerRead.ok === false) {
-		await stopSandboxBestEffort(sandboxes, sandboxName);
 		return {
 			ok: false,
 			code: "dispatch-misconfigured",
 			message: `Dispatch configuration is invalid: ${DISPATCH_PACKAGE_MANAGER_FIELD} could not be read from the dispatched checkout.`,
+			sandboxName,
 		};
 	}
 
@@ -204,21 +210,25 @@ export async function launchDispatchRun(
 		packageManagerRead.content,
 	);
 	if (harnessResult.ok === false) {
-		await stopSandboxBestEffort(sandboxes, sandboxName);
 		// Non-secret by contract: the resolver's message describes checkout-owned
 		// configuration, never a source value or environment value.
-		return { ok: false, code: "dispatch-misconfigured", message: harnessResult.message };
+		return {
+			ok: false,
+			code: "dispatch-misconfigured",
+			message: harnessResult.message,
+			sandboxName,
+		};
 	}
 	const harness = harnessResult.value;
 
 	const launchEnvResult = resolveLaunchEnvironment(harness, deps.environment);
 	if (launchEnvResult.ok === false) {
-		await stopSandboxBestEffort(sandboxes, sandboxName);
 		return {
 			ok: false,
 			code: "dispatch-misconfigured",
 			// Variable name only — never an environment value.
 			message: `Dispatch configuration is invalid: ${launchEnvResult.variable}.`,
+			sandboxName,
 		};
 	}
 
@@ -230,24 +240,15 @@ export async function launchDispatchRun(
 		launchEnv: launchEnvResult.value,
 	});
 	if (prepared.ok === false) {
-		// The sandbox exists but the harness never started: stop it now rather
-		// than leak it until the sandbox timeout.
-		await stopSandboxBestEffort(sandboxes, sandboxName);
-		return { ok: false, code: "launch-failed", message: prepared.message };
+		return {
+			ok: false,
+			code: "launch-failed",
+			message: prepared.message,
+			sandboxName,
+		};
 	}
 
 	return { ok: true, sandboxName };
-}
-
-async function stopSandboxBestEffort(
-	sandboxes: DispatchSandboxGateway,
-	sandboxName: string,
-): Promise<void> {
-	try {
-		await sandboxes.stopSandbox({ sandboxName });
-	} catch {
-		// Best effort; the sandbox timeout is the cleanup backstop.
-	}
 }
 
 type LaunchEnvironmentResolution =
@@ -267,40 +268,79 @@ function resolveLaunchEnvironment(
 	return { ok: true, value: values };
 }
 
+type HarnessLaunchStageResult =
+	| { readonly ok: true }
+	| { readonly ok: false; readonly message: string };
+
 async function provisionAndLaunchHarness(options: {
 	readonly sandboxName: string;
 	readonly sandboxes: DispatchSandboxGateway;
 	readonly harness: HarnessInvocation;
 	readonly prompt: string;
 	readonly launchEnv: Readonly<Record<string, string>>;
-}): Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }> {
-	const { sandboxName, sandboxes, harness } = options;
+}): Promise<HarnessLaunchStageResult> {
+	const prompt = await writeDispatchPrompt(options);
+	if (prompt.ok === false) return prompt;
+	const provision = await provisionDispatchHarness(options);
+	if (provision.ok === false) return provision;
+	return await launchDetachedDispatchHarness(options);
+}
+
+async function writeDispatchPrompt(options: {
+	readonly sandboxName: string;
+	readonly sandboxes: DispatchSandboxGateway;
+	readonly prompt: string;
+}): Promise<HarnessLaunchStageResult> {
 	try {
-		const writeResult = await sandboxes.writeSandboxFile({
-			sandboxName,
+		const result = await options.sandboxes.writeSandboxFile({
+			sandboxName: options.sandboxName,
 			path: DISPATCH_PROMPT_PATH,
 			content: options.prompt,
 		});
-		if (writeResult.ok === false) {
-			return { ok: false, message: "Writing the dispatched prompt into the sandbox failed." };
-		}
-		for (const command of harness.provisionCommands) {
-			const provisionResult = await sandboxes.runSandboxCommand({ sandboxName, command });
-			if (provisionResult.ok === false || provisionResult.exitCode !== 0) {
+		return result.ok
+			? { ok: true }
+			: { ok: false, message: "Writing the dispatched prompt into the sandbox failed." };
+	} catch {
+		return { ok: false, message: "Writing the dispatched prompt into the sandbox failed." };
+	}
+}
+
+async function provisionDispatchHarness(options: {
+	readonly sandboxName: string;
+	readonly sandboxes: DispatchSandboxGateway;
+	readonly harness: HarnessInvocation;
+}): Promise<HarnessLaunchStageResult> {
+	for (const command of options.harness.provisionCommands) {
+		try {
+			const result = await options.sandboxes.runSandboxCommand({
+				sandboxName: options.sandboxName,
+				command,
+			});
+			if (result.ok === false || result.exitCode !== 0) {
 				return { ok: false, message: "Harness provisioning failed." };
 			}
+		} catch {
+			return { ok: false, message: "Harness provisioning failed." };
 		}
-		const launchResult = await sandboxes.runDetachedSandboxCommand({
-			sandboxName,
-			command: harness.launchCommand,
+	}
+	return { ok: true };
+}
+
+async function launchDetachedDispatchHarness(options: {
+	readonly sandboxName: string;
+	readonly sandboxes: DispatchSandboxGateway;
+	readonly harness: HarnessInvocation;
+	readonly launchEnv: Readonly<Record<string, string>>;
+}): Promise<HarnessLaunchStageResult> {
+	try {
+		const result = await options.sandboxes.runDetachedSandboxCommand({
+			sandboxName: options.sandboxName,
+			command: options.harness.launchCommand,
 			env: options.launchEnv,
 		});
-		if (launchResult.ok === false) {
-			return { ok: false, message: "Detached harness launch failed." };
-		}
-		return { ok: true };
+		return result.ok ? { ok: true } : { ok: false, message: "Detached harness launch failed." };
 	} catch {
-		return { ok: false, message: "Harness provisioning failed." };
+		return { ok: false, message: "Detached harness launch failed." };
 	}
 }
 
@@ -326,7 +366,7 @@ export async function pollDispatchRun(
 		return { ok: false, code: "poll-failed", message: "Dispatch result read failed." };
 	}
 	const result = parseDispatchHarnessResult(readResult.content);
-	return { ok: true, phase: result.phase === "running" ? "running" : "done", ticks: 0 };
+	return { ok: true, phase: result.phase === "running" ? "running" : "done" };
 }
 
 /**
@@ -338,9 +378,10 @@ export async function readDispatchOutcome(
 	options: { readonly sandboxName: string },
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
 ): Promise<DispatchOutcomeReadResult> {
-	const sandboxes = deps.createSandboxGateway();
+	let sandboxes: DispatchSandboxGateway;
 	let resultRead: ReadDispatchSandboxFileResult;
 	try {
+		sandboxes = deps.createSandboxGateway();
 		resultRead = await sandboxes.readSandboxFile({
 			sandboxName: options.sandboxName,
 			path: DISPATCH_RESULT_PATH,
@@ -406,11 +447,19 @@ export async function landDispatchRun(
 	}
 	const appConfig = appConfigResult.value;
 
-	const minter = deps.createDispatchTokenMinter(appConfig);
-	const mintResult = await minter.mintDispatchToken({
-		repository: appConfig.githubRepository,
-		purpose: "landing",
-	});
+	const mintContext = createDispatchMintContext(deps, appConfig);
+	if (mintContext === null) {
+		return { ok: false, code: "landing-failed", message: "Landing token mint failed." };
+	}
+	let mintResult;
+	try {
+		mintResult = await mintContext.minter.mintDispatchToken({
+			repository: mintContext.repository,
+			purpose: "landing",
+		});
+	} catch {
+		return { ok: false, code: "landing-failed", message: "Landing token mint failed." };
+	}
 	if (mintResult.ok === false) {
 		return { ok: false, code: "landing-failed", message: "Landing token mint failed." };
 	}
@@ -503,9 +552,9 @@ async function withReportGateway(
 	deps: DispatchStepDeps,
 	operation: (gateway: DispatchReportGateway) => Promise<DispatchReportResult>,
 ): Promise<DispatchReportResult> {
-	const gateway = createReportGateway(deps);
-	if (gateway === null) return { ok: false };
 	try {
+		const gateway = createReportGateway(deps);
+		if (gateway === null) return { ok: false };
 		return await operation(gateway);
 	} catch {
 		return { ok: false };
@@ -517,9 +566,25 @@ function createReportGateway(deps: DispatchStepDeps): DispatchReportGateway | nu
 	// `=== false` rather than `!`: the Vercel builder typechecks without
 	// strictNullChecks, where truthiness checks do not narrow the union.
 	if (appConfigResult.ok === false) return null;
-	const appConfig = appConfigResult.value;
+	const mintContext = createDispatchMintContext(deps, appConfigResult.value);
+	if (mintContext === null) return null;
 	return deps.createReportGateway({
-		repository: appConfig.githubRepository,
-		minter: deps.createDispatchTokenMinter(appConfig),
+		repository: mintContext.repository,
+		minter: mintContext.minter,
 	});
+}
+
+/** Shared, value-free GitHub App/minter prologue for launch, land, and report stages. */
+function createDispatchMintContext(
+	deps: DispatchStepDeps,
+	config: GitHubAppMintConfig,
+): { readonly repository: string; readonly minter: DispatchTokenMinter } | null {
+	try {
+		return {
+			repository: config.githubRepository,
+			minter: deps.createDispatchTokenMinter(config),
+		};
+	} catch {
+		return null;
+	}
 }

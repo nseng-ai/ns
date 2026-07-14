@@ -5,14 +5,16 @@ import {
 	combineSupervisionProbeResult,
 	parseSupervisionProgress,
 	planSupervisionProbe,
-	superviseDetachedRun,
 	SUPERVISION_DONE_MARKER,
 	SUPERVISION_PROGRESS_PATH,
 	SUPERVISION_RUN_SECONDS_MAX,
 	SUPERVISION_TICK_SECONDS,
+} from "../../src/sandbox/supervision-probe.ts";
+import {
+	superviseDetachedRun,
 	type SupervisionPlan,
 	type SupervisionPollResult,
-} from "../../src/sandbox/supervision-probe.ts";
+} from "../../src/sandbox/supervision.ts";
 
 const FIVE_HOUR_SANDBOX_CAP_MS = 5 * 60 * 60 * 1000;
 
@@ -135,38 +137,58 @@ describe("superviseDetachedRun", () => {
 
 	it("sleeps one poll interval before every poll and completes when the run reports done", async () => {
 		const supervision = deps([
-			{ ok: true, phase: "running", ticks: 3 },
-			{ ok: true, phase: "done", ticks: 7 },
+			{ ok: true, phase: "running" },
+			{ ok: true, phase: "done" },
 		]);
 
 		const outcome = await superviseDetachedRun(plan, supervision);
 
-		expect(outcome).toEqual({ completed: true, polls: 2, ticks: 7 });
+		expect(outcome).toEqual({ completed: true, polls: 2 });
 		expect(supervision.sleeps).toEqual([30_000, 30_000]);
 	});
 
 	it("stops supervising when a poll fails", async () => {
 		const supervision = deps([
-			{ ok: true, phase: "running", ticks: 2 },
+			{ ok: false, code: "poll-failed", message: "temporary" },
 			{ ok: false, code: "poll-failed", message: "Supervision progress read failed." },
 		]);
 
 		const outcome = await superviseDetachedRun(plan, supervision);
 
-		expect(outcome).toEqual({ completed: false, code: "poll-failed", polls: 2, ticks: 2 });
+		expect(outcome).toEqual({ completed: false, code: "poll-failed", polls: 2 });
+	});
+
+	it("tolerates one failed poll before a successful completion", async () => {
+		const supervision = deps([
+			{ ok: false, code: "poll-failed", message: "temporary" },
+			{ ok: true, phase: "done" },
+		]);
+
+		expect(await superviseDetachedRun(plan, supervision)).toEqual({ completed: true, polls: 2 });
+	});
+
+	it("resets the consecutive failure count after a successful poll", async () => {
+		const supervision = deps([
+			{ ok: false, code: "poll-failed", message: "temporary" },
+			{ ok: true, phase: "running" },
+			{ ok: false, code: "poll-failed", message: "temporary again" },
+			{ ok: true, phase: "done" },
+		]);
+
+		expect(await superviseDetachedRun(plan, supervision)).toEqual({ completed: true, polls: 4 });
 	});
 
 	it("times out after the poll budget without a done marker", async () => {
 		const supervision = deps([
-			{ ok: true, phase: "running", ticks: 1 },
-			{ ok: true, phase: "running", ticks: 2 },
-			{ ok: true, phase: "running", ticks: 3 },
-			{ ok: true, phase: "running", ticks: 4 },
+			{ ok: true, phase: "running" },
+			{ ok: true, phase: "running" },
+			{ ok: true, phase: "running" },
+			{ ok: true, phase: "running" },
 		]);
 
 		const outcome = await superviseDetachedRun(plan, supervision);
 
-		expect(outcome).toEqual({ completed: false, code: "run-timed-out", polls: 4, ticks: 4 });
+		expect(outcome).toEqual({ completed: false, code: "run-timed-out", polls: 4 });
 		expect(supervision.sleeps).toHaveLength(4);
 	});
 });
@@ -178,8 +200,9 @@ describe("combineSupervisionProbeResult", () => {
 		const result = combineSupervisionProbeResult({
 			params,
 			sandboxName: "sbx-supervision",
-			outcome: { completed: true, polls: 28, ticks: 167 },
+			outcome: { completed: true, polls: 28 },
 			cleanup: { ok: true },
+			ticks: 167,
 		});
 
 		expect(result).toEqual({
@@ -196,8 +219,9 @@ describe("combineSupervisionProbeResult", () => {
 		const result = combineSupervisionProbeResult({
 			params,
 			sandboxName: "sbx-supervision",
-			outcome: { completed: true, polls: 28, ticks: 167 },
+			outcome: { completed: true, polls: 28 },
 			cleanup: { ok: false, code: "sandbox-cleanup-failed", message: "Sandbox cleanup failed." },
+			ticks: 167,
 		});
 
 		expect(result).toEqual({
@@ -214,8 +238,9 @@ describe("combineSupervisionProbeResult", () => {
 		const result = combineSupervisionProbeResult({
 			params,
 			sandboxName: "sbx-supervision",
-			outcome: { completed: false, code: "run-timed-out", polls: 30, ticks: 12 },
+			outcome: { completed: false, code: "run-timed-out", polls: 30 },
 			cleanup: { ok: true },
+			ticks: 12,
 		});
 
 		expect(result).toEqual({
@@ -232,8 +257,9 @@ describe("combineSupervisionProbeResult", () => {
 		const result = combineSupervisionProbeResult({
 			params,
 			sandboxName: "sbx-supervision",
-			outcome: { completed: false, code: "poll-failed", polls: 3, ticks: 9 },
+			outcome: { completed: false, code: "poll-failed", polls: 3 },
 			cleanup: { ok: true },
+			ticks: 9,
 		});
 
 		expect(result).toEqual({
