@@ -26,9 +26,11 @@ export type PrState = "OPEN" | "CLOSED" | "MERGED";
 
 export interface PrSummary {
 	number: number;
+	title: string;
 	state: PrState;
 	url: string;
 	headRefName: string;
+	baseRefName: string;
 }
 
 export interface PrGatewayFailure {
@@ -58,8 +60,10 @@ export interface SlotPrGateway {
 const prSummarySchema = z.object({
 	number: z.number().int(),
 	state: z.union([z.literal("OPEN"), z.literal("CLOSED"), z.literal("MERGED")]),
+	title: z.string(),
 	url: z.string(),
-	headRefName: z.string().default(""),
+	headRefName: z.string(),
+	baseRefName: z.string(),
 });
 
 const ghRepoViewSchema = z.object({
@@ -97,7 +101,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 
 	async getPrForBranch(branch: string): Promise<PrLookupResult> {
 		const result = await this.runGh(
-			["pr", "view", branch, "--json", "number,state,url,headRefName"],
+			["pr", "view", branch, "--json", "number,title,state,url,headRefName,baseRefName"],
 			"slot.pr.view_branch",
 		);
 		if (!commandSucceeded(result)) {
@@ -246,7 +250,7 @@ function buildPrBatchQuery(options: {
 	const fields = options.aliases
 		.map(
 			({ alias, branch }) =>
-				`${alias}: pullRequests(headRefName: ${JSON.stringify(branch)}, first: ${PR_BATCH_PAGE_SIZE}, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { number state url headRefName } }`,
+				`${alias}: pullRequests(headRefName: ${JSON.stringify(branch)}, first: ${PR_BATCH_PAGE_SIZE}, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { number title state url headRefName baseRefName } }`,
 		)
 		.join("\n");
 	return `query { repository(owner: ${JSON.stringify(options.owner)}, name: ${JSON.stringify(options.name)}) {\n${fields}\n} }`;

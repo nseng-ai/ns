@@ -13,35 +13,33 @@ edges:
 Two deterministic Graphite fact-gathering phases identified by the 2026-07-12 skill
 audit belong on the sanctioned `ns slot gt exec` surface beside `stack-branches`,
 `stack-map-branches`, `quiescence`, and `backup-refs`. **restack-preflight:**
-`objective-runner-step`'s preflight and scope determination — clean-tree check,
-gt-tracked check, rebase-in-progress detection, has-upstack-children probe, in-scope
-slot-conflict detection — is 4–6 tool calls of pure facts, and the Pi wrapper already
-re-implements part of it, so the logic exists in two places today; the audit sized it as
-`ns slot gt exec restack-preflight [--downstack] --format json` returning
-`{clean, tracked, rebaseInProgress, hasUpstackChildren, slotConflicts[],
-effectiveScope}`. **descendants-report:** `code-thermostack`'s per-descendant evidence
-loop (topology plus per-branch commit shape, diff stats, and PR metadata — 3+ calls per
-descendant bundling gt+git+gh) becomes one
-`ns slot gt exec descendants-report <branch> --format json`; the T4 routing retrofit
-already pointed thermostack and `code-gt-linearize-descendants` at `stack-branches` for
-topology and deliberately left linearize's per-branch evidence gathering hand-rolled
-pending this command — linearize is a known waiting consumer.
+`code-gt-restack-resolve`'s clean-tree, gt-tracked, rebase-in-progress,
+has-upstack-children, and in-scope Slot checks become one
+`ns slot gt exec restack-preflight [--scope downstack|full] --format json` call. The
+command defaults to downstack facts, while generic restacks and the Pi smart-restack
+wrapper explicitly request full scope to preserve plain `gt restack` behavior.
+**descendants-report:** `code-gt-linearize-descendants`' topology plus per-branch commit
+shape, diff statistics, and PR metadata loop becomes one
+`ns slot gt exec descendants-report <branch> --format json` call over the complete
+transitive descendant subtree.
 
 ## Scope
 
-- Implement `restack-preflight` with the audited envelope; retrofit
-  `objective-runner-step`'s preflight to the command, the expected fields, and its
-  decision table, and route the Pi wrapper's duplicate checks through the same command.
-- Implement `descendants-report` (topology + per-branch commit shape + diff stats + PR
-  metadata for a branch's descendant subtree); retrofit `code-thermostack` step 2 and
-  `code-gt-linearize-descendants`' per-branch evidence gathering to consume it.
-- Gateway seams and fake-driven tests per repo conventions; PR metadata behind the
-  existing GitHub access patterns.
+- Implement `restack-preflight` with explicit downstack/full scope; retrofit
+  `code-gt-restack-resolve`'s fact gathering and the Pi smart-restack wrapper while
+  retaining workflow-owned scope and conflict-resolution decisions.
+- Implement `descendants-report` for a branch's complete descendant subtree (topology +
+  per-branch commit shape + diff statistics + best-effort inline PR metadata); retrofit
+  `code-gt-linearize-descendants`' evidence gathering while retaining focused follow-up
+  diffs and proposal judgment.
+- Add domain-shaped Git comparison and batched GitHub seams with fake-driven tests per
+  repository conventions.
 
 ## Non-Goals
 
-- No judgment in the CLI: thermostack's keep/move/reorder/duplicate/escalate inference,
-  runner-step's scope decisions, and linearize's linearization plan stay in the skills.
+- No judgment in the CLI: restack scope selection, conflict-resolution policy, and
+  linearize's keep/move/reorder/duplicate/escalate proposal stay in the consuming
+  workflows.
 - No runtime Graphite dependency outside `slot gt` — this record lives entirely inside
   the sanctioned exception (`docs/conventions/graphite-dependency-boundary.md`).
 - No parsing of human-facing Graphite display output (`gt ls`, `gt log`) for machine
@@ -50,27 +48,39 @@ pending this command — linearize is a known waiting consumer.
 ## Completion Criteria
 
 - Both operations exist with unit and scenario tests and documented JSON envelopes.
-- `objective-runner-step` (and its Pi wrapper), `code-thermostack`, and
-  `code-gt-linearize-descendants` consume the commands; their hand-rolled loops are
-  gone.
+- `code-gt-restack-resolve`, the Pi smart-restack wrapper, and
+  `code-gt-linearize-descendants` consume the commands; their matching hand-rolled fact
+  loops are gone.
 - `just` green and `areg check` OK with retrofitted skills verified via
   `areg skill show <name>`.
 
 ## Assumptions and Risks
 
-- **Assumption — the audited envelopes fit the consumers.** The field sets sized by the
-  audit cover runner-step's decision table and thermostack/linearize's evidence needs;
-  divergence is resolved by additive fields, not per-consumer variants.
-- **Risk — descendants-report cost.** Per-branch diff stats and PR metadata over a large
-  subtree can be slow; the command should bound or batch work and report scope honestly
-  rather than silently truncating.
-- **Risk — wrapper duplication persists.** If the Pi wrapper keeps its own preflight
-  logic after the command lands, the two-implementations problem this record exists to
-  fix survives; the retrofit must cover both call sites.
+- **Revised assumption — the resolved envelopes fit the actual consumers.** Repository
+  evidence identifies `code-gt-restack-resolve`, the Pi wrapper, and
+  `code-gt-linearize-descendants` as the matching consumers; divergence is resolved by
+  additive fields, not per-consumer variants.
+- **Mitigated risk — descendants-report cost.** The command must return the complete
+  subtree; per-branch local Git evidence uses fixed concurrency and GitHub PR metadata
+  uses one deduplicated best-effort batch rather than truncating output.
+- **De-risked — wrapper duplication removed.** The Pi wrapper now invokes the same
+  full-scope `restack-preflight` command through a strict Clinkr-envelope boundary and
+  no longer inspects Git directories or worktree operation markers itself.
 
 ## Open Questions
 
-- Whether `descendants-report` inlines PR metadata or returns locators for a follow-up
-  `gh` call when PR volume is large.
-- Exact scope semantics shared between `restack-preflight` and the existing
-  `quiescence` preflight (overlap must be resolved, not duplicated).
+- None currently. PR metadata is inline and best-effort; `restack-preflight` defaults to
+  downstack scope and reuses only proven quiescence fact mechanics, leaving quiescence's
+  snapshot/ref-drift contract private.
+
+## Closure
+
+Completed. Both hidden `ns slot gt exec` helpers now publish tested Clinkr JSON schemas:
+`restack-preflight` provides downstack-by-default stack and Slot facts, while
+`descendants-report` provides complete deterministic descendant evidence with bounded
+local concurrency and best-effort batched PR metadata. `code-gt-restack-resolve`, the Pi
+smart-restack wrapper, and `code-gt-linearize-descendants` consume the helpers without
+moving workflow judgment or mutation into the CLI. Focused gateway, scenario, and Pi
+workflow tests pass; `just`, `areg check`, both `areg skill show` checks, direct
+`--json-schema` publication, and the stale-procedure search all pass. No remaining risks
+or follow-ups block the delivered outcome.

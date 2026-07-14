@@ -5,7 +5,6 @@ import {
 	execApiToCommandRunner,
 	type ExecResult,
 } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 import {
 	registerCommandWithImmediateAck,
@@ -22,7 +21,7 @@ import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/c
 import { expandRepoSkillBlock } from "@nseng-ai/pi/skills/expansion";
 
 import {
-	createProvisionalRestackPreflight,
+	createCommandRestackPreflight,
 	type RunSmartRestackPreflight,
 } from "./restack-preflight.ts";
 
@@ -107,12 +106,7 @@ export default function smartRestackExtension(
 	options: SmartRestackExtensionOptions = {},
 ): void {
 	const commands = createPiCommandExecApi(pi);
-	const runPreflight =
-		options.runPreflight ??
-		createProvisionalRestackPreflight({
-			commands,
-			git: new RealGitGateway(commands),
-		});
+	const runPreflight = options.runPreflight ?? createCommandRestackPreflight({ commands });
 	const loadSkillBlock = options.loadSkillBlock ?? expandRepoSkillBlock;
 
 	registerCommandWithImmediateAck({

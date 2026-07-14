@@ -19,14 +19,40 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
 ## Procedure
 
 1. Identify the target branch from the user request.
-2. Gather read-only evidence with existing Git, Graphite, and GitHub tools, following the display-output rule in `docs/conventions/graphite-dependency-boundary.md`:
-   - `git status --short --branch` to verify the current workspace state before planning;
-   - `ns slot gt exec stack-branches --format json` to read the tracked stack topology in one call: when `<target-branch>` appears in `branches` (listed bottom-to-top), the descendants are the entries after it, and `edges` carries every parent→child relationship;
-   - `ns slot gt exec stack-map-branches --format json` when the target branch is missing from that stack or the command fails with `forked-stack` (the accidental-fork case this skill cleans up): find the `<target-branch>` row and follow `children` transitively to enumerate descendants; each row also carries its `parent`. If the target branch is absent from the emitted graph, rerun with a larger `--recent-limit`;
-   - `git log --oneline --decorate --graph <target-branch>..HEAD` or branch-specific ranges to inspect commit shape;
-   - `git diff --stat <parent>...<branch>` and focused `git diff <parent>...<branch> -- <paths>` to compare branch content;
-   - `gt ls` only as a display cross-check for the human-readable stack;
-   - `gh pr view <branch> --json number,title,url,state,baseRefName,headRefName` when PR metadata is needed.
+2. Gather the complete read-only descendant evidence in one call:
+
+   ```bash
+   ns slot gt exec descendants-report <target-branch> --format json
+   ```
+
+   Parse the Clinkr envelope and continue only for `status: "ok"` with valid
+   JSON data and `complete: true`. Stop and report `status: "negative"`
+   (including an unknown local target or missing Graphite metadata),
+   `status: "failure"`, malformed/missing required fields, or any result where
+   `complete` is not exactly `true`; never infer a partial subtree.
+
+   The report's `root`, `scope`, `descendantCount`, and `edges` identify the
+   requested subtree. `descendants` is complete and parent-before-child. Each
+   descendant gives `branch`, `parent`, and `children`; `commits` contains the
+   parent-relative commit SHA and subject; `diff` contains three-dot
+   parent/branch totals (`filesChanged`, `insertions`, `deletions`) and per-path
+   additions/deletions/binary status; and `pr` is one of:
+
+   - `found`: PR number, title, state, URL, head, and base refs;
+   - `none`: no PR exists for that branch;
+   - `unavailable`: lookup failed, with a message.
+
+   Read and surface `warnings`. PR lookup unavailability may coexist with a
+   complete local report and does not invalidate it, but do not mistake
+   `unavailable` for `none`. Follow the display-output rule in
+   `docs/conventions/graphite-dependency-boundary.md`; `gt ls` may be shown only
+   as a human visual cross-check, never as topology evidence.
+
+   The report's commit and diff summaries are the default proposal evidence.
+   Run a focused full-content
+   `git diff <parent>...<branch> -- <paths>` only when semantic judgment needs
+   source detail that the report cannot provide; do not recreate the
+   per-branch log/stat/PR loop.
 3. Infer a proposal from that evidence:
    - keep a descendant in the target stack when its diff is a coherent continuation of the target branch;
    - move a descendant to trunk or another parent when it is independent of the target branch;

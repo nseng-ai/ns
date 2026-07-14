@@ -27,11 +27,24 @@ export {
 	runGtStackBranches,
 } from "./gt/exec/stack-branches.ts";
 export {
+	type GtDescendantsReportResult,
+	gtDescendantsReportRequestSchema,
+	gtDescendantsReportResultSchema,
+	renderGtDescendantsReport,
+	runGtDescendantsReport,
+} from "./gt/exec/descendants-report.ts";
+export {
 	gtQuiescenceRequestSchema,
 	gtQuiescenceResultSchema,
 	renderGtQuiescence,
 	runGtQuiescence,
 } from "./gt/exec/quiescence.ts";
+export {
+	gtRestackPreflightRequestSchema,
+	gtRestackPreflightResultSchema,
+	renderGtRestackPreflight,
+	runGtRestackPreflight,
+} from "./gt/exec/restack-preflight.ts";
 export {
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,

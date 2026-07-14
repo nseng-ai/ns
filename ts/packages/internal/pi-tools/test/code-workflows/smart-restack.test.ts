@@ -196,6 +196,45 @@ describe("smart restack extension registration", () => {
 	});
 });
 
+describe("smart restack default preflight wiring", () => {
+	test("runs the ns full-scope preflight adapter before gt restack", async () => {
+		const pi = new FakePi([
+			rawResult({
+				stdout: JSON.stringify({
+					status: "ok",
+					exitCode: 0,
+					data: {
+						clean: true,
+						tracked: true,
+						rebaseInProgress: false,
+						hasUpstackChildren: true,
+						requestedScope: "full",
+						effectiveScope: "full",
+						branches: ["feature/current"],
+						slotConflicts: [],
+						warnings: [],
+					},
+				}),
+			}),
+			rawResult({ stdout: "Already up to date\n" }),
+		]);
+		smartRestackExtension(pi, { loadSkillBlock });
+		const command = pi.commands.get(SMART_RESTACK_COMMAND_NAME);
+		if (command === undefined) throw new Error("missing command");
+
+		await command.handler("", new FakeCommandContext());
+
+		expect(pi.execCalls).toEqual([
+			{
+				command: "ns",
+				args: ["slot", "gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+				cwd: "/repo",
+			},
+			{ command: "gt", args: ["restack"], cwd: "/repo" },
+		]);
+	});
+});
+
 describe("smart restack workflow", () => {
 	test("rebase preflight skips gt restack and starts the resolver", async () => {
 		const pi = new FakePi();

@@ -5,10 +5,11 @@ import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../../core/context.ts";
-import type { LocalBranchTip, WorktreeOccupancy } from "../../../../core/gateways/repository.ts";
-import { buildSlotInventory, type SlotRecord } from "../../../../core/inventory.ts";
+import type { LocalBranchTip } from "../../../../core/gateways/repository.ts";
+import { buildSlotInventory } from "../../../../core/inventory.ts";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches } from "../stack-walk.ts";
+import { collectScopedSlotConflicts, type ScopedSlotConflict } from "./scoped-slot-conflicts.ts";
 import { validateStackIntegrity } from "./stack-integrity.ts";
 
 const gtQuiescenceScopeSchema = z.enum(["downstack", "full"]);
@@ -135,12 +136,12 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 		mainRepoRoot: resolved.mainRepoRoot,
 	});
 	const blockers = [
-		...collectOccupancyBlockers({
+		...collectScopedSlotConflicts({
 			occupancies: inventory.branchOccupancies,
+			records: inventory.records,
 			branches,
 			currentPath: ctx.cwd,
-		}),
-		...collectSlotRebaseBlockers({ records: inventory.records, branches }),
+		}).map(toQuiescenceBlocker),
 		...snapshotCheck.blockers,
 	];
 	const result = buildResult({
@@ -225,59 +226,30 @@ function parseExpectedSnapshot(
 	return { type: "ok", snapshot: validation.data };
 }
 
-function collectOccupancyBlockers(options: {
-	readonly occupancies: readonly WorktreeOccupancy[];
-	readonly branches: readonly string[];
-	readonly currentPath: string;
-}): QuiescenceBlocker[] {
-	const scopedBranches = new Set(options.branches);
-	const blockers: QuiescenceBlocker[] = [];
-	for (const occupancy of options.occupancies) {
-		if (occupancy.branch === null || !scopedBranches.has(occupancy.branch)) continue;
-		if (occupancy.operation === "checked-out") {
-			if (occupancy.path !== options.currentPath) {
-				blockers.push({
-					type: "checked-out-elsewhere",
-					branch: occupancy.branch,
-					worktreePath: occupancy.path,
-				});
-			}
-			continue;
-		}
-		if (isRebaseOperation(occupancy.operation)) {
-			blockers.push({
-				type: "rebase-in-progress",
-				branch: occupancy.branch,
-				worktreePath: occupancy.path,
-				operation: occupancy.operation,
-			});
-		}
+function toQuiescenceBlocker(conflict: ScopedSlotConflict): QuiescenceBlocker {
+	switch (conflict.type) {
+		case "checked-out-elsewhere":
+			return {
+				type: conflict.type,
+				branch: conflict.branch,
+				worktreePath: conflict.worktreePath,
+			};
+		case "rebase-in-progress":
+			return {
+				type: conflict.type,
+				branch: conflict.branch,
+				worktreePath: conflict.worktreePath,
+				operation: conflict.operation,
+			};
+		case "slot-rebase-in-progress":
+			return {
+				type: conflict.type,
+				branch: conflict.branch,
+				slotName: conflict.slotName,
+				worktreePath: conflict.worktreePath,
+				operation: conflict.operation,
+			};
 	}
-	return blockers;
-}
-
-function collectSlotRebaseBlockers(options: {
-	readonly records: readonly SlotRecord[];
-	readonly branches: readonly string[];
-}): QuiescenceBlocker[] {
-	const scopedBranches = new Set(options.branches);
-	return options.records.flatMap((record) => {
-		if (record.branch === null || record.operation === null) return [];
-		if (!scopedBranches.has(record.branch) || !isRebaseOperation(record.operation)) return [];
-		return [
-			{
-				type: "slot-rebase-in-progress" as const,
-				branch: record.branch,
-				slotName: record.slotName,
-				worktreePath: record.path,
-				operation: record.operation,
-			},
-		];
-	});
-}
-
-function isRebaseOperation(operation: string): boolean {
-	return operation.includes("rebase");
 }
 
 function compareSnapshots(options: {

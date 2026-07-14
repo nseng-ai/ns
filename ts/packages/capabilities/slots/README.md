@@ -28,6 +28,18 @@ Install the ns tool shim with the repository tool installation flow, then invoke
 
 A full pool fails with `pool_full`; run `ns slot free` or `ns slot resize` first.
 
+### Hidden restack preflight helper
+
+`ns slot gt exec restack-preflight [--scope downstack|full] --format json` is the read-only helper for restack workflows. It defaults to `downstack`; an explicit `full` request has an effective scope of `full` only when the current branch has upstack children. The result reports worktree cleanliness, Graphite tracking and topology facts, in-scope Slot conflicts, and warnings.
+
+An untracked current branch is an expected negative result with `tracked: false`. Because Graphite topology is unavailable, its defaults are `hasUpstackChildren: false`, `effectiveScope: "downstack"`, `branches` containing only the current branch, and an empty `warnings` array. Backend inspection errors are failures rather than blocked preflight results.
+
+### Hidden descendants report helper
+
+`ns slot gt exec descendants-report BRANCH --format json` reports the complete transitive Graphite descendant subtree for a named local branch without checking it out. Descendants are parent-before-child and include topology, commits relative to each parent, three-dot numstat diff evidence (including binary files), and inline PR metadata. Local Git evidence is required; GitHub PR metadata is fetched in one best-effort batch, with misses reported as `none` and lookup failures as `unavailable` plus warnings.
+
+A valid leaf returns a successful, complete empty report. An unknown local branch or a local branch absent from Graphite metadata is an expected negative result. Local comparison or topology failures are structured failures and never return a complete-looking report.
+
 ## Provisioned files
 
 Slot worktrees share git history but not gitignored files, so files a worktree needs to function — `.env.local` secrets, tool link files like `.vercel/project.json` — never travel with a branch. Provisioned files close that gap.
