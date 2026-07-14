@@ -1,7 +1,7 @@
 import { describeBranchContextGraphiteCreationSteps } from "@nseng-ai/branch-context/api";
 import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
 
-import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "../core/objective-runner-rules.ts";
+import { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "../core/objective-runner-rules.ts";
 import type { RunnerStepMode } from "./context.ts";
 
 // Ported from the autopilot prototype's stack-navigation rule: the runner
@@ -105,7 +105,7 @@ function rules(options: BuildRunnerChildPromptOptions): string {
 		"- Load Objective context yourself: follow the repo's objective-next workflow and existing skills for this Objective. Do not expect Objective content in this prompt.",
 		...branchRules,
 		`- ${RUNNER_GRAPHITE_STACK_NAVIGATION_RULE}`,
-		`- Leave ALL changes uncommitted. Never run \`git commit\`, \`git commit --amend\`, or any command that creates or rewrites commits. ${OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE}`,
+		`- Leave ALL changes uncommitted. Never run \`git commit\`, \`git commit --amend\`, or any command that creates or rewrites commits. ${OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE}`,
 		"- Run the repository's checks and deterministic fixers for the files you changed, per the repo's prose validation policy, and report what you ran and the results in the `validation` section of your report.",
 		`- Finish by writing your report as a single JSON document to \`${options.reportPath}\` — create exactly that file, containing only the JSON document (no markdown fences, no commentary). The path is outside the repository on purpose; never add it to git. Then end your final response with a 1-3 sentence summary of what you did; the summary is informational only, the JSON file is the contract.`,
 	].join("\n");

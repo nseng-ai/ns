@@ -21,7 +21,7 @@ import type { z as ZodNamespace } from "zod";
 // package exports are not resolvable without the ts workspace's node_modules ancestry. Static imports
 // mostly reach into the ts workspace by relative path; ns-pi-subagents is consumed exclusively through
 // its `/api` surface, resolved through .pi/lib/workspace-packages.ts so the direct Node import smoke works.
-import { OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/capabilities/objectives/src/core/objective-runner-rules.ts";
+import { OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE } from "../../ts/packages/capabilities/objectives/src/core/objective-runner-rules.ts";
 import { parseMachineEnvelopeData } from "../../ts/packages/hosts/pi/src/runtime/machine-envelope.ts";
 import type {
 	ToolContext,
@@ -170,7 +170,7 @@ export default function objectiveAutorunExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: TOOL_NAME,
 		label: "Objective runner step",
-		description: `Run ONE Objective Runner step mechanically: runner-begin, dispatch the implementation subagent with the generated prompt (live progress widget), runner-finish. Returns the Runner Checkpoint markdown for the parent to judge; owns fresh report/facts scratch paths per call. The parent keeps all judgment: read the checkpoint, then decide continue / recover (call again with recover: true) / stop. Runner runs are local-only and obey the canonical forbidden-action rule: ${OBJECTIVE_RUNNER_FORBIDDEN_ACTIONS_RULE}`,
+		description: `Run ONE local-only Objective Runner step mechanically: runner-begin, dispatch the implementation subagent with the generated prompt (live progress widget), runner-finish. Returns the Runner Checkpoint markdown for the parent to judge; owns fresh report/facts scratch paths per call. This tool has no publication input or authority. The parent reads the checkpoint, then separately decides continue / recover (call again with recover: true) / stop and any conditionally authorized post-checkpoint action. Canonical child/step prohibition: ${OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE}`,
 		parameters: OBJECTIVE_RUNNER_STEP_PARAMETERS,
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
 			runObjectiveRunnerStep({ pi, fleetRegistry, params, signal, ctx }),
