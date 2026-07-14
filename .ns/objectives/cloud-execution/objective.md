@@ -309,7 +309,8 @@ Risks:
   and fixed private-repository Sandbox hello probe were implemented or
   verified 2026-07-12. The local endpoint contract consistently uses the
   `NS_DISPATCH_*` environment namespace, and the linked Vercel project now
-  carries all nine production variables plus the Development repository input.
+  carries the eight current production variables, the inert legacy
+  `NS_DISPATCH_SANDBOX_MINT_SECRET`, and the Development repository input.
   A newly generated App key authenticated as `nseng-ai/ns-dispatch`; its
   installation token reached private repo `nseng-ai/ns` with `contents: read`.
   Development OIDC claims matched the configured team, project, and environment.
@@ -324,14 +325,14 @@ Risks:
   revoked the superseded GitHub App key, and removed the downloaded local PEM; a subsequent
   authenticated clone-purpose mint confirmed the active replacement key. Dispatch preflight,
   the Pi-only implemented-harness registry, and exact checkout package-manager validation are
-  now locally complete; their deployed behavior remains part of the pending batched live pass.
+  deployed; preflight passed before the first completed prompt dispatch on 2026-07-14.
   The workflow-supervisor architecture (2026-07-13) retired the two recorded v1 security
   shortcuts from the design, and the code now matches it: the HTTP shared-secret landing path
   is gone, `POST /api/mint` is OIDC-only and clone-only, and workflow landing mints in-process
   for the single landing command. The linked project still carries the inert
   `NS_DISPATCH_SANDBOX_MINT_SECRET` production variable, but no source or runtime parser
-  consumes it. Residuals: after the pending live pass, remove that deployed variable through
-  the human-only environment process, and tighten the installed `ns-dispatch` App's extra
+  consumes it. Residuals: remove that deployed variable through the human-only environment
+  process, and tighten the installed `ns-dispatch` App's extra
   `actions: write` / `workflows: write` permissions (accepted for the prototype) before wider
   deployment.
 - **At-least-once step semantics**: workflow steps retry silently on
@@ -369,8 +370,12 @@ Risks:
   runtime-free workflow-id metadata modules). The builder also overwrites
   the Build Output `config.json` (the gate merges it back) and emits a
   `nodejs22.x` workflow runtime against the project's nodeVersion 24.x —
-  both to confirm in the batched live pass, which is this risk's remaining
-  retirement step.
+  the live pass proved those consumers work. It then exposed a second packaging boundary:
+  relocated API `filePathMap` entries did not produce runtime package closure. The durable
+  gate now bundles every API handler as CommonJS, removes `filePathMap`, verifies configured
+  handlers and the complete Workflow inventory, and promotes one relocated prebuilt artifact.
+  Current contract and evidence live in `references/dispatch-deployment-contract.md` and
+  `references/dispatch-live-evidence.md`.
 - **README drifts from implementation**: mitigation — the README settles
   first, and each implementation slice cites the README section it makes
   true.
@@ -380,10 +385,11 @@ Risks:
   author the skill from the proven steel thread and canonical README, and
   label remaining prototype debt (the overbroad App permissions, the
   pending mint-secret variable removal) with its required cleanup. The
-  `references/vercel-sandbox-github-integration-field-guide.md` is the
-  acceptance checklist for developer mechanics, safe
-  automation, billable-action consent, failure handling, and prototype-vs-
-  production boundaries that the future setup tooling must preserve.
+  `references/dispatch-setup-and-preflight.md` is the acceptance procedure
+  for developer mechanics, safe automation, billable-action consent, failure
+  handling, and prototype-vs-production boundaries; its linked topic references
+  own the detailed deployment, credential, runtime, anchor, Pi, and debugging
+  contracts that future setup tooling must preserve.
 
 ## Open Questions
 

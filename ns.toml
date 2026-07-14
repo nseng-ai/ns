@@ -5,6 +5,7 @@ agents = ["codex", "claude-code"]
 harness = "pi"
 vercel_project_id = "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06"
 vercel_team_id = "team_P6pLJeeBHKiZlpYP8elK1qYH"
+workflow_dashboard_url = "https://vercel.com/schrockns-projects/ns-dispatch/workflows"
 deployment_url = "https://ns-dispatch.vercel.app"
 
 [reviews.diff]

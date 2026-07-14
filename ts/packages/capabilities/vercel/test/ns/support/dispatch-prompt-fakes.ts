@@ -31,6 +31,8 @@ export const FAKE_HEAD_SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
 export const FAKE_ANCHOR_ID = "ab12cd34";
 export const FAKE_RUN_ID = "wf_run_0123456789";
 export const FAKE_DEPLOYMENT_URL = "https://ns-dispatch.example.vercel.app";
+export const FAKE_WORKFLOW_DASHBOARD_URL = "https://vercel.com/example-team/ns-dispatch/workflows";
+export const FAKE_WORKFLOW_RUN_URL = `${FAKE_WORKFLOW_DASHBOARD_URL}/runs/${FAKE_RUN_ID}?environment=production`;
 export const FAKE_OIDC_TOKEN = "fake-development-oidc-token";
 
 export const FAKE_DISPATCH_SETTINGS_SOURCE = [
@@ -38,6 +40,7 @@ export const FAKE_DISPATCH_SETTINGS_SOURCE = [
 	'harness = "pi"',
 	'vercel_project_id = "prj_Fake123"',
 	'vercel_team_id = "team_Fake123"',
+	`workflow_dashboard_url = "${FAKE_WORKFLOW_DASHBOARD_URL}"`,
 	`deployment_url = "${FAKE_DEPLOYMENT_URL}"`,
 	"",
 ].join("\n");
@@ -344,13 +347,14 @@ export class FakeDispatchNsApi implements NsExtensionApi {
 	readonly stdoutChunks: string[] = [];
 	readonly stderrChunks: string[] = [];
 	readonly progress = noopNsProgress;
+	readonly phaseLabels: string[] = [];
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;
 	readonly commandIo: NsCommandIo = {
-		phase: () => {},
+		phase: (message) => this.phaseLabels.push(message),
 		notify: () => {},
 		message: () => {},
-		clearPhase: () => {},
+		clearPhase: () => this.phaseLabels.push("cleared"),
 	};
 	readonly stdout = (text: string) => {
 		this.stdoutChunks.push(text);

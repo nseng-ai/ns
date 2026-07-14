@@ -5,6 +5,7 @@ import {
 	createFakeDispatchGateways,
 	FAKE_DEPLOYMENT_URL,
 	FAKE_OIDC_TOKEN,
+	FAKE_WORKFLOW_DASHBOARD_URL,
 } from "./support/dispatch-prompt-fakes.ts";
 
 function checkById(
@@ -29,6 +30,7 @@ describe("runDispatchPreflight", () => {
 		]);
 		if (result.ok) {
 			expect(result.deploymentUrl).toBe(FAKE_DEPLOYMENT_URL);
+			expect(result.workflowDashboardUrl).toBe(FAKE_WORKFLOW_DASHBOARD_URL);
 			expect(result.triggerConnection).toEqual({
 				deploymentUrl: FAKE_DEPLOYMENT_URL,
 				oidcToken: FAKE_OIDC_TOKEN,
@@ -71,6 +73,27 @@ describe("runDispatchPreflight", () => {
 
 		expect(result.ok).toBe(false);
 		expect(checkById(result, "dispatch-config").detail).toContain("deployment_url");
+	});
+
+	test("names the missing workflow_dashboard_url key", async () => {
+		const gateways = createFakeDispatchGateways({
+			config: {
+				dispatchSettings: {
+					type: "found",
+					source: [
+						"[dispatch]",
+						'harness = "pi"',
+						'vercel_project_id = "prj_Fake123"',
+						'vercel_team_id = "team_Fake123"',
+						`deployment_url = "${FAKE_DEPLOYMENT_URL}"`,
+					].join("\n"),
+				},
+			},
+		});
+		const result = await runDispatchPreflight({ repoRoot: "/repo" }, gateways);
+
+		expect(result.ok).toBe(false);
+		expect(checkById(result, "dispatch-config").detail).toContain("workflow_dashboard_url");
 	});
 
 	test("reports a missing package manifest through the package-manager check", async () => {
