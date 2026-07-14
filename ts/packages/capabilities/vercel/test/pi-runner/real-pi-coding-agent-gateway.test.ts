@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	createRealPiCodingAgentGateway,
 	extractPiAgentRunResult,
+	prependWorkspacePiBinToPath,
 	type PiAgentSdkSession,
 	type PiAgentSessionSdk,
 } from "../../src/pi-runner/real-pi-coding-agent-gateway.ts";
@@ -31,6 +32,9 @@ function createFakeSdk(behavior: FakeSessionBehavior = {}) {
 			cwds.push(options.cwd);
 			if (behavior.createThrows === true) throw new Error("no usable model");
 			const session: PiAgentSdkSession = {
+				async initialize() {
+					events.push("initialize");
+				},
 				async prompt(text) {
 					events.push("prompt");
 					prompts.push(text);
@@ -57,7 +61,7 @@ describe("createRealPiCodingAgentGateway", () => {
 		expect(result).toEqual({ ok: true, finalAssistantText: "All done." });
 		expect(cwds).toEqual(["/checkout"]);
 		expect(prompts).toEqual(["Do the thing."]);
-		expect(events).toEqual(["prompt", "dispose"]);
+		expect(events).toEqual(["initialize", "prompt", "dispose"]);
 	});
 
 	it("maps a session-creation throw to a failure value", async () => {
@@ -80,7 +84,19 @@ describe("createRealPiCodingAgentGateway", () => {
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
 		expect(result.message).toContain("stream aborted");
-		expect(events).toEqual(["prompt", "dispose"]);
+		expect(events).toEqual(["initialize", "prompt", "dispose"]);
+	});
+});
+
+describe("prependWorkspacePiBinToPath", () => {
+	it("makes the checkout-local Pi executable discoverable by child processes", () => {
+		const env: Record<string, string | undefined> = { PATH: "/usr/bin:/bin" };
+
+		prependWorkspacePiBinToPath({ cwd: "/checkout", env, pathDelimiter: ":" });
+
+		expect(env["PATH"]).toBe(
+			"/checkout/ts/packages/capabilities/vercel/node_modules/.bin:/usr/bin:/bin",
+		);
 	});
 });
 
