@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseOidcTrustConfig } from "../../src/mint/oidc-trust-config.ts";
+import { parseOidcTrustConfig } from "../../src/auth/oidc-trust-config.ts";
 
 function validEnvironment(): Readonly<Record<string, string | undefined>> {
 	return {

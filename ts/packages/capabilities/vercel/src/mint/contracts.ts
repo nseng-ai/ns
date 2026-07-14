@@ -1,15 +1,11 @@
 import { z } from "zod";
 
+import { mintSuccessResponseSchema } from "../http/wire.ts";
 export const mintPurposeValues = ["clone", "landing"] as const;
 
 export type MintPurpose = (typeof mintPurposeValues)[number];
 
-export interface MintSuccess {
-	readonly token: string;
-	readonly expiresAt: string;
-	readonly repository: string;
-	readonly purpose: MintPurpose;
-}
+export type MintSuccess = z.infer<typeof mintSuccessResponseSchema>;
 
 export type MintErrorCode =
 	| "github-token-mint-failed"

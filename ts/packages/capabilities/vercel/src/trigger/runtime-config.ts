@@ -2,7 +2,7 @@ import {
 	parseOidcTrustConfig,
 	type OidcTrustConfig,
 	type OidcTrustEnvironment,
-} from "../mint/oidc-trust-config.ts";
+} from "../auth/oidc-trust-config.ts";
 
 export type TriggerRuntimeConfig = OidcTrustConfig;
 
@@ -23,7 +23,7 @@ export function parseTriggerRuntimeConfig(
 ): TriggerRuntimeConfigParseResult {
 	const result = parseOidcTrustConfig(environment);
 	if (result.ok === false) {
-		const variable = result.error.variable ?? "trigger endpoint environment";
+		const variable = result.error.variable;
 		return {
 			ok: false,
 			error: {

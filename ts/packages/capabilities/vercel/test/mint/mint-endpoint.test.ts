@@ -3,28 +3,16 @@ import { describe, expect, it } from "vitest";
 import { createMintPostHandler } from "../../api/mint.ts";
 import type { MintPurpose } from "../../src/mint/contracts.ts";
 import type {
-	VercelOidcGateway,
-	VercelOidcVerificationResult,
-} from "../../src/mint/development-oidc.ts";
-import type {
 	GitHubInstallationTokenGateway,
 	GitHubInstallationTokenResult,
 } from "../../src/mint/mint-core.ts";
-import type { OidcTrustConfig } from "../../src/mint/oidc-trust-config.ts";
+import type { OidcTrustConfig } from "../../src/auth/oidc-trust-config.ts";
 import type { GitHubAppAuthenticationConfig } from "../../src/mint/real-gateways.ts";
 import type { MintEnvironment } from "../../src/mint/runtime-config.ts";
-
-class InMemoryOidcGateway implements VercelOidcGateway {
-	readonly #result: VercelOidcVerificationResult;
-
-	constructor(result: VercelOidcVerificationResult) {
-		this.#result = result;
-	}
-
-	async verifyDevelopmentIdentity(): Promise<VercelOidcVerificationResult> {
-		return this.#result;
-	}
-}
+import {
+	DEVELOPMENT_OIDC_TRUST_ENVIRONMENT,
+	InMemoryVercelOidcGateway,
+} from "../support/route-fakes.ts";
 
 class RecordingGitHubGateway implements GitHubInstallationTokenGateway {
 	readonly #result: GitHubInstallationTokenResult;
@@ -60,22 +48,12 @@ function validEnvironment(): MintEnvironment {
 		NS_DISPATCH_GITHUB_APP_PRIVATE_KEY:
 			"-----BEGIN PRIVATE KEY-----\\nprivate-key-fixture\\n-----END PRIVATE KEY-----\\n",
 		NS_DISPATCH_GITHUB_REPOSITORY: "nseng-ai/ns",
-		NS_DISPATCH_VERCEL_TEAM_ID: "team_dispatch",
-		NS_DISPATCH_VERCEL_PROJECT_ID: "prj_dispatch",
-		NS_DISPATCH_VERCEL_OIDC_ISSUER: "https://oidc.vercel.com/nseng-ai",
-		NS_DISPATCH_VERCEL_OIDC_AUDIENCE: "https://vercel.com/nseng-ai",
+		...DEVELOPMENT_OIDC_TRUST_ENVIRONMENT,
 	};
 }
 
-function validOidcGateway(): InMemoryOidcGateway {
-	return new InMemoryOidcGateway({
-		ok: true,
-		value: {
-			ownerId: "team_dispatch",
-			projectId: "prj_dispatch",
-			environment: "development",
-		},
-	});
+function validOidcGateway(): InMemoryVercelOidcGateway {
+	return new InMemoryVercelOidcGateway();
 }
 
 function mintRequest(
@@ -123,12 +101,10 @@ describe("createMintPostHandler", () => {
 
 		expect(response.status).toBe(200);
 		expect(response.headers.get("cache-control")).toBe("no-store");
-		expect(await response.json()).toEqual({
-			token: "installation-token",
-			expiresAt: "2026-07-12T18:00:00Z",
-			repository: "nseng-ai/ns",
-			purpose: "clone",
-		});
+		expect(response.headers.get("content-type")).toBe("application/json");
+		expect(await response.text()).toBe(
+			'{"token":"installation-token","expiresAt":"2026-07-12T18:00:00Z","repository":"nseng-ai/ns","purpose":"clone"}',
+		);
 		expect(oidcConfigs).toEqual([
 			{
 				vercelTeamId: "team_dispatch",

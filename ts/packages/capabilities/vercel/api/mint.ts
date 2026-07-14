@@ -1,13 +1,18 @@
-import type { VercelOidcGateway } from "../src/mint/development-oidc.ts";
+import {
+	createDevelopmentCallerAuthenticator,
+	createJoseDevelopmentCallerAuthenticator,
+	type VercelOidcGateway,
+} from "../src/auth/development-oidc.ts";
+import type { OidcTrustConfig } from "../src/auth/oidc-trust-config.ts";
+import { jsonResponse, readJsonBody } from "../src/http/http.ts";
+import { DISPATCH_OIDC_HEADER_NAME, httpErrorBody } from "../src/http/wire.ts";
 import { handleMintRequest } from "../src/mint/handle-mint-request.ts";
 import {
 	createDispatchTokenMinter,
 	type GitHubInstallationTokenGateway,
 } from "../src/mint/mint-core.ts";
-import type { OidcTrustConfig } from "../src/mint/oidc-trust-config.ts";
 import {
 	createGitHubInstallationTokenGateway,
-	createJoseVercelOidcGateway,
 	type GitHubAppAuthenticationConfig,
 } from "../src/mint/real-gateways.ts";
 import {
@@ -35,7 +40,10 @@ export function createMintPostHandler(options: MintPostHandlerOptions): MintPost
 
 	const appConfig = appConfigResult.value;
 	const oidcTrust = oidcTrustResult.value;
-	const oidc = options.createOidcGateway?.(oidcTrust) ?? createJoseVercelOidcGateway();
+	const developmentCaller =
+		options.createOidcGateway === undefined
+			? createJoseDevelopmentCallerAuthenticator(oidcTrust)
+			: createDevelopmentCallerAuthenticator(oidcTrust, options.createOidcGateway(oidcTrust));
 	const githubAuthentication = {
 		githubAppId: appConfig.githubAppId,
 		githubAppInstallationId: appConfig.githubAppInstallationId,
@@ -49,55 +57,26 @@ export function createMintPostHandler(options: MintPostHandlerOptions): MintPost
 	return async function mintPostHandler(request) {
 		const bodyResult = await readJsonBody(request);
 		if (bodyResult.ok === false) {
-			return jsonResponse(
-				{ error: { code: "invalid-request", message: "Invalid mint request." } },
-				400,
-			);
+			return jsonResponse(httpErrorBody("invalid-request", "Invalid mint request."), 400);
 		}
 
 		const result = await handleMintRequest(
 			{
 				body: bodyResult.value,
-				oidcToken: request.headers.get("x-ns-dispatch-oidc-token"),
+				oidcToken: request.headers.get(DISPATCH_OIDC_HEADER_NAME),
 			},
-			{ oidcTrust, oidc, minter },
+			{ developmentCaller, minter },
 		);
 		return jsonResponse(result.body, result.status);
 	};
 }
 
+const productionHandler = createMintPostHandler({ environment: process.env });
+
 export async function POST(request: Request): Promise<Response> {
-	return createMintPostHandler({ environment: process.env })(request);
+	return productionHandler(request);
 }
 
 function misconfiguredHandler(error: MintEndpointConfigError): MintPostHandler {
-	return async () =>
-		jsonResponse(
-			{
-				error: {
-					code: error.code,
-					message: error.message,
-				},
-			},
-			500,
-		);
-}
-
-async function readJsonBody(
-	request: Request,
-): Promise<{ readonly ok: true; readonly value: unknown } | { readonly ok: false }> {
-	try {
-		return { ok: true, value: await request.json() };
-	} catch {
-		// Malformed and unreadable JSON intentionally share the public 400
-		// response; parser details are neither logged nor exposed to callers.
-		return { ok: false };
-	}
-}
-
-function jsonResponse(body: unknown, status: number): Response {
-	return Response.json(body, {
-		status,
-		headers: { "Cache-Control": "no-store" },
-	});
+	return async () => jsonResponse(httpErrorBody(error.code, error.message), 500);
 }

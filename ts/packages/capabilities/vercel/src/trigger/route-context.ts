@@ -1,7 +1,11 @@
-import type { VercelOidcGateway } from "../mint/development-oidc.ts";
-import { createJoseVercelOidcGateway } from "../mint/real-gateways.ts";
+import {
+	createDevelopmentCallerAuthenticator,
+	createJoseDevelopmentCallerAuthenticator,
+	type VercelOidcGateway,
+} from "../auth/development-oidc.ts";
 import type { TriggerRequestContext } from "./handle-trigger-request.ts";
-import { jsonResponse } from "./http.ts";
+import { jsonResponse } from "../http/http.ts";
+import { httpErrorBody } from "../http/wire.ts";
 import { createWorkflowSdkRunGateway } from "./real-workflow-run-gateway.ts";
 import {
 	parseTriggerRuntimeConfig,
@@ -40,11 +44,14 @@ export function createTriggerRouteContext(
 	}
 
 	const config = configResult.value;
+	const developmentCaller =
+		options.createOidcGateway === undefined
+			? createJoseDevelopmentCallerAuthenticator(config)
+			: createDevelopmentCallerAuthenticator(config, options.createOidcGateway(config));
 	return {
 		ok: true,
 		context: {
-			config,
-			oidc: options.createOidcGateway?.(config) ?? createJoseVercelOidcGateway(),
+			developmentCaller,
 			workflowRuns: options.createWorkflowRunGateway?.(config) ?? createWorkflowSdkRunGateway(),
 		},
 	};
@@ -53,5 +60,5 @@ export function createTriggerRouteContext(
 export function triggerRouteConfigurationErrorResponse(
 	error: TriggerRouteConfigurationError,
 ): Response {
-	return jsonResponse({ error }, 500);
+	return jsonResponse(httpErrorBody(error.code, error.message), 500);
 }
