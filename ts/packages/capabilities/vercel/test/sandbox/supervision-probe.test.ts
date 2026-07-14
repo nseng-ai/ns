@@ -117,17 +117,21 @@ describe("superviseDetachedRun", () => {
 
 	function deps(polls: readonly SupervisionPollResult[]): {
 		sleeps: number[];
+		pollOrdinals: number[];
 		sleep(durationMs: number): Promise<void>;
-		poll(): Promise<SupervisionPollResult>;
+		poll(pollOrdinal: number): Promise<SupervisionPollResult>;
 	} {
 		const remaining = [...polls];
 		const sleeps: number[] = [];
+		const pollOrdinals: number[] = [];
 		return {
 			sleeps,
+			pollOrdinals,
 			async sleep(durationMs) {
 				sleeps.push(durationMs);
 			},
-			async poll() {
+			async poll(pollOrdinal) {
+				pollOrdinals.push(pollOrdinal);
 				const next = remaining.shift();
 				if (next === undefined) throw new Error("Polled past the scripted results.");
 				return next;
@@ -145,6 +149,7 @@ describe("superviseDetachedRun", () => {
 
 		expect(outcome).toEqual({ completed: true, polls: 2 });
 		expect(supervision.sleeps).toEqual([30_000, 30_000]);
+		expect(supervision.pollOrdinals).toEqual([1, 2]);
 	});
 
 	it("stops supervising when a poll fails", async () => {

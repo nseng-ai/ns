@@ -1,31 +1,64 @@
 import { describe, expect, it } from "vitest";
 
 import { dispatchWorkflowId } from "../../workflows/dispatch-id.ts";
-import { dispatchWorkflow, launchDispatchStep } from "../../workflows/dispatch.ts";
+import {
+	checkHarnessCompletion,
+	createSandboxAndLaunchHarness,
+	dispatchWorkflow,
+	failDispatchRun,
+	pushAnchorBranch,
+	readHarnessResult,
+	stopSandbox,
+	updateAnchorPrFailed,
+	updateAnchorPrLanded,
+} from "../../workflows/dispatch.ts";
 
 describe("dispatchWorkflow", () => {
-	it("derives its metadata id from the module path and export name", () => {
+	it("derives its metadata id from the unchanged workflow export", () => {
 		expect(dispatchWorkflowId).toBe(`workflow//./workflows/dispatch//${dispatchWorkflow.name}`);
 	});
 
-	it("caps the launch step at a single attempt so a retry can never start a second run", () => {
-		expect(launchDispatchStep.maxRetries).toBe(0);
+	it("exposes operator-oriented step names", () => {
+		expect([
+			createSandboxAndLaunchHarness.name,
+			checkHarnessCompletion.name,
+			readHarnessResult.name,
+			pushAnchorBranch.name,
+			stopSandbox.name,
+			updateAnchorPrLanded.name,
+			updateAnchorPrFailed.name,
+			failDispatchRun.name,
+		]).toEqual([
+			"createSandboxAndLaunchHarness",
+			"checkHarnessCompletion",
+			"readHarnessResult",
+			"pushAnchorBranch",
+			"stopSandbox",
+			"updateAnchorPrLanded",
+			"updateAnchorPrFailed",
+			"failDispatchRun",
+		]);
 	});
 
-	it("fails safe on invalid input before launching anything (directives are inert outside the workflow runtime)", async () => {
-		// Invalid input returns before the launch step and before the first
-		// sleep — no sandbox, no network, no anchor-PR reporting, regardless of
-		// the ambient test environment.
-		const result = await dispatchWorkflow({
-			revision: "main",
-			anchorBranch: "dispatch/widget",
-			anchorPrNumber: 421,
-			prompt: "p",
-		});
+	it("caps launch and terminal failure at a single attempt", () => {
+		expect(createSandboxAndLaunchHarness.maxRetries).toBe(0);
+		expect(failDispatchRun.maxRetries).toBe(0);
+	});
 
-		expect(result.ok).toBe(false);
-		if (result.ok) throw new Error("Expected invalid input.");
-		expect(result.code).toBe("invalid-input");
-		expect(result.failureReported).toBe(false);
+	it("turns invalid input into a safe fatal terminal failure", async () => {
+		await expect(
+			dispatchWorkflow({
+				revision: "main",
+				anchorBranch: "dispatch/widget",
+				anchorPrNumber: 421,
+				prompt: "plaintext prompt must not appear in the error",
+			}),
+		).rejects.toThrow("dispatch failed: invalid-input");
+	});
+
+	it("throws only the stable failure code from the terminal step", async () => {
+		await expect(failDispatchRun("harness-failed")).rejects.toThrow(
+			"dispatch failed: harness-failed",
+		);
 	});
 });

@@ -68,6 +68,7 @@ function harnessInvocation(overrides: Partial<HarnessInvocation> = {}): HarnessI
 		launchCommand: { cmd: "fake-harness", args: ["--headless"] },
 		launchEnvironmentVariableNames: ["ANTHROPIC_API_KEY"],
 		...overrides,
+		harness: overrides.harness ?? "pi",
 	};
 }
 
@@ -151,7 +152,7 @@ describe("launchDispatchRun", () => {
 
 		const result = await launchDispatchRun(runInput(), deps);
 
-		expect(result).toEqual({ ok: true, sandboxName: "sbx_dispatch" });
+		expect(result).toEqual({ ok: true, sandboxName: "sbx_dispatch", harness: "pi" });
 		expect(minter.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "clone" }]);
 		expect(sandboxes.calls.map((call) => call.method)).toEqual([
 			"create",

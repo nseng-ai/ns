@@ -13,6 +13,8 @@ export const DISPATCH_PACKAGE_MANAGER_FIELD =
 export const PI_RUNNER_ENTRY_PATH = "ts/packages/capabilities/vercel/src/pi-runner/main.ts";
 
 export interface HarnessInvocation {
+	/** Validated configured harness represented by this invocation. */
+	readonly harness: DispatchHarness;
 	/** Sequential provisioning commands; each must exit 0. */
 	readonly provisionCommands: readonly SandboxCommand[];
 	/** The detached, headless harness launch command. */
@@ -146,6 +148,7 @@ export function buildDispatchHarnessInvocation(options: {
 /** Build the Pi provisioning and launch recipe from the validated pnpm version. */
 export function buildPiHarnessInvocation(pnpmVersion: ValidatedPnpmVersion): HarnessInvocation {
 	return {
+		harness: "pi",
 		provisionCommands: [
 			{ cmd: "git", args: ["config", "--global", "user.name", "ns-dispatch"] },
 			{
