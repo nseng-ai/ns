@@ -37,7 +37,7 @@ Resolve and verify:
 - GitHub `owner/repo` from the intended remote;
 - package root `ts/packages/capabilities/vercel`;
 - repo-root `ns.toml` `[dispatch]` table;
-- linked Vercel project/team IDs;
+- linked Vercel project/team IDs and the project's Workflows dashboard URL;
 - Vercel Root Directory;
 - exact `ts/package.json#packageManager` declaration;
 - whether the GitHub App and repository installation already exist.
@@ -145,7 +145,8 @@ Before any source/anchor mutation, `ns dispatch prompt` checks:
 
 - repository and attached branch are usable;
 - worktree is clean;
-- `[dispatch]` exists and contains a supported harness and stable deployment URL;
+- `[dispatch]` exists and contains a supported harness, stable deployment URL, and Vercel
+  Workflows dashboard URL;
 - `ts/package.json#packageManager` declares an exact supported pnpm version;
 - Development OIDC token is available by name;
 - the production run-status route accepts the Development identity using a valid-shaped

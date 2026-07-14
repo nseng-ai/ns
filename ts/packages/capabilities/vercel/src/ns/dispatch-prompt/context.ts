@@ -7,7 +7,7 @@
 import { createNsCommandRunner, NsCommandExecApi } from "@nseng-ai/capability-kit/command-runner";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import type { NsExtensionApi } from "@nseng-ai/sdk";
+import type { NsCommandIo, NsExtensionApi } from "@nseng-ai/sdk";
 
 import type { DispatchPromptGateways } from "./contracts.ts";
 import { createRealDispatchAnchorPrGateway } from "./real-anchor-pr-gateway.ts";
@@ -20,6 +20,7 @@ import { createRealDispatchWorkspaceGitGateway } from "./real-workspace-git-gate
 export interface DispatchPromptCliContext {
 	readonly cwd: string;
 	readonly gateways: DispatchPromptGateways;
+	readonly commandIo: NsCommandIo;
 }
 
 /** Gateway substitutions published through `ctx.extensions.dispatch`. */
@@ -31,6 +32,7 @@ export function createDispatchPromptContext(ctx: NsExtensionApi): DispatchPrompt
 	const localGitFacts = new RealGitGateway(new NsCommandExecApi(ctx));
 	return {
 		cwd: ctx.cwd,
+		commandIo: ctx.commandIo,
 		gateways: {
 			git: overrides?.git ?? createRealDispatchWorkspaceGitGateway(localGitFacts, runner),
 			anchorPrs: overrides?.anchorPrs ?? createRealDispatchAnchorPrGateway(runner),

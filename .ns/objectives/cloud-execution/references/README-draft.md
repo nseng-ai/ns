@@ -30,8 +30,10 @@ Or dispatch a plan:
 /ns:dispatch:plan
 ```
 
-The moment you dispatch, a new branch is pushed and a pull request opens
-for it — that PR is the job's anchor from before the work starts. Then keep
+The CLI reports each local setup phase while it checks, pushes, opens the anchor,
+and starts the workflow, then prints clickable links to both the anchor PR and the
+Vercel Workflow run. A new branch is pushed and a pull request opens for it — that
+PR is the job's anchor from before the work starts. Then keep
 working: the run executes remotely, and when it finishes the produced
 commits land on the anchor PR, ready to review like any other PR — check
 out the branch, continue it, stack on it, or discard it.
@@ -196,8 +198,8 @@ workflow-supervised execution as an interactive dispatch.
 
 Non-secret repo configuration lives in the repo-root `ns.toml`, in a typed
 `[dispatch]` table: which implemented agent harness runs inside the sandbox
-(currently only `pi`), the stable Vercel project/team IDs, and the dispatch
-deployable's stable HTTPS URL (the deployment recorded in step 3 below) that
+(currently only `pi`), the stable Vercel project/team IDs, the project's Vercel
+Workflows dashboard URL, and the dispatch deployable's stable HTTPS URL (the deployment recorded in step 3 below) that
 the CLI's trigger/observe calls target. It's versioned with the repo, so
 every clone dispatches the same way:
 
@@ -206,6 +208,7 @@ every clone dispatches the same way:
 harness = "pi"
 vercel_project_id = "prj_..."
 vercel_team_id = "team_..."
+workflow_dashboard_url = "https://vercel.com/<team>/<project>/workflows"
 deployment_url = "https://<dispatch-host>"
 ```
 
@@ -255,7 +258,7 @@ run is ready to land — injected into the single landing command, never
 into the sandbox environment. Dispatch preflights credentials and reports
 exactly what is missing before any remote work starts: the `[dispatch]`
 table is present and valid with a registry-supported harness (currently
-`pi`) and `deployment_url`; `ts/package.json#packageManager` is an exact
+`pi`), `workflow_dashboard_url`, and `deployment_url`; `ts/package.json#packageManager` is an exact
 supported pnpm declaration; the Development OIDC token is available by name
 (`VERCEL_OIDC_TOKEN` from the package's pulled `.env.local`); and a read-only
 authenticated run-status probe against the deployment confirms the caller's

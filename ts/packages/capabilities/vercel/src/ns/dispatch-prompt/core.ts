@@ -43,6 +43,7 @@ interface DispatchPreflightSuccess {
 	readonly ok: true;
 	readonly checks: readonly DispatchPreflightCheck[];
 	readonly deploymentUrl: string;
+	readonly workflowDashboardUrl: string;
 	readonly triggerConnection: DispatchTriggerConnection;
 }
 
@@ -104,7 +105,7 @@ export async function runDispatchPreflight(
 		return { ok: false, checks };
 	}
 
-	const { deploymentUrl } = configCheck.config;
+	const { deploymentUrl, workflowDashboardUrl } = configCheck.config;
 	const triggerConnection: DispatchTriggerConnection = {
 		deploymentUrl,
 		oidcToken: tokenResult.token,
@@ -114,11 +115,15 @@ export async function runDispatchPreflight(
 	checks.push(identityCheck);
 	if (identityCheck.status === "failed") return { ok: false, checks };
 
-	return { ok: true, checks, deploymentUrl, triggerConnection };
+	return { ok: true, checks, deploymentUrl, workflowDashboardUrl, triggerConnection };
 }
 
-type ValidDispatchProjectConfig = Omit<DispatchProjectConfig, "deploymentUrl"> & {
+type ValidDispatchProjectConfig = Omit<
+	DispatchProjectConfig,
+	"deploymentUrl" | "workflowDashboardUrl"
+> & {
 	readonly deploymentUrl: string;
+	readonly workflowDashboardUrl: string;
 };
 
 async function readDispatchConfig(
@@ -162,13 +167,26 @@ async function readDispatchConfig(
 			},
 		};
 	}
+	if (parsed.value.workflowDashboardUrl === undefined) {
+		return {
+			check: {
+				id: "dispatch-config",
+				status: "failed",
+				detail: `${DISPATCH_SETTINGS_PATH}: [dispatch] has no workflow_dashboard_url; set it to the Vercel project's Workflows dashboard URL (see the dispatch README's Setup section).`,
+			},
+		};
+	}
 	return {
 		check: {
 			id: "dispatch-config",
 			status: "ok",
 			detail: "[dispatch] configuration is present and valid.",
 		},
-		config: { ...parsed.value, deploymentUrl: parsed.value.deploymentUrl },
+		config: {
+			...parsed.value,
+			deploymentUrl: parsed.value.deploymentUrl,
+			workflowDashboardUrl: parsed.value.workflowDashboardUrl,
+		},
 	};
 }
 
@@ -251,6 +269,7 @@ function triggerIdentityCheck(
 export interface DispatchPromptRequest {
 	readonly cwd: string;
 	readonly prompt: string;
+	readonly onPhase?: (message: string) => void;
 }
 
 export interface DispatchAnchorPr {
@@ -268,6 +287,7 @@ export type DispatchPromptOutcome =
 			readonly isSourcePushed: boolean;
 			readonly anchorPr: DispatchAnchorPr;
 			readonly runId: string;
+			readonly workflowRunUrl: string;
 	  }
 	| { readonly status: "dirty-tree"; readonly dirtyPaths: readonly string[] }
 	| { readonly status: "preflight-failed"; readonly checks: readonly DispatchPreflightCheck[] }
@@ -315,6 +335,7 @@ export async function executeDispatchPrompt(
 	request: DispatchPromptRequest,
 	gateways: DispatchPromptGateways,
 ): Promise<DispatchPromptOutcome> {
+	request.onPhase?.("Checking the source branch and worktree…");
 	const sourceRef = await gateways.git.resolveSourceRef({ cwd: request.cwd });
 	if (sourceRef.ok === false) {
 		return {
@@ -333,6 +354,7 @@ export async function executeDispatchPrompt(
 		return { status: "dirty-tree", dirtyPaths: dirty.value };
 	}
 
+	request.onPhase?.("Validating dispatch configuration and identity…");
 	const preflight = await runDispatchPreflight({ repoRoot }, gateways);
 	if (preflight.ok === false) {
 		return { status: "preflight-failed", checks: preflight.checks };
@@ -341,6 +363,7 @@ export async function executeDispatchPrompt(
 	// Push-first: the sandbox clones the exact dispatched SHA from the
 	// remote, so the head must be remotely reachable before anything is
 	// submitted (README "What the remote agent sees").
+	request.onPhase?.("Ensuring the source revision is remotely reachable…");
 	const remoteTip = await gateways.git.readRemoteBranchTip({ cwd: request.cwd, branch });
 	if (remoteTip.type === "error") {
 		return { status: "source-unusable", code: "git-read-failed", message: remoteTip.error.message };
@@ -354,6 +377,7 @@ export async function executeDispatchPrompt(
 		isSourcePushed = true;
 	}
 
+	request.onPhase?.("Creating the anchor branch and pull request…");
 	const anchorBranch = buildAnchorBranchName(branch, gateways.generateAnchorId());
 
 	const anchorPush = await gateways.git.pushAnchorBranch({
@@ -399,6 +423,7 @@ export async function executeDispatchPrompt(
 		};
 	}
 
+	request.onPhase?.("Starting the remote workflow…");
 	const started = await gateways.trigger.startDispatchRun({
 		connection: preflight.triggerConnection,
 		input: runInput.value,
@@ -420,6 +445,7 @@ export async function executeDispatchPrompt(
 			anchorPr,
 		};
 	}
+	request.onPhase?.("Recording the workflow run on the anchor PR…");
 	const stamp = await gateways.anchorPrs.stampAnchorPrRunId({
 		cwd: request.cwd,
 		prNumber: anchorPr.number,
@@ -436,5 +462,11 @@ export async function executeDispatchPrompt(
 		isSourcePushed,
 		anchorPr,
 		runId,
+		workflowRunUrl: buildWorkflowRunUrl(preflight.workflowDashboardUrl, runId),
 	};
+}
+
+function buildWorkflowRunUrl(workflowDashboardUrl: string, runId: string): string {
+	const base = workflowDashboardUrl.replace(/\/$/, "");
+	return `${base}/runs/${encodeURIComponent(runId)}?environment=production`;
 }
