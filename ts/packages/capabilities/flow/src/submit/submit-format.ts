@@ -289,7 +289,7 @@ export function formatPostSubmitFailureOutput({
 		formatOutputSection("stdout", submitted.output.stdout, SUBMIT_COMMAND_OUTPUT_SECTION_OPTIONS),
 		formatOutputSection("stderr", submitted.output.stderr, SUBMIT_COMMAND_OUTPUT_SECTION_OPTIONS),
 		formatBufferedCommandSection(
-			"$ gt branch info --no-interactive",
+			"$ gh pr view --json number,url",
 			currentPr.output,
 			CURRENT_PR_TIMEOUT_MS,
 		),
@@ -333,7 +333,7 @@ function currentPrVerificationFailure(
 function formatNoCurrentPrRecoveryGuidance(): string[] {
 	return [
 		"`ns flow submit` checkpoints outstanding worktree changes before submitting.",
-		"If the branch still has no PR, inspect the Graphite output above and rerun `ns flow submit` after resolving the reported issue.",
+		"If the branch still has no PR, inspect the submit and GitHub verification output above, then rerun `ns flow submit` after resolving the reported issue.",
 	];
 }
 

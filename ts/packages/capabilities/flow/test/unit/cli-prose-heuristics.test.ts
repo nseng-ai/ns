@@ -6,16 +6,16 @@ import {
 	isGithubDiffTooLargeFailure,
 	isGithubDiffTooLargeProse,
 	isGitRebaseInProgressProse,
-	isNoCurrentPrProse,
+	isNoCurrentGithubPrProse,
 } from "../../src/submit/cli-prose-heuristics.ts";
 
 describe("CLI prose heuristics", () => {
-	test.each(["No PR found", "ERROR: no pr FOUND for the current branch"])(
-		"detects Graphite's no-current-PR prose: %s",
-		(output) => {
-			expect(isNoCurrentPrProse(output)).toBe(true);
-		},
-	);
+	test.each([
+		'no pull requests found for branch "feature/demo"',
+		'GraphQL: No pull request found for branch "feature/demo"',
+	])("detects GitHub's no-current-PR prose: %s", (output) => {
+		expect(isNoCurrentGithubPrProse(output)).toBe(true);
+	});
 
 	test.each([
 		"diff exceeded the maximum number of lines",

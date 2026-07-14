@@ -12,7 +12,9 @@ import {
 	runStackSquashFlow,
 	stackSquashCommandFailureDetail,
 	type StackSquashCommandFailure,
+	type StackSquashGraphiteGateway,
 } from "../stack-squash/stack-squash.ts";
+import { createFlowGraphiteStackGateway } from "../stack-squash/graphite-stack-gateway.ts";
 import { type FlowCommandContext, type FlowRegisteredCommand } from "./command-support.ts";
 import type { FlowGraphiteCommandHost } from "./graphite-command.ts";
 
@@ -45,7 +47,12 @@ export default function stackSquashExtension(pi: StackSquashExtensionAPI): void 
 				"Run gt squash on every branch in the current stack from the tip down to the bottom",
 			handler: async (_args, ctx) => {
 				await ctx.waitForIdle?.();
-				await runStackSquash(pi, ctx);
+				const execApi = createPiCommandExecApi(pi);
+				await runStackSquash(
+					pi,
+					ctx,
+					createFlowGraphiteStackGateway({ execApi, env: process.env }),
+				);
 			},
 		},
 	});
@@ -54,9 +61,11 @@ export default function stackSquashExtension(pi: StackSquashExtensionAPI): void 
 export async function runStackSquash(
 	pi: StackSquashExtensionAPI,
 	ctx: FlowCommandContext,
+	graphite: StackSquashGraphiteGateway,
 ): Promise<void> {
 	const outcome = await runStackSquashFlow(
 		{ exec: (command, args, options) => createPiCommandExecApi(pi).exec(command, args, options) },
+		graphite,
 		{
 			cwd: ctx.cwd,
 			onProgress: (message) => sendCommandProgressOrNotify({ host: pi, ctx, message }),

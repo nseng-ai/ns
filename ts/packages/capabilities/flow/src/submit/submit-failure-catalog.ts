@@ -9,7 +9,11 @@ import {
 import type { SubmitCommandOutput } from "./submit.ts";
 import { formatItemCount } from "./submit-format.ts";
 
-export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
+export type CurrentPrVerificationFailureCause =
+	| "startup_error"
+	| "timeout"
+	| "command_failed"
+	| "malformed_output";
 
 export type SubmitCurrentPrVerificationFailure = {
 	[K in "no_current_pr" | CurrentPrVerificationFailureCause]: {
@@ -111,6 +115,10 @@ const currentPrVerificationFailureCatalog = defineFailureCatalog<
 	command_failed: {
 		message: (failure) =>
 			`gt submit exited 0, but current PR verification failed: ${formatVerificationTermination(failure.output)}.`,
+	},
+	malformed_output: {
+		message: () =>
+			"gt submit exited 0, but GitHub returned malformed JSON while verifying the current PR.",
 	},
 });
 

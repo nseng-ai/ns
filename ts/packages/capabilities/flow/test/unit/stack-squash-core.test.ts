@@ -1,5 +1,7 @@
-import { describe, expect, test } from "vitest";
+import { FakeGraphiteStackGateway, fakeStackInfo } from "@nseng-ai/capability-kit/graphite/testing";
+import type { StackInfo } from "@nseng-ai/capability-kit/graphite/stack";
 import type { ExecResult } from "@nseng-ai/foundation/command";
+import { describe, expect, test } from "vitest";
 
 import {
 	formatStackSquashSummary,
@@ -7,15 +9,6 @@ import {
 } from "../../src/stack-squash/stack-squash.ts";
 
 const TEST_CWD = "/work";
-const STACK_BRANCHES_ARGS = [
-	"slot",
-	"gt",
-	"exec",
-	"stack-branches",
-	"--downstack",
-	"--format",
-	"json",
-];
 
 interface ExecCall {
 	command: string;
@@ -55,16 +48,24 @@ function scriptedExec(results: readonly ScriptedResult[]) {
 	};
 }
 
-function stackBranches(branches: readonly string[]): ScriptedResult {
-	return { stdout: JSON.stringify({ status: "ok", exitCode: 0, data: { branches } }) };
+function trackedStack(overrides: Partial<StackInfo> = {}): FakeGraphiteStackGateway {
+	return new FakeGraphiteStackGateway({
+		stack: {
+			type: "stack",
+			stack: fakeStackInfo({
+				trunk: "main",
+				current: "feature/top",
+				ancestors: ["main"],
+				...overrides,
+			}),
+		},
+	});
 }
 
 describe("stack squash core", () => {
-	test("squashes branches tip-first and restores the tip", async () => {
+	test("uses structured ancestors, squashes tip-first, and restores the tip", async () => {
 		const commands = scriptedExec([
 			{},
-			stackBranches(["feature/bottom", "feature/middle", "feature/top"]),
-			{ stdout: "main\n" },
 			{ stdout: "2\n" },
 			{ stdout: "3\n" },
 			{ stdout: "4\n" },
@@ -76,9 +77,24 @@ describe("stack squash core", () => {
 			{},
 			{},
 		]);
+		const graphite = trackedStack({
+			current: "feature/top",
+			ancestors: ["main", "feature/bottom", "feature/middle"],
+			descendants: ["feature/unrelated-child"],
+			descendantWalk: {
+				forks: [
+					{
+						branch: "feature/top",
+						children: ["feature/unrelated-child", "feature/other-child"],
+					},
+				],
+				childrenCorruptions: [],
+				termination: { type: "cycle", branch: "feature/unrelated-child" },
+			},
+		});
 		const progress: string[] = [];
 
-		const outcome = await runStackSquashFlow(commands, {
+		const outcome = await runStackSquashFlow(commands, graphite, {
 			cwd: TEST_CWD,
 			onProgress: (message) => progress.push(message),
 		});
@@ -91,10 +107,9 @@ describe("stack squash core", () => {
 				{ branch: "feature/bottom", commitsBefore: 2, state: "squashed" },
 			],
 		});
+		expect(graphite.operations()).toEqual([{ type: "stack", cwd: TEST_CWD }]);
 		expect(commands.calls).toEqual([
 			{ command: "git", args: ["status", "--porcelain=v1"], cwd: TEST_CWD },
-			{ command: "ns", args: STACK_BRANCHES_ARGS, cwd: TEST_CWD },
-			{ command: "gt", args: ["trunk", "--no-interactive"], cwd: TEST_CWD },
 			{ command: "git", args: ["rev-list", "--count", "main..feature/bottom"], cwd: TEST_CWD },
 			{
 				command: "git",
@@ -108,9 +123,17 @@ describe("stack squash core", () => {
 			},
 			{ command: "gt", args: ["checkout", "feature/top", "--no-interactive"], cwd: TEST_CWD },
 			{ command: "gt", args: ["squash", "--no-edit", "--no-interactive"], cwd: TEST_CWD },
-			{ command: "gt", args: ["checkout", "feature/middle", "--no-interactive"], cwd: TEST_CWD },
+			{
+				command: "gt",
+				args: ["checkout", "feature/middle", "--no-interactive"],
+				cwd: TEST_CWD,
+			},
 			{ command: "gt", args: ["squash", "--no-edit", "--no-interactive"], cwd: TEST_CWD },
-			{ command: "gt", args: ["checkout", "feature/bottom", "--no-interactive"], cwd: TEST_CWD },
+			{
+				command: "gt",
+				args: ["checkout", "feature/bottom", "--no-interactive"],
+				cwd: TEST_CWD,
+			},
 			{ command: "gt", args: ["squash", "--no-edit", "--no-interactive"], cwd: TEST_CWD },
 			{ command: "gt", args: ["checkout", "feature/top", "--no-interactive"], cwd: TEST_CWD },
 		]);
@@ -124,37 +147,117 @@ describe("stack squash core", () => {
 
 	test("refuses a dirty worktree before stack discovery", async () => {
 		const commands = scriptedExec([{ stdout: " M file.ts\n" }]);
+		const graphite = trackedStack();
 
-		expect(await runStackSquashFlow(commands, { cwd: TEST_CWD })).toEqual({
+		expect(await runStackSquashFlow(commands, graphite, { cwd: TEST_CWD })).toEqual({
 			kind: "worktree-dirty",
 			status: "M file.ts",
 			cwd: TEST_CWD,
 		});
 		expect(commands.calls).toHaveLength(1);
+		expect(graphite.operations()).toEqual([]);
 	});
 
-	test("returns a stack discovery failure from the envelope", async () => {
-		const commands = scriptedExec([
-			{},
-			{ stdout: JSON.stringify({ status: "failure", message: "forked stack" }) },
-		]);
+	test("returns a structured provider discovery failure", async () => {
+		const commands = scriptedExec([{}]);
+		const graphite = new FakeGraphiteStackGateway({
+			stack: {
+				type: "failure",
+				failure: { message: "metadata unavailable", returnCode: null },
+			},
+		});
 
-		const outcome = await runStackSquashFlow(commands, { cwd: TEST_CWD });
-
-		expect(outcome).toMatchObject({ kind: "stack-discovery-failed", message: "forked stack" });
-		expect(commands.calls).toHaveLength(2);
+		expect(await runStackSquashFlow(commands, graphite, { cwd: TEST_CWD })).toEqual({
+			kind: "stack-discovery-failed",
+			reason: "provider-failure",
+			message:
+				"Could not read Graphite stack metadata: metadata unavailable. Stack squash did not run.",
+			cwd: TEST_CWD,
+		});
+		expect(commands.calls).toHaveLength(1);
 	});
 
-	test("treats an already-one-commit squash as success", async () => {
-		const commands = scriptedExec([
-			{},
-			stackBranches(["feature/top"]),
-			{ stdout: "main\n" },
-			{ stdout: "1\n" },
-			{},
-		]);
+	test("fails safely when the current branch is untracked", async () => {
+		const commands = scriptedExec([{}]);
+		const graphite = new FakeGraphiteStackGateway({
+			stack: { type: "untracked_branch", message: "feature/local is not tracked" },
+		});
 
-		expect(await runStackSquashFlow(commands, { cwd: TEST_CWD })).toEqual({
+		expect(await runStackSquashFlow(commands, graphite, { cwd: TEST_CWD })).toMatchObject({
+			kind: "stack-discovery-failed",
+			reason: "untracked-branch",
+			message: expect.stringContaining("gt track"),
+		});
+	});
+
+	test("treats the current branch being trunk as an empty stack", async () => {
+		const commands = scriptedExec([{}]);
+		const graphite = trackedStack({ trunk: "main", current: "main", ancestors: [] });
+
+		expect(await runStackSquashFlow(commands, graphite, { cwd: TEST_CWD })).toEqual({
+			kind: "empty-stack",
+			cwd: TEST_CWD,
+		});
+		expect(commands.calls).toHaveLength(1);
+	});
+
+	test.each([
+		{
+			termination: { type: "cycle", branch: "feature/bottom" } as const,
+			reason: "ancestor-cycle",
+		},
+		{
+			termination: { type: "row_missing", branch: "feature/missing" } as const,
+			reason: "ancestor-row-missing",
+		},
+	])("fails safely when the ancestor walk ends with $reason", async ({ termination, reason }) => {
+		const commands = scriptedExec([{}]);
+		const graphite = trackedStack({ ancestorTermination: termination });
+
+		expect(await runStackSquashFlow(commands, graphite, { cwd: TEST_CWD })).toMatchObject({
+			kind: "stack-discovery-failed",
+			reason,
+		});
+		expect(commands.calls).toHaveLength(1);
+	});
+
+	test("fails safely on an inconsistent trunk marker", async () => {
+		const commands = scriptedExec([{}]);
+		const graphite = trackedStack({
+			trunkMarker: {
+				type: "problem",
+				terminus: "main",
+				terminusState: "unmarked",
+				markedTrunks: ["legacy"],
+			},
+		});
+
+		expect(await runStackSquashFlow(commands, graphite, { cwd: TEST_CWD })).toMatchObject({
+			kind: "stack-discovery-failed",
+			reason: "inconsistent-trunk-marker",
+			message: expect.stringContaining("marked trunks: `legacy`"),
+		});
+		expect(commands.calls).toHaveLength(1);
+	});
+
+	test("fails safely when completed ancestor metadata is internally inconsistent", async () => {
+		const commands = scriptedExec([{}]);
+		const graphite = trackedStack({
+			ancestors: ["main", "feature/top"],
+		});
+
+		expect(await runStackSquashFlow(commands, graphite, { cwd: TEST_CWD })).toMatchObject({
+			kind: "stack-discovery-failed",
+			reason: "inconsistent-ancestor-metadata",
+		});
+		expect(commands.calls).toHaveLength(1);
+	});
+
+	test("treats an already-one-commit branch as success", async () => {
+		const commands = scriptedExec([{}, { stdout: "1\n" }, {}]);
+		const graphite = trackedStack();
+
+		expect(await runStackSquashFlow(commands, graphite, { cwd: TEST_CWD })).toEqual({
 			kind: "success",
 			processed: [{ branch: "feature/top", commitsBefore: 1, state: "already_one_commit" }],
 		});
@@ -166,16 +269,11 @@ describe("stack squash core", () => {
 	});
 
 	test("skips a zero-commit branch and still restores the tip", async () => {
-		const commands = scriptedExec([
-			{},
-			stackBranches(["feature/top"]),
-			{ stdout: "main\n" },
-			{ stdout: "0\n" },
-			{},
-		]);
+		const commands = scriptedExec([{}, { stdout: "0\n" }, {}]);
+		const graphite = trackedStack();
 		const completed: string[] = [];
 
-		const outcome = await runStackSquashFlow(commands, {
+		const outcome = await runStackSquashFlow(commands, graphite, {
 			cwd: TEST_CWD,
 			onBranchCompleted: (entry) => completed.push(`${entry.branch}:${entry.state}`),
 		});
@@ -187,22 +285,16 @@ describe("stack squash core", () => {
 		expect(completed).toEqual(["feature/top:no_commits"]);
 		expect(commands.calls).toEqual([
 			{ command: "git", args: ["status", "--porcelain=v1"], cwd: TEST_CWD },
-			{ command: "ns", args: STACK_BRANCHES_ARGS, cwd: TEST_CWD },
-			{ command: "gt", args: ["trunk", "--no-interactive"], cwd: TEST_CWD },
 			{ command: "git", args: ["rev-list", "--count", "main..feature/top"], cwd: TEST_CWD },
 			{ command: "gt", args: ["checkout", "feature/top", "--no-interactive"], cwd: TEST_CWD },
 		]);
 	});
 
 	test("still rejects an empty commit count", async () => {
-		const commands = scriptedExec([
-			{},
-			stackBranches(["feature/top"]),
-			{ stdout: "main\n" },
-			{ stdout: "\n" },
-		]);
+		const commands = scriptedExec([{}, { stdout: "\n" }]);
+		const graphite = trackedStack();
 
-		expect(await runStackSquashFlow(commands, { cwd: TEST_CWD })).toMatchObject({
+		expect(await runStackSquashFlow(commands, graphite, { cwd: TEST_CWD })).toMatchObject({
 			kind: "commit-count-failed",
 			branch: "feature/top",
 			parent: "main",
@@ -224,15 +316,17 @@ describe("stack squash core", () => {
 	test("stops on the first squash failure", async () => {
 		const commands = scriptedExec([
 			{},
-			stackBranches(["feature/bottom", "feature/top"]),
-			{ stdout: "main\n" },
 			{ stdout: "2\n" },
 			{ stdout: "3\n" },
 			{},
 			{ code: 1, stderr: "cannot squash branch\n" },
 		]);
+		const graphite = trackedStack({
+			current: "feature/top",
+			ancestors: ["main", "feature/bottom"],
+		});
 
-		const outcome = await runStackSquashFlow(commands, { cwd: TEST_CWD });
+		const outcome = await runStackSquashFlow(commands, graphite, { cwd: TEST_CWD });
 
 		expect(outcome).toMatchObject({
 			kind: "squash-failed",

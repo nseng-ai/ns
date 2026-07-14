@@ -19,6 +19,11 @@ import {
 } from "./index.ts";
 import { RealCheckpointGateway, type CheckpointRunContext } from "../checkpoint/checkpoint.ts";
 import { RealGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
+import {
+	RealGraphiteStackGateway,
+	type GraphiteStackGateway,
+	type GraphiteStackGitGateway,
+} from "@nseng-ai/capability-kit/graphite/stack";
 import { commandOperations, withActiveOperations } from "../phase-stream/matrix-progress-core.ts";
 
 import type { NsExtensionApi } from "@nseng-ai/sdk";
@@ -37,13 +42,28 @@ export interface NsSubmitRuntime {
 	git: Pick<GitGateway, "optionalRepoRoot">;
 }
 
+export interface CreateNsSubmitRuntimeOptions {
+	graphiteStackGateway?: Pick<GraphiteStackGateway, "stack">;
+}
+
 /** Temporary internal migration seam; not exported from `@nseng-ai/sdk`. */
 export function createNsSubmitRuntime(
 	ctx: NsExtensionApi,
 	descriptorSource: FlowPrDescriptionDescriptorSource,
+	options: CreateNsSubmitRuntimeOptions = {},
 ): NsSubmitRuntime {
 	const commandRunner = createNsCommandRunner(ctx);
 	const git = createNsGitGateway(ctx);
+	const graphiteExecApi: CommandExecApi = {
+		exec: (command, args, execOptions) => commandRunner(command, args, execOptions),
+	};
+	const graphite =
+		options.graphiteStackGateway ??
+		new RealGraphiteStackGateway({
+			env: ctx.env,
+			execApi: graphiteExecApi,
+			git: createSubmitGraphiteStackGitGateway(git),
+		});
 	return {
 		commandRunner,
 		createCheckpointRunContext: (onActiveOperations) => {
@@ -66,7 +86,7 @@ export function createNsSubmitRuntime(
 			};
 		},
 		submitGateway: new RealSubmitGateway(commandRunner),
-		metadataGateway: new RealSubmitMetadataGateway(commandRunner),
+		metadataGateway: new RealSubmitMetadataGateway({ graphite, runner: commandRunner }),
 		git,
 		prDescription: {
 			githubPr: new RealGithubPrGateway(commandRunner),
@@ -74,6 +94,23 @@ export function createNsSubmitRuntime(
 			git,
 			descriptorSource,
 			env: ctx.env,
+		},
+	};
+}
+
+function createSubmitGraphiteStackGitGateway(
+	git: Pick<GitGateway, "currentBranch" | "gitCommonDir">,
+): GraphiteStackGitGateway {
+	return {
+		async getGitCommonDir(cwd: string): Promise<string | null> {
+			const result = await git.gitCommonDir({ cwd });
+			return result.ok ? result.value : null;
+		},
+		async getCurrentBranch(cwd: string) {
+			const result = await git.currentBranch({ cwd });
+			if (result.type === "branch") return result;
+			if (result.type === "detached") return result;
+			return { type: "failure", failure: { message: result.error.message } };
 		},
 	};
 }

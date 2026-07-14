@@ -1,6 +1,7 @@
+import { NsCommandExecApi } from "@nseng-ai/capability-kit/command-runner";
 import { formatCommand } from "@nseng-ai/foundation/command";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
-import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
+import { defineCommand, negative, ok, z, type NsCommand, type NsExtensionApi } from "@nseng-ai/sdk";
 
 import {
 	describeStackSquashOutcome,
@@ -9,6 +10,7 @@ import {
 	runStackSquashFlow,
 	stackSquashCommandFailureDetail,
 	type StackSquashCommandFailure,
+	type StackSquashGraphiteGateway,
 	type StackSquashOutcome,
 } from "../../stack-squash/stack-squash.ts";
 import {
@@ -17,6 +19,7 @@ import {
 } from "../../stack-squash/stack-squash-matrix-progress.ts";
 import { flowStreamDeps, resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { runFlowCliOperation } from "../flow-cli-runner.ts";
+import { createFlowGraphiteStackGateway } from "../../stack-squash/graphite-stack-gateway.ts";
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";
 
 const squashStackSchema = z.object({});
@@ -24,45 +27,60 @@ const squashStackSchema = z.object({});
 export const SQUASH_STACK_COMMAND_SUMMARY =
 	"Squash every branch in the current Graphite stack to one commit.";
 
-export const flowSquashStackCommand: NsCommand<typeof squashStackSchema> = defineCommand({
-	name: "squash-stack",
-	summary: SQUASH_STACK_COMMAND_SUMMARY,
-	description:
-		"Squash every branch in the current Graphite stack from the tip down, then restore the tip branch.",
-	schema: squashStackSchema,
-	resultSchema: z.string(),
-	handler: async (ctx) => {
-		const caps = resolveFlowStreamCaps(ctx);
-		const matrix = createStackSquashMatrixProgressController({
-			caps,
-			deps: flowStreamDeps(ctx, caps),
-			...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
-		});
-		try {
-			const outcome = await runFlowCliOperation({
-				ctx,
-				run: async (commands) =>
-					await runStackSquashFlow(commands, {
-						cwd: ctx.cwd,
-						onProgress: matrix.note,
-						onPlan: matrix.setPlan,
-						onBranchStarted: (entry) =>
-							matrix.setSquashStatus(entry.branch, {
-								state: "active",
-								text: formatStackSquashCellText(entry.commitsBefore),
-							}),
-						onBranchCompleted: (entry) =>
-							matrix.setSquashStatus(entry.branch, stackSquashCompletionUpdate(entry)),
-						onRestoreStarted: matrix.restoreStarted,
-						onRestoreCompleted: matrix.restoreCompleted,
-					}),
+export interface FlowSquashStackCommandDependencies {
+	createGraphiteStackGateway(ctx: NsExtensionApi): StackSquashGraphiteGateway;
+}
+
+export function createFlowSquashStackCommand(
+	dependencies: FlowSquashStackCommandDependencies,
+): NsCommand<typeof squashStackSchema> {
+	return defineCommand({
+		name: "squash-stack",
+		summary: SQUASH_STACK_COMMAND_SUMMARY,
+		description:
+			"Squash every branch in the current Graphite stack from the tip down, then restore the tip branch.",
+		schema: squashStackSchema,
+		resultSchema: z.string(),
+		handler: async (ctx) => {
+			const caps = resolveFlowStreamCaps(ctx);
+			const matrix = createStackSquashMatrixProgressController({
+				caps,
+				deps: flowStreamDeps(ctx, caps),
+				...(ctx.progress.isLive ? { forward: ctx.progress } : {}),
 			});
-			await matrix.finish({ isFailed: outcome.kind !== "success" });
-			if (outcome.kind === "success") return ok(formatStackSquashSummary(outcome.processed));
-			return negative(renderStackSquashNegative(caps, outcome));
-		} finally {
-			await matrix.stop();
-		}
+			try {
+				const outcome = await runFlowCliOperation({
+					ctx,
+					run: async (commands) =>
+						await runStackSquashFlow(commands, dependencies.createGraphiteStackGateway(ctx), {
+							cwd: ctx.cwd,
+							onProgress: matrix.note,
+							onPlan: matrix.setPlan,
+							onBranchStarted: (entry) =>
+								matrix.setSquashStatus(entry.branch, {
+									state: "active",
+									text: formatStackSquashCellText(entry.commitsBefore),
+								}),
+							onBranchCompleted: (entry) =>
+								matrix.setSquashStatus(entry.branch, stackSquashCompletionUpdate(entry)),
+							onRestoreStarted: matrix.restoreStarted,
+							onRestoreCompleted: matrix.restoreCompleted,
+						}),
+				});
+				await matrix.finish({ isFailed: outcome.kind !== "success" });
+				if (outcome.kind === "success") return ok(formatStackSquashSummary(outcome.processed));
+				return negative(renderStackSquashNegative(caps, outcome));
+			} finally {
+				await matrix.stop();
+			}
+		},
+	});
+}
+
+export const flowSquashStackCommand = createFlowSquashStackCommand({
+	createGraphiteStackGateway: (ctx) => {
+		const execApi = new NsCommandExecApi(ctx);
+		return createFlowGraphiteStackGateway({ execApi, env: ctx.env });
 	},
 });
 
@@ -89,7 +107,6 @@ function renderStackSquashNegative(
 			});
 		case "worktree-probe-failed":
 		case "stack-discovery-failed":
-		case "trunk-discovery-failed":
 		case "commit-count-failed":
 		case "checkout-failed":
 		case "squash-failed":

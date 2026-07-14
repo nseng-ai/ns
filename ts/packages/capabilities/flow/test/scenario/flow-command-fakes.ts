@@ -9,10 +9,17 @@ import { flowCpCommand } from "../../src/ns/commands/cp.ts";
 import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/ns/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
-import { flowSquashStackCommand } from "../../src/ns/commands/squash-stack.ts";
+import { createFlowSquashStackCommand } from "../../src/ns/commands/squash-stack.ts";
+import {
+	FakeGraphiteStackGateway,
+	fakeStackInfo,
+	type FakeGraphiteStackGatewayOptions,
+} from "@nseng-ai/capability-kit/graphite/testing";
 import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import type { CommandExit, NsCommand, NsExtensionApi, NsProgress } from "@nseng-ai/sdk";
-import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
+import { createFlowSubmitCommand } from "../../src/ns/commands/submit.ts";
+import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
+import { createNsSubmitRuntime } from "../../src/submit/ns-runtime.ts";
 
 import {
 	ScriptedNsTestContext,
@@ -29,6 +36,14 @@ interface RunFlowCommandWithFakesOptions {
 	homeDir?: string;
 	progress?: NsProgress;
 	defaults?: RunWithFakesDefaults;
+}
+
+interface RunFlowSquashStackCommandWithFakesOptions extends RunFlowCommandWithFakesOptions {
+	graphiteStack?: FakeGraphiteStackGatewayOptions;
+}
+
+interface RunFlowSubmitCommandWithFakesOptions extends RunFlowCommandWithFakesOptions {
+	graphiteStack?: FakeGraphiteStackGatewayOptions;
 }
 
 interface FlowCommandFixture {
@@ -92,25 +107,28 @@ export function runFlowPullTrunkCommandWithFakes(options: RunFlowCommandWithFake
 	});
 }
 
-export function runFlowSquashStackCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
-	return runFlowCommandWithFakes({
-		command: flowSquashStackCommand,
+export function runFlowSquashStackCommandWithFakes(
+	options: RunFlowSquashStackCommandWithFakesOptions = {},
+) {
+	const stackGateway = new FakeGraphiteStackGateway(
+		options.graphiteStack ?? {
+			stack: {
+				type: "stack",
+				stack: fakeStackInfo({
+					trunk: "main",
+					current: "feature/top",
+					ancestors: ["main", "feature/bottom"],
+				}),
+			},
+		},
+	);
+	const run = runFlowCommandWithFakes({
+		command: createFlowSquashStackCommand({ createGraphiteStackGateway: () => stackGateway }),
 		request: options.request ?? {},
 		options,
 		defaults: options.defaults ?? {
 			execResponses: () => [
 				{ match: "git status --porcelain=v1", result: {} },
-				{
-					match: "ns slot gt exec stack-branches --downstack --format json",
-					result: {
-						stdout: JSON.stringify({
-							status: "ok",
-							exitCode: 0,
-							data: { branches: ["feature/bottom", "feature/top"] },
-						}),
-					},
-				},
-				{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 				{ match: "git rev-list --count main..feature/bottom", result: { stdout: "2\n" } },
 				{
 					match: "git rev-list --count feature/bottom..feature/top",
@@ -125,6 +143,7 @@ export function runFlowSquashStackCommandWithFakes(options: RunFlowCommandWithFa
 			textGenerationResults: () => [],
 		},
 	});
+	return { ...run, stackGateway };
 }
 
 export function runFlowBranchLatestCommitCommandWithFakes(
@@ -461,9 +480,26 @@ export function runFlowRegeneratePrCommandWithFakes(options: RunFlowCommandWithF
 	});
 }
 
-export function runFlowSubmitCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
-	return runFlowCommandWithFakes({
-		command: flowSubmitCommand,
+export function runFlowSubmitCommandWithFakes(options: RunFlowSubmitCommandWithFakesOptions = {}) {
+	const stackGateway = new FakeGraphiteStackGateway(
+		options.graphiteStack ?? {
+			stack: {
+				type: "stack",
+				stack: fakeStackInfo({
+					trunk: "main",
+					current: "feature/demo",
+					ancestors: ["main"],
+				}),
+			},
+		},
+	);
+	const run = runFlowCommandWithFakes({
+		command: createFlowSubmitCommand({
+			createRuntime: (ctx) =>
+				createNsSubmitRuntime(ctx, flowExtensionDescriptorSource, {
+					graphiteStackGateway: stackGateway,
+				}),
+		}),
 		request: options.request ?? {},
 		options,
 		defaults: options.defaults ?? {
@@ -471,6 +507,7 @@ export function runFlowSubmitCommandWithFakes(options: RunFlowCommandWithFakesOp
 			textGenerationResults: () => [],
 		},
 	});
+	return { ...run, stackGateway };
 }
 
 function runFlowCommandWithFakes(fixture: FlowCommandFixture) {

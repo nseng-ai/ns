@@ -74,7 +74,7 @@ export type {
 } from "./submit-failure-catalog.ts";
 
 const RESTACK_COMMAND_DISPLAY = "gt restack --downstack --no-interactive";
-const CURRENT_PR_COMMAND_DISPLAY = "gt branch info --no-interactive";
+const CURRENT_PR_COMMAND_DISPLAY = "gh pr view --json number,url";
 
 export type SubmitCommandOutput = ExecResult;
 

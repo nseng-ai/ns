@@ -1,4 +1,5 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -194,12 +195,12 @@ describe("checked-in flow ns extension loading", () => {
 	});
 
 	test("real loader reaches a simple submit invocation path", async () => {
-		const cwd = await createFlowProject();
+		const cwd = await createFlowProjectWithGraphiteStack();
 		const run = runWithRealFlowExtension({
 			args: ["flow", "submit"],
 			cwd,
 			state: {
-				exec: successfulSubmitResponses(),
+				exec: successfulSubmitResponses(cwd),
 				textGeneration: [{ ok: true, text: "Generated PR\n\nGenerated body" }],
 			},
 		});
@@ -220,7 +221,9 @@ describe("checked-in flow ns extension loading", () => {
 			),
 		).toBe(true);
 		const execCalls = formattedExecCalls(run.context);
-		expect(execCalls.filter((call) => call === "gt trunk --no-interactive")).toHaveLength(2);
+		expect(execCalls.filter((call) => call === "gt trunk --no-interactive")).toHaveLength(1);
+		expect(execCalls).not.toContain("gt log --stack --reverse --no-interactive");
+		expect(execCalls).not.toContain("gt branch info --no-interactive");
 		expect(execCalls).toContain(
 			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 		);
@@ -231,6 +234,20 @@ async function createFlowProject(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-flow-extension-project-"));
 	tempDirs.push(directory);
 	installCheckedInFlowExtension(directory);
+	return directory;
+}
+
+async function createFlowProjectWithGraphiteStack(): Promise<string> {
+	const directory = await createFlowProject();
+	const gitDir = join(directory, ".git");
+	await mkdir(gitDir, { recursive: true });
+	execFileSync("sqlite3", [join(gitDir, ".graphite_metadata.db")], {
+		input: [
+			"CREATE TABLE branch_metadata (branch_name TEXT PRIMARY KEY, parent_branch_name TEXT, children TEXT, validation_result TEXT);",
+			`INSERT INTO branch_metadata VALUES ('main', NULL, '["feature/demo"]', 'TRUNK');`,
+			`INSERT INTO branch_metadata VALUES ('feature/demo', 'main', '[]', 'VALID');`,
+		].join("\n"),
+	});
 	return directory;
 }
 
@@ -269,7 +286,7 @@ function dirtyCpExecResponses(): ScriptedExecResponse[] {
 	];
 }
 
-function successfulSubmitResponses(): ScriptedExecResponse[] {
+function successfulSubmitResponses(cwd: string): ScriptedExecResponse[] {
 	return [
 		...cleanCheckpointResponses(),
 		{
@@ -277,20 +294,20 @@ function successfulSubmitResponses(): ScriptedExecResponse[] {
 				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 			result: { stdout: "ready\n" },
 		},
+		{ match: "git rev-parse --git-common-dir", result: { stdout: `${join(cwd, ".git")}\n` } },
+		{ match: "git branch --show-current", result: { stdout: "feature/demo\n" } },
 		{
-			match: "gt log --stack --reverse --no-interactive",
-			result: { stdout: "◯ main\n◉ feature/demo (current)\n" },
-		},
-		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-		{
-			match: "gt branch info --no-interactive --branch feature/demo",
-			result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+			match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+			result: { stdout: JSON.stringify([{ number: 123, url: PR_URL }]) },
 		},
 		{
 			match: "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 			result: { stdout: `Submitted ${PR_URL}\n` },
 		},
-		{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
+		{
+			match: "gh pr view --json number,url",
+			result: { stdout: JSON.stringify({ number: 123, url: PR_URL }) },
+		},
 		{
 			match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
 			result: { stdout: prJson({ body: "Hand edited body" }) },

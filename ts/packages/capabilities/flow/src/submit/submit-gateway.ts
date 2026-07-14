@@ -8,10 +8,12 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import { firstNonEmptyLine } from "@nseng-ai/foundation/text-normalization";
 import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
+import { runGitHubCliAsExecResult } from "@nseng-ai/capability-kit/github/cli";
+import { z } from "zod";
 
 import {
 	isGitConflictWithConflictedFilesProse,
-	isNoCurrentPrProse,
+	isNoCurrentGithubPrProse,
 	isRestackNeededProse,
 } from "./cli-prose-heuristics.ts";
 import { buildStackUpdateArgs, buildSubmitArgs } from "./submit-command-spec.ts";
@@ -42,7 +44,7 @@ import type {
 } from "./submit.ts";
 
 const RESTACK_ARGS = ["restack", "--downstack", "--no-interactive"] as const;
-const CURRENT_PR_ARGS = ["branch", "info", "--no-interactive"] as const;
+const CURRENT_PR_ARGS = ["pr", "view", "--json", "number,url"] as const;
 const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"] as const;
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
 const GIT_UPSTREAM_ARGS = [
@@ -55,6 +57,11 @@ const SUBMIT_TIMEOUT_MS = 600_000;
 const RESTACK_TIMEOUT_MS = 600_000;
 const CURRENT_PR_TIMEOUT_MS = 60_000;
 const GIT_CHECK_TIMEOUT_MS = 30_000;
+
+const currentGithubPrSchema = z.object({
+	number: z.number().int().positive(),
+	url: z.url(),
+});
 
 interface RunGtOptions {
 	args: readonly string[];
@@ -129,7 +136,7 @@ export class RealSubmitGateway implements SubmitGateway {
 	}
 
 	async verifyCurrentPr(params: SubmitCommandParams): Promise<CurrentPrVerificationResult> {
-		const output = await this.runGt({
+		const output = await this.runGh({
 			args: CURRENT_PR_ARGS,
 			cwd: params.cwd,
 			timeoutMs: CURRENT_PR_TIMEOUT_MS,
@@ -145,20 +152,21 @@ export class RealSubmitGateway implements SubmitGateway {
 			if (
 				output.type === "exited" &&
 				output.signal === null &&
-				output.code !== 0 &&
-				isNoCurrentPrProse(joinOutput(output))
+				output.code === 1 &&
+				isNoCurrentGithubPrProse(joinOutput(output))
 			) {
 				return { kind: "no_current_pr", output, cause: "no_current_pr" };
 			}
 			return { kind: "failed", output, cause: "command_failed" };
 		}
 
-		const prLinks = extractPrLinks(joinOutput(output));
-		if (prLinks.length === 0) {
-			return { kind: "no_current_pr", output, cause: "no_current_pr" };
-		}
-
-		return { kind: "present", output, prLinks };
+		const parsed = currentGithubPrSchema.safeParse(parseExternalJson(output.stdout));
+		if (!parsed.success) return { kind: "failed", output, cause: "malformed_output" };
+		return {
+			kind: "present",
+			output,
+			prLinks: [{ label: `#${parsed.data.number}`, url: parsed.data.url }],
+		};
 	}
 
 	private async runSubmitLikeCommand(
@@ -275,6 +283,18 @@ export class RealSubmitGateway implements SubmitGateway {
 		);
 	}
 
+	private async runGh(options: RunGtOptions): Promise<SubmitCommandOutput> {
+		const { args, cwd, timeoutMs, onOutput } = options;
+		const output = toSubmitCommandOutput(
+			await runGitHubCliAsExecResult({ runner: this.runner, args, cwd, timeoutMs }),
+		);
+		if (onOutput !== undefined) {
+			if (output.stdout !== "") onOutput("stdout", output.stdout);
+			if (output.stderr !== "") onOutput("stderr", output.stderr);
+		}
+		return output;
+	}
+
 	private async runGit(
 		args: string[],
 		cwd: string,
@@ -296,4 +316,12 @@ function toSubmitCommandOutput(result: ExecResult): SubmitCommandOutput {
 
 function isSuccessfulOutput(output: SubmitCommandOutput): boolean {
 	return output.type === "exited" && output.signal === null && output.code === 0;
+}
+
+function parseExternalJson(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return undefined;
+	}
 }

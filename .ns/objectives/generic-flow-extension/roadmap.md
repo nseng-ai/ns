@@ -78,18 +78,29 @@
     conventional `flow.submit.pre.recovery` override). Full `just` passes on both.
 - [~] Genericization slices from the audit: implement the resolve-disposition findings
   recorded in `references/repo-specificity-audit.md`.
-  - Repository identity: replace `main`/`master` checkpoint protection and `origin`
-    refresh assumptions with configured trunk/upstream facts.
-  - Graphite machine facts: remove the Slot Command Face dependency from `squash-stack`
-    and replace submit's `gt log` / `gt branch info` display parsing with structured
-    Graphite facts.
+  - [x] Repository identity (F2/F3): checkpoint workflows resolve Graphite's configured
+        trunk before model or Git mutation and fail closed when it is unavailable; trunk
+        refresh derives the exact remote and remote ref from that branch's Git upstream
+        instead of assuming `origin` or a same-named remote branch. Gateway, unit, scenario,
+        and CLI integration coverage exercises custom trunks, composed submit checkpoints,
+        non-`origin` remotes, checked-out and non-checked-out refreshes, and missing or
+        malformed configuration.
+  - [x] Graphite machine facts (F4/F8): `squash-stack` and submit consume the existing
+        structured `GraphiteStackGateway.stack()` seam. Squash planning no longer calls the
+        Slot Command Face; submit derives its downstack scope and upstack-presence fact from
+        typed Graphite metadata and resolves branch PR identity through validated GitHub JSON
+        rather than `gt log` / `gt branch info` display text. Provider, topology-integrity,
+        PR-lookup, ordering, progress, and failure paths have fake-driven unit/scenario/Pi
+        coverage; Flow/package, default/integration, TypeScript/style, and full `just`
+        validation pass. F9's bounded failure-prose fallback remains parked.
   - Pi ownership: move repo-owned `code-workflows` and `code-gt-restack-resolve` skill
     policy out of the Flow package while retaining generic Flow command mirrors.
   - [x] Point-default fidelity (F10): the PR-description packaged prompt is declared by
-        the Flow descriptor and mirrored SDK metadata, and runtime resolution uses the normal
-        catalog ladder without a bespoke or post-catalog fallback. Selected broken repository
-        policy fails actionably. Focused Flow/SDK tests, package suites, TypeScript/style gates,
-        and full `just` pass; F11 remains parked.
+        the Flow descriptor, and runtime resolution uses the normal descriptor-backed
+        catalog ladder without a bespoke or post-catalog fallback. The SDK fallback remains
+        definition-only and intentionally unresolved without descriptor provenance; selected
+        broken repository policy fails actionably. Focused Flow/SDK tests, package suites,
+        TypeScript/style gates, and full `just` pass; F11 remains parked.
 - [ ] Promote the settled README to `ts/packages/capabilities/flow/README.md`, repoint
       this Objective's canonical reference at the promoted doc, and re-derive or retire
       `orientation.md`.

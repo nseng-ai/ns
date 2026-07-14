@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
+import { fakeStackInfo } from "@nseng-ai/capability-kit/graphite/testing";
 import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
 	PR_DESCRIPTION_GENERATOR_VERSION,
@@ -101,19 +102,17 @@ function successfulSubmitResponses(
 			result: { stdout: "ready\n" },
 		},
 		{
-			match: "gt log --stack --reverse --no-interactive",
-			result: { stdout: "◯ main\n◉ feature/demo (current)\n" },
-		},
-		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-		{
-			match: "gt branch info --no-interactive --branch feature/demo",
-			result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+			match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+			result: { stdout: prIdentityListJson(123, PR_URL) },
 		},
 		{
 			match: submitCommand,
 			result: { stdout: `Submitted ${PR_URL}\n` },
 		},
-		{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
+		{
+			match: "gh pr view --json number,url",
+			result: { stdout: prIdentityJson(123, PR_URL) },
+		},
 		{
 			match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
 			result: { stdout: prJson({ body: options.existingPrBody ?? "Hand edited body" }) },
@@ -127,6 +126,14 @@ function successfulSubmitResponses(
 		},
 		{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: {} },
 	];
+}
+
+function prIdentityListJson(number: number, url: string): string {
+	return JSON.stringify([{ number, url }]);
+}
+
+function prIdentityJson(number: number, url: string): string {
+	return JSON.stringify({ number, url });
 }
 
 function prJson(
@@ -184,20 +191,7 @@ describe("project-local submit extension", () => {
 		const run = runWithFakes({
 			progress,
 			request: { verbose: true },
-			state: {
-				exec: [
-					{
-						match: "gt log --stack --reverse --no-interactive",
-						result: { stdout: "◯ main\n◉ feature/demo (current)\n" },
-					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-					{
-						match: "gt branch info --no-interactive --branch feature/demo",
-						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
-					},
-					...successfulSubmitResponses(),
-				],
-			},
+			state: { exec: successfulSubmitResponses() },
 		});
 
 		expect(await run.exit, run.stderr.join("")).toBe(0);
@@ -368,13 +362,17 @@ describe("project-local submit extension", () => {
 		// Preflight dry-run output stays quiet unless --verbose is passed.
 		expect(run.liveOutput).not.toContainEqual({ stream: "stdout", text: "ready\n" });
 		const calls = formattedExecCalls(run.context);
-		expect(calls).toContain("gt branch info --no-interactive");
-		expect(calls).not.toContain("gt branch info --no-interactive --branch main");
-		expect(calls.indexOf("gt log --stack --reverse --no-interactive")).toBeGreaterThan(
+		expect(calls).toContain("gh pr view --json number,url");
+		expect(calls).not.toContain("gt branch info --no-interactive");
+		expect(calls).not.toContain("gt log --stack --reverse --no-interactive");
+		expect(
+			calls.indexOf("gh pr list --head feature/demo --state open --limit 2 --json number,url"),
+		).toBeGreaterThan(
 			calls.indexOf(
 				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 			),
 		);
+		expect(run.stackGateway.operations()).toEqual([{ type: "stack", cwd: "/work" }]);
 		expect(formattedExecCalls(run.context)).toContain("gh pr diff 123");
 		expect(formattedExecCalls(run.context)).toContainEqual(
 			expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /),
@@ -580,13 +578,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: "ready\n" },
 					},
 					{
-						match: "gt log --stack --reverse --no-interactive",
-						result: { stdout: "◯ main\n◉ feature/demo (current)\n" },
-					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-					{
-						match: "gt branch info --no-interactive --branch feature/demo",
-						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
 					},
 					{
 						match:
@@ -594,8 +587,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: `Submitted ${PR_URL}\n` },
 					},
 					{
-						match: "gt branch info --no-interactive",
-						result: { stdout: `Current PR: ${PR_URL}\n` },
+						match: "gh pr view --json number,url",
+						result: { stdout: prIdentityJson(123, PR_URL) },
 					},
 					{
 						match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
@@ -626,6 +619,17 @@ describe("project-local submit extension", () => {
 	test("pre-submit metadata preparation reports progress across large stacks", async () => {
 		const run = runWithFakes({
 			request: { regenerateDescriptions: true },
+			graphiteStack: {
+				stack: {
+					type: "stack",
+					stack: fakeStackInfo({
+						trunk: "main",
+						current: "feature/top",
+						ancestors: ["main", "feature/base"],
+						descendants: ["feature/upstack"],
+					}),
+				},
+			},
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -635,19 +639,12 @@ describe("project-local submit extension", () => {
 						result: { stdout: "ready\n" },
 					},
 					{
-						match: "gt log --stack --reverse --no-interactive",
-						result: {
-							stdout: "◯ main\n◯ feature/base\n◉ feature/top (current)\n◯ feature/upstack\n",
-						},
-					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-					{
-						match: "gt branch info --no-interactive --branch feature/base",
-						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+						match: "gh pr list --head feature/base --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
 					},
 					{
-						match: "gt branch info --no-interactive --branch feature/top",
-						result: { stdout: "Parent: feature/base\n" },
+						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
+						result: { stdout: "[]" },
 					},
 					{
 						match: "git log --format=%B%x00 feature/base..feature/top",
@@ -670,8 +667,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: "Updated existing upstack PRs\n" },
 					},
 					{
-						match: "gt branch info --no-interactive",
-						result: { stdout: `Current PR: ${PR_URL}\n` },
+						match: "gh pr view --json number,url",
+						result: { stdout: prIdentityJson(123, PR_URL) },
 					},
 					{
 						match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
@@ -713,8 +710,9 @@ describe("project-local submit extension", () => {
 			"gt submit --no-edit --publish --stack --update-only --no-ai --no-interactive --no-view --no-web",
 		);
 		expect(formattedExecCalls(run.context)).not.toContain(
-			"gt branch info --no-interactive --branch feature/upstack",
+			"gh pr list --head feature/upstack --state open --limit 2 --json number,url",
 		);
+		expect(run.stackGateway.operations()).toEqual([{ type: "stack", cwd: "/work" }]);
 		expect(formattedExecCalls(run.context)).not.toContain(
 			"git log --format=%B%x00 feature/top..feature/upstack",
 		);
@@ -726,6 +724,16 @@ describe("project-local submit extension", () => {
 		tempDirs.push(logRoot);
 		const run = runWithFakes({
 			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			graphiteStack: {
+				stack: {
+					type: "stack",
+					stack: fakeStackInfo({
+						trunk: "main",
+						current: "feature/top",
+						ancestors: ["main", "feature/base", "feature/mid"],
+					}),
+				},
+			},
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -735,23 +743,16 @@ describe("project-local submit extension", () => {
 						result: { stdout: "ready\n" },
 					},
 					{
-						match: "gt log --stack --reverse --no-interactive",
-						result: {
-							stdout: "◯ main\n◯ feature/base\n◯ feature/mid\n◉ feature/top (current)\n",
-						},
-					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-					{
-						match: "gt branch info --no-interactive --branch feature/base",
-						result: { stdout: "Parent: main\n" },
+						match: "gh pr list --head feature/base --state open --limit 2 --json number,url",
+						result: { stdout: "[]" },
 					},
 					{
-						match: "gt branch info --no-interactive --branch feature/mid",
-						result: { stdout: "Parent: feature/base\n" },
+						match: "gh pr list --head feature/mid --state open --limit 2 --json number,url",
+						result: { stdout: "[]" },
 					},
 					{
-						match: "gt branch info --no-interactive --branch feature/top",
-						result: { stdout: "Parent: feature/mid\n" },
+						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
+						result: { stdout: "[]" },
 					},
 					{
 						match: "git log --format=%B%x00 main..feature/base",
@@ -845,13 +846,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: "ready\n" },
 					},
 					{
-						match: "gt log --stack --reverse --no-interactive",
-						result: { stdout: "◯ main\n◉ feature/demo (current)\n" },
-					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-					{
-						match: "gt branch info --no-interactive --branch feature/demo",
-						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
 					},
 					{
 						match:
@@ -861,9 +857,10 @@ describe("project-local submit extension", () => {
 						},
 					},
 					{
-						match: "gt branch info --no-interactive",
+						match: "gh pr view --json number,url",
 						result: {
-							stdout: "implicit-session-resolution-feedback-read-helpers\n6 seconds ago\n",
+							code: 1,
+							stderr: 'no pull requests found for branch "feature/demo"\n',
 						},
 					},
 					{
@@ -902,7 +899,7 @@ describe("project-local submit extension", () => {
 		expect(run.stdout.join("")).toContain("Submitted 1 PR:");
 		expect(run.stdout.join("")).toContain(`#1517 ${LAGGING_VERIFICATION_PR_URL}`);
 		expect(run.stderr.join("")).toBe("");
-		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
+		expect(formattedExecCalls(run.context)).toContain("gh pr view --json number,url");
 	});
 
 	test("deduplicates the submitted PR when Graphite and GitHub URL forms differ", async () => {
@@ -916,13 +913,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: "ready\n" },
 					},
 					{
-						match: "gt log --stack --reverse --no-interactive",
-						result: { stdout: "◯ main\n◉ feature/demo (current)\n" },
-					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-					{
-						match: "gt branch info --no-interactive --branch feature/demo",
-						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
 					},
 					{
 						match:
@@ -930,8 +922,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: `Submitted ${GRAPHITE_PR_URL}\n` },
 					},
 					{
-						match: "gt branch info --no-interactive",
-						result: { stdout: `Current PR: ${PR_URL}\n` },
+						match: "gh pr view --json number,url",
+						result: { stdout: prIdentityJson(123, PR_URL) },
 					},
 					{
 						match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
@@ -968,13 +960,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: "ready\n" },
 					},
 					{
-						match: "gt log --stack --reverse --no-interactive",
-						result: { stdout: "◯ main\n◉ feature/demo (current)\n" },
-					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-					{
-						match: "gt branch info --no-interactive --branch feature/demo",
-						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
 					},
 					{
 						match:
@@ -982,8 +969,11 @@ describe("project-local submit extension", () => {
 						result: { stdout: "Submitted stack without PR URL\n" },
 					},
 					{
-						match: "gt branch info --no-interactive",
-						result: { code: 1, stderr: "No PR found for current branch.\n" },
+						match: "gh pr view --json number,url",
+						result: {
+							code: 1,
+							stderr: 'no pull requests found for branch "feature/demo"\n',
+						},
 					},
 				],
 				textGeneration: [{ ok: false, error: "summary unavailable" }],
@@ -1299,6 +1289,16 @@ describe("project-local submit extension", () => {
 		tempDirs.push(logRoot);
 		const run = runWithFakes({
 			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			graphiteStack: {
+				stack: {
+					type: "stack",
+					stack: fakeStackInfo({
+						trunk: "master",
+						current: "shared-import-scanner-test-helpers",
+						ancestors: ["master"],
+					}),
+				},
+			},
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -1308,14 +1308,10 @@ describe("project-local submit extension", () => {
 						result: { stdout: "ready\n" },
 					},
 					{
-						match: "gt log --stack --reverse --no-interactive",
-						result: { stdout: "◯ master\n◉ shared-import-scanner-test-helpers (current)\n" },
-					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "master\n" } },
-					{
-						match: "gt branch info --no-interactive --branch shared-import-scanner-test-helpers",
+						match:
+							"gh pr list --head shared-import-scanner-test-helpers --state open --limit 2 --json number,url",
 						result: {
-							stdout: "Parent: master\nPR: https://github.com/dagster-io/sdl-tools/pull/2289\n",
+							stdout: prIdentityListJson(2289, "https://github.com/dagster-io/sdl-tools/pull/2289"),
 						},
 					},
 					{
@@ -1362,6 +1358,16 @@ describe("project-local submit extension", () => {
 			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web";
 		const run = runWithFakes({
 			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			graphiteStack: {
+				stack: {
+					type: "stack",
+					stack: fakeStackInfo({
+						trunk: "main",
+						current: "feature/top",
+						ancestors: ["main", "feature/base"],
+					}),
+				},
+			},
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -1370,17 +1376,12 @@ describe("project-local submit extension", () => {
 						result: { stdout: "ready\n" },
 					},
 					{
-						match: "gt log --stack --reverse --no-interactive",
-						result: { stdout: "◯ main\n◯ feature/base\n◉ feature/top (current)\n" },
-					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-					{
-						match: "gt branch info --no-interactive --branch feature/base",
-						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+						match: "gh pr list --head feature/base --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
 					},
 					{
-						match: "gt branch info --no-interactive --branch feature/top",
-						result: { stdout: "Parent: feature/base\n" },
+						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
+						result: { stdout: "[]" },
 					},
 					{
 						match: "git log --format=%B%x00 feature/base..feature/top",
@@ -1719,9 +1720,7 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 		);
 		expect(error).toContain("gt delete code-smell/tools-vibechk-exec-artifact-bounds -f -q");
 		expect(error).toContain("Raw log:");
-		expect(formattedExecCalls(run.context)).not.toContain(
-			"gt log --stack --reverse --no-interactive",
-		);
+		expect(run.stackGateway.operations()).toEqual([]);
 		expect(formattedExecCalls(run.context)).not.toContain(
 			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 		);
@@ -1785,9 +1784,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 		);
 		expect(error).toContain("gt delete empty-branch-test -f -q");
 		expect(error).toContain("Raw log:");
-		expect(formattedExecCalls(run.context)).not.toContain(
-			"gt log --stack --reverse --no-interactive",
-		);
+		expect(run.stackGateway.operations()).toEqual([]);
 		expect(formattedExecCalls(run.context)).not.toContain(
 			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 		);
@@ -1807,13 +1804,8 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 						result: { stdout: "ready\n" },
 					},
 					{
-						match: "gt log --stack --reverse --no-interactive",
-						result: { stdout: "◯ main\n◉ feature/demo (current)\n" },
-					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-					{
-						match: "gt branch info --no-interactive --branch feature/demo",
-						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
 					},
 					{
 						match:
@@ -1833,10 +1825,10 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 						},
 					},
 					{
-						match: "gt branch info --no-interactive",
+						match: "gh pr view --json number,url",
 						result: {
-							stdout:
-								"fix-submit-empty-branch-warning\n\nParent: ns-extension-api-followup/registry-refactor\n",
+							code: 1,
+							stderr: 'no pull requests found for branch "feature/demo"\n',
 						},
 					},
 				],
@@ -1889,13 +1881,8 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 						result: { stdout: "ready\n" },
 					},
 					{
-						match: "gt log --stack --reverse --no-interactive",
-						result: { stdout: "◯ main\n◉ feature/demo (current)\n" },
-					},
-					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
-					{
-						match: "gt branch info --no-interactive --branch feature/demo",
-						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
+						match: "gh pr list --head feature/demo --state open --limit 2 --json number,url",
+						result: { stdout: prIdentityListJson(123, PR_URL) },
 					},
 					{
 						match:
@@ -1903,8 +1890,8 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 						result: { stdout: `Submitted ${PR_URL}\n` },
 					},
 					{
-						match: "gt branch info --no-interactive",
-						result: { stdout: `Current PR: ${PR_URL}\n` },
+						match: "gh pr view --json number,url",
+						result: { stdout: prIdentityJson(123, PR_URL) },
 					},
 					{
 						match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",

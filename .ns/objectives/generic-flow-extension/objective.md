@@ -91,17 +91,18 @@ of the operation it guards.
   select alternatives when the built-in model ref is unavailable; Flow does not need a
   second model gateway or model point.
 - **Risk — genericization scope creep, bounded by audit evidence.** The completed audit in
-  `references/repo-specificity-audit.md` separates four resolve clusters (repository
-  identity, Graphite machine facts, Pi ownership, and point-default fidelity) from intrinsic
-  documented requirements and explicitly parked compatibility debt. Do not silently expand
-  those clusters into Graphite abstraction, merge-strategy configuration, or a general CLI
-  failure protocol.
+  `references/repo-specificity-audit.md` separates four resolve clusters from intrinsic
+  documented requirements and explicitly parked compatibility debt. Repository identity,
+  Graphite machine facts, and point-default fidelity are now resolved; Pi ownership remains.
+  Do not silently expand those clusters into Graphite abstraction, merge-strategy
+  configuration, or a general CLI failure protocol.
 - **Risk — point-definition duplication remains fallback debt.** First-party point
   definitions still live in both kernel `builtInPointDefinitions` and Flow's descriptor.
-  Production submit recovery now overlays the preloaded Flow descriptor so its default
-  path and manifest provenance remain canonical; the SDK mirror remains fallback metadata
-  for callers without descriptor evidence. Consolidating the broader preinstalled catalog
-  remains separate descriptor-contract work.
+  Production prompt resolution overlays the preloaded Flow descriptor so packaged default
+  paths and manifest provenance remain descriptor-owned; the SDK mirror is definition-only
+  fallback metadata and deliberately does not claim the PR-description packaged default
+  without descriptor evidence. Consolidating the broader preinstalled catalog remains
+  separate descriptor-contract work.
 - **Risk — README drifts from implementation.** Mitigation: README settles first; each
   implementation slice cites the README section it makes true.
 

@@ -6,11 +6,11 @@ is the flow README (draft: this objective's `references/README-draft.md`, promot
 `ts/packages/capabilities/flow/README.md`); point mechanics per `docs/guides/points.md`
 and ADR 0031.
 
-What you see now: the repo-specificity audit is complete at this Objective's
-`references/repo-specificity-audit.md`; its resolve work is grouped into repository
-identity, Graphite machine facts, Pi ownership, and point-default fidelity. Submit checks
-remain installed at `flow.submit.pre`; recovery resolves the packaged default from Flow's
-preloaded descriptor and discovers repositories through the canonical Git gateway.
+What you see now: submit checks and recovery, adopter point docs, repository identity,
+Graphite machine facts, and PR-description point-default fidelity are implemented.
+`squash-stack` and submit use structured Graphite stack facts; submit PR identity comes
+from validated GitHub JSON rather than Graphite display text. The remaining audit resolve
+work is Pi ownership.
 
 Avoid: baking ns-repo assumptions (command names, skill names, prompt text, consumer
 paths) into `ts/packages/capabilities/flow`; detecting CLI failures by matching human-
