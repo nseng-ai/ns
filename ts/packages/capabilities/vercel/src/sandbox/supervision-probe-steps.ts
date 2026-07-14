@@ -9,6 +9,7 @@
 // must never run twice (its workflow step carries `maxRetries = 0`);
 // `pollSupervisionProbe` (read-only) and `cleanupSupervisionProbe` (stop is
 // a no-op on an already-stopped sandbox) are idempotent and safe to re-run.
+import { isSafeSandboxName } from "./sandbox-name.ts";
 import {
 	buildSupervisionProbeCommand,
 	planSupervisionProbe,
@@ -106,8 +107,4 @@ export async function cleanupSupervisionProbe(
 		return { ok: false, code: "sandbox-cleanup-failed", message: "Sandbox cleanup failed." };
 	}
 	return { ok: true };
-}
-
-function isSafeSandboxName(name: string): boolean {
-	return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name);
 }

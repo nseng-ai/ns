@@ -13,6 +13,26 @@ export function createRealDispatchWorkspaceGitGateway(
 	async function git(args: readonly string[], cwd: string, timeoutMs: number) {
 		return await runner("git", args, { cwd, timeout: timeoutMs });
 	}
+
+	async function pushRef(options: {
+		readonly cwd: string;
+		readonly refspec: string;
+		readonly failurePrefix: string;
+	}) {
+		const result = await git(
+			["push", DISPATCH_REMOTE_NAME, options.refspec],
+			options.cwd,
+			GIT_PUSH_TIMEOUT_MS,
+		);
+		if (!commandSucceeded(result)) {
+			return {
+				ok: false,
+				error: dispatchCommandError("git-push-failed", options.failurePrefix, result),
+			} as const;
+		}
+		return { ok: true } as const;
+	}
+
 	return {
 		async resolveSourceRef({ cwd }) {
 			const repoRoot = await git(["rev-parse", "--show-toplevel"], cwd, GIT_READ_TIMEOUT_MS);
@@ -100,36 +120,18 @@ export function createRealDispatchWorkspaceGitGateway(
 			return { type: "found", sha };
 		},
 		async pushSourceBranch({ cwd, branch }) {
-			const result = await git(
-				["push", DISPATCH_REMOTE_NAME, `${branch}:refs/heads/${branch}`],
+			return await pushRef({
 				cwd,
-				GIT_PUSH_TIMEOUT_MS,
-			);
-			if (!commandSucceeded(result)) {
-				return {
-					ok: false,
-					error: dispatchCommandError("git-push-failed", `Pushing branch ${branch} failed`, result),
-				};
-			}
-			return { ok: true };
+				refspec: `${branch}:refs/heads/${branch}`,
+				failurePrefix: `Pushing branch ${branch} failed`,
+			});
 		},
 		async pushAnchorBranch({ cwd, revision, anchorBranch }) {
-			const result = await git(
-				["push", DISPATCH_REMOTE_NAME, `${revision}:refs/heads/${anchorBranch}`],
+			return await pushRef({
 				cwd,
-				GIT_PUSH_TIMEOUT_MS,
-			);
-			if (!commandSucceeded(result)) {
-				return {
-					ok: false,
-					error: dispatchCommandError(
-						"git-push-failed",
-						`Pushing anchor branch ${anchorBranch} failed`,
-						result,
-					),
-				};
-			}
-			return { ok: true };
+				refspec: `${revision}:refs/heads/${anchorBranch}`,
+				failurePrefix: `Pushing anchor branch ${anchorBranch} failed`,
+			});
 		},
 	};
 }

@@ -39,7 +39,7 @@ const dispatchPromptResultSchema = z.discriminatedUnion("status", [
 		status: z.literal("dispatched"),
 		revision: z.string(),
 		sourceBranch: z.string(),
-		sourcePushed: z.boolean(),
+		isSourcePushed: z.boolean(),
 		anchorBranch: z.string(),
 		anchorPrNumber: z.number().int(),
 		anchorPrUrl: z.string(),
@@ -89,7 +89,7 @@ async function runDispatchPromptCommand(
 				status: outcome.status,
 				revision: outcome.revision,
 				sourceBranch: outcome.sourceBranch,
-				sourcePushed: outcome.sourcePushed,
+				isSourcePushed: outcome.isSourcePushed,
 				anchorBranch: outcome.anchorPr.branch,
 				anchorPrNumber: outcome.anchorPr.number,
 				anchorPrUrl: outcome.anchorPr.url,
@@ -162,7 +162,7 @@ function renderDispatchPromptResult(data: DispatchPromptCommandResult): string {
 		`  Revision:      ${data.revision}`,
 		`  Workflow run:  ${data.runId}`,
 	];
-	if (data.sourcePushed) {
+	if (data.isSourcePushed) {
 		lines.push(
 			"",
 			`Pushed ${data.sourceBranch} first so the dispatched head is remotely reachable.`,

@@ -73,6 +73,19 @@ describe("real workspace git gateway", () => {
 		if (!result.ok) expect(result.error.code).toBe("detached-head");
 	});
 
+	test("pushes the source ref as branch:refs/heads/branch", async () => {
+		const { runner, calls } = scriptedRunner([exited()]);
+		const gateway = createRealDispatchWorkspaceGitGateway(runner);
+		const result = await gateway.pushSourceBranch({ cwd: "/repo", branch: "feature/widgets" });
+
+		expect(result.ok).toBe(true);
+		expect(calls[0]?.args).toEqual([
+			"push",
+			"origin",
+			"feature/widgets:refs/heads/feature/widgets",
+		]);
+	});
+
 	test("pushes the anchor ref as revision:refs/heads/branch", async () => {
 		const { runner, calls } = scriptedRunner([exited()]);
 		const gateway = createRealDispatchWorkspaceGitGateway(runner);
@@ -90,17 +103,40 @@ describe("real workspace git gateway", () => {
 		]);
 	});
 
-	test("surfaces push failures with the first stderr line", async () => {
+	test("surfaces source push failures with their prefix and first stderr line", async () => {
 		const { runner } = scriptedRunner([
-			exited({ code: 1, stderr: "error: failed to push some refs\nhint: ..." }),
+			exited({ code: 1, stderr: "error: failed to push source refs\nhint: source hint" }),
 		]);
 		const gateway = createRealDispatchWorkspaceGitGateway(runner);
 		const result = await gateway.pushSourceBranch({ cwd: "/repo", branch: "feature/widgets" });
 
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
-			expect(result.error.message).toContain("failed to push some refs");
-			expect(result.error.message).not.toContain("hint:");
-		}
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				code: "git-push-failed",
+				message: "Pushing branch feature/widgets failed: error: failed to push source refs",
+			},
+		});
+	});
+
+	test("surfaces anchor push failures with their prefix and first stderr line", async () => {
+		const { runner } = scriptedRunner([
+			exited({ code: 1, stderr: "error: failed to push anchor ref\nhint: anchor hint" }),
+		]);
+		const gateway = createRealDispatchWorkspaceGitGateway(runner);
+		const result = await gateway.pushAnchorBranch({
+			cwd: "/repo",
+			revision: SHA,
+			anchorBranch: "dispatch/feature-widgets-ab12cd34",
+		});
+
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				code: "git-push-failed",
+				message:
+					"Pushing anchor branch dispatch/feature-widgets-ab12cd34 failed: error: failed to push anchor ref",
+			},
+		});
 	});
 });
