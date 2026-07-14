@@ -61,7 +61,7 @@ Risks:
 - Ambient global packages, credentials, Claude configuration, or an ns checkout could create a false pass. Verification must isolate installation prefixes and repository state and record all remaining environmental prerequisites.
 - Claude Code behavior is probabilistic. The bar is instruction and skill reachability plus successful completion without hidden steering, not byte-identical dialogue.
 - The canonical README source changes postdate registry release `0.1.3`; the journey cannot claim documentation-following evidence until a newly qualified package version exposes them through npm.
-- npm publication is an external write. Local preparation may proceed, but publishing requires explicit authorization through the owning workflow.
+- Accepted sequencing gap: publication of the repaired README revision was intentionally skipped by explicit direction. Registry-served README completion criteria and a published-docs-only Claude journey remain unmet unless publication is revisited or the Objective scope is explicitly revised.
 - The lifecycle may expose defects in a dependency Objective. Route fixes to the owning Subobjective or record a new bounded follow-up rather than absorbing unrelated architecture work here.
 
 ## Open Questions
