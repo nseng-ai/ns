@@ -2,6 +2,8 @@
 edges:
   - objective: skill-audit-remediation
     annotation: Graduated 2026-07-12 from that audit's Tranche 4 CLI push-down dispositions (frontload item 8); its routing-retrofit slice left linearize's per-branch evidence loop hand-rolled pending this record's descendants-report.
+  - objective: flow-stack-workflows
+    annotation: Downstream consumer; its restack-resolve and linearize-descendants fold-in slices wire those Flow workflows to this record's restack-preflight and descendants-report primitives.
 ---
 
 # ns slot gt exec: restack-preflight and descendants-report

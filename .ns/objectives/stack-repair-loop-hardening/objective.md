@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: flow-stack-workflows
+    annotation: Downstream consumer; it folds the repair loop into Flow's ns-flow-* workflow tier once this record's final skill rewrite and address exec triage push-down land.
+---
+
 # Stack Repair Loop Hardening
 
 ## Thesis
