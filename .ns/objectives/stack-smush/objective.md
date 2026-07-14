@@ -178,11 +178,10 @@ graduates into roadmap rows as the Frontier advances:
   unchanged); the open question is PR count itself. Sharpened (2026-07-11):
   replacement-stack repackaging re-runs CI across the full new stack, so PR count
   and repackaging frequency now compound.
-- Interaction with Objectives, branch-context, and handoffs: how a commit run relates
-  to objective runner steps, attached plans, and multi-session continuation.
-  Partially graduated (2026-07-11): smush-time objective binding via packaging-event
-  Semantic Updates is now a roadmap row; runner-step, branch-context, and handoff
-  interaction remains Fog.
+- Interaction with Objectives, branch-context, and handoffs: smush-time Objective
+  binding landed on 2026-07-14 via immutable packaging-event Semantic Updates committed
+  into the packaged tip. How commit runs relate to Objective runner steps, attached
+  plans, and multi-session handoff continuation remains Fog.
 - Run-piece completion signalling and slot lifecycle at the CCC join: dispatched
   slots are never reclaimed automatically today and the concatenation join wants
   piece slots released first; how the orchestrator learns a piece is done (beyond

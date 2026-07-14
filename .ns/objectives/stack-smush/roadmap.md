@@ -198,14 +198,16 @@ session on 2026-07-10 (see
       `updates/2026-07-11T073927Z-decision-lifecycle-first-runs-and-grilling-resolutions.md`);
       all seven mirrors verified flipped to Accepted and all seven PRs merged
       (2026-07-12 refresh). A deterministic CLI push-down is Parked.
-- [ ] **Smush-time objective binding** (task) — Amend the smush skill to take the owning
-      Objective as invocation input (inferred from context, else asked) and to record
-      the packaging event — run, resulting stack branches, classification — as a
-      Semantic Update under that Objective (resolved 2026-07-11, live grilling: chosen
-      over commit-message trailers and brmem so the linkage lives in the Objective's
-      own update stream; repackaging appends further events). This keeps decision
-      records' home unambiguous for the decide skill and partially graduates the
-      objectives-interaction Fog item.
+- [x] **Smush-time objective binding** (task) — The smush skill now resolves an
+      explicitly supplied active owning Objective or asks the user to select one,
+      includes the binding in the ratified proposal, and commits an immutable focused
+      packaging-event Semantic Update into the packaged tip. Every replacement
+      generation appends a distinct event; current topology is still re-derived.
+      Explicit confirmed unbound runs remain possible and loud, while binding failures
+      stop without automatic rollback or bypass. This keeps Decision-record ownership
+      discoverable for the decide skill. Evidence:
+      [`updates/2026-07-14T132934Z-smush-time-objective-binding.md`](updates/2026-07-14T132934Z-smush-time-objective-binding.md)
+      and [`skills/code-smush/SKILL.md`](../../../skills/code-smush/SKILL.md).
 - [x] **Code-smush replacement-stack repackaging rewrite** (task) — Rewrite the
       repackaging section of `skills/code-smush/SKILL.md` to replacement-stack
       semantics (resolved 2026-07-11 — see
