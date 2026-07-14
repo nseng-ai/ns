@@ -6,11 +6,10 @@ is the flow README (draft: this objective's `references/README-draft.md`, promot
 `ts/packages/capabilities/flow/README.md`); point mechanics per `docs/guides/points.md`
 and ADR 0031.
 
-What you see now: submit checks are installed at `flow.submit.pre`, which remains the
-intended submit-specific seam; `flow/src/pi/ns-extension.ts` is a plain command-
-registration bridge with no recovery logic. The only hardcoded `code-just-fix` auto-fix
-bridge on trunk is the generic pi `/just` command (`.pi/extensions/just-fix.ts`), which is
-exit-code-driven and separate from flow submit — do not copy it into flow.
+What you see now: the repo-specificity audit is complete at this Objective's
+`references/repo-specificity-audit.md`; its resolve work is grouped into repository
+identity, Graphite machine facts, Pi ownership, and point-default fidelity. Submit checks
+remain installed at `flow.submit.pre`; marker/recovery implementation has not landed.
 
 Avoid: baking ns-repo assumptions (command names, skill names, prompt text, consumer
 paths) into `ts/packages/capabilities/flow`; detecting CLI failures by matching human-
