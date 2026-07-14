@@ -12,7 +12,7 @@ import {
 	compareRegistryMetadata,
 	parseCandidateReport,
 	parseNpmViewJson,
-} from "./verify-public-package-set-core.mjs";
+} from "../packages/internal/ns-dev/src/release/verify-public-package-set-core.ts";
 
 const args = parseArgs(process.argv.slice(2));
 if (args.shouldShowHelp) {

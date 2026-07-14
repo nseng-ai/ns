@@ -11,9 +11,10 @@ import type {
 } from "../src/release/contracts.ts";
 import { releaseBranchName } from "../src/release/fresh.ts";
 import {
+	releaseCliResultSchema,
 	runReleaseCli,
 	type ReleaseCliContext,
-} from "../../../../scripts/release-public-package-set.ts";
+} from "../src/release-public-package-set-cli.ts";
 import { buildReleaseCandidate, buildReleaseReport } from "./release-transaction-builders.ts";
 
 const version = "1.2.3";
@@ -221,6 +222,28 @@ describe("transactional release CLI adapter", () => {
 		expect(await harness.run(args)).toBe(0);
 		expect(harness.stdout.join("")).toContain(expected);
 		expect(harness.release.operations).toEqual([]);
+	});
+
+	it("accepts canonical report evidence through the CLI result schema while remaining strict", () => {
+		const report = makeReport();
+		const evidence = {
+			version,
+			mode: "resume",
+			reportPath: "/releases/1.2.3/report.json",
+			releaseCommit: report.release.commit,
+			candidates: report.candidates,
+			classifications: [],
+			writes: report.completedWrites,
+			finalStatus: "verified",
+		};
+		expect(releaseCliResultSchema.safeParse(evidence).success).toBe(true);
+		expect(releaseCliResultSchema.safeParse({ ...evidence, extra: true }).success).toBe(false);
+		expect(
+			releaseCliResultSchema.safeParse({
+				...evidence,
+				candidates: [{ ...report.candidates[0], extra: true }],
+			}).success,
+		).toBe(false);
 	});
 
 	it("publishes the machine envelope schema", async () => {

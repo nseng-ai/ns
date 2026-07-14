@@ -106,13 +106,20 @@ export async function readJson(path) {
 	return JSON.parse(await readFile(path, "utf8"));
 }
 
+const concreteNpmVersionPattern =
+	/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+
+export function isConcreteNpmVersion(version) {
+	return (
+		typeof version === "string" &&
+		version.trim() === version &&
+		concreteNpmVersionPattern.test(version)
+	);
+}
+
 export function assertPlausibleNpmVersion(version) {
-	if (typeof version !== "string" || version.trim() !== version || version.length === 0) {
-		throw new Error("VERSION must be a non-empty npm semver value without surrounding whitespace");
-	}
-	const semverPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
-	if (!semverPattern.test(version)) {
-		throw new Error(`VERSION must look like a concrete npm semver version, got: ${version}`);
+	if (!isConcreteNpmVersion(version)) {
+		throw new Error(`VERSION must be a concrete npm semver version, got: ${version}`);
 	}
 }
 

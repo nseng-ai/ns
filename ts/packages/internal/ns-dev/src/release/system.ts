@@ -14,7 +14,7 @@ import {
 	repoRoot,
 } from "../../../../../scripts/public-package-set.mjs";
 
-import { releaseTransactionStages } from "./contracts.ts";
+import { releaseTransactionReportSchema } from "./contracts.ts";
 import type {
 	CandidateFileGateway,
 	CandidateFileState,
@@ -231,15 +231,25 @@ export function createNodeReleaseReportStore(): ReleaseReportStore {
 			}
 			try {
 				const parsed: unknown = JSON.parse(contents);
-				if (!isReleaseTransactionReport(parsed)) {
+				const validated = releaseTransactionReportSchema.safeParse(parsed);
+				if (!validated.success) {
 					return {
 						type: "error",
-						error: { code: "report-invalid", message: `Invalid release report: ${reportPath}` },
+						error: {
+							code: "report-invalid",
+							message: `Invalid release report ${reportPath}: ${validated.error.issues.map((issue) => `${issue.path.join(".") || "report"}: ${issue.message}`).join("; ")}`,
+						},
 					};
 				}
-				return { type: "found", value: parsed };
+				return { type: "found", value: validated.data };
 			} catch (error: unknown) {
-				return { type: "error", error: failure("report-invalid-json", error) };
+				return {
+					type: "error",
+					error: {
+						code: "report-invalid-json",
+						message: `Invalid JSON in release report ${reportPath}: ${error instanceof Error ? error.message : String(error)}`,
+					},
+				};
 			}
 		},
 		async writeAtomic(reportPath, report): Promise<OperationResult> {
@@ -448,45 +458,6 @@ function isNpmPackRecord(value: unknown): value is NpmPackRecord {
 	if (!isRecord(value)) return false;
 	return ["name", "version", "filename", "integrity", "shasum"].every(
 		(key) => typeof value[key] === "string",
-	);
-}
-
-function isReleaseTransactionReport(value: unknown): value is ReleaseTransactionReport {
-	if (!isRecord(value) || value.schemaVersion !== 1 || !isRecord(value.release)) return false;
-	if (
-		typeof value.release.branch !== "string" ||
-		typeof value.release.commit !== "string" ||
-		typeof value.release.version !== "string" ||
-		!Array.isArray(value.inventory) ||
-		!value.inventory.every((item) => typeof item === "string") ||
-		!Array.isArray(value.candidates) ||
-		!value.candidates.every(isReleaseCandidate) ||
-		!Array.isArray(value.completedWrites) ||
-		!value.completedWrites.every((item) => typeof item === "string") ||
-		!(value.pendingWrite === null || typeof value.pendingWrite === "string")
-	) {
-		return false;
-	}
-	return isReleaseTransactionStage(value.stage);
-}
-
-function isReleaseTransactionStage(
-	value: unknown,
-): value is (typeof releaseTransactionStages)[number] {
-	return releaseTransactionStages.some((stage) => stage === value);
-}
-
-function isReleaseCandidate(value: unknown): value is ReleaseCandidate {
-	if (!isRecord(value)) return false;
-	return (
-		typeof value.name === "string" &&
-		typeof value.version === "string" &&
-		typeof value.tarballPath === "string" &&
-		typeof value.integrity === "string" &&
-		typeof value.shasum === "string" &&
-		typeof value.order === "number" &&
-		Number.isInteger(value.order) &&
-		value.order >= 0
 	);
 }
 

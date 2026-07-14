@@ -1,3 +1,12 @@
+import { z } from "zod";
+
+import { isConcreteNpmVersion } from "../../../../../scripts/public-package-set.mjs";
+
+const nonemptyStringSchema = z.string().min(1);
+export const concreteNpmVersionSchema = z
+	.string()
+	.refine(isConcreteNpmVersion, "Expected a concrete npm semver version");
+
 export const releaseTransactionStages = [
 	"preparing-candidates",
 	"candidates-prepared",
@@ -6,42 +15,68 @@ export const releaseTransactionStages = [
 	"published",
 	"verified",
 ] as const;
+export const releaseTransactionStageSchema = z.enum(releaseTransactionStages);
 
-export type ReleaseTransactionStage = (typeof releaseTransactionStages)[number];
+export const releaseIdentitySchema = z
+	.strictObject({
+		branch: nonemptyStringSchema,
+		commit: nonemptyStringSchema,
+		version: concreteNpmVersionSchema,
+	})
+	.readonly();
+export const releaseCandidateSchema = z
+	.strictObject({
+		name: nonemptyStringSchema,
+		version: concreteNpmVersionSchema,
+		tarballPath: nonemptyStringSchema.endsWith(".tgz"),
+		integrity: nonemptyStringSchema,
+		shasum: nonemptyStringSchema,
+		order: z.number().int().nonnegative(),
+	})
+	.readonly();
+export const releaseTransactionReportSchema = z
+	.strictObject({
+		schemaVersion: z.literal(1),
+		release: releaseIdentitySchema,
+		inventory: z.array(nonemptyStringSchema).readonly(),
+		candidates: z.array(releaseCandidateSchema).readonly(),
+		completedWrites: z.array(nonemptyStringSchema).readonly(),
+		pendingWrite: nonemptyStringSchema.nullable(),
+		stage: releaseTransactionStageSchema,
+	})
+	.readonly();
+export const releaseFailureSchema = z
+	.strictObject({
+		code: nonemptyStringSchema,
+		message: nonemptyStringSchema,
+	})
+	.readonly();
+export const registryPackageMetadataSchema = z
+	.strictObject({
+		integrity: nonemptyStringSchema,
+		shasum: nonemptyStringSchema,
+	})
+	.readonly();
+export const registryClassificationSchema = z.discriminatedUnion("type", [
+	z.strictObject({ type: z.literal("missing") }),
+	z.strictObject({ type: z.literal("published-exact") }),
+	z.strictObject({ type: z.literal("published-mismatch"), actual: registryPackageMetadataSchema }),
+	z.strictObject({ type: z.literal("registry-error"), error: releaseFailureSchema }),
+]);
+export const candidatePublicationClassificationSchema = z.strictObject({
+	candidate: releaseCandidateSchema,
+	classification: registryClassificationSchema,
+});
 
-export interface ReleaseIdentity {
-	readonly branch: string;
-	readonly commit: string;
-	readonly version: string;
-}
+export type ReleaseTransactionStage = z.infer<typeof releaseTransactionStageSchema>;
+export type ReleaseIdentity = z.infer<typeof releaseIdentitySchema>;
+export type ReleaseCandidate = z.infer<typeof releaseCandidateSchema>;
+export type ReleaseTransactionReport = z.infer<typeof releaseTransactionReportSchema>;
+export type ReleaseFailure = z.infer<typeof releaseFailureSchema>;
 
 export interface QualifiedPublishRoot {
 	readonly name: string;
 	readonly path: string;
-}
-
-export interface ReleaseCandidate {
-	readonly name: string;
-	readonly version: string;
-	readonly tarballPath: string;
-	readonly integrity: string;
-	readonly shasum: string;
-	readonly order: number;
-}
-
-export interface ReleaseTransactionReport {
-	readonly schemaVersion: 1;
-	readonly release: ReleaseIdentity;
-	readonly inventory: readonly string[];
-	readonly candidates: readonly ReleaseCandidate[];
-	readonly completedWrites: readonly string[];
-	readonly pendingWrite: string | null;
-	readonly stage: ReleaseTransactionStage;
-}
-
-export interface ReleaseFailure {
-	readonly code: string;
-	readonly message: string;
 }
 
 export type OperationResult =
@@ -81,10 +116,7 @@ export interface CandidateFileGateway {
 	classify(candidate: ReleaseCandidate): Promise<CandidateFileState>;
 }
 
-export interface RegistryPackageMetadata {
-	readonly integrity: string;
-	readonly shasum: string;
-}
+export type RegistryPackageMetadata = z.infer<typeof registryPackageMetadataSchema>;
 
 export interface NpmRegistryGateway {
 	readPackageMetadata(
@@ -227,16 +259,10 @@ export interface RecoverCheckpointingOptions extends ValidateResumeOptions {
 	readonly headParentCommit: string;
 }
 
-export type RegistryClassification =
-	| { readonly type: "missing" }
-	| { readonly type: "published-exact" }
-	| { readonly type: "published-mismatch"; readonly actual: RegistryPackageMetadata }
-	| { readonly type: "registry-error"; readonly error: ReleaseFailure };
-
-export interface CandidatePublicationClassification {
-	readonly candidate: ReleaseCandidate;
-	readonly classification: RegistryClassification;
-}
+export type RegistryClassification = z.infer<typeof registryClassificationSchema>;
+export type CandidatePublicationClassification = z.infer<
+	typeof candidatePublicationClassificationSchema
+>;
 
 export interface ReleaseExecutionPlan {
 	readonly releaseCommit: string;

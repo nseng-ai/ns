@@ -6,6 +6,10 @@ import { ClinkrGroup, failure, ok } from "@nseng-ai/clinkr";
 import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 import { z } from "zod";
 
+import {
+	candidatePublicationClassificationSchema,
+	releaseCandidateSchema,
+} from "./release/contracts.ts";
 import type {
 	CandidateFileGateway,
 	CandidatePublicationClassification,
@@ -20,9 +24,7 @@ import type {
 	ReleaseTransactionReport,
 	ResumeReleaseGateway,
 } from "./release/contracts.ts";
-import { planFreshRelease, startFreshRelease } from "./release/fresh.ts";
-import { executeReleasePublication } from "./release/publication.ts";
-import { recoverCheckpointingReport, validateReleaseResume } from "./release/resume.ts";
+import { planFreshRelease } from "./release/fresh.ts";
 import {
 	createNodeCandidateFileGateway,
 	createNodeReleaseReportStore,
@@ -34,6 +36,7 @@ import {
 	createSystemResumeReleaseGateway,
 	createTtyReleaseConfirmationGateway,
 } from "./release/system.ts";
+import { runReleaseTransaction } from "./release/transaction.ts";
 import { repoRoot, workspaceRoot } from "../../../../scripts/public-package-set.mjs";
 
 const verificationDelaysMs = [2_000, 5_000, 10_000, 20_000] as const;
@@ -75,35 +78,13 @@ const requestSchema = z.strictObject({
 	version: z.string().describe("Concrete npm version to plan or release."),
 	plan: z.boolean().default(false).describe("Run only the read-only fresh-release preflight."),
 });
-const candidateSchema = z.strictObject({
-	name: z.string(),
-	version: z.string(),
-	tarballPath: z.string(),
-	integrity: z.string(),
-	shasum: z.string(),
-	order: z.number(),
-});
-const releaseFailureSchema = z.strictObject({ code: z.string(), message: z.string() });
-const registryClassificationSchema = z.discriminatedUnion("type", [
-	z.strictObject({ type: z.literal("missing") }),
-	z.strictObject({ type: z.literal("published-exact") }),
-	z.strictObject({
-		type: z.literal("published-mismatch"),
-		actual: z.strictObject({ integrity: z.string(), shasum: z.string() }),
-	}),
-	z.strictObject({ type: z.literal("registry-error"), error: releaseFailureSchema }),
-]);
-const classificationSchema = z.strictObject({
-	candidate: candidateSchema,
-	classification: registryClassificationSchema,
-});
-const resultSchema = z.strictObject({
+export const releaseCliResultSchema = z.strictObject({
 	version: z.string(),
 	mode: z.enum(["fresh", "resume", "plan"]),
 	reportPath: z.string().nullable(),
 	releaseCommit: z.string().nullable(),
-	candidates: z.array(candidateSchema),
-	classifications: z.array(classificationSchema),
+	candidates: z.array(releaseCandidateSchema),
+	classifications: z.array(candidatePublicationClassificationSchema),
 	writes: z.array(z.string()),
 	finalStatus: z.enum(["planned", "verified", "refused"]),
 	releaseBranch: z.string().optional(),
@@ -132,7 +113,7 @@ const entry = defineCli<ReleaseCliContext, ReleaseCliDeps, undefined>({
 			schema: requestSchema,
 			positionals: { version: { position: 0 } },
 			options: { plan: { short: "-n" } },
-			resultSchema,
+			resultSchema: releaseCliResultSchema,
 			handler: async (context, request) =>
 				request.plan
 					? await runPlan(request.version, context)
@@ -187,128 +168,23 @@ async function runPlan(version: string, context: ReleaseCliContext) {
 }
 
 async function runTransaction(version: string, context: ReleaseCliContext) {
-	const reportPath = context.reportPathForVersion(version);
-	const loaded = await context.reports.read(reportPath);
-	let mode: "fresh" | "resume";
-	let report: ReleaseTransactionReport;
-	if (loaded.type === "error") {
-		return releaseFailure(emptyEvidence(version, "resume", reportPath), loaded.error);
-	}
-	if (loaded.type === "found") {
-		mode = "resume";
-		const resumeEvidence = evidenceFromReport(version, mode, reportPath, loaded.value);
-		if (loaded.value.release.version !== version) {
-			return releaseFailure(resumeEvidence, {
-				code: "wrong-requested-version",
-				message: `Report version ${loaded.value.release.version} does not match requested version ${version}`,
-			});
-		}
-		const identity = await context.resume.inspectResumeState();
-		if (!identity.ok) return releaseFailure(resumeEvidence, identity.error);
-		if (!identity.value.isWorktreeClean) {
-			return releaseFailure(resumeEvidence, {
-				code: "release-worktree-dirty",
-				message: "Resuming a release requires a clean worktree",
-			});
-		}
-		const validationOptions = {
-			reportPath,
-			currentBranch: identity.value.currentBranch,
-			headCommit: identity.value.headCommit,
-			coordinatedVersion: identity.value.coordinatedVersion,
-		};
-		const validated =
-			loaded.value.stage === "checkpointing"
-				? await recoverCheckpointingReport(
-						{ reports: context.reports, candidateFiles: context.candidateFiles },
-						{ ...validationOptions, headParentCommit: identity.value.headParentCommit },
-					)
-				: await validateReleaseResume(
-						{ reports: context.reports, candidateFiles: context.candidateFiles },
-						validationOptions,
-					);
-		if (validated.type === "refused") {
-			return releaseFailure(resumeEvidence, {
-				code: validated.code,
-				message: validated.message,
-			});
-		}
-		report = validated.report;
-	} else {
-		mode = "fresh";
-		const started = await startFreshRelease(
-			{ release: context.release, npmCandidates: context.npmCandidates, reports: context.reports },
-			{
-				version,
-				reportPath,
-				releaseDirectory: context.releaseDirectoryForVersion(version),
-			},
-		);
-		if (started.type === "refused") {
-			return releaseFailure(emptyEvidence(version, mode, reportPath), started.error);
-		}
-		report = started.report;
-	}
-
-	const executed = await executeReleasePublication(
-		{
-			registry: context.registry,
-			confirmation: context.confirmation,
-			commands: context.commands,
-			reports: context.reports,
-			delay: context.delay,
-		},
-		{ report, reportPath, verificationDelaysMs: context.verificationDelaysMs },
-	);
-	const evidence: ReleaseEvidence = {
-		version,
-		mode,
-		reportPath,
-		releaseCommit: report.release.commit,
-		candidates: executed.plan.candidates.map((candidate) => ({ ...candidate })),
-		classifications: executed.plan.classifications.map((classification) => ({
-			candidate: { ...classification.candidate },
-			classification: classification.classification,
-		})),
-		writes: [...executed.report.completedWrites],
-		finalStatus: executed.type === "verified" ? "verified" : "refused",
-	};
-	return executed.type === "verified" ? ok(evidence) : releaseFailure(evidence, executed.error);
-}
-
-function evidenceFromReport(
-	version: string,
-	mode: "fresh" | "resume",
-	reportPath: string,
-	report: ReleaseTransactionReport,
-): ReleaseEvidence {
-	return {
-		version,
-		mode,
-		reportPath,
-		releaseCommit: report.release.commit,
-		candidates: report.candidates.map((candidate) => ({ ...candidate })),
-		classifications: [],
-		writes: [...report.completedWrites],
-		finalStatus: report.stage === "verified" ? "verified" : "refused",
-	};
-}
-
-function emptyEvidence(
-	version: string,
-	mode: "fresh" | "resume",
-	reportPath: string,
-): ReleaseEvidence {
-	return {
-		version,
-		mode,
-		reportPath,
-		releaseCommit: null,
-		candidates: [],
-		classifications: [],
-		writes: [],
-		finalStatus: "refused",
-	};
+	const result = await runReleaseTransaction(context, version);
+	return result.type === "verified"
+		? ok({
+				...result.evidence,
+				candidates: [...result.evidence.candidates],
+				classifications: [...result.evidence.classifications],
+				writes: [...result.evidence.writes],
+			})
+		: releaseFailure(
+				{
+					...result.evidence,
+					candidates: [...result.evidence.candidates],
+					classifications: [...result.evidence.classifications],
+					writes: [...result.evidence.writes],
+				},
+				result.error,
+			);
 }
 
 function releaseFailure(evidence: ReleaseEvidence, error: ReleaseFailure) {
