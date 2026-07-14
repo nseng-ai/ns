@@ -12,6 +12,7 @@ import {
 	findMissingWorkflowFunctionArtifacts,
 	findWorkflowQueueTriggerProblems,
 	findWorkflowSourcesMissingFromManifest,
+	findWorkflowTargetWorldProblems,
 } from "./gate.ts";
 
 export interface BuildOutputVerificationOptions {
@@ -68,6 +69,11 @@ export async function verifyDispatchBuildOutput(
 		}
 		for (const missing of findMissingRelativeModuleTargets(modules)) {
 			problems.push(`${name}/${missing.sourcePath} imports missing ${missing.targetPath}.`);
+		}
+		for (const path of findWorkflowTargetWorldProblems(modules)) {
+			problems.push(
+				`${name}/${path} contains Workflow's uninjected target-world fallback.`,
+			);
 		}
 	}
 

@@ -102,6 +102,9 @@ async function makeApiFunctionBundlesHermetic(paths: BuildPaths): Promise<boolea
 			entryPoints: [join(functionRoot, plan.sourceHandler)],
 			outfile: join(functionRoot, plan.bundledHandler),
 			bundle: true,
+			alias: {
+				"@workflow/core/runtime/world-target": "@workflow/world-vercel",
+			},
 			platform: "node",
 			format: "cjs",
 			target: "node24",

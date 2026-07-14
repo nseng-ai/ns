@@ -93,6 +93,19 @@ export function compareApiFunctionDirectories(
 	};
 }
 
+const UNINJECTED_WORKFLOW_TARGET_WORLD_MESSAGE =
+	"Workflow target world was not statically injected.";
+
+/** Reject Workflow host bundles that retained the SDK's throwing target-world fallback. */
+export function findWorkflowTargetWorldProblems(
+	modules: ReadonlyMap<string, string>,
+): readonly string[] {
+	return [...modules]
+		.filter(([, source]) => source.includes(UNINJECTED_WORKFLOW_TARGET_WORLD_MESSAGE))
+		.map(([path]) => path)
+		.sort();
+}
+
 export function findMissingRelativeModuleTargets(
 	modules: ReadonlyMap<string, string>,
 ): readonly MissingRelativeModuleTarget[] {

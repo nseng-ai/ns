@@ -7,6 +7,7 @@ import {
 	findMissingWorkflowManifestIds,
 	findWorkflowQueueTriggerProblems,
 	findWorkflowSourcesMissingFromManifest,
+	findWorkflowTargetWorldProblems,
 	mergeBuildOutputConfig,
 	REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS,
 } from "../../src/deployability/gate.ts";
@@ -23,6 +24,25 @@ const flowVcConfig = {
 		},
 	],
 };
+
+describe("findWorkflowTargetWorldProblems", () => {
+	it("rejects an API bundle containing Workflow's uninjected target-world fallback", () => {
+		const modules = new Map([
+			[
+				"api/runs.cjs",
+				'Throw new Error("Workflow target world was not statically injected.");',
+			],
+		]);
+
+		expect(findWorkflowTargetWorldProblems(modules)).toEqual(["api/runs.cjs"]);
+	});
+
+	it("accepts API bundles without Workflow's uninjected target-world fallback", () => {
+		expect(findWorkflowTargetWorldProblems(new Map([["api/runs.cjs", "createVercelWorld();"]]))).toEqual(
+			[],
+		);
+	});
+});
 
 describe("findMissingWorkflowFunctionArtifacts", () => {
 	it("accepts the v5 unified flow and webhook function artifacts", () => {
