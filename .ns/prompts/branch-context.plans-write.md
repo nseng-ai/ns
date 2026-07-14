@@ -37,6 +37,13 @@ External research/context contract:
 - If external findings may become stale, mark what should be revalidated during implementation.
 - Do not include secrets, credentials, private tokens, or unnecessary sensitive data.
 
+Inherited evidence and revalidation:
+
+- Identify stable findings intended as inherited evidence and give them provenance or version anchors.
+- List volatile facts and explicit source, excerpt, or symbol anchors the executor must revalidate.
+- List material questions that remain explicitly unresolved.
+- For non-trivial plans, prefer a compact `## Inherited evidence and revalidation` section with `Stable inherited evidence`, `Revalidate during implementation`, and `Explicitly unresolved` subsections.
+
 Harness-neutral command guidance:
 
 - Prefer native CLI commands in durable saved plans, documentation, and agent-facing instructions when a workflow has both a CLI and a harness-specific adapter.

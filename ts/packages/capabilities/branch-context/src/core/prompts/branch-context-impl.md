@@ -10,6 +10,14 @@ Bytes: {{byte_count}}
 
 Treat the following plan as authoritative.
 
+## Evidence inheritance
+
+- When the plan supplies provenance and verification anchors, treat its findings as inherited evidence and start from its anchors and excerpts.
+- Revalidate volatile state and explicit anchors; do not repeat broad reconnaissance, upstream research, documentation reading, or explorer mapping the plan already captured.
+- Expanding beyond inherited evidence requires a named trigger; state that trigger and scope in the implementation report.
+- An excerpt or anchor mismatch remains a STOP under the contract protocol below. Anchor-less plans retain the existing old-format behavior.
+- Full policy: `docs/conventions/agent-context-economy.md`.
+
 ## Implementation rules
 
 - Create an implementation checklist before editing.
