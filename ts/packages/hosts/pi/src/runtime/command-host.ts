@@ -1,6 +1,6 @@
 import type { ModelInfo } from "../runtime/types.ts";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
-import type { NotifyLevel, WidgetContent } from "./tool-types.ts";
+import type { NotifyLevel, SetWidgetFunction } from "./tool-types.ts";
 
 export interface PiCommandContext {
 	cwd: string;
@@ -10,11 +10,7 @@ export interface PiCommandContext {
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus?(key: string, value: string | undefined): void;
-		setWidget?(
-			key: string,
-			value: WidgetContent | undefined,
-			options?: { placement?: "aboveEditor" | "belowEditor" },
-		): void;
+		setWidget?: SetWidgetFunction;
 	};
 	waitForIdle(): Promise<void>;
 }
