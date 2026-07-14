@@ -4,14 +4,27 @@ import { fileURLToPath } from "node:url";
 import { deployDispatchProduction } from "../src/deployability/production-deployment.ts";
 import { createRealProductionDeploymentContext } from "../src/deployability/real-production-deployment-gateways.ts";
 
-const packageRoot = resolve(fileURLToPath(new URL("../", import.meta.url)));
-const derivedRepositoryRoot = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
-const explicitRepositoryRoot = process.argv[2] === undefined ? undefined : resolve(process.argv[2]);
+export function productionRepositoryRootArgument(args: readonly string[]): string | undefined {
+	const positional = args[0] === "--" ? args.slice(1) : args;
+	if (positional.length > 1) throw new Error("Production deployment accepts one repository root.");
+	return positional[0];
+}
 
-if (explicitRepositoryRoot !== undefined && explicitRepositoryRoot !== derivedRepositoryRoot) {
-	console.error("Explicit repository root does not match the script's checkout.");
-	process.exitCode = 1;
-} else {
+async function main(): Promise<void> {
+	const packageRoot = resolve(fileURLToPath(new URL("../", import.meta.url)));
+	const derivedRepositoryRoot = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
+	const repositoryRootArgument = productionRepositoryRootArgument(process.argv.slice(2));
+	const explicitRepositoryRoot =
+		repositoryRootArgument === undefined ? undefined : resolve(repositoryRootArgument);
+
+	if (explicitRepositoryRoot !== undefined && explicitRepositoryRoot !== derivedRepositoryRoot) {
+		console.error(
+			`Explicit repository root ${explicitRepositoryRoot} does not match the script checkout ${derivedRepositoryRoot}.`,
+		);
+		process.exitCode = 1;
+		return;
+	}
+
 	try {
 		const result = await deployDispatchProduction(
 			createRealProductionDeploymentContext({
@@ -34,3 +47,5 @@ if (explicitRepositoryRoot !== undefined && explicitRepositoryRoot !== derivedRe
 		process.exitCode = 1;
 	}
 }
+
+if (import.meta.main) await main();

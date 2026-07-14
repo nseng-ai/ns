@@ -65,6 +65,9 @@ The production path is intentionally stricter than an ordinary Vercel deploy:
   build operations do not change the repository-root prebuilt deployment boundary.
 - The command never passes credentials on argv and keeps progress and redacted diagnostics on
   stderr. Successful stdout is exactly one bounded JSON object; failure emits no success object.
+  With filtered pnpm workspace scripts, `run <script> -- <arg>` forwards the literal `--` to
+  Node; the `just` recipe therefore omits that delimiter, while the script defensively accepts
+  either argv shape when cross-checking the repository root.
 - Vercel CLI JSON is an external, version-sensitive boundary. Parse only the deployment ID,
   URL, and readiness fields needed for identity verification; malformed or missing identity
   fails closed rather than weakening the check.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { productionRepositoryRootArgument } from "../../scripts/deploy-production.ts";
 import {
 	isProductionHealthPayload,
 	parseVercelDeploymentLocator,
@@ -10,6 +11,14 @@ import {
 } from "../../src/deployability/real-production-deployment-gateways.ts";
 
 describe("Vercel production command shape", () => {
+	it("accepts repository-root forwarding with or without pnpm's literal delimiter", () => {
+		expect(productionRepositoryRootArgument(["/repo"])).toBe("/repo");
+		expect(productionRepositoryRootArgument(["--", "/repo"])).toBe("/repo");
+		expect(() => productionRepositoryRootArgument(["/repo", "/other"])).toThrow(
+			"accepts one repository root",
+		);
+	});
+
 	it("uses the repository-root prebuilt production contract", () => {
 		expect(VERCEL_PRODUCTION_DEPLOY_ARGS).toEqual([
 			"deploy",
