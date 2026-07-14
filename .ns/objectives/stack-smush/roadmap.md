@@ -174,21 +174,20 @@ session on 2026-07-10 (see
       Verified still unbuilt (2026-07-12): no `[decision]`/`[span]` handling exists
       anywhere in `ts/`, and flow's description generation explicitly regenerates
       titles from the diff (`ts/packages/capabilities/flow/src/submit/pr-description.ts`).
-- [ ] **Decisions-log convention** (task) — Canonize the isolated PR-body decisions-log
+- [x] **Decisions-log convention** (task) — Canonize the isolated PR-body decisions-log
       block proven on both live stacks: `<!-- ns-decisions-log:begin -->` /
       `<!-- ns-decisions-log:end -->` markers outside flow's managed generated region,
       entries of the form `Pending → Accepted/Rejected — date (@who)` with rationale and
       a pointer to the committed record. Contract (resolved 2026-07-11, live grilling):
       the decision record committed on the decision branch is **canonical**; the PR
       block is a subordinate mirror that flow treats as opaque human-owned text
-      (**preserve-opaque**). Deliverables: convention prose plus a flow guard test that
-      non-managed body text survives description regeneration. Narrowed (2026-07-12
-      refresh): a generic guard already exists — `regenerate-pr-command.test.ts`
-      ("preserves human body text outside the managed generated region", predating
-      this row) — so the remaining test work is extending/confirming that guard for
-      the decisions-log marker block specifically; the convention prose is still
-      entirely unwritten (no `ns-decisions-log` text exists in the repo).
-      Render-from-record is Parked.
+      (**preserve-opaque**). Resolved (2026-07-14): convention prose at
+      [`references/decisions-log-convention.md`](references/decisions-log-convention.md)
+      fixes block ownership, exact markers, entry lifecycle, update order, and stale-
+      mirror handling. Flow's existing regeneration scenario now specializes its
+      generic human-text guard with a complete marker block and verifies verbatim
+      preservation while stale generated content is replaced. Render-from-record
+      remains Parked.
 - [ ] **Decide-skill authoring** (task) — Author the post-submit decision-loop skill:
       walk each decision PR bottom-up; present the decision, trade-off, and a
       recommendation to the human; on their answer, commit a decision record as a
