@@ -24,17 +24,40 @@ Package names, public import specifiers, binary names, and workspace dependency 
 
 ## Public package local release flow
 
-The intended public `@nseng-ai/*` package set is released locally through root `just` commands; no CI workflow is involved.
+The intended public `@nseng-ai/*` package set is released locally through one transactional root command; no CI workflow is involved. Prerequisites are Node/pnpm at the workspace versions, npm authentication with publish access, Graphite authentication, and a clean non-trunk branch tracked by Graphite.
 
-1. Run `just bump-version VERSION` to update every intended public source manifest to the coordinated version and refresh `ts/pnpm-lock.yaml`. This command performs no npm registry writes.
-2. Inspect the manifest/lockfile diff and run relevant local validation.
-3. Run `just publish-dry-run VERSION` to print the exact package/version publish plan and run full-set qualification with `npm publish --dry-run`. This command allows a dirty worktree and performs no npm registry writes.
-4. Commit the version changes so the worktree is clean.
-5. Run `just publish VERSION` only from an interactive TTY. It requires a clean worktree, reruns the full no-write qualification, fails before publishing if any intended package already exists at `VERSION`, prints the publish plan, requires typing `publish VERSION`, publishes each generated root with `npm publish --access public`, and then runs strict registry verification with propagation-delay retries.
-6. Record the strict verifier evidence in the Objective update for the release session.
+First run `just release-plan VERSION`. This read-only mode validates the concrete npm version, clean worktree, non-trunk Graphite-tracked source branch, deterministic release-branch collision, and canonical package inventory. It prints the intended stages, branch (`transactional-npm-release/vVERSION`, with unsupported branch characters sanitized), and ordered package set. It does not bump manifests, qualify or pack candidates, write a report, query npm, publish, or create a checkpoint.
 
-`pnpm --dir ts run release:qualify-public -- --all --version VERSION` remains the lower-level no-write qualification command. It prepares `dist/publish` package roots with registry-compatible dependency specs, validates direct public `@nseng-ai/sdk/*` consumer resolution, rejects `workspace:`/`catalog:`/private-package leakage, and runs `npm publish --dry-run` for the generated roots. Use `--skip-checks` or `--skip-dry-run` only for local diagnosis; those modes are not release evidence.
+Then run `just release VERSION` from an interactive TTY. A fresh transaction:
 
-Run `pnpm --dir ts run release:verify-public -- --version VERSION` to perform read-only npm registry readback for the full intended public package set. The verifier runs `npm view` for each expected package/version and reports registry `name`, `version`, `dist.tarball`, publish `time`, plus declared `bin` and top-level `exports` evidence. It does not publish packages or perform any registry writes. By default, missing or mismatched packages are printed but the command exits `0`; use `--strict` after an authorized publish when every package is expected to exist. The publish command wraps this strict verifier in multiple delayed attempts so npm registry propagation lag does not fail an otherwise successful publish immediately.
+1. repeats preflight, coordinates every public source manifest and `ts/pnpm-lock.yaml`, and runs full no-write qualification;
+2. packs the qualified roots into frozen `.tgz` candidates under ignored `ts/dist/releases/VERSION/`;
+3. creates a dedicated release branch and commit with Graphite, staging only the coordinated manifests and lockfile;
+4. classifies the complete candidate set against npm before any registry write;
+5. asks once for the exact phrase `publish VERSION`, publishes only frozen tarball paths, and performs candidate-aware strict verification with propagation retries.
 
-`just publish VERSION` has no resume mode. If publishing fails after some packages have been published, a rerun at the same version will fail the already-published precheck; choose a new version or implement an explicit future resume mode.
+The command prints human-readable JSON evidence by default. `--format json` emits the stable Clinkr machine envelope, and `--json-schema` publishes its schema. The entrypoint also supports `-h`/`--help`, `--version`, and `--runtime`. Evidence contains the version, release commit, frozen candidates, registry classifications, completed writes, and final status. It never submits a PR or updates Objectives.
+
+### Report and automatic resume
+
+The ignored recovery ledger is always `ts/dist/releases/VERSION/report.json`. If it exists, `just release VERSION` automatically takes the same-version resume path and bypasses bump, qualification, candidate freezing, branch creation, and checkpoint creation. The report records a durable `checkpointing` transition before Graphite runs; if Graphite created the release commit but the following report write failed, resume adopts `HEAD` only when the release branch, `HEAD` parent, clean worktree, coordinated version, inventory, and frozen candidates prove that exact checkpoint. Any disagreement stops. Resume otherwise requires all of these invariants before npm is queried:
+
+- the worktree is clean;
+- the current branch and `HEAD` exactly match the report's release branch and release commit;
+- every canonical source manifest is coordinated to the report/requested version;
+- the report inventory and candidates exactly match the unchanged ordered public inventory;
+- every candidate exists and its bytes match both recorded hashes.
+
+Both hashes are mandatory: `integrity` is the exact npm `sha512-<base64>` value and `shasum` is the exact SHA-1 hex value. An existing registry version is skippable only when both registry values exactly equal the frozen candidate. Before each npm publish the report durably records that package as pending, then moves it to completed writes only after success. A pending write resumes only when registry metadata is exact; missing, mismatched, or unreadable registry state stops without republishing. Any other mismatch, unreadable identity, missing candidate, or changed hash stops before publication.
+
+After a publication or verification failure, leave the report and candidates untouched, restore the exact release branch/commit with a clean worktree, and rerun `just release VERSION`. If a candidate or identity invariant cannot be restored, do not repack or edit the report: stop and choose a recovery version/strategy after inspecting registry state. A failure before the Graphite checkpoint can leave bump, qualification, or partial report effects; inspect and clean those local effects before restarting rather than treating the incomplete report as resumable.
+
+### Lower-level diagnosis commands
+
+The older commands remain available for diagnosis, but they do not replace the transactional flow:
+
+- `just bump-version VERSION` coordinates source manifests and the lockfile without registry writes.
+- `just publish-dry-run VERSION` runs the legacy full-set dry run without registry writes.
+- `just publish VERSION` is the legacy direct publisher.
+- `pnpm --dir ts run release:qualify-public -- --all --version VERSION` prepares and checks generated publish roots. `--skip-checks` and `--skip-dry-run` are diagnosis-only and are not release evidence.
+- `pnpm --dir ts run release:verify-public -- --version VERSION --strict --candidate-report ts/dist/releases/VERSION/report.json` performs candidate-aware, read-only strict registry verification. Without `--strict`, missing or mismatched packages are reported without a failing exit.

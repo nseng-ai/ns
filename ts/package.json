@@ -18,6 +18,7 @@
 		"release:bump-version": "node scripts/bump-public-package-version.mjs",
 		"release:publish": "node scripts/publish-public-package-set.mjs publish",
 		"release:publish-dry-run": "node scripts/publish-public-package-set.mjs dry-run",
+		"release": "node scripts/release-public-package-set.ts",
 		"release:qualify-public": "node scripts/qualify-public-package-set.mjs",
 		"release:verify-public": "node scripts/verify-public-package-set.mjs",
 		"test": "vitest run --config vitest.config.ts",

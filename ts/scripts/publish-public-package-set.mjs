@@ -29,7 +29,7 @@ if (args.mode === "dry-run") {
 	await assertUnpublished(plan, args.version);
 	printPublishPlan(plan);
 	console.log("");
-	console.log("If publishing fails after some packages are published, rerunning this command at the same version will fail the already-published precheck. Choose a new version or build an explicit future resume mode.");
+	console.log("This legacy direct publisher cannot resume a partial publication. Use just release VERSION for new transactional releases with verified exact resume.");
 	await confirmPublish(args.version);
 	for (const item of plan) {
 		run("npm", ["publish", item.publishRoot, "--access", "public"], { cwd: repoRoot });
