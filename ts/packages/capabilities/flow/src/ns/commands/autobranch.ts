@@ -25,7 +25,7 @@ const AUTOBRANCH_DESCRIPTION = `Create a Graphite branch using \`gt create\` fro
 
 This command requires pending worktree changes. It stashes pending changes, creates a Graphite branch, restores the stash, and creates a checkpoint commit.
 
-If the worktree is clean, use \`ns flow branch-latest-commit\` to move the latest eligible unpushed commit to a new Graphite child branch.
+If the worktree is clean, use \`ns flow branch-latest-commit\` to move the latest eligible commit to a new Graphite child branch.
 
 Environment:
   ${SLUG_MODEL_ENV}  Model reference for generated branch slugs. Defaults to ${DEFAULT_FAST_MODEL_REF}.
@@ -88,7 +88,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 							cwd: result.snapshot.root,
 							body: "Working tree is clean.",
 							guidance:
-								"Use `ns flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.",
+								"Use `ns flow branch-latest-commit` to move the latest eligible commit to a new Graphite child branch.",
 						}),
 					);
 				case "flow": {

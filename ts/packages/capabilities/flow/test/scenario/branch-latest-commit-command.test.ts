@@ -2,11 +2,12 @@ import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import {
-	branchLatestCommitBackupCleanupWarningExec,
+	branchLatestCommitSynchronizedBackupCleanupWarningExec,
 	branchLatestCommitBackupCreateFailExec,
 	branchLatestCommitChildBranchRefusalExec,
 	branchLatestCommitGtCreateFailExec,
 	branchLatestCommitSuffixedExec,
+	branchLatestCommitSynchronizedExec,
 	runFlowBranchLatestCommitCommandWithFakes,
 } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
@@ -39,7 +40,43 @@ describe("flow branch-latest-commit command outcomes", () => {
 				expect.stringMatching(/^git branch -D autobranch-backup\/feature\/\d+$/),
 			]),
 		);
+		expect(calls).not.toContain("gt trunk --no-interactive");
 		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
+	test("synchronized non-trunk success warns how to publish without remote mutation", async () => {
+		const run = runFlowBranchLatestCommitCommandWithFakes({
+			state: { exec: branchLatestCommitSynchronizedExec() },
+		});
+
+		expect(await run.exit).toBe(0);
+		const stdout = stripAnsi(run.stdout.join(""));
+		expect(stdout).toContain("Moved the latest commit to a new Graphite branch.");
+		expect(stdout).toContain("New branch: demo-branch");
+		expect(stdout).not.toContain("upstream origin/feature");
+		expect(run.stderr.join("")).toContain(
+			"Warning: upstream origin/feature is still unchanged at abc123 after the local source reset. Run `ns flow submit` from demo-branch to publish the reshaped stack.",
+		);
+
+		const calls = formattedExecCalls(run.context);
+		expect(calls.filter((call) => call === "gt trunk --no-interactive")).toHaveLength(2);
+		expect(calls.filter((call) => call.startsWith("git merge-base --is-ancestor"))).toHaveLength(4);
+		expect(calls).toEqual(
+			expect.arrayContaining([
+				"git reset --hard parent456",
+				"gt create demo-branch --no-interactive --no-ai",
+				"git reset --hard abc123",
+			]),
+		);
+		expect(
+			calls.some(
+				(call) =>
+					call.startsWith("git fetch") ||
+					call.startsWith("git push") ||
+					call.startsWith("gt submit") ||
+					call.startsWith("ns flow submit"),
+			),
+		).toBe(false);
 	});
 
 	test("dirty worktree refuses with a warn block on stderr and does not run the flow", async () => {
@@ -152,14 +189,16 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(calls).not.toContain("gt create demo-branch --no-interactive --no-ai");
 	});
 
-	test("recovery cleanup warning stays on stderr while success stays on stdout", async () => {
+	test("synchronized publication and recovery cleanup warnings coexist on stderr", async () => {
 		const run = runFlowBranchLatestCommitCommandWithFakes({
-			state: { exec: branchLatestCommitBackupCleanupWarningExec() },
+			state: { exec: branchLatestCommitSynchronizedBackupCleanupWarningExec() },
 		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("New branch: demo-branch");
 		expect(run.stdout.join("")).not.toContain("recovery branch");
+		expect(run.stderr.join("")).toContain("Warning: upstream origin/feature is still unchanged");
+		expect(run.stderr.join("")).toContain("Run `ns flow submit` from demo-branch");
 		expect(run.stderr.join("")).toContain("Warning: recovery branch autobranch-backup/feature/");
 		expect(run.stderr.join("")).toContain("could not be deleted");
 	});

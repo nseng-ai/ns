@@ -85,8 +85,9 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 		},
 	});
 	if (!createdBranch.ok) {
-		// Honor the autobranch outcome discriminator: a declined guardrail (e.g. pushed HEAD, child
-		// branch, root/merge commit) renders warn, not red (house-style §7.3). Both still flip the exit
+		// Honor the autobranch outcome discriminator: a declined guardrail (e.g. an unsafe upstream
+		// relationship, synchronized trunk, child branch, or root/merge commit) renders warn, not red
+		// (house-style §7.3), while an operational failure renders failure/red. Both still flip the exit
 		// code via the `error` notify level — the visual intent lives in the rendered block, the level
 		// owns stderr routing and exit (see `autoslot-presentation.ts`).
 		input.io.notify(

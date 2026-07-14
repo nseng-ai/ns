@@ -39,6 +39,7 @@ export {
 	type LatestCommitTransactionInput,
 	type LatestCommitTransactionResult,
 	type SourceResetFailureRecovery,
+	type SynchronizedUpstreamContext,
 } from "./latest-commit-transaction.ts";
 export { inspectUpstreamHeadState, type UpstreamHeadState } from "./upstream.ts";
 
@@ -85,11 +86,18 @@ export async function createLatestCommitAutobranchFlow(
 		plan: prepared.plan,
 		dirtyWarning: LATEST_COMMIT_AUTOBRANCH_WORKTREE_WARNING,
 	});
-	const warnings = transaction.backupDeleted
-		? []
-		: [
-				`Warning: recovery branch ${transaction.backupBranch} could not be deleted: ${transaction.backupDeleteError}`,
-			];
+	const warnings = [
+		...(transaction.synchronizedUpstream === undefined
+			? []
+			: [
+					`Warning: upstream ${transaction.synchronizedUpstream.name} is still unchanged at ${shortSha(transaction.synchronizedUpstream.originalHeadSha)} after the local source reset. Run \`ns flow submit\` from ${prepared.plan.branchName} to publish the reshaped stack.`,
+				]),
+		...(transaction.backupDeleted
+			? []
+			: [
+					`Warning: recovery branch ${transaction.backupBranch} could not be deleted: ${transaction.backupDeleteError}`,
+				]),
+	];
 
 	return {
 		ok: true,

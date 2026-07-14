@@ -7,6 +7,7 @@ import {
 	createTestAutobranchGitGateway,
 	type PendingWorktreeSnapshot,
 	type UpstreamMode,
+	upstreamAncestryResult,
 } from "./autobranch-test-helpers.ts";
 import {
 	prepareLatestCommitAutobranchPlan,
@@ -25,6 +26,8 @@ interface PreparationHarnessOptions {
 	existingBranches?: Set<string>;
 	childBranches?: string[];
 	shouldChildrenFail?: boolean;
+	trunkBranch?: string;
+	shouldTrunkFail?: boolean;
 }
 
 function createSnapshot(branch = "feature/base"): PendingWorktreeSnapshot {
@@ -39,8 +42,9 @@ function createSnapshot(branch = "feature/base"): PendingWorktreeSnapshot {
 
 function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 	const calls: Array<{ command: string; args: string[] }> = [];
-	const upstreamMode = options.upstreamMode ?? "ahead";
+	const upstreamMode = options.upstreamMode ?? "local-ahead";
 	const snapshot = createSnapshot(options.currentBranch ?? "feature/base");
+	const upstreamName = `origin/${snapshot.branch}`;
 	const existingBranches = options.existingBranches ?? new Set<string>();
 	const childBranches = options.childBranches ?? [];
 	const exec = async (command: string, args: string[], _timeout: number) => {
@@ -52,13 +56,20 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 			if (args[1] === "--format=%(refname)") {
 				return ok();
 			}
-			if (upstreamMode === "failed") {
-				return fail("bad upstream state", 128);
-			}
-			return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
+			return upstreamMode === "none" ? ok() : ok(`${upstreamName}\n`);
 		}
 		if (command === "git" && args[0] === "merge-base") {
-			return upstreamMode === "contains" ? ok() : fail("");
+			return upstreamAncestryResult({
+				mode: upstreamMode,
+				ancestor: args[2] ?? "",
+				descendant: args[3] ?? "",
+				upstream: upstreamName,
+			});
+		}
+		if (command === "gt" && args[0] === "trunk") {
+			return options.shouldTrunkFail
+				? fail("gt trunk failed")
+				: ok(`${options.trunkBranch ?? "master"}\n`);
 		}
 		if (command === "gt" && args[0] === "children") {
 			return options.shouldChildrenFail ? fail("gt children failed") : ok(childBranches.join("\n"));
@@ -132,6 +143,8 @@ interface TransactionHarnessOptions {
 	existingBranches?: Set<string>;
 	upstreamMode?: UpstreamMode;
 	sourceBranch?: string;
+	trunkBranch?: string;
+	shouldTrunkFail?: boolean;
 }
 
 function createTransactionHarness(options: TransactionHarnessOptions = {}) {
@@ -140,20 +153,28 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 	let currentBranch = sourceBranch;
 	let head = "abc123def456";
 	const existingBranches = options.existingBranches ?? new Set<string>();
-	const upstreamMode = options.upstreamMode ?? "ahead";
+	const upstreamMode = options.upstreamMode ?? "local-ahead";
+	const upstreamName = `origin/${sourceBranch}`;
 	const exec = async (command: string, args: string[], _timeout: number) => {
 		events.push(`exec:${command} ${args.join(" ")}`);
 		if (command === "git" && args[0] === "for-each-ref") {
 			if (args[1] === "--format=%(refname)") {
 				return ok();
 			}
-			if (upstreamMode === "failed") {
-				return fail("bad upstream state", 128);
-			}
-			return upstreamMode === "none" ? ok() : ok("origin/feature/base\n");
+			return upstreamMode === "none" ? ok() : ok(`${upstreamName}\n`);
 		}
 		if (command === "git" && args[0] === "merge-base") {
-			return upstreamMode === "contains" ? ok() : fail("");
+			return upstreamAncestryResult({
+				mode: upstreamMode,
+				ancestor: args[2] ?? "",
+				descendant: args[3] ?? "",
+				upstream: upstreamName,
+			});
+		}
+		if (command === "gt" && args[0] === "trunk") {
+			return options.shouldTrunkFail
+				? fail("gt trunk failed")
+				: ok(`${options.trunkBranch ?? "master"}\n`);
 		}
 		if (command === "git" && args[0] === "check-ref-format") {
 			return ok();
@@ -258,7 +279,7 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 	});
 
 	test("model slug uses commit message and committed diff", async () => {
-		const harness = createPreparationHarness({ upstreamMode: "ahead" });
+		const harness = createPreparationHarness({ upstreamMode: "local-ahead" });
 
 		const result = await prepareLatestCommitAutobranchPlan(harness.input);
 
@@ -285,25 +306,93 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		).toBe(false);
 	});
 
-	test("accepts moving the latest commit when on the Graphite trunk branch", async () => {
-		const harness = createPreparationHarness({ currentBranch: "master", upstreamMode: "none" });
+	test("keeps no-upstream and local-ahead trunk commits eligible without trunk lookup", async () => {
+		for (const upstreamMode of ["none", "local-ahead"] as const) {
+			const harness = createPreparationHarness({
+				currentBranch: "master",
+				upstreamMode,
+			});
+
+			const result = await prepareLatestCommitAutobranchPlan(harness.input);
+
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.plan.sourceBranch).toBe("master");
+			}
+			expect(harness.calls.some((call) => call.command === "gt" && call.args[0] === "trunk")).toBe(
+				false,
+			);
+		}
+	});
+
+	test("accepts a synchronized non-trunk branch after bidirectional ancestry checks", async () => {
+		const harness = createPreparationHarness({
+			slug: "latest-commit-branch",
+			upstreamMode: "synchronized",
+			trunkBranch: "master",
+		});
 
 		const result = await prepareLatestCommitAutobranchPlan(harness.input);
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.plan.sourceBranch).toBe("master");
+			expect(result.plan).not.toHaveProperty("upstream");
+		}
+		expect(harness.calls).toEqual(
+			expect.arrayContaining([
+				{
+					command: "git",
+					args: ["merge-base", "--is-ancestor", "HEAD", "origin/feature/base"],
+				},
+				{
+					command: "git",
+					args: ["merge-base", "--is-ancestor", "origin/feature/base", "HEAD"],
+				},
+				{ command: "gt", args: ["trunk", "--no-interactive"] },
+			]),
+		);
+	});
+
+	test("refuses remote-ahead and diverged branches before Graphite child inspection", async () => {
+		for (const [upstreamMode, kind] of [
+			["remote-ahead", "remote_ahead_refusal"],
+			["diverged", "diverged_upstream_refusal"],
+		] as const) {
+			const harness = createPreparationHarness({ upstreamMode });
+
+			const result = await prepareLatestCommitAutobranchPlan(harness.input);
+
+			expect(result).toEqual({
+				ok: false,
+				kind,
+				upstream: "origin/feature/base",
+			});
+			expect(
+				harness.calls.some((call) => call.command === "gt" && call.args[0] === "children"),
+			).toBe(false);
+			expect(
+				harness.calls.some((call) => call.command === "git" && call.args[0] === "rev-list"),
+			).toBe(false);
+			expect(harness.calls.some((call) => call.command === "gt" && call.args[0] === "trunk")).toBe(
+				false,
+			);
 		}
 	});
 
-	test("refuses pushed commits, root commits, and merge commits before branch checks", async () => {
-		const pushed = await prepareLatestCommitAutobranchPlan(
-			createPreparationHarness({ upstreamMode: "contains" }).input,
+	test("refuses synchronized trunk and treats relationship or trunk probes as failures", async () => {
+		const trunk = await prepareLatestCommitAutobranchPlan(
+			createPreparationHarness({
+				currentBranch: "master",
+				upstreamMode: "synchronized",
+				trunkBranch: "master",
+			}).input,
 		);
-		expect(pushed).toEqual({
+		expect(trunk).toEqual({
 			ok: false,
-			kind: "pushed_head_refusal",
-			upstream: "origin/feature/base",
+			kind: "synchronized_trunk_refusal",
+			branch: "master",
+			upstream: "origin/master",
+			trunk: "master",
 		});
 
 		const upstreamFailed = await prepareLatestCommitAutobranchPlan(
@@ -312,9 +401,24 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		expect(upstreamFailed).toEqual({
 			ok: false,
 			kind: "upstream_check_failed",
-			error: "exit code 128: bad upstream state",
+			error:
+				"git merge-base --is-ancestor HEAD origin/feature/base failed.\nexit code 128: bad upstream relationship",
 		});
 
+		const trunkFailed = await prepareLatestCommitAutobranchPlan(
+			createPreparationHarness({
+				upstreamMode: "synchronized",
+				shouldTrunkFail: true,
+			}).input,
+		);
+		expect(trunkFailed).toEqual({
+			ok: false,
+			kind: "graphite_trunk_check_failed",
+			error: "exit code 1: gt trunk failed",
+		});
+	});
+
+	test("refuses root and merge commits before branch-name checks", async () => {
 		const root = await prepareLatestCommitAutobranchPlan(
 			createPreparationHarness({ upstreamMode: "none", parentsLine: "abc123def456\n" }).input,
 		);
@@ -366,30 +470,93 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 });
 
 describe("runLatestCommitAutobranchTransaction", () => {
-	test("rechecks upstream before mutation", async () => {
-		const pushed = createTransactionHarness({ upstreamMode: "contains" });
+	test("rechecks remote-ahead and diverged relationships before mutation", async () => {
+		for (const [upstreamMode, kind] of [
+			["remote-ahead", "remote_ahead_refusal"],
+			["diverged", "diverged_upstream_refusal"],
+		] as const) {
+			const harness = createTransactionHarness({ upstreamMode });
 
-		const pushedResult = await runLatestCommitAutobranchTransaction(pushed.input);
+			const result = await runLatestCommitAutobranchTransaction(harness.input);
 
-		expect(pushedResult).toEqual({
-			ok: false,
-			kind: "pushed_head_refusal",
-			upstream: "origin/feature/base",
+			expect(result).toEqual({
+				ok: false,
+				kind,
+				upstream: "origin/feature/base",
+			});
+			expect(eventIndex(harness.events, "exec:git branch autobranch-backup/")).toBe(-1);
+			expect(eventIndex(harness.events, "exec:git reset --hard")).toBe(-1);
+			expect(eventIndex(harness.events, "exec:gt create")).toBe(-1);
+		}
+	});
+
+	test("rechecks synchronized trunk and probe failures before mutation", async () => {
+		const trunk = createTransactionHarness({
+			sourceBranch: "master",
+			upstreamMode: "synchronized",
+			trunkBranch: "master",
 		});
-		expect(eventIndex(pushed.events, "exec:git branch autobranch-backup/")).toBe(-1);
-		expect(eventIndex(pushed.events, "exec:git reset --hard")).toBe(-1);
-		expect(eventIndex(pushed.events, "exec:gt create")).toBe(-1);
+		expect(await runLatestCommitAutobranchTransaction(trunk.input)).toEqual({
+			ok: false,
+			kind: "synchronized_trunk_refusal",
+			branch: "master",
+			upstream: "origin/master",
+			trunk: "master",
+		});
 
-		const failed = createTransactionHarness({ upstreamMode: "failed" });
-
-		const failedResult = await runLatestCommitAutobranchTransaction(failed.input);
-
-		expect(failedResult).toEqual({
+		const upstreamFailed = createTransactionHarness({ upstreamMode: "failed" });
+		expect(await runLatestCommitAutobranchTransaction(upstreamFailed.input)).toEqual({
 			ok: false,
 			kind: "transaction_upstream_check_failed",
-			error: "exit code 128: bad upstream state",
+			error:
+				"git merge-base --is-ancestor HEAD origin/feature/base failed.\nexit code 128: bad upstream relationship",
 		});
-		expect(eventIndex(failed.events, "exec:git branch autobranch-backup/")).toBe(-1);
+
+		const trunkFailed = createTransactionHarness({
+			upstreamMode: "synchronized",
+			shouldTrunkFail: true,
+		});
+		expect(await runLatestCommitAutobranchTransaction(trunkFailed.input)).toEqual({
+			ok: false,
+			kind: "transaction_graphite_trunk_check_failed",
+			error: "exit code 1: gt trunk failed",
+		});
+
+		for (const harness of [trunk, upstreamFailed, trunkFailed]) {
+			expect(eventIndex(harness.events, "exec:git branch autobranch-backup/")).toBe(-1);
+			expect(eventIndex(harness.events, "exec:git reset --hard")).toBe(-1);
+			expect(eventIndex(harness.events, "exec:gt create")).toBe(-1);
+		}
+	});
+
+	test("records synchronized upstream context after a successful non-trunk transaction", async () => {
+		const harness = createTransactionHarness({
+			upstreamMode: "synchronized",
+			trunkBranch: "master",
+		});
+
+		const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+		expect(result).toEqual({
+			ok: true,
+			commitSummary: "abc123d Add latest commit support",
+			backupDeleted: true,
+			synchronizedUpstream: {
+				name: "origin/feature/base",
+				originalHeadSha: "abc123def456",
+			},
+		});
+	});
+
+	test("keeps no-upstream and local-ahead trunk transactions independent of trunk lookup", async () => {
+		for (const upstreamMode of ["none", "local-ahead"] as const) {
+			const harness = createTransactionHarness({ sourceBranch: "master", upstreamMode });
+
+			const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+			expect(result.ok).toBe(true);
+			expect(eventIndex(harness.events, "exec:gt trunk --no-interactive")).toBe(-1);
+		}
 	});
 
 	test("backup branch name exhaustion fails before mutation", async () => {

@@ -10,7 +10,13 @@ import type {
 
 export type { CommandResult, PendingWorktreeSnapshot };
 
-export type UpstreamMode = "contains" | "ahead" | "none" | "failed";
+export type UpstreamMode =
+	| "none"
+	| "local-ahead"
+	| "synchronized"
+	| "remote-ahead"
+	| "diverged"
+	| "failed";
 
 export function ok(stdout = "", stderr = ""): CommandResult & ExecResult {
 	return { type: "exited", code: 0, signal: null, stdout, stderr };
@@ -18,6 +24,30 @@ export function ok(stdout = "", stderr = ""): CommandResult & ExecResult {
 
 export function fail(stderr: string, code = 1): CommandResult & ExecResult {
 	return { type: "exited", code, signal: null, stdout: "", stderr };
+}
+
+export interface UpstreamAncestryResultOptions {
+	mode: UpstreamMode;
+	ancestor: string;
+	descendant: string;
+	upstream: string;
+}
+
+export function upstreamAncestryResult(options: UpstreamAncestryResultOptions): CommandResult {
+	const { mode, ancestor, descendant, upstream } = options;
+	if (mode === "none") {
+		throw new Error("Ancestry must not be inspected when the branch has no upstream.");
+	}
+	if (mode === "failed") {
+		return fail("bad upstream relationship", 128);
+	}
+	if (ancestor === "HEAD" && descendant === upstream) {
+		return mode === "synchronized" || mode === "remote-ahead" ? ok() : fail("");
+	}
+	if (ancestor === upstream && descendant === "HEAD") {
+		return mode === "synchronized" || mode === "local-ahead" ? ok() : fail("");
+	}
+	throw new Error(`Unexpected ancestry probe: ${ancestor} -> ${descendant}`);
 }
 
 export function eventIndex(events: readonly string[], prefix: string): number {
