@@ -1,9 +1,5 @@
 import { createAppAuth } from "@octokit/auth-app";
-import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
-import { z } from "zod";
-
 import { githubPermissionsForPurpose, type GitHubRepositoryPermissions } from "./contracts.ts";
-import type { VercelOidcGateway } from "./development-oidc.ts";
 import {
 	createDispatchTokenMinter,
 	type DispatchTokenMinter,
@@ -40,47 +36,6 @@ export type AppAuthFunction = (
 ) => Promise<InstallationAuthentication>;
 
 export type AppAuthFactory = (options: AppAuthFactoryOptions) => AppAuthFunction;
-
-export interface JoseVercelOidcGatewayOptions {
-	readonly keyResolver?: JWTVerifyGetKey;
-}
-
-const vercelOidcClaimsSchema = z.object({
-	owner_id: z.string().min(1),
-	project_id: z.string().min(1),
-	environment: z.string().min(1),
-	exp: z.number().int().positive(),
-});
-
-export function createJoseVercelOidcGateway(
-	options: JoseVercelOidcGatewayOptions = {},
-): VercelOidcGateway {
-	return {
-		async verifyDevelopmentIdentity(input) {
-			try {
-				const keyResolver =
-					options.keyResolver ??
-					createRemoteJWKSet(new URL(`${input.issuer.replace(/\/$/, "")}/.well-known/jwks`));
-				const verification = await jwtVerify(input.token, keyResolver, {
-					issuer: input.issuer,
-					audience: input.audience,
-				});
-				const claims = vercelOidcClaimsSchema.safeParse(verification.payload);
-				if (!claims.success) return { ok: false };
-				return {
-					ok: true,
-					value: {
-						ownerId: claims.data.owner_id,
-						projectId: claims.data.project_id,
-						environment: claims.data.environment,
-					},
-				};
-			} catch {
-				return { ok: false };
-			}
-		},
-	};
-}
 
 export function createGitHubInstallationTokenGateway(
 	config: GitHubAppAuthenticationConfig,

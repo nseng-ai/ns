@@ -1,11 +1,10 @@
+import type { DevelopmentCallerAuthenticator } from "../auth/development-oidc.ts";
+import { httpErrorBody } from "../http/wire.ts";
 import { mintRequestSchema, type MintErrorCode, type MintResponse } from "./contracts.ts";
-import { authenticateDevelopmentCaller, type VercelOidcGateway } from "./development-oidc.ts";
 import type { DispatchTokenMinter } from "./mint-core.ts";
-import type { OidcTrustConfig } from "./oidc-trust-config.ts";
 
 export interface MintRequestContext {
-	readonly oidcTrust: OidcTrustConfig;
-	readonly oidc: VercelOidcGateway;
+	readonly developmentCaller: DevelopmentCallerAuthenticator;
 	readonly minter: DispatchTokenMinter;
 }
 
@@ -21,11 +20,7 @@ export async function handleMintRequest(
 	const requestResult = mintRequestSchema.safeParse(input.body);
 	if (!requestResult.success) return failure(400, "invalid-request", "Invalid mint request.");
 
-	const authentication = await authenticateDevelopmentCaller(
-		input.oidcToken,
-		context.oidcTrust,
-		context.oidc,
-	);
+	const authentication = await context.developmentCaller.authenticate(input.oidcToken);
 	// `=== false` rather than `!`: the Vercel builder typechecks without
 	// strictNullChecks, where truthiness checks do not narrow the union.
 	if (authentication.ok === false) {
@@ -55,7 +50,7 @@ export async function handleMintRequest(
 			token: mintResult.value.token,
 			expiresAt: mintResult.value.expiresAt,
 			repository: mintResult.value.repository,
-			purpose: mintResult.value.purpose,
+			purpose: "clone",
 		},
 	};
 }
@@ -65,5 +60,5 @@ function failure(
 	code: MintErrorCode,
 	message: string,
 ): MintResponse {
-	return { status, body: { error: { code, message } } };
+	return { status, body: httpErrorBody(code, message) };
 }

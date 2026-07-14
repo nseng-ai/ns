@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { createTriggerPostHandler } from "../../api/trigger.ts";
-import type {
-	VercelOidcGateway,
-	VercelOidcVerificationResult,
-} from "../../src/mint/development-oidc.ts";
 import type { TriggerEnvironment } from "../../src/trigger/runtime-config.ts";
 import type {
 	ReadWorkflowRunStatusResult,
@@ -12,18 +8,10 @@ import type {
 	WorkflowRunGateway,
 	WorkflowStartRequest,
 } from "../../src/trigger/workflow-run-gateway.ts";
-
-class InMemoryOidcGateway implements VercelOidcGateway {
-	readonly #result: VercelOidcVerificationResult;
-
-	constructor(result: VercelOidcVerificationResult) {
-		this.#result = result;
-	}
-
-	async verifyDevelopmentIdentity(): Promise<VercelOidcVerificationResult> {
-		return this.#result;
-	}
-}
+import {
+	DEVELOPMENT_OIDC_TRUST_ENVIRONMENT,
+	InMemoryVercelOidcGateway,
+} from "../support/route-fakes.ts";
 
 class RecordingWorkflowRunGateway implements WorkflowRunGateway {
 	readonly #runId: string;
@@ -44,23 +32,11 @@ class RecordingWorkflowRunGateway implements WorkflowRunGateway {
 }
 
 function validEnvironment(): TriggerEnvironment {
-	return {
-		NS_DISPATCH_VERCEL_TEAM_ID: "team_dispatch",
-		NS_DISPATCH_VERCEL_PROJECT_ID: "prj_dispatch",
-		NS_DISPATCH_VERCEL_OIDC_ISSUER: "https://oidc.vercel.com/nseng-ai",
-		NS_DISPATCH_VERCEL_OIDC_AUDIENCE: "https://vercel.com/nseng-ai",
-	};
+	return { ...DEVELOPMENT_OIDC_TRUST_ENVIRONMENT };
 }
 
-function validOidcGateway(): InMemoryOidcGateway {
-	return new InMemoryOidcGateway({
-		ok: true,
-		value: {
-			ownerId: "team_dispatch",
-			projectId: "prj_dispatch",
-			environment: "development",
-		},
-	});
+function validOidcGateway(): InMemoryVercelOidcGateway {
+	return new InMemoryVercelOidcGateway();
 }
 
 describe("createTriggerPostHandler", () => {
@@ -85,7 +61,8 @@ describe("createTriggerPostHandler", () => {
 
 		expect(response.status).toBe(200);
 		expect(response.headers.get("cache-control")).toBe("no-store");
-		expect(await response.json()).toEqual({ runId: "wrun_123", workflow: "hello" });
+		expect(response.headers.get("content-type")).toBe("application/json");
+		expect(await response.text()).toBe('{"runId":"wrun_123","workflow":"hello"}');
 		expect(workflowRuns.startCalls).toEqual([{ workflow: "hello", input: { name: "world" } }]);
 	});
 
@@ -207,6 +184,10 @@ describe("createTriggerPostHandler", () => {
 		);
 
 		expect(response.status).toBe(401);
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		expect(await response.text()).toBe(
+			'{"error":{"code":"unauthorized","message":"Authentication failed."}}',
+		);
 		expect(workflowRuns.startCalls).toEqual([]);
 	});
 

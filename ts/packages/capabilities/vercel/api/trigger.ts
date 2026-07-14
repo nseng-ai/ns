@@ -4,7 +4,8 @@
 // through the Workflow SDK's `start()` and returns the run id. Live
 // trigger behavior on Vercel is pending verification.
 import { handleTriggerRequest } from "../src/trigger/handle-trigger-request.ts";
-import { jsonResponse, readJsonBody } from "../src/trigger/http.ts";
+import { jsonResponse, readJsonBody } from "../src/http/http.ts";
+import { DISPATCH_OIDC_HEADER_NAME, httpErrorBody } from "../src/http/wire.ts";
 import {
 	createTriggerRouteContext,
 	triggerRouteConfigurationErrorResponse,
@@ -27,16 +28,13 @@ export function createTriggerPostHandler(options: TriggerPostHandlerOptions): Tr
 	return async function triggerPostHandler(request) {
 		const bodyResult = await readJsonBody(request);
 		if (!bodyResult.ok) {
-			return jsonResponse(
-				{ error: { code: "invalid-request", message: "Invalid trigger request." } },
-				400,
-			);
+			return jsonResponse(httpErrorBody("invalid-request", "Invalid trigger request."), 400);
 		}
 
 		const result = await handleTriggerRequest(
 			{
 				body: bodyResult.value,
-				oidcToken: request.headers.get("x-ns-dispatch-oidc-token"),
+				oidcToken: request.headers.get(DISPATCH_OIDC_HEADER_NAME),
 			},
 			context,
 		);
@@ -44,6 +42,8 @@ export function createTriggerPostHandler(options: TriggerPostHandlerOptions): Tr
 	};
 }
 
+const productionHandler = createTriggerPostHandler({ environment: process.env });
+
 export async function POST(request: Request): Promise<Response> {
-	return createTriggerPostHandler({ environment: process.env })(request);
+	return productionHandler(request);
 }
