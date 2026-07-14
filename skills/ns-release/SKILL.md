@@ -49,10 +49,11 @@ Then read `CHANGELOG.md`'s `[Unreleased]` section to see what is shipping. If it
 is empty or stale, offer to run the `changelog-update` skill first.
 
 Propose the next version to the user and **wait for confirmation before
-releasing**. The project is pre-1.0 and adheres to semver: breaking changes bump
-the minor, everything else bumps the patch. Say what you are proposing and why,
-for example: "Current is 0.1.3; `[Unreleased]` is all internal fixes, so I
-propose **0.1.4**. Confirm or give me a different version."
+releasing**. The default is always the next patch version; do not infer a minor
+bump from the changelog. Propose a different version only when the user directs
+you to. Summarize what `[Unreleased]` contains, then say, for example: "Current
+is 0.1.3; the default patch bump is **0.1.4**. `[Unreleased]` contains internal
+fixes. Confirm or give me a different version."
 
 Do not proceed to step 3 without an explicit version from the user. This is the
 one irreversible decision in the workflow.
