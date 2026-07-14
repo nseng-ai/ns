@@ -12,9 +12,10 @@ import {
 } from "../../src/submit/submit-matrix-progress.ts";
 import {
 	SUBMIT_CORE_PHASES,
+	SUBMIT_CHECKS_PHASE,
 	SUBMIT_PHASES,
-	SUBMIT_PHASES_WITH_HOOKS,
-	SUBMIT_PRE_HOOK_PHASES,
+	SUBMIT_PHASES_WITH_CHECKS,
+	SUBMIT_PRE_CHECK_PHASES,
 } from "../../src/phase-stream/phase-stream-specs.ts";
 import { streamCapture } from "./stream-test-helpers.ts";
 
@@ -39,7 +40,7 @@ describe("submit progress resolution", () => {
 		const resolved = resolveSubmitProgress({
 			caps: caps({ isTty: true }),
 			deps: capture.deps,
-			hasHooks: false,
+			hasChecks: false,
 		});
 		resolved.matrix.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
 		resolved.onOutput?.("stdout", "raw transcript");
@@ -55,7 +56,7 @@ describe("submit progress resolution", () => {
 			deps: streamCapture().deps,
 			liveProgress: recording.progress,
 			liveOutput: (_stream, text) => raw.push(text),
-			hasHooks: false,
+			hasChecks: false,
 		});
 		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
 		resolved.onOutput?.("stdout", "raw transcript");
@@ -77,7 +78,7 @@ describe("submit progress resolution", () => {
 			deps: capture.deps,
 			liveProgress: recording.progress,
 			liveOutput: (_stream, text) => raw.push(text),
-			hasHooks: false,
+			hasChecks: false,
 		});
 		resolved.matrix.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
 		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
@@ -108,7 +109,7 @@ describe("submit progress resolution", () => {
 		const resolved = resolveSubmitProgress({
 			caps: caps(),
 			deps: capture.deps,
-			hasHooks: false,
+			hasChecks: false,
 		});
 
 		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
@@ -129,7 +130,7 @@ describe("submit matrix progress", () => {
 			caps: caps(),
 			deps: streamCapture().deps,
 			liveProgress: recording.progress,
-			hasHooks: true,
+			hasChecks: true,
 		}).matrix;
 
 		controller.phase({ type: "phase-started", phaseKey: "inventory" });
@@ -140,7 +141,7 @@ describe("submit matrix progress", () => {
 		if (declaration?.type !== "phases-declared") throw new Error("missing declaration");
 		expect(declaration.phases.map((phase) => phase.key)).toEqual([
 			"inventory",
-			"hooks",
+			"checks",
 			"checkpoint",
 			"preflight",
 			"restack",
@@ -165,7 +166,7 @@ describe("submit matrix progress", () => {
 			caps: caps(),
 			deps: streamCapture().deps,
 			liveProgress: recording.progress,
-			hasHooks: false,
+			hasChecks: false,
 		}).matrix;
 		controller.setRows([{ branch: "feature/a", label: "feature/a", kind: "new" }]);
 		controller.setCell("feature/a", "metadata", { state: "done", text: "ready" });
@@ -187,16 +188,24 @@ describe("submit matrix progress", () => {
 		});
 	});
 
-	test("composes the optional hook at the named semantic boundary", () => {
-		expect(SUBMIT_PRE_HOOK_PHASES.map((phase) => phase.key)).toEqual(["inventory"]);
+	test("composes the optional check at the named semantic boundary with checks vocabulary", () => {
+		expect(SUBMIT_CHECKS_PHASE).toEqual({
+			key: "checks",
+			item: {
+				name: "Checks",
+				detail: "pre-submit checks passed",
+				label: "running pre-submit checks…",
+			},
+		});
+		expect(SUBMIT_PRE_CHECK_PHASES.map((phase) => phase.key)).toEqual(["inventory"]);
 		expect(SUBMIT_CORE_PHASES[0]?.key).toBe("checkpoint");
 		expect(SUBMIT_PHASES.map((phase) => phase.key)).toEqual([
-			...SUBMIT_PRE_HOOK_PHASES.map((phase) => phase.key),
+			...SUBMIT_PRE_CHECK_PHASES.map((phase) => phase.key),
 			...SUBMIT_CORE_PHASES.map((phase) => phase.key),
 		]);
-		expect(SUBMIT_PHASES_WITH_HOOKS.map((phase) => phase.key)).toEqual([
-			...SUBMIT_PRE_HOOK_PHASES.map((phase) => phase.key),
-			"hooks",
+		expect(SUBMIT_PHASES_WITH_CHECKS.map((phase) => phase.key)).toEqual([
+			...SUBMIT_PRE_CHECK_PHASES.map((phase) => phase.key),
+			"checks",
 			...SUBMIT_CORE_PHASES.map((phase) => phase.key),
 		]);
 	});

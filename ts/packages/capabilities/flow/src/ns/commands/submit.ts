@@ -60,11 +60,11 @@ const submitSchema = z.object({
 		.boolean()
 		.default(false)
 		.describe("Stream raw Graphite/subprocess output while submitting."),
-	hooks: z
+	checks: z
 		.boolean()
 		.default(true)
 		.describe(
-			'Run pre-submit hooks installed at [points]."flow.submit.pre" in repo-root ns.toml before checkpointing. Use --no-hooks to skip.',
+			'Run pre-submit checks installed at [points]."flow.submit.pre" in repo-root ns.toml before checkpointing. Use --no-checks to skip.',
 		),
 	regenerateDescriptions: z
 		.boolean()
@@ -74,9 +74,9 @@ const submitSchema = z.object({
 		),
 });
 
-const SUBMIT_COMMAND_DESCRIPTION = `Run configured pre-submit hooks, checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors with gt submit --no-edit --publish --no-stack --no-ai --no-interactive.
+const SUBMIT_COMMAND_DESCRIPTION = `Run configured pre-submit checks, checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors with gt submit --no-edit --publish --no-stack --no-ai --no-interactive.
 
-Pre-submit hooks are consumer config in the repo-root ns.toml ([points]."flow.submit.pre", an array of command strings such as ["just"]). Each entry is whitespace-split and executed directly without a shell; the first failing hook aborts the submit. Skip them with --no-hooks.
+Pre-submit checks are consumer config in the repo-root ns.toml ([points]."flow.submit.pre", an array of command strings such as ["just"]). Each entry is whitespace-split and executed directly without a shell; the first failing check aborts the submit. Skip them with --no-checks.
 
 Environment:
   NS_CHECKPOINT_MODEL           Model reference for generated checkpoint messages. Falls back to NS_DEV_CHECKPOINT_MODEL.
@@ -105,22 +105,22 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 	},
 	handler: async (ctx: NsExtensionApi, request: SubmitRequest) => {
 		const runtime = createNsSubmitRuntime(ctx);
-		const repoRoot = request.hooks
+		const repoRoot = request.checks
 			? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
 			: undefined;
 		const checkpointContext: SubmitCheckpointContext = {
 			...optionalEntry("repoRoot", repoRoot),
 		};
-		const hooksLoad =
+		const checksLoad =
 			repoRoot === undefined ? { kind: "none" as const } : await loadFlowSubmitHooks({ repoRoot });
-		if (hooksLoad.kind === "invalid") {
-			return failure(FLOW_COMMAND_FAILED, hooksLoad.error.message);
+		if (checksLoad.kind === "invalid") {
+			return failure(FLOW_COMMAND_FAILED, checksLoad.error.message);
 		}
 		const caps = resolveFlowStreamCaps(ctx);
 		const structuredProgress = resolveSubmitProgress({
 			caps,
 			deps: flowStreamDeps(ctx, caps),
-			hasHooks: hooksLoad.kind === "hooks",
+			hasChecks: checksLoad.kind === "hooks",
 			...(ctx.progress.isLive ? { liveProgress: ctx.progress } : {}),
 			...optionalEntry("liveOutput", createFlowLiveOutput(ctx)),
 		});
@@ -128,7 +128,7 @@ export const flowSubmitCommand: NsCommand<typeof submitSchema> = defineCommand({
 			ctx,
 			request,
 			runtime,
-			hooksLoad,
+			checksLoad,
 			checkpointContext,
 			...structuredProgress,
 		});
@@ -145,52 +145,56 @@ async function resolveFlowSubmitGitRepoRoot(
 	return result.type === "found" ? result.value : undefined;
 }
 
-function hookProgressLabel(input: { hook: FlowSubmitHook; index: number; total: number }): string {
+function checkProgressLabel(input: {
+	check: FlowSubmitHook;
+	index: number;
+	total: number;
+}): string {
 	return input.total === 1
-		? `running ${input.hook.display}…`
-		: `running ${input.hook.display} (${input.index + 1}/${input.total})…`;
+		? `running ${input.check.display}…`
+		: `running ${input.check.display} (${input.index + 1}/${input.total})…`;
 }
 
 async function runSubmitWithProgress(input: {
 	ctx: NsExtensionApi;
 	request: SubmitRequest;
 	runtime: NsSubmitRuntime;
-	hooksLoad: Awaited<ReturnType<typeof loadFlowSubmitHooks>>;
+	checksLoad: Awaited<ReturnType<typeof loadFlowSubmitHooks>>;
 	checkpointContext: SubmitCheckpointContext;
 	matrix: SubmitMatrixProgressController;
 	onOutput?: FlowLiveOutput;
 }) {
-	const { ctx, request, runtime, hooksLoad, checkpointContext, matrix, onOutput } = input;
+	const { ctx, request, runtime, checksLoad, checkpointContext, matrix, onOutput } = input;
 	matrix.begin();
 
 	try {
-		if (hooksLoad.kind === "hooks") {
-			matrix.phase({ type: "phase-started", phaseKey: "hooks" });
-			const hooksOutcome = await withCommandOperations(matrix, [], () =>
+		if (checksLoad.kind === "hooks") {
+			matrix.phase({ type: "phase-started", phaseKey: "checks" });
+			const checksOutcome = await withCommandOperations(matrix, [], () =>
 				runFlowSubmitHooks({
-					hooks: hooksLoad.hooks,
+					hooks: checksLoad.hooks,
 					runner: runtime.commandRunner,
-					onHookStarted: ({ hook, index, total }) => {
-						matrix.setActiveOperations(commandOperations([hook.display]));
+					onHookStarted: ({ hook: check, index, total }) => {
+						matrix.setActiveOperations(commandOperations([check.display]));
 						matrix.phase({
 							type: "phase-progress",
-							phaseKey: "hooks",
-							label: hookProgressLabel({ hook, index, total }),
+							phaseKey: "checks",
+							label: checkProgressLabel({ check, index, total }),
 						});
 					},
 					...(onOutput === undefined ? {} : { onOutput }),
 				}),
 			);
-			if (hooksOutcome.kind === "failed") {
+			if (checksOutcome.kind === "failed") {
 				return await matrixPhaseFailureResult(ctx, matrix, {
-					key: "hooks",
-					failedText: "hooks failed",
-					stderr: formatFlowSubmitHookFailure(hooksOutcome),
-					exitCode: flowSubmitHookFailureExitCode(hooksOutcome),
+					key: "checks",
+					failedText: "checks failed",
+					stderr: formatFlowSubmitHookFailure(checksOutcome),
+					exitCode: flowSubmitHookFailureExitCode(checksOutcome),
 					failurePresentation: "deterministic",
 				});
 			}
-			matrix.phase({ type: "phase-done", phaseKey: "hooks", detail: "hooks complete" });
+			matrix.phase({ type: "phase-done", phaseKey: "checks", detail: "checks complete" });
 		}
 		const checkpointRunContext = runtime.createCheckpointRunContext(matrix.setActiveOperations);
 		matrix.phase({ type: "phase-started", phaseKey: "checkpoint" });
@@ -245,7 +249,7 @@ async function matrixPhaseFailureResult(
 	ctx: NsExtensionApi,
 	matrix: SubmitMatrixProgressController,
 	failure: {
-		key: "hooks" | "checkpoint";
+		key: "checks" | "checkpoint";
 		failedText: string;
 		stderr: string;
 		exitCode: number;

@@ -58,7 +58,7 @@ Hook execution semantics:
   pipes, globs, or `&&`. Wrap complex logic in a script or `just` recipe.
 - Commands run sequentially; the first failure aborts the surrounding workflow
   step.
-- Workflow flags such as `flow submit --no-hooks` skip execution; they are
+- Workflow flags such as `flow submit --no-checks` skip execution; they are
   execution controls, not part of resolution.
 
 ### Install a prompt

@@ -31,6 +31,8 @@ import { z } from "zod";
 /** Hooks run consumer validation suites (for example `just`), so allow far longer than a git call. */
 const PRE_SUBMIT_HOOK_TIMEOUT_MS = 1_800_000;
 
+export const FLOW_SUBMIT_CHECK_FAILURE_MARKER = "NS_FLOW_SUBMIT_CHECK_FAILURE";
+
 export interface FlowSubmitHook {
 	/** The configured hook string verbatim, for progress labels and failure messages. */
 	display: string;
@@ -154,14 +156,15 @@ export function flowSubmitHookFailureExitCode(failure: FlowSubmitHookFailure): n
 
 export function formatFlowSubmitHookFailure(failure: FlowSubmitHookFailure): string {
 	return `${[
+		FLOW_SUBMIT_CHECK_FAILURE_MARKER,
 		formatCommandResultFailure(
-			"Pre-submit hook failed",
+			"Pre-submit check failed",
 			failure.hook.executable,
 			failure.hook.args,
 			failure.result,
 		),
 		"Submission was not attempted.",
-		"Fix the failure, or rerun with --no-hooks to skip pre-submit hooks.",
+		"Fix the failure, or rerun with --no-checks to skip pre-submit checks.",
 	].join("\n\n")}\n`;
 }
 

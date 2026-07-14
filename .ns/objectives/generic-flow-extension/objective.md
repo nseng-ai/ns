@@ -75,10 +75,12 @@ of the operation it guards.
   command only when users or agents need to execute a flow-owned check independently of
   the operation it guards; a second internal check alone does not prove a public CLI job.
 - **Assumption — the stderr marker is a sufficient harness contract.** Pi detects
-  pre-submit check failures by a stable exported marker string in stderr. Safe today
-  because these failures use deterministic presentation (stderr passes verbatim); if
-  submit's model-formatted failure path ever touches them, the contract breaks — guard it
-  with a test.
+  pre-submit check failures by a stable exported marker string in stderr. Clinkr renders
+  the raw marker line for a negative result and prefixes failure results with `error:`;
+  harnesses must match either complete line rather than surrounding prose. Safe today
+  because both submit paths classify these failures as deterministic; if submit's
+  model-formatted failure path ever touches them, the contract breaks — guard it with a
+  test.
 - **Assumption — default-on recovery is welcome.** Consumers get a generic auto-fix
   prompt after pre-submit check failures without opting in. If that proves surprising or
   adopters, flip to opt-in (the design isolates the default-prompt fallback so this is a

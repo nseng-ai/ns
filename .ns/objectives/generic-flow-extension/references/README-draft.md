@@ -100,12 +100,24 @@ ns extension point flow.submit.pre       # just the pre-submit checks
 
 ### Failure marker (harness contract)
 
-When a pre-submit check fails, `ns flow submit` exits with the failing command's exit
-code and a deterministic failure report on stderr that begins with a **stable marker
-line**. The marker string is exported from the flow package as
-`FLOW_SUBMIT_CHECK_FAILURE_MARKER` and is part of flow's public contract: harnesses
-and tooling should key off the marker, never the surrounding prose, to detect
-pre-submit check failures.
+When a pre-submit check fails, flow returns a deterministic failure whose message begins
+with the exact marker `NS_FLOW_SUBMIT_CHECK_FAILURE`. The marker string is exported from
+`@nseng-ai/flow/api` as `FLOW_SUBMIT_CHECK_FAILURE_MARKER` and is part of flow's public
+contract.
+
+The failing check's exit code follows Clinkr's coarse process-exit contract. Check exit
+`1` produces a negative process exit `1`, whose exact first human stderr line is the raw
+marker. Every other nonzero check exit produces a failure process exit `2`; Clinkr prefixes
+that human-rendered failure, making its exact first stderr line:
+
+```text
+error: NS_FLOW_SUBMIT_CHECK_FAILURE
+```
+
+Harnesses and tooling should match the complete line for either Clinkr outcome — the raw
+marker for a negative result or `error:` followed by the marker for a failure result —
+never the surrounding failure prose. The original mapped check code remains available as
+structured failure data in `data.exitCode`.
 
 ## Pre-submit check recovery
 

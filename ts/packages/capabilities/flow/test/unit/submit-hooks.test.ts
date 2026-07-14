@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
 import {
+	FLOW_SUBMIT_CHECK_FAILURE_MARKER,
 	flowSubmitHookFailureExitCode,
 	formatFlowSubmitHookFailure,
 	loadFlowSubmitHooks,
@@ -80,6 +81,10 @@ async function expectConfigError(
 }
 
 describe("flow submit hooks", () => {
+	test("exports the exact submit-check failure marker", () => {
+		expect(FLOW_SUBMIT_CHECK_FAILURE_MARKER).toBe("NS_FLOW_SUBMIT_CHECK_FAILURE");
+	});
+
 	test("parses flow.submit.pre command strings", () => {
 		const result = parseFlowSubmitHookCommands(["just", "scripts/pre-submit --fix"]);
 
@@ -173,12 +178,16 @@ describe("flow submit hooks", () => {
 		};
 
 		const formatted = formatFlowSubmitHookFailure(failure);
+		const lines = formatted.split("\n");
 		expect(flowSubmitHookFailureExitCode(failure)).toBe(1);
+		expect(lines[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
+		expect(lines[1]).toBe("");
+		expect(lines[2]).not.toBe("");
 		expect(formatted).toContain("…");
 		expect(formatted).toContain("kept stdout");
 		expect(formatted).toContain("kept stderr");
 		expect(formatted).toContain(
-			"Fix the failure, or rerun with --no-hooks to skip pre-submit hooks.",
+			"Fix the failure, or rerun with --no-checks to skip pre-submit checks.",
 		);
 		expect(formatted.length).toBeLessThan(4_500);
 	});
@@ -196,7 +205,7 @@ describe("flow submit hooks", () => {
 
 		expect(flowSubmitHookFailureExitCode(failure)).toBe(2);
 		expect(formatFlowSubmitHookFailure(failure)).toContain(
-			"Pre-submit hook failed (failed before completion).",
+			"Pre-submit check failed (failed before completion).",
 		);
 		expect(formatFlowSubmitHookFailure(failure)).toContain("spawn ENOENT");
 	});

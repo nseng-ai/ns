@@ -19,7 +19,7 @@ import type { MatrixFrameOptionalFields } from "../phase-stream/matrix-progress-
 import type { FlowLiveOutput } from "../phase-stream/live-output.ts";
 import {
 	SUBMIT_PHASES,
-	SUBMIT_PHASES_WITH_HOOKS,
+	SUBMIT_PHASES_WITH_CHECKS,
 	type PhaseSpec,
 } from "../phase-stream/phase-stream-specs.ts";
 import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
@@ -136,7 +136,7 @@ function createSubmitMatrixWorkflow(phases: readonly PhaseSpec[]) {
 
 const SUBMIT_MATRIX_WORKFLOW = createSubmitMatrixWorkflow(SUBMIT_PHASES);
 
-const SUBMIT_MATRIX_WORKFLOW_WITH_HOOKS = createSubmitMatrixWorkflow(SUBMIT_PHASES_WITH_HOOKS);
+const SUBMIT_MATRIX_WORKFLOW_WITH_CHECKS = createSubmitMatrixWorkflow(SUBMIT_PHASES_WITH_CHECKS);
 
 type SubmitWorkflowController = MatrixWorkflowController<
 	SubmitMatrixRowSpec,
@@ -153,7 +153,7 @@ export function resolveSubmitProgress(options: {
 	deps: StreamSinkDeps;
 	liveProgress?: NsProgress;
 	liveOutput?: FlowLiveOutput;
-	hasHooks: boolean;
+	hasChecks: boolean;
 }): SubmitProgressResolution {
 	let presentation: MatrixProgressPresentation;
 	if (options.caps.isTty) {
@@ -174,7 +174,7 @@ export function resolveSubmitProgress(options: {
 
 	const matrix = createSubmitProgressController({
 		presentation,
-		hasHooks: options.hasHooks,
+		hasChecks: options.hasChecks,
 	});
 	return {
 		matrix,
@@ -188,9 +188,9 @@ export function resolveSubmitProgress(options: {
 
 function createSubmitProgressController(options: {
 	presentation: MatrixProgressPresentation;
-	hasHooks: boolean;
+	hasChecks: boolean;
 }): SubmitMatrixProgressController {
-	const workflow = options.hasHooks ? SUBMIT_MATRIX_WORKFLOW_WITH_HOOKS : SUBMIT_MATRIX_WORKFLOW;
+	const workflow = options.hasChecks ? SUBMIT_MATRIX_WORKFLOW_WITH_CHECKS : SUBMIT_MATRIX_WORKFLOW;
 	return adaptSubmitMatrixProgressController(
 		workflow.createController({
 			title: "ns flow submit",
