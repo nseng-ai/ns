@@ -1,3 +1,5 @@
+export const nsPublishBin = Object.freeze({ ns: "bin/ns.js" });
+
 export function catalogVersion(source, packageName) {
 	const escaped = packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 	const pattern = new RegExp(`^\\s*['"]?${escaped}['"]?:\\s*([^\\s#]+)`, "m");

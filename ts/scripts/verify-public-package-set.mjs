@@ -2,7 +2,12 @@
 import { spawnSync } from "node:child_process";
 import { sdkFoldEntries } from "./sdk-public-subpaths.mjs";
 import { intendedPublicPackages, readWorkspacePackageManifests, repoRoot } from "./public-package-set.mjs";
-import { isMissingPackageResult, normalizeBinPaths, snippet } from "./public-package-helpers.mjs";
+import {
+	isMissingPackageResult,
+	normalizeBinPaths,
+	nsPublishBin,
+	snippet,
+} from "./public-package-helpers.mjs";
 
 const criticalSdkExports = sdkFoldEntries.map((entry) => entry.sourceExport);
 
@@ -125,7 +130,8 @@ function compareRegistryMetadata({ packageName, expectedVersion, manifest, regis
 	if (registry.version !== expectedVersion) mismatches.push(`version ${formatValue(registry.version)} != ${expectedVersion}`);
 	if (!hasPresentString(registry?.dist?.tarball) && !hasPresentString(registry?.["dist.tarball"])) mismatches.push("missing dist.tarball");
 	if (!hasTimeForVersion(registry.time, expectedVersion)) mismatches.push(`missing publish time for ${expectedVersion}`);
-	compareBin({ packageName, localBin: manifest.bin, registryBin: registry.bin, mismatches, evidence });
+	const expectedBin = packageName === "@nseng-ai/ns" ? nsPublishBin : manifest.bin;
+	compareBin({ packageName, localBin: expectedBin, registryBin: registry.bin, mismatches, evidence });
 	compareExports({ packageName, localExports: manifest.exports, registryExports: registry.exports, mismatches, evidence });
 	return { mismatches, evidence };
 }

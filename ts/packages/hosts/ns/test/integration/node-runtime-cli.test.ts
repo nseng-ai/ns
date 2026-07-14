@@ -11,5 +11,5 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "not_contains", text: "cp" },
 	],
 	runtimeDiagnostics:
-		"runtime: typescript\nentry_point: @nseng-ai/ns bin ns -> ts/packages/hosts/ns/bin/ns.js\n",
+		"runtime: typescript\nentry_point: @nseng-ai/ns bin ns -> ts/packages/hosts/ns/(no package bin)\n",
 });

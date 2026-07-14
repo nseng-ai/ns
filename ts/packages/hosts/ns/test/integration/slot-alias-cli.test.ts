@@ -13,7 +13,7 @@ describe("ns slot extension CLI", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @nseng-ai/ns bin ns -> ts/packages/hosts/ns/bin/ns.js\n",
+			"runtime: typescript\nentry_point: @nseng-ai/ns bin ns -> ts/packages/hosts/ns/(no package bin)\n",
 		);
 	});
 
