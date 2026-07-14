@@ -38,7 +38,7 @@ export type DispatchWorkflowEvent =
 	  }
 	| {
 			readonly event: "observability_write_failed";
-			readonly operation: "set-attributes";
+			readonly operation: "set-attributes" | "status-stream";
 	  };
 
 export type DispatchWorkflowAttributes = Readonly<Record<string, string>>;

@@ -101,7 +101,7 @@ export function planSupervisionProbe(params: SupervisionProbeParams): Supervisio
 		ok: true,
 		value: {
 			pollIntervalMs: params.pollSeconds * 1000,
-			maxPolls: Math.ceil((params.runSeconds + SUPERVISION_GRACE_SECONDS) / params.pollSeconds),
+			maxPolls: Math.ceil((params.runSeconds + SUPERVISION_GRACE_SECONDS) / params.pollSeconds) + 1,
 			sandboxTimeoutMs: (params.runSeconds + SUPERVISION_SANDBOX_TIMEOUT_MARGIN_SECONDS) * 1000,
 		},
 	};
