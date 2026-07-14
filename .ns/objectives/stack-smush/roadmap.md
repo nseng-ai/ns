@@ -90,7 +90,13 @@ session on 2026-07-10 (see
       the 18-branch stack was repackaged in parallel mode with zero orphaned PRs
       (user submitted the new shape as PRs #3364–#3371, since all merged), but that
       run predated the feedback-carry-forward and naming decisions and did not
-      include a reviewed decision PR.
+      include a reviewed decision PR. Additional preliminary evidence (2026-07-14):
+      code-smush produced the nine-branch
+      `oidc-mint-harness-registry-pnpm-derived-st2--01d-*` through `--09s-*`
+      replacement component, and the user reports that it worked well enough to treat
+      replacement packaging as unblocked for downstream work. Keep this row open only
+      to capture the promised detailed feedback-carry-forward, CI-cost, and old-stack
+      closure observations later; it is no longer a sequencing gate.
 - [x] **Vocabulary and placement** (grilling) — Resolved early (formally blocked by
       mechanics design; the placement and vocabulary decisions did not depend on
       it). Placement: packaging lives as a **skill** — an LM-driven mutation of an

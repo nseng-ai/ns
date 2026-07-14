@@ -149,7 +149,12 @@ so only agent-alone rows are autonomous targets.
   by the user — both owned by the rescoped prototype row. `gt rename` remains in
   use only at initial packaging for the tip slice's grammar name (semantics
   verified from gt 1.8.6 help text only). The rescoped prototype row owns
-  observing one full replacement cycle on a reviewed stack.
+  observing one full replacement cycle on a reviewed stack. Preliminary live evidence
+  (2026-07-14) from the nine-branch
+  `oidc-mint-harness-registry-pnpm-derived-st2--*` replacement component was positive:
+  the user reports the replacement workflow worked well and should no longer block
+  downstream work. Detailed feedback-carry-forward, CI-cost, and old-stack closure
+  evidence remains to be recorded before this risk is considered fully resolved.
 - **Risk — reduced oversight on span PRs.** Skipping human review on spans is the
   point, but it must be a deliberate, durably-encoded policy per PR, not silence;
   agent review may need to stand in. Resolved direction (2026-07-10):
