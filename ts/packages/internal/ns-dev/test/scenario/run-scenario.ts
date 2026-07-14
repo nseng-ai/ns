@@ -1,9 +1,11 @@
 import { dirname, isAbsolute, resolve } from "node:path";
 
 import type { ExecResult } from "@nseng-ai/foundation/exec";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
 import { runNsDevCli, type CliDeps } from "../../src/cli.ts";
 import type { FileEntry, FileSystemGateway } from "../../src/context.ts";
+import type { ReleaseCliContext } from "../../src/release-public-package-set-cli.ts";
 
 export interface CommandCall {
 	readonly command: string;
@@ -38,7 +40,11 @@ export interface ScenarioRunOptions {
 	readonly directories?: readonly string[];
 	readonly existingPaths?: readonly string[];
 	readonly mtimes?: Record<string, number>;
+	readonly readFailures?: Record<string, string>;
+	readonly writeFailures?: Record<string, string>;
 	readonly commandResults?: readonly ExecResult[];
+	readonly timers?: TimerScheduler;
+	readonly release?: ReleaseCliContext;
 }
 
 export interface ScenarioRun {
@@ -66,6 +72,8 @@ export function runScenario(
 		homeDir,
 		fs,
 		clock: { nowMs: () => Date.UTC(2026, 0, 2, 3, 4, 5) },
+		...(options.timers === undefined ? {} : { timers: options.timers }),
+		...(options.release === undefined ? {} : { release: options.release }),
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
 		runCommand: async (command, commandArgs, commandOptions) => {
@@ -89,6 +97,8 @@ export class FakeFileSystemGateway implements FileSystemGateway {
 	private readonly files = new Map<string, string>();
 	private readonly directories = new Set<string>();
 	private readonly mtimes = new Map<string, number>();
+	private readonly readFailures = new Map<string, string>();
+	private readonly writeFailures = new Map<string, string>();
 	readonly removedPaths: string[] = [];
 	readonly copiedFiles: { readonly source: string; readonly destination: string }[] = [];
 	readonly writtenFiles: { readonly path: string; readonly content: string }[] = [];
@@ -99,6 +109,8 @@ export class FakeFileSystemGateway implements FileSystemGateway {
 		directories?: readonly string[];
 		existingPaths?: readonly string[];
 		mtimes?: Record<string, number>;
+		readFailures?: Record<string, string>;
+		writeFailures?: Record<string, string>;
 	}) {
 		this.cwd = options.cwd;
 		this.directories.add("/");
@@ -107,6 +119,12 @@ export class FakeFileSystemGateway implements FileSystemGateway {
 		for (const [path, content] of Object.entries(options.files ?? {})) this.addFile(path, content);
 		for (const [path, mtimeMs] of Object.entries(options.mtimes ?? {})) {
 			this.mtimes.set(this.normalize(path), mtimeMs);
+		}
+		for (const [path, message] of Object.entries(options.readFailures ?? {})) {
+			this.readFailures.set(this.normalize(path), message);
+		}
+		for (const [path, message] of Object.entries(options.writeFailures ?? {})) {
+			this.writeFailures.set(this.normalize(path), message);
 		}
 	}
 
@@ -117,6 +135,8 @@ export class FakeFileSystemGateway implements FileSystemGateway {
 
 	async readText(path: string): Promise<string> {
 		const normalized = this.normalize(path);
+		const failure = this.readFailures.get(normalized);
+		if (failure !== undefined) throw new Error(failure);
 		const content = this.files.get(normalized);
 		if (content === undefined) throw new Error(`missing file: ${normalized}`);
 		return content;
@@ -124,6 +144,8 @@ export class FakeFileSystemGateway implements FileSystemGateway {
 
 	async writeText(path: string, content: string): Promise<void> {
 		const normalized = this.normalize(path);
+		const failure = this.writeFailures.get(normalized);
+		if (failure !== undefined) throw new Error(failure);
 		this.addDirectory(dirname(normalized));
 		this.files.set(normalized, content);
 		this.writtenFiles.push({ path: normalized, content });

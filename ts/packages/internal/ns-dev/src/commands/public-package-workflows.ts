@@ -335,21 +335,25 @@ export async function runRenderCliShim(
 	const output = context.env.NS_OUTPUT;
 	if (template === undefined || output === undefined)
 		throw new Error("Validated shim paths became unavailable");
-	const result = renderCliShim({
-		template: await context.fs.readText(template),
-		tool: context.env.NS_TOOL ?? "",
-		canonicalCheckout: context.env.NS_CANONICAL_CHECKOUT ?? "",
-		cliRelPath: context.env.NS_CLI_REL_PATH ?? "",
-		installHint: context.env.NS_INSTALL_HINT ?? "",
-		...(context.env.NS_FALLBACK_MODE === undefined
-			? {}
-			: { fallbackMode: context.env.NS_FALLBACK_MODE }),
-		templateLabel: template,
-	});
-	if (result.type === "failure")
-		return failure("shim-render-failed", result.message, { template, output });
-	await context.fs.writeText(output, result.rendered);
-	return ok({ output });
+	try {
+		const result = renderCliShim({
+			template: await context.fs.readText(template),
+			tool: context.env.NS_TOOL ?? "",
+			canonicalCheckout: context.env.NS_CANONICAL_CHECKOUT ?? "",
+			cliRelPath: context.env.NS_CLI_REL_PATH ?? "",
+			installHint: context.env.NS_INSTALL_HINT ?? "",
+			...(context.env.NS_FALLBACK_MODE === undefined
+				? {}
+				: { fallbackMode: context.env.NS_FALLBACK_MODE }),
+			templateLabel: template,
+		});
+		if (result.type === "failure")
+			return failure("shim-render-failed", result.message, { template, output });
+		await context.fs.writeText(output, result.rendered);
+		return ok({ output });
+	} catch (error: unknown) {
+		return workflowFailure("shim-render-failed", error);
+	}
 }
 
 export function renderCommandResult(_result: unknown): string {
