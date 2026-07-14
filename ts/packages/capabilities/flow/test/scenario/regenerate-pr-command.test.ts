@@ -293,6 +293,40 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(await run.exit).toBe(0);
 	});
 
+	test("preserves an ns decisions-log block verbatim outside the managed region", async () => {
+		const oldRegion = formatManagedGeneratedRegion("Old generated body", {
+			version: "2",
+			patchId: "old-patch",
+			promptHash: "sha256:old-prompt",
+			generator: "ns-pr-description-v2",
+		});
+		const decisionsLog = `<!-- ns-decisions-log:begin -->
+## Decisions log
+
+- **Pending → Accepted — 2026-07-11 (@reviewer)** — Keep replacement-stack construction.
+  - Rationale: It preserves the reviewed stack while the replacement is verified.
+  - Record: \`.ns/objectives/example/updates/2026-07-11T120000Z-replacement-stack.md\`
+<!-- ns-decisions-log:end -->`;
+		const existingBody = `${oldRegion}\n\n${decisionsLog}`;
+		const run = runRegeneratePrWithFakes({
+			state: {
+				confirm: () => true,
+				exec: [
+					...successfulReadOnlyRegeneratePrResponses({ body: existingBody }),
+					bodyInspectingEditResponse((body) => {
+						expect(body).toContain(decisionsLog);
+						expect(body.match(/<!-- ns-decisions-log:begin -->/g)).toHaveLength(1);
+						expect(body.match(/<!-- ns-decisions-log:end -->/g)).toHaveLength(1);
+						expect(body).toContain("This regenerates the PR title and body");
+						expect(body).not.toContain("Old generated body");
+					}),
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+	});
+
 	test("reports no current PR clearly", async () => {
 		const run = runRegeneratePrWithFakes({
 			state: {
