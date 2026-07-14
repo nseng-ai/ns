@@ -5,10 +5,7 @@ import {
 	createWorkflowSdkRunGateway,
 	type WorkflowRunSdk,
 } from "../../src/trigger/real-workflow-run-gateway.ts";
-import { dispatchWorkflowId } from "../../workflows/dispatch-id.ts";
-import { helloWorkflowId } from "../../workflows/hello.ts";
-import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
-import { supervisionProbeWorkflowId } from "../../workflows/supervision-probe-id.ts";
+import { triggerWorkflowIds } from "../../src/trigger/workflow-ids.ts";
 
 const mixedCaseRevision = "0123456789abcdef0123456789ABCDEF01234567";
 
@@ -56,7 +53,7 @@ describe("createWorkflowSdkRunGateway", () => {
 		const result = await gateway.startWorkflow({ workflow: "hello", input: { name: "world" } });
 
 		expect(result).toEqual({ ok: true, value: { runId: "wrun_123" } });
-		expect(sdk.startCalls).toEqual([{ workflowId: helloWorkflowId, args: ["world"] }]);
+		expect(sdk.startCalls).toEqual([{ workflowId: triggerWorkflowIds.hello, args: ["world"] }]);
 	});
 
 	it("starts the sandbox-probe workflow by explicit manifest-derived metadata id", async () => {
@@ -70,7 +67,7 @@ describe("createWorkflowSdkRunGateway", () => {
 
 		expect(result).toEqual({ ok: true, value: { runId: "wrun_probe" } });
 		expect(sdk.startCalls).toEqual([
-			{ workflowId: sandboxProbeWorkflowId, args: [mixedCaseRevision] },
+			{ workflowId: triggerWorkflowIds["sandbox-probe"], args: [mixedCaseRevision] },
 		]);
 	});
 
@@ -86,7 +83,7 @@ describe("createWorkflowSdkRunGateway", () => {
 		expect(result).toEqual({ ok: true, value: { runId: "wrun_supervision" } });
 		expect(sdk.startCalls).toEqual([
 			{
-				workflowId: supervisionProbeWorkflowId,
+				workflowId: triggerWorkflowIds["supervision-probe"],
 				args: [{ runSeconds: 840, pollSeconds: 30 }],
 			},
 		]);
@@ -109,7 +106,7 @@ describe("createWorkflowSdkRunGateway", () => {
 		expect(result).toEqual({ ok: true, value: { runId: "wrun_dispatch" } });
 		expect(sdk.startCalls).toEqual([
 			{
-				workflowId: dispatchWorkflowId,
+				workflowId: triggerWorkflowIds.dispatch,
 				args: [
 					{
 						revision: mixedCaseRevision,

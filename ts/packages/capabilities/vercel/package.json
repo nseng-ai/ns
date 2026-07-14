@@ -42,6 +42,7 @@
 		"subpackages": [
 			"api",
 			"auth",
+			"deployability",
 			"dispatch",
 			"http",
 			"mint",
