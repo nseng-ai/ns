@@ -11,8 +11,8 @@ edges:
 The flow extension becomes a generic, README-documented extension that any Graphite-backed
 repository can adopt and customize through extension points — not an ns-repo-shaped tool
 that happens to live in a reusable package. The forcing function is README-driven
-development: `references/README-draft.md` is the canonical user-facing contract, written
-for an external adopter, and every repo-specific behavior it cannot honestly document
+development: `ts/packages/capabilities/flow/README.md` is the canonical user-facing
+contract, written for an external adopter, and every repo-specific behavior it cannot honestly document
 (hardcoded validation commands, skill names, prompts, recovery behavior) must move behind
 an extension point or config before the README is true. The driving implementation slice
 is deliberately submit-specific: retain submit's existing `flow.submit.pre` check seam,
@@ -23,8 +23,9 @@ of the operation it guards.
 
 ## Scope
 
-- The canonical flow README (`references/README-draft.md` until promotion): what flow is,
-  every `ns flow` command, and how a consuming repo customizes flow via extension points.
+- The canonical Flow README at `ts/packages/capabilities/flow/README.md`: what Flow is,
+  every `ns flow` command, and how a consuming repo customizes Flow via extension points.
+  The Objective's former draft remains only as a provenance pointer to that document.
 - Submit pre-checks: retain the `flow.submit.pre` point and submit-specific implementation,
   while adding a stable failure-marker contract for harness recovery. Do not introduce a
   public standalone command or general validation-gates abstraction in this slice.
@@ -103,11 +104,32 @@ of the operation it guards.
   fallback metadata and deliberately does not claim the PR-description packaged default
   without descriptor evidence. Consolidating the broader preinstalled catalog remains
   separate descriptor-contract work.
-- **Risk — README drifts from implementation.** Mitigation: README settles first; each
-  implementation slice cites the README section it makes true.
+- **Risk — README drifts from implementation.** Mitigated for this Objective by reconciling
+  the completed implementation into the promoted package README and replacing the Objective
+  draft with a provenance pointer. Future Flow changes must keep the package README aligned.
 
 ## Open Questions
 
 No product question remains from the repo-specificity audit. New steering is required only
 if implementation evidence invalidates a recorded disposition or an adopter demonstrates a
 workflow for one of the parked concerns.
+
+## Closure
+
+Completed. Flow's adopter contract is now canonical at
+`ts/packages/capabilities/flow/README.md`; it documents the full command inventory,
+Graphite/GitHub/Slots/model requirements, submit pre-check marker, submit-only recovery,
+and all three customization points. The Objective draft now points to the promoted README
+instead of competing with it.
+
+The implementation and prior Semantic Updates evidence the stable submit-check contract,
+consumer-configurable recovery, adopter point documentation, repository identity,
+structured Graphite facts, point-default fidelity, and generic Pi ownership. The final
+full repository `just` validation passed with the promoted documentation and Objective
+closure edits in the worktree.
+
+Parked speculative surfaces remain intentionally outside this outcome. The dedicated
+`flow-slots-opt-in` Objective retains the audit's optional-Slots follow-up; its edge remains
+as provenance and it is not blocked by this closure. The durable customization rule already
+graduated into root `AGENTS.md`, which routes workflow extension-point work through
+`docs/guides/points.md`.

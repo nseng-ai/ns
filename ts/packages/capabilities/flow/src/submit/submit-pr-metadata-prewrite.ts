@@ -4,10 +4,12 @@ import {
 	GRAPHITE_COMMAND_NAME,
 	runGraphiteCommand,
 } from "@nseng-ai/capability-kit/graphite/branch";
-import type {
-	GraphiteStackGateway,
-	StackInfo,
-	StackResult,
+import {
+	deriveValidatedGraphiteStackPath,
+	type GraphiteStackGateway,
+	type StackInfo,
+	type StackResult,
+	type TrunkMarkerStatus,
 } from "@nseng-ai/capability-kit/graphite/stack";
 import {
 	GITHUB_CLI_TIMEOUT_MS,
@@ -387,49 +389,46 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 function deriveSubmitStackTopologyFacts(
 	result: StackResult,
 ): GatewayResult<SubmitStackTopologyFacts> {
-	if (result.type === "untracked_branch") {
-		return err({
-			code: "submit_stack_untracked_branch",
-			message: `${result.message} Track the branch with \`gt track\` before submitting.`,
-		});
-	}
-	if (result.type === "failure") {
-		return err({
-			code: "submit_stack_inspection_failed",
-			message: `Could not read structured Graphite stack metadata: ${result.failure.message}`,
-			details: { return_code: result.failure.returnCode },
-		});
+	const validated = deriveValidatedGraphiteStackPath(result);
+	if (validated.type === "failure") {
+		const { failure } = validated;
+		switch (failure.type) {
+			case "untracked_branch":
+				return err({
+					code: "submit_stack_untracked_branch",
+					message: `${failure.message} Track the branch with \`gt track\` before submitting.`,
+				});
+			case "provider_failure":
+				return err({
+					code: "submit_stack_inspection_failed",
+					message: `Could not read structured Graphite stack metadata: ${failure.failure.message}`,
+					details: { return_code: failure.failure.returnCode },
+				});
+			case "ancestor_cycle":
+				return err({
+					code: "submit_stack_ancestor_cycle",
+					message: `Graphite ancestor metadata contains a cycle at ${failure.branch}; submission was not attempted.`,
+				});
+			case "ancestor_row_missing":
+				return err({
+					code: "submit_stack_ancestor_row_missing",
+					message: `Graphite ancestor metadata is missing branch ${failure.branch}; submission was not attempted.`,
+				});
+			case "trunk_marker_problem":
+				return err({
+					code: "submit_stack_trunk_marker_inconsistent",
+					message: describeSubmitTrunkMarkerProblem(failure.marker),
+				});
+			case "path_inconsistent":
+				return err({
+					code: "submit_stack_path_inconsistent",
+					message: `Graphite ancestor metadata does not form a non-empty unique path from trunk ${failure.trunk} to current branch ${failure.current}; submission was not attempted.`,
+				});
+		}
 	}
 
-	const { stack } = result;
-	if (stack.ancestorTermination.type === "cycle") {
-		return err({
-			code: "submit_stack_ancestor_cycle",
-			message: `Graphite ancestor metadata contains a cycle at ${stack.ancestorTermination.branch}; submission was not attempted.`,
-		});
-	}
-	if (stack.ancestorTermination.type === "row_missing") {
-		return err({
-			code: "submit_stack_ancestor_row_missing",
-			message: `Graphite ancestor metadata is missing branch ${stack.ancestorTermination.branch}; submission was not attempted.`,
-		});
-	}
-	if (stack.trunkMarker.type === "problem") {
-		return err({
-			code: "submit_stack_trunk_marker_inconsistent",
-			message: describeSubmitTrunkMarkerProblem(stack),
-		});
-	}
-
-	const path = [...stack.ancestors, stack.current];
-	if (
-		path.length <= 1 ||
-		stack.trunk.trim() === "" ||
-		stack.current.trim() === "" ||
-		path[0] !== stack.trunk ||
-		path.some((branch) => branch.trim() === "") ||
-		new Set(path).size !== path.length
-	) {
+	const { stack, path } = validated;
+	if (path.length <= 1) {
 		return err({
 			code: "submit_stack_path_inconsistent",
 			message: `Graphite ancestor metadata does not form a non-empty unique path from trunk ${stack.trunk} to current branch ${stack.current}; submission was not attempted.`,
@@ -497,15 +496,11 @@ function descendantMetadataFailure(stack: StackInfo, detail: string): GatewayRes
 	});
 }
 
-function describeSubmitTrunkMarkerProblem(stack: StackInfo): string {
-	if (stack.trunkMarker.type === "clean") {
-		throw new Error("Expected inconsistent Graphite trunk marker metadata.");
-	}
-	const markedTrunks =
-		stack.trunkMarker.markedTrunks.length === 0
-			? "none"
-			: stack.trunkMarker.markedTrunks.join(", ");
-	return `Graphite trunk metadata is inconsistent at ${stack.trunkMarker.terminus} (${stack.trunkMarker.terminusState}); marked trunks: ${markedTrunks}. Submission was not attempted.`;
+function describeSubmitTrunkMarkerProblem(
+	marker: Extract<TrunkMarkerStatus, { type: "problem" }>,
+): string {
+	const markedTrunks = marker.markedTrunks.length === 0 ? "none" : marker.markedTrunks.join(", ");
+	return `Graphite trunk metadata is inconsistent at ${marker.terminus} (${marker.terminusState}); marked trunks: ${markedTrunks}. Submission was not attempted.`;
 }
 
 function parseExternalJson(text: string): unknown {
