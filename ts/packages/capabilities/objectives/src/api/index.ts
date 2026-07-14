@@ -129,6 +129,16 @@ export type {
 	PublicationFactsResult,
 	PublicationTargetFactsResult,
 } from "../publication/facts-gateway.ts";
+export { createObjectiveRunnerBranchPublisher } from "../publication/flow-branch-publisher.ts";
+export {
+	publishObjectiveRunnerCheckpoint,
+	type ObjectiveRunnerBoundPublicationTarget,
+	type ObjectiveRunnerBranchPublisher,
+	type ObjectiveRunnerBranchPublisherResult,
+	type ObjectiveRunnerPublicationError,
+	type PublishObjectiveRunnerCheckpointOptions,
+	type PublishObjectiveRunnerCheckpointResult,
+} from "../publication/publish.ts";
 export { renderObjectiveRunnerCumulativeSummary } from "../publication/summary.ts";
 
 export type ObjectiveList = ObjectiveListResult;
