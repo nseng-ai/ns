@@ -17,18 +17,13 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-open_flag="--open"
-pass=()
+command=(node "$HERE/build-report.mjs" --open)
 for arg in "$@"; do
   if [[ "$arg" == "--no-open" ]]; then
-    open_flag=""
+    unset 'command[2]'
   else
-    pass+=("$arg")
+    command+=("$arg")
   fi
 done
 
-if (( ${#pass[@]} > 0 )); then
-  exec node "$HERE/build-report.mjs" ${open_flag:+$open_flag} "${pass[@]}"
-else
-  exec node "$HERE/build-report.mjs" ${open_flag:+$open_flag}
-fi
+exec "${command[@]}"

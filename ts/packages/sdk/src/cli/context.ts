@@ -28,12 +28,14 @@ export interface RealNsCommandContextOptions {
 	textGenerator: TextGenerator;
 	cwd?: string;
 	env?: Record<string, string | undefined>;
+	execEnv?: Record<string, string | undefined>;
 	homeDir?: string;
 }
 
 export function createRealNsCommandContext(options: RealNsCommandContextOptions): NsCliBaseContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
+	const execEnv = options.execEnv ?? env;
 	const homeDir = resolveHomeDir(options.homeDir, env);
 	const confirm = createTerminalConfirmPrompt();
 	const stdout = (text: string) => process.stdout.write(text);
@@ -53,7 +55,7 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 		exec: async (command, args, execOptions = {}) => {
 			return await runCommand(command, args, {
 				cwd: execOptions.cwd ?? cwd,
-				env,
+				env: execEnv,
 				...(execOptions.timeoutMs === undefined ? {} : { timeout: execOptions.timeoutMs }),
 				...(execOptions.stdin === undefined ? {} : { stdin: execOptions.stdin }),
 				...(execOptions.onStdout === undefined ? {} : { onStdout: execOptions.onStdout }),
