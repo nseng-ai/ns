@@ -13,7 +13,7 @@ import { triggerWorkflowIds } from "../../src/trigger/workflow-ids.ts";
 
 const flowVcConfig = {
 	runtime: "nodejs22.x",
-	handler: "index.js",
+	handler: "index.mjs",
 	experimentalTriggers: [
 		{
 			type: "queue/v2beta",
@@ -23,19 +23,19 @@ const flowVcConfig = {
 	],
 };
 
-const stepVcConfig = {
-	runtime: "nodejs22.x",
-	handler: "index.js",
-	experimentalTriggers: [
-		{
-			type: "queue/v2beta",
-			topic: "__wkf_step_*",
-			consumer: "default",
-		},
-	],
-};
-
 describe("findMissingWorkflowFunctionArtifacts", () => {
+	it("accepts the v5 unified flow and webhook function artifacts", () => {
+		const emitted = new Set([
+			".well-known/workflow/v1/flow.func/index.mjs",
+			".well-known/workflow/v1/flow.func/.vc-config.json",
+			".well-known/workflow/v1/webhook/[token].func/index.mjs",
+			".well-known/workflow/v1/webhook/[token].func/.vc-config.json",
+			".well-known/workflow/v1/manifest.json",
+		]);
+
+		expect(findMissingWorkflowFunctionArtifacts(emitted)).toEqual([]);
+	});
+
 	it("accepts an output containing every required workflow function artifact", () => {
 		const emitted = new Set([...REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS, "api/mint.func/index.js"]);
 
@@ -50,30 +50,28 @@ describe("findMissingWorkflowFunctionArtifacts", () => {
 		);
 	});
 
-	it("reports a missing step bundle while accepting the rest", () => {
+	it("reports a missing unified flow bundle while accepting the rest", () => {
 		const emitted = new Set(
 			REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS.filter(
-				(path) => path !== ".well-known/workflow/v1/step.func/index.js",
+				(path) => path !== ".well-known/workflow/v1/flow.func/index.mjs",
 			),
 		);
 
 		expect(findMissingWorkflowFunctionArtifacts(emitted)).toEqual([
-			".well-known/workflow/v1/step.func/index.js",
+			".well-known/workflow/v1/flow.func/index.mjs",
 		]);
 	});
 });
 
 describe("findWorkflowQueueTriggerProblems", () => {
-	it("accepts the default Queues wiring on both functions", () => {
-		expect(findWorkflowQueueTriggerProblems({ flow: flowVcConfig, step: stepVcConfig })).toEqual(
-			[],
-		);
+	it("accepts the v5 unified flow function's default Queues wiring", () => {
+		expect(findWorkflowQueueTriggerProblems(flowVcConfig)).toEqual([]);
 	});
 
 	it("reports a flow function without any queue trigger", () => {
 		const problems = findWorkflowQueueTriggerProblems({
-			flow: { runtime: "nodejs22.x", handler: "index.js" },
-			step: stepVcConfig,
+			runtime: "nodejs22.x",
+			handler: "index.mjs",
 		});
 
 		expect(problems).toEqual([
@@ -81,26 +79,18 @@ describe("findWorkflowQueueTriggerProblems", () => {
 		]);
 	});
 
-	it("reports a step function wired to the wrong topic", () => {
+	it("reports a flow function wired to the retired v4 step topic", () => {
 		const problems = findWorkflowQueueTriggerProblems({
-			flow: flowVcConfig,
-			step: {
-				experimentalTriggers: [{ type: "queue/v2beta", topic: "__wkf_workflow_*" }],
-			},
+			experimentalTriggers: [{ type: "queue/v2beta", topic: "__wkf_step_*" }],
 		});
 
 		expect(problems).toEqual([
-			"step function .vc-config.json is missing the queue/v2beta trigger on topic __wkf_step_*.",
+			"flow function .vc-config.json is missing the queue/v2beta trigger on topic __wkf_workflow_*.",
 		]);
 	});
 
 	it("reports an unparseable vc-config", () => {
-		const problems = findWorkflowQueueTriggerProblems({
-			flow: "not an object",
-			step: stepVcConfig,
-		});
-
-		expect(problems).toEqual([
+		expect(findWorkflowQueueTriggerProblems("not an object")).toEqual([
 			"flow function .vc-config.json is not an object with optional triggers.",
 		]);
 	});

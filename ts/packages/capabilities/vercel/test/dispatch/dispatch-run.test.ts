@@ -205,10 +205,10 @@ function createFakeSteps(behavior: FakeStepBehavior = {}): {
 		},
 		async launch(run) {
 			calls.push({ step: "launch", args: run });
-			return behavior.launch ?? { ok: true, sandboxName: "sbx_dispatch" };
+			return behavior.launch ?? { ok: true, sandboxName: "sbx_dispatch", harness: "pi" };
 		},
-		async poll(sandboxName) {
-			calls.push({ step: "poll", args: sandboxName });
+		async poll(sandboxName, pollOrdinal) {
+			calls.push({ step: "poll", args: { sandboxName, pollOrdinal } });
 			const result = polls[Math.min(pollIndex, polls.length - 1)];
 			pollIndex += 1;
 			if (result === undefined) throw new Error("no poll behavior");
@@ -285,6 +285,8 @@ describe("executeDispatchRun", () => {
 			"reportLanded",
 		]);
 		expect(calls[0]?.args).toEqual({ ...input(), revision: revision.toLowerCase() });
+		expect(calls[2]?.args).toEqual({ sandboxName: "sbx_dispatch", pollOrdinal: 1 });
+		expect(calls[4]?.args).toEqual({ sandboxName: "sbx_dispatch", pollOrdinal: 2 });
 		expect(calls[6]?.args).toEqual({
 			sandboxName: "sbx_dispatch",
 			anchorBranch: "dispatch/widget-refactor-a1b2c3",
