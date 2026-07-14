@@ -53,7 +53,7 @@ A host-resident Pi command surface whose durable lifecycle, selection, storage, 
 *Avoid*: Pi-tool package, duplicate domain owner, host-owned storage semantics, capability migration shortcut.
 
 **PR feedback Pi presentation residue**:
-The accepted remaining host-resident Pi presentation/session behavior around PR feedback workflows: editor prefill, stack-prompt assembly, live watch state, dirty-tree/idle gating, and prompt injection. PR feedback/check modal previews now live in the Internal Pi-tool package `@internal/pi-tools/pr-previews`; portable download/check/thread primitives belong to the Address Capability (`ns address exec ...` / `@nseng-ai/pr-feedback/api`); future reusable watch/fingerprint seams should move through a focused Address Capability/API follow-up.
+The accepted remaining host-resident Pi presentation/session behavior around PR feedback workflows: editor prefill, stack-prompt assembly, live watch state, dirty-tree/idle gating, and prompt injection. The PR feedback modal preview lives in the Internal Pi-tool package `@internal/pi-tools/pr-previews`; stack-wide checks presentation lives in stack-view; portable download/check/thread primitives belong to the Address Capability (`ns address exec ...` / `@nseng-ai/pr-feedback/api`); future reusable watch/fingerprint seams should move through a focused Address Capability/API follow-up.
 *Avoid*: Pi-native tool candidate, PR feedback domain owner, Address Capability API owner.
 
 **Immediate command acknowledgement**:

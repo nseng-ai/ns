@@ -5,7 +5,6 @@ import { formatZodError } from "@nseng-ai/foundation/primitives";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { parseCliCommandArgs } from "@nseng-ai/pi/commands/args";
-import type { PiModelRegistryLike } from "@nseng-ai/pi/models/call";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 import type {
 	PiCommandContext,
@@ -15,16 +14,13 @@ import type {
 import { parseMachineEnvelopeDataWithFailureData } from "@nseng-ai/pi/runtime/machine-envelope";
 import { z } from "zod";
 
-import { createPrPreviewChecksCommand } from "./preview-checks-command.ts";
 import { createPrPreviewFeedbackCommand } from "./preview-feedback-command.ts";
 
 export type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 
 export const PR_PREVIEW_FEEDBACK_COMMAND_NAME = "pr:preview-feedback";
-export const PR_PREVIEW_CHECKS_COMMAND_NAME = "pr:preview-checks";
 
 const PREVIEW_FEEDBACK_STATUS_KEY = PR_PREVIEW_FEEDBACK_COMMAND_NAME;
-const PREVIEW_CHECKS_STATUS_KEY = PR_PREVIEW_CHECKS_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 
 export const prPreviewsExtensionParity = definePiSurfaceParity([
@@ -41,21 +37,9 @@ export const prPreviewsExtensionParity = definePiSurfaceParity([
 		notes:
 			"The browser modal is Pi-native TUI/session behavior; pr-address owns portable read-only feedback collection.",
 	},
-	{
-		kind: "command",
-		surface: PR_PREVIEW_CHECKS_COMMAND_NAME,
-		workflow: "Preview GitHub PR checks in a read-only Pi modal overlay",
-		parity: "WAIVED",
-		fallback: "Use ns address exec pr-checks [--pr-number <n>] --format json.",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@internal/pi-tools/pr-previews",
-		sourceModule: "pr-previews",
-		notes: "Pi owns modal/session UI; pr-address owns portable check collection.",
-	},
 ] as const);
 
 export interface ExtensionContext extends PiCommandContext {
-	modelRegistry?: PiModelRegistryLike;
 	ui: PiCommandContext["ui"] & {
 		custom?<T>(
 			factory: (
@@ -101,17 +85,6 @@ export function registerPrPreviewsExtension(pi: ExtensionAPI): void {
 		commandName: PR_PREVIEW_FEEDBACK_COMMAND_NAME,
 		commandDefinition: createPrPreviewFeedbackCommand(commands, {
 			statusKey: PREVIEW_FEEDBACK_STATUS_KEY,
-			commandTimeoutMs: COMMAND_TIMEOUT_MS,
-			parseOptionalPrNumberArgs,
-			parseEnvelopeWithSchema,
-			notify,
-		}),
-	});
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: PR_PREVIEW_CHECKS_COMMAND_NAME,
-		commandDefinition: createPrPreviewChecksCommand(commands, {
-			statusKey: PREVIEW_CHECKS_STATUS_KEY,
 			commandTimeoutMs: COMMAND_TIMEOUT_MS,
 			parseOptionalPrNumberArgs,
 			parseEnvelopeWithSchema,

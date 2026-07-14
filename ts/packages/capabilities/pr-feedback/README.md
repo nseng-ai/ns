@@ -10,7 +10,7 @@ The retained foundation is:
 
 - `ns address exec download-feedback [--pr-number <number>] --format json` for a Markdown feedback report.
 - `ns address exec map-branch-prs --format json` as minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback`.
-- `ns address exec branch-pr-checks --branches-json '{"branches":[...]}' --format json` as batched branch-to-PR-checks plumbing for `/pr:preview-checks`: one GitHub GraphQL request resolves every branch's open PR and its normalized checks.
+- `ns address exec branch-pr-checks --branches-json '{"branches":[...]}' --format json` as batched branch-to-PR-checks plumbing: one GitHub GraphQL request resolves every branch's open PR and its normalized checks.
 - Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, `pr-discussion-comments`, and `pr-checks`.
 - Mutation primitives: `reply-review-thread`, `resolve-review-thread`, and `close-review-threads`.
 

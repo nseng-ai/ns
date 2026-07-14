@@ -33,7 +33,7 @@ The stack command should then call `download-feedback` once per discovered PR. D
 
 ### `branch-pr-checks`
 
-`/pr:preview-checks` uses batched checks discovery: one GitHub GraphQL request resolves every branch's open PR and its normalized checks. Input matches `map-branch-prs` (`--branches-json` or stdin):
+Use batched checks discovery when a caller needs one GitHub GraphQL request to resolve every branch's open PR and normalized checks. Input matches `map-branch-prs` (`--branches-json` or stdin):
 
 ```bash
 ns slot gt exec stack-branches --format json \

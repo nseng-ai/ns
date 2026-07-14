@@ -1,7 +1,5 @@
 /**
- * GitHub Actions job-log plumbing for the stack-view enrichment engine. These
- * helpers reuse the shared GitHub Actions job URL parser from the pr-previews
- * tooling and keep stack-view-specific availability wording local.
+ * GitHub Actions job-log plumbing for the stack-view enrichment engine.
  *
  * Error model matches the rest of stack-view: failures are returned as typed
  * discriminated-union values, never thrown.
@@ -9,7 +7,6 @@
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 import { GITHUB_CLI_TIMEOUT_MS } from "@nseng-ai/capability-kit/github";
 
-import { githubActionsJobLogArgs } from "../pr-previews/preview-check-logs.ts";
 import { CHECK_LOG_TAIL_MAX_CHARS } from "./enrichment-prompts.ts";
 import type { CommandExecApi } from "./exec.ts";
 import type { StackViewCheckEntry } from "./types.ts";
@@ -49,6 +46,16 @@ export function resolveCheckLogSource(entry: StackViewCheckEntry): ResolveCheckL
 		};
 	}
 	return { ok: true, args };
+}
+
+function githubActionsJobLogArgs(url: string): string[] | null {
+	const parsed =
+		/^https:\/\/github\.com\/[^/]+\/[^/]+\/actions\/runs\/(\d+)\/job\/(\d+)(?:\b|[/?#])/u.exec(url);
+	if (parsed === null) return null;
+	const runId = parsed[1];
+	const jobId = parsed[2];
+	if (runId === undefined || jobId === undefined) return null;
+	return ["run", "view", runId, "--job", jobId, "--log"];
 }
 
 export interface FetchCheckLogTailOptions {
