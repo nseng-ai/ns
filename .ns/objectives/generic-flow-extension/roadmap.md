@@ -76,8 +76,8 @@
     adopter docs (root `AGENTS.md` routing bullet, workflow-implementer catalog
     consumption section, worked example covering `flow.submit.pre` and this repo's
     conventional `flow.submit.pre.recovery` override). Full `just` passes on both.
-- [~] Genericization slices from the audit: implement the resolve-disposition findings
-  recorded in `references/repo-specificity-audit.md`.
+- [x] Genericization slices from the audit: implement the resolve-disposition findings
+      recorded in `references/repo-specificity-audit.md`.
   - [x] Repository identity (F2/F3): checkpoint workflows resolve Graphite's configured
         trunk before model or Git mutation and fail closed when it is unavailable; trunk
         refresh derives the exact remote and remote ref from that branch's Git upstream
@@ -93,8 +93,15 @@
         PR-lookup, ordering, progress, and failure paths have fake-driven unit/scenario/Pi
         coverage; Flow/package, default/integration, TypeScript/style, and full `just`
         validation pass. F9's bounded failure-prose fallback remains parked.
-  - Pi ownership: move repo-owned `code-workflows` and `code-gt-restack-resolve` skill
-    policy out of the Flow package while retaining generic Flow command mirrors.
+  - [x] Pi ownership: repo-owned `code-workflows`, `gh-ci-debug`, and
+        `code:gt-restack-resolve` presentation, skill policy, tests, and parity metadata live
+        in `@internal/pi-tools/code-workflows`; Flow retains generic `/ns:flow:*` mirrors and
+        `gt:squash-stack`, with cross-owner composition only in `.pi/extensions/code.ts`.
+        Smart restack now consumes a typed root-aware provisional preflight seam that names
+        `slot-gt-restack-preflight` and its future command as the replacement path. All four
+        affected commands request explicit transcript acknowledgement. Internal/Flow package
+        tests, TypeScript/style gates, runtime adapter imports, package resolution, hermetic
+        duplicate-aware RPC inventory, and full `just` pass.
   - [x] Point-default fidelity (F10): the PR-description packaged prompt is declared by
         the Flow descriptor, and runtime resolution uses the normal descriptor-backed
         catalog ladder without a bespoke or post-catalog fallback. The SDK fallback remains

@@ -7,10 +7,10 @@ is the flow README (draft: this objective's `references/README-draft.md`, promot
 and ADR 0031.
 
 What you see now: submit checks and recovery, adopter point docs, repository identity,
-Graphite machine facts, and PR-description point-default fidelity are implemented.
-`squash-stack` and submit use structured Graphite stack facts; submit PR identity comes
-from validated GitHub JSON rather than Graphite display text. The remaining audit resolve
-work is Pi ownership.
+Graphite machine facts, PR-description point-default fidelity, and Pi ownership are
+implemented. Repo-specific code-workflow and smart-restack policy lives in
+`@internal/pi-tools/code-workflows`; Flow retains generic mirrors and stack squash. All
+repo-specificity audit resolve clusters are complete.
 
 Avoid: baking ns-repo assumptions (command names, skill names, prompt text, consumer
 paths) into `ts/packages/capabilities/flow`; detecting CLI failures by matching human-
@@ -18,4 +18,4 @@ facing message prose; introducing `ns flow validate`, a general validation-gates
 taxonomy, or other speculative surfaces without a demonstrated independent workflow;
 adding new flow customization surfaces that bypass the point catalog.
 
-Active slice: see this objective's roadmap.md.
+Active slice: reconcile and promote the canonical Flow README, then apply the Closure Gate.

@@ -1,4 +1,3 @@
-import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -7,28 +6,26 @@ import {
 	type LivePiSurface,
 } from "@nseng-ai/pi/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi/parity/testing";
-import nsExtension, { nsExtensionParity, type NsExtensionAPI } from "../../src/pi/ns-extension.ts";
-import stackSquashExtension, { stackSquashParity } from "../../src/pi/stack-squash.ts";
 
-async function collectFlowPiSurfaces(): Promise<LivePiSurface[]> {
+import codeWorkflowsExtension, { codeWorkflowsParity } from "../../src/code-workflows/extension.ts";
+import smartRestackExtension, {
+	smartRestackParity,
+} from "../../src/code-workflows/smart-restack.ts";
+
+async function collectCodeWorkflowSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
-	await registerWithFakeHost(pi, stackSquashExtension);
-	await registerWithFakeHost(pi, (host: NsExtensionAPI) =>
-		nsExtension(host, {
-			recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
-			runCli: async () => 0,
-		}),
-	);
+	await registerWithFakeHost(pi, codeWorkflowsExtension);
+	await registerWithFakeHost(pi, smartRestackExtension);
 	return pi.surfaces();
 }
 
-const flowPiParity = [...stackSquashParity, ...nsExtensionParity] as const;
+const codeWorkflowParity = [...codeWorkflowsParity, ...smartRestackParity] as const;
 
-describe("Flow Pi extension parity metadata", () => {
+describe("Internal code-workflows Pi extension parity metadata", () => {
 	test("registered command surfaces match package metadata", async () => {
 		const comparison = comparePiSurfaceParity({
-			liveSurfaces: await collectFlowPiSurfaces(),
-			metadata: flowPiParity,
+			liveSurfaces: await collectCodeWorkflowSurfaces(),
+			metadata: codeWorkflowParity,
 		});
 
 		if (

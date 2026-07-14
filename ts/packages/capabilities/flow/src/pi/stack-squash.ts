@@ -55,6 +55,7 @@ export default function stackSquashExtension(pi: StackSquashExtensionAPI): void 
 				);
 			},
 		},
+		options: { delivery: "message" },
 	});
 }
 

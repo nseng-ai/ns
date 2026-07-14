@@ -1,25 +1,30 @@
+import { runGraphiteCommand } from "@nseng-ai/capability-kit/graphite/branch";
+import { formatCommandTermination } from "@nseng-ai/foundation/command";
 import {
 	commandSucceeded,
-	formatCommandTermination,
+	execApiToCommandRunner,
 	type ExecResult,
-} from "@nseng-ai/foundation/command";
-import {
-	combinedCommandOutput,
-	isGitRebaseInProgressProse,
-} from "../submit/cli-prose-heuristics.ts";
-import {
-	sendCommandProgressOrNotify,
-	registerCommandWithImmediateAck,
-} from "@nseng-ai/pi/commands/ack";
-
+} from "@nseng-ai/foundation/exec";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
+import {
+	registerCommandWithImmediateAck,
+	sendCommandProgressOrNotify,
+} from "@nseng-ai/pi/commands/ack";
 import { formatCommandOutput, notifyCommandUi } from "@nseng-ai/pi/commands/helpers";
-import { createPiCommandExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
+import type {
+	CommandContext,
+	CustomMessage,
+	MessageRenderer,
+} from "@nseng-ai/pi/runtime/extension-types";
+import { createPiCommandExecApi, type RawPiExecApi } from "@nseng-ai/pi/shared/command-exec";
 import { expandRepoSkillBlock } from "@nseng-ai/pi/skills/expansion";
 
-import { type FlowCommandContext, type FlowRegisteredCommand } from "./command-support.ts";
-import { type FlowGraphiteCommandHost, runFlowGraphiteCommand } from "./graphite-command.ts";
+import {
+	createProvisionalRestackPreflight,
+	type RunSmartRestackPreflight,
+} from "./restack-preflight.ts";
 
 export const SMART_RESTACK_COMMAND_NAME = "code:gt-restack-resolve";
 
@@ -33,7 +38,7 @@ export const smartRestackParity = definePiSurfaceParity([
 		fallback:
 			"Claude Code, Codex, and other non-Pi users should invoke the portable `code-gt-restack-resolve` skill directly; it runs the same Graphite restack workflow from the current repository state.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@nseng-ai/flow/pi",
+		sourcePackage: "@internal/pi-tools/code-workflows",
 		sourceModule: "smart-restack",
 		notes:
 			"This Pi-native command is a turn-saving UI wrapper over the portable code-gt-restack-resolve skill; the skill remains the cross-harness workflow contract.",
@@ -41,7 +46,6 @@ export const smartRestackParity = definePiSurfaceParity([
 ] as const);
 
 const GT_RESTACK_TIMEOUT_MS = 10 * 60 * 1_000;
-const GIT_STATUS_TIMEOUT_MS = 60_000;
 const GIT_ABORT_TIMEOUT_MS = 60_000;
 const COMMAND_OUTPUT_TAIL_OPTIONS = { maxChars: 4_000, maxLines: 20 } as const;
 const RESTACK_RESOLVE_SKILL_NAME = "code-gt-restack-resolve";
@@ -49,28 +53,68 @@ const START_RESOLVER_OPTION = "Start LM resolver";
 const LEAVE_STOPPED_OPTION = "Leave rebase stopped";
 const ABORT_REBASE_OPTION = "Abort rebase";
 
-export interface SmartRestackExtensionAPI extends FlowGraphiteCommandHost {
-	registerCommand(name: string, options: FlowRegisteredCommand): void;
+interface SmartRestackRegisteredCommand {
+	description?: string;
+	argumentHint?: string;
+	handler(args: string, ctx: CommandContext): Promise<void> | void;
+}
+
+export interface SmartRestackExtensionAPI extends RawPiExecApi {
+	registerCommand(name: string, options: SmartRestackRegisteredCommand): void;
+	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
+	sendMessage?(message: CustomMessage): void;
 	sendUserMessage?(content: string): Promise<void> | void;
+}
+
+export type LoadRestackSkillBlock = (options: {
+	cwd: string;
+	skillName: string;
+}) => Promise<{ block: string }>;
+
+export interface SmartRestackExtensionOptions {
+	runPreflight?: RunSmartRestackPreflight;
+	loadSkillBlock?: LoadRestackSkillBlock;
 }
 
 type ResolverPromptContext = { type: "interrupted-restack" } | { type: "failed-fast-path" };
 
+interface RunSmartRestackOptions {
+	pi: SmartRestackExtensionAPI;
+	ctx: CommandContext;
+	args: string;
+	runPreflight: RunSmartRestackPreflight;
+	loadSkillBlock: LoadRestackSkillBlock;
+}
+
 interface HandleRestackFailureOptions {
 	pi: SmartRestackExtensionAPI;
-	ctx: FlowCommandContext;
+	ctx: CommandContext;
 	args: string;
 	restack: ExecResult;
+	loadSkillBlock: LoadRestackSkillBlock;
 }
 
 interface InvokeLmResolverOptions {
 	pi: SmartRestackExtensionAPI;
-	ctx: FlowCommandContext;
+	ctx: CommandContext;
 	args: string;
 	promptContext: ResolverPromptContext;
+	loadSkillBlock: LoadRestackSkillBlock;
 }
 
-export default function smartRestackExtension(pi: SmartRestackExtensionAPI): void {
+export default function smartRestackExtension(
+	pi: SmartRestackExtensionAPI,
+	options: SmartRestackExtensionOptions = {},
+): void {
+	const commands = createPiCommandExecApi(pi);
+	const runPreflight =
+		options.runPreflight ??
+		createProvisionalRestackPreflight({
+			commands,
+			git: new RealGitGateway(commands),
+		});
+	const loadSkillBlock = options.loadSkillBlock ?? expandRepoSkillBlock;
+
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: SMART_RESTACK_COMMAND_NAME,
@@ -79,40 +123,36 @@ export default function smartRestackExtension(pi: SmartRestackExtensionAPI): voi
 				"Run gt restack first; fall through to LM-assisted conflict resolution if needed",
 			argumentHint: "[context for resolver if needed]",
 			handler: async (args, ctx) => {
-				await ctx.waitForIdle?.();
-				await runSmartRestack(pi, ctx, args);
+				await ctx.waitForIdle();
+				await runSmartRestack({ pi, ctx, args, runPreflight, loadSkillBlock });
 			},
 		},
+		options: { delivery: "message" },
 	});
 }
 
-export async function runSmartRestack(
-	pi: SmartRestackExtensionAPI,
-	ctx: FlowCommandContext,
-	args: string,
-): Promise<void> {
-	const commands = createPiCommandExecApi(pi);
-	const status = await commands.exec("git", ["status"], {
-		cwd: ctx.cwd,
-		timeout: GIT_STATUS_TIMEOUT_MS,
-	});
-	if (!commandSucceeded(status)) {
-		notifyCommandUi(
-			ctx,
-			`Cannot inspect repository state with git status; not starting gt restack.\n\n${formatCommandOutput(status, COMMAND_OUTPUT_TAIL_OPTIONS)}`,
-			"error",
-		);
+export async function runSmartRestack(options: RunSmartRestackOptions): Promise<void> {
+	const { pi, ctx, args, runPreflight, loadSkillBlock } = options;
+	const preflight = await runPreflight({ cwd: ctx.cwd });
+	if (preflight.type === "refused") {
+		notifyCommandUi(ctx, preflight.message, "error");
 		return;
 	}
 
-	if (isRebaseInProgress(status)) {
+	if (preflight.type === "rebase-in-progress") {
 		sendCommandProgressOrNotify({
 			host: pi,
 			ctx,
 			message:
 				"Rebase/restack already in progress; starting LM-driven code-gt-restack-resolve from the current repository state.",
 		});
-		await invokeLmResolver({ pi, ctx, args, promptContext: { type: "interrupted-restack" } });
+		await invokeLmResolver({
+			pi,
+			ctx,
+			args,
+			promptContext: { type: "interrupted-restack" },
+			loadSkillBlock,
+		});
 		return;
 	}
 
@@ -121,7 +161,7 @@ export async function runSmartRestack(
 		ctx,
 		message: "Running deterministic fast path: gt restack",
 	});
-	const restack = await runFlowGraphiteCommand(pi, {
+	const restack = await runGraphiteCommand(execApiToCommandRunner(createPiCommandExecApi(pi)), {
 		cwd: ctx.cwd,
 		args: ["restack"],
 		timeoutMs: GT_RESTACK_TIMEOUT_MS,
@@ -131,11 +171,11 @@ export async function runSmartRestack(
 		return;
 	}
 
-	await handleRestackFailure({ pi, ctx, args, restack });
+	await handleRestackFailure({ pi, ctx, args, restack, loadSkillBlock });
 }
 
 async function handleRestackFailure(options: HandleRestackFailureOptions): Promise<void> {
-	const { pi, ctx, args, restack } = options;
+	const { pi, ctx, args, restack, loadSkillBlock } = options;
 	const failureMessage = formatRestackFailureMessage(restack);
 	if (ctx.hasUI === false || ctx.ui.select === undefined) {
 		notifyCommandUi(
@@ -153,7 +193,13 @@ async function handleRestackFailure(options: HandleRestackFailureOptions): Promi
 	]);
 	switch (selected) {
 		case START_RESOLVER_OPTION:
-			await invokeLmResolver({ pi, ctx, args, promptContext: { type: "failed-fast-path" } });
+			await invokeLmResolver({
+				pi,
+				ctx,
+				args,
+				promptContext: { type: "failed-fast-path" },
+				loadSkillBlock,
+			});
 			return;
 		case LEAVE_STOPPED_OPTION:
 		case undefined:
@@ -173,10 +219,6 @@ async function handleRestackFailure(options: HandleRestackFailureOptions): Promi
 				"warning",
 			);
 	}
-}
-
-function isRebaseInProgress(result: ExecResult): boolean {
-	return isGitRebaseInProgressProse(combinedCommandOutput(result));
 }
 
 function formatCleanRestackMessage(result: ExecResult): string {
@@ -202,7 +244,7 @@ function formatFailureHeadline(command: string, result: ExecResult): string {
 }
 
 async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void> {
-	const { pi, ctx, args, promptContext } = options;
+	const { pi, ctx, args, promptContext, loadSkillBlock } = options;
 	if (pi.sendUserMessage === undefined) {
 		notifyCommandUi(
 			ctx,
@@ -214,9 +256,8 @@ async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void>
 
 	let skillBlock: string;
 	try {
-		skillBlock = (
-			await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: RESTACK_RESOLVE_SKILL_NAME })
-		).block;
+		skillBlock = (await loadSkillBlock({ cwd: ctx.cwd, skillName: RESTACK_RESOLVE_SKILL_NAME }))
+			.block;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		notifyCommandUi(ctx, `Could not read ${RESTACK_RESOLVE_SKILL_NAME}: ${message}`, "error");
@@ -231,7 +272,7 @@ async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void>
 	await pi.sendUserMessage(buildResolverPrompt(skillBlock, args, promptContext));
 }
 
-function buildResolverPrompt(
+export function buildResolverPrompt(
 	skillBlock: string,
 	args: string,
 	promptContext: ResolverPromptContext,
@@ -246,7 +287,7 @@ function buildResolverPrompt(
 	return `${base}\n\nAdditional user-supplied context:\n\n${buildFencedTextBlock(trimmedArgs)}`;
 }
 
-async function abortRebase(pi: SmartRestackExtensionAPI, ctx: FlowCommandContext): Promise<void> {
+async function abortRebase(pi: SmartRestackExtensionAPI, ctx: CommandContext): Promise<void> {
 	notifyCommandUi(ctx, "Aborting rebase with git rebase --abort.", "warning");
 	const abort = await createPiCommandExecApi(pi).exec("git", ["rebase", "--abort"], {
 		cwd: ctx.cwd,

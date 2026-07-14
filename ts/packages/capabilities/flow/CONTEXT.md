@@ -12,6 +12,10 @@ The ns Capability that owns public lifecycle workflows such as changes, copy, au
 The user- and agent-facing `ns flow ...` command surface and its Pi mirrors, including CLI parsing, completions, renderer registration, prompts, progress, and human output for Flow workflows.
 *Avoid*: land domain core, cmux capability adapter, standalone land command surface
 
+**Flow Pi Presentation Boundary**:
+The `@nseng-ai/flow/pi` host surface owns generic `/ns:flow:*` mirrors and `/gt:squash-stack`. Repository-specific `/code-workflows`, `/gh-ci-debug`, and `/code:gt-restack-resolve` presentation belongs to `@internal/pi-tools/code-workflows`; `.pi/extensions/code.ts` is the discovery-layer composition seam for internal smart restack plus Flow stack squash.
+*Avoid*: Flow-owned code-workflow skill policy, Internal Pi-tool import from Flow, cross-owner aggregate inside a package
+
 **Flow Capability API**:
 The curated `@nseng-ai/flow/api` in-process compatibility surface consumed by downstream packages, especially the cmux capability, so they do not import Flow private source modules.
 *Avoid*: package-root import, private `@nseng-ai/flow/src/...` import, narrowed land-only API, cmux capability-owned seam

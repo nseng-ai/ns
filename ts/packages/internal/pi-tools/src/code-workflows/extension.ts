@@ -14,8 +14,6 @@ import type {
 } from "@nseng-ai/pi/runtime/extension-types";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
-import type { FlowRegisteredCommand } from "./command-support.ts";
-
 export const CODE_WORKFLOWS_COMMAND_NAME = "code-workflows";
 export const GH_CI_DEBUG_COMMAND_NAME = "gh-ci-debug";
 export const CODE_WORKFLOWS_MESSAGE_TYPE = "code-workflows-selection";
@@ -29,7 +27,7 @@ export const codeWorkflowsParity = definePiSurfaceParity([
 		cli: "none needed; routes are skill references",
 		skill: "code-workflows",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@nseng-ai/flow/pi",
+		sourcePackage: "@internal/pi-tools/code-workflows",
 		sourceModule: "code-workflows",
 		notes:
 			"The command is a Pi picker/prompt insertion convenience over portable skills and references.",
@@ -42,15 +40,22 @@ export const codeWorkflowsParity = definePiSurfaceParity([
 		cli: "none needed; invokes the portable code-workflows gh-ci-debug playbook",
 		skill: "code-workflows",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@nseng-ai/flow/pi",
+		sourcePackage: "@internal/pi-tools/code-workflows",
 		sourceModule: "code-workflows",
 		notes:
 			"This is a turn-saving Pi command for the gh-ci-debug route; non-Pi agents use the code-workflows skill with the gh-ci-debug route.",
 	},
 ] as const);
 
-interface CodeWorkflowsExtensionAPI {
-	registerCommand(name: string, command: FlowRegisteredCommand<CommandContext>): void;
+interface CodeWorkflowRegisteredCommand {
+	description?: string;
+	argumentHint?: string;
+	getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
+	handler(args: string, ctx: CommandContext): Promise<void> | void;
+}
+
+export interface CodeWorkflowsExtensionAPI {
+	registerCommand(name: string, command: CodeWorkflowRegisteredCommand): void;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	getCommands?(): readonly {
 		name: string;
@@ -61,7 +66,13 @@ interface CodeWorkflowsExtensionAPI {
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
-interface WorkflowRoute {
+export type InvokeCodeWorkflowPromptTurn = typeof invokeRepoSkillPromptTurn;
+
+export interface CodeWorkflowsExtensionOptions {
+	invokeRepoSkillPromptTurn?: InvokeCodeWorkflowPromptTurn;
+}
+
+export interface WorkflowRoute {
 	route: string;
 	aliases: readonly string[];
 	reference: string;
@@ -78,7 +89,7 @@ interface SelectedWorkflowDetails {
 const CODE_WORKFLOWS_SKILL_NAME = "code-workflows";
 const GH_CI_DEBUG_ROUTE = "gh-ci-debug";
 
-const ROUTES = [
+export const CODE_WORKFLOW_ROUTES = [
 	{
 		route: "delete-stack",
 		aliases: ["gt-delete-stack"],
@@ -116,7 +127,11 @@ const ROUTES = [
 	},
 ] as const satisfies readonly WorkflowRoute[];
 
-export default function codeWorkflowsExtension(pi: CodeWorkflowsExtensionAPI): void {
+export default function codeWorkflowsExtension(
+	pi: CodeWorkflowsExtensionAPI,
+	options: CodeWorkflowsExtensionOptions = {},
+): void {
+	const invokePromptTurn = options.invokeRepoSkillPromptTurn ?? invokeRepoSkillPromptTurn;
 	pi.registerMessageRenderer?.(CODE_WORKFLOWS_MESSAGE_TYPE, renderCodeWorkflowMessage);
 	registerCommandWithImmediateAck({
 		host: pi,
@@ -129,6 +144,7 @@ export default function codeWorkflowsExtension(pi: CodeWorkflowsExtensionAPI): v
 				await showCodeWorkflowSelector(pi, ctx, args);
 			},
 		},
+		options: { delivery: "message" },
 	});
 	registerCommandWithImmediateAck({
 		host: pi,
@@ -137,9 +153,10 @@ export default function codeWorkflowsExtension(pi: CodeWorkflowsExtensionAPI): v
 			description: "Diagnose a failing GitHub Actions run or PR check",
 			argumentHint: "[run URL, PR URL/number, or branch context]",
 			handler: async (args, ctx) => {
-				await invokeGhCiDebugWorkflow(pi, ctx, args);
+				await invokeGhCiDebugWorkflow(pi, ctx, args, invokePromptTurn);
 			},
 		},
+		options: { delivery: "message" },
 	});
 }
 
@@ -185,7 +202,7 @@ export async function showCodeWorkflowSelector(
 
 export function completeWorkflowRoute(prefix: string): AutocompleteItem[] | null {
 	const normalizedPrefix = prefix.trim().toLowerCase();
-	const completions = ROUTES.flatMap((route) => [route.route, ...route.aliases])
+	const completions = CODE_WORKFLOW_ROUTES.flatMap((route) => [route.route, ...route.aliases])
 		.filter((value) => value.startsWith(normalizedPrefix))
 		.map((value) => ({ value, label: value }));
 	return completions.length > 0 ? completions : null;
@@ -193,7 +210,7 @@ export function completeWorkflowRoute(prefix: string): AutocompleteItem[] | null
 
 export function resolveWorkflowRoute(input: string): WorkflowRoute | undefined {
 	const normalized = input.trim().toLowerCase();
-	return ROUTES.find(
+	return CODE_WORKFLOW_ROUTES.find(
 		(route) => route.route === normalized || route.aliases.some((alias) => alias === normalized),
 	);
 }
@@ -209,8 +226,9 @@ export async function invokeGhCiDebugWorkflow(
 	pi: CodeWorkflowsExtensionAPI,
 	ctx: CommandContext,
 	args: string,
+	invokePromptTurn: InvokeCodeWorkflowPromptTurn = invokeRepoSkillPromptTurn,
 ): Promise<void> {
-	await invokeRepoSkillPromptTurn({
+	await invokePromptTurn({
 		host: pi,
 		ctx,
 		skillName: CODE_WORKFLOWS_SKILL_NAME,
@@ -270,7 +288,7 @@ export function renderCodeWorkflowMessage(
 }
 
 function menuWorkflowRoutes(): WorkflowRoute[] {
-	return ROUTES.filter((route) => route.menuVisibility === "visible");
+	return CODE_WORKFLOW_ROUTES.filter((route) => route.menuVisibility === "visible");
 }
 
 function emitWorkflowSelection(
