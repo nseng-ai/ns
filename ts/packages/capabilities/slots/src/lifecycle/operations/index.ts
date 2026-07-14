@@ -51,6 +51,18 @@ export {
 	runGtUp,
 } from "./gt/up.ts";
 export { gotoRequestSchema, gotoResultSchema, renderGoto, runGoto } from "./goto.ts";
+export {
+	provisionApplyRequestSchema,
+	provisionApplyResultSchema,
+	renderProvisionApply,
+	runProvisionApply,
+} from "./provision/apply.ts";
+export {
+	provisionImportRequestSchema,
+	provisionImportResultSchema,
+	renderProvisionImport,
+	runProvisionImport,
+} from "./provision/import.ts";
 export { initRequestSchema, initResultSchema, renderInit, runInit } from "./init.ts";
 export { listRequestSchema, listResultSchema, renderList, runList } from "./list.ts";
 export { renderResize, resizeRequestSchema, resizeResultSchema, runResize } from "./resize.ts";

@@ -56,3 +56,15 @@ The `ns slot gt ...` command surface for Graphite-aware Slot navigation, stack r
 **Slot Graphite Exec Helper**:
 A hidden command-face helper under `ns slot gt exec ...` that emits structured Graphite/Slot facts for skills or agents while staying outside the **Slot Capability API** until an in-process consumer proves the need.
 *Avoid*: public human command, Capability API promotion, parsing `gt` display output
+
+**Slot Provisioning**:
+The Slot feature that copies declared gitignored files (for example `.env.local`) from the **Provision Store** into slot worktrees — filling gaps after placement and on `ns slot provision apply`, never overwriting except via `--force`.
+*Avoid*: dotfile sync, secret manager, git-tracked copying, worktree template
+
+**Provision Declaration**:
+The `[slots] provision` array of exact repo-relative file paths in `ns.toml` that names which files **Slot Provisioning** manages; the git-native half of the contract.
+*Avoid*: glob list, manifest, provision store index
+
+**Provision Store**:
+The per-repo, machine-local directory under the slots state root (`repos/<repoName>/provision/default/`) holding the content of declared provisioned files; populated only by the deliberate `ns slot provision import` step.
+*Avoid*: hidden database, cache, git storage, backup

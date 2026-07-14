@@ -22,6 +22,10 @@ import {
 	type GraphiteStackGateway,
 } from "@nseng-ai/capability-kit/graphite/stack";
 import { RealSlotPrGateway, type SlotPrGateway } from "./gateways/pr.ts";
+import {
+	RealSlotProvisionFilesGateway,
+	type SlotProvisionFilesGateway,
+} from "./gateways/provision-files.ts";
 import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
 import {
 	discoverRepoOrSentinel,
@@ -35,6 +39,7 @@ export interface SlotCliContext {
 	gt: GraphiteStackGateway;
 	pr: SlotPrGateway;
 	storage: SlotStorageGateway;
+	provisionFiles: SlotProvisionFilesGateway;
 	clipboard: ClipboardGateway;
 	command: SlotCommandGateway;
 	clock: Clock;
@@ -71,6 +76,7 @@ export async function createRealSlotContext(options: {
 		gt: new RealGraphiteStackGateway({ env, git }),
 		pr: new RealSlotPrGateway({ cwd: options.cwd, env }),
 		storage: new RealSlotStorageGateway(),
+		provisionFiles: new RealSlotProvisionFilesGateway(),
 		clipboard: new RealClipboardGateway({ env }),
 		command: new RealSlotCommandGateway(),
 		clock: systemClock,

@@ -30,6 +30,11 @@ export default defineExtension({
 		slotCommandEntry("init"),
 		slotCommandEntry("resize"),
 		{
+			group: "provision",
+			description: "Copy declared gitignored files between the per-repo store and slot worktrees.",
+			entries: [slotCommandEntry("apply"), slotCommandEntry("import")],
+		},
+		{
 			group: "gt",
 			description: "Graphite-aware slot navigation and stack operations.",
 			entries: [

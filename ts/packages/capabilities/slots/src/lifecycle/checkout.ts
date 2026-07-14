@@ -9,6 +9,7 @@ import {
 	type SlotLifecycleFailure,
 } from "./common.ts";
 import { executeCurrentWorktreeRedirect } from "./current-worktree-redirect.ts";
+import { fillProvisionGapsForPlacement, type ProvisionPlacementReport } from "./provision.ts";
 
 export interface SlotCheckoutOutcome {
 	slotName: string;
@@ -17,6 +18,7 @@ export interface SlotCheckoutOutcome {
 	alreadyAssigned: boolean;
 	createdBranch: boolean;
 	currentWtNote: string | null;
+	provision: ProvisionPlacementReport | null;
 }
 
 export type SlotCheckoutResult = LifecycleResult<SlotCheckoutOutcome>;
@@ -139,6 +141,7 @@ async function executeCheckoutPlan(
 			alreadyAssigned: true,
 			createdBranch: options.hasCreatedBranch,
 			currentWtNote: options.currentWtNote,
+			provision: await provisionCheckoutTarget(ctx, plan.record),
 		});
 	}
 	if (plan.type === "branch_in_main_worktree") {
@@ -149,6 +152,7 @@ async function executeCheckoutPlan(
 			alreadyAssigned: true,
 			createdBranch: options.hasCreatedBranch,
 			currentWtNote: options.currentWtNote,
+			provision: null,
 		});
 	}
 	const checkoutFailure = await ctx.git.checkoutBranch(plan.record.path, options.branchName);
@@ -164,7 +168,17 @@ async function executeCheckoutPlan(
 		alreadyAssigned: false,
 		createdBranch: options.hasCreatedBranch,
 		currentWtNote: options.currentWtNote,
+		provision: await provisionCheckoutTarget(ctx, plan.record),
 	});
+}
+
+async function provisionCheckoutTarget(
+	ctx: RepoSlotContext,
+	record: { slotName: string; path: string },
+): Promise<ProvisionPlacementReport | null> {
+	return await fillProvisionGapsForPlacement(ctx, [
+		{ slotName: record.slotName, path: record.path },
+	]);
 }
 
 function ok(outcome: SlotCheckoutOutcome): SlotCheckoutResult {

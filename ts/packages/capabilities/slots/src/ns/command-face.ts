@@ -27,6 +27,7 @@ export function buildSlotCommandGroup<TContext extends SlotCliContext>(): Clinkr
 function configureSlotCommands<TContext extends SlotCliContext>(root: ClinkrGroup<TContext>): void {
 	const groups = groupSlotCommandSpecs();
 	for (const spec of groups.root) addCommand(root, spec);
+	root.group(buildProvisionGroup(groups));
 	root.group(buildGtGroup(groups));
 }
 
@@ -36,8 +37,19 @@ function groupSlotCommandSpecs(): Record<SlotCommandGroup, SlotCommandSpec[]> {
 			groups[spec.group].push(spec);
 			return groups;
 		},
-		{ root: [], gt: [], "gt-exec": [] },
+		{ root: [], provision: [], gt: [], "gt-exec": [] },
 	);
+}
+
+function buildProvisionGroup<TContext extends SlotCliContext>(
+	groups: Record<SlotCommandGroup, SlotCommandSpec[]>,
+): ClinkrGroup<TContext> {
+	const provision = new ClinkrGroup<TContext>({
+		name: "provision",
+		description: "Copy declared gitignored files between the per-repo store and slot worktrees.",
+	});
+	for (const spec of groups.provision) addCommand(provision, spec);
+	return provision;
 }
 
 function buildGtGroup<TContext extends SlotCliContext>(

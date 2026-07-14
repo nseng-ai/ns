@@ -8,6 +8,8 @@ import {
 	buildSlotDestructiveResultBlock,
 	renderSlotDestructiveResultBlock,
 } from "./destructive-presentation.ts";
+import { renderPlacementProvisionLines } from "./provision-rendering.ts";
+import { placementProvisionSchema } from "./result-schemas.ts";
 
 export const resizeRequestSchema = z.object({
 	size: z.coerce.number().int().describe("Target pool size (1..99)."),
@@ -19,6 +21,7 @@ export const resizeResultSchema = z.object({
 	created: z.array(z.string()),
 	removed: z.array(z.string()),
 	worktreesDir: z.string(),
+	provision: placementProvisionSchema.nullable(),
 });
 
 export type ResizeRequest = z.infer<typeof resizeRequestSchema>;
@@ -59,6 +62,7 @@ function renderResizeDetails(result: ResizeResult): string | undefined {
 	const lines = [`Worktrees: ${result.worktreesDir}`];
 	lines.push(...result.created.map((name) => `Created ${name}`));
 	lines.push(...result.removed.map((name) => `Removed ${name}`));
+	lines.push(...renderPlacementProvisionLines(result.provision));
 	return lines.length === 1 && result.created.length === 0 && result.removed.length === 0
 		? undefined
 		: lines.join("\n");
