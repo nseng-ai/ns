@@ -8,6 +8,7 @@ import {
 import { exited, ScriptedCommandRunner } from "./support/scripted-command-runner.ts";
 
 const SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
+const ANCHOR_SHA = "b2c3d4e5f60718293a4b5c6d7e8f9012345678a1";
 
 function createGateway(commands: ScriptedCommandRunner) {
 	return createRealDispatchWorkspaceGitGateway(new RealGitGateway(commands), commands.run);
@@ -107,8 +108,8 @@ describe("real workspace git gateway", () => {
 		});
 	});
 
-	test("pushes the anchor ref as revision:refs/heads/branch", async () => {
-		const commands = new ScriptedCommandRunner([exited()]);
+	test("creates a metadata-only anchor commit before pushing the branch", async () => {
+		const commands = new ScriptedCommandRunner([exited({ stdout: `${ANCHOR_SHA}\n` }), exited()]);
 		const result = await createGateway(commands).pushAnchorBranch({
 			cwd: "/repo",
 			revision: SHA,
@@ -117,9 +118,17 @@ describe("real workspace git gateway", () => {
 
 		expect(result.ok).toBe(true);
 		expect(commands.calls[0]?.args).toEqual([
+			"commit-tree",
+			`${SHA}^{tree}`,
+			"-p",
+			SHA,
+			"-m",
+			"Initialize cloud dispatch anchor",
+		]);
+		expect(commands.calls[1]?.args).toEqual([
 			"push",
 			"origin",
-			`${SHA}:refs/heads/dispatch/feature-widgets-ab12cd34`,
+			`${ANCHOR_SHA}:refs/heads/dispatch/feature-widgets-ab12cd34`,
 		]);
 	});
 
@@ -143,6 +152,7 @@ describe("real workspace git gateway", () => {
 
 	test("surfaces anchor push failures with their prefix and first stderr line", async () => {
 		const commands = new ScriptedCommandRunner([
+			exited({ stdout: `${ANCHOR_SHA}\n` }),
 			exited({ code: 1, stderr: "error: failed to push anchor ref\nhint: anchor hint" }),
 		]);
 		const result = await createGateway(commands).pushAnchorBranch({
