@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: cloud-execution
+    annotation: Boundary agreement — this record owns the local harness-session/text-generation contract and stays free of remote-sandbox and vendor coupling; cloud-execution consumes harnesses in sandboxes only behind its own cloud backend seam (AI SDK harness adapters), never through this session contract.
+---
+
 # Harness Sessions and Unified Text Generation
 
 ## Thesis

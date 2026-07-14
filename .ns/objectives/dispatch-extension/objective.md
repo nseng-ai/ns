@@ -130,3 +130,26 @@ Risks:
   session poll, or is completion discovered purely via git/handoff inspection?
 - Package identity and home for the new capability under `ts/packages/`
   (platform capability per `docs/conventions/platform-and-consumer.md`).
+
+## Closure
+
+Closed 2026-07-12 by subsumption into the consolidated cloud workstream
+`cloud-execution` (explicit user consolidation decision; see that record's
+`updates/2026-07-12T164456Z-consolidation-and-primitives-first-stance.md` and
+this record's closure update). No dispatch implementation had landed here —
+closure is a tracking move, not completion.
+
+Where the live scope went:
+
+- The `ns dispatch plan|prompt` capability package, execution-target seam,
+  credentials slice, and the git-native cloud landing bar are roadmap rows in
+  `cloud-execution`.
+- The cloud-infrastructure open question this record owned is resolved there:
+  Vercel Sandbox + AI SDK `HarnessAgent`, pi adapter first, Claude Code
+  second; Eve demoted from presumed chassis to potential seam consumer.
+- The `--target cmux` local leg (including ccc bin repair-or-retire) is
+  parked in `cloud-execution`'s roadmap; today's Pi/ccc dispatch flows keep
+  working unchanged.
+
+Remaining risks (experimental AI SDK adapters, credentials cost, descriptor
+substrate settling) carried into the survivor's Assumptions and Risks.
