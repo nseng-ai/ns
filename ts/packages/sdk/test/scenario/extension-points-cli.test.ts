@@ -21,16 +21,16 @@ describe("ns extension point introspection", () => {
 			expect(await run.exit).toBe(0);
 			expect(run.stdout.join("")).toContain("ns points:");
 			expect(run.stdout.join("")).toContain(
-				"flow.submit.pre (hook, additive) — repo ns.toml commands: just check",
+				"flow.submit.pre (hook, many) — repo ns.toml commands: just check",
 			);
 			expect(run.stdout.join("")).toContain(
-				"flow.submit.pr-description (prompt, override) — env NS_DEV_PR_DESCRIPTION_PROMPT -> dev-prompt.md",
+				"flow.submit.pr-description (prompt, one) — env NS_DEV_PR_DESCRIPTION_PROMPT -> dev-prompt.md",
 			);
 			expect(run.stdout.join("")).toContain(
-				"flow.submit.pre.recovery (prompt, override) — conventional .ns/prompts/flow.submit.pre.recovery.md",
+				"flow.submit.pre.recovery (prompt, one) — conventional .ns/prompts/flow.submit.pre.recovery.md",
 			);
 			expect(run.stdout.join("")).toContain(
-				"branch-context.plans-write (prompt, override) — conventional .ns/prompts/branch-context.plans-write.md",
+				"branch-context.plans-write (prompt, one) — conventional .ns/prompts/branch-context.plans-write.md",
 			);
 			expect(run.stdout.join("")).toContain("point_installation_undefined");
 			expect(run.stderr.join("")).toBe("");
@@ -85,7 +85,7 @@ describe("ns extension point introspection", () => {
 			const data = envelope.data as {
 				points: Array<{
 					id: string;
-					semantics: string;
+					cardinality: string;
 					activeSource: unknown;
 					defaultPath?: string;
 					manifestPath?: string;
@@ -103,12 +103,12 @@ describe("ns extension point introspection", () => {
 				expect.arrayContaining([
 					expect.objectContaining({
 						id: "descriptor.scan.pre",
-						semantics: "additive",
+						cardinality: "many",
 						activeSource: { source: "repo-hook", commands: ["just descriptor"] },
 					}),
 					expect.objectContaining({
 						id: "descriptor.prompt",
-						semantics: "override",
+						cardinality: "one",
 						activeSource: expect.objectContaining({ source: "default" }),
 					}),
 					expect.objectContaining({

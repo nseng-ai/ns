@@ -10,7 +10,11 @@ import {
 	presentExtensionDescriptorPackageError,
 } from "./extension-package-descriptor.ts";
 import { makeSdkDiagnostic } from "../runtime/diagnostics.ts";
-import { extensionPointAcceptsValues, type ExtensionDescriptor } from "../sdk/descriptor.ts";
+import {
+	extensionPointAcceptsValues,
+	extensionPointCardinalityValues,
+	type ExtensionDescriptor,
+} from "../sdk/descriptor.ts";
 import {
 	declaredExtensionSpecsErrorInfo,
 	parseDeclaredExtensionSpecsToml,
@@ -21,15 +25,14 @@ import {
 	parseExtensionSourceSpec,
 } from "./extension-source-spec.ts";
 
-export { extensionPointAcceptsValues };
-export const pointSemanticsValues = ["additive", "override"] as const;
+export { extensionPointAcceptsValues, extensionPointCardinalityValues };
 export type PointAccepts = (typeof extensionPointAcceptsValues)[number];
-export type PointSemantics = (typeof pointSemanticsValues)[number];
+export type PointCardinality = (typeof extensionPointCardinalityValues)[number];
 
 export interface PointDefinition {
 	id: string;
 	accepts: PointAccepts;
-	semantics: PointSemantics;
+	cardinality: PointCardinality;
 	description?: string;
 	defaultPath?: string;
 	manifestPath?: string;
@@ -44,26 +47,26 @@ const builtInPointDefinitions = [
 	{
 		id: "branch-context.plans-write",
 		accepts: "prompt",
-		semantics: "override",
+		cardinality: "one",
 		description: "Custom prompt body for saved-plan authoring.",
 		defaultPath: "prompts/plans-write-default.md",
 	},
 	{
 		id: "flow.submit.pr-description",
 		accepts: "prompt",
-		semantics: "override",
+		cardinality: "one",
 		description: "Prompt for generating pull request descriptions during flow submit.",
 	},
 	{
 		id: "flow.submit.pre",
 		accepts: "hook",
-		semantics: "additive",
+		cardinality: "many",
 		description: "Commands to run before flow submit checkpointing.",
 	},
 	{
 		id: "flow.submit.pre.recovery",
 		accepts: "prompt",
-		semantics: "override",
+		cardinality: "one",
 		description: "Agent guidance after a flow submit pre-check failure.",
 	},
 ] as const satisfies readonly PointDefinition[];
@@ -458,7 +461,7 @@ function pointDefinitionsForDescriptor(
 	return (descriptor.points ?? []).map((point) => ({
 		id: point.id,
 		accepts: point.accepts,
-		semantics: point.cardinality === "many" ? "additive" : "override",
+		cardinality: point.cardinality,
 		...optionalEntry("description", point.description),
 		...optionalEntry("defaultPath", point.default),
 		manifestPath: descriptorPath,
@@ -650,11 +653,11 @@ export function buildPointCatalog(request: BuildPointCatalogRequest): PointCatal
 			}
 		}
 
-		if (definition.semantics === "override" && installations.length > 0) {
+		if (definition.cardinality === "one" && installations.length > 0) {
 			diagnostics.push(
 				diagnostic(
-					"point_override_in_effect",
-					`Override point ${definition.id} has a repo installation in effect.`,
+					"point_installation_in_effect",
+					`Cardinality-one point ${definition.id} has a repo installation in effect.`,
 					{ path: definition.id, severity: "info" },
 				),
 			);

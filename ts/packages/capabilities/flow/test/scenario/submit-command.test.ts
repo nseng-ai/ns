@@ -159,7 +159,7 @@ async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<stri
 			{
 				path: ["submit", "pre"],
 				accepts: "hook",
-				semantics: "additive",
+				cardinality: "many",
 				description: "Runs before submit.",
 			},
 		],

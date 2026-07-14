@@ -4,7 +4,7 @@ import { join } from "node:path";
 export interface TestPointManifestPoint {
 	path: readonly [string, ...string[]];
 	accepts: "hook" | "prompt";
-	semantics: "additive" | "override";
+	cardinality: "many" | "one";
 	description?: string;
 }
 
@@ -61,7 +61,7 @@ function descriptorPoint(
 	return {
 		id: [group, ...point.path].join("."),
 		accepts: point.accepts,
-		cardinality: point.semantics === "additive" ? "many" : "one",
+		cardinality: point.cardinality,
 		...(point.description === undefined ? {} : { description: point.description }),
 	};
 }

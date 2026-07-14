@@ -17,9 +17,9 @@ import {
 } from "../../src/project-config/points.ts";
 
 const pointDefinitions = [
-	{ id: "flow.submit.pre", accepts: "hook", semantics: "additive" },
-	{ id: "flow.submit.pre.recovery", accepts: "prompt", semantics: "override" },
-	{ id: "flow.submit.pr-description", accepts: "prompt", semantics: "override" },
+	{ id: "flow.submit.pre", accepts: "hook", cardinality: "many" },
+	{ id: "flow.submit.pre.recovery", accepts: "prompt", cardinality: "one" },
+	{ id: "flow.submit.pr-description", accepts: "prompt", cardinality: "one" },
 ] as const satisfies readonly PointDefinition[];
 
 describe("project point config", () => {
@@ -262,7 +262,7 @@ context_lines = "wide"
 		expect(catalog.diagnostics).toEqual([
 			expect.objectContaining({
 				severity: "info",
-				code: "point_override_in_effect",
+				code: "point_installation_in_effect",
 				path: "flow.submit.pr-description",
 			}),
 			expect.objectContaining({
@@ -299,7 +299,7 @@ context_lines = "wide"
 		).toEqual({
 			id: "flow.submit.pre.recovery",
 			accepts: "prompt",
-			semantics: "override",
+			cardinality: "one",
 			description: "Canonical Flow recovery guidance.",
 			defaultPath: "../submit/prompts/submit-check-recovery-default.md",
 			manifestPath: descriptorPath,
@@ -365,7 +365,7 @@ context_lines = "wide"
 			}),
 			expect.objectContaining({
 				severity: "info",
-				code: "point_override_in_effect",
+				code: "point_installation_in_effect",
 				path: "flow.submit.pr-description",
 			}),
 			expect.objectContaining({

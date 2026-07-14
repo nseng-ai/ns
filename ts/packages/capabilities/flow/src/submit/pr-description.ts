@@ -180,7 +180,7 @@ function loadPrDescriptionPointCatalog(request: PrDescriptionPointContext): Poin
 			{
 				id: FLOW_PR_DESCRIPTION_POINT_ID,
 				accepts: "prompt",
-				semantics: "override",
+				cardinality: "one",
 				defaultPath: DEFAULT_PR_DESCRIPTION_PROMPT_PATH,
 				manifestPath: DEFAULT_PR_DESCRIPTION_PROMPT_MANIFEST_PATH,
 			},
