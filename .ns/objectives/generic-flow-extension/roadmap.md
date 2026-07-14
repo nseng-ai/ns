@@ -76,8 +76,8 @@
     adopter docs (root `AGENTS.md` routing bullet, workflow-implementer catalog
     consumption section, worked example covering `flow.submit.pre` and this repo's
     conventional `flow.submit.pre.recovery` override). Full `just` passes on both.
-- [ ] Genericization slices from the audit: implement the resolve-disposition findings
-      recorded in `references/repo-specificity-audit.md`.
+- [~] Genericization slices from the audit: implement the resolve-disposition findings
+  recorded in `references/repo-specificity-audit.md`.
   - Repository identity: replace `main`/`master` checkpoint protection and `origin`
     refresh assumptions with configured trunk/upstream facts.
   - Graphite machine facts: remove the Slot Command Face dependency from `squash-stack`
@@ -85,8 +85,11 @@
     Graphite facts.
   - Pi ownership: move repo-owned `code-workflows` and `code-gt-restack-resolve` skill
     policy out of the Flow package while retaining generic Flow command mirrors.
-  - Point-default fidelity: declare the PR-description built-in prompt through the point
-    descriptor/catalog rather than a bespoke fallback branch.
+  - [x] Point-default fidelity (F10): the PR-description packaged prompt is declared by
+        the Flow descriptor and mirrored SDK metadata, and runtime resolution uses the normal
+        catalog ladder without a bespoke or post-catalog fallback. Selected broken repository
+        policy fails actionably. Focused Flow/SDK tests, package suites, TypeScript/style gates,
+        and full `just` pass; F11 remains parked.
 - [ ] Promote the settled README to `ts/packages/capabilities/flow/README.md`, repoint
       this Objective's canonical reference at the promoted doc, and re-derive or retire
       `orientation.md`.

@@ -12,6 +12,7 @@ import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	preparePrDescription,
 	resolvePrDescriptionGeneration,
+	type FlowPrDescriptionDescriptorSource,
 	type TimeServices,
 } from "./index.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "./index.ts";
@@ -425,6 +426,7 @@ export interface SubmitMetadataPrewriteDependencies {
 	env: Record<string, string | undefined>;
 	gateway: Pick<SubmitMetadataGateway, "ensureCleanWorktree" | "amendBranchMetadataCommit">;
 	git: GitGateway;
+	descriptorSource: FlowPrDescriptionDescriptorSource;
 	textGenerator: TextGenerator;
 	time?: TimeServices;
 	progress?: SubmitProgressListeners<SubmitBranchMetadataProgressEvent>;
@@ -456,6 +458,7 @@ export async function prewriteSubmitMetadata(
 		cwd: input.cwd,
 		env: input.env,
 		git: input.git,
+		descriptorSource: input.descriptorSource,
 		textGenerator: input.textGenerator,
 		branches: plan.metadataPrewriteBranches,
 		...(input.time === undefined ? {} : { time: input.time }),
@@ -520,6 +523,7 @@ async function generateMetadataForBranches(input: {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	git: GitGateway;
+	descriptorSource: FlowPrDescriptionDescriptorSource;
 	textGenerator: TextGenerator;
 	branches: readonly SubmitStackNewBranch[];
 	time?: TimeServices;
@@ -532,6 +536,7 @@ async function generateMetadataForBranches(input: {
 		env: input.env,
 		cwd: input.cwd,
 		git: input.git,
+		descriptorSource: input.descriptorSource,
 	});
 	if (!generation.ok) {
 		return {

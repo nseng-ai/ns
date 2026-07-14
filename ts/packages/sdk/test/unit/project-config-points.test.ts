@@ -317,6 +317,73 @@ context_lines = "wide"
 		).toEqual(["branch-context.plans-write", "flow.submit.pr-description", "flow.submit.pre"]);
 	});
 
+	test("prefers descriptor metadata over the built-in PR-description mirror", () => {
+		const descriptorPath = "/flow/src/ns/extension.ts";
+		const descriptor = {
+			description: "Flow extension",
+			points: [
+				{
+					id: "flow.submit.pr-description",
+					accepts: "prompt",
+					cardinality: "one",
+					default: "../submit/prompts/pr-description-default.md",
+					description: "Canonical Flow PR-description guidance.",
+				},
+			],
+		} as const satisfies ExtensionDescriptor;
+		const catalog = loadPointCatalog({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway({}),
+			preferredDescriptors: [{ descriptor, descriptorPath }],
+		});
+
+		expect(
+			catalog.entries.find((entry) => entry.definition.id === "flow.submit.pr-description")
+				?.definition,
+		).toEqual({
+			id: "flow.submit.pr-description",
+			accepts: "prompt",
+			cardinality: "one",
+			description: "Canonical Flow PR-description guidance.",
+			defaultPath: "../submit/prompts/pr-description-default.md",
+			manifestPath: descriptorPath,
+		});
+		expect(resolvePromptPointSource(catalog, "flow.submit.pr-description")).toEqual({
+			type: "default",
+			pointId: "flow.submit.pr-description",
+			path: "../submit/prompts/pr-description-default.md",
+			manifestPath: descriptorPath,
+		});
+		expect(
+			catalog.entries
+				.filter((entry) => entry.definition.id !== "flow.submit.pr-description")
+				.map((entry) => entry.definition.id),
+		).toEqual(["branch-context.plans-write", "flow.submit.pre", "flow.submit.pre.recovery"]);
+	});
+
+	test("keeps the mirrored PR-description default unresolved without descriptor provenance", () => {
+		const catalog = loadPointCatalog({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway({}),
+		});
+		const definition = catalog.entries.find(
+			(entry) => entry.definition.id === "flow.submit.pr-description",
+		)?.definition;
+
+		expect(definition).toEqual({
+			id: "flow.submit.pr-description",
+			accepts: "prompt",
+			cardinality: "one",
+			description: "Prompt for generating pull request descriptions during flow submit.",
+			defaultPath: "../submit/prompts/pr-description-default.md",
+		});
+		expect(definition).not.toHaveProperty("manifestPath");
+		expect(resolvePromptPointSource(catalog, "flow.submit.pr-description")).toEqual({
+			type: "missing",
+			pointId: "flow.submit.pr-description",
+		});
+	});
+
 	test("catalog reports prompt env overrides as source info and diagnostics", () => {
 		const gateway = new InMemoryProjectConfigGateway({
 			"ns.toml": `[points]

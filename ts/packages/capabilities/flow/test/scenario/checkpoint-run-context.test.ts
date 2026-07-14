@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import type { ActiveOperation } from "@nseng-ai/sdk";
 
 import { runCheckpointWorkflow } from "../../src/checkpoint/checkpoint.ts";
+import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import { createNsSubmitRuntime } from "../../src/submit/ns-runtime.ts";
 import { ScriptedNsTestContext } from "./ns-cli-fakes.ts";
 
@@ -30,7 +31,7 @@ describe("checkpoint run context", () => {
 				textGenerationResults: () => [],
 			},
 		);
-		const runtime = createNsSubmitRuntime(ctx);
+		const runtime = createNsSubmitRuntime(ctx, flowExtensionDescriptorSource);
 		const checkpointRunContext = runtime.createCheckpointRunContext((operations) =>
 			snapshots.push([...operations]),
 		);

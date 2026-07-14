@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { ActiveOperation, NsProgressPhaseEvent } from "@nseng-ai/sdk";
+import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import {
 	ok,
 	runSubmitCommand,
@@ -778,6 +779,7 @@ describe("runSubmitCommand", () => {
 				githubPr,
 				textGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+				descriptorSource: flowExtensionDescriptorSource,
 				env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/gpt-5.4-mini" },
 			},
 			progress: testSubmitProgress(submitMatrix),
@@ -858,6 +860,7 @@ describe("runSubmitCommand", () => {
 				githubPr: unusedGithubPrGateway,
 				textGenerator: unusedTextGenerator,
 				git: unusedGitGateway,
+				descriptorSource: flowExtensionDescriptorSource,
 				env: {},
 			},
 			progress: testSubmitProgress(),

@@ -9,6 +9,7 @@ import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway
 
 import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
 import type {
+	FlowPrDescriptionDescriptorSource,
 	GithubPrGateway,
 	PrewrittenPrMetadata,
 	TextGenerator,
@@ -194,6 +195,7 @@ export interface SubmitPrDescriptionOptions {
 	githubPr: GithubPrGateway;
 	textGenerator: TextGenerator;
 	git: GitGateway;
+	descriptorSource: FlowPrDescriptionDescriptorSource;
 	env: Record<string, string | undefined>;
 	time?: TimeServices;
 }
@@ -375,6 +377,7 @@ export async function runSubmitCommand(
 		env: options.prDescription.env,
 		gateway: options.metadataGateway,
 		git: options.prDescription.git,
+		descriptorSource: options.prDescription.descriptorSource,
 		textGenerator: options.prDescription.textGenerator,
 		...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
 		progress: submitPhaseProgressListeners<SubmitBranchMetadataProgressEvent>(

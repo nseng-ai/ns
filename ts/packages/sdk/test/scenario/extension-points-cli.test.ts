@@ -2,6 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
@@ -11,6 +12,8 @@ const fakeDefaults = {
 	execResponses: () => [],
 	textGenerationResults: () => [],
 };
+
+const flowPackageRoot = fileURLToPath(new URL("../../../capabilities/flow/", import.meta.url));
 
 describe("ns extension point introspection", () => {
 	test("lists point catalog for human readers", async () => {
@@ -177,6 +180,41 @@ describe("ns extension point introspection", () => {
 		}
 	});
 
+	test("shows the descriptor-backed Flow PR-description default without a development override", async () => {
+		const cwd = await createPointProject();
+		try {
+			const run = runCli(
+				["extension", "point", "flow.submit.pr-description", "--format", "json"],
+				cwd,
+				{},
+			);
+
+			expect(await run.exit).toBe(0);
+			const envelope = parseJsonOutput(run);
+			expect(envelope.status).toBe("ok");
+			const data = envelope.data as {
+				point: {
+					id: string;
+					defaultPath?: string;
+					manifestPath?: string;
+					activeSource: unknown;
+				};
+			};
+			const manifestPath = join(flowPackageRoot, "src", "ns", "extension.ts");
+			expect(data.point.id).toBe("flow.submit.pr-description");
+			expect(data.point.defaultPath).toBe("../submit/prompts/pr-description-default.md");
+			expect(data.point.manifestPath).toBe(manifestPath);
+			expect(data.point.activeSource).toEqual({
+				source: "default",
+				path: "../submit/prompts/pr-description-default.md",
+				manifestPath,
+			});
+			expect(run.stderr.join("")).toBe("");
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	});
+
 	test("reports an undefined detail lookup as a negative machine envelope", async () => {
 		const cwd = await createPointProject();
 		try {
@@ -219,12 +257,18 @@ describe("ns extension point introspection", () => {
 	});
 });
 
-function runCli(args: readonly string[], cwd: string) {
+function runCli(
+	args: readonly string[],
+	cwd: string,
+	env: Record<string, string | undefined> = {
+		NS_DEV_PR_DESCRIPTION_PROMPT: "dev-prompt.md",
+	},
+) {
 	return runCliWithFakes(
 		{
 			args,
 			cwd,
-			env: { NS_DEV_PR_DESCRIPTION_PROMPT: "dev-prompt.md" },
+			env,
 			state: { exec: [], textGeneration: [] },
 		},
 		fakeDefaults,
@@ -334,7 +378,7 @@ async function createPointProject(): Promise<string> {
 	writeText(join(cwd, ".ns", "prompts", "flow.submit.pre.recovery.md"), "Recovery prompt\n");
 	writeText(
 		join(cwd, "ns.toml"),
-		'[points]\n"flow.submit.pre" = ["just check"]\n"missing.point" = "ghost.md"\n',
+		`extensions = [${JSON.stringify(flowPackageRoot)}]\n\n[points]\n"flow.submit.pre" = ["just check"]\n"missing.point" = "ghost.md"\n`,
 	);
 	return cwd;
 }

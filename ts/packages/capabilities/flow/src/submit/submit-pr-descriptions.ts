@@ -130,6 +130,7 @@ export async function generateSubmitPrDescriptions(input: {
 				cwd: input.cwd,
 				env: input.prDescription.env,
 				git: input.prDescription.git,
+				descriptorSource: input.prDescription.descriptorSource,
 			});
 			if (!resolvedGeneration.ok) {
 				input.progress?.onItemProgress?.({
@@ -153,6 +154,7 @@ export async function generateSubmitPrDescriptions(input: {
 			githubPr: input.prDescription.githubPr,
 			textGenerator: input.prDescription.textGenerator,
 			git: input.prDescription.git,
+			descriptorSource: input.prDescription.descriptorSource,
 			pr: viewed.value,
 			...(generation === undefined ? {} : { generation }),
 			activeOperationDetail: formatBatchPosition({

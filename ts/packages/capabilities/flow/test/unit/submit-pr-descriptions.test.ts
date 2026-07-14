@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/testing";
 import type { ActiveOperation } from "@nseng-ai/sdk";
+import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import { ok, type GithubPrGateway, type TextGenerator } from "../../src/submit/index.ts";
 import { generateSubmitPrDescriptions } from "../../src/submit/submit-pr-descriptions.ts";
 
@@ -109,6 +110,7 @@ describe("generateSubmitPrDescriptions", () => {
 				githubPr: new PrewrittenDescriptionGithubPrGateway(),
 				textGenerator: unusedTextGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+				descriptorSource: flowExtensionDescriptorSource,
 				env: {},
 			},
 			progress: {
@@ -145,6 +147,7 @@ describe("generateSubmitPrDescriptions", () => {
 				githubPr: new PrewrittenDescriptionGithubPrGateway(),
 				textGenerator: unusedTextGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+				descriptorSource: flowExtensionDescriptorSource,
 				env: {},
 			},
 			progress: {
@@ -171,6 +174,7 @@ describe("generateSubmitPrDescriptions", () => {
 				githubPr: new GeneratedDescriptionGithubPrGateway(),
 				textGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+				descriptorSource: flowExtensionDescriptorSource,
 				env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/gpt-5.4-mini" },
 			},
 			progress: {
@@ -211,6 +215,7 @@ describe("generateSubmitPrDescriptions", () => {
 					githubPr: new GeneratedDescriptionGithubPrGateway(),
 					textGenerator: throwingGenerator,
 					git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+					descriptorSource: flowExtensionDescriptorSource,
 					env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/gpt-5.4-mini" },
 				},
 				progress: {

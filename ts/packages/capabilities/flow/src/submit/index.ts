@@ -46,7 +46,6 @@ export {
 export {
 	buildPrDescriptionUserPrompt,
 	filterLockfileSections,
-	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
 	MAX_DIFF_CHARS,
 	DEFAULT_PR_DESCRIPTION_MODEL_REF,
 	PR_DESCRIPTION_MODEL_ENV,
@@ -58,6 +57,7 @@ export {
 	REPO_PR_DESCRIPTION_PROMPT_PATH,
 	selectPrDescriptionModelRef,
 	truncateDiff,
+	type FlowPrDescriptionDescriptorSource,
 	type PrDescriptionGenerationResolution,
 	type PrDescriptionPromptContext,
 	type PreparedPrDescription,

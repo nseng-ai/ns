@@ -4,6 +4,7 @@ import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { ScriptedTextGenerator } from "@nseng-ai/capability-kit/text-generation/testing";
 import { ScriptedCommandRunner, exitedResult, step } from "@nseng-ai/foundation/exec/testing";
 import { formatActiveOperation, type ActiveOperation } from "@nseng-ai/sdk";
+import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import {
 	buildSubmitPlan,
 	ok,
@@ -118,6 +119,7 @@ describe("prewriteSubmitMetadata", () => {
 			cwd: "/repo",
 			env: MODEL_ENV,
 			git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+			descriptorSource: flowExtensionDescriptorSource,
 			textGenerator: tracingTextGenerator(trace, scripted),
 			gateway,
 			progress: traceListeners(trace),
@@ -169,6 +171,7 @@ describe("prewriteSubmitMetadata", () => {
 				cwd: "/repo",
 				env: MODEL_ENV,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+				descriptorSource: flowExtensionDescriptorSource,
 				textGenerator: throwingGenerator,
 				gateway,
 				progress: traceListeners(trace),
@@ -193,6 +196,7 @@ describe("prewriteSubmitMetadata", () => {
 				cwd: "/repo",
 				env: MODEL_ENV,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+				descriptorSource: flowExtensionDescriptorSource,
 				textGenerator: tracingTextGenerator(trace, scripted),
 				gateway,
 				progress: traceListeners(trace),
@@ -243,6 +247,7 @@ describe("prewriteSubmitMetadata", () => {
 			cwd: "/repo",
 			env: MODEL_ENV,
 			git: new InMemoryGitGateway({ repoRoot: "/repo" }),
+			descriptorSource: flowExtensionDescriptorSource,
 			textGenerator: {
 				generateText: async () => {
 					throw new Error("unexpected generateText call");

@@ -21,6 +21,7 @@ export const flowExtensionDescriptor = defineExtension({
 			id: "flow.submit.pr-description",
 			accepts: "prompt",
 			cardinality: "one",
+			default: "../submit/prompts/pr-description-default.md",
 			description: "Prompt for generating pull request descriptions during flow submit.",
 		},
 	],

@@ -8,7 +8,6 @@ import { afterEach, describe, expect, test } from "vitest";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import {
-	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
 	PR_DESCRIPTION_GENERATOR_VERSION,
 	formatManagedGeneratedRegion,
 	hashPrDescriptionPrompt,
@@ -17,6 +16,7 @@ import { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../../src/submit/submit-hooks.
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
 import { writeTestPointManifest } from "../support/point-manifest.ts";
+import { readFlowPrDescriptionDefault } from "../support/pr-description.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 // A non-tty transient progress line, as routed to onOutput (the Pi widget path / captured liveOutput).
@@ -564,7 +564,7 @@ describe("project-local submit extension", () => {
 		const managedBody = formatManagedGeneratedRegion("Generated body", {
 			version: "2",
 			patchId: "default-patch-id",
-			promptHash: hashPrDescriptionPrompt(DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT),
+			promptHash: hashPrDescriptionPrompt(readFlowPrDescriptionDefault()),
 			generator: PR_DESCRIPTION_GENERATOR_VERSION,
 		});
 		const run = runWithFakes({
