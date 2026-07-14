@@ -61,7 +61,6 @@ export interface BasePiSurfaceParity {
 		| "@internal/pi-tools/context-profiler"
 		| "@internal/pi-tools/grill"
 		| "@internal/pi-tools/pr-feedback-watch"
-		| "@internal/pi-tools/pr-previews"
 		| "@internal/pi-tools/stack-view"
 		| "@internal/pi-tools/thermo-council"
 		| "@nseng-ai/branch-context/pi"

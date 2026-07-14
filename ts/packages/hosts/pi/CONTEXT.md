@@ -21,7 +21,7 @@ A tested host-resident implementation area under `ts/packages/hosts/pi/src/<doma
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Internal Pi-tool package**:
-A private workspace package for a Pi-native standalone tool extracted from the host, usually under `ts/packages/internal/pi-tools/src/<tool>/` (for example `@internal/pi-tools/context-profiler`, `@internal/pi-tools/grill`, `@internal/pi-tools/thermo-council`, `@internal/pi-tools/backing-skill-commands`, and `@internal/pi-tools/pr-previews`) or, for the subagent tools, under `@internal/ns-pi-subagents/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; may depend on neutral `@nseng-ai/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@nseng-ai/pi` import of the tool package.
+A private workspace package for a Pi-native standalone tool extracted from the host, usually under `ts/packages/internal/pi-tools/src/<tool>/` (for example `@internal/pi-tools/context-profiler`, `@internal/pi-tools/grill`, `@internal/pi-tools/thermo-council`, and `@internal/pi-tools/backing-skill-commands`) or, for the subagent tools, under `@internal/ns-pi-subagents/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; may depend on neutral `@nseng-ai/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@nseng-ai/pi` import of the tool package.
 *Avoid*: Local Pi-tool package, Capability package, host subdirectory, neutral helper subpath, host dependency.
 
 **Neutral Pi helper subpath**:
@@ -53,7 +53,7 @@ A host-resident Pi command surface whose durable lifecycle, selection, storage, 
 *Avoid*: Pi-tool package, duplicate domain owner, host-owned storage semantics, capability migration shortcut.
 
 **PR feedback Pi presentation residue**:
-The accepted remaining host-resident Pi presentation/session behavior around PR feedback workflows: editor prefill, stack-prompt assembly, live watch state, dirty-tree/idle gating, and prompt injection. The PR feedback modal preview lives in the Internal Pi-tool package `@internal/pi-tools/pr-previews`; stack-wide checks presentation lives in stack-view; portable download/check/thread primitives belong to the Address Capability (`ns address exec ...` / `@nseng-ai/pr-feedback/api`); future reusable watch/fingerprint seams should move through a focused Address Capability/API follow-up.
+The accepted remaining host-resident Pi presentation/session behavior around PR feedback workflows: editor prefill, stack-prompt assembly, live watch state, dirty-tree/idle gating, and prompt injection. Stack-wide review-thread and check presentation lives in stack-view; portable download/check/thread primitives belong to the Address Capability (`ns address exec ...` / `@nseng-ai/pr-feedback/api`); future reusable watch/fingerprint seams should move through a focused Address Capability/API follow-up.
 *Avoid*: Pi-native tool candidate, PR feedback domain owner, Address Capability API owner.
 
 **Immediate command acknowledgement**:

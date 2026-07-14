@@ -1,6 +1,6 @@
 /**
- * Bordered modal chrome shared by the overlay views (`stack-view`,
- * `pr-previews`). Every interactive overlay renders the same box: a top border,
+ * Bordered modal chrome for interactive overlay views such as `stack-view`.
+ * Every interactive overlay renders the same box: a top border,
  * header lines, an inner divider, a body region, a divider, a footer line, and a
  * bottom border. These helpers own that assembly plus the row budget math so the
  * views only supply already-colored header/body/footer content and a border

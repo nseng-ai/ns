@@ -290,8 +290,6 @@ Candidate terms (per subpackage):
 - **pr-feedback-watch** — feedback watch/download machinery; coexists with the
   host-resident PR feedback residue pi CONTEXT.md describes.
   (src/pr-feedback-watch/, hosts/pi/src/core/pr/)
-- **pr-previews** — preview checks/logs/feedback commands over an `exec-ns-json`
-  seam. (src/pr-previews/)
 - **slash-command-rerank** — reranking slash-command completion. (src/slash-command-rerank/)
 - **stack-view** — stack view plus a **compose** family (controller, draft, model,
   prompt, session, transcript). (src/stack-view/)
@@ -305,11 +303,10 @@ Suspects:
   ship. (package.json, src/side-session/)
 - **Grill ownership split** — grill UI/protocol here, `grill/surfaces` in the pi
   host; one concept, two homes, no recorded seam. Simplification candidate.
-- **pr-feedback threeway** — PR-feedback behavior now spans this package
-  (`pr-feedback-watch`, `pr-previews`), host-resident residue
-  (hosts/pi/src/core/pr/), and the Address capability. pi CONTEXT.md:55-57 records
-  the residue split but predates/undersells the `pr-feedback-watch` subpackage —
-  verify and reconcile in the review/feedback residue row.
+- **pr-feedback split** — PR-feedback behavior spans this package
+  (`pr-feedback-watch`), host-resident residue (hosts/pi/src/core/pr/), the
+  stack-view presentation, and the Address capability. Verify that the
+  review/feedback residue row describes those ownership seams accurately.
 
 ### @internal/typescript-style-guard — no CONTEXT.md
 
