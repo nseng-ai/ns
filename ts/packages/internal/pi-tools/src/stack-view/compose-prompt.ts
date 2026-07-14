@@ -16,7 +16,14 @@ import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import type { EnrichmentEntry } from "./enrichment-store.ts";
-import { collapseWhitespace, entriesForCheckBucket, formatCheckEntryLabel } from "./format.ts";
+import {
+	EXPECTED_GRAPHITE_PENDING_EXPLANATION,
+	collapseWhitespace,
+	entriesForCheckBucket,
+	formatCheckEntryLabel,
+	partitionPendingChecks,
+	statusWord,
+} from "./format.ts";
 import type {
 	StackViewCheckBucket,
 	StackViewCheckEntry,
@@ -138,7 +145,7 @@ function appendPrSection(
 		pr.number === null ? `(no PR) ${pr.branch}` : `#${pr.number} ${collapseWhitespace(pr.title)}`;
 	writer.push(`## PR ${position}/${total}: ${heading}`);
 	writer.push(`branch: ${pr.branch} → ${pr.parentBranch}`);
-	writer.push(`status: ${pr.status}`);
+	writer.push(`status: ${statusWord(pr.status)}`);
 
 	appendCheckBucketSection(writer, pr, {
 		bucket: "failing",
@@ -146,7 +153,7 @@ function appendPrSection(
 		withDetail: (entry) => (enrichmentReader.readyCheckSummary(entry) ?? NO_DIAGNOSIS).split("\n"),
 	});
 	appendUnresolvedThreads(context, pr);
-	appendCheckBucketSection(writer, pr, { bucket: "pending", label: "PENDING CHECKS" });
+	appendPendingCheckSections(writer, pr);
 
 	if (pr.objectiveSlugs.length > 0) {
 		writer.push(`objectives: ${pr.objectiveSlugs.join(", ")}`);
@@ -168,6 +175,25 @@ function appendCheckBucketSection(
 	for (const entry of entries) {
 		writer.push(`- ${formatCheckEntryLabel(entry)}`);
 		for (const line of options.withDetail?.(entry) ?? []) writer.push(`  ${line}`);
+	}
+}
+
+function appendPendingCheckSections(writer: PromptWriter, pr: StackViewPr): void {
+	const pending = partitionPendingChecks(pr);
+	if (pending.ordinaryCount > 0) {
+		writer.push(`PENDING CHECKS (${pending.ordinaryCount}):`);
+		for (const entry of pending.ordinaryEntries) {
+			writer.push(`- ${formatCheckEntryLabel(entry)}`);
+		}
+		if (pending.unaccountedOrdinaryCount > 0) {
+			writer.push(`- ${pending.unaccountedOrdinaryCount} pending checks not fetched`);
+		}
+	}
+	if (pending.expectedEntries.length === 0) return;
+	writer.push(`EXPECTED PENDING CHECKS (${pending.expectedEntries.length}):`);
+	for (const entry of pending.expectedEntries) {
+		writer.push(`- ${formatCheckEntryLabel(entry)}`);
+		writer.push(`  ${EXPECTED_GRAPHITE_PENDING_EXPLANATION}`);
 	}
 }
 

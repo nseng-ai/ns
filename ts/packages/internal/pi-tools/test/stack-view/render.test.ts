@@ -2,7 +2,11 @@ import { describe, expect, test } from "vitest";
 
 import { buildSummaryPrompt, renderPlainSnapshot } from "../../src/stack-view/render.ts";
 import type { StackViewModel, StackViewPr } from "../../src/stack-view/types.ts";
-import { checkEntryFixture, threadDetailFixture } from "./stack-view-fixtures.ts";
+import {
+	checkEntryFixture,
+	graphiteMergeabilityCheckFixture,
+	threadDetailFixture,
+} from "./stack-view-fixtures.ts";
 
 function pr(overrides: Partial<StackViewPr> = {}): StackViewPr {
 	return {
@@ -118,7 +122,7 @@ describe("renderPlainSnapshot", () => {
 			}),
 		);
 
-		expect(snapshot).toContain("checks 1✓ 0✗ 0⋯ 2⊘, ready");
+		expect(snapshot).toContain("checks 1✓ 0✗ 0⋯ 2⊘, ready to merge");
 		expect(snapshot).toContain("  cancelled: discover (reviews), review (reviews)");
 	});
 
@@ -214,6 +218,49 @@ describe("renderPlainSnapshot", () => {
 			);
 
 			expect(snapshot).toContain("  pending: deploy (Release)");
+		});
+
+		test("separates expected Graphite pending from ordinary pending and explains it", () => {
+			const snapshot = renderPlainSnapshot(
+				model({
+					currentBranch: "solo",
+					prs: [
+						pr({
+							branch: "solo",
+							checks: { passing: 1, failing: 0, pending: 2, cancelled: 0, total: 3 },
+							checkEntries: [
+								checkEntryFixture({ name: "deploy", workflowName: "Release", bucket: "pending" }),
+								graphiteMergeabilityCheckFixture(),
+							],
+						}),
+					],
+				}),
+			);
+
+			expect(snapshot).toContain("checks 1✓ 0✗ 1⋯ 1 expected, ready to merge");
+			expect(snapshot).toContain("  pending: deploy (Release)");
+			expect(snapshot).toContain(
+				"  expected pending: Graphite / mergeability_check — passes as downstack PRs merge",
+			);
+			expect(snapshot).not.toContain("pending: deploy (Release), Graphite / mergeability_check");
+		});
+
+		test("keeps aggregate pending checks without fetched entries visible", () => {
+			const snapshot = renderPlainSnapshot(
+				model({
+					currentBranch: "solo",
+					prs: [
+						pr({
+							branch: "solo",
+							checks: { passing: 1, failing: 0, pending: 2, cancelled: 0, total: 3 },
+							checkEntries: [graphiteMergeabilityCheckFixture()],
+						}),
+					],
+				}),
+			);
+
+			expect(snapshot).toContain("checks 1✓ 0✗ 1⋯ 1 expected, ready to merge");
+			expect(snapshot).toContain("  pending: [+1 not fetched]");
 		});
 
 		test("omits failing and pending lines when there are no such entries", () => {
