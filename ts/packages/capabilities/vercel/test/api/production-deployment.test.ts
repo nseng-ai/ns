@@ -12,19 +12,47 @@ async function run(state: Parameters<typeof createProductionDeploymentFake>[0] =
 }
 
 describe("production deployment workflow", () => {
-	it("refuses a dirty tree before build or deployment", async () => {
+	it("refuses a dirty tree before workspace preparation or deployment", async () => {
 		const { fake, result } = await run({ isDirty: true });
 		expect(result).toMatchObject({ ok: false, code: "dirty-repository" });
-		expect(fake.phases).toEqual(["Checking production source state."]);
+		expect(fake.operations).toEqual(["inspect-source"]);
 		expect(fake.state.promoted).toBe(false);
 	});
 
-	it("reports source build failure", async () => {
-		const { result } = await run({ buildFails: true });
-		expect(result).toMatchObject({ ok: false, code: "source-build-failed" });
+	it("binds workspace preparation and tracked configuration to the captured SHA", async () => {
+		const { fake, result } = await run();
+		expect(result.ok).toBe(true);
+		expect(fake.state.preparedCommitSha).toBe("a".repeat(40));
+		expect(fake.state.configurationCommitSha).toBe("a".repeat(40));
 	});
 
-	it("rejects package/root identity mismatch", async () => {
+	it("cleans a partial workspace after preparation failure", async () => {
+		const { fake, result } = await run({ preparationFails: true });
+		expect(result).toMatchObject({ ok: false, code: "source-build-failed" });
+		expect(fake.operations).toEqual([
+			"inspect-source",
+			"prepare-workspace",
+			"cleanup-partial-workspace",
+		]);
+	});
+
+	it("reports source build failure and disposes the workspace", async () => {
+		const { fake, result } = await run({ buildFails: true });
+		expect(result).toMatchObject({ ok: false, code: "source-build-failed" });
+		expect(fake.operations).toContain("dispose-workspace");
+		expect(fake.state.disposed).toBe(true);
+	});
+
+	it.each(["head", "dirty"] as const)(
+		"rejects %s source revalidation failure before promotion or upload",
+		async (sourceRevalidationFails) => {
+			const { fake, result } = await run({ sourceRevalidationFails });
+			expect(result).toMatchObject({ ok: false, code: "source-build-failed" });
+			expect(fake.state).toMatchObject({ promoted: false, disposed: true, deployed: false });
+		},
+	);
+
+	it("rejects package/root identity mismatch and disposes the workspace", async () => {
 		const configuration = productionConfiguration({
 			repositoryProject: {
 				projectId: "prj_other",
@@ -32,14 +60,15 @@ describe("production deployment workflow", () => {
 				projectName: "ns-dispatch",
 			},
 		});
-		const { result } = await run({ configuration });
+		const { fake, result } = await run({ configuration });
 		expect(result).toMatchObject({ ok: false, code: "project-identity-mismatch" });
+		expect(fake.state.disposed).toBe(true);
 	});
 
-	it("rejects stale or missing manifest inventory", async () => {
+	it("rejects stale or missing manifest inventory and disposes the workspace", async () => {
 		const { fake, result } = await run({ promotionFailure: "verification" });
 		expect(result).toMatchObject({ ok: false, code: "invalid-artifact" });
-		expect(fake.state.oldOutputPresent).toBe(true);
+		expect(fake.state).toMatchObject({ oldOutputPresent: true, disposed: true });
 	});
 
 	it("leaves the destination untouched when staging copy fails", async () => {
@@ -52,13 +81,14 @@ describe("production deployment workflow", () => {
 			promoted: false,
 			oldOutputPresent: true,
 			destinationFiles: ["current-artifact", "stale-artifact"],
+			disposed: true,
 		});
 	});
 
 	it("restores the old destination when final installation fails after backup", async () => {
 		const { fake, result } = await run({ promotionFailure: "install" });
 		expect(result).toMatchObject({ ok: false, code: "promotion-failed" });
-		expect(fake.state).toMatchObject({ promoted: false, oldOutputPresent: true });
+		expect(fake.state).toMatchObject({ promoted: false, oldOutputPresent: true, disposed: true });
 	});
 
 	it("removes stale destination inventory through clean staged replacement", async () => {
@@ -67,10 +97,19 @@ describe("production deployment workflow", () => {
 		expect(fake.state.destinationFiles).toEqual(["current-artifact"]);
 	});
 
-	it("retains promoted output after deploy failure", async () => {
+	it("prevents upload when cleanup fails after promotion and retains promoted output", async () => {
+		const { fake, result } = await run({ cleanupFails: true });
+		expect(result).toMatchObject({ ok: false, code: "source-build-failed" });
+		expect(fake.state).toMatchObject({ promoted: true, deployed: false, disposed: false });
+	});
+
+	it("cleans before deploy and retains promoted output after deploy failure", async () => {
 		const { fake, result } = await run({ deployFailure: "definite" });
 		expect(result).toMatchObject({ ok: false, code: "deploy-failed" });
-		expect(fake.state).toMatchObject({ promoted: true, oldOutputPresent: false });
+		expect(fake.state).toMatchObject({ promoted: true, oldOutputPresent: false, disposed: true });
+		expect(fake.operations.indexOf("dispose-workspace")).toBeLessThan(
+			fake.operations.indexOf("deploy"),
+		);
 	});
 
 	it("rejects an alias pointing at another immutable deployment", async () => {
@@ -84,7 +123,7 @@ describe("production deployment workflow", () => {
 		expect(result).toMatchObject({ ok: true, value: { deploymentId: "dpl_example" } });
 	});
 
-	it("reports the stable URL, SHA, project, and digest after ordered verification", async () => {
+	it("reports the stable URL, revalidated SHA, project, and digest after ordered verification", async () => {
 		const { fake, result } = await run();
 		expect(result).toEqual({
 			ok: true,
@@ -100,9 +139,12 @@ describe("production deployment workflow", () => {
 		});
 		expect(fake.phases).toEqual([
 			"Checking production source state.",
-			"Building package-local deployable.",
+			"Preparing detached production source workspace.",
+			"Building package deployable from captured source.",
+			"Revalidating detached production source.",
 			"Validating dispatch project identity.",
 			"Transactionally promoting verified Build Output.",
+			"Cleaning detached production source workspace.",
 			"Deploying prebuilt output to Vercel production.",
 			"Inspecting immutable deployment identity.",
 			"Verifying production alias identity.",

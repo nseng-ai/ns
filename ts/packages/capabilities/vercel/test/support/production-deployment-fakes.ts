@@ -7,7 +7,10 @@ import type {
 
 interface ProductionFakeState {
 	readonly isDirty?: boolean;
+	readonly preparationFails?: boolean;
 	readonly buildFails?: boolean;
+	readonly sourceRevalidationFails?: "head" | "dirty";
+	readonly cleanupFails?: boolean;
 	readonly configuration?: DispatchProductionConfiguration;
 	readonly configurationFails?: boolean;
 	readonly promotionFailure?: "verification" | "copy" | "install";
@@ -20,8 +23,13 @@ interface ProductionFakeState {
 export interface ProductionFakeHarness {
 	readonly context: ProductionDeploymentContext;
 	readonly phases: readonly string[];
+	readonly operations: readonly string[];
 	readonly state: {
+		readonly preparedCommitSha: string | undefined;
+		readonly configurationCommitSha: string | undefined;
 		readonly promoted: boolean;
+		readonly disposed: boolean;
+		readonly deployed: boolean;
 		readonly oldOutputPresent: boolean;
 		readonly destinationFiles: readonly string[];
 	};
@@ -40,7 +48,12 @@ export function createProductionDeploymentFake(
 	initial: ProductionFakeState = {},
 ): ProductionFakeHarness {
 	const phases: string[] = [];
+	const operations: string[] = [];
+	let preparedCommitSha: string | undefined;
+	let configurationCommitSha: string | undefined;
 	let promoted = false;
+	let disposed = false;
+	let deployed = false;
 	let oldOutputPresent = true;
 	let destinationFiles = [
 		"current-artifact",
@@ -55,40 +68,85 @@ export function createProductionDeploymentFake(
 		progress: (message) => phases.push(message),
 		repository: {
 			async inspectProductionSource() {
+				operations.push("inspect-source");
 				return initial.isDirty
 					? { ok: false, dirtyPaths: ["dirty.ts"], message: "Repository is dirty." }
 					: { ok: true, commitSha: "a".repeat(40) };
 			},
 		},
-		build: {
-			async buildPackageDeployable() {
-				return initial.buildFails ? { ok: false, message: "Build failed." } : { ok: true };
+		sourceWorkspaces: {
+			async prepareSourceWorkspace(commitSha) {
+				preparedCommitSha = commitSha;
+				operations.push("prepare-workspace");
+				if (initial.preparationFails) {
+					operations.push("cleanup-partial-workspace");
+					return { ok: false, message: "Preparation failed." };
+				}
+				return {
+					ok: true,
+					workspace: {
+						async buildPackageDeployable() {
+							operations.push("build-workspace");
+							return initial.buildFails ? { ok: false, message: "Build failed." } : { ok: true };
+						},
+						async verifySourceAfterBuild() {
+							operations.push("revalidate-workspace");
+							return initial.sourceRevalidationFails === undefined
+								? { ok: true }
+								: {
+										ok: false,
+										message:
+											initial.sourceRevalidationFails === "head"
+												? "Detached source HEAD changed during build."
+												: "Detached source changed during build.",
+									};
+						},
+						async readPackageProjectIdentity() {
+							operations.push("read-workspace-project-identity");
+							return { ok: true, value: initial.configuration?.packageProject ?? identity };
+						},
+						async promoteVerifiedBuildOutput() {
+							operations.push("promote-workspace-output");
+							if (initial.promotionFailure !== undefined) {
+								return {
+									ok: false,
+									phase:
+										initial.promotionFailure === "verification"
+											? ("verification" as const)
+											: ("promotion" as const),
+									message: "Promotion failed.",
+								};
+							}
+							promoted = true;
+							oldOutputPresent = false;
+							destinationFiles = ["current-artifact"];
+							return { ok: true, artifactDigest: `sha256:${"b".repeat(64)}` };
+						},
+						async dispose() {
+							operations.push("dispose-workspace");
+							if (initial.cleanupFails) {
+								return { ok: false, message: "Workspace cleanup failed." };
+							}
+							disposed = true;
+							return { ok: true };
+						},
+					},
+				};
 			},
 		},
 		configuration: {
-			async readProductionConfiguration() {
+			async readProductionConfiguration(commitSha) {
+				configurationCommitSha = commitSha;
+				operations.push("read-configuration");
 				return initial.configurationFails
 					? { ok: false, message: "Configuration failed." }
 					: { ok: true, value: initial.configuration ?? defaultConfiguration };
 			},
 		},
-		artifacts: {
-			async promoteVerifiedBuildOutput() {
-				if (initial.promotionFailure !== undefined) {
-					return {
-						ok: false,
-						phase: initial.promotionFailure === "verification" ? "verification" : "promotion",
-						message: "Promotion failed.",
-					};
-				}
-				promoted = true;
-				oldOutputPresent = false;
-				destinationFiles = ["current-artifact"];
-				return { ok: true, artifactDigest: `sha256:${"b".repeat(64)}` };
-			},
-		},
 		deployments: {
 			async deployPrebuiltProduction() {
+				operations.push("deploy");
+				deployed = true;
 				if (initial.deployFailure === "definite") return { ok: false, message: "Deploy failed." };
 				const locator: VercelDeploymentLocator = { deploymentId: deployment.deploymentId };
 				return initial.deployFailure === "ambiguous"
@@ -96,6 +154,7 @@ export function createProductionDeploymentFake(
 					: { ok: true, locator };
 			},
 			async inspectDeployment(locator) {
+				operations.push(typeof locator === "string" ? "inspect-alias" : "inspect-deployment");
 				if (initial.deploymentInspectionFails) return { ok: false, message: "Inspect failed." };
 				if (typeof locator === "string") {
 					return {
@@ -113,9 +172,22 @@ export function createProductionDeploymentFake(
 	return {
 		context,
 		phases,
+		operations,
 		state: {
+			get preparedCommitSha() {
+				return preparedCommitSha;
+			},
+			get configurationCommitSha() {
+				return configurationCommitSha;
+			},
 			get promoted() {
 				return promoted;
+			},
+			get disposed() {
+				return disposed;
+			},
+			get deployed() {
+				return deployed;
 			},
 			get oldOutputPresent() {
 				return oldOutputPresent;

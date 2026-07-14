@@ -4,8 +4,10 @@ import { productionRepositoryRootArgument } from "../../scripts/deploy-productio
 import {
 	isProductionHealthPayload,
 	parseVercelDeploymentLocator,
-	redactProductionDiagnostic,
 	parseVercelInspection,
+	PRODUCTION_WORKSPACE_INSTALL_ARGS,
+	productionWorkspaceInstallRoot,
+	redactProductionDiagnostic,
 	VERCEL_PRODUCTION_DEPLOY_ARGS,
 	vercelInspectArgs,
 } from "../../src/deployability/real-production-deployment-gateways.ts";
@@ -38,6 +40,17 @@ describe("Vercel production command shape", () => {
 			"--format=json",
 		]);
 	});
+
+	it("installs the locked dependency closure from the detached pnpm workspace root", () => {
+		expect(productionWorkspaceInstallRoot("/detached")).toBe("/detached/ts");
+		expect(PRODUCTION_WORKSPACE_INSTALL_ARGS).toEqual([
+			"pnpm",
+			"--filter",
+			"@nseng-ai/vercel...",
+			"install",
+			"--frozen-lockfile",
+		]);
+	});
 });
 
 describe("Vercel production JSON boundaries", () => {
@@ -46,8 +59,45 @@ describe("Vercel production JSON boundaries", () => {
 			parseVercelDeploymentLocator('{"id":"dpl_1","url":"demo.vercel.app","token":"secret"}'),
 		).toEqual({
 			deploymentId: "dpl_1",
-			deploymentUrl: "https://demo.vercel.app",
+			deploymentUrl: "https://demo.vercel.app/",
 		});
+	});
+
+	it("accepts explicit credential-free HTTPS deployment URLs", () => {
+		expect(
+			parseVercelDeploymentLocator('{"id":"dpl_1","url":"https://demo.vercel.app/path"}'),
+		).toEqual({
+			deploymentId: "dpl_1",
+			deploymentUrl: "https://demo.vercel.app/path",
+		});
+	});
+
+	it.each([
+		"http://demo.vercel.app",
+		"ftp://demo.vercel.app",
+		"https//demo.vercel.app",
+		"https:demo.vercel.app",
+		"https:///demo.vercel.app",
+		"demo.vercel.app/path",
+		"demo.vercel.app\\path",
+		"https://demo.vercel.app\\path",
+		"https://user:password@demo.vercel.app",
+		"https://",
+	])("rejects invalid deploy URL %s even when a valid id is present", (url) => {
+		expect(parseVercelDeploymentLocator(JSON.stringify({ id: "dpl_1", url }))).toBeUndefined();
+	});
+
+	it("rejects one invalid URL field instead of falling back to another valid field", () => {
+		expect(
+			parseVercelDeploymentLocator(
+				'{"id":"dpl_1","url":"http://bad.example","deploymentUrl":"good.vercel.app"}',
+			),
+		).toBeUndefined();
+		expect(
+			parseVercelInspection(
+				'{"id":"dpl_1","url":"http://bad.example","deploymentUrl":"good.vercel.app","status":"READY"}',
+			),
+		).toBeUndefined();
 	});
 
 	it("rejects malformed or identity-free deploy output", () => {
@@ -55,15 +105,38 @@ describe("Vercel production JSON boundaries", () => {
 		expect(parseVercelDeploymentLocator('{"status":"ready"}')).toBeUndefined();
 	});
 
-	it("parses ready inspection identity and rejects missing identity", () => {
+	it("parses host-only and explicit HTTPS inspection identity", () => {
+		for (const url of ["demo.vercel.app", "https://demo.vercel.app"]) {
+			expect(
+				parseVercelInspection(JSON.stringify({ id: "dpl_1", url, readyState: "READY" })),
+			).toEqual({
+				deploymentId: "dpl_1",
+				deploymentUrl: "https://demo.vercel.app/",
+				status: "ready",
+			});
+		}
+	});
+
+	it.each([
+		"http://demo.vercel.app",
+		"ssh://demo.vercel.app",
+		"https//demo.vercel.app",
+		"https:demo.vercel.app",
+		"https:///demo.vercel.app",
+		"demo.vercel.app/path",
+		"demo.vercel.app\\path",
+		"https://demo.vercel.app\\path",
+		"https://user:password@demo.vercel.app",
+	])("rejects invalid inspection URL %s despite otherwise valid identity", (url) => {
 		expect(
-			parseVercelInspection('{"id":"dpl_1","url":"demo.vercel.app","readyState":"READY"}'),
-		).toEqual({
-			deploymentId: "dpl_1",
-			deploymentUrl: "https://demo.vercel.app",
-			status: "ready",
-		});
+			parseVercelInspection(JSON.stringify({ id: "dpl_1", url, readyState: "READY" })),
+		).toBeUndefined();
+	});
+
+	it("rejects malformed and missing inspection identity", () => {
+		expect(parseVercelInspection("not json")).toBeUndefined();
 		expect(parseVercelInspection('{"id":"dpl_1","readyState":"READY"}')).toBeUndefined();
+		expect(parseVercelInspection('{"url":"demo.vercel.app","readyState":"READY"}')).toBeUndefined();
 	});
 
 	it("redacts common credential forms from diagnostics", () => {
