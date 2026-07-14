@@ -360,6 +360,15 @@ Risks:
   `"use step"` entrypoints compile through Vercel's workflow builder and
   Queues wiring, a packaging surface the local gate does not yet see — the
   workflow-hello-probe row extends the gate before anything depends on it.
+  Gate extension landed 2026-07-13 (code-first autorun run) and caught two
+  real would-be escapes during the run itself: the builder typechecks
+  without `strictNullChecks` (requiring `ok === false` narrowing), and the
+  Node builder cannot type-resolve the `workflow` package root (requiring
+  runtime-free workflow-id metadata modules). The builder also overwrites
+  the Build Output `config.json` (the gate merges it back) and emits a
+  `nodejs22.x` workflow runtime against the project's nodeVersion 24.x —
+  both to confirm in the batched live pass, which is this risk's remaining
+  retirement step.
 - **README drifts from implementation**: mitigation — the README settles
   first, and each implementation slice cites the README section it makes
   true.

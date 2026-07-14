@@ -21,6 +21,35 @@ vercel_team_id = "team_example123"
 		});
 	});
 
+	it("parses the optional deployment_url", () => {
+		const result = parseDispatchProjectConfigToml(`
+[dispatch]
+harness = "pi"
+vercel_project_id = "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06"
+vercel_team_id = "team_example123"
+deployment_url = "https://ns-dispatch.vercel.app"
+`);
+
+		expect(result).toMatchObject({
+			ok: true,
+			value: { deploymentUrl: "https://ns-dispatch.vercel.app" },
+		});
+	});
+
+	it("rejects non-HTTPS or credentialed deployment URLs", () => {
+		for (const url of ["http://ns-dispatch.vercel.app", "https://user:pw@ns-dispatch.vercel.app"]) {
+			const result = parseDispatchProjectConfigToml(`
+[dispatch]
+harness = "pi"
+vercel_project_id = "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06"
+vercel_team_id = "team_example123"
+deployment_url = "${url}"
+`);
+
+			expect(result).toMatchObject({ ok: false, error: { code: "invalid-dispatch" } });
+		}
+	});
+
 	it("requires the dispatch table", () => {
 		const result = parseDispatchProjectConfigToml("[areg]\nagents = []\n", "ns.toml");
 
