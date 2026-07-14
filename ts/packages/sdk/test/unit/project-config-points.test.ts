@@ -17,6 +17,7 @@ import {
 
 const pointDefinitions = [
 	{ id: "flow.submit.pre", accepts: "hook", semantics: "additive" },
+	{ id: "flow.submit.pre.recovery", accepts: "prompt", semantics: "override" },
 	{ id: "flow.submit.pr-description", accepts: "prompt", semantics: "override" },
 ] as const satisfies readonly PointDefinition[];
 
@@ -234,7 +235,7 @@ context_lines = "wide"
 
 		expect(catalog.entries).toEqual([
 			{
-				definition: pointDefinitions[1],
+				definition: pointDefinitions[2],
 				installations: [
 					{
 						source: "conventional-prompt",
@@ -252,6 +253,10 @@ context_lines = "wide"
 					},
 				],
 			},
+			{
+				definition: pointDefinitions[1],
+				installations: [],
+			},
 		]);
 		expect(catalog.diagnostics).toEqual([
 			expect.objectContaining({
@@ -259,7 +264,35 @@ context_lines = "wide"
 				code: "point_override_in_effect",
 				path: "flow.submit.pr-description",
 			}),
+			expect.objectContaining({
+				severity: "info",
+				code: "point_defined_uninstalled",
+				path: "flow.submit.pre.recovery",
+			}),
 		]);
+	});
+
+	test("defines and resolves the built-in flow submit recovery prompt point", () => {
+		const recoveryPath = ".ns/prompts/flow.submit.pre.recovery.md";
+		const catalog = loadPointCatalog({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway({ [recoveryPath]: "Recovery prompt" }),
+		});
+
+		expect(
+			catalog.entries.find((entry) => entry.definition.id === "flow.submit.pre.recovery")
+				?.definition,
+		).toEqual({
+			id: "flow.submit.pre.recovery",
+			accepts: "prompt",
+			semantics: "override",
+			description: "Agent guidance after a flow submit pre-check failure.",
+		});
+		expect(resolvePromptPointSource(catalog, "flow.submit.pre.recovery")).toEqual({
+			type: "conventional",
+			pointId: "flow.submit.pre.recovery",
+			path: recoveryPath,
+		});
 	});
 
 	test("catalog reports prompt env overrides as source info and diagnostics", () => {
@@ -318,6 +351,11 @@ context_lines = "wide"
 				code: "point_defined_uninstalled",
 				path: "flow.submit.pre",
 			}),
+			expect.objectContaining({
+				severity: "info",
+				code: "point_defined_uninstalled",
+				path: "flow.submit.pre.recovery",
+			}),
 		]);
 	});
 
@@ -352,9 +390,11 @@ context_lines = "wide"
 		expect(catalog.entries.map((entry) => entry.definition.id)).toEqual([
 			"flow.submit.pr-description",
 			"flow.submit.pre",
+			"flow.submit.pre.recovery",
 		]);
 		expect(catalog.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
 			"point_installation_undefined",
+			"point_defined_uninstalled",
 			"point_defined_uninstalled",
 			"point_defined_uninstalled",
 		]);

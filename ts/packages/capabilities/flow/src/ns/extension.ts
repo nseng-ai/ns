@@ -11,6 +11,13 @@ export default defineExtension({
 			description: "Commands to run before flow submit checkpointing.",
 		},
 		{
+			id: "flow.submit.pre.recovery",
+			accepts: "prompt",
+			cardinality: "one",
+			default: "../submit/prompts/submit-check-recovery-default.md",
+			description: "Agent guidance after a flow submit pre-check failure.",
+		},
+		{
 			id: "flow.submit.pr-description",
 			accepts: "prompt",
 			cardinality: "one",

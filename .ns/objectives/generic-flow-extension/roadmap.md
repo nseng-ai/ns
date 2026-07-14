@@ -48,10 +48,16 @@
     code; tests cover both rendered marker-line forms. Focused Flow tests, full TypeScript
     tests, and `just` pass; help and point inspection confirm `--no-checks` and unchanged
     `flow.submit.pre`.
-- [ ] Recovery slice: implement the settled `flow.submit.pre.recovery` prompt point, add
+- [x] Recovery slice: implement the settled `flow.submit.pre.recovery` prompt point, add
       its built-in generic default and `.ns/prompts`/`ns.toml` override, and rework the Pi
       bridge to detect the stable submit-check failure marker and resolve that prompt.
       Keep this repo's `code-just-fix` reference solely in consumer config.
+  - Evidence: the Flow descriptor and mirrored SDK catalog expose the override prompt;
+    exact marker-line matching starts one bounded Pi recovery turn only for failed submits;
+    missing Git roots and broken explicit prompt policy fail fast. Flow's packaged default
+    is repository-neutral, while this repo's conventional prompt owns `code-just-fix`.
+    Focused recovery/Pi/catalog/scenario tests, descriptor integration tests, point
+    introspection, TypeScript checks, and `just` pass.
 - [ ] Extension-point docs for adopters: routing line in root `AGENTS.md` to
       `docs/guides/points.md`; "For workflow implementers: consuming the catalog"
       section in that guide; document the `cardinality` ↔ `semantics` vocabulary

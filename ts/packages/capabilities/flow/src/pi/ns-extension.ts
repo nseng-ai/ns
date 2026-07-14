@@ -1,4 +1,12 @@
 import { nsCommandSurface } from "@nseng-ai/foundation/command";
+import {
+	buildFlowSubmitCheckRecoveryMessage,
+	hasFlowSubmitCheckFailureMarker,
+	nodeSubmitCheckRecoveryGateway,
+	resolveFlowSubmitRecoveryPrompt,
+	resolveFlowSubmitRecoveryRepositoryRoot,
+	type SubmitCheckRecoveryGateway,
+} from "../submit/submit-check-recovery.ts";
 import { SQUASH_STACK_COMMAND_SUMMARY } from "../ns/commands/squash-stack.ts";
 
 import {
@@ -8,7 +16,9 @@ import {
 } from "@nseng-ai/pi/commands/cli-extension";
 import { definePiSurfaceParity } from "@nseng-ai/pi/parity/extension";
 
-export type NsExtensionAPI = CliCommandExtensionAPI;
+export interface NsExtensionAPI extends CliCommandExtensionAPI {
+	sendUserMessage(content: string): Promise<void> | void;
+}
 
 interface FlowCommandInfo {
 	name: string;
@@ -75,13 +85,39 @@ export const nsExtensionParity = definePiSurfaceParity(
 export interface NsExtensionOptions {
 	/** Explicit host-composed ns CLI runner. */
 	runCli: CliCommandExtensionSpec["runCli"];
+	/** Host-composed recovery boundary; defaults to the real Node filesystem adapter. */
+	recoveryGateway?: SubmitCheckRecoveryGateway;
 }
 
 export default function nsExtension(pi: NsExtensionAPI, options: NsExtensionOptions): void {
+	const recoveryGateway = options.recoveryGateway ?? nodeSubmitCheckRecoveryGateway;
 	registerCliCommandExtension(pi, {
 		cliName: "ns",
 		piNamespace: "ns:flow",
 		commands: NS_FLOW_COMMANDS,
 		runCli: options.runCli,
+		afterCommandComplete: async (details) => {
+			if (details.piCommandName !== nsFlowCommandSurface("submit")) return;
+			if (details.exitCode === 0) return;
+			if (!hasFlowSubmitCheckFailureMarker(details.stderr)) return;
+
+			const repoRoot = resolveFlowSubmitRecoveryRepositoryRoot({
+				cwd: details.cwd,
+				gateway: recoveryGateway,
+			});
+			if (!repoRoot.ok) throw flowSubmitRecoveryError(repoRoot.error);
+
+			const prompt = resolveFlowSubmitRecoveryPrompt({
+				repoRoot: repoRoot.repoRoot,
+				gateway: recoveryGateway,
+			});
+			if (!prompt.ok) throw flowSubmitRecoveryError(prompt.error);
+
+			await pi.sendUserMessage(buildFlowSubmitCheckRecoveryMessage(details, prompt.prompt));
+		},
 	});
+}
+
+function flowSubmitRecoveryError(message: string): Error {
+	return new Error(`Could not start flow submit-check recovery: ${message}`);
 }

@@ -55,6 +55,12 @@ const builtInPointDefinitions = [
 		semantics: "additive",
 		description: "Commands to run before flow submit checkpointing.",
 	},
+	{
+		id: "flow.submit.pre.recovery",
+		accepts: "prompt",
+		semantics: "override",
+		description: "Agent guidance after a flow submit pre-check failure.",
+	},
 ] as const satisfies readonly PointDefinition[];
 
 export interface SettingsSchema<T = unknown> {
