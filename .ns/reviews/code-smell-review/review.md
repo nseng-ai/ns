@@ -21,7 +21,7 @@ description: |
   Code-smell-only review: inspect the supplied diff for Fowler-style
   code smells, with blunt but evidence-based feedback and small refactor fixes.
 model_profile: deep
-local_only: false
+local_only: true
 applies_to:
   include:
     - "**/*.ts"

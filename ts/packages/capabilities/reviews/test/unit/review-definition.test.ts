@@ -52,7 +52,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 			include: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
 			exclude: [],
 		},
-		expectedLocalOnly: false,
+		expectedLocalOnly: true,
 	},
 	{
 		path: "../../../../../../.ns/reviews/reinvented-abstractions-tripwire/review.md",
@@ -62,7 +62,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 			include: ["**/*.ts", "**/*.tsx"],
 			exclude: ["**/tests/**", "**/test/**", "**/*.test.ts", ".agents/skills/**"],
 		},
-		expectedLocalOnly: false,
+		expectedLocalOnly: true,
 	},
 	{
 		path: "../../../../../../.ns/reviews/dry-but-not-too-dry/review.md",

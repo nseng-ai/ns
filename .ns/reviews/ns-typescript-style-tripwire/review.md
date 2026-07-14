@@ -27,6 +27,7 @@ description: |
   other Tier A rules. Intended for cheap, per-diff detection; resolution stays
   with the engineer in a later, higher-context workflow.
 model_profile: quick
+local_only: true
 applies_to:
   include:
     - "**/*.ts"
