@@ -152,23 +152,34 @@ describe("command-backed smart-restack preflight", () => {
 		});
 	});
 
-	test("maps rebaseInProgress data even when a failure envelope carries the facts", async () => {
-		const setupResult = setup(
-			envelope(
-				{
-					status: "failure",
-					exitCode: 2,
-					errorType: "inspection-failed",
-					message: "inspection stopped during a rebase",
-					data: data({ rebaseInProgress: true }),
-				},
-				2,
-			),
-		);
+	test.each([
+		[
+			"failure",
+			{
+				status: "failure",
+				exitCode: 2,
+				errorType: "inspection-failed",
+				message: "inspection stopped during a rebase",
+				data: data({ rebaseInProgress: true }),
+			},
+		],
+		[
+			"usage error",
+			{
+				status: "usageError",
+				exitCode: 2,
+				errorType: "usageError",
+				message: "invalid preflight scope",
+				data: data({ rebaseInProgress: true }),
+			},
+		],
+	] as const)("refuses incidental rebase data from a %s envelope", async (_label, value) => {
+		const setupResult = setup(envelope(value, 2));
 
-		await expect(setupResult.run({ cwd: "/repo" })).resolves.toEqual({
-			type: "rebase-in-progress",
-		});
+		const result = await setupResult.run({ cwd: "/repo" });
+
+		expect(result.type).toBe("refused");
+		expect(result.type === "refused" ? result.message : "").toContain(value.message);
 	});
 
 	test("refuses a command execution failure", async () => {

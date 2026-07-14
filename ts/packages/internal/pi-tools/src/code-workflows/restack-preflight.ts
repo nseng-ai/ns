@@ -70,7 +70,6 @@ const restackPreflightEnvelopeSchema = z.discriminatedUnion("status", [
 ]);
 
 type RestackPreflightData = z.infer<typeof restackPreflightDataSchema>;
-type RestackPreflightEnvelope = z.infer<typeof restackPreflightEnvelopeSchema>;
 
 export type SmartRestackPreflightResult =
 	| { type: "ready" }
@@ -121,16 +120,18 @@ export function createCommandRestackPreflight(
 				message: `Restack preflight process exited with code ${String(result.code)}, but its JSON envelope reported exitCode ${envelope.exitCode}; not starting gt restack.`,
 			};
 		}
-		if (indicatesRebaseInProgress(envelope)) return { type: "rebase-in-progress" };
-
 		switch (envelope.status) {
 			case "ok":
-				return readyResult(envelope.data);
+				return indicatesRebaseInProgress(envelope.data)
+					? { type: "rebase-in-progress" }
+					: readyResult(envelope.data);
 			case "negative":
-				return {
-					type: "refused",
-					message: formatNegativeRefusal(envelope.message, envelope.data),
-				};
+				return indicatesRebaseInProgress(envelope.data)
+					? { type: "rebase-in-progress" }
+					: {
+							type: "refused",
+							message: formatNegativeRefusal(envelope.message, envelope.data),
+						};
 			case "failure":
 				return {
 					type: "refused",
@@ -152,9 +153,8 @@ function commandRefusal(result: ExecResult): SmartRestackPreflightResult {
 	};
 }
 
-function indicatesRebaseInProgress(envelope: RestackPreflightEnvelope): boolean {
-	const parsed = restackPreflightDataSchema.safeParse(envelope.data);
-	return parsed.success && parsed.data.rebaseInProgress;
+function indicatesRebaseInProgress(data: RestackPreflightData | undefined): boolean {
+	return data?.rebaseInProgress === true;
 }
 
 function readyResult(data: RestackPreflightData): SmartRestackPreflightResult {

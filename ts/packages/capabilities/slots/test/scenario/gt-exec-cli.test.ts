@@ -260,10 +260,7 @@ describe("slot gt exec quiescence CLI", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(jsonBlockerTypes(parseJsonOutput(run))).toEqual([
-			"rebase-in-progress",
-			"slot-rebase-in-progress",
-		]);
+		expect(jsonBlockerTypes(parseJsonOutput(run))).toEqual(["slot-rebase-in-progress"]);
 	});
 
 	it("emits snapshots and blocks on expected snapshot ref drift", async () => {
@@ -528,7 +525,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 			restackPreflightJsonData(parseJsonOutput(slotRebase)).slotConflicts.map(
 				(conflict) => conflict.type,
 			),
-		).toEqual(["rebase-in-progress", "slot-rebase-in-progress"]);
+		).toEqual(["slot-rebase-in-progress"]);
 	});
 
 	it("returns untracked as a negative result with documented topology defaults", async () => {

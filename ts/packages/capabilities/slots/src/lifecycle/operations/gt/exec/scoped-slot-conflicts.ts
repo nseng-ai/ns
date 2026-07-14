@@ -27,7 +27,7 @@ export function collectScopedSlotConflicts(options: {
 	readonly branches: readonly string[];
 	readonly currentPath: string;
 }): ScopedSlotConflict[] {
-	return [...collectOccupancyConflicts(options), ...collectSlotRebaseConflicts(options)];
+	return collectOccupancyConflicts(options);
 }
 
 export function isRebaseOperation(operation: string): boolean {
@@ -36,10 +36,12 @@ export function isRebaseOperation(operation: string): boolean {
 
 function collectOccupancyConflicts(options: {
 	readonly occupancies: readonly WorktreeOccupancy[];
+	readonly records: readonly SlotRecord[];
 	readonly branches: readonly string[];
 	readonly currentPath: string;
 }): ScopedSlotConflict[] {
 	const scopedBranches = new Set(options.branches);
+	const recordsByPath = new Map(options.records.map((record) => [record.path, record]));
 	const conflicts: ScopedSlotConflict[] = [];
 	for (const occupancy of options.occupancies) {
 		if (occupancy.branch === null || !scopedBranches.has(occupancy.branch)) continue;
@@ -53,34 +55,24 @@ function collectOccupancyConflicts(options: {
 			}
 			continue;
 		}
-		if (isRebaseOperation(occupancy.operation)) {
-			conflicts.push({
-				type: "rebase-in-progress",
-				branch: occupancy.branch,
-				worktreePath: occupancy.path,
-				operation: occupancy.operation,
-			});
-		}
+		if (!isRebaseOperation(occupancy.operation)) continue;
+		const record = recordsByPath.get(occupancy.path);
+		conflicts.push(
+			record === undefined
+				? {
+						type: "rebase-in-progress",
+						branch: occupancy.branch,
+						worktreePath: occupancy.path,
+						operation: occupancy.operation,
+					}
+				: {
+						type: "slot-rebase-in-progress",
+						branch: occupancy.branch,
+						slotName: record.slotName,
+						worktreePath: occupancy.path,
+						operation: occupancy.operation,
+					},
+		);
 	}
 	return conflicts;
-}
-
-function collectSlotRebaseConflicts(options: {
-	readonly records: readonly SlotRecord[];
-	readonly branches: readonly string[];
-}): ScopedSlotConflict[] {
-	const scopedBranches = new Set(options.branches);
-	return options.records.flatMap((record) => {
-		if (record.branch === null || record.operation === null) return [];
-		if (!scopedBranches.has(record.branch) || !isRebaseOperation(record.operation)) return [];
-		return [
-			{
-				type: "slot-rebase-in-progress" as const,
-				branch: record.branch,
-				slotName: record.slotName,
-				worktreePath: record.path,
-				operation: record.operation,
-			},
-		];
-	});
 }
