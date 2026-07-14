@@ -6,7 +6,7 @@
  * views only supply already-colored header/body/footer content and a border
  * colorizer.
  */
-import { fitToWidth } from "@nseng-ai/pi/terminal/layout";
+import { fitToWidth } from "../layout.ts";
 
 /** Rows assumed when the host reports no terminal height. */
 export const FALLBACK_TERMINAL_ROWS = 24;

@@ -6,7 +6,7 @@
  */
 import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
-import { clamp } from "@nseng-ai/pi/terminal/layout";
+import { clamp } from "../layout.ts";
 
 export interface WrappedDetailViewportOptions {
 	lines: readonly string[];

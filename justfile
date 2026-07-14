@@ -156,8 +156,8 @@ release VERSION *args: _ts-workspace-ready
 # Install the ns shim to ~/.local/bin so `ns` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
-# The source @nseng-ai/ns manifest reserves bin/ns.js for the built publish
-# artifact, so remove any stale pnpm bin left by an earlier package layout;
+# The source @nseng-ai/ns manifest no longer advertises a workspace bin.
+# Remove legacy links left by the earlier package layout during safe upgrades;
 # ts/node_modules/.bin commonly precedes ~/.local/bin on PATH.
 install-ns: (_install-ts-shim "ns" "ts/packages/hosts/ns/src/cli.ts" "just install-ns or just install-tools")
     rm -f "{{justfile_directory()}}/ts/node_modules/.bin/ns"

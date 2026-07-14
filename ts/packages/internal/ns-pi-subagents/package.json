@@ -26,9 +26,6 @@
 		"@nseng-ai/pi": "workspace:*",
 		"zod": "catalog:"
 	},
-	"devDependencies": {
-		"@internal/pi-tools": "workspace:*"
-	},
 	"ns": {
 		"tier": "internal-tool",
 		"subpackages": ["api"],

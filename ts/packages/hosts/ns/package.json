@@ -2,9 +2,6 @@
 	"name": "@nseng-ai/ns",
 	"version": "0.1.4",
 	"description": "Checkout-free ns CLI package.",
-	"bin": {
-		"ns": "bin/ns.js"
-	},
 	"files": [
 		"bin",
 		"cli",

@@ -8,6 +8,7 @@
 	},
 	"exports": {
 		"./public-packages/catalog-version": "./src/public-packages/catalog-version.ts",
+		"./public-packages/ns-publish-bin": "./src/public-packages/ns-publish-bin.ts",
 		"./public-packages/render-cli-shim": "./src/public-packages/render-cli-shim.ts"
 	},
 	"scripts": {

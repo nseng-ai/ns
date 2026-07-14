@@ -21,7 +21,7 @@ import {
 	renderOverlayFrame,
 	sliceWrappedDetailLinesForViewport,
 	type WrappedDetailViewport,
-} from "@internal/pi-tools/overlay-kit";
+} from "@nseng-ai/pi/terminal/overlay";
 import type {
 	SubagentFleetRegistry,
 	SubagentFleetRunSnapshot,
