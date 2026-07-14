@@ -133,6 +133,37 @@ describe("command-backed smart-restack preflight", () => {
 	});
 
 	test.each([
+		["ok", 0, false],
+		["negative", 1, true],
+	] as const)(
+		"refuses all warnings from a usable %s envelope before taking automatic action",
+		async (status, code, rebaseInProgress) => {
+			const facts = data({
+				rebaseInProgress,
+				warnings: ["downstack topology warning", "stack tip warning"],
+			});
+			const value =
+				status === "ok"
+					? { status, exitCode: code, data: facts }
+					: {
+							status,
+							exitCode: code,
+							message: "Restack preflight is blocked.",
+							data: facts,
+						};
+			const setupResult = setup(envelope(value, code));
+
+			const result = await setupResult.run({ cwd: "/repo" });
+
+			expect(result.type).toBe("refused");
+			const message = result.type === "refused" ? result.message : "";
+			expect(message).toContain("downstack topology warning");
+			expect(message).toContain("stack tip warning");
+			expect(message).toContain("Not starting gt restack or the resolver");
+		},
+	);
+
+	test.each([
 		["ok", 0],
 		["negative", 1],
 	] as const)("maps rebaseInProgress from a %s envelope", async (status, code) => {
@@ -236,6 +267,24 @@ describe("command-backed smart-restack preflight", () => {
 		[
 			"wrong envelope exit code",
 			{ status: "negative", exitCode: 0, message: "blocked", data: data() },
+		],
+		[
+			"slot rebase conflict without slotName",
+			{
+				status: "ok",
+				exitCode: 0,
+				data: {
+					...data(),
+					slotConflicts: [
+						{
+							type: "slot-rebase-in-progress",
+							branch: "feature/a",
+							worktreePath: "/slots/slot-03",
+							operation: "rebase",
+						},
+					],
+				},
+			},
 		],
 	] as const)("refuses schema-invalid JSON: %s", async (_label, value) => {
 		const setupResult = setup(envelope(value));

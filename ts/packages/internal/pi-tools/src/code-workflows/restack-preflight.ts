@@ -25,7 +25,7 @@ const restackPreflightSlotConflictSchema = z.discriminatedUnion("type", [
 		branch: z.string(),
 		worktreePath: z.string(),
 		operation: z.string(),
-		slotName: z.string().optional(),
+		slotName: z.string(),
 	}),
 ]);
 
@@ -122,16 +122,22 @@ export function createCommandRestackPreflight(
 		}
 		switch (envelope.status) {
 			case "ok":
-				return indicatesRebaseInProgress(envelope.data)
-					? { type: "rebase-in-progress" }
-					: readyResult(envelope.data);
+				return (
+					warningRefusal(envelope.data) ??
+					(indicatesRebaseInProgress(envelope.data)
+						? { type: "rebase-in-progress" }
+						: readyResult(envelope.data))
+				);
 			case "negative":
-				return indicatesRebaseInProgress(envelope.data)
-					? { type: "rebase-in-progress" }
-					: {
-							type: "refused",
-							message: formatNegativeRefusal(envelope.message, envelope.data),
-						};
+				return (
+					warningRefusal(envelope.data) ??
+					(indicatesRebaseInProgress(envelope.data)
+						? { type: "rebase-in-progress" }
+						: {
+								type: "refused",
+								message: formatNegativeRefusal(envelope.message, envelope.data),
+							})
+				);
 			case "failure":
 				return {
 					type: "refused",
@@ -150,6 +156,20 @@ function commandRefusal(result: ExecResult): SmartRestackPreflightResult {
 	return {
 		type: "refused",
 		message: `Cannot run ns restack preflight; not starting gt restack.\n\n${formatCommandOutput(result, COMMAND_OUTPUT_TAIL_OPTIONS)}`,
+	};
+}
+
+function warningRefusal(
+	data: RestackPreflightData | undefined,
+): SmartRestackPreflightResult | null {
+	if (data === undefined || data.warnings.length === 0) return null;
+	return {
+		type: "refused",
+		message: [
+			"Restack preflight returned warnings that require review:",
+			...data.warnings.map((warning) => `- ${warning}`),
+			"Not starting gt restack or the resolver.",
+		].join("\n\n"),
 	};
 }
 

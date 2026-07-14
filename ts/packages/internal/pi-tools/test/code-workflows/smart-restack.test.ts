@@ -234,6 +234,49 @@ describe("smart restack default preflight wiring", () => {
 		]);
 	});
 
+	test("surfaces preflight warnings without starting restack or the resolver", async () => {
+		const pi = new FakePi([
+			rawResult({
+				code: 1,
+				stdout: JSON.stringify({
+					status: "negative",
+					exitCode: 1,
+					message: "Restack preflight is blocked.",
+					data: {
+						clean: true,
+						tracked: true,
+						rebaseInProgress: true,
+						hasUpstackChildren: false,
+						requestedScope: "full",
+						effectiveScope: "downstack",
+						branches: ["feature/current"],
+						slotConflicts: [],
+						warnings: ["full scope collapsed to downstack"],
+					},
+				}),
+			}),
+		]);
+		smartRestackExtension(pi, { loadSkillBlock });
+		const command = pi.commands.get(SMART_RESTACK_COMMAND_NAME);
+		if (command === undefined) throw new Error("missing command");
+		const ctx = new FakeCommandContext();
+
+		await command.handler("", ctx);
+
+		expect(pi.execCalls).toEqual([
+			{
+				command: "ns",
+				args: ["slot", "gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+				cwd: "/repo",
+			},
+		]);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: expect.stringContaining("full scope collapsed to downstack"),
+			level: "error",
+		});
+	});
+
 	test("refuses failure-envelope rebase data without starting restack or the resolver", async () => {
 		const pi = new FakePi([
 			rawResult({
