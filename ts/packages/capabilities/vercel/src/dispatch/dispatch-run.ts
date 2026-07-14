@@ -185,9 +185,8 @@ export function isValidDispatchAnchorBranch(name: string): boolean {
 export function planDispatchSupervision(): SupervisionPlan {
 	return {
 		pollIntervalMs: DISPATCH_POLL_SECONDS * 1000,
-		maxPolls: Math.ceil(
-			(DISPATCH_RUN_BUDGET_SECONDS + DISPATCH_GRACE_SECONDS) / DISPATCH_POLL_SECONDS,
-		),
+		maxPolls:
+			Math.ceil((DISPATCH_RUN_BUDGET_SECONDS + DISPATCH_GRACE_SECONDS) / DISPATCH_POLL_SECONDS) + 1,
 		sandboxTimeoutMs:
 			(DISPATCH_RUN_BUDGET_SECONDS + DISPATCH_SANDBOX_TIMEOUT_MARGIN_SECONDS) * 1000,
 	};

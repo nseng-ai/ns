@@ -26,8 +26,8 @@ describe("planSupervisionProbe", () => {
 			ok: true,
 			value: {
 				pollIntervalMs: 30_000,
-				// ceil((840 + 60 grace) / 30)
-				maxPolls: 30,
+				// One immediate poll, then ceil((840 + 60 grace) / 30) intervals.
+				maxPolls: 31,
 				// (840 + 600 margin) * 1000
 				sandboxTimeoutMs: 1_440_000,
 			},
@@ -139,7 +139,7 @@ describe("superviseDetachedRun", () => {
 		};
 	}
 
-	it("sleeps one poll interval before every poll and completes when the run reports done", async () => {
+	it("polls immediately, then sleeps between polls until the run reports done", async () => {
 		const supervision = deps([
 			{ ok: true, phase: "running" },
 			{ ok: true, phase: "done" },
@@ -148,7 +148,7 @@ describe("superviseDetachedRun", () => {
 		const outcome = await superviseDetachedRun(plan, supervision);
 
 		expect(outcome).toEqual({ completed: true, polls: 2 });
-		expect(supervision.sleeps).toEqual([30_000, 30_000]);
+		expect(supervision.sleeps).toEqual([30_000]);
 		expect(supervision.pollOrdinals).toEqual([1, 2]);
 	});
 
@@ -194,7 +194,7 @@ describe("superviseDetachedRun", () => {
 		const outcome = await superviseDetachedRun(plan, supervision);
 
 		expect(outcome).toEqual({ completed: false, code: "run-timed-out", polls: 4 });
-		expect(supervision.sleeps).toHaveLength(4);
+		expect(supervision.sleeps).toHaveLength(3);
 	});
 });
 

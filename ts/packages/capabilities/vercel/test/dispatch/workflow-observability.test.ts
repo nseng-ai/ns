@@ -8,6 +8,7 @@ import {
 	emitDispatchWorkflowEvent,
 } from "../../src/dispatch/workflow-observability.ts";
 import { writeDispatchWorkflowAttributes } from "../../workflows/dispatch-attribute-writer.ts";
+import { writeDispatchWorkflowEvent } from "../../workflows/dispatch-event-writer.ts";
 
 describe("dispatch workflow attributes", () => {
 	it("builds the exact low-cardinality initial attribute map", () => {
@@ -53,6 +54,57 @@ describe("dispatch workflow attributes", () => {
 		);
 
 		expect(logs).toEqual(['{"event":"observability_write_failed","operation":"set-attributes"}']);
+		expect(logs.join("\n")).not.toContain("secret-token");
+	});
+});
+
+describe("dispatch workflow status stream", () => {
+	it("writes each safe event to both logs and the named status stream", async () => {
+		const logs: string[] = [];
+		const streamed: unknown[] = [];
+		const stream = new WritableStream({
+			write(chunk) {
+				streamed.push(chunk);
+			},
+		});
+		const event = {
+			event: "dispatch_step_finished",
+			step: "poll",
+			outcome: "running",
+			sandboxName: "sbx_dispatch",
+			pollOrdinal: 7,
+		} as const;
+
+		await writeDispatchWorkflowEvent(
+			event,
+			() => stream,
+			(value) => logs.push(value),
+		);
+
+		expect(streamed).toEqual([event]);
+		expect(logs).toEqual([
+			'{"event":"dispatch_step_finished","step":"poll","outcome":"running","sandboxName":"sbx_dispatch","pollOrdinal":7}',
+		]);
+	});
+
+	it("contains stream failures without hiding the primary log event", async () => {
+		const logs: string[] = [];
+		const stream = new WritableStream({
+			write() {
+				throw new Error("vendor stream failure with secret-token");
+			},
+		});
+
+		await writeDispatchWorkflowEvent(
+			{ event: "dispatch_step_started", step: "launch", anchorPrNumber: 421 },
+			() => stream,
+			(value) => logs.push(value),
+		);
+
+		expect(logs).toEqual([
+			'{"event":"dispatch_step_started","step":"launch","anchorPrNumber":421}',
+			'{"event":"observability_write_failed","operation":"status-stream"}',
+		]);
 		expect(logs.join("\n")).not.toContain("secret-token");
 	});
 });

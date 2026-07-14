@@ -20,6 +20,7 @@ catalog:
   '@types/node': ^24.0.0
   '@typescript/native': npm:typescript@^7.0.2
   '@vercel/sandbox': ^2.5.0
+  '@workflow/world-vercel': 5.0.0-beta.30
   '@withgraphite/graphite-cli': ^1.8.6
   '@xterm/headless': ^6.0.0
   ansis: ^4.3.1
