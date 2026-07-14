@@ -1,5 +1,6 @@
 import {
 	renderUpdateExtensionHuman,
+	renderUpdateExtensionMarkdown,
 	updateExtension,
 	updateExtensionRequestSchema,
 	updateExtensionResultSchema,
@@ -17,6 +18,7 @@ export const nsExtensionUpdateCommand = nsInitCommand({
 	resultSchema: updateExtensionResultSchema,
 	handler: (context, request) => updateExtension(context, { ...request, cwd: context.cwd }),
 	renderHuman: renderUpdateExtensionHuman,
+	renderMarkdown: renderUpdateExtensionMarkdown,
 });
 
 export default nsExtensionUpdateCommand;

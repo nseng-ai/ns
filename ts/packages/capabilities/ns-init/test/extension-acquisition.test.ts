@@ -26,7 +26,12 @@ describe("extension install acquisition", () => {
 			sourceSpec: "npm:@acme/tools",
 		});
 
-		expect(result).toEqual({ ok: true, sourceKind: "npm", moduleRoot: packageRoot });
+		expect(result).toEqual({
+			ok: true,
+			sourceKind: "npm",
+			moduleRoot: packageRoot,
+			outcome: "unchanged",
+		});
 		expect(acquisition.installs).toEqual([]);
 	});
 

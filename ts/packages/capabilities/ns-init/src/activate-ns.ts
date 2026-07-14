@@ -26,6 +26,7 @@ import {
 	type PreparedActivationExpectedState,
 } from "./activation-files.ts";
 import type { NsInitErrorInfo } from "./error-info.ts";
+import { recordActivationPlan, type LifecycleRecorder } from "./lifecycle-observability.ts";
 import {
 	applyNsPointerStanza,
 	ensureClaudeAgentsImport,
@@ -144,6 +145,7 @@ export interface PrepareNsActivationOptions {
 export async function prepareNsActivation(
 	context: NsActivationContext,
 	options: PrepareNsActivationOptions,
+	recorder?: LifecycleRecorder,
 ): Promise<PrepareNsActivationResult> {
 	const diagnostics: ActivationDiagnostic[] = [];
 	const appendDiagnostic = (diagnostic: ActivationDiagnostic | undefined): void => {
@@ -272,55 +274,55 @@ export async function prepareNsActivation(
 	if (diagnostics.length > 0 || agentsApplied.type === "malformed" || !artifactPreparation.ok) {
 		return { type: "preflight-failed", diagnostics };
 	}
-	return {
-		type: "prepared",
-		activation: {
-			repository: options.repository,
-			harnesses: [...options.harnesses],
-			harnessSource: options.harnessSource,
-			files: {
-				"ns-toml": {
-					file: "ns-toml",
-					content: options.nsTomlContent,
-					change: options.nsTomlChange,
-				},
-				"managed-extensions-ignore": managedExtensionsIgnore,
-				"agents-instructions": {
-					file: "agents-instructions",
-					content: agentsApplied.content,
-					change: fileChange(agentsRead, agentsApplied.change),
-				},
-				"claude-instructions": {
-					file: "claude-instructions",
-					content: claudeApplied.content,
-					change: fileChange(claudeRead, claudeApplied.change),
-				},
-				"generated-instructions": {
-					file: "generated-instructions",
-					content: generatedInstructions,
-					change: generatedFileChange(instructionsRead, generatedInstructions),
-				},
+	const activation: PreparedNsActivation = {
+		repository: options.repository,
+		harnesses: [...options.harnesses],
+		harnessSource: options.harnessSource,
+		files: {
+			"ns-toml": {
+				file: "ns-toml",
+				content: options.nsTomlContent,
+				change: options.nsTomlChange,
 			},
-			consumerDirectories: preparedConsumerDirectories,
-			expectedState: {
-				files: {
-					"ns-toml": options.nsTomlExpected,
-					"managed-extensions-ignore": expectedTextFileState(managedExtensionsIgnoreRead),
-					"agents-instructions": expectedTextFileState(agentsRead),
-					"claude-instructions": expectedTextFileState(claudeRead),
-					"generated-instructions": expectedTextFileState(instructionsRead),
-				},
-				consumerDirectories: expectedConsumerDirectories,
+			"managed-extensions-ignore": managedExtensionsIgnore,
+			"agents-instructions": {
+				file: "agents-instructions",
+				content: agentsApplied.content,
+				change: fileChange(agentsRead, agentsApplied.change),
 			},
-			artifacts: artifactPreparation.prepared,
-			descriptors: loaded.descriptors,
+			"claude-instructions": {
+				file: "claude-instructions",
+				content: claudeApplied.content,
+				change: fileChange(claudeRead, claudeApplied.change),
+			},
+			"generated-instructions": {
+				file: "generated-instructions",
+				content: generatedInstructions,
+				change: generatedFileChange(instructionsRead, generatedInstructions),
+			},
 		},
+		consumerDirectories: preparedConsumerDirectories,
+		expectedState: {
+			files: {
+				"ns-toml": options.nsTomlExpected,
+				"managed-extensions-ignore": expectedTextFileState(managedExtensionsIgnoreRead),
+				"agents-instructions": expectedTextFileState(agentsRead),
+				"claude-instructions": expectedTextFileState(claudeRead),
+				"generated-instructions": expectedTextFileState(instructionsRead),
+			},
+			consumerDirectories: expectedConsumerDirectories,
+		},
+		artifacts: artifactPreparation.prepared,
+		descriptors: loaded.descriptors,
 	};
+	if (recorder !== undefined) recordActivationPlan(recorder, activation);
+	return { type: "prepared", activation };
 }
 
 export async function applyNsActivation(
 	context: NsActivationContext,
 	prepared: PreparedNsActivation,
+	recorder?: LifecycleRecorder,
 ): Promise<ApplyNsActivationResult> {
 	const completed: MutableActivationCompleted = { files: {} };
 	for (const file of ACTIVATION_FILES) {
@@ -342,6 +344,12 @@ export async function applyNsActivation(
 			}
 		}
 		completed.files[file] = { change: write.change };
+		recorder?.record({
+			type: "activation-file-completed",
+			file,
+			path: ACTIVATION_FILE_PATHS[file],
+			change: write.change,
+		});
 	}
 
 	const consumerOutcomes: ConsumerDirectoryOutcome[] = [];
@@ -365,11 +373,15 @@ export async function applyNsActivation(
 			}
 		}
 		consumerOutcomes.push({ ...directory });
+		recorder?.record({ type: "consumer-directory-completed", ...directory });
 	}
 	completed.consumerDirectories = consumerOutcomes;
 
 	const artifacts = await context.artifacts.apply(prepared.artifacts);
 	completed.artifacts = structuredClone(artifacts.completed);
+	for (const outcome of artifacts.completed) {
+		recorder?.record({ type: "artifact-completed", ...outcome });
+	}
 	if (!artifacts.ok) {
 		return { type: "apply-failed", phase: "artifacts", error: artifacts.error, completed };
 	}

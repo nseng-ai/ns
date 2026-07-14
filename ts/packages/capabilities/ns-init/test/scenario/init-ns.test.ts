@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 
 import { initNs, initNsResultSchema, renderInitNsHuman } from "../../src/init-ns.ts";
+import { renderLifecycleStepHuman } from "../../src/lifecycle-observability.ts";
 import type { NsActivationContext } from "../../src/activation-context.ts";
 import {
 	InMemoryActivationFilesGateway,
 	InMemoryArtifactActivationGateway,
+	CollectingLifecycleTraceSink,
 	InMemoryDeclaredExtensionsGateway,
 } from "../../src/testing/index.ts";
 
@@ -60,6 +62,56 @@ describe("initNs", () => {
 			},
 		});
 		expect(files.fileContent("ns.toml")).toBe('harnesses = ["codex","claude-code"]\n');
+	});
+
+	it("records and streams one deterministic ordered lifecycle history", async () => {
+		const { context } = fixture();
+		const trace = new CollectingLifecycleTraceSink();
+		const result = await initNs(
+			{ ...context, lifecycleTrace: trace },
+			{ cwd: "/repo", harness: ["pi"] },
+		);
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") return;
+		expect(result.data.steps.map((step) => step.type)).toEqual([
+			"phase",
+			"repository-resolved",
+			"phase",
+			"phase",
+			"harnesses-resolved",
+			"phase",
+			"phase",
+			"activation-planned",
+			"phase",
+			"phase",
+			"activation-file-completed",
+			"activation-file-completed",
+			"activation-file-completed",
+			"activation-file-completed",
+			"activation-file-completed",
+			"phase",
+			"phase",
+		]);
+		expect(trace.collectedLines()).toEqual(result.data.steps.map(renderLifecycleStepHuman));
+	});
+
+	it("ends configuration failures with the correct accumulated phase", async () => {
+		const { context, files } = fixture('harnesses = ["unknown"]\n');
+		const result = await initNs(context, { cwd: "/repo", harness: [] });
+		expect(result).toMatchObject({
+			type: "failure",
+			data: {
+				steps: [
+					{ type: "phase", phase: "repository-preflight", status: "started" },
+					expect.objectContaining({ type: "repository-resolved" }),
+					{ type: "phase", phase: "repository-preflight", status: "completed" },
+					{ type: "phase", phase: "configuration-preflight", status: "started" },
+					{ type: "phase", phase: "configuration-preflight", status: "failed" },
+					expect.objectContaining({ type: "failure", phase: "configuration-preflight" }),
+				],
+			},
+		});
+		expect(files.operations()).toEqual([]);
 	});
 
 	it("uses persisted harnesses and reports an idempotent rerun", async () => {
@@ -129,6 +181,7 @@ describe("initNs", () => {
 					},
 				],
 			},
+			steps: [],
 		});
 
 		expect(rendered).toBe(
@@ -158,6 +211,7 @@ describe("initNs", () => {
 					"agents-instructions": { change: "appended" },
 				},
 			},
+			steps: [],
 		});
 		expect(rendered.indexOf("ns.toml")).toBeLessThan(rendered.indexOf("AGENTS.md"));
 		expect(rendered.indexOf("AGENTS.md")).toBeLessThan(rendered.indexOf(".ns/instructions.md"));

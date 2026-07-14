@@ -348,6 +348,15 @@ completed, the failure reports the phase and completed duties, preserves those w
 converges safely. Descriptor or activation-preflight failures write no durable declaration or
 activation files, although acquired npm bytes may remain in ignored managed storage.
 
+Lifecycle mutations (`ns init` and extension install, update, or uninstall) are observable in every
+output mode. Human output streams deterministic chronological phase and resource decisions to stderr,
+even when redirected, then writes the final result summary to stdout. JSON and Markdown suppress the
+live trace and each emit one final document. Their additive `steps` array contains the same ordered,
+typed lifecycle evidence, including completed effects before a traced failure; it intentionally has
+no timestamps or durations. Update dry-runs explicitly record that no writes occurred and whether
+exact prospective effects are available; uninstall records declaration removal or absence, managed
+cleanup, and preservation of local sources and consumer data.
+
 > **Trust warning:** npm acquisition uses `--ignore-scripts`, which disables npm lifecycle scripts;
 > it does not sandbox extension code. Descriptor validation imports and executes the descriptor
 > module, and selected commands execute extension code. Install only extensions you trust.
