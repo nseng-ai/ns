@@ -12,7 +12,11 @@ is the contract, the row is the slice, and a row's outcome folds back into
 the README rather than settling anywhere else. The credentials, spine-probe,
 and steel-thread slices also collect the exact setup inputs, ordering,
 failure modes, and safe verification evidence needed by the later
-setup-skill row; they never record secret values.
+setup-skill row; they never record secret values. Implementation rows
+carry `Policy:` notes (2026-07-13) marking each row's local/live seam for
+the `objective-autorun` loop — what runner steps may take versus what
+happens as a parent interlude — under the boundaries in `objective.md`'s
+`## Runner Policy`.
 
 ## Work
 
@@ -97,8 +101,12 @@ setup-skill row; they never record secret values.
   clone-purpose mint passed without exposing its token. Remaining (reshaped
   by the 2026-07-13 architecture revision, interleaves with the spine):
   dispatch preflight; expose the mint core for in-process use by the
-  workflow; remove the retired `NS_DISPATCH_SANDBOX_MINT_SECRET`
-  production variable once the workflow spine lands.
+  workflow. Removing the retired `NS_DISPATCH_SANDBOX_MINT_SECRET`
+  production variable is **deferred out of the e2e prototype** (Runner
+  Policy, 2026-07-13): env-var mutations are human-only cleanup after the
+  prototype, and the autorun loop neither performs nor stops for them.
+  Policy: mint-core exposure and preflight are runner steps (pure code,
+  fake-driven tests); nothing in this row needs a live interlude.
 - [ ] Workflow spine probes — three staged probes on the existing
       deployable, in order, each folding proven facts into the README and
       extending the `build:deployable` gate before anything depends on it.
@@ -120,6 +128,21 @@ setup-skill row; they never record secret values.
       status trail and cleanup on every path — retires the run-length
       concern structurally. Gated by the credentials row's mint core;
       gates the steel thread.
+      Policy: each probe's *code* (entrypoints, trigger route, gate
+      extension) is runner-step work; the deploy → trigger → observe →
+      cleanup cycle is a parent interlude under the Runner Policy's
+      pre-authorized actions, with proven facts hand-committed by the
+      parent. Autorun phase 1 (decision 2026-07-13) is, in order: (1) the
+      `build:deployable` gate extension for `"use workflow"`/`"use step"`
+      packaging — before any workflow code lands, so step validation
+      predicts deployability; (2) mint-core in-process exposure (from the
+      credentials row); (3) probe-1 code; then interlude 1 deploys,
+      triggers, observes via `getRun`, and folds facts. Probe-2/3 code
+      waits for probe-1's proven facts. Amended 2026-07-13
+      (code-first-autorun-restructure Semantic Update): the autorun run
+      builds probe-2/3 and steel-thread code ahead of live probe facts;
+      all deploy/trigger/observe work batches into one live pass after
+      the code run, which alone may fold verification claims.
 - [ ] Steel thread: `ns dispatch prompt` end-to-end under the dispatch
       workflow. Local CLI: preflight, dirty-tree refusal listing dirty
       files, push-first when the remote is missing/behind, anchor
@@ -134,7 +157,31 @@ setup-skill row; they never record secret values.
       description, failure comment path leaving the anchor PR open and
       marked failed. Launch step `maxRetries 0`; landing and reporting
       steps idempotent. Makes true: "Quick start" (prompt path), "What the
-      remote agent sees", and "The anchor PR". Gated by the spine probes.
+      remote agent sees", and "The anchor PR". Gated by the spine probes
+      (amended 2026-07-13, code-first-autorun-restructure Semantic Update:
+      the gate applies to live verification and fact-folding; the code
+      sub-slices below proceed ahead of live probe facts in the code-first
+      autorun run). Ordered sub-slices (deploy-before-verify dependency structure,
+      recorded 2026-07-13 — what must be deployed before what can be
+      verified):
+      1. Workflow-side code: the dispatch workflow (in-process mint,
+      sandbox over exact SHA, poll/sleep supervision, landing-mint
+      injection, idempotent landing/reporting steps) — verifiable only
+      after a deploy interlude.
+      2. The ns-owned pi runner package (headless over
+      `@earendil-works/pi-coding-agent`) — locally testable against the
+      library API; live behavior needs a deployed workflow to host it.
+      3. CLI-side code: preflight, dirty-tree refusal, anchor
+      branch/PR-up-front logic, trigger-route call, run-id stamping —
+      locally testable with fakes; live verification needs the deployed
+      workflow *and* the per-action-consented anchor push/PR.
+      4. End-to-end interlude: real `ns dispatch prompt`, observed to a
+      landed anchor PR.
+      Policy: sub-slices 1–3 decompose into runner steps (each locally
+      green per the Definition of Progress); every deploy/trigger/observe
+      cycle is a parent interlude; the anchor-branch push and PR
+      creation/mutation in 3–4 are the Runner Policy's per-action consent
+      gate.
 - [ ] Reusable workflow-supervised dispatch setup skill, distilled from the
       proven credentials, spine-probe, and steel-thread work rather than
       authored ahead of it. Makes true: "Setup" as an executable
@@ -177,6 +224,9 @@ setup-skill row; they never record secret values.
       Code and Codex. Includes the long-run completion evidence: at least
       one verified dispatch whose wall-clock exceeds a single function
       invocation ceiling.
+      Policy: command core, wrapper skills, and scenario tests are runner
+      steps; the real dispatch and the long-run evidence are parent
+      interludes (anchor push/PR under per-action consent).
 - [ ] `/ns:dispatch:session`: continue the current session remotely. Makes
       true: "Commands → /ns:dispatch:session". The kernel command is
       `ns dispatch handoff <ref>` (explicit handoff reference, continuation
@@ -185,6 +235,8 @@ setup-skill row; they never record secret values.
       Pi sugar captures the session's working context as a handoff and
       dispatches it; lands on the anchor PR like any dispatch; the standard
       clean-tree rule applies unchanged.
+      Policy: same seam as `ns dispatch plan` — code and tests in runner
+      steps, live dispatch in a parent interlude.
 - [ ] Dispatch jobs TUI: view the status of all outstanding dispatch jobs
       (running / landed / failed, each with its anchor PR; failed ones with
       reason and access to run logs). Makes true: "The dispatch jobs TUI".
@@ -194,11 +246,16 @@ setup-skill row; they never record secret values.
       run state and logs. Owns the README open question: the TUI's command
       name and whether any push-style notification exists beyond the TUI
       and the anchor PR.
+      Policy: TUI code against faked gateways is runner-step work; live
+      confirmation reads real runs in an interlude (read-only, fully
+      pre-authorized).
 - [ ] Claude Code as the second in-sandbox harness, running through its
       headless CLI behind the same supervisor, proving the in-sandbox
       harness is repo configuration — a provisioning recipe plus an
       invocation command — rather than code shape. Makes true: "Under the
       hood" (harness/model is preconfigured; no per-dispatch flag).
+      Policy: the provisioning recipe and configuration are runner steps;
+      proving the second harness is a dispatch interlude.
 - [ ] Durable jobs trigger: nightly objective advancement as a Vercel cron
       entry on the deployable that starts the same dispatch workflow per
       advanced objective, landing the identical per-unit contract (anchor
@@ -208,6 +265,9 @@ setup-skill row; they never record secret values.
       objective must declare (e.g. `## Runner Policy`) to opt in, what ref
       scheduled runs dispatch from (a job has no "current branch"), and
       the human review loop — recorded as a Semantic Update.
+      Policy: cron/workflow entrypoint code is a runner step; the
+      advancement-policy decision is user-owned (stop/ask), and enabling
+      or observing real nightly runs is parent/human interlude work.
 - [ ] Promote the settled README to
       `ts/packages/capabilities/vercel/README.md`, repoint this Objective's
       canonical reference at the promoted doc, and re-derive or retire

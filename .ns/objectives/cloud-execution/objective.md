@@ -189,6 +189,81 @@ rationale, and research live in supporting records that never override it.
   areas; CLI scenario tests cover the new commands' operations, help, and
   version.
 
+## Definition of Progress
+
+Progress is keepable when:
+
+- Targeted `just ts-check` / `just ts-test` pass for the changed area, with
+  external boundaries behind fake-driven gateways (per the standing
+  test-performance boundaries).
+- When the slice touches the deployable, the local `build:deployable` gate
+  passes — the gate runs inside the step's validation, not in a later live
+  interlude, so the known escape-local-validation risk class is caught at
+  the cheapest point.
+- README/reference edits state what the code *implements*; anything
+  live-unproven is marked as pending verification, never asserted as
+  working.
+
+Do not keep changes that:
+
+- Claim a live behavior was verified (in the README, code comments, or the
+  step report narrative). Verification claims are interlude output, written
+  and committed by the parent that witnessed them.
+- Contain secret values, `.env.local` content, or credential material in
+  any form.
+- Advance deferred or parked rows speculatively (the setup skill before the
+  steel thread; env-var/App cleanup; cmux; Eve).
+
+Useful evidence includes: gate output for changed packages, scenario-test
+coverage for new CLI surface, and the `build:deployable` result when
+applicable.
+
+## Runner Policy
+
+This Objective is execution-friendly for the `objective-autorun` /
+`objective-runner-step` loop under the boundaries below (decisions
+2026-07-13, autorun-execution-policy Semantic Update). Runner steps write
+and locally verify code; everything live happens between steps.
+
+- **Runner steps are code-and-docs only.** A step may edit package code,
+  tests, and README/reference prose, validated per the Definition of
+  Progress. A step must stop (not improvise) when its slice appears to
+  require a deployment, a billable action, a workflow trigger, credential
+  material, an env-var or GitHub App change, or any external write.
+- **Parent interludes are the live half.** Between steps, the parent is
+  pre-authorized — without per-action prompting — for: read-only
+  observability (`getRun`, deployment status, GitHub reads); `vercel
+  deploy` of the package to the linked `ns-dispatch` project; triggering
+  workflow runs through the authenticated trigger route; and direct
+  Sandbox creation, including billable runs (the field guide's
+  billable-consent requirement is deliberately waived for this prototype
+  context, user decision 2026-07-13).
+- **One per-action consent gate:** pushing `dispatch/` branches or
+  creating/mutating PRs on `nseng-ai/ns` gets an explicit one-line
+  confirmation at the moment, every time.
+- **Deferred entirely from the e2e prototype** (the loop neither performs
+  these nor stops for them): Vercel environment-variable mutations
+  (including the retired `NS_DISPATCH_SANDBOX_MINT_SECRET` removal) and
+  GitHub App permission changes.
+- **Secrets:** the parent may use credentials operationally (e.g.
+  `vercel env pull`, reading the Development token for trigger calls)
+  under standing rules — never echo a value into output, never persist one
+  outside the proven gitignored `.env.local` location, never pass one on
+  argv, never record one in a commit, README, guidance file, or Semantic
+  Update. Subagent steps never touch credential material.
+- **Fact-folding:** the parent hand-commits proven-fact README/reference
+  folds and Semantic Updates between steps; verification claims are
+  written only by the actor that witnessed them. Interlude facts travel
+  into later steps as `--guidance`.
+- **What will not happen unless explicitly requested:** stack submission.
+  Push/submit of the produced branches is post-run parent work through the
+  normal Graphite/flow path (working habit: land stack segments at
+  proven-phase boundaries; deploys run from the local stack, so submission
+  never gates verification).
+
+Row-level `Policy:` notes on roadmap rows mark each row's local/live seam
+and override these defaults for that row.
+
 ## Assumptions and Risks
 
 Assumptions:
