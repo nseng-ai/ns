@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { PrPreviewFeedbackView, type PrPreviewFeedbackViewModel } from "./preview-feedback-view.ts";
 import { missingPreviewTargetMessage } from "./preview-view-utilities.ts";
-import { overlayHostOptions } from "../overlay-kit/frame.ts";
+import { overlayHostOptions } from "@nseng-ai/pi/terminal/overlay";
 import type {
 	PrPreviewFeedbackComment,
 	PrPreviewFeedbackCounts,

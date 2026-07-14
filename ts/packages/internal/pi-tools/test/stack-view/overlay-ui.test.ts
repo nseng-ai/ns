@@ -14,7 +14,7 @@ import {
 	rollupBucketForPr,
 	stackListRows,
 } from "../../src/stack-view/overlay-model.ts";
-import { sliceWrappedDetailLinesForViewport } from "../../src/overlay-kit/viewport.ts";
+import { sliceWrappedDetailLinesForViewport } from "@nseng-ai/pi/terminal/overlay";
 import { checkEnrichmentKey, threadEnrichmentKey } from "../../src/stack-view/enrichment-keys.ts";
 import type { EnrichmentEntry } from "../../src/stack-view/enrichment-store.ts";
 import type { StackEnrichmentPort } from "../../src/stack-view/enrichment-engine.ts";

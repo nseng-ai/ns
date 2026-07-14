@@ -2,8 +2,12 @@ import type { TUI } from "@earendil-works/pi-tui";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 
 import { clamp, fitToWidth, reconcileScroll } from "@nseng-ai/pi/terminal/layout";
-import { overlayRenderLayout, renderOverlayFrame } from "../overlay-kit/frame.ts";
-import { sliceWrappedDetailLinesForViewport, wrapDetailLines } from "../overlay-kit/viewport.ts";
+import {
+	overlayRenderLayout,
+	renderOverlayFrame,
+	sliceWrappedDetailLinesForViewport,
+	wrapDetailLines,
+} from "@nseng-ai/pi/terminal/overlay";
 
 export interface PreviewModalChromeOptions {
 	tui: TUI;

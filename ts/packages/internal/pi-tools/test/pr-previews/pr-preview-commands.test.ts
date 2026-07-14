@@ -16,7 +16,7 @@ import {
 } from "../../src/pr-previews/preview-feedback-model.ts";
 import { buildCountMismatchNotice } from "../../src/pr-previews/preview-feedback-view.ts";
 import { missingPreviewTargetMessage } from "../../src/pr-previews/preview-view-utilities.ts";
-import { sliceWrappedDetailLinesForViewport } from "../../src/overlay-kit/viewport.ts";
+import { sliceWrappedDetailLinesForViewport } from "@nseng-ai/pi/terminal/overlay";
 
 const ROOT = "/repo";
 

@@ -13,7 +13,7 @@ import {
 	type PrPreviewChecksViewModel,
 } from "./preview-checks-model.ts";
 import { missingPreviewTargetMessage } from "./preview-view-utilities.ts";
-import { overlayHostOptions } from "../overlay-kit/frame.ts";
+import { overlayHostOptions } from "@nseng-ai/pi/terminal/overlay";
 import type { CommandResult, EnvelopeWithSchemaOptions, ExtensionContext } from "./extension.ts";
 import { execNsJson } from "./exec-ns-json.ts";
 

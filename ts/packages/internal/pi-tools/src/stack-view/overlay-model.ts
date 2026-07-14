@@ -13,7 +13,7 @@
 import {
 	sliceWrappedDetailLinesForViewport,
 	wrapDetailLinesForViewport,
-} from "../overlay-kit/viewport.ts";
+} from "@nseng-ai/pi/terminal/overlay";
 import { clamp } from "@nseng-ai/pi/terminal/layout";
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import {

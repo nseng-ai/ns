@@ -2,7 +2,7 @@
  * pr-previews-specific view helpers: the missing-target message and the narrow
  * inline markdown parser for model-generated check-log summaries. The generic
  * bordered-overlay sizing and detail-pane viewport math live in
- * `../overlay-kit/` (`frame.ts`, `viewport.ts`); import those directly.
+ * `@nseng-ai/pi/terminal/overlay`; import that curated surface directly.
  */
 
 export interface PreviewTargetLocator {

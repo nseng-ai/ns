@@ -10,11 +10,11 @@ export {
 	overlayRenderLayout,
 	overlayTerminalRows,
 	renderOverlayFrame,
-} from "./frame.ts";
-export type { OverlayFrameOptions, OverlayHostOptions } from "./frame.ts";
+} from "./overlay/frame.ts";
+export type { OverlayFrameOptions, OverlayHostOptions } from "./overlay/frame.ts";
 export {
 	sliceWrappedDetailLinesForViewport,
 	wrapDetailLines,
 	wrapDetailLinesForViewport,
-} from "./viewport.ts";
-export type { WrappedDetailViewport, WrappedDetailViewportOptions } from "./viewport.ts";
+} from "./overlay/viewport.ts";
+export type { WrappedDetailViewport, WrappedDetailViewportOptions } from "./overlay/viewport.ts";

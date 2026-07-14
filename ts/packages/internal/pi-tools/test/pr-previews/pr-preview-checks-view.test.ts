@@ -20,7 +20,7 @@ import {
 	PrPreviewChecksView,
 	type PrPreviewChecksViewModel,
 } from "../../src/pr-previews/preview-checks-view.ts";
-import { OVERLAY_MARGIN_ROWS, OVERLAY_MAX_HEIGHT_RATIO } from "../../src/overlay-kit/frame.ts";
+import { OVERLAY_MARGIN_ROWS, OVERLAY_MAX_HEIGHT_RATIO } from "@nseng-ai/pi/terminal/overlay";
 import { identityTheme, taggingTheme } from "./preview-test-themes.ts";
 
 describe("PR checks preview vertical layout", () => {

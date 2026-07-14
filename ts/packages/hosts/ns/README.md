@@ -2,7 +2,7 @@
 
 Checkout-free npm package for the `ns` CLI.
 
-The published package bin points at prebuilt JavaScript (`bin/ns.js`) assembled by the package preparation step. Developer source-checkout shims remain separate from this npm package boundary.
+The source workspace manifest intentionally has no executable because `bin/ns.js` does not exist in a source checkout. The package preparation step adds `bin.ns = bin/ns.js` only to the generated publish manifest and copies the prebuilt JavaScript there. Developer source-checkout shims remain separate from this npm package boundary.
 
 The package also owns the public SDK subpaths for checkout-free consumers, for example `@nseng-ai/ns/sdk` and `@nseng-ai/ns/sdk/*`. The standalone workspace `@nseng-ai/sdk` package remains private and is folded into these `@nseng-ai/ns` subpaths at package-preparation time.
 

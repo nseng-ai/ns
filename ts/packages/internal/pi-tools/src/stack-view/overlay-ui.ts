@@ -35,8 +35,8 @@ import {
 	overlayHostOptions,
 	overlayRenderLayout,
 	renderOverlayFrame,
-} from "../overlay-kit/frame.ts";
-import { sliceWrappedDetailLinesForViewport } from "../overlay-kit/viewport.ts";
+	sliceWrappedDetailLinesForViewport,
+} from "@nseng-ai/pi/terminal/overlay";
 
 const BROWSE_FOOTER =
 	"↑↓/jk move · o open · b copy branch · s summarize · r refresh · PgUp/PgDn scroll · q/esc close";
