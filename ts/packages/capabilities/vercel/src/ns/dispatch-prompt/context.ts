@@ -4,7 +4,8 @@
 // and scenario tests substitute in-memory fakes through
 // `ctx.extensions.dispatch` — the same override pattern the objectives
 // runner commands use.
-import { createNsCommandRunner } from "@nseng-ai/capability-kit/command-runner";
+import { createNsCommandRunner, NsCommandExecApi } from "@nseng-ai/capability-kit/command-runner";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
@@ -27,10 +28,11 @@ export type DispatchCommandOverrides = Partial<DispatchPromptGateways>;
 export function createDispatchPromptContext(ctx: NsExtensionApi): DispatchPromptCliContext {
 	const overrides = readDispatchCommandOverrides(ctx);
 	const runner = createNsCommandRunner(ctx);
+	const localGitFacts = new RealGitGateway(new NsCommandExecApi(ctx));
 	return {
 		cwd: ctx.cwd,
 		gateways: {
-			git: overrides?.git ?? createRealDispatchWorkspaceGitGateway(runner),
+			git: overrides?.git ?? createRealDispatchWorkspaceGitGateway(localGitFacts, runner),
 			anchorPrs: overrides?.anchorPrs ?? createRealDispatchAnchorPrGateway(runner),
 			trigger: overrides?.trigger ?? createRealDispatchTriggerGateway(),
 			tokens: overrides?.tokens ?? createRealDispatchLocalTokenGateway({ env: ctx.env }),

@@ -1,4 +1,3 @@
-import type { CommandRunner, ExecResult } from "@nseng-ai/foundation/command";
 import { describe, expect, test } from "vitest";
 
 import { buildDispatchRunIdStamp } from "../../src/dispatch/run-id-stamp.ts";
@@ -6,22 +5,7 @@ import {
 	createRealDispatchAnchorPrGateway,
 	parseGhPrCreateUrl,
 } from "../../src/ns/dispatch-prompt/real-anchor-pr-gateway.ts";
-
-function exited(overrides: Partial<Extract<ExecResult, { type: "exited" }>> = {}): ExecResult {
-	return { type: "exited", stdout: "", stderr: "", code: 0, signal: null, ...overrides };
-}
-
-function scriptedRunner(responses: readonly ExecResult[]) {
-	const calls: { command: string; args: readonly string[] }[] = [];
-	let index = 0;
-	const runner: CommandRunner = async (command, args) => {
-		calls.push({ command, args: [...args] });
-		const response = responses[index] ?? responses[responses.length - 1];
-		index += 1;
-		return response ?? exited();
-	};
-	return { runner, calls };
-}
+import { exited, ScriptedCommandRunner } from "./support/scripted-command-runner.ts";
 
 describe("anchor PR wire parser", () => {
 	test("parses the PR url printed by gh pr create", () => {
@@ -35,10 +19,10 @@ describe("anchor PR wire parser", () => {
 
 describe("real anchor PR gateway", () => {
 	test("opens the anchor PR through gh and parses the PR url", async () => {
-		const { runner, calls } = scriptedRunner([
+		const commands = new ScriptedCommandRunner([
 			exited({ stdout: "https://github.com/nseng-ai/ns/pull/612\n" }),
 		]);
-		const gateway = createRealDispatchAnchorPrGateway(runner);
+		const gateway = createRealDispatchAnchorPrGateway(commands.run);
 		const result = await gateway.openAnchorPr({
 			cwd: "/repo",
 			anchorBranch: "dispatch/feature-ab12cd34",
@@ -51,8 +35,8 @@ describe("real anchor PR gateway", () => {
 			ok: true,
 			value: { number: 612, url: "https://github.com/nseng-ai/ns/pull/612" },
 		});
-		expect(calls[0]?.command).toBe("gh");
-		expect(calls[0]?.args).toEqual([
+		expect(commands.calls[0]?.command).toBe("gh");
+		expect(commands.calls[0]?.args).toEqual([
 			"pr",
 			"create",
 			"--head",
@@ -67,11 +51,11 @@ describe("real anchor PR gateway", () => {
 	});
 
 	test("stamps the run id by composing the existing PR body", async () => {
-		const { runner, calls } = scriptedRunner([
+		const commands = new ScriptedCommandRunner([
 			exited({ stdout: JSON.stringify({ body: "Existing body." }) }),
 			exited(),
 		]);
-		const gateway = createRealDispatchAnchorPrGateway(runner);
+		const gateway = createRealDispatchAnchorPrGateway(commands.run);
 		const result = await gateway.stampAnchorPrRunId({
 			cwd: "/repo",
 			prNumber: 612,
@@ -79,9 +63,9 @@ describe("real anchor PR gateway", () => {
 		});
 
 		expect(result.ok).toBe(true);
-		expect(calls[0]?.args.slice(0, 3)).toEqual(["pr", "view", "612"]);
-		expect(calls[1]?.args.slice(0, 3)).toEqual(["pr", "edit", "612"]);
-		const editedBody = calls[1]?.args.at(-1);
+		expect(commands.calls[0]?.args.slice(0, 3)).toEqual(["pr", "view", "612"]);
+		expect(commands.calls[1]?.args.slice(0, 3)).toEqual(["pr", "edit", "612"]);
+		const editedBody = commands.calls[1]?.args.at(-1);
 		expect(editedBody).toContain("Existing body.");
 		expect(editedBody).toContain(buildDispatchRunIdStamp("wf-run-1"));
 	});
