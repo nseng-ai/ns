@@ -46,6 +46,68 @@
 			"runner",
 			"ns",
 			"pi"
+		],
+		"publishExtras": [
+			{
+				"kind": "skill",
+				"name": "objective",
+				"sourcePath": "skills/objective",
+				"publishPath": "skills/objective"
+			},
+			{
+				"kind": "skill",
+				"name": "objective-autorun",
+				"sourcePath": "skills/objective-autorun",
+				"publishPath": "skills/objective-autorun"
+			},
+			{
+				"kind": "skill",
+				"name": "objective-close",
+				"sourcePath": "skills/objective-close",
+				"publishPath": "skills/objective-close"
+			},
+			{
+				"kind": "skill",
+				"name": "objective-create",
+				"sourcePath": "skills/objective-create",
+				"publishPath": "skills/objective-create"
+			},
+			{
+				"kind": "skill",
+				"name": "objective-critique",
+				"sourcePath": "skills/objective-critique",
+				"publishPath": "skills/objective-critique"
+			},
+			{
+				"kind": "skill",
+				"name": "objective-next",
+				"sourcePath": "skills/objective-next",
+				"publishPath": "skills/objective-next"
+			},
+			{
+				"kind": "skill",
+				"name": "objective-refresh",
+				"sourcePath": "skills/objective-refresh",
+				"publishPath": "skills/objective-refresh"
+			},
+			{
+				"kind": "skill",
+				"name": "objective-retro",
+				"sourcePath": "skills/objective-retro",
+				"publishPath": "skills/objective-retro"
+			},
+			{
+				"kind": "skill",
+				"name": "objective-runner-step",
+				"sourcePath": "skills/objective-runner-step",
+				"publishPath": "skills/objective-runner-step"
+			},
+			{
+				"kind": "skill",
+				"name": "objective-update",
+				"sourcePath": "skills/objective-update",
+				"publishPath": "skills/objective-update"
+			}
 		]
 	},
 	"peerDependencies": {

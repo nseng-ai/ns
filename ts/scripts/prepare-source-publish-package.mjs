@@ -3,7 +3,12 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { copyObjectivesPublishSkills } from "./objectives-publish-skills.mjs";
+import {
+	copyPublishExtras,
+	filesWithPublishExtras,
+	publishExtrasManifestMetadata,
+	validatePublishExtras,
+} from "./publish-extras.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(scriptDir, "..");
@@ -18,17 +23,20 @@ const workspacePackages = await readWorkspacePackageVersions();
 const catalog = readCatalog(workspaceYaml);
 
 assertPackageCanPublish(sourceManifest);
+const publishExtras = await validatePublishExtras({
+	manifest: sourceManifest,
+	sourceRoot: repoRoot,
+	publishRoot,
+});
 
 await rm(publishRoot, { recursive: true, force: true });
 await mkdir(publishRoot, { recursive: true });
 await cp(resolve(packageRoot, "src"), resolve(publishRoot, "src"), { recursive: true });
 await rewriteSdkImports(resolve(publishRoot, "src"));
 await copyReadmeIfPresent(packageRoot, publishRoot);
-if (sourceManifest.name === "@nseng-ai/objectives") {
-	await copyObjectivesPublishSkills({ repoRoot, publishRoot });
-}
+await copyPublishExtras(publishExtras);
 
-const manifest = buildPublishManifest(sourceManifest);
+const manifest = buildPublishManifest(sourceManifest, publishExtras);
 await writeFile(resolve(publishRoot, "package.json"), `${JSON.stringify(manifest, null, "\t")}\n`);
 
 async function copyReadmeIfPresent(sourceRoot, targetRoot) {
@@ -57,26 +65,22 @@ function assertPackageCanPublish(manifest) {
 	}
 }
 
-function buildPublishManifest(manifest) {
+function buildPublishManifest(manifest, publishExtras) {
 	const output = {
 		name: manifest.name,
 		version: manifest.version,
 		type: manifest.type,
-		files: publishFiles(manifest),
+		files: filesWithPublishExtras(manifest.files, publishExtras),
 		engines: workspaceManifest.engines,
 		publishConfig: { access: "public" },
 		...(manifest.exports === undefined ? {} : { exports: manifest.exports }),
 		...rewriteDependencyBlock("dependencies", manifest.dependencies),
 		...rewriteDependencyBlock("peerDependencies", manifest.peerDependencies),
 		...(manifest.peerDependenciesMeta === undefined ? {} : { peerDependenciesMeta: manifest.peerDependenciesMeta }),
+		...publishExtrasManifestMetadata(publishExtras),
 	};
 	assertNoWorkspaceOrCatalogSpecifiers(output);
 	return output;
-}
-
-function publishFiles(manifest) {
-	if (manifest.name !== "@nseng-ai/objectives") return manifest.files;
-	return [...manifest.files, "skills"];
 }
 
 function rewriteDependencyBlock(key, block) {
