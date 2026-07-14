@@ -44,7 +44,7 @@ describe("ns dispatch prompt", () => {
 			status: "dispatched",
 			revision: FAKE_HEAD_SHA,
 			sourceBranch: "feature/widgets",
-			sourcePushed: true,
+			isSourcePushed: true,
 			anchorBranch: EXPECTED_ANCHOR_BRANCH,
 			anchorPrNumber: 41,
 			anchorPrUrl: "https://github.com/nseng-ai/ns/pull/41",
@@ -90,7 +90,7 @@ describe("ns dispatch prompt", () => {
 
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") return;
-		expect(exit.data).toMatchObject({ status: "dispatched", sourcePushed: false });
+		expect(exit.data).toMatchObject({ status: "dispatched", isSourcePushed: false });
 		expect(gateways.git.sourcePushes).toEqual([]);
 	});
 
@@ -353,5 +353,8 @@ describe("ns dispatch prompt", () => {
 		expect(schemaText).toContain("anchorBranch");
 		expect(schemaText).toContain("anchorPrNumber");
 		expect(schemaText).toContain("anchorPrUrl");
+		expect(schemaText).toContain("isSourcePushed");
+		const retiredKey = ["source", "Pushed"].join("");
+		expect(schemaText).not.toContain(`"${retiredKey}"`);
 	});
 });

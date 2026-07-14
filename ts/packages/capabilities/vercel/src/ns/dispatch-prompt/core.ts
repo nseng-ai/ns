@@ -259,7 +259,7 @@ export type DispatchPromptOutcome =
 			readonly status: "dispatched";
 			readonly revision: string;
 			readonly sourceBranch: string;
-			readonly sourcePushed: boolean;
+			readonly isSourcePushed: boolean;
 			readonly anchorPr: DispatchAnchorPr;
 			readonly runId: string;
 	  }
@@ -339,13 +339,13 @@ export async function executeDispatchPrompt(
 	if (remoteTip.type === "error") {
 		return { status: "source-unusable", code: "git-read-failed", message: remoteTip.error.message };
 	}
-	let sourcePushed = false;
+	let isSourcePushed = false;
 	if (remoteTip.type === "missing" || remoteTip.sha !== headSha) {
 		const push = await gateways.git.pushSourceBranch({ cwd: request.cwd, branch });
 		if (push.ok === false) {
 			return { status: "source-push-failed", sourceBranch: branch, message: push.error.message };
 		}
-		sourcePushed = true;
+		isSourcePushed = true;
 	}
 
 	const anchorBranch = buildAnchorBranchName(branch, gateways.generateAnchorId());
@@ -427,7 +427,7 @@ export async function executeDispatchPrompt(
 		status: "dispatched",
 		revision: runInput.value.revision,
 		sourceBranch: branch,
-		sourcePushed,
+		isSourcePushed,
 		anchorPr,
 		runId,
 	};

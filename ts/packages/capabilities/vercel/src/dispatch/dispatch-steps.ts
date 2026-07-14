@@ -27,6 +27,7 @@ import {
 	type GitHubAppMintConfig,
 	type MintEnvironment,
 } from "../mint/runtime-config.ts";
+import { isSafeSandboxName } from "../sandbox/sandbox-name.ts";
 import type {
 	SupervisionCleanupResult,
 	SupervisionPollResult,
@@ -521,8 +522,4 @@ function createReportGateway(deps: DispatchStepDeps): DispatchReportGateway | nu
 		repository: appConfig.githubRepository,
 		minter: deps.createDispatchTokenMinter(appConfig),
 	});
-}
-
-function isSafeSandboxName(name: string): boolean {
-	return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name);
 }
