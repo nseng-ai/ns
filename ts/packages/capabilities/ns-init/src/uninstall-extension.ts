@@ -6,19 +6,18 @@ import { ALL_HARNESS_IDS } from "@nseng-ai/harness-artifacts/api";
 import { planDeclaredExtensionUninstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
-import {
-	activationCompletedSchema,
-	applyNsActivation,
-	prepareNsActivation,
-} from "./activate-ns.ts";
+import { applyNsActivation, prepareNsActivation } from "./activate-ns.ts";
+import { activationCompletedSchema } from "./activation-outcomes.ts";
 import type { NsActivationContext } from "./activation-context.ts";
 import type { ExtensionUninstallAcquisitionGateway } from "./extension-acquisition.ts";
 import {
 	extensionLifecycleFailure,
-	normalizeExtensionLifecycleDiagnostic,
-	normalizeExtensionLifecycleDiagnostics,
 	prepareExtensionLifecycle,
 } from "./extension-lifecycle-preflight.ts";
+import {
+	normalizeExtensionDiagnostic,
+	normalizeExtensionDiagnostics,
+} from "./diagnostic-collection.ts";
 import {
 	createLifecycleRecorder,
 	lifecycleStepSchema,
@@ -112,7 +111,7 @@ export async function uninstallExtension(
 			message: declaration.message,
 			data: {
 				phase: "preflight",
-				diagnostics: normalizeExtensionLifecycleDiagnostics([diagnostic]),
+				diagnostics: normalizeExtensionDiagnostics([diagnostic]),
 				completed: {},
 			},
 		});
@@ -148,7 +147,7 @@ export async function uninstallExtension(
 				"Extension uninstall preflight failed; no project files or managed packages were changed.",
 			data: {
 				phase: "preflight",
-				diagnostics: normalizeExtensionLifecycleDiagnostics(prepared.diagnostics),
+				diagnostics: normalizeExtensionDiagnostics(prepared.diagnostics),
 				completed: {},
 			},
 		});
@@ -162,7 +161,7 @@ export async function uninstallExtension(
 			message: applied.error.message,
 			data: {
 				phase: applied.phase,
-				error: normalizeExtensionLifecycleDiagnostic(applied.error),
+				error: normalizeExtensionDiagnostic(applied.error),
 				completed: applied.completed,
 			},
 		});
@@ -190,7 +189,7 @@ export async function uninstallExtension(
 			packageName: source.packageName,
 		});
 		if (!removed.ok) {
-			const diagnostic = normalizeExtensionLifecycleDiagnostic(removed.error);
+			const diagnostic = normalizeExtensionDiagnostic(removed.error);
 			return tracedFailure({
 				diagnostic,
 				errorType: "ns-extension-uninstall-managed-package-cleanup-failed",

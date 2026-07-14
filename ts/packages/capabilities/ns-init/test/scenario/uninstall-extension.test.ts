@@ -335,7 +335,7 @@ describe("uninstallExtension", () => {
 			{
 				type: "failure",
 				phase: "activation-preflight",
-				code: "extension_descriptor_invalid",
+				code: "extension-descriptor-invalid",
 				message: "remaining descriptor invalid",
 			},
 		]);

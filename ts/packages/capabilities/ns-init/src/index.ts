@@ -124,8 +124,8 @@ export {
 	renderNsPointerStanza,
 } from "./instruction-block.ts";
 export type { NsActivationContext } from "./activation-context.ts";
+export type { ActivationCompleted } from "./activation-outcomes.ts";
 export type {
-	ActivationCompleted,
 	ActivationDiagnostic,
 	ApplyNsActivationResult,
 	PrepareNsActivationOptions,

@@ -348,6 +348,28 @@ describe("installExtension", () => {
 		},
 	);
 
+	it("uses one canonical diagnostic code in invalid-source responses and lifecycle steps", async () => {
+		const { context, files, acquisition } = fixture({ nsToml: initializedToml });
+
+		const result = await installExtension(context, { cwd: "/repo", source: "npm:" });
+
+		expect(result).toMatchObject({
+			type: "failure",
+			errorType: "ns-extension-install-source-invalid",
+			data: {
+				diagnostics: [{ code: "extension-acquisition-invalid-npm-spec" }],
+				steps: expect.arrayContaining([
+					expect.objectContaining({
+						type: "failure",
+						code: "extension-acquisition-invalid-npm-spec",
+					}),
+				]),
+			},
+		});
+		expect(acquisition.calls()).toEqual([]);
+		expect(files.operations()).toEqual([]);
+	});
+
 	it.each(["git:github/acme/tools@main", "https://example.test/tools.tgz"])(
 		"rejects unsupported source %s before acquisition",
 		async (source) => {
