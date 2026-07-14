@@ -6,25 +6,23 @@ import { ClinkrGroup, failure, ok } from "@nseng-ai/clinkr";
 import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 import { z } from "zod";
 
-import {
-	executeReleasePublication,
-	planFreshRelease,
-	recoverCheckpointingReport,
-	startFreshRelease,
-	validateReleaseResume,
-	type CandidateFileGateway,
-	type CandidatePublicationClassification,
-	type FreshReleaseGateway,
-	type NpmCandidateGateway,
-	type NpmRegistryGateway,
-	type ReleaseCommandGateway,
-	type ReleaseConfirmationGateway,
-	type ReleaseDelay,
-	type ReleaseFailure,
-	type ReleaseReportStore,
-	type ReleaseTransactionReport,
-	type ResumeReleaseGateway,
-} from "../../../../scripts/release-transaction-core.ts";
+import type {
+	CandidateFileGateway,
+	CandidatePublicationClassification,
+	FreshReleaseGateway,
+	NpmCandidateGateway,
+	NpmRegistryGateway,
+	ReleaseCommandGateway,
+	ReleaseConfirmationGateway,
+	ReleaseDelay,
+	ReleaseFailure,
+	ReleaseReportStore,
+	ReleaseTransactionReport,
+	ResumeReleaseGateway,
+} from "./release/contracts.ts";
+import { planFreshRelease, startFreshRelease } from "./release/fresh.ts";
+import { executeReleasePublication } from "./release/publication.ts";
+import { recoverCheckpointingReport, validateReleaseResume } from "./release/resume.ts";
 import {
 	createNodeCandidateFileGateway,
 	createNodeReleaseReportStore,
@@ -35,7 +33,7 @@ import {
 	createSystemReleaseDelay,
 	createSystemResumeReleaseGateway,
 	createTtyReleaseConfirmationGateway,
-} from "../../../../scripts/release-transaction-system.ts";
+} from "./release/system.ts";
 import { repoRoot, workspaceRoot } from "../../../../scripts/public-package-set.mjs";
 
 const verificationDelaysMs = [2_000, 5_000, 10_000, 20_000] as const;
@@ -153,10 +151,7 @@ export async function runReleaseCli(
 	context: ReleaseCliContext,
 	io: Pick<CliEntrypointDeps, "stdout" | "stderr"> = {},
 ): Promise<number> {
-	return await entry.run(
-		args.filter((arg) => arg !== "--"),
-		{ context, ...io },
-	);
+	return await entry.run(args, { context, ...io });
 }
 
 async function runPlan(version: string, context: ReleaseCliContext) {
@@ -276,11 +271,9 @@ async function runTransaction(version: string, context: ReleaseCliContext) {
 			classification: classification.classification,
 		})),
 		writes: [...executed.report.completedWrites],
-		finalStatus: "verified",
+		finalStatus: executed.type === "verified" ? "verified" : "refused",
 	};
-	return executed.type === "verified"
-		? ok(evidence)
-		: releaseFailure({ ...evidence, finalStatus: "verified" }, executed.error);
+	return executed.type === "verified" ? ok(evidence) : releaseFailure(evidence, executed.error);
 }
 
 function evidenceFromReport(
@@ -297,7 +290,7 @@ function evidenceFromReport(
 		candidates: report.candidates.map((candidate) => ({ ...candidate })),
 		classifications: [],
 		writes: [...report.completedWrites],
-		finalStatus: "verified",
+		finalStatus: report.stage === "verified" ? "verified" : "refused",
 	};
 }
 
@@ -314,7 +307,7 @@ function emptyEvidence(
 		candidates: [],
 		classifications: [],
 		writes: [],
-		finalStatus: "verified",
+		finalStatus: "refused",
 	};
 }
 
@@ -343,8 +336,10 @@ export function createSystemReleaseCliContext(): ReleaseCliContext {
 export async function runSystemReleaseCliIfMain(argv: readonly string[]): Promise<void> {
 	const executable = argv[0] ?? "node";
 	const entryPath = argv[1] ?? "release";
+	const executableArgs = argv.slice(2);
+	const normalizedArgs = executableArgs[0] === "--" ? executableArgs.slice(1) : executableArgs;
 	await entry.runIfMain({
 		isImportMetaMain: true,
-		argv: [executable, entryPath, ...argv.slice(2).filter((arg) => arg !== "--")],
+		argv: [executable, entryPath, ...normalizedArgs],
 	});
 }

@@ -3,21 +3,20 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { publicPublishOrder } from "../../../../scripts/public-package-set.mjs";
-import {
-	classifyRegistryPackage,
-	orderedReleaseInventory,
-	prepareFrozenCandidates,
-	recoverCheckpointingReport,
-	validateReleaseResume,
-	type CandidateFileGateway,
-	type CandidateFileState,
-	type NpmCandidateGateway,
-	type OptionalResult,
-	type QualifiedPublishRoot,
-	type ReleaseCandidate,
-	type ReleaseReportStore,
-	type ReleaseTransactionReport,
-} from "../../../../scripts/release-transaction-core.ts";
+import type {
+	CandidateFileGateway,
+	CandidateFileState,
+	NpmCandidateGateway,
+	OptionalResult,
+	QualifiedPublishRoot,
+	ReleaseCandidate,
+	ReleaseReportStore,
+	ReleaseTransactionReport,
+} from "../src/release/contracts.ts";
+import { orderedReleaseInventory, prepareFrozenCandidates } from "../src/release/fresh.ts";
+import { classifyRegistryPackage } from "../src/release/publication.ts";
+import { recoverCheckpointingReport, validateReleaseResume } from "../src/release/resume.ts";
+import { buildReleaseCandidate, buildReleaseReport } from "./release-transaction-builders.ts";
 
 const version = "1.2.3";
 const branch = "release/1.2.3";
@@ -195,6 +194,56 @@ describe("automatic release resume validation", () => {
 		expect(reports.writes).toHaveLength(1);
 	});
 
+	it("uses a stable refusal when the report is not checkpointing", async () => {
+		const report = makeReport();
+		const result = await recoverCheckpointingReport(
+			{
+				reports: new InMemoryReports({ type: "found", value: report }),
+				candidateFiles: new InMemoryCandidateFiles(),
+			},
+			{
+				reportPath: "/release/report.json",
+				currentBranch: branch,
+				headCommit: commit,
+				headParentCommit: "parent-commit",
+				coordinatedVersion: version,
+			},
+		);
+		expect(result).toMatchObject({ type: "refused", code: "report-not-checkpointing" });
+	});
+
+	it("uses a stable refusal when the recovered report cannot be written", async () => {
+		const checkpointingReport: ReleaseTransactionReport = {
+			...makeReport(),
+			release: { branch, commit: "parent-commit", version },
+			stage: "checkpointing",
+		};
+		const result = await recoverCheckpointingReport(
+			{
+				reports: {
+					async read() {
+						return { type: "found" as const, value: checkpointingReport };
+					},
+					async writeAtomic() {
+						return {
+							ok: false as const,
+							error: { code: "report-write-failed", message: "injected" },
+						};
+					},
+				},
+				candidateFiles: new InMemoryCandidateFiles(),
+			},
+			{
+				reportPath: "/release/report.json",
+				currentBranch: branch,
+				headCommit: commit,
+				headParentCommit: "parent-commit",
+				coordinatedVersion: version,
+			},
+		);
+		expect(result).toMatchObject({ type: "refused", code: "recovered-report-write-failed" });
+	});
+
 	it.each([
 		["branch", { currentBranch: "other", headParentCommit: "parent-commit" }, "wrong-branch"],
 		["parent", { currentBranch: branch, headParentCommit: "other" }, "wrong-parent-commit"],
@@ -286,26 +335,22 @@ async function validate(report: ReleaseTransactionReport) {
 }
 
 function makeReport(): ReleaseTransactionReport {
-	return {
-		schemaVersion: 1,
-		release: { branch, commit, version },
-		inventory: [...publicPublishOrder],
+	return buildReleaseReport({
+		version,
+		branch,
+		commit,
+		inventory: publicPublishOrder,
 		candidates: publicPublishOrder.map(makeCandidate),
-		completedWrites: [],
-		pendingWrite: null,
-		stage: "candidates-prepared",
-	};
+	});
 }
 
 function makeCandidate(name: string, order: number): ReleaseCandidate {
-	return {
+	return buildReleaseCandidate({
 		name,
 		version,
-		tarballPath: `/workspace/ts/dist/releases/${version}/${name.replaceAll("/", "-")}.tgz`,
-		integrity: `sha512-${name}`,
-		shasum: `sha1-${name}`,
 		order,
-	};
+		tarballPath: `/workspace/ts/dist/releases/${version}/${name.replaceAll("/", "-")}.tgz`,
+	});
 }
 
 function rootsInReverseOrder(): QualifiedPublishRoot[] {
