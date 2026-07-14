@@ -57,12 +57,24 @@ The production path is intentionally stricter than an ordinary Vercel deploy:
 - Only the explicitly production-named `just dispatch-deploy-prod` target may deploy. Default
   `just`, tests, checks, and `build:deployable` remain local-only and must never reach it
   transitively.
-- The repository must be clean, including untracked files. Otherwise the reported commit SHA
-  would not truthfully identify all deployed source bytes, so deployment fails before build or
-  upload and reports the dirty paths.
+- The repository must be clean, including untracked files. The command captures its exact `HEAD`,
+  creates a temporary detached full-repository Git worktree at that SHA, and builds only there.
+  Otherwise the reported commit SHA would not truthfully identify all deployed source bytes, so
+  deployment fails before build or upload and reports the dirty paths.
+- The detached worktree receives only package-local `.vercel/project.json` and, when present,
+  `.env.local` as operational configuration. It never receives an old `.vercel/output`, arbitrary
+  ignored trees, or live workspace links. Corepack/pnpm installs the package's workspace dependency
+  closure with the frozen repository lockfile before building.
+- After the build, detached `HEAD` must still equal the captured SHA and tracked/untracked status
+  must remain clean. Temporary-worktree cleanup is attempted on every pre-upload exit and, after a
+  successful promotion, before `vercel deploy`. Cleanup failure therefore prevents upload and
+  retains promoted output for diagnosis rather than creating an ambiguous remote side effect.
 - Package-local `.vercel/project.json`, repository-root `.vercel/project.json`, and the
-  `ns.toml` dispatch project/team IDs must agree before promotion. Package-root link, env, and
-  build operations do not change the repository-root prebuilt deployment boundary.
+  `ns.toml` dispatch project/team IDs must agree before promotion. Validation reads package
+  metadata from the operational-input copy used by the detached build and reads `ns.toml` from
+  the captured commit, so later operator-checkout edits cannot change those identities.
+  Package-root link, env, and build operations do not change the repository-root prebuilt
+  deployment boundary.
 - The command never passes credentials on argv and keeps progress and redacted diagnostics on
   stderr. Successful stdout is exactly one bounded JSON object; failure emits no success object.
   With filtered pnpm workspace scripts, `run <script> -- <arg>` forwards the literal `--` to
@@ -126,16 +138,19 @@ identity failures.
    - packages bundled;
    - no external sourcemap assumption.
 6. Rewrite each API `.vc-config.json` to its `.cjs` handler and remove `filePathMap`.
-7. Verify expected versus emitted API function directories.
-8. Verify each configured handler exists and no API config retains `filePathMap`.
-9. Verify the Vercel-emitted relative JavaScript module graph.
-10. Run `workflow validate --strict`.
-11. Run `workflow build --target vercel-build-output-api`.
-12. Verify Workflow artifacts, Queue triggers, source discovery, and route-started workflow
-    IDs.
-13. Merge Workflow routes ahead of the original Vercel routes without accepting unknown
-    Workflow config keys.
-14. Print a bounded inventory summary; never claim live behavior from a local build.
+7. Run `workflow validate --strict`.
+8. Run `workflow build --target vercel-build-output-api`.
+9. Merge Workflow routes ahead of the original Vercel routes without accepting unknown
+   Workflow config keys.
+10. Run `verifyDispatchBuildOutput` once over the final merged output. This is the sole acceptance
+    pass for expected API directories, hermetic handlers, `.js`/`.cjs`/`.mjs` module closure,
+    Workflow artifacts, Queue triggers, source discovery, route-started IDs, and dispatch steps.
+11. Print a bounded inventory summary derived only from that successful verifier result; never
+    claim live behavior from a local build.
+
+Every verifier-owned walk, source/module/config read, and digest read is contained by the exported
+verifier boundary. Filesystem failures resolve as structured `{ ok: false, problems }` diagnostics
+rather than rejecting, with deterministic traversal and digest ordering.
 
 ## API function runtime closure
 
@@ -199,7 +214,8 @@ newly promoted output for diagnosis and retry.
 
 Before promotion:
 
-- the complete build gate passes;
+- the complete build gate passes in the detached exact-SHA source worktree and that worktree is
+  revalidated clean;
 - API configs contain `.cjs` handlers and no `filePathMap`;
 - Workflow unified flow, webhook, manifest, Queue, current-step-inventory, and route-ID checks pass;
 - the output is relocated as one complete inventory, not rebuilt piecemeal.
@@ -214,6 +230,10 @@ just dispatch-verify-prod-health
 
 Authenticated preflight, hello Workflow, Sandbox, and dispatch checks remain separate and
 proceed only under Objective policy.
+
+The same authoritative post-merge verifier runs over staging and the installed destination during
+transactional promotion; there is no second acceptance implementation. Workspace cleanup completes
+before upload.
 
 A CLI transport error after upload is ambiguous. Inspect the returned deployment URL or ID
 before retrying; an earlier `EADDRNOTAVAIL` polling failure still produced a Ready deployment.

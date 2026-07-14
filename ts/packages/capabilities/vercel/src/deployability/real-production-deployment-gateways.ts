@@ -1,5 +1,6 @@
-import { copyFile, lstat, mkdir, readdir, readFile, rename, rm } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { copyFile, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, isAbsolute, join, relative } from "node:path";
 
 import { runCommand } from "@nseng-ai/foundation/exec";
 import { z } from "zod";
@@ -8,7 +9,9 @@ import { parseDispatchProjectConfigToml } from "../api/project-config.ts";
 import { verifyDispatchBuildOutput } from "./output-verifier.ts";
 import type {
 	DispatchProductionConfiguration,
+	PreparedProductionSourceWorkspace,
 	ProductionDeploymentContext,
+	ProductionSourceWorkspaceGateway,
 	VercelDeploymentLocator,
 	VercelDeploymentRecord,
 } from "./production-deployment.ts";
@@ -50,6 +53,18 @@ export const VERCEL_PRODUCTION_DEPLOY_ARGS = [
 	"--format=json",
 ] as const;
 
+export const PRODUCTION_WORKSPACE_INSTALL_ARGS = [
+	"pnpm",
+	"--filter",
+	"@nseng-ai/vercel...",
+	"install",
+	"--frozen-lockfile",
+] as const;
+
+export function productionWorkspaceInstallRoot(worktreeRoot: string): string {
+	return join(worktreeRoot, "ts");
+}
+
 export function vercelInspectArgs(locator: string): readonly string[] {
 	return ["inspect", locator, "--wait", "--timeout", "2m", "--format=json"];
 }
@@ -71,6 +86,47 @@ export interface RealProductionDeploymentOptions {
 	readonly writeDiagnostic: (message: string) => void;
 }
 
+/** Adapter-internal mechanics exposed only for fake-driven boundary tests. */
+export interface ProductionWorkspaceAdapterOperations {
+	createTemporaryParent(): Promise<string>;
+	runCommand(
+		commandName: string,
+		args: readonly string[],
+		cwd: string,
+		diagnostic: (message: string) => void,
+	): Promise<{ readonly ok: boolean; readonly stdout: string }>;
+	makeDirectory(path: string): Promise<void>;
+	copyFile(source: string, destination: string): Promise<void>;
+	readText(path: string): Promise<string>;
+	pathExists(path: string): Promise<boolean>;
+	removeTree(path: string): Promise<void>;
+	promoteBuildOutput(options: {
+		readonly repositoryRoot: string;
+		readonly packageRoot: string;
+	}): ReturnType<typeof promoteDispatchBuildOutput>;
+}
+
+const realProductionWorkspaceOperations: ProductionWorkspaceAdapterOperations = {
+	async createTemporaryParent() {
+		return await mkdtemp(join(tmpdir(), "ns-vercel-production-"));
+	},
+	runCommand: command,
+	async makeDirectory(path) {
+		await mkdir(path, { recursive: true });
+	},
+	async copyFile(source, destination) {
+		await copyFile(source, destination);
+	},
+	async readText(path) {
+		return await readFile(path, "utf8");
+	},
+	pathExists,
+	async removeTree(path) {
+		await rm(path, { recursive: true, force: true });
+	},
+	promoteBuildOutput: promoteDispatchBuildOutput,
+};
+
 export function createRealProductionDeploymentContext(
 	options: RealProductionDeploymentOptions,
 ): ProductionDeploymentContext {
@@ -85,8 +141,9 @@ export function createRealProductionDeploymentContext(
 					repositoryRoot,
 					writeDiagnostic,
 				);
-				if (!status.ok)
+				if (!status.ok) {
 					return { ok: false as const, dirtyPaths: [], message: "Cannot inspect git status." };
+				}
 				const dirtyPaths = status.stdout
 					.split("\n")
 					.filter((line) => line.length > 3)
@@ -110,34 +167,34 @@ export function createRealProductionDeploymentContext(
 				return { ok: true as const, commitSha: sha.stdout.trim() };
 			},
 		},
-		build: {
-			async buildPackageDeployable() {
-				const result = await command(
-					"corepack",
-					["pnpm", "run", "build:deployable"],
-					packageRoot,
-					writeDiagnostic,
-				);
-				return result.ok
-					? { ok: true as const }
-					: { ok: false as const, message: "Package deployable build failed." };
-			},
-		},
+		sourceWorkspaces: createProductionSourceWorkspaceGateway({
+			repositoryRoot,
+			packageRoot,
+			writeDiagnostic,
+		}),
 		configuration: {
-			async readProductionConfiguration() {
+			async readProductionConfiguration(commitSha, packageProject) {
 				try {
+					const sourceConfiguration = await command(
+						"git",
+						["show", `${commitSha}:ns.toml`],
+						repositoryRoot,
+						writeDiagnostic,
+					);
+					if (!sourceConfiguration.ok) {
+						return { ok: false as const, message: "Cannot read ns.toml from captured source." };
+					}
 					return {
 						ok: true as const,
-						value: await readProductionConfiguration(repositoryRoot, packageRoot),
+						value: await readProductionConfiguration(
+							repositoryRoot,
+							sourceConfiguration.stdout,
+							packageProject,
+						),
 					};
 				} catch (error) {
 					return { ok: false as const, message: safeErrorMessage(error) };
 				}
-			},
-		},
-		artifacts: {
-			async promoteVerifiedBuildOutput() {
-				return await promoteDispatchBuildOutput({ repositoryRoot, packageRoot });
 			},
 		},
 		deployments: {
@@ -164,16 +221,18 @@ export function createRealProductionDeploymentContext(
 			async inspectDeployment(locator) {
 				const value =
 					typeof locator === "string" ? locator : (locator.deploymentId ?? locator.deploymentUrl);
-				if (value === undefined)
+				if (value === undefined) {
 					return { ok: false as const, message: "Deployment locator has no id or URL." };
+				}
 				const result = await command(
 					"vercel",
 					vercelInspectArgs(value),
 					repositoryRoot,
 					writeDiagnostic,
 				);
-				if (!result.ok)
+				if (!result.ok) {
 					return { ok: false as const, message: "Vercel deployment inspection failed." };
+				}
 				const parsed = parseVercelInspection(result.stdout);
 				return parsed === undefined
 					? { ok: false as const, message: "Vercel inspect returned malformed JSON." }
@@ -183,15 +242,225 @@ export function createRealProductionDeploymentContext(
 	};
 }
 
+export function createProductionSourceWorkspaceGateway(
+	options: RealProductionDeploymentOptions,
+	operations: ProductionWorkspaceAdapterOperations = realProductionWorkspaceOperations,
+): ProductionSourceWorkspaceGateway {
+	return {
+		async prepareSourceWorkspace(commitSha) {
+			return await prepareDetachedSourceWorkspace({ ...options, commitSha }, operations);
+		},
+	};
+}
+
+interface PrepareDetachedSourceWorkspaceOptions extends RealProductionDeploymentOptions {
+	readonly commitSha: string;
+}
+
+async function prepareDetachedSourceWorkspace(
+	options: PrepareDetachedSourceWorkspaceOptions,
+	operations: ProductionWorkspaceAdapterOperations,
+): Promise<
+	| { readonly ok: true; readonly workspace: PreparedProductionSourceWorkspace }
+	| { readonly ok: false; readonly message: string }
+> {
+	const packageRelativePath = relative(options.repositoryRoot, options.packageRoot);
+	if (
+		packageRelativePath === "" ||
+		packageRelativePath === ".." ||
+		packageRelativePath.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) ||
+		isAbsolute(packageRelativePath)
+	) {
+		return { ok: false, message: "Package root is not inside the production repository." };
+	}
+	let temporaryParent: string;
+	try {
+		temporaryParent = await operations.createTemporaryParent();
+	} catch (error) {
+		return {
+			ok: false,
+			message: `Cannot create temporary production workspace: ${safeErrorMessage(error)}`,
+		};
+	}
+	const worktreeRoot = join(temporaryParent, "source");
+	const isolatedPackageRoot = join(worktreeRoot, packageRelativePath);
+	let isWorktreeAdded = false;
+	try {
+		const added = await operations.runCommand(
+			"git",
+			["worktree", "add", "--detach", worktreeRoot, options.commitSha],
+			options.repositoryRoot,
+			options.writeDiagnostic,
+		);
+		if (!added.ok) throw new Error("Cannot create detached production source worktree.");
+		isWorktreeAdded = true;
+		await provisionOperationalInputs(options.packageRoot, isolatedPackageRoot, operations);
+		const installed = await operations.runCommand(
+			"corepack",
+			PRODUCTION_WORKSPACE_INSTALL_ARGS,
+			productionWorkspaceInstallRoot(worktreeRoot),
+			options.writeDiagnostic,
+		);
+		if (!installed.ok) throw new Error("Cannot install the locked production workspace graph.");
+	} catch (error) {
+		const cleanup = await disposeDetachedWorktree({
+			repositoryRoot: options.repositoryRoot,
+			worktreeRoot,
+			temporaryParent,
+			isWorktreeAdded,
+			writeDiagnostic: options.writeDiagnostic,
+			operations,
+		});
+		return {
+			ok: false,
+			message: `${safeErrorMessage(error)}${cleanup.ok ? "" : ` Cleanup also failed: ${cleanup.message}`}`,
+		};
+	}
+
+	let isDisposed = false;
+	return {
+		ok: true,
+		workspace: {
+			async buildPackageDeployable() {
+				const result = await operations.runCommand(
+					"corepack",
+					["pnpm", "run", "build:deployable"],
+					isolatedPackageRoot,
+					options.writeDiagnostic,
+				);
+				return result.ok
+					? { ok: true as const }
+					: { ok: false as const, message: "Detached package deployable build failed." };
+			},
+			async verifySourceAfterBuild() {
+				const sha = await operations.runCommand(
+					"git",
+					["rev-parse", "HEAD"],
+					worktreeRoot,
+					options.writeDiagnostic,
+				);
+				if (!sha.ok || sha.stdout.trim() !== options.commitSha) {
+					return { ok: false as const, message: "Detached source HEAD changed during build." };
+				}
+				const status = await operations.runCommand(
+					"git",
+					["status", "--porcelain=v1", "--untracked-files=all"],
+					worktreeRoot,
+					options.writeDiagnostic,
+				);
+				if (!status.ok) {
+					return { ok: false as const, message: "Cannot revalidate detached source status." };
+				}
+				if (status.stdout.trim() !== "") {
+					return { ok: false as const, message: "Detached source changed during build." };
+				}
+				return { ok: true as const };
+			},
+			async readPackageProjectIdentity() {
+				try {
+					const project = projectMetadataSchema.parse(
+						JSON.parse(
+							await operations.readText(join(isolatedPackageRoot, ".vercel/project.json")),
+						) as unknown,
+					);
+					return {
+						ok: true as const,
+						value: {
+							projectId: project.projectId,
+							teamId: project.orgId,
+							projectName: project.projectName,
+						},
+					};
+				} catch (error) {
+					return { ok: false as const, message: safeErrorMessage(error) };
+				}
+			},
+			async promoteVerifiedBuildOutput() {
+				return await operations.promoteBuildOutput({
+					repositoryRoot: options.repositoryRoot,
+					packageRoot: isolatedPackageRoot,
+				});
+			},
+			async dispose() {
+				if (isDisposed) return { ok: true as const };
+				const result = await disposeDetachedWorktree({
+					repositoryRoot: options.repositoryRoot,
+					worktreeRoot,
+					temporaryParent,
+					isWorktreeAdded: true,
+					writeDiagnostic: options.writeDiagnostic,
+					operations,
+				});
+				if (result.ok) isDisposed = true;
+				return result;
+			},
+		},
+	};
+}
+
+async function provisionOperationalInputs(
+	operatorPackageRoot: string,
+	isolatedPackageRoot: string,
+	operations: ProductionWorkspaceAdapterOperations,
+): Promise<void> {
+	await operations.makeDirectory(join(isolatedPackageRoot, ".vercel"));
+	await operations.copyFile(
+		join(operatorPackageRoot, ".vercel/project.json"),
+		join(isolatedPackageRoot, ".vercel/project.json"),
+	);
+	const environmentPath = join(operatorPackageRoot, ".env.local");
+	if (await operations.pathExists(environmentPath)) {
+		await operations.copyFile(environmentPath, join(isolatedPackageRoot, ".env.local"));
+	}
+}
+
+async function disposeDetachedWorktree(options: {
+	readonly repositoryRoot: string;
+	readonly worktreeRoot: string;
+	readonly temporaryParent: string;
+	readonly isWorktreeAdded: boolean;
+	readonly writeDiagnostic: (message: string) => void;
+	readonly operations: ProductionWorkspaceAdapterOperations;
+}): Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }> {
+	if (options.isWorktreeAdded) {
+		const removed = await options.operations.runCommand(
+			"git",
+			["worktree", "remove", "--force", options.worktreeRoot],
+			options.repositoryRoot,
+			options.writeDiagnostic,
+		);
+		if (!removed.ok) {
+			return {
+				ok: false,
+				message: `Temporary production worktree cleanup failed at ${options.worktreeRoot}; remediate it before retrying.`,
+			};
+		}
+	}
+	try {
+		await options.operations.removeTree(options.temporaryParent);
+		return { ok: true };
+	} catch (error) {
+		return {
+			ok: false,
+			message: `Temporary production directory cleanup failed at ${options.temporaryParent}: ${safeErrorMessage(error)}`,
+		};
+	}
+}
+
 export function parseVercelDeploymentLocator(source: string): VercelDeploymentLocator | undefined {
 	const parsed = parseJson(source, deployJsonSchema);
 	if (parsed === undefined) return undefined;
 	const deploymentId = parsed.id ?? parsed.deploymentId;
-	const deploymentUrl = parsed.url ?? parsed.deploymentUrl;
+	const urlFields = [parsed.url, parsed.deploymentUrl].filter(
+		(value): value is string => value !== undefined,
+	);
+	const parsedUrls = urlFields.map(parseVercelDeploymentUrl);
+	if (parsedUrls.some((value) => value === undefined)) return undefined;
+	const deploymentUrl = parsedUrls[0];
 	if (deploymentId === undefined && deploymentUrl === undefined) return undefined;
 	return {
 		...(deploymentId === undefined ? {} : { deploymentId }),
-		...(deploymentUrl === undefined ? {} : { deploymentUrl: normalizeHttpsUrl(deploymentUrl) }),
+		...(deploymentUrl === undefined ? {} : { deploymentUrl }),
 	};
 }
 
@@ -199,14 +468,41 @@ export function parseVercelInspection(source: string): VercelDeploymentRecord | 
 	const parsed = parseJson(source, inspectJsonSchema);
 	if (parsed === undefined) return undefined;
 	const deploymentId = parsed.id ?? parsed.deploymentId;
-	const deploymentUrl = parsed.url ?? parsed.deploymentUrl;
+	const urlFields = [parsed.url, parsed.deploymentUrl].filter(
+		(value): value is string => value !== undefined,
+	);
+	const parsedUrls = urlFields.map(parseVercelDeploymentUrl);
+	if (parsedUrls.some((value) => value === undefined)) return undefined;
+	const deploymentUrl = parsedUrls[0];
 	if (deploymentId === undefined || deploymentUrl === undefined) return undefined;
 	const state = (parsed.readyState ?? parsed.status ?? "").toLowerCase();
 	return {
 		deploymentId,
-		deploymentUrl: normalizeHttpsUrl(deploymentUrl),
+		deploymentUrl,
 		status: state === "ready" ? "ready" : "not-ready",
 	};
+}
+
+function parseVercelDeploymentUrl(value: string): string | undefined {
+	if (value !== value.trim() || value.includes("\\")) return undefined;
+	const hasExplicitScheme = /^[A-Za-z][A-Za-z0-9+.-]*:/u.test(value);
+	if (hasExplicitScheme && !/^https:\/\/[^/]/iu.test(value)) return undefined;
+	if (!hasExplicitScheme && /[\s/@?#]/u.test(value)) return undefined;
+	let parsed: URL;
+	try {
+		parsed = new URL(hasExplicitScheme ? value : `https://${value}`);
+	} catch {
+		return undefined;
+	}
+	if (
+		parsed.protocol !== "https:" ||
+		parsed.hostname === "" ||
+		parsed.username !== "" ||
+		parsed.password !== ""
+	) {
+		return undefined;
+	}
+	return parsed.href;
 }
 
 export async function verifyPublicProductionHealth(
@@ -217,8 +513,9 @@ export async function verifyPublicProductionHealth(
 	const url = new URL("/api/health", productionAlias).href;
 	try {
 		const response = await fetch(url, { method: "GET", redirect: "error" });
-		if (!response.ok)
+		if (!response.ok) {
 			return { ok: false, message: `Health endpoint returned HTTP ${response.status}.` };
+		}
 		const payload = healthPayloadSchema.safeParse(await response.json());
 		return payload.success
 			? { ok: true, url }
@@ -230,29 +527,20 @@ export async function verifyPublicProductionHealth(
 
 async function readProductionConfiguration(
 	repositoryRoot: string,
-	packageRoot: string,
+	sourceConfiguration: string,
+	packageProject: DispatchProductionConfiguration["packageProject"],
 ): Promise<DispatchProductionConfiguration> {
-	const packageProject = projectMetadataSchema.parse(
-		JSON.parse(await readFile(join(packageRoot, ".vercel/project.json"), "utf8")) as unknown,
-	);
 	const repositoryProject = projectMetadataSchema.parse(
 		JSON.parse(await readFile(join(repositoryRoot, ".vercel/project.json"), "utf8")) as unknown,
 	);
-	const dispatch = parseDispatchProjectConfigToml(
-		await readFile(join(repositoryRoot, "ns.toml"), "utf8"),
-		"ns.toml",
-	);
+	const dispatch = parseDispatchProjectConfigToml(sourceConfiguration, "ns.toml");
 	if (dispatch.ok === false || dispatch.value.deploymentUrl === undefined) {
 		throw new Error(
 			dispatch.ok ? "ns.toml: dispatch deployment_url is required." : dispatch.error.message,
 		);
 	}
 	return {
-		packageProject: {
-			projectId: packageProject.projectId,
-			teamId: packageProject.orgId,
-			projectName: packageProject.projectName,
-		},
+		packageProject,
 		repositoryProject: {
 			projectId: repositoryProject.projectId,
 			teamId: repositoryProject.orgId,
@@ -354,16 +642,18 @@ export async function promoteDispatchBuildOutput(options: {
 
 async function assertSafeTransactionPath(path: string): Promise<void> {
 	const status = await lstat(path);
-	if (status.isSymbolicLink() || !status.isDirectory())
+	if (status.isSymbolicLink() || !status.isDirectory()) {
 		throw new Error(`${path} is not a safe directory.`);
+	}
 }
 
 async function copyTree(source: string, destination: string): Promise<void> {
 	for (const entry of await readdir(source, { withFileTypes: true })) {
 		const from = join(source, entry.name);
 		const to = join(destination, entry.name);
-		if (entry.isSymbolicLink())
+		if (entry.isSymbolicLink()) {
 			throw new Error(`Build Output contains symlink ${relative(source, from)}.`);
+		}
 		if (entry.isDirectory()) {
 			await mkdir(to);
 			await copyTree(from, to);
@@ -406,9 +696,6 @@ function parseJson<T>(source: string, schema: z.ZodType<T>): T | undefined {
 	}
 }
 
-function normalizeHttpsUrl(value: string): string {
-	return value.startsWith("https://") ? value : `https://${value}`;
-}
 function safeErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : "unknown error";
 }
