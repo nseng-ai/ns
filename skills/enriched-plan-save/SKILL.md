@@ -81,6 +81,13 @@ The saved-plan slug is a local filename locator, not necessarily the later branc
 
 <!-- PLAN-VERIFICATION-WORKSTREAM:END enriched-plan-save-plan-quality -->
 
+Evidence inheritance authoring:
+
+- Identify stable findings intended as inherited evidence and give them provenance or version anchors.
+- List volatile facts and explicit source, excerpt, or symbol anchors to revalidate during implementation.
+- List material questions that remain explicitly unresolved.
+- For non-trivial plans, prefer a compact `## Inherited evidence and revalidation` section using those three categories.
+
 <!-- SYNC: the slug derivation rule and slug-rejected recovery are deliberately duplicated with branch-context-from-plan (standalone step skills); edit both files together. -->
 
 3. Derive `<saved-plan-slug>` from the plan content: kebab-case, 3-7 specific

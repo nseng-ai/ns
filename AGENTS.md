@@ -74,6 +74,10 @@ head -n 200
 
 The ns Pi harness automatically excludes `*.map`, `*.min.js`, and `*.min.css` through a process-scoped ripgrep config. This does not affect ordinary terminal searches or non-Pi harnesses. Use `rg --no-config` only when intentionally searching those generated artifacts.
 
+## Context economy and evidence inheritance
+
+Treat authoritative plans and handoffs as evidence caches: start from their supplied anchors, revalidate volatile state and explicit anchors, and do not repeat captured research or reconnaissance without a named trigger. Subagent findings are evidence for the rest of the session; do not repeat a child's scan in the parent. See `docs/conventions/agent-context-economy.md` for the full policy.
+
 ## Formatting and validation
 
 - `just` is the default repo validation entrypoint. If it reports a `dprint check` formatting failure, run `just dprint-fix` instead of hand-editing formatter output, then rerun validation.

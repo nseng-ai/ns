@@ -337,6 +337,7 @@ describe("buildImplBranchContextPrompt", () => {
 		expect(prompt).toContain(`Bytes: ${new TextEncoder().encode(PLAN_CONTENT).length}`);
 		expect(prompt).toContain("Create an implementation checklist");
 		expect(prompt).toContain("Do not call `brmem put`, `brmem copy`, `brmem delete`");
+		expect(prompt).toContain("## Evidence inheritance");
 		expect(prompt).toContain("## Branch-context plan contract protocol");
 		expect(prompt).toContain(
 			`----- BEGIN ATTACHED PLAN -----\n${PLAN_CONTENT}\n----- END ATTACHED PLAN -----`,
