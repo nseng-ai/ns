@@ -12,6 +12,7 @@ import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import { truncateDisplayLine } from "../terminal/presentation.ts";
 import { withSafePiUi } from "./safe-ui.ts";
 import { createPiCommandExecApi, type RawPiExecApi } from "./command-exec.ts";
+import { SPINNER_FRAMES } from "./spinner-frames.ts";
 import { unrefTimerScheduler } from "./timers.ts";
 
 export const HARNESS_ENV = "PI_DRAFT_HARNESS";
@@ -20,7 +21,6 @@ export const DRAFT_MODEL_ENV = "PI_DRAFT_MODEL";
 export const CLAUDE_CLI_MODEL = "claude-haiku-4-5";
 
 const CLAUDE_CLI_LABEL = "Claude CLI";
-const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const DEFAULT_MAX_TOKENS = 512;
 
 export type DraftHarness = "codex-pi" | "claude-cli";

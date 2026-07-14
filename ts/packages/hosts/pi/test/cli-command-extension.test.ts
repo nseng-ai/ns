@@ -24,6 +24,7 @@ import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
 	type PiExtensionCommandFinishedEvent,
 } from "../src/commands/events.ts";
+import { captureComponentWidgetRenders } from "./support/component-widget-snapshots.ts";
 
 type RegisteredCommand = Parameters<CliCommandExtensionAPI["registerCommand"]>[1];
 type MessageRenderer = Parameters<
@@ -44,7 +45,7 @@ interface StatusUpdate {
 interface WidgetUpdate {
 	key: string;
 	lines: string[] | undefined;
-	placement: string | undefined;
+	placement?: string;
 }
 
 interface ConfirmationPrompt {
@@ -155,16 +156,24 @@ function createContext(
 	}
 	if (options.setWidget ?? true) {
 		ui.setWidget = (key, content, widgetOptions): void => {
-			const lines =
-				content === undefined
-					? undefined
-					: typeof content === "function"
-						? content().render(100)
-						: [...content];
-			widgets.push({
-				key,
-				lines,
-				placement: widgetOptions?.placement,
+			if (content === undefined || Array.isArray(content)) {
+				widgets.push({
+					key,
+					lines: content === undefined ? undefined : [...content],
+					...(widgetOptions?.placement === undefined ? {} : { placement: widgetOptions.placement }),
+				});
+				return;
+			}
+			captureComponentWidgetRenders(content, {
+				onRender: (lines) => {
+					widgets.push({
+						key,
+						lines,
+						...(widgetOptions?.placement === undefined
+							? {}
+							: { placement: widgetOptions.placement }),
+					});
+				},
 			});
 		};
 	}
@@ -1350,7 +1359,7 @@ describe("cli command extension helper", () => {
 		expect(widgets.at(-1)?.lines).toEqual([
 			"/ns:flow:submit (0s elapsed)",
 			"✓ Checkpoint    checkpoint complete",
-			"▸ Submit        running gt submit --no-edit…",
+			"⠋ Submit        running gt submit --no-edit…",
 			"· Verification",
 		]);
 
@@ -1420,7 +1429,7 @@ describe("cli command extension helper", () => {
 		expect(widgets.at(-1)?.lines).toEqual([
 			"/dev:preview-status (0s elapsed)",
 			"✓ discover  finding work",
-			"▸ submit    submitting",
+			"⠋ submit    submitting",
 		]);
 
 		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
@@ -1459,7 +1468,7 @@ describe("cli command extension helper", () => {
 
 		expect(widgets.at(-1)?.lines).toEqual([
 			"/dev:preview-status (0s elapsed)",
-			"▸ Submit  running",
+			"⠋ Submit  running",
 			"  stderr: Pushing branches to remote…",
 		]);
 

@@ -1,4 +1,5 @@
 import { truncatePlain } from "@nseng-ai/foundation/cli-theme";
+import type { WidgetContent } from "@nseng-ai/pi/runtime/tool-types";
 import {
 	compareFleetTasksForDisplay,
 	type SubagentFleetRunSnapshot,
@@ -18,7 +19,7 @@ export interface SubagentFleetDisplayContext {
 		setStatus?(key: string, value: string | undefined): void;
 		setWidget?(
 			key: string,
-			lines: string[] | undefined,
+			lines: WidgetContent | undefined,
 			options?: { placement?: "aboveEditor" | "belowEditor" },
 		): void;
 	};
