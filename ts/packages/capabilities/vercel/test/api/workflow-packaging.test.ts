@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	findDispatchStepInventoryProblems,
 	findMissingTriggerWorkflowManifestIds,
 	findMissingWorkflowFunctionArtifacts,
 	findMissingWorkflowManifestIds,
@@ -195,6 +196,44 @@ describe("findMissingWorkflowManifestIds", () => {
 		expect(findMissingTriggerWorkflowManifestIds(sharedRecordManifest)).toEqual([
 			triggerWorkflowIds.hello,
 		]);
+	});
+});
+
+describe("dispatch step inventory", () => {
+	const currentSteps = {
+		checkHarnessCompletion: { stepId: "step//dispatch//checkHarnessCompletion" },
+		createSandboxAndLaunchHarness: { stepId: "step//dispatch//createSandboxAndLaunchHarness" },
+		failDispatchRun: { stepId: "step//dispatch//failDispatchRun" },
+		pushAnchorBranch: { stepId: "step//dispatch//pushAnchorBranch" },
+		readHarnessResult: { stepId: "step//dispatch//readHarnessResult" },
+		stopSandbox: { stepId: "step//dispatch//stopSandbox" },
+		updateAnchorPrFailed: { stepId: "step//dispatch//updateAnchorPrFailed" },
+		updateAnchorPrLanded: { stepId: "step//dispatch//updateAnchorPrLanded" },
+	};
+
+	it("accepts the exact current dispatch inventory", () => {
+		expect(
+			findDispatchStepInventoryProblems({ steps: { "workflows/dispatch.ts": currentSteps } }),
+		).toEqual({
+			missing: [],
+			retired: [],
+		});
+	});
+
+	it("reports missing current and present retired dispatch names", () => {
+		const incomplete = Object.fromEntries(
+			Object.entries(currentSteps).filter(([name]) => name !== "checkHarnessCompletion"),
+		);
+		expect(
+			findDispatchStepInventoryProblems({
+				steps: {
+					"workflows/dispatch.ts": {
+						...incomplete,
+						launchDispatchStep: { stepId: "step//dispatch//launchDispatchStep" },
+					},
+				},
+			}),
+		).toEqual({ missing: ["checkHarnessCompletion"], retired: ["launchDispatchStep"] });
 	});
 });
 

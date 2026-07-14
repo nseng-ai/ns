@@ -36,6 +36,14 @@ dprint-fix:
 
 fix: dprint-fix ts-format-fix ts-lint-fix
 
+# Explicit production write. Never add this as a dependency of validation recipes.
+dispatch-deploy-prod:
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts --silent --filter @nseng-ai/vercel run deploy:production -- {{justfile_directory()}}
+
+# Read-only public health verification; independent of build and deployment.
+dispatch-verify-prod-health:
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts --silent --filter @nseng-ai/vercel run verify:production-health
+
 ts-install:
     {{ts_pnpm}} --config.strict-dep-builds=false --dir {{justfile_directory()}}/ts install
 

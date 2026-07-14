@@ -20,6 +20,7 @@ import {
 	REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS,
 } from "../src/deployability/gate.ts";
 import { triggerWorkflowIds } from "../src/trigger/workflow-ids.ts";
+import { verifyDispatchBuildOutput } from "../src/deployability/output-verifier.ts";
 
 interface BuildPaths {
 	readonly packageRoot: string;
@@ -289,7 +290,19 @@ async function main(): Promise<boolean> {
 		workflowBuild.vercelBuildConfig,
 		workflow.workflowBuildConfig,
 	);
+	const finalVerification = await verifyDispatchBuildOutput({
+		outputRoot: join(paths.packageRoot, ".vercel/output"),
+		apiSourceRoot: paths.apiSourceRoot,
+		workflowsSourceRoot: paths.workflowsSourceRoot,
+	});
+	if (finalVerification.ok === false) {
+		for (const problem of finalVerification.problems) console.error(problem);
+		return false;
+	}
 	printFinalSummary(api, workflow);
+	console.log(
+		`Verified final Build Output inventory (${finalVerification.fileCount} files, ${finalVerification.digest}).`,
+	);
 	return true;
 }
 

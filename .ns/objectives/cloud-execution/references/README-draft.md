@@ -324,19 +324,25 @@ configured monorepo Root Directory exactly once. The proven setup sequence is:
    secret for new setup. If the legacy variable is already deployed, leave it
    untouched pending human cleanup; the current code and first live dispatch
    ignore it.
-3. From the package directory, run `pnpm build:deployable`. This runs the repo's
-   native TypeScript check, fails on TypeScript diagnostics that Vercel's build
-   may otherwise tolerate, bundles each API handler as runtime-closed CommonJS,
-   removes non-portable `filePathMap` entries, verifies every API handler and
-   Workflow consumer, and merges the final routes. Relocate that complete
-   package-local `.vercel/output` to the repository deployment boundary, retain
-   the linked project metadata, and deploy from the repository root:
+3. From a clean repository root, run the canonical production deployment command:
 
    ```sh
-   vercel deploy --prebuilt --scope <team-slug> --prod --yes
+   just dispatch-deploy-prod
    ```
 
-   Record the explicit HTTPS URL without embedding credentials in it.
+   It refuses tracked or untracked changes so its reported commit SHA remains truthful, runs
+   the package's local `build:deployable` gate, validates linked project identity,
+   transactionally promotes a complete verified Build Output to the repository deployment
+   boundary, deploys the prebuilt output, and verifies the stable alias identifies the returned
+   immutable deployment. Success stdout is one JSON object; progress is stderr. Deployment or
+   alias failure retains the promoted output for diagnosis and an ambiguous upload is inspected
+   before retry rather than automatically duplicated. This command is implemented locally; no
+   newer live deployment is claimed here until an operator runs it and records evidence.
+
+   Package-root link/environment/build operations remain distinct from the repository-root
+   prebuilt deployment boundary. For an optional read-only public check afterward, run
+   `just dispatch-verify-prod-health`. Authenticated preflight and Workflow/Sandbox probes remain
+   separate actions.
 4. From the package directory, refresh the ignored local file with
    `vercel env pull .env.local --environment=development`. This file supplies
    `VERCEL_OIDC_TOKEN` and is ignored by git. Decode only the non-secret claims;

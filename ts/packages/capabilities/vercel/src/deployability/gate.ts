@@ -3,6 +3,11 @@ import { posix } from "node:path";
 import { z } from "zod";
 
 import { triggerWorkflowIds } from "../trigger/workflow-ids.ts";
+import {
+	CURRENT_DISPATCH_STEP_NAMES,
+	DISPATCH_WORKFLOW_SOURCE,
+	RETIRED_DISPATCH_STEP_NAMES,
+} from "../../workflows/dispatch-inventory.ts";
 
 export interface MissingRelativeModuleTarget {
 	readonly sourcePath: string;
@@ -168,6 +173,35 @@ export function findWorkflowSourcesMissingFromManifest(
 const workflowManifestEntrySchema = z.looseObject({
 	workflowId: z.string().optional(),
 });
+
+const workflowStepEntrySchema = z.looseObject({
+	stepId: z.string(),
+});
+
+const workflowStepsManifestSchema = z.looseObject({
+	steps: z.record(z.string(), z.record(z.string(), workflowStepEntrySchema)),
+});
+
+export interface DispatchStepInventoryProblems {
+	readonly missing: readonly string[];
+	readonly retired: readonly string[];
+}
+
+/** Require the exact current package-owned dispatch inventory and reject known stale names. */
+export function findDispatchStepInventoryProblems(
+	manifest: unknown,
+): DispatchStepInventoryProblems {
+	const parsed = workflowStepsManifestSchema.safeParse(manifest);
+	if (!parsed.success) {
+		return { missing: [...CURRENT_DISPATCH_STEP_NAMES], retired: [] };
+	}
+	const dispatchSteps = parsed.data.steps[DISPATCH_WORKFLOW_SOURCE] ?? {};
+	const emittedNames = new Set(Object.keys(dispatchSteps));
+	return {
+		missing: CURRENT_DISPATCH_STEP_NAMES.filter((name) => !emittedNames.has(name)),
+		retired: RETIRED_DISPATCH_STEP_NAMES.filter((name) => emittedNames.has(name)),
+	};
+}
 
 export function findMissingTriggerWorkflowManifestIds(manifest: unknown): readonly string[] {
 	return findMissingWorkflowManifestIds(manifest, Object.values(triggerWorkflowIds));

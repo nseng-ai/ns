@@ -14,9 +14,9 @@ and runs are recorded in `dispatch-live-evidence.md`.
 
 Production deployment `dpl_He9jnMkZmH7fTYg9K3DcHp1mKbds` was promoted from this durable
 contract on 2026-07-14. Its stable alias is `https://ns-dispatch.vercel.app`. The promoted
-inventory contained all four API functions and the required Workflow flow, step, webhook,
-and manifest artifacts. Hello run `wrun_01KXFYJS9N6D2JNTKA6D3B2MYP` completed on that
-deployment.
+inventory contained all four API functions and the then-current Workflow artifacts. Hello
+run `wrun_01KXFYJS9N6D2JNTKA6D3B2MYP` completed on that deployment. The production command
+below is implemented locally but has not yet produced newer live evidence.
 
 ## Project and command roots
 
@@ -34,17 +34,63 @@ Package-local operations run there because it owns `.vercel/project.json`, `.env
 - `pnpm build:deployable`;
 - Workflow CLI inspection and controlled package-owned probes.
 
-The final prebuilt production deployment runs from the repository boundary. The complete
-package-local `.vercel/output` must first be materialized at the repository deployment
-boundary alongside the linked project metadata. Deploy with:
+The final prebuilt production deployment runs from the repository boundary. The canonical
+command builds, verifies, fingerprints, and transactionally promotes the complete
+package-local output before invoking Vercel from that boundary:
 
 ```sh
-vercel deploy --prebuilt --scope <team-slug> --prod --yes
+just dispatch-deploy-prod
 ```
+
+On success it verifies that the stable production alias identifies the returned immutable
+deployment and emits one JSON result on stdout. Progress is stderr. The underlying Vercel
+shape remains `deploy --prebuilt --scope schrockns-projects --prod --yes --format=json`.
 
 Do not run package-local prebuilt deployment while also relying on the configured monorepo
 Root Directory. That caused doubled path resolution. Do not replace the prebuilt path with
 a normal source deployment: a Ready source deployment omitted Workflow consumers.
+
+## Production deployment rules and known foibles
+
+The production path is intentionally stricter than an ordinary Vercel deploy:
+
+- Only the explicitly production-named `just dispatch-deploy-prod` target may deploy. Default
+  `just`, tests, checks, and `build:deployable` remain local-only and must never reach it
+  transitively.
+- The repository must be clean, including untracked files. Otherwise the reported commit SHA
+  would not truthfully identify all deployed source bytes, so deployment fails before build or
+  upload and reports the dirty paths.
+- Package-local `.vercel/project.json`, repository-root `.vercel/project.json`, and the
+  `ns.toml` dispatch project/team IDs must agree before promotion. Package-root link, env, and
+  build operations do not change the repository-root prebuilt deployment boundary.
+- The command never passes credentials on argv and keeps progress and redacted diagnostics on
+  stderr. Successful stdout is exactly one bounded JSON object; failure emits no success object.
+- Vercel CLI JSON is an external, version-sensitive boundary. Parse only the deployment ID,
+  URL, and readiness fields needed for identity verification; malformed or missing identity
+  fails closed rather than weakening the check.
+- A nonzero deploy result can occur after Vercel accepted the upload. If the output includes an
+  inspectable locator, inspect it before retrying; automatically uploading again could create a
+  duplicate deployment. A successful command requires both a Ready immutable deployment and
+  the stable alias resolving to that same deployment ID.
+- Deploy and alias failures retain the newly promoted local Build Output. Only a failure in the
+  local staged promotion restores the previous output. Fixed staging/backup siblings also act
+  as a concurrency and crash-residue guard: ambiguous residue is preserved for manual
+  diagnosis, not silently deleted.
+- Promotion rejects symlinked transaction boundaries, symlinks inside the Build Output, and
+  unsupported path types. The rename sequence prevents partially copied files from becoming
+  the destination, but it is a staged replacement with rollback—not an atomic exchange of two
+  non-empty directories and not a zero-observation-gap promise.
+- Deployment verification is identity-only. Public health is the separate read-only
+  `just dispatch-verify-prod-health` target. Neither target starts a Workflow, creates a
+  Sandbox, pushes a branch, or mutates a PR; authenticated and billable probes remain separate
+  operator actions.
+
+Platform behaviors that forced these rules are easy to miss: Vercel has exited successfully
+while printing TypeScript diagnostics; `filePathMap` passed local source-path checks but did
+not make relocated functions runtime-closed; the Workflow builder overwrites the application
+`config.json`; a normal source deployment became Ready without Workflow consumers; and one
+CLI polling failure occurred after a deployment had already become Ready. The gates below
+encode those incidents instead of trusting a Ready status alone.
 
 ## Build pipeline
 
@@ -98,21 +144,22 @@ graph compatibility rather than assuming ESM and CommonJS bundling are equivalen
 
 ## Workflow artifact contract
 
-The final Build Output must contain at least:
+The beta.34 Workflow v5 Build Output uses one unified ESM flow consumer, not the retired v4
+flow-plus-step pair. It must contain at least:
 
 ```text
-.well-known/workflow/v1/flow.func/index.js
+.well-known/workflow/v1/flow.func/index.mjs
 .well-known/workflow/v1/flow.func/.vc-config.json
-.well-known/workflow/v1/step.func/index.js
-.well-known/workflow/v1/step.func/.vc-config.json
-.well-known/workflow/v1/webhook/[token].func/index.js
+.well-known/workflow/v1/webhook/[token].func/index.mjs
 .well-known/workflow/v1/webhook/[token].func/.vc-config.json
 .well-known/workflow/v1/manifest.json
 ```
 
-The flow and step configs must retain their `queue/v2beta` triggers on the expected Workflow
-topics. Every source carrying a `"use workflow"` directive must appear in the manifest, and
-every workflow started by an HTTP route must have its expected manifest-derived ID.
+The flow config must retain its `queue/v2beta` trigger on `__wkf_workflow_*`. Every source
+carrying a `"use workflow"` directive must appear in the manifest, every route-started
+Workflow ID must be present, and the dispatch manifest must contain the current package-owned
+step names (including `createSandboxAndLaunchHarness` and `checkHarnessCompletion`) while
+rejecting retired `launchDispatchStep`, `pollDispatchStep`, and `landDispatchStep` names.
 
 The Workflow builder overwrites `.vercel/output/config.json`. The build gate captures the
 Vercel config first and merges Workflow routes over the Vercel routes afterward. Neither
@@ -124,20 +171,30 @@ runtime combinations.
 
 ## Promotion checks
 
+Promotion is a staged transactional replacement with rollback, not an atomic exchange of two
+non-empty directories. It copies to a fixed clean staging sibling, verifies and fingerprints
+that inventory, renames the old root output to a backup, installs staging by rename, and
+reverifies the installed digest before removing the backup. A failure during promotion
+restores the old output. A deployment or alias-verification failure deliberately retains the
+newly promoted output for diagnosis and retry.
+
 Before promotion:
 
 - the complete build gate passes;
 - API configs contain `.cjs` handlers and no `filePathMap`;
-- Workflow flow, step, webhook, manifest, Queue, and route-ID checks pass;
+- Workflow unified flow, webhook, manifest, Queue, current-step-inventory, and route-ID checks pass;
 - the output is relocated as one complete inventory, not rebuilt piecemeal.
 
-After promotion:
+The deploy command's default post-promotion verification is identity-only: bounded JSON
+inspection must show that the configured stable alias and returned locator identify the same
+Ready immutable deployment. Public health is a separate read-only opt-in check:
 
-1. `vercel inspect <stable-alias>` identifies the exact deployment and function inventory.
-2. The health route responds.
-3. The authenticated read-only identity preflight succeeds.
-4. A hello Workflow starts and completes on the promoted deployment.
-5. Higher-cost Sandbox or dispatch verification proceeds only under Objective policy.
+```sh
+just dispatch-verify-prod-health
+```
+
+Authenticated preflight, hello Workflow, Sandbox, and dispatch checks remain separate and
+proceed only under Objective policy.
 
 A CLI transport error after upload is ambiguous. Inspect the returned deployment URL or ID
 before retrying; an earlier `EADDRNOTAVAIL` polling failure still produced a Ready deployment.
