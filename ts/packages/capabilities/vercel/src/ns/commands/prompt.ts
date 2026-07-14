@@ -61,7 +61,7 @@ export const dispatchPromptCommand: NsCommand = createNsDomainCommand({
 	name: "prompt",
 	summary: "Dispatch a prompt to run remotely against your branch head.",
 	description:
-		"Dispatch a raw prompt as a remote unit of work. Requires a clean worktree; pushes your current branch first when the remote is missing or behind, pushes a new dispatch/ anchor branch at your exact head commit, opens the anchor pull request up front on your own credentials, starts the dispatch workflow through the configured deployment, and stamps the workflow run id on the anchor PR. Results land on the anchor PR when the run completes. The execution backend comes from the repo-root ns.toml [dispatch] table.",
+		"Dispatch a raw prompt as a remote unit of work. Requires a clean worktree; pushes your current branch first when the remote is missing or behind, initializes a new dispatch/ anchor branch from your exact head commit, opens the anchor pull request up front on your own credentials, starts the dispatch workflow through the configured deployment, and stamps the workflow run id on the anchor PR. Results land on the anchor PR when the run completes. The execution backend comes from the repo-root ns.toml [dispatch] table.",
 	schema: dispatchPromptRequestSchema,
 	resultSchema: dispatchPromptResultSchema,
 	positionals: { prompt: { position: 0 } },

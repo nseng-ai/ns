@@ -51,7 +51,7 @@ export interface DispatchWorkspaceGitGateway {
 		readonly cwd: string;
 		readonly branch: string;
 	}): Promise<DispatchGitOperationResult>;
-	/** Push the exact dispatched revision to the new anchor branch ref. */
+	/** Create a metadata-only child commit of the dispatched revision and push it as the anchor. */
 	pushAnchorBranch(options: {
 		readonly cwd: string;
 		readonly revision: string;
