@@ -5,7 +5,6 @@ import {
 	type NsCliDeps,
 	type PreinstalledNsCommandCatalog,
 	type PreinstalledNsExtensionRegistration,
-	NS_BUILT_IN_HELP_GROUP,
 } from "@nseng-ai/sdk/cli";
 import { createRealNsCommandContext } from "@nseng-ai/sdk/context";
 import nsInitExtension from "@nseng-ai/ns-init/ns-extension";
@@ -38,16 +37,11 @@ const preinstalledExtensionRegistrations = [
 		packageName: "@nseng-ai/ns-init",
 		descriptor: nsInitExtension,
 		displayPath: "@nseng-ai/ns-init/ns-extension",
-		helpGroup: NS_BUILT_IN_HELP_GROUP,
 	},
 	{
 		packageName: "@nseng-ai/harness-artifacts",
 		descriptor: harnessArtifactsExtension,
 		displayPath: "@nseng-ai/harness-artifacts/ns-extension",
-		entryHelpGroup: (entry, segments) =>
-			"load" in entry && entry.name === "update" && segments.length === 1
-				? NS_BUILT_IN_HELP_GROUP
-				: undefined,
 	},
 ] as const satisfies readonly PreinstalledNsExtensionRegistration[];
 

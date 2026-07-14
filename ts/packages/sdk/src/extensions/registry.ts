@@ -21,6 +21,7 @@ import {
 import { NS_COMMAND_NAME_PATTERN, NS_COMMAND_NAME_RULE } from "../sdk/command-name.ts";
 import { nextDescriptorTraversalState } from "./descriptor-traversal.ts";
 import { loadDeclaredExtensionDescriptors } from "./declared-descriptors.ts";
+import { NS_BUILT_IN_HELP_GROUP } from "./help-presentation.ts";
 import { loadExtensionDescriptorFromPackageRoot } from "../project-config/extension-package-descriptor.ts";
 import { loadNsExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import {
@@ -93,7 +94,12 @@ export interface ExtensionOverrideDiagnostic {
 }
 
 export type SelectedNsCommandLoadResult =
-	| { ok: true; command: DescriptorCommand; source: ExtensionSourceInfo; path: NsCommandPath }
+	| {
+			ok: true;
+			command: DescriptorCommand;
+			source: ExtensionSourceInfo;
+			path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup">;
+	  }
 	| { ok: false; diagnostic: ExtensionErrorDiagnostic };
 
 export interface DiagnosticClassification {
@@ -203,7 +209,7 @@ export async function loadNsCommandCatalog(
 					overridingSource: candidate.source,
 				});
 			}
-			merged.set(key, candidate);
+			merged.set(key, inheritHelpGroup(candidate, existing));
 		}
 	}
 
@@ -315,7 +321,11 @@ function shouldLoadListingCandidate(
 export function commandInfosForSelectedCommand(
 	commandInfos: readonly NsCommandCliInfo[],
 	loaded:
-		| { command: DescriptorCommand; source: ExtensionSourceInfo; path: NsCommandPath }
+		| {
+				command: DescriptorCommand;
+				source: ExtensionSourceInfo;
+				path: NsCommandPath & Pick<NsCommandCliInfo, "helpGroup">;
+		  }
 		| undefined,
 ): readonly NsCommandCliInfo[] {
 	if (loaded === undefined) return commandInfos;
@@ -552,7 +562,9 @@ async function loadPreinstalledCandidates(
 	);
 	return {
 		diagnostics: sourceDevCandidates.diagnostics,
-		candidates: [...catalogCandidates, ...sourceDevCandidates.candidates],
+		candidates: [...catalogCandidates, ...sourceDevCandidates.candidates].map(
+			withDefaultPreinstalledHelpGroup,
+		),
 		extensionPackageNames: [
 			...catalog.extensionPackageNames,
 			...sourceDevCandidates.extensionPackageNames,
@@ -715,6 +727,21 @@ function emptyLoadedCatalogFragment(
 	diagnostics: readonly ExtensionDiagnostic[] = [],
 ): LoadedCatalogFragment {
 	return { diagnostics, candidates: [], extensionPackageNames: [] };
+}
+
+function withDefaultPreinstalledHelpGroup(
+	candidate: ExtensionCommandCandidate,
+): ExtensionCommandCandidate {
+	if (candidate.helpGroup !== undefined) return candidate;
+	return { ...candidate, helpGroup: NS_BUILT_IN_HELP_GROUP };
+}
+
+function inheritHelpGroup(
+	candidate: ExtensionCommandCandidate,
+	overridden: ExtensionCommandCandidate | undefined,
+): ExtensionCommandCandidate {
+	if (candidate.helpGroup !== undefined || overridden?.helpGroup === undefined) return candidate;
+	return { ...candidate, helpGroup: overridden.helpGroup };
 }
 
 function candidatesWithSatisfiedRequirements(

@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 
 import { defineRawCommand, noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/sdk";
 import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
+import { NS_BUILT_IN_HELP_GROUP } from "../../src/extensions/help-presentation.ts";
 import {
 	extensionDescriptorToPreinstalledCatalog,
 	preinstalledNsCommandCatalogFromRegistrations,
@@ -29,6 +30,7 @@ const builtInCommandInfos = [
 		name: "point",
 		description: "Show one ns point definition and its active source.",
 		fullDescription: "Show one ns point definition and its active source.",
+		helpGroup: NS_BUILT_IN_HELP_GROUP,
 	},
 	{
 		segments: ["extension", "points"],
@@ -36,6 +38,7 @@ const builtInCommandInfos = [
 		name: "points",
 		description: "List defined ns points and their active sources.",
 		fullDescription: "List defined ns points and their active sources.",
+		helpGroup: NS_BUILT_IN_HELP_GROUP,
 	},
 ] as const;
 
@@ -115,6 +118,7 @@ describe("extension registry", () => {
 			expect.objectContaining({
 				name: "optional",
 				requiresExtension: "@example/provider",
+				helpGroup: NS_BUILT_IN_HELP_GROUP,
 			}),
 		]);
 	});
@@ -384,8 +388,16 @@ export default defineExtension({
 		expect(listing.diagnostics).toEqual([]);
 		expect(listing.commandInfos).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ name: "one", description: "one summary" }),
-				expect.objectContaining({ name: "two", description: "two summary" }),
+				expect.objectContaining({
+					name: "one",
+					description: "one summary",
+					helpGroup: NS_BUILT_IN_HELP_GROUP,
+				}),
+				expect.objectContaining({
+					name: "two",
+					description: "two summary",
+					helpGroup: NS_BUILT_IN_HELP_GROUP,
+				}),
 			]),
 		);
 	});
@@ -480,6 +492,66 @@ export default defineExtension({
 		expect(loaded.candidates.has("good/scan")).toBe(true);
 		expect(loaded.diagnostics).toEqual(
 			expect.arrayContaining([expect.objectContaining({ code: "extension_descriptor_invalid" })]),
+		);
+	});
+
+	test("project overrides preserve distribution help presentation and project provenance", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		writeWorkspaceFile(
+			join(workspace.cwd, "ns.toml"),
+			'extensions = ["./extensions/direct", "./extensions/nested"]\n',
+		);
+		writeDescriptorPackage({
+			cwd: workspace.cwd,
+			directoryName: "direct",
+			packageName: "@example/direct",
+			descriptorSource: `
+import { defineExtension } from "@nseng-ai/sdk";
+const command = { name: "hello", summary: "Project hello.", description: "Project hello.", run: () => ({ type: "ok", data: {} }) };
+export default defineExtension({ description: "Direct commands.", entries: [{ name: "hello", load: () => ({ default: command }) }] });
+`,
+		});
+		writeDescriptorPackage({
+			cwd: workspace.cwd,
+			directoryName: "nested",
+			packageName: "@example/nested",
+			descriptorSource: `
+import { defineExtension } from "@nseng-ai/sdk";
+const command = { name: "point", summary: "Project point.", description: "Project point.", run: () => ({ type: "ok", data: {} }) };
+export default defineExtension({ group: "extension", description: "Extension commands.", entries: [{ name: "point", load: () => ({ default: command }) }] });
+`,
+		});
+
+		const loaded = await loadNsCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+			preinstalledCommandCatalog: () =>
+				preinstalledCatalog([
+					{
+						name: "hello",
+						description: "Distribution hello.",
+						fullDescription: "Distribution hello.",
+						moduleSpecifier: "@example/distribution/hello",
+					},
+				]),
+		});
+
+		expect(loaded.candidates.get("hello")).toMatchObject({
+			source: { level: "project" },
+			helpGroup: NS_BUILT_IN_HELP_GROUP,
+		});
+		expect(loaded.candidates.get("extension/point")).toMatchObject({
+			source: { level: "project" },
+			helpGroup: NS_BUILT_IN_HELP_GROUP,
+		});
+		expect(loaded.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ code: "extension_command_override", commandName: "hello" }),
+				expect.objectContaining({
+					code: "extension_command_override",
+					commandName: "extension/point",
+				}),
+			]),
 		);
 	});
 
@@ -664,13 +736,14 @@ export default defineExtension({
 				run: () => ok("hello"),
 			},
 			"project",
-			{ name: "hello" },
+			{ name: "hello", helpGroup: "Examples:" },
 		);
 
 		expect(info).toEqual({
 			name: "hello",
 			description: "Say hello.",
 			fullDescription: "Say hello.\n\nWith details.",
+			helpGroup: "Examples:",
 		});
 	});
 

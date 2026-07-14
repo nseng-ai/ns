@@ -77,6 +77,10 @@ import {
 	type NsCommandPath,
 } from "../extensions/command-registry.ts";
 import { parsedSpecForCommand } from "../sdk/command.ts";
+import {
+	NS_BUILT_IN_HELP_GROUP,
+	NS_EXTENSION_HELP_GROUP,
+} from "../extensions/help-presentation.ts";
 
 export type { NsCliBaseContext, NsCliContext } from "./context.ts";
 export type { NsCommandInfo } from "../extensions/command-registry.ts";
@@ -267,8 +271,14 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 			runtimeInfo,
 		});
 		const groups = new Map<string, ClinkrGroup<NsCliContext>>();
+		const topLevelHelpGroups = resolveTopLevelHelpGroups(buildState.commandInfos);
 		for (const commandInfo of buildState.commandInfos) {
-			const parent = groupForCommand(root, groups, commandInfo);
+			const parent = groupForCommand(root, groups, commandInfo, topLevelHelpGroups);
+			const topLevelSegment = commandSegments(commandInfo)[0];
+			const helpGroup =
+				topLevelSegment === undefined
+					? NS_EXTENSION_HELP_GROUP
+					: (topLevelHelpGroups.get(topLevelSegment) ?? NS_EXTENSION_HELP_GROUP);
 			const selectedCommand =
 				buildState.selectedCommandPath !== undefined &&
 				commandPathMatches(buildState.selectedCommandPath, commandInfo)
@@ -308,7 +318,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 								completionProvider: (ctx: NsCliContext, request: ClinkrDynamicCompletionRequest) =>
 									parsedCommandSpec.completionProvider?.(ctx.context, request) ?? [],
 							}),
-					...optionalEntries({ helpGroup: commandInfo.helpGroup }),
+					helpGroup,
 					handler: async (ctx, request) => {
 						try {
 							return validateCommandExit(
@@ -334,7 +344,7 @@ const entryOptions: DefineCliOptions<NsCliContext, NsCliDeps, NsCliBuildState> =
 								positionals: { argv: { position: 0 } },
 								shouldPassThrough: true,
 							}),
-					...optionalEntries({ helpGroup: commandInfo.helpGroup }),
+					...optionalEntries({ helpGroup }),
 					...(command?.complete === undefined
 						? {}
 						: {
@@ -610,8 +620,7 @@ function commandPathArgs(args: readonly string[]): readonly string[] {
 }
 
 const NS_EXEC_GROUP_NAME = "exec";
-export const NS_BUILT_IN_HELP_GROUP = "Built-ins:";
-const NS_EXTENSION_HELP_GROUP = "Extensions:";
+export { NS_BUILT_IN_HELP_GROUP } from "../extensions/help-presentation.ts";
 
 function buildNsCompletionGroup(): ClinkrGroup<NsCliContext> {
 	const completion = new ClinkrGroup<NsCliContext>({
@@ -739,6 +748,7 @@ function groupForCommand(
 	root: ClinkrGroup<NsCliContext>,
 	groupCache: Map<string, ClinkrGroup<NsCliContext>>,
 	commandInfo: NsCommandCliInfo,
+	topLevelHelpGroups: ReadonlyMap<string, string>,
 ): ClinkrGroup<NsCliContext> {
 	const displaySegments = commandSegments(commandInfo);
 	const parentSegments = displaySegments.slice(0, -1);
@@ -756,7 +766,9 @@ function groupForCommand(
 		const group = new ClinkrGroup<NsCliContext>({
 			name: segment,
 			description: groupDescription(currentSegments, commandInfo),
-			...(index === 0 ? { helpGroup: NS_EXTENSION_HELP_GROUP } : {}),
+			...(index === 0
+				? { helpGroup: topLevelHelpGroups.get(segment) ?? NS_EXTENSION_HELP_GROUP }
+				: {}),
 			...(isHiddenCommandGroup(currentSegments, commandInfo) ? { isHidden: true } : {}),
 		});
 		groupCache.set(groupKey, group);
@@ -764,6 +776,27 @@ function groupForCommand(
 		parent = group;
 	}
 	return parent;
+}
+
+function resolveTopLevelHelpGroups(
+	commandInfos: readonly NsCommandCliInfo[],
+): ReadonlyMap<string, string> {
+	const explicitGroupsBySegment = new Map<string, Set<string>>();
+	for (const commandInfo of commandInfos) {
+		const topLevelSegment = commandSegments(commandInfo)[0];
+		if (topLevelSegment === undefined) continue;
+		const explicitGroups = explicitGroupsBySegment.get(topLevelSegment) ?? new Set<string>();
+		if (commandInfo.helpGroup !== undefined) explicitGroups.add(commandInfo.helpGroup);
+		explicitGroupsBySegment.set(topLevelSegment, explicitGroups);
+	}
+	return new Map(
+		[...explicitGroupsBySegment.entries()].map(([segment, explicitGroups]) => {
+			if (explicitGroups.has(NS_BUILT_IN_HELP_GROUP)) {
+				return [segment, NS_BUILT_IN_HELP_GROUP];
+			}
+			return [segment, [...explicitGroups].sort()[0] ?? NS_EXTENSION_HELP_GROUP];
+		}),
+	);
 }
 
 function isHiddenCommandGroup(segments: readonly string[], commandInfo: NsCommandCliInfo): boolean {

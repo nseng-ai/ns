@@ -32,6 +32,16 @@ async function createEmptyProject(): Promise<string> {
 	return directory;
 }
 
+function helpSection(help: string, heading: string): string {
+	const start = help.indexOf(`${heading}\n`);
+	if (start === -1) return "";
+	const sectionStart = start + heading.length + 1;
+	const nextHeading = help.slice(sectionStart).search(/^\S[^\n]*:\n/m);
+	return nextHeading === -1
+		? help.slice(sectionStart)
+		: help.slice(sectionStart, sectionStart + nextHeading);
+}
+
 async function createDescriptorProject(
 	commandName: string,
 	commandSource: string,
@@ -84,10 +94,30 @@ export default {
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("hello");
-		expect(help).toContain("Say hello from help.");
+		expect(helpSection(help, "Extensions:")).toContain("hello");
+		expect(helpSection(help, "Extensions:")).toContain("Say hello from help.");
+		expect(helpSection(help, "Built-ins:")).not.toContain("hello");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("project contribution to a shipped namespace stays in built-in help", async () => {
+		const cwd = await createEmptyProject();
+		writeDescriptorPackage(cwd, ["aaa"], { group: "extension" });
+		writeDescriptorCommand(
+			cwd,
+			"aaa",
+			`import { ok } from "@nseng-ai/sdk";
+export default { name: "aaa", summary: "Earlier project extension command.", description: "Earlier project extension command.", run() { return ok({}); } };
+`,
+		);
+		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
+
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(helpSection(help, "Built-ins:")).toContain("extension");
+		expect(help).not.toContain("Extensions:");
+		expect(run.stderr.join("")).toBe("");
 	});
 
 	test("throwing direct command keeps placeholder in top-level help and warns", async () => {
@@ -262,7 +292,7 @@ async function createThrowingDescriptorProject(commandName: string): Promise<str
 function writeDescriptorPackage(
 	cwd: string,
 	commandNames: readonly string[],
-	options: { entriesSource?: string } = {},
+	options: { entriesSource?: string; group?: string } = {},
 ): void {
 	writeFileSyncWithParents(join(cwd, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
 	writePackageManifest(cwd, "tools");
@@ -278,6 +308,7 @@ function writeDescriptorPackage(
 		join(cwd, "extensions", "tools", "src", "ns", "extension.ts"),
 		`import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
+	${options.group === undefined ? "" : `group: ${JSON.stringify(options.group)},`}
 	description: "Project test tools.",
 	entries: [
 		${entries},

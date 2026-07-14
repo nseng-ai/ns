@@ -52,6 +52,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function helpSection(help: string, heading: string): string {
+	const start = help.indexOf(`${heading}\n`);
+	if (start === -1) return "";
+	const sectionStart = start + heading.length + 1;
+	const nextHeading = help.slice(sectionStart).search(/^\S[^\n]*:\n/m);
+	return nextHeading === -1
+		? help.slice(sectionStart)
+		: help.slice(sectionStart, sectionStart + nextHeading);
+}
+
 async function exportedNames(path: string): Promise<readonly string[]> {
 	const content = await readFile(path, "utf8");
 	return [...declaredExportNames(content), ...namedReExportNames(content)].sort();
@@ -122,12 +132,12 @@ describe("ns CLI host", () => {
 		});
 
 		const help = stdout.join("");
+		const builtIns = helpSection(help, "Built-ins:");
 		expect(exit).toBe(0);
-		expect(help).toContain("Built-ins:");
-		expect(help).toContain("  shell");
-		expect(help).toContain("  completion");
-		expect(help).toContain("  init");
-		expect(help).toContain("  update");
+		for (const command of ["init", "update", "shell", "completion", "extension", "skills"]) {
+			expect(builtIns).toMatch(new RegExp(`^  ${command}(?:\\s|$)`, "m"));
+		}
+		expect(help).not.toContain("Extensions:");
 		expect(help).not.toContain("\nCommands:\n");
 		expect(stderr.join("")).toBe("");
 	});
