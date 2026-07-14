@@ -60,20 +60,28 @@ export interface FakeWorkspaceGitState {
 }
 
 export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGateway {
+	readonly sourceRefReads: string[] = [];
+	readonly dirtyPathReads: string[] = [];
 	readonly remoteTipReads: Array<{ cwd: string; branch: string }> = [];
 	readonly sourcePushes: string[] = [];
 	readonly anchorPushes: { revision: string; anchorBranch: string }[] = [];
 	private readonly state: FakeWorkspaceGitState;
+	private readonly recordOperation: (operation: string) => void;
 
-	constructor(state: FakeWorkspaceGitState = {}) {
+	constructor(state: FakeWorkspaceGitState = {}, recordOperation = (_operation: string) => {}) {
 		this.state = { ...state, dirtyPaths: [...(state.dirtyPaths ?? [])] };
+		this.recordOperation = recordOperation;
 	}
 
 	private headSha(): string {
 		return this.state.headSha ?? FAKE_HEAD_SHA;
 	}
 
-	async resolveSourceRef(): ReturnType<DispatchWorkspaceGitGateway["resolveSourceRef"]> {
+	async resolveSourceRef(options: {
+		readonly cwd: string;
+	}): ReturnType<DispatchWorkspaceGitGateway["resolveSourceRef"]> {
+		this.sourceRefReads.push(options.cwd);
+		this.recordOperation("git:resolve-source-ref");
 		if (this.state.isNotARepository === true) {
 			return {
 				ok: false,
@@ -96,7 +104,11 @@ export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGate
 		};
 	}
 
-	async listDirtyPaths(): ReturnType<DispatchWorkspaceGitGateway["listDirtyPaths"]> {
+	async listDirtyPaths(options: {
+		readonly cwd: string;
+	}): ReturnType<DispatchWorkspaceGitGateway["listDirtyPaths"]> {
+		this.dirtyPathReads.push(options.cwd);
+		this.recordOperation("git:list-dirty-paths");
 		return { ok: true, value: [...(this.state.dirtyPaths ?? [])] };
 	}
 
@@ -105,6 +117,7 @@ export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGate
 		readonly branch: string;
 	}): Promise<DispatchRemoteBranchTipResult> {
 		this.remoteTipReads.push({ ...options });
+		this.recordOperation("git:read-remote-tip");
 		return this.state.remoteTip ?? { type: "found", sha: this.headSha() };
 	}
 
@@ -112,9 +125,9 @@ export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGate
 		readonly cwd: string;
 		readonly branch: string;
 	}): Promise<DispatchGitOperationResult> {
-		const result = this.state.sourcePushResult ?? { ok: true };
-		if (result.ok) this.sourcePushes.push(options.branch);
-		return result;
+		this.sourcePushes.push(options.branch);
+		this.recordOperation("git:push-source");
+		return this.state.sourcePushResult ?? { ok: true };
 	}
 
 	async pushAnchorBranch(options: {
@@ -122,11 +135,9 @@ export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGate
 		readonly revision: string;
 		readonly anchorBranch: string;
 	}): Promise<DispatchGitOperationResult> {
-		const result = this.state.anchorPushResult ?? { ok: true };
-		if (result.ok) {
-			this.anchorPushes.push({ revision: options.revision, anchorBranch: options.anchorBranch });
-		}
-		return result;
+		this.anchorPushes.push({ revision: options.revision, anchorBranch: options.anchorBranch });
+		this.recordOperation("git:push-anchor");
+		return this.state.anchorPushResult ?? { ok: true };
 	}
 }
 
@@ -146,9 +157,11 @@ export class FakeDispatchAnchorPrGateway implements DispatchAnchorPrGateway {
 	}[] = [];
 	readonly stamps: { prNumber: number; runId: string }[] = [];
 	private readonly state: FakeAnchorPrState;
+	private readonly recordOperation: (operation: string) => void;
 
-	constructor(state: FakeAnchorPrState = {}) {
+	constructor(state: FakeAnchorPrState = {}, recordOperation = (_operation: string) => {}) {
 		this.state = state;
+		this.recordOperation = recordOperation;
 	}
 
 	async openAnchorPr(options: {
@@ -158,14 +171,15 @@ export class FakeDispatchAnchorPrGateway implements DispatchAnchorPrGateway {
 		readonly title: string;
 		readonly body: string;
 	}): ReturnType<DispatchAnchorPrGateway["openAnchorPr"]> {
-		if (this.state.openResult !== undefined) return this.state.openResult;
-		const number = this.state.prNumber ?? 41;
 		this.opened.push({
 			anchorBranch: options.anchorBranch,
 			baseBranch: options.baseBranch,
 			title: options.title,
 			body: options.body,
 		});
+		this.recordOperation("anchor-pr:open");
+		if (this.state.openResult !== undefined) return this.state.openResult;
+		const number = this.state.prNumber ?? 41;
 		return {
 			ok: true,
 			value: {
@@ -180,9 +194,9 @@ export class FakeDispatchAnchorPrGateway implements DispatchAnchorPrGateway {
 		readonly prNumber: number;
 		readonly runId: string;
 	}): Promise<DispatchGitOperationResult> {
-		const result = this.state.stampResult ?? { ok: true };
-		if (result.ok) this.stamps.push({ prNumber: options.prNumber, runId: options.runId });
-		return result;
+		this.stamps.push({ prNumber: options.prNumber, runId: options.runId });
+		this.recordOperation("anchor-pr:stamp-run-id");
+		return this.state.stampResult ?? { ok: true };
 	}
 }
 
@@ -195,15 +209,18 @@ export class FakeDispatchTriggerGateway implements DispatchTriggerGateway {
 	readonly identityCalls: DispatchTriggerConnection[] = [];
 	readonly startCalls: { connection: DispatchTriggerConnection; input: DispatchRunInput }[] = [];
 	private readonly state: FakeTriggerState;
+	private readonly recordOperation: (operation: string) => void;
 
-	constructor(state: FakeTriggerState = {}) {
+	constructor(state: FakeTriggerState = {}, recordOperation = (_operation: string) => {}) {
 		this.state = state;
+		this.recordOperation = recordOperation;
 	}
 
 	async checkTriggerIdentity(options: {
 		readonly connection: DispatchTriggerConnection;
 	}): Promise<DispatchTriggerIdentityResult> {
 		this.identityCalls.push({ ...options.connection });
+		this.recordOperation("trigger:check-identity");
 		return this.state.identity ?? { type: "authorized" };
 	}
 
@@ -215,18 +232,27 @@ export class FakeDispatchTriggerGateway implements DispatchTriggerGateway {
 			connection: { ...options.connection },
 			input: { ...options.input },
 		});
+		this.recordOperation("trigger:start-run");
 		return this.state.startResult ?? { ok: true, value: { runId: FAKE_RUN_ID } };
 	}
 }
 
 export class FakeDispatchLocalTokenGateway implements DispatchLocalTokenGateway {
+	readonly reads: string[] = [];
 	private readonly result: DispatchLocalTokenResult;
+	private readonly recordOperation: (operation: string) => void;
 
-	constructor(result: DispatchLocalTokenResult = { type: "found", token: FAKE_OIDC_TOKEN }) {
+	constructor(
+		result: DispatchLocalTokenResult = { type: "found", token: FAKE_OIDC_TOKEN },
+		recordOperation = (_operation: string) => {},
+	) {
 		this.result = result;
+		this.recordOperation = recordOperation;
 	}
 
 	async readDevelopmentOidcToken(): Promise<DispatchLocalTokenResult> {
+		this.reads.push("development-oidc-token");
+		this.recordOperation("token:read-development-oidc");
 		return this.result;
 	}
 }
@@ -243,8 +269,9 @@ export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 	}> = [];
 	private readonly dispatchSettings: DispatchConfigSourceResult;
 	private readonly packageManager: DispatchConfigSourceResult;
+	private readonly recordOperation: (operation: string) => void;
 
-	constructor(state: FakeDispatchConfigState = {}) {
+	constructor(state: FakeDispatchConfigState = {}, recordOperation = (_operation: string) => {}) {
 		this.dispatchSettings = state.dispatchSettings ?? {
 			type: "found",
 			source: FAKE_DISPATCH_SETTINGS_SOURCE,
@@ -253,12 +280,14 @@ export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 			type: "found",
 			source: FAKE_PACKAGE_MANAGER_SOURCE,
 		};
+		this.recordOperation = recordOperation;
 	}
 
 	async readDispatchSettingsSource(options: {
 		readonly repoRoot: string;
 	}): ReturnType<DispatchConfigGateway["readDispatchSettingsSource"]> {
 		this.reads.push({ source: "dispatch-settings", repoRoot: options.repoRoot });
+		this.recordOperation("config:read-dispatch-settings");
 		return this.dispatchSettings;
 	}
 
@@ -266,6 +295,7 @@ export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 		readonly repoRoot: string;
 	}): ReturnType<DispatchConfigGateway["readPackageManagerSource"]> {
 		this.reads.push({ source: "package-manager", repoRoot: options.repoRoot });
+		this.recordOperation("config:read-package-manager");
 		return this.packageManager;
 	}
 }
@@ -279,6 +309,7 @@ export interface FakeDispatchGatewaysOptions {
 }
 
 export interface FakeDispatchGatewayBundle extends DispatchPromptGateways {
+	readonly operations: readonly string[];
 	readonly git: FakeDispatchWorkspaceGitGateway;
 	readonly anchorPrs: FakeDispatchAnchorPrGateway;
 	readonly trigger: FakeDispatchTriggerGateway;
@@ -288,12 +319,15 @@ export interface FakeDispatchGatewayBundle extends DispatchPromptGateways {
 export function createFakeDispatchGateways(
 	options: FakeDispatchGatewaysOptions = {},
 ): FakeDispatchGatewayBundle {
+	const operations: string[] = [];
+	const recordOperation = (operation: string) => operations.push(operation);
 	return {
-		git: new FakeDispatchWorkspaceGitGateway(options.git),
-		anchorPrs: new FakeDispatchAnchorPrGateway(options.anchorPrs),
-		trigger: new FakeDispatchTriggerGateway(options.trigger),
-		tokens: new FakeDispatchLocalTokenGateway(options.token),
-		config: new FakeDispatchConfigGateway(options.config),
+		operations,
+		git: new FakeDispatchWorkspaceGitGateway(options.git, recordOperation),
+		anchorPrs: new FakeDispatchAnchorPrGateway(options.anchorPrs, recordOperation),
+		trigger: new FakeDispatchTriggerGateway(options.trigger, recordOperation),
+		tokens: new FakeDispatchLocalTokenGateway(options.token, recordOperation),
+		config: new FakeDispatchConfigGateway(options.config, recordOperation),
 		generateAnchorId: () => FAKE_ANCHOR_ID,
 	};
 }

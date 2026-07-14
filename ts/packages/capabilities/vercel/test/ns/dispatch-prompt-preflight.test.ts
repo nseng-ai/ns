@@ -28,6 +28,7 @@ describe("runDispatchPreflight", () => {
 			{ source: "package-manager", repoRoot: "/repo" },
 		]);
 		if (result.ok) {
+			expect(result.deploymentUrl).toBe(FAKE_DEPLOYMENT_URL);
 			expect(result.triggerConnection).toEqual({
 				deploymentUrl: FAKE_DEPLOYMENT_URL,
 				oidcToken: FAKE_OIDC_TOKEN,

@@ -11,6 +11,11 @@ import { z } from "zod";
 import { vercelProjectIdSchema, vercelTeamIdSchema } from "../auth/contracts.ts";
 import { isDispatchHarness, type DispatchHarness } from "../dispatch/harness-registry.ts";
 
+/**
+ * Local dispatch-client configuration. This intentionally supersets the
+ * server's required Vercel identity fields with harness and deployment URL
+ * settings needed only to validate and initiate a local dispatch.
+ */
 export interface DispatchProjectConfig {
 	readonly harness: DispatchHarness;
 	readonly vercelProjectId: string;

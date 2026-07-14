@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
@@ -28,7 +29,7 @@ export function createRealDispatchLocalTokenGateway(
 			if (fromEnv !== undefined && fromEnv.length > 0) {
 				return { type: "found", token: fromEnv };
 			}
-			const envLocalPath = options.envLocalPath ?? PACKAGE_ENV_LOCAL_URL.pathname;
+			const envLocalPath = options.envLocalPath ?? fileURLToPath(PACKAGE_ENV_LOCAL_URL);
 			let content: string;
 			try {
 				content = await readFile(envLocalPath, "utf8");

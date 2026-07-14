@@ -83,6 +83,20 @@ describe("ns dispatch prompt", () => {
 
 		// The workflow run id was stamped on the anchor PR after the trigger.
 		expect(gateways.anchorPrs.stamps).toEqual([{ prNumber: 41, runId: FAKE_RUN_ID }]);
+		expect(gateways.operations).toEqual([
+			"git:resolve-source-ref",
+			"git:list-dirty-paths",
+			"config:read-dispatch-settings",
+			"config:read-package-manager",
+			"token:read-development-oidc",
+			"trigger:check-identity",
+			"git:read-remote-tip",
+			"git:push-source",
+			"git:push-anchor",
+			"anchor-pr:open",
+			"trigger:start-run",
+			"anchor-pr:stamp-run-id",
+		]);
 	});
 
 	test("skips the source push when the remote already has the exact head", async () => {
@@ -124,6 +138,29 @@ describe("ns dispatch prompt", () => {
 		expect(gateways.trigger.startCalls).toEqual([]);
 	});
 
+	test("preserves the ordinary ASCII refusal text and accounts for both output bounds", async () => {
+		const dirtyPaths = Array.from({ length: 101 }, (_unused, index) => `path-${index}.ts`);
+		const { exit } = await runPromptCommand([PROMPT], { git: { dirtyPaths } });
+
+		expect(exit.type).toBe("negative");
+		if (exit.type !== "negative") return;
+		expect(exit.message).toBe(
+			[
+				"Dispatch refused: the worktree has uncommitted changes, so what runs remotely would not match what you see.",
+				"",
+				...dirtyPaths.slice(0, 20).map((path) => `  ${path}`),
+				"  … and 81 more",
+				"",
+				"Commit (or stash) the changes and dispatch again.",
+			].join("\n"),
+		);
+		expect(exit.data).toEqual({
+			status: "dirty-tree",
+			dirtyPaths: dirtyPaths.slice(0, 100),
+			totalDirtyPaths: 101,
+		});
+	});
+
 	test("refuses a detached HEAD with an actionable failure", async () => {
 		const { exit } = await runPromptCommand([PROMPT], { git: { isDetachedHead: true } });
 
@@ -154,6 +191,7 @@ describe("ns dispatch prompt", () => {
 		expect(gateways.git.sourcePushes).toEqual([]);
 		expect(gateways.git.anchorPushes).toEqual([]);
 		expect(gateways.anchorPrs.opened).toEqual([]);
+		expect(gateways.operations.every((operation) => !operation.includes("push"))).toBe(true);
 	});
 
 	test("rejects local claude-code config before remote-tip reads or mutations", async () => {
@@ -248,6 +286,7 @@ describe("ns dispatch prompt", () => {
 		expect(exit.type).toBe("failure");
 		if (exit.type !== "failure") return;
 		expect(exit.errorType).toBe("source-push-failed");
+		expect(gateways.git.sourcePushes).toEqual(["feature/widgets"]);
 		expect(gateways.anchorPrs.opened).toEqual([]);
 	});
 
@@ -279,7 +318,7 @@ describe("ns dispatch prompt", () => {
 	});
 
 	test("reports the started run id when only the stamp fails", async () => {
-		const { exit } = await runPromptCommand([PROMPT], {
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
 			anchorPrs: {
 				stampResult: {
 					ok: false,
@@ -301,6 +340,7 @@ describe("ns dispatch prompt", () => {
 			anchorPrUrl: "https://github.com/nseng-ai/ns/pull/41",
 			runId: FAKE_RUN_ID,
 		});
+		expect(gateways.anchorPrs.stamps).toEqual([{ prNumber: 41, runId: FAKE_RUN_ID }]);
 	});
 
 	test("omits an unusable returned run id from stamp-failure data", async () => {

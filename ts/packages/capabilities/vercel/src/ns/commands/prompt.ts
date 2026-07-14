@@ -55,6 +55,7 @@ const dispatchPromptResultSchema = z.discriminatedUnion("status", [
 ]);
 
 type DispatchPromptCommandResult = z.infer<typeof dispatchPromptResultSchema>;
+type DispatchPromptSuccess = Extract<DispatchPromptCommandResult, { status: "dispatched" }>;
 
 export const dispatchPromptCommand: NsCommand = createNsDomainCommand({
 	name: "prompt",
@@ -66,7 +67,6 @@ export const dispatchPromptCommand: NsCommand = createNsDomainCommand({
 	positionals: { prompt: { position: 0 } },
 	createContext: createDispatchPromptContext,
 	handler: runDispatchPromptCommand,
-	renderHuman: renderDispatchPromptResult,
 });
 
 export default dispatchPromptCommand;
@@ -84,8 +84,8 @@ async function runDispatchPromptCommand(
 		ctx.gateways,
 	);
 	switch (outcome.status) {
-		case "dispatched":
-			return ok({
+		case "dispatched": {
+			const result: DispatchPromptSuccess = {
 				status: outcome.status,
 				revision: outcome.revision,
 				sourceBranch: outcome.sourceBranch,
@@ -94,7 +94,9 @@ async function runDispatchPromptCommand(
 				anchorPrNumber: outcome.anchorPr.number,
 				anchorPrUrl: outcome.anchorPr.url,
 				runId: outcome.runId,
-			});
+			};
+			return ok(result, { human: renderDispatchPromptResult(result) });
+		}
 		case "dirty-tree":
 			return negative(renderDirtyTreeRefusal(outcome.dirtyPaths), {
 				data: {
@@ -152,8 +154,7 @@ async function runDispatchPromptCommand(
 	}
 }
 
-function renderDispatchPromptResult(data: DispatchPromptCommandResult): string {
-	if (data.status === "dirty-tree") return renderDirtyTreeRefusal(data.dirtyPaths);
+function renderDispatchPromptResult(data: DispatchPromptSuccess): string {
 	const lines = [
 		"Dispatched. The run executes remotely; results land on the anchor PR.",
 		"",
