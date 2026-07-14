@@ -6,6 +6,8 @@ edges:
     annotation: Upstream dependency; the fix-gh-stack fold-in slice is sequenced behind its skill rewrite and `ns address exec` triage push-down so Flow absorbs the hardened loop, not the leaky one.
   - objective: flow-value-readme
     annotation: Sibling README effort; this record lands the agent-workflows tier inside the canonical Flow README while that record owns the surrounding value-led restructure and integrates the tier when its draft promotes.
+  - objective: flow-pi-tier
+    annotation: Sibling Flow-surface effort; flow-pi-tier owns the Pi surface (stack:view promotion into Flow's Pi layer, gt:squash-stack normalization) while this record folds the workflow tier, moving the restack Pi wrapper alongside its first slice.
 ---
 
 # Fold stack-state workflows into Flow
