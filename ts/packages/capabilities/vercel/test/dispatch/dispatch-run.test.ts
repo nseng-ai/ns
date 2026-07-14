@@ -25,7 +25,7 @@ import {
 import type {
 	SupervisionCleanupResult,
 	SupervisionPollResult,
-} from "../../src/sandbox/supervision-probe.ts";
+} from "../../src/sandbox/supervision.ts";
 
 const revision = "0123456789ABCDEF0123456789abcdef01234567";
 
@@ -198,7 +198,7 @@ function createFakeSteps(behavior: FakeStepBehavior = {}): {
 } {
 	const calls: StepCall[] = [];
 	let pollIndex = 0;
-	const polls = behavior.polls ?? [{ ok: true, phase: "done", ticks: 0 }];
+	const polls = behavior.polls ?? [{ ok: true, phase: "done" }];
 	const steps: DispatchRunSteps = {
 		async sleep(durationMs) {
 			calls.push({ step: "sleep", args: durationMs });
@@ -258,8 +258,8 @@ describe("executeDispatchRun", () => {
 	it("lands a completed run, cleans up, and publishes the decision log", async () => {
 		const { steps, calls } = createFakeSteps({
 			polls: [
-				{ ok: true, phase: "running", ticks: 0 },
-				{ ok: true, phase: "done", ticks: 0 },
+				{ ok: true, phase: "running" },
+				{ ok: true, phase: "done" },
 			],
 		});
 
@@ -316,6 +316,47 @@ describe("executeDispatchRun", () => {
 		});
 	});
 
+	it("cleans up a post-create launch failure before reporting", async () => {
+		const { steps, calls } = createFakeSteps({
+			launch: {
+				ok: false,
+				code: "launch-failed",
+				message: "Detached harness launch failed.",
+				sandboxName: "sbx_dispatch",
+			},
+		});
+
+		const result = await executeDispatchRun(input(), steps);
+
+		expect(result).toMatchObject({
+			ok: false,
+			code: "launch-failed",
+			sandboxName: "sbx_dispatch",
+			failureReported: true,
+		});
+		expect(stepNames(calls)).toEqual(["launch", "cleanup", "reportFailure"]);
+	});
+
+	it("gives cleanup failure precedence over a post-create launch failure", async () => {
+		const { steps } = createFakeSteps({
+			launch: {
+				ok: false,
+				code: "launch-failed",
+				message: "Detached harness launch failed.",
+				sandboxName: "sbx_dispatch",
+			},
+			cleanup: {
+				ok: false,
+				code: "sandbox-cleanup-failed",
+				message: "Sandbox cleanup failed.",
+			},
+		});
+
+		const result = await executeDispatchRun(input(), steps);
+
+		expect(result).toMatchObject({ ok: false, code: "sandbox-cleanup-failed" });
+	});
+
 	it("does not land a run whose harness reported failure, but still cleans up and reports", async () => {
 		const { steps, calls } = createFakeSteps({
 			readOutcome: { ok: true, outcome: "failed", summary: "tests failed", decisionLog: null },
@@ -348,12 +389,20 @@ describe("executeDispatchRun", () => {
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
 		expect(result.code).toBe("poll-failed");
-		expect(stepNames(calls)).toEqual(["launch", "sleep", "poll", "cleanup", "reportFailure"]);
+		expect(stepNames(calls)).toEqual([
+			"launch",
+			"sleep",
+			"poll",
+			"sleep",
+			"poll",
+			"cleanup",
+			"reportFailure",
+		]);
 	});
 
 	it("times out a run that never reports done, cleans up, and reports", async () => {
 		const { steps, calls } = createFakeSteps({
-			polls: [{ ok: true, phase: "running", ticks: 0 }],
+			polls: [{ ok: true, phase: "running" }],
 		});
 
 		const result = await executeDispatchRun(input(), steps);
@@ -414,7 +463,7 @@ describe("executeDispatchRun", () => {
 });
 
 describe("resolveDispatchDisposition", () => {
-	const completedOutcome = { completed: true, polls: 3, ticks: 0 } as const;
+	const completedOutcome = { completed: true, polls: 3 } as const;
 	const completedHarvest: DispatchOutcomeReadResult = {
 		ok: true,
 		outcome: "completed",

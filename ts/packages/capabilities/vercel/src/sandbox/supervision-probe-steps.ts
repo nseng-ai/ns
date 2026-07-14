@@ -9,7 +9,8 @@
 // must never run twice (its workflow step carries `maxRetries = 0`);
 // `pollSupervisionProbe` (read-only) and `cleanupSupervisionProbe` (stop is
 // a no-op on an already-stopped sandbox) are idempotent and safe to re-run.
-import { isSafeSandboxName } from "./sandbox-name.ts";
+import { isSafeSandboxName } from "./contracts.ts";
+import type { SupervisionCleanupResult } from "./supervision.ts";
 import {
 	buildSupervisionProbeCommand,
 	planSupervisionProbe,
@@ -18,9 +19,8 @@ import {
 	type CreateSupervisionSandboxResult,
 	type ReadSupervisionSandboxFileResult,
 	type StopSupervisionSandboxResult,
-	type SupervisionCleanupResult,
 	type SupervisionLaunchResult,
-	type SupervisionPollResult,
+	type SupervisionProbePollResult,
 	type SupervisionProbeParams,
 	type SupervisionSandboxGateway,
 } from "./supervision-probe.ts";
@@ -34,7 +34,7 @@ import { createRealSupervisionSandboxGateway } from "./real-supervision-sandbox-
  */
 export async function launchSupervisionProbe(
 	params: SupervisionProbeParams,
-	sandboxes: SupervisionSandboxGateway = createRealSupervisionSandboxGateway(),
+	sandboxes?: SupervisionSandboxGateway,
 ): Promise<SupervisionLaunchResult> {
 	const plan = planSupervisionProbe(params);
 	// `=== false` rather than `!`: the Vercel builder typechecks without
@@ -43,12 +43,13 @@ export async function launchSupervisionProbe(
 		return { ok: false, code: "invalid-parameters", message: plan.message };
 	}
 
+	let gateway: SupervisionSandboxGateway;
 	let createResult: CreateSupervisionSandboxResult;
 	try {
-		createResult = await sandboxes.createSandboxWithDetachedCommand({
+		gateway = sandboxes ?? createRealSupervisionSandboxGateway();
+		createResult = await gateway.createSandbox({
 			runtime: "node24",
 			timeoutMs: plan.value.sandboxTimeoutMs,
-			command: buildSupervisionProbeCommand(params.runSeconds),
 		});
 	} catch {
 		return { ok: false, code: "launch-failed", message: "Sandbox launch failed." };
@@ -65,17 +66,30 @@ export async function launchSupervisionProbe(
 			message: "Sandbox name was unusable; the sandbox timeout is the cleanup backstop.",
 		};
 	}
-	return { ok: true, sandboxName: createResult.sandboxName };
+	const sandboxName = createResult.sandboxName;
+	try {
+		const launch = await gateway.runDetachedSandboxCommand({
+			sandboxName,
+			command: buildSupervisionProbeCommand(params.runSeconds),
+		});
+		if (launch.ok === false) {
+			return { ok: false, code: "launch-failed", message: "Sandbox launch failed.", sandboxName };
+		}
+	} catch {
+		return { ok: false, code: "launch-failed", message: "Sandbox launch failed.", sandboxName };
+	}
+	return { ok: true, sandboxName };
 }
 
 /** Read the detached run's progress file. Read-only and safe to re-run. */
 export async function pollSupervisionProbe(
 	options: { readonly sandboxName: string },
-	sandboxes: SupervisionSandboxGateway = createRealSupervisionSandboxGateway(),
-): Promise<SupervisionPollResult> {
+	sandboxes?: SupervisionSandboxGateway,
+): Promise<SupervisionProbePollResult> {
 	let readResult: ReadSupervisionSandboxFileResult;
 	try {
-		readResult = await sandboxes.readSandboxFile({
+		const gateway = sandboxes ?? createRealSupervisionSandboxGateway();
+		readResult = await gateway.readSandboxFile({
 			sandboxName: options.sandboxName,
 			path: SUPERVISION_PROGRESS_PATH,
 		});
@@ -95,11 +109,12 @@ export async function pollSupervisionProbe(
  */
 export async function cleanupSupervisionProbe(
 	options: { readonly sandboxName: string },
-	sandboxes: SupervisionSandboxGateway = createRealSupervisionSandboxGateway(),
+	sandboxes?: SupervisionSandboxGateway,
 ): Promise<SupervisionCleanupResult> {
 	let stopResult: StopSupervisionSandboxResult;
 	try {
-		stopResult = await sandboxes.stopSandbox({ sandboxName: options.sandboxName });
+		const gateway = sandboxes ?? createRealSupervisionSandboxGateway();
+		stopResult = await gateway.stopSandbox({ sandboxName: options.sandboxName });
 	} catch {
 		return { ok: false, code: "sandbox-cleanup-failed", message: "Sandbox cleanup failed." };
 	}

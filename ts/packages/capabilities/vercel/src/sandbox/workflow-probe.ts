@@ -57,16 +57,35 @@ export async function runWorkflowSandboxProbe(
 	}
 
 	const config = configResult.value;
+	let cloneTokens: CloneTokenMintGateway;
+	try {
+		cloneTokens = createMinterCloneTokenGateway(gateways.createDispatchTokenMinter(config));
+	} catch {
+		return {
+			ok: false,
+			code: "clone-token-mint-failed",
+			message: "Clone token mint failed.",
+		};
+	}
+
+	let sandboxes: VercelSandboxGateway;
+	try {
+		sandboxes = gateways.createSandboxGateway();
+	} catch {
+		return {
+			ok: false,
+			code: "sandbox-create-failed",
+			message: "Sandbox creation failed.",
+		};
+	}
+
 	return await runSandboxHelloProbe(
 		{
 			repository: config.githubRepository,
 			revision: options.revision,
 			credentials: { type: "function-workload-identity" },
 		},
-		{
-			cloneTokens: createMinterCloneTokenGateway(gateways.createDispatchTokenMinter(config)),
-			sandboxes: gateways.createSandboxGateway(),
-		},
+		{ cloneTokens, sandboxes },
 	);
 }
 

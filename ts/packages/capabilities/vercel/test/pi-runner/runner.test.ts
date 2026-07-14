@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { DispatchHarnessCompletion } from "../../src/dispatch/completion-contract.ts";
 import {
 	DISPATCH_DECISION_LOG_PATH,
 	DISPATCH_RESULT_PATH,
@@ -13,7 +14,6 @@ import {
 	type DispatchWorkspaceGateway,
 	type PiCodingAgentGateway,
 	type PiCodingAgentRunResult,
-	type PiRunnerCompletion,
 } from "../../src/pi-runner/runner.ts";
 
 interface FakeWorkspaceBehavior {
@@ -31,7 +31,7 @@ interface FakeWorkspaceBehavior {
 class FakeDispatchWorkspaceGateway implements DispatchWorkspaceGateway {
 	readonly #behavior: FakeWorkspaceBehavior;
 	readonly #operations: string[];
-	writtenCompletion: PiRunnerCompletion | null = null;
+	writtenCompletion: DispatchHarnessCompletion | null = null;
 	writtenFallbackLog: string | null = null;
 	commitMessages: string[] = [];
 
@@ -59,7 +59,7 @@ class FakeDispatchWorkspaceGateway implements DispatchWorkspaceGateway {
 		return { ok: true } as const;
 	}
 
-	async writeCompletionResult(completion: PiRunnerCompletion) {
+	async writeCompletionResult(completion: DispatchHarnessCompletion) {
 		this.#operations.push("writeCompletionResult");
 		if (this.#behavior.resultWriteFails === true) return { ok: false } as const;
 		this.writtenCompletion = completion;

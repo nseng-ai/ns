@@ -1,19 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import type { MintEnvironment } from "../../src/mint/runtime-config.ts";
-import type { DispatchTokenMinter, DispatchTokenMintResult } from "../../src/mint/mint-core.ts";
-import type { DispatchReportGateway } from "../../src/dispatch/anchor-pr-report.ts";
 import {
 	DISPATCH_DECISION_LOG_PATH,
 	DISPATCH_LANDING_TOKEN_ENV_NAME,
 	DISPATCH_PROMPT_PATH,
 	DISPATCH_RESULT_PATH,
 	planDispatchSupervision,
-	type DispatchRunFailureCode,
 	type DispatchRunInput,
-	type DispatchSandboxCommand,
-	type DispatchSandboxGateway,
 } from "../../src/dispatch/dispatch-run.ts";
+import type { SandboxCommand } from "../../src/sandbox/contracts.ts";
 import {
 	cleanupDispatchRun,
 	landDispatchRun,
@@ -29,6 +25,14 @@ import {
 	DISPATCH_SETTINGS_PATH,
 	type HarnessInvocation,
 } from "../../src/dispatch/harness-registry.ts";
+import {
+	RecordingDispatchSandboxGateway,
+	type DispatchSandboxBehavior,
+} from "./support/dispatch-sandbox-fake.ts";
+import {
+	RecordingDispatchReportGateway,
+	RecordingDispatchTokenMinter,
+} from "./support/recording-dispatch-fakes.ts";
 import {
 	resolveConfiguredHarnessInvocation,
 	type HarnessInvocationResolution,
@@ -67,163 +71,9 @@ function harnessInvocation(overrides: Partial<HarnessInvocation> = {}): HarnessI
 	};
 }
 
-interface SandboxCall {
-	readonly method: string;
-	readonly options: Record<string, unknown>;
-}
-
-interface FakeSandboxBehavior {
-	readonly createFails?: boolean;
-	readonly createdName?: string;
-	readonly writeFails?: boolean;
-	readonly commandExitCode?: number;
-	readonly commandFails?: boolean;
-	readonly detachedFails?: boolean;
-	readonly readFails?: boolean;
-	readonly readFailurePaths?: readonly string[];
-	readonly files?: Readonly<Record<string, string>>;
-	readonly stopFails?: boolean;
-}
-
-class FakeDispatchSandboxGateway implements DispatchSandboxGateway {
-	readonly #behavior: FakeSandboxBehavior;
-	readonly calls: SandboxCall[] = [];
-
-	constructor(behavior: FakeSandboxBehavior = {}) {
-		this.#behavior = behavior;
-	}
-
-	async createDispatchSandbox(options: {
-		readonly runtime: "node24";
-		readonly timeoutMs: number;
-		readonly source: {
-			readonly repository: string;
-			readonly revision: string;
-			readonly cloneToken: string;
-		};
-	}) {
-		this.calls.push({ method: "create", options: { ...options } });
-		if (this.#behavior.createFails === true) return { ok: false } as const;
-		return { ok: true, sandboxName: this.#behavior.createdName ?? "sbx_dispatch" } as const;
-	}
-
-	async writeSandboxFile(options: {
-		readonly sandboxName: string;
-		readonly path: string;
-		readonly content: string;
-	}) {
-		this.calls.push({ method: "write", options: { ...options } });
-		if (this.#behavior.writeFails === true) return { ok: false } as const;
-		return { ok: true } as const;
-	}
-
-	async runSandboxCommand(options: {
-		readonly sandboxName: string;
-		readonly command: DispatchSandboxCommand;
-		readonly env?: Readonly<Record<string, string>>;
-	}) {
-		this.calls.push({ method: "run", options: { ...options } });
-		if (this.#behavior.commandFails === true) return { ok: false } as const;
-		return { ok: true, exitCode: this.#behavior.commandExitCode ?? 0 } as const;
-	}
-
-	async runDetachedSandboxCommand(options: {
-		readonly sandboxName: string;
-		readonly command: DispatchSandboxCommand;
-		readonly env?: Readonly<Record<string, string>>;
-	}) {
-		this.calls.push({ method: "runDetached", options: { ...options } });
-		if (this.#behavior.detachedFails === true) return { ok: false } as const;
-		return { ok: true } as const;
-	}
-
-	async readSandboxFile(options: { readonly sandboxName: string; readonly path: string }) {
-		this.calls.push({ method: "read", options: { ...options } });
-		if (
-			this.#behavior.readFails === true ||
-			this.#behavior.readFailurePaths?.includes(options.path) === true
-		) {
-			return { ok: false } as const;
-		}
-		const content = this.#behavior.files?.[options.path];
-		return { ok: true, content: content ?? null } as const;
-	}
-
-	async stopSandbox(options: { readonly sandboxName: string }) {
-		this.calls.push({ method: "stop", options: { ...options } });
-		if (this.#behavior.stopFails === true) return { ok: false } as const;
-		return { ok: true } as const;
-	}
-}
-
-class RecordingDispatchTokenMinter implements DispatchTokenMinter {
-	readonly calls: Array<{ repository: string; purpose: string }> = [];
-	readonly #failPurposes: ReadonlySet<string>;
-
-	constructor(failPurposes: readonly string[] = []) {
-		this.#failPurposes = new Set(failPurposes);
-	}
-
-	async mintDispatchToken(options: {
-		readonly repository: string;
-		readonly purpose: "clone" | "landing";
-	}): Promise<DispatchTokenMintResult> {
-		this.calls.push({ ...options });
-		if (this.#failPurposes.has(options.purpose)) {
-			return { ok: false, error: { code: "github-token-mint-failed" } };
-		}
-		return {
-			ok: true,
-			value: {
-				token: `token-${options.purpose}-fixture`,
-				expiresAt: "2026-07-13T00:00:00Z",
-				repository: options.repository,
-				purpose: options.purpose,
-			},
-		};
-	}
-}
-
-class RecordingDispatchReportGateway implements DispatchReportGateway {
-	readonly publishCalls: Array<{ anchorPrNumber: number; decisionLog: string | null }> = [];
-	readonly failureCalls: Array<{
-		anchorPrNumber: number;
-		anchorBranch: string;
-		code: string;
-		message: string;
-	}> = [];
-	readonly #fails: boolean;
-	readonly #throws: boolean;
-
-	constructor(options: { readonly fails?: boolean; readonly throws?: boolean } = {}) {
-		this.#fails = options.fails ?? false;
-		this.#throws = options.throws ?? false;
-	}
-
-	async publishAnchorPrDecisionLog(options: {
-		readonly anchorPrNumber: number;
-		readonly decisionLog: string | null;
-	}) {
-		this.publishCalls.push({ ...options });
-		if (this.#throws) throw new Error("report operation exploded");
-		return this.#fails ? ({ ok: false } as const) : ({ ok: true } as const);
-	}
-
-	async ensureAnchorPrFailureComment(options: {
-		readonly anchorPrNumber: number;
-		readonly anchorBranch: string;
-		readonly code: DispatchRunFailureCode;
-		readonly message: string;
-	}) {
-		this.failureCalls.push({ ...options });
-		if (this.#throws) throw new Error("report operation exploded");
-		return this.#fails ? ({ ok: false } as const) : ({ ok: true } as const);
-	}
-}
-
 interface DepsFixture {
 	readonly deps: DispatchStepDeps;
-	readonly sandboxes: FakeDispatchSandboxGateway;
+	readonly sandboxes: RecordingDispatchSandboxGateway;
 	readonly minter: RecordingDispatchTokenMinter;
 	readonly reports: RecordingDispatchReportGateway;
 	readonly resolverCalls: Array<{
@@ -235,17 +85,18 @@ interface DepsFixture {
 function createDeps(
 	options: {
 		readonly environment?: MintEnvironment;
-		readonly sandboxBehavior?: FakeSandboxBehavior;
+		readonly sandboxBehavior?: DispatchSandboxBehavior;
 		readonly mintFailPurposes?: readonly string[];
 		readonly reportFails?: boolean;
 		readonly reportThrows?: boolean;
 		readonly tokenMinterFactoryThrows?: boolean;
 		readonly reportGatewayFactoryThrows?: boolean;
+		readonly sandboxGatewayFactoryThrows?: boolean;
 		readonly harness?: HarnessInvocationResolution;
 		readonly resolveHarnessInvocation?: HarnessInvocationResolver;
 	} = {},
 ): DepsFixture {
-	const sandboxes = new FakeDispatchSandboxGateway(options.sandboxBehavior);
+	const sandboxes = new RecordingDispatchSandboxGateway(options.sandboxBehavior);
 	const minter = new RecordingDispatchTokenMinter(options.mintFailPurposes ?? []);
 	const reports = new RecordingDispatchReportGateway({
 		fails: options.reportFails ?? false,
@@ -263,7 +114,12 @@ function createDeps(
 			}
 			return minter;
 		},
-		createSandboxGateway: () => sandboxes,
+		createSandboxGateway: () => {
+			if (options.sandboxGatewayFactoryThrows === true) {
+				throw new Error("sandbox gateway factory exploded");
+			}
+			return sandboxes;
+		},
 		createReportGateway: () => {
 			if (options.reportGatewayFactoryThrows === true) {
 				throw new Error("report gateway factory exploded");
@@ -381,7 +237,7 @@ describe("launchDispatchRun", () => {
 		expect(sandboxes.calls).toEqual([]);
 	});
 
-	it("stops the created sandbox and fails as misconfigured when the checkout configures no harness", async () => {
+	it("returns the created sandbox for orchestration cleanup when no harness is configured", async () => {
 		const { deps, sandboxes } = createDeps({
 			harness: {
 				ok: false,
@@ -396,11 +252,12 @@ describe("launchDispatchRun", () => {
 			ok: false,
 			code: "dispatch-misconfigured",
 			message: "The dispatched checkout declares no [dispatch] harness.",
+			sandboxName: "sbx_dispatch",
 		});
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "stop"]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read"]);
 	});
 
-	it("stops before prompt write or provisioning for a registry-unsupported harness", async () => {
+	it("returns before prompt write or provisioning for a registry-unsupported harness", async () => {
 		const { deps, sandboxes } = createDeps({
 			resolveHarnessInvocation: resolveConfiguredHarnessInvocation,
 			sandboxBehavior: {
@@ -417,10 +274,11 @@ describe("launchDispatchRun", () => {
 		if (result.ok) throw new Error("Expected a failure.");
 		expect(result.code).toBe("dispatch-misconfigured");
 		expect(result.message).not.toContain("claude-code");
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "stop"]);
+		expect(result.sandboxName).toBe("sbx_dispatch");
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read"]);
 	});
 
-	it("stops the created sandbox when the dispatch settings read fails", async () => {
+	it("returns the sandbox when the dispatch settings read fails", async () => {
 		const { deps, sandboxes, resolverCalls } = createDeps({
 			sandboxBehavior: { readFails: true },
 		});
@@ -432,12 +290,13 @@ describe("launchDispatchRun", () => {
 			code: "dispatch-misconfigured",
 			message:
 				"Dispatch configuration is invalid: ns.toml could not be read from the dispatched checkout.",
+			sandboxName: "sbx_dispatch",
 		});
 		expect(resolverCalls).toEqual([]);
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "stop"]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read"]);
 	});
 
-	it("stops the created sandbox when the package manifest read fails", async () => {
+	it("returns the sandbox when the package manifest read fails", async () => {
 		const { deps, sandboxes, resolverCalls } = createDeps({
 			sandboxBehavior: { readFailurePaths: [DISPATCH_PACKAGE_MANIFEST_PATH] },
 		});
@@ -449,12 +308,13 @@ describe("launchDispatchRun", () => {
 			code: "dispatch-misconfigured",
 			message:
 				"Dispatch configuration is invalid: ts/package.json#packageManager could not be read from the dispatched checkout.",
+			sandboxName: "sbx_dispatch",
 		});
 		expect(resolverCalls).toEqual([]);
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "stop"]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read"]);
 	});
 
-	it("stops before prompt write, provisioning, or launch when packageManager is invalid", async () => {
+	it("returns before prompt write, provisioning, or launch when packageManager is invalid", async () => {
 		const invalidValue = "pnpm@11.8.1;echo-do-not-expose";
 		const { deps, sandboxes } = createDeps({
 			resolveHarnessInvocation: resolveConfiguredHarnessInvocation,
@@ -475,10 +335,11 @@ describe("launchDispatchRun", () => {
 		expect(result.code).toBe("dispatch-misconfigured");
 		expect(result.message).toContain("ts/package.json#packageManager");
 		expect(result.message).not.toContain(invalidValue);
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "stop"]);
+		expect(result.sandboxName).toBe("sbx_dispatch");
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read"]);
 	});
 
-	it("stops the created sandbox when a declared launch variable is missing", async () => {
+	it("returns the created sandbox when a declared launch variable is missing", async () => {
 		const environment: MintEnvironment = { ...validEnvironment(), ANTHROPIC_API_KEY: undefined };
 		const { deps, sandboxes } = createDeps({ environment });
 
@@ -488,8 +349,9 @@ describe("launchDispatchRun", () => {
 			ok: false,
 			code: "dispatch-misconfigured",
 			message: "Dispatch configuration is invalid: ANTHROPIC_API_KEY.",
+			sandboxName: "sbx_dispatch",
 		});
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "stop"]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read"]);
 	});
 
 	it("maps a clone mint failure to launch-failed without creating a sandbox", async () => {
@@ -505,7 +367,7 @@ describe("launchDispatchRun", () => {
 		expect(sandboxes.calls).toEqual([]);
 	});
 
-	it("stops the created sandbox when provisioning exits non-zero", async () => {
+	it("returns the created sandbox when provisioning exits non-zero", async () => {
 		const { deps, sandboxes } = createDeps({ sandboxBehavior: { commandExitCode: 1 } });
 
 		const result = await launchDispatchRun(runInput(), deps);
@@ -514,6 +376,7 @@ describe("launchDispatchRun", () => {
 			ok: false,
 			code: "launch-failed",
 			message: "Harness provisioning failed.",
+			sandboxName: "sbx_dispatch",
 		});
 		expect(sandboxes.calls.map((call) => call.method)).toEqual([
 			"create",
@@ -521,26 +384,21 @@ describe("launchDispatchRun", () => {
 			"read",
 			"write",
 			"run",
-			"stop",
 		]);
 	});
 
-	it("stops the created sandbox when the prompt write fails", async () => {
+	it("returns the created sandbox when the prompt write fails", async () => {
 		const { deps, sandboxes } = createDeps({ sandboxBehavior: { writeFails: true } });
 
 		const result = await launchDispatchRun(runInput(), deps);
 
 		expect(result.ok).toBe(false);
-		expect(sandboxes.calls.map((call) => call.method)).toEqual([
-			"create",
-			"read",
-			"read",
-			"write",
-			"stop",
-		]);
+		if (result.ok) throw new Error("Expected a failure.");
+		expect(result.sandboxName).toBe("sbx_dispatch");
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "write"]);
 	});
 
-	it("stops the created sandbox when the detached launch fails", async () => {
+	it("returns the created sandbox when the detached launch fails", async () => {
 		const { deps, sandboxes } = createDeps({ sandboxBehavior: { detachedFails: true } });
 
 		const result = await launchDispatchRun(runInput(), deps);
@@ -549,6 +407,7 @@ describe("launchDispatchRun", () => {
 			ok: false,
 			code: "launch-failed",
 			message: "Detached harness launch failed.",
+			sandboxName: "sbx_dispatch",
 		});
 		expect(sandboxes.calls.map((call) => call.method)).toEqual([
 			"create",
@@ -557,8 +416,41 @@ describe("launchDispatchRun", () => {
 			"write",
 			"run",
 			"runDetached",
-			"stop",
 		]);
+	});
+
+	it.each([
+		["create", { createThrows: true }, undefined],
+		["settings read", { readThrows: true }, "sbx_dispatch"],
+		["prompt write", { writeThrows: true }, "sbx_dispatch"],
+		["provision command", { commandThrows: true }, "sbx_dispatch"],
+		["detached launch", { detachedThrows: true }, "sbx_dispatch"],
+	] as const)(
+		"normalizes a throwing %s boundary and exposes only a safe sandbox name",
+		async (_label, sandboxBehavior, sandboxName) => {
+			const { deps } = createDeps({ sandboxBehavior });
+
+			const result = await launchDispatchRun(runInput(), deps);
+
+			expect(result.ok).toBe(false);
+			if (result.ok) throw new Error("Expected a failure.");
+			expect(result.sandboxName).toBe(sandboxName);
+			expect(JSON.stringify(result)).not.toContain("model-key-fixture");
+			expect(JSON.stringify(result)).not.toContain("private-key-fixture");
+		},
+	);
+
+	it("normalizes a throwing sandbox gateway factory", async () => {
+		const { deps } = createDeps({ sandboxGatewayFactoryThrows: true });
+
+		const result = await launchDispatchRun(runInput(), deps);
+
+		expect(result).toEqual({
+			ok: false,
+			code: "launch-failed",
+			message: "Sandbox creation failed.",
+		});
+		expect(JSON.parse(JSON.stringify(result))).toEqual(result);
 	});
 
 	it("fails safe on an unusable sandbox name", async () => {
@@ -578,7 +470,7 @@ describe("pollDispatchRun", () => {
 
 		const result = await pollDispatchRun({ sandboxName: "sbx_dispatch" }, deps);
 
-		expect(result).toEqual({ ok: true, phase: "running", ticks: 0 });
+		expect(result).toEqual({ ok: true, phase: "running" });
 		expect(sandboxes.calls).toEqual([
 			{ method: "read", options: { sandboxName: "sbx_dispatch", path: DISPATCH_RESULT_PATH } },
 		]);
@@ -591,7 +483,17 @@ describe("pollDispatchRun", () => {
 
 		const result = await pollDispatchRun({ sandboxName: "sbx_dispatch" }, deps);
 
-		expect(result).toEqual({ ok: true, phase: "done", ticks: 0 });
+		expect(result).toEqual({ ok: true, phase: "done" });
+	});
+
+	it("maps a read throw to poll-failed", async () => {
+		const { deps } = createDeps({ sandboxBehavior: { readThrows: true } });
+
+		expect(await pollDispatchRun({ sandboxName: "sbx_dispatch" }, deps)).toEqual({
+			ok: false,
+			code: "poll-failed",
+			message: "Dispatch result read failed.",
+		});
 	});
 
 	it("maps a read failure to poll-failed", async () => {
@@ -653,6 +555,15 @@ describe("readDispatchOutcome", () => {
 
 		expect(result).toEqual({ ok: false });
 	});
+
+	it("normalizes a throwing sandbox gateway factory", async () => {
+		const { deps } = createDeps({ sandboxGatewayFactoryThrows: true });
+
+		const result = await readDispatchOutcome({ sandboxName: "sbx_dispatch" }, deps);
+
+		expect(result).toEqual({ ok: false });
+		expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+	});
 });
 
 describe("landDispatchRun", () => {
@@ -672,7 +583,7 @@ describe("landDispatchRun", () => {
 		expect(call?.options["env"]).toEqual({
 			[DISPATCH_LANDING_TOKEN_ENV_NAME]: "token-landing-fixture",
 		});
-		const command = call?.options["command"] as DispatchSandboxCommand;
+		const command = call?.options["command"] as SandboxCommand;
 		expect(command.cmd).toBe("sh");
 		// The token reaches the command through its environment, never argv.
 		expect(command.args.join(" ")).not.toContain("token-landing-fixture");
@@ -712,6 +623,18 @@ describe("landDispatchRun", () => {
 		expect(sandboxes.calls).toEqual([]);
 	});
 
+	it("maps a throwing landing command to landing-failed without exposing its token", async () => {
+		const { deps } = createDeps({ sandboxBehavior: { commandThrows: true } });
+
+		const result = await landDispatchRun(
+			{ sandboxName: "sbx_dispatch", anchorBranch: "dispatch/widget" },
+			deps,
+		);
+
+		expect(result).toEqual({ ok: false, code: "landing-failed", message: "Landing push failed." });
+		expect(JSON.stringify(result)).not.toContain("token-landing-fixture");
+	});
+
 	it("maps a non-zero push exit code to landing-failed", async () => {
 		const { deps } = createDeps({ sandboxBehavior: { commandExitCode: 1 } });
 
@@ -732,6 +655,16 @@ describe("cleanupDispatchRun", () => {
 
 		expect(result).toEqual({ ok: true });
 		expect(sandboxes.calls).toEqual([{ method: "stop", options: { sandboxName: "sbx_dispatch" } }]);
+	});
+
+	it("maps a stop throw to sandbox-cleanup-failed", async () => {
+		const { deps } = createDeps({ sandboxBehavior: { stopThrows: true } });
+
+		expect(await cleanupDispatchRun({ sandboxName: "sbx_dispatch" }, deps)).toEqual({
+			ok: false,
+			code: "sandbox-cleanup-failed",
+			message: "Sandbox cleanup failed.",
+		});
 	});
 
 	it("maps a stop failure to sandbox-cleanup-failed", async () => {
@@ -780,14 +713,14 @@ describe("reportDispatchLanded", () => {
 	});
 
 	it.each([
-		["token minter", { tokenMinterFactoryThrows: true }, "token minter factory exploded"],
-		["report gateway", { reportGatewayFactoryThrows: true }, "report gateway factory exploded"],
-	] as const)("does not catch a %s factory throw", async (_label, options, message) => {
+		["token minter", { tokenMinterFactoryThrows: true }],
+		["report gateway", { reportGatewayFactoryThrows: true }],
+	] as const)("normalizes a %s factory throw at the step boundary", async (_label, options) => {
 		const { deps } = createDeps(options);
 
-		await expect(
-			reportDispatchLanded({ anchorPrNumber: 421, decisionLog: null }, deps),
-		).rejects.toThrow(message);
+		expect(await reportDispatchLanded({ anchorPrNumber: 421, decisionLog: null }, deps)).toEqual({
+			ok: false,
+		});
 	});
 });
 
