@@ -1,0 +1,8 @@
+{
+	"extends": "../../../tsconfig.json",
+	"compilerOptions": {
+		"lib": ["ES2024", "DOM"],
+		"rewriteRelativeImportExtensions": true
+	},
+	"include": ["api/**/*.ts", "scripts/**/*.ts", "src/**/*.ts", "test/**/*.ts"]
+}
