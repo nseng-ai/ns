@@ -120,10 +120,10 @@ export function createGitHubDispatchReportGateway(
 			if (!parsed.success) return { ok: false };
 
 			const marker = buildDispatchFailureMarker(request.anchorBranch);
-			const alreadyPosted = parsed.data.some(
+			const isAlreadyPosted = parsed.data.some(
 				(comment) => comment.body !== undefined && comment.body.includes(marker),
 			);
-			if (alreadyPosted) return { ok: true };
+			if (isAlreadyPosted) return { ok: true };
 
 			const create = await githubRequest({
 				token,
