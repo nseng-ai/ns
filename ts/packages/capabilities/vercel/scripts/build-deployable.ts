@@ -176,10 +176,12 @@ async function verifyApiFunctionBundles(
 async function validateAndBuildWorkflows(
 	paths: BuildPaths,
 ): Promise<WorkflowBuildState | undefined> {
+	const workflowBuildEnv = { ...process.env, WORKFLOW_TARGET_WORLD: "vercel" };
 	const validate = await executeCommand(
 		"pnpm",
 		["exec", "workflow", "validate", "--strict"],
 		paths.packageRoot,
+		workflowBuildEnv,
 	);
 	if (!validate.isSuccessful) {
 		console.error("Workflow validation reported issues; the workflow sources are not deployable.");
@@ -191,6 +193,7 @@ async function validateAndBuildWorkflows(
 		"pnpm",
 		["exec", "workflow", "build", "--target", "vercel-build-output-api"],
 		paths.packageRoot,
+		workflowBuildEnv,
 	);
 	if (!workflowBuild.isSuccessful) {
 		console.error('Workflow build failed; `"use workflow"` packaging is broken.');
@@ -314,10 +317,11 @@ async function executeCommand(
 	command: string,
 	args: readonly string[],
 	cwd: string,
+	env: NodeJS.ProcessEnv = process.env,
 ): Promise<CommandResult> {
 	const result = await runCommand(command, args, {
 		cwd,
-		env: process.env,
+		env,
 		onStdout: (text) => process.stdout.write(text),
 		onStderr: (text) => process.stderr.write(text),
 	});

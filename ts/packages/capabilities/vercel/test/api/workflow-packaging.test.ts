@@ -8,6 +8,7 @@ import {
 	findWorkflowQueueTriggerProblems,
 	findWorkflowSourcesMissingFromManifest,
 	findWorkflowTargetWorldProblems,
+	findNonVercelWorkflowHostModules,
 	mergeBuildOutputConfig,
 	REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS,
 } from "../../src/deployability/gate.ts";
@@ -37,6 +38,37 @@ describe("findWorkflowTargetWorldProblems", () => {
 	it("accepts API bundles without Workflow's uninjected target-world fallback", () => {
 		expect(
 			findWorkflowTargetWorldProblems(new Map([["api/runs.cjs", "createVercelWorld();"]])),
+		).toEqual([]);
+	});
+});
+
+describe("findNonVercelWorkflowHostModules", () => {
+	it("rejects a Workflow host bundle built against the local world", () => {
+		expect(
+			findNonVercelWorkflowHostModules(
+				new Map([["flow.func/index.mjs", "// @workflow/world-local\ncreateLocalWorld();"]]),
+			),
+		).toEqual(["flow.func/index.mjs"]);
+	});
+
+	it("rejects a Workflow host bundle without an injected world", () => {
+		expect(
+			findNonVercelWorkflowHostModules(
+				new Map([
+					[
+						"flow.func/index.mjs",
+						'Throw new Error("Workflow target world was not statically injected.");',
+					],
+				]),
+			),
+		).toEqual(["flow.func/index.mjs"]);
+	});
+
+	it("accepts a Workflow host bundle built against the Vercel world", () => {
+		expect(
+			findNonVercelWorkflowHostModules(
+				new Map([["flow.func/index.mjs", "// @workflow/world-vercel\ncreateVercelWorld();"]]),
+			),
 		).toEqual([]);
 	});
 });

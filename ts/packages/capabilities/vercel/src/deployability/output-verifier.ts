@@ -10,6 +10,7 @@ import {
 	findMissingRelativeModuleTargets,
 	findMissingTriggerWorkflowManifestIds,
 	findMissingWorkflowFunctionArtifacts,
+	findNonVercelWorkflowHostModules,
 	findWorkflowQueueTriggerProblems,
 	findWorkflowSourcesMissingFromManifest,
 	findWorkflowTargetWorldProblems,
@@ -84,6 +85,17 @@ export async function verifyDispatchBuildOutput(
 		problems.push(`Missing Workflow artifact ${path}.`);
 	}
 	const workflowRoot = join(functionsRoot, ".well-known/workflow/v1");
+	const workflowHostModules = new Map<string, string>();
+	for (const path of ["flow.func/index.mjs", "webhook/[token].func/index.mjs"]) {
+		try {
+			workflowHostModules.set(path, await readFile(join(workflowRoot, path), "utf8"));
+		} catch (error) {
+			problems.push(`Cannot read Workflow host ${path}: ${safeErrorMessage(error)}`);
+		}
+	}
+	for (const path of findNonVercelWorkflowHostModules(workflowHostModules)) {
+		problems.push(`Workflow host ${path} is not statically bound to the Vercel world.`);
+	}
 	const manifest = await readJson(join(workflowRoot, "manifest.json"), problems);
 	const flowConfig = await readJson(join(workflowRoot, "flow.func/.vc-config.json"), problems);
 	for (const problem of findWorkflowQueueTriggerProblems(flowConfig)) problems.push(problem);

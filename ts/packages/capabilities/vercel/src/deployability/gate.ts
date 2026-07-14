@@ -106,6 +106,21 @@ export function findWorkflowTargetWorldProblems(
 		.sort();
 }
 
+/** Reject deployed Workflow hosts that are not statically bound to Vercel's world. */
+export function findNonVercelWorkflowHostModules(
+	modules: ReadonlyMap<string, string>,
+): readonly string[] {
+	return [...modules]
+		.filter(
+			([, source]) =>
+				!source.includes("@workflow/world-vercel") ||
+				source.includes("@workflow/world-local") ||
+				source.includes(UNINJECTED_WORKFLOW_TARGET_WORLD_MESSAGE),
+		)
+		.map(([path]) => path)
+		.sort();
+}
+
 export function findMissingRelativeModuleTargets(
 	modules: ReadonlyMap<string, string>,
 ): readonly MissingRelativeModuleTarget[] {
