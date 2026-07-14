@@ -20,6 +20,7 @@ import {
 } from "../sandbox/supervision.ts";
 import type { SandboxCommand } from "../sandbox/contracts.ts";
 import type { DispatchHarnessCompletion } from "./completion-contract.ts";
+import type { DispatchHarness } from "./harness-registry.ts";
 import { isCommitSha } from "../sandbox/validation.ts";
 
 /**
@@ -327,7 +328,7 @@ export type DispatchRunFailureCode =
 	| "sandbox-cleanup-failed";
 
 export type DispatchLaunchResult =
-	| { readonly ok: true; readonly sandboxName: string }
+	| { readonly ok: true; readonly sandboxName: string; readonly harness: DispatchHarness }
 	| {
 			readonly ok: false;
 			readonly code: "invalid-input" | "dispatch-misconfigured" | "launch-failed";
@@ -464,7 +465,7 @@ export function resolveDispatchDisposition(options: {
 export interface DispatchRunSteps {
 	sleep(durationMs: number): Promise<void>;
 	launch(input: DispatchRunInput): Promise<DispatchLaunchResult>;
-	poll(sandboxName: string): Promise<SupervisionPollResult>;
+	poll(sandboxName: string, pollOrdinal: number): Promise<SupervisionPollResult>;
 	readOutcome(sandboxName: string): Promise<DispatchOutcomeReadResult>;
 	land(options: {
 		readonly sandboxName: string;
@@ -542,7 +543,7 @@ export async function executeDispatchRun(
 		sleep: async (durationMs: number) => {
 			await steps.sleep(durationMs);
 		},
-		poll: async () => await steps.poll(sandboxName),
+		poll: async (pollOrdinal) => await steps.poll(sandboxName, pollOrdinal),
 	});
 
 	let harvest: DispatchOutcomeReadResult | null = null;

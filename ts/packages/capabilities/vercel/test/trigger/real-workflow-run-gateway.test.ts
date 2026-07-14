@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
 	createWorkflowSdkRunGateway,
 	type WorkflowRunSdk,
+	type WorkflowRunStartOptions,
 } from "../../src/trigger/real-workflow-run-gateway.ts";
 import { triggerWorkflowIds } from "../../src/trigger/workflow-ids.ts";
 
@@ -18,7 +19,11 @@ interface InMemorySdkState {
 
 class InMemoryWorkflowRunSdk implements WorkflowRunSdk {
 	readonly #state: InMemorySdkState;
-	readonly startCalls: Array<{ workflowId: string; args: readonly unknown[] }> = [];
+	readonly startCalls: Array<{
+		workflowId: string;
+		args: readonly unknown[];
+		options?: WorkflowRunStartOptions;
+	}> = [];
 
 	constructor(state: InMemorySdkState = {}) {
 		this.#state = { ...state, statuses: { ...state.statuses } };
@@ -27,8 +32,13 @@ class InMemoryWorkflowRunSdk implements WorkflowRunSdk {
 	async start(
 		workflow: { readonly workflowId: string },
 		args: readonly unknown[],
+		options?: WorkflowRunStartOptions,
 	): Promise<{ readonly runId: string }> {
-		this.startCalls.push({ workflowId: workflow.workflowId, args: [...args] });
+		this.startCalls.push({
+			workflowId: workflow.workflowId,
+			args: [...args],
+			...(options === undefined ? {} : { options }),
+		});
 		if (this.#state.startError !== undefined) throw this.#state.startError;
 		return { runId: this.#state.nextRunId ?? "wrun_fixture" };
 	}
@@ -115,6 +125,13 @@ describe("createWorkflowSdkRunGateway", () => {
 						prompt: "Rename the widget gateway methods.",
 					},
 				],
+				options: {
+					attributes: {
+						"dispatch.kind": "prompt",
+						"dispatch.anchor_pr": "421",
+						"dispatch.phase": "queued",
+					},
+				},
 			},
 		]);
 	});

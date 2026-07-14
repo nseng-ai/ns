@@ -23,7 +23,7 @@ export type SupervisionCleanupResult =
 
 export interface SuperviseDetachedRunDeps {
 	sleep(durationMs: number): Promise<void>;
-	poll(): Promise<SupervisionPollResult>;
+	poll(pollOrdinal: number): Promise<SupervisionPollResult>;
 }
 
 /**
@@ -38,7 +38,7 @@ export async function superviseDetachedRun(
 	let consecutiveFailures = 0;
 	for (let polls = 1; polls <= plan.maxPolls; polls++) {
 		await deps.sleep(plan.pollIntervalMs);
-		const poll = await deps.poll();
+		const poll = await deps.poll(polls);
 		if (poll.ok === false) {
 			consecutiveFailures += 1;
 			if (consecutiveFailures >= 2) {
