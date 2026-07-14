@@ -26,9 +26,10 @@ import { ACTIVATION_FILE_PATHS, ACTIVATION_FILES } from "./activation-files.ts";
 import {
 	createLifecycleRecorder,
 	lifecycleStepSchema,
-	recordLifecycleFailure,
 	renderLifecycleMarkdown,
+	type LifecycleDiagnostic,
 	type LifecycleRecorder,
+	type LifecycleStep,
 } from "./lifecycle-observability.ts";
 
 export const initNsRequestSchema = z.object({
@@ -55,50 +56,50 @@ export async function initNs(
 	request: InitNsRequest & { readonly cwd: string },
 ): Promise<ClinkrExit<InitNsResult>> {
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
-	recorder.record({ type: "phase", phase: "repository-preflight", status: "started" });
+	const tracedFailure = createTracedInitFailure(recorder);
+	recorder.beginPhase("repository-preflight");
 	const repositoryResult = await resolveActivationRepository(context, request.cwd);
-	if (repositoryResult.type !== "resolved") return repositoryFailure(repositoryResult, recorder);
+	if (repositoryResult.type !== "resolved")
+		return repositoryFailure(repositoryResult, tracedFailure);
 	const { repoRoot, trunkBranch } = repositoryResult.repository;
 	recorder.record({ type: "repository-resolved", repoRoot, trunkBranch });
-	recorder.record({ type: "phase", phase: "repository-preflight", status: "completed" });
-	recorder.record({ type: "phase", phase: "configuration-preflight", status: "started" });
+	recorder.beginPhase("configuration-preflight");
 	const configRead = await context.files.readActivationFile({ repoRoot, file: "ns-toml" });
 	if (configRead.type === "error") {
 		return preflightFailure(
 			[{ code: configRead.error.code, message: configRead.error.message, path: "ns.toml" }],
-			"configuration-preflight",
-			recorder,
+			tracedFailure,
 		);
 	}
 	if (configRead.type === "not-file") {
 		return preflightFailure(
 			[{ code: "ns-toml-not-file", message: "ns.toml exists but is not a file.", path: "ns.toml" }],
-			"configuration-preflight",
-			recorder,
+			tracedFailure,
 		);
 	}
 	const existingContent = configRead.type === "found" ? configRead.content : undefined;
 	const harnessResolution = resolveHarnesses(existingContent, request.harness);
 	if (harnessResolution.type === "usage-error") {
-		recordLifecycleFailure(recorder, "configuration-preflight", {
-			code: "harness-required",
+		return tracedFailure.usage({
+			diagnostics: [
+				{
+					code: "harness-required",
+					message: harnessResolution.message,
+					path: "ns.toml",
+				},
+			],
 			message: harnessResolution.message,
-			path: "ns.toml",
-		});
-		return usageError(harnessResolution.message, {
-			...harnessResolution.data,
-			steps: recorder.steps(),
+			data: harnessResolution.data,
 		});
 	}
 	if (harnessResolution.type === "failure")
-		return preflightFailure([harnessResolution.diagnostic], "configuration-preflight", recorder);
+		return preflightFailure([harnessResolution.diagnostic], tracedFailure);
 	recorder.record({
 		type: "harnesses-resolved",
 		source: harnessResolution.harnessSource,
 		harnesses: [...harnessResolution.harnesses],
 	});
-	recorder.record({ type: "phase", phase: "configuration-preflight", status: "completed" });
-	recorder.record({ type: "phase", phase: "activation-preflight", status: "started" });
+	recorder.beginPhase("activation-preflight");
 
 	const prepared = await prepareNsActivation(
 		context,
@@ -116,21 +117,22 @@ export async function initNs(
 		recorder,
 	);
 	if (prepared.type === "preflight-failed")
-		return preflightFailure(prepared.diagnostics, "activation-preflight", recorder);
-	recorder.record({ type: "phase", phase: "activation-preflight", status: "completed" });
-	recorder.record({ type: "phase", phase: "activation-apply", status: "started" });
+		return preflightFailure(prepared.diagnostics, tracedFailure);
+	recorder.beginPhase("activation-apply");
 	const applied = await applyNsActivation(context, prepared.activation, recorder);
 	if (applied.type === "apply-failed") {
-		recordLifecycleFailure(recorder, "activation-apply", applied.error);
-		return failure("ns-init-apply-failed", applied.error.message, {
-			phase: applied.phase,
-			error: applied.error,
-			completed: applied.completed,
-			steps: recorder.steps(),
+		return tracedFailure.command({
+			diagnostics: [applied.error],
+			errorType: "ns-init-apply-failed",
+			message: applied.error.message,
+			data: {
+				phase: applied.phase,
+				error: applied.error,
+				completed: applied.completed,
+			},
 		});
 	}
-	recorder.record({ type: "phase", phase: "activation-apply", status: "completed" });
-	recorder.record({ type: "phase", phase: "completion", status: "completed" });
+	recorder.complete();
 	return ok({
 		repoRoot,
 		trunkBranch: repositoryResult.repository.trunkBranch,
@@ -221,31 +223,72 @@ function harnessUsageError(): HarnessResolution {
 	};
 }
 
-function preflightFailure(
-	diagnostics: readonly {
-		readonly code: string;
+interface TracedInitFailure {
+	command<TData extends object>(options: {
+		readonly diagnostics: readonly LifecycleDiagnostic[];
+		readonly errorType: string;
 		readonly message: string;
-		readonly path?: string;
-	}[],
-	phase: "configuration-preflight" | "activation-preflight",
-	recorder: LifecycleRecorder,
-): ClinkrExit<InitNsResult> {
-	const diagnostic = diagnostics[0] ?? {
-		code: "preflight-failed",
-		message: "ns init preflight failed.",
+		readonly data: TData;
+	}): ClinkrExit<InitNsResult>;
+	usage<TData extends object>(options: {
+		readonly diagnostics: readonly LifecycleDiagnostic[];
+		readonly message: string;
+		readonly data: TData;
+	}): ClinkrExit<InitNsResult>;
+}
+
+function createTracedInitFailure(recorder: LifecycleRecorder): TracedInitFailure {
+	function failAndSnapshot(diagnostics: readonly LifecycleDiagnostic[]): readonly LifecycleStep[] {
+		recorder.fail(selectInitFailureDiagnostic(diagnostics));
+		return recorder.steps();
+	}
+
+	return {
+		command(options) {
+			return failure(options.errorType, options.message, {
+				...options.data,
+				steps: failAndSnapshot(options.diagnostics),
+			});
+		},
+		usage(options) {
+			return usageError(options.message, {
+				...options.data,
+				steps: failAndSnapshot(options.diagnostics),
+			});
+		},
 	};
-	recordLifecycleFailure(recorder, phase, diagnostic);
-	return failure("ns-init-preflight-failed", "ns init preflight failed; no files were written.", {
-		phase: "preflight",
-		diagnostics: diagnostics.map((item) => ({ ...item })),
-		completed: {},
-		steps: recorder.steps(),
+}
+
+function selectInitFailureDiagnostic(
+	diagnostics: readonly LifecycleDiagnostic[],
+): LifecycleDiagnostic {
+	return (
+		diagnostics[0] ?? {
+			code: "init-failed",
+			message: "ns init failed without a diagnostic.",
+		}
+	);
+}
+
+function preflightFailure(
+	diagnostics: readonly LifecycleDiagnostic[],
+	tracedFailure: TracedInitFailure,
+): ClinkrExit<InitNsResult> {
+	return tracedFailure.command({
+		diagnostics,
+		errorType: "ns-init-preflight-failed",
+		message: "ns init preflight failed; no files were written.",
+		data: {
+			phase: "preflight",
+			diagnostics: diagnostics.map((item) => ({ ...item })),
+			completed: {},
+		},
 	});
 }
 
 function repositoryFailure(
 	result: Exclude<ResolveActivationRepositoryResult, { type: "resolved" }>,
-	recorder: LifecycleRecorder,
+	tracedFailure: TracedInitFailure,
 ): ClinkrExit<InitNsResult> {
 	const diagnostic = activationRepositoryFailureDiagnostic(result);
 	const errorType = activationRepositoryFailureType(result, {
@@ -253,12 +296,15 @@ function repositoryFailure(
 		"trunk-undetectable": "ns-init-trunk-undetectable",
 		error: "ns-init-activation-failed",
 	});
-	recordLifecycleFailure(recorder, "repository-preflight", diagnostic);
-	return failure(errorType, diagnostic.message, {
-		phase: "preflight",
+	return tracedFailure.command({
 		diagnostics: [diagnostic],
-		completed: {},
-		steps: recorder.steps(),
+		errorType,
+		message: diagnostic.message,
+		data: {
+			phase: "preflight",
+			diagnostics: [diagnostic],
+			completed: {},
+		},
 	});
 }
 

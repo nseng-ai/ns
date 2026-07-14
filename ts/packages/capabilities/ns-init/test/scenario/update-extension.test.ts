@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
@@ -8,6 +9,11 @@ import { npmPackageRoot } from "@nseng-ai/sdk/extensions/acquisition";
 import { FakeExtensionAcquisitionGateway } from "@nseng-ai/sdk/testing";
 
 import { RealExtensionUpdateAcquisitionGateway } from "../../src/extension-acquisition.ts";
+import {
+	lifecycleStepSchema,
+	type LifecyclePhase,
+	type LifecycleStep,
+} from "../../src/lifecycle-observability.ts";
 
 import type { ExtensionUpdateContext } from "../../src/update-extension.ts";
 import { updateExtension } from "../../src/update-extension.ts";
@@ -30,6 +36,27 @@ function descriptor(source: string): DeclaredExtensionDescriptor {
 		version: "1.0.0",
 		descriptor: { description: "tools", activation: { instructions: "## Tools\n" } },
 	};
+}
+
+const tracedFailureSchema = z.object({
+	type: z.literal("failure"),
+	data: z.object({ steps: z.array(lifecycleStepSchema).readonly() }),
+});
+
+function failureSteps(result: unknown): readonly LifecycleStep[] {
+	return tracedFailureSchema.parse(result).data.steps;
+}
+
+function phaseHistory(steps: readonly LifecycleStep[]) {
+	return steps.filter((step) => step.type === "phase");
+}
+
+function expectTerminalFailure(steps: readonly LifecycleStep[], phase: LifecyclePhase): void {
+	expect(steps.filter((step) => step.type === "failure")).toHaveLength(1);
+	expect(steps.slice(-2)).toEqual([
+		{ type: "phase", phase, status: "failed" },
+		expect.objectContaining({ type: "failure", phase }),
+	]);
 }
 
 function fixture(options: {
@@ -193,6 +220,47 @@ describe("updateExtension acquisition scenarios", () => {
 					: {}),
 			},
 		});
+		if (result.type !== "ok") throw new Error("Expected update to succeed.");
+		expect(phaseHistory(result.data.steps)).toEqual([
+			{ type: "phase", phase: "repository-preflight", status: "started" },
+			{ type: "phase", phase: "repository-preflight", status: "completed" },
+			{ type: "phase", phase: "configuration-preflight", status: "started" },
+			{ type: "phase", phase: "configuration-preflight", status: "completed" },
+			{ type: "phase", phase: "declaration-planning", status: "started" },
+			{ type: "phase", phase: "declaration-planning", status: "completed" },
+			{ type: "phase", phase: "acquisition", status: "started" },
+			{ type: "phase", phase: "acquisition", status: "completed" },
+			...(dryRun && effects === "unavailable"
+				? [{ type: "phase", phase: "activation-preflight", status: "skipped" } as const]
+				: [
+						{ type: "phase", phase: "activation-preflight", status: "started" } as const,
+						{ type: "phase", phase: "activation-preflight", status: "completed" } as const,
+					]),
+			...(dryRun
+				? [{ type: "phase", phase: "activation-apply", status: "skipped" } as const]
+				: [
+						{ type: "phase", phase: "activation-apply", status: "started" } as const,
+						{ type: "phase", phase: "activation-apply", status: "completed" } as const,
+					]),
+			{ type: "phase", phase: "completion", status: "completed" },
+		]);
+		if (dryRun) {
+			const acquisitionCompleted = result.data.steps.findIndex(
+				(step) =>
+					step.type === "phase" && step.phase === "acquisition" && step.status === "completed",
+			);
+			const activationPreflight = result.data.steps.findIndex(
+				(step) => step.type === "phase" && step.phase === "activation-preflight",
+			);
+			const activationApplySkipped = result.data.steps.findIndex(
+				(step) =>
+					step.type === "phase" && step.phase === "activation-apply" && step.status === "skipped",
+			);
+			const firstEffect = result.data.steps.findIndex((step) => step.type === "effect");
+			expect(acquisitionCompleted).toBeLessThan(activationPreflight);
+			expect(activationPreflight).toBeLessThan(activationApplySkipped);
+			expect(activationApplySkipped).toBeLessThan(firstEffect);
+		}
 		expect(acquisition.operations()).toEqual([
 			{
 				operation: dryRun ? "preview" : "reconcile",
@@ -224,8 +292,10 @@ describe("updateExtension acquisition scenarios", () => {
 			data: {
 				phase: "acquisition",
 				diagnostics: [{ code: "extension-acquisition-npm-project-failed" }],
+				steps: expect.any(Array),
 			},
 		});
+		expectTerminalFailure(failureSteps(result), "acquisition");
 	});
 
 	it("reports apply acquisition failure before activation", async () => {
@@ -242,7 +312,9 @@ describe("updateExtension acquisition scenarios", () => {
 		expect(result).toMatchObject({
 			type: "failure",
 			errorType: "ns-extension-update-acquisition-failed",
+			data: { completed: {}, steps: expect.any(Array) },
 		});
+		expectTerminalFailure(failureSteps(result), "acquisition");
 		expect(declaredExtensions.calls()).toEqual([]);
 	});
 
@@ -277,8 +349,30 @@ describe("updateExtension acquisition scenarios", () => {
 		expect(result).toMatchObject({
 			type: "failure",
 			errorType: "ns-extension-update-apply-failed",
-			data: { phase: "artifacts" },
+			data: { phase: "artifacts", completed: { files: {} }, steps: expect.any(Array) },
 		});
+		expectTerminalFailure(failureSteps(result), "activation-apply");
+	});
+
+	it("reports dry-run activation preflight failure without claiming live acquisition", async () => {
+		const source = "npm:@test/tools@1.0.0";
+		const { context } = fixture({
+			source,
+			isInstalled: true,
+			descriptors: [],
+			diagnostics: [
+				{ severity: "error", code: "descriptor-invalid", message: "bad", spec: source },
+			],
+		});
+
+		const result = await updateExtension(context, { cwd: "/repo", source, dryRun: true });
+
+		expect(result).toMatchObject({
+			type: "failure",
+			errorType: "ns-extension-update-preflight-failed",
+			data: { sourceAcquisitionCompleted: false, completed: {}, steps: expect.any(Array) },
+		});
+		expectTerminalFailure(failureSteps(result), "activation-preflight");
 	});
 
 	it("records that live acquisition completed when activation preflight fails", async () => {
@@ -297,7 +391,8 @@ describe("updateExtension acquisition scenarios", () => {
 		expect(result).toMatchObject({
 			type: "failure",
 			errorType: "ns-extension-update-preflight-failed",
-			data: { sourceAcquisitionCompleted: true },
+			data: { sourceAcquisitionCompleted: true, completed: {}, steps: expect.any(Array) },
 		});
+		expectTerminalFailure(failureSteps(result), "activation-preflight");
 	});
 });

@@ -9,6 +9,7 @@ import { npmPackageRoot } from "@nseng-ai/sdk/extensions/acquisition";
 
 import { prepareExtensionLifecycle } from "../../src/extension-lifecycle-preflight.ts";
 import type { ExtensionInstallContext } from "../../src/install-extension.ts";
+import { createLifecycleRecorder } from "../../src/lifecycle-observability.ts";
 import { installExtension } from "../../src/install-extension.ts";
 import {
 	InMemoryActivationFilesGateway,
@@ -179,7 +180,7 @@ describe("extension lifecycle source classification", () => {
 	])("preserves the $label lifecycle result", async ({ source, expected }) => {
 		const { context } = fixture({ nsToml: initializedToml });
 		await expect(
-			prepareExtensionLifecycle(context, { cwd: "/repo", source }),
+			prepareExtensionLifecycle(context, { cwd: "/repo", source }, createLifecycleRecorder()),
 		).resolves.toMatchObject(expected);
 	});
 });
@@ -207,6 +208,57 @@ describe("installExtension", () => {
 		expect(files.fileContent("ns.toml")).toBe(
 			'harnesses = ["pi"]\nextensions = ["./extensions/tools"]\n',
 		);
+		if (result.type !== "ok") throw new Error("Expected install success.");
+		expect(result.data.steps).toEqual([
+			{ type: "phase", phase: "repository-preflight", status: "started" },
+			{ type: "repository-resolved", repoRoot: "/repo", trunkBranch: "main" },
+			{ type: "phase", phase: "repository-preflight", status: "completed" },
+			{ type: "phase", phase: "configuration-preflight", status: "started" },
+			{ type: "harnesses-resolved", source: "ns-toml", harnesses: ["pi"] },
+			{ type: "phase", phase: "configuration-preflight", status: "completed" },
+			{ type: "phase", phase: "declaration-planning", status: "started" },
+			{
+				type: "declaration-decided",
+				sourceSpec: source,
+				nsTomlPath: "/repo/ns.toml",
+				action: "appended",
+			},
+			{ type: "phase", phase: "declaration-planning", status: "completed" },
+			{ type: "phase", phase: "acquisition", status: "started" },
+			{
+				type: "acquisition-decided",
+				sourceSpec: source,
+				sourceKind: "local",
+				intent: "local-in-place",
+				outcome: "local-in-place",
+				moduleRoot: "/repo/extensions/tools",
+			},
+			{ type: "phase", phase: "acquisition", status: "completed" },
+			{ type: "phase", phase: "activation-preflight", status: "started" },
+			{
+				type: "activation-planned",
+				descriptorCount: 1,
+				fileCount: 5,
+				consumerDirectoryCount: 0,
+				artifactCount: 0,
+			},
+			{ type: "phase", phase: "activation-preflight", status: "completed" },
+			{ type: "phase", phase: "activation-apply", status: "started" },
+			...[
+				["ns-toml", "ns.toml", "appended"],
+				["managed-extensions-ignore", ".gitignore", "created"],
+				["agents-instructions", "AGENTS.md", "created"],
+				["claude-instructions", "CLAUDE.md", "created"],
+				["generated-instructions", ".ns/instructions.md", "created"],
+			].map(([file, path, change]) => ({
+				type: "activation-file-completed",
+				file,
+				path,
+				change,
+			})),
+			{ type: "phase", phase: "activation-apply", status: "completed" },
+			{ type: "phase", phase: "completion", status: "completed" },
+		]);
 	});
 
 	it.each([

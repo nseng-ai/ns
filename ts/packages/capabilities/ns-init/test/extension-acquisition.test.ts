@@ -33,6 +33,23 @@ describe("extension install acquisition", () => {
 			outcome: "unchanged",
 		});
 		expect(acquisition.installs).toEqual([]);
+		expect(acquisition.inspections).toEqual([packageRoot]);
+	});
+
+	test("ensure classifies a missing npm source from the resolver's prior state", async () => {
+		const packageRoot = npmPackageRoot("/repo", "@acme/tools");
+		const acquisition = new FakeExtensionAcquisitionGateway();
+		const gateway = new RealExtensionInstallAcquisitionGateway(acquisition);
+
+		await expect(
+			gateway.ensure({ repoRoot: "/repo", sourceSpec: "npm:@acme/tools" }),
+		).resolves.toEqual({
+			ok: true,
+			sourceKind: "npm",
+			moduleRoot: packageRoot,
+			outcome: "installed",
+		});
+		expect(acquisition.inspections).toEqual([packageRoot, packageRoot]);
 	});
 
 	test.each([
@@ -92,6 +109,7 @@ describe("extension install acquisition", () => {
 		{
 			sourceSpec: "npm:@acme/tools",
 			installed: true,
+			expectedInspectionCount: 2,
 			expected: {
 				type: "applied",
 				sourceKind: "npm",
@@ -103,6 +121,7 @@ describe("extension install acquisition", () => {
 		{
 			sourceSpec: "npm:@acme/tools",
 			installed: false,
+			expectedInspectionCount: 2,
 			expected: {
 				type: "applied",
 				sourceKind: "npm",
@@ -114,6 +133,7 @@ describe("extension install acquisition", () => {
 		{
 			sourceSpec: "npm:@acme/tools@1.0.0",
 			installed: true,
+			expectedInspectionCount: 1,
 			expected: {
 				type: "applied",
 				sourceKind: "npm",
@@ -125,6 +145,7 @@ describe("extension install acquisition", () => {
 		{
 			sourceSpec: "npm:@acme/tools@1.0.0",
 			installed: false,
+			expectedInspectionCount: 2,
 			expected: {
 				type: "applied",
 				sourceKind: "npm",
@@ -135,12 +156,15 @@ describe("extension install acquisition", () => {
 		},
 	])(
 		"derives applied outcome for $sourceSpec with prior existence $installed",
-		async ({ sourceSpec, installed, expected }) => {
+		async ({ sourceSpec, installed, expectedInspectionCount, expected }) => {
 			const acquisition = new FakeExtensionAcquisitionGateway({
 				installedPackageRoots: installed ? [packageRoot] : [],
 			});
 			const gateway = new RealExtensionUpdateAcquisitionGateway(acquisition);
 			await expect(gateway.reconcile({ repoRoot: "/repo", sourceSpec })).resolves.toEqual(expected);
+			expect(acquisition.inspections).toEqual(
+				Array.from({ length: expectedInspectionCount }, () => packageRoot),
+			);
 		},
 	);
 

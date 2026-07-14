@@ -18,7 +18,7 @@ import {
 	type ResolveActivationRepositoryResult,
 } from "./activate-ns.ts";
 import type { NsActivationContext } from "./activation-context.ts";
-import { recordLifecycleFailure, type LifecycleRecorder } from "./lifecycle-observability.ts";
+import type { LifecycleRecorder } from "./lifecycle-observability.ts";
 
 export type ExtensionLifecycleVerb = "install" | "uninstall" | "update";
 
@@ -59,18 +59,23 @@ export type ExtensionLifecyclePreflightResult =
 export async function prepareExtensionLifecycle(
 	context: NsActivationContext,
 	request: { readonly cwd: string; readonly source: string },
-	recorder?: LifecycleRecorder,
+	recorder: LifecycleRecorder,
 ): Promise<ExtensionLifecyclePreflightResult> {
+	recorder.beginPhase("repository-preflight");
 	const repository = await resolveActivationRepository(context, request.cwd);
-	if (repository.type !== "resolved")
+	if (repository.type !== "resolved") {
+		recorder.fail(activationRepositoryFailureDiagnostic(repository));
 		return { type: "failed", failure: { type: "repository", result: repository } };
+	}
 	const { repoRoot, trunkBranch } = repository.repository;
-	recorder?.record({ type: "repository-resolved", repoRoot, trunkBranch });
-	recorder?.record({ type: "phase", phase: "repository-preflight", status: "completed" });
-	recorder?.record({ type: "phase", phase: "configuration-preflight", status: "started" });
+	recorder.record({ type: "repository-resolved", repoRoot, trunkBranch });
+	recorder.beginPhase("configuration-preflight");
 	const config = await context.files.readActivationFile({ repoRoot, file: "ns-toml" });
-	if (config.type !== "found")
-		return { type: "failed", failure: { type: "config-read", result: config, repoRoot } };
+	if (config.type !== "found") {
+		const failure = { type: "config-read", result: config, repoRoot } as const;
+		recorder.fail(preflightFailureDiagnostic(failure));
+		return { type: "failed", failure };
+	}
 	const harnesses = parseNsTomlHarnesses(config.content);
 	if (harnesses.type !== "ok") {
 		const diagnostic =
@@ -81,21 +86,19 @@ export async function prepareExtensionLifecycle(
 						path: "ns.toml",
 					}
 				: { ...harnesses.error, path: "ns.toml" };
-		return {
-			type: "failed",
-			failure: {
-				type: harnesses.type === "missing" ? "harnesses-missing" : "harnesses-invalid",
-				diagnostic,
-			},
-		};
+		const failure = {
+			type: harnesses.type === "missing" ? "harnesses-missing" : "harnesses-invalid",
+			diagnostic,
+		} as const;
+		recorder.fail(diagnostic);
+		return { type: "failed", failure };
 	}
-	recorder?.record({
+	recorder.record({
 		type: "harnesses-resolved",
 		source: "ns-toml",
 		harnesses: harnesses.harnesses,
 	});
-	recorder?.record({ type: "phase", phase: "configuration-preflight", status: "completed" });
-	recorder?.record({ type: "phase", phase: "declaration-planning", status: "started" });
+	recorder.beginPhase("declaration-planning");
 	const classification = classifyExtensionSourceLifecycle(repoRoot, request.source);
 	switch (classification.type) {
 		case "supported-npm":
@@ -112,29 +115,29 @@ export async function prepareExtensionLifecycle(
 					sourceIdentity: extensionSourceIdentityFromParsed(repoRoot, classification.source),
 				},
 			};
-		case "invalid-npm":
-			return {
-				type: "failed",
-				failure: { type: "source-invalid", diagnostic: classification.diagnostic },
-			};
-		case "unsupported-git":
-			return {
-				type: "failed",
-				failure: {
-					type: "source-unsupported",
-					sourceSpec: classification.source.raw,
-					message: classification.message,
-				},
-			};
-		case "unsupported-other":
-			return {
-				type: "failed",
-				failure: {
-					type: "source-unsupported",
-					sourceSpec: classification.sourceSpec,
-					message: classification.message,
-				},
-			};
+		case "invalid-npm": {
+			const failure = { type: "source-invalid", diagnostic: classification.diagnostic } as const;
+			recorder.fail(classification.diagnostic);
+			return { type: "failed", failure };
+		}
+		case "unsupported-git": {
+			const failure = {
+				type: "source-unsupported",
+				sourceSpec: classification.source.raw,
+				message: classification.message,
+			} as const;
+			recorder.fail(preflightFailureDiagnostic(failure));
+			return { type: "failed", failure };
+		}
+		case "unsupported-other": {
+			const failure = {
+				type: "source-unsupported",
+				sourceSpec: classification.sourceSpec,
+				message: classification.message,
+			} as const;
+			recorder.fail(preflightFailureDiagnostic(failure));
+			return { type: "failed", failure };
+		}
 	}
 }
 
@@ -150,8 +153,6 @@ export function extensionLifecycleFailure<TResult>(
 	recorder: LifecycleRecorder,
 ): ClinkrExit<TResult> {
 	const prefix = `ns-extension-${verb}`;
-	const lifecycleDiagnostic = preflightFailureDiagnostic(preflightFailure);
-	recordLifecycleFailure(recorder, preflightFailurePhase(preflightFailure), lifecycleDiagnostic);
 	if (preflightFailure.type === "repository") {
 		const diagnostic = activationRepositoryFailureDiagnostic(preflightFailure.result);
 		const errorType = activationRepositoryFailureType(preflightFailure.result, {
@@ -228,24 +229,14 @@ export function normalizeExtensionLifecycleDiagnostics<T extends { readonly code
 
 export function extensionLifecyclePreflightEnvelope<T extends { readonly code: string }>(
 	diagnostics: readonly T[],
-	recorder?: LifecycleRecorder,
+	recorder: LifecycleRecorder,
 ) {
 	return {
 		phase: "preflight" as const,
 		diagnostics: normalizeExtensionLifecycleDiagnostics(diagnostics),
 		completed: {},
-		...(recorder === undefined ? {} : { steps: recorder.steps() }),
+		steps: recorder.steps(),
 	};
-}
-
-function preflightFailurePhase(
-	failure: ExtensionLifecyclePreflightFailure,
-): "repository-preflight" | "configuration-preflight" | "declaration-planning" {
-	if (failure.type === "repository") return "repository-preflight";
-	if (failure.type === "source-invalid" || failure.type === "source-unsupported") {
-		return "declaration-planning";
-	}
-	return "configuration-preflight";
 }
 
 function preflightFailureDiagnostic(failure: ExtensionLifecyclePreflightFailure): {

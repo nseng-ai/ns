@@ -1,4 +1,5 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { ALL_HARNESS_IDS } from "@nseng-ai/harness-artifacts/api";
 import { z } from "zod";
 
 import { activationFileSchema } from "./activation-files.ts";
@@ -35,7 +36,7 @@ export const lifecycleStepSchema = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("harnesses-resolved"),
 		source: z.enum(["explicit", "ns-toml"]),
-		harnesses: z.array(z.enum(["claude-code", "codex", "pi"])).readonly(),
+		harnesses: z.array(z.enum(ALL_HARNESS_IDS)).readonly(),
 	}),
 	z.object({
 		type: z.literal("declaration-decided"),
@@ -92,7 +93,7 @@ export const lifecycleStepSchema = z.discriminatedUnion("type", [
 		action: z.enum(["installed", "refreshed", "unchanged", "conflicted", "removed"]),
 		artifactId: z.string(),
 		skillName: z.string(),
-		harness: z.enum(["claude-code", "codex", "pi"]),
+		harness: z.enum(ALL_HARNESS_IDS),
 		targetArtifactPath: z.string(),
 		manifestPath: z.string(),
 		writtenFiles: z.array(z.string()).readonly(),
@@ -122,43 +123,97 @@ export const lifecycleStepSchema = z.discriminatedUnion("type", [
 
 export type LifecycleStep = z.infer<typeof lifecycleStepSchema>;
 export type LifecyclePhase = z.infer<typeof lifecyclePhaseSchema>;
+export type LifecycleDetail = Exclude<LifecycleStep, { readonly type: "phase" | "failure" }>;
+export type LifecycleDiagnostic = {
+	readonly code: string;
+	readonly message: string;
+	readonly path?: string;
+};
 
 export interface LifecycleTraceSink {
 	emit(line: string): void;
 }
 
 export interface LifecycleRecorder {
-	record(step: LifecycleStep): void;
+	beginPhase(phase: Exclude<LifecyclePhase, "completion">): void;
+	endPhase(): void;
+	skipPhase(phase: Exclude<LifecyclePhase, "completion">): void;
+	fail(diagnostic: LifecycleDiagnostic): void;
+	complete(): void;
+	record(detail: LifecycleDetail): void;
 	steps(): readonly LifecycleStep[];
 }
 
 export function createLifecycleRecorder(sink?: LifecycleTraceSink): LifecycleRecorder {
 	const history: LifecycleStep[] = [];
+	let activePhase: Exclude<LifecyclePhase, "completion"> | undefined;
+	let isTerminal = false;
+
+	function append(step: LifecycleStep): void {
+		const ownedStep = structuredClone(step);
+		history.push(ownedStep);
+		sink?.emit(renderLifecycleStepHuman(ownedStep));
+	}
+
+	function assertNotTerminal(operation: string): void {
+		if (isTerminal) throw new Error(`Cannot ${operation} after the lifecycle is terminal.`);
+	}
+
+	function closeActivePhase(): void {
+		if (activePhase === undefined) return;
+		append({ type: "phase", phase: activePhase, status: "completed" });
+		activePhase = undefined;
+	}
+
 	return {
-		record(step) {
-			const parsed = lifecycleStepSchema.parse(step);
-			history.push(parsed);
-			sink?.emit(renderLifecycleStepHuman(parsed));
+		beginPhase(phase) {
+			assertNotTerminal(`begin phase ${phase}`);
+			if (activePhase === phase) throw new Error(`Lifecycle phase ${phase} is already active.`);
+			closeActivePhase();
+			append({ type: "phase", phase, status: "started" });
+			activePhase = phase;
+		},
+		endPhase() {
+			assertNotTerminal("end the active phase");
+			if (activePhase === undefined)
+				throw new Error("Cannot end a lifecycle phase without an active phase.");
+			closeActivePhase();
+		},
+		skipPhase(phase) {
+			assertNotTerminal(`skip phase ${phase}`);
+			if (activePhase === phase) throw new Error(`Cannot skip active lifecycle phase ${phase}.`);
+			closeActivePhase();
+			append({ type: "phase", phase, status: "skipped" });
+		},
+		fail(diagnostic) {
+			assertNotTerminal("fail");
+			if (activePhase === undefined)
+				throw new Error("Cannot fail a lifecycle without an active phase.");
+			append({ type: "phase", phase: activePhase, status: "failed" });
+			append({
+				type: "failure",
+				phase: activePhase,
+				code: diagnostic.code,
+				message: diagnostic.message,
+				...optionalEntry("path", diagnostic.path),
+			});
+			activePhase = undefined;
+			isTerminal = true;
+		},
+		complete() {
+			assertNotTerminal("complete");
+			closeActivePhase();
+			append({ type: "phase", phase: "completion", status: "completed" });
+			isTerminal = true;
+		},
+		record(detail) {
+			assertNotTerminal("record a lifecycle detail");
+			append(detail);
 		},
 		steps() {
 			return structuredClone(history);
 		},
 	};
-}
-
-export function recordLifecycleFailure(
-	recorder: LifecycleRecorder,
-	phase: LifecyclePhase,
-	diagnostic: { readonly code: string; readonly message: string; readonly path?: string },
-): void {
-	recorder.record({ type: "phase", phase, status: "failed" });
-	recorder.record({
-		type: "failure",
-		phase,
-		code: diagnostic.code,
-		message: diagnostic.message,
-		...optionalEntry("path", diagnostic.path),
-	});
 }
 
 export function recordActivationPlan(

@@ -25,8 +25,8 @@ import {
 import {
 	createLifecycleRecorder,
 	lifecycleStepSchema,
-	recordLifecycleFailure,
 	renderLifecycleMarkdown,
+	type LifecycleDiagnostic,
 	type LifecycleRecorder,
 } from "./lifecycle-observability.ts";
 
@@ -61,7 +61,19 @@ export async function updateExtension(
 	request: UpdateExtensionRequest,
 ): Promise<ClinkrExit<UpdateExtensionResult>> {
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
-	recorder.record({ type: "phase", phase: "repository-preflight", status: "started" });
+	function tracedFailure<TData extends object>(options: {
+		readonly diagnostic: LifecycleDiagnostic;
+		readonly errorType: string;
+		readonly message: string;
+		readonly data: TData;
+	}): ClinkrExit<UpdateExtensionResult> {
+		recorder.fail(options.diagnostic);
+		return failure(options.errorType, options.message, {
+			...options.data,
+			steps: recorder.steps(),
+		});
+	}
+
 	const preflight = await prepareExtensionLifecycle(context, request, recorder);
 	if (preflight.type === "failed")
 		return extensionLifecycleFailure("update", preflight.failure, recorder);
@@ -72,16 +84,11 @@ export async function updateExtension(
 		requestedSpec: request.source,
 	});
 	if (!target.ok) {
-		recordLifecycleFailure(recorder, "declaration-planning", {
-			code: target.reason,
+		return tracedFailure({
+			diagnostic: { code: target.reason, message: target.message, path: "ns.toml" },
+			errorType: `ns-extension-update-${target.reason}`,
 			message: target.message,
-			path: "ns.toml",
-		});
-		return failure(`ns-extension-update-${target.reason}`, target.message, {
-			phase: "preflight",
-			...target,
-			completed: {},
-			steps: recorder.steps(),
+			data: { phase: "preflight", ...target, completed: {} },
 		});
 	}
 	recorder.record({
@@ -90,16 +97,17 @@ export async function updateExtension(
 		nsTomlPath: `${repoRoot}/ns.toml`,
 		action: "unchanged",
 	});
-	recorder.record({ type: "phase", phase: "declaration-planning", status: "completed" });
-	recorder.record({ type: "phase", phase: "acquisition", status: "started" });
+	recorder.beginPhase("acquisition");
 
 	if (request.dryRun) {
 		const preview = await context.updateAcquisition.preview({
 			repoRoot,
 			sourceSpec: target.matchedSpec,
 		});
-		if (preview.type === "failed")
-			return acquisitionFailure(target.matchedSpec, preview.diagnostics, recorder);
+		if (preview.type === "failed") {
+			const failureOptions = acquisitionFailure(target.matchedSpec, preview.diagnostics);
+			return tracedFailure(failureOptions);
+		}
 		const facts = classifyUpdateOutcome(preview);
 		recordAcquisition(
 			recorder,
@@ -107,9 +115,8 @@ export async function updateExtension(
 			facts,
 			preview.type === "preview-existing" ? preview.moduleRoot : undefined,
 		);
-		recorder.record({ type: "phase", phase: "acquisition", status: "completed" });
 		if (preview.type === "preview-existing") {
-			recorder.record({ type: "phase", phase: "activation-preflight", status: "started" });
+			recorder.beginPhase("activation-preflight");
 			const prepared = await prepareNsActivation(
 				context,
 				{
@@ -122,11 +129,13 @@ export async function updateExtension(
 				},
 				recorder,
 			);
-			if (prepared.type === "preflight-failed")
-				return activationPreflightFailure(prepared.diagnostics, false, recorder);
-			recorder.record({ type: "phase", phase: "activation-preflight", status: "completed" });
-		} else recorder.record({ type: "phase", phase: "activation-preflight", status: "skipped" });
-		recorder.record({ type: "phase", phase: "activation-apply", status: "skipped" });
+			if (prepared.type === "preflight-failed") {
+				const failureOptions = activationPreflightFailure(prepared.diagnostics, false);
+				return tracedFailure(failureOptions);
+			}
+		}
+		if (preview.type === "preview-apply-required") recorder.skipPhase("activation-preflight");
+		recorder.skipPhase("activation-apply");
 		recorder.record({ type: "effect", effect: "dry-run-no-writes" });
 		recorder.record({
 			type: "effect",
@@ -135,7 +144,7 @@ export async function updateExtension(
 					? "prospective-effects-available"
 					: "prospective-effects-unavailable",
 		});
-		recorder.record({ type: "phase", phase: "completion", status: "completed" });
+		recorder.complete();
 		return ok({
 			sourceSpec: target.matchedSpec,
 			mode: "dry-run",
@@ -152,12 +161,13 @@ export async function updateExtension(
 		repoRoot,
 		sourceSpec: target.matchedSpec,
 	});
-	if (reconciled.type === "failed")
-		return acquisitionFailure(target.matchedSpec, reconciled.diagnostics, recorder);
+	if (reconciled.type === "failed") {
+		const failureOptions = acquisitionFailure(target.matchedSpec, reconciled.diagnostics);
+		return tracedFailure(failureOptions);
+	}
 	const facts = classifyUpdateOutcome(reconciled);
 	recordAcquisition(recorder, target.matchedSpec, facts, reconciled.moduleRoot);
-	recorder.record({ type: "phase", phase: "acquisition", status: "completed" });
-	recorder.record({ type: "phase", phase: "activation-preflight", status: "started" });
+	recorder.beginPhase("activation-preflight");
 	const prepared = await prepareNsActivation(
 		context,
 		{
@@ -170,22 +180,25 @@ export async function updateExtension(
 		},
 		recorder,
 	);
-	if (prepared.type === "preflight-failed")
-		return activationPreflightFailure(prepared.diagnostics, true, recorder);
-	recorder.record({ type: "phase", phase: "activation-preflight", status: "completed" });
-	recorder.record({ type: "phase", phase: "activation-apply", status: "started" });
+	if (prepared.type === "preflight-failed") {
+		const failureOptions = activationPreflightFailure(prepared.diagnostics, true);
+		return tracedFailure(failureOptions);
+	}
+	recorder.beginPhase("activation-apply");
 	const applied = await applyNsActivation(context, prepared.activation, recorder);
 	if (applied.type === "apply-failed") {
-		recordLifecycleFailure(recorder, "activation-apply", applied.error);
-		return failure("ns-extension-update-apply-failed", applied.error.message, {
-			phase: applied.phase,
-			error: normalizeExtensionLifecycleDiagnostic(applied.error),
-			completed: applied.completed,
-			steps: recorder.steps(),
+		return tracedFailure({
+			diagnostic: applied.error,
+			errorType: "ns-extension-update-apply-failed",
+			message: applied.error.message,
+			data: {
+				phase: applied.phase,
+				error: normalizeExtensionLifecycleDiagnostic(applied.error),
+				completed: applied.completed,
+			},
 		});
 	}
-	recorder.record({ type: "phase", phase: "activation-apply", status: "completed" });
-	recorder.record({ type: "phase", phase: "completion", status: "completed" });
+	recorder.complete();
 	return ok({
 		sourceSpec: target.matchedSpec,
 		mode: "applied",
@@ -216,40 +229,40 @@ function recordAcquisition(
 function acquisitionFailure(
 	sourceSpec: string,
 	diagnostics: readonly ExtensionAcquisitionDiagnostic[],
-	recorder: LifecycleRecorder,
 ) {
 	const diagnostic = normalizeExtensionLifecycleDiagnostic(
 		diagnostics[0] ?? { code: "acquisition-failed", message: `Could not update ${sourceSpec}.` },
 	);
-	recordLifecycleFailure(recorder, "acquisition", diagnostic);
-	return failure("ns-extension-update-acquisition-failed", diagnostic.message, {
-		phase: "acquisition",
-		diagnostics: diagnostics.map(normalizeExtensionLifecycleDiagnostic),
-		completed: {},
-		steps: recorder.steps(),
-	});
+	return {
+		diagnostic,
+		errorType: "ns-extension-update-acquisition-failed",
+		message: diagnostic.message,
+		data: {
+			phase: "acquisition" as const,
+			diagnostics: diagnostics.map(normalizeExtensionLifecycleDiagnostic),
+			completed: {},
+		},
+	};
 }
 function activationPreflightFailure(
 	diagnostics: readonly ActivationDiagnostic[],
 	sourceAcquisitionCompleted: boolean,
-	recorder: LifecycleRecorder,
 ) {
 	const diagnostic = diagnostics[0] ?? {
 		code: "activation-preflight-failed",
 		message: "Extension update activation preflight failed.",
 	};
-	recordLifecycleFailure(recorder, "activation-preflight", diagnostic);
-	return failure(
-		"ns-extension-update-preflight-failed",
-		"Extension update activation preflight failed.",
-		{
-			phase: "preflight",
+	return {
+		diagnostic,
+		errorType: "ns-extension-update-preflight-failed",
+		message: "Extension update activation preflight failed.",
+		data: {
+			phase: "preflight" as const,
 			diagnostics: diagnostics.map(normalizeExtensionLifecycleDiagnostic),
 			sourceAcquisitionCompleted,
 			completed: {},
-			steps: recorder.steps(),
 		},
-	);
+	};
 }
 
 type SuccessfulUpdateAcquisition = Exclude<

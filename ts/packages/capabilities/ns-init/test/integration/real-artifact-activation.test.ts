@@ -8,6 +8,7 @@ import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 
 import { prepareNsActivation } from "../../src/activate-ns.ts";
+import { createLifecycleRecorder } from "../../src/lifecycle-observability.ts";
 import { RealArtifactActivationGateway } from "../../src/real-artifact-activation.ts";
 import {
 	InMemoryActivationFilesGateway,
@@ -120,6 +121,8 @@ describe("RealArtifactActivationGateway", () => {
 		await writeFile(editedPath, "# customer edit\n", "utf8");
 
 		const files = new InMemoryActivationFilesGateway();
+		const recorder = createLifecycleRecorder();
+		recorder.beginPhase("activation-preflight");
 		const result = await prepareNsActivation(
 			{
 				git: new InMemoryGitGateway({ optionalRepoRoot: repoRoot, trunkBranch: "main" }),
@@ -135,6 +138,7 @@ describe("RealArtifactActivationGateway", () => {
 				nsTomlChange: "created",
 				nsTomlExpected: { type: "missing" },
 			},
+			recorder,
 		);
 		expect(result.type).toBe("preflight-failed");
 		if (result.type !== "preflight-failed") return;

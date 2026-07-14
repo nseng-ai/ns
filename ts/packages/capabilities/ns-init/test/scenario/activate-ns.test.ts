@@ -10,6 +10,7 @@ import {
 	prepareNsActivation,
 } from "../../src/activate-ns.ts";
 import type { NsActivationContext } from "../../src/activation-context.ts";
+import { createLifecycleRecorder } from "../../src/lifecycle-observability.ts";
 import {
 	InMemoryActivationFilesGateway,
 	InMemoryArtifactActivationGateway,
@@ -60,6 +61,24 @@ function context(
 
 const repository = { repoRoot: "/repo", trunkBranch: "main" } as const;
 
+async function prepareActivation(
+	context: Parameters<typeof prepareNsActivation>[0],
+	options: Parameters<typeof prepareNsActivation>[1],
+) {
+	const recorder = createLifecycleRecorder();
+	recorder.beginPhase("activation-preflight");
+	return prepareNsActivation(context, options, recorder);
+}
+
+async function applyActivation(
+	context: Parameters<typeof applyNsActivation>[0],
+	prepared: Parameters<typeof applyNsActivation>[1],
+) {
+	const recorder = createLifecycleRecorder();
+	recorder.beginPhase("activation-apply");
+	return applyNsActivation(context, prepared, recorder);
+}
+
 describe("ns activation planning and apply", () => {
 	it.each([
 		[
@@ -96,7 +115,7 @@ describe("ns activation planning and apply", () => {
 			result: { descriptors, diagnostics: [] },
 		});
 		const ctx = context({ files, declaredExtensions });
-		const prepared = await prepareNsActivation(ctx, {
+		const prepared = await prepareActivation(ctx, {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
@@ -117,7 +136,7 @@ describe("ns activation planning and apply", () => {
 			".ns/two",
 		]);
 
-		const applied = await applyNsActivation(ctx, prepared.activation);
+		const applied = await applyActivation(ctx, prepared.activation);
 		expect(applied.type).toBe("activated");
 		expect(files.operations()).toEqual([
 			{ type: "write", path: "ns.toml" },
@@ -139,7 +158,7 @@ describe("ns activation planning and apply", () => {
 		const original = "# customer rules\nnode_modules/\n.ns/**\n";
 		const files = new InMemoryActivationFilesGateway({ files: { ".gitignore": original } });
 		const ctx = context({ files });
-		const prepared = await prepareNsActivation(ctx, {
+		const prepared = await prepareActivation(ctx, {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
@@ -149,10 +168,10 @@ describe("ns activation planning and apply", () => {
 		});
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
 		expect(prepared.activation.files["managed-extensions-ignore"].change).toBe("appended");
-		await applyNsActivation(ctx, prepared.activation);
+		await applyActivation(ctx, prepared.activation);
 		expect(files.fileContent(".gitignore")).toBe(`${original}.ns/managed-extensions/\n`);
 
-		const rerun = await prepareNsActivation(ctx, {
+		const rerun = await prepareActivation(ctx, {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "ns-toml",
@@ -168,7 +187,7 @@ describe("ns activation planning and apply", () => {
 		const files = new InMemoryActivationFilesGateway({
 			files: { ".gitignore": "# .ns/managed-extensions/\n" },
 		});
-		const prepared = await prepareNsActivation(context({ files }), {
+		const prepared = await prepareActivation(context({ files }), {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
@@ -184,7 +203,7 @@ describe("ns activation planning and apply", () => {
 
 	it("reports a non-file .gitignore during preflight and performs no operations", async () => {
 		const files = new InMemoryActivationFilesGateway({ nonFilePaths: [".gitignore"] });
-		const result = await prepareNsActivation(context({ files }), {
+		const result = await prepareActivation(context({ files }), {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
@@ -203,7 +222,7 @@ describe("ns activation planning and apply", () => {
 		const files = new InMemoryActivationFilesGateway({
 			readFailure: { code: "permission-denied", message: "permission denied" },
 		});
-		const result = await prepareNsActivation(context({ files }), {
+		const result = await prepareActivation(context({ files }), {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
@@ -224,7 +243,7 @@ describe("ns activation planning and apply", () => {
 	it("bare core still writes the pointer and core instructions", async () => {
 		const files = new InMemoryActivationFilesGateway();
 		const ctx = context({ files });
-		const prepared = await prepareNsActivation(ctx, {
+		const prepared = await prepareActivation(ctx, {
 			repository,
 			harnesses: ["codex"],
 			harnessSource: "explicit",
@@ -233,7 +252,7 @@ describe("ns activation planning and apply", () => {
 			nsTomlExpected: { type: "missing" },
 		});
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
-		await applyNsActivation(ctx, prepared.activation);
+		await applyActivation(ctx, prepared.activation);
 		expect(files.fileContent("AGENTS.md")).toContain("@.ns/instructions.md");
 		expect(files.fileContent(".ns/instructions.md")).toContain("# ns instructions");
 	});
@@ -272,7 +291,7 @@ describe("ns activation planning and apply", () => {
 				},
 			}),
 		};
-		const result = await prepareNsActivation(ctx, {
+		const result = await prepareActivation(ctx, {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
@@ -310,7 +329,7 @@ describe("ns activation planning and apply", () => {
 				".ns/instructions.md": "old generated instructions\n",
 			},
 		});
-		const prepared = await prepareNsActivation(context({ files }), {
+		const prepared = await prepareActivation(context({ files }), {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
@@ -321,7 +340,7 @@ describe("ns activation planning and apply", () => {
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
 		files.simulateExternalMutation({ type: "write-file", path, content: `external ${file}\n` });
 
-		const result = await applyNsActivation(context({ files }), prepared.activation);
+		const result = await applyActivation(context({ files }), prepared.activation);
 		expect(result).toMatchObject({
 			type: "apply-failed",
 			phase: file,
@@ -335,7 +354,7 @@ describe("ns activation planning and apply", () => {
 
 	it("preserves a file created after prepare expected it to be missing", async () => {
 		const files = new InMemoryActivationFilesGateway();
-		const prepared = await prepareNsActivation(context({ files }), {
+		const prepared = await prepareActivation(context({ files }), {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
@@ -350,7 +369,7 @@ describe("ns activation planning and apply", () => {
 			content: "customer created\n",
 		});
 
-		const result = await applyNsActivation(context({ files }), prepared.activation);
+		const result = await applyActivation(context({ files }), prepared.activation);
 		expect(result).toMatchObject({
 			type: "apply-failed",
 			error: { details: { type: "presence", expected: "missing", actual: "present" } },
@@ -361,7 +380,7 @@ describe("ns activation planning and apply", () => {
 	it("reports activation file kind changes without mutating the replacement", async () => {
 		const original = "# Customer\n";
 		const files = new InMemoryActivationFilesGateway({ files: { "AGENTS.md": original } });
-		const prepared = await prepareNsActivation(context({ files }), {
+		const prepared = await prepareActivation(context({ files }), {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
@@ -372,7 +391,7 @@ describe("ns activation planning and apply", () => {
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
 		files.simulateExternalMutation({ type: "replace-file-with-non-file", path: "AGENTS.md" });
 
-		const result = await applyNsActivation(context({ files }), prepared.activation);
+		const result = await applyActivation(context({ files }), prepared.activation);
 		expect(result).toMatchObject({
 			type: "apply-failed",
 			phase: "agents-instructions",
@@ -407,7 +426,7 @@ describe("ns activation planning and apply", () => {
 		},
 	] as const)("preserves $name mutations", async ({ state, mutation, details }) => {
 		const files = new InMemoryActivationFilesGateway(state);
-		const prepared = await prepareNsActivation(
+		const prepared = await prepareActivation(
 			context({ files, descriptors: [descriptor("one", undefined, [".ns/data"])] }),
 			{
 				repository,
@@ -421,7 +440,7 @@ describe("ns activation planning and apply", () => {
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
 		files.simulateExternalMutation(mutation);
 
-		const result = await applyNsActivation(context({ files }), prepared.activation);
+		const result = await applyActivation(context({ files }), prepared.activation);
 		expect(result).toMatchObject({
 			type: "apply-failed",
 			phase: "consumer-directories",
@@ -440,7 +459,7 @@ describe("ns activation planning and apply", () => {
 			writeFailures: { "CLAUDE.md": { code: "disk-full", message: "disk full" } },
 		});
 		const ctx = context({ files });
-		const prepared = await prepareNsActivation(ctx, {
+		const prepared = await prepareActivation(ctx, {
 			repository,
 			harnesses: ["pi"],
 			harnessSource: "explicit",
@@ -449,7 +468,7 @@ describe("ns activation planning and apply", () => {
 			nsTomlExpected: { type: "missing" },
 		});
 		if (prepared.type !== "prepared") throw new Error("expected prepared");
-		const result = await applyNsActivation(ctx, prepared.activation);
+		const result = await applyActivation(ctx, prepared.activation);
 		expect(result).toMatchObject({
 			type: "apply-failed",
 			phase: "claude-instructions",

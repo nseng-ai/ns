@@ -15,7 +15,6 @@ import type { NsActivationContext } from "./activation-context.ts";
 import type { ExtensionInstallAcquisitionGateway } from "./extension-acquisition.ts";
 import {
 	extensionLifecycleFailure,
-	extensionLifecyclePreflightEnvelope,
 	normalizeExtensionLifecycleDiagnostic,
 	normalizeExtensionLifecycleDiagnostics,
 	prepareExtensionLifecycle,
@@ -23,8 +22,8 @@ import {
 import {
 	createLifecycleRecorder,
 	lifecycleStepSchema,
-	recordLifecycleFailure,
 	renderLifecycleMarkdown,
+	type LifecycleDiagnostic,
 } from "./lifecycle-observability.ts";
 
 export interface ExtensionInstallContext extends NsActivationContext {
@@ -63,7 +62,19 @@ export async function installExtension(
 	request: InstallExtensionRequest,
 ): Promise<ClinkrExit<InstallExtensionResult>> {
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
-	recorder.record({ type: "phase", phase: "repository-preflight", status: "started" });
+	function tracedFailure<TData extends object>(options: {
+		readonly diagnostic: LifecycleDiagnostic;
+		readonly errorType: string;
+		readonly message: string;
+		readonly data: TData;
+	}): ClinkrExit<InstallExtensionResult> {
+		recorder.fail(options.diagnostic);
+		return failure(options.errorType, options.message, {
+			...options.data,
+			steps: recorder.steps(),
+		});
+	}
+
 	const preflight = await prepareExtensionLifecycle(context, request, recorder);
 	if (preflight.type === "failed")
 		return extensionLifecycleFailure("install", preflight.failure, recorder);
@@ -75,29 +86,35 @@ export async function installExtension(
 		requestedSpec: request.source,
 	});
 	if (!declaration.ok) {
-		recordLifecycleFailure(recorder, "declaration-planning", {
+		const diagnostic = {
 			code: declaration.reason,
 			message: declaration.message,
 			path: "ns.toml",
-		});
+		};
 		if (declaration.reason === "identity-conflict") {
-			return failure("ns-extension-install-identity-conflict", declaration.message, {
-				phase: "preflight",
-				requestedSpec: declaration.requestedSpec,
-				existingSpecs: [...declaration.existingSpecs],
-				identity: declaration.identity,
-				completed: {},
-				steps: recorder.steps(),
+			return tracedFailure({
+				diagnostic,
+				errorType: "ns-extension-install-identity-conflict",
+				message: declaration.message,
+				data: {
+					phase: "preflight",
+					requestedSpec: declaration.requestedSpec,
+					existingSpecs: [...declaration.existingSpecs],
+					identity: declaration.identity,
+					completed: {},
+				},
 			});
 		}
-		return failure(
-			"ns-extension-install-config-invalid",
-			declaration.message,
-			extensionLifecyclePreflightEnvelope(
-				[{ code: declaration.reason, message: declaration.message, path: "ns.toml" }],
-				recorder,
-			),
-		);
+		return tracedFailure({
+			diagnostic,
+			errorType: "ns-extension-install-config-invalid",
+			message: declaration.message,
+			data: {
+				phase: "preflight",
+				diagnostics: normalizeExtensionLifecycleDiagnostics([diagnostic]),
+				completed: {},
+			},
+		});
 	}
 	recorder.record({
 		type: "declaration-decided",
@@ -105,8 +122,7 @@ export async function installExtension(
 		nsTomlPath: join(repoRoot, "ns.toml"),
 		action: declaration.isAdded ? "appended" : "unchanged",
 	});
-	recorder.record({ type: "phase", phase: "declaration-planning", status: "completed" });
-	recorder.record({ type: "phase", phase: "acquisition", status: "started" });
+	recorder.beginPhase("acquisition");
 
 	const acquired = await context.installAcquisition.ensure({
 		repoRoot,
@@ -117,16 +133,15 @@ export async function installExtension(
 			code: "acquisition-failed",
 			message: `Could not acquire extension ${request.source}.`,
 		};
-		recordLifecycleFailure(
-			recorder,
-			"acquisition",
-			normalizeExtensionLifecycleDiagnostic(diagnostic),
-		);
-		return failure("ns-extension-install-acquisition-failed", diagnostic.message, {
-			phase: "acquisition",
-			diagnostics: normalizeExtensionLifecycleDiagnostics(acquired.diagnostics),
-			completed: {},
-			steps: recorder.steps(),
+		return tracedFailure({
+			diagnostic: normalizeExtensionLifecycleDiagnostic(diagnostic),
+			errorType: "ns-extension-install-acquisition-failed",
+			message: diagnostic.message,
+			data: {
+				phase: "acquisition",
+				diagnostics: normalizeExtensionLifecycleDiagnostics(acquired.diagnostics),
+				completed: {},
+			},
 		});
 	}
 	recorder.record({
@@ -137,8 +152,7 @@ export async function installExtension(
 		outcome: acquired.outcome,
 		moduleRoot: acquired.moduleRoot,
 	});
-	recorder.record({ type: "phase", phase: "acquisition", status: "completed" });
-	recorder.record({ type: "phase", phase: "activation-preflight", status: "started" });
+	recorder.beginPhase("activation-preflight");
 
 	const prepared = await prepareNsActivation(
 		context,
@@ -157,12 +171,16 @@ export async function installExtension(
 			code: "activation-preflight-failed",
 			message: "Extension activation preflight failed.",
 		};
-		recordLifecycleFailure(recorder, "activation-preflight", diagnostic);
-		return failure(
-			"ns-extension-install-preflight-failed",
-			"Extension activation preflight failed; no project files were written.",
-			extensionLifecyclePreflightEnvelope(prepared.diagnostics, recorder),
-		);
+		return tracedFailure({
+			diagnostic,
+			errorType: "ns-extension-install-preflight-failed",
+			message: "Extension activation preflight failed; no project files were written.",
+			data: {
+				phase: "preflight",
+				diagnostics: normalizeExtensionLifecycleDiagnostics(prepared.diagnostics),
+				completed: {},
+			},
+		});
 	}
 	const selected = prepared.activation.descriptors.find(
 		(descriptor) => descriptor.spec === request.source,
@@ -172,27 +190,32 @@ export async function installExtension(
 			code: "extension-descriptor-not-selected",
 			message: `No validated descriptor was selected for ${request.source}.`,
 		};
-		recordLifecycleFailure(recorder, "activation-preflight", diagnostic);
-		return failure(
-			"ns-extension-install-preflight-failed",
-			`The acquired extension descriptor was not selected for ${request.source}.`,
-			extensionLifecyclePreflightEnvelope([diagnostic], recorder),
-		);
-	}
-	recorder.record({ type: "phase", phase: "activation-preflight", status: "completed" });
-	recorder.record({ type: "phase", phase: "activation-apply", status: "started" });
-	const applied = await applyNsActivation(context, prepared.activation, recorder);
-	if (applied.type === "apply-failed") {
-		recordLifecycleFailure(recorder, "activation-apply", applied.error);
-		return failure("ns-extension-install-apply-failed", applied.error.message, {
-			phase: applied.phase,
-			error: normalizeExtensionLifecycleDiagnostic(applied.error),
-			completed: applied.completed,
-			steps: recorder.steps(),
+		return tracedFailure({
+			diagnostic,
+			errorType: "ns-extension-install-preflight-failed",
+			message: `The acquired extension descriptor was not selected for ${request.source}.`,
+			data: {
+				phase: "preflight",
+				diagnostics: normalizeExtensionLifecycleDiagnostics([diagnostic]),
+				completed: {},
+			},
 		});
 	}
-	recorder.record({ type: "phase", phase: "activation-apply", status: "completed" });
-	recorder.record({ type: "phase", phase: "completion", status: "completed" });
+	recorder.beginPhase("activation-apply");
+	const applied = await applyNsActivation(context, prepared.activation, recorder);
+	if (applied.type === "apply-failed") {
+		return tracedFailure({
+			diagnostic: applied.error,
+			errorType: "ns-extension-install-apply-failed",
+			message: applied.error.message,
+			data: {
+				phase: applied.phase,
+				error: normalizeExtensionLifecycleDiagnostic(applied.error),
+				completed: applied.completed,
+			},
+		});
+	}
+	recorder.complete();
 	return ok({
 		sourceSpec: request.source,
 		sourceKind: selected.sourceKind,
