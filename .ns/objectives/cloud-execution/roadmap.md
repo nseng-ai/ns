@@ -219,8 +219,14 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
      It exposed missing Pi extension lifecycle binding and checkout-local
      `pi` child PATH; local repairs are green, but one controlled rerun must
      prove first-call Bash, agent-created commit, subagent spawn, and normal
-     landing before this row closes. See
-     `references/dispatch-live-evidence.md` and
+     landing before this row closes. Subsequent local hardening migrated the
+     deployable to Workflow v5 unified artifacts with structured phase observability and
+     added the exact-SHA `just dispatch-deploy-prod` path with authoritative inventory,
+     transactional promotion, and deployment/alias identity checks. Those changes are
+     locally covered but have not produced newer live production evidence, so the same
+     controlled rerun remains the gate. See
+     `references/dispatch-live-evidence.md`,
+     `references/dispatch-deployment-contract.md`, and
      `references/dispatch-pi-runner.md`.
 - [ ] Reusable workflow-supervised dispatch setup skill, distilled from the
       proven credentials, spine-probe, and steel-thread work rather than
