@@ -28,19 +28,19 @@ repositories customize its behavior through
 
 Each command depends on a distinct slice of the underlying technology stack:
 
-| Command                        | What it does                                                                                  | git | Graphite (`gt`) | GitHub (`gh`) | slots | LLM |
-| ------------------------------ | --------------------------------------------------------------------------------------------- | :-: | :-------------: | :-----------: | :---: | :-: |
-| `ns flow changes`              | Summarize outstanding worktree changes without committing.                                    |  ✓  |                 |               |       |  ✓  |
-| `ns flow cp`                   | Create a checkpoint commit for the current diff.                                              |  ✓  |        ✓        |               |       |  ✓  |
-| `ns flow autobranch`           | Create a Graphite branch from dirty worktree changes.                                         |  ✓  |        ✓        |               |       |  ✓  |
-| `ns flow branch-latest-commit` | Move the latest eligible commit to a new Graphite branch.                                     |  ✓  |        ✓        |               |       |  ✓  |
-| `ns flow autoslot`             | Create a Graphite branch from current work, then move it into a managed slot worktree.        |  ✓  |        ✓        |               |   ✓   |  ✓  |
-| `ns flow submit`               | Run pre-submit checks, checkpoint pending changes, then submit the current Graphite stack.    |  ✓  |        ✓        |       ✓       |       |  ✓  |
-| `ns flow regenerate-pr`        | Regenerate the current PR title and ns-managed body region.                                   |  ✓  |                 |       ✓       |       |  ✓  |
-| `ns flow push`                 | Push committed non-Graphite branch work with `git push`.                                      |  ✓  |                 |               |       |     |
-| `ns flow land`                 | Land the current PR or Graphite stack into trunk.                                             |  ✓  |        ✓        |       ✓       |   ✓   |     |
-| `ns flow pull-trunk`           | Refresh the configured Graphite trunk from its configured Git upstream.                       |  ✓  |        ✓        |               |       |     |
-| `ns flow squash-stack`         | Squash every branch in the current Graphite stack to one commit, then restore the tip branch. |  ✓  |        ✓        |               |       |     |
+| Command                        | What it does                                                                                   | git | Graphite (`gt`) | GitHub (`gh`) | slots | LLM |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- | :-: | :-------------: | :-----------: | :---: | :-: |
+| `ns flow changes`              | Summarize outstanding worktree changes without committing.                                     |  ✓  |                 |               |       |  ✓  |
+| `ns flow cp`                   | Create a checkpoint commit for the current diff.                                               |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow autobranch`           | Create a Graphite branch from dirty worktree changes.                                          |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow branch-latest-commit` | Move the latest eligible commit to a new Graphite branch.                                      |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow autoslot`             | Create a Graphite branch from current work, then move it into a managed slot worktree.         |  ✓  |        ✓        |               |   ✓   |  ✓  |
+| `ns flow submit`               | Submit the current/downstack Graphite branches; `--minimal` selects the clean-tree cheap path. |  ✓  |        ✓        |       ✓       |       |  ✓  |
+| `ns flow regenerate-pr`        | Regenerate the current PR title and ns-managed body region.                                    |  ✓  |                 |       ✓       |       |  ✓  |
+| `ns flow push`                 | Push committed non-Graphite branch work with `git push`.                                       |  ✓  |                 |               |       |     |
+| `ns flow land`                 | Land the current PR or Graphite stack into trunk.                                              |  ✓  |        ✓        |       ✓       |   ✓   |     |
+| `ns flow pull-trunk`           | Refresh the configured Graphite trunk from its configured Git upstream.                        |  ✓  |        ✓        |               |       |     |
+| `ns flow squash-stack`         | Squash every branch in the current Graphite stack to one commit, then restore the tip branch.  |  ✓  |        ✓        |               |       |     |
 
 Every command is also available in the Pi harness as `/ns:flow:<command>`, delegating
 to the CLI. Pi is optional; the CLI commands do not require the Pi host.
@@ -123,9 +123,27 @@ variable when that model is unavailable or a repository wants a different model.
 Prompt content is configured separately from model identity through the prompt points
 documented below.
 
+## Minimal submit
+
+`ns flow submit --minimal` is the staged clean-tree cheap-submit path. It reads
+structured Graphite metadata to identify the current branch and its non-trunk
+downstack ancestors, refuses dirty or drifting source state, checks submit readiness,
+automatically runs `gt restack --downstack --no-interactive` when required, rechecks
+readiness, runs `gt submit --no-stack`, and verifies the current PR.
+
+Minimal mode deliberately runs no `flow.submit.pre` hooks, checkpoint, metadata
+prewrite, PR-description generation, or model calls. `--no-checks` is accepted but
+redundant. `--regenerate-descriptions` conflicts with `--minimal`. Graphite `--force`
+is omitted by default; the Flow CLI's explicit `--force` retains its existing opt-in
+meaning.
+
+This flag stages the decided cheap-submit engine without changing default
+`ns flow submit`. Moving the default and implementing `ns flow ship` remain open under
+the Prod Submit Objective; no live publication claim is implied by this documentation.
+
 ## Pre-submit checks
 
-Before `ns flow submit` checkpoints and submits the stack, it runs the repository's
+Before ordinary `ns flow submit` checkpoints and submits the stack, it runs the repository's
 **pre-submit checks**: commands installed at the `flow.submit.pre` extension point in
 the repository-root `ns.toml`:
 
@@ -174,7 +192,7 @@ as structured failure data in `data.exitCode`.
 
 ## Pre-submit check recovery
 
-When `ns flow submit`'s pre-submit checks fail under Pi, Flow sends the agent a
+When ordinary `ns flow submit`'s pre-submit checks fail under Pi, Flow sends the agent a
 **recovery prompt** so it can fix the root cause and rerun instead of stopping at a
 wall of test output. Recovery fires only for `ns flow submit` pre-check failures,
 detected through the failure marker above.

@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 import {
 	createRealDispatchLocalTokenGateway,
 	parseEnvFileValue,
-} from "../../src/ns/dispatch-prompt/real-local-token-gateway.ts";
+} from "../../src/dispatch-client/real-local-token-gateway.ts";
 
 describe("local token env-file parser", () => {
 	test("reads one named value from env-file content without touching others", () => {

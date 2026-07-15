@@ -6,7 +6,7 @@ import {
 } from "@nseng-ai/foundation/command";
 import { z } from "zod";
 
-import { composeAnchorPrDescriptionWithRunIdStamp } from "../../dispatch/run-id-stamp.ts";
+import { composeAnchorPrDescriptionWithRunIdStamp } from "../dispatch/run-id-stamp.ts";
 import type { DispatchAnchorPrGateway } from "./contracts.ts";
 import { dispatchCommandError } from "./dispatch-command-error.ts";
 

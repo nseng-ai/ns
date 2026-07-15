@@ -6,7 +6,7 @@ import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/p
 import {
 	DISPATCH_PACKAGE_MANIFEST_PATH,
 	DISPATCH_SETTINGS_PATH,
-} from "../../dispatch/harness-registry.ts";
+} from "../dispatch/harness-registry.ts";
 import type { DispatchConfigGateway, DispatchConfigSourceResult } from "./contracts.ts";
 
 export function createRealDispatchConfigGateway(): DispatchConfigGateway {

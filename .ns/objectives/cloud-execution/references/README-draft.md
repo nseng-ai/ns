@@ -37,10 +37,10 @@ Or dispatch a plan:
 /ns:dispatch:plan
 ```
 
-The CLI reports each local setup phase while it checks, pushes, opens the anchor,
-and starts the workflow, then prints clickable links to both the anchor PR and the
-Vercel Workflow run. A new branch is pushed and a pull request opens for it — that
-PR is the job's anchor from before the work starts. Then keep
+The CLI reports each local setup phase while it checks the exact source, publishes it
+when needed, opens the anchor, and starts the workflow, then prints clickable links to
+both the anchor PR and the Vercel Workflow run. A new branch is pushed and a pull
+request opens for it — that PR is the job's anchor from before the work starts. Then keep
 working: the run executes remotely, and when it finishes the produced
 commits land on the anchor PR, ready to review like any other PR — check
 out the branch, continue it, stack on it, or discard it.
@@ -105,12 +105,21 @@ the *current* session will be Pi sugar.
 
 ### What the remote agent sees
 
-The remote agent checks out **your current branch's head**. If the branch
-isn't pushed yet (or the remote is behind), dispatch pushes it first so the
-remote agent sees exactly what you see. Your tree must be clean: dispatch
-refuses to send anything while you have uncommitted changes, listing the
-dirty files, so what runs remotely is never silently missing your edits.
-Commit (or stash) and dispatch again.
+The remote agent checks out **the exact published head of your current branch**. If
+origin already has that SHA, dispatch performs no source publication and asks for no
+extra authorization. Otherwise it plans against structured Graphite metadata. A
+definitively untracked branch is pushed by captured SHA with ordinary non-force Git. A
+tracked branch previews the current/downstack scope and may restack local history and
+update its pull requests through Flow; a TTY asks for confirmation, while a
+non-interactive caller passes `--force/-f` to authorize that computed scope. Dispatch
+never forwards this flag as Graphite `--force`, and ambiguous metadata fails closed.
+After either publication path it rechecks repository, branch, HEAD, cleanliness,
+configuration/identity preflight, and the remote tip. Graphite may produce a new SHA;
+plain Git may not. Only the refreshed, verified SHA reaches the anchor and sandbox.
+
+Your tree must be clean: dispatch refuses to send anything while you have uncommitted
+changes, listing the dirty files, so what runs remotely is never silently missing your
+edits. Commit (or stash) and dispatch again.
 
 ### Repo scope
 
@@ -152,25 +161,28 @@ sandbox is preconfigured in the repository (see "Setup").
 
 ## The anchor PR
 
-Every dispatch opens its pull request **up front**, before the job is
-submitted: a new `dispatch/`-prefixed branch starts from the commit you
-dispatched, adds one metadata-only initialization commit so GitHub can open
-the otherwise empty PR, and opens that PR immediately. The PR is the
-job's anchor — one durable, linkable place where the dispatch is observable
-from the moment it exists. The anchor branch is named
-`dispatch/<semantic-slug>-<YYYYMMDD-HHmmss>`: the slug comes from the dispatched
-content unless `--slug/-s` overrides it, and the timestamp uses the repository's
-configured IANA timezone (default `America/Los_Angeles`). If that exact remote
-name exists, dispatch tries `-2`, `-3`, and so on through a bounded 50-name
-sequence. Semantic generation, timezone validation, timestamp construction, and
-remote-name selection all finish before the first push; failure reports an
-actionable error and starts no dispatch rather than falling back to a misleading
-source/random name. The selected branch starts from the exact commit you
-dispatched, with the PR based on your source branch so the metadata-only
-initialization has no file diff and the PR shows only what the run produces. A
-concurrent dispatch can still claim the selected name after the availability
-check; in that race the existing anchor-push failure path reports the failed
-push and does not overwrite or reuse another anchor. At submission the PR is stamped with the run's
+Every dispatch opens its pull request **up front**, before the job is submitted: a
+new `dispatch/`-prefixed branch starts from the verified published commit, adds one
+metadata-only initialization commit so GitHub can open the otherwise empty PR, and
+opens that PR immediately. The PR is the job's anchor — one durable, linkable place
+where the dispatch is observable from the moment it exists.
+
+The anchor branch is named `dispatch/<semantic-slug>-<YYYYMMDD-HHmmss>`: the slug
+comes from the dispatched content unless `--slug/-s` overrides it, and the timestamp
+uses the repository's configured IANA timezone (default
+`America/Los_Angeles`). Semantic slug derivation is read-only and may happen while
+source publication is being prepared. Source publication and its complete revalidation
+finish before dispatch reads the clock, constructs timestamped candidates, checks
+remote-name availability, or mutates an anchor. If the exact name exists, dispatch
+tries `-2`, `-3`, and so on through a bounded 50-name sequence. Naming or availability
+failure reports the source-publication state honestly and starts no anchor PR or run;
+there is no misleading source/random fallback.
+
+The selected branch starts from the refreshed exact commit, with the PR based on the
+same source branch so the metadata-only initialization has no file diff and the PR
+shows only what the run produces. A concurrent dispatch can still claim the selected
+name after the availability check; in that race the existing anchor-push failure path
+reports the failed push and does not overwrite or reuse another anchor. At submission the PR is stamped with the run's
 handle — the supervising workflow's run id, written as a marked line in the
 PR description — so anything (you, the jobs TUI) can get from the PR to the
 run's state and logs later — the anchor PR is the durable record, not a
@@ -273,9 +285,9 @@ dispatch, using Vercel's own secrets infrastructure:
 - **Executor auth** is Vercel OIDC federation: Vercel-hosted compute gets a
   short-lived token injected automatically, and dispatching from your own
   machine uses the development token from `vercel link` + `vercel env pull`.
-- **Your own machine keeps using its own credentials.** The up-front anchor
-  push and PR open ride the git/gh auth already on your machine; minted
-  tokens are for the remote side, where no human credential exists.
+- **Your own machine keeps using its own credentials.** Any local source publication,
+  the up-front anchor push, and PR open ride the git/Graphite/gh auth already on your
+  machine; minted tokens are for the remote side, where no human credential exists.
 
 Sandboxes are secret-free by default: each run receives only the credentials
 it needs, injected at sandbox creation — and the git credential is phased:

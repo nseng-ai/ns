@@ -15,6 +15,7 @@ import { delimiter, join } from "node:path";
 
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
+import { DISPATCH_CHECKOUT_PACKAGE_ROOT } from "../dispatch/harness-registry.ts";
 import type { PiCodingAgentGateway, PiCodingAgentRunResult } from "./runner.ts";
 
 export interface PiAgentSdkSession {
@@ -107,15 +108,7 @@ export function buildWorkspacePiBinPath(options: {
 	readonly currentPath: string | undefined;
 	readonly pathDelimiter?: string;
 }): string {
-	const workspaceBin = join(
-		options.cwd,
-		"ts",
-		"packages",
-		"capabilities",
-		"vercel",
-		"node_modules",
-		".bin",
-	);
+	const workspaceBin = join(options.cwd, DISPATCH_CHECKOUT_PACKAGE_ROOT, "node_modules", ".bin");
 	const { currentPath } = options;
 	if (currentPath === undefined || currentPath.length === 0) return workspaceBin;
 	const separator = options.pathDelimiter ?? delimiter;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { buildAnchorPrBody, buildAnchorPrTitle } from "../../src/ns/dispatch-prompt/content.ts";
+import { buildAnchorPrBody, buildAnchorPrTitle } from "../../src/dispatch-client/content.ts";
 
 describe("buildAnchorPrTitle", () => {
 	test("uses the prompt's first non-empty line", () => {

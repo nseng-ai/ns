@@ -1,6 +1,6 @@
 # @nseng-ai/flow
 
-This context captures Flow language for lifecycle commands, the `@nseng-ai/flow/api` compatibility seam consumed by the cmux capability, and the current boundary between Flow-owned presentation/orchestration and the `@nseng-ai/flow/land` domain core subpackage.
+This context captures Flow language for lifecycle commands, the curated `@nseng-ai/flow/api` Capability API consumed by cmux and local Vercel dispatch composition, and the current boundary between Flow-owned presentation/orchestration and the `@nseng-ai/flow/land` domain core subpackage.
 
 ## Language
 
@@ -17,8 +17,8 @@ The `@nseng-ai/flow/pi` host surface owns generic `/ns:flow:*` mirrors and `/gt:
 *Avoid*: Flow-owned code-workflow skill policy, Internal Pi-tool import from Flow, cross-owner aggregate inside a package
 
 **Flow Capability API**:
-The curated `@nseng-ai/flow/api` in-process compatibility surface consumed by downstream packages, especially the cmux capability, so they do not import Flow private source modules.
-*Avoid*: package-root import, private `@nseng-ai/flow/src/...` import, narrowed land-only API, cmux capability-owned seam
+The curated `@nseng-ai/flow/api` in-process compatibility surface consumed by downstream packages so they do not import Flow private source modules. Cmux consumes established Flow workflows; local Vercel dispatch consumes only the **Flow Minimal Submit Client** under the sanctioned exact-source-publication exception.
+*Avoid*: package-root import, private `@nseng-ai/flow/src/...` import, narrowed land-only API, consumer-owned Flow seam, Flow import from Vercel Workflow or Sandbox runtime
 
 **Flow Land Compatibility Boundary**:
 The compatibility rule that land consumers continue to enter through **Flow Capability API** while Flow keeps renderer-independent planning in the `@nseng-ai/flow/land` subpackage.
@@ -75,6 +75,14 @@ The Flow ownership boundary for submit, PR description regeneration, Graphite su
 **Submit Plan**:
 The typed, renderer-independent result of inspecting the Graphite submit scope after readiness and any required restack, containing stack branches, existing PR links, upstack status, and the partition of branches eligible or ineligible for metadata prewrite.
 *Avoid*: stale pre-checkpoint topology, command transcript, metadata generation result, submit execution result
+
+**Flow Minimal Submit Client**:
+The narrow two-phase **Flow Capability API** client for read-only planning and clean-tree cheap execution of current/downstack Graphite publication. It reports structured stages and conservative local/remote mutation evidence while keeping submit gateways, runtime wiring, progress matrices, metadata, and prose generation private.
+*Avoid*: full submit runtime API, Graphite display-prose parser, ship pipeline, metadata-free alias for default submit
+
+**Minimal Submit Plan**:
+The read-only tracked-source result produced by the **Flow Minimal Submit Client**, containing the verified source, Graphite trunk, and affected current plus non-trunk downstack branches. Definitive untracked state is distinct from provider or topology failure.
+*Avoid*: authorization, mutation result, arbitrary Git ancestry, upstack PR-update scope
 
 **Flow Autobranch Boundary**:
 The Flow ownership boundary for public `ns flow autobranch` behavior and the compatibility path consumed by the cmux capability through **Flow Capability API**.

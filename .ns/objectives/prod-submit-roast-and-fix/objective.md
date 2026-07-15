@@ -20,6 +20,15 @@ This replaces the current loop (push → remote roaster comments → download-fe
 hand-apply → resubmit) for tripwire-grade findings: PRs arrive clean instead of being
 cleaned up after the fact.
 
+## Implementation Status
+
+The semantic cheap-submit engine is staged behind `ns flow submit --minimal`: it is a
+clean-tree readiness/restack/submit/verification path with no hooks, checkpoint,
+metadata prewrite, PR prose, or model work. Default `ns flow submit` has not migrated
+and retains its existing behavior. `ns flow ship`, review/autofix integration, prose
+migration, and live dogfooding remain open; the staged mode carries no live
+publication claim.
+
 ## Scope
 
 - The two-class submission surface in flow: separate `ns flow submit` and

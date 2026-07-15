@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { DISPATCH_CHECKOUT_PACKAGE_ROOT } from "../../src/dispatch/harness-registry.ts";
 import {
 	buildWorkspacePiBinPath,
 	createRealPiCodingAgentGateway,
@@ -89,7 +90,7 @@ describe("createRealPiCodingAgentGateway", () => {
 });
 
 describe("buildWorkspacePiBinPath", () => {
-	const workspaceBin = "/checkout/ts/packages/capabilities/vercel/node_modules/.bin";
+	const workspaceBin = `/checkout/${DISPATCH_CHECKOUT_PACKAGE_ROOT}/node_modules/.bin`;
 
 	it("makes the checkout-local Pi executable discoverable by child processes", () => {
 		const path = buildWorkspacePiBinPath({

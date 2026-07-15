@@ -5,7 +5,7 @@ import {
 	RUNS_ROUTE_PATH,
 	TRIGGER_ROUTE_PATH,
 	triggerSuccessResponseSchema,
-} from "../../http/wire.ts";
+} from "../http/wire.ts";
 import type {
 	DispatchStartRunResult,
 	DispatchTriggerGateway,

@@ -88,6 +88,68 @@ function dirtyCheckpointResponses(): ScriptedExecResponse[] {
 	];
 }
 
+function minimalSubmitResponses(
+	options: { shouldForce?: boolean; shouldRestack?: boolean; headAfter?: string } = {},
+): ScriptedExecResponse[] {
+	const headBefore = "a".repeat(40);
+	const headAfter = options.headAfter ?? headBefore;
+	const remoteBefore = "b".repeat(40);
+	const submitCommand = options.shouldForce
+		? "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --force"
+		: "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web";
+	const observationCommand =
+		"git for-each-ref --format=%(refname:short)%00%(objectname)%00%(upstream) refs/heads/feature/demo";
+	const inspect = (head: string): ScriptedExecResponse[] => [
+		{ match: "git branch --show-current", result: { stdout: "feature/demo\n" } },
+		{ match: "git rev-parse HEAD", result: { stdout: `${head}\n` } },
+		{ match: "git status --porcelain=v1 -z", result: { stdout: "" } },
+	];
+	return [
+		...inspect(headBefore),
+		...inspect(headBefore),
+		...inspect(headBefore),
+		{
+			match: observationCommand,
+			result: {
+				stdout: `feature/demo\0${headBefore}\0refs/remotes/origin/feature/demo\n`,
+			},
+		},
+		{
+			match: "git rev-parse --verify refs/remotes/origin/feature/demo",
+			result: { stdout: `${remoteBefore}\n` },
+		},
+		...(options.shouldRestack === true
+			? [
+					{
+						match: `${submitCommand} --dry-run`,
+						result: { code: 1, stderr: "branch must be restacked before submitting\n" },
+					},
+					{
+						match: "gt restack --downstack --no-interactive",
+						result: { stdout: "restacked\n" },
+					},
+					{ match: `${submitCommand} --dry-run`, result: { stdout: "ready\n" } },
+				]
+			: [{ match: `${submitCommand} --dry-run`, result: { stdout: "ready\n" } }]),
+		{ match: submitCommand, result: { stdout: `Submitted ${PR_URL}\n` } },
+		{
+			match: "gh pr view --json number,url",
+			result: { stdout: prIdentityJson(123, PR_URL) },
+		},
+		...inspect(headAfter),
+		{
+			match: observationCommand,
+			result: {
+				stdout: `feature/demo\0${headAfter}\0refs/remotes/origin/feature/demo\n`,
+			},
+		},
+		{
+			match: "git rev-parse --verify refs/remotes/origin/feature/demo",
+			result: { stdout: `${headAfter}\n` },
+		},
+	];
+}
+
 function successfulSubmitResponses(
 	options: { shouldForce?: boolean; existingPrBody?: string } = {},
 ): ScriptedExecResponse[] {
@@ -429,6 +491,110 @@ describe("project-local submit extension", () => {
 		);
 	});
 
+	test("minimal mode ignores malformed submit-hook configuration and runs no hook, checkpoint, metadata, or model work", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "ns-minimal-submit-test-"));
+		tempDirs.push(repoRoot);
+		await writeFile(
+			join(repoRoot, "ns.toml"),
+			'extensions = ["./extensions/flow"]\n\n[points]\n"flow.submit.pre" = 42\n',
+			"utf8",
+		);
+		const run = runWithFakes({
+			cwd: repoRoot,
+			request: { minimal: true, checks: false },
+			state: { exec: minimalSubmitResponses(), textGeneration: [] },
+		});
+
+		expect(await run.exit, run.stderr.join("")).toBe(0);
+		expect(run.stdout.join("")).toContain("Submitted 1 Graphite branch with minimal submit");
+		expect(run.context.textGeneratorCalls).toEqual([]);
+		const calls = formattedExecCalls(run.context);
+		expect(calls).not.toContain("just");
+		expect(calls).not.toContain("git add -A");
+		expect(calls.every((call) => !call.startsWith("gh pr list"))).toBe(true);
+		expect(calls.every((call) => !call.startsWith("gt modify"))).toBe(true);
+		expect(calls.every((call) => !call.startsWith("gh pr edit"))).toBe(true);
+	});
+
+	test("minimal dirty refusal occurs before any Graphite command", async () => {
+		const run = runWithFakes({
+			request: { minimal: true },
+			state: {
+				exec: [
+					{ match: "git branch --show-current", result: { stdout: "feature/demo\n" } },
+					{ match: "git rev-parse HEAD", result: { stdout: `${"a".repeat(40)}\n` } },
+					{
+						match: "git status --porcelain=v1 -z",
+						result: { stdout: " M src/app.ts\0" },
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain("Minimal submit requires a clean worktree");
+		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt "))).toBe(false);
+	});
+
+	test("minimal mode automatically restacks and rechecks before submit", async () => {
+		const restackedHead = "c".repeat(40);
+		const run = runWithFakes({
+			request: { minimal: true },
+			state: {
+				exec: minimalSubmitResponses({ shouldRestack: true, headAfter: restackedHead }),
+			},
+		});
+
+		expect(await run.exit, run.stderr.join("")).toBe(0);
+		const calls = formattedExecCalls(run.context);
+		expect(calls).toContain("gt restack --downstack --no-interactive");
+		expect(calls.filter((call) => call.endsWith("--dry-run"))).toHaveLength(2);
+		expect(run.stdout.join("")).toContain(`feature/demo@${restackedHead}`);
+	});
+
+	test("minimal mode omits Graphite --force by default and preserves explicit --force", async () => {
+		const defaultRun = runWithFakes({
+			request: { minimal: true },
+			state: { exec: minimalSubmitResponses() },
+		});
+		expect(await defaultRun.exit, defaultRun.stderr.join("")).toBe(0);
+		expect(
+			formattedExecCalls(defaultRun.context).filter((call) => call.startsWith("gt submit")),
+		).toEqual([
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+		]);
+
+		const forceRun = runWithFakes({
+			request: { minimal: true, force: true },
+			state: { exec: minimalSubmitResponses({ shouldForce: true }) },
+		});
+		expect(await forceRun.exit, forceRun.stderr.join("")).toBe(0);
+		expect(formattedExecCalls(forceRun.context)).toEqual(
+			expect.arrayContaining([
+				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --force --dry-run",
+				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --force",
+			]),
+		);
+	});
+
+	test("minimal mode rejects PR-description regeneration before any command", async () => {
+		const run = runWithFakes({
+			request: { minimal: true, regenerateDescriptions: true },
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain(
+			"--minimal cannot be combined with --regenerate-descriptions",
+		);
+		expect(await run.result).toMatchObject({
+			type: "usageError",
+			data: { conflictingOptions: ["--minimal", "--regenerate-descriptions"] },
+		});
+		expect(formattedExecCalls(run.context)).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
 	test("configured pre-submit check runs before checkpoint and submit", async () => {
 		const repoRoot = await createSubmitHooksRepo(["just"]);
 		const run = runWithFakes({
@@ -449,11 +615,12 @@ describe("project-local submit extension", () => {
 		expect(settled).toContain("checkpoint complete");
 		const calls = formattedExecCalls(run.context);
 		expect(calls.indexOf("just")).toBeGreaterThanOrEqual(0);
+		expect(calls.indexOf("git symbolic-ref --short HEAD")).toBeGreaterThan(calls.indexOf("just"));
 		expect(
 			calls.indexOf(
 				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 			),
-		).toBeGreaterThan(calls.indexOf("just"));
+		).toBeGreaterThan(calls.indexOf("git symbolic-ref --short HEAD"));
 	});
 
 	test("failing pre-submit check aborts submit with deterministic failure output", async () => {

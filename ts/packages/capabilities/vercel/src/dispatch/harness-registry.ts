@@ -9,8 +9,11 @@ export const DISPATCH_PACKAGE_MANIFEST_PATH = "ts/package.json";
 export const DISPATCH_PACKAGE_MANAGER_FIELD =
 	`${DISPATCH_PACKAGE_MANIFEST_PATH}#packageManager` as const;
 
+/** Checkout-relative root of the package that owns dispatch execution. */
+export const DISPATCH_CHECKOUT_PACKAGE_ROOT = "ts/packages/capabilities/vercel";
+
 /** Checkout-relative entry module for the ns-owned Pi runner. */
-export const PI_RUNNER_ENTRY_PATH = "ts/packages/capabilities/vercel/src/pi-runner/main.ts";
+export const PI_RUNNER_ENTRY_PATH = `${DISPATCH_CHECKOUT_PACKAGE_ROOT}/src/pi-runner/main.ts`;
 
 export interface HarnessInvocation {
 	/** Validated configured harness represented by this invocation. */

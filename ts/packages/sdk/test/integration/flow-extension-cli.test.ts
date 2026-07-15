@@ -199,6 +199,8 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).toContain("--no-restack");
 		expect(output).toContain("--force");
 		expect(output).toContain("--verbose");
+		expect(output).toContain("--minimal");
+		expect(output).toContain("Clean-tree cheap submit with no hooks");
 		expect(output).toContain("NS_DEV_PR_DESCRIPTION_MODEL");
 		expect(output).toContain("NS_SUBMIT_FAILURE_LOG_DIR");
 		expect(help.stderr.join("")).toBe("");

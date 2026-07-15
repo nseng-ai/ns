@@ -5,7 +5,11 @@ import process from "node:process";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
-import { createFlowLiveOutput, type FlowLiveOutput } from "../../phase-stream/live-output.ts";
+import {
+	createFlowLiveOutput,
+	emitFlowProgress,
+	type FlowLiveOutput,
+} from "../../phase-stream/live-output.ts";
 import { flowStreamDeps, resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import {
 	createNsSubmitRuntime,
@@ -13,6 +17,13 @@ import {
 	type NsSubmitRuntime,
 	type SubmitCommandResult,
 } from "../../submit/ns-runtime.ts";
+import type {
+	FlowMinimalSubmitClient,
+	FlowMinimalSubmitPhaseEvent,
+	FlowMinimalSubmitPlanResult,
+	FlowMinimalSubmitResult,
+} from "../../submit/minimal-submit.ts";
+import { createFlowMinimalSubmitClient } from "../../submit/real-minimal-submit.ts";
 import {
 	commandOperations,
 	withCommandOperations,
@@ -34,6 +45,7 @@ import {
 	defineCommand,
 	failure,
 	ok,
+	usageError,
 	z,
 	type CommandExit,
 	type NsCommand,
@@ -73,9 +85,17 @@ const submitSchema = z.object({
 		.describe(
 			"Regenerate titles and ns-managed descriptions for all existing PRs, including PRs with non-empty bodies.",
 		),
+	minimal: z
+		.boolean()
+		.default(false)
+		.describe(
+			"Clean-tree cheap submit with no hooks, checkpoint, metadata preparation, PR prose, or model calls.",
+		),
 });
 
 const SUBMIT_COMMAND_DESCRIPTION = `Run configured pre-submit checks, checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors with gt submit --no-edit --publish --no-stack --no-ai --no-interactive.
+
+Use --minimal/-m for a clean-tree cheap submit: readiness, automatic restack when needed, current/downstack submission, and thin current-PR verification only. Minimal mode runs no configured hooks, checkpoint, metadata preparation, PR prose, or model calls.
 
 Pre-submit checks are consumer config in the repo-root ns.toml ([points]."flow.submit.pre", an array of command strings such as ["just"]). Each entry is whitespace-split and executed directly without a shell; the first failing check aborts the submit. Skip them with --no-checks.
 
@@ -95,6 +115,7 @@ type SubmitRequest = z.output<typeof submitSchema>;
 
 export interface FlowSubmitCommandDependencies {
 	createRuntime(ctx: NsExtensionApi): NsSubmitRuntime;
+	createMinimalClient(ctx: NsExtensionApi): FlowMinimalSubmitClient;
 }
 
 export function createFlowSubmitCommand(
@@ -110,8 +131,22 @@ export function createFlowSubmitCommand(
 			restack: { short: "-R" },
 			force: { short: "-f" },
 			verbose: { short: "-v" },
+			minimal: { short: "-m" },
 		},
 		handler: async (ctx: NsExtensionApi, request: SubmitRequest) => {
+			if (request.minimal && request.regenerateDescriptions) {
+				return usageError(
+					"--minimal cannot be combined with --regenerate-descriptions because minimal submit never generates PR prose.",
+					{ conflictingOptions: ["--minimal", "--regenerate-descriptions"] },
+				);
+			}
+			if (request.minimal) {
+				return await runMinimalSubmit({
+					ctx,
+					request,
+					client: dependencies.createMinimalClient(ctx),
+				});
+			}
 			const runtime = dependencies.createRuntime(ctx);
 			const repoRoot = request.checks
 				? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
@@ -148,9 +183,88 @@ export function createFlowSubmitCommand(
 
 export const flowSubmitCommand = createFlowSubmitCommand({
 	createRuntime: (ctx) => createNsSubmitRuntime(ctx, flowExtensionDescriptorSource),
+	createMinimalClient: (ctx) =>
+		createFlowMinimalSubmitClient({ cwd: ctx.cwd, commands: ctx, env: ctx.env }),
 });
 
 export default flowSubmitCommand;
+
+async function runMinimalSubmit(input: {
+	ctx: NsExtensionApi;
+	request: SubmitRequest;
+	client: FlowMinimalSubmitClient;
+}): Promise<CommandExit> {
+	const liveOutput = createFlowLiveOutput(input.ctx);
+	const planned = await input.client.planCurrentBranch();
+	if (planned.type !== "tracked") return minimalPlanFailure(planned);
+
+	emitFlowProgress(
+		liveOutput,
+		`minimal submit scope: ${planned.plan.affectedBranches.join(" → ")}`,
+	);
+	const result = await input.client.submitCurrentBranch({
+		expectedSource: planned.plan.source,
+		restack: input.request.restack,
+		force: input.request.force,
+		onPhase: (event) => renderMinimalPhase(event, liveOutput),
+		...(input.request.verbose
+			? {
+					onOutput: (event: { stream: "stdout" | "stderr"; text: string }) =>
+						liveOutput?.(event.stream, event.text),
+				}
+			: {}),
+	});
+	if (result.type === "failed") return minimalSubmitFailure(result);
+	return ok(
+		`Submitted ${result.plan.affectedBranches.length} Graphite ${
+			result.plan.affectedBranches.length === 1 ? "branch" : "branches"
+		} with minimal submit. Current source: ${result.source.branch}@${result.source.headSha}.`,
+	);
+}
+
+function minimalPlanFailure(result: Exclude<FlowMinimalSubmitPlanResult, { type: "tracked" }>) {
+	if (result.type === "not-graphite-tracked") {
+		return failure(
+			FLOW_COMMAND_FAILED,
+			`Minimal submit requires a Graphite-tracked current branch. ${result.message}`,
+		);
+	}
+	return failure(FLOW_COMMAND_FAILED, formatMinimalFailure(result));
+}
+
+function minimalSubmitFailure(result: Extract<FlowMinimalSubmitResult, { type: "failed" }>) {
+	return failure(FLOW_COMMAND_FAILED, formatMinimalFailure(result));
+}
+
+function formatMinimalFailure(result: {
+	stage: string;
+	error: { message: string; dirtyPaths?: readonly string[]; dirtyPathsTruncated?: boolean };
+	mutation: { local: string; remote: string };
+}): string {
+	const dirty =
+		result.error.dirtyPaths === undefined
+			? ""
+			: `\nDirty paths: ${result.error.dirtyPaths.join(", ")}${
+					result.error.dirtyPathsTruncated === true ? ", …" : ""
+				}`;
+	return `${result.error.message}${dirty}\nStage: ${result.stage}. Mutation evidence: local ${result.mutation.local}; remote ${result.mutation.remote}.`;
+}
+
+function renderMinimalPhase(
+	event: FlowMinimalSubmitPhaseEvent,
+	liveOutput: FlowLiveOutput | undefined,
+): void {
+	if (event.status !== "started") return;
+	const labels: Readonly<Record<FlowMinimalSubmitPhaseEvent["stage"], string>> = {
+		planning: "rechecking minimal-submit source and Graphite scope…",
+		readiness: "checking Graphite submit readiness…",
+		restack: "running gt restack --downstack --no-interactive…",
+		"readiness-recheck": "rechecking Graphite submit readiness after restack…",
+		submit: "submitting current and downstack branches…",
+		verification: "verifying the current PR and final source state…",
+	};
+	emitFlowProgress(liveOutput, labels[event.stage]);
+}
 
 async function resolveFlowSubmitGitRepoRoot(
 	git: Pick<GitGateway, "optionalRepoRoot">,

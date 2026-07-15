@@ -1,11 +1,10 @@
 // Scenario tests for `ns dispatch prompt`: the command runs through its
-// own SDK argv adapter against in-memory gateway fakes published on
-// `ctx.extensions.dispatch`, covering operations, help, and the
-// json-schema machine contract.
+// own SDK argv adapter against a dependency-injected complete fake context,
+// covering operations, help, and the JSON-schema machine contract.
 import { describe, expect, test } from "vitest";
 
-import { dispatchPromptCommand } from "../../src/ns/commands/prompt.ts";
-import { buildDispatchAnchorNameCandidates } from "../../src/ns/dispatch-prompt/anchor-name.ts";
+import { createDispatchPromptCommand } from "../../src/ns/commands/prompt.ts";
+import { buildDispatchAnchorNameCandidates } from "../../src/dispatch-client/anchor-name.ts";
 import {
 	createFakeDispatchGateways,
 	FakeDispatchNsApi,
@@ -14,22 +13,32 @@ import {
 	FAKE_DISPATCH_SETTINGS_SOURCE,
 	FAKE_HEAD_SHA,
 	FAKE_OIDC_TOKEN,
+	FAKE_REWRITTEN_HEAD_SHA,
 	FAKE_RUN_ID,
 	FAKE_SEMANTIC_SLUG,
 	FAKE_WORKFLOW_RUN_URL,
 	type FakeDispatchGatewaysOptions,
-} from "./support/dispatch-prompt-fakes.ts";
+} from "../dispatch-client/support/dispatch-prompt-fakes.ts";
 
 const PROMPT = "Rename the widget gateway methods to match the command-shape convention";
 const EXPECTED_ANCHOR_BRANCH = `dispatch/${FAKE_SEMANTIC_SLUG}-${FAKE_ANCHOR_TIMESTAMP}`;
+const TRACKED_PLAN = {
+	type: "tracked" as const,
+	plan: { affectedBranches: ["feature/widgets", "feature/base"] },
+};
 
 async function runPromptCommand(
 	argv: readonly string[],
 	options: FakeDispatchGatewaysOptions = {},
 ) {
 	const gateways = createFakeDispatchGateways(options);
-	const api = new FakeDispatchNsApi(gateways);
-	const exit = await dispatchPromptCommand.run(api, {
+	const api = new FakeDispatchNsApi();
+	const command = createDispatchPromptCommand(() => ({
+		cwd: api.cwd,
+		gateways,
+		commandIo: api.commandIo,
+	}));
+	const exit = await command.run(api, {
 		argv: [...argv],
 		commandPath: ["dispatch", "prompt"],
 	});
@@ -49,6 +58,7 @@ describe("ns dispatch prompt", () => {
 			revision: FAKE_HEAD_SHA,
 			sourceBranch: "feature/widgets",
 			isSourcePushed: true,
+			sourcePublication: "git-pushed",
 			anchorBranch: EXPECTED_ANCHOR_BRANCH,
 			anchorPrNumber: 41,
 			anchorPrUrl: "https://github.com/nseng-ai/ns/pull/41",
@@ -60,8 +70,11 @@ describe("ns dispatch prompt", () => {
 		expect(api.phaseLabels).toEqual([
 			"Checking the source branch and worktree…",
 			"Validating dispatch configuration and identity…",
+			"Checking whether the source revision is already published…",
 			"Deriving the semantic anchor branch name…",
-			"Ensuring the source revision is remotely reachable…",
+			"Planning source publication…",
+			"Pushing the exact source revision with Git…",
+			"Revalidating the published source and dispatch identity…",
 			"Creating the anchor branch and pull request…",
 			"Starting the remote workflow…",
 			"Recording the workflow run on the anchor PR…",
@@ -75,8 +88,10 @@ describe("ns dispatch prompt", () => {
 			{ cwd: "/repo", anchorBranch: EXPECTED_ANCHOR_BRANCH },
 		]);
 
-		// Push-first: the source branch, then the anchor ref at the exact SHA.
-		expect(gateways.git.sourcePushes).toEqual(["feature/widgets"]);
+		// Exact-SHA source publication precedes the anchor ref.
+		expect(gateways.git.sourcePushes).toEqual([
+			{ branch: "feature/widgets", expectedRevision: FAKE_HEAD_SHA },
+		]);
 		expect(gateways.git.anchorPushes).toEqual([
 			{ revision: FAKE_HEAD_SHA, anchorBranch: EXPECTED_ANCHOR_BRANCH },
 		]);
@@ -114,10 +129,18 @@ describe("ns dispatch prompt", () => {
 			"config:read-package-manager",
 			"token:read-development-oidc",
 			"trigger:check-identity",
-			"slug:derive-semantic",
-			"git:check-anchor-availability",
 			"git:read-remote-tip",
+			"slug:derive-semantic",
+			"publication:plan",
 			"git:push-source",
+			"git:resolve-source-ref",
+			"git:list-dirty-paths",
+			"config:read-dispatch-settings",
+			"config:read-package-manager",
+			"token:read-development-oidc",
+			"trigger:check-identity",
+			"git:read-remote-tip",
+			"git:check-anchor-availability",
 			"git:push-anchor",
 			"anchor-pr:open",
 			"trigger:start-run",
@@ -199,13 +222,13 @@ describe("ns dispatch prompt", () => {
 		expect(exit.data).toEqual({ argument: "slug" });
 		expect(gateways.semanticSlugs.calls).toEqual([]);
 		expect(gateways.git.anchorAvailabilityReads).toEqual([]);
-		expect(gateways.git.remoteTipReads).toEqual([]);
+		expect(gateways.git.remoteTipReads).toEqual([{ cwd: "/repo", branch: "feature/widgets" }]);
 		expect(gateways.git.sourcePushes).toEqual([]);
 		expect(gateways.git.anchorPushes).toEqual([]);
 		expect(gateways.anchorPrs.opened).toEqual([]);
 	});
 
-	test("fails semantic generation before remote-tip reads or mutation", async () => {
+	test("fails semantic generation after the read-only remote check and before mutation", async () => {
 		const { exit, gateways } = await runPromptCommand([PROMPT], {
 			semanticSlug: {
 				ok: false,
@@ -218,7 +241,7 @@ describe("ns dispatch prompt", () => {
 		expect(exit.errorType).toBe("branch-slug-generation-failed");
 		expect(exit.data).toMatchObject({ recovery: expect.stringContaining("--slug/-s") });
 		expect(gateways.git.anchorAvailabilityReads).toEqual([]);
-		expect(gateways.git.remoteTipReads).toEqual([]);
+		expect(gateways.git.remoteTipReads).toEqual([{ cwd: "/repo", branch: "feature/widgets" }]);
 		expect(gateways.git.sourcePushes).toEqual([]);
 		expect(gateways.git.anchorPushes).toEqual([]);
 		expect(gateways.anchorPrs.opened).toEqual([]);
@@ -246,7 +269,7 @@ describe("ns dispatch prompt", () => {
 		expect(gateways.git.sourcePushes).toEqual([]);
 	});
 
-	test("reports anchor availability read failure before source reachability or mutation", async () => {
+	test("reports anchor availability read failure after the remote check but before mutation", async () => {
 		const { exit, gateways } = await runPromptCommand([PROMPT], {
 			git: {
 				anchorAvailabilityError: {
@@ -260,12 +283,12 @@ describe("ns dispatch prompt", () => {
 		if (exit.type !== "failure") return;
 		expect(exit.errorType).toBe("anchor-branch-availability-failed");
 		expect(exit.data).toEqual({ anchorBranch: EXPECTED_ANCHOR_BRANCH });
-		expect(gateways.git.remoteTipReads).toEqual([]);
+		expect(gateways.git.remoteTipReads).toEqual([{ cwd: "/repo", branch: "feature/widgets" }]);
 		expect(gateways.git.sourcePushes).toEqual([]);
 		expect(gateways.git.anchorPushes).toEqual([]);
 	});
 
-	test("reports bounded candidate exhaustion before source reachability or mutation", async () => {
+	test("reports bounded candidate exhaustion after the remote check but before mutation", async () => {
 		const occupiedAnchorBranches = buildDispatchAnchorNameCandidates(
 			FAKE_SEMANTIC_SLUG,
 			FAKE_ANCHOR_TIMESTAMP,
@@ -279,28 +302,363 @@ describe("ns dispatch prompt", () => {
 		expect(exit.errorType).toBe("anchor-branch-unavailable");
 		expect(exit.data).toEqual({ semanticSlug: FAKE_SEMANTIC_SLUG, candidateLimit: 50 });
 		expect(gateways.git.anchorAvailabilityReads).toHaveLength(50);
-		expect(gateways.git.remoteTipReads).toEqual([]);
+		expect(gateways.git.remoteTipReads).toEqual([{ cwd: "/repo", branch: "feature/widgets" }]);
 		expect(gateways.git.sourcePushes).toEqual([]);
 		expect(gateways.git.anchorPushes).toEqual([]);
 	});
 
-	test("skips the source push when the remote already has the exact head", async () => {
+	test("exact remote skips Flow planning/execution, authorization, and Git publication", async () => {
 		const { exit, gateways } = await runPromptCommand([PROMPT]);
 
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") return;
-		expect(exit.data).toMatchObject({ status: "dispatched", isSourcePushed: false });
+		expect(exit.data).toMatchObject({
+			status: "dispatched",
+			isSourcePushed: false,
+			sourcePublication: "already-current",
+		});
+		expect(gateways.sourcePublication.plans).toEqual([]);
+		expect(gateways.sourcePublication.publications).toEqual([]);
+		expect(gateways.publicationAuthorization.requests).toEqual([]);
 		expect(gateways.git.sourcePushes).toEqual([]);
 	});
 
-	test("pushes when the remote branch is behind the local head", async () => {
+	test("tracked TTY decline is a non-mutating cancellation with no anchor or run", async () => {
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
+			git: { remoteTip: { type: "missing" } },
+			sourcePublication: { plan: TRACKED_PLAN },
+			publicationAuthorization: { isInteractive: true, interactiveResult: "declined" },
+		});
+
+		expect(exit.type).toBe("negative");
+		if (exit.type !== "negative") return;
+		expect(exit.data).toEqual({
+			status: "source-publication-declined",
+			affectedBranches: ["feature/widgets", "feature/base"],
+			totalAffectedBranches: 2,
+		});
+		expect(gateways.sourcePublication.publications).toEqual([]);
+		expect(gateways.git.sourcePushes).toEqual([]);
+		expect(gateways.git.anchorPushes).toEqual([]);
+		expect(gateways.anchorPrs.opened).toEqual([]);
+		expect(gateways.trigger.startCalls).toEqual([]);
+	});
+
+	test("tracked noninteractive publication requires --force before mutation", async () => {
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
+			git: { remoteTip: { type: "missing" } },
+			sourcePublication: { plan: TRACKED_PLAN },
+		});
+
+		expect(exit.type).toBe("usageError");
+		if (exit.type !== "usageError") return;
+		expect(exit.data).toEqual({
+			missingFlag: "--force",
+			affectedBranches: ["feature/widgets", "feature/base"],
+			totalAffectedBranches: 2,
+		});
+		expect(gateways.sourcePublication.publications).toEqual([]);
+		expect(gateways.git.sourcePushes).toEqual([]);
+		expect(gateways.git.anchorPushes).toEqual([]);
+		expect(gateways.anchorPrs.opened).toEqual([]);
+	});
+
+	test("force-required scope data is bounded and reports the total impact", async () => {
+		const affectedBranches = Array.from({ length: 60 }, (_, index) => `feature/branch-${index}`);
+		const { exit } = await runPromptCommand([PROMPT], {
+			git: { remoteTip: { type: "missing" } },
+			sourcePublication: {
+				plan: { type: "tracked", plan: { affectedBranches } },
+			},
+		});
+
+		expect(exit.type).toBe("usageError");
+		if (exit.type !== "usageError") return;
+		expect(exit.data).toEqual({
+			missingFlag: "--force",
+			affectedBranches: affectedBranches.slice(0, 50),
+			totalAffectedBranches: 60,
+		});
+	});
+
+	test.each(["--force", "-f"])(
+		"tracked %s authorizes Flow with Flow force false and never plain Git",
+		async (flag) => {
+			const { exit, gateways } = await runPromptCommand([flag, PROMPT], {
+				git: { remoteTip: { type: "missing" } },
+				sourcePublication: { plan: TRACKED_PLAN },
+			});
+
+			expect(exit.type).toBe("ok");
+			if (exit.type !== "ok") return;
+			expect(exit.data).toMatchObject({
+				sourcePublication: "graphite-submitted",
+				isSourcePushed: true,
+			});
+			expect(gateways.publicationAuthorization.requests).toEqual([
+				{
+					affectedBranches: ["feature/widgets", "feature/base"],
+					isForceAuthorized: true,
+				},
+			]);
+			expect(gateways.sourcePublication.publications).toEqual([
+				{
+					expectedBranch: "feature/widgets",
+					expectedHeadSha: FAKE_HEAD_SHA,
+					restack: true,
+					force: false,
+				},
+			]);
+			expect(gateways.git.sourcePushes).toEqual([]);
+		},
+	);
+
+	test("a rewritten Graphite SHA reaches anchor commit/body, PR, run input, and result", async () => {
+		const { exit, gateways } = await runPromptCommand(["--force", PROMPT], {
+			git: { remoteTip: { type: "missing" } },
+			sourcePublication: {
+				plan: TRACKED_PLAN,
+				publish: {
+					type: "published",
+					source: { branch: "feature/widgets", headSha: FAKE_REWRITTEN_HEAD_SHA },
+					mutation: { local: "observed", remote: "observed" },
+				},
+			},
+		});
+
+		expect(exit.type).toBe("ok");
+		if (exit.type !== "ok") return;
+		expect(exit.data).toMatchObject({
+			revision: FAKE_REWRITTEN_HEAD_SHA,
+			sourcePublication: "graphite-submitted",
+		});
+		expect(gateways.git.anchorPushes).toEqual([
+			{ revision: FAKE_REWRITTEN_HEAD_SHA, anchorBranch: EXPECTED_ANCHOR_BRANCH },
+		]);
+		expect(gateways.anchorPrs.opened[0]?.body).toContain(FAKE_REWRITTEN_HEAD_SHA);
+		expect(gateways.anchorPrs.opened[0]?.baseBranch).toBe("feature/widgets");
+		expect(gateways.trigger.startCalls[0]?.input.revision).toBe(FAKE_REWRITTEN_HEAD_SHA);
+	});
+
+	test("Graphite publication builds the anchor from refreshed preflight facts", async () => {
+		const { exit } = await runPromptCommand(["--force", PROMPT], {
+			git: { remoteTip: { type: "missing" } },
+			sourcePublication: { plan: TRACKED_PLAN },
+			config: {
+				dispatchSettingsAfterPublication: {
+					type: "found",
+					source: FAKE_DISPATCH_SETTINGS_SOURCE.replace(
+						'anchor_timezone = "America/Los_Angeles"',
+						'anchor_timezone = "UTC"',
+					),
+				},
+			},
+		});
+
+		expect(exit.type).toBe("ok");
+		if (exit.type !== "ok") return;
+		expect(exit.data).toMatchObject({
+			anchorBranch: `dispatch/${FAKE_SEMANTIC_SLUG}-20260715-141814`,
+			sourcePublication: "graphite-submitted",
+		});
+	});
+
+	test.each([
+		["provider", "flow-minimal-submit-topology-provider-failure"],
+		["topology", "flow-minimal-submit-topology-path-inconsistent"],
+	] as const)("%s planning failure fails closed", async (_label, code) => {
+		const { exit, gateways } = await runPromptCommand(["--force", PROMPT], {
+			git: { remoteTip: { type: "missing" } },
+			sourcePublication: {
+				plan: {
+					type: "failed",
+					stage: "planning",
+					code,
+					message: "Structured Graphite planning failed.",
+					mutation: { local: "none", remote: "none" },
+				},
+			},
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("source-publication-plan-failed");
+		expect(exit.data).toMatchObject({ code, mutation: { local: "none", remote: "none" } });
+		expect(gateways.sourcePublication.publications).toEqual([]);
+		expect(gateways.git.sourcePushes).toEqual([]);
+		expect(gateways.anchorPrs.opened).toEqual([]);
+	});
+
+	test.each([
+		["restack", "flow-minimal-submit-restack-conflict", "possible", "none"],
+		["submit", "flow-minimal-submit-submit-failed", "none", "possible"],
+		["verification", "flow-minimal-submit-verification-no_current_pr", "none", "observed"],
+	] as const)(
+		"%s failure creates no anchor and reports conservative mutation",
+		async (stage, code, local, remote) => {
+			const { exit, gateways } = await runPromptCommand(["--force", PROMPT], {
+				git: { remoteTip: { type: "missing" } },
+				sourcePublication: {
+					plan: TRACKED_PLAN,
+					publish: {
+						type: "failed",
+						stage,
+						code,
+						message: "Graphite publication failed.",
+						mutation: { local, remote },
+					},
+				},
+			});
+
+			expect(exit.type).toBe("failure");
+			if (exit.type !== "failure") return;
+			expect(exit.errorType).toBe("graphite-publication-failed");
+			expect(exit.data).toMatchObject({
+				stage,
+				code,
+				affectedBranches: ["feature/widgets", "feature/base"],
+				totalAffectedBranches: 2,
+				mutation: { local, remote },
+			});
+			expect(exit.message).toContain("No dispatch anchor or run was created");
+			expect(gateways.git.anchorPushes).toEqual([]);
+			expect(gateways.anchorPrs.opened).toEqual([]);
+			expect(gateways.trigger.startCalls).toEqual([]);
+		},
+	);
+
+	test("pushes the captured SHA when an untracked remote branch is behind", async () => {
 		const { exit, gateways } = await runPromptCommand([PROMPT], {
 			git: { remoteTip: { type: "found", sha: "b".repeat(40) } },
 		});
 
 		expect(exit.type).toBe("ok");
-		expect(gateways.git.sourcePushes).toEqual(["feature/widgets"]);
+		expect(gateways.git.sourcePushes).toEqual([
+			{ branch: "feature/widgets", expectedRevision: FAKE_HEAD_SHA },
+		]);
 	});
+
+	test.each([
+		["source read", { isNotARepository: true }, "source-read-failed"],
+		["repository drift", { repoRoot: "/other" }, "repository-drift"],
+		["branch drift", { branch: "feature/other" }, "branch-drift"],
+		["head mismatch", { headSha: "d".repeat(40) }, "head-drift"],
+		["dirty worktree", { dirtyPaths: ["conflicted.ts"] }, "dirty-tree"],
+		[
+			"remote mismatch",
+			{ remoteTip: { type: "found" as const, sha: "e".repeat(40) } },
+			"remote-tip-mismatch",
+		],
+	] as const)(
+		"post-Graphite %s acknowledges prior publication and creates no anchor",
+		async (_label, afterGraphitePublication, reason) => {
+			const { exit, gateways } = await runPromptCommand(["--force", PROMPT], {
+				git: {
+					remoteTip: { type: "missing" },
+					afterGraphitePublication,
+				},
+				sourcePublication: { plan: TRACKED_PLAN },
+			});
+
+			expect(exit.type).toBe("failure");
+			if (exit.type !== "failure") return;
+			expect(exit.errorType).toBe("source-publication-verification-failed");
+			expect(exit.data).toMatchObject({
+				sourcePublication: "graphite-submitted",
+				reason,
+				affectedBranches: ["feature/widgets", "feature/base"],
+				totalAffectedBranches: 2,
+				mutation: { local: "none", remote: "observed" },
+				anchorCreated: false,
+				runStarted: false,
+			});
+			expect(exit.message).toContain("no dispatch anchor or run was created");
+			expect(gateways.git.anchorPushes).toEqual([]);
+			expect(gateways.anchorPrs.opened).toEqual([]);
+			expect(gateways.trigger.startCalls).toEqual([]);
+		},
+	);
+
+	test("post-publication anchor availability failure acknowledges mutation and no anchor/run", async () => {
+		const { exit, gateways } = await runPromptCommand(["--force", PROMPT], {
+			git: {
+				remoteTip: { type: "missing" },
+				anchorAvailabilityError: {
+					type: "error",
+					error: { code: "git-ls-remote-failed", message: "Could not inspect origin." },
+				},
+			},
+			sourcePublication: { plan: TRACKED_PLAN },
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("anchor-branch-availability-failed");
+		expect(exit.data).toMatchObject({
+			sourcePublication: "graphite-submitted",
+			affectedBranches: ["feature/widgets", "feature/base"],
+			totalAffectedBranches: 2,
+			mutation: { local: "none", remote: "observed" },
+			anchorCreated: false,
+			runStarted: false,
+		});
+		expect(exit.message).toContain("no dispatch anchor or run was created");
+		expect(gateways.git.anchorPushes).toEqual([]);
+		expect(gateways.anchorPrs.opened).toEqual([]);
+	});
+
+	test("second preflight failure acknowledges Graphite publication and creates no anchor", async () => {
+		const { exit, gateways } = await runPromptCommand(["--force", PROMPT], {
+			git: { remoteTip: { type: "missing" } },
+			sourcePublication: { plan: TRACKED_PLAN },
+			config: { dispatchSettingsAfterPublication: { type: "missing" } },
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("source-publication-verification-failed");
+		expect(exit.data).toMatchObject({
+			reason: "preflight-failed",
+			mutation: { local: "none", remote: "observed" },
+			anchorCreated: false,
+			runStarted: false,
+		});
+		expect(exit.data).toHaveProperty("checks");
+		expect(gateways.git.anchorPushes).toEqual([]);
+		expect(gateways.anchorPrs.opened).toEqual([]);
+	});
+
+	test.each([
+		["concurrent HEAD drift", { headSha: "d".repeat(40) }, "head-drift"],
+		[
+			"remote mismatch",
+			{ remoteTip: { type: "found" as const, sha: "e".repeat(40) } },
+			"remote-tip-mismatch",
+		],
+	] as const)(
+		"plain Git %s creates no anchor after the exact-SHA push",
+		async (_label, afterGitPush, reason) => {
+			const { exit, gateways } = await runPromptCommand([PROMPT], {
+				git: {
+					remoteTip: { type: "missing" },
+					afterGitPush,
+				},
+			});
+
+			expect(exit.type).toBe("failure");
+			if (exit.type !== "failure") return;
+			expect(exit.errorType).toBe("source-publication-verification-failed");
+			expect(exit.data).toMatchObject({
+				sourcePublication: "git-pushed",
+				reason,
+				mutation: { local: "none", remote: "possible" },
+				anchorCreated: false,
+				runStarted: false,
+			});
+			expect(gateways.git.anchorPushes).toEqual([]);
+			expect(gateways.anchorPrs.opened).toEqual([]);
+		},
+	);
 
 	test("refuses a dirty worktree, listing the dirty files, before any mutation", async () => {
 		const { exit, gateways } = await runPromptCommand([PROMPT], {
@@ -471,7 +829,15 @@ describe("ns dispatch prompt", () => {
 		expect(exit.type).toBe("failure");
 		if (exit.type !== "failure") return;
 		expect(exit.errorType).toBe("source-push-failed");
-		expect(gateways.git.sourcePushes).toEqual(["feature/widgets"]);
+		expect(exit.data).toMatchObject({
+			mutation: { local: "none", remote: "possible" },
+			anchorCreated: false,
+			runStarted: false,
+		});
+		expect(exit.message).toContain("no dispatch anchor or run was created");
+		expect(gateways.git.sourcePushes).toEqual([
+			{ branch: "feature/widgets", expectedRevision: FAKE_HEAD_SHA },
+		]);
 		expect(gateways.anchorPrs.opened).toEqual([]);
 	});
 
@@ -567,6 +933,9 @@ describe("ns dispatch prompt", () => {
 		expect(help).toContain("clean worktree");
 		expect(help).toContain("--slug");
 		expect(help).toContain("-s");
+		expect(help).toContain("--force");
+		expect(help).toContain("-f");
+		expect(help).toContain("never bypasses Graphite safeguards");
 	});
 
 	test("--json-schema publishes the machine envelope contract", async () => {
@@ -582,6 +951,13 @@ describe("ns dispatch prompt", () => {
 		expect(schemaText).toContain("anchorPrUrl");
 		expect(schemaText).toContain("workflowRunUrl");
 		expect(schemaText).toContain("isSourcePushed");
+		expect(schemaText).toContain("sourcePublication");
+		expect(schemaText).toContain("already-current");
+		expect(schemaText).toContain("git-pushed");
+		expect(schemaText).toContain("graphite-submitted");
+		expect(schemaText).toContain("source-publication-declined");
+		expect(schemaText).toContain("--force/-f");
+		expect(schemaText).toContain("never forwarded as Graphite force");
 		expect(schemaText).toContain("slug");
 		const retiredKey = ["source", "Pushed"].join("");
 		expect(schemaText).not.toContain(`"${retiredKey}"`);

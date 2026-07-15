@@ -12,7 +12,9 @@ Fog the answer makes stateable, and rewire or drop invalidated rows.
       `ns flow ship` is the completion/readiness pipeline that validates, reviews,
       autofixes, reconciles stack-wide PR titles and managed descriptions, pushes,
       and attests. Agent completion workflows must route to `ship`; raw `gt submit`
-      is an explicit recovery fallback, not a semantic substitute.
+      is an explicit recovery fallback, not a semantic substitute. Staging status:
+      `ns flow submit --minimal` now exposes the clean-tree cheap engine without
+      changing default submit; default migration and `ship` remain open.
 - [ ] (grilling) Stack-tip review semantics — what diff the tip review sees
       (merge-base of the whole stack against trunk?), and whether findings map back to
       owning branches or stay stack-scoped.

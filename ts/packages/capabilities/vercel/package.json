@@ -29,6 +29,7 @@
 	"dependencies": {
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@nseng-ai/capability-kit": "workspace:*",
+		"@nseng-ai/flow": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
 		"@octokit/auth-app": "catalog:",
@@ -48,6 +49,7 @@
 			"auth",
 			"deployability",
 			"dispatch",
+			"dispatch-client",
 			"http",
 			"mint",
 			"ns",

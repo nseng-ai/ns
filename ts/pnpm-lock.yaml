@@ -489,6 +489,9 @@ importers:
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
+      '@nseng-ai/flow':
+        specifier: workspace:*
+        version: link:../flow
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation

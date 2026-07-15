@@ -9,7 +9,7 @@
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { Clock } from "@nseng-ai/foundation/clock";
 
-import type { DispatchRunInput } from "../../dispatch/dispatch-run.ts";
+import type { DispatchRunInput } from "../dispatch/dispatch-run.ts";
 
 /**
  * Provider-owned codes intentionally remain open across this seam: Foundation Git
@@ -28,8 +28,8 @@ export type DispatchLocalGitFactsGateway = Pick<
 
 /**
  * Git facts and pushes for the dispatch source: the current branch, its
- * exact head, dirty state (the clean-tree rule), remote freshness, exact
- * anchor-name availability, push-first behavior, and the anchor-branch push. The real adapter runs
+ * exact head, dirty state (the clean-tree rule), remote freshness, exact-SHA
+ * untracked-source publication, anchor-name availability, and the anchor-branch push. The real adapter runs
  * git on the user's machine with the user's own credentials.
  */
 export interface DispatchWorkspaceGitGateway {
@@ -56,6 +56,7 @@ export interface DispatchWorkspaceGitGateway {
 	pushSourceBranch(options: {
 		readonly cwd: string;
 		readonly branch: string;
+		readonly expectedRevision: string;
 	}): Promise<DispatchGitOperationResult>;
 	/** Create a metadata-only child commit of the dispatched revision and push it as the anchor. */
 	pushAnchorBranch(options: {
@@ -221,9 +222,79 @@ export type DispatchContentSlugResult =
 	| { readonly ok: true; readonly slug: string }
 	| { readonly ok: false; readonly error: { readonly message: string } };
 
+export type DispatchSourcePublicationMutationState = "none" | "observed" | "possible";
+
+export interface DispatchSourcePublicationMutationEvidence {
+	readonly local: DispatchSourcePublicationMutationState;
+	readonly remote: DispatchSourcePublicationMutationState;
+}
+
+export type DispatchGraphitePublicationStage =
+	| "planning"
+	| "readiness"
+	| "restack"
+	| "readiness-recheck"
+	| "submit"
+	| "verification";
+
+export interface DispatchGraphitePublicationPlan {
+	readonly affectedBranches: readonly string[];
+}
+
+export type DispatchGraphitePublicationPlanResult =
+	| { readonly type: "tracked"; readonly plan: DispatchGraphitePublicationPlan }
+	| { readonly type: "not-graphite-tracked" }
+	| {
+			readonly type: "failed";
+			readonly stage: "planning";
+			readonly code: string;
+			readonly message: string;
+			readonly mutation: DispatchSourcePublicationMutationEvidence;
+	  };
+
+export type DispatchGraphitePublicationResult =
+	| {
+			readonly type: "published";
+			readonly source: { readonly branch: string; readonly headSha: string };
+			readonly mutation: DispatchSourcePublicationMutationEvidence;
+	  }
+	| {
+			readonly type: "failed";
+			readonly stage: DispatchGraphitePublicationStage;
+			readonly code: string;
+			readonly message: string;
+			readonly mutation: DispatchSourcePublicationMutationEvidence;
+	  };
+
+export interface DispatchSourcePublicationGateway {
+	planGraphitePublication(options: {
+		readonly expectedBranch: string;
+		readonly expectedHeadSha: string;
+	}): Promise<DispatchGraphitePublicationPlanResult>;
+	publishGraphiteSource(options: {
+		readonly expectedBranch: string;
+		readonly expectedHeadSha: string;
+		readonly onPhase?: (stage: DispatchGraphitePublicationStage) => void;
+	}): Promise<DispatchGraphitePublicationResult>;
+}
+
+export type DispatchGraphitePublicationAuthorizationResult =
+	| { readonly type: "authorized"; readonly method: "force" | "interactive" }
+	| { readonly type: "declined" }
+	| { readonly type: "non-interactive-force-required" };
+
+export interface DispatchGraphitePublicationAuthorizationGateway {
+	authorizeGraphitePublication(options: {
+		readonly affectedBranches: readonly string[];
+		readonly isForceAuthorized: boolean;
+	}): Promise<DispatchGraphitePublicationAuthorizationResult>;
+}
+
 /** Everything the dispatch-prompt core needs injected. */
 export interface DispatchPromptGateways {
 	readonly git: DispatchWorkspaceGitGateway;
+	readonly sourcePublication: DispatchSourcePublicationGateway;
+	readonly publicationAuthorization: DispatchGraphitePublicationAuthorizationGateway;
 	readonly anchorPrs: DispatchAnchorPrGateway;
 	readonly trigger: DispatchTriggerGateway;
 	readonly tokens: DispatchLocalTokenGateway;

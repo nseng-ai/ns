@@ -386,8 +386,9 @@ Risks:
 - **Model-backed anchor naming is a pre-mutation dependency**: accepted for semantic
   durable identity. Dispatch fails before any push, PR, or Workflow when generation cannot
   produce a usable slug; `--slug/-s` is the explicit recovery and automation path. Exact
-  remote-name availability is checked before mutation with a bounded numeric suffix search;
-  a concurrent create race remains possible and is handled by the existing non-overwriting
+  remote-name availability is checked after source publication/revalidation and before anchor
+  mutation with a bounded numeric suffix search; a concurrent create race remains possible
+  and is handled by the existing non-overwriting
   anchor-push failure path.
 - **README drifts from implementation**: mitigation — the README settles
   first, and each implementation slice cites the README section it makes

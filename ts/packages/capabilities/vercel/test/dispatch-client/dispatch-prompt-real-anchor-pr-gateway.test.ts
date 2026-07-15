@@ -4,7 +4,7 @@ import { buildDispatchRunIdStamp } from "../../src/dispatch/run-id-stamp.ts";
 import {
 	createRealDispatchAnchorPrGateway,
 	parseGhPrCreateUrl,
-} from "../../src/ns/dispatch-prompt/real-anchor-pr-gateway.ts";
+} from "../../src/dispatch-client/real-anchor-pr-gateway.ts";
 import { exited, ScriptedCommandRunner } from "./support/scripted-command-runner.ts";
 
 describe("anchor PR wire parser", () => {

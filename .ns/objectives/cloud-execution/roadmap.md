@@ -168,9 +168,9 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
 - [~] Steel thread: `ns dispatch prompt` end-to-end under the dispatch
   workflow. Local CLI: preflight, dirty-tree refusal listing dirty
   files, semantic content-derived timestamped `dispatch/` anchor selection
-  before mutation (with `--slug/-s`, configured IANA timezone, and bounded
-  collision suffixes), push-first when the remote is missing/behind, anchor
-  branch + PR opened up front on the user's own
+  before anchor mutation (with `--slug/-s`, configured IANA timezone, and bounded
+  collision suffixes), exact-source publication when the remote is missing/behind,
+  anchor branch + PR opened up front on the user's own
   credentials, trigger-route call, workflow run id stamped on the
   anchor PR. Workflow: in-process clone-token mint, sandbox creation
   over the exact dispatched SHA, provisioning and detached launch of
@@ -230,7 +230,14 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
      timestamped anchor names before mutation, exposes `--slug/-s`, validates/defaults
      `[dispatch].anchor_timezone`, checks exact remote availability through `-50`, and keeps
      model/config/availability failures mutation-free; this naming change is fake-driven and
-     not a new live-dispatch claim. See
+     not a new live-dispatch claim. A further local-only slice now classifies stale
+     source publication through Flow's structured Graphite plan: definitive untracked
+     branches use an exact-SHA non-force Git push, while tracked current/downstack scope
+     requires TTY confirmation or dispatch `--force/-f` before Flow minimal submit with
+     Graphite force disabled. Publication revalidates the final SHA before anchor naming
+     availability or mutation; failures create no anchor/run and report conservative
+     mutation evidence. This has fake-driven coverage only and adds no live publication,
+     deployment, or dispatch claim. See
      `references/dispatch-live-evidence.md`,
      `references/dispatch-deployment-contract.md`, and
      `references/dispatch-pi-runner.md`.

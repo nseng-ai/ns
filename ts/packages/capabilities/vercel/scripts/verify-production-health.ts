@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseDispatchProjectConfigToml } from "../src/api/project-config.ts";
+import { parseDispatchProjectConfigToml } from "../src/dispatch-client/project-config.ts";
 import { verifyPublicProductionHealth } from "../src/deployability/real-production-deployment-gateways.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../../../", import.meta.url));
