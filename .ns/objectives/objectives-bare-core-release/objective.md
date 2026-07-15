@@ -1,4 +1,5 @@
 ---
+blocked: Publication and registry-backed verification are intentionally deferred until the release is reprioritized.
 edges:
   - objective: ship-objectives-to-customers
     annotation: Subobjective of the customer-Objectives umbrella; owns publication and checkout-free verification of the bare-core Objectives acquisition path.
@@ -43,7 +44,7 @@ The release is successful only when a foreign repository with no ns checkout or 
 
 Assumptions:
 
-- The source-side host unbundle remains landed and the existing package build can produce standalone core and Objectives artifacts without a new architecture change.
+- Revalidated after a release-candidate repair: the source-side host unbundle remains landed, the package build produces a standalone bare core, and the Objectives publish root now declares and carries all ten canonical `objective*` skill directories without duplicating their checked-in source.
 - npm remains the supported customer distribution channel and the necessary package names and publisher access are available.
 - Existing `ns init` and `ns extension install` behavior is sufficient for the release smoke once the customer-surface Subobjective completes its release prerequisite.
 
@@ -51,10 +52,11 @@ Risks:
 
 - npm publication is an irreversible external write. Execution must stop for explicit human authorization immediately before publishing and must report the exact package/version set.
 - Workspace packages may require coordinated version or dependency publication; publishing only the two visible packages could leave registry dependency ranges unsatisfied.
-- Local pack and workspace tests may conceal undeclared checkout dependencies. The foreign-repository smoke is the release gate.
+- Local pack and workspace tests may conceal undeclared checkout dependencies. The foreign-repository smoke is the release gate. Packed-artifact inspection surfaced and the candidate repaired one such blocker: package checks and dry-run publication had succeeded while the standalone Objectives tarball omitted its promised harness artifacts. Preparation now asserts the exact canonical skill set and every copied `SKILL.md`; registry-backed acquisition remains the decisive runtime proof.
 - Global installs can contaminate verification. Use isolated prefixes or equivalent bounded environments and prove the invoked binary and packages come from the intended registry versions.
 - The registry may partially accept a coordinated release. Recovery must publish forward with clear evidence rather than overwrite immutable versions.
+- The qualified `0.1.3` candidate may become stale while publication is deferred. Before resuming, recheck registry availability, coordinated package versions, intervening source changes, and the full dry-run qualification rather than publishing the current candidate on historical evidence.
 
 ## Open Questions
 
-None at creation. The exact next version and coordinated package set are determined by the established release procedure and pre-publish registry inspection; they must be presented for authorization before the external write.
+Publication is intentionally deferred. When the release is reprioritized, determine whether `0.1.3` remains the correct coordinated version and present the refreshed package set for authorization before the external write.

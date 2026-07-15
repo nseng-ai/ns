@@ -1,5 +1,18 @@
 import { defineExtension, hiddenExecGroup } from "@nseng-ai/sdk";
 
+const OBJECTIVE_SKILL_NAMES = [
+	"objective",
+	"objective-autorun",
+	"objective-close",
+	"objective-create",
+	"objective-critique",
+	"objective-next",
+	"objective-refresh",
+	"objective-retro",
+	"objective-runner-step",
+	"objective-update",
+] as const;
+
 const OBJECTIVES_INSTRUCTIONS = [
 	"## Objectives",
 	"",
@@ -21,6 +34,11 @@ export default defineExtension({
 		instructions: OBJECTIVES_INSTRUCTIONS,
 		consumerDirs: [".ns/objectives"],
 	},
+	bundledArtifacts: OBJECTIVE_SKILL_NAMES.map((skillName) => ({
+		kind: "skill" as const,
+		name: skillName,
+		path: `skills/${skillName}`,
+	})),
 	entries: [
 		{
 			name: "list",

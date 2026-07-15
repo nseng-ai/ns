@@ -17,3 +17,8 @@ Acquisition remains live and non-transactional for Pi parity: there is no stagin
 ## Evidence
 
 Focused ns-init and kernel tsgo checks/tests pass, including update gateway translation and fake-driven public-operation scenarios for local, pinned, floating, missing, failure, and activation paths.
+
+## Follow-Ups
+
+- Complete the remaining `ns extension list` and retired top-level update-reference work through the dedicated customer-surface Subobjective.
+- Carry the accepted non-transactional acquisition caveat into downstream release verification where relevant.
