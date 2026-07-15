@@ -87,7 +87,7 @@ export function resolveCodexDraftModel(modelRef: string): PiModelConfig {
 		provider,
 		modelId,
 		label: `${provider}/${modelId}`,
-		authLabel: provider === DEFAULT_FAST_MODEL.provider ? "Codex" : provider,
+		authLabel: provider === "openai-codex" ? "Codex" : provider,
 		reasoning: "minimal",
 	};
 }

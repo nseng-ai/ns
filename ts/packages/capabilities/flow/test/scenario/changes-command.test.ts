@@ -57,6 +57,7 @@ describe("project-local changes extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
+			"git rev-parse --show-toplevel",
 		]);
 		expect(
 			formattedExecCalls(run.context).some((call) => /git (add|commit|stash)|^gt |^gh /.test(call)),
@@ -98,6 +99,7 @@ describe("project-local changes extension behavior", () => {
 						},
 					},
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff" } },
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 				],
 				textGeneration: [{ ok: true, text: "- Summarize status labels" }],
 			},
@@ -134,6 +136,7 @@ describe("project-local changes extension behavior", () => {
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
+			"git rev-parse --show-toplevel",
 		]);
 
 		const failed = runChangesWithFakes({
@@ -190,6 +193,7 @@ describe("project-local changes extension behavior", () => {
 					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 					{ match: "git status --porcelain=v1", result: { stdout: status } },
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff" } },
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 				],
 				textGeneration: [{ ok: true, text: "- Update many files" }],
 			},

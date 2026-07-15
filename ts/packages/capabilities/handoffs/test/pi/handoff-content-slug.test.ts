@@ -46,6 +46,9 @@ class FakeSlugPi implements CommandExecApi {
 		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
 	): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args], options });
+		if (command === "git" && args[0] === "rev-parse") {
+			return { type: "exited", stdout: "/repo\n", stderr: "", code: 0, signal: null };
+		}
 		if (this.behavior.error !== undefined) {
 			throw this.behavior.error;
 		}
@@ -83,12 +86,13 @@ describe("deriveHandoffContentSlug", () => {
 			provider: DEFAULT_FAST_MODEL.provider,
 			model: DEFAULT_FAST_MODEL.modelId,
 		});
-		expect(pi.calls).toHaveLength(1);
-		expect(pi.calls[0]?.command).toBe("pi");
-		expect(pi.calls[0]?.args).toEqual(
+		expect(pi.calls).toHaveLength(2);
+		expect(pi.calls[0]?.command).toBe("git");
+		expect(pi.calls[1]?.command).toBe("pi");
+		expect(pi.calls[1]?.args).toEqual(
 			buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)),
 		);
-		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
+		expect(pi.calls[1]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});
 
 	test("markdown and code-fenced output normalizes correctly", async () => {

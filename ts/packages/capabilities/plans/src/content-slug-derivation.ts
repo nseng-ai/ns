@@ -40,7 +40,8 @@ export async function deriveContentSlug(
 	variant: PlanContentSlugVariantSeed,
 ): Promise<ContentSlugEvidence> {
 	const repository = await new RealGitGateway(pi).optionalRepoRoot({ cwd: input.cwd });
-	if (repository.type !== "found") throw new Error("Could not determine the repository root for ns.toml.");
+	if (repository.type !== "found")
+		throw new Error("Could not determine the repository root for ns.toml.");
 	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: nodeProjectConfigGateway });
 	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
