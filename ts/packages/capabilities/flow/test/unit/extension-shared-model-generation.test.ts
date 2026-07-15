@@ -26,7 +26,8 @@ const invalidCheckpointMessage = `[cp] Update model helper
 - Add one extra bullet that should be rejected`;
 
 interface FlowModelGenerationContextFixture {
-	env: Record<string, string | undefined>;
+	env?: Record<string, string | undefined>;
+	modelRef: string;
 	textGenerator: TextGenerator;
 }
 
@@ -77,7 +78,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowChangesSummary(
 			{
-				env: { NS_CHANGES_MODEL: "openai-codex/custom-changes" },
+				modelRef: "openai-codex/custom-changes",
 				textGenerator,
 			},
 			{
@@ -104,7 +105,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowCheckpointMessage(
 			{
-				env: { NS_CHECKPOINT_MODEL: "openai-codex/custom-checkpoint" },
+				modelRef: "openai-codex/custom-checkpoint",
 				textGenerator,
 			},
 			{
@@ -132,7 +133,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowCheckpointMessage(
 			{
-				env: { NS_CHECKPOINT_MODEL: "openai-codex/custom-checkpoint" },
+				modelRef: "openai-codex/custom-checkpoint",
 				textGenerator,
 			},
 			{

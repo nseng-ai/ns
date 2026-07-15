@@ -87,7 +87,11 @@ describe("deriveKitContentSlug", () => {
 			signal: null,
 		});
 
-		const evidence = await deriveKitContentSlug(exec, { content: CONTENT, cwd: CWD, modelRef: "openai-codex/gpt-5.6-luna" }, TEST_VARIANT);
+		const evidence = await deriveKitContentSlug(
+			exec,
+			{ content: CONTENT, cwd: CWD, modelRef: "openai-codex/gpt-5.6-luna" },
+			TEST_VARIANT,
+		);
 
 		expect(evidence).toEqual({
 			slug: "content-slug-kit",
@@ -116,7 +120,12 @@ describe("deriveKitContentSlug", () => {
 
 		await deriveKitContentSlug(
 			exec,
-			{ content: CONTENT, cwd: CWD, modelRef: "openai-codex/gpt-5.6-luna", signal: controller.signal },
+			{
+				content: CONTENT,
+				cwd: CWD,
+				modelRef: "openai-codex/gpt-5.6-luna",
+				signal: controller.signal,
+			},
 			TEST_VARIANT,
 		);
 
@@ -164,7 +173,11 @@ describe("deriveKitContentSlug", () => {
 
 		for (const [, exec, expectedMessage] of failureCases) {
 			try {
-				await deriveKitContentSlug(exec, { content: CONTENT, cwd: CWD, modelRef: "openai-codex/gpt-5.6-luna" }, TEST_VARIANT);
+				await deriveKitContentSlug(
+					exec,
+					{ content: CONTENT, cwd: CWD, modelRef: "openai-codex/gpt-5.6-luna" },
+					TEST_VARIANT,
+				);
 				throw new Error("expected slug derivation to fail");
 			} catch (error) {
 				expectNoFallback(error);

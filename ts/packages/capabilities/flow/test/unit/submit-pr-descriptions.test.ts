@@ -193,7 +193,7 @@ describe("generateSubmitPrDescriptions", () => {
 				{
 					kind: "model",
 					operation: "generating PR description",
-					modelRef: "openai-codex/gpt-5.4-mini",
+					modelRef: "openai-codex/gpt-5.6-luna",
 					detail: "PR 1/1",
 				},
 			],

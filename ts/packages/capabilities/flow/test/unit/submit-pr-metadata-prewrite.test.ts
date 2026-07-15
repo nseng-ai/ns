@@ -129,12 +129,12 @@ describe("prewriteSubmitMetadata", () => {
 		expect(result.kind).toBe("prepared");
 		expect(trace.read()).toEqual([
 			"item:feature/a:active:generating-metadata",
-			"ops:LM · generating PR metadata · openai-codex/gpt-5.4-mini · branch 1/2",
+			"ops:LM · generating PR metadata · openai-codex/gpt-5.6-luna · branch 1/2",
 			"work:generate",
 			"ops:",
 			"item:feature/a:done:metadata-drafted",
 			"item:feature/b:active:generating-metadata",
-			"ops:LM · generating PR metadata · openai-codex/gpt-5.4-mini · branch 2/2",
+			"ops:LM · generating PR metadata · openai-codex/gpt-5.6-luna · branch 2/2",
 			"work:generate",
 			"ops:",
 			"item:feature/b:done:metadata-drafted",
