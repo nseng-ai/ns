@@ -104,15 +104,23 @@ reshaped stack.
 
 The ns runtime supplies Flow's text-generation service; Flow does not configure a
 provider client of its own. The selected provider and model must therefore be
-available to the ns runtime. Model-backed commands select model refs with these
-environment variables:
+available to the ns runtime. Model-backed commands use shared repository policy in
+`ns.toml`:
 
-| Environment variable          | Used by                                                              |
-| ----------------------------- | -------------------------------------------------------------------- |
-| `NS_SLUG_MODEL`               | `autobranch` and `branch-latest-commit` generated branch slugs       |
+```toml
+[models.profiles]
+fast = "openai-codex/gpt-5.6-luna"
+careful = "openai-codex/gpt-5.6-luna"
 
-Unset selectors currently default to `openai-codex/gpt-5.6-luna`. Set the relevant
-variable when that model is unavailable or a repository wants a different model.
+[models.operations]
+flow.pr-description = "careful"
+```
+
+`models.profiles` maps profile names to qualified provider/model references and
+`models.operations` maps operation IDs to profiles. Omitted operations resolve to
+`fast`, and projects may redefine `fast`. Flow uses `slug` for generated branch
+names, `flow.checkpoint` for checkpoint messages, and `flow.pr-description` for PR
+metadata. There is no environment override ladder or model inspection command.
 
 Prompt content is configured separately from model identity through the prompt points
 documented below.
