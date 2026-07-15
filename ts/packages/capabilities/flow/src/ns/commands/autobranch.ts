@@ -45,8 +45,10 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 	handler: async (ctx, request: AutobranchRequest) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
-		const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
-		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
+		const slugModel = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.slug);
+		if (!slugModel.ok) return failure(FLOW_COMMAND_FAILED, slugModel.error);
+		const checkpointModel = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
+		if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
 		const io = commandIoFromNsExtensionApi(ctx);
 		return await runWithNsCommandIo(io, async (io) => {
 			const result = await dispatchAutobranchCheckpoint(
@@ -56,13 +58,16 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 						prepareCheckpointMessage: (
 							pendingSnapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 						) =>
-							prepareFlowCheckpointMessage({ ...ctx, modelRef: model.modelRef }, pendingSnapshot),
+							prepareFlowCheckpointMessage(
+								{ ...ctx, modelRef: checkpointModel.modelRef },
+								pendingSnapshot,
+							),
 						commitPreparedCheckpointMessage: (message) =>
 							createCommitWithPreparedMessage(ctx, message),
 					},
 				},
 				{
-					...createAutobranchDispatchEnv(ctx, args),
+					...createAutobranchDispatchEnv(ctx, args, slugModel.modelRef),
 					onPhase: (message) => io.phase(message),
 				},
 			);

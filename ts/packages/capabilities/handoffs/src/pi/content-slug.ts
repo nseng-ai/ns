@@ -8,7 +8,12 @@ import {
 } from "@nseng-ai/capability-kit/content-slug";
 import { parseFlatHandoffSlug } from "../api/index.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { DEFAULT_FAST_MODEL_REF } from "@nseng-ai/foundation/model-slug";
+import {
+	MODEL_OPERATION_IDS,
+	loadModelPolicy,
+	resolveModelOperation,
+} from "@nseng-ai/capability-kit/model-policy";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 const MAX_HANDOFF_SLUG_WORDS = 8;
 const GENERIC_ONLY_WORDS = new Set([
@@ -57,9 +62,13 @@ export async function deriveHandoffContentSlug(
 	commands: CommandExecApi,
 	input: { content: string; cwd: string; signal?: AbortSignal },
 ): Promise<HandoffContentSlugEvidence> {
+	const policy = loadModelPolicy({ repoRoot: input.cwd, gateway: nodeProjectConfigGateway });
+	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
+	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
 	return deriveKitContentSlug(
 		commands,
-		{ ...input, modelRef: DEFAULT_FAST_MODEL_REF },
+		{ ...input, modelRef: model.value.modelRef },
 		HANDOFF_CONTENT_SLUG_VARIANT,
 	);
 }

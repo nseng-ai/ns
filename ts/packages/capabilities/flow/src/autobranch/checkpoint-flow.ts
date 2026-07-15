@@ -64,6 +64,7 @@ export type AutobranchDispatchMode =
 
 export interface AutobranchFlowContext {
 	cwd: string;
+	modelRef?: string;
 	args: ParsedAutobranchArgs;
 	exec: AutobranchFlowInput["exec"];
 	git: AutobranchGitGateway;
