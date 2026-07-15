@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { dispatchHarnessValues, parseDispatchProjectConfigToml } from "../../src/api/index.ts";
+import {
+	DEFAULT_DISPATCH_ANCHOR_TIME_ZONE,
+	dispatchHarnessValues,
+	parseDispatchProjectConfigToml,
+} from "../../src/api/index.ts";
 
 describe("parseDispatchProjectConfigToml", () => {
 	it("publishes only registry-implemented harness values", () => {
@@ -21,8 +25,36 @@ vercel_team_id = "team_example123"
 				harness: "pi",
 				vercelProjectId: "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06",
 				vercelTeamId: "team_example123",
+				anchorTimeZone: DEFAULT_DISPATCH_ANCHOR_TIME_ZONE,
 			},
 		});
+	});
+
+	it("parses and canonicalizes an explicit anchor timezone", () => {
+		const result = parseDispatchProjectConfigToml(`
+[dispatch]
+harness = "pi"
+vercel_project_id = "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06"
+vercel_team_id = "team_example123"
+anchor_timezone = "Etc/UTC"
+`);
+
+		expect(result).toMatchObject({
+			ok: true,
+			value: { anchorTimeZone: "UTC" },
+		});
+	});
+
+	it("rejects an invalid anchor timezone", () => {
+		const result = parseDispatchProjectConfigToml(`
+[dispatch]
+harness = "pi"
+vercel_project_id = "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06"
+vercel_team_id = "team_example123"
+anchor_timezone = "Pacific/Definitely_Not_A_Zone"
+`);
+
+		expect(result).toMatchObject({ ok: false, error: { code: "invalid-dispatch" } });
 	});
 
 	it("parses the optional deployment and workflow dashboard URLs", () => {

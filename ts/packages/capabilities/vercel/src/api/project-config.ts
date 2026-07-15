@@ -11,6 +11,8 @@ import { z } from "zod";
 import { vercelProjectIdSchema, vercelTeamIdSchema } from "../auth/contracts.ts";
 import { isDispatchHarness, type DispatchHarness } from "../dispatch/harness-registry.ts";
 
+export const DEFAULT_DISPATCH_ANCHOR_TIME_ZONE = "America/Los_Angeles";
+
 /**
  * Local dispatch-client configuration. This intentionally supersets the
  * server's required Vercel identity fields with harness and deployment URL
@@ -20,6 +22,7 @@ export interface DispatchProjectConfig {
 	readonly harness: DispatchHarness;
 	readonly vercelProjectId: string;
 	readonly vercelTeamId: string;
+	readonly anchorTimeZone: string;
 	/** Vercel dashboard Workflows URL used to deep-link started runs. */
 	readonly workflowDashboardUrl?: string;
 	/**
@@ -58,6 +61,15 @@ const workflowDashboardUrlSchema = z
 		"must be an HTTPS vercel.com project Workflows URL without credentials, query, or fragment",
 	);
 
+const dispatchAnchorTimeZoneSchema = z.string().transform((value, context) => {
+	try {
+		return new Intl.DateTimeFormat("en-US", { timeZone: value }).resolvedOptions().timeZone;
+	} catch {
+		context.addIssue({ code: "custom", message: "must be a valid IANA timezone" });
+		return z.NEVER;
+	}
+});
+
 function isCredentialFreeHttpsUrl(value: string): boolean {
 	let url: URL;
 	try {
@@ -86,6 +98,7 @@ const dispatchSettingsSchema = {
 			harness: z.custom<DispatchHarness>(isDispatchHarness),
 			vercel_project_id: vercelProjectIdSchema,
 			vercel_team_id: vercelTeamIdSchema,
+			anchor_timezone: dispatchAnchorTimeZoneSchema.default(DEFAULT_DISPATCH_ANCHOR_TIME_ZONE),
 			workflow_dashboard_url: workflowDashboardUrlSchema.optional(),
 			deployment_url: deploymentUrlSchema.optional(),
 		})
@@ -94,6 +107,7 @@ const dispatchSettingsSchema = {
 				harness: settings.harness,
 				vercelProjectId: settings.vercel_project_id,
 				vercelTeamId: settings.vercel_team_id,
+				anchorTimeZone: settings.anchor_timezone,
 				...(settings.workflow_dashboard_url === undefined
 					? {}
 					: { workflowDashboardUrl: settings.workflow_dashboard_url }),

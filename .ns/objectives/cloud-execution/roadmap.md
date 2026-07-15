@@ -167,8 +167,10 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
       Exact bounded claims live in `references/dispatch-live-evidence.md`.
 - [~] Steel thread: `ns dispatch prompt` end-to-end under the dispatch
   workflow. Local CLI: preflight, dirty-tree refusal listing dirty
-  files, push-first when the remote is missing/behind, anchor
-  `dispatch/` branch + PR opened up front on the user's own
+  files, semantic content-derived timestamped `dispatch/` anchor selection
+  before mutation (with `--slug/-s`, configured IANA timezone, and bounded
+  collision suffixes), push-first when the remote is missing/behind, anchor
+  branch + PR opened up front on the user's own
   credentials, trigger-route call, workflow run id stamped on the
   anchor PR. Workflow: in-process clone-token mint, sandbox creation
   over the exact dispatched SHA, provisioning and detached launch of
@@ -224,7 +226,11 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
      added the exact-SHA `just dispatch-deploy-prod` path with authoritative inventory,
      transactional promotion, and deployment/alias identity checks. Those changes are
      locally covered but have not produced newer live production evidence, so the same
-     controlled rerun remains the gate. See
+     controlled rerun remains the gate. The local prompt command now also derives semantic
+     timestamped anchor names before mutation, exposes `--slug/-s`, validates/defaults
+     `[dispatch].anchor_timezone`, checks exact remote availability through `-50`, and keeps
+     model/config/availability failures mutation-free; this naming change is fake-driven and
+     not a new live-dispatch claim. See
      `references/dispatch-live-evidence.md`,
      `references/dispatch-deployment-contract.md`, and
      `references/dispatch-pi-runner.md`.
