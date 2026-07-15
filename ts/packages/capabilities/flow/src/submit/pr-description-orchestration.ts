@@ -48,6 +48,7 @@ export interface PrDescriptionUpdateOptions {
 	env: Record<string, string | undefined>;
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
+	modelRef: string;
 	githubPr: GithubPrGateway;
 	textGenerator: TextGenerator;
 	pr: GithubPrDetails;
@@ -118,7 +119,15 @@ export async function preparePrDescriptionUpdate(
 	options: PrDescriptionUpdateOptions,
 ): Promise<PrDescriptionUpdateResult> {
 	const pr = options.pr;
-	const generation = options.generation ?? (await resolvePrDescriptionGeneration(options));
+	const generation =
+		options.generation ??
+		(await resolvePrDescriptionGeneration({
+			env: options.env,
+			cwd: options.cwd,
+			git: options.git,
+			descriptorSource: options.descriptorSource,
+			modelRef: options.modelRef,
+		}));
 	if (!generation.ok) {
 		return {
 			type: "failed",
@@ -246,6 +255,7 @@ export async function orchestratePrDescription(
 		env: options.env,
 		git: options.git,
 		descriptorSource: options.descriptorSource,
+		modelRef: options.modelRef,
 		githubPr: options.githubPr,
 		textGenerator: options.textGenerator,
 		pr,

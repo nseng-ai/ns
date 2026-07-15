@@ -22,7 +22,6 @@ import {
 	type ReviewRunResult,
 } from "../core/models.ts";
 import {
-	DEFAULT_REVIEWS_MODEL_PROFILES,
 	isReviewsModelProfileKey,
 	parseReviewsProjectConfigToml,
 	type ReviewsModelProfileKey,
@@ -31,6 +30,7 @@ import {
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
 import { filterLocalDiffForReviewApplicability } from "../core/review-applicability.ts";
 import { resolveReviewsModelReference } from "../core/review-model-reference.ts";
+import { MODEL_OPERATION_IDS, resolveModelOperation } from "@nseng-ai/capability-kit/model-policy";
 
 export interface RunReviewRequest {
 	readonly key: string;
@@ -237,8 +237,30 @@ function resolveReviewModel(
 		};
 	}
 
-	const selectedModel = request.model ?? config.modelProfiles[profile];
-	const resolved = resolveReviewsModelReference(selectedModel);
+	const selectedModel =
+		request.model === undefined
+			? resolveModelOperation(
+					config.modelPolicy,
+					profile === "quick" ? MODEL_OPERATION_IDS.reviewsQuick : MODEL_OPERATION_IDS.reviewsDeep,
+				)
+			: undefined;
+	if (selectedModel !== undefined && !selectedModel.ok) {
+		return {
+			ok: false,
+			error: { code: "project-config-invalid", message: selectedModel.error.message },
+		};
+	}
+	const modelRef = request.model !== undefined ? request.model : selectedModel?.value.modelRef;
+	if (modelRef === undefined) {
+		return {
+			ok: false,
+			error: {
+				code: "project-config-invalid",
+				message: "Reviews model resolution produced no model reference.",
+			},
+		};
+	}
+	const resolved = resolveReviewsModelReference(modelRef);
 	if (!resolved.ok) return resolved;
 	return {
 		ok: true,
@@ -298,10 +320,14 @@ export async function loadProjectConfigFromContext(
 		source = await readFile(path, "utf8");
 	} catch (caught) {
 		if (isMissingFileError(caught)) {
-			return {
-				ok: true,
-				value: { diff: { exclude: [] }, modelProfiles: DEFAULT_REVIEWS_MODEL_PROFILES },
-			};
+			const emptyConfig = parseReviewsProjectConfigToml("");
+			if (!emptyConfig.ok) {
+				return {
+					ok: false,
+					error: { code: "project-config-invalid", message: emptyConfig.error.message },
+				};
+			}
+			return { ok: true, value: emptyConfig.value };
 		}
 		return {
 			ok: false,

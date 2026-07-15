@@ -51,6 +51,10 @@ export class ScriptedQueue<TStep> {
 		this.steps = steps.map(copyStep);
 	}
 
+	peek(): TStep | undefined {
+		return this.steps[0];
+	}
+
 	shiftOrRecordError(message: string): TStep | undefined {
 		const stepValue = this.steps.shift();
 		if (stepValue === undefined) {

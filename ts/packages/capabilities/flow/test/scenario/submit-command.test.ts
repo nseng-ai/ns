@@ -175,7 +175,7 @@ async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<stri
 	});
 	await writeFile(
 		join(repoRoot, "ns.toml"),
-		`extensions = ["./extensions/flow"]\n\n[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
+		`extensions = ["./extensions/flow"]\n\n[models.profiles]\nfast = "openai-codex/gpt-5.6-luna"\n\n[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
 		"utf8",
 	);
 	return repoRoot;
@@ -537,9 +537,18 @@ describe("project-local submit extension", () => {
 
 	test("checks: false skips configured pre-submit checks", async () => {
 		const repoRoot = await createSubmitHooksRepo(["just"]);
-		const run = runWithFakes({ cwd: repoRoot, request: { checks: false } });
+		await writeFile(
+			join(repoRoot, "ns.toml"),
+			'[models.profiles]\nfast = "openai-codex/gpt-5.6-luna"\n',
+			"utf8",
+		);
+		const run = runWithFakes({
+			cwd: repoRoot,
+			request: { checks: false },
+			state: { exec: successfulSubmitResponses() },
+		});
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit, run.stderr.join("")).toBe(0);
 		expect(formattedExecCalls(run.context)).not.toContain("just");
 		expect(run.liveOutput).not.toContainEqual(transient("running just…"));
 		expect(lastStderrOutput(run.liveOutput)).not.toContain("pre-submit checks passed");
@@ -1442,7 +1451,6 @@ describe("project-local submit extension", () => {
 		const run = runWithFakes({
 			env: {
 				NS_SUBMIT_FAILURE_LOG_DIR: logRoot,
-				NS_SUBMIT_FAILURE_MODEL: "openai-codex/submit-summary",
 			},
 			state: {
 				exec: [
@@ -1482,7 +1490,7 @@ describe("project-local submit extension", () => {
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("full stdout details\nsecond line");
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("mystery graphite failure");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
-		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/submit-summary");
+		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/gpt-5.6-luna");
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
 			"Truncation: transcript was not truncated.",
 		);

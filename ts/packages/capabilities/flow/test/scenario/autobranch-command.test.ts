@@ -97,7 +97,7 @@ describe("flow autobranch command outcomes", () => {
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("snapshot load failure exits 1 on stderr with a failure block", async () => {
+	test("repository root failure exits 2 before model-backed autobranch work", async () => {
 		const exec: ScriptedExecResponse[] = [
 			{
 				match: "git rev-parse --show-toplevel",
@@ -106,13 +106,11 @@ describe("flow autobranch command outcomes", () => {
 		];
 		const run = runFlowAutobranchCommandWithFakes({ state: { exec, textGeneration: [] } });
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("Not inside a git repository.");
-		expect(stderr).toContain("Command: git rev-parse --show-toplevel");
-		// The git failure transcript promotes the salient cause line.
-		expect(stderr).toContain("fatal: not a git repository");
+		expect(stripAnsi(run.stderr.join(""))).toContain(
+			"Could not determine the repository root for ns.toml.",
+		);
 	});
 
 	test("Graphite create failure exits 1 on stderr and surfaces recovery guidance", async () => {

@@ -104,21 +104,22 @@ reshaped stack.
 
 The ns runtime supplies Flow's text-generation service; Flow does not configure a
 provider client of its own. The selected provider and model must therefore be
-available to the ns runtime. Model-backed commands select model refs with these
-environment variables:
+available to the ns runtime. Model-backed commands use shared repository policy in
+`ns.toml`:
 
-| Environment variable          | Used by                                                              |
-| ----------------------------- | -------------------------------------------------------------------- |
-| `NS_CHANGES_MODEL`            | `changes` summaries                                                  |
-| `NS_CHECKPOINT_MODEL`         | `cp`, `autobranch`, and submit checkpoint messages                   |
-| `NS_SLUG_MODEL`               | `autobranch` and `branch-latest-commit` generated branch slugs       |
-| `NS_DEV_PR_DESCRIPTION_MODEL` | `submit` and `regenerate-pr` PR titles and descriptions              |
-| `NS_SUBMIT_FAILURE_MODEL`     | Interpretation of submit failures without deterministic presentation |
+```toml
+[models.profiles]
+fast = "openai/gpt-5.6-luna"
 
-Unset selectors currently default to `openai-codex/gpt-5.6-luna`. Set the relevant
-variable when that model is unavailable or a repository wants a different model.
-`NS_CHECKPOINT_MODEL` retains `NS_DEV_CHECKPOINT_MODEL` as a legacy fallback, and
-`NS_CHANGES_MODEL` retains `PI_DRAFT_MODEL` as a legacy fallback.
+[models.operations]
+"flow.pr-description" = "fast"
+```
+
+`models.profiles` maps profile names to qualified provider/model references and
+`models.operations` maps operation IDs to profiles. Omitted operations resolve to
+`fast`, and projects may redefine `fast`. Flow uses `slug` for generated branch
+names, `flow.checkpoint` for checkpoint messages, and `flow.pr-description` for PR
+metadata. There is no environment override ladder or model inspection command.
 
 Prompt content is configured separately from model identity through the prompt points
 documented below.

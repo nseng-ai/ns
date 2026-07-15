@@ -7,6 +7,13 @@ import {
 	type KitContentSlugDerivationVariant,
 } from "@nseng-ai/capability-kit/content-slug";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import {
+	MODEL_OPERATION_IDS,
+	loadModelPolicy,
+	resolveModelOperation,
+} from "@nseng-ai/capability-kit/model-policy";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { MAX_PLAN_SLUG_WORDS, MIN_PLAN_SLUG_WORDS, validatePlanSlug } from "./plan-persistence.ts";
 
 export const MAX_PLAN_CONTENT_CHARS = 32_000;
@@ -32,9 +39,16 @@ export async function deriveContentSlug(
 	input: DeriveContentSlugInput,
 	variant: PlanContentSlugVariantSeed,
 ): Promise<ContentSlugEvidence> {
+	const repository = await new RealGitGateway(pi).optionalRepoRoot({ cwd: input.cwd });
+	if (repository.type !== "found")
+		throw new Error("Could not determine the repository root for ns.toml.");
+	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: nodeProjectConfigGateway });
+	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
+	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
 	return deriveKitContentSlug(
 		{ exec: (command, args, options) => pi.exec(command, args, options) },
-		input,
+		{ ...input, modelRef: model.value.modelRef },
 		toKitContentSlugVariant(variant),
 	);
 }

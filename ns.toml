@@ -14,9 +14,14 @@ exclude = [
   ".claude/skills/**/*.py",
 ]
 
-[reviews.model_profiles]
-quick = "openai/gpt-5.6-luna"
-deep = "openai/gpt-5.6-terra"
+[models.profiles]
+fast = "vercel-ai-gateway/openai/gpt-5.6-luna"
+reviews_quick = "openai/gpt-5.6-luna"
+reviews_deep = "openai/gpt-5.6-terra"
+
+[models.operations]
+"reviews.quick" = "reviews_quick"
+"reviews.deep" = "reviews_deep"
 
 [points]
 "flow.submit.pre" = ["just"]

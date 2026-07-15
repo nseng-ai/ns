@@ -1,7 +1,6 @@
 import type { LatestCommitAutobranchInput } from "../../autobranch/latest-commit.ts";
 import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
-import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
@@ -9,6 +8,8 @@ import { renderGitResultBlock } from "../presentation/git-result-block.ts";
 import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { createAutobranchDispatchEnv } from "../worktree.ts";
+import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
+import { resolveFlowModelRef } from "../model-policy.ts";
 
 const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible single-parent commit to a new Graphite child branch.
 
@@ -17,9 +18,7 @@ This command requires a clean worktree. The latest commit is eligible when the s
 It creates a local-only Graphite branch with \`gt create\`, resets the source branch to the commit parent, hard-resets the new child branch to the original commit SHA, verifies HEAD, and cleans up recovery evidence. The mutation does not fetch, push, publish, submit, or update PRs. After a synchronized success, the upstream remains unchanged; explicitly run \`ns flow submit\` from the new child to publish the reshaped stack.
 
 Use \`ns flow autobranch\` instead when pending dirty worktree changes should be moved to a new branch.
-
-Environment:
-  ${SLUG_MODEL_ENV}  Model reference for generated branch slugs. Defaults to ${DEFAULT_FAST_MODEL_REF}.`;
+`;
 
 const branchLatestCommitRequestSchema = z.object({
 	slug: z
@@ -43,9 +42,19 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 			const args: LatestCommitAutobranchInput["args"] =
 				request.slug === undefined ? {} : { slug: request.slug };
 
+			const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.slug);
+			if (!model.ok)
+				return negative(
+					renderResultBlock(caps, {
+						kind: "failure",
+						headline: "Invalid slug model configuration.",
+						cwd: ctx.cwd,
+						body: model.error,
+					}),
+				);
 			const dispatched = await dispatchAutobranchCheckpoint(
 				{ mode: "require-clean" },
-				createAutobranchDispatchEnv(ctx, args),
+				createAutobranchDispatchEnv(ctx, args, model.modelRef),
 			);
 
 			switch (dispatched.outcome) {

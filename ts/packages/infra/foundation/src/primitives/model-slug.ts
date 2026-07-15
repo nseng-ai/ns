@@ -9,8 +9,6 @@ export const DEFAULT_FAST_MODEL: ParsedModelRef = {
 };
 export const DEFAULT_FAST_MODEL_REF = `${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`;
 
-export type ModelRefResolution = { ok: true; value: ParsedModelRef } | { ok: false; error: string };
-
 export type ModelProviderFamily = "anthropic" | "google" | "openai";
 
 export interface ModelProviderFamilyInfo {
@@ -38,8 +36,6 @@ const MODEL_PROVIDER_FAMILIES = [
 
 const ANTHROPIC_MODEL_SHORTHANDS = ["sonnet", "opus", "haiku", "fable"] as const;
 const CLAUDE_CODE_MODEL_SHORTHANDS = ["sonnet", "opus", "haiku"] as const;
-
-export const SLUG_MODEL_ENV = "NS_SLUG_MODEL";
 
 export function parseModelRef(modelRef: string): ParsedModelRef | undefined {
 	const separator = modelRef.indexOf("/");
@@ -108,20 +104,4 @@ function isAnthropicModelShorthand(modelId: string): boolean {
 
 function isClaudeCodeShorthand(modelId: string): boolean {
 	return CLAUDE_CODE_MODEL_SHORTHANDS.some((shorthand) => shorthand === modelId);
-}
-
-export function resolveModelRef(
-	env: Record<string, string | undefined>,
-	envVar: string,
-	defaultRef: string,
-): ModelRefResolution {
-	const modelRef = env[envVar]?.trim() || defaultRef;
-	const parsed = parseModelRef(modelRef);
-	if (parsed === undefined) {
-		return {
-			ok: false,
-			error: `Invalid ${envVar}=${JSON.stringify(modelRef)}. Expected "provider/modelId".`,
-		};
-	}
-	return { ok: true, value: parsed };
 }

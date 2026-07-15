@@ -30,7 +30,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: ns flow cp");
 		expect(help.stdout.join("")).toContain("--dry-run");
-		expect(help.stdout.join("")).toContain("NS_CHECKPOINT_MODEL");
+		expect(help.stdout.join("")).not.toContain("NS_CHECKPOINT_MODEL");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "cp", "--json-schema"], cwd });
@@ -44,7 +44,7 @@ describe("checked-in flow ns extension loading", () => {
 			args: ["flow", "cp"],
 			cwd,
 			state: {
-				exec: dirtyCpExecResponses(),
+				exec: dirtyCpExecResponses(cwd),
 				textGeneration: [
 					{
 						ok: true,
@@ -69,8 +69,8 @@ describe("checked-in flow ns extension loading", () => {
 		const output = help.stdout.join("");
 		expect(output).toContain("Usage: ns flow changes");
 		expect(output).toContain("read-only git commands");
-		expect(output).toContain("NS_CHANGES_MODEL");
-		expect(output).toContain("PI_DRAFT_MODEL");
+		expect(output).not.toContain("NS_CHANGES_MODEL");
+		expect(output).not.toContain("PI_DRAFT_MODEL");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "changes", "--json-schema"], cwd });
@@ -146,9 +146,9 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).toContain("ns flow branch-latest-commit");
 		expect(output).toContain("latest eligible commit");
 		expect(output).not.toContain("eligible unpushed");
-		expect(output).toContain("NS_SLUG_MODEL");
-		expect(output).toContain("NS_CHECKPOINT_MODEL");
-		expect(output).toContain("NS_DEV_CHECKPOINT_MODEL");
+		expect(output).not.toContain("NS_SLUG_MODEL");
+		expect(output).not.toContain("NS_CHECKPOINT_MODEL");
+		expect(output).not.toContain("NS_DEV_CHECKPOINT_MODEL");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "autobranch", "--json-schema"], cwd });
@@ -177,7 +177,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).toContain("Usage: ns flow regenerate-pr");
 		expect(output).toContain("Regenerate the current branch PR title");
 		expect(output).toContain("--force");
-		expect(output).toContain("NS_DEV_PR_DESCRIPTION_MODEL");
+		expect(output).not.toContain("NS_DEV_PR_DESCRIPTION_MODEL");
 		expect(output).toContain("NS_DEV_PR_DESCRIPTION_PROMPT");
 		expect(help.stderr.join("")).toBe("");
 
@@ -199,7 +199,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).toContain("--no-restack");
 		expect(output).toContain("--force");
 		expect(output).toContain("--verbose");
-		expect(output).toContain("NS_DEV_PR_DESCRIPTION_MODEL");
+		expect(output).not.toContain("NS_DEV_PR_DESCRIPTION_MODEL");
 		expect(output).toContain("NS_SUBMIT_FAILURE_LOG_DIR");
 		expect(help.stderr.join("")).toBe("");
 	});
@@ -280,9 +280,10 @@ function runWithRealFlowExtension(options: {
 	);
 }
 
-function dirtyCpExecResponses(): ScriptedExecResponse[] {
+function dirtyCpExecResponses(cwd: string): ScriptedExecResponse[] {
 	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
 		{
@@ -298,7 +299,7 @@ function dirtyCpExecResponses(): ScriptedExecResponse[] {
 
 function successfulSubmitResponses(cwd: string): ScriptedExecResponse[] {
 	return [
-		...cleanCheckpointResponses(),
+		...cleanCheckpointResponses(cwd),
 		{
 			match:
 				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
@@ -323,7 +324,7 @@ function successfulSubmitResponses(cwd: string): ScriptedExecResponse[] {
 			result: { stdout: prJson({ body: "Hand edited body" }) },
 		},
 		{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
 		{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
 		{
 			match: "git patch-id --stable",
@@ -333,9 +334,10 @@ function successfulSubmitResponses(cwd: string): ScriptedExecResponse[] {
 	];
 }
 
-function cleanCheckpointResponses(): ScriptedExecResponse[] {
+function cleanCheckpointResponses(cwd: string): ScriptedExecResponse[] {
 	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },

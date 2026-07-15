@@ -51,6 +51,7 @@ export interface FileStat {
 
 export interface AutobranchPreparationInput {
 	cwd: string;
+	modelRef: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -196,7 +197,12 @@ async function generateSlugFromChanges(
 	snapshot: AutobranchSnapshot,
 ): Promise<PreparedBaseSlugResult> {
 	const prompt = buildSlugPrompt(snapshot);
-	const result = await deriveBranchSlug({ cwd: input.cwd, prompt, exec: input.exec });
+	const result = await deriveBranchSlug({
+		cwd: input.cwd,
+		prompt,
+		modelRef: input.modelRef,
+		exec: input.exec,
+	});
 	if (result.ok) {
 		return { ok: true, baseSlug: result.baseSlug, source: result.source };
 	}
@@ -258,6 +264,7 @@ function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefi
 
 export interface AutobranchFlowInput {
 	cwd: string;
+	modelRef: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -279,6 +286,7 @@ export async function runDirtyAutobranchFlow(
 ): Promise<AutobranchFlowResult> {
 	const prepared = await prepareAutobranchPlan({
 		cwd: input.cwd,
+		modelRef: input.modelRef,
 		args: input.args,
 		snapshot: input.snapshot,
 		exec: input.exec,

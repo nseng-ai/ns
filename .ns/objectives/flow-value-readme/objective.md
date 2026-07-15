@@ -19,9 +19,10 @@ material preserved below the fold. Developed readme-driven:
 `references/README-draft.md` is the canonical design contract, and where the
 draft's claims outrun the software, the software changes. The first such case is
 model selection: the README's env-var table documents ambient, undiscoverable,
-unversioned per-shell policy, so model selection moves to manifest-declared
-`[flow.models]` settings with an env-override ladder, and the README then
-documents the shipped mechanism.
+unversioned per-shell policy, so model selection moves to shared top-level
+`[models]` settings with operation-to-profile resolution, `fast` as the default,
+no environment ladder, and no inspection command; the README then documents
+the shipped mechanism.
 
 ## Scope
 
@@ -33,15 +34,11 @@ documents the shipped mechanism.
   Flow yours (extension points as "policy without policing") → reference material
   below the fold. The loop narrative carries a boundary reference to `ns address`
   for the review-conversation step.
-- The model-selection redesign, recorded here as settled direction: a
-  manifest-declared `[flow.models]` settings table (settings, not points — the
-  point system accepts only hooks and prompts, and `docs/guides/points.md`
-  explicitly carves typed config out to settings), with resolution ladder env var
-  → repo setting → built-in default. The env layer survives as a per-user
-  override because model availability (provider credentials, access) is genuinely
-  personal; the repo layer is the team policy. Legacy fallbacks
-  (`NS_DEV_PR_DESCRIPTION_MODEL`, `PI_DRAFT_MODEL`) get an explicit disposition
-  in the ladder. Schema details stay open below.
+- **Semantic Update (model policy):** the former `[flow.models]` plus
+  environment ladder is superseded by shared top-level `[models]`. Profiles and
+  operation overrides are typed settings; omitted operations resolve to `fast`,
+  projects may redefine `fast`, listed model selectors are removed, and no
+  inspection command ships in v1. Typed settings remain distinct from points.
 - Rewriting the draft's "Model-backed workflows" section against the shipped
   mechanism; the draft cannot promote while it documents unshipped behavior.
 - Promotion: the settled draft promotes over
@@ -69,9 +66,9 @@ documents the shipped mechanism.
   situations, and the existing contract material (requirements, command matrix,
   pre-submit checks, failure marker, customization points) preserved below the
   fold.
-- `[flow.models]` is shipped: manifest-declared schema, the three-layer
-  resolution ladder implemented and tested, legacy env names handled per the
-  ladder decision, and the active source inspectable.
+- Shared top-level `[models]` settings are shipped: typed profiles and operation
+  overrides resolve through the built-in `fast` profile, listed model selectors
+  are removed, and no inspection command is part of v1.
 - The promoted README documents only shipped behavior — in particular the model
   section matches the settings mechanism, not the current env-var table.
 - The promotion roadmap row is done: the draft has replaced
@@ -104,10 +101,9 @@ Risks:
   its workflows tier into `ts/packages/capabilities/flow/README.md` while this
   draft evolves separately; promotion must merge, not clobber. Mitigated by the
   edge and by the promotion row explicitly requiring integration.
-- **The settings work outgrows the record.** `[flow.models]` touches manifest
-  schema and config loading; if implementation balloons past a thin settings
-  table plus ladder, split it into its own Objective rather than stalling the
-  README.
+- **The settings work outgrows the record.** Shared `[models]` policy spans
+  multiple capabilities; keep this Objective focused on documenting the shipped
+  Flow contract rather than expanding it into policy implementation work.
 - **RDD is experimental with one precedent.** `generic-flow-extension` is the
   only completed promotion; follow its mechanics (draft slims to a pointer at
   promotion) rather than inventing new ones.
@@ -119,8 +115,7 @@ Risks:
   explicit-but-terse.)
 - Primary reader: human adopter first with agent behavior woven in
   (recommended), or agent-first? (First grill pass.)
-- `[flow.models]` schema details: key names (`changes`, `checkpoint`, `slug`,
-  `pr-description`, `submit-failure`), validation, and which CLI surface reports
-  the active source.
-- Legacy env names: dropped outright (breaking changes are allowed) or kept as
-  deprecated ladder entries for a window?
+- Which additional model-backed operation IDs should be documented as consumers
+  adopt the shared policy?
+- How should a future policy-inspection surface, if needed, fit the generic config
+  contract without making v1 depend on one?

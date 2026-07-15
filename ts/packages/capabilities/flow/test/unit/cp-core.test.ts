@@ -265,10 +265,11 @@ describe("flow cp core", () => {
 
 		const result = await runCheckpointWorkflow({
 			cwd: "/repo",
-			env: { NS_CHECKPOINT_MODEL: "openai-codex/gpt-test" },
+			env: {},
 			gateway,
 			graphite: new InMemoryGraphiteBranchGateway(),
 			textGenerator,
+			modelRef: "openai-codex/gpt-test",
 			dryRun: true,
 			onActiveOperations: (operations) => snapshots.push([...operations]),
 		});
@@ -294,10 +295,11 @@ describe("flow cp core", () => {
 
 		const result = await runCheckpointWorkflow({
 			cwd: "/repo",
-			env: { NS_CHECKPOINT_MODEL: "openai-codex/gpt-test" },
+			env: {},
 			gateway,
 			graphite: new InMemoryGraphiteBranchGateway(),
 			textGenerator,
+			modelRef: "openai-codex/gpt-test",
 			dryRun: false,
 			onActiveOperations: (operations) => snapshots.push([...operations]),
 		});
@@ -357,6 +359,7 @@ function defaultOptions(overrides: {
 		checkpointGateway: overrides.checkpointGateway,
 		graphite: overrides.graphite ?? new InMemoryGraphiteBranchGateway(),
 		textGenerator: overrides.textGenerator,
+		modelRef: "openai-codex/gpt-test",
 		isDryRun: overrides.isDryRun ?? false,
 	};
 }

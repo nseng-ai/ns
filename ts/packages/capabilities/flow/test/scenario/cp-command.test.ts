@@ -151,22 +151,11 @@ describe("project-local cp extension behavior", () => {
 		expect(formattedExecCalls(run.context)).not.toContain("git log -1 --oneline");
 	});
 
-	test("checkpoint model can be selected by ns environment with legacy fallback", async () => {
-		const selected = runCpWithFakes({
-			env: {
-				NS_CHECKPOINT_MODEL: "openai-codex/custom-mini",
-				NS_DEV_CHECKPOINT_MODEL: "openai-codex/legacy",
-			},
-		});
+	test("checkpoint generation receives the resolved model reference explicitly", async () => {
+		const run = runCpWithFakes();
 
-		expect(await selected.exit).toBe(0);
-		expect(selected.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
-
-		const fallback = runCpWithFakes({
-			env: { NS_DEV_CHECKPOINT_MODEL: "openai-codex/legacy-mini" },
-		});
-		expect(await fallback.exit).toBe(0);
-		expect(fallback.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
+		expect(await run.exit).toBe(0);
+		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/gpt-5.6-luna");
 	});
 
 	test("model generation error exits 2 without committing", async () => {
@@ -321,7 +310,7 @@ describe("project-local cp extension behavior", () => {
 		]);
 	});
 
-	test("snapshot git failures exit with typed diagnostics", async () => {
+	test("repository and snapshot git failures exit with typed diagnostics", async () => {
 		const notGit = runCpWithFakes({
 			state: {
 				exec: [
@@ -335,7 +324,7 @@ describe("project-local cp extension behavior", () => {
 
 		expect(await notGit.exit).toBe(2);
 		expect(notGit.stderr.join("")).toBe(
-			"error: Not inside a git repository.\nexit code 128: fatal: not a git repository\n",
+			"error: Could not determine the repository root for ns.toml.\n",
 		);
 		expect(notGit.context.textGeneratorCalls).toEqual([]);
 

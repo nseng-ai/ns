@@ -2,19 +2,16 @@ import type { ParsedAutobranchArgs } from "../../autobranch/dirty-worktree.ts";
 import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
-import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
 import { commandIoFromNsExtensionApi } from "@nseng-ai/sdk/command-io";
-import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
+import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { prepareFlowCheckpointMessage } from "../model-generation.ts";
+import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
+import { resolveFlowModelRef } from "../model-policy.ts";
 import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
-import {
-	CHECKPOINT_MODEL_ENV,
-	DEFAULT_CHECKPOINT_MODEL_REF,
-	LEGACY_CHECKPOINT_MODEL_ENV,
-} from "@nseng-ai/capability-kit/text-generation";
+import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 import {
 	createAutobranchDispatchEnv,
 	createCommitWithPreparedMessage,
@@ -27,9 +24,7 @@ This command requires pending worktree changes. It stashes pending changes, crea
 
 If the worktree is clean, use \`ns flow branch-latest-commit\` to move the latest eligible commit to a new Graphite child branch.
 
-Environment:
-  ${SLUG_MODEL_ENV}  Model reference for generated branch slugs. Defaults to ${DEFAULT_FAST_MODEL_REF}.
-  ${CHECKPOINT_MODEL_ENV}  Model reference for generated checkpoint messages. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`;
+`;
 
 const autobranchRequestSchema = z.object({
 	slug: z
@@ -50,6 +45,10 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 	handler: async (ctx, request: AutobranchRequest) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
+		const slugModel = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.slug);
+		if (!slugModel.ok) return failure(FLOW_COMMAND_FAILED, slugModel.error);
+		const checkpointModel = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
+		if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
 		const io = commandIoFromNsExtensionApi(ctx);
 		return await runWithNsCommandIo(io, async (io) => {
 			const result = await dispatchAutobranchCheckpoint(
@@ -58,13 +57,17 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 					dirty: {
 						prepareCheckpointMessage: (
 							pendingSnapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
-						) => prepareFlowCheckpointMessage(ctx, pendingSnapshot),
+						) =>
+							prepareFlowCheckpointMessage(
+								{ ...ctx, modelRef: checkpointModel.modelRef },
+								pendingSnapshot,
+							),
 						commitPreparedCheckpointMessage: (message) =>
 							createCommitWithPreparedMessage(ctx, message),
 					},
 				},
 				{
-					...createAutobranchDispatchEnv(ctx, args),
+					...createAutobranchDispatchEnv(ctx, args, slugModel.modelRef),
 					onPhase: (message) => io.phase(message),
 				},
 			);

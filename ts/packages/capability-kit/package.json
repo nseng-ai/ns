@@ -16,6 +16,7 @@
 		"./gateway-result": "./src/kit/gateway-result.ts",
 		"./json-input": "./src/kit/json-input.ts",
 		"./model-slug": "./src/kit/model-slug.ts",
+		"./model-policy": "./src/kit/model-policy.ts",
 		"./pending-worktree": "./src/kit/pending-worktree.ts",
 		"./ns-command": "./src/kit/ns-command.ts",
 		"./ns-context": "./src/kit/ns-context.ts",
@@ -65,6 +66,12 @@
 			"github",
 			"graphite",
 			"cmux"
+		],
+		"settings": [
+			{
+				"path": ["models"],
+				"description": "Shared model profiles and operation overrides."
+			}
 		]
 	},
 	"publishConfig": {

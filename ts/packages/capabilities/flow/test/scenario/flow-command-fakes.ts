@@ -606,13 +606,13 @@ function writeCommandExitOutput(
 
 function dirtyChangesExecResponses(): ScriptedExecResponse[] {
 	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n?? notes.md\n" } },
 		{
 			match: "git diff HEAD --no-ext-diff",
 			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
 		},
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 	];
 }
 

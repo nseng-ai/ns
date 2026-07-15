@@ -40,6 +40,7 @@ export interface BranchSlugPromptInput {
 export interface BranchSlugDerivationInput {
 	cwd: string;
 	prompt: string;
+	modelRef: string;
 	exec: AutobranchExec;
 }
 
@@ -81,6 +82,7 @@ export async function deriveBranchSlug(
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
 		prompt: input.prompt,
+		modelRef: input.modelRef,
 		slugKind: "branch slug",
 		normalizeOutput: sanitizeBranchName,
 		exec: (command, args, options) =>

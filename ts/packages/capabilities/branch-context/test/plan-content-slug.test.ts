@@ -42,6 +42,15 @@ class FakeSlugPi implements CommandExecApi {
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		if (command === "git" && args.join(" ") === "rev-parse --show-toplevel") {
+			return {
+				type: "exited",
+				stdout: `${CWD}\n`,
+				stderr: "",
+				code: 0,
+				signal: null,
+			};
+		}
 		this.calls.push({ command, args: [...args], options });
 		if (this.behavior.error !== undefined) {
 			throw this.behavior.error;

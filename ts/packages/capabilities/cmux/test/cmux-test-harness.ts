@@ -141,6 +141,13 @@ export class FakePi implements ExtensionAPI {
 		options?: RawPiExecOptions,
 	): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
+		if (
+			command === "git" &&
+			sameArgs(args, ["rev-parse", "--show-toplevel"]) &&
+			!isGitRootStep(this.script.peek())
+		) {
+			return execResult({ stdout: `${options?.cwd ?? ROOT}\n` });
+		}
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
@@ -319,6 +326,12 @@ export function objectiveSidebarDescription(repoRoot: string): string {
 
 export function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function isGitRootStep(expected: ScriptedExec | undefined): boolean {
+	return (
+		expected?.command === "git" && sameArgs(expected.args ?? [], ["rev-parse", "--show-toplevel"])
+	);
 }
 
 export interface RunScriptedExecOptions {

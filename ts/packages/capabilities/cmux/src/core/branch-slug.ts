@@ -9,6 +9,13 @@ import {
 	generateRawTextWithModel,
 } from "@nseng-ai/capability-kit/model-slug";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import {
+	MODEL_OPERATION_IDS,
+	loadModelPolicy,
+	resolveModelOperation,
+} from "@nseng-ai/capability-kit/model-policy";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
 
 export { finalizeBranchSlug, MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength };
@@ -31,7 +38,15 @@ export async function generateBranchSlug(
 	},
 ): Promise<TextResult> {
 	const prompt = buildSlugPrompt(input);
-	const result = await generateRawText(pi, cwd, prompt);
+	const repoRoot = await resolveRepoRoot(pi, cwd);
+	if (!repoRoot.ok) return { ok: false, message: repoRoot.message };
+	const policy = loadModelPolicy({ repoRoot: repoRoot.value, gateway: nodeProjectConfigGateway });
+	if (!policy.ok)
+		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
+	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	if (!model.ok)
+		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
+	const result = await generateRawText(pi, cwd, prompt, model.value.modelRef);
 	if (!result.ok) {
 		return {
 			ok: false,
@@ -56,7 +71,20 @@ export async function summarizePlanWithGptNano(
 		sourceLabel?: string;
 	},
 ): Promise<TextResult> {
-	const result = await generateRawText(pi, cwd, buildPlanSummaryPrompt(input));
+	const repoRoot = await resolveRepoRoot(pi, cwd);
+	if (!repoRoot.ok) return { ok: false, message: repoRoot.message };
+	const policy = loadModelPolicy({ repoRoot: repoRoot.value, gateway: nodeProjectConfigGateway });
+	if (!policy.ok)
+		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
+	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	if (!model.ok)
+		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
+	const result = await generateRawText(
+		pi,
+		cwd,
+		buildPlanSummaryPrompt(input),
+		model.value.modelRef,
+	);
 	if (!result.ok) {
 		return {
 			ok: false,
@@ -74,14 +102,26 @@ export async function summarizePlanWithGptNano(
 	return { ok: true, text: summary };
 }
 
+async function resolveRepoRoot(
+	pi: BranchSlugRuntime,
+	cwd: string,
+): Promise<{ ok: true; value: string } | { ok: false; message: string }> {
+	const result = await new RealGitGateway(pi).repoRoot({ cwd });
+	return result.ok
+		? result
+		: { ok: false, message: `Could not resolve the Git repository root: ${result.error.message}` };
+}
+
 async function generateRawText(
 	pi: BranchSlugRuntime,
 	cwd: string,
 	prompt: string,
+	modelRef: string,
 ): Promise<TextResult> {
 	const result = await generateRawTextWithModel({
 		cwd,
 		prompt,
+		modelRef,
 		exec: (command, args, options) => pi.exec(command, args, options),
 	});
 	if (!result.ok) {

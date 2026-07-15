@@ -97,8 +97,11 @@ Prompt resolution ladder (first match wins):
   `installed-but-undefined` diagnostic.
 - Hook points take only command arrays; prompt points take only a non-empty
   path string. Mismatched values are rejected with a diagnostic.
-- Settings (typed config like `[reviews.diff]`) are **not** points. They stay
-  in extension-rooted TOML tables with manifest-declared schemas.
+- Settings (typed config like `[reviews.diff]` or shared model policy under
+  `[models]`) are **not** points. They stay in extension-rooted or shared TOML
+  tables with manifest-declared schemas. For example, model profiles and
+  operation overrides use `[models.profiles]` and `[models.operations]`; they
+  are typed settings, not lifecycle customization points.
 
 ## For extension authors: defining points
 

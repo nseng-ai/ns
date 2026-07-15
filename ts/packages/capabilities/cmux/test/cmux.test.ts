@@ -259,6 +259,80 @@ describe("cmux command suite", () => {
 		);
 	});
 
+	test("sidebar selects the configured cmux.sidebar model", async () => {
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
+		await withTempRepoSkill(
+			{ skillName: "ns-cmux-sidebar", markdown: "---\nname: ns-cmux-sidebar\n---\n" },
+			async ({ repoDir, skillPath }) => {
+				await writeFile(
+					join(repoDir, "ns.toml"),
+					'[models.profiles]\nsidebar = "acme/sidebar"\n[models.operations]\n"cmux.sidebar" = "sidebar"\n',
+				);
+				const pi = new FakePi({ skillCommands: [skillCommand("ns-cmux-sidebar", skillPath)] });
+				const controller = createCccSidebarControllerWithPiWiring(pi);
+				registerCccSidebarCommands(pi, controller);
+				const ctx = new FakeCommandContext({
+					cwd: repoDir,
+					model: PREVIOUS_MODEL,
+					fastModel: { provider: "acme", id: "sidebar" },
+				});
+
+				await pi.commands.get("ns:cmux:sidebar:session-summary")?.handler("", ctx);
+
+				expect(pi.setModels).toEqual([{ provider: "acme", id: "sidebar" }]);
+				await pi.emitAgentEnd(ctx);
+				expect(pi.setModels).toEqual([{ provider: "acme", id: "sidebar" }, PREVIOUS_MODEL]);
+			},
+		);
+	});
+
+	test("sidebar falls back to the current model when configured model is unavailable", async () => {
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
+		await withTempRepoSkill(
+			{ skillName: "ns-cmux-sidebar", markdown: "---\nname: ns-cmux-sidebar\n---\n" },
+			async ({ repoDir, skillPath }) => {
+				await writeFile(
+					join(repoDir, "ns.toml"),
+					'[models.profiles]\nsidebar = "acme/unavailable"\n[models.operations]\n"cmux.sidebar" = "sidebar"\n',
+				);
+				const pi = new FakePi({ skillCommands: [skillCommand("ns-cmux-sidebar", skillPath)] });
+				const controller = createCccSidebarControllerWithPiWiring(pi);
+				registerCccSidebarCommands(pi, controller);
+				const ctx = new FakeCommandContext({
+					cwd: repoDir,
+					model: PREVIOUS_MODEL,
+					fastModel: { provider: "acme", id: "unavailable" },
+				});
+
+				await pi.commands.get("ns:cmux:sidebar:session-summary")?.handler("", ctx);
+
+				expect(pi.setModels).toEqual([{ provider: "acme", id: "unavailable" }]);
+				expect(notificationMessages(ctx)).toContain(
+					"Fast sidebar model acme/unavailable is unavailable; using current model.",
+				);
+			},
+		);
+	});
+
+	test("sidebar surfaces malformed explicit model policy and retains the current model", async () => {
+		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
+		await withTempRepoSkill(
+			{ skillName: "ns-cmux-sidebar", markdown: "---\nname: ns-cmux-sidebar\n---\n" },
+			async ({ repoDir, skillPath }) => {
+				await writeFile(join(repoDir, "ns.toml"), '[models.operations]\n"cmux.sidebar" = ""\n');
+				const pi = new FakePi({ skillCommands: [skillCommand("ns-cmux-sidebar", skillPath)] });
+				const controller = createCccSidebarControllerWithPiWiring(pi);
+				registerCccSidebarCommands(pi, controller);
+				const ctx = new FakeCommandContext({ cwd: repoDir, model: PREVIOUS_MODEL });
+
+				await pi.commands.get("ns:cmux:sidebar:session-summary")?.handler("", ctx);
+
+				expect(pi.setModels).toEqual([]);
+				expect(notificationMessages(ctx).join("\n")).toContain("Invalid model policy in ns.toml");
+			},
+		);
+	});
+
 	test("sidebar fallback uses one-line Goal description and missing workspace skips send", async () => {
 		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
 		const pi = new FakePi();

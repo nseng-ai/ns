@@ -42,6 +42,7 @@ describe("checkpoint run context", () => {
 			env: ctx.env,
 			...checkpointRunContext,
 			textGenerator: ctx.textGenerator,
+			modelRef: "openai-codex/gpt-test",
 			repoRoot: ctx.cwd,
 			dryRun: true,
 		});

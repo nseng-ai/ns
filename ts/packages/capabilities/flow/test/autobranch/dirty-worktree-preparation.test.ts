@@ -5,6 +5,7 @@ import {
 } from "../../src/autobranch/dirty-worktree.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "@nseng-ai/foundation/branch-slug";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { parseModelRef } from "@nseng-ai/foundation/model-slug";
 import { buildBranchSlugPrompt } from "../../src/autobranch/slug.ts";
 import {
 	createFakeBranchAvailability,
@@ -76,6 +77,7 @@ function createHarness(options: HarnessOptions = {}) {
 
 	const input: AutobranchPreparationInput = {
 		cwd: "/repo",
+		modelRef: "test/model",
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
 		exec,
@@ -213,7 +215,9 @@ describe("prepareAutobranchPlan", () => {
 		expect(harness.readPaths).toEqual(["/repo/notes.txt"]);
 		expect(harness.statPaths).toEqual(["/repo/notes.txt"]);
 		const prompt = piPrompt(harness.calls);
-		expect(piCall(harness.calls).args).toEqual(buildRawTextModelArgs(prompt));
+		expect(piCall(harness.calls).args).toEqual(
+			buildRawTextModelArgs(prompt, parseModelRef("test/model")),
+		);
 		expect(prompt).toContain("## git status --porcelain\nM src/app.ts\n?? notes.txt");
 		expect(prompt).toContain(
 			"## git diff HEAD\ndiff --git a/src/app.ts b/src/app.ts\n+updated app",

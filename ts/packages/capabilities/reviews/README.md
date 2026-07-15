@@ -40,15 +40,18 @@ Applicability patterns must be globs, not git pathspecs; keep them repo-relative
 
 ## Model profiles and harnesses
 
-Reviews model profiles use qualified `provider/model-id` references:
+Reviews resolves models through the shared repository policy. Profiles use qualified `provider/model-id` references, and operations select profiles; omitted operations use `fast`:
 
 ```toml
-[reviews.model_profiles]
-quick = "openai/gpt-5.6-luna"
+[models.profiles]
+fast = "openai/gpt-5.6-luna"
 deep = "openai/gpt-5.6-terra"
+
+[models.operations]
+"reviews.deep" = "deep"
 ```
 
-These are both the package fallbacks and this repository's checked-in profiles. Provider routing is explicit:
+Provider routing is explicit:
 
 - `anthropic/<model-id>` runs the local Claude Code CLI.
 - `openai/<model-id>` and `openai-codex/<model-id>` run the local Codex CLI.

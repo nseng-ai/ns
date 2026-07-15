@@ -8,6 +8,13 @@ import {
 } from "@nseng-ai/capability-kit/content-slug";
 import { parseFlatHandoffSlug } from "../api/index.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import {
+	MODEL_OPERATION_IDS,
+	loadModelPolicy,
+	resolveModelOperation,
+} from "@nseng-ai/capability-kit/model-policy";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 const MAX_HANDOFF_SLUG_WORDS = 8;
 const GENERIC_ONLY_WORDS = new Set([
@@ -56,7 +63,18 @@ export async function deriveHandoffContentSlug(
 	commands: CommandExecApi,
 	input: { content: string; cwd: string; signal?: AbortSignal },
 ): Promise<HandoffContentSlugEvidence> {
-	return deriveKitContentSlug(commands, input, HANDOFF_CONTENT_SLUG_VARIANT);
+	const repository = await new RealGitGateway(commands).optionalRepoRoot({ cwd: input.cwd });
+	if (repository.type !== "found")
+		throw new Error("Could not determine the repository root for ns.toml.");
+	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: nodeProjectConfigGateway });
+	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
+	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
+	return deriveKitContentSlug(
+		commands,
+		{ ...input, modelRef: model.value.modelRef },
+		HANDOFF_CONTENT_SLUG_VARIANT,
+	);
 }
 
 export function buildHandoffContentSlugPrompt(content: string): string {

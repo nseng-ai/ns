@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 const requireFromTypeScriptWorkspace = createRequire(
 	new URL("../../ts/package.json", import.meta.url),
 );
+const requireFromTypeScriptSdk = createRequire(
+	new URL("../../ts/packages/sdk/package.json", import.meta.url),
+);
 
 const workspacePackageFallbacks: Record<string, string> = {
 	"@internal/ns-pi-subagents/api": "../../ts/packages/internal/ns-pi-subagents/src/api/index.ts",
@@ -38,6 +41,20 @@ function resolveTypeScriptWorkspacePackage(specifier: string): string {
 
 export async function importTypeScriptWorkspaceModule<T>(specifier: string): Promise<T> {
 	return (await import(resolveTypeScriptWorkspacePackage(specifier))) as T;
+}
+
+/** Reload a source workspace module and its transitive TypeScript dependencies. */
+export async function importFreshTypeScriptWorkspaceModule<T>(specifier: string): Promise<T> {
+	const jitiModule = requireFromTypeScriptSdk("jiti") as {
+		createJiti(id: string, options: { moduleCache: boolean; fsCache: boolean }): {
+			import<TModule>(id: string): Promise<TModule>;
+		};
+	};
+	const jiti = jitiModule.createJiti(import.meta.url, {
+		moduleCache: false,
+		fsCache: false,
+	});
+	return await jiti.import<T>(resolveTypeScriptWorkspacePackage(specifier));
 }
 
 export async function importTypeScriptWorkspaceDefault(

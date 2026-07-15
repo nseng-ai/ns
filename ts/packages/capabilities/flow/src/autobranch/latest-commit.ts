@@ -45,6 +45,7 @@ export { inspectUpstreamHeadState, type UpstreamHeadState } from "./upstream.ts"
 
 export interface LatestCommitAutobranchInput {
 	cwd: string;
+	modelRef: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;

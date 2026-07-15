@@ -346,17 +346,14 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(stderr).toContain("Could not resolve current branch PR.");
 		expect(stderr).toContain("Could not read GitHub PR details.");
 		expect(stderr).toContain("Cwd: /work");
-		expect(run.context.execCalls).toHaveLength(1);
+		expect(run.context.execCalls).toHaveLength(2);
 	});
 
-	test("uses the historical PR description model environment override", async () => {
-		const run = runRegeneratePrWithFakes({
-			state: { confirm: () => true },
-			env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/custom-mini" },
-		});
+	test("PR description generation receives the resolved model reference explicitly", async () => {
+		const run = runRegeneratePrWithFakes({ state: { confirm: () => true } });
 
 		expect(await run.exit).toBe(0);
-		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
+		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/gpt-5.6-luna");
 	});
 
 	test("uses env prompt overrides from the built-in point catalog", async () => {

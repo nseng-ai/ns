@@ -1,4 +1,10 @@
-import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@nseng-ai/foundation/model-slug";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import {
+	MODEL_OPERATION_IDS,
+	loadModelPolicy,
+	resolveModelOperation,
+} from "@nseng-ai/capability-kit/model-policy";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
@@ -30,7 +36,6 @@ import type { CccPiCommandApi } from "./pi-command-api.ts";
 
 const SKILL_NAME = "ns-cmux-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ns-cmux-sidebar";
-const SIDEBAR_MODEL_ENV = "NS_CMUX_SIDEBAR_MODEL";
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 	statusKey: PI_SIDEBAR_STATUS_KEY,
 	selectionTitle: "Select an active Objective for cmux sidebar",
@@ -326,14 +331,24 @@ async function switchToFastSidebarModel(
 	pi: CccPiCommandApi,
 	ctx: CommandContext,
 ): Promise<RestoreState | undefined> {
-	const resolution = resolveModelRef(process.env, SIDEBAR_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
-	if (!resolution.ok) {
-		notify(ctx, `${resolution.error} Using current model.`, "warning");
+	const repoRoot = await new RealGitGateway(pi).repoRoot({ cwd: ctx.cwd });
+	if (!repoRoot.ok) {
+		notify(ctx, `Could not resolve the Git repository root: ${repoRoot.error.message}`, "warning");
+		return undefined;
+	}
+	const policy = loadModelPolicy({ repoRoot: repoRoot.value, gateway: nodeProjectConfigGateway });
+	if (!policy.ok) {
+		notify(ctx, `Invalid model policy in ns.toml: ${policy.error.message}`, "warning");
+		return undefined;
+	}
+	const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.cmuxSidebar);
+	if (!resolved.ok) {
+		notify(ctx, `Invalid model policy in ns.toml: ${resolved.error.message}`, "warning");
 		return undefined;
 	}
 
-	const { provider, modelId } = resolution.value;
-	const modelRef = `${provider}/${modelId}`;
+	const { provider, modelId } = resolved.value.model;
+	const modelRef = resolved.value.modelRef;
 	const model = ctx.modelRegistry.find(provider, modelId);
 	if (model === undefined) {
 		notify(ctx, `Fast sidebar model ${modelRef} not found; using current model.`, "warning");

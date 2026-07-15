@@ -24,11 +24,7 @@ test("repo-local extensions can import package subpaths without source aliases",
 	const textGenerationModule = await jiti.import<
 		typeof import("@nseng-ai/capability-kit/text-generation")
 	>("@nseng-ai/capability-kit/text-generation");
-	expect(textGenerationModule.CHECKPOINT_MODEL_ENV).toBe("NS_CHECKPOINT_MODEL");
-	expect(textGenerationModule.CHANGES_MODEL_ENV).toBe("NS_CHANGES_MODEL");
-	expect(typeof textGenerationModule.DEFAULT_CHANGES_MODEL_REF).toBe("string");
-	expect(typeof textGenerationModule.selectCheckpointModelRef).toBe("function");
-	expect(typeof textGenerationModule.selectChangesModelRef).toBe("function");
+	expect(Object.keys(textGenerationModule)).toEqual([]);
 
 	const coreModelSlugModule = await jiti.import<typeof import("@nseng-ai/foundation/model-slug")>(
 		"@nseng-ai/foundation/model-slug",
