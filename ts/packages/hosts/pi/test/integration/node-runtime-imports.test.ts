@@ -58,16 +58,19 @@ interface NodeRunExpectationContext {
 }
 
 describe("Node runtime import smoke", () => {
-	test("project-local Pi extension adapters import directly under Node", () => {
-		const result = runNodeEval({
-			cwd: REPO_ROOT,
-			source: buildExtensionAdapterImportScript(PROJECT_EXTENSION_ADAPTERS),
-		});
+	test("project-local Pi extension adapters each import in a cold Node process", () => {
+		for (const adapter of PROJECT_EXTENSION_ADAPTERS) {
+			const result = runNodeEval({
+				cwd: REPO_ROOT,
+				source: buildExtensionAdapterImportScript([adapter]),
+			});
 
-		expectSuccessfulNodeRun(result, { cwd: REPO_ROOT, label: "project-local Pi adapters" });
-		expect(result.stdout).toContain(
-			`imported ${PROJECT_EXTENSION_ADAPTERS.length} extension adapters`,
-		);
+			expectSuccessfulNodeRun(result, {
+				cwd: REPO_ROOT,
+				label: `cold import of ${adapter}`,
+			});
+			expect(result.stdout).toContain("imported 1 extension adapters");
+		}
 		expect(PROJECT_EXTENSION_ADAPTERS).toEqual(
 			expect.arrayContaining([
 				".pi/extensions/backing-skill-commands.ts",
@@ -78,7 +81,7 @@ describe("Node runtime import smoke", () => {
 				".pi/extensions/thermo-council.ts",
 			]),
 		);
-	}, 15_000);
+	}, 30_000);
 
 	test("pi loads the ns project extension adapter in isolation", () => {
 		// Loading every project extension together can mask jiti evaluation-order failures
@@ -145,7 +148,10 @@ function runNodeEval(options: NodeEvalOptions): SpawnSyncReturns<string> {
 	return spawnSync(process.execPath, ["--input-type=module", "--eval", options.source], {
 		cwd: options.cwd,
 		encoding: "utf8",
-		env: process.env,
+		env: {
+			HOME: process.env.HOME,
+			PATH: process.env.PATH,
+		},
 	});
 }
 

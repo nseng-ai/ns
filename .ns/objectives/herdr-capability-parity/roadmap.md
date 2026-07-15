@@ -8,14 +8,11 @@
   - PR 1 also isolated default Vitest model routing from ambient `NS_FAST_MODEL`/`NS_SLUG_MODEL`, repairing the full-repo gate exposed by the new repo model configuration.
   - Evidence: the stale-surface search leaves only classified historical/retirement-record matches; targeted cmux/areg/foundation tests, `areg check`, and full `just` pass on local branch `herdr-capability-parity-pr1`.
 
-- [ ] Establish `@nseng-ai/herdr` and deliver objective-summary parity.
-  - Create the capability package with a private `core` feature subpackage consumed by a `pi` host-surface subpackage, exporting only `./pi` and `./pi/extension`. No selected behavior requires an `ns` host command or cross-package Capability API, so do not create empty/speculative `ns` or `api` doors.
-  - Add a narrow domain-shaped Herdr Consumer Gateway, CLI-first real adapter wiring at the Pi entrypoint, fake-driven tests, and explicit caller-ID targeting.
-  - Register `/ns:herdr:sidebar:objective-summary`; preserve deterministic objective/slot/branch resolution and apply a Herdr-native label to the explicit caller workspace. Skip metadata reporting for now because the installed Herdr CLI lacks `workspace report-metadata`; do not invent a substitute transport or add a public generic Herdr workspace-summary command.
-  - This is PR 2 because it establishes the independently reviewable package, gateway, host wiring, and smallest real Herdr vertical; it cannot combine with PR 3 because the five dispatch/open workflows build on this seam and form a larger orchestration review.
-  - Depends on: PR 1.
-  - Policy: execute autonomously as one local Graphite branch and runner-owned commit; use `@nseng-ai/herdr`, noun `herdr`, explicit IDs, and CLI wrappers. Stop if the installed Herdr contract contradicts the selected semantics.
-  - Evidence: package topology and host boundaries conform, objective metadata behavior has fake-driven and registration coverage, targeted tests pass, and full `just` passes.
+- [x] Establish `@nseng-ai/herdr` and deliver objective-summary parity.
+  - Created the capability package with a private `core` feature subpackage consumed by a `pi` host-surface subpackage, exporting only `./pi` and `./pi/extension`; no empty/speculative `ns`, `api`, or root runtime door exists.
+  - Added a narrow domain-shaped Herdr Consumer Gateway, CLI-first real adapter wiring at the Pi entrypoint, fake-driven tests, and explicit `HERDR_WORKSPACE_ID` targeting.
+  - Registered `/ns:herdr:sidebar:objective-summary`; it preserves deterministic Objective selection/validation and applies `obj:<slug>` through `herdr workspace rename` to the explicit caller workspace. It performs no unused slot/branch reads and no metadata substitute.
+  - Evidence: local branch `herdr-capability-parity-pr2`; Herdr package tests, topology report, TypeScript style guard, and full `just` pass.
 
 - [ ] Deliver Herdr dispatch and branch-opening parity.
   - Implement the mirrored `/ns:herdr:*` prompt dispatch, distinct trunk dispatch, workspace plan dispatch, caller-workspace focused-tab plan dispatch, and open-branch workflows.

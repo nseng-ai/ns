@@ -41,6 +41,7 @@
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/flow": "workspace:*",
 		"@nseng-ai/handoffs": "workspace:*",
+		"@nseng-ai/herdr": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
 		"@nseng-ai/objectives": "workspace:*",
 		"@nseng-ai/plans": "workspace:*",
