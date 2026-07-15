@@ -44,11 +44,12 @@ class FakeProductionWorkspaceOperations implements ProductionWorkspaceAdapterOpe
 		return TEMPORARY_PARENT;
 	}
 
-	async runCommand(
-		commandName: string,
-		args: readonly string[],
-		cwd: string,
-	): Promise<{ readonly ok: boolean; readonly stdout: string }> {
+	async runCommand(options: {
+		readonly commandName: string;
+		readonly args: readonly string[];
+		readonly cwd: string;
+	}): Promise<{ readonly ok: boolean; readonly stdout: string }> {
+		const { commandName, args, cwd } = options;
 		this.commandCalls.push({ commandName, args: [...args], cwd });
 		if (commandName === "corepack" && args.includes("install")) {
 			return { ok: this.state.installationSucceeds ?? true, stdout: "" };

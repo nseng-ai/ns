@@ -59,8 +59,8 @@ function context(store: PublicationAuthorizationStore): ObjectiveRunnerPublicati
 		version: 1,
 		invocationId: "run-1",
 		objectiveSlug: "objective-runner-external-writes",
-		policyAttested: true,
-		launchConfirmed: true,
+		isPolicyAttested: true,
+		isLaunchConfirmed: true,
 		target: {
 			repository: "nseng-ai/ns",
 			pullRequestNumber: 42,

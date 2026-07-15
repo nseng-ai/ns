@@ -32,7 +32,10 @@ export interface PiAgentSessionSdk {
 
 const piCodingAgentSdk: PiAgentSessionSdk = {
 	async createSession(options) {
-		prependWorkspacePiBinToPath({ cwd: options.cwd, env: process.env });
+		process.env["PATH"] = buildWorkspacePiBinPath({
+			cwd: options.cwd,
+			currentPath: process.env["PATH"],
+		});
 		// Lazy import: the pi library is loaded only when a real session
 		// starts, never when this module is merely imported.
 		const { createAgentSession, SessionManager } = await import("@earendil-works/pi-coding-agent");
@@ -93,11 +96,17 @@ export function createRealPiCodingAgentGateway(options: {
 	};
 }
 
-export function prependWorkspacePiBinToPath(options: {
+/**
+ * Build the `PATH` that makes the checkout-local Pi executable discoverable by
+ * child processes. Pure and idempotent: the caller owns the assignment, and a
+ * `PATH` already led by the workspace bin is returned unchanged, so repeated
+ * sessions cannot grow it without bound.
+ */
+export function buildWorkspacePiBinPath(options: {
 	readonly cwd: string;
-	readonly env: Record<string, string | undefined>;
+	readonly currentPath: string | undefined;
 	readonly pathDelimiter?: string;
-}): void {
+}): string {
 	const workspaceBin = join(
 		options.cwd,
 		"ts",
@@ -107,11 +116,12 @@ export function prependWorkspacePiBinToPath(options: {
 		"node_modules",
 		".bin",
 	);
-	const currentPath = options.env["PATH"];
-	options.env["PATH"] =
-		currentPath === undefined || currentPath.length === 0
-			? workspaceBin
-			: `${workspaceBin}${options.pathDelimiter ?? delimiter}${currentPath}`;
+	const { currentPath } = options;
+	if (currentPath === undefined || currentPath.length === 0) return workspaceBin;
+	const separator = options.pathDelimiter ?? delimiter;
+	const segments = currentPath.split(separator);
+	if (segments[0] === workspaceBin) return currentPath;
+	return `${workspaceBin}${separator}${currentPath}`;
 }
 
 /**

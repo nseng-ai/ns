@@ -192,10 +192,18 @@ async function verifyDispatchBuildOutputInternal(
 	};
 }
 
+/**
+ * Write-only problem sink. Helpers record problems and never read, reorder, or
+ * remove them; the verifier owns the backing array and is its only reader.
+ */
+interface ProblemSink {
+	push(problem: string): void;
+}
+
 async function readList(
 	context: string,
 	read: () => Promise<readonly string[]>,
-	problems: string[],
+	problems: ProblemSink,
 ): Promise<readonly string[]> {
 	try {
 		return await read();
@@ -208,7 +216,7 @@ async function readList(
 async function readWorkflowSources(
 	root: string,
 	operations: BuildOutputVerificationOperations,
-	problems: string[],
+	problems: ProblemSink,
 ): Promise<ReadonlyMap<string, string>> {
 	const sources = new Map<string, string>();
 	const names = await readList(
@@ -232,7 +240,7 @@ async function readWorkflowSources(
 async function readJson(
 	path: string,
 	operations: BuildOutputVerificationOperations,
-	problems: string[],
+	problems: ProblemSink,
 ): Promise<unknown> {
 	try {
 		return JSON.parse(await readText(`JSON file ${path}`, path, operations)) as unknown;

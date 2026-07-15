@@ -89,12 +89,12 @@ export interface RealProductionDeploymentOptions {
 /** Adapter-internal mechanics exposed only for fake-driven boundary tests. */
 export interface ProductionWorkspaceAdapterOperations {
 	createTemporaryParent(): Promise<string>;
-	runCommand(
-		commandName: string,
-		args: readonly string[],
-		cwd: string,
-		diagnostic: (message: string) => void,
-	): Promise<{ readonly ok: boolean; readonly stdout: string }>;
+	runCommand(options: {
+		readonly commandName: string;
+		readonly args: readonly string[];
+		readonly cwd: string;
+		readonly diagnostic: (message: string) => void;
+	}): Promise<{ readonly ok: boolean; readonly stdout: string }>;
 	makeDirectory(path: string): Promise<void>;
 	copyFile(source: string, destination: string): Promise<void>;
 	readText(path: string): Promise<string>;
@@ -135,12 +135,12 @@ export function createRealProductionDeploymentContext(
 		progress: writeDiagnostic,
 		repository: {
 			async inspectProductionSource() {
-				const status = await command(
-					"git",
-					["status", "--porcelain=v1", "--untracked-files=all"],
-					repositoryRoot,
-					writeDiagnostic,
-				);
+				const status = await command({
+					commandName: "git",
+					args: ["status", "--porcelain=v1", "--untracked-files=all"],
+					cwd: repositoryRoot,
+					diagnostic: writeDiagnostic,
+				});
 				if (!status.ok) {
 					return { ok: false as const, dirtyPaths: [], message: "Cannot inspect git status." };
 				}
@@ -156,7 +156,12 @@ export function createRealProductionDeploymentContext(
 						message: "Repository has uncommitted or untracked changes.",
 					};
 				}
-				const sha = await command("git", ["rev-parse", "HEAD"], repositoryRoot, writeDiagnostic);
+				const sha = await command({
+					commandName: "git",
+					args: ["rev-parse", "HEAD"],
+					cwd: repositoryRoot,
+					diagnostic: writeDiagnostic,
+				});
 				if (!sha.ok || !/^[0-9a-f]{40}$/u.test(sha.stdout.trim())) {
 					return {
 						ok: false as const,
@@ -175,12 +180,12 @@ export function createRealProductionDeploymentContext(
 		configuration: {
 			async readProductionConfiguration(commitSha, packageProject) {
 				try {
-					const sourceConfiguration = await command(
-						"git",
-						["show", `${commitSha}:ns.toml`],
-						repositoryRoot,
-						writeDiagnostic,
-					);
+					const sourceConfiguration = await command({
+						commandName: "git",
+						args: ["show", `${commitSha}:ns.toml`],
+						cwd: repositoryRoot,
+						diagnostic: writeDiagnostic,
+					});
 					if (!sourceConfiguration.ok) {
 						return { ok: false as const, message: "Cannot read ns.toml from captured source." };
 					}
@@ -199,12 +204,12 @@ export function createRealProductionDeploymentContext(
 		},
 		deployments: {
 			async deployPrebuiltProduction() {
-				const result = await command(
-					"vercel",
-					VERCEL_PRODUCTION_DEPLOY_ARGS,
-					repositoryRoot,
-					writeDiagnostic,
-				);
+				const result = await command({
+					commandName: "vercel",
+					args: VERCEL_PRODUCTION_DEPLOY_ARGS,
+					cwd: repositoryRoot,
+					diagnostic: writeDiagnostic,
+				});
 				const locator = parseVercelDeploymentLocator(result.stdout);
 				if (result.ok) {
 					return locator === undefined
@@ -224,12 +229,12 @@ export function createRealProductionDeploymentContext(
 				if (value === undefined) {
 					return { ok: false as const, message: "Deployment locator has no id or URL." };
 				}
-				const result = await command(
-					"vercel",
-					vercelInspectArgs(value),
-					repositoryRoot,
-					writeDiagnostic,
-				);
+				const result = await command({
+					commandName: "vercel",
+					args: vercelInspectArgs(value),
+					cwd: repositoryRoot,
+					diagnostic: writeDiagnostic,
+				});
 				if (!result.ok) {
 					return { ok: false as const, message: "Vercel deployment inspection failed." };
 				}
@@ -286,21 +291,21 @@ async function prepareDetachedSourceWorkspace(
 	const isolatedPackageRoot = join(worktreeRoot, packageRelativePath);
 	let isWorktreeAdded = false;
 	try {
-		const added = await operations.runCommand(
-			"git",
-			["worktree", "add", "--detach", worktreeRoot, options.commitSha],
-			options.repositoryRoot,
-			options.writeDiagnostic,
-		);
+		const added = await operations.runCommand({
+			commandName: "git",
+			args: ["worktree", "add", "--detach", worktreeRoot, options.commitSha],
+			cwd: options.repositoryRoot,
+			diagnostic: options.writeDiagnostic,
+		});
 		if (!added.ok) throw new Error("Cannot create detached production source worktree.");
 		isWorktreeAdded = true;
 		await provisionOperationalInputs(options.packageRoot, isolatedPackageRoot, operations);
-		const installed = await operations.runCommand(
-			"corepack",
-			PRODUCTION_WORKSPACE_INSTALL_ARGS,
-			productionWorkspaceInstallRoot(worktreeRoot),
-			options.writeDiagnostic,
-		);
+		const installed = await operations.runCommand({
+			commandName: "corepack",
+			args: PRODUCTION_WORKSPACE_INSTALL_ARGS,
+			cwd: productionWorkspaceInstallRoot(worktreeRoot),
+			diagnostic: options.writeDiagnostic,
+		});
 		if (!installed.ok) throw new Error("Cannot install the locked production workspace graph.");
 	} catch (error) {
 		const cleanup = await disposeDetachedWorktree({
@@ -322,32 +327,32 @@ async function prepareDetachedSourceWorkspace(
 		ok: true,
 		workspace: {
 			async buildPackageDeployable() {
-				const result = await operations.runCommand(
-					"corepack",
-					["pnpm", "run", "build:deployable"],
-					isolatedPackageRoot,
-					options.writeDiagnostic,
-				);
+				const result = await operations.runCommand({
+					commandName: "corepack",
+					args: ["pnpm", "run", "build:deployable"],
+					cwd: isolatedPackageRoot,
+					diagnostic: options.writeDiagnostic,
+				});
 				return result.ok
 					? { ok: true as const }
 					: { ok: false as const, message: "Detached package deployable build failed." };
 			},
 			async verifySourceAfterBuild() {
-				const sha = await operations.runCommand(
-					"git",
-					["rev-parse", "HEAD"],
-					worktreeRoot,
-					options.writeDiagnostic,
-				);
+				const sha = await operations.runCommand({
+					commandName: "git",
+					args: ["rev-parse", "HEAD"],
+					cwd: worktreeRoot,
+					diagnostic: options.writeDiagnostic,
+				});
 				if (!sha.ok || sha.stdout.trim() !== options.commitSha) {
 					return { ok: false as const, message: "Detached source HEAD changed during build." };
 				}
-				const status = await operations.runCommand(
-					"git",
-					["status", "--porcelain=v1", "--untracked-files=all"],
-					worktreeRoot,
-					options.writeDiagnostic,
-				);
+				const status = await operations.runCommand({
+					commandName: "git",
+					args: ["status", "--porcelain=v1", "--untracked-files=all"],
+					cwd: worktreeRoot,
+					diagnostic: options.writeDiagnostic,
+				});
 				if (!status.ok) {
 					return { ok: false as const, message: "Cannot revalidate detached source status." };
 				}
@@ -423,12 +428,12 @@ async function disposeDetachedWorktree(options: {
 	readonly operations: ProductionWorkspaceAdapterOperations;
 }): Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }> {
 	if (options.isWorktreeAdded) {
-		const removed = await options.operations.runCommand(
-			"git",
-			["worktree", "remove", "--force", options.worktreeRoot],
-			options.repositoryRoot,
-			options.writeDiagnostic,
-		);
+		const removed = await options.operations.runCommand({
+			commandName: "git",
+			args: ["worktree", "remove", "--force", options.worktreeRoot],
+			cwd: options.repositoryRoot,
+			diagnostic: options.writeDiagnostic,
+		});
 		if (!removed.ok) {
 			return {
 				ok: false,
@@ -672,14 +677,15 @@ async function pathExists(path: string): Promise<boolean> {
 	}
 }
 
-async function command(
-	commandName: string,
-	args: readonly string[],
-	cwd: string,
-	diagnostic: (message: string) => void,
-) {
-	const result = await runCommand(commandName, args, {
-		cwd,
+async function command(options: {
+	readonly commandName: string;
+	readonly args: readonly string[];
+	readonly cwd: string;
+	readonly diagnostic: (message: string) => void;
+}) {
+	const { diagnostic } = options;
+	const result = await runCommand(options.commandName, options.args, {
+		cwd: options.cwd,
 		env: process.env,
 		onStdout: (text) => diagnostic(redactProductionDiagnostic(text.trimEnd())),
 		onStderr: (text) => diagnostic(redactProductionDiagnostic(text.trimEnd())),

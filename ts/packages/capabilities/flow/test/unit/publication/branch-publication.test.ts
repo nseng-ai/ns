@@ -25,8 +25,11 @@ function target(headOid = OLD_HEAD): FlowBoundBranchPublicationTarget {
 	};
 }
 
-function pullRequest(headOid = OLD_HEAD, body = "Human prose"): FlowPublicationPullRequest {
-	return { ...target(headOid).pullRequest, body };
+function pullRequest(
+	options: { readonly headOid?: string; readonly body?: string } = {},
+): FlowPublicationPullRequest {
+	const headOid = options.headOid ?? OLD_HEAD;
+	return { ...target(headOid).pullRequest, body: options.body ?? "Human prose" };
 }
 
 class InMemoryRepository implements FlowPublicationRepositoryGateway {
@@ -112,7 +115,7 @@ describe("Flow branch publication", () => {
 		const repository = new InMemoryRepository({ operations });
 		const pullRequests = new InMemoryPullRequests({
 			operations,
-			reads: [pullRequest(), pullRequest(NEW_HEAD)],
+			reads: [pullRequest(), pullRequest({ headOid: NEW_HEAD })],
 		});
 		const client = createFlowBranchPublicationClientFromGateways({ repository, pullRequests });
 		expect(
@@ -139,7 +142,7 @@ describe("Flow branch publication", () => {
 			repository: new InMemoryRepository({ operations }),
 			pullRequests: new InMemoryPullRequests({
 				operations,
-				reads: [pullRequest("c".repeat(40))],
+				reads: [pullRequest({ headOid: "c".repeat(40) })],
 			}),
 		});
 		expect(
@@ -158,10 +161,10 @@ describe("Flow branch publication", () => {
 			pullRequests: new InMemoryPullRequests({
 				operations: malformedOperations,
 				reads: [
-					pullRequest(
-						OLD_HEAD,
-						"<!-- ns-objective-runner:begin objective=demo-objective -->\nBroken",
-					),
+					pullRequest({
+						headOid: OLD_HEAD,
+						body: "<!-- ns-objective-runner:begin objective=demo-objective -->\nBroken",
+					}),
 				],
 			}),
 		});
@@ -203,7 +206,7 @@ describe("Flow branch publication", () => {
 			repository: new InMemoryRepository({ operations: editOperations }),
 			pullRequests: new InMemoryPullRequests({
 				operations: editOperations,
-				reads: [pullRequest(), pullRequest(NEW_HEAD)],
+				reads: [pullRequest(), pullRequest({ headOid: NEW_HEAD })],
 				editError: { code: "edit-failed", message: "GitHub unavailable" },
 			}),
 		});

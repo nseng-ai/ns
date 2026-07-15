@@ -33,25 +33,26 @@ describe("dispatch workflow attributes", () => {
 
 	it("writes exact attributes through the injected SDK seam", async () => {
 		const writes: Array<Record<string, string | undefined>> = [];
-		await writeDispatchWorkflowAttributes(
-			buildDispatchPhaseAttributes("cleaning"),
-			async (value) => {
+		const logs: string[] = [];
+		await writeDispatchWorkflowAttributes(buildDispatchPhaseAttributes("cleaning"), {
+			writer: async (value) => {
 				writes.push(value);
 			},
-		);
+			logSink: (value) => logs.push(value),
+		});
 
 		expect(writes).toEqual([{ "dispatch.phase": "cleaning" }]);
+		expect(logs).toEqual([]);
 	});
 
 	it("contains attribute storage failures and emits only a safe marker", async () => {
 		const logs: string[] = [];
-		await writeDispatchWorkflowAttributes(
-			buildDispatchFailureAttributes("landing-failed"),
-			async () => {
+		await writeDispatchWorkflowAttributes(buildDispatchFailureAttributes("landing-failed"), {
+			writer: async () => {
 				throw new Error("raw vendor storage failure with secret-token");
 			},
-			(value) => logs.push(value),
-		);
+			logSink: (value) => logs.push(value),
+		});
 
 		expect(logs).toEqual(['{"event":"observability_write_failed","operation":"set-attributes"}']);
 		expect(logs.join("\n")).not.toContain("secret-token");
@@ -75,11 +76,10 @@ describe("dispatch workflow status stream", () => {
 			pollOrdinal: 7,
 		} as const;
 
-		await writeDispatchWorkflowEvent(
-			event,
-			() => stream,
-			(value) => logs.push(value),
-		);
+		await writeDispatchWorkflowEvent(event, {
+			createStream: () => stream,
+			logSink: (value) => logs.push(value),
+		});
 
 		expect(streamed).toEqual([event]);
 		expect(logs).toEqual([
@@ -97,8 +97,7 @@ describe("dispatch workflow status stream", () => {
 
 		await writeDispatchWorkflowEvent(
 			{ event: "dispatch_step_started", step: "launch", anchorPrNumber: 421 },
-			() => stream,
-			(value) => logs.push(value),
+			{ createStream: () => stream, logSink: (value) => logs.push(value) },
 		);
 
 		expect(logs).toEqual([
