@@ -220,8 +220,8 @@ function authorization(): ObjectiveRunnerPublicationAuthorizationV1 {
 		version: 1,
 		invocationId: "autorun-1",
 		objectiveSlug: SLUG,
-		policyAttested: true,
-		launchConfirmed: true,
+		isPolicyAttested: true,
+		isLaunchConfirmed: true,
 		target: {
 			repository: "nseng-ai/ns",
 			pullRequestNumber: 42,

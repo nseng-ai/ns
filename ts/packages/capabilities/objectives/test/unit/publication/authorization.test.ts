@@ -78,7 +78,7 @@ describe("bindObjectiveRunnerPublication", () => {
 	});
 
 	test.each([
-		["invalid-attestation", { policyAttested: false }],
+		["invalid-attestation", { isPolicyAttested: false }],
 		["branch-drift", { target: launchTargetFacts({ branch: "other" }) }],
 		["pull-request-mismatch", { target: launchTargetFacts({ pullRequestNumber: 99 }) }],
 		["local-head-drift", { target: launchTargetFacts({ localHead: RUNNER_SHA }) }],
@@ -91,7 +91,7 @@ describe("bindObjectiveRunnerPublication", () => {
 		);
 		const attestation = {
 			...launchAttestation(),
-			...(code === "invalid-attestation" ? { policyAttested: false } : {}),
+			...(code === "invalid-attestation" ? { isPolicyAttested: false } : {}),
 		};
 		const result = await bindObjectiveRunnerPublication(gateway, {
 			repoRoot: "/repo",
@@ -170,8 +170,8 @@ function launchAttestation() {
 		version: 1 as const,
 		invocationId: INVOCATION_ID,
 		objectiveSlug: SLUG,
-		policyAttested: true as const,
-		launchConfirmed: true as const,
+		isPolicyAttested: true as const,
+		isLaunchConfirmed: true as const,
 		target: {
 			repository: "nseng-ai/ns",
 			pullRequestNumber: 42,

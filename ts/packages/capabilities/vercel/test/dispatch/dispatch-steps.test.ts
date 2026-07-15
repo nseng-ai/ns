@@ -83,6 +83,12 @@ interface DepsFixture {
 	}>;
 }
 
+function isSandboxCommand(value: unknown): value is SandboxCommand {
+	if (typeof value !== "object" || value === null) return false;
+	const candidate = value as { cmd?: unknown; args?: unknown };
+	return typeof candidate.cmd === "string" && Array.isArray(candidate.args);
+}
+
 function createDeps(
 	options: {
 		readonly environment?: MintEnvironment;
@@ -584,7 +590,8 @@ describe("landDispatchRun", () => {
 		expect(call?.options["env"]).toEqual({
 			[DISPATCH_LANDING_TOKEN_ENV_NAME]: "token-landing-fixture",
 		});
-		const command = call?.options["command"] as SandboxCommand;
+		const command = call?.options["command"];
+		if (!isSandboxCommand(command)) throw new Error("Expected a sandbox command.");
 		expect(command.cmd).toBe("sh");
 		// The token reaches the command through its environment, never argv.
 		expect(command.args.join(" ")).not.toContain("token-landing-fixture");

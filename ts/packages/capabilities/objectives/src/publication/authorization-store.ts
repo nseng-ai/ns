@@ -54,14 +54,15 @@ export class RealPublicationAuthorizationStore implements PublicationAuthorizati
 		const checked = await this.checkParent(path);
 		if (!checked.ok) return checked;
 		let handle;
-		let created = false;
+		// Ownership, not success: only an exclusive create wins the right to unlink on cleanup.
+		let hasCreatedFile = false;
 		try {
 			handle = await open(
 				path,
 				constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
 				0o600,
 			);
-			created = true;
+			hasCreatedFile = true;
 			await handle.writeFile(content, "utf8");
 			await handle.sync();
 			return { ok: true, value: undefined };
@@ -70,7 +71,7 @@ export class RealPublicationAuthorizationStore implements PublicationAuthorizati
 				// Preserve the original bind error; cleanup below remains best-effort.
 			});
 			handle = undefined;
-			if (created) {
+			if (hasCreatedFile) {
 				await unlink(path).catch(() => {
 					// A failed bind must not mask its original error with cleanup failure.
 				});
