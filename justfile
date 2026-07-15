@@ -125,13 +125,13 @@ docs-check: docs-install
 js-test: ts-test
 
 bump-version VERSION: _ts-workspace-ready
-    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release:bump-version -- {{VERSION}}
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release:bump-version {{VERSION}}
 
 publish-dry-run VERSION: _ts-workspace-ready
-    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release:publish-dry-run -- {{VERSION}}
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release:publish-dry-run {{VERSION}}
 
 publish VERSION: _ts-workspace-ready
-    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release:publish -- {{VERSION}}
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release:publish {{VERSION}}
 
 # Read-only transactional release preflight and plan.
 release-plan VERSION: _ts-workspace-ready
