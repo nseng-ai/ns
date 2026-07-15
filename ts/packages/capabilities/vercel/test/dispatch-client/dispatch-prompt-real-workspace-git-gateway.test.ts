@@ -54,18 +54,19 @@ describe("real workspace git gateway", () => {
 		if (!result.ok) expect(result.error.code).toBe("detached-head");
 	});
 
-	test("pushes the source ref as branch:refs/heads/branch", async () => {
+	test("pushes the captured source SHA without moving or force-updating a local ref", async () => {
 		const commands = new ScriptedCommandRunner([exited()]);
 		const result = await createGateway(commands).pushSourceBranch({
 			cwd: "/repo",
 			branch: "feature/widgets",
+			expectedRevision: SHA,
 		});
 
 		expect(result.ok).toBe(true);
 		expect(commands.calls[0]?.args).toEqual([
 			"push",
 			"origin",
-			"feature/widgets:refs/heads/feature/widgets",
+			`${SHA}:refs/heads/feature/widgets`,
 		]);
 	});
 
@@ -178,13 +179,14 @@ describe("real workspace git gateway", () => {
 		const result = await createGateway(commands).pushSourceBranch({
 			cwd: "/repo",
 			branch: "feature/widgets",
+			expectedRevision: SHA,
 		});
 
 		expect(result).toEqual({
 			ok: false,
 			error: {
 				code: "git-push-failed",
-				message: "Pushing branch feature/widgets failed: error: failed to push source refs",
+				message: `Pushing exact revision ${SHA} to branch feature/widgets failed: error: failed to push source refs`,
 			},
 		});
 	});

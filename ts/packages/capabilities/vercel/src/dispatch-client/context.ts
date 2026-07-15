@@ -1,9 +1,7 @@
 // Entrypoint wiring for the dispatch ns commands (inversion rule in
 // `docs/conventions/consumer-gateways-and-command-shape.md`): the command
-// context binds real gateways to the command's exec channel and cwd here,
-// and scenario tests substitute in-memory fakes through
-// `ctx.extensions.dispatch` — the same override pattern the objectives
-// runner commands use.
+// context binds every real gateway to the caller's command and interaction
+// channels. Scenario tests inject a complete context through the command factory.
 import { RealGitBrmemGateway } from "@nseng-ai/brmem";
 import {
 	createNsCommandRunner,
@@ -15,6 +13,8 @@ import {
 	MODEL_OPERATION_IDS,
 	resolveModelOperation,
 } from "@nseng-ai/capability-kit/model-policy";
+import { createNsClinkrInteraction } from "@nseng-ai/capability-kit/ns-context";
+import { createFlowMinimalSubmitClient } from "@nseng-ai/flow/api";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
@@ -28,6 +28,10 @@ import { createRealDispatchContentSlugGateway } from "./content-slug.ts";
 import { createRealDispatchAnchorPrGateway } from "./real-anchor-pr-gateway.ts";
 import { createRealDispatchConfigGateway } from "./real-config-gateway.ts";
 import { createRealDispatchLocalTokenGateway } from "./real-local-token-gateway.ts";
+import {
+	createRealDispatchGraphitePublicationAuthorizationGateway,
+	createRealDispatchSourcePublicationGateway,
+} from "./real-source-publication-gateways.ts";
 import { createRealDispatchTriggerGateway } from "./real-trigger-gateway.ts";
 import { createRealDispatchWorkspaceGitGateway } from "./real-workspace-git-gateway.ts";
 
@@ -98,9 +102,20 @@ function createSharedDispatchGateways(
 	overrides: DispatchCommandOverrides | undefined,
 ) {
 	const runner = createNsCommandRunner(ctx);
-	const localGitFacts = new RealGitGateway(new NsCommandExecApi(ctx));
+	const execApi = new NsCommandExecApi(ctx);
+	const localGitFacts = new RealGitGateway(execApi);
 	return {
 		git: overrides?.git ?? createRealDispatchWorkspaceGitGateway(localGitFacts, runner),
+		sourcePublication:
+			overrides?.sourcePublication ??
+			createRealDispatchSourcePublicationGateway(
+				createFlowMinimalSubmitClient({ cwd: ctx.cwd, commands: execApi, env: ctx.env }),
+			),
+		publicationAuthorization:
+			overrides?.publicationAuthorization ??
+			createRealDispatchGraphitePublicationAuthorizationGateway(
+				createNsClinkrInteraction(ctx, { title: "Graphite source publication" }),
+			),
 		anchorPrs: overrides?.anchorPrs ?? createRealDispatchAnchorPrGateway(runner),
 		trigger: overrides?.trigger ?? createRealDispatchTriggerGateway(),
 		tokens: overrides?.tokens ?? createRealDispatchLocalTokenGateway({ env: ctx.env }),
@@ -129,6 +144,8 @@ function readDispatchCommandOverrides(ctx: NsExtensionApi): DispatchCommandOverr
 	const overrides = raw as DispatchCommandOverrides;
 	return optionalEntries({
 		git: overrides.git,
+		sourcePublication: overrides.sourcePublication,
+		publicationAuthorization: overrides.publicationAuthorization,
 		anchorPrs: overrides.anchorPrs,
 		trigger: overrides.trigger,
 		tokens: overrides.tokens,

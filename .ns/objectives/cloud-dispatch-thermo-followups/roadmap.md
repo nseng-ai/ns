@@ -43,7 +43,10 @@ notes — never a standalone row.
       `./dispatch-client` subpath. Feature-owned tests and support now live under
       `test/dispatch-client/`; the ns command scenario remains under `test/ns/`.
       Evidence: the focused Vercel package typecheck and all 622 package tests passed;
-      repo-wide TypeScript format, lint, and style-guard checks passed.
+      repo-wide TypeScript format, lint, and style-guard checks passed. The later
+      Graphite-aware dispatch source-publication feature consumed this extracted seam
+      through `dispatch-client` without recreating the old `src/ns/dispatch-prompt/`
+      ownership; that behavior work does not close any additional thermo row.
 - [x] **H9 — Single checkout-root constant.** Exported
       `DISPATCH_CHECKOUT_PACKAGE_ROOT` from the harness registry and derived both
       `PI_RUNNER_ENTRY_PATH` and the pi-runner workspace bin path from it. Tests pin

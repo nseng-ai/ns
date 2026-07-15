@@ -152,11 +152,11 @@ export function createRealDispatchWorkspaceGitGateway(
 				},
 			};
 		},
-		async pushSourceBranch({ cwd, branch }) {
+		async pushSourceBranch({ cwd, branch, expectedRevision }) {
 			return await pushRef({
 				cwd,
-				refspec: `${branch}:refs/heads/${branch}`,
-				failurePrefix: `Pushing branch ${branch} failed`,
+				refspec: `${expectedRevision}:refs/heads/${branch}`,
+				failurePrefix: `Pushing exact revision ${expectedRevision} to branch ${branch} failed`,
 			});
 		},
 		async pushAnchorBranch({ cwd, revision, anchorBranch }) {

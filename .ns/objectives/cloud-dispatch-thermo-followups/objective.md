@@ -26,10 +26,11 @@ evidence), and the clean attestations (not to be re-flagged).
 
 ## Implementation Status
 
-M4+M5 and H9 are locally complete. The behavior-preserving extraction moved the
-`dispatch-client` feature out of the `ns` host surface without adding a public package
-subpath. Remaining thermo findings stay open and independent; no live dispatch or
-deployment verification is claimed.
+M4+M5 and H9 are locally complete. The extracted `dispatch-client` seam is now consumed
+by the separate Graphite-aware source-publication feature without restoring host-surface
+ownership. Remaining thermo findings stay open and independent; this consumption is not
+evidence that any unrelated review row is complete, and no live dispatch/deployment
+verification is claimed.
 
 ## Scope
 
