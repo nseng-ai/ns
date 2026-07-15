@@ -250,9 +250,17 @@ function resolveReviewModel(
 			error: { code: "project-config-invalid", message: selectedModel.error.message },
 		};
 	}
-	const resolved = resolveReviewsModelReference(
-		request.model ?? selectedModel?.value.modelRef ?? "",
-	);
+	const modelRef = request.model !== undefined ? request.model : selectedModel?.value.modelRef;
+	if (modelRef === undefined) {
+		return {
+			ok: false,
+			error: {
+				code: "project-config-invalid",
+				message: "Reviews model resolution produced no model reference.",
+			},
+		};
+	}
+	const resolved = resolveReviewsModelReference(modelRef);
 	if (!resolved.ok) return resolved;
 	return {
 		ok: true,

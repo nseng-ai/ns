@@ -82,7 +82,7 @@ export async function deriveBranchSlug(
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
 		prompt: input.prompt,
-		modelRef: input.modelRef ?? "openai/gpt-4o-mini",
+		modelRef: input.modelRef,
 		slugKind: "branch slug",
 		normalizeOutput: sanitizeBranchName,
 		exec: (command, args, options) =>

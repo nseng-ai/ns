@@ -18,7 +18,7 @@ const GT_TIMEOUT_MS = 120_000;
 
 export interface LatestCommitPreparationInput {
 	cwd: string;
-	modelRef?: string;
+	modelRef: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -238,7 +238,7 @@ async function prepareLatestCommitSlug(
 	const result = await deriveBranchSlug({
 		cwd: input.cwd,
 		prompt: buildLatestCommitSlugPrompt(facts),
-		modelRef: input.modelRef ?? "test/model",
+		modelRef: input.modelRef,
 		exec: input.exec,
 	});
 	if (result.ok) {

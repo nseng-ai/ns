@@ -65,7 +65,7 @@ export function createAutobranchExecContext(
 export function createAutobranchDispatchEnv(
 	ctx: NsExtensionApi,
 	args: ParsedAutobranchArgs,
-	modelRef?: string,
+	modelRef: string,
 ): Pick<AutobranchDispatchEnv, "loadSnapshot" | "createFlowContext"> {
 	return {
 		loadSnapshot: () => loadFlowPendingWorktreeSnapshot(ctx),
@@ -74,7 +74,7 @@ export function createAutobranchDispatchEnv(
 			return {
 				cwd: snapshot.root,
 				args,
-				...(modelRef === undefined ? {} : { modelRef }),
+				modelRef,
 				exec,
 				git,
 			};

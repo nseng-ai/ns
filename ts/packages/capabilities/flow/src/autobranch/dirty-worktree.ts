@@ -51,7 +51,7 @@ export interface FileStat {
 
 export interface AutobranchPreparationInput {
 	cwd: string;
-	modelRef?: string;
+	modelRef: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -200,7 +200,7 @@ async function generateSlugFromChanges(
 	const result = await deriveBranchSlug({
 		cwd: input.cwd,
 		prompt,
-		modelRef: input.modelRef ?? "openai/gpt-4o-mini",
+		modelRef: input.modelRef,
 		exec: input.exec,
 	});
 	if (result.ok) {
@@ -264,7 +264,7 @@ function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefi
 
 export interface AutobranchFlowInput {
 	cwd: string;
-	modelRef?: string;
+	modelRef: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -286,7 +286,7 @@ export async function runDirtyAutobranchFlow(
 ): Promise<AutobranchFlowResult> {
 	const prepared = await prepareAutobranchPlan({
 		cwd: input.cwd,
-		modelRef: input.modelRef ?? "openai/gpt-4o-mini",
+		modelRef: input.modelRef,
 		args: input.args,
 		snapshot: input.snapshot,
 		exec: input.exec,

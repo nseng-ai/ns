@@ -58,6 +58,7 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 			input.exec(command, commandArgs, { cwd: input.cwd, timeout });
 		await createAutoslotFlow({
 			cwd: input.cwd,
+			modelRef: input.modelRef,
 			args: input.args,
 			caps: input.caps,
 			exec,
