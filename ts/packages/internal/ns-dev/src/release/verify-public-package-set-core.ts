@@ -1,9 +1,30 @@
-import { sdkFoldEntries } from "./sdk-public-subpaths.mjs";
-import { normalizeBinPaths } from "./public-package-helpers.mjs";
+import { sdkFoldEntries } from "../../../../../scripts/sdk-public-subpaths.mjs";
+import { normalizeBinPaths } from "../../../../../scripts/public-package-helpers.mjs";
+
+import { releaseTransactionReportSchema } from "./contracts.ts";
 
 const criticalSdkExports = sdkFoldEntries.map((entry) => entry.sourceExport);
 
-export function parseNpmViewJson(stdout, packageName, expectedVersion) {
+export interface CandidateHashEvidence {
+	readonly name: string;
+	readonly version: string;
+	readonly integrity: string;
+	readonly shasum: string;
+}
+
+export interface ParsedCandidateReport {
+	readonly releaseCommit: string;
+	readonly version: string;
+	readonly candidates: ReadonlyMap<string, CandidateHashEvidence>;
+}
+
+export function parseNpmViewJson(
+	stdout: string,
+	packageName: string,
+	expectedVersion: string,
+):
+	| { readonly type: "ok"; readonly value: Record<string, unknown> }
+	| { readonly type: "error"; readonly message: string } {
 	try {
 		const value = JSON.parse(stdout);
 		if (!isRecord(value)) throw new Error("expected an object");
@@ -16,63 +37,38 @@ export function parseNpmViewJson(stdout, packageName, expectedVersion) {
 	}
 }
 
-export function parseCandidateReport(value, expectedPackages) {
-	if (!isRecord(value) || value.schemaVersion !== 1 || !isRecord(value.release)) {
-		throw new Error("Candidate report must be a schemaVersion 1 release report");
-	}
-	if (
-		typeof value.release.branch !== "string" ||
-		value.release.branch.length === 0 ||
-		typeof value.release.commit !== "string" ||
-		value.release.commit.length === 0 ||
-		typeof value.release.version !== "string" ||
-		value.release.version.length === 0 ||
-		!Array.isArray(value.inventory) ||
-		!value.inventory.every((name) => typeof name === "string") ||
-		!Array.isArray(value.candidates) ||
-		!Array.isArray(value.completedWrites) ||
-		!value.completedWrites.every((name) => typeof name === "string") ||
-		!(value.pendingWrite === null || typeof value.pendingWrite === "string") ||
-		![
-			"preparing-candidates",
-			"candidates-prepared",
-			"checkpointing",
-			"publishing",
-			"published",
-			"verified",
-		].includes(value.stage)
-	) {
+export function parseCandidateReport(
+	value: unknown,
+	expectedPackages: readonly string[],
+): ParsedCandidateReport {
+	const parsed = releaseTransactionReportSchema.safeParse(value);
+	if (!parsed.success) {
 		throw new Error(
-			"Candidate report has invalid release, inventory, candidates, writes, or stage fields",
+			`Candidate report must be a canonical schemaVersion 1 release report: ${parsed.error.issues.map((issue) => `${issue.path.join(".") || "report"}: ${issue.message}`).join("; ")}`,
 		);
 	}
-	if (!sameValues(value.inventory, expectedPackages)) {
+	const report = parsed.data;
+	if (!sameValues(report.inventory, expectedPackages)) {
 		throw new Error("Candidate report inventory does not match the intended public package set");
 	}
-	if (value.candidates.length !== expectedPackages.length) {
+	if (report.candidates.length !== expectedPackages.length) {
 		throw new Error("Candidate report does not contain every intended public package");
 	}
 	if (
-		new Set(value.completedWrites).size !== value.completedWrites.length ||
-		value.completedWrites.some((name) => !expectedPackages.includes(name)) ||
-		(value.pendingWrite !== null &&
-			(!expectedPackages.includes(value.pendingWrite) || value.completedWrites.includes(value.pendingWrite)))
+		new Set(report.completedWrites).size !== report.completedWrites.length ||
+		report.completedWrites.some((name) => !expectedPackages.includes(name)) ||
+		(report.pendingWrite !== null &&
+			(!expectedPackages.includes(report.pendingWrite) ||
+				report.completedWrites.includes(report.pendingWrite)))
 	) {
 		throw new Error("Candidate report pending and completed writes do not match the inventory");
 	}
-	const candidates = new Map();
-	for (const [order, candidate] of value.candidates.entries()) {
+	const candidates = new Map<string, CandidateHashEvidence>();
+	for (const [order, candidate] of report.candidates.entries()) {
 		if (
-			!isRecord(candidate) ||
 			candidate.name !== expectedPackages[order] ||
-			candidate.version !== value.release.version ||
-			candidate.order !== order ||
-			typeof candidate.tarballPath !== "string" ||
-			!candidate.tarballPath.endsWith(".tgz") ||
-			typeof candidate.integrity !== "string" ||
-			candidate.integrity.length === 0 ||
-			typeof candidate.shasum !== "string" ||
-			candidate.shasum.length === 0
+			candidate.version !== report.release.version ||
+			candidate.order !== order
 		) {
 			throw new Error(`Candidate report contains invalid candidate at order ${order}`);
 		}
@@ -84,26 +80,28 @@ export function parseCandidateReport(value, expectedPackages) {
 		});
 	}
 	return {
-		releaseCommit: value.release.commit,
-		version: value.release.version,
+		releaseCommit: report.release.commit,
+		version: report.release.version,
 		candidates,
 	};
 }
 
-export function compareRegistryMetadata({
-	packageName,
-	expectedVersion,
-	manifest,
-	registry,
-	candidate,
-}) {
-	const mismatches = [];
-	const evidence = [];
+export function compareRegistryMetadata(options: {
+	readonly packageName: string;
+	readonly expectedVersion: string;
+	readonly manifest: { readonly bin?: unknown; readonly exports?: unknown };
+	readonly registry: Record<string, unknown>;
+	readonly candidate?: CandidateHashEvidence;
+}): { readonly mismatches: readonly string[]; readonly evidence: readonly string[] } {
+	const { packageName, expectedVersion, manifest, registry, candidate } = options;
+	const mismatches: string[] = [];
+	const evidence: string[] = [];
+	const registryDist = isRecord(registry.dist) ? registry.dist : {};
 	if (registry.name !== packageName)
 		mismatches.push(`name ${formatValue(registry.name)} != ${packageName}`);
 	if (registry.version !== expectedVersion)
 		mismatches.push(`version ${formatValue(registry.version)} != ${expectedVersion}`);
-	if (!hasPresentString(registry?.dist?.tarball) && !hasPresentString(registry?.["dist.tarball"]))
+	if (!hasPresentString(registryDist.tarball) && !hasPresentString(registry["dist.tarball"]))
 		mismatches.push("missing dist.tarball");
 	if (!hasTimeForVersion(registry.time, expectedVersion))
 		mismatches.push(`missing publish time for ${expectedVersion}`);
@@ -122,8 +120,8 @@ export function compareRegistryMetadata({
 		evidence,
 	});
 	if (candidate !== undefined) {
-		const registryIntegrity = registry?.dist?.integrity ?? registry?.["dist.integrity"];
-		const registryShasum = registry?.dist?.shasum ?? registry?.["dist.shasum"];
+		const registryIntegrity = registryDist.integrity ?? registry["dist.integrity"];
+		const registryShasum = registryDist.shasum ?? registry["dist.shasum"];
 		if (registryIntegrity !== candidate.integrity) {
 			mismatches.push(`dist.integrity ${formatValue(registryIntegrity)} != ${candidate.integrity}`);
 		} else {
@@ -138,7 +136,14 @@ export function compareRegistryMetadata({
 	return { mismatches, evidence };
 }
 
-function compareBin({ packageName, localBin, registryBin, mismatches, evidence }) {
+function compareBin(options: {
+	readonly packageName: string;
+	readonly localBin: unknown;
+	readonly registryBin: unknown;
+	readonly mismatches: string[];
+	readonly evidence: string[];
+}): void {
+	const { packageName, localBin, registryBin, mismatches, evidence } = options;
 	if (localBin === undefined) return;
 	const localBinObject = normalizeBinPaths(localBin);
 	const registryBinObject = normalizeBinPaths(registryBin);
@@ -152,7 +157,14 @@ function compareBin({ packageName, localBin, registryBin, mismatches, evidence }
 	}
 }
 
-function compareExports({ packageName, localExports, registryExports, mismatches, evidence }) {
+function compareExports(options: {
+	readonly packageName: string;
+	readonly localExports: unknown;
+	readonly registryExports: unknown;
+	readonly mismatches: string[];
+	readonly evidence: string[];
+}): void {
+	const { packageName, localExports, registryExports, mismatches, evidence } = options;
 	if (localExports === undefined) return;
 	const localKeys = topLevelExportKeys(localExports);
 	const registryKeys = new Set(topLevelExportKeys(registryExports));
@@ -166,31 +178,31 @@ function compareExports({ packageName, localExports, registryExports, mismatches
 	}
 }
 
-function topLevelExportKeys(exportsValue) {
+function topLevelExportKeys(exportsValue: unknown): string[] {
 	if (typeof exportsValue === "string") return ["."];
 	if (isRecord(exportsValue)) return Object.keys(exportsValue).sort();
 	return [];
 }
 
-function hasTimeForVersion(time, expectedVersion) {
+function hasTimeForVersion(time: unknown, expectedVersion: string): boolean {
 	if (time === undefined) return false;
 	if (typeof time === "string") return time.length > 0;
 	if (isRecord(time)) return typeof time[expectedVersion] === "string";
 	return false;
 }
 
-function hasPresentString(value) {
+function hasPresentString(value: unknown): value is string {
 	return typeof value === "string" && value.length > 0;
 }
 
-function sameValues(left, right) {
+function sameValues(left: readonly string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function isRecord(value) {
+function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function formatValue(value) {
+function formatValue(value: unknown): string {
 	return value === undefined ? "<missing>" : JSON.stringify(value);
 }

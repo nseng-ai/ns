@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	compareRegistryMetadata,
 	parseCandidateReport,
-} from "../../../../scripts/verify-public-package-set-core.mjs";
+} from "../src/release/verify-public-package-set-core.ts";
 
 const packageName = "@nseng-ai/example";
 const version = "1.2.3";
@@ -77,6 +77,9 @@ describe("public package verifier candidate evidence", () => {
 				},
 				[packageName],
 			),
-		).toThrow("invalid candidate");
+		).toThrow("canonical schemaVersion 1 release report");
+		expect(() => parseCandidateReport(report, ["@nseng-ai/other"])).toThrow(
+			"inventory does not match",
+		);
 	});
 });

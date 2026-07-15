@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 
 import {
 	intendedPublicPackages,
+	isConcreteNpmVersion,
 	publicPublishOrder,
 	workspaceRoot,
 } from "../../../../../scripts/public-package-set.mjs";
@@ -257,9 +258,7 @@ function sameOrderedValues(left: readonly string[], right: readonly string[]): b
 }
 
 function validateConcreteNpmVersion(version: string): OperationResult {
-	const semverPattern =
-		/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
-	if (version.trim() === version && semverPattern.test(version)) return { ok: true };
+	if (isConcreteNpmVersion(version)) return { ok: true };
 	return {
 		ok: false,
 		error: {
