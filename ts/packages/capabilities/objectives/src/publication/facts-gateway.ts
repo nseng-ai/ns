@@ -3,6 +3,7 @@ import type { PublicationCommitFacts, PublicationTargetFacts } from "./contracts
 export interface PublicationFactsError {
 	code: string;
 	message: string;
+	displayCommand?: string;
 }
 
 export type PublicationFactsResult<T> =
