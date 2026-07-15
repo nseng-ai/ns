@@ -20,7 +20,8 @@
 		"./pi/extension": "./src/pi/extension.ts"
 	},
 	"files": [
-		"src"
+		"src",
+		"README.md"
 	],
 	"scripts": {
 		"check": "tsc -p tsconfig.json",

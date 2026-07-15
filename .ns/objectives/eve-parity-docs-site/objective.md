@@ -1,9 +1,9 @@
 ---
 edges:
   - objective: ship-objectives-to-customers
-    annotation: Provides the published docs-site shell that customer Objective onboarding content lands on; that objective gates its publication on this site being publishable.
+    annotation: Historical launch-substrate relationship; the customer-Objectives umbrella now launches from package READMEs while this docs-site work is intentionally deferred.
   - objective: objectives-claude-onboarding-steelthread
-    annotation: Provides the publishable site shell and launch-bar decisions consumed by the Objective-specific Claude Code onboarding thread.
+    annotation: Historical onboarding dependency; the Claude Code thread now uses canonical package READMEs instead of waiting for a public docs-site launch.
 ---
 
 # eve-parity docs site
@@ -376,3 +376,9 @@ Recoverable reference inputs (not staged before deleting):
   Concepts/Tools/Skills) — informs the geistdocs llms config.
 - Geist + Geist Mono fonts and GitHub code themes already in use.
 - `vercel.json` deployment model and `just docs-*` recipe names.
+
+## Closure
+
+Intentionally deferred on 2026-07-14. The replacement Next.js/Fumadocs shell, machine routes, search, marketing structure, extensions gallery, and gated Vercel wiring remain preserved in place, but the remaining IA restructure, corpus rewrite, launch-bar decision, and production deployment will not gate the first Objectives customer launch.
+
+The launch documentation surface is now the canonical `@nseng-ai/ns` and `@nseng-ai/objectives` package READMEs. The Vercel gate stays closed and no deployment is authorized by this closure. Remaining roadmap work is retained as historical follow-up context if a future explicit Objective resumes the docs-site effort; this closed record is not reopened.
