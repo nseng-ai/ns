@@ -42,13 +42,6 @@
 					"diff"
 				],
 				"description": "Diff input options for Reviews."
-			},
-			{
-				"path": [
-					"reviews",
-					"model_profiles"
-				],
-				"description": "Qualified model references for Reviews quick and deep review profiles."
 			}
 		]
 	},

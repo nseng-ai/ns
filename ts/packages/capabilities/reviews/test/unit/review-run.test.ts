@@ -57,7 +57,7 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[reviews.diff]\nexclude = ["generated/**"]\n[reviews.model_profiles]\ndeep = "anthropic/claude-opus-4-6"\n',
+			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles]\ndeep = "anthropic/claude-opus-4-6"\n[models.operations]\n"reviews.deep" = "deep"\n',
 		);
 		const localDiff = new FakeLocalDiffGateway({
 			defaultDiff: {
