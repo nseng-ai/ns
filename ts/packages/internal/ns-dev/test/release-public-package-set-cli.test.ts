@@ -6,6 +6,7 @@ import type {
 	OperationResult,
 	OptionalResult,
 	ReleaseCandidate,
+	ReleaseFailure,
 	ReleaseReportStore,
 	ReleaseTransactionReport,
 } from "../src/release/contracts.ts";
@@ -44,9 +45,16 @@ class InMemoryReports implements ReleaseReportStore {
 
 class InMemoryFreshRelease implements FreshReleaseGateway {
 	readonly operations: string[] = [];
+	private readonly inspectFailure: ReleaseFailure | undefined;
+
+	constructor(inspectFailure?: ReleaseFailure) {
+		this.inspectFailure = inspectFailure;
+	}
 
 	async inspectFreshState(branch: string) {
 		this.operations.push(`inspect:${branch}`);
+		if (this.inspectFailure !== undefined)
+			return { ok: false as const, error: this.inspectFailure };
 		return {
 			ok: true as const,
 			value: {
@@ -126,11 +134,12 @@ function createHarness(
 		report?: ReleaseTransactionReport;
 		isResumeClean?: boolean;
 		candidateState?: "exact" | "missing";
+		inspectFailure?: ReleaseFailure;
 	} = {},
 ) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const release = new InMemoryFreshRelease();
+	const release = new InMemoryFreshRelease(options.inspectFailure);
 	const reports = new InMemoryReports(options.report);
 	const published: string[] = [];
 	const registryReads: string[] = [];
@@ -268,6 +277,31 @@ describe("transactional release CLI adapter", () => {
 		});
 		expect(output.data.packages).toEqual(publicPublishOrder);
 		expect(harness.release.operations).toEqual([`inspect:${releaseBranch}`]);
+		expect(harness.reports.writes).toEqual([]);
+		expect(harness.registryReads).toEqual([]);
+		expect(harness.published).toEqual([]);
+	});
+
+	it("preserves structured release failure details in the machine envelope", async () => {
+		const inspectFailure = {
+			code: "release-command-failed",
+			message: "Could not inspect the release source.",
+			displayCommand: "gt trunk --no-interactive",
+			details: { resultType: "spawn-failed", spawnError: "spawn gt ENOENT" },
+		} satisfies ReleaseFailure;
+		const harness = createHarness({ inspectFailure });
+
+		expect(await harness.run(["--plan", version, "--format", "json"])).toBe(2);
+		expect(JSON.parse(harness.stdout.join(""))).toMatchObject({
+			status: "failure",
+			errorType: inspectFailure.code,
+			message: inspectFailure.message,
+			data: {
+				error: inspectFailure,
+				finalStatus: "refused",
+				writes: [],
+			},
+		});
 		expect(harness.reports.writes).toEqual([]);
 		expect(harness.registryReads).toEqual([]);
 		expect(harness.published).toEqual([]);
