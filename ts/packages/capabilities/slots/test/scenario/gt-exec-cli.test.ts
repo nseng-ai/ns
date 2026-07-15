@@ -415,6 +415,28 @@ describe("slot gt exec restack-preflight CLI", () => {
 		});
 	});
 
+	it("uses the canonical worktree root from a nested cwd", async () => {
+		const run = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--format", "json"],
+			{
+				cwd: "/repo/subdirectory",
+				git: {
+					branchOccupancies: [
+						{ path: "/repo", branch: "feature/current", operation: "checked-out" },
+					],
+				},
+			},
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: { rebaseInProgress: false, slotConflicts: [] },
+		});
+		expect(run.gt.operations()).toEqual([
+			{ type: "stack-for-branch", cwd: "/repo", branch: "feature/current" },
+		]);
+	});
+
 	it("uses full scope only when requested and upstack children exist", async () => {
 		const full = runRestackPreflightScenario([
 			"gt",
@@ -604,6 +626,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 		const run = runRestackPreflightScenario(
 			["gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
 			{
+				cwd: "/repo/subdirectory",
 				git: {
 					worktrees: [{ path: "/repo", branch: null }],
 					branchOccupancies: [{ path: "/repo", branch: "feature/current", operation: "rebase" }],
@@ -630,17 +653,16 @@ describe("slot gt exec restack-preflight CLI", () => {
 				],
 			},
 		});
-		expect(run.gt.operations()).toContainEqual({
-			type: "stack-for-branch",
-			cwd: "/repo",
-			branch: "feature/current",
-		});
+		expect(run.gt.operations()).toEqual([
+			{ type: "stack-for-branch", cwd: "/repo", branch: "feature/current" },
+		]);
 	});
 
 	it("keeps recovered untracked rebases usable without guessing a missing branch", async () => {
 		const untracked = runRestackPreflightScenario(
 			["gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
 			{
+				cwd: "/repo/subdirectory",
 				git: {
 					worktrees: [{ path: "/repo", branch: null }],
 					branchOccupancies: [{ path: "/repo", branch: "feature/current", operation: "rebase" }],
@@ -661,6 +683,14 @@ describe("slot gt exec restack-preflight CLI", () => {
 				tracked: false,
 				rebaseInProgress: true,
 				branches: ["feature/current"],
+				slotConflicts: [
+					{
+						type: "rebase-in-progress",
+						branch: "feature/current",
+						worktreePath: "/repo",
+						operation: "rebase",
+					},
+				],
 			},
 		});
 
@@ -1299,6 +1329,7 @@ interface RestackPreflightScenarioOptions {
 	readonly stack?: ReturnType<typeof fakeStackInfo>;
 	readonly git?: ScenarioRunOptions["git"];
 	readonly gt?: ScenarioRunOptions["gt"];
+	readonly cwd?: string;
 }
 
 function runRestackPreflightScenario(
@@ -1306,6 +1337,7 @@ function runRestackPreflightScenario(
 	options: RestackPreflightScenarioOptions = {},
 ) {
 	return runScenario(args, {
+		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
 		git: {
 			worktrees: [{ path: "/repo", branch: "feature/current" }],
 			...options.git,

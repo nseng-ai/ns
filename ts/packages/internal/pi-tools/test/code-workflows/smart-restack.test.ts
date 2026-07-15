@@ -327,11 +327,6 @@ describe("smart restack workflow", () => {
 		expect(pi.sentUserMessages[0]).toContain(
 			"structured full-scope preflight already reported rebaseInProgress=true",
 		);
-		expect(pi.sentUserMessages[0]).toContain("Run a fresh `git status`");
-		expect(pi.sentUserMessages[0]).toContain(
-			"set RESTACK_SCOPE=full and jump directly to the skill's Loop without running preflight again",
-		);
-		expect(pi.sentUserMessages[0]).toContain("fall back to normal preflight");
 		expect(pi.sentUserMessages[0]).toContain("continue carefully");
 	});
 
@@ -377,11 +372,6 @@ describe("smart restack workflow", () => {
 		expect(pi.sentUserMessages[0]).toContain(
 			"full-scope preflight passed, then the deterministic /code:gt-restack-resolve fast path ran `gt restack`",
 		);
-		expect(pi.sentUserMessages[0]).toContain("Run a fresh `git status`");
-		expect(pi.sentUserMessages[0]).toContain(
-			"set RESTACK_SCOPE=full and jump directly to the skill's Loop without running preflight again",
-		);
-		expect(pi.sentUserMessages[0]).toContain("fall back to normal preflight");
 		expect(pi.sentUserMessages[0]).toContain("prefer parent stack");
 	});
 
@@ -482,5 +472,21 @@ describe("resolver prompt", () => {
 		expect(prompt).toContain("<skill>body</skill>");
 		expect(prompt).toContain("Additional user-supplied context:");
 		expect(prompt).toContain("prefer `parent`");
+	});
+
+	test("adds only the wrapper-owned inherited evidence", () => {
+		const interrupted = buildResolverPrompt("<skill>body</skill>", "", {
+			type: "interrupted-restack",
+		});
+		const failedFastPath = buildResolverPrompt("<skill>body</skill>", "", {
+			type: "failed-fast-path",
+		});
+
+		expect(interrupted).toBe(
+			"<skill>body</skill>\n\nInherited wrapper evidence: structured full-scope preflight already reported rebaseInProgress=true.",
+		);
+		expect(failedFastPath).toBe(
+			"<skill>body</skill>\n\nInherited wrapper evidence: full-scope preflight passed, then the deterministic /code:gt-restack-resolve fast path ran `gt restack` and did not complete cleanly.",
+		);
 	});
 });
