@@ -1,5 +1,5 @@
 ---
-blocked: End-to-end verification is gated on the bare-core npm release and a publishable docs-site launch slice.
+blocked: End-to-end verification is gated on a publishable docs-site launch slice.
 edges:
   - objective: ship-objectives-to-customers
     annotation: Subobjective of the customer-Objectives umbrella; owns the first real customer onboarding thread through Claude Code.

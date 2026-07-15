@@ -2,21 +2,18 @@
 
 ## Work
 
-- [x] Prepare and inspect the coordinated bare-core release candidate from clean source.
-  - Evidence: coordinated `0.1.3` is unused in npm and applied to all 20 public manifests. Full `just publish-dry-run 0.1.3` package check/test/dry-run qualification passes without registry writes after repairing the SDK consumer smoke's Node-typing fixture. The packed core is checkout-free and excludes Objective commands; generated dependencies are concrete and coordinated. The standalone Objectives descriptor declares all ten canonical `objective*` skills, and both publish-preparation paths copy and assert their complete root-canonical contents in the generated tarball.
+- [x] Requalify the coordinated bare-core release candidate from clean source.
+  - Evidence: immediately before publication, registry readback confirmed all 20 coordinated `0.1.3` versions absent and `just publish-dry-run 0.1.3` passed the complete package check/test/dry-run qualification without registry writes.
+- [x] Publish the authorized package/version set to npm and verify registry-served metadata and tarballs.
+  - Evidence: after explicit authorization for the exact set, `just publish 0.1.3` published all 20 packages and strict registry verification passed after propagation retries. Fresh registry tarballs contain a nine-file bare core with no Objective or extension paths and a 96-file Objectives artifact with its descriptor, both activation files, and all ten canonical Objective skill roots.
+  - Policy: preparation may proceed locally, but stop immediately before any npm publish or other external write until the user authorizes the exact package/version set.
+- [x] Run the checkout-free bare-core acquisition smoke in an isolated foreign repository.
+  - Evidence: a vanilla foreign git repository installed `@nseng-ai/ns@0.1.3` and confirmed `ns objective` was initially absent; after `ns init --harness claude-code` and `ns extension install npm:@nseng-ai/objectives@0.1.3`, all ten declared Objective skills were provisioned under `.claude/skills/` and `ns objective list` succeeded without an ns checkout or `ts/node_modules`.
+- [x] Record the released versions, acquisition-path evidence, and any caveats for umbrella synthesis and the Claude onboarding Subobjective.
+  - Evidence: closure context records the `0.1.3` registry artifacts and acquisition proof. The bare-core dependency is cleared; the downstream steelthread still owns docs-verbatim and fresh-session Claude Code lifecycle verification.
 
 ## Parked
 
-- [ ] Publish the authorized package/version set to npm and verify registry-served metadata and tarballs.
-  - Deferred until the release is reprioritized. Requalify the candidate before publication because the current `0.1.3` evidence may become stale.
-  - Evidence: after explicit human authorization, npm reports the intended new versions and fresh downloads match the inspected bare-core and standalone-extension shapes.
-  - Policy: preparation may proceed locally, but stop immediately before any npm publish or other external write until the user authorizes the exact package/version set.
-- [ ] Run the checkout-free bare-core acquisition smoke in an isolated foreign repository.
-  - Deferred with publication because registry-served artifacts are the smoke input.
-  - Evidence: the published core initially has no `ns objective` command; after `ns init --harness claude-code` and `ns extension install npm:@nseng-ai/objectives`, `ns objective list` succeeds without an ns checkout or `ts/node_modules`.
-- [ ] Record the released versions, acquisition-path evidence, and any caveats for umbrella synthesis and the Claude onboarding Subobjective.
-  - Deferred with publication and the acquisition smoke.
-  - Evidence: closure context names the registry artifacts exercised and the exact downstream assumptions de-risked.
 - [ ] General released-package release automation and CI.
 - [ ] `ns` self-update and automatic extension fleet updates.
 - [ ] Registry channels or distribution mechanisms beyond npm.

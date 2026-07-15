@@ -68,8 +68,10 @@ jobs:
       - name: Run TypeScript style guard tests
         run: just ts-test-typescript-style-guard
 
+  # docs-site CI is gated off until a launch slice removes the gate (mirrors the Vercel
+  # ignoreCommand gate in docs-site). Restore `if` to the draft check below to re-enable.
   docs-build:
-    if: github.event.pull_request.draft != true
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

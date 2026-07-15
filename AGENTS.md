@@ -16,6 +16,10 @@ This root `AGENTS.md` contains only repo-wide rules needed before choosing a dir
 - Default repo validation entrypoint: `just`.
 - Python: always use `uv` (for example, `uv run python ...`); never call bare `python` or `python3`. This applies to one-off shell snippets, JSON helpers, and any agent-authored command, not just project scripts.
 
+## Documentation surface
+
+- Pre-launch, user-facing product documentation lives in package `README`s — treat them as the canonical install/quickstart/usage surface. Do not do `docs-site/` content work unless explicitly asked; its deploys are gated until a launch slice removes the gate.
+
 ## Architecture rules
 
 - Prefer composable features with explicit dependencies over hidden integration.
