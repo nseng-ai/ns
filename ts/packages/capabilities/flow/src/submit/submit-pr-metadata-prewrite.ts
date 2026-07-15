@@ -518,6 +518,7 @@ export interface SubmitMetadataPrewriteDependencies {
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
 	textGenerator: TextGenerator;
+	modelRef: string;
 	time?: TimeServices;
 	progress?: SubmitProgressListeners<SubmitBranchMetadataProgressEvent>;
 }
@@ -550,6 +551,7 @@ export async function prewriteSubmitMetadata(
 		git: input.git,
 		descriptorSource: input.descriptorSource,
 		textGenerator: input.textGenerator,
+		modelRef: input.modelRef,
 		branches: plan.metadataPrewriteBranches,
 		...(input.time === undefined ? {} : { time: input.time }),
 		...(input.progress === undefined ? {} : { progress: input.progress }),
@@ -615,6 +617,7 @@ async function generateMetadataForBranches(input: {
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
 	textGenerator: TextGenerator;
+	modelRef: string;
 	branches: readonly SubmitStackNewBranch[];
 	time?: TimeServices;
 	progress?: SubmitProgressListeners<SubmitBranchMetadataProgressEvent>;
@@ -627,6 +630,7 @@ async function generateMetadataForBranches(input: {
 		cwd: input.cwd,
 		git: input.git,
 		descriptorSource: input.descriptorSource,
+		modelRef: input.modelRef,
 	});
 	if (!generation.ok) {
 		return {

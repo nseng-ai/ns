@@ -197,6 +197,7 @@ export interface SubmitPrDescriptionOptions {
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
 	env: Record<string, string | undefined>;
+	modelRef: string;
 	time?: TimeServices;
 }
 
@@ -379,6 +380,7 @@ export async function runSubmitCommand(
 		git: options.prDescription.git,
 		descriptorSource: options.prDescription.descriptorSource,
 		textGenerator: options.prDescription.textGenerator,
+		modelRef: options.prDescription.modelRef,
 		...(options.prDescription.time === undefined ? {} : { time: options.prDescription.time }),
 		progress: submitPhaseProgressListeners<SubmitBranchMetadataProgressEvent>(
 			options,

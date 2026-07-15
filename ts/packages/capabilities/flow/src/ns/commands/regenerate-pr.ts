@@ -17,6 +17,8 @@ import {
 } from "../../submit/index.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { flowExtensionDescriptorSource } from "../extension.ts";
+import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
+import { resolveFlowModelRef } from "../model-policy.ts";
 
 const REGENERATE_PR_DESCRIPTION = `Regenerate the current branch PR title and ns-managed generated body region.
 
@@ -51,6 +53,15 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = def
 			// left staring at a blank terminal while GitHub/model work happens before confirmation.
 			const caps = resolveFlowStreamCaps(ctx);
 			const runtime = createNsPrDescriptionRuntime(ctx);
+			const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowPrDescription);
+			if (!model.ok)
+				return negative(
+					renderResultBlockFromMessage(caps, {
+						kind: "failure",
+						message: model.error,
+						cwd: ctx.cwd,
+					}),
+				);
 			io.phase("Preparing PR metadata update…");
 			const prepared: PrDescriptionUpdateResult = await preparePrDescriptionUpdateForCurrentBranch({
 				cwd: ctx.cwd,
@@ -58,6 +69,7 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = def
 				githubPr: runtime.githubPr,
 				git: runtime.git,
 				descriptorSource: flowExtensionDescriptorSource,
+				modelRef: model.modelRef,
 				textGenerator: ctx.textGenerator,
 				fingerprintPolicy: prDescriptionFingerprintPolicyForForce(request.force),
 				progress: { onProgress: (message) => io.phase(message) },

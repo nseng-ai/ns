@@ -112,7 +112,7 @@ export async function resolvePrDescriptionGeneration(input: {
 	cwd: string;
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
-	modelRef?: string;
+	modelRef: string;
 }): Promise<PrDescriptionGenerationResolution> {
 	const repoRoot = await input.git.repoRoot({ cwd: input.cwd });
 	const prompt = await resolvePrDescriptionPrompt({
@@ -127,7 +127,7 @@ export async function resolvePrDescriptionGeneration(input: {
 
 	return {
 		ok: true,
-		modelRef: input.modelRef ?? "openai-codex/gpt-5.6-luna",
+		modelRef: input.modelRef,
 		promptText: prompt.text,
 		promptSource: prompt.source,
 	};

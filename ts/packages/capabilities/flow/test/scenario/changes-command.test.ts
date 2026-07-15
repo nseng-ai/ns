@@ -48,7 +48,10 @@ describe("project-local changes extension behavior", () => {
 		expect(output).toContain("Files\n• modified   src/app.ts\n• untracked  notes.md");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "Inspecting worktree…\n" });
-		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "Generating changes summary…\n" });
+		expect(run.liveOutput).toContainEqual({
+			stream: "stderr",
+			text: "Generating changes summary…\n",
+		});
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",

@@ -7,6 +7,7 @@ import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { prepareFlowCheckpointMessage } from "../model-generation.ts";
+import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
 import { resolveFlowModelRef } from "../model-policy.ts";
 import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
@@ -44,7 +45,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 	handler: async (ctx, request: AutobranchRequest) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
-		const model = await resolveFlowModelRef(ctx, "flow.checkpoint");
+		const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
 		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 		const io = commandIoFromNsExtensionApi(ctx);
 		return await runWithNsCommandIo(io, async (io) => {

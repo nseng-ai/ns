@@ -40,6 +40,7 @@ import {
 } from "@nseng-ai/sdk";
 import { flowExtensionDescriptorSource } from "../extension.ts";
 import { FLOW_COMMAND_FAILED, exitCodeToFlowCommandExit } from "../flow-cli-runner.ts";
+import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
 import { resolveFlowModelRef } from "../model-policy.ts";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
@@ -114,8 +115,13 @@ export function createFlowSubmitCommand(
 			const repoRoot = request.checks
 				? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
 				: undefined;
-			const checkpointModel = await resolveFlowModelRef(ctx, "flow.checkpoint");
+			const checkpointModel = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
 			if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
+			const prDescriptionModel = await resolveFlowModelRef(
+				ctx,
+				MODEL_OPERATION_IDS.flowPrDescription,
+			);
+			if (!prDescriptionModel.ok) return failure(FLOW_COMMAND_FAILED, prDescriptionModel.error);
 			const checkpointContext: SubmitCheckpointContext = {
 				modelRef: checkpointModel.modelRef,
 				...optionalEntry("repoRoot", repoRoot),
@@ -141,6 +147,7 @@ export function createFlowSubmitCommand(
 				runtime,
 				checksLoad,
 				checkpointContext,
+				prDescriptionModelRef: prDescriptionModel.modelRef,
 				...structuredProgress,
 			});
 		},
@@ -177,10 +184,20 @@ async function runSubmitWithProgress(input: {
 	runtime: NsSubmitRuntime;
 	checksLoad: Awaited<ReturnType<typeof loadFlowSubmitHooks>>;
 	checkpointContext: SubmitCheckpointContext;
+	prDescriptionModelRef: string;
 	matrix: SubmitMatrixProgressController;
 	onOutput?: FlowLiveOutput;
 }) {
-	const { ctx, request, runtime, checksLoad, checkpointContext, matrix, onOutput } = input;
+	const {
+		ctx,
+		request,
+		runtime,
+		checksLoad,
+		checkpointContext,
+		prDescriptionModelRef,
+		matrix,
+		onOutput,
+	} = input;
 	matrix.begin();
 
 	try {
@@ -242,7 +259,7 @@ async function runSubmitWithProgress(input: {
 			restack: request.restack,
 			force: request.force,
 			shouldForwardCommandOutput: request.verbose,
-			prDescription: runtime.prDescription,
+			prDescription: { ...runtime.prDescription, modelRef: prDescriptionModelRef },
 			shouldRegenerateExistingPrDescriptions: request.regenerateDescriptions,
 			progress,
 			...(onOutput === undefined ? {} : { onOutput }),
@@ -332,7 +349,7 @@ async function maybeFormatSubmitFailureWithModel(
 	if (result.failurePresentation === "deterministic") {
 		return { ...result, stderr: formatFailureWithRawLog({ stderr: result.stderr, rawLog }) };
 	}
-	const model = await resolveFlowModelRef(ctx, "flow.submit-failure");
+	const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowSubmitFailure);
 	if (!model.ok)
 		return { ...result, stderr: formatFailureWithRawLog({ stderr: model.error, rawLog }) };
 	const interpretation = await generateSubmitFailureInterpretation({

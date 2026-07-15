@@ -3,6 +3,7 @@ import { defineCommand, failure, z, type NsCommand } from "@nseng-ai/sdk";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
+import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
 import { resolveFlowModelRef } from "../model-policy.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 
@@ -25,7 +26,7 @@ export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineComma
 		// Resolve caps at the host-extension seam (house-style §1) and thread them into the Flow CLI
 		// edge so autoslot durable outcomes render in the house style next to where facts are computed.
 		const caps = resolveFlowStreamCaps(ctx);
-		const model = await resolveFlowModelRef(ctx, "flow.checkpoint");
+		const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
 		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 		return await runFlowCli({
 			ctx,

@@ -18,6 +18,7 @@ import {
 	type CheckpointWorkflowResult,
 } from "../../checkpoint/checkpoint.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
+import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
 import { resolveFlowModelRef } from "../model-policy.ts";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
@@ -47,7 +48,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 		const runtime = createNsCheckpointRuntime(ctx);
 		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
 		if (request.dryRun) {
-			const model = await resolveFlowModelRef(ctx, "flow.checkpoint");
+			const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 			const result = await runCpCore({
 				cwd: ctx.cwd,
@@ -61,7 +62,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 			return toCommandResult(result);
 		}
 
-		const model = await resolveFlowModelRef(ctx, "flow.checkpoint");
+		const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
 		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 		const caps = resolveFlowStreamCaps(ctx);
 		return await runSettledPhaseStream({

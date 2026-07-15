@@ -545,8 +545,7 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 		...(fixture.defaults.missingTextGenerationResult === undefined
 			? {}
 			: { missingTextGenerationResult: fixture.defaults.missingTextGenerationResult }),
-		},
-	);
+	});
 	context.stdout = (text) => {
 		stdout.push(text);
 	};

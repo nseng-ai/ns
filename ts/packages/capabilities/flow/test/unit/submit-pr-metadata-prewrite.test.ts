@@ -18,7 +18,7 @@ import {
 	type TextGenerator,
 } from "../../src/submit/index.ts";
 
-const MODEL_ENV = { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/gpt-5.4-mini" };
+const MODEL_ENV = {};
 
 /**
  * One flat ordered trace of item transitions, active-operation snapshots, and fake work
@@ -120,6 +120,7 @@ describe("prewriteSubmitMetadata", () => {
 			env: MODEL_ENV,
 			git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 			descriptorSource: flowExtensionDescriptorSource,
+			modelRef: "openai-codex/gpt-5.6-luna",
 			textGenerator: tracingTextGenerator(trace, scripted),
 			gateway,
 			progress: traceListeners(trace),
@@ -172,6 +173,7 @@ describe("prewriteSubmitMetadata", () => {
 				env: MODEL_ENV,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				descriptorSource: flowExtensionDescriptorSource,
+				modelRef: "openai-codex/gpt-5.6-luna",
 				textGenerator: throwingGenerator,
 				gateway,
 				progress: traceListeners(trace),
@@ -197,6 +199,7 @@ describe("prewriteSubmitMetadata", () => {
 				env: MODEL_ENV,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				descriptorSource: flowExtensionDescriptorSource,
+				modelRef: "openai-codex/gpt-5.6-luna",
 				textGenerator: tracingTextGenerator(trace, scripted),
 				gateway,
 				progress: traceListeners(trace),
@@ -248,6 +251,7 @@ describe("prewriteSubmitMetadata", () => {
 			env: MODEL_ENV,
 			git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 			descriptorSource: flowExtensionDescriptorSource,
+			modelRef: "openai-codex/gpt-5.6-luna",
 			textGenerator: {
 				generateText: async () => {
 					throw new Error("unexpected generateText call");

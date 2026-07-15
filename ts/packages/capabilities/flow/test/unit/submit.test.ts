@@ -802,7 +802,8 @@ describe("runSubmitCommand", () => {
 				textGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				descriptorSource: flowExtensionDescriptorSource,
-				env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/gpt-5.4-mini" },
+				modelRef: "openai-codex/gpt-5.6-luna",
+				env: {},
 			},
 			progress: testSubmitProgress(submitMatrix),
 		});
@@ -886,6 +887,7 @@ describe("runSubmitCommand", () => {
 				textGenerator: unusedTextGenerator,
 				git: unusedGitGateway,
 				descriptorSource: flowExtensionDescriptorSource,
+				modelRef: "openai-codex/gpt-5.6-luna",
 				env: {},
 			},
 			progress: testSubmitProgress(),

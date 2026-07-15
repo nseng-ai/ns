@@ -111,6 +111,7 @@ describe("generateSubmitPrDescriptions", () => {
 				textGenerator: unusedTextGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				descriptorSource: flowExtensionDescriptorSource,
+				modelRef: "openai-codex/gpt-5.6-luna",
 				env: {},
 			},
 			progress: {
@@ -148,6 +149,7 @@ describe("generateSubmitPrDescriptions", () => {
 				textGenerator: unusedTextGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				descriptorSource: flowExtensionDescriptorSource,
+				modelRef: "openai-codex/gpt-5.6-luna",
 				env: {},
 			},
 			progress: {
@@ -175,7 +177,8 @@ describe("generateSubmitPrDescriptions", () => {
 				textGenerator,
 				git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 				descriptorSource: flowExtensionDescriptorSource,
-				env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/gpt-5.4-mini" },
+				modelRef: "openai-codex/gpt-5.6-luna",
+				env: {},
 			},
 			progress: {
 				onActiveOperations: (operations) => {
@@ -216,7 +219,8 @@ describe("generateSubmitPrDescriptions", () => {
 					textGenerator: throwingGenerator,
 					git: new InMemoryGitGateway({ repoRoot: "/repo" }),
 					descriptorSource: flowExtensionDescriptorSource,
-					env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/gpt-5.4-mini" },
+					modelRef: "openai-codex/gpt-5.6-luna",
+					env: {},
 				},
 				progress: {
 					onActiveOperations: (operations) => {

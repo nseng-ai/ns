@@ -146,7 +146,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).toContain("ns flow branch-latest-commit");
 		expect(output).toContain("latest eligible commit");
 		expect(output).not.toContain("eligible unpushed");
-		expect(output).toContain("NS_SLUG_MODEL");
+		expect(output).not.toContain("NS_SLUG_MODEL");
 		expect(output).toContain("NS_CHECKPOINT_MODEL");
 		expect(output).toContain("NS_DEV_CHECKPOINT_MODEL");
 		expect(help.stderr.join("")).toBe("");
@@ -177,7 +177,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).toContain("Usage: ns flow regenerate-pr");
 		expect(output).toContain("Regenerate the current branch PR title");
 		expect(output).toContain("--force");
-		expect(output).toContain("NS_DEV_PR_DESCRIPTION_MODEL");
+		expect(output).not.toContain("NS_DEV_PR_DESCRIPTION_MODEL");
 		expect(output).toContain("NS_DEV_PR_DESCRIPTION_PROMPT");
 		expect(help.stderr.join("")).toBe("");
 
@@ -199,7 +199,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).toContain("--no-restack");
 		expect(output).toContain("--force");
 		expect(output).toContain("--verbose");
-		expect(output).toContain("NS_DEV_PR_DESCRIPTION_MODEL");
+		expect(output).not.toContain("NS_DEV_PR_DESCRIPTION_MODEL");
 		expect(output).toContain("NS_SUBMIT_FAILURE_LOG_DIR");
 		expect(help.stderr.join("")).toBe("");
 	});

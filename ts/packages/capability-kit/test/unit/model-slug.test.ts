@@ -62,7 +62,7 @@ describe("generateRawTextWithModel", () => {
 		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("summary prompt"));
 	});
 
-	test("resolves an NS_SLUG_MODEL override and reports it in evidence", async () => {
+	test("resolves an explicit model reference and reports it in evidence", async () => {
 		const calls: ExecCall[] = [];
 		const result = await generateRawTextWithModel({
 			cwd: "/repo",
@@ -142,7 +142,7 @@ describe("deriveSlugWithModel", () => {
 		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("slug prompt"));
 	});
 
-	test("resolves an NS_SLUG_MODEL override and reports it in evidence", async () => {
+	test("resolves an explicit model reference and reports it in evidence", async () => {
 		const calls: ExecCall[] = [];
 		const result = await deriveSlugWithModel({
 			cwd: "/repo",
@@ -185,9 +185,7 @@ describe("deriveSlugWithModel", () => {
 		});
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
-			expect(result.failure.lines).toEqual([
-				"Invalid model reference: not-a-ref",
-			]);
+			expect(result.failure.lines).toEqual(["Invalid model reference: not-a-ref"]);
 		}
 		expect(calls).toHaveLength(0);
 	});
