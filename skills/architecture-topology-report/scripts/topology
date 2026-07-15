@@ -27,4 +27,8 @@ for arg in "$@"; do
   fi
 done
 
-exec node "$HERE/build-report.mjs" ${open_flag:+$open_flag} "${pass[@]}"
+if [[ -n "$open_flag" ]]; then
+  exec node "$HERE/build-report.mjs" "$open_flag" "${pass[@]-}"
+else
+  exec node "$HERE/build-report.mjs" "${pass[@]-}"
+fi
