@@ -130,7 +130,14 @@ to each rule's exceptions.
     fields, properties, or parameters that are explicitly typed as `boolean` or
     initialized to `true`/`false` but do not start with `is`, `has`, `should`,
     or `can`. Severity: `warning`. Do not flag external or wire-contract fields
-    where a non-predicate name is visibly required by the API.
+    where a non-predicate name is visibly required by the API. Do not flag
+    test-fixture failure-injection knobs following the established
+    `<verb>Fails` / `<verb>Throws` convention, such as `createFails`,
+    `createThrows`, `readThrows`, or `sandboxGatewayFactoryThrows`: in ns fakes
+    the `Fails` suffix means the fake returns a modeled `{ ok: false }` and the
+    `Throws` suffix means it raises, and fakes routinely declare both halves of
+    the pair for one operation. The suffix carries that seam distinction, so a
+    predicate prefix would obscure it rather than clarify it.
 14. **Unitless measured constants.** Flag measured constants whose names omit
     units, especially names such as `TIMEOUT`, `DELAY`, `INTERVAL`,
     `DURATION`, `MAX_SIZE`, `LIMIT`, or `MAX_PAYLOAD` that imply time or size

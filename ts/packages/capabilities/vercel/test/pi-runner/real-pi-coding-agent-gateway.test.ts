@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	buildWorkspacePiBinPath,
 	createRealPiCodingAgentGateway,
 	extractPiAgentRunResult,
-	prependWorkspacePiBinToPath,
 	type PiAgentSdkSession,
 	type PiAgentSessionSdk,
 } from "../../src/pi-runner/real-pi-coding-agent-gateway.ts";
@@ -88,15 +88,52 @@ describe("createRealPiCodingAgentGateway", () => {
 	});
 });
 
-describe("prependWorkspacePiBinToPath", () => {
+describe("buildWorkspacePiBinPath", () => {
+	const workspaceBin = "/checkout/ts/packages/capabilities/vercel/node_modules/.bin";
+
 	it("makes the checkout-local Pi executable discoverable by child processes", () => {
-		const env: Record<string, string | undefined> = { PATH: "/usr/bin:/bin" };
+		const path = buildWorkspacePiBinPath({
+			cwd: "/checkout",
+			currentPath: "/usr/bin:/bin",
+			pathDelimiter: ":",
+		});
 
-		prependWorkspacePiBinToPath({ cwd: "/checkout", env, pathDelimiter: ":" });
+		expect(path).toBe(`${workspaceBin}:/usr/bin:/bin`);
+	});
 
-		expect(env["PATH"]).toBe(
-			"/checkout/ts/packages/capabilities/vercel/node_modules/.bin:/usr/bin:/bin",
+	it("takes the workspace bin as the whole PATH when there is nothing to prepend to", () => {
+		expect(
+			buildWorkspacePiBinPath({ cwd: "/checkout", currentPath: undefined, pathDelimiter: ":" }),
+		).toBe(workspaceBin);
+		expect(buildWorkspacePiBinPath({ cwd: "/checkout", currentPath: "", pathDelimiter: ":" })).toBe(
+			workspaceBin,
 		);
+	});
+
+	it("leaves an already-led PATH unchanged so repeated sessions cannot grow it", () => {
+		const once = buildWorkspacePiBinPath({
+			cwd: "/checkout",
+			currentPath: "/usr/bin:/bin",
+			pathDelimiter: ":",
+		});
+
+		const twice = buildWorkspacePiBinPath({
+			cwd: "/checkout",
+			currentPath: once,
+			pathDelimiter: ":",
+		});
+
+		expect(twice).toBe(once);
+	});
+
+	it("still prepends when the workspace bin is present but not leading", () => {
+		const path = buildWorkspacePiBinPath({
+			cwd: "/checkout",
+			currentPath: `/usr/bin:${workspaceBin}`,
+			pathDelimiter: ":",
+		});
+
+		expect(path).toBe(`${workspaceBin}:/usr/bin:${workspaceBin}`);
 	});
 });
 

@@ -27,10 +27,10 @@ export interface ProductionFakeHarness {
 	readonly state: {
 		readonly preparedCommitSha: string | undefined;
 		readonly configurationCommitSha: string | undefined;
-		readonly promoted: boolean;
-		readonly disposed: boolean;
-		readonly deployed: boolean;
-		readonly oldOutputPresent: boolean;
+		readonly isPromoted: boolean;
+		readonly isDisposed: boolean;
+		readonly isDeployed: boolean;
+		readonly isOldOutputPresent: boolean;
 		readonly destinationFiles: readonly string[];
 	};
 }
@@ -51,10 +51,10 @@ export function createProductionDeploymentFake(
 	const operations: string[] = [];
 	let preparedCommitSha: string | undefined;
 	let configurationCommitSha: string | undefined;
-	let promoted = false;
-	let disposed = false;
-	let deployed = false;
-	let oldOutputPresent = true;
+	let isPromoted = false;
+	let isDisposed = false;
+	let isDeployed = false;
+	let isOldOutputPresent = true;
 	let destinationFiles = [
 		"current-artifact",
 		...(initial.staleDestinationFile === undefined ? [] : [initial.staleDestinationFile]),
@@ -117,8 +117,8 @@ export function createProductionDeploymentFake(
 									message: "Promotion failed.",
 								};
 							}
-							promoted = true;
-							oldOutputPresent = false;
+							isPromoted = true;
+							isOldOutputPresent = false;
 							destinationFiles = ["current-artifact"];
 							return { ok: true, artifactDigest: `sha256:${"b".repeat(64)}` };
 						},
@@ -127,7 +127,7 @@ export function createProductionDeploymentFake(
 							if (initial.cleanupFails) {
 								return { ok: false, message: "Workspace cleanup failed." };
 							}
-							disposed = true;
+							isDisposed = true;
 							return { ok: true };
 						},
 					},
@@ -146,7 +146,7 @@ export function createProductionDeploymentFake(
 		deployments: {
 			async deployPrebuiltProduction() {
 				operations.push("deploy");
-				deployed = true;
+				isDeployed = true;
 				if (initial.deployFailure === "definite") return { ok: false, message: "Deploy failed." };
 				const locator: VercelDeploymentLocator = { deploymentId: deployment.deploymentId };
 				return initial.deployFailure === "ambiguous"
@@ -180,17 +180,17 @@ export function createProductionDeploymentFake(
 			get configurationCommitSha() {
 				return configurationCommitSha;
 			},
-			get promoted() {
-				return promoted;
+			get isPromoted() {
+				return isPromoted;
 			},
-			get disposed() {
-				return disposed;
+			get isDisposed() {
+				return isDisposed;
 			},
-			get deployed() {
-				return deployed;
+			get isDeployed() {
+				return isDeployed;
 			},
-			get oldOutputPresent() {
-				return oldOutputPresent;
+			get isOldOutputPresent() {
+				return isOldOutputPresent;
 			},
 			get destinationFiles() {
 				return [...destinationFiles];

@@ -9,6 +9,19 @@ export const DISPATCH_STATUS_STREAM_NAMESPACE = "status";
 
 export type DispatchStatusStreamFactory = () => WritableStream<DispatchWorkflowEvent>;
 
+export interface DispatchEventWriterGateways {
+	readonly createStream: DispatchStatusStreamFactory;
+	readonly logSink: (serializedEvent: string) => void;
+}
+
+function defaultDispatchEventWriterGateways(): DispatchEventWriterGateways {
+	return {
+		createStream: () =>
+			getWritable<DispatchWorkflowEvent>({ namespace: DISPATCH_STATUS_STREAM_NAMESPACE }),
+		logSink: console.info,
+	};
+}
+
 /**
  * Publish one safe lifecycle event to both Function logs and the run's durable
  * status stream. The stream is operator-facing observability only: a storage
@@ -16,10 +29,9 @@ export type DispatchStatusStreamFactory = () => WritableStream<DispatchWorkflowE
  */
 export async function writeDispatchWorkflowEvent(
 	event: DispatchWorkflowEvent,
-	createStream: DispatchStatusStreamFactory = () =>
-		getWritable<DispatchWorkflowEvent>({ namespace: DISPATCH_STATUS_STREAM_NAMESPACE }),
-	logSink: (serializedEvent: string) => void = console.info,
+	gateways: DispatchEventWriterGateways = defaultDispatchEventWriterGateways(),
 ): Promise<void> {
+	const { createStream, logSink } = gateways;
 	emitDispatchWorkflowEvent(event, logSink);
 
 	let writer: WritableStreamDefaultWriter<DispatchWorkflowEvent> | undefined;

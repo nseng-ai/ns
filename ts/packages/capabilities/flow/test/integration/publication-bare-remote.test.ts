@@ -53,33 +53,22 @@ describe("Flow publication real adapters", () => {
 					NS_FLOW_TEST_PR_STATE: statePath,
 				};
 				const commands = new EnvironmentCommandExecApi(env);
+				const git = gitRunner(commands, repository);
 
-				await required(commands, repository, "git", ["init", "--bare", remote]);
-				await required(commands, repository, "git", ["init", "-b", FEATURE_BRANCH]);
-				await required(commands, repository, "git", ["config", "user.name", "Flow Test"]);
-				await required(commands, repository, "git", [
-					"config",
-					"user.email",
-					"flow-test@example.com",
-				]);
+				await git(["init", "--bare", remote]);
+				await git(["init", "-b", FEATURE_BRANCH]);
+				await git(["config", "user.name", "Flow Test"]);
+				await git(["config", "user.email", "flow-test@example.com"]);
 				await writeFile(join(repository, "evidence.txt"), "old\n");
-				await required(commands, repository, "git", ["add", "evidence.txt"]);
-				await required(commands, repository, "git", ["commit", "-m", "old"]);
-				const oldHead = (
-					await required(commands, repository, "git", ["rev-parse", "HEAD"])
-				).stdout.trim();
-				await required(commands, repository, "git", ["remote", "add", "origin", remote]);
-				await required(commands, repository, "git", [
-					"push",
-					"origin",
-					`${oldHead}:refs/heads/${FEATURE_BRANCH}`,
-				]);
+				await git(["add", "evidence.txt"]);
+				await git(["commit", "-m", "old"]);
+				const oldHead = (await git(["rev-parse", "HEAD"])).stdout.trim();
+				await git(["remote", "add", "origin", remote]);
+				await git(["push", "origin", `${oldHead}:refs/heads/${FEATURE_BRANCH}`]);
 				await writeFile(join(repository, "evidence.txt"), "new\n");
-				await required(commands, repository, "git", ["add", "evidence.txt"]);
-				await required(commands, repository, "git", ["commit", "-m", "new"]);
-				const newHead = (
-					await required(commands, repository, "git", ["rev-parse", "HEAD"])
-				).stdout.trim();
+				await git(["add", "evidence.txt"]);
+				await git(["commit", "-m", "new"]);
+				const newHead = (await git(["rev-parse", "HEAD"])).stdout.trim();
 
 				const client = createFlowBranchPublicationClient({ cwd: repository, commands });
 				const resolved = await client.resolveCurrentBranchTarget({ trunkBranch: "main" });
@@ -99,12 +88,7 @@ describe("Flow publication real adapters", () => {
 					}),
 				).toMatchObject({ type: "published", headOid: newHead });
 				const remoteHead = (
-					await required(commands, repository, "git", [
-						"--git-dir",
-						remote,
-						"rev-parse",
-						`refs/heads/${FEATURE_BRANCH}`,
-					])
+					await git(["--git-dir", remote, "rev-parse", `refs/heads/${FEATURE_BRANCH}`])
 				).stdout.trim();
 				expect(remoteHead).toBe(newHead);
 				const state = JSON.parse(await readFile(statePath, "utf8")) as PullRequestState;
@@ -121,15 +105,13 @@ describe("Flow publication real adapters", () => {
 	);
 });
 
-async function required(
-	commands: CommandExecApi,
-	cwd: string,
-	command: string,
-	args: string[],
-): Promise<ExecResult> {
-	const result = await commands.exec(command, args, { cwd, timeout: TEST_TIMEOUT_MS });
-	if (commandSucceeded(result)) return result;
-	throw new Error(`${command} ${args.join(" ")} failed: ${result.stderr}`);
+/** Bind a git runner to one checkout; every call must succeed or the test fails loudly. */
+function gitRunner(commands: CommandExecApi, cwd: string) {
+	return async function required(args: string[]): Promise<ExecResult> {
+		const result = await commands.exec("git", args, { cwd, timeout: TEST_TIMEOUT_MS });
+		if (commandSucceeded(result)) return result;
+		throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
+	};
 }
 
 async function writeGitHubShim(bin: string): Promise<void> {

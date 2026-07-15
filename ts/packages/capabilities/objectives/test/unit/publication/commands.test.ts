@@ -139,8 +139,8 @@ function authorization() {
 		version: 1,
 		invocationId: "run-1",
 		objectiveSlug: SLUG,
-		policyAttested: true,
-		launchConfirmed: true,
+		isPolicyAttested: true,
+		isLaunchConfirmed: true,
 		target: {
 			repository: "nseng-ai/ns",
 			pullRequestNumber: 42,

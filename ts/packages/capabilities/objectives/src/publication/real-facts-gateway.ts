@@ -70,7 +70,7 @@ class RealObjectiveRunnerPublicationFactsGateway implements ObjectiveRunnerPubli
 	}): Promise<PublicationFactsResult<PublicationCommitFacts>> {
 		const ancestry = await this.runGit(
 			["merge-base", "--is-ancestor", input.lastPublishedHead, input.intendedPublishedHead],
-			true,
+			{ isExitOneAllowed: true },
 		);
 		if (!ancestry.ok) return ancestry;
 		const isAncestor = ancestry.value.code === 0;
@@ -138,13 +138,17 @@ class RealObjectiveRunnerPublicationFactsGateway implements ObjectiveRunnerPubli
 
 	private async runGit(
 		args: string[],
-		allowExitOne = false,
+		options: { readonly isExitOneAllowed?: boolean } = {},
 	): Promise<PublicationFactsResult<Extract<ExecResult, { type: "exited" }>>> {
+		const isExitOneAllowed = options.isExitOneAllowed ?? false;
 		const result = await this.options.commands.exec("git", args, {
 			cwd: this.options.cwd,
 			timeout: READ_TIMEOUT_MS,
 		});
-		if (result.type === "exited" && (result.code === 0 || (allowExitOne && result.code === 1))) {
+		if (
+			result.type === "exited" &&
+			(result.code === 0 || (isExitOneAllowed && result.code === 1))
+		) {
 			return { ok: true, value: result };
 		}
 		return failure(

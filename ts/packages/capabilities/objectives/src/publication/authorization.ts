@@ -77,8 +77,8 @@ export async function bindObjectiveRunnerPublication(
 			version: 1,
 			invocationId: parsed.data.invocationId,
 			objectiveSlug: parsed.data.objectiveSlug,
-			policyAttested: true,
-			launchConfirmed: true,
+			isPolicyAttested: true,
+			isLaunchConfirmed: true,
 			target: parsed.data.target,
 			launchHead: parsed.data.launchHead,
 			lastPublishedHead: parsed.data.remoteHead,
@@ -167,12 +167,12 @@ export async function recheckObjectiveRunnerPublication(
 		intendedPublishedHead: summary.data.publishedHead,
 	});
 	if (!commits.ok) return refusal("commit-facts-failed", commits.error.message);
-	const commitRefusal = validateCommits(
-		authorization.data,
-		summary.data,
-		checkpoint.data,
-		commits.value,
-	);
+	const commitRefusal = validateCommits({
+		authorization: authorization.data,
+		summary: summary.data,
+		checkpoint: checkpoint.data,
+		facts: commits.value,
+	});
 	if (commitRefusal !== null) return commitRefusal;
 
 	return {
@@ -223,12 +223,13 @@ function validateTarget(
 	return null;
 }
 
-function validateCommits(
-	authorization: ObjectiveRunnerPublicationAuthorizationV1,
-	summary: ObjectiveRunnerCumulativeSummaryV1,
-	checkpoint: ObjectiveRunnerPublicationCheckpoint,
-	facts: PublicationCommitFacts,
-): PublicationAuthorizationResult<never> | null {
+function validateCommits(options: {
+	readonly authorization: ObjectiveRunnerPublicationAuthorizationV1;
+	readonly summary: ObjectiveRunnerCumulativeSummaryV1;
+	readonly checkpoint: ObjectiveRunnerPublicationCheckpoint;
+	readonly facts: PublicationCommitFacts;
+}): PublicationAuthorizationResult<never> | null {
+	const { authorization, summary, checkpoint, facts } = options;
 	if (
 		facts.lastPublishedHead !== authorization.lastPublishedHead ||
 		facts.intendedPublishedHead !== summary.publishedHead ||

@@ -16,7 +16,7 @@ describe("production deployment workflow", () => {
 		const { fake, result } = await run({ isDirty: true });
 		expect(result).toMatchObject({ ok: false, code: "dirty-repository" });
 		expect(fake.operations).toEqual(["inspect-source"]);
-		expect(fake.state.promoted).toBe(false);
+		expect(fake.state.isPromoted).toBe(false);
 	});
 
 	it("binds workspace preparation and tracked configuration to the captured SHA", async () => {
@@ -40,7 +40,7 @@ describe("production deployment workflow", () => {
 		const { fake, result } = await run({ buildFails: true });
 		expect(result).toMatchObject({ ok: false, code: "source-build-failed" });
 		expect(fake.operations).toContain("dispose-workspace");
-		expect(fake.state.disposed).toBe(true);
+		expect(fake.state.isDisposed).toBe(true);
 	});
 
 	it.each(["head", "dirty"] as const)(
@@ -48,7 +48,7 @@ describe("production deployment workflow", () => {
 		async (sourceRevalidationFails) => {
 			const { fake, result } = await run({ sourceRevalidationFails });
 			expect(result).toMatchObject({ ok: false, code: "source-build-failed" });
-			expect(fake.state).toMatchObject({ promoted: false, disposed: true, deployed: false });
+			expect(fake.state).toMatchObject({ isPromoted: false, isDisposed: true, isDeployed: false });
 		},
 	);
 
@@ -62,13 +62,13 @@ describe("production deployment workflow", () => {
 		});
 		const { fake, result } = await run({ configuration });
 		expect(result).toMatchObject({ ok: false, code: "project-identity-mismatch" });
-		expect(fake.state.disposed).toBe(true);
+		expect(fake.state.isDisposed).toBe(true);
 	});
 
 	it("rejects stale or missing manifest inventory and disposes the workspace", async () => {
 		const { fake, result } = await run({ promotionFailure: "verification" });
 		expect(result).toMatchObject({ ok: false, code: "invalid-artifact" });
-		expect(fake.state).toMatchObject({ oldOutputPresent: true, disposed: true });
+		expect(fake.state).toMatchObject({ isOldOutputPresent: true, isDisposed: true });
 	});
 
 	it("leaves the destination untouched when staging copy fails", async () => {
@@ -78,17 +78,21 @@ describe("production deployment workflow", () => {
 		});
 		expect(result).toMatchObject({ ok: false, code: "promotion-failed" });
 		expect(fake.state).toMatchObject({
-			promoted: false,
-			oldOutputPresent: true,
+			isPromoted: false,
+			isOldOutputPresent: true,
 			destinationFiles: ["current-artifact", "stale-artifact"],
-			disposed: true,
+			isDisposed: true,
 		});
 	});
 
 	it("restores the old destination when final installation fails after backup", async () => {
 		const { fake, result } = await run({ promotionFailure: "install" });
 		expect(result).toMatchObject({ ok: false, code: "promotion-failed" });
-		expect(fake.state).toMatchObject({ promoted: false, oldOutputPresent: true, disposed: true });
+		expect(fake.state).toMatchObject({
+			isPromoted: false,
+			isOldOutputPresent: true,
+			isDisposed: true,
+		});
 	});
 
 	it("removes stale destination inventory through clean staged replacement", async () => {
@@ -97,16 +101,20 @@ describe("production deployment workflow", () => {
 		expect(fake.state.destinationFiles).toEqual(["current-artifact"]);
 	});
 
-	it("prevents upload when cleanup fails after promotion and retains promoted output", async () => {
+	it("prevents upload when cleanup fails after promotion and retains isPromoted output", async () => {
 		const { fake, result } = await run({ cleanupFails: true });
 		expect(result).toMatchObject({ ok: false, code: "source-build-failed" });
-		expect(fake.state).toMatchObject({ promoted: true, deployed: false, disposed: false });
+		expect(fake.state).toMatchObject({ isPromoted: true, isDeployed: false, isDisposed: false });
 	});
 
-	it("cleans before deploy and retains promoted output after deploy failure", async () => {
+	it("cleans before deploy and retains isPromoted output after deploy failure", async () => {
 		const { fake, result } = await run({ deployFailure: "definite" });
 		expect(result).toMatchObject({ ok: false, code: "deploy-failed" });
-		expect(fake.state).toMatchObject({ promoted: true, oldOutputPresent: false, disposed: true });
+		expect(fake.state).toMatchObject({
+			isPromoted: true,
+			isOldOutputPresent: false,
+			isDisposed: true,
+		});
 		expect(fake.operations.indexOf("dispose-workspace")).toBeLessThan(
 			fake.operations.indexOf("deploy"),
 		);
@@ -115,7 +123,7 @@ describe("production deployment workflow", () => {
 	it("rejects an alias pointing at another immutable deployment", async () => {
 		const { fake, result } = await run({ aliasDeploymentId: "dpl_other" });
 		expect(result).toMatchObject({ ok: false, code: "alias-mismatch" });
-		expect(fake.state.promoted).toBe(true);
+		expect(fake.state.isPromoted).toBe(true);
 	});
 
 	it("recovers an ambiguous deploy transport failure by inspecting its locator", async () => {
