@@ -1,4 +1,10 @@
 import {
+	MODEL_OPERATION_IDS,
+	loadModelPolicy,
+	resolveModelOperation,
+} from "@nseng-ai/capability-kit/model-policy";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import {
 	dispatchTrackedSingleSubagentFleetRun,
 	resultDiagnostic,
 	type RunnerSubagentResult,
@@ -13,7 +19,6 @@ import { toRunnerSubagentContext } from "./host-api.ts";
 import { renderReviewGuidanceBlock } from "./prompt.ts";
 import type { ThermoCouncilRunContext } from "./run-context.ts";
 
-const SYNTHESIS_MODEL_ENV = "THERMO_COUNCIL_SYNTHESIS_MODEL";
 const MAX_SYNTHESIS_SOURCE_CHARS = 120_000;
 
 export interface SynthesizeThermoCouncilFinalReportOptions extends ThermoCouncilRunContext {
@@ -45,7 +50,10 @@ export async function synthesizeThermoCouncilFinalReport({
 		return { type: "completed", report: deterministicReport };
 	}
 
-	const model = synthesisModelFromEnv(process.env);
+	const policy = loadModelPolicy({ repoRoot: ctx.cwd, gateway: nodeProjectConfigGateway });
+	if (!policy.ok) return { type: "failed", status: "error", diagnostic: policy.error.message };
+	const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.thermoCouncilSynthesis);
+	if (!resolved.ok) return { type: "failed", status: "error", diagnostic: resolved.error.message };
 	const result = await dispatchTrackedSingleSubagentFleetRun({
 		pi,
 		ctx: toRunnerSubagentContext(ctx),
@@ -63,7 +71,7 @@ export async function synthesizeThermoCouncilFinalReport({
 				...(reviewGuidance === undefined ? {} : { reviewGuidance }),
 			}),
 			tools: [],
-			...(model === undefined ? {} : { model }),
+			model: resolved.value.modelRef,
 		},
 	});
 
@@ -75,11 +83,6 @@ export async function synthesizeThermoCouncilFinalReport({
 	}
 
 	return synthesisFailureFromRunnerResult(result);
-}
-
-function synthesisModelFromEnv(env: NodeJS.ProcessEnv): string | undefined {
-	const value = env[SYNTHESIS_MODEL_ENV]?.trim();
-	return value === undefined || value.length === 0 ? undefined : value;
 }
 
 function buildFinalSynthesisPrompt(input: {

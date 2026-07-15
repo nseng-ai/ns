@@ -1,8 +1,4 @@
-import {
-	DEFAULT_FAST_MODEL,
-	DEFAULT_FAST_MODEL_REF,
-	parseModelRef,
-} from "@nseng-ai/foundation/model-slug";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,7 +18,6 @@ import { unrefTimerScheduler } from "./timers.ts";
 
 export const HARNESS_ENV = "PI_DRAFT_HARNESS";
 export const DEFAULT_HARNESS = "codex-pi";
-export const DRAFT_MODEL_ENV = "PI_DRAFT_MODEL";
 export const CLAUDE_CLI_MODEL = "claude-haiku-4-5";
 
 const CLAUDE_CLI_LABEL = "Claude CLI";
@@ -60,6 +55,7 @@ export interface FastTextDraftInput {
 	progressMessage: (harnessLabel: string) => string;
 	taskNoun: string;
 	maxTokens?: number;
+	modelRef?: string;
 }
 
 export interface PiModelConfig {
@@ -89,37 +85,23 @@ export function selectDraftHarness(): { value: DraftHarness } | { error: string 
 	};
 }
 
-export function resolveCodexDraftModel(env: Record<string, string | undefined>): {
-	value: PiModelConfig;
-	warning?: string;
-} {
-	if (!env[DRAFT_MODEL_ENV]?.trim()) {
-		return { value: CODEX_DEFAULT_CONFIG };
-	}
-
-	const modelRef = env[DRAFT_MODEL_ENV]?.trim() || DEFAULT_FAST_MODEL_REF;
-	const parsed = parseModelRef(modelRef);
-	if (parsed === undefined) {
-		return {
-			value: CODEX_DEFAULT_CONFIG,
-			warning: `Invalid ${DRAFT_MODEL_ENV} model reference. Using ${DEFAULT_FAST_MODEL_REF}.`,
-		};
-	}
-
-	const { provider, modelId } = parsed;
+export function resolveCodexDraftModel(modelRef?: string): PiModelConfig {
+	if (modelRef === undefined) return CODEX_DEFAULT_CONFIG;
+	const separator = modelRef.indexOf("/");
+	if (separator <= 0 || separator === modelRef.length - 1) return CODEX_DEFAULT_CONFIG;
+	const provider = modelRef.slice(0, separator);
+	const modelId = modelRef.slice(separator + 1);
 	return {
-		value: {
-			provider,
-			modelId,
-			label: `${provider}/${modelId}`,
-			authLabel: provider === DEFAULT_FAST_MODEL.provider ? "Codex" : provider,
-			reasoning: "minimal",
-		},
+		provider,
+		modelId,
+		label: `${provider}/${modelId}`,
+		authLabel: provider === DEFAULT_FAST_MODEL.provider ? "Codex" : provider,
+		reasoning: "minimal",
 	};
 }
 
-export function resolveClaudeCliDraftModel(env: Record<string, string | undefined>): string {
-	return env[DRAFT_MODEL_ENV]?.trim() || CLAUDE_CLI_MODEL;
+export function resolveClaudeCliDraftModel(): string {
+	return CLAUDE_CLI_MODEL;
 }
 
 export async function draftWithFastText(
@@ -128,11 +110,7 @@ export async function draftWithFastText(
 	input: FastTextDraftInput,
 ): Promise<{ output: string } | { error: string }> {
 	if (input.harness === "codex-pi") {
-		const resolved = resolveCodexDraftModel(process.env);
-		if (resolved.warning !== undefined) {
-			ctx.ui.notify(resolved.warning, "warning");
-		}
-		return draftWithPiModel(ctx, resolved.value, input);
+		return draftWithPiModel(ctx, resolveCodexDraftModel(input.modelRef), input);
 	}
 	return draftWithClaudeCli(createPiCommandExecApi(pi), ctx, input);
 }
@@ -187,7 +165,7 @@ async function draftWithClaudeCli(
 	ctx: ExtensionCommandContext,
 	input: FastTextDraftInput,
 ): Promise<{ output: string } | { error: string }> {
-	const model = resolveClaudeCliDraftModel(process.env);
+	const model = resolveClaudeCliDraftModel();
 	const tempDir = await mkdtemp(join(tmpdir(), "pi-draft-"));
 	try {
 		const systemPromptPath = join(tempDir, "system-prompt.txt");

@@ -69,8 +69,8 @@ describe("checked-in flow ns extension loading", () => {
 		const output = help.stdout.join("");
 		expect(output).toContain("Usage: ns flow changes");
 		expect(output).toContain("read-only git commands");
-		expect(output).toContain("NS_CHANGES_MODEL");
-		expect(output).toContain("PI_DRAFT_MODEL");
+		expect(output).not.toContain("NS_CHANGES_MODEL");
+		expect(output).not.toContain("PI_DRAFT_MODEL");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "changes", "--json-schema"], cwd });
