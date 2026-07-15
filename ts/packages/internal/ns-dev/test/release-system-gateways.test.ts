@@ -81,22 +81,12 @@ describe("release system command gateways", () => {
 			step("pnpm", ["--dir", "ts", "run", "release:bump-version", "1.2.3"], exitedResult()),
 			step(
 				"pnpm",
-				["--dir", "ts", "run", "release:qualify-public", "--all", "--version", "1.2.3"],
+				["--dir", "ts", "run", "release:qualify-public", "-a", "-v", "1.2.3"],
 				exitedResult(),
 			),
 			step(
 				"pnpm",
-				[
-					"--dir",
-					"ts",
-					"run",
-					"release:verify-public",
-					"--version",
-					"1.2.3",
-					"--strict",
-					"--candidate-report",
-					"report.json",
-				],
+				["--dir", "ts", "run", "release:verify-public", "-v", "1.2.3", "-s", "-c", "report.json"],
 				exitedResult(),
 			),
 		]);
