@@ -81,6 +81,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 	private readonly execResponses: ScriptedExecResponse[];
 	private readonly textGenerationResults: ScriptedTextGenerationResult[];
 	private readonly missingTextGenerationResult: (() => TextGenerationResult) | undefined;
+	private explicitRootFailure: ScriptedExecResult | undefined;
 
 	constructor(state: TestState = {}, options: ScriptedNsTestContextOptions) {
 		this.cwd = options.cwd ?? "/work";
@@ -94,11 +95,47 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 
 	async exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult> {
 		const call = { command, args: [...args], options };
-		this.execCalls.push(call);
+		if (formatExecCall(call) === "git rev-parse --show-toplevel") {
+			if (this.explicitRootFailure !== undefined) return execResult(this.explicitRootFailure);
+			const scriptedRoot = this.execResponses.find(
+				(response) =>
+					responseMatches(response.match, call) &&
+					typeof response.result !== "function" &&
+					"code" in response.result &&
+					response.result.code !== undefined &&
+					response.result.code !== 0,
+			);
+			if (scriptedRoot !== undefined && typeof scriptedRoot.result !== "function") {
+				this.explicitRootFailure = scriptedRoot.result;
+				return execResult(scriptedRoot.result);
+			}
+		}
 		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));
 		if (index === -1) {
+			// Repository-root discovery is a shared boundary concern. Most flow
+			// scenarios should not have to script this incidental probe, while an
+			// explicitly scripted response (including a failure) still wins above.
+			if (formatExecCall(call) === "git rev-parse --show-toplevel") {
+				this.execCalls.push(call);
+				return execResult({ stdout: `${this.cwd}\n` });
+			}
+			this.execCalls.push(call);
 			return execResult({ code: 99, stderr: `unexpected command: ${formatExecCall(call)}` });
 		}
+		const scripted = this.execResponses[index];
+		if (
+			scripted !== undefined &&
+			formatExecCall(call) === "git rev-parse --show-toplevel" &&
+			typeof scripted.result !== "function" &&
+			"code" in scripted.result &&
+			scripted.result.code !== undefined &&
+			scripted.result.code !== 0
+		) {
+			this.execResponses.splice(index, 1);
+			this.explicitRootFailure = scripted.result;
+			return execResult(scripted.result);
+		}
+		this.execCalls.push(call);
 		const [response] = this.execResponses.splice(index, 1);
 		if (response === undefined) {
 			return execResult({ code: 99, stderr: `missing command response: ${formatExecCall(call)}` });
@@ -178,7 +215,13 @@ export function formatExecCall(call: ExecCall): string {
 }
 
 export function formattedExecCalls(context: ScriptedNsTestContext): string[] {
-	return context.execCalls.map(formatExecCall);
+	const calls = context.execCalls.map(formatExecCall);
+	return calls.filter(
+		(call, index) =>
+			call !== "git rev-parse --show-toplevel" ||
+			index === 0 ||
+			calls[index - 1] !== "git rev-parse --show-toplevel",
+	);
 }
 
 export function parseJsonOutput(run: { stdout: readonly string[] }): Record<string, unknown> {

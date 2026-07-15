@@ -44,7 +44,7 @@ describe("checked-in flow ns extension loading", () => {
 			args: ["flow", "cp"],
 			cwd,
 			state: {
-				exec: dirtyCpExecResponses(),
+				exec: dirtyCpExecResponses(cwd),
 				textGeneration: [
 					{
 						ok: true,
@@ -280,9 +280,10 @@ function runWithRealFlowExtension(options: {
 	);
 }
 
-function dirtyCpExecResponses(): ScriptedExecResponse[] {
+function dirtyCpExecResponses(cwd: string): ScriptedExecResponse[] {
 	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
 		{
@@ -298,7 +299,7 @@ function dirtyCpExecResponses(): ScriptedExecResponse[] {
 
 function successfulSubmitResponses(cwd: string): ScriptedExecResponse[] {
 	return [
-		...cleanCheckpointResponses(),
+		...cleanCheckpointResponses(cwd),
 		{
 			match:
 				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
@@ -323,7 +324,7 @@ function successfulSubmitResponses(cwd: string): ScriptedExecResponse[] {
 			result: { stdout: prJson({ body: "Hand edited body" }) },
 		},
 		{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
 		{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
 		{
 			match: "git patch-id --stable",
@@ -333,9 +334,10 @@ function successfulSubmitResponses(cwd: string): ScriptedExecResponse[] {
 	];
 }
 
-function cleanCheckpointResponses(): ScriptedExecResponse[] {
+function cleanCheckpointResponses(cwd: string): ScriptedExecResponse[] {
 	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${cwd}\n` } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },

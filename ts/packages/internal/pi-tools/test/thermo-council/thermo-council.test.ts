@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 
 import type {
@@ -166,10 +169,10 @@ interface FakeCommandContext {
 	waitForIdle(): Promise<void>;
 }
 
-function fakeContext(): FakeCommandContext {
+function fakeContext(cwd = "/repo"): FakeCommandContext {
 	const statuses: string[] = [];
 	return {
-		cwd: "/repo",
+		cwd,
 		ui: {
 			statuses,
 			setStatus(_key, value) {
@@ -488,6 +491,30 @@ describe("thermo council extension", () => {
 		expect(finalSynthesisPrompt).toContain("no-tool/no-mutation requirements");
 		expect(finalSynthesisPrompt).toContain("structured reviewer outcome data");
 		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
+	});
+
+	test("uses the model-policy operation for final synthesis and defaults to fast", async () => {
+		const runnerResult = completedRunnerResult();
+		const pi = new FakePi({ execResults: successfulScopeExecResults(), runnerResult });
+		thermoCouncilExtension(pi);
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
+		expect(pi.runnerCalls[3]?.args).toContain("--model");
+		expect(pi.runnerCalls[3]?.args).toContain("openai-codex/gpt-5.6-luna");
+
+		const repoRoot = await mkdtemp(join(tmpdir(), "thermo-policy-"));
+		await writeFile(
+			join(repoRoot, "ns.toml"),
+			'[models.profiles]\nslow = "acme/synthesis"\n[models.operations]\n"thermo-council.synthesis" = "slow"\n',
+		);
+		const configuredExecResults = successfulScopeExecResults();
+		configuredExecResults.set("git rev-parse --show-toplevel", { stdout: `${repoRoot}\n` });
+		const configured = new FakePi({ execResults: configuredExecResults, runnerResult });
+		thermoCouncilExtension(configured);
+		await configured.commands
+			.get(THERMO_COUNCIL_COMMAND_NAME)
+			?.handler("origin/master", fakeContext(repoRoot));
+		expect(configured.runnerCalls[3]?.args).toContain("acme/synthesis");
+		expect(configured.runnerCalls[3]?.args).not.toContain("openai-codex/gpt-5.6-luna");
 	});
 
 	test("launches three read-only terminal-capture reviewer seats and renders a report", async () => {

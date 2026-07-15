@@ -95,7 +95,7 @@ inspection command. Flow uses `slug`, `flow.checkpoint`, `flow.changes`,
 fast = "openai-codex/gpt-5.6-luna"
 
 [models.operations]
-flow.pr-description = "fast"
+"flow.pr-description" = "fast"
 ```
 
 Prompt content is configured separately from model identity through the prompt points

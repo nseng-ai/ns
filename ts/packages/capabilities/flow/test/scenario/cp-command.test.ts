@@ -310,7 +310,7 @@ describe("project-local cp extension behavior", () => {
 		]);
 	});
 
-	test("snapshot git failures exit with typed diagnostics", async () => {
+	test("repository and snapshot git failures exit with typed diagnostics", async () => {
 		const notGit = runCpWithFakes({
 			state: {
 				exec: [
@@ -324,7 +324,7 @@ describe("project-local cp extension behavior", () => {
 
 		expect(await notGit.exit).toBe(2);
 		expect(notGit.stderr.join("")).toBe(
-			"error: Not inside a git repository.\nexit code 128: fatal: not a git repository\n",
+			"error: Could not determine the repository root for ns.toml.\n",
 		);
 		expect(notGit.context.textGeneratorCalls).toEqual([]);
 

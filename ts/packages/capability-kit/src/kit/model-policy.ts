@@ -6,7 +6,6 @@ import {
 import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
 import {
 	getProjectConfigSetting,
-	loadProjectConfig,
 	parseProjectConfigToml,
 	type ProjectConfigDiagnostic,
 	type ProjectConfigGateway,
@@ -88,14 +87,15 @@ export function loadModelPolicy(request: {
 	repoRoot: string;
 	gateway: ProjectConfigGateway;
 }): ModelPolicyResult<ModelPolicy> {
-	const result = loadProjectConfig({
+	const readResult = request.gateway.readTextFile({
 		repoRoot: request.repoRoot,
-		gateway: request.gateway,
-		pointDefinitions: [],
-		settingsSchemas: [modelPolicySettingsSchema],
+		relativePath: "ns.toml",
 	});
-	if (result.ok === false) return modelPolicyErrorFromDiagnostics(result.diagnostics, "ns.toml");
-	return modelPolicyFromSettings(getProjectConfigSetting(result.config, modelPolicySettingsSchema));
+	if (readResult.type === "missing") return modelPolicyFromSettings(undefined);
+	if (readResult.type === "error") {
+		return resultErrOf("invalid-toml", `Failed to read ns.toml: ${readResult.message}`);
+	}
+	return parseModelPolicyToml(readResult.text, "ns.toml");
 }
 
 export function resolveModelOperation(

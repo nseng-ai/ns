@@ -40,6 +40,21 @@ describe("model policy", () => {
 			});
 	});
 
+	test("rejects empty operation keys and invalid or empty profile names", () => {
+		expect(parseModelPolicyToml('[models.operations]\n"" = "fast"')).toMatchObject({
+			ok: false,
+			error: { code: "invalid-model-policy" },
+		});
+		expect(parseModelPolicyToml('[models.profiles]\n"" = "acme/fast"')).toMatchObject({
+			ok: false,
+			error: { code: "invalid-model-policy" },
+		});
+		expect(parseModelPolicyToml('[models.profiles]\n"  " = "acme/fast"')).toMatchObject({
+			ok: false,
+			error: { code: "invalid-model-policy" },
+		});
+	});
+
 	test("rejects dangling profiles, malformed tables, and malformed refs", () => {
 		expect(parseModelPolicyToml('[models.operations]\nfoo = "missing"')).toMatchObject({
 			ok: false,
@@ -52,6 +67,21 @@ describe("model policy", () => {
 		expect(parseModelPolicyToml('[models.profiles]\nfast = "not-qualified"')).toMatchObject({
 			ok: false,
 			error: { code: "invalid-model-policy" },
+		});
+	});
+
+	test("loads model settings without validating unrelated point installations", () => {
+		const gateway: ProjectConfigGateway = {
+			readTextFile: () => ({
+				type: "found",
+				text: '[models.profiles]\nfast = "acme/fast"\n[points]\n"flow.submit.pre" = ["just"]\n',
+			}),
+			pathExists: () => ({ type: "missing" }),
+		};
+
+		expect(loadModelPolicy({ repoRoot: "/repo", gateway })).toMatchObject({
+			ok: true,
+			value: { profiles: { fast: { provider: "acme", modelId: "fast" } } },
 		});
 	});
 

@@ -128,7 +128,7 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(calls).not.toContain("git rev-list --parents -n 1 HEAD");
 	});
 
-	test("snapshot load failure exits 1 on stderr with a failure block", async () => {
+	test("repository root failure stops slug policy resolution", async () => {
 		const exec: ScriptedExecResponse[] = [
 			{
 				match: "git rev-parse --show-toplevel",
@@ -139,11 +139,9 @@ describe("flow branch-latest-commit command outcomes", () => {
 
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
-		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("Not inside a git repository.");
-		expect(stderr).toContain("Command: git rev-parse --show-toplevel");
-		// The git failure transcript promotes the salient cause line.
-		expect(stderr).toContain("fatal: not a git repository");
+		expect(stripAnsi(run.stderr.join(""))).toContain(
+			"Could not determine the repository root for ns.toml.",
+		);
 	});
 
 	test("suffixes when the requested branch exists exactly", async () => {

@@ -346,7 +346,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(stderr).toContain("Could not resolve current branch PR.");
 		expect(stderr).toContain("Could not read GitHub PR details.");
 		expect(stderr).toContain("Cwd: /work");
-		expect(run.context.execCalls).toHaveLength(1);
+		expect(run.context.execCalls).toHaveLength(2);
 	});
 
 	test("PR description generation receives the resolved model reference explicitly", async () => {

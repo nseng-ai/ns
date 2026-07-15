@@ -115,6 +115,12 @@ export class FakePi implements ExtensionAPI {
 			this.defaultBranchAvailabilityProbeCalls.push({ command, args: [...args], options });
 			return defaultResult;
 		}
+		if (command === "git" && sameArgs(args, ["rev-parse", "--show-toplevel"])) {
+			const next = this.script.peek();
+			if (next === undefined || next.command !== "git" || !sameArgs(next.args, args)) {
+				return execResult({ stdout: `${ROOT}\n` });
+			}
+		}
 		this.execCalls.push({ command, args: [...args], options });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
