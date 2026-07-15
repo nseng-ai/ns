@@ -76,6 +76,14 @@ The Flow ownership boundary for submit, PR description regeneration, Graphite su
 The typed, renderer-independent result of inspecting the Graphite submit scope after readiness and any required restack, containing stack branches, existing PR links, upstack status, and the partition of branches eligible or ineligible for metadata prewrite.
 *Avoid*: stale pre-checkpoint topology, command transcript, metadata generation result, submit execution result
 
+**Flow Minimal Submit Client**:
+The narrow two-phase **Flow Capability API** client for read-only planning and clean-tree cheap execution of current/downstack Graphite publication. It reports structured stages and conservative local/remote mutation evidence while keeping submit gateways, runtime wiring, progress matrices, metadata, and prose generation private.
+*Avoid*: full submit runtime API, Graphite display-prose parser, ship pipeline, metadata-free alias for default submit
+
+**Minimal Submit Plan**:
+The read-only tracked-source result produced by the **Flow Minimal Submit Client**, containing the verified source, Graphite trunk, and affected current plus non-trunk downstack branches. Definitive untracked state is distinct from provider or topology failure.
+*Avoid*: authorization, mutation result, arbitrary Git ancestry, upstack PR-update scope
+
 **Flow Autobranch Boundary**:
 The Flow ownership boundary for public `ns flow autobranch` behavior and the compatibility path consumed by the cmux capability through **Flow Capability API**.
 *Avoid*: cmux capability public command owner, plain branch helper, Graphite primitive
