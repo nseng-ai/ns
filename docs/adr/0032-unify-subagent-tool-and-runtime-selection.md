@@ -14,13 +14,17 @@ The package also has two useful execution architectures. Subprocess children pro
 
 ## Decision
 
-Register one model-visible Pi tool named `subagent`. Its stable input chooses an agent type, one or more tasks, an optional execution architecture, and an optional model override. The initial agent types are `explorer` and `task`.
+Register one model-visible Pi tool named `subagent`. Its stable input chooses an agent type, one or more tasks, an optional execution architecture, and model routing governed as described in the current-policy note below. The initial agent types are `explorer` and `task`.
 
 Agent types are registered before the tool through an immutable typed Agent Registry. Each Agent Descriptor owns executable behavioral policy: task bounds and concurrency, permissions, prompt-context policy, model policy, result bounds, supported runtimes, and deterministic runtime preference. Markdown agent definitions continue to own child prompt and parent-steering prose and must declare `toolName: subagent`.
 
 Execution is selected independently through a Runtime Registry. Runtime adapters own subprocess or in-process mechanics; descriptors only declare compatibility and preference. Omitted or `auto` execution follows descriptor preference and initially chooses subprocess for both built-ins. An explicit supported runtime override is allowed, but cannot alter descriptor permissions. In-process execution uses the production Pi SDK with persistent child sessions, disables extensions to prevent recursion, retains skills and context-file discovery, and disables delegated prompt-template expansion.
 
 The migration is a hard cut: no `explore` or `forked_pi_agent` compatibility aliases remain. Lower-level `RunnerSubagent*`, `dispatchRunnerSubagent`, and `SubagentRuntime.dispatch` APIs remain valid substrate vocabulary and interfaces for direct consumers, including terminal-capture users.
+
+## Current model-routing policy
+
+The original optional free-form model override has been superseded for this model-visible interface. Omission applies descriptor policy: implementation `task` children inherit the parent provider, model, and thinking policy, while explorers retain descriptor-owned cheap-or-inherit routing. The only caller-selected implementation route is the closed `routing: "cheap"` intent, resolved before dispatch to an approved model within the parent's concrete provider; missing mappings inherit, and launch failure never authorizes reactive rerouting. Trusted lower-level `dispatchRunnerSubagent` consumers may retain explicit typed model mechanics for separate contracts.
 
 ## Consequences
 

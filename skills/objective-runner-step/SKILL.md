@@ -40,7 +40,7 @@ Flags on begin:
 - `--guidance <value>` — parent judgment woven into the subagent prompt. A value starting with `@` is always a file path (resolved against the current directory; unreadable file is a usage error); otherwise inline text. Valid in both modes.
 - `--report-path <path>` — where the subagent must write its JSON report. Must not already exist and must resolve outside the repository worktree; every attempt, including every `--recover` attempt, needs a fresh path.
 
-Model choice and timeout are yours at dispatch time — they are harness concerns, not CLI flags.
+Implementation-child routing is policy-governed at dispatch: omit routing to inherit the parent provider, model, and thinking policy, or deliberately select the named `cheap` intent up front to use an approved cheaper model within the parent's concrete provider. If no approved same-provider mapping exists, inherit. A launch failure does not authorize switching models or providers; report or recover the work outcome without reactive rerouting. Timeout remains a harness concern, not a CLI flag.
 
 ## Expectations before you run it
 

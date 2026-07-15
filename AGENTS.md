@@ -100,6 +100,13 @@ Treat authoritative plans and handoffs as evidence caches: start from their supp
 
 - Procedural rules for editing under `ts/` (native TypeScript 7 typecheck, Vitest suite, Bun ban, format/lint autofixers) and for authoring CLI commands live in `ts/AGENTS.md`. Read it before editing any `.ts` file or designing a CLI surface.
 
+## Subagent model routing
+
+- Implementation/editing children inherit the parent provider, model, and thinking policy by default.
+- Orchestrators may deliberately select only the named provider-local `cheap` routing intent before dispatch; if no approved mapping exists, inherit.
+- A launch failure does not authorize reactive model or provider rerouting.
+- Descriptor-owned explorer and review routing are explicit exceptions and must not be reused for implementation. Trusted direct consumers may own separate typed routing contracts.
+
 ## Git, Graphite, GitHub
 
 - This repo uses Graphite (`gt`) as the default tool for branch and PR workflow; for branch creation, commits/amends, PR submit/update, and stack navigation/reshaping, load the `graphite` skill (if absent from available skills, resolve it with `areg skill find graphite --format json`) and prefer `gt` over raw `git` where possible.

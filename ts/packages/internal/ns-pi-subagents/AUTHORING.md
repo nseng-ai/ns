@@ -24,7 +24,7 @@ registerSubagentTool(pi, {
 
 The registry rejects duplicate or invalid descriptors. It validates each Markdown definition independently, so one unhealthy entry does not hide healthy catalog entries. The registered JSON schema enum is fixed from this startup registry. Selected definitions are reloaded for execution and identity drift fails that call until restart.
 
-Do not add agent-specific fields to the public input. If a policy belongs to an agent, encode it in the descriptor. Prompt composition, prompt-context enrichment, descriptor tools, and model selection are applied once before runtime dispatch; runtime selection must never alter descriptor tools. Each task dispatches exactly once.
+Do not add agent-specific fields to the public input. If a policy belongs to an agent, encode it in the descriptor. Implementation agents inherit the parent provider, model, and thinking policy unless the caller selects the closed `routing: "cheap"` intent up front; that intent resolves only to an approved model within the parent's concrete provider and otherwise inherits. Launch failure never authorizes reactive rerouting. Explorer and review routing remain separate descriptor-owned cases. Prompt composition, prompt-context enrichment, descriptor tools, and model selection are applied once before runtime dispatch; runtime selection must never alter descriptor tools or the resolved model. Each task dispatches exactly once.
 
 ## Add a runtime adapter
 
@@ -55,7 +55,7 @@ The built-in in-process adapter is final-text-only and requires the host `modelR
 
 ## Tests
 
-Cover descriptor validation and healthy-entry degradation; generated schema/catalog; auto and explicit runtime resolution; task limits/concurrency; permissions in both runtimes; model override and inherited policies; cancellation and session evidence; prompt/resource policy; and direct-consumer subprocess terminal/final-text regression. Default tests use function runtimes and SDK/session fakes—no real model, network, or subprocess.
+Cover descriptor validation and healthy-entry degradation; generated schema/catalog; auto and explicit runtime resolution; task limits/concurrency; permissions in both runtimes; provider-local cheap routing and inherited policies; cancellation and session evidence; prompt/resource policy; and direct-consumer subprocess terminal/final-text regression. Default tests use function runtimes and SDK/session fakes—no real model, network, or subprocess.
 
 Run:
 

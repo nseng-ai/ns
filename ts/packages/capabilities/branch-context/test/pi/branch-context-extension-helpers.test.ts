@@ -220,8 +220,13 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("checkpoint ownership");
 		expect(checkedInContent).toContain("Subagent model routing:");
 		expect(checkedInContent).toContain("For implementation/editing subagents:");
+		expect(checkedInContent).toContain('use `subagent` with `agent: "task"`');
 		expect(checkedInContent).toContain(
-			'use `subagent` with `agent: "task"`; do not set its `model` to a cheap/review model',
+			"Omit `routing` to inherit the parent provider, model, and thinking policy",
+		);
+		expect(checkedInContent).toContain('named `routing: "cheap"` intent');
+		expect(checkedInContent).toContain(
+			"launch failure does not authorize reactive model or provider rerouting",
 		);
 		expect(checkedInContent).toContain("Never reuse review model guidance for implementation");
 		expect(checkedInContent).toContain("Closeout review plan:");

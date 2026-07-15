@@ -8,12 +8,12 @@ import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
 import type { SubagentAgentDescriptor } from "./registry.ts";
 
 export const ANTHROPIC_PROVIDER_ID = "anthropic";
-export const EXPLORER_CHEAP_MODEL_IDS = {
+export const CHEAP_MODEL_IDS = {
 	anthropic: "claude-haiku-4-5",
 	google: "gemini-3.5-flash",
 	openai: "gpt-5.6-luna",
 } as const satisfies Record<ModelProviderFamily, string>;
-export const EXPLORER_CHEAP_QUALIFIED_MODEL = `${ANTHROPIC_PROVIDER_ID}/${EXPLORER_CHEAP_MODEL_IDS.anthropic}`;
+export const DEFAULT_CHEAP_QUALIFIED_MODEL = `${ANTHROPIC_PROVIDER_ID}/${CHEAP_MODEL_IDS.anthropic}`;
 
 export type IsProviderAuthConfigured = (providerId: string) => boolean;
 
@@ -35,19 +35,26 @@ export function resolveExplorerLaunchPlan(
 	input: ResolveExplorerLaunchPlanInput,
 ): ExplorerLaunchPlan {
 	if (input.parentModel !== undefined) {
-		const model = sameProviderCheapModel(input.parentModel);
+		const model = resolveSameProviderCheapModel(input.parentModel);
 		return model === undefined ? { kind: "inherit" } : { kind: "cheap", model };
 	}
 	if (input.isProviderAuthConfigured(ANTHROPIC_PROVIDER_ID)) {
-		return { kind: "cheap", model: EXPLORER_CHEAP_QUALIFIED_MODEL };
+		return { kind: "cheap", model: DEFAULT_CHEAP_QUALIFIED_MODEL };
 	}
 	return { kind: "inherit" };
 }
 
-function sameProviderCheapModel(parentModel: ModelInfo): string | undefined {
+/**
+ * Resolve the approved cheap model within the parent's concrete provider.
+ * Undefined means the child must inherit; this helper never changes providers.
+ */
+export function resolveSameProviderCheapModel(
+	parentModel: ModelInfo | undefined,
+): string | undefined {
+	if (parentModel === undefined) return undefined;
 	for (const family of ["anthropic", "google", "openai"] as const) {
 		if (providerMatchesModelProviderFamily(parentModel.provider, family)) {
-			return `${parentModel.provider}/${EXPLORER_CHEAP_MODEL_IDS[family]}`;
+			return `${parentModel.provider}/${CHEAP_MODEL_IDS[family]}`;
 		}
 	}
 	return undefined;

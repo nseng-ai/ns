@@ -229,7 +229,7 @@ describe("ns-pi-subagents package", () => {
 					},
 				},
 				execution: { type: "string", enum: ["auto", "subprocess", "in-process"] },
-				model: { type: "string" },
+				routing: { type: "string", enum: ["cheap"] },
 			},
 		});
 	});
@@ -373,7 +373,7 @@ describe("ns-pi-subagents package", () => {
 			{
 				agent: "consumer-scout",
 				tasks: [{ title: "Inspect consumer", prompt: "Map the consumer seam." }],
-				model: "anthropic/claude-haiku-4-5",
+				routing: "cheap",
 			},
 			undefined,
 			undefined,
@@ -414,7 +414,7 @@ describe("ns-pi-subagents package", () => {
 					{ title: "one", prompt: "one" },
 					{ title: "two", prompt: "two" },
 				],
-				model: "anthropic/claude-haiku-4-5",
+				routing: "cheap",
 			},
 			undefined,
 			undefined,
@@ -458,7 +458,7 @@ describe("ns-pi-subagents package", () => {
 			{
 				agent: "explorer",
 				tasks: [{ title: "inspect once", prompt: "inspect" }],
-				model: "anthropic/claude-haiku-4-5",
+				routing: "cheap",
 			},
 			undefined,
 			undefined,
@@ -516,7 +516,7 @@ describe("ns-pi-subagents package", () => {
 			.get(SUBAGENT_TOOL_NAME)
 			?.execute(
 				"call",
-				{ agent: "explorer", tasks, model: "anthropic/claude-haiku-4-5" },
+				{ agent: "explorer", tasks, routing: "cheap" },
 				controller.signal,
 				undefined,
 				toolContext(),
@@ -555,7 +555,7 @@ describe("ns-pi-subagents package", () => {
 					{ title: "boom", prompt: "throw" },
 					{ title: "steady", prompt: "succeed" },
 				],
-				model: "anthropic/claude-haiku-4-5",
+				routing: "cheap",
 			},
 			undefined,
 			undefined,
@@ -628,7 +628,7 @@ describe("ns-pi-subagents package", () => {
 					{ title: "one", prompt: "one" },
 					{ title: "two", prompt: "two" },
 				],
-				model: "anthropic/claude-haiku-4-5",
+				routing: "cheap",
 			},
 			undefined,
 			undefined,
