@@ -27,9 +27,9 @@ import {
 	buildDispatchFailureAttributes,
 	buildDispatchPhaseAttributes,
 	buildDispatchRunningAttributes,
-	emitDispatchWorkflowEvent,
 } from "../src/dispatch/workflow-observability.ts";
 import { writeDispatchWorkflowAttributes } from "./dispatch-attribute-writer.ts";
+import { writeDispatchWorkflowEvent } from "./dispatch-event-writer.ts";
 import type {
 	SupervisionCleanupResult,
 	SupervisionPollResult,
@@ -60,7 +60,7 @@ export async function createSandboxAndLaunchHarness(
 	run: DispatchRunInput,
 ): Promise<DispatchLaunchResult> {
 	"use step";
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_started",
 		step: "launch",
 		anchorPrNumber: run.anchorPrNumber,
@@ -69,7 +69,7 @@ export async function createSandboxAndLaunchHarness(
 	const result = await launchDispatchRun(run);
 	if (result.ok) {
 		await writeDispatchWorkflowAttributes(buildDispatchRunningAttributes(result.harness));
-		emitDispatchWorkflowEvent({
+		await writeDispatchWorkflowEvent({
 			event: "dispatch_step_finished",
 			step: "launch",
 			outcome: "succeeded",
@@ -79,7 +79,7 @@ export async function createSandboxAndLaunchHarness(
 		});
 		return result;
 	}
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_finished",
 		step: "launch",
 		outcome: "failed",
@@ -96,14 +96,14 @@ export async function checkHarnessCompletion(
 	pollOrdinal: number,
 ): Promise<SupervisionPollResult> {
 	"use step";
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_started",
 		step: "poll",
 		sandboxName,
 		pollOrdinal,
 	});
 	const result = await pollDispatchRun({ sandboxName });
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_finished",
 		step: "poll",
 		outcome: result.ok ? result.phase : "failed",
@@ -117,9 +117,13 @@ export async function checkHarnessCompletion(
 export async function readHarnessResult(sandboxName: string): Promise<DispatchOutcomeReadResult> {
 	"use step";
 	await writeDispatchWorkflowAttributes(buildDispatchPhaseAttributes("reading-result"));
-	emitDispatchWorkflowEvent({ event: "dispatch_step_started", step: "read-result", sandboxName });
+	await writeDispatchWorkflowEvent({
+		event: "dispatch_step_started",
+		step: "read-result",
+		sandboxName,
+	});
 	const result = await readDispatchOutcome({ sandboxName });
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_finished",
 		step: "read-result",
 		outcome: result.ok ? "succeeded" : "failed",
@@ -134,13 +138,13 @@ export async function pushAnchorBranch(options: {
 }): Promise<DispatchLandingResult> {
 	"use step";
 	await writeDispatchWorkflowAttributes(buildDispatchPhaseAttributes("landing"));
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_started",
 		step: "land",
 		sandboxName: options.sandboxName,
 	});
 	const result = await landDispatchRun(options);
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_finished",
 		step: "land",
 		outcome: result.ok ? "succeeded" : "failed",
@@ -153,9 +157,13 @@ export async function pushAnchorBranch(options: {
 export async function stopSandbox(sandboxName: string): Promise<SupervisionCleanupResult> {
 	"use step";
 	await writeDispatchWorkflowAttributes(buildDispatchPhaseAttributes("cleaning"));
-	emitDispatchWorkflowEvent({ event: "dispatch_step_started", step: "cleanup", sandboxName });
+	await writeDispatchWorkflowEvent({
+		event: "dispatch_step_started",
+		step: "cleanup",
+		sandboxName,
+	});
 	const result = await cleanupDispatchRun({ sandboxName });
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_finished",
 		step: "cleanup",
 		outcome: result.ok ? "succeeded" : "failed",
@@ -170,14 +178,14 @@ export async function updateAnchorPrLanded(options: {
 	readonly decisionLog: string | null;
 }): Promise<DispatchReportResult> {
 	"use step";
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_started",
 		step: "update-anchor-pr",
 		anchorPrNumber: options.anchorPrNumber,
 	});
 	const result = await reportDispatchLanded(options);
 	await writeDispatchWorkflowAttributes(buildDispatchPhaseAttributes("completed"));
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_finished",
 		step: "update-anchor-pr",
 		outcome: result.ok ? "succeeded" : "failed",
@@ -193,14 +201,14 @@ export async function updateAnchorPrFailed(options: {
 	readonly message: string;
 }): Promise<DispatchReportResult> {
 	"use step";
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_started",
 		step: "update-anchor-pr",
 		anchorPrNumber: options.anchorPrNumber,
 	});
 	const result = await reportDispatchFailure(options);
 	await writeDispatchWorkflowAttributes(buildDispatchFailureAttributes(options.code));
-	emitDispatchWorkflowEvent({
+	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_finished",
 		step: "update-anchor-pr",
 		outcome: result.ok ? "succeeded" : "failed",
@@ -212,7 +220,7 @@ export async function updateAnchorPrFailed(options: {
 
 export async function failDispatchRun(code: DispatchRunFailureCode): Promise<never> {
 	"use step";
-	emitDispatchWorkflowEvent({ event: "dispatch_step_started", step: "terminal-failure" });
+	await writeDispatchWorkflowEvent({ event: "dispatch_step_started", step: "terminal-failure" });
 	await writeDispatchWorkflowAttributes(buildDispatchFailureAttributes(code));
 	throw new FatalError(`dispatch failed: ${code}`);
 }

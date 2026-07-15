@@ -27,7 +27,9 @@ export interface SuperviseDetachedRunDeps {
 }
 
 /**
- * Sleep before every poll. One failed poll is tolerated; a second consecutive
+ * Poll immediately after launch, then sleep between polls. This records an
+ * early liveness point instead of presenting the first poll interval as an
+ * unexplained idle gap. One failed poll is tolerated; a second consecutive
  * failure ends supervision. Every failed attempt consumes the fixed budget,
  * and any successful poll resets the consecutive-failure count.
  */
@@ -37,7 +39,7 @@ export async function superviseDetachedRun(
 ): Promise<SupervisionOutcome> {
 	let consecutiveFailures = 0;
 	for (let polls = 1; polls <= plan.maxPolls; polls++) {
-		await deps.sleep(plan.pollIntervalMs);
+		if (polls > 1) await deps.sleep(plan.pollIntervalMs);
 		const poll = await deps.poll(polls);
 		if (poll.ok === false) {
 			consecutiveFailures += 1;
