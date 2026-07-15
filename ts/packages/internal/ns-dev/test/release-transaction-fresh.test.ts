@@ -3,21 +3,20 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { publicPublishOrder } from "../../../../scripts/public-package-set.mjs";
-import {
-	recoverCheckpointingReport,
-	releaseBranchName,
-	startFreshRelease,
-	type FreshReleaseGateway,
-	type FreshReleaseState,
-	type NpmCandidateGateway,
-	type OperationResult,
-	type OptionalResult,
-	type QualifiedPublishRoot,
-	type ReleaseCheckpoint,
-	type ReleaseReportStore,
-	type ReleaseTransactionReport,
-	type ValueResult,
-} from "../../../../scripts/release-transaction-core.ts";
+import type {
+	FreshReleaseGateway,
+	FreshReleaseState,
+	NpmCandidateGateway,
+	OperationResult,
+	OptionalResult,
+	QualifiedPublishRoot,
+	ReleaseCheckpoint,
+	ReleaseReportStore,
+	ReleaseTransactionReport,
+	ValueResult,
+} from "../src/release/contracts.ts";
+import { releaseBranchName, startFreshRelease } from "../src/release/fresh.ts";
+import { recoverCheckpointingReport } from "../src/release/resume.ts";
 
 const version = "1.2.3-beta.1+build.7";
 const parentBranch = "transactional-npm-release-exact-resume";

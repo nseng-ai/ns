@@ -1,19 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import { publicPublishOrder } from "../../../../scripts/public-package-set.mjs";
-import {
-	executeReleasePublication,
-	type NpmRegistryGateway,
-	type OperationResult,
-	type OptionalResult,
-	type RegistryPackageMetadata,
-	type ReleaseCandidate,
-	type ReleaseCommandGateway,
-	type ReleaseConfirmationGateway,
-	type ReleaseDelay,
-	type ReleaseReportStore,
-	type ReleaseTransactionReport,
-} from "../../../../scripts/release-transaction-core.ts";
+import type {
+	NpmRegistryGateway,
+	OperationResult,
+	OptionalResult,
+	RegistryPackageMetadata,
+	ReleaseCandidate,
+	ReleaseCommandGateway,
+	ReleaseConfirmationGateway,
+	ReleaseDelay,
+	ReleaseReportStore,
+	ReleaseTransactionReport,
+} from "../src/release/contracts.ts";
+import { executeReleasePublication } from "../src/release/publication.ts";
+import { buildReleaseCandidate, buildReleaseReport } from "./release-transaction-builders.ts";
 
 const version = "1.2.3";
 const reportPath = "/release/report.json";
@@ -62,10 +63,6 @@ class InMemoryCommands implements ReleaseCommandGateway {
 		);
 		this.#failPublishPath = options.failPublishPath;
 		this.#verificationFailures = options.verificationFailures ?? 0;
-	}
-
-	async qualify(): Promise<OperationResult> {
-		return { ok: true };
 	}
 
 	async publishTarball(tarballPath: string): Promise<OperationResult> {
@@ -379,22 +376,20 @@ function exactRegistry(report: ReleaseTransactionReport): InMemoryRegistry {
 }
 
 function makeReport(): ReleaseTransactionReport {
-	return {
-		schemaVersion: 1,
-		release: { branch: "release/1.2.3", commit: "release-commit", version },
-		inventory: [...publicPublishOrder],
-		candidates: publicPublishOrder.map((name, order) => ({
-			name,
-			version,
-			tarballPath: `/release/${order}-${name.replaceAll("/", "-")}.tgz`,
-			integrity: `sha512-${name}`,
-			shasum: `sha1-${name}`,
-			order,
-		})),
-		completedWrites: [],
-		pendingWrite: null,
-		stage: "candidates-prepared",
-	};
+	return buildReleaseReport({
+		version,
+		branch: "release/1.2.3",
+		commit: "release-commit",
+		inventory: publicPublishOrder,
+		candidates: publicPublishOrder.map((name, order) =>
+			buildReleaseCandidate({
+				name,
+				version,
+				order,
+				tarballPath: `/release/${order}-${name.replaceAll("/", "-")}.tgz`,
+			}),
+		),
+	});
 }
 
 function copyReport(report: ReleaseTransactionReport): ReleaseTransactionReport {

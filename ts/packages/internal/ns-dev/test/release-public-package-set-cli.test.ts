@@ -1,19 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import { publicPublishOrder } from "../../../../scripts/public-package-set.mjs";
-import {
-	releaseBranchName,
-	type FreshReleaseGateway,
-	type OperationResult,
-	type OptionalResult,
-	type ReleaseCandidate,
-	type ReleaseReportStore,
-	type ReleaseTransactionReport,
-} from "../../../../scripts/release-transaction-core.ts";
+import type {
+	FreshReleaseGateway,
+	OperationResult,
+	OptionalResult,
+	ReleaseCandidate,
+	ReleaseReportStore,
+	ReleaseTransactionReport,
+} from "../src/release/contracts.ts";
+import { releaseBranchName } from "../src/release/fresh.ts";
 import {
 	runReleaseCli,
 	type ReleaseCliContext,
 } from "../../../../scripts/release-public-package-set.ts";
+import { buildReleaseCandidate, buildReleaseReport } from "./release-transaction-builders.ts";
 
 const version = "1.2.3";
 const releaseBranch = releaseBranchName(version);
@@ -106,30 +107,17 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 }
 
 function makeReport(options: { branch?: string; commit?: string } = {}): ReleaseTransactionReport {
-	return {
-		schemaVersion: 1,
-		release: {
-			branch: options.branch ?? releaseBranch,
-			commit: options.commit ?? releaseCommit,
-			version,
-		},
-		inventory: [...publicPublishOrder],
+	return buildReleaseReport({
+		version,
+		branch: options.branch ?? releaseBranch,
+		commit: options.commit ?? releaseCommit,
+		inventory: publicPublishOrder,
 		candidates: publicPublishOrder.map((name, order) => candidate(name, order)),
-		completedWrites: [],
-		pendingWrite: null,
-		stage: "candidates-prepared",
-	};
+	});
 }
 
 function candidate(name: string, order: number): ReleaseCandidate {
-	return {
-		name,
-		version,
-		tarballPath: `/release/${order}.tgz`,
-		integrity: `sha512-${name}`,
-		shasum: `sha1-${name}`,
-		order,
-	};
+	return buildReleaseCandidate({ name, version, order, tarballPath: `/release/${order}.tgz` });
 }
 
 function createHarness(
@@ -186,9 +174,6 @@ function createHarness(
 			},
 		},
 		commands: {
-			async qualify() {
-				return { ok: true };
-			},
 			async publishTarball(path) {
 				published.push(path);
 				return { ok: true };

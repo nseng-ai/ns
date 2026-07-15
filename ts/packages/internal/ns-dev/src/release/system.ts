@@ -6,6 +6,15 @@ import { createInterface } from "node:readline/promises";
 
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 
+import { isMissingPackageResult } from "../../../../../scripts/public-package-helpers.mjs";
+import {
+	intendedPublicPackages,
+	loadPublicPackageContext,
+	publishRootForEntry,
+	repoRoot,
+} from "../../../../../scripts/public-package-set.mjs";
+
+import { releaseTransactionStages } from "./contracts.ts";
 import type {
 	CandidateFileGateway,
 	CandidateFileState,
@@ -14,23 +23,16 @@ import type {
 	NpmRegistryGateway,
 	OperationResult,
 	OptionalResult,
+	ReleaseCandidate,
 	ReleaseCommandGateway,
 	ReleaseConfirmationGateway,
 	ReleaseDelay,
-	ReleaseCandidate,
 	ReleaseFailure,
 	ReleaseReportStore,
 	ReleaseTransactionReport,
 	ResumeReleaseGateway,
 	ValueResult,
-} from "./release-transaction-core.ts";
-import { releaseTransactionStages } from "./release-transaction-core.ts";
-import {
-	intendedPublicPackages,
-	loadPublicPackageContext,
-	publishRootForEntry,
-	repoRoot,
-} from "./public-package-set.mjs";
+} from "./contracts.ts";
 
 export function createSystemFreshReleaseGateway(): FreshReleaseGateway {
 	return {
@@ -285,7 +287,7 @@ export function createSystemNpmRegistryGateway(): NpmRegistryGateway {
 				repoRoot,
 			);
 			if (outcome.status !== 0) {
-				if (isMissingNpmView(outcome.stderr, outcome.stdout)) return { type: "missing" };
+				if (isMissingPackageResult(outcome.stderr, outcome.stdout)) return { type: "missing" };
 				return { type: "error", error: commandFailure(outcome).error };
 			}
 			try {
@@ -336,15 +338,6 @@ export function createTtyReleaseConfirmationGateway(): ReleaseConfirmationGatewa
 
 export function createSystemReleaseCommandGateway(): ReleaseCommandGateway {
 	return {
-		async qualify(version) {
-			return operationFromCommand(
-				await execute(
-					"pnpm",
-					["--dir", "ts", "run", "release:qualify-public", "--", "--all", "--version", version],
-					repoRoot,
-				),
-			);
-		},
 		async publishTarball(tarballPath) {
 			if (!tarballPath.endsWith(".tgz")) {
 				return {
@@ -405,56 +398,24 @@ function nestedDistValue(record: Record<string, unknown>, key: string): unknown 
 	return isRecord(dist) ? dist[key] : undefined;
 }
 
-function isMissingNpmView(...parts: readonly string[]): boolean {
-	const text = parts.join("\n");
-	return (
-		text.includes("E404") ||
-		text.includes("404 Not Found") ||
-		text.includes("is not in this registry")
-	);
-}
-
 async function executeNpmPack(
 	cwd: string,
 	publishRoot: string,
 	packDestination: string,
 ): Promise<ValueResult<string>> {
-	return await new Promise((resolveResult) => {
-		const child = spawn(
-			"npm",
-			["pack", publishRoot, "--json", "--pack-destination", packDestination],
-			{
-				cwd,
-				stdio: ["ignore", "pipe", "pipe"],
-			},
-		);
-		let stdout = "";
-		let stderr = "";
-		child.stdout.setEncoding("utf8");
-		child.stderr.setEncoding("utf8");
-		child.stdout.on("data", (chunk: string) => {
-			stdout += chunk;
-		});
-		child.stderr.on("data", (chunk: string) => {
-			stderr += chunk;
-		});
-		child.on("error", (error) => {
-			resolveResult({ ok: false, error: failure("npm-pack-failed", error) });
-		});
-		child.on("close", (status) => {
-			if (status === 0) {
-				resolveResult({ ok: true, value: stdout });
-				return;
-			}
-			resolveResult({
-				ok: false,
-				error: {
-					code: "npm-pack-failed",
-					message: `npm pack exited ${status ?? "without status"}: ${stderr.trim()}`,
-				},
-			});
-		});
-	});
+	const outcome = await executeAllowFailure(
+		"npm",
+		["pack", publishRoot, "--json", "--pack-destination", packDestination],
+		cwd,
+	);
+	if (outcome.status === 0) return { ok: true, value: outcome.stdout };
+	return {
+		ok: false,
+		error: {
+			code: "npm-pack-failed",
+			message: `npm pack exited ${outcome.status ?? "without status"}: ${outcome.stderr.trim()}`,
+		},
+	};
 }
 
 interface NpmPackRecord {
