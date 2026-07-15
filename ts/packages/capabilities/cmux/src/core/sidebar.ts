@@ -1,3 +1,4 @@
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
@@ -330,7 +331,12 @@ async function switchToFastSidebarModel(
 	pi: CccPiCommandApi,
 	ctx: CommandContext,
 ): Promise<RestoreState | undefined> {
-	const policy = loadModelPolicy({ repoRoot: ctx.cwd, gateway: nodeProjectConfigGateway });
+	const repoRoot = await new RealGitGateway(pi).repoRoot({ cwd: ctx.cwd });
+	if (!repoRoot.ok) {
+		notify(ctx, `Could not resolve the Git repository root: ${repoRoot.error.message}`, "warning");
+		return undefined;
+	}
+	const policy = loadModelPolicy({ repoRoot: repoRoot.value, gateway: nodeProjectConfigGateway });
 	if (!policy.ok) {
 		notify(ctx, `Invalid model policy in ns.toml: ${policy.error.message}`, "warning");
 		return undefined;

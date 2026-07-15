@@ -9,6 +9,7 @@ import {
 	generateRawTextWithModel,
 } from "@nseng-ai/capability-kit/model-slug";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
@@ -37,7 +38,9 @@ export async function generateBranchSlug(
 	},
 ): Promise<TextResult> {
 	const prompt = buildSlugPrompt(input);
-	const policy = loadModelPolicy({ repoRoot: cwd, gateway: nodeProjectConfigGateway });
+	const repoRoot = await resolveRepoRoot(pi, cwd);
+	if (!repoRoot.ok) return { ok: false, message: repoRoot.message };
+	const policy = loadModelPolicy({ repoRoot: repoRoot.value, gateway: nodeProjectConfigGateway });
 	if (!policy.ok)
 		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
@@ -68,7 +71,9 @@ export async function summarizePlanWithGptNano(
 		sourceLabel?: string;
 	},
 ): Promise<TextResult> {
-	const policy = loadModelPolicy({ repoRoot: cwd, gateway: nodeProjectConfigGateway });
+	const repoRoot = await resolveRepoRoot(pi, cwd);
+	if (!repoRoot.ok) return { ok: false, message: repoRoot.message };
+	const policy = loadModelPolicy({ repoRoot: repoRoot.value, gateway: nodeProjectConfigGateway });
 	if (!policy.ok)
 		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
@@ -95,6 +100,16 @@ export async function summarizePlanWithGptNano(
 		};
 	}
 	return { ok: true, text: summary };
+}
+
+async function resolveRepoRoot(
+	pi: BranchSlugRuntime,
+	cwd: string,
+): Promise<{ ok: true; value: string } | { ok: false; message: string }> {
+	const result = await new RealGitGateway(pi).repoRoot({ cwd });
+	return result.ok
+		? result
+		: { ok: false, message: `Could not resolve the Git repository root: ${result.error.message}` };
 }
 
 async function generateRawText(
