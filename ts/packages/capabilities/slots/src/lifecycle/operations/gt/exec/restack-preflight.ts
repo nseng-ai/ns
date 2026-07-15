@@ -58,16 +58,13 @@ export async function runGtRestackPreflight(
 	const currentBranch =
 		currentResult.type === "branch"
 			? currentResult.branch
-			: findCurrentRebaseBranch(inspection.inventory, ctx.cwd);
+			: findCurrentRebaseBranch(inspection.inventory, ctx.repo.root);
 	if (currentBranch === null)
 		return failure(
 			"detached-head",
 			`HEAD at ${ctx.repo.root} is detached. Check out a branch first.`,
 		);
-	const stackResult =
-		currentResult.type === "branch"
-			? await ctx.gt.stack(ctx.repo.root)
-			: await ctx.gt.stackForBranch(ctx.repo.root, currentBranch);
+	const stackResult = await ctx.gt.stackForBranch(ctx.repo.root, currentBranch);
 	if (stackResult.type === "failure")
 		return failure("gt-stack-read-failed", stackResult.failure.message);
 	if (stackResult.type === "untracked_branch") {
@@ -76,7 +73,7 @@ export async function runGtRestackPreflight(
 			currentBranch,
 			clean: inspection.clean,
 			inventory: inspection.inventory,
-			currentPath: ctx.cwd,
+			currentPath: ctx.repo.root,
 		});
 		return negative(`${stackResult.message} — run \`gt track\` first`, { data: result });
 	}
@@ -117,9 +114,9 @@ export async function runGtRestackPreflight(
 		occupancies: inspection.inventory.branchOccupancies,
 		records: inspection.inventory.records,
 		branches,
-		currentPath: ctx.cwd,
+		currentPath: ctx.repo.root,
 	});
-	const rebaseInProgress = hasCurrentRebase(slotConflicts, stack.current, ctx.cwd);
+	const rebaseInProgress = hasCurrentRebase(slotConflicts, stack.current, ctx.repo.root);
 	const result: GtRestackPreflightResult = {
 		clean: inspection.clean,
 		tracked: true,
