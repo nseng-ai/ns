@@ -6,7 +6,7 @@ import {
 	buildDispatchAnchorNameCandidates,
 	DISPATCH_ANCHOR_NAME_CANDIDATE_LIMIT,
 	formatDispatchAnchorTimestamp,
-} from "../../src/ns/dispatch-prompt/anchor-name.ts";
+} from "../../src/dispatch-client/anchor-name.ts";
 
 describe("semantic dispatch anchor timestamps", () => {
 	test("formats padded Pacific civil time without ambient-timezone punctuation", () => {

@@ -11,7 +11,7 @@ import {
 	FAKE_RUN_ID,
 	FAKE_WORKFLOW_RUN_URL,
 	type FakeDispatchGatewaysOptions,
-} from "./support/dispatch-prompt-fakes.ts";
+} from "../dispatch-client/support/dispatch-prompt-fakes.ts";
 
 async function runPlanCommand(argv: readonly string[], options: FakeDispatchGatewaysOptions = {}) {
 	const gateways = createFakePlanDispatchGateways(options);

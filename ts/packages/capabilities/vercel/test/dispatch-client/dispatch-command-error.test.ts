@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import {
 	dispatchCommandError,
 	firstErrorLine,
-} from "../../src/ns/dispatch-prompt/dispatch-command-error.ts";
+} from "../../src/dispatch-client/dispatch-command-error.ts";
 
 function exited(overrides: Partial<Extract<ExecResult, { type: "exited" }>> = {}): ExecResult {
 	return { type: "exited", stdout: "", stderr: "", code: 0, signal: null, ...overrides };

@@ -1,6 +1,6 @@
 import { commandSucceeded, type CommandRunner } from "@nseng-ai/foundation/command";
 
-import { isValidDispatchAnchorBranch } from "../../dispatch/dispatch-run.ts";
+import { isValidDispatchAnchorBranch } from "../dispatch/dispatch-run.ts";
 import type {
 	DispatchGatewayError,
 	DispatchLocalGitFactsGateway,

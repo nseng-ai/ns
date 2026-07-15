@@ -31,13 +31,13 @@ import type {
 	DispatchTriggerGateway,
 	DispatchTriggerIdentityResult,
 	DispatchWorkspaceGitGateway,
-} from "../../../src/ns/dispatch-client/contracts.ts";
+} from "../../../src/dispatch-client/contracts.ts";
 import type { DispatchRunInput } from "../../../src/dispatch/dispatch-run.ts";
-import type { DispatchPlanSnapshotGateway } from "../../../src/ns/dispatch-plan/delivery.ts";
+import type { DispatchPlanSnapshotGateway } from "../../../src/dispatch-client/dispatch-plan/delivery.ts";
 import type {
 	DispatchSavedPlanGateway,
 	DispatchSavedPlanResolution,
-} from "../../../src/ns/dispatch-plan/preparation.ts";
+} from "../../../src/dispatch-client/dispatch-plan/preparation.ts";
 
 export const FAKE_HEAD_SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
 export const FAKE_DISPATCH_ID = "dsp_01JABCDEF0123456789";

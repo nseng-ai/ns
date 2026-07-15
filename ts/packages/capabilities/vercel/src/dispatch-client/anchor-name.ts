@@ -4,7 +4,7 @@ import {
 	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
 	DISPATCH_ANCHOR_BRANCH_PREFIX,
 	isValidDispatchAnchorBranch,
-} from "../../dispatch/dispatch-run.ts";
+} from "../dispatch/dispatch-run.ts";
 
 export const DISPATCH_ANCHOR_NAME_CANDIDATE_LIMIT = 50;
 

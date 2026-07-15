@@ -1,7 +1,7 @@
 import { FakeBrmemGateway } from "@nseng-ai/brmem";
 import { describe, expect, test } from "vitest";
 
-import { preflightDispatchBrmemSetup } from "../../src/ns/dispatch-plan/delivery-preflight.ts";
+import { preflightDispatchBrmemSetup } from "../../src/dispatch-client/dispatch-plan/delivery-preflight.ts";
 
 const BRMEM_REFSPEC = "refs/brmem/*:refs/brmem/*";
 

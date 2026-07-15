@@ -1,5 +1,5 @@
-import { validateDispatchRunInput, type DispatchRunInput } from "../../dispatch/dispatch-run.ts";
-import { isValidDispatchRunId } from "../../dispatch/run-id-stamp.ts";
+import { validateDispatchRunInput, type DispatchRunInput } from "../dispatch/dispatch-run.ts";
+import { isValidDispatchRunId } from "../dispatch/run-id-stamp.ts";
 import type { DispatchClientGateways, DispatchTriggerConnection } from "./contracts.ts";
 
 export interface DispatchSource {

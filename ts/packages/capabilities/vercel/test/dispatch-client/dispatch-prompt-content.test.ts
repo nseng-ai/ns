@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import { isValidDispatchAnchorBranch } from "../../src/dispatch/dispatch-run.ts";
 import {
 	buildAnchorBranchName,
 	buildAnchorPrBody,
 	buildAnchorPrTitle,
 	buildPlanAnchorPrBody,
-} from "../../src/ns/dispatch-prompt/content.ts";
+} from "../../src/dispatch-client/content.ts";
+import { isValidDispatchAnchorBranch } from "../../src/dispatch/dispatch-run.ts";
 
 describe("buildAnchorBranchName", () => {
 	test("keeps the source branch recognizable under the dispatch/ prefix", () => {

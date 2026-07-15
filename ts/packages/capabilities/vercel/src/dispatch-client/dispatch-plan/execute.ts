@@ -9,16 +9,19 @@ import {
 	buildAnchorBranchName,
 	buildAnchorPrTitle,
 	buildPlanAnchorPrBody,
-} from "../dispatch-prompt/content.ts";
-import type { DispatchPlanGateways } from "../dispatch-client/contracts.ts";
+} from "../../dispatch-client/content.ts";
+import type { DispatchPlanGateways } from "../../dispatch-client/contracts.ts";
 import {
 	createDispatchAnchor,
 	ensureDispatchSourceReachable,
 	resolveDispatchSource,
 	startDispatchWorkflow,
 	type DispatchAnchorPr,
-} from "../dispatch-client/core.ts";
-import { runDispatchPreflight, type DispatchPreflightCheck } from "../dispatch-prompt/core.ts";
+} from "../../dispatch-client/core.ts";
+import {
+	runDispatchPreflight,
+	type DispatchPreflightCheck,
+} from "../../dispatch-client/prompt-core.ts";
 
 export interface DispatchPlanRequest {
 	readonly cwd: string;

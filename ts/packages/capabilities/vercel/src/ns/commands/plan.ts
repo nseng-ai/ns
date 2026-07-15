@@ -9,9 +9,12 @@ import { DISPATCH_CONTEXT_NAMESPACE } from "../../dispatch/dispatch-context.ts";
 import {
 	createDispatchPlanContext,
 	type DispatchPlanCliContext,
-} from "../dispatch-client/context.ts";
-import { executeDispatchPlan, type DispatchPlanOutcome } from "../dispatch-plan/execute.ts";
-import type { DispatchPreflightCheck } from "../dispatch-prompt/core.ts";
+} from "../../dispatch-client/context.ts";
+import {
+	executeDispatchPlan,
+	type DispatchPlanOutcome,
+} from "../../dispatch-client/dispatch-plan/execute.ts";
+import type { DispatchPreflightCheck } from "../../dispatch-client/prompt-core.ts";
 
 const dirtyPathsDataMaxPaths = 100;
 

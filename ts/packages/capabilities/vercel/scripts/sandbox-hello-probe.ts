@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 
-import { parseDispatchProjectConfigToml } from "../src/api/project-config.ts";
+import { parseDispatchProjectConfigToml } from "../src/dispatch-client/project-config.ts";
 import { parseGitHubRepository } from "../src/mint/contracts.ts";
 import type { CloneTokenMintGateway } from "../src/sandbox/hello-probe.ts";
 import { runSandboxHelloProbe } from "../src/sandbox/hello-probe.ts";

@@ -5,7 +5,7 @@
 import { describe, expect, test } from "vitest";
 
 import { dispatchPromptCommand } from "../../src/ns/commands/prompt.ts";
-import { buildDispatchAnchorNameCandidates } from "../../src/ns/dispatch-prompt/anchor-name.ts";
+import { buildDispatchAnchorNameCandidates } from "../../src/dispatch-client/anchor-name.ts";
 import {
 	createFakeDispatchGateways,
 	FakeDispatchNsApi,
@@ -18,7 +18,7 @@ import {
 	FAKE_SEMANTIC_SLUG,
 	FAKE_WORKFLOW_RUN_URL,
 	type FakeDispatchGatewaysOptions,
-} from "./support/dispatch-prompt-fakes.ts";
+} from "../dispatch-client/support/dispatch-prompt-fakes.ts";
 
 const PROMPT = "Rename the widget gateway methods to match the command-shape convention";
 const EXPECTED_ANCHOR_BRANCH = `dispatch/${FAKE_SEMANTIC_SLUG}-${FAKE_ANCHOR_TIMESTAMP}`;

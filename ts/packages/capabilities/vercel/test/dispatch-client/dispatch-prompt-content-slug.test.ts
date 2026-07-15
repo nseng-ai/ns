@@ -8,7 +8,7 @@ import {
 	buildDispatchContentSlugPrompt,
 	createRealDispatchContentSlugGateway,
 	normalizeDispatchSlugOverride,
-} from "../../src/ns/dispatch-prompt/content-slug.ts";
+} from "../../src/dispatch-client/content-slug.ts";
 
 interface ExecCall {
 	readonly command: string;
