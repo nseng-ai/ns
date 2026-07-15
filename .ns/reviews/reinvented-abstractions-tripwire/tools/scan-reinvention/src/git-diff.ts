@@ -9,9 +9,20 @@ import {
 } from "@nseng-ai/foundation/command";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 
+export const DEFAULT_DIFF_HEAD = "HEAD";
+
+export interface DiffRange {
+  readonly base: string;
+  readonly head: string;
+}
+
+export function diffRangeSpec(range: DiffRange): string {
+  return `${range.base}...${range.head}`;
+}
+
 export interface ScannerIo {
-  changedFiles(diffBase: string): Promise<IoResult<readonly string[]>>;
-  addedLines(diffBase: string, file: string): Promise<IoResult<ReadonlySet<number>>>;
+  changedFiles(range: DiffRange): Promise<IoResult<readonly string[]>>;
+  addedLines(range: DiffRange, file: string): Promise<IoResult<ReadonlySet<number>>>;
   readFile(path: string): Promise<IoResult<string>>;
 }
 
@@ -34,11 +45,13 @@ export class RealScannerIo implements ScannerIo {
     this.execApi = options.execApi ?? new NodeCommandExecApi();
   }
 
-  async changedFiles(diffBase: string): Promise<IoResult<readonly string[]>> {
+  async changedFiles(range: DiffRange): Promise<IoResult<readonly string[]>> {
+    const root = await this.repoRoot();
+    if (!root.ok) return root;
     const result = await this.execApi.exec(
       "git",
-      ["diff", "--name-only", "--diff-filter=ACMR", `${diffBase}...HEAD`],
-      { cwd: this.cwd },
+      ["diff", "--name-only", "--diff-filter=ACMR", diffRangeSpec(range)],
+      { cwd: root.value },
     );
     if (!commandSucceeded(result))
       return commandError(
@@ -49,16 +62,18 @@ export class RealScannerIo implements ScannerIo {
     return ok(result.stdout.split(/\r?\n/u).filter((line) => line.trim() !== ""));
   }
 
-  async addedLines(diffBase: string, file: string): Promise<IoResult<ReadonlySet<number>>> {
+  async addedLines(range: DiffRange, file: string): Promise<IoResult<ReadonlySet<number>>> {
+    const root = await this.repoRoot();
+    if (!root.ok) return root;
     const result = await this.execApi.exec(
       "git",
-      ["diff", "--unified=0", `${diffBase}...HEAD`, "--", file],
-      { cwd: this.cwd },
+      ["diff", "--unified=0", diffRangeSpec(range), "--", file],
+      { cwd: root.value },
     );
     if (!commandSucceeded(result))
       return commandError(
         `git diff for ${file} failed`,
-        `git diff --unified=0 ${diffBase}...HEAD -- ${file}`,
+        `git diff --unified=0 ${diffRangeSpec(range)} -- ${file}`,
         result,
       );
     return ok(parseAddedLines(result.stdout));

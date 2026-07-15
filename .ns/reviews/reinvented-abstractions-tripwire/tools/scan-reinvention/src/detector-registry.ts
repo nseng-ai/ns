@@ -71,7 +71,7 @@ export const detectorMetadata: ReadonlyArray<DetectorMetadata> = [
   {
     kind: "raw-git",
     canonical: "GitGateway",
-    import: "@nseng-ai/git or capability-owned GitGateway",
+    import: "@nseng-ai/foundation/git or capability-owned GitGateway",
     precision: "low",
   },
   {

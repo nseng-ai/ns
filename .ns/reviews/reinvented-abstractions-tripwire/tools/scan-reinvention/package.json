@@ -9,7 +9,8 @@
 	"scripts": {
 		"check": "tsc -p tsconfig.json",
 		"scan": "node --experimental-strip-types src/cli.ts",
-		"test": "cd ../../../../../ts && vitest run --config vitest.config.ts ../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/test"
+		"test": "cd ../../../../../ts && vitest run --config vitest.config.ts ../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/test",
+		"test:integration": "cd ../../../../../ts && vitest run --config vitest.integration.config.ts ../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/test/integration"
 	},
 	"dependencies": {
 		"@nseng-ai/foundation": "workspace:*",
