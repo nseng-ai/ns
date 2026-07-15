@@ -21,6 +21,7 @@ import { createSystemReleaseCliContext } from "../src/release-public-package-set
 import {
 	createSystemFreshReleaseGateway,
 	createSystemNpmRegistryGateway,
+	createSystemReleaseCommandGateway,
 } from "../src/release/system.ts";
 
 const releaseBranch = "transactional-npm-release/v1.2.3";
@@ -73,6 +74,37 @@ describe("release system command gateways", () => {
 		manual.advanceMs(1);
 		await waiting;
 		expect(manual.pendingTimerCount()).toBe(0);
+	});
+
+	it("forwards pnpm script arguments without an extra separator", async () => {
+		const commands = new ScriptedCommandRunner([
+			step("pnpm", ["--dir", "ts", "run", "release:bump-version", "1.2.3"], exitedResult()),
+			step(
+				"pnpm",
+				["--dir", "ts", "run", "release:qualify-public", "-a", "-v", "1.2.3"],
+				exitedResult(),
+			),
+			step(
+				"pnpm",
+				["--dir", "ts", "run", "release:verify-public", "-v", "1.2.3", "-s", "-c", "report.json"],
+				exitedResult(),
+			),
+		]);
+		const freshGateway = createSystemFreshReleaseGateway({
+			runCommand: commands.runner,
+			loadPackageContext: async () => packageContextFixture(),
+		});
+		const releaseGateway = createSystemReleaseCommandGateway({ runCommand: commands.runner });
+
+		expect(await freshGateway.bumpCoordinatedVersion("1.2.3")).toEqual({ ok: true });
+		expect(await freshGateway.qualifyPublicPackages("1.2.3")).toMatchObject({ ok: true });
+		expect(
+			await releaseGateway.verify({
+				version: "1.2.3",
+				candidateReportPath: "report.json",
+			}),
+		).toEqual({ ok: true });
+		commands.assertDone();
 	});
 
 	it("reports a missing gt executable as a spawn failure", async () => {

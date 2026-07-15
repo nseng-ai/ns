@@ -129,7 +129,7 @@ export function createSystemFreshReleaseGateway(
 				await execute(
 					commandRunner,
 					"pnpm",
-					["--dir", "ts", "run", "release:bump-version", "--", version],
+					["--dir", "ts", "run", "release:bump-version", version],
 					repoRoot,
 				),
 			);
@@ -138,7 +138,7 @@ export function createSystemFreshReleaseGateway(
 			const qualified = await execute(
 				commandRunner,
 				"pnpm",
-				["--dir", "ts", "run", "release:qualify-public", "--", "--all", "--version", version],
+				["--dir", "ts", "run", "release:qualify-public", "-a", "-v", version],
 				repoRoot,
 			);
 			if (!qualified.ok) return qualified;
@@ -500,11 +500,10 @@ export function createSystemReleaseCommandGateway(
 						"ts",
 						"run",
 						"release:verify-public",
-						"--",
-						"--version",
+						"-v",
 						options.version,
-						"--strict",
-						"--candidate-report",
+						"-s",
+						"-c",
 						options.candidateReportPath,
 					],
 					repoRoot,
