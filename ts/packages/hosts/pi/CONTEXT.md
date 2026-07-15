@@ -73,7 +73,7 @@ A fresh Pi subprocess launched by a parent extension with an isolated conversati
 *Avoid*: queued slash command, child thread, transcript scrape, forcing `@nseng-ai/pi` to import the extracted dispatch package.
 
 **Terminal helper surface**:
-The neutral `@nseng-ai/pi/terminal/*` layout and presentation subpaths owned by the Pi host and intentionally consumed by extracted Pi-tool packages and orchestration packages. Keep this surface in `@nseng-ai/pi` unless a future extraction proves a smaller acyclic home without broad churn.
+The neutral `@nseng-ai/pi/terminal/*` layout and presentation subpaths owned by the Pi host and intentionally consumed by extracted Pi-tool packages and orchestration packages. This surface includes bordered overlay chrome, sizing, and wrapped-detail viewport behavior. Keep this surface in `@nseng-ai/pi` unless a future extraction proves a smaller acyclic home without broad churn.
 *Avoid*: standalone Pi-tool package, feature-domain implementation, terminal emulator ownership.
 
 **Terminal capture**:

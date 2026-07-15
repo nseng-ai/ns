@@ -92,8 +92,10 @@ package-preparation time.
 
 ## Package internals
 
-The published `bin.ns` points at prebuilt JavaScript (`bin/ns.js`) assembled by the package
-preparation step; developer source-checkout shims stay separate from this npm package
-boundary. Maintainer release qualification runs through the package's
+The source workspace manifest intentionally has no executable, because `bin/ns.js` does not
+exist in a source checkout. The package preparation step adds `bin.ns = bin/ns.js` to the
+generated publish manifest only, and copies the prebuilt JavaScript there; developer
+source-checkout shims stay separate from this npm package boundary. Maintainer release
+qualification runs through the package's
 `publish:dry-run`, `pack:local`, and `smoke:checkout-free` scripts (`pnpm --dir ts --filter
 @nseng-ai/ns run …`); actual publication is a separate authorized step.

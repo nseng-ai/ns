@@ -14,6 +14,7 @@ import {
 	repoRoot,
 	workspaceRoot,
 } from "../../src/public-packages/package-set.ts";
+import { nsPublishBin } from "../../src/public-packages/ns-publish-bin.ts";
 import { sdkFoldEntries, sdkPublicExports } from "../../src/public-packages/sdk-public-subpaths.ts";
 import {
 	createSystemReleaseCliContext,
@@ -85,6 +86,9 @@ function registryResult(
 			},
 			time: { [requestedVersion]: "2026-01-02T03:04:05.000Z" },
 			...(exports === undefined ? {} : { exports }),
+			// The published @nseng-ai/ns carries the bin that package preparation generates;
+			// its source manifest deliberately advertises none.
+			...(packageName === "@nseng-ai/ns" ? { bin: nsPublishBin } : {}),
 			...overrides,
 		}),
 	});

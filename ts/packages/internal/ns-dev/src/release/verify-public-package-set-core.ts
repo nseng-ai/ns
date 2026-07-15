@@ -1,6 +1,7 @@
 import { isRecord } from "@nseng-ai/foundation/primitives";
 
 import { normalizeBinPaths } from "../public-packages/helpers.ts";
+import { nsPublishBin } from "../public-packages/ns-publish-bin.ts";
 import { sdkFoldEntries } from "../public-packages/sdk-public-subpaths.ts";
 
 import { releaseTransactionReportSchema } from "./contracts.ts";
@@ -109,7 +110,8 @@ export function compareRegistryMetadata(options: {
 		mismatches.push(`missing publish time for ${expectedVersion}`);
 	compareBin({
 		packageName,
-		localBin: manifest.bin,
+		// The @nseng-ai/ns source manifest advertises no bin; preparation generates it.
+		localBin: packageName === "@nseng-ai/ns" ? nsPublishBin : manifest.bin,
 		registryBin: registry.bin,
 		mismatches,
 		evidence,

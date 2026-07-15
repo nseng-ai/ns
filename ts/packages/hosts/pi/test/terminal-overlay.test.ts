@@ -6,11 +6,9 @@ import {
 	overlayModalRows,
 	overlayTerminalRows,
 	renderOverlayFrame,
-} from "../../src/overlay-kit/frame.ts";
-import {
 	sliceWrappedDetailLinesForViewport,
 	wrapDetailLines,
-} from "../../src/overlay-kit/viewport.ts";
+} from "@nseng-ai/pi/terminal/overlay";
 
 describe("renderOverlayFrame", () => {
 	test("assembles the bordered box around header/body/footer", () => {

@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { catalogVersion } from "@internal/ns-dev/public-packages/catalog-version";
+import { nsPublishBin } from "@internal/ns-dev/public-packages/ns-publish-bin";
 import { publicRuntimeDependencies } from "./public-runtime-dependencies.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -25,7 +26,7 @@ const publishExports = {
 
 assertSourceManifest(sourceManifest, workspaceManifest);
 
-const publishBinRelativePath = sourceManifest.bin.ns;
+const publishBinRelativePath = nsPublishBin.ns;
 const publishBin = resolve(publishRoot, publishBinRelativePath);
 const publishBinDir = dirname(publishBin);
 
@@ -50,7 +51,7 @@ const manifest = {
 	version: sourceManifest.version,
 	description: sourceManifest.description,
 	type: sourceManifest.type,
-	bin: sourceManifest.bin,
+	bin: nsPublishBin,
 	exports: publishExports,
 	files: sourceManifest.files,
 	publishConfig: sourceManifest.publishConfig,
@@ -74,11 +75,8 @@ function assertSourceManifest(manifest, workspaceManifest) {
 	if (manifest.type !== "module") {
 		throw new Error("@nseng-ai/ns source manifest must keep type: module.");
 	}
-	if (manifest.bin?.ns !== "bin/ns.js") {
-		throw new Error("@nseng-ai/ns source manifest bin.ns must point at prebuilt bin/ns.js.");
-	}
-	if (manifest.bin.ns.includes("src/") || manifest.bin.ns.endsWith(".ts")) {
-		throw new Error("@nseng-ai/ns source manifest bin.ns must not point at source TypeScript.");
+	if (manifest.bin !== undefined) {
+		throw new Error("@nseng-ai/ns source manifest must not advertise a bin; the publish artifact adds it.");
 	}
 	if (
 		!Array.isArray(manifest.files) ||
@@ -118,8 +116,8 @@ function assertPublishManifest(manifest) {
 	if (manifest.scripts !== undefined) {
 		throw new Error("Generated publish manifest must not include source package scripts.");
 	}
-	if (manifest.bin.ns !== "bin/ns.js") {
-		throw new Error("Generated publish manifest bin.ns must point at bin/ns.js.");
+	if (manifest.bin?.ns !== nsPublishBin.ns || Object.keys(manifest.bin).length !== 1) {
+		throw new Error(`Generated publish manifest bin must equal ${JSON.stringify(nsPublishBin)}.`);
 	}
 	for (const [subpath, publishTarget] of Object.entries(publishExports)) {
 		if (manifest.exports[subpath] !== publishTarget) {
