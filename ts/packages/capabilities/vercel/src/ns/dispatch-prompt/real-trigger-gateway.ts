@@ -12,8 +12,8 @@ import type {
 	DispatchTriggerIdentityResult,
 } from "./contracts.ts";
 
-/** Run id used by the read-only identity preflight; can never exist. */
-const IDENTITY_PREFLIGHT_RUN_ID = "ns-dispatch-identity-preflight";
+/** Valid-shaped run id used by the read-only identity preflight; can never exist. */
+const IDENTITY_PREFLIGHT_RUN_ID = "wrun_00000000000000000000000000";
 
 export function createRealDispatchTriggerGateway(
 	fetchFn: typeof fetch = fetch,
