@@ -30,7 +30,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: ns flow cp");
 		expect(help.stdout.join("")).toContain("--dry-run");
-		expect(help.stdout.join("")).toContain("NS_CHECKPOINT_MODEL");
+		expect(help.stdout.join("")).not.toContain("NS_CHECKPOINT_MODEL");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "cp", "--json-schema"], cwd });
@@ -147,8 +147,8 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).toContain("latest eligible commit");
 		expect(output).not.toContain("eligible unpushed");
 		expect(output).not.toContain("NS_SLUG_MODEL");
-		expect(output).toContain("NS_CHECKPOINT_MODEL");
-		expect(output).toContain("NS_DEV_CHECKPOINT_MODEL");
+		expect(output).not.toContain("NS_CHECKPOINT_MODEL");
+		expect(output).not.toContain("NS_DEV_CHECKPOINT_MODEL");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "autobranch", "--json-schema"], cwd });

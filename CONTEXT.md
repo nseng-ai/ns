@@ -182,6 +182,22 @@ Deterministic code that consumes one or more **Gateways** to produce or transfor
 
 The ns extension stack, bottom to top: **Neutral Infra** below the SDK (`@nseng-ai/foundation` as the generic infrastructure library plus other non-domain infra such as `@nseng-ai/clinkr`), the SDK (`@nseng-ai/sdk` plus its `sdk` subpackage), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. ns-shaped external-tool gateways live as **Capability Kit** subpackages such as `@nseng-ai/capability-kit/github`, `@nseng-ai/capability-kit/graphite`, and `@nseng-ai/capability-kit/cmux`; the former standalone **Capability Gateway Backend** tier is retired. A gateway whose public contract is ns-independent with a credible external-consumer scenario may instead be **Neutral Infra** owned by foundation (ADR 0032) — `@nseng-ai/foundation/exec` and `@nseng-ai/foundation/git` are the live examples, with Capability Kit keeping the ctx→gateway adapter (`createNsGitGateway`); remaining Kit Gateways stay put absent explicit follow-up work. Intrinsic host services expose author-facing interfaces through `@nseng-ai/sdk` / `ctx`, with implementations hidden in the SDK. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@nseng-ai/pi` runtime host or the SDK; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate (which concrete package owns a large real gateway implementation, and whether it folds into Capability Kit or stays standalone/deferred) and by ADR 0032's external-applicability admission test. The SDK boundary is permeable downward only to concepts that prove general worth. ADR 0031 holds the point-system decision. These terms name its parts.
 
+**Model profile**:
+A stable project-facing name mapped to one qualified provider/model reference. The built-in `fast` profile always exists and may be replaced by repository configuration; other profiles support named policy choices.
+*Avoid*: model alias, provider default, model environment selector
+
+**Model operation ID**:
+A documented string naming one model-backed purpose. Operation IDs are open configuration keys rather than a central registry.
+*Avoid*: model command, model registry key, environment variable name
+
+**Model operation override**:
+A repository configuration entry that maps a model operation ID to a model profile.
+*Avoid*: model fallback, model environment override, point
+
+**Effective model policy**:
+The model profiles and operation overrides that apply to a repository after built-in and repository policy are combined.
+*Avoid*: model ladder, ambient model selection, per-shell model policy
+
 **Point**:
 A named place an **Extension** defines where consumer config alters platform behavior. A point may be used at an SDLC lifecycle moment, but the mechanism is lifecycle-agnostic; "lifecycle point" is prose framing, not a separate concept.
 *Avoid*: unqualified extension point, hook point, event, moment, slot, phase, step, stage, checkpoint, seam

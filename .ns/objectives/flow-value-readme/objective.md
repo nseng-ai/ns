@@ -66,9 +66,9 @@ the shipped mechanism.
   situations, and the existing contract material (requirements, command matrix,
   pre-submit checks, failure marker, customization points) preserved below the
   fold.
-- `[flow.models]` is shipped: manifest-declared schema, the three-layer
-  resolution ladder implemented and tested, legacy env names handled per the
-  ladder decision, and the active source inspectable.
+- Shared top-level `[models]` settings are shipped: typed profiles and operation
+  overrides resolve through the built-in `fast` profile, listed model selectors
+  are removed, and no inspection command is part of v1.
 - The promoted README documents only shipped behavior — in particular the model
   section matches the settings mechanism, not the current env-var table.
 - The promotion roadmap row is done: the draft has replaced
@@ -101,10 +101,9 @@ Risks:
   its workflows tier into `ts/packages/capabilities/flow/README.md` while this
   draft evolves separately; promotion must merge, not clobber. Mitigated by the
   edge and by the promotion row explicitly requiring integration.
-- **The settings work outgrows the record.** `[flow.models]` touches manifest
-  schema and config loading; if implementation balloons past a thin settings
-  table plus ladder, split it into its own Objective rather than stalling the
-  README.
+- **The settings work outgrows the record.** Shared `[models]` policy spans
+  multiple capabilities; keep this Objective focused on documenting the shipped
+  Flow contract rather than expanding it into policy implementation work.
 - **RDD is experimental with one precedent.** `generic-flow-extension` is the
   only completed promotion; follow its mechanics (draft slims to a pointer at
   promotion) rather than inventing new ones.
@@ -116,8 +115,7 @@ Risks:
   explicit-but-terse.)
 - Primary reader: human adopter first with agent behavior woven in
   (recommended), or agent-first? (First grill pass.)
-- `[flow.models]` schema details: key names (`changes`, `checkpoint`, `slug`,
-  `pr-description`, `submit-failure`), validation, and which CLI surface reports
-  the active source.
-- Legacy env names: dropped outright (breaking changes are allowed) or kept as
-  deprecated ladder entries for a window?
+- Which additional model-backed operation IDs should be documented as consumers
+  adopt the shared policy?
+- How should a future policy-inspection surface, if needed, fit the generic config
+  contract without making v1 depend on one?

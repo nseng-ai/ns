@@ -109,11 +109,10 @@ available to the ns runtime. Model-backed commands use shared repository policy 
 
 ```toml
 [models.profiles]
-fast = "openai-codex/gpt-5.6-luna"
-careful = "openai-codex/gpt-5.6-luna"
+fast = "openai/gpt-5.6-luna"
 
 [models.operations]
-flow.pr-description = "careful"
+"flow.pr-description" = "fast"
 ```
 
 `models.profiles` maps profile names to qualified provider/model references and

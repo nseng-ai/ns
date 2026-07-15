@@ -265,7 +265,7 @@ describe("flow cp core", () => {
 
 		const result = await runCheckpointWorkflow({
 			cwd: "/repo",
-			env: { NS_CHECKPOINT_MODEL: "openai-codex/gpt-test" },
+			env: {},
 			gateway,
 			graphite: new InMemoryGraphiteBranchGateway(),
 			textGenerator,
@@ -295,7 +295,7 @@ describe("flow cp core", () => {
 
 		const result = await runCheckpointWorkflow({
 			cwd: "/repo",
-			env: { NS_CHECKPOINT_MODEL: "openai-codex/gpt-test" },
+			env: {},
 			gateway,
 			graphite: new InMemoryGraphiteBranchGateway(),
 			textGenerator,
