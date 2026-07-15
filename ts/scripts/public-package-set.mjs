@@ -3,7 +3,12 @@ import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { copyObjectivesPublishSkills } from "./objectives-publish-skills.mjs";
+import {
+	copyPublishExtras,
+	filesWithPublishExtras,
+	publishExtrasManifestMetadata,
+	validatePublishExtras,
+} from "./publish-extras.mjs";
 import { sdkFoldEntries, sdkPublicExports } from "./sdk-public-subpaths.mjs";
 import { catalogVersion, normalizeManifestBinPaths } from "./public-package-helpers.mjs";
 
@@ -158,15 +163,18 @@ export function printPublishPlan(plan) {
 export async function preparePublishRoot(entry, context) {
 	if (entry.manifest.name === "@nseng-ai/ns") throw new Error("@nseng-ai/ns publish root is prepared by its package script");
 	const publishRoot = publishRootForEntry(entry);
+	const publishExtras = await validatePublishExtras({
+		manifest: entry.manifest,
+		sourceRoot: repoRoot,
+		publishRoot,
+	});
 	await rm(publishRoot, { recursive: true, force: true });
 	await mkdir(publishRoot, { recursive: true });
 	for (const fileEntry of entry.manifest.files ?? []) {
 		await cp(resolve(entry.root, fileEntry), resolve(publishRoot, fileEntry), { recursive: true });
 	}
-	if (entry.manifest.name === "@nseng-ai/objectives") {
-		await copyObjectivesPublishSkills({ repoRoot, publishRoot });
-	}
-	const manifest = buildPublishManifest(entry.manifest, context);
+	await copyPublishExtras(publishExtras);
+	const manifest = buildPublishManifest(entry.manifest, context, publishExtras);
 	assertPublishManifest(manifest);
 	await writeFile(resolve(publishRoot, "package.json"), `${JSON.stringify(manifest, null, "\t")}\n`);
 	return publishRoot;
@@ -176,17 +184,18 @@ export function publishRootForEntry(entry) {
 	return resolve(entry.root, "dist", "publish");
 }
 
-export function buildPublishManifest(sourceManifest, context) {
+export function buildPublishManifest(sourceManifest, context, publishExtras = []) {
 	const manifest = {
 		name: sourceManifest.name,
 		version: sourceManifest.version,
 		type: sourceManifest.type,
-		files: publishFiles(sourceManifest),
+		files: filesWithPublishExtras(sourceManifest.files ?? [], publishExtras),
 		engines: context.workspaceManifest.engines,
 		publishConfig: { access: "public" },
 		...(sourceManifest.bin === undefined ? {} : { bin: normalizeManifestBinPaths(sourceManifest.bin) }),
 		...(sourceManifest.exports === undefined ? {} : { exports: sourceManifest.exports }),
 		dependencies: rewriteDependencyBlock(sourceManifest.dependencies ?? {}, context),
+		...publishExtrasManifestMetadata(publishExtras),
 	};
 	const optionalDependencies = rewriteDependencyBlock(sourceManifest.optionalDependencies ?? {}, context);
 	const peerDependencies = rewritePeerDependencyBlock(sourceManifest.peerDependencies ?? {}, context);
@@ -212,11 +221,6 @@ function assertPublishOrder() {
 	if (missing.length > 0 || extra.length > 0) {
 		throw new Error(`Explicit publish order does not match intended public set. Missing: ${missing.join(", ")}; extra: ${extra.join(", ")}`);
 	}
-}
-
-function publishFiles(sourceManifest) {
-	if (sourceManifest.name !== "@nseng-ai/objectives") return sourceManifest.files;
-	return [...sourceManifest.files, "skills"];
 }
 
 function rewriteDependencyBlock(dependencies, context) {
