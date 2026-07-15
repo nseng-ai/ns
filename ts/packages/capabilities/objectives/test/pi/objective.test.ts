@@ -654,6 +654,12 @@ describe("ns:objective:autorun command", () => {
 			expect(result.pi.sentUserMessages[0]).toContain(
 				"Pi session note: use the `objective_runner_step` tool",
 			);
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"may be run by the implementation child or from inside an Objective Runner step",
+			);
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"distinct parent-only action after the Runner Checkpoint",
+			);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
 			expect(result.pi.sentUserMessages[0]?.startsWith("/ns:objective:autorun")).toBe(false);
 			expect(result.notifications).toContainEqual({
@@ -671,6 +677,10 @@ describe("ns:objective:autorun command", () => {
 		expect(result.pi.sentUserMessages[0]).toContain(
 			"The objective-autorun skill was not found among loaded Pi skills.",
 		);
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"Every implementation child and Runner step is local-only and external-write-forbidden.",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain("Parent publication is off by default");
 		expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
 		expect(result.notifications).toContainEqual({
 			message: "objective-autorun skill was not found; using fallback prompt.",

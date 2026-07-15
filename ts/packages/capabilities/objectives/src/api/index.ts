@@ -92,5 +92,43 @@ export type {
 	ReadObjectiveResult,
 } from "../core/operations/read-objective.ts";
 export type { ObjectiveCliContext } from "../core/context.ts";
+export {
+	objectiveRunnerCumulativeSummaryV1Schema,
+	objectiveRunnerPublicationAuthorizationV1Schema,
+	objectiveRunnerPublicationCheckpointSchema,
+	objectiveRunnerPublicationLaunchAttestationV1Schema,
+	objectiveRunnerPublicationTargetSchema,
+	objectiveRunnerPublishedStepSchema,
+	objectiveRunnerTrackingCommitSchema,
+	objectiveRunnerValidationOutcomeSchema,
+	publicationCommitFactsSchema,
+	publicationTargetFactsSchema,
+} from "../publication/contracts.ts";
+export type {
+	ObjectiveRunnerCumulativeSummaryV1,
+	ObjectiveRunnerPublicationAuthorizationV1,
+	ObjectiveRunnerPublicationCheckpoint,
+	ObjectiveRunnerPublicationLaunchAttestationV1,
+	PublicationCommitFacts,
+	PublicationTargetFacts,
+} from "../publication/contracts.ts";
+export {
+	bindObjectiveRunnerPublication,
+	recheckObjectiveRunnerPublication,
+} from "../publication/authorization.ts";
+export type {
+	BindObjectiveRunnerPublicationOptions,
+	PublicationAuthorizationRefusalCode,
+	PublicationAuthorizationResult,
+	RecheckedObjectiveRunnerPublication,
+	RecheckObjectiveRunnerPublicationOptions,
+} from "../publication/authorization.ts";
+export type {
+	ObjectiveRunnerPublicationFactsGateway,
+	PublicationFactsError,
+	PublicationFactsResult,
+	PublicationTargetFactsResult,
+} from "../publication/facts-gateway.ts";
+export { renderObjectiveRunnerCumulativeSummary } from "../publication/summary.ts";
 
 export type ObjectiveList = ObjectiveListResult;

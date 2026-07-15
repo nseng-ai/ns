@@ -4,6 +4,8 @@
 
 Accepted; superseded in part by ADR 0024 (invocation surface, report medium, child-dispatch ownership)
 
+Refined by ADR 0037 only for explicitly authorized parent-only publication after a committed Runner Checkpoint; the implementation child and Objective Runner step remain external-write-forbidden.
+
 ## Context
 
 Dogfooding `/objective:autopilot` showed that a deterministic multi-iteration loop can safely run child sessions, verify repository state, and commit slices, but it leaves the parent LM mostly observing a batch controller. That loses the intended parent-session judgment between Objective implementation slices: whether the last child advanced the roadmap, whether to update Objective tracking, whether to ask the human, whether to continue, and how to carry cross-session context.
