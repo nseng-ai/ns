@@ -4,7 +4,7 @@ import type { NsExtensionApi } from "@nseng-ai/sdk";
 import { draftChangesSummary } from "../changes/changes-model-summary.ts";
 
 export type FlowTextGenerationContext = Pick<NsExtensionApi, "env" | "textGenerator"> & {
-	modelRef?: string;
+	modelRef: string;
 };
 
 export function prepareFlowChangesSummary(
@@ -13,7 +13,7 @@ export function prepareFlowChangesSummary(
 ) {
 	return draftChangesSummary({
 		textGenerator: ctx.textGenerator,
-		modelRef: ctx.modelRef ?? "openai-codex/gpt-5.6-luna",
+		modelRef: ctx.modelRef,
 		snapshot,
 	});
 }
@@ -26,6 +26,6 @@ export function prepareFlowCheckpointMessage(
 		status: pending.status,
 		diff: pending.diff,
 		textGenerator: ctx.textGenerator,
-		modelRef: ctx.modelRef ?? "openai-codex/gpt-5.6-luna",
+		modelRef: ctx.modelRef,
 	});
 }

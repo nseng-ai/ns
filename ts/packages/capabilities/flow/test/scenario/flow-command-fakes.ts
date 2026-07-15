@@ -536,13 +536,17 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 	const context = new ScriptedNsTestContext(fixture.options.state, {
 		cwd,
 		env: { HOME: homeDir, ...(fixture.options.env ?? {}) },
-		execResponses: fixture.defaults.execResponses,
+		execResponses: () => [
+			{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+			...fixture.defaults.execResponses(),
+		],
 		textGenerationResults: fixture.defaults.textGenerationResults,
 		...(fixture.options.progress === undefined ? {} : { progress: fixture.options.progress }),
 		...(fixture.defaults.missingTextGenerationResult === undefined
 			? {}
 			: { missingTextGenerationResult: fixture.defaults.missingTextGenerationResult }),
-	});
+		},
+	);
 	context.stdout = (text) => {
 		stdout.push(text);
 	};

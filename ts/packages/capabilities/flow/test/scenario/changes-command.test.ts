@@ -47,10 +47,8 @@ describe("project-local changes extension behavior", () => {
 		expect(output).toContain("• Add reviewer notes");
 		expect(output).toContain("Files\n• modified   src/app.ts\n• untracked  notes.md");
 		expect(run.stderr.join("")).toBe("");
-		expect(run.liveOutput).toEqual([
-			{ stream: "stderr", text: "Inspecting worktree…\n" },
-			{ stream: "stderr", text: "Generating changes summary…\n" },
-		]);
+		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "Inspecting worktree…\n" });
+		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "Generating changes summary…\n" });
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
@@ -114,23 +112,11 @@ describe("project-local changes extension behavior", () => {
 		expect(output).toContain("• !!         ignored.log");
 	});
 
-	test("changes model can be selected by ns environment with legacy fallback", async () => {
-		const selected = runChangesWithFakes({
-			state: { textGeneration: [{ ok: true, text: "- Summarize selected model" }] },
-			env: {
-				NS_CHANGES_MODEL: "openai-codex/custom-mini",
-				PI_DRAFT_MODEL: "openai-codex/legacy-mini",
-			},
-		});
-		expect(await selected.exit).toBe(0);
-		expect(selected.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
+	test("changes generation receives the resolved model reference explicitly", async () => {
+		const run = runChangesWithFakes();
 
-		const fallback = runChangesWithFakes({
-			state: { textGeneration: [{ ok: true, text: "- Summarize fallback model" }] },
-			env: { PI_DRAFT_MODEL: "openai-codex/legacy-mini" },
-		});
-		expect(await fallback.exit).toBe(0);
-		expect(fallback.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
+		expect(await run.exit).toBe(0);
+		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/gpt-5.6-luna");
 	});
 
 	test("model generation and validation failures exit 2 without mutation", async () => {

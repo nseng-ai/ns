@@ -5,9 +5,6 @@ import process from "node:process";
 
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
-	DEFAULT_PR_DESCRIPTION_MODEL_REF,
-	PR_DESCRIPTION_MODEL_ENV,
-	selectPrDescriptionModelRef,
 	type TextGenerationResult,
 	type TextGenerationUsage,
 	type TextGenerator,
@@ -30,7 +27,6 @@ import {
 } from "@nseng-ai/sdk/project-config/points";
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
 
-export { DEFAULT_PR_DESCRIPTION_MODEL_REF, PR_DESCRIPTION_MODEL_ENV, selectPrDescriptionModelRef };
 export const PR_DESCRIPTION_PROMPT_ENV = "NS_DEV_PR_DESCRIPTION_PROMPT";
 export const FLOW_PR_DESCRIPTION_POINT_ID = "flow.submit.pr-description";
 export const REPO_PR_DESCRIPTION_PROMPT_PATH = `.ns/prompts/${FLOW_PR_DESCRIPTION_POINT_ID}.md`;
@@ -116,6 +112,7 @@ export async function resolvePrDescriptionGeneration(input: {
 	cwd: string;
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
+	modelRef?: string;
 }): Promise<PrDescriptionGenerationResolution> {
 	const repoRoot = await input.git.repoRoot({ cwd: input.cwd });
 	const prompt = await resolvePrDescriptionPrompt({
@@ -130,7 +127,7 @@ export async function resolvePrDescriptionGeneration(input: {
 
 	return {
 		ok: true,
-		modelRef: selectPrDescriptionModelRef(),
+		modelRef: input.modelRef ?? "openai-codex/gpt-5.6-luna",
 		promptText: prompt.text,
 		promptSource: prompt.source,
 	};

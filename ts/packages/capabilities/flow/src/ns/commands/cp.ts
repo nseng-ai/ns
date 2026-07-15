@@ -9,11 +9,6 @@ import {
 	resolveFlowStreamCaps,
 	runSettledPhaseStream,
 } from "../../phase-stream/phase-stream.ts";
-import {
-	CHECKPOINT_MODEL_ENV,
-	DEFAULT_CHECKPOINT_MODEL_REF,
-	LEGACY_CHECKPOINT_MODEL_ENV,
-} from "@nseng-ai/capability-kit/text-generation";
 import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
 import {
 	createNsCheckpointRuntime,
@@ -23,15 +18,14 @@ import {
 	type CheckpointWorkflowResult,
 } from "../../checkpoint/checkpoint.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
+import { resolveFlowModelRef } from "../model-policy.ts";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 
 The command captures the pending worktree, refuses Graphite's configured trunk branch, refuses clean worktrees, asks the configured text-generation model for a validated [cp] commit message, stages all changes, commits with that message, and prints the resulting commit summary plus checkpoint message. Checkpoint safety requires a successful configured-trunk lookup from Graphite.
 
 Use --dry-run to preview the model-authored checkpoint message without running git add, git commit, or git log.
-
-Environment:
-  ${CHECKPOINT_MODEL_ENV}  Model reference for generated checkpoint messages. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`;
+`;
 
 const cpRequestSchema = z.object({
 	dryRun: z
@@ -53,10 +47,13 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 		const runtime = createNsCheckpointRuntime(ctx);
 		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
 		if (request.dryRun) {
+			const model = await resolveFlowModelRef(ctx, "flow.checkpoint");
+			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 			const result = await runCpCore({
 				cwd: ctx.cwd,
 				env: ctx.env,
 				textGenerator: ctx.textGenerator,
+				modelRef: model.modelRef,
 				isDryRun: true,
 				checkpointGateway: runtime.checkpointGateway,
 				graphite: runtime.graphite,
@@ -64,6 +61,8 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 			return toCommandResult(result);
 		}
 
+		const model = await resolveFlowModelRef(ctx, "flow.checkpoint");
+		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 		const caps = resolveFlowStreamCaps(ctx);
 		return await runSettledPhaseStream({
 			caps,
@@ -76,6 +75,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 					cwd: ctx.cwd,
 					env: ctx.env,
 					textGenerator: ctx.textGenerator,
+					modelRef: model.modelRef,
 					isDryRun: false,
 					checkpointGateway: runtime.checkpointGateway,
 					graphite: runtime.graphite,
@@ -96,6 +96,7 @@ export interface RunCpCoreOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	textGenerator: TextGenerator;
+	modelRef: string;
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
 	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
@@ -110,6 +111,7 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 		gateway: options.checkpointGateway,
 		graphite: options.graphite,
 		textGenerator: options.textGenerator,
+		modelRef: options.modelRef,
 		dryRun: options.isDryRun,
 		...(options.onPhase === undefined ? {} : { onPhase: options.onPhase }),
 		...(options.time === undefined ? {} : { time: options.time }),

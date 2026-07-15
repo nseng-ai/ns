@@ -349,14 +349,11 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(run.context.execCalls).toHaveLength(1);
 	});
 
-	test("uses the historical PR description model environment override", async () => {
-		const run = runRegeneratePrWithFakes({
-			state: { confirm: () => true },
-			env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/custom-mini" },
-		});
+	test("PR description generation receives the resolved model reference explicitly", async () => {
+		const run = runRegeneratePrWithFakes({ state: { confirm: () => true } });
 
 		expect(await run.exit).toBe(0);
-		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
+		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/gpt-5.6-luna");
 	});
 
 	test("uses env prompt overrides from the built-in point catalog", async () => {

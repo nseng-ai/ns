@@ -40,11 +40,13 @@ import {
 } from "@nseng-ai/sdk";
 import { flowExtensionDescriptorSource } from "../extension.ts";
 import { FLOW_COMMAND_FAILED, exitCodeToFlowCommandExit } from "../flow-cli-runner.ts";
+import { resolveFlowModelRef } from "../model-policy.ts";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
 interface SubmitCheckpointContext {
 	repoRoot?: string;
+	modelRef: string;
 }
 
 const submitSchema = z.object({
@@ -79,11 +81,8 @@ const SUBMIT_COMMAND_DESCRIPTION = `Run configured pre-submit checks, checkpoint
 Pre-submit checks are consumer config in the repo-root ns.toml ([points]."flow.submit.pre", an array of command strings such as ["just"]). Each entry is whitespace-split and executed directly without a shell; the first failing check aborts the submit. Skip them with --no-checks.
 
 Environment:
-  NS_CHECKPOINT_MODEL           Model reference for generated checkpoint messages. Falls back to NS_DEV_CHECKPOINT_MODEL.
-  NS_DEV_PR_DESCRIPTION_MODEL   Model reference for generated PR descriptions.
   NS_DEV_PR_DESCRIPTION_PROMPT  Optional path to a custom PR description prompt.
 
-  NS_SUBMIT_FAILURE_MODEL       Model reference for summarizing submit failures.
   NS_SUBMIT_FAILURE_LOG_DIR     Optional directory for raw submit-failure transcripts.
 
 By default, existing PRs with empty bodies receive generated titles and descriptions; existing PRs with non-empty bodies are left unchanged. Use --regenerate-descriptions to regenerate titles and ns-managed descriptions for every existing PR.
@@ -115,7 +114,10 @@ export function createFlowSubmitCommand(
 			const repoRoot = request.checks
 				? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
 				: undefined;
+			const checkpointModel = await resolveFlowModelRef(ctx, "flow.checkpoint");
+			if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
 			const checkpointContext: SubmitCheckpointContext = {
+				modelRef: checkpointModel.modelRef,
 				...optionalEntry("repoRoot", repoRoot),
 			};
 			const checksLoad =
@@ -218,6 +220,7 @@ async function runSubmitWithProgress(input: {
 			...checkpointRunContext,
 			...checkpointContext,
 			textGenerator: ctx.textGenerator,
+			modelRef: checkpointContext.modelRef,
 			onPhase: matrix.phase,
 		});
 		if (checkpoint.kind === "failed") {
@@ -329,10 +332,14 @@ async function maybeFormatSubmitFailureWithModel(
 	if (result.failurePresentation === "deterministic") {
 		return { ...result, stderr: formatFailureWithRawLog({ stderr: result.stderr, rawLog }) };
 	}
+	const model = await resolveFlowModelRef(ctx, "flow.submit-failure");
+	if (!model.ok)
+		return { ...result, stderr: formatFailureWithRawLog({ stderr: model.error, rawLog }) };
 	const interpretation = await generateSubmitFailureInterpretation({
 		rawTranscript,
 		exitCode: result.exitCode,
 		ctx,
+		modelRef: model.modelRef,
 	});
 	if (interpretation.ok && interpretation.text.trim() !== "") {
 		return {
@@ -350,10 +357,11 @@ async function generateSubmitFailureInterpretation(input: {
 	rawTranscript: string;
 	exitCode: number;
 	ctx: NsExtensionApi;
+	modelRef: string;
 }): Promise<{ ok: true; text: string } | { ok: false }> {
 	try {
 		const interpretation = await input.ctx.textGenerator.generateText({
-			modelRef: "openai-codex/gpt-5.6-luna",
+			modelRef: input.modelRef,
 			operation: "submit-failure",
 			reasoning: "low",
 			maxTokens: 700,

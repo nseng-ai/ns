@@ -11,13 +11,13 @@ export type { CommandResult, PreparedCheckpointMessage };
 
 export async function prepareAutobranchCheckpointMessage(
 	snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
-	modelRef: string | undefined,
+	modelRef: string,
 	textGenerator: TextGenerator,
 ): Promise<PreparedCheckpointMessage> {
 	return prepareCheckpointMessage({
 		status: snapshot.status,
 		diff: snapshot.diff,
-		modelRef: modelRef ?? "openai-codex/gpt-5.6-luna",
+		modelRef,
 		textGenerator,
 	});
 }

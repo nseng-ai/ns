@@ -33,6 +33,7 @@ export interface AutoslotCliInput {
 	env: Record<string, string | undefined>;
 	args: FlowAutobranchRequest;
 	textGenerator: TextGenerator;
+	modelRef: string;
 	/** Resolved terminal caps from the host seam (`resolveFlowStreamCaps` in the flow wrapper). */
 	caps: Caps;
 	exec(
@@ -61,7 +62,7 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 			caps: input.caps,
 			exec,
 			prepareCheckpointMessage: (snapshot) =>
-				prepareAutobranchCheckpointMessage(snapshot, undefined, input.textGenerator),
+				prepareAutobranchCheckpointMessage(snapshot, input.modelRef, input.textGenerator),
 			commitPreparedCheckpointMessage: (message) =>
 				commitAutobranchCheckpointMessage(
 					(command, commandArgs, commandCwd, timeout) =>

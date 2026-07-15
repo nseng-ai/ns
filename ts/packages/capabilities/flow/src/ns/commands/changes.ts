@@ -3,11 +3,7 @@ import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/c
 import { renderCapabilitiesForTerminal, type Caps } from "@nseng-ai/clinkr";
 import { defineCommand, failure, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import { prepareFlowChangesSummary } from "../model-generation.ts";
-import {
-	CHANGES_MODEL_ENV,
-	DEFAULT_CHANGES_MODEL_REF,
-	LEGACY_CHANGES_MODEL_ENV,
-} from "@nseng-ai/capability-kit/text-generation";
+import { resolveFlowModelRef } from "../model-policy.ts";
 import {
 	isGitPorcelainUnmergedStatus,
 	parseGitPorcelainStatusOutput,
@@ -38,9 +34,6 @@ const CHANGES_COMMAND_DESCRIPTION = `Summarize outstanding worktree changes with
 
 The command captures a pending worktree snapshot with read-only git commands. Clean worktrees print that there are no outstanding changes. Dirty worktrees ask the configured text-generation model for 1–4 reviewer-facing bullets, then print the bullets and raw porcelain status lines.
 
-Environment:
-  ${CHANGES_MODEL_ENV}  Model reference for generated changes summaries. Defaults to ${DEFAULT_CHANGES_MODEL_REF}. Falls back to ${LEGACY_CHANGES_MODEL_ENV} when unset.
-
 The command owns human stdout/stderr, has no alternate output-format flag, and does not stage, commit, stash, switch branches, run Graphite, or call GitHub.`;
 
 export const flowChangesCommand: NsCommand = defineCommand({
@@ -63,8 +56,14 @@ export const flowChangesCommand: NsCommand = defineCommand({
 				return ok("Working tree is clean; no outstanding changes.");
 			}
 
+			io.phase("Resolving changes model policy…");
+			const model = await resolveFlowModelRef(ctx, "flow.changes");
+			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 			io.phase("Generating changes summary…");
-			const summary = await prepareFlowChangesSummary(ctx, snapshot);
+			const summary = await prepareFlowChangesSummary(
+				{ ...ctx, modelRef: model.modelRef },
+				snapshot,
+			);
 			if (!summary.ok) {
 				return failure(FLOW_COMMAND_FAILED, summary.error);
 			}
