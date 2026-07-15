@@ -15,8 +15,11 @@ const GIT_MUTATION_TIMEOUT_MS = 30_000;
 const STASH_PUSH_TIMEOUT_MS = 120_000;
 const STASH_POP_TIMEOUT_MS = 120_000;
 const BRANCH_NAME_TIMEOUT_MS = 30_000;
+const NON_NEGATIVE_INTEGER_PATTERN = new RegExp("^\\d+$", "u");
 
 export type AutobranchGitResult<T> = { ok: true; value: T } | { ok: false; details: string };
+
+export type HeadUpstreamRelationship = "synchronized" | "local_ahead" | "remote_ahead" | "diverged";
 
 export interface HeadParents {
 	headSha: string;
@@ -36,7 +39,9 @@ export interface AutobranchGitGateway {
 	headCommitMessage(): Promise<AutobranchGitResult<string>>;
 	headCommitDiff(): Promise<AutobranchGitResult<string>>;
 	upstreamOf(branch: string): Promise<AutobranchGitResult<string | undefined>>;
-	isAncestor(ancestor: string, descendant: string): Promise<AutobranchGitResult<boolean>>;
+	headUpstreamRelationship(
+		upstream: string,
+	): Promise<AutobranchGitResult<HeadUpstreamRelationship>>;
 	listStashes(): Promise<AutobranchGitResult<StashEntry[]>>;
 	createBranchAt(branch: string, sha: string): Promise<AutobranchGitResult<void>>;
 	resetHardTo(ref: string): Promise<AutobranchGitResult<void>>;
@@ -112,19 +117,22 @@ export function createAutobranchGitGateway(input: AutobranchGitGatewayInput): Au
 			);
 			return mapGitCommand(result, (value) => firstNonEmptyLine(value.stdout));
 		},
-		async isAncestor(ancestor, descendant) {
-			const result = await input.exec(
-				"git",
-				["merge-base", "--is-ancestor", ancestor, descendant],
-				GIT_FACT_TIMEOUT_MS,
-			);
-			if (result.type === "exited" && result.signal === null && result.code === 0) {
-				return { ok: true, value: true };
+		async headUpstreamRelationship(upstream) {
+			const args = ["rev-list", "--left-right", "--count", `HEAD...${upstream}`];
+			const displayCommand = `git ${args.join(" ")}`;
+			const result = await raw(args, GIT_FACT_TIMEOUT_MS);
+			if (!result.ok) {
+				return { ok: false, details: `${displayCommand} failed.\n${result.details}` };
 			}
-			if (result.type === "exited" && result.signal === null && result.code === 1) {
-				return { ok: true, value: false };
+
+			const relationship = parseHeadUpstreamRelationship(result.value.stdout);
+			if (relationship === undefined) {
+				return {
+					ok: false,
+					details: `${displayCommand} returned malformed output; expected exactly two non-negative safe-integer counts.`,
+				};
 			}
-			return commandFailure(result);
+			return { ok: true, value: relationship };
 		},
 		async listStashes() {
 			const result = await raw(["stash", "list", "--format=%gd%x00%s"], GIT_FACT_TIMEOUT_MS);
@@ -206,6 +214,32 @@ function adaptGitResult<T>(result: GitResult<T>): AutobranchGitResult<T> {
 
 function commandFailure<T>(result: CommandResult): AutobranchGitResult<T> {
 	return { ok: false, details: formatAutobranchCommandDetails(result) };
+}
+
+function parseHeadUpstreamRelationship(stdout: string): HeadUpstreamRelationship | undefined {
+	const nonEmptyLines = stdout.split(/\r?\n/u).filter((line) => line.trim().length > 0);
+	if (nonEmptyLines.length !== 1) return undefined;
+
+	const [headOnlyText, upstreamOnlyText, extraColumn] =
+		nonEmptyLines[0]?.trim().split(/\s+/u) ?? [];
+	if (headOnlyText === undefined || upstreamOnlyText === undefined || extraColumn !== undefined) {
+		return undefined;
+	}
+
+	const headOnlyCount = parseNonNegativeSafeInteger(headOnlyText);
+	const upstreamOnlyCount = parseNonNegativeSafeInteger(upstreamOnlyText);
+	if (headOnlyCount === undefined || upstreamOnlyCount === undefined) return undefined;
+
+	if (headOnlyCount === 0 && upstreamOnlyCount === 0) return "synchronized";
+	if (upstreamOnlyCount === 0) return "local_ahead";
+	if (headOnlyCount === 0) return "remote_ahead";
+	return "diverged";
+}
+
+function parseNonNegativeSafeInteger(value: string): number | undefined {
+	if (!NON_NEGATIVE_INTEGER_PATTERN.test(value)) return undefined;
+	const parsed = Number.parseInt(value, 10);
+	return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
 function branchHeadRef(branchName: string): string {

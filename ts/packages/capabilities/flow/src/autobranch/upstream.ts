@@ -63,31 +63,21 @@ export async function inspectUpstreamHeadState(
 		return { type: "no_upstream" };
 	}
 
-	const headIsAncestor = await input.git.isAncestor("HEAD", upstreamName);
-	if (!headIsAncestor.ok) {
-		return {
-			type: "failed",
-			error: formatAncestryProbeFailure("HEAD", upstreamName, headIsAncestor.details),
-		};
-	}
-	const upstreamIsAncestor = await input.git.isAncestor(upstreamName, "HEAD");
-	if (!upstreamIsAncestor.ok) {
-		return {
-			type: "failed",
-			error: formatAncestryProbeFailure(upstreamName, "HEAD", upstreamIsAncestor.details),
-		};
+	const relationship = await input.git.headUpstreamRelationship(upstreamName);
+	if (!relationship.ok) {
+		return { type: "failed", error: relationship.details };
 	}
 
-	if (headIsAncestor.value && upstreamIsAncestor.value) {
-		return { type: "synchronized", branch: branchName, upstream: upstreamName };
+	switch (relationship.value) {
+		case "synchronized":
+			return { type: "synchronized", branch: branchName, upstream: upstreamName };
+		case "local_ahead":
+			return { type: "local_ahead", upstream: upstreamName };
+		case "remote_ahead":
+			return { type: "remote_ahead", upstream: upstreamName };
+		case "diverged":
+			return { type: "diverged", upstream: upstreamName };
 	}
-	if (upstreamIsAncestor.value) {
-		return { type: "local_ahead", upstream: upstreamName };
-	}
-	if (headIsAncestor.value) {
-		return { type: "remote_ahead", upstream: upstreamName };
-	}
-	return { type: "diverged", upstream: upstreamName };
 }
 
 export async function inspectLatestCommitUpstreamEligibility(
@@ -139,8 +129,4 @@ async function inspectSynchronizedTrunkState(input: {
 		return { type: "failed", error: "gt trunk --no-interactive returned no branch name." };
 	}
 	return input.branch === trunk ? { type: "trunk", trunk } : { type: "non_trunk", trunk };
-}
-
-function formatAncestryProbeFailure(ancestor: string, descendant: string, details: string): string {
-	return `git merge-base --is-ancestor ${ancestor} ${descendant} failed.\n${details}`;
 }

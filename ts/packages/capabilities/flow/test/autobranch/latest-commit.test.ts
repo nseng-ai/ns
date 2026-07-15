@@ -7,7 +7,7 @@ import {
 	createTestAutobranchGitGateway,
 	type PendingWorktreeSnapshot,
 	type UpstreamMode,
-	upstreamAncestryResult,
+	upstreamRelationshipResult,
 } from "./autobranch-test-helpers.ts";
 import {
 	prepareLatestCommitAutobranchPlan,
@@ -40,6 +40,21 @@ function createSnapshot(branch = "feature/base"): PendingWorktreeSnapshot {
 	};
 }
 
+function respondToUpstreamRelationshipProbe(
+	command: string,
+	args: string[],
+	upstreamMode: UpstreamMode,
+	upstreamName: string,
+): CommandResult | undefined {
+	if (
+		command !== "git" ||
+		args.join(" ") !== `rev-list --left-right --count HEAD...${upstreamName}`
+	) {
+		return undefined;
+	}
+	return upstreamRelationshipResult(upstreamMode);
+}
+
 function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 	const calls: Array<{ command: string; args: string[] }> = [];
 	const upstreamMode = options.upstreamMode ?? "local-ahead";
@@ -58,13 +73,14 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 			}
 			return upstreamMode === "none" ? ok() : ok(`${upstreamName}\n`);
 		}
-		if (command === "git" && args[0] === "merge-base") {
-			return upstreamAncestryResult({
-				mode: upstreamMode,
-				ancestor: args[2] ?? "",
-				descendant: args[3] ?? "",
-				upstream: upstreamName,
-			});
+		const upstreamProbeResult = respondToUpstreamRelationshipProbe(
+			command,
+			args,
+			upstreamMode,
+			upstreamName,
+		);
+		if (upstreamProbeResult !== undefined) {
+			return upstreamProbeResult;
 		}
 		if (command === "gt" && args[0] === "trunk") {
 			return options.shouldTrunkFail
@@ -163,13 +179,14 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 			}
 			return upstreamMode === "none" ? ok() : ok(`${upstreamName}\n`);
 		}
-		if (command === "git" && args[0] === "merge-base") {
-			return upstreamAncestryResult({
-				mode: upstreamMode,
-				ancestor: args[2] ?? "",
-				descendant: args[3] ?? "",
-				upstream: upstreamName,
-			});
+		const upstreamProbeResult = respondToUpstreamRelationshipProbe(
+			command,
+			args,
+			upstreamMode,
+			upstreamName,
+		);
+		if (upstreamProbeResult !== undefined) {
+			return upstreamProbeResult;
 		}
 		if (command === "gt" && args[0] === "trunk") {
 			return options.shouldTrunkFail
@@ -322,10 +339,17 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 			expect(harness.calls.some((call) => call.command === "gt" && call.args[0] === "trunk")).toBe(
 				false,
 			);
+			expect(
+				harness.calls.filter(
+					(call) =>
+						call.command === "git" &&
+						call.args.slice(0, 3).join(" ") === "rev-list --left-right --count",
+				).length,
+			).toBe(upstreamMode === "none" ? 0 : 1);
 		}
 	});
 
-	test("accepts a synchronized non-trunk branch after bidirectional ancestry checks", async () => {
+	test("accepts a synchronized non-trunk branch after one relationship observation", async () => {
 		const harness = createPreparationHarness({
 			slug: "latest-commit-branch",
 			upstreamMode: "synchronized",
@@ -342,15 +366,18 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 			expect.arrayContaining([
 				{
 					command: "git",
-					args: ["merge-base", "--is-ancestor", "HEAD", "origin/feature/base"],
-				},
-				{
-					command: "git",
-					args: ["merge-base", "--is-ancestor", "origin/feature/base", "HEAD"],
+					args: ["rev-list", "--left-right", "--count", "HEAD...origin/feature/base"],
 				},
 				{ command: "gt", args: ["trunk", "--no-interactive"] },
 			]),
 		);
+		expect(
+			harness.calls.filter(
+				(call) =>
+					call.command === "git" &&
+					call.args.slice(0, 3).join(" ") === "rev-list --left-right --count",
+			),
+		).toHaveLength(1);
 	});
 
 	test("refuses remote-ahead and diverged branches before Graphite child inspection", async () => {
@@ -371,7 +398,17 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 				harness.calls.some((call) => call.command === "gt" && call.args[0] === "children"),
 			).toBe(false);
 			expect(
-				harness.calls.some((call) => call.command === "git" && call.args[0] === "rev-list"),
+				harness.calls.filter(
+					(call) =>
+						call.command === "git" &&
+						call.args.slice(0, 3).join(" ") === "rev-list --left-right --count",
+				),
+			).toHaveLength(1);
+			expect(
+				harness.calls.some(
+					(call) =>
+						call.command === "git" && call.args.slice(0, 2).join(" ") === "rev-list --parents",
+				),
 			).toBe(false);
 			expect(harness.calls.some((call) => call.command === "gt" && call.args[0] === "trunk")).toBe(
 				false,
@@ -402,7 +439,17 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 			ok: false,
 			kind: "upstream_check_failed",
 			error:
-				"git merge-base --is-ancestor HEAD origin/feature/base failed.\nexit code 128: bad upstream relationship",
+				"git rev-list --left-right --count HEAD...origin/feature/base failed.\nexit code 128: bad upstream relationship",
+		});
+
+		const malformed = await prepareLatestCommitAutobranchPlan(
+			createPreparationHarness({ upstreamMode: "malformed" }).input,
+		);
+		expect(malformed).toEqual({
+			ok: false,
+			kind: "upstream_check_failed",
+			error:
+				"git rev-list --left-right --count HEAD...origin/feature/base returned malformed output; expected exactly two non-negative safe-integer counts.",
 		});
 
 		const trunkFailed = await prepareLatestCommitAutobranchPlan(
@@ -509,7 +556,15 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			ok: false,
 			kind: "transaction_upstream_check_failed",
 			error:
-				"git merge-base --is-ancestor HEAD origin/feature/base failed.\nexit code 128: bad upstream relationship",
+				"git rev-list --left-right --count HEAD...origin/feature/base failed.\nexit code 128: bad upstream relationship",
+		});
+
+		const malformed = createTransactionHarness({ upstreamMode: "malformed" });
+		expect(await runLatestCommitAutobranchTransaction(malformed.input)).toEqual({
+			ok: false,
+			kind: "transaction_upstream_check_failed",
+			error:
+				"git rev-list --left-right --count HEAD...origin/feature/base returned malformed output; expected exactly two non-negative safe-integer counts.",
 		});
 
 		const trunkFailed = createTransactionHarness({
@@ -522,7 +577,7 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			error: "exit code 1: gt trunk failed",
 		});
 
-		for (const harness of [trunk, upstreamFailed, trunkFailed]) {
+		for (const harness of [trunk, upstreamFailed, malformed, trunkFailed]) {
 			expect(eventIndex(harness.events, "exec:git branch autobranch-backup/")).toBe(-1);
 			expect(eventIndex(harness.events, "exec:git reset --hard")).toBe(-1);
 			expect(eventIndex(harness.events, "exec:gt create")).toBe(-1);
