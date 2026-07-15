@@ -61,14 +61,17 @@ Detailed custody rules are in `dispatch-credentials-and-trust.md`.
 
 ## Phase 3: link Vercel and configure variables
 
-From `ts/packages/capabilities/vercel`:
+From the repository root, run `just dispatch-setup-local`. It links
+`ts/packages/capabilities/vercel` to the `ns-dispatch` project and pulls the Development
+environment into ignored package-local `.env.local`; the recipe preserves the checked-in
+narrow `.gitignore` if the Vercel CLI tries to append `.env*`.
 
-1. `vercel link` to the intended project if package `.vercel/project.json` is absent.
-2. Pull Development environment to ignored `.env.local`.
-3. Inspect only non-secret OIDC claims.
-4. Configure required GitHub App, repository, and OIDC trust variables by name and
+Then:
+
+1. Inspect only non-secret OIDC claims.
+2. Configure required GitHub App, repository, and OIDC trust variables by name and
    sensitivity.
-5. Keep `.env.local` narrowly ignored; do not accept an accidental `.env*` broadening.
+3. Keep `.env.local` narrowly ignored; do not accept an accidental `.env*` broadening.
 
 Vercel sensitive values cannot be read back or renamed. Replacement requires fresh secret
 material, parallel verification, then cleanup of the superseded value.

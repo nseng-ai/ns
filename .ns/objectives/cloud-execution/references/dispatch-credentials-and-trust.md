@@ -22,11 +22,14 @@ The developer's existing git and GitHub credentials are used only to:
 - stamp the Workflow run ID.
 
 The local caller authenticates to the production trigger and run-status routes with the
-Development OIDC token created by `vercel link` plus:
+Development OIDC token created or refreshed from the repository root by:
 
 ```sh
-vercel env pull .env.local --environment=development
+just dispatch-setup-local
 ```
+
+The recipe links the package-local Vercel project and pulls its ignored `.env.local` while
+preserving the narrow checked-in ignore policy.
 
 The token is read from `VERCEL_OIDC_TOKEN` in the linked package's ignored `.env.local` or
 process environment. Its value is never included in output.
