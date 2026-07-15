@@ -1,10 +1,7 @@
 import { normalizeTextOutput } from "@nseng-ai/foundation/text-normalization";
 
 import type { PendingWorktreeSnapshot } from "@nseng-ai/capability-kit/pending-worktree";
-import {
-	selectChangesModelRef,
-	type TextGenerator,
-} from "@nseng-ai/capability-kit/text-generation";
+import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
 
 const CHANGES_SUMMARY_MAX_BULLETS = 4;
 const CHANGES_SUMMARY_MAX_TOKENS = 512;
@@ -61,11 +58,11 @@ export function validateChangesSummary(
 
 export async function draftChangesSummary(input: {
 	textGenerator: TextGenerator;
-	env: Record<string, string | undefined>;
+	modelRef: string;
 	snapshot: Pick<PendingWorktreeSnapshot, "branch" | "status" | "diff">;
 }): Promise<{ ok: true; summaryText: string } | { ok: false; error: string }> {
 	const drafted = await input.textGenerator.generateText({
-		modelRef: selectChangesModelRef(input.env),
+		modelRef: input.modelRef,
 		system: CHANGES_SUMMARY_SYSTEM_PROMPT,
 		prompt: buildChangesUserPrompt(input.snapshot),
 		maxTokens: CHANGES_SUMMARY_MAX_TOKENS,

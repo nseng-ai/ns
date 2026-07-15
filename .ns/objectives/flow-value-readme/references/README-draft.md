@@ -83,8 +83,11 @@ to the CLI. Pi is optional; the CLI commands do not require the Pi host.
 
 The ns runtime supplies Flow's text-generation service; Flow does not configure a
 provider client of its own. The selected provider and model must therefore be
-available to the ns runtime. Model-backed commands select model refs with these
-environment variables:
+available to the ns runtime. Model-backed commands select model refs through shared repository policy in
+`ns.toml`: `models.profiles` maps profile names to qualified refs and
+`models.operations` maps operation IDs to profiles. Omitted operations resolve to
+`fast`; projects may redefine `fast`. There is no environment override ladder or
+inspection command.
 
 | Environment variable          | Used by                                                              |
 | ----------------------------- | -------------------------------------------------------------------- |

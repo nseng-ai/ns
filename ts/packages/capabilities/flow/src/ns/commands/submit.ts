@@ -29,7 +29,6 @@ import {
 	runFlowSubmitHooks,
 	type FlowSubmitHook,
 } from "../../submit/submit-hooks.ts";
-import { selectSubmitFailureModelRef } from "@nseng-ai/capability-kit/text-generation";
 import {
 	defineCommand,
 	failure,
@@ -354,7 +353,7 @@ async function generateSubmitFailureInterpretation(input: {
 }): Promise<{ ok: true; text: string } | { ok: false }> {
 	try {
 		const interpretation = await input.ctx.textGenerator.generateText({
-			modelRef: selectSubmitFailureModelRef(input.ctx.env),
+			modelRef: "openai-codex/gpt-5.6-luna",
 			operation: "submit-failure",
 			reasoning: "low",
 			maxTokens: 700,

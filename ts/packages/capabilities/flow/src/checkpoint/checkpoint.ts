@@ -31,7 +31,6 @@ import {
 	type PendingWorktreeSnapshot,
 } from "@nseng-ai/capability-kit/pending-worktree";
 import {
-	selectCheckpointModelRef,
 	type TextGenerator,
 } from "@nseng-ai/capability-kit/text-generation";
 import {
@@ -88,6 +87,7 @@ export interface RunCheckpointCommandOptions extends CheckpointRunContext {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	textGenerator: TextGenerator;
+	modelRef?: string;
 	repoRoot?: string;
 	/** Typed phase sequencing for a presentation driver (inspect → generate → commit). */
 	onPhase?: NsProgressPhaseListener;
@@ -253,7 +253,7 @@ export async function runCheckpointWorkflow(
 	if (snapshot.clean) return { type: "clean" };
 
 	onPhase?.({ type: "phase-started", phaseKey: "generate" });
-	const modelRef = selectCheckpointModelRef(options.env);
+	const modelRef = options.modelRef ?? "openai-codex/gpt-5.6-luna";
 	const prepared = await withActiveOperations(
 		options.onActiveOperations,
 		[modelOperation("generating checkpoint message", modelRef)],

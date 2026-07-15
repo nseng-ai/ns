@@ -7,9 +7,7 @@ import {
 } from "@nseng-ai/foundation/command";
 import {
 	DEFAULT_FAST_MODEL,
-	DEFAULT_FAST_MODEL_REF,
-	resolveModelRef,
-	SLUG_MODEL_ENV,
+	parseModelRef,
 	type ParsedModelRef,
 } from "@nseng-ai/foundation/model-slug";
 
@@ -56,6 +54,7 @@ type RawTextModelAttemptOutcome =
 export interface GenerateRawTextWithModelInput {
 	cwd: string;
 	prompt: string;
+	modelRef?: string;
 	env?: Record<string, string | undefined>;
 	exec(
 		command: string,
@@ -100,15 +99,11 @@ export async function deriveSlugWithModel(
 export async function generateRawTextWithModel(
 	input: GenerateRawTextWithModelInput,
 ): Promise<RawTextModelGenerationResult> {
-	const resolution = resolveModelRef(
-		input.env ?? process.env,
-		SLUG_MODEL_ENV,
-		DEFAULT_FAST_MODEL_REF,
-	);
-	if (!resolution.ok) {
-		return { ok: false, failure: { lines: [resolution.error] } };
+	const modelRef = input.modelRef ?? DEFAULT_FAST_MODEL.provider + "/" + DEFAULT_FAST_MODEL.modelId;
+	const model = parseModelRef(modelRef);
+	if (model === undefined) {
+		return { ok: false, failure: { lines: [`Invalid model reference: ${modelRef}`] } };
 	}
-	const model = resolution.value;
 	const args = buildRawTextModelArgs(input.prompt, model);
 	const displayCommand = formatCommand("pi", [...args.slice(0, -1), "<model-prompt>"]);
 

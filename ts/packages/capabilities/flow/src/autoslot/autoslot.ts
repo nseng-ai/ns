@@ -61,7 +61,7 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 			caps: input.caps,
 			exec,
 			prepareCheckpointMessage: (snapshot) =>
-				prepareAutobranchCheckpointMessage(snapshot, input.env, input.textGenerator),
+				prepareAutobranchCheckpointMessage(snapshot, undefined, input.textGenerator),
 			commitPreparedCheckpointMessage: (message) =>
 				commitAutobranchCheckpointMessage(
 					(command, commandArgs, commandCwd, timeout) =>

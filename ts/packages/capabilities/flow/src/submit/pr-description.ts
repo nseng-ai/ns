@@ -130,7 +130,7 @@ export async function resolvePrDescriptionGeneration(input: {
 
 	return {
 		ok: true,
-		modelRef: selectPrDescriptionModelRef(input.env),
+		modelRef: selectPrDescriptionModelRef(),
 		promptText: prompt.text,
 		promptSource: prompt.source,
 	};

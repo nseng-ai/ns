@@ -19,9 +19,10 @@ material preserved below the fold. Developed readme-driven:
 `references/README-draft.md` is the canonical design contract, and where the
 draft's claims outrun the software, the software changes. The first such case is
 model selection: the README's env-var table documents ambient, undiscoverable,
-unversioned per-shell policy, so model selection moves to manifest-declared
-`[flow.models]` settings with an env-override ladder, and the README then
-documents the shipped mechanism.
+unversioned per-shell policy, so model selection moves to shared top-level
+`[models]` settings with operation-to-profile resolution, `fast` as the default,
+no environment ladder, and no inspection command; the README then documents
+the shipped mechanism.
 
 ## Scope
 
@@ -33,15 +34,11 @@ documents the shipped mechanism.
   Flow yours (extension points as "policy without policing") → reference material
   below the fold. The loop narrative carries a boundary reference to `ns address`
   for the review-conversation step.
-- The model-selection redesign, recorded here as settled direction: a
-  manifest-declared `[flow.models]` settings table (settings, not points — the
-  point system accepts only hooks and prompts, and `docs/guides/points.md`
-  explicitly carves typed config out to settings), with resolution ladder env var
-  → repo setting → built-in default. The env layer survives as a per-user
-  override because model availability (provider credentials, access) is genuinely
-  personal; the repo layer is the team policy. Legacy fallbacks
-  (`NS_DEV_PR_DESCRIPTION_MODEL`, `PI_DRAFT_MODEL`) get an explicit disposition
-  in the ladder. Schema details stay open below.
+- **Semantic Update (model policy):** the former `[flow.models]` plus
+  environment ladder is superseded by shared top-level `[models]`. Profiles and
+  operation overrides are typed settings; omitted operations resolve to `fast`,
+  projects may redefine `fast`, listed model selectors are removed, and no
+  inspection command ships in v1. Typed settings remain distinct from points.
 - Rewriting the draft's "Model-backed workflows" section against the shipped
   mechanism; the draft cannot promote while it documents unshipped behavior.
 - Promotion: the settled draft promotes over
