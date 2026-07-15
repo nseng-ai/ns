@@ -50,7 +50,7 @@ export async function synthesizeThermoCouncilFinalReport({
 		return { type: "completed", report: deterministicReport };
 	}
 
-	const policy = loadModelPolicy({ repoRoot: ctx.cwd, gateway: nodeProjectConfigGateway });
+	const policy = loadModelPolicy({ repoRoot: scope.cwd, gateway: nodeProjectConfigGateway });
 	if (!policy.ok) return { type: "failed", status: "error", diagnostic: policy.error.message };
 	const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.thermoCouncilSynthesis);
 	if (!resolved.ok) return { type: "failed", status: "error", diagnostic: resolved.error.message };

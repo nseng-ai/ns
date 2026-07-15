@@ -1,4 +1,3 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -66,14 +65,6 @@ export interface PiModelConfig {
 	reasoning: "minimal" | "low";
 }
 
-const CODEX_DEFAULT_CONFIG: PiModelConfig = {
-	provider: DEFAULT_FAST_MODEL.provider,
-	modelId: DEFAULT_FAST_MODEL.modelId,
-	label: `${DEFAULT_FAST_MODEL.modelId} via Codex`,
-	authLabel: "Codex",
-	reasoning: "minimal",
-};
-
 export function selectDraftHarness(): { value: DraftHarness } | { error: string } {
 	const configured = process.env[HARNESS_ENV]?.trim() || DEFAULT_HARNESS;
 	if (configured === "codex-pi" || configured === "claude-cli") {
@@ -85,10 +76,11 @@ export function selectDraftHarness(): { value: DraftHarness } | { error: string 
 	};
 }
 
-export function resolveCodexDraftModel(modelRef?: string): PiModelConfig {
-	if (modelRef === undefined) return CODEX_DEFAULT_CONFIG;
+export function resolveCodexDraftModel(modelRef: string): PiModelConfig {
 	const separator = modelRef.indexOf("/");
-	if (separator <= 0 || separator === modelRef.length - 1) return CODEX_DEFAULT_CONFIG;
+	if (separator <= 0 || separator === modelRef.length - 1) {
+		throw new Error(`Invalid resolved Pi draft model reference ${JSON.stringify(modelRef)}.`);
+	}
 	const provider = modelRef.slice(0, separator);
 	const modelId = modelRef.slice(separator + 1);
 	return {
@@ -110,6 +102,9 @@ export async function draftWithFastText(
 	input: FastTextDraftInput,
 ): Promise<{ output: string } | { error: string }> {
 	if (input.harness === "codex-pi") {
+		if (input.modelRef === undefined) {
+			return { error: "Codex Pi draft requires an already-resolved model reference." };
+		}
 		return draftWithPiModel(ctx, resolveCodexDraftModel(input.modelRef), input);
 	}
 	return draftWithClaudeCli(createPiCommandExecApi(pi), ctx, input);
