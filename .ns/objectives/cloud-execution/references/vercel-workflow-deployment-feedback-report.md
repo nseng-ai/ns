@@ -690,6 +690,30 @@ The commands, deployment inventories, function logs, Workflow CLI events, and ru
 - Vercel CLI build documentation: <https://vercel.com/docs/cli/build>
 - Vercel custom workflow guide: <https://vercel.com/kb/guide/using-vercel-cli-for-custom-workflows>
 
+## Project-side durable resolution and dispatch follow-through
+
+On 2026-07-14, ns replaced the proof-only rebundling workaround with a
+source-controlled deployment contract:
+
+- each source-derived API handler is bundled as runtime-closed CommonJS;
+- API `filePathMap` entries are removed;
+- the final gate verifies every configured API handler and all Workflow
+  consumers, Queue triggers, manifest entries, and merged routes;
+- the complete Build Output is relocated to the repository deployment boundary
+  and promoted with `vercel deploy --prebuilt --prod`.
+
+Production deployment `dpl_He9jnMkZmH7fTYg9K3DcHp1mKbds` passed authenticated
+preflight, and hello run `wrun_01KXFYJS9N6D2JNTKA6D3B2MYP` completed. Dispatch
+run `wrun_01KXFZ14SBRCGTSPP5PEH19C3T` then completed and landed one proof file
+on <https://github.com/nseng-ai/ns/pull/3612>. That run also exposed two
+project-side Pi host defects—missing `session.bindExtensions(...)` lifecycle
+initialization and a missing checkout-local `pi` entry on child `PATH`—which
+are not Vercel platform failures.
+
+Current project contracts now live by topic under the map in `README.md`; exact run
+locators and bounded claims are in `dispatch-live-evidence.md`. This report remains
+the chronological Vercel incident and vendor-feedback record.
+
 ## Final conclusion
 
 The steel-thread probes materially de-risked Vercel Workflow as the supervisor for long-running Sandbox work. The backend executed correctly once the final deployment contained complete, runnable artifacts.

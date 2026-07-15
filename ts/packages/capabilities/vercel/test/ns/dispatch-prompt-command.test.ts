@@ -13,6 +13,7 @@ import {
 	FAKE_HEAD_SHA,
 	FAKE_OIDC_TOKEN,
 	FAKE_RUN_ID,
+	FAKE_WORKFLOW_RUN_URL,
 	type FakeDispatchGatewaysOptions,
 } from "./support/dispatch-prompt-fakes.ts";
 
@@ -34,7 +35,7 @@ async function runPromptCommand(
 
 describe("ns dispatch prompt", () => {
 	test("dispatches: pushes the stale source branch, anchors, opens the PR, triggers, stamps", async () => {
-		const { exit, gateways } = await runPromptCommand([PROMPT], {
+		const { exit, gateways, api } = await runPromptCommand([PROMPT], {
 			git: { remoteTip: { type: "missing" } },
 		});
 
@@ -49,7 +50,19 @@ describe("ns dispatch prompt", () => {
 			anchorPrNumber: 41,
 			anchorPrUrl: "https://github.com/nseng-ai/ns/pull/41",
 			runId: FAKE_RUN_ID,
+			workflowRunUrl: FAKE_WORKFLOW_RUN_URL,
 		});
+		expect(exit.human).toContain(`Workflow run:  ${FAKE_WORKFLOW_RUN_URL}`);
+		expect(exit.human).toContain(`Run ID:        ${FAKE_RUN_ID}`);
+		expect(api.phaseLabels).toEqual([
+			"Checking the source branch and worktree…",
+			"Validating dispatch configuration and identity…",
+			"Ensuring the source revision is remotely reachable…",
+			"Creating the anchor branch and pull request…",
+			"Starting the remote workflow…",
+			"Recording the workflow run on the anchor PR…",
+			"cleared",
+		]);
 
 		// Push-first: the source branch, then the anchor ref at the exact SHA.
 		expect(gateways.git.sourcePushes).toEqual(["feature/widgets"]);
@@ -393,6 +406,7 @@ describe("ns dispatch prompt", () => {
 		expect(schemaText).toContain("anchorBranch");
 		expect(schemaText).toContain("anchorPrNumber");
 		expect(schemaText).toContain("anchorPrUrl");
+		expect(schemaText).toContain("workflowRunUrl");
 		expect(schemaText).toContain("isSourcePushed");
 		const retiredKey = ["source", "Pushed"].join("");
 		expect(schemaText).not.toContain(`"${retiredKey}"`);

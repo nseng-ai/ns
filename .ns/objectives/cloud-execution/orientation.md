@@ -18,21 +18,24 @@ user-facing contract is `references/README-draft.md` (promoting to
 What you see now: `@nseng-ai/vercel` is itself the linked Vercel deployable and carries the
 `NS_DISPATCH_*` production contract, a verified Development OIDC identity, a working
 OIDC-only, clone-only mint endpoint over an in-process mint core, and a fixed
-private-repository Sandbox hello probe that one billable run verified live. The whole
-spine now exists as locally-green code pending live verification (code-first autorun run,
-2026-07-13): three workflow probes, the nine-step dispatch workflow, the ns-owned pi
-runner, an authenticated trigger route, and the `ns dispatch prompt` kernel command — none
-of it live-proven; the batched deploy/trigger/observe pass is the remaining gate, and only
-that pass may fold verification claims. The implemented dispatch-harness registry is
-Pi-only: local preflight and remote invocation both reject `claude-code` until its roadmap
-row supplies a complete recipe. Local preflight validates the checkout's exact
-`ts/package.json#packageManager`, and remote launch independently re-reads it from the
-sandbox checkout. No setup skill has landed; do not author it ahead of the proven steel
-thread. The deployed `NS_DISPATCH_SANDBOX_MINT_SECRET` variable is retired and remains in
-production pending post-live human cleanup, but no source or runtime configuration parser
-consumes it. The only working dispatch remains the Pi-only `/ccc:workspace:dispatch-*`
-surface over `@nseng-ai/ccc`; the retired cloud wayfinding map's "Eve presumed in as
-chassis" stance remains reversed.
+private-repository Sandbox hello probe that one billable run verified live. The Workflow
+spine is now live-proven: hello, private checkout, short supervision, and an 840-second
+run completed; production deployment `dpl_He9jnMkZmH7fTYg9K3DcHp1mKbds` carries hermetic
+CommonJS API handlers plus the complete Workflow inventory. The first real
+`ns dispatch prompt` completed as `wrun_01KXFZ14SBRCGTSPP5PEH19C3T` and landed one proof
+file plus decision log on PR #3612 through fallback commit recovery. It exposed two Pi host
+defects—extensions were not bound before prompt, and checkout-local `pi` was absent from
+child PATH. Local repairs are green; one controlled rerun must prove first-call Bash,
+agent-created commit, subagent spawn, and normal landing before the Pi steel thread closes.
+The implemented dispatch-harness registry remains Pi-only: local preflight and remote
+invocation reject `claude-code` until its roadmap row supplies a complete recipe. No setup
+skill has landed; do not author it before the repaired Pi path is live-proven. The deployed
+`NS_DISPATCH_SANDBOX_MINT_SECRET` variable is retired and remains pending human cleanup,
+but no source or runtime parser consumes it. The Pi-only `/ccc:workspace:dispatch-*`
+surface remains the established local dispatch path; cloud prompt dispatch is live but still
+under steel-thread verification. Current topic contracts and evidence are mapped in
+`references/README.md`; the retired cloud wayfinding map's "Eve presumed in as chassis"
+stance remains reversed.
 
 Avoid: inventing a backend-agnostic executor abstraction — Vercel coupling is deliberate
 and Vercel-vocabulary gateways are sanctioned (though vendor types stay inside the

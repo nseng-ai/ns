@@ -16,7 +16,11 @@ import {
 } from "@nseng-ai/sdk";
 
 import { DISPATCH_PROMPT_MAX_CHARS } from "../../dispatch/dispatch-run.ts";
-import { executeDispatchPrompt, type DispatchPreflightCheck } from "../dispatch-prompt/core.ts";
+import {
+	executeDispatchPrompt,
+	type DispatchPreflightCheck,
+	type DispatchPromptOutcome,
+} from "../dispatch-prompt/core.ts";
 import {
 	createDispatchPromptContext,
 	type DispatchPromptCliContext,
@@ -44,6 +48,7 @@ const dispatchPromptResultSchema = z.discriminatedUnion("status", [
 		anchorPrNumber: z.number().int(),
 		anchorPrUrl: z.string(),
 		runId: z.string(),
+		workflowRunUrl: z.string(),
 	}),
 	z.object({
 		status: z.literal("dirty-tree"),
@@ -79,10 +84,15 @@ async function runDispatchPromptCommand(
 		return usageError("The dispatch prompt must not be blank.", { argument: "prompt" });
 	}
 
-	const outcome = await executeDispatchPrompt(
-		{ cwd: ctx.cwd, prompt: request.prompt },
-		ctx.gateways,
-	);
+	let outcome: DispatchPromptOutcome;
+	try {
+		outcome = await executeDispatchPrompt(
+			{ cwd: ctx.cwd, prompt: request.prompt, onPhase: ctx.commandIo.phase },
+			ctx.gateways,
+		);
+	} finally {
+		ctx.commandIo.clearPhase();
+	}
 	switch (outcome.status) {
 		case "dispatched": {
 			const result: DispatchPromptSuccess = {
@@ -94,6 +104,7 @@ async function runDispatchPromptCommand(
 				anchorPrNumber: outcome.anchorPr.number,
 				anchorPrUrl: outcome.anchorPr.url,
 				runId: outcome.runId,
+				workflowRunUrl: outcome.workflowRunUrl,
 			};
 			return ok(result, { human: renderDispatchPromptResult(result) });
 		}
@@ -161,7 +172,8 @@ function renderDispatchPromptResult(data: DispatchPromptSuccess): string {
 		`  Anchor PR:     ${data.anchorPrUrl}`,
 		`  Anchor branch: ${data.anchorBranch}`,
 		`  Revision:      ${data.revision}`,
-		`  Workflow run:  ${data.runId}`,
+		`  Workflow run:  ${data.workflowRunUrl}`,
+		`  Run ID:        ${data.runId}`,
 	];
 	if (data.isSourcePushed) {
 		lines.push(
