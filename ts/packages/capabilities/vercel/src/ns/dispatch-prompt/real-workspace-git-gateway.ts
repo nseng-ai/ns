@@ -1,13 +1,18 @@
 import { commandSucceeded, type CommandRunner } from "@nseng-ai/foundation/command";
 
-import type { DispatchWorkspaceGitGateway } from "./contracts.ts";
-import { dispatchCommandError, firstErrorLine } from "./dispatch-command-error.ts";
+import type {
+	DispatchGatewayError,
+	DispatchLocalGitFactsGateway,
+	DispatchWorkspaceGitGateway,
+} from "./contracts.ts";
+import { dispatchCommandError } from "./dispatch-command-error.ts";
 
 const GIT_READ_TIMEOUT_MS = 30_000;
 const GIT_PUSH_TIMEOUT_MS = 120_000;
 const DISPATCH_REMOTE_NAME = "origin";
 
 export function createRealDispatchWorkspaceGitGateway(
+	localGitFacts: DispatchLocalGitFactsGateway,
 	runner: CommandRunner,
 ): DispatchWorkspaceGitGateway {
 	async function git(args: readonly string[], cwd: string, timeoutMs: number) {
@@ -35,28 +40,19 @@ export function createRealDispatchWorkspaceGitGateway(
 
 	return {
 		async resolveSourceRef({ cwd }) {
-			const repoRoot = await git(["rev-parse", "--show-toplevel"], cwd, GIT_READ_TIMEOUT_MS);
-			if (!commandSucceeded(repoRoot)) {
+			const repoRoot = await localGitFacts.repoRoot({ cwd });
+			if (!repoRoot.ok) {
 				return {
 					ok: false,
 					error: {
 						code: "not-a-repository",
-						message: `Not inside a git repository: ${firstErrorLine(repoRoot)}`,
+						message: `Not inside a git repository: ${repoRoot.error.message}`,
 					},
 				};
 			}
-			const branch = await git(["rev-parse", "--abbrev-ref", "HEAD"], cwd, GIT_READ_TIMEOUT_MS);
-			if (!commandSucceeded(branch)) {
-				return {
-					ok: false,
-					error: {
-						code: "git-read-failed",
-						message: `Could not resolve the current branch: ${firstErrorLine(branch)}`,
-					},
-				};
-			}
-			const branchName = branch.stdout.trim();
-			if (branchName === "HEAD") {
+
+			const branch = await localGitFacts.currentBranch({ cwd });
+			if (branch.type === "detached") {
 				return {
 					ok: false,
 					error: {
@@ -66,38 +62,38 @@ export function createRealDispatchWorkspaceGitGateway(
 					},
 				};
 			}
-			const head = await git(["rev-parse", "HEAD"], cwd, GIT_READ_TIMEOUT_MS);
-			if (!commandSucceeded(head)) {
+			if (branch.type === "failure") {
 				return {
 					ok: false,
-					error: {
-						code: "git-read-failed",
-						message: `Could not resolve HEAD: ${firstErrorLine(head)}`,
-					},
+					error: sourceGitReadError("Could not resolve the current branch", branch.error),
+				};
+			}
+
+			const head = await localGitFacts.headCommit({ cwd });
+			if (!head.ok) {
+				return {
+					ok: false,
+					error: sourceGitReadError("Could not resolve HEAD", head.error),
 				};
 			}
 			return {
 				ok: true,
 				value: {
-					repoRoot: repoRoot.stdout.trim(),
-					branch: branchName,
-					headSha: head.stdout.trim().toLowerCase(),
+					repoRoot: repoRoot.value,
+					branch: branch.branch,
+					headSha: head.value.toLowerCase(),
 				},
 			};
 		},
 		async listDirtyPaths({ cwd }) {
-			const status = await git(["status", "--porcelain"], cwd, GIT_READ_TIMEOUT_MS);
-			if (!commandSucceeded(status)) {
+			const status = await localGitFacts.statusPaths({ cwd });
+			if (!status.ok) {
 				return {
 					ok: false,
-					error: dispatchCommandError(
-						"git-status-failed",
-						"Could not inspect the worktree status",
-						status,
-					),
+					error: gitReadError("Could not inspect the worktree status", status.error),
 				};
 			}
-			return { ok: true, value: parseGitPorcelainStatusPaths(status.stdout) };
+			return { ok: true, value: status.value.changedPaths };
 		},
 		async readRemoteBranchTip({ cwd, branch }) {
 			const result = await git(
@@ -136,16 +132,24 @@ export function createRealDispatchWorkspaceGitGateway(
 	};
 }
 
-/**
- * Parse `git status --porcelain` output into the dirty path list. Rename
- * lines keep their `old -> new` rendering so the refusal names both
- * sides.
- */
-export function parseGitPorcelainStatusPaths(stdout: string): readonly string[] {
-	return stdout
-		.split("\n")
-		.filter((line) => line.length > 3)
-		.map((line) => line.slice(3));
+function sourceGitReadError(
+	title: string,
+	error: { readonly message: string },
+): { readonly code: "git-read-failed"; readonly message: string } {
+	return {
+		code: "git-read-failed",
+		message: `${title}: ${error.message}`,
+	};
+}
+
+function gitReadError(
+	title: string,
+	error: { readonly code: string; readonly message: string },
+): DispatchGatewayError {
+	return {
+		code: error.code,
+		message: `${title}: ${error.message}`,
+	};
 }
 
 /** Parse the SHA out of `git ls-remote` output; `null` when absent. */
