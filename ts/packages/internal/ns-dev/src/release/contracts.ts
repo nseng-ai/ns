@@ -136,6 +136,70 @@ export interface ReleaseCommandGateway {
 	}): Promise<OperationResult>;
 }
 
+export const releaseResetTrackedChangeSchema = z
+	.strictObject({
+		path: nonemptyStringSchema,
+		indexChanged: z.boolean(),
+		worktreeChanged: z.boolean(),
+		isUnexpectedStatus: z.boolean().optional(),
+	})
+	.readonly();
+export const releaseResetManifestStateSchema = z
+	.strictObject({
+		packageName: nonemptyStringSchema,
+		path: nonemptyStringSchema,
+		headVersion: concreteNpmVersionSchema,
+		workingVersion: concreteNpmVersionSchema,
+		changedFields: z.array(nonemptyStringSchema).readonly(),
+		isExactVersionOnlyChange: z.boolean(),
+	})
+	.readonly();
+export const releaseResetReportStateSchema = z.discriminatedUnion("type", [
+	z.strictObject({ type: z.literal("missing") }),
+	z.strictObject({
+		type: z.literal("found"),
+		report: releaseTransactionReportSchema,
+		isCommitAncestorOfHead: z.boolean(),
+	}),
+	z.strictObject({
+		type: z.literal("error"),
+		errorType: z.enum(["read-error", "parse-error"]),
+		error: releaseFailureSchema,
+	}),
+]);
+export const releaseResetInspectionSchema = z
+	.strictObject({
+		currentSourceBranch: nonemptyStringSchema,
+		headCommit: nonemptyStringSchema,
+		releaseBranch: nonemptyStringSchema,
+		releaseBranchExists: z.boolean(),
+		manifests: z.array(releaseResetManifestStateSchema).readonly(),
+		trackedChanges: z.array(releaseResetTrackedChangeSchema).readonly(),
+		untrackedPaths: z.array(nonemptyStringSchema).readonly(),
+		releaseDirectory: nonemptyStringSchema.nullable(),
+		releaseDirectoryFingerprint: nonemptyStringSchema.nullable(),
+		report: releaseResetReportStateSchema,
+	})
+	.readonly();
+
+export type ReleaseResetTrackedChange = z.infer<typeof releaseResetTrackedChangeSchema>;
+export type ReleaseResetManifestState = z.infer<typeof releaseResetManifestStateSchema>;
+export type ReleaseResetReportState = z.infer<typeof releaseResetReportStateSchema>;
+export type ReleaseResetInspection = z.infer<typeof releaseResetInspectionSchema>;
+
+/** Consumer Gateway for release-reset inspection and its two exact cleanup effects. */
+export interface ReleaseResetGateway {
+	inspectResetState(options: {
+		readonly version: string;
+		readonly releaseBranch: string;
+	}): Promise<ValueResult<ReleaseResetInspection>>;
+	restoreTrackedReleasePaths(paths: readonly string[]): Promise<OperationResult>;
+	removeReleaseDirectory(options: {
+		readonly version: string;
+		readonly plannedPath: string;
+	}): Promise<OperationResult>;
+}
+
 export interface FreshReleaseState {
 	readonly currentBranch: string;
 	readonly headCommit: string;

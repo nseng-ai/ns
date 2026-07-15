@@ -25,6 +25,10 @@ running it end to end.
 - **Never hand-edit `ts/dist/releases/<version>/report.json`** or the candidate
   `.tgz` files. The report is the transaction journal; editing it destroys the
   recovery guarantees and the next run will refuse.
+- **Never improvise pre-checkpoint cleanup.** `just release-reset <version>` is
+  the only supported path for restoring release-generated tracked changes and
+  deleting that version's ignored release directory. Never run a broad cleanup
+  of `ts/dist/`.
 - **Never use `just publish` / `just publish-dry-run` / `just bump-version`.**
   Those are the legacy direct publisher; `just release` performs the bump and
   qualification itself. Use them only if the user explicitly asks to bypass the
@@ -112,15 +116,39 @@ propagation lag. `finalStatus: "verified"` means done.
 ## Step 4 — After a verified release
 
 The release left a Graphite checkpoint on `transactional-npm-release/v<VERSION>`
-containing the version bump and lockfile. Land it like any other branch — load
-the `graphite` skill and submit it. Then update `CHANGELOG.md` to move
-`[Unreleased]` under the released version.
+containing the version bump and any lockfile update. Land it like any other
+branch — load the `graphite` skill and submit it. Then update `CHANGELOG.md` to
+move `[Unreleased]` under the released version.
 
 ## Recovering a refused or interrupted release
 
-**Rerun the same command with the same version:** `just release <VERSION>`. If a
-report exists it resumes automatically, skipping packages already published with
-exactly matching hashes.
+First establish whether the transaction is provably before or after the
+Graphite checkpoint. A deterministic release branch, a `checkpointing` or later
+stage, release-branch identity in a `candidates-prepared` report, or any pending /
+completed npm write means **do not reset**.
+
+For a pre-checkpoint bump, qualification, or candidate-preparation failure, use
+the typed reset workflow:
+
+```bash
+just release-reset <VERSION> --dry-run
+just release-reset <VERSION>          # TTY: inspect, then default-no confirm
+# or explicitly authorized non-interactive apply:
+just release-reset <VERSION> --yes
+```
+
+Review every restore path and the exact release directory before authorizing.
+Reset accepts a stale recorded commit only on the same source branch, only when
+Git proves it is an ancestor of `HEAD`, and only when all local effects are
+strictly release-owned. It refuses checkpointed or publishing state, a release
+branch, unexpected tracked/untracked work, semantic or byte-representation
+manifest edits beyond the version replacement, report/candidate inconsistency,
+npm-write evidence, or changed state after confirmation. After reset succeeds, run `just release-plan <VERSION>` before
+starting the release again.
+
+For checkpointed or later state, **rerun the same command with the same version:**
+`just release <VERSION>`. If a report exists it resumes automatically, skipping
+packages already published with exactly matching hashes.
 
 Resume validates hard, and refuses if the world moved. You must be:
 
@@ -131,8 +159,9 @@ Resume validates hard, and refuses if the world moved. You must be:
 - with the **frozen candidate tarballs still on disk and unmodified** (otherwise
   `candidate-missing` / `candidate-hash-mismatch`).
 
-So: do not clean `ts/dist/`, do not rebase, and do not switch branches between a
-failed release and its resume.
+For checkpointed/publishing state: do not clean `ts/dist/`, do not rebase, and do
+not switch branches between a failed release and its resume. The typed reset
+command owns the only pre-checkpoint exception and will refuse this state.
 
 For what a specific refusal code means and what to do about it, read
 `references/refusals.md`. Report the code and its remediation to the user rather

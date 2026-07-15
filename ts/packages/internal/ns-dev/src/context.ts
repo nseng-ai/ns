@@ -12,6 +12,8 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 
+import type { ClinkrInteraction } from "@nseng-ai/clinkr";
+import type { CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import { runCommand, type CommandRunner } from "@nseng-ai/foundation/exec";
 import { isNodeErrorCode } from "@nseng-ai/foundation/primitives";
@@ -19,6 +21,7 @@ import { systemClock, systemTimerScheduler } from "@nseng-ai/foundation/time";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
 import type { ReleaseCliContext } from "./release-public-package-set-cli.ts";
+import type { ReleaseResetGateway } from "./release/contracts.ts";
 
 export interface FileEntry {
 	readonly name: string;
@@ -49,21 +52,22 @@ export interface NsDevCliContext {
 	readonly fs: FileSystemGateway;
 	readonly clock: Clock;
 	readonly timers: TimerScheduler;
+	readonly interaction: ClinkrInteraction;
 	readonly release?: ReleaseCliContext;
+	readonly releaseReset?: ReleaseResetGateway;
 	readonly status?: (text: string) => void;
 }
 
-export interface NsDevCliDeps {
-	readonly cwd?: string;
-	readonly env?: NodeJS.ProcessEnv;
+export interface NsDevCliDeps extends CliEntrypointDeps {
 	readonly homeDir?: string;
 	readonly runCommand?: CommandRunner;
 	readonly fs?: FileSystemGateway;
 	readonly clock?: Clock;
 	readonly timers?: TimerScheduler;
+	readonly interaction?: ClinkrInteraction;
+	readonly stdin?: () => Promise<string | null>;
 	readonly release?: ReleaseCliContext;
-	readonly stdout?: (text: string) => void;
-	readonly stderr?: (text: string) => void;
+	readonly releaseReset?: ReleaseResetGateway;
 }
 
 export function createRealNsDevContext(options: {
@@ -74,7 +78,9 @@ export function createRealNsDevContext(options: {
 	fs?: FileSystemGateway;
 	clock?: Clock;
 	timers?: TimerScheduler;
+	interaction: ClinkrInteraction;
 	release?: ReleaseCliContext;
+	releaseReset?: ReleaseResetGateway;
 	status?: (text: string) => void;
 }): NsDevCliContext {
 	return {
@@ -85,7 +91,9 @@ export function createRealNsDevContext(options: {
 		fs: options.fs ?? realFileSystemGateway,
 		clock: options.clock ?? systemClock,
 		timers: options.timers ?? systemTimerScheduler,
+		interaction: options.interaction,
 		...(options.release === undefined ? {} : { release: options.release }),
+		...(options.releaseReset === undefined ? {} : { releaseReset: options.releaseReset }),
 		...(options.status === undefined ? {} : { status: options.status }),
 	};
 }

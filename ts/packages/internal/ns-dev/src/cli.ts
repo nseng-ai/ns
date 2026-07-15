@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup } from "@nseng-ai/clinkr";
-import { defineCli } from "@nseng-ai/foundation/cli-runtime";
+import { ClinkrGroup, resolveClinkrInteraction } from "@nseng-ai/clinkr";
+import { defineCli, readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 
 import {
 	createLocalNsProjectRequestSchema,
@@ -46,29 +46,39 @@ import {
 	renderReleasePublicPackageSet,
 	runReleasePublicPackageSet,
 } from "./release-public-package-set-cli.ts";
+import {
+	releaseResetResultSchema,
+	renderResetPublicPackageRelease,
+	resetPublicPackageReleaseRequestSchema,
+	runResetPublicPackageRelease,
+} from "./reset-public-package-release-cli.ts";
 
-export interface CliDeps extends NsDevCliDeps {
-	readonly context?: NsDevCliContext;
-}
+export type CliDeps = NsDevCliDeps;
 
 const entry = defineCli<NsDevCliContext, CliDeps, undefined>({
 	metaUrl: import.meta.url,
 	runtime: "typescript",
 	description: "Project-local development workflows for the ns repository.",
 	prepareRun: ({ deps, cwd, env, stderr }) => {
-		const context =
-			deps.context ??
-			createRealNsDevContext({
-				cwd: deps.cwd ?? cwd,
-				env: deps.env ?? env,
-				...(deps.homeDir === undefined ? {} : { homeDir: deps.homeDir }),
-				...(deps.runCommand === undefined ? {} : { runCommand: deps.runCommand }),
-				...(deps.fs === undefined ? {} : { fs: deps.fs }),
-				...(deps.clock === undefined ? {} : { clock: deps.clock }),
-				...(deps.timers === undefined ? {} : { timers: deps.timers }),
-				...(deps.release === undefined ? {} : { release: deps.release }),
-				status: deps.stderr ?? stderr,
-			});
+		const interaction = resolveClinkrInteraction({
+			...(deps.interaction === undefined ? {} : { interaction: deps.interaction }),
+			stdin: deps.stdin ?? readStdinLine,
+			stderr,
+			...(deps.stdin === undefined ? {} : { injectedStdin: deps.stdin }),
+		});
+		const context = createRealNsDevContext({
+			cwd: deps.cwd ?? cwd,
+			env: deps.env ?? env,
+			...(deps.homeDir === undefined ? {} : { homeDir: deps.homeDir }),
+			...(deps.runCommand === undefined ? {} : { runCommand: deps.runCommand }),
+			...(deps.fs === undefined ? {} : { fs: deps.fs }),
+			...(deps.clock === undefined ? {} : { clock: deps.clock }),
+			...(deps.timers === undefined ? {} : { timers: deps.timers }),
+			interaction,
+			...(deps.release === undefined ? {} : { release: deps.release }),
+			...(deps.releaseReset === undefined ? {} : { releaseReset: deps.releaseReset }),
+			status: deps.stderr ?? stderr,
+		});
 		return { type: "run", context, buildState: undefined };
 	},
 	configureCli: ({ root }) => {
@@ -142,6 +152,17 @@ const entry = defineCli<NsDevCliContext, CliDeps, undefined>({
 			resultSchema: releaseCliResultSchema,
 			handler: runReleasePublicPackageSet,
 			renderHuman: renderReleasePublicPackageSet,
+		});
+		root.command({
+			name: "reset-public-package-release",
+			description:
+				"Inspect or safely reset unpublished local state from a public-package release attempt.",
+			schema: resetPublicPackageReleaseRequestSchema,
+			positionals: { version: { position: 0 } },
+			options: { dryRun: { short: "-n" }, yes: { short: "-y" } },
+			resultSchema: releaseResetResultSchema,
+			handler: runResetPublicPackageRelease,
+			renderHuman: renderResetPublicPackageRelease,
 		});
 		root.command({
 			name: "render-cli-shim",
