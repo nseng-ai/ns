@@ -135,11 +135,11 @@ publish VERSION: _ts-workspace-ready
 
 # Read-only transactional release preflight and plan.
 release-plan VERSION: _ts-workspace-ready
-    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release -- --plan {{VERSION}}
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release --plan {{VERSION}}
 
 # Fresh transactional release or automatic exact same-version resume.
 release VERSION: _ts-workspace-ready
-    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release -- {{VERSION}}
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release {{VERSION}}
 
 # Install the ns shim to ~/.local/bin so `ns` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
