@@ -36,6 +36,20 @@ dprint-fix:
 
 fix: dprint-fix ts-format-fix ts-lint-fix
 
+# Link the package-local Vercel project and refresh its ignored Development environment.
+# Preserve the narrow checked-in ignore policy if the Vercel CLI tries to add `.env*`.
+dispatch-setup-local:
+    @set -e; \
+      package_dir="{{justfile_directory()}}/ts/packages/capabilities/vercel"; \
+      gitignore="$package_dir/.gitignore"; \
+      gitignore_backup="$(mktemp)"; \
+      cp "$gitignore" "$gitignore_backup"; \
+      cleanup() { status=$?; cp "$gitignore_backup" "$gitignore"; rm -f "$gitignore_backup"; exit "$status"; }; \
+      trap cleanup EXIT; \
+      cd "$package_dir"; \
+      vercel link --yes --project ns-dispatch --scope schrockns-projects; \
+      vercel env pull .env.local --environment=development --yes
+
 # Explicit production write. Never add this as a dependency of validation recipes.
 dispatch-deploy-prod:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts --silent --filter @nseng-ai/vercel run deploy:production {{justfile_directory()}}

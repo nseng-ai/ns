@@ -315,9 +315,10 @@ environment commands, but deploy from the repository root so Vercel applies the
 configured monorepo Root Directory exactly once. The proven setup sequence is:
 
 1. Set the Vercel project's Root Directory to
-   `ts/packages/capabilities/vercel`, retain "Include source files outside of
-   the Root Directory," and link the package directory to the dispatch project
-   with `vercel link` if `.vercel/project.json` is absent.
+   `ts/packages/capabilities/vercel` and retain "Include source files outside of
+   the Root Directory." From the repository root, run `just dispatch-setup-local` to
+   link that package directory to the `ns-dispatch` project and refresh its ignored
+   Development environment without accepting the Vercel CLI's broad `.env*` ignore rule.
 2. Configure the endpoint variables above. Keep the private key sensitive;
    make `NS_DISPATCH_GITHUB_REPOSITORY` available to the Development
    environment so the local probe can read it. Do not add a landing mint
@@ -343,9 +344,9 @@ configured monorepo Root Directory exactly once. The proven setup sequence is:
    prebuilt deployment boundary. For an optional read-only public check afterward, run
    `just dispatch-verify-prod-health`. Authenticated preflight and Workflow/Sandbox probes remain
    separate actions.
-4. From the package directory, refresh the ignored local file with
-   `vercel env pull .env.local --environment=development`. This file supplies
-   `VERCEL_OIDC_TOKEN` and is ignored by git. Decode only the non-secret claims;
+4. Refresh the ignored package-local file when needed with
+   `just dispatch-setup-local`. This file supplies `VERCEL_OIDC_TOKEN` and is ignored by
+   git. Decode only the non-secret claims;
    never print or record the token, and do not guess issuer/audience from URL
    conventions. Keep the ignore rule specific to `.env.local` if the CLI tries
    to append a broader `.env*` rule that would hide intentional env templates.
