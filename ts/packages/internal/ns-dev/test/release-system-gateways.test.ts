@@ -1,5 +1,6 @@
 import { relative, resolve } from "node:path";
 
+import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 import {
@@ -163,6 +164,7 @@ describe("release system command gateways", () => {
 		const manual = createManualTimerScheduler();
 		const context = createSystemReleaseCliContext({
 			env: {},
+			interaction: createFakeClinkrInteraction().interaction,
 			runCommand: async () => exitedResult(),
 			timers: manual.timers,
 		});
@@ -174,6 +176,23 @@ describe("release system command gateways", () => {
 		manual.advanceMs(1);
 		await waiting;
 		expect(manual.pendingTimerCount()).toBe(0);
+	});
+
+	it("streams release subprocess stderr through the CLI status channel", async () => {
+		const status: string[] = [];
+		const context = createSystemReleaseCliContext({
+			env: {},
+			interaction: createFakeClinkrInteraction().interaction,
+			runCommand: async (_command, _args, options) => {
+				options?.onStderr?.("checking package...\n");
+				return exitedResult();
+			},
+			status: (text) => status.push(text),
+			timers: createManualTimerScheduler().timers,
+		});
+
+		expect(await context.release.bumpCoordinatedVersion(releaseVersion)).toEqual({ ok: true });
+		expect(status).toEqual(["checking package...\n"]);
 	});
 
 	it("forwards pnpm script arguments without an extra separator", async () => {

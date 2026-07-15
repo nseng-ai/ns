@@ -17,7 +17,13 @@ export async function executeReleasePublication(
 	options: ExecuteReleaseOptions,
 ): Promise<ExecuteReleaseResult> {
 	const classifications: CandidatePublicationClassification[] = [];
-	for (const candidate of options.report.candidates) {
+	context.onProgress?.(
+		`Checking npm registry state for ${options.report.candidates.length} frozen candidates...`,
+	);
+	for (const [index, candidate] of options.report.candidates.entries()) {
+		context.onProgress?.(
+			`Checking registry ${index + 1}/${options.report.candidates.length}: ${candidate.name}@${candidate.version}`,
+		);
 		const registryResult = await context.registry.readPackageMetadata(
 			candidate.name,
 			candidate.version,
@@ -92,6 +98,9 @@ export async function executeReleasePublication(
 	}
 
 	if (tarballWritePlan.length > 0) {
+		context.onProgress?.(
+			`Registry preflight complete: ${tarballWritePlan.length} package${tarballWritePlan.length === 1 ? "" : "s"} need publishing.`,
+		);
 		const confirmation = await context.confirmation.confirmPublish(options.report.release.version);
 		if (!confirmation.ok) {
 			return { type: "refused", plan, error: confirmation.error, report: options.report };
@@ -119,9 +128,14 @@ export async function executeReleasePublication(
 		completedWrites.add(report.pendingWrite);
 		report = recoveredPendingReport;
 	}
+	let publishIndex = 0;
 	for (const entry of classifications) {
 		if (entry.classification.type !== "missing" || completedWrites.has(entry.candidate.name))
 			continue;
+		publishIndex += 1;
+		context.onProgress?.(
+			`Publishing ${publishIndex}/${tarballWritePlan.length}: ${entry.candidate.name}@${entry.candidate.version}`,
+		);
 		const pendingReport: ReleaseTransactionReport = {
 			...report,
 			pendingWrite: entry.candidate.name,
@@ -142,6 +156,7 @@ export async function executeReleasePublication(
 		const persisted = await context.reports.writeAtomic(options.reportPath, writeCompletedReport);
 		if (!persisted.ok) return { type: "refused", plan, error: persisted.error, report };
 		report = writeCompletedReport;
+		context.onProgress?.(`Published ${entry.candidate.name}@${entry.candidate.version}.`);
 	}
 	if (report.stage !== "published" && report.stage !== "verified") {
 		const publishedReport: ReleaseTransactionReport = { ...report, stage: "published" };
@@ -151,7 +166,11 @@ export async function executeReleasePublication(
 	}
 
 	let verificationFailure: ReleaseFailure | undefined;
-	for (let attempt = 0; attempt <= options.verificationDelaysMs.length; attempt += 1) {
+	const verificationAttempts = options.verificationDelaysMs.length + 1;
+	for (let attempt = 0; attempt < verificationAttempts; attempt += 1) {
+		context.onProgress?.(
+			`Verifying npm registry (attempt ${attempt + 1}/${verificationAttempts})...`,
+		);
 		const verified = await context.commands.verify({
 			version: report.release.version,
 			candidateReportPath: options.reportPath,
@@ -160,11 +179,15 @@ export async function executeReleasePublication(
 			const verifiedReport: ReleaseTransactionReport = { ...report, stage: "verified" };
 			const persisted = await context.reports.writeAtomic(options.reportPath, verifiedReport);
 			if (!persisted.ok) return { type: "refused", plan, error: persisted.error, report };
+			context.onProgress?.(`Release ${report.release.version} is verified on npm.`);
 			return { type: "verified", plan, report: verifiedReport };
 		}
 		verificationFailure = verified.error;
 		const delayMs = options.verificationDelaysMs[attempt];
-		if (delayMs !== undefined) await context.delay.wait(delayMs);
+		if (delayMs !== undefined) {
+			context.onProgress?.(`Registry verification is not ready; retrying in ${delayMs}ms...`);
+			await context.delay.wait(delayMs);
+		}
 	}
 	if (verificationFailure === undefined) throw new Error("Verification loop made no attempt");
 	return { type: "refused", plan, error: verificationFailure, report };

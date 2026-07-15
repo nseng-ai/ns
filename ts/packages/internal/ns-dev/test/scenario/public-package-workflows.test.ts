@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
 import { TimerScheduler } from "@nseng-ai/foundation/timers";
@@ -120,6 +121,7 @@ function confirmingReleaseContext(confirmations: string[]): ReleaseCliContext {
 	const timers = new RecordingTimerScheduler();
 	const context = createSystemReleaseCliContext({
 		env: { PATH: "/fake/bin" },
+		interaction: createFakeClinkrInteraction().interaction,
 		runCommand: async () => exitedResult(),
 		timers,
 	});

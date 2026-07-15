@@ -148,7 +148,7 @@ const entry = defineCli<NsDevCliContext, CliDeps, undefined>({
 			description: "Plan, run, or safely resume the transactional public npm package release.",
 			schema: releasePublicPackageSetRequestSchema,
 			positionals: { version: { position: 0 } },
-			options: { plan: { short: "-n" } },
+			options: { plan: { short: "-n" }, yes: { short: "-y" } },
 			resultSchema: releaseCliResultSchema,
 			handler: runReleasePublicPackageSet,
 			renderHuman: renderReleasePublicPackageSet,

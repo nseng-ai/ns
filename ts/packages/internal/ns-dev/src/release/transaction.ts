@@ -9,6 +9,7 @@ import type {
 	ReleaseConfirmationGateway,
 	ReleaseDelay,
 	ReleaseFailure,
+	ReleaseProgressReporter,
 	ReleaseReportStore,
 	ReleaseTransactionReport,
 	ResumeReleaseGateway,
@@ -30,6 +31,7 @@ export interface RunReleaseTransactionContext {
 	readonly reportPathForVersion: (version: string) => string;
 	readonly releaseDirectoryForVersion: (version: string) => string;
 	readonly verificationDelaysMs: readonly number[];
+	readonly onProgress?: ReleaseProgressReporter;
 }
 
 export interface ReleaseTransactionEvidence {
@@ -56,6 +58,7 @@ export async function runReleaseTransaction(
 	version: string,
 ): Promise<RunReleaseTransactionResult> {
 	const reportPath = context.reportPathForVersion(version);
+	context.onProgress?.(`Loading release state for ${version}...`);
 	const loaded = await context.reports.read(reportPath);
 	let mode: "fresh" | "resume";
 	let report: ReleaseTransactionReport;
@@ -64,6 +67,9 @@ export async function runReleaseTransaction(
 	}
 	if (loaded.type === "found") {
 		mode = "resume";
+		context.onProgress?.(
+			`Resuming release from stage ${loaded.value.stage}; validating checkpoint and candidates...`,
+		);
 		const evidence = evidenceFromReport(version, mode, reportPath, loaded.value);
 		if (loaded.value.release.version !== version) {
 			return refused(evidence, {
@@ -101,8 +107,14 @@ export async function runReleaseTransaction(
 		report = validated.report;
 	} else {
 		mode = "fresh";
+		context.onProgress?.("No existing release report found; starting a fresh release.");
 		const started = await startFreshRelease(
-			{ release: context.release, npmCandidates: context.npmCandidates, reports: context.reports },
+			{
+				release: context.release,
+				npmCandidates: context.npmCandidates,
+				reports: context.reports,
+				...(context.onProgress === undefined ? {} : { onProgress: context.onProgress }),
+			},
 			{
 				version,
 				reportPath,
@@ -122,6 +134,7 @@ export async function runReleaseTransaction(
 			commands: context.commands,
 			reports: context.reports,
 			delay: context.delay,
+			...(context.onProgress === undefined ? {} : { onProgress: context.onProgress }),
 		},
 		{ report, reportPath, verificationDelaysMs: context.verificationDelaysMs },
 	);

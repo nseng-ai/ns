@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, open, readdir, readFile, readlink, rename, rm } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
-import { createInterface } from "node:readline/promises";
 
+import type { ClinkrInteraction } from "@nseng-ai/clinkr";
 import {
 	formatCommand,
 	formatCommandResultFailure,
@@ -643,28 +643,28 @@ export function createSystemNpmRegistryGateway(
 	};
 }
 
-export function createTtyReleaseConfirmationGateway(): ReleaseConfirmationGateway {
+export function createInteractiveReleaseConfirmationGateway(
+	interaction: ClinkrInteraction,
+): ReleaseConfirmationGateway {
 	return {
 		async confirmPublish(version) {
-			if (!process.stdin.isTTY) {
+			if (!interaction.isInteractive()) {
 				return {
 					ok: false,
 					error: {
-						code: "publish-confirmation-not-tty",
-						message: `Refusing to publish non-interactively; type publish ${version} from a TTY`,
+						code: "publish-confirmation-not-interactive",
+						message: "Publishing requires an interactive terminal confirmation.",
 					},
 				};
 			}
-			const readline = createInterface({ input: process.stdin, output: process.stderr });
 			try {
-				const answer = await readline.question(
-					`Type "publish ${version}" to publish frozen tarballs to npm: `,
-				);
-				return { ok: true, value: answer === `publish ${version}` };
+				const confirmation = await interaction.confirm({
+					message: `Publish frozen package tarballs at ${version} to npm?`,
+					defaultAnswer: "no",
+				});
+				return { ok: true, value: confirmation.type === "confirmed" };
 			} catch (error: unknown) {
 				return { ok: false, error: failure("publish-confirmation-failed", error) };
-			} finally {
-				readline.close();
 			}
 		},
 	};
