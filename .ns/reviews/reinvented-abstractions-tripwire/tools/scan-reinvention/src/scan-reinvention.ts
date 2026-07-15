@@ -1,13 +1,19 @@
 import { parseTypeScriptSource } from "@nseng-ai/foundation/typescript-analysis";
 
 import { isReinventionKind, runDetectors } from "./detector-registry.ts";
-import { RealScannerIo, type ScannerIo } from "./git-diff.ts";
+import {
+  DEFAULT_DIFF_HEAD,
+  RealScannerIo,
+  type DiffRange,
+  type ScannerIo,
+} from "./git-diff.ts";
 import type { ReinventionCandidate, ReinventionKind, ReinventionOutput } from "./output-schema.ts";
 import { reinventionKinds } from "./output-schema.ts";
 
 export interface ScanReinventionOptions {
   readonly cwd: string;
   readonly diffBase: string;
+  readonly head?: string;
   readonly files?: readonly string[];
   readonly isAddedOnly: boolean;
   readonly kinds?: readonly string[];
@@ -21,11 +27,19 @@ export async function scanReinvention(options: ScanReinventionOptions): Promise<
     return failure("missing-diff-base", "--diff-base is required.");
   }
 
-  const kinds = parseKinds(options.kinds ?? reinventionKinds);
+  const requestedKinds =
+    options.kinds === undefined || options.kinds.length === 0 ? reinventionKinds : options.kinds;
+  const kinds = parseKinds(requestedKinds);
   if (!kinds.ok) return failure("invalid-kind", kinds.message);
+  if (kinds.value.length === 0)
+    return failure("invalid-kind", "No detector kinds selected.");
 
+  const range: DiffRange = {
+    base: diffBase,
+    head: (options.head ?? "").trim() || DEFAULT_DIFF_HEAD,
+  };
   const io = options.io ?? new RealScannerIo({ cwd: options.cwd });
-  const files = await scanFiles(io, diffBase, options.files);
+  const files = await scanFiles(io, range, options.files);
   if (!files.ok) return failure("file-discovery-failed", files.message);
 
   const candidates: ReinventionCandidate[] = [];
@@ -35,7 +49,7 @@ export async function scanReinvention(options: ScanReinventionOptions): Promise<
       return failure("read-file-failed", `Unable to read ${file}: ${content.message}`);
     const sourceFile = parseTypeScriptSource(file, content.value);
     const fileCandidates = runDetectors({ file, sourceFile }, kinds.value);
-    const addedLines = options.isAddedOnly ? await io.addedLines(diffBase, file) : undefined;
+    const addedLines = options.isAddedOnly ? await io.addedLines(range, file) : undefined;
     if (addedLines !== undefined && !addedLines.ok) {
       return failure("diff-lines-failed", addedLines.message);
     }
@@ -77,7 +91,7 @@ function parseKinds(
 
 async function scanFiles(
   io: ScannerIo,
-  diffBase: string,
+  range: DiffRange,
   files: readonly string[] | undefined,
 ): Promise<
   | { readonly ok: true; readonly value: readonly string[] }
@@ -85,7 +99,7 @@ async function scanFiles(
 > {
   const rawFiles =
     files === undefined || files.length === 0
-      ? await io.changedFiles(diffBase)
+      ? await io.changedFiles(range)
       : { ok: true as const, value: files };
   if (!rawFiles.ok) return rawFiles;
   return {

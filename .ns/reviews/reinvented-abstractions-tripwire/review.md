@@ -14,6 +14,9 @@
 # accepted by Reviews, and then run:
 #
 #   dprint check .ns/reviews/reinvented-abstractions-tripwire/review.md
+#   pnpm --dir .ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention --config.verify-deps-before-run=false run check
+#   pnpm --dir .ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention --config.verify-deps-before-run=false run test
+#   pnpm --dir .ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention --config.verify-deps-before-run=false run test:integration
 #   pnpm --dir ts exec vitest run packages/capabilities/reviews/test/unit/review-definition.test.ts
 description: |
   Reinvented Abstractions Tripwire: scan the diff for code that reinvents a
@@ -50,8 +53,10 @@ style consistency, or a canonical that should exist but does not.
    pnpm --dir "{review_dir}/tools/scan-reinvention" --config.verify-deps-before-run=false run scan -- --diff-base "{base_ref}"
    ```
 
-   The scanner is read-only. It derives changed production TypeScript/TSX files from
-   `{base_ref}...HEAD` and reports candidates on added lines by default.
+   The scanner is read-only. It resolves the repository root itself, derives changed
+   production TypeScript/TSX files from `{base_ref}...HEAD`, and reports candidates on
+   added lines by default. For a mid-stack review whose target is not `HEAD`, pass
+   `--head <sha>` after the diff base arguments to pin the target ref.
 2. For each emitted candidate, read only the matching reference file named by
    `manifestRef` (for example `references/canonicals/subprocess.md`). Do not read the
    full canonical set unless multiple candidate kinds require it.

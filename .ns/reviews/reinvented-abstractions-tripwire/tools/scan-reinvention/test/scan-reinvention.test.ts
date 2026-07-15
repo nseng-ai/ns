@@ -1,11 +1,16 @@
 import { describe, expect, test } from "vitest";
 
-import { parseAddedLines, type IoResult, type ScannerIo } from "../src/git-diff.ts";
+import {
+  parseAddedLines,
+  type DiffRange,
+  type IoResult,
+  type ScannerIo,
+} from "../src/git-diff.ts";
 import { scanReinvention } from "../src/scan-reinvention.ts";
 
 class FakeScannerIo implements ScannerIo {
-  readonly changedFilesCalls: string[] = [];
-  readonly addedLinesCalls: { readonly diffBase: string; readonly file: string }[] = [];
+  readonly changedFilesCalls: DiffRange[] = [];
+  readonly addedLinesCalls: { readonly range: DiffRange; readonly file: string }[] = [];
   private readonly files: Map<string, string>;
   private readonly changed: readonly string[];
   private readonly added: ReadonlyMap<string, ReadonlySet<number>>;
@@ -22,13 +27,13 @@ class FakeScannerIo implements ScannerIo {
     );
   }
 
-  async changedFiles(diffBase: string): Promise<IoResult<readonly string[]>> {
-    this.changedFilesCalls.push(diffBase);
+  async changedFiles(range: DiffRange): Promise<IoResult<readonly string[]>> {
+    this.changedFilesCalls.push(range);
     return { ok: true, value: this.changed };
   }
 
-  async addedLines(diffBase: string, file: string): Promise<IoResult<ReadonlySet<number>>> {
-    this.addedLinesCalls.push({ diffBase, file });
+  async addedLines(range: DiffRange, file: string): Promise<IoResult<ReadonlySet<number>>> {
+    this.addedLinesCalls.push({ range, file });
     return { ok: true, value: this.added.get(file) ?? new Set<number>() };
   }
 
@@ -84,7 +89,7 @@ describe("scanReinvention", () => {
         isAddedLine: true,
       },
     ]);
-    expect(io.changedFilesCalls).toEqual(["main"]);
+    expect(io.changedFilesCalls).toEqual([{ base: "main", head: "HEAD" }]);
   });
 
   test("supports kind and file narrowing", async () => {
@@ -109,6 +114,67 @@ describe("scanReinvention", () => {
     if (!output.success) return;
     expect(output.candidates.map((candidate) => candidate.kind)).toEqual(["xdg-path"]);
     expect(io.changedFilesCalls).toEqual([]);
+  });
+
+  test("runs every detector when kinds is empty", async () => {
+    const io = new FakeScannerIo({
+      files: {
+        "ts/packages/example/src/app.ts": 'import { spawn } from "node:child_process";\n',
+      },
+      added: { "ts/packages/example/src/app.ts": [1] },
+    });
+
+    const output = await scanReinvention({
+      cwd: "/repo",
+      diffBase: "main",
+      isAddedOnly: true,
+      kinds: [],
+      shouldIncludeExempt: false,
+      io,
+    });
+
+    expect(output.success).toBe(true);
+    if (!output.success) return;
+    expect(output.candidates.map((candidate) => candidate.kind)).toEqual(["subprocess"]);
+  });
+
+  test("rejects a kinds list containing only empty comma-separated values", async () => {
+    const output = await scanReinvention({
+      cwd: "/repo",
+      diffBase: "main",
+      isAddedOnly: true,
+      kinds: [","],
+      shouldIncludeExempt: false,
+      io: new FakeScannerIo({ files: {} }),
+    });
+
+    expect(output).toEqual({
+      success: false,
+      error: { code: "invalid-kind", message: "No detector kinds selected." },
+    });
+  });
+
+  test("passes an explicit head through file discovery and added-line lookup", async () => {
+    const file = "ts/packages/example/src/app.ts";
+    const io = new FakeScannerIo({
+      files: { [file]: 'import { spawn } from "node:child_process";\n' },
+      added: { [file]: [1] },
+    });
+
+    const output = await scanReinvention({
+      cwd: "/repo",
+      diffBase: "base-ref",
+      head: "head-ref",
+      isAddedOnly: true,
+      shouldIncludeExempt: false,
+      io,
+    });
+
+    expect(output.success).toBe(true);
+    expect(io.changedFilesCalls).toEqual([{ base: "base-ref", head: "head-ref" }]);
+    expect(io.addedLinesCalls).toEqual([
+      { range: { base: "base-ref", head: "head-ref" }, file },
+    ]);
   });
 
   test("parses zero-context diff added line numbers", () => {
