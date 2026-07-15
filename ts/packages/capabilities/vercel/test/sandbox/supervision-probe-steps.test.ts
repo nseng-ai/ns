@@ -5,6 +5,7 @@ import {
 	launchSupervisionProbe,
 	pollSupervisionProbe,
 } from "../../src/sandbox/supervision-probe-steps.ts";
+import type { SandboxCommand } from "../../src/sandbox/contracts.ts";
 import {
 	SUPERVISION_DONE_MARKER,
 	SUPERVISION_PROGRESS_PATH,
@@ -17,6 +18,8 @@ import {
 interface InMemoryGatewayState {
 	readonly createResult?: CreateSupervisionSandboxResult;
 	readonly createThrows?: boolean;
+	readonly detachedFails?: boolean;
+	readonly detachedThrows?: boolean;
 	readonly readResult?: ReadSupervisionSandboxFileResult;
 	readonly readThrows?: boolean;
 	readonly stopResult?: StopSupervisionSandboxResult;
@@ -25,11 +28,8 @@ interface InMemoryGatewayState {
 
 class InMemorySupervisionSandboxGateway implements SupervisionSandboxGateway {
 	readonly #state: InMemoryGatewayState;
-	readonly createCalls: Array<{
-		runtime: string;
-		timeoutMs: number;
-		command: { cmd: string; args: readonly string[] };
-	}> = [];
+	readonly createCalls: Array<{ runtime: string; timeoutMs: number }> = [];
+	readonly detachedCalls: Array<{ sandboxName: string; command: SandboxCommand }> = [];
 	readonly readCalls: Array<{ sandboxName: string; path: string }> = [];
 	readonly stopCalls: Array<{ sandboxName: string }> = [];
 
@@ -37,18 +37,22 @@ class InMemorySupervisionSandboxGateway implements SupervisionSandboxGateway {
 		this.#state = state;
 	}
 
-	async createSandboxWithDetachedCommand(options: {
+	async createSandbox(options: {
 		readonly runtime: "node24";
 		readonly timeoutMs: number;
-		readonly command: { readonly cmd: string; readonly args: readonly string[] };
 	}): Promise<CreateSupervisionSandboxResult> {
-		this.createCalls.push({
-			runtime: options.runtime,
-			timeoutMs: options.timeoutMs,
-			command: { cmd: options.command.cmd, args: [...options.command.args] },
-		});
+		this.createCalls.push({ runtime: options.runtime, timeoutMs: options.timeoutMs });
 		if (this.#state.createThrows === true) throw new Error("create exploded");
 		return this.#state.createResult ?? { ok: true, sandboxName: "sbx-supervision" };
+	}
+
+	async runDetachedSandboxCommand(options: {
+		readonly sandboxName: string;
+		readonly command: SandboxCommand;
+	}) {
+		this.detachedCalls.push({ sandboxName: options.sandboxName, command: options.command });
+		if (this.#state.detachedThrows === true) throw new Error("detached exploded");
+		return this.#state.detachedFails === true ? ({ ok: false } as const) : ({ ok: true } as const);
 	}
 
 	async readSandboxFile(options: {
@@ -83,8 +87,8 @@ describe("launchSupervisionProbe", () => {
 		if (call === undefined) throw new Error("Expected a create call.");
 		expect(call.runtime).toBe("node24");
 		expect(call.timeoutMs).toBe(1_440_000);
-		expect(call.command.cmd).toBe("sh");
-		expect(call.command.args[1]).toContain(SUPERVISION_DONE_MARKER);
+		expect(gateway.detachedCalls[0]?.command.cmd).toBe("sh");
+		expect(gateway.detachedCalls[0]?.command.args[1]).toContain(SUPERVISION_DONE_MARKER);
 	});
 
 	it("rejects out-of-bounds parameters before touching the gateway", async () => {
@@ -112,6 +116,21 @@ describe("launchSupervisionProbe", () => {
 		const result = await launchSupervisionProbe(params, gateway);
 
 		expect(result).toEqual({ ok: false, code: "launch-failed", message: "Sandbox launch failed." });
+	});
+
+	it.each([
+		["failure", { detachedFails: true }],
+		["throw", { detachedThrows: true }],
+	] as const)("returns the sandbox name when detached launch has a %s", async (_label, state) => {
+		const gateway = new InMemorySupervisionSandboxGateway(state);
+
+		expect(await launchSupervisionProbe(params, gateway)).toEqual({
+			ok: false,
+			code: "launch-failed",
+			message: "Sandbox launch failed.",
+			sandboxName: "sbx-supervision",
+		});
+		expect(gateway.stopCalls).toEqual([]);
 	});
 
 	it("refuses a sandbox name later steps could not safely journal or reattach to", async () => {

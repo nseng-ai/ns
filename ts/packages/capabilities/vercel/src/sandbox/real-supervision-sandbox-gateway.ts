@@ -6,7 +6,9 @@
 // needs no repo checkout, and `Sandbox.create`/`Sandbox.get` resolve the
 // deployed Function's own OIDC workload identity ambiently. Live reattach,
 // detached-command, and stop behavior on Vercel are pending verification.
-// `sdk` is the test seam; production callers use the default binding.
+// `sdk` is the test seam; production callers use the default binding. SDK
+// throws intentionally cross this adapter and are normalized only by the
+// owning workflow step function.
 import { Sandbox } from "@vercel/sandbox";
 
 import type { SupervisionSandboxGateway } from "./supervision-probe.ts";
@@ -73,49 +75,29 @@ export function createRealSupervisionSandboxGateway(
 	sdk: SupervisionSandboxSdk = supervisionSandboxSdk,
 ): SupervisionSandboxGateway {
 	return {
-		async createSandboxWithDetachedCommand(options) {
-			let sandbox: SupervisionSandboxSdkSandbox;
-			try {
-				sandbox = await sdk.create({ runtime: options.runtime, timeout: options.timeoutMs });
-			} catch {
-				return { ok: false };
-			}
-			try {
-				await sandbox.runDetachedCommand(options.command);
-			} catch {
-				// The sandbox exists but its detached command never started: stop
-				// it now rather than leak it until the sandbox timeout.
-				try {
-					await sandbox.stop();
-				} catch {
-					// Best effort; the sandbox timeout is the cleanup backstop.
-				}
-				return { ok: false };
-			}
+		async createSandbox(options) {
+			const sandbox = await sdk.create({ runtime: options.runtime, timeout: options.timeoutMs });
 			return { ok: true, sandboxName: sandbox.name };
 		},
+		async runDetachedSandboxCommand(options) {
+			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+			await sandbox.runDetachedCommand(options.command);
+			return { ok: true };
+		},
 		async readSandboxFile(options) {
-			try {
-				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-				const buffer = await sandbox.readFileToBuffer({ path: options.path });
-				return { ok: true, content: buffer === null ? null : buffer.toString("utf8") };
-			} catch {
-				return { ok: false };
-			}
+			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+			const buffer = await sandbox.readFileToBuffer({ path: options.path });
+			return { ok: true, content: buffer === null ? null : buffer.toString("utf8") };
 		},
 		async stopSandbox(options) {
-			try {
-				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-				// Already terminated (or terminating): cleanup is done, so a
-				// re-run of the cleanup step succeeds without another stop call.
-				if (sandbox.status === "stopped" || sandbox.status === "stopping") {
-					return { ok: true };
-				}
-				await sandbox.stop();
+			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+			// Already terminated (or terminating): cleanup is done, so a
+			// re-run of the cleanup step succeeds without another stop call.
+			if (sandbox.status === "stopped" || sandbox.status === "stopping") {
 				return { ok: true };
-			} catch {
-				return { ok: false };
 			}
+			await sandbox.stop();
+			return { ok: true };
 		},
 	};
 }

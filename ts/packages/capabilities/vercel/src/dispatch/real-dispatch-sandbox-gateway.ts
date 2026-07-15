@@ -7,7 +7,9 @@
 // workload identity ambiently. Command results deliberately carry no argv,
 // env, or output — the landing command's environment holds a token. Live
 // behavior on Vercel is pending verification. `sdk` is the test seam;
-// production callers use the default binding.
+// production callers use the default binding. SDK throws intentionally
+// cross this adapter; workflow step functions are the sole normalization
+// boundary for serializable failures.
 import { Sandbox } from "@vercel/sandbox";
 
 import type { DispatchSandboxGateway } from "./dispatch-run.ts";
@@ -113,81 +115,57 @@ export function createRealDispatchSandboxGateway(
 ): DispatchSandboxGateway {
 	return {
 		async createDispatchSandbox(options) {
-			try {
-				const sandbox = await sdk.create({
-					runtime: options.runtime,
-					timeout: options.timeoutMs,
-					source: {
-						type: "git",
-						url: `https://github.com/${options.source.repository}.git`,
-						username: "x-access-token",
-						password: options.source.cloneToken,
-						depth: 1,
-						revision: options.source.revision,
-					},
-				});
-				return { ok: true, sandboxName: sandbox.name };
-			} catch {
-				return { ok: false };
-			}
+			const sandbox = await sdk.create({
+				runtime: options.runtime,
+				timeout: options.timeoutMs,
+				source: {
+					type: "git",
+					url: `https://github.com/${options.source.repository}.git`,
+					username: "x-access-token",
+					password: options.source.cloneToken,
+					depth: 1,
+					revision: options.source.revision,
+				},
+			});
+			return { ok: true, sandboxName: sandbox.name };
 		},
 		async writeSandboxFile(options) {
-			try {
-				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-				await sandbox.writeFiles([{ path: options.path, content: options.content }]);
-				return { ok: true };
-			} catch {
-				return { ok: false };
-			}
+			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+			await sandbox.writeFiles([{ path: options.path, content: options.content }]);
+			return { ok: true };
 		},
 		async runSandboxCommand(options) {
-			try {
-				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-				const command = await sandbox.runCommand({
-					cmd: options.command.cmd,
-					args: options.command.args,
-					...(options.env === undefined ? {} : { env: options.env }),
-				});
-				return { ok: true, exitCode: command.exitCode };
-			} catch {
-				return { ok: false };
-			}
+			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+			const command = await sandbox.runCommand({
+				cmd: options.command.cmd,
+				args: options.command.args,
+				...(options.env === undefined ? {} : { env: options.env }),
+			});
+			return { ok: true, exitCode: command.exitCode };
 		},
 		async runDetachedSandboxCommand(options) {
-			try {
-				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-				await sandbox.runDetachedCommand({
-					cmd: options.command.cmd,
-					args: options.command.args,
-					...(options.env === undefined ? {} : { env: options.env }),
-				});
-				return { ok: true };
-			} catch {
-				return { ok: false };
-			}
+			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+			await sandbox.runDetachedCommand({
+				cmd: options.command.cmd,
+				args: options.command.args,
+				...(options.env === undefined ? {} : { env: options.env }),
+			});
+			return { ok: true };
 		},
 		async readSandboxFile(options) {
-			try {
-				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-				const buffer = await sandbox.readFileToBuffer({ path: options.path });
-				return { ok: true, content: buffer === null ? null : buffer.toString("utf8") };
-			} catch {
-				return { ok: false };
-			}
+			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+			const buffer = await sandbox.readFileToBuffer({ path: options.path });
+			return { ok: true, content: buffer === null ? null : buffer.toString("utf8") };
 		},
 		async stopSandbox(options) {
-			try {
-				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-				// Already terminated (or terminating): cleanup is done, so a
-				// re-run of the cleanup step succeeds without another stop call.
-				if (sandbox.status === "stopped" || sandbox.status === "stopping") {
-					return { ok: true };
-				}
-				await sandbox.stop();
+			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+			// Already terminated (or terminating): cleanup is done, so a
+			// re-run of the cleanup step succeeds without another stop call.
+			if (sandbox.status === "stopped" || sandbox.status === "stopping") {
 				return { ok: true };
-			} catch {
-				return { ok: false };
 			}
+			await sandbox.stop();
+			return { ok: true };
 		},
 	};
 }

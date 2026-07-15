@@ -180,6 +180,52 @@ describe("runWorkflowSandboxProbe", () => {
 		expect(sandboxes.createCalls).toEqual([]);
 	});
 
+	it("normalizes a throwing token minter factory", async () => {
+		const { gateways, sandboxes } = createGateways();
+		const throwingGateways: WorkflowSandboxProbeGateways = {
+			...gateways,
+			createDispatchTokenMinter: () => {
+				throw new Error("token minter factory exploded");
+			},
+		};
+
+		const result = await runWorkflowSandboxProbe(
+			{ revision, environment: validEnvironment() },
+			throwingGateways,
+		);
+
+		expect(result).toEqual({
+			ok: false,
+			code: "clone-token-mint-failed",
+			message: "Clone token mint failed.",
+		});
+		expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+		expect(sandboxes.createCalls).toEqual([]);
+	});
+
+	it("normalizes a throwing sandbox gateway factory", async () => {
+		const { gateways, minter } = createGateways();
+		const throwingGateways: WorkflowSandboxProbeGateways = {
+			...gateways,
+			createSandboxGateway: () => {
+				throw new Error("sandbox gateway factory exploded");
+			},
+		};
+
+		const result = await runWorkflowSandboxProbe(
+			{ revision, environment: validEnvironment() },
+			throwingGateways,
+		);
+
+		expect(result).toEqual({
+			ok: false,
+			code: "sandbox-create-failed",
+			message: "Sandbox creation failed.",
+		});
+		expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+		expect(minter.calls).toEqual([]);
+	});
+
 	it("maps an in-process mint failure to the probe's stable clone failure code", async () => {
 		const { gateways, sandboxes, session } = createGateways({
 			mintResult: { ok: false, error: { code: "github-token-mint-failed" } },
