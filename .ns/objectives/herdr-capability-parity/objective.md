@@ -8,7 +8,7 @@ Document the full capability surface of the existing cmux extension, decide whic
 
 Inventory the user-visible and programmatic capabilities currently owned by `@nseng-ai/cmux`, including its ns and Pi extension surfaces and the underlying workspace operations they expose. Publish a simple checked-in parity checklist with the settled dispositions below, then deliver the work as a three-PR local Graphite stack.
 
-Create the separate capability package `@nseng-ai/herdr` with ns command noun `herdr` and Pi commands that mirror the selected cmux suffixes under `/ns:herdr:*`. Preserve ns-owned Graphite, Branch Memory, Saved Plan, Branch Context, and slot orchestration; Herdr owns the final workspace/tab, process-launch, caller-targeting, and metadata boundary. Use explicit caller or returned Herdr IDs rather than UI focus, prefer CLI wrappers, and extract vendor-neutral orchestration only where matching semantics are demonstrated.
+Create the separate capability package `@nseng-ai/herdr` with Pi commands that mirror the selected cmux suffixes under `/ns:herdr:*`. Its package shape is a private `core` feature consumed by a `pi` host surface, exporting only `./pi` and `./pi/extension`: no selected behavior requires an `ns` host command or cross-package Capability API, so empty `ns`/`api` doors would fail the subpackage rank test. Preserve ns-owned Graphite, Branch Memory, Saved Plan, Branch Context, and slot orchestration; Herdr owns the final workspace/tab, process launch, explicit caller targeting, and workspace labeling. Use explicit caller or returned Herdr IDs rather than UI focus, prefer CLI wrappers, and extract vendor-neutral orchestration only where matching semantics are demonstrated.
 
 Selected Herdr parity:
 
@@ -17,7 +17,7 @@ Selected Herdr parity:
 - `/ns:herdr:workspace:dispatch-plan` opens the Attached Plan checkout in a new Herdr workspace.
 - `/ns:herdr:surface:dispatch-plan` opens a focused tab in the caller's Herdr workspace.
 - `/ns:herdr:workspace:open-branch` preserves explicit and inferred branch selection, confirmation, completions, and ns slot checkout.
-- `/ns:herdr:sidebar:objective-summary` applies Herdr-native caller-workspace label and objective/slot/branch metadata through an internal Herdr operation; no public generic Herdr workspace-summary command is added.
+- `/ns:herdr:sidebar:objective-summary` applies a Herdr-native label to the explicit caller workspace. Objective/slot/branch metadata reporting is deferred because the installed Herdr CLI lacks `workspace report-metadata`; no substitute transport or public generic Herdr workspace-summary command is added.
 
 Retire `/ns:cmux:claude-plan-tab`, `/ns:cmux:sidebar:session-summary`, and `/ns:cmux:sidebar:branch-state-summary`, including orphaned skills, registrations, exports, tests, and helpers. Retain cmux objective summary and `ns cmux exec workspace-summary`.
 
@@ -36,7 +36,7 @@ The existing research in `docs/research/herdr-programmability.md` is the startin
 
 - A checked-in checklist inventories the current cmux extension's user-visible and programmatic capabilities and gives each an explicit Herdr applicability disposition.
 - The implementation scope selected from that checklist is explicit, with non-selected applicable work retained as visible follow-up rather than silently omitted.
-- The selected capabilities work end to end through a separate Herdr capability/extension using stable caller targeting and Herdr-native workspace, tab, pane, and metadata concepts where relevant.
+- The selected capabilities work end to end through a separate Herdr capability/extension using stable caller targeting and Herdr-native workspace, tab, and pane concepts; objective metadata remains an explicit follow-up until the installed CLI supports it.
 - Capability behavior has targeted tests and full `just` validation passes for every committed runner slice.
 - Three coherent local Graphite branches exist in order: parity contract and cmux retirements; Herdr foundation and objective metadata; dispatch and branch workflows. No branch or PR is pushed or submitted by autonomous execution.
 
@@ -58,7 +58,7 @@ Useful evidence includes command-registration and scenario tests, fake-driven ga
 This Objective is designed for autonomous pursuit through repeated Objective Runner steps.
 
 - Direct execution is allowed for the three ordered roadmap rows, including local file edits, formatter fixes, tests, local Graphite branch creation, staging, and one runner-owned commit per row.
-- The package and public names are fixed: `@nseng-ai/herdr`, command noun `herdr`, and the mirrored `/ns:herdr:*` suffixes listed in Scope. The parity dispositions, three-PR boundaries, explicit-ID targeting rule, ns-slot ownership, CLI-first integration, and cmux retirements are also fixed.
+- The package and public names are fixed: `@nseng-ai/herdr` and the mirrored `/ns:herdr:*` suffixes listed in Scope. The parity dispositions, three-PR boundaries, explicit-ID targeting rule, ns-slot ownership, CLI-first integration, and cmux retirements are also fixed.
 - Implementation may resolve private types, module decomposition, argv parsing, fake design, and other non-public mechanics autonomously when they honor the fixed contract and repository conventions.
 - Stop and ask before changing a fixed public name or parity disposition, moving work between PR rows, crossing the separate-capability boundary, introducing raw socket integration or a generic abstraction, or accepting installed Herdr behavior that cannot satisfy the fixed workflow semantics.
 - Run full `just` before every runner commit. A failing slice is not keepable; repair relevant failures within the row, and stop with exact evidence if full validation cannot be made green without unrelated work or a scope decision.

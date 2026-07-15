@@ -1,4 +1,3 @@
-import { cmuxCommandBackedSkillRegistrations } from "@nseng-ai/cmux/pi";
 import { flowCommandBackedSkillRegistrations } from "@nseng-ai/flow/pi";
 import { handoffCommandBackedSkillRegistrations } from "@nseng-ai/handoffs/pi";
 import { objectiveCommandBackedSkillRegistrations } from "@nseng-ai/objectives/pi";
@@ -37,7 +36,6 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 		kind: "specialized-command",
 	},
 	{ skillName: "branch-retro", surface: "branch:retro", kind: "generic-backing-skill" },
-	...cmuxCommandBackedSkillRegistrations,
 	{ skillName: "changelog-update", surface: "changelog:update", kind: "generic-backing-skill" },
 	{
 		skillName: "code-gt-linearize-descendants",

@@ -1,5 +1,4 @@
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
-import { registerCccClaudePlanTabCommand } from "./claude-plan-tab.ts";
 import { registerCccSlotDispatchFromTrunkCommand } from "./dispatch-from-trunk.ts";
 import { registerCccSlotDispatchPromptCommand } from "./dispatch-prompt.ts";
 import { createCccSidebarControllerWithPiWiring, registerCccSidebarCommands } from "./sidebar.ts";
@@ -17,7 +16,6 @@ export default function registerCmuxPiExtension(pi: ExtensionAPI): void {
 	registerCccSlotOpenBranchCommand(pi);
 	registerCccSlotDispatchPromptCommand(pi);
 	registerCccSlotDispatchFromTrunkCommand(pi);
-	registerCccClaudePlanTabCommand(pi);
 }
 
 export { registerCmuxPiExtension };

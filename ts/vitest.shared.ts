@@ -33,6 +33,9 @@ export const sharedTestConfig = {
 	maxWorkers: 2,
 	globals: false,
 	restoreMocks: true,
+	// Model selection is explicit test input. Do not let a developer's shell override
+	// deterministic fake command expectations across the shared default lane.
+	env: { NS_FAST_MODEL: "", NS_SLUG_MODEL: "" },
 	unstubEnvs: true,
 	unstubGlobals: true,
 } as const;

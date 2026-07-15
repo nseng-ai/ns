@@ -1,6 +1,4 @@
 export { default, registerCmuxPiExtension } from "./extension.ts";
-export { cmuxCommandBackedSkillRegistrations } from "./command-backed-skills.ts";
-export { registerCccClaudePlanTabCommand } from "./claude-plan-tab.ts";
 export { registerCccSlotDispatchFromTrunkCommand } from "./dispatch-from-trunk.ts";
 export { registerCccSlotDispatchPromptCommand } from "./dispatch-prompt.ts";
 export {

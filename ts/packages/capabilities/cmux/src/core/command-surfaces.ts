@@ -24,25 +24,13 @@ export const CMUX_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME = nsCommandSurface(
 	"cmux",
 	"workspace:dispatch-from-trunk",
 );
-export const CMUX_CLAUDE_PLAN_TAB_COMMAND_NAME = nsCommandSurface("cmux", "claude-plan-tab");
-export const CMUX_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME = nsCommandSurface(
-	"cmux",
-	"sidebar:session-summary",
-);
-export const CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME = nsCommandSurface(
-	"cmux",
-	"sidebar:branch-state-summary",
-);
 export const CMUX_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME = nsCommandSurface(
 	"cmux",
 	"sidebar:objective-summary",
 );
 
 export const CMUX_COMMAND_NAMES = [
-	CMUX_CLAUDE_PLAN_TAB_COMMAND_NAME,
-	CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
 	CMUX_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME,
-	CMUX_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME,
 	CMUX_SURFACE_DISPATCH_PLAN_COMMAND_NAME,
 	CMUX_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME,
 	CMUX_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,

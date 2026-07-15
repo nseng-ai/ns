@@ -8,8 +8,8 @@ describe("ns command surfaces", () => {
 		expect(nsCommandSurface("cmux", "workspace:dispatch-plan")).toBe(
 			"ns:cmux:workspace:dispatch-plan",
 		);
-		expect(nsCommandSurface("cmux", "sidebar:session-summary")).toBe(
-			"ns:cmux:sidebar:session-summary",
+		expect(nsCommandSurface("cmux", "sidebar:objective-summary")).toBe(
+			"ns:cmux:sidebar:objective-summary",
 		);
 	});
 

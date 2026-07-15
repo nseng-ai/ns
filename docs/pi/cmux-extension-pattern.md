@@ -8,7 +8,6 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 - A Pi command opens a new cmux workspace without automatically refreshing sidebar metadata.
 - A manual sidebar update must target the workspace that launched this terminal, not whatever cmux workspace is focused now.
 - The behavior is repo-local to `ns` and should not become a global Pi extension.
-- The PR sidebar workflow needs a short semantic model pass but deterministic cmux mutation.
 - The Objective sidebar workflow needs deterministic formatting from an explicit Objective selector or changed-Objective suggestion picker selection.
 
 ## Layering
@@ -20,7 +19,6 @@ Current layers:
 | Pi discovery adapter   | `.pi/extensions/cmux.ts`                                      | Registers the repo's cmux capability command suite                             |
 | Pi subpackage          | `ts/packages/capabilities/cmux/src/pi/extension.ts`           | Wires workspace/sidebar controllers and Pi command modules                     |
 | Cmux core modules      | `ts/packages/capabilities/cmux/src/core/`                     | Implements `/ns:cmux:workspace:*` and `/ns:cmux:sidebar:*` behavior with tests |
-| Local sidebar skill    | `skills/ns-cmux-sidebar/SKILL.md`                             | Tells the model what PR sidebar fields to generate                             |
 | Deterministic CLI      | `ns cmux exec workspace-summary`                              | Applies title and direct description, then clears the old status pill          |
 | Cmux command gateway   | `ts/packages/capabilities/cmux/src/core/workspace-summary.ts` | Runs installed cmux CLI commands through the capability's command gateway      |
 | Scenario/package tests | `ts/packages/capabilities/cmux/test/`, `ts/.../test/`         | Cover CLI and Pi command behavior                                              |
@@ -33,8 +31,6 @@ Do not put raw cmux mutation sequences in long skill bodies when a tested `ns cm
 
 The project-local adapter registers:
 
-- `/ns:cmux:sidebar:session-summary`
-- `/ns:cmux:sidebar:branch-state-summary`
 - `/ns:cmux:sidebar:objective-summary [objective-slug-or-path]`
 - `/ns:cmux:workspace:open-branch [branch]`
 - `/ns:cmux:workspace:dispatch-plan [--dry-run]`
@@ -81,51 +77,24 @@ process.env.CMUX_WORKSPACE_ID ?? process.env.CMUX_TAB_ID
 
 If no caller workspace is available, notify and return. Do not fall back to the focused workspace because a background Pi session can be running while another cmux workspace is focused.
 
-The PR sidebar skill and deterministic Objective sidebar extension do not pass `--workspace`; `ns cmux exec workspace-summary` resolves the same caller workspace env itself.
-
-## Model choice and speed
-
-PR sidebar updates are low-stakes semantic compression. The controller temporarily switches the follow-up PR turn to a faster model and minimal thinking:
-
-- model selection: `[models.operations]."cmux.sidebar"` names a shared model profile (defaulting to `fast`)
-- default: `openai-codex/gpt-5.6-luna`
-- thinking level: `minimal`
-
-The controller restores the previous model and thinking level on `agent_end`. If the fast model is missing or unavailable, it warns and uses the current model.
-
-## PR prompt shape
-
-For `/ns:cmux:sidebar:session-summary`, the model should generate only these fields:
-
-- `title`
-- `description`
-
-The description is exactly one short line:
-
-```text
-Goal: ...
-```
-
-Prompt-only length enforcement is intentional for PR sidebar for now. Do not add deterministic PR validation unless the design changes.
+The deterministic Objective sidebar extension does not pass `--workspace`; `ns cmux exec workspace-summary` resolves the same caller workspace env itself.
 
 ## Variants
 
-`/ns:cmux:sidebar:session-summary` summarizes the current Pi session through the model-assisted `ns-cmux-sidebar` skill. The Goal line describes what the session is trying to accomplish, not the cmux update itself. `/ns:cmux:sidebar:branch-state-summary` summarizes the current branch's implementation state versus its parent through the same skill; its State line describes what the branch changes or needs next.
-
-`/ns:cmux:sidebar:objective-summary [objective-slug-or-path]` formats an active ns Objective deterministically. It accepts a slug or `.ns/objectives/<slug>/...` path; if no selector is supplied, it uses the same changed-Objective suggestion picker as `/ns:objective:next`, including the `View other active Objectives…` escape hatch instead of silently auto-selecting. After selection, it validates the selected Objective slug/readability through `ns objective exec read-objective` and applies fixed fields through `pi.exec("ns", ["cmux", ...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ns-cmux-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
+`/ns:cmux:sidebar:objective-summary [objective-slug-or-path]` formats an active ns Objective deterministically. It accepts a slug or `.ns/objectives/<slug>/...` path; if no selector is supplied, it uses the same changed-Objective suggestion picker as `/ns:objective:next`, including the `View other active Objectives…` escape hatch instead of silently auto-selecting. After selection, it validates the selected Objective slug/readability through `ns objective exec read-objective` and applies fixed fields through `pi.exec("ns", ["cmux", ...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke a sidebar skill, or infer an Objective from branch, PR, hidden context, or conversation text.
 
 ## Apply through exec, not raw cmux
 
-The PR sidebar skill should tell the model to call exactly one deterministic command when the source is resolved:
+The Objective sidebar extension calls the command directly with argv rather than asking an agent to write shell:
 
 ```bash
 ns cmux exec workspace-summary \
-  --title 'Short title' \
-  --description 'Goal: ...' \
+  --title 'obj:<objective-slug>' \
+  --description '<slot-slug>::<branch-slug>' \
   --format json
 ```
 
-Do not assign shell variables, do not write an env prelude, and do not pass `--workspace` from the skill. The Objective sidebar extension calls the same command directly with argv rather than asking an agent to write shell. The command clears the legacy `pi-summary` cmux status pill. The JSON envelope must have `exit_code: 0` and `data.success: true`. The PR assistant should then reply only with the applied title.
+Do not assign shell variables, do not write an env prelude, and do not pass `--workspace` from extension code. The command clears the legacy `pi-summary` cmux status pill. The JSON envelope must have `exit_code: 0` and `data.success: true`.
 
 See [`../sdl-exec/cmux-workspace-summary.md`](../sdl-exec/cmux-workspace-summary.md) for the retired exec contract and [`../cmux/help-querying.md`](../cmux/help-querying.md) for how to revalidate cmux CLI behavior.
 
@@ -155,20 +124,7 @@ Do not inspect or rely on `/Users/schrockn/code/githubs/manaflow-ai/cmux` for be
 
 ## Context pollution
 
-The PR sidebar implementation injects a normal follow-up user message with the expanded skill block. That means the control prompt, assistant response, and tool result can appear in future model context. Filtering those traces is intentionally not implemented for PR sidebar in this pass.
-
-The Objective sidebar implementation avoids this pollution by staying in direct extension code: no `pi.sendUserMessage`, no model switch, and no skill prompt.
-
-## Future PR “agent writes no bash” target
-
-Objective sidebar already follows the direct extension apply path. If PR sidebar should require no model-authored shell in a future iteration, make the extension own the PR summary-and-apply loop:
-
-1. Use Pi model APIs or an existing fast-draft helper to generate a small JSON object for the fields.
-2. Validate and shorten fields in TypeScript.
-3. Call `pi.exec("ns", ["cmux", "exec", "workspace-summary", ...])` with argv.
-4. Display the resulting title directly.
-
-That design would keep semantic PR summarization in a model while making quoting, cmux targeting, and command execution fully deterministic. It would also remove the PR skill-driven bash block from the conversation. Reintroducing automatic summaries should wait until that targeting and apply path are explicit.
+The Objective sidebar implementation avoids context pollution by staying in direct extension code: no `pi.sendUserMessage`, no model switch, and no skill prompt.
 
 ## Validation checklist
 
@@ -189,8 +145,6 @@ Then reload Pi:
 Finally smoke-test from inside cmux:
 
 ```text
-/ns:cmux:sidebar:session-summary
-/ns:cmux:sidebar:branch-state-summary
 /ns:cmux:sidebar:objective-summary <objective-slug>
 /ns:cmux:workspace:dispatch-plan --dry-run
 /ns:cmux:surface:dispatch-plan --dry-run
