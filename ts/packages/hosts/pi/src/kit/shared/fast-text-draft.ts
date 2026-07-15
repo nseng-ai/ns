@@ -1,7 +1,7 @@
 import {
 	DEFAULT_FAST_MODEL,
 	DEFAULT_FAST_MODEL_REF,
-	resolveModelRef,
+	parseModelRef,
 } from "@nseng-ai/foundation/model-slug";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -97,15 +97,16 @@ export function resolveCodexDraftModel(env: Record<string, string | undefined>):
 		return { value: CODEX_DEFAULT_CONFIG };
 	}
 
-	const resolution = resolveModelRef(env, DRAFT_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
-	if (!resolution.ok) {
+	const modelRef = env[DRAFT_MODEL_ENV]?.trim() || DEFAULT_FAST_MODEL_REF;
+	const parsed = parseModelRef(modelRef);
+	if (parsed === undefined) {
 		return {
 			value: CODEX_DEFAULT_CONFIG,
-			warning: `${resolution.error} Using ${DEFAULT_FAST_MODEL_REF}.`,
+			warning: `Invalid ${DRAFT_MODEL_ENV} model reference. Using ${DEFAULT_FAST_MODEL_REF}.`,
 		};
 	}
 
-	const { provider, modelId } = resolution.value;
+	const { provider, modelId } = parsed;
 	return {
 		value: {
 			provider,

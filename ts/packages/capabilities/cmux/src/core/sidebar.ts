@@ -1,4 +1,4 @@
-import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@nseng-ai/foundation/model-slug";
+import { DEFAULT_FAST_MODEL_REF, parseModelRef } from "@nseng-ai/foundation/model-slug";
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
@@ -326,13 +326,14 @@ async function switchToFastSidebarModel(
 	pi: CccPiCommandApi,
 	ctx: CommandContext,
 ): Promise<RestoreState | undefined> {
-	const resolution = resolveModelRef(process.env, SIDEBAR_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
-	if (!resolution.ok) {
-		notify(ctx, `${resolution.error} Using current model.`, "warning");
+	const configuredModelRef = process.env[SIDEBAR_MODEL_ENV]?.trim() || DEFAULT_FAST_MODEL_REF;
+	const parsed = parseModelRef(configuredModelRef);
+	if (parsed === undefined) {
+		notify(ctx, `Invalid ${SIDEBAR_MODEL_ENV} model reference; using current model.`, "warning");
 		return undefined;
 	}
 
-	const { provider, modelId } = resolution.value;
+	const { provider, modelId } = parsed;
 	const modelRef = `${provider}/${modelId}`;
 	const model = ctx.modelRegistry.find(provider, modelId);
 	if (model === undefined) {

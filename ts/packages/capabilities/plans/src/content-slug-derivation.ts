@@ -7,6 +7,7 @@ import {
 	type KitContentSlugDerivationVariant,
 } from "@nseng-ai/capability-kit/content-slug";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import { DEFAULT_FAST_MODEL_REF } from "@nseng-ai/foundation/model-slug";
 import { MAX_PLAN_SLUG_WORDS, MIN_PLAN_SLUG_WORDS, validatePlanSlug } from "./plan-persistence.ts";
 
 export const MAX_PLAN_CONTENT_CHARS = 32_000;
@@ -34,7 +35,7 @@ export async function deriveContentSlug(
 ): Promise<ContentSlugEvidence> {
 	return deriveKitContentSlug(
 		{ exec: (command, args, options) => pi.exec(command, args, options) },
-		input,
+		{ ...input, modelRef: DEFAULT_FAST_MODEL_REF },
 		toKitContentSlugVariant(variant),
 	);
 }

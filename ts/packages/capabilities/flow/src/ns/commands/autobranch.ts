@@ -2,7 +2,6 @@ import type { ParsedAutobranchArgs } from "../../autobranch/dirty-worktree.ts";
 import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
-import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
 import { commandIoFromNsExtensionApi } from "@nseng-ai/sdk/command-io";
 import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 
@@ -24,8 +23,6 @@ This command requires pending worktree changes. It stashes pending changes, crea
 
 If the worktree is clean, use \`ns flow branch-latest-commit\` to move the latest eligible commit to a new Graphite child branch.
 
-Environment:
-  ${SLUG_MODEL_ENV}  Model reference for generated branch slugs. Defaults to ${DEFAULT_FAST_MODEL_REF}.
 `;
 
 const autobranchRequestSchema = z.object({

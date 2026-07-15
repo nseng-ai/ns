@@ -9,6 +9,7 @@ import {
 	generateRawTextWithModel,
 } from "@nseng-ai/capability-kit/model-slug";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import { DEFAULT_FAST_MODEL_REF } from "@nseng-ai/foundation/model-slug";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
 
 export { finalizeBranchSlug, MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength };
@@ -82,6 +83,7 @@ async function generateRawText(
 	const result = await generateRawTextWithModel({
 		cwd,
 		prompt,
+		modelRef: DEFAULT_FAST_MODEL_REF,
 		exec: (command, args, options) => pi.exec(command, args, options),
 	});
 	if (!result.ok) {

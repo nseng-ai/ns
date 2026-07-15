@@ -6,6 +6,7 @@ import {
 	type RawTextModelFailure,
 } from "@nseng-ai/capability-kit/model-slug";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
+import { DEFAULT_FAST_MODEL_REF } from "@nseng-ai/foundation/model-slug";
 import { truncateText } from "./shared.ts";
 
 export const MAX_DIFF_CHARS = 24_000;
@@ -81,6 +82,7 @@ export async function deriveBranchSlug(
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
 		prompt: input.prompt,
+		modelRef: DEFAULT_FAST_MODEL_REF,
 		slugKind: "branch slug",
 		normalizeOutput: sanitizeBranchName,
 		exec: (command, args, options) =>
