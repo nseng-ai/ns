@@ -4,7 +4,8 @@
 // trust machinery as `/api/mint` and `/api/trigger`; live behavior on Vercel
 // is pending verification.
 import { handleRunStatusRequest } from "../src/trigger/handle-trigger-request.ts";
-import { jsonResponse } from "../src/trigger/http.ts";
+import { jsonResponse } from "../src/http/http.ts";
+import { DISPATCH_OIDC_HEADER_NAME } from "../src/http/wire.ts";
 import {
 	createTriggerRouteContext,
 	triggerRouteConfigurationErrorResponse,
@@ -30,7 +31,7 @@ export function createRunStatusGetHandler(
 		const result = await handleRunStatusRequest(
 			{
 				runId: new URL(request.url).searchParams.get("runId"),
-				oidcToken: request.headers.get("x-ns-dispatch-oidc-token"),
+				oidcToken: request.headers.get(DISPATCH_OIDC_HEADER_NAME),
 			},
 			context,
 		);
@@ -38,6 +39,8 @@ export function createRunStatusGetHandler(
 	};
 }
 
+const productionHandler = createRunStatusGetHandler({ environment: process.env });
+
 export async function GET(request: Request): Promise<Response> {
-	return createRunStatusGetHandler({ environment: process.env })(request);
+	return productionHandler(request);
 }

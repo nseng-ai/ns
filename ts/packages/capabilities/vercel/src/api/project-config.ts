@@ -8,6 +8,7 @@ import {
 } from "@nseng-ai/sdk/project-config/points";
 import { z } from "zod";
 
+import { vercelProjectIdSchema, vercelTeamIdSchema } from "../auth/contracts.ts";
 import { isDispatchHarness, type DispatchHarness } from "../dispatch/harness-registry.ts";
 
 export interface DispatchProjectConfig {
@@ -39,12 +40,6 @@ export type DispatchProjectConfigParseResult = Result<
 	DispatchProjectConfigError
 >;
 
-const vercelProjectIdSchema = z
-	.string()
-	.regex(/^prj_[A-Za-z0-9]+$/, "must be a Vercel project ID beginning with 'prj_'");
-const vercelTeamIdSchema = z
-	.string()
-	.regex(/^team_[A-Za-z0-9]+$/, "must be a Vercel team ID beginning with 'team_'");
 const deploymentUrlSchema = z
 	.url()
 	.refine(isCredentialFreeHttpsUrl, "must be an explicit HTTPS URL without embedded credentials");

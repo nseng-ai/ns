@@ -4,12 +4,15 @@ import { describe, expect, it } from "vitest";
 import {
 	createGitHubAppDispatchTokenMinter,
 	createGitHubInstallationTokenGateway,
-	createJoseVercelOidcGateway,
 	type AppAuthFactoryOptions,
 	type InstallationAuthentication,
 	type InstallationAuthOptions,
 } from "../../src/mint/real-gateways.ts";
-import type { OidcTrustConfig } from "../../src/mint/oidc-trust-config.ts";
+import {
+	createJoseDevelopmentCallerAuthenticator,
+	createJoseVercelOidcGateway,
+} from "../../src/auth/development-oidc.ts";
+import type { OidcTrustConfig } from "../../src/auth/oidc-trust-config.ts";
 import type { GitHubAppMintConfig } from "../../src/mint/runtime-config.ts";
 
 type SigningKey = Awaited<ReturnType<typeof generateKeyPair>>["privateKey"];
@@ -157,16 +160,30 @@ describe("createGitHubAppDispatchTokenMinter", () => {
 });
 
 describe("createJoseVercelOidcGateway", () => {
-	it("verifies a locally signed token and normalizes Vercel identity claims", async () => {
+	it("captures the complete development-caller trust policy at construction", async () => {
 		const { publicKey, privateKey } = await generateKeyPair("ES256");
-		const gateway = createJoseVercelOidcGateway({ keyResolver: async () => publicKey });
+		const mutableTrust = { ...oidcTrust };
+		const authenticator = createJoseDevelopmentCallerAuthenticator(mutableTrust, {
+			keyResolver: async () => publicKey,
+		});
+		mutableTrust.vercelTeamId = "team_changed";
+		mutableTrust.vercelProjectId = "project_changed";
+		mutableTrust.vercelOidcIssuer = "https://oidc.vercel.com/changed";
+		mutableTrust.vercelOidcAudience = "https://vercel.com/changed";
+
+		const result = await authenticator.authenticate(await signedToken(privateKey, {}));
+
+		expect(result).toEqual({ ok: true });
+	});
+
+	it("verifies a locally signed token against construction-bound trust", async () => {
+		const { publicKey, privateKey } = await generateKeyPair("ES256");
+		const gateway = createJoseVercelOidcGateway(oidcTrust, {
+			keyResolver: async () => publicKey,
+		});
 		const token = await signedToken(privateKey, {});
 
-		const result = await gateway.verifyDevelopmentIdentity({
-			token,
-			issuer: oidcTrust.vercelOidcIssuer,
-			audience: oidcTrust.vercelOidcAudience,
-		});
+		const result = await gateway.verifyDevelopmentIdentity(token);
 
 		expect(result).toEqual({
 			ok: true,
@@ -184,21 +201,21 @@ describe("createJoseVercelOidcGateway", () => {
 		["expiration", { expiration: "-1s" }],
 	] as const)("rejects a token with the wrong %s", async (_name, overrides) => {
 		const { publicKey, privateKey } = await generateKeyPair("ES256");
-		const gateway = createJoseVercelOidcGateway({ keyResolver: async () => publicKey });
+		const gateway = createJoseVercelOidcGateway(oidcTrust, {
+			keyResolver: async () => publicKey,
+		});
 		const token = await signedToken(privateKey, overrides);
 
-		const result = await gateway.verifyDevelopmentIdentity({
-			token,
-			issuer: oidcTrust.vercelOidcIssuer,
-			audience: oidcTrust.vercelOidcAudience,
-		});
+		const result = await gateway.verifyDevelopmentIdentity(token);
 
 		expect(result).toEqual({ ok: false });
 	});
 
 	it("rejects a valid signature when required temporal claims are absent", async () => {
 		const { publicKey, privateKey } = await generateKeyPair("ES256");
-		const gateway = createJoseVercelOidcGateway({ keyResolver: async () => publicKey });
+		const gateway = createJoseVercelOidcGateway(oidcTrust, {
+			keyResolver: async () => publicKey,
+		});
 		const token = await new SignJWT({
 			owner_id: oidcTrust.vercelTeamId,
 			project_id: oidcTrust.vercelProjectId,
@@ -209,11 +226,7 @@ describe("createJoseVercelOidcGateway", () => {
 			.setAudience(oidcTrust.vercelOidcAudience)
 			.sign(privateKey);
 
-		const result = await gateway.verifyDevelopmentIdentity({
-			token,
-			issuer: oidcTrust.vercelOidcIssuer,
-			audience: oidcTrust.vercelOidcAudience,
-		});
+		const result = await gateway.verifyDevelopmentIdentity(token);
 
 		expect(result).toEqual({ ok: false });
 	});

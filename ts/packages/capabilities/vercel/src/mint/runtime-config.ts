@@ -1,7 +1,7 @@
 import { z } from "zod";
 
+import { parseOidcTrustConfig, type OidcTrustConfig } from "../auth/oidc-trust-config.ts";
 import { parseGitHubRepository } from "./contracts.ts";
-import { parseOidcTrustConfig, type OidcTrustConfig } from "./oidc-trust-config.ts";
 
 export interface GitHubAppMintConfig {
 	readonly githubAppId: string;
@@ -90,7 +90,7 @@ export function parseMintOidcTrustConfig(
 ): MintOidcTrustConfigParseResult {
 	const result = parseOidcTrustConfig(environment);
 	if (result.ok === false) {
-		return mintConfigFailure(result.error.variable ?? "mint endpoint environment");
+		return mintConfigFailure(result.error.variable);
 	}
 	return result;
 }
