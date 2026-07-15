@@ -1,18 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	findMissingTriggerWorkflowManifestIds,
 	findMissingWorkflowFunctionArtifacts,
 	findMissingWorkflowManifestIds,
 	findWorkflowQueueTriggerProblems,
 	findWorkflowSourcesMissingFromManifest,
 	mergeBuildOutputConfig,
 	REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS,
-	ROUTE_TRIGGERED_WORKFLOW_IDS,
-} from "../../scripts/build-deployable.ts";
-import { dispatchWorkflowId } from "../../workflows/dispatch-id.ts";
-import { helloWorkflowId } from "../../workflows/hello.ts";
-import { sandboxProbeWorkflowId } from "../../workflows/sandbox-probe.ts";
-import { supervisionProbeWorkflowId } from "../../workflows/supervision-probe-id.ts";
+} from "../../src/deployability/gate.ts";
+import { triggerWorkflowIds } from "../../src/trigger/workflow-ids.ts";
 
 const flowVcConfig = {
 	runtime: "nodejs22.x",
@@ -193,11 +190,21 @@ describe("findMissingWorkflowManifestIds", () => {
 		).toEqual(["workflow//./workflows/hello//helloWorkflow"]);
 	});
 
-	it("covers every workflow id the trigger route starts by metadata", () => {
-		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(helloWorkflowId);
-		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(sandboxProbeWorkflowId);
-		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(supervisionProbeWorkflowId);
-		expect(ROUTE_TRIGGERED_WORKFLOW_IDS).toContain(dispatchWorkflowId);
+	it("detects one missing emitted id from the trigger gateway's shared record", () => {
+		const emittedIds = Object.values(triggerWorkflowIds).filter(
+			(workflowId) => workflowId !== triggerWorkflowIds.hello,
+		);
+		const sharedRecordManifest = {
+			workflows: {
+				"workflows/synthetic.ts": Object.fromEntries(
+					emittedIds.map((workflowId, index) => [`workflow${index}`, { workflowId }]),
+				),
+			},
+		};
+
+		expect(findMissingTriggerWorkflowManifestIds(sharedRecordManifest)).toEqual([
+			triggerWorkflowIds.hello,
+		]);
 	});
 });
 

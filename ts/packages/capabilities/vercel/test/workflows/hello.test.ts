@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { helloWorkflow, helloWorkflowId } from "../../workflows/hello.ts";
+import { helloWorkflowId } from "../../workflows/hello-id.ts";
+import { helloWorkflow } from "../../workflows/hello.ts";
+import { workflowManifestId } from "../../workflows/workflow-manifest-id.ts";
 
 describe("helloWorkflow", () => {
 	it("greets the dispatched name (directives are inert outside the workflow runtime)", async () => {
@@ -8,6 +10,6 @@ describe("helloWorkflow", () => {
 	});
 
 	it("derives its metadata id from the module path and export name", () => {
-		expect(helloWorkflowId).toBe(`workflow//./workflows/hello//${helloWorkflow.name}`);
+		expect(workflowManifestId("workflows/hello.ts", helloWorkflow.name)).toBe(helloWorkflowId);
 	});
 });
