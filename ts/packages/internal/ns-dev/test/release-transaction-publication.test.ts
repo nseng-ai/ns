@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { publicPublishOrder } from "../../../../scripts/public-package-set.mjs";
+import { publicPublishOrder } from "../src/public-packages/package-set.ts";
 import type {
 	NpmRegistryGateway,
 	OperationResult,
@@ -73,7 +73,7 @@ class InMemoryCommands implements ReleaseCommandGateway {
 		const candidate = this.#candidateByPath.get(tarballPath);
 		if (candidate === undefined) throw new Error(`Unexpected tarball: ${tarballPath}`);
 		this.#registry.publish(candidate);
-		return { ok: true };
+		return { ok: true, value: undefined };
 	}
 
 	async verify(options: { readonly version: string; readonly candidateReportPath: string }) {
@@ -82,7 +82,7 @@ class InMemoryCommands implements ReleaseCommandGateway {
 			this.#verificationFailures -= 1;
 			return { ok: false as const, error: { code: "not-propagated", message: "wait" } };
 		}
-		return { ok: true as const };
+		return { ok: true as const, value: undefined };
 	}
 }
 
@@ -122,7 +122,7 @@ class InMemoryReports implements ReleaseReportStore {
 		}
 		this.#report = copyReport(report);
 		this.writes.push(copyReport(report));
-		return { ok: true };
+		return { ok: true, value: undefined };
 	}
 }
 

@@ -1,14 +1,30 @@
-import { mkdir, readdir, readFile, rm, stat, writeFile, copyFile } from "node:fs/promises";
+import {
+	copyFile,
+	lstat,
+	mkdir,
+	mkdtemp,
+	readdir,
+	readFile,
+	realpath,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 
-import { runCommand, type CommandRunner } from "@nseng-ai/foundation/exec";
 import type { Clock } from "@nseng-ai/foundation/clock";
-import { systemClock } from "@nseng-ai/foundation/time";
+import { runCommand, type CommandRunner } from "@nseng-ai/foundation/exec";
+import { isNodeErrorCode } from "@nseng-ai/foundation/primitives";
+import { systemClock, systemTimerScheduler } from "@nseng-ai/foundation/time";
+import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+
+import type { ReleaseCliContext } from "./release-public-package-set-cli.ts";
 
 export interface FileEntry {
 	readonly name: string;
 	readonly isDirectory: boolean;
 	readonly isFile: boolean;
+	readonly isSymbolicLink: boolean;
 }
 
 export interface FileSystemGateway {
@@ -19,6 +35,9 @@ export interface FileSystemGateway {
 	rmrf(path: string): Promise<void>;
 	copyFile(source: string, destination: string): Promise<void>;
 	readDir(path: string): Promise<readonly FileEntry[]>;
+	realpath(path: string): Promise<string>;
+	isDirectory(path: string): Promise<boolean>;
+	mkdtemp(prefix: string): Promise<string>;
 	mtimeMs(path: string): Promise<number>;
 }
 
@@ -29,6 +48,8 @@ export interface NsDevCliContext {
 	readonly runCommand: CommandRunner;
 	readonly fs: FileSystemGateway;
 	readonly clock: Clock;
+	readonly timers: TimerScheduler;
+	readonly release?: ReleaseCliContext;
 	readonly status?: (text: string) => void;
 }
 
@@ -39,6 +60,8 @@ export interface NsDevCliDeps {
 	readonly runCommand?: CommandRunner;
 	readonly fs?: FileSystemGateway;
 	readonly clock?: Clock;
+	readonly timers?: TimerScheduler;
+	readonly release?: ReleaseCliContext;
 	readonly stdout?: (text: string) => void;
 	readonly stderr?: (text: string) => void;
 }
@@ -50,6 +73,8 @@ export function createRealNsDevContext(options: {
 	runCommand?: CommandRunner;
 	fs?: FileSystemGateway;
 	clock?: Clock;
+	timers?: TimerScheduler;
+	release?: ReleaseCliContext;
 	status?: (text: string) => void;
 }): NsDevCliContext {
 	return {
@@ -59,6 +84,8 @@ export function createRealNsDevContext(options: {
 		runCommand: options.runCommand ?? runCommand,
 		fs: options.fs ?? realFileSystemGateway,
 		clock: options.clock ?? systemClock,
+		timers: options.timers ?? systemTimerScheduler,
+		...(options.release === undefined ? {} : { release: options.release }),
 		...(options.status === undefined ? {} : { status: options.status }),
 	};
 }
@@ -94,13 +121,19 @@ export const realFileSystemGateway: FileSystemGateway = {
 			name: entry.name,
 			isDirectory: entry.isDirectory(),
 			isFile: entry.isFile(),
+			isSymbolicLink: entry.isSymbolicLink(),
 		}));
+	},
+	async realpath(path) {
+		return await realpath(path);
+	},
+	async isDirectory(path) {
+		return (await lstat(path)).isDirectory();
+	},
+	async mkdtemp(prefix) {
+		return await mkdtemp(prefix);
 	},
 	async mtimeMs(path) {
 		return (await stat(path)).mtimeMs;
 	},
 };
-
-function isNodeErrorCode(error: unknown, code: string): boolean {
-	return typeof error === "object" && error !== null && "code" in error && error.code === code;
-}

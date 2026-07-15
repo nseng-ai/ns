@@ -10,9 +10,7 @@ import { CLI_REL_PATH } from "../support/cli-rel-path.ts";
 
 const tempDirs = createTempDirTracker();
 
-const renderScriptPath = fileURLToPath(
-	new URL("../../../../../scripts/render-cli-shim.mjs", import.meta.url),
-);
+const tsRoot = fileURLToPath(new URL("../../../../../", import.meta.url));
 const templatePath = fileURLToPath(
 	new URL("../../../../../scripts/source-cli-shim-template", import.meta.url),
 );
@@ -24,7 +22,7 @@ interface RenderShimOptions {
 }
 
 function renderShim(options: RenderShimOptions) {
-	return spawnSync(process.execPath, [renderScriptPath], {
+	return spawnSync("pnpm", ["--dir", tsRoot, "exec", "ns-dev", "render-cli-shim"], {
 		env: {
 			...process.env,
 			NS_TEMPLATE: templatePath,

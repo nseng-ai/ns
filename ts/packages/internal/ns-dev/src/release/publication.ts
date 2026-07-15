@@ -74,7 +74,7 @@ export async function executeReleasePublication(
 			plan,
 			error:
 				classification.type === "registry-error"
-					? classification.error
+					? normalizeReleaseFailure(classification.error)
 					: {
 							code: "published-package-hash-mismatch",
 							message: `Registry hashes do not match frozen candidate ${unsafeClassification.candidate.name}@${unsafeClassification.candidate.version}`,
@@ -168,6 +168,20 @@ export async function executeReleasePublication(
 	}
 	if (verificationFailure === undefined) throw new Error("Verification loop made no attempt");
 	return { type: "refused", plan, error: verificationFailure, report };
+}
+
+function normalizeReleaseFailure(error: {
+	readonly code: string;
+	readonly message: string;
+	readonly details?: Record<string, unknown> | undefined;
+	readonly displayCommand?: string | undefined;
+}): ReleaseFailure {
+	return {
+		code: error.code,
+		message: error.message,
+		...(error.details === undefined ? {} : { details: error.details }),
+		...(error.displayCommand === undefined ? {} : { displayCommand: error.displayCommand }),
+	};
 }
 
 function refusedExecution(

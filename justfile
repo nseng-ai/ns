@@ -188,7 +188,7 @@ _install-ts-shim tool cli_rel_path install_hint: ts-install
     NS_INSTALL_HINT="{{install_hint}}" \
     NS_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
     NS_OUTPUT="$HOME/.local/bin/{{tool}}" \
-      node "{{justfile_directory()}}/ts/scripts/render-cli-shim.mjs"
+      {{ts_pnpm}} --dir "{{justfile_directory()}}/ts" exec ns-dev render-cli-shim
     chmod +x "$HOME/.local/bin/{{tool}}"
     @echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: {{justfile_directory()}})"
 

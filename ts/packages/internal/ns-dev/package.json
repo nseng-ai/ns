@@ -6,6 +6,10 @@
 	"bin": {
 		"ns-dev": "./src/cli.ts"
 	},
+	"exports": {
+		"./public-packages/catalog-version": "./src/public-packages/catalog-version.ts",
+		"./public-packages/render-cli-shim": "./src/public-packages/render-cli-shim.ts"
+	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/internal/ns-dev/test"

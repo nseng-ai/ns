@@ -5,7 +5,7 @@ import {
 	isConcreteNpmVersion,
 	publicPublishOrder,
 	workspaceRoot,
-} from "../../../../../scripts/public-package-set.mjs";
+} from "../public-packages/package-set.ts";
 
 import type {
 	FreshReleaseGateway,
@@ -258,7 +258,7 @@ function sameOrderedValues(left: readonly string[], right: readonly string[]): b
 }
 
 function validateConcreteNpmVersion(version: string): OperationResult {
-	if (isConcreteNpmVersion(version)) return { ok: true };
+	if (isConcreteNpmVersion(version)) return { ok: true, value: undefined };
 	return {
 		ok: false,
 		error: {

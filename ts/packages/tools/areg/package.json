@@ -15,6 +15,9 @@
 		"check": "tsc -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/areg/test"
 	},
+	"devDependencies": {
+		"@internal/ns-dev": "workspace:*"
+	},
 	"dependencies": {
 		"@nseng-ai/branch-context": "workspace:*",
 		"@nseng-ai/capability-kit": "workspace:*",

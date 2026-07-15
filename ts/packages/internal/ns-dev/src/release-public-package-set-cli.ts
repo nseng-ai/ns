@@ -1,14 +1,15 @@
-#!/usr/bin/env node
-
 import { resolve } from "node:path";
 
-import { ClinkrGroup, failure, ok } from "@nseng-ai/clinkr";
-import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
+import { failure, ok, type ClinkrExit } from "@nseng-ai/clinkr";
+import type { CommandRunner } from "@nseng-ai/foundation/exec";
 import { z } from "zod";
 
+import type { NsDevCliContext } from "./context.ts";
+import { repoRoot, workspaceRoot } from "./public-packages/package-set.ts";
 import {
 	candidatePublicationClassificationSchema,
 	releaseCandidateSchema,
+	releaseFailureSchema,
 } from "./release/contracts.ts";
 import type {
 	CandidateFileGateway,
@@ -37,7 +38,6 @@ import {
 	createTtyReleaseConfirmationGateway,
 } from "./release/system.ts";
 import { runReleaseTransaction } from "./release/transaction.ts";
-import { repoRoot, workspaceRoot } from "../../../../scripts/public-package-set.mjs";
 
 const verificationDelaysMs = [2_000, 5_000, 10_000, 20_000] as const;
 
@@ -65,16 +65,13 @@ interface ReleaseEvidence {
 	readonly classifications: CandidatePublicationClassification[];
 	readonly writes: string[];
 	readonly finalStatus: "planned" | "verified" | "refused";
-	readonly releaseBranch?: string | undefined;
-	readonly stages?: string[] | undefined;
-	readonly packages?: string[] | undefined;
+	readonly releaseBranch?: string;
+	readonly stages?: string[];
+	readonly packages?: string[];
+	readonly error?: ReleaseFailure;
 }
 
-interface ReleaseCliDeps extends CliEntrypointDeps {
-	readonly context?: ReleaseCliContext;
-}
-
-const requestSchema = z.strictObject({
+export const releasePublicPackageSetRequestSchema = z.object({
 	version: z.string().describe("Concrete npm version to plan or release."),
 	plan: z.boolean().default(false).describe("Run only the read-only fresh-release preflight."),
 });
@@ -90,54 +87,30 @@ export const releaseCliResultSchema = z.strictObject({
 	releaseBranch: z.string().optional(),
 	stages: z.array(z.string()).optional(),
 	packages: z.array(z.string()).optional(),
+	error: releaseFailureSchema.optional(),
 });
+export type ReleaseCliResult = z.output<typeof releaseCliResultSchema>;
 
-const entry = defineCli<ReleaseCliContext, ReleaseCliDeps, undefined>({
-	metaUrl: import.meta.url,
-	runtime: "typescript",
-	description: "Plan, run, or safely resume the transactional public npm package release.",
-	prepareRun: ({ deps }) => ({
-		type: "run",
-		context: deps.context ?? createSystemReleaseCliContext(),
-		buildState: undefined,
-	}),
-	buildCli: ({ version }) => {
-		const root = new ClinkrGroup<ReleaseCliContext>({
-			name: "release",
-			description: "Plan, run, or safely resume the transactional public npm package release.",
-			version,
-			runtimeInfo: () =>
-				"runtime: typescript\nentry_point: @internal/ns-dev release tooling -> ts/scripts/release-public-package-set.ts\n",
-		});
-		root.defaultCommand({
-			schema: requestSchema,
-			positionals: { version: { position: 0 } },
-			options: { plan: { short: "-n" } },
-			resultSchema: releaseCliResultSchema,
-			handler: async (context, request) =>
-				request.plan
-					? await runPlan(request.version, context)
-					: await runTransaction(request.version, context),
-			renderHuman: (data) => `${JSON.stringify(data, null, 2)}\n`,
-		});
-		return root;
-	},
-});
-
-export const VERSION = entry.version;
-
-/** Testable Clinkr CLI adapter. All release capabilities are injected. */
-export async function runReleaseCli(
-	args: readonly string[],
-	context: ReleaseCliContext,
-	io: Pick<CliEntrypointDeps, "stdout" | "stderr"> = {},
-): Promise<number> {
-	return await entry.run(args, { context, ...io });
+export async function runReleasePublicPackageSet(
+	context: NsDevCliContext,
+	request: z.output<typeof releasePublicPackageSetRequestSchema>,
+): Promise<ClinkrExit<ReleaseCliResult>> {
+	const releaseContext = context.release ?? createSystemReleaseCliContext(context);
+	return request.plan
+		? await runPlan(request.version, releaseContext)
+		: await runTransaction(request.version, releaseContext);
 }
 
-async function runPlan(version: string, context: ReleaseCliContext) {
+export function renderReleasePublicPackageSet(data: ReleaseCliResult): string {
+	return `${JSON.stringify(data, null, 2)}\n`;
+}
+
+async function runPlan(
+	version: string,
+	context: ReleaseCliContext,
+): Promise<ClinkrExit<ReleaseCliResult>> {
 	const result = await planFreshRelease(context.release, version);
-	if (result.type === "refused") {
+	if (result.type === "refused")
 		return releaseFailure(
 			{
 				version,
@@ -151,23 +124,24 @@ async function runPlan(version: string, context: ReleaseCliContext) {
 			},
 			result.error,
 		);
-	}
 	return ok({
 		version,
-		mode: "plan" as const,
+		mode: "plan",
 		reportPath: null,
 		releaseCommit: null,
 		candidates: [],
 		classifications: [],
 		writes: [],
-		finalStatus: "planned" as const,
+		finalStatus: "planned",
 		releaseBranch: result.plan.releaseBranch,
 		stages: [...result.plan.stages],
 		packages: [...result.plan.packages],
 	});
 }
-
-async function runTransaction(version: string, context: ReleaseCliContext) {
+async function runTransaction(
+	version: string,
+	context: ReleaseCliContext,
+): Promise<ClinkrExit<ReleaseCliResult>> {
 	const result = await runReleaseTransaction(context, version);
 	return result.type === "verified"
 		? ok({
@@ -186,36 +160,31 @@ async function runTransaction(version: string, context: ReleaseCliContext) {
 				result.error,
 			);
 }
-
-function releaseFailure(evidence: ReleaseEvidence, error: ReleaseFailure) {
-	return failure(error.code, error.message, { ...evidence, finalStatus: "refused" });
+function releaseFailure(
+	evidence: ReleaseEvidence,
+	error: ReleaseFailure,
+): ClinkrExit<ReleaseCliResult> {
+	return failure(error.code, error.message, { ...evidence, error, finalStatus: "refused" });
 }
 
-export function createSystemReleaseCliContext(): ReleaseCliContext {
+export function createSystemReleaseCliContext(
+	context: Pick<NsDevCliContext, "env" | "runCommand" | "timers">,
+): ReleaseCliContext {
+	const runCommand: CommandRunner = async (command, args, options = {}) =>
+		await context.runCommand(command, args, { ...options, env: context.env });
 	return {
-		release: createSystemFreshReleaseGateway(),
-		resume: createSystemResumeReleaseGateway(),
-		npmCandidates: createSystemNpmCandidateGateway({ cwd: repoRoot }),
+		release: createSystemFreshReleaseGateway({ runCommand }),
+		resume: createSystemResumeReleaseGateway({ runCommand }),
+		npmCandidates: createSystemNpmCandidateGateway({ cwd: repoRoot, runCommand }),
 		reports: createNodeReleaseReportStore(),
 		candidateFiles: createNodeCandidateFileGateway(),
-		registry: createSystemNpmRegistryGateway(),
+		registry: createSystemNpmRegistryGateway({ runCommand }),
 		confirmation: createTtyReleaseConfirmationGateway(),
-		commands: createSystemReleaseCommandGateway(),
-		delay: createSystemReleaseDelay(),
+		commands: createSystemReleaseCommandGateway({ runCommand }),
+		delay: createSystemReleaseDelay(context.timers),
 		reportPathForVersion: (version) =>
 			resolve(workspaceRoot, "dist", "releases", version, "report.json"),
 		releaseDirectoryForVersion: (version) => resolve(workspaceRoot, "dist", "releases", version),
 		verificationDelaysMs,
 	};
-}
-
-export async function runSystemReleaseCliIfMain(argv: readonly string[]): Promise<void> {
-	const executable = argv[0] ?? "node";
-	const entryPath = argv[1] ?? "release";
-	const executableArgs = argv.slice(2);
-	const normalizedArgs = executableArgs[0] === "--" ? executableArgs.slice(1) : executableArgs;
-	await entry.runIfMain({
-		isImportMetaMain: true,
-		argv: [executable, entryPath, ...normalizedArgs],
-	});
 }

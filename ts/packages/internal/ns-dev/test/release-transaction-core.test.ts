@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { publicPublishOrder } from "../../../../scripts/public-package-set.mjs";
+import { publicPublishOrder } from "../src/public-packages/package-set.ts";
 import type {
 	CandidateFileGateway,
 	CandidateFileState,
@@ -66,7 +66,7 @@ class InMemoryReports implements ReleaseReportStore {
 
 	async writeAtomic(_reportPath: string, report: ReleaseTransactionReport) {
 		this.#writes.push(copyReport(report));
-		return { ok: true as const };
+		return { ok: true as const, value: undefined };
 	}
 }
 

@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { publicPublishOrder } from "../../../../scripts/public-package-set.mjs";
+import { publicPublishOrder } from "../src/public-packages/package-set.ts";
 import type {
 	FreshReleaseGateway,
 	FreshReleaseState,
@@ -73,7 +73,7 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 
 	async bumpCoordinatedVersion(requestedVersion: string): Promise<OperationResult> {
 		this.#operations.push(`bump:${requestedVersion}`);
-		return { ok: true };
+		return { ok: true, value: undefined };
 	}
 
 	async qualifyPublicPackages(
@@ -93,7 +93,7 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 
 	async stageReleaseFiles(paths: readonly string[]): Promise<OperationResult> {
 		this.#operations.push(`stage:${[...paths].join("|")}`);
-		return { ok: true };
+		return { ok: true, value: undefined };
 	}
 
 	async createReleaseCheckpoint(options: {
@@ -170,7 +170,7 @@ class InMemoryReports implements ReleaseReportStore {
 		}
 		this.#report = copyReport(report);
 		this.#operations.push(`report:${report.release.branch}:${report.candidates.length}`);
-		return { ok: true };
+		return { ok: true, value: undefined };
 	}
 }
 

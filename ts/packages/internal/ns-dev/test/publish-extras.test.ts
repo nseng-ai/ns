@@ -9,7 +9,7 @@ import {
 	filesWithPublishExtras,
 	publishExtrasManifestMetadata,
 	validatePublishExtras,
-} from "../../../../scripts/publish-extras.mjs";
+} from "../src/public-packages/publish-extras.ts";
 
 const temporaryRoots: string[] = [];
 

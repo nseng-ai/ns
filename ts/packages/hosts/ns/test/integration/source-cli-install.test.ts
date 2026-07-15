@@ -36,7 +36,23 @@ describe("ns source CLI installation", () => {
 			mkdir(join(fixtureRoot, "ts", "packages", "hosts", "ns", "src"), { recursive: true }),
 		]);
 		await copyFile(justfilePath, join(fixtureRoot, "justfile"));
-		await writeExecutable(join(fakeBinDir, "corepack"), "#!/bin/sh\nexit 0\n");
+		await writeExecutable(
+			join(fakeBinDir, "corepack"),
+			[
+				"#!/bin/sh",
+				'case " $* " in',
+				'*" exec ns-dev render-cli-shim "*)',
+				'  cli_path="$NS_CANONICAL_CHECKOUT/$NS_CLI_REL_PATH"',
+				`  printf '#!/usr/bin/env bash\\nexec node "%s" "$@"\\n' "$cli_path" > "$NS_OUTPUT"`,
+				"  exit 0",
+				"  ;;",
+				'*" install "*) exit 0 ;;',
+				"esac",
+				'echo "unexpected corepack invocation: $*" >&2',
+				"exit 24",
+				"",
+			].join("\n"),
+		);
 		await writeExecutable(
 			staleShimPath,
 			"#!/bin/sh\necho 'stale @ns/kernel workspace shim' >&2\nexit 23\n",
@@ -50,22 +66,6 @@ describe("ns source CLI installation", () => {
 			"unused by fake renderer\n",
 			"utf8",
 		);
-		await writeFile(
-			join(scriptsDir, "render-cli-shim.mjs"),
-			[
-				'import { writeFile } from "node:fs/promises";',
-				"const outputPath = process.env.NS_OUTPUT;",
-				"const canonicalCheckout = process.env.NS_CANONICAL_CHECKOUT;",
-				"const cliRelPath = process.env.NS_CLI_REL_PATH;",
-				'if (outputPath === undefined || canonicalCheckout === undefined || cliRelPath === undefined) throw new Error("missing renderer input");',
-				"const cliPath = `${canonicalCheckout}/${cliRelPath}`;",
-				'const rendered = ["#!/usr/bin/env bash", `exec node ${JSON.stringify(cliPath)} "$@"`, ""].join("\\n");',
-				'await writeFile(outputPath, rendered, "utf8");',
-				"",
-			].join("\n"),
-			"utf8",
-		);
-
 		const inheritedPath = process.env.PATH;
 		if (inheritedPath === undefined) throw new Error("test process PATH is required");
 		const install = spawnSync(

@@ -1,5 +1,7 @@
-import { sdkFoldEntries } from "../../../../../scripts/sdk-public-subpaths.mjs";
-import { normalizeBinPaths } from "../../../../../scripts/public-package-helpers.mjs";
+import { isRecord } from "@nseng-ai/foundation/primitives";
+
+import { normalizeBinPaths } from "../public-packages/helpers.ts";
+import { sdkFoldEntries } from "../public-packages/sdk-public-subpaths.ts";
 
 import { releaseTransactionReportSchema } from "./contracts.ts";
 
@@ -197,10 +199,6 @@ function hasPresentString(value: unknown): value is string {
 
 function sameValues(left: readonly string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function formatValue(value: unknown): string {

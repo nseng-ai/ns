@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { publicPublishOrder } from "../../../../scripts/public-package-set.mjs";
+import { publicPublishOrder } from "../src/public-packages/package-set.ts";
 import type {
 	FreshReleaseGateway,
 	OperationResult,
@@ -10,9 +10,9 @@ import type {
 	ReleaseTransactionReport,
 } from "../src/release/contracts.ts";
 import { releaseBranchName } from "../src/release/fresh.ts";
+import { runNsDevCli } from "../src/cli.ts";
 import {
 	releaseCliResultSchema,
-	runReleaseCli,
 	type ReleaseCliContext,
 } from "../src/release-public-package-set-cli.ts";
 import { buildReleaseCandidate, buildReleaseReport } from "./release-transaction-builders.ts";
@@ -38,7 +38,7 @@ class InMemoryReports implements ReleaseReportStore {
 	async writeAtomic(_path: string, report: ReleaseTransactionReport): Promise<OperationResult> {
 		this.#report = report;
 		this.writes.push(report);
-		return { ok: true };
+		return { ok: true, value: undefined };
 	}
 }
 
@@ -65,7 +65,7 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 
 	async bumpCoordinatedVersion(requestedVersion: string): Promise<OperationResult> {
 		this.operations.push(`bump:${requestedVersion}`);
-		return { ok: true };
+		return { ok: true, value: undefined };
 	}
 
 	async qualifyPublicPackages(requestedVersion: string) {
@@ -88,7 +88,7 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 
 	async stageReleaseFiles(): Promise<OperationResult> {
 		this.operations.push("stage");
-		return { ok: true };
+		return { ok: true, value: undefined };
 	}
 
 	async createReleaseCheckpoint() {
@@ -177,10 +177,10 @@ function createHarness(
 		commands: {
 			async publishTarball(path) {
 				published.push(path);
-				return { ok: true };
+				return { ok: true, value: undefined };
 			},
 			async verify() {
-				return { ok: true };
+				return { ok: true, value: undefined };
 			},
 		},
 		delay: { async wait() {} },
@@ -197,9 +197,12 @@ function createHarness(
 		stdout,
 		stderr,
 		run: async (args: readonly string[]) =>
-			await runReleaseCli(args, context, {
-				stdout: (text) => stdout.push(text),
-				stderr: (text) => stderr.push(text),
+			await runNsDevCli(["release-public-package-set", ...args], {
+				cwd: "/repo",
+				env: { PATH: "/fake/bin" },
+				release: context,
+				stdout: (text: string) => stdout.push(text),
+				stderr: (text: string) => stderr.push(text),
 			}),
 	};
 }
@@ -213,16 +216,15 @@ describe("transactional release CLI adapter", () => {
 		expect(harness.registryReads).toEqual([]);
 	});
 
-	it.each([
-		[["-h"], "Usage:"],
-		[["--version"], "0.1.0"],
-		[["--runtime"], "runtime: typescript"],
-	] as const)("supports the %s metadata surface", async (args, expected) => {
-		const harness = createHarness();
-		expect(await harness.run(args)).toBe(0);
-		expect(harness.stdout.join("")).toContain(expected);
-		expect(harness.release.operations).toEqual([]);
-	});
+	it.each([[["-h"], "Usage:"]] as const)(
+		"supports the %s command metadata surface",
+		async (args, expected) => {
+			const harness = createHarness();
+			expect(await harness.run(args)).toBe(0);
+			expect(harness.stdout.join("")).toContain(expected);
+			expect(harness.release.operations).toEqual([]);
+		},
+	);
 
 	it("accepts canonical report evidence through the CLI result schema while remaining strict", () => {
 		const report = makeReport();
@@ -336,6 +338,7 @@ describe("transactional release CLI adapter", () => {
 			expect(JSON.parse(harness.stdout.join(""))).toMatchObject({
 				status: "failure",
 				errorType: code,
+				data: { error: { code } },
 			});
 			expect(harness.registryReads).toEqual([]);
 			expect(harness.published).toEqual([]);
