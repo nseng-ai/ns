@@ -7,7 +7,7 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
 
-import { withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
+import { commandOperations, withCommandOperations } from "../phase-stream/matrix-progress-core.ts";
 import type {
 	FlowPrDescriptionDescriptorSource,
 	GithubPrGateway,
@@ -63,6 +63,12 @@ import {
 import { mergePrLinks, partitionPrLinksByExisting, prNumberFromLink } from "./submit-pr-link.ts";
 import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import type { SubmitProgress } from "./submit-progress.ts";
+import {
+	prepareSubmitTransport,
+	type SubmitTransportObservation,
+	type SubmitTransportObservationSink,
+	type SubmitTransportReady,
+} from "./submit-transport.ts";
 
 export { RealSubmitGateway } from "./submit-gateway.ts";
 
@@ -224,16 +230,21 @@ export async function runSubmitCommand(
 	});
 	const stackUpdateCommandDisplay = formatStackUpdateCommandDisplay({ shouldForce: options.force });
 	const commandParams = submitCommandParams(options);
-	const readinessFailure = await ensureSubmitReadiness();
-	if (readinessFailure !== undefined) return readinessFailure;
+	const observationSink = legacySubmitTransportObservationSink(options, {
+		submitCommandDisplay,
+		submitDryRunCommandDisplay,
+	});
+	const readinessStep = await ensureSubmitReadiness();
+	if (readinessStep.kind === "failure") return readinessStep.failure;
+	const readyTransport = readinessStep.transport;
 
-	async function ensureSubmitReadiness(): Promise<SubmitCommandResult | undefined> {
+	async function ensureSubmitReadiness(): Promise<SubmitReadinessStepResult> {
 		emitPhase(options, { type: "phase-started", phaseKey: "preflight" });
-		const readiness = await withCommandOperations(
-			options.progress.matrix,
-			[submitDryRunCommandDisplay],
-			() => options.gateway.checkSubmitReadiness(commandParams),
-		);
+		const readiness = await prepareSubmitTransport({
+			gateway: options.gateway,
+			params: commandParams,
+			observationSink,
+		});
 		if (readiness.kind === "failed") {
 			emitPhase(options, {
 				type: "phase-failed",
@@ -241,110 +252,140 @@ export async function runSubmitCommand(
 				detail: "submit readiness failed",
 			});
 			const preflightFailure = preflightFailureFor({
-				result: readiness,
+				result: readiness.outcome,
 				phase: "preflight",
 				submitDryRunCommandDisplay,
 			});
-			if (preflightFailure !== undefined) return preflightFailure;
-			return failure(
-				normalizedFailureExitCode(readiness.output),
-				formatPreflightFailureOutput(readiness.output, submitDryRunCommandDisplay),
-				{
-					failurePresentation: "unknown",
-					rawFailureTranscript: commandFailureTranscript(
-						"preflight",
-						submitDryRunCommandDisplay,
-						readiness.output,
-					),
-				},
-			);
+			if (preflightFailure !== undefined) {
+				return { kind: "failure", failure: preflightFailure };
+			}
+			return {
+				kind: "failure",
+				failure: failure(
+					normalizedFailureExitCode(readiness.outcome.output),
+					formatPreflightFailureOutput(readiness.outcome.output, submitDryRunCommandDisplay),
+					{
+						failurePresentation: "unknown",
+						rawFailureTranscript: commandFailureTranscript(
+							"preflight",
+							submitDryRunCommandDisplay,
+							readiness.outcome.output,
+						),
+					},
+				),
+			};
 		}
 		if (readiness.kind === "ready") {
 			emitPhase(options, { type: "phase-done", phaseKey: "preflight", detail: "ready to submit" });
 			emitPhase(options, { type: "phase-done", phaseKey: "restack", detail: "not required" });
+			return { kind: "success", transport: readiness };
 		}
-		if (readiness.kind === "restack_required") {
-			emitPhase(options, { type: "phase-done", phaseKey: "preflight", detail: "restack required" });
+
+		emitPhase(options, { type: "phase-done", phaseKey: "preflight", detail: "restack required" });
+		emitPhase(options, {
+			type: "phase-progress",
+			phaseKey: "preflight",
+			label: "Graphite requires a restack before submit",
+		});
+		const restackDecision = await shouldRunRestack(options, readiness.outcome.output);
+		if (restackDecision === "unavailable") {
 			emitPhase(options, {
-				type: "phase-progress",
-				phaseKey: "preflight",
-				label: "Graphite requires a restack before submit",
+				type: "phase-failed",
+				phaseKey: "restack",
+				detail: "restack required but disabled",
 			});
-			const restackDecision = await shouldRunRestack(options, readiness.output);
-			if (restackDecision === "unavailable") {
-				emitPhase(options, {
-					type: "phase-failed",
-					phaseKey: "restack",
-					detail: "restack required but disabled",
-				});
-				return deterministicFailure({
+			return {
+				kind: "failure",
+				failure: deterministicFailure({
 					phase: "preflight",
 					commandDisplay: submitDryRunCommandDisplay,
-					output: readiness.output,
+					output: readiness.outcome.output,
 					stderr: formatRestackRequiredOutput(),
 					exitCode: 1,
-				});
-			}
-			if (restackDecision === "declined") {
-				emitPhase(options, {
-					type: "phase-failed",
-					phaseKey: "restack",
-					detail: "restack declined",
-				});
-				return deterministicFailure({
+				}),
+			};
+		}
+		if (restackDecision === "declined") {
+			emitPhase(options, {
+				type: "phase-failed",
+				phaseKey: "restack",
+				detail: "restack declined",
+			});
+			return {
+				kind: "failure",
+				failure: deterministicFailure({
 					phase: "preflight",
 					commandDisplay: submitDryRunCommandDisplay,
-					output: readiness.output,
+					output: readiness.outcome.output,
 					stderr: formatRestackDeclinedOutput(),
 					exitCode: 1,
-				});
-			}
-
-			emitPhase(options, { type: "phase-started", phaseKey: "restack" });
-			const restackFailure = await withCommandOperations(
-				options.progress.matrix,
-				[RESTACK_COMMAND_DISPLAY],
-				() => runRestackBeforeSubmit(options, commandParams),
-			);
-			if (restackFailure !== undefined) {
-				emitPhase(options, { type: "phase-failed", phaseKey: "restack", detail: "restack failed" });
-				return restackFailure;
-			}
-
-			const rechecked = await withCommandOperations(
-				options.progress.matrix,
-				[submitDryRunCommandDisplay],
-				() => options.gateway.checkSubmitReadiness(commandParams),
-			);
-			const recheckPreflightFailure = preflightFailureFor({
-				result: rechecked,
-				phase: "readiness recheck",
-				submitDryRunCommandDisplay,
-			});
-			if (recheckPreflightFailure !== undefined) {
-				emitPhase(options, {
-					type: "phase-failed",
-					phaseKey: "restack",
-					detail: "readiness recheck failed",
-				});
-				return recheckPreflightFailure;
-			}
-			if (rechecked.kind !== "ready") {
-				emitPhase(options, {
-					type: "phase-failed",
-					phaseKey: "restack",
-					detail: "readiness recheck failed",
-				});
-				return deterministicFailure({
-					phase: "readiness recheck",
-					commandDisplay: submitDryRunCommandDisplay,
-					output: rechecked.output,
-					stderr: formatReadinessRecheckFailureOutput(submitDryRunCommandDisplay),
-				});
-			}
-			emitPhase(options, { type: "phase-done", phaseKey: "restack", detail: "restack complete" });
+				}),
+			};
 		}
-		return undefined;
+
+		emitPhase(options, { type: "phase-started", phaseKey: "restack" });
+		const restacked = await readiness.restackAndRecheck({
+			restack: commandParams,
+			readinessRecheck: commandParams,
+		});
+		if (restacked.kind === "ready") {
+			emitPhase(options, { type: "phase-done", phaseKey: "restack", detail: "restack complete" });
+			return { kind: "success", transport: restacked };
+		}
+
+		if (restacked.stage === "restack") {
+			emitPhase(options, { type: "phase-failed", phaseKey: "restack", detail: "restack failed" });
+			if (restacked.outcome.kind === "conflict") {
+				return {
+					kind: "failure",
+					failure: deterministicFailure({
+						phase: "restack",
+						commandDisplay: RESTACK_COMMAND_DISPLAY,
+						output: restacked.outcome.output,
+						stderr: formatRestackConflictOutput(restacked.outcome.conflictedFiles),
+						exitCode: 1,
+					}),
+				};
+			}
+			return {
+				kind: "failure",
+				failure: failure(
+					normalizedFailureExitCode(restacked.outcome.output),
+					formatRestackFailureOutput(restacked.outcome.output),
+					{
+						failurePresentation: "unknown",
+						rawFailureTranscript: commandFailureTranscript(
+							"restack",
+							RESTACK_COMMAND_DISPLAY,
+							restacked.outcome.output,
+						),
+					},
+				),
+			};
+		}
+
+		emitPhase(options, {
+			type: "phase-failed",
+			phaseKey: "restack",
+			detail: "readiness recheck failed",
+		});
+		const recheckPreflightFailure = preflightFailureFor({
+			result: restacked.outcome,
+			phase: "readiness recheck",
+			submitDryRunCommandDisplay,
+		});
+		if (recheckPreflightFailure !== undefined) {
+			return { kind: "failure", failure: recheckPreflightFailure };
+		}
+		return {
+			kind: "failure",
+			failure: deterministicFailure({
+				phase: "readiness recheck",
+				commandDisplay: submitDryRunCommandDisplay,
+				output: restacked.outcome.output,
+				stderr: formatReadinessRecheckFailureOutput(submitDryRunCommandDisplay),
+			}),
+		};
 	}
 
 	emitPhase(options, { type: "phase-started", phaseKey: "inventory" });
@@ -422,17 +463,42 @@ export async function runSubmitCommand(
 			phaseKey: "submit",
 			label: submitCommandDisplay,
 		});
-		const submittedStep = await runSubmitPhaseStep({
-			options,
-			phaseLabel: "submit",
-			commandDisplay: submitCommandDisplay,
-			prepared,
-			knownFailurePhase: "submit preflight",
-			run: (gateway, params) => gateway.submitCurrentStack(params),
-		});
-		if (submittedStep.kind === "failure") return submittedStep.failure;
+		const submittedTransport = await readyTransport.submitPrimary(
+			submitStreamingCommandParams(options),
+		);
+		if (submittedTransport.kind === "failed") {
+			emitPhase(options, {
+				type: "phase-failed",
+				phaseKey: "submit",
+				detail: "submit failed",
+			});
+			const knownFailure = knownSubmitFailureFor({
+				cause: submittedTransport.outcome.cause,
+				output: submittedTransport.outcome.output,
+				phase: "submit preflight",
+				transcriptCommandDisplay: submitCommandDisplay,
+				prewrittenMetadata: prepared,
+			});
+			if (knownFailure !== undefined) return knownFailure;
+			return failure(
+				normalizedFailureExitCode(submittedTransport.outcome.output),
+				formatSubmitFailureOutput(
+					submittedTransport.outcome.output,
+					prepared,
+					submitCommandDisplay,
+				),
+				{
+					failurePresentation: "unknown",
+					rawFailureTranscript: commandFailureTranscript(
+						"submit",
+						submitCommandDisplay,
+						submittedTransport.outcome.output,
+					),
+				},
+			);
+		}
 
-		let combinedSubmitOutcome = submittedStep.result;
+		let combinedSubmitOutcome = submittedTransport.outcome;
 		if (planToExecute.hasUpstackBranches) {
 			emitPhase(options, {
 				type: "phase-progress",
@@ -457,11 +523,7 @@ export async function runSubmitCommand(
 			phaseKey: "verification",
 			label: "checking current PR",
 		});
-		const currentPr = await withCommandOperations(
-			options.progress.matrix,
-			[CURRENT_PR_COMMAND_DISPLAY],
-			() => options.gateway.verifyCurrentPr(commandParams),
-		);
+		const currentPr = await submittedTransport.verifyCurrentPr(commandParams);
 		if (
 			combinedSubmitOutcome.semanticFailureCause !== undefined ||
 			shouldFailPostSubmitVerification(combinedSubmitOutcome, currentPr)
@@ -573,6 +635,10 @@ export async function runSubmitCommand(
 
 type RestackDecision = "run" | "declined" | "unavailable";
 
+type SubmitReadinessStepResult =
+	| { kind: "success"; transport: SubmitTransportReady }
+	| { kind: "failure"; failure: SubmitCommandResult };
+
 function formatDescriptionPhaseStart(prCount: number): string {
 	if (prCount === 0) return "checking PR descriptions; no PR links detected yet";
 	return `checking ${formatItemCount(prCount, "PR description", "PR descriptions")} for skip or regeneration`;
@@ -646,42 +712,6 @@ async function shouldRunRestack(
 		),
 	);
 	return confirmed ? "run" : "declined";
-}
-
-async function runRestackBeforeSubmit(
-	options: Pick<RunSubmitCommandOptions, "gateway" | "onOutput" | "progress">,
-	commandParams: SubmitCommandParams,
-): Promise<SubmitCommandResult | undefined> {
-	emitPhase(options, {
-		type: "phase-progress",
-		phaseKey: "preflight",
-		label: "running gt restack",
-	});
-	const restack = await options.gateway.restackCurrentStack(commandParams);
-	if (restack.kind === "conflict") {
-		return deterministicFailure({
-			phase: "restack",
-			commandDisplay: RESTACK_COMMAND_DISPLAY,
-			output: restack.output,
-			stderr: formatRestackConflictOutput(restack.conflictedFiles),
-			exitCode: 1,
-		});
-	}
-	if (restack.kind === "failed") {
-		return failure(
-			normalizedFailureExitCode(restack.output),
-			formatRestackFailureOutput(restack.output),
-			{
-				failurePresentation: "unknown",
-				rawFailureTranscript: commandFailureTranscript(
-					"restack",
-					RESTACK_COMMAND_DISPLAY,
-					restack.output,
-				),
-			},
-		);
-	}
-	return undefined;
 }
 
 type SuccessfulSubmitRunResult = Extract<SubmitRunResult, { kind: "success" }>;
@@ -784,6 +814,51 @@ function optionalOutputListenerParam(
 	onOutput: SubmitOutputListener | undefined,
 ): Pick<SubmitCommandParams, "onOutput"> {
 	return onOutput === undefined ? {} : { onOutput };
+}
+
+function legacySubmitTransportObservationSink(
+	options: Pick<RunSubmitCommandOptions, "progress">,
+	displays: {
+		submitCommandDisplay: string;
+		submitDryRunCommandDisplay: string;
+	},
+): SubmitTransportObservationSink {
+	return (observation) => {
+		if (observation.type === "stage-completed") {
+			options.progress.matrix?.setActiveOperations([]);
+			return;
+		}
+		options.progress.matrix?.setActiveOperations([
+			...commandOperations(submitTransportCommandDisplays(observation, displays)),
+		]);
+		if (observation.stage === "restack") {
+			emitPhase(options, {
+				type: "phase-progress",
+				phaseKey: "preflight",
+				label: "running gt restack",
+			});
+		}
+	};
+}
+
+function submitTransportCommandDisplays(
+	observation: Extract<SubmitTransportObservation, { type: "stage-started" }>,
+	displays: {
+		submitCommandDisplay: string;
+		submitDryRunCommandDisplay: string;
+	},
+): readonly string[] {
+	switch (observation.stage) {
+		case "readiness":
+		case "readiness-recheck":
+			return [displays.submitDryRunCommandDisplay];
+		case "restack":
+			return [RESTACK_COMMAND_DISPLAY];
+		case "submit":
+			return [displays.submitCommandDisplay];
+		case "verification":
+			return [CURRENT_PR_COMMAND_DISPLAY];
+	}
 }
 
 function emitPhase(
