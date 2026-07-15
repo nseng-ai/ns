@@ -19,6 +19,7 @@
 		"release:publish": "ns-dev publish-public-package-set publish",
 		"release:publish-dry-run": "ns-dev publish-public-package-set dry-run",
 		"release": "ns-dev release-public-package-set",
+		"release:reset": "ns-dev reset-public-package-release",
 		"release:qualify-public": "ns-dev qualify-public-package-set",
 		"release:verify-public": "ns-dev verify-public-package-set",
 		"test": "vitest run --config vitest.config.ts",

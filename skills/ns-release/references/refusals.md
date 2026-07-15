@@ -13,9 +13,16 @@ fired. Never act on a code alone. Establish the stage first:
 rg -o '"stage": "[^"]+"' ts/dist/releases/<VERSION>/report.json
 ```
 
-- **No report file** → the failure is in preflight; nothing has changed.
-- `preparing-candidates` / `checkpointing` / `candidates-prepared` → nothing has
-  been published yet.
+- **No report file** → preflight may have failed cleanly, or bump/qualification
+  may have left partial local effects before the initial journal write. Inspect
+  with `just release-reset <VERSION> --dry-run`; never assume cleanup scope.
+- `preparing-candidates` → pre-checkpoint and potentially resettable through the
+  typed reset workflow below.
+- `candidates-prepared` → identity matters. A source-branch report with no
+  deterministic release branch can be pre-checkpoint; a release-branch report is
+  checkpointed. Let `release-reset` classify it rather than guessing.
+- `checkpointing` → Graphite may already have created the checkpoint. Never
+  reset automatically; preserve the report and inspect/resume.
 - `publishing` / `published` → **packages may already be on npm.** Do not start a
   fresh release and do not change the version. Resume.
 - `verified` → the release completed.
@@ -27,7 +34,33 @@ Use its `displayCommand` field plus the stage above to locate the real failure.
 A `displayCommand` containing `release:verify-public` means the publish already
 happened and only read-back verification failed.
 
-## Preflight (no report yet — nothing has changed, cheap to fix)
+## Supported pre-checkpoint reset
+
+For a bump, qualification, or candidate-preparation failure, inspect first:
+
+```bash
+just release-reset <VERSION> --dry-run
+```
+
+Authorize only the exact plan it returns, either interactively with
+`just release-reset <VERSION>` or non-interactively with `--yes`. The command can
+restore partial or complete byte-exact public-manifest version bumps, an
+optional lockfile diff, and the exact `ts/dist/releases/<VERSION>/` directory. A
+recorded commit older than `HEAD` is allowed only on the same source branch when
+Git proves it is an ancestor. The evidence surfaces that staleness and a complete
+release-directory content fingerprint.
+
+A reset refusal is not an invitation to clean by hand. Any release branch,
+`checkpointing` or later state, pending/completed npm write, report/candidate
+mismatch, unexpected tracked/untracked path, or semantic/representation manifest
+edit beyond the version replacement preserves all state and requires
+resume/manual recovery. Reset never calls npm or Graphite,
+deletes branches, edits reports, or performs broad `ts/dist/` cleanup.
+
+After a successful reset, restart with `just release-plan <VERSION>` and only
+then `just release <VERSION>`.
+
+## Preflight (no checkpoint — cheap to fix, but local effects may exist)
 
 | Code                                                              | Means                                                                           | Do this                                                                                                                                                                                                                                                                                                                                                  |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -41,14 +74,14 @@ happened and only read-back verification failed.
 
 ## Bump / qualify / freeze (nothing published yet)
 
-| Code                                         | Means                                                                                | Do this                                                                                                                                                                                                                                                                               |
-| -------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `release-command-failed`                     | The bump or qualification command exited non-zero.                                   | A normal build/test failure. Read the surfaced output, fix it, reset to a clean tree, rerun.                                                                                                                                                                                          |
-| `release-change-set-mismatch`                | The tracked change set is not exactly the public manifests plus `ts/pnpm-lock.yaml`. | Read both halves of the message. `unexpected:` — something leaked into tracked paths; **STOP** and report, do not stage it. `Missing:` — the bump did not touch what it should have (an unchanged lockfile is the common case, e.g. releasing a version the manifests already carry). |
-| `candidate-directory-create-failed`          | Could not create `ts/dist/releases/<VERSION>/`.                                      | Disk or permissions. Fix and rerun.                                                                                                                                                                                                                                                   |
-| `npm-pack-failed`, `npm-pack-invalid-output` | `npm pack` failed or returned unparsable JSON.                                       | Usually a broken publish root. Fix the packaging problem, then rerun.                                                                                                                                                                                                                 |
-| `candidate-identity-mismatch`                | `npm pack` produced a different name/version than expected.                          | **STOP** — the publish root does not match its manifest. A packaging bug.                                                                                                                                                                                                             |
-| `publish-root-inventory-mismatch`            | Qualified publish roots do not match the public inventory.                           | **STOP** and report; qualification and the inventory disagree.                                                                                                                                                                                                                        |
+| Code                                         | Means                                                                                          | Do this                                                                                                                                                                                                                                                                |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `release-command-failed`                     | The bump or qualification command exited non-zero.                                             | A normal build/test failure. Read the surfaced output and fix the cause. If release-owned local effects remain and no checkpoint exists, use `just release-reset <VERSION> --dry-run`, authorize the exact reset, then restart with `just release-plan`.               |
+| `release-change-set-mismatch`                | A required public manifest is missing from the tracked changes, or an unexpected path changed. | Read both halves of the message. `unexpected:` — something leaked into tracked paths; **STOP** and report, do not stage it. `Missing:` — a required public manifest did not change. An unchanged `ts/pnpm-lock.yaml` alone is valid and no longer causes this refusal. |
+| `candidate-directory-create-failed`          | Could not create `ts/dist/releases/<VERSION>/`.                                                | Disk or permissions. Fix and rerun.                                                                                                                                                                                                                                    |
+| `npm-pack-failed`, `npm-pack-invalid-output` | `npm pack` failed or returned unparsable JSON.                                                 | Usually a broken publish root. Fix the packaging problem, then rerun.                                                                                                                                                                                                  |
+| `candidate-identity-mismatch`                | `npm pack` produced a different name/version than expected.                                    | **STOP** — the publish root does not match its manifest. A packaging bug.                                                                                                                                                                                              |
+| `publish-root-inventory-mismatch`            | Qualified publish roots do not match the public inventory.                                     | **STOP** and report; qualification and the inventory disagree.                                                                                                                                                                                                         |
 
 ## Graphite checkpoint
 

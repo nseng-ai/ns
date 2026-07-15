@@ -25,7 +25,8 @@ const releaseCommit = "release-commit";
 const manifestPaths = publicPublishOrder.map(
 	(_name, index) => `ts/packages/public-${index}/package.json`,
 );
-const expectedPaths = [...manifestPaths, "ts/pnpm-lock.yaml"].sort();
+const lockfilePath = "ts/pnpm-lock.yaml";
+const pathsWithLockfile = [...manifestPaths, lockfilePath].sort();
 
 interface FakeReleaseOptions {
 	readonly state?: Partial<FreshReleaseState>;
@@ -39,6 +40,7 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 	readonly #createResult: ValueResult<ReleaseCheckpoint>;
 	readonly #operations: string[];
 	readonly checkpointRequests: Array<{ branch: string; message: string }> = [];
+	readonly stagedPathRequests: Array<readonly string[]> = [];
 
 	constructor(operations: string[], options: FakeReleaseOptions = {}) {
 		this.#operations = operations;
@@ -52,7 +54,7 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 			sourceManifestPaths: manifestPaths,
 			...options.state,
 		};
-		this.#trackedChanges = [...(options.trackedChanges ?? expectedPaths)];
+		this.#trackedChanges = [...(options.trackedChanges ?? pathsWithLockfile)];
 		this.#createResult = options.createResult ?? {
 			ok: true,
 			value: {
@@ -92,7 +94,9 @@ class InMemoryFreshRelease implements FreshReleaseGateway {
 	}
 
 	async stageReleaseFiles(paths: readonly string[]): Promise<OperationResult> {
-		this.#operations.push(`stage:${[...paths].join("|")}`);
+		const stagedPaths = [...paths];
+		this.stagedPathRequests.push(stagedPaths);
+		this.#operations.push(`stage:${stagedPaths.join("|")}`);
 		return { ok: true, value: undefined };
 	}
 
@@ -211,16 +215,24 @@ describe("fresh transactional release", () => {
 	});
 
 	it.each([
-		["missing", expectedPaths.slice(1)],
-		["unexpected", [...expectedPaths, "ts/package.json"]],
+		[
+			"missing public manifest",
+			manifestPaths.slice(1),
+			`Release tracked changes are not exact. Missing: ${manifestPaths[0]}; unexpected: none`,
+		],
+		[
+			"unexpected path",
+			[...manifestPaths, "ts/package.json"],
+			"Release tracked changes are not exact. Missing: none; unexpected: ts/package.json",
+		],
 	] as const)(
-		"hard-stops on %s tracked changes and preserves generated effects",
-		async (_label, paths) => {
+		"hard-stops on %s and preserves generated effects",
+		async (_label, paths, message) => {
 			const { result, operations } = await runFresh({ trackedChanges: paths });
 
 			expect(result).toMatchObject({
 				type: "refused",
-				error: { code: "release-change-set-mismatch" },
+				error: { code: "release-change-set-mismatch", message },
 			});
 			expect(operations).toContain(`bump:${version}`);
 			expect(operations).toContain(`qualify:${version}`);
@@ -230,7 +242,15 @@ describe("fresh transactional release", () => {
 		},
 	);
 
-	it("bumps, qualifies exactly once, freezes canonical candidates, and checkpoints only expected files", async () => {
+	it("checkpoints the actual manifest changes when the lockfile is unchanged", async () => {
+		const actualChanges = [...manifestPaths].reverse();
+		const { result, release } = await runFresh({ trackedChanges: actualChanges });
+
+		expect(result.type).toBe("checkpointed");
+		expect(release.stagedPathRequests).toEqual([[...manifestPaths].sort()]);
+	});
+
+	it("bumps, qualifies exactly once, freezes canonical candidates, and checkpoints manifests with the changed lockfile", async () => {
 		const operations: string[] = [];
 		const release = new InMemoryFreshRelease(operations);
 		const reports = new InMemoryReports(operations);
@@ -255,7 +275,8 @@ describe("fresh transactional release", () => {
 		expect(operations.indexOf(`qualify:${version}`)).toBeLessThan(
 			operations.indexOf(`pack:${publicPublishOrder[0]}`),
 		);
-		expect(operations).toContain(`stage:${expectedPaths.join("|")}`);
+		expect(release.stagedPathRequests).toEqual([pathsWithLockfile]);
+		expect(operations).toContain(`stage:${pathsWithLockfile.join("|")}`);
 		expect(release.checkpointRequests).toEqual([
 			{
 				branch: releaseBranchName(version),
@@ -351,7 +372,7 @@ async function runFresh(options: FakeReleaseOptions) {
 			releaseDirectory: "/workspace/ts/dist/releases/candidates",
 		},
 	);
-	return { result, operations };
+	return { result, operations, release };
 }
 
 function copyReport(report: ReleaseTransactionReport): ReleaseTransactionReport {

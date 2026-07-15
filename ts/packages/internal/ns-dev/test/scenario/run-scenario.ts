@@ -1,11 +1,13 @@
 import { dirname, isAbsolute, resolve } from "node:path";
 
+import type { ClinkrInteraction } from "@nseng-ai/clinkr";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
 import { runNsDevCli, type CliDeps } from "../../src/cli.ts";
 import type { FileEntry, FileSystemGateway } from "../../src/context.ts";
 import type { ReleaseCliContext } from "../../src/release-public-package-set-cli.ts";
+import type { ReleaseResetGateway } from "../../src/release/contracts.ts";
 
 export interface CommandCall {
 	readonly command: string;
@@ -44,7 +46,10 @@ export interface ScenarioRunOptions {
 	readonly writeFailures?: Record<string, string>;
 	readonly commandResults?: readonly ExecResult[];
 	readonly timers?: TimerScheduler;
+	readonly interaction?: ClinkrInteraction;
+	readonly stdin?: () => Promise<string | null>;
 	readonly release?: ReleaseCliContext;
+	readonly releaseReset?: ReleaseResetGateway;
 }
 
 export interface ScenarioRun {
@@ -73,7 +78,10 @@ export function runScenario(
 		fs,
 		clock: { nowMs: () => Date.UTC(2026, 0, 2, 3, 4, 5) },
 		...(options.timers === undefined ? {} : { timers: options.timers }),
+		...(options.interaction === undefined ? {} : { interaction: options.interaction }),
+		...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 		...(options.release === undefined ? {} : { release: options.release }),
+		...(options.releaseReset === undefined ? {} : { releaseReset: options.releaseReset }),
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
 		runCommand: async (command, commandArgs, commandOptions) => {

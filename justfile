@@ -137,6 +137,10 @@ publish VERSION: _ts-workspace-ready
 release-plan VERSION: _ts-workspace-ready
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release --plan {{VERSION}}
 
+# Safely inspect or reset a provably pre-checkpoint release attempt.
+release-reset VERSION *args: _ts-workspace-ready
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release:reset {{VERSION}} {{args}}
+
 # Fresh transactional release or automatic exact same-version resume.
 release VERSION: _ts-workspace-ready
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release {{VERSION}}

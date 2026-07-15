@@ -27,6 +27,7 @@ describe("ns-dev CLI shape", () => {
 			"publish-public-package-set",
 			"qualify-public-package-set",
 			"release-public-package-set",
+			"reset-public-package-release",
 			"render-cli-shim",
 			"smoke-sdk-consumer-resolution",
 			"verify-public-package-set",
@@ -50,6 +51,21 @@ describe("ns-dev CLI shape", () => {
 		const releaseHelp = runScenario(["release-public-package-set", "--help"]);
 		expect(await releaseHelp.exit).toBe(0);
 		expect(releaseHelp.stdout.join("")).toContain("--plan");
+
+		const resetHelp = runScenario(["reset-public-package-release", "--help"]);
+		expect(await resetHelp.exit).toBe(0);
+		const resetHelpText = resetHelp.stdout.join("");
+		expect(resetHelpText).toContain("<version>");
+		expect(resetHelpText).toContain("--dry-run");
+		expect(resetHelpText).toContain("-n");
+		expect(resetHelpText).toContain("--yes");
+		expect(resetHelpText).toContain("-y");
+
+		const resetSchema = runScenario(["reset-public-package-release", "--json-schema"]);
+		expect(await resetSchema.exit).toBe(0);
+		expect(JSON.parse(resetSchema.stdout.join(""))).toMatchObject({
+			machineEnvelopeJsonSchema: { oneOf: expect.any(Array) },
+		});
 
 		const publishHelp = runScenario(["publish-public-package-set", "--help"]);
 		expect(await publishHelp.exit).toBe(0);

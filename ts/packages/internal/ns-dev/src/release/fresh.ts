@@ -85,7 +85,8 @@ export async function startFreshRelease(
 	const preflightFailure = validateFreshState(inspected.value);
 	if (preflightFailure !== undefined) return { type: "refused", error: preflightFailure };
 
-	const expectedPaths = [...inspected.value.sourceManifestPaths, "ts/pnpm-lock.yaml"].sort();
+	const requiredPaths = [...inspected.value.sourceManifestPaths].sort();
+	const allowedPaths = [...requiredPaths, "ts/pnpm-lock.yaml"].sort();
 	const bump = await context.release.bumpCoordinatedVersion(options.version);
 	if (!bump.ok) return { type: "refused", error: bump.error };
 	const qualified = await context.release.qualifyPublicPackages(options.version);
@@ -110,9 +111,9 @@ export async function startFreshRelease(
 
 	const changes = await context.release.listTrackedChanges();
 	if (!changes.ok) return { type: "refused", error: changes.error };
-	const changeFailure = validateExpectedChanges(changes.value, expectedPaths);
-	if (changeFailure !== undefined) return { type: "refused", error: changeFailure };
-	const staged = await context.release.stageReleaseFiles(expectedPaths);
+	const validatedChanges = validateExpectedChanges(changes.value, requiredPaths, allowedPaths);
+	if (!validatedChanges.ok) return { type: "refused", error: validatedChanges.error };
+	const staged = await context.release.stageReleaseFiles(validatedChanges.value);
 	if (!staged.ok) return { type: "refused", error: staged.error };
 
 	const checkpointingReport: ReleaseTransactionReport = {
@@ -307,18 +308,22 @@ function validateFreshState(state: FreshReleaseState): ReleaseFailure | undefine
 
 function validateExpectedChanges(
 	actualPaths: readonly string[],
-	expectedPaths: readonly string[],
-): ReleaseFailure | undefined {
+	requiredPaths: readonly string[],
+	allowedPaths: readonly string[],
+): ValueResult<readonly string[]> {
 	const actual = [...new Set(actualPaths)].sort();
-	const expected = [...new Set(expectedPaths)].sort();
-	if (sameOrderedValues(actual, expected)) return undefined;
+	const required = [...new Set(requiredPaths)].sort();
+	const allowed = new Set(allowedPaths);
 	const actualSet = new Set(actual);
-	const expectedSet = new Set(expected);
-	const missing = expected.filter((path) => !actualSet.has(path));
-	const unexpected = actual.filter((path) => !expectedSet.has(path));
+	const missing = required.filter((path) => !actualSet.has(path));
+	const unexpected = actual.filter((path) => !allowed.has(path));
+	if (missing.length === 0 && unexpected.length === 0) return { ok: true, value: actual };
 	return {
-		code: "release-change-set-mismatch",
-		message: `Release tracked changes are not exact. Missing: ${missing.join(", ") || "none"}; unexpected: ${unexpected.join(", ") || "none"}`,
+		ok: false,
+		error: {
+			code: "release-change-set-mismatch",
+			message: `Release tracked changes are not exact. Missing: ${missing.join(", ") || "none"}; unexpected: ${unexpected.join(", ") || "none"}`,
+		},
 	};
 }
 
