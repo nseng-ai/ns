@@ -42,7 +42,7 @@ export interface ContentSlugNormalizationOptions {
 export interface DeriveContentSlugInput {
 	content: string;
 	cwd: string;
-	modelRef?: string;
+	modelRef: string;
 	signal?: AbortSignal;
 }
 
@@ -56,7 +56,7 @@ export async function deriveKitContentSlug(
 	const prompt = buildKitContentSlugPrompt(input.content, variant);
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
-		...(input.modelRef === undefined ? {} : { modelRef: input.modelRef }),
+		modelRef: input.modelRef,
 		prompt,
 		...(input.signal === undefined ? {} : { signal: input.signal }),
 		slugKind: variant.slugKind,

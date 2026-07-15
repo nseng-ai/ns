@@ -54,8 +54,7 @@ type RawTextModelAttemptOutcome =
 export interface GenerateRawTextWithModelInput {
 	cwd: string;
 	prompt: string;
-	modelRef?: string;
-	env?: Record<string, string | undefined>;
+	modelRef: string;
 	exec(
 		command: string,
 		args: string[],
@@ -99,7 +98,7 @@ export async function deriveSlugWithModel(
 export async function generateRawTextWithModel(
 	input: GenerateRawTextWithModelInput,
 ): Promise<RawTextModelGenerationResult> {
-	const modelRef = input.modelRef ?? DEFAULT_FAST_MODEL.provider + "/" + DEFAULT_FAST_MODEL.modelId;
+	const modelRef = input.modelRef;
 	const model = parseModelRef(modelRef);
 	if (model === undefined) {
 		return { ok: false, failure: { lines: [`Invalid model reference: ${modelRef}`] } };

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL, SLUG_MODEL_ENV } from "@nseng-ai/foundation/model-slug";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import {
 	buildRawTextModelArgs,
 	deriveSlugWithModel,
@@ -41,7 +41,7 @@ describe("generateRawTextWithModel", () => {
 		const result = await generateRawTextWithModel({
 			cwd: "/repo",
 			prompt: "summary prompt",
-			env: {},
+			modelRef: "openai-codex/gpt-5.6-luna",
 			exec: recordingExec(calls, {
 				type: "exited",
 				stdout: "- first bullet\n- second bullet\n",
@@ -67,7 +67,7 @@ describe("generateRawTextWithModel", () => {
 		const result = await generateRawTextWithModel({
 			cwd: "/repo",
 			prompt: "summary prompt",
-			env: { [SLUG_MODEL_ENV]: "acme/fast-1" },
+			modelRef: "acme/fast-1",
 			exec: recordingExec(calls, {
 				type: "exited",
 				stdout: "raw output\n",
@@ -92,7 +92,7 @@ describe("generateRawTextWithModel", () => {
 		const result = await generateRawTextWithModel({
 			cwd: "/repo",
 			prompt: "summary prompt",
-			env: {},
+			modelRef: "openai-codex/gpt-5.6-luna",
 			exec: recordingExecSequence(calls, [
 				{ stdout: "", stderr: "", code: 143, type: "timed-out", signal: null },
 				{ type: "exited", stdout: "recovered summary\n", stderr: "", code: 0, signal: null },
@@ -120,7 +120,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			env: {},
+			modelRef: "openai-codex/gpt-5.6-luna",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExec(calls, {
 				type: "exited",
@@ -148,7 +148,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			env: { [SLUG_MODEL_ENV]: "acme/fast-1" },
+			modelRef: "acme/fast-1",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExec(calls, {
 				type: "exited",
@@ -173,7 +173,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			env: { [SLUG_MODEL_ENV]: "not-a-ref" },
+			modelRef: "not-a-ref",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExec(calls, {
 				type: "exited",
@@ -186,7 +186,7 @@ describe("deriveSlugWithModel", () => {
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
 			expect(result.failure.lines).toEqual([
-				`Invalid ${SLUG_MODEL_ENV}="not-a-ref". Expected "provider/modelId".`,
+				"Invalid model reference: not-a-ref",
 			]);
 		}
 		expect(calls).toHaveLength(0);
@@ -199,7 +199,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			env: {},
+			modelRef: "openai-codex/gpt-5.6-luna",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ stdout: "", stderr: "", code: 143, type: "timed-out", signal: null },
@@ -232,7 +232,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			env: {},
+			modelRef: "openai-codex/gpt-5.6-luna",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ type: "exited", code: 2, signal: null, stdout: "", stderr: "bad request" },
@@ -254,7 +254,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			env: {},
+			modelRef: "openai-codex/gpt-5.6-luna",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ type: "timed-out", code: 143, signal: null, stdout: "", stderr: "" },

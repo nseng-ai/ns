@@ -1,16 +1,12 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	DEFAULT_FAST_MODEL_REF,
 	inferModelProviderFamily,
 	isClaudeCodeSupportedModelPattern,
 	modelIdFromModelPattern,
 	parseModelRef,
 	providerMatchesModelProviderFamily,
-	resolveModelRef,
 } from "../src/primitives/model-slug.ts";
-
-const ENV_VAR = "NS_TEST_MODEL";
 
 describe("parseModelRef", () => {
 	test("splits provider and modelId on the first slash", () => {
@@ -71,42 +67,5 @@ describe("model provider families", () => {
 		expect(isClaudeCodeSupportedModelPattern("SONNET")).toBe(false);
 		expect(isClaudeCodeSupportedModelPattern("fable")).toBe(false);
 		expect(isClaudeCodeSupportedModelPattern("gpt-4")).toBe(false);
-	});
-});
-
-describe("resolveModelRef", () => {
-	test("falls back to the default when the env var is unset", () => {
-		const result = resolveModelRef({}, ENV_VAR, DEFAULT_FAST_MODEL_REF);
-		expect(result).toEqual({
-			ok: true,
-			value: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
-		});
-	});
-
-	test("uses a trimmed env override", () => {
-		const result = resolveModelRef(
-			{ [ENV_VAR]: "  acme/fast-1  " },
-			ENV_VAR,
-			DEFAULT_FAST_MODEL_REF,
-		);
-		expect(result).toEqual({ ok: true, value: { provider: "acme", modelId: "fast-1" } });
-	});
-
-	test("falls back to the default for empty or whitespace env values", () => {
-		for (const value of ["", "   "]) {
-			const result = resolveModelRef({ [ENV_VAR]: value }, ENV_VAR, DEFAULT_FAST_MODEL_REF);
-			expect(result).toEqual({
-				ok: true,
-				value: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
-			});
-		}
-	});
-
-	test("reports an error naming the env var for an invalid override", () => {
-		const result = resolveModelRef({ [ENV_VAR]: "not-a-ref" }, ENV_VAR, DEFAULT_FAST_MODEL_REF);
-		expect(result).toEqual({
-			ok: false,
-			error: `Invalid ${ENV_VAR}="not-a-ref". Expected "provider/modelId".`,
-		});
 	});
 });
