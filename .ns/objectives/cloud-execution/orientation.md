@@ -21,7 +21,11 @@ OIDC-only, clone-only mint endpoint over an in-process mint core, and a fixed
 private-repository Sandbox hello probe that one billable run verified live. The Workflow
 spine is now live-proven: hello, private checkout, short supervision, and an 840-second
 run completed; production deployment `dpl_He9jnMkZmH7fTYg9K3DcHp1mKbds` carries hermetic
-CommonJS API handlers plus the complete Workflow inventory. The first real
+CommonJS API handlers plus the complete Workflow inventory. Local follow-on hardening has
+migrated the deployable to Workflow v5 unified artifacts with structured phase observability
+and added an exact-SHA detached-worktree production deployment gate with authoritative
+inventory and deployment/alias identity checks; that new deployment command is not yet
+live-proven. The first real
 `ns dispatch prompt` completed as `wrun_01KXFZ14SBRCGTSPP5PEH19C3T` and landed one proof
 file plus decision log on PR #3612 through fallback commit recovery. It exposed two Pi host
 defects—extensions were not bound before prompt, and checkout-local `pi` was absent from

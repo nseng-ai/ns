@@ -361,11 +361,10 @@ Risks:
   The package is now the project root; `build:deployable` runs the native typecheck,
   rejects Vercel TypeScript diagnostics, and verifies every emitted relative module before
   deployment. A corrected production route and controlled Sandbox probe exercised the gate.
-  The workflow spine reopens this risk class: `"use workflow"` /
+  The workflow spine reopened this risk class because `"use workflow"` /
   `"use step"` entrypoints compile through Vercel's workflow builder and
-  Queues wiring, a packaging surface the local gate does not yet see — the
-  workflow-hello-probe row extends the gate before anything depends on it.
-  Gate extension landed 2026-07-13 (code-first autorun run) and caught two
+  Queues wiring. The gate extension landed 2026-07-13 (code-first autorun run)
+  and caught two
   real would-be escapes during the run itself: the builder typechecks
   without `strictNullChecks` (requiring `ok === false` narrowing), and the
   Node builder cannot type-resolve the `workflow` package root (requiring
@@ -377,7 +376,13 @@ Risks:
   gate now bundles every API handler as CommonJS, removes `filePathMap`, verifies configured
   handlers and the complete Workflow inventory, and promotes one relocated prebuilt artifact.
   Current contract and evidence live in `references/dispatch-deployment-contract.md` and
-  `references/dispatch-live-evidence.md`.
+  `references/dispatch-live-evidence.md`. A subsequent hardening stack migrated the
+  deployable to Workflow v5's unified artifacts with structured phase observability, then
+  added `just dispatch-deploy-prod`: an exact-SHA detached-worktree build, one authoritative
+  final-inventory verifier, transactional promotion, immutable deployment/alias identity
+  checks, and a separate read-only production health probe. This substantially narrows local
+  deployment ambiguity, but the new production command has not yet produced newer live
+  deployment evidence and therefore does not replace the controlled steel-thread rerun.
 - **README drifts from implementation**: mitigation — the README settles
   first, and each implementation slice cites the README section it makes
   true.
