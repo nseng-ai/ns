@@ -81,7 +81,7 @@ Subagent orchestration opportunities:
 - Do not require a strict machine-readable schema or mandatory fields. Instead, apply a launch-readiness quality bar: each suggested item must contain enough context for a fresh implementation agent to draft a focused subagent prompt and for the parent to validate success.
 - If no delegation is useful, include `Subagent orchestration opportunities: none` with a one-sentence rationale.
 - For editing subagents in one worktree, recommend sequential dispatch and parent validation after each editing subagent: inspect status and final text, review the git diff for declared scope, run targeted checks, and stop or escalate on unexpected files or failed validation.
-- If suggesting editing or implementation subagents, do not include a `model` recommendation unless a strong implementation model is explicitly required. Review-model defaults are not applicable to editing work.
+- If suggesting editing or implementation subagents, default to inherited routing. Mention `routing: "cheap"` only when a bounded cheaper implementation child is deliberately appropriate; review-model defaults are not applicable to editing work.
 - Do not imply that branch-context runtime will automatically launch, schedule, or parse subagent work. The saved plan should identify opportunities for an implementation agent to use manually.
 
 Implementation checkpoint guidance:
@@ -97,9 +97,10 @@ Implementation checkpoint guidance:
 Subagent model routing:
 
 - For implementation/editing subagents:
-  - For Pi editing delegation, use `subagent` with `agent: "task"`; do not set its `model` to a cheap/review model.
-  - Prefer omitting the `model` field so the harness/current session default is used.
-  - Only set an explicit model for editing work if the user or command explicitly provides one.
+  - For Pi editing delegation, use `subagent` with `agent: "task"`.
+  - Omit `routing` to inherit the parent provider, model, and thinking policy.
+  - Use only the named `routing: "cheap"` intent when an upfront approved same-provider down-route is deliberate; if no mapping exists, inherit.
+  - A launch failure does not authorize reactive model or provider rerouting.
 - For review-only subagents:
   - Cheap model routing applies only to bounded diff review tasks.
   - When launching a review subagent from `reviews/typescript-style.md`, use that review definition's `default_model` if available.

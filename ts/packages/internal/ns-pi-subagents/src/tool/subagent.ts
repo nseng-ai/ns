@@ -21,6 +21,7 @@ import {
 } from "../agents/registry.ts";
 import {
 	resolveDescriptorModel,
+	resolveSameProviderCheapModel,
 	type IsProviderAuthConfigured,
 	type ModelSelectionAuthContext,
 } from "../agents/model-policy.ts";
@@ -50,15 +51,22 @@ function buildInputSchema(agentNames: readonly string[]) {
 		title: z.string().trim().min(1).max(200),
 		prompt: z.string().trim().min(1).max(50_000),
 	});
-	return z.object({
-		agent: agentSchema(agentNames).describe("Registered behavioral agent policy."),
-		tasks: z
-			.array(taskSchema)
-			.min(1)
-			.describe("One or more focused tasks; the selected agent enforces its task limit."),
-		execution: z.enum(SUBAGENT_EXECUTION_VALUES).optional(),
-		model: z.string().trim().min(1).optional().describe("Optional explicit Pi model override."),
-	});
+	return z
+		.object({
+			agent: agentSchema(agentNames).describe("Registered behavioral agent policy."),
+			tasks: z
+				.array(taskSchema)
+				.min(1)
+				.describe("One or more focused tasks; the selected agent enforces its task limit."),
+			execution: z.enum(SUBAGENT_EXECUTION_VALUES).optional(),
+			routing: z
+				.enum(["cheap"])
+				.optional()
+				.describe(
+					"Optional upfront same-provider cheap routing intent. Omission uses agent policy; a launch failure does not authorize rerouting.",
+				),
+		})
+		.strict();
 }
 
 function agentSchema(agentNames: readonly string[]): z.ZodType<string, string> {
@@ -292,7 +300,7 @@ async function runTask(args: {
 	}
 	const selectedModel = selectTaskModel({
 		policy: descriptor.modelPolicy,
-		...optionalEntry("explicitModel", args.input.model),
+		...optionalEntry("routing", args.input.routing),
 		...optionalEntry("parentModel", args.ctx.model),
 		isProviderAuthConfigured: args.options.isProviderAuthConfigured ?? isProviderAuthConfigured,
 	});
@@ -315,11 +323,11 @@ async function runTask(args: {
 
 interface SelectTaskModelInput extends ModelSelectionAuthContext {
 	policy: SubagentAgentDescriptor["modelPolicy"];
-	explicitModel?: string;
+	routing?: "cheap";
 }
 
 function selectTaskModel(input: SelectTaskModelInput): string | undefined {
-	if (input.explicitModel !== undefined) return input.explicitModel;
+	if (input.routing === "cheap") return resolveSameProviderCheapModel(input.parentModel);
 	return resolveDescriptorModel({
 		policy: input.policy,
 		...optionalEntry("parentModel", input.parentModel),

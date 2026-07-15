@@ -2,10 +2,11 @@ import { describe, expect, test } from "vitest";
 
 import {
 	ANTHROPIC_PROVIDER_ID,
-	EXPLORER_CHEAP_MODEL_IDS,
-	EXPLORER_CHEAP_QUALIFIED_MODEL,
+	CHEAP_MODEL_IDS,
+	DEFAULT_CHEAP_QUALIFIED_MODEL,
 	resolveDescriptorModel,
 	resolveExplorerLaunchPlan,
+	resolveSameProviderCheapModel,
 } from "../../src/agents/model-policy.ts";
 
 function recordingAuthProbe(configured: boolean): {
@@ -24,8 +25,8 @@ function recordingAuthProbe(configured: boolean): {
 
 describe("resolveExplorerLaunchPlan", () => {
 	test("derives the Anthropic fallback from provider and model IDs", () => {
-		expect(EXPLORER_CHEAP_QUALIFIED_MODEL).toBe(
-			`${ANTHROPIC_PROVIDER_ID}/${EXPLORER_CHEAP_MODEL_IDS.anthropic}`,
+		expect(DEFAULT_CHEAP_QUALIFIED_MODEL).toBe(
+			`${ANTHROPIC_PROVIDER_ID}/${CHEAP_MODEL_IDS.anthropic}`,
 		);
 	});
 
@@ -78,7 +79,7 @@ describe("resolveExplorerLaunchPlan", () => {
 			isProviderAuthConfigured: auth.isProviderAuthConfigured,
 		});
 
-		expect(plan).toEqual({ kind: "cheap", model: EXPLORER_CHEAP_QUALIFIED_MODEL });
+		expect(plan).toEqual({ kind: "cheap", model: DEFAULT_CHEAP_QUALIFIED_MODEL });
 		expect(auth.probedProviders).toEqual(["anthropic"]);
 	});
 
@@ -90,6 +91,23 @@ describe("resolveExplorerLaunchPlan", () => {
 
 		expect(plan).toEqual({ kind: "inherit" });
 		expect(auth.probedProviders).toEqual(["anthropic"]);
+	});
+});
+
+describe("resolveSameProviderCheapModel", () => {
+	test.each([
+		["anthropic", "anthropic/claude-haiku-4-5"],
+		["openai", "openai/gpt-5.6-luna"],
+		["openai-codex", "openai-codex/gpt-5.6-luna"],
+		["google", "google/gemini-3.5-flash"],
+		["gemini", "gemini/gemini-3.5-flash"],
+	])("retains concrete provider %s", (provider, expected) => {
+		expect(resolveSameProviderCheapModel({ provider, id: "parent-model" })).toBe(expected);
+	});
+
+	test("inherits for an unknown or absent parent", () => {
+		expect(resolveSameProviderCheapModel({ provider: "acme", id: "acme-pro" })).toBeUndefined();
+		expect(resolveSameProviderCheapModel(undefined)).toBeUndefined();
 	});
 });
 

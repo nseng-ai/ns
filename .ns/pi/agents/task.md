@@ -8,7 +8,7 @@ promptSnippet: Use subagent with agent: task for one focused delegated task.
 promptGuidelines:
   - Use subagent with agent: task only for a focused delegated task whose prompt includes all necessary context.
   - Task agents run sequentially in a shared worktree; inspect status and sessionFile before deciding that work is complete.
-  - Omit model to inherit the parent provider, model, and thinking policy. Use a fully qualified provider/model when deliberately switching providers.
+  - Omit routing to inherit the parent provider, model, and thinking policy. Use routing: cheap only for an upfront approved cheaper model within the same provider; a launch failure does not authorize rerouting.
   - Treat execution as an advanced architecture override; auto preserves the descriptor's subprocess-first isolation policy.
   - Do not treat a non-final-text status as completion; inspect diagnostics and the child session file first.
 delegationDoctrine:

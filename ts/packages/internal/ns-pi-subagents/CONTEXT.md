@@ -5,12 +5,16 @@ This package owns Pi's model-visible subagent delegation interface and session-l
 ## Language
 
 **Subagent Tool**:
-The single model-visible Pi tool named `subagent`. A caller selects an Agent Type, supplies one or more Subagent Tasks, and may request an Execution Architecture or model override. The tool applies agent policy before dispatch and returns bounded evidence while the child transcript remains authoritative.
+The single model-visible Pi tool named `subagent`. A caller selects an Agent Type, supplies one or more Subagent Tasks, and may request an Execution Architecture or the closed provider-local cheap Routing Intent. The tool applies agent policy before dispatch and returns bounded evidence while the child transcript remains authoritative.
 *Avoid*: `explore tool`, `forked_pi_agent`, one-tool-per-agent, runner tool
 
 **Agent Type**:
 A named behavioral policy for delegated work. The built-in Agent Types are `explorer`, for read-only reconnaissance, and `task`, for one focused general task. Agent Type answers what behavior and permissions the child receives, not how it executes.
 *Avoid*: runtime, process type, runner agent, using `subprocess` or `in-process` as an agent name
+
+**Routing Intent**:
+A model-visible, policy-governed request to down-route an implementation child before dispatch. The only current value is `cheap`, which resolves to an approved model within the parent's concrete provider and otherwise inherits. Omission applies Agent Descriptor policy; launch failure does not create new routing authority.
+*Avoid*: arbitrary model override, provider switch, failure fallback
 
 **Agent Descriptor**:
 The typed executable policy for one Agent Type: task bounds, concurrency, timeout, permissions, prompt-context policy, model policy, result bounds, supported runtimes, and automatic runtime preference. A Markdown agent definition separately owns child prompt and parent-steering prose.

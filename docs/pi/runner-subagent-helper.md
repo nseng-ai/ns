@@ -59,11 +59,11 @@ The `subagent` input is agent-neutral:
   agent: "explorer" | "task";
   tasks: Array<{ title: string; prompt: string }>;
   execution?: "auto" | "subprocess" | "in-process";
-  model?: string;
+  routing?: "cheap";
 }
 ```
 
-`explorer` permits 1–8 read-only tasks, maximum concurrency four, and a 300-second whole-call budget. `task` permits exactly one task and is sequential in the shared worktree. Explorer model selection chooses an explicit override, otherwise a cheap model from the parent's provider (Haiku for Anthropic, Flash for Google, or Luna for OpenAI), or inherits the parent model when no same-provider cheap model is known; every task dispatches exactly once.
+`explorer` permits 1–8 read-only tasks, maximum concurrency four, and a 300-second whole-call budget. `task` permits exactly one task and is sequential in the shared worktree. Omitted routing applies the descriptor policy: task children inherit the parent provider, model, and thinking policy, while explorers retain their descriptor-owned approved cheap-or-inherit behavior. `routing: "cheap"` is an upfront intent that selects only an approved model within the parent's concrete provider (Haiku for Anthropic, Flash for Google, or Luna for OpenAI), inheriting when no mapping exists. Every task dispatches exactly once, and launch failure does not authorize reactive rerouting. Lower-level trusted `dispatchRunnerSubagent` consumers retain explicit model mechanics when their own typed contracts require them.
 
 Every task result reports agent, resolved execution kind, status, title, session file when available, diagnostics, and bounded final text. Fleet UI remains under `ns:agents:*` for both architectures.
 

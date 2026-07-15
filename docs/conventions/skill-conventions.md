@@ -70,7 +70,7 @@ Public skills (those with a `skills/<name>` symlink for external discoverability
 
 ### Skill Model Examples
 
-When a skill body references model tiers or per-dispatch model selection, keep the default guidance harness-neutral, but always include concrete examples for both OpenAI and Anthropic (e.g. `openai-codex/gpt-5.6-luna` and `claude-haiku-4-5`), each labeled with its harness, so agents on either harness can resolve the tier unambiguously.
+When a skill body references policy-owned model tiers or routing, keep the default guidance harness-neutral and name the routing intent rather than instructing implementation callers to supply free-form model IDs. If concrete resolution examples are necessary, include both OpenAI and Anthropic as policy outcomes (for example, Pi/OpenAI `cheap` resolving to `openai-codex/gpt-5.6-luna`, and Claude/Anthropic `cheap` resolving to `claude-haiku-4-5`), clearly labeled so they are not mistaken for arbitrary caller inputs.
 
 ### Vendored Skill Code
 

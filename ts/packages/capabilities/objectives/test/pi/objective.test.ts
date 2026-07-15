@@ -660,6 +660,15 @@ describe("ns:objective:autorun command", () => {
 			expect(result.pi.sentUserMessages[0]).toContain(
 				"distinct parent-only action after the Runner Checkpoint",
 			);
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"Omit routing to inherit the parent provider, model, and thinking policy",
+			);
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"resolved within the parent's concrete provider",
+			);
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"never authorizes reactive model or provider rerouting",
+			);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
 			expect(result.pi.sentUserMessages[0]?.startsWith("/ns:objective:autorun")).toBe(false);
 			expect(result.notifications).toContainEqual({
@@ -681,6 +690,11 @@ describe("ns:objective:autorun command", () => {
 			"Every implementation child and Runner step is local-only and external-write-forbidden.",
 		);
 		expect(result.pi.sentUserMessages[0]).toContain("Parent publication is off by default");
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"inherit the parent provider, model, and thinking policy by default",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain("named provider-local cheap route");
+		expect(result.pi.sentUserMessages[0]).toContain("failure never authorizes reactive rerouting");
 		expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
 		expect(result.notifications).toContainEqual({
 			message: "objective-autorun skill was not found; using fallback prompt.",

@@ -52,6 +52,7 @@ const { z } = requireFromPiTools("zod") as typeof import("zod");
 const {
 	dispatchRunnerSubagent,
 	formatRunnerSubagentActivityWidgetLines,
+	resolveSameProviderCheapModel,
 	getOrCreateSubagentFleetRegistry,
 	setRunnerSubagentWidget,
 	trackSingleSubagentFleetRun,
@@ -135,13 +136,11 @@ const objectiveRunnerStepInputSchema = z
 			.describe(
 				"Re-dispatch in recover mode after a failed step: the subagent repairs the dirty tree the failed step left behind instead of starting a fresh slice.",
 			),
-		model: z
-			.string()
-			.trim()
-			.min(1)
+		routing: z
+			.enum(["cheap"])
 			.optional()
 			.describe(
-				"Optional fully-qualified provider/model override for the implementation subagent.",
+				"Optional upfront same-provider cheap routing intent. Omission inherits the parent provider, model, and thinking policy; a launch failure does not authorize rerouting.",
 			),
 		title: z
 			.string()
@@ -170,7 +169,7 @@ export default function objectiveAutorunExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: TOOL_NAME,
 		label: "Objective runner step",
-		description: `Run ONE local-only Objective Runner step mechanically: runner-begin, dispatch the implementation subagent with the generated prompt (live progress widget), runner-finish. Returns the Runner Checkpoint markdown for the parent to judge; owns fresh report/facts scratch paths per call. This tool has no publication input or authority. The parent reads the checkpoint, then separately decides continue / recover (call again with recover: true) / stop and any conditionally authorized post-checkpoint action. Canonical child/step prohibition: ${OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE}`,
+		description: `Run ONE local-only Objective Runner step mechanically: runner-begin, dispatch the implementation subagent with the generated prompt (live progress widget), runner-finish. Omitted routing inherits the parent provider, model, and thinking policy; routing: cheap selects only an approved model within the same provider before dispatch, and launch failure never authorizes rerouting. Returns the Runner Checkpoint markdown for the parent to judge; owns fresh report/facts scratch paths per call. This tool has no publication input or authority. The parent reads the checkpoint, then separately decides continue / recover (call again with recover: true) / stop and any conditionally authorized post-checkpoint action. Canonical child/step prohibition: ${OBJECTIVE_RUNNER_CHILD_FORBIDDEN_ACTIONS_RULE}`,
 		parameters: OBJECTIVE_RUNNER_STEP_PARAMETERS,
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
 			runObjectiveRunnerStep({ pi, fleetRegistry, params, signal, ctx }),
@@ -272,6 +271,8 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 
 		pushWidget("subagent");
 		fleetTracking.onStart();
+		const selectedModel =
+			input.routing === "cheap" ? resolveSameProviderCheapModel(ctx.model) : undefined;
 		const subagent = await dispatchRunnerSubagent(
 			pi,
 			{ cwd: ctx.cwd, ...optionalEntry("signal", signal) },
@@ -279,7 +280,7 @@ async function runObjectiveRunnerStep(options: RunObjectiveRunnerStepOptions): P
 				title: subagentTitle,
 				prompt,
 				returnMode: "final-text",
-				...optionalEntry("model", input.model),
+				...optionalEntry("model", selectedModel),
 				onProgress: (update) => {
 					pushWidget("subagent", update);
 					fleetTracking?.onProgress(update);
