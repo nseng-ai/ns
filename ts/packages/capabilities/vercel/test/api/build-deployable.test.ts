@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
 	compareApiFunctionDirectories,
 	expectedApiFunctionDirectories,
+	findHermeticApiFunctionProblems,
 	findMissingRelativeModuleTargets,
+	planHermeticApiFunction,
 } from "../../src/deployability/gate.ts";
 
 describe("API function discovery", () => {
@@ -27,6 +29,57 @@ describe("API function discovery", () => {
 			missing: [],
 			unexpected: ["stale.func"],
 		});
+	});
+});
+
+describe("planHermeticApiFunction", () => {
+	it("replaces a mapped ESM handler with a portable CommonJS bundle contract", () => {
+		const plan = planHermeticApiFunction({
+			handler: "api/runs.js",
+			runtime: "nodejs24.x",
+			architecture: "arm64",
+			shouldAddSourcemapSupport: true,
+			filePathMap: {
+				"node_modules/workflow": "node_modules/workflow",
+				"node_modules/zod": "node_modules/zod",
+			},
+		});
+
+		expect(plan).toEqual({
+			sourceHandler: "api/runs.js",
+			bundledHandler: "api/runs.cjs",
+			config: {
+				handler: "api/runs.cjs",
+				runtime: "nodejs24.x",
+				architecture: "arm64",
+				shouldAddSourcemapSupport: false,
+			},
+		});
+	});
+
+	it("rejects a function config without a JavaScript handler", () => {
+		expect(() =>
+			planHermeticApiFunction({ handler: "api/runs.ts", runtime: "nodejs24.x" }),
+		).toThrow("JavaScript handler");
+	});
+
+	it("verifies the final handler inventory has no external path mappings", () => {
+		expect(
+			findHermeticApiFunctionProblems(
+				{ handler: "api/runs.cjs", runtime: "nodejs24.x" },
+				new Set(["api/runs.cjs"]),
+			),
+		).toEqual([]);
+		expect(
+			findHermeticApiFunctionProblems(
+				{
+					handler: "api/runs.cjs",
+					runtime: "nodejs24.x",
+					filePathMap: { "node_modules/zod": "node_modules/zod" },
+				},
+				new Set(["api/runs.cjs"]),
+			),
+		).toEqual(["API function config still depends on filePathMap."]);
 	});
 });
 
