@@ -1,12 +1,13 @@
 // Gateway seams and result vocabulary for the `ns dispatch prompt` local
 // CLI (steel-thread sub-slice 3). All external I/O the command performs —
 // git facts and pushes, GitHub anchor-PR creation/stamping on the user's
-// own credentials, the authenticated trigger-route call, and the local
-// Development-OIDC token source — crosses these interfaces so the command
+// own credentials, the authenticated trigger-route call, the local
+// Development-OIDC token source, semantic model naming, and wall time — crosses these interfaces so the command
 // core stays pure and fake-driven in tests. Consumer-gateway rule: methods
 // name what dispatch needs, not the underlying tool mechanics. Live
 // behavior against the deployed trigger route is pending verification.
 import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { Clock } from "@nseng-ai/foundation/clock";
 
 import type { DispatchRunInput } from "../../dispatch/dispatch-run.ts";
 
@@ -27,8 +28,8 @@ export type DispatchLocalGitFactsGateway = Pick<
 
 /**
  * Git facts and pushes for the dispatch source: the current branch, its
- * exact head, dirty state (the clean-tree rule), remote freshness, the
- * push-first behavior, and the anchor-branch push. The real adapter runs
+ * exact head, dirty state (the clean-tree rule), remote freshness, exact
+ * anchor-name availability, push-first behavior, and the anchor-branch push. The real adapter runs
  * git on the user's machine with the user's own credentials.
  */
 export interface DispatchWorkspaceGitGateway {
@@ -46,6 +47,11 @@ export interface DispatchWorkspaceGitGateway {
 		readonly cwd: string;
 		readonly branch: string;
 	}): Promise<DispatchRemoteBranchTipResult>;
+	/** Check whether an exact dispatch anchor branch is absent from origin. */
+	isAnchorBranchNameAvailable(options: {
+		readonly cwd: string;
+		readonly anchorBranch: string;
+	}): Promise<DispatchAnchorBranchAvailabilityResult>;
 	/** Push the source branch so the dispatched head is remotely reachable. */
 	pushSourceBranch(options: {
 		readonly cwd: string;
@@ -79,6 +85,11 @@ export type DispatchSourceRefResult =
 export type DispatchRemoteBranchTipResult =
 	| { readonly type: "found"; readonly sha: string }
 	| { readonly type: "missing" }
+	| { readonly type: "error"; readonly error: DispatchGatewayError };
+
+export type DispatchAnchorBranchAvailabilityResult =
+	| { readonly type: "available" }
+	| { readonly type: "occupied" }
 	| { readonly type: "error"; readonly error: DispatchGatewayError };
 
 export type DispatchGitOperationResult =
@@ -196,6 +207,20 @@ export type DispatchConfigSourceResult =
 	| { readonly type: "missing" }
 	| { readonly type: "error"; readonly message: string };
 
+export interface DispatchContentSlugInput {
+	readonly kind: "prompt" | "plan";
+	readonly content: string;
+	readonly cwd: string;
+}
+
+export interface DispatchContentSlugGateway {
+	deriveSemanticSlug(input: DispatchContentSlugInput): Promise<DispatchContentSlugResult>;
+}
+
+export type DispatchContentSlugResult =
+	| { readonly ok: true; readonly slug: string }
+	| { readonly ok: false; readonly error: { readonly message: string } };
+
 /** Everything the dispatch-prompt core needs injected. */
 export interface DispatchPromptGateways {
 	readonly git: DispatchWorkspaceGitGateway;
@@ -203,6 +228,6 @@ export interface DispatchPromptGateways {
 	readonly trigger: DispatchTriggerGateway;
 	readonly tokens: DispatchLocalTokenGateway;
 	readonly config: DispatchConfigGateway;
-	/** Short unique suffix for anchor branch names (non-deterministic). */
-	readonly generateAnchorId: () => string;
+	readonly semanticSlugs: DispatchContentSlugGateway;
+	readonly clock: Clock;
 }

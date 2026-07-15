@@ -31,6 +31,7 @@ describe("runDispatchPreflight", () => {
 		if (result.ok) {
 			expect(result.deploymentUrl).toBe(FAKE_DEPLOYMENT_URL);
 			expect(result.workflowDashboardUrl).toBe(FAKE_WORKFLOW_DASHBOARD_URL);
+			expect(result.anchorTimeZone).toBe("America/Los_Angeles");
 			expect(result.triggerConnection).toEqual({
 				deploymentUrl: FAKE_DEPLOYMENT_URL,
 				oidcToken: FAKE_OIDC_TOKEN,

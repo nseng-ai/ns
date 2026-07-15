@@ -1,46 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { isValidDispatchAnchorBranch } from "../../src/dispatch/dispatch-run.ts";
-import {
-	buildAnchorBranchName,
-	buildAnchorPrBody,
-	buildAnchorPrTitle,
-} from "../../src/ns/dispatch-prompt/content.ts";
-
-describe("buildAnchorBranchName", () => {
-	test("keeps the source branch recognizable under the dispatch/ prefix", () => {
-		expect(buildAnchorBranchName("feature/widgets", "ab12cd34")).toBe(
-			"dispatch/feature-widgets-ab12cd34",
-		);
-	});
-
-	test("sanitizes unsafe characters and collapses runs", () => {
-		const name = buildAnchorBranchName("fix crash!! (issue #42)", "ab12cd34");
-		expect(name).toBe("dispatch/fix-crash-issue-42-ab12cd34");
-		expect(isValidDispatchAnchorBranch(name)).toBe(true);
-	});
-
-	test("trims dot edges and double dots that break git ref rules", () => {
-		const name = buildAnchorBranchName("..weird..branch.", "ab12cd34");
-		expect(isValidDispatchAnchorBranch(name)).toBe(true);
-		expect(name.startsWith("dispatch/weird")).toBe(true);
-	});
-
-	test("falls back when the source branch sanitizes to nothing", () => {
-		expect(buildAnchorBranchName("///", "ab12cd34")).toBe("dispatch/work-ab12cd34");
-	});
-
-	test("caps very long source branches while staying valid", () => {
-		const name = buildAnchorBranchName(`feature/${"x".repeat(400)}`, "ab12cd34");
-		expect(name.length).toBeLessThanOrEqual(200);
-		expect(isValidDispatchAnchorBranch(name)).toBe(true);
-	});
-
-	test("avoids the forbidden .lock segment suffix", () => {
-		const name = buildAnchorBranchName("thing.lock", "ab12cd34");
-		expect(isValidDispatchAnchorBranch(name)).toBe(true);
-	});
-});
+import { buildAnchorPrBody, buildAnchorPrTitle } from "../../src/ns/dispatch-prompt/content.ts";
 
 describe("buildAnchorPrTitle", () => {
 	test("uses the prompt's first non-empty line", () => {

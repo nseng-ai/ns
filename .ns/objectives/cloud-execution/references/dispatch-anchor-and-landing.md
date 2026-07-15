@@ -18,17 +18,35 @@ The user-facing promise remains in `README-draft.md`. Credentials live in
 1. resolve repository root, current branch, and exact HEAD;
 2. refuse a dirty worktree and list dirty paths;
 3. validate dispatch configuration, package manager, Development token presence, and
-   deployed identity acceptance;
-4. read the source branch's remote tip;
-5. push the source branch when missing or not equal to HEAD;
-6. derive `dispatch/<sanitized-source>-<short-id>`;
-7. initialize and push the anchor branch;
-8. open the anchor PR against the source branch;
-9. start the dispatch Workflow;
-10. stamp the returned run ID into the PR description.
+   deployed identity acceptance, obtaining a canonical IANA `anchor_timezone`;
+4. normalize the explicit `--slug/-s` override or derive a semantic slug from the
+   dispatched prompt;
+5. read the injected clock once, format `YYYYMMDD-HHmmss` in `anchor_timezone`, and select
+   the first remotely available name from
+   `dispatch/<semantic-slug>-<timestamp>`, then `-2` through `-50`;
+6. read the source branch's remote tip;
+7. push the source branch when missing or not equal to HEAD;
+8. initialize and push the anchor branch;
+9. open the anchor PR against the source branch;
+10. start the dispatch Workflow;
+11. stamp the returned run ID into the PR description.
 
 Every push or PR mutation requires the explicit consent required by the Objective's Runner
-Policy. Nothing live is triggered when refusal or preflight fails.
+Policy. Slug generation, timezone validation, or availability failure happens before the
+first mutation and starts no dispatch. No source/random fallback is attempted. Availability
+is necessarily a look-before-push check: if a concurrent dispatch claims the same name, the
+existing anchor-push failure reports the race rather than overwriting or retrying after
+mutation.
+
+## Semantic anchor naming inputs
+
+The durable anchor name records work intent and civil-time context, while source provenance
+remains in the PR base/body. Prompt dispatch sends `{ kind: "prompt", content, cwd }` through
+the dispatch-owned content-slug Consumer Gateway; the same interface accepts `kind: "plan"`
+for the future plan command after it resolves full plan content. The implementation reuses
+capability-kit content-slug generation and Foundation branch-slug normalization without
+invoking Flow's Graphite/worktree autobranch workflow. Model failure is terminal; the
+explicit slug override is the recovery and automation path.
 
 ## Why the anchor needs an initialization commit
 

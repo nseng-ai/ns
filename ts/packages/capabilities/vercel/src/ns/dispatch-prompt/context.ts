@@ -7,11 +7,12 @@
 import { createNsCommandRunner, NsCommandExecApi } from "@nseng-ai/capability-kit/command-runner";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { systemClock } from "@nseng-ai/foundation/time";
 import type { NsCommandIo, NsExtensionApi } from "@nseng-ai/sdk";
 
 import type { DispatchPromptGateways } from "./contracts.ts";
+import { createRealDispatchContentSlugGateway } from "./content-slug.ts";
 import { createRealDispatchAnchorPrGateway } from "./real-anchor-pr-gateway.ts";
-import { generateRealAnchorId } from "./real-anchor-id.ts";
 import { createRealDispatchConfigGateway } from "./real-config-gateway.ts";
 import { createRealDispatchLocalTokenGateway } from "./real-local-token-gateway.ts";
 import { createRealDispatchTriggerGateway } from "./real-trigger-gateway.ts";
@@ -29,7 +30,8 @@ export type DispatchCommandOverrides = Partial<DispatchPromptGateways>;
 export function createDispatchPromptContext(ctx: NsExtensionApi): DispatchPromptCliContext {
 	const overrides = readDispatchCommandOverrides(ctx);
 	const runner = createNsCommandRunner(ctx);
-	const localGitFacts = new RealGitGateway(new NsCommandExecApi(ctx));
+	const execApi = new NsCommandExecApi(ctx);
+	const localGitFacts = new RealGitGateway(execApi);
 	return {
 		cwd: ctx.cwd,
 		commandIo: ctx.commandIo,
@@ -39,7 +41,8 @@ export function createDispatchPromptContext(ctx: NsExtensionApi): DispatchPrompt
 			trigger: overrides?.trigger ?? createRealDispatchTriggerGateway(),
 			tokens: overrides?.tokens ?? createRealDispatchLocalTokenGateway({ env: ctx.env }),
 			config: overrides?.config ?? createRealDispatchConfigGateway(),
-			generateAnchorId: overrides?.generateAnchorId ?? generateRealAnchorId,
+			semanticSlugs: overrides?.semanticSlugs ?? createRealDispatchContentSlugGateway(execApi),
+			clock: overrides?.clock ?? systemClock,
 		},
 	};
 }
@@ -54,6 +57,7 @@ function readDispatchCommandOverrides(ctx: NsExtensionApi): DispatchCommandOverr
 		trigger: overrides.trigger,
 		tokens: overrides.tokens,
 		config: overrides.config,
-		generateAnchorId: overrides.generateAnchorId,
+		semanticSlugs: overrides.semanticSlugs,
+		clock: overrides.clock,
 	});
 }

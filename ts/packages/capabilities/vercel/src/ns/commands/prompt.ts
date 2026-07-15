@@ -36,6 +36,12 @@ const dispatchPromptRequestSchema = z.object({
 		.min(1)
 		.max(DISPATCH_PROMPT_MAX_CHARS)
 		.describe("The prompt the remote agent executes against your branch head."),
+	slug: z
+		.string()
+		.optional()
+		.describe(
+			"Semantic anchor slug override. The dispatch/ prefix, timestamp, and collision suffix remain automatic.",
+		),
 });
 
 const dispatchPromptResultSchema = z.discriminatedUnion("status", [
@@ -66,10 +72,11 @@ export const dispatchPromptCommand: NsCommand = createNsDomainCommand({
 	name: "prompt",
 	summary: "Dispatch a prompt to run remotely against your branch head.",
 	description:
-		"Dispatch a raw prompt as a remote unit of work. Requires a clean worktree; pushes your current branch first when the remote is missing or behind, initializes a new dispatch/ anchor branch from your exact head commit, opens the anchor pull request up front on your own credentials, starts the dispatch workflow through the configured deployment, and stamps the workflow run id on the anchor PR. Results land on the anchor PR when the run completes. The execution backend comes from the repo-root ns.toml [dispatch] table.",
+		"Dispatch a raw prompt as a remote unit of work. Requires a clean worktree; derives a semantic dispatch/ anchor branch with a timestamp in the repo-configured timezone before any push, pushes your current branch first when the remote is missing or behind, initializes the anchor from your exact head commit, opens the anchor pull request up front on your own credentials, starts the dispatch workflow through the configured deployment, and stamps the workflow run id on the anchor PR. Pass --slug/-s to override only the semantic slug portion. Results land on the anchor PR when the run completes. The execution backend comes from the repo-root ns.toml [dispatch] table.",
 	schema: dispatchPromptRequestSchema,
 	resultSchema: dispatchPromptResultSchema,
 	positionals: { prompt: { position: 0 } },
+	options: { slug: { short: "-s" } },
 	createContext: createDispatchPromptContext,
 	handler: runDispatchPromptCommand,
 });
@@ -87,7 +94,12 @@ async function runDispatchPromptCommand(
 	let outcome: DispatchPromptOutcome;
 	try {
 		outcome = await executeDispatchPrompt(
-			{ cwd: ctx.cwd, prompt: request.prompt, onPhase: ctx.commandIo.phase },
+			{
+				cwd: ctx.cwd,
+				prompt: request.prompt,
+				...(request.slug === undefined ? {} : { slugOverride: request.slug }),
+				onPhase: ctx.commandIo.phase,
+			},
 			ctx.gateways,
 		);
 	} finally {
@@ -120,6 +132,27 @@ async function runDispatchPromptCommand(
 			return failure("preflight-failed", renderPreflightFailure(outcome.checks), {
 				checks: outcome.checks,
 			});
+		case "invalid-branch-slug-override":
+			return usageError(outcome.message, { argument: "slug" });
+		case "branch-slug-generation-failed":
+			return failure("branch-slug-generation-failed", outcome.message, {
+				recovery: "Pass --slug/-s with an explicit semantic slug and retry.",
+			});
+		case "anchor-branch-availability-failed":
+			return failure(
+				"anchor-branch-availability-failed",
+				`${outcome.message}\nNothing was pushed, opened, or started. Check origin access and retry.`,
+				{ anchorBranch: outcome.anchorBranch },
+			);
+		case "anchor-branch-unavailable":
+			return failure(
+				"anchor-branch-unavailable",
+				`All ${outcome.candidateLimit} timestamped anchor names for ${outcome.semanticSlug} already exist on origin. Retry after the clock advances or pass a different --slug/-s override.`,
+				{
+					semanticSlug: outcome.semanticSlug,
+					candidateLimit: outcome.candidateLimit,
+				},
+			);
 		case "source-unusable":
 			return failure(outcome.code, outcome.message);
 		case "source-push-failed":

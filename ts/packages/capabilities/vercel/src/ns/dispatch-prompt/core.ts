@@ -3,8 +3,8 @@
 // operations mirrors the README's contract — local git refusals first
 // (clean-tree rule with the dirty-file list), then the credentials
 // preflight (README "Setup": report exactly what is missing before any
-// remote work starts), then push-first freshness, the up-front
-// `dispatch/` anchor branch and PR on the user's own credentials, the
+// remote work starts), then semantic timestamped anchor-name selection,
+// push-first freshness, the up-front `dispatch/` anchor branch and PR on the user's own credentials, the
 // authenticated trigger call, and the run-id stamp on the anchor PR.
 // Live behavior against the deployed trigger route is pending
 // verification; tests drive this core with in-memory fakes.
@@ -20,7 +20,13 @@ import {
 	parseDispatchPackageManagerSource,
 } from "../../dispatch/harness-registry.ts";
 import { isValidDispatchRunId } from "../../dispatch/run-id-stamp.ts";
-import { buildAnchorBranchName, buildAnchorPrBody, buildAnchorPrTitle } from "./content.ts";
+import {
+	buildDispatchAnchorNameCandidates,
+	DISPATCH_ANCHOR_NAME_CANDIDATE_LIMIT,
+	formatDispatchAnchorTimestamp,
+} from "./anchor-name.ts";
+import { buildAnchorPrBody, buildAnchorPrTitle } from "./content.ts";
+import { normalizeDispatchSlugOverride } from "./content-slug.ts";
 import type { DispatchPromptGateways, DispatchTriggerConnection } from "./contracts.ts";
 
 /** One credentials-preflight check: named, actionable, value-free. */
@@ -44,6 +50,7 @@ interface DispatchPreflightSuccess {
 	readonly checks: readonly DispatchPreflightCheck[];
 	readonly deploymentUrl: string;
 	readonly workflowDashboardUrl: string;
+	readonly anchorTimeZone: string;
 	readonly triggerConnection: DispatchTriggerConnection;
 }
 
@@ -115,7 +122,14 @@ export async function runDispatchPreflight(
 	checks.push(identityCheck);
 	if (identityCheck.status === "failed") return { ok: false, checks };
 
-	return { ok: true, checks, deploymentUrl, workflowDashboardUrl, triggerConnection };
+	return {
+		ok: true,
+		checks,
+		deploymentUrl,
+		workflowDashboardUrl,
+		anchorTimeZone: configCheck.config.anchorTimeZone,
+		triggerConnection,
+	};
 }
 
 type ValidDispatchProjectConfig = Omit<
@@ -269,6 +283,7 @@ function triggerIdentityCheck(
 export interface DispatchPromptRequest {
 	readonly cwd: string;
 	readonly prompt: string;
+	readonly slugOverride?: string;
 	readonly onPhase?: (message: string) => void;
 }
 
@@ -291,6 +306,18 @@ export type DispatchPromptOutcome =
 	  }
 	| { readonly status: "dirty-tree"; readonly dirtyPaths: readonly string[] }
 	| { readonly status: "preflight-failed"; readonly checks: readonly DispatchPreflightCheck[] }
+	| { readonly status: "invalid-branch-slug-override"; readonly message: string }
+	| { readonly status: "branch-slug-generation-failed"; readonly message: string }
+	| {
+			readonly status: "anchor-branch-availability-failed";
+			readonly anchorBranch: string;
+			readonly message: string;
+	  }
+	| {
+			readonly status: "anchor-branch-unavailable";
+			readonly semanticSlug: string;
+			readonly candidateLimit: number;
+	  }
 	| {
 			readonly status: "source-unusable";
 			readonly code: "not-a-repository" | "detached-head" | "git-read-failed";
@@ -360,6 +387,58 @@ export async function executeDispatchPrompt(
 		return { status: "preflight-failed", checks: preflight.checks };
 	}
 
+	request.onPhase?.("Deriving the semantic anchor branch name…");
+	const semanticSlugOverride =
+		request.slugOverride === undefined
+			? undefined
+			: normalizeDispatchSlugOverride(request.slugOverride);
+	if (request.slugOverride !== undefined && semanticSlugOverride === undefined) {
+		return {
+			status: "invalid-branch-slug-override",
+			message:
+				"The dispatch slug override must contain at least one ASCII letter or digit after normalization.",
+		};
+	}
+	let semanticSlug = semanticSlugOverride;
+	if (semanticSlug === undefined) {
+		const derived = await gateways.semanticSlugs.deriveSemanticSlug({
+			kind: "prompt",
+			content: request.prompt,
+			cwd: request.cwd,
+		});
+		if (derived.ok === false) {
+			return { status: "branch-slug-generation-failed", message: derived.error.message };
+		}
+		semanticSlug = derived.slug;
+	}
+
+	const timestamp = formatDispatchAnchorTimestamp(gateways.clock.nowMs(), preflight.anchorTimeZone);
+	let anchorBranch: string | undefined;
+	for (const candidate of buildDispatchAnchorNameCandidates(semanticSlug, timestamp)) {
+		const availability = await gateways.git.isAnchorBranchNameAvailable({
+			cwd: request.cwd,
+			anchorBranch: candidate.name,
+		});
+		if (availability.type === "error") {
+			return {
+				status: "anchor-branch-availability-failed",
+				anchorBranch: candidate.name,
+				message: availability.error.message,
+			};
+		}
+		if (availability.type === "available") {
+			anchorBranch = candidate.name;
+			break;
+		}
+	}
+	if (anchorBranch === undefined) {
+		return {
+			status: "anchor-branch-unavailable",
+			semanticSlug,
+			candidateLimit: DISPATCH_ANCHOR_NAME_CANDIDATE_LIMIT,
+		};
+	}
+
 	// Push-first: the sandbox clones the exact dispatched SHA from the
 	// remote, so the head must be remotely reachable before anything is
 	// submitted (README "What the remote agent sees").
@@ -378,8 +457,6 @@ export async function executeDispatchPrompt(
 	}
 
 	request.onPhase?.("Creating the anchor branch and pull request…");
-	const anchorBranch = buildAnchorBranchName(branch, gateways.generateAnchorId());
-
 	const anchorPush = await gateways.git.pushAnchorBranch({
 		cwd: request.cwd,
 		revision: headSha,
