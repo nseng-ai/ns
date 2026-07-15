@@ -142,13 +142,14 @@ sandbox is preconfigured in the repository (see "Setup").
 ## The anchor PR
 
 Every dispatch opens its pull request **up front**, before the job is
-submitted: a new `dispatch/`-prefixed branch based at the commit you
-dispatched from is pushed, and a PR opens for it immediately. The PR is the
+submitted: a new `dispatch/`-prefixed branch starts from the commit you
+dispatched, adds one metadata-only initialization commit so GitHub can open
+the otherwise empty PR, and opens that PR immediately. The PR is the
 job's anchor — one durable, linkable place where the dispatch is observable
 from the moment it exists. The anchor branch is named
-`dispatch/<source-branch>-<short-id>` and is pushed at the exact commit you
-dispatched from, with the PR based on your source branch so it shows only
-what the run produces. At submission the PR is stamped with the run's
+`dispatch/<source-branch>-<short-id>` and starts from the exact commit you
+dispatched, with the PR based on your source branch so the metadata-only
+initialization has no file diff and the PR shows only what the run produces. At submission the PR is stamped with the run's
 handle — the supervising workflow's run id, written as a marked line in the
 PR description — so anything (you, the jobs TUI) can get from the PR to the
 run's state and logs later — the anchor PR is the durable record, not a

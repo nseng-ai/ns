@@ -10,6 +10,7 @@ import { dispatchCommandError } from "./dispatch-command-error.ts";
 const GIT_READ_TIMEOUT_MS = 30_000;
 const GIT_PUSH_TIMEOUT_MS = 120_000;
 const DISPATCH_REMOTE_NAME = "origin";
+const ANCHOR_COMMIT_MESSAGE = "Initialize cloud dispatch anchor";
 
 export function createRealDispatchWorkspaceGitGateway(
 	localGitFacts: DispatchLocalGitFactsGateway,
@@ -123,9 +124,34 @@ export function createRealDispatchWorkspaceGitGateway(
 			});
 		},
 		async pushAnchorBranch({ cwd, revision, anchorBranch }) {
+			const anchorCommit = await git(
+				["commit-tree", `${revision}^{tree}`, "-p", revision, "-m", ANCHOR_COMMIT_MESSAGE],
+				cwd,
+				GIT_READ_TIMEOUT_MS,
+			);
+			if (!commandSucceeded(anchorCommit)) {
+				return {
+					ok: false,
+					error: dispatchCommandError(
+						"git-anchor-initialization-failed",
+						`Creating the metadata-only commit for anchor branch ${anchorBranch} failed`,
+						anchorCommit,
+					),
+				};
+			}
+			const anchorRevision = parseGitObjectSha(anchorCommit.stdout);
+			if (anchorRevision === null) {
+				return {
+					ok: false,
+					error: {
+						code: "git-anchor-initialization-failed",
+						message: `Creating the metadata-only commit for anchor branch ${anchorBranch} returned no commit SHA.`,
+					},
+				};
+			}
 			return await pushRef({
 				cwd,
-				refspec: `${revision}:refs/heads/${anchorBranch}`,
+				refspec: `${anchorRevision}:refs/heads/${anchorBranch}`,
 				failurePrefix: `Pushing anchor branch ${anchorBranch} failed`,
 			});
 		},
@@ -157,4 +183,9 @@ export function parseGitLsRemoteSha(stdout: string): string | null {
 	const match = /^([0-9a-fA-F]{40})\t/.exec(stdout.trim());
 	if (match === null || match[1] === undefined) return null;
 	return match[1].toLowerCase();
+}
+
+function parseGitObjectSha(stdout: string): string | null {
+	const value = stdout.trim();
+	return /^[0-9a-fA-F]{40}$/u.test(value) ? value.toLowerCase() : null;
 }
