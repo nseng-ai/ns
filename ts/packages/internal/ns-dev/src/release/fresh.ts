@@ -80,6 +80,7 @@ export async function startFreshRelease(
 	const versionResult = validateConcreteNpmVersion(options.version);
 	if (!versionResult.ok) return { type: "refused", error: versionResult.error };
 	const branch = releaseBranchName(options.version);
+	context.onProgress?.("Inspecting the source branch and release preconditions...");
 	const inspected = await context.release.inspectFreshState(branch);
 	if (!inspected.ok) return { type: "refused", error: inspected.error };
 	const preflightFailure = validateFreshState(inspected.value);
@@ -87,13 +88,22 @@ export async function startFreshRelease(
 
 	const requiredPaths = [...inspected.value.sourceManifestPaths].sort();
 	const allowedPaths = [...requiredPaths, "ts/pnpm-lock.yaml"].sort();
+	context.onProgress?.("Bumping coordinated package versions and refreshing the lockfile...");
 	const bump = await context.release.bumpCoordinatedVersion(options.version);
 	if (!bump.ok) return { type: "refused", error: bump.error };
+	context.onProgress?.(
+		`Qualifying ${orderedReleaseInventory().length} public packages (checks, tests, and npm dry runs)...`,
+	);
 	const qualified = await context.release.qualifyPublicPackages(options.version);
 	if (!qualified.ok) return { type: "refused", error: qualified.error };
 
+	context.onProgress?.("Freezing qualified package tarballs...");
 	const prepared = await prepareFrozenCandidates(
-		{ npmCandidates: context.npmCandidates, reports: context.reports },
+		{
+			npmCandidates: context.npmCandidates,
+			reports: context.reports,
+			...(context.onProgress === undefined ? {} : { onProgress: context.onProgress }),
+		},
 		{
 			identity: {
 				branch: inspected.value.currentBranch,
@@ -127,6 +137,7 @@ export async function startFreshRelease(
 	);
 	if (!checkpointingWrite.ok) return { type: "refused", error: checkpointingWrite.error };
 
+	context.onProgress?.(`Creating Graphite release checkpoint ${branch}...`);
 	const checkpoint = await context.release.createReleaseCheckpoint({
 		branch,
 		message: `Release public packages at ${options.version}`,
@@ -159,6 +170,7 @@ export async function startFreshRelease(
 			},
 		};
 	}
+	context.onProgress?.(`Release checkpoint ready at ${checkpoint.value.commit}.`);
 	return { type: "checkpointed", report: persistedReport };
 }
 
@@ -188,6 +200,7 @@ export async function prepareFrozenCandidates(
 		resolve(workspaceRoot, "dist", "releases", options.identity.version);
 	let report = initialReport;
 	for (const [order, root] of rootsResult.value.entries()) {
+		context.onProgress?.(`Packing candidate ${order + 1}/${inventory.length}: ${root.name}`);
 		const packed = await context.npmCandidates.pack({ publishRoot: root.path, packDestination });
 		if (!packed.ok) return { type: "refused", error: packed.error, report };
 		if (packed.value.name !== root.name || packed.value.version !== options.identity.version) {

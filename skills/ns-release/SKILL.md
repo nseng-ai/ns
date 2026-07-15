@@ -36,8 +36,9 @@ running it end to end.
 - **A published version is burned.** If npm already has a version with bytes
   that differ from the frozen candidate, that version can never be released
   from this repo again. Pick a new one; never force or unpublish.
-- **Publishing needs a real TTY.** The confirmation prompt cannot be automated,
-  and that is deliberate. Do not attempt to pipe input to it.
+- **Publishing requires explicit authorization.** In a real TTY, use the default-no
+  y/n prompt. For intentional non-interactive operation, pass `--yes`; otherwise the
+  command fails before any release effects.
 
 ## Step 1 — Choose and confirm the version
 
@@ -100,14 +101,20 @@ Two properties worth understanding, because they explain every refusal:
   each npm write is bracketed by a `pendingWrite` marker, so an interrupted
   publish is recoverable rather than ambiguous.
 
-At confirm-publish it prompts on the terminal. Type exactly:
+At confirm-publish it asks a default-no y/n question:
 
-```
-publish <VERSION>
+```text
+Publish frozen package tarballs at <VERSION> to npm? [y/N]:
 ```
 
-Anything else declines the release with no registry writes. The prompt only
-appears when there is actually something to publish.
+Answer `y`/`yes` to publish or `n`/`no` (including the default) to decline with
+no registry writes. The prompt only appears when there is actually something to
+publish. An explicitly authorized non-interactive invocation can use
+`just release <VERSION> --yes`.
+
+The command reports each major stage, candidate pack, registry classification,
+package publish, and verification attempt to stderr while preserving stdout for
+the result envelope. Nested qualification diagnostics are streamed as they run.
 
 Verification then reads each package back from npm and compares hashes against
 the frozen candidates, retrying across a delay ladder to absorb registry

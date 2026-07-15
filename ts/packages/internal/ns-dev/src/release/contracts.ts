@@ -128,6 +128,8 @@ export interface ReleaseConfirmationGateway {
 	confirmPublish(version: string): Promise<ValueResult<boolean>>;
 }
 
+export type ReleaseProgressReporter = (message: string) => void;
+
 export interface ReleaseCommandGateway {
 	publishTarball(tarballPath: string): Promise<OperationResult>;
 	verify(options: {
@@ -244,6 +246,7 @@ export interface StartFreshReleaseContext {
 	readonly release: FreshReleaseGateway;
 	readonly npmCandidates: NpmCandidateGateway;
 	readonly reports: ReleaseReportStore;
+	readonly onProgress?: ReleaseProgressReporter;
 }
 
 export interface StartFreshReleaseOptions {
@@ -263,6 +266,7 @@ export interface ReleaseDelay {
 export interface PrepareCandidatesContext {
 	readonly npmCandidates: NpmCandidateGateway;
 	readonly reports: ReleaseReportStore;
+	readonly onProgress?: ReleaseProgressReporter;
 }
 
 export interface PrepareCandidatesOptions {
@@ -340,6 +344,7 @@ export interface ExecuteReleaseContext {
 	readonly commands: ReleaseCommandGateway;
 	readonly reports: ReleaseReportStore;
 	readonly delay: ReleaseDelay;
+	readonly onProgress?: ReleaseProgressReporter;
 }
 
 export interface ExecuteReleaseOptions {

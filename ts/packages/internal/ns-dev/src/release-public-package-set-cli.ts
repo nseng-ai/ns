@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { failure, ok, type ClinkrExit } from "@nseng-ai/clinkr";
+import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
 import type { CommandRunner } from "@nseng-ai/foundation/exec";
 import { z } from "zod";
 
@@ -21,6 +21,7 @@ import type {
 	ReleaseConfirmationGateway,
 	ReleaseDelay,
 	ReleaseFailure,
+	ReleaseProgressReporter,
 	ReleaseReportStore,
 	ReleaseTransactionReport,
 	ResumeReleaseGateway,
@@ -33,9 +34,9 @@ import {
 	createSystemNpmCandidateGateway,
 	createSystemNpmRegistryGateway,
 	createSystemReleaseCommandGateway,
+	createInteractiveReleaseConfirmationGateway,
 	createSystemReleaseDelay,
 	createSystemResumeReleaseGateway,
-	createTtyReleaseConfirmationGateway,
 } from "./release/system.ts";
 import { runReleaseTransaction } from "./release/transaction.ts";
 
@@ -54,6 +55,7 @@ export interface ReleaseCliContext {
 	readonly reportPathForVersion: (version: string) => string;
 	readonly releaseDirectoryForVersion: (version: string) => string;
 	readonly verificationDelaysMs: readonly number[];
+	readonly onProgress?: ReleaseProgressReporter;
 }
 
 interface ReleaseEvidence {
@@ -74,6 +76,7 @@ interface ReleaseEvidence {
 export const releasePublicPackageSetRequestSchema = z.object({
 	version: z.string().describe("Concrete npm version to plan or release."),
 	plan: z.boolean().default(false).describe("Run only the read-only fresh-release preflight."),
+	yes: z.boolean().default(false).describe("Publish without an interactive confirmation."),
 });
 export const releaseCliResultSchema = z.strictObject({
 	version: z.string(),
@@ -95,10 +98,30 @@ export async function runReleasePublicPackageSet(
 	context: NsDevCliContext,
 	request: z.output<typeof releasePublicPackageSetRequestSchema>,
 ): Promise<ClinkrExit<ReleaseCliResult>> {
+	if (!request.plan && !request.yes && !context.interaction.isInteractive()) {
+		return usageError("Publishing non-interactively requires --yes.", {
+			missingFlag: "--yes",
+			howToSupply: "Pass --yes to authorize npm publication without a prompt.",
+		});
+	}
 	const releaseContext = context.release ?? createSystemReleaseCliContext(context);
-	return request.plan
-		? await runPlan(request.version, releaseContext)
-		: await runTransaction(request.version, releaseContext);
+	if (request.plan) return await runPlan(request.version, releaseContext);
+	const confirmation: ReleaseConfirmationGateway = request.yes
+		? {
+				async confirmPublish() {
+					return { ok: true, value: true };
+				},
+			}
+		: createInteractiveReleaseConfirmationGateway(context.interaction);
+	const onProgress: ReleaseProgressReporter | undefined =
+		context.status === undefined
+			? releaseContext.onProgress
+			: (message) => context.status?.(`ns-dev release: ${message}\n`);
+	return await runTransaction(request.version, {
+		...releaseContext,
+		confirmation,
+		...(onProgress === undefined ? {} : { onProgress }),
+	});
 }
 
 export function renderReleasePublicPackageSet(data: ReleaseCliResult): string {
@@ -168,10 +191,23 @@ function releaseFailure(
 }
 
 export function createSystemReleaseCliContext(
-	context: Pick<NsDevCliContext, "env" | "runCommand" | "timers">,
+	context: Pick<NsDevCliContext, "env" | "interaction" | "runCommand" | "status" | "timers">,
 ): ReleaseCliContext {
-	const runCommand: CommandRunner = async (command, args, options = {}) =>
-		await context.runCommand(command, args, { ...options, env: context.env });
+	const runCommand: CommandRunner = async (command, args, options = {}) => {
+		const upstreamOnStderr = options.onStderr;
+		return await context.runCommand(command, args, {
+			...options,
+			env: context.env,
+			...(context.status === undefined
+				? {}
+				: {
+						onStderr(text: string) {
+							upstreamOnStderr?.(text);
+							context.status?.(text);
+						},
+					}),
+		});
+	};
 	return {
 		release: createSystemFreshReleaseGateway({ runCommand }),
 		resume: createSystemResumeReleaseGateway({ runCommand }),
@@ -179,7 +215,7 @@ export function createSystemReleaseCliContext(
 		reports: createNodeReleaseReportStore(),
 		candidateFiles: createNodeCandidateFileGateway(),
 		registry: createSystemNpmRegistryGateway({ runCommand }),
-		confirmation: createTtyReleaseConfirmationGateway(),
+		confirmation: createInteractiveReleaseConfirmationGateway(context.interaction),
 		commands: createSystemReleaseCommandGateway({ runCommand }),
 		delay: createSystemReleaseDelay(context.timers),
 		reportPathForVersion: (version) =>

@@ -135,6 +135,7 @@ function createHarness(
 		isResumeClean?: boolean;
 		candidateState?: "exact" | "missing";
 		inspectFailure?: ReleaseFailure;
+		stdin?: () => Promise<string | null>;
 	} = {},
 ) {
 	const stdout: string[] = [];
@@ -210,6 +211,7 @@ function createHarness(
 				cwd: "/repo",
 				env: { PATH: "/fake/bin" },
 				release: context,
+				...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 				stdout: (text: string) => stdout.push(text),
 				stderr: (text: string) => stderr.push(text),
 			}),
@@ -221,6 +223,7 @@ describe("transactional release CLI adapter", () => {
 		const harness = createHarness();
 		expect(await harness.run(["--help"])).toBe(0);
 		expect(harness.stdout.join("")).toContain("--plan");
+		expect(harness.stdout.join("")).toContain("--yes");
 		expect(harness.release.operations).toEqual([]);
 		expect(harness.registryReads).toEqual([]);
 	});
@@ -282,6 +285,39 @@ describe("transactional release CLI adapter", () => {
 		expect(harness.published).toEqual([]);
 	});
 
+	it("requires --yes before any non-interactive release effects", async () => {
+		const harness = createHarness();
+		expect(await harness.run([version, "--format", "json"])).toBe(2);
+		expect(JSON.parse(harness.stdout.join(""))).toMatchObject({
+			status: "usageError",
+			data: { missingFlag: "--yes" },
+		});
+		expect(harness.release.operations).toEqual([]);
+		expect(harness.reports.writes).toEqual([]);
+		expect(harness.registryReads).toEqual([]);
+		expect(harness.published).toEqual([]);
+	});
+
+	it("uses a default-no y/n prompt and reports live release progress to stderr", async () => {
+		let reads = 0;
+		const harness = createHarness({
+			stdin: async () => {
+				reads += 1;
+				return "y";
+			},
+		});
+		expect(await harness.run([version, "--format", "json"])).toBe(0);
+		expect(reads).toBe(1);
+		const status = harness.stderr.join("");
+		expect(status).toContain("ns-dev release: Loading release state for 1.2.3...");
+		expect(status).toContain(`Qualifying ${publicPublishOrder.length} public packages`);
+		expect(status).toContain(`Packing candidate 1/${publicPublishOrder.length}`);
+		expect(status).toContain(`Checking registry 1/${publicPublishOrder.length}`);
+		expect(status).toContain("Publish frozen package tarballs at 1.2.3 to npm? [y/N]: ");
+		expect(status).toContain(`Publishing 1/${publicPublishOrder.length}`);
+		expect(status).toContain("Release 1.2.3 is verified on npm.");
+	});
+
 	it("preserves structured release failure details in the machine envelope", async () => {
 		const inspectFailure = {
 			code: "release-command-failed",
@@ -309,7 +345,7 @@ describe("transactional release CLI adapter", () => {
 
 	it("routes a fresh flow through bump, qualification, checkpoint, and publication evidence", async () => {
 		const harness = createHarness();
-		expect(await harness.run([version, "--format", "json"])).toBe(0);
+		expect(await harness.run([version, "--yes", "--format", "json"])).toBe(0);
 		expect(harness.release.operations).toEqual([
 			`inspect:${releaseBranch}`,
 			`bump:${version}`,
@@ -340,7 +376,7 @@ describe("transactional release CLI adapter", () => {
 			stage: "checkpointing" as const,
 		};
 		const harness = createHarness({ report });
-		expect(await harness.run([version, "--format", "json"])).toBe(0);
+		expect(await harness.run([version, "--yes", "--format", "json"])).toBe(0);
 		expect(harness.release.operations).toEqual([]);
 		expect(harness.reports.writes[0]).toMatchObject({
 			release: { branch: releaseBranch, commit: releaseCommit, version },
@@ -351,7 +387,7 @@ describe("transactional release CLI adapter", () => {
 
 	it("routes an exact report directly to publication without fresh-flow effects", async () => {
 		const harness = createHarness({ report: makeReport() });
-		expect(await harness.run([version, "--format", "json"])).toBe(0);
+		expect(await harness.run([version, "--yes", "--format", "json"])).toBe(0);
 		expect(harness.release.operations).toEqual([]);
 		expect(harness.published).toHaveLength(publicPublishOrder.length);
 		expect(JSON.parse(harness.stdout.join(""))).toMatchObject({
@@ -368,7 +404,7 @@ describe("transactional release CLI adapter", () => {
 		"refuses %s before registry or npm writes",
 		async (_label, report, isClean, candidateState, code) => {
 			const harness = createHarness({ report, isResumeClean: isClean, candidateState });
-			expect(await harness.run([version, "--format", "json"])).toBe(2);
+			expect(await harness.run([version, "--yes", "--format", "json"])).toBe(2);
 			expect(JSON.parse(harness.stdout.join(""))).toMatchObject({
 				status: "failure",
 				errorType: code,
