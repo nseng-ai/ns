@@ -206,10 +206,9 @@ async function verifyWorkflowManifestQueueAndSources(
 		return undefined;
 	}
 
-	const triggerProblems = findWorkflowQueueTriggerProblems({
-		flow: await readWorkflowJson(paths, "flow.func/.vc-config.json"),
-		step: await readWorkflowJson(paths, "step.func/.vc-config.json"),
-	});
+	const triggerProblems = findWorkflowQueueTriggerProblems(
+		await readWorkflowJson(paths, "flow.func/.vc-config.json"),
+	);
 	if (triggerProblems.length > 0) {
 		for (const problem of triggerProblems) console.error(`Queues wiring problem: ${problem}`);
 		return undefined;

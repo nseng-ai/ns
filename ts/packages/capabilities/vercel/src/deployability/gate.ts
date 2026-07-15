@@ -101,13 +101,11 @@ export function findMissingRelativeModuleTargets(
 	return missing;
 }
 
-/** Function artifacts the Workflow builder must emit under `.vercel/output/functions/`. */
+/** Function artifacts the Workflow v5 builder must emit under `.vercel/output/functions/`. */
 export const REQUIRED_WORKFLOW_FUNCTION_ARTIFACTS: readonly string[] = [
-	".well-known/workflow/v1/flow.func/index.js",
+	".well-known/workflow/v1/flow.func/index.mjs",
 	".well-known/workflow/v1/flow.func/.vc-config.json",
-	".well-known/workflow/v1/step.func/index.js",
-	".well-known/workflow/v1/step.func/.vc-config.json",
-	".well-known/workflow/v1/webhook/[token].func/index.js",
+	".well-known/workflow/v1/webhook/[token].func/index.mjs",
 	".well-known/workflow/v1/webhook/[token].func/.vc-config.json",
 	".well-known/workflow/v1/manifest.json",
 ];
@@ -127,29 +125,19 @@ const workflowVcConfigSchema = z.looseObject({
 	experimentalTriggers: z.array(queueTriggerSchema).optional(),
 });
 
-export function findWorkflowQueueTriggerProblems(vcConfigs: {
-	readonly flow: unknown;
-	readonly step: unknown;
-}): readonly string[] {
-	const problems: string[] = [];
-	const expectations = [
-		{ name: "flow", value: vcConfigs.flow, topic: "__wkf_workflow_*" },
-		{ name: "step", value: vcConfigs.step, topic: "__wkf_step_*" },
-	];
-	for (const { name, value, topic } of expectations) {
-		const parsed = workflowVcConfigSchema.safeParse(value);
-		if (!parsed.success) {
-			problems.push(`${name} function .vc-config.json is not an object with optional triggers.`);
-			continue;
-		}
-		const triggers = parsed.data.experimentalTriggers ?? [];
-		if (!triggers.some((trigger) => trigger.type === "queue/v2beta" && trigger.topic === topic)) {
-			problems.push(
-				`${name} function .vc-config.json is missing the queue/v2beta trigger on topic ${topic}.`,
-			);
-		}
+export function findWorkflowQueueTriggerProblems(flowVcConfig: unknown): readonly string[] {
+	const parsed = workflowVcConfigSchema.safeParse(flowVcConfig);
+	if (!parsed.success) {
+		return ["flow function .vc-config.json is not an object with optional triggers."];
 	}
-	return problems;
+	const hasWorkflowTrigger = (parsed.data.experimentalTriggers ?? []).some(
+		(trigger) => trigger.type === "queue/v2beta" && trigger.topic === "__wkf_workflow_*",
+	);
+	return hasWorkflowTrigger
+		? []
+		: [
+				"flow function .vc-config.json is missing the queue/v2beta trigger on topic __wkf_workflow_*.",
+			];
 }
 
 const workflowManifestSchema = z.looseObject({
