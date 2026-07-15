@@ -84,3 +84,13 @@ This Objective is designed for autonomous pursuit through repeated Objective Run
 ## Open Questions
 
 No product or execution-policy questions remain. Private implementation mechanics may be resolved autonomously within the Runner Policy; contradictions in the installed Herdr surface are escalation triggers.
+
+## Closure
+
+Completed as a validated, local-only three-branch Graphite stack:
+
+1. `herdr-capability-parity-pr1` publishes the parity checklist and retires the three rejected cmux surfaces and their managed skill.
+2. `herdr-capability-parity-pr2` establishes the `core` + `pi` Herdr capability and explicit caller-workspace Objective label.
+3. `herdr-capability-parity-pr3` delivers the five selected dispatch/open-branch workflows with fake-driven scenarios and pinned CLI adapter behavior.
+
+Targeted package gates and full `just` pass for the completed stack. No branch or PR was pushed or submitted. Objective/slot/branch metadata reporting is an accepted parked follow-up because the installed Herdr CLI lacks `workspace report-metadata`; the delivered Objective command labels the explicit caller workspace without inventing a substitute transport.
