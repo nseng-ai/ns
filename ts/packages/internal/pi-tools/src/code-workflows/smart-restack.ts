@@ -274,8 +274,8 @@ export function buildResolverPrompt(
 	const trimmedArgs = args.trim();
 	const contextMessage =
 		promptContext.type === "interrupted-restack"
-			? `A Graphite restack/rebase is already in progress. Continue from the current repository state and run ${RESTACK_RESOLVE_SKILL_NAME} now. Follow the backing skill workflow exactly.`
-			: `A deterministic /code:gt-restack-resolve fast path already ran \`gt restack\` and it did not complete cleanly. Continue from the current repository state and run ${RESTACK_RESOLVE_SKILL_NAME} now. Follow the backing skill workflow exactly.`;
+			? `Inherited wrapper evidence: structured full-scope preflight already reported rebaseInProgress=true. Run a fresh \`git status\` to verify that a rebase/conflict is still active. If confirmed, set RESTACK_SCOPE=full and jump directly to the skill's Loop without running preflight again. If not confirmed, fall back to normal preflight; never start another restack from stale handoff text. Run ${RESTACK_RESOLVE_SKILL_NAME} now and follow the backing skill workflow exactly.`
+			: `Inherited wrapper evidence: full-scope preflight passed, then the deterministic /code:gt-restack-resolve fast path ran \`gt restack\` and did not complete cleanly. Run a fresh \`git status\` to verify whether a rebase/conflict is now active. If confirmed, set RESTACK_SCOPE=full and jump directly to the skill's Loop without running preflight again. If not confirmed, fall back to normal preflight; never start another restack solely from stale handoff text. Run ${RESTACK_RESOLVE_SKILL_NAME} now and follow the backing skill workflow exactly.`;
 	const base = `${skillBlock}\n\n${contextMessage}`;
 	if (trimmedArgs.length === 0) return base;
 	return `${base}\n\nAdditional user-supplied context:\n\n${buildFencedTextBlock(trimmedArgs)}`;

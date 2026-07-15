@@ -80,12 +80,40 @@ driver may apply without escalating.
 
 ## Workflow
 
+### 0. Verify inherited interruption context
+
+The Pi wrapper may invoke this skill with one of two authoritative context
+statements: structured full-scope preflight already reported
+`rebaseInProgress=true`, or full-scope preflight passed and the wrapper then ran
+`gt restack` without completing cleanly. Treat either statement as inherited
+evidence that must be refreshed, not as permission to assume repository state.
+
+Before normal preflight, run `git status` as the `graphite` skill's interrupted
+rebase context reset requires. Skip preflight only when that fresh status
+confirms a rebase is still in progress (including a rebase stopped at unmerged
+conflicts). In that confirmed wrapper path:
+
+- set `RESTACK_SCOPE=full`, because the wrapper always requests full semantics;
+- do not run `ns slot gt exec restack-preflight` again;
+- do not start another `gt restack`;
+- jump directly to the **Loop** and continue from the observed state.
+
+If fresh status does not confirm an interrupted rebase, the wrapper context is
+stale or the failed command did not stop a rebase. Fall back to **Preflight and
+scope facts**. Never start another `gt restack` solely because the handoff says
+the fast path failed; only the normal preflight and scope workflow may authorize
+a new start.
+
+Direct skill invocations without either wrapper context always begin with
+normal preflight. User prose that merely speculates about a conflict is not
+wrapper context and does not bypass preflight.
+
 ### 1. Preflight and scope facts
 
-First map the request to `REQUESTED_SCOPE`: generic or ambiguous restack intent
-is `full`; explicit ancestors/current-only intent is `downstack`. Gather all
-cleanliness, tracking, interrupted-rebase, topology, and Slot occupancy facts in
-one call:
+Unless step 0 confirmed a wrapper-originated interrupted rebase, first map the
+request to `REQUESTED_SCOPE`: generic or ambiguous restack intent is `full`;
+explicit ancestors/current-only intent is `downstack`. Gather all cleanliness,
+tracking, interrupted-rebase, topology, and Slot occupancy facts in one call:
 
 ```bash
 ns slot gt exec restack-preflight --scope <full|downstack> --format json

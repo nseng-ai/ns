@@ -567,7 +567,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 		});
 	});
 
-	it("returns trunk and detached states without claiming readiness", async () => {
+	it("returns trunk without claiming readiness", async () => {
 		const trunk = runRestackPreflightScenario(
 			["gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
 			{
@@ -585,13 +585,97 @@ describe("slot gt exec restack-preflight CLI", () => {
 			message: "On trunk 'master'; no stack is checked out.",
 			data: { effectiveScope: "downstack", branches: [] },
 		});
+	});
 
+	it("rejects an ordinary detached checkout", async () => {
 		const detached = runRestackPreflightScenario(
 			["gt", "exec", "restack-preflight", "--format", "json"],
 			{ git: { worktrees: [{ path: "/repo", branch: null }] } },
 		);
+
 		expect(await detached.exit).toBe(2);
 		expect(parseJsonOutput(detached)).toMatchObject({
+			status: "failure",
+			errorType: "detached-head",
+		});
+	});
+
+	it("returns usable negative data for a detached rebase with a recovered branch", async () => {
+		const run = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+			{
+				git: {
+					worktrees: [{ path: "/repo", branch: null }],
+					branchOccupancies: [{ path: "/repo", branch: "feature/current", operation: "rebase" }],
+				},
+			},
+		);
+
+		expect(await run.exit).toBe(1);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "negative",
+			data: {
+				tracked: true,
+				rebaseInProgress: true,
+				requestedScope: "full",
+				effectiveScope: "full",
+				branches: ["feature/a", "feature/current", "feature/child"],
+				slotConflicts: [
+					{
+						type: "rebase-in-progress",
+						branch: "feature/current",
+						worktreePath: "/repo",
+						operation: "rebase",
+					},
+				],
+			},
+		});
+		expect(run.gt.operations()).toContainEqual({
+			type: "stack-for-branch",
+			cwd: "/repo",
+			branch: "feature/current",
+		});
+	});
+
+	it("keeps recovered untracked rebases usable without guessing a missing branch", async () => {
+		const untracked = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
+			{
+				git: {
+					worktrees: [{ path: "/repo", branch: null }],
+					branchOccupancies: [{ path: "/repo", branch: "feature/current", operation: "rebase" }],
+				},
+				gt: {
+					stackForBranch: {
+						type: "untracked_branch",
+						message: "current branch is not tracked by Graphite: feature/current",
+					},
+				},
+			},
+		);
+
+		expect(await untracked.exit).toBe(1);
+		expect(parseJsonOutput(untracked)).toMatchObject({
+			status: "negative",
+			data: {
+				tracked: false,
+				rebaseInProgress: true,
+				branches: ["feature/current"],
+			},
+		});
+
+		const missingBranch = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--format", "json"],
+			{
+				git: {
+					worktrees: [{ path: "/repo", branch: null }],
+					branchOccupancies: [{ path: "/repo", branch: null, operation: "rebase" }],
+				},
+			},
+		);
+
+		expect(await missingBranch.exit).toBe(2);
+		expect(parseJsonOutput(missingBranch)).toMatchObject({
 			status: "failure",
 			errorType: "detached-head",
 		});

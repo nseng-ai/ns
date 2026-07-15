@@ -32,7 +32,7 @@ A full pool fails with `pool_full`; run `ns slot free` or `ns slot resize` first
 
 `ns slot gt exec restack-preflight [--scope downstack|full] --format json` is the read-only helper for restack workflows. It defaults to `downstack`; an explicit `full` request has an effective scope of `full` only when the current branch has upstack children. The result reports worktree cleanliness, Graphite tracking and topology facts, in-scope Slot conflicts, and warnings.
 
-An untracked current branch is an expected negative result with `tracked: false`. Because Graphite topology is unavailable, its defaults are `hasUpstackChildren: false`, `effectiveScope: "downstack"`, `branches` containing only the current branch, and an empty `warnings` array. Backend inspection errors are failures rather than blocked preflight results.
+An untracked current branch is an expected negative result with `tracked: false`. Because Graphite topology is unavailable, its defaults are `hasUpstackChildren: false`, `effectiveScope: "downstack"`, `branches` containing only the current branch, and an empty `warnings` array. A detached HEAD caused by an in-progress rebase is also returned as usable blocked preflight data when the original branch can be recovered from repository occupancy; `rebaseInProgress` is true and the rebase appears in `slotConflicts`. An ordinary detached checkout, or a detached rebase whose original branch cannot be recovered, remains a failure. Backend inspection errors are failures rather than blocked preflight results.
 
 ### Hidden descendants report helper
 

@@ -14,6 +14,7 @@ export type FakeGraphiteStackOperation =
 	| { type: "children-of"; cwd: string }
 	| { type: "trunk"; cwd: string }
 	| { type: "stack"; cwd: string }
+	| { type: "stack-for-branch"; cwd: string; branch: string }
 	| { type: "stack-graph"; cwd: string };
 
 export interface FakeGraphiteStackGatewayOptions {
@@ -21,6 +22,7 @@ export interface FakeGraphiteStackGatewayOptions {
 	children?: ChildrenOfResult;
 	trunk?: TrunkResult;
 	stack?: StackResult;
+	stackForBranch?: StackResult;
 	stackGraph?: StackGraphResult;
 }
 
@@ -29,6 +31,7 @@ export class FakeGraphiteStackGateway implements GraphiteStackGateway {
 	private readonly childrenResult: ChildrenOfResult;
 	private readonly trunkResult: TrunkResult;
 	private readonly stackResult: StackResult;
+	private readonly stackForBranchResult: StackResult;
 	private readonly stackGraphResult: StackGraphResult;
 	private readonly log: FakeGraphiteStackOperation[] = [];
 
@@ -37,6 +40,7 @@ export class FakeGraphiteStackGateway implements GraphiteStackGateway {
 		this.childrenResult = options.children ?? { type: "children", branches: [] };
 		this.trunkResult = options.trunk ?? { type: "trunk", branch: "master" };
 		this.stackResult = options.stack ?? { type: "stack", stack: fakeStackInfo() };
+		this.stackForBranchResult = options.stackForBranch ?? this.stackResult;
 		this.stackGraphResult = options.stackGraph ?? { type: "graph", graph: fakeStackGraphInfo() };
 	}
 
@@ -58,6 +62,11 @@ export class FakeGraphiteStackGateway implements GraphiteStackGateway {
 	async stack(cwd: string): Promise<StackResult> {
 		this.log.push({ type: "stack", cwd });
 		return copyStackResult(this.stackResult);
+	}
+
+	async stackForBranch(cwd: string, branch: string): Promise<StackResult> {
+		this.log.push({ type: "stack-for-branch", cwd, branch });
+		return copyStackResult(this.stackForBranchResult);
 	}
 
 	async stackGraph(cwd: string): Promise<StackGraphResult> {
