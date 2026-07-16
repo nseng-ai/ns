@@ -6,6 +6,7 @@
   - Evidence: `ts/packages/hosts/ns/README.md` and `ts/packages/capabilities/objectives/README.md` agree on package names, command order, repository outputs, and lifecycle terminology. A packing defect was found and repaired in its owning surface: the `@nseng-ai/objectives` manifest omitted `README.md` from `files`, so freshly packed tarballs shipped no top-level README; adding it to `files` now emits the canonical README (verified via `npm pack --dry-run`: top-level `README.md`, 96->97 files), while `@nseng-ai/ns` already packed its README. Checkout-free acquisition still passes post-fix. By explicit direction, the version-bumped registry publication and registry verification were skipped, not completed; no registry-served README claim follows from this row.
 - [x] Prove registry installation and activation in a clean foreign repository before invoking Claude Code.
   - Evidence: the `0.1.3` checkout-free smoke installed bare core, initialized Claude Code, installed `npm:@nseng-ai/objectives`, provisioned all ten declared Objective skills, and ran `ns objective list` without checkout dependencies. The next publication must preserve this behavior while adding the canonical READMEs.
+
 ## Parked
 
 - [ ] Publish and registry-verify a coordinated package version containing the canonical `@nseng-ai/ns` and `@nseng-ai/objectives` READMEs. Resume only with explicit external-write authorization; published `0.1.3` predates the README revision and packing repair.
