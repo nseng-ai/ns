@@ -120,6 +120,41 @@ Reviews loads the explicit range diff once, runs selected reviews sequentially, 
 
 This API operation is return-only and read-only: it does not write Review logs, gather or publish GitHub findings, edit the checkout, or accept roster-time model overrides. Progress callbacks are synchronous presentation plumbing and should remain lightweight and non-mutating.
 
+## Review aggregation and resolution API
+
+A completed roster result can be aggregated with one LM call through the same curated API:
+
+```ts
+const proposal = await reviews.aggregateReviewRoster({
+  rosterResult,
+  constraints: { mustGroup: [], mustSeparate: [] },
+  decisions: { bulkConfirmUnconflicted: false, clusters: [] },
+});
+```
+
+The returned clusters contain complete, verbatim source-attributed findings; duplicate text remains distinct through its source review and occurrence. Every roster finding appears exactly once in derived per-finding accounting. Cluster dispositions use `fix`, `fix-manually`, `reject`, or `defer`, and LM judgments remain `model-proposed` until an engineer decision confirms them.
+
+Call the same operation again to correct a proposal. Supply the prior result, content-based grouping constraints, and explicit decisions rather than generated cluster IDs:
+
+```ts
+const corrected = await reviews.aggregateReviewRoster({
+  rosterResult,
+  priorResult: proposal.value,
+  constraints: {
+    mustGroup: [[findingA, findingB]],
+    mustSeparate: [[findingA, findingC]],
+  },
+  decisions: {
+    bulkConfirmUnconflicted: true,
+    clusters: [{ findings: [findingC], disposition: "reject" }],
+  },
+});
+```
+
+Bulk confirmation applies only to unconflicted clusters. A recommendation-conflict cluster remains proposed unless an explicit complete-membership decision confirms or overrides it. Results report `all-proposed`, `partially-confirmed`, or `fully-confirmed` completeness. Invalid model output, constraints, prior state, or accounting fails the whole operation without a partial proposal.
+
+Aggregation is return-only and read-only. It does not expose a CLI, persist a checkpoint or Review log, publish to GitHub, execute remediation, or mutate the checkout.
+
 Useful checks after editing a review definition:
 
 ```bash

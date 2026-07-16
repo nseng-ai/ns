@@ -7,6 +7,10 @@ import {
 	FakeReviewRunnerGateway,
 	type ReviewRunnerGateway,
 } from "../../src/gateways/review-runner.ts";
+import {
+	FakeReviewAggregationRunnerGateway,
+	type ReviewAggregationRunnerGateway,
+} from "../../src/gateways/review-aggregation-runner.ts";
 import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
 import type { ReviewsGithubPrFeedbackGateway } from "../../src/core/context.ts";
 import { FakeLocalDiffGateway, type LocalDiffGateway } from "../../src/gateways/local-diff.ts";
@@ -27,6 +31,7 @@ export interface FakeReviewsContextOptions {
 	readonly reviewLog?: ReviewLogGateway;
 	readonly github?: ReviewsGithubPrFeedbackGateway;
 	readonly reviewRunner?: ReviewRunnerGateway;
+	readonly reviewAggregationRunner?: ReviewAggregationRunnerGateway;
 	readonly cwd?: string;
 	readonly env?: NodeJS.ProcessEnv;
 	readonly signal?: AbortSignal;
@@ -57,6 +62,8 @@ export function fakeReviewsContext(options: FakeReviewsContextOptions = {}): Rev
 		reviewLog: options.reviewLog ?? new FakeReviewLogGateway(),
 		github: options.github ?? new FakeGithubPrFeedbackGateway(),
 		reviewRunner: options.reviewRunner ?? new FakeReviewRunnerGateway(),
+		reviewAggregationRunner:
+			options.reviewAggregationRunner ?? new FakeReviewAggregationRunnerGateway(),
 		cwd: options.cwd ?? "/repo",
 		env: options.env ?? {},
 		...(options.signal === undefined ? {} : { signal: options.signal }),

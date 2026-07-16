@@ -22,6 +22,7 @@ export const MODEL_OPERATION_IDS = {
 	cmuxSidebar: "cmux.sidebar",
 	thermoCouncilSynthesis: "thermo-council.synthesis",
 	piFastDraft: "pi.fast-draft",
+	reviewsAggregate: "reviews.aggregate",
 } as const;
 
 export type ModelOperationId = string;

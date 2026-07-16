@@ -19,6 +19,8 @@ import {
 	reviewRunResultSchema,
 	reviewRosterRunRequestSchema,
 	reviewRosterRunResultSchema,
+	reviewAggregationRequestSchema,
+	reviewAggregationResultSchema,
 	reviewUsageSchema,
 	reviewUsageTotalInputTokens,
 	type DiffFile,
@@ -90,6 +92,74 @@ describe("reviews domain schemas", () => {
 		).toThrow();
 		expect(() =>
 			findingsReviewSchema.parse({ format: "findings", findings: [], count: 0, extra: true }),
+		).toThrow();
+	});
+
+	test("rejects aggregation drift in conflict metadata, accounting, and completeness", () => {
+		const finding = {
+			reviewKey: "typescript-style",
+			occurrence: 0,
+			path: "src/app.ts",
+			line: 12,
+			severity: "warning" as const,
+			summary: "Avoid broad casts",
+			details: "The changed line casts an unknown payload without validation.",
+		};
+		const rosterResult = {
+			revisionRange: "main...HEAD",
+			ranAt: "2026-07-16T12:00:00.000Z",
+			entries: [
+				{
+					reviewKey: "typescript-style",
+					position: 0,
+					state: "completed" as const,
+					modelProfile: "deep",
+					model: "openai/gpt-5.6-terra",
+					findings: [finding],
+					usage: null,
+					inputCoverage: null,
+				},
+			],
+			findings: [finding],
+		};
+		const cluster = {
+			findings: [finding],
+			recommendationConflict: false,
+			conflictExplanation: null,
+			disposition: "fix" as const,
+			authority: "model-proposed" as const,
+		};
+		const result = {
+			rosterResult,
+			modelProfile: "reviews_deep",
+			model: "openai/gpt-5.6-terra",
+			clusters: [cluster],
+			findingDispositions: [
+				{ finding, disposition: "fix" as const, authority: "model-proposed" as const },
+			],
+			completeness: "all-proposed" as const,
+		};
+
+		expect(reviewAggregationResultSchema.parse(result)).toEqual(result);
+		expect(() =>
+			reviewAggregationResultSchema.parse({ ...result, findingDispositions: [] }),
+		).toThrow();
+		expect(() =>
+			reviewAggregationResultSchema.parse({ ...result, completeness: "fully-confirmed" }),
+		).toThrow();
+		expect(() =>
+			reviewAggregationRequestSchema.parse({
+				rosterResult,
+				constraints: { mustGroup: [], mustSeparate: [] },
+				decisions: { bulkConfirmUnconflicted: false, clusters: [] },
+				extra: true,
+			}),
+		).toThrow();
+		expect(() =>
+			reviewAggregationResultSchema.parse({
+				...result,
+				clusters: [{ ...cluster, recommendationConflict: true }],
+			}),
 		).toThrow();
 	});
 

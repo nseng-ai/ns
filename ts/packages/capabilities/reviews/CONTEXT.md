@@ -34,6 +34,18 @@ A return-only Reviews Capability API operation over one confirmed Git revision r
 
 Avoid: implying the roster run confirms user choices, persists checkpoints or Review logs, publishes findings, clusters findings, or edits the checkout.
 
+### Review aggregation
+
+A return-only Reviews Capability API operation that uses an LM to propose exact, source-preserving finding clusters, recommendation-conflict metadata, and one disposition per cluster. Every roster finding remains verbatim and is accounted for exactly once.
+
+Avoid: canonical finding rewrites, opaque cluster IDs, partial proposals, persistence, or describing model proposals as engineer decisions.
+
+### Review resolution
+
+The deterministic confirmation state applied to aggregation clusters from explicit engineer decisions or permitted bulk confirmation. Conflict clusters require explicit attention, and each member finding inherits its cluster's disposition and authority.
+
+Avoid: remediation execution, per-finding overrides that can disagree with cluster state, or implying that resolution edits code or publishes findings.
+
 ### Review definition
 
 A Markdown catalog entry at `.ns/reviews/<key>/review.md`, where `<key>` is a direct review folder name, with frontmatter and instructions that define what Reviews should check. Sibling assets under that folder are not separate Review definitions.

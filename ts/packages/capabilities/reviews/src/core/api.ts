@@ -9,6 +9,14 @@ import type { PublishFindingsResult } from "./findings-publication.ts";
 import { REVIEW_LOG_NAMESPACE, type ReviewLogEntry } from "../gateways/review-log.ts";
 import type {
 	LocalDiff,
+	ReviewAggregationConstraint,
+	ReviewAggregationDecisions,
+	ReviewAggregationRequest,
+	ReviewAggregationResult,
+	ReviewDecisionAuthority,
+	ReviewDisposition,
+	ReviewFindingDisposition,
+	ResolvedReviewCluster,
 	ReviewDefinition,
 	ReviewExecutionResponse,
 	ReviewFinding,
@@ -44,10 +52,19 @@ import {
 	type RunReviewRequest,
 } from "../operations/review-run.ts";
 import { runReviewRoster, type RunReviewRosterOptions } from "../operations/review-roster-run.ts";
+import { aggregateReviewRoster } from "../operations/review-aggregation.ts";
 
 export { REVIEW_LOG_NAMESPACE };
 export type {
 	LocalDiff,
+	ReviewAggregationConstraint,
+	ReviewAggregationDecisions,
+	ReviewAggregationRequest,
+	ReviewAggregationResult,
+	ReviewDecisionAuthority,
+	ReviewDisposition,
+	ReviewFindingDisposition,
+	ResolvedReviewCluster,
 	ReviewDefinition,
 	ReviewExecutionResponse,
 	ReviewFinding,
@@ -104,6 +121,10 @@ export interface ReviewsClient {
 		request: ReviewRosterRunRequest,
 		options?: RunReviewRosterOptions,
 	): Promise<ReviewResult<ReviewRosterRunResult>>;
+	/** Proposes or corrects aggregation; callers collect and pass engineer decisions. */
+	aggregateReviewRoster(
+		request: ReviewAggregationRequest,
+	): Promise<ReviewResult<ReviewAggregationResult>>;
 	/** Records same-session findings from stdin and writes a Reviews review log. */
 	recordFindings(request: RecordFindingsRequest): Promise<RecordFindingsOutcome>;
 	/** Publishes a Reviews review-run envelope from stdin to GitHub. */
@@ -130,6 +151,9 @@ export function createReviewsClient(options: ReviewsClientOptions): ReviewsClien
 		},
 		async runReviewRoster(request, runOptions) {
 			return await runReviewRoster(getRuntime(), request, runOptions);
+		},
+		async aggregateReviewRoster(request) {
+			return await aggregateReviewRoster(getRuntime(), request);
 		},
 		async recordFindings(request) {
 			return await recordSameSessionFindings(getRuntime(), request);

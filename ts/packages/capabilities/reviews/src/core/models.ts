@@ -342,6 +342,194 @@ export const reviewRosterRunResultSchema = z
 	});
 export type ReviewRosterRunResult = z.infer<typeof reviewRosterRunResultSchema>;
 
+export const reviewDispositionValues = ["fix", "fix-manually", "reject", "defer"] as const;
+export const reviewDecisionAuthorityValues = ["model-proposed", "engineer-confirmed"] as const;
+export const reviewAggregationCompletenessValues = [
+	"all-proposed",
+	"partially-confirmed",
+	"fully-confirmed",
+] as const;
+
+export const reviewDispositionSchema = z.enum(reviewDispositionValues);
+export type ReviewDisposition = z.infer<typeof reviewDispositionSchema>;
+export const reviewDecisionAuthoritySchema = z.enum(reviewDecisionAuthorityValues);
+export type ReviewDecisionAuthority = z.infer<typeof reviewDecisionAuthoritySchema>;
+
+export const reviewRecommendationConflictSchema = z.discriminatedUnion("recommendationConflict", [
+	z.object({ recommendationConflict: z.literal(false), conflictExplanation: z.null() }).strict(),
+	z
+		.object({
+			recommendationConflict: z.literal(true),
+			conflictExplanation: nonBlankStringSchema,
+		})
+		.strict(),
+]);
+export type ReviewRecommendationConflict = z.infer<typeof reviewRecommendationConflictSchema>;
+
+export const reviewAggregationProposalClusterSchema = z
+	.object({
+		findings: z.array(sourceAttributedFindingSchema).min(1),
+		recommendationConflict: z.boolean(),
+		conflictExplanation: nonBlankStringSchema.nullable(),
+		disposition: reviewDispositionSchema,
+	})
+	.strict()
+	.superRefine((value, context) => {
+		if (value.recommendationConflict !== (value.conflictExplanation !== null)) {
+			context.addIssue({
+				code: "custom",
+				message: "conflictExplanation must be present exactly when recommendationConflict is true",
+				path: ["conflictExplanation"],
+			});
+		}
+	});
+export type ReviewAggregationProposalCluster = z.infer<
+	typeof reviewAggregationProposalClusterSchema
+>;
+
+export const reviewAggregationProposalSchema = z
+	.object({ clusters: z.array(reviewAggregationProposalClusterSchema) })
+	.strict();
+export type ReviewAggregationProposal = z.infer<typeof reviewAggregationProposalSchema>;
+
+export const reviewAggregationConstraintSchema = z
+	.object({
+		mustGroup: z.array(z.array(sourceAttributedFindingSchema).min(2)),
+		mustSeparate: z.array(z.tuple([sourceAttributedFindingSchema, sourceAttributedFindingSchema])),
+	})
+	.strict();
+export type ReviewAggregationConstraint = z.infer<typeof reviewAggregationConstraintSchema>;
+
+export const reviewAggregationClusterDecisionSchema = z
+	.object({
+		findings: z.array(sourceAttributedFindingSchema).min(1),
+		disposition: reviewDispositionSchema,
+	})
+	.strict();
+export type ReviewAggregationClusterDecision = z.infer<
+	typeof reviewAggregationClusterDecisionSchema
+>;
+
+export const reviewAggregationDecisionsSchema = z
+	.object({
+		bulkConfirmUnconflicted: z.boolean(),
+		clusters: z.array(reviewAggregationClusterDecisionSchema),
+	})
+	.strict();
+export type ReviewAggregationDecisions = z.infer<typeof reviewAggregationDecisionsSchema>;
+
+export const resolvedReviewClusterSchema = reviewAggregationProposalClusterSchema
+	.extend({ authority: reviewDecisionAuthoritySchema })
+	.strict();
+export type ResolvedReviewCluster = z.infer<typeof resolvedReviewClusterSchema>;
+
+export const reviewFindingDispositionSchema = z
+	.object({
+		finding: sourceAttributedFindingSchema,
+		disposition: reviewDispositionSchema,
+		authority: reviewDecisionAuthoritySchema,
+	})
+	.strict();
+export type ReviewFindingDisposition = z.infer<typeof reviewFindingDispositionSchema>;
+
+export const reviewAggregationResultSchema = z
+	.object({
+		rosterResult: reviewRosterRunResultSchema,
+		modelProfile: nonBlankStringSchema,
+		model: nonBlankStringSchema,
+		clusters: z.array(resolvedReviewClusterSchema),
+		findingDispositions: z.array(reviewFindingDispositionSchema),
+		completeness: z.enum(reviewAggregationCompletenessValues),
+	})
+	.strict()
+	.superRefine((value, context) => {
+		const rosterKeys = value.rosterResult.findings.map(sourceAttributedFindingKey);
+		const clusteredKeys = value.clusters.flatMap((cluster) =>
+			cluster.findings.map(sourceAttributedFindingKey),
+		);
+		if (
+			clusteredKeys.length !== rosterKeys.length ||
+			new Set(clusteredKeys).size !== clusteredKeys.length ||
+			clusteredKeys.some((key) => !rosterKeys.includes(key))
+		) {
+			context.addIssue({
+				code: "custom",
+				message: "clusters must partition roster findings exactly once",
+				path: ["clusters"],
+			});
+		}
+		const derived = value.clusters.flatMap((cluster) =>
+			cluster.findings.map((finding) => ({
+				finding,
+				disposition: cluster.disposition,
+				authority: cluster.authority,
+			})),
+		);
+		if (JSON.stringify(derived) !== JSON.stringify(value.findingDispositions)) {
+			context.addIssue({
+				code: "custom",
+				message: "findingDispositions must be derived from cluster membership",
+				path: ["findingDispositions"],
+			});
+		}
+		const confirmed = value.clusters.filter(
+			(cluster) => cluster.authority === "engineer-confirmed",
+		).length;
+		const expected =
+			confirmed === 0
+				? "all-proposed"
+				: confirmed === value.clusters.length
+					? "fully-confirmed"
+					: "partially-confirmed";
+		if (value.completeness !== expected) {
+			context.addIssue({
+				code: "custom",
+				message: "completeness must be derived from cluster authority",
+				path: ["completeness"],
+			});
+		}
+	});
+export type ReviewAggregationResult = z.infer<typeof reviewAggregationResultSchema>;
+
+export const reviewAggregationRequestSchema = z
+	.object({
+		rosterResult: reviewRosterRunResultSchema,
+		priorResult: reviewAggregationResultSchema.optional(),
+		constraints: reviewAggregationConstraintSchema,
+		decisions: reviewAggregationDecisionsSchema,
+	})
+	.strict();
+export type ReviewAggregationRequest = z.infer<typeof reviewAggregationRequestSchema>;
+
+export const reviewAggregationRunnerRequestSchema = z
+	.object({
+		model: nonBlankStringSchema,
+		rosterResult: reviewRosterRunResultSchema,
+		priorResult: reviewAggregationResultSchema.optional(),
+		constraints: reviewAggregationConstraintSchema,
+	})
+	.strict();
+export type ReviewAggregationRunnerRequest = z.infer<typeof reviewAggregationRunnerRequestSchema>;
+
+export const reviewAggregationExecutionResponseSchema = z
+	.object({ payload: reviewAggregationProposalSchema, usage: reviewUsageSchema.nullable() })
+	.strict();
+export type ReviewAggregationExecutionResponse = z.infer<
+	typeof reviewAggregationExecutionResponseSchema
+>;
+
+export function sourceAttributedFindingKey(finding: SourceAttributedFinding): string {
+	return JSON.stringify([
+		finding.reviewKey,
+		finding.occurrence,
+		finding.path,
+		finding.line,
+		finding.severity,
+		finding.summary,
+		finding.details,
+	]);
+}
+
 export const inlineTargetSchema = z
 	.object({
 		path: nonBlankStringSchema,

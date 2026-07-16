@@ -12,6 +12,12 @@ import {
 } from "../gateways/review-runner.ts";
 import { CodexProcessReviewRunner } from "../gateways/codex-review-runner.ts";
 import { PiProcessReviewRunner } from "../gateways/pi-review-runner.ts";
+import {
+	ClaudeCodeProcessReviewAggregationRunner,
+	CodexProcessReviewAggregationRunner,
+	RoutingReviewAggregationRunner,
+	type ReviewAggregationRunnerGateway,
+} from "../gateways/review-aggregation-runner.ts";
 import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
@@ -40,6 +46,7 @@ export interface ReviewsGateways {
 	readonly reviewLog: ReviewLogGateway;
 	readonly github: ReviewsGithubPrFeedbackGateway;
 	readonly reviewRunner: ReviewRunnerGateway;
+	readonly reviewAggregationRunner: ReviewAggregationRunnerGateway;
 }
 
 export interface ReviewsContext extends ReviewsGateways {
@@ -63,6 +70,7 @@ export interface CreateRealReviewsContextOptions {
 	readonly gitGateway?: GitGateway;
 	readonly reviewLog?: ReviewLogGateway;
 	readonly reviewRunner?: ReviewRunnerGateway;
+	readonly reviewAggregationRunner?: ReviewAggregationRunnerGateway;
 	readonly clock?: Clock;
 }
 
@@ -106,6 +114,12 @@ export function createRealReviewsContext(options: CreateRealReviewsContextOption
 				claudeCode: new ClaudeCodeProcessReviewRunner({ execApi }),
 				codex: new CodexProcessReviewRunner({ execApi }),
 				pi: new PiProcessReviewRunner({ execApi }),
+			}),
+		reviewAggregationRunner:
+			options.reviewAggregationRunner ??
+			new RoutingReviewAggregationRunner({
+				claudeCode: new ClaudeCodeProcessReviewAggregationRunner({ execApi }),
+				codex: new CodexProcessReviewAggregationRunner({ execApi }),
 			}),
 		cwd: options.cwd,
 		env: options.env,

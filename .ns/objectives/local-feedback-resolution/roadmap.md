@@ -21,12 +21,14 @@ and structured artifact contract explicit.
       coverage, and verbatim source-attributed findings. Existing `ns reviews run`
       behavior remains the single-review compatibility path, and focused tests plus
       repository validation cover the delivered read-only contract.
-- [ ] Add production aggregation and manual resolution over the roster result. Propose
-      correctable clusters, recommendation-conflict flags, and actionability; preserve
-      every original finding and per-review severity; support bulk confirmation while
-      forcing flagged conflicts through explicit engineer attention; record simple
-      final cluster and per-finding disposition state using `fix`, `fix-manually`,
-      `reject`, and `defer`.
+- [x] Add production aggregation and manual resolution over the roster result. The
+      Reviews Capability API now performs one schema-constrained LM aggregation call,
+      preserves every source-attributed finding verbatim in an exact partition,
+      supports iterative must-group/must-separate correction, records proposed versus
+      engineer-confirmed cluster and per-finding dispositions, and excludes flagged
+      recommendation conflicts from bulk confirmation. Typed failures reject invalid
+      requests, model output, constraints, prior state, or accounting without returning
+      a partial proposal; the operation remains return-only and read-only.
 - [ ] Complete the local command journey with explicit range and roster confirmation,
       report-to-prompt stage boundaries, correction and bulk-triage interaction, and
       steering into an engineer-confirmed ordered planned-PR list (title plus complete

@@ -14,6 +14,10 @@ import {
 	type ReviewsGithubPrFeedbackGateway,
 } from "../../src/core/context.ts";
 import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
+import {
+	FakeReviewAggregationRunnerGateway,
+	type ReviewAggregationRunnerGateway,
+} from "../../src/gateways/review-aggregation-runner.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway } from "../../src/gateways/review-log.ts";
@@ -82,6 +86,7 @@ function runtimeWithFakes(
 		readonly github?: ReviewsGithubPrFeedbackGateway;
 		readonly stdin?: string;
 		readonly reviewRunner?: FakeReviewRunnerGateway;
+		readonly reviewAggregationRunner?: ReviewAggregationRunnerGateway;
 	} = {},
 ): ReviewsRuntime {
 	return createReviewsRuntime(
@@ -117,6 +122,9 @@ function runtimeWithFakes(
 						},
 					},
 				}),
+			...(options.reviewAggregationRunner === undefined
+				? {}
+				: { reviewAggregationRunner: options.reviewAggregationRunner }),
 			...(options.reviewLog === undefined ? {} : { reviewLog: options.reviewLog }),
 			...(options.github === undefined ? {} : { github: options.github }),
 			...(options.stdin === undefined ? {} : { stdin: async () => options.stdin ?? "" }),
@@ -224,6 +232,67 @@ describe("@nseng-ai/reviews/api", () => {
 		});
 		expect(events).toEqual(["review-started", "review-completed"]);
 		expect(reviewLog.writtenEntries()).toEqual([]);
+	});
+
+	test("aggregateReviewRoster exposes the return-only aggregation operation", async () => {
+		const finding = {
+			reviewKey: REVIEW_KEY,
+			occurrence: 0,
+			path: "src/app.ts",
+			line: 4,
+			severity: "warning" as const,
+			summary: "Prefer explicit error handling.",
+			details: "Return a structured failure instead of throwing for expected cases.",
+		};
+		const runner = new FakeReviewAggregationRunnerGateway({
+			ok: true,
+			value: {
+				payload: {
+					clusters: [
+						{
+							findings: [finding],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "fix",
+						},
+					],
+				},
+				usage: null,
+			},
+		});
+		const client = createReviewsClient({
+			cwd: "/repo",
+			runtime: runtimeWithFakes({ reviewAggregationRunner: runner }),
+		});
+		const rosterResult = {
+			revisionRange: "base..head",
+			ranAt: "2026-07-16T12:00:00.000Z",
+			entries: [
+				{
+					reviewKey: REVIEW_KEY,
+					position: 0,
+					state: "completed" as const,
+					modelProfile: "quick",
+					model: "openai/gpt-5.6-luna",
+					findings: [finding],
+					usage: null,
+					inputCoverage: null,
+				},
+			],
+			findings: [finding],
+		};
+
+		const result = await client.aggregateReviewRoster({
+			rosterResult,
+			constraints: { mustGroup: [], mustSeparate: [] },
+			decisions: { bulkConfirmUnconflicted: false, clusters: [] },
+		});
+
+		expect(result).toMatchObject({
+			ok: true,
+			value: { completeness: "all-proposed", findingDispositions: [{ finding }] },
+		});
+		expect(runner.calls()).toHaveLength(1);
 	});
 
 	test("recordFindings reads stdin and writes a same-session review log", async () => {

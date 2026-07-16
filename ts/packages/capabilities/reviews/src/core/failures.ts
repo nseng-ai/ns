@@ -31,6 +31,17 @@ export type ReviewRunnerFailureCode =
 	| "review-execution-cancelled"
 	| "review-execution-failed";
 
+export type ReviewAggregationFailureCode =
+	| "review-aggregation-invalid-request"
+	| "review-aggregation-invalid-prior-result"
+	| "review-aggregation-invalid-constraints"
+	| "review-aggregation-model-resolution-failed"
+	| "review-aggregation-invocation-failed"
+	| "review-aggregation-invalid-json"
+	| "review-aggregation-invalid-output"
+	| "review-aggregation-invalid-accounting"
+	| "review-aggregation-cancelled";
+
 export type ReviewLogFailureCode =
 	| "review-log-write-failed"
 	| "review-log-list-failed"
@@ -43,6 +54,7 @@ export type ReviewFailureCode =
 	| ReviewCatalogFailureCode
 	| LocalDiffFailureCode
 	| ReviewRunnerFailureCode
+	| ReviewAggregationFailureCode
 	| ReviewLogFailureCode
 	| GitHubGatewayFailureCode;
 
@@ -58,6 +70,7 @@ export type ReviewDefinitionFailure = ReviewFailure<ReviewDefinitionFailureCode>
 export type ReviewCatalogFailure = ReviewFailure<ReviewCatalogFailureCode>;
 export type LocalDiffFailure = ReviewFailure<LocalDiffFailureCode>;
 export type ReviewRunnerFailure = ReviewFailure<ReviewRunnerFailureCode>;
+export type ReviewAggregationFailure = ReviewFailure<ReviewAggregationFailureCode>;
 export type ReviewLogFailure = ReviewFailure<ReviewLogFailureCode>;
 export type GitHubGatewayFailure = ReviewFailure<GitHubGatewayFailureCode>;
 
