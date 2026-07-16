@@ -43,12 +43,19 @@ export type DispatchWorkflowEvent =
 
 export type DispatchWorkflowAttributes = Readonly<Record<string, string>>;
 
+/**
+ * Attribute key carrying the ns-generated Dispatch ID on the Workflow run.
+ * Seeded at workflow start; the recovery lookup filters on the same key to
+ * find the vendor-generated run id again (see `run-recovery.ts`).
+ */
+export const DISPATCH_ID_ATTRIBUTE = "dispatch.id";
+
 export function buildDispatchStartAttributes(input: DispatchRunInput): DispatchWorkflowAttributes {
 	return {
 		"dispatch.kind": "prompt" in input ? "prompt" : "plan",
 		"dispatch.anchor_pr": String(input.anchorPrNumber),
 		"dispatch.phase": "queued",
-		...("dispatchId" in input ? { "dispatch.id": input.dispatchId } : {}),
+		...("dispatchId" in input ? { [DISPATCH_ID_ATTRIBUTE]: input.dispatchId } : {}),
 	};
 }
 
