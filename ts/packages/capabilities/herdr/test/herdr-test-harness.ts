@@ -37,6 +37,7 @@ import type {
 	HerdrCreateWorkspaceResult,
 	HerdrGateway,
 	HerdrPaneRunResult,
+	HerdrPaneTitleResult,
 	HerdrWorkspaceRenameResult,
 } from "../src/core/herdr-gateway.ts";
 
@@ -254,6 +255,11 @@ export interface FakeRenameCall {
 	label: string;
 }
 
+export interface FakePaneTitleCall {
+	paneId: string;
+	title: string;
+}
+
 export interface FakeCreateWorkspaceCall {
 	options: HerdrCreateWorkspaceOptions;
 }
@@ -269,6 +275,7 @@ export interface FakePaneRunCall {
 
 export interface FakeHerdrGatewayOptions {
 	renameResult?: HerdrWorkspaceRenameResult;
+	paneTitleResult?: HerdrPaneTitleResult;
 	createWorkspaceResult?: HerdrCreateWorkspaceResult;
 	createTabResult?: HerdrCreateTabResult;
 	paneRunResult?: HerdrPaneRunResult;
@@ -276,17 +283,20 @@ export interface FakeHerdrGatewayOptions {
 
 export class FakeHerdrGateway implements HerdrGateway {
 	readonly renameCalls: FakeRenameCall[] = [];
+	readonly paneTitleCalls: FakePaneTitleCall[] = [];
 	readonly createWorkspaceCalls: FakeCreateWorkspaceCall[] = [];
 	readonly createTabCalls: FakeCreateTabCall[] = [];
 	readonly paneRunCalls: FakePaneRunCall[] = [];
 
 	private readonly renameResult: HerdrWorkspaceRenameResult;
+	private readonly paneTitleResult: HerdrPaneTitleResult;
 	private readonly createWorkspaceResult: HerdrCreateWorkspaceResult;
 	private readonly createTabResult: HerdrCreateTabResult;
 	private readonly paneRunResult: HerdrPaneRunResult;
 
 	constructor(options: FakeHerdrGatewayOptions = {}) {
 		this.renameResult = options.renameResult ?? { type: "applied" };
+		this.paneTitleResult = options.paneTitleResult ?? { type: "applied" };
 		this.createWorkspaceResult = options.createWorkspaceResult ?? {
 			type: "created",
 			workspaceId: "fake-ws-1",
@@ -305,6 +315,11 @@ export class FakeHerdrGateway implements HerdrGateway {
 	async renameWorkspace(workspaceId: string, label: string): Promise<HerdrWorkspaceRenameResult> {
 		this.renameCalls.push({ workspaceId, label });
 		return this.renameResult;
+	}
+
+	async reportPaneTitle(paneId: string, title: string): Promise<HerdrPaneTitleResult> {
+		this.paneTitleCalls.push({ paneId, title });
+		return this.paneTitleResult;
 	}
 
 	async createWorkspace(options: HerdrCreateWorkspaceOptions): Promise<HerdrCreateWorkspaceResult> {

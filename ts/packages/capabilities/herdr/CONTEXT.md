@@ -18,15 +18,15 @@ Identifying the Herdr workspace to act on via the `HERDR_WORKSPACE_ID` environme
 
 **Workspace label**:
 A display name applied to the caller Herdr workspace via `herdr workspace rename`, derived deterministically from the selected Objective slug.
-*Avoid*: sidebar description, metadata reporting, cmux status pill
+*Avoid*: combined Objective/slot label, cmux status pill
+
+**Caller pane title**:
+The current slot name applied through `herdr pane report-metadata` to the explicit `HERDR_PANE_ID`; Herdr renders it beneath the workspace label in the left rail.
+*Avoid*: focused pane, workspace metadata, branch suffix
 
 **Objective sidebar**:
-The `/ns:herdr:sidebar:objective-summary` workflow that resolves an Objective slug and applies a label to the caller Herdr workspace.
-*Avoid*: cmux sidebar summary, workspace metadata, report-metadata
-
-**Label-only behavior**:
-The current `/ns:herdr:sidebar:objective-summary` implementation applies only a workspace label (Objective slug). Slot and branch metadata reporting is deferred because the installed Herdr CLI lacks `workspace report-metadata`.
-*Avoid*: partial implementation, missing feature, metadata transport
+The `/ns:herdr:sidebar:objective-summary` workflow that resolves an Objective slug, labels the caller workspace, and titles the caller pane with its slot.
+*Avoid*: cmux sidebar summary, generic workspace summary, implicit pane targeting
 
 **Herdr capability boundary**:
 The `pi` subpackage is the only Herdr capability subpackage that imports neutral `@nseng-ai/pi/...` host helpers; the `core` feature stays Pi-host independent.

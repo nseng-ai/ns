@@ -78,9 +78,8 @@ export async function validateObjectiveSidebarSlug(
 /**
  * Format the workspace label that will be applied via `herdr workspace rename`.
  *
- * Only the Objective slug is encoded in the label. Slot and branch metadata
- * reporting is deferred because the installed Herdr CLI lacks
- * `workspace report-metadata`; the label is the sole durable output.
+ * Only the Objective slug is encoded in the workspace label. The caller-pane
+ * title carries the slot separately; branch metadata remains omitted.
  */
 export function formatObjectiveSidebarLabel(input: ObjectiveSidebarFormatInput): string {
 	return `obj:${input.objectiveSlug}`;

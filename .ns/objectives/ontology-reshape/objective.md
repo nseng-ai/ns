@@ -1,5 +1,7 @@
 ---
 edges:
+  - objective: capability-infrastructure-reorg
+    annotation: Receives the implemented capability-infrastructure ownership model, deviations, and evidence from that focused Objective, then incorporates them into this record's broader ontology and documentation closeout.
   - objective: repo-ontology
     annotation: Supersedes this closed standing record; its remaining reconciliation scope and standing non-goals carry over here, and its mined facts live in the effort folder's ideas.md.
   - objective: skill-management-subsystem

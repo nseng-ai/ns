@@ -11,6 +11,8 @@ import {
 	validateObjectiveSidebarSlug,
 } from "./objective-sidebar.ts";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
+import { basename, resolve } from "node:path";
+
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 
@@ -44,9 +46,11 @@ export function createHerdrSidebarController(
  * fall back to UI focus.
  */
 export function getCallerWorkspaceId(env: NodeJS.ProcessEnv = process.env): string | undefined {
-	const value = env.HERDR_WORKSPACE_ID;
-	const trimmed = value?.trim();
-	return trimmed && trimmed.length > 0 ? trimmed : undefined;
+	return nonBlankEnvValue(env.HERDR_WORKSPACE_ID);
+}
+
+export function getCallerPaneId(env: NodeJS.ProcessEnv = process.env): string | undefined {
+	return nonBlankEnvValue(env.HERDR_PANE_ID);
 }
 
 async function handleDeterministicObjectiveSidebar(
@@ -83,7 +87,23 @@ async function handleDeterministicObjectiveSidebar(
 			return;
 		}
 
-		notify(ctx, `Applied Herdr Objective sidebar: ${label}`, "success");
+		const paneId = getCallerPaneId();
+		if (paneId === undefined) {
+			notify(
+				ctx,
+				"Herdr renamed the workspace, but HERDR_PANE_ID is unavailable for the slot title.",
+				"warning",
+			);
+			return;
+		}
+		const slotTitle = basename(resolve(ctx.cwd));
+		const titleResult = await herdr.reportPaneTitle(paneId, slotTitle);
+		if (titleResult.type === "failed") {
+			notify(ctx, titleResult.message, "error");
+			return;
+		}
+
+		notify(ctx, `Applied Herdr Objective sidebar: ${label} / ${slotTitle}`, "success");
 	} finally {
 		setStatus(ctx, undefined);
 	}
@@ -123,6 +143,11 @@ function notify(
 	if (ctx.hasUI !== false) {
 		ctx.ui.notify(message, level);
 	}
+}
+
+function nonBlankEnvValue(value: string | undefined): string | undefined {
+	const trimmed = value?.trim();
+	return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
 function setStatus(ctx: CommandContext, value: string | undefined): void {

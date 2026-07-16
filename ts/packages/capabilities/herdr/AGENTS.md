@@ -4,9 +4,9 @@ Use the repository's Pi extension command checklist for command registration, ac
 
 - [`docs/pi/extension-command-checklist.md`](../../../../docs/pi/extension-command-checklist.md)
 
-## Label-only behavior reminder
+## Objective sidebar behavior
 
-The `/ns:herdr:sidebar:objective-summary` command currently applies only a workspace label (via `herdr workspace rename`) because the installed Herdr CLI lacks `workspace report-metadata`. Do not add metadata reporting, a public generic workspace-summary command, or a substitute transport. This remains parked in the herdr-capability-parity Objective roadmap until the installed binary supports it.
+The `/ns:herdr:sidebar:objective-summary` command applies the Objective slug as the workspace label and the current slot as the caller pane's metadata title. Use `herdr pane report-metadata` with an explicit `HERDR_PANE_ID`; do not add a public generic workspace-summary command or target a focused pane implicitly.
 
 ## Herdr caller targeting
 
