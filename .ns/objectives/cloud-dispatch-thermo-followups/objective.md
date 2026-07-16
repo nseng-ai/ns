@@ -28,7 +28,9 @@ evidence), and the clean attestations (not to be re-flagged).
 
 M4+M5 and H9 are locally complete. The extracted `dispatch-client` seam is now consumed
 by the separate Graphite-aware source-publication feature without restoring host-surface
-ownership. Remaining thermo findings stay open and independent; this consumption is not
+ownership. Follow-up review refined the package-shared `[dispatch]` parser into the neutral
+`src/config/` owner while dispatch-client retains invocation-specific preflight refinement.
+Remaining thermo findings stay open and independent; this consumption is not
 evidence that any unrelated review row is complete, and no live dispatch/deployment
 verification is claimed.
 

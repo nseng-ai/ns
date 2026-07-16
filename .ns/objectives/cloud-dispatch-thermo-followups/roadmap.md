@@ -36,8 +36,10 @@ notes — never a standalone row.
       `toWorkflowStartRequest` plus the hand-maintained `WorkflowStartRequest` union
       (H5). Skip-and-record if H2 leaves nothing to consolidate.
 - [x] **M4+M5 — Extract the dispatch client out of the `ns` host surface.** Moved
-      `src/ns/dispatch-prompt/` and the `[dispatch]` project-config parser into the
-      manifest-declared `dispatch-client` feature subpackage. `src/ns/` retains the
+      `src/ns/dispatch-prompt/` into the manifest-declared `dispatch-client` feature
+      subpackage. Follow-up review refined the package-shared `[dispatch]` parser into
+      neutral `src/config/` ownership; dispatch-client retains invocation-specific
+      preflight refinement. `src/ns/` retains the
       extension descriptor and command adapter, while `src/api/index.ts` preserves the
       curated `@nseng-ai/vercel/api` re-export without exposing a public
       `./dispatch-client` subpath. Feature-owned tests and support now live under

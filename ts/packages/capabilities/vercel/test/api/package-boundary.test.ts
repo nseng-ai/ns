@@ -22,6 +22,17 @@ interface SourceImport {
 }
 
 describe("dispatch package boundaries", () => {
+	test("keeps package-shared config out of dispatch-client ownership", () => {
+		const violations = productionTypescriptFiles().flatMap((file) =>
+			importSpecifiers(readPackageFile(file))
+				.filter((specifier) => specifier.includes(["dispatch-client", "project-config"].join("/")))
+				.map((specifier) => `${file}: ${specifier}`),
+		);
+
+		expect(violations).toEqual([]);
+		expect(existsSync(resolve(PACKAGE_ROOT, "src/config/project-config.ts"))).toBe(true);
+	});
+
 	test("allows only the curated Flow API at local dispatch composition", () => {
 		const violations: string[] = [];
 		for (const file of productionTypescriptFiles()) {
