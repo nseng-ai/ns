@@ -32,6 +32,9 @@ import { isSafeSandboxName } from "../sandbox/contracts.ts";
 import type { DispatchReportGateway } from "./anchor-pr-report.ts";
 import {
 	buildDispatchLandingCommand,
+	buildDispatchPlanEntryCheckCommand,
+	buildDispatchPlanHarnessInstruction,
+	buildDispatchPlanSnapshotFetchCommand,
 	DISPATCH_DECISION_LOG_PATH,
 	DISPATCH_LANDING_TOKEN_ENV_NAME,
 	DISPATCH_PROMPT_PATH,
@@ -107,13 +110,6 @@ export async function launchDispatchRun(
 		return { ok: false, code: "invalid-input", message: validated.message };
 	}
 	const run = validated.value;
-	if (!("prompt" in run)) {
-		return {
-			ok: false,
-			code: "launch-failed",
-			message: "Saved Plan sandbox preparation is not available yet.",
-		};
-	}
 
 	const appConfigResult = parseGitHubAppMintConfig(deps.environment);
 	if (appConfigResult.ok === false) {
@@ -239,13 +235,22 @@ export async function launchDispatchRun(
 		};
 	}
 
-	const prepared = await provisionAndLaunchHarness({
-		sandboxName,
-		sandboxes,
-		harness,
-		prompt: run.prompt,
-		launchEnv: launchEnvResult.value,
-	});
+	const prepared =
+		"prompt" in run
+			? await provisionAndLaunchPromptHarness({
+					sandboxName,
+					sandboxes,
+					harness,
+					prompt: run.prompt,
+					launchEnv: launchEnvResult.value,
+				})
+			: await provisionAndLaunchPlanHarness({
+					sandboxName,
+					sandboxes,
+					harness,
+					contextLocator: run.contextLocator,
+					launchEnv: launchEnvResult.value,
+				});
 	if (prepared.ok === false) {
 		return {
 			ok: false,
@@ -279,7 +284,7 @@ type HarnessLaunchStageResult =
 	| { readonly ok: true }
 	| { readonly ok: false; readonly message: string };
 
-async function provisionAndLaunchHarness(options: {
+async function provisionAndLaunchPromptHarness(options: {
 	readonly sandboxName: string;
 	readonly sandboxes: DispatchSandboxGateway;
 	readonly harness: HarnessInvocation;
@@ -291,6 +296,56 @@ async function provisionAndLaunchHarness(options: {
 	const provision = await provisionDispatchHarness(options);
 	if (provision.ok === false) return provision;
 	return await launchDetachedDispatchHarness(options);
+}
+
+async function provisionAndLaunchPlanHarness(options: {
+	readonly sandboxName: string;
+	readonly sandboxes: DispatchSandboxGateway;
+	readonly harness: HarnessInvocation;
+	readonly contextLocator: Extract<
+		DispatchRunInput,
+		{ readonly dispatchId: string }
+	>["contextLocator"];
+	readonly launchEnv: Readonly<Record<string, string>>;
+}): Promise<HarnessLaunchStageResult> {
+	const provision = await provisionDispatchHarness(options);
+	if (provision.ok === false) return provision;
+	const context = await prepareDispatchPlanContext(options);
+	if (context.ok === false) return context;
+	const prompt = await writeDispatchPrompt({
+		...options,
+		prompt: buildDispatchPlanHarnessInstruction(options.contextLocator),
+	});
+	if (prompt.ok === false) return prompt;
+	return await launchDetachedDispatchHarness(options);
+}
+
+async function prepareDispatchPlanContext(options: {
+	readonly sandboxName: string;
+	readonly sandboxes: DispatchSandboxGateway;
+	readonly contextLocator: Extract<
+		DispatchRunInput,
+		{ readonly dispatchId: string }
+	>["contextLocator"];
+}): Promise<HarnessLaunchStageResult> {
+	const commands = [
+		buildDispatchPlanSnapshotFetchCommand(options.contextLocator),
+		buildDispatchPlanEntryCheckCommand(options.contextLocator),
+	];
+	for (const command of commands) {
+		try {
+			const result = await options.sandboxes.runSandboxCommand({
+				sandboxName: options.sandboxName,
+				command,
+			});
+			if (result.ok === false || result.exitCode !== 0) {
+				return { ok: false, message: "Saved Plan context precheck failed." };
+			}
+		} catch {
+			return { ok: false, message: "Saved Plan context precheck failed." };
+		}
+	}
+	return { ok: true };
 }
 
 async function writeDispatchPrompt(options: {

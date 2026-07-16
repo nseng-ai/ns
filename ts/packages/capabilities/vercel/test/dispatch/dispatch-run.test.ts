@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
 	buildDispatchLandingCommand,
+	buildDispatchPlanEntryCheckCommand,
+	buildDispatchPlanHarnessInstruction,
+	buildDispatchPlanSnapshotFetchCommand,
 	DISPATCH_GRACE_SECONDS,
 	DISPATCH_LANDING_TOKEN_ENV_NAME,
 	DISPATCH_POLL_SECONDS,
@@ -76,6 +79,15 @@ describe("validateDispatchRunInput", () => {
 		expect(validateDispatchRunInput({ ...planInput, dispatchId: "dsp_different" })).toEqual({
 			ok: false,
 			message: "dispatchId must match contextLocator.dispatchId.",
+		});
+		expect(
+			validateDispatchRunInput({
+				...planInput,
+				contextLocator: { ...contextLocator, planKey: `${contextLocator.dispatchId}/other.md` },
+			}),
+		).toEqual({
+			ok: false,
+			message: "contextLocator.planKey must be the convention-required Saved Plan member.",
 		});
 		expect(JSON.stringify(planInput)).not.toContain("Implement the cache plan");
 	});
@@ -186,6 +198,49 @@ describe("parseDispatchHarnessResult", () => {
 		["a non-string summary", '{"outcome":"completed","summary":7}'],
 	])("treats %s as invalid", (_label, content) => {
 		expect(parseDispatchHarnessResult(content)).toEqual({ phase: "invalid" });
+	});
+});
+
+describe("Saved Plan sandbox commands", () => {
+	const locator = {
+		namespace: "dispatch-context",
+		dispatchId: "dsp_01JABCDEF0123456789",
+		contextPrefix: "dsp_01JABCDEF0123456789/",
+		planKey: "dsp_01JABCDEF0123456789/plan/add-cache.md",
+		sourceBranch: "feature/cache",
+		snapshotRef: "refs/brmem/ns/dispatch-context/feature---cache",
+		snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+		entryLocator:
+			"refs/brmem/ns/dispatch-context/feature---cache:dsp_01JABCDEF0123456789/plan/add-cache.md",
+	} as const;
+
+	it("fetches the exact Snapshot Ref and verifies its commit", () => {
+		const command = buildDispatchPlanSnapshotFetchCommand(locator);
+
+		expect(command.cmd).toBe("sh");
+		expect(command.args).toContain(locator.snapshotRef);
+		expect(command.args).toContain(locator.snapshotCommitSha);
+		expect(command.args.join(" ")).toContain("git fetch --no-tags");
+		expect(command.args.join(" ")).toContain("git rev-parse");
+	});
+
+	it("checks the convention-required plan member at the exact commit", () => {
+		const command = buildDispatchPlanEntryCheckCommand(locator);
+
+		expect(command.args).toContain(locator.planKey);
+		expect(command.args).toContain(locator.namespace);
+		expect(command.args).toContain(locator.sourceBranch);
+		expect(command.args).toContain(locator.snapshotCommitSha);
+		expect(command.args.join(" ")).toContain("brmem check");
+	});
+
+	it("makes brmem get the harness's first action and tells it to execute the result", () => {
+		const instruction = buildDispatchPlanHarnessInstruction(locator);
+
+		expect(instruction).toMatch(/^Your first agent action must be to run this command exactly:/);
+		expect(instruction).toContain(`brmem get ${locator.planKey}`);
+		expect(instruction).toContain(`--at ${locator.snapshotCommitSha}`);
+		expect(instruction).toContain("execute that plan");
 	});
 });
 
