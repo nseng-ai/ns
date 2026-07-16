@@ -107,6 +107,13 @@ export async function launchDispatchRun(
 		return { ok: false, code: "invalid-input", message: validated.message };
 	}
 	const run = validated.value;
+	if (!("prompt" in run)) {
+		return {
+			ok: false,
+			code: "launch-failed",
+			message: "Saved Plan sandbox preparation is not available yet.",
+		};
+	}
 
 	const appConfigResult = parseGitHubAppMintConfig(deps.environment);
 	if (appConfigResult.ok === false) {

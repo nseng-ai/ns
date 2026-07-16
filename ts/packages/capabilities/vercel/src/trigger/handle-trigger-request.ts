@@ -114,12 +114,21 @@ function toWorkflowStartRequest(request: TriggerRequest): WorkflowStartRequest {
 		case "dispatch":
 			return {
 				workflow: "dispatch",
-				input: {
-					revision: request.revision,
-					anchorBranch: request.anchorBranch,
-					anchorPrNumber: request.anchorPrNumber,
-					prompt: request.prompt,
-				},
+				input:
+					"prompt" in request
+						? {
+								revision: request.revision,
+								anchorBranch: request.anchorBranch,
+								anchorPrNumber: request.anchorPrNumber,
+								prompt: request.prompt,
+							}
+						: {
+								revision: request.revision,
+								anchorBranch: request.anchorBranch,
+								anchorPrNumber: request.anchorPrNumber,
+								dispatchId: request.dispatchId,
+								contextLocator: request.contextLocator,
+							},
 			};
 	}
 }

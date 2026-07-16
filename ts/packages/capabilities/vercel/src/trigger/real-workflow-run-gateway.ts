@@ -60,7 +60,7 @@ export function createWorkflowSdkRunGateway(
 					return await startWorkflowRun(triggerWorkflowIds["supervision-probe"], [request.input]);
 				case "dispatch":
 					return await startWorkflowRun(triggerWorkflowIds.dispatch, [request.input], {
-						attributes: buildDispatchStartAttributes(request.input.anchorPrNumber),
+						attributes: buildDispatchStartAttributes(request.input),
 					});
 			}
 		},

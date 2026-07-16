@@ -1,5 +1,6 @@
 import type { BrmemErrorInfo, BrmemGateway } from "@nseng-ai/brmem";
 
+import type { DispatchPlanContextLocator } from "../../dispatch/dispatch-context.ts";
 import {
 	preflightDispatchBrmemSetup,
 	type DispatchBrmemSetupGateway,
@@ -66,16 +67,7 @@ export type DispatchPlanDurableArtifact =
 	| DispatchPlanDeliveryEntryArtifact
 	| DispatchPlanPublishedSnapshotArtifact;
 
-export interface DispatchPlanContextLocator {
-	readonly namespace: string;
-	readonly dispatchId: string;
-	readonly contextPrefix: string;
-	readonly planKey: string;
-	readonly sourceBranch: string;
-	readonly snapshotRef: string;
-	readonly snapshotCommitSha: string;
-	readonly entryLocator: string;
-}
+export type { DispatchPlanContextLocator } from "../../dispatch/dispatch-context.ts";
 
 type PreparationFailure = Exclude<DispatchPlanPreparationOutcome, { readonly status: "ready" }>;
 

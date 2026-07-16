@@ -9,6 +9,7 @@ import {
 	triggerSuccessResponseSchema,
 	triggerWorkflowValues,
 } from "../http/wire.ts";
+import { DISPATCH_CONTEXT_NAMESPACE } from "../dispatch/dispatch-context.ts";
 import {
 	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
 	DISPATCH_ANCHOR_PR_NUMBER_MAX,
@@ -28,7 +29,28 @@ export type TriggerWorkflowName = (typeof triggerWorkflowValues)[number];
 
 const commitShaSchema = z.string().regex(COMMIT_SHA_PATTERN);
 
-export const triggerRequestSchema = z.discriminatedUnion("workflow", [
+const dispatchIdentitySchema = {
+	revision: commitShaSchema,
+	anchorBranch: z
+		.string()
+		.min(1)
+		.max(DISPATCH_ANCHOR_BRANCH_MAX_CHARS)
+		.refine(isValidDispatchAnchorBranch),
+	anchorPrNumber: z.number().int().min(1).max(DISPATCH_ANCHOR_PR_NUMBER_MAX),
+};
+
+const dispatchContextLocatorSchema = z.strictObject({
+	namespace: z.literal(DISPATCH_CONTEXT_NAMESPACE),
+	dispatchId: z.string().min(1).max(200),
+	contextPrefix: z.string().min(1).max(201),
+	planKey: z.string().min(1).max(500),
+	sourceBranch: z.string().min(1).max(500),
+	snapshotRef: z.string().min(1).max(1_000),
+	snapshotCommitSha: commitShaSchema,
+	entryLocator: z.string().min(1).max(2_000),
+});
+
+export const triggerRequestSchema = z.union([
 	z.strictObject({
 		workflow: z.literal("hello"),
 		name: z.string().min(1).max(200),
@@ -60,15 +82,17 @@ export const triggerRequestSchema = z.discriminatedUnion("workflow", [
 	// bounds with plain checks.
 	z.strictObject({
 		workflow: z.literal("dispatch"),
-		revision: commitShaSchema,
-		anchorBranch: z
-			.string()
-			.min(1)
-			.max(DISPATCH_ANCHOR_BRANCH_MAX_CHARS)
-			.refine(isValidDispatchAnchorBranch),
-		anchorPrNumber: z.number().int().min(1).max(DISPATCH_ANCHOR_PR_NUMBER_MAX),
+		...dispatchIdentitySchema,
 		prompt: z.string().min(1).max(DISPATCH_PROMPT_MAX_CHARS),
 	}),
+	z
+		.strictObject({
+			workflow: z.literal("dispatch"),
+			...dispatchIdentitySchema,
+			dispatchId: z.string().min(1).max(200),
+			contextLocator: dispatchContextLocatorSchema,
+		})
+		.refine((request) => request.dispatchId === request.contextLocator.dispatchId),
 ]);
 
 export type TriggerRequest = z.infer<typeof triggerRequestSchema>;

@@ -136,6 +136,58 @@ describe("createWorkflowSdkRunGateway", () => {
 		]);
 	});
 
+	it("starts a plan dispatch with locator metadata only and the exact Dispatch ID attribute", async () => {
+		const sdk = new InMemoryWorkflowRunSdk({ nextRunId: "wrun_plan" });
+		const gateway = createWorkflowSdkRunGateway(sdk);
+		const contextLocator = {
+			namespace: "dispatch-context",
+			dispatchId: "dsp_01JABCDEF0123456789",
+			contextPrefix: "dsp_01JABCDEF0123456789/",
+			planKey: "dsp_01JABCDEF0123456789/plan/add-cache.md",
+			sourceBranch: "feature/cache",
+			snapshotRef: "refs/brmem/ns/dispatch-context/feature---cache",
+			snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+			entryLocator:
+				"refs/brmem/ns/dispatch-context/feature---cache:dsp_01JABCDEF0123456789/plan/add-cache.md",
+		} as const;
+
+		const result = await gateway.startWorkflow({
+			workflow: "dispatch",
+			input: {
+				revision: mixedCaseRevision,
+				anchorBranch: "dispatch/add-cache-a1b2c3",
+				anchorPrNumber: 422,
+				dispatchId: contextLocator.dispatchId,
+				contextLocator,
+			},
+		});
+
+		expect(result).toEqual({ ok: true, value: { runId: "wrun_plan" } });
+		expect(sdk.startCalls).toEqual([
+			{
+				workflowId: triggerWorkflowIds.dispatch,
+				args: [
+					{
+						revision: mixedCaseRevision,
+						anchorBranch: "dispatch/add-cache-a1b2c3",
+						anchorPrNumber: 422,
+						dispatchId: contextLocator.dispatchId,
+						contextLocator,
+					},
+				],
+				options: {
+					attributes: {
+						"dispatch.kind": "plan",
+						"dispatch.anchor_pr": "422",
+						"dispatch.phase": "queued",
+						"dispatch.id": contextLocator.dispatchId,
+					},
+				},
+			},
+		]);
+		expect(JSON.stringify(sdk.startCalls)).not.toContain("Implement the cache plan");
+	});
+
 	it("normalizes an empty vendor run id to a safe failure", async () => {
 		const gateway = createWorkflowSdkRunGateway(new InMemoryWorkflowRunSdk({ nextRunId: "" }));
 
