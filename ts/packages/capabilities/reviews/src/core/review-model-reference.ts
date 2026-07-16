@@ -3,17 +3,17 @@ import { resultErr } from "@nseng-ai/foundation/result";
 
 import type { ReviewResult } from "./failures.ts";
 
-export type ReviewsHarness = "claude-code" | "codex";
+export type ReviewsHarness = "claude-code" | "codex" | "pi";
 
 export interface ResolvedReviewsModelReference {
 	readonly reference: string;
-	readonly provider: "anthropic" | "openai" | "openai-codex";
+	readonly provider: "anthropic" | "openai" | "openai-codex" | "vercel-ai-gateway";
 	readonly modelId: string;
 	readonly harness: ReviewsHarness;
 }
 
 const EXPECTED_MODEL_REFERENCE =
-	"Expected a qualified model reference using anthropic/<model-id>, openai/<model-id>, or openai-codex/<model-id>.";
+	"Expected a qualified model reference using anthropic/<model-id>, openai/<model-id>, openai-codex/<model-id>, or vercel-ai-gateway/<model-id>.";
 
 export function resolveReviewsModelReference(
 	reference: string,
@@ -56,6 +56,16 @@ export function resolveReviewsModelReference(
 					provider: parsed.provider,
 					modelId: parsed.modelId,
 					harness: "codex",
+				},
+			};
+		case "vercel-ai-gateway":
+			return {
+				ok: true,
+				value: {
+					reference: normalized,
+					provider: parsed.provider,
+					modelId: parsed.modelId,
+					harness: "pi",
 				},
 			};
 		default:

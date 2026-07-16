@@ -57,15 +57,18 @@ export interface ReviewHarnessRunner {
 export interface RoutingReviewRunnerOptions {
 	readonly claudeCode: ReviewHarnessRunner;
 	readonly codex: ReviewHarnessRunner;
+	readonly pi: ReviewHarnessRunner;
 }
 
 export class RoutingReviewRunner implements ReviewRunnerGateway {
 	private readonly claudeCode: ReviewHarnessRunner;
 	private readonly codex: ReviewHarnessRunner;
+	private readonly pi: ReviewHarnessRunner;
 
 	constructor(options: RoutingReviewRunnerOptions) {
 		this.claudeCode = options.claudeCode;
 		this.codex = options.codex;
+		this.pi = options.pi;
 	}
 
 	async runReview(
@@ -85,6 +88,8 @@ export class RoutingReviewRunner implements ReviewRunnerGateway {
 				return await this.claudeCode.runReview(preparedRequest, options);
 			case "codex":
 				return await this.codex.runReview(preparedRequest, options);
+			case "pi":
+				return await this.pi.runReview(preparedRequest, options);
 		}
 	}
 }
