@@ -15,8 +15,11 @@ import {
 	type ReviewCatalogGateway,
 } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway, type ReviewLogGateway } from "../../src/gateways/review-log.ts";
+import type { Clock } from "@nseng-ai/foundation/clock";
+import { createManualClock } from "@nseng-ai/foundation/time/testing";
 
 export interface FakeReviewsContextOptions {
+	readonly clock?: Clock;
 	readonly execApi?: CommandExecApi;
 	readonly gitGateway?: GitGateway;
 	readonly localDiff?: LocalDiffGateway;
@@ -47,6 +50,7 @@ export function fakeReviewsContext(options: FakeReviewsContextOptions = {}): Rev
 		});
 	return {
 		execApi,
+		clock: options.clock ?? createManualClock(Date.parse("2026-07-16T12:00:00.000Z")).clock,
 		gitGateway,
 		localDiff: options.localDiff ?? new FakeLocalDiffGateway(),
 		reviewCatalog: options.reviewCatalog ?? new FakeReviewCatalogGateway(),

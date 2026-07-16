@@ -205,6 +205,27 @@ describe("@nseng-ai/reviews/api", () => {
 		expect(outcome.result.findings).toEqual([finding]);
 	});
 
+	test("runReviewRoster exposes the return-only roster operation and progress callback", async () => {
+		const reviewLog = new FakeReviewLogGateway();
+		const events: string[] = [];
+		const client = createReviewsClient({ cwd: "/repo", runtime: runtimeWithFakes({ reviewLog }) });
+
+		const result = await client.runReviewRoster(
+			{ revisionRange: "base..head", roster: [{ reviewKey: REVIEW_KEY, selected: true }] },
+			{ onProgress: (event) => events.push(event.type) },
+		);
+
+		expect(result).toMatchObject({
+			ok: true,
+			value: {
+				revisionRange: "base..head",
+				entries: [{ reviewKey: REVIEW_KEY, state: "completed" }],
+			},
+		});
+		expect(events).toEqual(["review-started", "review-completed"]);
+		expect(reviewLog.writtenEntries()).toEqual([]);
+	});
+
 	test("recordFindings reads stdin and writes a same-session review log", async () => {
 		const reviewLog = new FakeReviewLogGateway({ branch: "feature/api" });
 		const client = createReviewsClient({

@@ -13,13 +13,14 @@ and structured artifact contract explicit.
       continue-on-review-failure execution; cluster-never-merge and
       proposed-and-correctable model judgment; cluster-level triage with per-finding
       accounting; ordered planned PRs; and minimal run/finding/final-state records.
-- [ ] Extend the Reviews production core from a single base-ref review to one confirmed
-      revision-range roster run. Load the range diff once for applicability and every
-      selected review, resolve models declaratively, continue after individual runner
-      failures, expose foreground per-review progress, and return one structured run
-      record containing the roster (including toggled-off and failed reviews), coverage,
-      timestamp, and verbatim source-attributed findings. Preserve `ns reviews run`
-      compatibility and keep ordinary Reviews execution read-only.
+- [x] Extend the Reviews production core from a single base-ref review to one confirmed
+      revision-range roster run. The Reviews Capability API now loads one explicit range
+      diff for applicability and sequential selected-review execution, resolves models
+      declaratively, continues after review-local failures, emits typed foreground
+      progress, and returns a timestamped roster record with toggled-off/failed states,
+      coverage, and verbatim source-attributed findings. Existing `ns reviews run`
+      behavior remains the single-review compatibility path, and focused tests plus
+      repository validation cover the delivered read-only contract.
 - [ ] Add production aggregation and manual resolution over the roster result. Propose
       correctable clusters, recommendation-conflict flags, and actionability; preserve
       every original finding and per-review severity; support bulk confirmation while

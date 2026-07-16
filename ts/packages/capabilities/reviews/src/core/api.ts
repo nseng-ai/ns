@@ -16,6 +16,12 @@ import type {
 	ReviewInputCoverage,
 	ReviewRunResult,
 	ReviewUsage,
+	ReviewRosterEntry,
+	ReviewRosterProgressEvent,
+	ReviewRosterRunRequest,
+	ReviewRosterRunResult,
+	ReviewRosterSelectionEntry,
+	SourceAttributedFinding,
 } from "./models.ts";
 import {
 	buildReviewListResult,
@@ -37,6 +43,7 @@ import {
 	type RunReviewProgress,
 	type RunReviewRequest,
 } from "../operations/review-run.ts";
+import { runReviewRoster, type RunReviewRosterOptions } from "../operations/review-roster-run.ts";
 
 export { REVIEW_LOG_NAMESPACE };
 export type {
@@ -57,6 +64,13 @@ export type {
 	ReviewLogResult,
 	ReviewRunResult,
 	ReviewUsage,
+	ReviewRosterEntry,
+	ReviewRosterProgressEvent,
+	ReviewRosterRunRequest,
+	ReviewRosterRunResult,
+	ReviewRosterSelectionEntry,
+	SourceAttributedFinding,
+	RunReviewRosterOptions,
 	ReviewFailure,
 	ReviewResult,
 	ReviewsRuntime,
@@ -85,6 +99,11 @@ export interface ReviewsClient {
 	listReviewLogs(request?: Partial<ReviewLogRequest>): Promise<ReviewResult<ReviewLogResult>>;
 	/** Runs a review and writes a Reviews review log through the configured review log gateway. */
 	runReview(request: RunReviewRequest): Promise<RunReviewOutcome>;
+	/** Runs an already-confirmed revision range and complete roster without persistence or publication. */
+	runReviewRoster(
+		request: ReviewRosterRunRequest,
+		options?: RunReviewRosterOptions,
+	): Promise<ReviewResult<ReviewRosterRunResult>>;
 	/** Records same-session findings from stdin and writes a Reviews review log. */
 	recordFindings(request: RecordFindingsRequest): Promise<RecordFindingsOutcome>;
 	/** Publishes a Reviews review-run envelope from stdin to GitHub. */
@@ -108,6 +127,9 @@ export function createReviewsClient(options: ReviewsClientOptions): ReviewsClien
 		},
 		async runReview(request) {
 			return await runReview(getRuntime(), request);
+		},
+		async runReviewRoster(request, runOptions) {
+			return await runReviewRoster(getRuntime(), request, runOptions);
 		},
 		async recordFindings(request) {
 			return await recordSameSessionFindings(getRuntime(), request);

@@ -17,6 +17,8 @@ import {
 	reviewExecutionResponseSchema,
 	reviewInputCoverageSchema,
 	reviewRunResultSchema,
+	reviewRosterRunRequestSchema,
+	reviewRosterRunResultSchema,
 	reviewUsageSchema,
 	reviewUsageTotalInputTokens,
 	type DiffFile,
@@ -259,6 +261,47 @@ describe("reviews domain schemas", () => {
 		expect(request.target.localDiff.baseRef).toBe("main");
 		expect(request.priorFindingsContext?.findings[0]?.resolutionStatus).toBe("unresolved");
 		expect(response.payload.count).toBe(0);
+	});
+
+	test("validates strict roster requests and flattened-finding accounting", () => {
+		expect(
+			reviewRosterRunRequestSchema.parse({
+				revisionRange: "base..head",
+				roster: [{ reviewKey: "style", selected: true }],
+			}).revisionRange,
+		).toBe("base..head");
+		expect(() => reviewRosterRunRequestSchema.parse({ revisionRange: " ", roster: [] })).toThrow();
+		const finding = {
+			reviewKey: "style",
+			path: null,
+			line: null,
+			severity: "info" as const,
+			summary: "Same",
+			details: "Same",
+			occurrence: 0,
+		};
+		const result = {
+			revisionRange: "base..head",
+			ranAt: "2026-07-16T12:00:00.000Z",
+			entries: [
+				{
+					reviewKey: "style",
+					position: 0,
+					state: "completed" as const,
+					modelProfile: "quick",
+					model: "openai/model",
+					findings: [finding],
+					usage: null,
+					inputCoverage: null,
+				},
+			],
+			findings: [finding],
+		};
+		expect(reviewRosterRunResultSchema.parse(result).findings).toHaveLength(1);
+		expect(() => reviewRosterRunResultSchema.parse({ ...result, findings: [] })).toThrow();
+		expect(() =>
+			reviewRosterRunResultSchema.parse({ ...result, findings: [{ ...finding, occurrence: -1 }] }),
+		).toThrow();
 	});
 
 	test("validates review run result contract", () => {

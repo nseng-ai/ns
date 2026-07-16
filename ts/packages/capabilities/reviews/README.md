@@ -95,6 +95,31 @@ Run one review locally:
 ns reviews run <review-key> --base-ref main
 ```
 
+This command remains the single-review, base-ref compatibility path. It supports one-run model/profile overrides, optional prior-findings context, and writes the existing per-review Review log.
+
+## Revision-range roster API
+
+The curated `@nseng-ai/reviews/api` surface also accepts an already-confirmed Git revision-range expression and a complete, ordered roster:
+
+```ts
+const result = await reviews.runReviewRoster(
+  {
+    revisionRange: "stack-base..stack-head",
+    roster: [
+      { reviewKey: "typescript-style", selected: true },
+      { reviewKey: "docs", selected: false },
+    ],
+  },
+  { onProgress: (event) => renderProgress(event) },
+);
+```
+
+The roster must include every applicable checked-in Review definition exactly once; malformed catalog definitions are included so they remain visible as definition-stage failures. Because an invalid definition supplies no semantics to which selection can meaningfully apply, it is reported as failed regardless of its supplied `selected` flag. Successfully parsed non-applicable definitions must not be supplied. The supplied order is the confirmed execution order.
+
+Reviews loads the explicit range diff once, runs selected reviews sequentially, and continues after review-local definition, declarative model-resolution, or runner failures. Toggled-off reviews remain in the result without lifecycle events. The timestamped return record retains ordered states, model and coverage evidence for completed reviews, typed failures, and source-attributed verbatim findings; identical finding tuples use a zero-based occurrence scoped to their source review.
+
+This API operation is return-only and read-only: it does not write Review logs, gather or publish GitHub findings, edit the checkout, or accept roster-time model overrides. Progress callbacks are synchronous presentation plumbing and should remain lightweight and non-mutating.
+
 Useful checks after editing a review definition:
 
 ```bash

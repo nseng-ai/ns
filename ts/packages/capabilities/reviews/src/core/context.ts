@@ -16,6 +16,8 @@ import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-d
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { Clock } from "@nseng-ai/foundation/clock";
+import { systemClock } from "@nseng-ai/foundation/time";
 
 export { REVIEWS_BOT_LOGIN } from "./reviews-bot.ts";
 
@@ -31,6 +33,7 @@ export type ReviewsGithubPrFeedbackGateway = Pick<
 >;
 
 export interface ReviewsGateways {
+	readonly clock: Clock;
 	readonly gitGateway: GitGateway;
 	readonly localDiff: LocalDiffGateway;
 	readonly reviewCatalog: ReviewCatalogGateway;
@@ -60,6 +63,7 @@ export interface CreateRealReviewsContextOptions {
 	readonly gitGateway?: GitGateway;
 	readonly reviewLog?: ReviewLogGateway;
 	readonly reviewRunner?: ReviewRunnerGateway;
+	readonly clock?: Clock;
 }
 
 export interface ReviewsRunScope {
@@ -90,6 +94,7 @@ export function createRealReviewsContext(options: CreateRealReviewsContextOption
 	const gitGateway = options.gitGateway ?? new RealGitGateway(execApi);
 	return {
 		execApi,
+		clock: options.clock ?? systemClock,
 		gitGateway,
 		localDiff: new RealLocalDiffGateway({ execApi, gitGateway }),
 		reviewCatalog: new RealReviewCatalogGateway({ gitGateway }),

@@ -6,7 +6,7 @@ Instructions:
 
 PR diff metadata:
 
-- Base ref: {base_ref}
+- {diff_source_label}: {diff_source_value}
 - Review directory: {review_dir}
 - Changed paths: {changed_path_count}
 

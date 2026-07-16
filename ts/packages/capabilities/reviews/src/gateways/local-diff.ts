@@ -14,19 +14,35 @@ import { RealGitGateway } from "@nseng-ai/foundation/git";
 
 import { parseUnifiedDiff } from "../core/diff-parsing.ts";
 import type { LocalDiffFailure, ReviewResult } from "../core/failures.ts";
-import { createLocalDiff, type LocalDiff } from "../core/models.ts";
+import { createLocalDiff, createRevisionRangeLocalDiff, type LocalDiff } from "../core/models.ts";
 import { buildGitDiffArgs, parseReviewsProjectConfigToml } from "../core/project-config.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 
-export interface LoadDiffOptions {
+export type DiffSelection =
+	| { readonly type: "base-ref"; readonly baseRef?: string | null }
+	| { readonly type: "revision-range"; readonly revisionRange: string };
+
+interface LoadDiffCommonOptions {
 	readonly cwd: string;
 	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	readonly baseRef?: string | null;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	readonly excludeGlobs?: readonly string[];
 }
+
+export type LoadDiffOptions = LoadDiffCommonOptions &
+	(
+		| {
+				/** Compatibility selection for incumbent single-review callers. */
+				readonly baseRef?: string | null;
+				readonly selection?: never;
+		  }
+		| {
+				readonly baseRef?: never;
+				readonly selection: DiffSelection;
+		  }
+	);
 
 export interface LocalDiffGateway {
 	loadDiff(options: LoadDiffOptions): Promise<ReviewResult<LocalDiff>>;
@@ -55,18 +71,23 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			});
 		}
 
-		const baseRef = await this.resolveBaseRef(options, repoRoot.value);
-		if (!baseRef.ok) return baseRef;
+		const selection = await this.resolveSelection(options, repoRoot.value);
+		if (!selection.ok) return selection;
 
 		const excludeGlobsResult = await this.resolveExcludeGlobs(options, repoRoot.value);
 		if (!excludeGlobsResult.ok) return excludeGlobsResult;
 		const excludeGlobs = excludeGlobsResult.value;
 
-		const args = [...buildGitDiffArgs({ baseRef: baseRef.value, excludeGlobs })];
-		const displayCommand = formatGitDiffDisplayCommand({
-			baseRef: baseRef.value,
-			excludeGlobs,
-		});
+		const diffArgs =
+			selection.value.type === "base-ref"
+				? { type: "base-ref" as const, baseRef: selection.value.baseRef, excludeGlobs }
+				: {
+						type: "revision-range" as const,
+						revisionRange: selection.value.revisionRange,
+						excludeGlobs,
+					};
+		const args = [...buildGitDiffArgs(diffArgs)];
+		const displayCommand = formatGitDiffDisplayCommand(diffArgs);
 		let result;
 		try {
 			result = await this.execApi.exec("git", args, execOptions(repoRoot.value, options));
@@ -84,14 +105,38 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			});
 		}
 
+		const files = parseUnifiedDiff(result.stdout);
 		return {
 			ok: true,
-			value: createLocalDiff({
-				baseRef: baseRef.value,
-				diffText: result.stdout,
-				files: parseUnifiedDiff(result.stdout),
-			}),
+			value:
+				selection.value.type === "base-ref"
+					? createLocalDiff({ baseRef: selection.value.baseRef, diffText: result.stdout, files })
+					: createRevisionRangeLocalDiff({
+							revisionRange: selection.value.revisionRange,
+							diffText: result.stdout,
+							files,
+						}),
 		};
+	}
+
+	private async resolveSelection(
+		options: LoadDiffOptions,
+		repoRoot: string,
+	): Promise<
+		ReviewResult<
+			{ type: "base-ref"; baseRef: string } | { type: "revision-range"; revisionRange: string }
+		>
+	> {
+		if (options.selection?.type === "revision-range") {
+			const revisionRange = options.selection.revisionRange.trim();
+			if (revisionRange === "")
+				return error({ code: "git-diff-failed", message: "Revision range must not be blank." });
+			return { ok: true, value: { type: "revision-range", revisionRange } };
+		}
+		const resolved = await this.resolveBaseRef(options, repoRoot);
+		return resolved.ok
+			? { ok: true, value: { type: "base-ref", baseRef: resolved.value } }
+			: resolved;
 	}
 
 	private async resolveBaseRef(
@@ -140,13 +185,18 @@ export interface FakeLocalDiffGatewayOptions {
 	readonly diffsByBaseRef?:
 		| ReadonlyMap<string | null | undefined, ReviewResult<LocalDiff>>
 		| Readonly<Record<string, ReviewResult<LocalDiff>>>;
+	readonly diffsByRevisionRange?:
+		| ReadonlyMap<string, ReviewResult<LocalDiff>>
+		| Readonly<Record<string, ReviewResult<LocalDiff>>>;
 	readonly defaultDiff?: ReviewResult<LocalDiff>;
 }
 
 export class FakeLocalDiffGateway implements LocalDiffGateway {
 	private readonly diffsByBaseRef = new Map<string | null | undefined, ReviewResult<LocalDiff>>();
+	private readonly diffsByRevisionRange = new Map<string, ReviewResult<LocalDiff>>();
 	private readonly defaultDiff: ReviewResult<LocalDiff>;
 	private readonly requestedBaseRefsInternal: Array<string | null | undefined> = [];
+	private readonly requestedSelectionsInternal: DiffSelection[] = [];
 	private readonly requestedExcludeGlobsInternal: Array<readonly string[] | undefined> = [];
 
 	constructor(options: FakeLocalDiffGatewayOptions = {}) {
@@ -156,6 +206,13 @@ export class FakeLocalDiffGateway implements LocalDiffGateway {
 		} else if (options.diffsByBaseRef !== undefined) {
 			for (const [key, value] of Object.entries(options.diffsByBaseRef))
 				this.diffsByBaseRef.set(key, copyResult(value));
+		}
+		if (options.diffsByRevisionRange instanceof Map) {
+			for (const [key, value] of options.diffsByRevisionRange.entries())
+				this.diffsByRevisionRange.set(key, copyResult(value));
+		} else if (options.diffsByRevisionRange !== undefined) {
+			for (const [key, value] of Object.entries(options.diffsByRevisionRange))
+				this.diffsByRevisionRange.set(key, copyResult(value));
 		}
 		this.defaultDiff = copyResult(
 			options.defaultDiff ?? {
@@ -167,12 +224,22 @@ export class FakeLocalDiffGateway implements LocalDiffGateway {
 
 	async loadDiff(options: LoadDiffOptions): Promise<ReviewResult<LocalDiff>> {
 		this.requestedBaseRefsInternal.push(options.baseRef);
+		if (options.selection !== undefined)
+			this.requestedSelectionsInternal.push(structuredClone(options.selection));
 		this.requestedExcludeGlobsInternal.push(options.excludeGlobs);
-		return copyResult(this.diffsByBaseRef.get(options.baseRef) ?? this.defaultDiff);
+		const configured =
+			options.selection?.type === "revision-range"
+				? this.diffsByRevisionRange.get(options.selection.revisionRange)
+				: this.diffsByBaseRef.get(options.selection?.baseRef ?? options.baseRef);
+		return copyResult(configured ?? this.defaultDiff);
 	}
 
 	requestedBaseRefs(): readonly (string | null | undefined)[] {
 		return [...this.requestedBaseRefsInternal];
+	}
+
+	requestedSelections(): readonly DiffSelection[] {
+		return structuredClone(this.requestedSelectionsInternal);
 	}
 
 	requestedExcludeGlobs(): readonly (readonly string[] | undefined)[] {
@@ -188,7 +255,13 @@ function copyResult(result: ReviewResult<LocalDiff>): ReviewResult<LocalDiff> {
 }
 
 function localDiffCopy(value: LocalDiff): LocalDiff {
-	return createLocalDiff({ baseRef: value.baseRef, diffText: value.diffText, files: value.files });
+	return value.sourceType === "base-ref"
+		? createLocalDiff({ baseRef: value.baseRef, diffText: value.diffText, files: value.files })
+		: createRevisionRangeLocalDiff({
+				revisionRange: value.revisionRange,
+				diffText: value.diffText,
+				files: value.files,
+			});
 }
 
 function error(errorValue: LocalDiffFailure): ReviewResult<never> {
@@ -207,9 +280,18 @@ function execOptions(
 	};
 }
 
-export function formatGitDiffDisplayCommand(options: {
-	readonly baseRef: string;
-	readonly excludeGlobs?: readonly string[];
-}): string {
+export function formatGitDiffDisplayCommand(
+	options:
+		| {
+				readonly type?: "base-ref";
+				readonly baseRef: string;
+				readonly excludeGlobs?: readonly string[];
+		  }
+		| {
+				readonly type: "revision-range";
+				readonly revisionRange: string;
+				readonly excludeGlobs?: readonly string[];
+		  },
+): string {
 	return formatCommand("git", buildGitDiffArgs(options));
 }

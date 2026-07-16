@@ -62,7 +62,7 @@ export interface RunReviewProgress {
 	readonly changedPathCount: number;
 }
 
-interface ResolvedReviewModel {
+export interface ResolvedReviewModel {
 	readonly modelProfile: string;
 	readonly model: string;
 }
@@ -95,6 +95,8 @@ export async function runReview(
 	if (!loaded.ok) return { type: "failed", error: loaded.error };
 	const { source, definition, config, diff } = loaded.value;
 	const reviewDiff = filterLocalDiffForReviewApplicability(diff, definition.applicability);
+	if (reviewDiff.sourceType !== "base-ref")
+		throw new Error("Single-review compatibility flow requires a base-ref diff.");
 
 	const resolved = resolveReviewModel(request, definition, config);
 	if (!resolved.ok) return { type: "failed", error: resolved.error };
@@ -109,16 +111,13 @@ export async function runReview(
 		changedPathCount: reviewDiff.changedPaths.length,
 	};
 
-	const response = await ctx.reviewRunner.runReview(
-		{
-			model: model.model,
-			reviewDefinition: definition,
-			reviewDir: dirname(source.path),
-			target: { localDiff: reviewDiff },
-			...optionalEntry("priorFindingsContext", request.priorFindingsContext),
-		},
-		environmentOptions(ctx.runScope),
-	);
+	const response = await executePreparedReview(ctx, {
+		source,
+		definition,
+		diff,
+		model: model.model,
+		...optionalEntry("priorFindingsContext", request.priorFindingsContext),
+	});
 	if (!response.ok) return { type: "failed", error: response.error };
 
 	const result = reviewRunResult(
@@ -185,7 +184,7 @@ export async function writeReviewRunLog(
 		readonly logBranch?: string;
 	},
 ): Promise<ReviewResult<ReviewLogWriteResult>> {
-	const ranAt = options.ranAt ?? new Date().toISOString();
+	const ranAt = options.ranAt ?? new Date(ctx.clock.nowMs()).toISOString();
 	const metadata = await reviewLogMetadata(ctx, options.logBranch);
 	return await ctx.reviewLog.writeReviewLog({
 		...environmentOptions(ctx.runScope),
@@ -218,8 +217,41 @@ function reviewRunResult(
 	});
 }
 
+export async function executePreparedReview(
+	ctx: ReviewsRuntime,
+	options: {
+		readonly source: ReviewSource;
+		readonly definition: ReviewDefinition;
+		readonly diff: LocalDiff;
+		readonly model: string;
+		readonly priorFindingsContext?: PriorFindingsPromptContext;
+	},
+): Promise<ReviewResult<ReviewExecutionResponse>> {
+	const reviewDiff = filterLocalDiffForReviewApplicability(
+		options.diff,
+		options.definition.applicability,
+	);
+	return await ctx.reviewRunner.runReview(
+		{
+			model: options.model,
+			reviewDefinition: options.definition,
+			reviewDir: dirname(options.source.path),
+			target: { localDiff: reviewDiff },
+			...optionalEntry("priorFindingsContext", options.priorFindingsContext),
+		},
+		environmentOptions(ctx.runScope),
+	);
+}
+
+export function resolveDeclarativeReviewModel(
+	definition: ReviewDefinition,
+	config: ReviewsProjectConfig,
+): ReviewResult<ResolvedReviewModel> {
+	return resolveReviewModel({}, definition, config);
+}
+
 function resolveReviewModel(
-	request: RunReviewRequest,
+	request: Pick<RunReviewRequest, "model" | "modelProfile">,
 	definition: ReviewDefinition,
 	config: ReviewsProjectConfig,
 ): ReviewResult<ResolvedReviewModel> {

@@ -61,14 +61,29 @@ export const diffFileSchema = z
 export type DiffFile = z.infer<typeof diffFileSchema>;
 export type DiffChangeKind = DiffFile["changeKind"];
 
-export const localDiffSchema = z
-	.object({
-		baseRef: nonBlankStringSchema,
-		diffText: z.string(),
-		files: z.array(diffFileSchema),
-		changedPaths: z.array(z.string()),
-	})
-	.strict();
+const localDiffFields = {
+	diffText: z.string(),
+	files: z.array(diffFileSchema),
+	changedPaths: z.array(z.string()),
+};
+
+export const localDiffSchema = z.discriminatedUnion("sourceType", [
+	z
+		.object({
+			sourceType: z.literal("base-ref"),
+			baseRef: nonBlankStringSchema,
+			...localDiffFields,
+		})
+		.strict(),
+	z
+		.object({
+			sourceType: z.literal("revision-range"),
+			baseRef: z.never().optional(),
+			revisionRange: nonBlankStringSchema,
+			...localDiffFields,
+		})
+		.strict(),
+]);
 export type LocalDiff = z.infer<typeof localDiffSchema>;
 
 export const reviewFindingSchema = z
@@ -233,6 +248,100 @@ export const reviewRunResultSchema = z
 	});
 export type ReviewRunResult = z.infer<typeof reviewRunResultSchema>;
 
+export const reviewRosterSelectionEntrySchema = z
+	.object({ reviewKey: nonBlankStringSchema, selected: z.boolean() })
+	.strict();
+export type ReviewRosterSelectionEntry = z.infer<typeof reviewRosterSelectionEntrySchema>;
+
+export const reviewRosterRunRequestSchema = z
+	.object({
+		revisionRange: nonBlankStringSchema,
+		roster: z.array(reviewRosterSelectionEntrySchema).min(1),
+	})
+	.strict();
+export type ReviewRosterRunRequest = z.infer<typeof reviewRosterRunRequestSchema>;
+
+export const sourceAttributedFindingSchema = reviewFindingSchema
+	.extend({ reviewKey: nonBlankStringSchema, occurrence: nonNegativeIntegerSchema })
+	.strict();
+export type SourceAttributedFinding = z.infer<typeof sourceAttributedFindingSchema>;
+
+const rosterEntryBase = { reviewKey: nonBlankStringSchema, position: nonNegativeIntegerSchema };
+export const reviewRosterEntrySchema = z.discriminatedUnion("state", [
+	z.object({ ...rosterEntryBase, state: z.literal("toggled-off") }).strict(),
+	z
+		.object({
+			...rosterEntryBase,
+			state: z.literal("completed"),
+			modelProfile: nonBlankStringSchema,
+			model: nonBlankStringSchema,
+			findings: z.array(sourceAttributedFindingSchema),
+			usage: reviewUsageSchema.nullable(),
+			inputCoverage: reviewInputCoverageSchema.nullable(),
+		})
+		.strict(),
+	z
+		.object({
+			...rosterEntryBase,
+			state: z.literal("failed"),
+			stage: z.enum(["definition", "model-resolution", "runner"]),
+			error: z.object({ code: nonBlankStringSchema, message: nonBlankStringSchema }).strict(),
+		})
+		.strict(),
+]);
+export type ReviewRosterEntry = z.infer<typeof reviewRosterEntrySchema>;
+
+export const reviewRosterProgressEventSchema = z.discriminatedUnion("type", [
+	z
+		.object({
+			type: z.literal("review-started"),
+			reviewKey: nonBlankStringSchema,
+			position: nonNegativeIntegerSchema,
+		})
+		.strict(),
+	z
+		.object({
+			type: z.literal("review-completed"),
+			reviewKey: nonBlankStringSchema,
+			position: nonNegativeIntegerSchema,
+			findingCount: nonNegativeIntegerSchema,
+			inputCoverage: reviewInputCoverageSchema.nullable(),
+		})
+		.strict(),
+	z
+		.object({
+			type: z.literal("review-failed"),
+			reviewKey: nonBlankStringSchema,
+			position: nonNegativeIntegerSchema,
+			stage: z.enum(["definition", "model-resolution", "runner"]),
+			error: z.object({ code: nonBlankStringSchema, message: nonBlankStringSchema }).strict(),
+		})
+		.strict(),
+]);
+export type ReviewRosterProgressEvent = z.infer<typeof reviewRosterProgressEventSchema>;
+
+export const reviewRosterRunResultSchema = z
+	.object({
+		revisionRange: nonBlankStringSchema,
+		ranAt: z.iso.datetime(),
+		entries: z.array(reviewRosterEntrySchema),
+		findings: z.array(sourceAttributedFindingSchema),
+	})
+	.strict()
+	.superRefine((value, context) => {
+		const expected = value.entries.flatMap((entry) =>
+			entry.state === "completed" ? entry.findings : [],
+		);
+		if (JSON.stringify(expected) !== JSON.stringify(value.findings)) {
+			context.addIssue({
+				code: "custom",
+				message: "findings must equal completed entry findings",
+				path: ["findings"],
+			});
+		}
+	});
+export type ReviewRosterRunResult = z.infer<typeof reviewRosterRunResultSchema>;
+
 export const inlineTargetSchema = z
 	.object({
 		path: nonBlankStringSchema,
@@ -304,7 +413,23 @@ export function createLocalDiff(options: {
 }): LocalDiff {
 	const files = options.files.map((file) => ({ ...file }));
 	return localDiffSchema.parse({
+		sourceType: "base-ref",
 		baseRef: options.baseRef,
+		diffText: options.diffText,
+		files,
+		changedPaths: files.map((file) => file.path),
+	});
+}
+
+export function createRevisionRangeLocalDiff(options: {
+	readonly revisionRange: string;
+	readonly diffText: string;
+	readonly files: readonly DiffFile[];
+}): LocalDiff {
+	const files = options.files.map((file) => ({ ...file }));
+	return localDiffSchema.parse({
+		sourceType: "revision-range",
+		revisionRange: options.revisionRange,
 		diffText: options.diffText,
 		files,
 		changedPaths: files.map((file) => file.path),
@@ -321,11 +446,10 @@ export function filterLocalDiffFiles(
 ): LocalDiff {
 	const files = localDiff.files.filter(keepFile);
 	if (files.length === localDiff.files.length) return localDiff;
-	return createLocalDiff({
-		baseRef: localDiff.baseRef,
-		diffText: joinDiffFileRawText(files),
-		files,
-	});
+	const diffText = joinDiffFileRawText(files);
+	return localDiff.sourceType === "base-ref"
+		? createLocalDiff({ baseRef: localDiff.baseRef, diffText, files })
+		: createRevisionRangeLocalDiff({ revisionRange: localDiff.revisionRange, diffText, files });
 }
 
 export function reviewUsageTotalInputTokens(usage: ReviewUsage): number {

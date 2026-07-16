@@ -28,6 +28,12 @@ The curated in-process consumer API exported as `@nseng-ai/reviews/api` for pack
 
 Avoid: importing private `@nseng-ai/reviews/src/...` modules or treating the broad package root as the Capability API.
 
+### Review roster run
+
+A return-only Reviews Capability API operation over one confirmed Git revision range and one complete, ordered selection roster. It loads the range diff once, executes selected Reviews sequentially, and reports review-local gaps without turning Reviews into a remediation workflow.
+
+Avoid: implying the roster run confirms user choices, persists checkpoints or Review logs, publishes findings, clusters findings, or edits the checkout.
+
 ### Review definition
 
 A Markdown catalog entry at `.ns/reviews/<key>/review.md`, where `<key>` is a direct review folder name, with frontmatter and instructions that define what Reviews should check. Sibling assets under that folder are not separate Review definitions.

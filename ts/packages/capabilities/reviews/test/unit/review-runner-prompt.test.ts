@@ -9,6 +9,7 @@ import {
 } from "../../src/gateways/review-runner-prompt.ts";
 import {
 	createLocalDiff,
+	createRevisionRangeLocalDiff,
 	type PriorFindingsPromptContext,
 	type ReviewDefinition,
 } from "../../src/core/models.ts";
@@ -64,6 +65,23 @@ describe("Claude Code harness prompt assembly", () => {
 		expect(assembled.promptText).toContain("Changed paths:\n- src/app.ts");
 		expect(assembled.promptText).toContain("```diff\ndiff --git a/src/app.ts b/src/app.ts");
 		expect(assembled.promptText.endsWith("\n")).toBe(false);
+	});
+
+	test("labels revision-range prompt metadata honestly", () => {
+		const localDiff = createRevisionRangeLocalDiff({
+			revisionRange: "stack-base..stack-head",
+			diffText: "diff",
+			files: [],
+		});
+
+		const assembled = assembleReviewPrompt({
+			reviewDefinition,
+			reviewDir: "/repo/.ns/reviews/typescript-style",
+			target: { localDiff },
+		});
+
+		expect(assembled.promptText).toContain("- Revision range: stack-base..stack-head");
+		expect(assembled.promptText).not.toContain("- Base ref: stack-base..stack-head");
 	});
 
 	test("renders no changed paths and collision-free diff fences without convergence context by default", () => {

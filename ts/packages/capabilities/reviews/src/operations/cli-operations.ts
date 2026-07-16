@@ -357,6 +357,8 @@ export async function recordSameSessionFindings(
 	});
 	if (!loaded.ok) return { type: "failed", error: loaded.error };
 	const { source, definition, diff } = loaded.value;
+	if (diff.sourceType !== "base-ref")
+		throw new Error("Same-session compatibility flow requires a base-ref diff.");
 
 	const result = reviewRunResultSchema.parse({
 		reviewName: source.key,

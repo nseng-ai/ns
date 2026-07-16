@@ -20,13 +20,19 @@ export {
 export {
 	createFindingsReview,
 	createLocalDiff,
+	createRevisionRangeLocalDiff,
 	reviewExecutionResponseSchema,
+	reviewRosterRunRequestSchema,
+	reviewRosterRunResultSchema,
 	reviewFindingsPayloadSchema,
 	type PriorFindingsPromptContext,
 	type ReviewExecutionResponse,
 	type ReviewFindingsPayload,
 	type ReviewRunnerRequest,
 	type ReviewUsage,
+	type ReviewRosterProgressEvent,
+	type ReviewRosterRunRequest,
+	type ReviewRosterRunResult,
 } from "./models.ts";
 export {
 	gatherPriorFindingsContext,
@@ -42,6 +48,7 @@ export {
 	type RunReviewProgress,
 	type RunReviewRequest,
 } from "../operations/review-run.ts";
+export { runReviewRoster, type RunReviewRosterOptions } from "../operations/review-roster-run.ts";
 export type {
 	LocalDiffFailure,
 	LocalDiffFailureCode,

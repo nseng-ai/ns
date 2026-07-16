@@ -1,6 +1,6 @@
 import type { ErrorInfo, Result } from "@nseng-ai/foundation/result";
 
-export type ReviewDefinitionFailureCode = "review-definition-invalid";
+export type ReviewDefinitionFailureCode = "review-definition-invalid" | "review-roster-invalid";
 
 export type ReviewCatalogFailureCode =
 	| "reviews-dir-missing"

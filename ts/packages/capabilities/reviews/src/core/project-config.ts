@@ -31,10 +31,17 @@ export type ProjectConfigErrorCode =
 	| "invalid-exclude"
 	| "invalid-model-policy";
 
-export interface GitDiffArgsOptions {
-	readonly baseRef: string;
-	readonly excludeGlobs?: readonly string[];
-}
+export type GitDiffArgsOptions =
+	| {
+			readonly type?: "base-ref";
+			readonly baseRef: string;
+			readonly excludeGlobs?: readonly string[];
+	  }
+	| {
+			readonly type: "revision-range";
+			readonly revisionRange: string;
+			readonly excludeGlobs?: readonly string[];
+	  };
 
 const EMPTY_MODEL_POLICY = parseModelPolicyToml("");
 if (!EMPTY_MODEL_POLICY.ok) throw new Error(EMPTY_MODEL_POLICY.error.message);
@@ -106,7 +113,7 @@ export function buildGitDiffArgs(options: GitDiffArgsOptions): readonly string[]
 		"diff.dstPrefix=b/",
 		"diff",
 		"--no-ext-diff",
-		`origin/${options.baseRef}...HEAD`,
+		options.type === "revision-range" ? options.revisionRange : `origin/${options.baseRef}...HEAD`,
 	];
 	const excludeGlobs = options.excludeGlobs ?? [];
 	if (excludeGlobs.length === 0) return args;

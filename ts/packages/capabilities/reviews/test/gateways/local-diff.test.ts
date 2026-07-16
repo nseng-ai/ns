@@ -10,8 +10,9 @@ import {
 	FakeLocalDiffGateway,
 	formatGitDiffDisplayCommand,
 	RealLocalDiffGateway,
+	type LoadDiffOptions,
 } from "../../src/gateways/local-diff.ts";
-import { createLocalDiff } from "../../src/core/models.ts";
+import { createLocalDiff, createRevisionRangeLocalDiff } from "../../src/core/models.ts";
 
 const SAMPLE_DIFF =
 	"diff --git a/src/app.ts b/src/app.ts\n" +
@@ -23,6 +24,19 @@ const SAMPLE_DIFF =
 	"+new\n";
 
 describe("FakeLocalDiffGateway", () => {
+	test("keeps base-ref compatibility while rejecting ambiguous selections at the type boundary", () => {
+		const compatible: LoadDiffOptions = { cwd: "/repo", baseRef: "main" };
+		expect(compatible.baseRef).toBe("main");
+
+		const ambiguous: LoadDiffOptions = {
+			cwd: "/repo",
+			baseRef: "main",
+			// @ts-expect-error A diff request must choose either baseRef compatibility or selection.
+			selection: { type: "revision-range", revisionRange: "main..HEAD" },
+		};
+		expect(ambiguous.cwd).toBe("/repo");
+	});
+
 	test("returns copied configured diffs and records requested base refs", async () => {
 		const diff = createLocalDiff({ baseRef: "main", diffText: SAMPLE_DIFF, files: [] });
 		const gateway = new FakeLocalDiffGateway({ defaultDiff: { ok: true, value: diff } });
@@ -76,6 +90,48 @@ describe("RealLocalDiffGateway", () => {
 				":(exclude,glob).agents/skills/**/*.py",
 			],
 		});
+	});
+
+	test("passes an explicit revision range as one argv element with exclusions", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "reviews-local-range-diff-"));
+		await mkdir(repoRoot, { recursive: true });
+		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: SAMPLE_DIFF })]);
+		const gateway = new RealLocalDiffGateway({
+			execApi,
+			gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }),
+		});
+
+		const result = await gateway.loadDiff({
+			cwd: repoRoot,
+			selection: { type: "revision-range", revisionRange: "base^{commit}..topic" },
+			excludeGlobs: ["vendor/**"],
+		});
+
+		expect(result.ok).toBe(true);
+		if (result.ok)
+			expect(result.value).toEqual(
+				createRevisionRangeLocalDiff({
+					revisionRange: "base^{commit}..topic",
+					diffText: SAMPLE_DIFF,
+					files: result.value.files,
+				}),
+			);
+		expect(execApi.calls()[0]?.args).toEqual([
+			"-c",
+			"diff.noprefix=false",
+			"-c",
+			"diff.mnemonicPrefix=false",
+			"-c",
+			"diff.srcPrefix=a/",
+			"-c",
+			"diff.dstPrefix=b/",
+			"diff",
+			"--no-ext-diff",
+			"base^{commit}..topic",
+			"--",
+			".",
+			":(exclude,glob)vendor/**",
+		]);
 	});
 
 	test("falls back to trunk branch and reports git diff failures", async () => {

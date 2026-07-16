@@ -59,7 +59,12 @@ export function assembleReviewPrompt(
 		review_description: request.reviewDefinition.description,
 		review_instructions: request.reviewDefinition.instructions,
 		review_dir: request.reviewDir,
-		base_ref: request.target.localDiff.baseRef,
+		diff_source_label:
+			request.target.localDiff.sourceType === "base-ref" ? "Base ref" : "Revision range",
+		diff_source_value:
+			request.target.localDiff.sourceType === "base-ref"
+				? request.target.localDiff.baseRef
+				: request.target.localDiff.revisionRange,
 		changed_path_count: String(request.target.localDiff.changedPaths.length),
 		prior_findings_context: renderPriorFindingsContext(request.priorFindingsContext),
 		changed_paths: changedPaths,
