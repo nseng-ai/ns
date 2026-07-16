@@ -9,7 +9,7 @@ import {
 	triggerSuccessResponseSchema,
 	triggerWorkflowValues,
 } from "../http/wire.ts";
-import { DISPATCH_CONTEXT_NAMESPACE } from "../dispatch/dispatch-context.ts";
+import { DISPATCH_CONTEXT_NAMESPACE, DISPATCH_ID_MAX_CHARS } from "../dispatch/dispatch-context.ts";
 import {
 	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
 	DISPATCH_ANCHOR_PR_NUMBER_MAX,
@@ -41,8 +41,11 @@ const dispatchIdentitySchema = {
 
 const dispatchContextLocatorSchema = z.strictObject({
 	namespace: z.literal(DISPATCH_CONTEXT_NAMESPACE),
-	dispatchId: z.string().min(1).max(200),
-	contextPrefix: z.string().min(1).max(201),
+	dispatchId: z.string().min(1).max(DISPATCH_ID_MAX_CHARS),
+	contextPrefix: z
+		.string()
+		.min(1)
+		.max(DISPATCH_ID_MAX_CHARS + 1),
 	planKey: z.string().min(1).max(500),
 	sourceBranch: z.string().min(1).max(500),
 	snapshotRef: z.string().min(1).max(1_000),
@@ -89,7 +92,7 @@ export const triggerRequestSchema = z.union([
 		.strictObject({
 			workflow: z.literal("dispatch"),
 			...dispatchIdentitySchema,
-			dispatchId: z.string().min(1).max(200),
+			dispatchId: z.string().min(1).max(DISPATCH_ID_MAX_CHARS),
 			contextLocator: dispatchContextLocatorSchema,
 		})
 		.refine((request) => request.dispatchId === request.contextLocator.dispatchId),
