@@ -1,70 +1,150 @@
 # Dispatch a Saved Plan
 
-`ns dispatch plan` sends a Saved Plan to the configured ns cloud runner and returns immediately with an anchor pull request. The remote agent executes the plan against your exact branch head; its commits, decision log, and any failure report land on that pull request.
+`ns vercel` has the ability to dispatch long-running work remotely. Long-running
+autonomous sessions are what make this useful.
 
-```sh
-ns dispatch plan ~/.local/state/ns/enriched-plan/nseng-ai--ns/main/add-cache.md
+Many harness directly support the creation of plans or have a norm of doing so,
+and those plan are often the basis of long-running sessions. This system
+stacks on that norm, and allows the user to create plans interactively and
+then dispatch them for autonomous execution.
+
+```
+/ns:dispatch:plan
 ```
 
-The kernel command always takes an explicit Saved Plan reference. Harness integrations may offer session-aware convenience—for example, a Pi command can select the latest Saved Plan from the current session—but they ultimately call the same explicit command.
+A remote agent gets your repository at the exact commit you're sitting on,
+retrieves the exact plan you saved, and executes it. The results — commits
+and a decision log — land on a pull request that opens the moment you
+dispatch. Your session never blocks.
 
-## Before you dispatch
+> **Draft status.** This is the canonical user-facing contract for the
+> `dispatch-plan-brmem-delivery` objective, developed README-first. It
+> documents the in-harness experience, starting with Pi. `ns dispatch plan`
+> is not yet implemented or live-proven; unsettled decisions are listed
+> under [Open questions](#open-questions) rather than silently invented.
 
-The worktree must be clean, the source revision must be remotely reachable, and Branch Memory synchronization must be configured for the repository's Git remote.
+### One-time setup
 
-Configure Branch Memory once in the clone:
+Dispatch delivers the plan through Branch Memory, so the clone needs Branch
+Memory synchronization configured once:
 
 ```sh
 brmem setup-git
 ```
 
-Dispatch checks this prerequisite. It does not silently edit Git configuration. If synchronization is not configured, the command stops before starting cloud work and tells you how to fix it.
+Dispatch checks this before doing anything. It never silently edits your
+Git configuration — if setup is missing, it stops before any cloud work
+starts and prints exactly this command.
 
-## How the plan travels
+## Pi walkthrough
 
-The Saved Plan remains the thing you select. Branch Memory is the delivery mechanism.
+### 1. Plan in your session
 
-Before starting the cloud workflow, ns:
+Work through a plan the way you normally do — for example, stress-test it
+with `/ns:plan:grill-and-save`, or write it up and run `/ns:plan:save`.
+Either way you end with a **Saved Plan**: a self-contained Markdown plan
+file in the local plan store, written for a completely fresh implementing
+session. That "fresh session" is about to be a cloud one.
 
-1. resolves the explicit Saved Plan;
-2. stores a dispatch-owned copy in Branch Memory Namespace `dispatch-input`, under a unique key for this dispatch;
-3. publishes and verifies the exact Branch Memory Snapshot Ref on the remote; and
-4. sends the workflow a typed locator—not the plan body.
+### 2. Dispatch
 
-The delivery Entry is retained after the run as input evidence. It is not an Attached Plan and does not use the `branch-context` Namespace.
+```
+/ns:dispatch:plan
+```
 
-In the sandbox, the supervisor fetches the exact Snapshot Ref and checks that the Entry is readable before launching the agent. The agent's first task action is `brmem get` for that locator; it then executes the retrieved plan.
+With no argument, the Pi command selects the most recent Saved Plan from
+your current session — the one you just finished. Pass an explicit plan
+reference to select a different one.
 
-This keeps large plan content out of HTTP and workflow payloads while making the dispatched input git-native, inspectable, and reproducible.
+The standard per-dispatch prerequisites shared with `ns dispatch prompt`
+apply: a clean worktree and a branch head the remote can see. If your tree
+is dirty, dispatch refuses and lists the files; if your branch isn't
+pushed, dispatch pushes it first so the remote agent sees exactly what you
+see.
 
-## What runs remotely
+Latest-plan selection is Pi session sugar. The underlying command
+always takes an explicit Saved Plan reference, and works from any shell:
 
-The remote agent receives:
+```sh
+ns dispatch plan ~/.local/state/ns/enriched-plan/nseng-ai--ns/main/add-cache.md
+```
 
-- your repository at the exact dispatched commit;
-- the Branch Memory locator for the delivered Saved Plan; and
-- an instruction to retrieve that Entry with `brmem get` and execute it.
+### 3. Keep working, then review
 
-The agent does not choose a different plan, fall back to the latest plan, or infer work from the branch. If the exact Entry cannot be fetched and checked, the workflow does not ask the agent to improvise.
+The run executes remotely under workflow supervision. When it finishes, the
+agent's commits land on the anchor PR alongside its decision log — every
+judgment call it made where it would normally have asked you. Review it
+like any other PR: check out the branch, continue it, stack on it, or
+discard it.
 
-## The anchor pull request
+## What the remote agent does
 
-Dispatch creates a `dispatch/` anchor branch and opens its pull request before the workflow runs. The pull request records the source revision, workflow run, and plan-delivery provenance. Successful agent commits land there. A terminal retrieval, execution, or landing failure is also reported there so the dispatch cannot disappear silently.
+The remote agent receives your repository at the exact dispatched commit
+and a locator for the plan you selected — not a paraphrase of it. Its first
+action is `brmem get` for that locator; its task is to execute the
+retrieved plan.
 
-The result path is unchanged from `ns dispatch prompt`: git carries the work back; the anchor pull request is the durable review and pickup surface.
+Precision is the contract:
 
-## Failure and retry
+- It executes **the plan you dispatched** — it does not pick a different
+  plan, fall back to "the latest one," or infer work from the branch.
+- Before the agent even launches, the workflow supervisor fetches and
+  checks that the exact plan entry is readable in the sandbox. If it
+  isn't, the run fails deterministically and reports on the anchor PR —
+  the agent is never asked to improvise around missing input.
+- Like every dispatch, the run is strictly non-interactive: where the
+  agent would ask you, it makes the call and records it in the decision
+  log.
 
-Dispatch reports which durable artifacts already exist when a step fails. In particular, a Branch Memory Entry or remotely published Snapshot Ref may exist even if no workflow started. Retrying uses a new dispatch identity rather than silently replacing another dispatch's input evidence.
+## Under the hood: Branch Memory delivery
 
-If setup preflight fails, run the printed `brmem setup-git` command and retry. If remote verification fails, inspect the reported Snapshot Ref and Git error before retrying. If sandbox retrieval fails after the anchor pull request exists, read the durable failure report on that pull request.
+The Saved Plan is what you select; Branch Memory is how it travels. Before
+starting the cloud workflow, dispatch:
+
+1. resolves your explicit Saved Plan;
+2. stores a dispatch-owned copy in the Branch Memory namespace
+   `dispatch-input`, under a key unique to this dispatch;
+3. publishes that snapshot to the remote and verifies the exact ref is
+   reachable; and
+4. hands the workflow a typed locator — never the plan body.
+
+The plan content never rides in an HTTP request or workflow payload. It
+moves the same way everything else in ns moves: through git. That makes the
+dispatched input inspectable (`brmem get` shows exactly what the agent
+received), reproducible, and durable — the delivery entry is retained after
+the run as input evidence.
+
+The delivery entry is dispatch-owned plumbing: it is not an Attached Plan
+and does not touch the `branch-context` namespace your own branch planning
+uses.
+
+## If something goes wrong
+
+- **Setup preflight fails** — run the printed `brmem setup-git` command and
+  dispatch again.
+- **Remote verification fails** — the command reports the snapshot ref and
+  the Git error; inspect and retry. Dispatch tells you which durable
+  artifacts it already created (a Branch Memory entry or published ref may
+  exist even though no workflow started), so retrying is safe: a retry uses
+  a new dispatch identity rather than silently replacing another dispatch's
+  input evidence.
+- **The run fails after the anchor PR exists** — the failure is reported
+  durably on that PR, including sandbox-side retrieval failures. A dispatch
+  cannot disappear silently: if it got far enough to have an anchor, the
+  anchor tells the story.
 
 ## Current status
 
-This README is the design contract for work in progress. `ns dispatch plan` and its Branch Memory delivery path are not yet implemented or live-proven. The existing Vercel Workflow supervisor and anchor-PR result path come from `ns dispatch prompt`; this work adds Saved Plan input without creating another cloud backend.
+This README is the design contract for work in progress. `ns dispatch plan`,
+the `/ns:dispatch:plan` Pi command, and the Branch Memory delivery path are
+not yet implemented or live-proven. The workflow supervisor and anchor-PR
+result path already exist and are proven by `ns dispatch prompt`; this work
+adds Saved Plan input without creating another cloud backend.
 
 ## Open questions
 
-- The exact human-readable Entry Key shape within `dispatch-input` is not settled.
-- The final command output and anchor-PR fields for the Branch Memory locator are not settled.
-- Retained delivery Entries have no automatic cleanup policy in this work.
+- The exact human-readable entry key shape within `dispatch-input` is not
+  settled.
+- The final command output and anchor-PR fields for the Branch Memory
+  locator are not settled.
+- Retained delivery entries have no automatic cleanup policy in this work.
