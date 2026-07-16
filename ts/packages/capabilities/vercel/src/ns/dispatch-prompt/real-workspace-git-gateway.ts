@@ -1,5 +1,6 @@
 import { commandSucceeded, type CommandRunner } from "@nseng-ai/foundation/command";
 
+import { isValidDispatchAnchorBranch } from "../../dispatch/dispatch-run.ts";
 import type {
 	DispatchGatewayError,
 	DispatchLocalGitFactsGateway,
@@ -115,6 +116,41 @@ export function createRealDispatchWorkspaceGitGateway(
 			const sha = parseGitLsRemoteSha(result.stdout);
 			if (sha === null) return { type: "missing" };
 			return { type: "found", sha };
+		},
+		async isAnchorBranchNameAvailable({ cwd, anchorBranch }) {
+			if (!isValidDispatchAnchorBranch(anchorBranch)) {
+				return {
+					type: "error",
+					error: {
+						code: "invalid-anchor-branch",
+						message: `Cannot inspect invalid dispatch anchor branch ${JSON.stringify(anchorBranch)}.`,
+					},
+				};
+			}
+			const result = await git(
+				["ls-remote", DISPATCH_REMOTE_NAME, `refs/heads/${anchorBranch}`],
+				cwd,
+				GIT_READ_TIMEOUT_MS,
+			);
+			if (!commandSucceeded(result)) {
+				return {
+					type: "error",
+					error: dispatchCommandError(
+						"git-ls-remote-failed",
+						`Could not inspect availability of anchor branch ${anchorBranch}`,
+						result,
+					),
+				};
+			}
+			if (result.stdout.trim().length === 0) return { type: "available" };
+			if (parseGitLsRemoteSha(result.stdout) !== null) return { type: "occupied" };
+			return {
+				type: "error",
+				error: {
+					code: "git-ls-remote-invalid-output",
+					message: `Inspecting availability of anchor branch ${anchorBranch} returned an invalid response.`,
+				},
+			};
 		},
 		async pushSourceBranch({ cwd, branch }) {
 			return await pushRef({

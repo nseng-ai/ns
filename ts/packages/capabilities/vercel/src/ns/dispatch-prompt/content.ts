@@ -1,9 +1,6 @@
-// Pure content builders for `ns dispatch prompt`: the anchor branch
-// naming scheme (settling seam-design §5's `dispatch/<source>-<short-id>`
-// placeholder) and the up-front anchor PR title/body. Everything here is
-// deterministic in its inputs; wording is status-aware — the body
-// describes a submitted-not-finished run, and the workflow's own
-// reporting later lands the decision log or the failure comment.
+// Pure content builders for dispatch anchor branches and pull requests.
+// Prompt dispatch selects semantic names elsewhere; Saved Plan dispatch
+// retains its dispatch-ID-based anchor path here.
 import type { DispatchPlanContextLocator } from "../../dispatch/dispatch-context.ts";
 import {
 	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
@@ -11,7 +8,7 @@ import {
 	isValidDispatchAnchorBranch,
 } from "../../dispatch/dispatch-run.ts";
 
-/** Cap on the sanitized source-branch portion of an anchor branch name. */
+/** Cap on the sanitized source-branch portion of a Saved Plan anchor branch name. */
 const ANCHOR_SOURCE_SEGMENT_MAX_CHARS = 120;
 
 /** Cap on the PR title's prompt excerpt. */
@@ -19,17 +16,10 @@ const ANCHOR_PR_TITLE_PROMPT_MAX_CHARS = 72;
 
 export const DISPATCH_ANCHOR_PR_TITLE_PREFIX = "[dispatch] ";
 
-/**
- * Build the anchor branch name: `dispatch/<sanitized-source>-<id>`. The
- * sanitized source keeps the branch recognizably tied to where it was
- * dispatched from; the id suffix keeps repeated dispatches from one
- * branch distinct. Output always satisfies
- * {@link isValidDispatchAnchorBranch} (the landing command's injection
- * gate), which the caller re-checks as an invariant.
- */
-export function buildAnchorBranchName(sourceBranch: string, anchorId: string): string {
+/** Build the Saved Plan anchor name: `dispatch/<sanitized-source>-<dispatch-id>`. */
+export function buildAnchorBranchName(sourceBranch: string, dispatchId: string): string {
 	const sanitizedSource = sanitizeAnchorSegment(sourceBranch);
-	const sanitizedId = sanitizeAnchorSegment(anchorId);
+	const sanitizedId = sanitizeAnchorSegment(dispatchId);
 	const name = `${DISPATCH_ANCHOR_BRANCH_PREFIX}${sanitizedSource}-${sanitizedId}`;
 	if (!isValidDispatchAnchorBranch(name) || name.length > DISPATCH_ANCHOR_BRANCH_MAX_CHARS) {
 		throw new Error(`Built an invalid dispatch anchor branch name: ${JSON.stringify(name)}`);
@@ -37,13 +27,6 @@ export function buildAnchorBranchName(sourceBranch: string, anchorId: string): s
 	return name;
 }
 
-/**
- * Reduce a branch name (or id) to the anchor charset: `/` becomes `-` so
- * the anchor stays a two-segment name, everything outside
- * `[A-Za-z0-9._-]` becomes `-`, runs collapse, and edge characters that
- * would break git ref segment rules are trimmed. Empty input falls back
- * to `work`.
- */
 function sanitizeAnchorSegment(value: string): string {
 	const sanitized = value
 		.replace(/[^A-Za-z0-9._-]+/g, "-")
@@ -54,8 +37,9 @@ function sanitizeAnchorSegment(value: string): string {
 		.slice(0, ANCHOR_SOURCE_SEGMENT_MAX_CHARS)
 		.replace(/[-.]+$/, "");
 	if (sanitized.length === 0) return "work";
-	if (sanitized.toLowerCase().endsWith(".lock"))
+	if (sanitized.toLowerCase().endsWith(".lock")) {
 		return `${sanitized.slice(0, -".lock".length)}-lock`;
+	}
 	return sanitized;
 }
 

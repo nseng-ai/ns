@@ -91,16 +91,26 @@ Rejected:
 Exact stamp mechanics (PR-description metadata block vs. bot comment) are
 steel-thread implementation detail.
 
-## 5. Anchor identity: `dispatch/` branch prefix
+## 5. Anchor identity: semantic name under the `dispatch/` prefix
 
-Anchor branches are named `dispatch/<something>` (e.g.
-`dispatch/<source-branch>-<short-id>`; exact scheme settled in the steel
-thread). The prefix is simultaneously the user-visible naming convention
-and the TUI's enumeration filter: PRs whose head branch matches `dispatch/`
-are dispatch anchors.
+Anchor branches are named
+`dispatch/<semantic-slug>-<YYYYMMDD-HHmmss>`. Prompt dispatch derives the
+semantic slug from the dispatched prompt through the shared content-slug kit;
+a future plan command passes resolved plan content through the same
+dispatch-owned seam. `--slug/-s` explicitly overrides only the semantic
+portion and bypasses model generation. The timestamp uses the repository's
+configured IANA `anchor_timezone`, defaulting to `America/Los_Angeles`; an
+exact remote collision selects `-2`, `-3`, and so on through 50 candidates.
+Naming and availability complete before source reachability can push anything,
+and model failure has no fallback. The prefix remains simultaneously the
+user-visible convention and the TUI's enumeration filter: PRs whose head
+branch matches `dispatch/` are dispatch anchors.
 
-Rejected: GitHub label (setup/permission dependency, invisible in local
-git); PR-body-marker-only enumeration (scan-and-false-match).
+Rejected: source branch plus random id (provenance without work intent);
+random id on every semantic name (noise without useful chronology); delayed
+rename after execution (GitHub cannot rename the existing PR head cleanly);
+GitHub label (setup/permission dependency, invisible in local git); and
+PR-body-marker-only enumeration (scan-and-false-match).
 
 ## 6. The deployable lives inside the package
 
@@ -154,7 +164,8 @@ Rejected:
 ## 8. Repo configuration: `ns.toml` `[dispatch]` table
 
 Non-secret repo-level configuration — which harness adapter runs in-sandbox
-(pi first, Claude Code second), Vercel project linkage, defaults — lives in
+(pi first, Claude Code second), Vercel project linkage, and the semantic-anchor
+IANA timezone (`anchor_timezone`, default `America/Los_Angeles`) — lives in
 a typed, manifest-declared settings table in repo-root `ns.toml`, rooted at
 the extension group: `[dispatch]`. This is the kernel's sanctioned settings
 mechanism (settings are extension-rooted TOML tables with

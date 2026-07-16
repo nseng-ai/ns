@@ -5,20 +5,23 @@
 import { describe, expect, test } from "vitest";
 
 import { dispatchPromptCommand } from "../../src/ns/commands/prompt.ts";
+import { buildDispatchAnchorNameCandidates } from "../../src/ns/dispatch-prompt/anchor-name.ts";
 import {
 	createFakeDispatchGateways,
 	FakeDispatchNsApi,
-	FAKE_ANCHOR_ID,
+	FAKE_ANCHOR_TIMESTAMP,
 	FAKE_DEPLOYMENT_URL,
+	FAKE_DISPATCH_SETTINGS_SOURCE,
 	FAKE_HEAD_SHA,
 	FAKE_OIDC_TOKEN,
 	FAKE_RUN_ID,
+	FAKE_SEMANTIC_SLUG,
 	FAKE_WORKFLOW_RUN_URL,
 	type FakeDispatchGatewaysOptions,
 } from "./support/dispatch-prompt-fakes.ts";
 
 const PROMPT = "Rename the widget gateway methods to match the command-shape convention";
-const EXPECTED_ANCHOR_BRANCH = `dispatch/feature-widgets-${FAKE_ANCHOR_ID}`;
+const EXPECTED_ANCHOR_BRANCH = `dispatch/${FAKE_SEMANTIC_SLUG}-${FAKE_ANCHOR_TIMESTAMP}`;
 
 async function runPromptCommand(
 	argv: readonly string[],
@@ -57,11 +60,19 @@ describe("ns dispatch prompt", () => {
 		expect(api.phaseLabels).toEqual([
 			"Checking the source branch and worktree…",
 			"Validating dispatch configuration and identity…",
+			"Deriving the semantic anchor branch name…",
 			"Ensuring the source revision is remotely reachable…",
 			"Creating the anchor branch and pull request…",
 			"Starting the remote workflow…",
 			"Recording the workflow run on the anchor PR…",
 			"cleared",
+		]);
+		expect(gateways.semanticSlugs.calls).toEqual([
+			{ kind: "prompt", content: PROMPT, cwd: "/repo" },
+		]);
+		expect(gateways.clock.reads).toEqual([Date.UTC(2026, 6, 15, 14, 18, 14)]);
+		expect(gateways.git.anchorAvailabilityReads).toEqual([
+			{ cwd: "/repo", anchorBranch: EXPECTED_ANCHOR_BRANCH },
 		]);
 
 		// Push-first: the source branch, then the anchor ref at the exact SHA.
@@ -103,6 +114,8 @@ describe("ns dispatch prompt", () => {
 			"config:read-package-manager",
 			"token:read-development-oidc",
 			"trigger:check-identity",
+			"slug:derive-semantic",
+			"git:check-anchor-availability",
 			"git:read-remote-tip",
 			"git:push-source",
 			"git:push-anchor",
@@ -110,6 +123,165 @@ describe("ns dispatch prompt", () => {
 			"trigger:start-run",
 			"anchor-pr:stamp-run-id",
 		]);
+	});
+
+	test.each(["--slug", "-s"])(
+		"%s overrides the semantic slug and bypasses generation",
+		async (flag) => {
+			const { exit, gateways } = await runPromptCommand([flag, "Add Custom Widget!!!", PROMPT]);
+
+			expect(exit.type).toBe("ok");
+			if (exit.type !== "ok") return;
+			expect(exit.data).toMatchObject({
+				anchorBranch: "dispatch/add-custom-widget-20260715-071814",
+			});
+			expect(gateways.semanticSlugs.calls).toEqual([]);
+		},
+	);
+
+	test("defaults an omitted repository timezone to America/Los_Angeles", async () => {
+		const { exit } = await runPromptCommand([PROMPT], {
+			config: {
+				dispatchSettings: {
+					type: "found",
+					source: FAKE_DISPATCH_SETTINGS_SOURCE.replace(
+						'anchor_timezone = "America/Los_Angeles"\n',
+						"",
+					),
+				},
+			},
+		});
+
+		expect(exit.type).toBe("ok");
+		if (exit.type !== "ok") return;
+		expect(exit.data).toMatchObject({ anchorBranch: EXPECTED_ANCHOR_BRANCH });
+	});
+
+	test("uses the configured repository timezone for the anchor timestamp", async () => {
+		const { exit } = await runPromptCommand([PROMPT], {
+			config: {
+				dispatchSettings: {
+					type: "found",
+					source: FAKE_DISPATCH_SETTINGS_SOURCE.replace(
+						'anchor_timezone = "America/Los_Angeles"',
+						'anchor_timezone = "UTC"',
+					),
+				},
+			},
+		});
+
+		expect(exit.type).toBe("ok");
+		if (exit.type !== "ok") return;
+		expect(exit.data).toMatchObject({
+			anchorBranch: `dispatch/${FAKE_SEMANTIC_SLUG}-20260715-141814`,
+		});
+	});
+
+	test("selects -2 when the exact timestamped anchor already exists", async () => {
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
+			git: { occupiedAnchorBranches: [EXPECTED_ANCHOR_BRANCH] },
+		});
+
+		expect(exit.type).toBe("ok");
+		if (exit.type !== "ok") return;
+		expect(exit.data).toMatchObject({ anchorBranch: `${EXPECTED_ANCHOR_BRANCH}-2` });
+		expect(gateways.git.anchorAvailabilityReads.map((read) => read.anchorBranch)).toEqual([
+			EXPECTED_ANCHOR_BRANCH,
+			`${EXPECTED_ANCHOR_BRANCH}-2`,
+		]);
+	});
+
+	test("rejects an unusable slug override after preflight and before mutation", async () => {
+		const { exit, gateways } = await runPromptCommand(["--slug", "///", PROMPT]);
+
+		expect(exit.type).toBe("usageError");
+		if (exit.type !== "usageError") return;
+		expect(exit.data).toEqual({ argument: "slug" });
+		expect(gateways.semanticSlugs.calls).toEqual([]);
+		expect(gateways.git.anchorAvailabilityReads).toEqual([]);
+		expect(gateways.git.remoteTipReads).toEqual([]);
+		expect(gateways.git.sourcePushes).toEqual([]);
+		expect(gateways.git.anchorPushes).toEqual([]);
+		expect(gateways.anchorPrs.opened).toEqual([]);
+	});
+
+	test("fails semantic generation before remote-tip reads or mutation", async () => {
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
+			semanticSlug: {
+				ok: false,
+				error: { message: "Semantic generation unavailable; pass --slug/-s." },
+			},
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("branch-slug-generation-failed");
+		expect(exit.data).toMatchObject({ recovery: expect.stringContaining("--slug/-s") });
+		expect(gateways.git.anchorAvailabilityReads).toEqual([]);
+		expect(gateways.git.remoteTipReads).toEqual([]);
+		expect(gateways.git.sourcePushes).toEqual([]);
+		expect(gateways.git.anchorPushes).toEqual([]);
+		expect(gateways.anchorPrs.opened).toEqual([]);
+		expect(gateways.trigger.startCalls).toEqual([]);
+	});
+
+	test("fails invalid timezone config before slug generation or mutation", async () => {
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
+			config: {
+				dispatchSettings: {
+					type: "found",
+					source: FAKE_DISPATCH_SETTINGS_SOURCE.replace(
+						'anchor_timezone = "America/Los_Angeles"',
+						'anchor_timezone = "Not/A_Real_Zone"',
+					),
+				},
+			},
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("preflight-failed");
+		expect(gateways.semanticSlugs.calls).toEqual([]);
+		expect(gateways.git.anchorAvailabilityReads).toEqual([]);
+		expect(gateways.git.sourcePushes).toEqual([]);
+	});
+
+	test("reports anchor availability read failure before source reachability or mutation", async () => {
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
+			git: {
+				anchorAvailabilityError: {
+					type: "error",
+					error: { code: "git-ls-remote-failed", message: "Could not inspect origin." },
+				},
+			},
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("anchor-branch-availability-failed");
+		expect(exit.data).toEqual({ anchorBranch: EXPECTED_ANCHOR_BRANCH });
+		expect(gateways.git.remoteTipReads).toEqual([]);
+		expect(gateways.git.sourcePushes).toEqual([]);
+		expect(gateways.git.anchorPushes).toEqual([]);
+	});
+
+	test("reports bounded candidate exhaustion before source reachability or mutation", async () => {
+		const occupiedAnchorBranches = buildDispatchAnchorNameCandidates(
+			FAKE_SEMANTIC_SLUG,
+			FAKE_ANCHOR_TIMESTAMP,
+		).map((candidate) => candidate.name);
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
+			git: { occupiedAnchorBranches },
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("anchor-branch-unavailable");
+		expect(exit.data).toEqual({ semanticSlug: FAKE_SEMANTIC_SLUG, candidateLimit: 50 });
+		expect(gateways.git.anchorAvailabilityReads).toHaveLength(50);
+		expect(gateways.git.remoteTipReads).toEqual([]);
+		expect(gateways.git.sourcePushes).toEqual([]);
+		expect(gateways.git.anchorPushes).toEqual([]);
 	});
 
 	test("skips the source push when the remote already has the exact head", async () => {
@@ -385,14 +557,16 @@ describe("ns dispatch prompt", () => {
 		expect(exit.type).toBe("usageError");
 	});
 
-	test("--help renders usage for the command", async () => {
-		const { exit } = await runPromptCommand(["--help"]);
+	test.each(["--help", "-h"])("%s renders usage for the command", async (flag) => {
+		const { exit } = await runPromptCommand([flag]);
 
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") return;
 		const help = String(exit.data);
 		expect(help).toContain("Usage: ns dispatch prompt");
 		expect(help).toContain("clean worktree");
+		expect(help).toContain("--slug");
+		expect(help).toContain("-s");
 	});
 
 	test("--json-schema publishes the machine envelope contract", async () => {
@@ -408,6 +582,7 @@ describe("ns dispatch prompt", () => {
 		expect(schemaText).toContain("anchorPrUrl");
 		expect(schemaText).toContain("workflowRunUrl");
 		expect(schemaText).toContain("isSourcePushed");
+		expect(schemaText).toContain("slug");
 		const retiredKey = ["source", "Pushed"].join("");
 		expect(schemaText).not.toContain(`"${retiredKey}"`);
 	});

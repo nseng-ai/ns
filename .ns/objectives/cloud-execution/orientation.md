@@ -8,7 +8,8 @@ headless inside it (pi first via an ns-owned runner over the pi library, Claude 
 second via its headless CLI), supervises with poll steps and zero-compute sleeps, and
 lands results; plus a reusable setup skill distilled from the proven path and nightly
 objective advancement as a cron trigger of the same workflow. Git is the state plane:
-every dispatch pushes a `dispatch/`-prefixed anchor branch, opens its PR up front with
+every dispatch selects a semantic `dispatch/<slug>-<configured-zone-timestamp>` anchor
+branch before mutation, opens its PR up front with
 the workflow run id stamped on it, and results, decision log, and failure states land
 there — nothing else comes back. This is a README-driven Objective: the canonical
 user-facing contract is `references/README-draft.md` (promoting to
@@ -29,8 +30,11 @@ live-proven. The first real
 `ns dispatch prompt` completed as `wrun_01KXFZ14SBRCGTSPP5PEH19C3T` and landed one proof
 file plus decision log on PR #3612 through fallback commit recovery. It exposed two Pi host
 defects—extensions were not bound before prompt, and checkout-local `pi` was absent from
-child PATH. Local repairs are green; one controlled rerun must prove first-call Bash,
-agent-created commit, subagent spawn, and normal landing before the Pi steel thread closes.
+child PATH. Local repairs are green. The local prompt command now derives content-backed
+semantic anchor slugs (or accepts `--slug/-s`), uses a validated/defaulted repository IANA
+timezone, and exhausts exact remote-name collisions through `-50` before any push; this
+naming path is locally covered but not live-proven. One controlled rerun must prove first-call
+Bash, agent-created commit, subagent spawn, and normal landing before the Pi steel thread closes.
 The implemented dispatch-harness registry remains Pi-only: local preflight and remote
 invocation reject `claude-code` until its roadmap row supplies a complete recipe. No setup
 skill has landed; do not author it before the repaired Pi path is live-proven. The deployed
@@ -50,7 +54,8 @@ carries the run); reintroducing `HarnessAgent`/driver-in-workflow harness hostin
 its recorded revisit trigger (mid-run interactivity — see the
 workflow-supervisor-architecture-adopted Semantic Update); standing push-capable
 credentials in the sandbox environment (the supervisor mints in-process and injects the
-landing token into the single landing command); coupling the harness-session-generation
+landing token into the single landing command); source/random or deterministic fallbacks when
+semantic anchor generation fails; coupling the harness-session-generation
 local session contract to sandbox/cloud concerns.
 
 Active slice: see this objective's roadmap.md.

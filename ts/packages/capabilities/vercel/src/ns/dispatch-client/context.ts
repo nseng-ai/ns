@@ -10,15 +10,22 @@ import {
 	NsCommandExecApi,
 	NsStdinCapableCommandExecApi,
 } from "@nseng-ai/capability-kit/command-runner";
+import {
+	loadModelPolicy,
+	MODEL_OPERATION_IDS,
+	resolveModelOperation,
+} from "@nseng-ai/capability-kit/model-policy";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { systemClock } from "@nseng-ai/foundation/time";
 import type { NsCommandIo, NsExtensionApi } from "@nseng-ai/sdk";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import { RealDispatchSavedPlanGateway } from "../dispatch-plan/adapters.ts";
 import { RealDispatchPlanSnapshotGateway } from "../dispatch-plan/real-snapshot-gateway.ts";
 import type { DispatchPlanGateways, DispatchPromptGateways } from "./contracts.ts";
+import { createRealDispatchContentSlugGateway } from "../dispatch-prompt/content-slug.ts";
 import { createRealDispatchAnchorPrGateway } from "../dispatch-prompt/real-anchor-pr-gateway.ts";
-import { generateRealAnchorId } from "../dispatch-prompt/real-anchor-id.ts";
 import { createRealDispatchConfigGateway } from "../dispatch-prompt/real-config-gateway.ts";
 import { createRealDispatchLocalTokenGateway } from "../dispatch-prompt/real-local-token-gateway.ts";
 import { createRealDispatchTriggerGateway } from "../dispatch-prompt/real-trigger-gateway.ts";
@@ -41,19 +48,32 @@ export interface DispatchPlanCliContext {
 /** Gateway substitutions published through `ctx.extensions.dispatch`. */
 export type DispatchCommandOverrides = Partial<DispatchPlanGateways & DispatchPromptGateways>;
 
-export function createDispatchPromptContext(ctx: NsExtensionApi): DispatchPromptCliContext {
+export async function createDispatchPromptContext(
+	ctx: NsExtensionApi,
+): Promise<DispatchPromptCliContext> {
 	const overrides = readDispatchCommandOverrides(ctx);
+	const execApi = new NsCommandExecApi(ctx);
+	const localGitFacts = new RealGitGateway(execApi);
+	const semanticSlugs =
+		overrides?.semanticSlugs ??
+		createRealDispatchContentSlugGateway(
+			execApi,
+			await resolveDispatchSlugModelRef(ctx, localGitFacts),
+		);
 	return {
 		cwd: ctx.cwd,
 		commandIo: ctx.commandIo,
 		gateways: {
 			...createSharedDispatchGateways(ctx, overrides),
-			generateAnchorId: overrides?.generateAnchorId ?? generateRealAnchorId,
+			semanticSlugs,
+			clock: overrides?.clock ?? systemClock,
 		},
 	};
 }
 
-export function createDispatchPlanContext(ctx: NsExtensionApi): DispatchPlanCliContext {
+export async function createDispatchPlanContext(
+	ctx: NsExtensionApi,
+): Promise<DispatchPlanCliContext> {
 	const overrides = readDispatchCommandOverrides(ctx);
 	const commands = new NsStdinCapableCommandExecApi(ctx);
 	const git = new RealGitGateway(commands);
@@ -88,6 +108,21 @@ function createSharedDispatchGateways(
 	};
 }
 
+async function resolveDispatchSlugModelRef(
+	ctx: NsExtensionApi,
+	git: Pick<RealGitGateway, "optionalRepoRoot">,
+): Promise<string> {
+	const repository = await git.optionalRepoRoot({ cwd: ctx.cwd });
+	if (repository.type !== "found") {
+		throw new Error("Could not determine the repository root for ns.toml.");
+	}
+	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: nodeProjectConfigGateway });
+	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
+	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
+	return model.value.modelRef;
+}
+
 function readDispatchCommandOverrides(ctx: NsExtensionApi): DispatchCommandOverrides | undefined {
 	const raw = ctx.extensions?.dispatch;
 	if (raw === undefined || raw === null || typeof raw !== "object") return undefined;
@@ -98,7 +133,8 @@ function readDispatchCommandOverrides(ctx: NsExtensionApi): DispatchCommandOverr
 		trigger: overrides.trigger,
 		tokens: overrides.tokens,
 		config: overrides.config,
-		generateAnchorId: overrides.generateAnchorId,
+		semanticSlugs: overrides.semanticSlugs,
+		clock: overrides.clock,
 		savedPlans: overrides.savedPlans,
 		brmem: overrides.brmem,
 		snapshots: overrides.snapshots,

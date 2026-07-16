@@ -2,6 +2,7 @@
 // seams, plus a minimal NsExtensionApi fake that publishes them through
 // `ctx.extensions.dispatch` (the objectives override-channel pattern).
 import { FakeBrmemGateway, type BrmemResult, type PutEntryResult } from "@nseng-ai/brmem";
+import type { Clock } from "@nseng-ai/foundation/clock";
 import { noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
@@ -12,8 +13,12 @@ import type {
 } from "@nseng-ai/sdk";
 
 import type {
+	DispatchAnchorBranchAvailabilityResult,
 	DispatchAnchorPrGateway,
 	DispatchConfigGateway,
+	DispatchContentSlugGateway,
+	DispatchContentSlugInput,
+	DispatchContentSlugResult,
 	DispatchConfigSourceResult,
 	DispatchGitOperationResult,
 	DispatchLocalTokenGateway,
@@ -35,10 +40,12 @@ import type {
 } from "../../../src/ns/dispatch-plan/preparation.ts";
 
 export const FAKE_HEAD_SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
-export const FAKE_ANCHOR_ID = "ab12cd34";
 export const FAKE_DISPATCH_ID = "dsp_01JABCDEF0123456789";
 export const FAKE_PLAN_REF = "/state/ns/enriched-plan/ns/main/add-cache.md";
 export const FAKE_PLAN_SNAPSHOT_COMMIT = "1111111111111111111111111111111111111111";
+export const FAKE_SEMANTIC_SLUG = "rename-widget-gateway-methods";
+export const FAKE_NOW_MS = Date.UTC(2026, 6, 15, 14, 18, 14);
+export const FAKE_ANCHOR_TIMESTAMP = "20260715-071814";
 export const FAKE_RUN_ID = "wf_run_0123456789";
 export const FAKE_DEPLOYMENT_URL = "https://ns-dispatch.example.vercel.app";
 export const FAKE_WORKFLOW_DASHBOARD_URL = "https://vercel.com/example-team/ns-dispatch/workflows";
@@ -52,6 +59,7 @@ export const FAKE_DISPATCH_SETTINGS_SOURCE = [
 	'vercel_team_id = "team_Fake123"',
 	`workflow_dashboard_url = "${FAKE_WORKFLOW_DASHBOARD_URL}"`,
 	`deployment_url = "${FAKE_DEPLOYMENT_URL}"`,
+	'anchor_timezone = "America/Los_Angeles"',
 	"",
 ].join("\n");
 
@@ -68,6 +76,8 @@ export interface FakeWorkspaceGitState {
 	readonly dirtyPaths?: readonly string[];
 	/** Remote tip for the source branch; defaults to fresh (same as head). */
 	readonly remoteTip?: DispatchRemoteBranchTipResult;
+	readonly occupiedAnchorBranches?: readonly string[];
+	readonly anchorAvailabilityError?: DispatchAnchorBranchAvailabilityResult;
 	readonly sourcePushResult?: DispatchGitOperationResult;
 	readonly anchorPushResult?: DispatchGitOperationResult;
 }
@@ -76,13 +86,18 @@ export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGate
 	readonly sourceRefReads: string[] = [];
 	readonly dirtyPathReads: string[] = [];
 	readonly remoteTipReads: Array<{ cwd: string; branch: string }> = [];
+	readonly anchorAvailabilityReads: Array<{ cwd: string; anchorBranch: string }> = [];
 	readonly sourcePushes: string[] = [];
 	readonly anchorPushes: { revision: string; anchorBranch: string }[] = [];
 	private readonly state: FakeWorkspaceGitState;
 	private readonly recordOperation: (operation: string) => void;
 
 	constructor(state: FakeWorkspaceGitState = {}, recordOperation = (_operation: string) => {}) {
-		this.state = { ...state, dirtyPaths: [...(state.dirtyPaths ?? [])] };
+		this.state = {
+			...state,
+			dirtyPaths: [...(state.dirtyPaths ?? [])],
+			occupiedAnchorBranches: [...(state.occupiedAnchorBranches ?? [])],
+		};
 		this.recordOperation = recordOperation;
 	}
 
@@ -132,6 +147,20 @@ export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGate
 		this.remoteTipReads.push({ ...options });
 		this.recordOperation("git:read-remote-tip");
 		return this.state.remoteTip ?? { type: "found", sha: this.headSha() };
+	}
+
+	async isAnchorBranchNameAvailable(options: {
+		readonly cwd: string;
+		readonly anchorBranch: string;
+	}): Promise<DispatchAnchorBranchAvailabilityResult> {
+		this.anchorAvailabilityReads.push({ ...options });
+		this.recordOperation("git:check-anchor-availability");
+		if (this.state.anchorAvailabilityError !== undefined) {
+			return this.state.anchorAvailabilityError;
+		}
+		return this.state.occupiedAnchorBranches?.includes(options.anchorBranch) === true
+			? { type: "occupied" }
+			: { type: "available" };
 	}
 
 	async pushSourceBranch(options: {
@@ -341,6 +370,26 @@ class FakeDispatchSavedPlanGateway implements DispatchSavedPlanGateway {
 	}
 }
 
+export class FakeDispatchContentSlugGateway implements DispatchContentSlugGateway {
+	readonly calls: DispatchContentSlugInput[] = [];
+	private readonly result: DispatchContentSlugResult;
+	private readonly recordOperation: (operation: string) => void;
+
+	constructor(
+		result: DispatchContentSlugResult = { ok: true, slug: FAKE_SEMANTIC_SLUG },
+		recordOperation = (_operation: string) => {},
+	) {
+		this.result = result;
+		this.recordOperation = recordOperation;
+	}
+
+	async deriveSemanticSlug(input: DispatchContentSlugInput): Promise<DispatchContentSlugResult> {
+		this.calls.push({ ...input });
+		this.recordOperation("slug:derive-semantic");
+		return this.result;
+	}
+}
+
 class FakeDispatchPlanBrmemGateway extends FakeBrmemGateway {
 	override async createEntry(options: {
 		readonly namespace: string;
@@ -394,6 +443,20 @@ export interface FakeDispatchPlanState {
 	>;
 }
 
+export class FakeDispatchClock implements Clock {
+	readonly reads: number[] = [];
+	private readonly now: number;
+
+	constructor(now = FAKE_NOW_MS) {
+		this.now = now;
+	}
+
+	nowMs(): number {
+		this.reads.push(this.now);
+		return this.now;
+	}
+}
+
 export interface FakeDispatchGatewaysOptions {
 	readonly git?: FakeWorkspaceGitState;
 	readonly anchorPrs?: FakeAnchorPrState;
@@ -401,6 +464,8 @@ export interface FakeDispatchGatewaysOptions {
 	readonly token?: DispatchLocalTokenResult;
 	readonly config?: FakeDispatchConfigState;
 	readonly plan?: FakeDispatchPlanState;
+	readonly semanticSlug?: DispatchContentSlugResult;
+	readonly clockNowMs?: number;
 }
 
 export interface FakeDispatchGatewayBundle extends DispatchPromptGateways {
@@ -409,6 +474,8 @@ export interface FakeDispatchGatewayBundle extends DispatchPromptGateways {
 	readonly anchorPrs: FakeDispatchAnchorPrGateway;
 	readonly trigger: FakeDispatchTriggerGateway;
 	readonly config: FakeDispatchConfigGateway;
+	readonly semanticSlugs: FakeDispatchContentSlugGateway;
+	readonly clock: FakeDispatchClock;
 }
 
 export function createFakeDispatchGateways(
@@ -423,17 +490,17 @@ export function createFakeDispatchGateways(
 		trigger: new FakeDispatchTriggerGateway(options.trigger, recordOperation),
 		tokens: new FakeDispatchLocalTokenGateway(options.token, recordOperation),
 		config: new FakeDispatchConfigGateway(options.config, recordOperation),
-		generateAnchorId: () => FAKE_ANCHOR_ID,
+		semanticSlugs: new FakeDispatchContentSlugGateway(options.semanticSlug, recordOperation),
+		clock: new FakeDispatchClock(options.clockNowMs),
 	};
 }
 
 export function createFakePlanDispatchGateways(
 	options: FakeDispatchGatewaysOptions = {},
-): DispatchPlanGateways & Omit<FakeDispatchGatewayBundle, "generateAnchorId"> {
+): DispatchPlanGateways & FakeDispatchGatewayBundle {
 	const shared = createFakeDispatchGateways(options);
-	const { generateAnchorId: _generateAnchorId, ...planShared } = shared;
 	return {
-		...planShared,
+		...shared,
 		savedPlans: new FakeDispatchSavedPlanGateway(options.plan?.savedPlan),
 		brmem: new FakeDispatchPlanBrmemGateway(
 			options.plan?.brmem ?? {

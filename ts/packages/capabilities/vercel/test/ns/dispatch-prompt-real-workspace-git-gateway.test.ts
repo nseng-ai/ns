@@ -9,6 +9,7 @@ import { exited, ScriptedCommandRunner } from "./support/scripted-command-runner
 
 const SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
 const ANCHOR_SHA = "b2c3d4e5f60718293a4b5c6d7e8f9012345678a1";
+const ANCHOR_BRANCH = "dispatch/rename-widget-gateway-methods-20260715-071814";
 
 function createGateway(commands: ScriptedCommandRunner) {
 	return createRealDispatchWorkspaceGitGateway(new RealGitGateway(commands), commands.run);
@@ -68,6 +69,44 @@ describe("real workspace git gateway", () => {
 		]);
 	});
 
+	test("checks exact remote anchor availability as available or occupied", async () => {
+		for (const [stdout, expected] of [
+			["", { type: "available" }],
+			[`${ANCHOR_SHA}\trefs/heads/${ANCHOR_BRANCH}\n`, { type: "occupied" }],
+		] as const) {
+			const commands = new ScriptedCommandRunner([exited({ stdout })]);
+			const result = await createGateway(commands).isAnchorBranchNameAvailable({
+				cwd: "/repo",
+				anchorBranch: ANCHOR_BRANCH,
+			});
+
+			expect(result).toEqual(expected);
+			expect(commands.calls[0]?.args).toEqual([
+				"ls-remote",
+				"origin",
+				`refs/heads/${ANCHOR_BRANCH}`,
+			]);
+		}
+	});
+
+	test("returns a typed anchor availability read failure", async () => {
+		const commands = new ScriptedCommandRunner([
+			exited({ code: 1, stderr: "fatal: origin unavailable\nhidden follow-up" }),
+		]);
+		const result = await createGateway(commands).isAnchorBranchNameAvailable({
+			cwd: "/repo",
+			anchorBranch: ANCHOR_BRANCH,
+		});
+
+		expect(result).toEqual({
+			type: "error",
+			error: {
+				code: "git-ls-remote-failed",
+				message: `Could not inspect availability of anchor branch ${ANCHOR_BRANCH}: fatal: origin unavailable`,
+			},
+		});
+	});
+
 	test("uses Foundation NUL parsing for literal paths and rename/copy destinations", async () => {
 		const commands = new ScriptedCommandRunner([
 			exited({
@@ -113,7 +152,7 @@ describe("real workspace git gateway", () => {
 		const result = await createGateway(commands).pushAnchorBranch({
 			cwd: "/repo",
 			revision: SHA,
-			anchorBranch: "dispatch/feature-widgets-ab12cd34",
+			anchorBranch: ANCHOR_BRANCH,
 		});
 
 		expect(result.ok).toBe(true);
@@ -128,7 +167,7 @@ describe("real workspace git gateway", () => {
 		expect(commands.calls[1]?.args).toEqual([
 			"push",
 			"origin",
-			`${ANCHOR_SHA}:refs/heads/dispatch/feature-widgets-ab12cd34`,
+			`${ANCHOR_SHA}:refs/heads/${ANCHOR_BRANCH}`,
 		]);
 	});
 
@@ -158,15 +197,14 @@ describe("real workspace git gateway", () => {
 		const result = await createGateway(commands).pushAnchorBranch({
 			cwd: "/repo",
 			revision: SHA,
-			anchorBranch: "dispatch/feature-widgets-ab12cd34",
+			anchorBranch: ANCHOR_BRANCH,
 		});
 
 		expect(result).toEqual({
 			ok: false,
 			error: {
 				code: "git-push-failed",
-				message:
-					"Pushing anchor branch dispatch/feature-widgets-ab12cd34 failed: error: failed to push anchor ref",
+				message: `Pushing anchor branch ${ANCHOR_BRANCH} failed: error: failed to push anchor ref`,
 			},
 		});
 	});

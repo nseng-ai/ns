@@ -22,6 +22,13 @@ kernel CLI:
 ns dispatch prompt "Rename the widget gateway methods to match the command-shape convention"
 ```
 
+Dispatch derives the anchor's semantic slug from the prompt. For automation or
+when model-backed naming is unavailable, override only that portion explicitly:
+
+```sh
+ns dispatch prompt --slug rename-widget-gateway-methods "Rename the widget gateway methods to match the command-shape convention"
+```
+
 A thin Pi slash-command mirror remains planned.
 
 Or dispatch a plan:
@@ -63,7 +70,10 @@ out the branch, continue it, stack on it, or discard it.
 
 Dispatches a raw prompt as the unit of work. The remote agent receives the
 prompt and the repository at your branch head (see "What the remote agent
-sees").
+sees"). By default the prompt also supplies the content used to derive the
+anchor's semantic slug. `--slug/-s <slug>` bypasses model generation; the
+`dispatch/` prefix, configured-timezone timestamp, and collision suffix remain
+automatic.
 
 ### `/ns:dispatch:plan` (planned)
 
@@ -148,9 +158,19 @@ dispatched, adds one metadata-only initialization commit so GitHub can open
 the otherwise empty PR, and opens that PR immediately. The PR is the
 job's anchor — one durable, linkable place where the dispatch is observable
 from the moment it exists. The anchor branch is named
-`dispatch/<source-branch>-<short-id>` and starts from the exact commit you
+`dispatch/<semantic-slug>-<YYYYMMDD-HHmmss>`: the slug comes from the dispatched
+content unless `--slug/-s` overrides it, and the timestamp uses the repository's
+configured IANA timezone (default `America/Los_Angeles`). If that exact remote
+name exists, dispatch tries `-2`, `-3`, and so on through a bounded 50-name
+sequence. Semantic generation, timezone validation, timestamp construction, and
+remote-name selection all finish before the first push; failure reports an
+actionable error and starts no dispatch rather than falling back to a misleading
+source/random name. The selected branch starts from the exact commit you
 dispatched, with the PR based on your source branch so the metadata-only
-initialization has no file diff and the PR shows only what the run produces. At submission the PR is stamped with the run's
+initialization has no file diff and the PR shows only what the run produces. A
+concurrent dispatch can still claim the selected name after the availability
+check; in that race the existing anchor-push failure path reports the failed
+push and does not overwrite or reuse another anchor. At submission the PR is stamped with the run's
 handle — the supervising workflow's run id, written as a marked line in the
 PR description — so anything (you, the jobs TUI) can get from the PR to the
 run's state and logs later — the anchor PR is the durable record, not a
@@ -199,8 +219,11 @@ workflow-supervised execution as an interactive dispatch.
 Non-secret repo configuration lives in the repo-root `ns.toml`, in a typed
 `[dispatch]` table: which implemented agent harness runs inside the sandbox
 (currently only `pi`), the stable Vercel project/team IDs, the project's Vercel
-Workflows dashboard URL, and the dispatch deployable's stable HTTPS URL (the deployment recorded in step 3 below) that
-the CLI's trigger/observe calls target. It's versioned with the repo, so
+Workflows dashboard URL, the dispatch deployable's stable HTTPS URL (the deployment recorded in step 3 below) that
+the CLI's trigger/observe calls target, and the IANA timezone used in semantic
+anchor timestamps. The timezone is optional for existing repositories and
+defaults to `America/Los_Angeles`, but explicit configuration keeps the shared
+civil-time convention visible. It's versioned with the repo, so
 every clone dispatches the same way:
 
 ```toml
@@ -210,7 +233,11 @@ vercel_project_id = "prj_..."
 vercel_team_id = "team_..."
 workflow_dashboard_url = "https://vercel.com/<team>/<project>/workflows"
 deployment_url = "https://<dispatch-host>"
+anchor_timezone = "America/Los_Angeles"
 ```
+
+`anchor_timezone` accepts any IANA timezone recognized by the Node runtime and
+is canonicalized during config parsing.
 
 The checkout must also declare an exact stable pnpm version at
 `ts/package.json#packageManager`, for example `"packageManager": "pnpm@11.8.0"`.
@@ -258,7 +285,8 @@ run is ready to land — injected into the single landing command, never
 into the sandbox environment. Dispatch preflights credentials and reports
 exactly what is missing before any remote work starts: the `[dispatch]`
 table is present and valid with a registry-supported harness (currently
-`pi`), `workflow_dashboard_url`, and `deployment_url`; `ts/package.json#packageManager` is an exact
+`pi`), `workflow_dashboard_url`, `deployment_url`, and a valid/defaulted
+`anchor_timezone`; `ts/package.json#packageManager` is an exact
 supported pnpm declaration; the Development OIDC token is available by name
 (`VERCEL_OIDC_TOKEN` from the package's pulled `.env.local`); and a read-only
 authenticated run-status probe against the deployment confirms the caller's
