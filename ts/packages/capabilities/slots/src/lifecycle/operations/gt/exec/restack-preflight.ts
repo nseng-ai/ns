@@ -75,6 +75,7 @@ export async function runGtRestackPreflight(
 			inventory: inspection.inventory,
 			currentPath: ctx.repo.root,
 		});
+		if (result.rebaseInProgress) return ok(result);
 		return negative(`${stackResult.message} — run \`gt track\` first`, { data: result });
 	}
 
@@ -128,7 +129,8 @@ export async function runGtRestackPreflight(
 		slotConflicts,
 		warnings: [...integrity.warnings],
 	};
-	if (!result.clean || result.rebaseInProgress || result.slotConflicts.length > 0)
+	if (result.rebaseInProgress) return ok(result);
+	if (!result.clean || result.slotConflicts.length > 0)
 		return negative("Restack preflight is blocked.", { data: result });
 	return ok(result);
 }
@@ -137,6 +139,7 @@ export function renderGtRestackPreflight(result: GtRestackPreflightResult): stri
 	return JSON.stringify({
 		clean: result.clean,
 		tracked: result.tracked,
+		rebaseInProgress: result.rebaseInProgress,
 		effectiveScope: result.effectiveScope,
 		slotConflicts: result.slotConflicts,
 	});

@@ -388,7 +388,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			'{"clean":true,"tracked":true,"effectiveScope":"downstack","slotConflicts":[]}\n',
+			'{"clean":true,"tracked":true,"rebaseInProgress":false,"effectiveScope":"downstack","slotConflicts":[]}\n',
 		);
 
 		const json = runRestackPreflightScenario([
@@ -473,7 +473,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 		});
 	});
 
-	it("returns expected dirty, rebase, and Slot occupancy blocks as negative data", async () => {
+	it("reports dirty and Slot occupancy blocks as negative, and a current-worktree rebase as ok", async () => {
 		const dirty = runRestackPreflightScenario(
 			["gt", "exec", "restack-preflight", "--format", "json"],
 			{ git: { dirtyPaths: ["/repo"] } },
@@ -492,8 +492,9 @@ describe("slot gt exec restack-preflight CLI", () => {
 				},
 			},
 		);
-		expect(await rebase.exit).toBe(1);
+		expect(await rebase.exit).toBe(0);
 		expect(parseJsonOutput(rebase)).toMatchObject({
+			status: "ok",
 			data: {
 				rebaseInProgress: true,
 				slotConflicts: [
@@ -505,6 +506,21 @@ describe("slot gt exec restack-preflight CLI", () => {
 					},
 				],
 			},
+		});
+
+		const dirtyRebase = runRestackPreflightScenario(
+			["gt", "exec", "restack-preflight", "--format", "json"],
+			{
+				git: {
+					dirtyPaths: ["/repo"],
+					branchOccupancies: [{ path: "/repo", branch: "feature/current", operation: "rebase" }],
+				},
+			},
+		);
+		expect(await dirtyRebase.exit).toBe(0);
+		expect(parseJsonOutput(dirtyRebase)).toMatchObject({
+			status: "ok",
+			data: { clean: false, rebaseInProgress: true },
 		});
 
 		const occupied = runRestackPreflightScenario(
@@ -622,7 +638,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 		});
 	});
 
-	it("returns usable negative data for a detached rebase with a recovered branch", async () => {
+	it("returns usable ok data for a detached rebase with a recovered branch", async () => {
 		const run = runRestackPreflightScenario(
 			["gt", "exec", "restack-preflight", "--scope", "full", "--format", "json"],
 			{
@@ -634,9 +650,9 @@ describe("slot gt exec restack-preflight CLI", () => {
 			},
 		);
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			status: "negative",
+			status: "ok",
 			data: {
 				tracked: true,
 				rebaseInProgress: true,
@@ -676,9 +692,9 @@ describe("slot gt exec restack-preflight CLI", () => {
 			},
 		);
 
-		expect(await untracked.exit).toBe(1);
+		expect(await untracked.exit).toBe(0);
 		expect(parseJsonOutput(untracked)).toMatchObject({
-			status: "negative",
+			status: "ok",
 			data: {
 				tracked: false,
 				rebaseInProgress: true,
