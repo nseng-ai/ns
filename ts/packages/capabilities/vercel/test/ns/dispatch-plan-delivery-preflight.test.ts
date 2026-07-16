@@ -60,7 +60,7 @@ describe("preflightDispatchBrmemSetup", () => {
 		});
 
 		await expect(preflightDispatchBrmemSetup(gateway)).resolves.toEqual({
-			status: "preflight-failed",
+			status: "brmem-preflight-failed",
 			remote: "origin",
 			message:
 				'Could not inspect Branch Memory synchronization for Git remote "origin": could not read .git/config',

@@ -1,4 +1,4 @@
-import { ok } from "@nseng-ai/clinkr";
+import { negative, ok } from "@nseng-ai/clinkr";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -11,6 +11,7 @@ export const checkRequestSchema = z.object({
 	namespace: z.string().optional().describe("Namespace. Omit for ad-hoc base Entries."),
 	branch: z.string().optional().describe("Branch. Defaults to current branch."),
 	at: z.string().optional().describe("Snapshot ref or commit to inspect."),
+	require: z.boolean().default(false).describe("Require the named Entry to exist."),
 });
 
 export const checkResultSchema = z.object({
@@ -44,16 +45,17 @@ export async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
 	});
 	if (result.type === "error") return gatewayFailure<CheckResult>(result.error);
 	if (result.type === "missing") {
-		return ok(
-			emptyResult({
-				namespace,
-				key,
-				branch,
-				refName: locator,
-				target,
-				...optionalEntry("at", request.at),
-			}),
-		);
+		const data = emptyResult({
+			namespace,
+			key,
+			branch,
+			refName: locator,
+			target,
+			...optionalEntry("at", request.at),
+		});
+		return request.require
+			? negative("The requested Branch Memory Entry does not exist.", { data })
+			: ok(data);
 	}
 	return ok({
 		namespace,

@@ -17,14 +17,14 @@ import type { NsCommandIo, NsExtensionApi } from "@nseng-ai/sdk";
 import { RealDispatchSavedPlanGateway } from "../dispatch-plan/adapters.ts";
 import { RealDispatchPlanSnapshotGateway } from "../dispatch-plan/real-snapshot-gateway.ts";
 import type { DispatchPlanGateways, DispatchPromptGateways } from "./contracts.ts";
-import { createRealDispatchAnchorPrGateway } from "./real-anchor-pr-gateway.ts";
-import { generateRealAnchorId } from "./real-anchor-id.ts";
-import { createRealDispatchConfigGateway } from "./real-config-gateway.ts";
-import { createRealDispatchLocalTokenGateway } from "./real-local-token-gateway.ts";
-import { createRealDispatchTriggerGateway } from "./real-trigger-gateway.ts";
-import { createRealDispatchWorkspaceGitGateway } from "./real-workspace-git-gateway.ts";
+import { createRealDispatchAnchorPrGateway } from "../dispatch-prompt/real-anchor-pr-gateway.ts";
+import { generateRealAnchorId } from "../dispatch-prompt/real-anchor-id.ts";
+import { createRealDispatchConfigGateway } from "../dispatch-prompt/real-config-gateway.ts";
+import { createRealDispatchLocalTokenGateway } from "../dispatch-prompt/real-local-token-gateway.ts";
+import { createRealDispatchTriggerGateway } from "../dispatch-prompt/real-trigger-gateway.ts";
+import { createRealDispatchWorkspaceGitGateway } from "../dispatch-prompt/real-workspace-git-gateway.ts";
 
-import { generateRealDispatchId } from "./real-dispatch-id.ts";
+import { generateRealDispatchId } from "../dispatch-prompt/real-dispatch-id.ts";
 
 export interface DispatchPromptCliContext {
 	readonly cwd: string;
@@ -39,21 +39,15 @@ export interface DispatchPlanCliContext {
 }
 
 /** Gateway substitutions published through `ctx.extensions.dispatch`. */
-export type DispatchCommandOverrides = Partial<DispatchPlanGateways>;
+export type DispatchCommandOverrides = Partial<DispatchPlanGateways & DispatchPromptGateways>;
 
 export function createDispatchPromptContext(ctx: NsExtensionApi): DispatchPromptCliContext {
 	const overrides = readDispatchCommandOverrides(ctx);
-	const runner = createNsCommandRunner(ctx);
-	const localGitFacts = new RealGitGateway(new NsCommandExecApi(ctx));
 	return {
 		cwd: ctx.cwd,
 		commandIo: ctx.commandIo,
 		gateways: {
-			git: overrides?.git ?? createRealDispatchWorkspaceGitGateway(localGitFacts, runner),
-			anchorPrs: overrides?.anchorPrs ?? createRealDispatchAnchorPrGateway(runner),
-			trigger: overrides?.trigger ?? createRealDispatchTriggerGateway(),
-			tokens: overrides?.tokens ?? createRealDispatchLocalTokenGateway({ env: ctx.env }),
-			config: overrides?.config ?? createRealDispatchConfigGateway(),
+			...createSharedDispatchGateways(ctx, overrides),
 			generateAnchorId: overrides?.generateAnchorId ?? generateRealAnchorId,
 		},
 	};
@@ -63,11 +57,11 @@ export function createDispatchPlanContext(ctx: NsExtensionApi): DispatchPlanCliC
 	const overrides = readDispatchCommandOverrides(ctx);
 	const commands = new NsStdinCapableCommandExecApi(ctx);
 	const git = new RealGitGateway(commands);
-	const shared = createDispatchPromptContext(ctx);
 	return {
-		...shared,
+		cwd: ctx.cwd,
+		commandIo: ctx.commandIo,
 		gateways: {
-			...shared.gateways,
+			...createSharedDispatchGateways(ctx, overrides),
 			savedPlans:
 				overrides?.savedPlans ??
 				new RealDispatchSavedPlanGateway({ commands: new NsCommandExecApi(ctx) }),
@@ -76,6 +70,21 @@ export function createDispatchPlanContext(ctx: NsExtensionApi): DispatchPlanCliC
 				overrides?.snapshots ?? new RealDispatchPlanSnapshotGateway(new NsCommandExecApi(ctx)),
 			generateDispatchId: overrides?.generateDispatchId ?? generateRealDispatchId,
 		},
+	};
+}
+
+function createSharedDispatchGateways(
+	ctx: NsExtensionApi,
+	overrides: DispatchCommandOverrides | undefined,
+) {
+	const runner = createNsCommandRunner(ctx);
+	const localGitFacts = new RealGitGateway(new NsCommandExecApi(ctx));
+	return {
+		git: overrides?.git ?? createRealDispatchWorkspaceGitGateway(localGitFacts, runner),
+		anchorPrs: overrides?.anchorPrs ?? createRealDispatchAnchorPrGateway(runner),
+		trigger: overrides?.trigger ?? createRealDispatchTriggerGateway(),
+		tokens: overrides?.tokens ?? createRealDispatchLocalTokenGateway({ env: ctx.env }),
+		config: overrides?.config ?? createRealDispatchConfigGateway(),
 	};
 }
 

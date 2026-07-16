@@ -179,10 +179,15 @@ need them without turning the normal dispatch flow into transport output.
   exist even though no workflow started), so retrying is safe: a retry uses
   a new dispatch identity rather than silently replacing another dispatch's
   input evidence.
+- **A failure happens after plan delivery but before an anchor exists** — the
+  command reports the Dispatch ID plus the retained Branch Memory Entry and
+  published Snapshot Ref directly, so the durable input evidence is never
+  hidden behind an anchor that was not created.
 - **The run fails after the anchor PR exists** — the failure is reported
-  durably on that PR, including sandbox-side retrieval failures. A dispatch
-  cannot disappear silently: if it got far enough to have an anchor, the
-  anchor tells the story.
+  durably on that PR, including sandbox-side retrieval failures. Command
+  recovery output also retains the Dispatch ID and delivery artifacts. A
+  dispatch cannot disappear silently: if it got far enough to have an anchor,
+  the anchor tells the story.
 
 ### Current status
 

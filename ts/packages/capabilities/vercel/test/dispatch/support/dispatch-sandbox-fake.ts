@@ -13,6 +13,7 @@ export interface DispatchSandboxBehavior {
 	readonly writeFails?: boolean;
 	readonly writeThrows?: boolean;
 	readonly commandExitCode?: number;
+	readonly commandExitCodes?: readonly number[];
 	readonly commandFails?: boolean;
 	readonly commandThrows?: boolean;
 	readonly detachedFails?: boolean;
@@ -67,7 +68,12 @@ export class RecordingDispatchSandboxGateway implements DispatchSandboxGateway {
 		this.calls.push({ method: "run", options: { ...options } });
 		if (this.#behavior.commandThrows === true) throw new Error("command exploded");
 		if (this.#behavior.commandFails === true) return { ok: false } as const;
-		return { ok: true, exitCode: this.#behavior.commandExitCode ?? 0 } as const;
+		const runOrdinal = this.calls.filter((call) => call.method === "run").length - 1;
+		return {
+			ok: true,
+			exitCode:
+				this.#behavior.commandExitCodes?.[runOrdinal] ?? this.#behavior.commandExitCode ?? 0,
+		} as const;
 	}
 
 	async runDetachedSandboxCommand(options: {

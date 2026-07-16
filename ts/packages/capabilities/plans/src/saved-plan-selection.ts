@@ -1,4 +1,5 @@
 import { basename, isAbsolute } from "node:path";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
@@ -238,7 +239,7 @@ export async function resolveExplicitSavedPlanFile(
 	try {
 		directory = await resolvePlanStoreDirectory(pi, options);
 	} catch (error) {
-		return { type: "error", message: errorMessage(error) };
+		return { type: "error", message: formatErrorMessage(error) };
 	}
 
 	const filePath = normalizePlanFilePath(options.explicitPath);
@@ -304,7 +305,7 @@ export async function resolveExplicitSavedPlanFile(
 			},
 		};
 	} catch (error) {
-		return { type: "error", message: errorMessage(error) };
+		return { type: "error", message: formatErrorMessage(error) };
 	}
 }
 
@@ -452,8 +453,4 @@ function unsafe(message: string): SessionSavedPlanValidation {
 
 function unsafeExplicit(message: string): ExplicitSavedPlanFileResolution {
 	return { type: "unsafe", message };
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

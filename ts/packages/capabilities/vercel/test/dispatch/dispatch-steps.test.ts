@@ -269,9 +269,22 @@ describe("launchDispatchRun", () => {
 		);
 	});
 
-	it("stops before instruction write and launch when the Saved Plan precheck fails", async () => {
+	it.each([
+		{
+			label: "Snapshot Ref fetch",
+			exitCodes: [1],
+			message: "Saved Plan Snapshot Ref fetch and commit verification failed.",
+			runCount: 1,
+		},
+		{
+			label: "required Entry check",
+			exitCodes: [0, 1],
+			message: "Required Branch Memory Saved Plan Entry check failed.",
+			runCount: 2,
+		},
+	])("stops before instruction write and launch when the $label fails", async (scenario) => {
 		const { deps, sandboxes } = createDeps({
-			sandboxBehavior: { commandExitCode: 1 },
+			sandboxBehavior: { commandExitCodes: scenario.exitCodes },
 			harness: { ok: true, value: harnessInvocation({ provisionCommands: [] }) },
 		});
 
@@ -280,10 +293,12 @@ describe("launchDispatchRun", () => {
 		expect(result).toEqual({
 			ok: false,
 			code: "launch-failed",
-			message: "Saved Plan context precheck failed.",
+			message: scenario.message,
 			sandboxName: "sbx_dispatch",
 		});
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "run"]);
+		expect(sandboxes.calls.filter((call) => call.method === "run")).toHaveLength(scenario.runCount);
+		expect(sandboxes.calls.some((call) => call.method === "write")).toBe(false);
+		expect(sandboxes.calls.some((call) => call.method === "runDetached")).toBe(false);
 	});
 
 	it("never journals token material in its result", async () => {

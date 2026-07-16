@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
-import type { DispatchLocalTokenGateway } from "./contracts.ts";
+import type { DispatchLocalTokenGateway } from "../dispatch-client/contracts.ts";
 
 /** The env name `vercel env pull` writes the Development token under. */
 export const DISPATCH_OIDC_TOKEN_ENV_NAME = "VERCEL_OIDC_TOKEN";

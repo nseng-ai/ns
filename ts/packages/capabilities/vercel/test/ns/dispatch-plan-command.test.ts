@@ -25,7 +25,7 @@ async function runPlanCommand(argv: readonly string[], options: FakeDispatchGate
 
 describe("ns dispatch plan", () => {
 	test("delivers the Saved Plan and dispatches only its full locator", async () => {
-		const { exit, gateways } = await runPlanCommand([FAKE_PLAN_REF]);
+		const { exit, gateways, api } = await runPlanCommand([FAKE_PLAN_REF]);
 
 		if (exit.type !== "ok") {
 			throw new Error(JSON.stringify(exit));
@@ -56,6 +56,30 @@ describe("ns dispatch plan", () => {
 			contextLocator: { namespace: "dispatch-context" },
 		});
 		expect(JSON.stringify(call?.input)).not.toContain("# Add cache");
+		expect(api.phaseLabels).toEqual([
+			"Checking the source branch and worktree…",
+			"Validating dispatch configuration and identity…",
+			"Resolving the Saved Plan…",
+			"Ensuring the source revision is remotely reachable…",
+			"Delivering the Saved Plan through Branch Memory…",
+			"Creating the anchor branch and pull request…",
+			"Starting the remote workflow…",
+			"Recording the workflow run on the anchor PR…",
+			"cleared",
+		]);
+		expect(gateways.operations).toEqual([
+			"git:resolve-source-ref",
+			"git:list-dirty-paths",
+			"config:read-dispatch-settings",
+			"config:read-package-manager",
+			"token:read-development-oidc",
+			"trigger:check-identity",
+			"git:read-remote-tip",
+			"git:push-anchor",
+			"anchor-pr:open",
+			"trigger:start-run",
+			"anchor-pr:stamp-run-id",
+		]);
 	});
 
 	test("writes marked full provenance into the plan anchor PR", async () => {
@@ -151,6 +175,67 @@ describe("ns dispatch plan", () => {
 		expect(gateways.trigger.startCalls).toEqual([]);
 	});
 
+	test.each([
+		{
+			label: "anchor push",
+			options: {
+				git: {
+					anchorPushResult: {
+						ok: false as const,
+						error: { code: "push-failed", message: "Anchor push failed." },
+					},
+				},
+			},
+			errorType: "anchor-push-failed",
+			hasPr: false,
+		},
+		{
+			label: "anchor PR",
+			options: {
+				anchorPrs: {
+					openResult: {
+						ok: false as const,
+						error: { code: "pr-failed", message: "Anchor PR failed." },
+					},
+				},
+			},
+			errorType: "anchor-pr-failed",
+			hasPr: false,
+		},
+		{
+			label: "run-id validation",
+			options: { trigger: { runId: "unsafe run id" } },
+			errorType: "run-id-stamp-failed",
+			hasPr: true,
+		},
+		{
+			label: "run-id stamp",
+			options: {
+				anchorPrs: {
+					stampResult: {
+						ok: false as const,
+						error: { code: "stamp-failed", message: "Stamp failed." },
+					},
+				},
+			},
+			errorType: "run-id-stamp-failed",
+			hasPr: true,
+		},
+	] as const)("reports delivery evidence after $label failure", async (scenario) => {
+		const { exit } = await runPlanCommand([FAKE_PLAN_REF], scenario.options);
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe(scenario.errorType);
+		expect(exit.message).toContain(`Dispatch ID ${FAKE_DISPATCH_ID}`);
+		expect(exit.data).toMatchObject({
+			dispatchId: FAKE_DISPATCH_ID,
+			artifacts: [{ type: "branch-memory-entry" }, { type: "published-snapshot-ref" }],
+		});
+		if (scenario.hasPr) expect(exit.data).toMatchObject({ anchorPrNumber: 41 });
+		else expect(exit.data).not.toHaveProperty("anchorPrNumber");
+	});
+
 	test("keeps plan provenance and the open anchor visible when workflow start fails", async () => {
 		const { exit } = await runPlanCommand([FAKE_PLAN_REF], {
 			trigger: {
@@ -164,11 +249,14 @@ describe("ns dispatch plan", () => {
 		expect(exit.type).toBe("failure");
 		if (exit.type !== "failure") return;
 		expect(exit.errorType).toBe("trigger-failed");
-		expect(exit.data).toEqual({
+		expect(exit.message).toContain(`Dispatch ID ${FAKE_DISPATCH_ID}`);
+		expect(exit.data).toMatchObject({
+			dispatchId: FAKE_DISPATCH_ID,
 			code: "workflow-start-failed",
 			anchorBranch: `dispatch/feature-widgets-${FAKE_DISPATCH_ID}`,
 			anchorPrNumber: 41,
 			anchorPrUrl: "https://github.com/nseng-ai/ns/pull/41",
+			artifacts: [{ type: "branch-memory-entry" }, { type: "published-snapshot-ref" }],
 		});
 	});
 

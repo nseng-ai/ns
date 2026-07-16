@@ -102,6 +102,7 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 			description: "Check whether a Branch Memory Entry exists.",
 			schema: checkRequestSchema,
 			positionals: { key: { position: 0 } },
+			options: { require: { short: "-r" } },
 			resultSchema: checkResultSchema,
 			handler: runCheck,
 			renderHuman: renderCheck,

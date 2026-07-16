@@ -7,7 +7,10 @@ import {
 	DISPATCH_PACKAGE_MANIFEST_PATH,
 	DISPATCH_SETTINGS_PATH,
 } from "../../dispatch/harness-registry.ts";
-import type { DispatchConfigGateway, DispatchConfigSourceResult } from "./contracts.ts";
+import type {
+	DispatchConfigGateway,
+	DispatchConfigSourceResult,
+} from "../dispatch-client/contracts.ts";
 
 export function createRealDispatchConfigGateway(): DispatchConfigGateway {
 	return {

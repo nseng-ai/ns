@@ -202,18 +202,21 @@ export type DispatchConfigSourceResult =
 	| { readonly type: "error"; readonly message: string };
 
 /** Shared local dispatch effects for prompt and Saved Plan dispatch. */
-export interface DispatchPromptGateways {
+export interface DispatchClientGateways {
 	readonly git: DispatchWorkspaceGitGateway;
 	readonly anchorPrs: DispatchAnchorPrGateway;
 	readonly trigger: DispatchTriggerGateway;
 	readonly tokens: DispatchLocalTokenGateway;
 	readonly config: DispatchConfigGateway;
+}
+
+export interface DispatchPromptGateways extends DispatchClientGateways {
 	/** Short unique suffix for anchor branch names (non-deterministic). */
 	readonly generateAnchorId: () => string;
 }
 
 /** Additional local delivery effects required only by Saved Plan dispatch. */
-export interface DispatchPlanGateways extends DispatchPromptGateways {
+export interface DispatchPlanGateways extends DispatchClientGateways {
 	readonly savedPlans: DispatchSavedPlanGateway;
 	readonly brmem: Pick<BrmemGateway, "createEntry"> & DispatchBrmemSetupGateway;
 	readonly snapshots: DispatchPlanSnapshotGateway;
