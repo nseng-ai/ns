@@ -14,13 +14,18 @@ import {
 import { formatSubmitPreflightFailureCause } from "./submit-failure-catalog.ts";
 import type { PrewrittenPrMetadata } from "./pr-description-orchestration.ts";
 import type {
-	RunSubmitCommandOptions,
 	SubmitCommandOutput,
 	SubmitCommandParams,
 	SubmitCommandResult,
-	SubmitFailureTranscript,
+	SubmitGateway,
 	SubmitPreflightResult,
-} from "./submit.ts";
+} from "./submit-contracts.ts";
+import {
+	deterministicSubmitCommandFailure,
+	POST_METADATA_GRAPHITE_FAILURE_ADVISORY,
+	unknownSubmitCommandFailure,
+} from "./submit-failure-result.ts";
+import type { SubmitProgress } from "./submit-progress.ts";
 import {
 	prepareSubmitTransport,
 	type SubmitTransportObservation,
@@ -48,11 +53,16 @@ export async function checkOrdinarySubmitEligibility(
 	return preparation.kind === "failure" ? preparation : { kind: "eligible" };
 }
 
+interface OrdinarySubmitCommandContext {
+	gateway: SubmitGateway;
+	restack: boolean;
+	force: boolean;
+	confirmRestack?: (prompt: { title: string; message: string }) => Promise<boolean> | boolean;
+	progress: SubmitProgress;
+}
+
 interface OrdinarySubmitTransportOptions {
-	command: Pick<
-		RunSubmitCommandOptions,
-		"gateway" | "restack" | "force" | "confirmRestack" | "progress"
-	>;
+	command: OrdinarySubmitCommandContext;
 	params: SubmitCommandParams;
 	submitCommandDisplay: string;
 	submitDryRunCommandDisplay: string;
@@ -113,7 +123,7 @@ export async function prepareOrdinarySubmitTransport(
 		});
 		return {
 			kind: "failure",
-			failure: deterministicFailure({
+			failure: deterministicSubmitCommandFailure({
 				phase: "preflight",
 				commandDisplay: options.submitDryRunCommandDisplay,
 				output: readiness.outcome.output,
@@ -126,7 +136,7 @@ export async function prepareOrdinarySubmitTransport(
 		emitPhase(command, { type: "phase-failed", phaseKey: "restack", detail: "restack declined" });
 		return {
 			kind: "failure",
-			failure: deterministicFailure({
+			failure: deterministicSubmitCommandFailure({
 				phase: "preflight",
 				commandDisplay: options.submitDryRunCommandDisplay,
 				output: readiness.outcome.output,
@@ -151,7 +161,7 @@ export async function prepareOrdinarySubmitTransport(
 		if (restacked.outcome.kind === "conflict") {
 			return {
 				kind: "failure",
-				failure: deterministicFailure({
+				failure: deterministicSubmitCommandFailure({
 					phase: "restack",
 					commandDisplay: RESTACK_COMMAND_DISPLAY,
 					output: restacked.outcome.output,
@@ -165,7 +175,7 @@ export async function prepareOrdinarySubmitTransport(
 		}
 		return {
 			kind: "failure",
-			failure: unknownCommandFailure({
+			failure: unknownSubmitCommandFailure({
 				phase: "restack",
 				commandDisplay: RESTACK_COMMAND_DISPLAY,
 				output: restacked.outcome.output,
@@ -205,7 +215,7 @@ function readinessFailure(input: {
 }): SubmitCommandResult {
 	if (input.result.kind === "failed" && input.result.cause !== undefined) {
 		const message = formatSubmitPreflightFailureCause(input.result.cause, input.result.output);
-		return deterministicFailure({
+		return deterministicSubmitCommandFailure({
 			phase: input.phase,
 			commandDisplay: input.submitDryRunCommandDisplay,
 			output: input.result.output,
@@ -213,7 +223,7 @@ function readinessFailure(input: {
 		});
 	}
 	if (input.isRecheck === true) {
-		return deterministicFailure({
+		return deterministicSubmitCommandFailure({
 			phase: input.phase,
 			commandDisplay: input.submitDryRunCommandDisplay,
 			output: input.result.output,
@@ -223,7 +233,7 @@ function readinessFailure(input: {
 			),
 		});
 	}
-	return unknownCommandFailure({
+	return unknownSubmitCommandFailure({
 		phase: input.phase,
 		commandDisplay: input.submitDryRunCommandDisplay,
 		output: input.result.output,
@@ -235,7 +245,7 @@ function readinessFailure(input: {
 }
 
 async function shouldRunRestack(
-	options: Pick<RunSubmitCommandOptions, "restack" | "force" | "confirmRestack">,
+	options: Pick<OrdinarySubmitCommandContext, "restack" | "force" | "confirmRestack">,
 	output: SubmitCommandOutput,
 	displays: { submitCommandDisplay: string; submitDryRunCommandDisplay: string },
 ): Promise<RestackDecision> {
@@ -251,13 +261,13 @@ function withMetadataAdvisory(
 ): string {
 	const advisory = formatPrewrittenMetadataAdvisory(
 		prewrittenMetadata ?? [],
-		"Local PR metadata commit messages were prepared before submit; verify the metadata after resolving the Graphite failure.",
+		POST_METADATA_GRAPHITE_FAILURE_ADVISORY,
 	);
 	return [message, ...(advisory.length === 0 ? [] : ["", ...advisory])].join("\n");
 }
 
 function ordinarySubmitTransportObservationSink(
-	command: Pick<RunSubmitCommandOptions, "progress">,
+	command: Pick<OrdinarySubmitCommandContext, "progress">,
 	displays: { submitCommandDisplay: string; submitDryRunCommandDisplay: string },
 ): SubmitTransportObservationSink {
 	return (observation) => {
@@ -296,81 +306,8 @@ function submitTransportCommandDisplays(
 }
 
 function emitPhase(
-	options: Pick<RunSubmitCommandOptions, "progress">,
+	options: Pick<OrdinarySubmitCommandContext, "progress">,
 	event: NsProgressPhaseEvent,
 ): void {
 	options.progress.phase(event);
-}
-
-function deterministicFailure(input: {
-	phase: string;
-	commandDisplay: string;
-	output: SubmitCommandOutput;
-	stderr: string;
-	exitCode?: number;
-}): SubmitCommandResult {
-	return commandFailure(input, "deterministic", input.exitCode);
-}
-
-function unknownCommandFailure(input: {
-	phase: string;
-	commandDisplay: string;
-	output: SubmitCommandOutput;
-	stderr: string;
-}): SubmitCommandResult {
-	return commandFailure(input, "unknown");
-}
-
-function commandFailure(
-	input: { phase: string; commandDisplay: string; output: SubmitCommandOutput; stderr: string },
-	failurePresentation: "deterministic" | "unknown",
-	exitCode?: number,
-): SubmitCommandResult {
-	return {
-		exitCode: exitCode ?? normalizedFailureExitCode(input.output),
-		stdout: "",
-		stderr: input.stderr.endsWith("\n") ? input.stderr : `${input.stderr}\n`,
-		failurePresentation,
-		rawFailureTranscript: commandFailureTranscript(
-			input.phase,
-			input.commandDisplay,
-			input.output,
-			failurePresentation === "deterministic" ? input.stderr : undefined,
-		),
-	};
-}
-
-function commandFailureTranscript(
-	phase: string,
-	commandDisplay: string,
-	output: SubmitCommandOutput,
-	summary?: string,
-): SubmitFailureTranscript {
-	return {
-		phase,
-		...(summary === undefined || summary.trim() === "" ? {} : { summary: summary.trimEnd() }),
-		commands: [
-			{
-				commandDisplay,
-				stdout: output.stdout,
-				stderr: output.stderr,
-				termination: output.type,
-				exitCode: output.type === "spawn-failed" ? null : output.code,
-				...(output.type === "spawn-failed" ? { error: output.error } : { signal: output.signal }),
-			},
-		],
-	};
-}
-
-function normalizedFailureExitCode(output: SubmitCommandOutput): number {
-	switch (output.type) {
-		case "spawn-failed":
-			return 2;
-		case "timed-out":
-			return 124;
-		case "cancelled":
-			return 130;
-		case "exited":
-			return output.signal === null && output.code !== null && output.code !== 0 ? output.code : 1;
-	}
 }

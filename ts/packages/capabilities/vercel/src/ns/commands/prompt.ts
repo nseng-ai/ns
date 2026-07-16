@@ -18,19 +18,17 @@ import {
 } from "@nseng-ai/sdk";
 
 import { DISPATCH_PROMPT_MAX_CHARS } from "../../dispatch/dispatch-run.ts";
-import {
-	executeDispatchPrompt,
-	type DispatchPreflightCheck,
-	type DispatchPromptOutcome,
-} from "../../dispatch-client/prompt-core.ts";
+import { executeDispatchPrompt } from "../../dispatch-client/prompt-core.ts";
 import {
 	createDispatchPromptContext,
 	type DispatchPromptCliContext,
 } from "../../dispatch-client/context.ts";
 import type {
+	DispatchGraphitePublicationAttemptedLifecycle,
 	DispatchLifecycleReceipt,
-	DispatchSourceLifecycle,
-} from "../../dispatch-client/source-preparation.ts";
+} from "../../dispatch-client/lifecycle.ts";
+import type { DispatchPromptOutcome } from "../../dispatch-client/outcome.ts";
+import type { DispatchPreflightCheck } from "../../dispatch-client/preflight.ts";
 
 const DIRTY_PATHS_RENDER_MAX_PATHS = 20;
 /** Machine-envelope bound on path and publication-scope lists (ADR 0012: command-local). */
@@ -348,13 +346,8 @@ function publicationScopeData(affectedBranches: readonly string[]) {
 function renderPublicationFailure(options: {
 	readonly message: string;
 	readonly stage: string;
-	readonly source: DispatchSourceLifecycle;
+	readonly source: DispatchGraphitePublicationAttemptedLifecycle;
 }): string {
-	if (options.source.type !== "graphite-publication-attempted") {
-		throw new Error(
-			"Graphite publication failure requires attempted Graphite publication evidence.",
-		);
-	}
 	const scope = options.source.affectedBranches.slice(0, PUBLICATION_BRANCHES_DATA_MAX).join(" → ");
 	return `${options.message}\nGraphite source publication failed during ${options.stage} for ${scope}. ${renderMutationEvidence(options.source.mutation)} No dispatch anchor or run was created.`;
 }

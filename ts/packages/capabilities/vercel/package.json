@@ -27,6 +27,9 @@
 		"pack:local": "node ../../../scripts/prepare-source-publish-package.mjs . && npm pack ./dist/publish --pack-destination dist",
 		"publish:dry-run": "node ../../../scripts/prepare-source-publish-package.mjs . && npm publish --dry-run ./dist/publish"
 	},
+	"devDependencies": {
+		"typescript": "catalog:"
+	},
 	"dependencies": {
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@nseng-ai/brmem": "workspace:*",

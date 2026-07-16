@@ -14,8 +14,11 @@ import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
 import { createFlowGraphiteStackGitGateway } from "../stack-squash/graphite-stack-gateway.ts";
 import {
 	createFlowMinimalSubmitClientFromGateways,
+	FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT,
 	type FlowMinimalSubmitClient,
 	type FlowMinimalSubmitError,
+	type FlowMinimalSubmitErrorCode,
+	type FlowMinimalSubmitGatewayResult,
 	type MinimalSubmitRepositoryGateway,
 	type MinimalSubmitRepositoryInspection,
 	type MinimalSubmitRepositoryObservation,
@@ -24,7 +27,6 @@ import { RealSubmitGateway } from "./submit-gateway.ts";
 import type { SubmitTransportGateway } from "./submit-transport.ts";
 
 const READ_TIMEOUT_MS = 30_000;
-const DIRTY_PATH_LIMIT = 50;
 const OBSERVATION_FORMAT = "%(refname:short)%00%(objectname)%00%(upstream)";
 
 export interface CreateFlowMinimalSubmitClientOptions {
@@ -60,10 +62,18 @@ export function createFlowMinimalSubmitClientForRuntime(
 		});
 	return createFlowMinimalSubmitClientFromGateways({
 		cwd: options.cwd,
-		repository: new RealMinimalSubmitRepositoryGateway(options, git),
+		repository: createMinimalSubmitRepositoryGateway(options, git),
 		graphite,
 		submit: overrides.submit ?? new RealSubmitGateway(execApiToCommandRunner(options.commands)),
 	});
+}
+
+/** Package-private construction seam for fake-driven adapter tests. */
+export function createMinimalSubmitRepositoryGateway(
+	options: CreateFlowMinimalSubmitClientOptions,
+	git: Pick<GitGateway, "currentBranch" | "headCommit" | "statusPaths">,
+): MinimalSubmitRepositoryGateway {
+	return new RealMinimalSubmitRepositoryGateway(options, git);
 }
 
 class RealMinimalSubmitRepositoryGateway implements MinimalSubmitRepositoryGateway {
@@ -80,11 +90,15 @@ class RealMinimalSubmitRepositoryGateway implements MinimalSubmitRepositoryGatew
 		this.git = git;
 	}
 
-	async inspectCurrent() {
+	async inspectCurrent(): Promise<
+		FlowMinimalSubmitGatewayResult<MinimalSubmitRepositoryInspection>
+	> {
 		return await inspectRepository(this.git, this.cwd);
 	}
 
-	async observeAffectedBranches(branches: readonly string[]) {
+	async observeAffectedBranches(
+		branches: readonly string[],
+	): Promise<FlowMinimalSubmitGatewayResult<MinimalSubmitRepositoryObservation>> {
 		const inspected = await this.inspectCurrent();
 		if (!inspected.ok) return inspected;
 		const args = [
@@ -106,13 +120,18 @@ class RealMinimalSubmitRepositoryGateway implements MinimalSubmitRepositoryGatew
 		const parsed = parseLocalBranchObservations(result.stdout, branches);
 		if (!parsed.ok) return parsed;
 		const remoteTips: Record<string, string | null> = {};
+		const upstreamBranches: Record<string, string[]> = {};
 		for (const branch of branches) {
 			const upstream = parsed.value.upstreamRefs[branch];
 			if (upstream === undefined || upstream === "") {
 				remoteTips[branch] = null;
 				continue;
 			}
-			const upstreamArgs = ["rev-parse", "--verify", upstream];
+			(upstreamBranches[upstream] ??= []).push(branch);
+		}
+		const upstreamRefs = Object.keys(upstreamBranches).sort();
+		if (upstreamRefs.length > 0) {
+			const upstreamArgs = ["show-ref", "--verify", ...upstreamRefs];
 			const upstreamResult = await this.commands.exec("git", upstreamArgs, {
 				cwd: this.cwd,
 				timeout: READ_TIMEOUT_MS,
@@ -120,19 +139,17 @@ class RealMinimalSubmitRepositoryGateway implements MinimalSubmitRepositoryGatew
 			if (!commandSucceeded(upstreamResult)) {
 				return failure(
 					"flow-minimal-submit-remote-observation-failed",
-					`Could not observe upstream tip for ${branch}. ${commandFailureReason(upstreamResult)}`,
+					`Could not observe affected upstream tips. ${commandFailureReason(upstreamResult)}`,
 					formatCommand("git", upstreamArgs),
 				);
 			}
-			const remoteTip = upstreamResult.stdout.trim();
-			if (remoteTip === "") {
-				return failure(
-					"flow-minimal-submit-remote-observation-empty",
-					`Git returned no upstream tip for ${branch}.`,
-					formatCommand("git", upstreamArgs),
-				);
-			}
-			remoteTips[branch] = remoteTip;
+			const remoteResult = parseRemoteBranchObservations(
+				upstreamResult.stdout,
+				upstreamRefs,
+				upstreamBranches,
+			);
+			if (!remoteResult.ok) return remoteResult;
+			Object.assign(remoteTips, remoteResult.value);
 		}
 		return {
 			ok: true as const,
@@ -148,7 +165,7 @@ class RealMinimalSubmitRepositoryGateway implements MinimalSubmitRepositoryGatew
 async function inspectRepository(
 	git: Pick<GitGateway, "currentBranch" | "headCommit" | "statusPaths">,
 	cwd: string,
-) {
+): Promise<FlowMinimalSubmitGatewayResult<MinimalSubmitRepositoryInspection>> {
 	const branch = await git.currentBranch({ cwd });
 	if (branch.type !== "branch") {
 		return failure(
@@ -170,8 +187,9 @@ async function inspectRepository(
 		ok: true as const,
 		value: {
 			source: { branch: branch.branch, headSha: head.value },
-			dirtyPaths: status.value.changedPaths.slice(0, DIRTY_PATH_LIMIT),
-			dirtyPathsTruncated: status.value.changedPaths.length > DIRTY_PATH_LIMIT,
+			dirtyPaths: status.value.changedPaths.slice(0, FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT),
+			dirtyPathsTruncated:
+				status.value.changedPaths.length > FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT,
 		} satisfies MinimalSubmitRepositoryInspection,
 	};
 }
@@ -214,6 +232,12 @@ function parseLocalBranchObservations(
 				"Git branch observation output did not match the affected branch set.",
 			);
 		}
+		if (localTips[branch] !== undefined) {
+			return failure(
+				"flow-minimal-submit-observation-parse-failed",
+				"Git branch observation output contained a duplicate affected branch.",
+			);
+		}
 		localTips[branch] = localTip;
 		upstreamRefs[branch] = upstream;
 	}
@@ -226,7 +250,66 @@ function parseLocalBranchObservations(
 	return { ok: true, value: { localTips, upstreamRefs } };
 }
 
-function failure(code: string, message: string, displayCommand?: string) {
+function parseRemoteBranchObservations(
+	stdout: string,
+	expectedRefs: readonly string[],
+	upstreamBranches: Readonly<Record<string, readonly string[]>>,
+):
+	| { readonly ok: true; readonly value: Readonly<Record<string, string>> }
+	| { readonly ok: false; readonly error: FlowMinimalSubmitError } {
+	const expected = new Set(expectedRefs);
+	const tipsByRef: Record<string, string> = {};
+	for (const line of stdout.split(/\r?\n/u)) {
+		if (line === "") continue;
+		const fields = line.split(" ");
+		if (fields.length !== 2) {
+			return failure(
+				"flow-minimal-submit-remote-observation-parse-failed",
+				"Git upstream observation output was malformed.",
+			);
+		}
+		const [tip, ref] = fields;
+		if (
+			tip === undefined ||
+			ref === undefined ||
+			tip === "" ||
+			ref === "" ||
+			!expected.has(ref) ||
+			tipsByRef[ref] !== undefined
+		) {
+			return failure(
+				"flow-minimal-submit-remote-observation-parse-failed",
+				"Git upstream observation output did not match the affected upstream ref set.",
+			);
+		}
+		tipsByRef[ref] = tip;
+	}
+	if (Object.keys(tipsByRef).length !== expected.size) {
+		return failure(
+			"flow-minimal-submit-remote-observation-incomplete",
+			"One or more affected upstream refs could not be observed.",
+		);
+	}
+	const remoteTips: Record<string, string> = {};
+	for (const ref of expectedRefs) {
+		const branches = upstreamBranches[ref];
+		const tip = tipsByRef[ref];
+		if (branches === undefined || tip === undefined) {
+			return failure(
+				"flow-minimal-submit-remote-observation-incomplete",
+				"One or more affected upstream refs could not be observed.",
+			);
+		}
+		for (const branch of branches) remoteTips[branch] = tip;
+	}
+	return { ok: true, value: remoteTips };
+}
+
+function failure(
+	code: FlowMinimalSubmitErrorCode,
+	message: string,
+	displayCommand?: string,
+): { readonly ok: false; readonly error: FlowMinimalSubmitError } {
 	return {
 		ok: false as const,
 		error: {

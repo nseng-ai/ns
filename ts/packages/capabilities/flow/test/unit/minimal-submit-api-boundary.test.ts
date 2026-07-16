@@ -1,11 +1,29 @@
 import { describe, expect, test } from "vitest";
 
 import { ScriptedCommandExecApi, exitedResult } from "@nseng-ai/foundation/exec/testing";
-import { createFlowMinimalSubmitClient, type FlowMinimalSubmitClient } from "@nseng-ai/flow/api";
+import {
+	createFlowMinimalSubmitClient,
+	FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT,
+	type FlowMinimalSubmitClient,
+	type FlowMinimalSubmitError,
+	type FlowMinimalSubmitErrorCode,
+} from "@nseng-ai/flow/api";
 
 const HEAD = "a".repeat(40);
 
 describe("Flow minimal-submit Capability API", () => {
+	test("exports the closed error contract and shared dirty-path limit", () => {
+		const code: FlowMinimalSubmitErrorCode = "flow-minimal-submit-topology-ancestor-cycle";
+		const error: FlowMinimalSubmitError = {
+			code,
+			message: "cycle",
+			displayCommand: "git show-ref --verify refs/remotes/origin/demo",
+		};
+
+		expect(error.code).toBe(code);
+		expect(FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT).toBe(50);
+	});
+
 	test("binds source and Graphite planning reads to the caller-provided command channel", async () => {
 		const commands = new ScriptedCommandExecApi([
 			exitedResult({ stdout: "feature/demo\n" }),

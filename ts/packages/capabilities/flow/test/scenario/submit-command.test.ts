@@ -115,8 +115,8 @@ function minimalSubmitResponses(
 			},
 		},
 		{
-			match: "git rev-parse --verify refs/remotes/origin/feature/demo",
-			result: { stdout: `${remoteBefore}\n` },
+			match: "git show-ref --verify refs/remotes/origin/feature/demo",
+			result: { stdout: `${remoteBefore} refs/remotes/origin/feature/demo\n` },
 		},
 		...(options.shouldRestack === true
 			? [
@@ -144,8 +144,8 @@ function minimalSubmitResponses(
 			},
 		},
 		{
-			match: "git rev-parse --verify refs/remotes/origin/feature/demo",
-			result: { stdout: `${headAfter}\n` },
+			match: "git show-ref --verify refs/remotes/origin/feature/demo",
+			result: { stdout: `${headAfter} refs/remotes/origin/feature/demo\n` },
 		},
 	];
 }

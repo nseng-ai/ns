@@ -7,8 +7,8 @@ import type {
 	DispatchGraphitePublicationAuthorizationGateway,
 	DispatchGraphitePublicationResult,
 	DispatchSourcePublicationGateway,
-	DispatchSourcePublicationMutationEvidence,
 } from "./contracts.ts";
+import type { DispatchSourcePublicationMutationEvidence } from "./lifecycle.ts";
 
 interface DispatchPublicationInteraction {
 	isInteractive(): boolean;

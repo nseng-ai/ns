@@ -15,6 +15,7 @@ import type { DispatchRunInput } from "../dispatch/dispatch-run.ts";
 import type { DispatchBrmemSetupGateway } from "./dispatch-plan/delivery-preflight.ts";
 import type { DispatchPlanSnapshotGateway } from "./dispatch-plan/delivery.ts";
 import type { DispatchSavedPlanGateway } from "./dispatch-plan/preparation.ts";
+import type { DispatchSourcePublicationMutationEvidence } from "./lifecycle.ts";
 
 /**
  * Provider-owned codes intentionally remain open across this seam: Foundation Git
@@ -226,13 +227,6 @@ export interface DispatchContentSlugGateway {
 export type DispatchContentSlugResult =
 	| { readonly ok: true; readonly slug: string }
 	| { readonly ok: false; readonly error: { readonly message: string } };
-
-export type DispatchSourcePublicationMutationState = "none" | "observed" | "possible";
-
-export interface DispatchSourcePublicationMutationEvidence {
-	readonly local: DispatchSourcePublicationMutationState;
-	readonly remote: DispatchSourcePublicationMutationState;
-}
 
 export type DispatchGraphitePublicationStage =
 	| "planning"

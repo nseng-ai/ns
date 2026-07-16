@@ -89,6 +89,9 @@ describe("PiProcessReviewRunner", () => {
 			"text",
 			"--print",
 		]);
+		expect(systemPromptFindingsJsonText()).toContain(
+			'`severity` must be exactly one of `"info"`, `"warning"`, or `"error"`',
+		);
 		expect(call?.args.some((arg) => arg.includes("UNIQUE_PROMPT_MARKER"))).toBe(false);
 		expect(call?.options).toEqual({ cwd: "/repo", stdin: largePrompt, env, signal });
 	});

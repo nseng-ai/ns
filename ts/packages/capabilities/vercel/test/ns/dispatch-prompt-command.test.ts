@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { DispatchPromptOutcome } from "../../src/dispatch-client/prompt-core.ts";
+import type { DispatchPromptOutcome } from "../../src/dispatch-client/outcome.ts";
 import {
 	FAKE_HEAD_SHA,
 	FAKE_RUN_ID,
