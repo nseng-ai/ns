@@ -10,7 +10,7 @@ edges:
 
 `ns dispatch plan <plan-ref>` sends a Saved Plan to the existing Vercel-native cloud dispatch spine without embedding the plan in an HTTP request or workflow payload. The command resolves an explicit Saved Plan locally, stores a dispatch-owned copy in Branch Memory, verifies that its exact Snapshot Ref is remotely reachable, and starts a dispatch carrying only a typed Branch Memory locator. In the sandbox, deterministic supervision fetches and checks that entry before launch; the harness then runs `brmem get` as its first action and executes the delivered plan. Results continue to land through the existing anchor branch and pull request.
 
-This is a readme-driven-development Objective. Its canonical user-facing contract begins at `references/README-draft.md`; supporting records may explain implementation and rationale but never override that README. The settled contract must be merged into `ts/packages/capabilities/vercel/README.md` before this Objective closes.
+This is a readme-driven-development Objective. Its canonical user-facing contract now lives at `ts/packages/capabilities/vercel/README.md` (section "Dispatch a Saved Plan"); the contract was developed at `references/README-draft.md`, which remains only as a pointer. Supporting records may explain implementation and rationale but never override that README.
 
 ## Scope
 

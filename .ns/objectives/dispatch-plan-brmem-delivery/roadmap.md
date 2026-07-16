@@ -17,9 +17,9 @@
 - [ ] Prove one real Branch Memory-delivered Saved Plan dispatch end to end and fold only witnessed facts into the README and Objective tracking.
   - Policy: excluded from local-only autorun. The loop stops and reports this row as the remaining human-run interlude; a separately authorized session owns every deployment, Branch Memory write, ref push, anchor-PR action, workflow trigger, and live fact fold.
   - Evidence: exact remote Snapshot Ref, supervisor precheck, harness `brmem get`, plan execution, agent-created commit, and normal anchor-PR landing are witnessed; existing long-supervision evidence is linked.
-- [ ] Merge the settled contract into `ts/packages/capabilities/vercel/README.md`, repoint this Objective's canonical reference, and provide focused completion evidence back to `cloud-execution`.
+- [~] Merge the settled contract into `ts/packages/capabilities/vercel/README.md`, repoint this Objective's canonical reference, and provide focused completion evidence back to `cloud-execution`.
   - Policy: local-only autorun may execute documentation and selected-Objective tracking edits after the implementation rows are locally complete; coordinate rather than overwrite concurrent broader README work. Any tracking mutation of `cloud-execution` remains outside this Objective's runner step and must use its own update workflow.
-  - Evidence: no canonical contract remains only under this Objective's `references/` directory.
+  - Evidence: no canonical contract remains only under this Objective's `references/` directory. Local stacked commits create the durable `ts/packages/capabilities/vercel/README.md` with the settled Saved Plan dispatch contract under a package framing that explicitly defers the broader cloud-dispatch contract to `cloud-execution`'s canonical draft rather than absorbing it; the section's status prose distinguishes locally implemented behavior from the unproven live path and the blocked `build:deployable` rebuild. `references/README-draft.md` is now a pointer stub and `objective.md` names the durable README as canonical. Remaining: focused completion evidence back to `cloud-execution` after the live-proof interlude, via that Objective's own update workflow.
 
 ## Parked
 

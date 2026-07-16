@@ -1,174 +1,20 @@
-# Dispatch a Saved Plan
+# Dispatch a Saved Plan — moved to the durable README
 
-`ns vercel` has the ability to dispatch long-running work remotely. Long-running
-autonomous sessions are what make this useful.
+The canonical user-facing contract for `ns dispatch plan` no longer lives in
+this Objective's references. It was merged into the durable Vercel capability
+README:
 
-Many harness directly support the creation of plans or have a norm of doing so,
-and those plan are often the basis of long-running sessions. This system
-stacks on that norm, and allows the user to create plans interactively and
-then dispatch them for autonomous execution.
+- `ts/packages/capabilities/vercel/README.md` — section **"Dispatch a Saved
+  Plan"**.
 
-```
-/ns:dispatch:plan
-```
+That README is now the canonical home. It carries the settled contract
+(explicit Saved Plan input with Pi latest-session sugar, `dispatch-context`
+Branch Memory delivery under `<dispatch-id>/plan/<plan-slug>.md`, Dispatch ID
+correlation via the `dispatch.id` Workflow attribute, supervisor precheck
+followed by harness `brmem get`, retained evidence, and
+progressive-disclosure output) together with an accurate status block
+distinguishing locally implemented behavior from the still-unproven live path
+and the blocked `build:deployable` evidence.
 
-A remote agent gets your repository at the exact commit you're sitting on,
-retrieves the exact plan you saved, and executes it. The results — commits
-and a decision log — land on a pull request that opens the moment you
-dispatch. Your session never blocks.
-
-> **Draft status.** This is the canonical user-facing contract for the
-> `dispatch-plan-brmem-delivery` objective, developed README-first. It
-> documents the in-harness experience, starting with Pi. `ns dispatch plan`
-> is not yet implemented or live-proven; unsettled decisions are listed
-> under [Open questions](#open-questions) rather than silently invented.
-
-### One-time setup
-
-Dispatch delivers the plan through Branch Memory, so the clone needs Branch
-Memory synchronization configured once:
-
-```sh
-brmem setup-git
-```
-
-Dispatch checks this before doing anything. It never silently edits your
-Git configuration — if setup is missing, it stops before any cloud work
-starts and prints exactly this command.
-
-## Pi walkthrough
-
-### 1. Plan in your session
-
-Work through a plan the way you normally do — for example, stress-test it
-with `/ns:plan:grill-and-save`, or write it up and run `/ns:plan:save`.
-Either way you end with a **Saved Plan**: a self-contained Markdown plan
-file in the local plan store, written for a completely fresh implementing
-session. That "fresh session" is about to be a cloud one.
-
-### 2. Dispatch
-
-```
-/ns:dispatch:plan
-```
-
-With no argument, the Pi command selects the most recent Saved Plan from
-your current session — the one you just finished. Pass an explicit plan
-reference to select a different one.
-
-The standard per-dispatch prerequisites shared with `ns dispatch prompt`
-apply: a clean worktree and a branch head the remote can see. If your tree
-is dirty, dispatch refuses and lists the files; if your branch isn't
-pushed, dispatch pushes it first so the remote agent sees exactly what you
-see.
-
-Latest-plan selection is Pi session sugar. The underlying command
-always takes an explicit Saved Plan reference, and works from any shell:
-
-```sh
-ns dispatch plan ~/.local/state/ns/enriched-plan/nseng-ai--ns/main/add-cache.md
-```
-
-### 3. Keep working, then review
-
-The run executes remotely under workflow supervision. When it finishes, the
-agent's commits land on the anchor PR alongside its decision log — every
-judgment call it made where it would normally have asked you. Review it
-like any other PR: check out the branch, continue it, stack on it, or
-discard it.
-
-## What the remote agent does
-
-The remote agent receives your repository at the exact dispatched commit
-and a locator for the dispatch's context envelope — not a paraphrase of
-the plan. Its first action is `brmem get` for the plan member in that
-envelope; its task is to execute the retrieved plan.
-
-Precision is the contract:
-
-- It executes **the plan you dispatched** — it does not pick a different
-  plan, fall back to "the latest one," or infer work from the branch.
-- Before the agent even launches, the workflow supervisor fetches and
-  checks that the exact plan entry is readable in the sandbox. If it
-  isn't, the run fails deterministically and reports on the anchor PR —
-  the agent is never asked to improvise around missing input.
-- Like every dispatch, the run is strictly non-interactive: where the
-  agent would ask you, it makes the call and records it in the decision
-  log.
-
-## Under the hood: Branch Memory delivery
-
-The Saved Plan is what you select; Branch Memory is how it travels. Before
-starting the cloud workflow, dispatch:
-
-1. resolves your explicit Saved Plan and creates a **Dispatch ID** for the
-   dispatch;
-2. stores a dispatch-owned copy in the Branch Memory namespace
-   `dispatch-context`, under `<dispatch-id>/plan/<plan-slug>.md`;
-3. publishes that snapshot to the remote and verifies the exact ref is
-   reachable; and
-4. hands the workflow a typed locator for the Dispatch ID context — never
-   the plan body.
-
-The Dispatch ID is the correlation key across the dispatch. It appears in
-the anchor branch, normal command output, anchor-PR provenance, and as the
-`dispatch.id` attribute on the Vercel Workflow run. Vercel still
-assigns its own `wrun_...` ID; if that ID needs to be recovered, dispatch
-can find the run by its Dispatch ID attribute and refuses to guess if the
-lookup returns zero or multiple runs.
-
-The context envelope is intentionally a Branch Memory key convention in
-this version, not a manifest. A plan lives under the `plan/` path; future
-typed context can use sibling paths under the same Dispatch ID. The
-supervisor checks the expected plan member before launch, and the agent is
-instructed how to read it.
-
-The plan content never rides in an HTTP request or workflow payload. It
-moves the same way everything else in ns moves: through git. That makes the
-dispatched input inspectable (`brmem get` shows exactly what the agent
-received), reproducible, and durable — the delivery entry is retained after
-the run as input evidence.
-
-The context entries are dispatch-owned plumbing: they are not an Attached
-Plan and do not touch the `branch-context` namespace your own branch
-planning uses.
-
-## What you see
-
-Pi and human-readable CLI output keep provenance compact: the Dispatch ID and
-clickable links to the anchor PR and Vercel Workflow run. The anchor PR
-includes the same Dispatch ID in a marked provenance section.
-
-Machine output and the marked PR provenance retain the full recovery
-record: Dispatch ID, Vercel run ID, Branch Memory namespace, context prefix,
-source branch, exact Snapshot Ref, and links. You get the details when you
-need them without turning the normal dispatch flow into transport output.
-
-## If something goes wrong
-
-- **Setup preflight fails** — run the printed `brmem setup-git` command and
-  dispatch again.
-- **Remote verification fails** — the command reports the snapshot ref and
-  the Git error; inspect and retry. Dispatch tells you which durable
-  artifacts it already created (a Branch Memory entry or published ref may
-  exist even though no workflow started), so retrying is safe: a retry uses
-  a new dispatch identity rather than silently replacing another dispatch's
-  input evidence.
-- **The run fails after the anchor PR exists** — the failure is reported
-  durably on that PR, including sandbox-side retrieval failures. A dispatch
-  cannot disappear silently: if it got far enough to have an anchor, the
-  anchor tells the story.
-
-## Current status
-
-This README is the design contract for work in progress. `ns dispatch plan`,
-the `/ns:dispatch:plan` Pi command, and the Branch Memory delivery path are
-not yet implemented or live-proven. The workflow supervisor and anchor-PR
-result path already exist and are proven by `ns dispatch prompt`; this work
-adds Saved Plan input without creating another cloud backend.
-
-## Open questions
-
-No open question blocks implementation. Retained context entries have no
-automatic cleanup policy in this work; future cleanup must preserve input
-evidence and reproducibility.
+Do not edit contract prose here; edit the durable README. This file remains
+only as a pointer so older links into this Objective's references resolve.
