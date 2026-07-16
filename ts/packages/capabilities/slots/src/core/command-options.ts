@@ -25,6 +25,7 @@ export const freeOptionSpecs = {
 } satisfies CommandOptionSpecs;
 
 export const foreachOptionSpecs = {
+	exclude: { short: "-x" },
 	yes: { short: "-y" },
 } satisfies CommandOptionSpecs;
 
