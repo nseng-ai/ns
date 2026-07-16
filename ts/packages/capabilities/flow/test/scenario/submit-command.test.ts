@@ -907,6 +907,70 @@ describe("project-local submit extension", () => {
 			"git log --format=%B%x00 feature/top..feature/upstack",
 		);
 		expect(formattedExecCalls(run.context)).not.toContain("git diff feature/top..feature/upstack");
+		const calls = formattedExecCalls(run.context);
+		const dryRun =
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run";
+		const amendment = "gt modify --no-interactive -m Generated PR -m Generated body";
+		const submit =
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web";
+		expect(calls.filter((call) => call === dryRun)).toHaveLength(2);
+		expect(calls.indexOf(dryRun)).toBeLessThan(calls.indexOf(amendment));
+		expect(calls.lastIndexOf(dryRun)).toBeGreaterThan(calls.indexOf(amendment));
+		expect(calls.lastIndexOf(dryRun)).toBeLessThan(calls.indexOf(submit));
+	});
+
+	test("final readiness failure after metadata amendment stops before publication", async () => {
+		const dryRun =
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run";
+		const run = runWithFakes({
+			graphiteStack: {
+				stack: {
+					type: "stack",
+					stack: fakeStackInfo({ trunk: "main", current: "feature/top", ancestors: ["main"] }),
+				},
+			},
+			state: {
+				textGeneration: [
+					{ ok: true, text: defaultPrDescriptionText() },
+					{ ok: false, error: "failure interpretation unavailable" },
+				],
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: dryRun, result: { stdout: "initially ready\n" }, times: 1 },
+					{
+						match: "gh pr list --head feature/top --state open --limit 2 --json number,url",
+						result: { stdout: "[]" },
+					},
+					{
+						match: "git log --format=%B%x00 main..feature/top",
+						result: { stdout: "Add top branch\0" },
+					},
+					{
+						match: "git diff main..feature/top",
+						result: { stdout: "diff --git a/src/top.ts b/src/top.ts\n" },
+					},
+					{ match: "git status --porcelain", result: { stdout: "" } },
+					{ match: "gt modify --no-interactive -m Generated PR -m Generated body", result: {} },
+					{
+						match: dryRun,
+						result: { code: 1, stderr: "metadata rewrite requires manual repair\n" },
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("Local PR metadata commit messages were prepared before submit");
+		const calls = formattedExecCalls(run.context);
+		expect(calls.filter((call) => call === dryRun)).toHaveLength(2);
+		expect(calls).not.toContain(
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+		);
+		expect(calls).not.toContain(
+			"gt submit --no-edit --publish --stack --update-only --no-ai --no-interactive --no-view --no-web",
+		);
+		expect(calls).not.toContain("gh pr view --json number,url");
 	});
 
 	test("pre-submit metadata amend failure reports concise cause and raw diagnostics", async () => {

@@ -298,6 +298,33 @@ export interface DispatchPromptRequest {
 /** How the exact dispatched source revision was made remotely reachable. */
 export type DispatchSourcePublication = "already-current" | "git-pushed" | "graphite-submitted";
 
+type DispatchSourceRevalidationReason =
+	| "source-read-failed"
+	| "repository-drift"
+	| "branch-drift"
+	| "head-drift"
+	| "dirty-read-failed"
+	| "dirty-tree"
+	| "preflight-failed"
+	| "remote-tip-read-failed"
+	| "remote-tip-mismatch";
+
+export interface CompletedDispatchSourcePublication {
+	readonly sourcePublication: Exclude<DispatchSourcePublication, "already-current">;
+	readonly mutation: DispatchSourcePublicationMutationEvidence;
+	readonly affectedBranches?: readonly string[];
+}
+
+type DispatchFailureWithCompletedPublication<T> = T &
+	(
+		| CompletedDispatchSourcePublication
+		| {
+				readonly sourcePublication?: never;
+				readonly mutation?: never;
+				readonly affectedBranches?: never;
+		  }
+	);
+
 export type DispatchPromptOutcome =
 	| {
 			readonly status: "dispatched";
@@ -313,22 +340,16 @@ export type DispatchPromptOutcome =
 	| { readonly status: "preflight-failed"; readonly checks: readonly DispatchPreflightCheck[] }
 	| { readonly status: "invalid-branch-slug-override"; readonly message: string }
 	| { readonly status: "branch-slug-generation-failed"; readonly message: string }
-	| {
+	| DispatchFailureWithCompletedPublication<{
 			readonly status: "anchor-branch-availability-failed";
 			readonly anchorBranch: string;
 			readonly message: string;
-			readonly sourcePublication?: Exclude<DispatchSourcePublication, "already-current">;
-			readonly mutation?: DispatchSourcePublicationMutationEvidence;
-			readonly affectedBranches?: readonly string[];
-	  }
-	| {
+	  }>
+	| DispatchFailureWithCompletedPublication<{
 			readonly status: "anchor-branch-unavailable";
 			readonly semanticSlug: string;
 			readonly candidateLimit: number;
-			readonly sourcePublication?: Exclude<DispatchSourcePublication, "already-current">;
-			readonly mutation?: DispatchSourcePublicationMutationEvidence;
-			readonly affectedBranches?: readonly string[];
-	  }
+	  }>
 	| {
 			readonly status: "source-unusable";
 			readonly code: "not-a-repository" | "detached-head" | "git-read-failed";
@@ -362,48 +383,43 @@ export type DispatchPromptOutcome =
 			readonly affectedBranches: readonly string[];
 			readonly mutation: DispatchSourcePublicationMutationEvidence;
 	  }
-	| {
+	| (CompletedDispatchSourcePublication & {
 			readonly status: "source-publication-verification-failed";
-			readonly sourcePublication: Exclude<DispatchSourcePublication, "already-current">;
-			readonly affectedBranches?: readonly string[];
-			readonly reason:
-				| "source-read-failed"
-				| "repository-drift"
-				| "branch-drift"
-				| "head-drift"
-				| "dirty-read-failed"
-				| "dirty-tree"
-				| "preflight-failed"
-				| "remote-tip-read-failed"
-				| "remote-tip-mismatch";
+			readonly reason: DispatchSourceRevalidationReason;
 			readonly message: string;
-			readonly mutation: DispatchSourcePublicationMutationEvidence;
+			readonly checks?: readonly DispatchPreflightCheck[];
+			readonly dirtyPaths?: readonly string[];
+	  })
+	| {
+			readonly status: "source-revalidation-failed";
+			readonly reason: DispatchSourceRevalidationReason;
+			readonly message: string;
 			readonly checks?: readonly DispatchPreflightCheck[];
 			readonly dirtyPaths?: readonly string[];
 	  }
-	| {
+	| DispatchFailureWithCompletedPublication<{
 			readonly status: "anchor-push-failed";
 			readonly anchorBranch: string;
 			readonly message: string;
-	  }
-	| {
+	  }>
+	| DispatchFailureWithCompletedPublication<{
 			readonly status: "anchor-pr-failed";
 			readonly anchorBranch: string;
 			readonly message: string;
-	  }
-	| {
+	  }>
+	| DispatchFailureWithCompletedPublication<{
 			readonly status: "trigger-failed";
 			readonly code: string;
 			readonly message: string;
 			readonly anchorPr: DispatchAnchorPr;
-	  }
-	| {
+	  }>
+	| DispatchFailureWithCompletedPublication<{
 			readonly status: "run-id-stamp-failed";
 			readonly message: string;
 			readonly anchorPr: DispatchAnchorPr;
 			/** Absent only when the returned run id itself was unusable. */
 			readonly runId?: string;
-	  };
+	  }>;
 
 /**
  * Execute one prompt dispatch end-to-end on the local side. Mutations
@@ -467,13 +483,8 @@ export async function executeDispatchPrompt(
 	let finalPreflight = initialPreflight;
 	let sourcePublication: DispatchSourcePublication = "already-current";
 	let publicationAffectedBranches: readonly string[] | undefined;
-	let completedPublication:
-		| {
-				readonly sourcePublication: Exclude<DispatchSourcePublication, "already-current">;
-				readonly mutation: DispatchSourcePublicationMutationEvidence;
-				readonly affectedBranches?: readonly string[];
-		  }
-		| undefined;
+	let expectedPublishedSource: { readonly branch: string; readonly headSha: string } | undefined;
+	let completedPublication: CompletedDispatchSourcePublication | undefined;
 	if (remoteTip.type === "missing" || remoteTip.sha !== initialSource.headSha) {
 		request.onPhase?.("Planning source publication…");
 		const planned = await gateways.sourcePublication.planGraphitePublication({
@@ -490,7 +501,6 @@ export async function executeDispatchPrompt(
 		}
 
 		let mutation: DispatchSourcePublicationMutationEvidence;
-		let expectedPublishedSource: { readonly branch: string; readonly headSha: string } | undefined;
 		if (planned.type === "not-graphite-tracked") {
 			request.onPhase?.("Pushing the exact source revision with Git…");
 			const push = await gateways.git.pushSourceBranch({
@@ -548,22 +558,9 @@ export async function executeDispatchPrompt(
 			expectedPublishedSource = published.source;
 		}
 
-		request.onPhase?.("Revalidating the published source and dispatch identity…");
-		const revalidated = await revalidatePublishedSource({
-			request,
-			gateways,
-			initialSource,
-			sourcePublication,
-			mutation,
-			...(publicationAffectedBranches === undefined ? {} : { publicationAffectedBranches }),
-			...(expectedPublishedSource === undefined ? {} : { expectedPublishedSource }),
-		});
-		if (revalidated.ok === false) return revalidated.outcome;
-		finalSource = revalidated.source;
-		finalPreflight = revalidated.preflight;
 		completedPublication = {
 			sourcePublication,
-			mutation: { ...mutation, remote: "observed" },
+			mutation,
 			...(publicationAffectedBranches === undefined
 				? {}
 				: { affectedBranches: publicationAffectedBranches }),
@@ -602,6 +599,24 @@ export async function executeDispatchPrompt(
 		};
 	}
 
+	request.onPhase?.("Revalidating the source and dispatch identity…");
+	const revalidated = await revalidateDispatchSource({
+		request,
+		gateways,
+		initialSource,
+		...(completedPublication === undefined ? {} : { completedPublication }),
+		...(expectedPublishedSource === undefined ? {} : { expectedPublishedSource }),
+	});
+	if (revalidated.ok === false) return revalidated.outcome;
+	finalSource = revalidated.source;
+	finalPreflight = revalidated.preflight;
+	if (completedPublication !== undefined) {
+		completedPublication = {
+			...completedPublication,
+			mutation: { ...completedPublication.mutation, remote: "observed" },
+		};
+	}
+
 	request.onPhase?.("Creating the anchor branch and pull request…");
 	const anchor = await createDispatchAnchor(
 		{
@@ -618,7 +633,9 @@ export async function executeDispatchPrompt(
 		},
 		gateways,
 	);
-	if (anchor.status !== "ready") return anchor;
+	if (anchor.status !== "ready") {
+		return completedPublication === undefined ? anchor : { ...anchor, ...completedPublication };
+	}
 
 	const workflow = await startDispatchWorkflow(
 		{
@@ -636,7 +653,9 @@ export async function executeDispatchPrompt(
 		},
 		gateways,
 	);
-	if (workflow.status !== "ready") return workflow;
+	if (workflow.status !== "ready") {
+		return completedPublication === undefined ? workflow : { ...workflow, ...completedPublication };
+	}
 
 	return {
 		status: "dispatched",
@@ -650,7 +669,7 @@ export async function executeDispatchPrompt(
 	};
 }
 
-async function revalidatePublishedSource(options: {
+async function revalidateDispatchSource(options: {
 	readonly request: DispatchPromptRequest;
 	readonly gateways: DispatchPromptGateways;
 	readonly initialSource: {
@@ -658,9 +677,7 @@ async function revalidatePublishedSource(options: {
 		readonly branch: string;
 		readonly headSha: string;
 	};
-	readonly sourcePublication: Exclude<DispatchSourcePublication, "already-current">;
-	readonly mutation: DispatchSourcePublicationMutationEvidence;
-	readonly publicationAffectedBranches?: readonly string[];
+	readonly completedPublication?: CompletedDispatchSourcePublication;
 	readonly expectedPublishedSource?: { readonly branch: string; readonly headSha: string };
 }): Promise<
 	| {
@@ -672,135 +689,101 @@ async function revalidatePublishedSource(options: {
 			};
 			readonly preflight: DispatchPreflightSuccess;
 	  }
-	| {
-			readonly ok: false;
-			readonly outcome: Extract<
-				DispatchPromptOutcome,
-				{ readonly status: "source-publication-verification-failed" }
-			>;
-	  }
+	| { readonly ok: false; readonly outcome: DispatchPromptOutcome }
 > {
 	const source = await options.gateways.git.resolveSourceRef({ cwd: options.request.cwd });
 	if (source.ok === false) {
-		return verificationFailure(options, "source-read-failed", source.error.message);
+		return sourceRevalidationFailure(options, "source-read-failed", source.error.message);
 	}
 	if (source.value.repoRoot !== options.initialSource.repoRoot) {
-		return verificationFailure(
+		return sourceRevalidationFailure(
 			options,
 			"repository-drift",
 			`Repository changed from ${options.initialSource.repoRoot} to ${source.value.repoRoot}.`,
 		);
 	}
-	if (source.value.branch !== options.initialSource.branch) {
-		return verificationFailure(
+	const expectedSource = options.expectedPublishedSource ?? options.initialSource;
+	if (source.value.branch !== expectedSource.branch) {
+		return sourceRevalidationFailure(
 			options,
 			"branch-drift",
-			`Current branch changed from ${options.initialSource.branch} to ${source.value.branch}.`,
+			`Current branch changed from ${expectedSource.branch} to ${source.value.branch}.`,
 		);
 	}
-	if (
-		options.sourcePublication === "git-pushed" &&
-		source.value.headSha !== options.initialSource.headSha
-	) {
-		return verificationFailure(
+	if (source.value.headSha !== expectedSource.headSha) {
+		return sourceRevalidationFailure(
 			options,
 			"head-drift",
-			`HEAD changed from ${options.initialSource.headSha} to ${source.value.headSha} during the exact-SHA Git push.`,
-		);
-	}
-	if (
-		options.expectedPublishedSource !== undefined &&
-		(source.value.branch !== options.expectedPublishedSource.branch ||
-			source.value.headSha !== options.expectedPublishedSource.headSha)
-	) {
-		return verificationFailure(
-			options,
-			"head-drift",
-			"Flow's published source does not match the refreshed repository source.",
+			`HEAD changed from ${expectedSource.headSha} to ${source.value.headSha}.`,
 		);
 	}
 	const dirty = await options.gateways.git.listDirtyPaths({ cwd: options.request.cwd });
 	if (dirty.ok === false) {
-		return verificationFailure(options, "dirty-read-failed", dirty.error.message);
+		return sourceRevalidationFailure(options, "dirty-read-failed", dirty.error.message);
 	}
 	if (dirty.value.length > 0) {
-		return {
-			ok: false,
-			outcome: {
-				status: "source-publication-verification-failed",
-				sourcePublication: options.sourcePublication,
-				reason: "dirty-tree",
-				message: "Source publication completed, but the worktree is no longer clean.",
-				mutation: options.mutation,
-				...(options.publicationAffectedBranches === undefined
-					? {}
-					: { affectedBranches: [...options.publicationAffectedBranches] }),
-				dirtyPaths: [...dirty.value],
-			},
-		};
+		return sourceRevalidationFailure(
+			options,
+			"dirty-tree",
+			options.completedPublication === undefined
+				? "The worktree is no longer clean."
+				: "Source publication completed, but the worktree is no longer clean.",
+			{ dirtyPaths: [...dirty.value] },
+		);
 	}
 	const preflight = await runDispatchPreflight(
 		{ repoRoot: source.value.repoRoot },
 		options.gateways,
 	);
 	if (preflight.ok === false) {
-		return {
-			ok: false,
-			outcome: {
-				status: "source-publication-verification-failed",
-				sourcePublication: options.sourcePublication,
-				reason: "preflight-failed",
-				message: "Source publication completed, but the second dispatch preflight failed.",
-				mutation: options.mutation,
-				...(options.publicationAffectedBranches === undefined
-					? {}
-					: { affectedBranches: [...options.publicationAffectedBranches] }),
-				checks: preflight.checks,
-			},
-		};
+		return sourceRevalidationFailure(
+			options,
+			"preflight-failed",
+			options.completedPublication === undefined
+				? "The final dispatch preflight failed."
+				: "Source publication completed, but the final dispatch preflight failed.",
+			{ checks: preflight.checks },
+		);
 	}
 	const remote = await options.gateways.git.readRemoteBranchTip({
 		cwd: options.request.cwd,
 		branch: source.value.branch,
 	});
 	if (remote.type === "error") {
-		return verificationFailure(options, "remote-tip-read-failed", remote.error.message);
+		return sourceRevalidationFailure(options, "remote-tip-read-failed", remote.error.message);
 	}
 	if (remote.type === "missing" || remote.sha !== source.value.headSha) {
-		return verificationFailure(
+		return sourceRevalidationFailure(
 			options,
 			"remote-tip-mismatch",
 			remote.type === "missing"
-				? `Remote branch ${source.value.branch} is missing after source publication.`
+				? `Remote branch ${source.value.branch} is missing.`
 				: `Remote branch ${source.value.branch} is at ${remote.sha}, expected ${source.value.headSha}.`,
 		);
 	}
 	return { ok: true, source: source.value, preflight };
 }
 
-function verificationFailure(
-	options: {
-		readonly sourcePublication: Exclude<DispatchSourcePublication, "already-current">;
-		readonly mutation: DispatchSourcePublicationMutationEvidence;
-		readonly publicationAffectedBranches?: readonly string[];
-	},
-	reason: Extract<
-		DispatchPromptOutcome,
-		{ readonly status: "source-publication-verification-failed" }
-	>["reason"],
+function sourceRevalidationFailure(
+	options: { readonly completedPublication?: CompletedDispatchSourcePublication },
+	reason: DispatchSourceRevalidationReason,
 	message: string,
+	details: {
+		readonly checks?: readonly DispatchPreflightCheck[];
+		readonly dirtyPaths?: readonly string[];
+	} = {},
 ) {
 	return {
 		ok: false as const,
-		outcome: {
-			status: "source-publication-verification-failed" as const,
-			sourcePublication: options.sourcePublication,
-			reason,
-			message,
-			mutation: options.mutation,
-			...(options.publicationAffectedBranches === undefined
-				? {}
-				: { affectedBranches: [...options.publicationAffectedBranches] }),
-		},
+		outcome:
+			options.completedPublication === undefined
+				? ({ status: "source-revalidation-failed", reason, message, ...details } as const)
+				: ({
+						status: "source-publication-verification-failed",
+						reason,
+						message,
+						...options.completedPublication,
+						...details,
+					} as const),
 	};
 }

@@ -273,6 +273,23 @@ async function runDispatchPromptCommand(
 					runStarted: false,
 				},
 			);
+		case "source-revalidation-failed":
+			return failure(
+				"source-revalidation-failed",
+				`${outcome.message}\nThe final source check failed before anchor mutation; nothing was published, pushed, opened, or started.`,
+				{
+					reason: outcome.reason,
+					anchorCreated: false,
+					runStarted: false,
+					...(outcome.checks === undefined ? {} : { checks: outcome.checks }),
+					...(outcome.dirtyPaths === undefined
+						? {}
+						: {
+								dirtyPaths: outcome.dirtyPaths.slice(0, DIRTY_PATHS_DATA_MAX_PATHS),
+								totalDirtyPaths: outcome.dirtyPaths.length,
+							}),
+				},
+			);
 		case "source-publication-verification-failed":
 			return failure(
 				"source-publication-verification-failed",
@@ -298,35 +315,39 @@ async function runDispatchPromptCommand(
 		case "anchor-push-failed":
 			return failure(
 				"anchor-push-failed",
-				`${outcome.message}\nNothing was dispatched and no PR was opened.`,
-				{ anchorBranch: outcome.anchorBranch },
+				outcome.sourcePublication === undefined
+					? `${outcome.message}\nNothing was dispatched and no PR was opened.`
+					: `${outcome.message}\nNo dispatch anchor or run was created.${renderCompletedPublication(outcome)}`,
+				{ anchorBranch: outcome.anchorBranch, ...completedPublicationData(outcome) },
 			);
 		case "anchor-pr-failed":
 			return failure(
 				"anchor-pr-failed",
-				`${outcome.message}\nThe anchor branch ${outcome.anchorBranch} was pushed but no run was started; delete the remote branch or retry the dispatch.`,
-				{ anchorBranch: outcome.anchorBranch },
+				`${outcome.message}\nThe anchor branch ${outcome.anchorBranch} was pushed but no run was started; delete the remote branch or retry the dispatch.${renderCompletedPublication(outcome)}`,
+				{ anchorBranch: outcome.anchorBranch, ...completedPublicationData(outcome) },
 			);
 		case "trigger-failed":
 			return failure(
 				"trigger-failed",
-				`${outcome.message}\nThe anchor PR ${outcome.anchorPr.url} is open but no run was started; re-dispatch or close it.`,
+				`${outcome.message}\nThe anchor PR ${outcome.anchorPr.url} is open but no run was started; re-dispatch or close it.${renderCompletedPublication(outcome)}`,
 				{
 					code: outcome.code,
 					anchorBranch: outcome.anchorPr.branch,
 					anchorPrNumber: outcome.anchorPr.number,
 					anchorPrUrl: outcome.anchorPr.url,
+					...completedPublicationData(outcome),
 				},
 			);
 		case "run-id-stamp-failed":
 			return failure(
 				"run-id-stamp-failed",
-				`${outcome.message}\nThe run was started${outcome.runId === undefined ? "" : ` (run id ${outcome.runId})`} but the anchor PR ${outcome.anchorPr.url} carries no run-id stamp; record the run id on the PR manually.`,
+				`${outcome.message}\nThe run was started${outcome.runId === undefined ? "" : ` (run id ${outcome.runId})`} but the anchor PR ${outcome.anchorPr.url} carries no run-id stamp; record the run id on the PR manually.${renderCompletedPublication(outcome)}`,
 				{
 					anchorBranch: outcome.anchorPr.branch,
 					anchorPrNumber: outcome.anchorPr.number,
 					anchorPrUrl: outcome.anchorPr.url,
 					...(outcome.runId === undefined ? {} : { runId: outcome.runId }),
+					...completedPublicationData(outcome),
 				},
 			);
 	}
@@ -397,6 +418,48 @@ function renderPublicationFailure(options: {
 }): string {
 	const scope = options.affectedBranches.slice(0, PUBLICATION_BRANCHES_DATA_MAX).join(" → ");
 	return `${options.message}\nGraphite source publication failed during ${options.stage} for ${scope}. ${renderMutationEvidence(options.mutation)} No dispatch anchor or run was created.`;
+}
+
+function completedPublicationData(
+	outcome: Extract<
+		DispatchPromptOutcome,
+		{
+			readonly status:
+				| "anchor-push-failed"
+				| "anchor-pr-failed"
+				| "trigger-failed"
+				| "run-id-stamp-failed";
+		}
+	>,
+) {
+	if (outcome.sourcePublication === undefined) return {};
+	return {
+		sourcePublication: outcome.sourcePublication,
+		mutation: outcome.mutation,
+		...(outcome.affectedBranches === undefined
+			? {}
+			: publicationScopeData(outcome.affectedBranches)),
+	};
+}
+
+function renderCompletedPublication(
+	outcome: Extract<
+		DispatchPromptOutcome,
+		{
+			readonly status:
+				| "anchor-push-failed"
+				| "anchor-pr-failed"
+				| "trigger-failed"
+				| "run-id-stamp-failed";
+		}
+	>,
+): string {
+	if (outcome.sourcePublication === undefined) return "";
+	const scope =
+		outcome.affectedBranches === undefined
+			? ""
+			: ` Graphite scope: ${outcome.affectedBranches.join(" → ")}.`;
+	return ` Source publication completed via ${outcome.sourcePublication}. ${renderMutationEvidence(outcome.mutation)}${scope}`;
 }
 
 function renderMutationEvidence(mutation: {

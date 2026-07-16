@@ -25,8 +25,10 @@ cleaned up after the fact.
 The semantic cheap-submit engine is staged behind `ns flow submit --minimal`: it is a
 clean-tree readiness/restack/submit/verification path with no hooks, checkpoint,
 metadata prewrite, PR prose, or model work. Default `ns flow submit` has not migrated
-and retains its existing behavior. `ns flow ship`, review/autofix integration, prose
-migration, and live dogfooding remain open; the staged mode carries no live
+and retains its existing behavior, but its legacy path now reacquires Graphite readiness
+only after metadata amendments and stops before follow-up stack publication when the
+primary submit reports a semantic failure. `ns flow ship`, review/autofix integration,
+prose migration, and live dogfooding remain open; the staged mode carries no live
 publication claim.
 
 ## Scope

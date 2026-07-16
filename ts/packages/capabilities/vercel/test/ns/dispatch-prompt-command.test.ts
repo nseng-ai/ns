@@ -74,7 +74,7 @@ describe("ns dispatch prompt", () => {
 			"Deriving the semantic anchor branch name…",
 			"Planning source publication…",
 			"Pushing the exact source revision with Git…",
-			"Revalidating the published source and dispatch identity…",
+			"Revalidating the source and dispatch identity…",
 			"Creating the anchor branch and pull request…",
 			"Starting the remote workflow…",
 			"Recording the workflow run on the anchor PR…",
@@ -133,6 +133,7 @@ describe("ns dispatch prompt", () => {
 			"slug:derive-semantic",
 			"publication:plan",
 			"git:push-source",
+			"git:check-anchor-availability",
 			"git:resolve-source-ref",
 			"git:list-dirty-paths",
 			"config:read-dispatch-settings",
@@ -140,7 +141,6 @@ describe("ns dispatch prompt", () => {
 			"token:read-development-oidc",
 			"trigger:check-identity",
 			"git:read-remote-tip",
-			"git:check-anchor-availability",
 			"git:push-anchor",
 			"anchor-pr:open",
 			"trigger:start-run",
@@ -441,7 +441,7 @@ describe("ns dispatch prompt", () => {
 		expect(gateways.trigger.startCalls[0]?.input.revision).toBe(FAKE_REWRITTEN_HEAD_SHA);
 	});
 
-	test("Graphite publication builds the anchor from refreshed preflight facts", async () => {
+	test("Graphite publication uses refreshed preflight facts after anchor probing", async () => {
 		const { exit } = await runPromptCommand(["--force", PROMPT], {
 			git: { remoteTip: { type: "missing" } },
 			sourcePublication: { plan: TRACKED_PLAN },
@@ -459,7 +459,7 @@ describe("ns dispatch prompt", () => {
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") return;
 		expect(exit.data).toMatchObject({
-			anchorBranch: `dispatch/${FAKE_SEMANTIC_SLUG}-20260715-141814`,
+			anchorBranch: EXPECTED_ANCHOR_BRANCH,
 			sourcePublication: "graphite-submitted",
 		});
 	});
@@ -661,6 +661,51 @@ describe("ns dispatch prompt", () => {
 		},
 	);
 
+	test.each([
+		["HEAD drift", { headSha: "d".repeat(40) }, "head-drift"],
+		["dirty-tree drift", { dirtyPaths: ["late-change.ts"] }, "dirty-tree"],
+		[
+			"remote-tip drift",
+			{ remoteTip: { type: "found" as const, sha: "e".repeat(40) } },
+			"remote-tip-mismatch",
+		],
+	] as const)(
+		"already-current %s fails the final gate without publication evidence",
+		async (_label, beforeFinalValidation, reason) => {
+			const { exit, gateways } = await runPromptCommand([PROMPT], {
+				git: { beforeFinalValidation },
+			});
+
+			expect(exit.type).toBe("failure");
+			if (exit.type !== "failure") return;
+			expect(exit.errorType).toBe("source-revalidation-failed");
+			expect(exit.data).toMatchObject({ reason, anchorCreated: false, runStarted: false });
+			expect(exit.data).not.toHaveProperty("sourcePublication");
+			expect(exit.data).not.toHaveProperty("mutation");
+			expect(gateways.git.anchorPushes).toEqual([]);
+			const availabilityIndex = gateways.operations.indexOf("git:check-anchor-availability");
+			const finalReadIndex = gateways.operations.lastIndexOf("git:resolve-source-ref");
+			expect(availabilityIndex).toBeLessThan(finalReadIndex);
+		},
+	);
+
+	test("already-current final preflight failure is non-mutating", async () => {
+		const { exit, gateways } = await runPromptCommand([PROMPT], {
+			config: { dispatchSettingsBeforeFinalValidation: { type: "missing" } },
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("source-revalidation-failed");
+		expect(exit.data).toMatchObject({
+			reason: "preflight-failed",
+			anchorCreated: false,
+			runStarted: false,
+		});
+		expect(exit.data).toHaveProperty("checks");
+		expect(gateways.git.anchorPushes).toEqual([]);
+	});
+
 	test("refuses a dirty worktree, listing the dirty files, before any mutation", async () => {
 		const { exit, gateways } = await runPromptCommand([PROMPT], {
 			git: { dirtyPaths: ["src/widget.ts", "README.md"] },
@@ -840,6 +885,86 @@ describe("ns dispatch prompt", () => {
 			{ branch: "feature/widgets", expectedRevision: FAKE_HEAD_SHA },
 		]);
 		expect(gateways.anchorPrs.opened).toEqual([]);
+	});
+
+	test.each([
+		[
+			"anchor-push-failed",
+			{
+				git: {
+					anchorPushResult: { ok: false as const, error: { code: "push", message: "push failed" } },
+				},
+			},
+		],
+		[
+			"anchor-pr-failed",
+			{
+				anchorPrs: {
+					openResult: { ok: false as const, error: { code: "pr", message: "PR failed" } },
+				},
+			},
+		],
+		[
+			"trigger-failed",
+			{
+				trigger: {
+					startResult: {
+						ok: false as const,
+						error: { code: "workflow-start-failed", message: "trigger failed" },
+					},
+				},
+			},
+		],
+		[
+			"run-id-stamp-failed",
+			{
+				anchorPrs: {
+					stampResult: { ok: false as const, error: { code: "stamp", message: "stamp failed" } },
+				},
+			},
+		],
+	] satisfies ReadonlyArray<readonly [string, FakeDispatchGatewaysOptions]>)(
+		"%s preserves completed Graphite publication evidence",
+		async (errorType, failure) => {
+			const failureGit = "git" in failure ? failure.git : {};
+			const { exit } = await runPromptCommand(["--force", PROMPT], {
+				...failure,
+				git: { remoteTip: { type: "missing" }, ...failureGit },
+				sourcePublication: { plan: TRACKED_PLAN },
+			});
+
+			expect(exit.type).toBe("failure");
+			if (exit.type !== "failure") return;
+			expect(exit.errorType).toBe(errorType);
+			expect(exit.data).toMatchObject({
+				sourcePublication: "graphite-submitted",
+				mutation: { local: "none", remote: "observed" },
+				affectedBranches: ["feature/widgets", "feature/base"],
+				totalAffectedBranches: 2,
+			});
+			expect(exit.message).toContain("Source publication completed via graphite-submitted");
+		},
+	);
+
+	test("anchor push failure preserves completed Git publication without Graphite scope", async () => {
+		const { exit } = await runPromptCommand([PROMPT], {
+			git: {
+				remoteTip: { type: "missing" },
+				anchorPushResult: { ok: false, error: { code: "push", message: "push failed" } },
+			},
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("anchor-push-failed");
+		expect(exit.data).toMatchObject({
+			sourcePublication: "git-pushed",
+			mutation: { local: "none", remote: "observed" },
+		});
+		expect(exit.data).not.toHaveProperty("affectedBranches");
+		expect(exit.data).not.toHaveProperty("totalAffectedBranches");
+		expect(exit.message).toContain("Source publication completed via git-pushed");
+		expect(exit.message).not.toContain("Nothing was dispatched");
 	});
 
 	test("keeps the open anchor PR visible when the trigger call fails", async () => {
