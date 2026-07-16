@@ -1,5 +1,6 @@
 import type {
 	FlowMinimalSubmitClient,
+	FlowMinimalSubmitInput,
 	FlowMinimalSubmitPlan,
 	FlowMinimalSubmitPlanResult,
 	FlowMinimalSubmitResult,
@@ -21,12 +22,20 @@ class FakeFlowMinimalSubmitClient implements FlowMinimalSubmitClient {
 	private readonly planLog: Array<{
 		expectedSource?: { branch: string; headSha: string };
 	}> = [];
-	private readonly submissionLog: Array<{
-		expectedSource: { branch: string; headSha: string };
-		expectedPlan?: FlowMinimalSubmitPlan;
-		restack?: boolean;
-		force?: boolean;
-	}> = [];
+	private readonly submissionLog: Array<
+		| {
+				type: "planned";
+				expectedPlan: FlowMinimalSubmitPlan;
+				restack?: boolean;
+				force?: boolean;
+		  }
+		| {
+				type: "unplanned";
+				expectedSource: { branch: string; headSha: string };
+				restack?: boolean;
+				force?: boolean;
+		  }
+	> = [];
 	private readonly planResult: FlowMinimalSubmitPlanResult;
 	private readonly submitResult: FlowMinimalSubmitResult;
 
@@ -46,25 +55,32 @@ class FakeFlowMinimalSubmitClient implements FlowMinimalSubmitClient {
 		);
 	}
 
-	get submissions(): ReadonlyArray<{
-		readonly expectedSource: { readonly branch: string; readonly headSha: string };
-		readonly expectedPlan?: FlowMinimalSubmitPlan;
-		readonly restack?: boolean;
-		readonly force?: boolean;
-	}> {
-		return this.submissionLog.map((entry) => ({
-			...entry,
-			expectedSource: { ...entry.expectedSource },
-			...(entry.expectedPlan === undefined
-				? {}
-				: {
+	get submissions(): ReadonlyArray<
+		| {
+				readonly type: "planned";
+				readonly expectedPlan: FlowMinimalSubmitPlan;
+				readonly restack?: boolean;
+				readonly force?: boolean;
+		  }
+		| {
+				readonly type: "unplanned";
+				readonly expectedSource: { readonly branch: string; readonly headSha: string };
+				readonly restack?: boolean;
+				readonly force?: boolean;
+		  }
+	> {
+		return this.submissionLog.map((entry) =>
+			entry.type === "planned"
+				? {
+						...entry,
 						expectedPlan: {
 							...entry.expectedPlan,
 							source: { ...entry.expectedPlan.source },
 							affectedBranches: [...entry.expectedPlan.affectedBranches],
 						},
-					}),
-		}));
+					}
+				: { ...entry, expectedSource: { ...entry.expectedSource } },
+		);
 	}
 
 	async planCurrentBranch(
@@ -78,36 +94,26 @@ class FakeFlowMinimalSubmitClient implements FlowMinimalSubmitClient {
 		return this.planResult;
 	}
 
-	async submitCurrentBranch(input: {
-		readonly expectedSource: { readonly branch: string; readonly headSha: string };
-		readonly expectedPlan?: FlowMinimalSubmitPlan;
-		readonly restack?: boolean;
-		readonly force?: boolean;
-		readonly onPhase?: (event: {
-			readonly stage:
-				| "planning"
-				| "readiness"
-				| "restack"
-				| "readiness-recheck"
-				| "submit"
-				| "verification";
-			readonly status: "started" | "completed" | "failed";
-		}) => void;
-	}) {
-		this.submissionLog.push({
-			expectedSource: { ...input.expectedSource },
-			...(input.expectedPlan === undefined
-				? {}
-				: {
+	async submitCurrentBranch(input: FlowMinimalSubmitInput) {
+		this.submissionLog.push(
+			input.type === "planned"
+				? {
+						type: "planned",
 						expectedPlan: {
 							...input.expectedPlan,
 							source: { ...input.expectedPlan.source },
 							affectedBranches: [...input.expectedPlan.affectedBranches],
 						},
-					}),
-			...(input.restack === undefined ? {} : { restack: input.restack }),
-			...(input.force === undefined ? {} : { force: input.force }),
-		});
+						...(input.restack === undefined ? {} : { restack: input.restack }),
+						...(input.force === undefined ? {} : { force: input.force }),
+					}
+				: {
+						type: "unplanned",
+						expectedSource: { ...input.expectedSource },
+						...(input.restack === undefined ? {} : { restack: input.restack }),
+						...(input.force === undefined ? {} : { force: input.force }),
+					},
+		);
 		input.onPhase?.({ stage: "planning", status: "started" });
 		return this.submitResult;
 	}
@@ -170,7 +176,7 @@ describe("dispatch source publication gateways", () => {
 		expect(result).toMatchObject({ type: "published" });
 		expect(client.submissions).toEqual([
 			{
-				expectedSource: { branch: "feature/widgets", headSha: SHA },
+				type: "planned",
 				expectedPlan: trackedPlan().plan,
 				restack: true,
 				force: false,

@@ -51,14 +51,13 @@ export function createRealDispatchSourcePublicationGateway(
 			};
 		},
 		async publishGraphiteSource(options): Promise<DispatchGraphitePublicationResult> {
-			const expectedSource = {
-				branch: options.expectedBranch,
-				headSha: options.expectedHeadSha,
-			};
 			const result = await client.submitCurrentBranch({
-				expectedSource,
+				type: "planned",
 				expectedPlan: {
-					source: expectedSource,
+					source: {
+						branch: options.expectedBranch,
+						headSha: options.expectedHeadSha,
+					},
 					trunkBranch: options.expectedPlan.trunkBranch,
 					affectedBranches: [...options.expectedPlan.affectedBranches],
 				},

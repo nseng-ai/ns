@@ -211,7 +211,7 @@ async function runMinimalSubmit(input: {
 		`minimal submit scope: ${planned.plan.affectedBranches.join(" → ")}`,
 	);
 	const result = await input.client.submitCurrentBranch({
-		expectedSource: planned.plan.source,
+		type: "planned",
 		expectedPlan: planned.plan,
 		restack: input.request.restack,
 		force: input.request.force,

@@ -93,20 +93,35 @@ export type FlowMinimalSubmitResult =
 			readonly plan?: FlowMinimalSubmitPlan;
 	  };
 
+interface FlowMinimalSubmitExecutionOptions {
+	readonly restack?: boolean;
+	readonly force?: boolean;
+	/** Non-controlling progress observer; callback failures do not alter submission. */
+	readonly onPhase?: (event: FlowMinimalSubmitPhaseEvent) => void;
+	/** Non-controlling command-output observer; callback failures do not alter submission. */
+	readonly onOutput?: (event: FlowMinimalSubmitOutputEvent) => void;
+}
+
+export type FlowMinimalSubmitInput = FlowMinimalSubmitExecutionOptions &
+	(
+		| {
+				readonly type: "planned";
+				/** The complete caller-authorized plan; its source is the sole expected source. */
+				readonly expectedPlan: FlowMinimalSubmitPlan;
+				readonly expectedSource?: never;
+		  }
+		| {
+				readonly type: "unplanned";
+				readonly expectedSource: FlowMinimalSubmitSource;
+				readonly expectedPlan?: never;
+		  }
+	);
+
 export interface FlowMinimalSubmitClient {
 	planCurrentBranch(input?: {
 		readonly expectedSource?: FlowMinimalSubmitSource;
 	}): Promise<FlowMinimalSubmitPlanResult>;
-	submitCurrentBranch(input: {
-		readonly expectedSource: FlowMinimalSubmitSource;
-		readonly expectedPlan?: FlowMinimalSubmitPlan;
-		readonly restack?: boolean;
-		readonly force?: boolean;
-		/** Non-controlling progress observer; callback failures do not alter submission. */
-		readonly onPhase?: (event: FlowMinimalSubmitPhaseEvent) => void;
-		/** Non-controlling command-output observer; callback failures do not alter submission. */
-		readonly onOutput?: (event: FlowMinimalSubmitOutputEvent) => void;
-	}): Promise<FlowMinimalSubmitResult>;
+	submitCurrentBranch(input: FlowMinimalSubmitInput): Promise<FlowMinimalSubmitResult>;
 }
 
 interface MinimalSubmitGatewayResult<T> {
@@ -207,17 +222,12 @@ async function planCurrentBranch(
 
 async function submitCurrentBranch(
 	context: FlowMinimalSubmitContext,
-	input: {
-		readonly expectedSource: FlowMinimalSubmitSource;
-		readonly expectedPlan?: FlowMinimalSubmitPlan;
-		readonly restack?: boolean;
-		readonly force?: boolean;
-		readonly onPhase?: (event: FlowMinimalSubmitPhaseEvent) => void;
-		readonly onOutput?: (event: FlowMinimalSubmitOutputEvent) => void;
-	},
+	input: FlowMinimalSubmitInput,
 ): Promise<FlowMinimalSubmitResult> {
+	const expectedSource =
+		input.type === "planned" ? input.expectedPlan.source : input.expectedSource;
 	emitPhase(input, "planning", "started");
-	const planned = await planCurrentBranch(context, input.expectedSource);
+	const planned = await planCurrentBranch(context, expectedSource);
 	if (planned.type !== "tracked") {
 		emitPhase(input, "planning", "failed");
 		if (planned.type === "failed") return planned;
@@ -227,7 +237,7 @@ async function submitCurrentBranch(
 		});
 	}
 	const plan = planned.plan;
-	if (input.expectedPlan !== undefined && !submitPlansEqual(plan, input.expectedPlan)) {
+	if (input.type === "planned" && !submitPlansEqual(plan, input.expectedPlan)) {
 		emitPhase(input, "planning", "failed");
 		return executionFailure(
 			"planning",
@@ -245,7 +255,7 @@ async function submitCurrentBranch(
 		emitPhase(input, "planning", "failed");
 		return executionFailure("planning", before.error, noMutation(), plan);
 	}
-	const beforeError = validateObservationBefore(before.value, input.expectedSource);
+	const beforeError = validateObservationBefore(before.value, expectedSource);
 	if (beforeError !== undefined) {
 		emitPhase(input, "planning", "failed");
 		return executionFailure("planning", beforeError, noMutation(), plan);

@@ -318,7 +318,9 @@ describe("Flow minimal submit", () => {
 	])("refuses $name before Graphite", async ({ repository, code }) => {
 		const { client, graphite, submit } = fixture({ repository });
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE }),
+		).toMatchObject({
 			type: "failed",
 			stage: "planning",
 			error: { code },
@@ -333,7 +335,7 @@ describe("Flow minimal submit", () => {
 
 		expect(
 			await client.submitCurrentBranch({
-				expectedSource: SOURCE,
+				type: "planned",
 				expectedPlan: {
 					source: SOURCE,
 					trunkBranch: "main",
@@ -352,7 +354,9 @@ describe("Flow minimal submit", () => {
 	test("submits a ready clean stack without Graphite force by default", async () => {
 		const { client, submit } = fixture();
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE }),
+		).toMatchObject({
 			type: "submitted",
 			source: SOURCE,
 			mutation: { local: "none", remote: "observed" },
@@ -368,7 +372,11 @@ describe("Flow minimal submit", () => {
 		const { client, submit } = fixture({ submit: { readiness: "restack-required" } });
 
 		expect(
-			await client.submitCurrentBranch({ expectedSource: SOURCE, restack: false }),
+			await client.submitCurrentBranch({
+				type: "unplanned",
+				expectedSource: SOURCE,
+				restack: false,
+			}),
 		).toMatchObject({
 			type: "failed",
 			stage: "readiness",
@@ -381,7 +389,9 @@ describe("Flow minimal submit", () => {
 	test("restacks, rechecks readiness, and submits", async () => {
 		const { client, submit } = fixture({ submit: { readiness: "restack-required" } });
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE }),
+		).toMatchObject({
 			type: "submitted",
 			source: { branch: SOURCE.branch, headSha: RESTACKED_HEAD },
 			mutation: { local: "observed", remote: "observed" },
@@ -403,7 +413,9 @@ describe("Flow minimal submit", () => {
 			submit: { readiness: "restack-required", restack },
 		});
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE }),
+		).toMatchObject({
 			type: "failed",
 			stage: "restack",
 			error: { code },
@@ -420,7 +432,9 @@ describe("Flow minimal submit", () => {
 			},
 		});
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE }),
+		).toMatchObject({
 			type: "failed",
 			stage: "restack",
 			mutation: { local: "possible", remote: "none" },
@@ -432,7 +446,9 @@ describe("Flow minimal submit", () => {
 			submit: { readiness: "restack-required", recheck: "failed" },
 		});
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE }),
+		).toMatchObject({
 			type: "failed",
 			stage: "readiness-recheck",
 			mutation: { local: "observed", remote: "none" },
@@ -442,7 +458,9 @@ describe("Flow minimal submit", () => {
 	test("a failed submit reports remote mutation possible even when tips appear unchanged", async () => {
 		const { client } = fixture({ submit: { submit: "failed" } });
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE }),
+		).toMatchObject({
 			type: "failed",
 			stage: "submit",
 			mutation: { local: "none", remote: "possible" },
@@ -454,7 +472,9 @@ describe("Flow minimal submit", () => {
 			submit: { submit: "failed", failedSubmitMutatesRemote: true },
 		});
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE }),
+		).toMatchObject({
 			type: "failed",
 			stage: "submit",
 			mutation: { local: "none", remote: "observed" },
@@ -464,7 +484,9 @@ describe("Flow minimal submit", () => {
 	test("strict verification rejects a successful submit without a current PR", async () => {
 		const { client } = fixture({ submit: { verification: "missing" } });
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE }),
+		).toMatchObject({
 			type: "failed",
 			stage: "verification",
 			error: { code: "flow-minimal-submit-verification-no_current_pr" },
@@ -475,7 +497,9 @@ describe("Flow minimal submit", () => {
 	test("verification failure after successful submit reports remote mutation observed", async () => {
 		const { client } = fixture({ submit: { verification: "failed" } });
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE }),
+		).toMatchObject({
 			type: "failed",
 			stage: "verification",
 			mutation: { remote: "observed" },
@@ -486,6 +510,7 @@ describe("Flow minimal submit", () => {
 		const { client, submit } = fixture();
 
 		const result = await client.submitCurrentBranch({
+			type: "unplanned",
 			expectedSource: SOURCE,
 			onPhase: (event) => {
 				if (event.stage === "submit" && event.status === "completed") {
@@ -509,6 +534,7 @@ describe("Flow minimal submit", () => {
 		const { client, submit } = fixture({ submit: { verification: "failed" } });
 
 		const result = await client.submitCurrentBranch({
+			type: "unplanned",
 			expectedSource: SOURCE,
 			onOutput: () => {
 				throw new Error("output observer failed");
@@ -533,7 +559,9 @@ describe("Flow minimal submit", () => {
 			repository: { failAfterMutationObservation: true },
 		});
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE })).toMatchObject({
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE }),
+		).toMatchObject({
 			type: "failed",
 			stage: "verification",
 			error: { code: "flow-minimal-submit-after-observation-failed" },
@@ -544,9 +572,9 @@ describe("Flow minimal submit", () => {
 	test("explicit force remains an opt-in passed to Flow's Graphite operations", async () => {
 		const { client, submit } = fixture();
 
-		expect(await client.submitCurrentBranch({ expectedSource: SOURCE, force: true })).toMatchObject(
-			{ type: "submitted" },
-		);
+		expect(
+			await client.submitCurrentBranch({ type: "unplanned", expectedSource: SOURCE, force: true }),
+		).toMatchObject({ type: "submitted" });
 		expect(submit.operations().every((entry) => entry.force)).toBe(true);
 	});
 });
