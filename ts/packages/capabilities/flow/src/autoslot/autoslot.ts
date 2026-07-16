@@ -21,7 +21,6 @@ import {
 } from "./slot-checkout.ts";
 
 export interface AutoslotFlowInput extends FlowAutobranchCheckpointInput {
-	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
 	slotClient: SlotClient;
 	io: NsCommandIo;
 	/** Resolved terminal caps for house-style rendering of durable outcomes. */
@@ -72,7 +71,6 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 					message,
 				),
 			io,
-			env: input.env,
 			slotClient: createFlowSlotClient({ cwd: input.cwd, env: input.env }),
 		});
 	});
