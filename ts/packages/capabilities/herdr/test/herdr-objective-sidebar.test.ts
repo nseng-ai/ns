@@ -63,6 +63,25 @@ describe("herdr Objective sidebar", () => {
 		);
 	});
 
+	test("ns:herdr:sidebar:objective-summary prefixes labels inside a managed slot", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const slug = "areg-lifecycle-ergonomics";
+		const pi = new FakePi({ script: [objectiveReadStep(slug)] });
+		const herdr = new FakeHerdrGateway();
+		const controller = createHerdrSidebarController(createHerdrPiCommandApi(pi), herdr);
+		registerHerdrSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext({
+			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01",
+		});
+
+		await pi.commands.get("ns:herdr:sidebar:objective-summary")?.handler(slug, ctx);
+
+		pi.assertDone();
+		expect(herdr.renameCalls).toEqual([
+			{ workspaceId: "w1", label: "s1:obj:areg-lifecycle-ergonomics" },
+		]);
+	});
+
 	test("ns:herdr:sidebar:objective-summary resolves path selector to slug", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
@@ -372,19 +391,23 @@ describe("herdr Objective sidebar — resolveObjectiveSelector", () => {
 });
 
 describe("herdr Objective sidebar — formatObjectiveSidebarLabel", () => {
-	test("encodes only the Objective slug (label-only behavior)", () => {
-		const label = formatObjectiveSidebarLabel({
-			objectiveSlug: "herdr-capability-parity",
-		});
-		expect(label).toBe("obj:herdr-capability-parity");
-		// Label must not contain slot or branch — those are metadata that the
-		// installed Herdr CLI cannot report via workspace report-metadata yet.
-		expect(label).not.toContain("::");
+	test("prefixes the Objective with a compact numbered slot", () => {
+		expect(
+			formatObjectiveSidebarLabel({
+				objectiveSlug: "areg-lifecycle-ergonomics",
+				slotSlug: "slot-01",
+			}),
+		).toBe("s1:obj:areg-lifecycle-ergonomics");
 	});
 
-	test("is deterministic for the same Objective slug", () => {
-		const a = formatObjectiveSidebarLabel({ objectiveSlug: "test-objective" });
-		const b = formatObjectiveSidebarLabel({ objectiveSlug: "test-objective" });
-		expect(a).toBe(b);
+	test("omits the slot prefix when slots are not in use", () => {
+		expect(formatObjectiveSidebarLabel({ objectiveSlug: "test-objective" })).toBe(
+			"obj:test-objective",
+		);
+	});
+
+	test("is deterministic for the same Objective and slot", () => {
+		const input = { objectiveSlug: "test-objective", slotSlug: "slot-12" };
+		expect(formatObjectiveSidebarLabel(input)).toBe(formatObjectiveSidebarLabel(input));
 	});
 });

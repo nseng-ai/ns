@@ -4,9 +4,9 @@ Use the repository's Pi extension command checklist for command registration, ac
 
 - [`docs/pi/extension-command-checklist.md`](../../../../docs/pi/extension-command-checklist.md)
 
-## Label-only behavior reminder
+## Objective workspace label
 
-The `/ns:herdr:sidebar:objective-summary` command currently applies only a workspace label (via `herdr workspace rename`) because the installed Herdr CLI lacks `workspace report-metadata`. Do not add metadata reporting, a public generic workspace-summary command, or a substitute transport. This remains parked in the herdr-capability-parity Objective roadmap until the installed binary supports it.
+The `/ns:herdr:sidebar:objective-summary` command applies one workspace label via `herdr workspace rename`. In a managed ns slot, the label prefixes the Objective with the compact slot (`s1:obj:<slug>`); outside slots it remains `obj:<slug>`. Do not infer slot use from a directory basename alone, add metadata reporting, or add a public generic workspace-summary command. The label-composition policy is provisional and should move behind a Herdr workflow pluggability point when that extension surface is designed.
 
 ## Herdr caller targeting
 

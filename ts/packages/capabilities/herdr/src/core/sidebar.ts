@@ -1,3 +1,5 @@
+import { basename, dirname, resolve } from "node:path";
+
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
@@ -76,7 +78,10 @@ async function handleDeterministicObjectiveSidebar(
 			return;
 		}
 
-		const label = formatObjectiveSidebarLabel({ objectiveSlug: slug });
+		const label = formatObjectiveSidebarLabel({
+			objectiveSlug: slug,
+			...slotLabelInput(ctx.cwd),
+		});
 		const renameResult = await herdr.renameWorkspace(workspaceId, label);
 		if (renameResult.type === "failed") {
 			notify(ctx, renameResult.message, "error");
@@ -113,6 +118,19 @@ async function resolveObjectiveSidebarSlug(
 		objectiveSelectionContextFromCommandContext(ctx),
 		OBJECTIVE_SIDEBAR_SELECTION_SPEC,
 	);
+}
+
+function slotLabelInput(cwd: string): { slotSlug: string } | Record<string, never> {
+	const normalizedCwd = resolve(cwd);
+	const worktreesDir = dirname(normalizedCwd);
+	const repoDir = dirname(worktreesDir);
+	const reposDir = dirname(repoDir);
+	const slotsDir = dirname(reposDir);
+	if (basename(worktreesDir) !== "worktrees") return {};
+	if (basename(reposDir) !== "repos" || basename(slotsDir) !== "slots") return {};
+	const slotSlug = basename(normalizedCwd);
+	if (!/^slot-\d+$/.test(slotSlug)) return {};
+	return { slotSlug };
 }
 
 function notify(

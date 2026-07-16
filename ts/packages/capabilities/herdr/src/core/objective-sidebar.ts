@@ -19,6 +19,7 @@ export type ObjectiveSelectorParseResult =
 
 export interface ObjectiveSidebarFormatInput {
 	objectiveSlug: string;
+	slotSlug?: string;
 }
 
 export type ObjectiveSidebarValidationResult =
@@ -78,12 +79,21 @@ export async function validateObjectiveSidebarSlug(
 /**
  * Format the workspace label that will be applied via `herdr workspace rename`.
  *
- * Only the Objective slug is encoded in the label. Slot and branch metadata
- * reporting is deferred because the installed Herdr CLI lacks
- * `workspace report-metadata`; the label is the sole durable output.
+ * A compact slot prefix is included only when the caller is running in a
+ * managed ns slot. Keep this formatter narrow for now: workspace-label
+ * composition should eventually become a Herdr workflow pluggability point
+ * rather than accumulating more hard-coded consumer policy here.
  */
 export function formatObjectiveSidebarLabel(input: ObjectiveSidebarFormatInput): string {
-	return `obj:${input.objectiveSlug}`;
+	const objectiveLabel = `obj:${input.objectiveSlug}`;
+	if (input.slotSlug === undefined) return objectiveLabel;
+	return `${compactSlotSlug(input.slotSlug)}:${objectiveLabel}`;
+}
+
+function compactSlotSlug(slotSlug: string): string {
+	const match = /^slot-(\d+)$/.exec(slotSlug);
+	if (match === null) return slotSlug;
+	return `s${Number(match[1])}`;
 }
 
 function resolveAbsoluteObjectiveSelector(
