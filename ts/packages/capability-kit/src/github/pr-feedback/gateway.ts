@@ -14,7 +14,9 @@ import type { Result } from "@nseng-ai/foundation/result";
 
 import {
 	addPrDiscussionCommentRestArgs,
+	branchPrCheckContextsPageArgs,
 	branchPrChecksArgs,
+	branchPrCheckThreadsPageArgs,
 	createPrReviewRestArgs,
 	discussionCommentPageArgs,
 	prChangedFilesRestArgs,
@@ -61,7 +63,9 @@ import {
 	type GithubPrFeedbackFailureContext,
 } from "./parsing.ts";
 import {
+	ghBranchPrCheckContextsResponseSchema,
 	ghBranchPrChecksResponseSchema,
+	ghBranchPrCheckThreadsResponseSchema,
 	ghChangedFilesResponseSchema,
 	ghDiscussionCommentsResponseSchema,
 	ghIssueCommentRestSchema,
@@ -134,7 +138,7 @@ type GraphqlPaginationCursorMode =
 	| {
 			type: "cursor-required";
 			initialCursor: string | null | undefined;
-			threadId: string;
+			threadId?: string;
 			argsForCursor: (cursor: string) => readonly string[];
 	  };
 
@@ -451,13 +455,14 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 			schema: ghBranchPrChecksResponseSchema,
 		});
 		if (!result.ok) return result;
-		return this.normalizeBranchPrChecksResponse(result.value, params.branches);
+		return await this.normalizeBranchPrChecksResponse(result.value, params);
 	}
 
-	private normalizeBranchPrChecksResponse(
+	private async normalizeBranchPrChecksResponse(
 		response: GhBranchPrChecksResponse,
-		branches: readonly string[],
-	): Result<readonly GithubBranchPrChecksOutcome[], GithubPrFeedbackFailure> {
+		params: GithubPrFeedbackOptions & { readonly branches: readonly string[] },
+	): Promise<Result<readonly GithubBranchPrChecksOutcome[], GithubPrFeedbackFailure>> {
+		const branches = params.branches;
 		const outcomes: GithubBranchPrChecksOutcome[] = [];
 		for (const [index, branch] of branches.entries()) {
 			const alias = `b${index}`;
@@ -493,14 +498,92 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 					}),
 				);
 			}
+			const headCommit = node.commits.nodes[0]?.commit;
+			if (headCommit === undefined || headCommit.oid !== node.headRefOid) {
+				return feedbackErr(
+					failureFromMessage({
+						code: "github_pr_feedback_response_invalid",
+						operation: "getBranchPrChecks",
+						message: `GitHub branch PR checks response ${alias} did not include a commit matching headRefOid.`,
+						prNumber: node.number,
+					}),
+				);
+			}
 			const contexts = node.statusCheckRollup?.contexts;
+			const rawChecks = [...(contexts?.nodes ?? [])];
+			if (contexts?.pageInfo.hasNextPage === true) {
+				const additionalChecks = await this.collectGraphqlPages({
+					operation: "getBranchPrChecks",
+					params: { ...params, prNumber: node.number },
+					schema: ghBranchPrCheckContextsResponseSchema,
+					cursorContext: "branchPrCheckContexts",
+					missingCursorMessage:
+						"GitHub returned branch PR check contexts with hasNextPage but no endCursor",
+					cursorMode: {
+						type: "cursor-required",
+						initialCursor: contexts.pageInfo.endCursor,
+						argsForCursor: (cursor) => branchPrCheckContextsPageArgs(node.number, cursor),
+					},
+					connectionFromResponse: (continuation) => {
+						const pullRequest = continuation.data.repository.pullRequest;
+						if (pullRequest?.statusCheckRollup === null || pullRequest === null)
+							return feedbackErr(
+								failureFromMessage({
+									code: "github_pr_feedback_pagination_invalid",
+									operation: "getBranchPrChecks",
+									message: `GitHub returned no check rollup for PR ${node.number}.`,
+									prNumber: node.number,
+									cursorContext: "branchPrCheckContexts",
+								}),
+							);
+						return feedbackOk(pullRequest.statusCheckRollup.contexts);
+					},
+					mapNode: (check) => feedbackOk(check),
+				});
+				if (!additionalChecks.ok) return additionalChecks;
+				rawChecks.push(...additionalChecks.value);
+			}
+			const reviewThreads = [...node.reviewThreads.nodes];
+			if (node.reviewThreads.pageInfo.hasNextPage) {
+				const additionalThreads = await this.collectGraphqlPages({
+					operation: "getBranchPrChecks",
+					params: { ...params, prNumber: node.number },
+					schema: ghBranchPrCheckThreadsResponseSchema,
+					cursorContext: "branchPrCheckReviewThreads",
+					missingCursorMessage:
+						"GitHub returned branch PR review threads with hasNextPage but no endCursor",
+					cursorMode: {
+						type: "cursor-required",
+						initialCursor: node.reviewThreads.pageInfo.endCursor,
+						argsForCursor: (cursor) => branchPrCheckThreadsPageArgs(node.number, cursor),
+					},
+					connectionFromResponse: (continuation) => {
+						const pullRequest = continuation.data.repository.pullRequest;
+						if (pullRequest === null)
+							return feedbackErr(
+								failureFromMessage({
+									code: "github_pr_feedback_pagination_invalid",
+									operation: "getBranchPrChecks",
+									message: `GitHub returned no PR ${node.number} for review-thread continuation.`,
+									prNumber: node.number,
+									cursorContext: "branchPrCheckReviewThreads",
+								}),
+							);
+						return feedbackOk(pullRequest.reviewThreads);
+					},
+					mapNode: (thread) => feedbackOk(thread),
+				});
+				if (!additionalThreads.ok) return additionalThreads;
+				reviewThreads.push(...additionalThreads.value);
+			}
 			outcomes.push({
 				branch,
 				type: "found",
 				pr: branchPrSummaryFromNode(node),
-				checks: normalizeGithubStatusChecks(contexts?.nodes ?? [], {
-					hasMore: contexts?.pageInfo.hasNextPage ?? false,
-				}),
+				isDraft: node.isDraft,
+				headCommitCommittedAt: headCommit.committedDate,
+				reviewThreads,
+				checks: normalizeGithubStatusChecks(rawChecks, { hasMore: false }),
 			});
 		}
 		return feedbackOk(outcomes);

@@ -28,6 +28,28 @@ describe("ns address exec --json-schema routes", () => {
 		});
 	}
 
+	test("branch-pr-checks publishes every additive enriched field", async () => {
+		const document = await serveSchemaDocument("branch-pr-checks");
+		const outputSchema = JSON.stringify(document["outputJsonSchema"]);
+		for (const field of [
+			"pr_status",
+			"head_commit_committed_at",
+			"review_threads",
+			"freshness",
+			"is_trailing",
+		]) {
+			expect(outputSchema).toContain(`"${field}"`);
+		}
+	});
+
+	test("wait-for-checks publishes the same enriched branch-entry fields", async () => {
+		const document = await serveSchemaDocument("wait-for-checks");
+		const outputSchema = JSON.stringify(document["outputJsonSchema"]);
+		expect(outputSchema).toContain('"head_commit_committed_at"');
+		expect(outputSchema).toContain('"freshness"');
+		expect(outputSchema).toContain('"is_trailing"');
+	});
+
 	test("--json-schema short-circuits before argument validation", async () => {
 		const run = runScenario(["exec", "download-feedback", "--json-schema", "--format", "json"]);
 		expect(await run.exit).toBe(0);

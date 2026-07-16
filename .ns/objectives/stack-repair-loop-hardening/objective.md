@@ -33,7 +33,7 @@ writing-great-skills findings, and push the deterministic triage mechanics down 
   delegation guidance (mechanical validate+submit sweeps and log digs to subagents;
   conflict resolution and semantic fixes stay in the main session).
 - Enrich `ns address exec branch-pr-checks` into a stack-triage surface: per-check
-  timestamps, head-commit push time, stale/fresh classification, unresolved review-thread
+  timestamps, verified head-commit committed time, stale/fresh classification, unresolved review-thread
   counts, a per-PR status classification, and `Graphite / mergeability_check`
   pre-classified as trailing. Keep the existing Graphite-neutral `--branches-json` input
   shape fed by `slot gt exec stack-branches`; define the JSON field contract before code.
@@ -62,7 +62,7 @@ writing-great-skills findings, and push the deterministic triage mechanics down 
   conflict canon and stale/fresh triage present, delegation guidance present, no
   `## Purpose` section, and the two negation sentences replaced with positives.
 - `ns address exec branch-pr-checks` returns, per PR: bucketized checks with timestamps,
-  stale/fresh classification against head-commit push time, unresolved-thread counts, and
+  stale/fresh classification against head-commit `committedDate`, unresolved-thread counts, and
   a per-PR status; the field contract is documented and tested (missing PR, pagination,
   auth failure, no-checks edge cases).
 - The failed-check log excerpt command exists and is tested, replacing the
@@ -84,8 +84,9 @@ Assumptions:
   `ts/packages/internal/pi-tools/src/stack-view/`) is liftable: its check/thread/status
   model matches what triage needs, so logic can be promoted or mirrored rather than
   designed fresh.
-- Stale/fresh classification is deterministic from timestamps (check `startedAt` vs head
-  commit push time) and belongs in the CLI, not agent judgment.
+- Stale/fresh classification is deterministic from timestamps (the selected check timestamp
+  vs the verified head commit's `committedDate`) and belongs in the CLI, not agent judgment.
+  GitHub does not expose commit-level push time, so a same-SHA re-push is not observable.
 
 Risks:
 

@@ -44,7 +44,7 @@ function statusCheckRollupSelection(options: {
 	const { indent, workflowRunSelection } = options;
 	return `${indent}statusCheckRollup {
 ${indent}  contexts(first: 100) {
-${indent}    pageInfo { hasNextPage }
+${indent}    pageInfo { hasNextPage endCursor }
 ${indent}    nodes {
 ${indent}      __typename
 ${indent}      ... on CheckRun { name status conclusion startedAt completedAt detailsUrl checkSuite { workflowRun { ${workflowRunSelection} } } }
@@ -75,8 +75,13 @@ export function branchPrChecksQuery(count: number): string {
 		(_, index) =>
 			`    b${index}: pullRequests(first: 2, states: OPEN, headRefName: $branch${index}, orderBy: { field: UPDATED_AT, direction: DESC }) {
       nodes {
-        number title url headRefName headRefOid baseRefName
+        number title url headRefName headRefOid baseRefName isDraft
+        commits(last: 1) { nodes { commit { oid committedDate } } }
 ${statusCheckRollupSelection({ indent: "        ", workflowRunSelection: BRANCH_PR_CHECKS_WORKFLOW_RUN_SELECTION })}
+        reviewThreads(first: 100) {
+          pageInfo { hasNextPage endCursor }
+          nodes { isResolved }
+        }
       }
     }`,
 	).join("\n");
@@ -87,6 +92,27 @@ ${fields}
   }
 }`;
 }
+
+export const branchPrCheckContextsQuery = `
+query($owner: String!, $repo: String!, $number: Int!, $checkCursor: String!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+${statusCheckRollupSelection({ indent: "      ", workflowRunSelection: BRANCH_PR_CHECKS_WORKFLOW_RUN_SELECTION }).replace("contexts(first: 100)", "contexts(first: 100, after: $checkCursor)")}
+    }
+  }
+}`;
+
+export const branchPrCheckThreadsQuery = `
+query($owner: String!, $repo: String!, $number: Int!, $threadCursor: String!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100, after: $threadCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { isResolved }
+      }
+    }
+  }
+}`;
 
 export const reviewThreadCommentsQuery = `
 query($threadId: ID!, $commentCursor: String) {

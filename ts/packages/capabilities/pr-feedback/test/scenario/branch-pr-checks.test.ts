@@ -17,9 +17,12 @@ interface BranchPrChecksData {
 	entries: Array<{
 		branch: string;
 		status: "found" | "missing" | "ambiguous";
+		pr_status: "draft" | "checks-failing" | "unresolved" | "ready" | "no-pr" | null;
 		target?: { pr_number: number | null; head_ref_name: string | null };
+		head_commit_committed_at?: string | null;
+		review_threads?: { total: number; resolved: number; unresolved: number };
 		counts?: { passing: number; pending: number; failing: number; unknown: number };
-		checks?: Array<{ name: string }>;
+		checks?: Array<{ name: string; freshness: string; is_trailing: boolean }>;
 		candidates?: Array<{ pr_number: number }>;
 	}>;
 	summary: { requested: number; matched: number; missing: number; ambiguous: number };
@@ -43,6 +46,7 @@ function stackedPrFeedback(): InMemoryGithubPrFeedbackGateway {
 				url: "https://github.example/pr/12",
 			}),
 		],
+		branchPrFacts: { 11: { headCommitCommittedAt: "2026-06-01T00:00:00Z" } },
 		checks: {
 			11: {
 				counts: { passing: 2, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: false },
@@ -55,9 +59,9 @@ function stackedPrFeedback(): InMemoryGithubPrFeedbackGateway {
 						status: "COMPLETED",
 						conclusion: "FAILURE",
 						state: null,
-						startedAt: null,
+						startedAt: "2026-06-01T00:01:00Z",
 						completedAt: null,
-						createdAt: null,
+						createdAt: "2026-06-01T00:00:30Z",
 						detailsUrl: null,
 						targetUrl: null,
 						identity: "check-run:ci:typescript",
@@ -89,16 +93,29 @@ describe("ns address exec branch-pr-checks", () => {
 			expect.objectContaining({
 				branch: "feature-b",
 				status: "found",
+				pr_status: "ready",
 				target: expect.objectContaining({ pr_number: 12, head_ref_name: "feature-b" }),
+				head_commit_committed_at: null,
+				review_threads: { total: 0, resolved: 0, unresolved: 0 },
 				counts: { passing: 0, pending: 0, failing: 0, cancelled: 0, unknown: 0, hasMore: false },
 				checks: [],
 			}),
 			expect.objectContaining({
 				branch: "feature-a",
 				status: "found",
+				pr_status: "checks-failing",
 				target: expect.objectContaining({ pr_number: 11, head_ref_name: "feature-a" }),
+				head_commit_committed_at: "2026-06-01T00:00:00Z",
+				review_threads: { total: 0, resolved: 0, unresolved: 0 },
 				counts: { passing: 2, pending: 0, failing: 1, cancelled: 0, unknown: 0, hasMore: false },
-				checks: [expect.objectContaining({ name: "typescript", bucket: "failing" })],
+				checks: [
+					expect.objectContaining({
+						name: "typescript",
+						bucket: "failing",
+						freshness: "fresh",
+						is_trailing: false,
+					}),
+				],
 			}),
 		]);
 		expect(envelope.data?.summary).toEqual({ requested: 2, matched: 2, missing: 0, ambiguous: 0 });
@@ -115,7 +132,7 @@ describe("ns address exec branch-pr-checks", () => {
 		expect(envelope.message).toBe("No open PR found for branches: no-such-branch");
 		expect(envelope.data?.entries).toEqual([
 			expect.objectContaining({ branch: "feature-a", status: "found" }),
-			{ branch: "no-such-branch", status: "missing" },
+			{ branch: "no-such-branch", status: "missing", pr_status: "no-pr" },
 		]);
 		expect(envelope.data?.summary).toEqual({ requested: 2, matched: 1, missing: 1, ambiguous: 0 });
 	});
@@ -140,6 +157,7 @@ describe("ns address exec branch-pr-checks", () => {
 			expect.objectContaining({
 				branch: "feature-shared",
 				status: "ambiguous",
+				pr_status: null,
 				candidates: [
 					expect.objectContaining({ pr_number: 30 }),
 					expect.objectContaining({ pr_number: 21 }),

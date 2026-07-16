@@ -19,22 +19,35 @@ import {
 } from "./pr-checks.ts";
 import { buildPrChecksTargetPayload, type PrTargetPayload } from "./pr-target-payload.ts";
 
+export type BranchPrCheckFreshness = "fresh" | "stale" | "unknown";
+export type BranchPrStatus = "draft" | "checks-failing" | "unresolved" | "ready";
+
+export interface BranchPrCheckEntry extends PrCheckEntryPayload {
+	freshness: BranchPrCheckFreshness;
+	is_trailing: boolean;
+}
+
 export interface BranchPrChecksFoundEntry {
 	branch: string;
 	status: "found";
+	pr_status: BranchPrStatus;
 	target: PrTargetPayload;
+	head_commit_committed_at: string | null;
+	review_threads: { total: number; resolved: number; unresolved: number };
 	counts: PrChecksCountsPayload;
-	checks: PrCheckEntryPayload[];
+	checks: BranchPrCheckEntry[];
 }
 
 export interface BranchPrChecksMissingEntry {
 	branch: string;
 	status: "missing";
+	pr_status: "no-pr";
 }
 
 export interface BranchPrChecksAmbiguousEntry {
 	branch: string;
 	status: "ambiguous";
+	pr_status: null;
 	candidates: BranchPrMappingEntry[];
 }
 
@@ -102,20 +115,74 @@ export function branchPrChecksMappingGaps(
 
 function branchPrChecksEntry(outcome: GithubBranchPrChecksOutcome): BranchPrChecksEntry {
 	switch (outcome.type) {
-		case "found":
+		case "found": {
+			const payload = statusChecksPayload(outcome.checks);
+			const checks = payload.checks.map((check) =>
+				enrichBranchCheck(check, outcome.headCommitCommittedAt),
+			);
+			const resolved = outcome.reviewThreads.filter((thread) => thread.isResolved).length;
+			const reviewThreads = {
+				total: outcome.reviewThreads.length,
+				resolved,
+				unresolved: outcome.reviewThreads.length - resolved,
+			};
 			return {
 				branch: outcome.branch,
 				status: "found",
+				pr_status: deriveFoundPrStatus(outcome.isDraft, checks, reviewThreads.unresolved),
 				target: buildPrChecksTargetPayload({ pr: outcome.pr, branch: outcome.branch }),
-				...statusChecksPayload(outcome.checks),
+				head_commit_committed_at: outcome.headCommitCommittedAt,
+				review_threads: reviewThreads,
+				counts: payload.counts,
+				checks,
 			};
+		}
 		case "missing":
-			return { branch: outcome.branch, status: "missing" };
+			return { branch: outcome.branch, status: "missing", pr_status: "no-pr" };
 		case "ambiguous":
 			return {
 				branch: outcome.branch,
 				status: "ambiguous",
+				pr_status: null,
 				candidates: outcome.candidates.map((pr) => branchPrEntry(outcome.branch, pr)),
 			};
 	}
+}
+
+function enrichBranchCheck(
+	check: PrCheckEntryPayload,
+	headCommitCommittedAt: string | null,
+): BranchPrCheckEntry {
+	return {
+		...check,
+		freshness: checkFreshness(check, headCommitCommittedAt),
+		is_trailing:
+			check.bucket === "pending" &&
+			(check.identity === "status-context:Graphite / mergeability_check" ||
+				(check.identity === null && check.name === "Graphite / mergeability_check")),
+	};
+}
+
+function checkFreshness(
+	check: PrCheckEntryPayload,
+	headCommitCommittedAt: string | null,
+): BranchPrCheckFreshness {
+	const checkTimestamp =
+		check.kind === "check_run" ? (check.started_at ?? check.created_at) : check.created_at;
+	const checkMs = checkTimestamp === null ? Number.NaN : Date.parse(checkTimestamp);
+	const commitMs = headCommitCommittedAt === null ? Number.NaN : Date.parse(headCommitCommittedAt);
+	if (!Number.isFinite(checkMs) || !Number.isFinite(commitMs)) return "unknown";
+	return checkMs < commitMs ? "stale" : "fresh";
+}
+
+function deriveFoundPrStatus(
+	isDraft: boolean,
+	checks: readonly BranchPrCheckEntry[],
+	unresolvedThreads: number,
+): BranchPrStatus {
+	if (isDraft) return "draft";
+	if (checks.some((check) => check.bucket === "failing" && check.freshness !== "stale"))
+		return "checks-failing";
+	if (unresolvedThreads > 0) return "unresolved";
+	return "ready";
 }

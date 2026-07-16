@@ -17,8 +17,12 @@
       separate from stack-view-compatible `pr_status`, defines timestamp freshness and
       exact Graphite trailing recognition, requires complete check/thread pagination, and
       preserves the existing command shape additively.
-- [ ] Implement and test the `branch-pr-checks` enrichment (edge cases: missing PR,
-      pagination, auth failure, no checks, legacy status contexts vs check runs).
+- [x] Implement and test the `branch-pr-checks` enrichment using verified head-commit
+      `committedDate` freshness: complete check/thread pagination, additive schema,
+      missing/ambiguous mappings, gateway failure, no-checks, legacy status contexts,
+      check runs, review-thread counts, freshness, exact trailing recognition, and
+      stack-view-compatible `pr_status` are covered. See the 20260716T203433Z decision
+      and 20260716T203700Z completion updates.
 - [ ] Implement and test the failed-check log excerpt command, lifting run/job resolution
       from stack-view `check-logs.ts`.
 - [ ] Final rewrite of `code-fix-gh-stack`: collapse inventory/triage steps into one

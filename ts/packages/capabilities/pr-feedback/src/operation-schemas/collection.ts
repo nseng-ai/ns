@@ -75,22 +75,37 @@ export const prChecksResultSchema = z.object({
 	checks: z.array(prCheckEntrySchema),
 });
 
+const branchPrCheckEntrySchema = prCheckEntrySchema.extend({
+	freshness: z.union([z.literal("fresh"), z.literal("stale"), z.literal("unknown")]),
+	is_trailing: z.boolean(),
+});
+
 const branchPrChecksFoundEntrySchema = z.object({
 	branch: z.string(),
 	status: z.literal("found"),
+	pr_status: z.union([
+		z.literal("draft"),
+		z.literal("checks-failing"),
+		z.literal("unresolved"),
+		z.literal("ready"),
+	]),
 	target: prTargetPayloadSchema,
+	head_commit_committed_at: nullableStringSchema,
+	review_threads: z.object({ total: z.int(), resolved: z.int(), unresolved: z.int() }),
 	counts: prChecksCountsSchema,
-	checks: z.array(prCheckEntrySchema),
+	checks: z.array(branchPrCheckEntrySchema),
 });
 
 const branchPrChecksMissingEntrySchema = z.object({
 	branch: z.string(),
 	status: z.literal("missing"),
+	pr_status: z.literal("no-pr"),
 });
 
 const branchPrChecksAmbiguousEntrySchema = z.object({
 	branch: z.string(),
 	status: z.literal("ambiguous"),
+	pr_status: z.null(),
 	candidates: z.array(mapBranchPrsEntrySchema),
 });
 

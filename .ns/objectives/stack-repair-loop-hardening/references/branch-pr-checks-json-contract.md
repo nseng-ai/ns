@@ -7,7 +7,7 @@ This document defines the additive machine-output contract planned for
 implementation and test slice that follows this contract-definition work.
 
 The enrichment gives stack-repair consumers complete, compact facts for PR readiness:
-head-commit push time, per-check freshness, unresolved review-thread counts, an exact
+head-commit committed time, per-check freshness, unresolved review-thread counts, an exact
 Graphite trailing-signal marker, and a stack-view-compatible PR classification.
 
 This is a pre-implementation specification. It does not claim that the current command,
@@ -39,11 +39,11 @@ The existing check-count buckets remain `passing`, `pending`, `failing`, `cancel
 `status` answers whether a branch mapped to exactly one open PR. `pr_status` separately
 classifies the mapped PR's readiness. Consumers must not treat these fields as aliases.
 
-| Mapping variant | Required fields                                                                                          | `pr_status`                                         |
-| --------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Found           | `branch`, `status`, `pr_status`, `target`, `head_commit_pushed_at`, `review_threads`, `counts`, `checks` | `draft`, `checks-failing`, `unresolved`, or `ready` |
-| Missing         | `branch`, `status`, `pr_status`                                                                          | `no-pr`                                             |
-| Ambiguous       | `branch`, `status`, `pr_status`, `candidates`                                                            | `null`                                              |
+| Mapping variant | Required fields                                                                                             | `pr_status`                                         |
+| --------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Found           | `branch`, `status`, `pr_status`, `target`, `head_commit_committed_at`, `review_threads`, `counts`, `checks` | `draft`, `checks-failing`, `unresolved`, or `ready` |
+| Missing         | `branch`, `status`, `pr_status`                                                                             | `no-pr`                                             |
+| Ambiguous       | `branch`, `status`, `pr_status`, `candidates`                                                               | `null`                                              |
 
 The complete non-null PR-status vocabulary is exactly:
 
@@ -57,23 +57,23 @@ inspect `counts` and `checks`.
 
 ### Missing and ambiguous variants
 
-A missing branch has no single `target`, check collection, push timestamp, or thread
+A missing branch has no single `target`, check collection, committed timestamp, or thread
 summary. An ambiguous branch likewise has no single-PR facts; it retains the existing
 candidate entries (`branch`, `pr_number`, `title`, `url`, `head_ref_name`, and
 `base_ref_name`).
 
 ## Found-entry fields
 
-| Field                   | Type                                                     | Meaning                                                                                                             |
-| ----------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `branch`                | `string`                                                 | Requested branch, preserving input order.                                                                           |
-| `status`                | `"found"`                                                | Mapping discriminator; not PR readiness.                                                                            |
-| `pr_status`             | `"draft" \| "checks-failing" \| "unresolved" \| "ready"` | Readiness derived by the precedence table below.                                                                    |
-| `target`                | existing PR target object                                | Existing `kind`, PR number, branch, title, URL, head/base refs, and optional `head_ref_oid` fields are retained.    |
-| `head_commit_pushed_at` | `string \| null`                                         | GitHub head commit push timestamp as an ISO-8601 string when supplied; never substitute authored or committed time. |
-| `review_threads`        | thread summary object                                    | Complete review-thread counts described below.                                                                      |
-| `counts`                | existing check-count object                              | Raw normalized bucket counts; complete successful output has `hasMore: false`.                                      |
-| `checks`                | array of enriched check entries                          | Every fully paginated check context, including stale and trailing entries.                                          |
+| Field                      | Type                                                     | Meaning                                                                                                          |
+| -------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `branch`                   | `string`                                                 | Requested branch, preserving input order.                                                                        |
+| `status`                   | `"found"`                                                | Mapping discriminator; not PR readiness.                                                                         |
+| `pr_status`                | `"draft" \| "checks-failing" \| "unresolved" \| "ready"` | Readiness derived by the precedence table below.                                                                 |
+| `target`                   | existing PR target object                                | Existing `kind`, PR number, branch, title, URL, head/base refs, and optional `head_ref_oid` fields are retained. |
+| `head_commit_committed_at` | `string \| null`                                         | GitHub head commit `committedDate` as an ISO-8601 string when supplied.                                          |
+| `review_threads`           | thread summary object                                    | Complete review-thread counts described below.                                                                   |
+| `counts`                   | existing check-count object                              | Raw normalized bucket counts; complete successful output has `hasMore: false`.                                   |
+| `checks`                   | array of enriched check entries                          | Every fully paginated check context, including stale and trailing entries.                                       |
 
 ### Review-thread summary
 
@@ -93,23 +93,23 @@ not report partial thread counts.
 
 Every existing field is retained and two derived fields are added.
 
-| Field           | Type                                                    | Meaning                                                                       |
-| --------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `bucket`        | `passing \| pending \| failing \| cancelled \| unknown` | Existing normalized bucket.                                                   |
-| `kind`          | `check_run \| status_context \| unknown`                | Existing normalized source kind.                                              |
-| `name`          | `string`                                                | Existing display/check name.                                                  |
-| `workflow_name` | `string \| null`                                        | Existing workflow name.                                                       |
-| `status`        | `string \| null`                                        | Existing normalized external check-run status.                                |
-| `conclusion`    | `string \| null`                                        | Existing normalized external check-run conclusion.                            |
-| `state`         | `string \| null`                                        | Existing normalized external legacy-context state.                            |
-| `started_at`    | `string \| null`                                        | Existing source timestamp.                                                    |
-| `completed_at`  | `string \| null`                                        | Existing source timestamp; retained but not used for freshness.               |
-| `created_at`    | `string \| null`                                        | Existing source timestamp and freshness fallback.                             |
-| `details_url`   | `string \| null`                                        | Existing check-run details URL.                                               |
-| `target_url`    | `string \| null`                                        | Existing legacy-context target URL.                                           |
-| `identity`      | `string \| null`                                        | Existing stable normalized identity when available.                           |
-| `freshness`     | `fresh \| stale \| unknown`                             | Derived relationship between the selected check timestamp and head push time. |
-| `is_trailing`   | `boolean`                                               | Exact Graphite mergeability trailing marker.                                  |
+| Field           | Type                                                    | Meaning                                                                         |
+| --------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `bucket`        | `passing \| pending \| failing \| cancelled \| unknown` | Existing normalized bucket.                                                     |
+| `kind`          | `check_run \| status_context \| unknown`                | Existing normalized source kind.                                                |
+| `name`          | `string`                                                | Existing display/check name.                                                    |
+| `workflow_name` | `string \| null`                                        | Existing workflow name.                                                         |
+| `status`        | `string \| null`                                        | Existing normalized external check-run status.                                  |
+| `conclusion`    | `string \| null`                                        | Existing normalized external check-run conclusion.                              |
+| `state`         | `string \| null`                                        | Existing normalized external legacy-context state.                              |
+| `started_at`    | `string \| null`                                        | Existing source timestamp.                                                      |
+| `completed_at`  | `string \| null`                                        | Existing source timestamp; retained but not used for freshness.                 |
+| `created_at`    | `string \| null`                                        | Existing source timestamp and freshness fallback.                               |
+| `details_url`   | `string \| null`                                        | Existing check-run details URL.                                                 |
+| `target_url`    | `string \| null`                                        | Existing legacy-context target URL.                                             |
+| `identity`      | `string \| null`                                        | Existing stable normalized identity when available.                             |
+| `freshness`     | `fresh \| stale \| unknown`                             | Derived relationship between the selected check timestamp and head commit time. |
+| `is_trailing`   | `boolean`                                               | Exact Graphite mergeability trailing marker.                                    |
 
 `freshness` is derived evidence, not a replacement for raw timestamps. Stale checks remain
 present and remain included in their raw buckets and counts.
@@ -152,13 +152,13 @@ pending and unknown counts and the individual check entries.
 
 ### Comparison
 
-Parse the selected check timestamp and `head_commit_pushed_at` as ISO-8601 instants.
+Parse the selected check timestamp and `head_commit_committed_at` as ISO-8601 instants.
 
-| Evidence                                                          | `freshness` |
-| ----------------------------------------------------------------- | ----------- |
-| Either value is missing or invalid.                               | `unknown`   |
-| Selected check timestamp is before the head push instant.         | `stale`     |
-| Selected check timestamp equals or follows the head push instant. | `fresh`     |
+| Evidence                                                            | `freshness` |
+| ------------------------------------------------------------------- | ----------- |
+| Either value is missing or invalid.                                 | `unknown`   |
+| Selected check timestamp is before the head commit instant.         | `stale`     |
+| Selected check timestamp equals or follows the head commit instant. | `fresh`     |
 
 Equality is fresh. `completed_at` does not participate in this derivation.
 
@@ -225,7 +225,7 @@ unrelated envelope metadata is omitted.
         "base_ref_name": "main",
         "head_ref_oid": "abc41"
       },
-      "head_commit_pushed_at": "2026-07-14T10:00:00Z",
+      "head_commit_committed_at": "2026-07-14T10:00:00Z",
       "review_threads": { "total": 1, "resolved": 0, "unresolved": 1 },
       "counts": {
         "passing": 0,
@@ -279,7 +279,7 @@ Draft wins over both fresh failure and unresolved threads.
     "base_ref_name": "main",
     "head_ref_oid": "abc42"
   },
-  "head_commit_pushed_at": "2026-07-14T10:00:00Z",
+  "head_commit_committed_at": "2026-07-14T10:00:00Z",
   "review_threads": { "total": 0, "resolved": 0, "unresolved": 0 },
   "counts": {
     "passing": 0,
@@ -348,7 +348,7 @@ If only the stale entry existed, the PR would proceed to the thread rule and the
     "base_ref_name": "main",
     "head_ref_oid": "abc43"
   },
-  "head_commit_pushed_at": "2026-07-14T10:00:00Z",
+  "head_commit_committed_at": "2026-07-14T10:00:00Z",
   "review_threads": { "total": 0, "resolved": 0, "unresolved": 0 },
   "counts": {
     "passing": 0,
@@ -417,7 +417,7 @@ repair loop, while the exact Graphite context is distinguishable as trailing.
     "base_ref_name": "main",
     "head_ref_oid": "abc44"
   },
-  "head_commit_pushed_at": "2026-07-14T10:00:00Z",
+  "head_commit_committed_at": "2026-07-14T10:00:00Z",
   "review_threads": { "total": 4, "resolved": 3, "unresolved": 1 },
   "counts": {
     "passing": 1,
@@ -504,7 +504,7 @@ repair loop, while the exact Graphite context is distinguishable as trailing.
     "base_ref_name": "main",
     "head_ref_oid": "abc47"
   },
-  "head_commit_pushed_at": null,
+  "head_commit_committed_at": null,
   "review_threads": { "total": 0, "resolved": 0, "unresolved": 0 },
   "counts": {
     "passing": 0,
@@ -542,8 +542,8 @@ Unknown freshness is conservatively current-or-unclassified for failure preceden
 
 The next Objective slice must implement and test, without weakening this contract:
 
-- capability-kit GitHub query/schema/gateway support for draft state, a genuine head
-  commit push timestamp, complete check-context pagination, and complete review-thread
+- capability-kit GitHub query/schema/gateway support for draft state, the verified head
+  commit's `committedDate`, complete check-context pagination, and complete review-thread
   pagination;
 - Address Capability API outcome vocabulary for the new source facts;
 - PR Address pure payload derivation for freshness, trailing recognition, thread counts,
@@ -554,8 +554,11 @@ The next Objective slice must implement and test, without weakening this contrac
   pagination, malformed continuations, and authentication/fetch failures;
 - package README updates only after runtime behavior ships.
 
-GitHub's head-commit field must be verified to represent push time. If the API cannot
-supply that semantic, stop rather than substituting commit authored or committed time.
+GitHub does not expose an authoritative commit-level push timestamp. Freshness therefore
+uses the selected head commit object's `committedDate`. Re-pushing the same SHA is not
+observable, so freshness classifies checks relative to commit-object creation rather than
+transport to GitHub. The adapter verifies the selected commit OID matches `headRefOid` and
+must not substitute `authoredDate` or repository-wide `pushedAt`.
 The adapter may fetch continuation pages sequentially or with bounded concurrency, but
 must preserve output order, completeness, and all-or-failure behavior.
 

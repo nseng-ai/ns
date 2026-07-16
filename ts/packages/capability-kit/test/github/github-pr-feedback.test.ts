@@ -6,14 +6,18 @@ import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/tes
 import { exitedResult, ScriptedCommandRunner } from "@nseng-ai/foundation/exec/testing";
 
 import {
+	branchPrCheckContextsPageArgs,
 	branchPrChecksArgs,
+	branchPrCheckThreadsPageArgs,
 	discussionCommentPageArgs,
 	resolveReviewThreadsArgs,
 	reviewThreadCommentPageArgs,
 	reviewThreadPageArgs,
 } from "../../src/github/pr-feedback/args.ts";
 import {
+	branchPrCheckContextsQuery,
 	branchPrChecksQuery,
+	branchPrCheckThreadsQuery,
 	discussionCommentsQuery,
 	replyToReviewThreadMutation,
 	resolveReviewThreadMutation,
@@ -99,7 +103,12 @@ function branchPrNode(overrides: Record<string, unknown> = {}): Record<string, u
 		headRefName: "feature/base",
 		headRefOid: `abc${number}`,
 		baseRefName: "main",
+		isDraft: false,
+		commits: {
+			nodes: [{ commit: { oid: `abc${number}`, committedDate: "2026-06-01T00:00:00Z" } }],
+		},
 		statusCheckRollup: null,
+		reviewThreads: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
 		...overrides,
 	};
 }
@@ -1233,14 +1242,16 @@ describe("RealGithubPrFeedbackGateway", () => {
 			"b0: pullRequests(first: 2, states: OPEN, headRefName: $branch0, orderBy: { field: UPDATED_AT, direction: DESC })",
 		);
 		expect(query).toContain("b1: pullRequests(first: 2, states: OPEN, headRefName: $branch1");
-		expect(query).toContain("number title url headRefName headRefOid baseRefName");
+		expect(query).toContain("number title url headRefName headRefOid baseRefName isDraft");
+		expect(query).toContain("commits(last: 1) { nodes { commit { oid committedDate } } }");
+		expect(query).toContain("reviewThreads(first: 100)");
 		expect(query).toContain(
 			"checkSuite { workflowRun { databaseId runNumber runAttempt createdAt updatedAt workflow { name } } }",
 		);
 		expect(() => branchPrChecksQuery(0)).toThrow("must be positive");
 	});
 
-	test("fetches branch PRs and checks in a single aliased GraphQL query", async () => {
+	test("fetches branch PRs and checks from the initial aliased GraphQL query", async () => {
 		const args = branchPrChecksArgs(["feature/base", "feature/top"]);
 		const runner = new ScriptedCommandRunner([
 			step("gh", args, {
@@ -1252,7 +1263,7 @@ describe("RealGithubPrFeedbackGateway", () => {
 								headRefName: "feature/base",
 								statusCheckRollup: {
 									contexts: {
-										pageInfo: { hasNextPage: true },
+										pageInfo: { hasNextPage: false, endCursor: null },
 										nodes: [
 											{
 												__typename: "CheckRun",
@@ -1292,8 +1303,11 @@ describe("RealGithubPrFeedbackGateway", () => {
 						state: "OPEN",
 						headRefOid: "abc101",
 					},
+					isDraft: false,
+					headCommitCommittedAt: "2026-06-01T00:00:00Z",
+					reviewThreads: [],
 					checks: {
-						counts: { passing: 1, pending: 0, failing: 1, unknown: 0, hasMore: true },
+						counts: { passing: 1, pending: 0, failing: 1, unknown: 0, hasMore: false },
 					},
 				},
 				{
@@ -1301,6 +1315,169 @@ describe("RealGithubPrFeedbackGateway", () => {
 					type: "found",
 					pr: { number: 102 },
 					checks: { counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false } },
+				},
+			],
+		});
+		runner.assertDone();
+	});
+
+	test("completes branch check and review-thread continuation pages", async () => {
+		const initialArgs = branchPrChecksArgs(["feature/base"]);
+		const checkArgs = branchPrCheckContextsPageArgs(101, "CHECK_CURSOR");
+		const threadArgs = branchPrCheckThreadsPageArgs(101, "THREAD_CURSOR");
+		const firstCheck = {
+			__typename: "StatusContext",
+			context: "first",
+			state: "SUCCESS",
+			createdAt: "2026-06-01T00:01:00Z",
+		};
+		const secondCheck = {
+			__typename: "StatusContext",
+			context: "second",
+			state: "FAILURE",
+			createdAt: "2026-06-01T00:02:00Z",
+		};
+		const runner = new ScriptedCommandRunner([
+			step("gh", initialArgs, {
+				stdout: branchPrChecksResponse({
+					b0: {
+						nodes: [
+							branchPrNode({
+								statusCheckRollup: {
+									contexts: {
+										nodes: [firstCheck],
+										pageInfo: { hasNextPage: true, endCursor: "CHECK_CURSOR" },
+									},
+								},
+								reviewThreads: {
+									nodes: [{ isResolved: true }],
+									pageInfo: { hasNextPage: true, endCursor: "THREAD_CURSOR" },
+								},
+							}),
+						],
+					},
+				}),
+			}),
+			step("gh", checkArgs, {
+				stdout: JSON.stringify({
+					data: {
+						repository: {
+							pullRequest: {
+								statusCheckRollup: {
+									contexts: {
+										nodes: [secondCheck],
+										pageInfo: { hasNextPage: false, endCursor: null },
+									},
+								},
+							},
+						},
+					},
+				}),
+			}),
+			step("gh", threadArgs, {
+				stdout: JSON.stringify({
+					data: {
+						repository: {
+							pullRequest: {
+								reviewThreads: {
+									nodes: [{ isResolved: false }],
+									pageInfo: { hasNextPage: false, endCursor: null },
+								},
+							},
+						},
+					},
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.getBranchPrChecks({ cwd: "/repo", branches: ["feature/base"] }),
+		).toMatchObject({
+			ok: true,
+			value: [
+				{
+					type: "found",
+					reviewThreads: [{ isResolved: true }, { isResolved: false }],
+					checks: {
+						counts: { passing: 1, failing: 1, hasMore: false },
+						checks: [{ name: "first" }, { name: "second" }],
+					},
+				},
+			],
+		});
+		expect(branchPrCheckContextsQuery).toContain("after: $checkCursor");
+		expect(branchPrCheckThreadsQuery).toContain("after: $threadCursor");
+		runner.assertDone();
+	});
+
+	test("deduplicates workflow attempts only after collecting all check pages", async () => {
+		const initialArgs = branchPrChecksArgs(["feature/base"]);
+		const checkArgs = branchPrCheckContextsPageArgs(101, "CHECK_CURSOR");
+		const supersededRun = {
+			__typename: "CheckRun",
+			name: "old-job",
+			status: "COMPLETED",
+			conclusion: "FAILURE",
+			checkSuite: {
+				workflowRun: { databaseId: 1, runNumber: 1, runAttempt: 1, workflow: { name: "ci" } },
+			},
+		};
+		const latestRun = {
+			__typename: "CheckRun",
+			name: "new-job",
+			status: "COMPLETED",
+			conclusion: "SUCCESS",
+			checkSuite: {
+				workflowRun: { databaseId: 2, runNumber: 2, runAttempt: 1, workflow: { name: "ci" } },
+			},
+		};
+		const runner = new ScriptedCommandRunner([
+			step("gh", initialArgs, {
+				stdout: branchPrChecksResponse({
+					b0: {
+						nodes: [
+							branchPrNode({
+								statusCheckRollup: {
+									contexts: {
+										nodes: [supersededRun],
+										pageInfo: { hasNextPage: true, endCursor: "CHECK_CURSOR" },
+									},
+								},
+							}),
+						],
+					},
+				}),
+			}),
+			step("gh", checkArgs, {
+				stdout: JSON.stringify({
+					data: {
+						repository: {
+							pullRequest: {
+								statusCheckRollup: {
+									contexts: {
+										nodes: [latestRun],
+										pageInfo: { hasNextPage: false, endCursor: null },
+									},
+								},
+							},
+						},
+					},
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.getBranchPrChecks({ cwd: "/repo", branches: ["feature/base"] }),
+		).toMatchObject({
+			ok: true,
+			value: [
+				{
+					checks: {
+						counts: { passing: 1, failing: 0, hasMore: false },
+						checks: [{ name: "new-job", conclusion: "SUCCESS" }],
+					},
 				},
 			],
 		});
@@ -1400,6 +1577,231 @@ describe("RealGithubPrFeedbackGateway", () => {
 					checks: { counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false } },
 				},
 			],
+		});
+		runner.assertDone();
+	});
+
+	test("rejects head commit evidence that does not match headRefOid", async () => {
+		const args = branchPrChecksArgs(["feature/base"]);
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, {
+				stdout: branchPrChecksResponse({
+					b0: {
+						nodes: [
+							branchPrNode({
+								commits: {
+									nodes: [{ commit: { oid: "different", committedDate: "2026-06-01T00:00:00Z" } }],
+								},
+							}),
+						],
+					},
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.getBranchPrChecks({ cwd: "/repo", branches: ["feature/base"] }),
+		).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_response_invalid",
+				details: { operation: "getBranchPrChecks", prNumber: 101 },
+			},
+		});
+		runner.assertDone();
+	});
+
+	test.each([
+		["check", "statusCheckRollup", "branchPrCheckContexts"],
+		["thread", "reviewThreads", "branchPrCheckReviewThreads"],
+	] as const)(
+		"rejects a missing initial %s continuation cursor",
+		async (_name, connection, cursorContext) => {
+			const overrides =
+				connection === "statusCheckRollup"
+					? {
+							statusCheckRollup: {
+								contexts: { nodes: [], pageInfo: { hasNextPage: true, endCursor: null } },
+							},
+						}
+					: {
+							reviewThreads: {
+								nodes: [],
+								pageInfo: { hasNextPage: true, endCursor: null },
+							},
+						};
+			const runner = new ScriptedCommandRunner([
+				step("gh", branchPrChecksArgs(["feature/base"]), {
+					stdout: branchPrChecksResponse({ b0: { nodes: [branchPrNode(overrides)] } }),
+				}),
+			]);
+			const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+			expect(
+				await gateway.getBranchPrChecks({ cwd: "/repo", branches: ["feature/base"] }),
+			).toMatchObject({
+				ok: false,
+				error: {
+					code: "github_pr_feedback_pagination_invalid",
+					details: { prNumber: 101, cursorContext },
+				},
+			});
+			runner.assertDone();
+		},
+	);
+
+	test("rejects malformed and null check continuation payloads without partial success", async () => {
+		const initialArgs = branchPrChecksArgs(["feature/base"]);
+		const continuationArgs = branchPrCheckContextsPageArgs(101, "CHECK_CURSOR");
+		const initial = branchPrChecksResponse({
+			b0: {
+				nodes: [
+					branchPrNode({
+						statusCheckRollup: {
+							contexts: {
+								nodes: [{ __typename: "StatusContext", context: "first", state: "SUCCESS" }],
+								pageInfo: { hasNextPage: true, endCursor: "CHECK_CURSOR" },
+							},
+						},
+					}),
+				],
+			},
+		});
+		const runner = new ScriptedCommandRunner([
+			step("gh", initialArgs, { stdout: initial }),
+			step("gh", continuationArgs, { stdout: "{" }),
+			step("gh", initialArgs, { stdout: initial }),
+			step("gh", continuationArgs, {
+				stdout: JSON.stringify({ data: { repository: { pullRequest: null } } }),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+		const params = { cwd: "/repo", branches: ["feature/base"] } as const;
+
+		expect(await gateway.getBranchPrChecks(params)).toMatchObject({
+			ok: false,
+			error: { code: "github_pr_feedback_json_parse_failed" },
+		});
+		expect(await gateway.getBranchPrChecks(params)).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_pagination_invalid",
+				details: { cursorContext: "branchPrCheckContexts" },
+			},
+		});
+		runner.assertDone();
+	});
+
+	test("rejects malformed and null thread continuation payloads without partial success", async () => {
+		const initialArgs = branchPrChecksArgs(["feature/base"]);
+		const continuationArgs = branchPrCheckThreadsPageArgs(101, "THREAD_CURSOR");
+		const initial = branchPrChecksResponse({
+			b0: {
+				nodes: [
+					branchPrNode({
+						reviewThreads: {
+							nodes: [{ isResolved: true }],
+							pageInfo: { hasNextPage: true, endCursor: "THREAD_CURSOR" },
+						},
+					}),
+				],
+			},
+		});
+		const runner = new ScriptedCommandRunner([
+			step("gh", initialArgs, { stdout: initial }),
+			step("gh", continuationArgs, { stdout: JSON.stringify({ data: null }) }),
+			step("gh", initialArgs, { stdout: initial }),
+			step("gh", continuationArgs, {
+				stdout: JSON.stringify({ data: { repository: { pullRequest: null } } }),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+		const params = { cwd: "/repo", branches: ["feature/base"] } as const;
+
+		expect(await gateway.getBranchPrChecks(params)).toMatchObject({
+			ok: false,
+			error: { code: "github_pr_feedback_response_invalid" },
+		});
+		expect(await gateway.getBranchPrChecks(params)).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_pagination_invalid",
+				details: { cursorContext: "branchPrCheckReviewThreads" },
+			},
+		});
+		runner.assertDone();
+	});
+
+	test("returns a later thread-page gh failure instead of partial branch facts", async () => {
+		const initialArgs = branchPrChecksArgs(["feature/base"]);
+		const continuationArgs = branchPrCheckThreadsPageArgs(101, "THREAD_CURSOR");
+		const runner = new ScriptedCommandRunner([
+			step("gh", initialArgs, {
+				stdout: branchPrChecksResponse({
+					b0: {
+						nodes: [
+							branchPrNode({
+								reviewThreads: {
+									nodes: [{ isResolved: true }],
+									pageInfo: { hasNextPage: true, endCursor: "THREAD_CURSOR" },
+								},
+							}),
+						],
+					},
+				}),
+			}),
+			step("gh", continuationArgs, { exitCode: 1, stderr: "thread continuation failed" }),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.getBranchPrChecks({ cwd: "/repo", branches: ["feature/base"] }),
+		).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_gh_failed",
+				details: {
+					stderr: "thread continuation failed",
+					cursorContext: "branchPrCheckReviewThreads",
+				},
+			},
+		});
+		runner.assertDone();
+	});
+
+	test("returns later-page gh and GraphQL failures instead of partial branch facts", async () => {
+		const initialArgs = branchPrChecksArgs(["feature/base"]);
+		const continuationArgs = branchPrCheckContextsPageArgs(101, "CHECK_CURSOR");
+		const initial = branchPrChecksResponse({
+			b0: {
+				nodes: [
+					branchPrNode({
+						statusCheckRollup: {
+							contexts: { nodes: [], pageInfo: { hasNextPage: true, endCursor: "CHECK_CURSOR" } },
+						},
+					}),
+				],
+			},
+		});
+		const runner = new ScriptedCommandRunner([
+			step("gh", initialArgs, { stdout: initial }),
+			step("gh", continuationArgs, { exitCode: 1, stderr: "continuation failed" }),
+			step("gh", initialArgs, { stdout: initial }),
+			step("gh", continuationArgs, {
+				stdout: JSON.stringify({ data: null, errors: [{ message: "later page failed" }] }),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+		const params = { cwd: "/repo", branches: ["feature/base"] } as const;
+
+		expect(await gateway.getBranchPrChecks(params)).toMatchObject({
+			ok: false,
+			error: { code: "github_pr_feedback_gh_failed", details: { stderr: "continuation failed" } },
+		});
+		expect(await gateway.getBranchPrChecks(params)).toMatchObject({
+			ok: false,
+			error: { code: "github_pr_feedback_graphql_failed" },
 		});
 		runner.assertDone();
 	});

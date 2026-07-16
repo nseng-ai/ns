@@ -2,7 +2,10 @@ import { describe, expect, test } from "vitest";
 
 import type { GithubStatusChecks } from "@nseng-ai/pr-feedback/api";
 
-import { collectBranchPrChecks } from "../../src/core/branch-pr-checks.ts";
+import {
+	collectBranchPrChecks,
+	type BranchPrChecksFoundEntry,
+} from "../../src/core/branch-pr-checks.ts";
 import {
 	InMemoryGithubPrFeedbackGateway,
 	fakePrFeedbackFailure,
@@ -53,6 +56,9 @@ describe("collectBranchPrChecks", () => {
 					{
 						branch: "feature-b",
 						status: "found",
+						pr_status: "ready",
+						head_commit_committed_at: null,
+						review_threads: { total: 0, resolved: 0, unresolved: 0 },
 						target: {
 							kind: "github-pr",
 							pr_number: 12,
@@ -76,6 +82,9 @@ describe("collectBranchPrChecks", () => {
 					{
 						branch: "feature-a",
 						status: "found",
+						pr_status: "checks-failing",
+						head_commit_committed_at: null,
+						review_threads: { total: 0, resolved: 0, unresolved: 0 },
 						target: {
 							kind: "github-pr",
 							pr_number: 11,
@@ -102,6 +111,8 @@ describe("collectBranchPrChecks", () => {
 								details_url: "https://github.com/acme/repo/actions/runs/1",
 								target_url: null,
 								identity: "check-run:CI:unit",
+								freshness: "unknown",
+								is_trailing: false,
 							},
 						],
 					},
@@ -109,6 +120,101 @@ describe("collectBranchPrChecks", () => {
 				summary: { requested: 2, matched: 2, missing: 0, ambiguous: 0 },
 			},
 		});
+	});
+
+	test.each([
+		{
+			name: "draft wins over current failures and unresolved threads",
+			isDraft: true,
+			checks: [{ ...failingCheck(), startedAt: "2026-06-01T11:00:00Z" }],
+			unresolved: 1,
+			expected: "draft",
+		},
+		{
+			name: "a fresh failure fails the current head",
+			checks: [{ ...failingCheck(), startedAt: "2026-06-01T11:00:00Z" }],
+			expected: "checks-failing",
+		},
+		{
+			name: "a failure with unknown freshness fails conservatively",
+			checks: [{ ...failingCheck(), startedAt: "not-a-date" }],
+			expected: "checks-failing",
+		},
+		{
+			name: "only stale failures allow unresolved threads to win",
+			checks: [{ ...failingCheck(), startedAt: "2026-06-01T09:00:00Z" }],
+			unresolved: 1,
+			expected: "unresolved",
+		},
+		{
+			name: "only stale failures otherwise allow ready",
+			checks: [{ ...failingCheck(), startedAt: "2026-06-01T09:00:00Z" }],
+			expected: "ready",
+		},
+		{
+			name: "an ordinary pending check may coexist with ready",
+			checks: [pendingCheck({ name: "deploy", identity: "check-run:CI:deploy" })],
+			expected: "ready",
+		},
+		{
+			name: "the trailing Graphite pending check may coexist with ready",
+			checks: [pendingCheck()],
+			expected: "ready",
+		},
+		{ name: "no checks is ready", checks: [], expected: "ready" },
+	] as const)("$name", async ({ isDraft = false, checks, unresolved = 0, expected }) => {
+		const entry = await collectFoundEntry({ isDraft, checks, unresolved });
+		expect(entry.pr_status).toBe(expected);
+	});
+
+	test("derives thread counts and all timestamp freshness rules", async () => {
+		const entry = await collectFoundEntry({
+			unresolved: 1,
+			resolved: 1,
+			checks: [
+				{ ...failingCheck(), startedAt: "2026-06-01T10:00:00Z" },
+				{
+					...failingCheck(),
+					name: "created fallback",
+					startedAt: null,
+					createdAt: "2026-06-01T10:01:00Z",
+				},
+				statusCheck({ name: "legacy", createdAt: "2026-06-01T09:59:00Z" }),
+				statusCheck({ name: "missing", createdAt: null }),
+				statusCheck({ name: "invalid", createdAt: "invalid" }),
+			],
+		});
+
+		expect(entry.review_threads).toEqual({ total: 2, resolved: 1, unresolved: 1 });
+		expect(entry.checks.map(({ name, freshness }) => ({ name, freshness }))).toEqual([
+			{ name: "unit", freshness: "fresh" },
+			{ name: "created fallback", freshness: "fresh" },
+			{ name: "legacy", freshness: "stale" },
+			{ name: "missing", freshness: "unknown" },
+			{ name: "invalid", freshness: "unknown" },
+		]);
+
+		for (const headCommitCommittedAt of [null, "invalid"] as const) {
+			const unknownAnchor = await collectFoundEntry({
+				headCommitCommittedAt,
+				checks: [statusCheck({ createdAt: "2026-06-01T11:00:00Z" })],
+			});
+			expect(unknownAnchor.checks[0]?.freshness).toBe("unknown");
+		}
+	});
+
+	test.each([
+		["exact trailing identity", pendingCheck(), true],
+		["null identity uses exact name fallback", pendingCheck({ identity: null }), true],
+		[
+			"non-null mismatching identity prevents name fallback",
+			pendingCheck({ identity: "other" }),
+			false,
+		],
+		["non-pending Graphite status is not trailing", statusCheck({ bucket: "passing" }), false],
+	] as const)("recognizes %s", async (_name, check, expected) => {
+		const entry = await collectFoundEntry({ checks: [check] });
+		expect(entry.checks[0]?.is_trailing).toBe(expected);
 	});
 
 	test("classifies missing and ambiguous branches alongside found entries", async () => {
@@ -133,10 +239,11 @@ describe("collectBranchPrChecks", () => {
 			collection: {
 				entries: [
 					{ branch: "feature-a", status: "found" },
-					{ branch: "gone", status: "missing" },
+					{ branch: "gone", status: "missing", pr_status: "no-pr" },
 					{
 						branch: "doubled",
 						status: "ambiguous",
+						pr_status: null,
 						candidates: [
 							{ branch: "doubled", pr_number: 21, title: "first" },
 							{ branch: "doubled", pr_number: 22, title: "second" },
@@ -164,6 +271,94 @@ describe("collectBranchPrChecks", () => {
 		});
 	});
 });
+
+async function collectFoundEntry(options: {
+	readonly isDraft?: boolean;
+	readonly headCommitCommittedAt?: string | null;
+	readonly checks: readonly GithubStatusChecks["checks"][number][];
+	readonly resolved?: number;
+	readonly unresolved?: number;
+}): Promise<BranchPrChecksFoundEntry> {
+	const resolved = options.resolved ?? 0;
+	const unresolved = options.unresolved ?? 0;
+	const result = await collectBranchPrChecks({
+		branches: ["feature-a"],
+		prFeedback: new InMemoryGithubPrFeedbackGateway({
+			prs: [prSummary({ number: 11, headRefName: "feature-a" })],
+			branchPrFacts: {
+				11: {
+					isDraft: options.isDraft ?? false,
+					headCommitCommittedAt:
+						options.headCommitCommittedAt === undefined
+							? "2026-06-01T10:00:00Z"
+							: options.headCommitCommittedAt,
+				},
+			},
+			reviewThreads: {
+				11: Array.from({ length: resolved + unresolved }, (_, index) => ({
+					id: `thread-${index}`,
+					path: "a.ts",
+					line: 1,
+					startLine: null,
+					isResolved: index < resolved,
+					isOutdated: false,
+					comments: [],
+				})),
+			},
+			checks: {
+				11: {
+					counts: {
+						passing: options.checks.filter((check) => check.bucket === "passing").length,
+						pending: options.checks.filter((check) => check.bucket === "pending").length,
+						failing: options.checks.filter((check) => check.bucket === "failing").length,
+						cancelled: options.checks.filter((check) => check.bucket === "cancelled").length,
+						unknown: options.checks.filter((check) => check.bucket === "unknown").length,
+						hasMore: false,
+					},
+					checks: options.checks,
+				},
+			},
+		}),
+		gatewayOptions: GATEWAY_OPTIONS,
+	});
+	if (result.type !== "ok" || result.collection.entries[0]?.status !== "found") {
+		throw new Error("expected a found branch PR checks entry");
+	}
+	return result.collection.entries[0];
+}
+
+function pendingCheck(
+	overrides: Partial<GithubStatusChecks["checks"][number]> = {},
+): GithubStatusChecks["checks"][number] {
+	return statusCheck({
+		bucket: "pending",
+		name: "Graphite / mergeability_check",
+		identity: "status-context:Graphite / mergeability_check",
+		state: "PENDING",
+		...overrides,
+	});
+}
+
+function statusCheck(
+	overrides: Partial<GithubStatusChecks["checks"][number]> = {},
+): GithubStatusChecks["checks"][number] {
+	return {
+		...failingCheck(),
+		kind: "status_context",
+		name: "Graphite / mergeability_check",
+		workflowName: null,
+		status: null,
+		conclusion: null,
+		state: "FAILURE",
+		startedAt: null,
+		completedAt: null,
+		createdAt: "2026-06-01T10:00:00Z",
+		detailsUrl: null,
+		targetUrl: null,
+		identity: "status-context:Graphite / mergeability_check",
+		...overrides,
+	};
+}
 
 function failingCheck(): GithubStatusChecks["checks"][number] {
 	return {
