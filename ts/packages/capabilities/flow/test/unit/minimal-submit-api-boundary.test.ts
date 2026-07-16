@@ -1,11 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { ScriptedCommandExecApi, exitedResult } from "@nseng-ai/foundation/exec/testing";
-import {
-	createFlowMinimalSubmitClient,
-	type FlowMinimalSubmitClient,
-	type FlowMinimalSubmitInput,
-} from "@nseng-ai/flow/api";
+import { createFlowMinimalSubmitClient, type FlowMinimalSubmitClient } from "@nseng-ai/flow/api";
 
 const HEAD = "a".repeat(40);
 
@@ -59,7 +55,7 @@ describe("Flow minimal-submit Capability API", () => {
 				trunkBranch: "main",
 				affectedBranches: ["feature/demo"],
 			},
-		} as const satisfies FlowMinimalSubmitInput;
+		} as const satisfies Parameters<FlowMinimalSubmitClient["submitCurrentBranch"]>[0];
 
 		expect(plannedInput.expectedPlan.source).toEqual({
 			branch: "feature/demo",
@@ -72,7 +68,8 @@ describe("Flow minimal-submit Capability API", () => {
 			expectedPlan: plannedInput.expectedPlan,
 		};
 		// @ts-expect-error Planned submission cannot carry an independent expected source.
-		const invalidInput: FlowMinimalSubmitInput = contradictoryInput;
+		const invalidInput: Parameters<FlowMinimalSubmitClient["submitCurrentBranch"]>[0] =
+			contradictoryInput;
 		expect(invalidInput.type).toBe("planned");
 	});
 

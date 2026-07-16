@@ -30,19 +30,8 @@ export { PR_FIELDS as FLOW_LAND_PR_FIELDS } from "../land/stack/constants.ts";
 export { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../submit/submit-hooks.ts";
 export type {
 	FlowMinimalSubmitClient,
-	FlowMinimalSubmitError,
-	FlowMinimalSubmitInput,
 	FlowMinimalSubmitMutationEvidence,
-	FlowMinimalSubmitMutationState,
-	FlowMinimalSubmitOutputEvent,
-	FlowMinimalSubmitPhaseEvent,
-	FlowMinimalSubmitPlan,
-	FlowMinimalSubmitPlanResult,
-	FlowMinimalSubmitResult,
-	FlowMinimalSubmitSource,
-	FlowMinimalSubmitStage,
 } from "../submit/minimal-submit.ts";
-export type { CreateFlowMinimalSubmitClientOptions } from "../submit/real-minimal-submit.ts";
 export { createFlowMinimalSubmitClient } from "../submit/real-minimal-submit.ts";
 
 export type { TrunkPullOutcome, TrunkPullResult } from "../trunk-pull/trunk-pull.ts";

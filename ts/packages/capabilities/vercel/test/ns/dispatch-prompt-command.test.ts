@@ -30,7 +30,6 @@ describe("ns dispatch prompt", () => {
 			status: "dispatched",
 			revision: FAKE_HEAD_SHA,
 			sourceBranch: "feature/widgets",
-			isSourcePushed: true,
 			sourcePublication: "git-pushed",
 			anchorBranch: EXPECTED_ANCHOR_BRANCH,
 			anchorPrNumber: 41,
@@ -547,7 +546,7 @@ describe("ns dispatch prompt", () => {
 		expect(schemaText).toContain("anchorPrNumber");
 		expect(schemaText).toContain("anchorPrUrl");
 		expect(schemaText).toContain("workflowRunUrl");
-		expect(schemaText).toContain("isSourcePushed");
+		expect(schemaText).not.toContain("isSourcePushed");
 		expect(schemaText).toContain("sourcePublication");
 		expect(schemaText).toContain("already-current");
 		expect(schemaText).toContain("git-pushed");

@@ -27,6 +27,10 @@ import {
 	createDispatchPromptContext,
 	type DispatchPromptCliContext,
 } from "../../dispatch-client/context.ts";
+import type {
+	DispatchLifecycleReceipt,
+	DispatchSourceLifecycle,
+} from "../../dispatch-client/source-preparation.ts";
 
 const DIRTY_PATHS_RENDER_MAX_PATHS = 20;
 /** Machine-envelope bound on path and publication-scope lists (ADR 0012: command-local). */
@@ -58,9 +62,6 @@ const dispatchPromptResultSchema = z.discriminatedUnion("status", [
 		status: z.literal("dispatched"),
 		revision: z.string(),
 		sourceBranch: z.string(),
-		isSourcePushed: z
-			.boolean()
-			.describe("Compatibility field: false only when sourcePublication is already-current."),
 		sourcePublication: z
 			.enum(["already-current", "git-pushed", "graphite-submitted"])
 			.describe(
@@ -141,12 +142,11 @@ async function runDispatchPromptCommand(
 				status: outcome.status,
 				revision: outcome.revision,
 				sourceBranch: outcome.sourceBranch,
-				isSourcePushed: outcome.isSourcePushed,
-				sourcePublication: outcome.sourcePublication,
-				anchorBranch: outcome.anchorPr.branch,
-				anchorPrNumber: outcome.anchorPr.number,
-				anchorPrUrl: outcome.anchorPr.url,
-				runId: outcome.runId,
+				sourcePublication: outcome.receipt.source.type,
+				anchorBranch: outcome.receipt.anchorPr.branch,
+				anchorPrNumber: outcome.receipt.anchorPr.number,
+				anchorPrUrl: outcome.receipt.anchorPr.url,
+				runId: outcome.receipt.runId,
 				workflowRunUrl: outcome.workflowRunUrl,
 			};
 			return ok(result, { human: renderDispatchPromptResult(result) });
@@ -172,48 +172,17 @@ async function runDispatchPromptCommand(
 		case "anchor-branch-availability-failed":
 			return failure(
 				"anchor-branch-availability-failed",
-				outcome.mutation === undefined
-					? `${outcome.message}\nNothing was pushed, opened, or started. Check origin access and retry.`
-					: `${outcome.message}\n${renderMutationEvidence(outcome.mutation)} Source publication completed, but no dispatch anchor or run was created.`,
-				{
-					anchorBranch: outcome.anchorBranch,
-					...(outcome.sourcePublication === undefined
-						? {}
-						: { sourcePublication: outcome.sourcePublication }),
-					...(outcome.mutation === undefined
-						? {}
-						: {
-								mutation: outcome.mutation,
-								anchorCreated: false,
-								runStarted: false,
-							}),
-					...(outcome.affectedBranches === undefined
-						? {}
-						: publicationScopeData(outcome.affectedBranches)),
-				},
+				`${outcome.message}\n${renderReceiptRecovery(outcome.receipt, "Source publication completed, but no dispatch anchor or run was created.", "Nothing was pushed, opened, or started. Check origin access and retry.")}`,
+				{ anchorBranch: outcome.anchorBranch, ...receiptData(outcome.receipt) },
 			);
 		case "anchor-branch-unavailable":
 			return failure(
 				"anchor-branch-unavailable",
-				outcome.mutation === undefined
-					? `All ${outcome.candidateLimit} timestamped anchor names for ${outcome.semanticSlug} already exist on origin. Retry after the clock advances or pass a different --slug/-s override.`
-					: `All ${outcome.candidateLimit} timestamped anchor names for ${outcome.semanticSlug} already exist on origin. ${renderMutationEvidence(outcome.mutation)} Source publication completed, but no dispatch anchor or run was created. Retry after the clock advances or pass a different --slug/-s override.`,
+				`All ${outcome.candidateLimit} timestamped anchor names for ${outcome.semanticSlug} already exist on origin. ${renderReceiptRecovery(outcome.receipt, "Source publication completed, but no dispatch anchor or run was created. ", "")}Retry after the clock advances or pass a different --slug/-s override.`,
 				{
 					semanticSlug: outcome.semanticSlug,
 					candidateLimit: outcome.candidateLimit,
-					...(outcome.sourcePublication === undefined
-						? {}
-						: { sourcePublication: outcome.sourcePublication }),
-					...(outcome.mutation === undefined
-						? {}
-						: {
-								mutation: outcome.mutation,
-								anchorCreated: false,
-								runStarted: false,
-							}),
-					...(outcome.affectedBranches === undefined
-						? {}
-						: publicationScopeData(outcome.affectedBranches)),
+					...receiptData(outcome.receipt),
 				},
 			);
 		case "source-unusable":
@@ -222,12 +191,7 @@ async function runDispatchPromptCommand(
 			return failure(
 				"source-publication-plan-failed",
 				`${outcome.message}\nSource publication planning failed closed; no local or remote mutation was requested and no anchor or run was created.`,
-				{
-					code: outcome.code,
-					mutation: outcome.mutation,
-					anchorCreated: false,
-					runStarted: false,
-				},
+				{ code: outcome.code, ...receiptData(outcome.receipt) },
 			);
 		case "source-publication-force-required":
 			return usageError(
@@ -248,12 +212,7 @@ async function runDispatchPromptCommand(
 			return failure(
 				"source-push-failed",
 				`${outcome.message}\nThe exact-SHA Git push may have published remote state, but no dispatch anchor or run was created. Inspect origin before retrying.`,
-				{
-					sourceBranch: outcome.sourceBranch,
-					mutation: outcome.mutation,
-					anchorCreated: false,
-					runStarted: false,
-				},
+				{ sourceBranch: outcome.sourceBranch, ...receiptData(outcome.receipt) },
 			);
 		case "graphite-publication-failed":
 			return failure(
@@ -261,17 +220,9 @@ async function runDispatchPromptCommand(
 				renderPublicationFailure({
 					message: outcome.message,
 					stage: outcome.stage,
-					affectedBranches: outcome.affectedBranches,
-					mutation: outcome.mutation,
+					source: outcome.receipt.source,
 				}),
-				{
-					stage: outcome.stage,
-					code: outcome.code,
-					...publicationScopeData(outcome.affectedBranches),
-					mutation: outcome.mutation,
-					anchorCreated: false,
-					runStarted: false,
-				},
+				{ stage: outcome.stage, code: outcome.code, ...receiptData(outcome.receipt) },
 			);
 		case "source-revalidation-failed":
 			return failure(
@@ -293,16 +244,10 @@ async function runDispatchPromptCommand(
 		case "source-publication-verification-failed":
 			return failure(
 				"source-publication-verification-failed",
-				`${outcome.message}\n${renderMutationEvidence(outcome.mutation)} Source publication occurred or may have occurred, but no dispatch anchor or run was created.`,
+				`${outcome.message}\n${renderReceiptRecovery(outcome.receipt, "Source publication occurred or may have occurred, but no dispatch anchor or run was created.", "")}`,
 				{
-					sourcePublication: outcome.sourcePublication,
 					reason: outcome.reason,
-					mutation: outcome.mutation,
-					anchorCreated: false,
-					runStarted: false,
-					...(outcome.affectedBranches === undefined
-						? {}
-						: publicationScopeData(outcome.affectedBranches)),
+					...receiptData(outcome.receipt),
 					...(outcome.checks === undefined ? {} : { checks: outcome.checks }),
 					...(outcome.dirtyPaths === undefined
 						? {}
@@ -315,40 +260,26 @@ async function runDispatchPromptCommand(
 		case "anchor-push-failed":
 			return failure(
 				"anchor-push-failed",
-				outcome.sourcePublication === undefined
-					? `${outcome.message}\nNothing was dispatched and no PR was opened.`
-					: `${outcome.message}\nNo dispatch anchor or run was created.${renderCompletedPublication(outcome)}`,
-				{ anchorBranch: outcome.anchorBranch, ...completedPublicationData(outcome) },
+				`${outcome.message}\nNo dispatch anchor or run was created.${renderReceiptSuffix(outcome.receipt)}`,
+				{ anchorBranch: outcome.anchorBranch, ...receiptData(outcome.receipt) },
 			);
 		case "anchor-pr-failed":
 			return failure(
 				"anchor-pr-failed",
-				`${outcome.message}\nThe anchor branch ${outcome.anchorBranch} was pushed but no run was started; delete the remote branch or retry the dispatch.${renderCompletedPublication(outcome)}`,
-				{ anchorBranch: outcome.anchorBranch, ...completedPublicationData(outcome) },
+				`${outcome.message}\nThe anchor branch ${outcome.receipt.anchorBranch} was pushed but no run was started; delete the remote branch or retry the dispatch.${renderReceiptSuffix(outcome.receipt)}`,
+				receiptData(outcome.receipt),
 			);
 		case "trigger-failed":
 			return failure(
 				"trigger-failed",
-				`${outcome.message}\nThe anchor PR ${outcome.anchorPr.url} is open but no run was started; re-dispatch or close it.${renderCompletedPublication(outcome)}`,
-				{
-					code: outcome.code,
-					anchorBranch: outcome.anchorPr.branch,
-					anchorPrNumber: outcome.anchorPr.number,
-					anchorPrUrl: outcome.anchorPr.url,
-					...completedPublicationData(outcome),
-				},
+				`${outcome.message}\nThe anchor PR ${outcome.receipt.anchorPr.url} is open but no run was started; re-dispatch or close it.${renderReceiptSuffix(outcome.receipt)}`,
+				{ code: outcome.code, ...receiptData(outcome.receipt) },
 			);
 		case "run-id-stamp-failed":
 			return failure(
 				"run-id-stamp-failed",
-				`${outcome.message}\nThe run was started${outcome.runId === undefined ? "" : ` (run id ${outcome.runId})`} but the anchor PR ${outcome.anchorPr.url} carries no run-id stamp; record the run id on the PR manually.${renderCompletedPublication(outcome)}`,
-				{
-					anchorBranch: outcome.anchorPr.branch,
-					anchorPrNumber: outcome.anchorPr.number,
-					anchorPrUrl: outcome.anchorPr.url,
-					...(outcome.runId === undefined ? {} : { runId: outcome.runId }),
-					...completedPublicationData(outcome),
-				},
+				`${outcome.message}\nThe run was started${outcome.receipt.stage === "run-started" ? ` (run id ${outcome.receipt.runId})` : ""} but the anchor PR ${outcome.receipt.anchorPr.url} carries no run-id stamp; record the run id on the PR manually.${renderReceiptSuffix(outcome.receipt)}`,
+				receiptData(outcome.receipt),
 			);
 	}
 }
@@ -413,53 +344,69 @@ function publicationScopeData(affectedBranches: readonly string[]) {
 function renderPublicationFailure(options: {
 	readonly message: string;
 	readonly stage: string;
-	readonly affectedBranches: readonly string[];
-	readonly mutation: { readonly local: string; readonly remote: string };
+	readonly source: DispatchSourceLifecycle;
 }): string {
-	const scope = options.affectedBranches.slice(0, PUBLICATION_BRANCHES_DATA_MAX).join(" → ");
-	return `${options.message}\nGraphite source publication failed during ${options.stage} for ${scope}. ${renderMutationEvidence(options.mutation)} No dispatch anchor or run was created.`;
+	if (options.source.type !== "graphite-publication-attempted") {
+		throw new Error(
+			"Graphite publication failure requires attempted Graphite publication evidence.",
+		);
+	}
+	const scope = options.source.affectedBranches.slice(0, PUBLICATION_BRANCHES_DATA_MAX).join(" → ");
+	return `${options.message}\nGraphite source publication failed during ${options.stage} for ${scope}. ${renderMutationEvidence(options.source.mutation)} No dispatch anchor or run was created.`;
 }
 
-function completedPublicationData(
-	outcome: Extract<
-		DispatchPromptOutcome,
-		{
-			readonly status:
-				| "anchor-push-failed"
-				| "anchor-pr-failed"
-				| "trigger-failed"
-				| "run-id-stamp-failed";
-		}
-	>,
-) {
-	if (outcome.sourcePublication === undefined) return {};
-	return {
-		sourcePublication: outcome.sourcePublication,
-		mutation: outcome.mutation,
-		...(outcome.affectedBranches === undefined
+function receiptData(receipt: DispatchLifecycleReceipt) {
+	const source = receipt.source;
+	const sourceData =
+		source.type === "already-current"
 			? {}
-			: publicationScopeData(outcome.affectedBranches)),
+			: {
+					...(source.type === "git-pushed" || source.type === "graphite-submitted"
+						? { sourcePublication: source.type }
+						: {}),
+					mutation: source.mutation,
+					...("affectedBranches" in source ? publicationScopeData(source.affectedBranches) : {}),
+				};
+	const artifactData =
+		receipt.stage === "source"
+			? {}
+			: receipt.stage === "anchor-pushed"
+				? { anchorBranch: receipt.anchorBranch }
+				: {
+						anchorBranch: receipt.anchorPr.branch,
+						anchorPrNumber: receipt.anchorPr.number,
+						anchorPrUrl: receipt.anchorPr.url,
+						...(receipt.stage === "run-started" ? { runId: receipt.runId } : {}),
+					};
+	return {
+		...sourceData,
+		...artifactData,
+		...(source.type === "already-current"
+			? {}
+			: {
+					anchorCreated: receipt.stage !== "source",
+					runStarted: receipt.stage === "run-started",
+				}),
 	};
 }
 
-function renderCompletedPublication(
-	outcome: Extract<
-		DispatchPromptOutcome,
-		{
-			readonly status:
-				| "anchor-push-failed"
-				| "anchor-pr-failed"
-				| "trigger-failed"
-				| "run-id-stamp-failed";
-		}
-	>,
+function renderReceiptRecovery(
+	receipt: DispatchLifecycleReceipt,
+	publicationMessage: string,
+	alreadyCurrentMessage: string,
 ): string {
-	if (outcome.sourcePublication === undefined) return "";
+	return receipt.source.type === "already-current"
+		? alreadyCurrentMessage
+		: `${renderMutationEvidence(receipt.source.mutation)} ${publicationMessage}`;
+}
+
+function renderReceiptSuffix(receipt: DispatchLifecycleReceipt): string {
+	if (receipt.source.type === "already-current") return "";
 	const scope =
-		outcome.affectedBranches === undefined
-			? ""
-			: ` Graphite scope: ${outcome.affectedBranches.join(" → ")}.`;
-	return ` Source publication completed via ${outcome.sourcePublication}. ${renderMutationEvidence(outcome.mutation)}${scope}`;
+		receipt.source.type === "graphite-submitted"
+			? ` Graphite scope: ${receipt.source.affectedBranches.join(" → ")}.`
+			: "";
+	return ` Source publication completed via ${receipt.source.type}. ${renderMutationEvidence(receipt.source.mutation)}${scope}`;
 }
 
 function renderMutationEvidence(mutation: {

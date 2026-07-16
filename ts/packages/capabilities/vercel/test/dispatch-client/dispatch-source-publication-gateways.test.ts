@@ -1,16 +1,17 @@
-import type {
-	FlowMinimalSubmitClient,
-	FlowMinimalSubmitInput,
-	FlowMinimalSubmitPlan,
-	FlowMinimalSubmitPlanResult,
-	FlowMinimalSubmitResult,
-} from "@nseng-ai/flow/api";
+import type { FlowMinimalSubmitClient } from "@nseng-ai/flow/api";
 import { describe, expect, test } from "vitest";
 
 import {
 	createRealDispatchGraphitePublicationAuthorizationGateway,
 	createRealDispatchSourcePublicationGateway,
 } from "../../src/dispatch-client/real-source-publication-gateways.ts";
+
+type FlowMinimalSubmitInput = Parameters<FlowMinimalSubmitClient["submitCurrentBranch"]>[0];
+type FlowMinimalSubmitPlanResult = Awaited<
+	ReturnType<FlowMinimalSubmitClient["planCurrentBranch"]>
+>;
+type FlowMinimalSubmitResult = Awaited<ReturnType<FlowMinimalSubmitClient["submitCurrentBranch"]>>;
+type FlowMinimalSubmitPlan = Extract<FlowMinimalSubmitPlanResult, { type: "tracked" }>["plan"];
 
 const SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
 const DISPATCH_PLAN = {
