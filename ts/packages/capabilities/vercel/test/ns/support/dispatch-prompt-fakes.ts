@@ -1,6 +1,7 @@
 // Constructor-state in-memory fakes for the `ns dispatch prompt` gateway
 // seams, plus a minimal NsExtensionApi fake that publishes them through
 // `ctx.extensions.dispatch` (the objectives override-channel pattern).
+import { FakeBrmemGateway, type BrmemResult, type PutEntryResult } from "@nseng-ai/brmem";
 import { noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
@@ -17,6 +18,7 @@ import type {
 	DispatchGitOperationResult,
 	DispatchLocalTokenGateway,
 	DispatchLocalTokenResult,
+	DispatchPlanGateways,
 	DispatchPromptGateways,
 	DispatchRemoteBranchTipResult,
 	DispatchStartRunResult,
@@ -26,9 +28,17 @@ import type {
 	DispatchWorkspaceGitGateway,
 } from "../../../src/ns/dispatch-prompt/contracts.ts";
 import type { DispatchRunInput } from "../../../src/dispatch/dispatch-run.ts";
+import type { DispatchPlanSnapshotGateway } from "../../../src/ns/dispatch-plan/delivery.ts";
+import type {
+	DispatchSavedPlanGateway,
+	DispatchSavedPlanResolution,
+} from "../../../src/ns/dispatch-plan/preparation.ts";
 
 export const FAKE_HEAD_SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
 export const FAKE_ANCHOR_ID = "ab12cd34";
+export const FAKE_DISPATCH_ID = "dsp_01JABCDEF0123456789";
+export const FAKE_PLAN_REF = "/state/ns/enriched-plan/ns/main/add-cache.md";
+export const FAKE_PLAN_SNAPSHOT_COMMIT = "1111111111111111111111111111111111111111";
 export const FAKE_RUN_ID = "wf_run_0123456789";
 export const FAKE_DEPLOYMENT_URL = "https://ns-dispatch.example.vercel.app";
 export const FAKE_WORKFLOW_DASHBOARD_URL = "https://vercel.com/example-team/ns-dispatch/workflows";
@@ -303,6 +313,55 @@ export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 	}
 }
 
+class FakeDispatchSavedPlanGateway implements DispatchSavedPlanGateway {
+	async resolveExplicitSavedPlan(): Promise<DispatchSavedPlanResolution> {
+		return {
+			type: "resolved",
+			plan: {
+				filePath: FAKE_PLAN_REF,
+				slug: "add-cache",
+				sourceBranch: "feature/widgets",
+				content: "# Add cache\n",
+			},
+		};
+	}
+}
+
+class FakeDispatchPlanBrmemGateway extends FakeBrmemGateway {
+	override async createEntry(options: {
+		readonly namespace: string;
+		readonly key: string;
+		readonly branch: string;
+		readonly content: string;
+	}): Promise<BrmemResult<PutEntryResult>> {
+		return {
+			type: "ok",
+			value: {
+				commitSha: FAKE_PLAN_SNAPSHOT_COMMIT,
+				entry: {
+					namespace: options.namespace,
+					key: options.key,
+					branch: options.branch,
+					entryLocator: `${options.namespace}:${options.key}`,
+				},
+			},
+		};
+	}
+}
+
+class FakeDispatchPlanSnapshotGateway implements DispatchPlanSnapshotGateway {
+	private commitSha = FAKE_PLAN_SNAPSHOT_COMMIT;
+
+	async publishSnapshot(options: { readonly commitSha: string }) {
+		this.commitSha = options.commitSha;
+		return { ok: true } as const;
+	}
+
+	async readRemoteSnapshotTip() {
+		return { type: "found", commitSha: this.commitSha } as const;
+	}
+}
+
 export interface FakeDispatchGatewaysOptions {
 	readonly git?: FakeWorkspaceGitState;
 	readonly anchorPrs?: FakeAnchorPrState;
@@ -332,6 +391,26 @@ export function createFakeDispatchGateways(
 		tokens: new FakeDispatchLocalTokenGateway(options.token, recordOperation),
 		config: new FakeDispatchConfigGateway(options.config, recordOperation),
 		generateAnchorId: () => FAKE_ANCHOR_ID,
+	};
+}
+
+export function createFakePlanDispatchGateways(
+	options: FakeDispatchGatewaysOptions = {},
+): DispatchPlanGateways & FakeDispatchGatewayBundle {
+	const shared = createFakeDispatchGateways(options);
+	return {
+		...shared,
+		savedPlans: new FakeDispatchSavedPlanGateway(),
+		brmem: new FakeDispatchPlanBrmemGateway({
+			remotes: {
+				origin: {
+					push: ["refs/brmem/*:refs/brmem/*"],
+					fetch: ["refs/brmem/*:refs/brmem/*"],
+				},
+			},
+		}),
+		snapshots: new FakeDispatchPlanSnapshotGateway(),
+		generateDispatchId: () => FAKE_DISPATCH_ID,
 	};
 }
 

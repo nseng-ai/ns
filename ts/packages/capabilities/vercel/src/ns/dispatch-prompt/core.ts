@@ -20,8 +20,23 @@ import {
 	parseDispatchPackageManagerSource,
 } from "../../dispatch/harness-registry.ts";
 import { isValidDispatchRunId } from "../../dispatch/run-id-stamp.ts";
-import { buildAnchorBranchName, buildAnchorPrBody, buildAnchorPrTitle } from "./content.ts";
-import type { DispatchPromptGateways, DispatchTriggerConnection } from "./contracts.ts";
+import { preflightDispatchBrmemSetup } from "../dispatch-plan/delivery-preflight.ts";
+import {
+	deliverPreparedDispatchPlanAfterPreflight,
+	type DispatchPlanDeliveryOutcome,
+} from "../dispatch-plan/delivery.ts";
+import { prepareDispatchPlan } from "../dispatch-plan/preparation.ts";
+import {
+	buildAnchorBranchName,
+	buildAnchorPrBody,
+	buildAnchorPrTitle,
+	buildPlanAnchorPrBody,
+} from "./content.ts";
+import type {
+	DispatchPlanGateways,
+	DispatchPromptGateways,
+	DispatchTriggerConnection,
+} from "./contracts.ts";
 
 /** One credentials-preflight check: named, actionable, value-free. */
 export interface DispatchPreflightCheck {
@@ -266,6 +281,12 @@ function triggerIdentityCheck(
 	}
 }
 
+export interface DispatchPlanRequest {
+	readonly cwd: string;
+	readonly planRef: string;
+	readonly onPhase?: (message: string) => void;
+}
+
 export interface DispatchPromptRequest {
 	readonly cwd: string;
 	readonly prompt: string;
@@ -279,6 +300,24 @@ export interface DispatchAnchorPr {
 }
 
 /** The core's outcome union; the command handler maps it to exit shapes. */
+export type DispatchPlanOutcome =
+	| {
+			readonly status: "dispatched";
+			readonly dispatchId: string;
+			readonly revision: string;
+			readonly sourceBranch: string;
+			readonly isSourcePushed: boolean;
+			readonly locator: Extract<
+				DispatchPlanDeliveryOutcome,
+				{ readonly status: "ready" }
+			>["locator"];
+			readonly anchorPr: DispatchAnchorPr;
+			readonly runId: string;
+			readonly workflowRunUrl: string;
+	  }
+	| Exclude<DispatchPlanDeliveryOutcome, { readonly status: "ready" }>
+	| Exclude<DispatchPromptOutcome, { readonly status: "dispatched" }>;
+
 export type DispatchPromptOutcome =
 	| {
 			readonly status: "dispatched";
@@ -324,6 +363,158 @@ export type DispatchPromptOutcome =
 			/** Absent only when the returned run id itself was unusable. */
 			readonly runId?: string;
 	  };
+
+/** Execute one Saved Plan dispatch through the prompt command's shared local spine. */
+export async function executeDispatchPlan(
+	request: DispatchPlanRequest,
+	gateways: DispatchPlanGateways,
+): Promise<DispatchPlanOutcome> {
+	request.onPhase?.("Checking the source branch and worktree…");
+	const sourceRef = await gateways.git.resolveSourceRef({ cwd: request.cwd });
+	if (sourceRef.ok === false) {
+		return {
+			status: "source-unusable",
+			code: sourceRef.error.code,
+			message: sourceRef.error.message,
+		};
+	}
+	const { repoRoot, branch, headSha } = sourceRef.value;
+	const dirty = await gateways.git.listDirtyPaths({ cwd: request.cwd });
+	if (dirty.ok === false) {
+		return { status: "source-unusable", code: "git-read-failed", message: dirty.error.message };
+	}
+	if (dirty.value.length > 0) return { status: "dirty-tree", dirtyPaths: dirty.value };
+
+	request.onPhase?.("Validating dispatch configuration and identity…");
+	const preflight = await runDispatchPreflight({ repoRoot }, gateways);
+	if (preflight.ok === false) return { status: "preflight-failed", checks: preflight.checks };
+
+	// Preparation creates dispatch identity and resolves the exact plan before
+	// the first external mutation, so every later artifact can be correlated
+	// even across a partial failure.
+	request.onPhase?.("Resolving the Saved Plan…");
+	const preparation = await prepareDispatchPlan(request, gateways);
+	if (preparation.status !== "ready") return preparation;
+	const brmemPreflight = await preflightDispatchBrmemSetup(gateways.brmem);
+	if (brmemPreflight.status !== "ready") {
+		return {
+			...brmemPreflight,
+			dispatchId: preparation.dispatchId,
+			artifacts: [],
+		};
+	}
+
+	request.onPhase?.("Ensuring the source revision is remotely reachable…");
+	const remoteTip = await gateways.git.readRemoteBranchTip({ cwd: request.cwd, branch });
+	if (remoteTip.type === "error") {
+		return { status: "source-unusable", code: "git-read-failed", message: remoteTip.error.message };
+	}
+	let isSourcePushed = false;
+	if (remoteTip.type === "missing" || remoteTip.sha !== headSha) {
+		const push = await gateways.git.pushSourceBranch({ cwd: request.cwd, branch });
+		if (push.ok === false) {
+			return { status: "source-push-failed", sourceBranch: branch, message: push.error.message };
+		}
+		isSourcePushed = true;
+	}
+
+	request.onPhase?.("Delivering the Saved Plan through Branch Memory…");
+	const delivery = await deliverPreparedDispatchPlanAfterPreflight(
+		request,
+		preparation,
+		gateways,
+		brmemPreflight.remote,
+	);
+	if (delivery.status !== "ready") return delivery;
+
+	request.onPhase?.("Creating the anchor branch and pull request…");
+	const anchorBranch = buildAnchorBranchName(branch, delivery.dispatchId);
+	const anchorPush = await gateways.git.pushAnchorBranch({
+		cwd: request.cwd,
+		revision: headSha,
+		anchorBranch,
+	});
+	if (anchorPush.ok === false) {
+		return { status: "anchor-push-failed", anchorBranch, message: anchorPush.error.message };
+	}
+	const pr = await gateways.anchorPrs.openAnchorPr({
+		cwd: request.cwd,
+		anchorBranch,
+		baseBranch: branch,
+		title: buildAnchorPrTitle(`Execute Saved Plan: ${request.planRef}`),
+		body: buildPlanAnchorPrBody({
+			planRef: request.planRef,
+			revision: headSha,
+			locator: delivery.locator,
+		}),
+	});
+	if (pr.ok === false) {
+		return { status: "anchor-pr-failed", anchorBranch, message: pr.error.message };
+	}
+	const anchorPr: DispatchAnchorPr = {
+		branch: anchorBranch,
+		number: pr.value.number,
+		url: pr.value.url,
+	};
+	const runInput = validateDispatchRunInput({
+		revision: headSha,
+		anchorBranch,
+		anchorPrNumber: anchorPr.number,
+		dispatchId: delivery.dispatchId,
+		contextLocator: delivery.locator,
+	});
+	if (runInput.ok === false) {
+		return {
+			status: "trigger-failed",
+			code: "invalid-request",
+			message: runInput.message,
+			anchorPr,
+		};
+	}
+
+	request.onPhase?.("Starting the remote workflow…");
+	const started = await gateways.trigger.startDispatchRun({
+		connection: preflight.triggerConnection,
+		input: runInput.value,
+	});
+	if (started.ok === false) {
+		return {
+			status: "trigger-failed",
+			code: started.error.code,
+			message: started.error.message,
+			anchorPr,
+		};
+	}
+	const runId = started.value.runId;
+	if (!isValidDispatchRunId(runId)) {
+		return {
+			status: "run-id-stamp-failed",
+			message: "The trigger route returned a run id that cannot be stamped safely.",
+			anchorPr,
+		};
+	}
+	request.onPhase?.("Recording the workflow run on the anchor PR…");
+	const stamp = await gateways.anchorPrs.stampAnchorPrRunId({
+		cwd: request.cwd,
+		prNumber: anchorPr.number,
+		runId,
+	});
+	if (stamp.ok === false) {
+		return { status: "run-id-stamp-failed", message: stamp.error.message, anchorPr, runId };
+	}
+
+	return {
+		status: "dispatched",
+		dispatchId: delivery.dispatchId,
+		revision: runInput.value.revision,
+		sourceBranch: branch,
+		isSourcePushed,
+		locator: delivery.locator,
+		anchorPr,
+		runId,
+		workflowRunUrl: buildWorkflowRunUrl(preflight.workflowDashboardUrl, runId),
+	};
+}
 
 /**
  * Execute one prompt dispatch end-to-end on the local side. Mutations

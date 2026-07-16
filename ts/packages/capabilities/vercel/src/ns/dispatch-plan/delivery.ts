@@ -128,7 +128,14 @@ export async function deliverDispatchPlan(
 ): Promise<DispatchPlanDeliveryOutcome> {
 	const preparation = await prepareDispatchPlan(request, context);
 	if (preparation.status !== "ready") return preparation;
+	return await deliverPreparedDispatchPlan(request, preparation, context);
+}
 
+export async function deliverPreparedDispatchPlan(
+	request: { readonly cwd: string; readonly remote?: string },
+	preparation: Extract<DispatchPlanPreparationOutcome, { readonly status: "ready" }>,
+	context: Pick<DispatchPlanDeliveryContext, "brmem" | "snapshots">,
+): Promise<DispatchPlanDeliveryOutcome> {
 	const preflight = await preflightDispatchBrmemSetup(context.brmem, request.remote);
 	if (preflight.status !== "ready") {
 		return {
@@ -141,6 +148,20 @@ export async function deliverDispatchPlan(
 		};
 	}
 
+	return await deliverPreparedDispatchPlanAfterPreflight(
+		request,
+		preparation,
+		context,
+		preflight.remote,
+	);
+}
+
+export async function deliverPreparedDispatchPlanAfterPreflight(
+	request: { readonly cwd: string },
+	preparation: Extract<DispatchPlanPreparationOutcome, { readonly status: "ready" }>,
+	context: Pick<DispatchPlanDeliveryContext, "brmem" | "snapshots">,
+	remote: string,
+): Promise<DispatchPlanDeliveryOutcome> {
 	const created = await context.brmem.createEntry({
 		namespace: preparation.entry.namespace,
 		key: preparation.entry.key,
@@ -159,7 +180,7 @@ export async function deliverDispatchPlan(
 	const entryArtifact = buildEntryArtifact(preparation.entry, created.value.commitSha);
 	const published = await context.snapshots.publishSnapshot({
 		cwd: request.cwd,
-		remote: preflight.remote,
+		remote,
 		snapshotRef: preparation.entry.snapshotRef,
 		commitSha: created.value.commitSha,
 	});
@@ -174,14 +195,14 @@ export async function deliverDispatchPlan(
 
 	const publishedArtifact: DispatchPlanPublishedSnapshotArtifact = {
 		type: "published-snapshot-ref",
-		remote: preflight.remote,
+		remote,
 		snapshotRef: preparation.entry.snapshotRef,
 		commitSha: created.value.commitSha,
 	};
 	const artifacts = [entryArtifact, publishedArtifact] as const;
 	const remoteTip = await context.snapshots.readRemoteSnapshotTip({
 		cwd: request.cwd,
-		remote: preflight.remote,
+		remote,
 		snapshotRef: preparation.entry.snapshotRef,
 	});
 	if (remoteTip.type === "error") {
