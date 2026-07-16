@@ -329,19 +329,22 @@ export function buildDispatchPlanSnapshotFetchCommand(
 export function buildDispatchPlanEntryCheckCommand(
 	locator: DispatchPlanContextLocator,
 ): SandboxCommand {
-	const parsePresentResult =
-		'let input="";process.stdin.setEncoding("utf8");process.stdin.on("data",chunk=>input+=chunk);process.stdin.on("end",()=>{const result=JSON.parse(input);if(result?.status!=="ok"||result?.data?.present!==true)process.exit(1)})';
 	return {
-		cmd: "sh",
+		cmd: "pnpm",
 		args: [
-			"-c",
-			'pnpm --dir ts exec brmem check "$1" --namespace "$2" --branch "$3" --at "$4" --format json | node -e "$5"',
-			"ns-dispatch-check-context",
+			"--dir",
+			"ts",
+			"exec",
+			"brmem",
+			"check",
 			locator.planKey,
+			"--namespace",
 			locator.namespace,
+			"--branch",
 			locator.sourceBranch,
+			"--at",
 			locator.snapshotCommitSha,
-			parsePresentResult,
+			"--require",
 		],
 	};
 }

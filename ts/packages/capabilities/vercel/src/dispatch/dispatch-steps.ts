@@ -28,7 +28,7 @@ import {
 	type MintEnvironment,
 } from "../mint/runtime-config.ts";
 import type { SupervisionCleanupResult, SupervisionPollResult } from "../sandbox/supervision.ts";
-import { isSafeSandboxName } from "../sandbox/contracts.ts";
+import { isSafeSandboxName, type SandboxCommand } from "../sandbox/contracts.ts";
 import type { DispatchReportGateway } from "./anchor-pr-report.ts";
 import {
 	buildDispatchLandingCommand,
@@ -328,24 +328,35 @@ async function prepareDispatchPlanContext(options: {
 		{ readonly dispatchId: string }
 	>["contextLocator"];
 }): Promise<HarnessLaunchStageResult> {
-	const commands = [
+	const snapshot = await runPlanContextPrecheck(
+		options,
 		buildDispatchPlanSnapshotFetchCommand(options.contextLocator),
+		"Saved Plan Snapshot Ref fetch and commit verification failed.",
+	);
+	if (snapshot.ok === false) return snapshot;
+	return await runPlanContextPrecheck(
+		options,
 		buildDispatchPlanEntryCheckCommand(options.contextLocator),
-	];
-	for (const command of commands) {
-		try {
-			const result = await options.sandboxes.runSandboxCommand({
-				sandboxName: options.sandboxName,
-				command,
-			});
-			if (result.ok === false || result.exitCode !== 0) {
-				return { ok: false, message: "Saved Plan context precheck failed." };
-			}
-		} catch {
-			return { ok: false, message: "Saved Plan context precheck failed." };
-		}
+		"Required Branch Memory Saved Plan Entry check failed.",
+	);
+}
+
+async function runPlanContextPrecheck(
+	options: { readonly sandboxName: string; readonly sandboxes: DispatchSandboxGateway },
+	command: SandboxCommand,
+	failureMessage: string,
+): Promise<HarnessLaunchStageResult> {
+	try {
+		const result = await options.sandboxes.runSandboxCommand({
+			sandboxName: options.sandboxName,
+			command,
+		});
+		return result.ok && result.exitCode === 0
+			? { ok: true }
+			: { ok: false, message: failureMessage };
+	} catch {
+		return { ok: false, message: failureMessage };
 	}
-	return { ok: true };
 }
 
 async function writeDispatchPrompt(options: {

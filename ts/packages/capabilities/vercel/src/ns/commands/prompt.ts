@@ -24,7 +24,7 @@ import {
 import {
 	createDispatchPromptContext,
 	type DispatchPromptCliContext,
-} from "../dispatch-prompt/context.ts";
+} from "../dispatch-client/context.ts";
 
 const DIRTY_PATHS_RENDER_MAX_PATHS = 20;
 /** Machine-envelope bound on the dirty-path list (ADR 0012: command-local). */

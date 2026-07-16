@@ -4,7 +4,7 @@ import type {
 	DispatchGatewayError,
 	DispatchLocalGitFactsGateway,
 	DispatchWorkspaceGitGateway,
-} from "./contracts.ts";
+} from "../dispatch-client/contracts.ts";
 import { dispatchCommandError } from "./dispatch-command-error.ts";
 
 const GIT_READ_TIMEOUT_MS = 30_000;

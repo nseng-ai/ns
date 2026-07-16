@@ -15,7 +15,7 @@ export type DispatchBrmemSetupPreflight =
 			readonly setupCommand: string;
 	  }
 	| {
-			readonly status: "preflight-failed";
+			readonly status: "brmem-preflight-failed";
 			readonly remote: string;
 			readonly message: string;
 	  };
@@ -27,7 +27,7 @@ export async function preflightDispatchBrmemSetup(
 	const config = await gateway.getRemoteConfig(remote);
 	if (config.type === "error") {
 		return {
-			status: "preflight-failed",
+			status: "brmem-preflight-failed",
 			remote,
 			message: `Could not inspect Branch Memory synchronization for Git remote ${JSON.stringify(remote)}: ${config.error.message}`,
 		};

@@ -107,6 +107,50 @@ describe("read-only brmem operations", () => {
 		});
 	});
 
+	it.each(["--require", "-r"])(
+		"check %s requires presence while retaining complete missing metadata",
+		async (requireFlag) => {
+			const present = runScenario(["check", "scratch", requireFlag, "--format", "json"], {
+				fake: { currentBranch: "feat/x", entries: seededEntries },
+			});
+			expect(await present.exit).toBe(0);
+			expect(JSON.parse(present.stdout.join(""))).toMatchObject({
+				status: "ok",
+				data: { key: "scratch", present: true },
+			});
+
+			const missing = runScenario(["check", "missing", requireFlag, "--format", "json"], {
+				fake: { currentBranch: "feat/x", entries: seededEntries },
+			});
+			expect(await missing.exit).toBe(1);
+			expect(JSON.parse(missing.stdout.join(""))).toMatchObject({
+				status: "negative",
+				exitCode: 1,
+				data: {
+					namespace: "base",
+					key: "missing",
+					branch: "feat/x",
+					present: false,
+					headSha: null,
+					headDate: null,
+					blobSha: null,
+					sizeBytes: null,
+				},
+			});
+		},
+	);
+
+	it("check help and schema expose the framework-parsed require option", async () => {
+		const help = runScenario(["check", "--help"]);
+		expect(await help.exit).toBe(0);
+		expect(help.stdout.join("")).toContain("--require");
+		expect(help.stdout.join("")).toContain("-r");
+
+		const schema = runScenario(["check", "--json-schema"]);
+		expect(await schema.exit).toBe(0);
+		expect(schema.stdout.join("")).toContain("present");
+	});
+
 	it("get and check --at read historical fake snapshots", async () => {
 		const gateway = new FakeBrmemGateway({ currentBranch: "feat/x" });
 		const first = await gateway.putEntry({

@@ -10,7 +10,7 @@ import type {
 	DispatchStartRunResult,
 	DispatchTriggerGateway,
 	DispatchTriggerIdentityResult,
-} from "./contracts.ts";
+} from "../dispatch-client/contracts.ts";
 
 /** Valid-shaped run id used by the read-only identity preflight; can never exist. */
 const IDENTITY_PREFLIGHT_RUN_ID = "wrun_00000000000000000000000000";

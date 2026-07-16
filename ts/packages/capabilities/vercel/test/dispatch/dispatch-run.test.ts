@@ -227,6 +227,24 @@ describe("Saved Plan sandbox commands", () => {
 	it("checks the convention-required plan member at the exact commit", () => {
 		const command = buildDispatchPlanEntryCheckCommand(locator);
 
+		expect(command).toEqual({
+			cmd: "pnpm",
+			args: [
+				"--dir",
+				"ts",
+				"exec",
+				"brmem",
+				"check",
+				locator.planKey,
+				"--namespace",
+				locator.namespace,
+				"--branch",
+				locator.sourceBranch,
+				"--at",
+				locator.snapshotCommitSha,
+				"--require",
+			],
+		});
 		expect(command.args).toContain(locator.planKey);
 		expect(command.args).toContain(locator.namespace);
 		expect(command.args).toContain(locator.sourceBranch);

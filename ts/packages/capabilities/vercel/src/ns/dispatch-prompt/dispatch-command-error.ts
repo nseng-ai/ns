@@ -1,6 +1,6 @@
 import type { ExecResult } from "@nseng-ai/foundation/command";
 
-import type { DispatchGatewayError } from "./contracts.ts";
+import type { DispatchGatewayError } from "../dispatch-client/contracts.ts";
 
 export function dispatchCommandError(
 	code: string,

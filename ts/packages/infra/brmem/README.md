@@ -46,6 +46,15 @@ runtime: typescript
 entry_point: @nseng-ai/brmem bin brmem -> ts/packages/infra/brmem/src/cli.ts
 ```
 
+## Check Entry presence
+
+`brmem check <key>` is a presence predicate: present and absent Entries both
+exit `0`, with `data.present` distinguishing the result. Add `--require` (or
+`-r`) when the named Entry is required by subsequent work. Required presence
+exits `0`; required absence exits `1` with a `negative` envelope that retains
+the complete `data.present: false` metadata. Invalid input and backend failures
+continue to exit `2`.
+
 ## Garbage-collect stale Branch Memory Snapshot Refs
 
 `brmem gc` finds Branch Memory Snapshots whose associated branch no longer

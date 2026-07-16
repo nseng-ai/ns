@@ -5,20 +5,18 @@
 import { createNsDomainCommand } from "@nseng-ai/capability-kit/ns-command";
 import { failure, negative, ok, z, type CommandExit, type NsCommand } from "@nseng-ai/sdk";
 
-import {
-	executeDispatchPlan,
-	type DispatchPlanOutcome,
-	type DispatchPreflightCheck,
-} from "../dispatch-prompt/core.ts";
+import { DISPATCH_CONTEXT_NAMESPACE } from "../../dispatch/dispatch-context.ts";
 import {
 	createDispatchPlanContext,
 	type DispatchPlanCliContext,
-} from "../dispatch-prompt/context.ts";
+} from "../dispatch-client/context.ts";
+import { executeDispatchPlan, type DispatchPlanOutcome } from "../dispatch-plan/execute.ts";
+import type { DispatchPreflightCheck } from "../dispatch-prompt/core.ts";
 
 const dirtyPathsDataMaxPaths = 100;
 
 const contextLocatorSchema = z.object({
-	namespace: z.literal("dispatch-context"),
+	namespace: z.literal(DISPATCH_CONTEXT_NAMESPACE),
 	dispatchId: z.string(),
 	contextPrefix: z.string(),
 	planKey: z.string(),
@@ -123,15 +121,15 @@ async function runDispatchPlanCommand(
 				artifacts: outcome.artifacts,
 			});
 		case "preflight-failed":
-			return "checks" in outcome
-				? failure("preflight-failed", renderPreflightFailure(outcome.checks), {
-						checks: outcome.checks,
-					})
-				: failure("branch-memory-preflight-failed", outcome.message, {
-						dispatchId: outcome.dispatchId,
-						remote: outcome.remote,
-						artifacts: outcome.artifacts,
-					});
+			return failure("preflight-failed", renderPreflightFailure(outcome.checks), {
+				checks: outcome.checks,
+			});
+		case "brmem-preflight-failed":
+			return failure("branch-memory-preflight-failed", outcome.message, {
+				dispatchId: outcome.dispatchId,
+				remote: outcome.remote,
+				artifacts: outcome.artifacts,
+			});
 		case "entry-creation-failed":
 		case "snapshot-publication-failed":
 		case "remote-verification-failed":
@@ -157,22 +155,34 @@ async function runDispatchPlanCommand(
 			return failure(outcome.status, outcome.message, { sourceBranch: outcome.sourceBranch });
 		case "anchor-push-failed":
 		case "anchor-pr-failed":
-			return failure(outcome.status, outcome.message, { anchorBranch: outcome.anchorBranch });
+			return failure(outcome.status, postDeliveryMessage(outcome.message, outcome.dispatchId), {
+				dispatchId: outcome.dispatchId,
+				artifacts: outcome.artifacts,
+				anchorBranch: outcome.anchorBranch,
+			});
 		case "trigger-failed":
-			return failure(outcome.status, outcome.message, {
+			return failure(outcome.status, postDeliveryMessage(outcome.message, outcome.dispatchId), {
+				dispatchId: outcome.dispatchId,
+				artifacts: outcome.artifacts,
 				code: outcome.code,
 				anchorBranch: outcome.anchorPr.branch,
 				anchorPrNumber: outcome.anchorPr.number,
 				anchorPrUrl: outcome.anchorPr.url,
 			});
 		case "run-id-stamp-failed":
-			return failure(outcome.status, outcome.message, {
+			return failure(outcome.status, postDeliveryMessage(outcome.message, outcome.dispatchId), {
+				dispatchId: outcome.dispatchId,
+				artifacts: outcome.artifacts,
 				anchorBranch: outcome.anchorPr.branch,
 				anchorPrNumber: outcome.anchorPr.number,
 				anchorPrUrl: outcome.anchorPr.url,
 				...(outcome.runId === undefined ? {} : { runId: outcome.runId }),
 			});
 	}
+}
+
+function postDeliveryMessage(message: string, dispatchId: string): string {
+	return `${message}\nDispatch ID ${dispatchId} retained its Branch Memory Entry and published Snapshot Ref.`;
 }
 
 function renderDispatchPlanResult(data: DispatchPlanSuccess): string {

@@ -94,7 +94,11 @@ envelope/`errorType`/`negative` rubric remains parked as framework-mismatched.
 
 Pure presence/query/predicate/list commands MAY answer a miss with `ok(...)`
 (exit 0) — `ok(found:false)`, `ok(present:false)`, or an explicit empty result —
-because absence is a normal answer to the question asked.
+because absence is a normal answer to the question asked. A predicate may also
+provide an explicit additive mode that requires presence; `brmem check
+--require` / `-r` opts into requested-target semantics without changing the
+default query contract, returning `negative(...)` with the complete
+`present:false` data on absence.
 
 Commands that dereference or act on a **specific requested target** (fetch this
 object in order to use it, or mutate this named thing) return `negative(...)`

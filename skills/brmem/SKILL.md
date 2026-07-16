@@ -129,15 +129,19 @@ full text:
 ```text
 brmem check notes/add-cache.md --branch feature/add-cache --format json
 brmem check notes/add-cache.md --namespace scratch --branch feature/add-cache
+brmem check notes/add-cache.md --branch feature/add-cache --require
 ```
 
-Interpret results carefully — `check` exits `0` for both present and absent
-Entries:
+Interpret results carefully — default `check` remains a presence predicate and
+exits `0` for both present and absent Entries:
 
 - `0` with `Present: yes` or JSON `data.present: true`: Entry exists; metadata
   is available.
 - `0` with `Present: no` or JSON `data.present: false`: Entry is absent; this
   is a normal probe result, useful before `put`.
+- With `--require` / `-r`, presence still exits `0`, while absence returns a
+  `negative` envelope with the complete `data.present: false` metadata and
+  exits `1`. Use this mode when later work requires the named Entry.
 - `2`: invalid Namespace/Entry Key/Branch, detached HEAD when branch was
   omitted, or another command failure.
 

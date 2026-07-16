@@ -2,13 +2,9 @@ import { FakeBrmemGateway, type BrmemResult, type PutEntryResult } from "@nseng-
 import { describe, expect, test } from "vitest";
 
 import {
-	deliverDispatchPlan,
+	deliverPreparedDispatchPlan,
 	type DispatchPlanSnapshotGateway,
 } from "../../src/ns/dispatch-plan/delivery.ts";
-import type {
-	DispatchSavedPlanGateway,
-	DispatchSavedPlanResolution,
-} from "../../src/ns/dispatch-plan/preparation.ts";
 
 const PLAN_REF = "/state/ns/enriched-plan/ns/main/add-cache.md";
 const PLAN_CONTENT = "# Add cache\n";
@@ -17,20 +13,6 @@ const SOURCE_BRANCH = "feature/cache";
 const SNAPSHOT_REF = "refs/brmem/ns/dispatch-context/feature---cache";
 const SNAPSHOT_COMMIT = "1111111111111111111111111111111111111111";
 const REFSPEC = "refs/brmem/*:refs/brmem/*";
-
-class FakeSavedPlans implements DispatchSavedPlanGateway {
-	async resolveExplicitSavedPlan(): Promise<DispatchSavedPlanResolution> {
-		return {
-			type: "resolved",
-			plan: {
-				filePath: PLAN_REF,
-				slug: "add-cache",
-				sourceBranch: SOURCE_BRANCH,
-				content: PLAN_CONTENT,
-			},
-		};
-	}
-}
 
 class RecordingBrmemGateway extends FakeBrmemGateway {
 	readonly creates: Array<{
@@ -129,18 +111,32 @@ function brmem(options: ConstructorParameters<typeof RecordingBrmemGateway>[0] =
 }
 
 async function deliver(memory: RecordingBrmemGateway, snapshots: FakeSnapshots) {
-	return await deliverDispatchPlan(
-		{ cwd: "/repo", planRef: PLAN_REF },
+	return await deliverPreparedDispatchPlan(
+		{ cwd: "/repo" },
 		{
-			savedPlans: new FakeSavedPlans(),
-			generateDispatchId: () => DISPATCH_ID,
-			brmem: memory,
-			snapshots,
+			status: "ready",
+			dispatchId: DISPATCH_ID,
+			plan: {
+				filePath: PLAN_REF,
+				slug: "add-cache",
+				sourceBranch: SOURCE_BRANCH,
+				content: PLAN_CONTENT,
+			},
+			entry: {
+				namespace: "dispatch-context",
+				key: `${DISPATCH_ID}/plan/add-cache.md`,
+				sourceBranch: SOURCE_BRANCH,
+				snapshotRef: SNAPSHOT_REF,
+				entryLocator: `${SNAPSHOT_REF}:${DISPATCH_ID}/plan/add-cache.md`,
+				content: PLAN_CONTENT,
+			},
 		},
+		{ brmem: memory, snapshots },
+		"origin",
 	);
 }
 
-describe("deliverDispatchPlan", () => {
+describe("deliverPreparedDispatchPlan", () => {
 	test("creates, exactly publishes, and verifies dispatch-owned context before returning its locator", async () => {
 		const memory = brmem();
 		const snapshots = new FakeSnapshots();
@@ -172,22 +168,6 @@ describe("deliverDispatchPlan", () => {
 				snapshotCommitSha: SNAPSHOT_COMMIT,
 			},
 		});
-	});
-
-	test("refuses setup without creating or publishing anything", async () => {
-		const memory = brmem({ remotes: { origin: { push: [], fetch: [] } } });
-		const snapshots = new FakeSnapshots();
-
-		const outcome = await deliver(memory, snapshots);
-
-		expect(outcome).toMatchObject({
-			status: "setup-required",
-			dispatchId: DISPATCH_ID,
-			artifacts: [],
-			setupCommand: "brmem setup-git",
-		});
-		expect(memory.creates).toEqual([]);
-		expect(snapshots.operations).toEqual([]);
 	});
 
 	test("reports no durable artifact when entry creation fails", async () => {

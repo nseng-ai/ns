@@ -26,7 +26,7 @@ import type {
 	DispatchTriggerGateway,
 	DispatchTriggerIdentityResult,
 	DispatchWorkspaceGitGateway,
-} from "../../../src/ns/dispatch-prompt/contracts.ts";
+} from "../../../src/ns/dispatch-client/contracts.ts";
 import type { DispatchRunInput } from "../../../src/dispatch/dispatch-run.ts";
 import type { DispatchPlanSnapshotGateway } from "../../../src/ns/dispatch-plan/delivery.ts";
 import type {
@@ -216,6 +216,7 @@ export class FakeDispatchAnchorPrGateway implements DispatchAnchorPrGateway {
 export interface FakeTriggerState {
 	readonly identity?: DispatchTriggerIdentityResult;
 	readonly startResult?: DispatchStartRunResult;
+	readonly runId?: string;
 }
 
 export class FakeDispatchTriggerGateway implements DispatchTriggerGateway {
@@ -246,7 +247,12 @@ export class FakeDispatchTriggerGateway implements DispatchTriggerGateway {
 			input: { ...options.input },
 		});
 		this.recordOperation("trigger:start-run");
-		return this.state.startResult ?? { ok: true, value: { runId: FAKE_RUN_ID } };
+		return (
+			this.state.startResult ?? {
+				ok: true,
+				value: { runId: this.state.runId ?? FAKE_RUN_ID },
+			}
+		);
 	}
 }
 
@@ -423,10 +429,11 @@ export function createFakeDispatchGateways(
 
 export function createFakePlanDispatchGateways(
 	options: FakeDispatchGatewaysOptions = {},
-): DispatchPlanGateways & FakeDispatchGatewayBundle {
+): DispatchPlanGateways & Omit<FakeDispatchGatewayBundle, "generateAnchorId"> {
 	const shared = createFakeDispatchGateways(options);
+	const { generateAnchorId: _generateAnchorId, ...planShared } = shared;
 	return {
-		...shared,
+		...planShared,
 		savedPlans: new FakeDispatchSavedPlanGateway(options.plan?.savedPlan),
 		brmem: new FakeDispatchPlanBrmemGateway(
 			options.plan?.brmem ?? {
@@ -471,7 +478,10 @@ export class FakeDispatchNsApi implements NsExtensionApi {
 		this.stderrChunks.push(text);
 	};
 
-	constructor(gateways: DispatchPromptGateways, options: { cwd?: string } = {}) {
+	constructor(
+		gateways: DispatchPromptGateways | DispatchPlanGateways,
+		options: { cwd?: string } = {},
+	) {
 		this.cwd = options.cwd ?? "/repo";
 		this.extensions = { dispatch: gateways };
 	}

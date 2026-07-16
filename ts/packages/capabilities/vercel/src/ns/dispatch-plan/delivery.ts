@@ -1,15 +1,11 @@
 import type { BrmemErrorInfo, BrmemGateway } from "@nseng-ai/brmem";
 
 import type { DispatchPlanContextLocator } from "../../dispatch/dispatch-context.ts";
-import {
-	preflightDispatchBrmemSetup,
-	type DispatchBrmemSetupGateway,
-} from "./delivery-preflight.ts";
-import {
-	prepareDispatchPlan,
-	type DispatchPlanEntryPreparation,
-	type DispatchPlanPreparationContext,
-	type DispatchPlanPreparationOutcome,
+import type { DispatchBrmemSetupGateway } from "./delivery-preflight.ts";
+import type {
+	DispatchPlanEntryPreparation,
+	DispatchPlanPreparationContext,
+	DispatchPlanPreparationOutcome,
 } from "./preparation.ts";
 
 export interface DispatchPlanSnapshotGateway {
@@ -74,7 +70,7 @@ type PreparationFailure = Exclude<DispatchPlanPreparationOutcome, { readonly sta
 export type DispatchPlanDeliveryOutcome =
 	| PreparationFailure
 	| {
-			readonly status: "setup-required" | "preflight-failed";
+			readonly status: "setup-required" | "brmem-preflight-failed";
 			readonly dispatchId: string;
 			readonly remote: string;
 			readonly message: string;
@@ -122,41 +118,7 @@ export type DispatchPlanDeliveryOutcome =
 			];
 	  };
 
-export async function deliverDispatchPlan(
-	request: { readonly cwd: string; readonly planRef: string; readonly remote?: string },
-	context: DispatchPlanDeliveryContext,
-): Promise<DispatchPlanDeliveryOutcome> {
-	const preparation = await prepareDispatchPlan(request, context);
-	if (preparation.status !== "ready") return preparation;
-	return await deliverPreparedDispatchPlan(request, preparation, context);
-}
-
 export async function deliverPreparedDispatchPlan(
-	request: { readonly cwd: string; readonly remote?: string },
-	preparation: Extract<DispatchPlanPreparationOutcome, { readonly status: "ready" }>,
-	context: Pick<DispatchPlanDeliveryContext, "brmem" | "snapshots">,
-): Promise<DispatchPlanDeliveryOutcome> {
-	const preflight = await preflightDispatchBrmemSetup(context.brmem, request.remote);
-	if (preflight.status !== "ready") {
-		return {
-			status: preflight.status,
-			dispatchId: preparation.dispatchId,
-			remote: preflight.remote,
-			message: preflight.message,
-			artifacts: [],
-			...(preflight.status === "setup-required" ? { setupCommand: preflight.setupCommand } : {}),
-		};
-	}
-
-	return await deliverPreparedDispatchPlanAfterPreflight(
-		request,
-		preparation,
-		context,
-		preflight.remote,
-	);
-}
-
-export async function deliverPreparedDispatchPlanAfterPreflight(
 	request: { readonly cwd: string },
 	preparation: Extract<DispatchPlanPreparationOutcome, { readonly status: "ready" }>,
 	context: Pick<DispatchPlanDeliveryContext, "brmem" | "snapshots">,
