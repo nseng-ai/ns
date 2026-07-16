@@ -2,6 +2,8 @@
 edges:
   - objective: cloud-execution
     annotation: Boundary agreement — this record owns the local harness-session/text-generation contract and stays free of remote-sandbox and vendor coupling; cloud-execution consumes harnesses in sandboxes only behind its own cloud backend seam (AI SDK harness adapters), never through this session contract.
+  - objective: reviews-via-pi-gateway
+    annotation: This record's planned Reviews migration onto unified harness sessions must account for the pi/Vercel-AI-Gateway review runner that objective adds at the ReviewHarnessRunner seam, where claude-code and codex remain kept-but-unrouted supported harnesses.
 ---
 
 # Harness Sessions and Unified Text Generation
