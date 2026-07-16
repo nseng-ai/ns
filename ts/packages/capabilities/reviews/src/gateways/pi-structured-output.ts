@@ -1,92 +1,83 @@
-import { commandSucceeded, type CommandResolver } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	type CommandExecApi,
+	type CommandResolver,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import { defaultCommandResolver } from "@nseng-ai/foundation/exec";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { resultErr } from "@nseng-ai/foundation/result";
 
-import type { ReviewResult } from "../core/failures.ts";
-import type { ReviewExecutionResponse } from "../core/models.ts";
-import { reviewResponseFromFindingsPayload } from "./review-findings-output.ts";
-import type {
-	PreparedReviewHarnessRequest,
-	ReviewHarnessRunner,
-	RunReviewOptions,
-} from "./review-runner.ts";
-import { systemPromptFindingsJsonText } from "./review-runner-prompt.ts";
+import {
+	resolveHarnessBinary,
+	structuredOutputExecOptions,
+	transportFailure,
+	type PiStructuredOutputRequest,
+	type StructuredOutputRunOptions,
+	type StructuredOutputTransportOutcome,
+} from "./structured-output-transport.ts";
 
 export const PI_BINARY = "pi";
 
-export interface PiProcessReviewRunnerOptions {
+export interface PiStructuredOutputTransportOptions {
 	readonly execApi: CommandExecApi;
 	readonly binaryResolver?: CommandResolver;
 }
 
-export class PiProcessReviewRunner implements ReviewHarnessRunner {
+export class PiStructuredOutputTransport {
 	private readonly execApi: CommandExecApi;
 	private readonly binaryResolver: CommandResolver;
 
-	constructor(options: PiProcessReviewRunnerOptions) {
+	constructor(options: PiStructuredOutputTransportOptions) {
 		this.execApi = options.execApi;
 		this.binaryResolver = options.binaryResolver ?? defaultCommandResolver;
 	}
 
-	async runReview(
-		request: PreparedReviewHarnessRequest,
-		options: RunReviewOptions,
-	): Promise<ReviewResult<ReviewExecutionResponse>> {
-		const binary = resolvePiBinary(this.binaryResolver);
+	async run(
+		request: PiStructuredOutputRequest,
+		options: StructuredOutputRunOptions,
+	): Promise<StructuredOutputTransportOutcome> {
+		const binary = resolveHarnessBinary(this.binaryResolver, PI_BINARY, "Pi");
 		if (!binary.ok) return binary;
 
-		const execOptions: ExecOptions = {
-			cwd: options.cwd,
-			stdin: request.promptText,
-			...(options.env === undefined ? {} : { env: options.env }),
-			...(options.signal === undefined ? {} : { signal: options.signal }),
-		};
 		let result: ExecResult;
 		try {
 			result = await this.execApi.exec(
 				binary.value,
-				buildPiReviewArgs(request.modelId),
-				execOptions,
+				buildPiArgs(request),
+				structuredOutputExecOptions(options, request.promptText),
 			);
 		} catch (error) {
-			return resultErr({
-				code: "harness-invocation-failed",
-				message: `Failed to invoke Pi: ${formatErrorMessage(error)}`,
-			});
+			return transportFailure(
+				"invocation-failed",
+				`Failed to invoke Pi: ${formatErrorMessage(error)}`,
+			);
 		}
 
 		if (result.type === "spawn-failed") {
-			return resultErr({ code: "harness-invocation-failed", message: result.error });
+			return transportFailure("invocation-failed", result.error);
 		}
 		if (result.type === "cancelled") {
-			return resultErr({
-				code: "review-execution-cancelled",
-				message: piExecutionMessage(result),
-			});
+			return transportFailure("cancelled", piExecutionMessage(result));
 		}
 		if (!commandSucceeded(result)) {
-			return resultErr({
-				code: "harness-execution-failed",
-				message: piExecutionMessage(result),
-			});
+			return transportFailure("execution-failed", piExecutionMessage(result));
 		}
-
-		return parsePiReviewOutput(result.stdout, request.inputCoverage);
+		return parsePiStructuredOutput(result.stdout);
 	}
 }
 
-export function buildPiReviewArgs(modelId: string): string[] {
+export function buildPiArgs(
+	request: Pick<PiStructuredOutputRequest, "modelId" | "systemPrompt">,
+): string[] {
 	return [
 		"--provider",
 		"vercel-ai-gateway",
 		"--model",
-		modelId,
+		request.modelId,
 		"--thinking",
 		"minimal",
 		"--system-prompt",
-		systemPromptFindingsJsonText(),
+		request.systemPrompt,
 		"--no-session",
 		"--no-extensions",
 		"--no-skills",
@@ -100,47 +91,18 @@ export function buildPiReviewArgs(modelId: string): string[] {
 	];
 }
 
-export function parsePiReviewOutput(
-	output: string,
-	inputCoverage: ReviewExecutionResponse["inputCoverage"],
-): ReviewResult<ReviewExecutionResponse> {
+export function parsePiStructuredOutput(output: string): StructuredOutputTransportOutcome {
 	const trimmed = output.trim();
-	if (trimmed === "") {
-		return resultErr({
-			code: "review-execution-empty-output",
-			message: "Pi produced no findings output.",
-		});
-	}
+	if (trimmed === "") return transportFailure("empty-output", "Pi produced no JSON output.");
 
 	const parsed = parseSingleJsonObject(trimmed);
 	if (!parsed.ok) {
-		return resultErr({
-			code: "review-execution-invalid-json",
-			message: `Pi findings output was not exactly one valid JSON object: ${parsed.error}`,
-		});
+		return transportFailure(
+			"invalid-json",
+			`Pi output was not exactly one valid JSON object: ${parsed.error}`,
+		);
 	}
-	return reviewResponseFromFindingsPayload({
-		payload: parsed.value,
-		inputCoverage,
-		usage: null,
-		harnessLabel: "Pi",
-	});
-}
-
-function resolvePiBinary(binaryResolver: CommandResolver): ReviewResult<string> {
-	try {
-		const resolved = binaryResolver(PI_BINARY);
-		if (resolved !== undefined) return { ok: true, value: resolved };
-	} catch (error) {
-		return resultErr({
-			code: "harness-invocation-failed",
-			message: `Failed to resolve Pi binary: ${formatErrorMessage(error)}`,
-		});
-	}
-	return resultErr({
-		code: "harness-binary-missing",
-		message: "Pi binary 'pi' was not found on PATH.",
-	});
+	return { ok: true, value: { payload: parsed.value, usage: null } };
 }
 
 function parseSingleJsonObject(
@@ -168,7 +130,7 @@ function parseSingleJsonObject(
 			const parsed = JSON.parse(objectText) as unknown;
 			if (isJsonObject(parsed)) parsedObjects.push(parsed);
 		} catch {
-			// A balanced but malformed candidate is not a parseable findings object.
+			// A balanced but malformed candidate is not a parseable object.
 		}
 		index += objectText.length - 1;
 	}

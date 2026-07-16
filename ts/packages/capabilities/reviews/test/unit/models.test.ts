@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "vitest";
 
 import {
 	createFindingsReview,
@@ -19,11 +19,15 @@ import {
 	reviewRunResultSchema,
 	reviewRosterRunRequestSchema,
 	reviewRosterRunResultSchema,
+	reviewAggregationProposalClusterSchema,
 	reviewAggregationRequestSchema,
 	reviewAggregationResultSchema,
+	resolvedReviewClusterSchema,
 	reviewUsageSchema,
 	reviewUsageTotalInputTokens,
 	type DiffFile,
+	type ResolvedReviewCluster,
+	type ReviewAggregationProposalCluster,
 } from "../../src/core/models.ts";
 
 function diffFile(path: string, rawText: string): DiffFile {
@@ -161,6 +165,74 @@ describe("reviews domain schemas", () => {
 				clusters: [{ ...cluster, recommendationConflict: true }],
 			}),
 		).toThrow();
+	});
+
+	test("encodes recommendation conflict as a discriminated union in proposal and resolved clusters", () => {
+		const finding = {
+			reviewKey: "typescript-style",
+			occurrence: 0,
+			path: "src/app.ts",
+			line: 12,
+			severity: "warning" as const,
+			summary: "Avoid broad casts",
+			details: "The changed line casts an unknown payload without validation.",
+		};
+		const unconflicted = {
+			findings: [finding],
+			recommendationConflict: false,
+			conflictExplanation: null,
+			disposition: "fix" as const,
+		};
+		const conflicted = {
+			findings: [finding],
+			recommendationConflict: true,
+			conflictExplanation: "Incompatible recommendations.",
+			disposition: "defer" as const,
+		};
+
+		expect(reviewAggregationProposalClusterSchema.parse(unconflicted)).toEqual(unconflicted);
+		expect(reviewAggregationProposalClusterSchema.parse(conflicted)).toEqual(conflicted);
+		expect(() =>
+			reviewAggregationProposalClusterSchema.parse({
+				...unconflicted,
+				conflictExplanation: "unexpected explanation",
+			}),
+		).toThrow();
+		expect(() =>
+			reviewAggregationProposalClusterSchema.parse({ ...conflicted, conflictExplanation: null }),
+		).toThrow();
+
+		const resolved = { ...conflicted, authority: "model-proposed" as const };
+		expect(resolvedReviewClusterSchema.parse(resolved)).toEqual(resolved);
+		expect(() =>
+			resolvedReviewClusterSchema.parse({
+				...unconflicted,
+				authority: "model-proposed",
+				conflictExplanation: "unexpected explanation",
+			}),
+		).toThrow();
+		expect(() =>
+			resolvedReviewClusterSchema.parse({
+				...conflicted,
+				authority: "model-proposed",
+				conflictExplanation: null,
+			}),
+		).toThrow();
+
+		// Compile-time evidence: the discriminant statically narrows the explanation.
+		const proposalCluster: ReviewAggregationProposalCluster =
+			reviewAggregationProposalClusterSchema.parse(conflicted);
+		if (proposalCluster.recommendationConflict) {
+			expectTypeOf(proposalCluster.conflictExplanation).toEqualTypeOf<string>();
+		} else {
+			expectTypeOf(proposalCluster.conflictExplanation).toEqualTypeOf<null>();
+		}
+		const resolvedCluster: ResolvedReviewCluster = resolvedReviewClusterSchema.parse(resolved);
+		if (resolvedCluster.recommendationConflict) {
+			expectTypeOf(resolvedCluster.conflictExplanation).toEqualTypeOf<string>();
+		} else {
+			expectTypeOf(resolvedCluster.conflictExplanation).toEqualTypeOf<null>();
+		}
 	});
 
 	test("defines canonical diff file schema and change kinds", () => {

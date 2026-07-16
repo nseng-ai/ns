@@ -1,21 +1,20 @@
 import { describe, expect, test } from "vitest";
-import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 
-import {
-	FakeReviewRunnerGateway,
-	ClaudeCodeProcessReviewRunner,
-	RoutingReviewRunner,
-	type PreparedReviewHarnessRequest,
-	type ReviewHarnessRunner,
-	type RunReviewOptions,
-} from "../../src/gateways/review-runner.ts";
-import type { ReviewResult } from "../../src/core/failures.ts";
+import { FakeReviewRunnerGateway, RoutingReviewRunner } from "../../src/gateways/review-runner.ts";
 import { buildReviewFindingsJsonSchema } from "../../src/gateways/review-findings-output.ts";
+import type {
+	StructuredOutputHarnessRequest,
+	StructuredOutputRunOptions,
+	StructuredOutputTransport,
+	StructuredOutputTransportFailureCode,
+	StructuredOutputTransportOutcome,
+} from "../../src/gateways/structured-output-transport.ts";
 import {
 	createFindingsReview,
 	createLocalDiff,
 	type ReviewRunnerRequest,
 	type ReviewExecutionResponse,
+	type ReviewUsage,
 } from "../../src/core/models.ts";
 
 function request(
@@ -64,40 +63,40 @@ function successResponse(): ReviewExecutionResponse {
 	return { payload: createFindingsReview([]), usage: null, inputCoverage: null };
 }
 
-function preparedRequest(
-	options: { readonly modelId?: string; readonly promptText?: string } = {},
-): PreparedReviewHarnessRequest {
+function usage(): ReviewUsage {
 	return {
-		modelId: options.modelId ?? "claude-haiku-4-5",
-		promptText: options.promptText ?? "REVIEW_PROMPT",
-		inputCoverage: {
-			fullDiffEstimatedTokens: 10,
-			promptDiffTokenCap: 120_000,
-			promptDiffFileTokenCap: 40_000,
-			changedPathCount: 1,
-			includedFileCount: 1,
-			omittedFileCount: 0,
-			omittedFiles: [],
-		},
+		inputTokens: 10,
+		outputTokens: 5,
+		cacheCreationInputTokens: 3,
+		cacheReadInputTokens: 2,
+		totalCostUsd: 0.01,
+		durationMs: 123,
+		numTurns: 1,
 	};
 }
 
-function claudeStdout(): string {
-	return JSON.stringify({ type: "result", structured_output: { findings: [] } });
-}
-
-class RecordingHarnessRunner implements ReviewHarnessRunner {
+class RecordingStructuredOutputTransport implements StructuredOutputTransport {
 	readonly calls: Array<{
-		request: PreparedReviewHarnessRequest;
-		options: RunReviewOptions;
+		request: StructuredOutputHarnessRequest;
+		options: StructuredOutputRunOptions;
 	}> = [];
+	private readonly outcome: StructuredOutputTransportOutcome;
 
-	async runReview(
-		request: PreparedReviewHarnessRequest,
-		options: RunReviewOptions,
-	): Promise<ReviewResult<ReviewExecutionResponse>> {
+	constructor(
+		outcome: StructuredOutputTransportOutcome = {
+			ok: true,
+			value: { payload: { findings: [] }, usage: null },
+		},
+	) {
+		this.outcome = outcome;
+	}
+
+	async run(
+		request: StructuredOutputHarnessRequest,
+		options: StructuredOutputRunOptions,
+	): Promise<StructuredOutputTransportOutcome> {
 		this.calls.push({ request, options });
-		return { ok: true, value: successResponse() };
+		return this.outcome;
 	}
 }
 
@@ -162,96 +161,67 @@ describe("FakeReviewRunnerGateway", () => {
 	});
 });
 
-describe("ClaudeCodeProcessReviewRunner", () => {
-	test("resolves claude before spawning and invokes Claude Code with prompt on stdin", async () => {
-		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: claudeStdout() })]);
-		const resolved: string[] = [];
-		const gateway = new ClaudeCodeProcessReviewRunner({
-			execApi,
-			binaryResolver: (name) => {
-				resolved.push(name);
-				return "/usr/bin/claude";
-			},
-		});
-		const largeMarker = "UNIQUE_PROMPT_MARKER";
-		const harnessRequest = preparedRequest({
-			promptText: `${largeMarker}\n${"x".repeat(200_000)}`,
-		});
+describe("RoutingReviewRunner", () => {
+	test("builds a Claude Code review transport request with review tools and schema", async () => {
+		const transport = new RecordingStructuredOutputTransport();
+		const runner = new RoutingReviewRunner({ transport });
+		const signal = new AbortController().signal;
+		const env = { ANTHROPIC_API_KEY: "test" };
 
-		const result = await gateway.runReview(harnessRequest, { cwd: "/repo" });
+		const result = await runner.runReview(request({ model: "anthropic/claude-sonnet-4-6" }), {
+			cwd: "/repo",
+			env,
+			signal,
+		});
 
 		expect(result.ok).toBe(true);
-		expect(resolved).toEqual(["claude"]);
-		const call = execApi.calls()[0];
-		expect(call?.command).toBe("/usr/bin/claude");
-		expect(call?.args.slice(0, 8)).toEqual([
-			"-p",
-			"--output-format",
-			"json",
-			"--bare",
-			"--tools",
-			"Bash,Read",
-			"--model",
-			"claude-haiku-4-5",
-		]);
-		expect(call?.args[6]).toBe("--model");
-		expect(call?.args).toContain("--system-prompt");
-		expect(call?.args).toContain("--json-schema");
-		const schemaArg = call?.args.at((call?.args.indexOf("--json-schema") ?? -2) + 1);
-		expect(schemaArg).toBeDefined();
-		if (schemaArg !== undefined) {
-			expect(JSON.parse(schemaArg)).toEqual(buildReviewFindingsJsonSchema());
-			expect(JSON.parse(schemaArg)).not.toHaveProperty("$schema");
+		const dispatched = transport.calls[0];
+		expect(dispatched?.request.harness).toBe("claude-code");
+		expect(dispatched?.request.modelId).toBe("claude-sonnet-4-6");
+		if (dispatched?.request.harness === "claude-code") {
+			expect(dispatched.request.tools).toEqual(["Bash", "Read"]);
 		}
-		expect(call?.args.join(" ")).not.toContain("Edit");
-		expect(call?.args.join(" ")).not.toContain("Write");
-		expect(call?.args).not.toContain("--verbose");
-		expect(call?.args).not.toContain("--append-system-prompt");
-		expect(call?.args.some((arg) => arg.includes(largeMarker))).toBe(false);
-		expect(call?.options?.stdin).toContain(largeMarker);
-		expect(call?.options?.cwd).toBe("/repo");
+		expect(dispatched?.request.jsonSchema).toEqual(buildReviewFindingsJsonSchema());
+		expect(dispatched?.request.jsonSchema).not.toHaveProperty("$schema");
+		expect(dispatched?.request.systemPrompt).not.toBe("");
+		expect(dispatched?.request.promptText).toContain("Flag concrete issues.");
+		expect(dispatched?.request.promptText).toContain("+change");
+		expect(dispatched?.options.cwd).toBe("/repo");
+		expect(dispatched?.options.env).toBe(env);
+		expect(dispatched?.options.signal).toBe(signal);
 	});
 
-	test("missing binary returns harness_binary_missing without spawning", async () => {
-		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: claudeStdout() })]);
-		const gateway = new ClaudeCodeProcessReviewRunner({ execApi, binaryResolver: () => undefined });
+	test.each([
+		["openai/gpt-5.6-luna", "gpt-5.6-luna"],
+		["openai-codex/gpt-5.6-terra", "gpt-5.6-terra"],
+	] as const)("builds a Codex review transport request for %s", async (model, modelId) => {
+		const transport = new RecordingStructuredOutputTransport();
+		const runner = new RoutingReviewRunner({ transport });
 
-		const result = await gateway.runReview(preparedRequest(), { cwd: "/repo" });
+		const result = await runner.runReview(request({ model }), { cwd: "/repo" });
 
-		expect(result.ok).toBe(false);
-		if (!result.ok) expect(result.error.code).toBe("harness-binary-missing");
-		expect(execApi.calls()).toEqual([]);
-	});
-
-	test("non-zero exit maps to harness_execution_failed with stderr precedence", async () => {
-		const execApi = new ScriptedCommandExecApi([
-			exitedResult({ stdout: "last stdout line", stderr: "stderr wins", code: 2 }),
-		]);
-		const gateway = new ClaudeCodeProcessReviewRunner({
-			execApi,
-			binaryResolver: () => "/usr/bin/claude",
-		});
-
-		const result = await gateway.runReview(preparedRequest(), { cwd: "/repo" });
-
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
-			expect(result.error.code).toBe("harness-execution-failed");
-			expect(result.error.message).toBe("stderr wins");
+		expect(result.ok).toBe(true);
+		const dispatched = transport.calls[0];
+		expect(dispatched?.request.harness).toBe("codex");
+		expect(dispatched?.request.modelId).toBe(modelId);
+		if (dispatched?.request.harness === "codex") {
+			expect(dispatched.request.inputTag).toBe("review-input");
 		}
+		expect(dispatched?.request.jsonSchema).toEqual(buildReviewFindingsJsonSchema());
 	});
 
-	test("successful stdout returns input coverage", async () => {
-		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: claudeStdout() })]);
-		const gateway = new ClaudeCodeProcessReviewRunner({
-			execApi,
-			binaryResolver: () => "/usr/bin/claude",
+	test("attaches input coverage and transport usage to validated findings", async () => {
+		const transport = new RecordingStructuredOutputTransport({
+			ok: true,
+			value: { payload: { findings: [] }, usage: usage() },
 		});
+		const runner = new RoutingReviewRunner({ transport });
 
-		const result = await gateway.runReview(preparedRequest(), { cwd: "/repo" });
+		const result = await runner.runReview(request(), { cwd: "/repo" });
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
+			expect(result.value.usage).toEqual(usage());
 			expect(result.value.inputCoverage).toMatchObject({
 				changedPathCount: 1,
 				includedFileCount: 1,
@@ -259,40 +229,24 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 			});
 		}
 	});
-});
 
-describe("RoutingReviewRunner", () => {
-	test.each([
-		["anthropic/claude-sonnet-4-6", "claude-code", "claude-sonnet-4-6"],
-		["openai/gpt-5.6-luna", "codex", "gpt-5.6-luna"],
-		["openai-codex/gpt-5.6-terra", "codex", "gpt-5.6-terra"],
-		["vercel-ai-gateway/openai/gpt-5.6-luna", "pi", "openai/gpt-5.6-luna"],
-	] as const)("routes %s to %s with only the model ID", async (model, harness, modelId) => {
-		const claudeCode = new RecordingHarnessRunner();
-		const codex = new RecordingHarnessRunner();
-		const pi = new RecordingHarnessRunner();
-		const runner = new RoutingReviewRunner({ claudeCode, codex, pi });
+	test("builds a Pi review transport request for a Vercel AI Gateway model", async () => {
+		const transport = new RecordingStructuredOutputTransport();
+		const runner = new RoutingReviewRunner({ transport });
 
-		const result = await runner.runReview(request({ model }), { cwd: "/repo" });
+		const result = await runner.runReview(
+			request({ model: "vercel-ai-gateway/openai/gpt-5.6-luna" }),
+			{ cwd: "/repo" },
+		);
 
 		expect(result.ok).toBe(true);
-		expect(claudeCode.calls).toHaveLength(harness === "claude-code" ? 1 : 0);
-		expect(codex.calls).toHaveLength(harness === "codex" ? 1 : 0);
-		expect(pi.calls).toHaveLength(harness === "pi" ? 1 : 0);
-		const dispatched =
-			harness === "claude-code"
-				? claudeCode.calls[0]
-				: harness === "codex"
-					? codex.calls[0]
-					: pi.calls[0];
-		expect(dispatched?.request.modelId).toBe(modelId);
+		const dispatched = transport.calls[0];
+		expect(dispatched?.request.harness).toBe("pi");
+		expect(dispatched?.request.modelId).toBe("openai/gpt-5.6-luna");
+		expect(dispatched?.request.systemPrompt).toContain("Return exactly one JSON object");
+		expect(dispatched?.request.jsonSchema).toEqual(buildReviewFindingsJsonSchema());
 		expect(dispatched?.request.promptText).toContain("Flag concrete issues.");
 		expect(dispatched?.request.promptText).toContain("+change");
-		expect(dispatched?.request.inputCoverage).toMatchObject({
-			changedPathCount: 1,
-			includedFileCount: 1,
-			omittedFileCount: 0,
-		});
 	});
 
 	test.each([
@@ -302,17 +256,56 @@ describe("RoutingReviewRunner", () => {
 		"/missing-provider",
 		"openai//gpt-5.6-luna",
 	])("rejects unsupported reference %s without dispatching", async (model) => {
-		const claudeCode = new RecordingHarnessRunner();
-		const codex = new RecordingHarnessRunner();
-		const pi = new RecordingHarnessRunner();
-		const runner = new RoutingReviewRunner({ claudeCode, codex, pi });
+		const transport = new RecordingStructuredOutputTransport();
+		const runner = new RoutingReviewRunner({ transport });
 
 		const result = await runner.runReview(request({ model }), { cwd: "/repo" });
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.code).toBe("model-not-supported-by-harness");
-		expect(claudeCode.calls).toEqual([]);
-		expect(codex.calls).toEqual([]);
-		expect(pi.calls).toEqual([]);
+		expect(transport.calls).toEqual([]);
+	});
+
+	test.each([
+		["binary-missing", "harness-binary-missing"],
+		["invocation-failed", "harness-invocation-failed"],
+		["execution-failed", "harness-execution-failed"],
+		["cancelled", "review-execution-cancelled"],
+		["empty-output", "review-execution-empty-output"],
+		["output-read-failed", "review-execution-empty-output"],
+		["invalid-json", "review-execution-invalid-json"],
+		["invalid-response", "review-execution-invalid-response"],
+	] as const satisfies readonly (readonly [StructuredOutputTransportFailureCode, string])[])(
+		"maps transport failure %s to review failure %s",
+		async (transportCode, reviewCode) => {
+			const transport = new RecordingStructuredOutputTransport({
+				ok: false,
+				error: { code: transportCode, message: "transport diagnostics" },
+			});
+			const runner = new RoutingReviewRunner({ transport });
+
+			const result = await runner.runReview(request(), { cwd: "/repo" });
+
+			expect(result).toEqual({
+				ok: false,
+				error: { code: reviewCode, message: "transport diagnostics" },
+			});
+		},
+	);
+
+	test("maps payloads that fail findings validation to invalid findings with the harness label", async () => {
+		const transport = new RecordingStructuredOutputTransport({
+			ok: true,
+			value: { payload: { findings: "not-an-array" }, usage: null },
+		});
+		const runner = new RoutingReviewRunner({ transport });
+
+		const result = await runner.runReview(request(), { cwd: "/repo" });
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe("review-execution-invalid-findings");
+			expect(result.error.message).toContain("Claude Code");
+		}
 	});
 });

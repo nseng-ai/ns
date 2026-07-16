@@ -1,32 +1,33 @@
-import { type CommandResolver } from "@nseng-ai/foundation/command";
-import { defaultCommandResolver } from "@nseng-ai/foundation/exec";
-import {
-	commandSucceeded,
-	type CommandExecApi,
-	type ExecOptions,
-	type ExecResult,
-} from "@nseng-ai/foundation/command";
-import {
-	formatErrorMessage,
-	mapFromRecordOrMap,
-	type ExplicitUndefined,
-} from "@nseng-ai/foundation/primitives";
+import { mapFromRecordOrMap, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
 
-import type { ReviewResult } from "../core/failures.ts";
+import type { ReviewResult, ReviewRunnerFailure } from "../core/failures.ts";
 import {
 	createFindingsReview,
 	reviewRunnerRequestSchema,
 	reviewExecutionResponseSchema,
 	type ReviewRunnerRequest,
 	type ReviewExecutionResponse,
-	type ReviewInputCoverage,
 } from "../core/models.ts";
-import { resolveReviewsModelReference } from "../core/review-model-reference.ts";
-import { buildClaudeCodeArgs, parseClaudeCodeReviewOutput } from "./claude-code-review-runner.ts";
-import { assembleReviewPrompt, systemPromptFindings } from "./review-runner-prompt.ts";
-
-export const CLAUDE_BINARY = "claude";
+import {
+	resolveReviewsModelReference,
+	type ReviewsHarness,
+} from "../core/review-model-reference.ts";
+import {
+	buildReviewFindingsJsonSchema,
+	reviewResponseFromFindingsPayload,
+} from "./review-findings-output.ts";
+import {
+	assembleReviewPrompt,
+	systemPromptFindings,
+	systemPromptFindingsJsonText,
+} from "./review-runner-prompt.ts";
+import {
+	structuredOutputHarnessLabel,
+	type StructuredOutputHarnessRequest,
+	type StructuredOutputTransport,
+	type StructuredOutputTransportFailure,
+} from "./structured-output-transport.ts";
 
 export interface RunReviewOptions {
 	readonly cwd: string;
@@ -41,34 +42,15 @@ export interface ReviewRunnerGateway {
 	): Promise<ReviewResult<ReviewExecutionResponse>>;
 }
 
-export interface PreparedReviewHarnessRequest {
-	readonly modelId: string;
-	readonly promptText: string;
-	readonly inputCoverage: ReviewInputCoverage;
-}
-
-export interface ReviewHarnessRunner {
-	runReview(
-		request: PreparedReviewHarnessRequest,
-		options: RunReviewOptions,
-	): Promise<ReviewResult<ReviewExecutionResponse>>;
-}
-
 export interface RoutingReviewRunnerOptions {
-	readonly claudeCode: ReviewHarnessRunner;
-	readonly codex: ReviewHarnessRunner;
-	readonly pi: ReviewHarnessRunner;
+	readonly transport: StructuredOutputTransport;
 }
 
 export class RoutingReviewRunner implements ReviewRunnerGateway {
-	private readonly claudeCode: ReviewHarnessRunner;
-	private readonly codex: ReviewHarnessRunner;
-	private readonly pi: ReviewHarnessRunner;
+	private readonly transport: StructuredOutputTransport;
 
 	constructor(options: RoutingReviewRunnerOptions) {
-		this.claudeCode = options.claudeCode;
-		this.codex = options.codex;
-		this.pi = options.pi;
+		this.transport = options.transport;
 	}
 
 	async runReview(
@@ -78,25 +60,65 @@ export class RoutingReviewRunner implements ReviewRunnerGateway {
 		const resolved = resolveReviewsModelReference(request.model);
 		if (!resolved.ok) return resolved;
 		const assembled = assembleReviewPrompt(request);
-		const preparedRequest: PreparedReviewHarnessRequest = {
-			modelId: resolved.value.modelId,
-			promptText: assembled.promptText,
+		const outcome = await this.transport.run(
+			reviewTransportRequest({
+				harness: resolved.value.harness,
+				modelId: resolved.value.modelId,
+				promptText: assembled.promptText,
+			}),
+			options,
+		);
+		if (!outcome.ok) return resultErr(reviewFailureFromTransport(outcome.error));
+		return reviewResponseFromFindingsPayload({
+			payload: outcome.value.payload,
+			usage: outcome.value.usage,
 			inputCoverage: assembled.inputCoverage,
-		};
-		switch (resolved.value.harness) {
-			case "claude-code":
-				return await this.claudeCode.runReview(preparedRequest, options);
-			case "codex":
-				return await this.codex.runReview(preparedRequest, options);
-			case "pi":
-				return await this.pi.runReview(preparedRequest, options);
-		}
+			harnessLabel: structuredOutputHarnessLabel(resolved.value.harness),
+		});
 	}
 }
 
-export interface ClaudeCodeProcessReviewRunnerOptions {
-	readonly execApi: CommandExecApi;
-	readonly binaryResolver?: CommandResolver;
+function reviewTransportRequest(options: {
+	readonly harness: ReviewsHarness;
+	readonly modelId: string;
+	readonly promptText: string;
+}): StructuredOutputHarnessRequest {
+	const shared = {
+		modelId: options.modelId,
+		systemPrompt: systemPromptFindings(),
+		promptText: options.promptText,
+		jsonSchema: buildReviewFindingsJsonSchema(),
+	};
+	switch (options.harness) {
+		case "claude-code":
+			return { harness: "claude-code", ...shared, tools: ["Bash", "Read"] };
+		case "codex":
+			return { harness: "codex", ...shared, inputTag: "review-input" };
+		case "pi":
+			return { harness: "pi", ...shared, systemPrompt: systemPromptFindingsJsonText() };
+	}
+}
+
+function reviewFailureFromTransport(
+	failure: StructuredOutputTransportFailure,
+): ReviewRunnerFailure {
+	switch (failure.code) {
+		case "binary-missing":
+			return { code: "harness-binary-missing", message: failure.message };
+		case "invocation-failed":
+			return { code: "harness-invocation-failed", message: failure.message };
+		case "execution-failed":
+			return { code: "harness-execution-failed", message: failure.message };
+		case "cancelled":
+			return { code: "review-execution-cancelled", message: failure.message };
+		case "empty-output":
+		case "output-read-failed":
+			return { code: "review-execution-empty-output", message: failure.message };
+		case "invalid-json":
+			return { code: "review-execution-invalid-json", message: failure.message };
+		case "invalid-response":
+			return { code: "review-execution-invalid-response", message: failure.message };
+	}
 }
 
 export interface FakeReviewRunnerGatewayOptions {
@@ -144,100 +166,6 @@ export class FakeReviewRunnerGateway implements ReviewRunnerGateway {
 			request: copyRequest(call.request),
 			options: copyRunReviewOptions(call.options),
 		}));
-	}
-}
-
-export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
-	private readonly execApi: CommandExecApi;
-	private readonly binaryResolver: CommandResolver;
-
-	constructor(options: ClaudeCodeProcessReviewRunnerOptions) {
-		this.execApi = options.execApi;
-		this.binaryResolver = options.binaryResolver ?? defaultCommandResolver;
-	}
-
-	async runReview(
-		request: PreparedReviewHarnessRequest,
-		options: RunReviewOptions,
-	): Promise<ReviewResult<ReviewExecutionResponse>> {
-		let resolvedBinary: string | undefined;
-		try {
-			resolvedBinary = this.binaryResolver(CLAUDE_BINARY);
-		} catch (error) {
-			return resultErr({
-				code: "harness-invocation-failed",
-				message: `Failed to resolve Claude Code binary: ${formatErrorMessage(error)}`,
-			});
-		}
-		if (resolvedBinary === undefined) {
-			return resultErr({
-				code: "harness-binary-missing",
-				message: "Claude Code binary 'claude' was not found on PATH.",
-			});
-		}
-
-		const args = buildClaudeCodeArgs({
-			model: request.modelId,
-			systemPrompt: systemPromptFindings(),
-		});
-		let result: ExecResult;
-		const execOptions: ExecOptions = {
-			cwd: options.cwd,
-			stdin: request.promptText,
-			...(options.env === undefined ? {} : { env: options.env }),
-			...(options.signal === undefined ? {} : { signal: options.signal }),
-		};
-		try {
-			result = await this.execApi.exec(resolvedBinary, args, execOptions);
-		} catch (error) {
-			return resultErr({
-				code: "harness-invocation-failed",
-				message: `Failed to invoke Claude Code: ${formatErrorMessage(error)}`,
-			});
-		}
-
-		if (result.type === "spawn-failed") {
-			return resultErr({ code: "harness-invocation-failed", message: result.error });
-		}
-		if (result.type === "cancelled") {
-			return resultErr({
-				code: "review-execution-cancelled",
-				message: runnerExecutionMessage(result),
-			});
-		}
-		if (!commandSucceeded(result)) {
-			return resultErr({
-				code: "harness-execution-failed",
-				message: runnerExecutionMessage(result),
-			});
-		}
-
-		return parseClaudeCodeReviewOutput({
-			stdout: result.stdout,
-			inputCoverage: request.inputCoverage,
-		});
-	}
-}
-
-function runnerExecutionMessage(result: ExecResult): string {
-	const stderr = result.stderr.trim();
-	if (stderr !== "") return stderr;
-	const stdout = result.stdout.trimEnd();
-	if (stdout !== "") {
-		const lines = stdout.split("\n");
-		return lines[lines.length - 1] ?? stdout;
-	}
-	switch (result.type) {
-		case "spawn-failed":
-			return result.error;
-		case "cancelled":
-			return "Claude Code execution was cancelled.";
-		case "timed-out":
-			return "Claude Code execution timed out.";
-		case "exited":
-			return result.signal === null
-				? `Claude Code exited with status ${result.code}.`
-				: `Claude Code exited after signal ${result.signal} (status ${result.code ?? "unknown"}).`;
 	}
 }
 

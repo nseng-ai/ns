@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	buildReviewAggregationJsonSchema,
-	parseClaudeCodeAggregationOutput,
-	parseCodexAggregationOutput,
+	reviewAggregationResponseFromPayload,
 } from "../../src/gateways/review-aggregation-output.ts";
 
 const finding = {
@@ -33,28 +32,23 @@ describe("review aggregation structured output", () => {
 		expect(schema).toMatchObject({ type: "object", additionalProperties: false });
 	});
 
-	it("parses Claude structured_output and Codex payloads", () => {
+	it("validates unknown payloads into aggregation execution responses", () => {
 		expect(
-			parseClaudeCodeAggregationOutput(
-				JSON.stringify({ type: "result", structured_output: payload }),
-			),
-		).toMatchObject({ ok: true, value: { payload } });
-		expect(parseCodexAggregationOutput(JSON.stringify(payload))).toMatchObject({
-			ok: true,
-			value: { payload },
-		});
+			reviewAggregationResponseFromPayload({ payload, usage: null, harnessLabel: "Claude Code" }),
+		).toMatchObject({ ok: true, value: { payload, usage: null } });
 	});
 
-	it("returns aggregation-specific failures for invalid JSON and schema", () => {
-		expect(parseCodexAggregationOutput("not json")).toMatchObject({
-			ok: false,
-			error: { code: "review-aggregation-invalid-json" },
+	it("returns aggregation-specific failures for payloads that miss the schema", () => {
+		const result = reviewAggregationResponseFromPayload({
+			payload: { clusters: [{ findings: [] }] },
+			usage: null,
+			harnessLabel: "Codex",
 		});
-		expect(
-			parseCodexAggregationOutput(JSON.stringify({ clusters: [{ findings: [] }] })),
-		).toMatchObject({
+
+		expect(result).toMatchObject({
 			ok: false,
 			error: { code: "review-aggregation-invalid-output" },
 		});
+		if (!result.ok) expect(result.error.message).toContain("Codex");
 	});
 });

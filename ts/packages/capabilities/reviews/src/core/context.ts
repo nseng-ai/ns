@@ -5,19 +5,15 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
 import type { GithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/pr-feedback";
 
+import { RoutingReviewRunner, type ReviewRunnerGateway } from "../gateways/review-runner.ts";
 import {
-	ClaudeCodeProcessReviewRunner,
-	RoutingReviewRunner,
-	type ReviewRunnerGateway,
-} from "../gateways/review-runner.ts";
-import { CodexProcessReviewRunner } from "../gateways/codex-review-runner.ts";
-import { PiProcessReviewRunner } from "../gateways/pi-review-runner.ts";
-import {
-	ClaudeCodeProcessReviewAggregationRunner,
-	CodexProcessReviewAggregationRunner,
 	RoutingReviewAggregationRunner,
 	type ReviewAggregationRunnerGateway,
 } from "../gateways/review-aggregation-runner.ts";
+import { ClaudeCodeStructuredOutputTransport } from "../gateways/claude-code-structured-output.ts";
+import { CodexStructuredOutputTransport } from "../gateways/codex-structured-output.ts";
+import { PiStructuredOutputTransport } from "../gateways/pi-structured-output.ts";
+import { RoutingStructuredOutputTransport } from "../gateways/structured-output-transport.ts";
 import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
@@ -100,6 +96,13 @@ export interface ReviewsRuntime extends ReviewsGateways {
 export function createRealReviewsContext(options: CreateRealReviewsContextOptions): ReviewsContext {
 	const execApi = options.execApi ?? new NodeCommandExecApi();
 	const gitGateway = options.gitGateway ?? new RealGitGateway(execApi);
+	// One shared harness transport backs both domain runner gateways; it is a
+	// composition-root dependency, not a third public capability gateway.
+	const structuredOutputTransport = new RoutingStructuredOutputTransport({
+		claudeCode: new ClaudeCodeStructuredOutputTransport({ execApi }),
+		codex: new CodexStructuredOutputTransport({ execApi }),
+		pi: new PiStructuredOutputTransport({ execApi }),
+	});
 	return {
 		execApi,
 		clock: options.clock ?? systemClock,
@@ -109,18 +112,10 @@ export function createRealReviewsContext(options: CreateRealReviewsContextOption
 		reviewLog: options.reviewLog ?? new RealReviewLogGateway({ execApi }),
 		github: new RealGithubPrFeedbackGateway(execApiToCommandRunner(execApi)),
 		reviewRunner:
-			options.reviewRunner ??
-			new RoutingReviewRunner({
-				claudeCode: new ClaudeCodeProcessReviewRunner({ execApi }),
-				codex: new CodexProcessReviewRunner({ execApi }),
-				pi: new PiProcessReviewRunner({ execApi }),
-			}),
+			options.reviewRunner ?? new RoutingReviewRunner({ transport: structuredOutputTransport }),
 		reviewAggregationRunner:
 			options.reviewAggregationRunner ??
-			new RoutingReviewAggregationRunner({
-				claudeCode: new ClaudeCodeProcessReviewAggregationRunner({ execApi }),
-				codex: new CodexProcessReviewAggregationRunner({ execApi }),
-			}),
+			new RoutingReviewAggregationRunner({ transport: structuredOutputTransport }),
 		cwd: options.cwd,
 		env: options.env,
 		...optionalEntry("signal", options.signal),

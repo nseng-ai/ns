@@ -19,7 +19,12 @@ export function buildReviewAggregationPrompt(request: ReviewAggregationRunnerReq
 			rosterEntries: request.rosterResult.entries,
 			findings: request.rosterResult.findings,
 			constraints: request.constraints,
-			...(request.priorResult === undefined ? {} : { priorResult: request.priorResult }),
+			// Project prior state to clusters only: the current roster evidence is
+			// already sent top-level, and derived accounting is recomputed after the
+			// model returns a corrected proposal.
+			...(request.priorResult === undefined
+				? {}
+				: { priorResult: { clusters: request.priorResult.clusters } }),
 		},
 		null,
 		2,

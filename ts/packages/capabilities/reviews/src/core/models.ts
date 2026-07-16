@@ -355,34 +355,26 @@ export type ReviewDisposition = z.infer<typeof reviewDispositionSchema>;
 export const reviewDecisionAuthoritySchema = z.enum(reviewDecisionAuthorityValues);
 export type ReviewDecisionAuthority = z.infer<typeof reviewDecisionAuthoritySchema>;
 
-export const reviewRecommendationConflictSchema = z.discriminatedUnion("recommendationConflict", [
-	z.object({ recommendationConflict: z.literal(false), conflictExplanation: z.null() }).strict(),
-	z
-		.object({
-			recommendationConflict: z.literal(true),
-			conflictExplanation: nonBlankStringSchema,
-		})
-		.strict(),
-]);
-export type ReviewRecommendationConflict = z.infer<typeof reviewRecommendationConflictSchema>;
+const reviewClusterCommonFields = {
+	findings: z.array(sourceAttributedFindingSchema).min(1),
+	disposition: reviewDispositionSchema,
+};
+const unconflictedClusterFields = {
+	recommendationConflict: z.literal(false),
+	conflictExplanation: z.null(),
+};
+const conflictedClusterFields = {
+	recommendationConflict: z.literal(true),
+	conflictExplanation: nonBlankStringSchema,
+};
 
-export const reviewAggregationProposalClusterSchema = z
-	.object({
-		findings: z.array(sourceAttributedFindingSchema).min(1),
-		recommendationConflict: z.boolean(),
-		conflictExplanation: nonBlankStringSchema.nullable(),
-		disposition: reviewDispositionSchema,
-	})
-	.strict()
-	.superRefine((value, context) => {
-		if (value.recommendationConflict !== (value.conflictExplanation !== null)) {
-			context.addIssue({
-				code: "custom",
-				message: "conflictExplanation must be present exactly when recommendationConflict is true",
-				path: ["conflictExplanation"],
-			});
-		}
-	});
+export const reviewAggregationProposalClusterSchema = z.discriminatedUnion(
+	"recommendationConflict",
+	[
+		z.object({ ...reviewClusterCommonFields, ...unconflictedClusterFields }).strict(),
+		z.object({ ...reviewClusterCommonFields, ...conflictedClusterFields }).strict(),
+	],
+);
 export type ReviewAggregationProposalCluster = z.infer<
 	typeof reviewAggregationProposalClusterSchema
 >;
@@ -418,9 +410,22 @@ export const reviewAggregationDecisionsSchema = z
 	.strict();
 export type ReviewAggregationDecisions = z.infer<typeof reviewAggregationDecisionsSchema>;
 
-export const resolvedReviewClusterSchema = reviewAggregationProposalClusterSchema
-	.extend({ authority: reviewDecisionAuthoritySchema })
-	.strict();
+export const resolvedReviewClusterSchema = z.discriminatedUnion("recommendationConflict", [
+	z
+		.object({
+			...reviewClusterCommonFields,
+			...unconflictedClusterFields,
+			authority: reviewDecisionAuthoritySchema,
+		})
+		.strict(),
+	z
+		.object({
+			...reviewClusterCommonFields,
+			...conflictedClusterFields,
+			authority: reviewDecisionAuthoritySchema,
+		})
+		.strict(),
+]);
 export type ResolvedReviewCluster = z.infer<typeof resolvedReviewClusterSchema>;
 
 export const reviewFindingDispositionSchema = z

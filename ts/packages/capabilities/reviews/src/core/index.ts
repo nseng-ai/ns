@@ -10,9 +10,7 @@ export {
 	type AssembledReviewPrompt,
 } from "../gateways/review-runner-prompt.ts";
 export {
-	ClaudeCodeProcessReviewRunner,
 	FakeReviewRunnerGateway,
-	type ClaudeCodeProcessReviewRunnerOptions,
 	type FakeReviewRunnerGatewayOptions,
 	type ReviewRunnerGateway,
 	type RunReviewOptions,
@@ -57,10 +55,7 @@ export {
 export { runReviewRoster, type RunReviewRosterOptions } from "../operations/review-roster-run.ts";
 export { aggregateReviewRoster } from "../operations/review-aggregation.ts";
 export {
-	ClaudeCodeProcessReviewAggregationRunner,
-	CodexProcessReviewAggregationRunner,
 	FakeReviewAggregationRunnerGateway,
-	RoutingReviewAggregationRunner,
 	type ReviewAggregationRunnerGateway,
 } from "../gateways/review-aggregation-runner.ts";
 export type {

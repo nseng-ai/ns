@@ -2,23 +2,23 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-export interface CodexReviewOutputHandle {
+export interface CodexStructuredOutputHandle {
 	readonly schemaPath: string;
 	readonly outputPath: string;
 }
 
-export interface CodexReviewOutputFiles {
-	prepare(schema: Readonly<Record<string, unknown>>): Promise<CodexReviewOutputHandle>;
-	readOutput(handle: CodexReviewOutputHandle): Promise<string>;
-	cleanup(handle: CodexReviewOutputHandle): Promise<void>;
+export interface CodexStructuredOutputFiles {
+	prepare(schema: Readonly<Record<string, unknown>>): Promise<CodexStructuredOutputHandle>;
+	readOutput(handle: CodexStructuredOutputHandle): Promise<string>;
+	cleanup(handle: CodexStructuredOutputHandle): Promise<void>;
 }
 
-export class RealCodexReviewOutputFiles implements CodexReviewOutputFiles {
-	async prepare(schema: Readonly<Record<string, unknown>>): Promise<CodexReviewOutputHandle> {
+export class RealCodexStructuredOutputFiles implements CodexStructuredOutputFiles {
+	async prepare(schema: Readonly<Record<string, unknown>>): Promise<CodexStructuredOutputHandle> {
 		const directory = await mkdtemp(join(tmpdir(), "ns-reviews-codex-"));
 		const handle = {
-			schemaPath: join(directory, "findings.schema.json"),
-			outputPath: join(directory, "findings.json"),
+			schemaPath: join(directory, "structured-output.schema.json"),
+			outputPath: join(directory, "structured-output.json"),
 		};
 		try {
 			await writeFile(handle.schemaPath, JSON.stringify(schema), "utf8");
@@ -33,23 +33,23 @@ export class RealCodexReviewOutputFiles implements CodexReviewOutputFiles {
 		}
 	}
 
-	async readOutput(handle: CodexReviewOutputHandle): Promise<string> {
+	async readOutput(handle: CodexStructuredOutputHandle): Promise<string> {
 		return await readFile(handle.outputPath, "utf8");
 	}
 
-	async cleanup(handle: CodexReviewOutputHandle): Promise<void> {
+	async cleanup(handle: CodexStructuredOutputHandle): Promise<void> {
 		await rm(dirname(handle.schemaPath), { recursive: true, force: true });
 	}
 }
 
-export interface InMemoryCodexReviewOutputFilesOptions {
+export interface InMemoryCodexStructuredOutputFilesOptions {
 	readonly output?: string;
 	readonly prepareError?: Error;
 	readonly readError?: Error;
 	readonly cleanupError?: Error;
 }
 
-export class InMemoryCodexReviewOutputFiles implements CodexReviewOutputFiles {
+export class InMemoryCodexStructuredOutputFiles implements CodexStructuredOutputFiles {
 	private readonly output: string;
 	private readonly prepareError: Error | undefined;
 	private readonly readError: Error | undefined;
@@ -57,26 +57,29 @@ export class InMemoryCodexReviewOutputFiles implements CodexReviewOutputFiles {
 	private preparedSchemaInternal: Readonly<Record<string, unknown>> | null = null;
 	private isCleanedInternal = false;
 
-	constructor(options: InMemoryCodexReviewOutputFilesOptions = {}) {
-		this.output = options.output ?? '{"findings":[]}';
+	constructor(options: InMemoryCodexStructuredOutputFilesOptions = {}) {
+		this.output = options.output ?? "{}";
 		this.prepareError = options.prepareError;
 		this.readError = options.readError;
 		this.cleanupError = options.cleanupError;
 	}
 
-	async prepare(schema: Readonly<Record<string, unknown>>): Promise<CodexReviewOutputHandle> {
+	async prepare(schema: Readonly<Record<string, unknown>>): Promise<CodexStructuredOutputHandle> {
 		if (this.prepareError !== undefined) throw this.prepareError;
 		this.preparedSchemaInternal = structuredClone(schema);
 		this.isCleanedInternal = false;
-		return { schemaPath: "/memory/findings.schema.json", outputPath: "/memory/findings.json" };
+		return {
+			schemaPath: "/memory/structured-output.schema.json",
+			outputPath: "/memory/structured-output.json",
+		};
 	}
 
-	async readOutput(_handle: CodexReviewOutputHandle): Promise<string> {
+	async readOutput(_handle: CodexStructuredOutputHandle): Promise<string> {
 		if (this.readError !== undefined) throw this.readError;
 		return this.output;
 	}
 
-	async cleanup(_handle: CodexReviewOutputHandle): Promise<void> {
+	async cleanup(_handle: CodexStructuredOutputHandle): Promise<void> {
 		this.isCleanedInternal = true;
 		if (this.cleanupError !== undefined) throw this.cleanupError;
 	}
