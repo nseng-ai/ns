@@ -94,3 +94,7 @@ Risks:
 - Exact CLI/tool flag spelling and the parent-held authorization payload shape are implementation details to settle within the first roadmap slice; they must preserve the decided two-key, one-invocation semantics.
 - Whether host credential breadth warrants the parked scoped-token upgrade after live dogfooding.
 - Whether best-effort PR summaries produce enough stale-state incidents to promote final reconciliation from the parked upgrade into required policy.
+
+## Closure
+
+Intentionally closed at user direction before completion. The contract, authorization-fact model, and narrow Flow publication capability were delivered, but trusted-orchestrator wiring and the existing-PR steel-thread probe remain unfinished; this record therefore does not claim a live-proven publish-capable Objective Runner path. The accepted caveat is that `cloud-dispatch-thermo-followups` cannot rely on this Objective to supply that path and must re-plan or explicitly defer its desired publish-capable autorun model.
