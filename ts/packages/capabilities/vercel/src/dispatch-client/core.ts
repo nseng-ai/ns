@@ -61,7 +61,11 @@ export async function ensureDispatchSourceReachable(
 	if (remoteTip.type === "found" && remoteTip.sha === options.headSha) {
 		return { status: "ready", isSourcePushed: false };
 	}
-	const push = await gateways.git.pushSourceBranch(options);
+	const push = await gateways.git.pushSourceBranch({
+		cwd: options.cwd,
+		branch: options.branch,
+		expectedRevision: options.headSha,
+	});
 	if (push.ok === false) {
 		return {
 			status: "source-push-failed",

@@ -1,6 +1,6 @@
 # @nseng-ai/flow
 
-This context captures Flow language for lifecycle commands, the `@nseng-ai/flow/api` compatibility seam consumed by the cmux capability, and the current boundary between Flow-owned presentation/orchestration and the `@nseng-ai/flow/land` domain core subpackage.
+This context captures Flow language for lifecycle commands, the curated `@nseng-ai/flow/api` Capability API consumed by cmux and local Vercel dispatch composition, and the current boundary between Flow-owned presentation/orchestration and the `@nseng-ai/flow/land` domain core subpackage.
 
 ## Language
 
@@ -17,8 +17,8 @@ The `@nseng-ai/flow/pi` host surface owns generic `/ns:flow:*` mirrors and `/gt:
 *Avoid*: Flow-owned code-workflow skill policy, Internal Pi-tool import from Flow, cross-owner aggregate inside a package
 
 **Flow Capability API**:
-The curated `@nseng-ai/flow/api` in-process compatibility surface consumed by downstream packages, especially the cmux capability, so they do not import Flow private source modules.
-*Avoid*: package-root import, private `@nseng-ai/flow/src/...` import, narrowed land-only API, cmux capability-owned seam
+The curated `@nseng-ai/flow/api` in-process compatibility surface consumed by downstream packages so they do not import Flow private source modules. Cmux consumes established Flow workflows; local Vercel dispatch consumes only the **Flow Minimal Submit Client** under the sanctioned exact-source-publication exception.
+*Avoid*: package-root import, private `@nseng-ai/flow/src/...` import, narrowed land-only API, consumer-owned Flow seam, Flow import from Vercel Workflow or Sandbox runtime
 
 **Flow Land Compatibility Boundary**:
 The compatibility rule that land consumers continue to enter through **Flow Capability API** while Flow keeps renderer-independent planning in the `@nseng-ai/flow/land` subpackage.
