@@ -29,7 +29,7 @@ export { PR_FIELDS as FLOW_LAND_PR_FIELDS } from "../land/stack/constants.ts";
 
 export { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../submit/submit-hooks.ts";
 export {
-	FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT,
+	FLOW_MINIMAL_SUBMIT_MAX_DIRTY_PATHS,
 	type FlowMinimalSubmitClient,
 	type FlowMinimalSubmitError,
 	type FlowMinimalSubmitErrorCode,

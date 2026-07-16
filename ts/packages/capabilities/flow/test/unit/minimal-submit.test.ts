@@ -26,15 +26,15 @@ const SOURCE: FlowMinimalSubmitSource = { branch: "feature/top", headSha: HEAD }
 interface RepositoryState {
 	readonly source?: FlowMinimalSubmitSource;
 	readonly dirtyPaths?: readonly string[];
-	readonly failInspection?: boolean;
-	readonly failAfterMutationObservation?: boolean;
+	readonly inspectionFails?: boolean;
+	readonly postMutationObservationFails?: boolean;
 }
 
 class FakeMinimalRepository implements MinimalSubmitRepositoryGateway {
 	private source: FlowMinimalSubmitSource;
 	private dirtyPaths: readonly string[];
-	private readonly failInspection: boolean;
-	private readonly failAfterMutationObservation: boolean;
+	private readonly inspectionFails: boolean;
+	private readonly postMutationObservationFails: boolean;
 	private hasMutated = false;
 	private localTips: Record<string, string> = {
 		"feature/top": HEAD,
@@ -48,17 +48,17 @@ class FakeMinimalRepository implements MinimalSubmitRepositoryGateway {
 	constructor(state: RepositoryState = {}) {
 		this.source = { ...(state.source ?? SOURCE) };
 		this.dirtyPaths = [...(state.dirtyPaths ?? [])];
-		this.failInspection = state.failInspection === true;
-		this.failAfterMutationObservation = state.failAfterMutationObservation === true;
+		this.inspectionFails = state.inspectionFails === true;
+		this.postMutationObservationFails = state.postMutationObservationFails === true;
 	}
 
 	async inspectCurrent() {
-		if (this.failInspection) return repositoryFailure("inspection failed");
+		if (this.inspectionFails) return repositoryFailure("inspection failed");
 		return { ok: true as const, value: this.inspection() };
 	}
 
 	async observeAffectedBranches(branches: readonly string[]) {
-		if (this.failAfterMutationObservation && this.hasMutated) {
+		if (this.postMutationObservationFails && this.hasMutated) {
 			return repositoryFailure("after observation failed");
 		}
 		return {
@@ -96,7 +96,7 @@ class FakeMinimalRepository implements MinimalSubmitRepositoryGateway {
 		return {
 			source: { ...this.source },
 			dirtyPaths: [...this.dirtyPaths],
-			dirtyPathsTruncated: false,
+			isDirtyPathsTruncated: false,
 		};
 	}
 }
@@ -105,9 +105,9 @@ interface SubmitState {
 	readonly readiness?: "ready" | "restack-required" | "failed";
 	readonly recheck?: "ready" | "restack-required" | "failed";
 	readonly restack?: "success" | "conflict" | "failed";
-	readonly restackMutates?: boolean;
+	readonly shouldRestackMutate?: boolean;
 	readonly submit?: "success" | "failed";
-	readonly failedSubmitMutatesRemote?: boolean;
+	readonly shouldMutateRemoteOnFailedSubmit?: boolean;
 	readonly verification?: "present" | "missing" | "failed";
 }
 
@@ -141,7 +141,7 @@ class FakeMinimalSubmitGateway implements SubmitTransportGateway {
 		const outcome = this.state.restack ?? "success";
 		this.repository.restack({
 			conflict: outcome === "conflict",
-			mutate: this.state.restackMutates !== false,
+			mutate: this.state.shouldRestackMutate !== false,
 		});
 		if (outcome === "success") return { kind: "success", output: output() };
 		if (outcome === "conflict") {
@@ -158,7 +158,7 @@ class FakeMinimalSubmitGateway implements SubmitTransportGateway {
 		this.log.push({ operation: "submit", force: params.force === true });
 		const outcome = this.state.submit ?? "success";
 		this.repository.submit({
-			remoteMutation: outcome === "success" || this.state.failedSubmitMutatesRemote === true,
+			remoteMutation: outcome === "success" || this.state.shouldMutateRemoteOnFailedSubmit === true,
 		});
 		params.onOutput?.("stdout", "submitted output");
 		if (outcome === "failed") return { kind: "failed", output: output(1, "submit failed") };
@@ -428,7 +428,7 @@ describe("Flow minimal submit", () => {
 			submit: {
 				readiness: "restack-required",
 				restack: "conflict",
-				restackMutates: false,
+				shouldRestackMutate: false,
 			},
 		});
 
@@ -469,7 +469,7 @@ describe("Flow minimal submit", () => {
 
 	test("a failed submit reports observed remote mutation when tip observation proves it", async () => {
 		const { client } = fixture({
-			submit: { submit: "failed", failedSubmitMutatesRemote: true },
+			submit: { submit: "failed", shouldMutateRemoteOnFailedSubmit: true },
 		});
 
 		expect(
@@ -556,7 +556,7 @@ describe("Flow minimal submit", () => {
 
 	test("after-observation failure reports local possible and remote observed", async () => {
 		const { client } = fixture({
-			repository: { failAfterMutationObservation: true },
+			repository: { postMutationObservationFails: true },
 		});
 
 		expect(

@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { ScriptedCommandExecApi, exitedResult } from "@nseng-ai/foundation/exec/testing";
 import {
 	createFlowMinimalSubmitClient,
-	FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT,
+	FLOW_MINIMAL_SUBMIT_MAX_DIRTY_PATHS,
 	type FlowMinimalSubmitClient,
 	type FlowMinimalSubmitError,
 	type FlowMinimalSubmitErrorCode,
@@ -21,7 +21,7 @@ describe("Flow minimal-submit Capability API", () => {
 		};
 
 		expect(error.code).toBe(code);
-		expect(FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT).toBe(50);
+		expect(FLOW_MINIMAL_SUBMIT_MAX_DIRTY_PATHS).toBe(50);
 	});
 
 	test("binds source and Graphite planning reads to the caller-provided command channel", async () => {

@@ -46,12 +46,12 @@ export function deterministicSubmitCommandFailure(input: {
 		input.stderr,
 		{
 			failurePresentation: "deterministic",
-			rawFailureTranscript: submitCommandFailureTranscript(
-				input.phase,
-				input.commandDisplay,
-				input.output,
-				input.stderr,
-			),
+			rawFailureTranscript: submitCommandFailureTranscript({
+				phase: input.phase,
+				commandDisplay: input.commandDisplay,
+				output: input.output,
+				summary: input.stderr,
+			}),
 		},
 	);
 }
@@ -64,11 +64,11 @@ export function unknownSubmitCommandFailure(input: {
 }): SubmitCommandResult {
 	return submitFailureResult(normalizedSubmitFailureExitCode(input.output), input.stderr, {
 		failurePresentation: "unknown",
-		rawFailureTranscript: submitCommandFailureTranscript(
-			input.phase,
-			input.commandDisplay,
-			input.output,
-		),
+		rawFailureTranscript: submitCommandFailureTranscript({
+			phase: input.phase,
+			commandDisplay: input.commandDisplay,
+			output: input.output,
+		}),
 	});
 }
 
@@ -85,16 +85,20 @@ export function normalizedSubmitFailureExitCode(output: SubmitCommandOutput): nu
 	}
 }
 
-export function submitCommandFailureTranscript(
-	phase: string,
-	commandDisplay: string,
-	output: SubmitCommandOutput,
-	summary?: string,
-): SubmitFailureTranscript {
+export function submitCommandFailureTranscript(options: {
+	readonly phase: string;
+	readonly commandDisplay: string;
+	readonly output: SubmitCommandOutput;
+	readonly summary?: string;
+}): SubmitFailureTranscript {
 	return {
-		phase,
-		...(summary === undefined || summary.trim() === "" ? {} : { summary: summary.trimEnd() }),
-		commands: [{ commandDisplay, ...submitFailureTranscriptFields(output) }],
+		phase: options.phase,
+		...(options.summary === undefined || options.summary.trim() === ""
+			? {}
+			: { summary: options.summary.trimEnd() }),
+		commands: [
+			{ commandDisplay: options.commandDisplay, ...submitFailureTranscriptFields(options.output) },
+		],
 	};
 }
 
@@ -111,24 +115,24 @@ export function submitTextFailureTranscript(
 	};
 }
 
-export function postSubmitFailureTranscript(
-	summary: string,
-	submitted: Extract<SubmitRunResult, { kind: "success" }>,
-	currentPr: CurrentPrVerificationResult,
-	submitCommandDisplay: string,
-	currentPrCommandDisplay: string,
-): SubmitFailureTranscript {
+export function postSubmitFailureTranscript(options: {
+	readonly summary: string;
+	readonly submitted: Extract<SubmitRunResult, { kind: "success" }>;
+	readonly currentPr: CurrentPrVerificationResult;
+	readonly submitCommandDisplay: string;
+	readonly currentPrCommandDisplay: string;
+}): SubmitFailureTranscript {
 	return {
 		phase: "post-submit verification",
-		summary,
+		summary: options.summary,
 		commands: [
 			{
-				commandDisplay: submitCommandDisplay,
-				...submitFailureTranscriptFields(submitted.output),
+				commandDisplay: options.submitCommandDisplay,
+				...submitFailureTranscriptFields(options.submitted.output),
 			},
 			{
-				commandDisplay: currentPrCommandDisplay,
-				...submitFailureTranscriptFields(currentPr.output),
+				commandDisplay: options.currentPrCommandDisplay,
+				...submitFailureTranscriptFields(options.currentPr.output),
 			},
 		],
 	};

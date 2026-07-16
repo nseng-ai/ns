@@ -263,11 +263,11 @@ export async function runSubmitCommand(
 				),
 				{
 					failurePresentation: "unknown",
-					rawFailureTranscript: submitCommandFailureTranscript(
-						"submit",
-						submitCommandDisplay,
-						submittedTransport.outcome.output,
-					),
+					rawFailureTranscript: submitCommandFailureTranscript({
+						phase: "submit",
+						commandDisplay: submitCommandDisplay,
+						output: submittedTransport.outcome.output,
+					}),
 				},
 			);
 		}
@@ -296,13 +296,13 @@ export async function runSubmitCommand(
 			].join("\n");
 			return failure(1, stderr, {
 				failurePresentation: "unknown",
-				rawFailureTranscript: postSubmitFailureTranscript(
-					stderr,
-					combinedSubmitOutcome,
+				rawFailureTranscript: postSubmitFailureTranscript({
+					summary: stderr,
+					submitted: combinedSubmitOutcome,
 					currentPr,
 					submitCommandDisplay,
-					CURRENT_PR_COMMAND_DISPLAY,
-				),
+					currentPrCommandDisplay: CURRENT_PR_COMMAND_DISPLAY,
+				}),
 			});
 		}
 		if (planToExecute.hasUpstackBranches) {
@@ -349,13 +349,13 @@ export async function runSubmitCommand(
 				// message, so route them through the model interpreter rather than showing
 				// the transcript verbatim.
 				failurePresentation: "unknown",
-				rawFailureTranscript: postSubmitFailureTranscript(
-					stderr,
-					combinedSubmitOutcome,
+				rawFailureTranscript: postSubmitFailureTranscript({
+					summary: stderr,
+					submitted: combinedSubmitOutcome,
 					currentPr,
 					submitCommandDisplay,
-					CURRENT_PR_COMMAND_DISPLAY,
-				),
+					currentPrCommandDisplay: CURRENT_PR_COMMAND_DISPLAY,
+				}),
 			});
 		}
 
@@ -542,11 +542,11 @@ async function runSubmitPhaseStep(input: {
 			formatSubmitFailureOutput(result.output, input.prepared, input.commandDisplay),
 			{
 				failurePresentation: "unknown",
-				rawFailureTranscript: submitCommandFailureTranscript(
-					input.phaseLabel,
-					input.commandDisplay,
-					result.output,
-				),
+				rawFailureTranscript: submitCommandFailureTranscript({
+					phase: input.phaseLabel,
+					commandDisplay: input.commandDisplay,
+					output: result.output,
+				}),
 			},
 		),
 	};

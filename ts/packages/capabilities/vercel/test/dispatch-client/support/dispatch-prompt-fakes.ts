@@ -621,10 +621,10 @@ export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 	async readDispatchSettingsSource(options: { readonly repoRoot: string }) {
 		this.readLog.push({ source: "dispatch-settings", repoRoot: options.repoRoot });
 		this.recordOperation("config:read-dispatch-settings");
-		const beforeFinalValidation = this.repository.isFinalValidationReady;
+		const isBeforeFinalValidation = this.repository.isFinalValidationReady;
 		const afterPublication = this.repository.hasSourcePublication;
 		return (
-			(beforeFinalValidation ? this.state.dispatchSettingsBeforeFinalValidation : undefined) ??
+			(isBeforeFinalValidation ? this.state.dispatchSettingsBeforeFinalValidation : undefined) ??
 			(afterPublication ? this.state.dispatchSettingsAfterPublication : undefined) ??
 			this.state.dispatchSettings ?? { type: "found", source: FAKE_DISPATCH_SETTINGS_SOURCE }
 		);
@@ -633,10 +633,10 @@ export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 	async readPackageManagerSource(options: { readonly repoRoot: string }) {
 		this.readLog.push({ source: "package-manager", repoRoot: options.repoRoot });
 		this.recordOperation("config:read-package-manager");
-		const beforeFinalValidation = this.repository.isFinalValidationReady;
+		const isBeforeFinalValidation = this.repository.isFinalValidationReady;
 		const afterPublication = this.repository.hasSourcePublication;
 		return (
-			(beforeFinalValidation ? this.state.packageManagerBeforeFinalValidation : undefined) ??
+			(isBeforeFinalValidation ? this.state.packageManagerBeforeFinalValidation : undefined) ??
 			(afterPublication ? this.state.packageManagerAfterPublication : undefined) ??
 			this.state.packageManager ?? { type: "found", source: FAKE_PACKAGE_MANAGER_SOURCE }
 		);
