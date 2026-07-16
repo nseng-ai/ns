@@ -52,8 +52,9 @@ writing-great-skills findings, and push the deterministic triage mechanics down 
 - Wrapping Graphite mutations (`gt modify`, `gt submit`, `gt restack`) in new commands.
 - Making pr-address depend on Graphite; stack topology stays caller-supplied per the
   closed graphite-stack-exec-consolidation objective's boundary.
-- Rewriting stack-view itself. Whether stack-view later consumes the enriched command as
-  its backend is an open question here, not a deliverable.
+- Rewriting stack-view itself. The `flow-pi-tier` Objective owns the decided consumer
+  migration: promoted stack-view will consume the enriched command rather than retain
+  duplicate GraphQL facts.
 
 ## Completion Criteria
 
@@ -89,8 +90,10 @@ Assumptions:
 Risks:
 
 - Two sources of truth: enriching the ns command while stack-view keeps its own GraphQL
-  layer duplicates the check/thread model. Mitigation: the open question below must get
-  an explicit decision before this objective closes.
+  layer temporarily duplicates the check/thread model. The `flow-pi-tier` Objective now
+  mitigates this risk by requiring promoted stack-view to consume the enriched Address
+  backend; sequencing remains important so duplication is not promoted into platform
+  code.
 - The interim skill rewrite must target the landed skill, not a stale draft. The skill
   file has now landed on trunk (`skills/code-fix-gh-stack/SKILL.md`, PR #3283 merged
   2026-07-09, commit 4c30d67fa), so the rewrite branches from trunk normally rather than
@@ -102,20 +105,9 @@ Risks:
 
 ## Open Questions
 
-- Should stack-view consume the enriched `branch-pr-checks` output as its backend
-  (single source of truth, per the platform-and-consumer promotion path), or keep its own
-  GraphQL layer with the duplication documented?
-- Exact per-PR status vocabulary: reuse stack-view's enum (`checks-failing`,
-  `unresolved`, `ready`, `draft`, `no-pr`) or define a repair-loop-specific one that
-  includes stale/fresh at the PR level?
-
-## Closure
-
-Intentionally abandoned on 2026-07-17 after a stale-Objective audit found no material
-progress after the initial 2026-07-09 design. The July 12 change was a prose rebaseline,
-and the July 14 changes only linked downstream Flow Objectives; all roadmap rows remain
-open. No completion claim is made: the skill rewrite, enriched `branch-pr-checks`
-contract and implementation, failed-check log command, push-down audit, and backend
-decision remain unresolved. The edges are retained as historical coordination context;
-`flow-fold-stack-skills-into-workflow-tier` and `flow-pi-tier-stack-view-promotion` must re-plan rather than assume this Objective
-will deliver their described upstream primitives.
+No contract-level questions remain. The enriched command keeps stack-view's exact PR
+status vocabulary (`draft`, `checks-failing`, `unresolved`, `ready`, `no-pr`) in a new
+`pr_status` field separate from mapping `status`; pending checks may coexist with `ready`.
+The `flow-pi-tier` Objective owns the decided migration of promoted stack-view to this
+backend. Adapter placement and GraphQL pagination shape remain implementation choices,
+not user-visible contract questions.
