@@ -4,9 +4,9 @@ Use the repository's Pi extension command checklist for command registration, ac
 
 - [`docs/pi/extension-command-checklist.md`](../../../../docs/pi/extension-command-checklist.md)
 
-## Objective sidebar behavior
+## Objective workspace label
 
-The `/ns:herdr:sidebar:objective-summary` command applies the Objective slug as the workspace label and the current slot as the caller pane's metadata title. Use `herdr pane report-metadata` with an explicit `HERDR_PANE_ID`; do not add a public generic workspace-summary command or target a focused pane implicitly.
+The `/ns:herdr:sidebar:objective-summary` command applies one workspace label via `herdr workspace rename`. In a managed ns slot, the label prefixes the Objective with the compact slot (`s1:obj:<slug>`); outside slots it remains `obj:<slug>`. Do not infer slot use from a directory basename alone, add metadata reporting, or add a public generic workspace-summary command. The label-composition policy is provisional and should move behind a Herdr workflow pluggability point when that extension surface is designed.
 
 ## Herdr caller targeting
 

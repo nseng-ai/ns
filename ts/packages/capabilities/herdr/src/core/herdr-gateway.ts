@@ -2,8 +2,10 @@
  * Herdr Consumer Gateway — narrow domain-shaped interface for the subset of
  * Herdr workspace operations that the herdr capability currently needs.
  *
- * Only operations with demonstrated CLI backing are included. Workspace labels
- * use workspace rename; caller-pane titles use pane report-metadata.
+ * Only operations with demonstrated CLI backing are included. The installed
+ * Herdr CLI lacks `workspace report-metadata`, so metadata reporting is
+ * intentionally absent; it remains parked until the installed binary supports
+ * it (see herdr-capability-parity objective, roadmap "Parked" section).
  */
 export interface HerdrGateway {
 	/**
@@ -16,13 +18,6 @@ export interface HerdrGateway {
 	 * non-zero or the workspace is not found.
 	 */
 	renameWorkspace(workspaceId: string, label: string): Promise<HerdrWorkspaceRenameResult>;
-
-	/**
-	 * Apply the slot title shown beneath the workspace label for a caller pane.
-	 *
-	 * Maps to: `herdr pane report-metadata <paneId> --source ns-objective-sidebar --title <title>`
-	 */
-	reportPaneTitle(paneId: string, title: string): Promise<HerdrPaneTitleResult>;
 
 	/**
 	 * Create a new Herdr workspace, without focusing it.
@@ -63,8 +58,6 @@ export interface HerdrGateway {
 }
 
 export type HerdrWorkspaceRenameResult = { type: "applied" } | { type: "failed"; message: string };
-
-export type HerdrPaneTitleResult = { type: "applied" } | { type: "failed"; message: string };
 
 export interface HerdrCreateWorkspaceOptions {
 	cwd: string;

@@ -17,16 +17,16 @@ Identifying the Herdr workspace to act on via the `HERDR_WORKSPACE_ID` environme
 *Avoid*: UI focus targeting, ambient workspace, implicit workspace
 
 **Workspace label**:
-A display name applied to the caller Herdr workspace via `herdr workspace rename`, derived deterministically from the selected Objective slug.
-*Avoid*: combined Objective/slot label, cmux status pill
-
-**Caller pane title**:
-The current slot name applied through `herdr pane report-metadata` to the explicit `HERDR_PANE_ID`; Herdr renders it beneath the workspace label in the left rail.
-*Avoid*: focused pane, workspace metadata, branch suffix
+A display name applied to the caller Herdr workspace via `herdr workspace rename`: `s<number>:obj:<objective-slug>` in a managed ns slot and `obj:<objective-slug>` otherwise. This composition is provisional pending a Herdr workflow pluggability point.
+*Avoid*: sidebar description, metadata reporting, unconditional slot prefix
 
 **Objective sidebar**:
-The `/ns:herdr:sidebar:objective-summary` workflow that resolves an Objective slug, labels the caller workspace, and titles the caller pane with its slot.
-*Avoid*: cmux sidebar summary, generic workspace summary, implicit pane targeting
+The `/ns:herdr:sidebar:objective-summary` workflow that resolves an Objective slug and applies the workspace label to the caller Herdr workspace.
+*Avoid*: cmux sidebar summary, workspace metadata, report-metadata
+
+**Label-only behavior**:
+The current `/ns:herdr:sidebar:objective-summary` implementation applies only a workspace label. Slot identity may be encoded in that label when the cwd proves it is a managed ns slot; branch metadata reporting remains deferred.
+*Avoid*: partial implementation, inferred slot from arbitrary basename, metadata transport
 
 **Herdr capability boundary**:
 The `pi` subpackage is the only Herdr capability subpackage that imports neutral `@nseng-ai/pi/...` host helpers; the `core` feature stays Pi-host independent.

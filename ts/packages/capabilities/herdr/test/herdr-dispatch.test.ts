@@ -674,7 +674,6 @@ describe("herdr Pi extension — gateway wiring", () => {
 		const adapted = createHerdrPiCommandApi(pi);
 		const gateway = createCliHerdrGateway(adapted);
 		expect(typeof gateway.renameWorkspace).toBe("function");
-		expect(typeof gateway.reportPaneTitle).toBe("function");
 		expect(typeof gateway.createWorkspace).toBe("function");
 		expect(typeof gateway.createTab).toBe("function");
 		expect(typeof gateway.runInPane).toBe("function");

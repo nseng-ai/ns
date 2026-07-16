@@ -1,14 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
 	createHerdrSidebarControllerWithPiWiring,
 	registerHerdrSidebarCommands,
 } from "@nseng-ai/herdr/pi";
-import {
-	createHerdrSidebarController,
-	getCallerPaneId,
-	getCallerWorkspaceId,
-} from "../src/core/sidebar.ts";
+import { createHerdrSidebarController, getCallerWorkspaceId } from "../src/core/sidebar.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {
 	formatObjectiveSidebarLabel,
@@ -28,11 +24,10 @@ import {
 	step,
 } from "./herdr-test-harness.ts";
 
-beforeEach(() => vi.stubEnv("HERDR_PANE_ID", "w1:p1"));
 afterEach(resetHerdrTestEnvironment);
 
 describe("herdr Objective sidebar", () => {
-	test("ns:herdr:sidebar:objective-summary applies objective label and slot title", async () => {
+	test("ns:herdr:sidebar:objective-summary applies label from explicit slug", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const repoRoot = await makeTempDir();
 		const slug = "herdr-capability-parity";
@@ -58,15 +53,33 @@ describe("herdr Objective sidebar", () => {
 			},
 		]);
 		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: expectedLabel }]);
-		expect(herdr.paneTitleCalls).toEqual([{ paneId: "w1:p1", title: repoRoot.split("/").at(-1) }]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.statuses).toEqual([
 			{ key: "pi:herdr-sidebar", value: "preparing Herdr Objective sidebar…" },
 			{ key: "pi:herdr-sidebar", value: undefined },
 		]);
 		expect(notificationMessages(ctx)).toContain(
-			`Applied Herdr Objective sidebar: ${expectedLabel} / ${repoRoot.split("/").at(-1)}`,
+			`Applied Herdr Objective sidebar: ${expectedLabel}`,
 		);
+	});
+
+	test("ns:herdr:sidebar:objective-summary prefixes labels inside a managed slot", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const slug = "areg-lifecycle-ergonomics";
+		const pi = new FakePi({ script: [objectiveReadStep(slug)] });
+		const herdr = new FakeHerdrGateway();
+		const controller = createHerdrSidebarController(createHerdrPiCommandApi(pi), herdr);
+		registerHerdrSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext({
+			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01",
+		});
+
+		await pi.commands.get("ns:herdr:sidebar:objective-summary")?.handler(slug, ctx);
+
+		pi.assertDone();
+		expect(herdr.renameCalls).toEqual([
+			{ workspaceId: "w1", label: "s1:obj:areg-lifecycle-ergonomics" },
+		]);
 	});
 
 	test("ns:herdr:sidebar:objective-summary resolves path selector to slug", async () => {
@@ -130,8 +143,8 @@ describe("herdr Objective sidebar", () => {
 		]);
 		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: expectedLabel }]);
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(notificationMessages(ctx).at(-1)).toContain(
-			`Applied Herdr Objective sidebar: ${expectedLabel} /`,
+		expect(notificationMessages(ctx)).toContain(
+			`Applied Herdr Objective sidebar: ${expectedLabel}`,
 		);
 	});
 
@@ -166,9 +179,7 @@ describe("herdr Objective sidebar", () => {
 			},
 		]);
 		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: `obj:${slug}` }]);
-		expect(notificationMessages(ctx).at(-1)).toContain(
-			`Applied Herdr Objective sidebar: obj:${slug} /`,
-		);
+		expect(notificationMessages(ctx)).toContain(`Applied Herdr Objective sidebar: obj:${slug}`);
 	});
 
 	test("ns:herdr:sidebar:objective-summary picker cancellation stops without rename", async () => {
@@ -291,9 +302,10 @@ describe("herdr Objective sidebar", () => {
 		expect(ctx.notifications.at(-1)?.message).toContain("workspace not found");
 	});
 
-	test("ns:herdr:sidebar:objective-summary applies the cwd slot as the caller-pane title", async () => {
-		// The slot is derived without extra process I/O and reported through the
-		// caller pane's metadata title, which Herdr displays beneath the workspace label.
+	test("ns:herdr:sidebar:objective-summary label-only: does not read slot or branch", async () => {
+		// Verifies the label-only behavior: only objective validation and
+		// `herdr workspace rename` are performed — no branch or slot reads.
+		// The label encodes only the Objective slug.
 		vi.stubEnv("HERDR_WORKSPACE_ID", "workspace-42");
 		const repoRoot = await makeTempDir();
 		const slug = "herdr-capability-parity";
@@ -309,13 +321,13 @@ describe("herdr Objective sidebar", () => {
 		await pi.commands.get("ns:herdr:sidebar:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
-		// Only objective exec call — no git branch or slot subprocess call.
+		// Only objective exec call — no git branch call
 		expect(pi.execCalls).toHaveLength(1);
 		expect(pi.execCalls[0]?.command).toBe("ns");
+		// Label contains only the Objective slug — no slot or branch suffix
 		expect(herdr.renameCalls).toEqual([
 			{ workspaceId: "workspace-42", label: "obj:herdr-capability-parity" },
 		]);
-		expect(herdr.paneTitleCalls).toEqual([{ paneId: "w1:p1", title: repoRoot.split("/").at(-1) }]);
 	});
 
 	test("ns:herdr:sidebar:objective-summary uses Pi wiring end-to-end", async () => {
@@ -327,7 +339,7 @@ describe("herdr Objective sidebar", () => {
 	});
 });
 
-describe("herdr Objective sidebar — caller IDs", () => {
+describe("herdr Objective sidebar — getCallerWorkspaceId", () => {
 	test("reads HERDR_WORKSPACE_ID from injected env", () => {
 		expect(getCallerWorkspaceId({ HERDR_WORKSPACE_ID: "w42" })).toBe("w42");
 	});
@@ -338,11 +350,6 @@ describe("herdr Objective sidebar — caller IDs", () => {
 
 	test("returns undefined when HERDR_WORKSPACE_ID is blank", () => {
 		expect(getCallerWorkspaceId({ HERDR_WORKSPACE_ID: "   " })).toBeUndefined();
-	});
-
-	test("reads and trims HERDR_PANE_ID", () => {
-		expect(getCallerPaneId({ HERDR_PANE_ID: "  w42:p3 " })).toBe("w42:p3");
-		expect(getCallerPaneId({ HERDR_PANE_ID: " " })).toBeUndefined();
 	});
 });
 
@@ -384,18 +391,23 @@ describe("herdr Objective sidebar — resolveObjectiveSelector", () => {
 });
 
 describe("herdr Objective sidebar — formatObjectiveSidebarLabel", () => {
-	test("keeps slot data out of the Objective workspace label", () => {
-		const label = formatObjectiveSidebarLabel({
-			objectiveSlug: "herdr-capability-parity",
-		});
-		expect(label).toBe("obj:herdr-capability-parity");
-		// Slot is reported separately as the caller-pane title; branch is omitted.
-		expect(label).not.toContain("::");
+	test("prefixes the Objective with a compact numbered slot", () => {
+		expect(
+			formatObjectiveSidebarLabel({
+				objectiveSlug: "areg-lifecycle-ergonomics",
+				slotSlug: "slot-01",
+			}),
+		).toBe("s1:obj:areg-lifecycle-ergonomics");
 	});
 
-	test("is deterministic for the same Objective slug", () => {
-		const a = formatObjectiveSidebarLabel({ objectiveSlug: "test-objective" });
-		const b = formatObjectiveSidebarLabel({ objectiveSlug: "test-objective" });
-		expect(a).toBe(b);
+	test("omits the slot prefix when slots are not in use", () => {
+		expect(formatObjectiveSidebarLabel({ objectiveSlug: "test-objective" })).toBe(
+			"obj:test-objective",
+		);
+	});
+
+	test("is deterministic for the same Objective and slot", () => {
+		const input = { objectiveSlug: "test-objective", slotSlug: "slot-12" };
+		expect(formatObjectiveSidebarLabel(input)).toBe(formatObjectiveSidebarLabel(input));
 	});
 });

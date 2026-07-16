@@ -14,14 +14,12 @@ import type {
 	HerdrCreateWorkspaceResult,
 	HerdrGateway,
 	HerdrPaneRunResult,
-	HerdrPaneTitleResult,
 	HerdrWorkspaceRenameResult,
 } from "./herdr-gateway.ts";
 
 const HERDR_CLI_TIMEOUT_MS = 15_000;
 const MAX_ERROR_CHARS = 4_000;
 const MAX_ERROR_LINES = 20;
-const OBJECTIVE_SIDEBAR_METADATA_SOURCE = "ns-objective-sidebar";
 
 // Pure command-shape builders shared by the CLI adapter and dry-run previews
 // so preview drift is test-detectable against the real invocation shape.
@@ -50,18 +48,6 @@ export function buildHerdrPaneRunArgs(paneId: string, command: string): string[]
 	return ["pane", "run", paneId, command];
 }
 
-export function buildHerdrPaneTitleArgs(paneId: string, title: string): string[] {
-	return [
-		"pane",
-		"report-metadata",
-		paneId,
-		"--source",
-		OBJECTIVE_SIDEBAR_METADATA_SOURCE,
-		"--title",
-		title,
-	];
-}
-
 /**
  * CLI-backed HerdrGateway adapter. All operations call the installed `herdr`
  * binary; no raw socket integration is included. The CLI is Herdr's recommended
@@ -71,9 +57,6 @@ export function createCliHerdrGateway(exec: CommandExecApi): HerdrGateway {
 	return {
 		async renameWorkspace(workspaceId, label): Promise<HerdrWorkspaceRenameResult> {
 			return renameWorkspace(exec, workspaceId, label);
-		},
-		async reportPaneTitle(paneId, title): Promise<HerdrPaneTitleResult> {
-			return reportPaneTitle(exec, paneId, title);
 		},
 		async createWorkspace(options): Promise<HerdrCreateWorkspaceResult> {
 			return createWorkspace(exec, options);
@@ -113,38 +96,6 @@ async function renameWorkspace(
 			type: "failed",
 			message: tailText(
 				`Could not apply Herdr Objective sidebar label.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
-				{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
-			),
-		};
-	}
-}
-
-async function reportPaneTitle(
-	exec: CommandExecApi,
-	paneId: string,
-	title: string,
-): Promise<HerdrPaneTitleResult> {
-	const command = "herdr";
-	const args = buildHerdrPaneTitleArgs(paneId, title);
-	const commandDisplay = formatCommand(command, args);
-	try {
-		const result = await exec.exec(command, args, { timeout: HERDR_CLI_TIMEOUT_MS });
-		if (!commandSucceeded(result)) {
-			return {
-				type: "failed",
-				message: formatCommandFailure(
-					"Could not apply Herdr Objective sidebar slot title.",
-					commandDisplay,
-					result,
-				),
-			};
-		}
-		return { type: "applied" };
-	} catch (error) {
-		return {
-			type: "failed",
-			message: tailText(
-				`Could not apply Herdr Objective sidebar slot title.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
 				{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
 			),
 		};

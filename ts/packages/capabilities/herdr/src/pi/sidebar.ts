@@ -15,8 +15,8 @@ export function registerHerdrSidebarCommands(
 		commandName: HERDR_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME,
 		commandDefinition: {
 			description:
-				"Apply an Objective label to the explicit caller workspace and the current slot " +
-				"as the explicit caller pane title. Requires HERDR_WORKSPACE_ID and HERDR_PANE_ID.",
+				"Apply an Objective label to the explicit caller Herdr workspace, prefixed with " +
+				"the compact slot name when running in a managed ns slot.",
 			argumentHint: "<slug or path>",
 			handler: async (args, ctx) => controller.handleObjectiveCommand(args, ctx),
 		},

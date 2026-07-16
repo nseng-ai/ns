@@ -31,65 +31,6 @@ const TAB_CREATE_RESPONSE = JSON.stringify({
 });
 
 // ---------------------------------------------------------------------------
-// reportPaneTitle — exact argv
-// ---------------------------------------------------------------------------
-
-describe("createCliHerdrGateway.reportPaneTitle", () => {
-	test("reports a caller-pane title with stable Objective sidebar ownership", async () => {
-		const pi = new FakePi({
-			script: [
-				step(
-					"herdr",
-					[
-						"pane",
-						"report-metadata",
-						"w1:p1",
-						"--source",
-						"ns-objective-sidebar",
-						"--title",
-						"slot-01",
-					],
-					{},
-				),
-			],
-		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
-
-		const result = await herdr.reportPaneTitle("w1:p1", "slot-01");
-
-		pi.assertDone();
-		expect(result).toEqual({ type: "applied" });
-	});
-
-	test("returns a failure when metadata reporting fails", async () => {
-		const pi = new FakePi({
-			script: [
-				step(
-					"herdr",
-					[
-						"pane",
-						"report-metadata",
-						"w1:p1",
-						"--source",
-						"ns-objective-sidebar",
-						"--title",
-						"slot-01",
-					],
-					{ code: 1, stderr: "pane not found" },
-				),
-			],
-		});
-		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
-
-		const result = await herdr.reportPaneTitle("w1:p1", "slot-01");
-
-		pi.assertDone();
-		expect(result.type).toBe("failed");
-		if (result.type === "failed") expect(result.message).toContain("pane not found");
-	});
-});
-
-// ---------------------------------------------------------------------------
 // createWorkspace — exact argv
 // ---------------------------------------------------------------------------
 
