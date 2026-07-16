@@ -125,10 +125,14 @@ command's downstack default when this skill means plain `gt restack` semantics.
 
 Interpret the Clinkr envelope before acting:
 
-- `status: "ok"` carries usable preflight `data`.
-- A nonzero `status: "negative"` is an expected blocked/precondition result and
-  still carries usable `data`; inspect it rather than treating the exit code
-  alone as a command failure. An untracked branch is one such negative.
+- `status: "ok"` carries usable preflight `data`, including the expected resume
+  state `rebaseInProgress: true`: an in-progress rebase in the current worktree
+  is an ok/exit-0 answer, not a blocked result, even though the tree is dirty
+  and the rebase appears in `slotConflicts`.
+- A nonzero `status: "negative"` is an expected blocked/precondition result
+  (untracked branch, dirty tree without a current rebase, foreign Slot
+  conflicts, on-trunk) and still carries usable `data`; inspect it rather than
+  treating the exit code alone as a command failure.
 - `status: "failure"`, missing/unparseable JSON, or malformed/missing required
   fields is not usable preflight evidence. Stop and report the envelope/error;
   do not restack or free slots.
