@@ -486,12 +486,18 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
         version: 0.80.5(ws@8.21.0)(zod@4.4.3)
+      '@nseng-ai/brmem':
+        specifier: workspace:*
+        version: link:../../infra/brmem
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
+      '@nseng-ai/plans':
+        specifier: workspace:*
+        version: link:../plans
       '@nseng-ai/sdk':
         specifier: workspace:*
         version: link:../../sdk
