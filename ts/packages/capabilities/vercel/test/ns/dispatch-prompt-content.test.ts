@@ -5,6 +5,7 @@ import {
 	buildAnchorBranchName,
 	buildAnchorPrBody,
 	buildAnchorPrTitle,
+	buildPlanAnchorPrBody,
 } from "../../src/ns/dispatch-prompt/content.ts";
 
 describe("buildAnchorBranchName", () => {
@@ -57,6 +58,33 @@ describe("buildAnchorPrTitle", () => {
 
 	test("falls back for whitespace-only prompts", () => {
 		expect(buildAnchorPrTitle("  \n ")).toBe("[dispatch] dispatched prompt");
+	});
+});
+
+describe("buildPlanAnchorPrBody", () => {
+	test("marks a complete locator provenance section without embedding plan content", () => {
+		const dispatchId = "dsp_01JABCDEF0123456789";
+		const snapshotRef = "refs/brmem/ns/dispatch-context/feature---cache";
+		const planKey = `${dispatchId}/plan/add-cache.md`;
+		const body = buildPlanAnchorPrBody({
+			planRef: "/state/plans/add-cache.md",
+			revision: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+			locator: {
+				namespace: "dispatch-context",
+				dispatchId,
+				contextPrefix: `${dispatchId}/`,
+				planKey,
+				sourceBranch: "feature/cache",
+				snapshotRef,
+				snapshotCommitSha: "1111111111111111111111111111111111111111",
+				entryLocator: `${snapshotRef}:${planKey}`,
+			},
+		});
+
+		expect(body).toContain("<!-- ns:dispatch-provenance:start -->");
+		expect(body).toContain(`**Dispatch ID:** \`${dispatchId}\``);
+		expect(body).toContain(`**Plan Entry:** \`${snapshotRef}:${planKey}\``);
+		expect(body).toContain("<!-- ns:dispatch-provenance:end -->");
 	});
 });
 

@@ -4,6 +4,7 @@
 // deterministic in its inputs; wording is status-aware — the body
 // describes a submitted-not-finished run, and the workflow's own
 // reporting later lands the decision log or the failure comment.
+import type { DispatchPlanContextLocator } from "../../dispatch/dispatch-context.ts";
 import {
 	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
 	DISPATCH_ANCHOR_BRANCH_PREFIX,
@@ -99,6 +100,35 @@ export function buildAnchorPrBody(options: {
 		"fails, a failure comment marks this PR failed and it stays open for",
 		"triage. The workflow run id is stamped on this description at",
 		"submission.",
+	].join("\n");
+}
+
+/** Build the plan-specific anchor body with a marked, complete recovery record. */
+export function buildPlanAnchorPrBody(options: {
+	readonly planRef: string;
+	readonly revision: string;
+	readonly locator: DispatchPlanContextLocator;
+}): string {
+	return [
+		"This pull request anchors a cloud dispatch (`ns dispatch plan`).",
+		"",
+		`- **Saved Plan:** \`${options.planRef}\``,
+		`- **Dispatched revision:** \`${options.revision}\``,
+		"",
+		"<!-- ns:dispatch-provenance:start -->",
+		"## Dispatch provenance",
+		"",
+		`- **Dispatch ID:** \`${options.locator.dispatchId}\``,
+		`- **Branch Memory namespace:** \`${options.locator.namespace}\``,
+		`- **Context prefix:** \`${options.locator.contextPrefix}\``,
+		`- **Source branch:** \`${options.locator.sourceBranch}\``,
+		`- **Snapshot Ref:** \`${options.locator.snapshotRef}\``,
+		`- **Snapshot commit:** \`${options.locator.snapshotCommitSha}\``,
+		`- **Plan Entry:** \`${options.locator.entryLocator}\``,
+		"<!-- ns:dispatch-provenance:end -->",
+		"",
+		"When the run completes, the produced commits and decision log land on this branch.",
+		"If the run fails, this PR remains the durable failure and recovery record.",
 	].join("\n");
 }
 

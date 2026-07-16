@@ -8,7 +8,12 @@
 // behavior against the deployed trigger route is pending verification.
 import type { GitGateway } from "@nseng-ai/foundation/git";
 
+import type { BrmemGateway } from "@nseng-ai/brmem";
+
 import type { DispatchRunInput } from "../../dispatch/dispatch-run.ts";
+import type { DispatchBrmemSetupGateway } from "../dispatch-plan/delivery-preflight.ts";
+import type { DispatchPlanSnapshotGateway } from "../dispatch-plan/delivery.ts";
+import type { DispatchSavedPlanGateway } from "../dispatch-plan/preparation.ts";
 
 /**
  * Provider-owned codes intentionally remain open across this seam: Foundation Git
@@ -196,7 +201,7 @@ export type DispatchConfigSourceResult =
 	| { readonly type: "missing" }
 	| { readonly type: "error"; readonly message: string };
 
-/** Everything the dispatch-prompt core needs injected. */
+/** Shared local dispatch effects for prompt and Saved Plan dispatch. */
 export interface DispatchPromptGateways {
 	readonly git: DispatchWorkspaceGitGateway;
 	readonly anchorPrs: DispatchAnchorPrGateway;
@@ -205,4 +210,12 @@ export interface DispatchPromptGateways {
 	readonly config: DispatchConfigGateway;
 	/** Short unique suffix for anchor branch names (non-deterministic). */
 	readonly generateAnchorId: () => string;
+}
+
+/** Additional local delivery effects required only by Saved Plan dispatch. */
+export interface DispatchPlanGateways extends DispatchPromptGateways {
+	readonly savedPlans: DispatchSavedPlanGateway;
+	readonly brmem: Pick<BrmemGateway, "createEntry"> & DispatchBrmemSetupGateway;
+	readonly snapshots: DispatchPlanSnapshotGateway;
+	readonly generateDispatchId: () => string;
 }
