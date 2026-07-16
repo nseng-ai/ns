@@ -13,7 +13,7 @@ import {
 	type BranchContextEvidence,
 } from "@nseng-ai/branch-context/api";
 import { commandSucceeded, type CommandExecApi } from "@nseng-ai/foundation/command";
-import type { AutocompleteItem, CommandContext } from "@nseng-ai/capability-kit/cmux/types";
+import type { AutocompleteItem, CommandContext } from "@nseng-ai/capability-kit/pi-types";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
 import { HERDR_WORKSPACE_OPEN_BRANCH_COMMAND_NAME } from "./command-surfaces.ts";

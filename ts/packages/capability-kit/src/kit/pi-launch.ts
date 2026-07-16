@@ -1,5 +1,5 @@
 import { formatShellArg } from "@nseng-ai/foundation/exec";
-import type { ModelInfo, ThinkingLevel } from "./types.ts";
+import type { ModelInfo, ThinkingLevel } from "./pi-types.ts";
 
 export interface PiLaunchOptions {
 	model?: ModelInfo;
@@ -19,23 +19,25 @@ export function getPiLaunchOptions(
 	ctx: PiLaunchCommandContext,
 ): PiLaunchOptions {
 	const thinkingLevel = pi.getThinkingLevel();
-	if (ctx.model === undefined) {
-		return { thinkingLevel };
+	return ctx.model === undefined ? { thinkingLevel } : { model: ctx.model, thinkingLevel };
+}
+
+export function buildPiLaunchArgs(
+	initialArgument: string,
+	launchOptions: PiLaunchOptions,
+): string[] {
+	const args = ["pi"];
+	if (launchOptions.model !== undefined) {
+		args.push("--provider", launchOptions.model.provider, "--model", launchOptions.model.id);
 	}
-	return { model: ctx.model, thinkingLevel };
+	if (launchOptions.thinkingLevel !== "off") args.push("--thinking", launchOptions.thinkingLevel);
+	args.push(initialArgument);
+	return args;
 }
 
 export function buildPiLaunchCommand(
 	initialArgument: string,
 	launchOptions: PiLaunchOptions,
 ): string {
-	const args = ["pi"];
-	if (launchOptions.model !== undefined) {
-		args.push("--provider", launchOptions.model.provider, "--model", launchOptions.model.id);
-	}
-	if (launchOptions.thinkingLevel !== "off") {
-		args.push("--thinking", launchOptions.thinkingLevel);
-	}
-	args.push(initialArgument);
-	return args.map(formatShellArg).join(" ");
+	return buildPiLaunchArgs(initialArgument, launchOptions).map(formatShellArg).join(" ");
 }

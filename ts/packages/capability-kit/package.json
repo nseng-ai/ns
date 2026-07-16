@@ -15,6 +15,9 @@
 		"./content-slug": "./src/kit/content-slug.ts",
 		"./gateway-result": "./src/kit/gateway-result.ts",
 		"./json-input": "./src/kit/json-input.ts",
+		"./pi-launch": "./src/kit/pi-launch.ts",
+		"./pi-types": "./src/kit/pi-types.ts",
+		"./tracked-branch-payload": "./src/kit/tracked-branch-payload.ts",
 		"./model-slug": "./src/kit/model-slug.ts",
 		"./model-policy": "./src/kit/model-policy.ts",
 		"./pending-worktree": "./src/kit/pending-worktree.ts",
@@ -44,8 +47,10 @@
 		"./cmux/command": "./src/cmux/command.ts",
 		"./cmux/gateway": "./src/cmux/gateway.ts",
 		"./cmux/focused-terminal-tab": "./src/cmux/focused-terminal-tab.ts",
-		"./cmux/pi-launch": "./src/cmux/pi-launch.ts",
 		"./cmux/types": "./src/cmux/types.ts"
+	},
+	"publishConfig": {
+		"access": "public"
 	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json",
@@ -69,12 +74,11 @@
 		],
 		"settings": [
 			{
-				"path": ["models"],
+				"path": [
+					"models"
+				],
 				"description": "Shared model profiles and operation overrides."
 			}
 		]
-	},
-	"publishConfig": {
-		"access": "public"
 	}
 }

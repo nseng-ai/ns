@@ -20,10 +20,7 @@ export {
 } from "../core/dispatch-prompt.ts";
 
 // Dispatch from trunk
-export {
-	handleCccSlotDispatchFromTrunk,
-	createTrackedBranchFromTrunkForPrompt,
-} from "../core/dispatch-from-trunk.ts";
+export { handleCccSlotDispatchFromTrunk } from "../core/dispatch-from-trunk.ts";
 
 // Slot open branch
 export {

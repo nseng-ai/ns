@@ -11,12 +11,93 @@ import {
 	type PlanStoreDirectoryEvidence,
 	type SavedPlanFileEvidence,
 } from "../src/index.ts";
+import { prepareLatestSessionSavedPlan } from "../src/api.ts";
 import { InMemoryPlanStoreGateway } from "../src/testing.ts";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 
 const SOURCE_BRANCH = "feature/source-plan";
 const PLAN_SLUG = "canonical-saved-plan";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
 const ORIGIN = "git@github.com:owner/repo.git";
+
+describe("prepareLatestSessionSavedPlan", () => {
+	const commands: CommandExecApi = {
+		async exec() {
+			throw new Error("unexpected command execution");
+		},
+	};
+
+	test("returns directory evidence with the latest validated session plan", async () => {
+		const fixture = await makeFixture();
+		const filePath = await writePlanFile(fixture, fixture.directory, PLAN_KEY, 1_800_000_000_000);
+		const git = new InMemoryGitGateway({
+			repoRoot: fixture.root,
+			optionalRepoRoot: fixture.root,
+			currentBranch: SOURCE_BRANCH,
+			originUrl: ORIGIN,
+		});
+
+		const result = await prepareLatestSessionSavedPlan(commands, {
+			cwd: fixture.root,
+			planStoreRoot: planStoreRoot(fixture),
+			entries: [savedPlanEntry(evidence(fixture.directory, { filePath }))],
+			git,
+			planStoreGateway: fixture.planStoreGateway,
+		});
+
+		expect(result).toMatchObject({
+			ok: true,
+			directory: fixture.directory,
+			plan: { filePath, slug: PLAN_SLUG },
+		});
+	});
+
+	test("returns the caller-neutral not-found message", async () => {
+		const fixture = await makeFixture();
+		const git = new InMemoryGitGateway({
+			repoRoot: fixture.root,
+			optionalRepoRoot: fixture.root,
+			currentBranch: SOURCE_BRANCH,
+			originUrl: ORIGIN,
+		});
+
+		const result = await prepareLatestSessionSavedPlan(commands, {
+			cwd: fixture.root,
+			planStoreRoot: planStoreRoot(fixture),
+			entries: [],
+			git,
+			planStoreGateway: fixture.planStoreGateway,
+		});
+
+		expect(result).toEqual({
+			ok: false,
+			error:
+				"No saved plan from /ns:plan:save was found in the current session branch.\nRun /ns:plan:save first, then rerun the dispatch command.",
+		});
+	});
+
+	test("rejects unsafe selected-plan evidence through the public operation", async () => {
+		const fixture = await makeFixture();
+		const outsidePath = await writeOutsidePlanFile(fixture);
+		const git = new InMemoryGitGateway({
+			repoRoot: fixture.root,
+			optionalRepoRoot: fixture.root,
+			currentBranch: SOURCE_BRANCH,
+			originUrl: ORIGIN,
+		});
+
+		const result = await prepareLatestSessionSavedPlan(commands, {
+			cwd: fixture.root,
+			planStoreRoot: planStoreRoot(fixture),
+			entries: [savedPlanEntry(evidence(fixture.directory, { filePath: outsidePath }))],
+			git,
+			planStoreGateway: fixture.planStoreGateway,
+		});
+
+		expect(result).toMatchObject({ ok: false, error: expect.stringContaining("outside") });
+	});
+});
 
 describe("saved plan session selection", () => {
 	test("returns the newest valid session evidence and preserves summary", async () => {
@@ -302,6 +383,13 @@ interface Fixture {
 	root: string;
 	directory: PlanStoreDirectoryEvidence;
 	planStoreGateway: InMemoryPlanStoreGateway;
+}
+
+function planStoreRoot(fixture: Fixture): string {
+	return fixture.directory.repoDirectoryPath.slice(
+		0,
+		fixture.directory.repoDirectoryPath.length - `/${fixture.directory.repoKey}`.length,
+	);
 }
 
 async function makeFixture(): Promise<Fixture> {

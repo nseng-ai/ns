@@ -6,6 +6,9 @@
  *  - ns:herdr:surface:dispatch-plan
  *  - ns:herdr:workspace:open-branch
  */
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
@@ -24,10 +27,18 @@ import {
 import { openBranchInHerdrWorkspace, openBranchInHerdrCallerTab } from "../src/core/slot.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import { createCliHerdrGateway } from "../src/core/cli-gateway.ts";
+import {
+	handleHerdrSlotDispatchPrompt,
+	resolveDispatchPromptPayloadOptions,
+} from "../src/core/dispatch-prompt.ts";
+import { handleHerdrSlotDispatchFromTrunk } from "../src/core/dispatch-from-trunk.ts";
 import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { createBranchContextContext } from "@nseng-ai/branch-context/api";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { buildTrackedBranchSlugPrompt } from "@nseng-ai/capability-kit/tracked-branch-payload";
+import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/command";
 
 import {
@@ -54,6 +65,28 @@ import {
 } from "./herdr-test-harness.ts";
 
 afterEach(resetHerdrTestEnvironment);
+
+const DISPATCH_PROMPT_NAMESPACE = "ns-dispatch";
+const DISPATCH_PROMPT_KEY = "prompt.md";
+const TRUNK_BRANCH = "master";
+
+function brmemCheckJson(isPresent: boolean): string {
+	return JSON.stringify({ exitCode: 0, data: { present: isPresent } });
+}
+
+function dispatchPromptPutJson(sourceFile: string): string {
+	return JSON.stringify({
+		exitCode: 0,
+		data: {
+			namespace: DISPATCH_PROMPT_NAMESPACE,
+			key: DISPATCH_PROMPT_KEY,
+			branch: BRANCH,
+			refName: `refs/brmem/ns/${DISPATCH_PROMPT_NAMESPACE}/${BRANCH}:${DISPATCH_PROMPT_KEY}`,
+			commit: START_POINT,
+			sourceFile,
+		},
+	});
+}
 
 // ---------------------------------------------------------------------------
 // A minimal test slot client that simulates a successful checkout.
@@ -169,6 +202,249 @@ describe("ns:herdr:workspace:open-branch", () => {
 });
 
 // ---------------------------------------------------------------------------
+// workspace:dispatch-prompt and workspace:dispatch-from-trunk
+// ---------------------------------------------------------------------------
+
+describe("Herdr prompt dispatch", () => {
+	test("stores a neutral payload and launches it in the created workspace", async () => {
+		const stagingDir = await makeTempDir();
+		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
+		const prompt = "Implement the Herdr dispatch flow";
+		const pi = new FakePi({
+			script: [
+				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
+				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
+				gitRootStep(ROOT),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildTrackedBranchSlugPrompt({ kind: "task", content: prompt })),
+					{ stdout: `${BRANCH}\n` },
+				),
+				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
+				step("git", ["branch", BRANCH, "HEAD"], {}),
+				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
+				step(
+					"brmem",
+					[
+						"check",
+						DISPATCH_PROMPT_KEY,
+						"--namespace",
+						DISPATCH_PROMPT_NAMESPACE,
+						"--branch",
+						BRANCH,
+						"--format",
+						"json",
+					],
+					{ stdout: brmemCheckJson(false) },
+				),
+				step(
+					"brmem",
+					[
+						"put",
+						DISPATCH_PROMPT_KEY,
+						"--namespace",
+						DISPATCH_PROMPT_NAMESPACE,
+						"--branch",
+						BRANCH,
+						"--file",
+						stagedPromptFile,
+						"--format",
+						"json",
+					],
+					{ stdout: dispatchPromptPutJson(stagedPromptFile) },
+				),
+			],
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd: ROOT });
+
+		await handleHerdrSlotDispatchPrompt({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			payloadOptions: resolveDispatchPromptPayloadOptions({
+				stagingDir,
+				now: () => 123,
+				shouldCleanupStagingFile: false,
+			}),
+			slotClient: testSlotClient,
+			args: prompt,
+			ctx,
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(await readFile(stagedPromptFile, "utf8")).toContain(prompt);
+		expect(herdr.createWorkspaceCalls).toHaveLength(1);
+		expect(herdr.paneRunCalls).toHaveLength(1);
+		expect(herdr.paneRunCalls[0]?.command).toContain(
+			`brmem get ${DISPATCH_PROMPT_KEY} --namespace ${DISPATCH_PROMPT_NAMESPACE} --branch ${BRANCH}`,
+		);
+		expect(notificationMessages(ctx).join("\n")).toContain(
+			`${DISPATCH_PROMPT_NAMESPACE}/${DISPATCH_PROMPT_KEY}`,
+		);
+	});
+
+	test("dispatches from refreshed trunk through the neutral payload", async () => {
+		const stagingDir = await makeTempDir();
+		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
+		const prompt = "Implement the Herdr trunk flow";
+		const pi = new FakePi({
+			script: [
+				step("git", ["worktree", "list", "--porcelain"], {
+					stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n",
+				}),
+				step(
+					"git",
+					["fetch", "origin", `refs/heads/${TRUNK_BRANCH}:refs/heads/${TRUNK_BRANCH}`],
+					{},
+				),
+				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
+				gitRootStep(ROOT),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildTrackedBranchSlugPrompt({ kind: "task", content: prompt })),
+					{ stdout: `${BRANCH}\n` },
+				),
+				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
+				step("git", ["branch", BRANCH, TRUNK_BRANCH], {}),
+				step("gt", ["track", BRANCH, "--parent", TRUNK_BRANCH, "--no-interactive"], {}),
+				step(
+					"brmem",
+					[
+						"check",
+						DISPATCH_PROMPT_KEY,
+						"--namespace",
+						DISPATCH_PROMPT_NAMESPACE,
+						"--branch",
+						BRANCH,
+						"--format",
+						"json",
+					],
+					{ stdout: brmemCheckJson(false) },
+				),
+				step(
+					"brmem",
+					[
+						"put",
+						DISPATCH_PROMPT_KEY,
+						"--namespace",
+						DISPATCH_PROMPT_NAMESPACE,
+						"--branch",
+						BRANCH,
+						"--file",
+						stagedPromptFile,
+						"--format",
+						"json",
+					],
+					{ stdout: dispatchPromptPutJson(stagedPromptFile) },
+				),
+			],
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd: ROOT });
+
+		await handleHerdrSlotDispatchFromTrunk({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			payloadOptions: resolveDispatchPromptPayloadOptions({
+				stagingDir,
+				now: () => 123,
+				shouldCleanupStagingFile: false,
+			}),
+			graphite: { trunkBranch: async () => ({ ok: true, branch: TRUNK_BRANCH }) },
+			git: {
+				branchUpstream: async () => ({
+					type: "found",
+					value: { remoteName: "origin", remoteRef: `refs/heads/${TRUNK_BRANCH}` },
+				}),
+			},
+			slotClient: testSlotClient,
+			args: prompt,
+			ctx,
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(await readFile(stagedPromptFile, "utf8")).toContain(
+			"created from refreshed Graphite trunk",
+		);
+		expect(herdr.createWorkspaceCalls).toHaveLength(1);
+		expect(herdr.paneRunCalls[0]?.command).toContain(`--namespace ${DISPATCH_PROMPT_NAMESPACE}`);
+	});
+
+	test("does not open a Herdr workspace when payload storage fails", async () => {
+		const stagingDir = await makeTempDir();
+		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
+		const prompt = "Implement the Herdr dispatch flow";
+		const pi = new FakePi({
+			script: [
+				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
+				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
+				gitRootStep(ROOT),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildTrackedBranchSlugPrompt({ kind: "task", content: prompt })),
+					{ stdout: `${BRANCH}\n` },
+				),
+				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
+				step("git", ["branch", BRANCH, "HEAD"], {}),
+				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
+				step(
+					"brmem",
+					[
+						"check",
+						DISPATCH_PROMPT_KEY,
+						"--namespace",
+						DISPATCH_PROMPT_NAMESPACE,
+						"--branch",
+						BRANCH,
+						"--format",
+						"json",
+					],
+					{ stdout: brmemCheckJson(false) },
+				),
+				step(
+					"brmem",
+					[
+						"put",
+						DISPATCH_PROMPT_KEY,
+						"--namespace",
+						DISPATCH_PROMPT_NAMESPACE,
+						"--branch",
+						BRANCH,
+						"--file",
+						stagedPromptFile,
+						"--format",
+						"json",
+					],
+					{ code: 2, stderr: "cannot write entry\n" },
+				),
+			],
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd: ROOT });
+
+		await handleHerdrSlotDispatchPrompt({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			payloadOptions: resolveDispatchPromptPayloadOptions({ stagingDir, now: () => 123 }),
+			slotClient: testSlotClient,
+			args: prompt,
+			ctx,
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(herdr.createWorkspaceCalls).toEqual([]);
+		expect(herdr.paneRunCalls).toEqual([]);
+		expect(notificationMessages(ctx).join("\n")).toContain(
+			"failed to store dispatch prompt payload in Branch Memory",
+		);
+		expect(notificationMessages(ctx).join("\n")).toContain("No Herdr workspace was opened.");
+	});
+});
+
+// ---------------------------------------------------------------------------
 // workspace:dispatch-plan
 // ---------------------------------------------------------------------------
 
@@ -251,8 +527,13 @@ describe("ns:herdr:workspace:dispatch-plan", () => {
 			notifyProgress: () => {},
 		});
 
-		// Should hit "no saved plan" before reaching the workspace ID check
+		expect(pi.execCalls).toHaveLength(0);
 		expect(herdr.createTabCalls).toHaveLength(0);
+		expect(ctx.notifications).toContainEqual({
+			message:
+				"surface:dispatch-plan requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+			level: "error",
+		});
 	});
 });
 
@@ -265,7 +546,6 @@ describe("ns:herdr:surface:dispatch-plan", () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const pi = new FakePi({ script: [] });
 		const herdr = new FakeHerdrGateway();
-		// No saved plan → will fail before workspace check
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
 		await handleHerdrSlotDispatchPlan({
@@ -282,7 +562,65 @@ describe("ns:herdr:surface:dispatch-plan", () => {
 			notifyProgress: () => {},
 		});
 
+		expect(pi.execCalls).toHaveLength(0);
 		expect(herdr.createTabCalls).toHaveLength(0);
+	});
+
+	test("rejects a whitespace-only caller ID before plan lookup or progress", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "  \t ");
+		const pi = new FakePi({ script: [] });
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd: ROOT });
+		const progress: string[] = [];
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "",
+			ctx,
+			options: {},
+			config: {
+				commandName: "ns:herdr:surface:dispatch-plan",
+				statusKey: "ns:herdr:surface:dispatch-plan",
+				destination: "surface",
+			},
+			notifyProgress: (message) => progress.push(message),
+		});
+
+		expect(pi.execCalls).toEqual([]);
+		expect(progress).toEqual([]);
+		expect(ctx.waitCount).toBe(0);
+		expect(herdr.createTabCalls).toEqual([]);
+		expect(ctx.notifications.at(-1)?.message).toBe(
+			"surface:dispatch-plan requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+		);
+	});
+
+	test("shows surface help without a caller ID", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
+		const pi = new FakePi({ script: [] });
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd: ROOT });
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "--help",
+			ctx,
+			options: {},
+			config: {
+				commandName: "ns:herdr:surface:dispatch-plan",
+				statusKey: "ns:herdr:surface:dispatch-plan",
+				destination: "surface",
+			},
+			notifyProgress: () => {},
+		});
+
+		expect(pi.execCalls).toEqual([]);
+		expect(ctx.waitCount).toBe(0);
+		expect(notificationMessages(ctx).join("\n")).toContain(
+			"Usage: /ns:herdr:surface:dispatch-plan [--dry-run]",
+		);
 	});
 });
 
@@ -680,12 +1018,94 @@ describe("ns:herdr:workspace:dispatch-plan — dry-run (no Herdr mutations)", ()
 		const dryRunMessages = messages.filter((m) => m.includes("Dry run") || m.includes("dry-run"));
 		expect(
 			dryRunMessages.length > 0 || ctx.notifications.some((n) => n.message.includes("workspace")),
-		);
+		).toBe(true);
 	});
 });
 
 describe("ns:herdr:surface:dispatch-plan — dry-run (no Herdr mutations)", () => {
-	test("dry-run shows surface preview without creating tab or pane", async () => {
+	test("dry-run requires a valid caller ID before repository or plan lookup", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
+		const pi = new FakePi({ script: [] });
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd: ROOT });
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "--dry-run",
+			ctx,
+			options: {},
+			config: {
+				commandName: "ns:herdr:surface:dispatch-plan",
+				statusKey: "ns:herdr:surface:dispatch-plan",
+				destination: "surface",
+			},
+			notifyProgress: () => {},
+		});
+
+		expect(pi.execCalls).toEqual([]);
+		expect(ctx.waitCount).toBe(0);
+		expect(herdr.createTabCalls).toEqual([]);
+	});
+
+	test("captures the exact caller ID and carries it to the created tab", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace-exact");
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		const pi = new FakePi({
+			script: [
+				...dispatchValidationScript(repoRoot),
+				gitRootStep(repoRoot),
+				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
+					stdout: `${PLAN_SLUG}\n`,
+				}),
+			],
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			branchEntries: [savedPlanEntry(repoRoot, planFile)],
+		});
+		const options = herdrDispatchPlanTestOptions(planStoreRoot);
+		let contextConstructions = 0;
+		options.createBranchContextContext = (_commands, _cwd) => {
+			contextConstructions += 1;
+			return {
+				commands: createHerdrPiCommandApi(pi),
+				git: new InMemoryGitGateway({
+					optionalRepoRoot: { type: "missing" },
+					currentBranch: SOURCE_BRANCH,
+					headCommit: START_POINT,
+				}),
+				brmem: new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
+				graphite: new InMemoryGraphiteBranchGateway(),
+			};
+		};
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "",
+			ctx,
+			options,
+			config: {
+				commandName: "ns:herdr:surface:dispatch-plan",
+				statusKey: "ns:herdr:surface:dispatch-plan",
+				destination: "surface",
+			},
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(contextConstructions).toBe(1);
+		expect(herdr.createTabCalls).toHaveLength(1);
+		expect(herdr.createTabCalls[0]?.options.workspaceId).toBe("caller-workspace-exact");
+		expect(herdr.createTabCalls[0]?.options.focus).toBe(true);
+	});
+
+	test("valid-ID dry-run shows surface preview without creating tab or pane", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace-dry-run");
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, {

@@ -1,5 +1,5 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
-import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
 
 import { createCliHerdrGateway } from "../core/cli-gateway.ts";
 import { HERDR_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME } from "../core/command-surfaces.ts";

@@ -347,9 +347,6 @@ importers:
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
-      '@nseng-ai/cmux':
-        specifier: workspace:*
-        version: link:../cmux
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation

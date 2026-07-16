@@ -24,7 +24,7 @@ import registerCccExtension, {
 } from "@nseng-ai/cmux/pi";
 import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
-import { buildSlugPrompt } from "../src/core/branch-slug.ts";
+import { buildTrackedBranchSlugPrompt } from "@nseng-ai/capability-kit/tracked-branch-payload";
 import { buildLaunchPrompt } from "../src/core/dispatch-prompt.ts";
 import {
 	BRANCH,
@@ -57,7 +57,7 @@ import {
 const SAVED_PLAN_FILENAME_SLUG = "saved-plan-local-locator";
 const SAVED_PLAN_FILE_NAME = `${SAVED_PLAN_FILENAME_SLUG}.md`;
 const PLAN_CONTENT = "# Plan\n";
-const DISPATCH_PROMPT_NAMESPACE = "cmux-dispatch";
+const DISPATCH_PROMPT_NAMESPACE = "ns-dispatch";
 const TRUNK_UPSTREAM = { remoteName: "company", remoteRef: "refs/heads/stable" };
 
 function branchUpstreamArgs(branch: string): string[] {
@@ -365,7 +365,15 @@ describe("cmux command suite", () => {
 				),
 			],
 		});
-		registerCccSlotDispatchPlanCommand(pi, branchContextTestOptions(planStoreRoot));
+		const options = branchContextTestOptions(planStoreRoot);
+		const baseFactory = options.createBranchContextContext;
+		if (baseFactory === undefined) throw new Error("Expected a branch-context factory.");
+		let contextConstructions = 0;
+		options.createBranchContextContext = (factoryPi, cwd) => {
+			contextConstructions += 1;
+			return baseFactory(factoryPi, cwd);
+		};
+		registerCccSlotDispatchPlanCommand(pi, options);
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			model: PREVIOUS_MODEL,
@@ -375,6 +383,7 @@ describe("cmux command suite", () => {
 		await pi.commands.get("ns:cmux:workspace:dispatch-plan")?.handler("", ctx);
 
 		pi.assertDone();
+		expect(contextConstructions).toBe(1);
 		expect(pi.sentMessages[0]?.details).toMatchObject({ status: "success" });
 		expect(
 			notificationMessages(ctx).some((message) =>
@@ -656,7 +665,10 @@ describe("cmux command suite", () => {
 				step(
 					"pi",
 					buildRawTextModelArgs(
-						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
+						buildTrackedBranchSlugPrompt({
+							kind: "task",
+							content: "Implement the cmux dispatch flow",
+						}),
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -771,7 +783,10 @@ describe("cmux command suite", () => {
 				step(
 					"pi",
 					buildRawTextModelArgs(
-						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
+						buildTrackedBranchSlugPrompt({
+							kind: "task",
+							content: "Implement the cmux dispatch flow",
+						}),
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -889,7 +904,10 @@ describe("cmux command suite", () => {
 				step(
 					"pi",
 					buildRawTextModelArgs(
-						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
+						buildTrackedBranchSlugPrompt({
+							kind: "task",
+							content: "Implement the cmux dispatch flow",
+						}),
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -1102,7 +1120,10 @@ describe("cmux command suite", () => {
 				step(
 					"pi",
 					buildRawTextModelArgs(
-						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
+						buildTrackedBranchSlugPrompt({
+							kind: "task",
+							content: "Implement the cmux dispatch flow",
+						}),
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -1231,7 +1252,10 @@ describe("cmux command suite", () => {
 				step(
 					"pi",
 					buildRawTextModelArgs(
-						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
+						buildTrackedBranchSlugPrompt({
+							kind: "task",
+							content: "Implement the cmux dispatch flow",
+						}),
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -1282,7 +1306,10 @@ describe("cmux command suite", () => {
 				step(
 					"pi",
 					buildRawTextModelArgs(
-						buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" }),
+						buildTrackedBranchSlugPrompt({
+							kind: "task",
+							content: "Implement the cmux dispatch flow",
+						}),
 					),
 					{ stdout: `${BRANCH}\n` },
 				),

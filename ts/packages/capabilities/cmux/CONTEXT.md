@@ -1,11 +1,11 @@
 # @nseng-ai/cmux
 
-`@nseng-ai/cmux` is the private cmux capability: it drives cmux workspaces for repo-local dispatch, sidebar, workspace-summary, and planning flows.
+`@nseng-ai/cmux` is the private cmux capability: it drives cmux workspaces and surfaces for repo-local dispatch, sidebar, workspace-summary, and planning flows. Shared Git/Graphite/Branch Memory prompt preparation belongs to Capability Kit; Saved Plan and attachment preparation belongs to Plans and Branch Context.
 
 ## Language
 
 **cmux capability**:
-The first-party **Capability** that drives cmux workspaces and surfaces by composing branch, plan, slot, and Pi-session inputs into workspace operations.
+The first-party **Capability** that owns cmux destination behavior by composing prepared branch/plan evidence, slot checkout, and Pi-session inputs into workspace or surface operations.
 *Avoid*: CCC, Cmux Command and Control, orchestration layer, generic cmux wrapper
 
 **Prompt dispatch**:

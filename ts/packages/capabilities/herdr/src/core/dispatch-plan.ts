@@ -10,31 +10,28 @@
  */
 import {
 	BRANCH_CONTEXT_NAMESPACE,
-	buildBranchContextCreateOperation,
 	buildBranchContextOutputMessage,
-	createBranchContextFromFile,
+	createPreparedPlanBranchContext,
 	createRealBranchContextContext,
-	derivePlanContentSlug,
+	preparePlanBranchContext,
 	formatBranchContextEvidence,
 	formatBranchContextCreateFailure,
-	formatBranchContextCreatePreview,
-	resolveBranchContextCreatePreviewContext,
 	type BranchContextContext,
 	type BranchContextContextFactory,
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
+	type ReadyPreparedPlanBranchContext,
 } from "@nseng-ai/branch-context/api";
 import {
-	findLatestSessionSavedPlanFile,
-	resolvePlanStoreDirectory,
+	prepareLatestSessionSavedPlan,
 	type PlanStoreDirectoryEvidence,
 	type ValidatedSessionSavedPlan,
 } from "@nseng-ai/plans/api";
-import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
-import type { PiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
+import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
+import type { PiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/cmux/types";
+import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
 import type { SlotClient } from "@nseng-ai/slots/api";
 import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/pi";
 
@@ -44,8 +41,6 @@ import { createHerdrSlotClient } from "./slot-checkout.ts";
 import { getCallerWorkspaceId } from "./sidebar.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
-
-const BRANCH_CREATION = "graphite";
 
 export type DispatchDestination = "workspace" | "surface";
 
@@ -91,46 +86,44 @@ export async function handleHerdrSlotDispatchPlan(
 		return;
 	}
 
+	const callerWorkspaceId = config.destination === "surface" ? getCallerWorkspaceId() : undefined;
+	if (config.destination === "surface" && callerWorkspaceId === undefined) {
+		present(
+			ctx,
+			"surface:dispatch-plan requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+			"error",
+		);
+		return;
+	}
+
 	options.notifyProgress("Finding latest saved plan…");
 	await ctx.waitForIdle();
 	setStatus(ctx, config, "finding latest saved plan…");
 
 	try {
-		const checkout = await resolveCurrentCheckout(pi, ctx.cwd, options.options);
-		if ("error" in checkout) {
-			present(ctx, checkout.error, "error");
-			return;
-		}
-
-		const selected = await resolveLatestSavedPlanFromSession(ctx, checkout);
-		if ("error" in selected) {
+		const selected = await prepareLatestSessionSavedPlan(pi, {
+			cwd: ctx.cwd,
+			entries: ctx.sessionManager?.getBranch?.() ?? [],
+			...optionalEntry("planStoreRoot", options.options.planStoreRoot),
+		});
+		if (!selected.ok) {
 			present(ctx, selected.error, "error");
 			return;
 		}
 
+		const checkout = selected.directory;
 		const selectedPlan = selected.plan;
 		setStatus(ctx, config, "deriving branch-context slug…");
-		const slugEvidence = await derivePlanContentSlug(pi, {
-			filePath: selectedPlan.filePath,
-			cwd: checkout.repoRoot,
+		const prepared = await preparePlanBranchContext(pi, {
+			plan: selectedPlan,
+			checkout,
+			context: dispatchBranchContextContext(pi, checkout.repoRoot, options.options),
+			shouldBuildPreview: parsed.isDryRun,
 		});
-		const operation = buildBranchContextCreateOperation({
-			slug: slugEvidence.slug,
-			filePath: selectedPlan.filePath,
-			branchCreation: BRANCH_CREATION,
-			...optionalEntry("summary", selectedPlan.summary),
-		});
+		const operation = prepared.operation;
 
-		if (parsed.isDryRun) {
+		if (prepared.type === "preview") {
 			const launchOptions = getPiLaunchOptions(pi, ctx);
-			const previewContext = await resolveBranchContextCreatePreviewContext(pi, {
-				cwd: checkout.repoRoot,
-				context: dispatchBranchContextContext(pi, checkout.repoRoot, options.options),
-			});
-			const branchContextPreview = formatBranchContextCreatePreview(operation, {
-				...previewContext,
-				graphiteParentBranch: checkout.sourceBranch,
-			});
 			presentBranchContextMessage(
 				pi,
 				ctx,
@@ -138,7 +131,7 @@ export async function handleHerdrSlotDispatchPlan(
 					plan: selectedPlan,
 					checkout,
 					operation,
-					branchContextPreview,
+					branchContextPreview: prepared.preview,
 					launchOptions,
 					config,
 				}),
@@ -152,10 +145,10 @@ export async function handleHerdrSlotDispatchPlan(
 			pi,
 			herdr,
 			ctx,
-			checkout,
-			operation,
+			prepared,
 			config,
 			dispatchOptions: options.options,
+			...(callerWorkspaceId === undefined ? {} : { callerWorkspaceId }),
 		});
 	} catch (error) {
 		present(ctx, `/dispatch-plan failed unexpectedly.\n${formatErrorMessage(error)}`, "error");
@@ -197,66 +190,24 @@ function parseCommandArgs(rawArgs: string): CommandArgs | { error: string } {
 	return parsed;
 }
 
-async function resolveLatestSavedPlanFromSession(
-	ctx: CommandContext,
-	directory: PlanStoreDirectoryEvidence,
-): Promise<{ plan: ValidatedSessionSavedPlan } | { error: string }> {
-	const result = await findLatestSessionSavedPlanFile(
-		ctx.sessionManager?.getBranch?.() ?? [],
-		directory,
-	);
-	switch (result.type) {
-		case "found":
-			return { plan: result.plan };
-		case "unsafe":
-			return { error: result.message };
-		case "not-found":
-			return {
-				error: [
-					"No saved plan from /ns:plan:save was found in the current session branch.",
-					"Run /ns:plan:save first, then rerun the dispatch command.",
-				].join("\n"),
-			};
-	}
-}
-
-async function resolveCurrentCheckout(
-	pi: HerdrPiCommandApi,
-	cwd: string,
-	options: HerdrSlotDispatchPlanOptions,
-): Promise<PlanStoreDirectoryEvidence | { error: string }> {
-	try {
-		return await resolvePlanStoreDirectory(pi, {
-			cwd,
-			...optionalEntry("planStoreRoot", options.planStoreRoot),
-		});
-	} catch (error) {
-		return {
-			error: `Could not resolve current repository and source branch.\n${formatErrorMessage(error)}`,
-		};
-	}
-}
-
 async function createAttachAndLaunch(options: {
 	pi: HerdrPiCommandApi;
 	herdr: HerdrGateway;
 	ctx: CommandContext;
-	checkout: PlanStoreDirectoryEvidence;
-	operation: BranchContextCreateOperation;
+	prepared: ReadyPreparedPlanBranchContext;
 	config: DispatchPlanConfig;
 	dispatchOptions: HerdrSlotDispatchPlanOptions;
+	callerWorkspaceId?: string;
 }): Promise<void> {
-	const { pi, herdr, ctx, checkout, operation, config, dispatchOptions } = options;
+	const { pi, herdr, ctx, prepared, config, dispatchOptions } = options;
+	const { checkout, operation } = prepared;
 
 	present(ctx, `Creating Graphite-tracked branch context ${operation.branch}…`, "info");
 	setStatus(ctx, config, "creating branch and attaching plan…");
 
 	let evidence: BranchContextEvidence;
 	try {
-		evidence = await createBranchContextFromFile(pi, operation.params, {
-			cwd: checkout.repoRoot,
-			context: dispatchBranchContextContext(pi, checkout.repoRoot, dispatchOptions),
-		});
+		evidence = await createPreparedPlanBranchContext(pi, prepared);
 	} catch (error) {
 		const failure = formatBranchContextCreateFailure(operation, error);
 		present(ctx, failure.replace("\n\n", "\nNo Herdr workspace was opened.\n\n"), "error");
@@ -304,14 +255,10 @@ async function createAttachAndLaunch(options: {
 		return;
 	}
 
-	// surface destination: open a tab in the caller's Herdr workspace
-	const callerWorkspaceId = getCallerWorkspaceId();
-	if (!callerWorkspaceId) {
-		ctx.ui.notify(
-			"surface:dispatch-plan requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
-			"error",
-		);
-		return;
+	// The surface precondition captured this before any plan lookup or durable mutation.
+	const callerWorkspaceId = options.callerWorkspaceId;
+	if (callerWorkspaceId === undefined) {
+		throw new Error("Missing validated Herdr caller workspace ID for surface launch.");
 	}
 
 	setStatus(ctx, config, "opening Herdr tab…");
