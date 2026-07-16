@@ -18,6 +18,70 @@ export interface HerdrGateway {
 	 * non-zero or the workspace is not found.
 	 */
 	renameWorkspace(workspaceId: string, label: string): Promise<HerdrWorkspaceRenameResult>;
+
+	/**
+	 * Create a new Herdr workspace, without focusing it.
+	 *
+	 * Maps to: `herdr workspace create --no-focus [--cwd <cwd>] [--label <label>]`
+	 *
+	 * Returns the created workspace ID, root pane ID, and root tab ID on success.
+	 * Returns `{ type: "failed"; message: string }` on non-zero exit or parse
+	 * failure.
+	 */
+	createWorkspace(options: HerdrCreateWorkspaceOptions): Promise<HerdrCreateWorkspaceResult>;
+
+	/**
+	 * Create a new Herdr tab inside an existing workspace.
+	 *
+	 * Maps to:
+	 * `herdr tab create --workspace <workspaceId> [--focus|--no-focus] [--cwd <cwd>] [--label <label>]`
+	 *
+	 * Pass `focus: true` to activate/focus the tab immediately after creation
+	 * (used for surface dispatch so the caller sees the new tab). Defaults to
+	 * `false` (`--no-focus`).
+	 *
+	 * Returns the created tab ID, root pane ID, and workspace ID on success.
+	 * Returns `{ type: "failed"; message: string }` on non-zero exit or parse
+	 * failure.
+	 */
+	createTab(options: HerdrCreateTabOptions): Promise<HerdrCreateTabResult>;
+
+	/**
+	 * Run a shell command inside a specific Herdr pane (sends the text + Enter).
+	 *
+	 * Maps to: `herdr pane run <paneId> <command>`
+	 *
+	 * Returns `{ type: "ok" }` on success (exit code 0).
+	 * Returns `{ type: "failed"; message: string }` on non-zero exit.
+	 */
+	runInPane(paneId: string, command: string): Promise<HerdrPaneRunResult>;
 }
 
 export type HerdrWorkspaceRenameResult = { type: "applied" } | { type: "failed"; message: string };
+
+export interface HerdrCreateWorkspaceOptions {
+	cwd: string;
+	label?: string;
+}
+
+export type HerdrCreateWorkspaceResult =
+	| { type: "created"; workspaceId: string; rootPaneId: string; tabId: string }
+	| { type: "failed"; message: string };
+
+export interface HerdrCreateTabOptions {
+	workspaceId: string;
+	cwd?: string;
+	label?: string;
+	/**
+	 * When `true`, the Herdr CLI creates the tab with `--focus` so it becomes
+	 * immediately visible to the user. When `false` or omitted, `--no-focus`
+	 * is used.
+	 */
+	focus?: boolean;
+}
+
+export type HerdrCreateTabResult =
+	| { type: "created"; tabId: string; rootPaneId: string; workspaceId: string }
+	| { type: "failed"; message: string };
+
+export type HerdrPaneRunResult = { type: "ok" } | { type: "failed"; message: string };

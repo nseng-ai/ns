@@ -1,6 +1,12 @@
-import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import {
+	buildRepoPlanStoreKey,
+	encodeBranchForPlanPath,
+	normalizeRepoOriginUrl,
+} from "@nseng-ai/plans/api";
 
 import type {
 	AutocompleteProvider,
@@ -24,7 +30,15 @@ import {
 	type ObjectiveSelectionSpec,
 } from "@nseng-ai/objectives/api";
 
-import type { HerdrGateway, HerdrWorkspaceRenameResult } from "../src/core/herdr-gateway.ts";
+import type {
+	HerdrCreateTabOptions,
+	HerdrCreateTabResult,
+	HerdrCreateWorkspaceOptions,
+	HerdrCreateWorkspaceResult,
+	HerdrGateway,
+	HerdrPaneRunResult,
+	HerdrWorkspaceRenameResult,
+} from "../src/core/herdr-gateway.ts";
 
 type RawPiExecResultFixture = Partial<RawPiExecResult>;
 
@@ -55,10 +69,18 @@ export interface FakeCommandContextOptions {
 	cwd?: string;
 	selectIndices?: number[];
 	shouldCancelSelect?: boolean;
+	branchEntries?: unknown[];
 }
 
 export const ROOT = "/repo";
+export const WORKTREE = "/slot/worktree";
+export const BRANCH = "herdr-dispatch-feature";
+export const PLAN_SLUG = "herdr-dispatch-feature";
+export const PLAN_KEY = `${PLAN_SLUG}.md`;
 export const SOURCE_BRANCH = "herdr-capability-parity";
+export const START_POINT = "deadbeef1234567890abcdef1234567890abcdef";
+export const PLAN_CONTENT = "# Plan\n";
+export const REPO_ORIGIN_URL = "git@github.com:owner/repo.git";
 
 // ---------------------------------------------------------------------------
 // FakePi — scripted Pi ExtensionAPI for herdr tests
@@ -191,9 +213,10 @@ export class FakeCommandContext implements CommandContext {
 		this.selectIndices = [...(options.selectIndices ?? [0])];
 		this.shouldCancelSelect = options.shouldCancelSelect ?? false;
 		this.modelRegistry = { find: () => undefined };
+		const branchEntries = options.branchEntries ?? [];
 		this.sessionManager = {
-			getBranch: () => [],
-			getEntries: () => [],
+			getBranch: () => branchEntries,
+			getEntries: () => branchEntries,
 		};
 		this.ui = {
 			notify: (message, level) => {
@@ -231,17 +254,72 @@ export interface FakeRenameCall {
 	label: string;
 }
 
+export interface FakeCreateWorkspaceCall {
+	options: HerdrCreateWorkspaceOptions;
+}
+
+export interface FakeCreateTabCall {
+	options: HerdrCreateTabOptions;
+}
+
+export interface FakePaneRunCall {
+	paneId: string;
+	command: string;
+}
+
+export interface FakeHerdrGatewayOptions {
+	renameResult?: HerdrWorkspaceRenameResult;
+	createWorkspaceResult?: HerdrCreateWorkspaceResult;
+	createTabResult?: HerdrCreateTabResult;
+	paneRunResult?: HerdrPaneRunResult;
+}
+
 export class FakeHerdrGateway implements HerdrGateway {
 	readonly renameCalls: FakeRenameCall[] = [];
-	private readonly renameResult: HerdrWorkspaceRenameResult;
+	readonly createWorkspaceCalls: FakeCreateWorkspaceCall[] = [];
+	readonly createTabCalls: FakeCreateTabCall[] = [];
+	readonly paneRunCalls: FakePaneRunCall[] = [];
 
-	constructor(options: { renameResult?: HerdrWorkspaceRenameResult } = {}) {
+	private readonly renameResult: HerdrWorkspaceRenameResult;
+	private readonly createWorkspaceResult: HerdrCreateWorkspaceResult;
+	private readonly createTabResult: HerdrCreateTabResult;
+	private readonly paneRunResult: HerdrPaneRunResult;
+
+	constructor(options: FakeHerdrGatewayOptions = {}) {
 		this.renameResult = options.renameResult ?? { type: "applied" };
+		this.createWorkspaceResult = options.createWorkspaceResult ?? {
+			type: "created",
+			workspaceId: "fake-ws-1",
+			rootPaneId: "fake-ws-1:p1",
+			tabId: "fake-ws-1:t1",
+		};
+		this.createTabResult = options.createTabResult ?? {
+			type: "created",
+			tabId: "fake-ws-1:t2",
+			rootPaneId: "fake-ws-1:p2",
+			workspaceId: "fake-ws-1",
+		};
+		this.paneRunResult = options.paneRunResult ?? { type: "ok" };
 	}
 
 	async renameWorkspace(workspaceId: string, label: string): Promise<HerdrWorkspaceRenameResult> {
 		this.renameCalls.push({ workspaceId, label });
 		return this.renameResult;
+	}
+
+	async createWorkspace(options: HerdrCreateWorkspaceOptions): Promise<HerdrCreateWorkspaceResult> {
+		this.createWorkspaceCalls.push({ options });
+		return this.createWorkspaceResult;
+	}
+
+	async createTab(options: HerdrCreateTabOptions): Promise<HerdrCreateTabResult> {
+		this.createTabCalls.push({ options });
+		return this.createTabResult;
+	}
+
+	async runInPane(paneId: string, command: string): Promise<HerdrPaneRunResult> {
+		this.paneRunCalls.push({ paneId, command });
+		return this.paneRunResult;
 	}
 }
 
@@ -388,6 +466,76 @@ export function objectiveStatusStep(
 		stdout,
 		...result,
 	});
+}
+
+// ---------------------------------------------------------------------------
+// Plan store helpers (mirrors cmux-test-harness equivalents)
+// ---------------------------------------------------------------------------
+
+export function gitRootStep(repoRoot: string): ScriptedExec {
+	return step("git", ["rev-parse", "--show-toplevel"], { stdout: `${repoRoot}\n` });
+}
+
+export function gitCurrentBranchStep(): ScriptedExec {
+	return step("git", ["branch", "--show-current"], { stdout: `${SOURCE_BRANCH}\n` });
+}
+
+export function gitOriginStep(): ScriptedExec {
+	return step("git", ["config", "--get", "remote.origin.url"], {
+		stdout: `${REPO_ORIGIN_URL}\n`,
+	});
+}
+
+export function headStep(): ScriptedExec {
+	return step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` });
+}
+
+export function dispatchValidationScript(repoRoot: string): ScriptedExec[] {
+	return [gitRootStep(repoRoot), gitCurrentBranchStep(), gitOriginStep()];
+}
+
+export function herdrPlanStoreDirectory(planStoreRoot: string, repoRoot: string): string {
+	const repoKey = buildRepoPlanStoreKey(repoRoot, normalizeRepoOriginUrl(REPO_ORIGIN_URL));
+	const branchKey = encodeBranchForPlanPath(SOURCE_BRANCH);
+	return join(planStoreRoot, repoKey, branchKey);
+}
+
+export async function writePlanStoreFile(
+	planStoreRoot: string,
+	repoRoot: string,
+	options: { fileName?: string; content?: string } = {},
+): Promise<string> {
+	const directoryPath = herdrPlanStoreDirectory(planStoreRoot, repoRoot);
+	await mkdir(directoryPath, { recursive: true });
+	const planFile = join(directoryPath, options.fileName ?? `${PLAN_SLUG}.md`);
+	await writeFile(planFile, options.content ?? PLAN_CONTENT, "utf8");
+	return planFile;
+}
+
+export function savedPlanEntry(
+	repoRoot: string,
+	planFile: string,
+	overrides: Record<string, unknown> = {},
+): unknown {
+	return {
+		type: "message",
+		message: {
+			role: "toolResult",
+			toolName: "write_saved_plan_file",
+			isError: false,
+			details: {
+				slug: PLAN_SLUG,
+				repoRoot,
+				repoKey: buildRepoPlanStoreKey(repoRoot, normalizeRepoOriginUrl(REPO_ORIGIN_URL)),
+				repoIdentitySource: "origin-url",
+				sourceBranch: SOURCE_BRANCH,
+				branchKey: encodeBranchForPlanPath(SOURCE_BRANCH),
+				filePath: planFile,
+				summary: "Test saved plan.",
+				...overrides,
+			},
+		},
+	};
 }
 
 function parseObjectiveListStdout(stdout: string): ObjectiveListParseResult {

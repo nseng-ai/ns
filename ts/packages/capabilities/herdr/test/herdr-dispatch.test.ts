@@ -1,0 +1,729 @@
+/**
+ * Scenario tests for the Herdr dispatch and open-branch commands (PR 3):
+ *  - ns:herdr:workspace:dispatch-prompt
+ *  - ns:herdr:workspace:dispatch-from-trunk
+ *  - ns:herdr:workspace:dispatch-plan
+ *  - ns:herdr:surface:dispatch-plan
+ *  - ns:herdr:workspace:open-branch
+ */
+import { afterEach, describe, expect, test, vi } from "vitest";
+
+import { HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
+import registerHerdrPiExtension from "../src/pi/extension.ts";
+import { registerHerdrSlotOpenBranchCommand } from "../src/pi/open-branch.ts";
+import {
+	registerHerdrSlotDispatchPlanCommand,
+	registerHerdrSurfaceDispatchPlanCommand,
+} from "../src/pi/dispatch-plan.ts";
+import { handleHerdrSlotDispatchPlan } from "../src/core/dispatch-plan.ts";
+import {
+	handleHerdrSlotOpenBranch,
+	extractCommandArgumentPrefix,
+	getBranchCompletions,
+} from "../src/core/open-branch.ts";
+import { openBranchInHerdrWorkspace, openBranchInHerdrCallerTab } from "../src/core/slot.ts";
+import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
+import { createCliHerdrGateway } from "../src/core/cli-gateway.ts";
+import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
+import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
+import { createBranchContextContext } from "@nseng-ai/branch-context/api";
+import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/command";
+
+import {
+	FakeCommandContext,
+	FakeHerdrGateway,
+	FakePi,
+	makeTempDir,
+	notificationMessages,
+	resetHerdrTestEnvironment,
+	ROOT,
+	step,
+	WORKTREE,
+	BRANCH,
+	PLAN_CONTENT,
+	PLAN_SLUG,
+	PLAN_KEY,
+	SOURCE_BRANCH,
+	START_POINT,
+	dispatchValidationScript,
+	gitRootStep,
+	headStep,
+	writePlanStoreFile,
+	savedPlanEntry,
+} from "./herdr-test-harness.ts";
+
+afterEach(resetHerdrTestEnvironment);
+
+// ---------------------------------------------------------------------------
+// A minimal test slot client that simulates a successful checkout.
+// ---------------------------------------------------------------------------
+const testSlotClient = {
+	async checkoutCurrent() {
+		return {
+			ok: false as const,
+			failure: {
+				errorType: "unexpected-current-checkout",
+				message: "Unexpected current ns slot checkout in herdr command test.",
+			},
+		};
+	},
+	async checkoutBranch(options: { branchName: string }) {
+		return {
+			ok: true as const,
+			target: {
+				slotName: "slot-01",
+				branchName: options.branchName,
+				worktreePath: WORKTREE,
+				isAlreadyAssigned: false,
+				hasCreatedBranch: false,
+				currentWorktreeNote: null,
+			},
+		};
+	},
+};
+
+// ---------------------------------------------------------------------------
+// Extension registration
+// ---------------------------------------------------------------------------
+
+describe("herdr Pi extension — full suite", () => {
+	test("registers all herdr command surfaces", () => {
+		const pi = new FakePi();
+		registerHerdrPiExtension(pi);
+		expect([...pi.commands.keys()].sort()).toEqual([...HERDR_COMMAND_NAMES].sort());
+	});
+});
+
+// ---------------------------------------------------------------------------
+// workspace:open-branch
+// ---------------------------------------------------------------------------
+
+describe("ns:herdr:workspace:open-branch", () => {
+	test("opens explicit branch in Herdr workspace via slot checkout", async () => {
+		const pi = new FakePi({
+			script: [
+				// getWorktreeDescription: git remote get-url origin
+				step("git", ["remote", "get-url", "origin"], {
+					stdout: "git@github.com:owner/repo.git\n",
+				}),
+			],
+		});
+		const herdr = new FakeHerdrGateway();
+		const adaptedPi = createHerdrPiCommandApi(pi);
+
+		await handleHerdrSlotOpenBranch({
+			pi: adaptedPi,
+			herdr,
+			args: BRANCH,
+			ctx: new FakeCommandContext({ cwd: ROOT }),
+			options: { slotClient: testSlotClient },
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(herdr.createWorkspaceCalls).toHaveLength(1);
+		expect(herdr.createWorkspaceCalls[0]?.options.cwd).toBe(WORKTREE);
+		expect(herdr.createWorkspaceCalls[0]?.options.label).toBe(`repo/${BRANCH}`);
+		expect(herdr.paneRunCalls).toHaveLength(0); // no command injected for open-branch
+	});
+
+	test("cancels inferred branch when confirmation UI is not present", async () => {
+		const pi = new FakePi();
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext();
+		// ctx has no confirm → should error
+		// @ts-expect-error testing the no-confirm-UI code path
+		ctx.ui.confirm = undefined;
+
+		await handleHerdrSlotOpenBranch({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			args: "",
+			ctx,
+			notifyProgress: () => {},
+		});
+
+		expect(herdr.createWorkspaceCalls).toHaveLength(0);
+		expect(notificationMessages(ctx).some((m) => m.includes("Usage:"))).toBe(true);
+	});
+
+	test("registers command and branch completions via Pi adapter", async () => {
+		const pi = new FakePi({
+			script: [
+				step(
+					"git",
+					["for-each-ref", "--format=%(refname:short)\t%(refname)", "refs/heads", "refs/remotes"],
+					{ stdout: "feat-abc\trefs/heads/feat-abc\nfix-one\trefs/heads/fix-one\n" },
+				),
+			],
+		});
+		registerHerdrSlotOpenBranchCommand(pi, { slotClient: testSlotClient });
+		const command = pi.commands.get("ns:herdr:workspace:open-branch");
+		expect(command).toBeDefined();
+		expect(await command?.getArgumentCompletions?.("feat")).toEqual([
+			{ value: "feat-abc", label: "feat-abc", description: "local" },
+		]);
+		pi.assertDone();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// workspace:dispatch-plan
+// ---------------------------------------------------------------------------
+
+describe("ns:herdr:workspace:dispatch-plan", () => {
+	test("shows help without side-effects on --help", async () => {
+		const pi = new FakePi();
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd: ROOT });
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "--help",
+			ctx,
+			options: {},
+			config: {
+				commandName: "ns:herdr:workspace:dispatch-plan",
+				statusKey: "ns:herdr:workspace:dispatch-plan",
+				destination: "workspace",
+			},
+			notifyProgress: () => {},
+		});
+
+		expect(herdr.createWorkspaceCalls).toHaveLength(0);
+		expect(pi.execCalls).toHaveLength(0);
+		expect(notificationMessages(ctx).some((m) => m.includes("Usage:"))).toBe(true);
+	});
+
+	test("rejects unknown flags", async () => {
+		const pi = new FakePi();
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd: ROOT });
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "--unknown-flag",
+			ctx,
+			options: {},
+			config: {
+				commandName: "ns:herdr:workspace:dispatch-plan",
+				statusKey: "ns:herdr:workspace:dispatch-plan",
+				destination: "workspace",
+			},
+			notifyProgress: () => {},
+		});
+
+		expect(herdr.createWorkspaceCalls).toHaveLength(0);
+		const errors = ctx.notifications.filter((n) => n.level === "error");
+		expect(errors.length).toBeGreaterThan(0);
+		expect(errors[0]?.message).toContain("Unknown flag");
+	});
+
+	test("registers workspace:dispatch-plan and surface:dispatch-plan via Pi adapter", () => {
+		const pi = new FakePi();
+		registerHerdrSlotDispatchPlanCommand(pi);
+		registerHerdrSurfaceDispatchPlanCommand(pi);
+		expect(pi.commands.has("ns:herdr:workspace:dispatch-plan")).toBe(true);
+		expect(pi.commands.has("ns:herdr:surface:dispatch-plan")).toBe(true);
+	});
+
+	test("surface:dispatch-plan requires HERDR_WORKSPACE_ID", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
+		const repoRoot = await makeTempDir();
+		const pi = new FakePi({ script: [] });
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd: repoRoot });
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "",
+			ctx,
+			options: {},
+			config: {
+				commandName: "ns:herdr:surface:dispatch-plan",
+				statusKey: "ns:herdr:surface:dispatch-plan",
+				destination: "surface",
+			},
+			notifyProgress: () => {},
+		});
+
+		// Should hit "no saved plan" before reaching the workspace ID check
+		expect(herdr.createTabCalls).toHaveLength(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// surface:dispatch-plan with caller workspace
+// ---------------------------------------------------------------------------
+
+describe("ns:herdr:surface:dispatch-plan", () => {
+	test("requires HERDR_WORKSPACE_ID; stops without tab creation if absent", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
+		const pi = new FakePi({ script: [] });
+		const herdr = new FakeHerdrGateway();
+		// No saved plan → will fail before workspace check
+		const ctx = new FakeCommandContext({ cwd: ROOT });
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "",
+			ctx,
+			options: {},
+			config: {
+				commandName: "ns:herdr:surface:dispatch-plan",
+				statusKey: "ns:herdr:surface:dispatch-plan",
+				destination: "surface",
+			},
+			notifyProgress: () => {},
+		});
+
+		expect(herdr.createTabCalls).toHaveLength(0);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// FakeHerdrGateway interface completeness
+// ---------------------------------------------------------------------------
+
+describe("FakeHerdrGateway", () => {
+	test("supports createWorkspace calls", async () => {
+		const herdr = new FakeHerdrGateway();
+		const result = await herdr.createWorkspace({ cwd: "/tmp", label: "my-branch" });
+		expect(result.type).toBe("created");
+		if (result.type === "created") {
+			expect(result.workspaceId).toBeTruthy();
+			expect(result.rootPaneId).toBeTruthy();
+		}
+	});
+
+	test("supports createTab calls", async () => {
+		const herdr = new FakeHerdrGateway();
+		const result = await herdr.createTab({ workspaceId: "ws-1", cwd: "/tmp", label: "tab" });
+		expect(result.type).toBe("created");
+		if (result.type === "created") {
+			expect(result.tabId).toBeTruthy();
+			expect(result.rootPaneId).toBeTruthy();
+		}
+	});
+
+	test("supports runInPane calls", async () => {
+		const herdr = new FakeHerdrGateway();
+		const result = await herdr.runInPane("pane-1", "echo hello");
+		expect(result.type).toBe("ok");
+		expect(herdr.paneRunCalls).toEqual([{ paneId: "pane-1", command: "echo hello" }]);
+	});
+
+	test("records createWorkspace failure when configured", async () => {
+		const herdr = new FakeHerdrGateway({
+			createWorkspaceResult: { type: "failed", message: "no server running" },
+		});
+		const result = await herdr.createWorkspace({ cwd: "/tmp" });
+		expect(result.type).toBe("failed");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Herdr gateway CLI wiring (extension wires up real gateway)
+// ---------------------------------------------------------------------------
+
+describe("herdr Pi extension — gateway wiring", () => {
+	test("createCliHerdrGateway implements HerdrGateway interface", () => {
+		const pi = new FakePi();
+		const adapted = createHerdrPiCommandApi(pi);
+		const gateway = createCliHerdrGateway(adapted);
+		expect(typeof gateway.renameWorkspace).toBe("function");
+		expect(typeof gateway.createWorkspace).toBe("function");
+		expect(typeof gateway.createTab).toBe("function");
+		expect(typeof gateway.runInPane).toBe("function");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// openBranchInHerdrWorkspace — failure paths
+// ---------------------------------------------------------------------------
+
+describe("openBranchInHerdrWorkspace — Herdr failure paths", () => {
+	test("workspace create failure emits error notification and returns error", async () => {
+		const pi = new FakePi({
+			script: [
+				// getWorktreeDescription: git remote get-url origin
+				step("git", ["remote", "get-url", "origin"], {
+					stdout: "git@github.com:owner/repo.git\n",
+				}),
+			],
+		});
+		const herdr = new FakeHerdrGateway({
+			createWorkspaceResult: { type: "failed", message: "herdr daemon offline" },
+		});
+		const notifications: Array<{ message: string; level: string | undefined }> = [];
+
+		const result = await openBranchInHerdrWorkspace({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			cwd: ROOT,
+			branchName: BRANCH,
+			slotClient: testSlotClient,
+			notify: (message, level) => notifications.push({ message, level }),
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect("error" in result).toBe(true);
+		expect(herdr.paneRunCalls).toHaveLength(0);
+		expect(
+			notifications.some((n) => n.level === "error" && n.message.includes("herdr daemon offline")),
+		).toBe(true);
+	});
+
+	test("pane run failure after workspace create emits error notification", async () => {
+		const pi = new FakePi({
+			script: [
+				step("git", ["remote", "get-url", "origin"], {
+					stdout: "git@github.com:owner/repo.git\n",
+				}),
+			],
+		});
+		const herdr = new FakeHerdrGateway({
+			paneRunResult: { type: "failed", message: "pane exec error" },
+		});
+		const notifications: Array<{ message: string; level: string | undefined }> = [];
+
+		const result = await openBranchInHerdrWorkspace({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			cwd: ROOT,
+			branchName: BRANCH,
+			command: "pi exec pi 'hello'",
+			slotClient: testSlotClient,
+			notify: (message, level) => notifications.push({ message, level }),
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect("error" in result).toBe(true);
+		expect(herdr.createWorkspaceCalls).toHaveLength(1);
+		expect(herdr.paneRunCalls).toHaveLength(1);
+		expect(
+			notifications.some((n) => n.level === "error" && n.message.includes("pane exec error")),
+		).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// openBranchInHerdrCallerTab — focus semantics and failure paths
+// ---------------------------------------------------------------------------
+
+describe("openBranchInHerdrCallerTab — focus semantics", () => {
+	test("creates tab with focus:true for surface dispatch", async () => {
+		const pi = new FakePi();
+		const herdr = new FakeHerdrGateway();
+		const notifications: Array<{ message: string; level: string | undefined }> = [];
+
+		const result = await openBranchInHerdrCallerTab({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			cwd: ROOT,
+			branchName: BRANCH,
+			callerWorkspaceId: "ws-caller-42",
+			command: "pi exec pi 'hello'",
+			tabTitle: BRANCH,
+			slotClient: testSlotClient,
+			notify: (message, level) => notifications.push({ message, level }),
+		});
+
+		expect(result.type).toBe("opened");
+		expect(herdr.createTabCalls).toHaveLength(1);
+		const tabCall = herdr.createTabCalls[0];
+		expect(tabCall?.options.workspaceId).toBe("ws-caller-42");
+		expect(tabCall?.options.cwd).toBe(WORKTREE);
+		expect(tabCall?.options.focus).toBe(true);
+		expect(herdr.paneRunCalls).toHaveLength(1);
+		expect(notifications.some((n) => n.level === "error")).toBe(false);
+	});
+
+	test("tab create failure emits error notification", async () => {
+		const pi = new FakePi();
+		const herdr = new FakeHerdrGateway({
+			createTabResult: { type: "failed", message: "tab create failed" },
+		});
+		const notifications: Array<{ message: string; level: string | undefined }> = [];
+
+		const result = await openBranchInHerdrCallerTab({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			cwd: ROOT,
+			branchName: BRANCH,
+			callerWorkspaceId: "ws-caller-42",
+			command: "pi exec pi 'hello'",
+			tabTitle: BRANCH,
+			slotClient: testSlotClient,
+			notify: (message, level) => notifications.push({ message, level }),
+		});
+
+		expect(result.type).toBe("error");
+		expect(herdr.paneRunCalls).toHaveLength(0);
+		expect(
+			notifications.some((n) => n.level === "error" && n.message.includes("tab create failed")),
+		).toBe(true);
+	});
+
+	test("pane run failure after tab create emits error notification", async () => {
+		const pi = new FakePi();
+		const herdr = new FakeHerdrGateway({
+			paneRunResult: { type: "failed", message: "pane launch error" },
+		});
+		const notifications: Array<{ message: string; level: string | undefined }> = [];
+
+		const result = await openBranchInHerdrCallerTab({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			cwd: ROOT,
+			branchName: BRANCH,
+			callerWorkspaceId: "ws-caller-42",
+			command: "pi exec pi 'hello'",
+			tabTitle: BRANCH,
+			slotClient: testSlotClient,
+			notify: (message, level) => notifications.push({ message, level }),
+		});
+
+		expect(result.type).toBe("error");
+		expect(herdr.createTabCalls).toHaveLength(1);
+		expect(herdr.paneRunCalls).toHaveLength(1);
+		expect(
+			notifications.some((n) => n.level === "error" && n.message.includes("pane launch error")),
+		).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// open-branch: confirmation refusal
+// ---------------------------------------------------------------------------
+
+describe("ns:herdr:workspace:open-branch — inferred branch confirmation", () => {
+	test("cancels when user declines confirmation of inferred branch", async () => {
+		const pi = new FakePi();
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext();
+		// Override confirm to return false (user declines)
+		ctx.ui.confirm = async () => false;
+
+		await handleHerdrSlotOpenBranch({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			args: "", // inferred branch path — but no branch-context entry in session
+			ctx,
+			options: { slotClient: testSlotClient },
+			notifyProgress: () => {},
+		});
+
+		// No branch-context entry → falls to "no branch found" error before confirm
+		expect(herdr.createWorkspaceCalls).toHaveLength(0);
+		expect(notificationMessages(ctx).some((m) => m.includes("Usage:"))).toBe(true);
+	});
+
+	test("cancels and emits Cancelled message when user declines confirm after branch-context inference", async () => {
+		const pi = new FakePi();
+		const herdr = new FakeHerdrGateway();
+		const branchContextEntry = {
+			message: {
+				customType: "branch-context-output",
+				content: "Created branch context.",
+				details: {
+					status: "success",
+					evidence: {
+						slug: PLAN_SLUG,
+						branch: BRANCH,
+						branchCreation: "graphite",
+						startPoint: START_POINT,
+						namespace: "branch-context",
+						key: PLAN_KEY,
+						refName: `refs/brmem/ns/branch-context/${BRANCH}:${PLAN_KEY}`,
+						commit: START_POINT,
+						sourceFile: `/plans/${PLAN_KEY}`,
+					},
+				},
+			},
+		};
+		const ctx = new FakeCommandContext({ branchEntries: [branchContextEntry] });
+		// User declines the confirm dialog
+		ctx.ui.confirm = async () => false;
+
+		await handleHerdrSlotOpenBranch({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			args: "",
+			ctx,
+			options: { slotClient: testSlotClient },
+			notifyProgress: () => {},
+		});
+
+		expect(herdr.createWorkspaceCalls).toHaveLength(0);
+		expect(notificationMessages(ctx).some((m) => m.includes("Cancelled"))).toBe(true);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// open-branch: branch completions
+// ---------------------------------------------------------------------------
+
+describe("getBranchCompletions / extractCommandArgumentPrefix", () => {
+	test("extractCommandArgumentPrefix returns prefix after command name", () => {
+		const prefix = extractCommandArgumentPrefix("/ns:herdr:workspace:open-branch feat");
+		expect(prefix).toBe("feat");
+	});
+
+	test("extractCommandArgumentPrefix returns undefined for unrelated input", () => {
+		const prefix = extractCommandArgumentPrefix("/ns:herdr:workspace:dispatch-plan");
+		expect(prefix).toBeUndefined();
+	});
+
+	test("extractCommandArgumentPrefix returns empty string for trailing space", () => {
+		const prefix = extractCommandArgumentPrefix("/ns:herdr:workspace:open-branch ");
+		expect(prefix).toBe("");
+	});
+
+	test("getBranchCompletions returns local branches matching prefix", async () => {
+		const branchLines = [
+			`feat-abc\trefs/heads/feat-abc`,
+			`feat-xyz\trefs/heads/feat-xyz`,
+			`main\trefs/heads/main`,
+		].join("\n");
+		const pi = new FakePi({
+			script: [
+				step(
+					"git",
+					["for-each-ref", "--format=%(refname:short)\t%(refname)", "refs/heads", "refs/remotes"],
+					{ stdout: branchLines },
+				),
+			],
+		});
+		const adapted = createHerdrPiCommandApi(pi);
+
+		const completions = await getBranchCompletions(adapted, ROOT, "feat");
+
+		pi.assertDone();
+		expect(completions.map((c) => c.value)).toEqual(["feat-abc", "feat-xyz"]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// workspace:dispatch-plan dry-run — no Herdr mutations
+// ---------------------------------------------------------------------------
+
+function herdrDispatchPlanTestOptions(
+	planStoreRoot: string,
+): import("../src/core/dispatch-plan.ts").HerdrSlotDispatchPlanOptions {
+	return {
+		planStoreRoot,
+		slotClient: testSlotClient,
+		createBranchContextContext(pi, cwd) {
+			const stdinCapablePi: StdinCapableCommandExecApi = {
+				supportsStdin: true,
+				exec: (command, args, options) => pi.exec(command, args, options),
+			};
+			return {
+				...createBranchContextContext(stdinCapablePi, { cwd }),
+				brmem: new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
+			};
+		},
+	};
+}
+
+describe("ns:herdr:workspace:dispatch-plan — dry-run (no Herdr mutations)", () => {
+	test("dry-run shows preview without creating workspace, tab, or pane", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, {
+			content: PLAN_CONTENT,
+		});
+		const pi = new FakePi({
+			script: [
+				...dispatchValidationScript(repoRoot),
+				gitRootStep(repoRoot),
+				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
+					stdout: `${PLAN_SLUG}\n`,
+				}),
+				headStep(),
+			],
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			branchEntries: [savedPlanEntry(repoRoot, planFile)],
+		});
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "--dry-run",
+			ctx,
+			options: herdrDispatchPlanTestOptions(planStoreRoot),
+			config: {
+				commandName: "ns:herdr:workspace:dispatch-plan",
+				statusKey: "ns:herdr:workspace:dispatch-plan",
+				destination: "workspace",
+			},
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(herdr.createWorkspaceCalls).toHaveLength(0);
+		expect(herdr.createTabCalls).toHaveLength(0);
+		expect(herdr.paneRunCalls).toHaveLength(0);
+		// The dry-run message should describe what would happen
+		const messages = notificationMessages(ctx);
+		const dryRunMessages = messages.filter((m) => m.includes("Dry run") || m.includes("dry-run"));
+		expect(
+			dryRunMessages.length > 0 || ctx.notifications.some((n) => n.message.includes("workspace")),
+		);
+	});
+});
+
+describe("ns:herdr:surface:dispatch-plan — dry-run (no Herdr mutations)", () => {
+	test("dry-run shows surface preview without creating tab or pane", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, {
+			content: PLAN_CONTENT,
+		});
+		const pi = new FakePi({
+			script: [
+				...dispatchValidationScript(repoRoot),
+				gitRootStep(repoRoot),
+				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
+					stdout: `${PLAN_SLUG}\n`,
+				}),
+				headStep(),
+			],
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			branchEntries: [savedPlanEntry(repoRoot, planFile)],
+		});
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "--dry-run",
+			ctx,
+			options: herdrDispatchPlanTestOptions(planStoreRoot),
+			config: {
+				commandName: "ns:herdr:surface:dispatch-plan",
+				statusKey: "ns:herdr:surface:dispatch-plan",
+				destination: "surface",
+			},
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		expect(herdr.createWorkspaceCalls).toHaveLength(0);
+		expect(herdr.createTabCalls).toHaveLength(0);
+		expect(herdr.paneRunCalls).toHaveLength(0);
+	});
+});

@@ -341,15 +341,27 @@ importers:
 
   packages/capabilities/herdr:
     dependencies:
+      '@nseng-ai/branch-context':
+        specifier: workspace:*
+        version: link:../branch-context
       '@nseng-ai/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
+      '@nseng-ai/cmux':
+        specifier: workspace:*
+        version: link:../cmux
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../infra/foundation
       '@nseng-ai/objectives':
         specifier: workspace:*
         version: link:../objectives
+      '@nseng-ai/plans':
+        specifier: workspace:*
+        version: link:../plans
+      '@nseng-ai/slots':
+        specifier: workspace:*
+        version: link:../slots
     devDependencies:
       '@nseng-ai/pi':
         specifier: workspace:*
