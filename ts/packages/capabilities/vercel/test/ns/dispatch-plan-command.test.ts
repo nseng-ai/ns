@@ -70,6 +70,108 @@ describe("ns dispatch plan", () => {
 		expect(body).toContain("<!-- ns:dispatch-provenance:end -->");
 	});
 
+	test("reports missing Saved Plan input before Branch Memory or cloud effects", async () => {
+		const { exit, gateways } = await runPlanCommand([FAKE_PLAN_REF], {
+			plan: { savedPlan: { type: "not-found", message: "Saved Plan does not exist." } },
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("plan-not-found");
+		expect(exit.data).toEqual({ planRef: FAKE_PLAN_REF });
+		expect(gateways.git.sourcePushes).toEqual([]);
+		expect(gateways.anchorPrs.opened).toEqual([]);
+		expect(gateways.trigger.startCalls).toEqual([]);
+	});
+
+	test("refuses missing Branch Memory synchronization with recovery guidance", async () => {
+		const { exit, gateways } = await runPlanCommand([FAKE_PLAN_REF], {
+			plan: { brmem: { remotes: {} } },
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("branch-memory-setup-required");
+		expect(exit.message).toContain("brmem setup-git");
+		expect(exit.data).toMatchObject({
+			dispatchId: FAKE_DISPATCH_ID,
+			remote: "origin",
+			setupCommand: "brmem setup-git",
+			artifacts: [],
+		});
+		expect(gateways.git.sourcePushes).toEqual([]);
+		expect(gateways.anchorPrs.opened).toEqual([]);
+		expect(gateways.trigger.startCalls).toEqual([]);
+	});
+
+	test("preserves the retained Branch Memory Entry when snapshot publication fails", async () => {
+		const { exit, gateways } = await runPlanCommand([FAKE_PLAN_REF], {
+			plan: {
+				snapshotPublishResult: {
+					ok: false,
+					error: { code: "git-push-failed", message: "Snapshot push was rejected." },
+				},
+			},
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("snapshot-publication-failed");
+		expect(exit.data).toMatchObject({
+			dispatchId: FAKE_DISPATCH_ID,
+			code: "git-push-failed",
+			artifacts: [
+				{
+					type: "branch-memory-entry",
+					namespace: "dispatch-context",
+					key: `${FAKE_DISPATCH_ID}/plan/add-cache.md`,
+				},
+			],
+		});
+		expect(gateways.anchorPrs.opened).toEqual([]);
+		expect(gateways.trigger.startCalls).toEqual([]);
+	});
+
+	test("reports an exact remote Snapshot mismatch without starting cloud work", async () => {
+		const { exit, gateways } = await runPlanCommand([FAKE_PLAN_REF], {
+			plan: {
+				remoteSnapshotResult: { type: "found", commitSha: "2".repeat(40) },
+			},
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("remote-snapshot-mismatch");
+		expect(exit.data).toMatchObject({
+			dispatchId: FAKE_DISPATCH_ID,
+			expectedCommitSha: "1111111111111111111111111111111111111111",
+			actualCommitSha: "2222222222222222222222222222222222222222",
+		});
+		expect(gateways.anchorPrs.opened).toEqual([]);
+		expect(gateways.trigger.startCalls).toEqual([]);
+	});
+
+	test("keeps plan provenance and the open anchor visible when workflow start fails", async () => {
+		const { exit } = await runPlanCommand([FAKE_PLAN_REF], {
+			trigger: {
+				startResult: {
+					ok: false,
+					error: { code: "workflow-start-failed", message: "Workflow start failed." },
+				},
+			},
+		});
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") return;
+		expect(exit.errorType).toBe("trigger-failed");
+		expect(exit.data).toEqual({
+			code: "workflow-start-failed",
+			anchorBranch: `dispatch/feature-widgets-${FAKE_DISPATCH_ID}`,
+			anchorPrNumber: 41,
+			anchorPrUrl: "https://github.com/nseng-ai/ns/pull/41",
+		});
+	});
+
 	test("refuses a dirty tree before Branch Memory or cloud effects", async () => {
 		const { exit, gateways } = await runPlanCommand([FAKE_PLAN_REF], {
 			git: { dirtyPaths: ["src/widget.ts"] },
@@ -82,16 +184,19 @@ describe("ns dispatch plan", () => {
 		expect(gateways.trigger.startCalls).toEqual([]);
 	});
 
-	test("--help documents the explicit Saved Plan and setup prerequisite", async () => {
-		const { exit } = await runPlanCommand(["--help"]);
+	test.each(["--help", "-h"])(
+		"%s documents the explicit Saved Plan and setup prerequisite",
+		async (flag) => {
+			const { exit } = await runPlanCommand([flag]);
 
-		expect(exit.type).toBe("ok");
-		if (exit.type !== "ok") return;
-		const help = String(exit.data);
-		expect(help).toContain("Usage: ns dispatch plan");
-		expect(help).toContain("Saved Plan");
-		expect(help).toContain("brmem setup-git");
-	});
+			expect(exit.type).toBe("ok");
+			if (exit.type !== "ok") return;
+			const help = String(exit.data);
+			expect(help).toContain("Usage: ns dispatch plan");
+			expect(help).toContain("Saved Plan");
+			expect(help).toContain("brmem setup-git");
+		},
+	);
 
 	test("--json-schema publishes full machine provenance", async () => {
 		const { exit } = await runPlanCommand(["--json-schema"]);
