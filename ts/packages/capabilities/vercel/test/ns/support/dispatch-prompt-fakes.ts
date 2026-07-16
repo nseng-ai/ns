@@ -314,8 +314,10 @@ export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 }
 
 class FakeDispatchSavedPlanGateway implements DispatchSavedPlanGateway {
-	async resolveExplicitSavedPlan(): Promise<DispatchSavedPlanResolution> {
-		return {
+	private readonly result: DispatchSavedPlanResolution;
+
+	constructor(
+		result: DispatchSavedPlanResolution = {
 			type: "resolved",
 			plan: {
 				filePath: FAKE_PLAN_REF,
@@ -323,7 +325,13 @@ class FakeDispatchSavedPlanGateway implements DispatchSavedPlanGateway {
 				sourceBranch: "feature/widgets",
 				content: "# Add cache\n",
 			},
-		};
+		},
+	) {
+		this.result = result;
+	}
+
+	async resolveExplicitSavedPlan(): Promise<DispatchSavedPlanResolution> {
+		return this.result;
 	}
 }
 
@@ -351,15 +359,33 @@ class FakeDispatchPlanBrmemGateway extends FakeBrmemGateway {
 
 class FakeDispatchPlanSnapshotGateway implements DispatchPlanSnapshotGateway {
 	private commitSha = FAKE_PLAN_SNAPSHOT_COMMIT;
+	private readonly publishResult: FakeDispatchPlanState["snapshotPublishResult"];
+	private readonly remoteResult: FakeDispatchPlanState["remoteSnapshotResult"];
+
+	constructor(state: FakeDispatchPlanState = {}) {
+		this.publishResult = state.snapshotPublishResult;
+		this.remoteResult = state.remoteSnapshotResult;
+	}
 
 	async publishSnapshot(options: { readonly commitSha: string }) {
 		this.commitSha = options.commitSha;
-		return { ok: true } as const;
+		return this.publishResult ?? ({ ok: true } as const);
 	}
 
 	async readRemoteSnapshotTip() {
-		return { type: "found", commitSha: this.commitSha } as const;
+		return this.remoteResult ?? ({ type: "found", commitSha: this.commitSha } as const);
 	}
+}
+
+export interface FakeDispatchPlanState {
+	readonly savedPlan?: DispatchSavedPlanResolution;
+	readonly brmem?: ConstructorParameters<typeof FakeBrmemGateway>[0];
+	readonly snapshotPublishResult?: Awaited<
+		ReturnType<DispatchPlanSnapshotGateway["publishSnapshot"]>
+	>;
+	readonly remoteSnapshotResult?: Awaited<
+		ReturnType<DispatchPlanSnapshotGateway["readRemoteSnapshotTip"]>
+	>;
 }
 
 export interface FakeDispatchGatewaysOptions {
@@ -368,6 +394,7 @@ export interface FakeDispatchGatewaysOptions {
 	readonly trigger?: FakeTriggerState;
 	readonly token?: DispatchLocalTokenResult;
 	readonly config?: FakeDispatchConfigState;
+	readonly plan?: FakeDispatchPlanState;
 }
 
 export interface FakeDispatchGatewayBundle extends DispatchPromptGateways {
@@ -400,16 +427,18 @@ export function createFakePlanDispatchGateways(
 	const shared = createFakeDispatchGateways(options);
 	return {
 		...shared,
-		savedPlans: new FakeDispatchSavedPlanGateway(),
-		brmem: new FakeDispatchPlanBrmemGateway({
-			remotes: {
-				origin: {
-					push: ["refs/brmem/*:refs/brmem/*"],
-					fetch: ["refs/brmem/*:refs/brmem/*"],
+		savedPlans: new FakeDispatchSavedPlanGateway(options.plan?.savedPlan),
+		brmem: new FakeDispatchPlanBrmemGateway(
+			options.plan?.brmem ?? {
+				remotes: {
+					origin: {
+						push: ["refs/brmem/*:refs/brmem/*"],
+						fetch: ["refs/brmem/*:refs/brmem/*"],
+					},
 				},
 			},
-		}),
-		snapshots: new FakeDispatchPlanSnapshotGateway(),
+		),
+		snapshots: new FakeDispatchPlanSnapshotGateway(options.plan),
 		generateDispatchId: () => FAKE_DISPATCH_ID,
 	};
 }

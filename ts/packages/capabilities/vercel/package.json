@@ -11,7 +11,8 @@
 	"type": "module",
 	"exports": {
 		"./api": "./src/api/index.ts",
-		"./ns-extension": "./src/ns/extension.ts"
+		"./ns-extension": "./src/ns/extension.ts",
+		"./pi/extension": "./src/pi/extension.ts"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -42,6 +43,17 @@
 		"workflow": "catalog:",
 		"zod": "catalog:"
 	},
+	"peerDependencies": {
+		"@nseng-ai/pi": "workspace:*"
+	},
+	"peerDependenciesMeta": {
+		"@nseng-ai/pi": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@nseng-ai/pi": "workspace:*"
+	},
 	"ns": {
 		"tier": "capability",
 		"group": "dispatch",
@@ -53,6 +65,7 @@
 			"http",
 			"mint",
 			"ns",
+			"pi",
 			"pi-runner",
 			"sandbox",
 			"trigger"
