@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -14,11 +14,8 @@ function expectedImplBranchContextCommand(key: string): string {
 	return `/ns:branch-context:impl-attached-plan ${key}`;
 }
 import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/command";
-import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 import { CMUX_COMMAND_NAMES, type CccSlotDispatchPlanOptions } from "@nseng-ai/cmux/api";
 import registerCccExtension, {
-	createCccSidebarControllerWithPiWiring,
-	registerCccSidebarCommands,
 	registerCccSlotDispatchFromTrunkCommand,
 	registerCccSlotDispatchPlanCommand,
 	registerCccSlotDispatchPromptCommand,
@@ -31,7 +28,6 @@ import { buildSlugPrompt } from "../src/core/branch-slug.ts";
 import { buildLaunchPrompt } from "../src/core/dispatch-prompt.ts";
 import {
 	BRANCH,
-	FAST_MODEL,
 	FakeCommandContext,
 	FakePi,
 	PLAN_KEY,
@@ -54,7 +50,6 @@ import {
 	branchContextOutputEntry,
 	resetCmuxTestEnvironment,
 	savedPlanEntry,
-	skillCommand,
 	step,
 	writeCmuxPlanStoreFile,
 } from "./cmux-test-harness.ts";
@@ -210,202 +205,6 @@ describe("cmux command suite", () => {
 		expect(launchPrompt.endsWith(prompt)).toBe(true);
 		expect(launchPrompt.indexOf("## Completion instructions")).toBeLessThan(
 			launchPrompt.indexOf(prompt),
-		);
-	});
-
-	test("ns:cmux:sidebar:session-summary queues session-aware skill prompt and restores the previous model", async () => {
-		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
-		await withTempRepoSkill(
-			{
-				skillName: "ns-cmux-sidebar",
-				markdown: "---\nname: ns-cmux-sidebar\n---\nUse direct `--description` command shape.\n",
-			},
-			async ({ repoDir, skillPath }) => {
-				const pi = new FakePi({ skillCommands: [skillCommand("ns-cmux-sidebar", skillPath)] });
-				const controller = createCccSidebarControllerWithPiWiring(pi);
-				registerCccSidebarCommands(pi, controller);
-				const ctx = new FakeCommandContext({
-					cwd: repoDir,
-					model: PREVIOUS_MODEL,
-					fastModel: FAST_MODEL,
-				});
-
-				await pi.commands.get("ns:cmux:sidebar:session-summary")?.handler("", ctx);
-
-				expect(ctx.waitCount).toBe(1);
-				expect(pi.sentUserMessages).toHaveLength(1);
-				expect(pi.sentUserMessages[0]).toContain('<skill name="ns-cmux-sidebar"');
-				expect(pi.sentUserMessages[0]).toContain(
-					"Requested command: ns:cmux:sidebar:session-summary.",
-				);
-				expect(pi.sentUserMessages[0]).toContain("current task, progress, and likely next action");
-				expect(pi.sentUserMessages[0]).toContain("The title must be exactly summary:<slug>");
-				expect(pi.sentUserMessages[0]).not.toContain(
-					"The Goal line should describe the PR outcome",
-				);
-				expect(notificationMessages(ctx)).toContain("Invoking cmux session sidebar summary.");
-				expect(pi.setModels).toEqual([FAST_MODEL]);
-				expect(pi.thinkingLevels).toEqual(["minimal"]);
-				expect(ctx.statuses).toEqual([
-					{ key: "pi:ns-cmux-sidebar", value: "preparing cmux sidebar…" },
-					{ key: "pi:ns-cmux-sidebar", value: undefined },
-				]);
-
-				await pi.emitAgentEnd(ctx);
-
-				expect(pi.setModels).toEqual([FAST_MODEL, PREVIOUS_MODEL]);
-				expect(pi.thinkingLevels).toEqual(["minimal", "medium"]);
-			},
-		);
-	});
-
-	test("sidebar selects the configured cmux.sidebar model", async () => {
-		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
-		await withTempRepoSkill(
-			{ skillName: "ns-cmux-sidebar", markdown: "---\nname: ns-cmux-sidebar\n---\n" },
-			async ({ repoDir, skillPath }) => {
-				await writeFile(
-					join(repoDir, "ns.toml"),
-					'[models.profiles]\nsidebar = "acme/sidebar"\n[models.operations]\n"cmux.sidebar" = "sidebar"\n',
-				);
-				const pi = new FakePi({ skillCommands: [skillCommand("ns-cmux-sidebar", skillPath)] });
-				const controller = createCccSidebarControllerWithPiWiring(pi);
-				registerCccSidebarCommands(pi, controller);
-				const ctx = new FakeCommandContext({
-					cwd: repoDir,
-					model: PREVIOUS_MODEL,
-					fastModel: { provider: "acme", id: "sidebar" },
-				});
-
-				await pi.commands.get("ns:cmux:sidebar:session-summary")?.handler("", ctx);
-
-				expect(pi.setModels).toEqual([{ provider: "acme", id: "sidebar" }]);
-				await pi.emitAgentEnd(ctx);
-				expect(pi.setModels).toEqual([{ provider: "acme", id: "sidebar" }, PREVIOUS_MODEL]);
-			},
-		);
-	});
-
-	test("sidebar falls back to the current model when configured model is unavailable", async () => {
-		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
-		await withTempRepoSkill(
-			{ skillName: "ns-cmux-sidebar", markdown: "---\nname: ns-cmux-sidebar\n---\n" },
-			async ({ repoDir, skillPath }) => {
-				await writeFile(
-					join(repoDir, "ns.toml"),
-					'[models.profiles]\nsidebar = "acme/unavailable"\n[models.operations]\n"cmux.sidebar" = "sidebar"\n',
-				);
-				const pi = new FakePi({ skillCommands: [skillCommand("ns-cmux-sidebar", skillPath)] });
-				const controller = createCccSidebarControllerWithPiWiring(pi);
-				registerCccSidebarCommands(pi, controller);
-				const ctx = new FakeCommandContext({
-					cwd: repoDir,
-					model: PREVIOUS_MODEL,
-					fastModel: { provider: "acme", id: "unavailable" },
-				});
-
-				await pi.commands.get("ns:cmux:sidebar:session-summary")?.handler("", ctx);
-
-				expect(pi.setModels).toEqual([{ provider: "acme", id: "unavailable" }]);
-				expect(notificationMessages(ctx)).toContain(
-					"Fast sidebar model acme/unavailable is unavailable; using current model.",
-				);
-			},
-		);
-	});
-
-	test("sidebar surfaces malformed explicit model policy and retains the current model", async () => {
-		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
-		await withTempRepoSkill(
-			{ skillName: "ns-cmux-sidebar", markdown: "---\nname: ns-cmux-sidebar\n---\n" },
-			async ({ repoDir, skillPath }) => {
-				await writeFile(join(repoDir, "ns.toml"), '[models.operations]\n"cmux.sidebar" = ""\n');
-				const pi = new FakePi({ skillCommands: [skillCommand("ns-cmux-sidebar", skillPath)] });
-				const controller = createCccSidebarControllerWithPiWiring(pi);
-				registerCccSidebarCommands(pi, controller);
-				const ctx = new FakeCommandContext({ cwd: repoDir, model: PREVIOUS_MODEL });
-
-				await pi.commands.get("ns:cmux:sidebar:session-summary")?.handler("", ctx);
-
-				expect(pi.setModels).toEqual([]);
-				expect(notificationMessages(ctx).join("\n")).toContain("Invalid model policy in ns.toml");
-			},
-		);
-	});
-
-	test("sidebar fallback uses one-line Goal description and missing workspace skips send", async () => {
-		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
-		const pi = new FakePi();
-		const controller = createCccSidebarControllerWithPiWiring(pi);
-		registerCccSidebarCommands(pi, controller);
-		const ctx = new FakeCommandContext();
-
-		await pi.commands.get("ns:cmux:sidebar:session-summary")?.handler("", ctx);
-
-		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toContain("--title 'summary:<slug>'");
-		expect(pi.sentUserMessages[0]).toContain("--description 'Goal: ...'");
-		expect(pi.sentUserMessages[0]).not.toContain("State: ...");
-		expect(pi.sentUserMessages[0]).not.toContain("--goal");
-		expect(pi.sentUserMessages[0]).not.toContain("--status");
-
-		vi.stubEnv("CMUX_WORKSPACE_ID", undefined);
-		vi.stubEnv("CMUX_TAB_ID", undefined);
-		const noWorkspace = new FakeCommandContext();
-		await pi.commands.get("ns:cmux:sidebar:session-summary")?.handler("", noWorkspace);
-
-		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(noWorkspace.notifications.at(-1)?.message).toBe(
-			"Not running inside a cmux caller workspace.",
-		);
-	});
-
-	test("ns:cmux:sidebar:branch-state-summary queues branch-parent state prompt", async () => {
-		vi.stubEnv("CMUX_WORKSPACE_ID", "workspace:caller");
-		await withTempRepoSkill(
-			{
-				skillName: "ns-cmux-sidebar",
-				markdown: "---\nname: ns-cmux-sidebar\n---\nUse direct `--description` command shape.\n",
-			},
-			async ({ repoDir, skillPath }) => {
-				const pi = new FakePi({ skillCommands: [skillCommand("ns-cmux-sidebar", skillPath)] });
-				const controller = createCccSidebarControllerWithPiWiring(pi);
-				registerCccSidebarCommands(pi, controller);
-				const ctx = new FakeCommandContext({
-					cwd: repoDir,
-					model: PREVIOUS_MODEL,
-					fastModel: FAST_MODEL,
-				});
-
-				await pi.commands.get("ns:cmux:sidebar:branch-state-summary")?.handler("", ctx);
-
-				expect(ctx.waitCount).toBe(1);
-				expect(pi.sentUserMessages).toHaveLength(1);
-				expect(pi.sentUserMessages[0]).toContain('<skill name="ns-cmux-sidebar"');
-				expect(pi.sentUserMessages[0]).toContain(
-					"Requested command: ns:cmux:sidebar:branch-state-summary.",
-				);
-				expect(pi.sentUserMessages[0]).toContain(
-					"current Git branch's implementation state relative to its parent branch",
-				);
-				expect(pi.sentUserMessages[0]).toContain("gt parent --no-interactive");
-				expect(pi.sentUserMessages[0]).toContain("The title must be exactly state:<slug>");
-				expect(pi.sentUserMessages[0]).toContain(
-					"The State line should describe what the branch currently changes",
-				);
-				expect(notificationMessages(ctx)).toContain("Invoking cmux branch-state sidebar summary.");
-				expect(pi.setModels).toEqual([FAST_MODEL]);
-				expect(pi.thinkingLevels).toEqual(["minimal"]);
-				expect(ctx.statuses).toEqual([
-					{ key: "pi:ns-cmux-sidebar", value: "preparing cmux branch-state sidebar…" },
-					{ key: "pi:ns-cmux-sidebar", value: undefined },
-				]);
-
-				await pi.emitAgentEnd(ctx);
-
-				expect(pi.setModels).toEqual([FAST_MODEL, PREVIOUS_MODEL]);
-				expect(pi.thinkingLevels).toEqual(["minimal", "medium"]);
-			},
 		);
 	});
 

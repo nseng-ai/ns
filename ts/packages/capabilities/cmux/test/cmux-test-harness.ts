@@ -556,10 +556,6 @@ export async function writeTempSkillMarkdown(skillName: string, body: string): P
 	return writeSelfContainedSkillMarkdown(`---\nname: ${skillName}\n---\n${body}\n`);
 }
 
-export async function writeTempSkill(body: string): Promise<string> {
-	return writeTempSkillMarkdown("ns-cmux-sidebar", body);
-}
-
 export async function writeCmuxPlanStoreFile(
 	planStoreRoot: string,
 	repoRoot: string,

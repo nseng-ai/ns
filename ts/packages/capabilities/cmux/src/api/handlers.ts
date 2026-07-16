@@ -2,11 +2,8 @@ export { CMUX_PACKAGE_IDENTITY } from "./index.ts";
 
 // Canonical ns:cmux:* command surface names
 export {
-	CMUX_CLAUDE_PLAN_TAB_COMMAND_NAME,
 	CMUX_COMMAND_NAMES,
-	CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
 	CMUX_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME,
-	CMUX_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME,
 	CMUX_SURFACE_DISPATCH_PLAN_COMMAND_NAME,
 	CMUX_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME,
 	CMUX_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,
@@ -21,22 +18,6 @@ export {
 	type DispatchPromptPayloadOptions,
 	type HandleCccSlotDispatchPromptOptions,
 } from "../core/dispatch-prompt.ts";
-
-// Claude plan tab
-export {
-	handleCccClaudePlanTab,
-	extractLastAssistantText,
-	buildClaudePlanTabTitle,
-	buildClaudePlanLaunchCommand,
-} from "../core/claude-plan-tab.ts";
-
-// Prompt file utilities
-export {
-	resolvePromptFileOptions,
-	writeTimestampedPromptFile,
-	type PromptFileOptions,
-	type ResolvedPromptFileOptions,
-} from "../core/prompt-file.ts";
 
 // Dispatch from trunk
 export {
@@ -65,10 +46,7 @@ export {
 export {
 	createCccSidebarController,
 	getCallerWorkspaceId,
-	buildCmuxSessionSidebarPrompt,
-	buildCmuxBranchStateSidebarPrompt,
 	type CccSidebarController,
-	type ObjectiveSidebarHandlerOptions,
 } from "../core/sidebar.ts";
 
 // Slot client

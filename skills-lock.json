@@ -190,11 +190,6 @@
       "sourceType": "local",
       "computedHash": "13b3ffd32ea15883c5c8dc50bde8790232ae3f3b1a0c6acc535f35154b74816d"
     },
-    "ns-cmux-sidebar": {
-      "source": "skills/ns-cmux-sidebar",
-      "sourceType": "local",
-      "computedHash": "418a209dbcf3f49db9212c3d753407bd8817de8e9dea8c03930701f013e4f6f7"
-    },
     "ns-flow-autobranch": {
       "source": "skills/ns-flow-autobranch",
       "sourceType": "local",

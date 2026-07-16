@@ -1,19 +1,11 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
-import { expandRepoSkillBlock } from "@nseng-ai/pi/skills/expansion";
 import {
-	CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
 	CMUX_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME,
-	CMUX_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME,
 	createCccSidebarController,
 	type CccSidebarController,
-	type ObjectiveSidebarHandlerOptions,
 } from "../api/handlers.ts";
 import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
 import { createCccPiCommandApi } from "./pi-command-api.ts";
-
-const SESSION_SIDEBAR_COMMAND_NAME = CMUX_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME;
-const BRANCH_STATE_SIDEBAR_COMMAND_NAME = CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME;
-const OBJECTIVE_SIDEBAR_COMMAND_NAME = CMUX_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME;
 
 export function registerCccSidebarCommands(
 	pi: ExtensionAPI,
@@ -21,26 +13,7 @@ export function registerCccSidebarCommands(
 ): void {
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: SESSION_SIDEBAR_COMMAND_NAME,
-		commandDefinition: {
-			description: "Summarize this Pi session into the caller cmux sidebar.",
-			handler: async (_args, ctx) => controller.handleSessionCommand(ctx),
-		},
-	});
-
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: BRANCH_STATE_SIDEBAR_COMMAND_NAME,
-		commandDefinition: {
-			description:
-				"Summarize the current branch state versus its parent into the caller cmux sidebar.",
-			handler: async (_args, ctx) => controller.handleBranchStateCommand(ctx),
-		},
-	});
-
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: OBJECTIVE_SIDEBAR_COMMAND_NAME,
+		commandName: CMUX_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME,
 		commandDefinition: {
 			description: "Format Objective overview into the caller cmux sidebar.",
 			argumentHint: "<slug or path>",
@@ -51,10 +24,5 @@ export function registerCccSidebarCommands(
 
 export function createCccSidebarControllerWithPiWiring(rawPi: ExtensionAPI): CccSidebarController {
 	const pi = createCccPiCommandApi(rawPi);
-	const objectiveSidebarOptions: ObjectiveSidebarHandlerOptions = {
-		expandSkillBlock: async (cwd, skillName) => expandRepoSkillBlock({ cwd, skillName }),
-	};
-	const controller = createCccSidebarController(pi, objectiveSidebarOptions);
-	pi.on("agent_end", controller.onAgentEnd);
-	return controller;
+	return createCccSidebarController(pi);
 }

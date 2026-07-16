@@ -1,10 +1,3 @@
-import { RealGitGateway } from "@nseng-ai/foundation/git";
-import {
-	MODEL_OPERATION_IDS,
-	loadModelPolicy,
-	resolveModelOperation,
-} from "@nseng-ai/capability-kit/model-policy";
-import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
@@ -13,10 +6,6 @@ import {
 } from "@nseng-ai/objectives/api";
 
 import {
-	CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME,
-	CMUX_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME,
-} from "./command-surfaces.ts";
-import {
 	applyObjectiveSidebarFields,
 	formatObjectiveSidebarFields,
 	readCurrentBranchSlug,
@@ -24,73 +13,25 @@ import {
 	validateObjectiveSidebarSlug,
 	slotSlugFromCwd,
 } from "./objective-sidebar.ts";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import type {
-	AgentEndContext,
-	CommandContext,
-	ModelInfo,
-	NotifyLevel,
-	ThinkingLevel,
-} from "@nseng-ai/capability-kit/cmux/types";
+import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/cmux/types";
 import type { CccPiCommandApi } from "./pi-command-api.ts";
 
-const SKILL_NAME = "ns-cmux-sidebar";
-const PI_SIDEBAR_STATUS_KEY = "pi:ns-cmux-sidebar";
+const PI_SIDEBAR_STATUS_KEY = "pi:cmux-sidebar";
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 	statusKey: PI_SIDEBAR_STATUS_KEY,
 	selectionTitle: "Select an active Objective for cmux sidebar",
 	selectionMode: "compact-diff-suggestion",
 } satisfies ObjectiveSelectionSpec;
 
-interface RestoreState {
-	model?: ModelInfo;
-	thinkingLevel: ThinkingLevel;
-}
-
 export interface CccSidebarController {
-	handleSessionCommand(ctx: CommandContext): Promise<void>;
-	handleBranchStateCommand(ctx: CommandContext): Promise<void>;
 	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
-	onAgentEnd: (event: unknown, ctx: AgentEndContext) => Promise<void>;
 }
 
-export interface ObjectiveSidebarHandlerOptions {
-	expandSkillBlock: (cwd: string, skillName: string) => Promise<{ block: string | undefined }>;
-}
-
-export function createCccSidebarController(
-	pi: CccPiCommandApi,
-	objectiveSidebarOptions: ObjectiveSidebarHandlerOptions,
-): CccSidebarController {
-	let pendingRestore: RestoreState | undefined;
-
-	const onAgentEnd = async (_event: unknown, ctx: AgentEndContext): Promise<void> => {
-		if (pendingRestore === undefined) {
-			return;
-		}
-		const restoreState = pendingRestore;
-		pendingRestore = undefined;
-		await restoreModelState(pi, ctx, restoreState);
-	};
-
+export function createCccSidebarController(pi: CccPiCommandApi): CccSidebarController {
 	return {
-		async handleSessionCommand(ctx): Promise<void> {
-			await queueSessionSidebar(pi, ctx, objectiveSidebarOptions, (state) => {
-				pendingRestore = state;
-			});
-		},
-
-		async handleBranchStateCommand(ctx): Promise<void> {
-			await queueBranchStateSidebar(pi, ctx, objectiveSidebarOptions, (state) => {
-				pendingRestore = state;
-			});
-		},
-
 		async handleObjectiveCommand(args, ctx): Promise<void> {
-			await handleDeterministicObjectiveSidebar(pi, args, ctx, objectiveSidebarOptions);
+			await handleDeterministicObjectiveSidebar(pi, args, ctx);
 		},
-
-		onAgentEnd,
 	};
 }
 
@@ -100,74 +41,10 @@ export function getCallerWorkspaceId(env: NodeJS.ProcessEnv = process.env): stri
 	return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function buildCmuxSessionSidebarPrompt(
-	skillBlock: string | undefined,
-	workspaceId: string,
-): string {
-	return `${skillBlock ?? buildFallbackSessionSkillPrompt()}
-
-Run the cmux session sidebar workflow now for the caller workspace.
-
-Target workspace id/ref from this terminal environment: ${workspaceId}
-
-Requested command: ${CMUX_SIDEBAR_SESSION_SUMMARY_COMMAND_NAME}.
-Summarize this Pi session's current task, progress, and likely next action.
-The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug for the session topic and the full title is max 45 chars.
-The Goal line should describe what this session is trying to accomplish, not the cmux update itself.
-
-Use the active Pi conversation context already available to you. Do not include this control prompt as the subject of the sidebar update. Generate compact title and description fields, apply the update with the ns cmux exec command when the source is resolved, then report the applied title briefly.`;
-}
-
-export function buildCmuxBranchStateSidebarPrompt(
-	skillBlock: string | undefined,
-	workspaceId: string,
-): string {
-	return `${skillBlock ?? buildFallbackBranchStateSkillPrompt()}
-
-Run the cmux branch-state sidebar workflow now for the caller workspace.
-
-Target workspace id/ref from this terminal environment: ${workspaceId}
-
-Requested command: ${CMUX_SIDEBAR_BRANCH_STATE_SUMMARY_COMMAND_NAME}.
-Summarize the current Git branch's implementation state relative to its parent branch.
-Use read-only repository evidence: current branch, parent branch, porcelain status, branch-local commits, and a compact diffstat or short diff summary versus the parent. Prefer Graphite parent evidence when available, such as \`gt parent --no-interactive\`; if Graphite parent evidence is unavailable, explain the fallback basis tersely and use the best Git merge-base/upstream evidence you can resolve.
-The title must be exactly state:<slug>, where <slug> is a concise lowercase hyphen slug for the branch topic and the full title is max 45 chars.
-The State line should describe what the branch currently changes or needs next relative to its parent, not the cmux update itself.
-
-Do not include this control prompt as the subject of the sidebar update. Run only read-only Git/Graphite inspection before applying the cmux update. Generate compact title and description fields, apply the update with the ns cmux exec command when the branch state is resolved, then report the applied title briefly.`;
-}
-
-function buildFallbackSessionSkillPrompt(): string {
-	return `The ns-cmux-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for this Pi session using exactly one deterministic command. The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug:
-
-\`\`\`bash
-ns cmux exec workspace-summary \\
-  --title 'summary:<slug>' \\
-  --description 'Goal: ...' \\
-  --format json
-\`\`\`
-
-The command clears the old cmux status pill. Do not assign shell variables. Do not pass --workspace. Do not run raw cmux commands.`;
-}
-
-function buildFallbackBranchStateSkillPrompt(): string {
-	return `The ns-cmux-sidebar skill was not found. Update the caller cmux workspace title and one-line State description for the current branch relative to its parent using exactly one deterministic apply command after read-only Git/Graphite inspection. The title must be exactly state:<slug>, where <slug> is a concise lowercase hyphen slug:
-
-\`\`\`bash
-ns cmux exec workspace-summary \\
-  --title 'state:<slug>' \\
-  --description 'State: ...' \\
-  --format json
-\`\`\`
-
-The command clears the old cmux status pill. Do not assign shell variables. Do not pass --workspace. Do not run raw cmux commands.`;
-}
-
 async function handleDeterministicObjectiveSidebar(
 	pi: CccPiCommandApi,
 	args: string,
 	ctx: CommandContext,
-	_options: ObjectiveSidebarHandlerOptions,
 ): Promise<void> {
 	await ctx.waitForIdle();
 
@@ -237,152 +114,6 @@ async function resolveObjectiveSidebarSlug(
 		objectiveSelectionContextFromCommandContext(ctx),
 		OBJECTIVE_SIDEBAR_SELECTION_SPEC,
 	);
-}
-
-async function queueSessionSidebar(
-	pi: CccPiCommandApi,
-	ctx: CommandContext,
-	options: ObjectiveSidebarHandlerOptions,
-	setPendingRestore: (state: RestoreState) => void,
-): Promise<void> {
-	await queueModelAssistedSidebar(pi, ctx, options, setPendingRestore, {
-		status: "preparing cmux sidebar…",
-		successMessage: "Invoking cmux session sidebar summary.",
-		fallbackMessage: "cmux sidebar skill not found; using fallback prompt.",
-		buildPrompt: buildCmuxSessionSidebarPrompt,
-	});
-}
-
-async function queueBranchStateSidebar(
-	pi: CccPiCommandApi,
-	ctx: CommandContext,
-	options: ObjectiveSidebarHandlerOptions,
-	setPendingRestore: (state: RestoreState) => void,
-): Promise<void> {
-	await queueModelAssistedSidebar(pi, ctx, options, setPendingRestore, {
-		status: "preparing cmux branch-state sidebar…",
-		successMessage: "Invoking cmux branch-state sidebar summary.",
-		fallbackMessage: "cmux sidebar skill not found; using branch-state fallback prompt.",
-		buildPrompt: buildCmuxBranchStateSidebarPrompt,
-	});
-}
-
-async function queueModelAssistedSidebar(
-	pi: CccPiCommandApi,
-	ctx: CommandContext,
-	sidebarOptions: ObjectiveSidebarHandlerOptions,
-	setPendingRestore: (state: RestoreState) => void,
-	options: {
-		status: string;
-		successMessage: string;
-		fallbackMessage: string;
-		buildPrompt(skillBlock: string | undefined, workspaceId: string): string;
-	},
-): Promise<void> {
-	await ctx.waitForIdle();
-
-	const workspaceId = getCallerWorkspaceId();
-	if (!workspaceId) {
-		notify(ctx, "Not running inside a cmux caller workspace.", "warning");
-		return;
-	}
-
-	setStatus(ctx, options.status);
-	let restoreState: RestoreState | undefined;
-	try {
-		const skillBlock = await expandSidebarSkillBlock(ctx, sidebarOptions);
-		restoreState = await switchToFastSidebarModel(pi, ctx);
-		if (restoreState !== undefined) {
-			setPendingRestore(restoreState);
-		}
-		notify(
-			ctx,
-			skillBlock ? options.successMessage : options.fallbackMessage,
-			skillBlock ? "info" : "warning",
-		);
-		pi.sendUserMessage(options.buildPrompt(skillBlock, workspaceId));
-	} catch (error) {
-		if (restoreState !== undefined) {
-			await restoreModelState(pi, ctx, restoreState);
-		}
-		notify(ctx, `Could not queue cmux sidebar update: ${formatErrorMessage(error)}`, "warning");
-	} finally {
-		setStatus(ctx, undefined);
-	}
-}
-
-async function expandSidebarSkillBlock(
-	ctx: CommandContext,
-	options: ObjectiveSidebarHandlerOptions,
-): Promise<string | undefined> {
-	try {
-		return (await options.expandSkillBlock(ctx.cwd, SKILL_NAME)).block;
-	} catch (error) {
-		notify(
-			ctx,
-			`Could not read cmux sidebar skill; using fallback prompt: ${formatErrorMessage(error)}`,
-			"warning",
-		);
-		return undefined;
-	}
-}
-
-async function switchToFastSidebarModel(
-	pi: CccPiCommandApi,
-	ctx: CommandContext,
-): Promise<RestoreState | undefined> {
-	const repoRoot = await new RealGitGateway(pi).repoRoot({ cwd: ctx.cwd });
-	if (!repoRoot.ok) {
-		notify(ctx, `Could not resolve the Git repository root: ${repoRoot.error.message}`, "warning");
-		return undefined;
-	}
-	const policy = loadModelPolicy({ repoRoot: repoRoot.value, gateway: nodeProjectConfigGateway });
-	if (!policy.ok) {
-		notify(ctx, `Invalid model policy in ns.toml: ${policy.error.message}`, "warning");
-		return undefined;
-	}
-	const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.cmuxSidebar);
-	if (!resolved.ok) {
-		notify(ctx, `Invalid model policy in ns.toml: ${resolved.error.message}`, "warning");
-		return undefined;
-	}
-
-	const { provider, modelId } = resolved.value.model;
-	const modelRef = resolved.value.modelRef;
-	const model = ctx.modelRegistry.find(provider, modelId);
-	if (model === undefined) {
-		notify(ctx, `Fast sidebar model ${modelRef} not found; using current model.`, "warning");
-		return undefined;
-	}
-
-	const restoreState: RestoreState = {
-		thinkingLevel: pi.getThinkingLevel(),
-	};
-	if (ctx.model !== undefined) {
-		restoreState.model = ctx.model;
-	}
-
-	const switched = await pi.setModel(model);
-	if (!switched) {
-		notify(ctx, `Fast sidebar model ${modelRef} is unavailable; using current model.`, "warning");
-		return undefined;
-	}
-	pi.setThinkingLevel("minimal");
-	return restoreState;
-}
-
-async function restoreModelState(
-	pi: CccPiCommandApi,
-	ctx: AgentEndContext,
-	restoreState: RestoreState,
-): Promise<void> {
-	if (restoreState.model !== undefined) {
-		const restored = await pi.setModel(restoreState.model);
-		if (!restored) {
-			notify(ctx, "Could not restore the previous model after cmux sidebar update.", "warning");
-		}
-	}
-	pi.setThinkingLevel(restoreState.thinkingLevel);
 }
 
 function notify(

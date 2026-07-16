@@ -79,8 +79,8 @@ describe("cmux Objective sidebar", () => {
 		expect(pi.setModels).toEqual([]);
 		expect(pi.thinkingLevels).toEqual([]);
 		expect(ctx.statuses).toEqual([
-			{ key: "pi:ns-cmux-sidebar", value: "preparing cmux Objective sidebar…" },
-			{ key: "pi:ns-cmux-sidebar", value: undefined },
+			{ key: "pi:cmux-sidebar", value: "preparing cmux Objective sidebar…" },
+			{ key: "pi:cmux-sidebar", value: undefined },
 		]);
 		expect(notificationMessages(ctx)).toContain(`Applied cmux Objective sidebar: ${expectedTitle}`);
 	});
