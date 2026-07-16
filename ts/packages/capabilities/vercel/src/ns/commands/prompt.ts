@@ -90,10 +90,13 @@ const dispatchPromptResultSchema = z.discriminatedUnion("status", [
 type DispatchPromptCommandResult = z.infer<typeof dispatchPromptResultSchema>;
 type DispatchPromptSuccess = Extract<DispatchPromptCommandResult, { status: "dispatched" }>;
 
+type DispatchPromptExecutor = typeof executeDispatchPrompt;
+
 export function createDispatchPromptCommand(
 	createContext: (
 		ctx: NsExtensionApi,
 	) => Promise<DispatchPromptCliContext> | DispatchPromptCliContext = createDispatchPromptContext,
+	execute: DispatchPromptExecutor = executeDispatchPrompt,
 ): NsCommand {
 	return createNsDomainCommand({
 		name: "prompt",
@@ -105,7 +108,7 @@ export function createDispatchPromptCommand(
 		positionals: { prompt: { position: 0 } },
 		options: { slug: { short: "-s" }, force: { short: "-f" } },
 		createContext,
-		handler: runDispatchPromptCommand,
+		handler: (ctx, request) => runDispatchPromptCommand(ctx, request, execute),
 	});
 }
 
@@ -116,6 +119,7 @@ export default dispatchPromptCommand;
 async function runDispatchPromptCommand(
 	ctx: DispatchPromptCliContext,
 	request: z.output<typeof dispatchPromptRequestSchema>,
+	execute: DispatchPromptExecutor,
 ): Promise<CommandExit<DispatchPromptCommandResult>> {
 	if (request.prompt.trim().length === 0) {
 		return usageError("The dispatch prompt must not be blank.", { argument: "prompt" });
@@ -123,7 +127,7 @@ async function runDispatchPromptCommand(
 
 	let outcome: DispatchPromptOutcome;
 	try {
-		outcome = await executeDispatchPrompt(
+		outcome = await execute(
 			{
 				cwd: ctx.cwd,
 				prompt: request.prompt,
