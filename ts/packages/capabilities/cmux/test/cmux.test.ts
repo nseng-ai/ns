@@ -7,6 +7,8 @@ import {
 	createBranchContextContext,
 } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
+import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 
 // Intentional golden literal: pins the agent-facing implementation command name
 // independently of formatImplBranchContextCommand in @nseng-ai/branch-context/pi.
@@ -393,6 +395,59 @@ describe("cmux command suite", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.setModels).toEqual([]);
 		expect(pi.thinkingLevels).toEqual([]);
+	});
+
+	test("ns:cmux:workspace:dispatch-plan branch-context failure keeps the workspace consequence line", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot, {
+			fileName: SAVED_PLAN_FILE_NAME,
+			content: PLAN_CONTENT,
+		});
+		const pi = new FakePi({
+			script: [
+				gitRootStep(repoRoot),
+				gitCurrentBranchStep(),
+				gitOriginStep(),
+				gitRootStep(repoRoot),
+				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
+					stdout: `${PLAN_SLUG}\n`,
+				}),
+			],
+		});
+		const options: CccSlotDispatchPlanOptions = {
+			planStoreRoot,
+			createBranchContextContext: (factoryPi, _cwd) => ({
+				commands: {
+					supportsStdin: true,
+					exec: (command, args, execOptions) => factoryPi.exec(command, args, execOptions),
+				},
+				git: new InMemoryGitGateway({
+					optionalRepoRoot: { type: "missing" },
+					currentBranch: SOURCE_BRANCH,
+					headCommit: START_POINT,
+				}),
+				brmem: new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
+				graphite: new InMemoryGraphiteBranchGateway({
+					trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
+				}),
+			}),
+		};
+		registerCccSlotDispatchPlanCommand(pi, options);
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			model: PREVIOUS_MODEL,
+			branchEntries: [savedPlanEntry(repoRoot, planFile, { slug: SAVED_PLAN_FILENAME_SLUG })],
+		});
+
+		await pi.commands.get("ns:cmux:workspace:dispatch-plan")?.handler("", ctx);
+
+		pi.assertDone();
+		const failure = notificationMessages(ctx).join("\n---\n");
+		expect(failure).toContain("Failed to create branch context and attach plan.");
+		expect(failure).toMatch(/Source file: [^\n]+\nNo cmux workspace was opened\.\n\n/);
+		expect(failure).toContain("Graphite refused tracking.");
+		expect(pi.execCalls.some((call) => call.command === "cmux")).toBe(false);
 	});
 
 	test("ns:cmux:surface:dispatch-plan dry-run previews a new surface launch", async () => {

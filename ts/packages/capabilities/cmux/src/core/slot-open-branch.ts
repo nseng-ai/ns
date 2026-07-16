@@ -1,19 +1,16 @@
 import {
-	findLatestBranchContextEvidence,
+	confirmInferredBranchContext,
+	resolveInferredBranchContext,
 	type BranchContextEvidence,
 } from "@nseng-ai/branch-context/api";
 
-import { commandSucceeded, type CommandExecApi } from "@nseng-ai/foundation/command";
+import { extractSlashCommandArgumentPrefix } from "@nseng-ai/capability-kit/branch-completions";
+import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import { CMUX_WORKSPACE_OPEN_BRANCH_COMMAND_NAME } from "./command-surfaces.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
 import type { SlotClient } from "@nseng-ai/slots/api";
-import type { AutocompleteItem, CommandContext } from "@nseng-ai/capability-kit/cmux/types";
-
-interface BranchCandidate {
-	name: string;
-	scope: "local" | "remote";
-}
+import type { CommandContext } from "@nseng-ai/capability-kit/cmux/types";
 
 type ResolvedBranch =
 	| { inferred: false; branchName: string }
@@ -33,8 +30,6 @@ export interface HandleCccSlotOpenBranchOptions {
 }
 
 const COMMAND_NAME = CMUX_WORKSPACE_OPEN_BRANCH_COMMAND_NAME;
-const MAX_COMPLETIONS = 30;
-const BRANCH_FORMAT = "%(refname:short)\t%(refname)";
 
 export async function handleCccSlotOpenBranch(
 	options: HandleCccSlotOpenBranchOptions,
@@ -51,7 +46,7 @@ export async function handleCccSlotOpenBranch(
 	const resolved: ResolvedBranch =
 		explicitBranch.length > 0
 			? { branchName: explicitBranch, inferred: false }
-			: await resolveInferredBranchContext(ctx);
+			: resolveInferredBranch(ctx);
 
 	if ("error" in resolved) {
 		ctx.ui.notify(resolved.error, "error");
@@ -59,7 +54,11 @@ export async function handleCccSlotOpenBranch(
 	}
 
 	if (resolved.inferred) {
-		const confirmed = await confirmInferredBranch(ctx, resolved.evidence);
+		const confirmed = await confirmInferredBranchContext(ctx, {
+			commandName: COMMAND_NAME,
+			evidence: resolved.evidence,
+			destinationDescription: "open it in a new cmux workspace",
+		});
 		if (!confirmed) {
 			ctx.ui.notify("Cancelled; no cmux workspace was opened.", "info");
 			return;
@@ -83,156 +82,20 @@ export async function handleCccSlotOpenBranch(
 	}
 }
 
-async function resolveInferredBranchContext(ctx: {
+function resolveInferredBranch(ctx: {
 	sessionManager?: { getBranch?: () => unknown[] };
-}): Promise<
-	{ inferred: true; branchName: string; evidence: BranchContextEvidence } | { error: string }
-> {
-	const entries = ctx.sessionManager?.getBranch?.() ?? [];
-	const evidence = findLatestBranchContextEvidence(entries);
-	if (!evidence) {
+}): ResolvedBranch {
+	const resolution = resolveInferredBranchContext(ctx);
+	if (resolution.type === "none") {
 		return {
 			error: `Usage: /${COMMAND_NAME} <branch>\nNo latest [branch-context-output] branch found in the current session branch.`,
 		};
 	}
-	return { inferred: true, branchName: evidence.branch, evidence };
-}
-
-async function confirmInferredBranch(
-	ctx: {
-		hasUI?: boolean;
-		ui: {
-			confirm?: (title: string, message: string) => Promise<boolean>;
-			notify(message: string, level?: "info" | "warning" | "error"): void;
-		};
-	},
-	evidence: BranchContextEvidence,
-): Promise<boolean> {
-	if (!ctx.hasUI || ctx.ui.confirm === undefined) {
-		ctx.ui.notify(
-			`Cannot infer /${COMMAND_NAME} branch without an interactive confirmation UI.`,
-			"error",
-		);
-		return false;
-	}
-
-	const details = formatInferredBranchConfirmation(evidence);
-	return ctx.ui.confirm("Use branch context?", details);
-}
-
-function formatInferredBranchConfirmation(evidence: BranchContextEvidence): string {
-	return [
-		`Use branch "${evidence.branch}" from the latest [branch-context-output] and open it in a new cmux workspace?`,
-		"",
-		`Key: ${evidence.key}`,
-		`Branch creation: ${evidence.branchCreation}`,
-		`Start point: ${evidence.startPoint}`,
-		`Commit: ${evidence.commit}`,
-		`Source file: ${evidence.sourceFile}`,
-	].join("\n");
+	return { inferred: true, branchName: resolution.branchName, evidence: resolution.evidence };
 }
 
 export function extractCommandArgumentPrefix(textBeforeCursor: string): string | undefined {
-	const commandPrefix = `/${COMMAND_NAME}`;
-	if (!textBeforeCursor.startsWith(commandPrefix)) {
-		return undefined;
-	}
-
-	const rest = textBeforeCursor.slice(commandPrefix.length);
-	if (!rest.startsWith(" ")) {
-		return undefined;
-	}
-
-	const argumentPrefix = rest.slice(1);
-	return /\s/.test(argumentPrefix.trim()) ? undefined : argumentPrefix;
+	return extractSlashCommandArgumentPrefix(COMMAND_NAME, textBeforeCursor);
 }
 
-export async function getBranchCompletions(
-	pi: CommandExecApi,
-	cwd: string,
-	argumentPrefix: string,
-): Promise<AutocompleteItem[]> {
-	const trimmedPrefix = argumentPrefix.trim();
-	if (/\s/.test(trimmedPrefix)) {
-		return [];
-	}
-
-	const candidates = await listBranchCandidates(pi, cwd);
-	if (!candidates) {
-		return [];
-	}
-
-	return filterBranchCandidates(candidates, trimmedPrefix)
-		.slice(0, MAX_COMPLETIONS)
-		.map((candidate) => ({
-			value: candidate.name,
-			label: candidate.name,
-			description: candidate.scope,
-		}));
-}
-
-async function listBranchCandidates(
-	pi: CommandExecApi,
-	cwd: string,
-): Promise<BranchCandidate[] | undefined> {
-	const result = await pi.exec(
-		"git",
-		["for-each-ref", `--format=${BRANCH_FORMAT}`, "refs/heads", "refs/remotes"],
-		{ cwd, timeout: 5_000 },
-	);
-	if (!commandSucceeded(result)) {
-		return undefined;
-	}
-
-	const seen = new Set<string>();
-	const candidates: BranchCandidate[] = [];
-	for (const line of result.stdout.split("\n")) {
-		const trimmedLine = line.trim();
-		if (trimmedLine.length === 0) {
-			continue;
-		}
-
-		const [name, ref] = trimmedLine.split("\t");
-		if (!name || !ref || name.endsWith("/HEAD")) {
-			continue;
-		}
-		if (seen.has(name)) {
-			continue;
-		}
-
-		seen.add(name);
-		candidates.push({
-			name,
-			scope: ref.startsWith("refs/heads/") ? "local" : "remote",
-		});
-	}
-
-	return candidates;
-}
-
-function filterBranchCandidates(candidates: BranchCandidate[], prefix: string): BranchCandidate[] {
-	if (prefix.length === 0) {
-		return sortBranchCandidates(candidates);
-	}
-
-	const exactMatches = candidates.filter((candidate) => candidate.name === prefix);
-	if (exactMatches.length > 0) {
-		return sortBranchCandidates(exactMatches);
-	}
-
-	const prefixMatches = candidates.filter((candidate) => candidate.name.startsWith(prefix));
-	if (prefixMatches.length > 0) {
-		return sortBranchCandidates(prefixMatches);
-	}
-
-	return sortBranchCandidates(candidates.filter((candidate) => candidate.name.includes(prefix)));
-}
-
-function sortBranchCandidates(candidates: BranchCandidate[]): BranchCandidate[] {
-	return [...candidates].sort((left, right) => {
-		if (left.scope !== right.scope) {
-			return left.scope === "local" ? -1 : 1;
-		}
-		return left.name.localeCompare(right.name);
-	});
-}
+export { getBranchCompletions } from "@nseng-ai/capability-kit/branch-completions";

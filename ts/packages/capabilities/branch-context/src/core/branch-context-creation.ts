@@ -281,6 +281,10 @@ export function formatBranchContextEvidence(evidence: BranchContextEvidence): st
 export function formatBranchContextCreateFailure(
 	operation: BranchContextCreateOperation,
 	error: unknown,
+	options: {
+		/** Consumer consequence line, e.g. "No cmux workspace was opened." */
+		consequence?: string;
+	} = {},
 ): string {
 	return [
 		"Failed to create branch context and attach plan.",
@@ -290,6 +294,7 @@ export function formatBranchContextCreateFailure(
 		`Namespace: ${operation.namespace}`,
 		`Key: ${operation.key}`,
 		`Source file: ${operation.filePath}`,
+		...(options.consequence === undefined ? [] : [options.consequence]),
 		"",
 		formatErrorMessage(error),
 	].join("\n");

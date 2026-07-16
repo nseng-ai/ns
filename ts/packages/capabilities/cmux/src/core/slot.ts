@@ -2,7 +2,7 @@ import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
 import { RealCmuxGateway, type CmuxGatewayFailure } from "@nseng-ai/capability-kit/cmux/gateway";
-import { getWorktreeDescription } from "./worktree-description.ts";
+import { getWorktreeDescription } from "@nseng-ai/capability-kit/worktree-description";
 import type { NotifyLevel } from "@nseng-ai/capability-kit/cmux/types";
 
 export interface BranchCmuxSlotCheckoutOptions {

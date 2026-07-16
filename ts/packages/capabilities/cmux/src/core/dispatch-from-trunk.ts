@@ -1,4 +1,7 @@
-import { createTrackedBranchFromTrunkForPrompt } from "@nseng-ai/capability-kit/tracked-branch-payload";
+import {
+	createTrackedBranchFromTrunkForPrompt,
+	TRUNK_DISPATCH_CONTEXT_NOTE,
+} from "@nseng-ai/capability-kit/tracked-branch-payload";
 import type { GraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/branch";
 import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
@@ -17,8 +20,6 @@ import type { CccPiCommandApi } from "./pi-command-api.ts";
 
 type DispatchFromTrunkRuntime = CommandExecApi & Pick<CccPiCommandApi, "getThinkingLevel">;
 const COMMAND_NAME = CMUX_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME;
-const TRUNK_DISPATCH_CONTEXT_NOTE =
-	"This branch was created from refreshed Graphite trunk and is intentionally unrelated to the caller's current stack.";
 
 export async function handleCccSlotDispatchFromTrunk(options: {
 	pi: DispatchFromTrunkRuntime;

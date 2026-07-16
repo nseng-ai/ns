@@ -52,3 +52,9 @@ export {
 	findLatestBranchContextEvidence,
 	type BranchContextOutputDetails,
 } from "../core/session-artifact.ts";
+export {
+	confirmInferredBranchContext,
+	resolveInferredBranchContext,
+	type InferredBranchConfirmationContext,
+	type InferredBranchContextResolution,
+} from "../core/inferred-branch.ts";
