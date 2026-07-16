@@ -26,7 +26,7 @@ describe("Vercel production command shape", () => {
 			"deploy",
 			"--prebuilt",
 			"--scope",
-			"schrockns-projects",
+			"vercel-internal-playground",
 			"--prod",
 			"--yes",
 			"--format=json",
@@ -34,6 +34,8 @@ describe("Vercel production command shape", () => {
 		expect(vercelInspectArgs("dpl_example")).toEqual([
 			"inspect",
 			"dpl_example",
+			"--scope",
+			"vercel-internal-playground",
 			"--wait",
 			"--timeout",
 			"2m",

@@ -5,12 +5,24 @@ import {
 	RUNS_ROUTE_PATH,
 	TRIGGER_ROUTE_PATH,
 	triggerSuccessResponseSchema,
+	VERCEL_PROTECTION_BYPASS_HEADER_NAME,
 } from "../../http/wire.ts";
 import type {
 	DispatchStartRunResult,
+	DispatchTriggerConnection,
 	DispatchTriggerGateway,
 	DispatchTriggerIdentityResult,
 } from "./contracts.ts";
+
+/** Credential headers for a dispatch deployment call; values are never logged. */
+function connectionHeaders(connection: DispatchTriggerConnection): Record<string, string> {
+	return {
+		[DISPATCH_OIDC_HEADER_NAME]: connection.oidcToken,
+		...(connection.protectionBypassToken === undefined
+			? {}
+			: { [VERCEL_PROTECTION_BYPASS_HEADER_NAME]: connection.protectionBypassToken }),
+	};
+}
 
 /** Valid-shaped run id used by the read-only identity preflight; can never exist. */
 const IDENTITY_PREFLIGHT_RUN_ID = "wrun_00000000000000000000000000";
@@ -26,7 +38,7 @@ export function createRealDispatchTriggerGateway(
 				url.searchParams.set("runId", IDENTITY_PREFLIGHT_RUN_ID);
 				response = await fetchFn(url, {
 					method: "GET",
-					headers: { [DISPATCH_OIDC_HEADER_NAME]: connection.oidcToken },
+					headers: connectionHeaders(connection),
 				});
 			} catch (error) {
 				return { type: "unreachable", message: formatErrorMessage(error) };
@@ -40,7 +52,7 @@ export function createRealDispatchTriggerGateway(
 					method: "POST",
 					headers: {
 						"content-type": "application/json",
-						[DISPATCH_OIDC_HEADER_NAME]: connection.oidcToken,
+						...connectionHeaders(connection),
 					},
 					body: JSON.stringify({ workflow: "dispatch", ...input }),
 				});

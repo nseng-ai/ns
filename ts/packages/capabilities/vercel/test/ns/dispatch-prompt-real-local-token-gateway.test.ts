@@ -43,4 +43,22 @@ describe("real local token gateway", () => {
 			expect(result.detail).toContain("vercel env pull");
 		}
 	});
+
+	test("reads the protection bypass token from the process environment", async () => {
+		const gateway = createRealDispatchLocalTokenGateway({
+			env: { NS_DISPATCH_PROTECTION_BYPASS: "bypass-token" },
+		});
+		expect(await gateway.readProtectionBypassToken()).toEqual({
+			type: "found",
+			token: "bypass-token",
+		});
+	});
+
+	test("treats an unavailable protection bypass token as absent, not a failure", async () => {
+		const gateway = createRealDispatchLocalTokenGateway({
+			env: {},
+			envLocalPath: join(tmpdir(), "ns-dispatch-nonexistent", ".env.local"),
+		});
+		expect(await gateway.readProtectionBypassToken()).toEqual({ type: "absent" });
+	});
 });

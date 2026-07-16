@@ -47,7 +47,7 @@ export const VERCEL_PRODUCTION_DEPLOY_ARGS = [
 	"deploy",
 	"--prebuilt",
 	"--scope",
-	"schrockns-projects",
+	"vercel-internal-playground",
 	"--prod",
 	"--yes",
 	"--format=json",
@@ -66,7 +66,16 @@ export function productionWorkspaceInstallRoot(worktreeRoot: string): string {
 }
 
 export function vercelInspectArgs(locator: string): readonly string[] {
-	return ["inspect", locator, "--wait", "--timeout", "2m", "--format=json"];
+	return [
+		"inspect",
+		locator,
+		"--scope",
+		"vercel-internal-playground",
+		"--wait",
+		"--timeout",
+		"2m",
+		"--format=json",
+	];
 }
 
 export function isProductionHealthPayload(value: unknown): boolean {
@@ -512,12 +521,20 @@ function parseVercelDeploymentUrl(value: string): string | undefined {
 
 export async function verifyPublicProductionHealth(
 	productionAlias: string,
+	options: { readonly protectionBypassToken?: string } = {},
 ): Promise<
 	{ readonly ok: true; readonly url: string } | { readonly ok: false; readonly message: string }
 > {
 	const url = new URL("/api/health", productionAlias).href;
 	try {
-		const response = await fetch(url, { method: "GET", redirect: "error" });
+		const response = await fetch(url, {
+			method: "GET",
+			redirect: "error",
+			headers:
+				options.protectionBypassToken === undefined
+					? {}
+					: { "x-vercel-protection-bypass": options.protectionBypassToken },
+		});
 		if (!response.ok) {
 			return { ok: false, message: `Health endpoint returned HTTP ${response.status}.` };
 		}

@@ -3,10 +3,13 @@ import { fileURLToPath } from "node:url";
 
 import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
-import type { DispatchLocalTokenGateway } from "./contracts.ts";
+import type { DispatchLocalBypassResult, DispatchLocalTokenGateway } from "./contracts.ts";
 
 /** The env name `vercel env pull` writes the Development token under. */
 export const DISPATCH_OIDC_TOKEN_ENV_NAME = "VERCEL_OIDC_TOKEN";
+
+/** Project env var carrying the Deployment Protection automation bypass token. */
+export const DISPATCH_PROTECTION_BYPASS_ENV_NAME = "NS_DISPATCH_PROTECTION_BYPASS";
 
 export interface RealDispatchLocalTokenGatewayOptions {
 	readonly env: Readonly<Record<string, string | undefined>>;
@@ -43,6 +46,22 @@ export function createRealDispatchLocalTokenGateway(
 			if (token === null || token.length === 0) {
 				return { type: "missing", detail: missingTokenDetail(envLocalPath) };
 			}
+			return { type: "found", token };
+		},
+		async readProtectionBypassToken(): Promise<DispatchLocalBypassResult> {
+			const fromEnv = options.env[DISPATCH_PROTECTION_BYPASS_ENV_NAME];
+			if (fromEnv !== undefined && fromEnv.length > 0) {
+				return { type: "found", token: fromEnv };
+			}
+			const envLocalPath = options.envLocalPath ?? fileURLToPath(PACKAGE_ENV_LOCAL_URL);
+			let content: string;
+			try {
+				content = await readFile(envLocalPath, "utf8");
+			} catch {
+				return { type: "absent" };
+			}
+			const token = parseEnvFileValue(content, DISPATCH_PROTECTION_BYPASS_ENV_NAME);
+			if (token === null || token.length === 0) return { type: "absent" };
 			return { type: "found", token };
 		},
 	};

@@ -12,6 +12,27 @@ export const DISPATCH_PACKAGE_MANAGER_FIELD =
 /** Checkout-relative entry module for the ns-owned Pi runner. */
 export const PI_RUNNER_ENTRY_PATH = "ts/packages/capabilities/vercel/src/pi-runner/main.ts";
 
+/** Environment variable carrying the Vercel AI Gateway key into the sandbox launch. */
+export const PI_SANDBOX_MODEL_KEY_ENV_NAME = "AI_GATEWAY_API_KEY";
+
+/** Pi provider id for the Vercel AI Gateway built-in provider. */
+export const PI_SANDBOX_MODEL_PROVIDER = "vercel-ai-gateway";
+
+/** Exact gateway model the sandbox Pi session is pinned to. */
+export const PI_SANDBOX_MODEL_ID = "anthropic/claude-opus-4.6";
+
+/**
+ * Sandbox-global Pi settings JSON pinning the model. Written to the sandbox
+ * home (never the checkout), so pi's default resolution cannot fall back to
+ * catalog order and repo-local `.pi/settings.json` stays untouched for humans.
+ */
+export function buildPiSandboxSettingsJson(): string {
+	return JSON.stringify({
+		defaultProvider: PI_SANDBOX_MODEL_PROVIDER,
+		defaultModel: PI_SANDBOX_MODEL_ID,
+	});
+}
+
 export interface HarnessInvocation {
 	/** Validated configured harness represented by this invocation. */
 	readonly harness: DispatchHarness;
@@ -160,9 +181,16 @@ export function buildPiHarnessInvocation(pnpmVersion: ValidatedPnpmVersion): Har
 				cmd: "pnpm",
 				args: ["--dir", "ts", "install", "--frozen-lockfile", "--filter", "@nseng-ai/vercel..."],
 			},
+			{
+				cmd: "sh",
+				args: [
+					"-c",
+					`mkdir -p "$HOME/.pi/agent" && printf '%s' '${buildPiSandboxSettingsJson()}' > "$HOME/.pi/agent/settings.json"`,
+				],
+			},
 		],
 		launchCommand: { cmd: "node", args: [PI_RUNNER_ENTRY_PATH] },
-		launchEnvironmentVariableNames: ["ANTHROPIC_API_KEY"],
+		launchEnvironmentVariableNames: [PI_SANDBOX_MODEL_KEY_ENV_NAME],
 	};
 }
 

@@ -102,6 +102,7 @@ describe("ns dispatch prompt", () => {
 			"config:read-dispatch-settings",
 			"config:read-package-manager",
 			"token:read-development-oidc",
+			"token:read-protection-bypass",
 			"trigger:check-identity",
 			"git:read-remote-tip",
 			"git:push-source",

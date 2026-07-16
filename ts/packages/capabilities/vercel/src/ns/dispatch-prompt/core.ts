@@ -121,9 +121,11 @@ export async function runDispatchPreflight(
 	}
 
 	const { deploymentUrl, workflowDashboardUrl } = configCheck.config;
+	const bypassResult = await gateways.tokens.readProtectionBypassToken();
 	const triggerConnection: DispatchTriggerConnection = {
 		deploymentUrl,
 		oidcToken: tokenResult.token,
+		...(bypassResult.type === "found" ? { protectionBypassToken: bypassResult.token } : {}),
 	};
 	const identity = await gateways.trigger.checkTriggerIdentity({ connection: triggerConnection });
 	const identityCheck = triggerIdentityCheck(identity);

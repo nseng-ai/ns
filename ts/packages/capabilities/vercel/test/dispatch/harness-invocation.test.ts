@@ -223,7 +223,17 @@ describe("Pi invocation recipe", () => {
 
 	it("names the model key by name only — never a value", () => {
 		const invocation = resolvedInvocation();
-		expect(invocation.launchEnvironmentVariableNames).toEqual(["ANTHROPIC_API_KEY"]);
+		expect(invocation.launchEnvironmentVariableNames).toEqual(["AI_GATEWAY_API_KEY"]);
 		expect(JSON.stringify(invocation)).not.toContain("sk-");
+	});
+
+	it("pins the sandbox model through sandbox-global pi settings", () => {
+		const commands = resolvedInvocation().provisionCommands.map(
+			(command) => `${command.cmd} ${command.args.join(" ")}`,
+		);
+		const settingsWrite = commands.find((line) => line.includes(".pi/agent/settings.json"));
+		expect(settingsWrite).toBeDefined();
+		expect(settingsWrite).toContain('"defaultProvider":"vercel-ai-gateway"');
+		expect(settingsWrite).toContain('"defaultModel":"anthropic/claude-opus-4.6"');
 	});
 });

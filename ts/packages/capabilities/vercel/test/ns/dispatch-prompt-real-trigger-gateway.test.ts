@@ -48,6 +48,24 @@ describe("real trigger gateway", () => {
 			"https://ns-dispatch.example.vercel.app/api/runs?runId=wrun_00000000000000000000000000",
 		);
 		expect(requests[0]?.headers[DISPATCH_OIDC_HEADER_NAME]).toBe("fake-token");
+		expect(requests[0]?.headers["x-vercel-protection-bypass"]).toBeUndefined();
+	});
+
+	test("sends the protection bypass header only when the connection carries one", async () => {
+		const { fetchFn, requests } = fakeFetch(() =>
+			Response.json(
+				{ error: { code: "run-not-found", message: "Run not found." } },
+				{ status: 404 },
+			),
+		);
+		const gateway = createRealDispatchTriggerGateway(fetchFn);
+		const result = await gateway.checkTriggerIdentity({
+			connection: { ...TRIGGER_CONNECTION, protectionBypassToken: "bypass-secret" },
+		});
+
+		expect(result).toEqual({ type: "authorized" });
+		expect(requests[0]?.headers["x-vercel-protection-bypass"]).toBe("bypass-secret");
+		expect(requests[0]?.headers[DISPATCH_OIDC_HEADER_NAME]).toBe("fake-token");
 	});
 
 	test("maps identity statuses and network failures", async () => {

@@ -137,7 +137,11 @@ identity failures.
    - target: Node 24;
    - packages bundled;
    - no external sourcemap assumption.
-6. Rewrite each API `.vc-config.json` to its `.cjs` handler and remove `filePathMap`.
+6. Rewrite each API `.vc-config.json` to its `.cjs` handler, remove `filePathMap`, and prune
+   the function directory to exactly the rewritten config plus the bundled handler. Current
+   Vercel CLI builds copy traced sources and partial `node_modules` trees into the function
+   directory instead of emitting `filePathMap`; those leftovers are dead weight that fails
+   the module-closure verifier, so hermeticity is enforced by deletion, not trust.
 7. Run `workflow validate --strict`.
 8. Run `workflow build --target vercel-build-output-api`.
 9. Merge Workflow routes ahead of the original Vercel routes without accepting unknown

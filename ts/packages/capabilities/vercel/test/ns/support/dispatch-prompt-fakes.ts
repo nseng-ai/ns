@@ -17,6 +17,7 @@ import type {
 	DispatchConfigSourceResult,
 	DispatchGitOperationResult,
 	DispatchLocalTokenGateway,
+	DispatchLocalBypassResult,
 	DispatchLocalTokenResult,
 	DispatchPlanGateways,
 	DispatchPromptGateways,
@@ -253,14 +254,22 @@ export class FakeDispatchTriggerGateway implements DispatchTriggerGateway {
 export class FakeDispatchLocalTokenGateway implements DispatchLocalTokenGateway {
 	readonly reads: string[] = [];
 	private readonly result: DispatchLocalTokenResult;
+	private readonly bypassResult: DispatchLocalBypassResult;
 	private readonly recordOperation: (operation: string) => void;
 
 	constructor(
 		result: DispatchLocalTokenResult = { type: "found", token: FAKE_OIDC_TOKEN },
 		recordOperation = (_operation: string) => {},
+		bypassResult: DispatchLocalBypassResult = { type: "absent" },
 	) {
 		this.result = result;
 		this.recordOperation = recordOperation;
+		this.bypassResult = bypassResult;
+	}
+
+	async readProtectionBypassToken(): Promise<DispatchLocalBypassResult> {
+		this.recordOperation("token:read-protection-bypass");
+		return this.bypassResult;
 	}
 
 	async readDevelopmentOidcToken(): Promise<DispatchLocalTokenResult> {

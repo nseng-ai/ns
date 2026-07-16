@@ -1,5 +1,5 @@
-import { readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { runCommand } from "@nseng-ai/foundation/exec";
@@ -95,8 +95,44 @@ async function makeApiFunctionBundlesHermetic(paths: BuildPaths): Promise<boolea
 			minifyWhitespace: true,
 		});
 		await writeFile(configPath, `${JSON.stringify(plan.config, null, 2)}\n`);
+		await pruneToHermeticContents(functionRoot, plan.bundledHandler);
 	}
 	return true;
+}
+
+/**
+ * Remove everything Vercel's tracer copied into the function directory except
+ * the rewritten config and the self-contained CommonJS bundle. The bundle
+ * carries the full runtime closure, so leftover traced sources and partial
+ * `node_modules` trees are dead weight that fails the module-closure verifier.
+ */
+async function pruneToHermeticContents(
+	functionRoot: string,
+	bundledHandler: string,
+): Promise<void> {
+	const keep = new Set([".vc-config.json", bundledHandler]);
+	const files = await readdir(functionRoot, { recursive: true, withFileTypes: true });
+	for (const file of files) {
+		if (!file.isFile() && !file.isSymbolicLink()) continue;
+		const relativePath = relative(functionRoot, join(file.parentPath, file.name));
+		if (keep.has(relativePath)) continue;
+		await rm(join(functionRoot, relativePath), { force: true });
+	}
+	await removeEmptyDirectories(functionRoot);
+}
+
+async function removeEmptyDirectories(root: string): Promise<boolean> {
+	const entries = await readdir(root, { withFileTypes: true });
+	let remaining = 0;
+	for (const entry of entries) {
+		const path = join(root, entry.name);
+		if (entry.isDirectory() && (await removeEmptyDirectories(path))) {
+			await rm(path, { recursive: true, force: true });
+			continue;
+		}
+		remaining += 1;
+	}
+	return remaining === 0;
 }
 
 async function validateAndBuildWorkflows(

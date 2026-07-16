@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 export const DISPATCH_OIDC_HEADER_NAME = "x-ns-dispatch-oidc-token";
+/** Vercel Deployment Protection automation bypass header (team-enforced SSO). */
+export const VERCEL_PROTECTION_BYPASS_HEADER_NAME = "x-vercel-protection-bypass";
 export const MINT_ROUTE_PATH = "/api/mint";
 export const TRIGGER_ROUTE_PATH = "/api/trigger";
 export const RUNS_ROUTE_PATH = "/api/runs";

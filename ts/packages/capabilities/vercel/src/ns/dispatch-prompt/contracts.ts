@@ -118,6 +118,12 @@ export type DispatchOpenAnchorPrResult =
 export interface DispatchTriggerConnection {
 	readonly deploymentUrl: string;
 	readonly oidcToken: string;
+	/**
+	 * Vercel Deployment Protection automation bypass token; present when the
+	 * deployment sits behind team-enforced Vercel Authentication. Opaque
+	 * pass-through data, never echoed.
+	 */
+	readonly protectionBypassToken?: string;
 }
 
 /**
@@ -176,12 +182,21 @@ export type DispatchStartRunResult =
  */
 export interface DispatchLocalTokenGateway {
 	readDevelopmentOidcToken(): Promise<DispatchLocalTokenResult>;
+	/**
+	 * Optional Deployment Protection automation bypass token. Absence is not a
+	 * failure: unprotected deployments never need it.
+	 */
+	readProtectionBypassToken(): Promise<DispatchLocalBypassResult>;
 }
 
 export type DispatchLocalTokenResult =
 	| { readonly type: "found"; readonly token: string }
 	| { readonly type: "missing"; readonly detail: string }
 	| { readonly type: "error"; readonly message: string };
+
+export type DispatchLocalBypassResult =
+	| { readonly type: "found"; readonly token: string }
+	| { readonly type: "absent" };
 
 /**
  * Checkout-owned configuration sources, read from the repo root. Parsing
