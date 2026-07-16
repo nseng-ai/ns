@@ -27,6 +27,8 @@ type ScriptedExecResult = ExecResult | ExitedResultFields;
 export interface ScriptedExecResponse {
 	match: string | RegExp | ((call: ExecCall) => boolean);
 	result: ScriptedExecResult | ((call: ExecCall) => ScriptedExecResult);
+	/** Number of matching calls this response serves before removal. */
+	times?: number;
 }
 
 export interface ExecCall {
@@ -136,9 +138,15 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 			return execResult(scripted.result);
 		}
 		this.execCalls.push(call);
-		const [response] = this.execResponses.splice(index, 1);
+		const response = this.execResponses[index];
 		if (response === undefined) {
 			return execResult({ code: 99, stderr: `missing command response: ${formatExecCall(call)}` });
+		}
+		const remainingUses = response.times ?? defaultResponseUses(call, response.result);
+		if (remainingUses <= 1) {
+			this.execResponses.splice(index, 1);
+		} else {
+			this.execResponses[index] = { ...response, times: remainingUses - 1 };
 		}
 		const result = execResult(
 			typeof response.result === "function" ? response.result(call) : response.result,
@@ -230,6 +238,16 @@ export function parseJsonOutput(run: { stdout: readonly string[] }): Record<stri
 		throw new Error("Expected JSON object output.");
 	}
 	return value as Record<string, unknown>;
+}
+
+function defaultResponseUses(call: ExecCall, result: ScriptedExecResponse["result"]): number {
+	return formatExecCall(call).endsWith(" --dry-run") &&
+		typeof result !== "function" &&
+		(!("type" in result) || result.type === "exited") &&
+		result.code !== null &&
+		(result.code === undefined || result.code === 0)
+		? 2
+		: 1;
 }
 
 function responseMatches(match: ScriptedExecResponse["match"], call: ExecCall): boolean {

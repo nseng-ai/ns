@@ -863,6 +863,89 @@ describe("runSubmitCommand", () => {
 		textGenerator.assertDone();
 	});
 
+	test("stops an upstack submit before stack update when primary submit reports semantic failure", async () => {
+		const operations: string[] = [];
+		const link = { label: "#123", url: "https://github.com/acme/repo/pull/123" };
+		const gateway: SubmitGateway = {
+			checkSubmitReadiness: async () => {
+				operations.push("readiness");
+				return {
+					kind: "ready",
+					output: exitedResult({ stdout: "ready", code: 0 }),
+				};
+			},
+			restackCurrentStack: async () => unexpectedCall("restackCurrentStack"),
+			submitCurrentStack: async () => {
+				operations.push("submit");
+				return {
+					kind: "success",
+					output: exitedResult({ stdout: "empty branch", code: 0 }),
+					prLinks: [link],
+					semanticFailureCause: {
+						kind: "empty_branch_skipped",
+						branchName: "feature/current",
+					},
+				};
+			},
+			updateStackPrs: async () => {
+				operations.push("update");
+				return unexpectedCall("updateStackPrs");
+			},
+			verifyCurrentPr: async () => {
+				operations.push("verification");
+				return {
+					kind: "present",
+					output: exitedResult({ stdout: "current", code: 0 }),
+					prLinks: [link],
+				};
+			},
+		};
+		const metadataGateway: SubmitMetadataGateway = {
+			inspectSubmitStackTopology: async () => unexpectedCall("inspectSubmitStackTopology"),
+			inspectSubmitStack: async () => {
+				operations.push("inventory");
+				return {
+					ok: true,
+					value: {
+						currentBranch: "feature/current",
+						hasUpstackBranches: true,
+						branches: [
+							{
+								kind: "existing",
+								branch: "feature/current",
+								parentBranch: "main",
+								pr: link,
+							},
+						],
+					},
+				} as const;
+			},
+			ensureCleanWorktree: async () => unexpectedCall("ensureCleanWorktree"),
+			amendBranchMetadataCommit: async () => unexpectedCall("amendBranchMetadataCommit"),
+		};
+
+		const result = await runSubmitCommand({
+			cwd: "/repo",
+			gateway,
+			metadataGateway,
+			restack: true,
+			force: false,
+			prDescription: {
+				githubPr: unusedGithubPrGateway,
+				textGenerator: unusedTextGenerator,
+				git: unusedGitGateway,
+				descriptorSource: flowExtensionDescriptorSource,
+				modelRef: "openai-codex/gpt-5.6-luna",
+				env: {},
+			},
+			progress: testSubmitProgress(),
+		});
+
+		expect(result.exitCode).toBe(1);
+		expect(operations).toEqual(["readiness", "inventory", "readiness", "submit", "verification"]);
+		expect(operations).not.toContain("update");
+	});
+
 	test("formats gateway-domain preflight failures without Graphite stderr fixtures", async () => {
 		const gateway: SubmitGateway = {
 			checkSubmitReadiness: async () => ({

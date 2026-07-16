@@ -88,6 +88,7 @@ export interface FakeWorkspaceGitState extends FakeSourcePatch {
 	readonly anchorPushResult?: DispatchGitOperationResult;
 	readonly afterGitPush?: FakeSourcePatch;
 	readonly afterGraphitePublication?: FakeSourcePatch;
+	readonly beforeFinalValidation?: FakeSourcePatch;
 }
 
 class FakeDispatchRepositoryState {
@@ -100,8 +101,10 @@ class FakeDispatchRepositoryState {
 	dirtyReadError: { readonly code: string; readonly message: string } | undefined;
 	remoteTip: DispatchRemoteBranchTipResult;
 	hasSourcePublication = false;
+	isFinalValidationReady = false;
 	readonly afterGitPush: FakeSourcePatch;
 	readonly afterGraphitePublication: FakeSourcePatch;
+	readonly beforeFinalValidation: FakeSourcePatch;
 
 	constructor(state: FakeWorkspaceGitState) {
 		this.repoRoot = state.repoRoot ?? "/repo";
@@ -114,6 +117,7 @@ class FakeDispatchRepositoryState {
 		this.remoteTip = copyRemoteTip(state.remoteTip ?? { type: "found", sha: this.headSha });
 		this.afterGitPush = copySourcePatch(state.afterGitPush ?? {});
 		this.afterGraphitePublication = copySourcePatch(state.afterGraphitePublication ?? {});
+		this.beforeFinalValidation = copySourcePatch(state.beforeFinalValidation ?? {});
 	}
 
 	applyGitPush(expectedRevision: string): void {
@@ -128,6 +132,12 @@ class FakeDispatchRepositoryState {
 		this.headSha = source.headSha;
 		this.remoteTip = { type: "found", sha: source.headSha };
 		this.applyPatch(this.afterGraphitePublication);
+	}
+
+	prepareFinalValidation(): void {
+		if (this.isFinalValidationReady) return;
+		this.isFinalValidationReady = true;
+		this.applyPatch(this.beforeFinalValidation);
 	}
 
 	private applyPatch(patch: FakeSourcePatch): void {
@@ -252,9 +262,11 @@ export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGate
 		if (this.state.anchorAvailabilityError !== undefined) {
 			return this.state.anchorAvailabilityError;
 		}
-		return this.state.occupiedAnchorBranches?.includes(options.anchorBranch) === true
-			? ({ type: "occupied" } as const)
-			: ({ type: "available" } as const);
+		if (this.state.occupiedAnchorBranches?.includes(options.anchorBranch) === true) {
+			return { type: "occupied" } as const;
+		}
+		this.repository.prepareFinalValidation();
+		return { type: "available" } as const;
 	}
 
 	async pushSourceBranch(options: {
@@ -576,6 +588,8 @@ export interface FakeDispatchConfigState {
 	readonly packageManager?: DispatchConfigSourceResult;
 	readonly dispatchSettingsAfterPublication?: DispatchConfigSourceResult;
 	readonly packageManagerAfterPublication?: DispatchConfigSourceResult;
+	readonly dispatchSettingsBeforeFinalValidation?: DispatchConfigSourceResult;
+	readonly packageManagerBeforeFinalValidation?: DispatchConfigSourceResult;
 }
 
 export class FakeDispatchConfigGateway implements DispatchConfigGateway {
@@ -607,8 +621,10 @@ export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 	async readDispatchSettingsSource(options: { readonly repoRoot: string }) {
 		this.readLog.push({ source: "dispatch-settings", repoRoot: options.repoRoot });
 		this.recordOperation("config:read-dispatch-settings");
+		const beforeFinalValidation = this.repository.isFinalValidationReady;
 		const afterPublication = this.repository.hasSourcePublication;
 		return (
+			(beforeFinalValidation ? this.state.dispatchSettingsBeforeFinalValidation : undefined) ??
 			(afterPublication ? this.state.dispatchSettingsAfterPublication : undefined) ??
 			this.state.dispatchSettings ?? { type: "found", source: FAKE_DISPATCH_SETTINGS_SOURCE }
 		);
@@ -617,8 +633,10 @@ export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 	async readPackageManagerSource(options: { readonly repoRoot: string }) {
 		this.readLog.push({ source: "package-manager", repoRoot: options.repoRoot });
 		this.recordOperation("config:read-package-manager");
+		const beforeFinalValidation = this.repository.isFinalValidationReady;
 		const afterPublication = this.repository.hasSourcePublication;
 		return (
+			(beforeFinalValidation ? this.state.packageManagerBeforeFinalValidation : undefined) ??
 			(afterPublication ? this.state.packageManagerAfterPublication : undefined) ??
 			this.state.packageManager ?? { type: "found", source: FAKE_PACKAGE_MANAGER_SOURCE }
 		);

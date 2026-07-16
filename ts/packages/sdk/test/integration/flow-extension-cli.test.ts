@@ -312,6 +312,11 @@ function successfulSubmitResponses(cwd: string): ScriptedExecResponse[] {
 			result: { stdout: JSON.stringify([{ number: 123, url: PR_URL }]) },
 		},
 		{
+			match:
+				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+			result: { stdout: "ready\n" },
+		},
+		{
 			match: "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 			result: { stdout: `Submitted ${PR_URL}\n` },
 		},

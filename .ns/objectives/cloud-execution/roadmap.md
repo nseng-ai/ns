@@ -234,9 +234,11 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
      source publication through Flow's structured Graphite plan: definitive untracked
      branches use an exact-SHA non-force Git push, while tracked current/downstack scope
      requires TTY confirmation or dispatch `--force/-f` before Flow minimal submit with
-     Graphite force disabled. Publication revalidates the final SHA before anchor naming
-     availability or mutation; failures create no anchor/run and report conservative
-     mutation evidence. This has fake-driven coverage only and adds no live publication,
+     Graphite force disabled. Both already-current and newly published sources now pass one
+     final repository/HEAD/clean-tree/preflight/remote-tip validation after anchor-name
+     availability probing and immediately before anchor mutation. Failures after source
+     publication retain that publication's mutation evidence through later anchor, PR,
+     trigger, and run-stamp failures. This has fake-driven coverage only and adds no live publication,
      deployment, or dispatch claim. See
      `references/dispatch-live-evidence.md`,
      `references/dispatch-deployment-contract.md`, and
