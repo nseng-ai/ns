@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: local-feedback-resolution
+    annotation: Downstream potential consumer; this record retains Flow submit/ship orchestration and shipping policy while that record owns the independent local review-to-fix foundation.
+---
+
 # Prod Submit Roast-and-Fix
 
 Ideation Objective (see `skills/objective/references/objective-patterns.md`): the
