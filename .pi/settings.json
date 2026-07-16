@@ -1,5 +1,8 @@
 {
   "packages": [],
+  "extensions": [
+    "-extensions/cmux.ts"
+  ],
   "skills": [
     "-skills/ns-flow-submit",
     "-skills/code-workflows",
