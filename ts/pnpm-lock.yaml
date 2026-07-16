@@ -123,6 +123,9 @@ importers:
       '@nseng-ai/handoffs':
         specifier: workspace:*
         version: link:packages/capabilities/handoffs
+      '@nseng-ai/herdr':
+        specifier: workspace:*
+        version: link:packages/capabilities/herdr
       '@nseng-ai/ns':
         specifier: workspace:*
         version: link:packages/hosts/ns
@@ -335,6 +338,22 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+
+  packages/capabilities/herdr:
+    dependencies:
+      '@nseng-ai/capability-kit':
+        specifier: workspace:*
+        version: link:../../capability-kit
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../infra/foundation
+      '@nseng-ai/objectives':
+        specifier: workspace:*
+        version: link:../objectives
+    devDependencies:
+      '@nseng-ai/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
 
   packages/capabilities/ns-init:
     dependencies:
