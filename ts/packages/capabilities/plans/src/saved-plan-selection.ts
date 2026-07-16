@@ -57,6 +57,18 @@ export interface ResolveSelectedSavedPlanFileOptions extends PlanStoreOptions {
 	shouldAllowSessionSourceBranchMismatch?: boolean;
 }
 
+export interface ResolveExplicitSavedPlanFileOptions extends PlanStoreOptions {
+	explicitPath: string;
+}
+
+export interface ResolvedExplicitSavedPlanFile extends SavedPlanFileEvidence {
+	content: string;
+}
+
+export type ExplicitSavedPlanFileResolution =
+	| { type: "resolved"; plan: ResolvedExplicitSavedPlanFile }
+	| { type: "not-found" | "unsafe" | "error"; message: string };
+
 export interface ValidateSessionSavedPlanCandidateOptions {
 	shouldAllowSourceBranchMismatch?: boolean;
 	planStoreGateway?: PlanStoreGateway;
@@ -218,6 +230,84 @@ export async function findLatestSessionSavedPlanFile(
 	return { type: "not-found" };
 }
 
+export async function resolveExplicitSavedPlanFile(
+	pi: CommandExecApi,
+	options: ResolveExplicitSavedPlanFileOptions,
+): Promise<ExplicitSavedPlanFileResolution> {
+	let directory: PlanStoreDirectoryEvidence;
+	try {
+		directory = await resolvePlanStoreDirectory(pi, options);
+	} catch (error) {
+		return { type: "error", message: errorMessage(error) };
+	}
+
+	const filePath = normalizePlanFilePath(options.explicitPath);
+	if (!isAbsolute(filePath)) {
+		return unsafeExplicit(
+			`Saved Plan path must be absolute or home-relative; got ${filePath || "(empty)"}.`,
+		);
+	}
+	if (!filePath.endsWith(".md")) {
+		return unsafeExplicit(
+			`Saved Plan must use a .md filename; got ${basename(filePath) || "(empty)"}.`,
+		);
+	}
+
+	const slug = basename(filePath, ".md");
+	const slugError = validatePlanSlug(slug);
+	if (slugError !== undefined) {
+		return unsafeExplicit(`Saved Plan has an invalid slug ${JSON.stringify(slug)}: ${slugError}`);
+	}
+	if (!isPathInside(directory.directoryPath, filePath)) {
+		return unsafeExplicit(
+			[
+				"Saved Plan resolves outside the current source branch's local plan store directory.",
+				`Plan store directory: ${directory.directoryPath}`,
+				`Saved Plan path: ${filePath}`,
+			].join("\n"),
+		);
+	}
+
+	const planStoreGateway = options.planStoreGateway ?? createRealPlanStoreGateway();
+	try {
+		const fileStat = await planStoreGateway.statPath(filePath);
+		if (fileStat === undefined) {
+			return { type: "not-found", message: `Saved Plan does not exist: ${filePath}` };
+		}
+		if (fileStat.type !== "file") {
+			return unsafeExplicit(`Saved Plan path is not a regular file: ${filePath}`);
+		}
+
+		const realDirectoryPath = await planStoreGateway.realpathOrResolve(directory.directoryPath);
+		const realFilePath = await planStoreGateway.realpathOrResolve(filePath);
+		if (!isPathInside(realDirectoryPath, realFilePath)) {
+			return unsafeExplicit(
+				[
+					"Saved Plan resolves outside the current source branch's local plan store directory.",
+					`Resolved plan store directory: ${realDirectoryPath}`,
+					`Resolved Saved Plan path: ${realFilePath}`,
+				].join("\n"),
+			);
+		}
+
+		return {
+			type: "resolved",
+			plan: {
+				slug,
+				repoRoot: directory.repoRoot,
+				repoKey: directory.repoKey,
+				repoIdentitySource: directory.repoIdentitySource,
+				sourceBranch: directory.sourceBranch,
+				branchKey: directory.branchKey,
+				filePath,
+				content: await planStoreGateway.readTextFile(filePath),
+			},
+		};
+	} catch (error) {
+		return { type: "error", message: errorMessage(error) };
+	}
+}
+
 export async function resolveSelectedSavedPlanFile(
 	pi: CommandExecApi,
 	options: ResolveSelectedSavedPlanFileOptions,
@@ -358,4 +448,12 @@ function formatOutsidePlanStoreDirectoryMessage(
 
 function unsafe(message: string): SessionSavedPlanValidation {
 	return { type: "unsafe", message };
+}
+
+function unsafeExplicit(message: string): ExplicitSavedPlanFileResolution {
+	return { type: "unsafe", message };
+}
+
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
