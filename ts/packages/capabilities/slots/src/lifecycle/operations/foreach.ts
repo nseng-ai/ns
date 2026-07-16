@@ -20,6 +20,10 @@ export const foreachRequestSchema = z.object({
 		.array(z.string())
 		.default([])
 		.describe("Command argv to run in each slot, passed after `--`."),
+	exclude: z
+		.array(z.string())
+		.default([])
+		.describe("Slot worktree name to exclude. May be repeated."),
 	yes: z.boolean().default(false).describe("Skip the confirmation prompt."),
 });
 
@@ -38,6 +42,7 @@ export const foreachSlotResultSchema = z.object({
 
 export const foreachResultSchema = z.object({
 	command: z.array(z.string()),
+	excluded: z.array(z.string()),
 	slots: z.array(foreachSlotResultSchema),
 	cancelled: z.boolean(),
 });
@@ -59,9 +64,17 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 	});
 	if (poolSize(inventory) === 0)
 		return failure("pool-empty", "No managed slots configured. Run `slot init --size N` first.");
-	const inProgress = inventory.records.filter((record) => record.operation !== null);
+	const slotNames = new Set(inventory.records.map((record) => record.slotName));
+	const unknownExclusions = request.exclude.filter((slotName) => !slotNames.has(slotName));
+	if (unknownExclusions.length > 0)
+		return failure(
+			"unknown-slot",
+			`Cannot exclude unknown managed slot(s): ${unknownExclusions.join(", ")}.`,
+		);
+	const excluded = new Set(request.exclude);
+	const records = inventory.records.filter((record) => !excluded.has(record.slotName));
+	const inProgress = records.filter((record) => record.operation !== null);
 	if (inProgress.length > 0) return failure("operation-in-progress", inProgressMessage(inProgress));
-	const records = inventory.records;
 	if (!request.yes) {
 		if (!ctx.shouldWriteCdDirective)
 			return failure("confirmation-required", "ns slot foreach requires --yes in JSON mode.");
@@ -71,7 +84,12 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 		});
 		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
 		if (confirmed.type === "declined")
-			return ok({ command: [...request.command], slots: [], cancelled: true });
+			return ok({
+				command: [...request.command],
+				excluded: [...request.exclude],
+				slots: [],
+				cancelled: true,
+			});
 	}
 	const slots: ForeachSlotResult[] = [];
 	for (const record of records) {
@@ -91,7 +109,12 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 			succeeded: commandSucceeded(result),
 		});
 	}
-	const result: ForeachResult = { command: [...request.command], slots, cancelled: false };
+	const result: ForeachResult = {
+		command: [...request.command],
+		excluded: [...request.exclude],
+		slots,
+		cancelled: false,
+	};
 	const failedCount = slots.filter((slot) => !slot.succeeded).length;
 	if (failedCount > 0)
 		return negative(
@@ -112,6 +135,7 @@ export function renderForeach(
 	return [
 		`Slot foreach: ${formatCommand(result.command[0] ?? "", result.command.slice(1))}`,
 		`${succeeded}/${result.slots.length} slots succeeded${failed === 0 ? "" : `; ${failed} failed`}`,
+		...(result.excluded.length === 0 ? [] : [`Excluded: ${result.excluded.join(", ")}`]),
 		"",
 		...renderTable({
 			caps: renderCaps,

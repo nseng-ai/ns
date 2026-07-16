@@ -39,6 +39,60 @@ describe("slot foreach CLI", () => {
 		});
 	});
 
+	it("excludes repeated named slots before preflight and execution", async () => {
+		const run = runScenario(
+			[
+				"foreach",
+				"--yes",
+				"--exclude",
+				"slot-02",
+				"-x",
+				"slot-03",
+				"--format",
+				"json",
+				"--",
+				"git",
+				"status",
+			],
+			{
+				git: {
+					worktrees: [
+						slotWorktree("slot-01", "feature/a"),
+						slotWorktree("slot-02", null),
+						slotWorktree("slot-03", "feature/rebasing"),
+					],
+					branchOccupancies: [
+						{
+							path: "/slots/repos/repo/worktrees/slot-03",
+							branch: "feature/rebasing",
+							operation: "rebase",
+						},
+					],
+				},
+			},
+		);
+		expect(await run.exit).toBe(0);
+		expect(run.command.invocations()).toEqual([
+			{ command: "git", args: ["status"], cwd: "/slots/repos/repo/worktrees/slot-01" },
+		]);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				excluded: ["slot-02", "slot-03"],
+				slots: [{ slotName: "slot-01", succeeded: true }],
+			},
+		});
+	});
+
+	it("fails before execution when an excluded slot is unknown", async () => {
+		const run = runScenario(
+			["foreach", "--yes", "--exclude", "slot-99", "--format", "json", "--", "git", "status"],
+			{ git: { worktrees: [slotWorktree("slot-01", null)] } },
+		);
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "unknown-slot" });
+		expect(run.command.invocations()).toEqual([]);
+	});
+
 	it("continues past failures and exits 1 when any slot's command fails", async () => {
 		const run = runScenario(["foreach", "--yes", "--format", "json", "--", "git", "status"], {
 			git: {
