@@ -10,11 +10,11 @@ edges:
     annotation: Historical docs-site dependency; onboarding now proceeds from canonical package READMEs after that site Objective was intentionally deferred.
 ---
 
-# Objectives Claude Onboarding Steelthread
+# Claude E2E Onboarding
 
 ## Thesis
 
-Prove the thinnest real customer journey for shipped Objectives: a stranger starts in a throwaway non-ns repository, follows the public documentation without improvisation, installs the bare `ns` core, initializes Claude Code, acquires the standalone Objectives extension, and uses Claude Code to create, advance, update, and close one Objective.
+Eventually prove the thinnest real customer journey for shipped Objectives: a stranger starts in a throwaway non-ns repository, follows the public documentation without improvisation, installs the bare `ns` core, initializes Claude Code, acquires the standalone Objectives extension, and uses Claude Code to create, advance, update, and close one Objective. All remaining execution is deferred; this record preserves the qualified artifacts, evidence bar, and restart point without creating an active launch commitment.
 
 This is a durable production steelthread, not a mock or throwaway implementation. The repository used for verification is disposable, but every layer under test is real: npm registry artifacts, the installed `ns` binary, repo-local configuration, extension acquisition, descriptor activation, skill provisioning, instruction reachability, Objective storage, Claude Code behavior, and published docs. A deviation is a product or documentation defect to fix and re-run, not an instruction the verifier may invent.
 
@@ -61,7 +61,8 @@ Risks:
 - Ambient global packages, credentials, Claude configuration, or an ns checkout could create a false pass. Verification must isolate installation prefixes and repository state and record all remaining environmental prerequisites.
 - Claude Code behavior is probabilistic. The bar is instruction and skill reachability plus successful completion without hidden steering, not byte-identical dialogue.
 - The canonical README source changes postdate registry release `0.1.3`; the journey cannot claim documentation-following evidence until a newly qualified package version exposes them through npm.
-- Accepted sequencing gap: publication of the repaired README revision was intentionally skipped by explicit direction. Registry-served README completion criteria and a published-docs-only Claude journey remain unmet unless publication is revisited or the Objective scope is explicitly revised.
+- Accepted sequencing gap: publication of the repaired README revision was intentionally skipped by explicit direction. Registry-served README completion criteria and a published-docs-only Claude journey remain unmet unless publication is revisited.
+- Accepted deferral: all remaining publication, fresh-session lifecycle, repair-loop, and synthesis work is parked until the owner explicitly resumes this Objective. The Objective remains open as a preserved future E2E thread, not an active launch commitment.
 - The lifecycle may expose defects in a dependency Objective. Route fixes to the owning Subobjective or record a new bounded follow-up rather than absorbing unrelated architecture work here.
 
 ## Open Questions
