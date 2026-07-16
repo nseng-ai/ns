@@ -558,4 +558,27 @@ describe("branch-context create formatting", () => {
 		expect(text).toContain(`Source file: ${PLAN_FILE}`);
 		expect(text).toContain("branch already exists");
 	});
+
+	test("inserts a consequence line before the underlying cause without changing option-less output", () => {
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			branchName: TARGET_BRANCH,
+			branchCreation: "graphite",
+		});
+		const error = new Error("branch already exists");
+
+		const plain = formatBranchContextCreateFailure(operation, error);
+		const withConsequence = formatBranchContextCreateFailure(operation, error, {
+			consequence: "No cmux workspace was opened.",
+		});
+
+		expect(withConsequence).toBe(
+			plain.replace(
+				`Source file: ${PLAN_FILE}\n`,
+				`Source file: ${PLAN_FILE}\nNo cmux workspace was opened.\n`,
+			),
+		);
+		expect(formatBranchContextCreateFailure(operation, error, {})).toBe(plain);
+	});
 });

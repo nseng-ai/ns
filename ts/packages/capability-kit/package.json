@@ -7,6 +7,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/kit/index.ts",
+		"./branch-completions": "./src/kit/branch-completions.ts",
 		"./brmem-cli": "./src/kit/brmem-cli.ts",
 		"./brmem-cli/testing": "./src/kit/brmem-cli-testing.ts",
 		"./checkpoint-flow": "./src/kit/checkpoint-flow.ts",
@@ -15,6 +16,7 @@
 		"./content-slug": "./src/kit/content-slug.ts",
 		"./gateway-result": "./src/kit/gateway-result.ts",
 		"./json-input": "./src/kit/json-input.ts",
+		"./machine-envelope-exec": "./src/kit/machine-envelope-exec.ts",
 		"./pi-launch": "./src/kit/pi-launch.ts",
 		"./pi-types": "./src/kit/pi-types.ts",
 		"./tracked-branch-payload": "./src/kit/tracked-branch-payload.ts",
@@ -29,6 +31,7 @@
 		"./text-generation/testing": "./src/kit/text-generation-testing.ts",
 		"./text-repair": "./src/kit/text-repair.ts",
 		"./workspace-root": "./src/kit/workspace-root.ts",
+		"./worktree-description": "./src/kit/worktree-description.ts",
 		"./xdg": "./src/kit/xdg.ts",
 		"./github": "./src/github/index.ts",
 		"./github/cli": "./src/github/cli.ts",

@@ -30,12 +30,18 @@ import {
 } from "@nseng-ai/plans/api";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
 import type { PiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
+import { formatCommand } from "@nseng-ai/foundation/command";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
 import type { SlotClient } from "@nseng-ai/slots/api";
 import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/pi";
 
 // Command names are used in the Pi layer (pi/dispatch-plan.ts) via DispatchPlanConfig.
+import {
+	buildHerdrCreateTabArgs,
+	buildHerdrCreateWorkspaceArgs,
+	buildHerdrPaneRunArgs,
+} from "./cli-gateway.ts";
 import { openBranchInHerdrWorkspace, openBranchInHerdrCallerTab } from "./slot.ts";
 import { createHerdrSlotClient } from "./slot-checkout.ts";
 import { getCallerWorkspaceId } from "./sidebar.ts";
@@ -209,8 +215,13 @@ async function createAttachAndLaunch(options: {
 	try {
 		evidence = await createPreparedPlanBranchContext(pi, prepared);
 	} catch (error) {
-		const failure = formatBranchContextCreateFailure(operation, error);
-		present(ctx, failure.replace("\n\n", "\nNo Herdr workspace was opened.\n\n"), "error");
+		present(
+			ctx,
+			formatBranchContextCreateFailure(operation, error, {
+				consequence: formatDispatchFailureConsequence(config.destination),
+			}),
+			"error",
+		);
 		return;
 	}
 
@@ -301,7 +312,7 @@ function formatDryRun(options: {
 	launchOptions: PiLaunchOptions;
 	config: DispatchPlanConfig;
 }): string {
-	const { plan, operation, branchContextPreview, launchOptions, config } = options;
+	const { plan, checkout, operation, branchContextPreview, launchOptions, config } = options;
 	const launchCommand = buildPiLaunchCommand(
 		formatImplBranchContextCommand(operation.key),
 		launchOptions,
@@ -315,14 +326,73 @@ function formatDryRun(options: {
 		`Content-derived branch-context slug: ${operation.slug}`,
 		`Repo key: ${plan.repoKey}`,
 		`Repo root: ${plan.repoRoot}`,
+		`Repo identity source: ${plan.repoIdentitySource}`,
 		`Source branch: ${plan.sourceBranch}`,
+		`Branch path segment: ${plan.branchKey}`,
 		plan.summary ? `Summary: ${plan.summary}` : undefined,
 		"",
 		branchContextPreview,
-		launchCommand,
+		formatCommand("ns", [
+			"slot",
+			"checkout",
+			operation.branch,
+			"--format",
+			"json",
+			"--no-clipboard",
+		]),
+		formatHerdrLaunchPreview({
+			destination: config.destination,
+			branch: operation.branch,
+			description: `herdr dispatch-plan from ${checkout.sourceBranch}`,
+			launchCommand,
+		}),
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
+}
+
+/**
+ * Preview the exact Herdr CLI sequence the non-dry-run path performs, built
+ * from the same argv builders as the CLI adapter. Placeholders stand in for
+ * values only known after the slot checkout or Herdr response.
+ */
+function formatHerdrLaunchPreview(options: {
+	destination: DispatchDestination;
+	branch: string;
+	description: string;
+	launchCommand: string;
+}): string {
+	if (options.destination === "workspace") {
+		return [
+			formatCommand(
+				"herdr",
+				buildHerdrCreateWorkspaceArgs({
+					cwd: "<slot-worktree-path>",
+					label: options.description,
+				}),
+			),
+			formatCommand("herdr", buildHerdrPaneRunArgs("<returned-root-pane>", options.launchCommand)),
+		].join("\n");
+	}
+
+	return [
+		formatCommand(
+			"herdr",
+			buildHerdrCreateTabArgs({
+				workspaceId: "<caller-workspace>",
+				cwd: "<slot-worktree-path>",
+				label: options.branch,
+				focus: true,
+			}),
+		),
+		formatCommand("herdr", buildHerdrPaneRunArgs("<returned-root-pane>", options.launchCommand)),
+	].join("\n");
+}
+
+function formatDispatchFailureConsequence(destination: DispatchDestination): string {
+	return destination === "workspace"
+		? "No Herdr workspace was opened."
+		: "No Herdr tab was opened.";
 }
 
 function formatUsage(config: DispatchPlanConfig): string {

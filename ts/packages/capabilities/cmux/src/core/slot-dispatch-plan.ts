@@ -217,7 +217,13 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	try {
 		evidence = await createPreparedPlanBranchContext(pi, prepared);
 	} catch (error) {
-		present(ctx, formatCccBranchContextCreateFailure(operation, error), "error");
+		present(
+			ctx,
+			formatBranchContextCreateFailure(operation, error, {
+				consequence: "No cmux workspace was opened.",
+			}),
+			"error",
+		);
 		return;
 	}
 
@@ -333,14 +339,6 @@ function formatDryRun(options: FormatDryRunOptions): string {
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
-}
-
-function formatCccBranchContextCreateFailure(
-	operation: BranchContextCreateOperation,
-	error: unknown,
-): string {
-	const failure = formatBranchContextCreateFailure(operation, error);
-	return failure.replace("\n\n", "\nNo cmux workspace was opened.\n\n");
 }
 
 function formatFinalSuccess(options: FormatFinalSuccessOptions): string {

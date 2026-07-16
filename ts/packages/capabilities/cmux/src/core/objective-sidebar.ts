@@ -1,5 +1,6 @@
 import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 
+import { runJsonExecCommand } from "@nseng-ai/capability-kit/machine-envelope-exec";
 import {
 	commandSucceeded,
 	type CommandExecApi,
@@ -8,10 +9,6 @@ import {
 	formatCommandFailure,
 	tailText,
 } from "@nseng-ai/foundation/command";
-import {
-	parseMachineEnvelopeData,
-	type MachineEnvelopeDataParseValid,
-} from "@nseng-ai/foundation/machine-envelope";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
@@ -206,50 +203,6 @@ export async function applyObjectiveSidebarFields(
 	return { type: "applied" };
 }
 
-async function runJsonExecCommand(options: {
-	pi: CommandExecApi;
-	cwd: string;
-	command: string;
-	args: string[];
-	timeoutMs: number;
-	summary: string;
-	label: string;
-}): Promise<MachineEnvelopeDataParseValid | { type: "failed"; message: string }> {
-	let result: ExecResult;
-	try {
-		result = await options.pi.exec(options.command, options.args, {
-			cwd: options.cwd,
-			timeout: options.timeoutMs,
-		});
-	} catch (error) {
-		return {
-			type: "failed",
-			message: formatStartupFailure(options.summary, options.command, options.args, error),
-		};
-	}
-
-	const commandDisplay = formatCommand(options.command, options.args);
-	if (!commandSucceeded(result)) {
-		return {
-			type: "failed",
-			message: formatFailedEnvelopeOrExecFailure(
-				options.summary,
-				commandDisplay,
-				result,
-				options.label,
-			),
-		};
-	}
-
-	const parsed = parseMachineEnvelopeData(result.stdout, {
-		label: options.label,
-		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
-	});
-	if (parsed.type !== "valid") return { type: "failed", message: parsed.message };
-
-	return parsed;
-}
-
 function resolveAbsoluteObjectiveSelector(
 	selector: string,
 	cwd: string,
@@ -327,22 +280,4 @@ function formatStartupFailure(
 		`${summary}\nCommand: ${formatCommand(command, args)}\nError: ${formatErrorMessage(error)}`,
 		{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
 	);
-}
-
-function formatFailedEnvelopeOrExecFailure(
-	summary: string,
-	commandDisplay: string,
-	result: ExecResult,
-	label: string,
-): string {
-	if (result.stdout.trim().length > 0) {
-		const parsed = parseMachineEnvelopeData(result.stdout, {
-			label,
-			stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
-		});
-		if (parsed.type !== "valid") {
-			return `${summary}\nCommand: ${commandDisplay}\n${parsed.message}`;
-		}
-	}
-	return formatCommandFailure(summary, commandDisplay, result);
 }

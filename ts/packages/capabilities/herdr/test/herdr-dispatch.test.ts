@@ -22,7 +22,6 @@ import { handleHerdrSlotDispatchPlan } from "../src/core/dispatch-plan.ts";
 import {
 	handleHerdrSlotOpenBranch,
 	extractCommandArgumentPrefix,
-	getBranchCompletions,
 } from "../src/core/open-branch.ts";
 import { openBranchInHerdrWorkspace, openBranchInHerdrCallerTab } from "../src/core/slot.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
@@ -906,46 +905,13 @@ describe("ns:herdr:workspace:open-branch — inferred branch confirmation", () =
 });
 
 // ---------------------------------------------------------------------------
-// open-branch: branch completions
+// open-branch: command prefix binding
 // ---------------------------------------------------------------------------
 
-describe("getBranchCompletions / extractCommandArgumentPrefix", () => {
-	test("extractCommandArgumentPrefix returns prefix after command name", () => {
-		const prefix = extractCommandArgumentPrefix("/ns:herdr:workspace:open-branch feat");
-		expect(prefix).toBe("feat");
-	});
-
-	test("extractCommandArgumentPrefix returns undefined for unrelated input", () => {
-		const prefix = extractCommandArgumentPrefix("/ns:herdr:workspace:dispatch-plan");
-		expect(prefix).toBeUndefined();
-	});
-
-	test("extractCommandArgumentPrefix returns empty string for trailing space", () => {
-		const prefix = extractCommandArgumentPrefix("/ns:herdr:workspace:open-branch ");
-		expect(prefix).toBe("");
-	});
-
-	test("getBranchCompletions returns local branches matching prefix", async () => {
-		const branchLines = [
-			`feat-abc\trefs/heads/feat-abc`,
-			`feat-xyz\trefs/heads/feat-xyz`,
-			`main\trefs/heads/main`,
-		].join("\n");
-		const pi = new FakePi({
-			script: [
-				step(
-					"git",
-					["for-each-ref", "--format=%(refname:short)\t%(refname)", "refs/heads", "refs/remotes"],
-					{ stdout: branchLines },
-				),
-			],
-		});
-		const adapted = createHerdrPiCommandApi(pi);
-
-		const completions = await getBranchCompletions(adapted, ROOT, "feat");
-
-		pi.assertDone();
-		expect(completions.map((c) => c.value)).toEqual(["feat-abc", "feat-xyz"]);
+describe("extractCommandArgumentPrefix", () => {
+	test("binds the shared prefix extraction to the Herdr open-branch command", () => {
+		expect(extractCommandArgumentPrefix("/ns:herdr:workspace:open-branch feat")).toBe("feat");
+		expect(extractCommandArgumentPrefix("/ns:herdr:workspace:dispatch-plan")).toBeUndefined();
 	});
 });
 
@@ -1013,12 +979,21 @@ describe("ns:herdr:workspace:dispatch-plan — dry-run (no Herdr mutations)", ()
 		expect(herdr.createWorkspaceCalls).toHaveLength(0);
 		expect(herdr.createTabCalls).toHaveLength(0);
 		expect(herdr.paneRunCalls).toHaveLength(0);
-		// The dry-run message should describe what would happen
-		const messages = notificationMessages(ctx);
-		const dryRunMessages = messages.filter((m) => m.includes("Dry run") || m.includes("dry-run"));
-		expect(
-			dryRunMessages.length > 0 || ctx.notifications.some((n) => n.message.includes("workspace")),
-		).toBe(true);
+		const dryRun = notificationMessages(ctx).find((message) => message.startsWith("Dry run"));
+		if (dryRun === undefined) throw new Error("Expected a dry-run message.");
+		expect(dryRun).toContain(
+			"Dry run: no branch was created, no plan was attached, and no Herdr workspace was opened.",
+		);
+		expect(dryRun).toContain(`Path: ${planFile}`);
+		expect(dryRun).toContain("Repo identity source: origin-url");
+		expect(dryRun).toContain(`Source branch: ${SOURCE_BRANCH}`);
+		expect(dryRun).toContain(`Branch path segment: ${SOURCE_BRANCH}`);
+		expect(dryRun).toContain(`ns slot checkout ${PLAN_SLUG} --format json --no-clipboard`);
+		expect(dryRun).toContain("herdr workspace create --no-focus --cwd");
+		expect(dryRun).toContain(`herdr dispatch-plan from ${SOURCE_BRANCH}`);
+		expect(dryRun).toContain("herdr pane run");
+		expect(dryRun).toContain(`/ns:branch-context:impl-attached-plan ${PLAN_KEY}`);
+		expect(dryRun).not.toContain("herdr tab create");
 	});
 });
 
@@ -1104,6 +1079,116 @@ describe("ns:herdr:surface:dispatch-plan — dry-run (no Herdr mutations)", () =
 		expect(herdr.createTabCalls[0]?.options.focus).toBe(true);
 	});
 
+	test("workspace dispatch branch-context failure names the unopened Herdr workspace", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		const pi = new FakePi({
+			script: [
+				...dispatchValidationScript(repoRoot),
+				gitRootStep(repoRoot),
+				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
+					stdout: `${PLAN_SLUG}\n`,
+				}),
+			],
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			branchEntries: [savedPlanEntry(repoRoot, planFile)],
+		});
+		const options = herdrDispatchPlanTestOptions(planStoreRoot);
+		options.createBranchContextContext = (_commands, _cwd) => ({
+			commands: createHerdrPiCommandApi(pi),
+			git: new InMemoryGitGateway({
+				optionalRepoRoot: { type: "missing" },
+				currentBranch: SOURCE_BRANCH,
+				headCommit: START_POINT,
+			}),
+			brmem: new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
+			graphite: new InMemoryGraphiteBranchGateway({
+				trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
+			}),
+		});
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "",
+			ctx,
+			options,
+			config: {
+				commandName: "ns:herdr:workspace:dispatch-plan",
+				statusKey: "ns:herdr:workspace:dispatch-plan",
+				destination: "workspace",
+			},
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		const failure = notificationMessages(ctx).join("\n---\n");
+		expect(failure).toContain("Failed to create branch context and attach plan.");
+		expect(failure).toMatch(/Source file: [^\n]+\nNo Herdr workspace was opened\.\n\n/);
+		expect(failure).toContain("Graphite refused tracking.");
+		expect(herdr.createWorkspaceCalls).toEqual([]);
+		expect(herdr.createTabCalls).toEqual([]);
+	});
+
+	test("surface dispatch branch-context failure names the unopened Herdr tab", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace-failure");
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		const pi = new FakePi({
+			script: [
+				...dispatchValidationScript(repoRoot),
+				gitRootStep(repoRoot),
+				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
+					stdout: `${PLAN_SLUG}\n`,
+				}),
+			],
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			branchEntries: [savedPlanEntry(repoRoot, planFile)],
+		});
+		const options = herdrDispatchPlanTestOptions(planStoreRoot);
+		options.createBranchContextContext = (_commands, _cwd) => ({
+			commands: createHerdrPiCommandApi(pi),
+			git: new InMemoryGitGateway({
+				optionalRepoRoot: { type: "missing" },
+				currentBranch: SOURCE_BRANCH,
+				headCommit: START_POINT,
+			}),
+			brmem: new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
+			graphite: new InMemoryGraphiteBranchGateway({
+				trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
+			}),
+		});
+
+		await handleHerdrSlotDispatchPlan({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			rawArgs: "",
+			ctx,
+			options,
+			config: {
+				commandName: "ns:herdr:surface:dispatch-plan",
+				statusKey: "ns:herdr:surface:dispatch-plan",
+				destination: "surface",
+			},
+			notifyProgress: () => {},
+		});
+
+		pi.assertDone();
+		const failure = notificationMessages(ctx).join("\n---\n");
+		expect(failure).toContain("Failed to create branch context and attach plan.");
+		expect(failure).toMatch(/Source file: [^\n]+\nNo Herdr tab was opened\.\n\n/);
+		expect(failure).toContain("Graphite refused tracking.");
+		expect(herdr.createTabCalls).toEqual([]);
+	});
+
 	test("valid-ID dry-run shows surface preview without creating tab or pane", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "caller-workspace-dry-run");
 		const repoRoot = await makeTempDir();
@@ -1145,5 +1230,19 @@ describe("ns:herdr:surface:dispatch-plan — dry-run (no Herdr mutations)", () =
 		expect(herdr.createWorkspaceCalls).toHaveLength(0);
 		expect(herdr.createTabCalls).toHaveLength(0);
 		expect(herdr.paneRunCalls).toHaveLength(0);
+		const dryRun = notificationMessages(ctx).find((message) => message.startsWith("Dry run"));
+		if (dryRun === undefined) throw new Error("Expected a dry-run message.");
+		expect(dryRun).toContain(
+			"Dry run: no branch was created, no plan was attached, and no Herdr surface was opened.",
+		);
+		expect(dryRun).toContain("Repo identity source: origin-url");
+		expect(dryRun).toContain(`Branch path segment: ${SOURCE_BRANCH}`);
+		expect(dryRun).toContain(`ns slot checkout ${PLAN_SLUG} --format json --no-clipboard`);
+		expect(dryRun).toContain("herdr tab create --workspace");
+		expect(dryRun).toContain("--focus");
+		expect(dryRun).toContain(`--label ${PLAN_SLUG}`);
+		expect(dryRun).toContain("herdr pane run");
+		expect(dryRun).toContain(`/ns:branch-context:impl-attached-plan ${PLAN_KEY}`);
+		expect(dryRun).not.toContain("herdr workspace create");
 	});
 });

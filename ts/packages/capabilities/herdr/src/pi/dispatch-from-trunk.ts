@@ -8,10 +8,12 @@ import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite
 
 import {
 	handleHerdrSlotDispatchFromTrunk,
-	resolveDispatchPromptPayloadOptions,
 	createRealHerdrDispatchFromTrunkDeps,
-	type DispatchPromptPayloadOptions,
 } from "../core/dispatch-from-trunk.ts";
+import {
+	resolveDispatchPromptPayloadOptions,
+	type DispatchPromptPayloadOptions,
+} from "../core/dispatch-prompt.ts";
 import { HERDR_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME } from "../core/command-surfaces.ts";
 import { createCliHerdrGateway } from "../core/cli-gateway.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";

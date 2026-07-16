@@ -3,8 +3,8 @@ import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
+import { getWorktreeDescription } from "@nseng-ai/capability-kit/worktree-description";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
-import { getWorktreeDescription } from "./worktree-description.ts";
 
 export interface HerdrSlotCheckoutOptions {
 	pi: CommandExecApi;

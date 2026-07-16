@@ -48,6 +48,9 @@ import { buildPiLaunchArgs, type PiLaunchOptions } from "./pi-launch.ts";
 
 export const TRACKED_BRANCH_PAYLOAD_NAMESPACE = "ns-dispatch";
 export const TRACKED_BRANCH_PAYLOAD_KEY = "prompt.md";
+/** Dispatch-context note stored with prompts dispatched from refreshed trunk. */
+export const TRUNK_DISPATCH_CONTEXT_NOTE =
+	"This branch was created from refreshed Graphite trunk and is intentionally unrelated to the caller's current stack.";
 const MAX_SLUG_INPUT_CHARS = 12_000;
 const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
 

@@ -41,6 +41,12 @@ export {
 	type ExistingBranchContextReuse,
 } from "./existing-branch-reuse.ts";
 export {
+	confirmInferredBranchContext,
+	resolveInferredBranchContext,
+	type InferredBranchConfirmationContext,
+	type InferredBranchContextResolution,
+} from "./inferred-branch.ts";
+export {
 	createPreparedPlanBranchContext,
 	preparePlanBranchContext,
 	type PreparedPlanBranchContext,

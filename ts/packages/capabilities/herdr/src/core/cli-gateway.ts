@@ -21,6 +21,33 @@ const HERDR_CLI_TIMEOUT_MS = 15_000;
 const MAX_ERROR_CHARS = 4_000;
 const MAX_ERROR_LINES = 20;
 
+// Pure command-shape builders shared by the CLI adapter and dry-run previews
+// so preview drift is test-detectable against the real invocation shape.
+
+export function buildHerdrCreateWorkspaceArgs(options: HerdrCreateWorkspaceOptions): string[] {
+	const args = ["workspace", "create", "--no-focus", "--cwd", options.cwd];
+	if (options.label !== undefined) {
+		args.push("--label", options.label);
+	}
+	return args;
+}
+
+export function buildHerdrCreateTabArgs(options: HerdrCreateTabOptions): string[] {
+	const focusFlag = options.focus === true ? "--focus" : "--no-focus";
+	const args = ["tab", "create", "--workspace", options.workspaceId, focusFlag];
+	if (options.cwd !== undefined) {
+		args.push("--cwd", options.cwd);
+	}
+	if (options.label !== undefined) {
+		args.push("--label", options.label);
+	}
+	return args;
+}
+
+export function buildHerdrPaneRunArgs(paneId: string, command: string): string[] {
+	return ["pane", "run", paneId, command];
+}
+
 /**
  * CLI-backed HerdrGateway adapter. All operations call the installed `herdr`
  * binary; no raw socket integration is included. The CLI is Herdr's recommended
@@ -80,10 +107,7 @@ async function createWorkspace(
 	options: HerdrCreateWorkspaceOptions,
 ): Promise<HerdrCreateWorkspaceResult> {
 	const command = "herdr";
-	const args = ["workspace", "create", "--no-focus", "--cwd", options.cwd];
-	if (options.label !== undefined) {
-		args.push("--label", options.label);
-	}
+	const args = buildHerdrCreateWorkspaceArgs(options);
 	const commandDisplay = formatCommand(command, args);
 	try {
 		const result = await exec.exec(command, args, { timeout: HERDR_CLI_TIMEOUT_MS });
@@ -127,14 +151,7 @@ async function createTab(
 	options: HerdrCreateTabOptions,
 ): Promise<HerdrCreateTabResult> {
 	const command = "herdr";
-	const focusFlag = options.focus === true ? "--focus" : "--no-focus";
-	const args = ["tab", "create", "--workspace", options.workspaceId, focusFlag];
-	if (options.cwd !== undefined) {
-		args.push("--cwd", options.cwd);
-	}
-	if (options.label !== undefined) {
-		args.push("--label", options.label);
-	}
+	const args = buildHerdrCreateTabArgs(options);
 	const commandDisplay = formatCommand(command, args);
 	try {
 		const result = await exec.exec(command, args, { timeout: HERDR_CLI_TIMEOUT_MS });
@@ -179,7 +196,7 @@ async function runInPane(
 	command: string,
 ): Promise<HerdrPaneRunResult> {
 	const herdrCommand = "herdr";
-	const args = ["pane", "run", paneId, command];
+	const args = buildHerdrPaneRunArgs(paneId, command);
 	const commandDisplay = formatCommand(herdrCommand, args);
 	try {
 		const result = await exec.exec(herdrCommand, args, { timeout: HERDR_CLI_TIMEOUT_MS });
