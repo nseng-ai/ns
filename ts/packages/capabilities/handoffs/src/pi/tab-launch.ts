@@ -1,4 +1,4 @@
-import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
+import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
 import {
 	launchFocusedCmuxTab,
 	type CmuxTabLaunchStage,

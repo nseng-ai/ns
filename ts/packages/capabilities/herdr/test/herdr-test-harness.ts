@@ -18,7 +18,7 @@ import type {
 	RawPiExecOptions,
 	RawPiExecResult,
 	ThinkingLevel,
-} from "@nseng-ai/capability-kit/cmux/types";
+} from "@nseng-ai/capability-kit/pi-types";
 import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";

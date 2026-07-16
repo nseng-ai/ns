@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
 import { HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
 
 import registerHerdrPiExtension from "../src/pi/extension.ts";

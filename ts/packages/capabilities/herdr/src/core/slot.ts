@@ -2,7 +2,7 @@ import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 
 import type { HerdrGateway } from "./herdr-gateway.ts";
-import type { NotifyLevel } from "@nseng-ai/capability-kit/cmux/types";
+import type { NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
 

@@ -2,7 +2,7 @@ import {
 	makeCommandProgressNotifier,
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi/commands/ack";
-import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
 
 import {
 	getBranchCompletions,

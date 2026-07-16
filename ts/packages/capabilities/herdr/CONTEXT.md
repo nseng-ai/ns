@@ -1,6 +1,6 @@
 # @nseng-ai/herdr
 
-`@nseng-ai/herdr` is the private Herdr capability: it drives Herdr workspaces for repo-local sidebar and dispatch flows, using explicit caller-workspace targeting and Herdr-native vocabulary.
+`@nseng-ai/herdr` is the private Herdr capability: it owns Herdr-native workspace and surface destinations for repo-local sidebar and dispatch flows. It consumes ns-owned Git/Graphite/Branch Memory and Saved Plan/Branch Context preparation.
 
 ## Language
 
@@ -13,7 +13,7 @@ The narrow domain-shaped interface (`HerdrGateway`) that exposes only the Herdr 
 *Avoid*: raw socket gateway, full Herdr API surface, generic CLI wrapper
 
 **Caller workspace targeting**:
-Identifying the Herdr workspace to act on via the `HERDR_WORKSPACE_ID` environment variable injected by Herdr into every managed pane.
+Identifying the Herdr workspace to act on via the `HERDR_WORKSPACE_ID` environment variable injected by Herdr into every managed pane. Surface dispatch validates and captures this ID immediately after argument/help handling, before plan lookup or durable mutation.
 *Avoid*: UI focus targeting, ambient workspace, implicit workspace
 
 **Workspace label**:

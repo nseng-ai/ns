@@ -1,23 +1,20 @@
 import {
 	BRANCH_CONTEXT_NAMESPACE,
-	buildBranchContextCreateOperation,
 	buildBranchContextOutputMessage,
-	createBranchContextFromFile,
+	createPreparedPlanBranchContext,
 	createRealBranchContextContext,
-	derivePlanContentSlug,
+	preparePlanBranchContext,
 	formatBranchContextEvidence,
 	formatBranchContextCreateFailure,
-	formatBranchContextCreatePreview,
-	resolveBranchContextCreatePreviewContext,
 	type BranchContextContext,
 	type BranchContextContextFactory,
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
+	type ReadyPreparedPlanBranchContext,
 } from "@nseng-ai/branch-context/api";
 import {
-	findLatestSessionSavedPlanFile,
-	resolvePlanStoreDirectory,
+	prepareLatestSessionSavedPlan,
 	type PlanStoreDirectoryEvidence,
 	type ValidatedSessionSavedPlan,
 } from "@nseng-ai/plans/api";
@@ -28,14 +25,12 @@ import {
 	launchFocusedCmuxTab,
 	type FocusedCmuxTabLaunchResult,
 } from "@nseng-ai/capability-kit/cmux/focused-terminal-tab";
-import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
-import type { PiLaunchOptions } from "@nseng-ai/capability-kit/cmux/pi-launch";
+import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
+import type { PiLaunchOptions } from "@nseng-ai/capability-kit/pi-launch";
 import type { SlotCheckoutTarget, SlotClient } from "@nseng-ai/slots/api";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/cmux/types";
 import type { CccPiCommandApi } from "./pi-command-api.ts";
-
-const BRANCH_CREATION = "graphite";
 
 export type DispatchDestination = "workspace" | "surface";
 
@@ -63,8 +58,7 @@ interface HandleCommandOptions {
 interface AttachSlotAndLaunchOptions {
 	pi: CccPiCommandApi;
 	ctx: CommandContext;
-	checkout: PlanStoreDirectoryEvidence;
-	operation: BranchContextCreateOperation;
+	prepared: ReadyPreparedPlanBranchContext;
 	config: DispatchPlanConfig;
 	options: CccSlotDispatchPlanOptions;
 	notifyProgress: (message: string) => void;
@@ -125,40 +119,28 @@ export async function handleCccSlotDispatchPlan({
 
 	setStatus(ctx, config, "finding latest saved plan…");
 	try {
-		const checkout = await resolveCurrentCheckout(pi, ctx.cwd, options);
-		if ("error" in checkout) {
-			present(ctx, checkout.error, "error");
-			return;
-		}
-
-		const selected = await resolveLatestSavedPlanFromSession(ctx, checkout);
-		if ("error" in selected) {
+		const selected = await prepareLatestSessionSavedPlan(pi, {
+			cwd: ctx.cwd,
+			entries: ctx.sessionManager?.getBranch?.() ?? [],
+			...optionalEntry("planStoreRoot", options.planStoreRoot),
+		});
+		if (!selected.ok) {
 			present(ctx, selected.error, "error");
 			return;
 		}
 
+		const checkout = selected.directory;
 		const selectedPlan = selected.plan;
 		setStatus(ctx, config, "deriving branch-context slug…");
-		const slugEvidence = await derivePlanContentSlug(pi, {
-			filePath: selectedPlan.filePath,
-			cwd: checkout.repoRoot,
+		const prepared = await preparePlanBranchContext(pi, {
+			plan: selectedPlan,
+			checkout,
+			context: dispatchBranchContextContext(pi, checkout.repoRoot, options),
+			shouldBuildPreview: parsed.isDryRun,
 		});
-		const operation = buildBranchContextCreateOperation({
-			slug: slugEvidence.slug,
-			filePath: selectedPlan.filePath,
-			branchCreation: BRANCH_CREATION,
-			...optionalEntry("summary", selectedPlan.summary),
-		});
-		if (parsed.isDryRun) {
+		const operation = prepared.operation;
+		if (prepared.type === "preview") {
 			const launchOptions = getPiLaunchOptions(pi, ctx);
-			const previewContext = await resolveBranchContextCreatePreviewContext(pi, {
-				cwd: checkout.repoRoot,
-				context: dispatchBranchContextContext(pi, checkout.repoRoot, options),
-			});
-			const branchContextPreview = formatBranchContextCreatePreview(operation, {
-				...previewContext,
-				graphiteParentBranch: checkout.sourceBranch,
-			});
 			presentBranchContextMessage(
 				pi,
 				ctx,
@@ -166,7 +148,7 @@ export async function handleCccSlotDispatchPlan({
 					plan: selectedPlan,
 					checkout,
 					operation,
-					branchContextPreview,
+					branchContextPreview: prepared.preview,
 					launchOptions,
 					config,
 					formatBranchContextCommand,
@@ -180,8 +162,7 @@ export async function handleCccSlotDispatchPlan({
 		await createAttachSlotAndLaunch({
 			pi,
 			ctx,
-			checkout,
-			operation,
+			prepared,
 			config,
 			options,
 			notifyProgress,
@@ -227,59 +208,14 @@ function parseCommandArgs(rawArgs: string): CommandArgs | { error: string } {
 	return parsed;
 }
 
-async function resolveLatestSavedPlanFromSession(
-	ctx: CommandContext,
-	directory: PlanStoreDirectoryEvidence,
-): Promise<{ plan: ValidatedSessionSavedPlan } | { error: string }> {
-	const result = await findLatestSessionSavedPlanFile(
-		ctx.sessionManager?.getBranch?.() ?? [],
-		directory,
-	);
-	switch (result.type) {
-		case "found":
-			return { plan: result.plan };
-		case "unsafe":
-			return { error: result.message };
-		case "not-found":
-			return {
-				error: [
-					"No saved plan from /ns:plan:save was found in the current session branch.",
-					"Run /ns:plan:save first, then rerun the dispatch command.",
-				].join("\n"),
-			};
-	}
-}
-
-async function resolveCurrentCheckout(
-	pi: CccPiCommandApi,
-	cwd: string,
-	options: CccSlotDispatchPlanOptions,
-): Promise<PlanStoreDirectoryEvidence | { error: string }> {
-	let directory: PlanStoreDirectoryEvidence;
-	try {
-		directory = await resolvePlanStoreDirectory(pi, {
-			cwd,
-			...optionalEntry("planStoreRoot", options.planStoreRoot),
-		});
-	} catch (error) {
-		return {
-			error: `Could not resolve current repository and source branch.\n${formatErrorMessage(error)}`,
-		};
-	}
-
-	return directory;
-}
-
 async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): Promise<void> {
-	const { pi, ctx, checkout, operation, config } = options;
+	const { pi, ctx, prepared, config } = options;
+	const { checkout, operation } = prepared;
 	present(ctx, `Creating Graphite-tracked branch context ${operation.branch}…`, "info");
 	setStatus(ctx, config, "creating branch and attaching plan…");
 	let evidence: BranchContextEvidence;
 	try {
-		evidence = await createBranchContextFromFile(pi, operation.params, {
-			cwd: checkout.repoRoot,
-			context: dispatchBranchContextContext(pi, checkout.repoRoot, options.options),
-		});
+		evidence = await createPreparedPlanBranchContext(pi, prepared);
 	} catch (error) {
 		present(ctx, formatCccBranchContextCreateFailure(operation, error), "error");
 		return;

@@ -41,6 +41,13 @@ export {
 	type ExistingBranchContextReuse,
 } from "./existing-branch-reuse.ts";
 export {
+	createPreparedPlanBranchContext,
+	preparePlanBranchContext,
+	type PreparedPlanBranchContext,
+	type PreviewPreparedPlanBranchContext,
+	type ReadyPreparedPlanBranchContext,
+} from "./plan-preparation.ts";
+export {
 	buildPlanContentSlugPrompt,
 	derivePlanContentSlug,
 	type PlanContentSlugEvidence,

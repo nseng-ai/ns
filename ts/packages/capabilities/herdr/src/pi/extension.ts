@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@nseng-ai/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@nseng-ai/capability-kit/pi-types";
 
 import {
 	createHerdrSidebarControllerWithPiWiring,

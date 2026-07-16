@@ -33,6 +33,10 @@ export type LatestSessionSavedPlanResult =
 	| { type: "not-found" }
 	| { type: "unsafe"; message: string };
 
+export type PreparedSessionSavedPlanResult =
+	| { ok: true; directory: PlanStoreDirectoryEvidence; plan: ValidatedSessionSavedPlan }
+	| { ok: false; error: string };
+
 export type SelectedSavedPlanFile =
 	| {
 			type: "explicit";
@@ -203,6 +207,40 @@ export async function validateSessionSavedPlanCandidate(
 		...(evidence.summary === undefined ? {} : { summary: evidence.summary }),
 	};
 	return { type: "valid", plan };
+}
+
+export async function prepareLatestSessionSavedPlan(
+	pi: CommandExecApi,
+	options: PlanStoreOptions & { entries: readonly unknown[] },
+): Promise<PreparedSessionSavedPlanResult> {
+	let directory: PlanStoreDirectoryEvidence;
+	try {
+		directory = await resolvePlanStoreDirectory(pi, options);
+	} catch (error) {
+		return {
+			ok: false,
+			error: `Could not resolve current repository and source branch.\n${error instanceof Error ? error.message : String(error)}`,
+		};
+	}
+	const selectionOptions: ValidateSessionSavedPlanCandidateOptions =
+		options.planStoreGateway === undefined ? {} : { planStoreGateway: options.planStoreGateway };
+	const selected = await findLatestSessionSavedPlanFile(
+		options.entries,
+		directory,
+		selectionOptions,
+	);
+	switch (selected.type) {
+		case "found":
+			return { ok: true, directory, plan: selected.plan };
+		case "unsafe":
+			return { ok: false, error: selected.message };
+		case "not-found":
+			return {
+				ok: false,
+				error:
+					"No saved plan from /ns:plan:save was found in the current session branch.\nRun /ns:plan:save first, then rerun the dispatch command.",
+			};
+	}
 }
 
 export async function findLatestSessionSavedPlanFile(

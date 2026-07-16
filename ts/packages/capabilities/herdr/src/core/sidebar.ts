@@ -10,7 +10,7 @@ import {
 	resolveObjectiveSelector,
 	validateObjectiveSidebarSlug,
 } from "./objective-sidebar.ts";
-import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/cmux/types";
+import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 

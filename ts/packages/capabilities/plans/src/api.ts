@@ -18,9 +18,11 @@ export {
 export {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	findLatestSessionSavedPlanFile,
+	prepareLatestSessionSavedPlan,
 	resolveExplicitSavedPlanFile,
 	resolveSelectedSavedPlanFile,
 	type ExplicitSavedPlanFileResolution,
+	type PreparedSessionSavedPlanResult,
 	type ResolveExplicitSavedPlanFileOptions,
 	type ResolvedExplicitSavedPlanFile,
 	type SelectedSavedPlanFile,
