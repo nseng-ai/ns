@@ -170,9 +170,8 @@ export function validateDispatchRunInput(input: DispatchRunInput): DispatchRunIn
 			},
 		};
 	}
-	if (input.dispatchId !== input.contextLocator.dispatchId) {
-		return { ok: false, message: "dispatchId must match contextLocator.dispatchId." };
-	}
+	const locatorError = validateDispatchPlanContextLocator(input.contextLocator, input.dispatchId);
+	if (locatorError !== null) return { ok: false, message: locatorError };
 	return {
 		ok: true,
 		value: {
@@ -193,6 +192,46 @@ export function validateDispatchRunInput(input: DispatchRunInput): DispatchRunIn
  * landing command's shell script, so the charset must exclude quoting and
  * expansion characters.
  */
+function validateDispatchPlanContextLocator(
+	locator: DispatchPlanContextLocator,
+	dispatchId: string,
+): string | null {
+	if (dispatchId !== locator.dispatchId) {
+		return "dispatchId must match contextLocator.dispatchId.";
+	}
+	if (locator.namespace !== "dispatch-context") {
+		return "contextLocator.namespace must be dispatch-context.";
+	}
+	if (locator.contextPrefix !== `${dispatchId}/`) {
+		return "contextLocator.contextPrefix must be the Dispatch ID prefix.";
+	}
+	if (
+		!locator.planKey.startsWith(`${locator.contextPrefix}plan/`) ||
+		!locator.planKey.endsWith(".md") ||
+		!/^[A-Za-z0-9._/-]+$/.test(locator.planKey)
+	) {
+		return "contextLocator.planKey must be the convention-required Saved Plan member.";
+	}
+	if (!/^[A-Za-z0-9._/-]+$/.test(locator.sourceBranch)) {
+		return "contextLocator.sourceBranch is invalid.";
+	}
+	if (
+		locator.snapshotRef.includes(":") ||
+		locator.snapshotRef.includes("..") ||
+		!/^[A-Za-z0-9._/-]+$/.test(locator.snapshotRef) ||
+		!locator.snapshotRef.startsWith("refs/brmem/ns/dispatch-context/")
+	) {
+		return "contextLocator.snapshotRef is not a dispatch-context Snapshot Ref.";
+	}
+	if (!isCommitSha(locator.snapshotCommitSha)) {
+		return "contextLocator.snapshotCommitSha must be a 40-character commit SHA.";
+	}
+	if (locator.entryLocator !== `${locator.snapshotRef}:${locator.planKey}`) {
+		return "contextLocator.entryLocator must identify the required plan member.";
+	}
+	return null;
+}
+
 export function isValidDispatchAnchorBranch(name: string): boolean {
 	if (!name.startsWith(DISPATCH_ANCHOR_BRANCH_PREFIX)) return false;
 	if (name.length > DISPATCH_ANCHOR_BRANCH_MAX_CHARS) return false;
@@ -271,6 +310,50 @@ export function parseDispatchHarnessResult(content: string | null): DispatchHarn
  * branch), which excludes quoting and expansion characters.
  */
 export const DISPATCH_LANDING_TOKEN_ENV_NAME = "NS_DISPATCH_LANDING_TOKEN";
+
+export function buildDispatchPlanSnapshotFetchCommand(
+	locator: DispatchPlanContextLocator,
+): SandboxCommand {
+	return {
+		cmd: "sh",
+		args: [
+			"-c",
+			'git fetch --no-tags origin "+$1:$1" && test "$(git rev-parse "$1^{commit}")" = "$2"',
+			"ns-dispatch-fetch-context",
+			locator.snapshotRef,
+			locator.snapshotCommitSha,
+		],
+	};
+}
+
+export function buildDispatchPlanEntryCheckCommand(
+	locator: DispatchPlanContextLocator,
+): SandboxCommand {
+	const parsePresentResult =
+		'let input="";process.stdin.setEncoding("utf8");process.stdin.on("data",chunk=>input+=chunk);process.stdin.on("end",()=>{const result=JSON.parse(input);if(result?.status!=="ok"||result?.data?.present!==true)process.exit(1)})';
+	return {
+		cmd: "sh",
+		args: [
+			"-c",
+			'pnpm --dir ts exec brmem check "$1" --namespace "$2" --branch "$3" --at "$4" --format json | node -e "$5"',
+			"ns-dispatch-check-context",
+			locator.planKey,
+			locator.namespace,
+			locator.sourceBranch,
+			locator.snapshotCommitSha,
+			parsePresentResult,
+		],
+	};
+}
+
+export function buildDispatchPlanHarnessInstruction(locator: DispatchPlanContextLocator): string {
+	return (
+		"Your first agent action must be to run this command exactly:\n\n" +
+		`pnpm --dir ts exec brmem get ${locator.planKey} --namespace ${locator.namespace} ` +
+		`--branch ${locator.sourceBranch} --at ${locator.snapshotCommitSha}\n\n` +
+		"Treat the command output as the Saved Plan and execute that plan."
+	);
+}
 
 export function buildDispatchLandingCommand(options: {
 	readonly repository: string;

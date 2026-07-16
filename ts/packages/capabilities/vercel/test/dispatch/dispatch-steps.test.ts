@@ -51,6 +51,28 @@ function runInput(overrides: Partial<DispatchRunInput> = {}): DispatchRunInput {
 	};
 }
 
+function planRunInput(): DispatchRunInput {
+	const dispatchId = "dsp_01JABCDEF0123456789";
+	const snapshotRef = "refs/brmem/ns/dispatch-context/feature---cache";
+	const planKey = `${dispatchId}/plan/add-cache.md`;
+	return {
+		revision,
+		anchorBranch: "dispatch/add-cache-a1b2c3",
+		anchorPrNumber: 422,
+		dispatchId,
+		contextLocator: {
+			namespace: "dispatch-context",
+			dispatchId,
+			contextPrefix: `${dispatchId}/`,
+			planKey,
+			sourceBranch: "feature/cache",
+			snapshotRef,
+			snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+			entryLocator: `${snapshotRef}:${planKey}`,
+		},
+	};
+}
+
 function validEnvironment(): MintEnvironment {
 	return {
 		NS_DISPATCH_GITHUB_APP_ID: "4282120",
@@ -207,6 +229,61 @@ describe("launchDispatchRun", () => {
 			command: { cmd: "fake-harness", args: ["--headless"] },
 			env: { ANTHROPIC_API_KEY: "model-key-fixture" },
 		});
+	});
+
+	it("fetches and verifies the exact plan snapshot before writing a brmem-first instruction and launching", async () => {
+		const { deps, sandboxes } = createDeps();
+
+		const result = await launchDispatchRun(planRunInput(), deps);
+
+		expect(result).toEqual({ ok: true, sandboxName: "sbx_dispatch", harness: "pi" });
+		expect(sandboxes.calls.map((call) => call.method)).toEqual([
+			"create",
+			"read",
+			"read",
+			"run",
+			"run",
+			"run",
+			"write",
+			"runDetached",
+		]);
+		const fetchCommand = sandboxes.calls[4]?.options["command"];
+		if (!isSandboxCommand(fetchCommand)) throw new Error("Expected the Snapshot fetch command.");
+		expect(fetchCommand.args).toContain("refs/brmem/ns/dispatch-context/feature---cache");
+		expect(fetchCommand.args).toContain("abcdef0123456789abcdef0123456789abcdef01");
+
+		const checkCommand = sandboxes.calls[5]?.options["command"];
+		if (!isSandboxCommand(checkCommand)) throw new Error("Expected the brmem check command.");
+		expect(checkCommand.args).toContain("dsp_01JABCDEF0123456789/plan/add-cache.md");
+		expect(checkCommand.args).toContain("dispatch-context");
+
+		expect(sandboxes.calls[6]?.options).toMatchObject({
+			sandboxName: "sbx_dispatch",
+			path: DISPATCH_PROMPT_PATH,
+		});
+		const instruction = sandboxes.calls[6]?.options["content"];
+		expect(instruction).toMatch(/^Your first agent action must be to run this command exactly:/);
+		expect(instruction).toContain("brmem get dsp_01JABCDEF0123456789/plan/add-cache.md");
+		expect(instruction).toContain(
+			"Treat the command output as the Saved Plan and execute that plan.",
+		);
+	});
+
+	it("stops before instruction write and launch when the Saved Plan precheck fails", async () => {
+		const { deps, sandboxes } = createDeps({
+			sandboxBehavior: { commandExitCode: 1 },
+			harness: { ok: true, value: harnessInvocation({ provisionCommands: [] }) },
+		});
+
+		const result = await launchDispatchRun(planRunInput(), deps);
+
+		expect(result).toEqual({
+			ok: false,
+			code: "launch-failed",
+			message: "Saved Plan context precheck failed.",
+			sandboxName: "sbx_dispatch",
+		});
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "run"]);
 	});
 
 	it("never journals token material in its result", async () => {
