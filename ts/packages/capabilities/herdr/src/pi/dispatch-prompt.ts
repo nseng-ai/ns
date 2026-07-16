@@ -10,11 +10,11 @@ import {
 	resolveDispatchPromptPayloadOptions,
 	type DispatchPromptPayloadOptions,
 } from "../core/dispatch-prompt.ts";
-import { HERDR_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME } from "../core/command-surfaces.ts";
+import { HERDR_SPACE_PROMPT_DISPATCH_COMMAND_NAME } from "../core/command-surfaces.ts";
 import { createCliHerdrGateway } from "../core/cli-gateway.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
 
-const COMMAND_NAME = HERDR_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
+const COMMAND_NAME = HERDR_SPACE_PROMPT_DISPATCH_COMMAND_NAME;
 
 export function registerHerdrSlotDispatchPromptCommand(
 	rawPi: ExtensionAPI,

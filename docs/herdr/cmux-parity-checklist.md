@@ -20,13 +20,13 @@ full selection rationale.
 
 ### Dispatch and branch-opening workflows
 
-| cmux surface                             | Disposition | Herdr mirror                              | Notes                                                                                                                               |
-| ---------------------------------------- | ----------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `/ns:cmux:workspace:dispatch-prompt`     | ✅ Selected | `/ns:herdr:workspace:dispatch-prompt`     | Both consume Capability Kit's shared tracked-branch preparation and `ns-dispatch/prompt.md`; each vendor owns final workspace open. |
-| `/ns:cmux:workspace:dispatch-from-trunk` | ✅ Selected | `/ns:herdr:workspace:dispatch-from-trunk` | Both consume shared Graphite trunk refresh/tracked-branch preparation; each vendor owns final workspace open.                       |
-| `/ns:cmux:workspace:dispatch-plan`       | ✅ Selected | `/ns:herdr:workspace:dispatch-plan`       | Opens Attached Plan checkout in a new Herdr workspace; ns owns branch-context and slot, Herdr owns workspace launch.                |
-| `/ns:cmux:surface:dispatch-plan`         | ✅ Selected | `/ns:herdr:surface:dispatch-plan`         | Opens a tab in the captured caller Herdr workspace; `HERDR_WORKSPACE_ID` is required before plan lookup or mutation.                |
-| `/ns:cmux:workspace:open-branch`         | ✅ Selected | `/ns:herdr:workspace:open-branch`         | Preserves explicit and inferred branch selection, confirmation, completions, and ns slot checkout.                                  |
+| cmux surface                             | Disposition | Herdr mirror                            | Notes                                                                                                                               |
+| ---------------------------------------- | ----------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `/ns:cmux:workspace:dispatch-prompt`     | ✅ Selected | `/ns:herdr:space:prompt-dispatch`       | Both consume Capability Kit's shared tracked-branch preparation and `ns-dispatch/prompt.md`; each vendor owns final workspace open. |
+| `/ns:cmux:workspace:dispatch-from-trunk` | ✅ Selected | `/ns:herdr:space:trunk-prompt-dispatch` | Both consume shared Graphite trunk refresh/tracked-branch preparation; each vendor owns final workspace open.                       |
+| `/ns:cmux:workspace:dispatch-plan`       | ✅ Selected | `/ns:herdr:space:plan-dispatch`         | Opens Attached Plan checkout in a new Herdr workspace; ns owns branch-context and slot, Herdr owns workspace launch.                |
+| `/ns:cmux:surface:dispatch-plan`         | ✅ Selected | `/ns:herdr:tab:plan-dispatch`           | Opens a tab in the captured caller Herdr workspace; `HERDR_WORKSPACE_ID` is required before plan lookup or mutation.                |
+| `/ns:cmux:workspace:open-branch`         | ✅ Selected | `/ns:herdr:space:open-branch`           | Preserves explicit and inferred branch selection, confirmation, completions, and ns slot checkout.                                  |
 
 ### Sidebar / metadata commands
 
@@ -52,7 +52,7 @@ full selection rationale.
 | Operation                                        | cmux mechanism                                                 | Herdr applicability | Notes                                                                                                                                                                  |
 | ------------------------------------------------ | -------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Open new workspace                               | `cmux new-workspace --cwd --command`                           | ✅ Selected         | Herdr CLI equivalent used for dispatch and open-branch workflows. Caller ID from `HERDR_WORKSPACE_ID` or equivalent env; no focus-dependent targeting.                 |
-| Open focused tab (surface) in existing workspace | `cmux new-surface --type terminal --workspace --pane --window` | ✅ Selected         | Used for `/ns:herdr:surface:dispatch-plan`; explicit caller workspace ID from `HERDR_WORKSPACE_ID` env; tab created with `--focus` to activate immediately.            |
+| Open focused tab (surface) in existing workspace | `cmux new-surface --type terminal --workspace --pane --window` | ✅ Selected         | Used for `/ns:herdr:tab:plan-dispatch`; explicit caller workspace ID from `HERDR_WORKSPACE_ID` env; tab created with `--focus` to activate immediately.                |
 | Rename tab                                       | `cmux rename-tab --workspace --surface --title --window`       | ✅ Selected         | Used for focused-tab naming in surface dispatch plan.                                                                                                                  |
 | Send command to pane                             | `cmux send --workspace --surface --window -- <cmd>`            | ✅ Selected         | Used for command injection in surface dispatch plan.                                                                                                                   |
 | Identify caller workspace/tab                    | `cmux identify --json`                                         | ✅ Selected         | Herdr equivalent used to resolve caller IDs; CLI-first, no raw socket.                                                                                                 |

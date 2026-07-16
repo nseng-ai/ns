@@ -1,8 +1,8 @@
 /**
  * Herdr dispatch-plan: attaches the latest session-saved plan to a
  * Graphite-tracked branch via branch-context, then opens the branch either in
- * a new Herdr workspace (workspace:dispatch-plan) or in a focused tab inside
- * the caller's Herdr workspace (surface:dispatch-plan).
+ * a new Herdr workspace (space:plan-dispatch) or in a focused tab inside
+ * the caller's Herdr workspace (tab:plan-dispatch).
  *
  * ns owns: Saved Plan resolution, branch-context creation, slot checkout,
  *          Pi launch command building.
@@ -96,7 +96,7 @@ export async function handleHerdrSlotDispatchPlan(
 	if (config.destination === "surface" && callerWorkspaceId === undefined) {
 		present(
 			ctx,
-			"surface:dispatch-plan requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+			"tab:plan-dispatch requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
 			"error",
 		);
 		return;
