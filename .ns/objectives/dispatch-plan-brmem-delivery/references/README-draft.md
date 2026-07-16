@@ -80,9 +80,9 @@ discard it.
 ## What the remote agent does
 
 The remote agent receives your repository at the exact dispatched commit
-and a locator for the plan you selected — not a paraphrase of it. Its first
-action is `brmem get` for that locator; its task is to execute the
-retrieved plan.
+and a locator for the dispatch's context envelope — not a paraphrase of
+the plan. Its first action is `brmem get` for the plan member in that
+envelope; its task is to execute the retrieved plan.
 
 Precision is the contract:
 
@@ -101,12 +101,27 @@ Precision is the contract:
 The Saved Plan is what you select; Branch Memory is how it travels. Before
 starting the cloud workflow, dispatch:
 
-1. resolves your explicit Saved Plan;
+1. resolves your explicit Saved Plan and creates a **Dispatch ID** for the
+   dispatch;
 2. stores a dispatch-owned copy in the Branch Memory namespace
-   `dispatch-input`, under a key unique to this dispatch;
+   `dispatch-context`, under `<dispatch-id>/plan/<plan-slug>.md`;
 3. publishes that snapshot to the remote and verifies the exact ref is
    reachable; and
-4. hands the workflow a typed locator — never the plan body.
+4. hands the workflow a typed locator for the Dispatch ID context — never
+   the plan body.
+
+The Dispatch ID is the correlation key across the dispatch. It appears in
+the anchor branch, normal command output, anchor-PR provenance, and as the
+`dispatch.id` attribute on the Vercel Workflow run. Vercel still
+assigns its own `wrun_...` ID; if that ID needs to be recovered, dispatch
+can find the run by its Dispatch ID attribute and refuses to guess if the
+lookup returns zero or multiple runs.
+
+The context envelope is intentionally a Branch Memory key convention in
+this version, not a manifest. A plan lives under the `plan/` path; future
+typed context can use sibling paths under the same Dispatch ID. The
+supervisor checks the expected plan member before launch, and the agent is
+instructed how to read it.
 
 The plan content never rides in an HTTP request or workflow payload. It
 moves the same way everything else in ns moves: through git. That makes the
@@ -114,9 +129,20 @@ dispatched input inspectable (`brmem get` shows exactly what the agent
 received), reproducible, and durable — the delivery entry is retained after
 the run as input evidence.
 
-The delivery entry is dispatch-owned plumbing: it is not an Attached Plan
-and does not touch the `branch-context` namespace your own branch planning
-uses.
+The context entries are dispatch-owned plumbing: they are not an Attached
+Plan and do not touch the `branch-context` namespace your own branch
+planning uses.
+
+## What you see
+
+Pi and human-readable CLI output keep provenance compact: the Dispatch ID and
+clickable links to the anchor PR and Vercel Workflow run. The anchor PR
+includes the same Dispatch ID in a marked provenance section.
+
+Machine output and the marked PR provenance retain the full recovery
+record: Dispatch ID, Vercel run ID, Branch Memory namespace, context prefix,
+source branch, exact Snapshot Ref, and links. You get the details when you
+need them without turning the normal dispatch flow into transport output.
 
 ## If something goes wrong
 
@@ -143,8 +169,6 @@ adds Saved Plan input without creating another cloud backend.
 
 ## Open questions
 
-- The exact human-readable entry key shape within `dispatch-input` is not
-  settled.
-- The final command output and anchor-PR fields for the Branch Memory
-  locator are not settled.
-- Retained delivery entries have no automatic cleanup policy in this work.
+No open question blocks implementation. Retained context entries have no
+automatic cleanup policy in this work; future cleanup must preserve input
+evidence and reproducibility.
