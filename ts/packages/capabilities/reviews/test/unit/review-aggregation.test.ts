@@ -4,12 +4,15 @@ import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { createReviewsRuntime } from "../../src/core/context.ts";
 import type {
 	ReviewAggregationProposalCluster,
-	ReviewAggregationRequest,
+	ReviewAggregationProposalRequest,
 	ReviewRosterRunResult,
 	SourceAttributedFinding,
 } from "../../src/core/models.ts";
 import { FakeReviewAggregationRunnerGateway } from "../../src/gateways/review-aggregation-runner.ts";
-import { aggregateReviewRoster } from "../../src/operations/review-aggregation.ts";
+import {
+	proposeReviewAggregation,
+	resolveReviewAggregation,
+} from "../../src/operations/review-aggregation.ts";
 import { fakeReviewsContext } from "../support/fake-reviews-context.ts";
 
 const first: SourceAttributedFinding = {
@@ -68,11 +71,10 @@ function proposal(clusters: readonly ReviewAggregationProposalCluster[]) {
 	return { ok: true as const, value: { payload: { clusters: [...clusters] }, usage: null } };
 }
 
-function baseRequest(): ReviewAggregationRequest {
+function baseRequest(): ReviewAggregationProposalRequest {
 	return {
 		rosterResult: roster(),
 		constraints: { mustGroup: [], mustSeparate: [] },
-		decisions: { bulkConfirmUnconflicted: false, clusters: [] },
 	};
 }
 
@@ -93,7 +95,7 @@ function runtime(runner: FakeReviewAggregationRunnerGateway) {
 	);
 }
 
-describe("aggregateReviewRoster", () => {
+describe("proposeReviewAggregation", () => {
 	it("calls the model once, preserves occurrences, normalizes order, and derives accounting", async () => {
 		const runner = new FakeReviewAggregationRunnerGateway(
 			proposal([
@@ -111,7 +113,7 @@ describe("aggregateReviewRoster", () => {
 				},
 			]),
 		);
-		const result = await aggregateReviewRoster(runtime(runner), baseRequest());
+		const result = await proposeReviewAggregation(runtime(runner), baseRequest());
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
@@ -147,7 +149,7 @@ describe("aggregateReviewRoster", () => {
 			disposition: "fix" as const,
 		}));
 		const runner = new FakeReviewAggregationRunnerGateway(proposal(clusters));
-		const result = await aggregateReviewRoster(runtime(runner), baseRequest());
+		const result = await proposeReviewAggregation(runtime(runner), baseRequest());
 		expect(result).toMatchObject({
 			ok: false,
 			error: { code: "review-aggregation-invalid-accounting" },
@@ -159,7 +161,7 @@ describe("aggregateReviewRoster", () => {
 		const request = baseRequest();
 		request.constraints.mustGroup.push([first, duplicate]);
 		request.constraints.mustSeparate.push([first, duplicate]);
-		const result = await aggregateReviewRoster(runtime(runner), request);
+		const result = await proposeReviewAggregation(runtime(runner), request);
 		expect(result).toMatchObject({
 			ok: false,
 			error: { code: "review-aggregation-invalid-constraints" },
@@ -186,7 +188,7 @@ describe("aggregateReviewRoster", () => {
 		);
 		const request = baseRequest();
 		request.constraints.mustGroup.push([first, duplicate]);
-		const result = await aggregateReviewRoster(runtime(runner), request);
+		const result = await proposeReviewAggregation(runtime(runner), request);
 		expect(result).toMatchObject({
 			ok: false,
 			error: { code: "review-aggregation-invalid-constraints" },
@@ -210,10 +212,23 @@ describe("aggregateReviewRoster", () => {
 				},
 			]),
 		);
-		const request = baseRequest();
-		request.decisions.bulkConfirmUnconflicted = true;
-		request.decisions.clusters.push({ findings: [other], disposition: "reject" });
-		const result = await aggregateReviewRoster(runtime(runner), request);
+		const proposed = await proposeReviewAggregation(runtime(runner), baseRequest());
+		expect(proposed.ok).toBe(true);
+		if (!proposed.ok) return;
+		const result = resolveReviewAggregation({
+			proposalResult: proposed.value,
+			decisions: {
+				bulkConfirmUnconflicted: true,
+				clusters: [
+					{
+						findings: [other],
+						recommendationConflict: false,
+						conflictExplanation: null,
+						disposition: "reject",
+					},
+				],
+			},
+		});
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		expect(
@@ -223,6 +238,230 @@ describe("aggregateReviewRoster", () => {
 			{ disposition: "reject", authority: "engineer-confirmed" },
 		]);
 		expect(result.value.completeness).toBe("fully-confirmed");
+	});
+
+	it("rejects decisions that do not match a complete cluster in the exact proposal", async () => {
+		const proposed = await proposeReviewAggregation(
+			runtime(
+				new FakeReviewAggregationRunnerGateway(
+					proposal([
+						{
+							findings: [first, duplicate],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "fix",
+						},
+						{
+							findings: [other],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "defer",
+						},
+					]),
+				),
+			),
+			baseRequest(),
+		);
+		expect(proposed.ok).toBe(true);
+		if (!proposed.ok) return;
+		const result = resolveReviewAggregation({
+			proposalResult: proposed.value,
+			decisions: {
+				bulkConfirmUnconflicted: false,
+				clusters: [
+					{
+						findings: [first],
+						recommendationConflict: true,
+						conflictExplanation: "Engineer found a conflict.",
+						disposition: "defer",
+					},
+				],
+			},
+		});
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code: "review-aggregation-invalid-request" },
+		});
+	});
+
+	it("rejects unknown, repeated, and duplicate decision memberships", async () => {
+		const proposed = await proposeReviewAggregation(
+			runtime(
+				new FakeReviewAggregationRunnerGateway(
+					proposal([
+						{
+							findings: [first, duplicate],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "fix",
+						},
+						{
+							findings: [other],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "defer",
+						},
+					]),
+				),
+			),
+			baseRequest(),
+		);
+		expect(proposed.ok).toBe(true);
+		if (!proposed.ok) return;
+		const decision = {
+			recommendationConflict: false as const,
+			conflictExplanation: null,
+			disposition: "fix" as const,
+		};
+		for (const clusters of [
+			[{ ...decision, findings: [{ ...first, summary: "Unknown" }] }],
+			[{ ...decision, findings: [first, first] }],
+			[
+				{ ...decision, findings: [first, duplicate] },
+				{ ...decision, findings: [duplicate, first] },
+			],
+		]) {
+			expect(
+				resolveReviewAggregation({
+					proposalResult: proposed.value,
+					decisions: { bulkConfirmUnconflicted: false, clusters },
+				}),
+			).toMatchObject({
+				ok: false,
+				error: { code: "review-aggregation-invalid-request" },
+			});
+		}
+	});
+
+	it("carries confirmed state for exact membership and resets split or merged membership", async () => {
+		const initial = await proposeReviewAggregation(
+			runtime(
+				new FakeReviewAggregationRunnerGateway(
+					proposal([
+						{
+							findings: [first, duplicate],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "fix",
+						},
+						{
+							findings: [other],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "fix",
+						},
+					]),
+				),
+			),
+			baseRequest(),
+		);
+		expect(initial.ok).toBe(true);
+		if (!initial.ok) return;
+		const confirmed = resolveReviewAggregation({
+			proposalResult: initial.value,
+			decisions: {
+				bulkConfirmUnconflicted: false,
+				clusters: [
+					{
+						findings: [duplicate, first],
+						recommendationConflict: true,
+						conflictExplanation: "Engineer-confirmed conflict.",
+						disposition: "fix-manually",
+					},
+				],
+			},
+		});
+		expect(confirmed.ok).toBe(true);
+		if (!confirmed.ok) return;
+		const corrected = await proposeReviewAggregation(
+			runtime(
+				new FakeReviewAggregationRunnerGateway(
+					proposal([
+						{
+							findings: [first, duplicate],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "reject",
+						},
+						{
+							findings: [other],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "defer",
+						},
+					]),
+				),
+			),
+			{ ...baseRequest(), priorResult: confirmed.value },
+		);
+		expect(corrected.ok).toBe(true);
+		if (!corrected.ok) return;
+		expect(corrected.value.clusters[0]).toMatchObject({
+			recommendationConflict: true,
+			conflictExplanation: "Engineer-confirmed conflict.",
+			disposition: "fix-manually",
+			authority: "engineer-confirmed",
+		});
+
+		const split = await proposeReviewAggregation(
+			runtime(
+				new FakeReviewAggregationRunnerGateway(
+					proposal([
+						{
+							findings: [first],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "reject",
+						},
+						{
+							findings: [duplicate],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "defer",
+						},
+						{
+							findings: [other],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "fix",
+						},
+					]),
+				),
+			),
+			{ ...baseRequest(), priorResult: confirmed.value },
+		);
+		expect(split).toMatchObject({
+			ok: true,
+			value: {
+				clusters: [
+					{ disposition: "reject", authority: "model-proposed" },
+					{ disposition: "defer", authority: "model-proposed" },
+					{ disposition: "fix", authority: "model-proposed" },
+				],
+			},
+		});
+
+		const regrouped = await proposeReviewAggregation(
+			runtime(
+				new FakeReviewAggregationRunnerGateway(
+					proposal([
+						{
+							findings: [first, duplicate, other],
+							recommendationConflict: false,
+							conflictExplanation: null,
+							disposition: "reject",
+						},
+					]),
+				),
+			),
+			{ ...baseRequest(), priorResult: confirmed.value },
+		);
+		expect(regrouped).toMatchObject({
+			ok: true,
+			value: {
+				clusters: [{ disposition: "reject", authority: "model-proposed" }],
+			},
+		});
 	});
 
 	it("passes prior state and correction constraints to the one model call", async () => {
@@ -236,7 +475,7 @@ describe("aggregateReviewRoster", () => {
 				},
 			]),
 		);
-		const initial = await aggregateReviewRoster(runtime(initialRunner), baseRequest());
+		const initial = await proposeReviewAggregation(runtime(initialRunner), baseRequest());
 		expect(initial.ok).toBe(true);
 		if (!initial.ok) return;
 		const correctionRunner = new FakeReviewAggregationRunnerGateway(
@@ -258,7 +497,7 @@ describe("aggregateReviewRoster", () => {
 		const correction = baseRequest();
 		correction.priorResult = initial.value;
 		correction.constraints.mustSeparate.push([first, other]);
-		const result = await aggregateReviewRoster(runtime(correctionRunner), correction);
+		const result = await proposeReviewAggregation(runtime(correctionRunner), correction);
 		expect(result.ok).toBe(true);
 		expect(correctionRunner.calls()[0]?.request.priorResult).toEqual(initial.value);
 		expect(correctionRunner.calls()[0]?.request.constraints).toEqual(correction.constraints);

@@ -12,6 +12,7 @@ import {
 	parsePiStructuredOutput,
 	PiStructuredOutputTransport,
 } from "../../src/gateways/pi-structured-output.ts";
+import { systemPromptFindingsJsonText } from "../../src/gateways/review-runner-prompt.ts";
 import type { PiStructuredOutputRequest } from "../../src/gateways/structured-output-transport.ts";
 
 function request(overrides: Partial<PiStructuredOutputRequest> = {}): PiStructuredOutputRequest {

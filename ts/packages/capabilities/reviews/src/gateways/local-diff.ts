@@ -14,15 +14,21 @@ import { RealGitGateway } from "@nseng-ai/foundation/git";
 
 import { parseUnifiedDiff } from "../core/diff-parsing.ts";
 import type { LocalDiffFailure, ReviewResult } from "../core/failures.ts";
-import { createLocalDiff, createRevisionRangeLocalDiff, type LocalDiff } from "../core/models.ts";
+import {
+	createLocalDiff,
+	createRevisionRangeLocalDiff,
+	revisionRangeSchema,
+	type LocalDiff,
+} from "../core/models.ts";
 import { buildGitDiffArgs, parseReviewsProjectConfigToml } from "../core/project-config.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 
-export type DiffSelection =
-	| { readonly type: "base-ref"; readonly baseRef?: string | null }
-	| { readonly type: "revision-range"; readonly revisionRange: string };
+export type DiffSelection = {
+	readonly type: "revision-range";
+	readonly revisionRange: string;
+};
 
 interface LoadDiffCommonOptions {
 	readonly cwd: string;
@@ -127,11 +133,14 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			{ type: "base-ref"; baseRef: string } | { type: "revision-range"; revisionRange: string }
 		>
 	> {
-		if (options.selection?.type === "revision-range") {
-			const revisionRange = options.selection.revisionRange.trim();
-			if (revisionRange === "")
-				return error({ code: "git-diff-failed", message: "Revision range must not be blank." });
-			return { ok: true, value: { type: "revision-range", revisionRange } };
+		if (options.selection !== undefined) {
+			const revisionRange = revisionRangeSchema.safeParse(options.selection.revisionRange);
+			if (!revisionRange.success)
+				return error({
+					code: "git-diff-failed",
+					message: revisionRange.error.issues[0]?.message ?? "Invalid revision range.",
+				});
+			return { ok: true, value: { type: "revision-range", revisionRange: revisionRange.data } };
 		}
 		const resolved = await this.resolveBaseRef(options, repoRoot);
 		return resolved.ok
@@ -228,9 +237,9 @@ export class FakeLocalDiffGateway implements LocalDiffGateway {
 			this.requestedSelectionsInternal.push(structuredClone(options.selection));
 		this.requestedExcludeGlobsInternal.push(options.excludeGlobs);
 		const configured =
-			options.selection?.type === "revision-range"
+			options.selection !== undefined
 				? this.diffsByRevisionRange.get(options.selection.revisionRange)
-				: this.diffsByBaseRef.get(options.selection?.baseRef ?? options.baseRef);
+				: this.diffsByBaseRef.get(options.baseRef);
 		return copyResult(configured ?? this.defaultDiff);
 	}
 

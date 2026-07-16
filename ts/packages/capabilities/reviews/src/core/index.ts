@@ -22,13 +22,15 @@ export {
 	reviewExecutionResponseSchema,
 	reviewRosterRunRequestSchema,
 	reviewRosterRunResultSchema,
-	reviewAggregationRequestSchema,
+	reviewAggregationProposalRequestSchema,
+	reviewAggregationResolutionRequestSchema,
 	reviewAggregationResultSchema,
 	reviewAggregationProposalSchema,
 	reviewFindingsPayloadSchema,
 	type PriorFindingsPromptContext,
 	type ReviewExecutionResponse,
-	type ReviewAggregationRequest,
+	type ReviewAggregationProposalRequest,
+	type ReviewAggregationResolutionRequest,
 	type ReviewAggregationResult,
 	type ReviewAggregationProposal,
 	type ReviewFindingsPayload,
@@ -53,7 +55,10 @@ export {
 	type RunReviewRequest,
 } from "../operations/review-run.ts";
 export { runReviewRoster, type RunReviewRosterOptions } from "../operations/review-roster-run.ts";
-export { aggregateReviewRoster } from "../operations/review-aggregation.ts";
+export {
+	proposeReviewAggregation,
+	resolveReviewAggregation,
+} from "../operations/review-aggregation.ts";
 export {
 	FakeReviewAggregationRunnerGateway,
 	type ReviewAggregationRunnerGateway,

@@ -108,6 +108,14 @@ describe("buildReviewAggregationPrompt", () => {
 		]);
 		expect(parsed.revisionRange).toBe("main...HEAD");
 		expect(parsed.findings).toEqual([first, second]);
+		expect(parsed.rosterEntries).toEqual(
+			rosterResult.entries.map((entry) => {
+				if (entry.state !== "completed") return entry;
+				const { findings: _findings, ...metadata } = entry;
+				return metadata;
+			}),
+		);
+		expect(buildReviewAggregationPrompt(runnerRequest()).match(/"Missing guard"/g)).toHaveLength(1);
 	});
 
 	it("projects iterative prior state to complete prior clusters only", () => {

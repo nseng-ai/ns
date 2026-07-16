@@ -20,7 +20,7 @@ import {
 	reviewRosterRunRequestSchema,
 	reviewRosterRunResultSchema,
 	reviewAggregationProposalClusterSchema,
-	reviewAggregationRequestSchema,
+	reviewAggregationProposalRequestSchema,
 	reviewAggregationResultSchema,
 	resolvedReviewClusterSchema,
 	reviewUsageSchema,
@@ -152,10 +152,9 @@ describe("reviews domain schemas", () => {
 			reviewAggregationResultSchema.parse({ ...result, completeness: "fully-confirmed" }),
 		).toThrow();
 		expect(() =>
-			reviewAggregationRequestSchema.parse({
+			reviewAggregationProposalRequestSchema.parse({
 				rosterResult,
 				constraints: { mustGroup: [], mustSeparate: [] },
-				decisions: { bulkConfirmUnconflicted: false, clusters: [] },
 				extra: true,
 			}),
 		).toThrow();

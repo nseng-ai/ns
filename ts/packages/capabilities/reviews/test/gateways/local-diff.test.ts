@@ -134,6 +134,26 @@ describe("RealLocalDiffGateway", () => {
 		]);
 	});
 
+	test.each(["   ", " -c core.fsmonitor=true", "--stat"])(
+		"rejects unsafe revision range %j before invoking git",
+		async (revisionRange) => {
+			const repoRoot = await mkdtemp(join(tmpdir(), "reviews-local-unsafe-range-"));
+			const execApi = new ScriptedCommandExecApi([]);
+			const gateway = new RealLocalDiffGateway({
+				execApi,
+				gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }),
+			});
+
+			const result = await gateway.loadDiff({
+				cwd: repoRoot,
+				selection: { type: "revision-range", revisionRange },
+			});
+
+			expect(result).toMatchObject({ ok: false, error: { code: "git-diff-failed" } });
+			expect(execApi.calls()).toEqual([]);
+		},
+	);
+
 	test("falls back to trunk branch and reports git diff failures", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "reviews-local-diff-failure-"));
 		await mkdir(repoRoot, { recursive: true });

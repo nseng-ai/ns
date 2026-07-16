@@ -34,17 +34,17 @@ A return-only Reviews Capability API operation over one confirmed Git revision r
 
 Avoid: implying the roster run confirms user choices, persists checkpoints or Review logs, publishes findings, clusters findings, or edits the checkout.
 
-### Review aggregation
+### Review aggregation proposal
 
-A return-only Reviews Capability API operation that uses an LM to propose exact, source-preserving finding clusters, recommendation-conflict metadata, and one disposition per cluster. Every roster finding remains verbatim and is accounted for exactly once.
+A return-only Reviews Capability API operation that is the sole LM caller for proposing exact, source-preserving finding clusters, recommendation-conflict metadata, and one disposition per cluster. Every roster finding remains verbatim and is accounted for exactly once. Corrections may carry engineer-confirmed state only when normalized cluster membership is unchanged.
 
-Avoid: canonical finding rewrites, opaque cluster IDs, partial proposals, persistence, or describing model proposals as engineer decisions.
+Avoid: canonical finding rewrites, opaque cluster IDs, partial proposals, persistence, resolution decisions in the proposal request, or describing model proposals as engineer decisions.
 
-### Review resolution
+### Review aggregation resolution
 
-The deterministic confirmation state applied to aggregation clusters from explicit engineer decisions or permitted bulk confirmation. Conflict clusters require explicit attention, and each member finding inherits its cluster's disposition and authority.
+The pure, runtime-free confirmation operation applied to an exact aggregation proposal from explicit engineer decisions or permitted bulk confirmation. Explicit decisions supply complete cluster membership, full conflict state, and disposition; conflict clusters require explicit attention, and each member finding inherits its cluster's disposition and authority.
 
-Avoid: remediation execution, per-finding overrides that can disagree with cluster state, or implying that resolution edits code or publishes findings.
+Avoid: LM or gateway calls, remediation execution, fuzzy membership matching, per-finding overrides that can disagree with cluster state, or implying that resolution edits code or publishes findings.
 
 ### Review definition
 

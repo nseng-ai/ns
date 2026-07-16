@@ -47,7 +47,7 @@ const COVERAGE: ReviewInputCoverage = {
 };
 
 function source(name: string, include = "**/*.ts"): string {
-	return `---\ndescription: Review ${name}.\nmodel_profile: quick\napplies_to:\n  include:\n    - '${include}'\n---\n\nFlag issues.\n`;
+	return `---\ndescription: Review ${name}.\nmodel_profile: fast\napplies_to:\n  include:\n    - '${include}'\n---\n\nFlag issues.\n`;
 }
 
 function file(path: string): DiffFile {
@@ -67,6 +67,19 @@ function file(path: string): DiffFile {
 }
 
 describe("runReviewRoster", () => {
+	test.each(["   ", " --stat", "-c core.fsmonitor=true"])(
+		"rejects unsafe revision range %j before loading dependencies",
+		async (revisionRange) => {
+			const localDiff = new FakeLocalDiffGateway();
+			const result = await runReviewRoster(
+				createReviewsRuntime(fakeReviewsContext({ localDiff })),
+				{ revisionRange, roster: [{ reviewKey: "first", selected: true }] },
+			);
+			expect(result).toMatchObject({ ok: false, error: { code: "review-roster-invalid" } });
+			expect(localDiff.requestedSelections()).toEqual([]);
+		},
+	);
+
 	test("loads one range diff, follows confirmed order, attributes duplicates, and writes no logs", async () => {
 		const tsFile = file("src/app.ts");
 		const diff = createRevisionRangeLocalDiff({
@@ -195,7 +208,7 @@ describe("runReviewRoster", () => {
 				reviewCatalog: new FakeReviewCatalogGateway({
 					reviewSourcesByKey: {
 						malformed: "not frontmatter",
-						model: source("model").replace("quick", "unknown"),
+						model: source("model").replace("fast", "unknown"),
 						runner: source("runner"),
 						later: source("later"),
 					},

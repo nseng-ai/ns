@@ -16,7 +16,19 @@ export function buildReviewAggregationPrompt(request: ReviewAggregationRunnerReq
 	return JSON.stringify(
 		{
 			revisionRange: request.rosterResult.revisionRange,
-			rosterEntries: request.rosterResult.entries,
+			rosterEntries: request.rosterResult.entries.map((entry) =>
+				entry.state === "completed"
+					? {
+							reviewKey: entry.reviewKey,
+							position: entry.position,
+							state: entry.state,
+							modelProfile: entry.modelProfile,
+							model: entry.model,
+							usage: entry.usage,
+							inputCoverage: entry.inputCoverage,
+						}
+					: entry,
+			),
 			findings: request.rosterResult.findings,
 			constraints: request.constraints,
 			// Project prior state to clusters only: the current roster evidence is

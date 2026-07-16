@@ -234,7 +234,7 @@ describe("@nseng-ai/reviews/api", () => {
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 
-	test("aggregateReviewRoster exposes the return-only aggregation operation", async () => {
+	test("proposeReviewAggregation exposes the return-only aggregation operation", async () => {
 		const finding = {
 			reviewKey: REVIEW_KEY,
 			occurrence: 0,
@@ -282,15 +282,29 @@ describe("@nseng-ai/reviews/api", () => {
 			findings: [finding],
 		};
 
-		const result = await client.aggregateReviewRoster({
+		const result = await client.proposeReviewAggregation({
 			rosterResult,
 			constraints: { mustGroup: [], mustSeparate: [] },
-			decisions: { bulkConfirmUnconflicted: false, clusters: [] },
 		});
 
 		expect(result).toMatchObject({
 			ok: true,
 			value: { completeness: "all-proposed", findingDispositions: [{ finding }] },
+		});
+		expect(runner.calls()).toHaveLength(1);
+		if (!result.ok) return;
+		const resolutionRequest = {
+			proposalResult: result.value,
+			decisions: { bulkConfirmUnconflicted: true, clusters: [] },
+		};
+		const resolved = client.resolveReviewAggregation(resolutionRequest);
+		resolutionRequest.proposalResult.clusters[0]!.disposition = "reject";
+		expect(resolved).toMatchObject({
+			ok: true,
+			value: {
+				clusters: [{ disposition: "fix", authority: "engineer-confirmed" }],
+				completeness: "fully-confirmed",
+			},
 		});
 		expect(runner.calls()).toHaveLength(1);
 	});

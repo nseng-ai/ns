@@ -22,6 +22,15 @@ export const inlinePostingOutcomeValues = [
 export const diffChangeKindValues = ["added", "modified", "deleted", "renamed", "copied"] as const;
 
 const nonBlankStringSchema = z.string().trim().min(1);
+export const revisionRangeSchema = nonBlankStringSchema.refine((value) => !value.startsWith("-"), {
+	message: "Revision range must not begin with '-'.",
+});
+export type RevisionRange = z.infer<typeof revisionRangeSchema>;
+
+export function parseRevisionRange(value: string): RevisionRange {
+	return revisionRangeSchema.parse(value);
+}
+
 const nonNegativeIntegerSchema = z.int().min(0);
 
 export const reviewApplicabilitySchema = z
@@ -79,7 +88,7 @@ export const localDiffSchema = z.discriminatedUnion("sourceType", [
 		.object({
 			sourceType: z.literal("revision-range"),
 			baseRef: z.never().optional(),
-			revisionRange: nonBlankStringSchema,
+			revisionRange: revisionRangeSchema,
 			...localDiffFields,
 		})
 		.strict(),
@@ -255,7 +264,7 @@ export type ReviewRosterSelectionEntry = z.infer<typeof reviewRosterSelectionEnt
 
 export const reviewRosterRunRequestSchema = z
 	.object({
-		revisionRange: nonBlankStringSchema,
+		revisionRange: revisionRangeSchema,
 		roster: z.array(reviewRosterSelectionEntrySchema).min(1),
 	})
 	.strict();
@@ -322,7 +331,7 @@ export type ReviewRosterProgressEvent = z.infer<typeof reviewRosterProgressEvent
 
 export const reviewRosterRunResultSchema = z
 	.object({
-		revisionRange: nonBlankStringSchema,
+		revisionRange: revisionRangeSchema,
 		ranAt: z.iso.datetime(),
 		entries: z.array(reviewRosterEntrySchema),
 		findings: z.array(sourceAttributedFindingSchema),
@@ -392,12 +401,7 @@ export const reviewAggregationConstraintSchema = z
 	.strict();
 export type ReviewAggregationConstraint = z.infer<typeof reviewAggregationConstraintSchema>;
 
-export const reviewAggregationClusterDecisionSchema = z
-	.object({
-		findings: z.array(sourceAttributedFindingSchema).min(1),
-		disposition: reviewDispositionSchema,
-	})
-	.strict();
+export const reviewAggregationClusterDecisionSchema = reviewAggregationProposalClusterSchema;
 export type ReviewAggregationClusterDecision = z.infer<
 	typeof reviewAggregationClusterDecisionSchema
 >;
@@ -496,15 +500,26 @@ export const reviewAggregationResultSchema = z
 	});
 export type ReviewAggregationResult = z.infer<typeof reviewAggregationResultSchema>;
 
-export const reviewAggregationRequestSchema = z
+export const reviewAggregationProposalRequestSchema = z
 	.object({
 		rosterResult: reviewRosterRunResultSchema,
 		priorResult: reviewAggregationResultSchema.optional(),
 		constraints: reviewAggregationConstraintSchema,
+	})
+	.strict();
+export type ReviewAggregationProposalRequest = z.infer<
+	typeof reviewAggregationProposalRequestSchema
+>;
+
+export const reviewAggregationResolutionRequestSchema = z
+	.object({
+		proposalResult: reviewAggregationResultSchema,
 		decisions: reviewAggregationDecisionsSchema,
 	})
 	.strict();
-export type ReviewAggregationRequest = z.infer<typeof reviewAggregationRequestSchema>;
+export type ReviewAggregationResolutionRequest = z.infer<
+	typeof reviewAggregationResolutionRequestSchema
+>;
 
 export const reviewAggregationRunnerRequestSchema = z
 	.object({
