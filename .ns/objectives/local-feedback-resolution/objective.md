@@ -6,44 +6,39 @@ edges:
 
 # Local Feedback Resolution
 
-Ideation Objective (see `skills/objective/references/objective-patterns.md`): the
-Destination is settled, while the route remains a Frontier of requirements questions.
-Resolve one Question Row per session, record the decision as a Semantic Update, and
-crystallize implementation work only after the requirements are coherent.
+Steelthread Objective: deliver the thinnest production-quality local, pre-PR journey
+from multiple engineer-controlled adversarial reviews through confirmed manual
+remediation planning. The requirements Frontier has crystallized; representative use
+of the real implementation is completion evidence rather than a throwaway prototype
+gate.
 
 ## Thesis
 
-Give engineers a coherent local, pre-PR path from adversarial review to validated
-candidate fixes. Engineers control the content and applicability of adversarial
-reviews; multiple automated reviewers can contribute findings; the workflow combines,
-triages, and categorizes those findings; and the existing addressing experience can
-apply selected fixes in a disposable ordinary slot/worktree rather than mutating the
-engineer's active checkout.
+Give engineers a coherent local, pre-PR path from multiple adversarial reviews to an
+engineer-confirmed manual remediation plan. Engineers control the revision range and
+applicable review roster; completed findings are combined without erasing source
+evidence; reviewer failures and coverage gaps remain visible; and proposed clustering,
+categorization, and planned PRs remain correctable before becoming durable decisions.
 
-The result is base infrastructure for experiences beyond the initial local loop. Its
-structured findings, triage decisions, candidate changes, and validation outcomes
-must be reusable by later TUI, web, PR-feedback, and landing experiences without this
-Objective committing to those product surfaces or to a particular architecture.
-Stakeholder proposals about conversational change review, agentic CI/CD, deployment,
-and “Ships” are motivating context and hypotheses, not accepted requirements.
+This steelthread proves the production seams and interaction grammar needed for the
+manual loop. It deliberately stops before automated fixes, candidate branches, and
+validation. Those are follow-on breadth after this thread lands, not reasons to build
+and discard a parallel prototype.
 
 ## Scope
 
-- Run engineer-authored, engineer-controlled adversarial Review definitions locally
-  against work that has not yet opened a PR.
-- Combine findings from multiple applicable automated reviewers into one local
-  resolution journey while preserving source and evidence.
-- Establish requirements for deduplication, conflict handling, triage, categorization,
-  and selection of candidate fixes.
-- Reuse the addressing workflow for local findings rather than limiting addressing to
-  downloaded GitHub messages.
-- Apply candidate fixes in a disposable vanilla slot/worktree, with explicit outcomes
-  for retained, rejected, failed, and unattempted fixes and with validation evidence.
-- Produce stable structured artifacts that future local and remote user experiences can
-  consume.
-- Shape the first source contract around local Reviews findings from multiple Review
-  definitions while preserving a credible extension path for human GitHub feedback and
-  other automated producers.
+- Prompt for an explicit pre-PR revision range and an applicable roster drawn from
+  checked-in `.ns/reviews/` definitions.
+- Run multiple reviews in the foreground, continue past individual reviewer failures,
+  and preserve source-attributed findings plus honest roster and coverage gaps.
+- Produce the minimal structured run, finding, cluster, disposition, and planned-PR
+  records established by the requirements decisions.
+- Propose duplicate clusters, conflicts, and actionability without replacing original
+  findings or presenting model judgment as engineer confirmation.
+- Let the engineer correct and bulk-confirm triage, then steer accepted work into an
+  ordered, traceable planned-PR list for manual remediation.
+- Exercise the production journey on representative real changes and use the observed
+  result to verify or correct the steelthread contract.
 
 ## Non-Goals
 
@@ -53,27 +48,31 @@ and “Ships” are motivating context and hypotheses, not accepted requirements
 - Building the broader conversational change-review, collaboration, preview, or
   session-handoff product described in stakeholder discussions.
 - Proving human GitHub-feedback or third-party-reviewer ingestion in the first loop.
-- Automatically mutating the engineer's active checkout, or automatically committing,
-  pushing, publishing, merging, or deploying fixes.
-- Choosing package boundaries, gateway shapes, persistence technology, or a canonical
-  cross-source data model before the requirements justify those decisions.
+- Automatically attempting fixes, creating candidate branches, running candidate
+  validation, or adopting changes; these resume as follow-on breadth after this
+  manual-first steelthread.
+- Mutating the engineer's active checkout, or automatically committing, pushing,
+  publishing, merging, or deploying fixes.
+- Designing a speculative canonical cross-source model or requirements for consumers
+  that do not yet exist.
 - Treating stakeholder proposals supplied as context as endorsed product decisions.
 
 ## Completion Criteria
 
-- An engineer can run multiple applicable, engineer-controlled adversarial reviews
-  locally before a PR exists and receive one coherent set of source-attributed findings.
-- The local journey can triage and categorize those findings, preserve disagreements or
-  uncertainty without silently discarding evidence, and select candidate fixes.
-- The addressing workflow can consume the selected local findings and attempt fixes in
-  a disposable ordinary slot/worktree.
-- Every attempted fix has a structured, inspectable outcome and validation evidence;
-  failed or rejected work does not leak into the engineer's active checkout.
-- Structured findings, triage decisions, candidate changes, and validation outcomes are
-  sufficient for a later TUI or web consumer without scraping human-oriented output.
-- The requirements Frontier has crystallized into implementation-ready slices, and the
-  resulting local review-to-fix loop has been exercised on representative real changes
-  with focused tests and relevant repository checks as completion evidence.
+- An engineer can explicitly choose a pre-PR revision range and applicable checked-in
+  review roster, run multiple reviews, and receive one coherent source-attributed
+  findings set with failures and coverage gaps visible.
+- The engineer can correct proposed clusters, conflicts, and actionability, apply bulk
+  dispositions, and confirm an ordered planned-PR list whose members trace back to the
+  original findings.
+- The journey emits the minimal structured records without requiring consumers to
+  scrape human-oriented output, while original findings remain verbatim and model
+  proposals remain distinguishable from engineer confirmations.
+- The real production journey has been exercised on representative changes; focused
+  tests and relevant repository checks corroborate the observed range, roster,
+  partial-failure, correction, and full-accounting behavior.
+- No autofix, candidate-branch, validation, submit, publish, or active-checkout mutation
+  authority is introduced by the steelthread.
 
 ## Assumptions and Risks
 
@@ -81,14 +80,11 @@ and “Ships” are motivating context and hypotheses, not accepted requirements
 
 - Engineer-authored Review definitions are a sufficient first source for proving the
   multi-reviewer local loop before adding human and third-party feedback.
-- A disposable ordinary slot/worktree provides adequate isolation for early autofix
-  operation; if that proves insufficient, the upgrade is an explicit stronger
-  sandbox/authority boundary rather than implicit mutation of the active checkout.
 - Existing Reviews and Address capabilities contain useful behavior that can be
-  composed or generalized; the requirements process may still conclude that some
-  semantics must remain source-specific.
-- Reusable structured artifacts can enable later TUI and web experiences without
-  requiring those interfaces to be designed now.
+  composed or generalized; implementation may still show that some semantics must
+  remain source-specific.
+- The minimal artifact baseline is sufficient for the first real manual journey;
+  representative use, not hypothetical consumers, is the test of that assumption.
 
 ### Risks
 
@@ -96,24 +92,18 @@ and “Ships” are motivating context and hypotheses, not accepted requirements
   disagreements, or evidence and create false confidence in triage.
 - Automated categorization or candidate fixes may appear authoritative despite model
   uncertainty; requirements must make uncertainty and human control visible.
-- Validation may be incomplete or irrelevant to a change, so “validated” could be
-  mistaken for “safe”; outcomes must state what ran and avoid claiming more confidence
-  than the evidence supports.
-- Reusing Address for both local findings and GitHub messages may force unlike feedback
-  into one workflow; requirements must preserve meaningful source semantics rather than
-  unifying them for its own sake.
-- The effort could drift into the much broader agentic CI/CD or conversational Ship
-  vision and fail to deliver the bounded local loop.
+- Reusing Address interaction precedent for local findings may accidentally import
+  GitHub-specific thread or publication semantics; the steelthread must reuse outcomes
+  and interaction grammar without pretending the sources are identical.
+- Content-tuple identity and run-level provenance may prove awkward under real
+  correction and resume behavior; representative use must surface that rather than
+  prompting speculative identity machinery up front.
+- The effort could drift into autofix, broader agentic CI/CD, or conversational Ship
+  work and fail to deliver the bounded manual loop.
 
 ## Open Questions
 
-The initial precise questions are represented as Question Rows in `roadmap.md`.
-
-Fog toward the Destination, not yet precise enough to chart:
-
-- What confidence and provenance language future surfaces will need once real users
-  react to aggregated and autofixed results.
-- Which human-feedback and external-reviewer differences will require new semantics
-  after the local automated-source loop is proven.
-- Whether later TUI and web consumers need interaction or lifecycle concepts beyond the
-  structured artifacts required by the first loop.
+No requirements Question Rows remain for this steelthread. Implementation and
+representative use may expose corrections needed before closure. Autofix safety,
+validation confidence, future source differences, and future consumer lifecycle needs
+remain parked follow-on questions rather than blockers for this Objective.
