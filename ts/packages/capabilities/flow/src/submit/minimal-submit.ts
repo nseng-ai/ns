@@ -102,7 +102,9 @@ export interface FlowMinimalSubmitClient {
 		readonly expectedPlan?: FlowMinimalSubmitPlan;
 		readonly restack?: boolean;
 		readonly force?: boolean;
+		/** Non-controlling progress observer; callback failures do not alter submission. */
 		readonly onPhase?: (event: FlowMinimalSubmitPhaseEvent) => void;
+		/** Non-controlling command-output observer; callback failures do not alter submission. */
 		readonly onOutput?: (event: FlowMinimalSubmitOutputEvent) => void;
 	}): Promise<FlowMinimalSubmitResult>;
 }
@@ -257,7 +259,7 @@ async function submitCurrentBranch(
 			? {}
 			: {
 					onOutput: (stream: "stdout" | "stderr", text: string) =>
-						input.onOutput?.({ stream, text }),
+						notifyObserver(input.onOutput, { stream, text }),
 				}),
 	};
 
@@ -632,5 +634,16 @@ function emitPhase(
 	stage: FlowMinimalSubmitStage,
 	status: FlowMinimalSubmitPhaseEvent["status"],
 ): void {
-	input.onPhase?.({ stage, status });
+	notifyObserver(input.onPhase, { stage, status });
+}
+
+function notifyObserver<Observation>(
+	observer: ((observation: Observation) => void) | undefined,
+	observation: Observation,
+): void {
+	try {
+		observer?.(observation);
+	} catch {
+		// Caller observations are non-controlling; presentation failures cannot alter submission.
+	}
 }
