@@ -266,17 +266,25 @@ describe("RoutingReviewRunner", () => {
 		["anthropic/claude-sonnet-4-6", "claude-code", "claude-sonnet-4-6"],
 		["openai/gpt-5.6-luna", "codex", "gpt-5.6-luna"],
 		["openai-codex/gpt-5.6-terra", "codex", "gpt-5.6-terra"],
+		["vercel-ai-gateway/openai/gpt-5.6-luna", "pi", "openai/gpt-5.6-luna"],
 	] as const)("routes %s to %s with only the model ID", async (model, harness, modelId) => {
 		const claudeCode = new RecordingHarnessRunner();
 		const codex = new RecordingHarnessRunner();
-		const runner = new RoutingReviewRunner({ claudeCode, codex });
+		const pi = new RecordingHarnessRunner();
+		const runner = new RoutingReviewRunner({ claudeCode, codex, pi });
 
 		const result = await runner.runReview(request({ model }), { cwd: "/repo" });
 
 		expect(result.ok).toBe(true);
 		expect(claudeCode.calls).toHaveLength(harness === "claude-code" ? 1 : 0);
 		expect(codex.calls).toHaveLength(harness === "codex" ? 1 : 0);
-		const dispatched = (harness === "claude-code" ? claudeCode : codex).calls[0];
+		expect(pi.calls).toHaveLength(harness === "pi" ? 1 : 0);
+		const dispatched =
+			harness === "claude-code"
+				? claudeCode.calls[0]
+				: harness === "codex"
+					? codex.calls[0]
+					: pi.calls[0];
 		expect(dispatched?.request.modelId).toBe(modelId);
 		expect(dispatched?.request.promptText).toContain("Flag concrete issues.");
 		expect(dispatched?.request.promptText).toContain("+change");
@@ -296,7 +304,8 @@ describe("RoutingReviewRunner", () => {
 	])("rejects unsupported reference %s without dispatching", async (model) => {
 		const claudeCode = new RecordingHarnessRunner();
 		const codex = new RecordingHarnessRunner();
-		const runner = new RoutingReviewRunner({ claudeCode, codex });
+		const pi = new RecordingHarnessRunner();
+		const runner = new RoutingReviewRunner({ claudeCode, codex, pi });
 
 		const result = await runner.runReview(request({ model }), { cwd: "/repo" });
 
@@ -304,5 +313,6 @@ describe("RoutingReviewRunner", () => {
 		if (!result.ok) expect(result.error.code).toBe("model-not-supported-by-harness");
 		expect(claudeCode.calls).toEqual([]);
 		expect(codex.calls).toEqual([]);
+		expect(pi.calls).toEqual([]);
 	});
 });

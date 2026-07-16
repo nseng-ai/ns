@@ -50,9 +50,9 @@ Harness selection stays implicit in the model reference's provider prefix (the e
 - Structured output: unlike Codex's `--output-schema` enforcement, pi text mode returns free text, so findings-JSON parsing may be brittle. Mitigation: a strict findings-JSON contract in the system prompt plus tolerant extraction/parse tests; if unreliable in practice, escalate to `--mode json` parsing of the final assistant message.
 - Deep local reviews change harness (Codex → pi) as a side effect of moving `reviews_deep`; review quality or latency may drift. Rollback is config-level: point the profile back at `openai/...` and the kept Codex runner takes over.
 - The kept-but-unrouted Claude Code and Codex runners could rot unnoticed once no profile routes to them; the `harness-session-generation` edge records who owns the seam's future so they do not linger unexplained.
-- CI installs pi from npm at workflow time; an unpinned or drifting pi version could break review runs. Pin the version in the workflow as the existing claude/codex installs do.
+- Pi version drift is de-risked by using the workspace catalog/lock pin (`0.80.5`) and verifying the existing `@nseng-ai/ns` package's linked `pi` binary in CI; no second global install or version literal is required.
+- The local deep review and real-PR publication proofs remain open evidence gates. The credential is available locally, but the implementation session's attached-plan protocol forbids the Branch Memory log write performed by `ns reviews run`; a later unconstrained session must run the proof without weakening Reviews logging.
 
 ## Open Questions
 
-- Whether pi text mode needs a fallback to `--mode json` for reliable structured findings (resolve during runner implementation, driven by test evidence).
-- Which pi package version to pin in CI at landing time.
+- Whether a credentialed deep review confirms text-mode extraction is reliable in practice; focused tests support the selected single-object parser, so JSONL final-message parsing remains only a separately justified remediation if live evidence fails.

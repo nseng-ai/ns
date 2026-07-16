@@ -25,7 +25,6 @@ description: |
   kinds. Fire only when the canonical can be named and reuse is clearly correct;
   silence is a valid and expected outcome.
 model_profile: quick
-local_only: true
 applies_to:
   include:
     - "**/*.ts"

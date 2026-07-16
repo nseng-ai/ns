@@ -11,6 +11,7 @@ import {
 	type ReviewRunnerGateway,
 } from "../gateways/review-runner.ts";
 import { CodexProcessReviewRunner } from "../gateways/codex-review-runner.ts";
+import { PiProcessReviewRunner } from "../gateways/pi-review-runner.ts";
 import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
@@ -99,6 +100,7 @@ export function createRealReviewsContext(options: CreateRealReviewsContextOption
 			new RoutingReviewRunner({
 				claudeCode: new ClaudeCodeProcessReviewRunner({ execApi }),
 				codex: new CodexProcessReviewRunner({ execApi }),
+				pi: new PiProcessReviewRunner({ execApi }),
 			}),
 		cwd: options.cwd,
 		env: options.env,
