@@ -1,7 +1,9 @@
 import { buildEntryLocator, buildSnapshotRef, validateEntryKey } from "@nseng-ai/brmem";
 import type { SavedPlanFileEvidence } from "@nseng-ai/plans/api";
 
-export const DISPATCH_CONTEXT_NAMESPACE = "dispatch-context";
+import { DISPATCH_CONTEXT_NAMESPACE } from "../../dispatch/dispatch-context.ts";
+
+export { DISPATCH_CONTEXT_NAMESPACE } from "../../dispatch/dispatch-context.ts";
 
 export type ResolvedDispatchSavedPlan = Readonly<
 	Pick<SavedPlanFileEvidence, "filePath" | "slug" | "sourceBranch">

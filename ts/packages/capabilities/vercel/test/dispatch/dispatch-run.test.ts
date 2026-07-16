@@ -49,6 +49,37 @@ describe("validateDispatchRunInput", () => {
 		});
 	});
 
+	it("accepts a locator-only plan run while rejecting Dispatch ID drift", () => {
+		const contextLocator = {
+			namespace: "dispatch-context",
+			dispatchId: "dsp_01JABCDEF0123456789",
+			contextPrefix: "dsp_01JABCDEF0123456789/",
+			planKey: "dsp_01JABCDEF0123456789/plan/add-cache.md",
+			sourceBranch: "feature/cache",
+			snapshotRef: "refs/brmem/ns/dispatch-context/feature---cache",
+			snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+			entryLocator:
+				"refs/brmem/ns/dispatch-context/feature---cache:dsp_01JABCDEF0123456789/plan/add-cache.md",
+		} as const;
+		const planInput = {
+			revision,
+			anchorBranch: "dispatch/add-cache-a1b2c3",
+			anchorPrNumber: 422,
+			dispatchId: contextLocator.dispatchId,
+			contextLocator,
+		} as const;
+
+		expect(validateDispatchRunInput(planInput)).toEqual({
+			ok: true,
+			value: { ...planInput, revision: revision.toLowerCase() },
+		});
+		expect(validateDispatchRunInput({ ...planInput, dispatchId: "dsp_different" })).toEqual({
+			ok: false,
+			message: "dispatchId must match contextLocator.dispatchId.",
+		});
+		expect(JSON.stringify(planInput)).not.toContain("Implement the cache plan");
+	});
+
 	it.each([
 		["short revision", { revision: "abc123" }],
 		["non-hex revision", { revision: "z".repeat(40) }],

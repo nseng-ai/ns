@@ -20,6 +20,7 @@ import {
 } from "../sandbox/supervision.ts";
 import type { SandboxCommand } from "../sandbox/contracts.ts";
 import type { DispatchHarnessCompletion } from "./completion-contract.ts";
+import type { DispatchPlanContextLocator } from "./dispatch-context.ts";
 import type { DispatchHarness } from "./harness-registry.ts";
 import { isCommitSha } from "../sandbox/validation.ts";
 
@@ -96,16 +97,31 @@ export const DISPATCH_SUMMARY_MAX_CHARS = 2_000;
  * invocation, credentials — is deployable-side configuration, never caller
  * input.
  */
-export interface DispatchRunInput {
+interface DispatchRunIdentity {
 	/** Exact 40-hex commit SHA the sandbox checks out. */
 	readonly revision: string;
 	/** `dispatch/`-prefixed anchor branch the produced commits land on. */
 	readonly anchorBranch: string;
 	/** The anchor PR opened up front by the CLI on the user's credentials. */
 	readonly anchorPrNumber: number;
+}
+
+/** Existing prompt dispatch input. Its wire shape remains unchanged. */
+export interface DispatchPromptRunInput extends DispatchRunIdentity {
 	/** The prompt / work reference the harness runs. */
 	readonly prompt: string;
 }
+
+/**
+ * Saved Plan dispatch input. The plan body is deliberately absent: the
+ * workflow receives only the dispatch identity and git-native context locator.
+ */
+export interface DispatchPlanRunInput extends DispatchRunIdentity {
+	readonly dispatchId: string;
+	readonly contextLocator: DispatchPlanContextLocator;
+}
+
+export type DispatchRunInput = DispatchPromptRunInput | DispatchPlanRunInput;
 
 export type DispatchRunInputValidation =
 	| { readonly ok: true; readonly value: DispatchRunInput }
@@ -137,11 +153,25 @@ export function validateDispatchRunInput(input: DispatchRunInput): DispatchRunIn
 	) {
 		return { ok: false, message: "anchorPrNumber must be a positive integer." };
 	}
-	if (input.prompt.length < 1 || input.prompt.length > DISPATCH_PROMPT_MAX_CHARS) {
+	if ("prompt" in input) {
+		if (input.prompt.length < 1 || input.prompt.length > DISPATCH_PROMPT_MAX_CHARS) {
+			return {
+				ok: false,
+				message: `prompt must be between 1 and ${DISPATCH_PROMPT_MAX_CHARS} characters.`,
+			};
+		}
 		return {
-			ok: false,
-			message: `prompt must be between 1 and ${DISPATCH_PROMPT_MAX_CHARS} characters.`,
+			ok: true,
+			value: {
+				revision: input.revision.toLowerCase(),
+				anchorBranch: input.anchorBranch,
+				anchorPrNumber: input.anchorPrNumber,
+				prompt: input.prompt,
+			},
 		};
+	}
+	if (input.dispatchId !== input.contextLocator.dispatchId) {
+		return { ok: false, message: "dispatchId must match contextLocator.dispatchId." };
 	}
 	return {
 		ok: true,
@@ -149,7 +179,8 @@ export function validateDispatchRunInput(input: DispatchRunInput): DispatchRunIn
 			revision: input.revision.toLowerCase(),
 			anchorBranch: input.anchorBranch,
 			anchorPrNumber: input.anchorPrNumber,
-			prompt: input.prompt,
+			dispatchId: input.dispatchId,
+			contextLocator: { ...input.contextLocator },
 		},
 	};
 }

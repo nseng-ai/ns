@@ -187,6 +187,52 @@ describe("handleTriggerRequest", () => {
 		]);
 	});
 
+	it("forwards a plan dispatch as locator metadata without plan content", async () => {
+		const workflowRuns = new InMemoryWorkflowRunGateway({ nextRunId: "wrun_plan" });
+		const contextLocator = {
+			namespace: "dispatch-context",
+			dispatchId: "dsp_01JABCDEF0123456789",
+			contextPrefix: "dsp_01JABCDEF0123456789/",
+			planKey: "dsp_01JABCDEF0123456789/plan/add-cache.md",
+			sourceBranch: "feature/cache",
+			snapshotRef: "refs/brmem/ns/dispatch-context/feature---cache",
+			snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+			entryLocator:
+				"refs/brmem/ns/dispatch-context/feature---cache:dsp_01JABCDEF0123456789/plan/add-cache.md",
+		} as const;
+		const body = {
+			workflow: "dispatch",
+			revision: probeRevision,
+			anchorBranch: "dispatch/add-cache-a1b2c3",
+			anchorPrNumber: 422,
+			dispatchId: contextLocator.dispatchId,
+			contextLocator,
+		};
+
+		const response = await handleTriggerRequest(
+			{ body, oidcToken: "oidc-token" },
+			context({ workflowRuns }),
+		);
+
+		expect(response).toEqual({
+			status: 200,
+			body: { runId: "wrun_plan", workflow: "dispatch" },
+		});
+		expect(workflowRuns.startCalls).toEqual([
+			{
+				workflow: "dispatch",
+				input: {
+					revision: probeRevision,
+					anchorBranch: "dispatch/add-cache-a1b2c3",
+					anchorPrNumber: 422,
+					dispatchId: contextLocator.dispatchId,
+					contextLocator,
+				},
+			},
+		]);
+		expect(JSON.stringify(workflowRuns.startCalls)).not.toContain("Implement the cache plan");
+	});
+
 	it.each([
 		["unknown workflow", { workflow: "nightly", name: "world" }],
 		["missing name", { workflow: "hello" }],

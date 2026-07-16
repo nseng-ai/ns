@@ -1,5 +1,5 @@
 import type { DispatchHarness } from "./harness-registry.ts";
-import type { DispatchRunFailureCode } from "./dispatch-run.ts";
+import type { DispatchRunFailureCode, DispatchRunInput } from "./dispatch-run.ts";
 
 export type DispatchWorkflowPhase =
 	| "queued"
@@ -43,11 +43,12 @@ export type DispatchWorkflowEvent =
 
 export type DispatchWorkflowAttributes = Readonly<Record<string, string>>;
 
-export function buildDispatchStartAttributes(anchorPrNumber: number): DispatchWorkflowAttributes {
+export function buildDispatchStartAttributes(input: DispatchRunInput): DispatchWorkflowAttributes {
 	return {
-		"dispatch.kind": "prompt",
-		"dispatch.anchor_pr": String(anchorPrNumber),
+		"dispatch.kind": "prompt" in input ? "prompt" : "plan",
+		"dispatch.anchor_pr": String(input.anchorPrNumber),
 		"dispatch.phase": "queued",
+		...("dispatchId" in input ? { "dispatch.id": input.dispatchId } : {}),
 	};
 }
 

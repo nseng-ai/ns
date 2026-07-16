@@ -11,11 +11,45 @@ import { writeDispatchWorkflowAttributes } from "../../workflows/dispatch-attrib
 import { writeDispatchWorkflowEvent } from "../../workflows/dispatch-event-writer.ts";
 
 describe("dispatch workflow attributes", () => {
-	it("builds the exact low-cardinality initial attribute map", () => {
-		expect(buildDispatchStartAttributes(421)).toEqual({
+	it("builds the exact prompt initial attribute map without inventing a Dispatch ID", () => {
+		expect(
+			buildDispatchStartAttributes({
+				revision: "0123456789abcdef0123456789abcdef01234567",
+				anchorBranch: "dispatch/widget",
+				anchorPrNumber: 421,
+				prompt: "Rename the widget gateway methods.",
+			}),
+		).toEqual({
 			"dispatch.kind": "prompt",
 			"dispatch.anchor_pr": "421",
 			"dispatch.phase": "queued",
+		});
+	});
+
+	it("seeds the exact Dispatch ID attribute for a Saved Plan run", () => {
+		expect(
+			buildDispatchStartAttributes({
+				revision: "0123456789abcdef0123456789abcdef01234567",
+				anchorBranch: "dispatch/add-cache",
+				anchorPrNumber: 422,
+				dispatchId: "dsp_01JABCDEF0123456789",
+				contextLocator: {
+					namespace: "dispatch-context",
+					dispatchId: "dsp_01JABCDEF0123456789",
+					contextPrefix: "dsp_01JABCDEF0123456789/",
+					planKey: "dsp_01JABCDEF0123456789/plan/add-cache.md",
+					sourceBranch: "feature/cache",
+					snapshotRef: "refs/brmem/ns/dispatch-context/feature---cache",
+					snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+					entryLocator:
+						"refs/brmem/ns/dispatch-context/feature---cache:dsp_01JABCDEF0123456789/plan/add-cache.md",
+				},
+			}),
+		).toEqual({
+			"dispatch.kind": "plan",
+			"dispatch.anchor_pr": "422",
+			"dispatch.phase": "queued",
+			"dispatch.id": "dsp_01JABCDEF0123456789",
 		});
 	});
 
