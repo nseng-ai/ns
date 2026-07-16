@@ -9,7 +9,7 @@ import {
 import { InMemoryPlanStoreGateway } from "@nseng-ai/plans/testing";
 import { describe, expect, test } from "vitest";
 
-import { RealDispatchSavedPlanGateway } from "../../src/ns/dispatch-plan/adapters.ts";
+import { RealDispatchSavedPlanGateway } from "../../src/dispatch-client/dispatch-plan/adapters.ts";
 
 const ROOT = "/repo";
 const PLAN_STORE_ROOT = "/state/ns/enriched-plan";

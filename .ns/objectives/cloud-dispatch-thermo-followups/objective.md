@@ -24,6 +24,13 @@ referenced by roadmap rows). `references/review-record.md` preserves the review
 process, the adversarially dropped findings (not to be re-proposed without new
 evidence), and the clean attestations (not to be re-flagged).
 
+## Implementation Status
+
+M4+M5 and H9 are locally complete. The behavior-preserving extraction moved the
+`dispatch-client` feature out of the `ns` host surface without adding a public package
+subpath. Remaining thermo findings stay open and independent; no live dispatch or
+deployment verification is claimed.
+
 ## Scope
 
 - All surviving findings from the reconciled ledger, both HIGHs included: the dual
@@ -85,10 +92,11 @@ Risks:
   Mitigation: it is a mechanical deletion of dead arms with the existing throw-path
   tests retained; land it as its own slice with full validation, not bundled with
   behavior work.
-- **The dispatch-client extraction (M4+M5) moves ~1,400–1,600 lines** and interacts
-  with H9 (the non-greppable hardcoded checkout root breaks silently on path moves).
-  Mitigation: land the H9 constant with or before the extraction; the extraction is
-  intra-package and mechanical.
+- **The dispatch-client extraction (M4+M5) was de-risked locally.** The feature and
+  its tests moved intra-package without a new public export, while the H9
+  checkout-root constant removed the non-greppable duplicate path. Focused package
+  tests and typecheck plus repo-wide TypeScript format, lint, and style-guard checks
+  passed; no live dispatch or deployment verification is claimed.
 - **Doc restatements (M18.4) keep drifting while rows are open** — each week the twin
   env tables/checklists survive, divergence compounds. This is the argument for doing
   Batch E early despite its LOW-adjacent weight.
@@ -107,6 +115,3 @@ Risks:
   after? (The row closes with whichever evidence materializes.)
 - Hello-probe: retained as the setup skill's acceptance tool (then L21's wire-contract
   dedupe applies) or retired with the other probes (then L21 is moot)?
-- Should the M4+M5 extraction wait for `dispatch plan|handoff` (which would land into
-  the new feature home) or precede them? Current lean: precede, so those commands are
-  born in the right place.

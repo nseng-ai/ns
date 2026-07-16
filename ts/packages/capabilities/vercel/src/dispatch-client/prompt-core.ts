@@ -8,16 +8,13 @@
 // authenticated trigger call, and the run-id stamp on the anchor PR.
 // Live behavior against the deployed trigger route is pending
 // verification; tests drive this core with in-memory fakes.
-import {
-	parseDispatchProjectConfigToml,
-	type DispatchProjectConfig,
-} from "../../api/project-config.ts";
+import { parseDispatchProjectConfigToml, type DispatchProjectConfig } from "./project-config.ts";
 import {
 	DISPATCH_PACKAGE_MANAGER_FIELD,
 	DISPATCH_PACKAGE_MANIFEST_PATH,
 	DISPATCH_SETTINGS_PATH,
 	parseDispatchPackageManagerSource,
-} from "../../dispatch/harness-registry.ts";
+} from "../dispatch/harness-registry.ts";
 import {
 	buildDispatchAnchorNameCandidates,
 	DISPATCH_ANCHOR_NAME_CANDIDATE_LIMIT,
@@ -25,17 +22,14 @@ import {
 } from "./anchor-name.ts";
 import { buildAnchorPrBody, buildAnchorPrTitle } from "./content.ts";
 import { normalizeDispatchSlugOverride } from "./content-slug.ts";
-import type {
-	DispatchPromptGateways,
-	DispatchTriggerConnection,
-} from "../dispatch-client/contracts.ts";
+import type { DispatchPromptGateways, DispatchTriggerConnection } from "./contracts.ts";
 import {
 	createDispatchAnchor,
 	ensureDispatchSourceReachable,
 	resolveDispatchSource,
 	startDispatchWorkflow,
 	type DispatchAnchorPr,
-} from "../dispatch-client/core.ts";
+} from "./core.ts";
 
 /** One credentials-preflight check: named, actionable, value-free. */
 export interface DispatchPreflightCheck {

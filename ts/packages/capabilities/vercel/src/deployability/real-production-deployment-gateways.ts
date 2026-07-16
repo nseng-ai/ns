@@ -5,7 +5,7 @@ import { dirname, isAbsolute, join, relative } from "node:path";
 import { runCommand } from "@nseng-ai/foundation/exec";
 import { z } from "zod";
 
-import { parseDispatchProjectConfigToml } from "../api/project-config.ts";
+import { parseDispatchProjectConfigToml } from "../dispatch-client/project-config.ts";
 import { verifyDispatchBuildOutput } from "./output-verifier.ts";
 import type {
 	DispatchProductionConfiguration,

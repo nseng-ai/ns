@@ -35,16 +35,21 @@ notes — never a standalone row.
       `WorkflowRunGateway.startWorkflow` accept `TriggerRequest` directly, and delete
       `toWorkflowStartRequest` plus the hand-maintained `WorkflowStartRequest` union
       (H5). Skip-and-record if H2 leaves nothing to consolidate.
-- [ ] **M4+M5 — Extract the dispatch client out of the `ns` host surface.** Move
-      `src/ns/dispatch-prompt/` (~1,400 lines) plus the `[dispatch]` project-config
-      parser into a `dispatch-client` feature subpackage; `src/ns/` keeps the extension
-      descriptor and command adapter; `src/api/index.ts` re-exports. Land the H9
-      checkout-root constant with or before this row (paths move). Current lean:
-      precede `dispatch plan|handoff` so those commands are born in the feature home.
-- [ ] **H9 — Single checkout-root constant.** Export
-      `DISPATCH_CHECKOUT_PACKAGE_ROOT` from the harness registry; derive both
-      `PI_RUNNER_ENTRY_PATH` and the pi-runner bin-dir `join(...)` from it. Small; may
-      ride the M4+M5 slice.
+- [x] **M4+M5 — Extract the dispatch client out of the `ns` host surface.** Moved
+      `src/ns/dispatch-prompt/` and the `[dispatch]` project-config parser into the
+      manifest-declared `dispatch-client` feature subpackage. `src/ns/` retains the
+      extension descriptor and command adapter, while `src/api/index.ts` preserves the
+      curated `@nseng-ai/vercel/api` re-export without exposing a public
+      `./dispatch-client` subpath. Feature-owned tests and support now live under
+      `test/dispatch-client/`; the ns command scenario remains under `test/ns/`.
+      Evidence: the focused Vercel package typecheck and all 622 package tests passed;
+      repo-wide TypeScript format, lint, and style-guard checks passed.
+- [x] **H9 — Single checkout-root constant.** Exported
+      `DISPATCH_CHECKOUT_PACKAGE_ROOT` from the harness registry and derived both
+      `PI_RUNNER_ENTRY_PATH` and the pi-runner workspace bin path from it. Tests pin
+      both derivations. Evidence: the focused Vercel package typecheck and all 622
+      package tests passed; repo-wide TypeScript format, lint, and style-guard checks
+      passed.
 - [ ] **H4 + M1 — Auth assembly and config-shim collapse.** The `??`-collapse deleting
       `createJoseDevelopmentCallerAuthenticator` and both authenticator ternaries; one
       shared config-error formatter; delete `trigger/runtime-config.ts`, its five

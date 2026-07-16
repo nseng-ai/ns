@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import {
 	deliverPreparedDispatchPlan,
 	type DispatchPlanSnapshotGateway,
-} from "../../src/ns/dispatch-plan/delivery.ts";
+} from "../../src/dispatch-client/dispatch-plan/delivery.ts";
 
 const PLAN_REF = "/state/ns/enriched-plan/ns/main/add-cache.md";
 const PLAN_CONTENT = "# Add cache\n";

@@ -3,8 +3,11 @@ import { describe, expect, test } from "vitest";
 import {
 	parseExactRemoteRef,
 	RealDispatchPlanSnapshotGateway,
-} from "../../src/ns/dispatch-plan/real-snapshot-gateway.ts";
-import { exited, ScriptedCommandRunner } from "./support/scripted-command-runner.ts";
+} from "../../src/dispatch-client/dispatch-plan/real-snapshot-gateway.ts";
+import {
+	exited,
+	ScriptedCommandRunner,
+} from "../dispatch-client/support/scripted-command-runner.ts";
 
 const SNAPSHOT_REF = "refs/brmem/ns/dispatch-context/feature---cache";
 const SHA = "1111111111111111111111111111111111111111";

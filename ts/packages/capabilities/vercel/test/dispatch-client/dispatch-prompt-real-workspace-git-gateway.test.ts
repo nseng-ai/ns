@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import {
 	createRealDispatchWorkspaceGitGateway,
 	parseGitLsRemoteSha,
-} from "../../src/ns/dispatch-prompt/real-workspace-git-gateway.ts";
+} from "../../src/dispatch-client/real-workspace-git-gateway.ts";
 import { exited, ScriptedCommandRunner } from "./support/scripted-command-runner.ts";
 
 const SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";

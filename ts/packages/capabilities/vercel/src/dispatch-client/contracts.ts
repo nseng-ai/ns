@@ -11,10 +11,10 @@ import type { Clock } from "@nseng-ai/foundation/clock";
 
 import type { BrmemGateway } from "@nseng-ai/brmem";
 
-import type { DispatchRunInput } from "../../dispatch/dispatch-run.ts";
-import type { DispatchBrmemSetupGateway } from "../dispatch-plan/delivery-preflight.ts";
-import type { DispatchPlanSnapshotGateway } from "../dispatch-plan/delivery.ts";
-import type { DispatchSavedPlanGateway } from "../dispatch-plan/preparation.ts";
+import type { DispatchRunInput } from "../dispatch/dispatch-run.ts";
+import type { DispatchBrmemSetupGateway } from "./dispatch-plan/delivery-preflight.ts";
+import type { DispatchPlanSnapshotGateway } from "./dispatch-plan/delivery.ts";
+import type { DispatchSavedPlanGateway } from "./dispatch-plan/preparation.ts";
 
 /**
  * Provider-owned codes intentionally remain open across this seam: Foundation Git

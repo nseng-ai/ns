@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	dispatchHarnessValues,
+	DISPATCH_CHECKOUT_PACKAGE_ROOT,
 	DISPATCH_PACKAGE_MANAGER_FIELD,
 	isDispatchHarness,
 	parseDispatchPackageManagerSource,
@@ -178,7 +179,8 @@ describe("resolveConfiguredHarnessInvocation", () => {
 });
 
 describe("Pi invocation recipe", () => {
-	it("launches the runner entry from the checkout with node", () => {
+	it("launches the runner entry derived from the package root with node", () => {
+		expect(PI_RUNNER_ENTRY_PATH).toBe(`${DISPATCH_CHECKOUT_PACKAGE_ROOT}/src/pi-runner/main.ts`);
 		expect(resolvedInvocation().launchCommand).toEqual({
 			cmd: "node",
 			args: [PI_RUNNER_ENTRY_PATH],

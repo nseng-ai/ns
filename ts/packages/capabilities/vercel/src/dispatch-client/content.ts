@@ -1,12 +1,12 @@
 // Pure content builders for dispatch anchor branches and pull requests.
 // Prompt dispatch selects semantic names elsewhere; Saved Plan dispatch
 // retains its dispatch-ID-based anchor path here.
-import type { DispatchPlanContextLocator } from "../../dispatch/dispatch-context.ts";
+import type { DispatchPlanContextLocator } from "../dispatch/dispatch-context.ts";
 import {
 	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
 	DISPATCH_ANCHOR_BRANCH_PREFIX,
 	isValidDispatchAnchorBranch,
-} from "../../dispatch/dispatch-run.ts";
+} from "../dispatch/dispatch-run.ts";
 
 /** Cap on the sanitized source-branch portion of a Saved Plan anchor branch name. */
 const ANCHOR_SOURCE_SEGMENT_MAX_CHARS = 120;

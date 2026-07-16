@@ -21,17 +21,17 @@ import { systemClock } from "@nseng-ai/foundation/time";
 import type { NsCommandIo, NsExtensionApi } from "@nseng-ai/sdk";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
-import { RealDispatchSavedPlanGateway } from "../dispatch-plan/adapters.ts";
-import { RealDispatchPlanSnapshotGateway } from "../dispatch-plan/real-snapshot-gateway.ts";
+import { RealDispatchSavedPlanGateway } from "./dispatch-plan/adapters.ts";
+import { RealDispatchPlanSnapshotGateway } from "./dispatch-plan/real-snapshot-gateway.ts";
 import type { DispatchPlanGateways, DispatchPromptGateways } from "./contracts.ts";
-import { createRealDispatchContentSlugGateway } from "../dispatch-prompt/content-slug.ts";
-import { createRealDispatchAnchorPrGateway } from "../dispatch-prompt/real-anchor-pr-gateway.ts";
-import { createRealDispatchConfigGateway } from "../dispatch-prompt/real-config-gateway.ts";
-import { createRealDispatchLocalTokenGateway } from "../dispatch-prompt/real-local-token-gateway.ts";
-import { createRealDispatchTriggerGateway } from "../dispatch-prompt/real-trigger-gateway.ts";
-import { createRealDispatchWorkspaceGitGateway } from "../dispatch-prompt/real-workspace-git-gateway.ts";
+import { createRealDispatchContentSlugGateway } from "./content-slug.ts";
+import { createRealDispatchAnchorPrGateway } from "./real-anchor-pr-gateway.ts";
+import { createRealDispatchConfigGateway } from "./real-config-gateway.ts";
+import { createRealDispatchLocalTokenGateway } from "./real-local-token-gateway.ts";
+import { createRealDispatchTriggerGateway } from "./real-trigger-gateway.ts";
+import { createRealDispatchWorkspaceGitGateway } from "./real-workspace-git-gateway.ts";
 
-import { generateRealDispatchId } from "../dispatch-prompt/real-dispatch-id.ts";
+import { generateRealDispatchId } from "./real-dispatch-id.ts";
 
 export interface DispatchPromptCliContext {
 	readonly cwd: string;

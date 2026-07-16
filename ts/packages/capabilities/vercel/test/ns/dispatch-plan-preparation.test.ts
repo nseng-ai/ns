@@ -5,7 +5,7 @@ import {
 	prepareDispatchPlan,
 	type DispatchSavedPlanGateway,
 	type DispatchSavedPlanResolution,
-} from "../../src/ns/dispatch-plan/preparation.ts";
+} from "../../src/dispatch-client/dispatch-plan/preparation.ts";
 
 const PLAN_REF = "/state/ns/enriched-plan/ns/main/add-cache.md";
 const PLAN_CONTENT = "# Add cache\n\nImplement the cache safely.\n";

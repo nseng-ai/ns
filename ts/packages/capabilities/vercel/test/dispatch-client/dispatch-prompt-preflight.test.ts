@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { runDispatchPreflight } from "../../src/ns/dispatch-prompt/core.ts";
+import { runDispatchPreflight } from "../../src/dispatch-client/prompt-core.ts";
 import {
 	createFakeDispatchGateways,
 	FAKE_DEPLOYMENT_URL,

@@ -20,11 +20,11 @@ import {
 	executeDispatchPrompt,
 	type DispatchPreflightCheck,
 	type DispatchPromptOutcome,
-} from "../dispatch-prompt/core.ts";
+} from "../../dispatch-client/prompt-core.ts";
 import {
 	createDispatchPromptContext,
 	type DispatchPromptCliContext,
-} from "../dispatch-client/context.ts";
+} from "../../dispatch-client/context.ts";
 
 const DIRTY_PATHS_RENDER_MAX_PATHS = 20;
 /** Machine-envelope bound on the dirty-path list (ADR 0012: command-local). */

@@ -62,6 +62,7 @@
 			"auth",
 			"deployability",
 			"dispatch",
+			"dispatch-client",
 			"http",
 			"mint",
 			"ns",
