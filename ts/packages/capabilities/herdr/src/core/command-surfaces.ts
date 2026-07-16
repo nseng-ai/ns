@@ -9,36 +9,30 @@ export const HERDR_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME = nsCommandSurface(
 	"sidebar:objective-summary",
 );
 
-export const HERDR_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME = nsCommandSurface(
+export const HERDR_SPACE_PROMPT_DISPATCH_COMMAND_NAME = nsCommandSurface(
 	"herdr",
-	"workspace:dispatch-prompt",
+	"space:prompt-dispatch",
 );
 
-export const HERDR_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME = nsCommandSurface(
+export const HERDR_SPACE_TRUNK_PROMPT_DISPATCH_COMMAND_NAME = nsCommandSurface(
 	"herdr",
-	"workspace:dispatch-from-trunk",
+	"space:trunk-prompt-dispatch",
 );
 
-export const HERDR_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME = nsCommandSurface(
+export const HERDR_SPACE_PLAN_DISPATCH_COMMAND_NAME = nsCommandSurface(
 	"herdr",
-	"workspace:dispatch-plan",
+	"space:plan-dispatch",
 );
 
-export const HERDR_SURFACE_DISPATCH_PLAN_COMMAND_NAME = nsCommandSurface(
-	"herdr",
-	"surface:dispatch-plan",
-);
+export const HERDR_TAB_PLAN_DISPATCH_COMMAND_NAME = nsCommandSurface("herdr", "tab:plan-dispatch");
 
-export const HERDR_WORKSPACE_OPEN_BRANCH_COMMAND_NAME = nsCommandSurface(
-	"herdr",
-	"workspace:open-branch",
-);
+export const HERDR_SPACE_OPEN_BRANCH_COMMAND_NAME = nsCommandSurface("herdr", "space:open-branch");
 
 export const HERDR_COMMAND_NAMES = [
 	HERDR_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME,
-	HERDR_SURFACE_DISPATCH_PLAN_COMMAND_NAME,
-	HERDR_WORKSPACE_DISPATCH_FROM_TRUNK_COMMAND_NAME,
-	HERDR_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,
-	HERDR_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME,
-	HERDR_WORKSPACE_OPEN_BRANCH_COMMAND_NAME,
+	HERDR_SPACE_OPEN_BRANCH_COMMAND_NAME,
+	HERDR_SPACE_PLAN_DISPATCH_COMMAND_NAME,
+	HERDR_SPACE_PROMPT_DISPATCH_COMMAND_NAME,
+	HERDR_SPACE_TRUNK_PROMPT_DISPATCH_COMMAND_NAME,
+	HERDR_TAB_PLAN_DISPATCH_COMMAND_NAME,
 ] as const;

@@ -15,14 +15,14 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { CommandContext } from "@nseng-ai/capability-kit/pi-types";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
-import { HERDR_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME } from "./command-surfaces.ts";
+import { HERDR_SPACE_PROMPT_DISPATCH_COMMAND_NAME } from "./command-surfaces.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { createHerdrSlotClient } from "./slot-checkout.ts";
 import { openBranchInHerdrWorkspace } from "./slot.ts";
 
 type DispatchPromptRuntime = CommandExecApi & Pick<HerdrPiCommandApi, "getThinkingLevel">;
-const COMMAND_NAME = HERDR_WORKSPACE_DISPATCH_PROMPT_COMMAND_NAME;
+const COMMAND_NAME = HERDR_SPACE_PROMPT_DISPATCH_COMMAND_NAME;
 
 export interface DispatchPromptPayloadOptions extends TrackedBranchPayloadOptions {
 	slotClient?: SlotClient;

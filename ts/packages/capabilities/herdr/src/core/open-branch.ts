@@ -18,12 +18,12 @@ import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { CommandContext } from "@nseng-ai/capability-kit/pi-types";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
-import { HERDR_WORKSPACE_OPEN_BRANCH_COMMAND_NAME } from "./command-surfaces.ts";
+import { HERDR_SPACE_OPEN_BRANCH_COMMAND_NAME } from "./command-surfaces.ts";
 import { openBranchInHerdrWorkspace } from "./slot.ts";
 import { createHerdrSlotClient } from "./slot-checkout.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 
-const COMMAND_NAME = HERDR_WORKSPACE_OPEN_BRANCH_COMMAND_NAME;
+const COMMAND_NAME = HERDR_SPACE_OPEN_BRANCH_COMMAND_NAME;
 
 type ResolvedBranch =
 	| { inferred: false; branchName: string }

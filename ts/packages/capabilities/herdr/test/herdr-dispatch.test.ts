@@ -1,10 +1,10 @@
 /**
  * Scenario tests for the Herdr dispatch and open-branch commands (PR 3):
- *  - ns:herdr:workspace:dispatch-prompt
- *  - ns:herdr:workspace:dispatch-from-trunk
- *  - ns:herdr:workspace:dispatch-plan
- *  - ns:herdr:surface:dispatch-plan
- *  - ns:herdr:workspace:open-branch
+ *  - ns:herdr:space:prompt-dispatch
+ *  - ns:herdr:space:trunk-prompt-dispatch
+ *  - ns:herdr:space:plan-dispatch
+ *  - ns:herdr:tab:plan-dispatch
+ *  - ns:herdr:space:open-branch
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -131,7 +131,7 @@ describe("herdr Pi extension — full suite", () => {
 // workspace:open-branch
 // ---------------------------------------------------------------------------
 
-describe("ns:herdr:workspace:open-branch", () => {
+describe("ns:herdr:space:open-branch", () => {
 	test("opens explicit branch in Herdr workspace via slot checkout", async () => {
 		const pi = new FakePi({
 			script: [
@@ -191,7 +191,7 @@ describe("ns:herdr:workspace:open-branch", () => {
 			],
 		});
 		registerHerdrSlotOpenBranchCommand(pi, { slotClient: testSlotClient });
-		const command = pi.commands.get("ns:herdr:workspace:open-branch");
+		const command = pi.commands.get("ns:herdr:space:open-branch");
 		expect(command).toBeDefined();
 		expect(await command?.getArgumentCompletions?.("feat")).toEqual([
 			{ value: "feat-abc", label: "feat-abc", description: "local" },
@@ -201,7 +201,7 @@ describe("ns:herdr:workspace:open-branch", () => {
 });
 
 // ---------------------------------------------------------------------------
-// workspace:dispatch-prompt and workspace:dispatch-from-trunk
+// space:prompt-dispatch and space:trunk-prompt-dispatch
 // ---------------------------------------------------------------------------
 
 describe("Herdr prompt dispatch", () => {
@@ -444,10 +444,10 @@ describe("Herdr prompt dispatch", () => {
 });
 
 // ---------------------------------------------------------------------------
-// workspace:dispatch-plan
+// space:plan-dispatch
 // ---------------------------------------------------------------------------
 
-describe("ns:herdr:workspace:dispatch-plan", () => {
+describe("ns:herdr:space:plan-dispatch", () => {
 	test("shows help without side-effects on --help", async () => {
 		const pi = new FakePi();
 		const herdr = new FakeHerdrGateway();
@@ -460,8 +460,8 @@ describe("ns:herdr:workspace:dispatch-plan", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:workspace:dispatch-plan",
-				statusKey: "ns:herdr:workspace:dispatch-plan",
+				commandName: "ns:herdr:space:plan-dispatch",
+				statusKey: "ns:herdr:space:plan-dispatch",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -484,8 +484,8 @@ describe("ns:herdr:workspace:dispatch-plan", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:workspace:dispatch-plan",
-				statusKey: "ns:herdr:workspace:dispatch-plan",
+				commandName: "ns:herdr:space:plan-dispatch",
+				statusKey: "ns:herdr:space:plan-dispatch",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -497,15 +497,15 @@ describe("ns:herdr:workspace:dispatch-plan", () => {
 		expect(errors[0]?.message).toContain("Unknown flag");
 	});
 
-	test("registers workspace:dispatch-plan and surface:dispatch-plan via Pi adapter", () => {
+	test("registers space:plan-dispatch and tab:plan-dispatch via Pi adapter", () => {
 		const pi = new FakePi();
 		registerHerdrSlotDispatchPlanCommand(pi);
 		registerHerdrSurfaceDispatchPlanCommand(pi);
-		expect(pi.commands.has("ns:herdr:workspace:dispatch-plan")).toBe(true);
-		expect(pi.commands.has("ns:herdr:surface:dispatch-plan")).toBe(true);
+		expect(pi.commands.has("ns:herdr:space:plan-dispatch")).toBe(true);
+		expect(pi.commands.has("ns:herdr:tab:plan-dispatch")).toBe(true);
 	});
 
-	test("surface:dispatch-plan requires HERDR_WORKSPACE_ID", async () => {
+	test("tab:plan-dispatch requires HERDR_WORKSPACE_ID", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const repoRoot = await makeTempDir();
 		const pi = new FakePi({ script: [] });
@@ -519,8 +519,8 @@ describe("ns:herdr:workspace:dispatch-plan", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:surface:dispatch-plan",
-				statusKey: "ns:herdr:surface:dispatch-plan",
+				commandName: "ns:herdr:tab:plan-dispatch",
+				statusKey: "ns:herdr:tab:plan-dispatch",
 				destination: "surface",
 			},
 			notifyProgress: () => {},
@@ -530,17 +530,17 @@ describe("ns:herdr:workspace:dispatch-plan", () => {
 		expect(herdr.createTabCalls).toHaveLength(0);
 		expect(ctx.notifications).toContainEqual({
 			message:
-				"surface:dispatch-plan requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+				"tab:plan-dispatch requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
 			level: "error",
 		});
 	});
 });
 
 // ---------------------------------------------------------------------------
-// surface:dispatch-plan with caller workspace
+// tab:plan-dispatch with caller workspace
 // ---------------------------------------------------------------------------
 
-describe("ns:herdr:surface:dispatch-plan", () => {
+describe("ns:herdr:tab:plan-dispatch", () => {
 	test("requires HERDR_WORKSPACE_ID; stops without tab creation if absent", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const pi = new FakePi({ script: [] });
@@ -554,8 +554,8 @@ describe("ns:herdr:surface:dispatch-plan", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:surface:dispatch-plan",
-				statusKey: "ns:herdr:surface:dispatch-plan",
+				commandName: "ns:herdr:tab:plan-dispatch",
+				statusKey: "ns:herdr:tab:plan-dispatch",
 				destination: "surface",
 			},
 			notifyProgress: () => {},
@@ -579,8 +579,8 @@ describe("ns:herdr:surface:dispatch-plan", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:surface:dispatch-plan",
-				statusKey: "ns:herdr:surface:dispatch-plan",
+				commandName: "ns:herdr:tab:plan-dispatch",
+				statusKey: "ns:herdr:tab:plan-dispatch",
 				destination: "surface",
 			},
 			notifyProgress: (message) => progress.push(message),
@@ -591,7 +591,7 @@ describe("ns:herdr:surface:dispatch-plan", () => {
 		expect(ctx.waitCount).toBe(0);
 		expect(herdr.createTabCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toBe(
-			"surface:dispatch-plan requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
+			"tab:plan-dispatch requires HERDR_WORKSPACE_ID. Not running inside a Herdr caller workspace.",
 		);
 	});
 
@@ -608,8 +608,8 @@ describe("ns:herdr:surface:dispatch-plan", () => {
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:surface:dispatch-plan",
-				statusKey: "ns:herdr:surface:dispatch-plan",
+				commandName: "ns:herdr:tab:plan-dispatch",
+				statusKey: "ns:herdr:tab:plan-dispatch",
 				destination: "surface",
 			},
 			notifyProgress: () => {},
@@ -618,7 +618,7 @@ describe("ns:herdr:surface:dispatch-plan", () => {
 		expect(pi.execCalls).toEqual([]);
 		expect(ctx.waitCount).toBe(0);
 		expect(notificationMessages(ctx).join("\n")).toContain(
-			"Usage: /ns:herdr:surface:dispatch-plan [--dry-run]",
+			"Usage: /ns:herdr:tab:plan-dispatch [--dry-run]",
 		);
 	});
 });
@@ -841,7 +841,7 @@ describe("openBranchInHerdrCallerTab — focus semantics", () => {
 // open-branch: confirmation refusal
 // ---------------------------------------------------------------------------
 
-describe("ns:herdr:workspace:open-branch — inferred branch confirmation", () => {
+describe("ns:herdr:space:open-branch — inferred branch confirmation", () => {
 	test("cancels when user declines confirmation of inferred branch", async () => {
 		const pi = new FakePi();
 		const herdr = new FakeHerdrGateway();
@@ -910,13 +910,13 @@ describe("ns:herdr:workspace:open-branch — inferred branch confirmation", () =
 
 describe("extractCommandArgumentPrefix", () => {
 	test("binds the shared prefix extraction to the Herdr open-branch command", () => {
-		expect(extractCommandArgumentPrefix("/ns:herdr:workspace:open-branch feat")).toBe("feat");
-		expect(extractCommandArgumentPrefix("/ns:herdr:workspace:dispatch-plan")).toBeUndefined();
+		expect(extractCommandArgumentPrefix("/ns:herdr:space:open-branch feat")).toBe("feat");
+		expect(extractCommandArgumentPrefix("/ns:herdr:space:plan-dispatch")).toBeUndefined();
 	});
 });
 
 // ---------------------------------------------------------------------------
-// workspace:dispatch-plan dry-run — no Herdr mutations
+// space:plan-dispatch dry-run — no Herdr mutations
 // ---------------------------------------------------------------------------
 
 function herdrDispatchPlanTestOptions(
@@ -938,7 +938,7 @@ function herdrDispatchPlanTestOptions(
 	};
 }
 
-describe("ns:herdr:workspace:dispatch-plan — dry-run (no Herdr mutations)", () => {
+describe("ns:herdr:space:plan-dispatch — dry-run (no Herdr mutations)", () => {
 	test("dry-run shows preview without creating workspace, tab, or pane", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
@@ -968,8 +968,8 @@ describe("ns:herdr:workspace:dispatch-plan — dry-run (no Herdr mutations)", ()
 			ctx,
 			options: herdrDispatchPlanTestOptions(planStoreRoot),
 			config: {
-				commandName: "ns:herdr:workspace:dispatch-plan",
-				statusKey: "ns:herdr:workspace:dispatch-plan",
+				commandName: "ns:herdr:space:plan-dispatch",
+				statusKey: "ns:herdr:space:plan-dispatch",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -997,7 +997,7 @@ describe("ns:herdr:workspace:dispatch-plan — dry-run (no Herdr mutations)", ()
 	});
 });
 
-describe("ns:herdr:surface:dispatch-plan — dry-run (no Herdr mutations)", () => {
+describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 	test("dry-run requires a valid caller ID before repository or plan lookup", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const pi = new FakePi({ script: [] });
@@ -1011,8 +1011,8 @@ describe("ns:herdr:surface:dispatch-plan — dry-run (no Herdr mutations)", () =
 			ctx,
 			options: {},
 			config: {
-				commandName: "ns:herdr:surface:dispatch-plan",
-				statusKey: "ns:herdr:surface:dispatch-plan",
+				commandName: "ns:herdr:tab:plan-dispatch",
+				statusKey: "ns:herdr:tab:plan-dispatch",
 				destination: "surface",
 			},
 			notifyProgress: () => {},
@@ -1065,8 +1065,8 @@ describe("ns:herdr:surface:dispatch-plan — dry-run (no Herdr mutations)", () =
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:surface:dispatch-plan",
-				statusKey: "ns:herdr:surface:dispatch-plan",
+				commandName: "ns:herdr:tab:plan-dispatch",
+				statusKey: "ns:herdr:tab:plan-dispatch",
 				destination: "surface",
 			},
 			notifyProgress: () => {},
@@ -1118,8 +1118,8 @@ describe("ns:herdr:surface:dispatch-plan — dry-run (no Herdr mutations)", () =
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:workspace:dispatch-plan",
-				statusKey: "ns:herdr:workspace:dispatch-plan",
+				commandName: "ns:herdr:space:plan-dispatch",
+				statusKey: "ns:herdr:space:plan-dispatch",
 				destination: "workspace",
 			},
 			notifyProgress: () => {},
@@ -1174,8 +1174,8 @@ describe("ns:herdr:surface:dispatch-plan — dry-run (no Herdr mutations)", () =
 			ctx,
 			options,
 			config: {
-				commandName: "ns:herdr:surface:dispatch-plan",
-				statusKey: "ns:herdr:surface:dispatch-plan",
+				commandName: "ns:herdr:tab:plan-dispatch",
+				statusKey: "ns:herdr:tab:plan-dispatch",
 				destination: "surface",
 			},
 			notifyProgress: () => {},
@@ -1219,8 +1219,8 @@ describe("ns:herdr:surface:dispatch-plan — dry-run (no Herdr mutations)", () =
 			ctx,
 			options: herdrDispatchPlanTestOptions(planStoreRoot),
 			config: {
-				commandName: "ns:herdr:surface:dispatch-plan",
-				statusKey: "ns:herdr:surface:dispatch-plan",
+				commandName: "ns:herdr:tab:plan-dispatch",
+				statusKey: "ns:herdr:tab:plan-dispatch",
 				destination: "surface",
 			},
 			notifyProgress: () => {},

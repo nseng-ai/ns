@@ -10,14 +10,14 @@ import {
 	type HerdrSlotDispatchPlanOptions,
 } from "../core/dispatch-plan.ts";
 import {
-	HERDR_SURFACE_DISPATCH_PLAN_COMMAND_NAME,
-	HERDR_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME,
+	HERDR_TAB_PLAN_DISPATCH_COMMAND_NAME,
+	HERDR_SPACE_PLAN_DISPATCH_COMMAND_NAME,
 } from "../core/command-surfaces.ts";
 import { createCliHerdrGateway } from "../core/cli-gateway.ts";
 import { createHerdrPiCommandApi, type HerdrPiCommandApi } from "./pi-command-api.ts";
 
-const WORKSPACE_COMMAND_NAME = HERDR_WORKSPACE_DISPATCH_PLAN_COMMAND_NAME;
-const SURFACE_COMMAND_NAME = HERDR_SURFACE_DISPATCH_PLAN_COMMAND_NAME;
+const WORKSPACE_COMMAND_NAME = HERDR_SPACE_PLAN_DISPATCH_COMMAND_NAME;
+const SURFACE_COMMAND_NAME = HERDR_TAB_PLAN_DISPATCH_COMMAND_NAME;
 
 const WORKSPACE_CONFIG: DispatchPlanConfig = {
 	commandName: WORKSPACE_COMMAND_NAME,
