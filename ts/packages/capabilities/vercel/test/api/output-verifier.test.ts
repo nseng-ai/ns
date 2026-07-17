@@ -19,8 +19,6 @@ const workflowPrefix = "functions/.well-known/workflow/v1";
 const outputFiles = [
 	"functions/api/health.func/.vc-config.json",
 	"functions/api/health.func/index.cjs",
-	"functions/api/health.func/helper.js",
-	"functions/api/health.func/worker.mjs",
 	`${workflowPrefix}/flow.func/index.mjs`,
 	`${workflowPrefix}/flow.func/.vc-config.json`,
 	`${workflowPrefix}/webhook/[token].func/index.mjs`,
@@ -47,9 +45,7 @@ function createOperations(
 	return {
 		async walkFiles(root) {
 			if (failurePath === root) throw new Error("walk unavailable");
-			return root === roots.outputRoot
-				? outputFiles
-				: [".vc-config.json", "helper.js", "index.cjs", "worker.mjs"];
+			return root === roots.outputRoot ? outputFiles : [".vc-config.json", "index.cjs"];
 		},
 		async listImmediateTypeScriptFiles(root) {
 			return root === roots.apiSourceRoot ? ["health.ts"] : ["dispatch.ts"];
@@ -86,13 +82,13 @@ async function verify(operations: BuildOutputVerificationOperations = createOper
 }
 
 describe("authoritative Build Output verifier", () => {
-	it("returns a complete summary and scans js, cjs, and mjs modules", async () => {
+	it("returns a complete summary for hermetic API bundles", async () => {
 		const result = await verify();
 		expect(result).toMatchObject({
 			ok: true,
 			fileCount: outputFiles.length,
 			apiFunctionCount: 1,
-			javaScriptModuleCount: 3,
+			javaScriptModuleCount: 1,
 			workflowSourceCount: 1,
 			requiredWorkflowArtifactCount: 5,
 			routeTriggeredWorkflowIdCount: Object.values(triggerWorkflowIds).length,
@@ -118,14 +114,11 @@ describe("authoritative Build Output verifier", () => {
 		).resolves.toMatchObject({ ok: false });
 	});
 
-	it.each(["helper.js", "index.cjs", "worker.mjs"])(
-		"contains a %s module read failure",
-		async (name) => {
-			await expect(
-				verify(createOperations(join(roots.outputRoot, "functions/api/health.func", name))),
-			).resolves.toMatchObject({ ok: false });
-		},
-	);
+	it("contains a CommonJS bundle read failure", async () => {
+		await expect(
+			verify(createOperations(join(roots.outputRoot, "functions/api/health.func", "index.cjs"))),
+		).resolves.toMatchObject({ ok: false });
+	});
 
 	it.each([
 		join(roots.outputRoot, `${workflowPrefix}/flow.func/index.mjs`),
