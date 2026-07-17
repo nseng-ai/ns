@@ -7,6 +7,10 @@
 // harness-authored decision log and stable failure codes/messages, never
 // token material or environment values.
 import type { DispatchReportResult, DispatchRunFailureCode } from "./dispatch-run.ts";
+import {
+	renderDispatchFailureDiagnostic,
+	type DispatchFailureDiagnostic,
+} from "./failure-diagnostic.ts";
 
 /** Markers bounding the decision-log section in the anchor PR description. */
 export const DISPATCH_DECISION_LOG_SECTION_START = "<!-- ns-dispatch:decision-log:start -->";
@@ -84,16 +88,27 @@ export function buildDispatchFailureComment(options: {
 	readonly anchorBranch: string;
 	readonly code: DispatchRunFailureCode;
 	readonly message: string;
+	readonly diagnostic?: DispatchFailureDiagnostic;
+	readonly workflowRunId?: string;
 }): string {
+	const rendered = renderDispatchFailureDiagnostic({
+		code: options.code,
+		summary: options.message,
+		...(options.diagnostic === undefined ? {} : { diagnostic: options.diagnostic }),
+	});
 	return [
 		buildDispatchFailureMarker(options.anchorBranch),
 		"## Dispatch failed",
 		"",
-		`- **Code:** \`${options.code}\``,
-		`- **Reason:** ${options.message}`,
+		`- **Diagnostic:** ${rendered}`,
+		...(options.workflowRunId === undefined
+			? []
+			: [`- **Workflow run:** \`${options.workflowRunId}\``]),
 		"",
 		"The anchor PR stays open for triage: re-dispatch, take the work over, or close it.",
-		"Run logs are reachable through the workflow run id stamped on this PR.",
+		options.workflowRunId === undefined
+			? "Run logs are reachable through the workflow run id stamped on this PR."
+			: "Use the Workflow run id above to inspect logs and the durable status stream.",
 	].join("\n");
 }
 
@@ -116,5 +131,7 @@ export interface DispatchReportGateway {
 		readonly anchorBranch: string;
 		readonly code: DispatchRunFailureCode;
 		readonly message: string;
+		readonly diagnostic?: DispatchFailureDiagnostic;
+		readonly workflowRunId?: string;
 	}): Promise<DispatchReportResult>;
 }

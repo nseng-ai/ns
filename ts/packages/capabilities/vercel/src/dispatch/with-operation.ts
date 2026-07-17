@@ -1,6 +1,7 @@
 import type { Clock } from "@nseng-ai/foundation/clock";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
+
+import { normalizeDispatchFailure, type DispatchFailureDiagnostic } from "./failure-diagnostic.ts";
 
 export type OperationLogSink = (serializedEvent: string) => void;
 
@@ -8,21 +9,21 @@ export interface OperationContext {
 	readonly [key: string]: string | number | boolean;
 }
 
+export interface OperationFailure {
+	readonly diagnostic: DispatchFailureDiagnostic;
+}
+
 export interface WithOperationOptions<T> {
 	readonly operation: string;
 	readonly context?: OperationContext;
 	readonly clock?: Clock;
 	readonly logSink?: OperationLogSink;
+	readonly failure?: (result: T) => OperationFailure | undefined;
 	readonly failureMessage?: (result: T) => string | undefined;
+	readonly normalizeThrownFailure?: (error: unknown) => DispatchFailureDiagnostic;
 }
 
-/**
- * Follow-up direction: Workflow step callers could adapt these operation
- * events to the existing named `status` stream, rendering a detailed durable
- * timeline in Workflow CLI/Web UI. Keep this helper Workflow-SDK-independent
- * and put that adapter at the workflow edge. This slice intentionally emits
- * only Vercel Function logs.
- */
+/** Emits only normalized, bounded diagnostic data; raw external errors never cross this boundary. */
 export async function withOperation<T>(
 	options: WithOperationOptions<T>,
 	run: () => Promise<T>,
@@ -38,15 +39,27 @@ export async function withOperation<T>(
 
 	try {
 		const result = await run();
-		const error = options.failureMessage?.(result);
+		const inspectedFailure = options.failure?.(result);
+		const legacyDiagnostic = options.failureMessage?.(result);
+		const failure =
+			inspectedFailure ??
+			(legacyDiagnostic === undefined
+				? undefined
+				: {
+						diagnostic: normalizeDispatchFailure({
+							operation: options.operation,
+							reason: "operation-returned-failure",
+							message: legacyDiagnostic,
+						}),
+					});
 		const durationMs = elapsedMs(startedAtMs, clock.nowMs());
-		if (error !== undefined) {
+		if (failure !== undefined) {
 			writeBestEffort(logSink, {
 				...options.context,
 				event: "operation_failed",
 				operation: options.operation,
 				durationMs,
-				error,
+				diagnostic: failure.diagnostic,
 			});
 			return result;
 		}
@@ -58,12 +71,19 @@ export async function withOperation<T>(
 		});
 		return result;
 	} catch (error) {
+		const diagnostic =
+			options.normalizeThrownFailure?.(error) ??
+			normalizeDispatchFailure({
+				operation: options.operation,
+				reason: "unexpected-exception",
+				error,
+			});
 		writeBestEffort(logSink, {
 			...options.context,
 			event: "operation_failed",
 			operation: options.operation,
 			durationMs: elapsedMs(startedAtMs, clock.nowMs()),
-			error: formatErrorMessage(error),
+			diagnostic,
 		});
 		throw error;
 	}

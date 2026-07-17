@@ -1,3 +1,4 @@
+import { APIError } from "@vercel/sandbox";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -105,7 +106,44 @@ describe("createRealDispatchSandboxGateway", () => {
 		]);
 	});
 
-	it("lets a create throw reach the owning step boundary", async () => {
+	it("extracts only allowlisted fields from a public Sandbox APIError", async () => {
+		const error = new APIError(
+			new Response('{"private":"response-body-secret"}', {
+				status: 403,
+				headers: {
+					"x-vercel-id": "iad1::safe-request-id",
+					authorization: "Bearer header-secret",
+				},
+			}),
+			{ message: "Status code 403 is not ok. token=message-secret" },
+		);
+		const { sdk } = createFakeSdk({ createError: error });
+		const gateway = createRealDispatchSandboxGateway(sdk);
+
+		const promise = gateway.createDispatchSandbox({
+			runtime: "node24",
+			timeoutMs: 1000,
+			source: { repository: "nseng-ai/ns", revision: "a".repeat(40), cloneToken: "t" },
+		});
+		await expect(promise).rejects.toMatchObject({
+			diagnostic: {
+				operation: "create_sandbox",
+				reason: "vercel-sandbox-api-error",
+				errorName: "Error",
+				httpStatus: 403,
+				requestId: "iad1::safe-request-id",
+				message: "Status code 403 is not ok. token=[redacted]",
+			},
+		});
+		await promise.catch((caught: unknown) => {
+			const serialized = JSON.stringify(caught);
+			for (const secret of ["response-body-secret", "header-secret", "message-secret"]) {
+				expect(serialized).not.toContain(secret);
+			}
+		});
+	});
+
+	it("normalizes a create throw at the adapter boundary", async () => {
 		const { sdk } = createFakeSdk({ createError: new Error("quota") });
 		const gateway = createRealDispatchSandboxGateway(sdk);
 
@@ -115,7 +153,15 @@ describe("createRealDispatchSandboxGateway", () => {
 				timeoutMs: 1000,
 				source: { repository: "nseng-ai/ns", revision: "a".repeat(40), cloneToken: "t" },
 			}),
-		).rejects.toThrow("quota");
+		).rejects.toMatchObject({
+			name: "DispatchDiagnosticError",
+			diagnostic: {
+				operation: "create_sandbox",
+				reason: "unexpected-exception",
+				errorName: "Error",
+				message: "quota",
+			},
+		});
 	});
 
 	it("reattaches by name without resuming to write files", async () => {
@@ -164,7 +210,7 @@ describe("createRealDispatchSandboxGateway", () => {
 		const result = await gateway.runDetachedSandboxCommand({
 			sandboxName: "sbx_real",
 			command: { cmd: "fake-harness", args: ["--headless"] },
-			env: { ANTHROPIC_API_KEY: "model-key" },
+			env: { AI_GATEWAY_API_KEY: "model-key" },
 		});
 
 		expect(result).toEqual({ ok: true });
@@ -173,7 +219,7 @@ describe("createRealDispatchSandboxGateway", () => {
 			options: {
 				cmd: "fake-harness",
 				args: ["--headless"],
-				env: { ANTHROPIC_API_KEY: "model-key" },
+				env: { AI_GATEWAY_API_KEY: "model-key" },
 			},
 		});
 	});
@@ -213,6 +259,12 @@ describe("createRealDispatchSandboxGateway", () => {
 		const broken = createRealDispatchSandboxGateway(
 			createFakeSdk({ getError: new Error("gone") }).sdk,
 		);
-		await expect(broken.stopSandbox({ sandboxName: "sbx_real" })).rejects.toThrow("gone");
+		await expect(broken.stopSandbox({ sandboxName: "sbx_real" })).rejects.toMatchObject({
+			diagnostic: {
+				operation: "stop_sandbox",
+				reason: "unexpected-exception",
+				message: "gone",
+			},
+		});
 	});
 });

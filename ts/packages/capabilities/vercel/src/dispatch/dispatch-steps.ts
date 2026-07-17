@@ -34,6 +34,7 @@ import {
 import type { SupervisionCleanupResult, SupervisionPollResult } from "../sandbox/supervision.ts";
 import { isSafeSandboxName, type SandboxCommand } from "../sandbox/contracts.ts";
 import type { DispatchReportGateway } from "./anchor-pr-report.ts";
+import { normalizeDispatchFailure, type DispatchFailureDiagnostic } from "./failure-diagnostic.ts";
 import {
 	buildDispatchLandingCommand,
 	buildDispatchPlanEntryCheckCommand,
@@ -149,8 +150,7 @@ export async function launchDispatchRun(
 					purpose: "clone",
 					anchorPrNumber: run.anchorPrNumber,
 				},
-				failureMessage: (result) =>
-					result.ok ? undefined : (result.error.message ?? result.error.code),
+				failure: (result) => mintOperationFailure("mint_clone_token", result),
 			},
 			async () =>
 				await mintContext.minter.mintDispatchToken({
@@ -158,11 +158,21 @@ export async function launchDispatchRun(
 					purpose: "clone",
 				}),
 		);
-	} catch {
-		return { ok: false, code: "launch-failed", message: "Clone token mint failed." };
+	} catch (error) {
+		return {
+			ok: false,
+			code: "launch-failed",
+			message: "Clone token mint failed.",
+			diagnostic: diagnosticFromThrown("mint_clone_token", error),
+		};
 	}
 	if (mintResult.ok === false) {
-		return { ok: false, code: "launch-failed", message: "Clone token mint failed." };
+		return {
+			ok: false,
+			code: "launch-failed",
+			message: "Clone token mint failed.",
+			diagnostic: diagnosticFromMintFailure("mint_clone_token", mintResult),
+		};
 	}
 
 	let sandboxCreation: {
@@ -195,8 +205,13 @@ export async function launchDispatchRun(
 				return { sandboxes, result };
 			},
 		);
-	} catch {
-		return { ok: false, code: "launch-failed", message: "Sandbox creation failed." };
+	} catch (error) {
+		return {
+			ok: false,
+			code: "launch-failed",
+			message: "Sandbox creation failed.",
+			diagnostic: diagnosticFromThrown("create_sandbox", error),
+		};
 	}
 	const { sandboxes, result: createResult } = sandboxCreation;
 	if (createResult.ok === false) {
@@ -537,7 +552,7 @@ async function launchDetachedDispatchHarness(options: {
 export async function pollDispatchRun(
 	options: { readonly sandboxName: string },
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
-): Promise<SupervisionPollResult> {
+): Promise<SupervisionPollResult<DispatchFailureDiagnostic>> {
 	let readResult: ReadDispatchSandboxFileResult;
 	try {
 		readResult = await runOperation(
@@ -553,8 +568,13 @@ export async function pollDispatchRun(
 					path: DISPATCH_RESULT_PATH,
 				}),
 		);
-	} catch {
-		return { ok: false, code: "poll-failed", message: "Dispatch result read failed." };
+	} catch (error) {
+		return {
+			ok: false,
+			code: "poll-failed",
+			message: "Dispatch result read failed.",
+			diagnostic: diagnosticFromThrown("poll_dispatch_result", error),
+		};
 	}
 	if (readResult.ok === false) {
 		return { ok: false, code: "poll-failed", message: "Dispatch result read failed." };
@@ -678,8 +698,7 @@ export async function landDispatchRun(
 			{
 				operation: "mint_landing_token",
 				context: { repository: mintContext.repository, purpose: "landing" },
-				failureMessage: (result) =>
-					result.ok ? undefined : (result.error.message ?? result.error.code),
+				failure: (result) => mintOperationFailure("mint_landing_token", result),
 			},
 			async () =>
 				await mintContext.minter.mintDispatchToken({
@@ -687,11 +706,21 @@ export async function landDispatchRun(
 					purpose: "landing",
 				}),
 		);
-	} catch {
-		return { ok: false, code: "landing-failed", message: "Landing token mint failed." };
+	} catch (error) {
+		return {
+			ok: false,
+			code: "landing-failed",
+			message: "Landing token mint failed.",
+			diagnostic: diagnosticFromThrown("mint_landing_token", error),
+		};
 	}
 	if (mintResult.ok === false) {
-		return { ok: false, code: "landing-failed", message: "Landing token mint failed." };
+		return {
+			ok: false,
+			code: "landing-failed",
+			message: "Landing token mint failed.",
+			diagnostic: diagnosticFromMintFailure("mint_landing_token", mintResult),
+		};
 	}
 
 	try {
@@ -719,8 +748,13 @@ export async function landDispatchRun(
 		if (commandResult.ok === false || commandResult.exitCode !== 0) {
 			return { ok: false, code: "landing-failed", message: "Landing push failed." };
 		}
-	} catch {
-		return { ok: false, code: "landing-failed", message: "Landing push failed." };
+	} catch (error) {
+		return {
+			ok: false,
+			code: "landing-failed",
+			message: "Landing push failed.",
+			diagnostic: diagnosticFromThrown("push_anchor_branch", error),
+		};
 	}
 	return { ok: true };
 }
@@ -732,7 +766,7 @@ export async function landDispatchRun(
 export async function cleanupDispatchRun(
 	options: { readonly sandboxName: string },
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
-): Promise<SupervisionCleanupResult> {
+): Promise<SupervisionCleanupResult<DispatchFailureDiagnostic>> {
 	let stopResult: StopDispatchSandboxResult;
 	try {
 		stopResult = await runOperation(
@@ -745,8 +779,13 @@ export async function cleanupDispatchRun(
 			async () =>
 				await deps.createSandboxGateway().stopSandbox({ sandboxName: options.sandboxName }),
 		);
-	} catch {
-		return { ok: false, code: "sandbox-cleanup-failed", message: "Sandbox cleanup failed." };
+	} catch (error) {
+		return {
+			ok: false,
+			code: "sandbox-cleanup-failed",
+			message: "Sandbox cleanup failed.",
+			diagnostic: diagnosticFromThrown("stop_sandbox", error),
+		};
 	}
 	if (stopResult.ok === false) {
 		return { ok: false, code: "sandbox-cleanup-failed", message: "Sandbox cleanup failed." };
@@ -785,6 +824,8 @@ export async function reportDispatchFailure(
 		readonly anchorBranch: string;
 		readonly code: DispatchRunFailureCode;
 		readonly message: string;
+		readonly diagnostic?: DispatchFailureDiagnostic;
+		readonly workflowRunId?: string;
 	},
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
 ): Promise<DispatchReportResult> {
@@ -798,6 +839,8 @@ export async function reportDispatchFailure(
 				anchorBranch: options.anchorBranch,
 				code: options.code,
 				message: options.message,
+				...(options.diagnostic === undefined ? {} : { diagnostic: options.diagnostic }),
+				...(options.workflowRunId === undefined ? {} : { workflowRunId: options.workflowRunId }),
 			}),
 	});
 }
@@ -869,6 +912,7 @@ async function createDispatchMintContext(
 interface RunOperationOptions<T> {
 	readonly operation: string;
 	readonly context?: Readonly<Record<string, string | number | boolean>>;
+	readonly failure?: (result: T) => { readonly diagnostic: DispatchFailureDiagnostic } | undefined;
 	readonly failureMessage?: (result: T) => string | undefined;
 }
 
@@ -882,6 +926,7 @@ async function runOperation<T>(
 			operation: options.operation,
 			...optionalEntries({
 				context: options.context,
+				failure: options.failure,
 				failureMessage: options.failureMessage,
 			}),
 			clock: deps.operationClock,
@@ -889,6 +934,33 @@ async function runOperation<T>(
 		},
 		run,
 	);
+}
+
+function mintOperationFailure(
+	operation: string,
+	result: Awaited<ReturnType<DispatchTokenMinter["mintDispatchToken"]>>,
+): { readonly diagnostic: DispatchFailureDiagnostic } | undefined {
+	if (result.ok) return undefined;
+	return { diagnostic: diagnosticFromMintFailure(operation, result) };
+}
+
+function diagnosticFromMintFailure(
+	operation: string,
+	result: Extract<
+		Awaited<ReturnType<DispatchTokenMinter["mintDispatchToken"]>>,
+		{ readonly ok: false }
+	>,
+): DispatchFailureDiagnostic {
+	return normalizeDispatchFailure({
+		operation,
+		reason: result.error.reason ?? result.error.code,
+		errorCode: result.error.code,
+		...(result.error.message === undefined ? {} : { message: result.error.message }),
+	});
+}
+
+function diagnosticFromThrown(operation: string, error: unknown): DispatchFailureDiagnostic {
+	return normalizeDispatchFailure({ operation, reason: "unexpected-exception", error });
 }
 
 function readFailureMessage(result: ReadDispatchSandboxFileResult): string | undefined {

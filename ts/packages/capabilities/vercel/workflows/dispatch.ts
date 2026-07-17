@@ -2,7 +2,7 @@
 // The workflow body is deterministic orchestration; every side effect and
 // operator-visible log lives in a step, while credentials and payload content
 // never cross the existing step boundaries.
-import { FatalError, sleep } from "workflow";
+import { FatalError, getWorkflowMetadata, sleep } from "workflow";
 
 import {
 	executeDispatchRun,
@@ -12,6 +12,7 @@ import {
 	type DispatchReportResult,
 	type DispatchRunFailureCode,
 	type DispatchRunInput,
+	validateDispatchRunInput,
 	type WorkflowDispatchRunResult,
 } from "../src/dispatch/dispatch-run.ts";
 import {
@@ -23,6 +24,10 @@ import {
 	reportDispatchFailure,
 	reportDispatchLanded,
 } from "../src/dispatch/dispatch-steps.ts";
+import {
+	renderDispatchFailureDiagnostic,
+	type DispatchFailureDiagnostic,
+} from "../src/dispatch/failure-diagnostic.ts";
 import {
 	buildDispatchFailureAttributes,
 	buildDispatchPhaseAttributes,
@@ -39,21 +44,27 @@ export async function dispatchWorkflow(
 	input: DispatchRunInput,
 ): Promise<WorkflowDispatchRunResult> {
 	"use workflow";
-	const result = await executeDispatchRun(input, {
-		sleep: async (durationMs: number) => {
-			await sleep(durationMs);
+	const workflowRunId =
+		validateDispatchRunInput(input).ok === false ? undefined : getWorkflowMetadata().workflowRunId;
+	const result = await executeDispatchRun(
+		input,
+		{
+			sleep: async (durationMs: number) => {
+				await sleep(durationMs);
+			},
+			launch: async (run) => await createSandboxAndLaunchHarness(run),
+			poll: async (sandboxName, pollOrdinal) =>
+				await checkHarnessCompletion(sandboxName, pollOrdinal),
+			readOutcome: async (sandboxName) => await readHarnessResult(sandboxName),
+			land: async (options) => await pushAnchorBranch(options),
+			cleanup: async (sandboxName) => await stopSandbox(sandboxName),
+			reportLanded: async (options) => await updateAnchorPrLanded(options),
+			reportFailure: async (options) => await updateAnchorPrFailed(options),
 		},
-		launch: async (run) => await createSandboxAndLaunchHarness(run),
-		poll: async (sandboxName, pollOrdinal) =>
-			await checkHarnessCompletion(sandboxName, pollOrdinal),
-		readOutcome: async (sandboxName) => await readHarnessResult(sandboxName),
-		land: async (options) => await pushAnchorBranch(options),
-		cleanup: async (sandboxName) => await stopSandbox(sandboxName),
-		reportLanded: async (options) => await updateAnchorPrLanded(options),
-		reportFailure: async (options) => await updateAnchorPrFailed(options),
-	});
+		workflowRunId === undefined ? {} : { workflowRunId },
+	);
 	if (result.ok) return result;
-	return await failDispatchRun(result.code);
+	return await failDispatchRun(result);
 }
 
 export async function createSandboxAndLaunchHarness(
@@ -94,7 +105,7 @@ createSandboxAndLaunchHarness.maxRetries = 0;
 export async function checkHarnessCompletion(
 	sandboxName: string,
 	pollOrdinal: number,
-): Promise<SupervisionPollResult> {
+): Promise<SupervisionPollResult<DispatchFailureDiagnostic>> {
 	"use step";
 	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_started",
@@ -154,7 +165,9 @@ export async function pushAnchorBranch(options: {
 	return result;
 }
 
-export async function stopSandbox(sandboxName: string): Promise<SupervisionCleanupResult> {
+export async function stopSandbox(
+	sandboxName: string,
+): Promise<SupervisionCleanupResult<DispatchFailureDiagnostic>> {
 	"use step";
 	await writeDispatchWorkflowAttributes(buildDispatchPhaseAttributes("cleaning"));
 	await writeDispatchWorkflowEvent({
@@ -199,6 +212,8 @@ export async function updateAnchorPrFailed(options: {
 	readonly anchorBranch: string;
 	readonly code: DispatchRunFailureCode;
 	readonly message: string;
+	readonly diagnostic?: DispatchFailureDiagnostic;
+	readonly workflowRunId?: string;
 }): Promise<DispatchReportResult> {
 	"use step";
 	await writeDispatchWorkflowEvent({
@@ -218,10 +233,26 @@ export async function updateAnchorPrFailed(options: {
 	return result;
 }
 
-export async function failDispatchRun(code: DispatchRunFailureCode): Promise<never> {
+export async function failDispatchRun(
+	failure: Extract<WorkflowDispatchRunResult, { readonly ok: false }>,
+): Promise<never> {
 	"use step";
 	await writeDispatchWorkflowEvent({ event: "dispatch_step_started", step: "terminal-failure" });
-	await writeDispatchWorkflowAttributes(buildDispatchFailureAttributes(code));
-	throw new FatalError(`dispatch failed: ${code}`);
+	await writeDispatchWorkflowAttributes(buildDispatchFailureAttributes(failure.code));
+	const rendered = renderDispatchFailureDiagnostic({
+		code: failure.code,
+		summary: failure.message,
+		...(failure.diagnostic === undefined ? {} : { diagnostic: failure.diagnostic }),
+		...(failure.anchorPrNumber === undefined ? {} : { anchorPrNumber: failure.anchorPrNumber }),
+	});
+	await writeDispatchWorkflowEvent({
+		event: "dispatch_terminal_failure",
+		code: failure.code,
+		message: rendered,
+		...(failure.anchorPrNumber === undefined ? {} : { anchorPrNumber: failure.anchorPrNumber }),
+		...(failure.diagnostic === undefined ? {} : { diagnostic: failure.diagnostic }),
+		...(failure.workflowRunId === undefined ? {} : { workflowRunId: failure.workflowRunId }),
+	});
+	throw new FatalError(rendered);
 }
 failDispatchRun.maxRetries = 0;

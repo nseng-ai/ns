@@ -202,11 +202,13 @@ the same repo rules and skills as any session, and the PR's own CI is the
 enforcement. As the capability earns confidence, expect this contract to
 tighten toward validated-before-landing.
 
-When a run fails, its anchor PR stays open and is **marked failed** — a
-failure comment carrying the reason and a pointer to the run's logs — until
-you triage it: re-dispatch, take the work over yourself, or close it. The
-jobs TUI shows the same failure state, so nothing fails silently in either
-place.
+When a run fails, its anchor PR stays open and is **marked failed**. The
+Workflow failure card, durable status stream, and idempotent PR comment share
+one bounded, sanitized diagnostic naming the failed operation and safe vendor
+facts, plus the Workflow run pointer. Raw errors, responses, headers, bodies,
+and dispatched content are never published. This is locally implemented and
+awaits production verification. The jobs TUI will show the same failure state,
+so nothing fails silently in either place.
 
 ## Scheduled cloud work
 
@@ -265,8 +267,9 @@ dispatch, using Vercel's own secrets infrastructure:
 - **Model keys** live as sensitive environment variables on the dispatch
   project — encrypted at rest, write-only after creation. Each complete
   harness registry entry declares the names it needs; the current Pi recipe
-  receives `ANTHROPIC_API_KEY`. A run receives only the key required by its
-  configured harness.
+  receives `AI_GATEWAY_API_KEY` for the configured Vercel AI Gateway models.
+  It does not require a direct provider key such as `ANTHROPIC_API_KEY`. A run
+  receives only the key required by its configured harness.
 - **Git access** (clone + push) uses short-lived, repo-scoped credentials
   minted per run as **GitHub App installation tokens**; no long-lived broad
   token sits in an env var. One-time setup: register the org-owned

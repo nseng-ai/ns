@@ -81,7 +81,7 @@ function validEnvironment(): MintEnvironment {
 		NS_DISPATCH_GITHUB_APP_PRIVATE_KEY:
 			"-----BEGIN PRIVATE KEY-----\\nprivate-key-fixture\\n-----END PRIVATE KEY-----\\n",
 		NS_DISPATCH_GITHUB_REPOSITORY: "nseng-ai/ns",
-		ANTHROPIC_API_KEY: "model-key-fixture",
+		AI_GATEWAY_API_KEY: "model-key-fixture",
 	};
 }
 
@@ -89,7 +89,7 @@ function harnessInvocation(overrides: Partial<HarnessInvocation> = {}): HarnessI
 	return {
 		provisionCommands: [{ cmd: "npm", args: ["install", "-g", "fake-harness"] }],
 		launchCommand: { cmd: "fake-harness", args: ["--headless"] },
-		launchEnvironmentVariableNames: ["ANTHROPIC_API_KEY"],
+		launchEnvironmentVariableNames: ["AI_GATEWAY_API_KEY"],
 		...overrides,
 		harness: overrides.harness ?? "pi",
 	};
@@ -233,7 +233,7 @@ describe("launchDispatchRun", () => {
 		expect(sandboxes.calls[5]?.options).toEqual({
 			sandboxName: "sbx_dispatch",
 			command: { cmd: "fake-harness", args: ["--headless"] },
-			env: { ANTHROPIC_API_KEY: "model-key-fixture" },
+			env: { AI_GATEWAY_API_KEY: "model-key-fixture" },
 		});
 		const operationEvents = operationLogs.map(
 			(line) => JSON.parse(line) as { event: string; operation: string },
@@ -469,7 +469,7 @@ describe("launchDispatchRun", () => {
 	});
 
 	it("returns the created sandbox when a declared launch variable is missing", async () => {
-		const environment: MintEnvironment = { ...validEnvironment(), ANTHROPIC_API_KEY: undefined };
+		const environment: MintEnvironment = { ...validEnvironment(), AI_GATEWAY_API_KEY: undefined };
 		const { deps, sandboxes } = createDeps({ environment });
 
 		const result = await launchDispatchRun(runInput(), deps);
@@ -477,7 +477,7 @@ describe("launchDispatchRun", () => {
 		expect(result).toEqual({
 			ok: false,
 			code: "dispatch-misconfigured",
-			message: "Dispatch configuration is invalid: ANTHROPIC_API_KEY.",
+			message: "Dispatch configuration is invalid: AI_GATEWAY_API_KEY.",
 			sandboxName: "sbx_dispatch",
 		});
 		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read"]);
@@ -488,13 +488,27 @@ describe("launchDispatchRun", () => {
 
 		const result = await launchDispatchRun(runInput(), deps);
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			ok: false,
 			code: "launch-failed",
 			message: "Clone token mint failed.",
+			diagnostic: { operation: "mint_clone_token", reason: "github-token-mint-failed" },
 		});
 		expect(sandboxes.calls).toEqual([]);
-		expect(operationLogs.join("\n")).toContain("token mint diagnostic");
+		expect(operationLogs.map((line) => JSON.parse(line))).toContainEqual({
+			event: "operation_failed",
+			operation: "mint_clone_token",
+			durationMs: 0,
+			repository: "nseng-ai/ns",
+			purpose: "clone",
+			anchorPrNumber: 421,
+			diagnostic: {
+				operation: "mint_clone_token",
+				reason: "github-token-mint-failed",
+				errorCode: "github-token-mint-failed",
+				message: "token mint diagnostic",
+			},
+		});
 		expect(operationLogs.join("\n")).not.toContain("private-key-fixture");
 		expect(operationLogs.join("\n")).not.toContain("model-key-fixture");
 		expect(operationLogs.join("\n")).not.toContain("Rename the widget gateway methods.");
@@ -578,10 +592,11 @@ describe("launchDispatchRun", () => {
 
 		const result = await launchDispatchRun(runInput(), deps);
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			ok: false,
 			code: "launch-failed",
 			message: "Sandbox creation failed.",
+			diagnostic: { operation: "create_sandbox", reason: "unexpected-exception" },
 		});
 		expect(JSON.parse(JSON.stringify(result))).toEqual(result);
 		expect(operationLogs.map((line) => JSON.parse(line))).toContainEqual({
@@ -591,7 +606,12 @@ describe("launchDispatchRun", () => {
 			revision,
 			anchorPrNumber: 421,
 			durationMs: 0,
-			error: "sandbox gateway factory exploded",
+			diagnostic: {
+				operation: "create_sandbox",
+				reason: "unexpected-exception",
+				errorName: "Error",
+				message: "sandbox gateway factory exploded",
+			},
 		});
 	});
 
@@ -631,10 +651,11 @@ describe("pollDispatchRun", () => {
 	it("maps a read throw to poll-failed", async () => {
 		const { deps } = createDeps({ sandboxBehavior: { readThrows: true } });
 
-		expect(await pollDispatchRun({ sandboxName: "sbx_dispatch" }, deps)).toEqual({
+		expect(await pollDispatchRun({ sandboxName: "sbx_dispatch" }, deps)).toMatchObject({
 			ok: false,
 			code: "poll-failed",
 			message: "Dispatch result read failed.",
+			diagnostic: { operation: "poll_dispatch_result", reason: "unexpected-exception" },
 		});
 	});
 
@@ -711,7 +732,12 @@ describe("readDispatchOutcome", () => {
 			sandboxName: "sbx_dispatch",
 			path: DISPATCH_RESULT_PATH,
 			durationMs: 0,
-			error: "sandbox gateway factory exploded",
+			diagnostic: {
+				operation: "read_final_dispatch_result",
+				reason: "unexpected-exception",
+				errorName: "Error",
+				message: "sandbox gateway factory exploded",
+			},
 		});
 	});
 });
@@ -766,10 +792,11 @@ describe("landDispatchRun", () => {
 			deps,
 		);
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			ok: false,
 			code: "landing-failed",
 			message: "Landing token mint failed.",
+			diagnostic: { operation: "mint_landing_token", reason: "github-token-mint-failed" },
 		});
 		expect(sandboxes.calls).toEqual([]);
 	});
@@ -782,7 +809,12 @@ describe("landDispatchRun", () => {
 			deps,
 		);
 
-		expect(result).toEqual({ ok: false, code: "landing-failed", message: "Landing push failed." });
+		expect(result).toMatchObject({
+			ok: false,
+			code: "landing-failed",
+			message: "Landing push failed.",
+			diagnostic: { operation: "push_anchor_branch", reason: "unexpected-exception" },
+		});
 		expect(JSON.stringify(result)).not.toContain("token-landing-fixture");
 	});
 
@@ -811,10 +843,11 @@ describe("cleanupDispatchRun", () => {
 	it("maps a stop throw to sandbox-cleanup-failed", async () => {
 		const { deps } = createDeps({ sandboxBehavior: { stopThrows: true } });
 
-		expect(await cleanupDispatchRun({ sandboxName: "sbx_dispatch" }, deps)).toEqual({
+		expect(await cleanupDispatchRun({ sandboxName: "sbx_dispatch" }, deps)).toMatchObject({
 			ok: false,
 			code: "sandbox-cleanup-failed",
 			message: "Sandbox cleanup failed.",
+			diagnostic: { operation: "stop_sandbox", reason: "unexpected-exception" },
 		});
 	});
 
@@ -887,12 +920,19 @@ describe("reportDispatchLanded", () => {
 			expect(JSON.parse(JSON.stringify(result))).toEqual(result);
 			expect(
 				operationLogs
-					.map((line) => JSON.parse(line) as { event: string; operation: string; error?: string })
+					.map(
+						(line) =>
+							JSON.parse(line) as {
+								event: string;
+								operation: string;
+								diagnostic?: { readonly message?: string };
+							},
+					)
 					.some(
 						(event) =>
 							event.event === "operation_failed" &&
 							event.operation === failedOperation &&
-							event.error === rawError,
+							event.diagnostic?.message === rawError,
 					),
 			).toBe(true);
 		},

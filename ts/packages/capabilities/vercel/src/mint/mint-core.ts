@@ -17,9 +17,22 @@ export interface GitHubInstallationToken {
 	readonly expiresAt: string;
 }
 
+export type GitHubTokenMintFailureReason =
+	| "authentication-failed"
+	| "transport-failed"
+	| "request-rejected"
+	| "target-not-found"
+	| "rate-limited"
+	| "upstream-unavailable"
+	| "invalid-response";
+
 export type GitHubInstallationTokenResult =
 	| { readonly ok: true; readonly value: GitHubInstallationToken }
-	| { readonly ok: false; readonly message?: string };
+	| {
+			readonly ok: false;
+			readonly reason?: GitHubTokenMintFailureReason;
+			readonly message?: string;
+	  };
 
 export interface GitHubInstallationTokenGateway {
 	mintRepositoryToken(options: {
@@ -41,7 +54,11 @@ export type DispatchTokenMintResult =
 	| { readonly ok: true; readonly value: MintedDispatchToken }
 	| {
 			readonly ok: false;
-			readonly error: { readonly code: DispatchTokenMintErrorCode; readonly message?: string };
+			readonly error: {
+				readonly code: DispatchTokenMintErrorCode;
+				readonly reason?: GitHubTokenMintFailureReason;
+				readonly message?: string;
+			};
 	  };
 
 export interface DispatchTokenMinter {
@@ -78,6 +95,7 @@ export function createDispatchTokenMinter(
 					ok: false,
 					error: {
 						code: "github-token-mint-failed",
+						...optionalEntry("reason", mintResult.reason),
 						...optionalEntry("message", mintResult.message),
 					},
 				};

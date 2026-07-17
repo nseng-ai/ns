@@ -107,6 +107,7 @@ describe("createGitHubInstallationTokenGateway", () => {
 
 		expect(result).toEqual({
 			ok: false,
+			reason: "invalid-response",
 			message: "GitHub App authentication returned an invalid installation token response",
 		});
 		expect(JSON.stringify(result)).not.toContain("vendor-secret");
@@ -119,8 +120,31 @@ describe("createGitHubInstallationTokenGateway", () => {
 
 		expect(
 			await gateway.mintRepositoryToken({ repository: "nseng-ai/ns", purpose: "clone" }),
-		).toEqual({ ok: false, message: "GitHub App auth connection reset" });
+		).toEqual({
+			ok: false,
+			reason: "transport-failed",
+			message: "GitHub App auth connection reset",
+		});
 	});
+
+	it.each([
+		[401, "authentication-failed"],
+		[403, "request-rejected"],
+		[404, "target-not-found"],
+		[429, "rate-limited"],
+		[503, "upstream-unavailable"],
+	] as const)(
+		"classifies an App authentication HTTP %s without exposing response data",
+		async (status, reason) => {
+			const gateway = createGitHubInstallationTokenGateway(config, () => async () => {
+				throw Object.assign(new Error("safe vendor diagnostic"), { status });
+			});
+
+			expect(
+				await gateway.mintRepositoryToken({ repository: "nseng-ai/ns", purpose: "clone" }),
+			).toEqual({ ok: false, reason, message: "safe vendor diagnostic" });
+		},
+	);
 });
 
 describe("createGitHubAppDispatchTokenMinter", () => {

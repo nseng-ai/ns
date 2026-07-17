@@ -161,14 +161,18 @@ describe("dispatch workflow logs", () => {
 		]);
 	});
 
-	it("has no field capable of carrying prompt, token, command output, or raw errors", () => {
+	it("carries only the normalized diagnostic contract on terminal failure", () => {
 		const serialized: string[] = [];
 		emitDispatchWorkflowEvent(
 			{
-				event: "dispatch_step_finished",
-				step: "launch",
-				outcome: "failed",
-				failureCode: "launch-failed",
+				event: "dispatch_terminal_failure",
+				code: "launch-failed",
+				message: "Sandbox creation failed. Code: launch-failed. Operation: create_sandbox.",
+				diagnostic: {
+					operation: "create_sandbox",
+					reason: "unexpected-exception",
+					errorName: "Error",
+				},
 			},
 			(value) => serialized.push(value),
 		);

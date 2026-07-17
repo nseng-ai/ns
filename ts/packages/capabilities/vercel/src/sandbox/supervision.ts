@@ -5,25 +5,36 @@ export interface SupervisionPlan {
 	readonly sandboxTimeoutMs: number;
 }
 
-export type SupervisionPollResult =
+export type SupervisionPollResult<Diagnostic = never> =
 	| { readonly ok: true; readonly phase: "running" | "done" }
-	| { readonly ok: false; readonly code: "poll-failed"; readonly message: string };
+	| {
+			readonly ok: false;
+			readonly code: "poll-failed";
+			readonly message: string;
+			readonly diagnostic?: Diagnostic;
+	  };
 
-export type SupervisionOutcome =
+export type SupervisionOutcome<Diagnostic = never> =
 	| { readonly completed: true; readonly polls: number }
 	| {
 			readonly completed: false;
 			readonly code: "poll-failed" | "run-timed-out";
 			readonly polls: number;
+			readonly diagnostic?: Diagnostic;
 	  };
 
-export type SupervisionCleanupResult =
+export type SupervisionCleanupResult<Diagnostic = never> =
 	| { readonly ok: true }
-	| { readonly ok: false; readonly code: "sandbox-cleanup-failed"; readonly message: string };
+	| {
+			readonly ok: false;
+			readonly code: "sandbox-cleanup-failed";
+			readonly message: string;
+			readonly diagnostic?: Diagnostic;
+	  };
 
-export interface SuperviseDetachedRunDeps {
+export interface SuperviseDetachedRunDeps<Diagnostic = never> {
 	sleep(durationMs: number): Promise<void>;
-	poll(pollOrdinal: number): Promise<SupervisionPollResult>;
+	poll(pollOrdinal: number): Promise<SupervisionPollResult<Diagnostic>>;
 }
 
 /**
@@ -33,18 +44,25 @@ export interface SuperviseDetachedRunDeps {
  * failure ends supervision. Every failed attempt consumes the fixed budget,
  * and any successful poll resets the consecutive-failure count.
  */
-export async function superviseDetachedRun(
+export async function superviseDetachedRun<Diagnostic = never>(
 	plan: SupervisionPlan,
-	deps: SuperviseDetachedRunDeps,
-): Promise<SupervisionOutcome> {
+	deps: SuperviseDetachedRunDeps<Diagnostic>,
+): Promise<SupervisionOutcome<Diagnostic>> {
 	let consecutiveFailures = 0;
+	let latestFailureDiagnostic: Diagnostic | undefined;
 	for (let polls = 1; polls <= plan.maxPolls; polls++) {
 		if (polls > 1) await deps.sleep(plan.pollIntervalMs);
 		const poll = await deps.poll(polls);
 		if (poll.ok === false) {
 			consecutiveFailures += 1;
+			latestFailureDiagnostic = poll.diagnostic;
 			if (consecutiveFailures >= 2) {
-				return { completed: false, code: "poll-failed", polls };
+				return {
+					completed: false,
+					code: "poll-failed",
+					polls,
+					...(latestFailureDiagnostic === undefined ? {} : { diagnostic: latestFailureDiagnostic }),
+				};
 			}
 			continue;
 		}

@@ -74,10 +74,19 @@ describe("buildDispatchFailureComment", () => {
 			anchorBranch: "dispatch/widget-a1b2c3",
 			code: "harness-failed",
 			message: "The dispatched harness run reported failure.",
+			workflowRunId: "wrun_01ABC",
+			diagnostic: {
+				operation: "poll_dispatch_result",
+				reason: "unexpected-exception",
+				httpStatus: 502,
+			},
 		});
 
 		expect(comment).toContain(buildDispatchFailureMarker("dispatch/widget-a1b2c3"));
-		expect(comment).toContain("`harness-failed`");
+		expect(comment).toContain("Code: harness-failed");
+		expect(comment).toContain("Operation: poll_dispatch_result");
+		expect(comment).toContain("HTTP status: 502");
+		expect(comment).toContain("`wrun_01ABC`");
 		expect(comment).toContain("The dispatched harness run reported failure.");
 		expect(comment).toContain("stays open");
 	});
