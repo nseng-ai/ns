@@ -148,7 +148,7 @@ describe("runDispatchPreflight", () => {
 			token: {
 				type: "missing",
 				detail:
-					"VERCEL_OIDC_TOKEN is not available (checked the process environment and /pkg/.env.local).",
+					"VERCEL_OIDC_TOKEN is not available (checked the process environment and /repo/.env.local).",
 			},
 		});
 		const result = await runDispatchPreflight({ repoRoot: "/repo" }, gateways);

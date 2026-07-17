@@ -183,12 +183,14 @@ export type DispatchStartRunResult =
 
 /**
  * The local Development-OIDC token source (README "Setup": `vercel link`
- * + `vercel env pull` provide `VERCEL_OIDC_TOKEN` in the deployable
- * package's gitignored `.env.local`). Presence is checked by name; the
+ * + `vercel env pull` provide `VERCEL_OIDC_TOKEN` in the repository
+ * root's gitignored `.env.local`). Presence is checked by name; the
  * value is used only as the trigger-call credential and never echoed.
  */
 export interface DispatchLocalTokenGateway {
-	readDevelopmentOidcToken(): Promise<DispatchLocalTokenResult>;
+	readDevelopmentOidcToken(options: {
+		readonly repoRoot: string;
+	}): Promise<DispatchLocalTokenResult>;
 }
 
 export type DispatchLocalTokenResult =
