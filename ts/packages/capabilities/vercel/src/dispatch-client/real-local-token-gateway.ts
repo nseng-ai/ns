@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
@@ -10,26 +10,18 @@ export const DISPATCH_OIDC_TOKEN_ENV_NAME = "VERCEL_OIDC_TOKEN";
 
 export interface RealDispatchLocalTokenGatewayOptions {
 	readonly env: Readonly<Record<string, string | undefined>>;
-	/**
-	 * The deployable package's `.env.local` (the proven `vercel env pull`
-	 * location). Defaults to this package's own root, which is the linked
-	 * Vercel project directory.
-	 */
-	readonly envLocalPath?: string;
 }
-
-const PACKAGE_ENV_LOCAL_URL = new URL("../../../.env.local", import.meta.url);
 
 export function createRealDispatchLocalTokenGateway(
 	options: RealDispatchLocalTokenGatewayOptions,
 ): DispatchLocalTokenGateway {
 	return {
-		async readDevelopmentOidcToken() {
+		async readDevelopmentOidcToken({ repoRoot }) {
 			const fromEnv = options.env[DISPATCH_OIDC_TOKEN_ENV_NAME];
 			if (fromEnv !== undefined && fromEnv.length > 0) {
 				return { type: "found", token: fromEnv };
 			}
-			const envLocalPath = options.envLocalPath ?? fileURLToPath(PACKAGE_ENV_LOCAL_URL);
+			const envLocalPath = join(repoRoot, ".env.local");
 			let content: string;
 			try {
 				content = await readFile(envLocalPath, "utf8");
@@ -51,7 +43,7 @@ export function createRealDispatchLocalTokenGateway(
 function missingTokenDetail(envLocalPath: string): string {
 	return (
 		`${DISPATCH_OIDC_TOKEN_ENV_NAME} is not available (checked the process environment and ${envLocalPath}). ` +
-		"Run `vercel env pull .env.local --environment=development` from the dispatch package directory."
+		"Run `vercel env pull .env.local --environment=development` from the repository root."
 	);
 }
 

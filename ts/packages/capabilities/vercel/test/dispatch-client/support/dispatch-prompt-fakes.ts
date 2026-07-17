@@ -576,7 +576,7 @@ export class FakeDispatchLocalTokenGateway implements DispatchLocalTokenGateway 
 		return [...this.readLog];
 	}
 
-	async readDevelopmentOidcToken() {
+	async readDevelopmentOidcToken(_options: { readonly repoRoot: string }) {
 		this.readLog.push("development-oidc-token");
 		this.recordOperation("token:read-development-oidc");
 		return this.result;
