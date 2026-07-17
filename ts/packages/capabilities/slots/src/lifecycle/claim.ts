@@ -20,7 +20,12 @@ import {
 	type SlotLifecycleFailure,
 } from "./common.ts";
 import { executeCurrentWorktreeRedirect } from "./current-worktree-redirect.ts";
-import { fillProvisionGapsForPlacement, type ProvisionPlacementReport } from "./provision.ts";
+import {
+	captureProvisionDeclarationForPlacement,
+	fillProvisionGapsForPlacement,
+	type ProvisionPlacementDeclarationSnapshot,
+	type ProvisionPlacementReport,
+} from "./provision.ts";
 
 export interface SlotClaimOutcome {
 	slotName: string;
@@ -75,6 +80,7 @@ export async function claimBranch(
 		return ok(outcomeFromPlan(repoCtx, plan, await provisionClaimTarget(repoCtx, plan)));
 	}
 
+	const provisionDeclaration = await captureProvisionDeclarationForPlacement(repoCtx);
 	const trunkBranch = await repoCtx.git.getTrunkBranch();
 	if (plan.source !== null) {
 		const sourceBranch = plan.source.branch;
@@ -97,16 +103,21 @@ export async function claimBranch(
 			"checkout-failed",
 			`Failed to check out '${plan.slotCheckoutBranch}' into ${plan.target.slotName}: ${checkoutFailure.message}`,
 		);
-	return ok(outcomeFromPlan(repoCtx, plan, await provisionClaimTarget(repoCtx, plan)));
+	return ok(
+		outcomeFromPlan(repoCtx, plan, await provisionClaimTarget(repoCtx, plan, provisionDeclaration)),
+	);
 }
 
 async function provisionClaimTarget(
 	ctx: RepoSlotContext,
 	plan: ClaimPlan,
+	declarationSnapshot?: ProvisionPlacementDeclarationSnapshot,
 ): Promise<ProvisionPlacementReport | null> {
-	return await fillProvisionGapsForPlacement(ctx, [
-		{ slotName: plan.target.slotName, path: plan.target.path },
-	]);
+	return await fillProvisionGapsForPlacement(
+		ctx,
+		[{ slotName: plan.target.slotName, path: plan.target.path }],
+		declarationSnapshot,
+	);
 }
 
 async function planClaim(

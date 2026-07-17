@@ -156,19 +156,30 @@ describe("slot checkout CLI", () => {
 		expect(parseJsonOutput(run)).toMatchObject({ errorType: "branch-in-use" });
 	});
 
-	it("--current redirects only after allocation is executable", async () => {
+	it("--current snapshots provisioning after planning and before redirect mutation", async () => {
+		const chronology: string[] = [];
 		const run = runScenario(["checkout", "--current", "--format", "json"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [{ path: "/repo", branch: "feature/a" }, slotWorktree("slot-01")],
 				previousBranches: { "/repo": "master" },
+				chronology,
+			},
+			provisionFiles: {
+				projectConfigByRoot: { "/repo": '[slots]\nprovision = [".env.local"]\n' },
+				files: { "/slots/repos/repo/provision/default/.env.local": "SECRET=1\n" },
+				chronology,
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(run.git.operations()).toEqual([
-			{ type: "checkout-branch", path: "/repo", branch: "master" },
-			{ type: "checkout-branch", path: "/slots/repos/repo/worktrees/slot-01", branch: "feature/a" },
+		expect(chronology).toEqual([
+			"read-project-config:/repo",
+			"checkout-branch:/repo:master",
+			"checkout-branch:/slots/repos/repo/worktrees/slot-01:feature/a",
 		]);
+		expect(run.provisionFiles.fileAt("/slots/repos/repo/worktrees/slot-01/.env.local")).toEqual({
+			content: "SECRET=1\n",
+		});
 	});
 
 	it("rejects invalid argument combinations", async () => {

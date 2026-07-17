@@ -9,7 +9,12 @@ import {
 	type SlotLifecycleFailure,
 } from "./common.ts";
 import { executeCurrentWorktreeRedirect } from "./current-worktree-redirect.ts";
-import { fillProvisionGapsForPlacement, type ProvisionPlacementReport } from "./provision.ts";
+import {
+	captureProvisionDeclarationForPlacement,
+	fillProvisionGapsForPlacement,
+	type ProvisionPlacementDeclarationSnapshot,
+	type ProvisionPlacementReport,
+} from "./provision.ts";
 
 export interface SlotCheckoutOutcome {
 	slotName: string;
@@ -78,10 +83,12 @@ export async function checkoutBranch(
 		};
 	if (plan.type === "branch_in_use")
 		return { type: "failure", failure: branchInUseFailure(plan.occupancy) };
+	const provisionDeclaration = await captureProvisionDeclarationForPlacement(repoCtx);
 	return await executeCheckoutPlan(plan, repoCtx, {
 		branchName,
 		hasCreatedBranch,
 		currentWtNote: null,
+		provisionDeclaration,
 	});
 }
 
@@ -117,6 +124,7 @@ export async function checkoutCurrent(ctx: SlotCliContext): Promise<SlotCheckout
 		};
 	if (currentPlan.plan.type === "branch_in_use")
 		return { type: "failure", failure: branchInUseFailure(currentPlan.plan.occupancy) };
+	const provisionDeclaration = await captureProvisionDeclarationForPlacement(repoCtx);
 	if (currentPlan.redirect !== null) {
 		const redirectFailure = await executeCurrentWorktreeRedirect(currentPlan.redirect, repoCtx);
 		if (redirectFailure !== null) return { type: "failure", failure: redirectFailure };
@@ -125,13 +133,19 @@ export async function checkoutCurrent(ctx: SlotCliContext): Promise<SlotCheckout
 		branchName: currentPlan.branchName,
 		hasCreatedBranch: false,
 		currentWtNote: currentPlan.currentWtNote,
+		provisionDeclaration,
 	});
 }
 
 async function executeCheckoutPlan(
 	plan: ExecutableCheckoutPlan,
 	ctx: RepoSlotContext,
-	options: { branchName: string; hasCreatedBranch: boolean; currentWtNote: string | null },
+	options: {
+		branchName: string;
+		hasCreatedBranch: boolean;
+		currentWtNote: string | null;
+		provisionDeclaration?: ProvisionPlacementDeclarationSnapshot;
+	},
 ): Promise<SlotCheckoutResult> {
 	if (plan.type === "reuse_assignment") {
 		return ok({
@@ -141,7 +155,7 @@ async function executeCheckoutPlan(
 			alreadyAssigned: true,
 			createdBranch: options.hasCreatedBranch,
 			currentWtNote: options.currentWtNote,
-			provision: await provisionCheckoutTarget(ctx, plan.record),
+			provision: await provisionCheckoutTarget(ctx, plan.record, options.provisionDeclaration),
 		});
 	}
 	if (plan.type === "branch_in_main_worktree") {
@@ -168,17 +182,20 @@ async function executeCheckoutPlan(
 		alreadyAssigned: false,
 		createdBranch: options.hasCreatedBranch,
 		currentWtNote: options.currentWtNote,
-		provision: await provisionCheckoutTarget(ctx, plan.record),
+		provision: await provisionCheckoutTarget(ctx, plan.record, options.provisionDeclaration),
 	});
 }
 
 async function provisionCheckoutTarget(
 	ctx: RepoSlotContext,
 	record: { slotName: string; path: string },
+	declarationSnapshot?: ProvisionPlacementDeclarationSnapshot,
 ): Promise<ProvisionPlacementReport | null> {
-	return await fillProvisionGapsForPlacement(ctx, [
-		{ slotName: record.slotName, path: record.path },
-	]);
+	return await fillProvisionGapsForPlacement(
+		ctx,
+		[{ slotName: record.slotName, path: record.path }],
+		declarationSnapshot,
+	);
 }
 
 function ok(outcome: SlotCheckoutOutcome): SlotCheckoutResult {

@@ -11,7 +11,8 @@ const slot1Path = "/slots/repos/repo/worktrees/slot-01";
 const slot2Path = "/slots/repos/repo/worktrees/slot-02";
 
 describe("slot claim CLI", () => {
-	it("moves a branch from another slot into the current slot", async () => {
+	it("snapshots provisioning before moving a branch from its source slot", async () => {
+		const chronology: string[] = [];
 		const run = runScenario(["claim", "feature/source", "--format", "json"], {
 			cwd: slot1Path,
 			repo: repoContext({ root: slot1Path }),
@@ -21,6 +22,14 @@ describe("slot claim CLI", () => {
 					slotWorktree("slot-01", "feature/current"),
 					slotWorktree("slot-02", "feature/source"),
 				],
+				chronology,
+			},
+			provisionFiles: {
+				projectConfigByRoot: {
+					[slot1Path]: '[slots]\nprovision = [".env.local"]\n',
+				},
+				files: { "/slots/repos/repo/provision/default/.env.local": "SECRET=1\n" },
+				chronology,
 			},
 		});
 		expect(await run.exit).toBe(0);
@@ -36,6 +45,14 @@ describe("slot claim CLI", () => {
 			{ type: "detach-head", path: slot2Path, ref: "master" },
 			{ type: "checkout-branch", path: slot1Path, branch: "feature/source" },
 		]);
+		expect(chronology).toEqual([
+			`read-project-config:${slot1Path}`,
+			`detach-head:${slot2Path}:master`,
+			`checkout-branch:${slot1Path}:feature/source`,
+		]);
+		expect(run.provisionFiles.fileAt(`${slot1Path}/.env.local`)).toEqual({
+			content: "SECRET=1\n",
+		});
 	});
 
 	it("returns already current without mutation", async () => {
