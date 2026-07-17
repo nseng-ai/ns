@@ -6,9 +6,10 @@ A composable Pi editor extension with two focused modifications:
 - Existing local PNG, JPEG, WebP, and GIF paths compact to stable markers such as
   `[screenshot #3]` and attach the corresponding image when submitted.
 
-The package has one extension entrypoint, while editor factory composition, multiline input,
-screenshot parsing, durable marker state, filesystem access, and editor behavior remain separate
-internal modules. The decorators use Pi's concrete editor-factory chain rather than global state.
+The package root extension is the sole supported import. Editor factory composition, multiline
+input, screenshot parsing, durable marker state, filesystem access, and editor behavior are private
+implementation details. The decorators use Pi's concrete editor-factory chain rather than global
+state.
 
 ## Enabled features
 
@@ -63,10 +64,11 @@ Marker identities are persisted as Pi custom session entries. Their stored value
 **absolute local paths**, so session files disclose those paths and remain machine-specific. Missing
 or stale files are skipped at submission without deleting their identity.
 
-Large-paste expansion remains owned by Pi's built-in editor. Complete bracketed paste payloads are
-compacted before delegation. Ordinary typing is compacted only when the runtime editor exposes its
-structural `getCursor()` method; otherwise compaction waits until submission rather than risking
-cursor corruption.
+Large-paste expansion remains owned by Pi's built-in editor. Exact complete bracketed-paste payloads
+compact supported existing image paths before delegation. Paths typed character-by-character remain
+raw while editing and resolve at submission. A raw path is replaced with a marker only after its image
+was read successfully; failed reads leave the raw text unchanged and allocate no marker. Existing
+markers retain their identity when their files become stale, but attach no image.
 
 ## Security
 

@@ -39,7 +39,7 @@ export function parseImageCandidates(text: string): ImageCandidate[] {
 
 export function normalizeLocalPath(
 	candidate: string,
-	options: { cwd: string; home?: string },
+	options: { home?: string } = {},
 ): string | undefined {
 	let path = candidate;
 	if (path.startsWith("file://")) {
@@ -60,15 +60,15 @@ export function normalizeLocalPath(
 	return normalize(path);
 }
 
-/** Applies injected existence/type policy after pure candidate parsing. */
+/** Normalizes path-shaped candidates without touching the filesystem. */
 export function resolveImageReferences(
 	text: string,
-	options: { cwd: string; home?: string; validation: CandidateValidation },
+	options: { home?: string } = {},
 ): ImageReference[] {
 	const references: ImageReference[] = [];
 	for (const candidate of parseImageCandidates(text)) {
 		const path = normalizeLocalPath(candidate.value, options);
-		if (path === undefined || !options.validation.isSupportedImage(path)) continue;
+		if (path === undefined) continue;
 		references.push({ ...candidate, path });
 	}
 	return selectNonOverlapping(references);

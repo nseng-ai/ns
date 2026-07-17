@@ -34,22 +34,27 @@ export function withEditorInput(
 	editor: EditorComponent,
 	handleInput: EditorInputHandler,
 ): EditorComponent {
+	const methodBindings = new Map<PropertyKey, { source: Function; bound: unknown }>();
+	const decoratedHandleInput = (data: string) => {
+		handleInput(data, (delegatedData) => editor.handleInput(delegatedData));
+	};
 	return new Proxy(editor, {
-		get(target, property, receiver) {
-			if (property === "handleInput") {
-				return (data: string) => {
-					handleInput(data, (delegatedData) => target.handleInput(delegatedData));
-				};
-			}
+		get(target, property) {
+			if (property === "handleInput") return decoratedHandleInput;
 
-			const value: unknown = Reflect.get(target, property, receiver);
+			const value: unknown = Reflect.get(target, property, target);
 			if (property === "onSubmit" || property === "onChange" || property === "borderColor") {
 				return value;
 			}
-			return typeof value === "function" ? value.bind(target) : value;
+			if (typeof value !== "function") return value;
+			const cached = methodBindings.get(property);
+			if (cached?.source === value) return cached.bound;
+			const bound: unknown = value.bind(target);
+			methodBindings.set(property, { source: value, bound });
+			return bound;
 		},
-		set(target, property, value, receiver) {
-			return Reflect.set(target, property, value, receiver);
+		set(target, property, value) {
+			return Reflect.set(target, property, value, target);
 		},
 	});
 }
