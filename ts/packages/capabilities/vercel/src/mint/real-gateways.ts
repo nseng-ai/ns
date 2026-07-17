@@ -61,6 +61,7 @@ export function createGitHubInstallationTokenGateway(
 				if (!isInstallationAuthentication(authentication)) {
 					return {
 						ok: false,
+						reason: "invalid-response",
 						message: "GitHub App authentication returned an invalid installation token response",
 					};
 				}
@@ -72,7 +73,11 @@ export function createGitHubInstallationTokenGateway(
 					},
 				};
 			} catch (error) {
-				return { ok: false, message: formatErrorMessage(error) };
+				return {
+					ok: false,
+					reason: classifyGitHubTokenMintFailure(error),
+					message: formatErrorMessage(error),
+				};
 			}
 		},
 	};
@@ -111,6 +116,30 @@ function defaultAppAuthFactory(options: AppAuthFactoryOptions): AppAuthFunction 
 			expiresAt: authentication.expiresAt,
 		};
 	};
+}
+
+function classifyGitHubTokenMintFailure(
+	error: unknown,
+):
+	| "authentication-failed"
+	| "transport-failed"
+	| "request-rejected"
+	| "target-not-found"
+	| "rate-limited"
+	| "upstream-unavailable" {
+	const status = readHttpStatus(error);
+	if (status === undefined) return "transport-failed";
+	if (status === 401) return "authentication-failed";
+	if (status === 403) return "request-rejected";
+	if (status === 404) return "target-not-found";
+	if (status === 429) return "rate-limited";
+	if (status >= 500) return "upstream-unavailable";
+	return "request-rejected";
+}
+
+function readHttpStatus(error: unknown): number | undefined {
+	if (typeof error !== "object" || error === null || !("status" in error)) return undefined;
+	return typeof error.status === "number" ? error.status : undefined;
 }
 
 function isInstallationAuthentication(value: InstallationAuthentication): boolean {

@@ -69,7 +69,8 @@ describe("withOperation", () => {
 				event: "operation_failed",
 				operation: "create_sandbox",
 				durationMs: 5,
-				error: "sandbox SDK exploded",
+				reason: "unexpected-exception",
+				diagnostic: "sandbox SDK exploded",
 			},
 		]);
 	});
@@ -94,7 +95,8 @@ describe("withOperation", () => {
 			event: "operation_failed",
 			operation: "update_anchor_pr",
 			durationMs: 0,
-			error: "HTTP 502",
+			reason: "operation-returned-failure",
+			diagnostic: "HTTP 502",
 		});
 	});
 

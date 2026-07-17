@@ -149,8 +149,7 @@ export async function launchDispatchRun(
 					purpose: "clone",
 					anchorPrNumber: run.anchorPrNumber,
 				},
-				failureMessage: (result) =>
-					result.ok ? undefined : (result.error.message ?? result.error.code),
+				failure: mintOperationFailure,
 			},
 			async () =>
 				await mintContext.minter.mintDispatchToken({
@@ -678,8 +677,7 @@ export async function landDispatchRun(
 			{
 				operation: "mint_landing_token",
 				context: { repository: mintContext.repository, purpose: "landing" },
-				failureMessage: (result) =>
-					result.ok ? undefined : (result.error.message ?? result.error.code),
+				failure: mintOperationFailure,
 			},
 			async () =>
 				await mintContext.minter.mintDispatchToken({
@@ -869,6 +867,9 @@ async function createDispatchMintContext(
 interface RunOperationOptions<T> {
 	readonly operation: string;
 	readonly context?: Readonly<Record<string, string | number | boolean>>;
+	readonly failure?: (
+		result: T,
+	) => { readonly reason: string; readonly diagnostic?: string } | undefined;
 	readonly failureMessage?: (result: T) => string | undefined;
 }
 
@@ -882,6 +883,7 @@ async function runOperation<T>(
 			operation: options.operation,
 			...optionalEntries({
 				context: options.context,
+				failure: options.failure,
 				failureMessage: options.failureMessage,
 			}),
 			clock: deps.operationClock,
@@ -889,6 +891,16 @@ async function runOperation<T>(
 		},
 		run,
 	);
+}
+
+function mintOperationFailure(
+	result: Awaited<ReturnType<DispatchTokenMinter["mintDispatchToken"]>>,
+): { readonly reason: string; readonly diagnostic?: string } | undefined {
+	if (result.ok) return undefined;
+	return {
+		reason: result.error.reason ?? result.error.code,
+		...(result.error.message === undefined ? {} : { diagnostic: result.error.message }),
+	};
 }
 
 function readFailureMessage(result: ReadDispatchSandboxFileResult): string | undefined {
