@@ -2,7 +2,7 @@
 agents = ["codex", "claude-code"]
 
 [slots]
-provision = [".vercel/project.json"]
+provision = [".env.local", ".vercel/project.json"]
 
 [dispatch]
 harness = "pi"
