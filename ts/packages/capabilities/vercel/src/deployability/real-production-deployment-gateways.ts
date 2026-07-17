@@ -299,7 +299,7 @@ async function prepareDetachedSourceWorkspace(
 		});
 		if (!added.ok) throw new Error("Cannot create detached production source worktree.");
 		isWorktreeAdded = true;
-		await provisionOperationalInputs(options.packageRoot, isolatedPackageRoot, operations);
+		await provisionOperationalInputs(options.repositoryRoot, isolatedPackageRoot, operations);
 		const installed = await operations.runCommand({
 			commandName: "corepack",
 			args: PRODUCTION_WORKSPACE_INSTALL_ARGS,
@@ -404,16 +404,16 @@ async function prepareDetachedSourceWorkspace(
 }
 
 async function provisionOperationalInputs(
-	operatorPackageRoot: string,
+	operatorRepositoryRoot: string,
 	isolatedPackageRoot: string,
 	operations: ProductionWorkspaceAdapterOperations,
 ): Promise<void> {
 	await operations.makeDirectory(join(isolatedPackageRoot, ".vercel"));
 	await operations.copyFile(
-		join(operatorPackageRoot, ".vercel/project.json"),
+		join(operatorRepositoryRoot, ".vercel/project.json"),
 		join(isolatedPackageRoot, ".vercel/project.json"),
 	);
-	const environmentPath = join(operatorPackageRoot, ".env.local");
+	const environmentPath = join(operatorRepositoryRoot, ".env.local");
 	if (await operations.pathExists(environmentPath)) {
 		await operations.copyFile(environmentPath, join(isolatedPackageRoot, ".env.local"));
 	}
