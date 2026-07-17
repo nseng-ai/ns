@@ -133,15 +133,18 @@ describe("createGitHubInstallationTokenGateway", () => {
 		[404, "target-not-found"],
 		[429, "rate-limited"],
 		[503, "upstream-unavailable"],
-	] as const)("classifies an App authentication HTTP %s without exposing response data", async (status, reason) => {
-		const gateway = createGitHubInstallationTokenGateway(config, () => async () => {
-			throw Object.assign(new Error("safe vendor diagnostic"), { status });
-		});
+	] as const)(
+		"classifies an App authentication HTTP %s without exposing response data",
+		async (status, reason) => {
+			const gateway = createGitHubInstallationTokenGateway(config, () => async () => {
+				throw Object.assign(new Error("safe vendor diagnostic"), { status });
+			});
 
-		expect(
-			await gateway.mintRepositoryToken({ repository: "nseng-ai/ns", purpose: "clone" }),
-		).toEqual({ ok: false, reason, message: "safe vendor diagnostic" });
-	});
+			expect(
+				await gateway.mintRepositoryToken({ repository: "nseng-ai/ns", purpose: "clone" }),
+			).toEqual({ ok: false, reason, message: "safe vendor diagnostic" });
+		},
+	);
 });
 
 describe("createGitHubAppDispatchTokenMinter", () => {
