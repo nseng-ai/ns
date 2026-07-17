@@ -1,0 +1,47 @@
+{
+	"name": "@nseng-ai/pi-editor-mods",
+	"version": "0.1.4",
+	"keywords": [
+		"pi-package"
+	],
+	"files": [
+		"src",
+		"README.md"
+	],
+	"type": "module",
+	"exports": {
+		".": "./src/extension.ts",
+		"./editor-compose": "./src/editor-compose.ts",
+		"./multiline-editor": "./src/multiline-editor.ts",
+		"./condensed-screenshots": "./src/condensed-screenshots.ts",
+		"./image-references": "./src/image-references.ts",
+		"./marker-journal": "./src/marker-journal.ts",
+		"./editor-behavior": "./src/editor-behavior.ts",
+		"./image-files": "./src/image-files.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/pi-editor-mods/test"
+	},
+	"dependencies": {
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-ai": "catalog:",
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@earendil-works/pi-tui": "catalog:"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"ns": {
+		"tier": "standalone-tool"
+	},
+	"pi": {
+		"extensions": [
+			"./src/extension.ts"
+		]
+	}
+}
