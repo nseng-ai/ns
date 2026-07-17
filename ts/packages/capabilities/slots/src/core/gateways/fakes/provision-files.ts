@@ -9,9 +9,9 @@ export interface FakeProvisionFileEntry {
 export interface FakeSlotProvisionFilesGatewayOptions {
 	/** Absolute path -> file entry (string shorthand for a plain file). */
 	files?: Record<string, string | FakeProvisionFileEntry>;
-	/** Main repo root -> ns.toml source. Missing root means no ns.toml. */
+	/** Invoking repo root -> ns.toml source. Missing root means no ns.toml. */
 	projectConfigByRoot?: Record<string, string>;
-	/** Main repo root -> error message thrown when reading ns.toml. */
+	/** Invoking repo root -> error message thrown when reading ns.toml. */
 	projectConfigReadFailures?: Record<string, string>;
 	/** Destination absolute path -> error message thrown on copy. */
 	copyFailures?: Record<string, string>;
@@ -44,10 +44,10 @@ export class FakeSlotProvisionFilesGateway implements SlotProvisionFilesGateway 
 		this.copyFailures = new Map(Object.entries(options.copyFailures ?? {}));
 	}
 
-	async readProjectConfigSource(mainRepoRoot: string): Promise<string | null> {
-		const failureMessage = this.projectConfigReadFailures.get(mainRepoRoot);
+	async readProjectConfigSource(repoRoot: string): Promise<string | null> {
+		const failureMessage = this.projectConfigReadFailures.get(repoRoot);
 		if (failureMessage !== undefined) throw new Error(failureMessage);
-		return this.projectConfigByRoot.get(mainRepoRoot) ?? null;
+		return this.projectConfigByRoot.get(repoRoot) ?? null;
 	}
 
 	async inspect(absolutePath: string): Promise<ProvisionPathKind> {

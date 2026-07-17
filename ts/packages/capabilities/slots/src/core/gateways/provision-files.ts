@@ -6,7 +6,7 @@ import { ensurePrivateParentDirectory } from "@nseng-ai/capability-kit/xdg";
 export type ProvisionPathKind = "missing" | "file" | "directory" | "symlink" | "other";
 
 export interface SlotProvisionFilesGateway {
-	readProjectConfigSource(mainRepoRoot: string): Promise<string | null>;
+	readProjectConfigSource(repoRoot: string): Promise<string | null>;
 	inspect(absolutePath: string): Promise<ProvisionPathKind>;
 	contentsEqual(leftPath: string, rightPath: string): Promise<boolean>;
 	copyIntoWorktree(storeFilePath: string, worktreeFilePath: string): Promise<void>;
@@ -14,9 +14,9 @@ export interface SlotProvisionFilesGateway {
 }
 
 export class RealSlotProvisionFilesGateway implements SlotProvisionFilesGateway {
-	async readProjectConfigSource(mainRepoRoot: string): Promise<string | null> {
+	async readProjectConfigSource(repoRoot: string): Promise<string | null> {
 		try {
-			return await readFile(join(mainRepoRoot, "ns.toml"), "utf8");
+			return await readFile(join(repoRoot, "ns.toml"), "utf8");
 		} catch (error) {
 			if (isErrorCode(error, "ENOENT")) return null;
 			throw error;
