@@ -8,6 +8,8 @@ import {
 	parseDispatchProjectConfigToml,
 	type DispatchProjectConfig,
 } from "../config/project-config.ts";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
+
 import type { DispatchPromptGateways, DispatchTriggerConnection } from "./contracts.ts";
 
 /** One credentials-preflight check: named, actionable, value-free. */
@@ -88,9 +90,7 @@ export async function runDispatchPreflight(
 	const triggerConnection: DispatchTriggerConnection = {
 		deploymentUrl,
 		oidcToken: tokenResult.token,
-		...(tokenResult.protectionBypass === undefined
-			? {}
-			: { protectionBypass: tokenResult.protectionBypass }),
+		...optionalEntries({ protectionBypass: tokenResult.protectionBypass }),
 	};
 	const identity = await gateways.trigger.checkTriggerIdentity({ connection: triggerConnection });
 	const identityCheck = triggerIdentityCheck(identity);

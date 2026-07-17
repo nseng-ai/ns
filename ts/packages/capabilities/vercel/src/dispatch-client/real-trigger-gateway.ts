@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
 import {
 	DISPATCH_OIDC_HEADER_NAME,
 	httpErrorSchema,
@@ -56,9 +56,7 @@ export function createRealDispatchTriggerGateway(
 function dispatchHeaders(connection: DispatchTriggerConnection): Record<string, string> {
 	return {
 		[DISPATCH_OIDC_HEADER_NAME]: connection.oidcToken,
-		...(connection.protectionBypass === undefined
-			? {}
-			: { "x-vercel-protection-bypass": connection.protectionBypass }),
+		...optionalEntries({ "x-vercel-protection-bypass": connection.protectionBypass }),
 	};
 }
 
