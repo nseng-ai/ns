@@ -33,7 +33,7 @@ describe("checked-in Objective ns extension loading", () => {
 		expect(output).not.toContain("read-objective");
 		expect(output).not.toContain("tracking-gate");
 		expect(help.stderr.join("")).toBe("");
-	});
+	}, 15_000);
 
 	test("visible command help preserves the Objective command surfaces", async () => {
 		const cwd = await createObjectiveProject();

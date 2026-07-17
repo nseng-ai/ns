@@ -39,7 +39,7 @@ describe("real publication authorization store", () => {
 		expect(await store.replace(path, "second")).toEqual({ ok: true, value: undefined });
 		expect(await readFile(path, "utf8")).toBe("second");
 		expect((await lstat(path)).mode & 0o777).toBe(0o600);
-		expect((await import("node:fs/promises")).readdir(scratch)).resolves.toEqual([
+		await expect((await import("node:fs/promises")).readdir(scratch)).resolves.toEqual([
 			"authorization.json",
 		]);
 	});
