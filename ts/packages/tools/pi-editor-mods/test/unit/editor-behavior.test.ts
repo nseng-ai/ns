@@ -11,10 +11,16 @@ function journal(): MarkerJournal {
 	return new MarkerJournal({ appendEntry: () => undefined }, restoreMarkerJournal([]));
 }
 
-function editorHarness(): { editor: EditorComponent; inputs: string[] } {
+function editorHarness(options: { insertion?: boolean } = {}): {
+	editor: EditorComponent;
+	inputs: string[];
+	insertions: string[];
+} {
 	const inputs: string[] = [];
+	const insertions: string[] = [];
 	return {
 		inputs,
+		insertions,
 		editor: {
 			render: () => [],
 			invalidate: () => undefined,
@@ -25,6 +31,9 @@ function editorHarness(): { editor: EditorComponent; inputs: string[] } {
 				throw new Error("input decorator must not replace editor text");
 			},
 			handleInput: (data) => inputs.push(data),
+			...(options.insertion === true
+				? { insertTextAtCursor: (text: string) => insertions.push(text) }
+				: {}),
 		},
 	};
 }
@@ -41,6 +50,47 @@ describe("editor behavior", () => {
 		);
 		decorated.handleInput("\u001b[200~/shot.png /missing.png\u001b[201~");
 		expect(harness.inputs).toEqual(["\u001b[200~[screenshot #1] /missing.png\u001b[201~"]);
+	});
+
+	it("compacts mixed programmatic insertion without reading image bytes and reuses markers", () => {
+		const harness = editorHarness({ insertion: true });
+		const calls = { validations: [] as string[], reads: 0 };
+		const files: ImageFileGateway = {
+			isSupportedImage: (path) => {
+				calls.validations.push(path);
+				return path === "/shot.png";
+			},
+			readImage: async () => {
+				calls.reads += 1;
+				return undefined;
+			},
+		};
+		const decorated = createScreenshotEditorDecorator({ journal: journal(), files })(
+			harness.editor,
+		);
+
+		decorated.insertTextAtCursor?.("before /shot.png /missing.jpg after");
+		decorated.insertTextAtCursor?.("/shot.png");
+
+		expect(harness.insertions).toEqual([
+			"before [screenshot #1] /missing.jpg after",
+			"[screenshot #1]",
+		]);
+		expect(calls.validations).toEqual(["/shot.png", "/missing.jpg", "/shot.png"]);
+		expect(calls.reads).toBe(0);
+	});
+
+	it("keeps a missing wrapped insertion method absent", () => {
+		const harness = editorHarness();
+		const files: ImageFileGateway = {
+			isSupportedImage: () => true,
+			readImage: async () => undefined,
+		};
+		const decorated = createScreenshotEditorDecorator({ journal: journal(), files })(
+			harness.editor,
+		);
+
+		expect(decorated.insertTextAtCursor).toBeUndefined();
 	});
 
 	it.each([

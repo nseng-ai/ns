@@ -125,6 +125,37 @@ describe("withEditorInput", () => {
 		expect(decorated.render(8)).toEqual(["replacement"]);
 	});
 
+	it("intercepts insertion once with stable identity and follows method replacement", () => {
+		const inputLog: string[] = [];
+		const insertionLog: string[] = [];
+		const editor = createEditor(inputLog);
+		editor.insertTextAtCursor = (text) => insertionLog.push(`first:${text}`);
+		const decorated = withEditorInput(
+			editor,
+			(data, delegate) => delegate(data),
+			(text, delegate) => delegate(`transformed:${text}`),
+		);
+
+		expect(decorated.insertTextAtCursor).toBe(decorated.insertTextAtCursor);
+		decorated.insertTextAtCursor?.("one");
+		editor.insertTextAtCursor = (text) => insertionLog.push(`replacement:${text}`);
+		decorated.insertTextAtCursor?.("two");
+
+		expect(insertionLog).toEqual(["first:transformed:one", "replacement:transformed:two"]);
+	});
+
+	it("does not synthesize an absent insertion capability", () => {
+		const editor = createEditor([]);
+		delete editor.insertTextAtCursor;
+		const decorated = withEditorInput(
+			editor,
+			(data, delegate) => delegate(data),
+			(text, delegate) => delegate(text),
+		);
+
+		expect(decorated.insertTextAtCursor).toBeUndefined();
+	});
+
 	it("preserves callbacks, properties, and all optional editor methods", () => {
 		const inputLog: string[] = [];
 		const editor = createEditor(inputLog);
