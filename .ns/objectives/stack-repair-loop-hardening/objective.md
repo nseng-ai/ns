@@ -108,3 +108,14 @@ Risks:
 - Exact per-PR status vocabulary: reuse stack-view's enum (`checks-failing`,
   `unresolved`, `ready`, `draft`, `no-pr`) or define a repair-loop-specific one that
   includes stale/fresh at the PR level?
+
+## Closure
+
+Intentionally abandoned on 2026-07-17 after a stale-Objective audit found no material
+progress after the initial 2026-07-09 design. The July 12 change was a prose rebaseline,
+and the July 14 changes only linked downstream Flow Objectives; all roadmap rows remain
+open. No completion claim is made: the skill rewrite, enriched `branch-pr-checks`
+contract and implementation, failed-check log command, push-down audit, and backend
+decision remain unresolved. The edges are retained as historical coordination context;
+`flow-stack-workflows` and `flow-pi-tier` must re-plan rather than assume this Objective
+will deliver their described upstream primitives.

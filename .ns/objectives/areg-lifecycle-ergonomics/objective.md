@@ -117,3 +117,12 @@ Risks:
   existing `npx skills remove` sufficient?
 - Does pi-tools' new consumption of the areg-owned registry change where the
   removal-story fix path should live (areg CLI vs registry module contract)?
+
+## Closure
+
+Intentionally abandoned on 2026-07-17 after a stale-Objective audit found no material
+progress after the record was created on 2026-07-08. The July 12 update only rebaselined
+registry ownership and explicitly left every roadmap row open. No completion claim is
+made: kind round-tripping, removal cleanup, settings ordering, hash semantics, and
+implied-kind diagnostics remain unresolved. The observed lifecycle failures and design
+questions remain preserved here as historical evidence rather than an active commitment.

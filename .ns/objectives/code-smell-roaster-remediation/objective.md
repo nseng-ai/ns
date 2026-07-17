@@ -282,3 +282,13 @@ Risks:
   row-by-row at pickup — fix the shape here, or dispose it with re-probe
   evidence when its landed work already resolved it. The completed infra
   git/github sub-slices were fixed here with no routed dispositions recorded.
+
+## Closure
+
+Intentionally abandoned on 2026-07-17 after a stale-Objective audit found no material
+progress since the last implementation slices on 2026-07-06; the July 7–12 record
+changes were refreshes and rebaselines only. The completed package-scoped remediations
+and their validation evidence remain useful history, but the remaining findings are not
+being carried forward as an active backlog. No completion claim is made: open
+`infra`, `capabilities`, and `local-pi-tools` findings remain undisposed, including the
+`pr-feedback-watch` controller follow-up.
