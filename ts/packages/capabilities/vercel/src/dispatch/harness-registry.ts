@@ -165,7 +165,7 @@ export function buildPiHarnessInvocation(pnpmVersion: ValidatedPnpmVersion): Har
 			},
 		],
 		launchCommand: { cmd: "node", args: [PI_RUNNER_ENTRY_PATH] },
-		launchEnvironmentVariableNames: ["ANTHROPIC_API_KEY"],
+		launchEnvironmentVariableNames: ["AI_GATEWAY_API_KEY"],
 	};
 }
 

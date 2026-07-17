@@ -210,7 +210,7 @@ describe("createRealDispatchSandboxGateway", () => {
 		const result = await gateway.runDetachedSandboxCommand({
 			sandboxName: "sbx_real",
 			command: { cmd: "fake-harness", args: ["--headless"] },
-			env: { ANTHROPIC_API_KEY: "model-key" },
+			env: { AI_GATEWAY_API_KEY: "model-key" },
 		});
 
 		expect(result).toEqual({ ok: true });
@@ -219,7 +219,7 @@ describe("createRealDispatchSandboxGateway", () => {
 			options: {
 				cmd: "fake-harness",
 				args: ["--headless"],
-				env: { ANTHROPIC_API_KEY: "model-key" },
+				env: { AI_GATEWAY_API_KEY: "model-key" },
 			},
 		});
 	});

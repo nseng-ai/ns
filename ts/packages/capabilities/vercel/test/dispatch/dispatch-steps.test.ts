@@ -81,7 +81,7 @@ function validEnvironment(): MintEnvironment {
 		NS_DISPATCH_GITHUB_APP_PRIVATE_KEY:
 			"-----BEGIN PRIVATE KEY-----\\nprivate-key-fixture\\n-----END PRIVATE KEY-----\\n",
 		NS_DISPATCH_GITHUB_REPOSITORY: "nseng-ai/ns",
-		ANTHROPIC_API_KEY: "model-key-fixture",
+		AI_GATEWAY_API_KEY: "model-key-fixture",
 	};
 }
 
@@ -89,7 +89,7 @@ function harnessInvocation(overrides: Partial<HarnessInvocation> = {}): HarnessI
 	return {
 		provisionCommands: [{ cmd: "npm", args: ["install", "-g", "fake-harness"] }],
 		launchCommand: { cmd: "fake-harness", args: ["--headless"] },
-		launchEnvironmentVariableNames: ["ANTHROPIC_API_KEY"],
+		launchEnvironmentVariableNames: ["AI_GATEWAY_API_KEY"],
 		...overrides,
 		harness: overrides.harness ?? "pi",
 	};
@@ -233,7 +233,7 @@ describe("launchDispatchRun", () => {
 		expect(sandboxes.calls[5]?.options).toEqual({
 			sandboxName: "sbx_dispatch",
 			command: { cmd: "fake-harness", args: ["--headless"] },
-			env: { ANTHROPIC_API_KEY: "model-key-fixture" },
+			env: { AI_GATEWAY_API_KEY: "model-key-fixture" },
 		});
 		const operationEvents = operationLogs.map(
 			(line) => JSON.parse(line) as { event: string; operation: string },
@@ -469,7 +469,7 @@ describe("launchDispatchRun", () => {
 	});
 
 	it("returns the created sandbox when a declared launch variable is missing", async () => {
-		const environment: MintEnvironment = { ...validEnvironment(), ANTHROPIC_API_KEY: undefined };
+		const environment: MintEnvironment = { ...validEnvironment(), AI_GATEWAY_API_KEY: undefined };
 		const { deps, sandboxes } = createDeps({ environment });
 
 		const result = await launchDispatchRun(runInput(), deps);
@@ -477,7 +477,7 @@ describe("launchDispatchRun", () => {
 		expect(result).toEqual({
 			ok: false,
 			code: "dispatch-misconfigured",
-			message: "Dispatch configuration is invalid: ANTHROPIC_API_KEY.",
+			message: "Dispatch configuration is invalid: AI_GATEWAY_API_KEY.",
 			sandboxName: "sbx_dispatch",
 		});
 		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read"]);
