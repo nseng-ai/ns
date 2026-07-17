@@ -13,18 +13,22 @@ export function createScreenshotEditorDecorator(options: {
 	home?: string;
 }): EditorDecorator {
 	return (editor) =>
-		withEditorInput(editor, (data, delegate) => {
-			if (!data.startsWith(PASTE_START) || !data.endsWith(PASTE_END)) {
-				delegate(data);
-				return;
-			}
-			const payload = data.slice(PASTE_START.length, -PASTE_END.length);
-			if (payload.includes(PASTE_START) || payload.includes(PASTE_END)) {
-				delegate(data);
-				return;
-			}
-			delegate(PASTE_START + compactText(payload, options) + PASTE_END);
-		});
+		withEditorInput(
+			editor,
+			(data, delegate) => {
+				if (!data.startsWith(PASTE_START) || !data.endsWith(PASTE_END)) {
+					delegate(data);
+					return;
+				}
+				const payload = data.slice(PASTE_START.length, -PASTE_END.length);
+				if (payload.includes(PASTE_START) || payload.includes(PASTE_END)) {
+					delegate(data);
+					return;
+				}
+				delegate(PASTE_START + compactText(payload, options) + PASTE_END);
+			},
+			(text, delegate) => delegate(compactText(text, options)),
+		);
 }
 
 export function compactText(

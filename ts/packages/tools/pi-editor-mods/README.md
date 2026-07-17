@@ -65,10 +65,15 @@ Marker identities are persisted as Pi custom session entries. Their stored value
 or stale files are skipped at submission without deleting their identity.
 
 Large-paste expansion remains owned by Pi's built-in editor. Exact complete bracketed-paste payloads
-compact supported existing image paths before delegation. Paths typed character-by-character remain
-raw while editing and resolve at submission. A raw path is replaced with a marker only after its image
-was read successfully; failed reads leave the raw text unchanged and allocate no marker. Existing
-markers retain their identity when their files become stale, but attach no image.
+and text inserted programmatically through Pi's optional editor insertion API—including Ctrl+V
+clipboard images—compact supported existing image paths before delegation. This insertion-time step
+checks that candidates are supported existing files, but does not read or encode image bytes. Paths
+typed character-by-character remain raw while editing and resolve at submission.
+
+Image bytes are read and attached only at submission. An uncompacted raw path is replaced with a marker
+only after its image was read successfully; failed reads leave the raw text unchanged and allocate no
+marker. A path compacted during paste or programmatic insertion already has a durable marker identity;
+if its file later becomes stale, the marker retains that identity but attaches no image.
 
 ## Security
 
