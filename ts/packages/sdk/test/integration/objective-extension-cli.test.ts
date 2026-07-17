@@ -12,6 +12,9 @@ import {
 } from "../scenario/ns-cli-fakes.ts";
 
 const tempDirs: string[] = [];
+// This test pays the lane's cold checked-in extension load, which can exceed
+// Vitest's generic five-second timeout on shared CI runners.
+const COLD_EXTENSION_LOAD_TEST_TIMEOUT_MS = 15_000;
 
 afterEach(async () => {
 	for (const directory of tempDirs.splice(0)) {
@@ -20,20 +23,24 @@ afterEach(async () => {
 });
 
 describe("checked-in Objective ns extension loading", () => {
-	test("real loader exposes Objective command help without showing hidden exec helpers", async () => {
-		const cwd = await createObjectiveProject();
+	test(
+		"real loader exposes Objective command help without showing hidden exec helpers",
+		async () => {
+			const cwd = await createObjectiveProject();
 
-		const help = runWithRealObjectiveExtension({ args: ["objective", "--help"], cwd });
-		expect(await help.exit).toBe(0);
-		const output = help.stdout.join("");
-		expect(output).toContain("Usage: ns objective");
-		expect(output).toContain("list");
-		expect(output).toContain("show");
-		expect(output).toContain("check");
-		expect(output).not.toContain("read-objective");
-		expect(output).not.toContain("tracking-gate");
-		expect(help.stderr.join("")).toBe("");
-	}, 15_000);
+			const help = runWithRealObjectiveExtension({ args: ["objective", "--help"], cwd });
+			expect(await help.exit).toBe(0);
+			const output = help.stdout.join("");
+			expect(output).toContain("Usage: ns objective");
+			expect(output).toContain("list");
+			expect(output).toContain("show");
+			expect(output).toContain("check");
+			expect(output).not.toContain("read-objective");
+			expect(output).not.toContain("tracking-gate");
+			expect(help.stderr.join("")).toBe("");
+		},
+		COLD_EXTENSION_LOAD_TEST_TIMEOUT_MS,
+	);
 
 	test("visible command help preserves the Objective command surfaces", async () => {
 		const cwd = await createObjectiveProject();
