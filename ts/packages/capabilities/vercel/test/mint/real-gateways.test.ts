@@ -105,8 +105,21 @@ describe("createGitHubInstallationTokenGateway", () => {
 			purpose: "clone",
 		});
 
-		expect(result).toEqual({ ok: false });
+		expect(result).toEqual({
+			ok: false,
+			message: "GitHub App authentication returned an invalid installation token response",
+		});
 		expect(JSON.stringify(result)).not.toContain("vendor-secret");
+	});
+
+	it("retains the raw App authentication error message", async () => {
+		const gateway = createGitHubInstallationTokenGateway(config, () => async () => {
+			throw new Error("GitHub App auth connection reset");
+		});
+
+		expect(
+			await gateway.mintRepositoryToken({ repository: "nseng-ai/ns", purpose: "clone" }),
+		).toEqual({ ok: false, message: "GitHub App auth connection reset" });
 	});
 });
 

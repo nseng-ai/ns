@@ -1,3 +1,4 @@
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { createAppAuth } from "@octokit/auth-app";
 import { githubPermissionsForPurpose, type GitHubRepositoryPermissions } from "./contracts.ts";
 import {
@@ -57,7 +58,12 @@ export function createGitHubInstallationTokenGateway(
 					permissions: githubPermissionsForPurpose(options.purpose),
 					refresh: true,
 				});
-				if (!isInstallationAuthentication(authentication)) return { ok: false };
+				if (!isInstallationAuthentication(authentication)) {
+					return {
+						ok: false,
+						message: "GitHub App authentication returned an invalid installation token response",
+					};
+				}
 				return {
 					ok: true,
 					value: {
@@ -65,8 +71,8 @@ export function createGitHubInstallationTokenGateway(
 						expiresAt: authentication.expiresAt,
 					},
 				};
-			} catch {
-				return { ok: false };
+			} catch (error) {
+				return { ok: false, message: formatErrorMessage(error) };
 			}
 		},
 	};

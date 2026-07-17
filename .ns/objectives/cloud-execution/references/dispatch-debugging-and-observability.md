@@ -79,6 +79,23 @@ OIDC authentication.
 
 Never print request headers carrying credentials.
 
+## Remote-step operation logs
+
+External and configuration-dependent operations inside remote Workflow steps emit JSON-line records to
+Vercel Function logs. Each operation writes `operation_started` followed by `operation_succeeded` or
+`operation_failed`; terminal records include elapsed milliseconds and curated safe context such as
+repository, revision, sandbox name, path, harness, anchor branch, anchor PR number, purpose, ordinal,
+or exit code.
+
+By product decision, failures retain the raw downstream `Error.message` (or string form of a non-Error
+throw). Safety is enforced by construction instead of redaction: operation records never serialize
+credentials, headers, prompt or decision-log content, command argv/environment maps, authenticated
+URLs, response bodies, or whole operation results.
+
+These records currently exist only in Function logs. Adapting operation events at the Workflow edge to
+the existing named `status` stream could later provide a durable detailed timeline in the Workflow CLI
+and Web UI; that status-stream/UI work is deferred and is not live-proven here.
+
 ## Valid-shape probe identifiers
 
 A deliberately nonexistent identifier must still satisfy the vendor grammar.
