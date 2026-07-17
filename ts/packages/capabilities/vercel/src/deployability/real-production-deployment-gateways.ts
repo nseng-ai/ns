@@ -46,8 +46,6 @@ const healthPayloadSchema = z.strictObject({
 export const VERCEL_PRODUCTION_DEPLOY_ARGS = [
 	"deploy",
 	"--prebuilt",
-	"--scope",
-	"schrockns-projects",
 	"--prod",
 	"--yes",
 	"--format=json",
