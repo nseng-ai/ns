@@ -213,6 +213,7 @@ export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGate
 	async resolveSourceRef(options: { readonly cwd: string }) {
 		this.sourceRefReadLog.push(options.cwd);
 		this.recordOperation("git:resolve-source-ref");
+		if (this.sourceRefReadLog.length > 1) this.repository.prepareFinalValidation();
 		if (this.repository.isNotARepository) {
 			return {
 				ok: false as const,
@@ -265,7 +266,6 @@ export class FakeDispatchWorkspaceGitGateway implements DispatchWorkspaceGitGate
 		if (this.state.occupiedAnchorBranches?.includes(options.anchorBranch) === true) {
 			return { type: "occupied" } as const;
 		}
-		this.repository.prepareFinalValidation();
 		return { type: "available" } as const;
 	}
 

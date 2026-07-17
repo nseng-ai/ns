@@ -133,7 +133,6 @@ describe("ns dispatch prompt", () => {
 			"slug:derive-semantic",
 			"publication:plan",
 			"git:push-source",
-			"git:check-anchor-availability",
 			"git:resolve-source-ref",
 			"git:list-dirty-paths",
 			"config:read-dispatch-settings",
@@ -141,6 +140,7 @@ describe("ns dispatch prompt", () => {
 			"token:read-development-oidc",
 			"trigger:check-identity",
 			"git:read-remote-tip",
+			"git:check-anchor-availability",
 			"git:push-anchor",
 			"anchor-pr:open",
 			"trigger:start-run",
@@ -283,7 +283,10 @@ describe("ns dispatch prompt", () => {
 		if (exit.type !== "failure") return;
 		expect(exit.errorType).toBe("anchor-branch-availability-failed");
 		expect(exit.data).toEqual({ anchorBranch: EXPECTED_ANCHOR_BRANCH });
-		expect(gateways.git.remoteTipReads).toEqual([{ cwd: "/repo", branch: "feature/widgets" }]);
+		expect(gateways.git.remoteTipReads).toEqual([
+			{ cwd: "/repo", branch: "feature/widgets" },
+			{ cwd: "/repo", branch: "feature/widgets" },
+		]);
 		expect(gateways.git.sourcePushes).toEqual([]);
 		expect(gateways.git.anchorPushes).toEqual([]);
 	});
@@ -302,7 +305,10 @@ describe("ns dispatch prompt", () => {
 		expect(exit.errorType).toBe("anchor-branch-unavailable");
 		expect(exit.data).toEqual({ semanticSlug: FAKE_SEMANTIC_SLUG, candidateLimit: 50 });
 		expect(gateways.git.anchorAvailabilityReads).toHaveLength(50);
-		expect(gateways.git.remoteTipReads).toEqual([{ cwd: "/repo", branch: "feature/widgets" }]);
+		expect(gateways.git.remoteTipReads).toEqual([
+			{ cwd: "/repo", branch: "feature/widgets" },
+			{ cwd: "/repo", branch: "feature/widgets" },
+		]);
 		expect(gateways.git.sourcePushes).toEqual([]);
 		expect(gateways.git.anchorPushes).toEqual([]);
 	});
@@ -441,8 +447,9 @@ describe("ns dispatch prompt", () => {
 		expect(gateways.trigger.startCalls[0]?.input.revision).toBe(FAKE_REWRITTEN_HEAD_SHA);
 	});
 
-	test("Graphite publication uses refreshed preflight facts after anchor probing", async () => {
-		const { exit } = await runPromptCommand(["--force", PROMPT], {
+	test("Graphite publication immediately refreshes preflight facts consumed by naming and trigger", async () => {
+		const refreshedDeploymentUrl = "https://refreshed-dispatch.example.vercel.app";
+		const { exit, gateways } = await runPromptCommand(["--force", PROMPT], {
 			git: { remoteTip: { type: "missing" } },
 			sourcePublication: { plan: TRACKED_PLAN },
 			config: {
@@ -451,6 +458,9 @@ describe("ns dispatch prompt", () => {
 					source: FAKE_DISPATCH_SETTINGS_SOURCE.replace(
 						'anchor_timezone = "America/Los_Angeles"',
 						'anchor_timezone = "UTC"',
+					).replace(
+						`deployment_url = "${FAKE_DEPLOYMENT_URL}"`,
+						`deployment_url = "${refreshedDeploymentUrl}"`,
 					),
 				},
 			},
@@ -459,9 +469,10 @@ describe("ns dispatch prompt", () => {
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") return;
 		expect(exit.data).toMatchObject({
-			anchorBranch: EXPECTED_ANCHOR_BRANCH,
+			anchorBranch: `dispatch/${FAKE_SEMANTIC_SLUG}-20260715-141814`,
 			sourcePublication: "graphite-submitted",
 		});
+		expect(gateways.trigger.startCalls[0]?.connection.deploymentUrl).toBe(refreshedDeploymentUrl);
 	});
 
 	test.each([
@@ -683,9 +694,8 @@ describe("ns dispatch prompt", () => {
 			expect(exit.data).not.toHaveProperty("sourcePublication");
 			expect(exit.data).not.toHaveProperty("mutation");
 			expect(gateways.git.anchorPushes).toEqual([]);
-			const availabilityIndex = gateways.operations.indexOf("git:check-anchor-availability");
-			const finalReadIndex = gateways.operations.lastIndexOf("git:resolve-source-ref");
-			expect(availabilityIndex).toBeLessThan(finalReadIndex);
+			expect(gateways.operations).not.toContain("git:check-anchor-availability");
+			expect(gateways.operations.lastIndexOf("git:resolve-source-ref")).toBeGreaterThan(0);
 		},
 	);
 

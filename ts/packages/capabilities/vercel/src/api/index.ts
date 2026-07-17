@@ -6,4 +6,4 @@ export {
 	type DispatchProjectConfigError,
 	type DispatchProjectConfigErrorCode,
 	type DispatchProjectConfigParseResult,
-} from "../dispatch-client/project-config.ts";
+} from "../config/project-config.ts";
