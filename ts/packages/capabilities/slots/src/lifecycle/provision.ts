@@ -90,7 +90,7 @@ export function provisionStoreRoot(repo: RepoContext): string {
 export async function loadProvisionDeclaration(
 	ctx: RepoSlotContext,
 ): Promise<ProvisionDeclarationResult> {
-	const source = await ctx.provisionFiles.readProjectConfigSource(ctx.repo.mainRepoRoot);
+	const source = await ctx.provisionFiles.readProjectConfigSource(ctx.repo.root);
 	if (source === null) return { type: "ok", paths: [] };
 	const parsed = parseSlotsProvisionConfigToml(source);
 	if (!parsed.ok) return { type: "config-error", error: parsed.error };

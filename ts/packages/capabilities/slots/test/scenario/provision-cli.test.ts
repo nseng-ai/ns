@@ -1,7 +1,12 @@
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
-import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+import {
+	parseJsonOutput,
+	repoContext,
+	runScenario,
+	slotWorktree,
+} from "../support/run-scenario.ts";
 
 const STORE_ROOT = "/slots/repos/repo/provision/default";
 const SLOT_01 = slotWorktree("slot-01").path;
@@ -66,6 +71,35 @@ describe("slot provision apply CLI", () => {
 				to: `${SLOT_01}/.env.local`,
 			},
 		]);
+	});
+
+	it("loads the declaration from the invoking managed slot", async () => {
+		const run = runScenario(["provision", "apply", "--format", "json"], {
+			cwd: SLOT_01,
+			repo: repoContext({ root: SLOT_01 }),
+			git: {
+				repositoryRoot: SLOT_01,
+				worktrees: [
+					{ path: "/repo", branch: "master" },
+					slotWorktree("slot-01", "feature/a"),
+					slotWorktree("slot-02"),
+				],
+			},
+			provisionFiles: {
+				projectConfigByRoot: { [SLOT_01]: DECLARED_ENV },
+				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
+			},
+		});
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				copiedCount: 2,
+				entries: [
+					{ slotName: "slot-01", path: ".env.local", action: "copied" },
+					{ slotName: "slot-02", path: ".env.local", action: "copied" },
+				],
+			},
+		});
 	});
 
 	it("renders a human table with paths only", async () => {
@@ -152,6 +186,29 @@ describe("slot provision import CLI", () => {
 			data: {
 				storeRoot: STORE_ROOT,
 				sourceRoot: "/repo",
+				createdCount: 1,
+				entries: [{ path: ".env.local", action: "created" }],
+			},
+		});
+		expect(run.provisionFiles.fileAt(`${STORE_ROOT}/.env.local`)).toEqual({
+			content: "SECRET=1\n",
+		});
+	});
+
+	it("loads the declaration and source file from the invoking managed slot", async () => {
+		const run = runScenario(["provision", "import", ".env.local", "--format", "json"], {
+			cwd: SLOT_01,
+			repo: repoContext({ root: SLOT_01 }),
+			git: { repositoryRoot: SLOT_01 },
+			provisionFiles: {
+				projectConfigByRoot: { [SLOT_01]: DECLARED_ENV },
+				files: { [`${SLOT_01}/.env.local`]: "SECRET=1\n" },
+			},
+		});
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				sourceRoot: SLOT_01,
 				createdCount: 1,
 				entries: [{ path: ".env.local", action: "created" }],
 			},

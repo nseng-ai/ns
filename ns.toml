@@ -1,6 +1,9 @@
 [areg]
 agents = ["codex", "claude-code"]
 
+[slots]
+provision = [".env.local", ".vercel/project.json"]
+
 [dispatch]
 harness = "pi"
 # Vercel project: Internal Playground (vercel-internal-playground) / ns-dispatch.
