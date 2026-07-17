@@ -31,6 +31,7 @@ export { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../submit/submit-hooks.ts";
 export type {
 	FlowMinimalSubmitClient,
 	FlowMinimalSubmitError,
+	FlowMinimalSubmitInput,
 	FlowMinimalSubmitMutationEvidence,
 	FlowMinimalSubmitMutationState,
 	FlowMinimalSubmitOutputEvent,

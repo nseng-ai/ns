@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import { ScriptedCommandExecApi, exitedResult } from "@nseng-ai/foundation/exec/testing";
-import { createFlowMinimalSubmitClient, type FlowMinimalSubmitClient } from "@nseng-ai/flow/api";
+import {
+	createFlowMinimalSubmitClient,
+	type FlowMinimalSubmitClient,
+	type FlowMinimalSubmitInput,
+} from "@nseng-ai/flow/api";
 
 const HEAD = "a".repeat(40);
 
@@ -45,6 +49,31 @@ describe("Flow minimal-submit Capability API", () => {
 				options: { cwd: "/repo", timeout: 10_000 },
 			},
 		]);
+	});
+
+	test("planned execution accepts only the authorized plan as its source identity", () => {
+		const plannedInput = {
+			type: "planned",
+			expectedPlan: {
+				source: { branch: "feature/demo", headSha: HEAD },
+				trunkBranch: "main",
+				affectedBranches: ["feature/demo"],
+			},
+		} as const satisfies FlowMinimalSubmitInput;
+
+		expect(plannedInput.expectedPlan.source).toEqual({
+			branch: "feature/demo",
+			headSha: HEAD,
+		});
+
+		const contradictoryInput = {
+			type: "planned",
+			expectedSource: { branch: "feature/other", headSha: HEAD },
+			expectedPlan: plannedInput.expectedPlan,
+		};
+		// @ts-expect-error Planned submission cannot carry an independent expected source.
+		const invalidInput: FlowMinimalSubmitInput = contradictoryInput;
+		expect(invalidInput.type).toBe("planned");
 	});
 
 	test("does not leak submit gateways, runtimes, or presentation results", async () => {
