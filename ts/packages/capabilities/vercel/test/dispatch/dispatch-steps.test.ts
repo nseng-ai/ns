@@ -494,7 +494,16 @@ describe("launchDispatchRun", () => {
 			message: "Clone token mint failed.",
 		});
 		expect(sandboxes.calls).toEqual([]);
-		expect(operationLogs.join("\n")).toContain("token mint diagnostic");
+		expect(operationLogs.map((line) => JSON.parse(line))).toContainEqual({
+			event: "operation_failed",
+			operation: "mint_clone_token",
+			durationMs: 0,
+			repository: "nseng-ai/ns",
+			purpose: "clone",
+			anchorPrNumber: 421,
+			reason: "github-token-mint-failed",
+			diagnostic: "token mint diagnostic",
+		});
 		expect(operationLogs.join("\n")).not.toContain("private-key-fixture");
 		expect(operationLogs.join("\n")).not.toContain("model-key-fixture");
 		expect(operationLogs.join("\n")).not.toContain("Rename the widget gateway methods.");
@@ -591,7 +600,8 @@ describe("launchDispatchRun", () => {
 			revision,
 			anchorPrNumber: 421,
 			durationMs: 0,
-			error: "sandbox gateway factory exploded",
+			reason: "unexpected-exception",
+			diagnostic: "sandbox gateway factory exploded",
 		});
 	});
 
@@ -711,7 +721,8 @@ describe("readDispatchOutcome", () => {
 			sandboxName: "sbx_dispatch",
 			path: DISPATCH_RESULT_PATH,
 			durationMs: 0,
-			error: "sandbox gateway factory exploded",
+			reason: "unexpected-exception",
+			diagnostic: "sandbox gateway factory exploded",
 		});
 	});
 });
@@ -887,12 +898,19 @@ describe("reportDispatchLanded", () => {
 			expect(JSON.parse(JSON.stringify(result))).toEqual(result);
 			expect(
 				operationLogs
-					.map((line) => JSON.parse(line) as { event: string; operation: string; error?: string })
+					.map(
+						(line) =>
+							JSON.parse(line) as {
+								event: string;
+								operation: string;
+								diagnostic?: string;
+							},
+					)
 					.some(
 						(event) =>
 							event.event === "operation_failed" &&
 							event.operation === failedOperation &&
-							event.error === rawError,
+							event.diagnostic === rawError,
 					),
 			).toBe(true);
 		},
