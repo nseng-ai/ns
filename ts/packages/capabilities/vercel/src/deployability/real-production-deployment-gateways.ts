@@ -46,8 +46,6 @@ const healthPayloadSchema = z.strictObject({
 export const VERCEL_PRODUCTION_DEPLOY_ARGS = [
 	"deploy",
 	"--prebuilt",
-	"--scope",
-	"schrockns-projects",
 	"--prod",
 	"--yes",
 	"--format=json",
@@ -65,8 +63,8 @@ export function productionWorkspaceInstallRoot(worktreeRoot: string): string {
 	return join(worktreeRoot, "ts");
 }
 
-export function vercelInspectArgs(locator: string): readonly string[] {
-	return ["inspect", locator, "--wait", "--timeout", "2m", "--format=json"];
+export function vercelInspectArgs(locator: string, teamId: string): readonly string[] {
+	return ["inspect", locator, "--scope", teamId, "--wait", "--timeout", "2m", "--format=json"];
 }
 
 export function isProductionHealthPayload(value: unknown): boolean {
@@ -223,7 +221,7 @@ export function createRealProductionDeploymentContext(
 					...(locator === undefined ? {} : { locator }),
 				};
 			},
-			async inspectDeployment(locator) {
+			async inspectDeployment(locator, teamId) {
 				const value =
 					typeof locator === "string" ? locator : (locator.deploymentId ?? locator.deploymentUrl);
 				if (value === undefined) {
@@ -231,7 +229,7 @@ export function createRealProductionDeploymentContext(
 				}
 				const result = await command({
 					commandName: "vercel",
-					args: vercelInspectArgs(value),
+					args: vercelInspectArgs(value, teamId),
 					cwd: repositoryRoot,
 					diagnostic: writeDiagnostic,
 				});
@@ -299,7 +297,7 @@ async function prepareDetachedSourceWorkspace(
 		});
 		if (!added.ok) throw new Error("Cannot create detached production source worktree.");
 		isWorktreeAdded = true;
-		await provisionOperationalInputs(options.packageRoot, isolatedPackageRoot, operations);
+		await provisionOperationalInputs(options.repositoryRoot, isolatedPackageRoot, operations);
 		const installed = await operations.runCommand({
 			commandName: "corepack",
 			args: PRODUCTION_WORKSPACE_INSTALL_ARGS,
@@ -404,16 +402,16 @@ async function prepareDetachedSourceWorkspace(
 }
 
 async function provisionOperationalInputs(
-	operatorPackageRoot: string,
+	operatorRepositoryRoot: string,
 	isolatedPackageRoot: string,
 	operations: ProductionWorkspaceAdapterOperations,
 ): Promise<void> {
 	await operations.makeDirectory(join(isolatedPackageRoot, ".vercel"));
 	await operations.copyFile(
-		join(operatorPackageRoot, ".vercel/project.json"),
+		join(operatorRepositoryRoot, ".vercel/project.json"),
 		join(isolatedPackageRoot, ".vercel/project.json"),
 	);
-	const environmentPath = join(operatorPackageRoot, ".env.local");
+	const environmentPath = join(operatorRepositoryRoot, ".env.local");
 	if (await operations.pathExists(environmentPath)) {
 		await operations.copyFile(environmentPath, join(isolatedPackageRoot, ".env.local"));
 	}

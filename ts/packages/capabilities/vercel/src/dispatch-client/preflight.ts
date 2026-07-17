@@ -8,6 +8,8 @@ import {
 	parseDispatchProjectConfigToml,
 	type DispatchProjectConfig,
 } from "../config/project-config.ts";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
+
 import type { DispatchPromptGateways, DispatchTriggerConnection } from "./contracts.ts";
 
 /** One credentials-preflight check: named, actionable, value-free. */
@@ -50,7 +52,9 @@ export async function runDispatchPreflight(
 	const packageManagerCheck = await readPackageManagerConfig(options.repoRoot, gateways);
 	checks.push(packageManagerCheck);
 
-	const tokenResult = await gateways.tokens.readDevelopmentOidcToken();
+	const tokenResult = await gateways.tokens.readDevelopmentOidcToken({
+		repoRoot: options.repoRoot,
+	});
 	const tokenCheck: DispatchPreflightCheck =
 		tokenResult.type === "found"
 			? {
@@ -86,6 +90,7 @@ export async function runDispatchPreflight(
 	const triggerConnection: DispatchTriggerConnection = {
 		deploymentUrl,
 		oidcToken: tokenResult.token,
+		...optionalEntries({ protectionBypass: tokenResult.protectionBypass }),
 	};
 	const identity = await gateways.trigger.checkTriggerIdentity({ connection: triggerConnection });
 	const identityCheck = triggerIdentityCheck(identity);
@@ -219,7 +224,7 @@ function triggerIdentityCheck(
 				id: "trigger-identity",
 				status: "failed",
 				detail:
-					"The dispatch deployment rejected the caller's Development OIDC token (401). Refresh it with `vercel env pull .env.local --environment=development` from the dispatch package directory.",
+					"The dispatch deployment rejected the caller's Development OIDC token (401). Refresh it with `vercel env pull .env.local --environment=development` from the repository root.",
 			};
 		case "forbidden":
 			return {

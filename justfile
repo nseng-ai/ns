@@ -47,7 +47,7 @@ dispatch-setup-local:
       cleanup() { status=$?; cp "$gitignore_backup" "$gitignore"; rm -f "$gitignore_backup"; exit "$status"; }; \
       trap cleanup EXIT; \
       cd "$package_dir"; \
-      vercel link --yes --project ns-dispatch --scope schrockns-projects; \
+      vercel link --yes --project ns-dispatch --scope vercel-internal-playground; \
       vercel env pull .env.local --environment=development --yes
 
 # Explicit production write. Never add this as a dependency of validation recipes.

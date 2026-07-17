@@ -3,10 +3,12 @@ agents = ["codex", "claude-code"]
 
 [dispatch]
 harness = "pi"
-vercel_project_id = "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06"
-vercel_team_id = "team_P6pLJeeBHKiZlpYP8elK1qYH"
-workflow_dashboard_url = "https://vercel.com/schrockns-projects/ns-dispatch/workflows"
-deployment_url = "https://ns-dispatch.vercel.app"
+# Vercel project: Internal Playground (vercel-internal-playground) / ns-dispatch.
+vercel_project_id = "prj_mDk2YJj2o9rGd8G9q49qHsU1Ebq2"
+# Vercel team: Internal Playground (vercel-internal-playground).
+vercel_team_id = "team_TtmJZYmD3tcLBLqWOhoVawd1"
+workflow_dashboard_url = "https://vercel.com/vercel-internal-playground/ns-dispatch/workflows"
+deployment_url = "https://ns-dispatch.playground-vercel.tools"
 anchor_timezone = "America/Los_Angeles"
 
 [reviews.diff]

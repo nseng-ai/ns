@@ -69,6 +69,10 @@ export function findHermeticApiFunctionProblems(
 	if (!emittedPaths.has(parsed.data.handler)) {
 		problems.push(`API function bundle is missing handler ${parsed.data.handler}.`);
 	}
+	const allowedPaths = new Set([".vc-config.json", parsed.data.handler]);
+	for (const path of [...emittedPaths].sort()) {
+		if (!allowedPaths.has(path)) problems.push(`API function contains stale file ${path}.`);
+	}
 	return problems;
 }
 

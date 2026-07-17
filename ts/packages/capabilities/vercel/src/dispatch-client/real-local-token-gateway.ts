@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { errorCodeFromUnknown, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
@@ -7,29 +7,30 @@ import type { DispatchLocalTokenGateway } from "../dispatch-client/contracts.ts"
 
 /** The env name `vercel env pull` writes the Development token under. */
 export const DISPATCH_OIDC_TOKEN_ENV_NAME = "VERCEL_OIDC_TOKEN";
+/** Optional Vercel Deployment Protection bypass for authenticated dispatch routes. */
+export const DISPATCH_PROTECTION_BYPASS_ENV_NAME = "NS_DISPATCH_PROTECTION_BYPASS";
 
 export interface RealDispatchLocalTokenGatewayOptions {
 	readonly env: Readonly<Record<string, string | undefined>>;
-	/**
-	 * The deployable package's `.env.local` (the proven `vercel env pull`
-	 * location). Defaults to this package's own root, which is the linked
-	 * Vercel project directory.
-	 */
-	readonly envLocalPath?: string;
 }
-
-const PACKAGE_ENV_LOCAL_URL = new URL("../../../.env.local", import.meta.url);
 
 export function createRealDispatchLocalTokenGateway(
 	options: RealDispatchLocalTokenGatewayOptions,
 ): DispatchLocalTokenGateway {
 	return {
-		async readDevelopmentOidcToken() {
-			const fromEnv = options.env[DISPATCH_OIDC_TOKEN_ENV_NAME];
-			if (fromEnv !== undefined && fromEnv.length > 0) {
-				return { type: "found", token: fromEnv };
+		async readDevelopmentOidcToken({ repoRoot }) {
+			const envLocalPath = join(repoRoot, ".env.local");
+			const tokenFromEnv = nonEmpty(options.env[DISPATCH_OIDC_TOKEN_ENV_NAME]);
+			const protectionBypassFromEnv = nonEmpty(options.env[DISPATCH_PROTECTION_BYPASS_ENV_NAME]);
+			if (tokenFromEnv !== null) {
+				return {
+					type: "found",
+					token: tokenFromEnv,
+					...(protectionBypassFromEnv === null
+						? {}
+						: { protectionBypass: protectionBypassFromEnv }),
+				};
 			}
-			const envLocalPath = options.envLocalPath ?? fileURLToPath(PACKAGE_ENV_LOCAL_URL);
 			let content: string;
 			try {
 				content = await readFile(envLocalPath, "utf8");
@@ -39,19 +40,30 @@ export function createRealDispatchLocalTokenGateway(
 				}
 				return { type: "error", message: formatErrorMessage(error) };
 			}
-			const token = parseEnvFileValue(content, DISPATCH_OIDC_TOKEN_ENV_NAME);
-			if (token === null || token.length === 0) {
+			const token = nonEmpty(parseEnvFileValue(content, DISPATCH_OIDC_TOKEN_ENV_NAME));
+			if (token === null) {
 				return { type: "missing", detail: missingTokenDetail(envLocalPath) };
 			}
-			return { type: "found", token };
+			const protectionBypass =
+				protectionBypassFromEnv ??
+				nonEmpty(parseEnvFileValue(content, DISPATCH_PROTECTION_BYPASS_ENV_NAME));
+			return {
+				type: "found",
+				token,
+				...(protectionBypass === null ? {} : { protectionBypass }),
+			};
 		},
 	};
+}
+
+function nonEmpty(value: string | null | undefined): string | null {
+	return value === undefined || value === null || value.length === 0 ? null : value;
 }
 
 function missingTokenDetail(envLocalPath: string): string {
 	return (
 		`${DISPATCH_OIDC_TOKEN_ENV_NAME} is not available (checked the process environment and ${envLocalPath}). ` +
-		"Run `vercel env pull .env.local --environment=development` from the dispatch package directory."
+		"Run `vercel env pull .env.local --environment=development` from the repository root."
 	);
 }
 

@@ -1,3 +1,4 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -24,22 +25,45 @@ describe("real local token gateway", () => {
 		const gateway = createRealDispatchLocalTokenGateway({
 			env: { VERCEL_OIDC_TOKEN: "env-token" },
 		});
-		expect(await gateway.readDevelopmentOidcToken()).toEqual({
+		expect(await gateway.readDevelopmentOidcToken({ repoRoot: "/repo" })).toEqual({
 			type: "found",
 			token: "env-token",
 		});
 	});
 
-	test("reports a missing token by name with the pull guidance", async () => {
-		const gateway = createRealDispatchLocalTokenGateway({
-			env: {},
-			envLocalPath: join(tmpdir(), "ns-dispatch-nonexistent", ".env.local"),
-		});
-		const result = await gateway.readDevelopmentOidcToken();
+	test("reads the Development token and optional protection bypass from repository-root .env.local", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "ns-dispatch-repo-"));
+		try {
+			await writeFile(
+				join(repoRoot, ".env.local"),
+				[
+					'VERCEL_OIDC_TOKEN="repo-token"',
+					'NS_DISPATCH_PROTECTION_BYPASS="protection-bypass"',
+					"",
+				].join("\n"),
+			);
+			const gateway = createRealDispatchLocalTokenGateway({ env: {} });
+
+			expect(await gateway.readDevelopmentOidcToken({ repoRoot })).toEqual({
+				type: "found",
+				token: "repo-token",
+				protectionBypass: "protection-bypass",
+			});
+		} finally {
+			await rm(repoRoot, { recursive: true, force: true });
+		}
+	});
+
+	test("reports a missing token by name with repository-root pull guidance", async () => {
+		const repoRoot = join(tmpdir(), "ns-dispatch-nonexistent");
+		const gateway = createRealDispatchLocalTokenGateway({ env: {} });
+		const result = await gateway.readDevelopmentOidcToken({ repoRoot });
 
 		expect(result.type).toBe("missing");
 		if (result.type === "missing") {
 			expect(result.detail).toContain("VERCEL_OIDC_TOKEN");
+			expect(result.detail).toContain(join(repoRoot, ".env.local"));
+			expect(result.detail).toContain("repository root");
 			expect(result.detail).toContain("vercel env pull");
 		}
 	});

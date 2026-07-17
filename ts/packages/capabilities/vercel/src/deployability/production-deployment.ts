@@ -115,6 +115,7 @@ export interface VercelProductionDeploymentGateway {
 	>;
 	inspectDeployment(
 		locator: VercelDeploymentLocator | string,
+		teamId: string,
 	): Promise<
 		| { readonly ok: true; readonly value: VercelDeploymentRecord }
 		| { readonly ok: false; readonly message: string }
@@ -201,7 +202,10 @@ export async function deployDispatchProduction(
 	if (locator === undefined) return failure("ambiguous-upload", "Deployment returned no locator.");
 
 	context.progress("Inspecting immutable deployment identity.");
-	const immutable = await context.deployments.inspectDeployment(locator);
+	const immutable = await context.deployments.inspectDeployment(
+		locator,
+		configuration.value.configuredTeamId,
+	);
 	if (immutable.ok === false) {
 		return failure(
 			deployed.ok ? "deployment-inspection-failed" : "ambiguous-upload",
@@ -213,7 +217,10 @@ export async function deployDispatchProduction(
 	}
 
 	context.progress("Verifying production alias identity.");
-	const alias = await context.deployments.inspectDeployment(configuration.value.productionAlias);
+	const alias = await context.deployments.inspectDeployment(
+		configuration.value.productionAlias,
+		configuration.value.configuredTeamId,
+	);
 	if (alias.ok === false) return failure("deployment-inspection-failed", alias.message);
 	if (alias.value.deploymentId !== immutable.value.deploymentId) {
 		return failure("alias-mismatch", "The production alias identifies a different deployment.");

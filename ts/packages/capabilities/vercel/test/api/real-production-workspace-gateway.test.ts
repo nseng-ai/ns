@@ -80,7 +80,7 @@ class FakeProductionWorkspaceOperations implements ProductionWorkspaceAdapterOpe
 	}
 
 	async pathExists(path: string): Promise<boolean> {
-		return path === join(PACKAGE_ROOT, ".env.local") && (this.state.hasEnvironment ?? false);
+		return path === join(REPOSITORY_ROOT, ".env.local") && (this.state.hasEnvironment ?? false);
 	}
 
 	async removeTree(path: string): Promise<void> {
@@ -133,11 +133,11 @@ describe("real detached production workspace adapter", () => {
 		expect(operations.madeDirectories).toEqual([join(DETACHED_PACKAGE_ROOT, ".vercel")]);
 		expect(operations.copiedFiles).toEqual([
 			{
-				source: join(PACKAGE_ROOT, ".vercel/project.json"),
+				source: join(REPOSITORY_ROOT, ".vercel/project.json"),
 				destination: join(DETACHED_PACKAGE_ROOT, ".vercel/project.json"),
 			},
 			{
-				source: join(PACKAGE_ROOT, ".env.local"),
+				source: join(REPOSITORY_ROOT, ".env.local"),
 				destination: join(DETACHED_PACKAGE_ROOT, ".env.local"),
 			},
 		]);
@@ -187,7 +187,7 @@ describe("real detached production workspace adapter", () => {
 
 		expect(operations.copiedFiles).toEqual([
 			{
-				source: join(PACKAGE_ROOT, ".vercel/project.json"),
+				source: join(REPOSITORY_ROOT, ".vercel/project.json"),
 				destination: join(DETACHED_PACKAGE_ROOT, ".vercel/project.json"),
 			},
 		]);

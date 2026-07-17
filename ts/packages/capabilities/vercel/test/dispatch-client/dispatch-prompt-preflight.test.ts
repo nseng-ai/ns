@@ -18,8 +18,14 @@ function checkById(
 }
 
 describe("runDispatchPreflight", () => {
-	test("passes with valid config, a named token, and an authorized identity", async () => {
-		const gateways = createFakeDispatchGateways();
+	test("passes optional deployment protection credentials to identity and trigger calls", async () => {
+		const gateways = createFakeDispatchGateways({
+			token: {
+				type: "found",
+				token: FAKE_OIDC_TOKEN,
+				protectionBypass: "fake-protection-bypass",
+			},
+		});
 		const result = await runDispatchPreflight({ repoRoot: "/repo" }, gateways);
 
 		expect(result.ok).toBe(true);
@@ -35,11 +41,16 @@ describe("runDispatchPreflight", () => {
 			expect(result.triggerConnection).toEqual({
 				deploymentUrl: FAKE_DEPLOYMENT_URL,
 				oidcToken: FAKE_OIDC_TOKEN,
+				protectionBypass: "fake-protection-bypass",
 			});
 		}
 		// The identity preflight carried the token to the configured deployment.
 		expect(gateways.trigger.identityCalls).toEqual([
-			{ deploymentUrl: FAKE_DEPLOYMENT_URL, oidcToken: FAKE_OIDC_TOKEN },
+			{
+				deploymentUrl: FAKE_DEPLOYMENT_URL,
+				oidcToken: FAKE_OIDC_TOKEN,
+				protectionBypass: "fake-protection-bypass",
+			},
 		]);
 	});
 
@@ -148,7 +159,7 @@ describe("runDispatchPreflight", () => {
 			token: {
 				type: "missing",
 				detail:
-					"VERCEL_OIDC_TOKEN is not available (checked the process environment and /pkg/.env.local).",
+					"VERCEL_OIDC_TOKEN is not available (checked the process environment and /repo/.env.local).",
 			},
 		});
 		const result = await runDispatchPreflight({ repoRoot: "/repo" }, gateways);

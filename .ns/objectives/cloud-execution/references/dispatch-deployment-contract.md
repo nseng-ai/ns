@@ -44,7 +44,7 @@ just dispatch-deploy-prod
 
 On success it verifies that the stable production alias identifies the returned immutable
 deployment and emits one JSON result on stdout. Progress is stderr. The underlying Vercel
-shape remains `deploy --prebuilt --scope schrockns-projects --prod --yes --format=json`.
+shape remains `deploy --prebuilt --prod --yes --format=json`; the repository-root project linkage selects the already-validated team and project rather than duplicating a team slug on the command line.
 
 Do not run package-local prebuilt deployment while also relying on the configured monorepo
 Root Directory. That caused doubled path resolution. Do not replace the prebuilt path with
@@ -85,8 +85,9 @@ The production path is intentionally stricter than an ordinary Vercel deploy:
   fails closed rather than weakening the check.
 - A nonzero deploy result can occur after Vercel accepted the upload. If the output includes an
   inspectable locator, inspect it before retrying; automatically uploading again could create a
-  duplicate deployment. A successful command requires both a Ready immutable deployment and
-  the stable alias resolving to that same deployment ID.
+  duplicate deployment. Immutable-deployment and stable-alias inspection use the validated team ID
+  as their explicit Vercel scope rather than the CLI's ambient personal context. A successful command
+  requires both a Ready immutable deployment and the stable alias resolving to that same deployment ID.
 - Deploy and alias failures retain the newly promoted local Build Output. Only a failure in the
   local staged promotion restores the previous output. Fixed staging/backup siblings also act
   as a concurrency and crash-residue guard: ambiguous residue is preserved for manual
