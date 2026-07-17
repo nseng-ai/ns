@@ -27,6 +27,7 @@ export interface ProductionFakeHarness {
 	readonly state: {
 		readonly preparedCommitSha: string | undefined;
 		readonly configurationCommitSha: string | undefined;
+		readonly inspectedTeamIds: readonly string[];
 		readonly isPromoted: boolean;
 		readonly isDisposed: boolean;
 		readonly isDeployed: boolean;
@@ -51,6 +52,7 @@ export function createProductionDeploymentFake(
 	const operations: string[] = [];
 	let preparedCommitSha: string | undefined;
 	let configurationCommitSha: string | undefined;
+	const inspectedTeamIds: string[] = [];
 	let isPromoted = false;
 	let isDisposed = false;
 	let isDeployed = false;
@@ -153,7 +155,8 @@ export function createProductionDeploymentFake(
 					? { ok: false, message: "Transport failed.", locator }
 					: { ok: true, locator };
 			},
-			async inspectDeployment(locator) {
+			async inspectDeployment(locator, teamId) {
+				inspectedTeamIds.push(teamId);
 				operations.push(typeof locator === "string" ? "inspect-alias" : "inspect-deployment");
 				if (initial.deploymentInspectionFails) return { ok: false, message: "Inspect failed." };
 				if (typeof locator === "string") {
@@ -179,6 +182,9 @@ export function createProductionDeploymentFake(
 			},
 			get configurationCommitSha() {
 				return configurationCommitSha;
+			},
+			get inspectedTeamIds() {
+				return [...inspectedTeamIds];
 			},
 			get isPromoted() {
 				return isPromoted;

@@ -29,9 +29,11 @@ describe("Vercel production command shape", () => {
 			"--yes",
 			"--format=json",
 		]);
-		expect(vercelInspectArgs("dpl_example")).toEqual([
+		expect(vercelInspectArgs("dpl_example", "team_example")).toEqual([
 			"inspect",
 			"dpl_example",
+			"--scope",
+			"team_example",
 			"--wait",
 			"--timeout",
 			"2m",
