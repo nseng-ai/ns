@@ -202,7 +202,7 @@ describe("payload parsers", () => {
 				data: {
 					reviewName: "typescript-style",
 					reviewPath: ".ns/reviews/typescript-style/review.md",
-					modelProfile: "quick",
+					modelProfile: "fast",
 					model: "openai/gpt-5.6-luna",
 					baseRef: "main",
 					format: "findings",
@@ -215,7 +215,7 @@ describe("payload parsers", () => {
 		);
 		expect(payloadResult.ok).toBe(true);
 		if (payloadResult.ok) {
-			expect(payloadResult.value.modelProfile).toBe("quick");
+			expect(payloadResult.value.modelProfile).toBe("fast");
 			expect(payloadResult.value.count).toBe(1);
 		}
 	});
@@ -228,7 +228,7 @@ describe("payload parsers", () => {
 				data: {
 					reviewName: "typescript-style",
 					reviewPath: ".ns/reviews/typescript-style/review.md",
-					modelProfile: "quick",
+					modelProfile: "fast",
 					model: "openai/gpt-5.6-luna",
 					baseRef: "main",
 					payload: { format: "findings", count: 1, findings: [WARNING_FINDING] },
@@ -281,7 +281,7 @@ describe("payload parsers", () => {
 				data: {
 					reviewName: "typescript-style",
 					reviewPath: ".ns/reviews/typescript-style/review.md",
-					modelProfile: "quick",
+					modelProfile: "fast",
 					model: "openai/gpt-5.6-luna",
 					baseRef: "main",
 					format: "findings",
@@ -494,7 +494,7 @@ function payload(overrides: Partial<FindingsPayload>): FindingsPayload {
 	return {
 		reviewName: "typescript-style",
 		baseRef: "main",
-		modelProfile: "quick",
+		modelProfile: "fast",
 		count: 1,
 		findings: [WARNING_FINDING],
 		inputCoverage: null,

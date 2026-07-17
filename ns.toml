@@ -17,12 +17,7 @@ exclude = [
 
 [models.profiles]
 fast = "vercel-ai-gateway/openai/gpt-5.6-luna"
-reviews_quick = "vercel-ai-gateway/openai/gpt-5.6-luna"
-reviews_deep = "vercel-ai-gateway/openai/gpt-5.6-terra"
-
-[models.operations]
-"reviews.quick" = "reviews_quick"
-"reviews.deep" = "reviews_deep"
+deep = "vercel-ai-gateway/openai/gpt-5.6-terra"
 
 [points]
 "flow.submit.pre" = ["just"]

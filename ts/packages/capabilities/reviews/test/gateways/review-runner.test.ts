@@ -32,7 +32,7 @@ function request(
 			name: options.reviewName ?? "typescript-style",
 			description: "Review TypeScript diffs.",
 			instructions: "Flag concrete issues.",
-			modelProfile: "quick",
+			modelProfile: "fast",
 			applicability: { include: ["**/*.ts"], exclude: [] },
 			localOnly: false,
 		},

@@ -42,9 +42,6 @@ const EMPTY_CONFIG: ReviewsProjectConfig = {
 	diff: { exclude: [] },
 	modelPolicy: EMPTY_MODEL_POLICY.value,
 };
-const MODEL_PROFILE_KEYS = ["quick", "deep"] as const;
-export type ReviewsModelProfileKey = (typeof MODEL_PROFILE_KEYS)[number];
-
 type ReviewsSettingsRecord = Record<string, unknown>;
 
 const recordSchema = z.record(z.string(), z.unknown());
@@ -120,10 +117,6 @@ export function buildGitDiffArgs(options: GitDiffArgsOptions): readonly string[]
 type DiffConfigParseResult = Result<ReviewsDiffProjectConfig, ProjectConfigError>;
 
 type ExcludeParseResult = Result<readonly string[], ProjectConfigError>;
-
-export function isReviewsModelProfileKey(value: string): value is ReviewsModelProfileKey {
-	return MODEL_PROFILE_KEYS.includes(value as ReviewsModelProfileKey);
-}
 
 function parseDiffConfig(
 	value: ReviewsSettingsRecord | undefined,

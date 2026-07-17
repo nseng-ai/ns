@@ -32,11 +32,13 @@ import { githubDiscussionComment } from "../support/github-fixtures.ts";
 
 const REVIEW_SOURCE = `---
 description: Review TypeScript diffs.
-model_profile: deep
+model_profile: fast
 ---
 
 Flag concrete maintainability issues.
 `;
+
+const DEEP_REVIEW_SOURCE = REVIEW_SOURCE.replace("model_profile: fast", "model_profile: deep");
 
 const WARNING_FINDING: ReviewFinding = {
 	path: "src/file.ts",
@@ -57,7 +59,7 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles]\ndeep = "anthropic/claude-opus-4-6"\n[models.operations]\n"reviews.deep" = "deep"\n',
+			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles]\ndeep = "anthropic/claude-opus-4-6"\n',
 		);
 		const localDiff = new FakeLocalDiffGateway({
 			defaultDiff: {
@@ -89,7 +91,7 @@ describe("runReview", () => {
 				gitGateway: gitGateway(repoRoot),
 				localDiff,
 				reviewCatalog: new FakeReviewCatalogGateway({
-					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
+					reviewSourcesByKey: { "typescript-style": DEEP_REVIEW_SOURCE },
 				}),
 				reviewRunner,
 				reviewLog,
@@ -114,6 +116,59 @@ describe("runReview", () => {
 		expect(localDiff.requestedExcludeGlobs()).toEqual([["generated/**"]]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
 		expect(reviewLog.writtenEntries()[0]?.reviewKey).toBe("typescript-style");
+	});
+
+	test("resolves an arbitrary configured profile alias directly", async () => {
+		const repoRoot = await tempRepoRoot();
+		await writeFile(
+			join(repoRoot, "ns.toml"),
+			'[models.profiles]\narchitecture = "anthropic/claude-opus-4-6"\n',
+		);
+		const reviewRunner = new FakeReviewRunnerGateway();
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
+				gitGateway: gitGateway(repoRoot),
+				reviewCatalog: new FakeReviewCatalogGateway({
+					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
+				}),
+				reviewRunner,
+				cwd: repoRoot,
+			}),
+		);
+
+		const outcome = await runReview(ctx, {
+			key: "typescript-style",
+			modelProfile: "architecture",
+		});
+
+		expect(outcome.type).toBe("completed");
+		if (outcome.type !== "completed") return;
+		expect(outcome.progress.modelProfile).toBe("architecture");
+		expect(outcome.progress.model).toBe("anthropic/claude-opus-4-6");
+		expect(reviewRunner.calls()[0]?.request.model).toBe("anthropic/claude-opus-4-6");
+	});
+
+	test("reports an actionable error for a missing profile alias", async () => {
+		const reviewRunner = new FakeReviewRunnerGateway();
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
+				reviewCatalog: new FakeReviewCatalogGateway({
+					reviewSourcesByKey: { "typescript-style": DEEP_REVIEW_SOURCE },
+				}),
+				reviewRunner,
+			}),
+		);
+
+		const outcome = await runReview(ctx, { key: "typescript-style" });
+
+		expect(outcome.type).toBe("failed");
+		if (outcome.type === "failed") {
+			expect(outcome.error.code).toBe("project-config-invalid");
+			expect(outcome.error.message).toContain('"deep" is not configured');
+			expect(outcome.error.message).toContain("[models.profiles]");
+			expect(outcome.error.message).toContain("--model-profile");
+		}
+		expect(reviewRunner.calls()).toEqual([]);
 	});
 
 	test("retains a qualified OpenAI override in progress, results, runner input, and logs", async () => {

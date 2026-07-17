@@ -170,7 +170,7 @@ function requireStringField(
 type ModelProfileResult = Result<string, ReviewDefinitionParseError>;
 
 function parseModelProfile(frontmatter: Readonly<Record<string, unknown>>): ModelProfileResult {
-	if (!("model_profile" in frontmatter)) return { ok: true, value: "quick" };
+	if (!("model_profile" in frontmatter)) return { ok: true, value: "fast" };
 	const value = frontmatter.model_profile;
 	if (typeof value !== "string" || value.trim() === "") {
 		return resultErrOf(

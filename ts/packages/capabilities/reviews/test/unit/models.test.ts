@@ -43,7 +43,7 @@ describe("reviews domain schemas", () => {
 			name: "typescript-style",
 			description: "Review TypeScript diffs.",
 			instructions: "Flag concrete issues.",
-			modelProfile: "quick",
+			modelProfile: "fast",
 			applicability: { include: ["**/*.ts"], exclude: [] },
 			localOnly: false,
 		});
@@ -209,7 +209,7 @@ describe("reviews domain schemas", () => {
 			name: "typescript-style",
 			description: "Review TypeScript diffs.",
 			instructions: "Flag concrete issues.",
-			modelProfile: "quick",
+			modelProfile: "fast",
 			applicability: { include: ["**/*.ts"], exclude: [] },
 			localOnly: false,
 		});
@@ -265,7 +265,7 @@ describe("reviews domain schemas", () => {
 		const result = reviewRunResultSchema.parse({
 			reviewName: "typescript-style",
 			reviewPath: ".ns/reviews/typescript-style/review.md",
-			modelProfile: "quick",
+			modelProfile: "fast",
 			model: "openai/gpt-5.6-luna",
 			baseRef: "main",
 			format: "findings",
@@ -275,7 +275,7 @@ describe("reviews domain schemas", () => {
 			inputCoverage: null,
 		});
 
-		expect(result.modelProfile).toBe("quick");
+		expect(result.modelProfile).toBe("fast");
 		expect(result.count).toBe(0);
 		expect(() => reviewRunResultSchema.parse({ ...result, count: 1 })).toThrow();
 		expect(() =>

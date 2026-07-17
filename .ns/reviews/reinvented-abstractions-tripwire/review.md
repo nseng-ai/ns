@@ -24,7 +24,7 @@ description: |
   scanner, then open only the canonical reference files for flagged candidate
   kinds. Fire only when the canonical can be named and reuse is clearly correct;
   silence is a valid and expected outcome.
-model_profile: quick
+model_profile: fast
 applies_to:
   include:
     - "**/*.ts"

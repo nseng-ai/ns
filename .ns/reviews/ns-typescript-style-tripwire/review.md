@@ -26,7 +26,7 @@ description: |
   mutation of owned-boundary data, naming hygiene, suppression hygiene, and
   other Tier A rules. Intended for cheap, per-diff detection; resolution stays
   with the engineer in a later, higher-context workflow.
-model_profile: quick
+model_profile: fast
 applies_to:
   include:
     - "**/*.ts"

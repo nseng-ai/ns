@@ -7,7 +7,7 @@ const BASE_DEFINITION = {
 	name: "fixture-review",
 	description: "Fixture review description.",
 	instructions: "Inspect the diff.",
-	modelProfile: "quick",
+	modelProfile: "fast",
 	applicability: { include: [], exclude: [] },
 	localOnly: false,
 } as const satisfies ReviewDefinition;
