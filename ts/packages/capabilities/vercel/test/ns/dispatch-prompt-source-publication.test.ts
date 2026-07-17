@@ -24,7 +24,6 @@ describe("ns dispatch prompt source publication", () => {
 		if (exit.type !== "ok") return;
 		expect(exit.data).toMatchObject({
 			status: "dispatched",
-			isSourcePushed: false,
 			sourcePublication: "already-current",
 		});
 		expect(gateways.sourcePublication.plans).toEqual([]);
@@ -103,7 +102,6 @@ describe("ns dispatch prompt source publication", () => {
 			if (exit.type !== "ok") return;
 			expect(exit.data).toMatchObject({
 				sourcePublication: "graphite-submitted",
-				isSourcePushed: true,
 			});
 			expect(gateways.publicationAuthorization.requests).toEqual([
 				{

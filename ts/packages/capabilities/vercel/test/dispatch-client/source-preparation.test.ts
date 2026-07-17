@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import { runDispatchPreflight } from "../../src/dispatch-client/preflight.ts";
 import { prepareDispatchSource } from "../../src/dispatch-client/source-preparation.ts";
 import {
 	createFakeDispatchGateways,
@@ -20,12 +19,9 @@ const TRACKED_PLAN = {
 
 async function prepare(options: Parameters<typeof createFakeDispatchGateways>[0] = {}) {
 	const gateways = createFakeDispatchGateways(options);
-	const initialPreflight = await runDispatchPreflight({ repoRoot: "/repo" }, gateways);
-	if (initialPreflight.ok === false) throw new Error("Expected initial preflight to pass.");
 	const result = await prepareDispatchSource({
 		cwd: "/repo",
 		initialSource: INITIAL_SOURCE,
-		initialPreflight,
 		initialRemoteTip: options.git?.remoteTip ?? { type: "found", sha: FAKE_HEAD_SHA },
 		force: true,
 		gateways,
@@ -40,8 +36,8 @@ describe("prepareDispatchSource", () => {
 		expect(result).toMatchObject({
 			ok: true,
 			prepared: {
-				type: "already-current",
 				context: { source: INITIAL_SOURCE },
+				receipt: { stage: "source", source: { type: "already-current" } },
 			},
 		});
 		expect(gateways.sourcePublication.plans).toEqual([]);
@@ -53,10 +49,12 @@ describe("prepareDispatchSource", () => {
 		expect(result).toMatchObject({
 			ok: true,
 			prepared: {
-				type: "git-pushed",
-				completedPublication: {
-					sourcePublication: "git-pushed",
-					mutation: { local: "none", remote: "observed" },
+				receipt: {
+					stage: "source",
+					source: {
+						type: "git-pushed",
+						mutation: { local: "none", remote: "observed" },
+					},
 				},
 			},
 		});
@@ -81,9 +79,13 @@ describe("prepareDispatchSource", () => {
 		expect(result).toMatchObject({
 			ok: true,
 			prepared: {
-				type: "graphite-submitted",
 				context: { source: { headSha: FAKE_REWRITTEN_HEAD_SHA } },
-				completedPublication: { affectedBranches: ["feature/widgets", "feature/base"] },
+				receipt: {
+					source: {
+						type: "graphite-submitted",
+						affectedBranches: ["feature/widgets", "feature/base"],
+					},
+				},
 			},
 		});
 	});
@@ -103,9 +105,14 @@ describe("prepareDispatchSource", () => {
 				status: "source-publication-verification-failed",
 				reason: "dirty-tree",
 				message: "Source publication completed, but the worktree is no longer clean.",
-				sourcePublication: "graphite-submitted",
-				mutation: { local: "none", remote: "observed" },
-				affectedBranches: ["feature/widgets", "feature/base"],
+				receipt: {
+					stage: "source",
+					source: {
+						type: "graphite-submitted",
+						mutation: { local: "none", remote: "observed" },
+						affectedBranches: ["feature/widgets", "feature/base"],
+					},
+				},
 				dirtyPaths: ["late-change.ts"],
 			},
 		});

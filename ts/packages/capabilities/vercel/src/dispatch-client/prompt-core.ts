@@ -16,23 +16,13 @@ import {
 } from "./anchor-name.ts";
 import { buildAnchorPrBody, buildAnchorPrTitle } from "./content.ts";
 import { normalizeDispatchSlugOverride } from "./content-slug.ts";
-import type {
-	DispatchGraphitePublicationStage,
-	DispatchPromptGateways,
-	DispatchSourcePublicationMutationEvidence,
-} from "./contracts.ts";
-import {
-	createDispatchAnchor,
-	resolveDispatchSource,
-	startDispatchWorkflow,
-	type DispatchAnchorPr,
-} from "./core.ts";
+import type { DispatchGraphitePublicationStage, DispatchPromptGateways } from "./contracts.ts";
+import { createDispatchAnchor, resolveDispatchSource, startDispatchWorkflow } from "./core.ts";
 import { runDispatchPreflight, type DispatchPreflightCheck } from "./preflight.ts";
 import {
 	prepareDispatchSource,
-	type CompletedDispatchSourcePublication,
-	type DispatchSourcePublication,
-	type PreparedDispatchSource,
+	type DispatchLifecycleReceipt,
+	type DispatchSourceRevalidationReason,
 } from "./source-preparation.ts";
 
 export { runDispatchPreflight } from "./preflight.ts";
@@ -46,52 +36,31 @@ export interface DispatchPromptRequest {
 	readonly onPhase?: (message: string) => void;
 }
 
-type DispatchSourceRevalidationReason =
-	| "source-read-failed"
-	| "repository-drift"
-	| "branch-drift"
-	| "head-drift"
-	| "dirty-read-failed"
-	| "dirty-tree"
-	| "preflight-failed"
-	| "remote-tip-read-failed"
-	| "remote-tip-mismatch";
-
-type DispatchFailureWithCompletedPublication<T> = T &
-	(
-		| CompletedDispatchSourcePublication
-		| {
-				readonly sourcePublication?: never;
-				readonly mutation?: never;
-				readonly affectedBranches?: never;
-		  }
-	);
-
+/** The core's outcome union; the command handler maps it to exit shapes. */
 export type DispatchPromptOutcome =
 	| {
 			readonly status: "dispatched";
 			readonly revision: string;
 			readonly sourceBranch: string;
-			readonly sourcePublication: DispatchSourcePublication;
-			readonly isSourcePushed: boolean;
-			readonly anchorPr: DispatchAnchorPr;
-			readonly runId: string;
 			readonly workflowRunUrl: string;
+			readonly receipt: Extract<DispatchLifecycleReceipt, { stage: "run-started" }>;
 	  }
 	| { readonly status: "dirty-tree"; readonly dirtyPaths: readonly string[] }
 	| { readonly status: "preflight-failed"; readonly checks: readonly DispatchPreflightCheck[] }
 	| { readonly status: "invalid-branch-slug-override"; readonly message: string }
 	| { readonly status: "branch-slug-generation-failed"; readonly message: string }
-	| DispatchFailureWithCompletedPublication<{
+	| {
 			readonly status: "anchor-branch-availability-failed";
 			readonly anchorBranch: string;
 			readonly message: string;
-	  }>
-	| DispatchFailureWithCompletedPublication<{
+			readonly receipt: Extract<DispatchLifecycleReceipt, { stage: "source" }>;
+	  }
+	| {
 			readonly status: "anchor-branch-unavailable";
 			readonly semanticSlug: string;
 			readonly candidateLimit: number;
-	  }>
+			readonly receipt: Extract<DispatchLifecycleReceipt, { stage: "source" }>;
+	  }
 	| {
 			readonly status: "source-unusable";
 			readonly code: "not-a-repository" | "detached-head" | "git-read-failed";
@@ -101,7 +70,7 @@ export type DispatchPromptOutcome =
 			readonly status: "source-publication-plan-failed";
 			readonly code: string;
 			readonly message: string;
-			readonly mutation: DispatchSourcePublicationMutationEvidence;
+			readonly receipt: Extract<DispatchLifecycleReceipt, { stage: "source" }>;
 	  }
 	| {
 			readonly status: "source-publication-force-required";
@@ -115,23 +84,23 @@ export type DispatchPromptOutcome =
 			readonly status: "source-push-failed";
 			readonly sourceBranch: string;
 			readonly message: string;
-			readonly mutation: DispatchSourcePublicationMutationEvidence;
+			readonly receipt: Extract<DispatchLifecycleReceipt, { stage: "source" }>;
 	  }
 	| {
 			readonly status: "graphite-publication-failed";
 			readonly stage: DispatchGraphitePublicationStage;
 			readonly code: string;
 			readonly message: string;
-			readonly affectedBranches: readonly string[];
-			readonly mutation: DispatchSourcePublicationMutationEvidence;
+			readonly receipt: Extract<DispatchLifecycleReceipt, { stage: "source" }>;
 	  }
-	| (CompletedDispatchSourcePublication & {
+	| {
 			readonly status: "source-publication-verification-failed";
 			readonly reason: DispatchSourceRevalidationReason;
 			readonly message: string;
+			readonly receipt: Extract<DispatchLifecycleReceipt, { stage: "source" }>;
 			readonly checks?: readonly DispatchPreflightCheck[];
 			readonly dirtyPaths?: readonly string[];
-	  })
+	  }
 	| {
 			readonly status: "source-revalidation-failed";
 			readonly reason: DispatchSourceRevalidationReason;
@@ -139,29 +108,30 @@ export type DispatchPromptOutcome =
 			readonly checks?: readonly DispatchPreflightCheck[];
 			readonly dirtyPaths?: readonly string[];
 	  }
-	| DispatchFailureWithCompletedPublication<{
+	| {
 			readonly status: "anchor-push-failed";
 			readonly anchorBranch: string;
 			readonly message: string;
-	  }>
-	| DispatchFailureWithCompletedPublication<{
+			readonly receipt: Extract<DispatchLifecycleReceipt, { stage: "source" }>;
+	  }
+	| {
 			readonly status: "anchor-pr-failed";
-			readonly anchorBranch: string;
 			readonly message: string;
-	  }>
-	| DispatchFailureWithCompletedPublication<{
+			readonly receipt: Extract<DispatchLifecycleReceipt, { stage: "anchor-pushed" }>;
+	  }
+	| {
 			readonly status: "trigger-failed";
 			readonly code: string;
 			readonly message: string;
-			readonly anchorPr: DispatchAnchorPr;
-	  }>
-	| DispatchFailureWithCompletedPublication<{
+			readonly receipt: Extract<DispatchLifecycleReceipt, { stage: "pr-opened" }>;
+	  }
+	| {
 			readonly status: "run-id-stamp-failed";
 			readonly message: string;
-			readonly anchorPr: DispatchAnchorPr;
-			/** Absent only when the returned run id itself was unusable. */
-			readonly runId?: string;
-	  }>;
+			readonly receipt:
+				| Extract<DispatchLifecycleReceipt, { stage: "pr-opened" }>
+				| Extract<DispatchLifecycleReceipt, { stage: "run-started" }>;
+	  };
 
 /**
  * Execute one prompt dispatch end-to-end on the local side. Mutations
@@ -224,7 +194,6 @@ export async function executeDispatchPrompt(
 	const preparedResult = await prepareDispatchSource({
 		cwd: request.cwd,
 		initialSource,
-		initialPreflight,
 		initialRemoteTip: remoteTip,
 		force: request.force,
 		...(request.onPhase === undefined ? {} : { onPhase: request.onPhase }),
@@ -234,7 +203,7 @@ export async function executeDispatchPrompt(
 	const prepared = preparedResult.prepared;
 	const finalSource = prepared.context.source;
 	const finalPreflight = prepared.context.preflight;
-	const completedPublication = publicationEvidence(prepared);
+	const sourceReceipt = prepared.receipt;
 
 	const timestamp = formatDispatchAnchorTimestamp(
 		gateways.clock.nowMs(),
@@ -251,7 +220,7 @@ export async function executeDispatchPrompt(
 				status: "anchor-branch-availability-failed",
 				anchorBranch: candidate.name,
 				message: availability.error.message,
-				...(completedPublication === undefined ? {} : completedPublication),
+				receipt: sourceReceipt,
 			};
 		}
 		if (availability.type === "available") {
@@ -264,7 +233,7 @@ export async function executeDispatchPrompt(
 			status: "anchor-branch-unavailable",
 			semanticSlug,
 			candidateLimit: DISPATCH_ANCHOR_NAME_CANDIDATE_LIMIT,
-			...(completedPublication === undefined ? {} : completedPublication),
+			receipt: sourceReceipt,
 		};
 	}
 
@@ -284,44 +253,82 @@ export async function executeDispatchPrompt(
 		},
 		gateways,
 	);
-	if (anchor.status !== "ready") {
-		return completedPublication === undefined ? anchor : { ...anchor, ...completedPublication };
+	if (anchor.status === "anchor-push-failed") {
+		return {
+			status: "anchor-push-failed",
+			anchorBranch: anchor.anchorBranch,
+			message: anchor.message,
+			receipt: sourceReceipt,
+		};
 	}
+	if (anchor.status === "anchor-pr-failed") {
+		return {
+			status: "anchor-pr-failed",
+			message: anchor.message,
+			receipt: {
+				stage: "anchor-pushed",
+				source: sourceReceipt.source,
+				anchorBranch: anchor.anchorBranch,
+			},
+		};
+	}
+	const anchorPr = anchor.anchorPr;
+	const prReceipt = {
+		stage: "pr-opened" as const,
+		source: sourceReceipt.source,
+		anchorPr,
+	};
 
 	const workflow = await startDispatchWorkflow(
 		{
 			cwd: request.cwd,
 			input: {
 				revision: finalSource.headSha,
-				anchorBranch: anchor.anchorPr.branch,
-				anchorPrNumber: anchor.anchorPr.number,
+				anchorBranch: anchorPr.branch,
+				anchorPrNumber: anchorPr.number,
 				prompt: request.prompt,
 			},
-			anchorPr: anchor.anchorPr,
+			anchorPr,
 			connection: finalPreflight.triggerConnection,
 			workflowDashboardUrl: finalPreflight.workflowDashboardUrl,
 			...(request.onPhase === undefined ? {} : { onPhase: request.onPhase }),
 		},
 		gateways,
 	);
-	if (workflow.status !== "ready") {
-		return completedPublication === undefined ? workflow : { ...workflow, ...completedPublication };
+	if (workflow.status === "trigger-failed") {
+		return {
+			status: "trigger-failed",
+			code: workflow.code,
+			message: workflow.message,
+			receipt: prReceipt,
+		};
+	}
+	if (workflow.status === "run-id-stamp-failed") {
+		return {
+			status: "run-id-stamp-failed",
+			message: workflow.message,
+			receipt:
+				workflow.runId === undefined
+					? prReceipt
+					: {
+							stage: "run-started",
+							source: sourceReceipt.source,
+							anchorPr,
+							runId: workflow.runId,
+						},
+		};
 	}
 
 	return {
 		status: "dispatched",
 		revision: workflow.runInput.revision,
 		sourceBranch: finalSource.branch,
-		sourcePublication: prepared.type,
-		isSourcePushed: prepared.type !== "already-current",
-		anchorPr: anchor.anchorPr,
-		runId: workflow.runId,
 		workflowRunUrl: workflow.workflowRunUrl,
+		receipt: {
+			stage: "run-started",
+			source: sourceReceipt.source,
+			anchorPr,
+			runId: workflow.runId,
+		},
 	};
-}
-
-function publicationEvidence(
-	prepared: PreparedDispatchSource,
-): CompletedDispatchSourcePublication | undefined {
-	return prepared.type === "already-current" ? undefined : prepared.completedPublication;
 }

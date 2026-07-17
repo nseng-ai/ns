@@ -11,15 +11,60 @@ import {
 	type DispatchPreflightSuccess,
 } from "./preflight.ts";
 
-export type DispatchSourcePublication = "already-current" | "git-pushed" | "graphite-submitted";
+export type DispatchCompletedSourceLifecycle =
+	| { readonly type: "already-current" }
+	| {
+			readonly type: "git-pushed";
+			readonly mutation: DispatchSourcePublicationMutationEvidence;
+	  }
+	| {
+			readonly type: "graphite-submitted";
+			readonly mutation: DispatchSourcePublicationMutationEvidence;
+			readonly affectedBranches: readonly string[];
+	  };
 
-export interface CompletedDispatchSourcePublication {
-	readonly sourcePublication: Exclude<DispatchSourcePublication, "already-current">;
-	readonly mutation: DispatchSourcePublicationMutationEvidence;
-	readonly affectedBranches?: readonly string[];
+export type DispatchSourceLifecycle =
+	| DispatchCompletedSourceLifecycle
+	| {
+			readonly type: "git-push-attempted";
+			readonly mutation: DispatchSourcePublicationMutationEvidence;
+	  }
+	| {
+			readonly type: "graphite-planning";
+			readonly mutation: DispatchSourcePublicationMutationEvidence;
+	  }
+	| {
+			readonly type: "graphite-publication-attempted";
+			readonly mutation: DispatchSourcePublicationMutationEvidence;
+			readonly affectedBranches: readonly string[];
+	  };
+
+export interface DispatchLifecycleAnchorPr {
+	readonly branch: string;
+	readonly number: number;
+	readonly url: string;
 }
 
-type DispatchSourceRevalidationReason =
+export type DispatchLifecycleReceipt =
+	| { readonly stage: "source"; readonly source: DispatchSourceLifecycle }
+	| {
+			readonly stage: "anchor-pushed";
+			readonly source: DispatchCompletedSourceLifecycle;
+			readonly anchorBranch: string;
+	  }
+	| {
+			readonly stage: "pr-opened";
+			readonly source: DispatchCompletedSourceLifecycle;
+			readonly anchorPr: DispatchLifecycleAnchorPr;
+	  }
+	| {
+			readonly stage: "run-started";
+			readonly source: DispatchCompletedSourceLifecycle;
+			readonly anchorPr: DispatchLifecycleAnchorPr;
+			readonly runId: string;
+	  };
+
+export type DispatchSourceRevalidationReason =
 	| "source-read-failed"
 	| "repository-drift"
 	| "branch-drift"
@@ -39,25 +84,13 @@ interface PreparedDispatchSourceContext {
 	readonly preflight: DispatchPreflightSuccess;
 }
 
-export type PreparedDispatchSource =
-	| {
-			readonly type: "already-current";
-			readonly context: PreparedDispatchSourceContext;
-	  }
-	| {
-			readonly type: "git-pushed";
-			readonly context: PreparedDispatchSourceContext;
-			readonly completedPublication: CompletedDispatchSourcePublication & {
-				readonly sourcePublication: "git-pushed";
-			};
-	  }
-	| {
-			readonly type: "graphite-submitted";
-			readonly context: PreparedDispatchSourceContext;
-			readonly completedPublication: CompletedDispatchSourcePublication & {
-				readonly sourcePublication: "graphite-submitted";
-			};
-	  };
+export interface PreparedDispatchSource {
+	readonly context: PreparedDispatchSourceContext;
+	readonly receipt: {
+		readonly stage: "source";
+		readonly source: DispatchCompletedSourceLifecycle;
+	};
+}
 
 export type PrepareDispatchSourceResult =
 	| { readonly ok: true; readonly prepared: PreparedDispatchSource }
@@ -70,7 +103,6 @@ export type PrepareDispatchSourceResult =
 export async function prepareDispatchSource(options: {
 	readonly cwd: string;
 	readonly initialSource: PreparedDispatchSourceContext["source"];
-	readonly initialPreflight: DispatchPreflightSuccess;
 	readonly initialRemoteTip: DispatchRemoteBranchTipResult;
 	readonly force: boolean;
 	readonly onPhase?: (message: string) => void;
@@ -90,50 +122,27 @@ export async function prepareDispatchSource(options: {
 	});
 	if (revalidated.ok === false) return revalidated;
 
-	if (publication.publication.type === "already-current") {
-		return {
-			ok: true,
-			prepared: {
-				type: "already-current",
-				context: revalidated.context,
-			},
-		};
-	}
-
-	const completedPublication: CompletedDispatchSourcePublication = {
-		...publication.publication.completedPublication,
-		mutation: {
-			...publication.publication.completedPublication.mutation,
-			remote: "observed",
+	const source: DispatchCompletedSourceLifecycle =
+		publication.publication.type === "already-current"
+			? { type: "already-current" }
+			: {
+					...publication.publication.source,
+					mutation: { ...publication.publication.source.mutation, remote: "observed" },
+				};
+	return {
+		ok: true,
+		prepared: {
+			context: revalidated.context,
+			receipt: { stage: "source", source },
 		},
 	};
-	return completedPublication.sourcePublication === "git-pushed"
-		? {
-				ok: true,
-				prepared: {
-					type: "git-pushed",
-					completedPublication: { ...completedPublication, sourcePublication: "git-pushed" },
-					context: revalidated.context,
-				},
-			}
-		: {
-				ok: true,
-				prepared: {
-					type: "graphite-submitted",
-					completedPublication: {
-						...completedPublication,
-						sourcePublication: "graphite-submitted",
-					},
-					context: revalidated.context,
-				},
-			};
 }
 
 type PublicationDecision =
 	| { readonly type: "already-current" }
 	| {
 			readonly type: "published";
-			readonly completedPublication: CompletedDispatchSourcePublication;
+			readonly source: Exclude<DispatchCompletedSourceLifecycle, { type: "already-current" }>;
 	  };
 
 async function publishDispatchSource(options: Parameters<typeof prepareDispatchSource>[0]): Promise<
@@ -167,7 +176,10 @@ async function publishDispatchSource(options: Parameters<typeof prepareDispatchS
 				status: "source-publication-plan-failed",
 				code: planned.code,
 				message: planned.message,
-				mutation: planned.mutation,
+				receipt: {
+					stage: "source",
+					source: { type: "graphite-planning", mutation: planned.mutation },
+				},
 			},
 		};
 	}
@@ -186,7 +198,13 @@ async function publishDispatchSource(options: Parameters<typeof prepareDispatchS
 					status: "source-push-failed",
 					sourceBranch: options.initialSource.branch,
 					message: push.error.message,
-					mutation: { local: "none", remote: "possible" },
+					receipt: {
+						stage: "source",
+						source: {
+							type: "git-push-attempted",
+							mutation: { local: "none", remote: "possible" },
+						},
+					},
 				},
 			};
 		}
@@ -195,8 +213,8 @@ async function publishDispatchSource(options: Parameters<typeof prepareDispatchS
 			expectedSource: options.initialSource,
 			publication: {
 				type: "published",
-				completedPublication: {
-					sourcePublication: "git-pushed",
+				source: {
+					type: "git-pushed",
 					mutation: { local: "none", remote: "possible" },
 				},
 			},
@@ -238,8 +256,14 @@ async function publishDispatchSource(options: Parameters<typeof prepareDispatchS
 				stage: published.stage,
 				code: published.code,
 				message: published.message,
-				affectedBranches,
-				mutation: published.mutation,
+				receipt: {
+					stage: "source",
+					source: {
+						type: "graphite-publication-attempted",
+						mutation: published.mutation,
+						affectedBranches,
+					},
+				},
 			},
 		};
 	}
@@ -248,8 +272,8 @@ async function publishDispatchSource(options: Parameters<typeof prepareDispatchS
 		expectedSource: { ...options.initialSource, ...published.source },
 		publication: {
 			type: "published",
-			completedPublication: {
-				sourcePublication: "graphite-submitted",
+			source: {
+				type: "graphite-submitted",
 				mutation: published.mutation,
 				affectedBranches,
 			},
@@ -369,7 +393,7 @@ function sourceRevalidationFailure(
 					status: "source-publication-verification-failed",
 					reason,
 					message,
-					...publication.completedPublication,
+					receipt: { stage: "source", source: publication.source },
 					...details,
 				},
 			};
