@@ -31,15 +31,23 @@ describe("real local token gateway", () => {
 		});
 	});
 
-	test("reads the Development token from the repository-root .env.local", async () => {
+	test("reads the Development token and optional protection bypass from repository-root .env.local", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "ns-dispatch-repo-"));
 		try {
-			await writeFile(join(repoRoot, ".env.local"), 'VERCEL_OIDC_TOKEN="repo-token"\n');
+			await writeFile(
+				join(repoRoot, ".env.local"),
+				[
+					'VERCEL_OIDC_TOKEN="repo-token"',
+					'NS_DISPATCH_PROTECTION_BYPASS="protection-bypass"',
+					"",
+				].join("\n"),
+			);
 			const gateway = createRealDispatchLocalTokenGateway({ env: {} });
 
 			expect(await gateway.readDevelopmentOidcToken({ repoRoot })).toEqual({
 				type: "found",
 				token: "repo-token",
+				protectionBypass: "protection-bypass",
 			});
 		} finally {
 			await rm(repoRoot, { recursive: true, force: true });

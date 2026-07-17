@@ -7,6 +7,8 @@ import type { DispatchLocalTokenGateway } from "../dispatch-client/contracts.ts"
 
 /** The env name `vercel env pull` writes the Development token under. */
 export const DISPATCH_OIDC_TOKEN_ENV_NAME = "VERCEL_OIDC_TOKEN";
+/** Optional Vercel Deployment Protection bypass for authenticated dispatch routes. */
+export const DISPATCH_PROTECTION_BYPASS_ENV_NAME = "NS_DISPATCH_PROTECTION_BYPASS";
 
 export interface RealDispatchLocalTokenGatewayOptions {
 	readonly env: Readonly<Record<string, string | undefined>>;
@@ -17,11 +19,18 @@ export function createRealDispatchLocalTokenGateway(
 ): DispatchLocalTokenGateway {
 	return {
 		async readDevelopmentOidcToken({ repoRoot }) {
-			const fromEnv = options.env[DISPATCH_OIDC_TOKEN_ENV_NAME];
-			if (fromEnv !== undefined && fromEnv.length > 0) {
-				return { type: "found", token: fromEnv };
-			}
 			const envLocalPath = join(repoRoot, ".env.local");
+			const tokenFromEnv = nonEmpty(options.env[DISPATCH_OIDC_TOKEN_ENV_NAME]);
+			const protectionBypassFromEnv = nonEmpty(options.env[DISPATCH_PROTECTION_BYPASS_ENV_NAME]);
+			if (tokenFromEnv !== null) {
+				return {
+					type: "found",
+					token: tokenFromEnv,
+					...(protectionBypassFromEnv === null
+						? {}
+						: { protectionBypass: protectionBypassFromEnv }),
+				};
+			}
 			let content: string;
 			try {
 				content = await readFile(envLocalPath, "utf8");
@@ -31,13 +40,24 @@ export function createRealDispatchLocalTokenGateway(
 				}
 				return { type: "error", message: formatErrorMessage(error) };
 			}
-			const token = parseEnvFileValue(content, DISPATCH_OIDC_TOKEN_ENV_NAME);
-			if (token === null || token.length === 0) {
+			const token = nonEmpty(parseEnvFileValue(content, DISPATCH_OIDC_TOKEN_ENV_NAME));
+			if (token === null) {
 				return { type: "missing", detail: missingTokenDetail(envLocalPath) };
 			}
-			return { type: "found", token };
+			const protectionBypass =
+				protectionBypassFromEnv ??
+				nonEmpty(parseEnvFileValue(content, DISPATCH_PROTECTION_BYPASS_ENV_NAME));
+			return {
+				type: "found",
+				token,
+				...(protectionBypass === null ? {} : { protectionBypass }),
+			};
 		},
 	};
+}
+
+function nonEmpty(value: string | null | undefined): string | null {
+	return value === undefined || value === null || value.length === 0 ? null : value;
 }
 
 function missingTokenDetail(envLocalPath: string): string {
