@@ -1,3 +1,5 @@
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
+
 export const DISPATCH_DIAGNOSTIC_MESSAGE_MAX_CHARS = 500;
 export const DISPATCH_DIAGNOSTIC_IDENTIFIER_MAX_CHARS = 100;
 export const DISPATCH_DIAGNOSTIC_RENDER_MAX_CHARS = 1_000;
@@ -33,30 +35,27 @@ export function normalizeDispatchFailure(options: {
 	readonly requestId?: string;
 }): DispatchFailureDiagnostic {
 	if (options.error instanceof DispatchDiagnosticError) {
-		return {
-			...options.error.diagnostic,
-			operation: normalizeRequiredIdentifier(options.operation, "unknown_operation"),
-		};
+		const diagnostic = options.error.diagnostic;
+		return normalizeDiagnosticFields({
+			operation: options.operation,
+			reason: diagnostic.reason,
+			errorName: diagnostic.errorName,
+			errorCode: diagnostic.errorCode,
+			httpStatus: diagnostic.httpStatus,
+			requestId: diagnostic.requestId,
+			message: diagnostic.message,
+		});
 	}
 
-	const errorName = normalizeIdentifier(
-		options.errorName ?? safeStringProperty(options.error, "name"),
-	);
-	const rawMessage = options.message ?? safeThrownMessage(options.error);
-	const message =
-		rawMessage === undefined ? undefined : sanitizeDispatchDiagnosticMessage(rawMessage);
-	const errorCode = normalizeIdentifier(options.errorCode);
-	const requestId = normalizeIdentifier(options.requestId);
-	const httpStatus = normalizeHttpStatus(options.httpStatus);
-	return {
-		operation: normalizeRequiredIdentifier(options.operation, "unknown_operation"),
-		reason: normalizeRequiredIdentifier(options.reason, "unexpected-exception"),
-		...(errorName === undefined ? {} : { errorName }),
-		...(errorCode === undefined ? {} : { errorCode }),
-		...(httpStatus === undefined ? {} : { httpStatus }),
-		...(requestId === undefined ? {} : { requestId }),
-		...(message === undefined || message.length === 0 ? {} : { message }),
-	};
+	return normalizeDiagnosticFields({
+		operation: options.operation,
+		reason: options.reason,
+		errorName: options.errorName ?? safeStringProperty(options.error, "name"),
+		errorCode: options.errorCode,
+		httpStatus: options.httpStatus,
+		requestId: options.requestId,
+		message: options.message ?? safeThrownMessage(options.error),
+	});
 }
 
 export function sanitizeDispatchDiagnosticMessage(value: string): string {
@@ -96,6 +95,36 @@ export function renderDispatchFailureDiagnostic(options: {
 	return rendered.length <= DISPATCH_DIAGNOSTIC_RENDER_MAX_CHARS
 		? rendered
 		: `${rendered.slice(0, DISPATCH_DIAGNOSTIC_RENDER_MAX_CHARS - 1)}…`;
+}
+
+interface RawDispatchDiagnosticFields {
+	readonly operation: string;
+	readonly reason: string;
+	readonly errorName: string | undefined;
+	readonly errorCode: string | undefined;
+	readonly httpStatus: number | undefined;
+	readonly requestId: string | undefined;
+	readonly message: string | undefined;
+}
+
+function normalizeDiagnosticFields(fields: RawDispatchDiagnosticFields): DispatchFailureDiagnostic {
+	const errorName = normalizeIdentifier(fields.errorName);
+	const errorCode = normalizeIdentifier(fields.errorCode);
+	const requestId = normalizeIdentifier(fields.requestId);
+	const httpStatus = normalizeHttpStatus(fields.httpStatus);
+	const sanitizedMessage =
+		fields.message === undefined ? undefined : sanitizeDispatchDiagnosticMessage(fields.message);
+	return {
+		operation: normalizeRequiredIdentifier(fields.operation, "unknown_operation"),
+		reason: normalizeRequiredIdentifier(fields.reason, "unexpected-exception"),
+		...optionalEntries({
+			errorName,
+			errorCode,
+			httpStatus,
+			requestId,
+			message: sanitizedMessage === "" ? undefined : sanitizedMessage,
+		}),
+	};
 }
 
 function safeThrownMessage(error: unknown): string | undefined {

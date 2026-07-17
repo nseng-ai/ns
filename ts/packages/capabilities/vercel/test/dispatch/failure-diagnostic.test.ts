@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	DISPATCH_DIAGNOSTIC_MESSAGE_MAX_CHARS,
+	DispatchDiagnosticError,
 	normalizeDispatchFailure,
 	renderDispatchFailureDiagnostic,
 	sanitizeDispatchDiagnosticMessage,
@@ -79,6 +80,31 @@ describe("dispatch failure diagnostics", () => {
 				requestId: "spaces are forbidden",
 			}),
 		).toEqual({ operation: "poll_dispatch_result", reason: "unexpected-exception" });
+	});
+
+	it("re-normalizes carried diagnostics and overrides their operation", () => {
+		const diagnostic = normalizeDispatchFailure({
+			operation: "prepare_and_launch_harness",
+			reason: "outer-reason-is-ignored",
+			error: new DispatchDiagnosticError({
+				operation: "untrusted operation",
+				reason: "invalid reason",
+				errorName: "invalid error name",
+				errorCode: "invalid error code",
+				httpStatus: 999,
+				requestId: "invalid request id",
+				message:
+					"Authorization: Bearer secret-token " + "x".repeat(DISPATCH_DIAGNOSTIC_MESSAGE_MAX_CHARS),
+			}),
+		});
+
+		expect(diagnostic).toEqual({
+			operation: "prepare_and_launch_harness",
+			reason: "unexpected-exception",
+			message: expect.stringMatching(/Authorization: \[redacted\].*…$/),
+		});
+		expect(diagnostic.message).toHaveLength(DISPATCH_DIAGNOSTIC_MESSAGE_MAX_CHARS);
+		expect(diagnostic.message).not.toContain("secret-token");
 	});
 
 	it("renders one shared actionable sentence", () => {

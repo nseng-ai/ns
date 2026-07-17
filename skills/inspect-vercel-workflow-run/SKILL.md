@@ -89,7 +89,13 @@ imply that all pages were read.
 > read-only helper that paginates Workflow results and returns bounded items plus explicit
 > completion/continuation metadata.
 
-Derive the deployment ID and the narrow run start/end interval from run metadata and events. Do not assume the current deployment or choose an arbitrary broad window. If metadata sources disagree on deployment identity, stop and report the disagreement.
+Derive the deployment ID and `run_start` from run metadata and events. Do not assume the current deployment or choose an arbitrary broad window. If metadata sources disagree on deployment identity, stop and report the disagreement.
+
+Define the interval before collecting logs:
+
+- If run metadata or events provide a trustworthy terminal timestamp, set `run_end` to that timestamp and record the interval as **terminal/closed**.
+- If the run is non-terminal or has no trustworthy terminal timestamp, capture one UTC collection timestamp **after topology collection**, set `run_end` to that observation cutoff, and record the interval as **active/open-ended, observed through `<cutoff>`**. The cutoff is evidence collection time, not a run-end timestamp.
+- For an active/open-ended interval, later events and logs may exist. Do not infer terminal failure, complete chronology, or that the run is “still running now” beyond the captured cutoff.
 
 Cache deployment metadata and bounded runtime logs:
 
@@ -105,8 +111,10 @@ vercel logs "$deployment_id" --scope "$team" --project "$project" --no-branch \
 If deployment-scoped logs are unavailable, use the same project, scope, environment, interval, limit, `--no-branch`, and JSON filters without guessing another deployment. Record the limitation. Collect all levels: an application-level failure object may be logged at info level even when its Workflow step completed.
 
 Continue only when the cache identifies run status, the obtained oldest-first step/event prefixes,
-deployment identity, and bounded runtime logs, or stop with an inventory of partial artifacts. If a
-prefix is potentially truncated, do not claim complete chronology or complete terminal-state coverage.
+deployment identity, interval classification and endpoint, and bounded runtime logs, or stop with an
+inventory of partial artifacts. If a prefix is potentially truncated, do not claim complete chronology
+or complete terminal-state coverage. For an active/open-ended interval, every chronology and status
+claim is additionally qualified as observed through the recorded cutoff.
 
 ## 4. Find the causal frontier
 
@@ -153,13 +161,14 @@ Return this contract:
 - Run: …
 - Team/project/environment: …
 - Deployment: …
+- Observation interval: terminal/closed through … | active/open-ended, observed through …
 - Evidence directory: … (may contain sensitive decrypted payloads)
 
 ## Timeline
 
 - <timestamp> — <step/event, status, interpretation> (`<evidence filename>`)
 
-State whether this is a complete timeline or a bounded oldest-first prefix.
+State whether this is a complete terminal/closed timeline, a bounded oldest-first prefix, or active/open-ended evidence observed through the cutoff. For active evidence, state that later events/logs may exist.
 
 ## Primary/domain failure
 
@@ -185,9 +194,9 @@ State whether this is a complete timeline or a bounded oldest-first prefix.
 
 ## Collection limits
 
-<missing/inaccessible/malformed evidence; every potentially truncated artifact with its exact cap and
-which chronology or terminal-state claims remain unestablished; or "none" only when all required
-queries are complete>
+<missing/inaccessible/malformed evidence; interval classification and endpoint; every potentially
+truncated artifact with its exact cap and which chronology or terminal-state claims remain
+unestablished; or "none" only for a terminal/closed interval when all required queries are complete>
 
 No source edits, deployment, workflow rerun, or external mutation was performed.
 ```

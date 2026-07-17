@@ -44,6 +44,10 @@ export async function writeDispatchWorkflowEvent(
 			logSink,
 		);
 	} finally {
-		writer?.releaseLock();
+		try {
+			writer?.releaseLock();
+		} catch {
+			// Releasing observability machinery is best-effort and cannot fail dispatch.
+		}
 	}
 }

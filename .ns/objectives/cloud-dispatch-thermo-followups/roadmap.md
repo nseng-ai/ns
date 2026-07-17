@@ -10,6 +10,22 @@ notes — never a standalone row.
 
 ## Work
 
+- [x] **H10 + M19–M21 — Harden sandbox lifecycle and observation boundaries.**
+      Created the sandbox in its own zero-retry Workflow step so only its safe name
+      crosses into durable state; returned and thrown post-create failures clean up
+      before reporting; carried diagnostics are re-normalized; event sink,
+      serialization, status stream, and writer-lock release are best-effort; the
+      canonical inspection skill defines an active-run observation cutoff.
+      - [x] H10: durable sandbox identity before preparation and detached launch.
+      - [x] M19: `DispatchDiagnosticError` fields cannot bypass normalization.
+      - [x] M20: observability failures cannot change dispatch behavior.
+      - [x] M21: active/stuck inspection is bounded and explicitly open-ended.
+      Evidence: focused lifecycle/diagnostic/observability tests passed (134 tests), the
+      full Vercel package passed (749 tests), focused and workspace typechecks passed,
+      `areg check`, Objective checks, formatting, lint, style guard, and full `just`
+      passed. `build:deployable` could not run without local Vercel project settings or
+      `VERCEL_TOKEN`; no build, deployment, billable sandbox, or live-run proof is
+      claimed.
 - [ ] **H1 — Collapse the dual failure channel.** Delete the never-produced
       `ok: false` arms from the six dispatch result unions (and the four supervision
       ones if they survive H2), make the fakes throw, and remove the paired

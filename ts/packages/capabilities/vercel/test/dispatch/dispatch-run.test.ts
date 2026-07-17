@@ -18,12 +18,13 @@ import {
 	planDispatchSupervision,
 	resolveDispatchDisposition,
 	validateDispatchRunInput,
+	type DispatchHarnessLaunchResult,
 	type DispatchLandingResult,
-	type DispatchLaunchResult,
 	type DispatchOutcomeReadResult,
 	type DispatchReportResult,
 	type DispatchRunInput,
 	type DispatchRunSteps,
+	type DispatchSandboxCreationResult,
 } from "../../src/dispatch/dispatch-run.ts";
 import type { DispatchFailureDiagnostic } from "../../src/dispatch/failure-diagnostic.ts";
 import type {
@@ -288,7 +289,9 @@ interface StepCall {
 }
 
 interface FakeStepBehavior {
-	readonly launch?: DispatchLaunchResult;
+	readonly creation?: DispatchSandboxCreationResult;
+	readonly launch?: DispatchHarnessLaunchResult;
+	readonly launchThrows?: boolean;
 	readonly polls?: readonly SupervisionPollResult[];
 	readonly readOutcome?: DispatchOutcomeReadResult;
 	readonly land?: DispatchLandingResult;
@@ -308,9 +311,14 @@ function createFakeSteps(behavior: FakeStepBehavior = {}): {
 		async sleep(durationMs) {
 			calls.push({ step: "sleep", args: durationMs });
 		},
-		async launch(run) {
-			calls.push({ step: "launch", args: run });
-			return behavior.launch ?? { ok: true, sandboxName: "sbx_dispatch", harness: "pi" };
+		async createSandbox(run) {
+			calls.push({ step: "createSandbox", args: run });
+			return behavior.creation ?? { ok: true, sandboxName: "sbx_dispatch" };
+		},
+		async launchHarness(options) {
+			calls.push({ step: "launchHarness", args: options });
+			if (behavior.launchThrows === true) throw new Error("raw workflow failure");
+			return behavior.launch ?? { ok: true, harness: "pi" };
 		},
 		async poll(sandboxName, pollOrdinal) {
 			calls.push({ step: "poll", args: { sandboxName, pollOrdinal } });
@@ -379,7 +387,8 @@ describe("executeDispatchRun", () => {
 			decisionLogPublished: true,
 		});
 		expect(stepNames(calls)).toEqual([
-			"launch",
+			"createSandbox",
+			"launchHarness",
 			"poll",
 			"sleep",
 			"poll",
@@ -389,18 +398,22 @@ describe("executeDispatchRun", () => {
 			"reportLanded",
 		]);
 		expect(calls[0]?.args).toEqual({ ...input(), revision: revision.toLowerCase() });
-		expect(calls[1]?.args).toEqual({ sandboxName: "sbx_dispatch", pollOrdinal: 1 });
-		expect(calls[3]?.args).toEqual({ sandboxName: "sbx_dispatch", pollOrdinal: 2 });
-		expect(calls[5]?.args).toEqual({
+		expect(calls[1]?.args).toEqual({
+			run: { ...input(), revision: revision.toLowerCase() },
+			sandboxName: "sbx_dispatch",
+		});
+		expect(calls[2]?.args).toEqual({ sandboxName: "sbx_dispatch", pollOrdinal: 1 });
+		expect(calls[4]?.args).toEqual({ sandboxName: "sbx_dispatch", pollOrdinal: 2 });
+		expect(calls[6]?.args).toEqual({
 			sandboxName: "sbx_dispatch",
 			anchorBranch: "dispatch/widget-refactor-a1b2c3",
 		});
-		expect(calls[7]?.args).toEqual({ anchorPrNumber: 421, decisionLog: "- chose A" });
+		expect(calls[8]?.args).toEqual({ anchorPrNumber: 421, decisionLog: "- chose A" });
 	});
 
 	it("reports a launch failure on the anchor PR without polling or cleanup", async () => {
 		const { steps, calls } = createFakeSteps({
-			launch: { ok: false, code: "launch-failed", message: "Sandbox creation failed." },
+			creation: { ok: false, code: "launch-failed", message: "Sandbox creation failed." },
 		});
 
 		const result = await executeDispatchRun(input(), steps);
@@ -413,7 +426,7 @@ describe("executeDispatchRun", () => {
 			anchorPrNumber: 421,
 			failureReported: true,
 		});
-		expect(stepNames(calls)).toEqual(["launch", "reportFailure"]);
+		expect(stepNames(calls)).toEqual(["createSandbox", "reportFailure"]);
 		expect(calls[1]?.args).toEqual({
 			anchorBranch: "dispatch/widget-refactor-a1b2c3",
 			anchorPrNumber: 421,
@@ -428,7 +441,6 @@ describe("executeDispatchRun", () => {
 				ok: false,
 				code: "launch-failed",
 				message: "Detached harness launch failed.",
-				sandboxName: "sbx_dispatch",
 			},
 		});
 
@@ -440,7 +452,33 @@ describe("executeDispatchRun", () => {
 			sandboxName: "sbx_dispatch",
 			failureReported: true,
 		});
-		expect(stepNames(calls)).toEqual(["launch", "cleanup", "reportFailure"]);
+		expect(stepNames(calls)).toEqual([
+			"createSandbox",
+			"launchHarness",
+			"cleanup",
+			"reportFailure",
+		]);
+	});
+
+	it("cleans up and reports a bounded generic failure when the post-create step throws", async () => {
+		const { steps, calls } = createFakeSteps({ launchThrows: true });
+
+		const result = await executeDispatchRun(input(), steps);
+
+		expect(result).toMatchObject({
+			ok: false,
+			code: "launch-failed",
+			message: "Detached harness launch failed unexpectedly.",
+			sandboxName: "sbx_dispatch",
+			failureReported: true,
+		});
+		expect(JSON.stringify(result)).not.toContain("raw workflow failure");
+		expect(stepNames(calls)).toEqual([
+			"createSandbox",
+			"launchHarness",
+			"cleanup",
+			"reportFailure",
+		]);
 	});
 
 	it("gives cleanup failure and its diagnostic precedence over a post-create launch failure", async () => {
@@ -458,7 +496,6 @@ describe("executeDispatchRun", () => {
 				ok: false,
 				code: "launch-failed",
 				message: "Detached harness launch failed.",
-				sandboxName: "sbx_dispatch",
 				diagnostic: launchDiagnostic,
 			},
 			cleanup: {
@@ -482,6 +519,31 @@ describe("executeDispatchRun", () => {
 		});
 	});
 
+	it("gives cleanup failure precedence over a thrown post-create launch failure", async () => {
+		const cleanupDiagnostic = {
+			operation: "stop_sandbox",
+			reason: "vercel-sandbox-api-error",
+			httpStatus: 503,
+		} as const;
+		const { steps } = createFakeSteps({
+			launchThrows: true,
+			cleanup: {
+				ok: false,
+				code: "sandbox-cleanup-failed",
+				message: "Sandbox cleanup failed.",
+				diagnostic: cleanupDiagnostic,
+			},
+		});
+
+		const result = await executeDispatchRun(input(), steps);
+
+		expect(result).toMatchObject({
+			ok: false,
+			code: "sandbox-cleanup-failed",
+			diagnostic: cleanupDiagnostic,
+		});
+	});
+
 	it("does not land a run whose harness reported failure, but still cleans up and reports", async () => {
 		const { steps, calls } = createFakeSteps({
 			readOutcome: { ok: true, outcome: "failed", summary: "tests failed", decisionLog: null },
@@ -494,7 +556,14 @@ describe("executeDispatchRun", () => {
 		expect(result.code).toBe("harness-failed");
 		expect(result.message).toContain("tests failed");
 		expect(result.failureReported).toBe(true);
-		expect(stepNames(calls)).toEqual(["launch", "poll", "readOutcome", "cleanup", "reportFailure"]);
+		expect(stepNames(calls)).toEqual([
+			"createSandbox",
+			"launchHarness",
+			"poll",
+			"readOutcome",
+			"cleanup",
+			"reportFailure",
+		]);
 	});
 
 	it("cleans up and reports when a poll fails", async () => {
@@ -508,7 +577,8 @@ describe("executeDispatchRun", () => {
 		if (result.ok) throw new Error("Expected a failure.");
 		expect(result.code).toBe("poll-failed");
 		expect(stepNames(calls)).toEqual([
-			"launch",
+			"createSandbox",
+			"launchHarness",
 			"poll",
 			"sleep",
 			"poll",
@@ -545,7 +615,8 @@ describe("executeDispatchRun", () => {
 		if (result.ok) throw new Error("Expected a failure.");
 		expect(result.code).toBe("landing-failed");
 		expect(stepNames(calls)).toEqual([
-			"launch",
+			"createSandbox",
+			"launchHarness",
 			"poll",
 			"readOutcome",
 			"land",

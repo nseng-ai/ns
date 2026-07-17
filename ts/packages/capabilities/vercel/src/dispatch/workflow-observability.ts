@@ -16,6 +16,7 @@ export type DispatchWorkflowEvent =
 	| {
 			readonly event: "dispatch_step_started";
 			readonly step:
+				| "create-sandbox"
 				| "launch"
 				| "poll"
 				| "read-result"
@@ -29,7 +30,14 @@ export type DispatchWorkflowEvent =
 	  }
 	| {
 			readonly event: "dispatch_step_finished";
-			readonly step: "launch" | "poll" | "read-result" | "land" | "cleanup" | "update-anchor-pr";
+			readonly step:
+				| "create-sandbox"
+				| "launch"
+				| "poll"
+				| "read-result"
+				| "land"
+				| "cleanup"
+				| "update-anchor-pr";
 			readonly outcome: "succeeded" | "failed" | "running" | "done";
 			readonly anchorPrNumber?: number;
 			readonly sandboxName?: string;
@@ -90,5 +98,9 @@ export function emitDispatchWorkflowEvent(
 	event: DispatchWorkflowEvent,
 	sink: (serializedEvent: string) => void = console.info,
 ): void {
-	sink(JSON.stringify(event));
+	try {
+		sink(JSON.stringify(event));
+	} catch {
+		// Observability must never alter workflow behavior, including serialization failures.
+	}
 }

@@ -12,8 +12,10 @@ the surviving ledger. Process, dropped findings, and clean attestations live in
 IDs are stable: `H*`/`M*`/`L*` from the draft, with the challenger's final severity
 noted where it differs. Roadmap rows in this objective reference these IDs.
 
-Review-scope note: severities judge implementation quality and maintainability, not
-behavior; the review found no behavioral defect in the dispatch path.
+Review-scope note: severities judge implementation quality and maintainability. The
+2026-07-14 review found no behavioral defect in the dispatch path; the later focused
+lifecycle review recorded below found a durability defect at H10 and narrowly
+supersedes that earlier conclusion for the combined launch step only.
 
 ## HIGH
 
@@ -84,7 +86,53 @@ their trigger branches, and both probe sandbox adapters (keep `supervision.ts`, 
 dispatch reuses). Settle hello's fate with the setup-skill row. This slice dissolves
 H3, H5, H6, H8, M16, and the sandbox halves of M17/L3/L4/L5 by subtraction.
 
+### H10 — Sandbox identity was not durable before post-create work
+
+A focused lifecycle review found that the former single non-retryable launch step
+created a Vercel Sandbox and then performed checkout reads, harness resolution, context
+writes, provisioning, and detached launch before returning `sandboxName` to durable
+Workflow state. Worker loss in that post-create window left orchestration unable to
+attempt cleanup; only the configured sandbox timeout remained. Adversarial disposition:
+KEEP at HIGH because the leaked billable resource and missing cleanup ownership cross a
+durability boundary.
+
+**Remedy:** split creation from preparation/launch into two non-retryable Workflow
+steps. The creation result carries only the safe sandbox name; every returned or thrown
+post-create launch failure cleans up through that durable identity before reporting.
+
 ## MEDIUM
+
+### M19 — `DispatchDiagnosticError` could bypass normalization
+
+`normalizeDispatchFailure` spread the diagnostic carried by a public
+`DispatchDiagnosticError`, overriding only `operation`. A future constructor caller
+could therefore bypass identifier validation, status bounds, message redaction, and
+message truncation. Adversarial disposition: KEEP at MEDIUM; the current real adapter
+passed normalized data, but the public boundary made the invariant caller-dependent.
+
+**Remedy:** reconstruct every carried field through the same private normalizers while
+keeping the outer operation authoritative.
+
+### M20 — Workflow event failures could alter dispatch behavior
+
+The primary event sink ran outside containment, the stream-failure marker reused that
+same potentially throwing sink, and writer-lock release could escape. Adversarial
+disposition: KEEP at MEDIUM because observational machinery must not change workflow
+results or prevent the independent stream attempt.
+
+**Remedy:** contain event serialization and sink invocation, stream creation/write, the
+safe failure marker, and lock release; test independent and simultaneous failures.
+
+### M21 — Active-run inspection lacked a bounded observation cutoff
+
+The canonical Workflow inspection skill required both `run_start` and `run_end`, but a
+non-terminal or stuck run has no trustworthy terminal timestamp. Adversarial
+disposition: KEEP at MEDIUM because this made the diagnostic procedure least useful
+for the runs that most need inspection and invited an invented end time.
+
+**Remedy:** capture one UTC observation cutoff after topology collection, use it for
+`--until`, label the interval active/open-ended and observed through that cutoff, and
+avoid terminal or current-status claims beyond it.
 
 ### H3 (downgraded from HIGH; conditional on H2) — Three real adapters over one SDK
 

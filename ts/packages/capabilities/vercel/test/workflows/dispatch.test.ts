@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { dispatchWorkflowId } from "../../workflows/dispatch-id.ts";
 import {
 	checkHarnessCompletion,
-	createSandboxAndLaunchHarness,
+	createDispatchSandbox,
+	prepareAndLaunchHarness,
 	dispatchWorkflow,
 	failDispatchRun,
 	pushAnchorBranch,
@@ -20,7 +21,8 @@ describe("dispatchWorkflow", () => {
 
 	it("exposes operator-oriented step names", () => {
 		expect([
-			createSandboxAndLaunchHarness.name,
+			createDispatchSandbox.name,
+			prepareAndLaunchHarness.name,
 			checkHarnessCompletion.name,
 			readHarnessResult.name,
 			pushAnchorBranch.name,
@@ -29,7 +31,8 @@ describe("dispatchWorkflow", () => {
 			updateAnchorPrFailed.name,
 			failDispatchRun.name,
 		]).toEqual([
-			"createSandboxAndLaunchHarness",
+			"createDispatchSandbox",
+			"prepareAndLaunchHarness",
 			"checkHarnessCompletion",
 			"readHarnessResult",
 			"pushAnchorBranch",
@@ -41,7 +44,8 @@ describe("dispatchWorkflow", () => {
 	});
 
 	it("caps launch and terminal failure at a single attempt", () => {
-		expect(createSandboxAndLaunchHarness.maxRetries).toBe(0);
+		expect(createDispatchSandbox.maxRetries).toBe(0);
+		expect(prepareAndLaunchHarness.maxRetries).toBe(0);
 		expect(failDispatchRun.maxRetries).toBe(0);
 	});
 

@@ -444,14 +444,21 @@ export type DispatchRunFailureCode =
 	| "landing-failed"
 	| "sandbox-cleanup-failed";
 
-export type DispatchLaunchResult =
-	| { readonly ok: true; readonly sandboxName: string; readonly harness: DispatchHarness }
+export type DispatchSandboxCreationResult =
+	| { readonly ok: true; readonly sandboxName: string }
 	| {
 			readonly ok: false;
 			readonly code: "invalid-input" | "dispatch-misconfigured" | "launch-failed";
 			readonly message: string;
-			/** Present only when a safely reattachable sandbox was created. */
-			readonly sandboxName?: string;
+			readonly diagnostic?: DispatchFailureDiagnostic;
+	  };
+
+export type DispatchHarnessLaunchResult =
+	| { readonly ok: true; readonly harness: DispatchHarness }
+	| {
+			readonly ok: false;
+			readonly code: "dispatch-misconfigured" | "launch-failed";
+			readonly message: string;
 			readonly diagnostic?: DispatchFailureDiagnostic;
 	  };
 
@@ -603,7 +610,11 @@ export function resolveDispatchDisposition(options: {
  */
 export interface DispatchRunSteps {
 	sleep(durationMs: number): Promise<void>;
-	launch(input: DispatchRunInput): Promise<DispatchLaunchResult>;
+	createSandbox(input: DispatchRunInput): Promise<DispatchSandboxCreationResult>;
+	launchHarness(options: {
+		readonly run: DispatchRunInput;
+		readonly sandboxName: string;
+	}): Promise<DispatchHarnessLaunchResult>;
 	poll(sandboxName: string, pollOrdinal: number): Promise<DispatchSupervisionPollResult>;
 	readOutcome(sandboxName: string): Promise<DispatchOutcomeReadResult>;
 	land(options: {
@@ -627,8 +638,8 @@ export interface DispatchRunSteps {
 
 /**
  * The dispatch run's deterministic orchestration, executed directly by the
- * workflow body under replay: validate strictly, launch once (the workflow
- * marks that step `maxRetries = 0`), supervise with probe-3's poll/sleep
+ * workflow body under replay: validate strictly, create the sandbox and launch
+ * the harness in separate non-retryable steps, supervise with probe-3's poll/sleep
  * loop, harvest the outcome, land completed work, clean up on every path
  * that has a sandbox, and always report the terminal state on the anchor
  * PR — success publishes the decision log into the PR description, every
@@ -655,18 +666,46 @@ export async function executeDispatchRun(
 	const run = validated.value;
 	const anchor = { anchorBranch: run.anchorBranch, anchorPrNumber: run.anchorPrNumber };
 
-	const launch = await steps.launch(run);
+	const creation = await steps.createSandbox(run);
+	if (creation.ok === false) {
+		const reported = await steps.reportFailure({
+			...anchor,
+			code: creation.code,
+			message: creation.message,
+			...(creation.diagnostic === undefined ? {} : { diagnostic: creation.diagnostic }),
+			...(context.workflowRunId === undefined ? {} : { workflowRunId: context.workflowRunId }),
+		});
+		return {
+			ok: false,
+			code: creation.code,
+			message: creation.message,
+			...anchor,
+			failureReported: reported.ok,
+			...(creation.diagnostic === undefined ? {} : { diagnostic: creation.diagnostic }),
+			...(context.workflowRunId === undefined ? {} : { workflowRunId: context.workflowRunId }),
+		};
+	}
+	const sandboxName = creation.sandboxName;
+
+	let launch: DispatchHarnessLaunchResult;
+	try {
+		launch = await steps.launchHarness({ run, sandboxName });
+	} catch {
+		launch = {
+			ok: false,
+			code: "launch-failed",
+			message: "Detached harness launch failed unexpectedly.",
+		};
+	}
 	if (launch.ok === false) {
 		let code: DispatchRunFailureCode = launch.code;
 		let message = launch.message;
 		let diagnostic = launch.diagnostic;
-		if (launch.sandboxName !== undefined) {
-			const cleanup = await steps.cleanup(launch.sandboxName);
-			if (cleanup.ok === false) {
-				code = cleanup.code;
-				message = cleanup.message;
-				diagnostic = cleanup.diagnostic;
-			}
+		const cleanup = await steps.cleanup(sandboxName);
+		if (cleanup.ok === false) {
+			code = cleanup.code;
+			message = cleanup.message;
+			diagnostic = cleanup.diagnostic;
 		}
 		const reported = await steps.reportFailure({
 			...anchor,
@@ -679,14 +718,13 @@ export async function executeDispatchRun(
 			ok: false,
 			code,
 			message,
+			sandboxName,
 			...anchor,
-			...(launch.sandboxName === undefined ? {} : { sandboxName: launch.sandboxName }),
 			failureReported: reported.ok,
 			...(diagnostic === undefined ? {} : { diagnostic }),
 			...(context.workflowRunId === undefined ? {} : { workflowRunId: context.workflowRunId }),
 		};
 	}
-	const sandboxName = launch.sandboxName;
 
 	// The supervision loop runs in the workflow body: each `sleep()` suspends
 	// the run at zero compute while the harness keeps executing in the

@@ -6,6 +6,7 @@ import {
 	buildDispatchRunningAttributes,
 	buildDispatchStartAttributes,
 	emitDispatchWorkflowEvent,
+	type DispatchWorkflowEvent,
 } from "../../src/dispatch/workflow-observability.ts";
 import { writeDispatchWorkflowAttributes } from "../../workflows/dispatch-attribute-writer.ts";
 import { writeDispatchWorkflowEvent } from "../../workflows/dispatch-event-writer.ts";
@@ -121,6 +122,75 @@ describe("dispatch workflow status stream", () => {
 		]);
 	});
 
+	it("still writes the stream when the primary log sink throws", async () => {
+		const streamed: unknown[] = [];
+		const stream = new WritableStream({
+			write(chunk) {
+				streamed.push(chunk);
+			},
+		});
+		const event = {
+			event: "dispatch_step_started",
+			step: "create-sandbox",
+			anchorPrNumber: 421,
+		} as const;
+
+		await expect(
+			writeDispatchWorkflowEvent(event, {
+				createStream: () => stream,
+				logSink: () => {
+					throw new Error("broken log sink");
+				},
+			}),
+		).resolves.toBeUndefined();
+		expect(streamed).toEqual([event]);
+	});
+
+	it("contains simultaneous sink and stream failures without leaking stream details", async () => {
+		const stream = new WritableStream({
+			write() {
+				throw new Error("raw vendor stream failure with secret-token");
+			},
+		});
+		const attemptedLogs: string[] = [];
+
+		await expect(
+			writeDispatchWorkflowEvent(
+				{ event: "dispatch_step_started", step: "launch", anchorPrNumber: 421 },
+				{
+					createStream: () => stream,
+					logSink: (value) => {
+						attemptedLogs.push(value);
+						throw new Error("broken log sink");
+					},
+				},
+			),
+		).resolves.toBeUndefined();
+		expect(attemptedLogs).toEqual([
+			'{"event":"dispatch_step_started","step":"launch","anchorPrNumber":421}',
+			'{"event":"observability_write_failed","operation":"status-stream"}',
+		]);
+		expect(attemptedLogs.join("\n")).not.toContain("secret-token");
+	});
+
+	it("contains writer lock release failures", async () => {
+		const stream = new WritableStream();
+		const writer = stream.getWriter();
+		Object.defineProperty(writer, "releaseLock", {
+			value() {
+				throw new Error("release failed");
+			},
+		});
+		Object.defineProperty(stream, "getWriter", { value: () => writer });
+
+		await expect(
+			writeDispatchWorkflowEvent(
+				{ event: "observability_write_failed", operation: "status-stream" },
+				{ createStream: () => stream, logSink: () => {} },
+			),
+		).resolves.toBeUndefined();
+	});
+
 	it("contains stream failures without hiding the primary log event", async () => {
 		const logs: string[] = [];
 		const stream = new WritableStream({
@@ -143,6 +213,28 @@ describe("dispatch workflow status stream", () => {
 });
 
 describe("dispatch workflow logs", () => {
+	it("contains a throwing event sink", () => {
+		expect(() =>
+			emitDispatchWorkflowEvent({ event: "dispatch_step_started", step: "create-sandbox" }, () => {
+				throw new Error("broken sink");
+			}),
+		).not.toThrow();
+	});
+
+	it("contains event serialization failure", () => {
+		const event = Object.defineProperty(
+			{ event: "dispatch_step_started", step: "create-sandbox" },
+			"toJSON",
+			{
+				value() {
+					throw new Error("serialization failed");
+				},
+			},
+		) as DispatchWorkflowEvent;
+
+		expect(() => emitDispatchWorkflowEvent(event, () => {})).not.toThrow();
+	});
+
 	it("serializes only the closed safe event fields", () => {
 		const output: string[] = [];
 		emitDispatchWorkflowEvent(

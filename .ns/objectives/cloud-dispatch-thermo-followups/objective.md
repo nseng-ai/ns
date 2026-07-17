@@ -26,7 +26,13 @@ evidence), and the clean attestations (not to be re-flagged).
 
 ## Implementation Status
 
-M4+M5 and H9 are locally complete. The extracted `dispatch-client` seam is now consumed
+M4+M5, H9, and the focused H10/M19–M21 remediation are locally complete. The latter
+hardened sandbox-identity durability, diagnostic normalization, best-effort Workflow
+observability, and bounded active-run inspection; it narrowly supersedes the earlier
+combined-launch clean attestation without reopening unrelated architecture findings.
+Local tests and repository validation passed, but deployable packaging was blocked by
+missing local Vercel project settings/authentication and no live verification is claimed.
+The extracted `dispatch-client` seam is now consumed
 by the separate Graphite-aware source-publication feature without restoring host-surface
 ownership. Follow-up review refined the package-shared `[dispatch]` parser into the neutral
 `src/config/` owner while dispatch-client retains invocation-specific preflight refinement.
@@ -91,6 +97,10 @@ Assumptions (each falsifiable by a future update):
 
 Risks:
 
+- **H10 touches the live-proven dispatch lifecycle.** Mitigation: the minimal seam
+  persists only a safe sandbox name before post-create work, both non-repeatable steps
+  remain zero-retry, and local tests cover returned and thrown launch failure cleanup;
+  no live proof is claimed by this remediation.
 - **H1 touches the live-proven dispatch path** right around steel-thread closure.
   Mitigation: it is a mechanical deletion of dead arms with the existing throw-path
   tests retained; land it as its own slice with full validation, not bundled with

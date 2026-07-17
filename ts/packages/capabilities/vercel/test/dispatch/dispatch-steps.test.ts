@@ -14,7 +14,8 @@ import type { SandboxCommand } from "../../src/sandbox/contracts.ts";
 import {
 	cleanupDispatchRun,
 	landDispatchRun,
-	launchDispatchRun,
+	createDispatchSandboxStep,
+	prepareAndLaunchDispatchHarness,
 	pollDispatchRun,
 	readDispatchOutcome,
 	reportDispatchFailure,
@@ -172,7 +173,50 @@ function createDeps(
 	return { deps, sandboxes, minter, reports, operationLogs, resolverCalls };
 }
 
-describe("launchDispatchRun", () => {
+async function createAndLaunch(input: DispatchRunInput, deps: DispatchStepDeps) {
+	const creation = await createDispatchSandboxStep(input, deps);
+	if (!creation.ok) return creation;
+	const launch = await prepareAndLaunchDispatchHarness(
+		{ run: input, sandboxName: creation.sandboxName },
+		deps,
+	);
+	return { ...launch, sandboxName: creation.sandboxName };
+}
+
+describe("dispatch launch stages", () => {
+	it("creates a sandbox with a clone token and returns only its safe identity", async () => {
+		const { deps, sandboxes, minter } = createDeps();
+
+		const result = await createDispatchSandboxStep(runInput(), deps);
+
+		expect(result).toEqual({ ok: true, sandboxName: "sbx_dispatch" });
+		expect(minter.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "clone" }]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create"]);
+		expect(JSON.stringify(result)).not.toContain("token-clone-fixture");
+	});
+
+	it("reattaches by durable sandbox name without minting or creating", async () => {
+		const { deps, sandboxes, minter } = createDeps();
+
+		const result = await prepareAndLaunchDispatchHarness(
+			{ run: runInput(), sandboxName: "sbx_durable" },
+			deps,
+		);
+
+		expect(result).toEqual({ ok: true, harness: "pi" });
+		expect(minter.calls).toEqual([]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual([
+			"read",
+			"read",
+			"write",
+			"run",
+			"runDetached",
+		]);
+		expect(sandboxes.calls.every((call) => call.options["sandboxName"] === "sbx_durable")).toBe(
+			true,
+		);
+	});
+
 	it("launches from GitHub App config without OIDC-only variables", async () => {
 		const packageManagerSource = '{"packageManager":"pnpm@11.8.1"}';
 		const { deps, sandboxes, minter, operationLogs, resolverCalls } = createDeps({
@@ -184,7 +228,7 @@ describe("launchDispatchRun", () => {
 			},
 		});
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result).toEqual({ ok: true, sandboxName: "sbx_dispatch", harness: "pi" });
 		expect(minter.calls).toEqual([{ repository: "nseng-ai/ns", purpose: "clone" }]);
@@ -264,7 +308,7 @@ describe("launchDispatchRun", () => {
 	it("fetches and verifies the exact plan snapshot before writing a brmem-first instruction and launching", async () => {
 		const { deps, sandboxes } = createDeps();
 
-		const result = await launchDispatchRun(planRunInput(), deps);
+		const result = await createAndLaunch(planRunInput(), deps);
 
 		expect(result).toEqual({ ok: true, sandboxName: "sbx_dispatch", harness: "pi" });
 		expect(sandboxes.calls.map((call) => call.method)).toEqual([
@@ -318,7 +362,7 @@ describe("launchDispatchRun", () => {
 			harness: { ok: true, value: harnessInvocation({ provisionCommands: [] }) },
 		});
 
-		const result = await launchDispatchRun(planRunInput(), deps);
+		const result = await createAndLaunch(planRunInput(), deps);
 
 		expect(result).toEqual({
 			ok: false,
@@ -334,7 +378,7 @@ describe("launchDispatchRun", () => {
 	it("never journals token material in its result", async () => {
 		const { deps } = createDeps();
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(JSON.stringify(result)).not.toContain("token");
 	});
@@ -342,7 +386,7 @@ describe("launchDispatchRun", () => {
 	it("rejects invalid input before touching configuration or gateways", async () => {
 		const { deps, sandboxes, minter } = createDeps();
 
-		const result = await launchDispatchRun(runInput({ anchorBranch: "feature/x" }), deps);
+		const result = await createAndLaunch(runInput({ anchorBranch: "feature/x" }), deps);
 
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
@@ -356,7 +400,7 @@ describe("launchDispatchRun", () => {
 			environment: { ...validEnvironment(), NS_DISPATCH_GITHUB_APP_ID: "not-a-number" },
 		});
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result).toEqual({
 			ok: false,
@@ -375,7 +419,7 @@ describe("launchDispatchRun", () => {
 			},
 		});
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result).toEqual({
 			ok: false,
@@ -397,13 +441,13 @@ describe("launchDispatchRun", () => {
 			},
 		});
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
 		expect(result.code).toBe("dispatch-misconfigured");
 		expect(result.message).not.toContain("claude-code");
-		expect(result.sandboxName).toBe("sbx_dispatch");
+		expect("sandboxName" in result ? result.sandboxName : undefined).toBe("sbx_dispatch");
 		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read"]);
 	});
 
@@ -412,7 +456,7 @@ describe("launchDispatchRun", () => {
 			sandboxBehavior: { readFails: true },
 		});
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result).toEqual({
 			ok: false,
@@ -430,7 +474,7 @@ describe("launchDispatchRun", () => {
 			sandboxBehavior: { readFailurePaths: [DISPATCH_PACKAGE_MANIFEST_PATH] },
 		});
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result).toEqual({
 			ok: false,
@@ -457,14 +501,14 @@ describe("launchDispatchRun", () => {
 			},
 		});
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
 		expect(result.code).toBe("dispatch-misconfigured");
 		expect(result.message).toContain("ts/package.json#packageManager");
 		expect(result.message).not.toContain(invalidValue);
-		expect(result.sandboxName).toBe("sbx_dispatch");
+		expect("sandboxName" in result ? result.sandboxName : undefined).toBe("sbx_dispatch");
 		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read"]);
 	});
 
@@ -472,7 +516,7 @@ describe("launchDispatchRun", () => {
 		const environment: MintEnvironment = { ...validEnvironment(), AI_GATEWAY_API_KEY: undefined };
 		const { deps, sandboxes } = createDeps({ environment });
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result).toEqual({
 			ok: false,
@@ -486,7 +530,7 @@ describe("launchDispatchRun", () => {
 	it("maps a clone mint failure to launch-failed without creating a sandbox", async () => {
 		const { deps, sandboxes, operationLogs } = createDeps({ mintFailPurposes: ["clone"] });
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result).toMatchObject({
 			ok: false,
@@ -517,7 +561,7 @@ describe("launchDispatchRun", () => {
 	it("returns the created sandbox when provisioning exits non-zero", async () => {
 		const { deps, sandboxes } = createDeps({ sandboxBehavior: { commandExitCode: 1 } });
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result).toEqual({
 			ok: false,
@@ -537,18 +581,18 @@ describe("launchDispatchRun", () => {
 	it("returns the created sandbox when the prompt write fails", async () => {
 		const { deps, sandboxes } = createDeps({ sandboxBehavior: { writeFails: true } });
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
-		expect(result.sandboxName).toBe("sbx_dispatch");
+		expect("sandboxName" in result ? result.sandboxName : undefined).toBe("sbx_dispatch");
 		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "write"]);
 	});
 
 	it("returns the created sandbox when the detached launch fails", async () => {
 		const { deps, sandboxes } = createDeps({ sandboxBehavior: { detachedFails: true } });
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result).toEqual({
 			ok: false,
@@ -577,11 +621,11 @@ describe("launchDispatchRun", () => {
 		async (_label, sandboxBehavior, sandboxName) => {
 			const { deps } = createDeps({ sandboxBehavior });
 
-			const result = await launchDispatchRun(runInput(), deps);
+			const result = await createAndLaunch(runInput(), deps);
 
 			expect(result.ok).toBe(false);
 			if (result.ok) throw new Error("Expected a failure.");
-			expect(result.sandboxName).toBe(sandboxName);
+			expect("sandboxName" in result ? result.sandboxName : undefined).toBe(sandboxName);
 			expect(JSON.stringify(result)).not.toContain("model-key-fixture");
 			expect(JSON.stringify(result)).not.toContain("private-key-fixture");
 		},
@@ -590,7 +634,7 @@ describe("launchDispatchRun", () => {
 	it("logs and normalizes a throwing sandbox gateway factory as sandbox creation", async () => {
 		const { deps, operationLogs } = createDeps({ sandboxGatewayFactoryThrows: true });
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result).toMatchObject({
 			ok: false,
@@ -618,7 +662,7 @@ describe("launchDispatchRun", () => {
 	it("fails safe on an unusable sandbox name", async () => {
 		const { deps } = createDeps({ sandboxBehavior: { createdName: "bad name!" } });
 
-		const result = await launchDispatchRun(runInput(), deps);
+		const result = await createAndLaunch(runInput(), deps);
 
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");

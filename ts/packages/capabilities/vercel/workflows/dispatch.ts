@@ -6,20 +6,22 @@ import { FatalError, getWorkflowMetadata, sleep } from "workflow";
 
 import {
 	executeDispatchRun,
+	type DispatchHarnessLaunchResult,
 	type DispatchLandingResult,
-	type DispatchLaunchResult,
 	type DispatchOutcomeReadResult,
 	type DispatchReportResult,
 	type DispatchRunFailureCode,
 	type DispatchRunInput,
+	type DispatchSandboxCreationResult,
 	validateDispatchRunInput,
 	type WorkflowDispatchRunResult,
 } from "../src/dispatch/dispatch-run.ts";
 import {
 	cleanupDispatchRun,
+	createDispatchSandboxStep,
 	landDispatchRun,
-	launchDispatchRun,
 	pollDispatchRun,
+	prepareAndLaunchDispatchHarness,
 	readDispatchOutcome,
 	reportDispatchFailure,
 	reportDispatchLanded,
@@ -52,7 +54,8 @@ export async function dispatchWorkflow(
 			sleep: async (durationMs: number) => {
 				await sleep(durationMs);
 			},
-			launch: async (run) => await createSandboxAndLaunchHarness(run),
+			createSandbox: async (run) => await createDispatchSandbox(run),
+			launchHarness: async (options) => await prepareAndLaunchHarness(options),
 			poll: async (sandboxName, pollOrdinal) =>
 				await checkHarnessCompletion(sandboxName, pollOrdinal),
 			readOutcome: async (sandboxName) => await readHarnessResult(sandboxName),
@@ -67,40 +70,53 @@ export async function dispatchWorkflow(
 	return await failDispatchRun(result);
 }
 
-export async function createSandboxAndLaunchHarness(
+export async function createDispatchSandbox(
 	run: DispatchRunInput,
-): Promise<DispatchLaunchResult> {
+): Promise<DispatchSandboxCreationResult> {
+	"use step";
+	await writeDispatchWorkflowEvent({
+		event: "dispatch_step_started",
+		step: "create-sandbox",
+		anchorPrNumber: run.anchorPrNumber,
+	});
+	await writeDispatchWorkflowAttributes(buildDispatchPhaseAttributes("launching"));
+	const result = await createDispatchSandboxStep(run);
+	await writeDispatchWorkflowEvent({
+		event: "dispatch_step_finished",
+		step: "create-sandbox",
+		outcome: result.ok ? "succeeded" : "failed",
+		anchorPrNumber: run.anchorPrNumber,
+		...(result.ok ? { sandboxName: result.sandboxName } : { failureCode: result.code }),
+	});
+	return result;
+}
+createDispatchSandbox.maxRetries = 0;
+
+export async function prepareAndLaunchHarness(options: {
+	readonly run: DispatchRunInput;
+	readonly sandboxName: string;
+}): Promise<DispatchHarnessLaunchResult> {
 	"use step";
 	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_started",
 		step: "launch",
-		anchorPrNumber: run.anchorPrNumber,
+		anchorPrNumber: options.run.anchorPrNumber,
+		sandboxName: options.sandboxName,
 	});
-	await writeDispatchWorkflowAttributes(buildDispatchPhaseAttributes("launching"));
-	const result = await launchDispatchRun(run);
-	if (result.ok) {
+	const result = await prepareAndLaunchDispatchHarness(options);
+	if (result.ok)
 		await writeDispatchWorkflowAttributes(buildDispatchRunningAttributes(result.harness));
-		await writeDispatchWorkflowEvent({
-			event: "dispatch_step_finished",
-			step: "launch",
-			outcome: "succeeded",
-			anchorPrNumber: run.anchorPrNumber,
-			sandboxName: result.sandboxName,
-			harness: result.harness,
-		});
-		return result;
-	}
 	await writeDispatchWorkflowEvent({
 		event: "dispatch_step_finished",
 		step: "launch",
-		outcome: "failed",
-		anchorPrNumber: run.anchorPrNumber,
-		...(result.sandboxName === undefined ? {} : { sandboxName: result.sandboxName }),
-		failureCode: result.code,
+		outcome: result.ok ? "succeeded" : "failed",
+		anchorPrNumber: options.run.anchorPrNumber,
+		sandboxName: options.sandboxName,
+		...(result.ok ? { harness: result.harness } : { failureCode: result.code }),
 	});
 	return result;
 }
-createSandboxAndLaunchHarness.maxRetries = 0;
+prepareAndLaunchHarness.maxRetries = 0;
 
 export async function checkHarnessCompletion(
 	sandboxName: string,

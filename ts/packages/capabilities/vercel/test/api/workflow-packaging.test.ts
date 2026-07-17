@@ -251,8 +251,9 @@ describe("findMissingWorkflowManifestIds", () => {
 describe("dispatch step inventory", () => {
 	const currentSteps = {
 		checkHarnessCompletion: { stepId: "step//dispatch//checkHarnessCompletion" },
-		createSandboxAndLaunchHarness: { stepId: "step//dispatch//createSandboxAndLaunchHarness" },
+		createDispatchSandbox: { stepId: "step//dispatch//createDispatchSandbox" },
 		failDispatchRun: { stepId: "step//dispatch//failDispatchRun" },
+		prepareAndLaunchHarness: { stepId: "step//dispatch//prepareAndLaunchHarness" },
 		pushAnchorBranch: { stepId: "step//dispatch//pushAnchorBranch" },
 		readHarnessResult: { stepId: "step//dispatch//readHarnessResult" },
 		stopSandbox: { stepId: "step//dispatch//stopSandbox" },

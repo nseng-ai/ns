@@ -5,8 +5,8 @@
 // returns a live handle or a secret; only the sandbox name and non-secret
 // facts cross step boundaries.
 //
-// At-least-once contract: `launchDispatchRun` backs the one step that must
-// never run twice (its workflow step carries `maxRetries = 0`);
+// At-least-once contract: sandbox creation and detached harness launch back
+// separate steps that must never run twice (both carry `maxRetries = 0`);
 // `pollDispatchRun` and `readDispatchOutcome` are read-only,
 // `landDispatchRun` force-pushes the same `HEAD` to the same ref,
 // `cleanupDispatchRun` treats an already-stopped sandbox as cleaned, and
@@ -50,7 +50,8 @@ import {
 	validateDispatchRunInput,
 	type CreateDispatchSandboxResult,
 	type DispatchLandingResult,
-	type DispatchLaunchResult,
+	type DispatchHarnessLaunchResult,
+	type DispatchSandboxCreationResult,
 	type DispatchOutcomeReadResult,
 	type DispatchReportResult,
 	type DispatchRunFailureCode,
@@ -100,19 +101,15 @@ export function defaultDispatchStepDeps(): DispatchStepDeps {
 }
 
 /**
- * Create the dispatch sandbox over the exact dispatched SHA and launch the
- * configured harness detached inside it. Everything that can be checked
- * before the billable sandbox exists is checked first (LBYL: input, runtime
- * configuration). Harness and package-manager configuration live in the
- * checkout's own `ns.toml` and `ts/package.json` at the dispatched SHA, so
- * the invocation and launch environment can only be resolved once the
- * sandbox exists. Every post-creation failure returns the safe sandbox name;
- * workflow orchestration owns cleanup and cleanup-failure precedence.
+ * Create the dispatch sandbox over the exact dispatched SHA. The clone token
+ * exists only in this non-retryable step, and the safe sandbox name is the
+ * only durable result. The sandbox timeout backs the narrow provider-create /
+ * step-commit ambiguity.
  */
-export async function launchDispatchRun(
+export async function createDispatchSandboxStep(
 	input: DispatchRunInput,
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
-): Promise<DispatchLaunchResult> {
+): Promise<DispatchSandboxCreationResult> {
 	const validated = validateDispatchRunInput(input);
 	// `=== false` rather than `!`: the Vercel builder typechecks without
 	// strictNullChecks, where truthiness checks do not narrow the union.
@@ -175,10 +172,7 @@ export async function launchDispatchRun(
 		};
 	}
 
-	let sandboxCreation: {
-		readonly sandboxes: DispatchSandboxGateway;
-		readonly result: CreateDispatchSandboxResult;
-	};
+	let sandboxCreation: CreateDispatchSandboxResult;
 	try {
 		sandboxCreation = await runOperation(
 			deps,
@@ -189,11 +183,10 @@ export async function launchDispatchRun(
 					revision: run.revision,
 					anchorPrNumber: run.anchorPrNumber,
 				},
-				failureMessage: ({ result }) => (result.ok ? undefined : "Sandbox creation failed"),
+				failureMessage: (result) => (result.ok ? undefined : "Sandbox creation failed"),
 			},
-			async () => {
-				const sandboxes = deps.createSandboxGateway();
-				const result = await sandboxes.createDispatchSandbox({
+			async () =>
+				await deps.createSandboxGateway().createDispatchSandbox({
 					runtime: "node24",
 					timeoutMs: planDispatchSupervision().sandboxTimeoutMs,
 					source: {
@@ -201,9 +194,7 @@ export async function launchDispatchRun(
 						revision: run.revision,
 						cloneToken: mintResult.value.token,
 					},
-				});
-				return { sandboxes, result };
-			},
+				}),
 		);
 	} catch (error) {
 		return {
@@ -213,7 +204,7 @@ export async function launchDispatchRun(
 			diagnostic: diagnosticFromThrown("create_sandbox", error),
 		};
 	}
-	const { sandboxes, result: createResult } = sandboxCreation;
+	const createResult = sandboxCreation;
 	if (createResult.ok === false) {
 		return { ok: false, code: "launch-failed", message: "Sandbox creation failed." };
 	}
@@ -226,7 +217,21 @@ export async function launchDispatchRun(
 			message: "Sandbox name was unusable; the sandbox timeout is the cleanup backstop.",
 		};
 	}
-	const sandboxName = createResult.sandboxName;
+	return { ok: true, sandboxName: createResult.sandboxName };
+}
+
+/** Reattach to a durably identified sandbox, prepare it, and launch the harness detached. */
+export async function prepareAndLaunchDispatchHarness(
+	options: { readonly run: DispatchRunInput; readonly sandboxName: string },
+	deps: DispatchStepDeps = defaultDispatchStepDeps(),
+): Promise<DispatchHarnessLaunchResult> {
+	const validated = validateDispatchRunInput(options.run);
+	if (validated.ok === false) {
+		return { ok: false, code: "launch-failed", message: "Validated dispatch input was unusable." };
+	}
+	const run = validated.value;
+	const sandboxName = options.sandboxName;
+	const sandboxes = deps.createSandboxGateway();
 
 	// Invocation inputs are repo configuration at the dispatched SHA. Read
 	// settings first and the package manifest second, then resolve only from
@@ -250,7 +255,6 @@ export async function launchDispatchRun(
 			ok: false,
 			code: "dispatch-misconfigured",
 			message: `Dispatch configuration is invalid: ${DISPATCH_SETTINGS_PATH} could not be read from the dispatched checkout.`,
-			sandboxName,
 		};
 	}
 
@@ -274,7 +278,6 @@ export async function launchDispatchRun(
 			ok: false,
 			code: "dispatch-misconfigured",
 			message: `Dispatch configuration is invalid: ${DISPATCH_PACKAGE_MANAGER_FIELD} could not be read from the dispatched checkout.`,
-			sandboxName,
 		};
 	}
 
@@ -289,7 +292,6 @@ export async function launchDispatchRun(
 			ok: false,
 			code: "dispatch-misconfigured",
 			message: harnessResult.message,
-			sandboxName,
 		};
 	}
 	const harness = harnessResult.value;
@@ -301,7 +303,6 @@ export async function launchDispatchRun(
 			code: "dispatch-misconfigured",
 			// Variable name only — never an environment value.
 			message: `Dispatch configuration is invalid: ${launchEnvResult.variable}.`,
-			sandboxName,
 		};
 	}
 
@@ -328,11 +329,10 @@ export async function launchDispatchRun(
 			ok: false,
 			code: "launch-failed",
 			message: prepared.message,
-			sandboxName,
 		};
 	}
 
-	return { ok: true, sandboxName, harness: harness.harness };
+	return { ok: true, harness: harness.harness };
 }
 
 type LaunchEnvironmentResolution =

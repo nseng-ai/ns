@@ -37,8 +37,26 @@ reviewers; H7 by the sandbox and cross-cutting reviewers).
 
 Verdict as delivered: the stack does not clear the thermo-nuclear approval bar as-is —
 H1 (dual failure channel) was recommended as the one pre-merge fix, H2 (probe
-retirement) as a scheduled post-rerun slice, everything else as fast-follow. No
-behavioral defect was found in the dispatch path.
+retirement) as a scheduled post-rerun slice, everything else as fast-follow. That
+review found no behavioral defect in the dispatch path; the later focused review below
+narrowly supersedes this statement for the combined launch step's sandbox-identity
+durability window.
+
+## Focused lifecycle and observability review (2026-07-16)
+
+Scope: the dispatch sandbox creation/launch lifecycle, diagnostic normalization,
+Workflow event writer, and canonical Vercel Workflow inspection skill. The review kept
+H10 at HIGH and M19–M21 at MEDIUM after challenge: the post-create durability window
+can lose cleanup ownership; the other three are bounded contract defects rather than
+HIGH-impact lifecycle failures. H10 narrowly supersedes only the earlier clean
+attestation that `maxRetries = 0` on one combined launch step was sufficient. Credential
+discipline, deterministic-core/Node-step separation, and failure precedence remain
+clean.
+
+The challenge explicitly dropped generic splitting of the near-1k-line dispatch module:
+the accepted remedy is the minimal durable-identity seam, not decomposition by size.
+Full report-comment pagination remains parked with the existing L9 concurrency upgrade
+pair; this review supplied no trigger to promote it.
 
 ## Dropped findings — do not re-propose without new evidence
 
@@ -92,10 +110,13 @@ behavioral defect was found in the dispatch path.
   layering, well covered.
 - **`dispatch-run.ts` / `dispatch-steps.ts` split:** principled, not size-based — the
   replay-deterministic, dependency-free workflow-body core vs Node-side step I/O, a real
-  Workflow SDK constraint; `workflows/dispatch.ts` is correctly thin wiring
-  (`maxRetries = 0` on launch only). `resolveDispatchDisposition` is a clean pure
-  function with correct precedence (cleanup > supervision > harness > landing), well
-  tested.
+  Workflow SDK constraint; `workflows/dispatch.ts` remains thin wiring.
+  **Narrow supersession (2026-07-16):** the earlier parenthetical claiming
+  `maxRetries = 0` on launch alone was sufficient is superseded by H10. Sandbox creation
+  and preparation/detached launch are now separate zero-retry steps so `sandboxName`
+  becomes durable before post-create work. `resolveDispatchDisposition` remains a clean
+  pure function with correct precedence (cleanup > supervision > harness > landing),
+  well tested.
 - **Consumer-gateway discipline:** `Pick<GitGateway, …>` narrowing, entrypoint binding
   (`context.ts` binds real adapters at the command entry; workflow steps bind at step
   entry — the correct entrypoint for durable serverless steps), vendor types confined to
