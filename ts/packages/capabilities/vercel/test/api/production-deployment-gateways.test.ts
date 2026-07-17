@@ -25,8 +25,6 @@ describe("Vercel production command shape", () => {
 		expect(VERCEL_PRODUCTION_DEPLOY_ARGS).toEqual([
 			"deploy",
 			"--prebuilt",
-			"--scope",
-			"schrockns-projects",
 			"--prod",
 			"--yes",
 			"--format=json",
