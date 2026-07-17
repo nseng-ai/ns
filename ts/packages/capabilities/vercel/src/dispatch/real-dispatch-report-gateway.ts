@@ -9,6 +9,7 @@
 // attributes to `ns-dispatch[bot]`. Live behavior against GitHub is pending
 // verification. `fetchImpl` is the test seam; production callers use global
 // `fetch`.
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import type { DispatchTokenMinter } from "../mint/mint-core.ts";
@@ -28,17 +29,17 @@ export interface GitHubDispatchReportGatewayOptions {
 }
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
-
-/**
- * Upper bound on the comments scanned for the idempotency marker. Anchor
- * PRs are dispatch-owned and short-lived, so the marker — when present —
- * sits within the first page.
- */
-const FAILURE_COMMENT_SCAN_LIMIT = 100;
-
+const FAILURE_COMMENT_SCAN_LIMIT_COMMENTS = 100;
 const pullRequestBodySchema = z.looseObject({ body: z.string().nullable() });
-
 const issueCommentsSchema = z.array(z.looseObject({ body: z.string().optional() }));
+
+type ReportTokenResult =
+	| { readonly ok: true; readonly token: string }
+	| { readonly ok: false; readonly message: string };
+
+type GitHubRequestResult =
+	| { readonly ok: true; readonly payload: unknown }
+	| { readonly ok: false; readonly message: string };
 
 export function createGitHubDispatchReportGateway(
 	options: GitHubDispatchReportGatewayOptions,
@@ -46,15 +47,18 @@ export function createGitHubDispatchReportGateway(
 	const fetchImpl = options.fetchImpl ?? fetch;
 	const repository = options.repository;
 
-	async function mintReportToken(): Promise<string | null> {
+	async function mintReportToken(): Promise<ReportTokenResult> {
 		const mintResult = await options.minter.mintDispatchToken({
 			repository,
 			purpose: "landing",
 		});
-		// `=== false` rather than `!`: the Vercel builder typechecks without
-		// strictNullChecks, where truthiness checks do not narrow the union.
-		if (mintResult.ok === false) return null;
-		return mintResult.value.token;
+		if (mintResult.ok === false) {
+			return {
+				ok: false,
+				message: mintResult.error.message ?? "GitHub report token mint failed",
+			};
+		}
+		return { ok: true, token: mintResult.value.token };
 	}
 
 	async function githubRequest(input: {
@@ -62,7 +66,7 @@ export function createGitHubDispatchReportGateway(
 		readonly method: "GET" | "PATCH" | "POST";
 		readonly path: string;
 		readonly body?: Readonly<Record<string, unknown>>;
-	}): Promise<{ readonly ok: true; readonly payload: unknown } | { readonly ok: false }> {
+	}): Promise<GitHubRequestResult> {
 		try {
 			const response = await fetchImpl(`${GITHUB_API_BASE_URL}${input.path}`, {
 				method: input.method,
@@ -75,49 +79,59 @@ export function createGitHubDispatchReportGateway(
 				},
 				...(input.body === undefined ? {} : { body: JSON.stringify(input.body) }),
 			});
-			if (!response.ok) return { ok: false };
+			if (!response.ok) {
+				return {
+					ok: false,
+					message: `GitHub ${input.method} ${githubPathKind(input.path)} returned HTTP ${response.status}`,
+				};
+			}
 			return { ok: true, payload: (await response.json()) as unknown };
-		} catch {
-			return { ok: false };
+		} catch (error) {
+			return { ok: false, message: formatErrorMessage(error) };
 		}
 	}
 
 	return {
 		async publishAnchorPrDecisionLog(request) {
 			const token = await mintReportToken();
-			if (token === null) return { ok: false };
+			if (token.ok === false) return token;
 
 			const pullPath = `/repos/${repository}/pulls/${request.anchorPrNumber}`;
-			const current = await githubRequest({ token, method: "GET", path: pullPath });
-			if (current.ok === false) return { ok: false };
+			const current = await githubRequest({ token: token.token, method: "GET", path: pullPath });
+			if (current.ok === false) return current;
 			const parsed = pullRequestBodySchema.safeParse(current.payload);
-			if (!parsed.success) return { ok: false };
+			if (!parsed.success)
+				return { ok: false, message: "GitHub pull request response was invalid" };
 
 			const section = buildDecisionLogSection(request.decisionLog);
 			const body = composeAnchorPrDescription(parsed.data.body, section);
 			if (body === (parsed.data.body ?? "")) return { ok: true };
 
 			const update = await githubRequest({
-				token,
+				token: token.token,
 				method: "PATCH",
 				path: pullPath,
 				body: { body },
 			});
-			if (update.ok === false) return { ok: false };
+			if (update.ok === false) return update;
 			return { ok: true };
 		},
 
 		async ensureAnchorPrFailureComment(request) {
 			const token = await mintReportToken();
-			if (token === null) return { ok: false };
+			if (token.ok === false) return token;
 
 			const commentsPath =
 				`/repos/${repository}/issues/${request.anchorPrNumber}/comments` +
-				`?per_page=${FAILURE_COMMENT_SCAN_LIMIT}`;
-			const existing = await githubRequest({ token, method: "GET", path: commentsPath });
-			if (existing.ok === false) return { ok: false };
+				`?per_page=${FAILURE_COMMENT_SCAN_LIMIT_COMMENTS}`;
+			const existing = await githubRequest({
+				token: token.token,
+				method: "GET",
+				path: commentsPath,
+			});
+			if (existing.ok === false) return existing;
 			const parsed = issueCommentsSchema.safeParse(existing.payload);
-			if (!parsed.success) return { ok: false };
+			if (!parsed.success) return { ok: false, message: "GitHub comments response was invalid" };
 
 			const marker = buildDispatchFailureMarker(request.anchorBranch);
 			const isAlreadyPosted = parsed.data.some(
@@ -126,7 +140,7 @@ export function createGitHubDispatchReportGateway(
 			if (isAlreadyPosted) return { ok: true };
 
 			const create = await githubRequest({
-				token,
+				token: token.token,
 				method: "POST",
 				path: `/repos/${repository}/issues/${request.anchorPrNumber}/comments`,
 				body: {
@@ -137,8 +151,12 @@ export function createGitHubDispatchReportGateway(
 					}),
 				},
 			});
-			if (create.ok === false) return { ok: false };
+			if (create.ok === false) return create;
 			return { ok: true };
 		},
 	};
+}
+
+function githubPathKind(path: string): string {
+	return path.includes("/comments") ? "anchor PR comments" : "anchor PR";
 }

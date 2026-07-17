@@ -246,7 +246,10 @@ describe("handleMintRequest", () => {
 	});
 
 	it("returns only a safe failure when GitHub minting fails", async () => {
-		const github = new InMemoryGitHubInstallationTokenGateway({ ok: false });
+		const github = new InMemoryGitHubInstallationTokenGateway({
+			ok: false,
+			message: "raw provider diagnostic must not escape",
+		});
 		const { context } = createContext({ github });
 
 		const result = await handleMintRequest(
@@ -267,5 +270,6 @@ describe("handleMintRequest", () => {
 			},
 		});
 		expect(JSON.stringify(result)).not.toContain("oidc-token-must-not-leak");
+		expect(JSON.stringify(result)).not.toContain("raw provider diagnostic must not escape");
 	});
 });

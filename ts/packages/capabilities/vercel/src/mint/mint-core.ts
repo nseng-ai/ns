@@ -5,8 +5,11 @@
 //   landing token at landing time) with no HTTP hop;
 // - the `POST /api/mint` route stays a thin adapter that authenticates the
 //   Development caller and delegates here.
-// Token material must never be logged, echoed, or persisted; failures carry
-// stable codes only.
+// Token material must never be logged, echoed, or persisted. Internal failure
+// diagnostics may accompany stable codes but public adapters must project only
+// their established safe contracts.
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import { normalizeGitHubRepository, parseGitHubRepository, type MintPurpose } from "./contracts.ts";
 
 export interface GitHubInstallationToken {
@@ -16,7 +19,7 @@ export interface GitHubInstallationToken {
 
 export type GitHubInstallationTokenResult =
 	| { readonly ok: true; readonly value: GitHubInstallationToken }
-	| { readonly ok: false };
+	| { readonly ok: false; readonly message?: string };
 
 export interface GitHubInstallationTokenGateway {
 	mintRepositoryToken(options: {
@@ -36,7 +39,10 @@ export type DispatchTokenMintErrorCode = "repository-not-allowed" | "github-toke
 
 export type DispatchTokenMintResult =
 	| { readonly ok: true; readonly value: MintedDispatchToken }
-	| { readonly ok: false; readonly error: { readonly code: DispatchTokenMintErrorCode } };
+	| {
+			readonly ok: false;
+			readonly error: { readonly code: DispatchTokenMintErrorCode; readonly message?: string };
+	  };
 
 export interface DispatchTokenMinter {
 	mintDispatchToken(options: {
@@ -68,7 +74,13 @@ export function createDispatchTokenMinter(
 				purpose: request.purpose,
 			});
 			if (mintResult.ok === false) {
-				return { ok: false, error: { code: "github-token-mint-failed" } };
+				return {
+					ok: false,
+					error: {
+						code: "github-token-mint-failed",
+						...optionalEntry("message", mintResult.message),
+					},
+				};
 			}
 
 			return {

@@ -470,7 +470,9 @@ export type DispatchLandingResult =
 			readonly message: string;
 	  };
 
-export type DispatchReportResult = { readonly ok: true } | { readonly ok: false };
+export type DispatchReportResult =
+	| { readonly ok: true }
+	| { readonly ok: false; readonly message?: string };
 
 /**
  * The workflow's serializable result — durable, observable run state. It
