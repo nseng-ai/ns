@@ -1,6 +1,7 @@
 import type { Clock } from "@nseng-ai/foundation/clock";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
+
+import { normalizeDispatchFailure, type DispatchFailureDiagnostic } from "./failure-diagnostic.ts";
 
 export type OperationLogSink = (serializedEvent: string) => void;
 
@@ -9,8 +10,7 @@ export interface OperationContext {
 }
 
 export interface OperationFailure {
-	readonly reason: string;
-	readonly diagnostic?: string;
+	readonly diagnostic: DispatchFailureDiagnostic;
 }
 
 export interface WithOperationOptions<T> {
@@ -20,15 +20,10 @@ export interface WithOperationOptions<T> {
 	readonly logSink?: OperationLogSink;
 	readonly failure?: (result: T) => OperationFailure | undefined;
 	readonly failureMessage?: (result: T) => string | undefined;
+	readonly normalizeThrownFailure?: (error: unknown) => DispatchFailureDiagnostic;
 }
 
-/**
- * Follow-up direction: Workflow step callers could adapt these operation
- * events to the existing named `status` stream, rendering a detailed durable
- * timeline in Workflow CLI/Web UI. Keep this helper Workflow-SDK-independent
- * and put that adapter at the workflow edge. This slice intentionally emits
- * only Vercel Function logs.
- */
+/** Emits only normalized, bounded diagnostic data; raw external errors never cross this boundary. */
 export async function withOperation<T>(
 	options: WithOperationOptions<T>,
 	run: () => Promise<T>,
@@ -50,7 +45,13 @@ export async function withOperation<T>(
 			inspectedFailure ??
 			(legacyDiagnostic === undefined
 				? undefined
-				: { reason: "operation-returned-failure", diagnostic: legacyDiagnostic });
+				: {
+						diagnostic: normalizeDispatchFailure({
+							operation: options.operation,
+							reason: "operation-returned-failure",
+							message: legacyDiagnostic,
+						}),
+					});
 		const durationMs = elapsedMs(startedAtMs, clock.nowMs());
 		if (failure !== undefined) {
 			writeBestEffort(logSink, {
@@ -58,8 +59,7 @@ export async function withOperation<T>(
 				event: "operation_failed",
 				operation: options.operation,
 				durationMs,
-				reason: failure.reason,
-				...(failure.diagnostic === undefined ? {} : { diagnostic: failure.diagnostic }),
+				diagnostic: failure.diagnostic,
 			});
 			return result;
 		}
@@ -71,13 +71,19 @@ export async function withOperation<T>(
 		});
 		return result;
 	} catch (error) {
+		const diagnostic =
+			options.normalizeThrownFailure?.(error) ??
+			normalizeDispatchFailure({
+				operation: options.operation,
+				reason: "unexpected-exception",
+				error,
+			});
 		writeBestEffort(logSink, {
 			...options.context,
 			event: "operation_failed",
 			operation: options.operation,
 			durationMs: elapsedMs(startedAtMs, clock.nowMs()),
-			reason: "unexpected-exception",
-			diagnostic: formatErrorMessage(error),
+			diagnostic,
 		});
 		throw error;
 	}

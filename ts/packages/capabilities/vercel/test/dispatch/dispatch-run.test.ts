@@ -25,6 +25,7 @@ import {
 	type DispatchRunInput,
 	type DispatchRunSteps,
 } from "../../src/dispatch/dispatch-run.ts";
+import type { DispatchFailureDiagnostic } from "../../src/dispatch/failure-diagnostic.ts";
 import type {
 	SupervisionCleanupResult,
 	SupervisionPollResult,
@@ -291,7 +292,7 @@ interface FakeStepBehavior {
 	readonly polls?: readonly SupervisionPollResult[];
 	readonly readOutcome?: DispatchOutcomeReadResult;
 	readonly land?: DispatchLandingResult;
-	readonly cleanup?: SupervisionCleanupResult;
+	readonly cleanup?: SupervisionCleanupResult<DispatchFailureDiagnostic>;
 	readonly reportLanded?: DispatchReportResult;
 	readonly reportFailure?: DispatchReportResult;
 }
@@ -442,24 +443,43 @@ describe("executeDispatchRun", () => {
 		expect(stepNames(calls)).toEqual(["launch", "cleanup", "reportFailure"]);
 	});
 
-	it("gives cleanup failure precedence over a post-create launch failure", async () => {
-		const { steps } = createFakeSteps({
+	it("gives cleanup failure and its diagnostic precedence over a post-create launch failure", async () => {
+		const launchDiagnostic = {
+			operation: "launch_detached_dispatch_harness",
+			reason: "unexpected-exception",
+		} as const;
+		const cleanupDiagnostic = {
+			operation: "stop_sandbox",
+			reason: "vercel-sandbox-api-error",
+			httpStatus: 503,
+		} as const;
+		const { steps, calls } = createFakeSteps({
 			launch: {
 				ok: false,
 				code: "launch-failed",
 				message: "Detached harness launch failed.",
 				sandboxName: "sbx_dispatch",
+				diagnostic: launchDiagnostic,
 			},
 			cleanup: {
 				ok: false,
 				code: "sandbox-cleanup-failed",
 				message: "Sandbox cleanup failed.",
+				diagnostic: cleanupDiagnostic,
 			},
 		});
 
-		const result = await executeDispatchRun(input(), steps);
+		const result = await executeDispatchRun(input(), steps, { workflowRunId: "wrun_01ABC" });
 
-		expect(result).toMatchObject({ ok: false, code: "sandbox-cleanup-failed" });
+		expect(result).toMatchObject({
+			ok: false,
+			code: "sandbox-cleanup-failed",
+			diagnostic: cleanupDiagnostic,
+		});
+		expect(calls.at(-1)?.args).toMatchObject({
+			diagnostic: cleanupDiagnostic,
+			workflowRunId: "wrun_01ABC",
+		});
 	});
 
 	it("does not land a run whose harness reported failure, but still cleans up and reports", async () => {

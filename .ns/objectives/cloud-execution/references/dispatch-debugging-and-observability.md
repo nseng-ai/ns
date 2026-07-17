@@ -91,16 +91,17 @@ authentication, rejection, missing installation/repository, rate-limit, upstream
 transport, and malformed-response failures so the next deployment can distinguish configuration from
 transient service failure without decrypting Workflow payloads.
 
-By product decision, failures retain the raw downstream `Error.message` (or string form of a non-Error
-throw). Safety is enforced by construction instead of redaction: operation records never serialize
-credentials, headers, prompt or decision-log content, command argv/environment maps, authenticated
-URLs, response bodies, or whole operation results.
+Failures cross an explicit project-owned diagnostic boundary. Only operation, reason, normalized error
+name/code, valid HTTP status, a conservative request ID, and a sanitized bounded message are eligible.
+The Vercel Sandbox adapter recognizes the SDK's public `APIError` only at that boundary and immediately
+converts it to this plain serializable value. Unknown throws use a total structural fallback. Neither
+path serializes stacks, causes, request/response objects, bodies, arbitrary headers/JSON/text, prompts,
+decision logs, command argv/environment maps, authenticated URLs, or whole operation results.
 
-These records currently exist only in Function logs. The classification and field-name changes above
-are locally implemented but remain pending the next production deployment and live verification.
-Adapting operation events at the Workflow edge to
-the existing named `status` stream could later provide a durable detailed timeline in the Workflow CLI
-and Web UI; that status-stream/UI work is deferred and is not live-proven here.
+The final normalized diagnostic is emitted as a closed terminal event to Function logs and the named
+`status` stream, drives the Workflow failure-card first line, and is mirrored in the idempotent anchor-PR
+failure comment. The implementation is locally covered; production behavior remains pending the next
+deployment and live verification.
 
 ## Valid-shape probe identifiers
 

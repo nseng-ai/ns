@@ -1,5 +1,6 @@
 import type { DispatchReportGateway } from "../../../src/dispatch/anchor-pr-report.ts";
 import type { DispatchRunFailureCode } from "../../../src/dispatch/dispatch-run.ts";
+import type { DispatchFailureDiagnostic } from "../../../src/dispatch/failure-diagnostic.ts";
 import type { DispatchTokenMinter, DispatchTokenMintResult } from "../../../src/mint/mint-core.ts";
 
 /** Records before returning a configured mint failure. */
@@ -44,6 +45,8 @@ export class RecordingDispatchReportGateway implements DispatchReportGateway {
 		anchorBranch: string;
 		code: string;
 		message: string;
+		diagnostic?: DispatchFailureDiagnostic;
+		workflowRunId?: string;
 	}> = [];
 	readonly #fails: boolean;
 	readonly #throws: boolean;
@@ -77,6 +80,8 @@ export class RecordingDispatchReportGateway implements DispatchReportGateway {
 		readonly anchorBranch: string;
 		readonly code: DispatchRunFailureCode;
 		readonly message: string;
+		readonly diagnostic?: DispatchFailureDiagnostic;
+		readonly workflowRunId?: string;
 	}) {
 		this.failureCalls.push({ ...options });
 		if (this.#throws) throw new Error("report operation exploded");

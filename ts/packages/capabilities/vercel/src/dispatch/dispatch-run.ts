@@ -21,6 +21,7 @@ import {
 import type { SandboxCommand } from "../sandbox/contracts.ts";
 import type { DispatchHarnessCompletion } from "./completion-contract.ts";
 import type { DispatchPlanContextLocator } from "./dispatch-context.ts";
+import type { DispatchFailureDiagnostic } from "./failure-diagnostic.ts";
 import type { DispatchHarness } from "./harness-registry.ts";
 import { isCommitSha } from "../sandbox/validation.ts";
 
@@ -451,6 +452,7 @@ export type DispatchLaunchResult =
 			readonly message: string;
 			/** Present only when a safely reattachable sandbox was created. */
 			readonly sandboxName?: string;
+			readonly diagnostic?: DispatchFailureDiagnostic;
 	  };
 
 export type DispatchOutcomeReadResult =
@@ -468,6 +470,7 @@ export type DispatchLandingResult =
 			readonly ok: false;
 			readonly code: "dispatch-misconfigured" | "landing-failed";
 			readonly message: string;
+			readonly diagnostic?: DispatchFailureDiagnostic;
 	  };
 
 export type DispatchReportResult =
@@ -498,11 +501,22 @@ export type WorkflowDispatchRunResult =
 			readonly sandboxName?: string;
 			readonly polls?: number;
 			readonly failureReported: boolean;
+			readonly diagnostic?: DispatchFailureDiagnostic;
+			readonly workflowRunId?: string;
 	  };
 
 export type DispatchDisposition =
 	| { readonly kind: "landed"; readonly decisionLog: string | null }
-	| { readonly kind: "failed"; readonly code: DispatchRunFailureCode; readonly message: string };
+	| {
+			readonly kind: "failed";
+			readonly code: DispatchRunFailureCode;
+			readonly message: string;
+			readonly diagnostic?: DispatchFailureDiagnostic;
+	  };
+
+type DispatchSupervisionPollResult = SupervisionPollResult<DispatchFailureDiagnostic>;
+type DispatchSupervisionOutcome = SupervisionOutcome<DispatchFailureDiagnostic>;
+type DispatchSupervisionCleanupResult = SupervisionCleanupResult<DispatchFailureDiagnostic>;
 
 /**
  * Combine the supervision outcome, the harvested harness outcome, the
@@ -513,10 +527,10 @@ export type DispatchDisposition =
  * success.
  */
 export function resolveDispatchDisposition(options: {
-	readonly outcome: SupervisionOutcome;
+	readonly outcome: DispatchSupervisionOutcome;
 	readonly harvest: DispatchOutcomeReadResult | null;
 	readonly landing: DispatchLandingResult | null;
-	readonly cleanup: SupervisionCleanupResult;
+	readonly cleanup: DispatchSupervisionCleanupResult;
 }): DispatchDisposition {
 	const { outcome, harvest, landing, cleanup } = options;
 	// `=== false` rather than `!`: the Vercel builder typechecks without
@@ -529,6 +543,7 @@ export function resolveDispatchDisposition(options: {
 				landing !== null && landing.ok
 					? "Sandbox cleanup failed after the produced commits landed on the anchor branch."
 					: "Sandbox cleanup failed.",
+			...(cleanup.diagnostic === undefined ? {} : { diagnostic: cleanup.diagnostic }),
 		};
 	}
 	if (outcome.completed === false) {
@@ -539,6 +554,7 @@ export function resolveDispatchDisposition(options: {
 				outcome.code === "run-timed-out"
 					? "The dispatched run did not finish within the run budget."
 					: "Supervision poll failed.",
+			...(outcome.diagnostic === undefined ? {} : { diagnostic: outcome.diagnostic }),
 		};
 	}
 	if (harvest === null || harvest.ok === false) {
@@ -569,7 +585,12 @@ export function resolveDispatchDisposition(options: {
 		return { kind: "failed", code: "landing-failed", message: "Landing was not attempted." };
 	}
 	if (landing.ok === false) {
-		return { kind: "failed", code: landing.code, message: landing.message };
+		return {
+			kind: "failed",
+			code: landing.code,
+			message: landing.message,
+			...(landing.diagnostic === undefined ? {} : { diagnostic: landing.diagnostic }),
+		};
 	}
 	return { kind: "landed", decisionLog: harvest.decisionLog };
 }
@@ -583,13 +604,13 @@ export function resolveDispatchDisposition(options: {
 export interface DispatchRunSteps {
 	sleep(durationMs: number): Promise<void>;
 	launch(input: DispatchRunInput): Promise<DispatchLaunchResult>;
-	poll(sandboxName: string, pollOrdinal: number): Promise<SupervisionPollResult>;
+	poll(sandboxName: string, pollOrdinal: number): Promise<DispatchSupervisionPollResult>;
 	readOutcome(sandboxName: string): Promise<DispatchOutcomeReadResult>;
 	land(options: {
 		readonly sandboxName: string;
 		readonly anchorBranch: string;
 	}): Promise<DispatchLandingResult>;
-	cleanup(sandboxName: string): Promise<SupervisionCleanupResult>;
+	cleanup(sandboxName: string): Promise<DispatchSupervisionCleanupResult>;
 	reportLanded(options: {
 		readonly anchorPrNumber: number;
 		readonly decisionLog: string | null;
@@ -599,6 +620,8 @@ export interface DispatchRunSteps {
 		readonly anchorBranch: string;
 		readonly code: DispatchRunFailureCode;
 		readonly message: string;
+		readonly diagnostic?: DispatchFailureDiagnostic;
+		readonly workflowRunId?: string;
 	}): Promise<DispatchReportResult>;
 }
 
@@ -616,6 +639,7 @@ export interface DispatchRunSteps {
 export async function executeDispatchRun(
 	input: DispatchRunInput,
 	steps: DispatchRunSteps,
+	context: { readonly workflowRunId?: string } = {},
 ): Promise<WorkflowDispatchRunResult> {
 	const validated = validateDispatchRunInput(input);
 	// `=== false` rather than `!`: the Vercel builder typechecks without
@@ -635,14 +659,22 @@ export async function executeDispatchRun(
 	if (launch.ok === false) {
 		let code: DispatchRunFailureCode = launch.code;
 		let message = launch.message;
+		let diagnostic = launch.diagnostic;
 		if (launch.sandboxName !== undefined) {
 			const cleanup = await steps.cleanup(launch.sandboxName);
 			if (cleanup.ok === false) {
 				code = cleanup.code;
 				message = cleanup.message;
+				diagnostic = cleanup.diagnostic;
 			}
 		}
-		const reported = await steps.reportFailure({ ...anchor, code, message });
+		const reported = await steps.reportFailure({
+			...anchor,
+			code,
+			message,
+			...(diagnostic === undefined ? {} : { diagnostic }),
+			...(context.workflowRunId === undefined ? {} : { workflowRunId: context.workflowRunId }),
+		});
 		return {
 			ok: false,
 			code,
@@ -650,6 +682,8 @@ export async function executeDispatchRun(
 			...anchor,
 			...(launch.sandboxName === undefined ? {} : { sandboxName: launch.sandboxName }),
 			failureReported: reported.ok,
+			...(diagnostic === undefined ? {} : { diagnostic }),
+			...(context.workflowRunId === undefined ? {} : { workflowRunId: context.workflowRunId }),
 		};
 	}
 	const sandboxName = launch.sandboxName;
@@ -694,6 +728,8 @@ export async function executeDispatchRun(
 		...anchor,
 		code: disposition.code,
 		message: disposition.message,
+		...(disposition.diagnostic === undefined ? {} : { diagnostic: disposition.diagnostic }),
+		...(context.workflowRunId === undefined ? {} : { workflowRunId: context.workflowRunId }),
 	});
 	return {
 		ok: false,
@@ -703,5 +739,7 @@ export async function executeDispatchRun(
 		...anchor,
 		polls: outcome.polls,
 		failureReported: reported.ok,
+		...(disposition.diagnostic === undefined ? {} : { diagnostic: disposition.diagnostic }),
+		...(context.workflowRunId === undefined ? {} : { workflowRunId: context.workflowRunId }),
 	};
 }
