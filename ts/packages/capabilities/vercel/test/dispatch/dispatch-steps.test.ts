@@ -1,3 +1,4 @@
+import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import { describe, expect, it } from "vitest";
 
 import type { MintEnvironment } from "../../src/mint/runtime-config.ts";
@@ -99,6 +100,7 @@ interface DepsFixture {
 	readonly sandboxes: RecordingDispatchSandboxGateway;
 	readonly minter: RecordingDispatchTokenMinter;
 	readonly reports: RecordingDispatchReportGateway;
+	readonly operationLogs: string[];
 	readonly resolverCalls: Array<{
 		dispatchSettingsSource: string | null;
 		packageManagerSource: string | null;
@@ -131,6 +133,8 @@ function createDeps(
 		fails: options.reportFails ?? false,
 		throws: options.reportThrows ?? false,
 	});
+	const operationLogs: string[] = [];
+	const manualClock = createManualClock(0);
 	const resolverCalls: Array<{
 		dispatchSettingsSource: string | null;
 		packageManagerSource: string | null;
@@ -155,6 +159,8 @@ function createDeps(
 			}
 			return reports;
 		},
+		operationClock: manualClock.clock,
+		operationLogSink: (line) => operationLogs.push(line),
 		resolveHarnessInvocation: (dispatchSettingsSource, packageManagerSource) => {
 			resolverCalls.push({ dispatchSettingsSource, packageManagerSource });
 			return (
@@ -163,13 +169,13 @@ function createDeps(
 			);
 		},
 	};
-	return { deps, sandboxes, minter, reports, resolverCalls };
+	return { deps, sandboxes, minter, reports, operationLogs, resolverCalls };
 }
 
 describe("launchDispatchRun", () => {
 	it("launches from GitHub App config without OIDC-only variables", async () => {
 		const packageManagerSource = '{"packageManager":"pnpm@11.8.1"}';
-		const { deps, sandboxes, minter, resolverCalls } = createDeps({
+		const { deps, sandboxes, minter, operationLogs, resolverCalls } = createDeps({
 			sandboxBehavior: {
 				files: {
 					[DISPATCH_SETTINGS_PATH]: '[dispatch]\nharness = "pi"\n',
@@ -229,6 +235,30 @@ describe("launchDispatchRun", () => {
 			command: { cmd: "fake-harness", args: ["--headless"] },
 			env: { ANTHROPIC_API_KEY: "model-key-fixture" },
 		});
+		const operationEvents = operationLogs.map(
+			(line) => JSON.parse(line) as { event: string; operation: string },
+		);
+		expect(
+			operationEvents
+				.filter((event) => event.event === "operation_started")
+				.map((event) => event.operation),
+		).toEqual([
+			"create_clone_token_minter",
+			"mint_clone_token",
+			"create_sandbox",
+			"read_dispatch_settings",
+			"read_dispatch_package_manifest",
+			"write_dispatch_prompt",
+			"provision_dispatch_harness",
+			"launch_detached_dispatch_harness",
+		]);
+		expect(operationEvents.filter((event) => event.event === "operation_succeeded")).toHaveLength(
+			8,
+		);
+		expect(operationLogs.join("\n")).not.toContain("token-clone-fixture");
+		expect(operationLogs.join("\n")).not.toContain("private-key-fixture");
+		expect(operationLogs.join("\n")).not.toContain("model-key-fixture");
+		expect(operationLogs.join("\n")).not.toContain("Rename the widget gateway methods.");
 	});
 
 	it("fetches and verifies the exact plan snapshot before writing a brmem-first instruction and launching", async () => {
@@ -454,7 +484,7 @@ describe("launchDispatchRun", () => {
 	});
 
 	it("maps a clone mint failure to launch-failed without creating a sandbox", async () => {
-		const { deps, sandboxes } = createDeps({ mintFailPurposes: ["clone"] });
+		const { deps, sandboxes, operationLogs } = createDeps({ mintFailPurposes: ["clone"] });
 
 		const result = await launchDispatchRun(runInput(), deps);
 
@@ -464,6 +494,10 @@ describe("launchDispatchRun", () => {
 			message: "Clone token mint failed.",
 		});
 		expect(sandboxes.calls).toEqual([]);
+		expect(operationLogs.join("\n")).toContain("token mint diagnostic");
+		expect(operationLogs.join("\n")).not.toContain("private-key-fixture");
+		expect(operationLogs.join("\n")).not.toContain("model-key-fixture");
+		expect(operationLogs.join("\n")).not.toContain("Rename the widget gateway methods.");
 	});
 
 	it("returns the created sandbox when provisioning exits non-zero", async () => {
@@ -539,8 +573,8 @@ describe("launchDispatchRun", () => {
 		},
 	);
 
-	it("normalizes a throwing sandbox gateway factory", async () => {
-		const { deps } = createDeps({ sandboxGatewayFactoryThrows: true });
+	it("logs and normalizes a throwing sandbox gateway factory as sandbox creation", async () => {
+		const { deps, operationLogs } = createDeps({ sandboxGatewayFactoryThrows: true });
 
 		const result = await launchDispatchRun(runInput(), deps);
 
@@ -550,6 +584,15 @@ describe("launchDispatchRun", () => {
 			message: "Sandbox creation failed.",
 		});
 		expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+		expect(operationLogs.map((line) => JSON.parse(line))).toContainEqual({
+			event: "operation_failed",
+			operation: "create_sandbox",
+			repository: "nseng-ai/ns",
+			revision,
+			anchorPrNumber: 421,
+			durationMs: 0,
+			error: "sandbox gateway factory exploded",
+		});
 	});
 
 	it("fails safe on an unusable sandbox name", async () => {
@@ -655,13 +698,21 @@ describe("readDispatchOutcome", () => {
 		expect(result).toEqual({ ok: false });
 	});
 
-	it("normalizes a throwing sandbox gateway factory", async () => {
-		const { deps } = createDeps({ sandboxGatewayFactoryThrows: true });
+	it("logs and normalizes a throwing sandbox gateway factory as the final result read", async () => {
+		const { deps, operationLogs } = createDeps({ sandboxGatewayFactoryThrows: true });
 
 		const result = await readDispatchOutcome({ sandboxName: "sbx_dispatch" }, deps);
 
 		expect(result).toEqual({ ok: false });
 		expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+		expect(operationLogs.map((line) => JSON.parse(line))).toContainEqual({
+			event: "operation_failed",
+			operation: "read_final_dispatch_result",
+			sandboxName: "sbx_dispatch",
+			path: DISPATCH_RESULT_PATH,
+			durationMs: 0,
+			error: "sandbox gateway factory exploded",
+		});
 	});
 });
 
@@ -813,15 +864,39 @@ describe("reportDispatchLanded", () => {
 	});
 
 	it.each([
-		["token minter", { tokenMinterFactoryThrows: true }],
-		["report gateway", { reportGatewayFactoryThrows: true }],
-	] as const)("normalizes a %s factory throw at the step boundary", async (_label, options) => {
-		const { deps } = createDeps(options);
+		[
+			"token minter",
+			{ tokenMinterFactoryThrows: true },
+			"create_report_token_minter",
+			"token minter factory exploded",
+		],
+		[
+			"report gateway",
+			{ reportGatewayFactoryThrows: true },
+			"publish_anchor_pr_decision_log",
+			"report gateway factory exploded",
+		],
+	] as const)(
+		"logs and normalizes a %s factory throw at the step boundary",
+		async (_label, options, failedOperation, rawError) => {
+			const { deps, operationLogs } = createDeps(options);
 
-		expect(await reportDispatchLanded({ anchorPrNumber: 421, decisionLog: null }, deps)).toEqual({
-			ok: false,
-		});
-	});
+			const result = await reportDispatchLanded({ anchorPrNumber: 421, decisionLog: null }, deps);
+
+			expect(result).toEqual({ ok: false });
+			expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+			expect(
+				operationLogs
+					.map((line) => JSON.parse(line) as { event: string; operation: string; error?: string })
+					.some(
+						(event) =>
+							event.event === "operation_failed" &&
+							event.operation === failedOperation &&
+							event.error === rawError,
+					),
+			).toBe(true);
+		},
+	);
 });
 
 describe("reportDispatchFailure", () => {

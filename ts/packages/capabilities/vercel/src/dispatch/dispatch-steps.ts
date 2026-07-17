@@ -20,6 +20,10 @@
 // model keys are copied by name into the detached launch command's
 // environment. None of them is journaled, logged, returned, or placed in
 // the sandbox-wide environment.
+import type { Clock } from "@nseng-ai/foundation/clock";
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { systemClock } from "@nseng-ai/foundation/time";
+
 import type { DispatchTokenMinter } from "../mint/mint-core.ts";
 import { createGitHubAppDispatchTokenMinter } from "../mint/real-gateways.ts";
 import {
@@ -66,6 +70,7 @@ import {
 } from "./harness-invocation.ts";
 import { createGitHubDispatchReportGateway } from "./real-dispatch-report-gateway.ts";
 import { createRealDispatchSandboxGateway } from "./real-dispatch-sandbox-gateway.ts";
+import { withOperation, type OperationLogSink } from "./with-operation.ts";
 
 export interface DispatchStepDeps {
 	readonly environment: MintEnvironment;
@@ -76,6 +81,8 @@ export interface DispatchStepDeps {
 		readonly minter: DispatchTokenMinter;
 	}) => DispatchReportGateway;
 	readonly resolveHarnessInvocation: HarnessInvocationResolver;
+	readonly operationClock: Clock;
+	readonly operationLogSink: OperationLogSink;
 }
 
 export function defaultDispatchStepDeps(): DispatchStepDeps {
@@ -86,6 +93,8 @@ export function defaultDispatchStepDeps(): DispatchStepDeps {
 		createReportGateway: ({ repository, minter }) =>
 			createGitHubDispatchReportGateway({ repository, minter }),
 		resolveHarnessInvocation: resolveConfiguredHarnessInvocation,
+		operationClock: systemClock,
+		operationLogSink: console.info,
 	};
 }
 
@@ -122,16 +131,33 @@ export async function launchDispatchRun(
 	}
 	const appConfig = appConfigResult.value;
 
-	const mintContext = createDispatchMintContext(deps, appConfig);
+	const mintContext = await createDispatchMintContext(deps, appConfig, {
+		operation: "create_clone_token_minter",
+		context: { repository: appConfig.githubRepository, anchorPrNumber: run.anchorPrNumber },
+	});
 	if (mintContext === null) {
 		return { ok: false, code: "launch-failed", message: "Clone token mint failed." };
 	}
 	let mintResult;
 	try {
-		mintResult = await mintContext.minter.mintDispatchToken({
-			repository: mintContext.repository,
-			purpose: "clone",
-		});
+		mintResult = await runOperation(
+			deps,
+			{
+				operation: "mint_clone_token",
+				context: {
+					repository: mintContext.repository,
+					purpose: "clone",
+					anchorPrNumber: run.anchorPrNumber,
+				},
+				failureMessage: (result) =>
+					result.ok ? undefined : (result.error.message ?? result.error.code),
+			},
+			async () =>
+				await mintContext.minter.mintDispatchToken({
+					repository: mintContext.repository,
+					purpose: "clone",
+				}),
+		);
 	} catch {
 		return { ok: false, code: "launch-failed", message: "Clone token mint failed." };
 	}
@@ -139,22 +165,40 @@ export async function launchDispatchRun(
 		return { ok: false, code: "launch-failed", message: "Clone token mint failed." };
 	}
 
-	let sandboxes: DispatchSandboxGateway;
-	let createResult: CreateDispatchSandboxResult;
+	let sandboxCreation: {
+		readonly sandboxes: DispatchSandboxGateway;
+		readonly result: CreateDispatchSandboxResult;
+	};
 	try {
-		sandboxes = deps.createSandboxGateway();
-		createResult = await sandboxes.createDispatchSandbox({
-			runtime: "node24",
-			timeoutMs: planDispatchSupervision().sandboxTimeoutMs,
-			source: {
-				repository: appConfig.githubRepository,
-				revision: run.revision,
-				cloneToken: mintResult.value.token,
+		sandboxCreation = await runOperation(
+			deps,
+			{
+				operation: "create_sandbox",
+				context: {
+					repository: appConfig.githubRepository,
+					revision: run.revision,
+					anchorPrNumber: run.anchorPrNumber,
+				},
+				failureMessage: ({ result }) => (result.ok ? undefined : "Sandbox creation failed"),
 			},
-		});
+			async () => {
+				const sandboxes = deps.createSandboxGateway();
+				const result = await sandboxes.createDispatchSandbox({
+					runtime: "node24",
+					timeoutMs: planDispatchSupervision().sandboxTimeoutMs,
+					source: {
+						repository: appConfig.githubRepository,
+						revision: run.revision,
+						cloneToken: mintResult.value.token,
+					},
+				});
+				return { sandboxes, result };
+			},
+		);
 	} catch {
 		return { ok: false, code: "launch-failed", message: "Sandbox creation failed." };
 	}
+	const { sandboxes, result: createResult } = sandboxCreation;
 	if (createResult.ok === false) {
 		return { ok: false, code: "launch-failed", message: "Sandbox creation failed." };
 	}
@@ -174,10 +218,15 @@ export async function launchDispatchRun(
 	// those checkout-owned sources; every failure stops the sandbox.
 	let settingsRead: ReadDispatchSandboxFileResult;
 	try {
-		settingsRead = await sandboxes.readSandboxFile({
-			sandboxName,
-			path: DISPATCH_SETTINGS_PATH,
-		});
+		settingsRead = await runOperation(
+			deps,
+			{
+				operation: "read_dispatch_settings",
+				context: { sandboxName, path: DISPATCH_SETTINGS_PATH },
+				failureMessage: readFailureMessage,
+			},
+			async () => await sandboxes.readSandboxFile({ sandboxName, path: DISPATCH_SETTINGS_PATH }),
+		);
 	} catch {
 		settingsRead = { ok: false };
 	}
@@ -192,10 +241,16 @@ export async function launchDispatchRun(
 
 	let packageManagerRead: ReadDispatchSandboxFileResult;
 	try {
-		packageManagerRead = await sandboxes.readSandboxFile({
-			sandboxName,
-			path: DISPATCH_PACKAGE_MANIFEST_PATH,
-		});
+		packageManagerRead = await runOperation(
+			deps,
+			{
+				operation: "read_dispatch_package_manifest",
+				context: { sandboxName, path: DISPATCH_PACKAGE_MANIFEST_PATH },
+				failureMessage: readFailureMessage,
+			},
+			async () =>
+				await sandboxes.readSandboxFile({ sandboxName, path: DISPATCH_PACKAGE_MANIFEST_PATH }),
+		);
 	} catch {
 		packageManagerRead = { ok: false };
 	}
@@ -243,6 +298,7 @@ export async function launchDispatchRun(
 					harness,
 					prompt: run.prompt,
 					launchEnv: launchEnvResult.value,
+					deps,
 				})
 			: await provisionAndLaunchPlanHarness({
 					sandboxName,
@@ -250,6 +306,7 @@ export async function launchDispatchRun(
 					harness,
 					contextLocator: run.contextLocator,
 					launchEnv: launchEnvResult.value,
+					deps,
 				});
 	if (prepared.ok === false) {
 		return {
@@ -290,6 +347,7 @@ async function provisionAndLaunchPromptHarness(options: {
 	readonly harness: HarnessInvocation;
 	readonly prompt: string;
 	readonly launchEnv: Readonly<Record<string, string>>;
+	readonly deps: DispatchStepDeps;
 }): Promise<HarnessLaunchStageResult> {
 	const prompt = await writeDispatchPrompt(options);
 	if (prompt.ok === false) return prompt;
@@ -307,6 +365,7 @@ async function provisionAndLaunchPlanHarness(options: {
 		{ readonly dispatchId: string }
 	>["contextLocator"];
 	readonly launchEnv: Readonly<Record<string, string>>;
+	readonly deps: DispatchStepDeps;
 }): Promise<HarnessLaunchStageResult> {
 	const provision = await provisionDispatchHarness(options);
 	if (provision.ok === false) return provision;
@@ -327,35 +386,54 @@ async function prepareDispatchPlanContext(options: {
 		DispatchRunInput,
 		{ readonly dispatchId: string }
 	>["contextLocator"];
+	readonly deps: DispatchStepDeps;
 }): Promise<HarnessLaunchStageResult> {
-	const snapshot = await runPlanContextPrecheck(
-		options,
-		buildDispatchPlanSnapshotFetchCommand(options.contextLocator),
-		"Saved Plan Snapshot Ref fetch and commit verification failed.",
-	);
+	const snapshot = await runPlanContextPrecheck({
+		...options,
+		command: buildDispatchPlanSnapshotFetchCommand(options.contextLocator),
+		failureMessage: "Saved Plan Snapshot Ref fetch and commit verification failed.",
+		operation: "verify_plan_snapshot",
+	});
 	if (snapshot.ok === false) return snapshot;
-	return await runPlanContextPrecheck(
-		options,
-		buildDispatchPlanEntryCheckCommand(options.contextLocator),
-		"Required Branch Memory Saved Plan Entry check failed.",
-	);
+	return await runPlanContextPrecheck({
+		...options,
+		command: buildDispatchPlanEntryCheckCommand(options.contextLocator),
+		failureMessage: "Required Branch Memory Saved Plan Entry check failed.",
+		operation: "check_saved_plan_entry",
+	});
+}
+
+interface PlanContextPrecheckOptions {
+	readonly sandboxName: string;
+	readonly sandboxes: DispatchSandboxGateway;
+	readonly deps: DispatchStepDeps;
+	readonly command: SandboxCommand;
+	readonly failureMessage: string;
+	readonly operation: string;
 }
 
 async function runPlanContextPrecheck(
-	options: { readonly sandboxName: string; readonly sandboxes: DispatchSandboxGateway },
-	command: SandboxCommand,
-	failureMessage: string,
+	options: PlanContextPrecheckOptions,
 ): Promise<HarnessLaunchStageResult> {
 	try {
-		const result = await options.sandboxes.runSandboxCommand({
-			sandboxName: options.sandboxName,
-			command,
-		});
+		const result = await runOperation(
+			options.deps,
+			{
+				operation: options.operation,
+				context: { sandboxName: options.sandboxName },
+				failureMessage: commandFailureMessage,
+			},
+			async () =>
+				await options.sandboxes.runSandboxCommand({
+					sandboxName: options.sandboxName,
+					command: options.command,
+				}),
+		);
 		return result.ok && result.exitCode === 0
 			? { ok: true }
-			: { ok: false, message: failureMessage };
+			: { ok: false, message: options.failureMessage };
 	} catch {
-		return { ok: false, message: failureMessage };
+		return { ok: false, message: options.failureMessage };
 	}
 }
 
@@ -363,13 +441,23 @@ async function writeDispatchPrompt(options: {
 	readonly sandboxName: string;
 	readonly sandboxes: DispatchSandboxGateway;
 	readonly prompt: string;
+	readonly deps: DispatchStepDeps;
 }): Promise<HarnessLaunchStageResult> {
 	try {
-		const result = await options.sandboxes.writeSandboxFile({
-			sandboxName: options.sandboxName,
-			path: DISPATCH_PROMPT_PATH,
-			content: options.prompt,
-		});
+		const result = await runOperation(
+			options.deps,
+			{
+				operation: "write_dispatch_prompt",
+				context: { sandboxName: options.sandboxName, path: DISPATCH_PROMPT_PATH },
+				failureMessage: (value) => (value.ok ? undefined : "Prompt write failed"),
+			},
+			async () =>
+				await options.sandboxes.writeSandboxFile({
+					sandboxName: options.sandboxName,
+					path: DISPATCH_PROMPT_PATH,
+					content: options.prompt,
+				}),
+		);
 		return result.ok
 			? { ok: true }
 			: { ok: false, message: "Writing the dispatched prompt into the sandbox failed." };
@@ -382,13 +470,27 @@ async function provisionDispatchHarness(options: {
 	readonly sandboxName: string;
 	readonly sandboxes: DispatchSandboxGateway;
 	readonly harness: HarnessInvocation;
+	readonly deps: DispatchStepDeps;
 }): Promise<HarnessLaunchStageResult> {
-	for (const command of options.harness.provisionCommands) {
+	for (const [ordinal, command] of options.harness.provisionCommands.entries()) {
 		try {
-			const result = await options.sandboxes.runSandboxCommand({
-				sandboxName: options.sandboxName,
-				command,
-			});
+			const result = await runOperation(
+				options.deps,
+				{
+					operation: "provision_dispatch_harness",
+					context: {
+						sandboxName: options.sandboxName,
+						harness: options.harness.harness,
+						ordinal: ordinal + 1,
+					},
+					failureMessage: commandFailureMessage,
+				},
+				async () =>
+					await options.sandboxes.runSandboxCommand({
+						sandboxName: options.sandboxName,
+						command,
+					}),
+			);
 			if (result.ok === false || result.exitCode !== 0) {
 				return { ok: false, message: "Harness provisioning failed." };
 			}
@@ -404,13 +506,23 @@ async function launchDetachedDispatchHarness(options: {
 	readonly sandboxes: DispatchSandboxGateway;
 	readonly harness: HarnessInvocation;
 	readonly launchEnv: Readonly<Record<string, string>>;
+	readonly deps: DispatchStepDeps;
 }): Promise<HarnessLaunchStageResult> {
 	try {
-		const result = await options.sandboxes.runDetachedSandboxCommand({
-			sandboxName: options.sandboxName,
-			command: options.harness.launchCommand,
-			env: options.launchEnv,
-		});
+		const result = await runOperation(
+			options.deps,
+			{
+				operation: "launch_detached_dispatch_harness",
+				context: { sandboxName: options.sandboxName, harness: options.harness.harness },
+				failureMessage: (value) => (value.ok ? undefined : "Detached launch failed"),
+			},
+			async () =>
+				await options.sandboxes.runDetachedSandboxCommand({
+					sandboxName: options.sandboxName,
+					command: options.harness.launchCommand,
+					env: options.launchEnv,
+				}),
+		);
 		return result.ok ? { ok: true } : { ok: false, message: "Detached harness launch failed." };
 	} catch {
 		return { ok: false, message: "Detached harness launch failed." };
@@ -428,10 +540,19 @@ export async function pollDispatchRun(
 ): Promise<SupervisionPollResult> {
 	let readResult: ReadDispatchSandboxFileResult;
 	try {
-		readResult = await deps.createSandboxGateway().readSandboxFile({
-			sandboxName: options.sandboxName,
-			path: DISPATCH_RESULT_PATH,
-		});
+		readResult = await runOperation(
+			deps,
+			{
+				operation: "poll_dispatch_result",
+				context: { sandboxName: options.sandboxName, path: DISPATCH_RESULT_PATH },
+				failureMessage: readFailureMessage,
+			},
+			async () =>
+				await deps.createSandboxGateway().readSandboxFile({
+					sandboxName: options.sandboxName,
+					path: DISPATCH_RESULT_PATH,
+				}),
+		);
 	} catch {
 		return { ok: false, code: "poll-failed", message: "Dispatch result read failed." };
 	}
@@ -451,17 +572,31 @@ export async function readDispatchOutcome(
 	options: { readonly sandboxName: string },
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
 ): Promise<DispatchOutcomeReadResult> {
-	let sandboxes: DispatchSandboxGateway;
-	let resultRead: ReadDispatchSandboxFileResult;
+	let resultReadWithGateway: {
+		readonly sandboxes: DispatchSandboxGateway;
+		readonly result: ReadDispatchSandboxFileResult;
+	};
 	try {
-		sandboxes = deps.createSandboxGateway();
-		resultRead = await sandboxes.readSandboxFile({
-			sandboxName: options.sandboxName,
-			path: DISPATCH_RESULT_PATH,
-		});
+		resultReadWithGateway = await runOperation(
+			deps,
+			{
+				operation: "read_final_dispatch_result",
+				context: { sandboxName: options.sandboxName, path: DISPATCH_RESULT_PATH },
+				failureMessage: ({ result }) => readFailureMessage(result),
+			},
+			async () => {
+				const sandboxes = deps.createSandboxGateway();
+				const result = await sandboxes.readSandboxFile({
+					sandboxName: options.sandboxName,
+					path: DISPATCH_RESULT_PATH,
+				});
+				return { sandboxes, result };
+			},
+		);
 	} catch {
 		return { ok: false };
 	}
+	const { sandboxes, result: resultRead } = resultReadWithGateway;
 	if (resultRead.ok === false) {
 		return { ok: false };
 	}
@@ -474,10 +609,19 @@ export async function readDispatchOutcome(
 
 	let decisionLog: string | null = null;
 	try {
-		const logRead = await sandboxes.readSandboxFile({
-			sandboxName: options.sandboxName,
-			path: DISPATCH_DECISION_LOG_PATH,
-		});
+		const logRead = await runOperation(
+			deps,
+			{
+				operation: "read_dispatch_decision_log",
+				context: { sandboxName: options.sandboxName, path: DISPATCH_DECISION_LOG_PATH },
+				failureMessage: readFailureMessage,
+			},
+			async () =>
+				await sandboxes.readSandboxFile({
+					sandboxName: options.sandboxName,
+					path: DISPATCH_DECISION_LOG_PATH,
+				}),
+		);
 		if (logRead.ok) decisionLog = logRead.content;
 	} catch {
 		decisionLog = null;
@@ -520,16 +664,29 @@ export async function landDispatchRun(
 	}
 	const appConfig = appConfigResult.value;
 
-	const mintContext = createDispatchMintContext(deps, appConfig);
+	const mintContext = await createDispatchMintContext(deps, appConfig, {
+		operation: "create_landing_token_minter",
+		context: { repository: appConfig.githubRepository },
+	});
 	if (mintContext === null) {
 		return { ok: false, code: "landing-failed", message: "Landing token mint failed." };
 	}
 	let mintResult;
 	try {
-		mintResult = await mintContext.minter.mintDispatchToken({
-			repository: mintContext.repository,
-			purpose: "landing",
-		});
+		mintResult = await runOperation(
+			deps,
+			{
+				operation: "mint_landing_token",
+				context: { repository: mintContext.repository, purpose: "landing" },
+				failureMessage: (result) =>
+					result.ok ? undefined : (result.error.message ?? result.error.code),
+			},
+			async () =>
+				await mintContext.minter.mintDispatchToken({
+					repository: mintContext.repository,
+					purpose: "landing",
+				}),
+		);
 	} catch {
 		return { ok: false, code: "landing-failed", message: "Landing token mint failed." };
 	}
@@ -538,14 +695,27 @@ export async function landDispatchRun(
 	}
 
 	try {
-		const commandResult = await deps.createSandboxGateway().runSandboxCommand({
-			sandboxName: options.sandboxName,
-			command: buildDispatchLandingCommand({
-				repository: appConfig.githubRepository,
-				anchorBranch: options.anchorBranch,
-			}),
-			env: { [DISPATCH_LANDING_TOKEN_ENV_NAME]: mintResult.value.token },
-		});
+		const commandResult = await runOperation(
+			deps,
+			{
+				operation: "push_anchor_branch",
+				context: {
+					sandboxName: options.sandboxName,
+					repository: appConfig.githubRepository,
+					anchorBranch: options.anchorBranch,
+				},
+				failureMessage: commandFailureMessage,
+			},
+			async () =>
+				await deps.createSandboxGateway().runSandboxCommand({
+					sandboxName: options.sandboxName,
+					command: buildDispatchLandingCommand({
+						repository: appConfig.githubRepository,
+						anchorBranch: options.anchorBranch,
+					}),
+					env: { [DISPATCH_LANDING_TOKEN_ENV_NAME]: mintResult.value.token },
+				}),
+		);
 		if (commandResult.ok === false || commandResult.exitCode !== 0) {
 			return { ok: false, code: "landing-failed", message: "Landing push failed." };
 		}
@@ -565,9 +735,16 @@ export async function cleanupDispatchRun(
 ): Promise<SupervisionCleanupResult> {
 	let stopResult: StopDispatchSandboxResult;
 	try {
-		stopResult = await deps.createSandboxGateway().stopSandbox({
-			sandboxName: options.sandboxName,
-		});
+		stopResult = await runOperation(
+			deps,
+			{
+				operation: "stop_sandbox",
+				context: { sandboxName: options.sandboxName },
+				failureMessage: (result) => (result.ok ? undefined : "Sandbox stop failed"),
+			},
+			async () =>
+				await deps.createSandboxGateway().stopSandbox({ sandboxName: options.sandboxName }),
+		);
 	} catch {
 		return { ok: false, code: "sandbox-cleanup-failed", message: "Sandbox cleanup failed." };
 	}
@@ -585,14 +762,16 @@ export async function reportDispatchLanded(
 	options: { readonly anchorPrNumber: number; readonly decisionLog: string | null },
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
 ): Promise<DispatchReportResult> {
-	return await withReportGateway(
+	return await withReportGateway({
 		deps,
-		async (gateway) =>
+		operationName: "publish_anchor_pr_decision_log",
+		anchorPrNumber: options.anchorPrNumber,
+		operation: async (gateway) =>
 			await gateway.publishAnchorPrDecisionLog({
 				anchorPrNumber: options.anchorPrNumber,
 				decisionLog: options.decisionLog,
 			}),
-	);
+	});
 }
 
 /**
@@ -609,37 +788,58 @@ export async function reportDispatchFailure(
 	},
 	deps: DispatchStepDeps = defaultDispatchStepDeps(),
 ): Promise<DispatchReportResult> {
-	return await withReportGateway(
+	return await withReportGateway({
 		deps,
-		async (gateway) =>
+		operationName: "publish_anchor_pr_failure_comment",
+		anchorPrNumber: options.anchorPrNumber,
+		operation: async (gateway) =>
 			await gateway.ensureAnchorPrFailureComment({
 				anchorPrNumber: options.anchorPrNumber,
 				anchorBranch: options.anchorBranch,
 				code: options.code,
 				message: options.message,
 			}),
-	);
+	});
 }
 
-async function withReportGateway(
-	deps: DispatchStepDeps,
-	operation: (gateway: DispatchReportGateway) => Promise<DispatchReportResult>,
-): Promise<DispatchReportResult> {
+interface WithReportGatewayOptions {
+	readonly deps: DispatchStepDeps;
+	readonly operationName: string;
+	readonly anchorPrNumber: number;
+	readonly operation: (gateway: DispatchReportGateway) => Promise<DispatchReportResult>;
+}
+
+async function withReportGateway(options: WithReportGatewayOptions): Promise<DispatchReportResult> {
 	try {
-		const gateway = createReportGateway(deps);
-		if (gateway === null) return { ok: false };
-		return await operation(gateway);
+		const result = await runOperation(
+			options.deps,
+			{
+				operation: options.operationName,
+				context: { anchorPrNumber: options.anchorPrNumber },
+				failureMessage: (value) =>
+					value.ok ? undefined : (value.message ?? "Anchor PR reporting failed"),
+			},
+			async (): Promise<DispatchReportResult> => {
+				const gateway = await createReportGateway(options.deps);
+				if (gateway === null) return { ok: false };
+				return await options.operation(gateway);
+			},
+		);
+		return result.ok ? { ok: true } : { ok: false };
 	} catch {
 		return { ok: false };
 	}
 }
 
-function createReportGateway(deps: DispatchStepDeps): DispatchReportGateway | null {
+async function createReportGateway(deps: DispatchStepDeps): Promise<DispatchReportGateway | null> {
 	const appConfigResult = parseGitHubAppMintConfig(deps.environment);
 	// `=== false` rather than `!`: the Vercel builder typechecks without
 	// strictNullChecks, where truthiness checks do not narrow the union.
 	if (appConfigResult.ok === false) return null;
-	const mintContext = createDispatchMintContext(deps, appConfigResult.value);
+	const mintContext = await createDispatchMintContext(deps, appConfigResult.value, {
+		operation: "create_report_token_minter",
+		context: { repository: appConfigResult.value.githubRepository },
+	});
 	if (mintContext === null) return null;
 	return deps.createReportGateway({
 		repository: mintContext.repository,
@@ -648,16 +848,59 @@ function createReportGateway(deps: DispatchStepDeps): DispatchReportGateway | nu
 }
 
 /** Shared, value-free GitHub App/minter prologue for launch, land, and report stages. */
-function createDispatchMintContext(
+async function createDispatchMintContext(
 	deps: DispatchStepDeps,
 	config: GitHubAppMintConfig,
-): { readonly repository: string; readonly minter: DispatchTokenMinter } | null {
+	log: {
+		readonly operation: string;
+		readonly context: Readonly<Record<string, string | number | boolean>>;
+	},
+): Promise<{ readonly repository: string; readonly minter: DispatchTokenMinter } | null> {
 	try {
-		return {
+		return await runOperation(deps, log, async () => ({
 			repository: config.githubRepository,
 			minter: deps.createDispatchTokenMinter(config),
-		};
+		}));
 	} catch {
 		return null;
 	}
+}
+
+interface RunOperationOptions<T> {
+	readonly operation: string;
+	readonly context?: Readonly<Record<string, string | number | boolean>>;
+	readonly failureMessage?: (result: T) => string | undefined;
+}
+
+async function runOperation<T>(
+	deps: DispatchStepDeps,
+	options: RunOperationOptions<T>,
+	run: () => Promise<T>,
+): Promise<T> {
+	return await withOperation(
+		{
+			operation: options.operation,
+			...optionalEntries({
+				context: options.context,
+				failureMessage: options.failureMessage,
+			}),
+			clock: deps.operationClock,
+			logSink: deps.operationLogSink,
+		},
+		run,
+	);
+}
+
+function readFailureMessage(result: ReadDispatchSandboxFileResult): string | undefined {
+	return result.ok ? undefined : "Sandbox file read failed";
+}
+
+function commandFailureMessage(result: {
+	readonly ok: boolean;
+	readonly exitCode?: number;
+}): string | undefined {
+	if (!result.ok) return "Sandbox command failed";
+	return result.exitCode === undefined || result.exitCode === 0
+		? undefined
+		: `Sandbox command exited with code ${result.exitCode}`;
 }
