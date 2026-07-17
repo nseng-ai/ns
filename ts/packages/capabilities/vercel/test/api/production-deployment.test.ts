@@ -120,6 +120,19 @@ describe("production deployment workflow", () => {
 		);
 	});
 
+	it("inspects the deployment and alias under the validated team", async () => {
+		const configuration = productionConfiguration({ configuredTeamId: "team_validated" });
+		const { fake, result } = await run({
+			configuration: productionConfiguration({
+				configuredTeamId: "team_validated",
+				packageProject: { ...configuration.packageProject, teamId: "team_validated" },
+				repositoryProject: { ...configuration.repositoryProject, teamId: "team_validated" },
+			}),
+		});
+		expect(result.ok).toBe(true);
+		expect(fake.state.inspectedTeamIds).toEqual(["team_validated", "team_validated"]);
+	});
+
 	it("rejects an alias pointing at another immutable deployment", async () => {
 		const { fake, result } = await run({ aliasDeploymentId: "dpl_other" });
 		expect(result).toMatchObject({ ok: false, code: "alias-mismatch" });

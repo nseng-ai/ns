@@ -63,8 +63,8 @@ export function productionWorkspaceInstallRoot(worktreeRoot: string): string {
 	return join(worktreeRoot, "ts");
 }
 
-export function vercelInspectArgs(locator: string): readonly string[] {
-	return ["inspect", locator, "--wait", "--timeout", "2m", "--format=json"];
+export function vercelInspectArgs(locator: string, teamId: string): readonly string[] {
+	return ["inspect", locator, "--scope", teamId, "--wait", "--timeout", "2m", "--format=json"];
 }
 
 export function isProductionHealthPayload(value: unknown): boolean {
@@ -221,7 +221,7 @@ export function createRealProductionDeploymentContext(
 					...(locator === undefined ? {} : { locator }),
 				};
 			},
-			async inspectDeployment(locator) {
+			async inspectDeployment(locator, teamId) {
 				const value =
 					typeof locator === "string" ? locator : (locator.deploymentId ?? locator.deploymentUrl);
 				if (value === undefined) {
@@ -229,7 +229,7 @@ export function createRealProductionDeploymentContext(
 				}
 				const result = await command({
 					commandName: "vercel",
-					args: vercelInspectArgs(value),
+					args: vercelInspectArgs(value, teamId),
 					cwd: repositoryRoot,
 					diagnostic: writeDiagnostic,
 				});

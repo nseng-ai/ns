@@ -85,8 +85,9 @@ The production path is intentionally stricter than an ordinary Vercel deploy:
   fails closed rather than weakening the check.
 - A nonzero deploy result can occur after Vercel accepted the upload. If the output includes an
   inspectable locator, inspect it before retrying; automatically uploading again could create a
-  duplicate deployment. A successful command requires both a Ready immutable deployment and
-  the stable alias resolving to that same deployment ID.
+  duplicate deployment. Immutable-deployment and stable-alias inspection use the validated team ID
+  as their explicit Vercel scope rather than the CLI's ambient personal context. A successful command
+  requires both a Ready immutable deployment and the stable alias resolving to that same deployment ID.
 - Deploy and alias failures retain the newly promoted local Build Output. Only a failure in the
   local staged promotion restores the previous output. Fixed staging/backup siblings also act
   as a concurrency and crash-residue guard: ambiguous residue is preserved for manual
