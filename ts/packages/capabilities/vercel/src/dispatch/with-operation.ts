@@ -8,11 +8,17 @@ export interface OperationContext {
 	readonly [key: string]: string | number | boolean;
 }
 
+export interface OperationFailure {
+	readonly reason: string;
+	readonly diagnostic?: string;
+}
+
 export interface WithOperationOptions<T> {
 	readonly operation: string;
 	readonly context?: OperationContext;
 	readonly clock?: Clock;
 	readonly logSink?: OperationLogSink;
+	readonly failure?: (result: T) => OperationFailure | undefined;
 	readonly failureMessage?: (result: T) => string | undefined;
 }
 
@@ -38,15 +44,22 @@ export async function withOperation<T>(
 
 	try {
 		const result = await run();
-		const error = options.failureMessage?.(result);
+		const inspectedFailure = options.failure?.(result);
+		const legacyDiagnostic = options.failureMessage?.(result);
+		const failure =
+			inspectedFailure ??
+			(legacyDiagnostic === undefined
+				? undefined
+				: { reason: "operation-returned-failure", diagnostic: legacyDiagnostic });
 		const durationMs = elapsedMs(startedAtMs, clock.nowMs());
-		if (error !== undefined) {
+		if (failure !== undefined) {
 			writeBestEffort(logSink, {
 				...options.context,
 				event: "operation_failed",
 				operation: options.operation,
 				durationMs,
-				error,
+				reason: failure.reason,
+				...(failure.diagnostic === undefined ? {} : { diagnostic: failure.diagnostic }),
 			});
 			return result;
 		}
@@ -63,7 +76,8 @@ export async function withOperation<T>(
 			event: "operation_failed",
 			operation: options.operation,
 			durationMs: elapsedMs(startedAtMs, clock.nowMs()),
-			error: formatErrorMessage(error),
+			reason: "unexpected-exception",
+			diagnostic: formatErrorMessage(error),
 		});
 		throw error;
 	}
