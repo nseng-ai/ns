@@ -88,6 +88,9 @@ export async function runDispatchPreflight(
 	const triggerConnection: DispatchTriggerConnection = {
 		deploymentUrl,
 		oidcToken: tokenResult.token,
+		...(tokenResult.protectionBypass === undefined
+			? {}
+			: { protectionBypass: tokenResult.protectionBypass }),
 	};
 	const identity = await gateways.trigger.checkTriggerIdentity({ connection: triggerConnection });
 	const identityCheck = triggerIdentityCheck(identity);

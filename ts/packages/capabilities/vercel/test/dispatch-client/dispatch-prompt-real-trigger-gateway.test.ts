@@ -7,6 +7,7 @@ const SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
 const TRIGGER_CONNECTION = {
 	deploymentUrl: "https://ns-dispatch.example.vercel.app",
 	oidcToken: "fake-token",
+	protectionBypass: "fake-protection-bypass",
 };
 const SHORT_TRIGGER_CONNECTION = { deploymentUrl: "https://x.test", oidcToken: "t" };
 
@@ -48,6 +49,7 @@ describe("real trigger gateway", () => {
 			"https://ns-dispatch.example.vercel.app/api/runs?runId=wrun_00000000000000000000000000",
 		);
 		expect(requests[0]?.headers[DISPATCH_OIDC_HEADER_NAME]).toBe("fake-token");
+		expect(requests[0]?.headers["x-vercel-protection-bypass"]).toBe("fake-protection-bypass");
 	});
 
 	test("maps identity statuses and network failures", async () => {
@@ -94,6 +96,7 @@ describe("real trigger gateway", () => {
 			prompt: "Do a thing",
 		});
 		expect(requests[0]?.headers[DISPATCH_OIDC_HEADER_NAME]).toBe("fake-token");
+		expect(requests[0]?.headers["x-vercel-protection-bypass"]).toBe("fake-protection-bypass");
 	});
 
 	test("maps trigger refusals to stable codes with the remote reason", async () => {

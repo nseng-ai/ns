@@ -131,6 +131,7 @@ export type DispatchOpenAnchorPrResult =
 export interface DispatchTriggerConnection {
 	readonly deploymentUrl: string;
 	readonly oidcToken: string;
+	readonly protectionBypass?: string;
 }
 
 /**
@@ -194,7 +195,11 @@ export interface DispatchLocalTokenGateway {
 }
 
 export type DispatchLocalTokenResult =
-	| { readonly type: "found"; readonly token: string }
+	| {
+			readonly type: "found";
+			readonly token: string;
+			readonly protectionBypass?: string;
+	  }
 	| { readonly type: "missing"; readonly detail: string }
 	| { readonly type: "error"; readonly message: string };
 

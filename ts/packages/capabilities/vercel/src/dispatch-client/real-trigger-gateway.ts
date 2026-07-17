@@ -8,6 +8,7 @@ import {
 } from "../http/wire.ts";
 import type {
 	DispatchStartRunResult,
+	DispatchTriggerConnection,
 	DispatchTriggerGateway,
 	DispatchTriggerIdentityResult,
 } from "../dispatch-client/contracts.ts";
@@ -26,7 +27,7 @@ export function createRealDispatchTriggerGateway(
 				url.searchParams.set("runId", IDENTITY_PREFLIGHT_RUN_ID);
 				response = await fetchFn(url, {
 					method: "GET",
-					headers: { [DISPATCH_OIDC_HEADER_NAME]: connection.oidcToken },
+					headers: dispatchHeaders(connection),
 				});
 			} catch (error) {
 				return { type: "unreachable", message: formatErrorMessage(error) };
@@ -38,10 +39,7 @@ export function createRealDispatchTriggerGateway(
 			try {
 				response = await fetchFn(new URL(TRIGGER_ROUTE_PATH, connection.deploymentUrl), {
 					method: "POST",
-					headers: {
-						"content-type": "application/json",
-						[DISPATCH_OIDC_HEADER_NAME]: connection.oidcToken,
-					},
+					headers: { "content-type": "application/json", ...dispatchHeaders(connection) },
 					body: JSON.stringify({ workflow: "dispatch", ...input }),
 				});
 			} catch (error) {
@@ -52,6 +50,15 @@ export function createRealDispatchTriggerGateway(
 			}
 			return await startRunResultFromResponse(response);
 		},
+	};
+}
+
+function dispatchHeaders(connection: DispatchTriggerConnection): Record<string, string> {
+	return {
+		[DISPATCH_OIDC_HEADER_NAME]: connection.oidcToken,
+		...(connection.protectionBypass === undefined
+			? {}
+			: { "x-vercel-protection-bypass": connection.protectionBypass }),
 	};
 }
 
