@@ -83,6 +83,10 @@ export type ProvisionDeclarationResult =
 	| { type: "ok"; paths: readonly string[] }
 	| { type: "config-error"; error: SlotsProvisionConfigError };
 
+export type ProvisionPlacementDeclarationSnapshot =
+	| ProvisionDeclarationResult
+	| { type: "read-error"; message: string };
+
 export function provisionStoreRoot(repo: RepoContext): string {
 	return join(repo.repoDir, "provision", "default");
 }
@@ -97,6 +101,16 @@ export async function loadProvisionDeclaration(
 	return { type: "ok", paths: parsed.value.provision };
 }
 
+export async function captureProvisionDeclarationForPlacement(
+	ctx: RepoSlotContext,
+): Promise<ProvisionPlacementDeclarationSnapshot> {
+	try {
+		return await loadProvisionDeclaration(ctx);
+	} catch (error) {
+		return { type: "read-error", message: errorMessage(error) };
+	}
+}
+
 /**
  * Copy declared provision files into the given worktrees, filling gaps only:
  * an existing target file is never touched. Problems become notices; placement
@@ -105,11 +119,12 @@ export async function loadProvisionDeclaration(
 export async function fillProvisionGapsForPlacement(
 	ctx: RepoSlotContext,
 	worktrees: readonly ProvisionWorktreeTarget[],
+	declarationSnapshot?: ProvisionPlacementDeclarationSnapshot,
 ): Promise<ProvisionPlacementReport | null> {
-	let declaration: ProvisionDeclarationResult;
-	try {
-		declaration = await loadProvisionDeclaration(ctx);
-	} catch (error) {
+	const declaration = declarationSnapshot ?? (await captureProvisionDeclarationForPlacement(ctx));
+	if (declaration.type === "read-error" || declaration.type === "config-error") {
+		const message =
+			declaration.type === "read-error" ? declaration.message : declaration.error.message;
 		return {
 			copied: [],
 			notices: [
@@ -117,20 +132,7 @@ export async function fillProvisionGapsForPlacement(
 					kind: "config-error",
 					path: null,
 					slotName: null,
-					message: errorMessage(error),
-				},
-			],
-		};
-	}
-	if (declaration.type === "config-error") {
-		return {
-			copied: [],
-			notices: [
-				{
-					kind: "config-error",
-					path: null,
-					slotName: null,
-					message: declaration.error.message,
+					message,
 				},
 			],
 		};

@@ -37,39 +37,9 @@ export async function withOperation<T>(
 		operation: options.operation,
 	});
 
+	let result: T;
 	try {
-		const result = await run();
-		const inspectedFailure = options.failure?.(result);
-		const legacyDiagnostic = options.failureMessage?.(result);
-		const failure =
-			inspectedFailure ??
-			(legacyDiagnostic === undefined
-				? undefined
-				: {
-						diagnostic: normalizeDispatchFailure({
-							operation: options.operation,
-							reason: "operation-returned-failure",
-							message: legacyDiagnostic,
-						}),
-					});
-		const durationMs = elapsedMs(startedAtMs, clock.nowMs());
-		if (failure !== undefined) {
-			writeBestEffort(logSink, {
-				...options.context,
-				event: "operation_failed",
-				operation: options.operation,
-				durationMs,
-				diagnostic: failure.diagnostic,
-			});
-			return result;
-		}
-		writeBestEffort(logSink, {
-			...options.context,
-			event: "operation_succeeded",
-			operation: options.operation,
-			durationMs,
-		});
-		return result;
+		result = await run();
 	} catch (error) {
 		const diagnostic =
 			options.normalizeThrownFailure?.(error) ??
@@ -87,6 +57,58 @@ export async function withOperation<T>(
 		});
 		throw error;
 	}
+
+	const failure = classifyFailureBestEffort(options, result);
+	const durationMs = elapsedMs(startedAtMs, clock.nowMs());
+	if (failure !== undefined) {
+		writeBestEffort(logSink, {
+			...options.context,
+			event: "operation_failed",
+			operation: options.operation,
+			durationMs,
+			diagnostic: failure.diagnostic,
+		});
+		return result;
+	}
+	writeBestEffort(logSink, {
+		...options.context,
+		event: "operation_succeeded",
+		operation: options.operation,
+		durationMs,
+	});
+	return result;
+}
+
+function classifyFailureBestEffort<T>(
+	options: WithOperationOptions<T>,
+	result: T,
+): OperationFailure | undefined {
+	let inspectedFailure: OperationFailure | undefined;
+	try {
+		inspectedFailure = options.failure?.(result);
+	} catch {
+		// Result classification is observational and cannot change operation behavior.
+	}
+
+	let legacyDiagnostic: string | undefined;
+	try {
+		legacyDiagnostic = options.failureMessage?.(result);
+	} catch {
+		// Legacy result classification has the same observational contract.
+	}
+
+	return (
+		inspectedFailure ??
+		(legacyDiagnostic === undefined
+			? undefined
+			: {
+					diagnostic: normalizeDispatchFailure({
+						operation: options.operation,
+						reason: "operation-returned-failure",
+						message: legacyDiagnostic,
+					}),
+				})
+	);
 }
 
 function elapsedMs(startedAtMs: number, finishedAtMs: number): number {

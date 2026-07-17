@@ -107,6 +107,65 @@ describe("withOperation", () => {
 		});
 	});
 
+	it("contains classifier failures so observability does not change operation behavior", async () => {
+		const manual = createManualClock(0);
+		const lines: string[] = [];
+		const value = { ok: true } as const;
+
+		const result = await withOperation(
+			{
+				operation: "safe_operation",
+				clock: manual.clock,
+				logSink: (line) => lines.push(line),
+				failure: () => {
+					throw new Error("structured classifier unavailable");
+				},
+				failureMessage: () => {
+					throw new Error("legacy classifier unavailable");
+				},
+			},
+			async () => value,
+		);
+
+		expect(result).toBe(value);
+		expect(parsedEvents(lines)).toEqual([
+			{ event: "operation_started", operation: "safe_operation" },
+			{
+				event: "operation_succeeded",
+				operation: "safe_operation",
+				durationMs: 0,
+			},
+		]);
+		expect(lines.join("\n")).not.toContain("classifier unavailable");
+	});
+
+	it("uses a safe legacy classifier when the preferred classifier throws", async () => {
+		const lines: string[] = [];
+		const failure = { ok: false, message: "HTTP 503" } as const;
+
+		const result = await withOperation(
+			{
+				operation: "safe_operation",
+				logSink: (line) => lines.push(line),
+				failure: () => {
+					throw new Error("structured classifier unavailable");
+				},
+				failureMessage: (value) => value.message,
+			},
+			async () => failure,
+		);
+
+		expect(result).toBe(failure);
+		expect(parsedEvents(lines)[1]).toMatchObject({
+			event: "operation_failed",
+			diagnostic: {
+				operation: "safe_operation",
+				reason: "operation-returned-failure",
+				message: "HTTP 503",
+			},
+		});
+	});
+
 	it("contains sink failures so observability does not change operation behavior", async () => {
 		const manual = createManualClock(0);
 		const value = { ok: true } as const;

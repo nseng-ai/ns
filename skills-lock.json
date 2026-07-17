@@ -188,7 +188,7 @@
     "inspect-vercel-workflow-run": {
       "source": "skills/inspect-vercel-workflow-run",
       "sourceType": "local",
-      "computedHash": "9ee8f8d4e3f37d70102d5d6c9517e3d097d7b8a0801aacce2f728af7a7719b8d"
+      "computedHash": "d71279843bdaa17f589d5e3fc30e28ba4860b7b9f8ab7c2ffdd9a9a205560829"
     },
     "ns-cli-design": {
       "source": "skills/ns-cli-design",

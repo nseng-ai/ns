@@ -98,6 +98,11 @@ converts it to this plain serializable value. Unknown throws use a total structu
 path serializes stacks, causes, request/response objects, bodies, arbitrary headers/JSON/text, prompts,
 decision logs, command argv/environment maps, authenticated URLs, or whole operation results.
 
+Raw provider messages remain a trust-boundary risk because SDKs may include request metadata, response
+bodies, authenticated URLs, or other sensitive material in `Error.message`. Reassess and classify these
+diagnostics before routing operation records into any durable or broader status-stream sink. This
+follow-up note does not change current Function-log behavior.
+
 The final normalized diagnostic is emitted as a closed terminal event to Function logs and the named
 `status` stream, drives the Workflow failure-card first line, and is mirrored in the idempotent anchor-PR
 failure comment. The implementation is locally covered; production behavior remains pending the next

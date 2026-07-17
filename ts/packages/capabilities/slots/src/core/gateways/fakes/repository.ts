@@ -56,6 +56,8 @@ export interface FakeSlotRepositoryGatewayOptions {
 	deleteBranchFailures?: Readonly<Record<string, GitCommandFailure>>;
 	branchComparisons?: readonly FakeBranchComparisonFixture[];
 	branchComparisonFailures?: readonly FakeBranchComparisonFailureFixture[];
+	/** Shared cross-gateway chronology log for lifecycle ordering assertions. */
+	chronology?: string[];
 }
 
 export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
@@ -78,6 +80,7 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 	private readonly deleteBranchFailures: Readonly<Record<string, GitCommandFailure>>;
 	private readonly branchComparisons: ReadonlyMap<string, BranchComparison>;
 	private readonly branchComparisonFailures: ReadonlyMap<string, GitCommandFailure>;
+	private readonly chronology: string[] | undefined;
 	private readonly log: FakeSlotGitOperation[] = [];
 
 	constructor(options: FakeSlotRepositoryGatewayOptions = {}) {
@@ -122,6 +125,7 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 				{ message: fixture.message },
 			]),
 		);
+		this.chronology = options.chronology;
 	}
 
 	async pathExists(path: string): Promise<boolean> {
@@ -231,6 +235,7 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async checkoutBranch(path: string, branch: string): Promise<GitCommandFailure | null> {
+		this.chronology?.push(`checkout-branch:${path}:${branch}`);
 		this.log.push({ type: "checkout-branch", path, branch });
 		const failure = this.checkoutFailures[path] ?? this.checkoutFailures[`${path}:${branch}`];
 		if (failure !== undefined) return { ...failure };
@@ -243,6 +248,7 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async detachHead(path: string, ref: string): Promise<GitCommandFailure | null> {
+		this.chronology?.push(`detach-head:${path}:${ref}`);
 		this.log.push({ type: "detach-head", path, ref });
 		const failure = this.detachFailures[path] ?? this.detachFailures[`${path}:${ref}`];
 		if (failure !== undefined) return { ...failure };

@@ -21,11 +21,12 @@ When collection stops early, preserve the evidence directory, list successful ar
 
 ## 1. Parse and preflight
 
-Accept exactly one target plus an optional environment:
+Accept exactly one target plus an optional explicit environment:
 
 - A bare ID must match `^wrun_[A-Za-z0-9]+$`.
-- A dashboard URL must use HTTPS and have exactly the path `/<team>/<project>/workflows/runs/<wrun-id>` on `vercel.com`, apart from an optional trailing slash. Extract decoded, non-empty `team`, `project`, and `runId` segments. Reject extra path segments, credentials, an unexpected host, or an invalid run ID rather than guessing.
-- Use the environment named by the user; otherwise use `production`. Accept `production` or `preview` only.
+- A dashboard URL must use HTTPS and have exactly the path `/<team>/<project>/workflows/runs/<wrun-id>` on `vercel.com`, apart from an optional trailing slash. Extract decoded, non-empty `team`, `project`, and `runId` segments. Reject extra path segments, credentials, fragments, an unexpected host, or an invalid run ID rather than guessing.
+- A dashboard URL may have no query or exactly one `environment` query value. Accept only `production` or `preview`. Reject duplicate or empty environment values and all unrelated query keys.
+- Resolve the environment from the URL and explicit user input. Equal values are accepted; conflicting values are a safe stop that names both values. When only one is present, use it. Default to `production` only when both are absent.
 
 For a bare ID, inspect the current linked project's `.vercel/project.json` without printing secrets. Resolve its project name or ID and owning team/org ID. If the link is absent, malformed, or does not identify one project and team, stop and ask the user either to run `vercel link` separately or invoke the skill with the full dashboard URL. Do not link the project during diagnosis.
 
@@ -70,14 +71,23 @@ Substitute the resolved Workflow command and confirmed tuple in these read-only 
 
 <workflow-command> inspect steps --runId "$run_id" \
   --backend vercel --project "$project" --team "$team" --env "$environment" \
-  --json --limit 200 >"$evidence_dir/steps.json"
+  --json --sort asc --limit 200 >"$evidence_dir/steps.json"
 
 <workflow-command> inspect events --runId "$run_id" \
   --backend vercel --project "$project" --team "$team" --env "$environment" \
-  --json --limit 500 >"$evidence_dir/events.json"
+  --json --sort asc --limit 500 >"$evidence_dir/events.json"
 ```
 
-Validate that each required output is JSON before interpreting it. Treat malformed output as a safe stop.
+These files are bounded oldest-first prefixes, not presumed complete histories. Validate that each
+required output is JSON and that steps/events are top-level arrays before interpreting it. Treat
+malformed output as a safe stop. Count each array: fewer than its cap establishes completeness for that
+query; exactly the cap means `potentially truncated` because CLI JSON omits cursor and `hasMore`
+metadata. Record each cap-equal artifact and cap in `Collection limits`; do not silently raise limits or
+imply that all pages were read.
+
+> **Future CLI push-down:** replace cap-equality inference and procedural collection with a tested
+> read-only helper that paginates Workflow results and returns bounded items plus explicit
+> completion/continuation metadata.
 
 Derive the deployment ID and the narrow run start/end interval from run metadata and events. Do not assume the current deployment or choose an arbitrary broad window. If metadata sources disagree on deployment identity, stop and report the disagreement.
 
@@ -94,16 +104,22 @@ vercel logs "$deployment_id" --scope "$team" --project "$project" --no-branch \
 
 If deployment-scoped logs are unavailable, use the same project, scope, environment, interval, limit, `--no-branch`, and JSON filters without guessing another deployment. Record the limitation. Collect all levels: an application-level failure object may be logged at info level even when its Workflow step completed.
 
-Continue only when the cache identifies run status, ordered steps, event chronology, deployment identity, and bounded runtime logs, or stop with an inventory of partial artifacts.
+Continue only when the cache identifies run status, the obtained oldest-first step/event prefixes,
+deployment identity, and bounded runtime logs, or stop with an inventory of partial artifacts. If a
+prefix is potentially truncated, do not claim complete chronology or complete terminal-state coverage.
 
 ## 4. Find the causal frontier
 
-Order steps and events chronologically, then locate the earliest point where an application-level failure could have entered orchestration.
+Use the already oldest-first step and event prefixes to locate the earliest point in the collected
+evidence where an application-level failure could have entered orchestration. When either prefix is
+potentially truncated, make only causal claims supported by that prefix and independent evidence. Later
+history may be absent, so stop or state `not established` whenever missing history could change a
+classification.
 
 Classify evidence by meaning, not merely Workflow status:
 
 - **Primary/domain failure:** earliest meaningful application-level failure returned by a step, including a `completed` step whose output may encode `{ok:false}`.
-- **Terminal workflow failure:** final explicit throw or failed step that marks the run failed.
+- **Terminal workflow failure:** final explicit throw or failed step that marks the run failed, but only when complete evidence or independent run metadata establishes it; otherwise `not established`.
 - **Secondary failure:** later cleanup, reporting, notification, or fallback work that also failed but did not cause the original failure.
 
 Do not treat the final `FatalError` as primary without evidence. Correlate step status, events, and logs to select the smallest decryption set: normally one primary candidate and any directly related fallback/reporting candidate. Record one sentence explaining why each selected step can distinguish the causal chain.
@@ -143,13 +159,15 @@ Return this contract:
 
 - <timestamp> — <step/event, status, interpretation> (`<evidence filename>`)
 
+State whether this is a complete timeline or a bounded oldest-first prefix.
+
 ## Primary/domain failure
 
-<safe minimal quote and evidence, or "none established">
+<safe minimal quote and evidence, or "none established"; qualify claims based on a truncated prefix>
 
 ## Terminal workflow failure
 
-<safe minimal quote and evidence, or "none observed">
+<safe minimal quote and evidence, "none observed in the collected prefix", or "not established" when later history may be missing>
 
 ## Secondary failures
 
@@ -167,7 +185,9 @@ Return this contract:
 
 ## Collection limits
 
-<missing/inaccessible/malformed evidence, or "none">
+<missing/inaccessible/malformed evidence; every potentially truncated artifact with its exact cap and
+which chronology or terminal-state claims remain unestablished; or "none" only when all required
+queries are complete>
 
 No source edits, deployment, workflow rerun, or external mutation was performed.
 ```

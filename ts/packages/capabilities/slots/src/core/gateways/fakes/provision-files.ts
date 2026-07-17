@@ -15,6 +15,8 @@ export interface FakeSlotProvisionFilesGatewayOptions {
 	projectConfigReadFailures?: Record<string, string>;
 	/** Destination absolute path -> error message thrown on copy. */
 	copyFailures?: Record<string, string>;
+	/** Shared cross-gateway chronology log for lifecycle ordering assertions. */
+	chronology?: string[];
 }
 
 export interface FakeProvisionFilesOperation {
@@ -28,6 +30,7 @@ export class FakeSlotProvisionFilesGateway implements SlotProvisionFilesGateway 
 	private readonly projectConfigByRoot: Map<string, string>;
 	private readonly projectConfigReadFailures: Map<string, string>;
 	private readonly copyFailures: Map<string, string>;
+	private readonly chronology: string[] | undefined;
 	private readonly log: FakeProvisionFilesOperation[] = [];
 
 	constructor(options: FakeSlotProvisionFilesGatewayOptions = {}) {
@@ -42,9 +45,11 @@ export class FakeSlotProvisionFilesGateway implements SlotProvisionFilesGateway 
 			Object.entries(options.projectConfigReadFailures ?? {}),
 		);
 		this.copyFailures = new Map(Object.entries(options.copyFailures ?? {}));
+		this.chronology = options.chronology;
 	}
 
 	async readProjectConfigSource(repoRoot: string): Promise<string | null> {
+		this.chronology?.push(`read-project-config:${repoRoot}`);
 		const failureMessage = this.projectConfigReadFailures.get(repoRoot);
 		if (failureMessage !== undefined) throw new Error(failureMessage);
 		return this.projectConfigByRoot.get(repoRoot) ?? null;
