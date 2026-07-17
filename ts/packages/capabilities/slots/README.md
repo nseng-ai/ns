@@ -51,7 +51,7 @@ Declare the repo-relative file paths in `ns.toml` (the git-native contract):
 provision = [".env.local", "ts/packages/capabilities/vercel/.env.local"]
 ```
 
-Entries must be exact repo-relative file paths: no absolute paths, no `..`/`.` segments, no trailing slashes, no glob characters, no duplicates. A missing `ns.toml` or `[slots]` table simply means nothing is declared.
+Entries must be exact repo-relative file paths: no absolute paths, no `..`/`.` segments, no trailing slashes, no glob characters, no duplicates. Provisioning commands read `ns.toml` from the invoking worktree, so a branch can declare and use provisioned files before it lands in the main worktree. A missing `ns.toml` or `[slots]` table in that worktree simply means nothing is declared.
 
 File content lives outside git in a per-repo, machine-local store under the slots state root: `<slotsRoot>/repos/<repoName>/provision/default/<repo-relative-path>` (directories created `0700`; file modes preserved on copy). Content flows one way, store → worktree; nothing ever copies back automatically.
 

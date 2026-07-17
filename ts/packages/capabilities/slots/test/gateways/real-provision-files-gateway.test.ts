@@ -18,7 +18,7 @@ describe("RealSlotProvisionFilesGateway", () => {
 		rmSync(root, { recursive: true, force: true });
 	});
 
-	it("reads ns.toml from the main repo root and returns null when missing", async () => {
+	it("reads ns.toml from the invoking repo root and returns null when missing", async () => {
 		await expect(gateway.readProjectConfigSource(root)).resolves.toBeNull();
 		writeFileSync(join(root, "ns.toml"), '[slots]\nprovision = [".env.local"]\n');
 		await expect(gateway.readProjectConfigSource(root)).resolves.toBe(
