@@ -102,8 +102,11 @@ describe("createDispatchTokenMinter", () => {
 		expect(github.calls).toEqual([]);
 	});
 
-	it("returns only a stable code when GitHub minting fails", async () => {
-		const github = new InMemoryGitHubInstallationTokenGateway({ ok: false });
+	it("retains an internal diagnostic alongside the stable code when GitHub minting fails", async () => {
+		const github = new InMemoryGitHubInstallationTokenGateway({
+			ok: false,
+			message: "GitHub App auth connection reset",
+		});
 		const { minter } = createMinter({ github });
 
 		const result = await minter.mintDispatchToken({
@@ -111,6 +114,12 @@ describe("createDispatchTokenMinter", () => {
 			purpose: "landing",
 		});
 
-		expect(result).toEqual({ ok: false, error: { code: "github-token-mint-failed" } });
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				code: "github-token-mint-failed",
+				message: "GitHub App auth connection reset",
+			},
+		});
 	});
 });

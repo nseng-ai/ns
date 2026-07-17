@@ -6,9 +6,11 @@ import type { DispatchTokenMinter, DispatchTokenMintResult } from "../../../src/
 export class RecordingDispatchTokenMinter implements DispatchTokenMinter {
 	readonly calls: Array<{ repository: string; purpose: string }> = [];
 	readonly #failPurposes: ReadonlySet<string>;
+	readonly #failureMessage: string;
 
-	constructor(failPurposes: readonly string[] = []) {
+	constructor(failPurposes: readonly string[] = [], failureMessage = "token mint diagnostic") {
 		this.#failPurposes = new Set(failPurposes);
+		this.#failureMessage = failureMessage;
 	}
 
 	async mintDispatchToken(options: {
@@ -17,7 +19,10 @@ export class RecordingDispatchTokenMinter implements DispatchTokenMinter {
 	}): Promise<DispatchTokenMintResult> {
 		this.calls.push({ ...options });
 		if (this.#failPurposes.has(options.purpose)) {
-			return { ok: false, error: { code: "github-token-mint-failed" } };
+			return {
+				ok: false,
+				error: { code: "github-token-mint-failed", message: this.#failureMessage },
+			};
 		}
 		return {
 			ok: true,
@@ -42,10 +47,18 @@ export class RecordingDispatchReportGateway implements DispatchReportGateway {
 	}> = [];
 	readonly #fails: boolean;
 	readonly #throws: boolean;
+	readonly #failureMessage: string;
 
-	constructor(options: { readonly fails?: boolean; readonly throws?: boolean } = {}) {
+	constructor(
+		options: {
+			readonly fails?: boolean;
+			readonly throws?: boolean;
+			readonly failureMessage?: string;
+		} = {},
+	) {
 		this.#fails = options.fails ?? false;
 		this.#throws = options.throws ?? false;
+		this.#failureMessage = options.failureMessage ?? "report returned diagnostic";
 	}
 
 	async publishAnchorPrDecisionLog(options: {
@@ -54,7 +67,9 @@ export class RecordingDispatchReportGateway implements DispatchReportGateway {
 	}) {
 		this.publishCalls.push({ ...options });
 		if (this.#throws) throw new Error("report operation exploded");
-		return this.#fails ? ({ ok: false } as const) : ({ ok: true } as const);
+		return this.#fails
+			? ({ ok: false, message: this.#failureMessage } as const)
+			: ({ ok: true } as const);
 	}
 
 	async ensureAnchorPrFailureComment(options: {
@@ -65,6 +80,8 @@ export class RecordingDispatchReportGateway implements DispatchReportGateway {
 	}) {
 		this.failureCalls.push({ ...options });
 		if (this.#throws) throw new Error("report operation exploded");
-		return this.#fails ? ({ ok: false } as const) : ({ ok: true } as const);
+		return this.#fails
+			? ({ ok: false, message: this.#failureMessage } as const)
+			: ({ ok: true } as const);
 	}
 }

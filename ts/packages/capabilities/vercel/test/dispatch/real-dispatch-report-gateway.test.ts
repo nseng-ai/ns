@@ -144,7 +144,7 @@ describe("createGitHubDispatchReportGateway", () => {
 
 		expect(
 			await gateway.publishAnchorPrDecisionLog({ anchorPrNumber: 421, decisionLog: null }),
-		).toEqual({ ok: false });
+		).toEqual({ ok: false, message: "GitHub report token mint failed" });
 		expect(github.requests).toEqual([]);
 	});
 
@@ -158,7 +158,26 @@ describe("createGitHubDispatchReportGateway", () => {
 
 		expect(
 			await gateway.publishAnchorPrDecisionLog({ anchorPrNumber: 421, decisionLog: "x" }),
-		).toEqual({ ok: false });
+		).toEqual({ ok: false, message: "GitHub GET anchor PR returned HTTP 502" });
+	});
+
+	it("retains thrown fetch messages without including token or response body", async () => {
+		const gateway = createGitHubDispatchReportGateway({
+			repository: "nseng-ai/ns",
+			minter: new RecordingMinter(),
+			fetchImpl: (async () => {
+				throw new Error("fetch connection reset");
+			}) as typeof fetch,
+		});
+
+		const result = await gateway.publishAnchorPrDecisionLog({
+			anchorPrNumber: 421,
+			decisionLog: "secret response fixture",
+		});
+
+		expect(result).toEqual({ ok: false, message: "fetch connection reset" });
+		expect(JSON.stringify(result)).not.toContain("report-token-fixture");
+		expect(JSON.stringify(result)).not.toContain("secret response fixture");
 	});
 
 	it("posts the marked failure comment once", async () => {
