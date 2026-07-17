@@ -11,7 +11,7 @@ function journal(): MarkerJournal {
 	return new MarkerJournal({ appendEntry: () => undefined }, restoreMarkerJournal([]));
 }
 
-function editorHarness(options: { insertion?: boolean } = {}): {
+function editorHarness(options: { hasInsertion?: boolean } = {}): {
 	editor: EditorComponent;
 	inputs: string[];
 	insertions: string[];
@@ -31,7 +31,7 @@ function editorHarness(options: { insertion?: boolean } = {}): {
 				throw new Error("input decorator must not replace editor text");
 			},
 			handleInput: (data) => inputs.push(data),
-			...(options.insertion === true
+			...(options.hasInsertion === true
 				? { insertTextAtCursor: (text: string) => insertions.push(text) }
 				: {}),
 		},
@@ -53,7 +53,7 @@ describe("editor behavior", () => {
 	});
 
 	it("compacts mixed programmatic insertion without reading image bytes and reuses markers", () => {
-		const harness = editorHarness({ insertion: true });
+		const harness = editorHarness({ hasInsertion: true });
 		const calls = { validations: [] as string[], reads: 0 };
 		const files: ImageFileGateway = {
 			isSupportedImage: (path) => {
