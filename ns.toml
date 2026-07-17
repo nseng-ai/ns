@@ -3,7 +3,9 @@ agents = ["codex", "claude-code"]
 
 [dispatch]
 harness = "pi"
+# Vercel project: Internal Playground (vercel-internal-playground) / ns-dispatch.
 vercel_project_id = "prj_mDk2YJj2o9rGd8G9q49qHsU1Ebq2"
+# Vercel team: Internal Playground (vercel-internal-playground).
 vercel_team_id = "team_TtmJZYmD3tcLBLqWOhoVawd1"
 workflow_dashboard_url = "https://vercel.com/vercel-internal-playground/ns-dispatch/workflows"
 deployment_url = "https://ns-dispatch.playground-vercel.tools"
