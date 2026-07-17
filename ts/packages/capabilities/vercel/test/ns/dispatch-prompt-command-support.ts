@@ -7,10 +7,8 @@ import type {
 	TextGenerationResult,
 } from "@nseng-ai/sdk";
 
-import type {
-	DispatchPromptOutcome,
-	DispatchPromptRequest,
-} from "../../src/dispatch-client/prompt-core.ts";
+import type { DispatchPromptRequest } from "../../src/dispatch-client/prompt-core.ts";
+import type { DispatchPromptOutcome } from "../../src/dispatch-client/outcome.ts";
 import { createDispatchPromptCommand } from "../../src/ns/commands/prompt.ts";
 import {
 	createFakeDispatchGateways,

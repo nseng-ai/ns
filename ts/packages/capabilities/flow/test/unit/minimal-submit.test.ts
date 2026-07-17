@@ -582,7 +582,7 @@ describe("Flow minimal submit", () => {
 function repositoryFailure(message: string) {
 	return {
 		ok: false as const,
-		error: { code: "repository-failed", message },
+		error: { code: "flow-minimal-submit-observation-failed" as const, message },
 	};
 }
 

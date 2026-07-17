@@ -41,7 +41,7 @@ import type {
 	SubmitPreflightResult,
 	SubmitRestackResult,
 	SubmitRunResult,
-} from "./submit.ts";
+} from "./submit-contracts.ts";
 
 const RESTACK_ARGS = ["restack", "--downstack", "--no-interactive"] as const;
 const CURRENT_PR_ARGS = ["pr", "view", "--json", "number,url"] as const;

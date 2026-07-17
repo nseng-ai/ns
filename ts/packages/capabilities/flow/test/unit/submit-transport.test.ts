@@ -7,7 +7,7 @@ import type {
 	SubmitPreflightResult,
 	SubmitRestackResult,
 	SubmitRunResult,
-} from "../../src/submit/submit.ts";
+} from "../../src/submit/submit-contracts.ts";
 import {
 	prepareSubmitTransport,
 	type SubmitTransportGateway,

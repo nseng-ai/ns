@@ -2,78 +2,17 @@ import type {
 	DispatchGraphitePublicationStage,
 	DispatchPromptGateways,
 	DispatchRemoteBranchTipResult,
-	DispatchSourcePublicationMutationEvidence,
 } from "./contracts.ts";
-import type { DispatchPromptOutcome } from "./prompt-core.ts";
+import type {
+	DispatchCompletedSourceLifecycle,
+	DispatchSourceRevalidationReason,
+} from "./lifecycle.ts";
+import type { DispatchPromptOutcome } from "./outcome.ts";
 import {
 	runDispatchPreflight,
 	type DispatchPreflightCheck,
 	type DispatchPreflightSuccess,
 } from "./preflight.ts";
-
-export type DispatchCompletedSourceLifecycle =
-	| { readonly type: "already-current" }
-	| {
-			readonly type: "git-pushed";
-			readonly mutation: DispatchSourcePublicationMutationEvidence;
-	  }
-	| {
-			readonly type: "graphite-submitted";
-			readonly mutation: DispatchSourcePublicationMutationEvidence;
-			readonly affectedBranches: readonly string[];
-	  };
-
-export type DispatchSourceLifecycle =
-	| DispatchCompletedSourceLifecycle
-	| {
-			readonly type: "git-push-attempted";
-			readonly mutation: DispatchSourcePublicationMutationEvidence;
-	  }
-	| {
-			readonly type: "graphite-planning";
-			readonly mutation: DispatchSourcePublicationMutationEvidence;
-	  }
-	| {
-			readonly type: "graphite-publication-attempted";
-			readonly mutation: DispatchSourcePublicationMutationEvidence;
-			readonly affectedBranches: readonly string[];
-	  };
-
-export interface DispatchLifecycleAnchorPr {
-	readonly branch: string;
-	readonly number: number;
-	readonly url: string;
-}
-
-export type DispatchLifecycleReceipt =
-	| { readonly stage: "source"; readonly source: DispatchSourceLifecycle }
-	| {
-			readonly stage: "anchor-pushed";
-			readonly source: DispatchCompletedSourceLifecycle;
-			readonly anchorBranch: string;
-	  }
-	| {
-			readonly stage: "pr-opened";
-			readonly source: DispatchCompletedSourceLifecycle;
-			readonly anchorPr: DispatchLifecycleAnchorPr;
-	  }
-	| {
-			readonly stage: "run-started";
-			readonly source: DispatchCompletedSourceLifecycle;
-			readonly anchorPr: DispatchLifecycleAnchorPr;
-			readonly runId: string;
-	  };
-
-export type DispatchSourceRevalidationReason =
-	| "source-read-failed"
-	| "repository-drift"
-	| "branch-drift"
-	| "head-drift"
-	| "dirty-read-failed"
-	| "dirty-tree"
-	| "preflight-failed"
-	| "remote-tip-read-failed"
-	| "remote-tip-mismatch";
 
 interface PreparedDispatchSourceContext {
 	readonly source: {

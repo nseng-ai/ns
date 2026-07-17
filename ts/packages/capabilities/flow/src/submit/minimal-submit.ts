@@ -9,7 +9,7 @@ import type {
 	SubmitPreflightResult,
 	SubmitRestackResult,
 	SubmitRunResult,
-} from "./submit.ts";
+} from "./submit-contracts.ts";
 import {
 	prepareSubmitTransport,
 	type SubmitTransportGateway,
@@ -17,7 +17,7 @@ import {
 	type SubmitTransportReady,
 } from "./submit-transport.ts";
 
-const DIRTY_PATH_LIMIT = 50;
+export const FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT = 50;
 
 export type FlowMinimalSubmitStage =
 	| "planning"
@@ -46,9 +46,44 @@ export interface FlowMinimalSubmitPlan {
 	readonly affectedBranches: readonly string[];
 }
 
+export type FlowMinimalSubmitErrorCode =
+	| "flow-minimal-submit-after-observation-failed"
+	| "flow-minimal-submit-branch-drift"
+	| "flow-minimal-submit-branch-read-failed"
+	| "flow-minimal-submit-dirty-worktree"
+	| "flow-minimal-submit-head-drift"
+	| "flow-minimal-submit-head-read-failed"
+	| "flow-minimal-submit-not-graphite-tracked"
+	| "flow-minimal-submit-observation-failed"
+	| "flow-minimal-submit-observation-incomplete"
+	| "flow-minimal-submit-observation-parse-failed"
+	| "flow-minimal-submit-plan-drift"
+	| "flow-minimal-submit-readiness-failed"
+	| "flow-minimal-submit-readiness-recheck-failed"
+	| "flow-minimal-submit-remote-observation-failed"
+	| "flow-minimal-submit-remote-observation-incomplete"
+	| "flow-minimal-submit-remote-observation-parse-failed"
+	| "flow-minimal-submit-restack-conflict"
+	| "flow-minimal-submit-restack-failed"
+	| "flow-minimal-submit-restack-required"
+	| "flow-minimal-submit-restack-still-required"
+	| "flow-minimal-submit-semantic-failure"
+	| "flow-minimal-submit-status-read-failed"
+	| "flow-minimal-submit-submit-failed"
+	| "flow-minimal-submit-topology-ancestor-cycle"
+	| "flow-minimal-submit-topology-ancestor-row-missing"
+	| "flow-minimal-submit-topology-path-inconsistent"
+	| "flow-minimal-submit-topology-provider-failure"
+	| "flow-minimal-submit-topology-trunk-marker-problem"
+	| "flow-minimal-submit-topology-untracked-branch"
+	| "flow-minimal-submit-topology-current-mismatch"
+	| "flow-minimal-submit-verification-failed"
+	| "flow-minimal-submit-verification-no_current_pr";
+
 export interface FlowMinimalSubmitError {
-	readonly code: string;
+	readonly code: FlowMinimalSubmitErrorCode;
 	readonly message: string;
+	readonly displayCommand?: string;
 	readonly dirtyPaths?: readonly string[];
 	readonly dirtyPathsTruncated?: boolean;
 }
@@ -124,17 +159,19 @@ export interface FlowMinimalSubmitClient {
 	submitCurrentBranch(input: FlowMinimalSubmitInput): Promise<FlowMinimalSubmitResult>;
 }
 
-interface MinimalSubmitGatewayResult<T> {
+export interface FlowMinimalSubmitGatewaySuccess<T> {
 	readonly ok: true;
 	readonly value: T;
 }
 
-interface MinimalSubmitGatewayFailure {
+export interface FlowMinimalSubmitGatewayFailure {
 	readonly ok: false;
 	readonly error: FlowMinimalSubmitError;
 }
 
-type MinimalSubmitResult<T> = MinimalSubmitGatewayResult<T> | MinimalSubmitGatewayFailure;
+export type FlowMinimalSubmitGatewayResult<T> =
+	| FlowMinimalSubmitGatewaySuccess<T>
+	| FlowMinimalSubmitGatewayFailure;
 
 export interface MinimalSubmitRepositoryInspection {
 	readonly source: FlowMinimalSubmitSource;
@@ -148,10 +185,10 @@ export interface MinimalSubmitRepositoryObservation extends MinimalSubmitReposit
 }
 
 export interface MinimalSubmitRepositoryGateway {
-	inspectCurrent(): Promise<MinimalSubmitResult<MinimalSubmitRepositoryInspection>>;
+	inspectCurrent(): Promise<FlowMinimalSubmitGatewayResult<MinimalSubmitRepositoryInspection>>;
 	observeAffectedBranches(
 		branches: readonly string[],
-	): Promise<MinimalSubmitResult<MinimalSubmitRepositoryObservation>>;
+	): Promise<FlowMinimalSubmitGatewayResult<MinimalSubmitRepositoryObservation>>;
 }
 
 export interface FlowMinimalSubmitContext {
@@ -445,7 +482,7 @@ function validateClean(
 	return {
 		code: "flow-minimal-submit-dirty-worktree",
 		message: "Minimal submit requires a clean worktree.",
-		dirtyPaths: inspection.dirtyPaths.slice(0, DIRTY_PATH_LIMIT),
+		dirtyPaths: inspection.dirtyPaths.slice(0, FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT),
 		dirtyPathsTruncated: inspection.dirtyPathsTruncated,
 	};
 }
@@ -457,8 +494,23 @@ function validateObservationBefore(
 	return validateSource(observation.source, expectedSource) ?? validateClean(observation);
 }
 
-function formatTopologyFailureCode(failure: GraphiteStackPathFailure): string {
-	return `flow-minimal-submit-topology-${failure.type.replaceAll("_", "-")}`;
+function formatTopologyFailureCode(
+	failure: GraphiteStackPathFailure,
+): Extract<FlowMinimalSubmitErrorCode, `flow-minimal-submit-topology-${string}`> {
+	switch (failure.type) {
+		case "untracked_branch":
+			return "flow-minimal-submit-topology-untracked-branch";
+		case "provider_failure":
+			return "flow-minimal-submit-topology-provider-failure";
+		case "ancestor_cycle":
+			return "flow-minimal-submit-topology-ancestor-cycle";
+		case "ancestor_row_missing":
+			return "flow-minimal-submit-topology-ancestor-row-missing";
+		case "trunk_marker_problem":
+			return "flow-minimal-submit-topology-trunk-marker-problem";
+		case "path_inconsistent":
+			return "flow-minimal-submit-topology-path-inconsistent";
+	}
 }
 
 function formatTopologyFailure(failure: GraphiteStackPathFailure): string {
@@ -528,9 +580,14 @@ function restackError(
 	};
 }
 
-function verificationError(result: CurrentPrVerificationResult): FlowMinimalSubmitError {
+function verificationError(
+	result: Exclude<CurrentPrVerificationResult, { kind: "present" }>,
+): FlowMinimalSubmitError {
 	return {
-		code: `flow-minimal-submit-verification-${result.kind}`,
+		code:
+			result.kind === "no_current_pr"
+				? "flow-minimal-submit-verification-no_current_pr"
+				: "flow-minimal-submit-verification-failed",
 		message:
 			result.kind === "no_current_pr"
 				? "Submit completed, but no current pull request could be verified."

@@ -5,7 +5,7 @@ import type {
 	SubmitPreflightResult,
 	SubmitRestackResult,
 	SubmitRunResult,
-} from "./submit.ts";
+} from "./submit-contracts.ts";
 
 export type SubmitTransportStage =
 	| "readiness"

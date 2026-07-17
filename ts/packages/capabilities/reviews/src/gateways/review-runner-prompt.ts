@@ -27,6 +27,7 @@ export function systemPromptFindingsJsonText(): string {
 		"Output rules:",
 		'- Return exactly one JSON object with a `findings` array and no surrounding prose. The object shape is `{ "findings": [...] }`.',
 		"- Each finding must contain `path`, `line`, `severity`, `summary`, and `details`.",
+		'- `severity` must be exactly one of `"info"`, `"warning"`, or `"error"`.',
 		"- Use `line: null` only for file-level findings.",
 		'- If there is nothing worth flagging, return `{ "findings": [] }`.',
 		"",

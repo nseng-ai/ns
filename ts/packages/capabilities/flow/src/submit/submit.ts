@@ -1,8 +1,3 @@
-import {
-	type ExecOutputListener,
-	type ExecOutputStream,
-	type ExecResult,
-} from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorInfoDiagnosticLines } from "@nseng-ai/capability-kit/gateway-result";
@@ -16,6 +11,24 @@ import type {
 	TimeServices,
 } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
+import type {
+	CurrentPrVerificationResult,
+	SubmitCommandOutput,
+	SubmitCommandParams,
+	SubmitCommandResult,
+	SubmitGateway,
+	SubmitOutputListener,
+	SubmitRunResult,
+} from "./submit-contracts.ts";
+import {
+	deterministicSubmitCommandFailure,
+	normalizedSubmitFailureExitCode,
+	POST_METADATA_GRAPHITE_FAILURE_ADVISORY,
+	postSubmitFailureTranscript,
+	submitCommandFailureTranscript,
+	submitFailureResult,
+	submitTextFailureTranscript,
+} from "./submit-failure-result.ts";
 import {
 	compactSubmitMetadataCellText,
 	submitMatrixRowsFromTopology,
@@ -23,9 +36,7 @@ import {
 } from "./submit-matrix-progress.ts";
 import {
 	formatSubmitPreflightFailureCause,
-	type CurrentPrVerificationFailureCause,
 	type SubmitPreflightFailureCause,
-	type SubmitSemanticFailureCause,
 } from "./submit-failure-catalog.ts";
 import {
 	formatPostSubmitFailureOutput,
@@ -73,10 +84,21 @@ export type {
 
 const CURRENT_PR_COMMAND_DISPLAY = "gh pr view --json number,url";
 
-export type SubmitCommandOutput = ExecResult;
-
-export type SubmitOutputStream = ExecOutputStream;
-export type SubmitOutputListener = ExecOutputListener;
+export type {
+	CurrentPrVerificationResult,
+	SubmitCommandOutput,
+	SubmitCommandParams,
+	SubmitCommandResult,
+	SubmitFailurePresentation,
+	SubmitFailureTranscript,
+	SubmitFailureTranscriptCommand,
+	SubmitGateway,
+	SubmitOutputListener,
+	SubmitOutputStream,
+	SubmitPreflightResult,
+	SubmitRestackResult,
+	SubmitRunResult,
+} from "./submit-contracts.ts";
 
 export interface SubmitRestackConfirmationPrompt {
 	title: string;
@@ -86,107 +108,6 @@ export interface SubmitRestackConfirmationPrompt {
 export type SubmitRestackConfirmation = (
 	prompt: SubmitRestackConfirmationPrompt,
 ) => Promise<boolean> | boolean;
-
-export interface SubmitCommandParams {
-	cwd: string;
-	onOutput?: SubmitOutputListener;
-	force?: boolean;
-}
-
-export type SubmitFailurePresentation = "deterministic" | "unknown";
-
-export interface SubmitFailureTranscriptCommand {
-	commandDisplay?: string;
-	stdout: string;
-	stderr: string;
-	termination: ExecResult["type"];
-	exitCode: number | null;
-	signal?: string | null;
-	error?: string;
-}
-
-export interface SubmitFailureTranscript {
-	phase: string;
-	summary?: string;
-	details?: readonly string[];
-	commands: readonly SubmitFailureTranscriptCommand[];
-}
-
-export type SubmitPreflightResult =
-	| {
-			kind: "ready";
-			output: SubmitCommandOutput;
-	  }
-	| {
-			kind: "restack_required";
-			output: SubmitCommandOutput;
-	  }
-	| {
-			kind: "failed";
-			output: SubmitCommandOutput;
-			cause?: SubmitPreflightFailureCause;
-	  };
-
-export type SubmitRestackResult =
-	| {
-			kind: "success";
-			output: SubmitCommandOutput;
-	  }
-	| {
-			kind: "conflict";
-			output: SubmitCommandOutput;
-			conflictedFiles: string[];
-	  }
-	| {
-			kind: "failed";
-			output: SubmitCommandOutput;
-	  };
-
-export type SubmitRunResult =
-	| {
-			kind: "success";
-			output: SubmitCommandOutput;
-			prLinks: SubmitPrLink[];
-			semanticFailureCause?: SubmitSemanticFailureCause;
-	  }
-	| {
-			kind: "failed";
-			output: SubmitCommandOutput;
-			cause?: SubmitPreflightFailureCause;
-	  };
-
-export type CurrentPrVerificationResult =
-	| {
-			kind: "present";
-			output: SubmitCommandOutput;
-			prLinks: SubmitPrLink[];
-	  }
-	| {
-			kind: "no_current_pr";
-			output: SubmitCommandOutput;
-			cause: "no_current_pr";
-	  }
-	| {
-			kind: "failed";
-			output: SubmitCommandOutput;
-			cause: CurrentPrVerificationFailureCause;
-	  };
-
-export interface SubmitGateway {
-	checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult>;
-	restackCurrentStack(params: SubmitCommandParams): Promise<SubmitRestackResult>;
-	submitCurrentStack(params: SubmitCommandParams): Promise<SubmitRunResult>;
-	updateStackPrs(params: SubmitCommandParams): Promise<SubmitRunResult>;
-	verifyCurrentPr(params: SubmitCommandParams): Promise<CurrentPrVerificationResult>;
-}
-
-export interface SubmitCommandResult {
-	exitCode: number;
-	stdout: string;
-	stderr: string;
-	failurePresentation?: SubmitFailurePresentation;
-	rawFailureTranscript?: SubmitFailureTranscript;
-}
 
 export interface SubmitPrDescriptionOptions {
 	githubPr: GithubPrGateway;
@@ -221,6 +142,8 @@ export async function runSubmitCommand(
 	});
 	const stackUpdateCommandDisplay = formatStackUpdateCommandDisplay({ shouldForce: options.force });
 	const commandParams = submitCommandParams(options);
+	// Check eligibility before metadata work, then reacquire readiness below because metadata
+	// amendments can change every affected branch SHA.
 	const eligibility = await checkOrdinarySubmitEligibility({
 		command: options,
 		params: commandParams,
@@ -241,7 +164,7 @@ export async function runSubmitCommand(
 		const stderr = formatPrewriteFailureOutput({ error: planned.error, amendedBranches: [] });
 		return failure(1, stderr, {
 			failurePresentation: "unknown",
-			rawFailureTranscript: textFailureTranscript("pre-submit metadata", stderr, []),
+			rawFailureTranscript: submitTextFailureTranscript("pre-submit metadata", stderr, []),
 		});
 	}
 	const plan = planned.plan;
@@ -288,11 +211,12 @@ export async function runSubmitCommand(
 			prewrite.diagnostic === undefined ? [] : formatErrorInfoDiagnosticLines(prewrite.diagnostic);
 		return failure(prewrite.exitCode ?? 1, stderr, {
 			failurePresentation: "unknown",
-			rawFailureTranscript: textFailureTranscript("pre-submit metadata", stderr, details),
+			rawFailureTranscript: submitTextFailureTranscript("pre-submit metadata", stderr, details),
 		});
 	}
 
 	emitPhase(options, { type: "phase-done", phaseKey: "metadata", detail: "metadata prepared" });
+	// Do not reuse the eligibility transport: prewrite may have amended commit SHAs.
 	const finalReadiness = await prepareOrdinarySubmitTransport({
 		command: options,
 		params: commandParams,
@@ -331,7 +255,7 @@ export async function runSubmitCommand(
 			});
 			if (knownFailure !== undefined) return knownFailure;
 			return failure(
-				normalizedFailureExitCode(submittedTransport.outcome.output),
+				normalizedSubmitFailureExitCode(submittedTransport.outcome.output),
 				formatSubmitFailureOutput(
 					submittedTransport.outcome.output,
 					prepared,
@@ -339,7 +263,7 @@ export async function runSubmitCommand(
 				),
 				{
 					failurePresentation: "unknown",
-					rawFailureTranscript: commandFailureTranscript(
+					rawFailureTranscript: submitCommandFailureTranscript(
 						"submit",
 						submitCommandDisplay,
 						submittedTransport.outcome.output,
@@ -368,10 +292,7 @@ export async function runSubmitCommand(
 					currentPr,
 					submitCommandDisplay,
 				}),
-				...formatPrewrittenMetadataAdvisory(
-					prepared,
-					"Local PR metadata commit messages were prepared before submit; verify the metadata after resolving the Graphite failure.",
-				),
+				...formatPrewrittenMetadataAdvisory(prepared, POST_METADATA_GRAPHITE_FAILURE_ADVISORY),
 			].join("\n");
 			return failure(1, stderr, {
 				failurePresentation: "unknown",
@@ -380,6 +301,7 @@ export async function runSubmitCommand(
 					combinedSubmitOutcome,
 					currentPr,
 					submitCommandDisplay,
+					CURRENT_PR_COMMAND_DISPLAY,
 				),
 			});
 		}
@@ -432,6 +354,7 @@ export async function runSubmitCommand(
 					combinedSubmitOutcome,
 					currentPr,
 					submitCommandDisplay,
+					CURRENT_PR_COMMAND_DISPLAY,
 				),
 			});
 		}
@@ -496,7 +419,7 @@ export async function runSubmitCommand(
 			const details = formatPrDescriptionFailureDiagnostics(descriptionResult.failures);
 			return failure(1, stderr, {
 				failurePresentation: "deterministic",
-				rawFailureTranscript: textFailureTranscript("PR description", stderr, details),
+				rawFailureTranscript: submitTextFailureTranscript("PR description", stderr, details),
 			});
 		}
 
@@ -537,7 +460,7 @@ function knownSubmitFailureFor(input: {
 }): SubmitCommandResult | undefined {
 	if (input.cause === undefined) return undefined;
 
-	return deterministicFailure({
+	return deterministicSubmitCommandFailure({
 		phase: input.phase,
 		commandDisplay: input.transcriptCommandDisplay,
 		output: input.output,
@@ -557,7 +480,7 @@ function formatPreflightCauseOutput(input: {
 	const message = formatSubmitPreflightFailureCause(input.cause, input.output);
 	const advisory = formatPrewrittenMetadataAdvisory(
 		input.prewrittenMetadata,
-		"Local PR metadata commit messages were prepared before submit; verify the metadata after resolving the Graphite failure.",
+		POST_METADATA_GRAPHITE_FAILURE_ADVISORY,
 	);
 	return [message, ...(advisory.length === 0 ? [] : ["", ...advisory])].join("\n");
 }
@@ -615,11 +538,11 @@ async function runSubmitPhaseStep(input: {
 	return {
 		kind: "failure",
 		failure: failure(
-			normalizedFailureExitCode(result.output),
+			normalizedSubmitFailureExitCode(result.output),
 			formatSubmitFailureOutput(result.output, input.prepared, input.commandDisplay),
 			{
 				failurePresentation: "unknown",
-				rawFailureTranscript: commandFailureTranscript(
+				rawFailureTranscript: submitCommandFailureTranscript(
 					input.phaseLabel,
 					input.commandDisplay,
 					result.output,
@@ -702,19 +625,6 @@ function shouldFailPostSubmitVerification(
 	return true;
 }
 
-function normalizedFailureExitCode(output: SubmitCommandOutput): number {
-	switch (output.type) {
-		case "spawn-failed":
-			return 2;
-		case "timed-out":
-			return 124;
-		case "cancelled":
-			return 130;
-		case "exited":
-			return output.signal === null && output.code !== null && output.code !== 0 ? output.code : 1;
-	}
-}
-
 function success(stdout: string): SubmitCommandResult {
 	return {
 		exitCode: 0,
@@ -723,97 +633,10 @@ function success(stdout: string): SubmitCommandResult {
 	};
 }
 
-interface SubmitFailureResultOptions {
-	failurePresentation: SubmitFailurePresentation;
-	rawFailureTranscript?: SubmitFailureTranscript;
-}
-
 function failure(
 	exitCode: number,
 	stderr: string,
-	options?: SubmitFailureResultOptions,
+	options?: Parameters<typeof submitFailureResult>[2],
 ): SubmitCommandResult {
-	return {
-		exitCode,
-		stdout: "",
-		stderr: stderr.endsWith("\n") ? stderr : `${stderr}\n`,
-		...(options?.failurePresentation === undefined
-			? {}
-			: { failurePresentation: options.failurePresentation }),
-		...(options?.rawFailureTranscript === undefined
-			? {}
-			: { rawFailureTranscript: options.rawFailureTranscript }),
-	};
-}
-
-function deterministicFailure(input: {
-	phase: string;
-	commandDisplay: string;
-	output: SubmitCommandOutput;
-	stderr: string;
-	exitCode?: number;
-}): SubmitCommandResult {
-	return failure(input.exitCode ?? normalizedFailureExitCode(input.output), input.stderr, {
-		failurePresentation: "deterministic",
-		rawFailureTranscript: commandFailureTranscript(
-			input.phase,
-			input.commandDisplay,
-			input.output,
-			input.stderr,
-		),
-	});
-}
-
-function commandFailureTranscript(
-	phase: string,
-	commandDisplay: string,
-	output: SubmitCommandOutput,
-	summary?: string,
-): SubmitFailureTranscript {
-	return {
-		phase,
-		...(summary === undefined || summary.trim() === "" ? {} : { summary: summary.trimEnd() }),
-		commands: [{ commandDisplay, ...failureTranscriptFields(output) }],
-	};
-}
-
-function textFailureTranscript(
-	phase: string,
-	summary: string,
-	details?: readonly string[],
-): SubmitFailureTranscript {
-	return {
-		phase,
-		summary,
-		...(details === undefined || details.length === 0 ? {} : { details }),
-		commands: [],
-	};
-}
-
-function postSubmitFailureTranscript(
-	summary: string,
-	submitted: Extract<SubmitRunResult, { kind: "success" }>,
-	currentPr: CurrentPrVerificationResult,
-	submitCommandDisplay: string,
-): SubmitFailureTranscript {
-	return {
-		phase: "post-submit verification",
-		summary,
-		commands: [
-			{ commandDisplay: submitCommandDisplay, ...failureTranscriptFields(submitted.output) },
-			{ commandDisplay: CURRENT_PR_COMMAND_DISPLAY, ...failureTranscriptFields(currentPr.output) },
-		],
-	};
-}
-
-function failureTranscriptFields(
-	output: SubmitCommandOutput,
-): Omit<SubmitFailureTranscriptCommand, "commandDisplay"> {
-	return {
-		stdout: output.stdout,
-		stderr: output.stderr,
-		termination: output.type,
-		exitCode: output.type === "spawn-failed" ? null : output.code,
-		...(output.type === "spawn-failed" ? { error: output.error } : { signal: output.signal }),
-	};
+	return submitFailureResult(exitCode, stderr, options);
 }

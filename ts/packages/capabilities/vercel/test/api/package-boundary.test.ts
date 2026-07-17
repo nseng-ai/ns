@@ -2,7 +2,23 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+	forEachChild,
+	isCallExpression,
+	isExportDeclaration,
+	isImportDeclaration,
+	isNoSubstitutionTemplateLiteral,
+	isStringLiteral,
+	SyntaxKind,
+	type Node,
+	type SourceFile,
+} from "typescript";
 import { describe, expect, test } from "vitest";
+
+import {
+	moduleSpecifierText,
+	parseTypeScriptSource,
+} from "@nseng-ai/foundation/typescript-analysis";
 
 const PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const ALLOWED_FLOW_IMPORTERS = new Set([
@@ -24,7 +40,7 @@ interface SourceImport {
 describe("dispatch package boundaries", () => {
 	test("keeps package-shared config out of dispatch-client ownership", () => {
 		const violations = productionTypescriptFiles().flatMap((file) =>
-			importSpecifiers(readPackageFile(file))
+			importSpecifiers(file, readPackageFile(file))
 				.filter((specifier) => specifier.includes(["dispatch-client", "project-config"].join("/")))
 				.map((specifier) => `${file}: ${specifier}`),
 		);
@@ -37,7 +53,7 @@ describe("dispatch package boundaries", () => {
 		const violations: string[] = [];
 		for (const file of productionTypescriptFiles()) {
 			const source = readPackageFile(file);
-			for (const specifier of importSpecifiers(source)) {
+			for (const specifier of importSpecifiers(file, source)) {
 				if (specifier.startsWith("@nseng-ai/flow")) {
 					if (specifier !== "@nseng-ai/flow/api" || !ALLOWED_FLOW_IMPORTERS.has(file)) {
 						violations.push(`${file}: forbidden Flow import ${specifier}`);
@@ -50,7 +66,7 @@ describe("dispatch package boundaries", () => {
 					violations.push(`${file}: forbidden Graphite import ${specifier}`);
 				}
 			}
-			if (/["']gt["']/u.test(source)) {
+			if (hasExactGtLiteral(file, source)) {
 				violations.push(`${file}: direct gt invocation is forbidden`);
 			}
 		}
@@ -65,6 +81,38 @@ describe("dispatch package boundaries", () => {
 			.map(({ importer, specifier }) => `${importer}: ${specifier}`);
 
 		expect(flowImports).toEqual([]);
+	});
+
+	test("inspects only real static and dynamic module specifiers", () => {
+		const source = `
+			// import "comment-only";
+			/* export { value } from "also-comment-only"; */
+			import "side-effect";
+			import { value } from "static-import";
+			export { value as renamed } from "static-export";
+			void import("dynamic-double");
+			void import('dynamic-single');
+			void import(\`dynamic-template\`);
+			void import(\`interpolated-\${value}\`);
+		`;
+
+		expect(importSpecifiers("fixture.ts", source)).toEqual([
+			"side-effect",
+			"static-import",
+			"static-export",
+			"dynamic-double",
+			"dynamic-single",
+			"dynamic-template",
+		]);
+	});
+
+	test("detects exact executable gt literals without matching comments or other text", () => {
+		expect(hasExactGtLiteral("double.ts", `run("gt");`)).toBe(true);
+		expect(hasExactGtLiteral("single.ts", `run('gt');`)).toBe(true);
+		expect(hasExactGtLiteral("template.ts", "run(`gt`);")).toBe(true);
+		expect(
+			hasExactGtLiteral("ignored.ts", `// run("gt");\nrun("gt submit");\nrun(\`gt \${command}\`);`),
+		).toBe(false);
 	});
 });
 
@@ -101,7 +149,7 @@ function transitiveSourceImports(entrypoints: readonly string[]): readonly Sourc
 		const importer = pending.pop();
 		if (importer === undefined || visited.has(importer)) continue;
 		visited.add(importer);
-		for (const specifier of importSpecifiers(readPackageFile(importer))) {
+		for (const specifier of importSpecifiers(importer, readPackageFile(importer))) {
 			imports.push({ importer, specifier });
 			if (!specifier.startsWith(".")) continue;
 			const target = relative(
@@ -114,16 +162,49 @@ function transitiveSourceImports(entrypoints: readonly string[]): readonly Sourc
 	return imports;
 }
 
-function importSpecifiers(source: string): readonly string[] {
+function importSpecifiers(path: string, source: string): readonly string[] {
+	const sourceFile = parseTypeScriptSource(path, source);
 	const specifiers: string[] = [];
-	const patterns = [/(?:from\s*|import\s*\()\s*["']([^"']+)["']/gu, /import\s*["']([^"']+)["']/gu];
-	for (const pattern of patterns) {
-		for (const match of source.matchAll(pattern)) {
-			const specifier = match[1];
+	visitTypeScript(sourceFile, (node) => {
+		if (isImportDeclaration(node) || isExportDeclaration(node)) {
+			const specifier = moduleSpecifierText(node);
 			if (specifier !== undefined) specifiers.push(specifier);
+			return;
 		}
-	}
+		if (
+			isCallExpression(node) &&
+			node.expression.kind === SyntaxKind.ImportKeyword &&
+			node.arguments.length === 1
+		) {
+			const argument = node.arguments[0];
+			if (
+				argument !== undefined &&
+				(isStringLiteral(argument) || isNoSubstitutionTemplateLiteral(argument))
+			) {
+				specifiers.push(argument.text);
+			}
+		}
+	});
 	return specifiers;
+}
+
+function hasExactGtLiteral(path: string, source: string): boolean {
+	const sourceFile = parseTypeScriptSource(path, source);
+	let hasMatch = false;
+	visitTypeScript(sourceFile, (node) => {
+		if ((isStringLiteral(node) || isNoSubstitutionTemplateLiteral(node)) && node.text === "gt") {
+			hasMatch = true;
+		}
+	});
+	return hasMatch;
+}
+
+function visitTypeScript(sourceFile: SourceFile, visitor: (node: Node) => void): void {
+	function visit(node: Node): void {
+		visitor(node);
+		forEachChild(node, visit);
+	}
+	visit(sourceFile);
 }
 
 function readPackageFile(file: string): string {
