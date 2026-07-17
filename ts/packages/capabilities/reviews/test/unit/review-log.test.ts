@@ -66,15 +66,15 @@ describe("review log helpers", () => {
 		expect(markdown).not.toContain("<!--");
 	});
 
-	test("renders quick runs as tripwire Markdown reports", () => {
-		const markdown = renderReviewLogMarkdown(runResult({ modelProfile: "quick" }), {
+	test("renders fast runs as tripwire Markdown reports", () => {
+		const markdown = renderReviewLogMarkdown(runResult({ modelProfile: "fast" }), {
 			ranAt: "2026-06-20T18:42:11.123Z",
 			branch: "feature",
 			headCommit: "abc123",
 		});
 
 		expect(markdown).toContain("# Reviews Tripwire: team/review key");
-		expect(markdown).toContain("- Model profile: `quick`");
+		expect(markdown).toContain("- Model profile: `fast`");
 	});
 
 	test("renders a zero-finding Markdown report", () => {

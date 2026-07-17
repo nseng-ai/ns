@@ -36,13 +36,13 @@ Avoid: calling review definitions GitHub PR reviews, or treating the catalog key
 
 ### Tripwire
 
-A quick Reviews review definition (`model_profile: quick`) intended to cheaply flag likely issues. It produces findings only; it does not prove the issue exhaustively or resolve it.
+A Reviews review definition using the global `fast` model alias (`model_profile: fast`) intended to cheaply flag likely issues. It produces findings only; it does not prove the issue exhaustively or resolve it.
 
 Avoid: using Tripwire for all Reviews runs, using Tripwire as a formal schema `kind`, or implying it edits/remediates.
 
 ### Deep review
 
-A Reviews review definition with `model_profile: deep`, intended for higher-context judgment and stronger recommendations. It still emits findings through Reviews, but it is not the cheap Tripwire UX category.
+A Reviews review definition using any global model alias other than `fast` (commonly `model_profile: deep`), intended for higher-context judgment and stronger recommendations. It still emits findings through Reviews, but it is not the cheap Tripwire UX category.
 
 Avoid: implying deep reviews can mutate state or resolve findings.
 

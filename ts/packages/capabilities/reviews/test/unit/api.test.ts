@@ -40,7 +40,7 @@ function sampleSource(
 	return [
 		"---",
 		`description: ${options.description ?? "Review TypeScript diffs for style violations."}`,
-		`model_profile: ${options.modelProfile ?? "quick"}`,
+		`model_profile: ${options.modelProfile ?? "fast"}`,
 		...(options.localOnly === true ? ["local_only: true"] : []),
 		...(options.appliesTo === undefined ? [] : [options.appliesTo.trimEnd()]),
 		"---",

@@ -14,25 +14,22 @@ describe("parseReviewsProjectConfigToml", () => {
 		expect(config.modelPolicy.operations).toEqual({});
 	});
 
-	test("parses Reviews diff and shared deep operation", () => {
+	test("parses Reviews diff and shared model profiles", () => {
 		const config = expectOk(
 			parseReviewsProjectConfigToml(
-				'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles]\ndeep = "anthropic/claude-opus-4-6"\n[models.operations]\n"reviews.deep" = "deep"\n',
+				'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles]\ndeep = "anthropic/claude-opus-4-6"\narchitecture = "openai/gpt-5.6-terra"\n',
 			),
 		);
 		expect(config.diff.exclude).toEqual(["generated/**"]);
-		expect(config.modelPolicy.operations["reviews.deep"]).toBe("deep");
+		expect(config.modelPolicy.profiles.deep?.modelId).toBe("claude-opus-4-6");
+		expect(config.modelPolicy.profiles.architecture?.modelId).toBe("gpt-5.6-terra");
 	});
 
 	test.each([
 		['[reviews.diff]\nexclude = "*.py"\n', "array", "invalid-exclude"],
 		['[reviews.diff]\nexclude = ["*.py", 1]\n', "non-empty strings", "invalid-exclude"],
 		['[reviews.diff]\nexclude = ["/tmp/*.py"]\n', "repo-relative", "invalid-exclude"],
-		[
-			'[models.operations]\n"reviews.deep" = "missing"\n',
-			"missing profile",
-			"invalid-model-policy",
-		],
+		['[models.operations]\ncustom = "missing"\n', "missing profile", "invalid-model-policy"],
 		["[reviews]\n", "", ""],
 	] as const)("rejects invalid config %#", (source, message, code) => {
 		const result = parseReviewsProjectConfigToml(source, "ns.toml");

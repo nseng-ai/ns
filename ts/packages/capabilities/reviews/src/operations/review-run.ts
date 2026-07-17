@@ -22,15 +22,12 @@ import {
 	type ReviewRunResult,
 } from "../core/models.ts";
 import {
-	isReviewsModelProfileKey,
 	parseReviewsProjectConfigToml,
-	type ReviewsModelProfileKey,
 	type ReviewsProjectConfig,
 } from "../core/project-config.ts";
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
 import { filterLocalDiffForReviewApplicability } from "../core/review-applicability.ts";
 import { resolveReviewsModelReference } from "../core/review-model-reference.ts";
-import { MODEL_OPERATION_IDS, resolveModelOperation } from "@nseng-ai/capability-kit/model-policy";
 
 export interface RunReviewRequest {
 	readonly key: string;
@@ -59,14 +56,14 @@ export type RunReviewOutcome =
 export interface RunReviewProgress {
 	readonly reviewKey: string;
 	readonly reviewPath: string;
-	readonly modelProfile: ReviewsModelProfileKey;
+	readonly modelProfile: string;
 	readonly model: string;
 	readonly baseRef: string;
 	readonly changedPathCount: number;
 }
 
 interface ResolvedReviewModel {
-	readonly modelProfile: ReviewsModelProfileKey;
+	readonly modelProfile: string;
 	readonly model: string;
 }
 
@@ -227,39 +224,18 @@ function resolveReviewModel(
 	config: ReviewsProjectConfig,
 ): ReviewResult<ResolvedReviewModel> {
 	const profile = (request.modelProfile ?? definition.modelProfile).trim();
-	if (!isReviewsModelProfileKey(profile)) {
-		return {
-			ok: false,
-			error: {
-				code: "review-definition-invalid",
-				message: `Unknown Reviews model profile ${JSON.stringify(profile)}. Allowed profiles: quick, deep.`,
-			},
-		};
-	}
-
-	const selectedModel =
-		request.model === undefined
-			? resolveModelOperation(
-					config.modelPolicy,
-					profile === "quick" ? MODEL_OPERATION_IDS.reviewsQuick : MODEL_OPERATION_IDS.reviewsDeep,
-				)
-			: undefined;
-	if (selectedModel !== undefined && !selectedModel.ok) {
-		return {
-			ok: false,
-			error: { code: "project-config-invalid", message: selectedModel.error.message },
-		};
-	}
-	const modelRef = request.model !== undefined ? request.model : selectedModel?.value.modelRef;
-	if (modelRef === undefined) {
+	const configuredModel = config.modelPolicy.profiles[profile];
+	if (configuredModel === undefined) {
+		const configuredProfiles = Object.keys(config.modelPolicy.profiles).sort();
 		return {
 			ok: false,
 			error: {
 				code: "project-config-invalid",
-				message: "Reviews model resolution produced no model reference.",
+				message: `Reviews model profile ${JSON.stringify(profile)} is not configured in [models.profiles]. Configured profiles: ${configuredProfiles.join(", ")}. Add ${JSON.stringify(profile)} = "provider/model-id" under [models.profiles] or choose a configured profile with --model-profile.`,
 			},
 		};
 	}
+	const modelRef = request.model ?? `${configuredModel.provider}/${configuredModel.modelId}`;
 	const resolved = resolveReviewsModelReference(modelRef);
 	if (!resolved.ok) return resolved;
 	return {

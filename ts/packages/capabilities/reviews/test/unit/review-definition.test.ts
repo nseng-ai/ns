@@ -47,7 +47,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 	{
 		path: "../../../../../../.ns/reviews/ns-typescript-style-tripwire/review.md",
 		name: "ns-typescript-style-tripwire",
-		expectedModelProfile: "quick",
+		expectedModelProfile: "fast",
 		expectedApplicability: {
 			include: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
 			exclude: [],
@@ -57,7 +57,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 	{
 		path: "../../../../../../.ns/reviews/reinvented-abstractions-tripwire/review.md",
 		name: "reinvented-abstractions-tripwire",
-		expectedModelProfile: "quick",
+		expectedModelProfile: "fast",
 		expectedApplicability: {
 			include: ["**/*.ts", "**/*.tsx"],
 			exclude: ["**/tests/**", "**/test/**", "**/*.test.ts", ".agents/skills/**"],
@@ -174,7 +174,7 @@ describe("parseReviewDefinition", () => {
 			),
 		);
 
-		expect(definition.modelProfile).toBe("quick");
+		expect(definition.modelProfile).toBe("fast");
 		expect(definition.applicability).toEqual({ include: [], exclude: [] });
 		expect(definition.localOnly).toBe(false);
 	});

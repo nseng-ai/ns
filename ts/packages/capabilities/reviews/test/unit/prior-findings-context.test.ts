@@ -220,7 +220,7 @@ function findingsPayload(options: {
 	return {
 		reviewName: options.reviewName,
 		baseRef: "main",
-		modelProfile: "quick",
+		modelProfile: "fast",
 		count: options.findings.length,
 		findings: options.findings,
 		inputCoverage: null,

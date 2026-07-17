@@ -30,11 +30,11 @@ describe("model policy", () => {
 
 	test("resolves operation overrides and accepts unknown operation keys", () => {
 		const policy = parseModelPolicyToml(
-			'[models.profiles]\ndeep = "acme/deep"\n[models.operations]\n"reviews.deep" = "deep"\ncustom = "deep"',
+			'[models.profiles]\ndeep = "acme/deep"\n[models.operations]\ncustom = "deep"',
 		);
 		expect(policy.ok).toBe(true);
 		if (policy.ok)
-			expect(resolveModelOperation(policy.value, "reviews.deep")).toMatchObject({
+			expect(resolveModelOperation(policy.value, "custom")).toMatchObject({
 				ok: true,
 				value: { profile: "deep", modelRef: "acme/deep", source: "project-operation" },
 			});

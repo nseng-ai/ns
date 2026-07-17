@@ -76,8 +76,8 @@ export type ReviewListResult = z.infer<typeof reviewListResultSchema>;
 
 export const reviewRunRequestSchema = z.object({
 	key: nonBlankStringSchema.describe("Review key to run."),
-	model: z.string().optional().describe("Concrete model override."),
-	modelProfile: z.string().optional().describe("Model profile override."),
+	model: z.string().optional().describe("Qualified provider/model reference override."),
+	modelProfile: z.string().optional().describe("Configured [models.profiles] alias override."),
 	baseRef: z.string().optional().describe("Base ref for the local diff."),
 	logBranch: nonBlankStringSchema
 		.optional()

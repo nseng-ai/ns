@@ -16,7 +16,7 @@ A definition is a Markdown file with YAML frontmatter followed by the review ins
 ---
 description: |
   Short human-readable description shown by `ns reviews list`.
-model_profile: quick
+model_profile: fast
 local_only: false
 applies_to:
   include:
@@ -31,7 +31,7 @@ Review only the supplied diff...
 Frontmatter fields:
 
 - `description` — required non-empty string.
-- `model_profile` — optional non-empty string; defaults to `quick`. Current display groups `quick` as a tripwire and other profiles such as `deep` as deep reviews. `ns reviews run --model-profile ...` can override it for one run.
+- `model_profile` — optional non-empty string; defaults to `fast`. Current display groups `fast` as a tripwire and other profiles such as `deep` as deep reviews. `ns reviews run --model-profile ...` can override it for one run.
 - `local_only` — optional boolean; defaults to `false`. Set `true` only for reviews that must never run in CI. CI discovery uses `ns reviews list --ci`, which excludes `local_only: true` definitions.
 - `applies_to.include` — optional list of repo-relative glob patterns. When present, `ns reviews list --applicable` selects the review only when the diff touches a matching path.
 - `applies_to.exclude` — optional list of repo-relative glob patterns removed from applicability. Use this for vendored skill directories or generated areas.
@@ -40,27 +40,28 @@ Applicability patterns must be globs, not git pathspecs; keep them repo-relative
 
 ## Model profiles and harnesses
 
-Reviews resolves models through the shared repository policy. Profiles use qualified `provider/model-id` references, and operations select profiles; omitted operations use `fast`:
+Reviews resolves `model_profile` and `--model-profile` directly as aliases in the shared `[models.profiles]` repository policy. Any configured alias is valid; omitted `model_profile` uses `fast`:
 
 ```toml
 [models.profiles]
-fast = "openai/gpt-5.6-luna"
-deep = "openai/gpt-5.6-terra"
-
-[models.operations]
-"reviews.deep" = "deep"
+fast = "vercel-ai-gateway/openai/gpt-5.6-luna"
+deep = "vercel-ai-gateway/openai/gpt-5.6-terra"
+architecture = "anthropic/claude-opus-4-6"
 ```
+
+Use `--model-profile architecture` to select an alias for one run. Use `--model provider/model-id` only when overriding the configured model reference directly.
 
 Provider routing is explicit:
 
 - `anthropic/<model-id>` runs the local Claude Code CLI.
 - `openai/<model-id>` and `openai-codex/<model-id>` run the local Codex CLI.
+- `vercel-ai-gateway/<model-id>` runs the local Pi CLI through Vercel AI Gateway.
 
 Bare aliases and other providers are rejected; Reviews never infers a provider from a model ID or falls back to another harness. The full qualified reference is retained in progress, results, and Review logs, while only the model ID is passed to the selected CLI.
 
-Local runs require the selected CLI and its authentication (`ANTHROPIC_API_KEY` for Claude Code or `OPENAI_API_KEY` for Codex). The tested protocol versions are `@anthropic-ai/claude-code@2.1.205` and `@openai/codex@0.144.0`.
+Local runs require the selected CLI and its authentication (`AI_GATEWAY_API_KEY` for Pi through Vercel AI Gateway, `ANTHROPIC_API_KEY` for Claude Code, or `OPENAI_API_KEY` for Codex).
 
-Override a profile for one run with another qualified reference:
+Override the concrete model for one run with another qualified reference:
 
 ```bash
 ns reviews run <review-key> --model anthropic/claude-sonnet-4-6
@@ -120,7 +121,7 @@ Discovery job:
 
 Review job:
 
-1. Installs the TypeScript workspace plus pinned Claude Code and Codex CLIs.
+1. Installs the TypeScript workspace and exposes the workspace-pinned Pi CLI.
 2. Runs each selected review with:
 
    ```bash
@@ -134,7 +135,7 @@ Review job:
 
 Operational notes:
 
-- CI exposes both `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` so checked-in or future mixed-provider profiles use the same router as local runs. It uses `GITHUB_TOKEN` for PR publication.
+- CI exposes `AI_GATEWAY_API_KEY` for the checked-in Vercel AI Gateway profiles and `GITHUB_TOKEN` for PR publication.
 - Draft PRs and forked PRs are skipped by the workflow guard.
 - A review definition appears in CI only when `local_only` is omitted or set to `false` and its `applies_to` globs match the current diff when `--applicable` is used.
 - Review logs are written to Branch Memory under the `reviews` namespace, keyed as `reviews/<review-key>/...`; inspect them with `ns reviews log`.

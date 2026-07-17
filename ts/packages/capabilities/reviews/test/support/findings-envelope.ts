@@ -19,7 +19,7 @@ export function buildFindingsEnvelope(
 		data: {
 			reviewName,
 			reviewPath: options.reviewPath ?? `.ns/reviews/${reviewName}/review.md`,
-			modelProfile: options.modelProfile ?? "quick",
+			modelProfile: options.modelProfile ?? "fast",
 			model: options.model ?? "openai/gpt-5.6-luna",
 			baseRef: options.baseRef ?? "main",
 			format: "findings",
