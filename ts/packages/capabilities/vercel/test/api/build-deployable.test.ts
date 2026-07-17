@@ -63,11 +63,11 @@ describe("planHermeticApiFunction", () => {
 		).toThrow("JavaScript handler");
 	});
 
-	it("verifies the final handler inventory has no external path mappings", () => {
+	it("verifies the final handler inventory has no external path mappings or stale files", () => {
 		expect(
 			findHermeticApiFunctionProblems(
 				{ handler: "api/runs.cjs", runtime: "nodejs24.x" },
-				new Set(["api/runs.cjs"]),
+				new Set([".vc-config.json", "api/runs.cjs"]),
 			),
 		).toEqual([]);
 		expect(
@@ -77,9 +77,13 @@ describe("planHermeticApiFunction", () => {
 					runtime: "nodejs24.x",
 					filePathMap: { "node_modules/zod": "node_modules/zod" },
 				},
-				new Set(["api/runs.cjs"]),
+				new Set([".vc-config.json", "api/runs.cjs", "api/runs.js", "node_modules/zod/index.js"]),
 			),
-		).toEqual(["API function config still depends on filePathMap."]);
+		).toEqual([
+			"API function config still depends on filePathMap.",
+			"API function contains stale file api/runs.js.",
+			"API function contains stale file node_modules/zod/index.js.",
+		]);
 	});
 });
 

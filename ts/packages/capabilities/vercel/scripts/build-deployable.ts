@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -78,23 +78,39 @@ async function makeApiFunctionBundlesHermetic(paths: BuildPaths): Promise<boolea
 			console.error(`Cannot make API function api/${name} hermetic: ${String(error)}`);
 			return false;
 		}
-		await build({
-			entryPoints: [join(functionRoot, plan.sourceHandler)],
-			outfile: join(functionRoot, plan.bundledHandler),
-			bundle: true,
-			alias: {
-				"@workflow/core/runtime/world-target": "@workflow/world-vercel",
-			},
-			platform: "node",
-			format: "cjs",
-			target: "node24",
-			packages: "bundle",
-			sourcemap: false,
-			legalComments: "none",
-			logLevel: "silent",
-			minifyWhitespace: true,
-		});
-		await writeFile(configPath, `${JSON.stringify(plan.config, null, 2)}\n`);
+		const temporaryRoot = `${functionRoot}.ns-hermetic`;
+		await rm(temporaryRoot, { recursive: true, force: true });
+		try {
+			await mkdir(join(temporaryRoot, ...plan.bundledHandler.split("/").slice(0, -1)), {
+				recursive: true,
+			});
+			await build({
+				entryPoints: [join(functionRoot, plan.sourceHandler)],
+				outfile: join(temporaryRoot, plan.bundledHandler),
+				bundle: true,
+				alias: {
+					"@workflow/core/runtime/world-target": "@workflow/world-vercel",
+				},
+				platform: "node",
+				format: "cjs",
+				target: "node24",
+				packages: "bundle",
+				sourcemap: false,
+				legalComments: "none",
+				logLevel: "silent",
+				minifyWhitespace: true,
+			});
+			await writeFile(
+				join(temporaryRoot, ".vc-config.json"),
+				`${JSON.stringify(plan.config, null, 2)}\n`,
+			);
+			await rm(functionRoot, { recursive: true });
+			await rename(temporaryRoot, functionRoot);
+		} catch (error) {
+			await rm(temporaryRoot, { recursive: true, force: true });
+			console.error(`Cannot make API function api/${name} hermetic: ${String(error)}`);
+			return false;
+		}
 	}
 	return true;
 }
