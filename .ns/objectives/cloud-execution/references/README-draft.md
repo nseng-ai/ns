@@ -267,8 +267,9 @@ dispatch, using Vercel's own secrets infrastructure:
 - **Model keys** live as sensitive environment variables on the dispatch
   project — encrypted at rest, write-only after creation. Each complete
   harness registry entry declares the names it needs; the current Pi recipe
-  receives `ANTHROPIC_API_KEY`. A run receives only the key required by its
-  configured harness.
+  receives `AI_GATEWAY_API_KEY` for the configured Vercel AI Gateway models.
+  It does not require a direct provider key such as `ANTHROPIC_API_KEY`. A run
+  receives only the key required by its configured harness.
 - **Git access** (clone + push) uses short-lived, repo-scoped credentials
   minted per run as **GitHub App installation tokens**; no long-lived broad
   token sits in an env var. One-time setup: register the org-owned

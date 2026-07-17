@@ -223,9 +223,10 @@ describe("Pi invocation recipe", () => {
 		});
 	});
 
-	it("names the model key by name only — never a value", () => {
+	it("requires the Vercel AI Gateway key rather than a direct provider key", () => {
 		const invocation = resolvedInvocation();
-		expect(invocation.launchEnvironmentVariableNames).toEqual(["ANTHROPIC_API_KEY"]);
+		expect(invocation.launchEnvironmentVariableNames).toEqual(["AI_GATEWAY_API_KEY"]);
+		expect(invocation.launchEnvironmentVariableNames).not.toContain("ANTHROPIC_API_KEY");
 		expect(JSON.stringify(invocation)).not.toContain("sk-");
 	});
 });
