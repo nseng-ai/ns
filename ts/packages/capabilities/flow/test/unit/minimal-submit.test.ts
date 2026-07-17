@@ -160,6 +160,7 @@ class FakeMinimalSubmitGateway implements SubmitTransportGateway {
 		this.repository.submit({
 			remoteMutation: outcome === "success" || this.state.failedSubmitMutatesRemote === true,
 		});
+		params.onOutput?.("stdout", "submitted output");
 		if (outcome === "failed") return { kind: "failed", output: output(1, "submit failed") };
 		return {
 			kind: "success",
@@ -479,6 +480,52 @@ describe("Flow minimal submit", () => {
 			stage: "verification",
 			mutation: { remote: "observed" },
 		});
+	});
+
+	test("a phase observer throwing after submit mutation cannot escape or prevent verification", async () => {
+		const { client, submit } = fixture();
+
+		const result = await client.submitCurrentBranch({
+			expectedSource: SOURCE,
+			onPhase: (event) => {
+				if (event.stage === "submit" && event.status === "completed") {
+					throw new Error("phase observer failed");
+				}
+			},
+		});
+
+		expect(result).toMatchObject({
+			type: "submitted",
+			mutation: { local: "none", remote: "observed" },
+		});
+		expect(submit.operations().map((entry) => entry.operation)).toEqual([
+			"readiness",
+			"submit",
+			"verification",
+		]);
+	});
+
+	test("an output observer throwing during submit preserves structured mutation evidence", async () => {
+		const { client, submit } = fixture({ submit: { verification: "failed" } });
+
+		const result = await client.submitCurrentBranch({
+			expectedSource: SOURCE,
+			onOutput: () => {
+				throw new Error("output observer failed");
+			},
+		});
+
+		expect(result).toMatchObject({
+			type: "failed",
+			stage: "verification",
+			error: { code: "flow-minimal-submit-verification-failed" },
+			mutation: { local: "none", remote: "observed" },
+		});
+		expect(submit.operations().map((entry) => entry.operation)).toEqual([
+			"readiness",
+			"submit",
+			"verification",
+		]);
 	});
 
 	test("after-observation failure reports local possible and remote observed", async () => {
