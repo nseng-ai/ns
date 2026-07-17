@@ -1,7 +1,7 @@
 ---
 edges:
   - objective: harness-session-generation
-    annotation: Boundary agreement — cloud-execution drives harnesses in remote sandboxes only behind its own cloud backend seam (workflow-supervised in-sandbox harness runners) and must not push sandbox or vendor coupling into that objective's local harness-session contract.
+    annotation: "Historical boundary remains valid after that Objective closed as superseded: cloud-execution owns remote-sandbox harness execution, and its vendor coupling does not imply a shared local harness-session foundation."
   - objective: cloud-dispatch-thermo-followups
     annotation: Code-quality follow-ups from the thermo-nuclear review of this objective's dispatch stack are tracked there, not on this roadmap; its probe-retirement slice waits on this objective's steel-thread controlled Pi rerun, and hello-probe's retirement is decided together with this roadmap's setup-skill row.
   - objective: dispatch-plan-brmem-delivery

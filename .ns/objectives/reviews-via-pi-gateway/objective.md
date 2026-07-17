@@ -1,7 +1,7 @@
 ---
 edges:
   - objective: harness-session-generation
-    annotation: Adds a third process-runner harness (pi via the Vercel AI Gateway) at the same ReviewHarnessRunner seam that objective's planned Reviews migration will unify; the migration must absorb or supersede the pi runner this record lands.
+    annotation: "Survives the closed architecture exploration as the canonical Reviews outcome: Pi/Vercel AI Gateway is the configured path, while the direct Claude Code and Codex compatibility runners remain supported."
 ---
 
 # Reviews via the Pi Harness and Vercel AI Gateway
@@ -23,8 +23,8 @@ Harness selection stays implicit in the model reference's provider prefix (the e
 ## Non-Goals
 
 - Enabling any of the four deep reviews (`code-smell-review`, `dry-but-not-too-dry`, `improve-codebase-architecture`, `thermonuclear-review`) in CI. They stay `local_only`; putting them in CI would be a new decision outside this record.
-- Removing or deprecating the Claude Code and Codex review runners or their provider-prefix mappings. They remain supported harnesses; the future of the whole seam belongs to `harness-session-generation`'s planned Reviews migration (see edge).
-- Migrating Reviews onto the unified harness-session foundation — explicitly `harness-session-generation`'s scope.
+- Removing or deprecating the Claude Code and Codex review runners or their provider-prefix mappings. They remain supported compatibility harnesses and are intentionally kept even though the configured quick and deep profiles route through Pi.
+- Migrating Reviews onto a unified foundation harness-session architecture. The closed `harness-session-generation` Objective explored that design, but the unimplemented architecture was superseded by the simpler Pi/Vercel AI Gateway route rather than becoming a prerequisite here.
 - Adding an explicit harness field to review frontmatter; harness stays derived from the model provider prefix.
 - Changing the review definitions' content, applicability globs, or the findings/publishing pipeline.
 
@@ -49,7 +49,7 @@ Harness selection stays implicit in the model reference's provider prefix (the e
 
 - Structured output: unlike Codex's `--output-schema` enforcement, pi text mode returns free text, so findings-JSON parsing may be brittle. Mitigation: a strict findings-JSON contract in the system prompt plus tolerant extraction/parse tests; if unreliable in practice, escalate to `--mode json` parsing of the final assistant message.
 - Deep local reviews change harness (Codex → pi) as a side effect of moving `reviews_deep`; review quality or latency may drift. Rollback is config-level: point the profile back at `openai/...` and the kept Codex runner takes over.
-- The kept-but-unrouted Claude Code and Codex runners could rot unnoticed once no profile routes to them; the `harness-session-generation` edge records who owns the seam's future so they do not linger unexplained.
+- The kept-but-unrouted Claude Code and Codex runners could rot unnoticed once no profile routes to them. This is an accepted compatibility cost: their qualified provider mappings, focused runner tests, structured findings behavior, input-coverage propagation, cancellation/failure mapping, and cleanup behavior remain the preservation boundary; no migration to a shared session substrate is planned by this Objective.
 - Pi version drift is de-risked by using the workspace catalog/lock pin (`0.80.5`) and verifying the existing `@nseng-ai/ns` package's linked `pi` binary in CI; no second global install or version literal is required.
 - The local deep review and real-PR publication proofs remain open evidence gates. The credential is available locally, but the implementation session's attached-plan protocol forbids the Branch Memory log write performed by `ns reviews run`; a later unconstrained session must run the proof without weakening Reviews logging.
 

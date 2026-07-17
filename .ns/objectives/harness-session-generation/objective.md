@@ -3,7 +3,7 @@ edges:
   - objective: cloud-execution
     annotation: Boundary agreement — this record owns the local harness-session/text-generation contract and stays free of remote-sandbox and vendor coupling; cloud-execution consumes harnesses in sandboxes only behind its own cloud backend seam (AI SDK harness adapters), never through this session contract.
   - objective: reviews-via-pi-gateway
-    annotation: This record's planned Reviews migration onto unified harness sessions must account for the pi/Vercel-AI-Gateway review runner that objective adds at the ReviewHarnessRunner seam, where claude-code and codex remain kept-but-unrouted supported harnesses.
+    annotation: "Canonical Reviews outcome after this architecture exploration closed: Pi/Vercel AI Gateway is the configured path, while the direct Claude Code and Codex compatibility runners remain supported."
 ---
 
 # Harness Sessions and Unified Text Generation
@@ -105,3 +105,11 @@ This Objective is execution-friendly for `objective-next` and a valid target for
 No design question blocks implementation. Exact private hook signatures and typed failure-stage vocabulary may be refined inside their implementation slices without changing the settled public contract.
 
 Settled after prototype critique: the profile is `reading-agent` with advisory non-mutation; initial sessions are single-turn; output is a non-generic discriminated union with usage as the only generic; statically unsupported factories are absent; seven common failure kinds retain typed stage/cause and raw diagnostics; foundation exec uses a breaking discriminated termination union; foundation publicly owns the cohesive harness capability while its parameterized engine remains private; and migration proceeds substrate-first.
+
+## Closure
+
+Closed as intentionally superseded, not completed. The research, prototype, and the landed foundation command-termination union remain useful evidence, but the proposed foundation-wide harness-session architecture and Claude/Codex Reviews migration were never implemented. Reviews subsequently adopted the simpler Pi harness through Vercel AI Gateway, now tracked canonically by `reviews-via-pi-gateway`.
+
+The Reviews-relevant preservation boundary moved to that surviving Objective: qualified provider routing, structured findings parsing, input-coverage propagation, cancellation/failure mapping, log/publication identity, and cleanup behavior. The direct Claude Code and Codex review runners and their provider mappings are intentionally retained as supported compatibility routes; closing this record does not deprecate or schedule their removal.
+
+The remaining open roadmap rows are abandoned with this closure: no foundation harness API/private single-turn engine, unified text-generation migration, Claude/Codex `reading-agent` adapters, or launcher cleanup is planned under this record. The broader research artifacts remain available as historical evidence if a future concrete consumer justifies a fresh, narrower Objective. The previously landed exhaustive foundation `ExecResult` termination union remains delivered independently and is not reverted.
