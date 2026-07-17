@@ -148,6 +148,10 @@ export function createGitHubDispatchReportGateway(
 						anchorBranch: request.anchorBranch,
 						code: request.code,
 						message: request.message,
+						...(request.diagnostic === undefined ? {} : { diagnostic: request.diagnostic }),
+						...(request.workflowRunId === undefined
+							? {}
+							: { workflowRunId: request.workflowRunId }),
 					}),
 				},
 			});

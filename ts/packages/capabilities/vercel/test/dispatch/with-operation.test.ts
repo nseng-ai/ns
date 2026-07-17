@@ -45,7 +45,7 @@ describe("withOperation", () => {
 		expect(lines.join("\n")).not.toContain("must-not-be-logged");
 	});
 
-	it("logs a raw thrown message and rethrows the identical value", async () => {
+	it("logs a normalized thrown diagnostic and rethrows the identical value", async () => {
 		const manual = createManualClock(50);
 		const lines: string[] = [];
 		const thrown = new Error("sandbox SDK exploded");
@@ -69,8 +69,12 @@ describe("withOperation", () => {
 				event: "operation_failed",
 				operation: "create_sandbox",
 				durationMs: 5,
-				reason: "unexpected-exception",
-				diagnostic: "sandbox SDK exploded",
+				diagnostic: {
+					operation: "create_sandbox",
+					reason: "unexpected-exception",
+					errorName: "Error",
+					message: "sandbox SDK exploded",
+				},
 			},
 		]);
 	});
@@ -95,8 +99,11 @@ describe("withOperation", () => {
 			event: "operation_failed",
 			operation: "update_anchor_pr",
 			durationMs: 0,
-			reason: "operation-returned-failure",
-			diagnostic: "HTTP 502",
+			diagnostic: {
+				operation: "update_anchor_pr",
+				reason: "operation-returned-failure",
+				message: "HTTP 502",
+			},
 		});
 	});
 

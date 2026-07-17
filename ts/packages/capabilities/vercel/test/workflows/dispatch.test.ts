@@ -53,12 +53,26 @@ describe("dispatchWorkflow", () => {
 				anchorPrNumber: 421,
 				prompt: "plaintext prompt must not appear in the error",
 			}),
-		).rejects.toThrow("dispatch failed: invalid-input");
+		).rejects.toThrow("revision must be a 40-character commit SHA. Code: invalid-input.");
 	});
 
-	it("throws only the stable failure code from the terminal step", async () => {
-		await expect(failDispatchRun("harness-failed")).rejects.toThrow(
-			"dispatch failed: harness-failed",
+	it("throws an actionable bounded terminal diagnostic", async () => {
+		await expect(
+			failDispatchRun({
+				ok: false,
+				code: "launch-failed",
+				message: "Sandbox creation failed.",
+				anchorPrNumber: 3612,
+				failureReported: true,
+				diagnostic: {
+					operation: "create_sandbox",
+					reason: "vercel-sandbox-api-error",
+					httpStatus: 403,
+					message: "Status code 403 is not ok.",
+				},
+			}),
+		).rejects.toThrow(
+			"Sandbox creation failed. Status code 403 is not ok. Code: launch-failed. Operation: create_sandbox. HTTP status: 403. Anchor PR: #3612.",
 		);
 	});
 });

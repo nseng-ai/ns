@@ -1,3 +1,4 @@
+import type { DispatchFailureDiagnostic } from "./failure-diagnostic.ts";
 import type { DispatchHarness } from "./harness-registry.ts";
 import type { DispatchRunFailureCode, DispatchRunInput } from "./dispatch-run.ts";
 
@@ -35,6 +36,14 @@ export type DispatchWorkflowEvent =
 			readonly harness?: DispatchHarness;
 			readonly pollOrdinal?: number;
 			readonly failureCode?: DispatchRunFailureCode;
+	  }
+	| {
+			readonly event: "dispatch_terminal_failure";
+			readonly code: DispatchRunFailureCode;
+			readonly message: string;
+			readonly anchorPrNumber?: number;
+			readonly workflowRunId?: string;
+			readonly diagnostic?: DispatchFailureDiagnostic;
 	  }
 	| {
 			readonly event: "observability_write_failed";

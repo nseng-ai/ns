@@ -10,9 +10,10 @@
 // production callers use the default binding. SDK throws intentionally
 // cross this adapter; workflow step functions are the sole normalization
 // boundary for serializable failures.
-import { Sandbox } from "@vercel/sandbox";
+import { APIError, Sandbox } from "@vercel/sandbox";
 
 import type { DispatchSandboxGateway } from "./dispatch-run.ts";
+import { DispatchDiagnosticError, normalizeDispatchFailure } from "./failure-diagnostic.ts";
 
 export interface DispatchSandboxSdkSandbox {
 	readonly name: string;
@@ -113,59 +114,98 @@ function wrapSandbox(sandbox: Sandbox): DispatchSandboxSdkSandbox {
 export function createRealDispatchSandboxGateway(
 	sdk: DispatchSandboxSdk = dispatchSandboxSdk,
 ): DispatchSandboxGateway {
+	async function atSandboxBoundary<T>(operation: string, run: () => Promise<T>): Promise<T> {
+		try {
+			return await run();
+		} catch (error) {
+			throw new DispatchDiagnosticError(normalizeSandboxError(operation, error));
+		}
+	}
+
 	return {
 		async createDispatchSandbox(options) {
-			const sandbox = await sdk.create({
-				runtime: options.runtime,
-				timeout: options.timeoutMs,
-				source: {
-					type: "git",
-					url: `https://github.com/${options.source.repository}.git`,
-					username: "x-access-token",
-					password: options.source.cloneToken,
-					depth: 1,
-					revision: options.source.revision,
-				},
+			return await atSandboxBoundary("create_sandbox", async () => {
+				const sandbox = await sdk.create({
+					runtime: options.runtime,
+					timeout: options.timeoutMs,
+					source: {
+						type: "git",
+						url: `https://github.com/${options.source.repository}.git`,
+						username: "x-access-token",
+						password: options.source.cloneToken,
+						depth: 1,
+						revision: options.source.revision,
+					},
+				});
+				return { ok: true, sandboxName: sandbox.name };
 			});
-			return { ok: true, sandboxName: sandbox.name };
 		},
 		async writeSandboxFile(options) {
-			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-			await sandbox.writeFiles([{ path: options.path, content: options.content }]);
-			return { ok: true };
+			return await atSandboxBoundary("write_dispatch_prompt", async () => {
+				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+				await sandbox.writeFiles([{ path: options.path, content: options.content }]);
+				return { ok: true };
+			});
 		},
 		async runSandboxCommand(options) {
-			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-			const command = await sandbox.runCommand({
-				cmd: options.command.cmd,
-				args: options.command.args,
-				...(options.env === undefined ? {} : { env: options.env }),
+			return await atSandboxBoundary("run_sandbox_command", async () => {
+				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+				const command = await sandbox.runCommand({
+					cmd: options.command.cmd,
+					args: options.command.args,
+					...(options.env === undefined ? {} : { env: options.env }),
+				});
+				return { ok: true, exitCode: command.exitCode };
 			});
-			return { ok: true, exitCode: command.exitCode };
 		},
 		async runDetachedSandboxCommand(options) {
-			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-			await sandbox.runDetachedCommand({
-				cmd: options.command.cmd,
-				args: options.command.args,
-				...(options.env === undefined ? {} : { env: options.env }),
+			return await atSandboxBoundary("launch_detached_dispatch_harness", async () => {
+				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+				await sandbox.runDetachedCommand({
+					cmd: options.command.cmd,
+					args: options.command.args,
+					...(options.env === undefined ? {} : { env: options.env }),
+				});
+				return { ok: true };
 			});
-			return { ok: true };
 		},
 		async readSandboxFile(options) {
-			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-			const buffer = await sandbox.readFileToBuffer({ path: options.path });
-			return { ok: true, content: buffer === null ? null : buffer.toString("utf8") };
+			return await atSandboxBoundary("read_sandbox_file", async () => {
+				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+				const buffer = await sandbox.readFileToBuffer({ path: options.path });
+				return { ok: true, content: buffer === null ? null : buffer.toString("utf8") };
+			});
 		},
 		async stopSandbox(options) {
-			const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
-			// Already terminated (or terminating): cleanup is done, so a
-			// re-run of the cleanup step succeeds without another stop call.
-			if (sandbox.status === "stopped" || sandbox.status === "stopping") {
+			return await atSandboxBoundary("stop_sandbox", async () => {
+				const sandbox = await sdk.get({ name: options.sandboxName, resume: false });
+				// Already terminated (or terminating): cleanup is done, so a
+				// re-run of the cleanup step succeeds without another stop call.
+				if (sandbox.status === "stopped" || sandbox.status === "stopping") {
+					return { ok: true };
+				}
+				await sandbox.stop();
 				return { ok: true };
-			}
-			await sandbox.stop();
-			return { ok: true };
+			});
 		},
 	};
+}
+
+function normalizeSandboxError(operation: string, error: unknown) {
+	if (!(error instanceof APIError)) {
+		return normalizeDispatchFailure({ operation, reason: "unexpected-exception", error });
+	}
+	const requestId =
+		error.response.headers.get("x-vercel-id") ??
+		error.response.headers.get("x-request-id") ??
+		error.response.headers.get("request-id") ??
+		undefined;
+	return normalizeDispatchFailure({
+		operation,
+		reason: "vercel-sandbox-api-error",
+		errorName: error.name,
+		httpStatus: error.response.status,
+		...(requestId === undefined ? {} : { requestId }),
+		message: error.message,
+	});
 }
