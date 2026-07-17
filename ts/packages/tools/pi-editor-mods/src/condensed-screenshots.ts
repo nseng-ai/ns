@@ -14,7 +14,6 @@ import { MarkerJournal, restoreMarkerJournal, type MarkerJournalHost } from "./m
 
 interface ScreenshotRuntime {
 	journal: MarkerJournal;
-	cwd: string;
 }
 
 export function registerCondensedScreenshots(
@@ -29,7 +28,6 @@ export function registerCondensedScreenshots(
 		};
 		runtime = {
 			journal: new MarkerJournal(host, restoreMarkerJournal(ctx.sessionManager.getBranch())),
-			cwd: ctx.cwd,
 		};
 		composeEditorComponent(
 			ctx.ui,
@@ -65,39 +63,33 @@ export async function transformScreenshotInput(
 	runtime: ScreenshotRuntime,
 	files: ImageFileGateway,
 ): Promise<InputEventResult> {
-	const requested: Array<{ start: number; end: number; value: string; path: string }> = [];
+	const requested: Array<{ start: number; path: string }> = [];
 	for (const match of event.text.matchAll(SCREENSHOT_MARKER_PATTERN)) {
 		const index = match.index;
-		const markerText = match[0];
-		const marker = Number(match[1]);
-		const path = runtime.journal.pathForMarker(marker);
+		const path = runtime.journal.pathForMarker(Number(match[1]));
 		if (index === undefined || path === undefined) continue;
-		requested.push({ start: index, end: index + markerText.length, value: markerText, path });
+		requested.push({ start: index, path });
 	}
-	requested.push(
-		...resolveImageReferences(event.text, {
-			cwd: runtime.cwd,
-			validation: files,
-		}),
-	);
+	const rawReferences = resolveImageReferences(event.text);
+	requested.push(...rawReferences);
 	if (requested.length === 0) return { action: "continue" };
 
-	const ordered = requested.sort((left, right) => left.start - right.start);
 	const seen = new Set<string>();
+	const successfulPaths = new Set<string>();
 	const loaded: ImageContent[] = [];
-	for (const reference of ordered) {
-		const path = normalizeLocalPath(reference.path, { cwd: runtime.cwd });
+	for (const reference of requested.sort((left, right) => left.start - right.start)) {
+		const path = normalizeLocalPath(reference.path);
 		if (path === undefined || seen.has(path)) continue;
 		seen.add(path);
 		const image = await files.readImage(path);
-		if (image !== undefined) loaded.push(image);
+		if (image === undefined) continue;
+		successfulPaths.add(path);
+		loaded.push(image);
 	}
-	const rawReferences = resolveImageReferences(event.text, {
-		cwd: runtime.cwd,
-		validation: files,
-	});
-	const text = replaceImageReferences(event.text, rawReferences, (reference) =>
-		runtime.journal.markerTextForPath(reference.path),
+	const text = replaceImageReferences(
+		event.text,
+		rawReferences.filter((reference) => successfulPaths.has(reference.path)),
+		(reference) => runtime.journal.markerTextForPath(reference.path),
 	);
 	return {
 		action: "transform",

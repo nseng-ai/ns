@@ -77,6 +77,54 @@ describe("composeEditorComponent", () => {
 });
 
 describe("withEditorInput", () => {
+	it("supports private-field accessors and stable method bindings", () => {
+		class ClassEditor {
+			#text = "private";
+
+			get value(): string {
+				return this.#text;
+			}
+
+			set value(next: string) {
+				this.#text = next;
+			}
+
+			render(): string[] {
+				return [this.#text];
+			}
+
+			invalidate(): void {}
+
+			getText(): string {
+				return this.#text;
+			}
+
+			setText(next: string): void {
+				this.#text = next;
+			}
+
+			handleInput(data: string): void {
+				this.#text += data;
+			}
+		}
+
+		const editor = new ClassEditor();
+		const decorated = withEditorInput(editor, (data, delegate) =>
+			delegate(data),
+		) as EditorComponent & {
+			value: string;
+		};
+		expect(decorated.value).toBe("private");
+		decorated.value = "changed";
+		expect(decorated.value).toBe("changed");
+		expect(decorated.render).toBe(decorated.render);
+		editor.render = function replacement(): string[] {
+			return ["replacement"];
+		};
+		expect(decorated.render).not.toBe(editor.render);
+		expect(decorated.render(8)).toEqual(["replacement"]);
+	});
+
 	it("preserves callbacks, properties, and all optional editor methods", () => {
 		const inputLog: string[] = [];
 		const editor = createEditor(inputLog);

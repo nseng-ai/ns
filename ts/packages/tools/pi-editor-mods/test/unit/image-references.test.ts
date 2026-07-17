@@ -7,8 +7,6 @@ import {
 	resolveImageReferences,
 } from "../../src/image-references.ts";
 
-const validation = { isSupportedImage: (path: string) => !path.includes("missing") };
-
 describe("image references", () => {
 	it("parses supported absolute, home, file URL, quoted, and shell-escaped candidates", () => {
 		const text = String.raw`/tmp/a.png "~/Screen Shot.jpg" file:///tmp/a%20b.webp /tmp/a\ b.GIF`;
@@ -20,10 +18,11 @@ describe("image references", () => {
 		]);
 	});
 
-	it("keeps parsing pure and applies injected validation separately", () => {
+	it("normalizes parsed references without applying filesystem validation", () => {
 		const text = "/tmp/missing.png /tmp/found.png";
 		expect(parseImageCandidates(text)).toHaveLength(2);
-		expect(resolveImageReferences(text, { cwd: "/work", validation })).toMatchObject([
+		expect(resolveImageReferences(text)).toMatchObject([
+			{ path: "/tmp/missing.png" },
 			{ path: "/tmp/found.png" },
 		]);
 	});
@@ -34,13 +33,9 @@ describe("image references", () => {
 	});
 
 	it("normalizes home and file URLs to absolute local paths", () => {
-		expect(normalizeLocalPath("~/a.png", { cwd: "/work", home: "/home/me" })).toBe(
-			"/home/me/a.png",
-		);
-		expect(normalizeLocalPath("file://localhost/tmp/a%20b.png", { cwd: "/work" })).toBe(
-			"/tmp/a b.png",
-		);
-		expect(normalizeLocalPath("file://remote/tmp/a.png", { cwd: "/work" })).toBeUndefined();
+		expect(normalizeLocalPath("~/a.png", { home: "/home/me" })).toBe("/home/me/a.png");
+		expect(normalizeLocalPath("file://localhost/tmp/a%20b.png")).toBe("/tmp/a b.png");
+		expect(normalizeLocalPath("file://remote/tmp/a.png")).toBeUndefined();
 	});
 
 	it("uses longest overlapping replacement and removes source spans once", () => {
