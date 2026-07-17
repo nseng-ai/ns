@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { isRecord } from "@nseng-ai/foundation/primitives";
+import { isRecord, optionalEntries } from "@nseng-ai/foundation/primitives";
 
 import { realFileSystemGateway, type FileSystemGateway } from "../context.ts";
 import { copyTree } from "./files.ts";
@@ -40,6 +40,7 @@ export const intendedPublicPackages: readonly string[] = [
 	"@nseng-ai/harness-artifacts",
 	"@nseng-ai/flow",
 	"@nseng-ai/cmux",
+	"@nseng-ai/pi-editor-mods",
 ];
 export const firstBatchPackages: readonly string[] = ["@nseng-ai/capability-kit", "@nseng-ai/flow"];
 export const excludedPackages = new Set([
@@ -67,6 +68,7 @@ export const publicPublishOrder: readonly string[] = [
 	"@nseng-ai/vibechk",
 	"@nseng-ai/flow",
 	"@nseng-ai/cmux",
+	"@nseng-ai/pi-editor-mods",
 	"@nseng-ai/areg",
 ];
 
@@ -76,6 +78,9 @@ export interface PackageManifest extends Record<string, unknown> {
 	readonly private?: boolean;
 	readonly type?: string;
 	readonly files?: readonly string[];
+	readonly keywords?: readonly string[];
+	readonly pi?: unknown;
+	readonly bundledDependencies?: readonly string[];
 	readonly bin?: unknown;
 	readonly exports?: Record<string, unknown>;
 	readonly dependencies?: Record<string, unknown>;
@@ -217,6 +222,11 @@ export function buildPublishManifest(
 		version: source.version,
 		type: source.type,
 		files: filesWithPublishExtras(source.files ?? [], extras),
+		...optionalEntries({
+			keywords: source.keywords,
+			pi: source.pi,
+			bundledDependencies: source.bundledDependencies,
+		}),
 		engines: context.workspaceManifest.engines,
 		publishConfig: { access: "public" },
 		...(source.bin === undefined ? {} : { bin: normalizeManifestBinPaths(source.bin) }),

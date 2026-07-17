@@ -1,5 +1,7 @@
 {
-  "packages": [],
+  "packages": [
+    "../ts/packages/tools/pi-editor-mods"
+  ],
   "extensions": [
     "-extensions/cmux.ts"
   ],
