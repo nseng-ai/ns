@@ -44,7 +44,7 @@ just dispatch-deploy-prod
 
 On success it verifies that the stable production alias identifies the returned immutable
 deployment and emits one JSON result on stdout. Progress is stderr. The underlying Vercel
-shape remains `deploy --prebuilt --scope schrockns-projects --prod --yes --format=json`.
+shape remains `deploy --prebuilt --prod --yes --format=json`; the repository-root project linkage selects the already-validated team and project rather than duplicating a team slug on the command line.
 
 Do not run package-local prebuilt deployment while also relying on the configured monorepo
 Root Directory. That caused doubled path resolution. Do not replace the prebuilt path with
