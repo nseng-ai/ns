@@ -44,18 +44,21 @@ A valid leaf returns a successful, complete empty report. An unknown local branc
 
 Slot worktrees share git history but not gitignored files, so files a worktree needs to function — `.env.local` secrets, tool link files like `.vercel/project.json` — never travel with a branch. Provisioned files close that gap.
 
-Declare the repo-relative file paths in `ns.toml` (the git-native contract):
+Declare the repo-relative file paths under `[slots].provision` in the effective configuration read from the invoking worktree:
 
 ```toml
+# ns.toml
 [slots]
-provision = [".env.local", "ts/packages/capabilities/vercel/.env.local"]
+provision = [".env.local", "ts/packages/capabilities/vercel/.env.local", "ns.local.toml"]
 ```
 
-Entries must be exact repo-relative file paths: no absolute paths, no `..`/`.` segments, no trailing slashes, no glob characters, no duplicates. Provisioning commands read `ns.toml` from the invoking worktree, so a branch can declare and use provisioned files before it lands in the main worktree. A missing `ns.toml` or `[slots]` table in that worktree simply means nothing is declared.
+The checked-in repository configuration provisions the ignored `ns.local.toml` overlay so each Slot can receive its checkout-local settings. Tables from `ns.local.toml` merge over `ns.toml`, but a local `[slots].provision` array replaces the checked-in array rather than extending it.
+
+Entries must be exact repo-relative file paths: no absolute paths, no `..`/`.` segments, no trailing slashes, no glob characters, no duplicates. A missing `ns.toml`, `ns.local.toml`, or `[slots]` table in that worktree simply contributes no declaration.
 
 File content lives outside git in a per-repo, machine-local store under the slots state root: `<slotsRoot>/repos/<repoName>/provision/default/<repo-relative-path>` (directories created `0700`; file modes preserved on copy). Content flows one way, store → worktree; nothing ever copies back automatically.
 
-- `ns slot provision import [PATH...]` is the deliberate promotion step: it copies declared files from the current worktree into the store. With no arguments it imports every declared file present in the worktree (missing files are notices, not failures); an explicit path that is not declared fails with `not-declared`.
+- `ns slot provision import [PATH...]` is the deliberate promotion step: it copies declared files from the current worktree into the store. Declaring `ns.local.toml` does not seed or update the store by itself; run `ns slot provision import ns.local.toml` from a checkout that has the desired file. With no arguments the command imports every declared file present in the worktree (missing files are notices, not failures); an explicit path that is not declared fails with `not-declared`.
 - `ns slot init`, `ns slot resize`, `ns slot checkout`, and `ns slot claim` fill gaps after placement: each declared file is copied into the slot only if absent. Existing files are never touched, and provisioning problems become notices — placement never fails because of provisioning.
 - `ns slot provision apply` fills gaps across all managed slots on demand and reports worktree copies that differ from the store (exit 1 while any remain). `--force` is the only overwrite path: it replaces differing copies and resets their file mode.
 

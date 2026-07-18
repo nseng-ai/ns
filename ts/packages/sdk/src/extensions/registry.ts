@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -42,9 +42,12 @@ import {
 	type ExtensionEntry,
 } from "../sdk/descriptor.ts";
 import {
-	declaredExtensionSpecsErrorInfo,
-	parseDeclaredExtensionSpecsToml,
-} from "../project-config/descriptor-package.ts";
+	getProjectConfigSetting,
+	loadEffectiveProjectConfig,
+	nodeProjectConfigGateway,
+	nsTomlExtensionsSettingsSchema,
+	type ProjectConfigDiagnostic,
+} from "../project-config/points.ts";
 import type { DescriptorCommand } from "../sdk/index.ts";
 
 export type ExtensionSourceLevel = NsCommandSourceLevel;
@@ -399,9 +402,22 @@ function isFatalForSelectedCandidate(
 }
 
 async function loadProjectDescriptorCandidates(cwd: string): Promise<LoadedCatalogFragment> {
-	const declared = readDeclaredExtensionSpecs(cwd);
-	if (!declared.ok) return emptyLoadedCatalogFragment([declared.diagnostic]);
-	const loaded = await loadDeclaredExtensionDescriptors({ repoRoot: cwd, specs: declared.specs });
+	const config = loadEffectiveProjectConfig({
+		repoRoot: cwd,
+		gateway: nodeProjectConfigGateway,
+		pointDefinitions: [],
+		settingsSchemas: [nsTomlExtensionsSettingsSchema],
+	});
+	const extensionDiagnostics = config.diagnostics.filter(
+		(diagnostic) => !diagnostic.code.startsWith("point"),
+	);
+	if (extensionDiagnostics.length > 0 || config.config === undefined) {
+		return emptyLoadedCatalogFragment(
+			extensionDiagnostics.map((diagnostic) => projectConfigExtensionDiagnostic(cwd, diagnostic)),
+		);
+	}
+	const specs = getProjectConfigSetting(config.config, nsTomlExtensionsSettingsSchema) ?? [];
+	const loaded = await loadDeclaredExtensionDescriptors({ repoRoot: cwd, specs });
 	return {
 		diagnostics: loaded.diagnostics.map((diagnostic) =>
 			projectErrorDiagnostic(
@@ -419,10 +435,25 @@ async function loadProjectDescriptorCandidates(cwd: string): Promise<LoadedCatal
 				descriptorPath: record.descriptorPath,
 				descriptor: record.descriptor,
 				sourceLevel: "project",
-				sourceLabel: `ns.toml descriptor ${record.spec}`,
+				sourceLabel: `effective project config descriptor ${record.spec}`,
 			}),
 		),
 	};
+}
+
+function projectConfigExtensionDiagnostic(
+	cwd: string,
+	diagnostic: ProjectConfigDiagnostic,
+): ExtensionErrorDiagnostic {
+	const code =
+		diagnostic.code === "settings_table_invalid" && diagnostic.path === "extensions"
+			? "ns_toml_extensions_invalid"
+			: diagnostic.code;
+	const sourcePath =
+		diagnostic.path === "ns.toml" || diagnostic.path === "ns.local.toml"
+			? join(cwd, diagnostic.path)
+			: join(cwd, "ns.toml");
+	return projectErrorDiagnostic(code, diagnostic.message, sourcePath);
 }
 
 function projectErrorDiagnostic(
@@ -431,20 +462,6 @@ function projectErrorDiagnostic(
 	path: string,
 ): ExtensionErrorDiagnostic {
 	return { severity: "error", code, message, path, sourceLevel: "project" };
-}
-
-function readDeclaredExtensionSpecs(
-	cwd: string,
-): { ok: true; specs: readonly string[] } | { ok: false; diagnostic: ExtensionErrorDiagnostic } {
-	const nsTomlPath = join(cwd, "ns.toml");
-	if (!existsSync(nsTomlPath)) return { ok: true, specs: [] };
-	const parsed = parseDeclaredExtensionSpecsToml(readFileSync(nsTomlPath, "utf8"));
-	if (parsed.ok) return parsed;
-	const errorInfo = declaredExtensionSpecsErrorInfo(parsed);
-	return {
-		ok: false,
-		diagnostic: projectErrorDiagnostic(errorInfo.code, errorInfo.message, nsTomlPath),
-	};
 }
 
 function descriptorCommandCandidates(options: {

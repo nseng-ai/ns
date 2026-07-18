@@ -10,7 +10,15 @@ The SDK builds a command catalog from lightweight metadata before it imports sel
 built-in command table < preinstalled descriptor catalog < ns.toml-declared descriptors
 ```
 
-Built-in commands are SDK-owned host commands. Preinstalled descriptor catalog entries are injected by the installed CLI distribution so reusable first-party extensions can be available without every repository declaring them. Project entries come from extension packages listed in repo-root `ns.toml`; each package exposes `exports["./ns-extension"]` as a typed descriptor module. Higher-precedence entries override lower-precedence entries with the same command key; overrides are recorded as diagnostics rather than compatibility aliases.
+Built-in commands are SDK-owned host commands. Preinstalled descriptor catalog entries are injected by the installed CLI distribution so reusable first-party extensions can be available without every repository declaring them. Project entries come from extension packages listed in the effective repository configuration; each package exposes `exports["./ns-extension"]` as a typed descriptor module. Higher-precedence entries override lower-precedence entries with the same command key; overrides are recorded as diagnostics rather than compatibility aliases.
+
+## Project configuration
+
+Local runtime reads combine the checked-in repository-root `ns.toml` with an optional checkout-local `ns.local.toml`. Tables merge recursively. At every other leaf, the local value replaces the checked-in value; arrays replace wholesale rather than concatenate. Keys present in only one file remain present. This means a local `extensions` array, point hook array, or `[slots].provision` array replaces the corresponding checked-in array.
+
+`ns.local.toml` is ignored by git and is intended for checkout-specific settings. Configuration editors, extension install/uninstall, and other mutation flows continue to read and write `ns.toml` only; they never flatten the effective configuration back into the checked-in file. Commit-addressed, deployment, sandbox, and other cloud execution paths also read committed `ns.toml` only. Do not put configuration required by remote execution solely in `ns.local.toml`: the ignored overlay does not travel to the cloud.
+
+Both files are parsed independently before their parsed TOML tables are merged and validated, so diagnostics identify the source file. An invalid local overlay fails the affected local configuration load rather than silently falling back to `ns.toml`.
 
 ## Descriptor modules
 

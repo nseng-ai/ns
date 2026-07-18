@@ -1,12 +1,15 @@
 import { chmod, copyFile, lstat, mkdir, readFile, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 
 import { ensurePrivateParentDirectory } from "@nseng-ai/capability-kit/xdg";
+import {
+	nodeProjectConfigGateway,
+	type ProjectConfigGateway,
+} from "@nseng-ai/sdk/project-config/points";
 
 export type ProvisionPathKind = "missing" | "file" | "directory" | "symlink" | "other";
 
-export interface SlotProvisionFilesGateway {
-	readProjectConfigSource(repoRoot: string): Promise<string | null>;
+export interface SlotProvisionFilesGateway extends ProjectConfigGateway {
 	inspect(absolutePath: string): Promise<ProvisionPathKind>;
 	contentsEqual(leftPath: string, rightPath: string): Promise<boolean>;
 	copyIntoWorktree(storeFilePath: string, worktreeFilePath: string): Promise<void>;
@@ -14,13 +17,12 @@ export interface SlotProvisionFilesGateway {
 }
 
 export class RealSlotProvisionFilesGateway implements SlotProvisionFilesGateway {
-	async readProjectConfigSource(repoRoot: string): Promise<string | null> {
-		try {
-			return await readFile(join(repoRoot, "ns.toml"), "utf8");
-		} catch (error) {
-			if (isErrorCode(error, "ENOENT")) return null;
-			throw error;
-		}
+	readTextFile(request: { repoRoot: string; relativePath: string }) {
+		return nodeProjectConfigGateway.readTextFile(request);
+	}
+
+	pathExists(request: { repoRoot: string; relativePath: string }) {
+		return nodeProjectConfigGateway.pathExists(request);
 	}
 
 	async inspect(absolutePath: string): Promise<ProvisionPathKind> {

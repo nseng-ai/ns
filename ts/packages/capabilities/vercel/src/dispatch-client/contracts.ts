@@ -8,6 +8,7 @@
 // behavior against the deployed trigger route is pending verification.
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { Clock } from "@nseng-ai/foundation/clock";
+import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config";
 
 import type { BrmemGateway } from "@nseng-ai/brmem";
 
@@ -207,10 +208,7 @@ export type DispatchLocalTokenResult =
  * Checkout-owned configuration sources, read from the repo root. Parsing
  * and support policy stay pure in the core.
  */
-export interface DispatchConfigGateway {
-	readDispatchSettingsSource(options: {
-		readonly repoRoot: string;
-	}): Promise<DispatchConfigSourceResult>;
+export interface DispatchConfigGateway extends ProjectConfigGateway {
 	readPackageManagerSource(options: {
 		readonly repoRoot: string;
 	}): Promise<DispatchConfigSourceResult>;

@@ -51,7 +51,7 @@ describe("slot resize CLI", () => {
 		const run = runScenario(["resize", "--size", "4", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", null), slotWorktree("slot-03", null)] },
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: {
 					[`${STORE_ROOT}/.env.local`]: "SECRET=1\n",
 					[`${slot01Path}/.env.local`]: "LOCAL=EDIT\n",
@@ -114,7 +114,7 @@ describe("slot resize CLI", () => {
 				],
 			},
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
 			},
 		});
@@ -157,7 +157,7 @@ describe("slot resize CLI", () => {
 		const run = runScenario(["resize", "--size", "1", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", null)] },
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
 			},
 		});

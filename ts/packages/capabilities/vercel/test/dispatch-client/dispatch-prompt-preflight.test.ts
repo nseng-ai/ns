@@ -32,6 +32,8 @@ describe("runDispatchPreflight", () => {
 		expect(result.checks.map((check) => check.status)).toEqual(["ok", "ok", "ok", "ok"]);
 		expect(gateways.config.reads).toEqual([
 			{ source: "dispatch-settings", repoRoot: "/repo" },
+			{ source: "local-dispatch-settings", repoRoot: "/repo" },
+			{ source: "dispatch-settings", repoRoot: "/repo" },
 			{ source: "package-manager", repoRoot: "/repo" },
 		]);
 		if (result.ok) {
@@ -65,6 +67,115 @@ describe("runDispatchPreflight", () => {
 		expect(config.status).toBe("failed");
 		expect(config.detail).toContain("ns.toml");
 		expect(config.detail).toContain("[dispatch]");
+	});
+
+	test("uses local-only dispatch values when they do not change remote-required settings", async () => {
+		const gateways = createFakeDispatchGateways({
+			config: {
+				localDispatchSettings: {
+					type: "found",
+					source: [
+						"[dispatch]",
+						`deployment_url = "${FAKE_DEPLOYMENT_URL}"`,
+						`workflow_dashboard_url = "${FAKE_WORKFLOW_DASHBOARD_URL}"`,
+					].join("\n"),
+				},
+				dispatchSettings: {
+					type: "found",
+					source: [
+						"[dispatch]",
+						'harness = "pi"',
+						'vercel_project_id = "prj_Fake123"',
+						'vercel_team_id = "team_Fake123"',
+					].join("\n"),
+				},
+			},
+		});
+
+		const result = await runDispatchPreflight({ repoRoot: "/repo" }, gateways);
+
+		expect(result.ok).toBe(true);
+		if (result.ok) expect(result.deploymentUrl).toBe(FAKE_DEPLOYMENT_URL);
+	});
+
+	test("rejects a local harness override because the remote checkout remains base-only", async () => {
+		const gateways = createFakeDispatchGateways({
+			config: {
+				localDispatchSettings: {
+					type: "found",
+					source: '[dispatch]\nharness = "claude-code"\n',
+				},
+			},
+		});
+
+		const result = await runDispatchPreflight({ repoRoot: "/repo" }, gateways);
+
+		expect(result.ok).toBe(false);
+		const check = checkById(result, "dispatch-config");
+		expect(check.detail).toContain("ns.local.toml: [dispatch].harness differs from ns.toml");
+		expect(check.detail).toContain("remote dispatch and deployment readers use only ns.toml");
+		expect(gateways.trigger.identityCalls).toEqual([]);
+	});
+
+	test("rejects local Vercel identity overrides needed by deployment readers", async () => {
+		const gateways = createFakeDispatchGateways({
+			config: {
+				localDispatchSettings: {
+					type: "found",
+					source: '[dispatch]\nvercel_project_id = "prj_LocalOnly"\n',
+				},
+			},
+		});
+
+		const result = await runDispatchPreflight({ repoRoot: "/repo" }, gateways);
+
+		expect(result.ok).toBe(false);
+		expect(checkById(result, "dispatch-config").detail).toContain(
+			"ns.local.toml: [dispatch].vercel_project_id differs from ns.toml",
+		);
+	});
+
+	test("allows an identical local harness declaration", async () => {
+		const gateways = createFakeDispatchGateways({
+			config: {
+				localDispatchSettings: {
+					type: "found",
+					source: '[dispatch]\nharness = "pi"\n',
+				},
+			},
+		});
+
+		const result = await runDispatchPreflight({ repoRoot: "/repo" }, gateways);
+
+		expect(result.ok).toBe(true);
+	});
+
+	test("reports the precise local source for local TOML failures", async () => {
+		const gateways = createFakeDispatchGateways({
+			config: {
+				localDispatchSettings: { type: "found", source: "[dispatch" },
+			},
+		});
+
+		const result = await runDispatchPreflight({ repoRoot: "/repo" }, gateways);
+
+		expect(result.ok).toBe(false);
+		expect(checkById(result, "dispatch-config").detail).toContain("ns.local.toml");
+	});
+
+	test("reports precise local config read failures", async () => {
+		const gateways = createFakeDispatchGateways({
+			config: {
+				localDispatchSettings: { type: "error", message: "permission denied" },
+			},
+		});
+
+		const result = await runDispatchPreflight({ repoRoot: "/repo" }, gateways);
+
+		expect(result.ok).toBe(false);
+		const detail = checkById(result, "dispatch-config").detail;
+		expect(detail).toContain("Failed to read ns.local.toml");
+		expect(detail).toContain("permission denied");
 	});
 
 	test("names the missing deployment_url key without failing the whole table", async () => {

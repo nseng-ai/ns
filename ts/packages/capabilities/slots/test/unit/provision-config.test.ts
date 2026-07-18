@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseSlotsProvisionConfigToml } from "../../src/core/provision-config.ts";
+import { FakeSlotProvisionFilesGateway } from "../../src/core/gateways/fakes/provision-files.ts";
+import {
+	loadSlotsProvisionConfig,
+	parseSlotsProvisionConfigToml,
+} from "../../src/core/provision-config.ts";
 
 describe("parseSlotsProvisionConfigToml", () => {
 	it("parses declared provision paths, including nested ones", () => {
@@ -85,5 +89,56 @@ describe("parseSlotsProvisionConfigToml", () => {
 		const result = parseSlotsProvisionConfigToml('[slots]\nprovision = "x"\n', "custom/ns.toml");
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.error.message).toContain("custom/ns.toml");
+	});
+});
+
+describe("loadSlotsProvisionConfig", () => {
+	it("replaces the base provision array with the local provision array", () => {
+		const gateway = new FakeSlotProvisionFilesGateway({
+			projectConfigByPath: {
+				"/repo/ns.toml": '[slots]\nprovision = ["base.env"]\n',
+				"/repo/ns.local.toml": '[slots]\nprovision = ["local.env"]\n',
+			},
+		});
+
+		expect(loadSlotsProvisionConfig({ repoRoot: "/repo", gateway })).toEqual({
+			ok: true,
+			value: { provision: ["local.env"] },
+		});
+	});
+
+	it.each([
+		["malformed base", "/repo/ns.toml", "[slots", "ns.toml"],
+		["malformed local", "/repo/ns.local.toml", "[slots", "ns.local.toml"],
+	] as const)("reports the source for %s config", (_label, path, source, expectedPath) => {
+		const gateway = new FakeSlotProvisionFilesGateway({
+			projectConfigByPath: { [path]: source },
+		});
+
+		const result = loadSlotsProvisionConfig({ repoRoot: "/repo", gateway });
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe("invalid-toml");
+			expect(result.error.message).toContain(expectedPath);
+		}
+	});
+
+	it.each([
+		["base", "/repo/ns.toml", "ns.toml"],
+		["local", "/repo/ns.local.toml", "ns.local.toml"],
+	] as const)("reports the source for %s read failures", (_label, path, expectedPath) => {
+		const gateway = new FakeSlotProvisionFilesGateway({
+			projectConfigReadFailuresByPath: { [path]: "permission denied" },
+		});
+
+		const result = loadSlotsProvisionConfig({ repoRoot: "/repo", gateway });
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe("invalid-slots-table");
+			expect(result.error.message).toContain(`Failed to read ${expectedPath}`);
+			expect(result.error.message).toContain("permission denied");
+		}
 	});
 });

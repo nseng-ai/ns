@@ -1,16 +1,18 @@
 import { describe, expect, test } from "vitest";
 
-import modelShortcutExtension from "../src/core/model-shortcuts/extension.ts";
-import type { ExtensionAPI } from "../src/core/model-shortcuts/extension.ts";
+import type {
+	ProjectConfigGateway,
+	ProjectConfigReadResult,
+} from "@nseng-ai/sdk/project-config/points";
 
+import modelShortcutExtension, {
+	MODEL_SHORTCUT_CATALOG,
+	type ExtensionAPI,
+} from "../src/core/model-shortcuts/extension.ts";
+
+// Keep tests on the factory seam: no process cwd mutation and no real filesystem access.
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type NotifyLevel = "info" | "warning" | "error";
-
-interface ExpectedShortcut {
-	command: string;
-	provider: string;
-	modelId: string;
-}
 
 interface Notification {
 	message: string;
@@ -22,19 +24,19 @@ interface ModelInfo {
 	id: string;
 }
 
-const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
-	{ command: "model:fable", provider: "anthropic", modelId: "claude-fable-5" },
-	{ command: "model:sonnet", provider: "anthropic", modelId: "claude-sonnet-4-5" },
-	{ command: "model:spud", provider: "openai-codex", modelId: "gpt-5.6-sol" },
-	{ command: "model:sol", provider: "openai-codex", modelId: "gpt-5.6-sol" },
-	{ command: "model:terra", provider: "openai-codex", modelId: "gpt-5.6-terra" },
-	{ command: "model:luna", provider: "openai-codex", modelId: "gpt-5.6-luna" },
-	{ command: "model:gpt-mini", provider: "openai-codex", modelId: "gpt-5.4-mini" },
-	{ command: "model:gemini-pro", provider: "google", modelId: "gemini-3.1-pro-preview" },
-	{ command: "model:gemini-flash", provider: "google", modelId: "gemini-3.5-flash" },
-	{ command: "model:haiku", provider: "anthropic", modelId: "claude-haiku-4-5" },
-	{ command: "model:opus", provider: "anthropic", modelId: "claude-opus-4-8" },
-];
+const EXPECTED_DEFAULTS = [
+	["model:fable", "vercel-ai-gateway/anthropic/claude-fable-5"],
+	["model:sonnet", "vercel-ai-gateway/anthropic/claude-sonnet-4.5"],
+	["model:spud", "vercel-ai-gateway/openai/gpt-5.6-sol"],
+	["model:sol", "vercel-ai-gateway/openai/gpt-5.6-sol"],
+	["model:terra", "vercel-ai-gateway/openai/gpt-5.6-terra"],
+	["model:luna", "vercel-ai-gateway/openai/gpt-5.6-luna"],
+	["model:gpt-mini", "vercel-ai-gateway/openai/gpt-5.4-mini"],
+	["model:gemini-pro", "vercel-ai-gateway/google/gemini-3.1-pro-preview"],
+	["model:gemini-flash", "vercel-ai-gateway/google/gemini-3.5-flash"],
+	["model:haiku", "vercel-ai-gateway/anthropic/claude-haiku-4.5"],
+	["model:opus", "vercel-ai-gateway/anthropic/claude-opus-4.8"],
+] as const;
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
@@ -55,20 +57,54 @@ class FakePi implements ExtensionAPI {
 	}
 }
 
+class FakeProjectConfigGateway implements ProjectConfigGateway {
+	private readonly files: Readonly<Record<string, string>>;
+	private readonly failures: Readonly<Record<string, string>>;
+
+	constructor(
+		files: Readonly<Record<string, string>> = {},
+		failures: Readonly<Record<string, string>> = {},
+	) {
+		this.files = files;
+		this.failures = failures;
+	}
+
+	readTextFile(request: { relativePath: string }): ProjectConfigReadResult {
+		const failure = this.failures[request.relativePath];
+		if (failure !== undefined) return { type: "error", message: failure };
+		const text = this.files[request.relativePath];
+		return text === undefined ? { type: "missing" } : { type: "found", text };
+	}
+
+	pathExists(): { type: "missing" } {
+		return { type: "missing" };
+	}
+}
+
+async function register(
+	pi: FakePi,
+	files: Readonly<Record<string, string>> = {},
+	failures: Readonly<Record<string, string>> = {},
+): Promise<void> {
+	await modelShortcutExtension(pi, {
+		cwd: "/repo/worktree/nested",
+		projectConfigGateway: new FakeProjectConfigGateway(files, failures),
+		resolveRepoRoot: async ({ cwd }) => {
+			expect(cwd).toBe("/repo/worktree/nested");
+			return "/repo/worktree";
+		},
+	});
+}
+
 function commandFor(pi: FakePi, name: string): RegisteredCommand {
 	const command = pi.commands.get(name);
-	if (command === undefined) {
-		throw new Error(`Expected command to be registered: ${name}`);
-	}
+	if (command === undefined) throw new Error(`Expected command to be registered: ${name}`);
 	return command;
 }
 
-function modelFromShortcut(shortcut: ExpectedShortcut): ModelInfo {
-	return { provider: shortcut.provider, id: shortcut.modelId };
-}
-
-function modelRef(shortcut: ExpectedShortcut): string {
-	return `${shortcut.provider}/${shortcut.modelId}`;
+function parseRef(ref: string): ModelInfo {
+	const separator = ref.indexOf("/");
+	return { provider: ref.slice(0, separator), id: ref.slice(separator + 1) };
 }
 
 function createContext(options: { models?: readonly ModelInfo[]; hasUI?: boolean } = {}): {
@@ -97,49 +133,124 @@ function createContext(options: { models?: readonly ModelInfo[]; hasUI?: boolean
 }
 
 describe("modelShortcutExtension", () => {
-	test("registers direct model shortcut commands", () => {
+	test("awaits config loading and registers the fixed catalog with all gateway defaults", async () => {
 		const pi = new FakePi();
+		const registration = register(pi);
 
-		modelShortcutExtension(pi);
+		expect(pi.commands.size).toBe(0);
+		await registration;
 
+		expect(MODEL_SHORTCUT_CATALOG).toHaveLength(11);
 		expect(
 			[...pi.commands.entries()].map(([name, command]) => [name, command.description]),
-		).toEqual(
-			EXPECTED_SHORTCUTS.map((shortcut) => [shortcut.command, `Switch to ${modelRef(shortcut)}`]),
+		).toEqual(EXPECTED_DEFAULTS.map(([command, ref]) => [command, `Switch to ${ref}`]));
+	});
+
+	test("discovers a worktree root from a .git file through the injected stat seam", async () => {
+		const pi = new FakePi();
+		const probedPaths: string[] = [];
+
+		await modelShortcutExtension(pi, {
+			cwd: "/repo/worktree/nested",
+			projectConfigGateway: new FakeProjectConfigGateway(),
+			statPath: async (path) => {
+				probedPaths.push(path);
+				if (path !== "/repo/worktree/.git") throw new Error("missing");
+				return {
+					isFile: () => true,
+					isDirectory: () => false,
+					isSymbolicLink: () => false,
+				};
+			},
+		});
+
+		expect(probedPaths).toEqual(["/repo/worktree/nested/.git", "/repo/worktree/.git"]);
+		expect(pi.commands.size).toBe(11);
+	});
+
+	test.each(EXPECTED_DEFAULTS)("switches %s using its effective default", async (command, ref) => {
+		const pi = new FakePi();
+		await register(pi);
+		const model = parseRef(ref);
+		const { ctx, notifications } = createContext({ models: [model] });
+
+		await commandFor(pi, command).handler("", ctx);
+
+		expect(pi.setModels).toEqual([model]);
+		expect(notifications).toEqual([{ message: `Switched model to ${ref}.`, level: "info" }]);
+	});
+
+	test("merges partial local overrides and accepts direct providers and nested gateway model IDs", async () => {
+		const pi = new FakePi();
+		await register(pi, {
+			"ns.toml": '[pi.model-shortcuts]\nfable = "anthropic/claude-direct"\n',
+			"ns.local.toml": '[pi.model-shortcuts]\nterra = "custom-gateway/openai/team/gpt-terra"\n',
+		});
+
+		expect(commandFor(pi, "model:fable").description).toBe("Switch to anthropic/claude-direct");
+		expect(commandFor(pi, "model:terra").description).toBe(
+			"Switch to custom-gateway/openai/team/gpt-terra",
+		);
+		expect(commandFor(pi, "model:luna").description).toBe(
+			"Switch to vercel-ai-gateway/openai/gpt-5.6-luna",
 		);
 	});
 
-	test.each(EXPECTED_SHORTCUTS)("switches $command to $provider/$modelId", async (shortcut) => {
+	test("allows spud and sol to be overridden independently", async () => {
 		const pi = new FakePi();
-		modelShortcutExtension(pi);
-		const model = modelFromShortcut(shortcut);
-		const { ctx, notifications } = createContext({ models: [model] });
+		await register(pi, {
+			"ns.local.toml":
+				'[pi.model-shortcuts]\nspud = "openai/spud-model"\nsol = "openai/sol-model"\n',
+		});
 
-		await commandFor(pi, shortcut.command).handler("", ctx);
+		expect(commandFor(pi, "model:spud").description).toBe("Switch to openai/spud-model");
+		expect(commandFor(pi, "model:sol").description).toBe("Switch to openai/sol-model");
+	});
 
-		expect(pi.setModels).toEqual([model]);
-		expect(notifications).toEqual([
-			{ message: `Switched model to ${modelRef(shortcut)}.`, level: "info" },
-		]);
+	test.each([
+		['[pi.model-shortcuts]\nunknown = "openai/model"\n', "known shortcut keys"],
+		['[pi.model-shortcuts]\nfable = "unqualified"\n', "qualified provider/model"],
+		['[pi.model-shortcuts]\nfable = ""\n', "qualified provider/model"],
+		["[pi.model-shortcuts]\nfable = 42\n", "qualified provider/model"],
+		['[pi.model-shortcuts]\nfable = "provider/"\n', "qualified provider/model"],
+		["[pi.model-shortcuts\nfable = 1\n", "Invalid TOML"],
+	] as const)(
+		"rejects invalid config before registering any command %#",
+		async (source, message) => {
+			const pi = new FakePi();
+
+			await expect(register(pi, { "ns.local.toml": source })).rejects.toThrow(message);
+			expect(pi.commands.size).toBe(0);
+		},
+	);
+
+	test("rejects local config read failures before registering any command", async () => {
+		const pi = new FakePi();
+
+		await expect(register(pi, {}, { "ns.local.toml": "permission denied" })).rejects.toThrow(
+			"Failed to read ns.local.toml: permission denied",
+		);
+		expect(pi.commands.size).toBe(0);
 	});
 
 	test("notifies when a shortcut model is missing", async () => {
 		const pi = new FakePi();
-		modelShortcutExtension(pi);
+		await register(pi);
 		const { ctx, notifications } = createContext();
 
 		await commandFor(pi, "model:spud").handler("", ctx);
 
 		expect(pi.setModels).toEqual([]);
 		expect(notifications).toEqual([
-			{ message: "Model openai-codex/gpt-5.6-sol not found.", level: "error" },
+			{ message: "Model vercel-ai-gateway/openai/gpt-5.6-sol not found.", level: "error" },
 		]);
 	});
 
 	test("notifies when a shortcut model cannot be selected", async () => {
-		const model = { provider: "anthropic", id: "claude-opus-4-8" };
+		const ref = "vercel-ai-gateway/anthropic/claude-opus-4.8";
+		const model = parseRef(ref);
 		const pi = new FakePi(false);
-		modelShortcutExtension(pi);
+		await register(pi);
 		const { ctx, notifications } = createContext({ models: [model] });
 
 		await commandFor(pi, "model:opus").handler("", ctx);
@@ -147,31 +258,24 @@ describe("modelShortcutExtension", () => {
 		expect(pi.setModels).toEqual([model]);
 		expect(notifications).toEqual([
 			{
-				message: "Model anthropic/claude-opus-4-8 is unavailable; run /login or configure Pi auth.",
+				message: `Model ${ref} is unavailable; run /login or configure Pi auth.`,
 				level: "error",
 			},
 		]);
 	});
 
 	test("does not emit a generic ack on a rendered-message host", async () => {
-		// Regression: on a rendered-message host (the real Pi host), the immediate ack
-		// used to append or set a generic command-running indicator. Model switches already
-		// emit their own completion notification, so they should not use the transcript or
-		// footer for a redundant ack.
 		const sentMessages: unknown[] = [];
 		const statusUpdates: { key: string; value: string | undefined }[] = [];
-		const model = { provider: "anthropic", id: "claude-opus-4-8" };
+		const model = parseRef("vercel-ai-gateway/anthropic/claude-opus-4.8");
 		const pi = new FakePi();
-		// Make the host look like a rendered-message host, the condition that previously
-		// forced "message" delivery.
 		Object.assign(pi, {
 			registerMessageRenderer(): void {},
 			sendMessage(message: unknown): void {
 				sentMessages.push(message);
 			},
 		});
-		modelShortcutExtension(pi);
-
+		await register(pi);
 		const { ctx } = createContext({ models: [model] });
 		const statusCtx = {
 			...ctx,
@@ -190,9 +294,9 @@ describe("modelShortcutExtension", () => {
 	});
 
 	test("does not notify when UI is unavailable", async () => {
-		const model = { provider: "anthropic", id: "claude-haiku-4-5" };
+		const model = parseRef("vercel-ai-gateway/anthropic/claude-haiku-4.5");
 		const pi = new FakePi();
-		modelShortcutExtension(pi);
+		await register(pi);
 		const { ctx, notifications } = createContext({ hasUI: false, models: [model] });
 
 		await commandFor(pi, "model:haiku").handler("", ctx);

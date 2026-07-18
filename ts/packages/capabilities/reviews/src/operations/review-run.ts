@@ -1,7 +1,7 @@
-import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 
-import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import { catalogOptions, environmentOptions, type ReviewsRuntime } from "../core/context.ts";
 import {
@@ -10,7 +10,6 @@ import {
 	type ReviewFailure,
 	type ReviewResult,
 } from "../core/failures.ts";
-import { isMissingFileError } from "../gateways/filesystem-errors.ts";
 import type { ReviewSource } from "../gateways/review-catalog.ts";
 import { renderReviewLogMarkdown, type ReviewLogWriteResult } from "../gateways/review-log.ts";
 import {
@@ -21,10 +20,7 @@ import {
 	type ReviewExecutionResponse,
 	type ReviewRunResult,
 } from "../core/models.ts";
-import {
-	parseReviewsProjectConfigToml,
-	type ReviewsProjectConfig,
-} from "../core/project-config.ts";
+import { loadReviewsProjectConfig, type ReviewsProjectConfig } from "../core/project-config.ts";
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
 import { filterLocalDiffForReviewApplicability } from "../core/review-applicability.ts";
 import { resolveReviewsModelReference } from "../core/review-model-reference.ts";
@@ -290,31 +286,10 @@ export async function loadProjectConfigFromContext(
 		};
 	}
 
-	const path = join(repoRoot.value, "ns.toml");
-	let source: string;
-	try {
-		source = await readFile(path, "utf8");
-	} catch (caught) {
-		if (isMissingFileError(caught)) {
-			const emptyConfig = parseReviewsProjectConfigToml("");
-			if (!emptyConfig.ok) {
-				return {
-					ok: false,
-					error: { code: "project-config-invalid", message: emptyConfig.error.message },
-				};
-			}
-			return { ok: true, value: emptyConfig.value };
-		}
-		return {
-			ok: false,
-			error: {
-				code: "project-config-invalid",
-				message: `Failed to read ns.toml: ${formatErrorMessage(caught)}`,
-			},
-		};
-	}
-
-	const parsed = parseReviewsProjectConfigToml(source, path);
+	const parsed = loadReviewsProjectConfig({
+		repoRoot: repoRoot.value,
+		gateway: nodeProjectConfigGateway,
+	});
 	if (!parsed.ok) {
 		return {
 			ok: false,

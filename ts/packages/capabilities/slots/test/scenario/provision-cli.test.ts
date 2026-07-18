@@ -44,7 +44,7 @@ describe("slot provision apply CLI", () => {
 				],
 			},
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: {
 					[`${STORE_ROOT}/.env.local`]: "SECRET=1\n",
 					[`${SLOT_02}/.env.local`]: "SECRET=1\n",
@@ -86,7 +86,7 @@ describe("slot provision apply CLI", () => {
 				],
 			},
 			provisionFiles: {
-				projectConfigByRoot: { [SLOT_01]: DECLARED_ENV },
+				projectConfigByPath: { [`${SLOT_01}/ns.toml`]: DECLARED_ENV },
 				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
 			},
 		});
@@ -106,7 +106,7 @@ describe("slot provision apply CLI", () => {
 		const run = runScenario(["provision", "apply"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")] },
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
 			},
 		});
@@ -124,7 +124,7 @@ describe("slot provision apply CLI", () => {
 		const run = runScenario(["provision", "apply", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")] },
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: {
 					[`${STORE_ROOT}/.env.local`]: "SECRET=1\n",
 					[`${SLOT_01}/.env.local`]: "LOCAL=EDIT\n",
@@ -148,7 +148,7 @@ describe("slot provision apply CLI", () => {
 		const run = runScenario(["provision", "apply", "--force", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")] },
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: {
 					[`${STORE_ROOT}/.env.local`]: "SECRET=1\n",
 					[`${SLOT_01}/.env.local`]: "LOCAL=EDIT\n",
@@ -166,7 +166,9 @@ describe("slot provision apply CLI", () => {
 
 	it("fails with the config error code on invalid declarations", async () => {
 		const run = runScenario(["provision", "apply", "--format", "json"], {
-			provisionFiles: { projectConfigByRoot: { "/repo": '[slots]\nprovision = ["/abs"]\n' } },
+			provisionFiles: {
+				projectConfigByPath: { "/repo/ns.toml": '[slots]\nprovision = ["/abs"]\n' },
+			},
 		});
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({ errorType: "invalid-provision-path" });
@@ -177,7 +179,7 @@ describe("slot provision import CLI", () => {
 	it("imports an explicit declared path from the current worktree", async () => {
 		const run = runScenario(["provision", "import", ".env.local", "--format", "json"], {
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: { "/repo/.env.local": "SECRET=1\n" },
 			},
 		});
@@ -201,7 +203,7 @@ describe("slot provision import CLI", () => {
 			repo: repoContext({ root: SLOT_01 }),
 			git: { repositoryRoot: SLOT_01 },
 			provisionFiles: {
-				projectConfigByRoot: { [SLOT_01]: DECLARED_ENV },
+				projectConfigByPath: { [`${SLOT_01}/ns.toml`]: DECLARED_ENV },
 				files: { [`${SLOT_01}/.env.local`]: "SECRET=1\n" },
 			},
 		});
@@ -221,7 +223,7 @@ describe("slot provision import CLI", () => {
 	it("imports all declared files when no paths are passed and keeps missing ones exit 0", async () => {
 		const run = runScenario(["provision", "import", "--format", "json"], {
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": '[slots]\nprovision = ["a.env", "b.env"]\n' },
+				projectConfigByPath: { "/repo/ns.toml": '[slots]\nprovision = ["a.env", "b.env"]\n' },
 				files: { "/repo/a.env": "A\n" },
 			},
 		});
@@ -240,7 +242,7 @@ describe("slot provision import CLI", () => {
 
 	it("rejects undeclared explicit paths with exit 2", async () => {
 		const run = runScenario(["provision", "import", "secret.env", "--format", "json"], {
-			provisionFiles: { projectConfigByRoot: { "/repo": DECLARED_ENV } },
+			provisionFiles: { projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV } },
 		});
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({ errorType: "not-declared" });
@@ -253,7 +255,7 @@ describe("placement provisioning", () => {
 		const run = runScenario(["init", "--size", "2", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }], trunkBranch: "master" },
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
 			},
 		});
@@ -291,7 +293,7 @@ describe("placement provisioning", () => {
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
 			},
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
 			},
 		});
@@ -309,7 +311,7 @@ describe("placement provisioning", () => {
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01", "feature/a")],
 			},
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
 			},
 		});
@@ -329,7 +331,7 @@ describe("placement provisioning", () => {
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
 			},
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
 			},
 		});
@@ -346,7 +348,7 @@ describe("placement provisioning", () => {
 				repositoryRoot: SLOT_01,
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
 			},
-			provisionFiles: { projectConfigByRoot: { "/repo": DECLARED_ENV } },
+			provisionFiles: { projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV } },
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
@@ -368,7 +370,9 @@ describe("placement provisioning", () => {
 				repositoryRoot: SLOT_01,
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
 			},
-			provisionFiles: { projectConfigReadFailures: { "/repo": "config unavailable" } },
+			provisionFiles: {
+				projectConfigReadFailuresByPath: { "/repo/ns.toml": "config unavailable" },
+			},
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
@@ -381,7 +385,7 @@ describe("placement provisioning", () => {
 							kind: "config-error",
 							path: null,
 							slotName: null,
-							message: "config unavailable",
+							message: "Failed to read ns.toml: config unavailable",
 						},
 					],
 				},
@@ -416,7 +420,7 @@ describe("placement provisioning", () => {
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
 			},
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
 			},
 		});

@@ -5,7 +5,36 @@ import {
 	parseModelPolicyToml,
 	resolveModelOperation,
 } from "@nseng-ai/capability-kit/model-policy";
-import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import type {
+	ProjectConfigGateway,
+	ProjectConfigReadResult,
+} from "@nseng-ai/sdk/project-config/points";
+
+class ModelPolicyConfigGateway implements ProjectConfigGateway {
+	readonly reads: string[] = [];
+	private readonly files: Readonly<Record<string, string>>;
+	private readonly readErrors: Readonly<Record<string, string>>;
+
+	constructor(
+		files: Readonly<Record<string, string>>,
+		readErrors: Readonly<Record<string, string>> = {},
+	) {
+		this.files = files;
+		this.readErrors = readErrors;
+	}
+
+	readTextFile(request: { relativePath: string }): ProjectConfigReadResult {
+		this.reads.push(request.relativePath);
+		const readError = this.readErrors[request.relativePath];
+		if (readError !== undefined) return { type: "error", message: readError };
+		const text = this.files[request.relativePath];
+		return text === undefined ? { type: "missing" } : { type: "found", text };
+	}
+
+	pathExists(): { type: "missing" } {
+		return { type: "missing" };
+	}
+}
 
 describe("model policy", () => {
 	test("uses the built-in fast profile with zero config", () => {
@@ -71,13 +100,9 @@ describe("model policy", () => {
 	});
 
 	test("loads model settings without validating unrelated point installations", () => {
-		const gateway: ProjectConfigGateway = {
-			readTextFile: () => ({
-				type: "found",
-				text: '[models.profiles]\nfast = "acme/fast"\n[points]\n"flow.submit.pre" = ["just"]\n',
-			}),
-			pathExists: () => ({ type: "missing" }),
-		};
+		const gateway = new ModelPolicyConfigGateway({
+			"ns.toml": '[models.profiles]\nfast = "acme/fast"\n[points]\n"flow.submit.pre" = ["just"]\n',
+		});
 
 		expect(loadModelPolicy({ repoRoot: "/repo", gateway })).toMatchObject({
 			ok: true,
@@ -85,14 +110,86 @@ describe("model policy", () => {
 		});
 	});
 
-	test("loads missing ns.toml as zero config through the gateway", () => {
-		const missing: ProjectConfigGateway = {
-			readTextFile: () => ({ type: "missing" }),
-			pathExists: () => ({ type: "missing" }),
-		};
-		expect(loadModelPolicy({ repoRoot: "/repo", gateway: missing })).toMatchObject({
+	test("recursively merges profiles and lets local settings override base settings", () => {
+		const gateway = new ModelPolicyConfigGateway({
+			"ns.toml": `
+[models.profiles]
+fast = "base/fast"
+deep = "base/deep"
+[models.operations]
+slug = "deep"
+flow = "fast"
+`,
+			"ns.local.toml": `
+[models.profiles]
+fast = "local/fast"
+review = "local/review"
+[models.operations]
+flow = "review"
+`,
+		});
+
+		expect(loadModelPolicy({ repoRoot: "/repo", gateway })).toMatchObject({
 			ok: true,
-			value: { profiles: { fast: { provider: "openai-codex" } } },
+			value: {
+				profiles: {
+					fast: { provider: "local", modelId: "fast" },
+					deep: { provider: "base", modelId: "deep" },
+					review: { provider: "local", modelId: "review" },
+				},
+				operations: { slug: "deep", flow: "review" },
+				fastSource: "project-profile",
+			},
+		});
+	});
+
+	test.each([
+		{
+			name: "both sources",
+			files: {},
+			expectedProvider: "openai-codex",
+		},
+		{
+			name: "base source",
+			files: { "ns.toml": '[models.profiles]\nfast = "base/fast"' },
+			expectedProvider: "base",
+		},
+		{
+			name: "local source",
+			files: { "ns.local.toml": '[models.profiles]\nfast = "local/fast"' },
+			expectedProvider: "local",
+		},
+	])("loads with missing $name", ({ files, expectedProvider }) => {
+		const gateway = new ModelPolicyConfigGateway(files);
+
+		expect(loadModelPolicy({ repoRoot: "/repo", gateway })).toMatchObject({
+			ok: true,
+			value: { profiles: { fast: { provider: expectedProvider } } },
+		});
+		expect(gateway.reads).toEqual(["ns.toml", "ns.local.toml"]);
+	});
+
+	test("reports malformed local config as invalid TOML with its source name", () => {
+		const gateway = new ModelPolicyConfigGateway({ "ns.local.toml": "[models" });
+
+		expect(loadModelPolicy({ repoRoot: "/repo", gateway })).toMatchObject({
+			ok: false,
+			error: {
+				code: "invalid-toml",
+				message: expect.stringContaining("ns.local.toml"),
+			},
+		});
+	});
+
+	test("reports local read failures as invalid TOML with its source name", () => {
+		const gateway = new ModelPolicyConfigGateway({}, { "ns.local.toml": "permission denied" });
+
+		expect(loadModelPolicy({ repoRoot: "/repo", gateway })).toEqual({
+			ok: false,
+			error: {
+				code: "invalid-toml",
+				message: "Failed to read ns.local.toml: permission denied",
+			},
 		});
 	});
 });

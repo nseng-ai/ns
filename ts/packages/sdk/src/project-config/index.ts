@@ -1,6 +1,29 @@
 export { nsExtensionExportTarget } from "../sdk/descriptor.ts";
 
 export {
+	loadEffectiveProjectConfig,
+	loadProjectConfig,
+	mergeProjectConfigTomlDocuments,
+	NS_LOCAL_TOML_FILE_NAME,
+	NS_TOML_FILE_NAME,
+	parseProjectConfigToml,
+	parseProjectConfigTomlDocument,
+	validateProjectConfigDocument,
+} from "./points.ts";
+export type {
+	LoadedProjectConfig,
+	LoadProjectConfigResult,
+	ParseProjectConfigTomlDocumentResult,
+	PointDefinition,
+	ProjectConfigDiagnostic,
+	ProjectConfigGateway,
+	ProjectConfigPathExistsResult,
+	ProjectConfigReadResult,
+	ProjectConfigTomlDocument,
+	SettingsSchema,
+} from "./points.ts";
+
+export {
 	declaredExtensionSpecsErrorInfo,
 	descriptorExportPathErrorInfo,
 	descriptorExportTarget,

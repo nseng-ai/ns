@@ -28,6 +28,7 @@ activate.sh
 
 # Local
 .DS_Store
+ns.local.toml
 .env
 .vercel/
 CLAUDE.local.md

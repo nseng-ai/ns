@@ -1,3 +1,9 @@
+import type {
+	ProjectConfigGateway,
+	ProjectConfigPathExistsResult,
+	ProjectConfigReadResult,
+} from "@nseng-ai/sdk/project-config";
+
 import {
 	ACTIVATION_FILE_PATHS,
 	compareActivationTextFileState,
@@ -19,6 +25,7 @@ export interface InMemoryActivationFilesState {
 	readonly nonFilePaths?: readonly string[];
 	readonly nonDirectoryPaths?: readonly string[];
 	readonly readFailure?: NsInitErrorInfo;
+	readonly readFailures?: Readonly<Record<string, NsInitErrorInfo>>;
 	readonly writeFailures?: Readonly<Record<string, NsInitErrorInfo>>;
 	readonly directoryFailures?: Readonly<Record<string, NsInitErrorInfo>>;
 }
@@ -35,12 +42,15 @@ export type ExternalActivationFilesMutation =
 	| { readonly type: "remove-directory"; readonly path: string }
 	| { readonly type: "replace-directory-with-non-directory"; readonly path: string };
 
-export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
+export class InMemoryActivationFilesGateway
+	implements ActivationFilesGateway, ProjectConfigGateway
+{
 	private readonly files: Map<string, string>;
 	private readonly directories: Set<string>;
 	private readonly nonFilePaths: Set<string>;
 	private readonly nonDirectoryPaths: Set<string>;
 	private readonly readFailure: NsInitErrorInfo | undefined;
+	private readonly readFailures: Readonly<Record<string, NsInitErrorInfo>>;
 	private readonly writeFailures: Readonly<Record<string, NsInitErrorInfo>>;
 	private readonly directoryFailures: Readonly<Record<string, NsInitErrorInfo>>;
 	private readonly operationLog: ActivationFileOperation[] = [];
@@ -51,8 +61,28 @@ export class InMemoryActivationFilesGateway implements ActivationFilesGateway {
 		this.nonFilePaths = new Set(state.nonFilePaths ?? []);
 		this.nonDirectoryPaths = new Set(state.nonDirectoryPaths ?? []);
 		this.readFailure = state.readFailure;
+		this.readFailures = { ...state.readFailures };
 		this.writeFailures = { ...state.writeFailures };
 		this.directoryFailures = { ...state.directoryFailures };
+	}
+
+	readTextFile(request: { repoRoot: string; relativePath: string }): ProjectConfigReadResult {
+		const failure = this.readFailures[request.relativePath] ?? this.readFailure;
+		if (failure !== undefined) return { type: "error", message: failure.message };
+		if (this.nonFilePaths.has(request.relativePath)) {
+			return { type: "error", message: `${request.relativePath} is not a file.` };
+		}
+		const text = this.files.get(request.relativePath);
+		return text === undefined ? { type: "missing" } : { type: "found", text };
+	}
+
+	pathExists(request: { repoRoot: string; relativePath: string }): ProjectConfigPathExistsResult {
+		return this.files.has(request.relativePath) ||
+			this.directories.has(request.relativePath) ||
+			this.nonFilePaths.has(request.relativePath) ||
+			this.nonDirectoryPaths.has(request.relativePath)
+			? { type: "present" }
+			: { type: "missing" };
 	}
 
 	async readActivationFile(params: ActivationFileParams): Promise<ActivationTextFileReadResult> {

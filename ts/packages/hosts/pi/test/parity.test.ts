@@ -14,7 +14,14 @@ import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi/parity/tes
 async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 
-	await registerWithFakeHost(pi, modelShortcutExtension);
+	await modelShortcutExtension(pi, {
+		cwd: "/repo",
+		projectConfigGateway: {
+			readTextFile: () => ({ type: "missing" }),
+			pathExists: () => ({ type: "missing" }),
+		},
+		resolveRepoRoot: async () => "/repo",
+	});
 	await registerWithFakeHost(pi, prExtension);
 	// The worktree-status implementation lives in @nseng-ai/pi/worktree-status and is
 	// discovered through .pi/extensions/worktree-status.ts. Include its live command

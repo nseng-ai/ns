@@ -71,6 +71,8 @@ describe("ns dispatch plan", () => {
 			"git:resolve-source-ref",
 			"git:list-dirty-paths",
 			"config:read-dispatch-settings",
+			"config:read-local-dispatch-settings",
+			"config:read-dispatch-settings",
 			"config:read-package-manager",
 			"token:read-development-oidc",
 			"trigger:check-identity",

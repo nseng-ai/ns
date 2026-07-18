@@ -42,14 +42,38 @@ describe("fillProvisionGapsForPlacement", () => {
 	});
 
 	it("returns null when nothing is declared", async () => {
-		const ctx = context({ provisionFiles: { projectConfigByRoot: { "/repo": "[slots]\n" } } });
+		const ctx = context({
+			provisionFiles: { projectConfigByPath: { "/repo/ns.toml": "[slots]\n" } },
+		});
 		expect(await fillProvisionGapsForPlacement(ctx, [TARGET])).toBeNull();
+	});
+
+	it("uses the invoking worktree local declaration instead of the base declaration", async () => {
+		const ctx = context({
+			provisionFiles: {
+				projectConfigByPath: {
+					"/repo/ns.toml": '[slots]\nprovision = ["base.env"]\n',
+					"/repo/ns.local.toml": '[slots]\nprovision = ["local.env"]\n',
+				},
+				files: {
+					[`${STORE_ROOT}/base.env`]: "BASE\n",
+					[`${STORE_ROOT}/local.env`]: "LOCAL\n",
+				},
+			},
+		});
+
+		expect(await fillProvisionGapsForPlacement(ctx, [TARGET])).toEqual({
+			copied: [{ slotName: "slot-01", path: "local.env" }],
+			notices: [],
+		});
+		expect(ctx.provisionFiles.fileAt(`${SLOT_01}/base.env`)).toBeNull();
+		expect(ctx.provisionFiles.fileAt(`${SLOT_01}/local.env`)).toEqual({ content: "LOCAL\n" });
 	});
 
 	it("copies a declared file that is missing from the worktree", async () => {
 		const ctx = context({
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: { [`${STORE_ROOT}/.env.local`]: "SECRET=1\n" },
 			},
 		});
@@ -64,7 +88,7 @@ describe("fillProvisionGapsForPlacement", () => {
 	it("never touches an existing worktree file, even when it differs", async () => {
 		const ctx = context({
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: {
 					[`${STORE_ROOT}/.env.local`]: "SECRET=1\n",
 					[`${SLOT_01}/.env.local`]: "LOCAL=EDIT\n",
@@ -79,7 +103,9 @@ describe("fillProvisionGapsForPlacement", () => {
 
 	it("reports a config error as a notice instead of failing", async () => {
 		const ctx = context({
-			provisionFiles: { projectConfigByRoot: { "/repo": '[slots]\nprovision = ["/abs"]\n' } },
+			provisionFiles: {
+				projectConfigByPath: { "/repo/ns.toml": '[slots]\nprovision = ["/abs"]\n' },
+			},
 		});
 		const report = await fillProvisionGapsForPlacement(ctx, [TARGET]);
 		expect(report?.copied).toEqual([]);
@@ -88,7 +114,9 @@ describe("fillProvisionGapsForPlacement", () => {
 
 	it("reports a project config read failure as a notice instead of failing", async () => {
 		const ctx = context({
-			provisionFiles: { projectConfigReadFailures: { "/repo": "config unavailable" } },
+			provisionFiles: {
+				projectConfigReadFailuresByPath: { "/repo/ns.toml": "config unavailable" },
+			},
 		});
 		expect(await fillProvisionGapsForPlacement(ctx, [TARGET])).toEqual({
 			copied: [],
@@ -97,7 +125,7 @@ describe("fillProvisionGapsForPlacement", () => {
 					kind: "config-error",
 					path: null,
 					slotName: null,
-					message: "config unavailable",
+					message: "Failed to read ns.toml: config unavailable",
 				},
 			],
 		});
@@ -107,8 +135,9 @@ describe("fillProvisionGapsForPlacement", () => {
 	it("reports missing store files, non-file targets, non-file store entries, and copy failures", async () => {
 		const ctx = context({
 			provisionFiles: {
-				projectConfigByRoot: {
-					"/repo": '[slots]\nprovision = ["missing.env", "dir.env", "storedir.env", "fail.env"]\n',
+				projectConfigByPath: {
+					"/repo/ns.toml":
+						'[slots]\nprovision = ["missing.env", "dir.env", "storedir.env", "fail.env"]\n',
 				},
 				files: {
 					[`${SLOT_01}/dir.env`]: { content: "", kind: "directory" },
@@ -133,7 +162,9 @@ describe("fillProvisionGapsForPlacement", () => {
 describe("applyProvisionedFiles", () => {
 	it("fails on config errors", async () => {
 		const ctx = context({
-			provisionFiles: { projectConfigByRoot: { "/repo": '[slots]\nprovision = ["../x"]\n' } },
+			provisionFiles: {
+				projectConfigByPath: { "/repo/ns.toml": '[slots]\nprovision = ["../x"]\n' },
+			},
 		});
 		const result = await applyProvisionedFiles(ctx, { shouldForce: false });
 		expect(result).toMatchObject({
@@ -148,7 +179,7 @@ describe("applyProvisionedFiles", () => {
 
 		const noSlots = await applyProvisionedFiles(
 			context({
-				provisionFiles: { projectConfigByRoot: { "/repo": DECLARED_ENV } },
+				provisionFiles: { projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV } },
 				git: { worktrees: [{ path: "/repo", branch: "master" }] },
 			}),
 			{ shouldForce: false },
@@ -161,7 +192,7 @@ describe("applyProvisionedFiles", () => {
 		const slot03 = slotWorktree("slot-03").path;
 		const ctx = context({
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: {
 					[`${STORE_ROOT}/.env.local`]: "SECRET=1\n",
 					[`${slot02}/.env.local`]: "SECRET=1\n",
@@ -191,7 +222,7 @@ describe("applyProvisionedFiles", () => {
 	it("overwrites differing copies with --force", async () => {
 		const ctx = context({
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": DECLARED_ENV },
+				projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV },
 				files: {
 					[`${STORE_ROOT}/.env.local`]: { content: "SECRET=1\n", mode: 0o600 },
 					[`${SLOT_01}/.env.local`]: { content: "DIFFERENT\n", mode: 0o644 },
@@ -212,7 +243,9 @@ describe("applyProvisionedFiles", () => {
 	it("reports missing store entries and non-file paths", async () => {
 		const ctx = context({
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": '[slots]\nprovision = ["missing.env", "dir.env"]\n' },
+				projectConfigByPath: {
+					"/repo/ns.toml": '[slots]\nprovision = ["missing.env", "dir.env"]\n',
+				},
 				files: {
 					[`${STORE_ROOT}/dir.env`]: "x\n",
 					[`${SLOT_01}/dir.env`]: { content: "", kind: "directory" },
@@ -234,7 +267,7 @@ describe("importProvisionedFiles", () => {
 	it("fails on config errors and undeclared explicit paths", async () => {
 		const configError = await importProvisionedFiles(
 			context({
-				provisionFiles: { projectConfigByRoot: { "/repo": '[slots]\nprovision = "x"\n' } },
+				provisionFiles: { projectConfigByPath: { "/repo/ns.toml": '[slots]\nprovision = "x"\n' } },
 			}),
 			[],
 		);
@@ -244,7 +277,7 @@ describe("importProvisionedFiles", () => {
 		});
 
 		const undeclared = await importProvisionedFiles(
-			context({ provisionFiles: { projectConfigByRoot: { "/repo": DECLARED_ENV } } }),
+			context({ provisionFiles: { projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV } } }),
 			["other.env"],
 		);
 		expect(undeclared).toMatchObject({ type: "failure", failure: { errorType: "not-declared" } });
@@ -253,8 +286,9 @@ describe("importProvisionedFiles", () => {
 	it("creates, replaces, and keeps store entries from the current worktree", async () => {
 		const ctx = context({
 			provisionFiles: {
-				projectConfigByRoot: {
-					"/repo": '[slots]\nprovision = ["created.env", "replaced.env", "unchanged.env"]\n',
+				projectConfigByPath: {
+					"/repo/ns.toml":
+						'[slots]\nprovision = ["created.env", "replaced.env", "unchanged.env"]\n',
 				},
 				files: {
 					"/repo/created.env": "NEW\n",
@@ -280,7 +314,7 @@ describe("importProvisionedFiles", () => {
 
 	it("treats a missing declared file as a notice-level entry", async () => {
 		const ctx = context({
-			provisionFiles: { projectConfigByRoot: { "/repo": DECLARED_ENV } },
+			provisionFiles: { projectConfigByPath: { "/repo/ns.toml": DECLARED_ENV } },
 		});
 		const result = await importProvisionedFiles(ctx, []);
 		expect(result.type).toBe("ok");
@@ -293,7 +327,7 @@ describe("importProvisionedFiles", () => {
 	it("imports only the requested declared paths", async () => {
 		const ctx = context({
 			provisionFiles: {
-				projectConfigByRoot: { "/repo": '[slots]\nprovision = ["a.env", "b.env"]\n' },
+				projectConfigByPath: { "/repo/ns.toml": '[slots]\nprovision = ["a.env", "b.env"]\n' },
 				files: { "/repo/a.env": "A\n", "/repo/b.env": "B\n" },
 			},
 		});

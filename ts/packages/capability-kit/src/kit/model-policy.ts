@@ -6,6 +6,7 @@ import {
 import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
 import {
 	getProjectConfigSetting,
+	loadEffectiveProjectConfig,
 	parseProjectConfigToml,
 	type ProjectConfigDiagnostic,
 	type ProjectConfigGateway,
@@ -85,15 +86,23 @@ export function loadModelPolicy(request: {
 	repoRoot: string;
 	gateway: ProjectConfigGateway;
 }): ModelPolicyResult<ModelPolicy> {
-	const readResult = request.gateway.readTextFile({
+	const result = loadEffectiveProjectConfig({
 		repoRoot: request.repoRoot,
-		relativePath: "ns.toml",
+		gateway: request.gateway,
+		pointDefinitions: [],
+		settingsSchemas: [modelPolicySettingsSchema],
 	});
-	if (readResult.type === "missing") return modelPolicyFromSettings(undefined);
-	if (readResult.type === "error") {
-		return resultErrOf("invalid-toml", `Failed to read ns.toml: ${readResult.message}`);
+	if (!result.ok) {
+		const modelDiagnostics = result.diagnostics.filter(
+			(diagnostic) => !diagnostic.code.startsWith("point"),
+		);
+		if (modelDiagnostics.length > 0) {
+			return modelPolicyErrorFromDiagnostics(modelDiagnostics, undefined);
+		}
 	}
-	return parseModelPolicyToml(readResult.text, "ns.toml");
+	if (result.config === undefined)
+		return modelPolicyErrorFromDiagnostics(result.diagnostics, undefined);
+	return modelPolicyFromSettings(getProjectConfigSetting(result.config, modelPolicySettingsSchema));
 }
 
 export function resolveModelOperation(
@@ -162,7 +171,11 @@ function modelPolicyErrorFromDiagnostics(
 ): ModelPolicyResult<ModelPolicy> {
 	const diagnostic =
 		diagnostics.find((candidate) => candidate.severity === "error") ?? diagnostics[0];
-	if (diagnostic?.code === "ns_toml_invalid") {
+	if (
+		diagnostic?.code === "ns_toml_invalid" ||
+		diagnostic?.code === "ns_toml_read_failed" ||
+		diagnostic?.code === "ns_local_toml_read_failed"
+	) {
 		return resultErrOf("invalid-toml", diagnostic.message);
 	}
 	return resultErrOf(
