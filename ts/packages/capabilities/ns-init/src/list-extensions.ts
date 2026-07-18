@@ -4,15 +4,24 @@ import type { ClinkrExit } from "@nseng-ai/clinkr";
 import { failure, ok } from "@nseng-ai/clinkr";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
-import { parseNsTomlExtensions, parseNsTomlHarnesses } from "@nseng-ai/harness-artifacts/api";
+import { harnessIdSchema } from "@nseng-ai/harness-artifacts/api";
 import type {
 	DeclaredExtensionDescriptor,
 	DeclaredExtensionDescriptorDiagnostic,
 } from "@nseng-ai/sdk/extensions/declared-descriptors";
-import { classifyExtensionSourceLifecycle } from "@nseng-ai/sdk/project-config";
+import {
+	classifyExtensionSourceLifecycle,
+	loadEffectiveProjectConfig,
+} from "@nseng-ai/sdk/project-config";
+import {
+	getProjectConfigSetting,
+	nsTomlExtensionsSettingsSchema,
+	type ProjectConfigDiagnostic,
+	type ProjectConfigGateway,
+	type SettingsSchema,
+} from "@nseng-ai/sdk/project-config/points";
 import { z } from "zod";
 
-import type { ActivationFilesGateway } from "./activation-files.ts";
 import type {
 	ArtifactProvisioningStatusGateway,
 	ArtifactProvisioningStatusSummary,
@@ -24,6 +33,15 @@ import {
 } from "./diagnostic-collection.ts";
 
 const extensionSourceKindSchema = z.enum(["npm", "local", "git", "unsupported"]);
+const harnessesSettingsSchema = {
+	path: ["harnesses"] as const,
+	schema: z
+		.array(harnessIdSchema)
+		.nonempty()
+		.transform((harnesses) => [...new Set(harnesses)]),
+	invalidMessage: ({ pathLabel }) =>
+		`${pathLabel} top-level harnesses must be a non-empty string array.`,
+} satisfies SettingsSchema<readonly string[]>;
 const extensionAcquisitionStatusSchema = z.enum(["installed", "missing", "invalid"]);
 const extensionArtifactStatusSchema = z.enum([
 	"none",
@@ -80,7 +98,7 @@ export type ListExtensionsResult = z.infer<typeof listExtensionsResultSchema>;
 
 export interface ExtensionListContext {
 	readonly git: Pick<GitGateway, "optionalRepoRoot">;
-	readonly files: Pick<ActivationFilesGateway, "readActivationFile">;
+	readonly projectConfig: ProjectConfigGateway;
 	readonly declaredExtensions: DeclaredExtensionsGateway;
 	readonly artifactProvisioningStatus: ArtifactProvisioningStatusGateway;
 }
@@ -199,28 +217,33 @@ export async function listExtensions(
 
 	const repoRoot = repository.value;
 	const configPath = join(repoRoot, "ns.toml");
-	const config = await context.files.readActivationFile({ repoRoot, file: "ns-toml" });
-	if (config.type === "missing") return ok({ repoRoot, configPath, extensions: [] });
-	if (config.type === "not-file") {
-		return extensionListConfigFailure({
-			code: "ns-toml-not-file",
-			message: `${configPath} exists but is not a file.`,
-			path: configPath,
-		});
-	}
-	if (config.type === "error") {
-		return extensionListConfigFailure({ ...config.error, path: configPath });
+	const loadedConfig = loadEffectiveProjectConfig({
+		repoRoot,
+		gateway: context.projectConfig,
+		pointDefinitions: [],
+		settingsSchemas: [nsTomlExtensionsSettingsSchema, harnessesSettingsSchema],
+	});
+	const relevantDiagnostics = loadedConfig.diagnostics.filter(
+		(diagnostic) => !diagnostic.code.startsWith("point"),
+	);
+	const configDiagnostic = relevantDiagnostics.find(
+		(diagnostic) => diagnostic.severity === "error",
+	);
+	if (configDiagnostic !== undefined || loadedConfig.config === undefined) {
+		return extensionListProjectConfigFailure(
+			repoRoot,
+			configDiagnostic ?? {
+				severity: "error",
+				code: "ns_toml_invalid",
+				message: "Unable to load effective extension configuration.",
+				path: "ns.toml",
+			},
+		);
 	}
 
-	const parsedExtensions = parseNsTomlExtensions(config.content, configPath);
-	if (parsedExtensions.type === "error") {
-		return extensionListConfigFailure({ ...parsedExtensions.error, path: configPath });
-	}
-	const parsedHarnesses = parseNsTomlHarnesses(config.content, configPath);
-	if (parsedHarnesses.type === "error") {
-		return extensionListConfigFailure({ ...parsedHarnesses.error, path: configPath });
-	}
-	const sourceSpecs = parsedExtensions.type === "missing" ? [] : parsedExtensions.extensions;
+	const sourceSpecs =
+		getProjectConfigSetting(loadedConfig.config, nsTomlExtensionsSettingsSchema) ?? [];
+	const configuredHarnesses = getProjectConfigSetting(loadedConfig.config, harnessesSettingsSchema);
 	if (sourceSpecs.length === 0) return ok({ repoRoot, configPath, extensions: [] });
 
 	const rows = sourceSpecs.map((sourceSpec) => createRowSkeleton(repoRoot, sourceSpec));
@@ -232,12 +255,13 @@ export async function listExtensions(
 	const installedDescriptors = loaded.descriptors.filter((descriptor) =>
 		rows.some((row) => row.sourceSpec === descriptor.spec && row.acquisitionStatus === "installed"),
 	);
-	if (parsedHarnesses.type === "missing") {
+	if (configuredHarnesses === undefined) {
 		for (const row of rows) {
 			if (row.acquisitionStatus !== "installed") continue;
 			row.markArtifactUnavailable({
 				code: "harnesses-missing",
-				message: "ns.toml does not configure project harnesses, so artifact status is unavailable.",
+				message:
+					"The effective project config does not configure harnesses, so artifact status is unavailable.",
 				path: configPath,
 			});
 		}
@@ -245,7 +269,7 @@ export async function listExtensions(
 		const summaries = await context.artifactProvisioningStatus.inspect({
 			repoRoot,
 			descriptors: installedDescriptors,
-			harnesses: parsedHarnesses.harnesses,
+			harnesses: configuredHarnesses,
 		});
 		attachArtifactSummaries(rows, installedDescriptors, summaries);
 	}
@@ -390,6 +414,27 @@ function normalizeExtensionListDiagnostic(diagnostic: {
 		message: normalized.message,
 		...(normalized.path === undefined ? {} : { path: normalized.path }),
 	};
+}
+
+function extensionListProjectConfigFailure(
+	repoRoot: string,
+	diagnostic: ProjectConfigDiagnostic,
+): ClinkrExit<ListExtensionsResult> {
+	return extensionListConfigFailure({
+		code: diagnostic.code,
+		message: diagnostic.message,
+		path: projectConfigDiagnosticPath(repoRoot, diagnostic),
+	});
+}
+
+function projectConfigDiagnosticPath(
+	repoRoot: string,
+	diagnostic: ProjectConfigDiagnostic,
+): string {
+	if (diagnostic.path === "ns.toml" || diagnostic.path === "ns.local.toml") {
+		return join(repoRoot, diagnostic.path);
+	}
+	return join(repoRoot, diagnostic.message.includes("ns.local.toml") ? "ns.local.toml" : "ns.toml");
 }
 
 function extensionListConfigFailure(diagnostic: {

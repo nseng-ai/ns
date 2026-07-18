@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 
+import type {
+	ProjectConfigGateway,
+	ProjectConfigReadResult,
+} from "@nseng-ai/sdk/project-config/points";
+
 import {
 	buildGitDiffArgs,
+	loadReviewsProjectConfig,
 	parseReviewsProjectConfigToml,
 	reviewsExcludeGlobsToGitPathspecs,
 	type ProjectConfigErrorCode,
@@ -43,6 +49,18 @@ describe("parseReviewsProjectConfigToml", () => {
 	});
 });
 
+describe("loadReviewsProjectConfig", () => {
+	test("identifies local config read failures", () => {
+		const gateway = new ReviewsConfigGateway({}, { "ns.local.toml": "permission denied" });
+
+		const result = loadReviewsProjectConfig({ repoRoot: "/repo", gateway });
+
+		const error = expectError(result);
+		expect(error.code).toBe("invalid-table");
+		expect(error.message).toContain("Failed to read ns.local.toml");
+	});
+});
+
 describe("git diff pathspec helpers", () => {
 	test("converts plain exclude globs", () => {
 		expect(reviewsExcludeGlobsToGitPathspecs([".agents/**/*.py"])).toEqual([
@@ -61,6 +79,30 @@ function expectOk(result: ParseResult) {
 	if (!result.ok) throw new Error(result.error.message);
 	return result.value;
 }
+class ReviewsConfigGateway implements ProjectConfigGateway {
+	private readonly files: Readonly<Record<string, string>>;
+	private readonly readErrors: Readonly<Record<string, string>>;
+
+	constructor(
+		files: Readonly<Record<string, string>>,
+		readErrors: Readonly<Record<string, string>> = {},
+	) {
+		this.files = files;
+		this.readErrors = readErrors;
+	}
+
+	readTextFile(request: { relativePath: string }): ProjectConfigReadResult {
+		const readError = this.readErrors[request.relativePath];
+		if (readError !== undefined) return { type: "error", message: readError };
+		const text = this.files[request.relativePath];
+		return text === undefined ? { type: "missing" } : { type: "found", text };
+	}
+
+	pathExists(): { type: "missing" } {
+		return { type: "missing" };
+	}
+}
+
 function expectError(result: ParseResult): {
 	readonly code: ProjectConfigErrorCode;
 	readonly message: string;

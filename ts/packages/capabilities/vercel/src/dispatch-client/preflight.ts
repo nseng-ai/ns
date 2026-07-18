@@ -1,3 +1,15 @@
+import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import {
+	getProjectConfigSetting,
+	loadEffectiveProjectConfig,
+	loadProjectConfig,
+	NS_LOCAL_TOML_FILE_NAME,
+	projectConfigErrorFromDiagnostics,
+	type ProjectConfigDiagnostic,
+	type SettingsSchema,
+} from "@nseng-ai/sdk/project-config/points";
+import { z } from "zod";
+
 import {
 	DISPATCH_PACKAGE_MANAGER_FIELD,
 	DISPATCH_PACKAGE_MANIFEST_PATH,
@@ -5,10 +17,9 @@ import {
 	parseDispatchPackageManagerSource,
 } from "../dispatch/harness-registry.ts";
 import {
-	parseDispatchProjectConfigToml,
+	parseDispatchProjectConfigSettings,
 	type DispatchProjectConfig,
 } from "../config/project-config.ts";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
 import type { DispatchPromptGateways, DispatchTriggerConnection } from "./contracts.ts";
 
@@ -115,6 +126,14 @@ type ValidDispatchProjectConfig = Omit<
 	readonly workflowDashboardUrl: string;
 };
 
+type DispatchSettingsRecord = Record<string, unknown>;
+
+const dispatchSettingsSchema = {
+	path: ["dispatch"] as const,
+	schema: z.record(z.string(), z.unknown()),
+	invalidMessage: ({ pathLabel }) => `${pathLabel}: [dispatch] must be a TOML table.`,
+} satisfies SettingsSchema<DispatchSettingsRecord>;
+
 async function readDispatchConfig(
 	repoRoot: string,
 	gateways: Pick<DispatchPromptGateways, "config">,
@@ -122,26 +141,44 @@ async function readDispatchConfig(
 	readonly check: DispatchPreflightCheck;
 	readonly config?: ValidDispatchProjectConfig;
 }> {
-	const source = await gateways.config.readDispatchSettingsSource({ repoRoot });
-	if (source.type === "missing") {
+	const effective = loadEffectiveProjectConfig({
+		repoRoot,
+		gateway: gateways.config,
+		pointDefinitions: [],
+		settingsSchemas: [dispatchSettingsSchema],
+	});
+	const configDiagnostics = effective.diagnostics.filter(
+		(diagnostic) => !diagnostic.code.startsWith("point"),
+	);
+	if (configDiagnostics.length > 0 || effective.config === undefined) {
 		return {
 			check: {
 				id: "dispatch-config",
 				status: "failed",
-				detail: `No ${DISPATCH_SETTINGS_PATH} at the repository root; dispatch needs its [dispatch] table (see the dispatch README's Setup section).`,
+				detail: dispatchConfigDiagnosticMessage(configDiagnostics),
 			},
 		};
 	}
-	if (source.type === "error") {
+	const effectiveSettings = getProjectConfigSetting(effective.config, dispatchSettingsSchema);
+	if (effectiveSettings === undefined) {
 		return {
 			check: {
 				id: "dispatch-config",
 				status: "failed",
-				detail: `Reading ${DISPATCH_SETTINGS_PATH} failed: ${source.message}`,
+				detail: `No ${DISPATCH_SETTINGS_PATH} [dispatch] table at the repository root; dispatch needs it (see the dispatch README's Setup section).`,
 			},
 		};
 	}
-	const parsed = parseDispatchProjectConfigToml(source.source, DISPATCH_SETTINGS_PATH);
+	const divergence = unsupportedRemoteDispatchDivergence(repoRoot, gateways, effectiveSettings);
+	if (divergence !== undefined) {
+		return {
+			check: { id: "dispatch-config", status: "failed", detail: divergence },
+		};
+	}
+	const parsed = parseDispatchProjectConfigSettings(
+		effectiveSettings,
+		`${DISPATCH_SETTINGS_PATH} + ${NS_LOCAL_TOML_FILE_NAME}`,
+	);
 	if (parsed.ok === false) {
 		return {
 			check: { id: "dispatch-config", status: "failed", detail: parsed.error.message },
@@ -177,6 +214,38 @@ async function readDispatchConfig(
 			workflowDashboardUrl: parsed.value.workflowDashboardUrl,
 		},
 	};
+}
+
+function unsupportedRemoteDispatchDivergence(
+	repoRoot: string,
+	gateways: Pick<DispatchPromptGateways, "config">,
+	effectiveSettings: DispatchSettingsRecord,
+): string | undefined {
+	const base = loadProjectConfig({
+		repoRoot,
+		gateway: gateways.config,
+		pointDefinitions: [],
+		settingsSchemas: [dispatchSettingsSchema],
+	});
+	if (!base.ok) return undefined;
+	const baseSettings = getProjectConfigSetting(base.config, dispatchSettingsSchema);
+	const remoteRequiredKeys = ["harness", "vercel_project_id", "vercel_team_id"] as const;
+	const divergentKeys = remoteRequiredKeys.filter(
+		(key) => baseSettings?.[key] !== effectiveSettings[key],
+	);
+	if (divergentKeys.length === 0) return undefined;
+	const paths = divergentKeys.map((key) => `[dispatch].${key}`).join(", ");
+	return `${NS_LOCAL_TOML_FILE_NAME}: ${paths} differs from ${DISPATCH_SETTINGS_PATH}, but remote dispatch and deployment readers use only ${DISPATCH_SETTINGS_PATH}; move the remote-required value to ${DISPATCH_SETTINGS_PATH}.`;
+}
+
+function dispatchConfigDiagnosticMessage(diagnostics: readonly ProjectConfigDiagnostic[]): string {
+	const sourcePath = diagnostics.find((diagnostic) => diagnostic.severity === "error")?.path;
+	return projectConfigErrorFromDiagnostics(diagnostics, {
+		invalidToml: "dispatch-config",
+		defaultCode: "dispatch-config",
+		defaultMessage: "Unable to load effective dispatch configuration.",
+		...(sourcePath === undefined ? {} : { pathLabel: sourcePath }),
+	}).message;
 }
 
 async function readPackageManagerConfig(

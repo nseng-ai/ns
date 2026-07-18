@@ -143,6 +143,20 @@ export function parseDispatchProjectConfigToml(
 	return { ok: true, value: dispatchSettings };
 }
 
+export function parseDispatchProjectConfigSettings(
+	settings: unknown,
+	pathLabel?: string,
+): DispatchProjectConfigParseResult {
+	const parsed = dispatchSettingsSchema.schema.safeParse(settings);
+	if (!parsed.success) {
+		return resultErrOf(
+			"invalid-dispatch",
+			dispatchSettingsSchema.invalidMessage({ pathLabel: pathLabel ?? "ns.toml" }),
+		);
+	}
+	return { ok: true, value: parsed.data };
+}
+
 function projectConfigParseErrorFromDiagnostics(
 	diagnostics: readonly ProjectConfigDiagnostic[],
 	pathLabel: string | undefined,

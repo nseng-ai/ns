@@ -41,6 +41,11 @@ describe("RealLocalDiffGateway", () => {
 		await mkdir(repoRoot, { recursive: true });
 		await writeFile(
 			join(repoRoot, "ns.toml"),
+			'[reviews.diff]\nexclude = ["base-generated/**"]\n',
+			"utf8",
+		);
+		await writeFile(
+			join(repoRoot, "ns.local.toml"),
 			'[reviews.diff]\nexclude = [".agents/skills/**/*.py"]\n',
 			"utf8",
 		);

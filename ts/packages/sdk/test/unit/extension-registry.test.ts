@@ -253,6 +253,62 @@ export default defineExtension({
 		);
 	});
 
+	test("ns.local.toml extensions replace base extensions for command discovery", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/base"]\n');
+		writeWorkspaceFile(
+			join(workspace.cwd, "ns.local.toml"),
+			'extensions = ["./extensions/local"]\n',
+		);
+		for (const directoryName of ["base", "local"] as const) {
+			writeDescriptorPackage({
+				cwd: workspace.cwd,
+				directoryName,
+				packageName: `@example/${directoryName}`,
+				descriptorSource: `
+import { defineExtension } from "@nseng-ai/sdk";
+const command = { name: "run", summary: "Run.", description: "Run.", run: () => ({ type: "ok", data: {} }) };
+export default defineExtension({
+  group: "${directoryName}",
+  description: "${directoryName} commands.",
+  entries: [{ name: "run", load: () => ({ default: command }) }],
+});
+`,
+			});
+		}
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
+		expect(loaded.candidates.has("base/run")).toBe(false);
+		expect(loaded.candidates.get("local/run")).toMatchObject({
+			source: {
+				level: "project",
+				label: "effective project config descriptor ./extensions/local",
+			},
+		});
+		expect([...loaded.extensionPackageNames]).toEqual(["@example/local"]);
+	});
+
+	test("malformed ns.local.toml reports its precise config source", async () => {
+		const workspace = await createExtensionRegistryWorkspace();
+		writeWorkspaceFile(join(workspace.cwd, "ns.toml"), 'extensions = ["./extensions/base"]\n');
+		writeWorkspaceFile(join(workspace.cwd, "ns.local.toml"), "[broken");
+
+		const loaded = await loadNsCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect([...loaded.candidates.keys()]).toEqual(builtInCandidateKeys);
+		expect(loaded.diagnostics).toEqual([
+			expect.objectContaining({
+				severity: "error",
+				code: "ns_toml_invalid",
+				message: expect.stringContaining("ns.local.toml: Invalid TOML."),
+				path: join(workspace.cwd, "ns.local.toml"),
+				sourceLevel: "project",
+			}),
+		]);
+	});
+
 	test("project requirements use all successfully declared package identities regardless of order", async () => {
 		const workspace = await createExtensionRegistryWorkspace();
 		writeWorkspaceFile(

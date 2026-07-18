@@ -1,3 +1,8 @@
+import type {
+	ProjectConfigPathExistsResult,
+	ProjectConfigReadResult,
+} from "@nseng-ai/sdk/project-config/points";
+
 import type { ProvisionPathKind, SlotProvisionFilesGateway } from "../provision-files.ts";
 
 export interface FakeProvisionFileEntry {
@@ -9,10 +14,10 @@ export interface FakeProvisionFileEntry {
 export interface FakeSlotProvisionFilesGatewayOptions {
 	/** Absolute path -> file entry (string shorthand for a plain file). */
 	files?: Record<string, string | FakeProvisionFileEntry>;
-	/** Invoking repo root -> ns.toml source. Missing root means no ns.toml. */
-	projectConfigByRoot?: Record<string, string>;
-	/** Invoking repo root -> error message thrown when reading ns.toml. */
-	projectConfigReadFailures?: Record<string, string>;
+	/** Absolute config path -> source. Missing path means the config file is absent. */
+	projectConfigByPath?: Record<string, string>;
+	/** Absolute config path -> read failure message. */
+	projectConfigReadFailuresByPath?: Record<string, string>;
 	/** Destination absolute path -> error message thrown on copy. */
 	copyFailures?: Record<string, string>;
 }
@@ -25,8 +30,8 @@ export interface FakeProvisionFilesOperation {
 
 export class FakeSlotProvisionFilesGateway implements SlotProvisionFilesGateway {
 	private readonly entries: Map<string, FakeProvisionFileEntry>;
-	private readonly projectConfigByRoot: Map<string, string>;
-	private readonly projectConfigReadFailures: Map<string, string>;
+	private readonly projectConfigByPath: Map<string, string>;
+	private readonly projectConfigReadFailuresByPath: Map<string, string>;
 	private readonly copyFailures: Map<string, string>;
 	private readonly log: FakeProvisionFilesOperation[] = [];
 
@@ -37,17 +42,25 @@ export class FakeSlotProvisionFilesGateway implements SlotProvisionFilesGateway 
 				typeof entry === "string" ? { content: entry } : { ...entry },
 			]),
 		);
-		this.projectConfigByRoot = new Map(Object.entries(options.projectConfigByRoot ?? {}));
-		this.projectConfigReadFailures = new Map(
-			Object.entries(options.projectConfigReadFailures ?? {}),
+		this.projectConfigByPath = new Map(Object.entries(options.projectConfigByPath ?? {}));
+		this.projectConfigReadFailuresByPath = new Map(
+			Object.entries(options.projectConfigReadFailuresByPath ?? {}),
 		);
 		this.copyFailures = new Map(Object.entries(options.copyFailures ?? {}));
 	}
 
-	async readProjectConfigSource(repoRoot: string): Promise<string | null> {
-		const failureMessage = this.projectConfigReadFailures.get(repoRoot);
-		if (failureMessage !== undefined) throw new Error(failureMessage);
-		return this.projectConfigByRoot.get(repoRoot) ?? null;
+	readTextFile(request: { repoRoot: string; relativePath: string }): ProjectConfigReadResult {
+		const path = projectConfigPath(request);
+		const failureMessage = this.projectConfigReadFailuresByPath.get(path);
+		if (failureMessage !== undefined) return { type: "error", message: failureMessage };
+		const text = this.projectConfigByPath.get(path);
+		return text === undefined ? { type: "missing" } : { type: "found", text };
+	}
+
+	pathExists(request: { repoRoot: string; relativePath: string }): ProjectConfigPathExistsResult {
+		return this.projectConfigByPath.has(projectConfigPath(request))
+			? { type: "present" }
+			: { type: "missing" };
 	}
 
 	async inspect(absolutePath: string): Promise<ProvisionPathKind> {
@@ -96,4 +109,8 @@ export class FakeSlotProvisionFilesGateway implements SlotProvisionFilesGateway 
 		}
 		return entry;
 	}
+}
+
+function projectConfigPath(request: { repoRoot: string; relativePath: string }): string {
+	return `${request.repoRoot}/${request.relativePath}`;
 }

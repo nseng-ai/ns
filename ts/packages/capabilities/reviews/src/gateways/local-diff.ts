@@ -1,6 +1,3 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import {
 	type CommandExecApi,
 	commandFailureReason,
@@ -8,6 +5,7 @@ import {
 	formatCommand,
 } from "@nseng-ai/foundation/command";
 import { formatErrorMessage, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { resultErr } from "@nseng-ai/foundation/result";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
@@ -15,8 +13,7 @@ import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { parseUnifiedDiff } from "../core/diff-parsing.ts";
 import type { LocalDiffFailure, ReviewResult } from "../core/failures.ts";
 import { createLocalDiff, type LocalDiff } from "../core/models.ts";
-import { buildGitDiffArgs, parseReviewsProjectConfigToml } from "../core/project-config.ts";
-import { isMissingFileError } from "./filesystem-errors.ts";
+import { buildGitDiffArgs, loadReviewsProjectConfig } from "../core/project-config.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 
@@ -118,19 +115,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 	): Promise<ReviewResult<readonly string[]>> {
 		if (options.excludeGlobs !== undefined) return { ok: true, value: options.excludeGlobs };
 
-		const path = join(repoRoot, "ns.toml");
-		let source: string;
-		try {
-			source = await readFile(path, "utf8");
-		} catch (caught) {
-			if (isMissingFileError(caught)) return { ok: true, value: [] };
-			return error({
-				code: "project-config-invalid",
-				message: `Failed to read ns.toml: ${formatErrorMessage(caught)}`,
-			});
-		}
-
-		const config = parseReviewsProjectConfigToml(source, path);
+		const config = loadReviewsProjectConfig({ repoRoot, gateway: nodeProjectConfigGateway });
 		if (!config.ok) return error({ code: "project-config-invalid", message: config.error.message });
 		return { ok: true, value: config.value.diff.exclude };
 	}

@@ -1,11 +1,18 @@
 import {
 	getProjectConfigSetting,
+	loadEffectiveProjectConfig,
 	parseProjectConfigToml,
 	projectConfigErrorFromDiagnostics,
+	type LoadedProjectConfig,
 	type ProjectConfigDiagnostic,
+	type ProjectConfigGateway,
 	type SettingsSchema,
 } from "@nseng-ai/sdk/project-config/points";
-import { parseModelPolicyToml, type ModelPolicy } from "@nseng-ai/capability-kit/model-policy";
+import {
+	loadModelPolicy,
+	parseModelPolicyToml,
+	type ModelPolicy,
+} from "@nseng-ai/capability-kit/model-policy";
 import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
@@ -78,8 +85,7 @@ export function parseReviewsProjectConfigToml(
 	});
 	if (!result.ok) return projectConfigParseErrorFromDiagnostics(result.diagnostics, pathLabel);
 
-	const diffSettings = getProjectConfigSetting(result.config, reviewsDiffSettingsSchema);
-	const parsedDiff = parseDiffConfig(diffSettings, pathLabel);
+	const parsedDiff = reviewsDiffConfigFromLoadedConfig(result.config, pathLabel);
 	if (!parsedDiff.ok) return parsedDiff;
 
 	const policy = parseModelPolicyToml(source, pathLabel);
@@ -87,6 +93,33 @@ export function parseReviewsProjectConfigToml(
 		return resultErrOf("invalid-model-policy", policy.error.message);
 	}
 
+	return { ok: true, value: { diff: parsedDiff.value, modelPolicy: policy.value } };
+}
+
+export function loadReviewsProjectConfig(request: {
+	repoRoot: string;
+	gateway: ProjectConfigGateway;
+}): ProjectConfigParseResult {
+	const result = loadEffectiveProjectConfig({
+		repoRoot: request.repoRoot,
+		gateway: request.gateway,
+		pointDefinitions: [],
+		settingsSchemas: [reviewsRootSettingsSchema, reviewsDiffSettingsSchema],
+	});
+	const relevantDiagnostics = result.diagnostics.filter(
+		(diagnostic) => !diagnostic.code.startsWith("point"),
+	);
+	if (relevantDiagnostics.length > 0 || result.config === undefined) {
+		const sourcePath = relevantDiagnostics.find(
+			(diagnostic) => diagnostic.severity === "error",
+		)?.path;
+		return projectConfigParseErrorFromDiagnostics(relevantDiagnostics, sourcePath);
+	}
+
+	const parsedDiff = reviewsDiffConfigFromLoadedConfig(result.config);
+	if (!parsedDiff.ok) return parsedDiff;
+	const policy = loadModelPolicy(request);
+	if (!policy.ok) return resultErrOf("invalid-model-policy", policy.error.message);
 	return { ok: true, value: { diff: parsedDiff.value, modelPolicy: policy.value } };
 }
 
@@ -117,6 +150,13 @@ export function buildGitDiffArgs(options: GitDiffArgsOptions): readonly string[]
 type DiffConfigParseResult = Result<ReviewsDiffProjectConfig, ProjectConfigError>;
 
 type ExcludeParseResult = Result<readonly string[], ProjectConfigError>;
+
+function reviewsDiffConfigFromLoadedConfig(
+	config: LoadedProjectConfig,
+	pathLabel?: string,
+): DiffConfigParseResult {
+	return parseDiffConfig(getProjectConfigSetting(config, reviewsDiffSettingsSchema), pathLabel);
+}
 
 function parseDiffConfig(
 	value: ReviewsSettingsRecord | undefined,

@@ -5,6 +5,7 @@ import {
 	dispatchHarnessValues,
 	parseDispatchProjectConfigToml,
 } from "../../src/api/index.ts";
+import { parseDispatchProjectConfigSettings } from "../../src/config/project-config.ts";
 
 describe("parseDispatchProjectConfigToml", () => {
 	it("publishes only registry-implemented harness values", () => {
@@ -106,6 +107,43 @@ deployment_url = "${url}"
 
 			expect(result).toMatchObject({ ok: false, error: { code: "invalid-dispatch" } });
 		}
+	});
+
+	it("validates an already parsed dispatch settings value", () => {
+		const result = parseDispatchProjectConfigSettings(
+			{
+				harness: "pi",
+				vercel_project_id: "prj_mxMd0ac1GvXSBkcuevA5jVn7GU06",
+				vercel_team_id: "team_example123",
+				anchor_timezone: "Etc/UTC",
+			},
+			"ns.toml + ns.local.toml",
+		);
+
+		expect(result).toMatchObject({
+			ok: true,
+			value: { harness: "pi", anchorTimeZone: "UTC" },
+		});
+	});
+
+	it("rejects invalid already parsed dispatch settings", () => {
+		const result = parseDispatchProjectConfigSettings(
+			{
+				harness: "pi",
+				vercel_project_id: "prj_example",
+				vercel_team_id: "team_example",
+				extra: true,
+			},
+			"ns.toml + ns.local.toml",
+		);
+
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				code: "invalid-dispatch",
+				message: "ns.toml + ns.local.toml: [dispatch] is invalid.",
+			},
+		});
 	});
 
 	it("requires the dispatch table", () => {

@@ -59,7 +59,11 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles]\ndeep = "anthropic/claude-opus-4-6"\n',
+			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles]\ndeep = "base/base-model"\n',
+		);
+		await writeFile(
+			join(repoRoot, "ns.local.toml"),
+			'[reviews.diff]\nexclude = ["local-generated/**"]\n[models.profiles]\ndeep = "anthropic/claude-opus-4-6"\n',
 		);
 		const localDiff = new FakeLocalDiffGateway({
 			defaultDiff: {
@@ -113,7 +117,7 @@ describe("runReview", () => {
 		expect(outcome.progress.modelProfile).toBe("deep");
 		expect(reviewRunner.calls()[0]?.request.model).toBe("anthropic/claude-opus-4-6");
 		expect(reviewRunner.calls()[0]?.request.reviewDir).toBe("/repo/.ns/reviews/typescript-style");
-		expect(localDiff.requestedExcludeGlobs()).toEqual([["generated/**"]]);
+		expect(localDiff.requestedExcludeGlobs()).toEqual([["local-generated/**"]]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
 		expect(reviewLog.writtenEntries()[0]?.reviewKey).toBe("typescript-style");
 	});
@@ -146,6 +150,33 @@ describe("runReview", () => {
 		expect(outcome.progress.modelProfile).toBe("architecture");
 		expect(outcome.progress.model).toBe("anthropic/claude-opus-4-6");
 		expect(reviewRunner.calls()[0]?.request.model).toBe("anthropic/claude-opus-4-6");
+	});
+
+	test("reports malformed local config with its source", async () => {
+		const repoRoot = await tempRepoRoot();
+		await writeFile(join(repoRoot, "ns.toml"), '[models.profiles]\ndeep = "base/deep"\n');
+		await writeFile(join(repoRoot, "ns.local.toml"), "[reviews.diff\n");
+		const reviewRunner = new FakeReviewRunnerGateway();
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
+				gitGateway: gitGateway(repoRoot),
+				reviewCatalog: new FakeReviewCatalogGateway({
+					reviewSourcesByKey: { "typescript-style": DEEP_REVIEW_SOURCE },
+				}),
+				reviewRunner,
+				cwd: repoRoot,
+			}),
+		);
+
+		const outcome = await runReview(ctx, { key: "typescript-style" });
+
+		expect(outcome.type).toBe("failed");
+		if (outcome.type === "failed") {
+			expect(outcome.error.code).toBe("project-config-invalid");
+			expect(outcome.error.message).toContain("ns.local.toml");
+			expect(outcome.error.message).toContain("Invalid TOML");
+		}
+		expect(reviewRunner.calls()).toEqual([]);
 	});
 
 	test("reports an actionable error for a missing profile alias", async () => {

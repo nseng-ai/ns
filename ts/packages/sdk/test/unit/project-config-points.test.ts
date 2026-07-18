@@ -4,9 +4,14 @@ import { z } from "zod";
 import type { ExtensionDescriptor } from "../../src/sdk/descriptor.ts";
 import {
 	buildPointCatalog,
+	loadEffectiveProjectConfig,
 	loadPointCatalog,
 	loadProjectConfig,
+	mergeProjectConfigTomlDocuments,
+	NS_LOCAL_TOML_FILE_NAME,
+	NS_TOML_FILE_NAME,
 	parseProjectConfigToml,
+	parseProjectConfigTomlDocument,
 	primaryProjectConfigDiagnostic,
 	projectConfigErrorFromDiagnostics,
 	resolvePromptPointSource,
@@ -14,6 +19,7 @@ import {
 	type ProjectConfigGateway,
 	type ProjectConfigPathExistsResult,
 	type ProjectConfigReadResult,
+	type ProjectConfigTomlDocument,
 } from "../../src/project-config/points.ts";
 
 const pointDefinitions = [
@@ -21,6 +27,13 @@ const pointDefinitions = [
 	{ id: "flow.submit.pre.recovery", accepts: "prompt", cardinality: "one" },
 	{ id: "flow.submit.pr-description", accepts: "prompt", cardinality: "one" },
 ] as const satisfies readonly PointDefinition[];
+
+const modelShortcutsSettingsSchema = {
+	path: ["pi", "model-shortcuts"] as const,
+	schema: z.object({ sonnet: z.string().regex(/^[^/]+\/[^/]+$/) }),
+	invalidMessage: ({ pathLabel }: { pathLabel: string }) =>
+		`${pathLabel}: [pi.model-shortcuts] is invalid.`,
+};
 
 describe("project point config", () => {
 	test("loads repo-root ns.toml through one gateway read and validates point installations", () => {
@@ -56,6 +69,227 @@ describe("project point config", () => {
 			config: { points: [], settings: new Map() },
 			diagnostics: [],
 		});
+	});
+
+	test("keeps loadProjectConfig explicitly base-only", () => {
+		const gateway = new InMemoryProjectConfigGateway({
+			[NS_TOML_FILE_NAME]: `[points]\n"flow.submit.pre" = ["base"]`,
+			[NS_LOCAL_TOML_FILE_NAME]: `[points]\n"flow.submit.pre" = ["local"]`,
+		});
+
+		const result = loadProjectConfig({ repoRoot: "/repo", gateway, pointDefinitions });
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(result.config.points).toEqual([
+			{ pointId: "flow.submit.pre", accepts: "hook", commands: ["base"] },
+		]);
+		expect(gateway.reads).toEqual([{ repoRoot: "/repo", relativePath: NS_TOML_FILE_NAME }]);
+	});
+
+	test("recursively merges tables while replacing arrays and scalar/table leaves", () => {
+		const base = {
+			nested: { kept: "base", replaced: { old: true }, scalar: "base" },
+			array: ["base"],
+			tableReplacedByScalar: { old: true },
+		} satisfies ProjectConfigTomlDocument;
+		const local = {
+			nested: { added: "local", replaced: { fresh: true }, scalar: { now: "table" } },
+			array: ["local"],
+			tableReplacedByScalar: "local",
+			scalarReplacedByTable: { now: "table" },
+		} satisfies ProjectConfigTomlDocument;
+
+		expect(mergeProjectConfigTomlDocuments(base, local)).toEqual({
+			nested: {
+				kept: "base",
+				added: "local",
+				replaced: { old: true, fresh: true },
+				scalar: { now: "table" },
+			},
+			array: ["local"],
+			tableReplacedByScalar: "local",
+			scalarReplacedByTable: { now: "table" },
+		});
+		expect(mergeProjectConfigTomlDocuments({ leaf: "base" }, { leaf: { nested: true } })).toEqual({
+			leaf: { nested: true },
+		});
+	});
+
+	test("parses dotted and quoted TOML keys before merging", () => {
+		const base = parseProjectConfigTomlDocument(
+			`service.database.host = "base"\n["quoted.table"]\nkeep = true`,
+		);
+		const local = parseProjectConfigTomlDocument(
+			`service.database.port = 5432\n["quoted.table"]\nadded = true`,
+		);
+		expect(base.ok).toBe(true);
+		expect(local.ok).toBe(true);
+		if (!base.ok || !local.ok) return;
+
+		expect(mergeProjectConfigTomlDocuments(base.document, local.document)).toEqual({
+			service: { database: { host: "base", port: 5432 } },
+			"quoted.table": { keep: true, added: true },
+		});
+	});
+
+	test.each([
+		{ name: "neither", files: {}, expected: [] },
+		{
+			name: "base only",
+			files: { [NS_TOML_FILE_NAME]: `[points]\n"flow.submit.pre" = ["base"]` },
+			expected: ["base"],
+		},
+		{
+			name: "local only",
+			files: { [NS_LOCAL_TOML_FILE_NAME]: `[points]\n"flow.submit.pre" = ["local"]` },
+			expected: ["local"],
+		},
+		{
+			name: "both",
+			files: {
+				[NS_TOML_FILE_NAME]: `[points]\n"flow.submit.pre" = ["base"]`,
+				[NS_LOCAL_TOML_FILE_NAME]: `[points]\n"flow.submit.pre" = ["local"]`,
+			},
+			expected: ["local"],
+		},
+	])("loads effective config with $name source combination", ({ files, expected }) => {
+		const result = loadEffectiveProjectConfig({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway(files),
+			pointDefinitions,
+		});
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(
+			result.config.points.flatMap((point) => (point.accepts === "hook" ? point.commands : [])),
+		).toEqual(expected);
+	});
+
+	test.each([NS_TOML_FILE_NAME, NS_LOCAL_TOML_FILE_NAME])(
+		"reports malformed %s without returning partially merged config",
+		(relativePath) => {
+			const otherPath =
+				relativePath === NS_TOML_FILE_NAME ? NS_LOCAL_TOML_FILE_NAME : NS_TOML_FILE_NAME;
+			const result = loadEffectiveProjectConfig({
+				repoRoot: "/repo",
+				gateway: new InMemoryProjectConfigGateway({
+					[relativePath]: "[broken",
+					[otherPath]: `[points]\n"flow.submit.pre" = ["valid"]`,
+				}),
+				pointDefinitions,
+			});
+
+			expect(result.ok).toBe(false);
+			expect(result).not.toHaveProperty("config");
+			expect(result.diagnostics).toEqual([
+				expect.objectContaining({
+					code: "ns_toml_invalid",
+					path: relativePath,
+					message: expect.stringContaining(`${relativePath}: Invalid TOML.`),
+				}),
+			]);
+		},
+	);
+
+	test.each([NS_TOML_FILE_NAME, NS_LOCAL_TOML_FILE_NAME])(
+		"reports source-specific %s read errors without returning config",
+		(relativePath) => {
+			const gateway = new InMemoryProjectConfigGateway({}, { [relativePath]: "permission denied" });
+			const result = loadEffectiveProjectConfig({ repoRoot: "/repo", gateway, pointDefinitions });
+
+			expect(result.ok).toBe(false);
+			expect(result).not.toHaveProperty("config");
+			expect(result.diagnostics).toEqual([
+				expect.objectContaining({
+					code:
+						relativePath === NS_TOML_FILE_NAME
+							? "ns_toml_read_failed"
+							: "ns_local_toml_read_failed",
+					path: relativePath,
+					message: `Failed to read ${relativePath}: permission denied`,
+				}),
+			]);
+		},
+	);
+
+	test("attributes invalid local settings to their source file and schema path", () => {
+		const result = loadEffectiveProjectConfig({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway({
+				[NS_TOML_FILE_NAME]: `[pi.model-shortcuts]\nsonnet = "anthropic/base"`,
+				[NS_LOCAL_TOML_FILE_NAME]: `[pi.model-shortcuts]\nsonnet = "unqualified"`,
+			}),
+			pointDefinitions,
+			settingsSchemas: [modelShortcutsSettingsSchema],
+		});
+
+		expect(result.ok).toBe(false);
+		expect(result.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "settings_table_invalid",
+				path: "pi.model-shortcuts",
+				message: `${NS_LOCAL_TOML_FILE_NAME}: [pi.model-shortcuts] is invalid.`,
+			}),
+		]);
+	});
+
+	test("attributes invalid base settings to ns.toml when local config is unrelated", () => {
+		const result = loadEffectiveProjectConfig({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway({
+				[NS_TOML_FILE_NAME]: `[pi.model-shortcuts]\nsonnet = "unqualified"`,
+				[NS_LOCAL_TOML_FILE_NAME]: `[reviews]\nenabled = true`,
+			}),
+			pointDefinitions,
+			settingsSchemas: [modelShortcutsSettingsSchema],
+		});
+
+		expect(result.ok).toBe(false);
+		expect(result.diagnostics).toEqual([
+			expect.objectContaining({
+				path: "pi.model-shortcuts",
+				message: `${NS_TOML_FILE_NAME}: [pi.model-shortcuts] is invalid.`,
+			}),
+		]);
+	});
+
+	test("accepts a valid local setting that overrides an invalid base setting", () => {
+		const result = loadEffectiveProjectConfig({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway({
+				[NS_TOML_FILE_NAME]: `[pi.model-shortcuts]\nsonnet = "unqualified"`,
+				[NS_LOCAL_TOML_FILE_NAME]: `[pi.model-shortcuts]\nsonnet = "anthropic/local"`,
+			}),
+			pointDefinitions,
+			settingsSchemas: [modelShortcutsSettingsSchema],
+		});
+
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(result.config.settings.get("pi.model-shortcuts")).toEqual({
+			sonnet: "anthropic/local",
+		});
+	});
+
+	test("attributes invalid points to the source that supplies the effective table", () => {
+		const result = loadEffectiveProjectConfig({
+			repoRoot: "/repo",
+			gateway: new InMemoryProjectConfigGateway({
+				[NS_TOML_FILE_NAME]: `[points]\n"flow.submit.pre" = ["base"]`,
+				[NS_LOCAL_TOML_FILE_NAME]: `[points]\n"flow.submit.pre" = "invalid"`,
+			}),
+			pointDefinitions,
+		});
+
+		expect(result.ok).toBe(false);
+		expect(result.diagnostics).toEqual([
+			expect.objectContaining({
+				path: "points.flow.submit.pre",
+				message: expect.stringContaining(`${NS_LOCAL_TOML_FILE_NAME}:`),
+			}),
+		]);
 	});
 
 	test("reports TOML parse failures and does not validate partial config", () => {
@@ -492,14 +726,18 @@ context_lines = "wide"
 
 class InMemoryProjectConfigGateway implements ProjectConfigGateway {
 	readonly #files: ReadonlyMap<string, string>;
+	readonly #readErrors: ReadonlyMap<string, string>;
 	readonly reads: { repoRoot: string; relativePath: string }[] = [];
 
-	constructor(files: Record<string, string>) {
+	constructor(files: Record<string, string>, readErrors: Record<string, string> = {}) {
 		this.#files = new Map(Object.entries(files));
+		this.#readErrors = new Map(Object.entries(readErrors));
 	}
 
 	readTextFile(request: { repoRoot: string; relativePath: string }): ProjectConfigReadResult {
 		this.reads.push(request);
+		const error = this.#readErrors.get(request.relativePath);
+		if (error !== undefined) return { type: "error", message: error };
 		const text = this.#files.get(request.relativePath);
 		return text === undefined ? { type: "missing" } : { type: "found", text };
 	}

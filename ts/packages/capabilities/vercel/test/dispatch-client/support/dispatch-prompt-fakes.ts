@@ -3,6 +3,10 @@ import { FakeBrmemGateway, type BrmemResult, type PutEntryResult } from "@nseng-
 import type { Clock } from "@nseng-ai/foundation/clock";
 import { noopNsProgress } from "@nseng-ai/sdk";
 import type {
+	ProjectConfigPathExistsResult,
+	ProjectConfigReadResult,
+} from "@nseng-ai/sdk/project-config";
+import type {
 	ExecResult,
 	NsCommandIo,
 	NsExtensionApi,
@@ -585,6 +589,7 @@ export class FakeDispatchLocalTokenGateway implements DispatchLocalTokenGateway 
 
 export interface FakeDispatchConfigState {
 	readonly dispatchSettings?: DispatchConfigSourceResult;
+	readonly localDispatchSettings?: DispatchConfigSourceResult;
 	readonly packageManager?: DispatchConfigSourceResult;
 	readonly dispatchSettingsAfterPublication?: DispatchConfigSourceResult;
 	readonly packageManagerAfterPublication?: DispatchConfigSourceResult;
@@ -594,7 +599,7 @@ export interface FakeDispatchConfigState {
 
 export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 	private readonly readLog: Array<{
-		source: "dispatch-settings" | "package-manager";
+		source: "dispatch-settings" | "local-dispatch-settings" | "package-manager";
 		repoRoot: string;
 	}> = [];
 	private readonly repository: FakeDispatchRepositoryState;
@@ -612,22 +617,39 @@ export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 	}
 
 	get reads(): ReadonlyArray<{
-		readonly source: "dispatch-settings" | "package-manager";
+		readonly source: "dispatch-settings" | "local-dispatch-settings" | "package-manager";
 		readonly repoRoot: string;
 	}> {
 		return this.readLog.map((entry) => ({ ...entry }));
 	}
 
-	async readDispatchSettingsSource(options: { readonly repoRoot: string }) {
-		this.readLog.push({ source: "dispatch-settings", repoRoot: options.repoRoot });
+	readTextFile(request: {
+		readonly repoRoot: string;
+		readonly relativePath: string;
+	}): ProjectConfigReadResult {
+		if (request.relativePath === "ns.local.toml") {
+			this.readLog.push({ source: "local-dispatch-settings", repoRoot: request.repoRoot });
+			this.recordOperation("config:read-local-dispatch-settings");
+			return projectConfigReadResult(this.state.localDispatchSettings ?? { type: "missing" });
+		}
+		this.readLog.push({ source: "dispatch-settings", repoRoot: request.repoRoot });
 		this.recordOperation("config:read-dispatch-settings");
 		const beforeFinalValidation = this.repository.isFinalValidationReady;
 		const afterPublication = this.repository.hasSourcePublication;
-		return (
+		return projectConfigReadResult(
 			(beforeFinalValidation ? this.state.dispatchSettingsBeforeFinalValidation : undefined) ??
-			(afterPublication ? this.state.dispatchSettingsAfterPublication : undefined) ??
-			this.state.dispatchSettings ?? { type: "found", source: FAKE_DISPATCH_SETTINGS_SOURCE }
+				(afterPublication ? this.state.dispatchSettingsAfterPublication : undefined) ??
+				this.state.dispatchSettings ?? { type: "found", source: FAKE_DISPATCH_SETTINGS_SOURCE },
 		);
+	}
+
+	pathExists(request: {
+		readonly repoRoot: string;
+		readonly relativePath: string;
+	}): ProjectConfigPathExistsResult {
+		const result = this.readTextFile(request);
+		if (result.type === "found") return { type: "present" };
+		return result;
 	}
 
 	async readPackageManagerSource(options: { readonly repoRoot: string }) {
@@ -641,6 +663,11 @@ export class FakeDispatchConfigGateway implements DispatchConfigGateway {
 			this.state.packageManager ?? { type: "found", source: FAKE_PACKAGE_MANAGER_SOURCE }
 		);
 	}
+}
+
+function projectConfigReadResult(source: DispatchConfigSourceResult): ProjectConfigReadResult {
+	if (source.type === "found") return { type: "found", text: source.source };
+	return source;
 }
 
 class FakeDispatchSavedPlanGateway implements DispatchSavedPlanGateway {

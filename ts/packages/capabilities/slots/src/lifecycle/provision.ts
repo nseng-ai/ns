@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { RepoSlotContext } from "../core/context.ts";
 import { buildSlotInventory } from "../core/inventory.ts";
 import {
-	parseSlotsProvisionConfigToml,
+	loadSlotsProvisionConfig,
 	type SlotsProvisionConfigError,
 } from "../core/provision-config.ts";
 import type { RepoContext } from "../core/repo-context.ts";
@@ -90,9 +90,10 @@ export function provisionStoreRoot(repo: RepoContext): string {
 export async function loadProvisionDeclaration(
 	ctx: RepoSlotContext,
 ): Promise<ProvisionDeclarationResult> {
-	const source = await ctx.provisionFiles.readProjectConfigSource(ctx.repo.root);
-	if (source === null) return { type: "ok", paths: [] };
-	const parsed = parseSlotsProvisionConfigToml(source);
+	const parsed = loadSlotsProvisionConfig({
+		repoRoot: ctx.repo.root,
+		gateway: ctx.provisionFiles,
+	});
 	if (!parsed.ok) return { type: "config-error", error: parsed.error };
 	return { type: "ok", paths: parsed.value.provision };
 }

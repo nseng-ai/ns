@@ -2,6 +2,7 @@ import { createNsGitGateway } from "@nseng-ai/capability-kit";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { createRealExtensionAcquisitionGateway } from "@nseng-ai/sdk/extensions/acquisition";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
+import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import type { NsActivationContext } from "../activation-context.ts";
 import {
@@ -33,6 +34,7 @@ export function createNsInitContext(
 		uninstallAcquisition: new RealExtensionUninstallAcquisitionGateway(acquisition),
 		updateAcquisition: new RealExtensionUpdateAcquisitionGateway(acquisition),
 		files: new RealActivationFilesGateway(),
+		projectConfig: nodeProjectConfigGateway,
 		declaredExtensions: new RealDeclaredExtensionsGateway(),
 		artifacts: new RealArtifactActivationGateway(),
 		artifactProvisioningStatus: new RealArtifactProvisioningStatusGateway(),

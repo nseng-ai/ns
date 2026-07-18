@@ -43,6 +43,7 @@ function descriptor(options: {
 function fixture(
 	options: {
 		nsToml?: string;
+		nsLocalToml?: string;
 		git?: InMemoryGitGateway;
 		files?: InMemoryActivationFilesGateway;
 		descriptors?: readonly DeclaredExtensionDescriptor[];
@@ -65,7 +66,10 @@ function fixture(
 	const files =
 		options.files ??
 		new InMemoryActivationFilesGateway({
-			files: options.nsToml === undefined ? {} : { "ns.toml": options.nsToml },
+			files: {
+				...(options.nsToml === undefined ? {} : { "ns.toml": options.nsToml }),
+				...(options.nsLocalToml === undefined ? {} : { "ns.local.toml": options.nsLocalToml }),
+			},
 		});
 	const declaredExtensions = new InMemoryDeclaredExtensionsGateway({
 		result: {
@@ -82,7 +86,7 @@ function fixture(
 		artifacts,
 		context: {
 			git: options.git ?? new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
-			files,
+			projectConfig: files,
 			declaredExtensions,
 			artifactProvisioningStatus: artifacts,
 		},
@@ -159,6 +163,62 @@ describe("listExtensions", () => {
 			type: "failure",
 			errorType: "ns-extension-list-config-invalid",
 			data: { diagnostics: [{ code: expect.any(String), path: "/repo/ns.toml" }] },
+		});
+	});
+
+	it("uses local extension replacement and local harness override", async () => {
+		const local = descriptor({ spec: "./local-extension" });
+		const { context, declaredExtensions, artifacts } = fixture({
+			nsToml: 'harnesses = ["codex"]\nextensions = ["./base-extension"]\n',
+			nsLocalToml: 'harnesses = ["pi"]\nextensions = ["./local-extension"]\n',
+			descriptors: [local],
+			artifactSummaries: [
+				{
+					moduleRoot: local.moduleRoot,
+					artifactStatus: "provisioned",
+					artifactCount: 1,
+					affectedArtifactCount: 0,
+					diagnostics: [],
+				},
+			],
+		});
+
+		const result = await listExtensions(context, { cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			type: "ok",
+			data: {
+				configPath: "/repo/ns.toml",
+				extensions: [{ sourceSpec: "./local-extension", artifactStatus: "provisioned" }],
+			},
+		});
+		expect(declaredExtensions.calls()).toEqual([
+			{ repoRoot: "/repo", specs: ["./local-extension"] },
+		]);
+		expect(artifacts.inspectCalls()).toEqual([
+			{ repoRoot: "/repo", descriptors: [local], harnesses: ["pi"] },
+		]);
+	});
+
+	it.each([
+		["malformed", { files: { "ns.toml": "", "ns.local.toml": "extensions = [\n" } }],
+		[
+			"read-failed",
+			{
+				files: { "ns.toml": 'extensions = ["./base"]\n' },
+				readFailures: {
+					"ns.local.toml": { code: "read-failed", message: "permission denied" },
+				},
+			},
+		],
+	] as const)("reports %s local config failures against ns.local.toml", async (_label, state) => {
+		const { context } = fixture({ files: new InMemoryActivationFilesGateway(state) });
+
+		await expect(listExtensions(context, { cwd: "/repo" })).resolves.toMatchObject({
+			type: "failure",
+			errorType: "ns-extension-list-config-invalid",
+			message: expect.stringContaining("ns.local.toml"),
+			data: { diagnostics: [{ path: "/repo/ns.local.toml" }] },
 		});
 	});
 

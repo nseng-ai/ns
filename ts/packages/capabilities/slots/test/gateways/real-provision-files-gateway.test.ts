@@ -18,12 +18,15 @@ describe("RealSlotProvisionFilesGateway", () => {
 		rmSync(root, { recursive: true, force: true });
 	});
 
-	it("reads ns.toml from the invoking repo root and returns null when missing", async () => {
-		await expect(gateway.readProjectConfigSource(root)).resolves.toBeNull();
+	it("reads project config sources from the invoking repo root", () => {
+		expect(gateway.readTextFile({ repoRoot: root, relativePath: "ns.toml" })).toEqual({
+			type: "missing",
+		});
 		writeFileSync(join(root, "ns.toml"), '[slots]\nprovision = [".env.local"]\n');
-		await expect(gateway.readProjectConfigSource(root)).resolves.toBe(
-			'[slots]\nprovision = [".env.local"]\n',
-		);
+		expect(gateway.readTextFile({ repoRoot: root, relativePath: "ns.toml" })).toEqual({
+			type: "found",
+			text: '[slots]\nprovision = [".env.local"]\n',
+		});
 	});
 
 	it("inspects path kinds without following symlinks", async () => {

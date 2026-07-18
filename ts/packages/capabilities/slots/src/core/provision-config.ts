@@ -1,8 +1,11 @@
 import {
 	getProjectConfigSetting,
+	loadEffectiveProjectConfig,
 	parseProjectConfigToml,
 	projectConfigErrorFromDiagnostics,
+	type LoadedProjectConfig,
 	type ProjectConfigDiagnostic,
+	type ProjectConfigGateway,
 	type SettingsSchema,
 } from "@nseng-ai/sdk/project-config/points";
 import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
@@ -54,8 +57,33 @@ export function parseSlotsProvisionConfigToml(
 		settingsSchemas: [slotsSettingsSchema],
 	});
 	if (!result.ok) return parseErrorFromDiagnostics(result.diagnostics, pathLabel);
+	return slotsProvisionConfigFromLoadedConfig(result.config, pathLabel);
+}
 
-	const slotsSettings = getProjectConfigSetting(result.config, slotsSettingsSchema);
+export function loadSlotsProvisionConfig(request: {
+	repoRoot: string;
+	gateway: ProjectConfigGateway;
+}): SlotsProvisionConfigParseResult {
+	const result = loadEffectiveProjectConfig({
+		repoRoot: request.repoRoot,
+		gateway: request.gateway,
+		pointDefinitions: [],
+		settingsSchemas: [slotsSettingsSchema],
+	});
+	if (!result.ok || result.config === undefined) {
+		const sourcePath = result.diagnostics.find(
+			(diagnostic) => diagnostic.severity === "error",
+		)?.path;
+		return parseErrorFromDiagnostics(result.diagnostics, sourcePath);
+	}
+	return slotsProvisionConfigFromLoadedConfig(result.config);
+}
+
+function slotsProvisionConfigFromLoadedConfig(
+	config: LoadedProjectConfig,
+	pathLabel?: string,
+): SlotsProvisionConfigParseResult {
+	const slotsSettings = getProjectConfigSetting(config, slotsSettingsSchema);
 	if (slotsSettings === undefined) return { ok: true, value: EMPTY_CONFIG };
 	const provision = slotsSettings.provision;
 	if (provision === undefined) return { ok: true, value: EMPTY_CONFIG };

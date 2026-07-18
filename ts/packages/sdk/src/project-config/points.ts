@@ -15,17 +15,16 @@ import {
 	extensionPointCardinalityValues,
 	type ExtensionDescriptor,
 } from "../sdk/descriptor.ts";
-import {
-	declaredExtensionSpecsErrorInfo,
-	parseDeclaredExtensionSpecsToml,
-	resolveAcquiredDescriptorPackageRoot,
-} from "./descriptor-package.ts";
+import { resolveAcquiredDescriptorPackageRoot } from "./descriptor-package.ts";
 import {
 	gitExtensionSourceUnsupportedMessage,
 	parseExtensionSourceSpec,
 } from "./extension-source-spec.ts";
 
 export { extensionPointAcceptsValues, extensionPointCardinalityValues };
+export const NS_TOML_FILE_NAME = "ns.toml";
+export const NS_LOCAL_TOML_FILE_NAME = "ns.local.toml";
+
 export type PointAccepts = (typeof extensionPointAcceptsValues)[number];
 export type PointCardinality = (typeof extensionPointCardinalityValues)[number];
 
@@ -211,6 +210,12 @@ export type LoadProjectConfigResult =
 	| { ok: true; config: LoadedProjectConfig; diagnostics: readonly ProjectConfigDiagnostic[] }
 	| { ok: false; diagnostics: readonly ProjectConfigDiagnostic[]; config?: LoadedProjectConfig };
 
+export type ProjectConfigTomlDocument = Record<string, unknown>;
+
+export type ParseProjectConfigTomlDocumentResult =
+	| { ok: true; document: ProjectConfigTomlDocument; diagnostics: readonly [] }
+	| { ok: false; diagnostics: readonly ProjectConfigDiagnostic[] };
+
 export interface PointDefinitionDiscoveryResult {
 	pointDefinitions: readonly PointDefinition[];
 	diagnostics: readonly ProjectConfigDiagnostic[];
@@ -284,7 +289,7 @@ export function loadProjectConfig(request: {
 }): LoadProjectConfigResult {
 	const readResult = request.gateway.readTextFile({
 		repoRoot: request.repoRoot,
-		relativePath: "ns.toml",
+		relativePath: NS_TOML_FILE_NAME,
 	});
 	if (readResult.type === "missing") {
 		return {
@@ -296,16 +301,62 @@ export function loadProjectConfig(request: {
 	if (readResult.type === "error") {
 		return {
 			ok: false,
-			diagnostics: [
-				diagnostic("ns_toml_read_failed", `Failed to read ns.toml: ${readResult.message}`),
-			],
+			diagnostics: [projectConfigReadDiagnostic(NS_TOML_FILE_NAME, readResult.message)],
 		};
 	}
 	return parseProjectConfigToml(readResult.text, {
-		pathLabel: "ns.toml",
+		pathLabel: NS_TOML_FILE_NAME,
 		pointsTable: { mode: "validate", pointDefinitions: request.pointDefinitions },
 		settingsSchemas: request.settingsSchemas ?? [],
 	});
+}
+
+export function loadEffectiveProjectConfig(request: {
+	repoRoot: string;
+	gateway: ProjectConfigGateway;
+	pointDefinitions: readonly PointDefinition[];
+	settingsSchemas?: readonly SettingsSchema[];
+}): LoadProjectConfigResult {
+	const sources = [NS_TOML_FILE_NAME, NS_LOCAL_TOML_FILE_NAME] as const;
+	const documents: Partial<Record<(typeof sources)[number], ProjectConfigTomlDocument>> = {};
+	const diagnostics: ProjectConfigDiagnostic[] = [];
+
+	for (const relativePath of sources) {
+		const readResult = request.gateway.readTextFile({ repoRoot: request.repoRoot, relativePath });
+		if (readResult.type === "missing") continue;
+		if (readResult.type === "error") {
+			diagnostics.push(projectConfigReadDiagnostic(relativePath, readResult.message));
+			continue;
+		}
+		const parsed = parseProjectConfigTomlDocument(readResult.text, { pathLabel: relativePath });
+		if (!parsed.ok) {
+			diagnostics.push(...parsed.diagnostics);
+			continue;
+		}
+		documents[relativePath] = parsed.document;
+	}
+
+	if (diagnostics.length > 0) return { ok: false, diagnostics };
+	const localDocument = documents[NS_LOCAL_TOML_FILE_NAME];
+	const settingsPathLabels = new Map(
+		(request.settingsSchemas ?? []).map((setting) => [
+			setting.path.join("."),
+			localDocument !== undefined && valueAtPath(localDocument, setting.path) !== undefined
+				? NS_LOCAL_TOML_FILE_NAME
+				: NS_TOML_FILE_NAME,
+		]),
+	);
+	return validateProjectConfigDocument(
+		mergeProjectConfigTomlDocuments(documents[NS_TOML_FILE_NAME], localDocument),
+		{
+			pathLabel: NS_TOML_FILE_NAME,
+			pointsPathLabel:
+				localDocument?.["points"] === undefined ? NS_TOML_FILE_NAME : NS_LOCAL_TOML_FILE_NAME,
+			settingsPathLabels,
+			pointsTable: { mode: "validate", pointDefinitions: request.pointDefinitions },
+			settingsSchemas: request.settingsSchemas ?? [],
+		},
+	);
 }
 
 export function parseProjectConfigToml(
@@ -316,7 +367,17 @@ export function parseProjectConfigToml(
 		settingsSchemas?: readonly SettingsSchema[];
 	},
 ): LoadProjectConfigResult {
-	const pathLabel = request.pathLabel ?? "ns.toml";
+	const pathLabel = request.pathLabel ?? NS_TOML_FILE_NAME;
+	const parsed = parseProjectConfigTomlDocument(source, { pathLabel });
+	if (!parsed.ok) return parsed;
+	return validateProjectConfigDocument(parsed.document, { ...request, pathLabel });
+}
+
+export function parseProjectConfigTomlDocument(
+	source: string,
+	request: { pathLabel?: string } = {},
+): ParseProjectConfigTomlDocumentResult {
+	const pathLabel = request.pathLabel ?? NS_TOML_FILE_NAME;
 	let parsed: unknown;
 	try {
 		parsed = parse(source);
@@ -327,6 +388,7 @@ export function parseProjectConfigToml(
 			diagnostics: [
 				diagnostic("ns_toml_invalid", `${pathLabel}: Invalid TOML.\n${causeMessage}`, {
 					causeMessage,
+					path: pathLabel,
 				}),
 			],
 		};
@@ -337,30 +399,84 @@ export function parseProjectConfigToml(
 		return {
 			ok: false,
 			diagnostics: [
-				diagnostic("ns_toml_invalid", `${pathLabel}: top-level TOML document must be a table.`),
+				diagnostic("ns_toml_invalid", `${pathLabel}: top-level TOML document must be a table.`, {
+					path: pathLabel,
+				}),
 			],
 		};
 	}
+	return { ok: true, document: documentResult.data, diagnostics: [] };
+}
 
-	const document = documentResult.data;
+export function mergeProjectConfigTomlDocuments(
+	base: ProjectConfigTomlDocument | undefined,
+	local: ProjectConfigTomlDocument | undefined,
+): ProjectConfigTomlDocument {
+	if (base === undefined) return local === undefined ? {} : mergeTomlTables({}, local);
+	if (local === undefined) return mergeTomlTables({}, base);
+	return mergeTomlTables(base, local);
+}
+
+export function validateProjectConfigDocument(
+	document: ProjectConfigTomlDocument,
+	request: {
+		pathLabel: string;
+		pointsPathLabel?: string;
+		settingsPathLabels?: ReadonlyMap<string, string>;
+		pointsTable: ProjectConfigPointsTableMode;
+		settingsSchemas?: readonly SettingsSchema[];
+	},
+): LoadProjectConfigResult {
 	const pointsResult =
 		request.pointsTable.mode === "skip"
 			? { installations: [], diagnostics: [] }
 			: parsePointsTable({
-					pathLabel,
+					pathLabel: request.pointsPathLabel ?? request.pathLabel,
 					value: document["points"],
 					pointDefinitions: request.pointsTable.pointDefinitions,
 				});
 	const settingsResult = parseDeclaredSettings({
-		pathLabel,
+		pathLabel: request.pathLabel,
+		...optionalEntry("pathLabels", request.settingsPathLabels),
 		document,
 		settingsSchemas: request.settingsSchemas ?? [],
 	});
 	const diagnostics = [...pointsResult.diagnostics, ...settingsResult.diagnostics];
-
 	const config = { points: pointsResult.installations, settings: settingsResult.settings };
 	if (diagnostics.length > 0) return { ok: false, config, diagnostics };
 	return { ok: true, config, diagnostics: [] };
+}
+
+function mergeTomlTables(
+	base: ProjectConfigTomlDocument,
+	local: ProjectConfigTomlDocument,
+): ProjectConfigTomlDocument {
+	const merged: ProjectConfigTomlDocument = { ...base };
+	for (const [key, localValue] of Object.entries(local)) {
+		const baseValue = base[key];
+		merged[key] =
+			isPlainTomlTable(baseValue) && isPlainTomlTable(localValue)
+				? mergeTomlTables(baseValue, localValue)
+				: localValue;
+	}
+	return merged;
+}
+
+function isPlainTomlTable(value: unknown): value is ProjectConfigTomlDocument {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+	const prototype = Object.getPrototypeOf(value);
+	return prototype === Object.prototype || prototype === null;
+}
+
+function projectConfigReadDiagnostic(
+	relativePath: typeof NS_TOML_FILE_NAME | typeof NS_LOCAL_TOML_FILE_NAME,
+	message: string,
+): ProjectConfigDiagnostic {
+	return diagnostic(
+		relativePath === NS_TOML_FILE_NAME ? "ns_toml_read_failed" : "ns_local_toml_read_failed",
+		`Failed to read ${relativePath}: ${message}`,
+		{ path: relativePath },
+	);
 }
 
 async function discoverDescriptorPointDefinitions(
@@ -383,20 +499,27 @@ function readDeclaredExtensionSpecs(
 	repoRoot: string,
 	gateway: ProjectConfigGateway,
 ): { ok: true; specs: readonly string[] } | { ok: false; diagnostic: ProjectConfigDiagnostic } {
-	const readResult = gateway.readTextFile({ repoRoot, relativePath: "ns.toml" });
-	if (readResult.type === "missing") return { ok: true, specs: [] };
-	if (readResult.type === "error") {
+	const loaded = loadEffectiveProjectConfig({
+		repoRoot,
+		gateway,
+		pointDefinitions: [],
+		settingsSchemas: [nsTomlExtensionsSettingsSchema],
+	});
+	const diagnostic = loaded.diagnostics.find((candidate) => !candidate.code.startsWith("point"));
+	if (diagnostic !== undefined || loaded.config === undefined) {
 		return {
 			ok: false,
-			diagnostic: diagnostic("ns_toml_read_failed", readResult.message, { path: "ns.toml" }),
+			diagnostic:
+				diagnostic ??
+				makeSdkDiagnostic({
+					code: "ns_toml_invalid",
+					message: "Unable to load effective extension declarations.",
+				}),
 		};
 	}
-	const parsed = parseDeclaredExtensionSpecsToml(readResult.text);
-	if (parsed.ok) return parsed;
-	const errorInfo = declaredExtensionSpecsErrorInfo(parsed);
 	return {
-		ok: false,
-		diagnostic: diagnostic(errorInfo.code, errorInfo.message, { path: errorInfo.path }),
+		ok: true,
+		specs: getProjectConfigSetting(loaded.config, nsTomlExtensionsSettingsSchema) ?? [],
 	};
 }
 
@@ -485,7 +608,7 @@ export function loadPointCatalog(request: {
 		preferredDefinitions.length === 0
 			? fallbackDefinitions
 			: mergePointDefinitions({ fallbackDefinitions, preferredDefinitions });
-	const configResult = loadProjectConfig({
+	const configResult = loadEffectiveProjectConfig({
 		repoRoot: request.repoRoot,
 		gateway: request.gateway,
 		pointDefinitions,
@@ -521,7 +644,7 @@ export async function loadPointCatalogWithDescriptors(request: {
 					preferredDefinitions: descriptorDefinitionResult.pointDefinitions,
 				})
 			: descriptorDefinitionResult.pointDefinitions;
-	const configResult = loadProjectConfig({
+	const configResult = loadEffectiveProjectConfig({
 		repoRoot: request.repoRoot,
 		gateway: request.gateway,
 		pointDefinitions,
@@ -841,6 +964,7 @@ function parseInstallationValue<T>(request: {
 
 function parseDeclaredSettings(request: {
 	pathLabel: string;
+	pathLabels?: ReadonlyMap<string, string>;
 	document: Record<string, unknown>;
 	settingsSchemas: readonly SettingsSchema[];
 }): {
@@ -855,9 +979,10 @@ function parseDeclaredSettings(request: {
 		const schemaResult = setting.schema.safeParse(settingValue);
 		const key = setting.path.join(".");
 		if (!schemaResult.success) {
+			const pathLabel = request.pathLabels?.get(key) ?? request.pathLabel;
 			const message =
-				setting.invalidMessage?.({ pathLabel: request.pathLabel }) ??
-				`${request.pathLabel}: [${key}] does not match its declared settings schema.`;
+				setting.invalidMessage?.({ pathLabel }) ??
+				`${pathLabel}: [${key}] does not match its declared settings schema.`;
 			diagnostics.push(diagnostic("settings_table_invalid", message, { path: key }));
 			continue;
 		}

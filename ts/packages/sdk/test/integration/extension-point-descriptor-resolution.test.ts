@@ -76,6 +76,40 @@ describe("extension point descriptor resolution", () => {
 		},
 	);
 
+	test("discovers descriptor points declared only in local config", async () => {
+		const root = await projectRoot();
+		await writeDescriptorPackage(join(root, "extensions", "local"), "@acme/local", "local.point");
+		await writeFile(join(root, "ns.local.toml"), 'extensions = ["./extensions/local"]\n');
+
+		const catalog = await loadPointCatalogWithDescriptors({
+			repoRoot: root,
+			gateway: nodeProjectConfigGateway,
+			env: {},
+		});
+
+		expect(catalog.diagnostics.filter((item) => item.severity === "error")).toEqual([]);
+		expect(catalog.entries.map((entry) => entry.definition.id)).toContain("local.point");
+	});
+
+	test("local extension declarations replace base declarations during descriptor discovery", async () => {
+		const root = await projectRoot();
+		await writeDescriptorPackage(join(root, "extensions", "base"), "@acme/base", "base.point");
+		await writeDescriptorPackage(join(root, "extensions", "local"), "@acme/local", "local.point");
+		await writeFile(join(root, "ns.toml"), 'extensions = ["./extensions/base"]\n');
+		await writeFile(join(root, "ns.local.toml"), 'extensions = ["./extensions/local"]\n');
+
+		const catalog = await loadPointCatalogWithDescriptors({
+			repoRoot: root,
+			gateway: nodeProjectConfigGateway,
+			env: {},
+		});
+		const pointIds = catalog.entries.map((entry) => entry.definition.id);
+
+		expect(catalog.diagnostics.filter((item) => item.severity === "error")).toEqual([]);
+		expect(pointIds).toContain("local.point");
+		expect(pointIds).not.toContain("base.point");
+	});
+
 	test("loads npm descriptor points from managed npm storage", async () => {
 		const root = await projectRoot();
 		await writeDescriptorPackage(
