@@ -2,17 +2,37 @@ import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import { notifyCommandUi, type NotifiableCommandContext } from "../../commands/helpers.ts";
 
 export const MODEL_SHORTCUTS = [
-	{ command: "model:fable", provider: "anthropic", modelId: "claude-fable-5" },
-	{ command: "model:sonnet", provider: "anthropic", modelId: "claude-sonnet-4-5" },
-	{ command: "model:spud", provider: "openai-codex", modelId: "gpt-5.6-sol" },
-	{ command: "model:sol", provider: "openai-codex", modelId: "gpt-5.6-sol" },
-	{ command: "model:terra", provider: "openai-codex", modelId: "gpt-5.6-terra" },
-	{ command: "model:luna", provider: "openai-codex", modelId: "gpt-5.6-luna" },
-	{ command: "model:gpt-mini", provider: "openai-codex", modelId: "gpt-5.4-mini" },
-	{ command: "model:gemini-pro", provider: "google", modelId: "gemini-3.1-pro-preview" },
-	{ command: "model:gemini-flash", provider: "google", modelId: "gemini-3.5-flash" },
-	{ command: "model:haiku", provider: "anthropic", modelId: "claude-haiku-4-5" },
-	{ command: "model:opus", provider: "anthropic", modelId: "claude-opus-4-8" },
+	{ command: "model:fable", provider: "vercel-ai-gateway", modelId: "anthropic/claude-fable-5" },
+	{
+		command: "model:sonnet",
+		provider: "vercel-ai-gateway",
+		modelId: "anthropic/claude-sonnet-4-5",
+	},
+	{ command: "model:spud", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
+	{ command: "model:sol", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
+	{ command: "model:terra", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-terra" },
+	{ command: "model:luna", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-luna" },
+	{ command: "model:gpt-mini", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.4-mini" },
+	{
+		command: "model:gemini-pro",
+		provider: "vercel-ai-gateway",
+		modelId: "google/gemini-3.1-pro-preview",
+	},
+	{
+		command: "model:gemini-flash",
+		provider: "vercel-ai-gateway",
+		modelId: "google/gemini-3.5-flash",
+	},
+	{
+		command: "model:haiku",
+		provider: "vercel-ai-gateway",
+		modelId: "anthropic/claude-haiku-4-5",
+	},
+	{
+		command: "model:opus",
+		provider: "vercel-ai-gateway",
+		modelId: "anthropic/claude-opus-4-8",
+	},
 ] as const satisfies readonly ModelShortcut[];
 
 export interface ModelShortcut {
