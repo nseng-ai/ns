@@ -2,7 +2,6 @@ import type { NotifyLevel } from "@nseng-ai/pi/runtime/tool-types";
 
 import type { GrillAskOutcome } from "./controller.ts";
 import type { GrillAskDetails } from "./result.ts";
-import type { GrillSidequestCapability } from "./sidequest/protocol.ts";
 
 export type { NotifyLevel };
 
@@ -56,10 +55,6 @@ export interface GrillAskInput {
 	allowEnd?: boolean;
 }
 
-export interface GrillAskViewOptions {
-	canStartSideQuest?: boolean;
-}
-
 export interface NormalizedGrillAskInput {
 	question: string;
 	context?: string;
@@ -73,16 +68,11 @@ export interface NormalizedGrillAskInput {
 export type GrillAskUiRunner = (
 	input: NormalizedGrillAskInput,
 	ctx: GrillAskToolContext,
-	viewOptions?: GrillAskViewOptions,
 ) => Promise<GrillAskOutcome | undefined>;
 
 export interface GrillAskExecutionOptions {
 	uiRunner?: GrillAskUiRunner;
 	signal?: AbortSignal;
-	/** Tool call id of the running grill_ask execution; retained in the pending-ask snapshot. */
-	toolCallId?: string;
-	/** Optional capability that owns canonical side-quest lifecycle events. */
-	sideQuest?: GrillSidequestCapability;
 }
 
 export interface GrillAskCustomComponent {

@@ -1,6 +1,6 @@
-import type { GrillAskOption, GrillAskViewOptions, NormalizedGrillAskInput } from "./protocol.ts";
+import type { GrillAskOption, NormalizedGrillAskInput } from "./protocol.ts";
 
-export type GrillAskMode = "choices" | "freeform" | "side-quest";
+export type GrillAskMode = "choices" | "freeform";
 
 export interface GrillAskChoiceRow {
 	kind: "choice";
@@ -14,11 +14,6 @@ export interface GrillAskFreeformRow {
 	index: number;
 }
 
-export interface GrillAskSideQuestRow {
-	kind: "side-quest";
-	index: number;
-}
-
 export interface GrillAskStatusRow {
 	kind: "status";
 	index: number;
@@ -29,11 +24,7 @@ export interface GrillAskEndGrillRow {
 	index: number;
 }
 
-export type GrillAskExceptionalRow =
-	| GrillAskFreeformRow
-	| GrillAskSideQuestRow
-	| GrillAskStatusRow
-	| GrillAskEndGrillRow;
+export type GrillAskExceptionalRow = GrillAskFreeformRow | GrillAskStatusRow | GrillAskEndGrillRow;
 
 export type GrillAskRow = GrillAskChoiceRow | GrillAskExceptionalRow;
 
@@ -44,7 +35,6 @@ export interface GrillAskExceptionalRowDisplay {
 
 const ROW_KIND_DISPLAY = {
 	freeform: { glyph: "✎", label: "Other / freeform answer" },
-	"side-quest": { glyph: "⚑", label: "Start a side quest" },
 	status: { glyph: "ℹ", label: "Show current grill status" },
 	"end-grill": { glyph: "⏹", label: "End grilling session" },
 } as const satisfies Record<GrillAskExceptionalRow["kind"], GrillAskExceptionalRowDisplay>;
@@ -53,10 +43,7 @@ export function exceptionalRowDisplay(row: GrillAskExceptionalRow): GrillAskExce
 	return ROW_KIND_DISPLAY[row.kind];
 }
 
-export function buildGrillAskRows(
-	input: NormalizedGrillAskInput,
-	options: GrillAskViewOptions = {},
-): GrillAskRow[] {
+export function buildGrillAskRows(input: NormalizedGrillAskInput): GrillAskRow[] {
 	const rows: GrillAskRow[] = input.options.map((option, optionIndex) => ({
 		kind: "choice",
 		index: optionIndex + 1,
@@ -66,9 +53,6 @@ export function buildGrillAskRows(
 
 	if (input.allowFreeform) {
 		rows.push({ kind: "freeform", index: rows.length + 1 });
-	}
-	if (options.canStartSideQuest === true) {
-		rows.push({ kind: "side-quest", index: rows.length + 1 });
 	}
 	rows.push({ kind: "status", index: rows.length + 1 });
 	if (input.allowEnd) {
@@ -99,8 +83,6 @@ export function rowValue(row: GrillAskRow): string {
 			return row.option.value;
 		case "freeform":
 			return "__freeform__";
-		case "side-quest":
-			return "__side-quest__";
 		case "status":
 			return "__status__";
 		case "end-grill":

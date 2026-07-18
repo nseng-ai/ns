@@ -1,24 +1,15 @@
 import { GRILL_ASK_TOOL_NAME } from "@nseng-ai/pi/grill/surfaces";
 
-import { GRILL_UI_KICKOFF_MARKERS } from "../progress.ts";
-import type { GrillAskRemainingEstimate } from "../protocol.ts";
+import { GRILL_UI_KICKOFF_MARKERS } from "./progress.ts";
+import type { GrillAskRemainingEstimate } from "./protocol.ts";
 import type {
-	ActiveSideQuest,
-	GrillSidequestEvent,
+	GrillStatusSessionManagerLike,
+	GrillStatusState,
 	PendingGrillAsk,
-	SidequestScanState,
-	SidequestSessionManagerLike,
-} from "./protocol.ts";
+} from "./status-protocol.ts";
 
-/** Canonical custom session-entry type for side-quest lifecycle events. Not sent to the LLM. */
-export const GRILL_SIDEQUEST_EVENT_ENTRY_TYPE = "grill-sidequest";
-
-/**
- * Pure reducer over the current session branch after its latest grill kickoff.
- * Ask/result state comes from grill_ask messages; quest state comes only from
- * valid v1 custom events. Presentation markers and result prose are ignored.
- */
-export function scanGrillBranch(entries: readonly unknown[]): SidequestScanState {
+/** Reconstruct the current grill from ordinary message history after its latest kickoff. */
+export function scanGrillBranch(entries: readonly unknown[]): GrillStatusState {
 	const kickoffIndex = latestGrillKickoffIndex(entries);
 	if (kickoffIndex === undefined) return { grill: "none" };
 
@@ -26,28 +17,9 @@ export function scanGrillBranch(entries: readonly unknown[]): SidequestScanState
 	let hasEnded = false;
 	let remainingEstimate: GrillAskRemainingEstimate | undefined;
 	let pendingAsk: PendingGrillAsk | undefined;
-	let openQuests: ActiveSideQuest[] = [];
 
 	for (let index = kickoffIndex + 1; index < entries.length; index += 1) {
 		const entry = entries[index];
-		const event = sideQuestEventFromEntry(entry);
-		if (event?.event === "started") {
-			const markEntryId = entryId(entry);
-			if (markEntryId !== undefined) {
-				openQuests.push({
-					questId: event.questId,
-					markEntryId,
-					topic: event.topic,
-					...(event.pendingAsk === undefined ? {} : { pendingAsk: event.pendingAsk }),
-				});
-			}
-			continue;
-		}
-		if (event?.event === "closed") {
-			openQuests = openQuests.filter((quest) => quest.questId !== event.questId);
-			continue;
-		}
-
 		const ask = grillAskCallFromEntry(entry);
 		if (ask !== undefined) {
 			remainingEstimate = ask.estimatedRemaining;
@@ -72,23 +44,11 @@ export function scanGrillBranch(entries: readonly unknown[]): SidequestScanState
 				hasEnded = true;
 				break;
 			case "status-request":
-			case "side-quest":
-			case "side-quest-refused":
 				break;
 		}
 	}
 
-	if (hasEnded) return { grill: "ended", answeredCount };
-
-	const activeQuest = openQuests[openQuests.length - 1];
-	if (
-		pendingAsk === undefined &&
-		activeQuest === undefined &&
-		isRemainingEstimateExhausted(remainingEstimate)
-	) {
-		// The final question was answered with an honest "0 remaining" estimate
-		// and no new ask followed: the interview is complete even without an
-		// explicit end-grill action, so downstream UI (status widget) can clear.
+	if (hasEnded || (pendingAsk === undefined && isRemainingEstimateExhausted(remainingEstimate))) {
 		return { grill: "ended", answeredCount };
 	}
 	return {
@@ -96,78 +56,30 @@ export function scanGrillBranch(entries: readonly unknown[]): SidequestScanState
 		answeredCount,
 		...(remainingEstimate === undefined ? {} : { remainingEstimate }),
 		...(pendingAsk === undefined ? {} : { pendingAsk }),
-		...(activeQuest === undefined ? {} : { activeQuest }),
 	};
 }
 
-/** Scan the current branch through a session manager, degrading to "none" on any read failure. */
+/** Scan through a session manager, degrading to no active grill on malformed data or read failure. */
 export function scanGrillBranchFromSessionManager(
-	sessionManager: SidequestSessionManagerLike | undefined,
-): SidequestScanState {
-	const entries = readBranchEntries(sessionManager);
-	return entries === undefined ? { grill: "none" } : scanGrillBranch(entries);
-}
-
-export function readBranchEntries(
-	sessionManager: SidequestSessionManagerLike | undefined,
-): readonly unknown[] | undefined {
-	if (sessionManager === undefined) return undefined;
-	let branch: readonly unknown[];
+	sessionManager: GrillStatusSessionManagerLike | undefined,
+): GrillStatusState {
+	if (sessionManager === undefined) return { grill: "none" };
 	try {
-		branch = sessionManager.getBranch();
+		const entries = sessionManager.getBranch();
+		return Array.isArray(entries) ? scanGrillBranch(entries) : { grill: "none" };
 	} catch {
-		return undefined;
+		return { grill: "none" };
 	}
-	return Array.isArray(branch) ? branch : undefined;
-}
-
-/** Locate the canonical started-event entry for deferred mark labeling. */
-export function findSideQuestStartEntryId(
-	entries: readonly unknown[],
-	questId: string,
-): string | undefined {
-	for (const entry of entries) {
-		const event = sideQuestEventFromEntry(entry);
-		if (event?.event !== "started" || event.questId !== questId) continue;
-		const id = entryId(entry);
-		if (id !== undefined) return id;
-	}
-	return undefined;
 }
 
 function latestGrillKickoffIndex(entries: readonly unknown[]): number | undefined {
 	for (let index = entries.length - 1; index >= 0; index -= 1) {
 		const text = userMessageText(entries[index]);
-		if (text === undefined) continue;
-		if (GRILL_UI_KICKOFF_MARKERS.some((marker) => text.includes(marker))) return index;
+		if (text !== undefined && GRILL_UI_KICKOFF_MARKERS.some((marker) => text.includes(marker))) {
+			return index;
+		}
 	}
 	return undefined;
-}
-
-function sideQuestEventFromEntry(entry: unknown): GrillSidequestEvent | undefined {
-	if (!isRecord(entry) || entry.type !== "custom") return undefined;
-	if (entry.customType !== GRILL_SIDEQUEST_EVENT_ENTRY_TYPE || !isRecord(entry.data)) {
-		return undefined;
-	}
-	const data = entry.data;
-	if (data.version !== 1 || typeof data.questId !== "string" || data.questId.length === 0) {
-		return undefined;
-	}
-	if (data.event === "closed") {
-		return { version: 1, event: "closed", questId: data.questId };
-	}
-	if (data.event !== "started" || typeof data.topic !== "string" || data.topic.length === 0) {
-		return undefined;
-	}
-	const pendingAsk = narrowPendingAsk(data.pendingAsk);
-	if (data.pendingAsk !== undefined && pendingAsk === undefined) return undefined;
-	return {
-		version: 1,
-		event: "started",
-		questId: data.questId,
-		topic: data.topic,
-		...(pendingAsk === undefined ? {} : { pendingAsk }),
-	};
 }
 
 function grillAskCallFromEntry(entry: unknown): PendingGrillAsk | undefined {
@@ -195,8 +107,6 @@ interface GrillAskResultSnapshot {
 		| "answer"
 		| "end-grill"
 		| "status-request"
-		| "side-quest"
-		| "side-quest-refused"
 		| "cancelled"
 		| "ui-unavailable"
 		| "invalid-tool-input";
@@ -208,12 +118,12 @@ function grillAskResultFromEntry(entry: unknown): GrillAskResultSnapshot | undef
 	if (
 		!isRecord(message) ||
 		message.role !== "toolResult" ||
-		message.toolName !== GRILL_ASK_TOOL_NAME
+		message.toolName !== GRILL_ASK_TOOL_NAME ||
+		!isRecord(message.details) ||
+		!isGrillAskResultAction(message.details.action)
 	) {
 		return undefined;
 	}
-	if (!isRecord(message.details) || !isGrillAskResultAction(message.details.action))
-		return undefined;
 	return {
 		action: message.details.action,
 		...(typeof message.toolCallId === "string" ? { toolCallId: message.toolCallId } : {}),
@@ -225,8 +135,6 @@ function isGrillAskResultAction(value: unknown): value is GrillAskResultSnapshot
 		value === "answer" ||
 		value === "end-grill" ||
 		value === "status-request" ||
-		value === "side-quest" ||
-		value === "side-quest-refused" ||
 		value === "cancelled" ||
 		value === "ui-unavailable" ||
 		value === "invalid-tool-input"
@@ -239,22 +147,7 @@ function matchesPendingAsk(
 ): boolean {
 	if (pendingAsk === undefined) return false;
 	if (resultToolCallId === undefined) return true;
-	if (pendingAsk.toolCallId === undefined) return false;
 	return pendingAsk.toolCallId === resultToolCallId;
-}
-
-function narrowPendingAsk(value: unknown): PendingGrillAsk | undefined {
-	if (!isRecord(value) || typeof value.question !== "string" || value.question.length === 0) {
-		return undefined;
-	}
-	const estimatedRemaining = narrowRemainingEstimate(value.estimatedRemaining);
-	if (value.estimatedRemaining !== undefined && estimatedRemaining === undefined) return undefined;
-	if (value.toolCallId !== undefined && typeof value.toolCallId !== "string") return undefined;
-	return {
-		question: value.question,
-		...(typeof value.toolCallId === "string" ? { toolCallId: value.toolCallId } : {}),
-		...(estimatedRemaining === undefined ? {} : { estimatedRemaining }),
-	};
 }
 
 function narrowRemainingEstimate(value: unknown): GrillAskRemainingEstimate | undefined {
@@ -283,7 +176,6 @@ function narrowRemainingEstimate(value: unknown): GrillAskRemainingEstimate | un
 	return undefined;
 }
 
-/** True when the latest honest estimate says no questions remain. */
 function isRemainingEstimateExhausted(estimate: GrillAskRemainingEstimate | undefined): boolean {
 	if (estimate === undefined) return false;
 	if (estimate.kind === "exact") return estimate.count === 0;
@@ -293,10 +185,6 @@ function isRemainingEstimateExhausted(estimate: GrillAskRemainingEstimate | unde
 
 function isNonNegativeInteger(value: unknown): value is number {
 	return typeof value === "number" && Number.isInteger(value) && value >= 0;
-}
-
-function entryId(entry: unknown): string | undefined {
-	return isRecord(entry) && typeof entry.id === "string" ? entry.id : undefined;
 }
 
 function userMessageText(entry: unknown): string | undefined {

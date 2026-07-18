@@ -217,14 +217,8 @@ function renderChoicesStacked(
 		if (row.kind === "choice") {
 			renderChoiceDetails(input, row, selected, context).forEach((line) => lines.push(line));
 		}
-		if (
-			selected &&
-			((state.mode === "freeform" && row.kind === "freeform") ||
-				(state.mode === "side-quest" && row.kind === "side-quest"))
-		) {
-			renderEditor(state.mode, state.editorLines ?? [], context).forEach((line) =>
-				lines.push(line),
-			);
+		if (selected && state.mode === "freeform" && row.kind === "freeform") {
+			renderEditor(state.editorLines ?? [], context).forEach((line) => lines.push(line));
 		}
 	}
 
@@ -252,16 +246,11 @@ function renderChoiceDetails(
 	return lines;
 }
 
-function renderEditor(
-	mode: Exclude<GrillAskMode, "choices">,
-	editorLines: readonly string[],
-	context: GrillAskRenderContext,
-): string[] {
+function renderEditor(editorLines: readonly string[], context: GrillAskRenderContext): string[] {
 	const { primitives, theme, width } = context;
 	const indent = "  ";
 	const editorWidth = Math.max(1, width - visibleWidth(indent, primitives));
-	const title = mode === "side-quest" ? "Side quest topic" : "Freeform answer";
-	const lines = [`${indent}${style(theme, "accent", bold(theme, title))}`];
+	const lines = [`${indent}${style(theme, "accent", bold(theme, "Freeform answer"))}`];
 	for (const editorLine of editorLines) {
 		lines.push(`${indent}${truncate(editorLine, editorWidth, primitives)}`);
 	}
