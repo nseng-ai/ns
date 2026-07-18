@@ -208,8 +208,7 @@ Full reasoning: `references/philosophy.md` plus the case studies.
 - **Names should not overpromise their generality.** Name the actual scope a symbol owns. Prefer
   narrower names for code that owns a narrow capability; reserve broader names for APIs that truly own
   the broader concept.
-- **Name booleans by predicate.** Prefer `is*`, `has*`, `should*`, or `can*` so conditions read as
-  assertions. Type guards should be named `isX(value): value is X`.
+- **Name type guards as predicates.** Type guards should be named `isX(value): value is X`.
 - **Use meaningful suffixes.** `*Options` for caller inputs, `*Config` for stable configuration,
   `*Event`, `*Result`, `*State`, `*Capabilities`/`*Compat`, `*Function` for callable aliases, and
   `<noun>Schema` for Zod schemas.

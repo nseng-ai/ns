@@ -129,37 +129,25 @@ to each rule's exceptions.
     style guide prefers a named `*Options` object for several or optional
     inputs. Do not flag callbacks whose signature is imposed by a library or
     framework.
-13. **Boolean names without predicate prefix.** Flag new boolean variables,
-    fields, properties, or parameters that are explicitly typed as `boolean` or
-    initialized to `true`/`false` but do not start with `is`, `has`, `should`,
-    or `can`. Severity: `warning`. Do not flag external or wire-contract fields
-    where a non-predicate name is visibly required by the API. Do not flag
-    test-fixture failure-injection knobs following the established
-    `<verb>Fails` / `<verb>Throws` convention, such as `createFails`,
-    `createThrows`, `readThrows`, or `sandboxGatewayFactoryThrows`: in ns fakes
-    the `Fails` suffix means the fake returns a modeled `{ ok: false }` and the
-    `Throws` suffix means it raises, and fakes routinely declare both halves of
-    the pair for one operation. The suffix carries that seam distinction, so a
-    predicate prefix would obscure it rather than clarify it.
-14. **Unitless measured constants.** Flag measured constants whose names omit
+13. **Unitless measured constants.** Flag measured constants whose names omit
     units, especially names such as `TIMEOUT`, `DELAY`, `INTERVAL`,
     `DURATION`, `MAX_SIZE`, `LIMIT`, or `MAX_PAYLOAD` that imply time or size
     without a unit suffix. Severity: `warning`. The style guide prefers names
     like `TIMEOUT_MS`, `RETRY_DELAY_MS`, and `MAX_BYTES`.
-15. **NS TypeScript import convention drift.** Flag relative imports in
+14. **NS TypeScript import convention drift.** Flag relative imports in
     `ts/` TypeScript source that omit the explicit `.ts` suffix or use the
     wrong source suffix, such as `from "./thing"`, `from "../thing"`, or
     `from "./thing.js"` when importing project TypeScript. Severity:
     `warning`. Do not flag bare package imports (`node:fs`, `zod`,
     `@nseng-ai/foundation/primitives`), type-only imports that already use `.ts`, or
     non-TypeScript assets where the project has an existing pattern.
-16. **Cross-package `src/` deep imports.** Flag imports that bypass curated
+15. **Cross-package `src/` deep imports.** Flag imports that bypass curated
     workspace package exports by reaching into another package's `src/` tree,
     including `@nseng-ai/<pkg>/src/...` and relative paths that cross from one
     `ts/packages/<pkg>` package into another package's `src`. Severity:
     `warning`. Intra-package relative imports are fine when they stay inside
     the same package and use the explicit `.ts` suffix.
-17. **Optional-property `undefined` drift under `exactOptionalPropertyTypes`.**
+16. **Optional-property `undefined` drift under `exactOptionalPropertyTypes`.**
     Flag object literals that explicitly set an optional property to
     `undefined`, or replace a conditional-spread omission pattern with
     `prop: maybeUndefined`. Also flag raw optional-property `?: T | undefined`
@@ -174,16 +162,16 @@ to each rule's exceptions.
     setting, omitting a key is different from setting it to `undefined`. Do not
     flag `ExplicitUndefined<Reason, T>` solely because it includes `undefined`;
     check whether the reason/category is specific and appropriate.
-18. **Unchecked indexed-access bypass.** Flag non-null assertions or broad casts
+17. **Unchecked indexed-access bypass.** Flag non-null assertions or broad casts
     that bypass `noUncheckedIndexedAccess` on array/record lookups, such as
     `items[index]!`, `handlers[key]!`, or `(record[key] as Handler)` without a
     nearby guard. Severity: `warning`. Do not flag a lookup followed by an
     explicit `undefined` guard that stores the narrowed value in a local.
-19. **Mega-barrels or sweeping exports.** Flag `export * from "..."`,
+18. **Mega-barrels or sweeping exports.** Flag `export * from "..."`,
     especially in `index.ts` or package public roots. Severity: `warning`. Do
     not flag explicit curated exports such as `export { Foo } from "./foo.ts"`
     or `export type { FooOptions } from "./foo.ts"`.
-20. **Real gateway construction below the composition edge.** Flag added
+19. **Real gateway construction below the composition edge.** Flag added
     `new Real*Gateway(...)` or `createReal*Gateway(...)` calls inside domain or
     workflow operations when the changed code is not visibly a top-level
     composition root, a named `createReal*Context` or equivalent composition
@@ -194,7 +182,7 @@ to each rule's exceptions.
     domain logic should receive its narrowed Consumer Gateway through an
     injected context. Do not flag direct construction in tests, focused
     real-adapter tests, or clear entrypoint/context factories.
-21. **Demonstrated gateway clumps without a named context.** Flag when the diff
+20. **Demonstrated gateway clumps without a named context.** Flag when the diff
     visibly makes two or more runtime collaborators travel together through
     multiple operations or layers without a capability-owned `*Context`.
     Gateways, the ns extension API object, Pi runtime `ExtensionAPI`, and
