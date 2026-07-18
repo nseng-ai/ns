@@ -13,7 +13,8 @@ When reviewing: judge every gateway, fake, and test file in the diff against eac
 - A gateway is the canonical interface to an external **or non-deterministic** capability: process execution, git, gh, filesystem, network, plus the system clock and timers.
 - Naming: external-service boundaries carry the `Gateway` suffix (`GitGateway`, `GithubPrFeedbackGateway`); bare runtime primitives (`Clock`, `TimerScheduler`) are gateways by category but named without the suffix, and incumbent generic names win absent confusion.
 - Keep domain logic above gateways and inject a small context object manually. Name domain logic with a domain-specific verb (`load`/`read`/`resolve`/`assemble`, chosen for the action); do not mint `…Loader` noun-types or a `loaders`/`…Dependencies` injection bag, which dress stateless functions up as a stateful collaborator. Fake the gateway beneath domain logic, never the domain logic itself.
-- Implement real adapters at the edge; they own subprocess, filesystem, HTTP, env parsing, and wire-format parsing.
+- Implement real adapters at the edge; they own subprocess, filesystem, HTTP, env parsing, and wire-format parsing. Construct them at a composition root or named real-context factory, not inside domain or workflow operations.
+- Treat host API objects such as the ns extension API object and Pi runtime `ExtensionAPI` as gateway-like runtime collaborators when shaping injection. If two or more gateways or host API objects repeatedly travel together, form a capability-owned `*Context`; do not add them to an operation's `*Options` as a dependency bag. A single collaborator or a one-site grouping does not require a context. The canonical construction, context, invocation-scope, and command-channel rules live in `docs/conventions/consumer-gateways-and-command-shape.md`.
 - Implement in-memory fakes as true alternate implementations of the gateway types.
 - Prefer result unions for expected external failures; reserve throws for programmer errors.
 
@@ -110,4 +111,6 @@ Copies of these shapes across packages are fine. Deduplicate only along dependen
 - Scripted mocks or setup mutators (such as `fake.addDeployment(...)`) as the primary scenario fake.
 - Module mocks or spies for application behavior when explicit gateway injection is practical.
 - Overbroad context objects containing `cwd`, `env`, stdout/stderr, clocks, or unrelated utilities by default.
+- Gateway or host API collaborators mixed into operation `*Options` alongside caller-controlled inputs.
+- Real adapters constructed inside domain or workflow operations from an injected command channel or host API object.
 - DI containers, decorators, or framework-level provider overrides before simple structural typing and manual context injection prove insufficient.
