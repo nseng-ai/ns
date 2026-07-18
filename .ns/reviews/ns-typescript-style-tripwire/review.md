@@ -3,9 +3,11 @@
 # by merging the portable TypeScript style guide (`skills/typescript-style/`,
 # especially `core-rules.md`, `checklist.md`, and
 # `references/review-taste-and-process.md`) with the project overlay
-# (`skills/ns-typescript/SKILL.md`) and the repo enforcement rules in
-# `ts/AGENTS.md` (test-lane hard gates, time seams, style-guard ids). It is
-# intentionally not a generic
+# (`skills/ns-typescript/SKILL.md`), the fake-driven gateway guidance in
+# `skills/typescript-fake-driven-testing/SKILL.md`, the composition rules in
+# `docs/conventions/consumer-gateways-and-command-shape.md`, and the repo
+# enforcement rules in `ts/AGENTS.md` (test-lane hard gates, time seams,
+# style-guard ids). It is intentionally not a generic
 # TypeScript review; use `.ns/reviews/ns-typescript-style-tripwire/review.md` when reviewing this
 # repo's TypeScript diffs.
 #
@@ -23,8 +25,9 @@ description: |
   mechanically detectable violations: non-erasable TypeScript, ordinary `any`,
   banned double-casts, import-boundary drift, strict-indexed-access bypasses,
   exact-optional-property drift, broad casts, top-level arrow module logic,
-  mutation of owned-boundary data, naming hygiene, suppression hygiene, and
-  other Tier A rules. Intended for cheap, per-diff detection; resolution stays
+  mutation of owned-boundary data, misplaced real-gateway construction,
+  demonstrated gateway clumps, naming hygiene, suppression hygiene, and other
+  Tier A rules. Intended for cheap, per-diff detection; resolution stays
   with the engineer in a later, higher-context workflow.
 model_profile: fast
 applies_to:
@@ -44,9 +47,10 @@ Only flag violations in TypeScript-family files (`.ts`, `.tsx`, `.mts`,
 `.cts`) unless the diff makes a TypeScript rule relevant in another file. This
 review combines the portable `typescript-style` guide with the repo-specific
 `ns-typescript` overlay for ns. Do not flag package-manager,
-formatter, linter, or test-runner choices. Do not propose fixes; report the
-violated rule and why the changed line is suspicious. If context is ambiguous,
-skip the finding rather than inventing intent.
+formatter, linter, or test-runner choices. Do not propose broad refactors;
+report the violated rule and why the changed line is suspicious, and state a
+rule's prescribed direction only when that rule names one. If context is
+ambiguous, skip the finding rather than inventing intent.
 
 ## Active Tier A rules
 
@@ -179,6 +183,31 @@ to each rule's exceptions.
     especially in `index.ts` or package public roots. Severity: `warning`. Do
     not flag explicit curated exports such as `export { Foo } from "./foo.ts"`
     or `export type { FooOptions } from "./foo.ts"`.
+20. **Real gateway construction below the composition edge.** Flag added
+    `new Real*Gateway(...)` or `createReal*Gateway(...)` calls inside domain or
+    workflow operations when the changed code is not visibly a top-level
+    composition root, a named `createReal*Context` or equivalent composition
+    factory, or a real adapter composing its own implementation over the same
+    command channel. Severity: `warning`. A function receiving a raw command
+    channel, ns extension API object, or Pi runtime `ExtensionAPI` does not
+    become a valid composition edge merely because it can construct a gateway;
+    domain logic should receive its narrowed Consumer Gateway through an
+    injected context. Do not flag direct construction in tests, focused
+    real-adapter tests, or clear entrypoint/context factories.
+21. **Demonstrated gateway clumps without a named context.** Flag when the diff
+    visibly makes two or more runtime collaborators travel together through
+    multiple operations or layers without a capability-owned `*Context`.
+    Gateways, the ns extension API object, Pi runtime `ExtensionAPI`, and
+    project-owned narrowed views of those host objects all count as runtime
+    collaborators for this rule. Strong evidence includes the same group being
+    forwarded through several helpers, gateways or host API objects being
+    mixed into operation `*Options` alongside caller-controlled inputs, or
+    collaborators that must share one command/telemetry/lifetime identity being
+    reconstructed independently. Severity: `warning`. Recommend a named context
+    containing narrowed Consumer Gateways or narrowed host interfaces. Do not
+    flag one collaborator, a group appearing together only at one composition
+    site, tests constructing the adapter they exercise, or a speculative broad
+    context redesign not proved by the diff.
 
 ## Severity
 
