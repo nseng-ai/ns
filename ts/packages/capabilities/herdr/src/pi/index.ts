@@ -1,4 +1,5 @@
 export { default, registerHerdrPiExtension } from "./extension.ts";
+export type { HerdrNsExtensionApiFactory } from "./extension.ts";
 export { registerHerdrNewSpaceCommand } from "./new-space.ts";
 export {
 	registerHerdrSidebarCommands,

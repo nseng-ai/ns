@@ -4,6 +4,7 @@ import {
 	createClinkrInteraction,
 	renderCapabilitiesForTerminal,
 	resolveProcessCaps,
+	type ClinkrFormat,
 	type ClinkrInteraction,
 } from "@nseng-ai/clinkr";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
@@ -11,7 +12,14 @@ import { runCommand } from "@nseng-ai/foundation/exec";
 import { optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
-import type { NsConfirmPrompt, NsExtensionApi, TextGenerator } from "../sdk/index.ts";
+import type {
+	NsConfirmPrompt,
+	NsExtensionApi,
+	NsOutputStream,
+	NsProgressPhaseListener,
+	RenderCapabilities,
+	TextGenerator,
+} from "../sdk/index.ts";
 
 export interface NsCliContext {
 	context: NsExtensionApi;
@@ -23,6 +31,51 @@ export interface NsCliContext {
 }
 
 export type NsCliBaseContext = Omit<NsExtensionApi, "hasExtension">;
+
+export interface CreateNsExtensionApiOptions {
+	baseContext: NsCliBaseContext;
+	cwd: string;
+	env: Record<string, string | undefined>;
+	homeDir?: string;
+	extensionPackageNames: ReadonlySet<string>;
+	stdout: (text: string) => void;
+	stderr: (text: string) => void;
+	renderCapabilities: RenderCapabilities;
+	outputFormat: ClinkrFormat;
+	stdin?: () => Promise<string>;
+	onOutput?: (stream: NsOutputStream, text: string) => void;
+	onProgress?: NsProgressPhaseListener;
+	confirm?: NsConfirmPrompt;
+}
+
+/** Constructs the complete extension API shared by command execution and completion. */
+export function createNsExtensionApi(options: CreateNsExtensionApiOptions): NsExtensionApi {
+	return {
+		cwd: options.cwd,
+		env: options.env,
+		...optionalEntry("homeDir", options.homeDir),
+		textGenerator: options.baseContext.textGenerator,
+		commandIo: createCliCommandIo({
+			stdout: options.stdout,
+			stderr: options.stderr,
+			...optionalEntry("onOutput", options.onOutput),
+		}),
+		progress:
+			options.onProgress === undefined
+				? noopNsProgress
+				: { isLive: true, phase: options.onProgress },
+		renderCapabilities: options.renderCapabilities,
+		outputFormat: options.outputFormat,
+		exec: options.baseContext.exec.bind(options.baseContext),
+		hasExtension: (packageName) => options.extensionPackageNames.has(packageName),
+		stdout: options.stdout,
+		stderr: options.stderr,
+		...optionalEntry("stdin", options.stdin),
+		...optionalEntry("onOutput", options.onOutput),
+		...optionalEntry("confirm", options.confirm),
+		...optionalEntry("extensions", options.baseContext.extensions),
+	};
+}
 
 export interface RealNsCommandContextOptions {
 	textGenerator: TextGenerator;

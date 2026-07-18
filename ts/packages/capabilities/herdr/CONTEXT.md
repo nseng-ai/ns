@@ -25,8 +25,8 @@ A display name applied to the caller Herdr workspace via `herdr workspace rename
 *Avoid*: sidebar description, metadata reporting, unconditional slot prefix, path-shape-only prefix
 
 **Slots capability probe**:
-The narrow Herdr-owned injectable predicate (`HasHerdrSlotsCapability`) answering whether Slot label enrichment is available. The Pi production implementation inspects Pi's registered commands for the `ns:slot:*` surface mirrored from the ns SDK effective extension registry, without spawning a subprocess. Constructed at the Pi composition roots and injected into both labeling workflows.
-*Avoid*: universal capability detector, package resolvability check, subprocess probe, private registry inspection
+The narrow Herdr-owned injectable predicate (`HasHerdrSlotsCapability`) answering whether Slot label enrichment is available. The Pi implementation adapts a complete, invocation-owned ns extension API and asks `hasExtension("@nseng-ai/slots")`. The project-local adapter explicitly composes the Herdr registrar with the ns-host factory; construction failure degrades optional enrichment to unavailable. Herdr core receives only the predicate, not the complete API.
+*Avoid*: universal capability detector, Pi command-surface inference, package resolvability check, subprocess probe, private registry inspection, SDK API threaded into core
 
 **Objective sidebar**:
 The `/ns:herdr:sidebar:objective-summary` workflow that resolves an Objective slug and applies the workspace label to the caller Herdr workspace.

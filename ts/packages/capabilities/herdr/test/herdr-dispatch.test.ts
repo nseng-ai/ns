@@ -44,6 +44,7 @@ import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
+	fakeNsExtensionApi,
 	makeTempDir,
 	notificationMessages,
 	resetHerdrTestEnvironment,
@@ -122,7 +123,7 @@ const testSlotClient = {
 describe("herdr Pi extension — full suite", () => {
 	test("registers all herdr command surfaces", () => {
 		const pi = new FakePi();
-		registerHerdrPiExtension(pi);
+		registerHerdrPiExtension(pi, async (cwd) => fakeNsExtensionApi(cwd));
 		expect([...pi.commands.keys()].sort()).toEqual([...HERDR_COMMAND_NAMES].sort());
 	});
 });

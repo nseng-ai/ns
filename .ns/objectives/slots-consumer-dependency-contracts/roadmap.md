@@ -12,13 +12,13 @@
       path shape, and align tests plus `AGENTS.md` / `CONTEXT.md` contracts.
   - Retain Herdr dispatch as explicitly Slots-required and record pluggable dispatch only as
     future direction.
-  - Delivered on branch `herdr-optional-slot-label-enrichment`: `HasHerdrSlotsCapability`
-    (core contract) plus `createHerdrSlotsCapabilityProbe` (Pi's registered `ns:slot:*`
-    surface, mirrored from the ns SDK effective extension registry) injected into both labeling
-    workflows; capability absence degrades silently to an unprefixed label;
-    dispatch/open-branch retain hard `SlotClient` contracts; README/`CONTEXT.md` state the
-    two-fact prefix contract. Validation: `just` (full TS suite + style guard + objective sweep)
-    passed.
+  - Corrected on branch `herdr-optional-slot-label-enrichment`: `HasHerdrSlotsCapability`
+    remains the core contract, while the Pi adapter now derives it from an invocation-owned
+    `NsExtensionApi.hasExtension("@nseng-ai/slots")`. The project adapter composes Herdr with
+    the ns-host factory; each relevant command gets the exact handler cwd and current environment.
+    Capability absence or API-construction failure degrades silently to an unprefixed label;
+    dispatch/open-branch retain hard `SlotClient` contracts. Validation evidence is recorded in
+    the delivery update.
 - [ ] Repair cmux Slot identity presentation without weakening its current dispatch contract:
       replace basename-only sidebar inference with verified identity, cover ordinary worktrees,
       and document hard Slots-backed dispatch plus future pluggability direction.

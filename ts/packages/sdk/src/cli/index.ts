@@ -28,7 +28,12 @@ import {
 	renderNsCompletionScriptResult,
 	nsCompletionScriptResultSchema,
 } from "./completion.ts";
-import { createNsCliInteraction, type NsCliBaseContext, type NsCliContext } from "./context.ts";
+import {
+	createNsCliInteraction,
+	createNsExtensionApi,
+	type NsCliBaseContext,
+	type NsCliContext,
+} from "./context.ts";
 import {
 	renderNsShellInstall,
 	renderNsShellShow,
@@ -39,7 +44,6 @@ import {
 	nsShellShowRequestSchema,
 	nsShellShowResultSchema,
 } from "./shell.ts";
-import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
 	commandInfosForSelectedCommand,
@@ -59,7 +63,6 @@ import type {
 	CommandExit,
 	DescriptorCommand,
 	NsConfirmPrompt,
-	NsExtensionApi,
 	NsOutputStream,
 	NsProgressPhaseListener,
 } from "../sdk/index.ts";
@@ -82,8 +85,10 @@ import {
 	NS_EXTENSION_HELP_GROUP,
 } from "../extensions/help-presentation.ts";
 
-export type { NsCliBaseContext, NsCliContext } from "./context.ts";
+export { createNsExtensionApi } from "./context.ts";
+export type { CreateNsExtensionApiOptions, NsCliBaseContext, NsCliContext } from "./context.ts";
 export type { NsCommandInfo } from "../extensions/command-registry.ts";
+export { loadNsCommandCatalog } from "../extensions/registry.ts";
 export type {
 	PreinstalledNsCommandCatalog,
 	PreinstalledNsCommandCatalogEntry,
@@ -515,34 +520,23 @@ async function buildNsCliContext(options: {
 	if (baseContext === undefined) {
 		throw new Error("Ns CLI context is required.");
 	}
-	const onOutput = options.onOutput ?? baseContext.onOutput;
-	const confirm = options.confirm ?? baseContext.confirm;
-	const stdin = baseContext.stdin ?? readStdin;
-	const contextExtensions = baseContext.extensions;
-	const commandIo = createCliCommandIo({
-		stdout: options.stdout,
-		stderr: options.stderr,
-		...optionalEntry("onOutput", onOutput),
-	});
-	const context: NsExtensionApi = {
+	const context = createNsExtensionApi({
+		baseContext,
 		cwd: options.commandContext.cwd,
 		env: options.commandContext.env,
 		...optionalEntry("homeDir", options.commandContext.homeDir),
-		textGenerator: baseContext.textGenerator,
-		commandIo,
-		progress:
-			options.onProgress === undefined
-				? noopNsProgress
-				: { isLive: true, phase: options.onProgress },
-		renderCapabilities: options.renderCapabilities,
-		outputFormat: clinkrFormatFromArgs(options.args),
-		exec: baseContext.exec.bind(baseContext),
-		hasExtension: (packageName) => options.extensionPackageNames.has(packageName),
+		extensionPackageNames: options.extensionPackageNames,
 		stdout: options.stdout,
 		stderr: options.stderr,
-		stdin,
-		...optionalEntries({ onOutput, confirm, extensions: contextExtensions }),
-	};
+		renderCapabilities: options.renderCapabilities,
+		outputFormat: clinkrFormatFromArgs(options.args),
+		stdin: baseContext.stdin ?? readStdin,
+		...optionalEntries({
+			onOutput: options.onOutput ?? baseContext.onOutput,
+			onProgress: options.onProgress,
+			confirm: options.confirm ?? baseContext.confirm,
+		}),
+	});
 	return {
 		context,
 		cwd: options.commandContext.cwd,

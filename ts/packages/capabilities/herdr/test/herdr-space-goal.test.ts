@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { HasHerdrSlotsCapability } from "../src/core/slots-capability.ts";
 import { handleHerdrSpaceGoal } from "../src/core/space-goal.ts";
+import type { HerdrPiRegistrationContext } from "../src/pi/context.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
+import { registerHerdrSpaceGoalCommand } from "../src/pi/space-goal.ts";
 import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
+	fakeNsExtensionApi,
 	gitRootStep,
 	notificationMessages,
 	resetHerdrTestEnvironment,
@@ -226,6 +230,100 @@ describe("herdr space goal", () => {
 		expect(herdr.renameCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
 		expect(ctx.notifications.at(-1)?.message).toContain("Pi model command failed");
+	});
+
+	test("Pi wiring creates a fresh ns API per invocation with the exact handler cwd", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const firstCwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01";
+		const secondCwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-02";
+		const pi = new FakePi({
+			script: [
+				gitRootStep(firstCwd),
+				modelStep("first-goal"),
+				gitRootStep(secondCwd),
+				modelStep("second-goal"),
+			],
+			shouldRequireExpectedArgs: false,
+		});
+		const herdr = new FakeHerdrGateway();
+		const factoryCalls: string[] = [];
+		const apis: object[] = [];
+		const context: HerdrPiRegistrationContext = {
+			pi: createHerdrPiCommandApi(pi),
+			git: new InMemoryGitGateway(),
+			herdr,
+			createNsExtensionApi: async (cwd) => {
+				factoryCalls.push(cwd);
+				const api = fakeNsExtensionApi(cwd, true);
+				apis.push(api);
+				return api;
+			},
+		};
+		registerHerdrSpaceGoalCommand(context);
+
+		await pi.commands
+			.get("ns:herdr:space:goal")
+			?.handler(GOAL, new FakeCommandContext({ cwd: firstCwd }));
+		await pi.commands
+			.get("ns:herdr:space:goal")
+			?.handler(GOAL, new FakeCommandContext({ cwd: secondCwd }));
+
+		pi.assertDone();
+		expect(factoryCalls).toEqual([firstCwd, secondCwd]);
+		expect(apis[0]).not.toBe(apis[1]);
+		expect(herdr.renameCalls).toEqual([
+			{ workspaceId: "w1", label: "s1:first-goal" },
+			{ workspaceId: "w1", label: "s2:second-goal" },
+		]);
+	});
+
+	test("Pi wiring maps ns API factory failure to an unprefixed successful rename", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-03";
+		const pi = new FakePi({
+			script: [gitRootStep(cwd), modelStep("add-auth")],
+			shouldRequireExpectedArgs: false,
+		});
+		const herdr = new FakeHerdrGateway();
+		registerHerdrSpaceGoalCommand({
+			pi: createHerdrPiCommandApi(pi),
+			git: new InMemoryGitGateway(),
+			herdr,
+			createNsExtensionApi: async () => {
+				throw new Error("ns unavailable");
+			},
+		});
+		const ctx = new FakeCommandContext({ cwd });
+
+		await pi.commands.get("ns:herdr:space:goal")?.handler(GOAL, ctx);
+
+		pi.assertDone();
+		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "add-auth" }]);
+		expect(notificationMessages(ctx)).toContain("Applied Herdr space goal label: add-auth");
+	});
+
+	test("Pi wiring does not construct the ns API when model work fails", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-03";
+		const pi = new FakePi({
+			script: [gitRootStep(cwd), modelStep("", 1)],
+			shouldRequireExpectedArgs: false,
+		});
+		const factoryCalls: string[] = [];
+		registerHerdrSpaceGoalCommand({
+			pi: createHerdrPiCommandApi(pi),
+			git: new InMemoryGitGateway(),
+			herdr: new FakeHerdrGateway(),
+			createNsExtensionApi: async (factoryCwd) => {
+				factoryCalls.push(factoryCwd);
+				return fakeNsExtensionApi(factoryCwd, true);
+			},
+		});
+
+		await pi.commands.get("ns:herdr:space:goal")?.handler(GOAL, new FakeCommandContext({ cwd }));
+
+		pi.assertDone();
+		expect(factoryCalls).toEqual([]);
 	});
 
 	test("unusable model output and goal report an error", async () => {

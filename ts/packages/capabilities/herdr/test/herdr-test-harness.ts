@@ -22,6 +22,7 @@ import type {
 import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
+import { noopNsCommandIo, noopNsProgress, type NsExtensionApi } from "@nseng-ai/sdk";
 import {
 	parseObjectiveListData,
 	type ObjectiveListParseResult,
@@ -89,6 +90,21 @@ export const SOURCE_BRANCH = "herdr-capability-parity";
 export const START_POINT = "deadbeef1234567890abcdef1234567890abcdef";
 export const PLAN_CONTENT = "# Plan\n";
 export const REPO_ORIGIN_URL = "git@github.com:owner/repo.git";
+
+export function fakeNsExtensionApi(cwd: string, hasSlots = false): NsExtensionApi {
+	return {
+		cwd,
+		env: {},
+		hasExtension: (packageName) => hasSlots && packageName === "@nseng-ai/slots",
+		exec: async () => ({ type: "exited", code: 0, signal: null, stdout: "", stderr: "" }),
+		textGenerator: {
+			generateText: async () => ({ ok: false, error: "not used" }),
+		},
+		commandIo: noopNsCommandIo,
+		progress: noopNsProgress,
+		renderCapabilities: { canEmitAnsi: false },
+	};
+}
 
 // ---------------------------------------------------------------------------
 // FakePi — scripted Pi ExtensionAPI for herdr tests

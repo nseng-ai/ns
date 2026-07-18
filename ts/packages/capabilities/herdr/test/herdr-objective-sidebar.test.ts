@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import {
 	createHerdrSidebarControllerWithPiWiring,
 	registerHerdrSidebarCommands,
@@ -8,6 +9,10 @@ import { createHerdrSidebarController, getCallerWorkspaceId } from "../src/core/
 import type { HasHerdrSlotsCapability } from "../src/core/slots-capability.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {
+	createHerdrPiRegistrationContext,
+	type HerdrPiRegistrationContext,
+} from "../src/pi/context.ts";
+import {
 	formatObjectiveSidebarLabel,
 	resolveObjectiveSelector,
 } from "../src/core/objective-sidebar.ts";
@@ -15,6 +20,7 @@ import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
+	fakeNsExtensionApi,
 	makeTempDir,
 	notificationMessages,
 	objectiveDiffStep,
@@ -405,10 +411,107 @@ describe("herdr Objective sidebar", () => {
 		]);
 	});
 
+	test("Pi wiring creates one fresh ns API per invocation with the exact handler cwd", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const slug = "herdr-capability-parity";
+		const firstCwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01";
+		const secondCwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-02";
+		const pi = new FakePi({ script: [objectiveReadStep(slug), objectiveReadStep(slug)] });
+		const herdr = new FakeHerdrGateway();
+		const factoryCalls: string[] = [];
+		const apis: object[] = [];
+		const context: HerdrPiRegistrationContext = {
+			pi: createHerdrPiCommandApi(pi),
+			git: new InMemoryGitGateway(),
+			herdr,
+			createNsExtensionApi: async (cwd) => {
+				factoryCalls.push(cwd);
+				const api = fakeNsExtensionApi(cwd, true);
+				apis.push(api);
+				return api;
+			},
+		};
+		registerHerdrSidebarCommands(context);
+
+		await pi.commands
+			.get("ns:herdr:sidebar:objective-summary")
+			?.handler(slug, new FakeCommandContext({ cwd: firstCwd }));
+		await pi.commands
+			.get("ns:herdr:sidebar:objective-summary")
+			?.handler(slug, new FakeCommandContext({ cwd: secondCwd }));
+
+		pi.assertDone();
+		expect(factoryCalls).toEqual([firstCwd, secondCwd]);
+		expect(apis[0]).not.toBe(apis[1]);
+		expect(herdr.renameCalls.map((call) => call.label)).toEqual([
+			"s1:obj:herdr-capability-parity",
+			"s2:obj:herdr-capability-parity",
+		]);
+	});
+
+	test("Pi wiring maps an ns API factory failure to absent optional enrichment", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const slug = "herdr-capability-parity";
+		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01";
+		const pi = new FakePi({ script: [objectiveReadStep(slug)] });
+		const herdr = new FakeHerdrGateway();
+		const factoryCalls: string[] = [];
+		registerHerdrSidebarCommands({
+			pi: createHerdrPiCommandApi(pi),
+			git: new InMemoryGitGateway(),
+			herdr,
+			createNsExtensionApi: async (factoryCwd) => {
+				factoryCalls.push(factoryCwd);
+				throw new Error("ns unavailable");
+			},
+		});
+
+		await pi.commands
+			.get("ns:herdr:sidebar:objective-summary")
+			?.handler(slug, new FakeCommandContext({ cwd }));
+
+		pi.assertDone();
+		expect(factoryCalls).toEqual([cwd]);
+		expect(herdr.renameCalls).toEqual([
+			{ workspaceId: "w1", label: "obj:herdr-capability-parity" },
+		]);
+	});
+
+	test("Pi wiring does not construct the ns API before Objective validation succeeds", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const slug = "ghost-objective";
+		const pi = new FakePi({
+			script: [
+				step("ns", ["objective", "exec", "read-objective", slug, "--format", "json"], {
+					code: 1,
+					stdout: JSON.stringify({ exitCode: 1, message: "Objective not found" }),
+				}),
+			],
+		});
+		const factoryCalls: string[] = [];
+		registerHerdrSidebarCommands({
+			pi: createHerdrPiCommandApi(pi),
+			git: new InMemoryGitGateway(),
+			herdr: new FakeHerdrGateway(),
+			createNsExtensionApi: async (cwd) => {
+				factoryCalls.push(cwd);
+				return fakeNsExtensionApi(cwd, true);
+			},
+		});
+
+		await pi.commands
+			.get("ns:herdr:sidebar:objective-summary")
+			?.handler(slug, new FakeCommandContext({ cwd: "/repo" }));
+
+		pi.assertDone();
+		expect(factoryCalls).toEqual([]);
+	});
+
 	test("ns:herdr:sidebar:objective-summary uses Pi wiring end-to-end", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const pi = new FakePi();
-		const controller = createHerdrSidebarControllerWithPiWiring(pi);
+		const context = createHerdrPiRegistrationContext(pi, async (cwd) => fakeNsExtensionApi(cwd));
+		const controller = createHerdrSidebarControllerWithPiWiring(context, "/repo");
 		registerHerdrSidebarCommands(pi, controller);
 		expect(pi.commands.has("ns:herdr:sidebar:objective-summary")).toBe(true);
 	});

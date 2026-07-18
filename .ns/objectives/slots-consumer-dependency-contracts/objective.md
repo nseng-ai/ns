@@ -29,8 +29,8 @@ and clear absent-capability behavior.
   precise missing-capability behavior and prominent prerequisites.
 - Establish focused follow-up ownership for moving generic structured Graphite topology
   away from `ns slot gt exec`; Slots retains occupancy, freeing, and Slot-aware safety.
-- Use `NsExtensionApi.hasExtension("@nseng-ai/slots")` in ns commands and injected probes
-  of supported command surfaces in Pi-only hosts.
+- Use `NsExtensionApi.hasExtension("@nseng-ai/slots")` for extension presence. Pi-hosted
+  Herdr receives a complete per-invocation API through explicit project-adapter composition.
 
 ## Non-Goals
 
@@ -74,9 +74,10 @@ and clear absent-capability behavior.
   `hasExtension` and `requiresExtension` already read the effective extension registry; the
   Flow roadmap may be stale about implementation status and must be reconciled against current
   tests and documentation before tracking it complete.
-- **Assumption — Pi lacks the same registry fact.** Pi-only consumers should probe a supported
-  command through an injected seam rather than inspect private extension internals. If Pi gains
-  a first-class presence API, this split should be revisited rather than preserved by inertia.
+- **Assumption — Pi consumers need explicit host composition.** The Pi runtime does not own
+  ns registry discovery, so Pi-hosted Herdr receives a complete `NsExtensionApi` from the ns
+  host through the project adapter. Consumers must not inspect private registry internals or
+  infer package presence from mirrored command names.
 - **Assumption — Herdr and cmux dispatch are legitimately Slot-backed today.** Their direct
   `SlotClient` dependencies are retained as explicit product contracts, not treated as optional
   injection. Future dispatch pluggability may disprove the need for those hard dependencies.

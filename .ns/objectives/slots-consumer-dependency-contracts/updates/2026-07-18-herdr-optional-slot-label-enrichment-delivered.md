@@ -1,55 +1,49 @@
-# Herdr optional Slot label enrichment delivered
+# Herdr optional Slot label enrichment corrected
 
-**When:** 2026-07-18T20:52Z
+**When:** 2026-07-18
 **Evidence:** local branch `herdr-optional-slot-label-enrichment` (stacked on
-`coordinate-slots-consumer-contracts`), completing partial commit `5fd5dc2fb`.
+`coordinate-slots-consumer-contracts`).
 
 ## Summary
 
 Herdr goal (`/ns:herdr:space:goal`) and Objective sidebar
-(`/ns:herdr:sidebar:objective-summary`) labels now add the compact Slot prefix only when
-both facts hold: canonical managed-Slot path shape (`slotLabelInput()`) and a successful
-Slots capability probe.
+(`/ns:herdr:sidebar:objective-summary`) labels add the compact Slot prefix only when both
+facts hold: canonical managed-Slot path shape (`slotLabelInput()`) and exact Slots extension
+presence through `NsExtensionApi.hasExtension("@nseng-ai/slots")`.
 
-- One Herdr-owned injectable predicate: `HasHerdrSlotsCapability` in
-  `ts/packages/capabilities/herdr/src/core/slots-capability.ts` (core stays Pi-host
-  independent).
-- One production implementation: `createHerdrSlotsCapabilityProbe` in
-  `src/pi/slots-capability.ts` inspects Pi's registered commands for an `ns:slot:*`
-  surface. Those commands are mirrored from the ns SDK effective extension registry,
-  so this uses the SDK extension-presence fact without spawning a subprocess. The probe
-  is constructed at both Pi composition roots (`src/pi/space-goal.ts`,
-  `src/pi/sidebar.ts`) and injected into `handleHerdrSpaceGoal()` and
-  `createHerdrSidebarController()`. The prior direct probe inside core goal logic was
-  removed.
-- Sidebar command description now promises the prefix only when the Slots command
-  surface is available.
+- Herdr core retains the narrow injectable `HasHerdrSlotsCapability` predicate in
+  `ts/packages/capabilities/herdr/src/core/slots-capability.ts` and remains Pi-host independent.
+- The SDK owns one canonical complete-API constructor shared by normal CLI/completion execution
+  and the ns-host factory.
+- `createRealNsExtensionApi()` in `@nseng-ai/ns/cli` creates fresh real services, loads the same
+  effective preinstalled/project extension catalog as the CLI, and returns a complete API.
+- `.pi/extensions/herdr.ts` is the explicit composition root. It snapshots the current environment
+  and forwards the command handler's cwd to the ns-host factory for each relevant invocation.
+- Herdr's invocation context retains the complete API, while both core workflows receive only the
+  narrow predicate. Construction is lazy, so existing validation/model early returns do not load
+  the registry.
+- API-construction failure and normal Slots absence both degrade optional label enrichment to an
+  unprefixed successful rename. No fake partial API encodes failure.
+- No Pi command-name inference, subprocess probe, package-resolvability check, or private registry
+  inspection remains in Herdr.
 
-Decision recorded: absence of the SDK-mirrored `ns:slot:*` command surface is
-optional-capability absence: the label stays unprefixed and the Herdr rename proceeds.
+Herdr dispatch and open-branch flows remain explicitly Slots-backed and require `SlotClient`;
+optional label enrichment does not weaken that product contract.
 
-Tests and docs: workflow tests inject predicate state (goal: managed+available,
-managed+unavailable, ordinary cwd; sidebar: available/unavailable split) and assert
-early-return paths never invoke the predicate; focused adapter test
-`test/herdr-slots-capability.test.ts` covers registered, absent, and similarly prefixed
-command surfaces without subprocess execution. `README.md` and `CONTEXT.md` state the
-two-fact prefix contract and add the **Slots capability probe** term, distinguishing path
-identity from capability availability.
+## Validation
 
-Validation: `pnpm --dir ts --filter @nseng-ai/herdr test` and full `just` (format, lint,
-typecheck, TypeScript style guard, full Vitest suite, objective sweep) passed.
+Focused SDK, ns-host, and Herdr package typechecks and tests pass. The final repository-gate results
+for this correction are reported with the branch implementation.
 
 ## Objective Impact
 
-- Completes the roadmap row "Correct optional Herdr label enrichment" (marked `[x]`).
-- Herdr dispatch and open-branch flows remain explicitly Slots-backed and required
-  (`SlotClient`); label enrichment being optional does not weaken that contract.
-  Pluggable dispatch stays future direction (Parked).
-- Partially retires the "package resolution, extension presence, and path shape remain
-  conflated" risk for the Herdr consumer: labels now use two independent facts.
+- Corrects the completed roadmap row's stale claim that Pi's mirrored `ns:slot:*` command surface
+  was the supported presence fact.
+- Records explicit project-adapter composition as the Pi-host ownership boundary.
+- Retires command-surface inference for Herdr while preserving the two-fact prefix contract and
+  silent optional fallback.
 
 ## Follow-Ups
 
-- None specific to Herdr labels; remaining consumers (cmux sidebar identity, Flow
-  opt-in, skill prerequisites, Graphite topology ownership) continue on their existing
-  roadmap rows.
+Remaining consumers (cmux sidebar identity, Flow opt-in, skill prerequisites, and Graphite topology
+ownership) continue on their existing roadmap rows.

@@ -1,46 +1,38 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExtensionAPI, SkillCommandInfoLike } from "@nseng-ai/capability-kit/pi-types";
-
 import { createHerdrSlotsCapabilityProbe } from "../src/pi/slots-capability.ts";
+import { fakeNsExtensionApi } from "./herdr-test-harness.ts";
 
-function extensionApiWithCommands(commands: readonly SkillCommandInfoLike[]): ExtensionAPI {
+function contextWithSlots(cwd: string, hasSlots: boolean) {
 	return {
-		on() {},
-		registerCommand() {},
-		async exec() {
-			throw new Error("Slots capability detection must not execute a subprocess.");
-		},
-		getCommands: () => commands,
-		getThinkingLevel: () => "medium",
-		setThinkingLevel() {},
-		async setModel() {
-			return true;
-		},
-		sendUserMessage() {},
+		pi: {},
+		git: {},
+		herdr: {},
+		ns: fakeNsExtensionApi(cwd, hasSlots),
 	};
 }
 
-function command(name: string): SkillCommandInfoLike {
-	return { name, source: "extension", sourceInfo: { path: "/extensions/ns.ts" } };
-}
-
 describe("createHerdrSlotsCapabilityProbe", () => {
-	test("reports Slots available when an ns SDK Slot command is registered", async () => {
-		const pi = extensionApiWithCommands([command("ns:flow:changes"), command("ns:slot:checkout")]);
+	test("reports Slots available from exact ns extension presence", async () => {
+		const probe = createHerdrSlotsCapabilityProbe(async () =>
+			contextWithSlots("/slot/worktree", true),
+		);
 
-		expect(await createHerdrSlotsCapabilityProbe(pi)("/slot/worktree")).toBe(true);
+		expect(await probe("/slot/worktree")).toBe(true);
 	});
 
-	test("reports Slots unavailable when no ns SDK Slot command is registered", async () => {
-		const pi = extensionApiWithCommands([command("ns:flow:changes")]);
+	test("reports Slots unavailable when the ns API is absent", async () => {
+		const probe = createHerdrSlotsCapabilityProbe(async () => ({
+			...contextWithSlots("/repo", false),
+			ns: undefined,
+		}));
 
-		expect(await createHerdrSlotsCapabilityProbe(pi)("/repo")).toBe(false);
+		expect(await probe("/repo")).toBe(false);
 	});
 
-	test("does not accept a similarly prefixed non-Slot command", async () => {
-		const pi = extensionApiWithCommands([command("ns:slots:checkout")]);
+	test("reports Slots unavailable when the exact package is absent", async () => {
+		const probe = createHerdrSlotsCapabilityProbe(async () => contextWithSlots("/repo", false));
 
-		expect(await createHerdrSlotsCapabilityProbe(pi)("/repo")).toBe(false);
+		expect(await probe("/repo")).toBe(false);
 	});
 });
