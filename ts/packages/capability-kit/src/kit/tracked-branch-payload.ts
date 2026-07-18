@@ -42,8 +42,12 @@ import {
 	resolveGraphiteTrunkBranchFromTopology,
 	type GraphiteMetadataDbAccess,
 } from "../graphite/metadata.ts";
-import { formatRawTextModelFailure, generateRawTextWithModel } from "./model-slug.ts";
-import { MODEL_OPERATION_IDS, loadModelPolicy, resolveModelOperation } from "./model-policy.ts";
+import {
+	formatRawTextModelFailure,
+	generateRawTextWithModel,
+	SLUG_MODEL_OPERATION,
+} from "./model-slug.ts";
+import { loadModelPolicy, resolveModelOperation } from "./model-policy.ts";
 import { buildPiLaunchArgs, type PiLaunchOptions } from "./pi-launch.ts";
 
 export const TRACKED_BRANCH_PAYLOAD_NAMESPACE = "ns-dispatch";
@@ -313,7 +317,7 @@ async function generateTrackedBranchSlug(
 	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: nodeProjectConfigGateway });
 	if (!policy.ok)
 		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
-	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	const model = resolveModelOperation(policy.value, SLUG_MODEL_OPERATION);
 	if (!model.ok)
 		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
 	const prompt = buildTrackedBranchSlugPrompt({ kind: "task", content });
@@ -321,6 +325,7 @@ async function generateTrackedBranchSlug(
 		cwd,
 		prompt,
 		modelRef: model.value.modelRef,
+		thinking: model.value.thinking,
 		exec: (command, args, execOptions) => pi.exec(command, args, execOptions),
 	});
 	if (!result.ok) return { ok: false, message: formatRawTextModelFailure(result.failure) };

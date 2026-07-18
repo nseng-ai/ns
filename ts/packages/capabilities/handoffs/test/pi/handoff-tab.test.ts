@@ -1,5 +1,6 @@
 import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
+import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import handoffExtension, {
@@ -22,6 +23,7 @@ import {
 	withHandoffCreateSkill,
 } from "./handoff-test-fakes.ts";
 
+const MODEL_POLICY_REPO_ROOT = resolve("test/fixtures/model-policy");
 const HANDOFF_CONTENT = `# Handoff: Associate Sessions With Branches
 
 Continuation focus: Explore how to associate sessions with git branches.
@@ -161,10 +163,20 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool returns slug and key details", async () => {
 		const pi = new FakePi([
-			step("git", ["rev-parse", "--show-toplevel"], { stdout: "/repo\n" }),
-			step("pi", buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
-				stdout: "associate-sessions-with-branches\n",
+			step("git", ["rev-parse", "--show-toplevel"], {
+				stdout: `${MODEL_POLICY_REPO_ROOT}\n`,
 			}),
+			step(
+				"pi",
+				buildRawTextModelArgs(
+					buildHandoffContentSlugPrompt(HANDOFF_CONTENT),
+					DEFAULT_FAST_MODEL,
+					"off",
+				),
+				{
+					stdout: "associate-sessions-with-branches\n",
+				},
+			),
 		]);
 		handoffExtension(pi);
 		const tool = pi.tools.get("derive_handoff_slug_from_content");
@@ -172,7 +184,7 @@ describe("handoff-tab extension", () => {
 		if (tool === undefined) {
 			throw new Error("derive_handoff_slug_from_content was not registered");
 		}
-		const context = createContext();
+		const context = createContext({ cwd: MODEL_POLICY_REPO_ROOT });
 
 		const result = await tool.execute(
 			"tool-call-1",
@@ -228,11 +240,21 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool reports slug-model failure without fallback", async () => {
 		const pi = new FakePi([
-			step("git", ["rev-parse", "--show-toplevel"], { stdout: "/repo\n" }),
-			step("pi", buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
-				code: 1,
-				stderr: "model unavailable",
+			step("git", ["rev-parse", "--show-toplevel"], {
+				stdout: `${MODEL_POLICY_REPO_ROOT}\n`,
 			}),
+			step(
+				"pi",
+				buildRawTextModelArgs(
+					buildHandoffContentSlugPrompt(HANDOFF_CONTENT),
+					DEFAULT_FAST_MODEL,
+					"off",
+				),
+				{
+					code: 1,
+					stderr: "model unavailable",
+				},
+			),
 		]);
 		handoffExtension(pi);
 		const tool = pi.tools.get("derive_handoff_slug_from_content");
@@ -246,7 +268,7 @@ describe("handoff-tab extension", () => {
 			{ content: HANDOFF_CONTENT },
 			undefined,
 			undefined,
-			createContext().ctx,
+			createContext({ cwd: MODEL_POLICY_REPO_ROOT }).ctx,
 		);
 
 		pi.assertDone();
@@ -262,10 +284,20 @@ describe("handoff-tab extension", () => {
 
 	test("derive handoff slug tool threads cwd and abort signal into model command", async () => {
 		const pi = new FakePi([
-			step("git", ["rev-parse", "--show-toplevel"], { stdout: "/repo\n" }),
-			step("pi", buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)), {
-				stdout: "associate-sessions-with-branches\n",
+			step("git", ["rev-parse", "--show-toplevel"], {
+				stdout: `${MODEL_POLICY_REPO_ROOT}\n`,
 			}),
+			step(
+				"pi",
+				buildRawTextModelArgs(
+					buildHandoffContentSlugPrompt(HANDOFF_CONTENT),
+					DEFAULT_FAST_MODEL,
+					"off",
+				),
+				{
+					stdout: "associate-sessions-with-branches\n",
+				},
+			),
 		]);
 		handoffExtension(pi);
 		const tool = pi.tools.get("derive_handoff_slug_from_content");
@@ -280,11 +312,11 @@ describe("handoff-tab extension", () => {
 			{ content: HANDOFF_CONTENT },
 			signal,
 			undefined,
-			createContext().ctx,
+			createContext({ cwd: MODEL_POLICY_REPO_ROOT }).ctx,
 		);
 
 		pi.assertDone();
-		expect(pi.execCalls[0]?.options).toMatchObject({ cwd: "/repo" });
+		expect(pi.execCalls[0]?.options).toMatchObject({ cwd: MODEL_POLICY_REPO_ROOT });
 		expect(pi.execCalls[0]?.options?.signal).toBeInstanceOf(AbortSignal);
 		expect(pi.execCalls[0]?.options?.signal).not.toBe(signal);
 		expect(pi.execCalls[0]?.options?.timeout).toBeUndefined();

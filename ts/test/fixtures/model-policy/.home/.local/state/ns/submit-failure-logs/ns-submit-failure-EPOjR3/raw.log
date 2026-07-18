@@ -1,0 +1,19 @@
+ns flow submit failure raw log
+phase: unknown
+exit code: 2
+
+----- stdout -----
+(empty)
+----- stderr -----
+Checkpoint before submit failed. Submission was not attempted.
+
+Could not resolve configured Graphite trunk; checkpoint was not created.
+gt trunk failed (exit code 1).
+
+Command: gt trunk --no-interactive
+
+----- stdout tail -----
+(empty)
+
+----- stderr tail -----
+Graphite configuration unavailable

@@ -74,6 +74,16 @@ describe("renderInlineBody", () => {
 		expect(body).toContain("Validate the payload");
 		expect(body).toContain("Posted by reviews");
 	});
+
+	test("labels tripwire keys independently of model profile metadata", () => {
+		const marker = inlineMarkerForFinding("typescript-style-tripwire", WARNING_FINDING);
+
+		const body = renderInlineBody(marker, WARNING_FINDING, {
+			reviewName: "typescript-style-tripwire",
+		});
+
+		expect(body).toContain("_Tripwire: `typescript-style-tripwire`._");
+	});
 });
 
 describe("renderFindingsComment", () => {
@@ -97,7 +107,21 @@ describe("renderFindingsComment", () => {
 	test("renders no findings", () => {
 		const body = renderFindingsComment(payload({ count: 0, findings: [] }));
 
+		expect(body).toContain("## reviews · `typescript-style`");
 		expect(body).toContain("**No findings** against base `main`. ✅");
+	});
+
+	test("renders tripwire headings from review identity with a custom profile alias", () => {
+		const body = renderFindingsComment(
+			payload({
+				reviewName: "typescript-style-tripwire",
+				modelProfile: "custom-routing-alias",
+				count: 0,
+				findings: [],
+			}),
+		);
+
+		expect(body).toContain("## reviews tripwire · `typescript-style-tripwire`");
 	});
 
 	test("renders a parseable machine state after the summary marker", () => {

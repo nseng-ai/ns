@@ -121,6 +121,7 @@ describe("prepareCheckpointMessage", () => {
 			status: " M file.ts\n",
 			diff: "diff",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			reasoning: "high",
 			textGenerator,
 		});
 
@@ -130,7 +131,7 @@ describe("prepareCheckpointMessage", () => {
 			modelRef: "openai-codex/gpt-5.6-luna",
 			operation: "checkpoint-message",
 			maxTokens: 512,
-			reasoning: "low",
+			reasoning: "high",
 		});
 		expect(textGenerator.calls[0]?.prompt).toContain("## git status --porcelain\n\n M file.ts");
 	});
@@ -145,6 +146,7 @@ describe("prepareCheckpointMessage", () => {
 			status: " M file.ts\n",
 			diff: "diff",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			reasoning: "high",
 			textGenerator,
 		});
 
@@ -171,6 +173,7 @@ describe("prepareCheckpointMessage", () => {
 			status: " M src/large-one.ts\n M src/large-two.ts\n",
 			diff: largeDiffWithSentinel(),
 			modelRef: "openai-codex/gpt-5.6-luna",
+			reasoning: "high",
 			textGenerator,
 		});
 
@@ -197,6 +200,7 @@ describe("prepareCheckpointMessage", () => {
 			status: " M file.ts\n",
 			diff: "diff --git a/file.ts b/file.ts\n+code\n",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			reasoning: "high",
 			textGenerator,
 		});
 
@@ -219,6 +223,7 @@ describe("prepareCheckpointMessage", () => {
 			status: " M extensions/cp.ts\n",
 			diff: "diff --git a/extensions/cp.ts b/extensions/cp.ts\n",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			reasoning: "high",
 			textGenerator,
 		});
 
@@ -239,6 +244,7 @@ describe("prepareCheckpointMessage", () => {
 			status: " M file.ts\n",
 			diff: "diff",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			reasoning: "high",
 			textGenerator,
 		});
 
@@ -256,6 +262,7 @@ describe("prepareCheckpointMessage", () => {
 			status: " M extensions/cp.ts\n",
 			diff: "diff --git a/extensions/cp.ts b/extensions/cp.ts\n",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			reasoning: "high",
 			textGenerator,
 		});
 

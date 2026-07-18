@@ -1,3 +1,4 @@
+import type { RawTextModelSelection } from "@nseng-ai/capability-kit/model-slug";
 import { commandSucceeded } from "@nseng-ai/foundation/command";
 import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
@@ -49,9 +50,8 @@ export interface FileStat {
 	isFile(): boolean;
 }
 
-export interface AutobranchPreparationInput {
+export interface AutobranchPreparationInput extends RawTextModelSelection {
 	cwd: string;
-	modelRef: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -201,6 +201,7 @@ async function generateSlugFromChanges(
 		cwd: input.cwd,
 		prompt,
 		modelRef: input.modelRef,
+		thinking: input.thinking,
 		exec: input.exec,
 	});
 	if (result.ok) {
@@ -262,9 +263,8 @@ function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefi
 	return sanitizeBranchName(`update ${basenameWords.length > 0 ? basenameWords : snapshot.branch}`);
 }
 
-export interface AutobranchFlowInput {
+export interface AutobranchFlowInput extends RawTextModelSelection {
 	cwd: string;
-	modelRef: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -287,6 +287,7 @@ export async function runDirtyAutobranchFlow(
 	const prepared = await prepareAutobranchPlan({
 		cwd: input.cwd,
 		modelRef: input.modelRef,
+		thinking: input.thinking,
 		args: input.args,
 		snapshot: input.snapshot,
 		exec: input.exec,

@@ -4,7 +4,9 @@ import { describe, expect, test } from "vitest";
 import type { PreparedReviewHarnessRequest } from "../../src/gateways/review-runner.ts";
 import {
 	CodexProcessReviewRunner,
+	buildCodexArgs,
 	buildCodexPrompt,
+	codexReasoningEffort,
 	parseCodexReviewOutput,
 } from "../../src/gateways/codex-review-runner.ts";
 import { InMemoryCodexReviewOutputFiles } from "../../src/gateways/codex-review-output-files.ts";
@@ -24,6 +26,34 @@ function request(): PreparedReviewHarnessRequest {
 		},
 	};
 }
+
+describe("Codex review arguments", () => {
+	const handle = {
+		directoryPath: "/memory",
+		schemaPath: "/memory/findings.schema.json",
+		outputPath: "/memory/findings.json",
+	};
+
+	test.each([
+		["off", "none"],
+		["minimal", "minimal"],
+		["low", "low"],
+		["medium", "medium"],
+		["high", "high"],
+		["xhigh", "xhigh"],
+	] as const)("maps shared thinking %s to Codex reasoning effort %s", (thinking, effort) => {
+		expect(codexReasoningEffort(thinking)).toBe(effort);
+		expect(buildCodexArgs({ modelId: "gpt-5.6-luna", thinking, handle })).toEqual(
+			expect.arrayContaining(["--config", `model_reasoning_effort=${JSON.stringify(effort)}`]),
+		);
+	});
+
+	test("omits reasoning effort when thinking is absent so Codex keeps its default", () => {
+		const args = buildCodexArgs({ modelId: "gpt-5.6-luna", handle });
+
+		expect(args).not.toContain("--config");
+	});
+});
 
 describe("CodexProcessReviewRunner", () => {
 	test("invokes Codex read-only and ephemeral with structured output files and prompt on stdin", async () => {
@@ -86,6 +116,23 @@ describe("CodexProcessReviewRunner", () => {
 			error: { code: "harness-execution-failed", message: "codex failed" },
 		});
 		expect(outputFiles.isCleaned()).toBe(true);
+	});
+
+	test("passes configured thinking through Codex's native reasoning effort setting", async () => {
+		const execApi = new ScriptedCommandExecApi([exitedResult()]);
+		const outputFiles = new InMemoryCodexReviewOutputFiles();
+		const runner = new CodexProcessReviewRunner({
+			execApi,
+			outputFiles,
+			binaryResolver: () => "/usr/bin/codex",
+		});
+
+		const result = await runner.runReview({ ...request(), thinking: "xhigh" }, { cwd: "/repo" });
+
+		expect(result.ok).toBe(true);
+		expect(execApi.calls()[0]?.args).toEqual(
+			expect.arrayContaining(["--config", 'model_reasoning_effort="xhigh"']),
+		);
 	});
 
 	test("propagates env and cancellation signal and returns input coverage", async () => {

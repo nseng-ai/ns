@@ -1,9 +1,11 @@
+export type TextGenerationReasoning = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
 export interface TextGenerationRequest {
 	modelRef: string;
 	system: string;
 	prompt: string;
 	maxTokens?: number;
-	reasoning?: "minimal" | "low";
+	reasoning?: TextGenerationReasoning;
 	operation?: string;
 }
 

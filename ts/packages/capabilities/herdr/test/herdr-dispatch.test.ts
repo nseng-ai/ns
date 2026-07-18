@@ -34,6 +34,7 @@ import { handleHerdrSlotDispatchFromTrunk } from "../src/core/dispatch-from-trun
 import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { createBranchContextContext } from "@nseng-ai/branch-context/api";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildTrackedBranchSlugPrompt } from "@nseng-ai/capability-kit/tracked-branch-payload";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
@@ -213,10 +214,14 @@ describe("Herdr prompt dispatch", () => {
 			script: [
 				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
-				gitRootStep(ROOT),
+				gitRootStep(stagingDir),
 				step(
 					"pi",
-					buildRawTextModelArgs(buildTrackedBranchSlugPrompt({ kind: "task", content: prompt })),
+					buildRawTextModelArgs(
+						buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
 					{ stdout: `${BRANCH}\n` },
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
@@ -255,7 +260,7 @@ describe("Herdr prompt dispatch", () => {
 			],
 		});
 		const herdr = new FakeHerdrGateway();
-		const ctx = new FakeCommandContext({ cwd: ROOT });
+		const ctx = new FakeCommandContext({ cwd: stagingDir });
 
 		await handleHerdrSlotDispatchPrompt({
 			pi: createHerdrPiCommandApi(pi),
@@ -298,10 +303,14 @@ describe("Herdr prompt dispatch", () => {
 					{},
 				),
 				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
-				gitRootStep(ROOT),
+				gitRootStep(stagingDir),
 				step(
 					"pi",
-					buildRawTextModelArgs(buildTrackedBranchSlugPrompt({ kind: "task", content: prompt })),
+					buildRawTextModelArgs(
+						buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
 					{ stdout: `${BRANCH}\n` },
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
@@ -340,7 +349,7 @@ describe("Herdr prompt dispatch", () => {
 			],
 		});
 		const herdr = new FakeHerdrGateway();
-		const ctx = new FakeCommandContext({ cwd: ROOT });
+		const ctx = new FakeCommandContext({ cwd: stagingDir });
 
 		await handleHerdrSlotDispatchFromTrunk({
 			pi: createHerdrPiCommandApi(pi),
@@ -379,10 +388,14 @@ describe("Herdr prompt dispatch", () => {
 			script: [
 				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
 				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
-				gitRootStep(ROOT),
+				gitRootStep(stagingDir),
 				step(
 					"pi",
-					buildRawTextModelArgs(buildTrackedBranchSlugPrompt({ kind: "task", content: prompt })),
+					buildRawTextModelArgs(
+						buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
 					{ stdout: `${BRANCH}\n` },
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
@@ -421,7 +434,7 @@ describe("Herdr prompt dispatch", () => {
 			],
 		});
 		const herdr = new FakeHerdrGateway();
-		const ctx = new FakeCommandContext({ cwd: ROOT });
+		const ctx = new FakeCommandContext({ cwd: stagingDir });
 
 		await handleHerdrSlotDispatchPrompt({
 			pi: createHerdrPiCommandApi(pi),
@@ -949,9 +962,17 @@ describe("ns:herdr:space:plan-dispatch — dry-run (no Herdr mutations)", () => 
 			script: [
 				...dispatchValidationScript(repoRoot),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(
+						buildPlanContentSlugPrompt(PLAN_CONTENT),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				headStep(),
 			],
 		});
@@ -1032,9 +1053,17 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			script: [
 				...dispatchValidationScript(repoRoot),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(
+						buildPlanContentSlugPrompt(PLAN_CONTENT),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 			],
 		});
 		const herdr = new FakeHerdrGateway();
@@ -1087,9 +1116,17 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			script: [
 				...dispatchValidationScript(repoRoot),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(
+						buildPlanContentSlugPrompt(PLAN_CONTENT),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 			],
 		});
 		const herdr = new FakeHerdrGateway();
@@ -1143,9 +1180,17 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			script: [
 				...dispatchValidationScript(repoRoot),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(
+						buildPlanContentSlugPrompt(PLAN_CONTENT),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 			],
 		});
 		const herdr = new FakeHerdrGateway();
@@ -1200,9 +1245,17 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			script: [
 				...dispatchValidationScript(repoRoot),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(
+						buildPlanContentSlugPrompt(PLAN_CONTENT),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				headStep(),
 			],
 		});

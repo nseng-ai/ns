@@ -28,6 +28,7 @@ import {
 } from "./index.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "./index.ts";
 import type { TextGenerator } from "./index.ts";
+import type { TextGenerationReasoning } from "@nseng-ai/capability-kit/text-generation";
 import { formatBatchPosition, formatItemCount } from "./submit-format.ts";
 import {
 	commandOperations,
@@ -519,6 +520,7 @@ export interface SubmitMetadataPrewriteDependencies {
 	descriptorSource: FlowPrDescriptionDescriptorSource;
 	textGenerator: TextGenerator;
 	modelRef: string;
+	reasoning?: TextGenerationReasoning;
 	time?: TimeServices;
 	progress?: SubmitProgressListeners<SubmitBranchMetadataProgressEvent>;
 }
@@ -552,6 +554,7 @@ export async function prewriteSubmitMetadata(
 		descriptorSource: input.descriptorSource,
 		textGenerator: input.textGenerator,
 		modelRef: input.modelRef,
+		...(input.reasoning === undefined ? {} : { reasoning: input.reasoning }),
 		branches: plan.metadataPrewriteBranches,
 		...(input.time === undefined ? {} : { time: input.time }),
 		...(input.progress === undefined ? {} : { progress: input.progress }),
@@ -618,6 +621,7 @@ async function generateMetadataForBranches(input: {
 	descriptorSource: FlowPrDescriptionDescriptorSource;
 	textGenerator: TextGenerator;
 	modelRef: string;
+	reasoning?: TextGenerationReasoning;
 	branches: readonly SubmitStackNewBranch[];
 	time?: TimeServices;
 	progress?: SubmitProgressListeners<SubmitBranchMetadataProgressEvent>;
@@ -631,6 +635,7 @@ async function generateMetadataForBranches(input: {
 		git: input.git,
 		descriptorSource: input.descriptorSource,
 		modelRef: input.modelRef,
+		...(input.reasoning === undefined ? {} : { reasoning: input.reasoning }),
 	});
 	if (!generation.ok) {
 		return {
@@ -666,6 +671,7 @@ async function generateMetadataForBranches(input: {
 				preparePrDescription({
 					textGenerator: input.textGenerator,
 					modelRef: generation.modelRef,
+					...(generation.reasoning === undefined ? {} : { reasoning: generation.reasoning }),
 					promptText: generation.promptText,
 					context: {
 						kind: "local",

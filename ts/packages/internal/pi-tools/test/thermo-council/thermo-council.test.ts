@@ -1,6 +1,6 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 
 import type {
@@ -158,6 +158,8 @@ class FakePi implements ThermoCouncilExtensionAPI {
 		};
 	}
 }
+
+const REPO_ROOT = resolve(import.meta.dirname, "../../../../../..");
 
 interface FakeCommandContext {
 	readonly cwd: string;
@@ -493,18 +495,20 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
 	});
 
-	test("uses the model-policy operation for final synthesis and defaults to fast", async () => {
+	test("uses the owned model-policy operation for final synthesis and defaults to standard", async () => {
 		const runnerResult = completedRunnerResult();
 		const pi = new FakePi({ execResults: successfulScopeExecResults(), runnerResult });
 		thermoCouncilExtension(pi);
 		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
 		expect(pi.runnerCalls[3]?.args).toContain("--model");
-		expect(pi.runnerCalls[3]?.args).toContain("openai-codex/gpt-5.6-luna");
+		expect(pi.runnerCalls[3]?.args).toContain("vercel-ai-gateway/openai/gpt-5.6-terra");
+		expect(pi.runnerCalls[3]?.args).toContain("--thinking");
+		expect(pi.runnerCalls[3]?.args).toContain("medium");
 
 		const repoRoot = await mkdtemp(join(tmpdir(), "thermo-policy-"));
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles]\nslow = "acme/synthesis"\n[models.operations]\n"thermo-council.synthesis" = "slow"\n',
+			'[models.profiles.slow]\nmodel = "acme/synthesis"\nthinking = "xhigh"\n[models.operations]\n"thermo-council.synthesis" = "slow"\n',
 		);
 		const configuredExecResults = successfulScopeExecResults();
 		configuredExecResults.set("git rev-parse --show-toplevel", { stdout: `${repoRoot}\n` });
@@ -514,7 +518,8 @@ describe("thermo council extension", () => {
 			.get(THERMO_COUNCIL_COMMAND_NAME)
 			?.handler("origin/master", fakeContext(repoRoot));
 		expect(configured.runnerCalls[3]?.args).toContain("acme/synthesis");
-		expect(configured.runnerCalls[3]?.args).not.toContain("openai-codex/gpt-5.6-luna");
+		expect(configured.runnerCalls[3]?.args).toContain("xhigh");
+		expect(configured.runnerCalls[3]?.args).not.toContain("vercel-ai-gateway/openai/gpt-5.6-terra");
 	});
 
 	test("launches three read-only terminal-capture reviewer seats and renders a report", async () => {
@@ -1138,7 +1143,7 @@ function successfulScopeExecResults(): Map<
 	return new Map([
 		["git status --short", { stdout: "" }],
 		["git symbolic-ref --quiet --short refs/remotes/origin/HEAD", { stdout: "origin/master\n" }],
-		["git rev-parse --show-toplevel", { stdout: "/repo\n" }],
+		["git rev-parse --show-toplevel", { stdout: `${REPO_ROOT}\n` }],
 		["git rev-parse HEAD", { stdout: "head-sha\n" }],
 		["git rev-parse --verify origin/master^{commit}", { stdout: "base-ref-sha\n" }],
 		["git merge-base base-ref-sha HEAD", { stdout: "base-sha\n" }],

@@ -1,10 +1,11 @@
 import { runAutoslotCli } from "../../autoslot/autoslot.ts";
+import { FLOW_CHECKPOINT_MODEL_OPERATION } from "../../checkpoint/checkpoint.ts";
 import { defineCommand, failure, z, type NsCommand } from "@nseng-ai/sdk";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
-import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
-import { resolveFlowModelRef } from "../model-policy.ts";
+import { SLUG_MODEL_OPERATION } from "@nseng-ai/capability-kit/model-slug";
+import { resolveFlowModelSelection } from "../model-policy.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 
 const autoslotSchema = z.object({
@@ -26,8 +27,10 @@ export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineComma
 		// Resolve caps at the host-extension seam (house-style §1) and thread them into the Flow CLI
 		// edge so autoslot durable outcomes render in the house style next to where facts are computed.
 		const caps = resolveFlowStreamCaps(ctx);
-		const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
-		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
+		const slugModel = await resolveFlowModelSelection(ctx, SLUG_MODEL_OPERATION);
+		if (!slugModel.ok) return failure(FLOW_COMMAND_FAILED, slugModel.error);
+		const checkpointModel = await resolveFlowModelSelection(ctx, FLOW_CHECKPOINT_MODEL_OPERATION);
+		if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
 		return await runFlowCli({
 			ctx,
 			successMessage: "Autoslot completed.",
@@ -38,7 +41,10 @@ export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineComma
 					env: ctx.env,
 					args: request.slug === undefined ? {} : { slug: request.slug },
 					textGenerator: ctx.textGenerator,
-					modelRef: model.modelRef,
+					modelRef: slugModel.selection.modelRef,
+					thinking: slugModel.selection.thinking,
+					checkpointModelRef: checkpointModel.selection.modelRef,
+					checkpointReasoning: checkpointModel.selection.thinking,
 					caps,
 					exec: io.exec,
 					stdout: io.stdout,

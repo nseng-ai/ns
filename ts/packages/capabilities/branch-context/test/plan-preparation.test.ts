@@ -1,6 +1,6 @@
 import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import {
 	createPreparedPlanBranchContext,
@@ -9,6 +9,7 @@ import {
 } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/capability-kit/graphite/testing";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
@@ -16,7 +17,7 @@ import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { afterEach, describe, expect, test } from "vitest";
 
-const ROOT = "/repo";
+const ROOT = resolve("test/fixtures/model-policy");
 const SOURCE_BRANCH = "feature/source";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const PLAN_CONTENT = "# Add dispatch preparation tests\n";
@@ -32,7 +33,11 @@ class SlugCommands implements CommandExecApi {
 		}
 		expect({ command, args }).toEqual({
 			command: "pi",
-			args: buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)),
+			args: buildRawTextModelArgs(
+				buildPlanContentSlugPrompt(PLAN_CONTENT),
+				DEFAULT_FAST_MODEL,
+				"off",
+			),
 		});
 		return exited("add-dispatch-preparation-tests\n");
 	}

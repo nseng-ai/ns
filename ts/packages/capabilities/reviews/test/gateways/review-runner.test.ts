@@ -21,6 +21,7 @@ import {
 function request(
 	options: {
 		readonly model?: string;
+		readonly thinking?: ReviewRunnerRequest["thinking"];
 		readonly reviewName?: string;
 		readonly diffText?: string;
 	} = {},
@@ -28,6 +29,7 @@ function request(
 	const diffText = options.diffText ?? "diff --git a/src/app.ts b/src/app.ts\n+change\n";
 	return {
 		model: options.model ?? "anthropic/claude-haiku-4-5",
+		...(options.thinking === undefined ? {} : { thinking: options.thinking }),
 		reviewDefinition: {
 			name: options.reviewName ?? "typescript-style",
 			description: "Review TypeScript diffs.",
@@ -65,10 +67,15 @@ function successResponse(): ReviewExecutionResponse {
 }
 
 function preparedRequest(
-	options: { readonly modelId?: string; readonly promptText?: string } = {},
+	options: {
+		readonly modelId?: string;
+		readonly thinking?: PreparedReviewHarnessRequest["thinking"];
+		readonly promptText?: string;
+	} = {},
 ): PreparedReviewHarnessRequest {
 	return {
 		modelId: options.modelId ?? "claude-haiku-4-5",
+		...(options.thinking === undefined ? {} : { thinking: options.thinking }),
 		promptText: options.promptText ?? "REVIEW_PROMPT",
 		inputCoverage: {
 			fullDiffEstimatedTokens: 10,
@@ -175,6 +182,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 		});
 		const largeMarker = "UNIQUE_PROMPT_MARKER";
 		const harnessRequest = preparedRequest({
+			thinking: "high",
 			promptText: `${largeMarker}\n${"x".repeat(200_000)}`,
 		});
 
@@ -195,6 +203,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 			"claude-haiku-4-5",
 		]);
 		expect(call?.args[6]).toBe("--model");
+		expect(call?.args).toEqual(expect.arrayContaining(["--effort", "high"]));
 		expect(call?.args).toContain("--system-prompt");
 		expect(call?.args).toContain("--json-schema");
 		const schemaArg = call?.args.at((call?.args.indexOf("--json-schema") ?? -2) + 1);
@@ -210,6 +219,19 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 		expect(call?.args.some((arg) => arg.includes(largeMarker))).toBe(false);
 		expect(call?.options?.stdin).toContain(largeMarker);
 		expect(call?.options?.cwd).toBe("/repo");
+	});
+
+	test("omits effort when the request has no profile thinking", async () => {
+		const execApi = new ScriptedCommandExecApi([exitedResult({ stdout: claudeStdout() })]);
+		const gateway = new ClaudeCodeProcessReviewRunner({
+			execApi,
+			binaryResolver: () => "/usr/bin/claude",
+		});
+
+		const result = await gateway.runReview(preparedRequest(), { cwd: "/repo" });
+
+		expect(result.ok).toBe(true);
+		expect(execApi.calls()[0]?.args).not.toContain("--effort");
 	});
 
 	test("missing binary returns harness_binary_missing without spawning", async () => {
@@ -262,6 +284,21 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 });
 
 describe("RoutingReviewRunner", () => {
+	test("carries profile thinking to the selected harness", async () => {
+		const claudeCode = new RecordingHarnessRunner();
+		const codex = new RecordingHarnessRunner();
+		const pi = new RecordingHarnessRunner();
+		const runner = new RoutingReviewRunner({ claudeCode, codex, pi });
+
+		const result = await runner.runReview(
+			request({ model: "openai/gpt-5.6-luna", thinking: "xhigh" }),
+			{ cwd: "/repo" },
+		);
+
+		expect(result.ok).toBe(true);
+		expect(codex.calls[0]?.request.thinking).toBe("xhigh");
+	});
+
 	test.each([
 		["anthropic/claude-sonnet-4-6", "claude-code", "claude-sonnet-4-6"],
 		["openai/gpt-5.6-luna", "codex", "gpt-5.6-luna"],
@@ -286,6 +323,7 @@ describe("RoutingReviewRunner", () => {
 					? codex.calls[0]
 					: pi.calls[0];
 		expect(dispatched?.request.modelId).toBe(modelId);
+		expect(dispatched?.request).not.toHaveProperty("thinking");
 		expect(dispatched?.request.promptText).toContain("Flag concrete issues.");
 		expect(dispatched?.request.promptText).toContain("+change");
 		expect(dispatched?.request.inputCoverage).toMatchObject({

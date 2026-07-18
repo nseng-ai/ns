@@ -13,15 +13,20 @@ const BASE_DEFINITION = {
 } as const satisfies ReviewDefinition;
 
 describe("reviewSkillEntryFromDefinition", () => {
-	test("derives a tripwire skill surface and label from the review key", () => {
+	test("does not derive a tripwire skill from the fast profile alias", () => {
 		expect(reviewSkillEntryFromDefinition("zeta-review", BASE_DEFINITION)).toEqual({
 			surface: "skill:review-zeta-review",
-			label: "Tripwire: Zeta review",
+			label: "Review: Zeta review",
 		});
 	});
 
 	test("keeps the tripwire suffix out of labels and unprefixed tripwire surfaces", () => {
-		expect(reviewSkillEntryFromDefinition("typescript-tripwire", BASE_DEFINITION)).toEqual({
+		const definition = {
+			...BASE_DEFINITION,
+			modelProfile: "custom-routing-alias",
+		} satisfies ReviewDefinition;
+
+		expect(reviewSkillEntryFromDefinition("typescript-tripwire", definition)).toEqual({
 			surface: "skill:typescript-tripwire",
 			label: "Tripwire: TypeScript",
 		});

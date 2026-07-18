@@ -1,3 +1,4 @@
+import type { RawTextModelSelection } from "@nseng-ai/capability-kit/model-slug";
 import { shortSha } from "../commit-display/index.ts";
 import type { AutobranchExec, PendingWorktreeSnapshot } from "./shared.ts";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
@@ -43,9 +44,8 @@ export {
 } from "./latest-commit-transaction.ts";
 export { inspectUpstreamHeadState, type UpstreamHeadState } from "./upstream.ts";
 
-export interface LatestCommitAutobranchInput {
+export interface LatestCommitAutobranchInput extends RawTextModelSelection {
 	cwd: string;
-	modelRef: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;

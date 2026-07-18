@@ -4,6 +4,7 @@ import {
 	formatRawTextModelFailure,
 	RAW_TEXT_MODEL_TIMEOUT_MS,
 	type RawTextModelFailure,
+	type RawTextModelSelection,
 } from "@nseng-ai/capability-kit/model-slug";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
 import { truncateText } from "./shared.ts";
@@ -37,10 +38,9 @@ export interface BranchSlugPromptInput {
 	evidenceSections: readonly BranchSlugEvidenceSection[];
 }
 
-export interface BranchSlugDerivationInput {
+export interface BranchSlugDerivationInput extends RawTextModelSelection {
 	cwd: string;
 	prompt: string;
-	modelRef: string;
 	exec: AutobranchExec;
 }
 
@@ -83,6 +83,7 @@ export async function deriveBranchSlug(
 		cwd: input.cwd,
 		prompt: input.prompt,
 		modelRef: input.modelRef,
+		thinking: input.thinking,
 		slugKind: "branch slug",
 		normalizeOutput: sanitizeBranchName,
 		exec: (command, args, options) =>

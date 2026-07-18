@@ -25,6 +25,7 @@ import registerCccExtension, {
 	registerCccSurfaceDispatchPlanCommand,
 } from "@nseng-ai/cmux/pi";
 import type { GraphiteMetadataDbAccess } from "@nseng-ai/capability-kit/graphite/metadata";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { buildTrackedBranchSlugPrompt } from "@nseng-ai/capability-kit/tracked-branch-payload";
 import { buildLaunchPrompt } from "../src/core/dispatch-prompt.ts";
@@ -288,9 +289,17 @@ describe("cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(
+						buildPlanContentSlugPrompt(PLAN_CONTENT),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				headStep(),
 			],
 		});
@@ -338,9 +347,17 @@ describe("cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(
+						buildPlanContentSlugPrompt(PLAN_CONTENT),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
 				gitRootStep(repoRoot),
@@ -410,9 +427,17 @@ describe("cmux command suite", () => {
 				gitCurrentBranchStep(),
 				gitOriginStep(),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(
+						buildPlanContentSlugPrompt(PLAN_CONTENT),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 			],
 		});
 		const options: CccSlotDispatchPlanOptions = {
@@ -462,9 +487,17 @@ describe("cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(
+						buildPlanContentSlugPrompt(PLAN_CONTENT),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				headStep(),
 			],
 		});
@@ -507,9 +540,17 @@ describe("cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(
+						buildPlanContentSlugPrompt(PLAN_CONTENT),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
 				gitRootStep(repoRoot),
@@ -611,9 +652,17 @@ describe("cmux command suite", () => {
 				gitRootStep(repoRoot),
 				gitCurrentBranchStep(),
 				gitOriginStep(),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(
+						buildPlanContentSlugPrompt(PLAN_CONTENT),
+						DEFAULT_FAST_MODEL,
+						"off",
+					),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
 				gitRootStep(repoRoot),
@@ -724,6 +773,8 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						DEFAULT_FAST_MODEL,
+						"off",
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -785,7 +836,7 @@ describe("cmux command suite", () => {
 			shouldCleanupStagingFile: false,
 			slotClient: testSlotClient,
 		});
-		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+		const ctx = new FakeCommandContext({ cwd: stagingDir, model: PREVIOUS_MODEL });
 
 		await pi.commands
 			.get("ns:cmux:workspace:dispatch-prompt")
@@ -842,6 +893,8 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						DEFAULT_FAST_MODEL,
+						"off",
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -903,7 +956,7 @@ describe("cmux command suite", () => {
 			shouldCleanupStagingFile: false,
 			slotClient: testSlotClient,
 		});
-		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+		const ctx = new FakeCommandContext({ cwd: stagingDir, model: PREVIOUS_MODEL });
 
 		await pi.commands
 			.get("ns:cmux:workspace:dispatch-from-trunk")
@@ -963,6 +1016,8 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						DEFAULT_FAST_MODEL,
+						"off",
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -1023,7 +1078,7 @@ describe("cmux command suite", () => {
 			slotClient: testSlotClient,
 			metadataDbAccess: graphiteMetadataDbAccessWithTrunk(TRUNK_BRANCH),
 		});
-		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+		const ctx = new FakeCommandContext({ cwd: stagingDir, model: PREVIOUS_MODEL });
 
 		await pi.commands
 			.get("ns:cmux:workspace:dispatch-from-trunk")
@@ -1179,6 +1234,8 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						DEFAULT_FAST_MODEL,
+						"off",
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -1240,7 +1297,7 @@ describe("cmux command suite", () => {
 			shouldCleanupStagingFile: false,
 			slotClient: testSlotClient,
 		});
-		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+		const ctx = new FakeCommandContext({ cwd: stagingDir, model: PREVIOUS_MODEL });
 
 		await pi.commands
 			.get("ns:cmux:workspace:dispatch-from-trunk")
@@ -1300,6 +1357,7 @@ describe("cmux command suite", () => {
 	});
 
 	test("ns:cmux:workspace:dispatch-prompt refuses to overwrite an existing Branch Memory payload", async () => {
+		const stagingDir = await makeTempDir();
 		const pi = new FakePi({
 			script: [
 				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
@@ -1311,6 +1369,8 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						DEFAULT_FAST_MODEL,
+						"off",
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -1334,7 +1394,7 @@ describe("cmux command suite", () => {
 			],
 		});
 		registerCccSlotDispatchPromptCommand(pi);
-		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+		const ctx = new FakeCommandContext({ cwd: stagingDir, model: PREVIOUS_MODEL });
 
 		await pi.commands
 			.get("ns:cmux:workspace:dispatch-prompt")
@@ -1365,6 +1425,8 @@ describe("cmux command suite", () => {
 							kind: "task",
 							content: "Implement the cmux dispatch flow",
 						}),
+						DEFAULT_FAST_MODEL,
+						"off",
 					),
 					{ stdout: `${BRANCH}\n` },
 				),
@@ -1407,7 +1469,7 @@ describe("cmux command suite", () => {
 			],
 		});
 		registerCccSlotDispatchPromptCommand(pi, { stagingDir, now: () => 123 });
-		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+		const ctx = new FakeCommandContext({ cwd: stagingDir, model: PREVIOUS_MODEL });
 
 		await pi.commands
 			.get("ns:cmux:workspace:dispatch-prompt")

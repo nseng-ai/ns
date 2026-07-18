@@ -112,6 +112,7 @@ export type {
 } from "./services.ts";
 export { z } from "./schema.ts";
 export type {
+	TextGenerationReasoning,
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerationUsage,

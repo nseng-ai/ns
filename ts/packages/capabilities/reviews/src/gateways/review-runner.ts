@@ -9,9 +9,11 @@ import {
 import {
 	formatErrorMessage,
 	mapFromRecordOrMap,
+	optionalEntry,
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
+import type { ModelThinking } from "@nseng-ai/capability-kit/model-policy";
 
 import type { ReviewResult } from "../core/failures.ts";
 import {
@@ -43,6 +45,7 @@ export interface ReviewRunnerGateway {
 
 export interface PreparedReviewHarnessRequest {
 	readonly modelId: string;
+	readonly thinking?: ModelThinking;
 	readonly promptText: string;
 	readonly inputCoverage: ReviewInputCoverage;
 }
@@ -80,6 +83,7 @@ export class RoutingReviewRunner implements ReviewRunnerGateway {
 		const assembled = assembleReviewPrompt(request);
 		const preparedRequest: PreparedReviewHarnessRequest = {
 			modelId: resolved.value.modelId,
+			...optionalEntry("thinking", request.thinking),
 			promptText: assembled.promptText,
 			inputCoverage: assembled.inputCoverage,
 		};
@@ -178,6 +182,7 @@ export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 
 		const args = buildClaudeCodeArgs({
 			model: request.modelId,
+			...optionalEntry("thinking", request.thinking),
 			systemPrompt: systemPromptFindings(),
 		});
 		let result: ExecResult;

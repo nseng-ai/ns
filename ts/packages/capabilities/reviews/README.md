@@ -31,7 +31,7 @@ Review only the supplied diff...
 Frontmatter fields:
 
 - `description` — required non-empty string.
-- `model_profile` — optional non-empty string; defaults to `fast`. Current display groups `fast` as a tripwire and other profiles such as `deep` as deep reviews. `ns reviews run --model-profile ...` can override it for one run.
+- `model_profile` — optional non-empty string; defaults to `fast`. It controls model routing only; `ns reviews run --model-profile ...` can override it for one run. Display roles come from review identity: keys ending in `-tripwire` are tripwires, and all other keys are deep reviews.
 - `local_only` — optional boolean; defaults to `false`. Set `true` only for reviews that must never run in CI. CI discovery uses `ns reviews list --ci`, which excludes `local_only: true` definitions.
 - `applies_to.include` — optional list of repo-relative glob patterns. When present, `ns reviews list --applicable` selects the review only when the diff touches a matching path.
 - `applies_to.exclude` — optional list of repo-relative glob patterns removed from applicability. Use this for vendored skill directories or generated areas.
@@ -40,16 +40,23 @@ Applicability patterns must be globs, not git pathspecs; keep them repo-relative
 
 ## Model profiles and harnesses
 
-Reviews resolves `model_profile` and `--model-profile` directly as aliases in the shared `[models.profiles]` repository policy. Any configured alias is valid; omitted `model_profile` uses `fast`:
+Reviews resolves `model_profile` and `--model-profile` directly as aliases in the shared `[models.profiles]` repository policy. Any configured alias is valid. Omitted `model_profile` selects Reviews' component-owned `fast` default, so the repository must define a structured `fast` profile:
 
 ```toml
-[models.profiles]
-fast = "vercel-ai-gateway/openai/gpt-5.6-luna"
-deep = "vercel-ai-gateway/openai/gpt-5.6-terra"
-architecture = "anthropic/claude-opus-4-6"
+[models.profiles.fast]
+model = "vercel-ai-gateway/openai/gpt-5.6-luna"
+thinking = "medium"
+
+[models.profiles.deep]
+model = "vercel-ai-gateway/openai/gpt-5.6-terra"
+thinking = "high"
+
+[models.profiles.architecture]
+model = "anthropic/claude-opus-4-6"
+thinking = "xhigh"
 ```
 
-Use `--model-profile architecture` to select an alias for one run. Use `--model provider/model-id` only when overriding the configured model reference directly.
+Use `--model-profile architecture` to select an alias for one run. Profile selection supplies both the model and thinking level to the selected harness. Use `--model provider/model-id` only when overriding the configured model reference directly; a concrete override bypasses profile model/thinking selection and preserves the selected harness's existing call-specific thinking behavior or default by omitting Claude Code's effort and Codex's reasoning-effort controls.
 
 Provider routing is explicit:
 
@@ -66,6 +73,19 @@ Override the concrete model for one run with another qualified reference:
 ```bash
 ns reviews run <review-key> --model anthropic/claude-sonnet-4-6
 ```
+
+Profile thinking maps to each harness's native control:
+
+| Shared thinking | Pi `--thinking` | Claude Code `--effort` | Codex `model_reasoning_effort` |
+| --------------- | --------------- | ---------------------- | ------------------------------ |
+| `off`           | `off`           | `low`                  | `none`                         |
+| `minimal`       | `minimal`       | `low`                  | `minimal`                      |
+| `low`           | `low`           | `low`                  | `low`                          |
+| `medium`        | `medium`        | `medium`               | `medium`                       |
+| `high`          | `high`          | `high`                 | `high`                         |
+| `xhigh`         | `xhigh`         | `xhigh`                | `xhigh`                        |
+
+Claude Code documents `low` as its minimum `--effort`, so the lower `off` and `minimal` policy intents deterministically clamp upward to `low`. Codex names disabled reasoning `none`; all other shared levels are native. A concrete `--model` override omits these controls. Pi retains its Reviews call-specific `minimal` default when profile thinking is absent.
 
 Codex runs with a read-only sandbox, an ephemeral session, ignored user configuration, and schema-validated structured output. Codex token/cost usage is currently reported as `null`.
 

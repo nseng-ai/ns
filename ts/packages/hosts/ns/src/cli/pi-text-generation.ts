@@ -91,7 +91,9 @@ export class PiTextGenerator implements TextGenerator {
 					apiKey: auth.apiKey,
 					sessionId: requestSessionId,
 					maxTokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
-					reasoning: request.reasoning ?? DEFAULT_REASONING,
+					...(request.reasoning === "off"
+						? {}
+						: { reasoning: request.reasoning ?? DEFAULT_REASONING }),
 					timeoutMs: DEFAULT_TIMEOUT_MS,
 				},
 			);

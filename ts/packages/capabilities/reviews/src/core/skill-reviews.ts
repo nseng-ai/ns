@@ -40,9 +40,9 @@ function reviewSkillLabel(title: string, role: ReviewDisplayRole): string {
 
 export function reviewSkillEntryFromDefinition(
 	key: string,
-	definition: ReviewDefinition,
+	_definition: ReviewDefinition,
 ): ReviewSkillEntry {
-	const role = reviewDisplayRole(definition.modelProfile);
+	const role = reviewDisplayRole(key);
 	const title = reviewSkillTitleForDefinition(key, role);
 	return {
 		surface: reviewSkillSurfaceForDefinition(key, role),

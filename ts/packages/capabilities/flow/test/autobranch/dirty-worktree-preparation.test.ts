@@ -78,6 +78,7 @@ function createHarness(options: HarnessOptions = {}) {
 	const input: AutobranchPreparationInput = {
 		cwd: "/repo",
 		modelRef: "test/model",
+		thinking: "off",
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
 		exec,
@@ -216,7 +217,7 @@ describe("prepareAutobranchPlan", () => {
 		expect(harness.statPaths).toEqual(["/repo/notes.txt"]);
 		const prompt = piPrompt(harness.calls);
 		expect(piCall(harness.calls).args).toEqual(
-			buildRawTextModelArgs(prompt, parseModelRef("test/model")),
+			buildRawTextModelArgs(prompt, parseModelRef("test/model")!, "off"),
 		);
 		expect(prompt).toContain("## git status --porcelain\nM src/app.ts\n?? notes.txt");
 		expect(prompt).toContain(

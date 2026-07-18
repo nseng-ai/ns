@@ -654,7 +654,7 @@ interface TextGenerationRequest {
   system: string;
   prompt: string;
   maxTokens?: number;
-  reasoning?: "minimal" | "low";
+  reasoning?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   operation?: string;
 }
 ```
@@ -665,7 +665,7 @@ interface TextGenerationRequest {
 - `system` — system prompt.
 - `prompt` — user prompt.
 - `maxTokens?` — optional output cap.
-- `reasoning?` — optional reasoning effort, `"minimal"` or `"low"`.
+- `reasoning?` — optional reasoning effort: `"off"`, `"minimal"`, `"low"`, `"medium"`, `"high"`, or `"xhigh"`.
 - `operation?` — optional operation tag for host-side routing/telemetry. Use any stable string that identifies the generation task.
 
 **Example.** Built and passed to `generateText` in the `TextGenerator` example above.

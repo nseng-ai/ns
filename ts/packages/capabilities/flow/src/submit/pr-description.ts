@@ -5,6 +5,7 @@ import process from "node:process";
 
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
+	type TextGenerationReasoning,
 	type TextGenerationResult,
 	type TextGenerationUsage,
 	type TextGenerator,
@@ -26,6 +27,12 @@ import {
 	type PromptPointSource,
 } from "@nseng-ai/sdk/project-config/points";
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
+import type { ModelOperationDefinition } from "@nseng-ai/capability-kit/model-policy";
+
+export const FLOW_PR_DESCRIPTION_MODEL_OPERATION = {
+	id: "flow.pr-description",
+	defaultProfile: "fast",
+} as const satisfies ModelOperationDefinition;
 
 export const PR_DESCRIPTION_PROMPT_ENV = "NS_DEV_PR_DESCRIPTION_PROMPT";
 export const FLOW_PR_DESCRIPTION_POINT_ID = "flow.submit.pr-description";
@@ -61,7 +68,13 @@ export type PromptResolutionResult =
 	| { ok: false; error: string; source: PromptSource };
 
 export type PrDescriptionGenerationResolution =
-	| { ok: true; modelRef: string; promptText: string; promptSource: PromptSource }
+	| {
+			ok: true;
+			modelRef: string;
+			reasoning?: TextGenerationReasoning;
+			promptText: string;
+			promptSource: PromptSource;
+	  }
 	| { ok: false; error: string; exitCode?: number };
 
 export type PrDescriptionPromptContext =
@@ -113,6 +126,7 @@ export async function resolvePrDescriptionGeneration(input: {
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
 	modelRef: string;
+	reasoning?: TextGenerationReasoning;
 }): Promise<PrDescriptionGenerationResolution> {
 	const repoRoot = await input.git.repoRoot({ cwd: input.cwd });
 	const prompt = await resolvePrDescriptionPrompt({
@@ -128,6 +142,7 @@ export async function resolvePrDescriptionGeneration(input: {
 	return {
 		ok: true,
 		modelRef: input.modelRef,
+		...(input.reasoning === undefined ? {} : { reasoning: input.reasoning }),
 		promptText: prompt.text,
 		promptSource: prompt.source,
 	};
@@ -293,6 +308,7 @@ export function formatPrDescriptionValidationFeedback(
 export async function preparePrDescription(input: {
 	textGenerator: TextGenerator;
 	modelRef: string;
+	reasoning?: TextGenerationReasoning;
 	promptText: string;
 	context: PrDescriptionPromptContext;
 	onProgress?: (message: string) => void;
@@ -306,6 +322,7 @@ export async function preparePrDescription(input: {
 			const generated = await generatePrDescriptionText(
 				input.textGenerator,
 				input.modelRef,
+				input.reasoning ?? "low",
 				input.promptText,
 				prompt,
 			);
@@ -412,6 +429,7 @@ function isNodeFileNotFound(error: unknown): boolean {
 async function generatePrDescriptionText(
 	textGenerator: TextGenerator,
 	modelRef: string,
+	reasoning: TextGenerationReasoning,
 	system: string,
 	prompt: string,
 ): Promise<TextGenerationResult> {
@@ -420,7 +438,7 @@ async function generatePrDescriptionText(
 		system,
 		prompt,
 		maxTokens: 2048,
-		reasoning: "low",
+		reasoning,
 		operation: "pr-description",
 	});
 }

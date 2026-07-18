@@ -49,11 +49,12 @@ From your repository root:
 ns init --harness claude-code   # or: codex, pi
 ```
 
-`ns init` writes `ns.toml`, generates a harness-neutral agent-instruction block, creates
-the declared consumer directories, and provisions the core harness artifacts. The harness
-is explicit on the first run and persisted to `ns.toml`; pass `--harness` more than once to
-support multiple harnesses. `ns init` writes files but never commits — review and commit
-the changes yourself.
+`ns init` writes `ns.toml` with the selected harnesses and the standard model profiles,
+generates a harness-neutral agent-instruction block, creates the declared consumer directories,
+and provisions the core harness artifacts. The harness is explicit on the first run and persisted
+to `ns.toml`; pass `--harness` more than once to support multiple harnesses. Existing `ns.toml`
+content is preserved except when an explicit `--harness` selection updates its harness declaration.
+`ns init` writes files but never commits — review and commit the changes yourself.
 
 ## Add Objectives
 

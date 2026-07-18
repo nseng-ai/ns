@@ -1,0 +1,18 @@
+ns flow submit failure raw log
+phase: preflight
+exit code: 1
+
+summary:
+Graphite needs a restack before submitting, but automatic restack was disabled or unavailable. Nothing was submitted.
+
+Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `ns flow submit`.
+
+command 1: gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run
+termination: exited
+exit code: 1
+signal: none
+
+----- stdout -----
+(empty)
+----- stderr -----
+must be restacked before submit

@@ -1,4 +1,8 @@
-import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
+import type { RawTextModelSelection } from "@nseng-ai/capability-kit/model-slug";
+import type {
+	TextGenerationReasoning,
+	TextGenerator,
+} from "@nseng-ai/capability-kit/text-generation";
 import type { Caps } from "@nseng-ai/clinkr";
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { createCliCommandIo, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
@@ -27,12 +31,13 @@ export interface AutoslotFlowInput extends FlowAutobranchCheckpointInput {
 	caps: Caps;
 }
 
-export interface AutoslotCliInput {
+export interface AutoslotCliInput extends RawTextModelSelection {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	args: FlowAutobranchRequest;
 	textGenerator: TextGenerator;
-	modelRef: string;
+	checkpointModelRef: string;
+	checkpointReasoning: TextGenerationReasoning;
 	/** Resolved terminal caps from the host seam (`resolveFlowStreamCaps` in the flow wrapper). */
 	caps: Caps;
 	exec(
@@ -58,11 +63,17 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 		await createAutoslotFlow({
 			cwd: input.cwd,
 			modelRef: input.modelRef,
+			thinking: input.thinking,
 			args: input.args,
 			caps: input.caps,
 			exec,
 			prepareCheckpointMessage: (snapshot) =>
-				prepareAutobranchCheckpointMessage(snapshot, input.modelRef, input.textGenerator),
+				prepareAutobranchCheckpointMessage(
+					snapshot,
+					input.checkpointModelRef,
+					input.checkpointReasoning,
+					input.textGenerator,
+				),
 			commitPreparedCheckpointMessage: (message) =>
 				commitAutobranchCheckpointMessage(
 					(command, commandArgs, commandCwd, timeout) =>

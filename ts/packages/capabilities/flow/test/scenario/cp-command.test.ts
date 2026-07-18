@@ -99,7 +99,7 @@ describe("project-local cp extension behavior", () => {
 				modelRef: "openai-codex/gpt-5.6-luna",
 				operation: "checkpoint-message",
 				maxTokens: 512,
-				reasoning: "low",
+				reasoning: "medium",
 			}),
 		]);
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(

@@ -211,12 +211,12 @@ export function extractInlineMarkers(body: string): readonly string[] {
 export function renderInlineBody(
 	marker: string,
 	finding: ReviewFinding,
-	options: { readonly reviewName: string; readonly modelProfile?: string | null },
+	options: { readonly reviewName: string },
 ): string {
 	return [
 		marker,
 		`**${finding.severity}: ${finding.summary}**`,
-		`_${inlineReviewLabel(options.modelProfile)}: \`${options.reviewName}\`._`,
+		`_${inlineReviewLabel(options.reviewName)}: \`${options.reviewName}\`._`,
 		"",
 		finding.details,
 		"",
@@ -352,17 +352,14 @@ function parseJson(raw: string): unknown | null {
 }
 
 function renderFindingsCommentHeading(payload: FindingsPayload): string {
-	if (payload.modelProfile !== null && reviewDisplayRole(payload.modelProfile) === "tripwire") {
+	if (reviewDisplayRole(payload.reviewName) === "tripwire") {
 		return `## reviews tripwire · \`${payload.reviewName}\``;
 	}
 	return `## reviews · \`${payload.reviewName}\``;
 }
 
-function inlineReviewLabel(modelProfile: string | null | undefined): "Tripwire" | "Review" {
-	if (modelProfile !== null && modelProfile !== undefined) {
-		return reviewDisplayRole(modelProfile) === "tripwire" ? "Tripwire" : "Review";
-	}
-	return "Review";
+function inlineReviewLabel(reviewName: string): "Tripwire" | "Review" {
+	return reviewDisplayRole(reviewName) === "tripwire" ? "Tripwire" : "Review";
 }
 
 function renderInlinePostingStatus(status: InlinePostingStatus): string[] {

@@ -175,7 +175,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 			operation: "pr-description",
 			modelRef: "openai-codex/gpt-5.6-luna",
 			maxTokens: 2048,
-			reasoning: "low",
+			reasoning: "medium",
 		});
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("## Context");
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("## Diff");

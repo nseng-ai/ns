@@ -12,6 +12,7 @@ import {
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
 import { withTemporaryFile } from "@nseng-ai/capability-kit/temp-files";
+import type { RawTextModelSelection } from "@nseng-ai/capability-kit/model-slug";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 import {
 	createAutobranchGitGateway,
@@ -65,7 +66,7 @@ export function createAutobranchExecContext(
 export function createAutobranchDispatchEnv(
 	ctx: NsExtensionApi,
 	args: ParsedAutobranchArgs,
-	modelRef: string,
+	model: RawTextModelSelection,
 ): Pick<AutobranchDispatchEnv, "loadSnapshot" | "createFlowContext"> {
 	return {
 		loadSnapshot: () => loadFlowPendingWorktreeSnapshot(ctx),
@@ -74,7 +75,8 @@ export function createAutobranchDispatchEnv(
 			return {
 				cwd: snapshot.root,
 				args,
-				modelRef,
+				modelRef: model.modelRef,
+				thinking: model.thinking,
 				exec,
 				git,
 			};

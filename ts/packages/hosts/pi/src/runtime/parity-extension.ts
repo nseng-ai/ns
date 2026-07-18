@@ -78,10 +78,9 @@ export interface BasePiSurfaceParity {
 	 *
 	 * Omitted means exact: the record must correspond to one live fake-host
 	 * registration, and one live fake-host registration must correspond to this
-	 * record. Dynamic-family records are rare escape hatches for runtime-generated
-	 * families that cannot be observed by normal package-module registration; they
-	 * are excluded from stale-record checks but do not satisfy missing exact live
-	 * surfaces.
+	 * record. A dynamic-family surface ends in `*` and matches live registrations
+	 * with the same kind and literal prefix. It accounts for generated names without
+	 * enumerating installed names and is excluded from stale-record checks.
 	 */
 	readonly matching?:
 		| { readonly type: "exact" }

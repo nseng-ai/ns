@@ -2,11 +2,8 @@ import {
 	deriveKitContentSlug,
 	type ContentSlugDerivationVariant,
 } from "@nseng-ai/capability-kit/content-slug";
-import {
-	MODEL_OPERATION_IDS,
-	loadModelPolicy,
-	resolveModelOperation,
-} from "@nseng-ai/capability-kit/model-policy";
+import { SLUG_MODEL_OPERATION } from "@nseng-ai/capability-kit/model-slug";
+import { loadModelPolicy, resolveModelOperation } from "@nseng-ai/capability-kit/model-policy";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
@@ -51,7 +48,7 @@ export function createHerdrSpaceLabelDeriver(context: HerdrPiContext): HerdrSpac
 				gateway: nodeProjectConfigGateway,
 			});
 			if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
-			const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+			const model = resolveModelOperation(policy.value, SLUG_MODEL_OPERATION);
 			if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
 			const evidence = await deriveKitContentSlug(
 				context.pi,
@@ -59,6 +56,7 @@ export function createHerdrSpaceLabelDeriver(context: HerdrPiContext): HerdrSpac
 					content: input.description,
 					cwd: input.cwd,
 					modelRef: model.value.modelRef,
+					thinking: model.value.thinking,
 					...optionalEntry("signal", input.signal),
 				},
 				SPACE_LABEL_VARIANT,

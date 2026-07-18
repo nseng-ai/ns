@@ -235,11 +235,9 @@ export async function runReviewList(
 
 export function renderReviewList(result: ReviewListResult): string {
 	const lines = [`Reviews directory: ${result.reviewsDir}`, `Reviews: ${result.count}`];
-	const tripwires = result.reviews.filter(
-		(review) => reviewDisplayRole(review.modelProfile) === "tripwire",
-	);
+	const tripwires = result.reviews.filter((review) => reviewDisplayRole(review.key) === "tripwire");
 	const deepReviews = result.reviews.filter(
-		(review) => reviewDisplayRole(review.modelProfile) === "deep_review",
+		(review) => reviewDisplayRole(review.key) === "deep_review",
 	);
 	if (tripwires.length > 0) {
 		lines.push(`Tripwires: ${tripwires.length}`);
@@ -315,7 +313,7 @@ export function clinkrExitFromReviewRunOutcome(
 
 export function renderReviewRun(result: ReviewRunResult): string {
 	const lines = [
-		`${reviewRoleLabel(result.modelProfile)}: ${result.reviewName}`,
+		`${reviewRoleLabel(result.reviewName)}: ${result.reviewName}`,
 		`Model: ${result.model}`,
 		`Base ref: ${result.baseRef}`,
 		`Findings: ${result.count}`,

@@ -2,6 +2,8 @@ import { formatErrorMessage, isRecord } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
+import type { ModelThinking } from "@nseng-ai/capability-kit/model-policy";
+
 import type { ReviewResult } from "../core/failures.ts";
 import type { ReviewExecutionResponse, ReviewInputCoverage, ReviewUsage } from "../core/models.ts";
 import {
@@ -13,6 +15,7 @@ const TRUNCATED_MODEL_RESPONSE_CHARS = 500;
 
 export function buildClaudeCodeArgs(options: {
 	readonly model: string;
+	readonly thinking?: ModelThinking;
 	readonly systemPrompt: string;
 }): string[] {
 	return [
@@ -24,11 +27,28 @@ export function buildClaudeCodeArgs(options: {
 		"Bash,Read",
 		"--model",
 		options.model,
+		...(options.thinking === undefined ? [] : ["--effort", claudeCodeEffort(options.thinking)]),
 		"--system-prompt",
 		options.systemPrompt,
 		"--json-schema",
 		JSON.stringify(buildReviewFindingsJsonSchema()),
 	];
+}
+
+/** Claude Code's --effort floor is low, so lower shared policy intents clamp upward. */
+export function claudeCodeEffort(thinking: ModelThinking): "low" | "medium" | "high" | "xhigh" {
+	switch (thinking) {
+		case "off":
+		case "minimal":
+		case "low":
+			return "low";
+		case "medium":
+			return "medium";
+		case "high":
+			return "high";
+		case "xhigh":
+			return "xhigh";
+	}
 }
 
 export function parseClaudeCodeReviewOutput(options: {

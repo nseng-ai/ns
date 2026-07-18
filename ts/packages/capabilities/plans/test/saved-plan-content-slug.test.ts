@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
@@ -9,7 +10,7 @@ type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
 import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
 
-const CWD = "/repo";
+const CWD = resolve("test/fixtures/model-policy");
 const SAVED_PLAN_CONTENT =
 	"# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 
@@ -30,7 +31,7 @@ class FakeSlugPi implements CommandExecApi {
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args], options });
 		if (command === "git" && args[0] === "rev-parse") {
-			return { type: "exited", stdout: "/repo\n", stderr: "", code: 0, signal: null };
+			return { type: "exited", stdout: `${CWD}\n`, stderr: "", code: 0, signal: null };
 		}
 		if (this.behavior.error !== undefined) {
 			throw this.behavior.error;
@@ -77,7 +78,11 @@ describe("deriveSavedPlanContentSlug", () => {
 		expect(pi.calls[0]?.args).toEqual(["rev-parse", "--show-toplevel"]);
 		expect(pi.calls[1]?.command).toBe("pi");
 		expect(pi.calls[1]?.args).toEqual(
-			buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT)),
+			buildRawTextModelArgs(
+				buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT),
+				DEFAULT_FAST_MODEL,
+				"off",
+			),
 		);
 		expect(pi.calls[1]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});

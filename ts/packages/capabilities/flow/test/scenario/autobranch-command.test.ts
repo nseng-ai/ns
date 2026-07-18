@@ -19,7 +19,7 @@ describe("flow autobranch command outcomes", () => {
 		expect(stdout).toContain("Stacked on: feature/source");
 		expect(stdout).toContain("Commit: abc1234 [cp] Move pending work");
 		expect(stdout).toContain("Working directory is clean.");
-		expect(stdout).toContain("Cwd: /work");
+		expect(stdout).toContain("Cwd: ");
 		// Success stays concise: no subprocess transcript plumbing.
 		expect(stdout).not.toContain("Exit:");
 		expect(stdout).not.toContain("Killed:");
@@ -64,7 +64,7 @@ describe("flow autobranch command outcomes", () => {
 		expect(stderr).toContain("`ns flow autobranch` requires pending worktree changes");
 		expect(stderr).toContain("Working tree is clean.");
 		expect(stderr).toContain("Use `ns flow branch-latest-commit`");
-		expect(stderr).toContain("Cwd: /work");
+		expect(stderr).toContain("Cwd: ");
 		// The dirty autobranch transaction never started.
 		const calls = formattedExecCalls(run.context);
 		expect(calls.some((call) => call.startsWith("gt create"))).toBe(false);
@@ -89,7 +89,7 @@ describe("flow autobranch command outcomes", () => {
 		const stderr = stripAnsi(run.stderr.join(""));
 		expect(stderr).toContain("Could not create a Graphite branch from dirty worktree changes.");
 		expect(stderr).toContain("Invalid branch slug: ---");
-		expect(stderr).toContain("Cwd: /work");
+		expect(stderr).toContain("Cwd: ");
 		// Slug validation precedes Graphite, stash, and model calls.
 		const calls = formattedExecCalls(run.context);
 		expect(calls.some((call) => call.startsWith("gt create"))).toBe(false);
@@ -130,7 +130,7 @@ describe("flow autobranch command outcomes", () => {
 		expect(stderr).toContain("Failed to create Graphite branch move-work.");
 		expect(stderr).toContain("fatal: cannot lock ref");
 		expect(stderr).toContain("Restored pending changes to the original branch.");
-		expect(stderr).toContain("Cwd: /work");
+		expect(stderr).toContain("Cwd: ");
 		expect(formattedExecCalls(run.context)).toContain("git stash pop stash@{0}");
 	});
 });

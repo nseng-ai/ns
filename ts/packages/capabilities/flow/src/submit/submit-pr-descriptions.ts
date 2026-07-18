@@ -132,6 +132,9 @@ export async function generateSubmitPrDescriptions(input: {
 				git: input.prDescription.git,
 				descriptorSource: input.prDescription.descriptorSource,
 				modelRef: input.prDescription.modelRef,
+				...(input.prDescription.reasoning === undefined
+					? {}
+					: { reasoning: input.prDescription.reasoning }),
 			});
 			if (!resolvedGeneration.ok) {
 				input.progress?.onItemProgress?.({
@@ -157,6 +160,9 @@ export async function generateSubmitPrDescriptions(input: {
 			git: input.prDescription.git,
 			descriptorSource: input.prDescription.descriptorSource,
 			modelRef: input.prDescription.modelRef,
+			...(input.prDescription.reasoning === undefined
+				? {}
+				: { reasoning: input.prDescription.reasoning }),
 			pr: viewed.value,
 			...(generation === undefined ? {} : { generation }),
 			activeOperationDetail: formatBatchPosition({

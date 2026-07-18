@@ -59,7 +59,7 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles]\ndeep = "anthropic/claude-opus-4-6"\n',
+			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n',
 		);
 		const localDiff = new FakeLocalDiffGateway({
 			defaultDiff: {
@@ -112,6 +112,7 @@ describe("runReview", () => {
 		});
 		expect(outcome.progress.modelProfile).toBe("deep");
 		expect(reviewRunner.calls()[0]?.request.model).toBe("anthropic/claude-opus-4-6");
+		expect(reviewRunner.calls()[0]?.request.thinking).toBe("high");
 		expect(reviewRunner.calls()[0]?.request.reviewDir).toBe("/repo/.ns/reviews/typescript-style");
 		expect(localDiff.requestedExcludeGlobs()).toEqual([["generated/**"]]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
@@ -122,7 +123,7 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles]\narchitecture = "anthropic/claude-opus-4-6"\n',
+			'[models.profiles.architecture]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "medium"\n',
 		);
 		const reviewRunner = new FakeReviewRunnerGateway();
 		const ctx = createReviewsRuntime(
@@ -146,6 +147,7 @@ describe("runReview", () => {
 		expect(outcome.progress.modelProfile).toBe("architecture");
 		expect(outcome.progress.model).toBe("anthropic/claude-opus-4-6");
 		expect(reviewRunner.calls()[0]?.request.model).toBe("anthropic/claude-opus-4-6");
+		expect(reviewRunner.calls()[0]?.request.thinking).toBe("medium");
 	});
 
 	test("reports an actionable error for a missing profile alias", async () => {
@@ -194,6 +196,7 @@ describe("runReview", () => {
 		expect(outcome.progress.model).toBe("openai/gpt-5.6-luna");
 		expect(outcome.result.model).toBe("openai/gpt-5.6-luna");
 		expect(reviewRunner.calls()[0]?.request.model).toBe("openai/gpt-5.6-luna");
+		expect(reviewRunner.calls()[0]?.request.thinking).toBeUndefined();
 		expect(reviewLog.writtenEntries()[0]?.content).toContain("openai/gpt-5.6-luna");
 	});
 
@@ -257,7 +260,10 @@ describe("runReview", () => {
 			}),
 		);
 
-		const outcome = await runReview(ctx, { key: "code-smell-reviews" });
+		const outcome = await runReview(ctx, {
+			key: "code-smell-reviews",
+			model: "anthropic/claude-haiku-4-5",
+		});
 
 		expect(outcome.type).toBe("completed");
 		expect(reviewRunner.calls()[0]?.request.target.localDiff.changedPaths).toEqual(["src/file.ts"]);
@@ -280,7 +286,10 @@ describe("runReview", () => {
 			}),
 		);
 
-		const exit = await runReviewByKey(ctx, { key: "typescript-style" });
+		const exit = await runReviewByKey(ctx, {
+			key: "typescript-style",
+			model: "anthropic/claude-haiku-4-5",
+		});
 
 		expect(exit.type).toBe("ok");
 		expect(github.markerFindCalls()).toEqual([]);
@@ -307,6 +316,7 @@ describe("runReview", () => {
 
 		const exit = await runReviewByKey(ctx, {
 			key: "typescript-style",
+			model: "anthropic/claude-haiku-4-5",
 			priorFindingsPrNumber: 123,
 			priorFindingsCap: 7,
 		});
@@ -351,7 +361,10 @@ describe("runReview", () => {
 			}),
 		);
 
-		const outcome = await runReview(ctx, { key: "typescript-style" });
+		const outcome = await runReview(ctx, {
+			key: "typescript-style",
+			model: "anthropic/claude-haiku-4-5",
+		});
 
 		expect(outcome).toEqual({
 			type: "failed",
@@ -374,7 +387,10 @@ describe("runReview", () => {
 			}),
 		);
 
-		const outcome = await runReview(ctx, { key: "typescript-style" });
+		const outcome = await runReview(ctx, {
+			key: "typescript-style",
+			model: "anthropic/claude-haiku-4-5",
+		});
 
 		expect(outcome.type).toBe("completed_log_failed");
 		if (outcome.type !== "completed_log_failed") return;

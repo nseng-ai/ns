@@ -1,0 +1,27 @@
+ns flow submit failure raw log
+phase: preflight
+exit code: 1
+
+summary:
+A merged PR in this stack is not in trunk master, so Graphite will not submit the stack. Nothing was submitted.
+Branch handoff-capability/stack-feedback-remediation (PR #2257, merged); trunk master.
+
+Fix: ensure master contains the merged PR's commits, or reparent handoff-capability/stack-feedback-remediation onto a trunk that already contains them, then rerun `ns flow submit`.
+
+command 1: gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run
+termination: exited
+exit code: 1
+signal: none
+
+----- stdout -----
+Running submit in 'dry-run' mode.
+
+🥞 Validating that this Graphite stack is ready to submit...
+
+▸ handoff-capability/stack-feedback-remediation - PR #2257 (merged)
+----- stderr -----
+WARNING: PR for the following branch has already been merged but the merged commits are not contained in the latest trunk branch master.
+WARNING: Stacks with this branch will not be submitted:
+WARNING: To submit these stacks, ensure the trunk branch contains the merged PRs in the stack or move the branches onto a trunk that does contain the merged PRs.
+WARNING: PR for the following branch has already been merged or closed:
+ERROR: Aborting dry run.

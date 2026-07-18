@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { parseClaudeCodeReviewOutput } from "../../src/gateways/claude-code-review-runner.ts";
+import {
+	buildClaudeCodeArgs,
+	claudeCodeEffort,
+	parseClaudeCodeReviewOutput,
+} from "../../src/gateways/claude-code-review-runner.ts";
 import type { ReviewInputCoverage } from "../../src/core/models.ts";
 
 const coverage: ReviewInputCoverage = {
@@ -39,6 +43,28 @@ function resultEvent(extra: Record<string, unknown> = {}): Record<string, unknow
 		...extra,
 	};
 }
+
+describe("Claude Code review arguments", () => {
+	test.each([
+		["off", "low"],
+		["minimal", "low"],
+		["low", "low"],
+		["medium", "medium"],
+		["high", "high"],
+		["xhigh", "xhigh"],
+	] as const)("maps shared thinking %s to Claude Code effort %s", (thinking, effort) => {
+		expect(claudeCodeEffort(thinking)).toBe(effort);
+		expect(
+			buildClaudeCodeArgs({ model: "claude-sonnet-4-6", thinking, systemPrompt: "system" }),
+		).toEqual(expect.arrayContaining(["--effort", effort]));
+	});
+
+	test("omits effort when thinking is absent so Claude Code keeps its default", () => {
+		const args = buildClaudeCodeArgs({ model: "claude-sonnet-4-6", systemPrompt: "system" });
+
+		expect(args).not.toContain("--effort");
+	});
+});
 
 describe("Claude Code review output parsing", () => {
 	test("parses a single result object with structured findings and usage", () => {

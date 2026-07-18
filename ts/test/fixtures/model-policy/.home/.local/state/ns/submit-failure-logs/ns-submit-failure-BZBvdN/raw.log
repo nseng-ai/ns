@@ -1,0 +1,39 @@
+ns flow submit failure raw log
+phase: post-submit verification
+exit code: 1
+
+summary:
+gt submit exited 0, but the current branch still has no PR.
+$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web
+----- stdout tail -----
+Submitted stack without PR URL
+----- stderr tail -----
+(empty)
+$ gh pr view --json number,url (exit code 1)
+
+----- stdout tail -----
+(empty)
+----- stderr tail -----
+no pull requests found for branch "feature/demo"
+`ns flow submit` checkpoints outstanding worktree changes before submitting.
+If the branch still has no PR, inspect the submit and GitHub verification output above, then rerun `ns flow submit` after resolving the reported issue.
+
+command 1: gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web
+termination: exited
+exit code: 0
+signal: none
+
+----- stdout -----
+Submitted stack without PR URL
+----- stderr -----
+(empty)
+
+command 2: gh pr view --json number,url
+termination: exited
+exit code: 1
+signal: none
+
+----- stdout -----
+(empty)
+----- stderr -----
+no pull requests found for branch "feature/demo"

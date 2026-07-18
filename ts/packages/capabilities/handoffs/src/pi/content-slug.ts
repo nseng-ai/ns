@@ -9,11 +9,8 @@ import {
 import { parseFlatHandoffSlug } from "../api/index.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
-import {
-	MODEL_OPERATION_IDS,
-	loadModelPolicy,
-	resolveModelOperation,
-} from "@nseng-ai/capability-kit/model-policy";
+import { SLUG_MODEL_OPERATION } from "@nseng-ai/capability-kit/model-slug";
+import { loadModelPolicy, resolveModelOperation } from "@nseng-ai/capability-kit/model-policy";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 const MAX_HANDOFF_SLUG_WORDS = 8;
@@ -68,11 +65,15 @@ export async function deriveHandoffContentSlug(
 		throw new Error("Could not determine the repository root for ns.toml.");
 	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: nodeProjectConfigGateway });
 	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
-	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	const model = resolveModelOperation(policy.value, SLUG_MODEL_OPERATION);
 	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
 	return deriveKitContentSlug(
 		commands,
-		{ ...input, modelRef: model.value.modelRef },
+		{
+			...input,
+			modelRef: model.value.modelRef,
+			thinking: model.value.thinking,
+		},
 		HANDOFF_CONTENT_SLUG_VARIANT,
 	);
 }

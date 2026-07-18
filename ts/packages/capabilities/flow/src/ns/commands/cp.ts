@@ -14,12 +14,13 @@ import {
 	createNsCheckpointRuntime,
 	formatGraphiteTrunkResolutionError,
 	runCheckpointWorkflow,
+	FLOW_CHECKPOINT_MODEL_OPERATION,
 	type CheckpointGateway,
 	type CheckpointWorkflowResult,
 } from "../../checkpoint/checkpoint.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
-import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
-import { resolveFlowModelRef } from "../model-policy.ts";
+import type { TextGenerationReasoning } from "@nseng-ai/capability-kit/text-generation";
+import { resolveFlowModelSelection } from "../model-policy.ts";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 
@@ -48,13 +49,14 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 		const runtime = createNsCheckpointRuntime(ctx);
 		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
 		if (request.dryRun) {
-			const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
+			const model = await resolveFlowModelSelection(ctx, FLOW_CHECKPOINT_MODEL_OPERATION);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 			const result = await runCpCore({
 				cwd: ctx.cwd,
 				env: ctx.env,
 				textGenerator: ctx.textGenerator,
-				modelRef: model.modelRef,
+				modelRef: model.selection.modelRef,
+				reasoning: model.selection.thinking,
 				isDryRun: true,
 				checkpointGateway: runtime.checkpointGateway,
 				graphite: runtime.graphite,
@@ -62,7 +64,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 			return toCommandResult(result);
 		}
 
-		const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
+		const model = await resolveFlowModelSelection(ctx, FLOW_CHECKPOINT_MODEL_OPERATION);
 		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 		const caps = resolveFlowStreamCaps(ctx);
 		return await runSettledPhaseStream({
@@ -76,7 +78,8 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 					cwd: ctx.cwd,
 					env: ctx.env,
 					textGenerator: ctx.textGenerator,
-					modelRef: model.modelRef,
+					modelRef: model.selection.modelRef,
+					reasoning: model.selection.thinking,
 					isDryRun: false,
 					checkpointGateway: runtime.checkpointGateway,
 					graphite: runtime.graphite,
@@ -98,6 +101,7 @@ export interface RunCpCoreOptions {
 	env: Record<string, string | undefined>;
 	textGenerator: TextGenerator;
 	modelRef: string;
+	reasoning?: TextGenerationReasoning;
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
 	graphite: Pick<GraphiteBranchGateway, "trunkBranch">;
@@ -113,6 +117,7 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 		graphite: options.graphite,
 		textGenerator: options.textGenerator,
 		modelRef: options.modelRef,
+		...(options.reasoning === undefined ? {} : { reasoning: options.reasoning }),
 		dryRun: options.isDryRun,
 		...(options.onPhase === undefined ? {} : { onPhase: options.onPhase }),
 		...(options.time === undefined ? {} : { time: options.time }),

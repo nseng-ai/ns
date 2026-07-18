@@ -1,7 +1,7 @@
 import {
-	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
+	type ModelOperationDefinition,
 } from "@nseng-ai/capability-kit/model-policy";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import {
@@ -20,6 +20,10 @@ import { renderReviewGuidanceBlock } from "./prompt.ts";
 import type { ThermoCouncilRunContext } from "./run-context.ts";
 
 const MAX_SYNTHESIS_SOURCE_CHARS = 120_000;
+const THERMO_COUNCIL_SYNTHESIS_OPERATION = {
+	id: "thermo-council.synthesis",
+	defaultProfile: "standard",
+} as const satisfies ModelOperationDefinition;
 
 export interface SynthesizeThermoCouncilFinalReportOptions extends ThermoCouncilRunContext {
 	readonly fleetRegistry: SubagentFleetRegistry;
@@ -52,7 +56,7 @@ export async function synthesizeThermoCouncilFinalReport({
 
 	const policy = loadModelPolicy({ repoRoot: scope.cwd, gateway: nodeProjectConfigGateway });
 	if (!policy.ok) return { type: "failed", status: "error", diagnostic: policy.error.message };
-	const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.thermoCouncilSynthesis);
+	const resolved = resolveModelOperation(policy.value, THERMO_COUNCIL_SYNTHESIS_OPERATION);
 	if (!resolved.ok) return { type: "failed", status: "error", diagnostic: resolved.error.message };
 	const result = await dispatchTrackedSingleSubagentFleetRun({
 		pi,
@@ -72,6 +76,7 @@ export async function synthesizeThermoCouncilFinalReport({
 			}),
 			tools: [],
 			model: resolved.value.modelRef,
+			launch: { thinkingLevel: resolved.value.thinking },
 		},
 	});
 

@@ -3,6 +3,7 @@ import { defaultCommandResolver } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
+import type { ModelThinking } from "@nseng-ai/capability-kit/model-policy";
 
 import type { ReviewResult } from "../core/failures.ts";
 import type { ReviewExecutionResponse } from "../core/models.ts";
@@ -92,7 +93,11 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 		options: ExecutePreparedOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		const { binary, request, runOptions, outputHandle } = options;
-		const args = buildCodexArgs({ modelId: request.modelId, handle: outputHandle });
+		const args = buildCodexArgs({
+			modelId: request.modelId,
+			...(request.thinking === undefined ? {} : { thinking: request.thinking }),
+			handle: outputHandle,
+		});
 		const execOptions: ExecOptions = {
 			cwd: runOptions.cwd,
 			stdin: buildCodexPrompt(request.promptText),
@@ -131,12 +136,19 @@ export class CodexProcessReviewRunner implements ReviewHarnessRunner {
 
 export function buildCodexArgs(options: {
 	readonly modelId: string;
+	readonly thinking?: ModelThinking;
 	readonly handle: CodexReviewOutputHandle;
 }): string[] {
 	return [
 		"exec",
 		"--model",
 		options.modelId,
+		...(options.thinking === undefined
+			? []
+			: [
+					"--config",
+					`model_reasoning_effort=${JSON.stringify(codexReasoningEffort(options.thinking))}`,
+				]),
 		"--sandbox",
 		"read-only",
 		"--ephemeral",
@@ -149,6 +161,13 @@ export function buildCodexArgs(options: {
 		"never",
 		"-",
 	];
+}
+
+/** Codex names the shared disabled intent `none`; the remaining levels are native. */
+export function codexReasoningEffort(
+	thinking: ModelThinking,
+): "none" | "minimal" | "low" | "medium" | "high" | "xhigh" {
+	return thinking === "off" ? "none" : thinking;
 }
 
 export function buildCodexPrompt(reviewPrompt: string): string {

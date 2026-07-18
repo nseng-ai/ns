@@ -94,6 +94,7 @@ export type {
 	OptionSpec,
 	PositionalSpec,
 	RenderCapabilities,
+	TextGenerationReasoning,
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerationUsage,

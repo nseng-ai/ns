@@ -66,15 +66,28 @@ describe("review log helpers", () => {
 		expect(markdown).not.toContain("<!--");
 	});
 
-	test("renders fast runs as tripwire Markdown reports", () => {
+	test("renders tripwire keys as tripwire Markdown reports regardless of profile alias", () => {
+		const markdown = renderReviewLogMarkdown(
+			runResult({ reviewName: "team/review-key-tripwire", modelProfile: "custom-routing-alias" }),
+			{
+				ranAt: "2026-06-20T18:42:11.123Z",
+				branch: "feature",
+				headCommit: "abc123",
+			},
+		);
+
+		expect(markdown).toContain("# Reviews Tripwire: team/review-key-tripwire");
+		expect(markdown).toContain("- Model profile: `custom-routing-alias`");
+	});
+
+	test("does not render a non-tripwire key as a tripwire for the fast profile", () => {
 		const markdown = renderReviewLogMarkdown(runResult({ modelProfile: "fast" }), {
 			ranAt: "2026-06-20T18:42:11.123Z",
 			branch: "feature",
 			headCommit: "abc123",
 		});
 
-		expect(markdown).toContain("# Reviews Tripwire: team/review key");
-		expect(markdown).toContain("- Model profile: `fast`");
+		expect(markdown).toContain("# Reviews Review: team/review key");
 	});
 
 	test("renders a zero-finding Markdown report", () => {

@@ -1,3 +1,4 @@
+import type { RawTextModelSelection } from "@nseng-ai/capability-kit/model-slug";
 import { commandSucceeded } from "@nseng-ai/foundation/command";
 import { shortSha } from "../commit-display/index.ts";
 import type { AutobranchExec, PendingWorktreeSnapshot } from "./shared.ts";
@@ -16,9 +17,8 @@ import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
 
 const GT_TIMEOUT_MS = 120_000;
 
-export interface LatestCommitPreparationInput {
+export interface LatestCommitPreparationInput extends RawTextModelSelection {
 	cwd: string;
-	modelRef: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -232,13 +232,14 @@ function nonEmptyLines(value: string): string[] {
 }
 
 async function prepareLatestCommitSlug(
-	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "modelRef">,
+	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "modelRef" | "thinking">,
 	facts: LatestCommitFacts,
 ): Promise<PreparedLatestCommitSlugResult> {
 	const result = await deriveBranchSlug({
 		cwd: input.cwd,
 		prompt: buildLatestCommitSlugPrompt(facts),
 		modelRef: input.modelRef,
+		thinking: input.thinking,
 		exec: input.exec,
 	});
 	if (result.ok) {

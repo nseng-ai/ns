@@ -1,0 +1,10 @@
+ns flow submit failure raw log
+phase: unknown
+exit code: 1
+
+----- stdout -----
+(empty)
+----- stderr -----
+Checkpoint before submit failed. Submission was not attempted.
+
+Refusing to create checkpoint commit on trunk branch: release

@@ -1,4 +1,5 @@
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import { resolve } from "node:path";
 import { FakeGithubPrFeedbackGateway } from "@nseng-ai/capability-kit/github/testing";
 import { describe, expect, test } from "vitest";
 
@@ -28,6 +29,7 @@ import { buildFindingsEnvelope } from "../support/findings-envelope.ts";
 import { fakeReviewsContext } from "../support/fake-reviews-context.ts";
 
 const REVIEW_KEY = "typescript-style";
+const MODEL_POLICY_REPO_ROOT = resolve("test/fixtures/model-policy");
 
 function sampleSource(
 	options: {
@@ -87,8 +89,8 @@ function runtimeWithFakes(
 	return createReviewsRuntime(
 		fakeReviewsContext({
 			gitGateway: new InMemoryGitGateway({
-				repoRoot: "/repo",
-				optionalRepoRoot: "/repo",
+				repoRoot: MODEL_POLICY_REPO_ROOT,
+				optionalRepoRoot: MODEL_POLICY_REPO_ROOT,
 				currentBranch: "feature/api",
 				trunkBranch: "main",
 				originUrl: "git@example.com:repo.git\n",

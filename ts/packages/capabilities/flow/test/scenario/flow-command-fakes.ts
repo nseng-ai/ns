@@ -1,4 +1,6 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+
+const MODEL_POLICY_REPO_ROOT = resolve("test/fixtures/model-policy");
 
 import { flowAutobranchCommand } from "../../src/ns/commands/autobranch.ts";
 import { flowAutoslotCommand } from "../../src/ns/commands/autoslot.ts";
@@ -153,7 +155,7 @@ export function runFlowBranchLatestCommitCommandWithFakes(
 	return runFlowCommandWithFakes({
 		command: flowBranchLatestCommitCommand,
 		request: options.request ?? { slug: "demo-branch" },
-		options,
+		options: { cwd: MODEL_POLICY_REPO_ROOT, ...options },
 		defaults: options.defaults ?? {
 			execResponses: branchLatestCommitHappyExec,
 			textGenerationResults: () => [],
@@ -346,7 +348,7 @@ export function runFlowAutobranchCommandWithFakes(options: RunFlowCommandWithFak
 	return runFlowCommandWithFakes({
 		command: flowAutobranchCommand,
 		request: options.request ?? { slug: "move-work" },
-		options,
+		options: { cwd: MODEL_POLICY_REPO_ROOT, ...options },
 		defaults: options.defaults ?? {
 			execResponses: autobranchDirtyHappyExec,
 			textGenerationResults: () => [{ ok: true, text: AUTOBRANCH_CHECKPOINT_MESSAGE }],

@@ -1,45 +1,12 @@
+import {
+	loadModelPolicy,
+	type ModelProfile,
+	type ModelThinking,
+} from "@nseng-ai/capability-kit/model-policy";
+import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import { notifyCommandUi, type NotifiableCommandContext } from "../../commands/helpers.ts";
-
-export const MODEL_SHORTCUTS = [
-	{ command: "model:fable", provider: "vercel-ai-gateway", modelId: "anthropic/claude-fable-5" },
-	{
-		command: "model:sonnet",
-		provider: "vercel-ai-gateway",
-		modelId: "anthropic/claude-sonnet-4-5",
-	},
-	{ command: "model:spud", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
-	{ command: "model:sol", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
-	{ command: "model:terra", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-terra" },
-	{ command: "model:luna", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-luna" },
-	{ command: "model:gpt-mini", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.4-mini" },
-	{
-		command: "model:gemini-pro",
-		provider: "vercel-ai-gateway",
-		modelId: "google/gemini-3.1-pro-preview",
-	},
-	{
-		command: "model:gemini-flash",
-		provider: "vercel-ai-gateway",
-		modelId: "google/gemini-3.5-flash",
-	},
-	{
-		command: "model:haiku",
-		provider: "vercel-ai-gateway",
-		modelId: "anthropic/claude-haiku-4-5",
-	},
-	{
-		command: "model:opus",
-		provider: "vercel-ai-gateway",
-		modelId: "anthropic/claude-opus-4-8",
-	},
-] as const satisfies readonly ModelShortcut[];
-
-export interface ModelShortcut {
-	command: string;
-	provider: string;
-	modelId: string;
-}
 
 interface ModelInfo {
 	provider: string;
@@ -54,6 +21,20 @@ interface CommandContext extends NotifiableCommandContext {
 	modelRegistry: ModelRegistry;
 }
 
+interface SessionStartContext extends NotifiableCommandContext {
+	cwd: string;
+}
+
+interface ExecResult {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly code: number;
+}
+
+interface ExtensionOptions {
+	readonly projectConfig: ProjectConfigGateway;
+}
+
 export interface ExtensionAPI {
 	registerCommand(
 		name: string,
@@ -62,33 +43,69 @@ export interface ExtensionAPI {
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
 	): void;
+	on(
+		event: "session_start",
+		handler: (event: unknown, ctx: SessionStartContext) => Promise<void> | void,
+	): void;
+	exec(command: string, args: string[], options?: { cwd?: string }): Promise<ExecResult>;
 	setModel(model: ModelInfo): Promise<boolean>;
+	setThinkingLevel(level: ModelThinking): void;
 }
 
-export default function modelShortcutExtension(pi: ExtensionAPI): void {
-	for (const shortcut of MODEL_SHORTCUTS) {
-		registerCommandWithImmediateAck({
-			host: pi,
-			commandName: shortcut.command,
-			commandDefinition: {
-				description: `Switch to ${modelRef(shortcut)}`,
-				handler: async (_args, ctx) => {
-					await switchToModel(pi, ctx, shortcut);
-				},
+export default function modelShortcutExtension(pi: ExtensionAPI, options: ExtensionOptions): void {
+	let hasStarted = false;
+	pi.on("session_start", async (_event, ctx) => {
+		if (hasStarted) return;
+
+		const repoRoot = await resolveRepositoryRoot(pi, ctx.cwd);
+		if (repoRoot.ok === false) {
+			notifyCommandUi(ctx, repoRoot.message, "error");
+			return;
+		}
+		const policy = loadModelPolicy({ repoRoot: repoRoot.value, gateway: options.projectConfig });
+		if (policy.ok === false) {
+			notifyCommandUi(ctx, `Could not load model shortcuts: ${policy.error.message}`, "error");
+			return;
+		}
+
+		for (const [profileName, profile] of Object.entries(policy.value.profiles).sort(
+			([left], [right]) => left.localeCompare(right),
+		)) {
+			registerProfileCommand(pi, profileName, profile);
+		}
+		hasStarted = true;
+	});
+}
+
+function registerProfileCommand(
+	pi: ExtensionAPI,
+	profileName: string,
+	profile: ModelProfile,
+): void {
+	const commandName = `model:${profileName}`;
+	const ref = modelRef(profile);
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName,
+		commandDefinition: {
+			description: `Switch to ${ref} with thinking ${profile.thinking}`,
+			handler: async (_args, ctx) => {
+				await switchToModel(pi, ctx, profile);
 			},
-		});
-	}
+		},
+		options: { delivery: "none" },
+	});
 }
 
 async function switchToModel(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
-	shortcut: ModelShortcut,
+	profile: ModelProfile,
 ): Promise<void> {
-	const ref = modelRef(shortcut);
-	const model = ctx.modelRegistry.find(shortcut.provider, shortcut.modelId);
+	const ref = modelRef(profile);
+	const model = ctx.modelRegistry.find(profile.model.provider, profile.model.modelId);
 	if (model === undefined) {
-		notifyCommandUi(ctx, `Model ${ref} not found.`, "error");
+		notifyCommandUi(ctx, `Model ${ref} not found in Pi's model registry.`, "error");
 		return;
 	}
 
@@ -98,9 +115,32 @@ async function switchToModel(
 		return;
 	}
 
-	notifyCommandUi(ctx, `Switched model to ${ref}.`, "info");
+	pi.setThinkingLevel(profile.thinking);
+	notifyCommandUi(ctx, `Switched model to ${ref} with thinking ${profile.thinking}.`, "info");
 }
 
-export function modelRef(shortcut: ModelShortcut): string {
-	return `${shortcut.provider}/${shortcut.modelId}`;
+function modelRef(profile: ModelProfile): string {
+	return `${profile.model.provider}/${profile.model.modelId}`;
+}
+
+async function resolveRepositoryRoot(
+	pi: ExtensionAPI,
+	cwd: string,
+): Promise<{ ok: true; value: string } | { ok: false; message: string }> {
+	const result = await pi.exec("git", ["rev-parse", "--show-toplevel"], { cwd });
+	if (result.code !== 0) {
+		const detail = result.stderr?.trim();
+		return {
+			ok: false,
+			message: `Could not load model shortcuts because ${cwd} is not inside a Git repository${detail === undefined || detail.length === 0 ? "." : `: ${detail}`}`,
+		};
+	}
+	const repoRoot = result.stdout?.trim();
+	if (repoRoot === undefined || repoRoot.length === 0) {
+		return {
+			ok: false,
+			message: "Could not load model shortcuts because git returned an empty repository root.",
+		};
+	}
+	return { ok: true, value: repoRoot };
 }

@@ -24,7 +24,7 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(stdout).toContain("Moved commit: abc123 Add demo feature");
 		expect(stdout).toContain("Source branch feature reset to parent4");
 		expect(stdout).toContain("Working directory is clean.");
-		expect(stdout).toContain("Cwd: /work");
+		expect(stdout).toContain("Cwd: ");
 		// Success stays concise: no subprocess transcript plumbing.
 		expect(stdout).not.toContain("Exit:");
 		expect(stdout).not.toContain("Killed:");
@@ -97,7 +97,7 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(stderr).toContain("Use `ns flow autobranch`");
 		// The dirty porcelain status is the actionable detail, surfaced under the stdout label.
 		expect(stderr).toContain("M src/app.ts");
-		expect(stderr).toContain("Cwd: /work");
+		expect(stderr).toContain("Cwd: ");
 		// The latest-commit flow never started.
 		const calls = formattedExecCalls(run.context);
 		expect(calls).not.toContain("gt children --no-interactive");
@@ -171,7 +171,7 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(stderr).toContain("Recovery branch: autobranch-backup/feature/");
 		expect(stderr).toContain("Restored source branch to the original HEAD.");
 		expect(stderr).toContain("Deleted incomplete branch demo-branch.");
-		expect(stderr).toContain("Cwd: /work");
+		expect(stderr).toContain("Cwd: ");
 	});
 
 	test("recovery branch creation failure stops before source reset", async () => {

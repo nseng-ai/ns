@@ -5,13 +5,13 @@ import {
 	formatOutputSection,
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
-import {
-	DEFAULT_FAST_MODEL,
-	parseModelRef,
-	type ParsedModelRef,
-} from "@nseng-ai/foundation/model-slug";
+import { parseModelRef, type ParsedModelRef } from "@nseng-ai/foundation/model-slug";
+import type { ModelOperationDefinition, ModelThinking } from "./model-policy.ts";
 
-export const RAW_TEXT_MODEL_THINKING = "minimal";
+export const SLUG_MODEL_OPERATION = {
+	id: "slug",
+	defaultProfile: "ultrafast",
+} as const satisfies ModelOperationDefinition;
 export const RAW_TEXT_MODEL_TIMEOUT_MS = 60_000;
 
 const MAX_ERROR_CHARS = 4_000;
@@ -51,10 +51,14 @@ type RawTextModelAttemptOutcome =
 	| { type: "terminal"; result: RawTextModelGenerationResult }
 	| { type: "retry" };
 
-export interface GenerateRawTextWithModelInput {
+export interface RawTextModelSelection {
+	modelRef: string;
+	thinking: ModelThinking;
+}
+
+export interface GenerateRawTextWithModelInput extends RawTextModelSelection {
 	cwd: string;
 	prompt: string;
-	modelRef: string;
 	exec(
 		command: string,
 		args: string[],
@@ -103,7 +107,7 @@ export async function generateRawTextWithModel(
 	if (model === undefined) {
 		return { ok: false, failure: { lines: [`Invalid model reference: ${modelRef}`] } };
 	}
-	const args = buildRawTextModelArgs(input.prompt, model);
+	const args = buildRawTextModelArgs(input.prompt, model, input.thinking);
 	const displayCommand = formatCommand("pi", [...args.slice(0, -1), "<model-prompt>"]);
 
 	let hasRetriedKilledResult = false;
@@ -216,7 +220,8 @@ async function runRawTextModelAttempt(
 
 export function buildRawTextModelArgs(
 	prompt: string,
-	model: ParsedModelRef = DEFAULT_FAST_MODEL,
+	model: ParsedModelRef,
+	thinking: ModelThinking,
 ): string[] {
 	return [
 		"--provider",
@@ -224,7 +229,7 @@ export function buildRawTextModelArgs(
 		"--model",
 		model.modelId,
 		"--thinking",
-		RAW_TEXT_MODEL_THINKING,
+		thinking,
 		"--no-session",
 		"--no-extensions",
 		"--no-skills",

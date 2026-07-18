@@ -1,10 +1,11 @@
 import { prepareCheckpointMessage } from "@nseng-ai/capability-kit/checkpoint-flow";
-import type { NsExtensionApi } from "@nseng-ai/sdk";
+import type { NsExtensionApi, TextGenerationReasoning } from "@nseng-ai/sdk";
 
 import { draftChangesSummary } from "../changes/changes-model-summary.ts";
 
 export type FlowTextGenerationContext = Pick<NsExtensionApi, "env" | "textGenerator"> & {
 	modelRef: string;
+	reasoning?: TextGenerationReasoning;
 };
 
 export function prepareFlowChangesSummary(
@@ -14,6 +15,7 @@ export function prepareFlowChangesSummary(
 	return draftChangesSummary({
 		textGenerator: ctx.textGenerator,
 		modelRef: ctx.modelRef,
+		...(ctx.reasoning === undefined ? {} : { reasoning: ctx.reasoning }),
 		snapshot,
 	});
 }
@@ -27,5 +29,6 @@ export function prepareFlowCheckpointMessage(
 		diff: pending.diff,
 		textGenerator: ctx.textGenerator,
 		modelRef: ctx.modelRef,
+		...(ctx.reasoning === undefined ? {} : { reasoning: ctx.reasoning }),
 	});
 }

@@ -3,8 +3,8 @@ import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/c
 import { renderCapabilitiesForTerminal, type Caps } from "@nseng-ai/clinkr";
 import { defineCommand, failure, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import { prepareFlowChangesSummary } from "../model-generation.ts";
-import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
-import { resolveFlowModelRef } from "../model-policy.ts";
+import { FLOW_CHANGES_MODEL_OPERATION } from "../../changes/changes-model-summary.ts";
+import { resolveFlowModelSelection } from "../model-policy.ts";
 import {
 	isGitPorcelainUnmergedStatus,
 	parseGitPorcelainStatusOutput,
@@ -58,11 +58,15 @@ export const flowChangesCommand: NsCommand = defineCommand({
 			}
 
 			io.phase("Resolving changes model policy…");
-			const model = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowChanges);
+			const model = await resolveFlowModelSelection(ctx, FLOW_CHANGES_MODEL_OPERATION);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 			io.phase("Generating changes summary…");
 			const summary = await prepareFlowChangesSummary(
-				{ ...ctx, modelRef: model.modelRef },
+				{
+					...ctx,
+					modelRef: model.selection.modelRef,
+					reasoning: model.selection.thinking,
+				},
 				snapshot,
 			);
 			if (!summary.ok) {

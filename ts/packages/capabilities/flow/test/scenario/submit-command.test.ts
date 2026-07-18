@@ -237,7 +237,7 @@ async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<stri
 	});
 	await writeFile(
 		join(repoRoot, "ns.toml"),
-		`extensions = ["./extensions/flow"]\n\n[models.profiles]\nfast = "openai-codex/gpt-5.6-luna"\n\n[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
+		`extensions = ["./extensions/flow"]\n\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "medium"\n\n[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
 		"utf8",
 	);
 	return repoRoot;
@@ -720,7 +720,7 @@ describe("project-local submit extension", () => {
 		const repoRoot = await createSubmitHooksRepo(["just"]);
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles]\nfast = "openai-codex/gpt-5.6-luna"\n',
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "medium"\n',
 			"utf8",
 		);
 		const run = runWithFakes({

@@ -49,6 +49,7 @@ export {
 	MAX_DIFF_CHARS,
 	parsePrDescriptionOutput,
 	preparePrDescription,
+	FLOW_PR_DESCRIPTION_MODEL_OPERATION,
 	PR_DESCRIPTION_PROMPT_ENV,
 	resolvePrDescriptionGeneration,
 	resolvePrDescriptionPrompt,

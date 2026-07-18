@@ -1,9 +1,6 @@
-import {
-	importFreshTypeScriptWorkspaceModule,
-	importTypeScriptWorkspaceModule,
-} from "../lib/workspace-packages.ts";
+import { importFreshTypeScriptWorkspaceModule } from "../lib/workspace-packages.ts";
 
-const { default: nsExtension } = await importTypeScriptWorkspaceModule<
+const { default: nsExtension } = await importFreshTypeScriptWorkspaceModule<
 	typeof import("@nseng-ai/flow/pi/ns-extension")
 >("@nseng-ai/flow/pi/ns-extension");
 

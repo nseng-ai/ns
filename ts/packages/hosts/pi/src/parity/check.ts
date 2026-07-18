@@ -24,12 +24,19 @@ export function comparePiSurfaceParity(options: {
 	const exactMetadata = options.metadata.filter(
 		(record) => piSurfaceParityMatching(record).type === "exact",
 	);
+	const dynamicFamilyMetadata = options.metadata.filter(
+		(record) => piSurfaceParityMatching(record).type === "dynamic-family",
+	);
 	const exactMetadataKeyCounts = countKeys(exactMetadata.map((record) => piSurfaceKey(record)));
 	const exactMetadataKeySet = new Set(exactMetadataKeyCounts.keys());
 
 	return {
 		missingMetadata: sortLiveSurfaces(
-			liveCommandSurfaces.filter((surface) => !exactMetadataKeySet.has(piSurfaceKey(surface))),
+			liveCommandSurfaces.filter(
+				(surface) =>
+					!exactMetadataKeySet.has(piSurfaceKey(surface)) &&
+					!dynamicFamilyMetadata.some((record) => dynamicFamilyMatches(record, surface)),
+			),
 		),
 		staleMetadata: sortParityRecords(
 			exactMetadata.filter((record) => !liveKeySet.has(piSurfaceKey(record))),
@@ -46,7 +53,7 @@ export function formatParityComparisonFailure(comparison: ParityComparison): str
 	if (comparison.missingMetadata.length > 0) {
 		sections.push(
 			[
-				"Live Pi command surfaces missing exact parity metadata:",
+				"Live Pi command surfaces missing parity metadata:",
 				...comparison.missingMetadata.map((surface) => `- ${piSurfaceKey(surface)}`),
 				"Add a co-located parity metadata record near the module that registers each command surface.",
 			].join("\n"),
@@ -78,6 +85,12 @@ export function formatParityComparisonFailure(comparison: ParityComparison): str
 	return sections.length === 0
 		? "Pi extension parity metadata matches live registrations."
 		: sections.join("\n\n");
+}
+
+function dynamicFamilyMatches(record: PiSurfaceParity, surface: LivePiSurface): boolean {
+	if (record.kind !== surface.kind || !record.surface.endsWith("*")) return false;
+	const prefix = record.surface.slice(0, -1);
+	return surface.surface.length > prefix.length && surface.surface.startsWith(prefix);
 }
 
 function countKeys(keys: readonly string[]): Map<string, number> {

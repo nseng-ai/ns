@@ -37,7 +37,14 @@ class FakeContentSlugExec {
 }
 
 const PROMPT = "Add lorem ipsum to the first TypeScript file.";
-const MODEL_REF = "openai-codex/gpt-5.6-luna";
+const MODEL = {
+	operationId: "slug",
+	profile: "ultrafast",
+	model: { provider: "openai-codex", modelId: "gpt-5.6-luna" },
+	modelRef: "openai-codex/gpt-5.6-luna",
+	thinking: "off",
+	source: "component-default",
+} as const;
 
 describe("dispatch content slug", () => {
 	test("derives, normalizes, word-bounds, and length-bounds semantic prompt slugs", async () => {
@@ -49,7 +56,7 @@ describe("dispatch content slug", () => {
 			code: 0,
 			signal: null,
 		});
-		const gateway = createRealDispatchContentSlugGateway(exec, MODEL_REF);
+		const gateway = createRealDispatchContentSlugGateway(exec, MODEL);
 
 		const result = await gateway.deriveSemanticSlug({
 			kind: "prompt",
@@ -78,10 +85,7 @@ describe("dispatch content slug", () => {
 				signal: null,
 			} as const,
 		]) {
-			const gateway = createRealDispatchContentSlugGateway(
-				new FakeContentSlugExec(result),
-				MODEL_REF,
-			);
+			const gateway = createRealDispatchContentSlugGateway(new FakeContentSlugExec(result), MODEL);
 			const derived = await gateway.deriveSemanticSlug({
 				kind: "prompt",
 				content: PROMPT,

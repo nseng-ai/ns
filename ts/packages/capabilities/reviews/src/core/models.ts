@@ -1,3 +1,4 @@
+import { MODEL_THINKING_LEVELS } from "@nseng-ai/capability-kit/model-policy";
 import { z } from "zod";
 
 export const severityValues = ["info", "warning", "error"] as const;
@@ -175,6 +176,7 @@ export type PriorFindingsPromptContextEntry = PriorFindingsPromptContext["findin
 export const reviewRunnerRequestSchema = z
 	.object({
 		model: nonBlankStringSchema,
+		thinking: z.enum(MODEL_THINKING_LEVELS).optional(),
 		reviewDefinition: reviewDefinitionSchema,
 		reviewDir: nonBlankStringSchema,
 		target: diffReviewTargetSchema,

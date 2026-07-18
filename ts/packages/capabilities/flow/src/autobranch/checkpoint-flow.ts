@@ -1,3 +1,4 @@
+import type { RawTextModelSelection } from "@nseng-ai/capability-kit/model-slug";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import {
@@ -22,9 +23,8 @@ export type FlowAutobranchRequest = ParsedAutobranchArgs;
 export type FlowAutobranchCheckpointResult = AutobranchFlowResult;
 export type FlowAutobranchFileStat = FileStat;
 
-export interface FlowAutobranchCheckpointInput {
+export interface FlowAutobranchCheckpointInput extends RawTextModelSelection {
 	cwd: string;
-	modelRef: string;
 	args: FlowAutobranchRequest;
 	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 	prepareCheckpointMessage: (
@@ -63,9 +63,8 @@ export type AutobranchDispatchMode =
 	| RequireDirtyAutobranchDispatchMode
 	| RequireCleanAutobranchDispatchMode;
 
-export interface AutobranchFlowContext {
+export interface AutobranchFlowContext extends RawTextModelSelection {
 	cwd: string;
-	modelRef: string;
 	args: ParsedAutobranchArgs;
 	exec: AutobranchFlowInput["exec"];
 	git: AutobranchGitGateway;
@@ -171,6 +170,7 @@ export async function createFlowAutobranchCheckpointFlow(
 			createFlowContext: () => ({
 				cwd: input.cwd,
 				modelRef: input.modelRef,
+				thinking: input.thinking,
 				args: input.args,
 				exec: input.exec,
 				git,

@@ -64,7 +64,6 @@ export async function postInlineFindings(
 			line: item.target.line,
 			body: renderInlineBody(marker, item.finding, {
 				reviewName: payload.reviewName,
-				modelProfile: payload.modelProfile,
 			}),
 		});
 	}

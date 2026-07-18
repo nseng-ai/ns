@@ -83,6 +83,23 @@ describe("private PiTextGenerator", () => {
 		);
 	});
 
+	test("passes every supported reasoning level through to Pi and disables reasoning for off", async () => {
+		const observedReasoning: Array<SimpleStreamOptions["reasoning"]> = [];
+		const generator = new PiTextGenerator({
+			modelRegistry: makeRegistry(),
+			completeSimple: async (_model, _context, options) => {
+				observedReasoning.push(options?.reasoning);
+				return makeResponse();
+			},
+		});
+
+		for (const reasoning of ["off", "minimal", "low", "medium", "high", "xhigh"] as const) {
+			await generator.generateText({ ...request(), reasoning });
+		}
+
+		expect(observedReasoning).toEqual([undefined, "minimal", "low", "medium", "high", "xhigh"]);
+	});
+
 	test.each([
 		["success", async () => makeResponse()],
 		["failure", async () => makeResponse({ stopReason: "error" })],

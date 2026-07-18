@@ -20,6 +20,29 @@ const tracedFailureDataSchema = z.object({
 	steps: z.array(lifecycleStepSchema).readonly(),
 });
 
+const freshConfig = `harnesses = ["codex","claude-code"]
+
+[models.profiles.ultrafast]
+model = "vercel-ai-gateway/openai/gpt-5.6-luna"
+thinking = "off"
+
+[models.profiles.fast]
+model = "vercel-ai-gateway/openai/gpt-5.6-luna"
+thinking = "medium"
+
+[models.profiles.standard]
+model = "vercel-ai-gateway/openai/gpt-5.6-terra"
+thinking = "medium"
+
+[models.profiles.deep]
+model = "vercel-ai-gateway/openai/gpt-5.6-sol"
+thinking = "low"
+
+[models.profiles.ultradeep]
+model = "vercel-ai-gateway/openai/gpt-5.6-sol"
+thinking = "xhigh"
+`;
+
 function fixture(
 	nsToml?: string,
 	artifacts: InMemoryArtifactActivationGateway = new InMemoryArtifactActivationGateway(),
@@ -86,7 +109,23 @@ describe("initNs", () => {
 				artifacts: [],
 			},
 		});
-		expect(files.fileContent("ns.toml")).toBe('harnesses = ["codex","claude-code"]\n');
+		expect(files.fileContent("ns.toml")).toBe(freshConfig);
+	});
+
+	it("preserves an existing config byte-for-byte when its harness declaration is unchanged", async () => {
+		const existing = `# customer comment
+harnesses = ["pi"]
+
+[customer]
+value = "keep spacing"
+`;
+		const { context, files } = fixture(existing);
+		const result = await initNs(context, { cwd: "/repo", harness: ["pi"] });
+		expect(result).toMatchObject({
+			type: "ok",
+			data: { completed: { files: { "ns-toml": { change: "unchanged" } } } },
+		});
+		expect(files.fileContent("ns.toml")).toBe(existing);
 	});
 
 	it("records and streams one deterministic ordered lifecycle history", async () => {

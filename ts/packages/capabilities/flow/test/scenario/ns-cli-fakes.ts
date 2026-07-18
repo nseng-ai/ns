@@ -1,4 +1,5 @@
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 import { runCli } from "@nseng-ai/sdk/cli";
 import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
@@ -14,6 +15,8 @@ import type {
 } from "@nseng-ai/sdk";
 
 export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
+
+const MODEL_POLICY_REPO_ROOT = resolve("test/fixtures/model-policy");
 
 interface ExitedResultFields {
 	readonly stdout?: string;
@@ -111,6 +114,22 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 				this.explicitRootFailure = scriptedRoot.result;
 				return execResult(scriptedRoot.result);
 			}
+			const configuredRoot = this.execResponses.findIndex((response) => {
+				if (!responseMatches(response.match, call) || typeof response.result === "function") {
+					return false;
+				}
+				const stdout = "stdout" in response.result ? response.result.stdout : undefined;
+				return stdout !== undefined && existsSync(join(stdout.trim(), "ns.toml"));
+			});
+			if (configuredRoot >= 0) {
+				const response = this.execResponses.splice(configuredRoot, 1)[0];
+				if (response !== undefined && typeof response.result !== "function") {
+					this.execCalls.push(call);
+					return execResult(response.result);
+				}
+			}
+			this.execCalls.push(call);
+			return execResult({ stdout: `${MODEL_POLICY_REPO_ROOT}\n` });
 		}
 		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));
 		if (index === -1) {
@@ -149,7 +168,11 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 			this.execResponses[index] = { ...response, times: remainingUses - 1 };
 		}
 		const result = execResult(
-			typeof response.result === "function" ? response.result(call) : response.result,
+			formatExecCall(call) === "git rev-parse --show-toplevel"
+				? { stdout: `${this.cwd}\n` }
+				: typeof response.result === "function"
+					? response.result(call)
+					: response.result,
 		);
 		options?.onStdout?.(result.stdout);
 		options?.onStderr?.(result.stderr);

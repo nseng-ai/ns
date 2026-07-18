@@ -42,6 +42,7 @@ describe("generateRawTextWithModel", () => {
 			cwd: "/repo",
 			prompt: "summary prompt",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			thinking: "off",
 			exec: recordingExec(calls, {
 				type: "exited",
 				stdout: "- first bullet\n- second bullet\n",
@@ -59,7 +60,9 @@ describe("generateRawTextWithModel", () => {
 				model: DEFAULT_FAST_MODEL.modelId,
 			},
 		});
-		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("summary prompt"));
+		expect(calls[0]?.args).toEqual(
+			buildRawTextModelArgs("summary prompt", DEFAULT_FAST_MODEL, "off"),
+		);
 	});
 
 	test("resolves an explicit model reference and reports it in evidence", async () => {
@@ -68,6 +71,7 @@ describe("generateRawTextWithModel", () => {
 			cwd: "/repo",
 			prompt: "summary prompt",
 			modelRef: "acme/fast-1",
+			thinking: "high",
 			exec: recordingExec(calls, {
 				type: "exited",
 				stdout: "raw output\n",
@@ -82,7 +86,7 @@ describe("generateRawTextWithModel", () => {
 			evidence: { rawOutput: "raw output\n", provider: "acme", model: "fast-1" },
 		});
 		expect(calls[0]?.args).toEqual(
-			buildRawTextModelArgs("summary prompt", { provider: "acme", modelId: "fast-1" }),
+			buildRawTextModelArgs("summary prompt", { provider: "acme", modelId: "fast-1" }, "high"),
 		);
 	});
 
@@ -93,6 +97,7 @@ describe("generateRawTextWithModel", () => {
 			cwd: "/repo",
 			prompt: "summary prompt",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			thinking: "off",
 			exec: recordingExecSequence(calls, [
 				{ stdout: "", stderr: "", code: 143, type: "timed-out", signal: null },
 				{ type: "exited", stdout: "recovered summary\n", stderr: "", code: 0, signal: null },
@@ -121,6 +126,7 @@ describe("deriveSlugWithModel", () => {
 			prompt: "slug prompt",
 			slugKind: "test slug",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			thinking: "off",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExec(calls, {
 				type: "exited",
@@ -139,7 +145,7 @@ describe("deriveSlugWithModel", () => {
 				model: DEFAULT_FAST_MODEL.modelId,
 			},
 		});
-		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("slug prompt"));
+		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("slug prompt", DEFAULT_FAST_MODEL, "off"));
 	});
 
 	test("resolves an explicit model reference and reports it in evidence", async () => {
@@ -149,6 +155,7 @@ describe("deriveSlugWithModel", () => {
 			prompt: "slug prompt",
 			slugKind: "test slug",
 			modelRef: "acme/fast-1",
+			thinking: "high",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExec(calls, {
 				type: "exited",
@@ -163,7 +170,7 @@ describe("deriveSlugWithModel", () => {
 			evidence: { slug: "my-slug", rawOutput: "my-slug\n", provider: "acme", model: "fast-1" },
 		});
 		expect(calls[0]?.args).toEqual(
-			buildRawTextModelArgs("slug prompt", { provider: "acme", modelId: "fast-1" }),
+			buildRawTextModelArgs("slug prompt", { provider: "acme", modelId: "fast-1" }, "high"),
 		);
 	});
 
@@ -174,6 +181,7 @@ describe("deriveSlugWithModel", () => {
 			prompt: "slug prompt",
 			slugKind: "test slug",
 			modelRef: "not-a-ref",
+			thinking: "minimal",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExec(calls, {
 				type: "exited",
@@ -198,6 +206,7 @@ describe("deriveSlugWithModel", () => {
 			prompt: "slug prompt",
 			slugKind: "test slug",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			thinking: "off",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ stdout: "", stderr: "", code: 143, type: "timed-out", signal: null },
@@ -219,7 +228,7 @@ describe("deriveSlugWithModel", () => {
 		expect(calls[0]).toEqual(calls[1]);
 		expect(calls[0]).toEqual({
 			command: "pi",
-			args: buildRawTextModelArgs("slug prompt"),
+			args: buildRawTextModelArgs("slug prompt", DEFAULT_FAST_MODEL, "off"),
 			options: { cwd: "/repo", timeout: 60_000, signal: controller.signal },
 		});
 	});
@@ -231,6 +240,7 @@ describe("deriveSlugWithModel", () => {
 			prompt: "slug prompt",
 			slugKind: "test slug",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			thinking: "off",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ type: "exited", code: 2, signal: null, stdout: "", stderr: "bad request" },
@@ -253,6 +263,7 @@ describe("deriveSlugWithModel", () => {
 			prompt: "slug prompt",
 			slugKind: "test slug",
 			modelRef: "openai-codex/gpt-5.6-luna",
+			thinking: "off",
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ type: "timed-out", code: 143, signal: null, stdout: "", stderr: "" },

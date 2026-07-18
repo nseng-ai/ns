@@ -34,6 +34,11 @@ describe("branch-context extension with real Branch Memory", () => {
 			readmeText: "# Repo\n",
 		});
 		try {
+			await writeFile(
+				join(repo.path, "ns.toml"),
+				'[models.profiles.ultrafast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "off"\n',
+				"utf8",
+			);
 			const planFile = await createPlanFile();
 			const pi = new StdinDroppingPi();
 			registerBranchContextExtension(pi);

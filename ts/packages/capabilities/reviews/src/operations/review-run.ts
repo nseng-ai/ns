@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { ModelThinking } from "@nseng-ai/capability-kit/model-policy";
 
 import { catalogOptions, environmentOptions, type ReviewsRuntime } from "../core/context.ts";
 import {
@@ -65,6 +66,7 @@ export interface RunReviewProgress {
 interface ResolvedReviewModel {
 	readonly modelProfile: string;
 	readonly model: string;
+	readonly thinking?: ModelThinking;
 }
 
 interface ReviewLogMetadata {
@@ -112,6 +114,7 @@ export async function runReview(
 	const response = await ctx.reviewRunner.runReview(
 		{
 			model: model.model,
+			...optionalEntry("thinking", model.thinking),
 			reviewDefinition: definition,
 			reviewDir: dirname(source.path),
 			target: { localDiff: reviewDiff },
@@ -223,24 +226,40 @@ function resolveReviewModel(
 	definition: ReviewDefinition,
 	config: ReviewsProjectConfig,
 ): ReviewResult<ResolvedReviewModel> {
+	if (request.model !== undefined) {
+		const resolved = resolveReviewsModelReference(request.model);
+		if (!resolved.ok) return resolved;
+		return {
+			ok: true,
+			value: {
+				modelProfile: (request.modelProfile ?? definition.modelProfile).trim(),
+				model: resolved.value.reference,
+			},
+		};
+	}
+
 	const profile = (request.modelProfile ?? definition.modelProfile).trim();
-	const configuredModel = config.modelPolicy.profiles[profile];
-	if (configuredModel === undefined) {
+	const configuredProfile = config.modelPolicy.profiles[profile];
+	if (configuredProfile === undefined) {
 		const configuredProfiles = Object.keys(config.modelPolicy.profiles).sort();
 		return {
 			ok: false,
 			error: {
 				code: "project-config-invalid",
-				message: `Reviews model profile ${JSON.stringify(profile)} is not configured in [models.profiles]. Configured profiles: ${configuredProfiles.join(", ")}. Add ${JSON.stringify(profile)} = "provider/model-id" under [models.profiles] or choose a configured profile with --model-profile.`,
+				message: `Reviews model profile ${JSON.stringify(profile)} is not configured in [models.profiles]. Configured profiles: ${configuredProfiles.join(", ")}. Add [models.profiles.${JSON.stringify(profile)}] with model = "provider/model-id" and thinking = "medium", or choose a configured profile with --model-profile.`,
 			},
 		};
 	}
-	const modelRef = request.model ?? `${configuredModel.provider}/${configuredModel.modelId}`;
+	const modelRef = `${configuredProfile.model.provider}/${configuredProfile.model.modelId}`;
 	const resolved = resolveReviewsModelReference(modelRef);
 	if (!resolved.ok) return resolved;
 	return {
 		ok: true,
-		value: { modelProfile: profile, model: resolved.value.reference },
+		value: {
+			modelProfile: profile,
+			model: resolved.value.reference,
+			thinking: configuredProfile.thinking,
+		},
 	};
 }
 

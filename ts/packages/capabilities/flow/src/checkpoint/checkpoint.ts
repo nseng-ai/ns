@@ -19,6 +19,8 @@ import {
 } from "@nseng-ai/capability-kit/graphite/branch";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { TextRepairProgressEvent } from "@nseng-ai/capability-kit/text-repair";
+import type { ModelOperationDefinition } from "@nseng-ai/capability-kit/model-policy";
+import type { TextGenerationReasoning } from "@nseng-ai/capability-kit/text-generation";
 import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,
@@ -36,6 +38,11 @@ import {
 	modelOperation,
 	withActiveOperations,
 } from "../phase-stream/matrix-progress-core.ts";
+
+export const FLOW_CHECKPOINT_MODEL_OPERATION = {
+	id: "flow.checkpoint",
+	defaultProfile: "fast",
+} as const satisfies ModelOperationDefinition;
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string; repoRoot?: string }): Promise<
@@ -86,6 +93,7 @@ export interface RunCheckpointCommandOptions extends CheckpointRunContext {
 	env: Record<string, string | undefined>;
 	textGenerator: TextGenerator;
 	modelRef: string;
+	reasoning?: TextGenerationReasoning;
 	repoRoot?: string;
 	/** Typed phase sequencing for a presentation driver (inspect → generate → commit). */
 	onPhase?: NsProgressPhaseListener;
@@ -261,6 +269,7 @@ export async function runCheckpointWorkflow(
 				diff: snapshot.diff,
 				textGenerator: options.textGenerator,
 				modelRef,
+				...(options.reasoning === undefined ? {} : { reasoning: options.reasoning }),
 				...(onPhase === undefined
 					? {}
 					: {

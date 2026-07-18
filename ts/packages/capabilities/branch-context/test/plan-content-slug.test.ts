@@ -3,7 +3,7 @@ import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import {
 	buildPlanContentSlugPrompt,
@@ -15,7 +15,7 @@ import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundati
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
 
-const CWD = "/repo";
+const CWD = resolve("test/fixtures/model-policy");
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";
 
 interface ExecCall {
@@ -124,7 +124,9 @@ describe("derivePlanContentSlug", () => {
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");
-		expect(pi.calls[0]?.args.slice(0, -1)).toEqual(buildRawTextModelArgs("").slice(0, -1));
+		expect(pi.calls[0]?.args.slice(0, -1)).toEqual(
+			buildRawTextModelArgs("", DEFAULT_FAST_MODEL, "off").slice(0, -1),
+		);
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});
 

@@ -5,19 +5,24 @@ import {
 	type PreparedCheckpointMessage,
 } from "@nseng-ai/capability-kit/checkpoint-flow";
 import type { PendingWorktreeSnapshot } from "@nseng-ai/capability-kit/pending-worktree";
-import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
+import type {
+	TextGenerationReasoning,
+	TextGenerator,
+} from "@nseng-ai/capability-kit/text-generation";
 
 export type { CommandResult, PreparedCheckpointMessage };
 
 export async function prepareAutobranchCheckpointMessage(
 	snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	modelRef: string,
+	reasoning: TextGenerationReasoning,
 	textGenerator: TextGenerator,
 ): Promise<PreparedCheckpointMessage> {
 	return prepareCheckpointMessage({
 		status: snapshot.status,
 		diff: snapshot.diff,
 		modelRef,
+		reasoning,
 		textGenerator,
 	});
 }

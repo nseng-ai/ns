@@ -1,5 +1,8 @@
 import type { GitGateway } from "@nseng-ai/foundation/git";
-import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
+import type {
+	TextGenerationReasoning,
+	TextGenerator,
+} from "@nseng-ai/capability-kit/text-generation";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { ErrorInfo } from "@nseng-ai/foundation/result";
 
@@ -49,6 +52,7 @@ export interface PrDescriptionUpdateOptions {
 	git: GitGateway;
 	descriptorSource: FlowPrDescriptionDescriptorSource;
 	modelRef: string;
+	reasoning?: TextGenerationReasoning;
 	githubPr: GithubPrGateway;
 	textGenerator: TextGenerator;
 	pr: GithubPrDetails;
@@ -127,6 +131,7 @@ export async function preparePrDescriptionUpdate(
 			git: options.git,
 			descriptorSource: options.descriptorSource,
 			modelRef: options.modelRef,
+			...(options.reasoning === undefined ? {} : { reasoning: options.reasoning }),
 		}));
 	if (!generation.ok) {
 		return {
@@ -191,6 +196,7 @@ export async function preparePrDescriptionUpdate(
 			preparePrDescription({
 				textGenerator: options.textGenerator,
 				modelRef: generation.modelRef,
+				...(generation.reasoning === undefined ? {} : { reasoning: generation.reasoning }),
 				promptText: generation.promptText,
 				context: {
 					kind: "github",
@@ -256,6 +262,7 @@ export async function orchestratePrDescription(
 		git: options.git,
 		descriptorSource: options.descriptorSource,
 		modelRef: options.modelRef,
+		...(options.reasoning === undefined ? {} : { reasoning: options.reasoning }),
 		githubPr: options.githubPr,
 		textGenerator: options.textGenerator,
 		pr,

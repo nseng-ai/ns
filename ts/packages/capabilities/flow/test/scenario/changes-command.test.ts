@@ -67,7 +67,7 @@ describe("project-local changes extension behavior", () => {
 				modelRef: "openai-codex/gpt-5.6-luna",
 				operation: "changes-summary",
 				maxTokens: 512,
-				reasoning: "low",
+				reasoning: "medium",
 			}),
 		]);
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("## branch\n\nfeature/demo");

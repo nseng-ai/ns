@@ -1,0 +1,21 @@
+ns flow submit failure raw log
+phase: restack
+exit code: 1
+
+summary:
+`gt restack --downstack` hit merge conflicts, so nothing was submitted.
+
+Conflicted files:
+- src/app.ts
+
+Fix: resolve the conflicts, continue or abort the rebase, then rerun `ns flow submit`.
+
+command 1: gt restack --downstack --no-interactive
+termination: exited
+exit code: 1
+signal: none
+
+----- stdout -----
+(empty)
+----- stderr -----
+CONFLICT (content): src/app.ts

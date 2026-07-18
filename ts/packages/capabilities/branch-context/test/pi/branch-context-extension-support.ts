@@ -43,7 +43,7 @@ export { brmemCheckJson as brmemCheckEnvelope } from "@nseng-ai/capability-kit/b
 
 export const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(TEST_DIR, "../../../../../..");
-export const ROOT = "/repo";
+export const ROOT = resolve("test/fixtures/model-policy");
 export const PLAN_SLUG = "branch-scoped-plan-extension";
 export const PLAN_KEY = buildBranchContextPlanKey(PLAN_SLUG);
 export const LEGACY_PLAN_KEY = "plan.md";
@@ -416,7 +416,7 @@ export function step(
 }
 
 export function planSlugArgs(content: string): string[] {
-	return buildRawTextModelArgs(buildPlanContentSlugPrompt(content));
+	return buildRawTextModelArgs(buildPlanContentSlugPrompt(content), DEFAULT_FAST_MODEL, "off");
 }
 
 export function planSlugStep(
@@ -432,7 +432,7 @@ export function planSlugExecCall(content: string): { command: string; args: stri
 }
 
 export function savedPlanSlugArgs(content: string): string[] {
-	return buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(content));
+	return buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(content), DEFAULT_FAST_MODEL, "off");
 }
 
 export interface SavedPlanSlugStepOptions {

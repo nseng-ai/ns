@@ -9,7 +9,7 @@ import {
 	formatCheckpointValidationFeedback,
 	validateCheckpointMessage,
 } from "./checkpoint-message.ts";
-import type { TextGenerator } from "./text-generation.ts";
+import type { TextGenerationReasoning, TextGenerator } from "./text-generation.ts";
 import { prepareRepairedText, type TextRepairProgressEvent } from "./text-repair.ts";
 import { withTemporaryFile } from "./temp-files.ts";
 
@@ -69,6 +69,7 @@ export async function prepareCheckpointMessage(input: {
 	diff: string;
 	textGenerator: TextGenerator;
 	modelRef: string;
+	reasoning?: TextGenerationReasoning;
 	onProgress?: (event: TextRepairProgressEvent) => void;
 	time?: TimeServices;
 }): Promise<PreparedCheckpointMessage> {
@@ -76,7 +77,8 @@ export async function prepareCheckpointMessage(input: {
 	const prepared = await prepareRepairedText({
 		noun: "checkpoint message",
 		initialPrompt,
-		generate: (prompt) => generateCheckpointText(input.textGenerator, input.modelRef, prompt),
+		generate: (prompt) =>
+			generateCheckpointText(input.textGenerator, input.modelRef, input.reasoning ?? "low", prompt),
 		validate: (text) => {
 			const validation = validateCheckpointMessage(text);
 			if (validation.ok) return { ok: true, value: formatCheckpointMessage(validation.message) };
@@ -299,6 +301,7 @@ function promptBlock(value: string, emptyPlaceholder: string): string {
 async function generateCheckpointText(
 	textGenerator: TextGenerator,
 	modelRef: string,
+	reasoning: TextGenerationReasoning,
 	prompt: string,
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
 	return textGenerator.generateText({
@@ -306,7 +309,7 @@ async function generateCheckpointText(
 		system: CHECKPOINT_SYSTEM_PROMPT,
 		prompt,
 		maxTokens: 512,
-		reasoning: "low",
+		reasoning,
 		operation: "checkpoint-message",
 	});
 }

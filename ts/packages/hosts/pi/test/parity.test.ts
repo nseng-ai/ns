@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import modelShortcutExtension from "../src/core/model-shortcuts/extension.ts";
 import prExtension from "../src/core/pr/extension.ts";
 import {
 	comparePiSurfaceParity,
@@ -14,7 +13,6 @@ import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi/parity/tes
 async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 
-	await registerWithFakeHost(pi, modelShortcutExtension);
 	await registerWithFakeHost(pi, prExtension);
 	// The worktree-status implementation lives in @nseng-ai/pi/worktree-status and is
 	// discovered through .pi/extensions/worktree-status.ts. Include its live command
@@ -91,6 +89,41 @@ describe("Pi extension parity metadata", () => {
 
 		expect(comparison.missingMetadata).toEqual([]);
 		expect(comparison.staleMetadata).toEqual(metadata);
+	});
+
+	test("dynamic-family metadata accounts for matching live generated commands only", () => {
+		const metadata = definePiSurfaceParity([
+			{
+				kind: "command",
+				surface: "model:*",
+				workflow: "Fixture runtime command family",
+				parity: "WAIVED",
+				fallback: "Use a fixture fallback.",
+				ownerObjective: "cross-harness-parity",
+				sourcePackage: "@nseng-ai/pi",
+				sourceModule: "fixture",
+				notes: "Fixture metadata for dynamic-family matching coverage.",
+				matching: { type: "dynamic-family", rationale: "Generated from fixture policy." },
+			},
+		] as const);
+
+		const comparison = comparePiSurfaceParity({
+			liveSurfaces: [
+				{ kind: "command", surface: "model:fast" },
+				{ kind: "command", surface: "model:" },
+				{ kind: "command", surface: "models:unrelated" },
+			],
+			metadata,
+		});
+
+		expect(comparison).toEqual({
+			missingMetadata: [
+				{ kind: "command", surface: "model:" },
+				{ kind: "command", surface: "models:unrelated" },
+			],
+			staleMetadata: [],
+			duplicateMetadataKeys: [],
+		});
 	});
 
 	test("comparison excludes dynamic-family metadata from stale checks", () => {

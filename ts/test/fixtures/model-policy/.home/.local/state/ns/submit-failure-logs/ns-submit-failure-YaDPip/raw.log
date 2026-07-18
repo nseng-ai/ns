@@ -1,0 +1,27 @@
+ns flow submit failure raw log
+phase: PR description
+exit code: 1
+
+summary:
+PRs were submitted; description generation failed.
+
+Submitted PRs:
+• #123 https://github.com/acme/repo/pull/123
+
+Description failures:
+• #123 https://github.com/acme/repo/pull/123: Generated a PR description, but failed to update PR #123.
+Could not update PR #123.
+  Cause: gh exited 1: edit denied
+
+Checkout the branch and run `ns flow regenerate-pr` to regenerate its PR description.
+
+details:
+PR #123 https://github.com/acme/repo/pull/123:
+  code: github_pr_edit_failed
+  message: Could not update PR #123.
+  args: pr edit 123 --title Generated PR --body-file /var/folders/9f/tdmwr1s936g4_3px8t6cjs7h0000gn/T/ns-dev-pr-body-nvelW6/body.md
+  command: gh
+  exit_code: 1
+  result_type: exited
+  signal: null
+  stderr: edit denied

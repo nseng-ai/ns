@@ -1,0 +1,7 @@
+[models.profiles.ultrafast]
+model = "openai-codex/gpt-5.6-luna"
+thinking = "off"
+
+[models.profiles.fast]
+model = "openai-codex/gpt-5.6-luna"
+thinking = "medium"

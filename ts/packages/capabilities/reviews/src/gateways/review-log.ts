@@ -259,7 +259,7 @@ export function renderReviewLogMarkdown(
 }
 
 function renderReviewLogTitle(result: ReviewRunResult): string {
-	if (reviewDisplayRole(result.modelProfile) === "tripwire") {
+	if (reviewDisplayRole(result.reviewName) === "tripwire") {
 		return `# Reviews Tripwire: ${result.reviewName}`;
 	}
 	return `# Reviews Review: ${result.reviewName}`;

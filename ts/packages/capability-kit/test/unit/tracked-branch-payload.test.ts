@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import {
 	buildTrackedBranchPayloadLaunchCommand,
@@ -14,7 +14,10 @@ import {
 } from "@nseng-ai/capability-kit/tracked-branch-payload";
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
+import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
+
+const MODEL_POLICY_REPO_ROOT = resolve("test/fixtures/model-policy");
 
 interface Step {
 	command: string;
@@ -178,12 +181,14 @@ describe("tracked branch payload public API", () => {
 			{
 				command: "git",
 				args: ["rev-parse", "--show-toplevel"],
-				result: exited({ stdout: "/repo\n" }),
+				result: exited({ stdout: `${MODEL_POLICY_REPO_ROOT}\n` }),
 			},
 			{
 				command: "pi",
 				args: buildRawTextModelArgs(
 					buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+					DEFAULT_FAST_MODEL,
+					"off",
 				),
 				result: exited({ stdout: "implement-feature\n" }),
 			},
@@ -225,12 +230,14 @@ describe("tracked branch payload public API", () => {
 			{
 				command: "git",
 				args: ["rev-parse", "--show-toplevel"],
-				result: exited({ stdout: "/repo\n" }),
+				result: exited({ stdout: `${MODEL_POLICY_REPO_ROOT}\n` }),
 			},
 			{
 				command: "pi",
 				args: buildRawTextModelArgs(
 					buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+					DEFAULT_FAST_MODEL,
+					"off",
 				),
 				result: exited({ stdout: "implement-feature\n" }),
 			},

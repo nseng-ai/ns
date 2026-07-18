@@ -1,10 +1,19 @@
 import { normalizeTextOutput } from "@nseng-ai/foundation/text-normalization";
 
 import type { PendingWorktreeSnapshot } from "@nseng-ai/capability-kit/pending-worktree";
-import type { TextGenerator } from "@nseng-ai/capability-kit/text-generation";
+import type {
+	TextGenerationReasoning,
+	TextGenerator,
+} from "@nseng-ai/capability-kit/text-generation";
+import type { ModelOperationDefinition } from "@nseng-ai/capability-kit/model-policy";
 
 const CHANGES_SUMMARY_MAX_BULLETS = 4;
 const CHANGES_SUMMARY_MAX_TOKENS = 512;
+export const FLOW_CHANGES_MODEL_OPERATION = {
+	id: "flow.changes",
+	defaultProfile: "fast",
+} as const satisfies ModelOperationDefinition;
+
 const INVALID_SUMMARY_ERROR =
 	'Model returned an invalid changes summary (expected 1–4 "- " bullets, no headers or code fences).';
 
@@ -59,6 +68,7 @@ export function validateChangesSummary(
 export async function draftChangesSummary(input: {
 	textGenerator: TextGenerator;
 	modelRef: string;
+	reasoning?: TextGenerationReasoning;
 	snapshot: Pick<PendingWorktreeSnapshot, "branch" | "status" | "diff">;
 }): Promise<{ ok: true; summaryText: string } | { ok: false; error: string }> {
 	const drafted = await input.textGenerator.generateText({
@@ -66,7 +76,7 @@ export async function draftChangesSummary(input: {
 		system: CHANGES_SUMMARY_SYSTEM_PROMPT,
 		prompt: buildChangesUserPrompt(input.snapshot),
 		maxTokens: CHANGES_SUMMARY_MAX_TOKENS,
-		reasoning: "low",
+		reasoning: input.reasoning ?? "low",
 		operation: "changes-summary",
 	});
 	if (!drafted.ok) {

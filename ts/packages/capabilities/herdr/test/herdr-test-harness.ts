@@ -343,6 +343,11 @@ export async function resetHerdrTestEnvironment(): Promise<void> {
 
 export async function makeTempDir(): Promise<string> {
 	const dir = await realpath(await mkdtemp(join(tmpdir(), "herdr-extension-test-")));
+	await writeFile(
+		join(dir, "ns.toml"),
+		'[models.profiles.ultrafast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "off"\n',
+		"utf8",
+	);
 	tempDirs.push(dir);
 	return dir;
 }

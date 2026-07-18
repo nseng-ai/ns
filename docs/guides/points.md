@@ -99,9 +99,11 @@ Prompt resolution ladder (first match wins):
   path string. Mismatched values are rejected with a diagnostic.
 - Settings (typed config like `[reviews.diff]` or shared model policy under
   `[models]`) are **not** points. They stay in extension-rooted or shared TOML
-  tables with manifest-declared schemas. For example, model profiles and
-  operation overrides use `[models.profiles]` and `[models.operations]`; they
-  are typed settings, not lifecycle customization points.
+  tables with manifest-declared schemas. Model profiles are structured
+  `[models.profiles.<name>]` tables with required `model` and `thinking` fields;
+  `[models.operations]` maps operation IDs to those profile names. These are typed
+  settings, not lifecycle customization points, and no point supplies an implicit
+  model-profile fallback.
 
 ## For extension authors: defining points
 

@@ -1,5 +1,6 @@
 import type { ParsedAutobranchArgs } from "../../autobranch/dirty-worktree.ts";
 import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
+import { FLOW_CHECKPOINT_MODEL_OPERATION } from "../../checkpoint/checkpoint.ts";
 import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import { runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import { commandIoFromNsExtensionApi } from "@nseng-ai/sdk/command-io";
@@ -7,8 +8,8 @@ import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { prepareFlowCheckpointMessage } from "../model-generation.ts";
-import { MODEL_OPERATION_IDS } from "@nseng-ai/capability-kit/model-policy";
-import { resolveFlowModelRef } from "../model-policy.ts";
+import { SLUG_MODEL_OPERATION } from "@nseng-ai/capability-kit/model-slug";
+import { resolveFlowModelSelection } from "../model-policy.ts";
 import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
@@ -45,9 +46,9 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 	handler: async (ctx, request: AutobranchRequest) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
-		const slugModel = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.slug);
+		const slugModel = await resolveFlowModelSelection(ctx, SLUG_MODEL_OPERATION);
 		if (!slugModel.ok) return failure(FLOW_COMMAND_FAILED, slugModel.error);
-		const checkpointModel = await resolveFlowModelRef(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
+		const checkpointModel = await resolveFlowModelSelection(ctx, FLOW_CHECKPOINT_MODEL_OPERATION);
 		if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
 		const io = commandIoFromNsExtensionApi(ctx);
 		return await runWithNsCommandIo(io, async (io) => {
@@ -59,7 +60,11 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 							pendingSnapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 						) =>
 							prepareFlowCheckpointMessage(
-								{ ...ctx, modelRef: checkpointModel.modelRef },
+								{
+									...ctx,
+									modelRef: checkpointModel.selection.modelRef,
+									reasoning: checkpointModel.selection.thinking,
+								},
 								pendingSnapshot,
 							),
 						commitPreparedCheckpointMessage: (message) =>
@@ -67,7 +72,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 					},
 				},
 				{
-					...createAutobranchDispatchEnv(ctx, args, slugModel.modelRef),
+					...createAutobranchDispatchEnv(ctx, args, slugModel.selection),
 					onPhase: (message) => io.phase(message),
 				},
 			);

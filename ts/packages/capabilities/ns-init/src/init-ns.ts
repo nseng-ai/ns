@@ -22,6 +22,7 @@ import {
 import { activationCompletedSchema, type FileActivationOutcome } from "./activation-outcomes.ts";
 import type { NsActivationContext } from "./activation-context.ts";
 import { ACTIVATION_FILE_PATHS, ACTIVATION_FILES } from "./activation-files.ts";
+import { renderFreshNsConfig } from "./fresh-ns-config.ts";
 import {
 	createLifecycleRecorder,
 	lifecycleStepSchema,
@@ -177,10 +178,17 @@ function resolveHarnesses(
 				data: { argument: "harness", code: explicit.error.code },
 			};
 		}
-		const plan = planNsTomlHarnessesWrite({
-			content: existingContent,
-			harnesses: explicit.harnesses,
-		});
+		const plan =
+			existingContent === undefined
+				? {
+						type: "ok" as const,
+						content: renderFreshNsConfig(explicit.harnesses),
+						change: "created" as const,
+					}
+				: planNsTomlHarnessesWrite({
+						content: existingContent,
+						harnesses: explicit.harnesses,
+					});
 		if (plan.type === "error") {
 			return {
 				type: "failure",

@@ -1,0 +1,13 @@
+ns flow submit failure raw log
+phase: preflight
+exit code: 1
+
+command 1: gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run
+termination: exited
+exit code: 1
+signal: none
+
+----- stdout -----
+(empty)
+----- stderr -----
+metadata rewrite requires manual repair

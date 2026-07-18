@@ -4,6 +4,7 @@ import {
 	deriveSlugWithModel,
 	type RawTextModelCommandResult,
 	type RawTextModelExecOptions,
+	type RawTextModelSelection,
 	type SlugModelEvidence,
 } from "./model-slug.ts";
 
@@ -39,10 +40,9 @@ export interface ContentSlugNormalizationOptions {
 	stripSuffixes?: readonly string[];
 }
 
-export interface DeriveContentSlugInput {
+export interface DeriveContentSlugInput extends RawTextModelSelection {
 	content: string;
 	cwd: string;
-	modelRef: string;
 	signal?: AbortSignal;
 }
 
@@ -57,6 +57,7 @@ export async function deriveKitContentSlug(
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
 		modelRef: input.modelRef,
+		thinking: input.thinking,
 		prompt,
 		...(input.signal === undefined ? {} : { signal: input.signal }),
 		slugKind: variant.slugKind,

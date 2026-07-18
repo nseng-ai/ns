@@ -4,6 +4,7 @@ import {
 	type ContentSlugExecApi,
 	type KitContentSlugDerivationVariant,
 } from "@nseng-ai/capability-kit/content-slug";
+import type { ResolvedModelOperation } from "@nseng-ai/capability-kit/model-policy";
 import {
 	finalizeBranchSlug,
 	MAX_BRANCH_SLUG_LENGTH,
@@ -28,14 +29,19 @@ export function buildDispatchContentSlugPrompt(input: DispatchContentSlugInput):
 
 export function createRealDispatchContentSlugGateway(
 	execApi: ContentSlugExecApi,
-	modelRef: string,
+	model: ResolvedModelOperation,
 ): DispatchContentSlugGateway {
 	return {
 		async deriveSemanticSlug(input) {
 			try {
 				const evidence = await deriveKitContentSlug(
 					execApi,
-					{ content: input.content, cwd: input.cwd, modelRef },
+					{
+						content: input.content,
+						cwd: input.cwd,
+						modelRef: model.modelRef,
+						thinking: model.thinking,
+					},
 					dispatchContentSlugVariant(input.kind),
 				);
 				const slug = finalizeBranchSlug(normalizeBranchSlugText(evidence.slug));

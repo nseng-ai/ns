@@ -1,18 +1,19 @@
 import {
 	loadModelPolicy,
 	resolveModelOperation,
-	type ModelOperationId,
+	type ModelOperationDefinition,
+	type ResolvedModelOperation,
 } from "@nseng-ai/capability-kit/model-policy";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { createNsGitGateway } from "@nseng-ai/capability-kit";
 
-export async function resolveFlowModelRef(
+export async function resolveFlowModelSelection(
 	ctx: NsExtensionApi,
-	operationId: ModelOperationId,
+	operation: ModelOperationDefinition,
 	git: Pick<GitGateway, "optionalRepoRoot"> = createNsGitGateway(ctx),
-): Promise<{ ok: true; modelRef: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; selection: ResolvedModelOperation } | { ok: false; error: string }> {
 	const repository = await git.optionalRepoRoot({ cwd: ctx.cwd });
 	if (repository.type !== "found") {
 		return { ok: false, error: "Could not determine the repository root for ns.toml." };
@@ -20,8 +21,8 @@ export async function resolveFlowModelRef(
 	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: nodeProjectConfigGateway });
 	if (!policy.ok)
 		return { ok: false, error: `Invalid model policy in ns.toml: ${policy.error.message}` };
-	const resolved = resolveModelOperation(policy.value, operationId);
+	const resolved = resolveModelOperation(policy.value, operation);
 	return resolved.ok
-		? { ok: true, modelRef: resolved.value.modelRef }
+		? { ok: true, selection: resolved.value }
 		: { ok: false, error: resolved.error.message };
 }
