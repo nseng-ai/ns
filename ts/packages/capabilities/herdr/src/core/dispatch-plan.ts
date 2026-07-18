@@ -382,7 +382,7 @@ function formatHerdrLaunchPreview(options: {
 				workspaceId: "<caller-workspace>",
 				cwd: "<slot-worktree-path>",
 				label: options.branch,
-				focus: true,
+				shouldFocus: true,
 			}),
 		),
 		formatCommand("herdr", buildHerdrPaneRunArgs("<returned-root-pane>", options.launchCommand)),

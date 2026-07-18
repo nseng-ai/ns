@@ -125,7 +125,7 @@ export async function openBranchInHerdrCallerTab(
 		workspaceId: callerWorkspaceId,
 		cwd: target.worktreePath,
 		label: tabTitle,
-		focus: true,
+		shouldFocus: true,
 	});
 	if (created.type === "failed") {
 		notify(

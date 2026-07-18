@@ -67,6 +67,7 @@ export interface Selection {
 
 export interface FakeCommandContextOptions {
 	cwd?: string;
+	onWaitForIdle?: () => void;
 	selectIndices?: number[];
 	shouldCancelSelect?: boolean;
 	branchEntries?: unknown[];
@@ -201,15 +202,18 @@ export class FakeCommandContext implements CommandContext {
 	readonly selections: Selection[] = [];
 	readonly autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider> =
 		[];
+	readonly events: string[] = [];
 	readonly ui: CommandContext["ui"];
 	readonly modelRegistry: CommandContext["modelRegistry"];
 	readonly sessionManager: NonNullable<CommandContext["sessionManager"]>;
 	waitCount = 0;
 	shouldCancelSelect = false;
 	private readonly selectIndices: number[];
+	private readonly onWaitForIdle: (() => void) | undefined;
 
 	constructor(options: FakeCommandContextOptions = {}) {
 		this.cwd = options.cwd ?? ROOT;
+		this.onWaitForIdle = options.onWaitForIdle;
 		this.selectIndices = [...(options.selectIndices ?? [0])];
 		this.shouldCancelSelect = options.shouldCancelSelect ?? false;
 		this.modelRegistry = { find: () => undefined };
@@ -220,6 +224,7 @@ export class FakeCommandContext implements CommandContext {
 		};
 		this.ui = {
 			notify: (message, level) => {
+				this.events.push(`notify:${message}`);
 				this.notifications.push({ message, level });
 			},
 			setStatus: (key, value) => {
@@ -241,6 +246,8 @@ export class FakeCommandContext implements CommandContext {
 	}
 
 	async waitForIdle(): Promise<void> {
+		this.events.push("wait-for-idle");
+		this.onWaitForIdle?.();
 		this.waitCount += 1;
 	}
 }

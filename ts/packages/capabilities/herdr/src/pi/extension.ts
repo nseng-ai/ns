@@ -11,8 +11,11 @@ import {
 	registerHerdrSurfaceDispatchPlanCommand,
 } from "./dispatch-plan.ts";
 import { registerHerdrSlotOpenBranchCommand } from "./open-branch.ts";
+import { createHerdrPiContext } from "./context.ts";
+import { registerHerdrNewSpaceCommand } from "./new-space.ts";
 
 export default function registerHerdrPiExtension(pi: ExtensionAPI): void {
+	const context = createHerdrPiContext(pi);
 	const sidebarController = createHerdrSidebarControllerWithPiWiring(pi);
 	registerHerdrSidebarCommands(pi, sidebarController);
 	registerHerdrSlotDispatchPromptCommand(pi);
@@ -20,6 +23,7 @@ export default function registerHerdrPiExtension(pi: ExtensionAPI): void {
 	registerHerdrSlotDispatchPlanCommand(pi);
 	registerHerdrSurfaceDispatchPlanCommand(pi);
 	registerHerdrSlotOpenBranchCommand(pi);
+	registerHerdrNewSpaceCommand(context);
 }
 
 export { registerHerdrPiExtension };
