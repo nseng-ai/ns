@@ -75,7 +75,7 @@ and conventions as the baseline; this checklist catches design drift.
       `readonly` / `Readonly*` where the callee must not mutate.
 - [ ] Names follow role conventions: `create*`, `build*`, `prepare*`, `execute*`, `finalize*`,
       `normalize*`, `is*`.
-- [ ] Boolean names use `is*`/`has*`/`should*`/`can*`; type guards are named `isX`.
+- [ ] Type guards are named `isX`.
 - [ ] Measured constants include units, such as `TIMEOUT_MS` or `MAX_BYTES`.
 - [ ] Zod schemas use `<noun>Schema` names.
 - [ ] Public root barrels, if present, are small curated package-level surfaces, not root-only catchalls;
