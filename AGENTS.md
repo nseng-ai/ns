@@ -26,6 +26,7 @@ This root `AGENTS.md` contains only repo-wide rules needed before choosing a dir
 - Durable state should be git-native: refs, branches, GitHub issues/PRs where collaboration warrants; avoid hidden databases/ad-hoc state files.
 - Keep units small and testable: pure transformations plus Gateway interfaces for external I/O. Before declaring a new external-tool gateway interface or consolidating overlapping gateways, read `docs/conventions/consumer-gateways-and-command-shape.md`.
 - Port thoughtfully; do not copy abstractions unchanged when simpler designs fit.
+- Pi and the `@earendil-works/pi-*` packages are external upstream dependencies that ns does not control. Do not plan or implement changes that require modifying or patching them. Work within the pinned public API; when it cannot support required behavior, redesign the ns integration or stop and escalate.
 - Workflow customization routes through extension points: before defining a point, installing at one (`ns.toml` `[points]`, `.ns/prompts/`), or consuming the point catalog from workflow code, read `docs/guides/points.md`.
 - ns is self-hosting: this repo both develops the platform and is its first consumer. Before deciding whether new code is a platform capability (tested `ts/packages/*`) or a consumer instance (a `.ns/*` artifact), read `docs/conventions/platform-and-consumer.md`; provisional consumer artifacts must carry an explicit promotion path.
 

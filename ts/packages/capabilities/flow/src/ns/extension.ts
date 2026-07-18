@@ -80,6 +80,10 @@ export const flowExtensionDescriptor = defineExtension({
 				default: (await import("./commands/squash-stack.ts")).flowSquashStackCommand,
 			}),
 		},
+		{
+			name: "stack",
+			load: async () => ({ default: (await import("./commands/stack.ts")).flowStackCommand }),
+		},
 		hiddenExecGroup("Agent-only flow operations.", [
 			{
 				name: "read-graphite-branch-metadata",

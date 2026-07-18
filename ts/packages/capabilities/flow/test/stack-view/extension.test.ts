@@ -2,8 +2,8 @@
  * Extension-wiring tests for the enrichment engine lifecycle in
  * `handleStackViewCommand`. Both the engine factory and the stack loader are
  * exercised through the internal seams on {@link registerStackViewExtension}
- * (kept off the public parity surface). The default ack delivery is `"none"`, so
- * the registered handler runs straight through after a no-op acknowledgement.
+ * (kept off the public parity surface). Embedded registration explicitly emits
+ * the required transcript acknowledgement before command work begins.
  */
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { AuthStorage, ModelRegistry, type Theme } from "@earendil-works/pi-coding-agent";
@@ -11,7 +11,7 @@ import { describe, expect, test } from "vitest";
 
 import registerStackViewExtension, {
 	type CommandContext,
-	type ExtensionAPI,
+	type StackViewExtensionAPI,
 } from "../../src/stack-view/extension.ts";
 import type { StackEnrichmentPort } from "../../src/stack-view/enrichment-engine.ts";
 import type { LoadStackViewResult } from "../../src/stack-view/data.ts";
@@ -63,9 +63,9 @@ interface CapturedCommand {
 /** One entry in the ordered host delivery log: a rendered snapshot or a user message. */
 type HostDelivery = { type: "message"; message: unknown };
 
-/** Minimal ExtensionAPI that captures the registered command handler and an ordered delivery log. */
+/** Minimal stack-view extension API that captures the handler and an ordered delivery log. */
 function fakeHost(): {
-	pi: ExtensionAPI;
+	pi: StackViewExtensionAPI;
 	command: () => CapturedCommand;
 	sentMessages: unknown[];
 	deliveries: HostDelivery[];
@@ -75,7 +75,7 @@ function fakeHost(): {
 	const sentMessages: unknown[] = [];
 	const deliveries: HostDelivery[] = [];
 	const execCalls: Array<{ command: string; args: readonly string[] }> = [];
-	const pi: ExtensionAPI = {
+	const pi: StackViewExtensionAPI = {
 		registerCommand(_name, options) {
 			captured = { handler: options.handler };
 		},
@@ -210,6 +210,43 @@ function nonInteractiveCtx(): CommandContext {
 	};
 }
 
+describe("stack-view standalone presentation", () => {
+	test("mounts loading before deferred load settles and leaves no transcript snapshot", async () => {
+		const host = fakeHost();
+		let resolveLoad: ((result: LoadStackViewResult) => void) | undefined;
+		const load = () =>
+			new Promise<LoadStackViewResult>((resolve) => {
+				resolveLoad = resolve;
+			});
+		const ctx = scriptedCtx([[], ["q"]]);
+		let customCalls = 0;
+		const custom = ctx.ui.custom;
+		if (custom === undefined) throw new Error("expected custom UI");
+		ctx.ui.custom = <T>(
+			factory: Parameters<typeof custom<T>>[0],
+			options?: unknown,
+		): Promise<T> => {
+			customCalls += 1;
+			return custom(factory, options);
+		};
+		registerStackViewExtension(host.pi, {
+			presentation: "standalone-fullscreen",
+			loadStackView: load,
+		});
+
+		const handling = host.command().handler("", ctx);
+		expect(customCalls).toBe(1);
+		expect(host.deliveries).toEqual([]);
+		await Promise.resolve();
+		if (resolveLoad === undefined) throw new Error("loader was not started");
+		resolveLoad({ type: "ok", model: fakeModel() });
+		await handling;
+
+		expect(customCalls).toBe(2);
+		expect(host.deliveries).toEqual([]);
+	});
+});
+
 describe("stack-view extension enrichment wiring", () => {
 	test("creates one engine on the interactive path and aborts it when the loop exits", async () => {
 		const host = fakeHost();
@@ -232,7 +269,7 @@ describe("stack-view extension enrichment wiring", () => {
 
 		expect(engines).toHaveLength(1);
 		expect(engines[0]?.abortCalls()).toBe(1);
-		expect(host.sentMessages).toHaveLength(1); // fell back to the plain snapshot
+		expect(host.sentMessages).toHaveLength(2); // acknowledgement plus fallback snapshot
 		// The overlay failure is surfaced at warning level, not silently swallowed, and
 		// the concrete error message rides along.
 		expect(notifications).toContainEqual({
@@ -272,7 +309,7 @@ describe("stack-view extension clipboard wiring", () => {
 				args: ["-c", 'printf %s "$1" | pbcopy', "sh", "feature/1"],
 			},
 		]);
-		expect(host.deliveries).toEqual([]);
+		expect(host.deliveries).toEqual([{ type: "message", message: expect.anything() }]);
 		expect(notifications).toContainEqual({
 			message: "Copied branch 'feature/1' to the clipboard.",
 			level: "info",

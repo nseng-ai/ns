@@ -914,6 +914,25 @@ describe("runStackViewOverlayUi", () => {
 		await harness.promise;
 	});
 
+	test("uses a top-left full-viewport overlay and full row budget for standalone", async () => {
+		const harness = runWithFakeCtx(bigModel(), { presentation: "fullscreen" });
+		expect(harness.capturedOptions).toEqual({
+			overlay: true,
+			overlayOptions: {
+				width: "100%",
+				maxHeight: "100%",
+				anchor: "top-left",
+				row: 0,
+				col: 0,
+				margin: 0,
+			},
+			onHandle: expect.any(Function),
+		});
+		expect(harness.component?.render(120)).toHaveLength(30);
+		harness.component?.handleInput?.("q");
+		await harness.promise;
+	});
+
 	test("seeds the selection from the current branch", async () => {
 		const model = modelFixture({
 			currentBranch: "feature/3",
@@ -989,7 +1008,7 @@ interface FakeCtxHarness {
 
 function runWithFakeCtx(
 	model: StackViewModel,
-	options: { selectedIndex?: number } = {},
+	options: { selectedIndex?: number; presentation?: "embedded" | "fullscreen" } = {},
 ): FakeCtxHarness {
 	const harness: FakeCtxHarness = {
 		capturedOptions: undefined,

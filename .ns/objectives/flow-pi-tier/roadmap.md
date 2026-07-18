@@ -6,15 +6,18 @@
       the `ns:flow` namespace, old-name disposition (open question), parity metadata,
       reference sweep. Small and ungated; lands first.
       Evidence: `just` green.
-- [ ] Promotion plan for stack:view: map its data needs to sanctioned primitives
-      (`slot gt exec` topology; `address exec` checks/threads as enriched by
-      `stack-repair-loop-hardening`), pick test seams (data layer vs TUI/overlay),
-      decide staged vs single-shot, and resolve the command-name open question.
-- [ ] Execute the promotion per plan: move stack-view into Flow's Pi layer with
-      tests, consuming primitives, header promotion path rewritten, parity metadata
-      updated, `@internal/pi-tools` entry removed. Gate: the checks/threads backend
-      prefers the enriched `branch-pr-checks`; coordinate through the edge rather
-      than promoting a duplicate GraphQL layer, or document any accepted residual.
+- [x] Promotion plan for stack:view: single-shot move into Flow, retain
+      `/stack:view`, preserve the master-based enrichment and overlay behavior,
+      accept the existing GraphQL loader because the upstream primitive Objective
+      was abandoned, and incubate a real-runtime Pi Command Host in Flow.
+- [x] Execute the promotion: stack-view and its tests live in Flow; parity is
+      FULL via `ns flow stack`; the internal entry is removed; the stale
+      standalone-capability path is gone; and the accepted GraphQL residual is
+      documented. `ns flow stack` is a raw/process-owning TUI command because
+      upstream Pi owns graceful terminal shutdown and exits the process.
+- [ ] Validate the Pi Command Host with a future second consumer, then promote
+      the generic host toward `@nseng-ai/pi` rather than expanding its Flow-local
+      API.
 
 ## Parked
 

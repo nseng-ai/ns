@@ -455,5 +455,9 @@ function isAllowedPiSubpackageCircleEdge(
 	from: TopologyCircleFact,
 	to: TopologyCircleFact,
 ): boolean {
-	return from.tier === "capability" && from.component === "pi" && to.packageName === "@nseng-ai/pi";
+	if (from.tier !== "capability" || to.packageName !== "@nseng-ai/pi") return false;
+	if (from.component === "pi") return true;
+	// Flow's interactive stack-view is Pi-hosted feature code behind the Flow `pi`
+	// surface; the package keeps @nseng-ai/pi as an optional peer.
+	return from.packageName === "@nseng-ai/flow" && from.component === "stack-view";
 }

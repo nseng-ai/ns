@@ -1,11 +1,9 @@
 /**
- * This extension is vibecoded (deliberate cross-harness-parity exception: no CLI
- * surface in v1).
+ * Flow's Pi-native interactive stack view. The extension keeps its host contract
+ * narrowed to the capabilities used by the overlay while sharing the portable
+ * stack workflow exposed by `ns flow stack`.
  *
- * Promotion path: a future `@nseng-ai/stackview` capability package with an
- * `ns stack view` CLI plus `definePiSurfaceParity` metadata.
- *
- * The `ExtensionAPI` / `CommandContext` types below are deliberately narrowed to
+ * The `StackViewExtensionAPI` / `CommandContext` types below are deliberately narrowed to
  * only the host capabilities stack-view actually uses.
  */
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
@@ -31,6 +29,7 @@ import {
 	type SerializedStackViewModel,
 } from "./snapshot-schema.ts";
 import {
+	runStackViewFullscreenLoadingUi,
 	runStackViewOverlayUi,
 	type StackViewCustomUi,
 	type StackViewUiResult,
@@ -84,7 +83,7 @@ export type StackViewSnapshotRenderer = (
 ) => StackViewSnapshotRenderComponent;
 
 /** Narrow view of the Pi extension host used by the stack-view extension. */
-export interface ExtensionAPI extends RawPiExecApi {
+export interface StackViewExtensionAPI extends RawPiExecApi {
 	registerCommand(
 		name: string,
 		options: {
@@ -102,14 +101,13 @@ export const stackViewParity = definePiSurfaceParity([
 		surface: STACK_VIEW_COMMAND_NAME,
 		workflow:
 			"Render the current branch's Graphite stack as an interactive merge-readiness panel with per-PR badges and objective attribution",
-		parity: "WAIVED",
-		fallback:
-			"Non-Pi agents can inspect the stack with 'gt log' plus 'gh pr view'/'gh pr checks' per branch, or open the stack on app.graphite.com.",
+		parity: "FULL",
+		cli: "ns flow stack",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@internal/pi-tools/stack-view",
+		sourcePackage: "@nseng-ai/flow/pi",
 		sourceModule: "stack-view",
 		notes:
-			"Vibecoded v1 is Pi-native interactive session UI (modal overlay panel, keyboard navigation, and transcript snapshot). Promotion path: a future @nseng-ai/stackview capability with an 'ns stack view' CLI, at which point this record graduates from WAIVED.",
+			"Pi provides the interactive overlay, transcript snapshot, and enrichment over Flow's portable stack workflow.",
 	},
 ] as const);
 
@@ -125,9 +123,10 @@ type LoadStackViewFn = (options: {
 }) => Promise<LoadStackViewResult>;
 
 interface StackViewCommandSession {
-	pi: ExtensionAPI;
+	pi: StackViewExtensionAPI;
 	commands: CommandExecApi;
 	ctx: CommandContext;
+	presentation: "embedded" | "standalone-fullscreen";
 }
 
 /** Per-invocation collaborators for the stack-view command. */
@@ -139,12 +138,13 @@ interface StackViewCommandDeps {
 
 /** Registration options; every field is an internal test seam only. */
 export interface RegisterStackViewExtensionOptions {
+	presentation?: "embedded" | "standalone-fullscreen";
 	engineFactory?: StackEnrichmentEngineFactory;
 	loadStackView?: LoadStackViewFn;
 }
 
 export function registerStackViewExtension(
-	pi: ExtensionAPI,
+	pi: StackViewExtensionAPI,
 	options: RegisterStackViewExtensionOptions = {},
 ): void {
 	pi.registerMessageRenderer?.(STACK_VIEW_SNAPSHOT_MESSAGE_TYPE, renderStackViewSnapshotMessage);
@@ -159,28 +159,38 @@ export function registerStackViewExtension(
 		loadStackView: options.loadStackView ?? loadStackView,
 	};
 
+	const presentation = options.presentation ?? "embedded";
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: STACK_VIEW_COMMAND_NAME,
 		commandDefinition: {
 			description: "Show the current Graphite stack as an interactive merge-readiness panel.",
-			handler: async (_args, ctx) => handleStackViewCommand(pi, commands, ctx, deps),
+			handler: async (_args, ctx) => handleStackViewCommand(pi, commands, ctx, deps, presentation),
 		},
+		// Standalone owns the whole viewport, so transcript acknowledgement would
+		// expose hidden Pi chrome; its synchronous loading surface is the acknowledgement.
+		options: { delivery: presentation === "embedded" ? "message" : "none" },
 	});
 }
 
 export default registerStackViewExtension;
 
 async function handleStackViewCommand(
-	pi: ExtensionAPI,
+	pi: StackViewExtensionAPI,
 	commands: CommandExecApi,
 	ctx: CommandContext,
 	deps: StackViewCommandDeps,
+	presentation: "embedded" | "standalone-fullscreen",
 ): Promise<void> {
-	await ctx.waitForIdle();
-	const session: StackViewCommandSession = { pi, commands, ctx };
-
-	const loaded = await loadStackViewWithStatus(session, deps.loadStackView);
+	const session: StackViewCommandSession = { pi, commands, ctx, presentation };
+	const load = async (): Promise<LoadStackViewResult> => {
+		await ctx.waitForIdle();
+		return loadStackViewWithStatus(session, deps.loadStackView);
+	};
+	const loaded =
+		presentation === "standalone-fullscreen"
+			? await runStackViewFullscreenLoadingUi(ctx, load())
+			: await load();
 	if (loaded.type === "not-on-stack") {
 		ctx.ui.notify(loaded.reason, "info");
 		return;
@@ -216,6 +226,7 @@ async function handleStackViewCommand(
 				result = await runStackViewOverlayUi(model, ctx, {
 					...(selectedIndex === undefined ? {} : { selectedIndex }),
 					enrichment: engine,
+					presentation: presentation === "standalone-fullscreen" ? "fullscreen" : "embedded",
 				});
 			} catch (error) {
 				// The overlay threw — a real bug or a Pi-runtime drift. Surface it instead
@@ -343,6 +354,7 @@ function reselectByBranch(
 
 /** Send the plain snapshot as a rendered custom message, or notify when the host cannot render one. */
 function sendSnapshotMessage(session: StackViewCommandSession, model: StackViewModel): void {
+	if (session.presentation === "standalone-fullscreen") return;
 	const content = renderPlainSnapshot(model);
 	if (session.pi.sendMessage !== undefined) {
 		session.pi.sendMessage({

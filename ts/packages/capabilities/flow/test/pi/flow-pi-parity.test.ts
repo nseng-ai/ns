@@ -9,10 +9,12 @@ import {
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi/parity/testing";
 import nsExtension, { nsExtensionParity, type NsExtensionAPI } from "../../src/pi/ns-extension.ts";
 import stackSquashExtension, { stackSquashParity } from "../../src/pi/stack-squash.ts";
+import registerStackViewExtension, { stackViewParity } from "../../src/pi/stack-view.ts";
 
 async function collectFlowPiSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 	await registerWithFakeHost(pi, stackSquashExtension);
+	await registerWithFakeHost(pi, registerStackViewExtension);
 	await registerWithFakeHost(pi, (host: NsExtensionAPI) =>
 		nsExtension(host, {
 			recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
@@ -22,7 +24,7 @@ async function collectFlowPiSurfaces(): Promise<LivePiSurface[]> {
 	return pi.surfaces();
 }
 
-const flowPiParity = [...stackSquashParity, ...nsExtensionParity] as const;
+const flowPiParity = [...stackSquashParity, ...stackViewParity, ...nsExtensionParity] as const;
 
 describe("Flow Pi extension parity metadata", () => {
 	test("registered command surfaces match package metadata", async () => {

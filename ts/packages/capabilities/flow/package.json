@@ -19,11 +19,13 @@
 		"./commands/land": "./src/ns/commands/land.ts",
 		"./commands/pull-trunk": "./src/ns/commands/pull-trunk.ts",
 		"./commands/squash-stack": "./src/ns/commands/squash-stack.ts",
+		"./commands/stack": "./src/ns/commands/stack.ts",
 		"./commands/exec-read-graphite-branch-metadata": "./src/ns/commands/exec-read-graphite-branch-metadata.ts",
 		"./land/api": "./src/land/api.ts",
 		"./land/testing": "./src/land/testing.ts",
 		"./pi": "./src/pi/index.ts",
-		"./pi/ns-extension": "./src/pi/ns-extension.ts"
+		"./pi/ns-extension": "./src/pi/ns-extension.ts",
+		"./pi/stack-view": "./src/pi/stack-view.ts"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -43,12 +45,27 @@
 		"zod": "catalog:"
 	},
 	"devDependencies": {
+		"@earendil-works/pi-ai": "catalog:",
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@earendil-works/pi-tui": "catalog:",
 		"@nseng-ai/pi": "workspace:*"
 	},
 	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*",
 		"@nseng-ai/pi": "*"
 	},
 	"peerDependenciesMeta": {
+		"@earendil-works/pi-ai": {
+			"optional": true
+		},
+		"@earendil-works/pi-coding-agent": {
+			"optional": true
+		},
+		"@earendil-works/pi-tui": {
+			"optional": true
+		},
 		"@nseng-ai/pi": {
 			"optional": true
 		}
@@ -65,7 +82,9 @@
 			"land",
 			"phase-stream",
 			"publication",
+			"pi-command-host",
 			"pi",
+			"stack-view",
 			"ns",
 			"submit",
 			"trunk-pull",

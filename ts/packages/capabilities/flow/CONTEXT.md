@@ -13,8 +13,12 @@ The user- and agent-facing `ns flow ...` command surface and its Pi mirrors, inc
 *Avoid*: land domain core, cmux capability adapter, standalone land command surface
 
 **Flow Pi Presentation Boundary**:
-The `@nseng-ai/flow/pi` host surface owns generic `/ns:flow:*` mirrors and `/gt:squash-stack`. Repository-specific `/code-workflows`, `/gh-ci-debug`, and `/code:gt-restack-resolve` presentation belongs to `@internal/pi-tools/code-workflows`; `.pi/extensions/code.ts` is the discovery-layer composition seam for internal smart restack plus Flow stack squash.
+The `@nseng-ai/flow/pi` host surface owns generic `/ns:flow:*` mirrors, `/gt:squash-stack`, and `/stack:view`. Stack-view's interactive overlay, enrichment, compose side-session, and snapshot presentation are Flow-owned; `ns flow stack` opens the same surface for non-Pi users. Repository-specific `/code-workflows`, `/gh-ci-debug`, and `/code:gt-restack-resolve` presentation belongs to `@internal/pi-tools/code-workflows`; `.pi/extensions/code.ts` is the discovery-layer composition seam for internal smart restack plus Flow stack squash.
 *Avoid*: Flow-owned code-workflow skill policy, Internal Pi-tool import from Flow, cross-owner aggregate inside a package
+
+**Pi Command Host**:
+The unexported `@nseng-ai/flow` feature that runs a caller-supplied extension command in Pi's real interactive runtime with ambient extensions, skills, prompts, and context disabled. Pi owns successful terminal lifecycle and process exit; Flow reports only failures before ownership. This is an incubation seam: after `ns flow stack` plus a second consumer validate it, promote it toward `@nseng-ai/pi` rather than growing a Flow-generic runtime layer.
+*Avoid*: emulated Pi UI context, patched upstream Pi runtime, ambient extension discovery, exported Flow API, permanent generic runtime ownership in Flow
 
 **Flow Capability API**:
 The curated `@nseng-ai/flow/api` in-process compatibility surface consumed by downstream packages so they do not import Flow private source modules. Cmux consumes established Flow workflows; local Vercel dispatch consumes only the **Flow Minimal Submit Client** under the sanctioned exact-source-publication exception.

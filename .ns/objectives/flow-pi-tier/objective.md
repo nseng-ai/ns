@@ -25,12 +25,11 @@ Flow already uses for slots — and the namespace stray normalized.
 ## Scope
 
 - Promote stack-view out of `@internal/pi-tools` into Flow's Pi layer
-  (`ts/packages/capabilities/flow/src/pi/`), registered under the `ns:flow`
-  namespace. Promotion out of the internal rung means earning tests on the way —
-  the module is explicitly vibecoded today — and consuming sanctioned primitives
-  where they cover its needs: stack topology from `slot gt exec`, checks and
-  threads from the `address exec` surface as `stack-repair-loop-hardening`
-  enriches it, rather than stack-view's own hand-rolled GraphQL layer.
+  (`ts/packages/capabilities/flow/src/pi/`) while deliberately keeping the
+  `/stack:view` command name. Promotion out of the internal rung means retaining
+  and running its earned behavior tests. The existing GraphQL loader is an
+  accepted residual because `stack-repair-loop-hardening`, which owned the
+  enriched `branch-pr-checks` backend, was abandoned.
 - Rewrite the module header's stale promotion path (standalone
   `@nseng-ai/stackview` with an `ns stack view` CLI) to reflect this record's
   decision.
@@ -73,10 +72,10 @@ Assumptions:
   organizing axis is the stack, and composing address/slot-gt primitives keeps
   the domain boundary clean. If stack:view grows genuinely non-stack scope, a
   future update should revisit rather than silently stretching Flow.
-- **The checks/threads backend is `stack-repair-loop-hardening`'s enriched
-  `branch-pr-checks`.** This record answers that record's stack-view open
-  question with "yes, upon promotion"; the two records coordinate through the
-  edge rather than duplicating a GraphQL layer into platform code.
+- **The checks/threads backend remains the existing GraphQL loader for this
+  promotion.** The intended `stack-repair-loop-hardening` enriched
+  `branch-pr-checks` backend was abandoned. The residual is accepted and
+  documented rather than silently blocking Flow promotion.
 - **Tests are the price of leaving the internal rung.** Promotion is blocked on
   test coverage by convention (`docs/conventions/platform-and-consumer.md`), not
   on any external gate.
@@ -87,18 +86,16 @@ Risks:
   extraction per the fake-driven-testing conventions may balloon
   the work. If it does, stage the promotion (data layer first, UI after) rather
   than stalling the record.
-- **Backend timing.** If the enrichment work stalls, promoting stack-view with
-  its own GraphQL layer intact imports the duplication into platform code.
-  Prefer sequencing behind the enriched surface, or accept and document the
-  duplication explicitly.
+- **GraphQL residual.** Promotion imports stack-view's existing GraphQL loader
+  into Flow because the upstream enriched primitive was abandoned. This is an
+  accepted residual; a future sanctioned-primitive migration remains separate.
 - **Renames break muscle memory.** `/stack:view` and `gt:squash-stack` are daily
   surfaces; breaking changes are allowed in this repo, but skills, prompts, and
   docs referencing the old names need the reference sweep.
 
 ## Open Questions
 
-- Pi command name for the promoted view: `/ns:flow:view`, `/ns:flow:stack-view`,
-  or keeping `/stack:view` as an alias during transition.
-- Single-shot promotion or staged (data layer with tests first, TUI/overlay
-  after)?
-- Old-name disposition for both surfaces: aliases for a window or clean break?
+- Old-name disposition for the separate `gt:squash-stack` normalization slice:
+  alias window or clean break?
+- When a second consumer validates the incubating Pi Command Host, should its
+  promotion target be `@nseng-ai/pi` or a narrower extracted runtime seam?

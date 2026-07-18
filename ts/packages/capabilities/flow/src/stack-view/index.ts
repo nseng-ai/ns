@@ -1,8 +1,7 @@
 /**
- * Public surface for the `stack-view` module — the plausible promotion boundary
- * for a future `@ns/stackview` capability. Exposes the presentation model and
- * status derivation (types.ts), the stack loader (data.ts), and the plain-text
- * snapshot renderer (render.ts). Interactive overlay internals
+ * Flow's stack-view feature surface. Exposes the presentation model and status
+ * derivation (types.ts), the stack loader (data.ts), and the plain-text snapshot
+ * renderer (render.ts). Interactive overlay internals
  * (overlay-model, overlay-ui), GraphQL, and objectives helpers are deliberately
  * kept off this surface; import them from their own modules when needed.
  */

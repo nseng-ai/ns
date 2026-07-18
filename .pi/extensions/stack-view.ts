@@ -1,3 +1,3 @@
 import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
-export default await importTypeScriptWorkspaceDefault("@internal/pi-tools/stack-view/extension");
+export default await importTypeScriptWorkspaceDefault("@nseng-ai/flow/pi/stack-view");

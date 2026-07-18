@@ -6,10 +6,8 @@ import {
 	type LivePiSurface,
 } from "@nseng-ai/pi/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi/parity/testing";
-import registerStackViewExtension, {
-	stackViewModelFromDetails,
-	stackViewParity,
-} from "../../src/stack-view/extension.ts";
+import registerStackViewExtension, { stackViewParity } from "../../src/pi/stack-view.ts";
+import { stackViewModelFromDetails } from "../../src/stack-view/extension.ts";
 
 async function collectStackViewSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();

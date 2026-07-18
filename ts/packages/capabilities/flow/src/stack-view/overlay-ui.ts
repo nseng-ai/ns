@@ -43,6 +43,37 @@ const BROWSE_FOOTER =
 const THREADS_CELL_WIDTH = 9;
 const CHECKS_CELL_WIDTH = 12;
 const STATUS_CELL_WIDTH = 14;
+const FALLBACK_FULLSCREEN_ROWS = 24;
+const FRAME_FIXED_ROWS = 5;
+
+function fullscreenHostOptions() {
+	return {
+		overlay: true as const,
+		overlayOptions: {
+			width: "100%" as const,
+			maxHeight: "100%",
+			anchor: "top-left" as const,
+			row: 0,
+			col: 0,
+			margin: 0,
+		},
+		onHandle: (handle: { focus(): void }) => handle.focus(),
+	};
+}
+
+function fullscreenRenderLayout(options: {
+	width: number;
+	terminalRows: number | null | undefined;
+	headerLength: number;
+}): { innerWidth: number; bodyRows: number } {
+	return {
+		innerWidth: Math.max(1, options.width - 2),
+		bodyRows: Math.max(
+			1,
+			(options.terminalRows ?? FALLBACK_FULLSCREEN_ROWS) - options.headerLength - FRAME_FIXED_ROWS,
+		),
+	};
+}
 
 /** What the user asked the host to do when the overlay settled. */
 export type StackViewUiOutcome =
@@ -60,6 +91,7 @@ export interface StackViewUiResult {
 /** Options for {@link runStackViewOverlayUi}; `selectedIndex` seeds the initial selection. */
 export interface StackViewOverlayUiOptions {
 	selectedIndex?: number;
+	presentation?: "embedded" | "fullscreen";
 	/** Optional enrichment engine backing the progressive detail-pane summaries. */
 	enrichment?: StackEnrichmentPort;
 }
@@ -87,6 +119,31 @@ export interface StackViewOverlayUiContext {
 	ui: StackViewCustomUi;
 }
 
+export async function runStackViewFullscreenLoadingUi<T>(
+	ctx: StackViewOverlayUiContext,
+	loading: Promise<T>,
+): Promise<T> {
+	if (!ctx.hasUI || ctx.ui.custom === undefined) return loading;
+	type LoadingResult = { type: "loaded"; value: T } | { type: "failed"; error: unknown };
+	const result = await ctx.ui.custom<LoadingResult>((tui, theme, _keybindings, done) => {
+		void loading.then(
+			(value) => done({ type: "loaded", value }),
+			(error: unknown) => done({ type: "failed", error }),
+		);
+		return {
+			render(width: number): string[] {
+				const rows = tui.terminal.rows ?? FALLBACK_FULLSCREEN_ROWS;
+				return Array.from({ length: rows }, (_unused, index) =>
+					fitToWidth(index === 0 ? theme.fg("dim", "Loading stack…") : "", width),
+				);
+			},
+			invalidate(): void {},
+		};
+	}, fullscreenHostOptions());
+	if (result.type === "failed") throw result.error;
+	return result.value;
+}
+
 interface StackViewOverlayOptions {
 	tui: TUI;
 	theme: Theme;
@@ -94,6 +151,7 @@ interface StackViewOverlayOptions {
 	initialIndex: number;
 	done: (result: StackViewUiResult) => void;
 	enrichment?: StackEnrichmentPort;
+	presentation?: "embedded" | "fullscreen";
 }
 
 /**
@@ -118,8 +176,9 @@ export function runStackViewOverlayUi(
 				initialIndex,
 				done,
 				...(options.enrichment === undefined ? {} : { enrichment: options.enrichment }),
+				...(options.presentation === undefined ? {} : { presentation: options.presentation }),
 			}),
-		overlayHostOptions(),
+		options.presentation === "fullscreen" ? fullscreenHostOptions() : overlayHostOptions(),
 	);
 }
 
@@ -141,6 +200,7 @@ export class StackViewOverlay implements Component {
 	private readonly model: StackViewModel;
 	private readonly done: (result: StackViewUiResult) => void;
 	private readonly enrichment: StackEnrichmentPort | undefined;
+	private readonly presentation: "embedded" | "fullscreen";
 	private selectedIndex: number;
 	private listScroll: number;
 	private detailScroll: number;
@@ -153,6 +213,7 @@ export class StackViewOverlay implements Component {
 		this.model = options.model;
 		this.done = options.done;
 		this.enrichment = options.enrichment;
+		this.presentation = options.presentation ?? "embedded";
 		this.selectedIndex = options.initialIndex;
 		this.listScroll = 0;
 		this.detailScroll = 0;
@@ -185,11 +246,18 @@ export class StackViewOverlay implements Component {
 			this.color("text", buildStackIdentityLine(this.model)),
 			this.renderRollupLine(),
 		];
-		const { innerWidth, bodyRows } = overlayRenderLayout({
-			width,
-			terminalRows: this.tui.terminal.rows,
-			headerLength: header.length,
-		});
+		const { innerWidth, bodyRows } =
+			this.presentation === "fullscreen"
+				? fullscreenRenderLayout({
+						width,
+						terminalRows: this.tui.terminal.rows,
+						headerLength: header.length,
+					})
+				: overlayRenderLayout({
+						width,
+						terminalRows: this.tui.terminal.rows,
+						headerLength: header.length,
+					});
 		const footer = this.color("dim", BROWSE_FOOTER);
 		const body = this.renderBody(innerWidth, bodyRows);
 		return renderOverlayFrame({
