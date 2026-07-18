@@ -1,7 +1,6 @@
 import type {
 	GrillAskCustomComponent,
 	GrillAskToolContext,
-	GrillAskViewOptions,
 	NormalizedGrillAskInput,
 } from "./protocol.ts";
 import { GrillAskController, type GrillAskOutcome } from "./controller.ts";
@@ -42,18 +41,16 @@ export interface GrillAskInlineRuntime {
 export async function runGrillAskInlineUi(
 	input: NormalizedGrillAskInput,
 	ctx: GrillAskToolContext,
-	viewOptions: GrillAskViewOptions = {},
 ): Promise<GrillAskOutcome | undefined> {
 	if (!ctx.hasUI || ctx.ui.custom === undefined) return undefined;
 	const runtime = await loadGrillAskInlineRuntime();
-	return runGrillAskInlineUiWithRuntime(input, ctx, runtime, viewOptions);
+	return runGrillAskInlineUiWithRuntime(input, ctx, runtime);
 }
 
 export function runGrillAskInlineUiWithRuntime(
 	input: NormalizedGrillAskInput,
 	ctx: GrillAskToolContext,
 	runtime: GrillAskInlineRuntime,
-	viewOptions: GrillAskViewOptions = {},
 ): Promise<GrillAskOutcome | undefined> {
 	if (!ctx.hasUI || ctx.ui.custom === undefined) return Promise.resolve(undefined);
 	return ctx.ui.custom<GrillAskOutcome>((tui, theme, _keybindings, done) =>
@@ -64,7 +61,6 @@ export function runGrillAskInlineUiWithRuntime(
 			grillAskRenderThemeFromValue(theme),
 			done,
 			ctx,
-			viewOptions,
 		),
 	);
 }
@@ -76,17 +72,8 @@ export function createGrillAskInlineComponent(
 	theme: GrillAskRenderTheme,
 	done: (outcome: GrillAskOutcome) => void,
 	ctx?: GrillAskToolContext,
-	viewOptions: GrillAskViewOptions = {},
 ): GrillAskCustomComponent {
-	return new GrillAskInlineUi(
-		input,
-		runtime,
-		tui,
-		theme,
-		done,
-		ctx ?? { hasUI: false, ui: {} },
-		viewOptions,
-	);
+	return new GrillAskInlineUi(input, runtime, tui, theme, done, ctx ?? { hasUI: false, ui: {} });
 }
 
 export function grillAskRenderThemeFromValue(value: unknown): GrillAskRenderTheme {
@@ -164,7 +151,6 @@ class GrillAskInlineUi implements GrillAskCustomComponent {
 		theme: GrillAskRenderTheme,
 		done: (outcome: GrillAskOutcome) => void,
 		ctx: GrillAskToolContext,
-		viewOptions: GrillAskViewOptions,
 	) {
 		this.input = input;
 		this.runtime = runtime;
@@ -172,7 +158,7 @@ class GrillAskInlineUi implements GrillAskCustomComponent {
 		this.theme = theme;
 		this.ctx = ctx;
 		this.done = done;
-		this.controller = new GrillAskController(input, viewOptions);
+		this.controller = new GrillAskController(input);
 		this.editor = new runtime.Editor(tui, editorTheme(theme));
 		this.editor.onSubmit = (value) => {
 			const outcome = this.controller.submitEditor(value);

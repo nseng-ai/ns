@@ -1,6 +1,6 @@
 import { clamp } from "@nseng-ai/pi/terminal/layout";
 
-import type { GrillAskViewOptions, NormalizedGrillAskInput } from "./protocol.ts";
+import type { NormalizedGrillAskInput } from "./protocol.ts";
 import {
 	buildGrillAskRows,
 	defaultGrillAskRowIndex,
@@ -12,7 +12,6 @@ import {
 export type GrillAskOutcome =
 	| { action: "choice"; entry: GrillAskChoiceRow }
 	| { action: "freeform"; answer: string }
-	| { action: "side-quest"; topic: string }
 	| { action: "status-request" }
 	| { action: "end-grill" }
 	| { action: "cancelled" };
@@ -24,9 +23,9 @@ export class GrillAskController {
 	private currentMode: GrillAskMode = "choices";
 	private currentFocusIndex: number;
 
-	constructor(input: NormalizedGrillAskInput, viewOptions: GrillAskViewOptions = {}) {
+	constructor(input: NormalizedGrillAskInput) {
 		this.input = input;
-		this.rows = buildGrillAskRows(input, viewOptions);
+		this.rows = buildGrillAskRows(input);
 		this.currentFocusIndex = defaultGrillAskRowIndex(input, this.rows);
 	}
 
@@ -76,9 +75,6 @@ export class GrillAskController {
 			case "freeform":
 				this.currentMode = "freeform";
 				return undefined;
-			case "side-quest":
-				this.currentMode = "side-quest";
-				return undefined;
 			case "status":
 				return { action: "status-request" };
 			case "end-grill":
@@ -93,7 +89,6 @@ export class GrillAskController {
 	submitEditor(value: string): GrillAskOutcome | undefined {
 		const trimmed = value.trim();
 		if (trimmed.length === 0) return undefined;
-		if (this.currentMode === "side-quest") return { action: "side-quest", topic: trimmed };
 		if (this.currentMode === "freeform") return { action: "freeform", answer: trimmed };
 		return undefined;
 	}

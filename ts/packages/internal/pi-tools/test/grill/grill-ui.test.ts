@@ -3,17 +3,13 @@ import { describe, expect, test } from "vitest";
 import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 
 import { buildGrillAskRows } from "../../src/grill/view.ts";
-import type {
-	GrillSidequestCapability,
-	PendingGrillAsk,
-} from "../../src/grill/sidequest/protocol.ts";
-import { GRILL_SIDEQUEST_EVENT_ENTRY_TYPE } from "../../src/grill/sidequest/state.ts";
 import {
 	GRILL_ASK_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
 	GRILL_UI_SKILL_NAME,
 	GRILL_WITH_DOCS_UI_COMMAND_NAME,
 	GRILL_WITH_DOCS_UI_SKILL_NAME,
+	GRILL_UI_CONTRACT,
 	buildGrillUiPrompt,
 	buildGrillWithDocsUiPrompt,
 	executeGrillAsk,
@@ -28,6 +24,10 @@ import {
 } from "../../src/grill/extension.ts";
 
 const ROOT = "/repo";
+const FORMER_PREFIX_INPUTS = [
+	["sq", ": ordinary inline text"].join(""),
+	["side", "quest", ": ordinary inline text"].join(""),
+] as const;
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 interface Notification {
@@ -102,22 +102,6 @@ function baseInput(): GrillAskInput {
 
 function nonUiContext(): GrillAskToolContext {
 	return { hasUI: false, ui: {} };
-}
-
-function sideQuestCapabilityFake(): {
-	capability: GrillSidequestCapability;
-	starts: Array<{ topic: string; pendingAsk: PendingGrillAsk | undefined }>;
-} {
-	const starts: Array<{ topic: string; pendingAsk: PendingGrillAsk | undefined }> = [];
-	return {
-		capability: {
-			startSideQuest: (topic, pendingAsk) => {
-				starts.push({ topic, pendingAsk });
-				return "quest-1";
-			},
-		},
-		starts,
-	};
 }
 
 function text(result: ToolResult): string {
@@ -692,26 +676,8 @@ describe("grill_ask execution", () => {
 		expect(text(result)).toContain("User provided a freeform answer: Use an even smaller spike.");
 	});
 
-	test.each([
-		{ label: "sq", answer: "sq: ordinary legacy text" },
-		{ label: "sidequest", answer: "sidequest: ordinary legacy text" },
-	])(
-		"legacy $label text is an ordinary freeform answer without the capability",
-		async ({ answer }) => {
-			const result = await executeGrillAsk(baseInput(), {
-				hasUI: true,
-				ui: {
-					select: async (_title, options) => options.find((option) => option.includes("Other")),
-					editor: async () => answer,
-				},
-			});
-
-			expect(result.details).toMatchObject({ action: "answer", kind: "freeform", answer });
-		},
-	);
-
-	test.each(["sq: ordinary inline text", "sidequest: ordinary inline text"])(
-		"inline %s is an ordinary freeform answer without the capability",
+	test.each(FORMER_PREFIX_INPUTS)(
+		"returns prefix-like inline text unchanged as an ordinary freeform answer",
 		async (answer) => {
 			const result = await executeGrillAsk(
 				baseInput(),
@@ -728,126 +694,6 @@ describe("grill_ask execution", () => {
 			expect(result.details).toMatchObject({ action: "answer", kind: "freeform", answer });
 		},
 	);
-
-	test("first-class side-quest row asks for a topic and starts through the capability", async () => {
-		const fake = sideQuestCapabilityFake();
-		const result = await executeGrillAsk(
-			baseInput(),
-			{
-				hasUI: true,
-				ui: {
-					select: async (_title, options) =>
-						options.find((option) => option.includes("Start a side quest")),
-					editor: async (title) => {
-						expect(title).toBe("Side quest topic");
-						return " cache dependencies ";
-					},
-				},
-			},
-			{ toolCallId: "call-7", sideQuest: fake.capability },
-		);
-
-		expect(result.details).toEqual({
-			action: "side-quest",
-			question: "How should we ship this UI improvement?",
-			topic: "cache dependencies",
-		});
-		expect(fake.starts).toEqual([
-			{
-				topic: "cache dependencies",
-				pendingAsk: {
-					question: "How should we ship this UI improvement?",
-					toolCallId: "call-7",
-				},
-			},
-		]);
-	});
-
-	test("freeform sq: sentinel routes to a side quest when the capability is present", async () => {
-		const fake = sideQuestCapabilityFake();
-		const result = await executeGrillAsk(
-			baseInput(),
-			{
-				hasUI: true,
-				ui: {
-					select: async (_title, options) => options.find((option) => option.includes("Other")),
-					editor: async () => "sq: what does the cache depend on?",
-				},
-			},
-			{ toolCallId: "call-7", sideQuest: fake.capability },
-		);
-
-		expect(result.details).toEqual({
-			action: "side-quest",
-			question: "How should we ship this UI improvement?",
-			topic: "what does the cache depend on?",
-		});
-		expect(text(result)).toContain("Side quest started");
-		expect(text(result)).toContain("NOT an answer");
-	});
-
-	test("inline UI freeform sq: sentinel routes to a side quest when capable", async () => {
-		const fake = sideQuestCapabilityFake();
-		const result = await executeGrillAsk(
-			baseInput(),
-			{
-				hasUI: true,
-				ui: {
-					custom: async () => {
-						throw new Error("inline UI runner test should not invoke fake custom directly");
-					},
-				},
-			},
-			{
-				uiRunner: async () => ({ action: "freeform", answer: "sidequest: explore the tree API" }),
-				sideQuest: fake.capability,
-			},
-		);
-
-		expect(result.details).toEqual({
-			action: "side-quest",
-			question: "How should we ship this UI improvement?",
-			topic: "explore the tree API",
-		});
-	});
-
-	test("freeform sq: sentinel is refused while a side quest is already active", async () => {
-		const fake = sideQuestCapabilityFake();
-		const result = await executeGrillAsk(
-			baseInput(),
-			{
-				hasUI: true,
-				ui: {
-					select: async (_title, options) => options.find((option) => option.includes("Other")),
-					editor: async () => "sq: another tangent",
-				},
-				sessionManager: {
-					getBranch: () => [
-						userMessage("<structured-grill-question-ui-contract>"),
-						{
-							type: "custom",
-							id: "mark",
-							customType: GRILL_SIDEQUEST_EVENT_ENTRY_TYPE,
-							data: {
-								version: 1,
-								event: "started",
-								questId: "quest-active",
-								topic: "first tangent",
-							},
-						},
-					],
-				},
-			},
-			{ sideQuest: fake.capability },
-		);
-
-		expect(result.details).toEqual({
-			action: "side-quest-refused",
-			question: "How should we ship this UI improvement?",
-			topic: "another tangent",
-		});
-		expect(text(result)).toContain("already active");
-	});
 
 	test("status path returns action status-request and re-ask instruction", async () => {
 		const result = await executeGrillAsk(baseInput(), {
@@ -996,5 +842,14 @@ describe("registerGrillUiExtension", () => {
 		expect(
 			(schema as { properties?: Record<string, unknown> }).properties?.estimatedRemaining,
 		).toBeDefined();
+
+		const removedTerms = FORMER_PREFIX_INPUTS.map((input) => input.split(":")[0]);
+		const metadata = JSON.stringify({
+			contract: GRILL_UI_CONTRACT,
+			description: tool.description,
+			promptSnippet: tool.promptSnippet,
+			promptGuidelines: tool.promptGuidelines,
+		});
+		for (const term of removedTerms) expect(metadata.toLowerCase()).not.toContain(term);
 	});
 });

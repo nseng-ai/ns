@@ -34,16 +34,6 @@ export type GrillAskDetails =
 			estimatedRemaining?: GrillAskRemainingEstimate;
 	  }
 	| {
-			action: "side-quest";
-			question: string;
-			topic: string;
-	  }
-	| {
-			action: "side-quest-refused";
-			question: string;
-			topic: string;
-	  }
-	| {
 			action: "cancelled";
 			question: string;
 	  }
