@@ -39,30 +39,28 @@ Sharing an actual gateway *object* across capabilities (not just the contract ty
 
 Production codepaths should receive concrete provider gateways from their entrypoint context rather than constructing `Real*Gateway` adapters in the middle of domain flow logic. Entrypoints are responsible for binding the gateway to the correct exec channel, cwd, telemetry, timeout, and environment semantics, then attaching the narrowed Consumer Gateway to the context passed inward. This keeps gateway wiring visible at I/O boundaries and prevents deep helpers from silently choosing a different command channel.
 
-Construct real adapters only at a top-level composition root, in a clearly named `createReal*Context` or equivalent composition factory, or inside a real adapter that is composing its own implementation over the same channel. Tests and focused real-adapter tests may construct the adapter they exercise directly. A domain or workflow operation must not reconstruct a real adapter from a raw command channel or host API object it was handed; receive the required Consumer Gateway through its context instead.
+Construct real adapters only at a composition root, a named `createReal*Context` factory, or inside a real adapter composing its own implementation over the same channel; tests may construct the adapter they exercise. A domain or workflow operation handed a raw command channel or host API object receives its narrowed Consumer Gateway through context rather than reconstructing an adapter.
 
 ## Composition contexts and gateway clumps
 
-A stable group of runtime collaborators that travels through multiple operations or layers is a **gateway clump**. Replace a demonstrated clump with a capability-owned `*Context` rather than adding the collaborators to an operation's `*Options` or forwarding them as parallel parameters.
+A **gateway clump** is a stable group of runtime collaborators traveling together through multiple operations or layers. Host API objects — the ns extension API object, Pi runtime `ExtensionAPI`, and project-owned narrowed views of either — count as gateway-like collaborators here: they vend I/O, interaction, telemetry, and lifecycle capabilities and carry runtime identity, even though the domain vocabulary classifies their facilities as SDK-provided services rather than Kit Gateways.
 
-Host API objects count as gateway-like runtime collaborators for this rule. This includes the ns extension API object and Pi runtime `ExtensionAPI`, including project-owned narrowed views of either. They vend I/O, interaction, telemetry, registration, or lifecycle capabilities and carry runtime identity even though the domain vocabulary classifies their individual facilities as SDK-provided services rather than Kit Gateways. Repeatedly passing a host API object alongside gateways is therefore evidence of the same composition problem as repeatedly passing several gateways.
-
-Evidence that warrants a named context includes:
+Replace a demonstrated clump with a capability-owned `*Context`. Evidence of a clump:
 
 - two or more gateways or host API objects repeatedly passed together;
 - the same collaborator group forwarded through several helpers;
 - gateways or host API objects mixed into operation `*Options` alongside caller-controlled inputs;
 - collaborators that must share one command, telemetry, cancellation, or lifetime identity but are reconstructed independently.
 
-A single injected collaborator does not require a context. Neither does a group that appears together at only one composition site. Do not invent a speculative context for possible future dependencies.
+A single collaborator, or a group appearing at only one composition site, stays as-is; a context for possible future dependencies is speculative.
 
-Keep these roles distinct:
+Roles:
 
-- `*Context` is a stable, capability-owned set of runtime collaborators. Expose narrowed Consumer Gateways where practical. Use the host API's project-owned narrowed type rather than its broad upstream type when only a subset is needed.
-- `*Options` is caller-controlled operation or factory input: arguments, policy choices, flags, and optional configuration. It is not the object domain logic uses as a dependency grab bag.
-- Per-invocation data such as raw arguments, command callback context, cwd, environment, and abort signal stays separate from long-lived collaborators unless the type is explicitly an entrypoint command context with that same invocation lifetime.
+- `*Context` — stable, capability-owned runtime collaborators. Expose narrowed Consumer Gateways and project-owned narrowed host types where practical.
+- `*Options` — caller-controlled operation or factory input: arguments, policy choices, flags, optional configuration.
+- Per-invocation data (raw arguments, command callback context, cwd, environment, abort signal) stays separate from long-lived collaborators unless the type is explicitly an entrypoint command context with that same invocation lifetime.
 
-Name production composition factories `createReal*Context` when the real/fake distinction matters. Tests should construct the same context shape with in-memory gateways rather than introduce a parallel dependency model. Avoid generic `Dependencies`, `Deps`, or `Services` bags; name the context for the capability or workflow whose runtime collaboration it stabilizes.
+Name production factories `createReal*Context` when the real/fake distinction matters; tests construct the same context shape with in-memory gateways. Name the context for the capability or workflow it stabilizes, not `Dependencies`, `Deps`, or `Services`.
 
 Duplication is not debt until divergence would be a bug. Two capabilities each owning a 3-line argv builder is healthy; consolidate into a shared kit export only when the two must not diverge. A premature shared export couples two consumers that had no reason to move together.
 
@@ -82,5 +80,5 @@ ADR 0019 gates **where** a Real gateway implementation lives (which package owns
 - adding a kit barrel export with one consumer and no explicit justification + demotion trigger.
 - bypassing an established exec/telemetry channel to reuse a gateway object.
 - constructing a real adapter inside domain or workflow logic from a command channel or host API object.
-- mixing gateways or host API objects into operation `*Options` as an unnamed dependency bag.
-- introducing a broad context for one collaborator or a collaborator group that does not demonstrably travel together.
+- routing a gateway clump through operation `*Options` instead of a named context.
+- minting a context for one collaborator or a group that does not demonstrably travel together.
