@@ -1,5 +1,3 @@
-import { basename, dirname, resolve } from "node:path";
-
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
@@ -15,6 +13,7 @@ import {
 import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
+import { slotLabelInput } from "./workspace-label.ts";
 
 const PI_SIDEBAR_STATUS_KEY = "pi:herdr-sidebar";
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
@@ -118,19 +117,6 @@ async function resolveObjectiveSidebarSlug(
 		objectiveSelectionContextFromCommandContext(ctx),
 		OBJECTIVE_SIDEBAR_SELECTION_SPEC,
 	);
-}
-
-function slotLabelInput(cwd: string): { slotSlug: string } | Record<string, never> {
-	const normalizedCwd = resolve(cwd);
-	const worktreesDir = dirname(normalizedCwd);
-	const repoDir = dirname(worktreesDir);
-	const reposDir = dirname(repoDir);
-	const slotsDir = dirname(reposDir);
-	if (basename(worktreesDir) !== "worktrees") return {};
-	if (basename(reposDir) !== "repos" || basename(slotsDir) !== "slots") return {};
-	const slotSlug = basename(normalizedCwd);
-	if (!/^slot-\d+$/.test(slotSlug)) return {};
-	return { slotSlug };
 }
 
 function notify(

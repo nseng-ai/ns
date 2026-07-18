@@ -2,6 +2,7 @@ import { isAbsolute, posix, relative, resolve, sep } from "node:path";
 
 import { runJsonExecCommand } from "@nseng-ai/capability-kit/machine-envelope-exec";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
+import { compactSlotSlug } from "./workspace-label.ts";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
 const ACTIVE_OBJECTIVE_PREFIX = ".ns/objectives/";
@@ -88,12 +89,6 @@ export function formatObjectiveSidebarLabel(input: ObjectiveSidebarFormatInput):
 	const objectiveLabel = `obj:${input.objectiveSlug}`;
 	if (input.slotSlug === undefined) return objectiveLabel;
 	return `${compactSlotSlug(input.slotSlug)}:${objectiveLabel}`;
-}
-
-function compactSlotSlug(slotSlug: string): string {
-	const match = /^slot-(\d+)$/.exec(slotSlug);
-	if (match === null) return slotSlug;
-	return `s${Number(match[1])}`;
 }
 
 function resolveAbsoluteObjectiveSelector(

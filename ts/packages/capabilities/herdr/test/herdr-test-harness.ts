@@ -65,8 +65,15 @@ export interface Selection {
 	items: string[];
 }
 
+export interface InputPrompt {
+	title: string;
+	placeholder: string | undefined;
+}
+
 export interface FakeCommandContextOptions {
 	cwd?: string;
+	hasUI?: boolean;
+	inputValues?: Array<string | undefined>;
 	onWaitForIdle?: () => void;
 	selectIndices?: number[];
 	shouldCancelSelect?: boolean;
@@ -196,10 +203,11 @@ export class FakePi implements ExtensionAPI {
 
 export class FakeCommandContext implements CommandContext {
 	readonly cwd: string;
-	readonly hasUI = true;
+	readonly hasUI: boolean;
 	readonly notifications: Notification[] = [];
 	readonly statuses: Array<{ key: string; value: string | undefined }> = [];
 	readonly selections: Selection[] = [];
+	readonly inputPrompts: InputPrompt[] = [];
 	readonly autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider> =
 		[];
 	readonly events: string[] = [];
@@ -208,11 +216,14 @@ export class FakeCommandContext implements CommandContext {
 	readonly sessionManager: NonNullable<CommandContext["sessionManager"]>;
 	waitCount = 0;
 	shouldCancelSelect = false;
+	private readonly inputValues: Array<string | undefined>;
 	private readonly selectIndices: number[];
 	private readonly onWaitForIdle: (() => void) | undefined;
 
 	constructor(options: FakeCommandContextOptions = {}) {
 		this.cwd = options.cwd ?? ROOT;
+		this.hasUI = options.hasUI ?? true;
+		this.inputValues = [...(options.inputValues ?? [])];
 		this.onWaitForIdle = options.onWaitForIdle;
 		this.selectIndices = [...(options.selectIndices ?? [0])];
 		this.shouldCancelSelect = options.shouldCancelSelect ?? false;
@@ -231,6 +242,10 @@ export class FakeCommandContext implements CommandContext {
 				this.statuses.push({ key, value });
 			},
 			confirm: async () => true,
+			input: async (title, placeholder) => {
+				this.inputPrompts.push({ title, placeholder });
+				return this.inputValues.shift();
+			},
 			select: async (title, items) => {
 				this.selections.push({ title, items: [...items] });
 				if (this.shouldCancelSelect) {

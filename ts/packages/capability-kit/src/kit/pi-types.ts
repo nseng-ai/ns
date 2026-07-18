@@ -59,6 +59,7 @@ export interface UiLike {
 	notify(message: string, level?: NotifyLevel): void;
 	setStatus?(key: string, value: string | undefined): void;
 	confirm?(title: string, message: string): Promise<boolean>;
+	input?(title: string, placeholder?: string): Promise<string | undefined>;
 	select?(title: string, items: string[]): Promise<string | undefined>;
 	addAutocompleteProvider?(factory: (current: AutocompleteProvider) => AutocompleteProvider): void;
 }
