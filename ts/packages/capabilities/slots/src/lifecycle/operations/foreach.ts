@@ -1,4 +1,9 @@
-import { commandSucceeded, formatCommand, tailText } from "@nseng-ai/foundation/command";
+import {
+	commandSucceeded,
+	formatCommand,
+	tailText,
+	type ExecResult,
+} from "@nseng-ai/foundation/command";
 import {
 	failure,
 	negative,
@@ -11,6 +16,7 @@ import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../core/context.ts";
 import { buildSlotInventory, poolSize, type SlotRecord } from "../../core/inventory.ts";
+import type { WorktreeInfo } from "../../core/gateways/repository.ts";
 
 const FOREACH_OUTPUT_MAX_CHARS = 4_000;
 const FOREACH_OUTPUT_MAX_LINES = 80;
@@ -19,16 +25,17 @@ export const foreachRequestSchema = z.object({
 	command: z
 		.array(z.string())
 		.default([])
-		.describe("Command argv to run in each slot, passed after `--`."),
+		.describe(
+			"Command argv to run in the main worktree and each included slot, passed after `--`.",
+		),
 	exclude: z
 		.array(z.string())
 		.default([])
-		.describe("Slot worktree name to exclude. May be repeated."),
+		.describe("Managed Slot worktree name to exclude. May be repeated."),
 	yes: z.boolean().default(false).describe("Skip the confirmation prompt."),
 });
 
-export const foreachSlotResultSchema = z.object({
-	slotName: z.string(),
+const foreachWorktreeResultSchema = z.object({
 	worktreePath: z.string(),
 	branch: z.string().nullable(),
 	termination: z.enum(["exited", "spawn-failed", "cancelled", "timed-out"]),
@@ -40,21 +47,44 @@ export const foreachSlotResultSchema = z.object({
 	succeeded: z.boolean(),
 });
 
+export const foreachSlotResultSchema = foreachWorktreeResultSchema.extend({
+	slotName: z.string(),
+});
+
 export const foreachResultSchema = z.object({
 	command: z.array(z.string()),
 	excluded: z.array(z.string()),
+	mainWorktree: foreachWorktreeResultSchema.nullable(),
 	slots: z.array(foreachSlotResultSchema),
 	cancelled: z.boolean(),
 });
 
 export type ForeachRequest = z.infer<typeof foreachRequestSchema>;
 export type ForeachResult = z.infer<typeof foreachResultSchema>;
+export type ForeachWorktreeResult = z.infer<typeof foreachWorktreeResultSchema>;
 export type ForeachSlotResult = z.infer<typeof foreachSlotResultSchema>;
+
+interface ForeachTarget {
+	label: string;
+	path: string;
+	branch: string | null;
+}
+
+interface InProgressTarget {
+	label: string;
+	operation: string;
+}
+
+interface ForeachProgressReporter {
+	started: (target: ForeachTarget, index: number, total: number) => void;
+	finished: (target: ForeachTarget, index: number, total: number, result: ExecResult) => void;
+}
 
 export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
-	if (request.command.length === 0)
+	const [command, ...commandArgs] = request.command;
+	if (command === undefined)
 		return failure(
 			"missing-command",
 			"Pass a command after --, e.g. `ns slot foreach -- git clean -fd`.",
@@ -71,15 +101,32 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 			"unknown-slot",
 			`Cannot exclude unknown managed slot(s): ${unknownExclusions.join(", ")}.`,
 		);
+	if (inventory.mainWorktree === null)
+		return failure(
+			"main-worktree-not-found",
+			`Cannot find the main worktree at ${repoCtx.repo.mainRepoRoot}.`,
+		);
 	const excluded = new Set(request.exclude);
 	const records = inventory.records.filter((record) => !excluded.has(record.slotName));
-	const inProgress = records.filter((record) => record.operation !== null);
+	const mainOccupancy = inventory.branchOccupancies.find(
+		(occupancy) => occupancy.path === repoCtx.repo.mainRepoRoot,
+	);
+	const mainOperation =
+		mainOccupancy !== undefined && mainOccupancy.operation !== "checked-out" ? mainOccupancy : null;
+	const inProgress: InProgressTarget[] = [
+		...(mainOperation === null
+			? []
+			: [{ label: "main worktree", operation: mainOperation.operation }]),
+		...records.flatMap((record) =>
+			record.operation === null ? [] : [{ label: record.slotName, operation: record.operation }],
+		),
+	];
 	if (inProgress.length > 0) return failure("operation-in-progress", inProgressMessage(inProgress));
 	if (!request.yes) {
 		if (!ctx.shouldWriteCdDirective)
 			return failure("confirmation-required", "ns slot foreach requires --yes in JSON mode.");
 		const confirmed = await repoCtx.interaction.confirm({
-			message: `Run \`${formatCommand(request.command[0]!, request.command.slice(1))}\` in ${records.length} slot(s)?`,
+			message: `Run \`${formatCommand(command, commandArgs)}\` in the main worktree and ${records.length} ${records.length === 1 ? "slot" : "slots"}?`,
 			defaultAnswer: "no",
 		});
 		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
@@ -87,39 +134,39 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 			return ok({
 				command: [...request.command],
 				excluded: [...request.exclude],
+				mainWorktree: null,
 				slots: [],
 				cancelled: true,
 			});
 	}
+	const mainTarget = buildMainTarget(repoCtx.repo.mainRepoRoot, inventory.mainWorktree);
+	const totalTargets = records.length + 1;
+	const progress = createProgressReporter(repoCtx);
+	progress?.started(mainTarget, 1, totalTargets);
+	const mainExecution = await ctx.command.run(command, commandArgs, { cwd: mainTarget.path });
+	progress?.finished(mainTarget, 1, totalTargets, mainExecution);
+	const mainWorktree = buildWorktreeResult(mainTarget, mainExecution);
 	const slots: ForeachSlotResult[] = [];
-	for (const record of records) {
-		const result = await ctx.command.run(request.command[0]!, request.command.slice(1), {
-			cwd: record.path,
-		});
-		slots.push({
-			slotName: record.slotName,
-			worktreePath: record.path,
-			branch: record.branch,
-			termination: result.type,
-			exitCode: result.type === "spawn-failed" ? null : result.code,
-			signal: result.type === "spawn-failed" ? null : result.signal,
-			error: result.type === "spawn-failed" ? result.error : null,
-			stdout: tailOutput(result.stdout),
-			stderr: tailOutput(result.stderr),
-			succeeded: commandSucceeded(result),
-		});
+	for (const [index, record] of records.entries()) {
+		const target = buildSlotTarget(record);
+		const ordinal = index + 2;
+		progress?.started(target, ordinal, totalTargets);
+		const execution = await ctx.command.run(command, commandArgs, { cwd: target.path });
+		progress?.finished(target, ordinal, totalTargets, execution);
+		slots.push({ ...buildWorktreeResult(target, execution), slotName: record.slotName });
 	}
 	const result: ForeachResult = {
 		command: [...request.command],
 		excluded: [...request.exclude],
+		mainWorktree,
 		slots,
 		cancelled: false,
 	};
-	const failedCount = slots.filter((slot) => !slot.succeeded).length;
+	const failedCount = [mainWorktree, ...slots].filter((target) => !target.succeeded).length;
 	if (failedCount > 0)
 		return negative(
-			`ns slot foreach: command failed in ${failedCount} of ${slots.length} slot(s).`,
-			{ data: result },
+			`ns slot foreach: command failed in ${failedCount} of ${totalTargets} worktree(s).`,
+			{ data: result, human: renderForeach(result, ctx.renderCapabilities) },
 		);
 	return ok(result);
 }
@@ -130,39 +177,112 @@ export function renderForeach(
 ): string {
 	if (result.cancelled) return "Cancelled slot foreach.";
 	const renderCaps = resolveRenderCapabilities(caps);
-	const succeeded = result.slots.filter((slot) => slot.succeeded).length;
-	const failed = result.slots.length - succeeded;
+	const mainWorktree = result.mainWorktree;
+	if (mainWorktree === null) return "Slot foreach completed without a main worktree result.";
+	const targets = [
+		{ label: "main worktree", result: mainWorktree },
+		...result.slots.map((slot) => ({ label: slot.slotName, result: slot })),
+	];
+	const succeeded = targets.filter((target) => target.result.succeeded).length;
+	const failed = targets.length - succeeded;
 	return [
 		`Slot foreach: ${formatCommand(result.command[0] ?? "", result.command.slice(1))}`,
-		`${succeeded}/${result.slots.length} slots succeeded${failed === 0 ? "" : `; ${failed} failed`}`,
-		...(result.excluded.length === 0 ? [] : [`Excluded: ${result.excluded.join(", ")}`]),
+		`${succeeded}/${targets.length} worktrees succeeded${failed === 0 ? "" : `; ${failed} failed`}`,
+		...(result.excluded.length === 0 ? [] : [`Excluded Slots: ${result.excluded.join(", ")}`]),
 		"",
 		...renderTable({
 			caps: renderCaps,
 			columns: [
-				{ header: "SLOT", width: "auto" },
+				{ header: "TARGET", width: "auto" },
 				{ header: "BRANCH", width: "auto" },
 				{ header: "EXIT", width: "auto", align: "right" },
 				{ header: "RESULT", width: "auto" },
 			],
-			rows: result.slots.map((slot) => [
-				cell(paint(renderCaps, "accent", slot.slotName), slot.slotName),
-				cell(slot.branch ?? "—"),
-				cell(String(slot.exitCode)),
-				statusCell(renderCaps, slot.succeeded),
+			rows: targets.map((target) => [
+				cell(paint(renderCaps, "accent", target.label), target.label),
+				cell(target.result.branch ?? "—"),
+				cell(target.result.exitCode === null ? "—" : String(target.result.exitCode)),
+				statusCell(renderCaps, target.result.succeeded),
 			]),
 		}),
-		...result.slots.flatMap(slotOutputLines),
+		...worktreeOutputLines("main worktree", mainWorktree),
+		...result.slots.flatMap((slot) => worktreeOutputLines(slot.slotName, slot)),
 	].join("\n");
 }
 
-function inProgressMessage(records: readonly SlotRecord[]): string {
-	const lines = records.map((record) => `  ${record.slotName}: ${record.operation} in progress`);
+function buildMainTarget(mainRepoRoot: string, mainWorktree: WorktreeInfo): ForeachTarget {
+	return {
+		label: "main worktree",
+		path: mainRepoRoot,
+		branch: mainWorktree.branch,
+	};
+}
+
+function buildSlotTarget(record: SlotRecord): ForeachTarget {
+	return {
+		label: record.slotName,
+		path: record.path,
+		branch: record.branch,
+	};
+}
+
+function buildWorktreeResult(target: ForeachTarget, result: ExecResult): ForeachWorktreeResult {
+	return {
+		worktreePath: target.path,
+		branch: target.branch,
+		termination: result.type,
+		exitCode: result.type === "spawn-failed" ? null : result.code,
+		signal: result.type === "spawn-failed" ? null : result.signal,
+		error: result.type === "spawn-failed" ? result.error : null,
+		stdout: tailOutput(result.stdout),
+		stderr: tailOutput(result.stderr),
+		succeeded: commandSucceeded(result),
+	};
+}
+
+function inProgressMessage(targets: readonly InProgressTarget[]): string {
+	const lines = targets.map((target) => `  ${target.label}: ${target.operation} in progress`);
 	return [
 		"Cannot run foreach: a git operation is in progress in:",
 		...lines,
 		"Resolve these operations first.",
 	].join("\n");
+}
+
+function createProgressReporter(ctx: RepoSlotContext): ForeachProgressReporter | null {
+	if (!ctx.shouldWriteCdDirective) return null;
+	return {
+		started: (target, index, total) => {
+			ctx.stderr(
+				`Running in ${target.label} (${target.branch ?? "detached"}) [${index}/${total}]…\n`,
+			);
+		},
+		finished: (target, index, total, result) => {
+			const outcome = commandSucceeded(result) ? "succeeded" : "failed";
+			ctx.stderr(
+				`Finished ${target.label} (${target.branch ?? "detached"}) [${index}/${total}]: ${outcome} (${progressTermination(result)}).\n`,
+			);
+		},
+	};
+}
+
+function progressTermination(result: ExecResult): string {
+	switch (result.type) {
+		case "exited":
+			return `exit ${result.code ?? "unknown"}${result.signal === null ? "" : `; signal ${result.signal}`}`;
+		case "spawn-failed":
+			return "spawn failed";
+		case "cancelled":
+			return terminationDetail("cancelled", result.code, result.signal);
+		case "timed-out":
+			return terminationDetail("timed out", result.code, result.signal);
+	}
+}
+
+function terminationDetail(label: string, code: number | null, signal: string | null): string {
+	if (signal !== null) return `${label}; signal ${signal}`;
+	if (code !== null) return `${label}; exit ${code}`;
+	return label;
 }
 
 function tailOutput(text: string): string {
@@ -178,13 +298,13 @@ function statusCell(caps: ReturnType<typeof resolveRenderCapabilities>, succeede
 	return cell(paint(caps, succeeded ? "success" : "error", text), text);
 }
 
-function slotOutputLines(slot: ForeachSlotResult): string[] {
-	if (slot.stdout.length === 0 && slot.stderr.length === 0) return [];
+function worktreeOutputLines(label: string, result: ForeachWorktreeResult): string[] {
+	if (result.stdout.length === 0 && result.stderr.length === 0) return [];
 	return [
 		"",
-		`${slot.slotName} output:`,
-		...indentedOutputLines(slot.stdout, "stdout"),
-		...indentedOutputLines(slot.stderr, "stderr"),
+		`${label} output:`,
+		...indentedOutputLines(result.stdout, "stdout"),
+		...indentedOutputLines(result.stderr, "stderr"),
 	];
 }
 
