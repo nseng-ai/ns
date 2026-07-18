@@ -10,10 +10,6 @@
  * header. Row ordering follows the model — `model.prs` is top-of-stack first —
  * and the trunk is carried separately on `model.trunk`.
  */
-import {
-	sliceWrappedDetailLinesForViewport,
-	wrapDetailLinesForViewport,
-} from "@nseng-ai/pi/terminal/overlay";
 import { clamp } from "@nseng-ai/pi/terminal/layout";
 import { checkEnrichmentKey, threadEnrichmentKey } from "./enrichment-keys.ts";
 import {
@@ -353,38 +349,4 @@ function appendEnrichmentFollowOn(
 function appendObjectives(rows: StackDetailRow[], pr: StackViewPr): void {
 	if (pr.objectiveSlugs.length === 0) return;
 	rows.push({ role: "objectives", text: `objectives: ${pr.objectiveSlugs.join(", ")}` });
-}
-
-export interface AnchoredStackViewportOptions {
-	lines: readonly string[];
-	width: number;
-	rows: number;
-	scroll: number;
-	anchor: "start" | "end";
-}
-
-export interface AnchoredStackViewport {
-	lines: string[];
-	scroll: number;
-	maxScroll: number;
-}
-
-/**
- * Slice a detail-line viewport anchored at the `start` or `end` of the wrapped
- * content. `start` defers to the shared {@link sliceWrappedDetailLinesForViewport}
- * (top-anchored); `end` keeps the tail visible — the compose transcript scrolls
- * up from its newest line — over the same shared {@link wrapDetailLines}.
- */
-export function sliceAnchoredStackLinesForViewport(
-	options: AnchoredStackViewportOptions,
-): AnchoredStackViewport {
-	if (options.anchor === "start") return sliceWrappedDetailLinesForViewport(options);
-	const viewport = wrapDetailLinesForViewport(options);
-	const end = viewport.lines.length - viewport.scroll;
-	const start = Math.max(0, end - options.rows);
-	return {
-		lines: viewport.lines.slice(start, end),
-		scroll: viewport.scroll,
-		maxScroll: viewport.maxScroll,
-	};
 }

@@ -8,7 +8,6 @@
  * The `ExtensionAPI` / `CommandContext` types below are deliberately narrowed to
  * only the host capabilities stack-view actually uses.
  */
-import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi/commands/ack";
 import { errorMessage } from "@nseng-ai/pi/shared/errors";
@@ -24,14 +23,8 @@ import {
 	type CreateStackEnrichmentEngineOptions,
 	type StackEnrichmentPort,
 } from "./enrichment-engine.ts";
-import {
-	ComposeController,
-	type ComposeControllerOptions,
-	type ComposeViewPort,
-} from "./compose-controller.ts";
-import { createPiComposeSessionFactory } from "./compose-session.ts";
 import type { CommandExecApi, ExecResult } from "./exec.ts";
-import { buildSummaryPrompt, renderPlainSnapshot } from "./render.ts";
+import { renderPlainSnapshot } from "./render.ts";
 import type { StackViewModel } from "./types.ts";
 import {
 	stackViewSnapshotDetailsSchema,
@@ -39,7 +32,6 @@ import {
 } from "./snapshot-schema.ts";
 import {
 	runStackViewOverlayUi,
-	type StackViewComposeOption,
 	type StackViewCustomUi,
 	type StackViewUiResult,
 } from "./overlay-ui.ts";
@@ -56,20 +48,7 @@ type NotifyLevel = "info" | "warning" | "error";
 export interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
-	/**
-	 * The Pi model selected in the parent session, or `undefined` when none is set.
-	 * Compose spawns a side-session against this model; when absent, compose mode
-	 * is not offered. Type-only dependency on pi-ai's runnable `Model<Api>`.
-	 */
-	model: Model<Api> | undefined;
-	/**
-	 * The host's Pi model registry. It drives cheap-model enrichment summaries
-	 * (needing only the structural {@link PiModelRegistryLike}) and backs the
-	 * compose side-session (needing pi-coding-agent's concrete `ModelRegistry` to
-	 * spawn an `AgentSession`). The real host provides a `ModelRegistry`, which
-	 * satisfies both — the intersection makes both contracts honest without an
-	 * `as unknown as` launder at the compose call site.
-	 */
+	/** Shared model configuration for progressive row enrichment. */
 	modelRegistry: ModelRegistry & PiModelRegistryLike;
 	waitForIdle(): Promise<void>;
 	ui: StackViewCustomUi & {
@@ -113,7 +92,6 @@ export interface ExtensionAPI extends RawPiExecApi {
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
 	): void;
-	sendUserMessage(content: string, options?: { deliverAs?: "steer" | "followUp" }): void;
 	sendMessage?(message: StackViewSnapshotMessage): void;
 	registerMessageRenderer?(customType: string, renderer: StackViewSnapshotRenderer): void;
 }
@@ -123,7 +101,7 @@ export const stackViewParity = definePiSurfaceParity([
 		kind: "command",
 		surface: STACK_VIEW_COMMAND_NAME,
 		workflow:
-			"Render the current branch's Graphite stack as an interactive merge-readiness panel with per-PR badges, objective attribution, and an opt-in agent-written stack summary",
+			"Render the current branch's Graphite stack as an interactive merge-readiness panel with per-PR badges and objective attribution",
 		parity: "WAIVED",
 		fallback:
 			"Non-Pi agents can inspect the stack with 'gt log' plus 'gh pr view'/'gh pr checks' per branch, or open the stack on app.graphite.com.",
@@ -131,7 +109,7 @@ export const stackViewParity = definePiSurfaceParity([
 		sourcePackage: "@internal/pi-tools/stack-view",
 		sourceModule: "stack-view",
 		notes:
-			"Vibecoded v1 is Pi-native interactive session UI (modal overlay panel, keyboard navigation, transcript snapshot, plus a compose side-session that drafts a message and injects it as a follow-up). Promotion path: a future @nseng-ai/stackview capability with an 'ns stack view' CLI, at which point this record graduates from WAIVED.",
+			"Vibecoded v1 is Pi-native interactive session UI (modal overlay panel, keyboard navigation, and transcript snapshot). Promotion path: a future @nseng-ai/stackview capability with an 'ns stack view' CLI, at which point this record graduates from WAIVED.",
 	},
 ] as const);
 
@@ -152,30 +130,17 @@ interface StackViewCommandSession {
 	ctx: CommandContext;
 }
 
-/** A compose port plus its teardown hook — the overlay holds the port, the host disposes it. */
-export type ComposeControllerHandle = ComposeViewPort & { dispose(): void };
-
-/** Factory for the compose controller; a test seam kept off the public parity surface. */
-type ComposeControllerFactory = (options: ComposeControllerOptions) => ComposeControllerHandle;
-
-/**
- * Per-invocation collaborators for {@link handleStackViewCommand}. `store` is
- * shared across invocations (memoization survives overlay reopen); `engineFactory`,
- * `loadStackView`, and `composeControllerFactory` are internal test seams, kept
- * off the public parity surface.
- */
+/** Per-invocation collaborators for the stack-view command. */
 interface StackViewCommandDeps {
 	store: EnrichmentStore;
 	engineFactory: StackEnrichmentEngineFactory;
 	loadStackView: LoadStackViewFn;
-	composeControllerFactory: ComposeControllerFactory;
 }
 
 /** Registration options; every field is an internal test seam only. */
 export interface RegisterStackViewExtensionOptions {
 	engineFactory?: StackEnrichmentEngineFactory;
 	loadStackView?: LoadStackViewFn;
-	composeControllerFactory?: ComposeControllerFactory;
 }
 
 export function registerStackViewExtension(
@@ -192,9 +157,6 @@ export function registerStackViewExtension(
 		store: createEnrichmentStore(),
 		engineFactory: options.engineFactory ?? createStackEnrichmentEngine,
 		loadStackView: options.loadStackView ?? loadStackView,
-		composeControllerFactory:
-			options.composeControllerFactory ??
-			((controllerOptions) => new ComposeController(controllerOptions)),
 	};
 
 	registerCommandWithImmediateAck({
@@ -246,12 +208,6 @@ async function handleStackViewCommand(
 		cwd: ctx.cwd,
 		registry: ctx.modelRegistry,
 	});
-	const composeLifecycle = createComposeLifecycle({
-		ctx,
-		getStackModel: () => model,
-		enrichment: engine,
-		composeControllerFactory: deps.composeControllerFactory,
-	});
 	try {
 		let selectedIndex: number | undefined;
 		for (;;) {
@@ -260,7 +216,6 @@ async function handleStackViewCommand(
 				result = await runStackViewOverlayUi(model, ctx, {
 					...(selectedIndex === undefined ? {} : { selectedIndex }),
 					enrichment: engine,
-					...(composeLifecycle.option === undefined ? {} : { compose: composeLifecycle.option }),
 				});
 			} catch (error) {
 				// The overlay threw — a real bug or a Pi-runtime drift. Surface it instead
@@ -286,9 +241,6 @@ async function handleStackViewCommand(
 					await copyBranchToClipboard(session, outcome.branch);
 					return;
 				case "refresh": {
-					// The stack context is about to change; dispose the compose controller
-					// so the next compose entry rebuilds one over the fresh stack model.
-					composeLifecycle.disposeAll();
 					const previousBranch = model.prs[selectedIndex]?.branch;
 					const reloaded = await loadStackViewWithStatus(session, deps.loadStackView);
 					if (reloaded.type === "not-on-stack") {
@@ -303,16 +255,6 @@ async function handleStackViewCommand(
 					selectedIndex = reselectByBranch(model, previousBranch, selectedIndex);
 					continue;
 				}
-				case "summarize":
-					sendSnapshotMessage(session, model);
-					pi.sendUserMessage(buildSummaryPrompt(model));
-					return;
-				case "compose-inject":
-					// Anchor the transcript with the stack snapshot, then deliver the drafted
-					// message as a follow-up so the parent agent acts on it next turn.
-					sendSnapshotMessage(session, model);
-					pi.sendUserMessage(outcome.draft, { deliverAs: "followUp" });
-					return;
 				case "close":
 					sendSnapshotMessage(session, model);
 					return;
@@ -323,51 +265,9 @@ async function handleStackViewCommand(
 			}
 		}
 	} finally {
-		composeLifecycle.disposeAll();
+		ctx.ui.setStatus(STACK_VIEW_COMMAND_NAME, undefined);
 		engine.abort();
 	}
-}
-
-interface StackViewComposeLifecycle {
-	option: StackViewComposeOption | undefined;
-	disposeAll(): void;
-}
-
-function createComposeLifecycle(options: {
-	ctx: CommandContext;
-	getStackModel(): StackViewModel;
-	enrichment: StackEnrichmentPort;
-	composeControllerFactory: ComposeControllerFactory;
-}): StackViewComposeLifecycle {
-	const composeModel = options.ctx.model;
-	let composeController: ComposeControllerHandle | undefined;
-	const disposeAll = (): void => {
-		composeController?.dispose();
-		composeController = undefined;
-	};
-	if (composeModel === undefined) return { option: undefined, disposeAll };
-	return {
-		option: {
-			getPort: (): ComposeViewPort => {
-				// Memoize one controller per live stack model: rebuilding the overlay
-				// (e.g. the `open` outcome's continue) must NOT destroy the in-progress
-				// side session, transcript, or draft. Only `refresh` (fresh stack) and
-				// the loop `finally` dispose it, forcing a later rebuild.
-				if (composeController === undefined) {
-					composeController = options.composeControllerFactory({
-						cwd: options.ctx.cwd,
-						model: composeModel,
-						modelRegistry: options.ctx.modelRegistry,
-						stackModel: options.getStackModel(),
-						enrichment: options.enrichment,
-						factory: createPiComposeSessionFactory(),
-					});
-				}
-				return composeController;
-			},
-		},
-		disposeAll,
-	};
 }
 
 /** Copy a selected branch to the system clipboard through `pbcopy`; warn gently on failure. */
@@ -477,9 +377,7 @@ function renderStackViewSnapshotMessage(
 	_options: { expanded: boolean },
 	theme: StackViewSnapshotRenderTheme,
 ): StackViewSnapshotRenderComponent {
-	const model = stackViewModelFromDetails(message.details);
-	const lines =
-		model !== undefined ? renderPlainSnapshot(model).split("\n") : message.content.split("\n");
+	const lines = message.content.split("\n");
 	return {
 		render(width: number): string[] {
 			return lines.map((line) => theme.fg("dim", truncateDisplayLine(line, width)));

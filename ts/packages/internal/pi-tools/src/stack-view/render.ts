@@ -1,6 +1,6 @@
 /**
  * Pure, host-agnostic plain-text layer for the `/stack:view` panel: the
- * on-close transcript snapshot and the opt-in summary prompt. This module does
+ * on-close transcript snapshot. This module does
  * no I/O, spawns no processes, reads no clock/timers, and emits no ANSI — it
  * maps a {@link StackViewModel} to plain strings only. The styled, interactive
  * UI lives in `overlay-ui.ts`.
@@ -8,11 +8,8 @@
  * Row ordering follows the model: `model.prs` is top-of-stack first, and the
  * trunk is carried separately on `model.trunk`.
  */
-import { buildFencedTextBlock } from "@nseng-ai/foundation/primitives";
-
 import {
 	EXPECTED_GRAPHITE_PENDING_EXPLANATION,
-	collapseWhitespace,
 	entriesForCheckBucket,
 	formatCheckEntryLabel,
 	formatThreadDetailLabel,
@@ -88,52 +85,6 @@ export function renderPlainSnapshot(model: StackViewModel): string {
 	return lines.join("\n");
 }
 
-/**
- * Build the user-turn instruction injected when the user presses `s`. Written as
- * an instruction TO the agent, and self-contained: the agent reading it has no
- * other stack context. PRs are emitted bottom-up (nearest-trunk first) because
- * `model.prs` is top-first and a stack summary reads most naturally from the
- * base up.
- */
-export function buildSummaryPrompt(model: StackViewModel): string {
-	const bottomUp = [...model.prs].reverse();
-	const lines: string[] = [];
-
-	lines.push("Write a concise summary of the Graphite pull-request stack described below.");
-	lines.push("Base your summary on each PR's own description text; do not speculate beyond it.");
-	lines.push(
-		"Read the PRs in the order given (bottom-up: nearest the trunk first), then produce a short overall narrative followed by a one-line-per-PR breakdown.",
-	);
-	lines.push("Also mention which objectives this stack edits (listed at the end).");
-	lines.push("");
-	lines.push(`Stack: ${model.owner}/${model.repo} (trunk: ${model.trunk})`);
-	lines.push(`PRs, bottom-up (${bottomUp.length} total):`);
-	lines.push("");
-
-	bottomUp.forEach((row, index) => {
-		lines.push(`## PR ${index + 1} of ${bottomUp.length}`);
-		lines.push(`Branch: ${row.branch}`);
-		lines.push(`Title: ${summaryPrTitle(row)}`);
-		lines.push("Description:");
-		lines.push(
-			buildFencedTextBlock(row.body.trim().length > 0 ? row.body.trim() : "(no description)"),
-		);
-		lines.push("");
-	});
-
-	lines.push("Objectives edited by this stack:");
-	const objectiveLines = objectiveDisplayLines(model);
-	if (objectiveLines.length === 0) {
-		lines.push("- None recorded.");
-	} else {
-		for (const objectiveLine of objectiveLines) {
-			lines.push(`- ${objectiveLine}`);
-		}
-	}
-
-	return lines.join("\n");
-}
-
 function plainRowMeta(row: StackViewPr): string {
 	const parts: string[] = [];
 	if (row.threads.total > 0) {
@@ -155,11 +106,6 @@ function plainRowMeta(row: StackViewPr): string {
  * insertion order. Returns an empty array when the map is empty so callers can
  * omit the block entirely.
  */
-function summaryPrTitle(row: StackViewPr): string {
-	if (row.number === null) return `(no PR) ${row.branch}`;
-	return `#${row.number} ${collapseWhitespace(row.title)}`;
-}
-
 function objectiveDisplayLines(model: StackViewModel): string[] {
 	const lines: string[] = [];
 	for (const [slug, numbers] of model.objectivesBySlug) {

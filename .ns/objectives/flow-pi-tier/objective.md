@@ -47,8 +47,10 @@ Flow already uses for slots — and the namespace stray normalized.
 - Not pr-previews: `/pr:preview-feedback` stays in the address domain, and the
   `/pr:preview-checks` deprecation is parked, contingent on this record's
   promotion and the shared enriched backend.
-- No feature rewrite of stack-view's enrichment or compose behavior beyond what
-  testing seams and primitive consumption require.
+- No feature rewrite of stack-view's enrichment behavior beyond what testing
+  seams and primitive consumption require. Compose and stack-level Summarize were
+  removed by product decisions on the master-based stack-view implementation and
+  are not behaviors the later Flow promotion should preserve.
 
 ## Completion Criteria
 
@@ -81,8 +83,8 @@ Assumptions:
 
 Risks:
 
-- **Test-earning cost is unknown.** TUI, enrichment, and compose code resist
-  testing; seam extraction per the fake-driven-testing conventions may balloon
+- **Test-earning cost is unknown.** TUI and enrichment code resist testing; seam
+  extraction per the fake-driven-testing conventions may balloon
   the work. If it does, stage the promotion (data layer first, UI after) rather
   than stalling the record.
 - **Backend timing.** If the enrichment work stalls, promoting stack-view with
