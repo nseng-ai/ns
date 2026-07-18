@@ -5,6 +5,7 @@ import { createCliHerdrGateway } from "../core/cli-gateway.ts";
 import { HERDR_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME } from "../core/command-surfaces.ts";
 import { createHerdrSidebarController, type HerdrSidebarController } from "../core/sidebar.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
+import { createHerdrSlotsCapabilityProbe } from "./slots-capability.ts";
 
 export function registerHerdrSidebarCommands(
 	pi: ExtensionAPI,
@@ -16,7 +17,8 @@ export function registerHerdrSidebarCommands(
 		commandDefinition: {
 			description:
 				"Apply an Objective label to the explicit caller Herdr workspace, prefixed with " +
-				"the compact slot name when running in a managed ns slot.",
+				"the compact slot name when running in a managed ns slot with the Slots command " +
+				"surface available.",
 			argumentHint: "<slug or path>",
 			handler: async (args, ctx) => controller.handleObjectiveCommand(args, ctx),
 		},
@@ -28,5 +30,5 @@ export function createHerdrSidebarControllerWithPiWiring(
 ): HerdrSidebarController {
 	const pi = createHerdrPiCommandApi(rawPi);
 	const herdr = createCliHerdrGateway(pi);
-	return createHerdrSidebarController(pi, herdr);
+	return createHerdrSidebarController(pi, herdr, createHerdrSlotsCapabilityProbe(pi));
 }

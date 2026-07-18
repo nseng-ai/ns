@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import type { HasHerdrSlotsCapability } from "../src/core/slots-capability.ts";
 import { handleHerdrSpaceGoal } from "../src/core/space-goal.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {
@@ -18,11 +19,18 @@ function modelStep(stdout: string, code = 0) {
 	return step("pi", undefined, { code, stdout, stderr: code === 0 ? "" : "model failed" });
 }
 
-function slotsExtensionProbeStep(isAvailable: boolean) {
-	return step("ns", ["slot", "--help"], {
-		code: isAvailable ? 0 : 1,
-		stderr: isAvailable ? "" : "Unknown command: slot",
-	});
+function slotsCapabilityFake(isAvailable: boolean): {
+	calls: string[];
+	predicate: HasHerdrSlotsCapability;
+} {
+	const calls: string[] = [];
+	return {
+		calls,
+		predicate: async (cwd) => {
+			calls.push(cwd);
+			return isAvailable;
+		},
+	};
 }
 
 async function runGoal(options: {
@@ -32,7 +40,7 @@ async function runGoal(options: {
 	hasUI?: boolean;
 	modelOutput?: string;
 	modelCode?: number;
-	hasSlotsExtension?: boolean;
+	hasSlotsCapability?: boolean;
 	herdr?: FakeHerdrGateway;
 }) {
 	const cwd = options.cwd ?? "/repo";
@@ -40,10 +48,10 @@ async function runGoal(options: {
 		script: [
 			gitRootStep(cwd),
 			modelStep(options.modelOutput ?? "refactor-auth", options.modelCode),
-			slotsExtensionProbeStep(options.hasSlotsExtension ?? false),
 		],
 		shouldRequireExpectedArgs: false,
 	});
+	const capability = slotsCapabilityFake(options.hasSlotsCapability ?? false);
 	const herdr = options.herdr ?? new FakeHerdrGateway();
 	const ctx = new FakeCommandContext({
 		cwd,
@@ -52,13 +60,16 @@ async function runGoal(options: {
 	});
 	const progress: string[] = [];
 	await handleHerdrSpaceGoal({
-		pi: createHerdrPiCommandApi(pi),
-		herdr,
+		context: {
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			hasSlotsCapability: capability.predicate,
+		},
 		args: options.args ?? GOAL,
 		ctx,
 		notifyProgress: (message) => progress.push(message),
 	});
-	return { pi, herdr, ctx, progress };
+	return { pi, herdr, ctx, progress, capabilityCalls: capability.calls };
 }
 
 afterEach(resetHerdrTestEnvironment);
@@ -77,45 +88,61 @@ describe("herdr space goal", () => {
 		expect(pi.execCalls[1]?.args.at(-1)).toContain("Generate a concise workspace name slug");
 	});
 
-	test("prefixes the slug inside a managed slot when the Slots extension is installed", async () => {
+	test("prefixes the slug inside a managed slot when Slots capability is available", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3";
 
-		const { pi, herdr } = await runGoal({
+		const { pi, herdr, capabilityCalls } = await runGoal({
 			cwd,
 			modelOutput: "add-auth",
-			hasSlotsExtension: true,
+			hasSlotsCapability: true,
 		});
 
 		pi.assertDone();
+		expect(capabilityCalls).toEqual([cwd]);
 		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "s3:add-auth" }]);
 	});
 
-	test("omits the slot prefix when the Slots extension is not installed", async () => {
+	test("omits the slot prefix when Slots capability is unavailable", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3";
 
-		const { pi, herdr } = await runGoal({ cwd, modelOutput: "add-auth" });
+		const { pi, herdr, capabilityCalls } = await runGoal({ cwd, modelOutput: "add-auth" });
 
 		pi.assertDone();
+		expect(capabilityCalls).toEqual([cwd]);
 		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "add-auth" }]);
+	});
+
+	test("ordinary cwd stays unprefixed even when Slots capability is available", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+
+		const { pi, herdr } = await runGoal({ hasSlotsCapability: true });
+
+		pi.assertDone();
+		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "refactor-auth" }]);
 	});
 
 	test("missing caller workspace stops before model work", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", undefined);
 		const pi = new FakePi();
 		const herdr = new FakeHerdrGateway();
+		const capability = slotsCapabilityFake(true);
 		const ctx = new FakeCommandContext();
 
 		await handleHerdrSpaceGoal({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
+			context: {
+				pi: createHerdrPiCommandApi(pi),
+				herdr,
+				hasSlotsCapability: capability.predicate,
+			},
 			args: GOAL,
 			ctx,
 			notifyProgress: () => {},
 		});
 
 		pi.assertDone();
+		expect(capability.calls).toEqual([]);
 		expect(herdr.renameCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Not running inside a Herdr caller workspace.",
@@ -139,17 +166,22 @@ describe("herdr space goal", () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const pi = new FakePi();
 		const herdr = new FakeHerdrGateway();
+		const capability = slotsCapabilityFake(true);
 		const ctx = new FakeCommandContext({ inputValues: [undefined] });
 
 		await handleHerdrSpaceGoal({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
+			context: {
+				pi: createHerdrPiCommandApi(pi),
+				herdr,
+				hasSlotsCapability: capability.predicate,
+			},
 			args: "",
 			ctx,
 			notifyProgress: () => {},
 		});
 
 		pi.assertDone();
+		expect(capability.calls).toEqual([]);
 		expect(herdr.renameCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Usage: /ns:herdr:space:goal <goal>",
@@ -175,17 +207,22 @@ describe("herdr space goal", () => {
 			shouldRequireExpectedArgs: false,
 		});
 		const herdr = new FakeHerdrGateway();
+		const capability = slotsCapabilityFake(true);
 		const ctx = new FakeCommandContext({ cwd });
 
 		await handleHerdrSpaceGoal({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
+			context: {
+				pi: createHerdrPiCommandApi(pi),
+				herdr,
+				hasSlotsCapability: capability.predicate,
+			},
 			args: GOAL,
 			ctx,
 			notifyProgress: () => {},
 		});
 
 		pi.assertDone();
+		expect(capability.calls).toEqual([]);
 		expect(herdr.renameCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
 		expect(ctx.notifications.at(-1)?.message).toContain("Pi model command failed");
@@ -200,11 +237,15 @@ describe("herdr space goal", () => {
 			shouldRequireExpectedArgs: false,
 		});
 		const herdr = new FakeHerdrGateway();
+		const capability = slotsCapabilityFake(true);
 		const ctx = new FakeCommandContext({ cwd });
 
 		await handleHerdrSpaceGoal({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
+			context: {
+				pi: createHerdrPiCommandApi(pi),
+				herdr,
+				hasSlotsCapability: capability.predicate,
+			},
 			args: "!!!",
 			ctx,
 			notifyProgress: () => {},

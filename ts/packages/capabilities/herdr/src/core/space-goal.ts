@@ -9,7 +9,6 @@ import {
 } from "@nseng-ai/capability-kit/model-policy";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
-import { commandSucceeded } from "@nseng-ai/foundation/command";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
@@ -18,19 +17,24 @@ import { HERDR_SPACE_GOAL_COMMAND_NAME } from "./command-surfaces.ts";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { getCallerWorkspaceId } from "./sidebar.ts";
+import type { HasHerdrSlotsCapability } from "./slots-capability.ts";
 import { compactSlotSlug, slotLabelInput } from "./workspace-label.ts";
 
 const COMMAND_NAME = HERDR_SPACE_GOAL_COMMAND_NAME;
-const SLOTS_EXTENSION_PROBE_TIMEOUT_MS = 10_000;
 
 export interface GoalWorkspaceLabelInput {
 	slug: string;
 	slotSlug?: string;
 }
 
-export interface HandleHerdrSpaceGoalOptions {
+export interface HerdrSpaceGoalContext {
 	pi: HerdrPiCommandApi;
 	herdr: HerdrGateway;
+	hasSlotsCapability: HasHerdrSlotsCapability;
+}
+
+export interface HandleHerdrSpaceGoalOptions {
+	context: HerdrSpaceGoalContext;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
@@ -94,6 +98,7 @@ export async function generateWorkspaceGoalSlug(
 }
 
 export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions): Promise<void> {
+	const { pi, herdr, hasSlotsCapability } = options.context;
 	await options.ctx.waitForIdle();
 
 	const workspaceId = getCallerWorkspaceId();
@@ -109,33 +114,25 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 	}
 
 	options.notifyProgress("Interpreting goal…");
-	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal);
+	const slug = await generateWorkspaceGoalSlug(pi, options.ctx.cwd, goal);
 	if (!slug.ok) {
 		notify(options.ctx, slug.message, "error");
 		return;
 	}
 
-	const hasSlotsExtension = await isSlotsExtensionAvailable(options.pi, options.ctx.cwd);
+	const hasSlots = await hasSlotsCapability(options.ctx.cwd);
 	const label = formatGoalWorkspaceLabel({
 		slug: slug.text,
-		...(hasSlotsExtension ? slotLabelInput(options.ctx.cwd) : {}),
+		...(hasSlots ? slotLabelInput(options.ctx.cwd) : {}),
 	});
 	options.notifyProgress("Renaming Herdr workspace…");
-	const renameResult = await options.herdr.renameWorkspace(workspaceId, label);
+	const renameResult = await herdr.renameWorkspace(workspaceId, label);
 	if (renameResult.type === "failed") {
 		notify(options.ctx, renameResult.message, "error");
 		return;
 	}
 
 	notify(options.ctx, `Applied Herdr space goal label: ${label}`, "success");
-}
-
-async function isSlotsExtensionAvailable(pi: HerdrPiCommandApi, cwd: string): Promise<boolean> {
-	const result = await pi.exec("ns", ["slot", "--help"], {
-		cwd,
-		timeout: SLOTS_EXTENSION_PROBE_TIMEOUT_MS,
-	});
-	return commandSucceeded(result);
 }
 
 async function resolveGoal(args: string, ctx: CommandContext): Promise<string | undefined> {

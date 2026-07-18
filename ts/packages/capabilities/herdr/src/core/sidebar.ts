@@ -13,6 +13,7 @@ import {
 import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
 import type { HerdrGateway } from "./herdr-gateway.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
+import type { HasHerdrSlotsCapability } from "./slots-capability.ts";
 import { slotLabelInput } from "./workspace-label.ts";
 
 const PI_SIDEBAR_STATUS_KEY = "pi:herdr-sidebar";
@@ -29,10 +30,17 @@ export interface HerdrSidebarController {
 export function createHerdrSidebarController(
 	pi: HerdrPiCommandApi,
 	herdr: HerdrGateway,
+	hasSlotsCapability: HasHerdrSlotsCapability,
 ): HerdrSidebarController {
 	return {
 		async handleObjectiveCommand(args, ctx): Promise<void> {
-			await handleDeterministicObjectiveSidebar(pi, herdr, args, ctx);
+			await handleDeterministicObjectiveSidebar({
+				pi,
+				herdr,
+				hasSlotsCapability,
+				args,
+				ctx,
+			});
 		},
 	};
 }
@@ -50,12 +58,18 @@ export function getCallerWorkspaceId(env: NodeJS.ProcessEnv = process.env): stri
 	return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
+interface HandleDeterministicObjectiveSidebarOptions {
+	pi: HerdrPiCommandApi;
+	herdr: HerdrGateway;
+	hasSlotsCapability: HasHerdrSlotsCapability;
+	args: string;
+	ctx: CommandContext;
+}
+
 async function handleDeterministicObjectiveSidebar(
-	pi: HerdrPiCommandApi,
-	herdr: HerdrGateway,
-	args: string,
-	ctx: CommandContext,
+	options: HandleDeterministicObjectiveSidebarOptions,
 ): Promise<void> {
+	const { pi, herdr, hasSlotsCapability, args, ctx } = options;
 	await ctx.waitForIdle();
 
 	const workspaceId = getCallerWorkspaceId();
@@ -77,9 +91,10 @@ async function handleDeterministicObjectiveSidebar(
 			return;
 		}
 
+		const hasSlots = await hasSlotsCapability(ctx.cwd);
 		const label = formatObjectiveSidebarLabel({
 			objectiveSlug: slug,
-			...slotLabelInput(ctx.cwd),
+			...(hasSlots ? slotLabelInput(ctx.cwd) : {}),
 		});
 		const renameResult = await herdr.renameWorkspace(workspaceId, label);
 		if (renameResult.type === "failed") {

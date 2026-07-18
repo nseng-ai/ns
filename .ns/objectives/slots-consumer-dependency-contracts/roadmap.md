@@ -7,11 +7,18 @@
       behavior, decided dependency contract, presence or identity signal, and delivery owner.
   - Revalidate the implemented SDK `hasExtension` / `requiresExtension` seam and the stale
     status of the corresponding `flow-slots-opt-in` roadmap row.
-- [ ] Correct optional Herdr label enrichment: give goal and Objective labels one narrowly
+- [x] Correct optional Herdr label enrichment: give goal and Objective labels one narrowly
       Herdr-owned, injectable Pi capability predicate, require both availability and managed-Slot
       path shape, and align tests plus `AGENTS.md` / `CONTEXT.md` contracts.
   - Retain Herdr dispatch as explicitly Slots-required and record pluggable dispatch only as
     future direction.
+  - Delivered on branch `herdr-optional-slot-label-enrichment`: `HasHerdrSlotsCapability`
+    (core contract) plus `createHerdrSlotsCapabilityProbe` (Pi's registered `ns:slot:*`
+    surface, mirrored from the ns SDK effective extension registry) injected into both labeling
+    workflows; capability absence degrades silently to an unprefixed label;
+    dispatch/open-branch retain hard `SlotClient` contracts; README/`CONTEXT.md` state the
+    two-fact prefix contract. Validation: `just` (full TS suite + style guard + objective sweep)
+    passed.
 - [ ] Repair cmux Slot identity presentation without weakening its current dispatch contract:
       replace basename-only sidebar inference with verified identity, cover ordinary worktrees,
       and document hard Slots-backed dispatch plus future pluggability direction.

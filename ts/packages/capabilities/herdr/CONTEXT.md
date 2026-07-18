@@ -21,15 +21,19 @@ Identifying the Herdr workspace to act on via the `HERDR_WORKSPACE_ID` environme
 *Avoid*: UI focus targeting, ambient workspace, implicit workspace
 
 **Workspace label**:
-A display name applied to the caller Herdr workspace via `herdr workspace rename`: `s<number>:obj:<objective-slug>` in a managed ns slot and `obj:<objective-slug>` otherwise. This composition is provisional pending a Herdr workflow pluggability point.
-*Avoid*: sidebar description, metadata reporting, unconditional slot prefix
+A display name applied to the caller Herdr workspace via `herdr workspace rename`. The compact Slot prefix (`s<number>:`) requires two independent facts: the cwd has the canonical managed-Slot path shape (path identity) and the Slots capability probe succeeds (capability availability); otherwise the label stays unprefixed (`obj:<objective-slug>`, bare goal slug). This composition is provisional pending a Herdr workflow pluggability point.
+*Avoid*: sidebar description, metadata reporting, unconditional slot prefix, path-shape-only prefix
+
+**Slots capability probe**:
+The narrow Herdr-owned injectable predicate (`HasHerdrSlotsCapability`) answering whether Slot label enrichment is available. The Pi production implementation inspects Pi's registered commands for the `ns:slot:*` surface mirrored from the ns SDK effective extension registry, without spawning a subprocess. Constructed at the Pi composition roots and injected into both labeling workflows.
+*Avoid*: universal capability detector, package resolvability check, subprocess probe, private registry inspection
 
 **Objective sidebar**:
 The `/ns:herdr:sidebar:objective-summary` workflow that resolves an Objective slug and applies the workspace label to the caller Herdr workspace.
 *Avoid*: cmux sidebar summary, workspace metadata, report-metadata
 
 **Label-only behavior**:
-The current `/ns:herdr:sidebar:objective-summary` implementation applies only a workspace label. Slot identity may be encoded in that label when the cwd proves it is a managed ns slot; branch metadata reporting remains deferred.
+The current `/ns:herdr:sidebar:objective-summary` implementation applies only a workspace label. Slot identity may be encoded in that label when the cwd proves it is a managed ns slot and the Slots capability probe confirms availability; capability presence probing is permitted, while branch reads, Slot inventory reads, and metadata reporting remain deferred. Dispatch and open-branch flows stay Slot-backed and required today; broader host pluggability is direction, not current behavior.
 *Avoid*: partial implementation, inferred slot from arbitrary basename, metadata transport
 
 **Herdr capability boundary**:

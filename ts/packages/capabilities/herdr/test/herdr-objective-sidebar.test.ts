@@ -5,6 +5,7 @@ import {
 	registerHerdrSidebarCommands,
 } from "@nseng-ai/herdr/pi";
 import { createHerdrSidebarController, getCallerWorkspaceId } from "../src/core/sidebar.ts";
+import type { HasHerdrSlotsCapability } from "../src/core/slots-capability.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {
 	formatObjectiveSidebarLabel,
@@ -26,6 +27,20 @@ import {
 
 afterEach(resetHerdrTestEnvironment);
 
+function slotsCapabilityFake(isAvailable: boolean): {
+	calls: string[];
+	predicate: HasHerdrSlotsCapability;
+} {
+	const calls: string[] = [];
+	return {
+		calls,
+		predicate: async (cwd) => {
+			calls.push(cwd);
+			return isAvailable;
+		},
+	};
+}
+
 describe("herdr Objective sidebar", () => {
 	test("ns:herdr:sidebar:objective-summary applies label from explicit slug", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
@@ -37,13 +52,15 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const capability = slotsCapabilityFake(true);
+		const controller = createHerdrSidebarController(adaptedPi, herdr, capability.predicate);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
 		await pi.commands.get("ns:herdr:sidebar:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
+		expect(capability.calls).toEqual([repoRoot]);
 		expect(ctx.waitCount).toBe(1);
 		expect(pi.execCalls).toEqual([
 			{
@@ -63,22 +80,51 @@ describe("herdr Objective sidebar", () => {
 		);
 	});
 
-	test("ns:herdr:sidebar:objective-summary prefixes labels inside a managed slot", async () => {
+	test("ns:herdr:sidebar:objective-summary prefixes labels inside a managed slot when Slots capability is available", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const slug = "areg-lifecycle-ergonomics";
+		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01";
 		const pi = new FakePi({ script: [objectiveReadStep(slug)] });
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(createHerdrPiCommandApi(pi), herdr);
+		const capability = slotsCapabilityFake(true);
+		const controller = createHerdrSidebarController(
+			createHerdrPiCommandApi(pi),
+			herdr,
+			capability.predicate,
+		);
 		registerHerdrSidebarCommands(pi, controller);
-		const ctx = new FakeCommandContext({
-			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01",
-		});
+		const ctx = new FakeCommandContext({ cwd });
 
 		await pi.commands.get("ns:herdr:sidebar:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
+		expect(capability.calls).toEqual([cwd]);
 		expect(herdr.renameCalls).toEqual([
 			{ workspaceId: "w1", label: "s1:obj:areg-lifecycle-ergonomics" },
+		]);
+	});
+
+	test("ns:herdr:sidebar:objective-summary omits the slot prefix inside a managed slot when Slots capability is unavailable", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const slug = "areg-lifecycle-ergonomics";
+		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01";
+		const pi = new FakePi({ script: [objectiveReadStep(slug)] });
+		const herdr = new FakeHerdrGateway();
+		const capability = slotsCapabilityFake(false);
+		const controller = createHerdrSidebarController(
+			createHerdrPiCommandApi(pi),
+			herdr,
+			capability.predicate,
+		);
+		registerHerdrSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext({ cwd });
+
+		await pi.commands.get("ns:herdr:sidebar:objective-summary")?.handler(slug, ctx);
+
+		pi.assertDone();
+		expect(capability.calls).toEqual([cwd]);
+		expect(herdr.renameCalls).toEqual([
+			{ workspaceId: "w1", label: "obj:areg-lifecycle-ergonomics" },
 		]);
 	});
 
@@ -91,7 +137,11 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createHerdrSidebarController(
+			adaptedPi,
+			herdr,
+			slotsCapabilityFake(true).predicate,
+		);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
@@ -124,7 +174,11 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createHerdrSidebarController(
+			adaptedPi,
+			herdr,
+			slotsCapabilityFake(true).predicate,
+		);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot, selectIndices: [1] });
 
@@ -162,7 +216,11 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createHerdrSidebarController(
+			adaptedPi,
+			herdr,
+			slotsCapabilityFake(true).predicate,
+		);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
@@ -193,13 +251,15 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const capability = slotsCapabilityFake(true);
+		const controller = createHerdrSidebarController(adaptedPi, herdr, capability.predicate);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ shouldCancelSelect: true });
 
 		await pi.commands.get("ns:herdr:sidebar:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
+		expect(capability.calls).toEqual([]);
 		expect(herdr.renameCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
@@ -213,13 +273,15 @@ describe("herdr Objective sidebar", () => {
 		const pi = new FakePi({ script: [objectiveListStep([])] });
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const capability = slotsCapabilityFake(true);
+		const controller = createHerdrSidebarController(adaptedPi, herdr, capability.predicate);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
 		await pi.commands.get("ns:herdr:sidebar:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
+		expect(capability.calls).toEqual([]);
 		expect(herdr.renameCalls).toEqual([]);
 		expect(ctx.selections).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
@@ -234,7 +296,8 @@ describe("herdr Objective sidebar", () => {
 		const pi = new FakePi();
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const capability = slotsCapabilityFake(true);
+		const controller = createHerdrSidebarController(adaptedPi, herdr, capability.predicate);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
@@ -243,6 +306,7 @@ describe("herdr Objective sidebar", () => {
 			?.handler("herdr-capability-parity", ctx);
 
 		expect(ctx.waitCount).toBe(1);
+		expect(capability.calls).toEqual([]);
 		expect(pi.execCalls).toEqual([]);
 		expect(herdr.renameCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
@@ -266,13 +330,15 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const capability = slotsCapabilityFake(true);
+		const controller = createHerdrSidebarController(adaptedPi, herdr, capability.predicate);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
 		await pi.commands.get("ns:herdr:sidebar:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
+		expect(capability.calls).toEqual([]);
 		expect(herdr.renameCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
@@ -290,7 +356,11 @@ describe("herdr Objective sidebar", () => {
 		const herdr = new FakeHerdrGateway({
 			renameResult: { type: "failed", message: "workspace not found" },
 		});
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createHerdrSidebarController(
+			adaptedPi,
+			herdr,
+			slotsCapabilityFake(true).predicate,
+		);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
@@ -302,10 +372,11 @@ describe("herdr Objective sidebar", () => {
 		expect(ctx.notifications.at(-1)?.message).toContain("workspace not found");
 	});
 
-	test("ns:herdr:sidebar:objective-summary label-only: does not read slot or branch", async () => {
-		// Verifies the label-only behavior: only objective validation and
-		// `herdr workspace rename` are performed — no branch or slot reads.
-		// The label encodes only the Objective slug.
+	test("ns:herdr:sidebar:objective-summary label-only: does not read slot inventory or branch", async () => {
+		// Verifies the label-only behavior: only objective validation, the
+		// injected Slots capability probe, and `herdr workspace rename` are
+		// performed — no branch reads, Slot inventory reads, or metadata
+		// reporting. The label encodes only the Objective slug.
 		vi.stubEnv("HERDR_WORKSPACE_ID", "workspace-42");
 		const repoRoot = await makeTempDir();
 		const slug = "herdr-capability-parity";
@@ -314,7 +385,11 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createHerdrSidebarController(
+			adaptedPi,
+			herdr,
+			slotsCapabilityFake(true).predicate,
+		);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
