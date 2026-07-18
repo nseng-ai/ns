@@ -23,17 +23,37 @@ interface ModelInfo {
 }
 
 const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
-	{ command: "model:fable", provider: "anthropic", modelId: "claude-fable-5" },
-	{ command: "model:sonnet", provider: "anthropic", modelId: "claude-sonnet-4-5" },
-	{ command: "model:spud", provider: "openai-codex", modelId: "gpt-5.6-sol" },
-	{ command: "model:sol", provider: "openai-codex", modelId: "gpt-5.6-sol" },
-	{ command: "model:terra", provider: "openai-codex", modelId: "gpt-5.6-terra" },
-	{ command: "model:luna", provider: "openai-codex", modelId: "gpt-5.6-luna" },
-	{ command: "model:gpt-mini", provider: "openai-codex", modelId: "gpt-5.4-mini" },
-	{ command: "model:gemini-pro", provider: "google", modelId: "gemini-3.1-pro-preview" },
-	{ command: "model:gemini-flash", provider: "google", modelId: "gemini-3.5-flash" },
-	{ command: "model:haiku", provider: "anthropic", modelId: "claude-haiku-4-5" },
-	{ command: "model:opus", provider: "anthropic", modelId: "claude-opus-4-8" },
+	{ command: "model:fable", provider: "vercel-ai-gateway", modelId: "anthropic/claude-fable-5" },
+	{
+		command: "model:sonnet",
+		provider: "vercel-ai-gateway",
+		modelId: "anthropic/claude-sonnet-4-5",
+	},
+	{ command: "model:spud", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
+	{ command: "model:sol", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
+	{ command: "model:terra", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-terra" },
+	{ command: "model:luna", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-luna" },
+	{ command: "model:gpt-mini", provider: "vercel-ai-gateway", modelId: "openai/gpt-5.4-mini" },
+	{
+		command: "model:gemini-pro",
+		provider: "vercel-ai-gateway",
+		modelId: "google/gemini-3.1-pro-preview",
+	},
+	{
+		command: "model:gemini-flash",
+		provider: "vercel-ai-gateway",
+		modelId: "google/gemini-3.5-flash",
+	},
+	{
+		command: "model:haiku",
+		provider: "vercel-ai-gateway",
+		modelId: "anthropic/claude-haiku-4-5",
+	},
+	{
+		command: "model:opus",
+		provider: "vercel-ai-gateway",
+		modelId: "anthropic/claude-opus-4-8",
+	},
 ];
 
 class FakePi implements ExtensionAPI {
@@ -132,12 +152,12 @@ describe("modelShortcutExtension", () => {
 
 		expect(pi.setModels).toEqual([]);
 		expect(notifications).toEqual([
-			{ message: "Model openai-codex/gpt-5.6-sol not found.", level: "error" },
+			{ message: "Model vercel-ai-gateway/openai/gpt-5.6-sol not found.", level: "error" },
 		]);
 	});
 
 	test("notifies when a shortcut model cannot be selected", async () => {
-		const model = { provider: "anthropic", id: "claude-opus-4-8" };
+		const model = { provider: "vercel-ai-gateway", id: "anthropic/claude-opus-4-8" };
 		const pi = new FakePi(false);
 		modelShortcutExtension(pi);
 		const { ctx, notifications } = createContext({ models: [model] });
@@ -147,7 +167,8 @@ describe("modelShortcutExtension", () => {
 		expect(pi.setModels).toEqual([model]);
 		expect(notifications).toEqual([
 			{
-				message: "Model anthropic/claude-opus-4-8 is unavailable; run /login or configure Pi auth.",
+				message:
+					"Model vercel-ai-gateway/anthropic/claude-opus-4-8 is unavailable; run /login or configure Pi auth.",
 				level: "error",
 			},
 		]);
@@ -160,7 +181,7 @@ describe("modelShortcutExtension", () => {
 		// footer for a redundant ack.
 		const sentMessages: unknown[] = [];
 		const statusUpdates: { key: string; value: string | undefined }[] = [];
-		const model = { provider: "anthropic", id: "claude-opus-4-8" };
+		const model = { provider: "vercel-ai-gateway", id: "anthropic/claude-opus-4-8" };
 		const pi = new FakePi();
 		// Make the host look like a rendered-message host, the condition that previously
 		// forced "message" delivery.
@@ -190,7 +211,7 @@ describe("modelShortcutExtension", () => {
 	});
 
 	test("does not notify when UI is unavailable", async () => {
-		const model = { provider: "anthropic", id: "claude-haiku-4-5" };
+		const model = { provider: "vercel-ai-gateway", id: "anthropic/claude-haiku-4-5" };
 		const pi = new FakePi();
 		modelShortcutExtension(pi);
 		const { ctx, notifications } = createContext({ hasUI: false, models: [model] });
