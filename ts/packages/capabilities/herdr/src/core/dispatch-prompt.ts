@@ -86,6 +86,7 @@ export async function dispatchTrackedBranchPrompt(options: {
 	content: string;
 	description: string;
 	successDetails: HerdrTrackedBranchDispatchSuccessDetails;
+	workspaceLabel?: (worktreePath: string) => string;
 	payloadOptions: ResolvedTrackedBranchPayloadOptions;
 	slotClient?: SlotClient;
 	notifyProgress: (message: string) => void;
@@ -109,6 +110,7 @@ export async function dispatchTrackedBranchPrompt(options: {
 		);
 		return;
 	}
+	const workspaceLabel = options.workspaceLabel;
 	await openBranchInHerdrWorkspace({
 		pi: options.pi,
 		herdr: options.herdr,
@@ -119,6 +121,9 @@ export async function dispatchTrackedBranchPrompt(options: {
 			getPiLaunchOptions(options.pi, options.ctx),
 		),
 		description: options.description,
+		...(workspaceLabel === undefined
+			? {}
+			: { workspaceLabel: (target) => workspaceLabel(target.worktreePath) }),
 		slotClient: options.slotClient ?? createHerdrSlotClient({ cwd: options.ctx.cwd }),
 		notify: (message, level) => options.ctx.ui.notify(message, level),
 		successMessage: (target) =>

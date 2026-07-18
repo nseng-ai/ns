@@ -19,6 +19,7 @@ export interface OpenBranchInHerdrWorkspaceOptions extends HerdrSlotCheckoutOpti
 	herdr: HerdrGateway;
 	command?: string;
 	description?: string;
+	workspaceLabel?: (target: SlotCheckoutTarget) => string;
 	successMessage?: (target: SlotCheckoutTarget) => string;
 	notifyProgress?: (message: string) => void;
 }
@@ -54,14 +55,17 @@ export async function checkoutBranchHerdrSlot(
 export async function openBranchInHerdrWorkspace(
 	options: OpenBranchInHerdrWorkspaceOptions,
 ): Promise<SlotCheckoutTarget | { error: string }> {
-	const { pi, herdr, command, description, notify, onStatus, successMessage } = options;
+	const { pi, herdr, command, description, notify, onStatus, successMessage, workspaceLabel } =
+		options;
 
 	const target = await checkoutBranchHerdrSlot(options);
 	if ("error" in target) return target;
 
 	onStatus?.("opening Herdr workspace…");
 	const label =
-		description ?? (await getWorktreeDescription(pi, target.worktreePath, target.branchName));
+		workspaceLabel?.(target) ??
+		description ??
+		(await getWorktreeDescription(pi, target.worktreePath, target.branchName));
 	const created = await herdr.createWorkspace({ cwd: target.worktreePath, label });
 	if (created.type === "failed") {
 		notify(
