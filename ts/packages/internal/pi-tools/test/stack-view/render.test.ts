@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { buildSummaryPrompt, renderPlainSnapshot } from "../../src/stack-view/render.ts";
+import { renderPlainSnapshot } from "../../src/stack-view/render.ts";
 import type { StackViewModel, StackViewPr } from "../../src/stack-view/types.ts";
 import {
 	checkEntryFixture,
@@ -375,50 +375,5 @@ describe("renderPlainSnapshot", () => {
 
 			expect(snapshot).not.toContain("  unresolved:");
 		});
-	});
-});
-
-describe("buildSummaryPrompt", () => {
-	test("emits PRs bottom-up (nearest-trunk first)", () => {
-		const prompt = buildSummaryPrompt(model());
-
-		expect(prompt).toContain("PRs, bottom-up (3 total):");
-		// model.prs is top-first [103, 102, 101]; the summary reads base-up.
-		const basePos = prompt.indexOf("#101 Base change");
-		const midPos = prompt.indexOf("#102 Mid change");
-		const topPos = prompt.indexOf("#103 Top change");
-		expect(basePos).toBeGreaterThan(-1);
-		expect(basePos).toBeLessThan(midPos);
-		expect(midPos).toBeLessThan(topPos);
-		expect(prompt).toContain("## PR 1 of 3");
-		expect(prompt).toContain("## PR 3 of 3");
-	});
-
-	test("wraps each PR body in collision-safe fences", () => {
-		const prompt = buildSummaryPrompt(model({ prs: [pr({ body: "Meaningful body." })] }));
-
-		expect(prompt).toContain("```text\nMeaningful body.\n```");
-	});
-
-	test("uses (no description) for an empty body", () => {
-		const prompt = buildSummaryPrompt(model({ prs: [pr({ body: "   \n  " })] }));
-
-		expect(prompt).toContain("```text\n(no description)\n```");
-	});
-
-	test("lists objectives when present", () => {
-		const prompt = buildSummaryPrompt(
-			model({ objectivesBySlug: new Map([["auth-revamp", [12, 34]]]) }),
-		);
-
-		expect(prompt).toContain("Objectives edited by this stack:");
-		expect(prompt).toContain("- auth-revamp (#12, #34)");
-		expect(prompt).not.toContain("- None recorded.");
-	});
-
-	test("records '- None recorded.' when there are no objectives", () => {
-		const prompt = buildSummaryPrompt(model());
-
-		expect(prompt).toContain("Objectives edited by this stack:\n- None recorded.");
 	});
 });

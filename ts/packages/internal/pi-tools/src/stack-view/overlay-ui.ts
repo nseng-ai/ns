@@ -4,8 +4,8 @@
  * pane for the selection.
  *
  * The component is pure presentation over an immutable {@link StackViewModel} and
- * performs no I/O. Every terminal side effect (open a URL, summarize, refresh,
- * close) is expressed as a settled {@link StackViewUiOutcome} the extension host
+ * performs no I/O. Every terminal side effect (open a URL, copy a branch,
+ * refresh, close) is expressed as a settled {@link StackViewUiOutcome} the extension host
  * acts on. Selection indexes `model.prs` only — the virtual trunk row is never
  * focusable — and the final selection rides back with the outcome so the host can
  * re-open the panel preserving the user's place.
@@ -19,8 +19,6 @@ import { clamp, fitToWidth, padRight, reconcileScroll } from "@nseng-ai/pi/termi
 import { checkPresentationColor, statusColor, type StackThemeColor } from "./format.ts";
 import type { StackViewModel, StackViewPr } from "./types.ts";
 import type { StackEnrichmentPort } from "./enrichment-engine.ts";
-import type { ComposeViewPort } from "./compose-controller.ts";
-import { COMPOSE_FOOTER, ComposeView } from "./compose-view.ts";
 import { detachSubscription } from "./subscription.ts";
 import {
 	buildStackDetailRows,
@@ -39,7 +37,7 @@ import {
 } from "@nseng-ai/pi/terminal/overlay";
 
 const BROWSE_FOOTER =
-	"↑↓/jk move · o open · b copy branch · s summarize · r refresh · PgUp/PgDn scroll · q/esc close";
+	"↑↓/jk move · o open · b copy branch · r refresh · PgUp/PgDn scroll · q/esc close";
 
 /** Fixed cell widths for the right-hand columns of each list row. */
 const THREADS_CELL_WIDTH = 9;
@@ -50,22 +48,8 @@ const STATUS_CELL_WIDTH = 14;
 export type StackViewUiOutcome =
 	| { action: "open"; url: string }
 	| { action: "copy-branch"; branch: string }
-	| { action: "summarize" }
 	| { action: "refresh" }
-	| { action: "compose-inject"; draft: string }
 	| { action: "close" };
-
-/**
- * Supplies the {@link ComposeViewPort} backing compose mode. `getPort` is invoked
- * on first entry into compose and memoizes a single host-owned port across the
- * overlay's lifetime (and across overlay reopens, so a live draft survives an
- * `open`-URL round-trip). The overlay attaches its own repaint listener via
- * {@link ComposeViewPort.onChange} and detaches it on teardown; the port itself
- * outlives the overlay. Absent this option, compose mode is unavailable.
- */
-export interface StackViewComposeOption {
-	getPort(): ComposeViewPort;
-}
 
 /** The settled result of one overlay session: the outcome plus the final selection. */
 export interface StackViewUiResult {
@@ -78,8 +62,6 @@ export interface StackViewOverlayUiOptions {
 	selectedIndex?: number;
 	/** Optional enrichment engine backing the progressive detail-pane summaries. */
 	enrichment?: StackEnrichmentPort;
-	/** Optional compose port factory; present only when the host has a model to draft with. */
-	compose?: StackViewComposeOption;
 }
 
 /**
@@ -112,7 +94,6 @@ interface StackViewOverlayOptions {
 	initialIndex: number;
 	done: (result: StackViewUiResult) => void;
 	enrichment?: StackEnrichmentPort;
-	compose?: StackViewComposeOption;
 }
 
 /**
@@ -137,7 +118,6 @@ export function runStackViewOverlayUi(
 				initialIndex,
 				done,
 				...(options.enrichment === undefined ? {} : { enrichment: options.enrichment }),
-				...(options.compose === undefined ? {} : { compose: options.compose }),
 			}),
 		overlayHostOptions(),
 	);
@@ -161,14 +141,9 @@ export class StackViewOverlay implements Component {
 	private readonly model: StackViewModel;
 	private readonly done: (result: StackViewUiResult) => void;
 	private readonly enrichment: StackEnrichmentPort | undefined;
-	private readonly compose: StackViewComposeOption | undefined;
 	private selectedIndex: number;
 	private listScroll: number;
 	private detailScroll: number;
-	/** "browse" is the master/detail panel; "compose" is the drafting side-session. */
-	private mode: "browse" | "compose";
-	/** Compose collaborator, fetched once on first entry and retained for the overlay's lifetime. */
-	private composeView: ComposeView | undefined;
 	/** Live `onChange` unsubscribe; cleared once disposed so teardown is idempotent. */
 	private unsubscribe: (() => void) | undefined;
 
@@ -178,12 +153,9 @@ export class StackViewOverlay implements Component {
 		this.model = options.model;
 		this.done = options.done;
 		this.enrichment = options.enrichment;
-		this.compose = options.compose;
 		this.selectedIndex = options.initialIndex;
 		this.listScroll = 0;
 		this.detailScroll = 0;
-		this.mode = "browse";
-		this.composeView = undefined;
 		this.unsubscribe = this.enrichment?.onChange(() => this.tui.requestRender());
 		this.ensureSelectionEnriched();
 	}
@@ -198,10 +170,9 @@ export class StackViewOverlay implements Component {
 		return this.model.prs[this.selectedIndex];
 	}
 
-	/** Drop the enrichment and compose `onChange` subscriptions; safe to call more than once. */
+	/** Drop the enrichment `onChange` subscription; safe to call more than once. */
 	private disposeSubscription(): void {
 		this.unsubscribe = detachSubscription(this.unsubscribe);
-		this.composeView?.dispose();
 	}
 
 	/** Host teardown hook: the `ctx.ui.custom` contract may call this on unmount. */
@@ -210,26 +181,17 @@ export class StackViewOverlay implements Component {
 	}
 
 	render(width: number): string[] {
-		// Compose mode only renders when its port has been built (first entry); a
-		// bare `mode === "compose"` with no port falls back to the browse panel.
-		const composeView = this.mode === "compose" ? this.composeView : undefined;
 		const header = [
 			this.color("text", buildStackIdentityLine(this.model)),
-			composeView === undefined ? this.renderRollupLine() : composeView.renderHeaderLine(),
+			this.renderRollupLine(),
 		];
 		const { innerWidth, bodyRows } = overlayRenderLayout({
 			width,
 			terminalRows: this.tui.terminal.rows,
 			headerLength: header.length,
 		});
-		const footer = this.color(
-			"dim",
-			composeView === undefined ? this.browseFooter() : COMPOSE_FOOTER,
-		);
-		const body =
-			composeView === undefined
-				? this.renderBody(innerWidth, bodyRows)
-				: composeView.renderBody(innerWidth, bodyRows);
+		const footer = this.color("dim", BROWSE_FOOTER);
+		const body = this.renderBody(innerWidth, bodyRows);
 		return renderOverlayFrame({
 			header,
 			body,
@@ -240,18 +202,8 @@ export class StackViewOverlay implements Component {
 	}
 
 	handleInput(data: string): void {
-		if (this.mode === "compose") {
-			this.handleComposeInput(data);
-			return;
-		}
 		if (matchesKey(data, Key.escape) || data === "q") {
 			this.settle({ action: "close" });
-			return;
-		}
-		// `p` / Tab enter compose, but only when the host supplied a compose port
-		// factory; otherwise the keys are inert in browse mode.
-		if ((data === "p" || matchesKey(data, Key.tab)) && this.compose !== undefined) {
-			this.enterCompose();
 			return;
 		}
 		if (matchesKey(data, Key.down) || data === "j") {
@@ -268,10 +220,6 @@ export class StackViewOverlay implements Component {
 		}
 		if (data === "b") {
 			this.settleCopyBranch();
-			return;
-		}
-		if (data === "s") {
-			this.settle({ action: "summarize" });
 			return;
 		}
 		if (data === "r") {
@@ -460,38 +408,6 @@ export class StackViewOverlay implements Component {
 	private scrollDetails(delta: number): void {
 		this.detailScroll = Math.max(0, this.detailScroll + delta);
 		this.tui.requestRender();
-	}
-
-	/** Switch to compose mode, fetching the port and building the collaborator on first entry. */
-	private enterCompose(): void {
-		this.mode = "compose";
-		if (this.composeView === undefined && this.compose !== undefined) {
-			this.composeView = new ComposeView({
-				tui: this.tui,
-				theme: this.theme,
-				port: this.compose.getPort(),
-			});
-		}
-		this.tui.requestRender();
-	}
-
-	private handleComposeInput(data: string): void {
-		const result = this.composeView?.handleInput(data) ?? { type: "continue" };
-		switch (result.type) {
-			case "continue":
-				return;
-			case "back":
-				this.mode = "browse";
-				this.tui.requestRender();
-				return;
-			case "inject":
-				this.settle({ action: "compose-inject", draft: result.draft });
-				return;
-		}
-	}
-
-	private browseFooter(): string {
-		return this.compose === undefined ? BROWSE_FOOTER : `${BROWSE_FOOTER} · p compose`;
 	}
 
 	private settle(outcome: StackViewUiOutcome): void {

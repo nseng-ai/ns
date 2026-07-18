@@ -24,19 +24,15 @@ import {
 } from "../../src/stack-view/format.ts";
 import type { EnrichmentEntry } from "../../src/stack-view/enrichment-store.ts";
 import type { StackEnrichmentPort } from "../../src/stack-view/enrichment-engine.ts";
-import { composeBodyLayout } from "../../src/stack-view/compose-model.ts";
 import {
 	runStackViewOverlayUi,
 	StackViewOverlay,
-	type StackViewComposeOption,
 	type StackViewOverlayUiContext,
 	type StackViewUiResult,
 } from "../../src/stack-view/overlay-ui.ts";
 import {
 	checkEntryFixture,
-	createFakeComposePort,
 	graphiteMergeabilityCheckFixture,
-	type FakeComposePort,
 	threadDetailFixture,
 } from "./stack-view-fixtures.ts";
 import { identityTheme, taggingTheme } from "./stack-view-test-themes.ts";
@@ -44,10 +40,6 @@ import { identityTheme, taggingTheme } from "./stack-view-test-themes.ts";
 const ESC = String.fromCharCode(27);
 const KEY_PAGE_DOWN = `${ESC}[6~`;
 const KEY_PAGE_UP = `${ESC}[5~`;
-const TAB = "\t";
-const CTRL_C = "\x03";
-const CTRL_Y = "\x19";
-const ENTER = "\r";
 
 describe("overlay-model units", () => {
 	describe("stackListRows", () => {
@@ -534,7 +526,8 @@ describe("StackViewOverlay chrome and budget", () => {
 		expect(text).toContain("PRs");
 		expect(text).toContain("ready");
 		expect(dividerIndex(lines)).toBeGreaterThan(0);
-		expect(text).toContain("o open · b copy branch · s summarize · r refresh");
+		expect(text).toContain("o open · b copy branch · r refresh");
+		expect(text).not.toContain("s summarize");
 	});
 });
 
@@ -696,11 +689,17 @@ describe("StackViewOverlay settles", () => {
 		]);
 	});
 
-	test("settles summarize, refresh, and close with the current selection", () => {
-		expectSettle("s", { action: "summarize" });
+	test("settles refresh and close with the current selection", () => {
 		expectSettle("r", { action: "refresh" });
 		expectSettle("q", { action: "close" });
 		expectSettle(ESC, { action: "close" });
+	});
+
+	test("ignores the removed summarize keybinding", () => {
+		const settled: StackViewUiResult[] = [];
+		const view = newView(bigModel(), { onDone: (result) => settled.push(result) });
+		view.handleInput?.("s");
+		expect(settled).toEqual([]);
 	});
 });
 
@@ -948,191 +947,6 @@ describe("runStackViewOverlayUi", () => {
 		});
 	});
 });
-
-describe("composeBodyLayout", () => {
-	test("collapses the draft below 12 rows and apportions ~30% above", () => {
-		const cases: Array<{
-			bodyRows: number;
-			editorRows: number;
-			transcriptRows: number;
-			draftRows: number;
-		}> = [
-			{ bodyRows: 5, editorRows: 1, transcriptRows: 1, draftRows: 1 },
-			{ bodyRows: 5, editorRows: 3, transcriptRows: 1, draftRows: 1 },
-			{ bodyRows: 11, editorRows: 1, transcriptRows: 7, draftRows: 1 },
-			{ bodyRows: 11, editorRows: 3, transcriptRows: 5, draftRows: 1 },
-			{ bodyRows: 12, editorRows: 1, transcriptRows: 6, draftRows: 3 },
-			{ bodyRows: 12, editorRows: 3, transcriptRows: 4, draftRows: 3 },
-			{ bodyRows: 20, editorRows: 1, transcriptRows: 11, draftRows: 6 },
-			{ bodyRows: 20, editorRows: 3, transcriptRows: 9, draftRows: 6 },
-			{ bodyRows: 40, editorRows: 1, transcriptRows: 27, draftRows: 10 },
-			{ bodyRows: 40, editorRows: 3, transcriptRows: 25, draftRows: 10 },
-		];
-		for (const item of cases) {
-			expect(composeBodyLayout({ bodyRows: item.bodyRows, editorRows: item.editorRows })).toEqual({
-				transcriptRows: item.transcriptRows,
-				draftRows: item.draftRows,
-			});
-		}
-	});
-});
-
-describe("StackViewOverlay compose mode", () => {
-	test("`p` and Tab enter compose only when the compose option is present", () => {
-		const withCompose = newComposeView();
-		withCompose.view.handleInput?.("p");
-		expect(withCompose.view.render(120).join("\n")).toContain("compose ·");
-
-		const viaTab = newComposeView();
-		viaTab.view.handleInput?.(TAB);
-		expect(viaTab.view.render(120).join("\n")).toContain("compose ·");
-
-		const noCompose = newComposeView({ withCompose: false });
-		noCompose.view.handleInput?.("p");
-		const text = noCompose.view.render(120).join("\n");
-		expect(text).not.toContain("compose ·");
-		expect(text).toContain("s summarize");
-		expect(noCompose.settled).toEqual([]);
-	});
-
-	test("browse footer advertises compose only when the option is present", () => {
-		expect(newComposeView().view.render(120).join("\n")).toContain("p compose");
-		expect(newComposeView({ withCompose: false }).view.render(120).join("\n")).not.toContain(
-			"p compose",
-		);
-	});
-
-	test("typed characters reach the editor and Enter submits the trimmed text", () => {
-		const harness = newComposeView();
-		harness.view.handleInput?.("p");
-		for (const char of " hi ") harness.view.handleInput?.(char);
-		harness.view.handleInput?.(ENTER);
-		expect(harness.fake.sendCalls).toEqual(["hi"]);
-	});
-
-	test("`q` types into the editor and never closes the overlay", () => {
-		const harness = newComposeView();
-		harness.view.handleInput?.("p");
-		harness.view.handleInput?.("q");
-		expect(harness.settled).toEqual([]);
-		harness.view.handleInput?.(ENTER);
-		expect(harness.fake.sendCalls).toEqual(["q"]);
-	});
-
-	test("Esc returns to browse and re-entering compose reuses the same port", () => {
-		const harness = newComposeView();
-		harness.view.handleInput?.("p");
-		expect(harness.getPortCalls()).toBe(1);
-		harness.view.handleInput?.(ESC);
-		expect(harness.view.render(120).join("\n")).not.toContain("compose ·");
-		harness.view.handleInput?.("p");
-		expect(harness.view.render(120).join("\n")).toContain("compose ·");
-		expect(harness.getPortCalls()).toBe(1);
-	});
-
-	test("Ctrl+Y with a non-empty draft settles compose-inject", () => {
-		const harness = newComposeView();
-		harness.fake.setDraft("drafted reply");
-		harness.view.handleInput?.("p");
-		harness.view.handleInput?.(CTRL_Y);
-		expect(harness.settled).toEqual([
-			{ outcome: { action: "compose-inject", draft: "drafted reply" }, selectedIndex: 0 },
-		]);
-	});
-
-	test("Ctrl+Y with no draft does not settle and shows a transient hint", () => {
-		const harness = newComposeView();
-		harness.view.handleInput?.("p");
-		harness.view.handleInput?.(CTRL_Y);
-		expect(harness.settled).toEqual([]);
-		expect(harness.view.render(120).join("\n")).toContain("no draft yet");
-	});
-
-	test("Ctrl+C aborts the current turn through the port", () => {
-		const harness = newComposeView();
-		harness.view.handleInput?.("p");
-		harness.view.handleInput?.(CTRL_C);
-		expect(harness.fake.abortCalls()).toBe(1);
-	});
-
-	test("PgUp scrolls the transcript window", () => {
-		const harness = newComposeView();
-		harness.fake.setTranscript({
-			entries: Array.from({ length: 60 }, (_unused, index) => ({
-				kind: "assistant" as const,
-				text: `line ${index}`,
-			})),
-			isStreaming: false,
-		});
-		harness.view.handleInput?.("p");
-		const before = harness.view.render(120).join("\n");
-		harness.view.handleInput?.(KEY_PAGE_UP);
-		expect(harness.view.render(120).join("\n")).not.toBe(before);
-	});
-
-	test("the draft pane collapses to a status line on a tiny terminal", () => {
-		const harness = newComposeView({ rows: 14 });
-		harness.fake.setDraft("a\nb\nc");
-		harness.view.handleInput?.("p");
-		expect(harness.view.render(120).join("\n")).toContain("draft: 3 lines · ctrl+y to inject");
-	});
-
-	test("surfaces the port's unavailable reason in the compose header", () => {
-		const harness = newComposeView();
-		harness.fake.setUnavailableReason("no model selected in this session");
-		harness.view.handleInput?.("p");
-		expect(harness.view.render(120).join("\n")).toContain(
-			"unavailable: no model selected in this session",
-		);
-	});
-
-	test("a port onChange requests a re-render", () => {
-		const harness = newComposeView();
-		harness.view.handleInput?.("p");
-		const before = harness.tui.renders();
-		harness.fireOnChange();
-		expect(harness.tui.renders()).toBe(before + 1);
-	});
-});
-
-interface ComposeHarness {
-	view: StackViewOverlay;
-	fake: FakeComposePort;
-	settled: StackViewUiResult[];
-	getPortCalls: () => number;
-	fireOnChange: () => void;
-	tui: { renders: () => number };
-}
-
-/** Build an overlay wired to a fake compose port; the overlay attaches its own onChange listener. */
-function newComposeView(options: { withCompose?: boolean; rows?: number } = {}): ComposeHarness {
-	const fake = createFakeComposePort();
-	const settled: StackViewUiResult[] = [];
-	const recording = renderRecordingTui(options.rows ?? 30);
-	let getPortCalls = 0;
-	const compose: StackViewComposeOption = {
-		getPort: () => {
-			getPortCalls += 1;
-			return fake.port;
-		},
-	};
-	const view = new StackViewOverlay({
-		tui: recording.tui,
-		theme: identityTheme(),
-		model: bigModel(),
-		initialIndex: 0,
-		done: (result) => settled.push(result),
-		...(options.withCompose === false ? {} : { compose }),
-	});
-	return {
-		view,
-		fake,
-		settled,
-		getPortCalls: () => getPortCalls,
-		fireOnChange: () => fake.fireOnChange(),
-		tui: { renders: recording.renders },
-	};
-}
 
 interface NewViewOptions {
 	initialIndex?: number;
