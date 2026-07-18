@@ -318,21 +318,21 @@ describe("thermo council extension", () => {
 			expect.objectContaining({
 				id: "anthropic-fable",
 				label: "Fable",
-				model: "anthropic/claude-fable-5",
+				model: "vercel-ai-gateway/anthropic/claude-fable-5",
 			}),
 		);
 		expect(defaultSeats[1]).toEqual(
 			expect.objectContaining({
 				id: "openai-high",
 				label: "Sol",
-				model: "openai-codex/gpt-5.6-sol",
+				model: "vercel-ai-gateway/openai/gpt-5.6-sol",
 			}),
 		);
 		expect(defaultSeats[2]).toEqual(
 			expect.objectContaining({
 				id: "gemini-high",
 				label: "Gemini",
-				model: "google/gemini-2.5-pro",
+				model: "vercel-ai-gateway/google/gemini-2.5-pro",
 			}),
 		);
 		expect(seats).toEqual([

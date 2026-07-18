@@ -25,19 +25,19 @@ const DEFAULT_SEATS = [
 	{
 		id: "anthropic-fable",
 		label: "Fable",
-		model: "anthropic/claude-fable-5",
+		model: "vercel-ai-gateway/anthropic/claude-fable-5",
 		envVar: "THERMO_COUNCIL_ANTHROPIC_MODEL",
 	},
 	{
 		id: "openai-high",
 		label: "Sol",
-		model: "openai-codex/gpt-5.6-sol",
+		model: "vercel-ai-gateway/openai/gpt-5.6-sol",
 		envVar: "THERMO_COUNCIL_OPENAI_MODEL",
 	},
 	{
 		id: "gemini-high",
 		label: "Gemini",
-		model: "google/gemini-2.5-pro",
+		model: "vercel-ai-gateway/google/gemini-2.5-pro",
 		envVar: "THERMO_COUNCIL_GEMINI_MODEL",
 	},
 ] as const satisfies readonly DefaultSeat[];
