@@ -2,6 +2,8 @@
 edges:
   - objective: generic-flow-extension
     annotation: "Follow-up decoupling slice: the repo-specificity audit's flagged slots assumption becomes dedicated work making flow's slots dependency opt-in, while that objective keeps the README contract and point mechanics."
+  - objective: slots-consumer-dependency-contracts
+    annotation: "Owns Flow's focused optional-Slots delivery while the cross-package Objective coordinates dependency contracts and synthesized closure evidence."
 ---
 
 # Flow Slots Opt-In
