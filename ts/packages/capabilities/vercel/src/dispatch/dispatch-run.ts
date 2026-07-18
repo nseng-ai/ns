@@ -20,7 +20,11 @@ import {
 } from "../sandbox/supervision.ts";
 import type { SandboxCommand } from "../sandbox/contracts.ts";
 import type { DispatchHarnessCompletion } from "./completion-contract.ts";
-import type { DispatchPlanContextLocator } from "./dispatch-context.ts";
+import {
+	buildDispatchInstructionKey,
+	DISPATCH_CONTEXT_NAMESPACE,
+	type DispatchInstructionLocator,
+} from "./dispatch-context.ts";
 import type { DispatchFailureDiagnostic } from "./failure-diagnostic.ts";
 import type { DispatchHarness } from "./harness-registry.ts";
 import { isCommitSha } from "../sandbox/validation.ts";
@@ -38,7 +42,7 @@ export const DISPATCH_ANCHOR_BRANCH_MAX_CHARS = 200;
 /** Validated bound for the run input's anchor PR number. */
 export const DISPATCH_ANCHOR_PR_NUMBER_MAX = 1_000_000_000;
 
-/** Validated bounds for the run input's prompt / work reference. */
+/** Local prompt input bound; prompt content never crosses the dispatch wire. */
 export const DISPATCH_PROMPT_MAX_CHARS = 20_000;
 
 /**
@@ -107,22 +111,10 @@ interface DispatchRunIdentity {
 	readonly anchorPrNumber: number;
 }
 
-/** Existing prompt dispatch input. Its wire shape remains unchanged. */
-export interface DispatchPromptRunInput extends DispatchRunIdentity {
-	/** The prompt / work reference the harness runs. */
-	readonly prompt: string;
-}
-
-/**
- * Saved Plan dispatch input. The plan body is deliberately absent: the
- * workflow receives only the dispatch identity and git-native context locator.
- */
-export interface DispatchPlanRunInput extends DispatchRunIdentity {
+export interface DispatchRunInput extends DispatchRunIdentity {
 	readonly dispatchId: string;
-	readonly contextLocator: DispatchPlanContextLocator;
+	readonly instructionLocator: DispatchInstructionLocator;
 }
-
-export type DispatchRunInput = DispatchPromptRunInput | DispatchPlanRunInput;
 
 export type DispatchRunInputValidation =
 	| { readonly ok: true; readonly value: DispatchRunInput }
@@ -154,24 +146,11 @@ export function validateDispatchRunInput(input: DispatchRunInput): DispatchRunIn
 	) {
 		return { ok: false, message: "anchorPrNumber must be a positive integer." };
 	}
-	if ("prompt" in input) {
-		if (input.prompt.length < 1 || input.prompt.length > DISPATCH_PROMPT_MAX_CHARS) {
-			return {
-				ok: false,
-				message: `prompt must be between 1 and ${DISPATCH_PROMPT_MAX_CHARS} characters.`,
-			};
-		}
-		return {
-			ok: true,
-			value: {
-				revision: input.revision.toLowerCase(),
-				anchorBranch: input.anchorBranch,
-				anchorPrNumber: input.anchorPrNumber,
-				prompt: input.prompt,
-			},
-		};
-	}
-	const locatorError = validateDispatchPlanContextLocator(input.contextLocator, input.dispatchId);
+	const locatorError = validateDispatchInstructionLocator(
+		input.instructionLocator,
+		input.dispatchId,
+		input.anchorBranch,
+	);
 	if (locatorError !== null) return { ok: false, message: locatorError };
 	return {
 		ok: true,
@@ -180,7 +159,7 @@ export function validateDispatchRunInput(input: DispatchRunInput): DispatchRunIn
 			anchorBranch: input.anchorBranch,
 			anchorPrNumber: input.anchorPrNumber,
 			dispatchId: input.dispatchId,
-			contextLocator: { ...input.contextLocator },
+			instructionLocator: { ...input.instructionLocator },
 		},
 	};
 }
@@ -193,42 +172,37 @@ export function validateDispatchRunInput(input: DispatchRunInput): DispatchRunIn
  * landing command's shell script, so the charset must exclude quoting and
  * expansion characters.
  */
-function validateDispatchPlanContextLocator(
-	locator: DispatchPlanContextLocator,
+function validateDispatchInstructionLocator(
+	locator: DispatchInstructionLocator,
 	dispatchId: string,
+	anchorBranch: string,
 ): string | null {
 	if (dispatchId !== locator.dispatchId) {
-		return "dispatchId must match contextLocator.dispatchId.";
+		return "dispatchId must match instructionLocator.dispatchId.";
 	}
-	if (locator.namespace !== "dispatch-context") {
-		return "contextLocator.namespace must be dispatch-context.";
+	if (locator.namespace !== DISPATCH_CONTEXT_NAMESPACE) {
+		return "instructionLocator.namespace must be dispatch-context.";
 	}
-	if (locator.contextPrefix !== `${dispatchId}/`) {
-		return "contextLocator.contextPrefix must be the Dispatch ID prefix.";
+	if (locator.key !== buildDispatchInstructionKey(dispatchId)) {
+		return "instructionLocator.key must identify the conventional instructions Entry.";
 	}
-	if (
-		!locator.planKey.startsWith(`${locator.contextPrefix}plan/`) ||
-		!locator.planKey.endsWith(".md") ||
-		!/^[A-Za-z0-9._/-]+$/.test(locator.planKey)
-	) {
-		return "contextLocator.planKey must be the convention-required Saved Plan member.";
-	}
-	if (!/^[A-Za-z0-9._/-]+$/.test(locator.sourceBranch)) {
-		return "contextLocator.sourceBranch is invalid.";
+	if (locator.sourceBranch !== anchorBranch) {
+		return "instructionLocator.sourceBranch must match anchorBranch.";
 	}
 	if (
 		locator.snapshotRef.includes(":") ||
 		locator.snapshotRef.includes("..") ||
 		!/^[A-Za-z0-9._/-]+$/.test(locator.snapshotRef) ||
-		!locator.snapshotRef.startsWith("refs/brmem/ns/dispatch-context/")
+		!locator.snapshotRef.startsWith("refs/brmem/ns/dispatch-context/") ||
+		!locator.snapshotRef.endsWith(anchorBranch.replaceAll("/", "---"))
 	) {
-		return "contextLocator.snapshotRef is not a dispatch-context Snapshot Ref.";
+		return "instructionLocator.snapshotRef is not the anchor Branch Memory Snapshot Ref.";
 	}
 	if (!isCommitSha(locator.snapshotCommitSha)) {
-		return "contextLocator.snapshotCommitSha must be a 40-character commit SHA.";
+		return "instructionLocator.snapshotCommitSha must be a 40-character commit SHA.";
 	}
-	if (locator.entryLocator !== `${locator.snapshotRef}:${locator.planKey}`) {
-		return "contextLocator.entryLocator must identify the required plan member.";
+	if (locator.entryLocator !== `${locator.snapshotRef}:${locator.key}`) {
+		return "instructionLocator.entryLocator must identify the required instructions Entry.";
 	}
 	return null;
 }
@@ -312,14 +286,14 @@ export function parseDispatchHarnessResult(content: string | null): DispatchHarn
  */
 export const DISPATCH_LANDING_TOKEN_ENV_NAME = "NS_DISPATCH_LANDING_TOKEN";
 
-export function buildDispatchPlanSnapshotFetchCommand(
-	locator: DispatchPlanContextLocator,
+export function buildDispatchBrmemFetchAllCommand(
+	locator: DispatchInstructionLocator,
 ): SandboxCommand {
 	return {
 		cmd: "sh",
 		args: [
 			"-c",
-			'git fetch --no-tags origin "+$1:$1" && test "$(git rev-parse "$1^{commit}")" = "$2"',
+			'git fetch --no-tags origin "+refs/brmem/*:refs/brmem/*" && test "$(git rev-parse "$1^{commit}")" = "$2"',
 			"ns-dispatch-fetch-context",
 			locator.snapshotRef,
 			locator.snapshotCommitSha,
@@ -327,8 +301,8 @@ export function buildDispatchPlanSnapshotFetchCommand(
 	};
 }
 
-export function buildDispatchPlanEntryCheckCommand(
-	locator: DispatchPlanContextLocator,
+export function buildDispatchInstructionCheckCommand(
+	locator: DispatchInstructionLocator,
 ): SandboxCommand {
 	return {
 		cmd: "pnpm",
@@ -338,7 +312,7 @@ export function buildDispatchPlanEntryCheckCommand(
 			"exec",
 			"brmem",
 			"check",
-			locator.planKey,
+			locator.key,
 			"--namespace",
 			locator.namespace,
 			"--branch",
@@ -350,12 +324,12 @@ export function buildDispatchPlanEntryCheckCommand(
 	};
 }
 
-export function buildDispatchPlanHarnessInstruction(locator: DispatchPlanContextLocator): string {
+export function buildDispatchHarnessInstruction(locator: DispatchInstructionLocator): string {
 	return (
 		"Your first agent action must be to run this command exactly:\n\n" +
-		`pnpm --dir ts exec brmem get ${locator.planKey} --namespace ${locator.namespace} ` +
+		`pnpm --dir ts exec brmem get ${locator.key} --namespace ${locator.namespace} ` +
 		`--branch ${locator.sourceBranch} --at ${locator.snapshotCommitSha}\n\n` +
-		"Treat the command output as the Saved Plan and execute that plan."
+		"Follow all instructions returned by that command."
 	);
 }
 

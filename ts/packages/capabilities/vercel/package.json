@@ -32,6 +32,7 @@
 	},
 	"dependencies": {
 		"@earendil-works/pi-coding-agent": "catalog:",
+		"@nseng-ai/branch-context": "workspace:*",
 		"@nseng-ai/brmem": "workspace:*",
 		"@nseng-ai/capability-kit": "workspace:*",
 		"@nseng-ai/flow": "workspace:*",

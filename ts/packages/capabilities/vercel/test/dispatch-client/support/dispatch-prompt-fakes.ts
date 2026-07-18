@@ -37,7 +37,7 @@ import type {
 	DispatchWorkspaceGitGateway,
 } from "../../../src/dispatch-client/contracts.ts";
 import type { DispatchRunInput } from "../../../src/dispatch/dispatch-run.ts";
-import type { DispatchPlanSnapshotGateway } from "../../../src/dispatch-client/dispatch-plan/delivery.ts";
+import type { DispatchSnapshotGateway } from "../../../src/dispatch-client/instruction-delivery.ts";
 import type {
 	DispatchSavedPlanGateway,
 	DispatchSavedPlanResolution,
@@ -651,7 +651,7 @@ class FakeDispatchSavedPlanGateway implements DispatchSavedPlanGateway {
 			type: "resolved",
 			plan: {
 				filePath: FAKE_PLAN_REF,
-				slug: "add-cache",
+				slug: "add-cache-safely",
 				sourceBranch: "feature/widgets",
 				content: "# Add cache\n",
 			},
@@ -711,7 +711,7 @@ class FakeDispatchPlanBrmemGateway extends FakeBrmemGateway {
 	}
 }
 
-class FakeDispatchPlanSnapshotGateway implements DispatchPlanSnapshotGateway {
+class FakeDispatchPlanSnapshotGateway implements DispatchSnapshotGateway {
 	private commitSha = FAKE_PLAN_SNAPSHOT_COMMIT;
 	private readonly publishResult: FakeDispatchPlanState["snapshotPublishResult"];
 	private readonly remoteResult: FakeDispatchPlanState["remoteSnapshotResult"];
@@ -734,11 +734,9 @@ class FakeDispatchPlanSnapshotGateway implements DispatchPlanSnapshotGateway {
 export interface FakeDispatchPlanState {
 	readonly savedPlan?: DispatchSavedPlanResolution;
 	readonly brmem?: ConstructorParameters<typeof FakeBrmemGateway>[0];
-	readonly snapshotPublishResult?: Awaited<
-		ReturnType<DispatchPlanSnapshotGateway["publishSnapshot"]>
-	>;
+	readonly snapshotPublishResult?: Awaited<ReturnType<DispatchSnapshotGateway["publishSnapshot"]>>;
 	readonly remoteSnapshotResult?: Awaited<
-		ReturnType<DispatchPlanSnapshotGateway["readRemoteSnapshotTip"]>
+		ReturnType<DispatchSnapshotGateway["readRemoteSnapshotTip"]>
 	>;
 }
 
@@ -811,6 +809,15 @@ export function createFakeDispatchGateways(
 		config: new FakeDispatchConfigGateway(repository, options.config, recordOperation),
 		semanticSlugs: new FakeDispatchContentSlugGateway(options.semanticSlug, recordOperation),
 		clock: new FakeDispatchClock(options.clockNowMs),
+		brmem: new FakeDispatchPlanBrmemGateway(
+			options.plan?.brmem ?? {
+				remotes: {
+					origin: { push: ["refs/brmem/*:refs/brmem/*"], fetch: ["refs/brmem/*:refs/brmem/*"] },
+				},
+			},
+		),
+		snapshots: new FakeDispatchPlanSnapshotGateway(options.plan),
+		generateDispatchId: () => FAKE_DISPATCH_ID,
 	};
 }
 

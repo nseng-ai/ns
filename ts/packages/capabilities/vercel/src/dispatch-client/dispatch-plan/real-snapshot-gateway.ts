@@ -1,12 +1,12 @@
 import { commandSucceeded, formatCommand, type CommandExecApi } from "@nseng-ai/foundation/exec";
 
 import type {
-	DispatchPlanRemoteSnapshotResult,
-	DispatchPlanSnapshotError,
-	DispatchPlanSnapshotGateway,
-} from "./delivery.ts";
+	DispatchRemoteSnapshotResult,
+	DispatchSnapshotError,
+	DispatchSnapshotGateway,
+} from "../instruction-delivery.ts";
 
-export class RealDispatchPlanSnapshotGateway implements DispatchPlanSnapshotGateway {
+export class RealDispatchSnapshotGateway implements DispatchSnapshotGateway {
 	private readonly commands: CommandExecApi;
 
 	constructor(commands: CommandExecApi) {
@@ -40,7 +40,7 @@ export class RealDispatchPlanSnapshotGateway implements DispatchPlanSnapshotGate
 		readonly cwd: string;
 		readonly remote: string;
 		readonly snapshotRef: string;
-	}): Promise<DispatchPlanRemoteSnapshotResult> {
+	}): Promise<DispatchRemoteSnapshotResult> {
 		const args = ["ls-remote", "--refs", options.remote, options.snapshotRef] as const;
 		const result = await this.commands.exec("git", [...args], {
 			cwd: options.cwd,
@@ -62,6 +62,9 @@ export class RealDispatchPlanSnapshotGateway implements DispatchPlanSnapshotGate
 	}
 }
 
+/** Compatibility name retained until existing plan context wiring cuts over. */
+export class RealDispatchPlanSnapshotGateway extends RealDispatchSnapshotGateway {}
+
 export function parseExactRemoteRef(stdout: string, expectedRef: string): string | null {
 	for (const line of stdout.split("\n")) {
 		const [sha, ref, extra] = line.trim().split("\t");
@@ -76,7 +79,7 @@ function commandError(
 	message: string,
 	args: readonly string[],
 	result: Awaited<ReturnType<CommandExecApi["exec"]>>,
-): DispatchPlanSnapshotError {
+): DispatchSnapshotError {
 	const stderr = result.stderr.trim().split("\n")[0];
 	const stdout = result.stdout.trim().split("\n")[0];
 	const detail = stderr?.length ? stderr : stdout?.length ? stdout : undefined;

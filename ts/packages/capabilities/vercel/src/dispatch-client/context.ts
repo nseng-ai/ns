@@ -22,7 +22,7 @@ import type { NsCommandIo, NsExtensionApi } from "@nseng-ai/sdk";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import { RealDispatchSavedPlanGateway } from "./dispatch-plan/adapters.ts";
-import { RealDispatchPlanSnapshotGateway } from "./dispatch-plan/real-snapshot-gateway.ts";
+import { RealDispatchSnapshotGateway } from "./dispatch-plan/real-snapshot-gateway.ts";
 import type { DispatchPlanGateways, DispatchPromptGateways } from "./contracts.ts";
 import { createRealDispatchContentSlugGateway } from "./content-slug.ts";
 import { createRealDispatchAnchorPrGateway } from "./real-anchor-pr-gateway.ts";
@@ -69,6 +69,7 @@ export async function createDispatchPromptContext(
 		commandIo: ctx.commandIo,
 		gateways: {
 			...createSharedDispatchGateways(ctx, overrides),
+			...createInstructionDispatchGateways(ctx, overrides),
 			semanticSlugs,
 			clock: overrides?.clock ?? systemClock,
 		},
@@ -81,19 +82,37 @@ export async function createDispatchPlanContext(
 	const overrides = readDispatchCommandOverrides(ctx);
 	const commands = new NsStdinCapableCommandExecApi(ctx);
 	const git = new RealGitGateway(commands);
+	const semanticSlugs =
+		overrides?.semanticSlugs ??
+		createRealDispatchContentSlugGateway(
+			new NsCommandExecApi(ctx),
+			await resolveDispatchSlugModelRef(ctx, git),
+		);
 	return {
 		cwd: ctx.cwd,
 		commandIo: ctx.commandIo,
 		gateways: {
 			...createSharedDispatchGateways(ctx, overrides),
+			...createInstructionDispatchGateways(ctx, overrides, commands, git),
 			savedPlans:
 				overrides?.savedPlans ??
 				new RealDispatchSavedPlanGateway({ commands: new NsCommandExecApi(ctx) }),
-			brmem: overrides?.brmem ?? new RealGitBrmemGateway({ cwd: ctx.cwd, commands, git }),
-			snapshots:
-				overrides?.snapshots ?? new RealDispatchPlanSnapshotGateway(new NsCommandExecApi(ctx)),
-			generateDispatchId: overrides?.generateDispatchId ?? generateRealDispatchId,
+			semanticSlugs,
+			clock: overrides?.clock ?? systemClock,
 		},
+	};
+}
+
+function createInstructionDispatchGateways(
+	ctx: NsExtensionApi,
+	overrides: DispatchCommandOverrides | undefined,
+	commands = new NsStdinCapableCommandExecApi(ctx),
+	git = new RealGitGateway(commands),
+) {
+	return {
+		brmem: overrides?.brmem ?? new RealGitBrmemGateway({ cwd: ctx.cwd, commands, git }),
+		snapshots: overrides?.snapshots ?? new RealDispatchSnapshotGateway(new NsCommandExecApi(ctx)),
+		generateDispatchId: overrides?.generateDispatchId ?? generateRealDispatchId,
 	};
 }
 

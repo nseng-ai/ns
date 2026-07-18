@@ -1,7 +1,12 @@
-// Shared locator-only contract for a Saved Plan dispatch. This module stays
+// Shared locator-only instruction contract for every dispatch. This module stays
 // dependency-free because the type crosses the HTTP trigger, Workflow replay,
 // and later sandbox supervision boundaries.
 export const DISPATCH_CONTEXT_NAMESPACE = "dispatch-context";
+export const DISPATCH_INSTRUCTIONS_FILE = "instructions.md";
+
+export function buildDispatchInstructionKey(dispatchId: string): string {
+	return `${dispatchId}/${DISPATCH_INSTRUCTIONS_FILE}`;
+}
 
 /**
  * Maximum ns-generated Dispatch ID length accepted by dispatch surfaces.
@@ -9,11 +14,10 @@ export const DISPATCH_CONTEXT_NAMESPACE = "dispatch-context";
  */
 export const DISPATCH_ID_MAX_CHARS = 200;
 
-export interface DispatchPlanContextLocator {
+export interface DispatchInstructionLocator {
 	readonly namespace: typeof DISPATCH_CONTEXT_NAMESPACE;
 	readonly dispatchId: string;
-	readonly contextPrefix: string;
-	readonly planKey: string;
+	readonly key: string;
 	readonly sourceBranch: string;
 	readonly snapshotRef: string;
 	readonly snapshotCommitSha: string;

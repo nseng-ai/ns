@@ -10,7 +10,9 @@ import { formatAvailableKeys, normalizeRequestedBranchContextKey } from "./attac
 import {
 	attachBranchContextPlan,
 	checkBranchContextEntryPresence,
+	createBranchContextPlan,
 	deleteBranchContextPlan,
+	inspectBranchContextPlan,
 	listBranchContextPlans,
 	throwBranchContextBrmemError,
 	type AttachedPlanEntry,
@@ -18,7 +20,7 @@ import {
 	unwrapBranchContextBrmemResult,
 } from "./branch-memory.ts";
 import type { BranchContextContext } from "./context.ts";
-import type { BrmemGateway } from "@nseng-ai/brmem";
+import { mustSnapshotRef, type BrmemGateway } from "@nseng-ai/brmem";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
@@ -70,6 +72,35 @@ export interface AttachBranchContextOptions {
 	key: string;
 	sourceFile: string;
 }
+
+export interface EnsureAttachedPlanOptions {
+	readonly brmem: BrmemGateway;
+	readonly branch: string;
+	readonly key: string;
+	readonly content: string;
+	readonly sourceFile: string;
+}
+
+export interface AttachedPlanEvidence {
+	readonly type: "created" | "reused";
+	readonly namespace: typeof BRANCH_CONTEXT_NAMESPACE;
+	readonly branch: string;
+	readonly key: string;
+	readonly snapshotRef: string;
+	readonly entryLocator: string;
+	readonly commit: string;
+	readonly sourceFile: string;
+}
+
+export interface AttachedPlanConflict {
+	readonly type: "conflict";
+	readonly code: "attached-plan-content-conflict";
+	readonly namespace: typeof BRANCH_CONTEXT_NAMESPACE;
+	readonly branch: string;
+	readonly key: string;
+}
+
+export type EnsureAttachedPlanResult = AttachedPlanEvidence | AttachedPlanConflict;
 
 interface BrmemEntryAbsentOptions {
 	formatPresentMessage?: (context: { targetBranch: string; key: string }) => string;
@@ -179,6 +210,59 @@ function formatDefaultBrmemEntryPresentMessage(targetBranch: string, key: string
 		`Branch: ${targetBranch}`,
 		`Key: ${key}`,
 	].join("\n");
+}
+
+/** Ensures an exact, non-overwriting Attached Plan and returns its pinned Snapshot evidence. */
+export async function ensureAttachedPlan(
+	options: EnsureAttachedPlanOptions,
+): Promise<EnsureAttachedPlanResult> {
+	assertSupportedAttachedPlanKey(options.branch, options.key);
+	const entries = await listBranchContextNamespace(options.brmem, options.branch);
+	assertBranchContextNamespaceSupported(options.branch, entries);
+
+	const inspected = await inspectBranchContextPlan(options.brmem, {
+		branch: options.branch,
+		key: options.key,
+	});
+	if (inspected.type === "present") {
+		if (inspected.content !== options.content) return attachedPlanConflict(options);
+		return attachedPlanEvidence({
+			type: "reused",
+			branch: options.branch,
+			key: options.key,
+			entryLocator: inspected.entryLocator,
+			commit: inspected.commit,
+			sourceFile: options.sourceFile,
+		});
+	}
+
+	const created = await createBranchContextPlan(options.brmem, options);
+	if (!created.ok && created.error.code === "key-already-exists") {
+		const raced = await inspectBranchContextPlan(options.brmem, {
+			branch: options.branch,
+			key: options.key,
+		});
+		if (raced.type === "present" && raced.content === options.content) {
+			return attachedPlanEvidence({
+				type: "reused",
+				branch: options.branch,
+				key: options.key,
+				entryLocator: raced.entryLocator,
+				commit: raced.commit,
+				sourceFile: options.sourceFile,
+			});
+		}
+		return attachedPlanConflict(options);
+	}
+	const data = unwrapBranchContextBrmemResult(created);
+	return attachedPlanEvidence({
+		type: "created",
+		branch: data.branch,
+		key: data.key,
+		entryLocator: data.refName,
+		commit: data.commit,
+		sourceFile: data.sourceFile,
+	});
 }
 
 export async function attachBranchContext(
@@ -393,6 +477,27 @@ async function listBranchContextNamespace(
 	return unwrapBranchContextBrmemResult(await listBranchContextPlans(brmem, { branch }));
 }
 
+function assertSupportedAttachedPlanKey(branch: string, key: string): void {
+	if (isSupportedBranchContextPlanKey(key)) return;
+	throw new UnsupportedAttachedPlanKeyError(branch, key);
+}
+
+export class UnsupportedAttachedPlanKeyError extends Error {
+	readonly code = "unsupported-attached-plan-key";
+	readonly namespace = BRANCH_CONTEXT_NAMESPACE;
+	readonly branch: string;
+	readonly key: string;
+
+	constructor(branch: string, key: string) {
+		super(
+			`Unsupported Attached Plan key ${JSON.stringify(key)} on branch ${JSON.stringify(branch)}; expected a named Markdown plan key derived from a valid plan slug.`,
+		);
+		this.name = "UnsupportedAttachedPlanKeyError";
+		this.branch = branch;
+		this.key = key;
+	}
+}
+
 function assertBranchContextNamespaceSupported(
 	branch: string,
 	entries: readonly AttachedPlanEntry[],
@@ -433,6 +538,33 @@ function assertAttachChangedNamespaceByOneKey(
 			`Actual keys: ${formatAvailableKeys([...actualKeys].sort())}`,
 		].join("\n"),
 	);
+}
+
+function attachedPlanEvidence(options: {
+	type: "created" | "reused";
+	branch: string;
+	key: string;
+	entryLocator: string;
+	commit: string;
+	sourceFile: string;
+}): AttachedPlanEvidence {
+	return {
+		...options,
+		namespace: BRANCH_CONTEXT_NAMESPACE,
+		snapshotRef: mustSnapshotRef(BRANCH_CONTEXT_NAMESPACE, options.branch),
+	};
+}
+
+function attachedPlanConflict(
+	options: Pick<EnsureAttachedPlanOptions, "branch" | "key">,
+): AttachedPlanConflict {
+	return {
+		type: "conflict",
+		code: "attached-plan-content-conflict",
+		namespace: BRANCH_CONTEXT_NAMESPACE,
+		branch: options.branch,
+		key: options.key,
+	};
 }
 
 function planStoreOptions(options: BranchContextPrimitiveOptions): PlanStoreOptions {

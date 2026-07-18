@@ -36,10 +36,10 @@ import { isSafeSandboxName, type SandboxCommand } from "../sandbox/contracts.ts"
 import type { DispatchReportGateway } from "./anchor-pr-report.ts";
 import { normalizeDispatchFailure, type DispatchFailureDiagnostic } from "./failure-diagnostic.ts";
 import {
+	buildDispatchBrmemFetchAllCommand,
+	buildDispatchHarnessInstruction,
+	buildDispatchInstructionCheckCommand,
 	buildDispatchLandingCommand,
-	buildDispatchPlanEntryCheckCommand,
-	buildDispatchPlanHarnessInstruction,
-	buildDispatchPlanSnapshotFetchCommand,
 	DISPATCH_DECISION_LOG_PATH,
 	DISPATCH_LANDING_TOKEN_ENV_NAME,
 	DISPATCH_PROMPT_PATH,
@@ -305,24 +305,14 @@ export async function launchDispatchRun(
 		};
 	}
 
-	const prepared =
-		"prompt" in run
-			? await provisionAndLaunchPromptHarness({
-					sandboxName,
-					sandboxes,
-					harness,
-					prompt: run.prompt,
-					launchEnv: launchEnvResult.value,
-					deps,
-				})
-			: await provisionAndLaunchPlanHarness({
-					sandboxName,
-					sandboxes,
-					harness,
-					contextLocator: run.contextLocator,
-					launchEnv: launchEnvResult.value,
-					deps,
-				});
+	const prepared = await provisionAndLaunchDispatchHarness({
+		sandboxName,
+		sandboxes,
+		harness,
+		instructionLocator: run.instructionLocator,
+		launchEnv: launchEnvResult.value,
+		deps,
+	});
 	if (prepared.ok === false) {
 		return {
 			ok: false,
@@ -356,69 +346,39 @@ type HarnessLaunchStageResult =
 	| { readonly ok: true }
 	| { readonly ok: false; readonly message: string };
 
-async function provisionAndLaunchPromptHarness(options: {
+async function provisionAndLaunchDispatchHarness(options: {
 	readonly sandboxName: string;
 	readonly sandboxes: DispatchSandboxGateway;
 	readonly harness: HarnessInvocation;
-	readonly prompt: string;
-	readonly launchEnv: Readonly<Record<string, string>>;
-	readonly deps: DispatchStepDeps;
-}): Promise<HarnessLaunchStageResult> {
-	const prompt = await writeDispatchPrompt(options);
-	if (prompt.ok === false) return prompt;
-	const provision = await provisionDispatchHarness(options);
-	if (provision.ok === false) return provision;
-	return await launchDetachedDispatchHarness(options);
-}
-
-async function provisionAndLaunchPlanHarness(options: {
-	readonly sandboxName: string;
-	readonly sandboxes: DispatchSandboxGateway;
-	readonly harness: HarnessInvocation;
-	readonly contextLocator: Extract<
-		DispatchRunInput,
-		{ readonly dispatchId: string }
-	>["contextLocator"];
+	readonly instructionLocator: import("./dispatch-context.ts").DispatchInstructionLocator;
 	readonly launchEnv: Readonly<Record<string, string>>;
 	readonly deps: DispatchStepDeps;
 }): Promise<HarnessLaunchStageResult> {
 	const provision = await provisionDispatchHarness(options);
 	if (provision.ok === false) return provision;
-	const context = await prepareDispatchPlanContext(options);
-	if (context.ok === false) return context;
+	const fetched = await runInstructionPrecheck({
+		...options,
+		command: buildDispatchBrmemFetchAllCommand(options.instructionLocator),
+		failureMessage: "Branch Memory fetch and pinned instruction Snapshot verification failed.",
+		operation: "fetch_branch_memory_refs",
+	});
+	if (fetched.ok === false) return fetched;
+	const checked = await runInstructionPrecheck({
+		...options,
+		command: buildDispatchInstructionCheckCommand(options.instructionLocator),
+		failureMessage: "Required Branch Memory instruction Entry check failed.",
+		operation: "check_dispatch_instruction",
+	});
+	if (checked.ok === false) return checked;
 	const prompt = await writeDispatchPrompt({
 		...options,
-		prompt: buildDispatchPlanHarnessInstruction(options.contextLocator),
+		prompt: buildDispatchHarnessInstruction(options.instructionLocator),
 	});
 	if (prompt.ok === false) return prompt;
 	return await launchDetachedDispatchHarness(options);
 }
 
-async function prepareDispatchPlanContext(options: {
-	readonly sandboxName: string;
-	readonly sandboxes: DispatchSandboxGateway;
-	readonly contextLocator: Extract<
-		DispatchRunInput,
-		{ readonly dispatchId: string }
-	>["contextLocator"];
-	readonly deps: DispatchStepDeps;
-}): Promise<HarnessLaunchStageResult> {
-	const snapshot = await runPlanContextPrecheck({
-		...options,
-		command: buildDispatchPlanSnapshotFetchCommand(options.contextLocator),
-		failureMessage: "Saved Plan Snapshot Ref fetch and commit verification failed.",
-		operation: "verify_plan_snapshot",
-	});
-	if (snapshot.ok === false) return snapshot;
-	return await runPlanContextPrecheck({
-		...options,
-		command: buildDispatchPlanEntryCheckCommand(options.contextLocator),
-		failureMessage: "Required Branch Memory Saved Plan Entry check failed.",
-		operation: "check_saved_plan_entry",
-	});
-}
-
-interface PlanContextPrecheckOptions {
+interface InstructionPrecheckOptions {
 	readonly sandboxName: string;
 	readonly sandboxes: DispatchSandboxGateway;
 	readonly deps: DispatchStepDeps;
@@ -427,8 +387,8 @@ interface PlanContextPrecheckOptions {
 	readonly operation: string;
 }
 
-async function runPlanContextPrecheck(
-	options: PlanContextPrecheckOptions,
+async function runInstructionPrecheck(
+	options: InstructionPrecheckOptions,
 ): Promise<HarnessLaunchStageResult> {
 	try {
 		const result = await runOperation(

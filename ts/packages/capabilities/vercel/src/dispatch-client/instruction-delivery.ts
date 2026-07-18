@@ -1,48 +1,38 @@
 import type { BrmemErrorInfo, BrmemGateway } from "@nseng-ai/brmem";
 
-import type { DispatchPlanContextLocator } from "../../dispatch/dispatch-context.ts";
-import type { DispatchBrmemSetupGateway } from "./delivery-preflight.ts";
-import type {
-	DispatchPlanEntryPreparation,
-	DispatchPlanPreparationContext,
-	DispatchPlanPreparationOutcome,
-} from "./preparation.ts";
+import type { DispatchInstructionLocator } from "../dispatch/dispatch-context.ts";
+import type { PreparedDispatchInstruction } from "./instruction-preparation.ts";
 
-export interface DispatchPlanSnapshotGateway {
+export interface DispatchSnapshotGateway {
 	publishSnapshot(options: {
 		readonly cwd: string;
 		readonly remote: string;
 		readonly snapshotRef: string;
 		readonly commitSha: string;
-	}): Promise<DispatchPlanSnapshotOperationResult>;
+	}): Promise<DispatchSnapshotOperationResult>;
 	readRemoteSnapshotTip(options: {
 		readonly cwd: string;
 		readonly remote: string;
 		readonly snapshotRef: string;
-	}): Promise<DispatchPlanRemoteSnapshotResult>;
+	}): Promise<DispatchRemoteSnapshotResult>;
 }
 
-export interface DispatchPlanSnapshotError {
+export interface DispatchSnapshotError {
 	readonly code: string;
 	readonly message: string;
 	readonly displayCommand?: string;
 }
 
-export type DispatchPlanSnapshotOperationResult =
+export type DispatchSnapshotOperationResult =
 	| { readonly ok: true }
-	| { readonly ok: false; readonly error: DispatchPlanSnapshotError };
+	| { readonly ok: false; readonly error: DispatchSnapshotError };
 
-export type DispatchPlanRemoteSnapshotResult =
+export type DispatchRemoteSnapshotResult =
 	| { readonly type: "found"; readonly commitSha: string }
 	| { readonly type: "missing" }
-	| { readonly type: "error"; readonly error: DispatchPlanSnapshotError };
+	| { readonly type: "error"; readonly error: DispatchSnapshotError };
 
-export interface DispatchPlanDeliveryContext extends DispatchPlanPreparationContext {
-	readonly brmem: Pick<BrmemGateway, "createEntry"> & DispatchBrmemSetupGateway;
-	readonly snapshots: DispatchPlanSnapshotGateway;
-}
-
-export interface DispatchPlanDeliveryEntryArtifact {
+export interface DispatchInstructionEntryArtifact {
 	readonly type: "branch-memory-entry";
 	readonly namespace: string;
 	readonly key: string;
@@ -52,31 +42,18 @@ export interface DispatchPlanDeliveryEntryArtifact {
 	readonly commitSha: string;
 }
 
-export interface DispatchPlanPublishedSnapshotArtifact {
+export interface DispatchPublishedSnapshotArtifact {
 	readonly type: "published-snapshot-ref";
 	readonly remote: string;
 	readonly snapshotRef: string;
 	readonly commitSha: string;
 }
 
-export type DispatchPlanDurableArtifact =
-	| DispatchPlanDeliveryEntryArtifact
-	| DispatchPlanPublishedSnapshotArtifact;
+export type DispatchInstructionDurableArtifact =
+	| DispatchInstructionEntryArtifact
+	| DispatchPublishedSnapshotArtifact;
 
-export type { DispatchPlanContextLocator } from "../../dispatch/dispatch-context.ts";
-
-type PreparationFailure = Exclude<DispatchPlanPreparationOutcome, { readonly status: "ready" }>;
-
-export type DispatchPlanDeliveryOutcome =
-	| PreparationFailure
-	| {
-			readonly status: "setup-required" | "brmem-preflight-failed";
-			readonly dispatchId: string;
-			readonly remote: string;
-			readonly message: string;
-			readonly artifacts: readonly [];
-			readonly setupCommand?: string;
-	  }
+export type DispatchInstructionDeliveryOutcome =
 	| {
 			readonly status: "entry-creation-failed";
 			readonly dispatchId: string;
@@ -86,16 +63,16 @@ export type DispatchPlanDeliveryOutcome =
 	| {
 			readonly status: "snapshot-publication-failed";
 			readonly dispatchId: string;
-			readonly error: DispatchPlanSnapshotError;
-			readonly artifacts: readonly [DispatchPlanDeliveryEntryArtifact];
+			readonly error: DispatchSnapshotError;
+			readonly artifacts: readonly [DispatchInstructionEntryArtifact];
 	  }
 	| {
 			readonly status: "remote-verification-failed";
 			readonly dispatchId: string;
-			readonly error: DispatchPlanSnapshotError;
+			readonly error: DispatchSnapshotError;
 			readonly artifacts: readonly [
-				DispatchPlanDeliveryEntryArtifact,
-				DispatchPlanPublishedSnapshotArtifact,
+				DispatchInstructionEntryArtifact,
+				DispatchPublishedSnapshotArtifact,
 			];
 	  }
 	| {
@@ -104,31 +81,35 @@ export type DispatchPlanDeliveryOutcome =
 			readonly expectedCommitSha: string;
 			readonly actualCommitSha: string | null;
 			readonly artifacts: readonly [
-				DispatchPlanDeliveryEntryArtifact,
-				DispatchPlanPublishedSnapshotArtifact,
+				DispatchInstructionEntryArtifact,
+				DispatchPublishedSnapshotArtifact,
 			];
 	  }
 	| {
 			readonly status: "ready";
 			readonly dispatchId: string;
-			readonly locator: DispatchPlanContextLocator;
+			readonly locator: DispatchInstructionLocator;
 			readonly artifacts: readonly [
-				DispatchPlanDeliveryEntryArtifact,
-				DispatchPlanPublishedSnapshotArtifact,
+				DispatchInstructionEntryArtifact,
+				DispatchPublishedSnapshotArtifact,
 			];
 	  };
 
-export async function deliverPreparedDispatchPlan(
+/** Create once, publish the exact resulting Snapshot, and verify its remote tip. */
+export async function deliverPreparedDispatchInstruction(
 	request: { readonly cwd: string },
-	preparation: Extract<DispatchPlanPreparationOutcome, { readonly status: "ready" }>,
-	context: Pick<DispatchPlanDeliveryContext, "brmem" | "snapshots">,
+	preparation: PreparedDispatchInstruction,
+	context: {
+		readonly brmem: Pick<BrmemGateway, "createEntry">;
+		readonly snapshots: DispatchSnapshotGateway;
+	},
 	remote: string,
-): Promise<DispatchPlanDeliveryOutcome> {
+): Promise<DispatchInstructionDeliveryOutcome> {
 	const created = await context.brmem.createEntry({
 		namespace: preparation.entry.namespace,
 		key: preparation.entry.key,
 		branch: preparation.entry.sourceBranch,
-		content: preparation.entry.content,
+		content: preparation.content,
 	});
 	if (created.type === "error") {
 		return {
@@ -139,7 +120,7 @@ export async function deliverPreparedDispatchPlan(
 		};
 	}
 
-	const entryArtifact = buildEntryArtifact(preparation.entry, created.value.commitSha);
+	const entryArtifact = buildEntryArtifact(preparation, created.value.commitSha);
 	const published = await context.snapshots.publishSnapshot({
 		cwd: request.cwd,
 		remote,
@@ -155,7 +136,7 @@ export async function deliverPreparedDispatchPlan(
 		};
 	}
 
-	const publishedArtifact: DispatchPlanPublishedSnapshotArtifact = {
+	const publishedArtifact: DispatchPublishedSnapshotArtifact = {
 		type: "published-snapshot-ref",
 		remote,
 		snapshotRef: preparation.entry.snapshotRef,
@@ -192,8 +173,7 @@ export async function deliverPreparedDispatchPlan(
 		locator: {
 			namespace: preparation.entry.namespace,
 			dispatchId: preparation.dispatchId,
-			contextPrefix: `${preparation.dispatchId}/`,
-			planKey: preparation.entry.key,
+			key: preparation.entry.key,
 			sourceBranch: preparation.entry.sourceBranch,
 			snapshotRef: preparation.entry.snapshotRef,
 			snapshotCommitSha: created.value.commitSha,
@@ -204,16 +184,16 @@ export async function deliverPreparedDispatchPlan(
 }
 
 function buildEntryArtifact(
-	entry: DispatchPlanEntryPreparation,
+	preparation: PreparedDispatchInstruction,
 	commitSha: string,
-): DispatchPlanDeliveryEntryArtifact {
+): DispatchInstructionEntryArtifact {
 	return {
 		type: "branch-memory-entry",
-		namespace: entry.namespace,
-		key: entry.key,
-		sourceBranch: entry.sourceBranch,
-		snapshotRef: entry.snapshotRef,
-		entryLocator: entry.entryLocator,
+		namespace: preparation.entry.namespace,
+		key: preparation.entry.key,
+		sourceBranch: preparation.entry.sourceBranch,
+		snapshotRef: preparation.entry.snapshotRef,
+		entryLocator: preparation.entry.entryLocator,
 		commitSha,
 	};
 }

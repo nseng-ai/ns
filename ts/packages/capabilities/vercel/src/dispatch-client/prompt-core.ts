@@ -14,11 +14,13 @@ import {
 	DISPATCH_ANCHOR_NAME_CANDIDATE_LIMIT,
 	formatDispatchAnchorTimestamp,
 } from "./anchor-name.ts";
+import { deliverInstructionsAndStartRun } from "./anchor-to-run.ts";
 import { buildAnchorPrBody, buildAnchorPrTitle } from "./content.ts";
 import { normalizeDispatchSlugOverride } from "./content-slug.ts";
 import type { DispatchPromptGateways } from "./contracts.ts";
-import { createDispatchAnchor, resolveDispatchSource, startDispatchWorkflow } from "./core.ts";
+import { createDispatchAnchor, resolveDispatchSource } from "./core.ts";
 import type { DispatchPromptOutcome } from "./outcome.ts";
+import { preflightDispatchBrmemSetup } from "./dispatch-plan/delivery-preflight.ts";
 import { runDispatchPreflight } from "./preflight.ts";
 import { prepareDispatchSource } from "./source-preparation.ts";
 
@@ -55,6 +57,12 @@ export async function executeDispatchPrompt(
 	);
 	if (initialPreflight.ok === false) {
 		return { status: "preflight-failed", checks: initialPreflight.checks };
+	}
+
+	const dispatchId = gateways.generateDispatchId();
+	const brmemPreflight = await preflightDispatchBrmemSetup(gateways.brmem);
+	if (brmemPreflight.status !== "ready") {
+		return { ...brmemPreflight, dispatchId, artifacts: [] };
 	}
 
 	request.onPhase?.("Checking whether the source revision is already published…");
@@ -149,6 +157,7 @@ export async function executeDispatchPrompt(
 				prompt: request.prompt,
 				revision: finalSource.headSha,
 				sourceBranch: finalSource.branch,
+				dispatchId,
 			}),
 		},
 		gateways,
@@ -179,22 +188,29 @@ export async function executeDispatchPrompt(
 		anchorPr,
 	};
 
-	const workflow = await startDispatchWorkflow(
-		{
-			cwd: request.cwd,
-			input: {
-				revision: finalSource.headSha,
-				anchorBranch: anchorPr.branch,
-				anchorPrNumber: anchorPr.number,
-				prompt: request.prompt,
-			},
-			anchorPr,
-			connection: finalPreflight.triggerConnection,
-			workflowDashboardUrl: finalPreflight.workflowDashboardUrl,
-			...(request.onPhase === undefined ? {} : { onPhase: request.onPhase }),
-		},
-		gateways,
-	);
+	const workflow = await deliverInstructionsAndStartRun({
+		cwd: request.cwd,
+		revision: finalSource.headSha,
+		dispatchId,
+		anchorPr,
+		instructionContent: request.prompt,
+		remote: brmemPreflight.remote,
+		connection: finalPreflight.triggerConnection,
+		workflowDashboardUrl: finalPreflight.workflowDashboardUrl,
+		brmem: gateways.brmem,
+		snapshots: gateways.snapshots,
+		workflowGateways: gateways,
+		...(request.onPhase === undefined ? {} : { onPhase: request.onPhase }),
+	});
+	if (
+		workflow.status === "invalid-dispatch-context" ||
+		workflow.status === "entry-creation-failed" ||
+		workflow.status === "snapshot-publication-failed" ||
+		workflow.status === "remote-verification-failed" ||
+		workflow.status === "remote-snapshot-mismatch"
+	) {
+		return { ...workflow, receipt: prReceipt };
+	}
 	if (workflow.status === "trigger-failed") {
 		return {
 			status: "trigger-failed",
@@ -221,7 +237,10 @@ export async function executeDispatchPrompt(
 
 	return {
 		status: "dispatched",
-		revision: workflow.runInput.revision,
+		dispatchId,
+		instructionLocator: workflow.delivery.locator,
+		artifacts: workflow.delivery.artifacts,
+		revision: finalSource.headSha,
 		sourceBranch: finalSource.branch,
 		workflowRunUrl: workflow.workflowRunUrl,
 		receipt: {

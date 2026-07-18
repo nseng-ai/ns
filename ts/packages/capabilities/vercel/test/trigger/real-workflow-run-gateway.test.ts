@@ -99,94 +99,53 @@ describe("createWorkflowSdkRunGateway", () => {
 		]);
 	});
 
-	it("starts the dispatch workflow with a single serializable run-input argument", async () => {
-		const sdk = new InMemoryWorkflowRunSdk({ nextRunId: "wrun_dispatch" });
-		const gateway = createWorkflowSdkRunGateway(sdk);
-
-		const result = await gateway.startWorkflow({
-			workflow: "dispatch",
-			input: {
+	it.each([
+		["prompt", "wrun_prompt", 421],
+		["plan", "wrun_plan", 422],
+	] as const)(
+		"starts %s dispatch with the same locator-only Workflow argument",
+		async (_kind, runId, prNumber) => {
+			const sdk = new InMemoryWorkflowRunSdk({ nextRunId: runId });
+			const gateway = createWorkflowSdkRunGateway(sdk);
+			const dispatchId = "dsp_01JABCDEF0123456789";
+			const anchorBranch = "dispatch/add-cache-a1b2c3";
+			const snapshotRef = "refs/brmem/ns/dispatch-context/dispatch---add-cache-a1b2c3";
+			const input = {
 				revision: mixedCaseRevision,
-				anchorBranch: "dispatch/widget-refactor-a1b2c3",
-				anchorPrNumber: 421,
-				prompt: "Rename the widget gateway methods.",
-			},
-		});
+				anchorBranch,
+				anchorPrNumber: prNumber,
+				dispatchId,
+				instructionLocator: {
+					namespace: "dispatch-context" as const,
+					dispatchId,
+					key: `${dispatchId}/instructions.md`,
+					sourceBranch: anchorBranch,
+					snapshotRef,
+					snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+					entryLocator: `${snapshotRef}:${dispatchId}/instructions.md`,
+				},
+			};
 
-		expect(result).toEqual({ ok: true, value: { runId: "wrun_dispatch" } });
-		expect(sdk.startCalls).toEqual([
-			{
-				workflowId: triggerWorkflowIds.dispatch,
-				args: [
-					{
-						revision: mixedCaseRevision,
-						anchorBranch: "dispatch/widget-refactor-a1b2c3",
-						anchorPrNumber: 421,
-						prompt: "Rename the widget gateway methods.",
-					},
-				],
-				options: {
-					attributes: {
-						"dispatch.kind": "prompt",
-						"dispatch.anchor_pr": "421",
-						"dispatch.phase": "queued",
+			const result = await gateway.startWorkflow({ workflow: "dispatch", input });
+
+			expect(result).toEqual({ ok: true, value: { runId } });
+			expect(sdk.startCalls).toEqual([
+				{
+					workflowId: triggerWorkflowIds.dispatch,
+					args: [input],
+					options: {
+						attributes: {
+							"dispatch.anchor_pr": String(prNumber),
+							"dispatch.phase": "queued",
+							"dispatch.id": dispatchId,
+						},
 					},
 				},
-			},
-		]);
-	});
-
-	it("starts a plan dispatch with locator metadata only and the exact Dispatch ID attribute", async () => {
-		const sdk = new InMemoryWorkflowRunSdk({ nextRunId: "wrun_plan" });
-		const gateway = createWorkflowSdkRunGateway(sdk);
-		const contextLocator = {
-			namespace: "dispatch-context",
-			dispatchId: "dsp_01JABCDEF0123456789",
-			contextPrefix: "dsp_01JABCDEF0123456789/",
-			planKey: "dsp_01JABCDEF0123456789/plan/add-cache.md",
-			sourceBranch: "feature/cache",
-			snapshotRef: "refs/brmem/ns/dispatch-context/feature---cache",
-			snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
-			entryLocator:
-				"refs/brmem/ns/dispatch-context/feature---cache:dsp_01JABCDEF0123456789/plan/add-cache.md",
-		} as const;
-
-		const result = await gateway.startWorkflow({
-			workflow: "dispatch",
-			input: {
-				revision: mixedCaseRevision,
-				anchorBranch: "dispatch/add-cache-a1b2c3",
-				anchorPrNumber: 422,
-				dispatchId: contextLocator.dispatchId,
-				contextLocator,
-			},
-		});
-
-		expect(result).toEqual({ ok: true, value: { runId: "wrun_plan" } });
-		expect(sdk.startCalls).toEqual([
-			{
-				workflowId: triggerWorkflowIds.dispatch,
-				args: [
-					{
-						revision: mixedCaseRevision,
-						anchorBranch: "dispatch/add-cache-a1b2c3",
-						anchorPrNumber: 422,
-						dispatchId: contextLocator.dispatchId,
-						contextLocator,
-					},
-				],
-				options: {
-					attributes: {
-						"dispatch.kind": "plan",
-						"dispatch.anchor_pr": "422",
-						"dispatch.phase": "queued",
-						"dispatch.id": contextLocator.dispatchId,
-					},
-				},
-			},
-		]);
-		expect(JSON.stringify(sdk.startCalls)).not.toContain("Implement the cache plan");
-	});
+			]);
+			expect(JSON.stringify(sdk.startCalls)).not.toContain("Implement the cache plan");
+			expect(JSON.stringify(sdk.startCalls)).not.toContain("Rename the widget gateway methods");
+		},
+	);
 
 	it("normalizes an empty vendor run id to a safe failure", async () => {
 		const gateway = createWorkflowSdkRunGateway(new InMemoryWorkflowRunSdk({ nextRunId: "" }));

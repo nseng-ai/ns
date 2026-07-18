@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	DISPATCH_CONTEXT_NAMESPACE,
 	prepareDispatchPlan,
 	type DispatchSavedPlanGateway,
 	type DispatchSavedPlanResolution,
@@ -20,7 +19,7 @@ class FakeDispatchSavedPlanGateway implements DispatchSavedPlanGateway {
 			type: "resolved",
 			plan: {
 				filePath: PLAN_REF,
-				slug: "add-cache",
+				slug: "add-cache-safely",
 				sourceBranch: "feature/cache",
 				content: PLAN_CONTENT,
 			},
@@ -29,17 +28,14 @@ class FakeDispatchSavedPlanGateway implements DispatchSavedPlanGateway {
 		this.result = result;
 	}
 
-	async resolveExplicitSavedPlan(options: {
-		readonly cwd: string;
-		readonly planRef: string;
-	}): Promise<DispatchSavedPlanResolution> {
+	async resolveExplicitSavedPlan(options: { readonly cwd: string; readonly planRef: string }) {
 		this.resolutions.push({ ...options });
 		return this.result;
 	}
 }
 
 describe("prepareDispatchPlan", () => {
-	test("resolves one explicit Saved Plan and derives its dispatch-owned Branch Memory identity", async () => {
+	test("resolves one explicit Saved Plan without writing pre-anchor context", async () => {
 		const savedPlans = new FakeDispatchSavedPlanGateway();
 		const generatedIds: string[] = [];
 
@@ -61,19 +57,12 @@ describe("prepareDispatchPlan", () => {
 			dispatchId: DISPATCH_ID,
 			plan: {
 				filePath: PLAN_REF,
-				slug: "add-cache",
+				slug: "add-cache-safely",
 				sourceBranch: "feature/cache",
-				content: PLAN_CONTENT,
-			},
-			entry: {
-				namespace: DISPATCH_CONTEXT_NAMESPACE,
-				key: `${DISPATCH_ID}/plan/add-cache.md`,
-				sourceBranch: "feature/cache",
-				snapshotRef: "refs/brmem/ns/dispatch-context/feature---cache",
-				entryLocator: `refs/brmem/ns/dispatch-context/feature---cache:${DISPATCH_ID}/plan/add-cache.md`,
 				content: PLAN_CONTENT,
 			},
 		});
+		expect(outcome).not.toHaveProperty("entry");
 	});
 
 	test.each([
@@ -97,52 +86,8 @@ describe("prepareDispatchPlan", () => {
 				},
 			);
 
-			expect(outcome).toEqual({
-				status: "plan-resolution-failed",
-				reason: type,
-				message,
-			});
+			expect(outcome).toEqual({ status: "plan-resolution-failed", reason: type, message });
 			expect(generatedIdCount).toBe(0);
 		},
 	);
-
-	test("rejects a Dispatch ID that cannot form a Branch Memory Entry Key", async () => {
-		const outcome = await prepareDispatchPlan(
-			{ cwd: "/repo", planRef: PLAN_REF },
-			{
-				savedPlans: new FakeDispatchSavedPlanGateway(),
-				generateDispatchId: () => "unsafe/id with spaces",
-			},
-		);
-
-		expect(outcome).toEqual({
-			status: "invalid-dispatch-context",
-			dispatchId: "unsafe/id with spaces",
-			message: 'Invalid dispatch plan Entry Key: key contains forbidden character " "',
-		});
-	});
-
-	test("rejects a source branch that cannot form an exact Snapshot Ref", async () => {
-		const savedPlans = new FakeDispatchSavedPlanGateway({
-			type: "resolved",
-			plan: {
-				filePath: PLAN_REF,
-				slug: "add-cache",
-				sourceBranch: "feature---cache",
-				content: PLAN_CONTENT,
-			},
-		});
-
-		const outcome = await prepareDispatchPlan(
-			{ cwd: "/repo", planRef: PLAN_REF },
-			{ savedPlans, generateDispatchId: () => DISPATCH_ID },
-		);
-
-		expect(outcome).toEqual({
-			status: "invalid-dispatch-context",
-			dispatchId: DISPATCH_ID,
-			message:
-				"Invalid branch name \"feature---cache\": branch names containing '---' cannot be encoded into refs/brmem",
-		});
-	});
 });

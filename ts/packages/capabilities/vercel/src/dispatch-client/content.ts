@@ -1,7 +1,7 @@
 // Pure content builders for dispatch anchor branches and pull requests.
 // Prompt dispatch selects semantic names elsewhere; Saved Plan dispatch
 // retains its dispatch-ID-based anchor path here.
-import type { DispatchPlanContextLocator } from "../dispatch/dispatch-context.ts";
+import type { DispatchInstructionLocator } from "../dispatch/dispatch-context.ts";
 import {
 	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
 	DISPATCH_ANCHOR_BRANCH_PREFIX,
@@ -68,16 +68,18 @@ export function buildAnchorPrBody(options: {
 	readonly prompt: string;
 	readonly revision: string;
 	readonly sourceBranch: string;
+	readonly dispatchId?: string;
 }): string {
+	const excerpt = options.prompt.replace(/\s+/g, " ").trim().slice(0, 160);
 	return [
 		"This pull request anchors a cloud dispatch (`ns dispatch prompt`).",
 		"",
 		`- **Source branch:** \`${options.sourceBranch}\``,
 		`- **Dispatched revision:** \`${options.revision}\``,
+		...(options.dispatchId === undefined ? [] : [`- **Dispatch ID:** \`${options.dispatchId}\``]),
+		`- **Prompt excerpt:** ${excerpt}`,
 		"",
-		"## Dispatched prompt",
-		"",
-		fencePrompt(options.prompt),
+		"The exact prompt is retained in the anchor-scoped Branch Memory instruction Entry.",
 		"",
 		"When the run completes, the produced commits land on this branch and",
 		"the decision log is published into this description. If the run",
@@ -91,7 +93,7 @@ export function buildAnchorPrBody(options: {
 export function buildPlanAnchorPrBody(options: {
 	readonly planRef: string;
 	readonly revision: string;
-	readonly locator: DispatchPlanContextLocator;
+	readonly locator: DispatchInstructionLocator;
 }): string {
 	return [
 		"This pull request anchors a cloud dispatch (`ns dispatch plan`).",
@@ -104,21 +106,14 @@ export function buildPlanAnchorPrBody(options: {
 		"",
 		`- **Dispatch ID:** \`${options.locator.dispatchId}\``,
 		`- **Branch Memory namespace:** \`${options.locator.namespace}\``,
-		`- **Context prefix:** \`${options.locator.contextPrefix}\``,
+		`- **Instruction key:** \`${options.locator.key}\``,
 		`- **Source branch:** \`${options.locator.sourceBranch}\``,
 		`- **Snapshot Ref:** \`${options.locator.snapshotRef}\``,
 		`- **Snapshot commit:** \`${options.locator.snapshotCommitSha}\``,
-		`- **Plan Entry:** \`${options.locator.entryLocator}\``,
+		`- **Instruction Entry:** \`${options.locator.entryLocator}\``,
 		"<!-- ns:dispatch-provenance:end -->",
 		"",
 		"When the run completes, the produced commits and decision log land on this branch.",
 		"If the run fails, this PR remains the durable failure and recovery record.",
 	].join("\n");
-}
-
-/** Fence the prompt, widening the fence when the prompt contains one. */
-function fencePrompt(prompt: string): string {
-	let fence = "```";
-	while (prompt.includes(fence)) fence += "`";
-	return `${fence}text\n${prompt}\n${fence}`;
 }

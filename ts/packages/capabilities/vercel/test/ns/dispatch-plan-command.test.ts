@@ -8,6 +8,7 @@ import {
 	FAKE_HEAD_SHA,
 	FAKE_OIDC_TOKEN,
 	FAKE_PLAN_REF,
+	FAKE_PLAN_SNAPSHOT_COMMIT,
 	FAKE_RUN_ID,
 	FAKE_WORKFLOW_RUN_URL,
 	type FakeDispatchGatewaysOptions,
@@ -34,12 +35,17 @@ describe("ns dispatch plan", () => {
 			status: "dispatched",
 			dispatchId: FAKE_DISPATCH_ID,
 			revision: FAKE_HEAD_SHA,
-			contextLocator: {
+			instructionLocator: {
 				namespace: "dispatch-context",
 				dispatchId: FAKE_DISPATCH_ID,
-				contextPrefix: `${FAKE_DISPATCH_ID}/`,
-				planKey: `${FAKE_DISPATCH_ID}/plan/add-cache.md`,
-				sourceBranch: "feature/widgets",
+				key: `${FAKE_DISPATCH_ID}/instructions.md`,
+				sourceBranch: "dispatch/rename-widget-gateway-methods-20260715-071814",
+			},
+			attachedPlan: {
+				namespace: "branch-context",
+				branch: "dispatch/rename-widget-gateway-methods-20260715-071814",
+				key: "add-cache-safely.md",
+				commit: FAKE_PLAN_SNAPSHOT_COMMIT,
 			},
 			runId: FAKE_RUN_ID,
 			workflowRunUrl: FAKE_WORKFLOW_RUN_URL,
@@ -53,16 +59,15 @@ describe("ns dispatch plan", () => {
 		expect(call?.connection.oidcToken).toBe(FAKE_OIDC_TOKEN);
 		expect(call?.input).toMatchObject({
 			dispatchId: FAKE_DISPATCH_ID,
-			contextLocator: { namespace: "dispatch-context" },
+			instructionLocator: {
+				namespace: "dispatch-context",
+				key: `${FAKE_DISPATCH_ID}/instructions.md`,
+			},
 		});
 		expect(JSON.stringify(call?.input)).not.toContain("# Add cache");
 		expect(api.phaseLabels).toEqual([
-			"Checking the source branch and worktree…",
-			"Validating dispatch configuration and identity…",
-			"Resolving the Saved Plan…",
-			"Ensuring the source revision is remotely reachable…",
-			"Delivering the Saved Plan through Branch Memory…",
-			"Creating the anchor branch and pull request…",
+			"Revalidating the source and dispatch identity…",
+			"Publishing the exact dispatch instructions through Branch Memory…",
 			"Starting the remote workflow…",
 			"Recording the workflow run on the anchor PR…",
 			"cleared",
@@ -75,6 +80,15 @@ describe("ns dispatch plan", () => {
 			"token:read-development-oidc",
 			"trigger:check-identity",
 			"git:read-remote-tip",
+			"git:resolve-source-ref",
+			"git:list-dirty-paths",
+			"config:read-dispatch-settings",
+			"config:read-package-manager",
+			"token:read-development-oidc",
+			"trigger:check-identity",
+			"git:read-remote-tip",
+			"slug:derive-semantic",
+			"git:check-anchor-availability",
 			"git:push-anchor",
 			"anchor-pr:open",
 			"trigger:start-run",
@@ -82,16 +96,14 @@ describe("ns dispatch plan", () => {
 		]);
 	});
 
-	test("writes marked full provenance into the plan anchor PR", async () => {
+	test("opens the plan anchor before delivery without embedding plan content", async () => {
 		const { exit, gateways } = await runPlanCommand([FAKE_PLAN_REF]);
 
 		expect(exit.type).toBe("ok");
 		const body = gateways.anchorPrs.opened[0]?.body ?? "";
-		expect(body).toContain("<!-- ns:dispatch-provenance:start -->");
-		expect(body).toContain(`**Dispatch ID:** \`${FAKE_DISPATCH_ID}\``);
-		expect(body).toContain("**Branch Memory namespace:** `dispatch-context`");
-		expect(body).toContain("**Snapshot Ref:** `refs/brmem/");
-		expect(body).toContain("<!-- ns:dispatch-provenance:end -->");
+		expect(body).toContain(`Dispatch ID: \`${FAKE_DISPATCH_ID}\``);
+		expect(body).toContain("add-cache-safely");
+		expect(body).not.toContain("# Add cache");
 	});
 
 	test("reports missing Saved Plan input before Branch Memory or cloud effects", async () => {
@@ -140,23 +152,21 @@ describe("ns dispatch plan", () => {
 
 		expect(exit.type).toBe("failure");
 		if (exit.type !== "failure") return;
-		expect(exit.errorType).toBe("snapshot-publication-failed");
+		expect(exit.errorType).toBe("attached-plan-publication-failed");
 		expect(exit.data).toMatchObject({
 			dispatchId: FAKE_DISPATCH_ID,
-			code: "git-push-failed",
-			artifacts: [
-				{
-					type: "branch-memory-entry",
-					namespace: "dispatch-context",
-					key: `${FAKE_DISPATCH_ID}/plan/add-cache.md`,
-				},
-			],
+			anchorPrNumber: 41,
+			attachedPlan: {
+				namespace: "branch-context",
+				key: "add-cache-safely.md",
+				commit: FAKE_PLAN_SNAPSHOT_COMMIT,
+			},
 		});
-		expect(gateways.anchorPrs.opened).toEqual([]);
+		expect(gateways.anchorPrs.opened).toHaveLength(1);
 		expect(gateways.trigger.startCalls).toEqual([]);
 	});
 
-	test("reports an exact remote Snapshot mismatch without starting cloud work", async () => {
+	test("refuses instruction delivery when the published Attached Plan tip mismatches", async () => {
 		const { exit, gateways } = await runPlanCommand([FAKE_PLAN_REF], {
 			plan: {
 				remoteSnapshotResult: { type: "found", commitSha: "2".repeat(40) },
@@ -165,13 +175,17 @@ describe("ns dispatch plan", () => {
 
 		expect(exit.type).toBe("failure");
 		if (exit.type !== "failure") return;
-		expect(exit.errorType).toBe("remote-snapshot-mismatch");
+		expect(exit.errorType).toBe("attached-plan-publication-failed");
 		expect(exit.data).toMatchObject({
 			dispatchId: FAKE_DISPATCH_ID,
-			expectedCommitSha: "1111111111111111111111111111111111111111",
-			actualCommitSha: "2222222222222222222222222222222222222222",
+			anchorPrNumber: 41,
+			attachedPlan: {
+				commit: FAKE_PLAN_SNAPSHOT_COMMIT,
+				snapshotRef:
+					"refs/brmem/ns/branch-context/dispatch---rename-widget-gateway-methods-20260715-071814",
+			},
 		});
-		expect(gateways.anchorPrs.opened).toEqual([]);
+		expect(gateways.anchorPrs.opened).toHaveLength(1);
 		expect(gateways.trigger.startCalls).toEqual([]);
 	});
 
@@ -228,12 +242,19 @@ describe("ns dispatch plan", () => {
 		if (exit.type !== "failure") return;
 		expect(exit.errorType).toBe(scenario.errorType);
 		expect(exit.message).toContain(`Dispatch ID ${FAKE_DISPATCH_ID}`);
-		expect(exit.data).toMatchObject({
-			dispatchId: FAKE_DISPATCH_ID,
-			artifacts: [{ type: "branch-memory-entry" }, { type: "published-snapshot-ref" }],
-		});
-		if (scenario.hasPr) expect(exit.data).toMatchObject({ anchorPrNumber: 41 });
-		else expect(exit.data).not.toHaveProperty("anchorPrNumber");
+		expect(exit.data).toMatchObject({ dispatchId: FAKE_DISPATCH_ID });
+		if (scenario.hasPr) {
+			expect(exit.data).toMatchObject({
+				anchorPrNumber: 41,
+				artifacts: [
+					{ type: "branch-memory-entry", key: `${FAKE_DISPATCH_ID}/instructions.md` },
+					{ type: "published-snapshot-ref" },
+				],
+			});
+		} else {
+			expect(exit.data).toMatchObject({ artifacts: [] });
+			expect(exit.data).not.toHaveProperty("anchorPrNumber");
+		}
 	});
 
 	test("keeps plan provenance and the open anchor visible when workflow start fails", async () => {
@@ -253,7 +274,7 @@ describe("ns dispatch plan", () => {
 		expect(exit.data).toMatchObject({
 			dispatchId: FAKE_DISPATCH_ID,
 			code: "workflow-start-failed",
-			anchorBranch: `dispatch/feature-widgets-${FAKE_DISPATCH_ID}`,
+			anchorBranch: "dispatch/rename-widget-gateway-methods-20260715-071814",
 			anchorPrNumber: 41,
 			anchorPrUrl: "https://github.com/nseng-ai/ns/pull/41",
 			artifacts: [{ type: "branch-memory-entry" }, { type: "published-snapshot-ref" }],
@@ -293,7 +314,8 @@ describe("ns dispatch plan", () => {
 		if (exit.type !== "ok") return;
 		const schema = JSON.stringify(exit.data);
 		expect(schema).toContain("dispatchId");
-		expect(schema).toContain("contextLocator");
+		expect(schema).toContain("instructionLocator");
+		expect(schema).toContain("attachedPlan");
 		expect(schema).toContain("snapshotRef");
 		expect(schema).toContain("snapshotCommitSha");
 		expect(schema).toContain("workflowRunUrl");

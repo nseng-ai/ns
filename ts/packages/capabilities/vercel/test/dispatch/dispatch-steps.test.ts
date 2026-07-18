@@ -43,34 +43,25 @@ import {
 const revision = "0123456789abcdef0123456789abcdef01234567";
 
 function runInput(overrides: Partial<DispatchRunInput> = {}): DispatchRunInput {
-	return {
-		revision,
-		anchorBranch: "dispatch/widget-refactor-a1b2c3",
-		anchorPrNumber: 421,
-		prompt: "Rename the widget gateway methods.",
-		...overrides,
-	};
-}
-
-function planRunInput(): DispatchRunInput {
 	const dispatchId = "dsp_01JABCDEF0123456789";
-	const snapshotRef = "refs/brmem/ns/dispatch-context/feature---cache";
-	const planKey = `${dispatchId}/plan/add-cache.md`;
+	const anchorBranch = "dispatch/widget-refactor-a1b2c3";
+	const key = `${dispatchId}/instructions.md`;
+	const snapshotRef = `refs/brmem/ns/dispatch-context/${anchorBranch.replaceAll("/", "---")}`;
 	return {
 		revision,
-		anchorBranch: "dispatch/add-cache-a1b2c3",
-		anchorPrNumber: 422,
+		anchorBranch,
+		anchorPrNumber: 421,
 		dispatchId,
-		contextLocator: {
+		instructionLocator: {
 			namespace: "dispatch-context",
 			dispatchId,
-			contextPrefix: `${dispatchId}/`,
-			planKey,
-			sourceBranch: "feature/cache",
+			key,
+			sourceBranch: anchorBranch,
 			snapshotRef,
 			snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
-			entryLocator: `${snapshotRef}:${planKey}`,
+			entryLocator: `${snapshotRef}:${key}`,
 		},
+		...overrides,
 	};
 }
 
@@ -192,8 +183,10 @@ describe("launchDispatchRun", () => {
 			"create",
 			"read",
 			"read",
-			"write",
 			"run",
+			"run",
+			"run",
+			"write",
 			"runDetached",
 		]);
 		expect(sandboxes.calls[0]?.options).toEqual({
@@ -223,14 +216,13 @@ describe("launchDispatchRun", () => {
 		]);
 		expect(sandboxes.calls[3]?.options).toEqual({
 			sandboxName: "sbx_dispatch",
-			path: DISPATCH_PROMPT_PATH,
-			content: "Rename the widget gateway methods.",
-		});
-		expect(sandboxes.calls[4]?.options).toEqual({
-			sandboxName: "sbx_dispatch",
 			command: { cmd: "npm", args: ["install", "-g", "fake-harness"] },
 		});
-		expect(sandboxes.calls[5]?.options).toEqual({
+		expect(sandboxes.calls[6]?.options).toMatchObject({
+			sandboxName: "sbx_dispatch",
+			path: DISPATCH_PROMPT_PATH,
+		});
+		expect(sandboxes.calls[7]?.options).toEqual({
 			sandboxName: "sbx_dispatch",
 			command: { cmd: "fake-harness", args: ["--headless"] },
 			env: { AI_GATEWAY_API_KEY: "model-key-fixture" },
@@ -248,12 +240,14 @@ describe("launchDispatchRun", () => {
 			"create_sandbox",
 			"read_dispatch_settings",
 			"read_dispatch_package_manifest",
-			"write_dispatch_prompt",
 			"provision_dispatch_harness",
+			"fetch_branch_memory_refs",
+			"check_dispatch_instruction",
+			"write_dispatch_prompt",
 			"launch_detached_dispatch_harness",
 		]);
 		expect(operationEvents.filter((event) => event.event === "operation_succeeded")).toHaveLength(
-			8,
+			10,
 		);
 		expect(operationLogs.join("\n")).not.toContain("token-clone-fixture");
 		expect(operationLogs.join("\n")).not.toContain("private-key-fixture");
@@ -261,10 +255,10 @@ describe("launchDispatchRun", () => {
 		expect(operationLogs.join("\n")).not.toContain("Rename the widget gateway methods.");
 	});
 
-	it("fetches and verifies the exact plan snapshot before writing a brmem-first instruction and launching", async () => {
+	it("fetches all Branch Memory refs and verifies exact instructions before launching", async () => {
 		const { deps, sandboxes } = createDeps();
 
-		const result = await launchDispatchRun(planRunInput(), deps);
+		const result = await launchDispatchRun(runInput({ anchorPrNumber: 422 }), deps);
 
 		expect(result).toEqual({ ok: true, sandboxName: "sbx_dispatch", harness: "pi" });
 		expect(sandboxes.calls.map((call) => call.method)).toEqual([
@@ -279,12 +273,12 @@ describe("launchDispatchRun", () => {
 		]);
 		const fetchCommand = sandboxes.calls[4]?.options["command"];
 		if (!isSandboxCommand(fetchCommand)) throw new Error("Expected the Snapshot fetch command.");
-		expect(fetchCommand.args).toContain("refs/brmem/ns/dispatch-context/feature---cache");
+		expect(fetchCommand.args.join(" ")).toContain("+refs/brmem/*:refs/brmem/*");
 		expect(fetchCommand.args).toContain("abcdef0123456789abcdef0123456789abcdef01");
 
 		const checkCommand = sandboxes.calls[5]?.options["command"];
 		if (!isSandboxCommand(checkCommand)) throw new Error("Expected the brmem check command.");
-		expect(checkCommand.args).toContain("dsp_01JABCDEF0123456789/plan/add-cache.md");
+		expect(checkCommand.args).toContain("dsp_01JABCDEF0123456789/instructions.md");
 		expect(checkCommand.args).toContain("dispatch-context");
 
 		expect(sandboxes.calls[6]?.options).toMatchObject({
@@ -293,23 +287,21 @@ describe("launchDispatchRun", () => {
 		});
 		const instruction = sandboxes.calls[6]?.options["content"];
 		expect(instruction).toMatch(/^Your first agent action must be to run this command exactly:/);
-		expect(instruction).toContain("brmem get dsp_01JABCDEF0123456789/plan/add-cache.md");
-		expect(instruction).toContain(
-			"Treat the command output as the Saved Plan and execute that plan.",
-		);
+		expect(instruction).toContain("brmem get dsp_01JABCDEF0123456789/instructions.md");
+		expect(instruction).toContain("Follow all instructions returned by that command.");
 	});
 
 	it.each([
 		{
-			label: "Snapshot Ref fetch",
+			label: "Branch Memory fetch",
 			exitCodes: [1],
-			message: "Saved Plan Snapshot Ref fetch and commit verification failed.",
+			message: "Branch Memory fetch and pinned instruction Snapshot verification failed.",
 			runCount: 1,
 		},
 		{
 			label: "required Entry check",
 			exitCodes: [0, 1],
-			message: "Required Branch Memory Saved Plan Entry check failed.",
+			message: "Required Branch Memory instruction Entry check failed.",
 			runCount: 2,
 		},
 	])("stops before instruction write and launch when the $label fails", async (scenario) => {
@@ -318,7 +310,7 @@ describe("launchDispatchRun", () => {
 			harness: { ok: true, value: harnessInvocation({ provisionCommands: [] }) },
 		});
 
-		const result = await launchDispatchRun(planRunInput(), deps);
+		const result = await launchDispatchRun(runInput(), deps);
 
 		expect(result).toEqual({
 			ok: false,
@@ -525,13 +517,7 @@ describe("launchDispatchRun", () => {
 			message: "Harness provisioning failed.",
 			sandboxName: "sbx_dispatch",
 		});
-		expect(sandboxes.calls.map((call) => call.method)).toEqual([
-			"create",
-			"read",
-			"read",
-			"write",
-			"run",
-		]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "run"]);
 	});
 
 	it("returns the created sandbox when the prompt write fails", async () => {
@@ -542,7 +528,15 @@ describe("launchDispatchRun", () => {
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("Expected a failure.");
 		expect(result.sandboxName).toBe("sbx_dispatch");
-		expect(sandboxes.calls.map((call) => call.method)).toEqual(["create", "read", "read", "write"]);
+		expect(sandboxes.calls.map((call) => call.method)).toEqual([
+			"create",
+			"read",
+			"read",
+			"run",
+			"run",
+			"run",
+			"write",
+		]);
 	});
 
 	it("returns the created sandbox when the detached launch fails", async () => {
@@ -560,8 +554,10 @@ describe("launchDispatchRun", () => {
 			"create",
 			"read",
 			"read",
-			"write",
 			"run",
+			"run",
+			"run",
+			"write",
 			"runDetached",
 		]);
 	});

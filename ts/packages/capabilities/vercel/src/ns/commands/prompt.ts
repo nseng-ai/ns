@@ -69,6 +69,18 @@ const dispatchPromptResultSchema = z.discriminatedUnion("status", [
 		anchorPrNumber: z.number().int(),
 		anchorPrUrl: z.string(),
 		runId: z.string(),
+		dispatchId: z.string().optional(),
+		instructionLocator: z
+			.object({
+				namespace: z.literal("dispatch-context"),
+				dispatchId: z.string(),
+				key: z.string(),
+				sourceBranch: z.string(),
+				snapshotRef: z.string(),
+				snapshotCommitSha: z.string(),
+				entryLocator: z.string(),
+			})
+			.optional(),
 		workflowRunUrl: z.string(),
 	}),
 	z.object({
@@ -149,10 +161,46 @@ async function runDispatchPromptCommand(
 				anchorPrNumber: outcome.receipt.anchorPr.number,
 				anchorPrUrl: outcome.receipt.anchorPr.url,
 				runId: outcome.receipt.runId,
+				...(outcome.dispatchId === undefined ? {} : { dispatchId: outcome.dispatchId }),
+				...(outcome.instructionLocator === undefined
+					? {}
+					: { instructionLocator: outcome.instructionLocator }),
 				workflowRunUrl: outcome.workflowRunUrl,
 			};
 			return ok(result, { human: renderDispatchPromptResult(result) });
 		}
+		case "setup-required":
+		case "brmem-preflight-failed":
+			return failure(outcome.status, outcome.message, {
+				dispatchId: outcome.dispatchId,
+				remote: outcome.remote,
+				artifacts: outcome.artifacts,
+			});
+		case "invalid-dispatch-context":
+			return failure(outcome.status, outcome.message, {
+				dispatchId: outcome.dispatchId,
+				...receiptData(outcome.receipt),
+			});
+		case "entry-creation-failed":
+		case "snapshot-publication-failed":
+		case "remote-verification-failed":
+			return failure(outcome.status, outcome.error.message, {
+				dispatchId: outcome.dispatchId,
+				artifacts: outcome.artifacts,
+				...receiptData(outcome.receipt),
+			});
+		case "remote-snapshot-mismatch":
+			return failure(
+				outcome.status,
+				"The published instruction Snapshot did not match the created Entry commit.",
+				{
+					dispatchId: outcome.dispatchId,
+					artifacts: outcome.artifacts,
+					expectedCommitSha: outcome.expectedCommitSha,
+					actualCommitSha: outcome.actualCommitSha,
+					...receiptData(outcome.receipt),
+				},
+			);
 		case "dirty-tree":
 			return negative(renderDirtyTreeRefusal(outcome.dirtyPaths), {
 				data: {

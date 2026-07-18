@@ -11,6 +11,26 @@ const TRIGGER_CONNECTION = {
 };
 const SHORT_TRIGGER_CONNECTION = { deploymentUrl: "https://x.test", oidcToken: "t" };
 
+function dispatchInput(anchorBranch = "dispatch/feature-ab12cd34") {
+	const dispatchId = "dsp_01JABCDEF0123456789";
+	const snapshotRef = `refs/brmem/ns/dispatch-context/${anchorBranch.replaceAll("/", "---")}`;
+	return {
+		revision: SHA,
+		anchorBranch,
+		anchorPrNumber: 612,
+		dispatchId,
+		instructionLocator: {
+			namespace: "dispatch-context" as const,
+			dispatchId,
+			key: `${dispatchId}/instructions.md`,
+			sourceBranch: anchorBranch,
+			snapshotRef,
+			snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+			entryLocator: `${snapshotRef}:${dispatchId}/instructions.md`,
+		},
+	};
+}
+
 interface RecordedFetch {
 	url: string;
 	method: string | undefined;
@@ -77,24 +97,14 @@ describe("real trigger gateway", () => {
 		const gateway = createRealDispatchTriggerGateway(fetchFn);
 		const result = await gateway.startDispatchRun({
 			connection: TRIGGER_CONNECTION,
-			input: {
-				revision: SHA,
-				anchorBranch: "dispatch/feature-ab12cd34",
-				anchorPrNumber: 612,
-				prompt: "Do a thing",
-			},
+			input: dispatchInput(),
 		});
 
 		expect(result).toEqual({ ok: true, value: { runId: "wf-run-9" } });
 		expect(requests[0]?.url).toBe("https://ns-dispatch.example.vercel.app/api/trigger");
 		expect(requests[0]?.method).toBe("POST");
-		expect(requests[0]?.body).toEqual({
-			workflow: "dispatch",
-			revision: SHA,
-			anchorBranch: "dispatch/feature-ab12cd34",
-			anchorPrNumber: 612,
-			prompt: "Do a thing",
-		});
+		expect(requests[0]?.body).toEqual({ workflow: "dispatch", ...dispatchInput() });
+		expect(JSON.stringify(requests[0]?.body)).not.toContain("Do a thing");
 		expect(requests[0]?.headers[DISPATCH_OIDC_HEADER_NAME]).toBe("fake-token");
 		expect(requests[0]?.headers["x-vercel-protection-bypass"]).toBe("fake-protection-bypass");
 	});
@@ -109,12 +119,7 @@ describe("real trigger gateway", () => {
 		const gateway = createRealDispatchTriggerGateway(fetchFn);
 		const result = await gateway.startDispatchRun({
 			connection: SHORT_TRIGGER_CONNECTION,
-			input: {
-				revision: SHA,
-				anchorBranch: "dispatch/a-b",
-				anchorPrNumber: 1,
-				prompt: "p",
-			},
+			input: { ...dispatchInput("dispatch/a-b"), anchorPrNumber: 1 },
 		});
 
 		expect(result.ok).toBe(false);
@@ -129,7 +134,7 @@ describe("real trigger gateway", () => {
 		const gateway = createRealDispatchTriggerGateway(fetchFn);
 		const result = await gateway.startDispatchRun({
 			connection: SHORT_TRIGGER_CONNECTION,
-			input: { revision: SHA, anchorBranch: "dispatch/a-b", anchorPrNumber: 1, prompt: "p" },
+			input: { ...dispatchInput("dispatch/a-b"), anchorPrNumber: 1 },
 		});
 
 		expect(result.ok).toBe(false);

@@ -10,7 +10,7 @@ import {
 describe("dispatch run-id stamp", () => {
 	test("round-trips a stamped run id through a PR description", () => {
 		const body = composeAnchorPrDescriptionWithRunIdStamp(
-			"Anchor PR body.\n\n## Dispatched prompt\n\ntext",
+			"Anchor PR body.\n\nThe exact instructions are retained in Branch Memory.",
 			"wf_run_0123:abc-DEF.9",
 		);
 		expect(parseDispatchRunIdStamp(body)).toBe("wf_run_0123:abc-DEF.9");

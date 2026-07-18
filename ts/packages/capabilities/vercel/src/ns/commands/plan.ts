@@ -18,11 +18,10 @@ import type { DispatchPreflightCheck } from "../../dispatch-client/prompt-core.t
 
 const dirtyPathsDataMaxPaths = 100;
 
-const contextLocatorSchema = z.object({
+const instructionLocatorSchema = z.object({
 	namespace: z.literal(DISPATCH_CONTEXT_NAMESPACE),
 	dispatchId: z.string(),
-	contextPrefix: z.string(),
-	planKey: z.string(),
+	key: z.string(),
 	sourceBranch: z.string(),
 	snapshotRef: z.string(),
 	snapshotCommitSha: z.string(),
@@ -40,7 +39,17 @@ const dispatchPlanResultSchema = z.discriminatedUnion("status", [
 		revision: z.string(),
 		sourceBranch: z.string(),
 		isSourcePushed: z.boolean(),
-		contextLocator: contextLocatorSchema,
+		instructionLocator: instructionLocatorSchema,
+		attachedPlan: z.object({
+			type: z.enum(["created", "reused"]),
+			namespace: z.literal("branch-context"),
+			branch: z.string(),
+			key: z.string(),
+			snapshotRef: z.string(),
+			entryLocator: z.string(),
+			commit: z.string(),
+			sourceFile: z.string(),
+		}),
 		anchorBranch: z.string(),
 		anchorPrNumber: z.number().int(),
 		anchorPrUrl: z.string(),
@@ -61,7 +70,7 @@ export const dispatchPlanCommand: NsCommand = createNsDomainCommand({
 	name: "plan",
 	summary: "Dispatch a Saved Plan to run remotely against your branch head.",
 	description:
-		"Resolve one explicit Saved Plan, retain a dispatch-owned copy in Branch Memory, verify its exact Snapshot Ref on the configured remote, and start the existing dispatch workflow with locator-only provenance. Requires a clean worktree and configured Branch Memory synchronization (`brmem setup-git`). Results land on the anchor pull request.",
+		"Resolve one explicit Saved Plan, attach it to the anchor branch, publish generic instructions through Branch Memory, and start the dispatch workflow with locator-only provenance. Requires a clean worktree and configured Branch Memory synchronization (`brmem setup-git`). Results land on the anchor pull request.",
 	schema: dispatchPlanRequestSchema,
 	resultSchema: dispatchPlanResultSchema,
 	positionals: { planRef: { position: 0 } },
@@ -93,7 +102,8 @@ async function runDispatchPlanCommand(
 				revision: outcome.revision,
 				sourceBranch: outcome.sourceBranch,
 				isSourcePushed: outcome.isSourcePushed,
-				contextLocator: outcome.locator,
+				instructionLocator: outcome.locator,
+				attachedPlan: outcome.attachedPlan,
 				anchorBranch: outcome.anchorPr.branch,
 				anchorPrNumber: outcome.anchorPr.number,
 				anchorPrUrl: outcome.anchorPr.url,
@@ -115,6 +125,25 @@ async function runDispatchPlanCommand(
 		case "invalid-dispatch-context":
 			return failure("invalid-dispatch-context", outcome.message, {
 				dispatchId: outcome.dispatchId,
+			});
+		case "attached-plan-conflict":
+			return failure(
+				outcome.status,
+				"An Attached Plan with different content already exists on the anchor branch.",
+				{
+					dispatchId: outcome.dispatchId,
+					branch: outcome.branch,
+					key: outcome.key,
+					anchorPrUrl: outcome.anchorPr.url,
+				},
+			);
+		case "attached-plan-publication-failed":
+			return failure(outcome.status, outcome.message, {
+				dispatchId: outcome.dispatchId,
+				attachedPlan: outcome.attachedPlan,
+				anchorBranch: outcome.anchorPr.branch,
+				anchorPrNumber: outcome.anchorPr.number,
+				anchorPrUrl: outcome.anchorPr.url,
 			});
 		case "setup-required":
 			return failure("branch-memory-setup-required", outcome.message, {
@@ -155,7 +184,22 @@ async function runDispatchPlanCommand(
 		case "source-unusable":
 			return failure(outcome.code, outcome.message);
 		case "source-push-failed":
-			return failure(outcome.status, outcome.message, { sourceBranch: outcome.sourceBranch });
+		case "source-publication-plan-failed":
+		case "graphite-publication-failed":
+		case "source-publication-verification-failed":
+		case "source-revalidation-failed":
+		case "anchor-branch-availability-failed":
+		case "anchor-branch-unavailable":
+			return failure(
+				outcome.status,
+				outcome.message,
+				outcome.sourceBranch === undefined ? {} : { sourceBranch: outcome.sourceBranch },
+			);
+		case "source-publication-force-required":
+		case "source-publication-declined":
+			return failure(outcome.status, outcome.message, {
+				affectedBranches: outcome.affectedBranches,
+			});
 		case "anchor-push-failed":
 		case "anchor-pr-failed":
 			return failure(outcome.status, postDeliveryMessage(outcome.message, outcome.dispatchId), {

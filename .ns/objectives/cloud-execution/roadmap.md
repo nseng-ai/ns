@@ -271,19 +271,27 @@ happens as a parent interlude — under the boundaries in `objective.md`'s
       `@nseng-ai/vercel` artifact or a one-shot project-setup leaf and apply
       `docs/conventions/skill-conventions.md`; do not create the skill
       before the steel thread proves the workflow.
-- [ ] `ns dispatch plan`: a real plan dispatched and executed remotely to
-      the same git-native landing bar (the subsumed dispatch-extension's
-      completion bar). Makes true: "Commands → /ns:dispatch:plan". The
-      kernel CLI takes an explicit plan reference (plan machinery:
-      `ts/packages/capabilities/plans`); `/ns:dispatch:plan` no-arg
-      latest-plan resolution is Pi session sugar. Wrapper-skill coverage
-      lands with the commands so the same surface is reachable from Claude
-      Code and Codex. Includes the long-run completion evidence: at least
-      one verified dispatch whose wall-clock exceeds a single function
-      invocation ceiling.
-      Policy: command core, wrapper skills, and scenario tests are runner
-      steps; the real dispatch and the long-run evidence are parent
-      interludes (anchor push/PR under per-action consent).
+- [~] `ns dispatch plan`: dispatch an explicit Saved Plan through the same
+  Vercel-native spine and git-native landing path. Makes true: "Commands →
+  /ns:dispatch:plan". The kernel CLI takes an explicit plan reference;
+  `/ns:dispatch:plan` no-arg latest-plan resolution is Pi session sugar.
+  Local implementation now unifies prompt and plan on anchor-scoped
+  `dispatch-context/<dispatch-id>/instructions.md` and one locator-only
+  Workflow input. Plan dispatch separately ensures a normal anchor-scoped
+  Branch Context Attached Plan, pins its commit in the instruction text,
+  and never copies plan content into the Workflow payload. Sandbox setup
+  fetches all Branch Memory refs and verifies the exact instruction before
+  one generic harness bootstrap. Command/wrapper and fake-driven coverage
+  are locally green; this redesigned contract is not deployed or
+  live-proven. `build:deployable` remains blocked in the implementing
+  worktree by absent local Vercel Project Settings. Remaining: an authorized
+  build/deployment and one witnessed plan dispatch proving pinned
+  instruction and attachment retrieval, plan execution, agent-created
+  commit, and normal landing. Existing long-supervision evidence is reused
+  rather than repeated.
+  Policy: local code, tests, wrapper, and documentation are runner-step
+  work; build setup, deployment, Branch Memory/ref writes, anchor mutation,
+  and the real dispatch are separately authorized parent/human interludes.
 - [ ] `/ns:dispatch:session`: continue the current session remotely. Makes
       true: "Commands → /ns:dispatch:session". The kernel command is
       `ns dispatch handoff <ref>` (explicit handoff reference, continuation

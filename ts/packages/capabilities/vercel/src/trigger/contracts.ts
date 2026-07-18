@@ -13,7 +13,6 @@ import { DISPATCH_CONTEXT_NAMESPACE, DISPATCH_ID_MAX_CHARS } from "../dispatch/d
 import {
 	DISPATCH_ANCHOR_BRANCH_MAX_CHARS,
 	DISPATCH_ANCHOR_PR_NUMBER_MAX,
-	DISPATCH_PROMPT_MAX_CHARS,
 	isValidDispatchAnchorBranch,
 } from "../dispatch/dispatch-run.ts";
 import { DISPATCH_RUN_ID_MAX_CHARS } from "../dispatch/validation.ts";
@@ -39,14 +38,10 @@ const dispatchIdentitySchema = {
 	anchorPrNumber: z.number().int().min(1).max(DISPATCH_ANCHOR_PR_NUMBER_MAX),
 };
 
-const dispatchContextLocatorSchema = z.strictObject({
+const dispatchInstructionLocatorSchema = z.strictObject({
 	namespace: z.literal(DISPATCH_CONTEXT_NAMESPACE),
 	dispatchId: z.string().min(1).max(DISPATCH_ID_MAX_CHARS),
-	contextPrefix: z
-		.string()
-		.min(1)
-		.max(DISPATCH_ID_MAX_CHARS + 1),
-	planKey: z.string().min(1).max(500),
+	key: z.string().min(1).max(500),
 	sourceBranch: z.string().min(1).max(500),
 	snapshotRef: z.string().min(1).max(1_000),
 	snapshotCommitSha: commitShaSchema,
@@ -77,25 +72,15 @@ export const triggerRequestSchema = z.union([
 			.min(SUPERVISION_POLL_SECONDS_MIN)
 			.max(SUPERVISION_POLL_SECONDS_MAX),
 	}),
-	// The dispatch workflow's run-input contract (steel thread): the exact
-	// dispatched SHA, the `dispatch/`-prefixed anchor branch, the anchor PR
-	// opened up front by the CLI, and the prompt/work reference. The
-	// repository, harness invocation, and credentials are deployable-side
-	// configuration, never caller input. The workflow re-validates the same
-	// bounds with plain checks.
-	z.strictObject({
-		workflow: z.literal("dispatch"),
-		...dispatchIdentitySchema,
-		prompt: z.string().min(1).max(DISPATCH_PROMPT_MAX_CHARS),
-	}),
+	// Locator-only dispatch contract. Exact work content stays in Branch Memory.
 	z
 		.strictObject({
 			workflow: z.literal("dispatch"),
 			...dispatchIdentitySchema,
 			dispatchId: z.string().min(1).max(DISPATCH_ID_MAX_CHARS),
-			contextLocator: dispatchContextLocatorSchema,
+			instructionLocator: dispatchInstructionLocatorSchema,
 		})
-		.refine((request) => request.dispatchId === request.contextLocator.dispatchId),
+		.refine((request) => request.dispatchId === request.instructionLocator.dispatchId),
 ]);
 
 export type TriggerRequest = z.infer<typeof triggerRequestSchema>;

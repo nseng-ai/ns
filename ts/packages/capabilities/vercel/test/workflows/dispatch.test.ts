@@ -46,12 +46,24 @@ describe("dispatchWorkflow", () => {
 	});
 
 	it("turns invalid input into a safe fatal terminal failure", async () => {
+		const dispatchId = "dsp_01JABCDEF0123456789";
+		const anchorBranch = "dispatch/widget";
+		const snapshotRef = "refs/brmem/ns/dispatch-context/dispatch---widget";
 		await expect(
 			dispatchWorkflow({
 				revision: "main",
-				anchorBranch: "dispatch/widget",
+				anchorBranch,
 				anchorPrNumber: 421,
-				prompt: "plaintext prompt must not appear in the error",
+				dispatchId,
+				instructionLocator: {
+					namespace: "dispatch-context",
+					dispatchId,
+					key: `${dispatchId}/instructions.md`,
+					sourceBranch: anchorBranch,
+					snapshotRef,
+					snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+					entryLocator: `${snapshotRef}:${dispatchId}/instructions.md`,
+				},
 			}),
 		).rejects.toThrow("revision must be a 40-character commit SHA. Code: invalid-input.");
 	});

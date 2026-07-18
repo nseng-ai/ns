@@ -13,7 +13,7 @@ import type { BrmemGateway } from "@nseng-ai/brmem";
 
 import type { DispatchRunInput } from "../dispatch/dispatch-run.ts";
 import type { DispatchBrmemSetupGateway } from "./dispatch-plan/delivery-preflight.ts";
-import type { DispatchPlanSnapshotGateway } from "./dispatch-plan/delivery.ts";
+import type { DispatchSnapshotGateway } from "./instruction-delivery.ts";
 import type { DispatchSavedPlanGateway } from "./dispatch-plan/preparation.ts";
 import type { DispatchSourcePublicationMutationEvidence } from "./lifecycle.ts";
 
@@ -309,15 +309,20 @@ export interface DispatchClientGateways {
 	readonly config: DispatchConfigGateway;
 }
 
-export interface DispatchPromptGateways extends DispatchClientGateways {
+export interface DispatchInstructionGateways extends DispatchClientGateways {
+	readonly brmem: BrmemGateway & DispatchBrmemSetupGateway;
+	readonly snapshots: DispatchSnapshotGateway;
+	readonly generateDispatchId: () => string;
+}
+
+export interface DispatchPromptGateways extends DispatchInstructionGateways {
 	readonly semanticSlugs: DispatchContentSlugGateway;
 	readonly clock: Clock;
 }
 
-/** Additional local delivery effects required only by Saved Plan dispatch. */
-export interface DispatchPlanGateways extends DispatchClientGateways {
+/** Additional local preparation effect required only by Saved Plan dispatch. */
+export interface DispatchPlanGateways extends DispatchInstructionGateways {
 	readonly savedPlans: DispatchSavedPlanGateway;
-	readonly brmem: Pick<BrmemGateway, "createEntry"> & DispatchBrmemSetupGateway;
-	readonly snapshots: DispatchPlanSnapshotGateway;
-	readonly generateDispatchId: () => string;
+	readonly semanticSlugs: DispatchContentSlugGateway;
+	readonly clock: Clock;
 }

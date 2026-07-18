@@ -61,10 +61,9 @@ export const DISPATCH_ID_ATTRIBUTE = "dispatch.id";
 
 export function buildDispatchStartAttributes(input: DispatchRunInput): DispatchWorkflowAttributes {
 	return {
-		"dispatch.kind": "prompt" in input ? "prompt" : "plan",
 		"dispatch.anchor_pr": String(input.anchorPrNumber),
 		"dispatch.phase": "queued",
-		...("dispatchId" in input ? { [DISPATCH_ID_ATTRIBUTE]: input.dispatchId } : {}),
+		[DISPATCH_ID_ATTRIBUTE]: input.dispatchId,
 	};
 }
 

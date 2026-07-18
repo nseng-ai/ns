@@ -131,6 +131,18 @@ describe("createTriggerPostHandler", () => {
 			createWorkflowRunGateway: () => workflowRuns,
 		});
 		const revision = "ABCDEF0123456789abcdef0123456789ABCDEF01";
+		const dispatchId = "dsp_01JABCDEF0123456789";
+		const anchorBranch = "dispatch/widget-refactor-a1b2c3";
+		const snapshotRef = "refs/brmem/ns/dispatch-context/dispatch---widget-refactor-a1b2c3";
+		const instructionLocator = {
+			namespace: "dispatch-context",
+			dispatchId,
+			key: `${dispatchId}/instructions.md`,
+			sourceBranch: anchorBranch,
+			snapshotRef,
+			snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+			entryLocator: `${snapshotRef}:${dispatchId}/instructions.md`,
+		};
 
 		const response = await handler(
 			new Request("https://dispatch.example/api/trigger", {
@@ -142,9 +154,10 @@ describe("createTriggerPostHandler", () => {
 				body: JSON.stringify({
 					workflow: "dispatch",
 					revision,
-					anchorBranch: "dispatch/widget-refactor-a1b2c3",
+					anchorBranch,
 					anchorPrNumber: 421,
-					prompt: "Rename the widget gateway methods.",
+					dispatchId,
+					instructionLocator,
 				}),
 			}),
 		);
@@ -156,9 +169,10 @@ describe("createTriggerPostHandler", () => {
 				workflow: "dispatch",
 				input: {
 					revision,
-					anchorBranch: "dispatch/widget-refactor-a1b2c3",
+					anchorBranch,
 					anchorPrNumber: 421,
-					prompt: "Rename the widget gateway methods.",
+					dispatchId,
+					instructionLocator,
 				},
 			},
 		]);

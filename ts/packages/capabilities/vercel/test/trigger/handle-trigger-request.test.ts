@@ -153,85 +153,46 @@ describe("handleTriggerRequest", () => {
 		]);
 	});
 
-	it("starts the dispatch workflow with the validated run input", async () => {
-		const workflowRuns = new InMemoryWorkflowRunGateway({ nextRunId: "wrun_dispatch" });
+	it.each([
+		["prompt", "wrun_prompt", 421],
+		["plan", "wrun_plan", 422],
+	] as const)(
+		"forwards %s dispatch as the same locator-only input",
+		async (_kind, runId, prNumber) => {
+			const workflowRuns = new InMemoryWorkflowRunGateway({ nextRunId: runId });
+			const dispatchId = "dsp_01JABCDEF0123456789";
+			const anchorBranch = "dispatch/add-cache-a1b2c3";
+			const snapshotRef = "refs/brmem/ns/dispatch-context/dispatch---add-cache-a1b2c3";
+			const instructionLocator = {
+				namespace: "dispatch-context",
+				dispatchId,
+				key: `${dispatchId}/instructions.md`,
+				sourceBranch: anchorBranch,
+				snapshotRef,
+				snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+				entryLocator: `${snapshotRef}:${dispatchId}/instructions.md`,
+			} as const;
+			const input = {
+				revision: probeRevision,
+				anchorBranch,
+				anchorPrNumber: prNumber,
+				dispatchId,
+				instructionLocator,
+			};
 
-		const response = await handleTriggerRequest(
-			{
-				body: {
-					workflow: "dispatch",
-					revision: probeRevision,
-					anchorBranch: "dispatch/widget-refactor-a1b2c3",
-					anchorPrNumber: 421,
-					prompt: "Rename the widget gateway methods.",
-				},
-				oidcToken: "oidc-token",
-			},
-			context({ workflowRuns }),
-		);
+			const response = await handleTriggerRequest(
+				{ body: { workflow: "dispatch", ...input }, oidcToken: "oidc-token" },
+				context({ workflowRuns }),
+			);
 
-		expect(response).toEqual({
-			status: 200,
-			body: { runId: "wrun_dispatch", workflow: "dispatch" },
-		});
-		expect(workflowRuns.startCalls).toEqual([
-			{
-				workflow: "dispatch",
-				input: {
-					revision: probeRevision,
-					anchorBranch: "dispatch/widget-refactor-a1b2c3",
-					anchorPrNumber: 421,
-					prompt: "Rename the widget gateway methods.",
-				},
-			},
-		]);
-	});
-
-	it("forwards a plan dispatch as locator metadata without plan content", async () => {
-		const workflowRuns = new InMemoryWorkflowRunGateway({ nextRunId: "wrun_plan" });
-		const contextLocator = {
-			namespace: "dispatch-context",
-			dispatchId: "dsp_01JABCDEF0123456789",
-			contextPrefix: "dsp_01JABCDEF0123456789/",
-			planKey: "dsp_01JABCDEF0123456789/plan/add-cache.md",
-			sourceBranch: "feature/cache",
-			snapshotRef: "refs/brmem/ns/dispatch-context/feature---cache",
-			snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
-			entryLocator:
-				"refs/brmem/ns/dispatch-context/feature---cache:dsp_01JABCDEF0123456789/plan/add-cache.md",
-		} as const;
-		const body = {
-			workflow: "dispatch",
-			revision: probeRevision,
-			anchorBranch: "dispatch/add-cache-a1b2c3",
-			anchorPrNumber: 422,
-			dispatchId: contextLocator.dispatchId,
-			contextLocator,
-		};
-
-		const response = await handleTriggerRequest(
-			{ body, oidcToken: "oidc-token" },
-			context({ workflowRuns }),
-		);
-
-		expect(response).toEqual({
-			status: 200,
-			body: { runId: "wrun_plan", workflow: "dispatch" },
-		});
-		expect(workflowRuns.startCalls).toEqual([
-			{
-				workflow: "dispatch",
-				input: {
-					revision: probeRevision,
-					anchorBranch: "dispatch/add-cache-a1b2c3",
-					anchorPrNumber: 422,
-					dispatchId: contextLocator.dispatchId,
-					contextLocator,
-				},
-			},
-		]);
-		expect(JSON.stringify(workflowRuns.startCalls)).not.toContain("Implement the cache plan");
-	});
+			expect(response).toEqual({ status: 200, body: { runId, workflow: "dispatch" } });
+			expect(workflowRuns.startCalls).toEqual([{ workflow: "dispatch", input }]);
+			expect(JSON.stringify(workflowRuns.startCalls)).not.toContain("Implement the cache plan");
+			expect(JSON.stringify(workflowRuns.startCalls)).not.toContain(
+				"Rename the widget gateway methods",
+			);
+		},
+	);
 
 	it.each([
 		["unknown workflow", { workflow: "nightly", name: "world" }],

@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	buildDispatchBrmemFetchAllCommand,
+	buildDispatchHarnessInstruction,
+	buildDispatchInstructionCheckCommand,
 	buildDispatchLandingCommand,
-	buildDispatchPlanEntryCheckCommand,
-	buildDispatchPlanHarnessInstruction,
-	buildDispatchPlanSnapshotFetchCommand,
 	DISPATCH_GRACE_SECONDS,
 	DISPATCH_LANDING_TOKEN_ENV_NAME,
 	DISPATCH_POLL_SECONDS,
-	DISPATCH_PROMPT_MAX_CHARS,
 	DISPATCH_RUN_BUDGET_SECONDS,
 	DISPATCH_SANDBOX_TIMEOUT_MARGIN_SECONDS,
 	DISPATCH_SUMMARY_MAX_CHARS,
@@ -34,11 +33,24 @@ import type {
 const revision = "0123456789ABCDEF0123456789abcdef01234567";
 
 function input(overrides: Partial<DispatchRunInput> = {}): DispatchRunInput {
+	const dispatchId = "dsp_01JABCDEF0123456789";
+	const anchorBranch = "dispatch/widget-refactor-a1b2c3";
+	const key = `${dispatchId}/instructions.md`;
+	const snapshotRef = `refs/brmem/ns/dispatch-context/${anchorBranch.replaceAll("/", "---")}`;
 	return {
 		revision,
-		anchorBranch: "dispatch/widget-refactor-a1b2c3",
+		anchorBranch,
 		anchorPrNumber: 421,
-		prompt: "Rename the widget gateway methods.",
+		dispatchId,
+		instructionLocator: {
+			namespace: "dispatch-context",
+			dispatchId,
+			key,
+			sourceBranch: anchorBranch,
+			snapshotRef,
+			snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
+			entryLocator: `${snapshotRef}:${key}`,
+		},
 		...overrides,
 	};
 }
@@ -53,44 +65,14 @@ describe("validateDispatchRunInput", () => {
 		});
 	});
 
-	it("accepts a locator-only plan run while rejecting Dispatch ID drift", () => {
-		const contextLocator = {
-			namespace: "dispatch-context",
-			dispatchId: "dsp_01JABCDEF0123456789",
-			contextPrefix: "dsp_01JABCDEF0123456789/",
-			planKey: "dsp_01JABCDEF0123456789/plan/add-cache.md",
-			sourceBranch: "feature/cache",
-			snapshotRef: "refs/brmem/ns/dispatch-context/feature---cache",
-			snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
-			entryLocator:
-				"refs/brmem/ns/dispatch-context/feature---cache:dsp_01JABCDEF0123456789/plan/add-cache.md",
-		} as const;
-		const planInput = {
-			revision,
-			anchorBranch: "dispatch/add-cache-a1b2c3",
-			anchorPrNumber: 422,
-			dispatchId: contextLocator.dispatchId,
-			contextLocator,
-		} as const;
-
-		expect(validateDispatchRunInput(planInput)).toEqual({
-			ok: true,
-			value: { ...planInput, revision: revision.toLowerCase() },
-		});
-		expect(validateDispatchRunInput({ ...planInput, dispatchId: "dsp_different" })).toEqual({
+	it("accepts locator-only instructions while rejecting Dispatch ID drift", () => {
+		const run = input();
+		expect(validateDispatchRunInput(run).ok).toBe(true);
+		expect(validateDispatchRunInput({ ...run, dispatchId: "dsp_different" })).toEqual({
 			ok: false,
-			message: "dispatchId must match contextLocator.dispatchId.",
+			message: "dispatchId must match instructionLocator.dispatchId.",
 		});
-		expect(
-			validateDispatchRunInput({
-				...planInput,
-				contextLocator: { ...contextLocator, planKey: `${contextLocator.dispatchId}/other.md` },
-			}),
-		).toEqual({
-			ok: false,
-			message: "contextLocator.planKey must be the convention-required Saved Plan member.",
-		});
-		expect(JSON.stringify(planInput)).not.toContain("Implement the cache plan");
+		expect(JSON.stringify(run)).not.toContain("Rename the widget gateway methods");
 	});
 
 	it.each([
@@ -100,8 +82,6 @@ describe("validateDispatchRunInput", () => {
 		["zero PR number", { anchorPrNumber: 0 }],
 		["negative PR number", { anchorPrNumber: -1 }],
 		["fractional PR number", { anchorPrNumber: 4.2 }],
-		["empty prompt", { prompt: "" }],
-		["oversized prompt", { prompt: "x".repeat(DISPATCH_PROMPT_MAX_CHARS + 1) }],
 	])("rejects a run input with a %s", (_label, overrides) => {
 		const result = validateDispatchRunInput(input(overrides));
 
@@ -202,64 +182,45 @@ describe("parseDispatchHarnessResult", () => {
 	});
 });
 
-describe("Saved Plan sandbox commands", () => {
+describe("Branch Memory instruction sandbox commands", () => {
 	const locator = {
 		namespace: "dispatch-context",
 		dispatchId: "dsp_01JABCDEF0123456789",
-		contextPrefix: "dsp_01JABCDEF0123456789/",
-		planKey: "dsp_01JABCDEF0123456789/plan/add-cache.md",
-		sourceBranch: "feature/cache",
-		snapshotRef: "refs/brmem/ns/dispatch-context/feature---cache",
+		key: "dsp_01JABCDEF0123456789/instructions.md",
+		sourceBranch: "dispatch/add-cache-a1b2c3",
+		snapshotRef: "refs/brmem/ns/dispatch-context/dispatch---add-cache-a1b2c3",
 		snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
 		entryLocator:
-			"refs/brmem/ns/dispatch-context/feature---cache:dsp_01JABCDEF0123456789/plan/add-cache.md",
+			"refs/brmem/ns/dispatch-context/dispatch---add-cache-a1b2c3:dsp_01JABCDEF0123456789/instructions.md",
 	} as const;
 
-	it("fetches the exact Snapshot Ref and verifies its commit", () => {
-		const command = buildDispatchPlanSnapshotFetchCommand(locator);
+	it("fetches all Branch Memory refs and verifies the pinned instruction commit", () => {
+		const command = buildDispatchBrmemFetchAllCommand(locator);
 
 		expect(command.cmd).toBe("sh");
 		expect(command.args).toContain(locator.snapshotRef);
 		expect(command.args).toContain(locator.snapshotCommitSha);
-		expect(command.args.join(" ")).toContain("git fetch --no-tags");
+		expect(command.args.join(" ")).toContain("+refs/brmem/*:refs/brmem/*");
 		expect(command.args.join(" ")).toContain("git rev-parse");
 	});
 
-	it("checks the convention-required plan member at the exact commit", () => {
-		const command = buildDispatchPlanEntryCheckCommand(locator);
+	it("checks the conventional instruction Entry at the exact commit", () => {
+		const command = buildDispatchInstructionCheckCommand(locator);
 
-		expect(command).toEqual({
-			cmd: "pnpm",
-			args: [
-				"--dir",
-				"ts",
-				"exec",
-				"brmem",
-				"check",
-				locator.planKey,
-				"--namespace",
-				locator.namespace,
-				"--branch",
-				locator.sourceBranch,
-				"--at",
-				locator.snapshotCommitSha,
-				"--require",
-			],
-		});
-		expect(command.args).toContain(locator.planKey);
+		expect(command.args).toContain(locator.key);
 		expect(command.args).toContain(locator.namespace);
 		expect(command.args).toContain(locator.sourceBranch);
 		expect(command.args).toContain(locator.snapshotCommitSha);
 		expect(command.args.join(" ")).toContain("brmem check");
 	});
 
-	it("makes brmem get the harness's first action and tells it to execute the result", () => {
-		const instruction = buildDispatchPlanHarnessInstruction(locator);
+	it("makes pinned brmem get the harness's first action and follows its result", () => {
+		const instruction = buildDispatchHarnessInstruction(locator);
 
 		expect(instruction).toMatch(/^Your first agent action must be to run this command exactly:/);
-		expect(instruction).toContain(`brmem get ${locator.planKey}`);
+		expect(instruction).toContain(`brmem get ${locator.key}`);
 		expect(instruction).toContain(`--at ${locator.snapshotCommitSha}`);
-		expect(instruction).toContain("execute that plan");
+		expect(instruction).toContain("Follow all instructions returned by that command.");
 	});
 });
 

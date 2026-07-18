@@ -64,32 +64,31 @@ describe("buildAnchorPrTitle", () => {
 describe("buildPlanAnchorPrBody", () => {
 	test("marks a complete locator provenance section without embedding plan content", () => {
 		const dispatchId = "dsp_01JABCDEF0123456789";
-		const snapshotRef = "refs/brmem/ns/dispatch-context/feature---cache";
-		const planKey = `${dispatchId}/plan/add-cache.md`;
+		const snapshotRef = "refs/brmem/ns/dispatch-context/dispatch---add-cache-a1b2c3";
+		const instructionKey = `${dispatchId}/instructions.md`;
 		const body = buildPlanAnchorPrBody({
 			planRef: "/state/plans/add-cache.md",
 			revision: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
 			locator: {
 				namespace: "dispatch-context",
 				dispatchId,
-				contextPrefix: `${dispatchId}/`,
-				planKey,
-				sourceBranch: "feature/cache",
+				key: instructionKey,
+				sourceBranch: "dispatch/add-cache-a1b2c3",
 				snapshotRef,
 				snapshotCommitSha: "1111111111111111111111111111111111111111",
-				entryLocator: `${snapshotRef}:${planKey}`,
+				entryLocator: `${snapshotRef}:${instructionKey}`,
 			},
 		});
 
 		expect(body).toContain("<!-- ns:dispatch-provenance:start -->");
 		expect(body).toContain(`**Dispatch ID:** \`${dispatchId}\``);
-		expect(body).toContain(`**Plan Entry:** \`${snapshotRef}:${planKey}\``);
+		expect(body).toContain(`**Instruction Entry:** \`${snapshotRef}:${instructionKey}\``);
 		expect(body).toContain("<!-- ns:dispatch-provenance:end -->");
 	});
 });
 
 describe("buildAnchorPrBody", () => {
-	test("carries the source branch, revision, and fenced prompt", () => {
+	test("carries source provenance and only a compact prompt excerpt", () => {
 		const body = buildAnchorPrBody({
 			prompt: "Do the thing.",
 			revision: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
@@ -97,16 +96,18 @@ describe("buildAnchorPrBody", () => {
 		});
 		expect(body).toContain("`feature/widgets`");
 		expect(body).toContain("`a1b2c3d4e5f60718293a4b5c6d7e8f9012345678`");
-		expect(body).toContain("```text\nDo the thing.\n```");
+		expect(body).toContain("**Prompt excerpt:** Do the thing.");
+		expect(body).not.toContain("```text\nDo the thing.\n```");
 		expect(body).toContain("stamped on this description at");
 	});
 
-	test("widens the fence when the prompt contains one", () => {
+	test("does not duplicate a multiline prompt containing a fence", () => {
 		const body = buildAnchorPrBody({
 			prompt: "```js\ncode\n```",
 			revision: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
 			sourceBranch: "main",
 		});
-		expect(body).toContain("````text\n```js\ncode\n```\n````");
+		expect(body).toContain("**Prompt excerpt:** ```js code ```");
+		expect(body).not.toContain("```js\ncode\n```");
 	});
 });

@@ -11,45 +11,30 @@ import { writeDispatchWorkflowAttributes } from "../../workflows/dispatch-attrib
 import { writeDispatchWorkflowEvent } from "../../workflows/dispatch-event-writer.ts";
 
 describe("dispatch workflow attributes", () => {
-	it("builds the exact prompt initial attribute map without inventing a Dispatch ID", () => {
+	it("seeds the exact Dispatch ID without a work-kind discriminator", () => {
+		const dispatchId = "dsp_01JABCDEF0123456789";
+		const anchorBranch = "dispatch/add-cache";
+		const snapshotRef = "refs/brmem/ns/dispatch-context/dispatch---add-cache";
 		expect(
 			buildDispatchStartAttributes({
 				revision: "0123456789abcdef0123456789abcdef01234567",
-				anchorBranch: "dispatch/widget",
-				anchorPrNumber: 421,
-				prompt: "Rename the widget gateway methods.",
-			}),
-		).toEqual({
-			"dispatch.kind": "prompt",
-			"dispatch.anchor_pr": "421",
-			"dispatch.phase": "queued",
-		});
-	});
-
-	it("seeds the exact Dispatch ID attribute for a Saved Plan run", () => {
-		expect(
-			buildDispatchStartAttributes({
-				revision: "0123456789abcdef0123456789abcdef01234567",
-				anchorBranch: "dispatch/add-cache",
+				anchorBranch,
 				anchorPrNumber: 422,
-				dispatchId: "dsp_01JABCDEF0123456789",
-				contextLocator: {
+				dispatchId,
+				instructionLocator: {
 					namespace: "dispatch-context",
-					dispatchId: "dsp_01JABCDEF0123456789",
-					contextPrefix: "dsp_01JABCDEF0123456789/",
-					planKey: "dsp_01JABCDEF0123456789/plan/add-cache.md",
-					sourceBranch: "feature/cache",
-					snapshotRef: "refs/brmem/ns/dispatch-context/feature---cache",
+					dispatchId,
+					key: `${dispatchId}/instructions.md`,
+					sourceBranch: anchorBranch,
+					snapshotRef,
 					snapshotCommitSha: "abcdef0123456789abcdef0123456789abcdef01",
-					entryLocator:
-						"refs/brmem/ns/dispatch-context/feature---cache:dsp_01JABCDEF0123456789/plan/add-cache.md",
+					entryLocator: `${snapshotRef}:${dispatchId}/instructions.md`,
 				},
 			}),
 		).toEqual({
-			"dispatch.kind": "plan",
 			"dispatch.anchor_pr": "422",
 			"dispatch.phase": "queued",
-			"dispatch.id": "dsp_01JABCDEF0123456789",
+			"dispatch.id": dispatchId,
 		});
 	});
 

@@ -1,9 +1,4 @@
-import { buildEntryLocator, buildSnapshotRef, validateEntryKey } from "@nseng-ai/brmem";
 import type { SavedPlanFileEvidence } from "@nseng-ai/plans/api";
-
-import { DISPATCH_CONTEXT_NAMESPACE } from "../../dispatch/dispatch-context.ts";
-
-export { DISPATCH_CONTEXT_NAMESPACE } from "../../dispatch/dispatch-context.ts";
 
 export type ResolvedDispatchSavedPlan = Readonly<
 	Pick<SavedPlanFileEvidence, "filePath" | "slug" | "sourceBranch">
@@ -30,30 +25,15 @@ export interface DispatchPlanPreparationContext {
 	readonly generateDispatchId: () => string;
 }
 
-export interface DispatchPlanEntryPreparation {
-	readonly namespace: typeof DISPATCH_CONTEXT_NAMESPACE;
-	readonly key: string;
-	readonly sourceBranch: string;
-	readonly snapshotRef: string;
-	readonly entryLocator: string;
-	readonly content: string;
-}
-
 export type DispatchPlanPreparationOutcome =
 	| {
 			readonly status: "ready";
 			readonly dispatchId: string;
 			readonly plan: ResolvedDispatchSavedPlan;
-			readonly entry: DispatchPlanEntryPreparation;
 	  }
 	| {
 			readonly status: "plan-resolution-failed";
 			readonly reason: Exclude<DispatchSavedPlanResolution["type"], "resolved">;
-			readonly message: string;
-	  }
-	| {
-			readonly status: "invalid-dispatch-context";
-			readonly dispatchId: string;
 			readonly message: string;
 	  };
 
@@ -69,42 +49,9 @@ export async function prepareDispatchPlan(
 			message: resolution.message,
 		};
 	}
-
-	const dispatchId = context.generateDispatchId();
-	const key = `${dispatchId}/plan/${resolution.plan.slug}.md`;
-	const keyValidation = validateEntryKey(key);
-	if (keyValidation.type === "invalid") {
-		return invalidContext(dispatchId, `Invalid dispatch plan Entry Key: ${keyValidation.reason}`);
-	}
-
-	const snapshotRef = buildSnapshotRef(DISPATCH_CONTEXT_NAMESPACE, resolution.plan.sourceBranch);
-	if (snapshotRef.type === "error") {
-		return invalidContext(dispatchId, snapshotRef.error.message);
-	}
-	const entryLocator = buildEntryLocator(
-		DISPATCH_CONTEXT_NAMESPACE,
-		key,
-		resolution.plan.sourceBranch,
-	);
-	if (entryLocator.type === "error") {
-		return invalidContext(dispatchId, entryLocator.error.message);
-	}
-
 	return {
 		status: "ready",
-		dispatchId,
+		dispatchId: context.generateDispatchId(),
 		plan: resolution.plan,
-		entry: {
-			namespace: DISPATCH_CONTEXT_NAMESPACE,
-			key,
-			sourceBranch: resolution.plan.sourceBranch,
-			snapshotRef: snapshotRef.value,
-			entryLocator: entryLocator.value,
-			content: resolution.plan.content,
-		},
 	};
-}
-
-function invalidContext(dispatchId: string, message: string): DispatchPlanPreparationOutcome {
-	return { status: "invalid-dispatch-context", dispatchId, message };
 }

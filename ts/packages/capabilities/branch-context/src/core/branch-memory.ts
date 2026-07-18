@@ -36,6 +36,10 @@ export type BrmemAttachmentPresenceResult =
 	| { type: "absent" }
 	| { type: "error"; error: BrmemErrorInfo };
 
+export type BranchContextPlanInspection =
+	| { type: "absent" }
+	| { type: "present"; content: string; commit: string; entryLocator: string };
+
 export function throwBranchContextBrmemError(error: BrmemErrorInfo): never {
 	throw new Error(error.message);
 }
@@ -57,6 +61,62 @@ export async function checkBranchContextEntryPresence(
 	if (check.type === "found") return { type: "present" };
 	if (check.type === "missing") return { type: "absent" };
 	return { type: "error", error: check.error };
+}
+
+export async function inspectBranchContextPlan(
+	brmem: BrmemGateway,
+	params: { branch: string; key: string },
+): Promise<BranchContextPlanInspection> {
+	const check = await brmem.checkEntry({
+		namespace: BRANCH_CONTEXT_NAMESPACE,
+		branch: params.branch,
+		key: params.key,
+	});
+	if (check.type === "missing") return { type: "absent" };
+	if (check.type === "error") throwBranchContextBrmemError(check.error);
+
+	const get = await brmem.getEntry({
+		namespace: BRANCH_CONTEXT_NAMESPACE,
+		branch: params.branch,
+		key: params.key,
+		at: check.value.headSha,
+	});
+	if (get.type === "error") throwBranchContextBrmemError(get.error);
+	if (get.type === "missing") {
+		throw new Error(
+			`Branch-context Entry ${JSON.stringify(params.key)} disappeared at inspected commit ${check.value.headSha}.`,
+		);
+	}
+	return {
+		type: "present",
+		content: get.value.content,
+		commit: check.value.headSha,
+		entryLocator: mustEntryLocator(BRANCH_CONTEXT_NAMESPACE, params.key, params.branch),
+	};
+}
+
+export async function createBranchContextPlan(
+	brmem: BrmemGateway,
+	params: { branch: string; key: string; content: string; sourceFile: string },
+): Promise<BranchContextBrmemResult<BranchContextAttachData>> {
+	const create = await brmem.createEntry({
+		namespace: BRANCH_CONTEXT_NAMESPACE,
+		branch: params.branch,
+		key: params.key,
+		content: params.content,
+	});
+	if (create.type === "error") return { ok: false, error: create.error };
+	return {
+		ok: true,
+		value: {
+			namespace: BRANCH_CONTEXT_NAMESPACE,
+			key: params.key,
+			branch: params.branch,
+			refName: create.value.entry.entryLocator,
+			commit: create.value.commitSha,
+			sourceFile: params.sourceFile,
+		},
+	};
 }
 
 export async function attachBranchContextPlan(

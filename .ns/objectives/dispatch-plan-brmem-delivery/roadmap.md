@@ -2,28 +2,84 @@
 
 ## Work
 
-- [x] Settle `references/README-draft.md` through the readme-driven-development loop around the decided Dispatch ID context-envelope convention and progressive-disclosure output.
-  - Policy: local-only autorun may execute this row directly; stop only if implementation evidence requires changing the settled input, context-envelope, identity, or output contract.
-  - Evidence: the README reads as coherent Pi-first product documentation, explains Dispatch ID correlation without exposing transport noise, and contains no hidden implementation task state.
-- [x] Implement local Saved Plan preparation and Branch Memory delivery: explicit plan resolution, Dispatch ID generation, convention-based context creation at `<dispatch-id>/plan/<plan-slug>.md`, setup preflight/refusal, exact Snapshot Ref publication planning, remote verification, typed envelope locator, and safe partial-failure outcomes.
-  - Policy: local-only autorun may implement orchestration and fake-driven adapters/tests; it must not run `brmem put`, configure synchronization, or push any ref.
-  - Evidence: local stacked commits add curated Saved Plan resolution, injected Dispatch ID preparation, `dispatch-context` key and Snapshot Ref validation, read-only synchronization preflight with `brmem setup-git` guidance, non-overwriting Entry creation orchestration, exact-ref publication and remote-tip verification gateways, and typed partial-failure outcomes that retain durable-artifact evidence. Targeted fake-driven tests and repository TypeScript validation pass; no live Branch Memory or remote mutation was run.
-- [~] Extend the dispatch workflow and sandbox supervision to accept the typed context-envelope locator, seed `dispatch.id` at workflow start, fetch the exact Snapshot Ref, verify the convention-required plan member under the Dispatch ID prefix, and instruct the harness to run `brmem get` first and execute the plan.
-  - Policy: local-only autorun may change code, tests, and deployable artifacts; deployment, Workflow Analytics queries, and cloud triggering remain outside the run.
-  - Evidence: local stacked commits thread a locator-only plan variant through the existing trigger and Workflow start contracts, seed the exact `dispatch.id` attribute, preserve prompt compatibility, fetch and verify the exact Snapshot Ref before harness launch, run deterministic `brmem check` for the required plan member, and generate a `brmem get`-first execution instruction. Fake-driven dispatch and trigger tests plus repository TypeScript validation pass, and payload tests prove plan content is absent. Recovery lookup is locally implemented: an explicit Workflow Analytics gateway lists runs by the exact `dispatch.id` attribute, requests at most two matches, and a typed recovery core reports found/not-found/ambiguous, unavailable analytics, and read failures explicitly without guessing; live Analytics behavior remains unproven. Remaining: a successful `build:deployable`; it is currently blocked because this worktree has no local Vercel Project Settings, and external `vercel pull`/credential use is forbidden in local autorun.
-- [x] Ship `ns dispatch plan <plan-ref>` and Pi/portable wrapper coverage over the shared dispatch spine, with plan-specific anchor content, progressive-disclosure human output, full machine provenance, help, and failure recovery.
-  - Policy: local-only autorun may execute command and wrapper work; no source/anchor push, PR mutation, workflow trigger, or publication.
-  - Evidence: local stacked commits add the explicit-only kernel command over the shared source/preflight/anchor/trigger/stamp spine, locator-only Workflow input, Dispatch ID generation and propagation, marked anchor-PR provenance, compact human links, full machine locator output, Pi latest-current-session selection sugar, and an invoke-only portable wrapper. Fake-driven scenarios cover help/runtime parity, missing plans, setup refusal, publication and remote-mismatch partial failures, workflow-start recovery, and prompt compatibility; full repository TypeScript, style, dependency, dprint, and skill checks pass. No real dispatch effect or external mutation was run.
-- [ ] Prove one real Branch Memory-delivered Saved Plan dispatch end to end and fold only witnessed facts into the README and Objective tracking.
-  - Policy: excluded from local-only autorun. The loop stops and reports this row as the remaining human-run interlude; a separately authorized session owns every deployment, Branch Memory write, ref push, anchor-PR action, workflow trigger, and live fact fold.
-  - Evidence: exact remote Snapshot Ref, supervisor precheck, harness `brmem get`, plan execution, agent-created commit, and normal anchor-PR landing are witnessed; existing long-supervision evidence is linked.
-- [~] Merge the settled contract into `ts/packages/capabilities/vercel/README.md`, repoint this Objective's canonical reference, and provide focused completion evidence back to `cloud-execution`.
-  - Policy: local-only autorun may execute documentation and selected-Objective tracking edits after the implementation rows are locally complete; coordinate rather than overwrite concurrent broader README work. Any tracking mutation of `cloud-execution` remains outside this Objective's runner step and must use its own update workflow.
-  - Evidence: no canonical contract remains only under this Objective's `references/` directory. Local stacked commits create the durable `ts/packages/capabilities/vercel/README.md` with the settled Saved Plan dispatch contract under a package framing that explicitly defers the broader cloud-dispatch contract to `cloud-execution`'s canonical draft rather than absorbing it; the section's status prose distinguishes locally implemented behavior from the unproven live path and the blocked `build:deployable` rebuild. `references/README-draft.md` is now a pointer stub and `objective.md` names the durable README as canonical. Remaining: focused completion evidence back to `cloud-execution` after the live-proof interlude, via that Objective's own update workflow.
+- [x] Settle the initial Saved Plan delivery contract and progressive-disclosure
+      output through README-driven development.
+  - Historical evidence: this established explicit Saved Plan resolution,
+    Dispatch ID correlation, non-overwriting git-native delivery, exact Snapshot
+    provenance, and compact human/full machine output. Its original
+    `<dispatch-id>/plan/<plan-slug>.md` layout is superseded below; the witnessed
+    and local evidence for independent boundaries remains historical fact.
+
+- [x] Implement and validate the original local plan-copy path.
+  - Historical evidence: local stacked work covered plan resolution, Branch
+    Memory setup refusal, non-overwriting Entry creation, exact ref publication
+    and verification, locator-only plan payloads, Dispatch ID Workflow
+    attributes and fake Analytics recovery, sandbox precheck, command/wrapper
+    parity, and partial-failure evidence. Targeted fake-driven and repository
+    TypeScript checks passed. No live Branch Memory or cloud mutation occurred.
+  - Superseded contract: copying the Saved Plan to
+    `dispatch-context/<dispatch-id>/plan/<plan-slug>.md` is no longer current
+    behavior and must not be reintroduced.
+
+- [x] Redesign prompt and plan dispatch around one generic instruction contract.
+  - Contract: every dispatch creates anchor-scoped
+    `dispatch-context/<dispatch-id>/instructions.md`; prompt content is exact
+    instruction content, while plan instructions identify a normal
+    anchor-scoped Branch Context Attached Plan and pin its commit. Workflow
+    input carries only the instruction locator and Dispatch ID, with no raw work
+    content or work-kind discriminator. Sandbox setup fetches all
+    `refs/brmem/*`, verifies the pinned instruction Snapshot and Entry, and uses
+    one `brmem get`-first bootstrap.
+  - Rationale: Branch Context remains the owner and normal location of Attached
+    Plans; the remote interface becomes generic without exposing an arbitrary
+    Entry command.
+
+- [~] Implement the redesigned generic path locally across Branch Context,
+  prompt/plan orchestration, trigger/Workflow, sandbox setup, command output,
+  and documentation.
+  - Evidence: dirty local production and test changes implement curated Attached
+    Plan ensure/reuse/conflict behavior; generic anchor-scoped instruction
+    preparation and publication; shared anchor-to-run orchestration;
+    locator-only trigger/Workflow contracts; fetch-all setup and exact
+    instruction checks; pinned plan instructions; and compact PR provenance.
+    Existing package tests and TypeScript gates were reported green before this
+    documentation slice. The canonical package README and cloud draft now
+    describe the redesigned contract.
+  - Status boundary: locally implemented, not deployed or live-proven. This row
+    remains partial until deployable build evidence exists. `build:deployable`
+    is currently blocked because the implementing worktree has no local Vercel
+    Project Settings; do not run `vercel pull` as a substitute in local-only
+    work.
+
+- [ ] Build and deploy the redesigned trigger/Workflow artifacts in a separately
+      authorized operator session.
+  - Gate: provide/link local Vercel Project Settings, pass `build:deployable`,
+    deploy through the canonical production command, and verify deployment/alias
+    identity. Record exact non-secret deployment evidence without inferring a
+    successful run.
+  - Policy: excluded from local-only Objective execution.
+
+- [ ] Prove the generic prompt and Saved Plan paths live.
+  - Prompt evidence: exact anchor-scoped instruction retrieval, first-call Bash,
+    subagent spawn, agent-created commit, and normal landing.
+  - Plan evidence: instruction retrieval at its pinned commit, Attached Plan
+    retrieval at the separately pinned commit, plan execution, agent-created
+    commit, and normal anchor landing.
+  - Policy: every deployment, Branch Memory write/ref push, anchor mutation, and
+    Workflow trigger requires separate authorization. Fold only witnessed facts
+    into README and Objective tracking.
+
+- [ ] Return focused completion evidence to `cloud-execution` through that
+      Objective's own tracking workflow after live proof.
+  - Evidence must distinguish historical raw-prompt proof from the new generic
+    locator-only prompt/plan proof and must not overwrite broader cloud roadmap
+    history.
 
 ## Parked
 
-- Accepting Branch Context Attached Plans or raw Branch Memory locators as dispatch input.
-- Automatic or explicit cleanup tooling for retained `dispatch-context` Entries.
-- Warm sandbox or snapshot optimization for Branch Memory-enabled dispatches.
-- Any non-Vercel backend or alternate result-delivery path.
+- A public `ns dispatch brmem` or other arbitrary Entry command.
+- Automatic cleanup of retained `dispatch-context` instructions or
+  `branch-context` attachments.
+- A bounded context manifest/list unless fetch-all scale evidence requires one.
+- Warm Sandbox optimization, alternate backends, handoff dispatch, jobs UI,
+  scheduled work, and additional harnesses.

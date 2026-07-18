@@ -1,216 +1,173 @@
 # @nseng-ai/vercel
 
-Vercel-native cloud dispatch for ns. This package is the dispatch deployable —
-the Vercel project's Root Directory — and the home of the `ns dispatch`
-command family. A dispatch runs as a **Vercel Workflow** that durably
-supervises an isolated **Vercel Sandbox** with a fresh checkout of your
-repository; the agent's results land through git on an anchor pull request
-that opens the moment you dispatch. Your session never blocks.
+Vercel-native cloud dispatch for ns. This package is both the Vercel deployable
+and the home of the `ns dispatch` command family. Every dispatch starts a
+**Vercel Workflow** that supervises an isolated **Vercel Sandbox** over an exact
+repository revision. Results land through git on an anchor pull request opened
+before the run starts.
 
-The broader cloud-dispatch contract — `ns dispatch prompt`, one-time project
-setup and credentials, the anchor-PR lifecycle, and scheduled work — is being
-settled README-first by the `cloud-execution` objective. Its canonical draft
-lives at `.ns/objectives/cloud-execution/references/README-draft.md` and
-merges into this README as that objective completes; nothing below replaces
-or overrides it. This README currently documents the **Saved Plan dispatch**
-contract, which is settled and locally implemented.
+The broader product contract is developed README-first in
+`.ns/objectives/cloud-execution/references/README-draft.md`. This README records
+the package's current prompt and Saved Plan dispatch contract.
 
-## Dispatch a Saved Plan
+> [!WARNING]
+> **This is prototype-quality code.** We are deliberately racing toward an
+> end-to-end prototype as quickly as possible so we can validate the complete
+> dispatch path with real usage. Expect rapid changes, rough edges, incomplete
+> hardening, and breaking internal contracts. Do not treat this package as
+> production-ready or as evidence that its reliability, security, operational,
+> or compatibility boundaries are settled.
 
-`ns vercel` has the ability to dispatch long-running work remotely. Long-running
-autonomous sessions are what make this useful.
+> **Status: locally implemented, not deployed or live-proven in this form.**
+> Prompt and plan use the same generic Branch Memory instruction delivery,
+> locator-only workflow input, sandbox precheck, and harness bootstrap in local
+> code with fake-driven coverage. The deployed dispatch service predates this
+> wire contract. A new `build:deployable`, deployment, and controlled prompt and
+> plan runs are still required. `build:deployable` is currently blocked in the
+> implementing worktree because local Vercel Project Settings are absent. The
+> earlier raw-prompt steel thread remains useful historical evidence, but it
+> does not prove this redesigned path.
 
-Many harnesses directly support the creation of plans or have a norm of doing
-so, and those plans are often the basis of long-running sessions. This system
-stacks on that norm, and allows the user to create plans interactively and
-then dispatch them for autonomous execution.
+## Dispatch work
 
-```
-/ns:dispatch:plan
-```
-
-A remote agent gets your repository at the exact commit you're sitting on,
-retrieves the exact plan you saved, and executes it. The results — commits
-and a decision log — land on a pull request that opens the moment you
-dispatch. Your session never blocks.
-
-> **Status: locally implemented, not yet live-proven.** The
-> `ns dispatch plan` kernel command, the `/ns:dispatch:plan` Pi command, the
-> portable `dispatch-plan` skill, Branch Memory delivery, the locator-only
-> workflow input, the sandbox plan precheck, and Dispatch ID recovery lookup
-> are implemented and covered by fake-driven tests. No real Saved Plan
-> dispatch has been witnessed end to end, and the deployed dispatch
-> deployable predates the plan path: a `build:deployable` rebuild and
-> deployment are still required, and that rebuild is currently blocked in the
-> implementing worktree because it has no local Vercel Project Settings.
-> Until the live proof exists, everything below describes the implemented
-> local contract, not witnessed cloud behavior.
-
-### One-time setup
-
-Dispatch delivers the plan through Branch Memory, so the clone needs Branch
-Memory synchronization configured once:
+Dispatch a prompt from any shell:
 
 ```sh
-brmem setup-git
+ns dispatch prompt "Rename the widget gateway methods"
 ```
 
-Dispatch checks this before doing anything. It never silently edits your
-Git configuration — if setup is missing, it stops before any cloud work
-starts and prints exactly this command.
-
-### Pi walkthrough
-
-#### 1. Plan in your session
-
-Work through a plan the way you normally do — for example, stress-test it
-with `/ns:plan:grill-and-save`, or write it up and run `/ns:plan:save`.
-Either way you end with a **Saved Plan**: a self-contained Markdown plan
-file in the local plan store, written for a completely fresh implementing
-session. That "fresh session" is about to be a cloud one.
-
-#### 2. Dispatch
-
-```
-/ns:dispatch:plan
-```
-
-With no argument, the Pi command selects the most recent Saved Plan from
-your current session — the one you just finished. Pass an explicit plan
-reference to select a different one.
-
-The standard per-dispatch prerequisites shared with `ns dispatch prompt`
-apply: a clean worktree and a branch head the remote can see. If your tree
-is dirty, dispatch refuses and lists the files; if your branch isn't
-pushed, dispatch pushes it first so the remote agent sees exactly what you
-see.
-
-Latest-plan selection is Pi session sugar. The underlying command
-always takes an explicit Saved Plan reference, and works from any shell:
+Dispatch an explicit Saved Plan:
 
 ```sh
 ns dispatch plan ~/.local/state/ns/enriched-plan/nseng-ai--ns/main/add-cache.md
 ```
 
-#### 3. Keep working, then review
+Pi also exposes `/ns:dispatch:plan`; with no argument it selects the current
+session's most recent Saved Plan. That selection is Pi sugar—the kernel command
+always receives an explicit plan reference.
 
-The run executes remotely under workflow supervision. When it finishes, the
-agent's commits land on the anchor PR alongside its decision log — every
-judgment call it made where it would normally have asked you. Review it
-like any other PR: check out the branch, continue it, stack on it, or
-discard it.
+Both commands require a clean worktree and an exact branch head that the remote
+can fetch. Source publication follows the shared Graphite-aware dispatch policy,
+then dispatch creates a `dispatch/...` anchor branch and opens its PR. The anchor
+is the remote implementation branch and remains the durable success or failure
+record.
 
-### What the remote agent does
+## One generic instruction contract
 
-The remote agent receives your repository at the exact dispatched commit
-and a locator for the dispatch's context envelope — not a paraphrase of
-the plan. Its first action is `brmem get` for the plan member in that
-envelope; its task is to execute the retrieved plan.
+Prompt and plan differ only while preparing local intent. The workflow receives
+neither a raw prompt nor a plan body, and receives no `prompt`/`plan` work-kind
+discriminator. It receives a Dispatch ID and a pinned locator for one required
+Branch Memory Entry:
 
-Precision is the contract:
+```text
+Namespace: dispatch-context
+Branch:    <dispatch-anchor-branch>
+Key:       <dispatch-id>/instructions.md
+```
 
-- It executes **the plan you dispatched** — it does not pick a different
-  plan, fall back to "the latest one," or infer work from the branch.
-- Before the agent even launches, the workflow supervisor fetches and
-  checks that the exact plan entry is readable in the sandbox. If it
-  isn't, the run fails deterministically and reports on the anchor PR —
-  the agent is never asked to improvise around missing input.
-- Like every dispatch, the run is strictly non-interactive: where the
-  agent would ask you, it makes the call and records it in the decision
-  log.
+For `ns dispatch prompt`, `instructions.md` contains the exact prompt.
 
-### Under the hood: Branch Memory delivery
+For `ns dispatch plan`, dispatch first resolves the Saved Plan and ensures it is
+a normal **Attached Plan** on the anchor branch:
 
-The Saved Plan is what you select; Branch Memory is how it travels. Before
-starting the cloud workflow, dispatch:
+```text
+Namespace: branch-context
+Branch:    <dispatch-anchor-branch>
+Key:       <plan-slug>.md
+```
 
-1. resolves your explicit Saved Plan and creates a **Dispatch ID** for the
-   dispatch;
-2. stores a dispatch-owned copy in the Branch Memory namespace
-   `dispatch-context`, under `<dispatch-id>/plan/<plan-slug>.md`;
-3. publishes that snapshot to the remote and verifies the exact ref is
-   reachable; and
-4. hands the workflow a typed locator for the Dispatch ID context — never
-   the plan body.
+An absent attachment is created, a byte-identical attachment is reused, and a
+same-key attachment with different content is refused without overwrite. The
+generic instruction Entry does not copy the plan; it directs the agent to load
+and implement that Attached Plan and includes its exact pinned commit and Entry
+Locator. Thus neither “latest plan” selection nor a mutable attachment can
+change what the run executes.
 
-The Dispatch ID is the correlation key across the dispatch. It appears in
-the anchor branch, normal command output, anchor-PR provenance, and as the
-`dispatch.id` attribute on the Vercel Workflow run. Vercel still
-assigns its own `wrun_...` ID; if that ID needs to be recovered, dispatch
-can find the run by its Dispatch ID attribute and refuses to guess if the
-lookup returns zero or multiple runs. (The recovery lookup is implemented
-locally against a typed Workflow Analytics gateway; live Analytics behavior
-is part of the pending end-to-end proof.)
+Both Entries are anchor-scoped. Branch Context owns Attached Plan key,
+Namespace, and collision policy; the Vercel capability consumes its curated API
+rather than reproducing those invariants.
 
-The context envelope is intentionally a Branch Memory key convention in
-this version, not a manifest. A plan lives under the `plan/` path; future
-typed context can use sibling paths under the same Dispatch ID. The
-supervisor checks the expected plan member before launch, and the agent is
-instructed how to read it.
+## Sandbox bootstrap
 
-The plan content never rides in an HTTP request or workflow payload. It
-moves the same way everything else in ns moves: through git. That makes the
-dispatched input inspectable (`brmem get` shows exactly what the agent
-received), reproducible, and durable — the delivery entry is retained after
-the run as input evidence.
+Branch Memory synchronization must be configured once:
 
-The context entries are dispatch-owned plumbing: they are not an Attached
-Plan and do not touch the `branch-context` namespace your own branch
-planning uses.
+```sh
+brmem setup-git
+```
 
-### What you see
+Dispatch checks this before anchor mutation and prints the command when setup is
+missing; it never silently changes Git configuration.
 
-Pi and human-readable CLI output keep provenance compact: the Dispatch ID and
-clickable links to the anchor PR and Vercel Workflow run. The anchor PR
-includes the same Dispatch ID in a marked provenance section.
+During sandbox setup, the workflow uses the ephemeral clone credential to fetch
+all `refs/brmem/*` refs. It then verifies the exact pinned instruction Snapshot
+commit and requires `<dispatch-id>/instructions.md` at that commit before the
+agent launches. Every harness receives the same bootstrap direction: run the
+exact `brmem get` for that pinned instruction Entry first, then follow all
+returned instructions. The workflow does not inspect arbitrary sibling context
+or interpret whether the instruction originated as a prompt or plan.
 
-Machine output and the marked PR provenance retain the full recovery
-record: Dispatch ID, Vercel run ID, Branch Memory namespace, context prefix,
-source branch, exact Snapshot Ref, and links. You get the details when you
-need them without turning the normal dispatch flow into transport output.
+Fetching all Branch Memory refs makes instruction-referenced context available
+without leaving a standing Git credential in the sandbox. The agent works
+without clone or push credentials; the supervisor injects a freshly minted
+landing credential only into the final landing command.
 
-### If something goes wrong
+## Provenance and output
 
-- **Setup preflight fails** — run the printed `brmem setup-git` command and
-  dispatch again.
-- **Remote verification fails** — the command reports the snapshot ref and
-  the Git error; inspect and retry. Dispatch tells you which durable
-  artifacts it already created (a Branch Memory entry or published ref may
-  exist even though no workflow started), so retrying is safe: a retry uses
-  a new dispatch identity rather than silently replacing another dispatch's
-  input evidence.
-- **A failure happens after plan delivery but before an anchor exists** — the
-  command reports the Dispatch ID plus the retained Branch Memory Entry and
-  published Snapshot Ref directly, so the durable input evidence is never
-  hidden behind an anchor that was not created.
-- **The run fails after the anchor PR exists** — the failure is reported
-  durably on that PR, including sandbox-side retrieval failures. Command
-  recovery output also retains the Dispatch ID and delivery artifacts. A
-  dispatch cannot disappear silently: if it got far enough to have an anchor,
-  the anchor tells the story.
+The Dispatch ID correlates command output, anchor provenance, and the
+`dispatch.id` Vercel Workflow attribute. Vercel still assigns a `wrun_...` ID;
+the local recovery path can look it up by exact Dispatch ID and refuses zero or
+multiple matches.
 
-### Current status
+Human output stays compact: Dispatch ID, anchor PR link, and Workflow link.
+Prompt PRs retain only a short sanitized excerpt, not the complete prompt.
+Machine output and marked PR provenance retain the recovery record:
 
-The workflow supervisor and anchor-PR result path already exist and are
-proven by `ns dispatch prompt`; Saved Plan dispatch adds plan input to
-that spine without creating another cloud backend. The plan path itself is
-locally implemented — command, wrappers, Branch Memory delivery, workflow
-locator, sandbox precheck, and recovery lookup, all under fake-driven
-tests — but three pieces of evidence remain outstanding:
+- source branch and exact dispatched revision;
+- Dispatch ID and anchor identity;
+- instruction Namespace, anchor branch, key, Snapshot Ref, pinned commit, and
+  Entry Locator;
+- for plan dispatch, separate Attached Plan Namespace, branch, key, Snapshot
+  Ref, pinned commit, and Entry Locator;
+- Workflow run ID when submission succeeds.
 
-- **Deployable rebuild.** The plan-aware workflow code has not shipped: the
-  package's `build:deployable` gate is blocked in the implementing worktree
-  (no local Vercel Project Settings), so no deployment carries the plan
-  path yet.
-- **Live end-to-end proof.** No real Saved Plan dispatch has been witnessed:
-  exact remote Snapshot Ref delivery, supervisor precheck, harness
-  `brmem get`, plan execution, an agent-created commit, and normal anchor-PR
-  landing remain the human-run interlude.
-- **Live Analytics recovery.** Dispatch ID recovery lookup is implemented
-  and tested against fakes only.
+Branch Memory is the authoritative exact instruction record. Entries are
+retained as input evidence; automatic cleanup is intentionally deferred.
 
-### Open questions
+## Failure and recovery
 
-No open question blocks the contract. Retained `dispatch-context` entries
-have no automatic cleanup policy in this work; future cleanup must preserve
-input evidence and reproducibility.
+Anchor creation precedes anchor-scoped Branch Memory delivery. A failure after
+the anchor opens leaves that PR open and reports every durable artifact already
+created; it must not be described as a started run unless workflow submission
+actually succeeded.
+
+- Missing Branch Memory setup fails before anchor mutation.
+- Attached Plan conflict fails without overwriting the existing Entry.
+- Instruction creation, Snapshot publication, or remote verification failure
+  reports the Dispatch ID, anchor, and available attachment/instruction
+  evidence; no workflow starts.
+- Sandbox fetch, pinned Snapshot verification, or required instruction check
+  failure is reported durably on the anchor PR before agent launch.
+- Runtime failure leaves the anchor PR open and marked failed for triage.
+
+Retries use a new dispatch identity rather than replacing retained input
+evidence.
+
+## Current evidence and remaining gates
+
+The generic anchor-scoped implementation and its fake-driven tests are green
+locally. The prior cloud program separately proved the Vercel Workflow/Sandbox
+spine and completed one raw-prompt dispatch, but that deployment and witnessed
+run predate this generic locator-only cutover.
+
+Before this contract can be called deployed or live-proven, an authorized
+operator must:
+
+1. supply/link the local Vercel Project Settings needed by `build:deployable`;
+2. pass the deployable build and deploy the new trigger/Workflow artifacts;
+3. witness a prompt dispatch retrieving its exact instruction Entry and landing
+   normally; and
+4. witness a plan dispatch retrieving the pinned Attached Plan, producing an
+   agent commit, and landing normally.
+
+No public arbitrary-Entry command, automatic Entry cleanup, second harness, or
+backend-neutral execution abstraction is part of this contract.
