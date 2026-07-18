@@ -12,6 +12,10 @@ The first-party **Capability** that drives Herdr workspaces by composing branch,
 The narrow domain-shaped interface (`HerdrGateway`) that exposes only the Herdr workspace operations the capability currently needs, backed by the installed `herdr` CLI.
 *Avoid*: raw socket gateway, full Herdr API surface, generic CLI wrapper
 
+**New space**:
+The focused Herdr workspace created by `/ns:herdr:space:new` at the Pi command's current working directory; an optional natural-language description is interpreted by the configured slug model into a flat semantic workspace label.
+*Avoid*: dispatch workspace, slot checkout, raw workspace-create wrapper, deterministic label fallback
+
 **Caller workspace targeting**:
 Identifying the Herdr workspace to act on via the `HERDR_WORKSPACE_ID` environment variable injected by Herdr into every managed pane. Surface dispatch validates and captures this ID immediately after argument/help handling, before plan lookup or durable mutation.
 *Avoid*: UI focus targeting, ambient workspace, implicit workspace

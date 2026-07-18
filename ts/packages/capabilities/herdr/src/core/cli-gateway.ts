@@ -25,7 +25,9 @@ const MAX_ERROR_LINES = 20;
 // so preview drift is test-detectable against the real invocation shape.
 
 export function buildHerdrCreateWorkspaceArgs(options: HerdrCreateWorkspaceOptions): string[] {
-	const args = ["workspace", "create", "--no-focus", "--cwd", options.cwd];
+	const args = ["workspace", "create"];
+	if (options.shouldFocus !== true) args.push("--no-focus");
+	args.push("--cwd", options.cwd);
 	if (options.label !== undefined) {
 		args.push("--label", options.label);
 	}
@@ -33,7 +35,7 @@ export function buildHerdrCreateWorkspaceArgs(options: HerdrCreateWorkspaceOptio
 }
 
 export function buildHerdrCreateTabArgs(options: HerdrCreateTabOptions): string[] {
-	const focusFlag = options.focus === true ? "--focus" : "--no-focus";
+	const focusFlag = options.shouldFocus === true ? "--focus" : "--no-focus";
 	const args = ["tab", "create", "--workspace", options.workspaceId, focusFlag];
 	if (options.cwd !== undefined) {
 		args.push("--cwd", options.cwd);

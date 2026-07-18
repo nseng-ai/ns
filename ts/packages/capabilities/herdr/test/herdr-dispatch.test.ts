@@ -756,7 +756,7 @@ describe("openBranchInHerdrWorkspace — Herdr failure paths", () => {
 // ---------------------------------------------------------------------------
 
 describe("openBranchInHerdrCallerTab — focus semantics", () => {
-	test("creates tab with focus:true for surface dispatch", async () => {
+	test("creates tab with shouldFocus:true for surface dispatch", async () => {
 		const pi = new FakePi();
 		const herdr = new FakeHerdrGateway();
 		const notifications: Array<{ message: string; level: string | undefined }> = [];
@@ -778,7 +778,7 @@ describe("openBranchInHerdrCallerTab — focus semantics", () => {
 		const tabCall = herdr.createTabCalls[0];
 		expect(tabCall?.options.workspaceId).toBe("ws-caller-42");
 		expect(tabCall?.options.cwd).toBe(WORKTREE);
-		expect(tabCall?.options.focus).toBe(true);
+		expect(tabCall?.options.shouldFocus).toBe(true);
 		expect(herdr.paneRunCalls).toHaveLength(1);
 		expect(notifications.some((n) => n.level === "error")).toBe(false);
 	});
@@ -1076,7 +1076,7 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 		expect(contextConstructions).toBe(1);
 		expect(herdr.createTabCalls).toHaveLength(1);
 		expect(herdr.createTabCalls[0]?.options.workspaceId).toBe("caller-workspace-exact");
-		expect(herdr.createTabCalls[0]?.options.focus).toBe(true);
+		expect(herdr.createTabCalls[0]?.options.shouldFocus).toBe(true);
 	});
 
 	test("workspace dispatch branch-context failure names the unopened Herdr workspace", async () => {

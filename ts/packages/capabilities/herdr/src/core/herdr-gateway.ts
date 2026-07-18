@@ -20,9 +20,9 @@ export interface HerdrGateway {
 	renameWorkspace(workspaceId: string, label: string): Promise<HerdrWorkspaceRenameResult>;
 
 	/**
-	 * Create a new Herdr workspace, without focusing it.
+	 * Create a new Herdr workspace.
 	 *
-	 * Maps to: `herdr workspace create --no-focus [--cwd <cwd>] [--label <label>]`
+	 * Maps to: `herdr workspace create [--no-focus] [--cwd <cwd>] [--label <label>]`
 	 *
 	 * Returns the created workspace ID, root pane ID, and root tab ID on success.
 	 * Returns `{ type: "failed"; message: string }` on non-zero exit or parse
@@ -36,7 +36,7 @@ export interface HerdrGateway {
 	 * Maps to:
 	 * `herdr tab create --workspace <workspaceId> [--focus|--no-focus] [--cwd <cwd>] [--label <label>]`
 	 *
-	 * Pass `focus: true` to activate/focus the tab immediately after creation
+	 * Pass `shouldFocus: true` to activate/focus the tab immediately after creation
 	 * (used for surface dispatch so the caller sees the new tab). Defaults to
 	 * `false` (`--no-focus`).
 	 *
@@ -62,6 +62,8 @@ export type HerdrWorkspaceRenameResult = { type: "applied" } | { type: "failed";
 export interface HerdrCreateWorkspaceOptions {
 	cwd: string;
 	label?: string;
+	/** Focus the new workspace by omitting `--no-focus`. Defaults to false for background dispatch. */
+	shouldFocus?: boolean;
 }
 
 export type HerdrCreateWorkspaceResult =
@@ -77,7 +79,7 @@ export interface HerdrCreateTabOptions {
 	 * immediately visible to the user. When `false` or omitted, `--no-focus`
 	 * is used.
 	 */
-	focus?: boolean;
+	shouldFocus?: boolean;
 }
 
 export type HerdrCreateTabResult =

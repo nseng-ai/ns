@@ -9,6 +9,8 @@ export const HERDR_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME = nsCommandSurface(
 	"sidebar:objective-summary",
 );
 
+export const HERDR_SPACE_NEW_COMMAND_NAME = nsCommandSurface("herdr", "space:new");
+
 export const HERDR_SPACE_PROMPT_DISPATCH_COMMAND_NAME = nsCommandSurface(
 	"herdr",
 	"space:prompt-dispatch",
@@ -30,6 +32,7 @@ export const HERDR_SPACE_OPEN_BRANCH_COMMAND_NAME = nsCommandSurface("herdr", "s
 
 export const HERDR_COMMAND_NAMES = [
 	HERDR_SIDEBAR_OBJECTIVE_SUMMARY_COMMAND_NAME,
+	HERDR_SPACE_NEW_COMMAND_NAME,
 	HERDR_SPACE_OPEN_BRANCH_COMMAND_NAME,
 	HERDR_SPACE_PLAN_DISPATCH_COMMAND_NAME,
 	HERDR_SPACE_PROMPT_DISPATCH_COMMAND_NAME,

@@ -356,6 +356,9 @@ importers:
       '@nseng-ai/plans':
         specifier: workspace:*
         version: link:../plans
+      '@nseng-ai/sdk':
+        specifier: workspace:*
+        version: link:../../sdk
       '@nseng-ai/slots':
         specifier: workspace:*
         version: link:../slots

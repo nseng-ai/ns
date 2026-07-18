@@ -58,6 +58,22 @@ describe("createCliHerdrGateway.createWorkspace", () => {
 		});
 	});
 
+	test("shouldFocus:true omits --no-focus", async () => {
+		const pi = new FakePi({
+			script: [
+				step("herdr", ["workspace", "create", "--cwd", "/repo"], {
+					stdout: WORKSPACE_CREATE_RESPONSE,
+				}),
+			],
+		});
+		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
+
+		const result = await herdr.createWorkspace({ cwd: "/repo", shouldFocus: true });
+
+		pi.assertDone();
+		expect(result.type).toBe("created");
+	});
+
 	test("happy path: omits --label when not provided", async () => {
 		const pi = new FakePi({
 			script: [
@@ -159,7 +175,7 @@ describe("createCliHerdrGateway.createWorkspace", () => {
 // ---------------------------------------------------------------------------
 
 describe("createCliHerdrGateway.createTab", () => {
-	test("focus:true emits --focus; parses tab_id, pane_id, workspace_id", async () => {
+	test("shouldFocus:true emits --focus; parses tab_id, pane_id, workspace_id", async () => {
 		const pi = new FakePi({
 			script: [
 				step(
@@ -185,7 +201,7 @@ describe("createCliHerdrGateway.createTab", () => {
 			workspaceId: "ws-abc123",
 			cwd: "/wt",
 			label: "my-tab",
-			focus: true,
+			shouldFocus: true,
 		});
 
 		pi.assertDone();
@@ -197,7 +213,7 @@ describe("createCliHerdrGateway.createTab", () => {
 		});
 	});
 
-	test("focus:false (default) emits --no-focus", async () => {
+	test("shouldFocus:false (default) emits --no-focus", async () => {
 		const pi = new FakePi({
 			script: [
 				step("herdr", ["tab", "create", "--workspace", "ws-abc123", "--no-focus", "--cwd", "/wt"], {
@@ -239,7 +255,7 @@ describe("createCliHerdrGateway.createTab", () => {
 		});
 		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
 
-		const result = await herdr.createTab({ workspaceId: "ws-abc123", focus: true });
+		const result = await herdr.createTab({ workspaceId: "ws-abc123", shouldFocus: true });
 
 		pi.assertDone();
 		expect(result.type).toBe("failed");
@@ -283,7 +299,7 @@ describe("createCliHerdrGateway.createTab", () => {
 		});
 		const herdr = createCliHerdrGateway(createHerdrPiCommandApi(pi));
 
-		const result = await herdr.createTab({ workspaceId: "ws-abc123", focus: true });
+		const result = await herdr.createTab({ workspaceId: "ws-abc123", shouldFocus: true });
 
 		pi.assertDone();
 		expect(result.type).toBe("failed");
