@@ -9,6 +9,7 @@ import {
 } from "@nseng-ai/capability-kit/model-policy";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/capability-kit/pi-types";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
+import { commandSucceeded } from "@nseng-ai/foundation/command";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
@@ -20,6 +21,7 @@ import { getCallerWorkspaceId } from "./sidebar.ts";
 import { compactSlotSlug, slotLabelInput } from "./workspace-label.ts";
 
 const COMMAND_NAME = HERDR_SPACE_GOAL_COMMAND_NAME;
+const SLOTS_EXTENSION_PROBE_TIMEOUT_MS = 10_000;
 
 export interface GoalWorkspaceLabelInput {
 	slug: string;
@@ -113,7 +115,11 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 		return;
 	}
 
-	const label = formatGoalWorkspaceLabel({ slug: slug.text, ...slotLabelInput(options.ctx.cwd) });
+	const hasSlotsExtension = await isSlotsExtensionAvailable(options.pi, options.ctx.cwd);
+	const label = formatGoalWorkspaceLabel({
+		slug: slug.text,
+		...(hasSlotsExtension ? slotLabelInput(options.ctx.cwd) : {}),
+	});
 	options.notifyProgress("Renaming Herdr workspace…");
 	const renameResult = await options.herdr.renameWorkspace(workspaceId, label);
 	if (renameResult.type === "failed") {
@@ -122,6 +128,14 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 	}
 
 	notify(options.ctx, `Applied Herdr space goal label: ${label}`, "success");
+}
+
+async function isSlotsExtensionAvailable(pi: HerdrPiCommandApi, cwd: string): Promise<boolean> {
+	const result = await pi.exec("ns", ["slot", "--help"], {
+		cwd,
+		timeout: SLOTS_EXTENSION_PROBE_TIMEOUT_MS,
+	});
+	return commandSucceeded(result);
 }
 
 async function resolveGoal(args: string, ctx: CommandContext): Promise<string | undefined> {

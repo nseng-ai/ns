@@ -18,6 +18,13 @@ function modelStep(stdout: string, code = 0) {
 	return step("pi", undefined, { code, stdout, stderr: code === 0 ? "" : "model failed" });
 }
 
+function slotsExtensionProbeStep(isAvailable: boolean) {
+	return step("ns", ["slot", "--help"], {
+		code: isAvailable ? 0 : 1,
+		stderr: isAvailable ? "" : "Unknown command: slot",
+	});
+}
+
 async function runGoal(options: {
 	args?: string;
 	cwd?: string;
@@ -25,6 +32,7 @@ async function runGoal(options: {
 	hasUI?: boolean;
 	modelOutput?: string;
 	modelCode?: number;
+	hasSlotsExtension?: boolean;
 	herdr?: FakeHerdrGateway;
 }) {
 	const cwd = options.cwd ?? "/repo";
@@ -32,6 +40,7 @@ async function runGoal(options: {
 		script: [
 			gitRootStep(cwd),
 			modelStep(options.modelOutput ?? "refactor-auth", options.modelCode),
+			slotsExtensionProbeStep(options.hasSlotsExtension ?? false),
 		],
 		shouldRequireExpectedArgs: false,
 	});
@@ -68,14 +77,28 @@ describe("herdr space goal", () => {
 		expect(pi.execCalls[1]?.args.at(-1)).toContain("Generate a concise workspace name slug");
 	});
 
-	test("prefixes the slug inside a managed slot", async () => {
+	test("prefixes the slug inside a managed slot when the Slots extension is installed", async () => {
+		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
+		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3";
+
+		const { pi, herdr } = await runGoal({
+			cwd,
+			modelOutput: "add-auth",
+			hasSlotsExtension: true,
+		});
+
+		pi.assertDone();
+		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "s3:add-auth" }]);
+	});
+
+	test("omits the slot prefix when the Slots extension is not installed", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3";
 
 		const { pi, herdr } = await runGoal({ cwd, modelOutput: "add-auth" });
 
 		pi.assertDone();
-		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "s3:add-auth" }]);
+		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "add-auth" }]);
 	});
 
 	test("missing caller workspace stops before model work", async () => {
@@ -146,7 +169,21 @@ describe("herdr space goal", () => {
 	test("model command failure reports an error without renaming", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 
-		const { pi, herdr, ctx } = await runGoal({ modelCode: 1, modelOutput: "" });
+		const cwd = "/repo";
+		const pi = new FakePi({
+			script: [gitRootStep(cwd), modelStep("", 1)],
+			shouldRequireExpectedArgs: false,
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd });
+
+		await handleHerdrSpaceGoal({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			args: GOAL,
+			ctx,
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		expect(herdr.renameCalls).toEqual([]);
@@ -157,7 +194,21 @@ describe("herdr space goal", () => {
 	test("unusable model output and goal report an error", async () => {
 		vi.stubEnv("HERDR_WORKSPACE_ID", "w1");
 
-		const { pi, herdr, ctx } = await runGoal({ args: "!!!", modelOutput: "???" });
+		const cwd = "/repo";
+		const pi = new FakePi({
+			script: [gitRootStep(cwd), modelStep("???")],
+			shouldRequireExpectedArgs: false,
+		});
+		const herdr = new FakeHerdrGateway();
+		const ctx = new FakeCommandContext({ cwd });
+
+		await handleHerdrSpaceGoal({
+			pi: createHerdrPiCommandApi(pi),
+			herdr,
+			args: "!!!",
+			ctx,
+			notifyProgress: () => {},
+		});
 
 		pi.assertDone();
 		expect(herdr.renameCalls).toEqual([]);
