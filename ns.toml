@@ -20,13 +20,28 @@ exclude = [
   ".claude/skills/**/*.py",
 ]
 
+[models.profiles.ultrafast]
+model = "vercel-ai-gateway/openai/gpt-5.6-luna"
+thinking = "off"
+
 [models.profiles.fast]
 model = "vercel-ai-gateway/openai/gpt-5.6-luna"
-thinking = "minimal"
+thinking = "medium"
+
+[models.profiles.standard]
+model = "vercel-ai-gateway/openai/gpt-5.6-terra"
+thinking = "medium"
 
 [models.profiles.deep]
-model = "vercel-ai-gateway/openai/gpt-5.6-terra"
-thinking = "high"
+model = "vercel-ai-gateway/openai/gpt-5.6-sol"
+thinking = "low"
+
+[models.profiles.ultradeep]
+model = "vercel-ai-gateway/openai/gpt-5.6-sol"
+thinking = "xhigh"
+
+[models.operations]
+slug = "ultrafast"
 
 [points]
 "flow.submit.pre" = ["just"]

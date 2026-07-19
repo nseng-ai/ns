@@ -7,7 +7,11 @@ import { basename, join } from "node:path";
 
 import type { Clock } from "@nseng-ai/foundation/clock";
 import { systemClock } from "@nseng-ai/foundation/time";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import {
+	formatErrorMessage,
+	optionalEntries,
+	optionalEntry,
+} from "@nseng-ai/foundation/primitives";
 import { BoundedTextTailBuffer } from "@nseng-ai/foundation/text-tail-buffer";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
@@ -237,7 +241,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		...(runtimeFiles?.extensionPath === undefined
 			? {}
 			: { runtimeExtensionPath: runtimeFiles.extensionPath }),
-		...(options.modelSelection === undefined ? {} : { modelSelection: options.modelSelection }),
+		...optionalEntry("modelSelection", options.modelSelection),
 		...(launch === undefined ? {} : { launch }),
 		...(childToolAllowlist === undefined ? {} : { normalizedTools: childToolAllowlist }),
 	});
@@ -579,8 +583,7 @@ export function resolveRunnerSubagentLaunch(
 	const concreteSelection = requestedModelSelection ?? modelSelection;
 	if (concreteSelection !== undefined) {
 		return {
-			...(modelSelection === undefined ? {} : { modelSelection }),
-			...(requestedModelSelection === undefined ? {} : { requestedModelSelection }),
+			...optionalEntries({ modelSelection, requestedModelSelection }),
 			thinkingLevel: concreteSelection.thinking,
 			hasModelArg: true,
 			hasThinkingArg: true,
