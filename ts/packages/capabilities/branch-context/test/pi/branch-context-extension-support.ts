@@ -6,6 +6,7 @@ const TEST_MODEL_SELECTION = {
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { brmemCheckJson } from "@nseng-ai/capability-kit/brmem-cli/testing";
 import { afterEach, expect } from "vitest";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -48,6 +49,11 @@ export { brmemCheckJson as brmemCheckEnvelope } from "@nseng-ai/capability-kit/b
 export const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(TEST_DIR, "../../../../../..");
 export const ROOT = "/repo";
+const MODEL_ROOT = mkdtempSync(join(tmpdir(), "branch-context-root-"));
+writeFileSync(
+	join(MODEL_ROOT, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 export const PLAN_SLUG = "branch-scoped-plan-extension";
 export const PLAN_KEY = buildBranchContextPlanKey(PLAN_SLUG);
 export const LEGACY_PLAN_KEY = "plan.md";
@@ -122,7 +128,7 @@ export class FakePi implements ExtensionAPI {
 		if (command === "git" && sameArgs(args, ["rev-parse", "--show-toplevel"])) {
 			const next = this.script.peek();
 			if (next === undefined || next.command !== "git" || !sameArgs(next.args, args)) {
-				return execResult({ stdout: `${ROOT}\n` });
+				return execResult({ stdout: `${MODEL_ROOT}\n` });
 			}
 		}
 		this.execCalls.push({ command, args: [...args], options });

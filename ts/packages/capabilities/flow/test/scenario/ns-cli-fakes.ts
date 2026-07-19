@@ -69,6 +69,7 @@ export interface RunWithFakesDefaults {
 
 interface ScriptedNsTestContextOptions extends RunWithFakesDefaults {
 	cwd?: string;
+	repoRoot?: string;
 	env?: Record<string, string | undefined>;
 	progress?: NsProgress;
 }
@@ -93,10 +94,12 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 	private readonly execResponses: ScriptedExecResponse[];
 	private readonly textGenerationResults: ScriptedTextGenerationResult[];
 	private readonly missingTextGenerationResult: (() => TextGenerationResult) | undefined;
+	private readonly repoRoot: string;
 	private explicitRootFailure: ScriptedExecResult | undefined;
 
 	constructor(state: TestState = {}, options: ScriptedNsTestContextOptions) {
 		this.cwd = options.cwd ?? "/work";
+		this.repoRoot = options.repoRoot ?? this.cwd;
 		this.env = options.env ?? {};
 		this.progress = options.progress ?? noopNsProgress;
 		this.execResponses = [...(state.exec ?? options.execResponses())];
@@ -121,6 +124,8 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 				this.explicitRootFailure = scriptedRoot.result;
 				return execResult(scriptedRoot.result);
 			}
+			this.execCalls.push(call);
+			return execResult({ stdout: `${this.repoRoot}\n` });
 		}
 		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));
 		if (index === -1) {
@@ -129,7 +134,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 			// explicitly scripted response (including a failure) still wins above.
 			if (formatExecCall(call) === "git rev-parse --show-toplevel") {
 				this.execCalls.push(call);
-				return execResult({ stdout: `${this.cwd}\n` });
+				return execResult({ stdout: `${this.repoRoot}\n` });
 			}
 			this.execCalls.push(call);
 			return execResult({ code: 99, stderr: `unexpected command: ${formatExecCall(call)}` });

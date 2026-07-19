@@ -1,3 +1,4 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -80,7 +81,11 @@ export interface FakeCommandContextOptions {
 	branchEntries?: unknown[];
 }
 
-export const ROOT = "/repo";
+export const ROOT = mkdtempSync(join(tmpdir(), "herdr-model-root-"));
+writeFileSync(
+	join(ROOT, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 export const WORKTREE = "/slot/worktree";
 export const BRANCH = "herdr-dispatch-feature";
 export const PLAN_SLUG = "herdr-dispatch-feature";
@@ -126,6 +131,13 @@ export class FakePi implements ExtensionAPI {
 		options?: RawPiExecOptions,
 	): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
+		if (
+			command === "git" &&
+			sameArgs(args, ["rev-parse", "--show-toplevel"]) &&
+			!isGitRootStep(this.script.peek())
+		) {
+			return execResult({ stdout: `${options?.cwd ?? ROOT}\n` });
+		}
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
@@ -358,6 +370,11 @@ export async function resetHerdrTestEnvironment(): Promise<void> {
 
 export async function makeTempDir(): Promise<string> {
 	const dir = await realpath(await mkdtemp(join(tmpdir(), "herdr-extension-test-")));
+	await writeFile(
+		join(dir, "ns.toml"),
+		'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+		"utf8",
+	);
 	tempDirs.push(dir);
 	return dir;
 }
@@ -372,6 +389,12 @@ export function notificationMessages(ctx: FakeCommandContext): string[] {
 
 export function sameArgs(left: string[], right: string[]): boolean {
 	return left.length === right.length && left.every((v, i) => v === right[i]);
+}
+
+function isGitRootStep(expected: ScriptedExec | undefined): boolean {
+	return (
+		expected?.command === "git" && sameArgs(expected.args ?? [], ["rev-parse", "--show-toplevel"])
+	);
 }
 
 export interface RunScriptedExecOptions {

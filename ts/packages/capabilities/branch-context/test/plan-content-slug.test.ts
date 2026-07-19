@@ -5,6 +5,7 @@ const TEST_MODEL_SELECTION = {
 };
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -19,7 +20,11 @@ import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundati
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
 
-const CWD = "/repo";
+const CWD = mkdtempSync(join(tmpdir(), "plan-content-slug-root-"));
+writeFileSync(
+	join(CWD, "ns.toml"),
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+);
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";
 
 interface ExecCall {

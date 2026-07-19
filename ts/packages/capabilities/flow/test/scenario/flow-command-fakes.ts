@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -62,10 +62,12 @@ interface FlowCommandFixture {
 	request: unknown;
 	defaults: RunWithFakesDefaults;
 	options: RunFlowCommandWithFakesOptions;
+	requiresModelPolicy?: boolean;
 }
 
 export function runFlowCpCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowCommandWithFakes({
+		requiresModelPolicy: true,
 		command: flowCpCommand,
 		request: options.request ?? {},
 		options,
@@ -163,6 +165,7 @@ export function runFlowBranchLatestCommitCommandWithFakes(
 	return runFlowCommandWithFakes({
 		command: flowBranchLatestCommitCommand,
 		request: options.request ?? { slug: "demo-branch" },
+		requiresModelPolicy: true,
 		options,
 		defaults: options.defaults ?? {
 			execResponses: branchLatestCommitHappyExec,
@@ -356,6 +359,7 @@ export function runFlowAutobranchCommandWithFakes(options: RunFlowCommandWithFak
 	return runFlowCommandWithFakes({
 		command: flowAutobranchCommand,
 		request: options.request ?? { slug: "move-work" },
+		requiresModelPolicy: true,
 		options,
 		defaults: options.defaults ?? {
 			execResponses: autobranchDirtyHappyExec,
@@ -459,6 +463,7 @@ export function branchLatestCommitChildBranchRefusalExec(): ScriptedExecResponse
 // via `runFlowCli`.
 export function runFlowAutoslotCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowCommandWithFakes({
+		requiresModelPolicy: true,
 		command: flowAutoslotCommand,
 		request: options.request ?? { slug: "move-work" },
 		options,
@@ -484,6 +489,7 @@ export function autoslotStatusProbeFailExec(): ScriptedExecResponse[] {
 
 export function runFlowChangesCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowCommandWithFakes({
+		requiresModelPolicy: true,
 		command: flowChangesCommand,
 		request: options.request ?? {},
 		options,
@@ -498,6 +504,7 @@ export function runFlowChangesCommandWithFakes(options: RunFlowCommandWithFakesO
 
 export function runFlowRegeneratePrCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowCommandWithFakes({
+		requiresModelPolicy: true,
 		command: flowRegeneratePrCommand,
 		request: options.request ?? {},
 		options,
@@ -522,6 +529,7 @@ export function runFlowSubmitCommandWithFakes(options: RunFlowSubmitCommandWithF
 		},
 	);
 	const run = runFlowCommandWithFakes({
+		requiresModelPolicy: true,
 		command: createFlowSubmitCommand({
 			createRuntime: (ctx) =>
 				createNsSubmitRuntime(ctx, flowExtensionDescriptorSource, {
@@ -547,12 +555,23 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
-	const cwd = fixture.options.cwd ?? "/work";
 	const stateRoot = mkdtempSync(join(tmpdir(), "ns-flow-command-state-"));
 	tempStateRoots.push(stateRoot);
+	const generatedRepoRoot = join(stateRoot, "work");
+	const cwd =
+		fixture.options.cwd ?? (fixture.requiresModelPolicy === true ? generatedRepoRoot : "/work");
+	const repoRoot = fixture.options.cwd ?? cwd;
+	if (fixture.requiresModelPolicy === true && fixture.options.cwd === undefined) {
+		mkdirSync(repoRoot, { recursive: true });
+		writeFileSync(
+			join(repoRoot, "ns.toml"),
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+		);
+	}
 	const homeDir = fixture.options.homeDir ?? join(stateRoot, "home");
 	const context = new ScriptedNsTestContext(fixture.options.state, {
 		cwd,
+		repoRoot,
 		env: {
 			HOME: homeDir,
 			XDG_STATE_HOME: join(stateRoot, "xdg-state"),

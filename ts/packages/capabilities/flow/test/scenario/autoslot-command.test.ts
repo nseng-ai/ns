@@ -26,7 +26,7 @@ describe("flow autoslot command outcomes", () => {
 		expect(stderr).toContain("Could not inspect git status.");
 		// The failed git probe transcript is preserved in the failure body.
 		expect(stderr).toContain("fatal: status failed");
-		expect(stderr).toContain("Cwd: /work");
+		expect(stderr).toContain(`Cwd: ${run.context.cwd}`);
 		// The slot checkout is never attempted, so no Graphite branch is created either.
 		const calls = formattedExecCalls(run.context);
 		expect(calls.some((call) => call.startsWith("gt create"))).toBe(false);
@@ -43,7 +43,7 @@ describe("flow autoslot command outcomes", () => {
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
 		expect(stderr).toContain("Autoslot did not create a Graphite branch.");
-		expect(stderr).toContain("Cwd: /work");
+		expect(stderr).toContain(`Cwd: ${run.context.cwd}`);
 		// No branch creation and no slot checkout occurred.
 		const calls = formattedExecCalls(run.context);
 		expect(calls.some((call) => call.startsWith("gt create"))).toBe(false);
