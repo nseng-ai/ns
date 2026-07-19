@@ -8,7 +8,6 @@ import { describe, expect, test } from "vitest";
 const REPO_ROOT = fileURLToPath(new URL("../../../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PI_BIN = fileURLToPath(new URL("../../node_modules/.bin/pi", import.meta.url));
-const CMUX_PACKAGE_ROOT = fileURLToPath(new URL("../../../../capabilities/cmux/", import.meta.url));
 const SDK_PACKAGE_ROOT = fileURLToPath(new URL("../../../../sdk/", import.meta.url));
 
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
@@ -25,13 +24,6 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@nseng-ai/branch-context",
 	"@nseng-ai/plans",
 	"@nseng-ai/sdk/cli",
-] as const;
-
-const CMUX_WORKSPACE_IMPORTS = [
-	"@nseng-ai/foundation/exec",
-	"@nseng-ai/branch-context",
-	"@nseng-ai/plans",
-	"@nseng-ai/capability-kit/checkpoint-flow",
 ] as const;
 
 const SDK_EXPORT_IMPORTS = [
@@ -121,16 +113,6 @@ describe("Node runtime import smoke", () => {
 			label: "pi package imports",
 		});
 		expect(result.stdout).toContain("imported 5 package specifiers");
-	});
-
-	test("cmux package imports representative cross-package dependencies under Node", () => {
-		const result = runNodeEval({
-			cwd: CMUX_PACKAGE_ROOT,
-			source: buildPackageImportScript(CMUX_WORKSPACE_IMPORTS),
-		});
-
-		expectSuccessfulNodeRun(result, { cwd: CMUX_PACKAGE_ROOT, label: "cmux package imports" });
-		expect(result.stdout).toContain("imported 4 package specifiers");
 	});
 
 	test("SDK package imports every declared export subpath under Node", () => {

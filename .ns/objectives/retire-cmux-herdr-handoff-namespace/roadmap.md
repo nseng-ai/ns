@@ -16,11 +16,11 @@
   - Keep Handoff Artifact behavior owned by Handoffs and Herdr destination behavior behind `HerdrGateway`; do not introduce a generic multiplexer interface.
   - Evidence: a curated optional Handoffs Pi integration keeps artifact composition, content-derived slugging, and persistence in Handoffs; after persistence, the model invokes the hidden reference-based `ns herdr exec handoff-tab launch` command with branch, slug, exact caller workspace, and exact Pi launch profile. The command verifies through the Handoffs Capability API before Herdr mutation. Fake-driven tests prove exact/conditional registration, idempotent slug-tool registration, caller preflight before prompt delivery, reference-only transport, verification ordering, pickup model/provider/thinking preservation, and structured create/run recovery.
 
-- [ ] Remove standalone Herdr open-branch and the cmux capability
+- [x] Remove standalone Herdr open-branch and the cmux capability
   - Delete the dedicated Herdr open-branch command modules and tests while retaining launch helpers consumed by dispatch.
   - Delete `@nseng-ai/cmux`, `.pi/extensions/cmux.ts`, `ns cmux exec`, and all cmux workspace/surface/sidebar registrations, tests, and package wiring.
   - Regenerate the pnpm lockfile and prune Capability Kit cmux exports only after a clean surviving-consumer audit.
-  - Evidence: package/import inventories and exact live-surface searches confirm removal without breaking Herdr dispatch or portable Handoff workflows.
+  - Evidence: the `cmux-and-open-branch-removal-complete` Semantic Update records the clean consumer audit, package/import inventory, focused tests, and TypeScript validation proving removal without breaking Herdr dispatch or portable Handoff workflows.
 
 - [ ] Reconcile live topology and documentation
   - Update Herdr, Handoffs, Pi, root contexts, `CONTEXT-MAP.md`, Pi docs, parity documentation, package counts, release inventories, and current help surfaces.

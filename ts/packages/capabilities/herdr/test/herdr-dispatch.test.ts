@@ -1,10 +1,9 @@
 /**
- * Scenario tests for the Herdr dispatch and open-branch commands (PR 3):
+ * Scenario tests for the Herdr dispatch commands:
  *  - ns:herdr:handoff:prompt
  *  - ns:herdr:handoff:trunk-prompt
  *  - ns:herdr:handoff:plan
  *  - ns:herdr:tab:plan-dispatch
- *  - ns:herdr:space:open-branch
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -19,16 +18,11 @@ const TEST_MODEL_SELECTION = {
 
 import { HERDR_BASE_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
 import registerHerdrPiExtension from "../src/pi/extension.ts";
-import { registerHerdrSlotOpenBranchCommand } from "../src/pi/open-branch.ts";
 import {
 	registerHerdrSlotDispatchPlanCommand,
 	registerHerdrSurfaceDispatchPlanCommand,
 } from "../src/pi/dispatch-plan.ts";
 import { handleHerdrSlotDispatchPlan } from "../src/core/dispatch-plan.ts";
-import {
-	handleHerdrSlotOpenBranch,
-	extractCommandArgumentPrefix,
-} from "../src/core/open-branch.ts";
 import { openBranchInHerdrWorkspace, openBranchInHerdrCallerTab } from "../src/core/slot.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import { createCliHerdrGateway } from "../src/core/cli-gateway.ts";
@@ -131,79 +125,6 @@ describe("herdr Pi extension — full suite", () => {
 		const pi = new FakePi();
 		registerHerdrPiExtension(pi);
 		expect([...pi.commands.keys()].sort()).toEqual([...HERDR_BASE_COMMAND_NAMES].sort());
-	});
-});
-
-// ---------------------------------------------------------------------------
-// workspace:open-branch
-// ---------------------------------------------------------------------------
-
-describe("ns:herdr:space:open-branch", () => {
-	test("opens explicit branch in Herdr workspace via slot checkout", async () => {
-		const pi = new FakePi({
-			script: [
-				// getWorktreeDescription: git remote get-url origin
-				step("git", ["remote", "get-url", "origin"], {
-					stdout: "git@github.com:owner/repo.git\n",
-				}),
-			],
-		});
-		const herdr = new FakeHerdrGateway();
-		const adaptedPi = createHerdrPiCommandApi(pi);
-
-		await handleHerdrSlotOpenBranch({
-			pi: adaptedPi,
-			herdr,
-			args: BRANCH,
-			ctx: new FakeCommandContext({ cwd: ROOT }),
-			options: { slotClient: testSlotClient },
-			notifyProgress: () => {},
-		});
-
-		pi.assertDone();
-		expect(herdr.createWorkspaceCalls).toHaveLength(1);
-		expect(herdr.createWorkspaceCalls[0]?.options.cwd).toBe(WORKTREE);
-		expect(herdr.createWorkspaceCalls[0]?.options.label).toBe(`repo/${BRANCH}`);
-		expect(herdr.paneRunCalls).toHaveLength(0); // no command injected for open-branch
-	});
-
-	test("cancels inferred branch when confirmation UI is not present", async () => {
-		const pi = new FakePi();
-		const herdr = new FakeHerdrGateway();
-		const ctx = new FakeCommandContext();
-		// ctx has no confirm → should error
-		// @ts-expect-error testing the no-confirm-UI code path
-		ctx.ui.confirm = undefined;
-
-		await handleHerdrSlotOpenBranch({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			args: "",
-			ctx,
-			notifyProgress: () => {},
-		});
-
-		expect(herdr.createWorkspaceCalls).toHaveLength(0);
-		expect(notificationMessages(ctx).some((m) => m.includes("Usage:"))).toBe(true);
-	});
-
-	test("registers command and branch completions via Pi adapter", async () => {
-		const pi = new FakePi({
-			script: [
-				step(
-					"git",
-					["for-each-ref", "--format=%(refname:short)\t%(refname)", "refs/heads", "refs/remotes"],
-					{ stdout: "feat-abc\trefs/heads/feat-abc\nfix-one\trefs/heads/fix-one\n" },
-				),
-			],
-		});
-		registerHerdrSlotOpenBranchCommand(pi, { slotClient: testSlotClient });
-		const command = pi.commands.get("ns:herdr:space:open-branch");
-		expect(command).toBeDefined();
-		expect(await command?.getArgumentCompletions?.("feat")).toEqual([
-			{ value: "feat-abc", label: "feat-abc", description: "local" },
-		]);
-		pi.assertDone();
 	});
 });
 
@@ -862,84 +783,6 @@ describe("openBranchInHerdrCallerTab — focus semantics", () => {
 		expect(
 			notifications.some((n) => n.level === "error" && n.message.includes("pane launch error")),
 		).toBe(true);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// open-branch: confirmation refusal
-// ---------------------------------------------------------------------------
-
-describe("ns:herdr:space:open-branch — inferred branch confirmation", () => {
-	test("cancels when user declines confirmation of inferred branch", async () => {
-		const pi = new FakePi();
-		const herdr = new FakeHerdrGateway();
-		const ctx = new FakeCommandContext();
-		// Override confirm to return false (user declines)
-		ctx.ui.confirm = async () => false;
-
-		await handleHerdrSlotOpenBranch({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			args: "", // inferred branch path — but no branch-context entry in session
-			ctx,
-			options: { slotClient: testSlotClient },
-			notifyProgress: () => {},
-		});
-
-		// No branch-context entry → falls to "no branch found" error before confirm
-		expect(herdr.createWorkspaceCalls).toHaveLength(0);
-		expect(notificationMessages(ctx).some((m) => m.includes("Usage:"))).toBe(true);
-	});
-
-	test("cancels and emits Cancelled message when user declines confirm after branch-context inference", async () => {
-		const pi = new FakePi();
-		const herdr = new FakeHerdrGateway();
-		const branchContextEntry = {
-			message: {
-				customType: "branch-context-output",
-				content: "Created branch context.",
-				details: {
-					status: "success",
-					evidence: {
-						slug: PLAN_SLUG,
-						branch: BRANCH,
-						branchCreation: "graphite",
-						startPoint: START_POINT,
-						namespace: "branch-context",
-						key: PLAN_KEY,
-						refName: `refs/brmem/ns/branch-context/${BRANCH}:${PLAN_KEY}`,
-						commit: START_POINT,
-						sourceFile: `/plans/${PLAN_KEY}`,
-					},
-				},
-			},
-		};
-		const ctx = new FakeCommandContext({ branchEntries: [branchContextEntry] });
-		// User declines the confirm dialog
-		ctx.ui.confirm = async () => false;
-
-		await handleHerdrSlotOpenBranch({
-			pi: createHerdrPiCommandApi(pi),
-			herdr,
-			args: "",
-			ctx,
-			options: { slotClient: testSlotClient },
-			notifyProgress: () => {},
-		});
-
-		expect(herdr.createWorkspaceCalls).toHaveLength(0);
-		expect(notificationMessages(ctx).some((m) => m.includes("Cancelled"))).toBe(true);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// open-branch: command prefix binding
-// ---------------------------------------------------------------------------
-
-describe("extractCommandArgumentPrefix", () => {
-	test("binds the shared prefix extraction to the Herdr open-branch command", () => {
-		expect(extractCommandArgumentPrefix("/ns:herdr:space:open-branch feat")).toBe("feat");
-		expect(extractCommandArgumentPrefix("/ns:herdr:handoff:plan")).toBeUndefined();
 	});
 });
 

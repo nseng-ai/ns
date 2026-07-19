@@ -36,7 +36,6 @@
 		"@nseng-ai/branch-context": "workspace:*",
 		"@nseng-ai/brmem": "workspace:*",
 		"@nseng-ai/capability-kit": "workspace:*",
-		"@nseng-ai/cmux": "workspace:*",
 		"@nseng-ai/ns": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/flow": "workspace:*",

@@ -7,7 +7,6 @@
 	"type": "module",
 	"exports": {
 		".": "./src/kit/index.ts",
-		"./branch-completions": "./src/kit/branch-completions.ts",
 		"./brmem-cli": "./src/kit/brmem-cli.ts",
 		"./brmem-cli/testing": "./src/kit/brmem-cli-testing.ts",
 		"./checkpoint-flow": "./src/kit/checkpoint-flow.ts",
@@ -45,12 +44,7 @@
 		"./graphite/status": "./src/graphite/status.ts",
 		"./graphite/branch": "./src/graphite/branch.ts",
 		"./graphite/stack": "./src/graphite/stack.ts",
-		"./graphite/testing": "./src/graphite/testing/index.ts",
-		"./cmux": "./src/cmux/index.ts",
-		"./cmux/command": "./src/cmux/command.ts",
-		"./cmux/gateway": "./src/cmux/gateway.ts",
-		"./cmux/focused-terminal-tab": "./src/cmux/focused-terminal-tab.ts",
-		"./cmux/types": "./src/cmux/types.ts"
+		"./graphite/testing": "./src/graphite/testing/index.ts"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -72,8 +66,7 @@
 		"subpackages": [
 			"kit",
 			"github",
-			"graphite",
-			"cmux"
+			"graphite"
 		],
 		"settings": [
 			{

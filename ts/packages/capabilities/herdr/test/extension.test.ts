@@ -78,7 +78,6 @@ describe("herdr Pi extension", () => {
 			"ns:herdr:objective:sidebar-summary",
 			"ns:herdr:space:goal",
 			"ns:herdr:space:new",
-			"ns:herdr:space:open-branch",
 			"ns:herdr:tab:plan-dispatch",
 		]);
 		expect([...commands.keys()].sort()).toEqual(HERDR_BASE_COMMAND_NAMES);
@@ -94,7 +93,6 @@ describe("herdr Pi extension", () => {
 
 		expect([...commands.keys()].sort()).toEqual([...HERDR_COMMAND_NAMES].sort());
 		expect([...tools.keys()].sort()).toEqual(["derive_handoff_slug_from_content"]);
-		expect(commands.has("ns:cmux:handoff-tab")).toBe(false);
 		expect(tools.has("handoff_tab_launch")).toBe(false);
 	});
 

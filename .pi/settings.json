@@ -2,9 +2,7 @@
   "packages": [
     "../ts/packages/tools/pi-editor-mods"
   ],
-  "extensions": [
-    "-extensions/cmux.ts"
-  ],
+  "extensions": [],
   "skills": [
     "-skills/ns-flow-submit",
     "-skills/code-workflows",
@@ -14,7 +12,6 @@
     "-skills/create-bun-typescript-project",
     "-skills/branch-context-from-plan",
     "-skills/branch-context-impl",
-    "-skills/ns-cmux-sidebar",
     "-skills/enriched-plan-save",
     "-skills/handoff-create",
     "-skills/handoff-pickup",

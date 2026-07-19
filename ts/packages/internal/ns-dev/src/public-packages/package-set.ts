@@ -39,7 +39,6 @@ export const intendedPublicPackages: readonly string[] = [
 	"@nseng-ai/capability-kit",
 	"@nseng-ai/harness-artifacts",
 	"@nseng-ai/flow",
-	"@nseng-ai/cmux",
 	"@nseng-ai/pi-editor-mods",
 ];
 export const firstBatchPackages: readonly string[] = ["@nseng-ai/capability-kit", "@nseng-ai/flow"];
@@ -67,7 +66,6 @@ export const publicPublishOrder: readonly string[] = [
 	"@nseng-ai/packagechk",
 	"@nseng-ai/vibechk",
 	"@nseng-ai/flow",
-	"@nseng-ai/cmux",
 	"@nseng-ai/pi-editor-mods",
 	"@nseng-ai/areg",
 ];

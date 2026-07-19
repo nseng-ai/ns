@@ -133,31 +133,31 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "capability peer api import is allowed",
 			code: 'import { createHandoff } from "@nseng-ai/handoffs/api";',
-			path: "ts/packages/capabilities/cmux/src/core/peer.ts",
+			path: "ts/packages/capabilities/slots/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
 			name: "capability private src import is rejected",
 			code: 'import { createHandoff } from "@nseng-ai/handoffs/src/create.ts";',
-			path: "ts/packages/capabilities/cmux/src/core/peer.ts",
+			path: "ts/packages/capabilities/slots/src/core/peer.ts",
 			expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
 		},
 		{
 			name: "capability undeclared subpath import is rejected",
 			code: 'import { createHandoff } from "@nseng-ai/handoffs/private-helper";',
-			path: "ts/packages/capabilities/cmux/src/core/peer.ts",
+			path: "ts/packages/capabilities/slots/src/core/peer.ts",
 			expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
 		},
 		{
 			name: "foundation git seam import is allowed for capabilities",
 			code: 'import { RealGitGateway } from "@nseng-ai/foundation/git";',
-			path: "ts/packages/capabilities/cmux/src/core/peer.ts",
+			path: "ts/packages/capabilities/slots/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
 			name: "capability-kit import is allowed for capabilities",
 			code: 'import { createNsGitGateway } from "@nseng-ai/capability-kit";',
-			path: "ts/packages/capabilities/cmux/src/core/peer.ts",
+			path: "ts/packages/capabilities/slots/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
@@ -214,7 +214,7 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "lower-layer source cannot import concrete capability packages",
-			code: 'import { listObjectives } from "@nseng-ai/objectives/api";',
+			code: 'import { listObjectives } from "@nseng-ai/slots/api";',
 			path: "ts/packages/sdk/src/example.ts",
 			expectedRules: [BAN_LOWER_LAYER_CONCRETE_CAPABILITY_SURFACE],
 		},
@@ -668,8 +668,8 @@ describe("TypeScript style guard internal-space admission rules", () => {
 					privateValue: true,
 				}),
 				internalSpaceSyntheticPackage({
-					name: "@nseng-ai/cmux",
-					packageDir: "ts/packages/capabilities/cmux",
+					name: "@nseng-ai/slots",
+					packageDir: "ts/packages/capabilities/slots",
 					privateValue: true,
 					dependencies: { "@internal/pi-tools": "workspace:*" },
 				}),
@@ -718,7 +718,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@internal/pi-tools/grill",
 		"@internal/ns-pi-subagents/runner-subagents",
 		"@nseng-ai/areg",
-		"@nseng-ai/cmux",
+		"@nseng-ai/slots",
 		"@nseng-ai/capability-kit",
 		"@nseng-ai/foundation",
 		"@nseng-ai/handoffs",
@@ -731,7 +731,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		["@internal/pi-tools/grill", "internal-tool"],
 		["@internal/ns-pi-subagents/runner-subagents", "internal-tool"],
 		["@nseng-ai/areg", "standalone-tool"],
-		["@nseng-ai/cmux", "capability"],
+		["@nseng-ai/slots", "capability"],
 		["@nseng-ai/capability-kit", "capability-kit"],
 		["@nseng-ai/foundation", "neutral-infra"],
 		["@nseng-ai/handoffs", "capability"],
@@ -743,12 +743,12 @@ describe("TypeScript style guard package tier layering rules", () => {
 	const cases: readonly TierLayeringCase[] = [
 		{
 			name: "missing tier is rejected",
-			tiers: new Map([...baseTiers, ["@nseng-ai/cmux", undefined]]),
+			tiers: new Map([...baseTiers, ["@nseng-ai/slots", undefined]]),
 			expectedTextIncludes: "missing ns.tier",
 		},
 		{
 			name: "unknown tier is rejected",
-			tiers: new Map([...baseTiers, ["@nseng-ai/cmux", "mystery-tier"]]),
+			tiers: new Map([...baseTiers, ["@nseng-ai/slots", "mystery-tier"]]),
 			expectedTextIncludes: "unknown ns.tier",
 		},
 		{
@@ -768,7 +768,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "capability to capability is allowed",
-			edges: [{ from: "@nseng-ai/cmux", to: "@nseng-ai/handoffs" }],
+			edges: [{ from: "@nseng-ai/slots", to: "@nseng-ai/handoffs" }],
 			expectedViolation: false,
 		},
 		{
@@ -1615,7 +1615,7 @@ describe("TypeScript style guard exports subpackage conformance", () => {
 describe("TypeScript style guard extension dependency graph rules", () => {
 	const syntheticPackages = new Set([
 		"@nseng-ai/branch-context",
-		"@nseng-ai/cmux",
+		"@nseng-ai/slots",
 		"@nseng-ai/pi",
 		"@nseng-ai/sdk",
 		"@nseng-ai/flow",
@@ -1628,14 +1628,14 @@ describe("TypeScript style guard extension dependency graph rules", () => {
 	const cases: readonly DependencyGraphCase[] = [
 		{
 			name: "acyclic extension manifest graph is allowed",
-			edges: [{ from: "@nseng-ai/pi", to: "@nseng-ai/cmux" }],
+			edges: [{ from: "@nseng-ai/pi", to: "@nseng-ai/slots" }],
 			shouldHaveCycle: false,
 		},
 		{
 			name: "synthetic extension manifest cycle is rejected",
 			edges: [
-				{ from: "@nseng-ai/pi", to: "@nseng-ai/cmux" },
-				{ from: "@nseng-ai/cmux", to: "@nseng-ai/pi" },
+				{ from: "@nseng-ai/pi", to: "@nseng-ai/slots" },
+				{ from: "@nseng-ai/slots", to: "@nseng-ai/pi" },
 			],
 			shouldHaveCycle: true,
 			expectedTextIncludes: "dependencies.@nseng-ai/pi",
@@ -1658,8 +1658,8 @@ describe("TypeScript style guard extension dependency graph rules", () => {
 		{
 			name: "devDependencies-only cycle is ignored",
 			edges: [
-				{ from: "@nseng-ai/pi", to: "@nseng-ai/cmux", field: "devDependencies" },
-				{ from: "@nseng-ai/cmux", to: "@nseng-ai/pi", field: "devDependencies" },
+				{ from: "@nseng-ai/pi", to: "@nseng-ai/slots", field: "devDependencies" },
+				{ from: "@nseng-ai/slots", to: "@nseng-ai/pi", field: "devDependencies" },
 			],
 			shouldHaveCycle: false,
 		},
@@ -1667,7 +1667,7 @@ describe("TypeScript style guard extension dependency graph rules", () => {
 			name: "field-aware manifest dependency diagnostics point at the participating field",
 			metadataByName: buildFieldAwareDiagnosticMetadata(),
 			shouldHaveCycle: true,
-			expectedTextIncludes: "dependencies.@nseng-ai/cmux",
+			expectedTextIncludes: "dependencies.@nseng-ai/slots",
 			expectedLine: 7,
 		},
 	];
@@ -1927,20 +1927,20 @@ function buildSyntheticPackageMetadata(
 }
 
 function buildFieldAwareDiagnosticMetadata(): Map<string, PackageMetadata> {
-	const packageNames = new Set(["@nseng-ai/cmux", "@nseng-ai/pi"]);
+	const packageNames = new Set(["@nseng-ai/slots", "@nseng-ai/pi"]);
 	const metadataByName = buildSyntheticPackageMetadata(packageNames, [
-		{ from: "@nseng-ai/pi", to: "@nseng-ai/cmux", field: "dependencies" },
-		{ from: "@nseng-ai/cmux", to: "@nseng-ai/pi", field: "dependencies" },
+		{ from: "@nseng-ai/pi", to: "@nseng-ai/slots", field: "dependencies" },
+		{ from: "@nseng-ai/slots", to: "@nseng-ai/pi", field: "dependencies" },
 	]);
 	const piMetadata = metadataByName.get("@nseng-ai/pi");
 	if (piMetadata === undefined) throw new Error("Missing synthetic @nseng-ai/pi metadata");
 	const manifest: PackageManifest = {
 		name: "@nseng-ai/pi",
 		devDependencies: {
-			"@nseng-ai/cmux": "workspace:*",
+			"@nseng-ai/slots": "workspace:*",
 		},
 		dependencies: {
-			"@nseng-ai/cmux": "workspace:*",
+			"@nseng-ai/slots": "workspace:*",
 		},
 	};
 	piMetadata.manifest = manifest;
