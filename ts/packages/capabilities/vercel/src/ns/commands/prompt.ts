@@ -33,7 +33,7 @@ import type { DispatchPreflightCheck } from "../../dispatch-client/preflight.ts"
 const DIRTY_PATHS_RENDER_MAX_PATHS = 20;
 /** Machine-envelope bound on path and publication-scope lists (ADR 0012: command-local). */
 const DIRTY_PATHS_DATA_MAX_PATHS = 100;
-const PUBLICATION_BRANCHES_DATA_MAX = 50;
+const MAX_PUBLICATION_BRANCHES = 50;
 
 const dispatchPromptRequestSchema = z.object({
 	prompt: z
@@ -338,7 +338,7 @@ function renderPreflightFailure(checks: readonly DispatchPreflightCheck[]): stri
 
 function publicationScopeData(affectedBranches: readonly string[]) {
 	return {
-		affectedBranches: affectedBranches.slice(0, PUBLICATION_BRANCHES_DATA_MAX),
+		affectedBranches: affectedBranches.slice(0, MAX_PUBLICATION_BRANCHES),
 		totalAffectedBranches: affectedBranches.length,
 	};
 }
@@ -348,7 +348,7 @@ function renderPublicationFailure(options: {
 	readonly stage: string;
 	readonly source: DispatchGraphitePublicationAttemptedLifecycle;
 }): string {
-	const scope = options.source.affectedBranches.slice(0, PUBLICATION_BRANCHES_DATA_MAX).join(" → ");
+	const scope = options.source.affectedBranches.slice(0, MAX_PUBLICATION_BRANCHES).join(" → ");
 	return `${options.message}\nGraphite source publication failed during ${options.stage} for ${scope}. ${renderMutationEvidence(options.source.mutation)} No dispatch anchor or run was created.`;
 }
 

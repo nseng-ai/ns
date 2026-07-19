@@ -247,14 +247,14 @@ function minimalSubmitFailure(result: Extract<FlowMinimalSubmitResult, { type: "
 
 function formatMinimalFailure(result: {
 	stage: string;
-	error: { message: string; dirtyPaths?: readonly string[]; dirtyPathsTruncated?: boolean };
+	error: { message: string; dirtyPaths?: readonly string[]; isDirtyPathsTruncated?: boolean };
 	mutation: { local: string; remote: string };
 }): string {
 	const dirty =
 		result.error.dirtyPaths === undefined
 			? ""
 			: `\nDirty paths: ${result.error.dirtyPaths.join(", ")}${
-					result.error.dirtyPathsTruncated === true ? ", …" : ""
+					result.error.isDirtyPathsTruncated === true ? ", …" : ""
 				}`;
 	return `${result.error.message}${dirty}\nStage: ${result.stage}. Mutation evidence: local ${result.mutation.local}; remote ${result.mutation.remote}.`;
 }

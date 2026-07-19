@@ -43,7 +43,7 @@ export async function prepareDispatchSource(options: {
 	readonly cwd: string;
 	readonly initialSource: PreparedDispatchSourceContext["source"];
 	readonly initialRemoteTip: DispatchRemoteBranchTipResult;
-	readonly force: boolean;
+	readonly isForceAuthorized: boolean;
 	readonly onPhase?: (message: string) => void;
 	readonly gateways: Pick<
 		DispatchPromptGateways,
@@ -165,7 +165,7 @@ async function publishDispatchSource(options: Parameters<typeof prepareDispatchS
 	const authorization =
 		await options.gateways.publicationAuthorization.authorizeGraphitePublication({
 			affectedBranches,
-			isForceAuthorized: options.force,
+			isForceAuthorized: options.isForceAuthorized,
 		});
 	if (authorization.type === "non-interactive-force-required") {
 		return {

@@ -14,7 +14,7 @@ import { RealGitGateway, type GitGateway } from "@nseng-ai/foundation/git";
 import { createFlowGraphiteStackGitGateway } from "../stack-squash/graphite-stack-gateway.ts";
 import {
 	createFlowMinimalSubmitClientFromGateways,
-	FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT,
+	FLOW_MINIMAL_SUBMIT_MAX_DIRTY_PATHS,
 	type FlowMinimalSubmitClient,
 	type FlowMinimalSubmitError,
 	type FlowMinimalSubmitErrorCode,
@@ -187,9 +187,8 @@ async function inspectRepository(
 		ok: true as const,
 		value: {
 			source: { branch: branch.branch, headSha: head.value },
-			dirtyPaths: status.value.changedPaths.slice(0, FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT),
-			dirtyPathsTruncated:
-				status.value.changedPaths.length > FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT,
+			dirtyPaths: status.value.changedPaths.slice(0, FLOW_MINIMAL_SUBMIT_MAX_DIRTY_PATHS),
+			isDirtyPathsTruncated: status.value.changedPaths.length > FLOW_MINIMAL_SUBMIT_MAX_DIRTY_PATHS,
 		} satisfies MinimalSubmitRepositoryInspection,
 	};
 }

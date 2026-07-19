@@ -17,7 +17,7 @@ import {
 	type SubmitTransportReady,
 } from "./submit-transport.ts";
 
-export const FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT = 50;
+export const FLOW_MINIMAL_SUBMIT_MAX_DIRTY_PATHS = 50;
 
 export type FlowMinimalSubmitStage =
 	| "planning"
@@ -85,7 +85,7 @@ export interface FlowMinimalSubmitError {
 	readonly message: string;
 	readonly displayCommand?: string;
 	readonly dirtyPaths?: readonly string[];
-	readonly dirtyPathsTruncated?: boolean;
+	readonly isDirtyPathsTruncated?: boolean;
 }
 
 export type FlowMinimalSubmitPlanResult =
@@ -176,7 +176,7 @@ export type FlowMinimalSubmitGatewayResult<T> =
 export interface MinimalSubmitRepositoryInspection {
 	readonly source: FlowMinimalSubmitSource;
 	readonly dirtyPaths: readonly string[];
-	readonly dirtyPathsTruncated: boolean;
+	readonly isDirtyPathsTruncated: boolean;
 }
 
 export interface MinimalSubmitRepositoryObservation extends MinimalSubmitRepositoryInspection {
@@ -476,14 +476,14 @@ function validateSource(
 }
 
 function validateClean(
-	inspection: Pick<MinimalSubmitRepositoryInspection, "dirtyPaths" | "dirtyPathsTruncated">,
+	inspection: Pick<MinimalSubmitRepositoryInspection, "dirtyPaths" | "isDirtyPathsTruncated">,
 ): FlowMinimalSubmitError | undefined {
 	if (inspection.dirtyPaths.length === 0) return undefined;
 	return {
 		code: "flow-minimal-submit-dirty-worktree",
 		message: "Minimal submit requires a clean worktree.",
-		dirtyPaths: inspection.dirtyPaths.slice(0, FLOW_MINIMAL_SUBMIT_DIRTY_PATH_COUNT_LIMIT),
-		dirtyPathsTruncated: inspection.dirtyPathsTruncated,
+		dirtyPaths: inspection.dirtyPaths.slice(0, FLOW_MINIMAL_SUBMIT_MAX_DIRTY_PATHS),
+		isDirtyPathsTruncated: inspection.isDirtyPathsTruncated,
 	};
 }
 

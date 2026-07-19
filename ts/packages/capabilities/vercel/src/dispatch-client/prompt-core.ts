@@ -95,7 +95,7 @@ export async function executeDispatchPrompt(
 		cwd: request.cwd,
 		initialSource,
 		initialRemoteTip: remoteTip,
-		force: request.force,
+		isForceAuthorized: request.force,
 		...(request.onPhase === undefined ? {} : { onPhase: request.onPhase }),
 		gateways,
 	});

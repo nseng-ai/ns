@@ -18,13 +18,13 @@ const TRACKED_PLAN = {
 	plan: { trunkBranch: "main", affectedBranches: ["feature/widgets", "feature/base"] },
 };
 
-async function prepare(options: FakeDispatchGatewaysOptions = {}, force = true) {
+async function prepare(options: FakeDispatchGatewaysOptions = {}, isForceAuthorized = true) {
 	const gateways = createFakeDispatchGateways(options);
 	const result = await prepareDispatchSource({
 		cwd: "/repo",
 		initialSource: INITIAL_SOURCE,
 		initialRemoteTip: options.git?.remoteTip ?? { type: "found", sha: FAKE_HEAD_SHA },
-		force,
+		isForceAuthorized,
 		gateways,
 	});
 	return { result, gateways };
