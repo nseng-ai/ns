@@ -1,4 +1,5 @@
-import type { ModelInfo, ThinkingLevel } from "@nseng-ai/pi/runtime/types";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ThinkingLevel } from "@nseng-ai/pi/runtime/types";
 import type { RunnerSubagentUpdate } from "./activity.ts";
 import {
 	dispatchRunnerSubagentProcess,
@@ -47,8 +48,8 @@ export interface RunnerSubagentTerminalToolDefinition<TInput = unknown> {
 }
 
 export interface RunnerSubagentLaunchMetadata {
-	model?: ModelInfo;
-	requestedModel?: string;
+	modelSelection?: ModelSelection;
+	requestedModelSelection?: ModelSelection;
 	thinkingLevel: ThinkingLevel;
 	observedThinkingLevel?: ThinkingLevel;
 	hasModelArg: boolean;
@@ -56,7 +57,7 @@ export interface RunnerSubagentLaunchMetadata {
 }
 
 export interface RunnerSubagentLaunchOptions {
-	model?: ModelInfo;
+	modelSelection?: ModelSelection;
 	thinkingLevel?: ThinkingLevel;
 }
 
@@ -131,7 +132,7 @@ export type RunnerSubagentProgressCallback = (update: RunnerSubagentUpdate) => v
 export type RunnerSubagentOptions = {
 	title?: string;
 	prompt: string;
-	model?: string;
+	modelSelection?: ModelSelection;
 	cwd?: string;
 	signal?: AbortSignal;
 	tools?: readonly string[];
@@ -279,7 +280,7 @@ export interface RunnerSubagentPi {
 export interface RunnerSubagentContext {
 	cwd: string;
 	signal?: AbortSignal;
-	model?: ModelInfo;
+	modelSelection?: ModelSelection;
 }
 
 export async function dispatchRunnerSubagent<TTerminalInput = unknown>(

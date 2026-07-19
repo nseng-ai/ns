@@ -48,15 +48,19 @@ export function runnerSubagentSessionFileText(
 }
 
 export function formatRunnerSubagentModelText(launch: RunnerSubagentLaunchMetadata): string {
-	if (launch.model !== undefined) return `${launch.model.provider}/${launch.model.id}`;
-	if (launch.requestedModel !== undefined) return launch.requestedModel;
+	if (launch.modelSelection !== undefined) {
+		return `${launch.modelSelection.provider}/${launch.modelSelection.modelId}`;
+	}
+	if (launch.requestedModelSelection !== undefined) {
+		return `${launch.requestedModelSelection.provider}/${launch.requestedModelSelection.modelId}`;
+	}
 	return "default (not specified)";
 }
 
 export function formatRunnerSubagentThinkingText(launch: RunnerSubagentLaunchMetadata): string {
 	if (launch.observedThinkingLevel !== undefined) return launch.observedThinkingLevel;
 	if (launch.hasThinkingArg) return launch.thinkingLevel;
-	if (launch.requestedModel !== undefined) return "default (unobserved)";
+	if (launch.requestedModelSelection !== undefined) return "default (unobserved)";
 	return launch.thinkingLevel;
 }
 

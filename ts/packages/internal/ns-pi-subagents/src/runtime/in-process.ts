@@ -296,10 +296,11 @@ function resolveConcreteModel(
 	modelRegistry: ModelRegistry,
 ): SubagentOutcome<{ model?: Model<Api>; thinkingLevel?: ModelThinkingLevel }> {
 	if (launch === undefined) return { ok: true };
-	if (launch.requestedModel !== undefined) {
+	if (launch.requestedModelSelection !== undefined) {
+		const requested = launch.requestedModelSelection;
 		const resolved = resolveCliModel({
-			cliModel: launch.requestedModel,
-			...optionalEntry("cliProvider", launch.model?.provider),
+			cliModel: requested.modelId,
+			cliProvider: requested.provider,
 			modelRegistry,
 		});
 		if (resolved.model === undefined) {
@@ -307,7 +308,7 @@ function resolveConcreteModel(
 				ok: false,
 				diagnostic:
 					resolved.error ??
-					`Model ${launch.requestedModel} is not registered for in-process execution.`,
+					`Model ${requested.provider}/${requested.modelId} is not registered for in-process execution.`,
 			};
 		}
 		return {
@@ -316,8 +317,8 @@ function resolveConcreteModel(
 			...optionalEntry("thinkingLevel", resolved.thinkingLevel),
 		};
 	}
-	const provider = launch.model?.provider;
-	const id = launch.model?.id;
+	const provider = launch.modelSelection?.provider;
+	const id = launch.modelSelection?.modelId;
 	if (provider === undefined || id === undefined) return { ok: true };
 	const model = modelRegistry.find(provider, id);
 	if (model === undefined) {

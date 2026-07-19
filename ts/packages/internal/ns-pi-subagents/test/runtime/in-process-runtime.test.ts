@@ -93,7 +93,7 @@ describe("in-process subagent runtime", () => {
 				returnMode: "final-text",
 				tools: READ_ONLY_SUBAGENT_TOOLS,
 				preResolvedLaunch: {
-					model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+					modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5" },
 					thinkingLevel: "high",
 					hasModelArg: true,
 					hasThinkingArg: true,
@@ -287,7 +287,7 @@ describe("in-process subagent runtime", () => {
 				returnMode: "final-text",
 				tools: READ_ONLY_SUBAGENT_TOOLS,
 				preResolvedLaunch: {
-					requestedModel: "anthropic/claude-sonnet-4-5:high",
+					requestedModelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-5:high" },
 					thinkingLevel: "off",
 					hasModelArg: true,
 					hasThinkingArg: false,

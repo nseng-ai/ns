@@ -11,14 +11,7 @@ import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { BoundedTextTailBuffer } from "@nseng-ai/foundation/text-tail-buffer";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
-import {
-	inferModelProviderFamily,
-	MODEL_PROVIDER_FAMILY_INFO,
-	parseModelRef,
-	providerMatchesModelProviderFamily,
-} from "@nseng-ai/foundation/model-slug";
-
-import type { ModelInfo } from "@nseng-ai/pi/runtime/types";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type {
 	RunnerSubagentBlockedResult,
 	RunnerSubagentCancelledResult,
@@ -79,7 +72,7 @@ export interface BuildChildPiArgsInput {
 	prompt: string;
 	sessionFile: string;
 	runtimeExtensionPath?: string;
-	model?: string;
+	modelSelection?: ModelSelection;
 	launch?: RunnerSubagentLaunchMetadata;
 	normalizedTools?: readonly string[];
 }
@@ -146,15 +139,6 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const cwd = options.cwd ?? ctx.cwd;
 	const title = options.title;
 	const updateEmitter = createUpdateEmitter(options.onProgress);
-	const invalidModelDiagnostic = invalidRequestedModelDiagnostic(
-		options.model,
-		options.launch?.model ?? options.preResolvedLaunch?.model ?? ctx.model,
-	);
-	if (invalidModelDiagnostic !== undefined) {
-		const progress = stoppedProgress({ title, clock, startTimeMs });
-		updateEmitter.emit(updateFromProgress(progress), { force: true });
-		return errorResult(progress, invalidModelDiagnostic);
-	}
 	const launch = options.preResolvedLaunch ?? resolveRunnerSubagentLaunch(pi, ctx, options);
 	const abortSignals = uniqueAbortSignals(ctx.signal, options.signal);
 
@@ -253,7 +237,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		...(runtimeFiles?.extensionPath === undefined
 			? {}
 			: { runtimeExtensionPath: runtimeFiles.extensionPath }),
-		...(options.model === undefined ? {} : { model: options.model }),
+		...(options.modelSelection === undefined ? {} : { modelSelection: options.modelSelection }),
 		...(launch === undefined ? {} : { launch }),
 		...(childToolAllowlist === undefined ? {} : { normalizedTools: childToolAllowlist }),
 	});
@@ -388,7 +372,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			const launchMetadata = parser.getSnapshot().progress.launch;
 			return (
 				launchMetadata === undefined ||
-				launchMetadata.model === undefined ||
+				launchMetadata.modelSelection === undefined ||
 				launchMetadata.observedThinkingLevel === undefined
 			);
 		};
@@ -510,13 +494,15 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 
 export function buildChildPiArgs(input: BuildChildPiArgsInput): string[] {
 	const args = ["--mode", "json", "-p"];
-	if (input.model !== undefined) {
-		if (shouldPassInheritedProviderForRequestedModel(input.model, input.launch)) {
-			args.push("--provider", input.launch.model.provider);
-		}
-		args.push("--model", input.model);
-	} else if (input.launch?.model !== undefined) {
-		args.push("--provider", input.launch.model.provider, "--model", input.launch.model.id);
+	if (input.modelSelection !== undefined) {
+		args.push("--provider", input.modelSelection.provider, "--model", input.modelSelection.modelId);
+	} else if (input.launch?.modelSelection !== undefined) {
+		args.push(
+			"--provider",
+			input.launch.modelSelection.provider,
+			"--model",
+			input.launch.modelSelection.modelId,
+		);
 	}
 	if (input.launch !== undefined && input.launch.hasThinkingArg) {
 		args.push("--thinking", input.launch.thinkingLevel);
@@ -586,76 +572,30 @@ export function resolveRunnerSubagentLaunch(
 	ctx: RunnerSubagentContext,
 	options: RunnerSubagentOptions,
 ): RunnerSubagentLaunchMetadata | undefined {
-	const requestedModel = options.model;
-	const inheritedModel = options.launch?.model ?? ctx.model;
-	const model =
-		requestedModel === undefined
-			? inheritedModel
-			: inheritedProviderModelForRequestedModel(requestedModel, inheritedModel);
+	const requestedModelSelection = options.modelSelection;
+	const inheritedModelSelection = options.launch?.modelSelection ?? ctx.modelSelection;
+	const modelSelection =
+		requestedModelSelection === undefined ? inheritedModelSelection : undefined;
 	const hasExplicitThinking = options.launch?.thinkingLevel !== undefined;
 	const hasInheritedThinkingSource =
-		requestedModel === undefined && pi.getThinkingLevel !== undefined;
+		requestedModelSelection === undefined && pi.getThinkingLevel !== undefined;
 	const hasThinkingSource = hasExplicitThinking || hasInheritedThinkingSource;
-	if (requestedModel === undefined && model === undefined && !hasThinkingSource) return undefined;
-	const thinkingLevel =
-		options.launch?.thinkingLevel ??
-		(requestedModel === undefined ? pi.getThinkingLevel?.() : undefined) ??
-		"off";
-	const hasThinkingArg =
-		hasExplicitThinking || (thinkingLevel !== "off" && requestedModel === undefined);
-	return {
-		...(model === undefined ? {} : { model }),
-		...(requestedModel === undefined ? {} : { requestedModel }),
-		thinkingLevel,
-		hasModelArg: requestedModel !== undefined || model !== undefined,
-		hasThinkingArg,
-	};
-}
-
-function shouldPassInheritedProviderForRequestedModel(
-	requestedModel: string,
-	launch: RunnerSubagentLaunchMetadata | undefined,
-): launch is RunnerSubagentLaunchMetadata & {
-	model: NonNullable<RunnerSubagentLaunchMetadata["model"]>;
-} {
-	return (
-		!hasExplicitProviderInModelPattern(requestedModel) &&
-		launch?.requestedModel === requestedModel &&
-		launch.model !== undefined
-	);
-}
-
-function inheritedProviderModelForRequestedModel(
-	requestedModel: string,
-	inheritedModel: ModelInfo | undefined,
-): ModelInfo | undefined {
-	if (inheritedModel === undefined || hasExplicitProviderInModelPattern(requestedModel))
-		return undefined;
-	if (invalidRequestedModelDiagnostic(requestedModel, inheritedModel) !== undefined)
-		return undefined;
-	return { provider: inheritedModel.provider, id: requestedModel };
-}
-
-function hasExplicitProviderInModelPattern(model: string): boolean {
-	return parseModelRef(model) !== undefined;
-}
-
-function invalidRequestedModelDiagnostic(
-	requestedModel: string | undefined,
-	inheritedModel: ModelInfo | undefined,
-): string | undefined {
-	if (requestedModel === undefined || hasExplicitProviderInModelPattern(requestedModel)) {
+	if (requestedModelSelection === undefined && modelSelection === undefined && !hasThinkingSource) {
 		return undefined;
 	}
-	const family = inferModelProviderFamily(requestedModel);
-	if (family === undefined || inheritedModel === undefined) return undefined;
-	if (providerMatchesModelProviderFamily(inheritedModel.provider, family)) return undefined;
-
-	const info = MODEL_PROVIDER_FAMILY_INFO[family];
-	return [
-		`Invalid runner subagent model override: unqualified model ${JSON.stringify(requestedModel)} looks like ${info.article} ${info.label} model shorthand, but the current session provider is ${JSON.stringify(inheritedModel.provider)}.`,
-		`Use a fully qualified model such as ${JSON.stringify(`${info.exampleProvider}/${requestedModel}`)} to switch providers, or omit subagent.model to inherit the current session model.`,
-	].join(" ");
+	const thinkingLevel =
+		options.launch?.thinkingLevel ??
+		(requestedModelSelection === undefined ? pi.getThinkingLevel?.() : undefined) ??
+		"off";
+	const hasThinkingArg =
+		hasExplicitThinking || (thinkingLevel !== "off" && requestedModelSelection === undefined);
+	return {
+		...(modelSelection === undefined ? {} : { modelSelection }),
+		...(requestedModelSelection === undefined ? {} : { requestedModelSelection }),
+		thinkingLevel,
+		hasModelArg: requestedModelSelection !== undefined || modelSelection !== undefined,
+		hasThinkingArg,
+	};
 }
 
 function createUpdateEmitter(onProgress: ((update: RunnerSubagentUpdate) => void) | undefined): {

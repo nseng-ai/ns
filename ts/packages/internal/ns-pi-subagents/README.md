@@ -64,7 +64,7 @@ See [AUTHORING.md](./AUTHORING.md) for the complete procedure.
 - `@internal/ns-pi-subagents/runner-subagents` — lower-level process, JSON protocol, terminal capture, and final-text substrate for existing direct consumers.
 - `@internal/ns-pi-subagents/runner-subagents/testing` — lower-level test helpers.
 
-`SubagentRuntime.dispatch` and `createSubprocessSubagentRuntime()` remain source-compatible for direct consumers such as terminal-capture councils. `RunnerSubagent*` is valid substrate vocabulary; it is not the retired `runner` agent type.
+`SubagentRuntime.dispatch` and `createSubprocessSubagentRuntime()` remain available for direct consumers such as terminal-capture councils. Runtime-independent contracts carry foundation `ModelSelection` values (`provider` plus `modelId`), with thinking kept as separate metadata. Pi hosts translate `ModelInfo.id` on ingress; subprocess and in-process adapters unpack the selection only at their terminal Pi seams. `RunnerSubagent*` is valid substrate vocabulary; it is not the retired `runner` agent type.
 
 ## Validation
 
