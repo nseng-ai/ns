@@ -11,6 +11,12 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
+
 import { HERDR_COMMAND_NAMES } from "../src/core/command-surfaces.ts";
 import registerHerdrPiExtension from "../src/pi/extension.ts";
 import { registerHerdrSlotOpenBranchCommand } from "../src/pi/open-branch.ts";
@@ -217,7 +223,10 @@ describe("Herdr prompt dispatch", () => {
 				gitRootStep(ROOT),
 				step(
 					"pi",
-					buildRawTextModelArgs(buildTrackedBranchSlugPrompt({ kind: "task", content: prompt })),
+					buildRawTextModelArgs(
+						buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+						TEST_MODEL_SELECTION,
+					),
 					{ stdout: `${BRANCH}\n` },
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
@@ -291,9 +300,13 @@ describe("Herdr prompt dispatch", () => {
 		const pi = new FakePi({
 			script: [
 				gitRootStep(ROOT),
-				step("pi", buildRawTextModelArgs(buildWorkspaceGoalSlugPrompt(prompt)), {
-					stdout: "implement-herdr-trunk-flow\n",
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildWorkspaceGoalSlugPrompt(prompt), TEST_MODEL_SELECTION),
+					{
+						stdout: "implement-herdr-trunk-flow\n",
+					},
+				),
 				step("git", ["worktree", "list", "--porcelain"], {
 					stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n",
 				}),
@@ -306,7 +319,10 @@ describe("Herdr prompt dispatch", () => {
 				gitRootStep(ROOT),
 				step(
 					"pi",
-					buildRawTextModelArgs(buildTrackedBranchSlugPrompt({ kind: "task", content: prompt })),
+					buildRawTextModelArgs(
+						buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+						TEST_MODEL_SELECTION,
+					),
 					{ stdout: `${BRANCH}\n` },
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
@@ -391,7 +407,10 @@ describe("Herdr prompt dispatch", () => {
 				gitRootStep(ROOT),
 				step(
 					"pi",
-					buildRawTextModelArgs(buildTrackedBranchSlugPrompt({ kind: "task", content: prompt })),
+					buildRawTextModelArgs(
+						buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+						TEST_MODEL_SELECTION,
+					),
 					{ stdout: `${BRANCH}\n` },
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
@@ -958,9 +977,13 @@ describe("ns:herdr:space:plan-dispatch — dry-run (no Herdr mutations)", () => 
 			script: [
 				...dispatchValidationScript(repoRoot),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				headStep(),
 			],
 		});
@@ -1041,9 +1064,13 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			script: [
 				...dispatchValidationScript(repoRoot),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 			],
 		});
 		const herdr = new FakeHerdrGateway();
@@ -1096,9 +1123,13 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			script: [
 				...dispatchValidationScript(repoRoot),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 			],
 		});
 		const herdr = new FakeHerdrGateway();
@@ -1152,9 +1183,13 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			script: [
 				...dispatchValidationScript(repoRoot),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 			],
 		});
 		const herdr = new FakeHerdrGateway();
@@ -1209,9 +1244,13 @@ describe("ns:herdr:tab:plan-dispatch — dry-run (no Herdr mutations)", () => {
 			script: [
 				...dispatchValidationScript(repoRoot),
 				gitRootStep(repoRoot),
-				step("pi", buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
-					stdout: `${PLAN_SLUG}\n`,
-				}),
+				step(
+					"pi",
+					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
+					{
+						stdout: `${PLAN_SLUG}\n`,
+					},
+				),
 				headStep(),
 			],
 		});

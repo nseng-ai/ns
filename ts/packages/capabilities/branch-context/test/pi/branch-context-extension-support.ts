@@ -1,4 +1,8 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { brmemCheckJson } from "@nseng-ai/capability-kit/brmem-cli/testing";
 import { afterEach, expect } from "vitest";
@@ -416,7 +420,7 @@ export function step(
 }
 
 export function planSlugArgs(content: string): string[] {
-	return buildRawTextModelArgs(buildPlanContentSlugPrompt(content));
+	return buildRawTextModelArgs(buildPlanContentSlugPrompt(content), TEST_MODEL_SELECTION);
 }
 
 export function planSlugStep(
@@ -432,7 +436,7 @@ export function planSlugExecCall(content: string): { command: string; args: stri
 }
 
 export function savedPlanSlugArgs(content: string): string[] {
-	return buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(content));
+	return buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(content), TEST_MODEL_SELECTION);
 }
 
 export interface SavedPlanSlugStepOptions {
@@ -458,8 +462,8 @@ export function contentSlugEvidence(slug: string = PLAN_SLUG): {
 	return {
 		slug,
 		rawOutput: `${slug}\n`,
-		provider: DEFAULT_FAST_MODEL.provider,
-		model: DEFAULT_FAST_MODEL.modelId,
+		provider: TEST_MODEL_SELECTION.provider,
+		model: TEST_MODEL_SELECTION.modelId,
 	};
 }
 

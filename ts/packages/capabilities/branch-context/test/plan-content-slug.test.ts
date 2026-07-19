@@ -1,4 +1,8 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -119,12 +123,14 @@ describe("derivePlanContentSlug", () => {
 		expect(evidence).toEqual({
 			slug: "add-docs-portal-site",
 			rawOutput: "add-docs-portal-site\n",
-			provider: DEFAULT_FAST_MODEL.provider,
-			model: DEFAULT_FAST_MODEL.modelId,
+			provider: TEST_MODEL_SELECTION.provider,
+			model: TEST_MODEL_SELECTION.modelId,
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");
-		expect(pi.calls[0]?.args.slice(0, -1)).toEqual(buildRawTextModelArgs("").slice(0, -1));
+		expect(pi.calls[0]?.args.slice(0, -1)).toEqual(
+			buildRawTextModelArgs("", TEST_MODEL_SELECTION).slice(0, -1),
+		);
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});
 

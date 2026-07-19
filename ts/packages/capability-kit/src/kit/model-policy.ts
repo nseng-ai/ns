@@ -1,5 +1,4 @@
 import {
-	DEFAULT_FAST_MODEL,
 	parseModelRef,
 	modelThinkingSchema,
 	type ModelSelection,
@@ -23,6 +22,7 @@ export const MODEL_OPERATION_IDS = {
 	cmuxSidebar: "cmux.sidebar",
 	thermoCouncilSynthesis: "thermo-council.synthesis",
 	piFastDraft: "pi.fast-draft",
+	stackViewEnrichment: "stack-view.enrichment",
 } as const;
 
 export type ModelOperationId = string;
@@ -31,14 +31,13 @@ export type ModelProfileName = string;
 export interface ModelPolicy {
 	readonly profiles: Readonly<Record<ModelProfileName, ModelSelection>>;
 	readonly operations: Readonly<Record<ModelOperationId, ModelProfileName>>;
-	readonly fastSource: "builtin" | "project-profile";
 }
 
 export interface ResolvedModelOperation {
 	readonly operationId: ModelOperationId;
 	readonly profile: ModelProfileName;
 	readonly selection: ModelSelection;
-	readonly source: "builtin" | "project-profile" | "project-operation";
+	readonly source: "project-profile" | "project-operation";
 }
 
 export type ModelPolicyErrorCode = "invalid-toml" | "invalid-model-policy" | "missing-profile";
@@ -108,11 +107,7 @@ export function resolveModelOperation(
 		);
 	}
 	const source =
-		policy.operations[operationId] === undefined
-			? selectedProfile === "fast"
-				? policy.fastSource
-				: "project-profile"
-			: "project-operation";
+		policy.operations[operationId] === undefined ? "project-profile" : "project-operation";
 	return {
 		ok: true,
 		value: {
@@ -142,21 +137,22 @@ function modelPolicyFromSettings(
 			);
 		profiles[name] = parsed;
 	}
+	if (profiles.fast === undefined) {
+		return resultErrOf(
+			"missing-profile",
+			'Model profile "fast" is required in ns.toml at [models.profiles.fast].',
+		);
+	}
 	const operations = settings?.operations ?? {};
-	const fastSource = profiles.fast === undefined ? "builtin" : "project-profile";
-	const effectiveProfiles: Record<string, ModelSelection> = {
-		fast: DEFAULT_FAST_MODEL,
-		...profiles,
-	};
 	for (const [operationId, profile] of Object.entries(operations)) {
-		if (effectiveProfiles[profile] === undefined) {
+		if (profiles[profile] === undefined) {
 			return resultErrOf(
 				"missing-profile",
 				`Model operation ${JSON.stringify(operationId)} references missing profile ${JSON.stringify(profile)}.`,
 			);
 		}
 	}
-	return { ok: true, value: { profiles: effectiveProfiles, operations, fastSource } };
+	return { ok: true, value: { profiles, operations } };
 }
 
 function modelPolicyErrorFromDiagnostics(

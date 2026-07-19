@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	DEFAULT_FAST_MODEL,
 	formatModelRef,
 	inferModelProviderFamily,
 	isClaudeCodeSupportedModelPattern,
@@ -51,10 +50,6 @@ describe("parseModelRef", () => {
 		if (selection !== undefined) {
 			expect(formatModelRef(selection)).toBe("bedrock/anthropic/claude");
 		}
-	});
-
-	test("configures minimal thinking for the default selection", () => {
-		expect(DEFAULT_FAST_MODEL.thinking).toBe("minimal");
 	});
 
 	test("rejects refs without a separator or with edge separators", () => {

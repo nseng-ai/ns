@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import registerBranchContextExtension from "../../src/pi/extension.ts";
 
 import {
@@ -80,7 +84,7 @@ describe("write_saved_plan_file tool", () => {
 		expect(fakes.writePlanCalls[0]?.[2]).toMatchObject({ cwd: ROOT });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
 		expect(result.content[0]?.text).toContain(
-			`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`,
+			`Slug model: ${TEST_MODEL_SELECTION.provider}/${TEST_MODEL_SELECTION.modelId}`,
 		);
 		expect(result.details).toMatchObject({
 			slug: PLAN_SLUG,
@@ -145,7 +149,7 @@ describe("write_saved_plan_file tool", () => {
 		expect(toolContext.statuses.at(-1)).toEqual({ key: "ns:plan:save", value: undefined });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
 		expect(result.content[0]?.text).toContain(
-			`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`,
+			`Slug model: ${TEST_MODEL_SELECTION.provider}/${TEST_MODEL_SELECTION.modelId}`,
 		);
 		expect(fakes.writePlanCalls[0]?.[1]).toEqual({
 			slug: PLAN_SLUG,

@@ -1,4 +1,8 @@
-import { DEFAULT_FAST_MODEL } from "@nseng-ai/foundation/model-slug";
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 import { buildRawTextModelArgs } from "@nseng-ai/capability-kit/model-slug";
 import { describe, expect, test } from "vitest";
 import {
@@ -83,14 +87,14 @@ describe("deriveHandoffContentSlug", () => {
 		expect(evidence).toEqual({
 			slug: "associate-sessions-with-branches",
 			rawOutput: "associate-sessions-with-branches\n",
-			provider: DEFAULT_FAST_MODEL.provider,
-			model: DEFAULT_FAST_MODEL.modelId,
+			provider: TEST_MODEL_SELECTION.provider,
+			model: TEST_MODEL_SELECTION.modelId,
 		});
 		expect(pi.calls).toHaveLength(2);
 		expect(pi.calls[0]?.command).toBe("git");
 		expect(pi.calls[1]?.command).toBe("pi");
 		expect(pi.calls[1]?.args).toEqual(
-			buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)),
+			buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT), TEST_MODEL_SELECTION),
 		);
 		expect(pi.calls[1]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});
