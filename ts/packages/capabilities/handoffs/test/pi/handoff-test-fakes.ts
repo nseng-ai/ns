@@ -76,6 +76,7 @@ export interface NewSessionCall {
 export class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly tools = new Map<string, RegisteredTool>();
+	readonly toolRegistrationNames: string[] = [];
 	readonly execCalls: ExecCall[] = [];
 	readonly renderers = new Map<string, MessageRenderer>();
 	readonly sentMessages: CustomMessage[] = [];
@@ -88,6 +89,7 @@ export class FakePi implements ExtensionAPI {
 	readonly registerTool?: (tool: RegisteredTool) => void;
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly commandInfos: CommandInfo[];
+	private readonly sharedToolNames: Set<string> | undefined;
 	private thinkingLevel: ThinkingLevel = "medium";
 
 	constructor(
@@ -97,10 +99,12 @@ export class FakePi implements ExtensionAPI {
 			registerMessageRenderer?: boolean;
 			sendMessage?: boolean;
 			registerTool?: boolean;
+			sharedToolNames?: Set<string>;
 		} = {},
 	) {
 		this.script = new ScriptedQueue(script, (step) => step);
 		this.commandInfos = [...commandInfos];
+		this.sharedToolNames = options.sharedToolNames;
 		if (options.registerMessageRenderer ?? true) {
 			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
 				if (customType === "ns-command-ack") return;
@@ -122,6 +126,11 @@ export class FakePi implements ExtensionAPI {
 		}
 		if (options.registerTool ?? true) {
 			this.registerTool = (tool: RegisteredTool): void => {
+				if (options.sharedToolNames?.has(tool.name)) {
+					throw new Error(`Tool ${tool.name} conflicts`);
+				}
+				options.sharedToolNames?.add(tool.name);
+				this.toolRegistrationNames.push(tool.name);
 				this.tools.set(tool.name, tool);
 			};
 		}
@@ -162,6 +171,10 @@ export class FakePi implements ExtensionAPI {
 
 	getCommands(): CommandInfo[] {
 		return this.commandInfos;
+	}
+
+	getAllTools(): Array<{ name: string }> {
+		return [...(this.sharedToolNames ?? this.tools.keys())].map((name) => ({ name }));
 	}
 
 	getThinkingLevel(): ThinkingLevel {
@@ -520,12 +533,7 @@ export async function runExtensionCommand(options: RunExtensionCommandOptions): 
 }
 
 export async function runCommand(
-	commandName:
-		| "ns:handoff:create"
-		| "ns:handoff:pickup"
-		| "ns:handoff:list"
-		| "ns:cmux:handoff-tab"
-		| "ns:handoff:self",
+	commandName: "ns:handoff:create" | "ns:handoff:pickup" | "ns:handoff:list" | "ns:handoff:self",
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: RunExtensionCommandOptions["contextOptions"] = {},

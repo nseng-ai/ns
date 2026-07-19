@@ -121,6 +121,7 @@ export interface CommandContext extends BaseRuntimeContext {
 }
 
 export interface ExtensionAPI {
+	on?(event: string, handler: (...args: never[]) => unknown): void;
 	registerCommand(
 		name: string,
 		options: {
@@ -133,6 +134,7 @@ export interface ExtensionAPI {
 	registerTool?(definition: ToolDefinition): void;
 	exec(command: string, args: string[], options?: RawPiExecOptions): Promise<RawPiExecResult>;
 	getCommands?(): CommandInfo[];
+	getAllTools?(): Array<{ name: string }>;
 	getThinkingLevel?(): ThinkingLevel;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	sendMessage?(message: CustomMessage): void;

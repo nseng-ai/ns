@@ -14,7 +14,8 @@
 		"./ns/commands/pickup": "./src/ns/commands/pickup.ts",
 		"./ns/commands/exec-match": "./src/ns/commands/exec-match.ts",
 		"./pi": "./src/pi/index.ts",
-		"./pi/extension": "./src/pi/extension.ts"
+		"./pi/extension": "./src/pi/extension.ts",
+		"./pi/handoff-launch": "./src/pi/handoff-launch.ts"
 	},
 	"files": [
 		"src"

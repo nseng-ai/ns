@@ -1,10 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import {
-	CREATE_HANDOFF_COMMAND_NAME,
-	HANDOFF_TAB_COMMAND_NAME,
-	PICKUP_HANDOFF_COMMAND_NAME,
-} from "@nseng-ai/handoffs/pi";
+import { CREATE_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "@nseng-ai/handoffs/pi";
+import { HERDR_HANDOFF_TAB_COMMAND_NAME } from "@nseng-ai/herdr/pi";
 import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "@nseng-ai/objectives/api";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
@@ -50,11 +47,11 @@ describe("command-backed skill registry", () => {
 	test("has unique skill names and surfaces", () => {
 		const registrations = commandBackedSkillRegistrations();
 		const skillNames = registrations.map((registration) => registration.skillName);
-		// Handoff registers /ns:cmux:handoff-tab in the cmux namespace without a
-		// skill row; include it so a future cmux surface cannot collide silently.
+		// The optional Herdr Handoff tab has no skill row; include it so the
+		// specialized integration cannot collide with a backed surface silently.
 		const surfaces = [
 			...registrations.map((registration) => registration.surface),
-			HANDOFF_TAB_COMMAND_NAME,
+			HERDR_HANDOFF_TAB_COMMAND_NAME,
 		];
 
 		expect(new Set(skillNames).size).toBe(skillNames.length);

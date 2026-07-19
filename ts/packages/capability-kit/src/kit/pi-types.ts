@@ -124,6 +124,7 @@ export interface ExtensionAPI {
 	registerCommand(name: string, options: CommandDefinition): void;
 	exec(command: string, args: string[], options?: RawPiExecOptions): Promise<RawPiExecResult>;
 	getCommands(): readonly SkillCommandInfoLike[];
+	getAllTools?(): Array<{ name: string }>;
 	getThinkingLevel(): ThinkingLevel;
 	setThinkingLevel(level: ThinkingLevel): void;
 	setModel(model: ModelInfo): Promise<boolean>;

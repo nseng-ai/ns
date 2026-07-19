@@ -10,11 +10,11 @@
   - Keep `/ns:herdr:tab:plan-dispatch` unchanged pending its separate namespace disposition.
   - Evidence: the canonical catalog and focused fake-driven scenarios prove the four hard renames, absence of aliases, and preserved branch, payload, plan, slot, dry-run, destination, Objective-selection, label, new-space, space-goal, and tab-plan behavior; package checks and the repository `just` baseline pass.
 
-- [ ] Replace cmux handoff-tab with a Herdr-native workflow
+- [x] Replace cmux handoff-tab with a Herdr-native workflow
   - Replace `/ns:cmux:handoff-tab` with `/ns:herdr:handoff:tab` while preserving Handoff Artifact creation, content-derived slugging, collision refusal, saved-artifact verification, and pickup command semantics.
   - Use explicit `HERDR_WORKSPACE_ID`, create a focused Herdr tab labeled `handoff: <slug>`, and run the pickup Pi in its returned pane.
   - Keep Handoff Artifact behavior owned by Handoffs and Herdr destination behavior behind `HerdrGateway`; do not introduce a generic multiplexer interface.
-  - Evidence: fake-driven tests cover registration, prompt/tool ordering, caller preflight, successful launch, missing artifacts, invalid parameters, and recoverable create/run failures.
+  - Evidence: a curated optional Handoffs Pi integration keeps artifact composition, slugging, and verification in Handoffs while Herdr owns caller targeting and destination launch; fake-driven tests prove exact/conditional registration, idempotent slug-tool registration, caller preflight before prompt delivery, validated captured-workspace parameters, verification before Herdr mutation, pickup model/provider/thinking preservation, and recoverable create/run failures. Handoffs and Herdr package checks, dependency checks, stale-surface audits, and the repository `just` baseline pass.
 
 - [ ] Remove standalone Herdr open-branch and the cmux capability
   - Delete the dedicated Herdr open-branch command modules and tests while retaining launch helpers consumed by dispatch.
