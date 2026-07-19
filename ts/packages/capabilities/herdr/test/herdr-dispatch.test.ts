@@ -31,6 +31,7 @@ import {
 	resolveDispatchPromptPayloadOptions,
 } from "../src/core/dispatch-prompt.ts";
 import { handleHerdrSlotDispatchFromTrunk } from "../src/core/dispatch-from-trunk.ts";
+import { buildWorkspaceGoalSlugPrompt } from "../src/core/space-goal.ts";
 import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { createBranchContextContext } from "@nseng-ai/branch-context/api";
@@ -289,6 +290,10 @@ describe("Herdr prompt dispatch", () => {
 		const prompt = "Implement the Herdr trunk flow";
 		const pi = new FakePi({
 			script: [
+				gitRootStep(ROOT),
+				step("pi", buildRawTextModelArgs(buildWorkspaceGoalSlugPrompt(prompt)), {
+					stdout: "implement-herdr-trunk-flow\n",
+				}),
 				step("git", ["worktree", "list", "--porcelain"], {
 					stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n",
 				}),
@@ -368,6 +373,10 @@ describe("Herdr prompt dispatch", () => {
 			"created from refreshed Graphite trunk",
 		);
 		expect(herdr.createWorkspaceCalls).toHaveLength(1);
+		expect(herdr.createWorkspaceCalls[0]?.options.label).toBe("implement-herdr-trunk-flow");
+		expect(pi.execCalls[1]?.options?.cwd).toBe(ROOT);
+		expect(pi.execCalls[1]?.args.at(-1)).toContain("Generate a concise workspace name slug");
+		expect(pi.execCalls[1]?.args.at(-1)).toContain(prompt);
 		expect(herdr.paneRunCalls[0]?.command).toContain(`--namespace ${DISPATCH_PROMPT_NAMESPACE}`);
 	});
 
